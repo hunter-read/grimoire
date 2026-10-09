@@ -8,6 +8,10 @@ on an external source and offer to fill in its details.
 Keeping definitions out of this repo means a source that changes its layout can
 be fixed by a community PR, not a Grimoire release.
 
+[GrimoireCodexDB](codex.md), the community catalogue, is not an add-on: it is
+built in, needs no install, and appears first in **Fetch metadata** alongside any
+add-ons you install.
+
 ## Using them
 
 **Settings → Add-ons** (admin only). Add-ons are grouped by what they do, under

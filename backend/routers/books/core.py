@@ -217,6 +217,7 @@ def get_book(
         "is_explicit": bool(book.is_explicit),
         "access_level": book.access_level,
         "effective_access_level": access_control.resolve_level(db, book),
+        "codex_id": book.codex_id,
         "content_token": content_token(book.content_hash, book.filepath),
         "added_at": utc_iso(book.added_at),
         # The whole variant family, resolved from whichever end was requested, so

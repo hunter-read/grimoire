@@ -68,6 +68,7 @@ never writes to it.
 ### Administration
 
 - **Book restrictions** - Restrict a book, system, or category to _GMs and admins_ or _admins only_. Restricted content is hidden outright - from library, search, downloads, favourites, and OPDS - since the title and cover are the spoiler. See [Restricting books](docs/users-and-permissions.md#restricting-books).
+- **GrimoireCodexDB** - Look books and systems up in the built-in community catalogue, link them, and send corrections back. See [GrimoireCodexDB](docs/codex.md).
 - **Community add-ons** - Install community metadata scrapers to fill in system and book details from external sources, reviewing a field-by-field diff before anything is written. See [Community add-ons](docs/addons.md).
 - **Character sheets** - A schema-driven character builder: install a sheet for your system, build characters against it, browse a content catalogue, and give each table its own ruleset of allowed content. Sheets are per user, so no admin approval is involved. See [Character sheets](docs/characters.md).
 - **Themes and light mode** - Light, dark, or system, plus installable colour themes (including a WCAG AAA **High Contrast** palette). Themes are per user, so no admin approval is involved. See [Themes](docs/themes.md).
@@ -336,6 +337,7 @@ kept in the repo so it versions with the release you are running:
 | [Performance and indexing](docs/performance.md)        | OCR tuning, page rendering, caching, and large galleries        |
 | [Backups](docs/backups.md)                             | Scheduling, retention, and what is _not_ included               |
 | [Restoring from a backup](docs/restore-from-backup.md) | The by-hand restore procedure                                   |
+| [GrimoireCodexDB](docs/codex.md)                        | The built-in community catalogue: lookup, linking, sending      |
 | [Community add-ons](docs/addons.md)                    | Installable metadata scrapers                                   |
 | [OPDS catalog](docs/opds.md)                           | Connecting e-reader apps to your library                        |
 

@@ -1271,6 +1271,10 @@
           "label": "Complementos",
           "description": "Complementos de metadados da comunidade: instalar, atualizar, ativar, executar"
         },
+        "codex": {
+          "label": "GrimoireCodexDB",
+          "description": "Configurações de conexão ao GrimoireCodexDB, e envio e desvinculação de fichas"
+        },
         "maintenance": {
           "label": "Manutenção",
           "description": "Configurações e exportação de arquivos sidecar de metadados"
@@ -2081,7 +2085,8 @@
     "replaceCover": "Substituir imagem",
     "removeCover": "Remover",
     "coverUploadFailed": "Falha no envio",
-    "folderCoverInUse": "Uma imagem de capa encontrada na pasta deste sistema está em uso. Remova-a da pasta para usar um envio."
+    "folderCoverInUse": "Uma imagem de capa encontrada na pasta deste sistema está em uso. Remova-a da pasta para usar um envio.",
+    "codex_id": "Vínculo com o GrimoireCodexDB"
   },
   "bookEditor": {
     "title": "Editar livro",
@@ -3263,5 +3268,55 @@
     "document": "Conjunto de regras (JSON ou YAML)",
     "documentHelp": "Um conjunto exportado ou escrito à mão. Precisa de uma secção \"entries\" agrupada por tipo de conteúdo.",
     "needRulesetFirst": "Crie primeiro um conjunto de regras para onde importar"
+  },
+  "codex": {
+    "settings": {
+      "title": "GrimoireCodexDB",
+      "description": "O catálogo comunitário de sistemas e livros de RPG, integrado ao Grimoire. \"Buscar metadados\" pode procurar fichas lá, e aplicar um resultado vincula a ficha a ele.",
+      "enabled": "Procurar metadados no GrimoireCodexDB",
+      "url": "Endereço do GrimoireCodexDB",
+      "urlHint": "Altere apenas para usar uma instância auto-hospedada do GrimoireCodexDB.",
+      "sendHashes": "Enviar hashes dos arquivos ao buscar livros",
+      "sendHashesHint": "Identifica um livro com exatidão, mesmo com um nome de arquivo bagunçado, mas informa ao GrimoireCodexDB quais arquivos esta biblioteca tem.",
+      "token": "Token de API",
+      "tokenPlaceholder": "cdx_…",
+      "tokenSaved": "Há um token salvo. Cole um novo para substituí-lo.",
+      "saveToken": "Salvar token",
+      "removeToken": "Remover token",
+      "tokenHint": "Só é necessário para enviar livros e sistemas ao GrimoireCodexDB. Crie um no GrimoireCodexDB em Conta → Tokens de API. Tudo o que você enviar é atribuído a essa conta.",
+      "test": "Testar conexão",
+      "connected": "Conectado. Adicione um token para enviar fichas.",
+      "connectedAs": "Conectado como {{name}} ({{role}})",
+      "lockedBy": "Definido por {{name}} no ambiente."
+    },
+    "panel": {
+      "title": "GrimoireCodexDB",
+      "linked": "Vinculado · ver no GrimoireCodexDB",
+      "notLinked": "Não vinculado. Use \"Buscar metadados\" para encontrá-lo no GrimoireCodexDB.",
+      "sendCorrection": "Enviar correções",
+      "add": "Adicionar ao GrimoireCodexDB",
+      "unlink": "Desvincular",
+      "chooseFields": "Que campos deve o GrimoireCodexDB receber desta biblioteca?",
+      "addBookHint": "Isso cria o livro no GrimoireCodexDB, sob a ficha do GrimoireCodexDB do seu sistema de jogo, visível para todos. Dependendo da sua conta do GrimoireCodexDB, pode aguardar revisão.",
+      "addSystemHint": "Isso cria o sistema no GrimoireCodexDB, visível para todos. Dependendo da sua conta do GrimoireCodexDB, pode aguardar revisão.",
+      "noteOptional": "Nota para quem revisa (opcional)",
+      "noteRequired": "De onde vem isto?",
+      "notePlaceholder": "p. ex. Da página do produto da editora",
+      "send": "Enviar",
+      "sending": "Enviando…",
+      "cancel": "Cancelar",
+      "applied": "Enviado e publicado no GrimoireCodexDB.",
+      "pending": "Enviado. Aguardando revisão no GrimoireCodexDB.",
+      "viewEdit": "Ver a edição"
+    },
+    "fields": {
+      "authors": "Autores",
+      "artists": "Artistas",
+      "publisherUrl": "Link da editora",
+      "pageCount": "Número de páginas",
+      "explicit": "Explícito",
+      "systemAgnostic": "Genérico",
+      "onePage": "De uma página"
+    }
   }
 }

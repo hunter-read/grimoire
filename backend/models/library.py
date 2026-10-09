@@ -84,6 +84,11 @@ class GameSystem(Base):
     # Dragons") survives every subsequent rescan.
     name_is_custom = Column(Boolean, default=False)
 
+    # The GrimoireCodexDB record this system is linked to (issue #35): set when
+    # metadata is fetched from GrimoireCodexDB or the system is sent to it. A GrimoireCodexDB id,
+    # not a foreign key; NULL when the system is not linked.
+    codex_id = Column(String(40), nullable=True, index=True)
+
     # Minimum role required to see this system and everything under it (issue
     # #258). One of backend.models.access.LEVEL_*; "" (the default) is open to
     # everyone. Acts as the fallback for books that set no level of their own,
@@ -202,6 +207,10 @@ class Book(Base):
     # override survives a restart mid-re-OCR. See indexer.ocr_book / the
     # POST /api/books/{id}/reindex endpoint.
     ocr_dpi = Column(Integer, nullable=True)
+
+    # The GrimoireCodexDB record this book is linked to (issue #35), set when its
+    # metadata is fetched from GrimoireCodexDB or it is sent there. NULL when unlinked.
+    codex_id = Column(String(40), nullable=True, index=True)
 
     # Minimum role required to see this book (issue #258). One of
     # backend.models.access.LEVEL_*, or NULL for "inherit".

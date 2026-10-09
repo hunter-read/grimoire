@@ -1271,6 +1271,10 @@
           "label": "Componenti aggiuntivi",
           "description": "Componenti aggiuntivi per i metadati della community: installare, aggiornare, attivare, eseguire"
         },
+        "codex": {
+          "label": "GrimoireCodexDB",
+          "description": "Impostazioni di connessione al GrimoireCodexDB, invio e scollegamento delle schede"
+        },
         "maintenance": {
           "label": "Manutenzione",
           "description": "Impostazioni ed esportazione dei file sidecar dei metadati"
@@ -2081,7 +2085,8 @@
     "replaceCover": "Sostituisci immagine",
     "removeCover": "Rimuovi",
     "coverUploadFailed": "Caricamento non riuscito",
-    "folderCoverInUse": "È in uso un'immagine di copertina trovata nella cartella di questo sistema. Rimuovila dalla cartella per usare invece un caricamento."
+    "folderCoverInUse": "È in uso un'immagine di copertina trovata nella cartella di questo sistema. Rimuovila dalla cartella per usare invece un caricamento.",
+    "codex_id": "Collegamento a GrimoireCodexDB"
   },
   "bookEditor": {
     "title": "Modifica libro",
@@ -3263,5 +3268,55 @@
     "document": "Set di regole (JSON o YAML)",
     "documentHelp": "Un set esportato o scritto a mano. Richiede una sezione \"entries\" raggruppata per tipo di contenuto.",
     "needRulesetFirst": "Crea prima un set di regole in cui importare"
+  },
+  "codex": {
+    "settings": {
+      "title": "GrimoireCodexDB",
+      "description": "Il catalogo comunitario di sistemi e manuali di GdR, integrato in Grimoire. «Recupera metadati» può cercare lì le schede, e applicare un risultato vi collega la scheda.",
+      "enabled": "Cerca metadati in GrimoireCodexDB",
+      "url": "Indirizzo del GrimoireCodexDB",
+      "urlHint": "Modificalo solo per usare un'istanza self-hosted di GrimoireCodexDB.",
+      "sendHashes": "Invia gli hash dei file durante la ricerca dei manuali",
+      "sendHashesHint": "Identifica un manuale con precisione, anche con un nome file disordinato, ma comunica al GrimoireCodexDB quali file contiene questa biblioteca.",
+      "token": "Token API",
+      "tokenPlaceholder": "cdx_…",
+      "tokenSaved": "Un token è salvato. Incollane uno nuovo per sostituirlo.",
+      "saveToken": "Salva token",
+      "removeToken": "Rimuovi token",
+      "tokenHint": "Serve solo per inviare manuali e sistemi al GrimoireCodexDB. Creane uno su GrimoireCodexDB in Account → Token API. Tutto ciò che invii è attribuito a quell’account.",
+      "test": "Prova connessione",
+      "connected": "Connesso. Aggiungi un token per inviare schede.",
+      "connectedAs": "Connesso come {{name}} ({{role}})",
+      "lockedBy": "Impostato da {{name}} nell’ambiente."
+    },
+    "panel": {
+      "title": "GrimoireCodexDB",
+      "linked": "Collegato · vedi sul GrimoireCodexDB",
+      "notLinked": "Non collegato. Usa «Recupera metadati» per trovarlo nel GrimoireCodexDB.",
+      "sendCorrection": "Invia correzioni",
+      "add": "Aggiungi al GrimoireCodexDB",
+      "unlink": "Scollega",
+      "chooseFields": "Quali campi deve prendere il GrimoireCodexDB da questa biblioteca?",
+      "addBookHint": "Crea il manuale in GrimoireCodexDB, sotto la scheda GrimoireCodexDB del suo sistema di gioco, visibile a tutti. A seconda del tuo account GrimoireCodexDB potrebbe attendere una revisione.",
+      "addSystemHint": "Crea il sistema in GrimoireCodexDB, visibile a tutti. A seconda del tuo account GrimoireCodexDB potrebbe attendere una revisione.",
+      "noteOptional": "Nota per chi revisiona (facoltativa)",
+      "noteRequired": "Da dove proviene?",
+      "notePlaceholder": "es. Dalla pagina prodotto dell’editore",
+      "send": "Invia",
+      "sending": "Invio…",
+      "cancel": "Annulla",
+      "applied": "Inviato e pubblicato sul GrimoireCodexDB.",
+      "pending": "Inviato. In attesa di revisione sul GrimoireCodexDB.",
+      "viewEdit": "Vedi la modifica"
+    },
+    "fields": {
+      "authors": "Autori",
+      "artists": "Illustratori",
+      "publisherUrl": "Link dell’editore",
+      "pageCount": "Numero di pagine",
+      "explicit": "Esplicito",
+      "systemAgnostic": "Generico",
+      "onePage": "Una pagina"
+    }
   }
 }

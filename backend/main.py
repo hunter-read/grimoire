@@ -34,6 +34,7 @@ from .config import (
 )
 from .routers import (
     addons as addons_router,
+    codex as codex_router,
     api_keys as api_keys_router,
     audio as audio_router,
     audio_sets as audio_sets_router,
@@ -382,6 +383,7 @@ api.include_router(downloads_router.router)
 api.include_router(settings_router.router)
 api.include_router(api_keys_router.router)
 api.include_router(addons_router.router)
+api.include_router(codex_router.router)
 api.include_router(themes_router.router)
 api.include_router(characters_router.router)
 api.include_router(content_router.router)

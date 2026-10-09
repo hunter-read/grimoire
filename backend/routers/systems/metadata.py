@@ -47,7 +47,9 @@ def search_metadata(
     means the overwhelming majority of the time.
     """
     system = _get_system(db, system_id)
-    return search(db, data.source_id, data.query, fallback=system.name)
+    return search(
+        db, data.source_id, data.query, fallback=system.name, target=TARGET, resource=system
+    )
 
 
 def fetch_metadata(

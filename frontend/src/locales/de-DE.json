@@ -1271,6 +1271,10 @@
           "label": "Add-ons",
           "description": "Community-Metadaten-Add-ons: installieren, aktualisieren, aktivieren, ausführen"
         },
+        "codex": {
+          "label": "GrimoireCodexDB",
+          "description": "GrimoireCodexDB-Verbindungseinstellungen sowie Senden und Lösen von Einträgen"
+        },
         "maintenance": {
           "label": "Wartung",
           "description": "Einstellungen und Export von Metadaten-Sidecar-Dateien"
@@ -2081,7 +2085,8 @@
     "replaceCover": "Bild ersetzen",
     "removeCover": "Entfernen",
     "coverUploadFailed": "Upload fehlgeschlagen",
-    "folderCoverInUse": "Es wird ein Titelbild aus dem Bibliotheksordner dieses Systems verwendet. Entferne es aus dem Ordner, um stattdessen einen Upload zu nutzen."
+    "folderCoverInUse": "Es wird ein Titelbild aus dem Bibliotheksordner dieses Systems verwendet. Entferne es aus dem Ordner, um stattdessen einen Upload zu nutzen.",
+    "codex_id": "GrimoireCodexDB-Verknüpfung"
   },
   "bookEditor": {
     "title": "Buch bearbeiten",
@@ -3263,5 +3268,55 @@
     "document": "Regelsatz (JSON oder YAML)",
     "documentHelp": "Ein exportierter oder von Hand geschriebener Regelsatz. Er benötigt einen Abschnitt \"entries\", nach Inhaltstyp gruppiert.",
     "needRulesetFirst": "Erstellen Sie zuerst einen Regelsatz zum Importieren"
+  },
+  "codex": {
+    "settings": {
+      "title": "GrimoireCodexDB",
+      "description": "Der Community-Katalog für TTRPG-Systeme und -Bücher, direkt in Grimoire eingebaut. „Metadaten abrufen“ kann dort nachschlagen, und das Übernehmen eines Treffers verknüpft den Eintrag damit.",
+      "enabled": "Metadaten in GrimoireCodexDB nachschlagen",
+      "url": "GrimoireCodexDB-Adresse",
+      "urlHint": "Nur ändern, um eine selbst gehostete GrimoireCodexDB zu verwenden.",
+      "sendHashes": "Beim Nachschlagen von Büchern Datei-Hashes senden",
+      "sendHashesHint": "Erkennt ein Buch genau, auch bei unordentlichem Dateinamen, verrät GrimoireCodexDB aber, welche Dateien diese Bibliothek enthält.",
+      "token": "API-Token",
+      "tokenPlaceholder": "cdx_…",
+      "tokenSaved": "Ein Token ist gespeichert. Füge ein neues ein, um es zu ersetzen.",
+      "saveToken": "Token speichern",
+      "removeToken": "Token entfernen",
+      "tokenHint": "Nur nötig, um Bücher und Systeme an GrimoireCodexDB zu senden. Erstelle eines in GrimoireCodexDB unter Konto → API-Tokens. Alles Gesendete wird diesem Konto zugeschrieben.",
+      "test": "Verbindung testen",
+      "connected": "Verbunden. Füge ein Token hinzu, um Einträge zu senden.",
+      "connectedAs": "Verbunden als {{name}} ({{role}})",
+      "lockedBy": "Durch {{name}} in der Umgebung festgelegt."
+    },
+    "panel": {
+      "title": "GrimoireCodexDB",
+      "linked": "Verknüpft · in GrimoireCodexDB ansehen",
+      "notLinked": "Nicht verknüpft. Nutze „Metadaten abrufen“, um es in GrimoireCodexDB zu finden.",
+      "sendCorrection": "Korrekturen senden",
+      "add": "Zu GrimoireCodexDB hinzufügen",
+      "unlink": "Verknüpfung lösen",
+      "chooseFields": "Welche Felder soll GrimoireCodexDB aus dieser Bibliothek übernehmen?",
+      "addBookHint": "Damit wird das Buch in GrimoireCodexDB angelegt, unter dem GrimoireCodexDB-Eintrag seines Spielsystems, für alle sichtbar. Je nach GrimoireCodexDB-Konto wartet es eventuell auf Prüfung.",
+      "addSystemHint": "Damit wird das System in GrimoireCodexDB angelegt, für alle sichtbar. Je nach GrimoireCodexDB-Konto wartet es eventuell auf Prüfung.",
+      "noteOptional": "Hinweis für Prüfende (optional)",
+      "noteRequired": "Woher stammt das?",
+      "notePlaceholder": "z. B. Von der Produktseite des Verlags",
+      "send": "Senden",
+      "sending": "Wird gesendet…",
+      "cancel": "Abbrechen",
+      "applied": "Gesendet und in GrimoireCodexDB sichtbar.",
+      "pending": "Gesendet. Es wartet in GrimoireCodexDB auf Prüfung.",
+      "viewEdit": "Änderung ansehen"
+    },
+    "fields": {
+      "authors": "Autor:innen",
+      "artists": "Illustrator:innen",
+      "publisherUrl": "Verlagslink",
+      "pageCount": "Seitenzahl",
+      "explicit": "Explizit",
+      "systemAgnostic": "Systemunabhängig",
+      "onePage": "Einseitig"
+    }
   }
 }
