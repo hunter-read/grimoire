@@ -542,6 +542,9 @@ export const settings = {
   get: () => api.get('/settings'),
   getUi: () => api.get('/settings/ui'),
   patch: (data) => api.patch('/settings', data),
+  // OIDC login-button icon (issue #377). Both return the full settings.
+  uploadOidcButtonIcon: (file) => api.upload('/settings/oidc-button-icon', file),
+  deleteOidcButtonIcon: () => api.delete('/settings/oidc-button-icon'),
 }
 
 // Personal API keys (issue #489). A key acts as its owner. The full key is

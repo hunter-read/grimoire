@@ -52,6 +52,12 @@ class SettingsPatch(BaseModel):
     oidc_client_secret: Optional[str] = None
     oidc_signing_alg: Optional[str] = None
     oidc_button_text: Optional[str] = None
+    # Login-button appearance (issue #377): CSS hex colors and a px radius;
+    # "" resets to the theme default. The icon has its own upload endpoint.
+    oidc_button_bg_color: Optional[str] = None
+    oidc_button_text_color: Optional[str] = None
+    oidc_button_border_color: Optional[str] = None
+    oidc_button_radius: Optional[str] = None
     oidc_groups_claim: Optional[str] = None
     oidc_permissions_claim: Optional[str] = None
     oidc_match_by: Optional[str] = None
@@ -111,6 +117,12 @@ class SettingsResponse(BaseModel):
     oidc_client_id: str
     oidc_signing_alg: str
     oidc_button_text: str
+    oidc_button_bg_color: str
+    oidc_button_text_color: str
+    oidc_button_border_color: str
+    oidc_button_radius: str
+    # Relative URL of the normalized icon ("" when none), cache-busted by version.
+    oidc_button_icon_url: str
     oidc_groups_claim: str
     oidc_permissions_claim: str
     oidc_match_by: str
@@ -129,6 +141,11 @@ class SettingsResponse(BaseModel):
     oidc_client_id_env_locked: bool
     oidc_signing_alg_env_locked: bool
     oidc_button_text_env_locked: bool
+    oidc_button_bg_color_env_locked: bool
+    oidc_button_text_color_env_locked: bool
+    oidc_button_border_color_env_locked: bool
+    oidc_button_radius_env_locked: bool
+    oidc_button_icon_env_locked: bool
     oidc_groups_claim_env_locked: bool
     oidc_permissions_claim_env_locked: bool
     oidc_match_by_env_locked: bool

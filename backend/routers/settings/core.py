@@ -15,6 +15,7 @@ from ...config import (
 from ...auth import require_admin, get_current_user, CurrentUser
 from ...services import access_control
 from ...services.library_fs import library_writable
+from ...services.oidc_button import MAX_RADIUS_PX, normalize_color, normalize_radius
 from ._helpers import (
     _get_raw,
     _set,
@@ -24,6 +25,7 @@ from ._helpers import (
     _VALID_SIGNING_ALGS,
     _OIDC_STRING_FIELDS,
     _OIDC_BOOL_FIELDS,
+    _OIDC_BUTTON_COLOR_FIELDS,
     guest_access_effective,
     sanitize_login_message,
 )
@@ -146,6 +148,23 @@ def update_settings(
         raise HTTPException(
             400, f"oidc_signing_alg must be one of: {', '.join(_VALID_SIGNING_ALGS)}"
         )
+    # Button appearance is rendered into the public login page's styles, so it is
+    # held to strict hex colors / a bounded integer and stored canonicalized.
+    for key in _OIDC_BUTTON_COLOR_FIELDS:
+        val = getattr(data, key)
+        if val is None:
+            continue
+        canonical = normalize_color(val)
+        if canonical is None:
+            raise HTTPException(400, f"{key} must be a hex color like #1a2b3c, or empty")
+        setattr(data, key, canonical)
+    if data.oidc_button_radius is not None:
+        radius = normalize_radius(data.oidc_button_radius)
+        if radius is None:
+            raise HTTPException(
+                400, f"oidc_button_radius must be an integer from 0 to {MAX_RADIUS_PX}, or empty"
+            )
+        data.oidc_button_radius = radius
 
     # Bool fields
     for key in _OIDC_BOOL_FIELDS:

@@ -1,5 +1,6 @@
 """Shared helpers and defaults for settings endpoints."""
 import json
+import logging
 import re
 
 from ...config import (
@@ -10,6 +11,9 @@ from ...config import (
     BASE_URL,
 )
 from ...models import AppSetting
+from ...services.oidc_button import current_icon, normalize_color, normalize_radius
+
+logger = logging.getLogger("grimoire.oidc")
 
 
 _VALID_INTERVALS = ("hourly", "daily", "weekly")
@@ -60,6 +64,13 @@ _DEFAULTS = {
     "oidc_client_secret": "",
     "oidc_signing_alg": "RS256",
     "oidc_button_text": "Sign in with SSO",
+    # Login-button appearance (issue #377). "" = the theme's default look.
+    "oidc_button_bg_color": "",
+    "oidc_button_text_color": "",
+    "oidc_button_border_color": "",
+    "oidc_button_radius": "",
+    # Content hash of the uploaded icon in BRANDING_DIR; "" = no icon.
+    "oidc_button_icon": "",
     "oidc_groups_claim": "",
     "oidc_permissions_claim": "",
     "oidc_match_by": "none",  # none | email | username
@@ -84,12 +95,40 @@ _OIDC_STRING_FIELDS = (
     "oidc_client_id",
     "oidc_signing_alg",
     "oidc_button_text",
+    "oidc_button_bg_color",
+    "oidc_button_text_color",
+    "oidc_button_border_color",
+    "oidc_button_radius",
     "oidc_groups_claim",
     "oidc_permissions_claim",
     "oidc_match_by",
 )
 _OIDC_BOOL_FIELDS = ("oidc_enabled", "oidc_auto_launch", "oidc_auto_register")
-_OIDC_LOCKABLE_FIELDS = _OIDC_STRING_FIELDS + _OIDC_BOOL_FIELDS + ("oidc_client_secret",)
+# Set through their own endpoints rather than the PATCH body, but env-lockable.
+_OIDC_LOCKABLE_FIELDS = _OIDC_STRING_FIELDS + _OIDC_BOOL_FIELDS + (
+    "oidc_client_secret",
+    "oidc_button_icon",
+)
+_OIDC_BUTTON_COLOR_FIELDS = (
+    "oidc_button_bg_color",
+    "oidc_button_text_color",
+    "oidc_button_border_color",
+)
+OIDC_BUTTON_ICON_PATH = "/api/auth/openid/button-icon"
+
+
+def _warn_invalid_button_env() -> None:
+    """Log once at startup for env-pinned button styles that will be ignored."""
+    for key in _OIDC_BUTTON_COLOR_FIELDS:
+        val = OIDC_ENV.get(key)
+        if val is not None and normalize_color(val) is None:
+            logger.warning("%s=%r is not a CSS hex color; ignoring it", key.upper(), val)
+    radius = OIDC_ENV.get("oidc_button_radius")
+    if radius is not None and normalize_radius(radius) is None:
+        logger.warning("OIDC_BUTTON_RADIUS=%r is not an integer 0-40; ignoring it", radius)
+
+
+_warn_invalid_button_env()
 
 
 def _get_raw(db) -> dict:
@@ -171,6 +210,7 @@ def _oidc_to_typed(raw: dict) -> dict:
     return {
         **eff,
         "oidc_redirect_uri": oidc_redirect_uri(),
+        "oidc_button_icon_url": oidc_button_icon_url(raw),
         "oidc_client_secret_set": bool(secret),
         "oidc_client_secret_length": len(secret) if secret else 0,
         **locks,
@@ -229,6 +269,11 @@ def oidc_effective(raw: dict) -> dict:
         "oidc_client_id": s("oidc_client_id"),
         "oidc_signing_alg": s("oidc_signing_alg") or "RS256",
         "oidc_button_text": s("oidc_button_text") or "Sign in with SSO",
+        # Re-validated on read so a bad env pin degrades to the default look.
+        "oidc_button_bg_color": normalize_color(s("oidc_button_bg_color")) or "",
+        "oidc_button_text_color": normalize_color(s("oidc_button_text_color")) or "",
+        "oidc_button_border_color": normalize_color(s("oidc_button_border_color")) or "",
+        "oidc_button_radius": normalize_radius(s("oidc_button_radius")) or "",
         "oidc_groups_claim": s("oidc_groups_claim"),
         "oidc_permissions_claim": s("oidc_permissions_claim"),
         "oidc_match_by": s("oidc_match_by") or "none",
@@ -243,6 +288,16 @@ def oidc_effective_client_secret(raw: dict) -> str:
     if env_val is not None:
         return env_val
     return raw.get("oidc_client_secret", "") or ""
+
+
+def oidc_button_icon_url(raw: dict) -> str:
+    """Relative URL of the effective login-button icon, or "" when there is none.
+
+    The ``v`` query parameter is the icon's content hash, so the browser can
+    cache it forever and still pick up a replacement immediately.
+    """
+    icon = current_icon(raw.get("oidc_button_icon", ""), OIDC_ENV.get("oidc_button_icon"))
+    return f"{OIDC_BUTTON_ICON_PATH}?v={icon[1]}" if icon else ""
 
 
 def oidc_redirect_uri() -> str:
