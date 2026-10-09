@@ -1,6 +1,6 @@
-"""Mapping between Grimoire records and the Codex API's Grimoire-shaped payloads.
+"""Mapping between Grimoire records and the GrimoireCodexDB API's Grimoire-shaped payloads.
 
-Codex speaks Grimoire's field names on its ``/grimoire`` endpoints, so the
+GrimoireCodexDB speaks Grimoire's field names on its ``/grimoire`` endpoints, so the
 mapping here is mostly selection: which local fields to send, which incoming
 fields a local record can take, and what to tell ``/match`` about a file.
 """
@@ -13,8 +13,8 @@ from ..models import Book, GameSystem
 from ..services import tag_service
 from .settings import CodexSettings
 
-# Fields a Grimoire record sends to Codex. Category, page count and explicitness
-# are facts about the local file Codex can use; access levels, paths and cover
+# Fields a Grimoire record sends to GrimoireCodexDB. Category, page count and explicitness
+# are facts about the local file GrimoireCodexDB can use; access levels, paths and cover
 # choices are local decisions and never leave the instance.
 BOOK_SUBMIT_FIELDS = (
     "title",
@@ -113,7 +113,7 @@ def candidate_label(card: dict[str, Any], reasons: Optional[list[str]] = None) -
 
 
 def incoming_fields(target: str, exported: dict[str, Any]) -> dict[str, Any]:
-    """The fields of a Codex export a local record can take, plus the link itself."""
+    """The fields of a GrimoireCodexDB export a local record can take, plus the link itself."""
     allowed = MAPPABLE_BOOK_FIELDS if target == "book" else MAPPABLE_SYSTEM_FIELDS
     fields = {f: exported[f] for f in allowed if f in exported}
     if exported.get("codex_id"):
@@ -132,8 +132,8 @@ def submit_payload(
     """The body for ``POST /grimoire/books`` or ``/grimoire/systems``.
 
     Linked records send an update of just ``fields`` (all of them by default);
-    unlinked ones create a new Codex record. A book's system must be linked
-    first, because Codex needs to know which system the book belongs to.
+    unlinked ones create a new GrimoireCodexDB record. A book's system must be linked
+    first, because GrimoireCodexDB needs to know which system the book belongs to.
     """
     allowed = BOOK_SUBMIT_FIELDS if target == "book" else SYSTEM_SUBMIT_FIELDS
     chosen = [f for f in (fields or allowed) if f in allowed]
@@ -151,12 +151,12 @@ def submit_payload(
         payload["codex_id"] = resource.codex_id
         payload["fields"] = chosen
     if target == "book":
-        # Only a new record names its system. A Codex book can belong to several
+        # Only a new record names its system. A GrimoireCodexDB book can belong to several
         # systems and Grimoire knows one, so an update must not overwrite the list.
         if not resource.codex_id:
             system = db.get(GameSystem, resource.game_system_id) if resource.game_system_id else None
             if system is None or not system.codex_id:
-                raise ValueError("Link this book's game system to Grimoire Codex first")
+                raise ValueError("Link this book's game system to GrimoireCodexDB first")
             payload["systems"] = [system.codex_id]
         if settings.send_hashes and resource.content_hash:
             payload["fingerprints"] = [

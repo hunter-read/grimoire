@@ -34,7 +34,7 @@ beforeEach(() => {
 })
 
 describe('CodexPanel', () => {
-  it('renders nothing while Codex is turned off', async () => {
+  it('renders nothing while GrimoireCodexDB is turned off', async () => {
     api.get.mockResolvedValue({ ...STATUS, enabled: false })
     const { container } = render(<CodexPanel kind="books" resourceId="b1" codexId={null} />)
     await waitFor(() => expect(api.get).toHaveBeenCalledWith('/codex/status'))
@@ -48,10 +48,10 @@ describe('CodexPanel', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('links to the Codex record and unlinks', async () => {
+  it('links to the GrimoireCodexDB record and unlinks', async () => {
     api.delete.mockResolvedValue({ status: 'ok' })
     const onLinkChange = renderPanel({ codexId: 'bk_abc123' })
-    const link = await screen.findByRole('link', { name: /view on codex/i })
+    const link = await screen.findByRole('link', { name: /view on GrimoireCodexDB/i })
     expect(link).toHaveAttribute('href', 'https://codex.test/books/bk_abc123')
     await userEvent.click(screen.getByRole('button', { name: 'Unlink' }))
     expect(api.delete).toHaveBeenCalledWith('/codex/books/b1/link')
@@ -66,13 +66,13 @@ describe('CodexPanel', () => {
       edit_url: 'https://codex.test/edits/ed_1',
     })
     const onLinkChange = renderPanel()
-    await userEvent.click(await screen.findByRole('button', { name: 'Add to Codex' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Add to GrimoireCodexDB' }))
     const send = screen.getByRole('button', { name: 'Send' })
     expect(send).toBeDisabled()
     await userEvent.type(screen.getByLabelText('Where is this from?'), 'My PDF')
     await userEvent.click(send)
     expect(api.post).toHaveBeenCalledWith('/codex/books/b1/submit', { note: 'My PDF' })
-    expect(await screen.findByRole('status')).toHaveTextContent('Sent and live on Codex.')
+    expect(await screen.findByRole('status')).toHaveTextContent('Sent and live on GrimoireCodexDB.')
     expect(screen.getByRole('link', { name: 'View the edit' })).toHaveAttribute(
       'href',
       'https://codex.test/edits/ed_1'
@@ -103,10 +103,10 @@ describe('CodexPanel', () => {
     expect(onLinkChange).not.toHaveBeenCalled()
   })
 
-  it('shows the error Codex returned and can be cancelled', async () => {
+  it('shows the error GrimoireCodexDB returned and can be cancelled', async () => {
     api.post.mockRejectedValue(new Error('Name is required'))
     renderPanel({ kind: 'systems' })
-    await userEvent.click(await screen.findByRole('button', { name: 'Add to Codex' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Add to GrimoireCodexDB' }))
     expect(screen.getByText(/creates the system/)).toBeInTheDocument()
     await userEvent.type(screen.getByLabelText('Where is this from?'), 'x')
     await userEvent.click(screen.getByRole('button', { name: 'Send' }))
@@ -127,10 +127,10 @@ describe('CodexPanel', () => {
     api.get.mockResolvedValue({ ...STATUS, can_submit: false })
     renderPanel()
     expect(await screen.findByText(/Not linked/)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Add to Codex' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Add to GrimoireCodexDB' })).not.toBeInTheDocument()
   })
 
-  it('asks Codex for its status once per session', async () => {
+  it('asks GrimoireCodexDB for its status once per session', async () => {
     const first = render(<CodexPanel kind="books" resourceId="b1" codexId={null} />)
     await screen.findByText(/Not linked/)
     first.unmount()

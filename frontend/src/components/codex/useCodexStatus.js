@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import api from '../../api'
 
-// Whether Codex is on, where it lives and whether records can be sent. Same for
+// Whether GrimoireCodexDB is on, where it lives and whether records can be sent. Same for
 // every book and system, so one request answers for the whole session; settings
 // changes clear it.
 let pending = null
 let settled = null
 
-/** Forget the cached status — call after changing the Codex settings. */
+/** Forget the cached status — call after changing the GrimoireCodexDB settings. */
 export function clearCodexStatusCache() {
   pending = null
   settled = null
@@ -22,7 +22,7 @@ function load() {
         return s
       })
       .catch((e) => {
-        // An offline blip must not hide Codex for the rest of the session.
+        // An offline blip must not hide GrimoireCodexDB for the rest of the session.
         pending = null
         throw e
       })

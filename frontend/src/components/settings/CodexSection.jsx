@@ -9,10 +9,10 @@ import { clearCodexStatusCache } from '../codex/useCodexStatus'
 import { clearMetadataSourcesCache } from '../system/useMetadataSources'
 
 /**
- * Admin settings for Grimoire Codex (issue #35), the built-in metadata source.
+ * Admin settings for GrimoireCodexDB (issue #35), the built-in metadata source.
  *
  * Lookup is on by default and only runs when someone fetches metadata. Sending
- * records needs an API token from a Codex account; the token is write-only, so
+ * records needs an API token from a GrimoireCodexDB account; the token is write-only, so
  * the page only ever knows whether one is set. A setting pinned by a CODEX_*
  * environment variable shows read-only.
  */
@@ -47,7 +47,7 @@ export default function CodexSection() {
       .then((s) => {
         setValues(s)
         setUrl(s.url)
-        // The source list and the editors' Codex panel both read these.
+        // The source list and the editors' GrimoireCodexDB panel both read these.
         clearMetadataSourcesCache()
         clearCodexStatusCache()
         setSaved(true)

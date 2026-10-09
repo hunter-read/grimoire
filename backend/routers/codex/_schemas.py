@@ -1,4 +1,4 @@
-"""Request/response models for the Grimoire Codex endpoints (issue #35)."""
+"""Request/response models for the GrimoireCodexDB endpoints (issue #35)."""
 from typing import Optional
 
 from pydantic import BaseModel, Field
@@ -33,7 +33,7 @@ class CodexAccount(BaseModel):
 class CodexTestResponse(BaseModel):
     ok: bool
     url: str
-    # The Codex account the token belongs to, or None when no token is set.
+    # The GrimoireCodexDB account the token belongs to, or None when no token is set.
     account: Optional[CodexAccount] = None
 
 
@@ -45,10 +45,10 @@ class CodexSubmit(BaseModel):
 
 
 class CodexSubmitResponse(BaseModel):
-    # "applied" when Codex took it straight away, "pending" when it waits for review.
+    # "applied" when GrimoireCodexDB took it straight away, "pending" when it waits for review.
     status: str
     codex_id: Optional[str] = None
-    # The record is only linked here once it exists in Codex.
+    # The record is only linked here once it exists in GrimoireCodexDB.
     linked: bool
     edit_url: str
 

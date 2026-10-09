@@ -1,4 +1,4 @@
-"""Grimoire Codex connection settings (issue #35).
+"""GrimoireCodexDB connection settings (issue #35).
 
 Stored as ``codex_*`` rows in ``app_settings``, each overridable by an
 environment variable. A variable that is set pins the value and the admin UI
@@ -7,7 +7,7 @@ shows it read-only, the same convention as the other env-locked settings.
 Lookup is on by default and only ever runs when someone asks for it (fetching
 metadata, sending a record). Nothing is sent in the background. File hashes are
 the one signal that can say "this library holds this exact file", so sending
-them is opt-in. Submitting needs an API token from the user's Codex account.
+them is opt-in. Submitting needs an API token from the user's GrimoireCodexDB account.
 """
 import os
 from dataclasses import dataclass
@@ -61,16 +61,16 @@ class CodexSettings:
 
 
 def normalize_url(value: str) -> str:
-    """Validate a Codex base URL and strip any trailing slash.
+    """Validate a GrimoireCodexDB base URL and strip any trailing slash.
 
     Plain http is allowed so a self-hosted dev instance on the LAN works.
     """
     url = value.strip().rstrip("/")
     parts = urlsplit(url)
     if parts.scheme not in ("http", "https") or not parts.netloc:
-        raise ValueError("The Codex URL must be an http(s) address")
+        raise ValueError("The GrimoireCodexDB URL must be an http(s) address")
     if parts.query or parts.fragment:
-        raise ValueError("The Codex URL must not have a query or fragment")
+        raise ValueError("The GrimoireCodexDB URL must not have a query or fragment")
     return url
 
 

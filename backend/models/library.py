@@ -84,8 +84,8 @@ class GameSystem(Base):
     # Dragons") survives every subsequent rescan.
     name_is_custom = Column(Boolean, default=False)
 
-    # The Grimoire Codex record this system is linked to (issue #35): set when
-    # metadata is fetched from Codex or the system is sent to it. A Codex id,
+    # The GrimoireCodexDB record this system is linked to (issue #35): set when
+    # metadata is fetched from GrimoireCodexDB or the system is sent to it. A GrimoireCodexDB id,
     # not a foreign key; NULL when the system is not linked.
     codex_id = Column(String(40), nullable=True, index=True)
 
@@ -208,8 +208,8 @@ class Book(Base):
     # POST /api/books/{id}/reindex endpoint.
     ocr_dpi = Column(Integer, nullable=True)
 
-    # The Grimoire Codex record this book is linked to (issue #35), set when its
-    # metadata is fetched from Codex or it is sent there. NULL when unlinked.
+    # The GrimoireCodexDB record this book is linked to (issue #35), set when its
+    # metadata is fetched from GrimoireCodexDB or it is sent there. NULL when unlinked.
     codex_id = Column(String(40), nullable=True, index=True)
 
     # Minimum role required to see this book (issue #258). One of

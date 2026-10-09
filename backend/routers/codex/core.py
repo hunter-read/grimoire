@@ -1,6 +1,6 @@
-"""Grimoire Codex endpoints (issue #35): settings, connection test, send and unlink.
+"""GrimoireCodexDB endpoints (issue #35): settings, connection test, send and unlink.
 
-Lookup itself is not here: Codex is a built-in source of the regular metadata
+Lookup itself is not here: GrimoireCodexDB is a built-in source of the regular metadata
 endpoints (``/books/{id}/metadata-*``, ``/systems/{id}/metadata-*``).
 """
 from typing import Any, Union
@@ -22,7 +22,7 @@ def get_status(
     _: CurrentUser = Depends(require_not_guest),  # noqa: ARG001
     db: Session = Depends(get_db),
 ):
-    """Whether Codex is on and where, so the UI knows which actions to offer."""
+    """Whether GrimoireCodexDB is on and where, so the UI knows which actions to offer."""
     s = codex.load(db)
     return {"enabled": s.enabled, "url": s.url, "can_submit": s.can_submit}
 
@@ -58,7 +58,7 @@ def test_connection(
     _: CurrentUser = Depends(require_admin),  # noqa: ARG001
     db: Session = Depends(get_db),
 ):
-    """Reach Codex and, with a token set, report the account it belongs to."""
+    """Reach GrimoireCodexDB and, with a token set, report the account it belongs to."""
     s = codex.load(db)
     try:
         me = codex_client.me(s)
@@ -98,7 +98,7 @@ def _submit(db: Session, resource: Union[Book, GameSystem], target: str, data: C
     edit = result.get("edit") or {}
     status = "applied" if edit.get("status") == "applied" else "pending"
     codex_id = result.get("codex_id")
-    # A new record that waits for review does not exist in Codex yet, and may
+    # A new record that waits for review does not exist in GrimoireCodexDB yet, and may
     # never: link it only once it does, so a rejection cannot leave a dead link.
     linked = bool(codex_id) and (status == "applied" or bool(resource.codex_id))
     if linked and resource.codex_id != codex_id:
@@ -118,7 +118,7 @@ def submit_book(
     current_user: CurrentUser = Depends(require_gm_or_admin),
     db: Session = Depends(get_db),
 ):
-    """Send a book to Codex: a new record, or a correction to the linked one."""
+    """Send a book to GrimoireCodexDB: a new record, or a correction to the linked one."""
     return _submit(db, _book(db, book_id, current_user), "book", data)
 
 
@@ -128,7 +128,7 @@ def submit_system(
     current_user: CurrentUser = Depends(require_gm_or_admin),
     db: Session = Depends(get_db),
 ):
-    """Send a game system to Codex: a new record, or a correction to the linked one."""
+    """Send a game system to GrimoireCodexDB: a new record, or a correction to the linked one."""
     return _submit(db, _system(db, system_id, current_user), "game-system", data)
 
 
@@ -137,7 +137,7 @@ def unlink_book(
     current_user: CurrentUser = Depends(require_gm_or_admin),
     db: Session = Depends(get_db),
 ):
-    """Forget which Codex record this book is. Nothing changes in Codex."""
+    """Forget which GrimoireCodexDB record this book is. Nothing changes in GrimoireCodexDB."""
     book = _book(db, book_id, current_user)
     book.codex_id = None
     db.commit()
@@ -149,7 +149,7 @@ def unlink_system(
     current_user: CurrentUser = Depends(require_gm_or_admin),
     db: Session = Depends(get_db),
 ):
-    """Forget which Codex record this system is. Nothing changes in Codex."""
+    """Forget which GrimoireCodexDB record this system is. Nothing changes in GrimoireCodexDB."""
     system = _system(db, system_id, current_user)
     system.codex_id = None
     db.commit()

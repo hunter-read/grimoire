@@ -694,7 +694,7 @@ export default function SystemDetailView() {
             // Cover uploads apply immediately, so reflect them without closing
             // the editor or discarding unsaved metadata edits.
             onCoverChange={(cover) => setSystem((s) => ({ ...s, ...cover }))}
-            // Linking or unlinking Grimoire Codex is saved at once, like a cover.
+            // Linking or unlinking GrimoireCodexDB is saved at once, like a cover.
             onCodexLinkChange={(codexId) => setSystem((s) => ({ ...s, codex_id: codexId }))}
           />
         )}

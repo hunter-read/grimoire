@@ -1,7 +1,7 @@
-"""codex ids: link books and game systems to their Grimoire Codex records
+"""codex ids: link books and game systems to their GrimoireCodexDB records
 
 Adds a nullable, indexed ``codex_id`` to ``books`` and ``game_systems``: the id
-of the Grimoire Codex record (issue #35) a local record was matched to, fetched
+of the GrimoireCodexDB record (issue #35) a local record was matched to, fetched
 from, or sent to. It is an id in another service, not a foreign key, and NULL
 means "not linked".
 

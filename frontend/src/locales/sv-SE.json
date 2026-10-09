@@ -1256,8 +1256,8 @@
           "description": "Communityns metadatatillägg: installera, uppdatera, aktivera, köra"
         },
         "codex": {
-          "label": "Grimoire Codex",
-          "description": "Codex-anslutningsinställningar, samt att skicka och avlänka poster"
+          "label": "GrimoireCodexDB",
+          "description": "GrimoireCodexDB-anslutningsinställningar, samt att skicka och avlänka poster"
         },
         "maintenance": {
           "label": "Underhåll",
@@ -2070,7 +2070,7 @@
     "removeCover": "Ta bort",
     "coverUploadFailed": "Uppladdningen misslyckades",
     "folderCoverInUse": "En omslagsbild hittad i systemets bibliotekmapp används. Ta bort den från mappen för att använda en uppladdning istället.",
-    "codex_id": "Länk till Grimoire Codex"
+    "codex_id": "Länk till GrimoireCodexDB"
   },
   "bookEditor": {
     "title": "Redigera bok",
@@ -3255,42 +3255,42 @@
   },
   "codex": {
     "settings": {
-      "title": "Grimoire Codex",
+      "title": "GrimoireCodexDB",
       "description": "Gemenskapens katalog över rollspelssystem och -böcker, inbyggd i Grimoire. \"Hämta metadata\" kan slå upp poster där, och att tillämpa ett resultat länkar posten dit.",
-      "enabled": "Slå upp metadata i Grimoire Codex",
-      "url": "Codex-adress",
-      "urlHint": "Ändra bara för att använda en egen Codex-installation.",
+      "enabled": "Slå upp metadata i GrimoireCodexDB",
+      "url": "GrimoireCodexDB-adress",
+      "urlHint": "Ändra bara för att använda en egen GrimoireCodexDB-installation.",
       "sendHashes": "Skicka filhashar vid uppslag av böcker",
-      "sendHashesHint": "Identifierar en bok exakt, även med ett rörigt filnamn, men berättar för Codex vilka filer biblioteket innehåller.",
+      "sendHashesHint": "Identifierar en bok exakt, även med ett rörigt filnamn, men berättar för GrimoireCodexDB vilka filer biblioteket innehåller.",
       "token": "API-token",
       "tokenPlaceholder": "cdx_…",
       "tokenSaved": "En token är sparad. Klistra in en ny för att ersätta den.",
       "saveToken": "Spara token",
       "removeToken": "Ta bort token",
-      "tokenHint": "Behövs bara för att skicka böcker och system till Codex. Skapa en i Grimoire Codex under Konto → API-tokens. Allt som skickas tillskrivs det kontot.",
+      "tokenHint": "Behövs bara för att skicka böcker och system till GrimoireCodexDB. Skapa en i GrimoireCodexDB under Konto → API-tokens. Allt som skickas tillskrivs det kontot.",
       "test": "Testa anslutningen",
       "connected": "Ansluten. Lägg till en token för att skicka poster.",
       "connectedAs": "Ansluten som {{name}} ({{role}})",
       "lockedBy": "Satt av {{name}} i miljön."
     },
     "panel": {
-      "title": "Grimoire Codex",
-      "linked": "Länkad · visa i Codex",
-      "notLinked": "Inte länkad. Använd \"Hämta metadata\" för att hitta den i Codex.",
+      "title": "GrimoireCodexDB",
+      "linked": "Länkad · visa i GrimoireCodexDB",
+      "notLinked": "Inte länkad. Använd \"Hämta metadata\" för att hitta den i GrimoireCodexDB.",
       "sendCorrection": "Skicka rättelser",
-      "add": "Lägg till i Codex",
+      "add": "Lägg till i GrimoireCodexDB",
       "unlink": "Ta bort länk",
-      "chooseFields": "Vilka fält ska Codex hämta från det här biblioteket?",
-      "addBookHint": "Det här skapar boken i Grimoire Codex, under spelsystemets Codex-post, synlig för alla. Beroende på ditt Codex-konto kan den vänta på granskning.",
-      "addSystemHint": "Det här skapar systemet i Grimoire Codex, synligt för alla. Beroende på ditt Codex-konto kan det vänta på granskning.",
+      "chooseFields": "Vilka fält ska GrimoireCodexDB hämta från det här biblioteket?",
+      "addBookHint": "Det här skapar boken i GrimoireCodexDB, under spelsystemets GrimoireCodexDB-post, synlig för alla. Beroende på ditt GrimoireCodexDB-konto kan den vänta på granskning.",
+      "addSystemHint": "Det här skapar systemet i GrimoireCodexDB, synligt för alla. Beroende på ditt GrimoireCodexDB-konto kan det vänta på granskning.",
       "noteOptional": "Anteckning till granskare (valfri)",
       "noteRequired": "Var kommer det här ifrån?",
       "notePlaceholder": "t.ex. Från förlagets produktsida",
       "send": "Skicka",
       "sending": "Skickar…",
       "cancel": "Avbryt",
-      "applied": "Skickat och publicerat i Codex.",
-      "pending": "Skickat. Det väntar på granskning i Codex.",
+      "applied": "Skickat och publicerat i GrimoireCodexDB.",
+      "pending": "Skickat. Det väntar på granskning i GrimoireCodexDB.",
       "viewEdit": "Visa ändringen"
     },
     "fields": {

@@ -54,7 +54,7 @@ MANIFEST = {
 
 @pytest.fixture(autouse=True)
 def codex_off(monkeypatch):
-    """These tests are about add-ons: keep the built-in Codex source out of the lists."""
+    """These tests are about add-ons: keep the built-in GrimoireCodexDB source out of the lists."""
     monkeypatch.setenv("CODEX_ENABLED", "false")
 
 

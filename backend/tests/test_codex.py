@@ -1,6 +1,6 @@
-"""Tests for the Grimoire Codex integration (issue #35).
+"""Tests for the GrimoireCodexDB integration (issue #35).
 
-Codex is faked with an ``httpx.MockTransport`` so every request Grimoire makes
+GrimoireCodexDB is faked with an ``httpx.MockTransport`` so every request Grimoire makes
 is recorded and checked: what it sends matters as much as what it does with
 the answer (hashes only when opted in, the token only on writes, no system
 list on a correction).
@@ -467,7 +467,7 @@ class TestSubmit:
         assert sent["codex_id"] == "bk_abc123"
         assert sent["fields"] == ["page_count"]
         assert sent["record"] == {"page_count": 44}
-        # A Codex book can be in several systems; a correction never rewrites them.
+        # A GrimoireCodexDB book can be in several systems; a correction never rewrites them.
         assert "systems" not in sent
         assert sent["fingerprints"] == [{"algo": "sha256", "hash": "ef" * 32, "size": 1234}]
 

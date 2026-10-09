@@ -1,5 +1,5 @@
 /**
- * The fields a book or system can send to Grimoire Codex (issue #35), in the
+ * The fields a book or system can send to GrimoireCodexDB (issue #35), in the
  * order the panel lists them. Mirrors `BOOK_SUBMIT_FIELDS` /
  * `SYSTEM_SUBMIT_FIELDS` in backend/codex/records.py: the server ignores any
  * other field, so this list only decides what is offered.

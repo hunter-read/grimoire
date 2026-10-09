@@ -6,12 +6,12 @@ import useCodexStatus from './useCodexStatus'
 import { CODEX_FIELDS, codexFieldLabel } from './codexFields'
 
 /**
- * Where a book or system stands in Grimoire Codex (issue #35), shown in its
- * editor: linked or not, a link to the Codex record, and the two outbound
+ * Where a book or system stands in GrimoireCodexDB (issue #35), shown in its
+ * editor: linked or not, a link to the GrimoireCodexDB record, and the two outbound
  * actions — send it (a new record, or chosen fields as a correction) and unlink.
  *
  * Finding and linking a record is not here: that is "Fetch metadata", where
- * Codex is a built-in source and applying a result links the record.
+ * GrimoireCodexDB is a built-in source and applying a result links the record.
  *
  * `kind` is 'books' or 'systems'. `codexId` is owned by the editor, which also
  * learns of links made through Fetch metadata; `onLinkChange` reports changes
@@ -32,7 +32,7 @@ export default function CodexPanel({ kind, resourceId, codexId, onLinkChange }) 
   const linked = !!codexId
   const recordUrl = linked ? `${status.url}/${kind}/${codexId}` : null
   const available = CODEX_FIELDS[kind]
-  // A new record needs a word on where it came from: Codex asks newer
+  // A new record needs a word on where it came from: GrimoireCodexDB asks newer
   // contributors for evidence, and a reviewer needs it either way.
   const canSend = !busy && (linked ? fields.length > 0 : note.trim().length > 0)
 

@@ -1,8 +1,8 @@
-"""Grimoire Codex integration (issue #35): lookup, linking and submitting.
+"""GrimoireCodexDB integration (issue #35): lookup, linking and submitting.
 
-Grimoire Codex (https://db.grimoirecodex.org) is the community catalogue of
+GrimoireCodexDB (https://db.grimoirecodex.org) is the community catalogue of
 TTRPG systems and books. Grimoire uses it as a built-in metadata source, keeps
-the Codex id of each record it was matched to (``codex_id``), and can send
+the GrimoireCodexDB id of each record it was matched to (``codex_id``), and can send
 local records and corrections back. See ``docs/codex.md``.
 """
 from .client import CodexDisabled, CodexError, http_error

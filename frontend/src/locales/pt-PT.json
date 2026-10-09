@@ -1256,8 +1256,8 @@
           "description": "Extras de metadados da comunidade: instalar, atualizar, ativar, executar"
         },
         "codex": {
-          "label": "Grimoire Codex",
-          "description": "Definições de ligação ao Codex, e envio e desligação de fichas"
+          "label": "GrimoireCodexDB",
+          "description": "Definições de ligação ao GrimoireCodexDB, e envio e desligação de fichas"
         },
         "maintenance": {
           "label": "Manutenção",
@@ -2070,7 +2070,7 @@
     "removeCover": "Remover",
     "coverUploadFailed": "Falha no envio",
     "folderCoverInUse": "Uma imagem de capa encontrada na pasta deste sistema está em uso. Remova-a da pasta para usar um envio.",
-    "codex_id": "Ligação ao Grimoire Codex"
+    "codex_id": "Ligação ao GrimoireCodexDB"
   },
   "bookEditor": {
     "title": "Editar livro",
@@ -3255,42 +3255,42 @@
   },
   "codex": {
     "settings": {
-      "title": "Grimoire Codex",
+      "title": "GrimoireCodexDB",
       "description": "O catálogo comunitário de sistemas e livros de RPG, integrado no Grimoire. «Obter metadados» pode procurar fichas lá, e aplicar um resultado liga a ficha a ele.",
-      "enabled": "Procurar metadados no Grimoire Codex",
-      "url": "Endereço do Codex",
-      "urlHint": "Altere apenas para usar um Codex auto-alojado.",
+      "enabled": "Procurar metadados no GrimoireCodexDB",
+      "url": "Endereço do GrimoireCodexDB",
+      "urlHint": "Altere apenas para usar uma instância auto-alojada do GrimoireCodexDB.",
       "sendHashes": "Enviar hashes dos ficheiros ao procurar livros",
-      "sendHashesHint": "Identifica um livro com exatidão, mesmo com um nome de ficheiro confuso, mas diz ao Codex que ficheiros esta biblioteca tem.",
+      "sendHashesHint": "Identifica um livro com exatidão, mesmo com um nome de ficheiro confuso, mas diz ao GrimoireCodexDB que ficheiros esta biblioteca tem.",
       "token": "Token de API",
       "tokenPlaceholder": "cdx_…",
       "tokenSaved": "Há um token guardado. Cole um novo para o substituir.",
       "saveToken": "Guardar token",
       "removeToken": "Remover token",
-      "tokenHint": "Só é necessário para enviar livros e sistemas ao Codex. Crie um no Grimoire Codex em Conta → Tokens de API. Tudo o que enviar é atribuído a essa conta.",
+      "tokenHint": "Só é necessário para enviar livros e sistemas ao GrimoireCodexDB. Crie um no GrimoireCodexDB em Conta → Tokens de API. Tudo o que enviar é atribuído a essa conta.",
       "test": "Testar ligação",
       "connected": "Ligado. Adicione um token para enviar fichas.",
       "connectedAs": "Ligado como {{name}} ({{role}})",
       "lockedBy": "Definido por {{name}} no ambiente."
     },
     "panel": {
-      "title": "Grimoire Codex",
-      "linked": "Ligado · ver no Codex",
-      "notLinked": "Não ligado. Use «Obter metadados» para o encontrar no Codex.",
+      "title": "GrimoireCodexDB",
+      "linked": "Ligado · ver no GrimoireCodexDB",
+      "notLinked": "Não ligado. Use «Obter metadados» para o encontrar no GrimoireCodexDB.",
       "sendCorrection": "Enviar correções",
-      "add": "Adicionar ao Codex",
+      "add": "Adicionar ao GrimoireCodexDB",
       "unlink": "Desligar",
-      "chooseFields": "Que campos deve o Codex receber desta biblioteca?",
-      "addBookHint": "Isto cria o livro no Grimoire Codex, sob a ficha do Codex do seu sistema de jogo, visível para todos. Consoante a sua conta do Codex, pode aguardar revisão.",
-      "addSystemHint": "Isto cria o sistema no Grimoire Codex, visível para todos. Consoante a sua conta do Codex, pode aguardar revisão.",
+      "chooseFields": "Que campos deve o GrimoireCodexDB receber desta biblioteca?",
+      "addBookHint": "Isto cria o livro no GrimoireCodexDB, sob a ficha do GrimoireCodexDB do seu sistema de jogo, visível para todos. Consoante a sua conta do GrimoireCodexDB, pode aguardar revisão.",
+      "addSystemHint": "Isto cria o sistema no GrimoireCodexDB, visível para todos. Consoante a sua conta do GrimoireCodexDB, pode aguardar revisão.",
       "noteOptional": "Nota para quem revê (opcional)",
       "noteRequired": "De onde vem isto?",
       "notePlaceholder": "p. ex. Da página do produto da editora",
       "send": "Enviar",
       "sending": "A enviar…",
       "cancel": "Cancelar",
-      "applied": "Enviado e publicado no Codex.",
-      "pending": "Enviado. Aguarda revisão no Codex.",
+      "applied": "Enviado e publicado no GrimoireCodexDB.",
+      "pending": "Enviado. Aguarda revisão no GrimoireCodexDB.",
       "viewEdit": "Ver a edição"
     },
     "fields": {

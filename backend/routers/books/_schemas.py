@@ -61,8 +61,8 @@ class BookUpdate(BaseModel):
     access_level: Optional[str] = None
     codex_id: Optional[str] = None
 
-    # The Grimoire Codex record this one is linked to (issue #35), set when a
-    # Codex lookup is applied. Unlinking goes through DELETE /api/codex/.../link,
+    # The GrimoireCodexDB record this one is linked to (issue #35), set when a
+    # GrimoireCodexDB lookup is applied. Unlinking goes through DELETE /api/codex/.../link,
     # since a None here means "leave alone".
     @field_validator("codex_id")
     @classmethod
@@ -195,7 +195,7 @@ class BookDetail(BaseModel):
     """One book, as built by `core.get_book`."""
 
     id: str
-    # The Grimoire Codex record this one is linked to (issue #35); null when unlinked.
+    # The GrimoireCodexDB record this one is linked to (issue #35); null when unlinked.
     codex_id: Optional[str] = None
     title: str
     filename: str
