@@ -10,6 +10,7 @@ from typing import Any, Optional
 
 from ...config import (
     AUDIO_COVER_DIR,
+    BRANDING_DIR,
     CAMPAIGN_UPLOAD_DIR,
     DB_PATH,
     SYSTEM_COVER_DIR,
@@ -30,6 +31,7 @@ ASSET_DIRS: tuple[tuple[str, str], ...] = (
     (CAMPAIGN_UPLOAD_DIR, "campaign_uploads"),
     (SYSTEM_COVER_DIR, "system_covers"),
     (AUDIO_COVER_DIR, "audio_covers"),
+    (BRANDING_DIR, "branding"),
 )
 
 # One backup at a time per process. Creating a backup holds a read lock on the

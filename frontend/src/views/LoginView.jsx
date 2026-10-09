@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { sanitizeLoginMessage } from '../utils/sanitizeLoginMessage'
 import { auth as authApi } from '../api'
+import OidcLoginButton from '../components/OidcLoginButton'
 
 export default function LoginView({ onLogin }) {
   const { t } = useTranslation()
@@ -16,6 +17,11 @@ export default function LoginView({ onLogin }) {
     custom_login_message: '',
     oidc_enabled: false,
     oidc_button_text: '',
+    oidc_button_bg_color: '',
+    oidc_button_text_color: '',
+    oidc_button_border_color: '',
+    oidc_button_radius: null,
+    oidc_button_icon_url: '',
     oidc_auto_launch: false,
   })
   const [oidcError, setOidcError] = useState('')
@@ -70,6 +76,11 @@ export default function LoginView({ onLogin }) {
           custom_login_message: data.custom_login_message || '',
           oidc_enabled: !!data.oidc_enabled,
           oidc_button_text: data.oidc_button_text || '',
+          oidc_button_bg_color: data.oidc_button_bg_color || '',
+          oidc_button_text_color: data.oidc_button_text_color || '',
+          oidc_button_border_color: data.oidc_button_border_color || '',
+          oidc_button_radius: data.oidc_button_radius ?? null,
+          oidc_button_icon_url: data.oidc_button_icon_url || '',
           oidc_auto_launch: !!data.oidc_auto_launch,
         }
         setConfig(next)
@@ -299,14 +310,15 @@ export default function LoginView({ onLogin }) {
                 </div>
               )}
               {config.oidc_enabled && (
-                <button
-                  type="button"
+                <OidcLoginButton
+                  label={config.oidc_button_text || t('login.oidcDefault')}
                   onClick={handleOidcLogin}
-                  style={oidcBtnStyle}
-                  aria-label={config.oidc_button_text || t('login.oidcDefault')}
-                >
-                  {config.oidc_button_text || t('login.oidcDefault')}
-                </button>
+                  bgColor={config.oidc_button_bg_color}
+                  textColor={config.oidc_button_text_color}
+                  borderColor={config.oidc_button_border_color}
+                  radius={config.oidc_button_radius}
+                  iconUrl={config.oidc_button_icon_url}
+                />
               )}
             </>
           )}
@@ -411,17 +423,4 @@ const revealBtnStyle = {
   letterSpacing: '0.03em',
   textTransform: 'uppercase',
   padding: 4,
-}
-
-const oidcBtnStyle = {
-  width: '100%',
-  padding: '12px',
-  borderRadius: 8,
-  background: 'var(--bg-card)',
-  color: 'var(--text)',
-  fontSize: 15,
-  fontWeight: 500,
-  letterSpacing: '0.04em',
-  cursor: 'pointer',
-  border: '1px solid var(--border)',
 }

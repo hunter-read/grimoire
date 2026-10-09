@@ -115,6 +115,13 @@ class AuthConfigResponse(BaseModel):
     custom_login_message: str
     oidc_enabled: bool
     oidc_button_text: str
+    # Admin-configured button appearance (issue #377). Colors are validated hex
+    # or "" for the theme default; radius is px or null for the default.
+    oidc_button_bg_color: str = ""
+    oidc_button_text_color: str = ""
+    oidc_button_border_color: str = ""
+    oidc_button_radius: Optional[int] = None
+    oidc_button_icon_url: str = ""
     oidc_auto_launch: bool
 
 

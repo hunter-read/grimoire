@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { LuCircleCheck, LuRefreshCw, LuCopy, LuLock, LuEye, LuEyeOff } from 'react-icons/lu'
 import api, { settings as settingsApi } from '../../api'
 import Spinner from '../Spinner'
+import OIDCButtonAppearance from './OIDCButtonAppearance'
 
 const SIGNING_ALGS = [
   'RS256',
@@ -567,6 +568,7 @@ export default function OIDCSettingsSection() {
         label: t('authSettings.oidc.buttonText'),
         hint: t('authSettings.oidc.buttonTextHint'),
       })}
+      <OIDCButtonAppearance data={data} label={draft.oidc_button_text} onSaved={setData} />
       {fieldRow({
         key: 'oidc_groups_claim',
         label: t('authSettings.oidc.groupsClaim'),

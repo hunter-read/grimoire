@@ -33,6 +33,7 @@ from ...sessions import (
 from ..settings._helpers import (
     _get_raw,
     guest_access_effective,
+    oidc_button_icon_url,
     oidc_effective,
     oidc_is_configured,
     password_auth_effective,
@@ -257,6 +258,13 @@ def auth_config(db: Session = Depends(get_db)):
         # The button is shown only when the IdP is fully configured.
         "oidc_enabled": eff["oidc_enabled"] and oidc_ready,
         "oidc_button_text": eff["oidc_button_text"] if oidc_ready else "",
+        "oidc_button_bg_color": eff["oidc_button_bg_color"] if oidc_ready else "",
+        "oidc_button_text_color": eff["oidc_button_text_color"] if oidc_ready else "",
+        "oidc_button_border_color": eff["oidc_button_border_color"] if oidc_ready else "",
+        "oidc_button_radius": (
+            int(eff["oidc_button_radius"]) if oidc_ready and eff["oidc_button_radius"] else None
+        ),
+        "oidc_button_icon_url": oidc_button_icon_url(raw) if oidc_ready else "",
         "oidc_auto_launch": eff["oidc_auto_launch"] and oidc_ready,
     }
 

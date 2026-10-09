@@ -235,7 +235,7 @@ environment:
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
 | `/api/auth/status` | GET | - | Returns `{"initialized": bool}` - used by the frontend to decide whether to show first-run setup |
-| `/api/auth/config` | GET | - | Public auth configuration for the login screen: `{password_auth_enabled, guest_access_enabled, custom_login_message_enabled, custom_login_message, oidc_enabled, oidc_button_text, oidc_auto_launch}`. The custom message is only returned when its toggle is on. OIDC fields are only true/non-empty when the IdP is fully configured. |
+| `/api/auth/config` | GET | - | Public auth configuration for the login screen: `{password_auth_enabled, guest_access_enabled, custom_login_message_enabled, custom_login_message, oidc_enabled, oidc_button_text, oidc_button_bg_color, oidc_button_text_color, oidc_button_border_color, oidc_button_radius, oidc_button_icon_url, oidc_auto_launch}`. The custom message is only returned when its toggle is on. OIDC fields are only true/non-empty when the IdP is fully configured. The `oidc_button_*` appearance fields are validated hex colors or `""` (theme default), `oidc_button_radius` is px or `null`, and `oidc_button_icon_url` is a relative URL or `""` - see [Style the sign-in button](oidc.md#style-the-sign-in-button). |
 | `/api/auth/setup` | POST | - | First-run admin account creation. Body: `{username, password}`. Returns `{token, user}` and sets the `grimoire_session` cookie. Fails with 400 if any users exist. |
 | `/api/auth/login` | POST | - | Authenticate. Body: `{username, password}`. Returns `{token, user}` (`user` includes `display_name`) and sets the `grimoire_session` cookie. Returns 403 if password authentication is disabled. |
 | `/api/auth/guest-login` | POST | - | Exchange a campaign guest invite code for a JWT. Body: `{code}`. Returns `{token, user, campaign_id}` and sets the `grimoire_session` cookie - `user.display_name` is the GM-set guest nickname. Returns 403 if guest access is disabled, 401 for an unknown/expired code. |
@@ -247,6 +247,7 @@ environment:
 | `/api/auth/sessions/{session_id}` | DELETE | any | Revokes a single session belonging to the caller. Returns 404 for an unknown session or one owned by another user. |
 | `/api/auth/openid/login` | GET | - | Start an OIDC login. Redirects to the IdP. Optional `?return_to=/path` to redirect after callback. Returns 503 if OIDC isn't configured. |
 | `/api/auth/openid/callback` | GET | - | OIDC callback. Validates the code, finds/creates the local user, opens a revocable session (`origin: "oidc"`), sets the `grimoire_session` and `grimoire_refresh` cookies, and redirects to the frontend with `#oidc_token=<jwt>`. Only the short-lived access token travels in the fragment; the refresh token is cookie-only. |
+| `/api/auth/openid/button-icon` | GET | - | The admin-configured icon for the OIDC button, always a server-normalized PNG (≤192 px). 404 when no icon is set. Served with `X-Content-Type-Options: nosniff` and `Content-Security-Policy: default-src 'none'; sandbox`. Use the URL from `/api/auth/config`: when its `v` query parameter matches the current icon the response is cacheable forever; otherwise it is `no-cache` with an `ETag`. |
 | `/api/auth/openid/discover` | POST | admin | Server-side discovery fetch. Body: `{issuer_url}`. Returns the relevant endpoints from `.well-known/openid-configuration`. |
 
 ### Users
@@ -1571,6 +1572,8 @@ Feeds are **personalised to the token's owner**: each event's `SUMMARY` and `DES
 | `/api/settings` | GET | Get all application settings |
 | `/api/settings` | PATCH | Update application settings |
 | `/api/settings/ui` | GET | UI visibility flags (any authenticated user) |
+| `/api/settings/oidc-button-icon` | POST | Upload the OIDC button icon. Multipart `file`: PNG, JPEG, WebP, GIF or SVG, max 1 MB (413 above that, 400 for anything that isn't a decodable image). The image is re-encoded - SVGs are rasterized - to a PNG at most 192 px on its longest side, so the uploaded bytes are never served. 400 when `OIDC_BUTTON_ICON` pins it. Returns the full settings. |
+| `/api/settings/oidc-button-icon` | DELETE | Remove the uploaded icon. 400 when `OIDC_BUTTON_ICON` pins it. Returns the full settings. |
 
 The settings response no longer carries a `stats_api_key`, and `PATCH` ignores
 one: API keys moved to [`/api/api-keys`](#api-keys-1), where the key
@@ -1621,13 +1624,17 @@ than appearing and failing.
 | `oidc_client_secret` | string | **Write-only.** Setting a non-empty string saves it. Empty string is a no-op (so form re-submits don't clobber). The literal `"__CLEAR__"` wipes the stored secret. GET responses never return the value - instead, `oidc_client_secret_set: bool` and `oidc_client_secret_length: int` are returned. |
 | `oidc_signing_alg` | string | One of `RS256`/`RS384`/`RS512`/`ES256`/`ES384`/`ES512`/`PS256`/`PS384`/`PS512`/`HS256`. Default `RS256`. |
 | `oidc_button_text` | string | Label for the SSO button on the login page. |
+| `oidc_button_bg_color` | string | Button background as a CSS hex color (`#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`), stored lowercase. `""` = theme default. Anything else returns 400. |
+| `oidc_button_text_color` | string | Button text color, same format. |
+| `oidc_button_border_color` | string | Button border color, same format. |
+| `oidc_button_radius` | string | Corner radius in px, an integer `0`-`40`. `""` = default. |
 | `oidc_groups_claim` | string | Optional. Name of the claim containing group memberships. When set, roles are assigned from groups named (case-insensitively) `admin`, `gm`, or `player`; users without a matching group are denied. |
 | `oidc_permissions_claim` | string | Optional. Name of the claim containing a permissions object (e.g. `{viewNSFW: bool}`). When set, the claim must be present in every login or access is denied. |
 | `oidc_match_by` | string | One of `none`, `email`, `username`. How to link an existing local account to an OIDC subject on first login. |
 | `oidc_auto_launch` | bool | When true, `/login` immediately redirects to the IdP. Suppress with `?autoLaunch=0`. |
 | `oidc_auto_register` | bool | Auto-create local accounts on first OIDC login. |
 
-GET responses also include a sibling `<key>_env_locked: bool` for each individual OIDC setting, indicating whether the value is pinned by an environment variable. Patching a locked field returns 400. The fixed callback URL is exposed as `oidc_redirect_uri`.
+GET responses also include a sibling `<key>_env_locked: bool` for each individual OIDC setting, indicating whether the value is pinned by an environment variable. Patching a locked field returns 400. The fixed callback URL is exposed as `oidc_redirect_uri`, and the current button icon (set through `/api/settings/oidc-button-icon`, or pinned by `OIDC_BUTTON_ICON`) as `oidc_button_icon_url` (`""` when there is none).
 
 ### API keys
 
@@ -2533,7 +2540,7 @@ per-format field mapping and how export interacts with sidecar import.
 A backup is a single timestamped `.zip` named `grimoire-backup-<UTC timestamp>.zip`,
 holding a consistent snapshot of the SQLite database (taken with SQLite's online
 backup API, not a file copy) plus the user-authored directories under `DATA_PATH`:
-`campaign_uploads/`, `system_covers/`, and `audio_covers/`. A `details.json`
+`campaign_uploads/`, `system_covers/`, `audio_covers/`, and `branding/`. A `details.json`
 manifest records the app version, timestamp, and trigger. The **library is never
 included**, nor are the regenerable caches (`thumbnails/`, `page_cache/`).
 
