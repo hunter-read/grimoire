@@ -60,6 +60,7 @@ def serialize_book(
         # Raw column, not the resolved level: NULL ("inherit") must survive the
         # round trip so the editor can tell it from an explicit "open".
         "access_level": book.access_level,
+        "codex_id": book.codex_id,
         "is_missing": bool(book.is_missing),
         "relative_path": book.relative_path,
         "variant_count": variant_count,
@@ -110,6 +111,7 @@ def serialize_system_summary(
         "has_cover": has_cover_file(system),
         "is_explicit": bool(system.is_explicit),
         "access_level": system.access_level or "",
+        "codex_id": system.codex_id,
         "is_system_agnostic": bool(system.is_system_agnostic),
         "is_one_page": bool(system.is_one_page),
         # System containers (issues #261, #262).

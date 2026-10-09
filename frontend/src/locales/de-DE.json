@@ -1255,6 +1255,10 @@
           "label": "Add-ons",
           "description": "Community-Metadaten-Add-ons: installieren, aktualisieren, aktivieren, ausführen"
         },
+        "codex": {
+          "label": "Grimoire Codex",
+          "description": "Codex-Verbindungseinstellungen sowie Senden und Lösen von Einträgen"
+        },
         "maintenance": {
           "label": "Wartung",
           "description": "Einstellungen und Export von Metadaten-Sidecar-Dateien"
@@ -2065,7 +2069,8 @@
     "replaceCover": "Bild ersetzen",
     "removeCover": "Entfernen",
     "coverUploadFailed": "Upload fehlgeschlagen",
-    "folderCoverInUse": "Es wird ein Titelbild aus dem Bibliotheksordner dieses Systems verwendet. Entferne es aus dem Ordner, um stattdessen einen Upload zu nutzen."
+    "folderCoverInUse": "Es wird ein Titelbild aus dem Bibliotheksordner dieses Systems verwendet. Entferne es aus dem Ordner, um stattdessen einen Upload zu nutzen.",
+    "codex_id": "Grimoire-Codex-Verknüpfung"
   },
   "bookEditor": {
     "title": "Buch bearbeiten",
@@ -3247,5 +3252,55 @@
     "document": "Regelsatz (JSON oder YAML)",
     "documentHelp": "Ein exportierter oder von Hand geschriebener Regelsatz. Er benötigt einen Abschnitt \"entries\", nach Inhaltstyp gruppiert.",
     "needRulesetFirst": "Erstellen Sie zuerst einen Regelsatz zum Importieren"
+  },
+  "codex": {
+    "settings": {
+      "title": "Grimoire Codex",
+      "description": "Der Community-Katalog für TTRPG-Systeme und -Bücher, direkt in Grimoire eingebaut. „Metadaten abrufen“ kann dort nachschlagen, und das Übernehmen eines Treffers verknüpft den Eintrag damit.",
+      "enabled": "Metadaten in Grimoire Codex nachschlagen",
+      "url": "Codex-Adresse",
+      "urlHint": "Nur ändern, um einen selbst gehosteten Codex zu verwenden.",
+      "sendHashes": "Beim Nachschlagen von Büchern Datei-Hashes senden",
+      "sendHashesHint": "Erkennt ein Buch genau, auch bei unordentlichem Dateinamen, verrät Codex aber, welche Dateien diese Bibliothek enthält.",
+      "token": "API-Token",
+      "tokenPlaceholder": "cdx_…",
+      "tokenSaved": "Ein Token ist gespeichert. Füge ein neues ein, um es zu ersetzen.",
+      "saveToken": "Token speichern",
+      "removeToken": "Token entfernen",
+      "tokenHint": "Nur nötig, um Bücher und Systeme an Codex zu senden. Erstelle eines in Grimoire Codex unter Konto → API-Tokens. Alles Gesendete wird diesem Konto zugeschrieben.",
+      "test": "Verbindung testen",
+      "connected": "Verbunden. Füge ein Token hinzu, um Einträge zu senden.",
+      "connectedAs": "Verbunden als {{name}} ({{role}})",
+      "lockedBy": "Durch {{name}} in der Umgebung festgelegt."
+    },
+    "panel": {
+      "title": "Grimoire Codex",
+      "linked": "Verknüpft · in Codex ansehen",
+      "notLinked": "Nicht verknüpft. Nutze „Metadaten abrufen“, um es in Codex zu finden.",
+      "sendCorrection": "Korrekturen senden",
+      "add": "Zu Codex hinzufügen",
+      "unlink": "Verknüpfung lösen",
+      "chooseFields": "Welche Felder soll Codex aus dieser Bibliothek übernehmen?",
+      "addBookHint": "Damit wird das Buch in Grimoire Codex angelegt, unter dem Codex-Eintrag seines Spielsystems, für alle sichtbar. Je nach Codex-Konto wartet es eventuell auf Prüfung.",
+      "addSystemHint": "Damit wird das System in Grimoire Codex angelegt, für alle sichtbar. Je nach Codex-Konto wartet es eventuell auf Prüfung.",
+      "noteOptional": "Hinweis für Prüfende (optional)",
+      "noteRequired": "Woher stammt das?",
+      "notePlaceholder": "z. B. Von der Produktseite des Verlags",
+      "send": "Senden",
+      "sending": "Wird gesendet…",
+      "cancel": "Abbrechen",
+      "applied": "Gesendet und in Codex sichtbar.",
+      "pending": "Gesendet. Es wartet in Codex auf Prüfung.",
+      "viewEdit": "Änderung ansehen"
+    },
+    "fields": {
+      "authors": "Autor:innen",
+      "artists": "Illustrator:innen",
+      "publisherUrl": "Verlagslink",
+      "pageCount": "Seitenzahl",
+      "explicit": "Explizit",
+      "systemAgnostic": "Systemunabhängig",
+      "onePage": "Einseitig"
+    }
   }
 }

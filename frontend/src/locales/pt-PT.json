@@ -1255,6 +1255,10 @@
           "label": "Extras",
           "description": "Extras de metadados da comunidade: instalar, atualizar, ativar, executar"
         },
+        "codex": {
+          "label": "Grimoire Codex",
+          "description": "Definições de ligação ao Codex, e envio e desligação de fichas"
+        },
         "maintenance": {
           "label": "Manutenção",
           "description": "Definições e exportação de ficheiros sidecar de metadados"
@@ -2065,7 +2069,8 @@
     "replaceCover": "Substituir imagem",
     "removeCover": "Remover",
     "coverUploadFailed": "Falha no envio",
-    "folderCoverInUse": "Uma imagem de capa encontrada na pasta deste sistema está em uso. Remova-a da pasta para usar um envio."
+    "folderCoverInUse": "Uma imagem de capa encontrada na pasta deste sistema está em uso. Remova-a da pasta para usar um envio.",
+    "codex_id": "Ligação ao Grimoire Codex"
   },
   "bookEditor": {
     "title": "Editar livro",
@@ -3247,5 +3252,55 @@
     "document": "Conjunto de regras (JSON ou YAML)",
     "documentHelp": "Um conjunto exportado ou escrito à mão. Precisa de uma secção \"entries\" agrupada por tipo de conteúdo.",
     "needRulesetFirst": "Crie primeiro um conjunto de regras para onde importar"
+  },
+  "codex": {
+    "settings": {
+      "title": "Grimoire Codex",
+      "description": "O catálogo comunitário de sistemas e livros de RPG, integrado no Grimoire. «Obter metadados» pode procurar fichas lá, e aplicar um resultado liga a ficha a ele.",
+      "enabled": "Procurar metadados no Grimoire Codex",
+      "url": "Endereço do Codex",
+      "urlHint": "Altere apenas para usar um Codex auto-alojado.",
+      "sendHashes": "Enviar hashes dos ficheiros ao procurar livros",
+      "sendHashesHint": "Identifica um livro com exatidão, mesmo com um nome de ficheiro confuso, mas diz ao Codex que ficheiros esta biblioteca tem.",
+      "token": "Token de API",
+      "tokenPlaceholder": "cdx_…",
+      "tokenSaved": "Há um token guardado. Cole um novo para o substituir.",
+      "saveToken": "Guardar token",
+      "removeToken": "Remover token",
+      "tokenHint": "Só é necessário para enviar livros e sistemas ao Codex. Crie um no Grimoire Codex em Conta → Tokens de API. Tudo o que enviar é atribuído a essa conta.",
+      "test": "Testar ligação",
+      "connected": "Ligado. Adicione um token para enviar fichas.",
+      "connectedAs": "Ligado como {{name}} ({{role}})",
+      "lockedBy": "Definido por {{name}} no ambiente."
+    },
+    "panel": {
+      "title": "Grimoire Codex",
+      "linked": "Ligado · ver no Codex",
+      "notLinked": "Não ligado. Use «Obter metadados» para o encontrar no Codex.",
+      "sendCorrection": "Enviar correções",
+      "add": "Adicionar ao Codex",
+      "unlink": "Desligar",
+      "chooseFields": "Que campos deve o Codex receber desta biblioteca?",
+      "addBookHint": "Isto cria o livro no Grimoire Codex, sob a ficha do Codex do seu sistema de jogo, visível para todos. Consoante a sua conta do Codex, pode aguardar revisão.",
+      "addSystemHint": "Isto cria o sistema no Grimoire Codex, visível para todos. Consoante a sua conta do Codex, pode aguardar revisão.",
+      "noteOptional": "Nota para quem revê (opcional)",
+      "noteRequired": "De onde vem isto?",
+      "notePlaceholder": "p. ex. Da página do produto da editora",
+      "send": "Enviar",
+      "sending": "A enviar…",
+      "cancel": "Cancelar",
+      "applied": "Enviado e publicado no Codex.",
+      "pending": "Enviado. Aguarda revisão no Codex.",
+      "viewEdit": "Ver a edição"
+    },
+    "fields": {
+      "authors": "Autores",
+      "artists": "Artistas",
+      "publisherUrl": "Ligação da editora",
+      "pageCount": "Número de páginas",
+      "explicit": "Explícito",
+      "systemAgnostic": "Genérico",
+      "onePage": "De uma página"
+    }
   }
 }

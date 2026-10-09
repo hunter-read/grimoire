@@ -6,6 +6,7 @@ from pydantic import BaseModel, field_validator
 
 from ...services import tag_service
 from .._bulk_schemas import bulk_update_model
+from .._codex_schemas import codex_id_validator
 from .._json_list_coercion import (
     PublisherRef,
     coerce_link_list,
@@ -86,6 +87,15 @@ class GameSystemUpdate(BaseModel):
     # path — enforced in the handler. Unlike a book there is no "inherit": a
     # system sits at the top of the cascade, so "" is simply open.
     access_level: Optional[str] = None
+    codex_id: Optional[str] = None
+
+    # The Grimoire Codex record this one is linked to (issue #35), set when a
+    # Codex lookup is applied. Unlinking goes through DELETE /api/codex/.../link,
+    # since a None here means "leave alone".
+    @field_validator("codex_id")
+    @classmethod
+    def check_codex_id(cls, v):
+        return codex_id_validator(v)
 
     @field_validator("access_level")
     @classmethod
@@ -148,6 +158,8 @@ class BookOut(VariantCountMixin, BaseModel):
     """
 
     id: str
+    # The Grimoire Codex record this one is linked to (issue #35); null when unlinked.
+    codex_id: Optional[str] = None
     # `title`/`filename`/`relative_path` are NOT NULL on the model.
     title: str
     filename: str
@@ -203,6 +215,8 @@ class SystemSummary(BaseModel):
     """A game system, as built by `_serializers.serialize_system_summary`."""
 
     id: str
+    # The Grimoire Codex record this one is linked to (issue #35); null when unlinked.
+    codex_id: Optional[str] = None
     # `name`/`slug` are NOT NULL on the model.
     name: str
     slug: str

@@ -3,10 +3,28 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SystemEditor from './SystemEditor'
 import { clearMetadataSourcesCache } from './useMetadataSources'
+import { clearCodexStatusCache } from '../codex/useCodexStatus'
 import api from '../../api'
 
+// The real dialog is covered by its own tests; this stand-in applies a fixed
+// result so the editor's handling of applied fields can be checked here.
+vi.mock('./MetadataFetchDialog', () => ({
+  default: ({ onApply, onClose }) => (
+    <div role="dialog">
+      <button
+        onClick={() => {
+          onApply({ edition: '2e', codex_id: 'sy_cairn2' })
+          onClose()
+        }}
+      >
+        apply fetched
+      </button>
+    </div>
+  ),
+}))
+
 vi.mock('../../api', () => ({
-  default: { patch: vi.fn(), get: vi.fn(), post: vi.fn() },
+  default: { patch: vi.fn(), get: vi.fn(), post: vi.fn(), delete: vi.fn() },
   tags: { list: () => Promise.resolve({ tags: [] }) },
   mediaUrl: (p) => `http://localhost${p}`,
 }))
@@ -16,6 +34,7 @@ beforeEach(() => {
   // Sources are cached per kind for the session; without this, the first
   // test's mocked list would answer for every later one.
   clearMetadataSourcesCache()
+  clearCodexStatusCache()
   api.patch.mockResolvedValue({})
   // useLookups loads genres + system families on mount.
   api.get.mockImplementation((path) =>
@@ -320,5 +339,52 @@ describe('SystemEditor — renaming (issues #261, #262)', () => {
   it('shows no rescan hint for a top-level system', () => {
     render(<SystemEditor system={system({ name: 'Shadowrun' })} onSave={vi.fn()} />)
     expect(screen.queryByText(/rescans/i)).not.toBeInTheDocument()
+  })
+})
+
+describe('SystemEditor — Grimoire Codex (issue #35)', () => {
+  const withCodex = () =>
+    api.get.mockImplementation((path) => {
+      if (path === '/codex/status')
+        return Promise.resolve({ enabled: true, url: 'https://codex.test', can_submit: false })
+      if (path.includes('metadata-sources'))
+        return Promise.resolve({ sources: [{ id: 'grimoire-codex', name: 'Grimoire Codex' }] })
+      return Promise.resolve(path.includes('genres') ? { genres: [] } : { families: [] })
+    })
+
+  it('shows a link made through Fetch metadata, keeping it out of the form', async () => {
+    withCodex()
+    const onSave = vi.fn()
+    render(<SystemEditor system={system()} onSave={onSave} />)
+    expect(await screen.findByText(/Not linked/)).toBeInTheDocument()
+    await userEvent.click(await screen.findByRole('button', { name: /fetch metadata/i }))
+    await userEvent.click(screen.getByRole('button', { name: 'apply fetched' }))
+    expect(onSave).toHaveBeenCalledWith({ edition: '2e', codex_id: 'sy_cairn2' })
+    expect(await screen.findByRole('link', { name: /view on codex/i })).toHaveAttribute(
+      'href',
+      'https://codex.test/systems/sy_cairn2'
+    )
+    // Saving the form afterwards must not send the link back.
+    await userEvent.click(screen.getByRole('button', { name: /save changes/i }))
+    await waitFor(() => expect(api.patch).toHaveBeenCalled())
+    expect(api.patch.mock.calls[0][1]).not.toHaveProperty('codex_id')
+  })
+
+  it('reports an unlink to the parent without closing the editor', async () => {
+    withCodex()
+    api.delete.mockResolvedValue({ status: 'ok' })
+    const onCodexLinkChange = vi.fn()
+    const onSave = vi.fn()
+    render(
+      <SystemEditor
+        system={system({ codex_id: 'sy_cairn2' })}
+        onSave={onSave}
+        onCodexLinkChange={onCodexLinkChange}
+      />
+    )
+    await userEvent.click(await screen.findByRole('button', { name: 'Unlink' }))
+    await waitFor(() => expect(onCodexLinkChange).toHaveBeenCalledWith(null))
+    expect(onSave).not.toHaveBeenCalled()
+    expect(await screen.findByText(/Not linked/)).toBeInTheDocument()
   })
 })

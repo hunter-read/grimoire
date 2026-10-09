@@ -6,6 +6,7 @@ from pydantic import BaseModel, field_validator
 
 from ...services import tag_service
 from .._bulk_schemas import bulk_update_model
+from .._codex_schemas import codex_id_validator
 from .._json_list_coercion import coerce_link_list, coerce_str_list
 from .._variant_schemas import VariantEntry
 
@@ -58,6 +59,15 @@ class BookUpdate(BaseModel):
     #
     # Admin-only on the write path — enforced in the handler, not here.
     access_level: Optional[str] = None
+    codex_id: Optional[str] = None
+
+    # The Grimoire Codex record this one is linked to (issue #35), set when a
+    # Codex lookup is applied. Unlinking goes through DELETE /api/codex/.../link,
+    # since a None here means "leave alone".
+    @field_validator("codex_id")
+    @classmethod
+    def check_codex_id(cls, v):
+        return codex_id_validator(v)
 
     # Books took tags without deduping them; validating here also blocks a name
     # the tags API could not address afterwards (issue #430). Input only — the
@@ -185,6 +195,8 @@ class BookDetail(BaseModel):
     """One book, as built by `core.get_book`."""
 
     id: str
+    # The Grimoire Codex record this one is linked to (issue #35); null when unlinked.
+    codex_id: Optional[str] = None
     title: str
     filename: str
     category: Optional[str] = None

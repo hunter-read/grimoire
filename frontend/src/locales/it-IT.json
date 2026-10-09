@@ -1255,6 +1255,10 @@
           "label": "Componenti aggiuntivi",
           "description": "Componenti aggiuntivi per i metadati della community: installare, aggiornare, attivare, eseguire"
         },
+        "codex": {
+          "label": "Grimoire Codex",
+          "description": "Impostazioni di connessione al Codex, invio e scollegamento delle schede"
+        },
         "maintenance": {
           "label": "Manutenzione",
           "description": "Impostazioni ed esportazione dei file sidecar dei metadati"
@@ -2065,7 +2069,8 @@
     "replaceCover": "Sostituisci immagine",
     "removeCover": "Rimuovi",
     "coverUploadFailed": "Caricamento non riuscito",
-    "folderCoverInUse": "È in uso un'immagine di copertina trovata nella cartella di questo sistema. Rimuovila dalla cartella per usare invece un caricamento."
+    "folderCoverInUse": "È in uso un'immagine di copertina trovata nella cartella di questo sistema. Rimuovila dalla cartella per usare invece un caricamento.",
+    "codex_id": "Collegamento a Grimoire Codex"
   },
   "bookEditor": {
     "title": "Modifica libro",
@@ -3247,5 +3252,55 @@
     "document": "Set di regole (JSON o YAML)",
     "documentHelp": "Un set esportato o scritto a mano. Richiede una sezione \"entries\" raggruppata per tipo di contenuto.",
     "needRulesetFirst": "Crea prima un set di regole in cui importare"
+  },
+  "codex": {
+    "settings": {
+      "title": "Grimoire Codex",
+      "description": "Il catalogo comunitario di sistemi e manuali di GdR, integrato in Grimoire. «Recupera metadati» può cercare lì le schede, e applicare un risultato vi collega la scheda.",
+      "enabled": "Cerca metadati in Grimoire Codex",
+      "url": "Indirizzo del Codex",
+      "urlHint": "Modificalo solo per usare un Codex self-hosted.",
+      "sendHashes": "Invia gli hash dei file durante la ricerca dei manuali",
+      "sendHashesHint": "Identifica un manuale con precisione, anche con un nome file disordinato, ma comunica al Codex quali file contiene questa biblioteca.",
+      "token": "Token API",
+      "tokenPlaceholder": "cdx_…",
+      "tokenSaved": "Un token è salvato. Incollane uno nuovo per sostituirlo.",
+      "saveToken": "Salva token",
+      "removeToken": "Rimuovi token",
+      "tokenHint": "Serve solo per inviare manuali e sistemi al Codex. Creane uno su Grimoire Codex in Account → Token API. Tutto ciò che invii è attribuito a quell’account.",
+      "test": "Prova connessione",
+      "connected": "Connesso. Aggiungi un token per inviare schede.",
+      "connectedAs": "Connesso come {{name}} ({{role}})",
+      "lockedBy": "Impostato da {{name}} nell’ambiente."
+    },
+    "panel": {
+      "title": "Grimoire Codex",
+      "linked": "Collegato · vedi sul Codex",
+      "notLinked": "Non collegato. Usa «Recupera metadati» per trovarlo nel Codex.",
+      "sendCorrection": "Invia correzioni",
+      "add": "Aggiungi al Codex",
+      "unlink": "Scollega",
+      "chooseFields": "Quali campi deve prendere il Codex da questa biblioteca?",
+      "addBookHint": "Crea il manuale in Grimoire Codex, sotto la scheda Codex del suo sistema di gioco, visibile a tutti. A seconda del tuo account Codex potrebbe attendere una revisione.",
+      "addSystemHint": "Crea il sistema in Grimoire Codex, visibile a tutti. A seconda del tuo account Codex potrebbe attendere una revisione.",
+      "noteOptional": "Nota per chi revisiona (facoltativa)",
+      "noteRequired": "Da dove proviene?",
+      "notePlaceholder": "es. Dalla pagina prodotto dell’editore",
+      "send": "Invia",
+      "sending": "Invio…",
+      "cancel": "Annulla",
+      "applied": "Inviato e pubblicato sul Codex.",
+      "pending": "Inviato. In attesa di revisione sul Codex.",
+      "viewEdit": "Vedi la modifica"
+    },
+    "fields": {
+      "authors": "Autori",
+      "artists": "Illustratori",
+      "publisherUrl": "Link dell’editore",
+      "pageCount": "Numero di pagine",
+      "explicit": "Esplicito",
+      "systemAgnostic": "Generico",
+      "onePage": "Una pagina"
+    }
   }
 }

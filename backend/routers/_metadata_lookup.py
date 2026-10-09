@@ -1,8 +1,12 @@
-"""Shared helpers for add-on metadata lookup endpoints (issue #203).
+"""Shared helpers for metadata lookup endpoints (issue #203).
 
 Systems and books expose the same three-step flow — list sources, search, fetch
 a diff — against different targets. The error translation and diff assembly are
 identical, so they live here rather than being duplicated per router.
+
+Sources are the installed community add-ons plus Grimoire Codex, which is built
+in (issue #35) under the reserved id ``codex.SOURCE_ID`` and listed first while
+it is enabled.
 """
 from typing import Any, Optional, Union
 
@@ -10,7 +14,8 @@ from fastapi import HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from .. import addons
+from .. import addons, codex
+from ..codex import lookup as codex_lookup
 from ..models import Book, GameSystem
 from ..services import tag_service
 
@@ -66,9 +71,11 @@ class MetadataFetchResponse(BaseModel):
 
 
 def list_sources(db: Session, target: str) -> dict:
-    """Add-ons currently able to supply metadata for ``target``."""
+    """Sources currently able to supply metadata for ``target``: Codex, then add-ons."""
+    settings = codex.load(db)
+    builtin = [codex_lookup.source(settings)] if settings.enabled else []
     return {
-        "sources": [
+        "sources": builtin + [
             {
                 "id": manifest.id,
                 "name": manifest.name,
@@ -101,9 +108,33 @@ def _translate(exc: Exception) -> HTTPException:
     return HTTPException(400, str(exc))
 
 
-def search(db: Session, source_id: str, query: str, fallback: str) -> dict:
-    """Ranked candidates for ``query``, defaulting to ``fallback``."""
+def _codex_error(exc: Exception) -> HTTPException:
+    """Codex unreachable or failing is a 502; turned off or bad input is a 400."""
+    if isinstance(exc, codex.CodexError):
+        return codex.http_error(exc)
+    return HTTPException(400, str(exc))
+
+
+def search(
+    db: Session,
+    source_id: str,
+    query: str,
+    fallback: str,
+    target: str = "book",
+    resource: Optional[Union[GameSystem, Book]] = None,
+) -> dict:
+    """Ranked candidates for ``query``, defaulting to ``fallback``.
+
+    ``target`` and ``resource`` are only used by Codex, which matches a book on
+    everything known about it rather than on the query text alone.
+    """
     effective = query.strip() or fallback
+    if source_id == codex.SOURCE_ID:
+        try:
+            results = codex_lookup.search(db, codex.load(db), target, query, resource)
+        except codex.CodexError as exc:
+            raise _codex_error(exc) from exc
+        return {"query": effective, "results": results}
     try:
         results = addons.search(db, source_id, effective)
     except (
@@ -135,19 +166,20 @@ def fetch(
     Writes nothing — the caller's client applies its selection through the
     resource's own PATCH endpoint.
     """
-    try:
-        if paste.strip():
-            identity = addons.resolve_identity(db, source_id, paste)
-        if not identity:
-            raise addons.AddonError("no result was chosen")
-        result = addons.fetch_fields(db, source_id, identity, query=query)
-    except (
-        addons.AddonFetchError,
-        addons.AddonScriptError,
-        addons.AddonDataError,
-        addons.AddonError,
-    ) as exc:
-        raise _translate(exc) from exc
+    if source_id == codex.SOURCE_ID:
+        target = "book" if resource_type == "book" else "game-system"
+        try:
+            if paste.strip():
+                identity = codex_lookup.resolve_paste(target, paste)
+            if not identity:
+                raise ValueError("no result was chosen")
+            result = codex_lookup.fetch(codex.load(db), target, identity)
+        except (codex.CodexError, ValueError) as exc:
+            raise _codex_error(exc) from exc
+        identity = result["identity"]
+    else:
+        result = _fetch_addon(db, source_id, identity, query, paste)
+        identity = result.pop("identity")
 
     current_tags = tag_service.display_tags_for_resource(db, resource_type, resource.id)
     fields: list[dict[str, Any]] = addons.build_diff(
@@ -161,3 +193,21 @@ def fetch(
         "attribution": result["attribution"],
         "fields": fields,
     }
+
+
+def _fetch_addon(db: Session, source_id: str, identity: str, query: str, paste: str) -> dict:
+    """An add-on's fields for one candidate, with the identity it resolved to."""
+    try:
+        if paste.strip():
+            identity = addons.resolve_identity(db, source_id, paste)
+        if not identity:
+            raise addons.AddonError("no result was chosen")
+        result = addons.fetch_fields(db, source_id, identity, query=query)
+    except (
+        addons.AddonFetchError,
+        addons.AddonScriptError,
+        addons.AddonDataError,
+        addons.AddonError,
+    ) as exc:
+        raise _translate(exc) from exc
+    return {**result, "identity": identity}

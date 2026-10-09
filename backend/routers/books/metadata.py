@@ -56,7 +56,9 @@ def search_metadata(
     An empty query defaults to the book's title.
     """
     book = _get_book(db, book_id, current_user)
-    return search(db, data.source_id, data.query, fallback=book.title)
+    return search(
+        db, data.source_id, data.query, fallback=book.title, target=TARGET, resource=book
+    )
 
 
 def fetch_metadata(

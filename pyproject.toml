@@ -54,6 +54,8 @@ disable_error_code = [
 module = [
     "backend.config",
     "backend.auth",
+    "backend.codex",
+    "backend.codex.*",
     "backend.api_keys",
     "backend.security",
     "backend.file_cache",

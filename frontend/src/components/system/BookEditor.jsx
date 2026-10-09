@@ -14,6 +14,7 @@ import { cleanLinks, linksForEditing } from '../metadata/metadataUtils'
 import { ACCESS_INHERIT } from '../../accessLevels'
 import { useAuth } from '../../context/AuthContext'
 import MetadataFetchDialog from './MetadataFetchDialog'
+import CodexPanel from '../codex/CodexPanel'
 import BookVersionsSection from './BookVersionsSection'
 import useMetadataSources from './useMetadataSources'
 import { intoBookForm } from './metadataFieldValue'
@@ -64,8 +65,12 @@ export default function BookEditor({
   // Applied fields arrive in API shape (arrays, numbers); the form holds some
   // of them as text, so they are converted before merging in. Tags live in
   // their own state.
+  // The dialog has already saved the link; it stays out of the form so a later
+  // Save cannot quietly restore one the user has since removed.
+  const [codexId, setCodexId] = useState(book.codex_id ?? null)
   const handleFetched = (fields) => {
-    const { tags: fetchedTags, ...rest } = fields
+    const { tags: fetchedTags, codex_id: fetchedCodexId, ...rest } = fields
+    if (fetchedCodexId) setCodexId(fetchedCodexId)
     setForm((f) => ({ ...f, ...intoBookForm(rest) }))
     if (fetchedTags) setTags(fetchedTags)
   }
@@ -361,6 +366,8 @@ export default function BookEditor({
           </button>
         )}
       </div>
+
+      <CodexPanel kind="books" resourceId={book.id} codexId={codexId} onLinkChange={setCodexId} />
 
       {fetching && (
         <MetadataFetchDialog

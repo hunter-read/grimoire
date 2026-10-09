@@ -7,6 +7,7 @@ import api from '../../api'
 import CoverPicker from './CoverPicker'
 import CoverUpload from './CoverUpload'
 import MetadataFetchDialog from './MetadataFetchDialog'
+import CodexPanel from '../codex/CodexPanel'
 import useMetadataSources from './useMetadataSources'
 import GenrePicker from '../metadata/GenrePicker'
 import TagPicker from '../metadata/TagPicker'
@@ -18,7 +19,7 @@ import { groupsFromManaged } from '../metadata/diceMaterials'
 import useLookups from '../metadata/useLookups'
 import { cleanLinks, linksForEditing } from '../metadata/metadataUtils'
 
-export default function SystemEditor({ system, onSave, onCoverChange }) {
+export default function SystemEditor({ system, onSave, onCoverChange, onCodexLinkChange }) {
   const { t } = useTranslation()
   // May be null outside an AuthProvider; see AccessLevelPicker.
   const isAdmin = useAuth()?.user?.role === 'admin'
@@ -59,8 +60,13 @@ export default function SystemEditor({ system, onSave, onCoverChange }) {
 
   // Merge applied fields into the form so the editor reflects them immediately,
   // and tell the parent so its copy of the system stays in step.
+  // The link is saved by the dialog and kept out of the form, so a later Save
+  // cannot quietly restore one the user has since removed.
+  const [codexId, setCodexId] = useState(system.codex_id ?? null)
   const handleFetched = (fields) => {
-    setForm((f) => ({ ...f, ...fields }))
+    const { codex_id: fetchedCodexId, ...rest } = fields
+    if (fetchedCodexId) setCodexId(fetchedCodexId)
+    setForm((f) => ({ ...f, ...rest }))
     onSave(fields)
   }
 
@@ -487,6 +493,16 @@ export default function SystemEditor({ system, onSave, onCoverChange }) {
           </button>
         )}
       </div>
+
+      <CodexPanel
+        kind="systems"
+        resourceId={system.id}
+        codexId={codexId}
+        onLinkChange={(id) => {
+          setCodexId(id)
+          onCodexLinkChange?.(id)
+        }}
+      />
 
       {fetching && (
         <MetadataFetchDialog
