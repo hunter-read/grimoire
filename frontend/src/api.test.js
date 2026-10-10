@@ -1032,6 +1032,14 @@ describe('character, content, and ruleset helpers', () => {
     expect(url()).toBe('/api/characters/c1')
     await characters.remove('c1')
     expect(url()).toBe('/api/characters/c1')
+    await characters.export('c1')
+    expect(url()).toBe('/api/characters/c1/export')
+    await characters.import({ schema_id: 'demo' })
+    expect(url()).toBe('/api/characters/import')
+    await characters.listImportSources()
+    expect(url()).toBe('/api/characters/import-sources')
+    await characters.importFromUrl({ url: 'https://v1.dicecloud.com/character/x' })
+    expect(url()).toBe('/api/characters/import-from-url')
   })
 
   it('covers the content helpers, including bracketed filters', async () => {

@@ -27,6 +27,7 @@ from . import _helpers as helpers
 from ._schemas import (
     CharacterCreate,
     CharacterImport,
+    CharacterImportFromUrl,
     CharacterUpdate,
     SchemaImport,
 )
@@ -650,7 +651,101 @@ def import_character(
     separately would make sharing a two-step affair. An installed copy is
     preferred: theirs may be newer.
     """
-    payload = data.payload or {}
+    return _import_payload(
+        data.payload or {},
+        current_user=current_user,
+        db=db,
+        import_entries=data.import_entries,
+    )
+
+
+def list_import_sources(
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """URL import sources declared by the user's installed sheets.
+
+    Each sheet may list ``import_sources`` (DiceCloud, etc.). The UI shows them
+    under Import so players know which URLs each sheet accepts.
+    """
+    from ...services.characters import importers as url_importers
+
+    rows = (
+        db.query(CharacterSchema)
+        .filter(CharacterSchema.user_id == current_user.id)
+        .order_by(CharacterSchema.name)
+        .all()
+    )
+    sources = []
+    for row in rows:
+        document = row.document if isinstance(row.document, dict) else {}
+        for source in url_importers.sources_from_schema(document):
+            sources.append(
+                {
+                    **source,
+                    "schema_id": row.schema_id,
+                    "schema_name": row.name,
+                    "system": row.system or "",
+                }
+            )
+    return {"sources": sources}
+
+
+def import_character_from_url(
+    data: CharacterImportFromUrl,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Import a character by URL using a sheet-declared import source."""
+    from ...services.characters import importers as url_importers
+
+    url = (data.url or "").strip()
+    if not url_importers.looks_like_http_url(url):
+        raise HTTPException(status_code=400, detail="That is not an http(s) URL")
+
+    listed = list_import_sources(current_user=current_user, db=db)["sources"]
+    if data.schema_id:
+        listed = [s for s in listed if s["schema_id"] == data.schema_id]
+    source = url_importers.find_source_for_url(url, listed)
+    if not source:
+        raise HTTPException(
+            status_code=400,
+            detail="No installed sheet accepts that URL. See the supported sources list.",
+        )
+    if not source.get("available"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Import source {source['id']!r} is not available on this server",
+        )
+
+    try:
+        payload = url_importers.convert_url(
+            url,
+            source_id=source["id"],
+            schema_id=source["schema_id"],
+            api_key=data.api_key,
+        )
+    except url_importers.ImportSourceError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    # Drop non-import keys converters may attach (e.g. portrait_url).
+    payload.pop("portrait_url", None)
+    return _import_payload(
+        payload,
+        current_user=current_user,
+        db=db,
+        import_entries=data.import_entries,
+    )
+
+
+def _import_payload(
+    payload: dict,
+    *,
+    current_user: CurrentUser,
+    db: Session,
+    import_entries: bool,
+):
+    """Shared create path for file import and URL import."""
     schema_id = payload.get("schema_id")
     if not isinstance(schema_id, str) or not schema_id.strip():
         raise HTTPException(status_code=400, detail="That file names no schema")
@@ -682,7 +777,7 @@ def import_character(
         db.flush()
 
     document = _validated_document(schema)
-    if data.import_entries:
+    if import_entries:
         helpers.import_embedded_entries(
             db,
             payload,

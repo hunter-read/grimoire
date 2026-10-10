@@ -7,6 +7,7 @@ from ._schemas import (
     CharacterDetail,
     CharacterExport,
     CharacterListResponse,
+    ImportSourceListResponse,
     PortraitResponse,
     SchemaDeletedResponse,
     SchemaDetail,
@@ -19,6 +20,8 @@ from .core import (
     install_sheet,
     export_character,
     import_character,
+    import_character_from_url,
+    list_import_sources,
     delete_character,
     delete_schema,
     get_character,
@@ -81,6 +84,20 @@ router.add_api_route(
     import_character,
     methods=["POST"],
     summary="Import a character from an exported file",
+    response_model=CharacterDetail,
+)
+router.add_api_route(
+    "/import-sources",
+    list_import_sources,
+    methods=["GET"],
+    summary="List URL import sources from installed sheets",
+    response_model=ImportSourceListResponse,
+)
+router.add_api_route(
+    "/import-from-url",
+    import_character_from_url,
+    methods=["POST"],
+    summary="Import a character from a supported external URL",
     response_model=CharacterDetail,
 )
 router.add_api_route(

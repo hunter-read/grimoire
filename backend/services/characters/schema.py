@@ -475,6 +475,39 @@ def _validate_content_type(name: str, definition: Any) -> None:
             )
 
 
+MAX_IMPORT_SOURCES = 20
+
+
+def _validate_import_sources(sources: Any) -> None:
+    """Check optional ``import_sources`` — URL importers a sheet advertises."""
+    if not isinstance(sources, list):
+        raise SchemaError("'import_sources' must be a list")
+    if len(sources) > MAX_IMPORT_SOURCES:
+        raise SchemaError(f"'import_sources' has more than {MAX_IMPORT_SOURCES} entries")
+    seen: set[str] = set()
+    for index, source in enumerate(sources):
+        what = f"'import_sources'[{index}]"
+        source = _require_dict(source, what)
+        source_id = source.get("id")
+        if not isinstance(source_id, str) or not _ID_RE.match(source_id):
+            raise SchemaError(f"{what} needs a valid 'id'")
+        if source_id in seen:
+            raise SchemaError(f"{what} reuses id {source_id!r}")
+        seen.add(source_id)
+        name = source.get("name")
+        if not isinstance(name, str) or not name.strip():
+            raise SchemaError(f"{what} needs a 'name'")
+        patterns = source.get("url_patterns")
+        if not isinstance(patterns, list) or not patterns:
+            raise SchemaError(f"{what} needs a non-empty 'url_patterns' list")
+        for p_index, pattern in enumerate(patterns):
+            if not isinstance(pattern, str) or not pattern.strip():
+                raise SchemaError(f"{what} url_patterns[{p_index}] must be text")
+        example = source.get("example_url")
+        if example is not None and (not isinstance(example, str) or not example.strip()):
+            raise SchemaError(f"{what} example_url must be text when set")
+
+
 def validate_schema(document: Any, *, scope: str = "gc-sheet") -> dict:
     """Validate a schema document, returning it normalised.
 
@@ -593,6 +626,9 @@ def validate_schema(document: Any, *, scope: str = "gc-sheet") -> dict:
 
     if "layout" in document:
         _validate_layout(document["layout"], known)
+
+    if "import_sources" in document:
+        _validate_import_sources(document["import_sources"])
 
     normalised = dict(document)
 

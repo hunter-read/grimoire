@@ -11,6 +11,8 @@ const mockRemove = vi.fn()
 const mockNavigate = vi.fn()
 
 const mockImportCharacter = vi.fn()
+const mockListImportSources = vi.fn()
+const mockImportFromUrl = vi.fn()
 const mockCampaigns = vi.fn()
 
 vi.mock('../api', () => ({
@@ -18,6 +20,8 @@ vi.mock('../api', () => ({
   characters: {
     portraitUrl: (id, v) => `/api/characters/${id}/portrait${v ? `?v=${v}` : ''}`,
     import: (...a) => mockImportCharacter(...a),
+    listImportSources: (...a) => mockListImportSources(...a),
+    importFromUrl: (...a) => mockImportFromUrl(...a),
     list: (...a) => mockList(...a),
     listSchemas: (...a) => mockListSchemas(...a),
     create: (...a) => mockCreate(...a),
@@ -50,6 +54,20 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockList.mockResolvedValue({ characters: [CHARACTER] })
   mockListSchemas.mockResolvedValue({ schemas: [SCHEMA] })
+  mockListImportSources.mockResolvedValue({
+    sources: [
+      {
+        id: 'dicecloud-v1',
+        name: 'DiceCloud v1',
+        url_patterns: ['https://v1.dicecloud.com/character/*'],
+        example_url: 'https://v1.dicecloud.com/character/AbCdEfGh',
+        available: true,
+        schema_id: 'dnd-5e-2024',
+        schema_name: 'D&D 5th Edition (2024)',
+        system: 'Dungeons & Dragons 5th Edition (2024)',
+      },
+    ],
+  })
   mockCampaigns.mockResolvedValue([{ id: 'camp1', name: 'Curse of Strahd' }])
 })
 
@@ -274,7 +292,7 @@ describe('CharactersView', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('boom')
   })
 
-  describe('importing a character file', () => {
+  describe('importing a character', () => {
     const fileOf = (text) => {
       const file = new File([text], 'c.json', { type: 'application/json' })
       // jsdom's File has no text(), which is what the view reads it with.
@@ -282,12 +300,29 @@ describe('CharactersView', () => {
       return file
     }
 
-    it('imports a file and opens the new character', async () => {
-      mockImportCharacter.mockResolvedValue({ id: 'imported' })
+    const openImport = async () => {
       renderView()
       await screen.findByText('Vex')
+      await userEvent.click(screen.getByRole('button', { name: /Import a character/i }))
+      return screen.findByRole('dialog', { name: /Import a character/i })
+    }
+
+    it('opens a dialog with file drop and URL import', async () => {
+      const dialog = await openImport()
+      expect(within(dialog).getAllByText(/Import from File/i).length).toBeGreaterThan(0)
+      expect(within(dialog).getByLabelText(/Import from URL/i)).toBeInTheDocument()
+      expect(within(dialog).getByText(/Supported character sheets/i)).toBeInTheDocument()
+      expect(within(dialog).getByText('DiceCloud v1')).toBeInTheDocument()
+      expect(
+        within(dialog).getAllByText(/v1\.dicecloud\.com\/character/).length
+      ).toBeGreaterThan(0)
+    })
+
+    it('imports a file and opens the new character', async () => {
+      mockImportCharacter.mockResolvedValue({ id: 'imported' })
+      const dialog = await openImport()
       await userEvent.upload(
-        screen.getByLabelText(/Import a character/i),
+        within(dialog).getByLabelText(/Import from File/i, { selector: 'input' }),
         fileOf('{"schema_id":"demo","name":"Imported"}')
       )
       await waitFor(() =>
@@ -300,22 +335,91 @@ describe('CharactersView', () => {
     })
 
     it('reports a file that is not JSON', async () => {
-      renderView()
-      await screen.findByText('Vex')
-      await userEvent.upload(screen.getByLabelText(/Import a character/i), fileOf('nope'))
-      expect(await screen.findByRole('alert')).toHaveTextContent(/not valid JSON/i)
+      const dialog = await openImport()
+      await userEvent.upload(
+        within(dialog).getByLabelText(/Import from File/i, { selector: 'input' }),
+        fileOf('nope')
+      )
+      expect(await within(dialog).findByRole('alert')).toHaveTextContent(/not valid JSON/i)
       expect(mockImportCharacter).not.toHaveBeenCalled()
     })
 
     it('surfaces a rejected import', async () => {
       mockImportCharacter.mockRejectedValue(new Error('that schema is not installed'))
-      renderView()
-      await screen.findByText('Vex')
+      const dialog = await openImport()
       await userEvent.upload(
-        screen.getByLabelText(/Import a character/i),
+        within(dialog).getByLabelText(/Import from File/i, { selector: 'input' }),
         fileOf('{"schema_id":"ghost"}')
       )
-      expect(await screen.findByRole('alert')).toHaveTextContent('not installed')
+      expect(await within(dialog).findByRole('alert')).toHaveTextContent('not installed')
+    })
+
+    it('imports from a URL', async () => {
+      mockImportFromUrl.mockResolvedValue({ id: 'from-url' })
+      const dialog = await openImport()
+      await userEvent.type(
+        within(dialog).getByLabelText(/Import from URL/i),
+        'https://v1.dicecloud.com/character/AbCdEfGh'
+      )
+      expect(await within(dialog).findByLabelText(/DiceCloud API key/i)).toBeInTheDocument()
+      await userEvent.type(within(dialog).getByLabelText(/DiceCloud API key/i), 'secret')
+      await userEvent.click(within(dialog).getByRole('button', { name: /^Import$/i }))
+      await waitFor(() =>
+        expect(mockImportFromUrl).toHaveBeenCalledWith({
+          url: 'https://v1.dicecloud.com/character/AbCdEfGh',
+          api_key: 'secret',
+        })
+      )
+      expect(mockNavigate).toHaveBeenCalledWith('/characters/from-url')
+    })
+
+    it('surfaces a rejected URL import', async () => {
+      mockImportFromUrl.mockRejectedValue(new Error('No installed sheet accepts that URL'))
+      const dialog = await openImport()
+      await userEvent.type(
+        within(dialog).getByLabelText(/Import from URL/i),
+        'https://v1.dicecloud.com/character/AbCdEfGh'
+      )
+      await userEvent.click(within(dialog).getByRole('button', { name: /^Import$/i }))
+      expect(await within(dialog).findByRole('alert')).toHaveTextContent(/No installed sheet/)
+    })
+
+    it('imports a dropped file', async () => {
+      mockImportCharacter.mockResolvedValue({ id: 'dropped' })
+      const dialog = await openImport()
+      const dropZone = within(dialog).getByRole('button', { name: /Import from File/i })
+      const file = fileOf('{"schema_id":"demo","name":"Dropped"}')
+      const dataTransfer = { files: [file], items: [], types: ['Files'] }
+      dropZone.dispatchEvent(new Event('dragenter', { bubbles: true }))
+      dropZone.dispatchEvent(new Event('dragover', { bubbles: true }))
+      const drop = new Event('drop', { bubbles: true, cancelable: true })
+      Object.defineProperty(drop, 'dataTransfer', { value: dataTransfer })
+      dropZone.dispatchEvent(drop)
+      await waitFor(() =>
+        expect(mockImportCharacter).toHaveBeenCalledWith({
+          schema_id: 'demo',
+          name: 'Dropped',
+        })
+      )
+      expect(mockNavigate).toHaveBeenCalledWith('/characters/dropped')
+    })
+
+    it('shows an empty supported list when no sheet declares sources', async () => {
+      mockListImportSources.mockResolvedValue({ sources: [] })
+      const dialog = await openImport()
+      expect(
+        await within(dialog).findByText(/No installed sheet declares a URL import source/i)
+      ).toBeInTheDocument()
+    })
+
+    it('closes without importing', async () => {
+      const dialog = await openImport()
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+      await waitFor(() =>
+        expect(screen.queryByRole('dialog', { name: /Import a character/i })).not.toBeInTheDocument()
+      )
+      expect(mockImportCharacter).not.toHaveBeenCalled()
+      expect(mockImportFromUrl).not.toHaveBeenCalled()
     })
   })
 
