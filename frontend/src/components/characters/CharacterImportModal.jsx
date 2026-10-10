@@ -93,7 +93,8 @@ export default function CharacterImportModal({ onImported, onClose }) {
     seen.get(key).sources.push(source)
   }
 
-  const needsKey = sources.some(
+  // Optional key for private DiceCloud sheets; public URLs import without one.
+  const showOptionalKey = sources.some(
     (s) => s.id === 'dicecloud-v1' && s.available && url.toLowerCase().includes('dicecloud')
   )
 
@@ -182,7 +183,7 @@ export default function CharacterImportModal({ onImported, onClose }) {
               disabled={busy}
               style={fieldInput}
             />
-            {needsKey ? (
+            {showOptionalKey ? (
               <div>
                 <label htmlFor="character-import-api-key" style={fieldLabel}>
                   {t('characters.importApiKey')}

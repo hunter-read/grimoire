@@ -106,11 +106,21 @@ def test_parse_character_id():
         dicecloud_v1.parse_character_id("not a url")
 
 
-def test_import_from_url_requires_api_key():
-    with pytest.raises(ValueError, match="API key"):
-        dicecloud_v1.import_from_url(
-            "https://v1.dicecloud.com/character/AbCdEfGh", api_key=""
+def test_import_from_url_public_without_api_key():
+    import json
+
+    dump = json.loads(FIXTURE.read_text())
+    with patch(
+        "backend.services.characters.importers.dicecloud_v1.fetch_via_public_ddp",
+        return_value=dump,
+    ) as public:
+        payload = dicecloud_v1.import_from_url(
+            "https://v1.dicecloud.com/character/AbCdEfGh",
+            api_key="",
+            schema_id="dnd-5e-2024",
         )
+    public.assert_called_once_with("AbCdEfGh")
+    assert payload["name"]
 
 
 def test_convert_sample_dump():
@@ -139,7 +149,10 @@ def test_import_from_url_fetches_and_converts():
         def read(self):
             return json.dumps(dump).encode("utf-8")
 
-    with patch("backend.services.characters.importers.dicecloud_v1.urllib.request.urlopen", return_value=_Resp()):
+    with patch(
+        "backend.services.characters.importers.dicecloud_v1.urllib.request.urlopen",
+        return_value=_Resp(),
+    ):
         payload = dicecloud_v1.import_from_url(
             "https://v1.dicecloud.com/character/AbCdEfGh",
             api_key="test-key",

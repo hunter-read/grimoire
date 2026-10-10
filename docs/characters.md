@@ -90,7 +90,7 @@ property filter.
 
 Below those controls, the dialog lists each installed sheet that advertises URL import sources, with the URL patterns (and an example when the sheet provides one).
 
-The D&D 5e (2024) sheet declares **DiceCloud v1** (`https://v1.dicecloud.com/character/…`). Fetching needs a DiceCloud API key: set `DICECLOUD_API_KEY` on the server, or paste a key in the dialog for that import.
+The D&D 5e (2024) sheet declares **DiceCloud v1** (`https://v1.dicecloud.com/character/…`). Public DiceCloud links import with no key (Meteor DDP). Private sheets need `DICECLOUD_API_KEY` on the server, or a key pasted in the dialog.
 
 ## Building a character
 

@@ -88,12 +88,137 @@ def parse_character_id(value: str) -> str:
 
 def fetch_via_api_key(char_id: str, api_key: str) -> dict:
     url = f"{API_BASE}/character/{urllib.parse.quote(char_id)}/json?key={urllib.parse.quote(api_key)}"
-    req = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": "grimoire-dicecloud-v1-import/0.1"})
+    req = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "application/json",
+            "User-Agent": "grimoire-dicecloud-v1-import/0.1",
+        },
+    )
     try:
         with urllib.request.urlopen(req, timeout=60) as resp:
             return json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         raise ValueError(f"DiceCloud API returned {exc.code} for {char_id}") from exc
+
+
+# Collections the converter reads. Matched to what the public Meteor
+# ``singleCharacter`` publication sends for a shared sheet.
+_PUBLIC_COLLECTIONS = (
+    "characters",
+    "classes",
+    "effects",
+    "attacks",
+    "spells",
+    "spellLists",
+    "features",
+    "items",
+    "proficiencies",
+    "notes",
+    "containers",
+    "conditions",
+    "buffs",
+)
+
+
+def fetch_via_public_ddp(char_id: str, *, timeout: float = 60.0) -> dict:
+    """Fetch a *public* DiceCloud v1 sheet over Meteor DDP (no API key).
+
+    The ``/character/:id/json`` HTTP endpoint always demands a key. Public
+    sheets are still readable through the same SockJS/DDP channel the website
+    uses, via the ``singleCharacter`` publication.
+    """
+    try:
+        import websockets  # shipped with uvicorn[standard]
+    except ImportError as exc:  # pragma: no cover - runtime image always has it
+        raise ValueError(
+            "Public DiceCloud import needs the websockets package "
+            "(provided by uvicorn[standard]), or pass an API key."
+        ) from exc
+
+    import asyncio
+    import random
+    import string
+    import time
+
+    async def _run() -> dict:
+        server = str(random.randint(100, 999))
+        session = "".join(random.choices(string.ascii_letters + string.digits, k=8))
+        url = f"wss://v1.dicecloud.com/sockjs/{server}/{session}/websocket"
+        collections: dict[str, dict[str, dict]] = {name: {} for name in _PUBLIC_COLLECTIONS}
+        async with websockets.connect(
+            url,
+            origin=API_BASE,
+            additional_headers={"User-Agent": "grimoire-dicecloud-v1-import/0.1"},
+            open_timeout=15,
+            max_size=8_000_000,
+        ) as ws:
+            first = await asyncio.wait_for(ws.recv(), timeout=5)
+            if not (isinstance(first, str) and first.startswith("o")):
+                raise ValueError("DiceCloud SockJS did not open a session")
+            await ws.send(
+                json.dumps(
+                    json.dumps(
+                        {"msg": "connect", "version": "1", "support": ["1", "pre2", "pre1"]}
+                    )
+                )
+            )
+            deadline = time.monotonic() + timeout
+            while time.monotonic() < deadline:
+                remaining = max(0.1, deadline - time.monotonic())
+                raw = await asyncio.wait_for(ws.recv(), timeout=remaining)
+                if not (isinstance(raw, str) and raw.startswith("a")):
+                    continue
+                for item in json.loads(raw[1:]):
+                    obj = json.loads(item)
+                    msg = obj.get("msg")
+                    if msg == "connected":
+                        await ws.send(
+                            json.dumps(
+                                json.dumps(
+                                    {
+                                        "msg": "sub",
+                                        "id": "char",
+                                        "name": "singleCharacter",
+                                        "params": [char_id],
+                                    }
+                                )
+                            )
+                        )
+                    elif msg == "nosub" and obj.get("id") == "char":
+                        reason = (obj.get("error") or {}).get("reason") or "not found"
+                        raise ValueError(
+                            f"DiceCloud refused the public subscription ({reason}). "
+                            "If the sheet is private, pass an API key."
+                        )
+                    elif msg == "added":
+                        col = obj.get("collection")
+                        if col in collections:
+                            collections[col][obj["id"]] = {
+                                "_id": obj["id"],
+                                **(obj.get("fields") or {}),
+                            }
+                    elif msg == "changed":
+                        col = obj.get("collection")
+                        doc = collections.get(col, {}).get(obj["id"])
+                        if doc is not None:
+                            doc.update(obj.get("fields") or {})
+                    elif msg == "ready" and "char" in (obj.get("subs") or []):
+                        out = {k: list(v.values()) for k, v in collections.items() if v}
+                        if not out.get("characters"):
+                            raise ValueError(
+                                "No character data on that public URL "
+                                "(private sheet? pass an API key)."
+                            )
+                        return out
+            raise ValueError("Timed out waiting for DiceCloud public character data")
+
+    try:
+        return asyncio.run(_run())
+    except ValueError:
+        raise
+    except Exception as exc:
+        raise ValueError(f"Could not fetch public DiceCloud character: {exc}") from exc
 
 
 class _SafeEval(ast.NodeVisitor):
@@ -726,13 +851,16 @@ def convert(data: dict, *, schema_id: str = DEFAULT_SCHEMA_ID, schema_doc: Optio
 
 
 
-def import_from_url(url: str, *, api_key: str, schema_id: str = DEFAULT_SCHEMA_ID) -> dict:
-    """Fetch a DiceCloud v1 character URL and return a Grimoire import payload."""
+def import_from_url(url: str, *, api_key: str = "", schema_id: str = DEFAULT_SCHEMA_ID) -> dict:
+    """Fetch a DiceCloud v1 character URL and return a Grimoire import payload.
+
+    Public sheets use Meteor DDP (no key). Private sheets need ``api_key`` or
+    ``DICECLOUD_API_KEY``.
+    """
     char_id = parse_character_id(url)
-    if not api_key or not api_key.strip():
-        raise ValueError(
-            "DiceCloud v1 import needs an API key. Set DICECLOUD_API_KEY on the "
-            "server, or pass api_key in the import request."
-        )
-    data = fetch_via_api_key(char_id, api_key.strip())
+    key = (api_key or "").strip()
+    if key:
+        data = fetch_via_api_key(char_id, key)
+    else:
+        data = fetch_via_public_ddp(char_id)
     return convert(data, schema_id=schema_id)
