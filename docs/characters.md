@@ -81,6 +81,17 @@ Pasting is not a way around the safety rules: a pasted layout goes through the
 same tag allowlist as a downloaded one, and a pasted stylesheet through the same
 property filter.
 
+## Importing a character
+
+**Import a character** opens a dialog with two ways in:
+
+- **Import from File (Drag file here)** — a Grimoire character export (`.json`).
+- **Import from URL** — paste a link from a host the installed sheet declares under `import_sources`.
+
+Below those controls, the dialog lists each installed sheet that advertises URL import sources, with the URL patterns (and an example when the sheet provides one).
+
+The D&D 5e (2024) sheet declares **DiceCloud v1** (`https://v1.dicecloud.com/character/…`). Fetching needs a DiceCloud API key: set `DICECLOUD_API_KEY` on the server, or paste a key in the dialog for that import.
+
 ## Building a character
 
 **New character** opens a dialog: give the character a name, pick the sheet it

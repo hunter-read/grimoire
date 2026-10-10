@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuUsers, LuPlus, LuFileUp, LuSettings } from 'react-icons/lu'
@@ -6,6 +6,7 @@ import { characters as charactersApi } from '../api'
 import Spinner from '../components/Spinner'
 import SheetManager from '../components/characters/SheetManager'
 import NewCharacterDialog from '../components/characters/NewCharacterDialog'
+import CharacterImportModal from '../components/characters/CharacterImportModal'
 import CharacterCard from '../components/characters/CharacterCard'
 import { isActive } from '../components/characters/characterStatus'
 import { goldBtn, ghostBtn, disabledBtn } from '../components/characters/characterStyles'
@@ -25,13 +26,13 @@ export default function CharactersView() {
   // is where the old /characters/rulesets route now lands.
   const [searchParams, setSearchParams] = useSearchParams()
   const manageParam = searchParams.get('manage')
-  const importRef = useRef(null)
 
   const [loading, setLoading] = useState(true)
   const [characters, setCharacters] = useState([])
   const [schemas, setSchemas] = useState([])
   const [error, setError] = useState('')
   const [creating, setCreating] = useState(false)
+  const [importing, setImporting] = useState(false)
   const [managing, setManaging] = useState(Boolean(manageParam))
 
   const load = useCallback(async () => {
@@ -61,21 +62,6 @@ export default function CharactersView() {
     const created = await charactersApi.create(body)
     setCreating(false)
     navigate(`/characters/${created.id}`)
-  }
-
-  const importCharacter = async (file) => {
-    if (!file) return
-    try {
-      const payload = JSON.parse(await file.text())
-      const created = await charactersApi.import(payload)
-      navigate(`/characters/${created.id}`)
-    } catch (e) {
-      // A bad file and a rejected import both land here; the message says which.
-      setError(e instanceof SyntaxError ? t('characters.importInvalidJson') : e.message)
-    } finally {
-      // Cleared, so choosing the same file again after fixing it still fires.
-      if (importRef.current) importRef.current.value = ''
-    }
   }
 
   const remove = async (character) => {
@@ -121,18 +107,10 @@ export default function CharactersView() {
             <LuSettings size={14} aria-hidden="true" />
             {t('characters.manageSheets')}
           </button>
-          <button type="button" onClick={() => importRef.current?.click()} style={ghostBtn}>
+          <button type="button" onClick={() => setImporting(true)} style={ghostBtn}>
             <LuFileUp size={14} aria-hidden="true" />
             {t('characters.importCharacter')}
           </button>
-          <input
-            ref={importRef}
-            type="file"
-            accept="application/json,.json,.yaml,.yml"
-            aria-label={t('characters.importCharacter')}
-            onChange={(e) => importCharacter(e.target.files?.[0])}
-            style={{ display: 'none' }}
-          />
           <button
             type="button"
             onClick={() => setCreating(true)}
@@ -216,6 +194,16 @@ export default function CharactersView() {
           schemas={schemas}
           onCreate={create}
           onClose={() => setCreating(false)}
+        />
+      ) : null}
+
+      {importing ? (
+        <CharacterImportModal
+          onClose={() => setImporting(false)}
+          onImported={(created) => {
+            setImporting(false)
+            navigate(`/characters/${created.id}`)
+          }}
         />
       ) : null}
 

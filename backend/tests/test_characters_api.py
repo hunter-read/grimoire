@@ -959,3 +959,132 @@ class TestStartingValues:
     def test_a_derived_field_is_not_stored(self, created):
         """Storing it would make it the player's own, and it would stop following."""
         assert "speed" not in created["data"]
+
+
+class TestUrlImport:
+    """Import from a sheet-declared URL source (DiceCloud v1 on 5e sheets)."""
+
+    SCHEMA = {
+        "id": "url-import-demo",
+        "name": "URL Import Demo",
+        "system": "Demo",
+        "version": "1.0.0",
+        "fields": {
+            "hero_name": {"type": "text", "label": "Name"},
+            "level": {"type": "number", "label": "Level", "default": 1},
+        },
+        "name_field": "hero_name",
+        "import_sources": [
+            {
+                "id": "dicecloud-v1",
+                "name": "DiceCloud v1",
+                "url_patterns": ["https://v1.dicecloud.com/character/*"],
+                "example_url": "https://v1.dicecloud.com/character/AbCdEfGh",
+            }
+        ],
+    }
+
+    @pytest.fixture
+    def installed(self, client, admin_headers):
+        resp = client.post(
+            "/api/characters/schemas",
+            json={"document": self.SCHEMA},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200, resp.text
+        yield resp.json()
+        client.delete("/api/characters/schemas/url-import-demo", headers=admin_headers)
+
+    def test_lists_import_sources(self, client, admin_headers, installed):
+        resp = client.get("/api/characters/import-sources", headers=admin_headers)
+        assert resp.status_code == 200
+        sources = resp.json()["sources"]
+        match = [s for s in sources if s["schema_id"] == "url-import-demo"]
+        assert len(match) == 1
+        assert match[0]["id"] == "dicecloud-v1"
+        assert match[0]["available"] is True
+        assert "v1.dicecloud.com" in match[0]["url_patterns"][0]
+
+    def test_rejects_unknown_url(self, client, admin_headers, installed):
+        resp = client.post(
+            "/api/characters/import-from-url",
+            json={"url": "https://example.com/not-supported"},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 400
+        assert "No installed sheet accepts" in resp.json()["detail"]
+
+    def test_rejects_non_http_url(self, client, admin_headers, installed):
+        resp = client.post(
+            "/api/characters/import-from-url",
+            json={"url": "ftp://v1.dicecloud.com/character/x"},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 400
+        assert "http(s)" in resp.json()["detail"]
+
+    def test_rejects_unavailable_source(self, client, admin_headers, installed, monkeypatch):
+        from backend.services.characters import importers as url_importers
+
+        monkeypatch.setattr(
+            url_importers,
+            "find_source_for_url",
+            lambda url, sources: {
+                "id": "dicecloud-v1",
+                "available": False,
+                "schema_id": "url-import-demo",
+            },
+        )
+        resp = client.post(
+            "/api/characters/import-from-url",
+            json={"url": "https://v1.dicecloud.com/character/AbCdEfGh"},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 400
+        assert "not available" in resp.json()["detail"]
+
+    def test_surfaces_converter_errors(self, client, admin_headers, installed, monkeypatch):
+        from backend.services.characters import importers as url_importers
+
+        def boom(*args, **kwargs):
+            raise url_importers.ImportSourceError("fetch failed")
+
+        monkeypatch.setattr(url_importers, "convert_url", boom)
+        resp = client.post(
+            "/api/characters/import-from-url",
+            json={"url": "https://v1.dicecloud.com/character/AbCdEfGh", "api_key": "k"},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "fetch failed"
+
+    def test_imports_from_url(self, client, admin_headers, installed, monkeypatch):
+        from backend.services.characters import importers as url_importers
+
+        def fake_convert(url, *, source_id, schema_id, api_key=None):
+            assert source_id == "dicecloud-v1"
+            assert schema_id == "url-import-demo"
+            return {
+                "$schema": "grimoire://character/v1",
+                "schema_id": schema_id,
+                "name": "Imported Hero",
+                "data": {"hero_name": "Imported Hero", "level": 3},
+                "entries": {},
+                "portrait_url": "https://example.com/p.png",
+            }
+
+        monkeypatch.setattr(url_importers, "convert_url", fake_convert)
+        resp = client.post(
+            "/api/characters/import-from-url",
+            json={
+                "url": "https://v1.dicecloud.com/character/AbCdEfGh",
+                "api_key": "k",
+                "schema_id": "url-import-demo",
+            },
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["name"] == "Imported Hero"
+        assert body["schema_ref"] == "url-import-demo"
+        client.delete(f"/api/characters/{body['id']}", headers=admin_headers)

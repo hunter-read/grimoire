@@ -683,6 +683,8 @@ export const characters = {
   export: (id) => api.get(`/characters/${id}/export`),
   import: (payload, importEntries = true) =>
     api.post('/characters/import', { payload, import_entries: importEntries }),
+  listImportSources: () => api.get('/characters/import-sources'),
+  importFromUrl: (body) => api.post('/characters/import-from-url', body),
   // `v` is the character's `portrait_version`, which changes with the image:
   // portraits are cached for minutes, so the same URL would keep showing the
   // old art after a replacement.
