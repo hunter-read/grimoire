@@ -1799,6 +1799,8 @@ campaign, which is exactly who wants a character sheet.
 | `/api/characters/:id` | PUT | user | Update `name`, `data`, `unset`, `campaign_id` and/or `status`. `data` is a **partial patch** - only the fields it names are touched. See below for the reserved keys |
 | `/api/characters/:id` | DELETE | user | Delete a character |
 | `/api/characters/import` | POST | user | Rebuild a character from an exported file |
+| `/api/characters/import-sources` | GET | user | URL import sources declared by the user's installed sheets (id, name, url_patterns, example_url, available, schema_*) |
+| `/api/characters/import-from-url` | POST | user | Import from a supported external URL. Body: `{url, api_key?, import_entries?, schema_id?}`. Matches `url` against sheet `import_sources`; DiceCloud v1 uses `api_key` or `DICECLOUD_API_KEY` |
 | `/api/characters/:id/export` | GET | user | Export a character as a self-contained file |
 | `/api/characters/:id/portrait` | POST | user | Set a portrait (PNG/JPEG/WebP/GIF, 5 MB) |
 | `/api/characters/:id/portrait` | GET | user | The portrait image |

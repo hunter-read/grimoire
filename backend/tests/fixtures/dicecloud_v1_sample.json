@@ -1,0 +1,2127 @@
+{
+  "characters": [
+    {
+      "_id": "QN748GQ9L24gXbiCW",
+      "race": "Pallid Elf",
+      "name": "Creethe Quorath",
+      "gender": "Female",
+      "owner": "F7yFkeTQ6uzhbP6M8",
+      "urlName": "Creethe-Quorath",
+      "alignment": "",
+      "picture": "https://i.imgur.com/Ehkc8Cl.jpeg",
+      "description": "Creethe is a pallid elf with a lean build. Her skin is a light grey pale, like they were permeantly ill. Their body is littered with scars and lacks much embellishment aside from two small circular tattoos in the center of her palms - A sign of her religion. Her eyes are a steely blue.\n\nShe wears simple robed clothing without buttons, tassles or other decoration. Even the colour is faded and drab. The loose clothing helps to conceal light weapons beneath and on her hip, her main weapon - a cruel whip with small shards of glass embedded into its leather. A holy amulet hangs low on her neck, a simple black sphere.\n\nHer expression is invariably a scowl, for generally her circumstances are not to her liking. \n\nIf one somehow got the chance to glimpse beneath the robes, her back is riddled with long scars of old painful whipping welts. And indeed, the more you look, the more you might see in other places, her fair complexion hiding many of the whitened scars that run all over her body.\n\nPallet: Pale, Faded Darks",
+      "personality": "I see omens in every event and action. The gods try to speak to us, we just need to listen.\n\nI am intolerant of other faiths and condemn the worship of other gods.",
+      "ideals": "Tradition. The ancient traditions of worship and sacrifice must be preserved and upheld. (Lawful)\n\nPower. I hope to one day rise to the top of my faith's religious hierarchy. (Lawful)\n\nFaith. I trust that my deity will guide my actions. I have faith that if I work hard, things will go well. (Lawful)\n\nAspiration. I seek to prove myself worthy of my god's favor by matching my actions against their teachings. (Any)",
+      "bonds": "I will do anything to protect the temple where I served.\n\nI seek to preserve a sacred text that my enemies consider heretical and seek to destroy.",
+      "flaws": "I judge others harshly, and myself even more severely\n\nI put too much trust in those who wield power within my temple's hierarchy.\n\nMy piety sometimes leads me to blindly trust those that profess faith in my god.\n\nI am inflexible in my thinking.\n\nI am suspicious of strangers and expect the worst of them",
+      "backstory": "Acolyte\n\n**Shelter of The Faithful**\nAs an acolyte, you command the respect of those who share your faith, and you can perform the religious ceremonies of your deity. You and your adventuring companions can expect to receive free healing and care at a temple, shrine, or other established presence of your faith, though you must provide any material components needed for spells. Those who share your religion will support you (but only you) at a modest lifestyle.\n\nYou might also have ties to a specific temple dedicated to your chosen deity or pantheon, and you have a residence there. This could be the temple where you used to serve, if you remain on good terms with it, or a temple where you have found a new home. While near your temple, you can call upon the priests for assistance, provided the assistance you ask for is not hazardous and you remain in good standing with your temple.\n\n\n",
+      "strengthSave": {
+        "ability": "strength"
+      },
+      "dexteritySave": {
+        "ability": "dexterity"
+      },
+      "constitutionSave": {
+        "ability": "constitution"
+      },
+      "intelligenceSave": {
+        "ability": "intelligence"
+      },
+      "wisdomSave": {
+        "ability": "wisdom"
+      },
+      "charismaSave": {
+        "ability": "charisma"
+      },
+      "acrobatics": {
+        "ability": "dexterity"
+      },
+      "animalHandling": {
+        "ability": "wisdom"
+      },
+      "arcana": {
+        "ability": "intelligence"
+      },
+      "athletics": {
+        "ability": "strength"
+      },
+      "deception": {
+        "ability": "charisma"
+      },
+      "history": {
+        "ability": "intelligence"
+      },
+      "insight": {
+        "ability": "wisdom"
+      },
+      "intimidation": {
+        "ability": "charisma"
+      },
+      "investigation": {
+        "ability": "intelligence"
+      },
+      "medicine": {
+        "ability": "wisdom"
+      },
+      "nature": {
+        "ability": "intelligence"
+      },
+      "perception": {
+        "ability": "wisdom"
+      },
+      "performance": {
+        "ability": "charisma"
+      },
+      "persuasion": {
+        "ability": "charisma"
+      },
+      "religion": {
+        "ability": "intelligence"
+      },
+      "sleightOfHand": {
+        "ability": "dexterity"
+      },
+      "stealth": {
+        "ability": "dexterity"
+      },
+      "survival": {
+        "ability": "wisdom"
+      },
+      "initiative": {
+        "ability": "dexterity"
+      },
+      "dexterityArmor": {
+        "ability": "dexterity"
+      },
+      "readers": [],
+      "writers": [],
+      "color": "q",
+      "settings": {
+        "experiencesInc": 20,
+        "useVariantEncumbrance": false,
+        "useStandardEncumbrance": true,
+        "hideSpellcasting": false,
+        "viewPermission": "public",
+        "swapStatAndModifier": false,
+        "exportFeatures": true,
+        "exportAttacks": true,
+        "exportDescription": true
+      },
+      "strength": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "dexterity": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "constitution": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "intelligence": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "wisdom": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "charisma": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "hitPoints": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "tempHP": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "experience": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "proficiencyBonus": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "speed": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "weight": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "age": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "ageRate": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "armor": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "carryMultiplier": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "level1SpellSlots": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "level2SpellSlots": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "level3SpellSlots": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "level4SpellSlots": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "level5SpellSlots": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "level6SpellSlots": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "level7SpellSlots": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "level8SpellSlots": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "level9SpellSlots": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "ki": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "sorceryPoints": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "rages": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "superiorityDice": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "expertiseDice": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "rageDamage": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "d6HitDice": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "d8HitDice": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "d10HitDice": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "d12HitDice": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "acidMultiplier": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "bludgeoningMultiplier": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "coldMultiplier": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "fireMultiplier": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "forceMultiplier": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "lightningMultiplier": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "necroticMultiplier": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "piercingMultiplier": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "poisonMultiplier": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "psychicMultiplier": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "radiantMultiplier": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "slashingMultiplier": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "thunderMultiplier": {
+        "adjustment": 0,
+        "reset": "longRest"
+      },
+      "deathSave": {
+        "pass": 0,
+        "fail": 0,
+        "canDeathSave": true,
+        "stable": false
+      }
+    }
+  ],
+  "classes": [
+    {
+      "_id": "q8zQQqfiAtZ9dBWT9",
+      "charId": "QN748GQ9L24gXbiCW",
+      "name": "Paladin",
+      "level": 6,
+      "createdAt": "2025-09-10T13:09:39.334Z",
+      "color": "q"
+    }
+  ],
+  "effects": [
+    {
+      "_id": "SQR3v8yfbNzscAsmR",
+      "charId": "QN748GQ9L24gXbiCW",
+      "name": "Constitution modifier for each level",
+      "stat": "hitPoints",
+      "operation": "add",
+      "calculation": "level * constitutionMod",
+      "parent": {
+        "id": "QN748GQ9L24gXbiCW",
+        "collection": "Characters",
+        "group": "Inate"
+      },
+      "enabled": true
+    },
+    {
+      "_id": "zbQsrNLZaEY5Lthem",
+      "charId": "QN748GQ9L24gXbiCW",
+      "name": "Proficiency bonus by level",
+      "stat": "proficiencyBonus",
+      "operation": "add",
+      "calculation": "floor(level / 4 + 1.75)",
+      "parent": {
+        "id": "QN748GQ9L24gXbiCW",
+        "collection": "Characters",
+        "group": "Inate"
+      },
+      "enabled": true
+    },
+    {
+      "_id": "wvFZzQuv2kQGho3k4",
+      "charId": "QN748GQ9L24gXbiCW",
+      "name": "Dexterity Armor Bonus",
+      "stat": "armor",
+      "operation": "add",
+      "calculation": "dexterityArmor",
+      "parent": {
+        "id": "QN748GQ9L24gXbiCW",
+        "collection": "Characters",
+        "group": "Inate"
+      },
+      "enabled": true
+    },
+    {
+      "_id": "ZEcv9rwWPpmB5Ndsh",
+      "charId": "QN748GQ9L24gXbiCW",
+      "name": "Natural Armor",
+      "stat": "armor",
+      "operation": "base",
+      "value": 10,
+      "parent": {
+        "id": "QN748GQ9L24gXbiCW",
+        "collection": "Characters",
+        "group": "Inate"
+      },
+      "enabled": true
+    },
+    {
+      "_id": "hrxxhDvK7p9zHAb4o",
+      "charId": "QN748GQ9L24gXbiCW",
+      "name": "Natural Carrying Capacity",
+      "stat": "carryMultiplier",
+      "operation": "base",
+      "value": 1,
+      "parent": {
+        "id": "QN748GQ9L24gXbiCW",
+        "collection": "Characters",
+        "group": "Inate"
+      },
+      "enabled": true
+    },
+    {
+      "_id": "Qq5fjFzxTFZ5ehekJ",
+      "stat": "strength",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "z2a4NSaMzG8e4Qiih",
+        "collection": "Features"
+      },
+      "operation": "base",
+      "value": 8,
+      "enabled": true
+    },
+    {
+      "_id": "7iPfP9FvcCCnu67HQ",
+      "stat": "dexterity",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "z2a4NSaMzG8e4Qiih",
+        "collection": "Features"
+      },
+      "operation": "base",
+      "value": 8,
+      "enabled": true
+    },
+    {
+      "_id": "hoGnv6pApuqg5tNFe",
+      "stat": "constitution",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "z2a4NSaMzG8e4Qiih",
+        "collection": "Features"
+      },
+      "operation": "base",
+      "value": 15,
+      "enabled": true
+    },
+    {
+      "_id": "MWd29StJgHm4E8Hoo",
+      "stat": "intelligence",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "z2a4NSaMzG8e4Qiih",
+        "collection": "Features"
+      },
+      "operation": "base",
+      "value": 11,
+      "enabled": true
+    },
+    {
+      "_id": "PSNNy3YoNNb4Ffb45",
+      "stat": "wisdom",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "z2a4NSaMzG8e4Qiih",
+        "collection": "Features"
+      },
+      "operation": "base",
+      "value": 15,
+      "enabled": true
+    },
+    {
+      "_id": "GsDdcqJLPk6vemmpo",
+      "stat": "charisma",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "z2a4NSaMzG8e4Qiih",
+        "collection": "Features"
+      },
+      "operation": "base",
+      "value": 15,
+      "enabled": true
+    },
+    {
+      "_id": "qAvQqq5bddFP6JfZe",
+      "name": "Species: Elf",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "hEhsgrk8cPd3ADfHR",
+        "collection": "Features"
+      },
+      "operation": "base",
+      "enabled": true,
+      "stat": "speed",
+      "value": 30
+    },
+    {
+      "_id": "5AoLuKRHNYTGWm28i",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "q8zQQqfiAtZ9dBWT9",
+        "collection": "Classes"
+      },
+      "operation": "base",
+      "enabled": true,
+      "stat": "hitPoints",
+      "calculation": "10 + ((PaladinLevel-1)*6)"
+    },
+    {
+      "_id": "uHd2yuCe8ESQB2NRo",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "q8zQQqfiAtZ9dBWT9",
+        "collection": "Classes"
+      },
+      "operation": "base",
+      "enabled": true,
+      "stat": "d8HitDice",
+      "calculation": "level"
+    },
+    {
+      "_id": "PK9TrnwsJhwjSiCf7",
+      "name": "Free Feat: Telepathic",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "TjRGFYB2Ex2znA4Jk",
+        "collection": "Features"
+      },
+      "operation": "add",
+      "enabled": true,
+      "stat": "charisma",
+      "value": 1
+    },
+    {
+      "_id": "4sjNBfLxubkseJgtj",
+      "name": "Species: Elf",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "hEhsgrk8cPd3ADfHR",
+        "collection": "Features"
+      },
+      "operation": "add",
+      "enabled": true,
+      "stat": "constitution",
+      "value": 2
+    },
+    {
+      "_id": "zC6GeoR8wHJb3eoyi",
+      "name": "Species: Elf",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "hEhsgrk8cPd3ADfHR",
+        "collection": "Features"
+      },
+      "operation": "add",
+      "enabled": true,
+      "stat": "charisma",
+      "value": 1
+    },
+    {
+      "_id": "Chi3ziPDbEtYPYsPT",
+      "name": "(4) ASI/Feat",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "eKe8TCGtb7GCTmSfv",
+        "collection": "Features"
+      },
+      "operation": "add",
+      "enabled": true,
+      "stat": "constitution",
+      "value": 1
+    },
+    {
+      "_id": "hjKkLep8fqbmY936M",
+      "name": "Free Feat: Tough",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "TjRGFYB2Ex2znA4Jk",
+        "collection": "Features"
+      },
+      "operation": "add",
+      "enabled": true,
+      "stat": "hitPoints",
+      "calculation": "2*level"
+    },
+    {
+      "_id": "qg2X5dZ8Wr5BZfSPi",
+      "name": "(4) ASI/Feat",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "eKe8TCGtb7GCTmSfv",
+        "collection": "Features"
+      },
+      "operation": "add",
+      "enabled": true,
+      "stat": "charisma",
+      "value": 1
+    },
+    {
+      "_id": "PCSkbSMQSpf8jjqR4",
+      "operation": "add",
+      "value": 2,
+      "stat": "armor",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "gj3uD5AEgdowNTcit",
+        "collection": "Items"
+      },
+      "enabled": true
+    },
+    {
+      "_id": "P2eM6cmhENtehFaiF",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "q8zQQqfiAtZ9dBWT9",
+        "collection": "Classes"
+      },
+      "operation": "base",
+      "enabled": true,
+      "stat": "level1SpellSlots",
+      "value": 4
+    },
+    {
+      "_id": "8KKtXa5narLf22pFa",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "q8zQQqfiAtZ9dBWT9",
+        "collection": "Classes"
+      },
+      "operation": "base",
+      "enabled": true,
+      "stat": "level2SpellSlots",
+      "value": 2
+    },
+    {
+      "_id": "oYep8DRaXLpXXYLjY",
+      "operation": "base",
+      "value": 18,
+      "stat": "armor",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "Gvd2ugLrXMsiK876y",
+        "collection": "Items"
+      },
+      "enabled": true
+    },
+    {
+      "_id": "noRD8dEBzHFH28Yi3",
+      "operation": "mul",
+      "value": 0,
+      "stat": "dexterityArmor",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "Gvd2ugLrXMsiK876y",
+        "collection": "Items"
+      },
+      "enabled": true
+    },
+    {
+      "_id": "DtGhZgHhuwbw2R5Ru",
+      "operation": "disadvantage",
+      "stat": "stealth",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "Gvd2ugLrXMsiK876y",
+        "collection": "Items"
+      },
+      "enabled": true
+    }
+  ],
+  "attacks": [
+    {
+      "_id": "WyYNHt4t9cpY4MCRE",
+      "attackBonus": "max(strengthMod, dexterityMod, charismaMod) + proficiencyBonus + 1",
+      "damage": "1d4 + {max(strengthMod, dexterityMod, charismaMod)} + 1",
+      "details": "Finesse, reach",
+      "damageType": "slashing",
+      "name": "Whip + 1 (Pact)",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "PQe8aMBYcQ7wiZQoB",
+        "collection": "Items"
+      },
+      "color": "q",
+      "enabled": true
+    },
+    {
+      "_id": "8Gw63WCPwwnH9cBGD",
+      "attackBonus": "Dex save",
+      "details": "range 60 feet, target gains no benefit from cover",
+      "damage": "{floor((Level+1)/6)+1}d8",
+      "damageType": "radiant",
+      "name": "Sacred Flame",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "657Szcw2XjqoieWh4",
+        "collection": "Spells"
+      },
+      "color": "q",
+      "enabled": true
+    },
+    {
+      "_id": "a5wiob9NpZawiEtGx",
+      "attackBonus": "dexterityMod + proficiencyBonus",
+      "damage": "1d6 + {dexterityMod}",
+      "details": "Ammunition (range 80/320), two-handed",
+      "damageType": "piercing",
+      "name": "Shortbow",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "Lr3GrcHe76rvrhbgS",
+        "collection": "Items"
+      },
+      "color": "q",
+      "enabled": true
+    }
+  ],
+  "spells": [
+    {
+      "_id": "AXh8WQRGS3qqoQRkR",
+      "castingTime": "action",
+      "description": "You touch one object that is no larger than 10 feet in any dimension. Until the spell ends, the object sheds bright light in a 20-foot radius and dim light for an additional 20 feet. The light can be colored as you like. Completely covering the object with something opaque blocks the light. The spell ends if you cast it again or dismiss it as an action.\n\nIf you target an object held or worn by a hostile creature, that creature must succeed on a DC {DC} Dexterity saving throw to avoid the spell.",
+      "duration": "1 hour",
+      "level": 0,
+      "range": "Touch",
+      "school": "Evocation",
+      "ritual": false,
+      "name": "Light",
+      "components": {
+        "verbal": true,
+        "somatic": false,
+        "concentration": false,
+        "material": "a firefly or phosphorescent moss"
+      },
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "pY5cmnN5ssX2TuJgr",
+        "collection": "SpellLists"
+      },
+      "prepared": "prepared",
+      "color": "b"
+    },
+    {
+      "_id": "eGtwqKisq3DzMKq4t",
+      "castingTime": "action",
+      "description": "This spell sends creatures into a magical slumber. Roll 5d8; the total is how many hit points of creatures this spell can affect. Creatures within 20 feet of a point you choose within range are affected in ascending order of their current hit points (ignoring unconscious creatures). Starting with the creature that has the lowest current hit points, each creature affected by this spell falls unconscious until the spell ends, the sleeper takes damage, or someone uses an action to shake or slap the sleeper awake. Subtract each creature\u2019s hit points from the total before moving on to the creature with the next lowest hit points. A creature\u2019s hit points must be equal to or less than the remaining total for that creature to be affected. \n\nUndead and creatures immune to being charmed aren\u2019t affected by this spell.\n\n***At Higher Levels.*** When you cast this spell using a spell slot of 2nd level or higher, roll an additional 2d8 for each slot level above 1st.",
+      "duration": "1 minute",
+      "level": 1,
+      "range": "90 feet",
+      "school": "Enchantment",
+      "ritual": false,
+      "name": "Sleep",
+      "components": {
+        "verbal": true,
+        "somatic": true,
+        "concentration": false,
+        "material": "a pinch of fine sand, rose petals, or a cricket"
+      },
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "pY5cmnN5ssX2TuJgr",
+        "collection": "SpellLists"
+      },
+      "prepared": "prepared",
+      "color": "b"
+    },
+    {
+      "_id": "y6WnB65x6nB79XNkw",
+      "castingTime": "action",
+      "description": "A creature you touch becomes invisible until the spell ends. Anything the target is wearing or carrying is invisible as long as it is on the target\u2019s person. The spell ends for a target that attacks or casts a spell. ***At Higher Levels.*** When you cast this spell using a spell slot of 3rd level or higher, you can target one additional creature for each slot level above 2nd.",
+      "duration": "Concentration, up to 1 hour",
+      "level": 2,
+      "range": "Touch",
+      "school": "Illusion",
+      "ritual": false,
+      "name": "Invisibility",
+      "components": {
+        "verbal": true,
+        "somatic": true,
+        "concentration": true,
+        "material": "an eyelash encased in gum arabic"
+      },
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "pY5cmnN5ssX2TuJgr",
+        "collection": "SpellLists"
+      },
+      "prepared": "prepared",
+      "color": "b"
+    },
+    {
+      "_id": "MGz4grGyP5rHMsEYJ",
+      "castingTime": "action",
+      "description": "You speak a one-word command to a creature you can see within range. The target must succeed on a DC {DC} Wisdom saving throw or follow the command on its next turn. The spell has no effect if the target is undead, if it doesn\u2019t understand your language, or if your command is directly harmful to it.\n\nSome typical commands and their effects follow. You might issue a command other than one described here. If you do so, the DM determines how the target behaves. If the target can\u2019t follow your command, the spell ends.\n\nApproach. The target moves toward you by the shortest and most direct route, ending its turn if it moves within 5 feet of you.\n\nDrop. The target drops whatever it is holding and then ends its turn.\n\nFlee. The target spends its turn moving away from you by the fastest available means.\n\nGrovel. The target falls prone and then ends its turn.\n\nHalt. The target doesn\u2019t move and takes no actions. A flying creature stays aloft, provided that it is able to do so. If it must move to stay aloft, it flies the minimum distance needed to remain in the air.\n\n***At Higher Levels.*** When you cast this spell using a spell slot of 2nd level or higher, you can affect one additional creature for each slot level above 1st. The creatures must be within 30 feet of each other when you target them.",
+      "duration": "1 round",
+      "level": 1,
+      "range": "60 feet",
+      "school": "Enchantment",
+      "ritual": false,
+      "name": "Command",
+      "components": {
+        "verbal": true,
+        "somatic": false,
+        "concentration": false
+      },
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "wbudpYWkcvPiPq6kZ",
+        "collection": "SpellLists"
+      },
+      "prepared": "always",
+      "color": "b"
+    },
+    {
+      "_id": "t8wFcXcMvB4dzWtpX",
+      "name": "Compelled Duel",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "wbudpYWkcvPiPq6kZ",
+        "collection": "SpellLists"
+      },
+      "prepared": "always",
+      "castingTime": "action",
+      "duration": "Instantaneous",
+      "components": {
+        "verbal": false,
+        "somatic": false,
+        "concentration": false
+      },
+      "ritual": false,
+      "level": 1,
+      "school": "Abjuration",
+      "color": "b"
+    },
+    {
+      "_id": "PX2iHwCpnbdQtyJuy",
+      "castingTime": "action",
+      "description": "You bless up to three creatures of your choice within range. Whenever a target makes an attack roll or a saving throw before the spell ends, the target can roll a d4 and add the number rolled to the attack roll or saving throw.\n\n***At Higher Levels.*** When you cast this spell using a spell slot of 2nd level or higher, you can target one additional creature for each slot level above 1st.",
+      "duration": "Concentration, up to 1 minute",
+      "level": 1,
+      "range": "30 feet",
+      "school": "Enchantment",
+      "ritual": false,
+      "name": "Bless",
+      "components": {
+        "verbal": true,
+        "somatic": true,
+        "concentration": true,
+        "material": "a sprinkling of holy water"
+      },
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "YG5f32AeaSkdYQQnw",
+        "collection": "SpellLists"
+      },
+      "prepared": "unprepared",
+      "color": "q"
+    },
+    {
+      "_id": "XmvDquhMTDH4TNMCr",
+      "castingTime": "action",
+      "description": "A creature you touch regains a number of hit points equal to 1d8 + your spellcasting ability modifier. This spell has no effect on undead or constructs.\n\n***At Higher Levels.*** When you cast this spell using a spell slot of 2nd level or higher, the healing increases by 1d8 for each slot level above 1st.",
+      "duration": "Instantaneous",
+      "level": 1,
+      "range": "Touch",
+      "school": "Evocation",
+      "ritual": false,
+      "name": "Cure Wounds",
+      "components": {
+        "verbal": true,
+        "somatic": true,
+        "concentration": false
+      },
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "YG5f32AeaSkdYQQnw",
+        "collection": "SpellLists"
+      },
+      "prepared": "prepared",
+      "color": "q"
+    },
+    {
+      "_id": "Dh6CZEjoPqmLBbdLF",
+      "castingTime": "action",
+      "description": "For the duration, you know if there is an aberration, celestial, elemental, fey, fiend, or undead within 30 feet of you, as well as where the creature is located. Similarly, you know if there is a place or object within 30 feet of you that has been magically consecrated or desecrated.\n\nThe spell can penetrate most barriers, but it is blocked by 1 foot of stone, 1 inch of common metal, a thin sheet of lead, or 3 feet of wood or dirt.",
+      "duration": "Concentration, up to 10 minutes",
+      "level": 1,
+      "range": "Self",
+      "school": "Divination",
+      "ritual": false,
+      "name": "Detect Evil and Good",
+      "components": {
+        "verbal": true,
+        "somatic": true,
+        "concentration": true
+      },
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "YG5f32AeaSkdYQQnw",
+        "collection": "SpellLists"
+      },
+      "prepared": "unprepared",
+      "color": "q"
+    },
+    {
+      "_id": "qhZdCCA3P4vN7wrkv",
+      "castingTime": "action",
+      "description": "For the duration, you can sense the presence and location of poisons, poisonous creatures, and diseases within 30 feet of you. You also identify the kind of poison, poisonous creature, or disease in each case.\n\nThe spell can penetrate most barriers, but it is blocked by 1 foot of stone, 1 inch of common metal, a thin sheet of lead, or 3 feet of wood or dirt.",
+      "duration": "Concentration, up to 10 minutes",
+      "level": 1,
+      "range": "Self",
+      "school": "Divination",
+      "ritual": true,
+      "name": "Detect Poison and Disease",
+      "components": {
+        "verbal": true,
+        "somatic": true,
+        "concentration": true,
+        "material": "a yew leaf"
+      },
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "YG5f32AeaSkdYQQnw",
+        "collection": "SpellLists"
+      },
+      "prepared": "unprepared",
+      "color": "q"
+    },
+    {
+      "_id": "AY6voDisnszhfZZLZ",
+      "castingTime": "action",
+      "description": "For the duration, you sense the presence of magic within 30 feet of you. If you sense magic in this way, you can use your action to see a faint aura around any visible creature or object in the area that bears magic, and you learn its school of magic, if any. The spell can penetrate most barriers, but it is blocked by 1 foot of stone, 1 inch of common metal, a thin sheet of lead, or 3 feet of wood or dirt.",
+      "duration": "Concentration, up to 10 minutes",
+      "level": 1,
+      "range": "Self",
+      "school": "Divination",
+      "ritual": true,
+      "name": "Detect Magic",
+      "components": {
+        "verbal": true,
+        "somatic": true,
+        "concentration": true
+      },
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "YG5f32AeaSkdYQQnw",
+        "collection": "SpellLists"
+      },
+      "prepared": "prepared",
+      "color": "b"
+    },
+    {
+      "_id": "TwkSFDpybz2ZPJNKA",
+      "castingTime": "bonus action",
+      "description": "Your prayer empowers you with divine radiance. Until the spell ends, your weapon attacks deal an extra 1d4 radiant damage on a hit.",
+      "duration": "Concentration, up to 1 minute",
+      "level": 1,
+      "range": "Self",
+      "school": "Evocation",
+      "ritual": false,
+      "name": "Divine Favor",
+      "components": {
+        "verbal": true,
+        "somatic": true,
+        "concentration": true
+      },
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "YG5f32AeaSkdYQQnw",
+        "collection": "SpellLists"
+      },
+      "prepared": "unprepared",
+      "color": "q"
+    },
+    {
+      "_id": "i5mGiPAEZm6nfSghm",
+      "castingTime": "action",
+      "description": "A willing creature you touch is imbued with bravery. Until the spell ends, the creature is immune to being frightened and gains temporary hit points equal to your spellcasting ability modifier at the start of each of its turns. When the spell ends, the target loses any remaining temporary hit points from this spell.\n\n***At Higher Levels.*** When you cast this spell using a spell slot of 2nd level or higher, you can target one additional creature for each slot level above 1st.",
+      "duration": "Concentration, up to 1 minute",
+      "level": 1,
+      "range": "Touch",
+      "school": "Enchantment",
+      "ritual": false,
+      "name": "Heroism",
+      "components": {
+        "verbal": true,
+        "somatic": true,
+        "concentration": true
+      },
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "YG5f32AeaSkdYQQnw",
+        "collection": "SpellLists"
+      },
+      "prepared": "unprepared",
+      "color": "q"
+    },
+    {
+      "_id": "xtPEfAhuyFBp3bP5R",
+      "castingTime": "action",
+      "description": "Until the spell ends, one willing creature you touch is protected against certain types of creatures: aberrations, celestiais, elementals, fey, fiends, and undead.\n\nThe protection grants several benefits. Creatures of those types have disadvantage on attack rolls against the target. The target also can\u2019t be charmed, frightened, or possessed by them. If the target is already charmed, frightened, or possessed by such a creature, the target has advantage on any new saving throw against the relevant effect.",
+      "duration": "Concentration, up to 10 minutes",
+      "level": 1,
+      "range": "Touch",
+      "school": "Abjuration",
+      "ritual": false,
+      "name": "Protection from Evil and Good",
+      "components": {
+        "verbal": true,
+        "somatic": true,
+        "concentration": true,
+        "material": "holy water or powdered silver and iron, which the spell consumes"
+      },
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "YG5f32AeaSkdYQQnw",
+        "collection": "SpellLists"
+      },
+      "prepared": "unprepared",
+      "color": "q"
+    },
+    {
+      "_id": "FSNkwcriL2ShtbNZe",
+      "castingTime": "action",
+      "description": "All nonmagical food and drink within a 5-foot-radius sphere centered on a point of your choice within range is purified and rendered free of poison and disease.",
+      "duration": "Instantaneous",
+      "level": 1,
+      "range": "10 feet",
+      "school": "Transmutation",
+      "ritual": true,
+      "name": "Purify Food and Drink",
+      "components": {
+        "verbal": true,
+        "somatic": true,
+        "concentration": false
+      },
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "YG5f32AeaSkdYQQnw",
+        "collection": "SpellLists"
+      },
+      "prepared": "unprepared",
+      "color": "q"
+    },
+    {
+      "_id": "sTWPoTyFP82Whoysf",
+      "castingTime": "bonus action",
+      "description": "A shimmering field appears and surrounds a creature of your choice within range, granting it a +2 bonus to AC for the duration.",
+      "duration": "Concentration, up to 10 minutes",
+      "level": 1,
+      "range": "60 feet",
+      "school": "Abjuration",
+      "ritual": false,
+      "name": "Shield of Faith",
+      "components": {
+        "verbal": true,
+        "somatic": true,
+        "concentration": true,
+        "material": "a small parchment with a bit of holy text written on it"
+      },
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "YG5f32AeaSkdYQQnw",
+        "collection": "SpellLists"
+      },
+      "prepared": "prepared",
+      "color": "a"
+    },
+    {
+      "_id": "uHm39h7w9v7RPMusT",
+      "name": "Ceremony",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "YG5f32AeaSkdYQQnw",
+        "collection": "SpellLists"
+      },
+      "prepared": "unprepared",
+      "castingTime": "action",
+      "duration": "Instantaneous",
+      "components": {
+        "verbal": false,
+        "somatic": false,
+        "concentration": false
+      },
+      "ritual": false,
+      "level": 1,
+      "school": "Abjuration",
+      "color": "q"
+    },
+    {
+      "_id": "Jkrn38KgLEaDo6zmE",
+      "name": "Searing Smite",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "YG5f32AeaSkdYQQnw",
+        "collection": "SpellLists"
+      },
+      "prepared": "unprepared",
+      "castingTime": "action",
+      "duration": "Instantaneous",
+      "components": {
+        "verbal": false,
+        "somatic": false,
+        "concentration": false
+      },
+      "ritual": false,
+      "level": 1,
+      "school": "Abjuration",
+      "color": "q"
+    },
+    {
+      "_id": "uTdaw3Gk4iEtRX6og",
+      "name": "Thunderous Smite",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "YG5f32AeaSkdYQQnw",
+        "collection": "SpellLists"
+      },
+      "prepared": "prepared",
+      "castingTime": "action",
+      "duration": "Instantaneous",
+      "components": {
+        "verbal": false,
+        "somatic": false,
+        "concentration": false
+      },
+      "ritual": false,
+      "level": 1,
+      "school": "Abjuration",
+      "color": "b"
+    },
+    {
+      "_id": "JYbanfaxL8NZBHhoz",
+      "name": "Wrathful Smite\t",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "YG5f32AeaSkdYQQnw",
+        "collection": "SpellLists"
+      },
+      "prepared": "unprepared",
+      "castingTime": "action",
+      "duration": "Instantaneous",
+      "components": {
+        "verbal": false,
+        "somatic": false,
+        "concentration": false
+      },
+      "ritual": false,
+      "level": 1,
+      "school": "Abjuration",
+      "color": "q"
+    },
+    {
+      "_id": "KmGG2Mbnqbb4Rku3B",
+      "name": "Find Steed",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "AEoMvStKXbXcZDwuA",
+        "collection": "SpellLists"
+      },
+      "prepared": "prepared",
+      "castingTime": "action",
+      "duration": "Instantaneous",
+      "components": {
+        "verbal": false,
+        "somatic": false,
+        "concentration": false
+      },
+      "ritual": false,
+      "level": 1,
+      "school": "Abjuration",
+      "color": "b"
+    },
+    {
+      "_id": "657Szcw2XjqoieWh4",
+      "castingTime": "action",
+      "description": "Flame-like radiance descends on a creature that you can see within range. The target must succeed on a DC {DC} Dexterity saving throw or take 1d8 radiant damage. The target gains no benefit from cover for this saving throw.\n\nThe spell\u2019s damage increases by 1d8 when you reach 5th level (2d8), 11th level (3d8), and 17th level (4d8).",
+      "duration": "Instantaneous",
+      "level": 0,
+      "range": "60 feet",
+      "school": "Evocation",
+      "ritual": false,
+      "name": "Sacred Flame",
+      "components": {
+        "verbal": true,
+        "somatic": true,
+        "concentration": false
+      },
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "pCENFPcLaHyg7ssJR",
+        "collection": "SpellLists"
+      },
+      "prepared": "prepared",
+      "color": "b"
+    },
+    {
+      "_id": "N5APkAa7yZQ3AwX6u",
+      "castingTime": "action",
+      "description": "You manifest a minor wonder, a sign of supernatural power, within range. You create one of the following magical effects within range:\n\n\u2022  Your voice booms up to three times as loud as normal for 1 minute.\n\n\u2022  You cause flames to flicker, brighten, dim, or change color for 1 minute.\n\n\u2022  You cause harmless tremors in the ground for 1 minute.\n\n\u2022  You create an instantaneous sound that originates from a point of your choice within range, such as a rumble of thunder, the cry of a raven, or omi- nous whispers.\n\n\u2022  You instantaneously cause an unlocked door or win- dow to fly open or slam shut.\n\n\u2022  You alter the appearance of your eyes for 1 minute.\n\nIf you cast this spell multiple times, you can have up to three of its 1-minute effects active at a time, and you can dismiss such an effect as an action.",
+      "duration": "Up to 1 minute",
+      "level": 0,
+      "range": "30 feet",
+      "school": "Transmutation",
+      "ritual": false,
+      "name": "Thaumaturgy",
+      "components": {
+        "verbal": true,
+        "somatic": false,
+        "concentration": false
+      },
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "pCENFPcLaHyg7ssJR",
+        "collection": "SpellLists"
+      },
+      "prepared": "prepared",
+      "color": "b"
+    },
+    {
+      "_id": "NR4xZGA7BrRRLiszC",
+      "castingTime": "action",
+      "description": "Your spell bolsters your allies with toughness and resolve. Choose up to three creatures within range. Each target\u2019s hit point maximum and current hit points increase by 5 for the duration. ***At Higher Levels.*** When you cast this spell using a spell slot of 3rd level or higher, a target\u2019s hit points increase by an additional 5 for each slot level above 2nd.",
+      "duration": "8 hours",
+      "level": 2,
+      "range": "30 feet",
+      "school": "Abjuration",
+      "ritual": false,
+      "name": "Aid",
+      "components": {
+        "verbal": true,
+        "somatic": true,
+        "concentration": false,
+        "material": "a tiny strip of white cloth"
+      },
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "YG5f32AeaSkdYQQnw",
+        "collection": "SpellLists"
+      },
+      "prepared": "unprepared",
+      "color": "q"
+    },
+    {
+      "_id": "ZN9B8DuQimxDEhmQa",
+      "castingTime": "action",
+      "description": "You touch a corpse or other remains. For the duration, the target is protected from decay and can\u2019t become undead. The spell also effectively extends the time limit on raising the target from the dead, since days spent under the influence of this spell don\u2019t count against the time limit of spells such as raise dead.",
+      "duration": "10 days",
+      "level": 2,
+      "range": "Touch",
+      "school": "Necromancy",
+      "ritual": true,
+      "name": "Gentle Repose",
+      "components": {
+        "verbal": true,
+        "somatic": true,
+        "concentration": false,
+        "material": "a pinch of salt and one copper piece placed on each of the corpse\u2019s eyes, which must remain there for the duration"
+      },
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "YG5f32AeaSkdYQQnw",
+        "collection": "SpellLists"
+      },
+      "prepared": "unprepared",
+      "color": "q"
+    },
+    {
+      "_id": "kQcoeyyB5jzwngqa7",
+      "castingTime": "action",
+      "description": "Describe or name an object that is familiar to you. You sense the direction to the object\u2019s location, as lang as that object is within 1,000 feet of you. If the object is in motion, you know the direction of its movement.\n\nThe spell can locate a specific object known to you, as long as you have seen it up close-within 30 feet-at least once. Alternatively, the spell can locate the nearest object of a particular kind, such as a certain kind of apparel, jewelry, furniture, tool, or weapon.\n\nThis spell can\u2019t locate an object if any thickness of lead, even a thin sheet, blocks a direct path between you and the object.",
+      "duration": "Concentration, up to 1 hour",
+      "level": 2,
+      "range": "Self",
+      "school": "Divination",
+      "ritual": false,
+      "name": "Locate Object",
+      "components": {
+        "verbal": true,
+        "somatic": true,
+        "concentration": true,
+        "material": "a forked twig"
+      },
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "YG5f32AeaSkdYQQnw",
+        "collection": "SpellLists"
+      },
+      "prepared": "prepared",
+      "color": "a"
+    },
+    {
+      "_id": "vsyPCwLBZC74RQu2Y",
+      "castingTime": "bonus action",
+      "description": "You touch a nonmagical weapon. Until the spell ends, that weapon becomes a magic weapon with a +1 bonus to attack rolls and damage rolls.\n\n***At Higher Levels.*** When you cast this spell using a spell slot of 4th level or higher, the bonus increases to +2. When you use a spell slot of 6th level or higher, the bonus increases to +3.",
+      "duration": "Concentration, up to 1 hour",
+      "level": 2,
+      "range": "Touch",
+      "school": "Transmutation",
+      "ritual": false,
+      "name": "Magic Weapon",
+      "components": {
+        "verbal": true,
+        "somatic": true,
+        "concentration": true
+      },
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "YG5f32AeaSkdYQQnw",
+        "collection": "SpellLists"
+      },
+      "prepared": "unprepared",
+      "color": "q"
+    },
+    {
+      "_id": "jhq2NtNdemP48Yrrx",
+      "castingTime": "10 minutes",
+      "description": "Up to six creatures of your choice that you can see within range each regain hit points equal to 2d8 + your spellcasting ability modifier. This spell has no effect on undead or constructs.\n\n***At Higher Levels.*** When you cast this spell using a spell slot of 3rd level or higher, the healing increases by 1d8 for each slot level above 2nd.",
+      "duration": "Instantaneous",
+      "level": 2,
+      "range": "30 feet",
+      "school": "Evocation",
+      "ritual": false,
+      "name": "Prayer of Healing",
+      "components": {
+        "verbal": true,
+        "somatic": false,
+        "concentration": false
+      },
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "YG5f32AeaSkdYQQnw",
+        "collection": "SpellLists"
+      },
+      "prepared": "unprepared",
+      "color": "q"
+    },
+    {
+      "_id": "3uXuZQqQ7MSy2Jeyb",
+      "castingTime": "action",
+      "description": "You touch a creature.If it is poisoned, you neutralize the poison. If more than one poison afflicts the target, you neutralize one poison that you know is present, or you neutralize one at random.\n\nFor the duration, the target has advantage on saving throws against being poisoned, and it has resistance to poison damage.",
+      "duration": "1 hour",
+      "level": 2,
+      "range": "Touch",
+      "school": "Abjuration",
+      "ritual": false,
+      "name": "Protection from Poison",
+      "components": {
+        "verbal": true,
+        "somatic": true,
+        "concentration": false
+      },
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "YG5f32AeaSkdYQQnw",
+        "collection": "SpellLists"
+      },
+      "prepared": "unprepared",
+      "color": "q"
+    },
+    {
+      "_id": "derGNa95Ruc4hH8zh",
+      "castingTime": "action",
+      "description": "This spell wards a willing creature you touch and creates a mystic connection between you and the target until the spell ends. While the target is within 60 feet of you, it gains a +1 bonus to AC and saving throws, and it has resistance to all damage. Also, each time it takes damage, you take the same amount of damage. The spell ends if you drop to 0 hit points or if you and the target become separated by more than 60 feet. It also ends if the spell is cast again on either of the connected creatures. You can also dismiss the spell as an action.",
+      "duration": "1 hour",
+      "level": 2,
+      "range": "Touch",
+      "school": "Abjuration",
+      "ritual": false,
+      "name": "Warding Bond",
+      "components": {
+        "verbal": true,
+        "somatic": true,
+        "concentration": false,
+        "material": "a pair of platinum rings worth at least 50 gp each, which you and the target must wear for the duration"
+      },
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "wbudpYWkcvPiPq6kZ",
+        "collection": "SpellLists"
+      },
+      "prepared": "prepared",
+      "color": "a"
+    },
+    {
+      "_id": "6QNXzPdQ5a9JjM42b",
+      "castingTime": "action",
+      "description": "You create a magical zone that guards against deception in a 15-foot-radius sphere centered on a point of your choice within range. Until the spell ends, a creature that enters the spell\u2019s area for the first time on a turn or starts its tum there must make a DC {DC} Charisma saving throw. On a failed save, a creature can\u2019t speak a deliberate lie while in the radius. You know whether each creature succeeds or fails on its saving throw.\n\nAn affected creature is aware of the spell and can thus avoid answering questions to which it would normally respond with a lie. Such a creature can be evasive in its answers as long as it remains within the boundaries of the truth.",
+      "duration": "10 minutes",
+      "level": 2,
+      "range": "60 feet",
+      "school": "Enchantment",
+      "ritual": false,
+      "name": "Zone of Truth",
+      "components": {
+        "verbal": true,
+        "somatic": true,
+        "concentration": false
+      },
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "wbudpYWkcvPiPq6kZ",
+        "collection": "SpellLists"
+      },
+      "prepared": "prepared",
+      "color": "b"
+    },
+    {
+      "_id": "KiaBmEivTerbFmtQt",
+      "name": "Branding Smite",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "YG5f32AeaSkdYQQnw",
+        "collection": "SpellLists"
+      },
+      "prepared": "unprepared",
+      "castingTime": "action",
+      "duration": "Instantaneous",
+      "components": {
+        "verbal": false,
+        "somatic": false,
+        "concentration": false
+      },
+      "ritual": false,
+      "level": 2,
+      "school": "Abjuration",
+      "color": "q"
+    },
+    {
+      "_id": "JEwxCZEn8SCkbbRoo",
+      "name": "Lesser Restoration",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "YG5f32AeaSkdYQQnw",
+        "collection": "SpellLists"
+      },
+      "prepared": "prepared",
+      "castingTime": "action",
+      "duration": "Instantaneous",
+      "components": {
+        "verbal": false,
+        "somatic": false,
+        "concentration": false
+      },
+      "ritual": false,
+      "level": 2,
+      "school": "Abjuration",
+      "color": "q"
+    },
+    {
+      "_id": "qsK7nTSudSug5uiK7",
+      "name": "Divine Smite ",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "AEoMvStKXbXcZDwuA",
+        "collection": "SpellLists"
+      },
+      "prepared": "prepared",
+      "castingTime": "action",
+      "duration": "Instantaneous",
+      "components": {
+        "verbal": false,
+        "somatic": false,
+        "concentration": false
+      },
+      "ritual": false,
+      "level": 1,
+      "school": "Abjuration",
+      "color": "a",
+      "description": "2d8 Radiant damage "
+    },
+    {
+      "_id": "SueW83vcEGwXceGvy",
+      "name": "Krail's Rupture (Unprepared)",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "YG5f32AeaSkdYQQnw",
+        "collection": "SpellLists"
+      },
+      "prepared": "prepared",
+      "castingTime": "reaction in response to being grappled or swallowed whole",
+      "duration": "Instantaneous",
+      "components": {
+        "verbal": false,
+        "somatic": true,
+        "concentration": false
+      },
+      "ritual": false,
+      "level": 2,
+      "school": "Abjuration",
+      "color": "q",
+      "range": "Touch",
+      "description": "You make a slicing motion with your finger and immediately break the grapple of the creature grappling you by magically entering their body and exiting them on the opposite side. The creature must make a Con saving throw, taking 3d2 necrotic damage on a failed save or half as much damage on a successful one.\n\nIf cast in response to being swallowed, you exit the triggering creatures body, regardless of how much damage you deal to it, and fall prone in a space within 10 ft of the triggering creature.\n\n**At higher levels** When you cast this spell with a 3rd level spell slot or higher, the damage increases by 1d12 for each slot above 2nd"
+    },
+    {
+      "_id": "YZ2Q2suEtrG38vz2B",
+      "name": "Drayfn's Curse of Incompetence (Unprepared",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "YG5f32AeaSkdYQQnw",
+        "collection": "SpellLists"
+      },
+      "prepared": "prepared",
+      "castingTime": "action",
+      "duration": "Up to a minute",
+      "components": {
+        "verbal": true,
+        "somatic": true,
+        "concentration": true,
+        "material": "Teardrop"
+      },
+      "ritual": false,
+      "level": 4,
+      "school": "Abjuration",
+      "color": "q",
+      "range": "30",
+      "description": "Your target momentarily forgets its technical abilities. Select a creature within range that has an Intelligence of 3 or higher. Your target must make an Intelligence saving throw or be unable to add its proficiency bonus to any ability checks attack rolls, or saving throws it makes. An affected creature can make a new saving throw at the end of each of its turns, regaining its proficiency bonus on a success\n\n**At higher levels** If you cast this spell using a 5th level spell slot, the duration increases to concentration , u to 10 minutes. If you cast it with 6th, 1 hour. 7th. 1 hour (day??)"
+    }
+  ],
+  "spellLists": [
+    {
+      "_id": "pY5cmnN5ssX2TuJgr",
+      "name": "Lineage Spells",
+      "charId": "QN748GQ9L24gXbiCW",
+      "saveDC": "8 + intelligenceMod + proficiencyBonus",
+      "attackBonus": "intelligenceMod + proficiencyBonus",
+      "color": "q",
+      "settings": {
+        "showUnprepared": true
+      }
+    },
+    {
+      "_id": "YG5f32AeaSkdYQQnw",
+      "name": "Paladin Spelllist",
+      "charId": "QN748GQ9L24gXbiCW",
+      "saveDC": "8 + charismaMod + proficiencyBonus",
+      "attackBonus": "charismaMod + proficiencyBonus",
+      "color": "q",
+      "settings": {
+        "showUnprepared": true
+      },
+      "maxPrepared": "6"
+    },
+    {
+      "_id": "wbudpYWkcvPiPq6kZ",
+      "name": "Oath Spells",
+      "charId": "QN748GQ9L24gXbiCW",
+      "saveDC": "8 + charismaMod + proficiencyBonus",
+      "attackBonus": "charismaMod + proficiencyBonus",
+      "color": "q",
+      "settings": {
+        "showUnprepared": true
+      }
+    },
+    {
+      "_id": "AEoMvStKXbXcZDwuA",
+      "name": "Spells from Features",
+      "charId": "QN748GQ9L24gXbiCW",
+      "saveDC": "8 + charismaMod + proficiencyBonus",
+      "attackBonus": "charismaMod + proficiencyBonus",
+      "color": "q",
+      "settings": {
+        "showUnprepared": true
+      }
+    },
+    {
+      "_id": "pCENFPcLaHyg7ssJR",
+      "name": "Blessed Warrior",
+      "charId": "QN748GQ9L24gXbiCW",
+      "saveDC": "8 + charismaMod + proficiencyBonus",
+      "attackBonus": "charismaMod + proficiencyBonus",
+      "color": "q",
+      "settings": {
+        "showUnprepared": true
+      }
+    }
+  ],
+  "features": [
+    {
+      "_id": "z2a4NSaMzG8e4Qiih",
+      "name": "Base Ability Scores",
+      "charId": "QN748GQ9L24gXbiCW",
+      "enabled": true,
+      "alwaysEnabled": true,
+      "used": 0,
+      "reset": "manual",
+      "color": "q"
+    },
+    {
+      "_id": "55qEJZzMGMZASMNwm",
+      "name": "Sub-Species: Pallid Elf",
+      "charId": "QN748GQ9L24gXbiCW",
+      "enabled": true,
+      "alwaysEnabled": true,
+      "used": 0,
+      "reset": "manual",
+      "color": "l",
+      "description": "- Advantage on Investigation and Insight checks.\n- You know the Light cantrip. When you reach 3rd level, you can cast Sleep once, and it recharges after a long rest. When you reach 5th level, you can cast Invisibility (Self Only) once, and it recharges after a long rest. You do not need the material components required of the spells. Wisdom is your spellcasting ability for these spells"
+    },
+    {
+      "_id": "hEhsgrk8cPd3ADfHR",
+      "name": "(Species) Elf",
+      "charId": "QN748GQ9L24gXbiCW",
+      "enabled": true,
+      "alwaysEnabled": true,
+      "used": 0,
+      "reset": "manual",
+      "color": "l",
+      "description": "Darkvision. You have Darkvision with a range of 60 feet\n\nFey Ancestry. You have Advantage on saving throws you make to avoid or end the Charmed condition.\n\nTrance. You don\u2019t need to sleep, and magic can\u2019t put you to sleep. You can finish a Long Rest in 4 hours if you spend those hours in a trance-like meditation, during which you retain consciousness."
+    },
+    {
+      "_id": "aw5tzc8RScGpwKtyg",
+      "name": "(Paladin: 1) Lay On Hands",
+      "charId": "QN748GQ9L24gXbiCW",
+      "enabled": true,
+      "alwaysEnabled": true,
+      "used": 0,
+      "reset": "manual",
+      "color": "e",
+      "description": "Your blessed touch can heal wounds. You have a pool of healing power that replenishes when you finish a Long Rest. With that pool, you can restore a total number of Hit Points equal to five times your Paladin level.\n\nAs a Bonus Action, you can touch a creature (which could be yourself) and draw power from the pool of healing to restore a number of Hit Points to that creature, up to the maximum amount remaining in the pool.\n\nYou can also expend 5 Hit Points from the pool of healing power to remove the Poisoned condition from the creature; those points don\u2019t also restore Hit Points to the creature.",
+      "uses": "5*level"
+    },
+    {
+      "_id": "BAZpNn4rqBZMwo7R4",
+      "name": "(Paladin: 1) Weapon Mastery",
+      "charId": "QN748GQ9L24gXbiCW",
+      "enabled": true,
+      "alwaysEnabled": true,
+      "used": 0,
+      "reset": "manual",
+      "color": "e",
+      "description": "Your training with weapons allows you to use the mastery properties of two kinds of weapons of your choice with which you have proficiency, such as Longswords and Javelins.\n\nWhenever you finish a Long Rest, you can change the kinds of weapons you chose. For example, you could switch to using the mastery properties of Halberds and Flails.\n\n- Whip \n- Blowgun"
+    },
+    {
+      "_id": "ycYD2YcmW7om9HYmb",
+      "name": "(Paladin: 2) Fighting Style: Blessed Warrior",
+      "charId": "QN748GQ9L24gXbiCW",
+      "enabled": true,
+      "alwaysEnabled": true,
+      "used": 0,
+      "reset": "manual",
+      "color": "e",
+      "description": "You learn two Cleric cantrips of your choice. The chosen cantrips count as Paladin spells for you, and Charisma is your spellcasting ability for them. Whenever you gain a Paladin level, you can replace one of these cantrips with another Cleric cantrip"
+    },
+    {
+      "_id": "Q4NCFkiq735WKLkME",
+      "name": "(Paladin: 2) Paladin\u2019s Smite",
+      "charId": "QN748GQ9L24gXbiCW",
+      "enabled": true,
+      "alwaysEnabled": true,
+      "used": 0,
+      "reset": "manual",
+      "color": "e",
+      "description": "You always have the Divine Smite spell prepared.\nYou can cast it without expending a spell slot, but you must finish a Long Rest before you can cast it this way again.",
+      "uses": "1"
+    },
+    {
+      "_id": "QiFSvoXLqZwwjtiTC",
+      "name": "(Paladin: 3) Channel Divinity",
+      "charId": "QN748GQ9L24gXbiCW",
+      "enabled": true,
+      "alwaysEnabled": true,
+      "used": 0,
+      "reset": "manual",
+      "color": "e",
+      "uses": "2",
+      "description": "You always have the Divine Smite spell prepared. In addition, you can cast it without expending a spell slot, but you must finish a Long Rest before you can cast it in this way again."
+    },
+    {
+      "_id": "3ovt6DhWAsu2svLzT",
+      "name": "(Oath of the Crown)",
+      "charId": "QN748GQ9L24gXbiCW",
+      "enabled": true,
+      "alwaysEnabled": true,
+      "used": 0,
+      "reset": "manual",
+      "color": "e",
+      "description": "In service to the **Crawling King**\n\n**Law**. The law is paramount. It is the mortar that holds the stones of civilization together, and it must be respected.\n\n**Loyalty**. Your word is your bond. Without loyalty, oaths and laws are meaningless.\n\n**Courage**. You must be willing to do what needs to be done for the sake of order, even in the face of overwhelming odds. If you don't act, then who will?\n\n**Responsibility**. You must deal with the consequences of your actions, and you are responsible for fulfilling your duties and obligations\n"
+    },
+    {
+      "_id": "3drx3PDkQBZFbvMfw",
+      "name": "(Oath of the Crown: 3) Channel Divinity: Champion Challenge",
+      "charId": "QN748GQ9L24gXbiCW",
+      "enabled": true,
+      "alwaysEnabled": true,
+      "used": 0,
+      "reset": "manual",
+      "color": "f",
+      "description": "As a bonus action, you issue a challenge that compels other creatures to do battle with you. Each creature of your choice that you can see within 30 feet of you must make a Wisdom saving throw. On a failed save, a creature can't willingly move more than 30 feet away from you. This effect ends on the creature if you are incapacitated or die or if the creature is more than 30 feet away from you."
+    },
+    {
+      "_id": "3HAciZFpQwuBefFy4",
+      "name": "(Oath of the Crown: 3) Channel Divinity: Turn the Tide",
+      "charId": "QN748GQ9L24gXbiCW",
+      "enabled": true,
+      "alwaysEnabled": true,
+      "used": 0,
+      "reset": "manual",
+      "color": "f",
+      "description": "As a bonus action, you can bolster injured creatures with your Channel Divinity. Each creature of your choice that can hear you within 30 feet of you regains hit points equal to 1d6 + your Charisma modifier (minimum of 1) if it has no more than half of its hit points.\n"
+    },
+    {
+      "_id": "B4DcZFCkhSEjCyPyj",
+      "name": "(Oath of the Crown: 3) Channel Divinity: Divine Sense",
+      "charId": "QN748GQ9L24gXbiCW",
+      "enabled": true,
+      "alwaysEnabled": true,
+      "used": 0,
+      "reset": "manual",
+      "color": "f",
+      "description": "As a Bonus Action, you can open your awareness to detect Celestials, Fiends, and Undead. For the next 10 minutes or until you have the Incapacitated condition, you know the location of any creature of those types within 60 feet of yourself, and you know its creature type. Within the same radius, you also detect the presence of any place or object that has been consecrated or desecrated, as with the Hallow spell.\n\n"
+    },
+    {
+      "_id": "TjRGFYB2Ex2znA4Jk",
+      "name": "Free Feat: Tough",
+      "charId": "QN748GQ9L24gXbiCW",
+      "enabled": true,
+      "alwaysEnabled": true,
+      "used": 0,
+      "reset": "manual",
+      "color": "p",
+      "description": "Your maximum Hit Points increase by an amount equal to twice your level when you first take this feat. For example, if you are a level 6 character, your maximum Hit Points would increase by 12.\nWhenever you gain a level after taking this feat, your Hit Point maximum increases by an additional 2 Hit Points.\n"
+    },
+    {
+      "_id": "eKe8TCGtb7GCTmSfv",
+      "name": "(Paladin: 4) ASI/Feat",
+      "charId": "QN748GQ9L24gXbiCW",
+      "enabled": true,
+      "alwaysEnabled": true,
+      "used": 0,
+      "reset": "manual",
+      "color": "e",
+      "description": ""
+    },
+    {
+      "_id": "fY2jBiP9CHSnqzCeg",
+      "name": "(Paladin: 4) Extra Attack",
+      "charId": "QN748GQ9L24gXbiCW",
+      "enabled": true,
+      "alwaysEnabled": true,
+      "used": 0,
+      "reset": "manual",
+      "color": "e"
+    },
+    {
+      "_id": "g7aLH6G82fjY9S7aE",
+      "name": "(Paladin: 5) Faithful Steed",
+      "charId": "QN748GQ9L24gXbiCW",
+      "enabled": true,
+      "alwaysEnabled": true,
+      "used": 0,
+      "reset": "manual",
+      "color": "e",
+      "description": "You can call on the aid of an otherworldly steed. You always have the Find Steed spell prepared.\n\nYou can also cast the spell once without expending a spell slot, and you regain the ability to do so when you finish a Long Rest."
+    },
+    {
+      "_id": "2LZstrf9dKzERPioW",
+      "name": "(Paladin: 6) Aura of Protection",
+      "charId": "QN748GQ9L24gXbiCW",
+      "enabled": true,
+      "alwaysEnabled": true,
+      "used": 0,
+      "reset": "manual",
+      "color": "e",
+      "description": "Starting at 6th level, whenever you or a friendly creature within 10 feet of you must make a saving throw, the creature gains a bonus to the saving throw equal to your Charisma modifier ({charismaMod}) (with a minimum bonus of +1). You must be conscious to grant this bonus.\n\nAt 18th level, the range of this aura increases to 30 feet."
+    }
+  ],
+  "items": [
+    {
+      "_id": "jFXm6bfrfgZqqLC4P",
+      "name": "Gold piece",
+      "plural": "Gold pieces",
+      "charId": "QN748GQ9L24gXbiCW",
+      "quantity": 168,
+      "weight": 0.02,
+      "value": 1,
+      "color": "n",
+      "parent": {
+        "id": "BHCwLxRYLsSWmEQR9",
+        "collection": "Containers"
+      },
+      "settings": {
+        "showIncrement": true
+      },
+      "enabled": false,
+      "requiresAttunement": false
+    },
+    {
+      "_id": "tq5T3HefJs4GNKL3P",
+      "name": "Silver piece",
+      "plural": "Silver pieces",
+      "charId": "QN748GQ9L24gXbiCW",
+      "quantity": 0,
+      "weight": 0.02,
+      "value": 0.1,
+      "color": "q",
+      "parent": {
+        "id": "BHCwLxRYLsSWmEQR9",
+        "collection": "Containers"
+      },
+      "settings": {
+        "showIncrement": true
+      },
+      "enabled": false,
+      "requiresAttunement": false
+    },
+    {
+      "_id": "7cBpA5gZhF9vsMrwx",
+      "name": "Copper piece",
+      "plural": "Copper pieces",
+      "charId": "QN748GQ9L24gXbiCW",
+      "quantity": 0,
+      "weight": 0.02,
+      "value": 0.01,
+      "color": "s",
+      "parent": {
+        "id": "BHCwLxRYLsSWmEQR9",
+        "collection": "Containers"
+      },
+      "settings": {
+        "showIncrement": true
+      },
+      "enabled": false,
+      "requiresAttunement": false
+    },
+    {
+      "_id": "PQe8aMBYcQ7wiZQoB",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "QN748GQ9L24gXbiCW",
+        "collection": "Characters"
+      },
+      "name": "Whip + 1 (Pact)",
+      "quantity": 1,
+      "weight": 3,
+      "value": 2,
+      "enabled": true,
+      "requiresAttunement": false,
+      "settings": {
+        "showIncrement": false
+      },
+      "color": "q"
+    },
+    {
+      "_id": "HHaqsadJJAGHDLq5Q",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "QN748GQ9L24gXbiCW",
+        "collection": "Characters"
+      },
+      "name": "Potion of Healing",
+      "quantity": 1,
+      "weight": 0,
+      "value": 0,
+      "enabled": false,
+      "requiresAttunement": false,
+      "settings": {
+        "showIncrement": false
+      },
+      "color": "q"
+    },
+    {
+      "_id": "gj3uD5AEgdowNTcit",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "QN748GQ9L24gXbiCW",
+        "collection": "Characters"
+      },
+      "name": "Shield",
+      "quantity": 1,
+      "weight": 6,
+      "value": 10,
+      "enabled": true,
+      "requiresAttunement": false,
+      "settings": {
+        "showIncrement": false
+      },
+      "color": "q",
+      "description": "A shield is made from wood or metal and is carried in one hand. Wielding a shield increases your Armor Class by 2. You can benefit from only one shield at a time."
+    },
+    {
+      "_id": "Lr3GrcHe76rvrhbgS",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "QN748GQ9L24gXbiCW",
+        "collection": "Characters"
+      },
+      "name": "Shortbow",
+      "quantity": 1,
+      "weight": 2,
+      "value": 25,
+      "enabled": true,
+      "requiresAttunement": false,
+      "settings": {
+        "showIncrement": false
+      },
+      "color": "q"
+    },
+    {
+      "_id": "Gvd2ugLrXMsiK876y",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "QN748GQ9L24gXbiCW",
+        "collection": "Characters"
+      },
+      "name": "Plate Armor",
+      "quantity": 1,
+      "weight": 65,
+      "value": 1500,
+      "enabled": true,
+      "requiresAttunement": false,
+      "settings": {
+        "showIncrement": false
+      },
+      "color": "q",
+      "description": "Plate consists of shaped, interlocking metal plates to cover the entire body. A suit of plate includes gauntlets, heavy leather boots, a visored helmet, and thick layers of padding underneath the armor. Buckles and straps distribute the weight over the body."
+    }
+  ],
+  "proficiencies": [
+    {
+      "_id": "szFQxzQ2hjtcmjaw9",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "hEhsgrk8cPd3ADfHR",
+        "collection": "Features"
+      },
+      "enabled": true,
+      "value": 1,
+      "type": "skill",
+      "name": "insight"
+    },
+    {
+      "_id": "wLPAfqNahFxuhsnJf",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "q8zQQqfiAtZ9dBWT9",
+        "collection": "Classes"
+      },
+      "enabled": true,
+      "value": 1,
+      "type": "save",
+      "name": "wisdomSave"
+    },
+    {
+      "_id": "eZgtccWejnao5DM54",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "q8zQQqfiAtZ9dBWT9",
+        "collection": "Classes"
+      },
+      "enabled": true,
+      "value": 1,
+      "type": "save",
+      "name": "charismaSave"
+    },
+    {
+      "_id": "sbBLKkdbe2zQc5DoM",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "q8zQQqfiAtZ9dBWT9",
+        "collection": "Classes"
+      },
+      "enabled": true,
+      "value": 1,
+      "type": "skill",
+      "name": "religion"
+    },
+    {
+      "_id": "7kBZTp3XfDTSDi5D3",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "q8zQQqfiAtZ9dBWT9",
+        "collection": "Classes"
+      },
+      "enabled": true,
+      "value": 1,
+      "type": "skill",
+      "name": "medicine"
+    },
+    {
+      "_id": "QkLdf2xq4qcfHoLLE",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "q8zQQqfiAtZ9dBWT9",
+        "collection": "Classes"
+      },
+      "enabled": true,
+      "value": 1,
+      "type": "weapon",
+      "name": "Simple & Martial"
+    },
+    {
+      "_id": "rKphj7mG2jqGYY2zS",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "q8zQQqfiAtZ9dBWT9",
+        "collection": "Classes"
+      },
+      "enabled": true,
+      "value": 1,
+      "type": "armor",
+      "name": "Light, Medium, Heavy, Shields"
+    },
+    {
+      "_id": "MSnnPNB88vuMhhka7",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "QN748GQ9L24gXbiCW",
+        "collection": "Characters",
+        "group": "background"
+      },
+      "enabled": true,
+      "value": 1,
+      "type": "skill",
+      "name": "investigation"
+    },
+    {
+      "_id": "TCyuPRT3Ne2AFQB7M",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "QN748GQ9L24gXbiCW",
+        "collection": "Characters",
+        "group": "background"
+      },
+      "enabled": true,
+      "value": 1,
+      "type": "skill",
+      "name": "persuasion"
+    },
+    {
+      "_id": "Y3gyFFrkx8vFgpmaK",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "QN748GQ9L24gXbiCW",
+        "collection": "Characters",
+        "group": "background"
+      },
+      "enabled": true,
+      "value": 1,
+      "type": "tool",
+      "name": "Thieves' Tools"
+    },
+    {
+      "_id": "jGgRSqDqemSmmamHi",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "QN748GQ9L24gXbiCW",
+        "collection": "Characters",
+        "group": "background"
+      },
+      "enabled": true,
+      "value": 1,
+      "type": "language",
+      "name": "Common"
+    },
+    {
+      "_id": "vyfEoii5HAGF2EwgD",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "QN748GQ9L24gXbiCW",
+        "collection": "Characters",
+        "group": "background"
+      },
+      "enabled": true,
+      "value": 1,
+      "type": "language",
+      "name": "Elven"
+    },
+    {
+      "_id": "ibRqnDYqhKN89wctr",
+      "charId": "QN748GQ9L24gXbiCW",
+      "parent": {
+        "id": "QN748GQ9L24gXbiCW",
+        "collection": "Characters",
+        "group": "background"
+      },
+      "enabled": true,
+      "value": 1,
+      "type": "language",
+      "name": "Sylvan"
+    }
+  ],
+  "notes": [
+    {
+      "_id": "38gt54uf53YZxvz2T",
+      "name": "Backstory Sheet",
+      "charId": "QN748GQ9L24gXbiCW",
+      "color": "q",
+      "description": "[External Link](https://docs.google.com/document/d/1KgUUUtlf_BpTmqJEJ5rLfquJNm3Dy7i-j0fTzxtaxpY/edit?tab=t.0)"
+    },
+    {
+      "_id": "Aq9iheDhDkEnApjR4",
+      "name": "Pics",
+      "charId": "QN748GQ9L24gXbiCW",
+      "color": "q",
+      "description": "![WowieZowie](https://i.imgur.com/EuT5aXE.png)"
+    },
+    {
+      "_id": "Te2cHWwGHMdX5mvDh",
+      "name": "Avrae Notes",
+      "charId": "QN748GQ9L24gXbiCW",
+      "color": "q",
+      "description": "**Prepatory**\n- Armor of Agathys\n\n**Skills**\n- Advantage on Investigation \n- Advantage on Insight \n\n**Attacks:**\n(MultiAttack: 2)\n- !i attack \"Whip +1 (Mastery)\"\n- !i attack \"Shortbow (Mastery)\"\n- !i attack sacred (Sacred Flame)\n- !i cast Sacred Flame (Powerful)\n\n**Actions:**\n- !action \"Lay On Hands: Heal\" -t target -amt 3\n- !action \"Faithful Steed\"\n- !use <see seperate command> (Channel Divinity: Champion Challenge)\n- !cd_tide (Channel Divinity: Turn the Tide)\n- !cd_sense (Channel Divinity: Divine Sense)\n- Cast spell \n\n**Bonus Actions**\n- Divine Smite (After Hit)\n\n**Reactions**\n- Allies within 10ft get +{charismaMod} to saving throws due to aura (not reaction)\n\n**Short Rest**\n- Channel Divinity uses"
+    },
+    {
+      "_id": "MRC9Sz8yBTRLa3cad",
+      "name": "Ideal Build",
+      "charId": "QN748GQ9L24gXbiCW",
+      "color": "q",
+      "description": "Feats to Take:\n - http://dnd2024.wikidot.com/feat:delicious-pain\n - Eldritch Adept (use cha for weapons)"
+    },
+    {
+      "_id": "oTCesRvjyBcibGF6i",
+      "name": "Oath:",
+      "charId": "QN748GQ9L24gXbiCW",
+      "color": "q",
+      "description": "Law. Uphold civilisation and order.\n\nLoyalty. Your word is your bond; without loyalty, oaths and laws are meaningless.\n\nResponsibility. Deal with the consequences of your actions, and fulfil your duties and obligations."
+    },
+    {
+      "_id": "AribHvSesBmcYhnRb",
+      "name": "Champion Challenge",
+      "charId": "QN748GQ9L24gXbiCW",
+      "color": "t",
+      "description": "!use -save wis -dc 15  -effect \"Challenged|cannot move more than 30ft away from Creethe|\" -desc \"As a bonus action, you issue a challenge that compels other creatures to do battle with you. Each creature of your choice that you can see within 30 feet of you must make a Wisdom saving throw. On a failed save, a creature can't willingly move more than 30 feet away from you. This effect ends on the creature if you are incapacitated or die or if the creature is more than 30 feet away from you.\" -title \"Channel Divinity: Champion Challenge!\" -phrase \"There is no escape.\" -cc \"Channel Divinity\" -t <target>"
+    },
+    {
+      "_id": "GzxEAXvExphSSRi3R",
+      "name": "Turn the Tide",
+      "charId": "QN748GQ9L24gXbiCW",
+      "color": "t",
+      "description": "!use -nosave -d \"-1d6 - {charismaMod}\" -title \"Channel Divinity: Turn the Tide\" -desc \"As a bonus action, you bolster injured creatures. Each creature of your choice that can hear you within 30 feet of you and has no more than half of its hit points remaining regains hit points equal to 1d6 + your Charisma modifier (minimum of 1).\" -phrase \"Stand tall! The fight isn't over yet!\" -cc \"Channel Divinity\" -t <target>"
+    }
+  ],
+  "containers": [
+    {
+      "_id": "BHCwLxRYLsSWmEQR9",
+      "name": "Coin Pouch",
+      "charId": "QN748GQ9L24gXbiCW",
+      "isCarried": true,
+      "description": "A sturdy pouch for coins",
+      "color": "d",
+      "weight": 0,
+      "value": 0
+    }
+  ],
+  "conditions": [],
+  "buffs": []
+}
