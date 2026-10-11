@@ -691,6 +691,58 @@ def list_import_sources(
     return {"sources": sources}
 
 
+def _try_import_portrait(
+    *,
+    character_id: str,
+    portrait_url: str,
+    current_user: CurrentUser,
+    db: Session,
+) -> None:
+    """Best-effort: download a remote portrait after URL import.
+
+    A failed portrait must not undo a successful character create — the sheet
+    is usable without art.
+    """
+    from urllib.parse import urlparse
+
+    import httpx
+
+    from . import portraits as portrait_svc
+
+    parsed = urlparse(portrait_url)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        return
+    try:
+        response = httpx.get(
+            portrait_url,
+            timeout=20.0,
+            follow_redirects=True,
+            headers={"User-Agent": "grimoire-character-import/0.1"},
+        )
+    except Exception as exc:
+        logger.info("Portrait download failed for %s: %s", character_id, exc)
+        return
+    if response.status_code >= 400:
+        logger.info(
+            "Portrait download failed for %s: HTTP %s",
+            character_id,
+            response.status_code,
+        )
+        return
+
+    row = db.query(Character).filter_by(id=character_id, user_id=current_user.id).first()
+    if not row:
+        return
+    try:
+        portrait_svc.set_portrait_bytes(
+            row, response.content, response.headers.get("content-type")
+        )
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        logger.info("Portrait save failed for %s: %s", character_id, exc)
+
+
 def import_character_from_url(
     data: CharacterImportFromUrl,
     current_user: CurrentUser = Depends(get_current_user),
@@ -728,14 +780,28 @@ def import_character_from_url(
     except url_importers.ImportSourceError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    # Drop non-import keys converters may attach (e.g. portrait_url).
-    payload.pop("portrait_url", None)
-    return _import_payload(
+    portrait_url = payload.pop("portrait_url", None)
+    created = _import_payload(
         payload,
         current_user=current_user,
         db=db,
         import_entries=data.import_entries,
     )
+    if isinstance(portrait_url, str) and portrait_url.strip():
+        _try_import_portrait(
+            character_id=created["id"],
+            portrait_url=portrait_url.strip(),
+            current_user=current_user,
+            db=db,
+        )
+        # Re-serialize so the client gets portrait_path / portrait_version.
+        row = db.query(Character).filter_by(id=created["id"]).first()
+        schema = _schema_for(db, current_user.id, created["schema_ref"])
+        if row and schema:
+            return _serialize_character(
+                row, schema, detail=True, db=db, viewer_id=current_user.id
+            )
+    return created
 
 
 def _import_payload(

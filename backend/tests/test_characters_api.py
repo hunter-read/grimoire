@@ -1059,6 +1059,11 @@ class TestUrlImport:
         assert resp.json()["detail"] == "fetch failed"
 
     def test_imports_from_url(self, client, admin_headers, installed, monkeypatch):
+        import io
+
+        import httpx
+        from PIL import Image
+
         from backend.services.characters import importers as url_importers
 
         def fake_convert(url, *, source_id, schema_id, api_key=None):
@@ -1073,7 +1078,16 @@ class TestUrlImport:
                 "portrait_url": "https://example.com/p.png",
             }
 
+        png = io.BytesIO()
+        Image.new("RGB", (8, 8), color=(20, 40, 60)).save(png, format="PNG")
+        portrait_bytes = png.getvalue()
+
+        def fake_get(url, **kwargs):
+            assert url == "https://example.com/p.png"
+            return httpx.Response(200, content=portrait_bytes, headers={"content-type": "image/png"})
+
         monkeypatch.setattr(url_importers, "convert_url", fake_convert)
+        monkeypatch.setattr(httpx, "get", fake_get)
         resp = client.post(
             "/api/characters/import-from-url",
             json={
@@ -1087,4 +1101,39 @@ class TestUrlImport:
         body = resp.json()
         assert body["name"] == "Imported Hero"
         assert body["schema_ref"] == "url-import-demo"
+        assert body.get("portrait_path")
+        client.delete(f"/api/characters/{body['id']}", headers=admin_headers)
+
+    def test_import_succeeds_when_portrait_download_fails(
+        self, client, admin_headers, installed, monkeypatch
+    ):
+        import httpx
+
+        from backend.services.characters import importers as url_importers
+
+        monkeypatch.setattr(
+            url_importers,
+            "convert_url",
+            lambda *a, **k: {
+                "$schema": "grimoire://character/v1",
+                "schema_id": "url-import-demo",
+                "name": "No Art",
+                "data": {"hero_name": "No Art"},
+                "entries": {},
+                "portrait_url": "https://example.com/missing.png",
+            },
+        )
+        def boom(*a, **k):
+            raise httpx.ConnectError("down")
+
+        monkeypatch.setattr(httpx, "get", boom)
+        resp = client.post(
+            "/api/characters/import-from-url",
+            json={"url": "https://v1.dicecloud.com/character/AbCdEfGh", "api_key": "k"},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["name"] == "No Art"
+        assert not body.get("portrait_path")
         client.delete(f"/api/characters/{body['id']}", headers=admin_headers)

@@ -8,6 +8,7 @@ campaign.
 """
 import io
 import os
+from typing import Optional
 
 from fastapi import Depends, File, HTTPException, Request, UploadFile
 from sqlalchemy.orm import Session
@@ -66,6 +67,52 @@ def _remove_existing(character_id: str) -> None:
         candidate = os.path.join(CHARACTER_PORTRAIT_DIR, f"{character_id}{extension}")
         if os.path.isfile(candidate):
             os.remove(candidate)
+
+
+def _sniff_content_type(data: bytes, hinted: Optional[str]) -> Optional[str]:
+    """Pick an allowlisted type from a Content-Type hint or magic bytes."""
+    if hinted:
+        hinted = hinted.split(";", 1)[0].strip().lower()
+        if hinted in PORTRAIT_TYPES:
+            return hinted
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if data[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    if data[:6] in (b"GIF87a", b"GIF89a"):
+        return "image/gif"
+    return None
+
+
+def set_portrait_bytes(
+    character: Character, data: bytes, content_type: Optional[str] = None
+) -> str:
+    """Write portrait bytes for an owned character row. Returns the filename."""
+    if len(data) > MAX_PORTRAIT_BYTES:
+        raise ValueError(
+            f"A portrait may be at most {MAX_PORTRAIT_BYTES // (1024 * 1024)} MB"
+        )
+    if not data:
+        raise ValueError("That file is empty")
+    resolved = _sniff_content_type(data, content_type)
+    if not resolved:
+        raise ValueError("That file is not a supported image type")
+    from PIL import Image
+
+    try:
+        Image.open(io.BytesIO(data)).verify()
+    except Exception as exc:
+        raise ValueError("That file is not an image") from exc
+
+    _remove_existing(character.id)
+    filename = f"{character.id}{PORTRAIT_TYPES[resolved]}"
+    os.makedirs(CHARACTER_PORTRAIT_DIR, exist_ok=True)
+    with open(os.path.join(CHARACTER_PORTRAIT_DIR, filename), "wb") as handle:
+        handle.write(data)
+    character.portrait_path = filename
+    return filename
 
 
 def upload_portrait(
