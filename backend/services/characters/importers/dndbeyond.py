@@ -14,6 +14,7 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Iterator
 from typing import Any, Optional
 
 EXPORT_SCHEMA = "grimoire://character/v1"
@@ -158,7 +159,7 @@ def ability_mod(score: int) -> int:
     return math.floor((score - 10) / 2)
 
 
-def iter_modifiers(data: dict):
+def iter_modifiers(data: dict) -> Iterator[dict]:
     mods = data.get("modifiers") or {}
     if not isinstance(mods, dict):
         return

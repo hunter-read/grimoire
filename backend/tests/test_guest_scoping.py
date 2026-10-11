@@ -113,6 +113,8 @@ GUEST_REACHABLE = {
     "/api/changelog": "GET",
     "/api/characters": "GET POST",
     "/api/characters/import": "POST",
+    "/api/characters/import-from-url": "POST",
+    "/api/characters/import-sources": "GET",
     "/api/characters/schemas": "GET POST",
     "/api/characters/schemas/browse": "GET",
     "/api/characters/schemas/install/{sheet_id}": "POST",

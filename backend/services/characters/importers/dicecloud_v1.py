@@ -15,7 +15,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections import defaultdict
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 EXPORT_SCHEMA = "grimoire://character/v1"
 DEFAULT_SCHEMA_ID = "dnd-5e-2024"
@@ -224,7 +224,7 @@ def fetch_via_public_ddp(char_id: str, *, timeout: float = 60.0) -> dict:
 class _SafeEval(ast.NodeVisitor):
     """Tiny arithmetic evaluator for DiceCloud effect calculations."""
 
-    ALLOWED_FUNCS = {
+    ALLOWED_FUNCS: dict[str, Callable[..., Any]] = {
         "floor": math.floor,
         "ceil": math.ceil,
         "round": round,

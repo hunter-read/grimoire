@@ -313,9 +313,7 @@ describe('CharactersView', () => {
       expect(within(dialog).getByLabelText(/Import from URL/i)).toBeInTheDocument()
       expect(within(dialog).getByText(/Supported character sheets/i)).toBeInTheDocument()
       expect(within(dialog).getByText('DiceCloud v1')).toBeInTheDocument()
-      expect(
-        within(dialog).getAllByText(/v1\.dicecloud\.com\/character/).length
-      ).toBeGreaterThan(0)
+      expect(within(dialog).getAllByText(/v1\.dicecloud\.com\/character/).length).toBeGreaterThan(0)
     })
 
     it('imports a file and opens the new character', async () => {
@@ -437,7 +435,9 @@ describe('CharactersView', () => {
       const dialog = await openImport()
       await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
       await waitFor(() =>
-        expect(screen.queryByRole('dialog', { name: /Import a character/i })).not.toBeInTheDocument()
+        expect(
+          screen.queryByRole('dialog', { name: /Import a character/i })
+        ).not.toBeInTheDocument()
       )
       expect(mockImportCharacter).not.toHaveBeenCalled()
       expect(mockImportFromUrl).not.toHaveBeenCalled()

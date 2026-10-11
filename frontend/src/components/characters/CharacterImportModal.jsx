@@ -253,7 +253,9 @@ export default function CharacterImportModal({ onImported, onClose }) {
                       {sheet.system}
                     </div>
                   ) : null}
-                  <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: 'var(--text-dim)' }}>
+                  <ul
+                    style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: 'var(--text-dim)' }}
+                  >
                     {sheet.sources.map((source) => (
                       <li key={`${sheet.schema_id}:${source.id}`} style={{ marginBottom: 4 }}>
                         <strong style={{ color: 'var(--text)' }}>{source.name}</strong>
