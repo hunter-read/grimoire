@@ -18,6 +18,8 @@ export default function CharacterImportModal({ onImported, onClose }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [dragging, setDragging] = useState(false)
+  // Revealed only when a URL import fails because the sheet needs credentials.
+  const [keyRequired, setKeyRequired] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -51,6 +53,9 @@ export default function CharacterImportModal({ onImported, onClose }) {
     [busy, onImported, t]
   )
 
+  const messageNeedsApiKey = (message) =>
+    /api key|private sheet|private character/i.test(message || '')
+
   const runUrl = async (event) => {
     event.preventDefault()
     if (!url.trim() || busy) return
@@ -63,7 +68,9 @@ export default function CharacterImportModal({ onImported, onClose }) {
       })
       onImported?.(created)
     } catch (e) {
-      setError(e.message)
+      const message = e.message || ''
+      if (messageNeedsApiKey(message)) setKeyRequired(true)
+      setError(message)
       setBusy(false)
     }
   }
@@ -93,10 +100,7 @@ export default function CharacterImportModal({ onImported, onClose }) {
     seen.get(key).sources.push(source)
   }
 
-  // Optional key for private DiceCloud sheets; public URLs import without one.
-  const showOptionalKey = sources.some(
-    (s) => s.id === 'dicecloud-v1' && s.available && url.toLowerCase().includes('dicecloud')
-  )
+  const showApiKey = keyRequired || Boolean(apiKey)
 
   return (
     <CharacterDialog
@@ -178,12 +182,16 @@ export default function CharacterImportModal({ onImported, onClose }) {
               id="character-import-url"
               type="url"
               value={url}
-              onChange={(e) => setUrl(e.target.value)}
+              onChange={(e) => {
+                setUrl(e.target.value)
+                setKeyRequired(false)
+                setApiKey('')
+              }}
               placeholder={t('characters.importUrlPlaceholder')}
               disabled={busy}
               style={fieldInput}
             />
-            {showOptionalKey ? (
+            {showApiKey ? (
               <div>
                 <label htmlFor="character-import-api-key" style={fieldLabel}>
                   {t('characters.importApiKey')}

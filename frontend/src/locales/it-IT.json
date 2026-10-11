@@ -3159,7 +3159,7 @@
     "importUrlPlaceholder": "https://v1.dicecloud.com/character/…",
     "importUrlSubmit": "Importa",
     "importing": "Importazione…",
-    "importApiKey": "DiceCloud API key (optional)",
+    "importApiKey": "DiceCloud API key",
     "importApiKeyPlaceholder": "Only for private sheets",
     "importApiKeyHelp": "Public DiceCloud links import without a key. Use a key (or DICECLOUD_API_KEY on the server) only for private characters.",
     "importSupported": "Schede personaggio supportate",

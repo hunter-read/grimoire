@@ -354,20 +354,18 @@ describe('CharactersView', () => {
       expect(await within(dialog).findByRole('alert')).toHaveTextContent('not installed')
     })
 
-    it('imports from a URL', async () => {
+    it('imports from a URL without prompting for an API key', async () => {
       mockImportFromUrl.mockResolvedValue({ id: 'from-url' })
       const dialog = await openImport()
       await userEvent.type(
         within(dialog).getByLabelText(/Import from URL/i),
         'https://v1.dicecloud.com/character/AbCdEfGh'
       )
-      expect(await within(dialog).findByLabelText(/DiceCloud API key/i)).toBeInTheDocument()
-      await userEvent.type(within(dialog).getByLabelText(/DiceCloud API key/i), 'secret')
+      expect(within(dialog).queryByLabelText(/DiceCloud API key/i)).not.toBeInTheDocument()
       await userEvent.click(within(dialog).getByRole('button', { name: /^Import$/i }))
       await waitFor(() =>
         expect(mockImportFromUrl).toHaveBeenCalledWith({
           url: 'https://v1.dicecloud.com/character/AbCdEfGh',
-          api_key: 'secret',
         })
       )
       expect(mockNavigate).toHaveBeenCalledWith('/characters/from-url')
@@ -382,6 +380,29 @@ describe('CharactersView', () => {
       )
       await userEvent.click(within(dialog).getByRole('button', { name: /^Import$/i }))
       expect(await within(dialog).findByRole('alert')).toHaveTextContent(/No installed sheet/)
+      expect(within(dialog).queryByLabelText(/DiceCloud API key/i)).not.toBeInTheDocument()
+    })
+
+    it('asks for an API key only when the URL needs one', async () => {
+      mockImportFromUrl
+        .mockRejectedValueOnce(new Error('If the sheet is private, pass an API key.'))
+        .mockResolvedValueOnce({ id: 'from-url' })
+      const dialog = await openImport()
+      await userEvent.type(
+        within(dialog).getByLabelText(/Import from URL/i),
+        'https://v1.dicecloud.com/character/PrivateId'
+      )
+      await userEvent.click(within(dialog).getByRole('button', { name: /^Import$/i }))
+      expect(await within(dialog).findByLabelText(/DiceCloud API key/i)).toBeInTheDocument()
+      await userEvent.type(within(dialog).getByLabelText(/DiceCloud API key/i), 'secret')
+      await userEvent.click(within(dialog).getByRole('button', { name: /^Import$/i }))
+      await waitFor(() =>
+        expect(mockImportFromUrl).toHaveBeenLastCalledWith({
+          url: 'https://v1.dicecloud.com/character/PrivateId',
+          api_key: 'secret',
+        })
+      )
+      expect(mockNavigate).toHaveBeenCalledWith('/characters/from-url')
     })
 
     it('imports a dropped file', async () => {
