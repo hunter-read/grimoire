@@ -1,4 +1,4 @@
-"""URL import source matching and DiceCloud v1 helpers."""
+"""URL import source matching and converter helpers."""
 
 from pathlib import Path
 from unittest.mock import patch
@@ -6,10 +6,11 @@ from unittest.mock import patch
 import pytest
 
 from backend.services.characters import importers
-from backend.services.characters.importers import dicecloud_v1
+from backend.services.characters.importers import dicecloud_v1, dndbeyond
 from backend.services.characters import schema as schema_svc
 
 FIXTURE = Path(__file__).parent / "fixtures" / "dicecloud_v1_sample.json"
+DDB_FIXTURE = Path(__file__).parent / "fixtures" / "dndbeyond_sample.json"
 
 
 def test_match_pattern_glob_and_prefix():
@@ -197,6 +198,80 @@ def test_looks_like_http_url():
 
 def test_registered_ids_includes_dicecloud():
     assert "dicecloud-v1" in importers.registered_ids()
+
+
+def test_registered_ids_includes_dndbeyond():
+    assert "dndbeyond" in importers.registered_ids()
+
+
+def test_parse_dndbeyond_character_id():
+    assert (
+        dndbeyond.parse_character_id("https://www.dndbeyond.com/characters/93643159")
+        == "93643159"
+    )
+    assert (
+        dndbeyond.parse_character_id("https://dndbeyond.com/character/93643159")
+        == "93643159"
+    )
+    assert dndbeyond.parse_character_id("93643159") == "93643159"
+    with pytest.raises(ValueError):
+        dndbeyond.parse_character_id("not a url")
+
+
+def test_convert_dndbeyond_sample():
+    import json
+
+    payload = dndbeyond.convert(json.loads(DDB_FIXTURE.read_text()))
+    assert payload["$schema"] == dndbeyond.EXPORT_SCHEMA
+    assert payload["schema_id"] == "dnd-5e-2024"
+    assert payload["name"] == "Turnip Allspice"
+    data = payload["data"]
+    assert data["level"] == 1
+    assert data["strength"] == 13
+    assert data["wisdom"] == 16  # 14 base + 2 racial
+    assert data["charisma"] == 16  # 15 base + 1 racial
+    assert data["hp_max"] == 10
+    assert "Persuasion" in data["skill_profs"]
+    assert "Performance" in data["skill_profs"]
+    assert data["wisdom_save_prof"] is True
+    assert data["charisma_save_prof"] is True
+    assert payload.get("portrait_url")
+    assert any(a["name"] == "Whip" for a in data.get("attacks") or [])
+
+
+def test_import_dndbeyond_from_url_fetches(monkeypatch):
+    import json
+
+    dump = json.loads(DDB_FIXTURE.read_text())
+
+    def fake_fetch(char_id):
+        assert char_id == "93643159"
+        return dump
+
+    monkeypatch.setattr(dndbeyond, "fetch_character", fake_fetch)
+    payload = dndbeyond.import_from_url(
+        "https://www.dndbeyond.com/characters/93643159",
+        schema_id="dnd-5e-2024",
+    )
+    assert payload["name"] == "Turnip Allspice"
+
+
+def test_find_source_for_dndbeyond_url():
+    sources = [
+        {
+            "id": "dndbeyond",
+            "url_patterns": [
+                "https://www.dndbeyond.com/characters/*",
+                "https://dndbeyond.com/characters/*",
+            ],
+            "schema_id": "dnd-5e-2024",
+            "available": True,
+        }
+    ]
+    hit = importers.find_source_for_url(
+        "https://www.dndbeyond.com/characters/93643159", sources
+    )
+    assert hit["id"] == "dndbeyond"
 
 
 def test_match_pattern_rejects_empty():

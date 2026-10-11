@@ -1,0 +1,1494 @@
+{
+  "id": 93643159,
+  "name": "Turnip Allspice",
+  "alignmentId": 3,
+  "avatarUrl": "https://www.dndbeyond.com/avatars/thumbnails/32130/909/150/150/1581111423-93643159.jpeg",
+  "stats": [
+    {
+      "id": 1,
+      "name": null,
+      "value": 13
+    },
+    {
+      "id": 2,
+      "name": null,
+      "value": 12
+    },
+    {
+      "id": 3,
+      "name": null,
+      "value": 10
+    },
+    {
+      "id": 4,
+      "name": null,
+      "value": 8
+    },
+    {
+      "id": 5,
+      "name": null,
+      "value": 14
+    },
+    {
+      "id": 6,
+      "name": null,
+      "value": 15
+    }
+  ],
+  "bonusStats": [
+    {
+      "id": 1,
+      "name": null,
+      "value": null
+    },
+    {
+      "id": 2,
+      "name": null,
+      "value": null
+    },
+    {
+      "id": 3,
+      "name": null,
+      "value": null
+    },
+    {
+      "id": 4,
+      "name": null,
+      "value": null
+    },
+    {
+      "id": 5,
+      "name": null,
+      "value": null
+    },
+    {
+      "id": 6,
+      "name": null,
+      "value": null
+    }
+  ],
+  "overrideStats": [
+    {
+      "id": 1,
+      "name": null,
+      "value": null
+    },
+    {
+      "id": 2,
+      "name": null,
+      "value": null
+    },
+    {
+      "id": 3,
+      "name": null,
+      "value": null
+    },
+    {
+      "id": 4,
+      "name": null,
+      "value": null
+    },
+    {
+      "id": 5,
+      "name": null,
+      "value": null
+    },
+    {
+      "id": 6,
+      "name": null,
+      "value": null
+    }
+  ],
+  "baseHitPoints": 10,
+  "bonusHitPoints": null,
+  "overrideHitPoints": null,
+  "removedHitPoints": 0,
+  "temporaryHitPoints": 0,
+  "race": {
+    "entityRaceId": 814913,
+    "entityRaceTypeId": 1743923279,
+    "fullName": "Fairy",
+    "baseRaceId": 814913,
+    "baseRaceTypeId": 1743923279,
+    "description": "<p>Infused with the magic of the Feywild, most fairies look like Small elves with insectile wings, but each fairy has a special physical characteristic that sets the fairy apart.</p>\n<p class=\"characters-statblock\" style=\"font-family: Roboto Condensed\"><strong>Fairy Traits</strong><br>Fey, Fairy Magic, Flight</p>",
+    "avatarUrl": "https://www.dndbeyond.com/avatars/thumbnails/20476/679/315/315/637677615384421492.png",
+    "largeAvatarUrl": "https://www.dndbeyond.com/avatars/thumbnails/20476/680/1000/1000/637677615387951480.png",
+    "portraitAvatarUrl": "https://www.dndbeyond.com/avatars/20472/299/637677434209627564.jpeg",
+    "moreDetailsUrl": "/species/814913-fairy",
+    "isHomebrew": false,
+    "sourceIds": [
+      85
+    ],
+    "groupIds": [],
+    "type": 1,
+    "subRaceShortName": null,
+    "baseName": "Fairy",
+    "racialTraits": [
+      {
+        "definition": {
+          "id": 6746992,
+          "name": "Ability Score Increases",
+          "description": "<p>When determining your character\u2019s ability scores, increase one score by 2 and increase a different score by 1, or increase three different scores by 1. Follow this rule regardless of the method you use to determine the scores, such as rolling or point buy. The \u201cQuick Build\u201d section for your character\u2019s class offers suggestions on which scores to increase. You can follow those suggestions or ignore them, but you can\u2019t raise any of your scores above 20.</p>",
+          "snippet": "When determining your character\u2019s ability scores, increase one score by 2 and increase a different score by 1, or increase three different scores by 1.",
+          "hideInSheet": false
+        }
+      },
+      {
+        "definition": {
+          "id": 6746993,
+          "name": "Languages",
+          "description": "<p>Your character can speak, read, and write Common and one other language that you and your DM agree is appropriate for the character. The <em><a href=\"https://www.dndbeyond.com/sources/phb\">Player\u2019s Handbook</a></em> offers a list of languages to choose from. The DM is free to modify that list for a campaign.</p>",
+          "snippet": "Your character can speak, read, and write Common and one other language that you and your DM agree is appropriate for the character.",
+          "hideInSheet": false
+        }
+      },
+      {
+        "definition": {
+          "id": 6746987,
+          "name": "Creature Type",
+          "description": "<p>You are a Fey.</p>",
+          "snippet": "You are a Fey.",
+          "hideInSheet": false
+        }
+      },
+      {
+        "definition": {
+          "id": 6746988,
+          "name": "Size",
+          "description": "<p>You are Small.</p>",
+          "snippet": "You are Small.",
+          "hideInSheet": false
+        }
+      },
+      {
+        "definition": {
+          "id": 6746989,
+          "name": "Speed",
+          "description": "<p>Your walking speed is 30 feet.</p>",
+          "snippet": "Your walking speed is 30 ft.",
+          "hideInSheet": true
+        }
+      },
+      {
+        "definition": {
+          "id": 6746990,
+          "name": "Fairy Magic",
+          "description": "<p>You know the druidcraft cantrip.</p>\n<p>Starting at 3rd level, you can cast the faerie fire spell with this trait. Starting at 5th level, you can also cast the enlarge/reduce spell with this trait. Once you cast faerie fire or enlarge/reduce with this trait, you can\u2019t cast that spell with it again until you finish a long rest. You can also cast either of those spells using any spell slots you have of the appropriate level.</p>\n<p>Intelligence, Wisdom, or Charisma is your spellcasting ability for these spells when you cast them with this trait (choose when you select this race).</p>",
+          "snippet": "You know the <em>druidcraft</em> spell.\n\nAt third level you can cast <em>faerie fire</em>, and at fifth level you can cast <em>enlarge/reduce</em>. Once you cast either of these spells with this trait, you cannot cast that spell with it again until you finish a long rest. You can cast either of these spells using any spell slots you have of the appropriate level. Your spellcasting modifier is either Intelligence, Wisdom, or Charisma (choose when you select this race).",
+          "hideInSheet": false
+        }
+      },
+      {
+        "definition": {
+          "id": 6746991,
+          "name": "Flight",
+          "description": "<p>Because of your wings, you have a flying speed equal to your walking speed. You can\u2019t use this flying speed if you\u2019re wearing medium or heavy armor.</p>",
+          "snippet": "Because of your wings, you have a flying speed equal to your walking speed. You can\u2019t use this flying speed if you\u2019re wearing medium or heavy armor.",
+          "hideInSheet": false
+        }
+      }
+    ],
+    "weightSpeeds": {
+      "normal": {
+        "walk": 30,
+        "fly": 0,
+        "burrow": 0,
+        "swim": 0,
+        "climb": 0
+      },
+      "encumbered": null,
+      "heavilyEncumbered": null,
+      "pushDragLift": null,
+      "override": null
+    },
+    "featIds": [],
+    "size": "Small",
+    "sizeId": 3
+  },
+  "background": {
+    "hasCustomBackground": false,
+    "definition": {
+      "id": 215755,
+      "entityTypeId": 1669830167,
+      "name": "Witchlight Hand",
+      "description": "<p>You crept into the Witchlight Carnival as a child or youth and never looked back, earning a place among those who work behind the scenes to keep the carnival in business. As a hand, you work hard and party hard. The carnival has borne you to many fantastic worlds, circling back around to your home world once every eight years, but you know almost nothing about these worlds because you spend all your time in the carnival. You know the other hands well, but the carnival\u2019s owners\u2014Mister Witch and Mister Light\u2014remain mysterious to you even after all these years.</p>\n<p>Maybe you joined the carnival to escape a dismal life at home, or maybe you were enchanted by the idea of visiting new places or the dream of becoming one of the carnival\u2019s star attractions. Now that you\u2019re older, carnival life has lost some of its appeal. The daily routine has grown tedious, the cyclical nature of the carnival\u2019s journey monotonous. The carnival no longer fills your heart with a sense of wonder. Perhaps greater adventures await you beyond the carnival\u2019s gates.</p>\n<p><strong>Skill Proficiencies:</strong> Performance, Sleight of Hand</p>\n<p><strong>Tool Proficiencies:</strong> Disguise kit or one type of musical instrument</p>\n<p><strong>Languages:</strong> One of your choice</p>\n<p><strong>Equipment:</strong> A disguise kit or a musical instrument of your choice, a deck of cards, a carnival uniform or costume, one trinket (determined by rolling on the Feywild Trinkets table), and a pouch containing 8 gp</p>\n<h4 id=\"CarnivalCompanion\" class=\"compendium-hr\">Carnival Companion</h4>\n<p>Over the years, you have earned the friendship of another carnival fixture. Roll a d8 and consult the Carnival Companion table to determine whom or what you\u2019ve befriended, or you can choose an option that you like. Work with your DM to flesh out this friendship. This companion hangs around you while you\u2019re in the carnival, but it won\u2019t voluntarily leave the carnival.</p>\n<p>The DM can use the Witchlight hand stat block in chapter 1 to represent hands, performers, and animal trainers who serve as carnival companions. Statistics for the other companions appear in the <em><a href=\"https://www.dndbeyond.com/sources/mm\">Monster Manual</a></em>.</p>\n<h5 id=\"CarnivalCompanionTable\" class=\"quick-menu-exclude compendium-hr\">Carnival Companion</h5>\n<table class=\"table--generic-dice\">\n<thead>\n<tr>\n<th>d8</th>\n<th>Companion</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>1</td>\n<td>Old, cantankerous Witchlight hand</td>\n</tr>\n<tr>\n<td>2</td>\n<td>Young, impressionable Witchlight hand</td>\n</tr>\n<tr>\n<td>3</td>\n<td>Performer (such as an acrobat, a clown, or a musician)</td>\n</tr>\n<tr>\n<td>4</td>\n<td>Retired performer</td>\n</tr>\n<tr>\n<td>5</td>\n<td>Seasoned animal trainer</td>\n</tr>\n<tr>\n<td>6</td>\n<td>Old blink dog</td>\n</tr>\n<tr>\n<td>7</td>\n<td>Cheery sprite</td>\n</tr>\n<tr>\n<td>8</td>\n<td>Harmless, magical wisp of light (no stat block required) that has a flying speed of 30 feet, can hover, and sheds bright light in a 5-foot radius and dim light for an additional 5 feet</td>\n</tr>\n</tbody>\n</table>",
+      "snippet": "",
+      "shortDescription": "<p>You crept into the Witchlight Carnival as a child or youth and never looked back, earning a place among those who work behind the scenes to keep the carnival in business. As a hand, you work hard and party hard. The carnival has borne you to many fantastic worlds, circling back around to your home world once every eight years, but you know almost nothing about these worlds because you spend all your time in the carnival. You know the other hands well, but the carnival\u2019s owners\u2014Mister Witch and Mister Light\u2014remain mysterious to you even after all these years.</p>\n<p>Maybe you joined the carnival to escape a dismal life at home, or maybe you were enchanted by the idea of visiting new places or the dream of becoming one of the carnival\u2019s star attractions. Now that you\u2019re older, carnival life has lost some of its appeal. The daily routine has grown tedious, the cyclical nature of the carnival\u2019s journey monotonous. The carnival no longer fills your heart with a sense of wonder. Perhaps greater adventures await you beyond the carnival\u2019s gates.</p>",
+      "skillProficienciesDescription": "Performance, Sleight of Hand",
+      "toolProficienciesDescription": "Disguise kit or one type of musical instrument",
+      "languagesDescription": "One of your choice",
+      "equipmentDescription": "A disguise kit or a musical instrument of your choice, a deck of cards, a carnival uniform or costume, one trinket (determined by rolling on the Feywild Trinkets table), and a pouch containing 8 gp",
+      "featureName": "Carnival Fixture",
+      "featureDescription": "<p>The Witchlight Carnival provides you with free, modest lodging and food. In addition, you may wander about the carnival and partake of its many wonders at no cost to you, provided you don\u2019t disrupt its shows or cause any other trouble.</p>",
+      "avatarUrl": null,
+      "largeAvatarUrl": null,
+      "suggestedCharacteristicsDescription": "<p>These tables, while optional, are well suited to Feywild-themed adventures and are ideal for any character who has the feylost or Witchlight hand background.</p>",
+      "suggestedProficiencies": [],
+      "suggestedLanguages": [],
+      "organization": null,
+      "contractsDescription": "",
+      "spellsPreDescription": "",
+      "spellsPostDescription": "",
+      "personalityTraits": [
+        {
+          "id": 4167588,
+          "description": "I\u2019m haunted by fey laughter that only I can hear, though I know it\u2019s just my mind playing tricks on me.",
+          "diceRoll": 1
+        },
+        {
+          "id": 4167589,
+          "description": "Like a nomad, I can\u2019t settle down in one place for very long.",
+          "diceRoll": 2
+        },
+        {
+          "id": 4167590,
+          "description": "Good music makes me weep like a baby.",
+          "diceRoll": 3
+        },
+        {
+          "id": 4167591,
+          "description": "Wherever I go, I try to bring a little of the warmth and tranquility of home with me.",
+          "diceRoll": 4
+        },
+        {
+          "id": 4167592,
+          "description": "I have never lost my childlike sense of wonder.",
+          "diceRoll": 5
+        },
+        {
+          "id": 4167593,
+          "description": "When I have a new idea, I get wildly excited about it until I come up with another, better idea.",
+          "diceRoll": 6
+        },
+        {
+          "id": 4167594,
+          "description": "I live by my own set of weird and wonderful rules.",
+          "diceRoll": 7
+        },
+        {
+          "id": 4167595,
+          "description": "I can\u2019t bring myself to trust most adults.",
+          "diceRoll": 8
+        }
+      ],
+      "ideals": [
+        {
+          "id": 4167596,
+          "description": "Friendship. I never leave a friend behind. (Good)",
+          "diceRoll": 1
+        },
+        {
+          "id": 4167597,
+          "description": "Empathy. No creature should be made to suffer. (Good)",
+          "diceRoll": 2
+        },
+        {
+          "id": 4167598,
+          "description": "Wanderlust. I prefer to take the less traveled path. (Chaotic)",
+          "diceRoll": 3
+        },
+        {
+          "id": 4167599,
+          "description": "Changeability. Change is good, which is why I live by an ever-changing set of rules. (Chaotic)",
+          "diceRoll": 4
+        },
+        {
+          "id": 4167600,
+          "description": "Honor. A deal is a deal, and I would never break one. (Lawful)",
+          "diceRoll": 5
+        },
+        {
+          "id": 4167601,
+          "description": "Rule of Three. Everything in the multiverse happens in threes. I see the \u201crule of three\u201d everywhere. (Lawful)",
+          "diceRoll": 6
+        },
+        {
+          "id": 4167602,
+          "description": "Obsession. I won\u2019t let go of a grudge. (Evil)",
+          "diceRoll": 7
+        },
+        {
+          "id": 4167603,
+          "description": "Greed. I will do whatever it takes to get what I want, regardless of the harm it might cause. (Evil)",
+          "diceRoll": 8
+        }
+      ],
+      "bonds": [
+        {
+          "id": 4167604,
+          "description": "I would never break my word.",
+          "diceRoll": 1
+        },
+        {
+          "id": 4167605,
+          "description": "I find magic in all its forms to be compelling. The more magical a place, the more I am drawn to it.",
+          "diceRoll": 2
+        },
+        {
+          "id": 4167606,
+          "description": "I do what I can to protect the natural world.",
+          "diceRoll": 3
+        },
+        {
+          "id": 4167607,
+          "description": "A trusted friend is the most important thing in the multiverse to me.",
+          "diceRoll": 4
+        },
+        {
+          "id": 4167608,
+          "description": "I can\u2019t bring myself to harm a Fey creature, either because I consider myself one or because I fear the repercussions.",
+          "diceRoll": 5
+        },
+        {
+          "id": 4167609,
+          "description": "The Witchlight Carnival feels like home to me.",
+          "diceRoll": 6
+        },
+        {
+          "id": 4167610,
+          "description": "I\u2019m drawn to the Feywild and long to return there, if only for a short while.",
+          "diceRoll": 7
+        },
+        {
+          "id": 4167611,
+          "description": "I feel indebted to Mister Witch and Mister Light for giving me a home and a purpose.",
+          "diceRoll": 8
+        }
+      ],
+      "flaws": [
+        {
+          "id": 4167612,
+          "description": "I easily lose track of time. My poor sense of time means I\u2019m always late.",
+          "diceRoll": 1
+        },
+        {
+          "id": 4167613,
+          "description": "I think the whole multiverse is out to get me.",
+          "diceRoll": 2
+        },
+        {
+          "id": 4167614,
+          "description": "I\u2019m always operating under a tight timeline, and I\u2019m obsessed with keeping everything on schedule.",
+          "diceRoll": 3
+        },
+        {
+          "id": 4167615,
+          "description": "I\u2019m a kleptomaniac who covets shiny, sparkling treasure.",
+          "diceRoll": 4
+        },
+        {
+          "id": 4167616,
+          "description": "I\u2019m forgetful. Sometimes I can\u2019t remember even the simplest things.",
+          "diceRoll": 5
+        },
+        {
+          "id": 4167617,
+          "description": "I never give away anything for free and always expect something in return.",
+          "diceRoll": 6
+        },
+        {
+          "id": 4167618,
+          "description": "I have many vices and tend to indulge them.",
+          "diceRoll": 7
+        },
+        {
+          "id": 4167619,
+          "description": "I\u2019m always changing my mind\u2014well, almost always.",
+          "diceRoll": 8
+        }
+      ]
+    },
+    "customBackground": {
+      "id": 93643159,
+      "entityTypeId": 1581111423,
+      "name": "Witchlight Hand",
+      "description": null,
+      "featuresBackground": null,
+      "characteristicsBackground": null,
+      "backgroundType": 3
+    }
+  },
+  "classes": [
+    {
+      "id": 125365767,
+      "entityTypeId": 1446578651,
+      "level": 1,
+      "isStartingClass": true,
+      "hitDiceUsed": 0,
+      "definition": {
+        "id": 4,
+        "name": "Paladin",
+        "hitDice": 10,
+        "spellCastingAbilityId": 6,
+        "canCastSpells": true,
+        "classFeatures": [
+          {
+            "name": "Hit Points",
+            "description": "<p><strong><span class=\"Serif-Character-Style_Bold-Serif\">Hit Dice: </span></strong>1d10 per paladin level<br><strong><span class=\"Serif-Character-Style_Bold-Serif\">Hit Points at 1st Level: </span></strong>10 + your Constitution modifier<br><strong><span class=\"Serif-Character-Style_Bold-Serif\">Hit Points at Higher Levels: </span></strong>1d10 (or 6) + your Constitution modifier per paladin level after 1st</p>",
+            "requiredLevel": 1
+          },
+          {
+            "name": "Proficiencies",
+            "description": "<p><strong><span class=\"Serif-Character-Style_Bold-Serif\">Armor: </span></strong>All armor, shields<br><strong><span class=\"Serif-Character-Style_Bold-Serif\">Weapons: </span></strong>Simple weapons, martial weapons<br><strong><span class=\"Serif-Character-Style_Bold-Serif\">Tools: </span></strong>None<br><strong><span class=\"Serif-Character-Style_Bold-Serif\">Saving Throws: </span></strong>Wisdom, Charisma<br><strong><span class=\"Serif-Character-Style_Bold-Serif\">Skills: </span></strong>Choose two from Athletics, Insight, Intimidation, Medicine, Persuasion, and Religion</p>",
+            "requiredLevel": 1
+          },
+          {
+            "name": "Equipment",
+            "description": "<p>You start with the following equipment, in addition to the equipment granted by your background:</p>\n<ul>\n<li>(a) a martial weapon and a shield or (b) two martial weapons</li>\n<li>(a) five javelin;javelins or (b) any simple melee weapon</li>\n<li>(a) a priest's pack;priest\u2019s pack or (b) an explorer's pack;explorer\u2019s pack</li>\n<li>Chain mail and a holy symbol</li>\n</ul>",
+            "requiredLevel": 1
+          },
+          {
+            "name": "Divine Sense",
+            "description": "<p class=\"Core-Styles_Core-Body-Last--to-apply-extra-space-\">The presence of strong evil registers on your senses like a noxious odor, and powerful good rings like heavenly music in your ears. As an action, you can open your awareness to detect such forces. Until the end of your next turn, you know the location of any celestial, fiend, or undead within 60 feet of you that is not behind total cover. You know the type (celestial, fiend, or undead) of any being whose presence you sense, but not its identity (the vampire Count Strahd von Zarovich, for instance). Within the same radius, you also de",
+            "requiredLevel": 1
+          },
+          {
+            "name": "Lay on Hands",
+            "description": "<p class=\"compendium-hr\">Your blessed touch can heal wounds. You have a pool of healing power that replenishes when you take a long rest. With that pool, you can restore a total number of hit points equal to your paladin level \u00d7 5.</p>\n<p class=\"Core-Styles_Core-Body\">As an action, you can touch a creature and draw power from the pool to restore a number of hit points to that creature, up to the maximum amount remaining in your pool.</p>\n<p class=\"Core-Styles_Core-Body\">Alternatively, you can expend 5 hit points from your pool of healing to cure the target of one disease or neutralize one pois",
+            "requiredLevel": 1
+          },
+          {
+            "name": "Obojima: Hero's Journey Boon",
+            "description": "<p>At your GM's discretion you can be granted a Hero's Journey Boon.</p>",
+            "requiredLevel": 1
+          },
+          {
+            "name": "The Crooked Moon: Dark Bargain",
+            "description": "<p>At your GM's discretion, you can take a Dark Bargain.</p>",
+            "requiredLevel": 1
+          }
+        ]
+      },
+      "subclassDefinition": null,
+      "classFeatures": [
+        {
+          "definition": {
+            "id": 537,
+            "entityTypeId": 12168134,
+            "displayOrder": 1,
+            "name": "Hit Points",
+            "description": "<p><strong><span class=\"Serif-Character-Style_Bold-Serif\">Hit Dice: </span></strong>1d10 per paladin level<br><strong><span class=\"Serif-Character-Style_Bold-Serif\">Hit Points at 1st Level: </span></strong>10 + your Constitution modifier<br><strong><span class=\"Serif-Character-Style_Bold-Serif\">Hit Points at Higher Levels: </span></strong>1d10 (or 6) + your Constitution modifier per paladin level after 1st</p>",
+            "snippet": "",
+            "activation": {
+              "activationTime": null,
+              "activationType": null
+            },
+            "multiClassDescription": "",
+            "requiredLevel": 1,
+            "isSubClassFeature": false,
+            "limitedUse": [],
+            "isRequiredLevelDisplayed": false,
+            "hideInBuilder": false,
+            "hideInSheet": false,
+            "hideOnListing": false,
+            "sourceId": 2,
+            "sourcePageNumber": 84,
+            "creatureRules": [],
+            "infusionRules": []
+          },
+          "levelScale": null
+        },
+        {
+          "definition": {
+            "id": 465,
+            "entityTypeId": 12168134,
+            "displayOrder": 2,
+            "name": "Proficiencies",
+            "description": "<p><strong><span class=\"Serif-Character-Style_Bold-Serif\">Armor: </span></strong>All armor, shields<br><strong><span class=\"Serif-Character-Style_Bold-Serif\">Weapons: </span></strong>Simple weapons, martial weapons<br><strong><span class=\"Serif-Character-Style_Bold-Serif\">Tools: </span></strong>None<br><strong><span class=\"Serif-Character-Style_Bold-Serif\">Saving Throws: </span></strong>Wisdom, Charisma<br><strong><span class=\"Serif-Character-Style_Bold-Serif\">Skills: </span></strong>Choose two from Athletics, Insight, Intimidation, Medicine, Persuasion, and Religion</p>",
+            "snippet": "",
+            "activation": {
+              "activationTime": null,
+              "activationType": null
+            },
+            "multiClassDescription": "<p><strong><span class=\"Serif-Character-Style_Bold-Serif\">Armor:</span></strong> <span class=\"Serif-Character-Style_Bold-Serif\">Light armor, medium&nbsp;</span>a<span class=\"No-Break\">rmor, shields<br></span><strong><span class=\"Serif-Character-Style_Bold-Serif\">Weapons: </span></strong>Simple weapons, ma<span class=\"No-Break\">rtial weapons</span></p>",
+            "requiredLevel": 1,
+            "isSubClassFeature": false,
+            "limitedUse": [],
+            "isRequiredLevelDisplayed": false,
+            "hideInBuilder": false,
+            "hideInSheet": false,
+            "hideOnListing": false,
+            "sourceId": 2,
+            "sourcePageNumber": 84,
+            "creatureRules": [],
+            "infusionRules": []
+          },
+          "levelScale": null
+        },
+        {
+          "definition": {
+            "id": 9961421,
+            "entityTypeId": 12168134,
+            "displayOrder": 3,
+            "name": "Equipment",
+            "description": "<p>You start with the following equipment, in addition to the equipment granted by your background:</p>\n<ul>\n<li>(a) a martial weapon and a shield or (b) two martial weapons</li>\n<li>(a) five javelin;javelins or (b) any simple melee weapon</li>\n<li>(a) a priest's pack;priest\u2019s pack or (b) an explorer's pack;explorer\u2019s pack</li>\n<li>Chain mail and a holy symbol</li>\n</ul>",
+            "snippet": "",
+            "activation": {
+              "activationTime": null,
+              "activationType": null
+            },
+            "multiClassDescription": "",
+            "requiredLevel": 1,
+            "isSubClassFeature": false,
+            "limitedUse": [],
+            "isRequiredLevelDisplayed": false,
+            "hideInBuilder": true,
+            "hideInSheet": true,
+            "hideOnListing": false,
+            "sourceId": 2,
+            "sourcePageNumber": null,
+            "creatureRules": [],
+            "infusionRules": []
+          },
+          "levelScale": null
+        },
+        {
+          "definition": {
+            "id": 260,
+            "entityTypeId": 12168134,
+            "displayOrder": 4,
+            "name": "Divine Sense",
+            "description": "<p class=\"Core-Styles_Core-Body-Last--to-apply-extra-space-\">The presence of strong evil registers on your senses like a noxious odor, and powerful good rings like heavenly music in your ears. As an action, you can open your awareness to detect such forces. Until the end of your next turn, you know the location of any celestial, fiend, or undead within 60 feet of you that is not behind total cover. You know the type (celestial, fiend, or undead) of any being whose presence you sense, but not its identity (the vampire Count Strahd von Zarovich, for instance). Within the same radius, you also detect the presence of any place or object that has been consecrated or desecrated, as with the <span class=\"Serif-Character-Style_Italic-Serif\">hallow</span> spell.</p>\n<p class=\"Core-Styles_Core-Body\">You can use this feature a number of times equal to 1 + your Charisma modifier. When you finish a long rest, you regain all expended uses.</p>",
+            "snippet": "As an action, you can detect good and evil. Until the end of your next turn, you can sense anything affected by the hallow spell or know the location of any celestial, fiend, undead within 60 ft. that is not behind total cover. You can use this feature {{(modifier:cha)+1#unsigned}} times per long rest.",
+            "activation": {
+              "activationTime": 1,
+              "activationType": 1
+            },
+            "multiClassDescription": "",
+            "requiredLevel": 1,
+            "isSubClassFeature": false,
+            "limitedUse": [
+              {
+                "level": null,
+                "uses": 1
+              }
+            ],
+            "isRequiredLevelDisplayed": false,
+            "hideInBuilder": false,
+            "hideInSheet": false,
+            "hideOnListing": false,
+            "sourceId": 2,
+            "sourcePageNumber": 84,
+            "creatureRules": [],
+            "infusionRules": []
+          },
+          "levelScale": null
+        },
+        {
+          "definition": {
+            "id": 261,
+            "entityTypeId": 12168134,
+            "displayOrder": 5,
+            "name": "Lay on Hands",
+            "description": "<p class=\"compendium-hr\">Your blessed touch can heal wounds. You have a pool of healing power that replenishes when you take a long rest. With that pool, you can restore a total number of hit points equal to your paladin level \u00d7 5.</p>\n<p class=\"Core-Styles_Core-Body\">As an action, you can touch a creature and draw power from the pool to restore a number of hit points to that creature, up to the maximum amount remaining in your pool.</p>\n<p class=\"Core-Styles_Core-Body\">Alternatively, you can expend 5 hit points from your pool of healing to cure the target of one disease or neutralize one poison affecting it. You can cure multiple diseases and neutralize multiple poisons with a single use of Lay on Hands, expending hit points separately for each one.</p>\n<p class=\"Core-Styles_Core-Body\">This feature has no effect on undead and constructs.</p>",
+            "snippet": "You have a pool of healing power that can restore {{classlevel*5#unsigned}} HP per long rest. As an action, you can touch a creature to restore any number of HP remaining in the pool, or 5 HP to either cure a disease or neutralize a poison affecting the creature.",
+            "activation": {
+              "activationTime": 1,
+              "activationType": 1
+            },
+            "multiClassDescription": "",
+            "requiredLevel": 1,
+            "isSubClassFeature": false,
+            "limitedUse": [
+              {
+                "level": 1,
+                "uses": 5
+              },
+              {
+                "level": 2,
+                "uses": 10
+              },
+              {
+                "level": 3,
+                "uses": 15
+              },
+              {
+                "level": 4,
+                "uses": 20
+              },
+              {
+                "level": 5,
+                "uses": 25
+              },
+              {
+                "level": 6,
+                "uses": 30
+              },
+              {
+                "level": 7,
+                "uses": 35
+              },
+              {
+                "level": 8,
+                "uses": 40
+              },
+              {
+                "level": 9,
+                "uses": 45
+              },
+              {
+                "level": 10,
+                "uses": 50
+              },
+              {
+                "level": 11,
+                "uses": 55
+              },
+              {
+                "level": 12,
+                "uses": 60
+              },
+              {
+                "level": 13,
+                "uses": 65
+              },
+              {
+                "level": 14,
+                "uses": 70
+              },
+              {
+                "level": 15,
+                "uses": 75
+              },
+              {
+                "level": 16,
+                "uses": 80
+              },
+              {
+                "level": 17,
+                "uses": 85
+              },
+              {
+                "level": 18,
+                "uses": 90
+              },
+              {
+                "level": 19,
+                "uses": 95
+              },
+              {
+                "level": 20,
+                "uses": 100
+              }
+            ],
+            "isRequiredLevelDisplayed": false,
+            "hideInBuilder": false,
+            "hideInSheet": false,
+            "hideOnListing": false,
+            "sourceId": 2,
+            "sourcePageNumber": 84,
+            "creatureRules": [],
+            "infusionRules": []
+          },
+          "levelScale": null
+        },
+        {
+          "definition": {
+            "id": 262,
+            "entityTypeId": 12168134,
+            "displayOrder": 6,
+            "name": "Fighting Style",
+            "description": "<p class=\"Core-Styles_Core-Body\">At 2nd level, you adopt a style of fighting as your specialty. Choose one of the following options. You can\u2019t take a Fighting Style option more than once, even if you later get to choose again.</p>",
+            "snippet": "You adopt a style of fighting as your specialty.",
+            "activation": {
+              "activationTime": null,
+              "activationType": null
+            },
+            "multiClassDescription": "",
+            "requiredLevel": 2,
+            "isSubClassFeature": false,
+            "limitedUse": [],
+            "isRequiredLevelDisplayed": false,
+            "hideInBuilder": false,
+            "hideInSheet": false,
+            "hideOnListing": false,
+            "sourceId": 2,
+            "sourcePageNumber": 84,
+            "creatureRules": [],
+            "infusionRules": []
+          },
+          "levelScale": null
+        },
+        {
+          "definition": {
+            "id": 263,
+            "entityTypeId": 12168134,
+            "displayOrder": 7,
+            "name": "Spellcasting",
+            "description": "<p class=\"Core-Styles_Core-Body\">By 2nd level, you have learned to draw on divine magic through meditation and prayer to cast spells as a cleric does. See <span style=\"color: rgba(153, 204, 0, 1)\"><a style=\"color: rgba(71, 209, 140, 1)\" href=\"https://www.dndbeyond.com/compendium/rules/basic-rules/spellcasting\">Spells Rules</a></span> for the general rules of spellcasting and the <span style=\"color: rgba(153, 51, 102, 1)\"><a style=\"color: rgba(112, 76, 217, 1)\" href=\"https://www.dndbeyond.com/spells?filter-class=4&amp;filter-search=&amp;filter-sub-class=&amp;filter-concentration=&amp;filter-ritual=&amp;filter-unlocked-content=\">Spells Listing</a></span>&nbsp;for the paladin&nbsp;spell list.</p>\n<h5 class=\"compendium-hr\">Preparing and Casting Spells</h5>\n<p class=\"Core-Styles_Core-Body\">The Paladin table shows how many spell slots you have to cast your paladin spells. To cast one of your paladin spells of 1st level or higher, you must expend a slot of the spell\u2019s level or higher. You regain all expended spell slots when you finish a long rest.</p>\n<p class=\"Core-Styles_Core-Body\">You prepare the list of paladin spells that are available for you to cast, choosing from the paladin spell list. When you do so, choose a number of paladin spells equal to your Charisma modifier + half your paladin level, rounded down (minimum of one spell). The spells must be of a level for which you have spell slots.</p>\n<p class=\"Core-Styles_Core-Body\">For example, if you are a 5th-level paladin, you have four 1st-level and two 2nd-level spell slots. With a Charisma of 14, your list of prepared spells can include four spells of 1st or 2nd level, in any combination. If you prepare the 1st-level spell <span class=\"Serif-Character-Style_Italic-Serif\">cure wounds,</span> you can cast it using a 1st-level or a 2nd-level slot. Casting the spell doesn\u2019t remove it from your list of prepared spells.</p>\n<p class=\"Core-Styles_Core-Body\">You can change your list of prepared spells when you finish a long rest. Preparing a new list of paladin spells requires time spent in prayer and meditation: at least 1 minute per spell level for each spell on your list.</p>\n<h5 class=\"compendium-hr\">Spellcasting Ability</h5>\n<p class=\"Core-Styles_Core-Body-Last--to-apply-extra-space-\">Charisma is your spellcasting ability for your paladin spells, since their power derives from the strength of your convictions. You use your Charisma whenever a spell refers to your spellcasting ability. In addition, you use your Charisma modifier when setting the saving throw DC for a paladin spell you cast and when making an attack roll with one.</p>\n<p class=\"List-Styles_List-Item-Centered\"><strong><span class=\"Sans-Serif-Character-Styles_Bold-Sans-Serif\">Spell save DC </span></strong>= 8 + your proficiency bonus + your Charisma modifier</p>\n<p class=\"List-Styles_List-Item-Centered\"><strong><span class=\"Sans-Serif-Character-Styles_Bold-Sans-Serif\">Spell attack modifier </span></strong>= your proficiency bonus + your Charisma modifier</p>\n<h5 class=\"compendium-hr\">Spellcasting Focus</h5>\n<p class=\"Core-Styles_Core-Body\">You can use a holy symbol (see the <span style=\"color: rgba(71, 209, 140, 1)\"><a style=\"color: rgba(71, 209, 140, 1)\" href=\"https://www.dndbeyond.com/compendium/rules/basic-rules/equipment#HolySymbol\">Adventuring Gear</a></span> section) as a spellcasting focus for your paladin spells.</p>",
+            "snippet": "You can cast prepared paladin spells using CHA as your spellcasting modifier (Spell DC {{savedc:cha}}, Spell Attack {{spellattack:cha}}). You can use a holy symbol as a spellcasting focus.",
+            "activation": {
+              "activationTime": null,
+              "activationType": null
+            },
+            "multiClassDescription": "<p><em>This feature is affected by multiclassing</em>. See the <a href=\"https://www.dndbeyond.com/compendium/rules/basic-rules/customization-options#ClassFeatures\">Multiclassing</a> rules for more information.</p>\n<h4 class=\"compendium-hr\">Spellcasting</h4>\n<p class=\"Core-Styles_Core-Body\">By 2nd level, you have learned to draw on divine magic through meditation and prayer to cast spells as a cleric does. See <span style=\"color: rgba(153, 204, 0, 1)\"><a style=\"color: rgba(71, 209, 140, 1)\" href=\"https://www.dndbeyond.com/compendium/rules/basic-rules/spellcasting\">Spells Rules</a></span> for the general rules of spellcasting and the <span style=\"color: rgba(153, 51, 102, 1)\"><a style=\"color: rgba(112, 76, 217, 1)\" href=\"https://www.dndbeyond.com/spells?filter-class=4&amp;filter-search=&amp;filter-sub-class=&amp;filter-concentration=&amp;filter-ritual=&amp;filter-unlocked-content=\">Spells Listing</a></span>&nbsp;for the paladin&nbsp;spell list.</p>\n<h5 class=\"compendium-hr\">Preparing and Casting Spells</h5>\n<p class=\"Core-Styles_Core-Body\">The Paladin table shows how many spell slots you have to cast your paladin spells. To cast one of your paladin spells of 1st level or higher, you must expend a slot of the spell\u2019s level or higher. You regain all expended spell slots when you finish a long rest.</p>\n<p class=\"Core-Styles_Core-Body\">You prepare the list of paladin spells that are available for you to cast, choosing from the paladin spell list. When you do so, choose a number of paladin spells equal to your Charisma modifier + half your paladin level, rounded down (minimum of one spell). The spells must be of a level for which you have spell slots.</p>\n<p class=\"Core-Styles_Core-Body\">For example, if you are a 5th-level paladin, you have four 1st-level and two 2nd-level spell slots. With a Charisma of 14, your list of prepared spells can include four spells of 1st or 2nd level, in any combination. If you prepare the 1st-level spell <span class=\"Serif-Character-Style_Italic-Serif\">cure wounds,</span> you can cast it using a 1st-level or a 2nd-level slot. Casting the spell doesn\u2019t remove it from your list of prepared spells.</p>\n<p class=\"Core-Styles_Core-Body\">You can change your list of prepared spells when you finish a long rest. Preparing a new list of paladin spells requires time spent in prayer and meditation: at least 1 minute per spell level for each spell on your list.</p>\n<h5 class=\"compendium-hr\">Spellcasting Ability</h5>\n<p class=\"Core-Styles_Core-Body-Last--to-apply-extra-space-\">Charisma is your spellcasting ability for your paladin spells, since their power derives from the strength of your convictions. You use your Charisma whenever a spell refers to your spellcasting ability. In addition, you use your Charisma modifier when setting the saving throw DC for a paladin spell you cast and when making an attack roll with one.</p>\n<p class=\"List-Styles_List-Item-Centered\"><strong><span class=\"Sans-Serif-Character-Styles_Bold-Sans-Serif\">Spell save DC </span></strong>= 8 + your proficiency bonus + your Charisma modifier</p>\n<p class=\"List-Styles_List-Item-Centered\"><strong><span class=\"Sans-Serif-Character-Styles_Bold-Sans-Serif\">Spell attack modifier </span></strong>= your proficiency bonus + your Charisma modifier</p>\n<h5 class=\"compendium-hr\">Spellcasting Focus</h5>\n<p class=\"Core-Styles_Core-Body\">You can use a holy symbol (see the <span style=\"color: rgba(71, 209, 140, 1)\"><a style=\"color: rgba(71, 209, 140, 1)\" href=\"https://www.dndbeyond.com/compendium/rules/basic-rules/equipment#HolySymbol\">Adventuring Gear</a></span> section) as a spellcasting focus for your paladin spells.</p>",
+            "requiredLevel": 2,
+            "isSubClassFeature": false,
+            "limitedUse": [],
+            "isRequiredLevelDisplayed": false,
+            "hideInBuilder": false,
+            "hideInSheet": false,
+            "hideOnListing": false,
+            "sourceId": 2,
+            "sourcePageNumber": 84,
+            "creatureRules": [],
+            "infusionRules": []
+          },
+          "levelScale": null
+        },
+        {
+          "definition": {
+            "id": 264,
+            "entityTypeId": 12168134,
+            "displayOrder": 8,
+            "name": "Divine Smite",
+            "description": "<p class=\"Core-Styles_Core-Body\">Starting at 2nd level, when you hit a creature with a melee weapon attack, you can expend one spell slot to deal radiant damage to the target, in addition to the weapon\u2019s damage. The extra damage is 2d8 for a 1st-level spell slot, plus 1d8 for each spell level higher than 1st, to a maximum of 5d8. The damage increases by 1d8 if the target is an undead or a fiend, to a maximum of 6d8.</p>",
+            "snippet": "When you hit with a melee weapon attack, you can expend one spell slot to deal 2d8 extra radiant damage to the target plus 1d8 for each spell level higher than 1st (max 5d8) and plus 1d8 against undead or fiends (max 6d8 total).",
+            "activation": {
+              "activationTime": null,
+              "activationType": 8
+            },
+            "multiClassDescription": "",
+            "requiredLevel": 2,
+            "isSubClassFeature": false,
+            "limitedUse": [
+              {
+                "level": null,
+                "uses": 1
+              }
+            ],
+            "isRequiredLevelDisplayed": false,
+            "hideInBuilder": false,
+            "hideInSheet": false,
+            "hideOnListing": false,
+            "sourceId": 2,
+            "sourcePageNumber": 85,
+            "creatureRules": [],
+            "infusionRules": []
+          },
+          "levelScale": null
+        },
+        {
+          "definition": {
+            "id": 265,
+            "entityTypeId": 12168134,
+            "displayOrder": 9,
+            "name": "Divine Health",
+            "description": "<p class=\"Core-Styles_Core-Body\">By 3rd level, the divine magic flowing through you makes you immune to disease.</p>",
+            "snippet": "You are immune to disease.",
+            "activation": {
+              "activationTime": null,
+              "activationType": null
+            },
+            "multiClassDescription": "",
+            "requiredLevel": 3,
+            "isSubClassFeature": false,
+            "limitedUse": [],
+            "isRequiredLevelDisplayed": false,
+            "hideInBuilder": false,
+            "hideInSheet": false,
+            "hideOnListing": false,
+            "sourceId": 2,
+            "sourcePageNumber": 85,
+            "creatureRules": [],
+            "infusionRules": []
+          },
+          "levelScale": null
+        },
+        {
+          "definition": {
+            "id": 266,
+            "entityTypeId": 12168134,
+            "displayOrder": 10,
+            "name": "Sacred Oath",
+            "description": "<p class=\"Core-Styles_Core-Body\">When you reach 3rd level, you swear the oath that binds you as a paladin forever. Up to this time you have been in a preparatory stage, committed to the path but not yet sworn to it. Now you choose the Oath of Devotion detailed at the end of the class description or one from another source.</p>\n<p class=\"Core-Styles_Core-Body\">Your choice grants you features at 3rd level and again at 7th, 15th, and 20th level. Those features include oath spells and the Channel Divinity feature.</p>\n<h4 class=\"compendium-hr\">Oath Spells</h4>\n<p class=\"Core-Styles_Core-Body\">Each oath has a list of associated spells. You gain access to these spells at the levels specified in the oath description. Once you gain access to an oath spell, you always have it prepared. Oath spells don\u2019t count against the number of spells you can prepare each day.</p>\n<p class=\"Core-Styles_Core-Body\">If you gain an oath spell that doesn\u2019t appear on the paladin spell list, the spell is nonetheless a paladin spell for you.</p>\n<h4 class=\"compendium-hr\">Channel Divinity</h4>\n<p class=\"Core-Styles_Core-Body\">Your oath allows you to channel divine energy to fuel magical effects. Each Channel Divinity option provided by your oath explains how to use it.</p>\n<p class=\"Core-Styles_Core-Body\">When you use your Channel Divinity, you choose which option to use. You must then finish a short or long rest to use your Channel Divinity again.</p>\n<p class=\"Core-Styles_Core-Body\">Some Channel Divinity effects require saving throws. When you use such an effect from this class, the DC equals your paladin spell save DC.</p>",
+            "snippet": "",
+            "activation": {
+              "activationTime": null,
+              "activationType": null
+            },
+            "multiClassDescription": "",
+            "requiredLevel": 3,
+            "isSubClassFeature": false,
+            "limitedUse": [
+              {
+                "level": null,
+                "uses": 1
+              }
+            ],
+            "isRequiredLevelDisplayed": false,
+            "hideInBuilder": false,
+            "hideInSheet": false,
+            "hideOnListing": false,
+            "sourceId": 2,
+            "sourcePageNumber": 85,
+            "creatureRules": [],
+            "infusionRules": []
+          },
+          "levelScale": null
+        },
+        {
+          "definition": {
+            "id": 268,
+            "entityTypeId": 12168134,
+            "displayOrder": 11,
+            "name": "Ability Score Improvement",
+            "description": "<p class=\"compendium-hr\">When you reach 4th level, and again at 8th, 12th, 16th, and 19th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1. As normal, you can\u2019t increase an ability score above 20 using this feature.</p>\n<p class=\"compendium-hr\">Using the optional feats rule, you can forgo taking this feature to take a feat of your choice instead.</p>",
+            "snippet": "",
+            "activation": {
+              "activationTime": null,
+              "activationType": null
+            },
+            "multiClassDescription": "",
+            "requiredLevel": 4,
+            "isSubClassFeature": false,
+            "limitedUse": [],
+            "isRequiredLevelDisplayed": false,
+            "hideInBuilder": false,
+            "hideInSheet": false,
+            "hideOnListing": false,
+            "sourceId": 2,
+            "sourcePageNumber": 85,
+            "creatureRules": [],
+            "infusionRules": []
+          },
+          "levelScale": null
+        },
+        {
+          "definition": {
+            "id": 269,
+            "entityTypeId": 12168134,
+            "displayOrder": 12,
+            "name": "Extra Attack",
+            "description": "<p class=\"compendium-hr\">Beginning at 5th level, you can attack twice, instead of once, whenever you take the Attack action on your turn.</p>",
+            "snippet": "You can attack twice, instead of once, whenever you take the Attack action on your turn.",
+            "activation": {
+              "activationTime": null,
+              "activationType": 8
+            },
+            "multiClassDescription": "<p><em>This feature could be affected by multiclassing</em>. See the <a href=\"https://www.dndbeyond.com/compendium/rules/basic-rules/customization-options#ClassFeatures\">Multiclassing</a> rules for more information.</p>\n<p>Beginning at 5th level, you can attack twice, instead of once, whenever you take the Attack action on your turn.</p>",
+            "requiredLevel": 5,
+            "isSubClassFeature": false,
+            "limitedUse": [
+              {
+                "level": null,
+                "uses": 1
+              }
+            ],
+            "isRequiredLevelDisplayed": false,
+            "hideInBuilder": false,
+            "hideInSheet": false,
+            "hideOnListing": false,
+            "sourceId": 2,
+            "sourcePageNumber": 85,
+            "creatureRules": [],
+            "infusionRules": []
+          },
+          "levelScale": null
+        },
+        {
+          "definition": {
+            "id": 270,
+            "entityTypeId": 12168134,
+            "displayOrder": 13,
+            "name": "Aura of Protection",
+            "description": "<p class=\"compendium-hr\">Starting at 6th level, whenever you or a friendly creature within 10 feet of you must make a saving throw, the creature gains a bonus to the saving throw equal to your Charisma modifier (with a minimum bonus of +1). You must be conscious to grant this bonus.</p>\n<p class=\"Core-Styles_Core-Body\">At 18th level, the range of this aura increases to 30 feet.</p>",
+            "snippet": "While you are conscious, you grant all friendly creatures (including you) within {{scalevalue}} ft. a {{modifier:cha@min:1}} bonus to all saving throws.",
+            "activation": {
+              "activationTime": null,
+              "activationType": null
+            },
+            "multiClassDescription": "",
+            "requiredLevel": 6,
+            "isSubClassFeature": false,
+            "limitedUse": [],
+            "isRequiredLevelDisplayed": false,
+            "hideInBuilder": false,
+            "hideInSheet": false,
+            "hideOnListing": false,
+            "sourceId": 2,
+            "sourcePageNumber": 85,
+            "creatureRules": [],
+            "infusionRules": []
+          },
+          "levelScale": null
+        },
+        {
+          "definition": {
+            "id": 275,
+            "entityTypeId": 12168134,
+            "displayOrder": 14,
+            "name": "Ability Score Improvement",
+            "description": "<p class=\"compendium-hr\">When you reach 8th level, and again at 12th, 16th, and 19th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1. As normal, you can\u2019t increase an ability score above 20 using this feature.</p>\n<p class=\"compendium-hr\">Using the optional feats rule, you can forgo taking this feature to take a feat of your choice instead.</p>",
+            "snippet": "",
+            "activation": {
+              "activationTime": null,
+              "activationType": null
+            },
+            "multiClassDescription": "",
+            "requiredLevel": 8,
+            "isSubClassFeature": false,
+            "limitedUse": [],
+            "isRequiredLevelDisplayed": false,
+            "hideInBuilder": false,
+            "hideInSheet": false,
+            "hideOnListing": true,
+            "sourceId": 2,
+            "sourcePageNumber": 85,
+            "creatureRules": [],
+            "infusionRules": []
+          },
+          "levelScale": null
+        },
+        {
+          "definition": {
+            "id": 271,
+            "entityTypeId": 12168134,
+            "displayOrder": 15,
+            "name": "Aura of Courage",
+            "description": "<p class=\"Core-Styles_Core-Body\">Starting at 10th level, you and friendly creatures within 10 feet of you can\u2019t be frightened while you are conscious.</p>\n<p class=\"Core-Styles_Core-Body\">At 18th level, the range of this aura increases to 30 feet.</p>",
+            "snippet": "While you are conscious, you and friendly creatures within {{scalevalue}} ft. can\u2019t be frightened.",
+            "activation": {
+              "activationTime": null,
+              "activationType": null
+            },
+            "multiClassDescription": "",
+            "requiredLevel": 10,
+            "isSubClassFeature": false,
+            "limitedUse": [],
+            "isRequiredLevelDisplayed": false,
+            "hideInBuilder": false,
+            "hideInSheet": false,
+            "hideOnListing": false,
+            "sourceId": 2,
+            "sourcePageNumber": 85,
+            "creatureRules": [],
+            "infusionRules": []
+          },
+          "levelScale": null
+        },
+        {
+          "definition": {
+            "id": 272,
+            "entityTypeId": 12168134,
+            "displayOrder": 16,
+            "name": "Improved Divine Smite",
+            "description": "<p>By 11th level, you are so suffused with righteous might that all your melee weapon strikes carry divine power with them. Whenever you hit a creature with a melee weapon, the creature takes an extra 1d8 radiant damage.</p>",
+            "snippet": "Whenever you hit with a melee weapon attack, the target takes an extra <strong>1d8</strong> radiant damage.",
+            "activation": {
+              "activationTime": null,
+              "activationType": 8
+            },
+            "multiClassDescription": "",
+            "requiredLevel": 11,
+            "isSubClassFeature": false,
+            "limitedUse": [
+              {
+                "level": null,
+                "uses": 1
+              }
+            ],
+            "isRequiredLevelDisplayed": false,
+            "hideInBuilder": false,
+            "hideInSheet": false,
+            "hideOnListing": false,
+            "sourceId": 2,
+            "sourcePageNumber": 85,
+            "creatureRules": [],
+            "infusionRules": []
+          },
+          "levelScale": null
+        },
+        {
+          "definition": {
+            "id": 276,
+            "entityTypeId": 12168134,
+            "displayOrder": 17,
+            "name": "Ability Score Improvement",
+            "description": "<p class=\"compendium-hr\">When you reach 12th level, and again at 16th and 19th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1. As normal, you can\u2019t increase an ability score above 20 using this feature.</p>\n<p class=\"compendium-hr\">Using the optional feats rule, you can forgo taking this feature to take a feat of your choice instead.</p>",
+            "snippet": "",
+            "activation": {
+              "activationTime": null,
+              "activationType": null
+            },
+            "multiClassDescription": "",
+            "requiredLevel": 12,
+            "isSubClassFeature": false,
+            "limitedUse": [],
+            "isRequiredLevelDisplayed": false,
+            "hideInBuilder": false,
+            "hideInSheet": false,
+            "hideOnListing": true,
+            "sourceId": 2,
+            "sourcePageNumber": 85,
+            "creatureRules": [],
+            "infusionRules": []
+          },
+          "levelScale": null
+        },
+        {
+          "definition": {
+            "id": 273,
+            "entityTypeId": 12168134,
+            "displayOrder": 18,
+            "name": "Cleansing Touch",
+            "description": "<p class=\"Core-Styles_Core-Body\">Beginning at 14th level, you can use your action to end one spell on yourself or on one willing creature that you touch.</p>\n<p class=\"Core-Styles_Core-Body\">You can use this feature a number of times equal to your Charisma modifier (a minimum of once). You regain expended uses when you finish a long rest.</p>",
+            "snippet": "You can use your action to end one spell on yourself or on one willing creature that you touch {{modifier:cha@min:1#unsigned}} times per long rest.",
+            "activation": {
+              "activationTime": 1,
+              "activationType": 1
+            },
+            "multiClassDescription": "",
+            "requiredLevel": 14,
+            "isSubClassFeature": false,
+            "limitedUse": [
+              {
+                "level": null,
+                "uses": 0
+              }
+            ],
+            "isRequiredLevelDisplayed": false,
+            "hideInBuilder": false,
+            "hideInSheet": false,
+            "hideOnListing": false,
+            "sourceId": 2,
+            "sourcePageNumber": 85,
+            "creatureRules": [],
+            "infusionRules": []
+          },
+          "levelScale": null
+        },
+        {
+          "definition": {
+            "id": 277,
+            "entityTypeId": 12168134,
+            "displayOrder": 19,
+            "name": "Ability Score Improvement",
+            "description": "<p class=\"compendium-hr\">When you reach 16th level, and again at 19th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1. As normal, you can\u2019t increase an ability score above 20 using this feature.</p>\n<p class=\"compendium-hr\">Using the optional feats rule, you can forgo taking this feature to take a feat of your choice instead.</p>",
+            "snippet": "",
+            "activation": {
+              "activationTime": null,
+              "activationType": null
+            },
+            "multiClassDescription": "",
+            "requiredLevel": 16,
+            "isSubClassFeature": false,
+            "limitedUse": [],
+            "isRequiredLevelDisplayed": false,
+            "hideInBuilder": false,
+            "hideInSheet": false,
+            "hideOnListing": true,
+            "sourceId": 2,
+            "sourcePageNumber": 85,
+            "creatureRules": [],
+            "infusionRules": []
+          },
+          "levelScale": null
+        },
+        {
+          "definition": {
+            "id": 274,
+            "entityTypeId": 12168134,
+            "displayOrder": 20,
+            "name": "Aura Improvements",
+            "description": "<p>At 18th level, the range of your auras increase to 30 feet.</p>",
+            "snippet": "The range of all your auras increases to 30 ft.",
+            "activation": {
+              "activationTime": null,
+              "activationType": null
+            },
+            "multiClassDescription": "",
+            "requiredLevel": 18,
+            "isSubClassFeature": false,
+            "limitedUse": [],
+            "isRequiredLevelDisplayed": false,
+            "hideInBuilder": false,
+            "hideInSheet": false,
+            "hideOnListing": false,
+            "sourceId": 2,
+            "sourcePageNumber": 85,
+            "creatureRules": [],
+            "infusionRules": []
+          },
+          "levelScale": null
+        },
+        {
+          "definition": {
+            "id": 278,
+            "entityTypeId": 12168134,
+            "displayOrder": 21,
+            "name": "Ability Score Improvement",
+            "description": "<p class=\"compendium-hr\">When you reach 19th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1. As normal, you can\u2019t increase an ability score above 20 using this feature.</p>\n<p class=\"compendium-hr\">Using the optional feats rule, you can forgo taking this feature to take a feat of your choice instead.</p>",
+            "snippet": "",
+            "activation": {
+              "activationTime": null,
+              "activationType": null
+            },
+            "multiClassDescription": "",
+            "requiredLevel": 19,
+            "isSubClassFeature": false,
+            "limitedUse": [],
+            "isRequiredLevelDisplayed": false,
+            "hideInBuilder": false,
+            "hideInSheet": false,
+            "hideOnListing": true,
+            "sourceId": 2,
+            "sourcePageNumber": 85,
+            "creatureRules": [],
+            "infusionRules": []
+          },
+          "levelScale": null
+        }
+      ]
+    }
+  ],
+  "modifiers": {
+    "race": [
+      {
+        "type": "set",
+        "subType": "innate-speed-flying",
+        "value": 30,
+        "friendlySubtypeName": "Innate Speed (Flying)",
+        "friendlyTypeName": "Set"
+      },
+      {
+        "type": "bonus",
+        "subType": "wisdom-score",
+        "value": 2,
+        "friendlySubtypeName": "Wisdom Score",
+        "friendlyTypeName": "Bonus"
+      },
+      {
+        "type": "bonus",
+        "subType": "charisma-score",
+        "value": 1,
+        "friendlySubtypeName": "Charisma Score",
+        "friendlyTypeName": "Bonus"
+      },
+      {
+        "type": "language",
+        "subType": "goblin",
+        "friendlySubtypeName": "Goblin",
+        "friendlyTypeName": "Language"
+      },
+      {
+        "type": "language",
+        "subType": "common",
+        "friendlySubtypeName": "Common",
+        "friendlyTypeName": "Language"
+      }
+    ],
+    "class": [
+      {
+        "type": "proficiency",
+        "subType": "light-armor",
+        "friendlySubtypeName": "Light Armor",
+        "friendlyTypeName": "Proficiency"
+      },
+      {
+        "type": "proficiency",
+        "subType": "medium-armor",
+        "friendlySubtypeName": "Medium Armor",
+        "friendlyTypeName": "Proficiency"
+      },
+      {
+        "type": "proficiency",
+        "subType": "heavy-armor",
+        "friendlySubtypeName": "Heavy Armor",
+        "friendlyTypeName": "Proficiency"
+      },
+      {
+        "type": "proficiency",
+        "subType": "shields",
+        "friendlySubtypeName": "Shields",
+        "friendlyTypeName": "Proficiency"
+      },
+      {
+        "type": "proficiency",
+        "subType": "wisdom-saving-throws",
+        "friendlySubtypeName": "Wisdom Saving Throws",
+        "friendlyTypeName": "Proficiency"
+      },
+      {
+        "type": "proficiency",
+        "subType": "charisma-saving-throws",
+        "friendlySubtypeName": "Charisma Saving Throws",
+        "friendlyTypeName": "Proficiency"
+      },
+      {
+        "type": "proficiency",
+        "subType": "persuasion",
+        "friendlySubtypeName": "Persuasion",
+        "friendlyTypeName": "Proficiency"
+      },
+      {
+        "type": "proficiency",
+        "subType": "medicine",
+        "friendlySubtypeName": "Medicine",
+        "friendlyTypeName": "Proficiency"
+      },
+      {
+        "type": "proficiency",
+        "subType": "simple-weapons",
+        "friendlySubtypeName": "Simple Weapons",
+        "friendlyTypeName": "Proficiency"
+      },
+      {
+        "type": "proficiency",
+        "subType": "martial-weapons",
+        "friendlySubtypeName": "Martial Weapons",
+        "friendlyTypeName": "Proficiency"
+      }
+    ],
+    "background": [
+      {
+        "type": "proficiency",
+        "subType": "performance",
+        "friendlySubtypeName": "Performance",
+        "friendlyTypeName": "Proficiency"
+      },
+      {
+        "type": "proficiency",
+        "subType": "sleight-of-hand",
+        "friendlySubtypeName": "Sleight of Hand",
+        "friendlyTypeName": "Proficiency"
+      },
+      {
+        "type": "language",
+        "subType": "sylvan",
+        "friendlySubtypeName": "Sylvan",
+        "friendlyTypeName": "Language"
+      },
+      {
+        "type": "proficiency",
+        "subType": "tocken",
+        "friendlySubtypeName": "Tocken",
+        "friendlyTypeName": "Proficiency"
+      }
+    ],
+    "item": [],
+    "feat": [],
+    "condition": []
+  },
+  "inventory": [
+    {
+      "id": 430884115,
+      "entityTypeId": 1439493548,
+      "definition": {
+        "name": "Chain Mail",
+        "type": "Heavy Armor",
+        "filterType": "Armor",
+        "description": "<p>Made of interlocking metal rings, chain mail includes a layer of quilted fabric worn underneath the mail to prevent chafing and to cushion the impact of blows. The suit includes gauntlets.</p>",
+        "rarity": "Common",
+        "magic": false,
+        "armorTypeId": 3,
+        "armorClass": 16
+      },
+      "quantity": 1,
+      "isAttuned": false,
+      "equipped": false,
+      "limitedUse": null
+    },
+    {
+      "displayAsAttack": null,
+      "id": 430884114,
+      "entityTypeId": 1439493548,
+      "definition": {
+        "name": "Javelin",
+        "type": "Javelin",
+        "filterType": "Weapon",
+        "damage": {
+          "diceCount": 1,
+          "diceValue": 6,
+          "diceMultiplier": null,
+          "fixedValue": null,
+          "diceString": "1d6"
+        },
+        "damageType": "Piercing",
+        "attackType": 1,
+        "range": 30,
+        "longRange": 120,
+        "properties": [
+          {
+            "name": "Thrown"
+          },
+          {
+            "name": "Slow"
+          }
+        ],
+        "description": "<p>Proficiency with a Javelin allows you to add your proficiency bonus to the attack roll for any attack you make with it.</p>\n<div class=\"mastery-container\"><hr>\n<p>This weapon has the following mastery property. To use this property, you must have a feature that lets you use it.</p>\n<p><em><strong>Slow.</strong></em> If you hit a creature with this weapon and deal damage to it, you can reduce it",
+        "rarity": "Common",
+        "magic": false
+      },
+      "quantity": 5,
+      "isAttuned": false,
+      "equipped": false,
+      "limitedUse": null
+    },
+    {
+      "displayAsAttack": null,
+      "id": 430884113,
+      "entityTypeId": 1439493548,
+      "definition": {
+        "name": "Rapier",
+        "type": "Rapier",
+        "filterType": "Weapon",
+        "damage": {
+          "diceCount": 1,
+          "diceValue": 8,
+          "diceMultiplier": null,
+          "fixedValue": null,
+          "diceString": "1d8"
+        },
+        "damageType": "Piercing",
+        "attackType": 1,
+        "range": 5,
+        "longRange": 5,
+        "properties": [
+          {
+            "name": "Finesse"
+          },
+          {
+            "name": "Vex"
+          }
+        ],
+        "description": "<p>Proficiency with a Rapier allows you to add your proficiency bonus to the attack roll for any attack you make with it.</p>\n<div class=\"mastery-container\"><hr>\n<p>This weapon has the following mastery property. To use this property, you must have a feature that lets you use it.</p>\n<p><strong><em>Vex.</em></strong> If you hit a creature with this weapon and deal damage to the creature, you have ",
+        "rarity": "Common",
+        "magic": false
+      },
+      "quantity": 1,
+      "isAttuned": false,
+      "equipped": false,
+      "limitedUse": null
+    },
+    {
+      "displayAsAttack": null,
+      "id": 430884112,
+      "entityTypeId": 1439493548,
+      "definition": {
+        "name": "Whip",
+        "type": "Whip",
+        "filterType": "Weapon",
+        "damage": {
+          "diceCount": 1,
+          "diceValue": 4,
+          "diceMultiplier": null,
+          "fixedValue": null,
+          "diceString": "1d4"
+        },
+        "damageType": "Slashing",
+        "attackType": 1,
+        "range": 10,
+        "longRange": 10,
+        "properties": [
+          {
+            "name": "Finesse"
+          },
+          {
+            "name": "Reach"
+          },
+          {
+            "name": "Slow"
+          }
+        ],
+        "description": "<p>Proficiency with a Whip allows you to add your proficiency bonus to the attack roll for any attack you make with it.</p>\n<div class=\"mastery-container\"><hr>\n<p>This weapon has the following mastery property. To use this property, you must have a feature that lets you use it.</p>\n<p><em><strong>Slow.</strong></em> If you hit a creature with this weapon and deal damage to it, you can reduce its S",
+        "rarity": "Common",
+        "magic": false
+      },
+      "quantity": 1,
+      "isAttuned": false,
+      "equipped": true,
+      "limitedUse": null
+    },
+    {
+      "displayAsAttack": null,
+      "id": 430884116,
+      "entityTypeId": 1439493548,
+      "definition": {
+        "name": "Emblem",
+        "type": "Gear",
+        "filterType": "Other Gear",
+        "description": "<p>A holy symbol is a representation of a god or pantheon. A cleric or paladin can use a holy symbol as a spellcasting focus, as described in the <a href=\"https://www.dndbeyond.com/compendium/rules/basic-rules/spellcasting#MaterialM\">Spellcasting</a> section. To use the symbol in this way, the caster must hold it in hand, wear it visibly, or bear it on a shield.</p>",
+        "rarity": "Common",
+        "magic": false
+      },
+      "quantity": 1,
+      "isAttuned": false,
+      "equipped": false,
+      "limitedUse": null
+    },
+    {
+      "displayAsAttack": null,
+      "id": 430884117,
+      "entityTypeId": 1439493548,
+      "definition": {
+        "name": "Tocken",
+        "type": "Gear",
+        "filterType": "Other Gear",
+        "description": "<p>A hanging set of carved oval bells, usually played with a pair of light wooden hammers (or open handed). They are most common in underground cultures, where the resonant tones can carry.</p>",
+        "rarity": "Common",
+        "magic": false
+      },
+      "quantity": 1,
+      "isAttuned": false,
+      "equipped": false,
+      "limitedUse": null
+    }
+  ],
+  "currencies": {
+    "cp": 0,
+    "sp": 0,
+    "gp": 0,
+    "ep": 0,
+    "pp": 0
+  },
+  "notes": {
+    "allies": null,
+    "personalPossessions": "Deck of Cards\nCarnival Uniform\nPouch",
+    "otherHoldings": null,
+    "organizations": "Witchlight Carnival - Mister Witch and Mister Light",
+    "enemies": null,
+    "backstory": "Didn't fit in with the other fairies, ran away to the circus.\n\nActs like a lion-tamer, hence the whip. However, she wants to do ALL the different things in time!\n",
+    "otherNotes": null
+  },
+  "feats": [],
+  "classSpells": [
+    {
+      "entityTypeId": 1446578651,
+      "characterClassId": 125365767,
+      "spells": []
+    }
+  ],
+  "actions": {
+    "race": [],
+    "class": [
+      {
+        "name": "Divine Sense",
+        "snippet": "As an action, you can detect good and evil. Until the end of your next turn, you can sense anything affected by the hallow spell or know the location of any celestial, fiend, undead within 60 ft. that is not behind total cover. You can use this feature {{(modifier:cha)+1#unsigned}} times per long rest.",
+        "description": "As an action, you can detect good and evil. Until the end of your next turn, you can sense anything affected by the hallow spell or know the location of any celestial, fiend, undead within 60 ft. that is not behind total cover. You can use this feature {{(modifier:cha)+1#unsigned}} times per long rest."
+      },
+      {
+        "name": "Lay on Hands Pool",
+        "snippet": "You have a pool of healing power that can restore {{classlevel*5#unsigned}} HP per long rest. As an action, you can touch a creature to restore any number of HP remaining in the pool, or 5 HP to either cure a disease or neutralize a poison affecting the creature.",
+        "description": "You have a pool of healing power that can restore {{classlevel*5#unsigned}} HP per long rest. As an action, you can touch a creature to restore any number of HP remaining in the pool, or 5 HP to either cure a disease or neutralize a poison affecting the creature."
+      }
+    ],
+    "feat": []
+  },
+  "gender": "Female",
+  "age": 3,
+  "eyes": "Brown",
+  "hair": "Red",
+  "height": "Small",
+  "weight": null,
+  "skin": "Brown",
+  "customProficiencies": [],
+  "customItems": [],
+  "traits": {
+    "personalityTraits": "I have never lost my childlike sense of wonder.\nWhen I have a new idea, I get wildly excited about it until I come up with another, better idea.",
+    "ideals": "Honor. A deal is a deal, and I would never break one. (Lawful)",
+    "bonds": "The Witchlight Carnival feels like home to me.",
+    "flaws": "I\u2019m a kleptomaniac who covets shiny, sparkling treasure.",
+    "appearance": null
+  }
+}

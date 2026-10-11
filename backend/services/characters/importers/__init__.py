@@ -12,7 +12,7 @@ import os
 from typing import Any, Callable, Optional
 from urllib.parse import urlparse
 
-from . import dicecloud_v1
+from . import dicecloud_v1, dndbeyond
 
 ConvertFn = Callable[..., dict]
 
@@ -23,6 +23,7 @@ class ImportSourceError(Exception):
 
 _REGISTRY: dict[str, ConvertFn] = {
     "dicecloud-v1": dicecloud_v1.import_from_url,
+    "dndbeyond": dndbeyond.import_from_url,
 }
 
 
