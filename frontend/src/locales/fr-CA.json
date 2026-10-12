@@ -1112,7 +1112,15 @@
       "reading": "Lecture et bibliothèque",
       "readingDesc": "Comportement du lecteur, navigation dans la bibliothèque et flux.",
       "security": "Sécurité et compte",
-      "securityDesc": "Mot de passe, sessions actives et suppression du compte."
+      "securityDesc": "Mot de passe, sessions actives et suppression du compte.",
+      "sharing": "Partage",
+      "sharingDesc": "Les liens publics que vous avez créés vers des éléments de la bibliothèque."
+    },
+    "shareLinks": {
+      "title": "Liens de partage",
+      "description": "Tous les liens que vous avez créés. Copiez-en un à nouveau, ou révoquez-le pour qu'il cesse de fonctionner.",
+      "noPermission": "Vous ne pouvez pas créer de liens de partage pour le moment. Vos liens existants sont suspendus, pas supprimés, et refonctionneront si un admin vous rend l'autorisation.",
+      "none": "Vous n'avez créé aucun lien de partage."
     }
   },
   "appSettings": {
@@ -1290,6 +1298,10 @@
         "all": {
           "label": "Toutes les autorisations",
           "description": "Toutes les zones à la fois, y compris celles ajoutées dans de futures versions"
+        },
+        "share-links": {
+          "label": "Liens de partage",
+          "description": "Créer, lister et révoquer vos liens de partage publics"
         }
       }
     },
@@ -1371,7 +1383,32 @@
     "noPermissions": "Aucune",
     "ownedCampaigns": "Campagnes possédées",
     "deleteUserShort": "Supprimer l’utilisateur",
-    "emailLabel": "Courriel"
+    "emailLabel": "Courriel",
+    "shareLinks": {
+      "label": "Liens de partage",
+      "followRole": "Selon le rôle",
+      "allow": "Autoriser",
+      "deny": "Refuser",
+      "status": {
+        "allowed": "Autorisé",
+        "denied": "Non autorisé"
+      },
+      "source": {
+        "role": "(par le rôle)",
+        "user": "(défini pour cet utilisateur)",
+        "disabled": "(désactivé sur ce serveur)",
+        "guest": "(les invités ne peuvent pas partager)"
+      },
+      "badge": "Liens de partage",
+      "listLabel": "Liens de partage",
+      "none": "Aucun lien de partage.",
+      "rolesTitle": "Liens de partage",
+      "rolesHint": "Qui peut créer des liens de partage publics par défaut. Le réglage propre à un utilisateur dans le tableau l'emporte.",
+      "disabled": "Les liens de partage sont désactivés sur ce serveur (SHARE_LINKS_ENABLED=false).",
+      "adminAlways": "Les admins peuvent toujours créer des liens de partage",
+      "rolesFailed": "Impossible de mettre à jour les valeurs par défaut des liens de partage.",
+      "failedUpdate": "Impossible de modifier l'autorisation des liens de partage."
+    }
   },
   "maintenance": {
     "groups": {
@@ -3263,5 +3300,87 @@
     "document": "Jeu de règles (JSON ou YAML)",
     "documentHelp": "Un jeu de règles exporté ou écrit à la main. Il lui faut une section « entries » groupée par type de contenu.",
     "needRulesetFirst": "Créez d'abord un jeu de règles où importer"
+  },
+  "share": {
+    "button": "Partager",
+    "type": {
+      "book": "Livre",
+      "map": "Carte",
+      "token": "Jeton",
+      "audio": "Audio",
+      "model": "Modèle 3D"
+    },
+    "state": {
+      "active": "Actif",
+      "disabled": "Désactivé",
+      "revoked": "Révoqué",
+      "expired": "Expiré",
+      "suspended": "Suspendu",
+      "unavailable": "Indisponible"
+    },
+    "stateHint": {
+      "active": "Toute personne disposant du lien peut l'ouvrir.",
+      "disabled": "Les liens de partage sont désactivés sur ce serveur.",
+      "revoked": "Ce lien a été révoqué et ne fonctionne plus.",
+      "expired": "Ce lien a expiré.",
+      "suspended": "Inactif tant que son propriétaire n'a pas le droit de partager. Il refonctionne s'il le récupère.",
+      "unavailable": "Inactif : l'élément a disparu ou manque sur le disque, ou son propriétaire ne peut plus l'ouvrir."
+    },
+    "row": {
+      "expires": "Expire le {{when}}",
+      "noExpiry": "N'expire jamais",
+      "uses_one": "{{count}} utilisation",
+      "uses_other": "{{count}} utilisations",
+      "lastUsed": "dernière utilisation le {{when}}",
+      "passwordProtected": "Protégé par mot de passe",
+      "owner": "par {{name}}",
+      "copied": "Copié",
+      "copyLink": "Copier le lien",
+      "copyFile": "Copier l'URL du fichier",
+      "copyFileHint": "Le fichier lui-même, pour les VTT, OTFBM et Discord",
+      "revoke": "Révoquer",
+      "delete": "Supprimer",
+      "confirmDelete": "Supprimer définitivement"
+    },
+    "expiry": {
+      "day": "1 jour",
+      "week": "7 jours",
+      "month": "30 jours",
+      "never": "Jamais"
+    },
+    "form": {
+      "label": "Libellé",
+      "labelPlaceholder": "ex. Document de la séance 12",
+      "expiry": "Expire après",
+      "password": "Mot de passe (facultatif)",
+      "passwordPlaceholder": "Laisser vide pour aucun mot de passe",
+      "passwordTooShort": "Au moins 4 caractères.",
+      "passwordHint": "Les personnes qui ouvrent le lien doivent le saisir. Les outils qui chargent le fichier directement ne le peuvent pas : laissez-le vide pour les VTT et Discord.",
+      "create": "Créer le lien"
+    },
+    "dialog": {
+      "title": "Lien de partage",
+      "intro": "Toute personne disposant d'un lien de partage peut ouvrir cet élément sans compte, jusqu'à son expiration ou sa révocation.",
+      "existing": "Vos liens pour cet élément",
+      "none": "Vous ne l'avez pas encore partagé."
+    },
+    "loadFailed": "Impossible de charger les liens de partage.",
+    "createFailed": "Impossible de créer le lien.",
+    "revokeFailed": "Impossible de révoquer le lien.",
+    "deleteFailed": "Impossible de supprimer le lien."
+  },
+  "sharePage": {
+    "missingTitle": "Ce lien ne fonctionne pas",
+    "missingBody": "Il a peut-être expiré ou été révoqué, ou l'élément n'est plus disponible.",
+    "throttled": "Trop de tentatives. Patientez une minute et réessayez.",
+    "lockedTitle": "Mot de passe requis",
+    "lockedBody": "Saisissez le mot de passe qu'on vous a donné pour ouvrir ce lien.",
+    "password": "Mot de passe",
+    "unlock": "Ouvrir",
+    "wrongPassword": "Ce mot de passe est incorrect.",
+    "expires": "Le lien expire le {{when}}",
+    "download": "Télécharger",
+    "open": "Ouvrir",
+    "sharedFrom": "Partagé depuis Grimoire"
   }
 }

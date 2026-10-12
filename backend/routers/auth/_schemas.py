@@ -54,6 +54,9 @@ class LoginUser(BaseModel):
     # Whether this user may create and use API keys right now (issue #489): the
     # instance switch and their own, admins always. Drives the Account tab.
     api_keys_allowed: bool = False
+    # Whether this user may create share links right now (issue #541): the
+    # instance switch, their override, then their role. Drives the Share menus.
+    share_links_allowed: bool = False
 
 
 class LoginResponse(BaseModel):
@@ -137,4 +140,6 @@ class AuthMeResponse(BaseModel):
     campaign_access: bool
     # See LoginUser.api_keys_allowed.
     api_keys_allowed: bool
+    # See LoginUser.share_links_allowed.
+    share_links_allowed: bool = False
     oidc_linked: bool

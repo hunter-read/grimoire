@@ -1112,7 +1112,15 @@
       "reading": "Lesen & Bibliothek",
       "readingDesc": "Leseverhalten, Bibliotheksansicht und Feeds.",
       "security": "Sicherheit & Konto",
-      "securityDesc": "Passwort, aktive Sitzungen und Kontolöschung."
+      "securityDesc": "Passwort, aktive Sitzungen und Kontolöschung.",
+      "sharing": "Teilen",
+      "sharingDesc": "Öffentliche Links, die du zu Elementen der Bibliothek erstellt hast."
+    },
+    "shareLinks": {
+      "title": "Freigabelinks",
+      "description": "Alle Links, die du erstellt hast. Kopiere einen erneut oder widerrufe ihn, damit er nicht mehr funktioniert.",
+      "noPermission": "Du kannst gerade keine Freigabelinks erstellen. Bestehende Links sind pausiert, nicht gelöscht, und funktionieren wieder, wenn ein Admin dir die Berechtigung zurückgibt.",
+      "none": "Du hast noch keine Freigabelinks erstellt."
     }
   },
   "appSettings": {
@@ -1290,6 +1298,10 @@
         "all": {
           "label": "Alle Berechtigungen",
           "description": "Alle Bereiche auf einmal, auch solche, die in künftigen Versionen hinzukommen"
+        },
+        "share-links": {
+          "label": "Freigabelinks",
+          "description": "Eigene öffentliche Freigabelinks erstellen, auflisten und widerrufen"
         }
       }
     },
@@ -1371,7 +1383,32 @@
     "noPermissions": "Keine",
     "ownedCampaigns": "Eigene Kampagnen",
     "deleteUserShort": "Benutzer löschen",
-    "emailLabel": "E-Mail"
+    "emailLabel": "E-Mail",
+    "shareLinks": {
+      "label": "Freigabelinks",
+      "followRole": "Rolle folgen",
+      "allow": "Erlauben",
+      "deny": "Verweigern",
+      "status": {
+        "allowed": "Erlaubt",
+        "denied": "Nicht erlaubt"
+      },
+      "source": {
+        "role": "(durch Rolle)",
+        "user": "(für diesen Benutzer festgelegt)",
+        "disabled": "(auf diesem Server ausgeschaltet)",
+        "guest": "(Gäste können nicht teilen)"
+      },
+      "badge": "Freigabelinks",
+      "listLabel": "Freigabelinks",
+      "none": "Keine Freigabelinks.",
+      "rolesTitle": "Freigabelinks",
+      "rolesHint": "Wer standardmäßig öffentliche Freigabelinks erstellen darf. Die Einstellung eines Benutzers in der Tabelle hat Vorrang.",
+      "disabled": "Freigabelinks sind auf diesem Server ausgeschaltet (SHARE_LINKS_ENABLED=false).",
+      "adminAlways": "Admins können immer Freigabelinks erstellen",
+      "rolesFailed": "Die Standardwerte für Freigabelinks konnten nicht gespeichert werden.",
+      "failedUpdate": "Die Berechtigung für Freigabelinks konnte nicht geändert werden."
+    }
   },
   "maintenance": {
     "groups": {
@@ -3263,5 +3300,87 @@
     "document": "Regelsatz (JSON oder YAML)",
     "documentHelp": "Ein exportierter oder von Hand geschriebener Regelsatz. Er benötigt einen Abschnitt \"entries\", nach Inhaltstyp gruppiert.",
     "needRulesetFirst": "Erstellen Sie zuerst einen Regelsatz zum Importieren"
+  },
+  "share": {
+    "button": "Teilen",
+    "type": {
+      "book": "Buch",
+      "map": "Karte",
+      "token": "Token",
+      "audio": "Audio",
+      "model": "3D-Modell"
+    },
+    "state": {
+      "active": "Aktiv",
+      "disabled": "Aus",
+      "revoked": "Widerrufen",
+      "expired": "Abgelaufen",
+      "suspended": "Pausiert",
+      "unavailable": "Nicht verfügbar"
+    },
+    "stateHint": {
+      "active": "Jeder mit dem Link kann ihn öffnen.",
+      "disabled": "Freigabelinks sind auf diesem Server ausgeschaltet.",
+      "revoked": "Dieser Link wurde widerrufen und funktioniert nicht mehr.",
+      "expired": "Dieser Link ist abgelaufen.",
+      "suspended": "Funktioniert nicht, solange sein Besitzer nicht teilen darf. Er funktioniert wieder, sobald er es darf.",
+      "unavailable": "Funktioniert nicht: Das Element ist weg oder fehlt auf der Festplatte, oder sein Besitzer kann es nicht mehr öffnen."
+    },
+    "row": {
+      "expires": "Läuft am {{when}} ab",
+      "noExpiry": "Läuft nie ab",
+      "uses_one": "{{count}} Aufruf",
+      "uses_other": "{{count}} Aufrufe",
+      "lastUsed": "zuletzt am {{when}}",
+      "passwordProtected": "Passwortgeschützt",
+      "owner": "von {{name}}",
+      "copied": "Kopiert",
+      "copyLink": "Link kopieren",
+      "copyFile": "Datei-URL kopieren",
+      "copyFileHint": "Die Datei selbst, für VTTs, OTFBM und Discord",
+      "revoke": "Widerrufen",
+      "delete": "Löschen",
+      "confirmDelete": "Endgültig löschen"
+    },
+    "expiry": {
+      "day": "1 Tag",
+      "week": "7 Tage",
+      "month": "30 Tage",
+      "never": "Nie"
+    },
+    "form": {
+      "label": "Bezeichnung",
+      "labelPlaceholder": "z. B. Handout Sitzung 12",
+      "expiry": "Läuft ab nach",
+      "password": "Passwort (optional)",
+      "passwordPlaceholder": "Leer lassen für kein Passwort",
+      "passwordTooShort": "Mindestens 4 Zeichen.",
+      "passwordHint": "Wer den Link öffnet, muss es eingeben. Programme, die die Datei direkt laden, können das nicht – für VTTs und Discord also leer lassen.",
+      "create": "Link erstellen"
+    },
+    "dialog": {
+      "title": "Freigabelink",
+      "intro": "Jeder mit einem Freigabelink kann dieses Element ohne Konto öffnen, bis der Link abläuft oder du ihn widerrufst.",
+      "existing": "Deine Links für dieses Element",
+      "none": "Du hast das noch nicht geteilt."
+    },
+    "loadFailed": "Freigabelinks konnten nicht geladen werden.",
+    "createFailed": "Der Link konnte nicht erstellt werden.",
+    "revokeFailed": "Der Link konnte nicht widerrufen werden.",
+    "deleteFailed": "Der Link konnte nicht gelöscht werden."
+  },
+  "sharePage": {
+    "missingTitle": "Dieser Link funktioniert nicht",
+    "missingBody": "Er ist vielleicht abgelaufen oder wurde widerrufen, oder das Element ist nicht mehr verfügbar.",
+    "throttled": "Zu viele Versuche. Warte eine Minute und versuche es erneut.",
+    "lockedTitle": "Passwort erforderlich",
+    "lockedBody": "Gib das Passwort ein, das du erhalten hast, um diesen Link zu öffnen.",
+    "password": "Passwort",
+    "unlock": "Öffnen",
+    "wrongPassword": "Das Passwort stimmt nicht.",
+    "expires": "Link läuft am {{when}} ab",
+    "download": "Herunterladen",
+    "open": "Öffnen",
+    "sharedFrom": "Geteilt über Grimoire"
   }
 }

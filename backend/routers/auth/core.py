@@ -6,6 +6,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ...api_keys import user_keys_allowed
+from ...services import share_links as share_policy
 from ...auth import (
     AUTH_COOKIE_NAME,
     CurrentUser,
@@ -181,6 +182,7 @@ def auth_refresh(
             "display_name": user.display_name,
             "role": user.role,
             "api_keys_allowed": user_keys_allowed(user),
+            "share_links_allowed": share_policy.user_can_share(db, user),
         },
     }
 
@@ -298,5 +300,6 @@ def auth_me(
         "allow_explicit": allow_explicit,
         "campaign_access": campaign_access,
         "api_keys_allowed": user_keys_allowed(u),
+        "share_links_allowed": share_policy.user_can_share(db, u),
         "oidc_linked": bool(u.oidc_subject),
     }

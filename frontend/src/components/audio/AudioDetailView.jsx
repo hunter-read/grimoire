@@ -11,6 +11,7 @@ import Spinner from '../Spinner'
 import { formatSize, formatDuration } from '../../utils'
 import InlineTagEditor from '../maps/InlineTagEditor'
 import AddToCampaignButton from '../campaigns/AddToCampaignButton'
+import ShareLinkButton from '../share/ShareLinkButton'
 import DetailFavoriteButton from '../DetailFavoriteButton'
 import VariantPicker from '../VariantPicker'
 import DownloadVersionButton from '../DownloadVersionButton'
@@ -186,6 +187,12 @@ export default function AudioDetailView() {
         <VariantPicker item={track} detailPath={(id) => `/audio/${id}`} compact />
         <DetailFavoriteButton type="audio" id={audioId} compact={isMobilePhone} />
         <AddToCampaignButton resourceType="audio" resourceId={audioId} />
+        <ShareLinkButton
+          resourceType="audio"
+          resourceId={audioId}
+          title={track.title || track.filename}
+          compact={isMobilePhone}
+        />
         <DownloadVersionButton type="audio" id={audioId} item={track} compact={isMobilePhone} />
       </div>
 

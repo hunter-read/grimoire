@@ -1112,7 +1112,15 @@
       "reading": "Leitura e biblioteca",
       "readingDesc": "Comportamento do leitor, navegação na biblioteca e feeds.",
       "security": "Segurança e conta",
-      "securityDesc": "Senha, sessões ativas e exclusão da conta."
+      "securityDesc": "Senha, sessões ativas e exclusão da conta.",
+      "sharing": "Compartilhamento",
+      "sharingDesc": "Links públicos que você criou para itens da biblioteca."
+    },
+    "shareLinks": {
+      "title": "Links de compartilhamento",
+      "description": "Todos os links que você criou. Copie um de novo, ou revogue-o para que pare de funcionar.",
+      "noPermission": "No momento você não pode criar links de compartilhamento. Os que você criou estão pausados, não excluídos, e voltam a funcionar se um admin devolver sua permissão.",
+      "none": "Você ainda não criou nenhum link de compartilhamento."
     }
   },
   "appSettings": {
@@ -1290,6 +1298,10 @@
         "all": {
           "label": "Todas as permissões",
           "description": "Todas as áreas de uma vez, incluindo as adicionadas em versões futuras"
+        },
+        "share-links": {
+          "label": "Links de compartilhamento",
+          "description": "Criar, listar e revogar seus links de compartilhamento públicos"
         }
       }
     },
@@ -1371,7 +1383,32 @@
     "noPermissions": "Nenhuma",
     "ownedCampaigns": "Campanhas próprias",
     "deleteUserShort": "Excluir usuário",
-    "emailLabel": "E-mail"
+    "emailLabel": "E-mail",
+    "shareLinks": {
+      "label": "Links de compartilhamento",
+      "followRole": "Seguir a função",
+      "allow": "Permitir",
+      "deny": "Negar",
+      "status": {
+        "allowed": "Permitido",
+        "denied": "Não permitido"
+      },
+      "source": {
+        "role": "(pela função)",
+        "user": "(definido para este usuário)",
+        "disabled": "(desativado neste servidor)",
+        "guest": "(convidados não podem compartilhar)"
+      },
+      "badge": "Links",
+      "listLabel": "Links de compartilhamento",
+      "none": "Nenhum link de compartilhamento.",
+      "rolesTitle": "Links de compartilhamento",
+      "rolesHint": "Quem pode criar links de compartilhamento públicos por padrão. A configuração própria de um usuário na tabela tem prioridade.",
+      "disabled": "Os links de compartilhamento estão desativados neste servidor (SHARE_LINKS_ENABLED=false).",
+      "adminAlways": "Admins sempre podem criar links de compartilhamento",
+      "rolesFailed": "Não foi possível atualizar os padrões dos links.",
+      "failedUpdate": "Não foi possível alterar a permissão de links de compartilhamento."
+    }
   },
   "maintenance": {
     "groups": {
@@ -3263,5 +3300,87 @@
     "document": "Conjunto de regras (JSON ou YAML)",
     "documentHelp": "Um conjunto exportado ou escrito à mão. Precisa de uma secção \"entries\" agrupada por tipo de conteúdo.",
     "needRulesetFirst": "Crie primeiro um conjunto de regras para onde importar"
+  },
+  "share": {
+    "button": "Compartilhar",
+    "type": {
+      "book": "Livro",
+      "map": "Mapa",
+      "token": "Token",
+      "audio": "Áudio",
+      "model": "Modelo 3D"
+    },
+    "state": {
+      "active": "Ativo",
+      "disabled": "Desativado",
+      "revoked": "Revogado",
+      "expired": "Expirado",
+      "suspended": "Suspenso",
+      "unavailable": "Indisponível"
+    },
+    "stateHint": {
+      "active": "Qualquer pessoa com o link pode abri-lo.",
+      "disabled": "Os links de compartilhamento estão desativados neste servidor.",
+      "revoked": "Este link foi revogado e não funciona mais.",
+      "expired": "Este link expirou.",
+      "suspended": "Não funciona enquanto o dono não puder compartilhar. Volta a funcionar se ele recuperar a permissão.",
+      "unavailable": "Não funciona: o item não existe mais ou está faltando no disco, ou o dono não consegue mais abri-lo."
+    },
+    "row": {
+      "expires": "Expira em {{when}}",
+      "noExpiry": "Nunca expira",
+      "uses_one": "{{count}} acesso",
+      "uses_other": "{{count}} acessos",
+      "lastUsed": "último acesso em {{when}}",
+      "passwordProtected": "Protegido por senha",
+      "owner": "de {{name}}",
+      "copied": "Copiado",
+      "copyLink": "Copiar link",
+      "copyFile": "Copiar URL do arquivo",
+      "copyFileHint": "O próprio arquivo, para VTTs, OTFBM e Discord",
+      "revoke": "Revogar",
+      "delete": "Excluir",
+      "confirmDelete": "Excluir de vez"
+    },
+    "expiry": {
+      "day": "1 dia",
+      "week": "7 dias",
+      "month": "30 dias",
+      "never": "Nunca"
+    },
+    "form": {
+      "label": "Rótulo",
+      "labelPlaceholder": "ex.: Material da sessão 12",
+      "expiry": "Expira após",
+      "password": "Senha (opcional)",
+      "passwordPlaceholder": "Deixe vazio para não usar senha",
+      "passwordTooShort": "Pelo menos 4 caracteres.",
+      "passwordHint": "Quem abrir o link precisa digitá-la. Ferramentas que carregam o arquivo diretamente não conseguem, então deixe vazio para VTTs e Discord.",
+      "create": "Criar link"
+    },
+    "dialog": {
+      "title": "Link de compartilhamento",
+      "intro": "Qualquer pessoa com um link de compartilhamento pode abrir este item sem conta, até ele expirar ou você revogá-lo.",
+      "existing": "Seus links para este item",
+      "none": "Você ainda não compartilhou isto."
+    },
+    "loadFailed": "Não foi possível carregar os links.",
+    "createFailed": "Não foi possível criar o link.",
+    "revokeFailed": "Não foi possível revogar o link.",
+    "deleteFailed": "Não foi possível excluir o link."
+  },
+  "sharePage": {
+    "missingTitle": "Este link não funciona",
+    "missingBody": "Ele pode ter expirado ou sido revogado, ou o item não está mais disponível.",
+    "throttled": "Muitas tentativas. Aguarde um minuto e tente de novo.",
+    "lockedTitle": "Senha necessária",
+    "lockedBody": "Digite a senha que você recebeu para abrir este link.",
+    "password": "Senha",
+    "unlock": "Abrir",
+    "wrongPassword": "Essa senha não está correta.",
+    "expires": "O link expira em {{when}}",
+    "download": "Baixar",
+    "open": "Abrir",
+    "sharedFrom": "Compartilhado pelo Grimoire"
   }
 }

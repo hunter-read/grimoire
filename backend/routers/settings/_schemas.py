@@ -32,6 +32,10 @@ class SettingsPatch(BaseModel):
     campaign_upload_max_total_mb: Optional[int] = None
     password_auth_enabled: Optional[bool] = None
     guest_access_enabled: Optional[bool] = None
+    # Share-link role defaults (issue #541). Admins always may share; these say
+    # whether GMs and players may without a per-user override.
+    share_links_role_gm: Optional[bool] = None
+    share_links_role_player: Optional[bool] = None
     disable_folder_category_inference: Optional[bool] = None
     custom_login_message_enabled: Optional[bool] = None
     custom_login_message: Optional[str] = None  # HTML (sanitized on save)
@@ -100,6 +104,11 @@ class SettingsResponse(BaseModel):
     password_auth_env_locked: bool
     guest_access_enabled: bool
     guest_access_env_locked: bool
+    # Share links (issue #541): whether they exist (SHARE_LINKS_ENABLED), and
+    # whether GMs and players may create them by default.
+    share_links_enabled: bool
+    share_links_role_gm: bool
+    share_links_role_player: bool
     disable_folder_category_inference: bool
     disable_folder_category_inference_env_locked: bool
     custom_login_message_enabled: bool
@@ -177,4 +186,5 @@ class UISettingsResponse(BaseModel):
     campaign_upload_max_total_mb: int
     guest_access_enabled: bool
     api_keys_enabled: bool
+    share_links_enabled: bool
     library_writable: bool

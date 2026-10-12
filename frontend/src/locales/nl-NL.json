@@ -1112,7 +1112,15 @@
       "reading": "Lezen en bibliotheek",
       "readingDesc": "Lezergedrag, bladeren door de bibliotheek en feeds.",
       "security": "Beveiliging en account",
-      "securityDesc": "Wachtwoord, actieve sessies en accountverwijdering."
+      "securityDesc": "Wachtwoord, actieve sessies en accountverwijdering.",
+      "sharing": "Delen",
+      "sharingDesc": "Openbare links die je hebt gemaakt naar items in de bibliotheek."
+    },
+    "shareLinks": {
+      "title": "Deellinks",
+      "description": "Alle links die je hebt gemaakt. Kopieer er een opnieuw, of trek hem in zodat hij niet meer werkt.",
+      "noPermission": "Je kunt nu geen deellinks maken. Links die je eerder maakte zijn gepauzeerd, niet verwijderd, en werken weer als een admin je toestemming herstelt.",
+      "none": "Je hebt nog geen deellinks gemaakt."
     }
   },
   "appSettings": {
@@ -1290,6 +1298,10 @@
         "all": {
           "label": "Alle rechten",
           "description": "Alle onderdelen tegelijk, ook onderdelen die in toekomstige versies worden toegevoegd"
+        },
+        "share-links": {
+          "label": "Deellinks",
+          "description": "Je openbare deellinks maken, weergeven en intrekken"
         }
       }
     },
@@ -1371,7 +1383,32 @@
     "noPermissions": "Geen",
     "ownedCampaigns": "Eigen campagnes",
     "deleteUserShort": "Gebruiker verwijderen",
-    "emailLabel": "E-mail"
+    "emailLabel": "E-mail",
+    "shareLinks": {
+      "label": "Deellinks",
+      "followRole": "Rol volgen",
+      "allow": "Toestaan",
+      "deny": "Weigeren",
+      "status": {
+        "allowed": "Toegestaan",
+        "denied": "Niet toegestaan"
+      },
+      "source": {
+        "role": "(via rol)",
+        "user": "(ingesteld voor deze gebruiker)",
+        "disabled": "(uit op deze server)",
+        "guest": "(gasten kunnen niet delen)"
+      },
+      "badge": "Deellinks",
+      "listLabel": "Deellinks",
+      "none": "Geen deellinks.",
+      "rolesTitle": "Deellinks",
+      "rolesHint": "Wie standaard openbare deellinks mag maken. De eigen instelling van een gebruiker in de tabel gaat voor.",
+      "disabled": "Deellinks staan uit op deze server (SHARE_LINKS_ENABLED=false).",
+      "adminAlways": "Admins kunnen altijd deellinks maken",
+      "rolesFailed": "De standaardinstellingen voor deellinks konden niet worden bijgewerkt.",
+      "failedUpdate": "De deellink-toestemming kon niet worden gewijzigd."
+    }
   },
   "maintenance": {
     "groups": {
@@ -3263,5 +3300,87 @@
     "document": "Regelset (JSON of YAML)",
     "documentHelp": "Een geëxporteerde of met de hand geschreven regelset. Deze heeft een \"entries\"-sectie nodig, gegroepeerd per inhoudstype.",
     "needRulesetFirst": "Maak eerst een regelset om in te importeren"
+  },
+  "share": {
+    "button": "Delen",
+    "type": {
+      "book": "Boek",
+      "map": "Kaart",
+      "token": "Token",
+      "audio": "Audio",
+      "model": "3D-model"
+    },
+    "state": {
+      "active": "Actief",
+      "disabled": "Uit",
+      "revoked": "Ingetrokken",
+      "expired": "Verlopen",
+      "suspended": "Gepauzeerd",
+      "unavailable": "Niet beschikbaar"
+    },
+    "stateHint": {
+      "active": "Iedereen met de link kan hem openen.",
+      "disabled": "Deellinks staan uit op deze server.",
+      "revoked": "Deze link is ingetrokken en werkt niet meer.",
+      "expired": "Deze link is verlopen.",
+      "suspended": "Werkt niet zolang de eigenaar niet mag delen. Werkt weer zodra dat wel mag.",
+      "unavailable": "Werkt niet: het item is weg of ontbreekt op schijf, of de eigenaar kan het niet meer openen."
+    },
+    "row": {
+      "expires": "Verloopt op {{when}}",
+      "noExpiry": "Verloopt nooit",
+      "uses_one": "{{count}} keer gebruikt",
+      "uses_other": "{{count}} keer gebruikt",
+      "lastUsed": "laatst gebruikt op {{when}}",
+      "passwordProtected": "Beveiligd met wachtwoord",
+      "owner": "door {{name}}",
+      "copied": "Gekopieerd",
+      "copyLink": "Link kopiëren",
+      "copyFile": "Bestands-URL kopiëren",
+      "copyFileHint": "Het bestand zelf, voor VTT's, OTFBM en Discord",
+      "revoke": "Intrekken",
+      "delete": "Verwijderen",
+      "confirmDelete": "Definitief verwijderen"
+    },
+    "expiry": {
+      "day": "1 dag",
+      "week": "7 dagen",
+      "month": "30 dagen",
+      "never": "Nooit"
+    },
+    "form": {
+      "label": "Label",
+      "labelPlaceholder": "bijv. Hand-out sessie 12",
+      "expiry": "Verloopt na",
+      "password": "Wachtwoord (optioneel)",
+      "passwordPlaceholder": "Leeg laten voor geen wachtwoord",
+      "passwordTooShort": "Minstens 4 tekens.",
+      "passwordHint": "Wie de link opent, moet het invoeren. Programma's die het bestand rechtstreeks laden kunnen dat niet, dus laat het leeg voor VTT's en Discord.",
+      "create": "Link maken"
+    },
+    "dialog": {
+      "title": "Deellink",
+      "intro": "Iedereen met een deellink kan dit item zonder account openen, totdat de link verloopt of je hem intrekt.",
+      "existing": "Jouw links voor dit item",
+      "none": "Je hebt dit nog niet gedeeld."
+    },
+    "loadFailed": "Deellinks konden niet worden geladen.",
+    "createFailed": "De link kon niet worden gemaakt.",
+    "revokeFailed": "De link kon niet worden ingetrokken.",
+    "deleteFailed": "De link kon niet worden verwijderd."
+  },
+  "sharePage": {
+    "missingTitle": "Deze link werkt niet",
+    "missingBody": "Hij is misschien verlopen of ingetrokken, of het item is niet meer beschikbaar.",
+    "throttled": "Te veel pogingen. Wacht een minuut en probeer het opnieuw.",
+    "lockedTitle": "Wachtwoord vereist",
+    "lockedBody": "Voer het wachtwoord in dat je hebt gekregen om deze link te openen.",
+    "password": "Wachtwoord",
+    "unlock": "Openen",
+    "wrongPassword": "Dat wachtwoord klopt niet.",
+    "expires": "Link verloopt op {{when}}",
+    "download": "Downloaden",
+    "open": "Openen",
+    "sharedFrom": "Gedeeld via Grimoire"
   }
 }

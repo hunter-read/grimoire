@@ -94,6 +94,11 @@ PERMISSIONS: dict[str, Permission] = {
     ),
     "audio": Permission(("audio",), "Audio tracks, their covers and folders", "media"),
     "models": Permission(("models",), "3D models and model folders", "media"),
+    "share-links": Permission(
+        ("share-links",),
+        "Create, list and revoke your public share links to library items",
+        "media",
+    ),
     # Campaigns and the owner's own data
     "campaigns": Permission(
         ("campaigns",),
@@ -145,7 +150,9 @@ TAG_PERMISSIONS: dict[str, str] = {
 # Tags a key can never reach, whatever its permissions (ALL_PERMISSIONS included):
 # sign-in and session flows, and key management itself - a key must never be
 # able to mint or widen keys.
-EXCLUDED_TAGS = frozenset({"auth", "api-keys"})
+# "share" is the public share-link route (issue #541): it takes no login of any
+# kind - the token in the path is the credential - so a key has nothing to add.
+EXCLUDED_TAGS = frozenset({"auth", "api-keys", "share"})
 
 # Roles, weakest first.
 ROLE_RANK = {"guest": 0, "player": 1, "gm": 2, "admin": 3}

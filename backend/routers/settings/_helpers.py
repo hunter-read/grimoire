@@ -3,6 +3,7 @@ import json
 import logging
 import re
 
+from ... import config
 from ...config import (
     ALLOW_PASSWORD_AUTHENTICATION_ENV,
     DISABLE_FOLDER_CATEGORY_INFERENCE_ENV,
@@ -46,6 +47,9 @@ _DEFAULTS = {
     "password_auth_enabled": "true",
     # Whether GMs/admins may create guest invite codes for their campaigns.
     "guest_access_enabled": "false",
+    # Share-link role defaults (issue #541); see services/share_links.py.
+    "share_links_role_gm": "true",
+    "share_links_role_player": "false",
     # When true, the indexer does not infer a book's category from its folder
     # names (books fall back to the neutral "uncategorized" category).
     "disable_folder_category_inference": "false",
@@ -172,6 +176,10 @@ def _to_typed(raw: dict) -> dict:
         "password_auth_env_locked": ALLOW_PASSWORD_AUTHENTICATION_ENV is not None,
         "guest_access_enabled": guest_access_effective(raw),
         "guest_access_env_locked": GUEST_ACCESS_ENABLED_ENV is not None,
+        # Read at call time, so the switch is honoured however config is set.
+        "share_links_enabled": config.SHARE_LINKS_ENABLED,
+        "share_links_role_gm": raw.get("share_links_role_gm", "true") == "true",
+        "share_links_role_player": raw.get("share_links_role_player", "false") == "true",
         "disable_folder_category_inference": disable_folder_category_inference_effective(raw),
         "disable_folder_category_inference_env_locked": (
             DISABLE_FOLDER_CATEGORY_INFERENCE_ENV is not None

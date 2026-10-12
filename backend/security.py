@@ -117,6 +117,38 @@ def record_api_key_failure(request: Request) -> None:
         pass
 
 
+# Share links (issue #541). Two separate allowances, both on the auth limit:
+#   - "share-lookup" counts requests for tokens that do not exist, per client IP.
+#     Only unknown tokens count. A link that was revoked, expired or suspended is
+#     still a known token, so a tool that keeps fetching a dead link (OTFBM, a
+#     VTT scene, an old Discord message) never throttles that tool's other,
+#     working links - those tools fetch every link from the same server IP.
+#   - "share-unlock" counts wrong passwords, per client IP *and* link, so a
+#     password cannot be guessed faster than the login form allows.
+_SHARE_LIMIT = parse_limit(AUTH_RATE_LIMIT)
+SHARE_LOOKUP_SCOPE = "share-lookup"
+SHARE_UNLOCK_SCOPE = "share-unlock"
+
+
+def share_attempts_blocked(request: Request, scope: str, key: str = "") -> bool:
+    """Whether this client has used up its allowance in ``scope``."""
+    if not limiter.enabled:
+        return False
+    try:
+        return not limiter.limiter.test(_SHARE_LIMIT, scope, f"{client_ip(request)}:{key}")
+    except Exception:
+        return False
+
+
+def record_share_failure(request: Request, scope: str, key: str = "") -> None:
+    if not limiter.enabled:
+        return
+    try:
+        limiter.limiter.hit(_SHARE_LIMIT, scope, f"{client_ip(request)}:{key}")
+    except Exception:
+        pass
+
+
 # --- Security headers --------------------------------------------------------
 
 # CSP scoped to what the SPA actually loads:

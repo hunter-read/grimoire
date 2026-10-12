@@ -561,6 +561,20 @@ export const apiKeys = {
 
 // Backups (issue #338). Admin-only. A backup is a timestamped .zip holding the
 // database plus user-authored assets — never the library itself.
+// Share links (issue #541): public, revocable URLs for one library item.
+export const shareLinks = {
+  list: (params = {}) => {
+    const qs = new URLSearchParams(params).toString()
+    return api.get(`/share-links${qs ? `?${qs}` : ''}`)
+  },
+  listForUser: (userId) => api.get(`/share-links/users/${userId}`),
+  permission: () => api.get('/share-links/permission'),
+  create: (data) => api.post('/share-links', data),
+  update: (id, data) => api.patch(`/share-links/${id}`, data),
+  revoke: (id) => api.post(`/share-links/${id}/revoke`),
+  remove: (id) => api.delete(`/share-links/${id}`),
+}
+
 export const backups = {
   list: () => api.get('/backups'),
   create: () => api.post('/backups'),

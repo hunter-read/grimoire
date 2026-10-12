@@ -322,6 +322,7 @@ kept in the repo so it versions with the release you are running:
 | [Wiki note templates](docs/wiki-templates.md) | Starting a campaign page from a template                                        |
 | [Token editor](docs/token-editor.md)          | Turning any picture into a VTT-ready token                                      |
 | [Universal VTT editor](docs/uvtt-editor.md)   | Drawing walls, doors, and lights for dynamic lighting                           |
+| [Share links](docs/sharing.md)                | Public links to library items for people without an account                     |
 | [Setting images](docs/setting-images.md)      | Campaign banners, system covers, and audio artwork                              |
 | [Character sheets](docs/characters.md)        | The schema-driven character builder, content packs, and rulesets                |
 | [Themes](docs/themes.md)                      | Light, dark, and installable colour themes                                      |

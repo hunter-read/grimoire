@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import UserExpandedEditor from './UserExpandedEditor'
-import { campaigns } from '../../api'
+import { campaigns, shareLinks } from '../../api'
 
 vi.mock('../../api', () => ({
   default: {},
   campaigns: { adminListByUser: vi.fn(() => Promise.resolve([])) },
+  shareLinks: { listForUser: vi.fn(() => Promise.resolve([])) },
 }))
 
 beforeEach(() => {
@@ -68,14 +69,55 @@ describe('UserExpandedEditor', () => {
     expect(onExplicitChange).toHaveBeenCalledWith('u1', false)
   })
 
-  it('loads the campaigns list for the current user (read-only, safe on own row)', () => {
+  // Collapsed by default (issue #541): expanding a row fetches nothing more
+  // until the admin opens the list.
+  it('loads the campaigns list only once it is opened', () => {
     setup({ isSelf: true })
+    expect(campaigns.adminListByUser).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: /Campaigns/ }))
     expect(campaigns.adminListByUser).toHaveBeenCalledWith('u1')
   })
 
   it('loads the campaigns list for other users', () => {
     setup()
+    fireEvent.click(screen.getByRole('button', { name: /Campaigns/ }))
     expect(campaigns.adminListByUser).toHaveBeenCalledWith('u1')
+  })
+
+  describe('share links', () => {
+    it('shows the permission and where it comes from', () => {
+      const onShareLinksChange = vi.fn()
+      setup({
+        shareLinksEnabled: true,
+        onShareLinksChange,
+        user: {
+          // A player whose role an admin has allowed to share.
+          ...baseUser,
+          share_links: 'role',
+          share_links_allowed: true,
+          share_links_source: 'role',
+        },
+      })
+      expect(screen.getByTestId('share-links-status-u1')).toHaveTextContent('Allowed')
+      expect(screen.getByTestId('share-links-status-u1')).toHaveTextContent('(from role)')
+      fireEvent.change(screen.getByLabelText('Share links'), {
+        target: { value: 'deny' },
+      })
+      expect(onShareLinksChange).toHaveBeenCalledWith('u1', 'deny')
+    })
+
+    it("lists the user's links in a collapsed section", async () => {
+      setup({ shareLinksEnabled: true, onShareLinksChange: vi.fn() })
+      expect(shareLinks.listForUser).not.toHaveBeenCalled()
+      fireEvent.click(screen.getByRole('button', { name: /Share links/ }))
+      await waitFor(() => expect(shareLinks.listForUser).toHaveBeenCalledWith('u1'))
+    })
+
+    it('hides it all when share links are off', () => {
+      setup({ shareLinksEnabled: false })
+      expect(screen.queryByLabelText('Share links')).toBeNull()
+      expect(screen.queryByRole('button', { name: /Share links/ })).toBeNull()
+    })
   })
 
   it('disables delete for the current user', () => {

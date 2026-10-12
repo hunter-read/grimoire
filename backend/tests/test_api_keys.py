@@ -117,7 +117,10 @@ class TestPermissionTable:
         assert not set(api_keys.TAG_PERMISSIONS) & api_keys.EXCLUDED_TAGS
 
     def test_only_security_tags_are_excluded(self):
-        assert api_keys.EXCLUDED_TAGS == {"auth", "api-keys"}
+        # "share" is the public share-link route (issue #541), which takes no
+        # login at all; the management API ("share-links") stays mapped.
+        assert api_keys.EXCLUDED_TAGS == {"auth", "api-keys", "share"}
+        assert "share-links" in api_keys.TAG_PERMISSIONS
 
     def test_every_permission_covers_a_real_route(self):
         """A permission nothing maps to would show in the picker and grant nothing."""

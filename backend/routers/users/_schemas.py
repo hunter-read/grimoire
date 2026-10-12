@@ -1,6 +1,6 @@
 """Pydantic schemas for the users API."""
 import re
-from typing import Optional
+from typing import Literal, Optional
 from pydantic import BaseModel, field_validator
 
 from ...auth import ROLES
@@ -34,6 +34,9 @@ class UserCreate(BaseModel):
     campaign_access: Optional[bool] = None
     # Whether the user may hold API keys (issue #489). Admins always may.
     api_keys_enabled: Optional[bool] = None
+    # Share-link override (issue #541): "role" follows the role's default,
+    # "allow"/"deny" grant or refuse it whatever the role.
+    share_links: Optional[Literal["role", "allow", "deny"]] = None
 
     @field_validator("role")
     @classmethod
@@ -62,6 +65,9 @@ class UserUpdate(BaseModel):
     campaign_access: Optional[bool] = None
     # Whether the user may hold API keys (issue #489). Admins always may.
     api_keys_enabled: Optional[bool] = None
+    # Share-link override (issue #541): "role" follows the role's default,
+    # "allow"/"deny" grant or refuse it whatever the role.
+    share_links: Optional[Literal["role", "allow", "deny"]] = None
     email: Optional[str] = None  # "" clears the value
 
     @field_validator("role")
@@ -194,6 +200,11 @@ class UserOut(BaseModel):
     campaign_access: bool
     # The per-user API key switch as stored; admins may hold keys regardless.
     api_keys_enabled: bool
+    # Share links (issue #541): the stored override, the effective answer, and
+    # which layer gave it (role | user | disabled), for "allowed (from role)".
+    share_links: str = "role"
+    share_links_allowed: bool = False
+    share_links_source: str = "role"
     campaign_count: int
     oidc_linked: bool
     # `created_at` is `default=...` rather than NOT NULL, and `create_user` omits
@@ -211,6 +222,9 @@ class UserUpdateResponse(BaseModel):
     allow_explicit: bool
     campaign_access: bool
     api_keys_enabled: bool
+    share_links: str = "role"
+    share_links_allowed: bool = False
+    share_links_source: str = "role"
 
 
 class GuestOut(BaseModel):

@@ -343,6 +343,22 @@ def test_guest_map_variants_trimmed_to_shared(
         os.unlink(f.name)
 
 
+def test_guest_cannot_create_or_list_share_links(client, guest, gm_headers, campaign, tmp_path):
+    # Share links (issue #541) are never available to guests, even for an item
+    # shared into their campaign - and no override can change that.
+    from PIL import Image
+
+    headers, _ = guest
+    path = tmp_path / "s.png"
+    Image.new("RGB", (10, 10)).save(str(path))
+    m = make_map(filename="s.png", filepath=str(path))
+    _share(client, gm_headers, campaign, "map", m.id)
+    body = {"resource_type": "map", "resource_id": m.id}
+    assert client.post("/api/share-links", json=body, headers=headers).status_code == 403
+    assert client.get("/api/share-links", headers=headers).status_code == 403
+    assert client.get("/api/share-links/permission", headers=headers).status_code == 403
+
+
 # --- Favorites ---------------------------------------------------------------
 
 

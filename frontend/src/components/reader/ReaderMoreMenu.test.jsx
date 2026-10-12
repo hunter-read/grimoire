@@ -17,6 +17,17 @@ vi.mock('../AddToCampaignModal', () => ({
   ),
 }))
 
+let canShare = false
+vi.mock('../share/useCanShare', () => ({ default: () => canShare }))
+vi.mock('../share/ShareLinkDialog', () => ({
+  default: ({ resourceId, onClose }) => (
+    <div>
+      <span>{`share-dialog:${resourceId}`}</span>
+      <button onClick={onClose}>close-share</button>
+    </div>
+  ),
+}))
+
 function renderMenu(overrides = {}) {
   const props = {
     bookId: 'book-1',
@@ -39,6 +50,18 @@ const openMenu = () => userEvent.click(screen.getByLabelText('More actions'))
 describe('ReaderMoreMenu', () => {
   beforeEach(() => {
     uiSettings.hide_campaigns = false
+    canShare = false
+  })
+
+  // Issue #541: a share link for the book being read, for those who may share.
+  it('offers Share to someone who may share, and opens the dialog', async () => {
+    canShare = true
+    renderMenu()
+    await openMenu()
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Share' }))
+    expect(screen.getByText('share-dialog:book-1')).toBeInTheDocument()
+    await userEvent.click(screen.getByText('close-share'))
+    expect(screen.queryByText('share-dialog:book-1')).not.toBeInTheDocument()
   })
 
   it('keeps the menu closed until the trigger is clicked', async () => {

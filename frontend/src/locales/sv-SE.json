@@ -1112,7 +1112,15 @@
       "reading": "Läsning & bibliotek",
       "readingDesc": "Läsarbeteende, biblioteksinställningar och flöden.",
       "security": "Säkerhet & konto",
-      "securityDesc": "Lösenord, aktiva sessioner och radering av konto."
+      "securityDesc": "Lösenord, aktiva sessioner och radering av konto.",
+      "sharing": "Delning",
+      "sharingDesc": "Offentliga länkar du har skapat till objekt i biblioteket."
+    },
+    "shareLinks": {
+      "title": "Delningslänkar",
+      "description": "Alla länkar du har skapat. Kopiera en igen, eller återkalla den så slutar den fungera.",
+      "noPermission": "Du kan inte skapa delningslänkar just nu. Länkar du skapat tidigare är pausade, inte borttagna, och fungerar igen om en administratör ger tillbaka behörigheten.",
+      "none": "Du har inte skapat några delningslänkar."
     }
   },
   "appSettings": {
@@ -1290,6 +1298,10 @@
         "all": {
           "label": "Alla behörigheter",
           "description": "Alla delar på en gång, även sådana som läggs till i framtida versioner"
+        },
+        "share-links": {
+          "label": "Delningslänkar",
+          "description": "Skapa, lista och återkalla dina offentliga delningslänkar"
         }
       }
     },
@@ -1371,7 +1383,32 @@
     "noPermissions": "Inga",
     "ownedCampaigns": "Ägda kampanjer",
     "deleteUserShort": "Ta bort användare",
-    "emailLabel": "E-post"
+    "emailLabel": "E-post",
+    "shareLinks": {
+      "label": "Delningslänkar",
+      "followRole": "Följ roll",
+      "allow": "Tillåt",
+      "deny": "Neka",
+      "status": {
+        "allowed": "Tillåtet",
+        "denied": "Inte tillåtet"
+      },
+      "source": {
+        "role": "(från roll)",
+        "user": "(inställt för användaren)",
+        "disabled": "(avstängt på servern)",
+        "guest": "(gäster kan inte dela)"
+      },
+      "badge": "Delningslänkar",
+      "listLabel": "Delningslänkar",
+      "none": "Inga delningslänkar.",
+      "rolesTitle": "Delningslänkar",
+      "rolesHint": "Vem som som standard får skapa offentliga delningslänkar. En användares egen inställning i tabellen går före.",
+      "disabled": "Delningslänkar är avstängda på den här servern (SHARE_LINKS_ENABLED=false).",
+      "adminAlways": "Administratörer kan alltid skapa delningslänkar",
+      "rolesFailed": "Det gick inte att uppdatera standardinställningarna för delningslänkar.",
+      "failedUpdate": "Det gick inte att ändra behörigheten för delningslänkar."
+    }
   },
   "maintenance": {
     "groups": {
@@ -3263,5 +3300,87 @@
     "installedHelp": "Installerade för alla på servern. Varje rollperson med ett matchande formulär kan använda ett pakets innehåll direkt.",
     "emptyInstalled": "Inga innehållspaket installerade än. Bläddra bland innehållspaketen för att lägga till ett.",
     "forSheet": "För {{sheet}}"
+  },
+  "share": {
+    "button": "Dela",
+    "type": {
+      "book": "Bok",
+      "map": "Karta",
+      "token": "Token",
+      "audio": "Ljud",
+      "model": "3D-modell"
+    },
+    "state": {
+      "active": "Aktiv",
+      "disabled": "Av",
+      "revoked": "Återkallad",
+      "expired": "Utgången",
+      "suspended": "Pausad",
+      "unavailable": "Ej tillgänglig"
+    },
+    "stateHint": {
+      "active": "Alla med länken kan öppna den.",
+      "disabled": "Delningslänkar är avstängda på den här servern.",
+      "revoked": "Länken har återkallats och fungerar inte längre.",
+      "expired": "Länken har gått ut.",
+      "suspended": "Fungerar inte medan ägaren inte får dela. Den fungerar igen om ägaren får det.",
+      "unavailable": "Fungerar inte: objektet är borta eller saknas på disken, eller så kan ägaren inte längre öppna det."
+    },
+    "row": {
+      "expires": "Går ut {{when}}",
+      "noExpiry": "Går aldrig ut",
+      "uses_one": "använd {{count}} gång",
+      "uses_other": "använd {{count}} gånger",
+      "lastUsed": "senast använd {{when}}",
+      "passwordProtected": "Lösenordsskyddad",
+      "owner": "av {{name}}",
+      "copied": "Kopierad",
+      "copyLink": "Kopiera länk",
+      "copyFile": "Kopiera fil-URL",
+      "copyFileHint": "Själva filen, för VTT:er, OTFBM och Discord",
+      "revoke": "Återkalla",
+      "delete": "Ta bort",
+      "confirmDelete": "Ta bort för gott"
+    },
+    "expiry": {
+      "day": "1 dag",
+      "week": "7 dagar",
+      "month": "30 dagar",
+      "never": "Aldrig"
+    },
+    "form": {
+      "label": "Etikett",
+      "labelPlaceholder": "t.ex. Utdelning session 12",
+      "expiry": "Går ut efter",
+      "password": "Lösenord (valfritt)",
+      "passwordPlaceholder": "Lämna tomt för inget lösenord",
+      "passwordTooShort": "Minst 4 tecken.",
+      "passwordHint": "Den som öppnar länken måste ange det. Verktyg som laddar filen direkt kan inte det, så lämna det tomt för VTT:er och Discord.",
+      "create": "Skapa länk"
+    },
+    "dialog": {
+      "title": "Delningslänk",
+      "intro": "Alla med en delningslänk kan öppna objektet utan konto, tills länken går ut eller du återkallar den.",
+      "existing": "Dina länkar för det här objektet",
+      "none": "Du har inte delat det här än."
+    },
+    "loadFailed": "Det gick inte att läsa in delningslänkar.",
+    "createFailed": "Det gick inte att skapa länken.",
+    "revokeFailed": "Det gick inte att återkalla länken.",
+    "deleteFailed": "Det gick inte att ta bort länken."
+  },
+  "sharePage": {
+    "missingTitle": "Den här länken fungerar inte",
+    "missingBody": "Den kan ha gått ut eller återkallats, eller så är objektet inte längre tillgängligt.",
+    "throttled": "För många försök. Vänta en minut och försök igen.",
+    "lockedTitle": "Lösenord krävs",
+    "lockedBody": "Ange lösenordet du fick för att öppna den här länken.",
+    "password": "Lösenord",
+    "unlock": "Öppna",
+    "wrongPassword": "Lösenordet stämmer inte.",
+    "expires": "Länken går ut {{when}}",
+    "download": "Ladda ner",
+    "open": "Öppna",
+    "sharedFrom": "Delat från Grimoire"
   }
 }

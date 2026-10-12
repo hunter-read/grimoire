@@ -11,6 +11,7 @@ import Spinner from '../Spinner'
 import { formatSize } from '../../utils'
 import InlineTagEditor from '../maps/InlineTagEditor'
 import AddToCampaignButton from '../campaigns/AddToCampaignButton'
+import ShareLinkButton from '../share/ShareLinkButton'
 import DetailFavoriteButton from '../DetailFavoriteButton'
 import VariantPicker from '../VariantPicker'
 import DownloadVersionButton from '../DownloadVersionButton'
@@ -200,6 +201,12 @@ export default function ModelDetailView() {
         <VariantPicker item={model} detailPath={(id) => `/models/${id}`} compact />
         <DetailFavoriteButton type="model" id={modelId} compact={isMobilePhone} />
         <AddToCampaignButton resourceType="model" resourceId={modelId} />
+        <ShareLinkButton
+          resourceType="model"
+          resourceId={modelId}
+          title={model.filename}
+          compact={isMobilePhone}
+        />
         <DownloadVersionButton type="models" id={modelId} item={model} compact={isMobilePhone} />
       </div>
 

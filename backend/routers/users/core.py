@@ -9,9 +9,20 @@ from ...auth import require_admin, CurrentUser, hash_password
 from ...sessions import delete_user_sessions, revoke_user_sessions
 from ..campaigns._helpers import purge_user_data, reassign_user_data
 from ..settings._helpers import _get_raw, password_auth_effective
+from ...services import share_links as share_policy
 from ._schemas import UserCreate, UserUpdate, GuestConvert, GuestMerge
 
 router = APIRouter()
+
+
+def _share_fields(db: Session, user: User) -> dict:
+    """The share-link permission as the admin page shows it (issue #541)."""
+    status = share_policy.share_status(db, user)
+    return {
+        "share_links": status["override"],
+        "share_links_allowed": status["allowed"],
+        "share_links_source": status["source"],
+    }
 
 
 def list_users(_: CurrentUser = Depends(require_admin), db: Session = Depends(get_db)):
@@ -38,6 +49,7 @@ def list_users(_: CurrentUser = Depends(require_admin), db: Session = Depends(ge
             "allow_explicit": bool(u.allow_explicit) if u.allow_explicit is not None else True,
             "campaign_access": u.campaign_access is None or bool(u.campaign_access),
             "api_keys_enabled": bool(u.api_keys_enabled),
+            **_share_fields(db, u),
             "campaign_count": owned_counts.get(u.id, 0),
             "oidc_linked": bool(u.oidc_subject),
             "created_at": u.created_at.isoformat(),
@@ -106,6 +118,8 @@ def create_user(
         user.campaign_access = data.campaign_access
     if data.api_keys_enabled is not None:
         user.api_keys_enabled = data.api_keys_enabled
+    if data.share_links is not None:
+        user.share_links_enabled = share_policy.override_value(data.share_links)
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -117,6 +131,7 @@ def create_user(
         "allow_explicit": bool(user.allow_explicit) if user.allow_explicit is not None else True,
         "campaign_access": user.campaign_access is None or bool(user.campaign_access),
         "api_keys_enabled": bool(user.api_keys_enabled),
+        **_share_fields(db, user),
         "campaign_count": 0,
         "oidc_linked": bool(user.oidc_subject),
     }
@@ -162,6 +177,8 @@ def update_user(
         user.campaign_access = data.campaign_access
     if data.api_keys_enabled is not None:
         user.api_keys_enabled = data.api_keys_enabled
+    if data.share_links is not None:
+        user.share_links_enabled = share_policy.override_value(data.share_links)
     if data.email is not None:
         new_email = data.email or None  # "" → clear
         if new_email and new_email != user.email:
@@ -183,6 +200,7 @@ def update_user(
         else True,
         "campaign_access": user.campaign_access is None or bool(user.campaign_access),
         "api_keys_enabled": bool(user.api_keys_enabled),
+        **_share_fields(db, user),
     }
 
 
@@ -239,6 +257,7 @@ def convert_guest(
         "allow_explicit": bool(user.allow_explicit) if user.allow_explicit is not None else True,
         "campaign_access": user.campaign_access is None or bool(user.campaign_access),
         "api_keys_enabled": bool(user.api_keys_enabled),
+        **_share_fields(db, user),
         "campaign_count": db.query(Campaign).filter_by(owner_id=user.id).count(),
         "oidc_linked": bool(user.oidc_subject),
         "created_at": user.created_at.isoformat(),

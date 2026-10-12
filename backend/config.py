@@ -324,6 +324,13 @@ GUEST_ACCESS_ENABLED_ENV: Optional[bool] = _bool_env("GUEST_ACCESS_ENABLED")
 # /api/api-keys endpoints refuse, and the UI hides them.
 API_KEYS_ENABLED: bool = _bool_env("API_KEYS_ENABLED") is not False
 
+# Share links for the whole instance (issue #541): public, revocable URLs for a
+# single library item. On unless set to "false", which turns them off for
+# everyone: every existing link stops resolving (404), creating one is refused,
+# and the UI hides the share menus. Links are kept, so turning it back on
+# restores them.
+SHARE_LINKS_ENABLED: bool = _bool_env("SHARE_LINKS_ENABLED") is not False
+
 
 #   CORS_ALLOWED_ORIGINS — comma-separated origins (scheme://host[:port]) whose
 #             pages may call the API from the browser, e.g. a Foundry VTT module

@@ -1112,7 +1112,15 @@
       "reading": "Reading & Library",
       "readingDesc": "Reader behaviour, library browsing, and feeds.",
       "security": "Security & Account",
-      "securityDesc": "Password, active sessions, and account removal."
+      "securityDesc": "Password, active sessions, and account removal.",
+      "sharing": "Sharing",
+      "sharingDesc": "Public links you've made to items in the library."
+    },
+    "shareLinks": {
+      "title": "Share links",
+      "description": "Every link you've made. Copy one again, or revoke it to stop it working.",
+      "noPermission": "You can't create share links right now. Links you made before are paused, not deleted, and work again if an admin restores your permission.",
+      "none": "You haven't made any share links."
     }
   },
   "appSettings": {
@@ -1290,6 +1298,10 @@
         "all": {
           "label": "All permissions",
           "description": "Every area at once, including any added in future versions"
+        },
+        "share-links": {
+          "label": "Share links",
+          "description": "Create, list and revoke your public share links"
         }
       }
     },
@@ -1371,7 +1383,32 @@
     "noPermissions": "None",
     "ownedCampaigns": "Owned campaigns",
     "deleteUserShort": "Delete user",
-    "emailLabel": "Email"
+    "emailLabel": "Email",
+    "shareLinks": {
+      "label": "Share links",
+      "followRole": "Follow role",
+      "allow": "Allow",
+      "deny": "Deny",
+      "status": {
+        "allowed": "Allowed",
+        "denied": "Not allowed"
+      },
+      "source": {
+        "role": "(from role)",
+        "user": "(set for this user)",
+        "disabled": "(turned off on this server)",
+        "guest": "(guests can't share)"
+      },
+      "badge": "Share links",
+      "listLabel": "Share links",
+      "none": "No share links.",
+      "rolesTitle": "Share links",
+      "rolesHint": "Who can create public share links by default. A user's own setting in the table overrides this.",
+      "disabled": "Share links are turned off on this server (SHARE_LINKS_ENABLED=false).",
+      "adminAlways": "Admins can always create share links",
+      "rolesFailed": "Couldn't update the share link defaults.",
+      "failedUpdate": "Couldn't update the share link permission."
+    }
   },
   "maintenance": {
     "groups": {
@@ -3263,5 +3300,87 @@
     "document": "Ruleset (JSON or YAML)",
     "documentHelp": "An exported ruleset, or one written by hand. It needs an \"entries\" section grouped by content type.",
     "needRulesetFirst": "Create a ruleset to import into first"
+  },
+  "share": {
+    "button": "Share",
+    "type": {
+      "book": "Book",
+      "map": "Map",
+      "token": "Token",
+      "audio": "Audio",
+      "model": "3D model"
+    },
+    "state": {
+      "active": "Active",
+      "disabled": "Off",
+      "revoked": "Revoked",
+      "expired": "Expired",
+      "suspended": "Suspended",
+      "unavailable": "Unavailable"
+    },
+    "stateHint": {
+      "active": "Anyone with the link can open it.",
+      "disabled": "Share links are turned off on this server.",
+      "revoked": "This link was revoked and no longer works.",
+      "expired": "This link has expired.",
+      "suspended": "Not working while its owner isn't allowed to share. It works again if they are.",
+      "unavailable": "Not working: the item is gone or missing on disk, or its owner can no longer open it."
+    },
+    "row": {
+      "expires": "Expires {{when}}",
+      "noExpiry": "Never expires",
+      "uses_one": "{{count}} use",
+      "uses_other": "{{count}} uses",
+      "lastUsed": "last used {{when}}",
+      "passwordProtected": "Password protected",
+      "owner": "by {{name}}",
+      "copied": "Copied",
+      "copyLink": "Copy link",
+      "copyFile": "Copy file URL",
+      "copyFileHint": "The file itself, for VTTs, OTFBM and Discord",
+      "revoke": "Revoke",
+      "delete": "Delete",
+      "confirmDelete": "Delete for good"
+    },
+    "expiry": {
+      "day": "1 day",
+      "week": "7 days",
+      "month": "30 days",
+      "never": "Never"
+    },
+    "form": {
+      "label": "Label",
+      "labelPlaceholder": "e.g. Session 12 handout",
+      "expiry": "Expires after",
+      "password": "Password (optional)",
+      "passwordPlaceholder": "Leave empty for no password",
+      "passwordTooShort": "At least 4 characters.",
+      "passwordHint": "People opening the link must enter it. Tools that load the file directly can't, so leave it empty for VTTs and Discord.",
+      "create": "Create link"
+    },
+    "dialog": {
+      "title": "Share link",
+      "intro": "Anyone with a share link can open this item without an account, until it expires or you revoke it.",
+      "existing": "Your links for this item",
+      "none": "You haven't shared this yet."
+    },
+    "loadFailed": "Couldn't load share links.",
+    "createFailed": "Couldn't create the link.",
+    "revokeFailed": "Couldn't revoke the link.",
+    "deleteFailed": "Couldn't delete the link."
+  },
+  "sharePage": {
+    "missingTitle": "This link doesn't work",
+    "missingBody": "It may have expired or been revoked, or the item is no longer available.",
+    "throttled": "Too many attempts. Wait a minute and try again.",
+    "lockedTitle": "Password required",
+    "lockedBody": "Enter the password you were given to open this link.",
+    "password": "Password",
+    "unlock": "Open",
+    "wrongPassword": "That password isn't right.",
+    "expires": "Link expires {{when}}",
+    "download": "Download",
+    "open": "Open",
+    "sharedFrom": "Shared from Grimoire"
   }
 }

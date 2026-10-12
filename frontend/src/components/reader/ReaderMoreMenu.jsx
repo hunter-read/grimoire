@@ -15,6 +15,7 @@ import {
   LuInfo,
   LuKeyboard,
   LuScroll,
+  LuShare2,
   LuTrash2,
 } from 'react-icons/lu'
 import { mediaUrl } from '../../api'
@@ -22,6 +23,8 @@ import { useUISettings } from '../../context/UISettingsContext'
 import useFileActions from '../../hooks/useFileActions'
 import useAnchoredMenu from '../../hooks/useAnchoredMenu'
 import AddToCampaignModal from '../AddToCampaignModal'
+import ShareLinkDialog from '../share/ShareLinkDialog'
+import useCanShare from '../share/useCanShare'
 import ReaderVariantItems from './ReaderVariantItems'
 
 const MENU_WIDTH = 236
@@ -67,6 +70,8 @@ export default function ReaderMoreMenu({
   const { hide_campaigns } = useUISettings()
   const [open, setOpen] = useState(false)
   const [addToCampaign, setAddToCampaign] = useState(false)
+  const [sharing, setSharing] = useState(false)
+  const canShare = useCanShare()
   const fileActions = useFileActions({ onChanged: onFileChanged })
   const knowsFile = Boolean(book?.relative_path)
   const showFileActions = fileActions.available && knowsFile
@@ -178,6 +183,13 @@ export default function ReaderMoreMenu({
                 dividerStyle={dividerStyle}
                 run={run}
               />
+            )}
+
+            {canShare && (
+              <button role="menuitem" onClick={run(() => setSharing(true))} style={itemStyle}>
+                <LuShare2 size={15} aria-hidden="true" />
+                {t('share.button')}
+              </button>
             )}
 
             <button role="menuitem" onClick={run(onShowDetails)} style={itemStyle}>
@@ -303,6 +315,15 @@ export default function ReaderMoreMenu({
 
       {/* Outside the menu so the dialogs survive it closing on click. */}
       {fileActions.modals}
+
+      {sharing && (
+        <ShareLinkDialog
+          resourceType="book"
+          resourceId={bookId}
+          title={book?.title}
+          onClose={() => setSharing(false)}
+        />
+      )}
 
       {/* Rendered outside the menu so it survives the menu closing on click. */}
       {addToCampaign && (

@@ -180,6 +180,14 @@ kept in plaintext is migrated on upgrade: it keeps working unchanged, named
 `Stats API key (migrated)`, owned by the earliest-created admin, with
 `stats: Read` and nothing else.
 
+### Share links
+
+A [share link](sharing.md) is a public URL for one book, map, token, audio track
+or 3D model, so a player's browser, a VTT or a Discord bot can load it with no
+account. The token in the path is the only credential: `/api/share/*` takes no
+session, cookie (other than a password unlock) or API key, and grants nothing but
+that one item. See [Share links](#share-links-1) below.
+
 ### Rate limiting
 
 The credential-checking endpoints - `/api/auth/login`, `/api/auth/setup`, and `/api/auth/guest-login` - are rate-limited per client IP (default `10/minute`, configurable via `AUTH_RATE_LIMIT`). Exceeding the limit returns `429 Too Many Requests` with `{"error": "Rate limit exceeded: ..."}`. Keying honors `X-Forwarded-For` behind a reverse proxy. See [Security hardening](security.md).
@@ -254,10 +262,10 @@ environment:
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/users` | GET | admin | List all users (each entry includes `email`, `allow_explicit`, `campaign_access`, `api_keys_enabled`, `campaign_count` (number of campaigns the user owns), and `oidc_linked`) |
-| `/api/users` | POST | admin | Create a user. Body: `{username, password?, role?, email?, allow_explicit?, campaign_access?, api_keys_enabled?}` (role defaults to `player`; email is optional and unique case-insensitively; `password` may be omitted to create an OIDC-only account when password auth is disabled, otherwise it must be ≥8 chars). Returns the created user with `allow_explicit`, `campaign_access`, `campaign_count`, and `oidc_linked`. |
+| `/api/users` | GET | admin | List all users (each entry includes `email`, `allow_explicit`, `campaign_access`, `api_keys_enabled`, `share_links`/`share_links_allowed`/`share_links_source` (see below), `campaign_count` (number of campaigns the user owns), and `oidc_linked`) |
+| `/api/users` | POST | admin | Create a user. Body: `{username, password?, role?, email?, allow_explicit?, campaign_access?, api_keys_enabled?, share_links?}` (role defaults to `player`; email is optional and unique case-insensitively; `password` may be omitted to create an OIDC-only account when password auth is disabled, otherwise it must be ≥8 chars). Returns the created user with `allow_explicit`, `campaign_access`, `campaign_count`, and `oidc_linked`. |
 | `/api/users/guests` | GET | admin | List every per-campaign guest account. Each entry: `{id, display_name, created_at, campaign_id, campaign_name, invited_by}` (`invited_by` is the campaign owner's display name/username). Guests never appear in `GET /api/users`. |
-| `/api/users/:id` | PATCH | admin | Update `role`, `password`, `allow_explicit`, `campaign_access`, `api_keys_enabled`, or `email` (use `""` to clear the email). `api_keys_enabled` lets a non-admin hold [API keys](#api-keys) (admins always may); OIDC's `apiKeys` permissions claim overrides it on next login. `campaign_access: false` blocks the user from creating/joining/managing campaigns without deleting existing ones; OIDC's `campaignAccess` permissions claim overrides it on next login. Changing a GM's role **drops their access grants** - see [Access levels](#access-levels-issue-258). |
+| `/api/users/:id` | PATCH | admin | Update `role`, `password`, `allow_explicit`, `campaign_access`, `api_keys_enabled`, `share_links`, or `email` (use `""` to clear the email). `share_links` is the user's [share link](#share-links-1) override: `"role"` follows the role default, `"allow"`/`"deny"` grant or refuse it whatever the role. Responses report it alongside `share_links_allowed` (the effective answer) and `share_links_source` (`role`, `user` or `disabled`), so a GM with no override reads as allowed by role. `api_keys_enabled` lets a non-admin hold [API keys](#api-keys) (admins always may); OIDC's `apiKeys` permissions claim overrides it on next login. `campaign_access: false` blocks the user from creating/joining/managing campaigns without deleting existing ones; OIDC's `campaignAccess` permissions claim overrides it on next login. Changing a GM's role **drops their access grants** - see [Access levels](#access-levels-issue-258). |
 | `/api/users/:id/convert` | POST | admin | Convert a guest account to a permanent user. Body: `{username, password?, role?}` (role defaults to `player`, cannot be `guest`). `password` is required only when password auth is enabled; ≥8 chars. Keeps the guest's campaign membership and character, clears its invite code, and returns the promoted user. 400 if the target isn't a guest or the username is taken. |
 | `/api/users/:id/merge` | POST | admin | Fold one or more guest accounts into the account at `:id`, so someone invited to several campaigns ends up with a single login. Body: `{source_ids: [...]}` (non-empty, no duplicates, cannot contain `:id`). Moves each source's campaign memberships, notes, character-builder characters, installed sheets, personal rulesets, and other personal rows onto the target, then deletes the emptied sources and ends their sessions. Merged-in memberships have their invite code cleared - campaign access comes from the membership itself, so the person keeps every campaign and uses the surviving account's credentials. Rows that would collide (target is already in that campaign, or has that sheet installed) are dropped in favour of the target's. Sources must be guests; the target may be a guest or a permanent user. Returns `{id, display_name, merged_ids, memberships_moved}`. 400 if a source isn't a guest or `:id` is among the sources, 404 if the target or any source is missing. |
 | `/api/users/:id` | DELETE | admin | Delete a user (cannot delete self or last admin). Also the way to remove a guest account, including one orphaned by its campaign's deletion (null `campaign_id`/`invited_by`). |
@@ -1610,6 +1618,8 @@ than appearing and failing.
 | `show_stat_version` | bool | Show/hide version in sidebar |
 | `password_auth_enabled` | bool | Allow password sign-in. Cannot be patched if `ALLOW_PASSWORD_AUTHENTICATION` is set in the environment (returns 400). The `password_auth_env_locked` field on the GET response indicates whether the env override is active. |
 | `guest_access_enabled` | bool | Allow GMs/admins to create guest invite codes. Cannot be patched if `GUEST_ACCESS_ENABLED` is set in the environment (returns 400). The `guest_access_env_locked` field on the GET response indicates whether the env override is active. |
+| `share_links_role_gm` | bool | Whether GMs may create [share links](#share-links-1) without a per-user override. Default `true`. Admins always may. |
+| `share_links_role_player` | bool | Whether players may create share links without a per-user override. Default `false`. |
 | `disable_folder_category_inference` | bool | When `true`, the indexer does not infer a book's category from its folder names; books fall back to `uncategorized`. Cannot be patched if `DISABLE_FOLDER_CATEGORY_INFERENCE` is set in the environment (returns 400). The `disable_folder_category_inference_env_locked` field on the GET response indicates whether the env override is active. A per-system `.no-auto-category` marker file disables inference for just that system. |
 | `custom_login_message_enabled` | bool | Show a custom message above the sign-in form |
 | `custom_login_message` | string | HTML for the login message. Sanitized server-side: only `<b>`, `<strong>`, `<i>`, `<em>`, `<s>`, `<strike>`, `<del>`, `<u>`, `<p>`, `<br>`, `<ul>`, `<ol>`, `<li>`, and `<a href>` (http/https/mailto/relative) are allowed; everything else is dropped. |
@@ -1657,6 +1667,78 @@ Someone else's key is a `404` for everything but an admin's delete - nobody,
 admins included, can edit or mint a secret for a key that isn't theirs. `400`
 for an unknown permission, a level your role doesn't offer, a blank name, or an
 expiry in the past.
+
+### Share links
+
+Public, revocable URLs for a single library item (issue #541). See
+[docs/sharing.md](sharing.md) for the feature as users see it.
+
+**Who may create them.** Everything is off with `SHARE_LINKS_ENABLED=false`.
+Otherwise a per-user override (`users.share_links_enabled`, set through
+`PATCH /api/users/:id` with `share_links`) wins either way; with no override the
+role decides - admins always, GMs unless `share_links_role_gm` is off, players
+only once `share_links_role_player` is on. Guests never may. `GET /api/auth/me`
+reports the result as `share_links_allowed`.
+
+**Whether a link works** is decided on every request, never stored. A link stops
+working when it is revoked, when it expires, when its creator may no longer
+create share links, or when its creator can no longer read the item (the same
+check the item's own `/file` route makes - access levels and the explicit-content
+setting included), or the item is gone. Only revoking is permanent: a link
+suspended by a lost permission is kept and works again if the permission
+returns. The management API reports this as `state`: `active`, `disabled`,
+`revoked`, `expired`, `suspended` or `unavailable`.
+
+#### Management
+
+Session or API key (`share-links` permission); never guests. You manage your own
+links - including after losing the permission, so you can still revoke them - and
+an admin can list and revoke anyone's.
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/share-links` | GET | any | Your links, newest first. Filter with `resource_type` and `resource_id`. Each: `{id, url, file_url, resource_type, resource_id, resource_name, label, filename, has_password, state, created_at, expires_at, revoked_at, last_used_at, use_count}`. `url` is the share page; `file_url` the raw file. |
+| `/api/share-links` | POST | may share | Create a link. Body: `{resource_type: "book"\|"map"\|"token"\|"audio"\|"model", resource_id, label?, expires_in_days? (1-3650, null = never), password? (4-200 chars)}`. `403` when share links are off, you may not share, or you cannot read the item; `404` for an unknown item or a file missing on disk. |
+| `/api/share-links/permission` | GET | any | `{enabled, allowed, source, override, role_allows}` for you. |
+| `/api/share-links/all` | GET | admin | Every user's links, with `user_id` and `username`. |
+| `/api/share-links/users/:user_id` | GET | admin | One user's links, with `user_id` and `username`. |
+| `/api/share-links/:id` | PATCH | owner or admin | Change `label`, `expires_in_days` (null = never) or `password` (null or `""` removes it). Only the fields sent change. `400` for a revoked link. |
+| `/api/share-links/:id/revoke` | POST | owner or admin | Stop the link working for good. It stays listed as `revoked`. |
+| `/api/share-links/:id` | DELETE | owner or admin | Remove the link entirely. `{status: "deleted"}`. |
+
+Someone else's link is `404` to anyone but an admin.
+
+#### Public
+
+No authentication. Every way a link can fail to work is the same `404`.
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/share/:token/meta` | GET | What the share page shows: `{password_required, unlocked, resource_type, name, label, filename, media_type, media_kind, file_size, file_url, download_url, expires_at}`. Until a password-protected link is unlocked, only the first two fields are set. `media_kind` is `image`, `audio`, `video`, `pdf`, `model` or `file`. |
+| `/api/share/:token/unlock` | POST | Body `{password}`. Sets an HttpOnly `grimoire_share` cookie, scoped to `/api/share/:token`, that unlocks that one link in this browser for 12 hours. Changing the password invalidates it. `403` for a wrong password. |
+| `/api/share/:token` | GET, HEAD | The item, inline (`?download=1` for an attachment). `401` when the link needs a password and this browser has not unlocked it. |
+| `/api/share/:token/:filename` | GET, HEAD | The same; the filename is ignored. It is there for tools that pick a decoder from the URL's extension, which is why `file_url` ends in the served file's real extension. |
+
+What is served: a book, token, audio track (with `Range` support) or 3D model
+serves its file; an image map serves the original image; a PDF map its first page
+rendered to WebP; a Universal VTT map its embedded image; an archive the archive.
+
+Responses carry `Access-Control-Allow-Origin: *` and
+`Cross-Origin-Resource-Policy: cross-origin` (a WebGL canvas such as Owlbear
+Rodeo's cannot read an image without them, and no credentials are involved),
+`X-Robots-Tag: noindex, nofollow`, `Referrer-Policy: no-referrer` and
+`Cache-Control: private, max-age=300`. A password-protected link drops the
+cross-origin headers and sends `Cache-Control: private, no-store`.
+
+Each `GET` adds one to `use_count` and sets `last_used_at`; `HEAD` and range
+requests that do not start at byte 0 (seeking through audio) are not counted.
+
+**Throttling.** Requests for tokens that do not exist count against the auth rate
+limit per client IP; past it, every share request from that IP gets `429`. Only
+unknown tokens count - a revoked, expired or suspended link is still a known
+token - so a tool that keeps fetching a dead link never locks its working links
+out (those tools fetch every link from one server address). Wrong passwords count
+separately, per IP and link.
 
 ### Add-ons *(admin only)*
 

@@ -60,6 +60,8 @@ from .routers import (
     saved_filters as saved_filters_router,
     search as search_router,
     settings as settings_router,
+    share as share_router,
+    share_links as share_links_router,
     systems as systems_router,
     tags as tags_router,
     themes as themes_router,
@@ -353,6 +355,8 @@ app.include_router(auth_router.public_router)
 app.include_router(oidc_router.public_router)
 # Calendar feeds carry their credential in the path; see campaigns/calendar.py.
 app.include_router(campaigns_router.public_router)
+# Share links carry their credential in the path too (issue #541).
+app.include_router(share_router.public_router)
 if OPDS_ENABLED:
     app.include_router(opds_router.router)
 
@@ -381,6 +385,7 @@ api.include_router(bookmarks_router.router)
 api.include_router(downloads_router.router)
 api.include_router(settings_router.router)
 api.include_router(api_keys_router.router)
+api.include_router(share_links_router.router)
 api.include_router(addons_router.router)
 api.include_router(themes_router.router)
 api.include_router(characters_router.router)

@@ -51,6 +51,7 @@ from .media import (
     TokenFolder,
 )
 from .settings import AppSetting
+from .share_links import ShareLink
 from .tags import RESOURCE_TYPES, SHARED_CATEGORY, TAG_CATEGORIES, ResourceTag, Tag
 from .variants import VARIANT_KINDS, VARIANT_KINDS_BY_TYPE, kinds_for
 from .users import AuthSession, Bookmark, Favorite, SavedFilter, User, UserTheme
@@ -125,6 +126,7 @@ __all__ = [
     # Settings
     "AppSetting",
     "ApiKey",
+    "ShareLink",
     # Tags
     "Tag",
     "ResourceTag",

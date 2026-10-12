@@ -14,6 +14,7 @@ from ...config import (
 )
 from ...auth import require_admin, get_current_user, CurrentUser
 from ...services import access_control
+from ...services import share_links as share_policy
 from ...services.library_fs import library_writable
 from ...services.oidc_button import MAX_RADIUS_PX, normalize_color, normalize_radius
 from ._helpers import (
@@ -117,6 +118,10 @@ def update_settings(
                 "Guest access is locked by the GUEST_ACCESS_ENABLED environment variable",
             )
         _set(db, "guest_access_enabled", "true" if data.guest_access_enabled else "false")
+    for role in ("gm", "player"):
+        allowed = getattr(data, f"share_links_role_{role}")
+        if allowed is not None:
+            share_policy.set_role_default(db, role, allowed)
     if data.disable_folder_category_inference is not None:
         if DISABLE_FOLDER_CATEGORY_INFERENCE_ENV is not None:
             raise HTTPException(
@@ -235,6 +240,9 @@ def get_ui_settings(_: CurrentUser = Depends(get_current_user), db: Session = De
         # Whether API keys exist on this instance at all (API_KEYS_ENABLED);
         # the UI hides every API key menu when they don't.
         "api_keys_enabled": config.API_KEYS_ENABLED,
+        # Whether share links exist on this instance (SHARE_LINKS_ENABLED); the
+        # UI hides every share menu when they don't.
+        "share_links_enabled": config.SHARE_LINKS_ENABLED,
         # Whether the library can be modified at all. The file-management actions
         # (move / rename / delete) are hidden rather than shown-and-failing when
         # the library is mounted read-only, and every view outside the file

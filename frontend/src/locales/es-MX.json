@@ -1112,7 +1112,15 @@
       "reading": "Lectura y biblioteca",
       "readingDesc": "Comportamiento del lector, navegación por la biblioteca y feeds.",
       "security": "Seguridad y cuenta",
-      "securityDesc": "Contraseña, sesiones activas y eliminación de la cuenta."
+      "securityDesc": "Contraseña, sesiones activas y eliminación de la cuenta.",
+      "sharing": "Compartir",
+      "sharingDesc": "Los enlaces públicos que has creado a elementos de la biblioteca."
+    },
+    "shareLinks": {
+      "title": "Enlaces para compartir",
+      "description": "Todos los enlaces que has creado. Vuelve a copiar uno, o revócalo para que deje de funcionar.",
+      "noPermission": "Ahora mismo no puedes crear enlaces para compartir. Los que creaste están en pausa, no eliminados, y volverán a funcionar si un admin te devuelve el permiso.",
+      "none": "No has creado ningún enlace para compartir."
     }
   },
   "appSettings": {
@@ -1290,6 +1298,10 @@
         "all": {
           "label": "Todos los permisos",
           "description": "Todas las áreas a la vez, incluidas las que se añadan en versiones futuras"
+        },
+        "share-links": {
+          "label": "Enlaces para compartir",
+          "description": "Crear, listar y revocar tus enlaces públicos para compartir"
         }
       }
     },
@@ -1371,7 +1383,32 @@
     "noPermissions": "Ninguno",
     "ownedCampaigns": "Campañas propias",
     "deleteUserShort": "Eliminar usuario",
-    "emailLabel": "Correo electrónico"
+    "emailLabel": "Correo electrónico",
+    "shareLinks": {
+      "label": "Enlaces para compartir",
+      "followRole": "Según el rol",
+      "allow": "Permitir",
+      "deny": "Denegar",
+      "status": {
+        "allowed": "Permitido",
+        "denied": "No permitido"
+      },
+      "source": {
+        "role": "(por el rol)",
+        "user": "(definido para este usuario)",
+        "disabled": "(desactivado en este servidor)",
+        "guest": "(los invitados no pueden compartir)"
+      },
+      "badge": "Enlaces",
+      "listLabel": "Enlaces para compartir",
+      "none": "Sin enlaces para compartir.",
+      "rolesTitle": "Enlaces para compartir",
+      "rolesHint": "Quién puede crear enlaces públicos por defecto. El ajuste propio de un usuario en la tabla tiene prioridad.",
+      "disabled": "Los enlaces para compartir están desactivados en este servidor (SHARE_LINKS_ENABLED=false).",
+      "adminAlways": "Los admins siempre pueden crear enlaces para compartir",
+      "rolesFailed": "No se pudieron actualizar los valores por defecto de los enlaces.",
+      "failedUpdate": "No se pudo cambiar el permiso de enlaces para compartir."
+    }
   },
   "maintenance": {
     "groups": {
@@ -3263,5 +3300,87 @@
     "document": "Conjunto de reglas (JSON o YAML)",
     "documentHelp": "Un conjunto exportado o escrito a mano. Necesita una sección \"entries\" agrupada por tipo de contenido.",
     "needRulesetFirst": "Crea primero un conjunto de reglas donde importar"
+  },
+  "share": {
+    "button": "Compartir",
+    "type": {
+      "book": "Libro",
+      "map": "Mapa",
+      "token": "Ficha",
+      "audio": "Audio",
+      "model": "Modelo 3D"
+    },
+    "state": {
+      "active": "Activo",
+      "disabled": "Desactivado",
+      "revoked": "Revocado",
+      "expired": "Caducado",
+      "suspended": "Suspendido",
+      "unavailable": "No disponible"
+    },
+    "stateHint": {
+      "active": "Cualquiera con el enlace puede abrirlo.",
+      "disabled": "Los enlaces para compartir están desactivados en este servidor.",
+      "revoked": "Este enlace se revocó y ya no funciona.",
+      "expired": "Este enlace ha caducado.",
+      "suspended": "No funciona mientras su propietario no pueda compartir. Vuelve a funcionar si recupera el permiso.",
+      "unavailable": "No funciona: el elemento ya no existe o falta en el disco, o su propietario ya no puede abrirlo."
+    },
+    "row": {
+      "expires": "Caduca el {{when}}",
+      "noExpiry": "No caduca",
+      "uses_one": "{{count}} uso",
+      "uses_other": "{{count}} usos",
+      "lastUsed": "último uso el {{when}}",
+      "passwordProtected": "Protegido con contraseña",
+      "owner": "de {{name}}",
+      "copied": "Copiado",
+      "copyLink": "Copiar enlace",
+      "copyFile": "Copiar URL del archivo",
+      "copyFileHint": "El archivo en sí, para VTT, OTFBM y Discord",
+      "revoke": "Revocar",
+      "delete": "Eliminar",
+      "confirmDelete": "Eliminar definitivamente"
+    },
+    "expiry": {
+      "day": "1 día",
+      "week": "7 días",
+      "month": "30 días",
+      "never": "Nunca"
+    },
+    "form": {
+      "label": "Etiqueta",
+      "labelPlaceholder": "p. ej. Material de la sesión 12",
+      "expiry": "Caduca tras",
+      "password": "Contraseña (opcional)",
+      "passwordPlaceholder": "Déjala vacía si no quieres contraseña",
+      "passwordTooShort": "Al menos 4 caracteres.",
+      "passwordHint": "Quien abra el enlace tendrá que ingresarla. Las herramientas que cargan el archivo directamente no pueden, así que déjala vacía para VTT y Discord.",
+      "create": "Crear enlace"
+    },
+    "dialog": {
+      "title": "Enlace para compartir",
+      "intro": "Cualquiera con un enlace para compartir puede abrir este elemento sin cuenta, hasta que caduque o lo revoques.",
+      "existing": "Tus enlaces para este elemento",
+      "none": "Aún no lo has compartido."
+    },
+    "loadFailed": "No se pudieron cargar los enlaces.",
+    "createFailed": "No se pudo crear el enlace.",
+    "revokeFailed": "No se pudo revocar el enlace.",
+    "deleteFailed": "No se pudo eliminar el enlace."
+  },
+  "sharePage": {
+    "missingTitle": "Este enlace no funciona",
+    "missingBody": "Puede que haya caducado o se haya revocado, o que el elemento ya no esté disponible.",
+    "throttled": "Demasiados intentos. Espera un minuto e inténtalo de nuevo.",
+    "lockedTitle": "Se necesita contraseña",
+    "lockedBody": "Ingresa la contraseña que te dieron para abrir este enlace.",
+    "password": "Contraseña",
+    "unlock": "Abrir",
+    "wrongPassword": "La contraseña no es correcta.",
+    "expires": "El enlace caduca el {{when}}",
+    "download": "Descargar",
+    "open": "Abrir",
+    "sharedFrom": "Compartido desde Grimoire"
   }
 }

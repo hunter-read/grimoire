@@ -1112,7 +1112,15 @@
       "reading": "Leitura e biblioteca",
       "readingDesc": "Comportamento do leitor, navegação na biblioteca e feeds.",
       "security": "Segurança e conta",
-      "securityDesc": "Palavra-passe, sessões ativas e eliminação da conta."
+      "securityDesc": "Palavra-passe, sessões ativas e eliminação da conta.",
+      "sharing": "Partilha",
+      "sharingDesc": "Ligações públicas que criou para itens da biblioteca."
+    },
+    "shareLinks": {
+      "title": "Ligações de partilha",
+      "description": "Todas as ligações que criou. Copie uma de novo, ou revogue-a para deixar de funcionar.",
+      "noPermission": "Neste momento não pode criar ligações de partilha. As que criou estão em pausa, não eliminadas, e voltam a funcionar se um admin lhe devolver a permissão.",
+      "none": "Ainda não criou ligações de partilha."
     }
   },
   "appSettings": {
@@ -1290,6 +1298,10 @@
         "all": {
           "label": "Todas as permissões",
           "description": "Todas as áreas de uma vez, incluindo as que forem adicionadas em versões futuras"
+        },
+        "share-links": {
+          "label": "Ligações de partilha",
+          "description": "Criar, listar e revogar as suas ligações de partilha públicas"
         }
       }
     },
@@ -1371,7 +1383,32 @@
     "noPermissions": "Nenhuma",
     "ownedCampaigns": "Campanhas próprias",
     "deleteUserShort": "Eliminar utilizador",
-    "emailLabel": "E-mail"
+    "emailLabel": "E-mail",
+    "shareLinks": {
+      "label": "Ligações de partilha",
+      "followRole": "Seguir a função",
+      "allow": "Permitir",
+      "deny": "Recusar",
+      "status": {
+        "allowed": "Permitido",
+        "denied": "Não permitido"
+      },
+      "source": {
+        "role": "(pela função)",
+        "user": "(definido para este utilizador)",
+        "disabled": "(desativado neste servidor)",
+        "guest": "(os convidados não podem partilhar)"
+      },
+      "badge": "Ligações",
+      "listLabel": "Ligações de partilha",
+      "none": "Sem ligações de partilha.",
+      "rolesTitle": "Ligações de partilha",
+      "rolesHint": "Quem pode criar ligações de partilha públicas por predefinição. A definição própria de um utilizador na tabela prevalece.",
+      "disabled": "As ligações de partilha estão desativadas neste servidor (SHARE_LINKS_ENABLED=false).",
+      "adminAlways": "Os admins podem sempre criar ligações de partilha",
+      "rolesFailed": "Não foi possível atualizar as predefinições das ligações.",
+      "failedUpdate": "Não foi possível alterar a permissão de ligações de partilha."
+    }
   },
   "maintenance": {
     "groups": {
@@ -3263,5 +3300,87 @@
     "document": "Conjunto de regras (JSON ou YAML)",
     "documentHelp": "Um conjunto exportado ou escrito à mão. Precisa de uma secção \"entries\" agrupada por tipo de conteúdo.",
     "needRulesetFirst": "Crie primeiro um conjunto de regras para onde importar"
+  },
+  "share": {
+    "button": "Partilhar",
+    "type": {
+      "book": "Livro",
+      "map": "Mapa",
+      "token": "Token",
+      "audio": "Áudio",
+      "model": "Modelo 3D"
+    },
+    "state": {
+      "active": "Ativa",
+      "disabled": "Desativada",
+      "revoked": "Revogada",
+      "expired": "Expirada",
+      "suspended": "Suspensa",
+      "unavailable": "Indisponível"
+    },
+    "stateHint": {
+      "active": "Qualquer pessoa com a ligação pode abri-la.",
+      "disabled": "As ligações de partilha estão desativadas neste servidor.",
+      "revoked": "Esta ligação foi revogada e já não funciona.",
+      "expired": "Esta ligação expirou.",
+      "suspended": "Não funciona enquanto o dono não puder partilhar. Volta a funcionar se recuperar a permissão.",
+      "unavailable": "Não funciona: o item já não existe ou falta no disco, ou o dono já não o consegue abrir."
+    },
+    "row": {
+      "expires": "Expira a {{when}}",
+      "noExpiry": "Nunca expira",
+      "uses_one": "{{count}} utilização",
+      "uses_other": "{{count}} utilizações",
+      "lastUsed": "última utilização a {{when}}",
+      "passwordProtected": "Protegida por palavra-passe",
+      "owner": "de {{name}}",
+      "copied": "Copiada",
+      "copyLink": "Copiar ligação",
+      "copyFile": "Copiar URL do ficheiro",
+      "copyFileHint": "O próprio ficheiro, para VTT, OTFBM e Discord",
+      "revoke": "Revogar",
+      "delete": "Eliminar",
+      "confirmDelete": "Eliminar de vez"
+    },
+    "expiry": {
+      "day": "1 dia",
+      "week": "7 dias",
+      "month": "30 dias",
+      "never": "Nunca"
+    },
+    "form": {
+      "label": "Etiqueta",
+      "labelPlaceholder": "p. ex. Folheto da sessão 12",
+      "expiry": "Expira após",
+      "password": "Palavra-passe (opcional)",
+      "passwordPlaceholder": "Deixe vazio para não usar palavra-passe",
+      "passwordTooShort": "Pelo menos 4 caracteres.",
+      "passwordHint": "Quem abrir a ligação tem de a introduzir. Ferramentas que carregam o ficheiro diretamente não conseguem, por isso deixe-a vazia para VTT e Discord.",
+      "create": "Criar ligação"
+    },
+    "dialog": {
+      "title": "Ligação de partilha",
+      "intro": "Qualquer pessoa com uma ligação de partilha pode abrir este item sem conta, até expirar ou a revogar.",
+      "existing": "As suas ligações para este item",
+      "none": "Ainda não partilhou isto."
+    },
+    "loadFailed": "Não foi possível carregar as ligações.",
+    "createFailed": "Não foi possível criar a ligação.",
+    "revokeFailed": "Não foi possível revogar a ligação.",
+    "deleteFailed": "Não foi possível eliminar a ligação."
+  },
+  "sharePage": {
+    "missingTitle": "Esta ligação não funciona",
+    "missingBody": "Pode ter expirado ou sido revogada, ou o item já não está disponível.",
+    "throttled": "Demasiadas tentativas. Aguarde um minuto e tente novamente.",
+    "lockedTitle": "Palavra-passe necessária",
+    "lockedBody": "Introduza a palavra-passe que lhe deram para abrir esta ligação.",
+    "password": "Palavra-passe",
+    "unlock": "Abrir",
+    "wrongPassword": "Essa palavra-passe não está correta.",
+    "expires": "A ligação expira a {{when}}",
+    "download": "Transferir",
+    "open": "Abrir",
+    "sharedFrom": "Partilhado a partir do Grimoire"
   }
 }

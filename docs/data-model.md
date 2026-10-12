@@ -45,6 +45,7 @@ erDiagram
     users ||--o{ campaign_resource_shares : "shared with"
     users ||--o{ campaign_files : "uploaded by"
     users ||--o{ api_keys : owns
+    users ||--o{ share_links : creates
 
     game_systems ||--o{ books : contains
     books ||--o{ books : "has variant"
@@ -121,6 +122,7 @@ express anyway (two levels only, no self-parenting, no cycles) are enforced in
 | `ruleset_entries.ruleset_id` | `rulesets.id` | entries, deleted with their ruleset |
 | `auth_sessions.user_id` | `users.id` | one row per login session; deleted with the user |
 | `api_keys.user_id` | `users.id` | the user the key acts as; keys are deleted with the user and never moved by a guest merge |
+| `share_links.user_id` | `users.id` | the link's creator, whose permissions it serves with; links are deleted with the user and never moved by a guest merge |
 | `campaigns.owner_id` | `users.id` | the GM / creator |
 | `campaigns.parent_campaign_id` | `campaigns.id` | self-referential; nullable |
 | `campaigns.system_id` | `game_systems.id` | nullable; falls back to `system_name` |
@@ -217,7 +219,7 @@ None of these tables carry foreign keys; they are linked to campaigns polymorphi
 
 | Table | Purpose | Key columns / constraints |
 | --- | --- | --- |
-| `users` | An authenticated account. | `username` unique; `email`, `opds_token`, `calendar_token`, `oidc_subject` unique + indexed. `calendar_token` authenticates the campaign calendar (ICS) feeds, which cannot send an `Authorization` header; it is deliberately separate from `opds_token` and the JWT so it can be rotated on its own, and is null until the user first requests a subscription URL. `role` ∈ `admin`/`gm`/`player`/`guest`. `is_guest` marks campaign-scoped guest accounts. `api_keys_enabled` lets a non-admin hold [API keys](api.md#api-keys) (off by default; admins always may). `theme_mode` ∈ light/dark/system and `theme_id` names an installed `user_themes` row - both nullable, meaning the built-in dark palette. These hold the choice for the default app mode (Grimoire); `theme_by_mode` JSON holds `{app_mode: {mode, theme_id}}` for any other. |
+| `users` | An authenticated account. | `username` unique; `email`, `opds_token`, `calendar_token`, `oidc_subject` unique + indexed. `calendar_token` authenticates the campaign calendar (ICS) feeds, which cannot send an `Authorization` header; it is deliberately separate from `opds_token` and the JWT so it can be rotated on its own, and is null until the user first requests a subscription URL. `role` ∈ `admin`/`gm`/`player`/`guest`. `is_guest` marks campaign-scoped guest accounts. `api_keys_enabled` lets a non-admin hold [API keys](api.md#api-keys) (off by default; admins always may). `share_links_enabled` is the [share link](sharing.md) override: NULL follows the role default, true/false grants or refuses it whatever the role. `theme_mode` ∈ light/dark/system and `theme_id` names an installed `user_themes` row - both nullable, meaning the built-in dark palette. These hold the choice for the default app mode (Grimoire); `theme_by_mode` JSON holds `{app_mode: {mode, theme_id}}` for any other. |
 | `bookmarks` | Per-user page/text bookmark in a book. | FKs `user_id`, `book_id`. Index `ix_bookmarks_user_book` on `(user_id, book_id)`. |
 | `favorites` | Per-user favorite across books/maps/tokens/audio/models. | FK `user_id`. Polymorphic `(item_type, item_id)`. **Unique** `(user_id, item_type, item_id)`. |
 | `saved_filters` | Per-user named sort/filter preset for a library scope. | FK `user_id` (indexed). `scope` ∈ systems/books/maps/tokens/audio/models. `state` JSON holds the sort/filter object. `is_default` marks the per-scope landing view (at most one per scope, enforced in the router). **Unique** `(user_id, scope, name)`. |
@@ -289,6 +291,12 @@ path-keyed feature.
 | Table | Purpose | Key columns / constraints |
 | --- | --- | --- |
 | `api_keys` | A personal key that lets a script or integration call the API as its owner (issue #489). | FK `user_id` (indexed) - the key acts as this user, narrowed by `permissions`. `name` (required, not unique). `key_hash` is a SHA-256 of the full key, unique + indexed - the key itself is never stored, and is returned only by create/regenerate. `prefix` is its first characters (12 for a `grim_` key, 4 for one migrated from the old plaintext `stats_api_key` setting), kept for display. `permissions` JSON is `{permission: "read"\|"write"}`, where `"*"` sets a floor for every permission; an absent permission means no access. `last_used_at` is written at most once a minute per key; `expires_at` null means never. |
+
+### Share links - [`backend/models/share_links.py`](../backend/models/share_links.py)
+
+| Table | Purpose | Key columns / constraints |
+| --- | --- | --- |
+| `share_links` | A public, revocable URL for one library item (issue #541). | `token` unique + indexed, stored in plaintext (like `calendar_token`) so the creator can copy the link again. FK `user_id` (indexed) - the creator; the link serves only while they may share and can read the item. `(resource_type, resource_id)` indexed - a soft reference to a `books`/`generic_maps`/`tokens`/`audio`/`models_3d` row, by `resource_type` ∈ book/map/token/audio/model. `filename` is what the direct URL ends in, with the served extension. `password_hash` (bcrypt) nullable. `expires_at`/`revoked_at` nullable; whether a link works is decided per request, never stored. `use_count`/`last_used_at` count `GET`s. |
 
 ### Full-text search (not an ORM table)
 

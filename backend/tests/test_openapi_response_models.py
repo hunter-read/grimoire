@@ -46,6 +46,10 @@ UNTYPED_BY_DESIGN = {
     # Streams the mesh file itself; also the source the 3D viewer loads.
     "/api/models/{model_id}/file",
     "/api/models/{model_id}/thumbnail",
+    # The shared item itself (issue #541): an image, PDF, audio file or model,
+    # served publicly by share-link token.
+    "/api/share/{token}",
+    "/api/share/{token}/{filename}",
     "/api/systems/{system_id}/cover",
     # Serves the frame image itself (PNG/WebP/SVG), not JSON.
     "/api/token-frames/{frame_id}/file",

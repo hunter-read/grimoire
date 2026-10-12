@@ -19,6 +19,7 @@ import SiblingNavButtons from '../media/SiblingNavButtons'
 import SiblingPosition from '../media/SiblingPosition'
 import { isArchiveMedia } from '../../constants'
 import AddToCampaignButton from '../campaigns/AddToCampaignButton'
+import ShareLinkButton from '../share/ShareLinkButton'
 import DetailFavoriteButton from '../DetailFavoriteButton'
 import VariantPicker from '../VariantPicker'
 import EditVttButton from './vtt/EditVttButton'
@@ -237,6 +238,12 @@ export default function MapDetailView() {
         <EditVttButton map={map} compact={isMobilePhone} />
         <DetailFavoriteButton type="map" id={mapId} compact={isMobilePhone} />
         <AddToCampaignButton resourceType="map" resourceId={mapId} />
+        <ShareLinkButton
+          resourceType="map"
+          resourceId={mapId}
+          title={map.filename}
+          compact={isMobilePhone}
+        />
         <DownloadVersionButton
           type="maps"
           id={mapId}
