@@ -39,6 +39,10 @@ class BrowseEntry(BaseModel):
     accepts_frames_marker: bool = False
     # Capped at CHILD_COUNT_CAP; None when the folder could not be read.
     child_count: Optional[int] = None
+    # The name on disk is not valid UTF-8 (issue #547), so `name` and `path`
+    # carry a U+FFFD placeholder for each bad byte. The placeholder path does
+    # not exist, so the UI offers no actions on the entry and explains why.
+    unreadable_name: bool = False
 
 
 class BrowseResponse(BaseModel):

@@ -19,7 +19,7 @@ from typing import Any, Callable, Optional
 from sqlalchemy.exc import IntegrityError
 
 from backend import indexer  # package namespace, for patch-sensitive calls
-from ._context import _ScanContext, _prune_dirs, _title_from_filename
+from ._context import _ScanContext, _prune_dirs, _readable_name, _title_from_filename
 from ._subprocess import _run_with_timeout
 from .added_dates import added_at_for_insert
 from .constants import (
@@ -129,7 +129,7 @@ def _scan_media(
         dirs[:] = _prune_dirs(root, dirs, ignore)
 
         for filename in sorted(files):
-            if filename.startswith("."):
+            if filename.startswith(".") or not _readable_name(root, filename):
                 continue
 
             filepath = os.path.join(root, filename)
@@ -292,7 +292,7 @@ def _scan_audio(ctx: _ScanContext, walk_dir: Path) -> None:
         dirs[:] = _prune_dirs(root, dirs, ignore)
 
         for filename in sorted(files):
-            if filename.startswith("."):
+            if filename.startswith(".") or not _readable_name(root, filename):
                 continue
 
             filepath = os.path.join(root, filename)

@@ -379,6 +379,7 @@
     "nsfw": "NSFW",
     "indexed": "Geïndexeerd",
     "missing": "Ontbreekt",
+    "unreadableName": "Deze naam is geen geldige UTF-8, meestal omdat hij op Windows is gemaakt en naar een Linux-share is gekopieerd. Grimoire kan hem niet openen of wijzigen, en bibliotheekscans slaan hem over. Hernoem hem op de share zelf en scan daarna opnieuw.",
     "itemCount": "{{count}} item",
     "itemCount_other": "{{count}} items",
     "rename": "Hernoemen",

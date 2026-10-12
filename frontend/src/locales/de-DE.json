@@ -379,6 +379,7 @@
     "nsfw": "NSFW",
     "indexed": "Indiziert",
     "missing": "Fehlt",
+    "unreadableName": "Dieser Name ist kein gültiges UTF-8, meist weil er unter Windows erstellt und auf eine Linux-Freigabe kopiert wurde. Grimoire kann ihn weder öffnen noch ändern, und Bibliotheks-Scans überspringen ihn. Benenne ihn direkt auf der Freigabe um und starte dann einen neuen Scan.",
     "itemCount": "{{count}} Eintrag",
     "itemCount_other": "{{count}} Einträge",
     "rename": "Umbenennen",

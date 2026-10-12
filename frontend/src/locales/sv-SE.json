@@ -379,6 +379,7 @@
     "nsfw": "NSFW",
     "indexed": "Indexerad",
     "missing": "Saknas",
+    "unreadableName": "Det här namnet är inte giltig UTF-8, oftast för att det skapades i Windows och kopierades till en Linux-delning. Grimoire kan inte öppna eller ändra det, och biblioteksskanningar hoppar över det. Byt namn på det direkt på delningen och skanna sedan om.",
     "itemCount": "{{count}} objekt",
     "itemCount_other": "{{count}} objekt",
     "rename": "Byt namn",

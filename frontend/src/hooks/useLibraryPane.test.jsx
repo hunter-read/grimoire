@@ -230,6 +230,20 @@ describe('useLibraryPane', () => {
     expect(result.current.selected.size).toBe(0)
   })
 
+  it('leaves rows with unreadable names out of select-all', async () => {
+    filesApi.browse.mockResolvedValue(
+      listing('books', [
+        file('loose.pdf', 'books'),
+        { ...dir('M\ufffdRK BORG', 'books'), unreadable_name: true },
+      ])
+    )
+    const { result } = renderHook(() => useLibraryPane('books'))
+    await waitFor(() => expect(result.current.rows).toHaveLength(2))
+
+    act(() => result.current.selectAll())
+    expect([...result.current.selected]).toEqual(['books/loose.pdf'])
+  })
+
   it('refreshes every folder on screen, not just the root', async () => {
     const { result } = renderHook(() => useLibraryPane('books'))
     await waitFor(() => expect(result.current.loading).toBe(false))

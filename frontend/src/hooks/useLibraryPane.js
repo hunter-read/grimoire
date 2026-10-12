@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { files as filesApi } from '../api'
-import { rangeBetween } from '../components/files/treeNav'
+import { isActionable, rangeBetween } from '../components/files/treeNav'
 
 /**
  * State for one pane of the library file manager (issue #302).
@@ -272,7 +272,7 @@ export function useLibraryPane(initialPath = '') {
   }, [folders, expanded, path])
 
   const selectAll = useCallback(() => {
-    setSelected(new Set(rows.filter((r) => r.entry).map((r) => r.entry.path)))
+    setSelected(new Set(rows.filter((r) => isActionable(r.entry)).map((r) => r.entry.path)))
   }, [rows])
 
   /**
@@ -312,7 +312,7 @@ export function useLibraryPane(initialPath = '') {
     if (i === -1) return
     const at = (from, dir) => {
       for (let j = from; j >= 0 && j < rows.length; j += dir) {
-        if (rows[j].entry) return rows[j].entry.path
+        if (isActionable(rows[j].entry)) return rows[j].entry.path
       }
       return null
     }

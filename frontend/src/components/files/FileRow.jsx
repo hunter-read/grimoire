@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { LuChevronRight, LuChevronDown } from 'react-icons/lu'
 import Chip from './Chip'
 import EntryIcon from './EntryIcon'
+import UnreadableNameHelp from './UnreadableNameHelp'
 import useLongPress from '../../hooks/useLongPress'
 import useCoarsePointer from '../../hooks/useCoarsePointer'
 
@@ -56,24 +57,34 @@ function FileRow({
   // Nothing is lost: dragging between two panes was never usable with a finger,
   // and Move… in that menu does the same job.
   const touch = useCoarsePointer()
+  // A name that is not valid UTF-8 (issue #547) reaches us with a placeholder
+  // in its path, which names nothing on disk — so the row is shown but every
+  // handler is withheld, and the "?" beside it says why.
+  const locked = !!entry.unreadable_name
+  const handlers = locked
+    ? {}
+    : {
+        ...longPress,
+        draggable: !touch,
+        onDragStart: (e) => onDragStart(e, entry),
+        onDragOver: (e) => onDragOverRow(e, entry, isOpen),
+        onDragLeave: () => onDragLeaveRow(entry),
+        onDrop: (e) => onDropRow(e, entry),
+        onClick: (e) => onSelect(e, entry),
+        // Double-click *enters* the folder, re-anchoring the pane to it; the
+        // twisty expands in place. Two distinct intents, two distinct targets —
+        // double-clicking to expand left the user with no way to drill in.
+        onDoubleClick: () => entry.is_dir && onOpenFolder(entry.path),
+        onContextMenu: (e) => onContext(e, entry),
+      }
 
   return (
     <div
       id={id}
-      {...longPress}
+      {...handlers}
       role="option"
       aria-selected={!!isSelected}
-      draggable={!touch}
-      onDragStart={(e) => onDragStart(e, entry)}
-      onDragOver={(e) => onDragOverRow(e, entry, isOpen)}
-      onDragLeave={() => onDragLeaveRow(entry)}
-      onDrop={(e) => onDropRow(e, entry)}
-      onClick={(e) => onSelect(e, entry)}
-      // Double-click *enters* the folder, re-anchoring the pane to it; the
-      // twisty expands in place. Two distinct intents, two distinct targets —
-      // double-clicking to expand left the user with no way to drill in.
-      onDoubleClick={() => entry.is_dir && onOpenFolder(entry.path)}
-      onContextMenu={(e) => onContext(e, entry)}
+      aria-disabled={locked || undefined}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -83,7 +94,7 @@ function FileRow({
         padding: '0 10px',
         paddingLeft: 10 + depth * 16,
         fontSize: 13,
-        cursor: 'grab',
+        cursor: locked ? 'default' : 'grab',
         userSelect: 'none',
         // Suppress the browser's own long-press behaviours — the iOS callout
         // menu and the Android text selection — which would otherwise appear on
@@ -112,7 +123,7 @@ function FileRow({
     >
       {/* Twisty. Folders get a real toggle; files get a spacer so names stay
           aligned with their siblings. */}
-      {entry.is_dir ? (
+      {entry.is_dir && !locked ? (
         <button
           onClick={(e) => {
             e.stopPropagation()
@@ -157,11 +168,12 @@ function FileRow({
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
-          color: entry.is_missing ? 'var(--text-muted)' : 'var(--text)',
+          color: entry.is_missing || locked ? 'var(--text-muted)' : 'var(--text)',
         }}
       >
         {entry.name}
       </span>
+      {locked && <UnreadableNameHelp />}
 
       {entry.container_kind && <Chip>{t(`files.kind.${entry.container_kind}`)}</Chip>}
       {/* Independent of container_kind: it marks what the images here are for

@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy.orm import Session
 
+from .filenames import display_name
 from .models import init_db
 
 # The repo root, two levels up from this file (backend/config.py).
@@ -609,7 +610,10 @@ class _MemoryLogHandler(logging.Handler):
                     timestamp=ts,
                     level=record.levelname,
                     logger_name=record.name,
-                    message=self.format(record),
+                    # A filename that is not UTF-8 (issue #547) can reach a
+                    # message through any logger; kept raw, it would make every
+                    # /api/logs response fail to serialise until it aged out.
+                    message=display_name(self.format(record)),
                 )
                 self._buf.append(entry)
         except Exception:

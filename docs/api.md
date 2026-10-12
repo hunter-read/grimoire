@@ -2718,6 +2718,15 @@ top-level `children_accept_container_kind` and `children_accept_frames_marker`
 ask the question about a folder created *inside* the one being browsed, for a
 "new folder" action anchored on it that has no row to read the flags from.
 
+An entry whose name on disk is not valid UTF-8 carries `unreadable_name: true`.
+JSON cannot hold the real name, so its `name` and `path` show `U+FFFD` (`�`) in
+place of each bad byte. That path names nothing on disk, so the other endpoints
+treat it as a path that does not exist. Clients should list the entry but offer
+no actions on it.
+Nothing else is looked up for it: the scanner skips such names, so there is no
+record, system, or marker to report. See the
+[FAQ](faq.md#a-folder-is-skipped-by-the-scan-and-the-file-manager-shows--in-its-name).
+
 The listing is **one folder's immediate children only** - it does not recurse -
 and is bounded: `total` is the folder's true entry count and `truncated` says
 whether `entries` is a prefix of it, so a client can report what it is hiding

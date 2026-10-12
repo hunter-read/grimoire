@@ -29,6 +29,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from ...config import logger
+from ...filenames import is_undecodable
 from ...indexer import resolve_collection_dir
 from ...indexer.constants import FRAMES_MARKER as _FRAMES_MARKER
 from ...models import Token
@@ -192,12 +193,15 @@ def scan_user_frames() -> list[dict[str, str]]:
     # followlinks stays False (the default, but the reason matters): a symlink
     # loop inside the library would otherwise hang the request forever.
     for dirpath, dirs, files in os.walk(root, followlinks=False):
-        dirs[:] = [d for d in dirs if not d.startswith(".")]
+        # A name that is not UTF-8 (issue #547) cannot go in the JSON listing.
+        dirs[:] = [d for d in dirs if not d.startswith(".") and not is_undecodable(d)]
         if FRAMES_MARKER not in files:
             continue
 
         for name in sorted(files):
-            if name.startswith(".") or Path(name).suffix.lower() not in FRAME_EXTS:
+            if name.startswith(".") or is_undecodable(name):
+                continue
+            if Path(name).suffix.lower() not in FRAME_EXTS:
                 continue
             path = Path(dirpath) / name
             try:

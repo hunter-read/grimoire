@@ -342,13 +342,13 @@ kept in the repo so it versions with the release you are running:
 
 ### Reference
 
-| Guide                                | What's in it                                                       |
-| ------------------------------------ | ------------------------------------------------------------------ |
-| [FAQ](docs/faq.md)                   | Common problems, and worked OIDC examples for Authentik and Google |
-| [API reference](docs/api.md)         | Every endpoint, with roles and request bodies                      |
-| [Architecture](docs/architecture.md) | Module map, request lifecycle, auth flow - for contributors        |
-| [Data model](docs/data-model.md)     | ER diagram and table-by-table schema                               |
-| [CI/CD pipelines](docs/pipelines.md) | Workflows, coverage gates, and the release checklist               |
+| Guide                                | What's in it                                                                                                        |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| [FAQ](docs/faq.md)                   | Common problems (including folders skipped for a non-UTF-8 name), and worked OIDC examples for Authentik and Google |
+| [API reference](docs/api.md)         | Every endpoint, with roles and request bodies                                                                       |
+| [Architecture](docs/architecture.md) | Module map, request lifecycle, auth flow - for contributors                                                         |
+| [Data model](docs/data-model.md)     | ER diagram and table-by-table schema                                                                                |
+| [CI/CD pipelines](docs/pipelines.md) | Workflows, coverage gates, and the release checklist                                                                |
 
 The live API is also self-documenting while the server is running:
 [`/api/docs`](http://localhost:9481/api/docs) (Swagger UI),

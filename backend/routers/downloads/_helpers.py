@@ -9,6 +9,7 @@ from typing import Optional
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 
+from ...filenames import is_undecodable
 from ...models import Model3D, Audio, Book, GameSystem, GenericMap, Token, User
 from ...models.collections import COLLECTIONS
 from ...services import access_control, tag_service
@@ -360,9 +361,13 @@ def _files_for_library_folder(folder: str) -> tuple[list, str]:
     # Sorted at each level so the archive's entry order is stable between runs;
     # an unordered os.walk makes two archives of the same folder differ.
     for dirpath, dirnames, filenames in os.walk(target):
-        dirnames[:] = sorted(d for d in dirnames if not d.startswith("."))
+        # Names that are not UTF-8 (issue #547) are left out: a ZIP entry name
+        # must be encodable, and one such file would otherwise fail the archive.
+        dirnames[:] = sorted(
+            d for d in dirnames if not d.startswith(".") and not is_undecodable(d)
+        )
         for name in sorted(filenames):
-            if name.startswith("."):
+            if name.startswith(".") or is_undecodable(name):
                 continue
             full = Path(dirpath) / name
             safe = _safe_filepath(str(full))

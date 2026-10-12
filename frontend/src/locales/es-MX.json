@@ -379,6 +379,7 @@
     "nsfw": "NSFW",
     "indexed": "Indexado",
     "missing": "Falta",
+    "unreadableName": "Este nombre no es UTF-8 válido, normalmente porque se creó en Windows y se copió a una carpeta compartida de Linux. Grimoire no puede abrirlo ni modificarlo, y los escaneos de la biblioteca lo omiten. Cámbiale el nombre directamente en la carpeta compartida y vuelve a escanear.",
     "itemCount": "{{count}} elemento",
     "itemCount_other": "{{count}} elementos",
     "rename": "Renombrar",

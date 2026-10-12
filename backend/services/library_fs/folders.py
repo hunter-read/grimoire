@@ -14,6 +14,7 @@ from typing import Any, Optional
 from sqlalchemy.orm import Session
 
 from ...config import logger
+from ...filenames import is_undecodable
 from ...indexer.categories import (
     detect_container_kind,
     guess_category,
@@ -165,7 +166,9 @@ def find_singleton_container(kind: str, *, ignore: Optional[Path] = None) -> Opt
     books = library_root() / "books"
     marker = CONTAINER_MARKERS[kind]
     try:
-        children = [c for c in books.iterdir() if c.is_dir()]
+        # A name that is not UTF-8 cannot claim a collection: the scanner skips
+        # it, and its path could not be returned to the UI anyway.
+        children = [c for c in books.iterdir() if c.is_dir() and not is_undecodable(c.name)]
     except OSError:
         return None
     for child in children:

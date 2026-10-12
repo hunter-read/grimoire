@@ -881,3 +881,45 @@ describe('FilePane keyboard navigation', () => {
     expect(document.activeElement).toBe(list)
   })
 })
+
+describe('FilePane unreadable names', () => {
+  const lockedRows = () => [
+    {
+      entry: entryDir('M\ufffdRK BORG', { unreadable_name: true }),
+      depth: 0,
+      isOpen: false,
+    },
+    { entry: entryFile('bestiary.pdf'), depth: 0, isOpen: false },
+  ]
+
+  it('shows the placeholder name with a help button and no twisty', () => {
+    renderPane(makePane({ rows: lockedRows() }))
+    const row = screen.getByTestId('entry-M\ufffdRK BORG')
+    expect(row).toHaveAttribute('aria-disabled', 'true')
+    expect(row).not.toHaveAttribute('draggable')
+    expect(screen.queryByTestId('twisty-M\ufffdRK BORG')).toBeNull()
+    expect(screen.getByTestId('unreadable-name-help')).toHaveAttribute(
+      'aria-label',
+      'files.unreadableName'
+    )
+  })
+
+  it('ignores clicks, double-clicks, and the context menu', () => {
+    const pane = makePane({ rows: lockedRows() })
+    const props = renderPane(pane)
+    const row = screen.getByTestId('entry-M\ufffdRK BORG')
+    fireEvent.click(row)
+    fireEvent.doubleClick(row)
+    fireEvent.contextMenu(row)
+    expect(pane.cursorTo).not.toHaveBeenCalled()
+    expect(pane.navigate).not.toHaveBeenCalled()
+    expect(props.onOpenContext).not.toHaveBeenCalled()
+  })
+
+  it('still lets the readable rows beside it work', () => {
+    const pane = makePane({ rows: lockedRows() })
+    renderPane(pane)
+    fireEvent.click(screen.getByTestId('entry-bestiary.pdf'))
+    expect(pane.cursorTo).toHaveBeenCalledWith('books/System/bestiary.pdf', { extend: false })
+  })
+})
