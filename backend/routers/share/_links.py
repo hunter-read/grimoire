@@ -59,6 +59,8 @@ def serialize(db: Session, link: ShareLink, *, with_owner: bool = False) -> dict
         "label": link.label or "",
         "filename": link.filename or "",
         "has_password": bool(link.password_hash),
+        "variant": link.variant,
+        "variant_options": link.variant_options,
         "state": state,
         "created_at": utc_iso(link.created_at),
         "expires_at": utc_iso(link.expires_at),

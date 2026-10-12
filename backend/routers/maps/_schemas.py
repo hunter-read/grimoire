@@ -289,3 +289,26 @@ class VttAuthoringResponse(VttFeatureCounts):
 
 class VttAuthoringSaveResponse(VttFeatureCounts):
     status: str
+
+
+class OtfbmPlanResponse(BaseModel):
+    """`GET /maps/{id}/otfbm` — how to set the map up in OTFBM (issue #551).
+
+    `width`/`height` are the whole-cell `-mapsize`, `cell` the `-options c`
+    value, and `image_width`/`image_height` the size the background is resized
+    to so that each of its cells is exactly `cell` pixels.
+    """
+
+    width: int
+    height: int
+    cell: int
+    suggested_cell: int
+    # The map's own pixels per cell, before resizing.
+    source_px: float
+    grid_source: str
+    image_width: int
+    image_height: int
+    # The map has more cells than OTFBM's 99-per-side limit; the grid is capped.
+    truncated: bool = False
+    min_cell: int
+    max_cell: int

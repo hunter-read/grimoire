@@ -11,6 +11,8 @@ const COLOR_FIELDS = [
   ['oidc_button_border_color', 'buttonBorderColor'],
 ]
 const STYLE_FIELDS = [...COLOR_FIELDS.map(([key]) => key), 'oidc_button_radius']
+// The button's wording lives here too, beside the look it is previewed with.
+const DRAFT_FIELDS = ['oidc_button_text', ...STYLE_FIELDS]
 const HEX_COLOR_RE = /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i
 const ICON_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif,image/svg+xml,.svg'
 
@@ -24,17 +26,18 @@ const toPickerValue = (v) => {
 }
 
 const isValid = (key, v) => {
-  if (v === '') return true
+  if (v === '' || key === 'oidc_button_text') return true
   if (key === 'oidc_button_radius') return /^\d+$/.test(v) && Number(v) <= 40
   return HEX_COLOR_RE.test(v)
 }
 
 /**
- * Admin editor for the OIDC sign-in button's look (issue #377): colors, corner
- * radius and an icon, with a live preview. Provider-agnostic on purpose - the
- * admin copies whatever their IdP's branding guidelines call for.
+ * Admin editor for the OIDC sign-in button (issue #377): its text, colors,
+ * corner radius and an icon, with a live preview that follows each field as it
+ * is typed. Provider-agnostic on purpose - the admin copies whatever their
+ * IdP's branding guidelines call for.
  */
-export default function OIDCButtonAppearance({ data, label, onSaved }) {
+export default function OIDCButtonAppearance({ data, onSaved }) {
   const { t } = useTranslation()
   const [draft, setDraft] = useState({})
   const [savingField, setSavingField] = useState(null)
@@ -44,7 +47,7 @@ export default function OIDCButtonAppearance({ data, label, onSaved }) {
 
   useEffect(() => {
     const next = {}
-    for (const k of STYLE_FIELDS) next[k] = data[k] ?? ''
+    for (const k of DRAFT_FIELDS) next[k] = data[k] ?? ''
     setDraft(next)
   }, [data])
 
@@ -124,9 +127,18 @@ export default function OIDCButtonAppearance({ data, label, onSaved }) {
         {t('authSettings.oidc.buttonAppearanceHint')}
       </div>
 
+      <div style={{ marginBottom: 14 }}>
+        <label htmlFor="oidc_button_text" style={fieldLabelStyle}>
+          <span>{t('authSettings.oidc.buttonText')}</span>
+          {status('oidc_button_text')}
+        </label>
+        <input {...textInputProps('oidc_button_text')} />
+        <div style={hintStyle}>{t('authSettings.oidc.buttonTextHint')}</div>
+      </div>
+
       <div style={previewStyle} aria-label={t('authSettings.oidc.buttonPreview')} role="group">
         <OidcLoginButton
-          label={label || t('login.oidcDefault')}
+          label={draft.oidc_button_text || t('login.oidcDefault')}
           bgColor={draft.oidc_button_bg_color}
           textColor={draft.oidc_button_text_color}
           borderColor={draft.oidc_button_border_color}

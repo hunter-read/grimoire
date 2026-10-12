@@ -587,6 +587,29 @@
       "downloadUvtt": "Scarica come Universal VTT",
       "downloadUvttHint": "Immagine e griglia come file .uvtt"
     },
+    "otfbm": {
+      "menuLabel": "Prepara per OTFBM (Avrae)",
+      "title": "Prepara per OTFBM",
+      "intro": "OTFBM disegna la mappa alle sue dimensioni reali sotto la propria griglia, quindi l'immagine viene ridimensionata finché ogni casella non combacia. Grimoire serve l'immagine ridimensionata tramite un link di condivisione, così il comando !map è pronto da incollare su Discord.",
+      "cellSize": "Dimensione casella (px)",
+      "cellHint": "{{min}}–{{max}} px. {{suggested}} px consigliati per questa mappa.",
+      "cellInvalid": "Inserisci un numero intero da {{min}} a {{max}}.",
+      "summary": "{{width}} × {{height}} caselle · immagine {{imageWidth}} × {{imageHeight}} px",
+      "defaultGrid": "Su questa mappa non è stata trovata alcuna griglia, quindi si presumono caselle da 140 px. Se non combacia, imposta prima la griglia nei dettagli della mappa.",
+      "truncated": "OTFBM mostra al massimo 99 caselle per lato, quindi il bordo più lontano di questa mappa verrà tagliato.",
+      "download": "Scarica immagine",
+      "command": "Comando Avrae",
+      "copy": "Copia",
+      "copied": "Copiato",
+      "loadFailed": "Impossibile determinare la configurazione OTFBM per questa mappa.",
+      "linkTitle": "Link di condivisione per OTFBM",
+      "createLink": "Crea link di condivisione",
+      "linkHint": "OTFBM scarica lo sfondo da questo link ogni volta che disegna la mappa, quindi il tuo server Grimoire deve essere raggiungibile da internet.",
+      "linkLabel": "Sfondo OTFBM ({{cell}} px)",
+      "linkUntil": "Usa il tuo link di condivisione, che scade il {{when}}. Gestiscilo in Impostazioni → Account → Condivisione.",
+      "linkForever": "Usa il tuo link di condivisione, che non scade mai. Gestiscilo in Impostazioni → Account → Condivisione.",
+      "selfHost": "Oppure ospitala tu:"
+    },
     "vtt": {
       "title": "Editor VTT",
       "edit": "Modifica VTT",
@@ -3347,6 +3370,8 @@
       "day": "1 giorno",
       "week": "7 giorni",
       "month": "30 giorni",
+      "quarter": "90 giorni",
+      "year": "365 giorni",
       "never": "Mai"
     },
     "form": {

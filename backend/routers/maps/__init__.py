@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from ...auth import require_not_guest
 from .._browse import FolderGroupsResponse
 from .._bulk_schemas import BulkResult, BulkTagResult
+from .otfbm_export import export_map_otfbm_image, get_map_otfbm
 from .core import (
     export_map_uvtt,
     get_map_authoring,
@@ -30,6 +31,7 @@ from ._schemas import (
     MapDetailResponse,
     MapFoldersResponse,
     MapListResponse,
+    OtfbmPlanResponse,
     StatusResponse,
     VttDataResponse,
 )
@@ -126,6 +128,38 @@ router.add_api_route(
         "grid, else a 140px default. The file is assembled on demand and never "
         "written into the library. 400 for PDF, video, archive, or existing "
         "Universal VTT maps."
+    ),
+)
+# OTFBM (issue #551): the plan is JSON for the export dialog; the image is the
+# resized background itself, served as a download.
+router.add_api_route(
+    "/maps/{map_id}/otfbm",
+    get_map_otfbm,
+    methods=["GET"],
+    summary="OTFBM setup for a map",
+    description=(
+        "How to set a map up as an OTFBM background for Avrae's `!map`: the "
+        "whole-cell map size, the cell size (`?cell=`, 20-100; defaults to a "
+        "suggestion of at most 70 and never above the map's own cell size), "
+        "and the size the image is resized to so each cell is exactly that "
+        "many pixels. Uses the same resolved grid as the Universal VTT "
+        "export. 403 unless you may create share links; 400 for PDF, video "
+        "and archive maps."
+    ),
+    response_model=OtfbmPlanResponse,
+)
+router.add_api_route(
+    "/maps/{map_id}/otfbm/image",
+    export_map_otfbm_image,
+    methods=["GET"],
+    summary="Export a map as an OTFBM background",
+    description=(
+        "The map resized so each grid cell is `?cell=` pixels (as in "
+        "`GET /maps/{id}/otfbm`), as a JPEG -- or a PNG when the map has "
+        "transparency, since OTFBM does not accept WebP. Returned as an "
+        "attachment named `<slug>-<W>x<H>c<cell>`; never written into the "
+        "library. 403 unless you may create share links; 400 for PDF, video "
+        "and archive maps."
     ),
 )
 router.add_api_route(

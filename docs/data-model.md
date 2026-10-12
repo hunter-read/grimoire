@@ -296,7 +296,7 @@ path-keyed feature.
 
 | Table | Purpose | Key columns / constraints |
 | --- | --- | --- |
-| `share_links` | A public, revocable URL for one library item (issue #541). | `token` unique + indexed, stored in plaintext (like `calendar_token`) so the creator can copy the link again. FK `user_id` (indexed) - the creator; the link serves only while they may share and can read the item. `(resource_type, resource_id)` indexed - a soft reference to a `books`/`generic_maps`/`tokens`/`audio`/`models_3d` row, by `resource_type` ∈ book/map/token/audio/model. `filename` is what the direct URL ends in, with the served extension. `password_hash` (bcrypt) nullable. `expires_at`/`revoked_at` nullable; whether a link works is decided per request, never stored. `use_count`/`last_used_at` count `GET`s. |
+| `share_links` | A public, revocable URL for one library item (issue #541). | `token` unique + indexed, stored in plaintext (like `calendar_token`) so the creator can copy the link again. FK `user_id` (indexed) - the creator; the link serves only while they may share and can read the item. `(resource_type, resource_id)` indexed - a soft reference to a `books`/`generic_maps`/`tokens`/`audio`/`models_3d` row, by `resource_type` ∈ book/map/token/audio/model. `filename` is what the direct URL ends in, with the served extension. `password_hash` (bcrypt) nullable. `variant`/`variant_options` (both nullable) make the link serve a derived form of the item: `variant = "otfbm"` serves a map resized as an OTFBM background at `variant_options.cell` px per cell (issue #551). `expires_at`/`revoked_at` nullable; whether a link works is decided per request, never stored. `use_count`/`last_used_at` count `GET`s. |
 
 ### Full-text search (not an ORM table)
 

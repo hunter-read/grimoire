@@ -1,5 +1,5 @@
 """Share links (issue #541)."""
-from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, Index, Integer, String
 
 from .base import Base, _utcnow, _uuid
 
@@ -21,6 +21,9 @@ class ShareLink(Base):
     ``filename`` is the name the direct-file URL ends in. Some tools pick the
     decoder from the URL's extension, so it carries the extension of what is
     actually served - a PDF map's link ends in ``.webp``, its rendered page.
+
+    ``variant`` makes a link serve a derived form of the item rather than the
+    item itself; the access rules are the item's either way.
     """
 
     __tablename__ = "share_links"
@@ -34,6 +37,11 @@ class ShareLink(Base):
     resource_id = Column(String(36), nullable=False)
     label = Column(String(200), default="")
     filename = Column(String(255), default="")
+    # A derived form of the item to serve instead of the item itself (issue
+    # #551). NULL serves the item as-is; "otfbm" serves a map resized for an
+    # OTFBM background at ``variant_options["cell"]`` pixels per cell.
+    variant = Column(String(20), nullable=True)
+    variant_options = Column(JSON, nullable=True)
     password_hash = Column(String(255), nullable=True)
     created_at = Column(DateTime, default=_utcnow)
     expires_at = Column(DateTime, nullable=True)

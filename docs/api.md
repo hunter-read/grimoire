@@ -686,6 +686,8 @@ a book whose file is missing.
 | `/api/maps/:id/file` | GET | any | Download/stream the original map image, PDF, or archive (served with the archive's MIME type) |
 | `/api/maps/:id/page/:n` | GET | any | Render page `n` of a PDF map to WebP (`width?` target pixel width, default 1600, max 3000). Image maps stream as-is and only accept page 1; archives return 400 |
 | `/api/maps/:id/export.uvtt` | GET | any | Export a map as a Universal VTT file (`application/octet-stream`, attachment named `<slug>.uvtt`). An existing `.uvtt` re-exports, carrying its own embedded image plus any edited geometry. 400 for PDF, video and archive maps, and for a raster map already **variant-linked** to a Universal VTT file |
+| `/api/maps/:id/otfbm` | GET | may share | How to set the map up as an [OTFBM](#otfbm-export) background: whole-cell `width`/`height` (the `-mapsize`), `cell` (the `-options c` value; `?cell=` 20-100, defaults to `suggested_cell`), the map's own `source_px`, `grid_source`, the resized `image_width`/`image_height`, and `truncated` when the map exceeds 99 cells per side. 400 for PDF, video and archive maps |
+| `/api/maps/:id/otfbm/image` | GET | may share | The map resized so each cell is `?cell=` pixels, as a JPEG (PNG when the map has transparency). Attachment named `<slug>-<W>x<H>c<cell>.jpg`. 400 for PDF, video and archive maps |
 | `/api/maps/:id/vtt/image` | GET | any | Decode and stream the image embedded in a `.uvtt`/`.dd2vtt` map. 400 if the map is not Universal VTT or carries no image |
 | `/api/maps/:id/vtt/data` | GET | any | Grid resolution plus wall/portal/light counts parsed from a `.uvtt`/`.dd2vtt` map, image omitted. 400 if the map is not Universal VTT |
 | `/api/maps/:id/vtt/authoring` | GET | any | Walls, portals, lights and environment authored in the in-app editor, plus the resolved grid to draw them on, the `image_url` to draw against, and `is_vtt`/`seeded_from_file` flags. `data` is `null` when nothing has been authored; for an unedited `.uvtt` it is seeded from the file's own geometry |
@@ -768,6 +770,39 @@ envelope as base64, so there is nothing at the path to re-encode, and passing it
 through keeps the exported image byte-identical to the original's. Its grid also
 comes from the file's own `pixels_per_grid` unless a manual override is set,
 since that is what the geometry inside was drawn against.
+
+#### OTFBM export
+
+`GET /api/maps/:id/otfbm` and `/otfbm/image` (issue #551) set a map up as an
+[OTFBM](https://otfbm.io) background for Avrae's `!map -mapsize WxH -options c<cell> -bg <url>`.
+OTFBM draws the background at its native resolution under a grid of `cell`
+pixels, without scaling it, so the image is resized by `cell / source_px` to make
+each of the map's cells exactly `cell` pixels.
+
+The grid is the same resolved grid the Universal VTT export uses (manual
+override, then detection, then 140px; a `.uvtt`'s own `pixels_per_grid`).
+`-mapsize` takes whole cells, so a fractional grid rounds **down** unless it is
+within 0.1 of the next cell: the partial-cell bleed around a printed map is not
+a playable square, while 32.97 is plainly 33. It is capped at OTFBM's 99 cells
+per side, and `truncated` reports when that cap applies. `suggested_cell` is the
+map's own cell size capped at 70, so the default never upscales.
+
+Unlike `export.uvtt`, a raster map variant-linked to a Universal VTT file is
+**not** refused: OTFBM has no walls or lights, so the linked file holds nothing
+this export would be missing.
+
+The image is JPEG unless the map has pixels that are actually transparent (an
+opaque alpha channel does not count), in which case it is PNG - OTFBM reads
+neither WebP nor anything without a `.png`/`.jpg`/`.gif` extension.
+
+OTFBM fetches the background anonymously, so it is served through a
+[share link](#share-links-1) with `variant: "otfbm"`: the link serves this resized
+image instead of the original map, and its `file_url` (ending in
+`<slug>-<W>x<H>c<cell>.jpg`) is the `-bg` URL. Both endpoints here therefore
+need permission to create share links (`403` otherwise, guests included); the
+image endpoint remains for hosting the background elsewhere. The resized image
+is cached on disk, keyed on the file's mtime and the planned sizes, since OTFBM
+re-fetches it on every render.
 
 #### Universal VTT authoring
 
@@ -1697,8 +1732,8 @@ an admin can list and revoke anyone's.
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/share-links` | GET | any | Your links, newest first. Filter with `resource_type` and `resource_id`. Each: `{id, url, file_url, resource_type, resource_id, resource_name, label, filename, has_password, state, created_at, expires_at, revoked_at, last_used_at, use_count}`. `url` is the share page; `file_url` the raw file. |
-| `/api/share-links` | POST | may share | Create a link. Body: `{resource_type: "book"\|"map"\|"token"\|"audio"\|"model", resource_id, label?, expires_in_days? (1-3650, null = never), password? (4-200 chars)}`. `403` when share links are off, you may not share, or you cannot read the item; `404` for an unknown item or a file missing on disk. |
+| `/api/share-links` | GET | any | Your links, newest first. Filter with `resource_type`, `resource_id` and `variant`. Each: `{id, url, file_url, resource_type, resource_id, resource_name, label, filename, has_password, variant, variant_options, state, created_at, expires_at, revoked_at, last_used_at, use_count}`. `url` is the share page; `file_url` the raw file. |
+| `/api/share-links` | POST | may share | Create a link. Body: `{resource_type: "book"\|"map"\|"token"\|"audio"\|"model", resource_id, label?, expires_in_days? (1-3650, null = never), password? (4-200 chars), variant? ("otfbm"), cell? (20-100)}`. `variant: "otfbm"` (maps with a single picture only, `400` otherwise) makes the link serve the map resized as an [OTFBM background](#otfbm-export) at `cell` pixels per cell (the suggested size when omitted); the link then carries `variant: "otfbm"` and `variant_options: {cell}`. `403` when share links are off, you may not share, or you cannot read the item; `404` for an unknown item or a file missing on disk. |
 | `/api/share-links/permission` | GET | any | `{enabled, allowed, source, override, role_allows}` for you. |
 | `/api/share-links/all` | GET | admin | Every user's links, with `user_id` and `username`. |
 | `/api/share-links/users/:user_id` | GET | admin | One user's links, with `user_id` and `username`. |

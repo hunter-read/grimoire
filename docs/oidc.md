@@ -36,17 +36,17 @@ be matched without Grimoire having to know about it.
 
 Under **Settings → Authentication → Button Appearance**:
 
+- **Button text** - what the button says, e.g. "Sign in with Acme SSO". Empty uses the default.
 - **Background / Text / Border Color** - CSS hex values (`#rgb`, `#rgba`, `#rrggbb` or
   `#rrggbbaa`). Leave a field empty to keep the theme's look.
 - **Corner Radius** - 0 to 40 px. Empty keeps the default (8).
 - **Icon** - upload the provider's logo (PNG, JPEG, WebP, GIF or SVG, up to 1 MB). It is drawn at
   20 px to the left of the button text.
 
-A live preview shows the result as you type. The button text is the existing **Button Text**
-field.
+A live preview shows the result as you type.
 
 Each of these can be pinned by an environment variable, like every other OIDC field:
-`OIDC_BUTTON_BG_COLOR`, `OIDC_BUTTON_TEXT_COLOR`, `OIDC_BUTTON_BORDER_COLOR`,
+`OIDC_BUTTON_TEXT`, `OIDC_BUTTON_BG_COLOR`, `OIDC_BUTTON_TEXT_COLOR`, `OIDC_BUTTON_BORDER_COLOR`,
 `OIDC_BUTTON_RADIUS`, and `OIDC_BUTTON_ICON` - a path to an image file inside the container (mount
 it in read-only). An env value that isn't a valid color or radius is ignored with a warning in
 the log. An empty `OIDC_BUTTON_ICON` pins "no icon".

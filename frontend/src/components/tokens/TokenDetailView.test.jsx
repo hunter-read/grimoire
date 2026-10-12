@@ -23,7 +23,6 @@ vi.mock('../../context/AuthContext', () => ({
 }))
 
 const toggleFavorite = vi.fn()
-vi.mock('../campaigns/AddToCampaignButton', () => ({ default: () => null }))
 vi.mock('../../context/FavoritesContext', () => ({
   useFavorites: () => ({ isFavorite: () => false, toggleFavorite }),
 }))
@@ -166,10 +165,12 @@ describe('TokenDetailView', () => {
     expect(api.patch).toHaveBeenCalledWith('/tokens/t2', { is_explicit: true })
   })
 
-  it('favourites the token from its detail toolbar', async () => {
+  it('favourites the token from the overflow menu', async () => {
     mockApi('t2')
     render(<TokenDetailView />)
-    await userEvent.click(await screen.findByRole('button', { name: 'Add to favorites' }))
+    // Favourite lives in the overflow menu with campaigns and share links.
+    await userEvent.click(await screen.findByRole('button', { name: 'More actions' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Add to favorites' }))
     expect(toggleFavorite).toHaveBeenCalledWith('token', 't2')
   })
 

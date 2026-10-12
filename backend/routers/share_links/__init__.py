@@ -24,7 +24,7 @@ router.add_api_route(
         "Your share links, newest first, each with its current `state` (active, "
         "disabled, revoked, expired, suspended - you may no longer share - or "
         "unavailable - the item is gone or you can no longer read it). Filter "
-        "with `resource_type` and `resource_id`."
+        "with `resource_type`, `resource_id` and `variant`."
     ),
     response_model=list[ShareLinkOut],
 )
@@ -36,7 +36,10 @@ router.add_api_route(
     description=(
         "Creates a public link to one book, map, token, audio track or model you "
         "can read. Optional `label`, `expires_in_days` (null for never) and "
-        "`password`. 403 when share links are off or you may not create them."
+        "`password`. `variant: \"otfbm\"` (maps only, with an optional `cell` "
+        "of 20-100) makes the link serve the map resized as an OTFBM "
+        "background instead of the original. 403 when share links are off or "
+        "you may not create them."
     ),
     response_model=ShareLinkOut,
 )

@@ -587,6 +587,29 @@
       "downloadUvtt": "Télécharger en Universal VTT",
       "downloadUvttHint": "Image et grille dans un fichier .uvtt"
     },
+    "otfbm": {
+      "menuLabel": "Préparer pour OTFBM (Avrae)",
+      "title": "Préparer pour OTFBM",
+      "intro": "OTFBM dessine votre carte à sa taille réelle sous sa propre grille : l'image est donc redimensionnée pour que chaque case s'aligne. Grimoire sert l'image redimensionnée via un lien de partage, et la commande !map est prête à coller dans Discord.",
+      "cellSize": "Taille des cases (px)",
+      "cellHint": "{{min}}–{{max}} px. {{suggested}} px suggérés pour cette carte.",
+      "cellInvalid": "Saisissez un nombre entier de {{min}} à {{max}}.",
+      "summary": "{{width}} × {{height}} cases · image de {{imageWidth}} × {{imageHeight}} px",
+      "defaultGrid": "Aucune grille n'a été trouvée sur cette carte, des cases de 140 px sont donc supposées. Si elle ne s'aligne pas, définissez d'abord la grille dans les détails de la carte.",
+      "truncated": "OTFBM affiche au plus 99 cases par côté : le bord opposé de cette carte sera coupé.",
+      "download": "Télécharger l'image",
+      "command": "Commande Avrae",
+      "copy": "Copier",
+      "copied": "Copié",
+      "loadFailed": "Impossible de déterminer la configuration OTFBM de cette carte.",
+      "linkTitle": "Lien de partage pour OTFBM",
+      "createLink": "Créer un lien de partage",
+      "linkHint": "OTFBM récupère le fond via ce lien à chaque affichage de la carte : votre serveur Grimoire doit donc être accessible depuis Internet.",
+      "linkLabel": "Fond OTFBM ({{cell}} px)",
+      "linkUntil": "Utilise votre lien de partage, qui expire le {{when}}. Gérez-le dans Paramètres → Compte → Partage.",
+      "linkForever": "Utilise votre lien de partage, qui n'expire jamais. Gérez-le dans Paramètres → Compte → Partage.",
+      "selfHost": "Ou hébergez-la vous-même :"
+    },
     "vtt": {
       "title": "Éditeur VTT",
       "edit": "Éditer le VTT",
@@ -3347,6 +3370,8 @@
       "day": "1 jour",
       "week": "7 jours",
       "month": "30 jours",
+      "quarter": "90 jours",
+      "year": "365 jours",
       "never": "Jamais"
     },
     "form": {

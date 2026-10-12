@@ -49,5 +49,6 @@ describe('constants', () => {
       expect.arrayContaining(['active', 'revoked', 'expired', 'suspended', 'unavailable'])
     )
     expect(EXPIRY_OPTIONS.at(-1)).toEqual({ value: '', key: 'never' })
+    expect(EXPIRY_OPTIONS.map((o) => o.value)).toEqual(['1', '7', '30', '90', '365', ''])
   })
 })

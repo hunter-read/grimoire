@@ -587,6 +587,29 @@
       "downloadUvtt": "Ladda ner som Universal VTT",
       "downloadUvttHint": "Bild och rutnät som en .uvtt-fil"
     },
+    "otfbm": {
+      "menuLabel": "Förbered för OTFBM (Avrae)",
+      "title": "Förbered för OTFBM",
+      "intro": "OTFBM ritar kartan i verklig storlek under sitt eget rutnät, så bilden skalas tills varje ruta stämmer. Grimoire levererar den skalade bilden via en delningslänk, så !map-kommandot är redo att klistra in i Discord.",
+      "cellSize": "Rutstorlek (px)",
+      "cellHint": "{{min}}–{{max}} px. {{suggested}} px föreslås för den här kartan.",
+      "cellInvalid": "Ange ett heltal från {{min}} till {{max}}.",
+      "summary": "{{width}} × {{height}} rutor · bild {{imageWidth}} × {{imageHeight}} px",
+      "defaultGrid": "Inget rutnät hittades på den här kartan, så rutor på 140 px antas. Om det inte stämmer, ställ först in rutnätet i kartans detaljer.",
+      "truncated": "OTFBM visar högst 99 rutor per sida, så den bortre kanten av kartan skärs av.",
+      "download": "Ladda ner bild",
+      "command": "Avrae-kommando",
+      "copy": "Kopiera",
+      "copied": "Kopierat",
+      "loadFailed": "Det gick inte att ta fram OTFBM-inställningarna för den här kartan.",
+      "linkTitle": "Delningslänk för OTFBM",
+      "createLink": "Skapa delningslänk",
+      "linkHint": "OTFBM hämtar bakgrunden från länken varje gång kartan ritas, så din Grimoire-server måste kunna nås från internet.",
+      "linkLabel": "OTFBM-bakgrund ({{cell}} px)",
+      "linkUntil": "Använder din delningslänk, som går ut {{when}}. Hantera den under Inställningar → Konto → Delning.",
+      "linkForever": "Använder din delningslänk, som aldrig går ut. Hantera den under Inställningar → Konto → Delning.",
+      "selfHost": "Eller lägg upp den själv:"
+    },
     "vtt": {
       "title": "VTT-redigerare",
       "edit": "Redigera VTT",
@@ -3347,6 +3370,8 @@
       "day": "1 dag",
       "week": "7 dagar",
       "month": "30 dagar",
+      "quarter": "90 dagar",
+      "year": "365 dagar",
       "never": "Aldrig"
     },
     "form": {

@@ -587,6 +587,29 @@
       "downloadUvtt": "Baixar como Universal VTT",
       "downloadUvttHint": "Imagem e grade em um arquivo .uvtt"
     },
+    "otfbm": {
+      "menuLabel": "Preparar para OTFBM (Avrae)",
+      "title": "Preparar para OTFBM",
+      "intro": "O OTFBM desenha o mapa no tamanho real sob a própria grade, então a imagem é redimensionada até cada quadrado se alinhar. O Grimoire serve a imagem redimensionada por um link de compartilhamento, e o comando !map fica pronto para colar no Discord.",
+      "cellSize": "Tamanho do quadrado (px)",
+      "cellHint": "{{min}}–{{max}} px. {{suggested}} px sugeridos para este mapa.",
+      "cellInvalid": "Digite um número inteiro de {{min}} a {{max}}.",
+      "summary": "{{width}} × {{height}} quadrados · imagem de {{imageWidth}} × {{imageHeight}} px",
+      "defaultGrid": "Nenhuma grade foi encontrada neste mapa, então são assumidos quadrados de 140 px. Se não se alinhar, defina primeiro a grade nos detalhes do mapa.",
+      "truncated": "O OTFBM mostra no máximo 99 quadrados por lado, então a borda mais distante deste mapa será cortada.",
+      "download": "Baixar imagem",
+      "command": "Comando do Avrae",
+      "copy": "Copiar",
+      "copied": "Copiado",
+      "loadFailed": "Não foi possível determinar a configuração do OTFBM para este mapa.",
+      "linkTitle": "Link de compartilhamento para o OTFBM",
+      "createLink": "Criar link de compartilhamento",
+      "linkHint": "O OTFBM busca o fundo neste link toda vez que desenha o mapa, então seu servidor Grimoire precisa estar acessível pela internet.",
+      "linkLabel": "Fundo do OTFBM ({{cell}} px)",
+      "linkUntil": "Usa seu link de compartilhamento, que expira em {{when}}. Gerencie em Configurações → Conta → Compartilhamento.",
+      "linkForever": "Usa seu link de compartilhamento, que nunca expira. Gerencie em Configurações → Conta → Compartilhamento.",
+      "selfHost": "Ou hospede você mesmo:"
+    },
     "vtt": {
       "title": "Editor VTT",
       "edit": "Editar VTT",
@@ -3347,6 +3370,8 @@
       "day": "1 dia",
       "week": "7 dias",
       "month": "30 dias",
+      "quarter": "90 dias",
+      "year": "365 dias",
       "never": "Nunca"
     },
     "form": {

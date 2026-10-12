@@ -587,6 +587,29 @@
       "downloadUvtt": "Download as Universal VTT",
       "downloadUvttHint": "Image and grid as a .uvtt file"
     },
+    "otfbm": {
+      "menuLabel": "Set up for OTFBM (Avrae)",
+      "title": "Set up for OTFBM",
+      "intro": "OTFBM draws your map at its real size under its own grid, so the image is resized until each square lines up. Grimoire serves the resized image through a share link, so the !map command is ready to paste into Discord.",
+      "cellSize": "Square size (px)",
+      "cellHint": "{{min}}–{{max}} px. {{suggested}} px suggested for this map.",
+      "cellInvalid": "Enter a whole number from {{min}} to {{max}}.",
+      "summary": "{{width}} × {{height}} squares · image {{imageWidth}} × {{imageHeight}} px",
+      "defaultGrid": "No grid was found on this map, so 140 px squares are assumed. If it doesn't line up, set the grid in the map's details first.",
+      "truncated": "OTFBM shows at most 99 squares per side, so the far edge of this map will be cut off.",
+      "download": "Download image",
+      "command": "Avrae command",
+      "copy": "Copy",
+      "copied": "Copied",
+      "loadFailed": "Couldn't work out the OTFBM setup for this map.",
+      "linkTitle": "Share link for OTFBM",
+      "createLink": "Create share link",
+      "linkHint": "OTFBM fetches the background from this link every time it draws the map, so your Grimoire server must be reachable from the internet.",
+      "linkLabel": "OTFBM background ({{cell}} px)",
+      "linkUntil": "Uses your share link, which expires {{when}}. Manage it under Settings → Account → Sharing.",
+      "linkForever": "Uses your share link, which never expires. Manage it under Settings → Account → Sharing.",
+      "selfHost": "Or host it yourself:"
+    },
     "vtt": {
       "title": "VTT Editor",
       "edit": "Edit VTT",
@@ -3347,6 +3370,8 @@
       "day": "1 day",
       "week": "7 days",
       "month": "30 days",
+      "quarter": "90 days",
+      "year": "365 days",
       "never": "Never"
     },
     "form": {

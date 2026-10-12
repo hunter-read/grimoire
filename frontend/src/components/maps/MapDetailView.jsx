@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { LuArrowLeft, LuInfo, LuChevronDown } from 'react-icons/lu'
+import { LuArrowLeft, LuInfo, LuChevronDown, LuGrid3X3 } from 'react-icons/lu'
 import useImageGestures from '../../hooks/useImageGestures'
 import useImagePrefetch from '../../hooks/useImagePrefetch'
 import useSiblingNavigation from '../../hooks/useSiblingNavigation'
@@ -18,12 +18,11 @@ import ArchivePlaceholder from '../media/ArchivePlaceholder'
 import SiblingNavButtons from '../media/SiblingNavButtons'
 import SiblingPosition from '../media/SiblingPosition'
 import { isArchiveMedia } from '../../constants'
-import AddToCampaignButton from '../campaigns/AddToCampaignButton'
-import ShareLinkButton from '../share/ShareLinkButton'
-import DetailFavoriteButton from '../DetailFavoriteButton'
 import VariantPicker from '../VariantPicker'
 import EditVttButton from './vtt/EditVttButton'
-import { canExportUvtt } from './vtt/editTargets'
+import { canExportOtfbm, canExportUvtt } from './vtt/editTargets'
+import DetailMoreMenu from '../media/DetailMoreMenu'
+import OtfbmExportModal from './OtfbmExportModal'
 import DownloadVersionButton from '../DownloadVersionButton'
 import MetaRow from '../MetaRow'
 import TagSection from '../TagSection'
@@ -236,14 +235,6 @@ export default function MapDetailView() {
             one offers the choice, since only the user knows which they mean.
             Nothing saved here touches the file on disk. */}
         <EditVttButton map={map} compact={isMobilePhone} />
-        <DetailFavoriteButton type="map" id={mapId} compact={isMobilePhone} />
-        <AddToCampaignButton resourceType="map" resourceId={mapId} />
-        <ShareLinkButton
-          resourceType="map"
-          resourceId={mapId}
-          title={map.filename}
-          compact={isMobilePhone}
-        />
         <DownloadVersionButton
           type="maps"
           id={mapId}
@@ -257,6 +248,31 @@ export default function MapDetailView() {
                     label: t('maps.detail.downloadUvtt'),
                     sublabel: t('maps.detail.downloadUvttHint'),
                     href: mediaUrl(`/maps/${mapId}/export.uvtt`),
+                  },
+                ]
+              : []
+          }
+        />
+        {/* Everything reached for less often - favourite, campaigns, share
+            links and the OTFBM setup - lives in the overflow menu, as in the
+            book reader, so the toolbar keeps room for the title. */}
+        <DetailMoreMenu
+          resourceType="map"
+          resourceId={mapId}
+          title={map.filename}
+          extraItems={
+            // OTFBM is a share link to the resized background (issue #551),
+            // so it is offered with the other sharing entries.
+            canExportOtfbm(map)
+              ? [
+                  {
+                    key: 'otfbm',
+                    label: t('maps.otfbm.menuLabel'),
+                    icon: <LuGrid3X3 size={15} aria-hidden="true" />,
+                    requiresShare: true,
+                    render: (onClose) => (
+                      <OtfbmExportModal mapId={mapId} filename={map.filename} onClose={onClose} />
+                    ),
                   },
                 ]
               : []

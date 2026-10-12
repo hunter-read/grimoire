@@ -78,7 +78,7 @@ def share_meta(
     body: dict = {"password_required": bool(link.password_hash), "unlocked": unlocked}
     if not unlocked:
         return body
-    mime = _content.served_media_type(link.resource_type, record)
+    mime = _content.link_media_type(link, record)
     file_path = f"/api/share/{link.token}/{link.filename or link.resource_type}"
     body.update(
         {
@@ -145,7 +145,7 @@ def share_content(
     record = _working(db, link)
     if not _links.is_unlocked(link, unlock):
         raise HTTPException(401, "This link needs a password")
-    shared = _content.shared_file(link.resource_type, record)
+    shared = _content.link_file(link, record)
     _record_use(db, link, request)
 
     name = (link.filename or link.resource_type).replace('"', "")

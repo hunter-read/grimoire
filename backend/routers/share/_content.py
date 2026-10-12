@@ -212,3 +212,31 @@ def shared_file(resource_type: str, record: Any) -> SharedFile:
     ext = Path(record.filepath).suffix.lower().lstrip(".")
     media = {"jpg": "image/jpeg", "svg": "image/svg+xml"}.get(ext, f"image/{ext}")
     return SharedFile(media_type=media, path=record.filepath)
+
+
+# --- Link variants -------------------------------------------------------------
+# A variant serves a derived form of the item (issue #551). The access rules are
+# the item's own either way; only what is served differs.
+
+VARIANTS = ("otfbm",)
+
+
+def link_media_type(link: Any, record: Any) -> str:
+    """The content type a link serves, honouring its variant."""
+    if link.variant == "otfbm":
+        return "image/png" if (link.filename or "").endswith(".png") else "image/jpeg"
+    return served_media_type(link.resource_type, record)
+
+
+def link_file(link: Any, record: Any) -> SharedFile:
+    """What a link serves, honouring its variant. 404s rather than 400s: to
+    someone holding a link, a map that can no longer be resized is gone."""
+    if link.variant == "otfbm":
+        from ..maps.otfbm_export import otfbm_background
+
+        try:
+            _plan, raw, ext = otfbm_background(record, (link.variant_options or {}).get("cell"))
+        except HTTPException:
+            raise HTTPException(404, "Not found") from None
+        return SharedFile(media_type="image/png" if ext == "png" else "image/jpeg", content=raw)
+    return shared_file(link.resource_type, record)

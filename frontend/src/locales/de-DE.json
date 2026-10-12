@@ -587,6 +587,29 @@
       "downloadUvtt": "Als Universal VTT herunterladen",
       "downloadUvttHint": "Bild und Raster als .uvtt-Datei"
     },
+    "otfbm": {
+      "menuLabel": "Für OTFBM einrichten (Avrae)",
+      "title": "Für OTFBM einrichten",
+      "intro": "OTFBM zeichnet deine Karte in Originalgröße unter sein eigenes Raster. Deshalb wird das Bild so skaliert, dass jedes Feld passt. Grimoire stellt das skalierte Bild über einen Freigabelink bereit, sodass der !map-Befehl direkt in Discord eingefügt werden kann.",
+      "cellSize": "Feldgröße (px)",
+      "cellHint": "{{min}}–{{max}} px. Für diese Karte empfohlen: {{suggested}} px.",
+      "cellInvalid": "Gib eine ganze Zahl von {{min}} bis {{max}} ein.",
+      "summary": "{{width}} × {{height}} Felder · Bild {{imageWidth}} × {{imageHeight}} px",
+      "defaultGrid": "Auf dieser Karte wurde kein Raster gefunden, daher werden 140-px-Felder angenommen. Wenn es nicht passt, lege das Raster zuerst in den Kartendetails fest.",
+      "truncated": "OTFBM zeigt höchstens 99 Felder pro Seite, daher wird der hintere Rand dieser Karte abgeschnitten.",
+      "download": "Bild herunterladen",
+      "command": "Avrae-Befehl",
+      "copy": "Kopieren",
+      "copied": "Kopiert",
+      "loadFailed": "Die OTFBM-Einrichtung für diese Karte konnte nicht ermittelt werden.",
+      "linkTitle": "Freigabelink für OTFBM",
+      "createLink": "Freigabelink erstellen",
+      "linkHint": "OTFBM lädt den Hintergrund bei jedem Zeichnen der Karte über diesen Link, daher muss dein Grimoire-Server aus dem Internet erreichbar sein.",
+      "linkLabel": "OTFBM-Hintergrund ({{cell}} px)",
+      "linkUntil": "Verwendet deinen Freigabelink, der am {{when}} abläuft. Verwalten unter Einstellungen → Konto → Teilen.",
+      "linkForever": "Verwendet deinen Freigabelink, der nie abläuft. Verwalten unter Einstellungen → Konto → Teilen.",
+      "selfHost": "Oder selbst hosten:"
+    },
     "vtt": {
       "title": "VTT-Editor",
       "edit": "VTT bearbeiten",
@@ -3347,6 +3370,8 @@
       "day": "1 Tag",
       "week": "7 Tage",
       "month": "30 Tage",
+      "quarter": "90 Tage",
+      "year": "365 Tage",
       "never": "Nie"
     },
     "form": {

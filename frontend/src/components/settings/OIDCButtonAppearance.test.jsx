@@ -17,6 +17,7 @@ vi.mock('../../api', () => ({
 }))
 
 const baseData = (over = {}) => ({
+  oidc_button_text: 'Sign in with Google',
   oidc_button_bg_color: '',
   oidc_button_text_color: '',
   oidc_button_border_color: '',
@@ -25,11 +26,9 @@ const baseData = (over = {}) => ({
   ...over,
 })
 
-const setup = (over = {}, label = 'Sign in with Google') => {
+const setup = (over = {}) => {
   const onSaved = vi.fn()
-  const utils = render(
-    <OIDCButtonAppearance data={baseData(over)} label={label} onSaved={onSaved} />
-  )
+  const utils = render(<OIDCButtonAppearance data={baseData(over)} onSaved={onSaved} />)
   return { ...utils, onSaved }
 }
 
@@ -47,8 +46,32 @@ describe('OIDCButtonAppearance', () => {
   })
 
   it('falls back to the default label in the preview', () => {
-    setup({}, '')
+    setup({ oidc_button_text: '' })
     expect(screen.getByRole('button', { name: 'login.oidcDefault' })).toBeInTheDocument()
+  })
+
+  // The button text sits in this panel, beside the look it is previewed with.
+  it('edits the button text, previews it as typed, and saves it on blur', async () => {
+    settingsApi.patch.mockResolvedValue(baseData({ oidc_button_text: 'Sign in with Acme' }))
+    const { onSaved } = setup()
+    const input = screen.getByLabelText('authSettings.oidc.buttonText')
+    expect(input.value).toBe('Sign in with Google')
+    await userEvent.clear(input)
+    await userEvent.type(input, ' Sign in with Acme ')
+    expect(screen.getByRole('button', { name: 'Sign in with Acme' })).toBeInTheDocument()
+    fireEvent.blur(input)
+    await waitFor(() =>
+      expect(settingsApi.patch).toHaveBeenCalledWith({ oidc_button_text: 'Sign in with Acme' })
+    )
+    expect(onSaved).toHaveBeenCalled()
+    expect(screen.getByText('authSettings.oidc.buttonTextHint')).toBeInTheDocument()
+  })
+
+  it('shows the button text as locked when an env var pins it', () => {
+    setup({ oidc_button_text_env_locked: true })
+    // The label carries the lock badge too, so match on its start.
+    expect(screen.getByLabelText(/^authSettings\.oidc\.buttonText\b/)).toBeDisabled()
+    expect(screen.getByText('authSettings.oidc.envLocked')).toBeInTheDocument()
   })
 
   it('saves a valid color on blur and reports the saved settings', async () => {

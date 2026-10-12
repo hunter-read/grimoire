@@ -10,11 +10,9 @@ import { useAuth } from '../../context/AuthContext'
 import Spinner from '../Spinner'
 import { formatSize, formatDuration } from '../../utils'
 import InlineTagEditor from '../maps/InlineTagEditor'
-import AddToCampaignButton from '../campaigns/AddToCampaignButton'
-import ShareLinkButton from '../share/ShareLinkButton'
-import DetailFavoriteButton from '../DetailFavoriteButton'
 import VariantPicker from '../VariantPicker'
 import DownloadVersionButton from '../DownloadVersionButton'
+import DetailMoreMenu from '../media/DetailMoreMenu'
 import MetaRow from '../MetaRow'
 import TagSection from '../TagSection'
 import AudioPlayer from './AudioPlayer'
@@ -185,15 +183,14 @@ export default function AudioDetailView() {
           </button>
         )}
         <VariantPicker item={track} detailPath={(id) => `/audio/${id}`} compact />
-        <DetailFavoriteButton type="audio" id={audioId} compact={isMobilePhone} />
-        <AddToCampaignButton resourceType="audio" resourceId={audioId} />
-        <ShareLinkButton
+        <DownloadVersionButton type="audio" id={audioId} item={track} compact={isMobilePhone} />
+        {/* Favourite, campaigns and share links live in the overflow menu, as in
+            the book reader, so the toolbar keeps room for the title. */}
+        <DetailMoreMenu
           resourceType="audio"
           resourceId={audioId}
           title={track.title || track.filename}
-          compact={isMobilePhone}
         />
-        <DownloadVersionButton type="audio" id={audioId} item={track} compact={isMobilePhone} />
       </div>
 
       {/* Body */}

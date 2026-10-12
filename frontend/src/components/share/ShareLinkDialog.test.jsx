@@ -78,6 +78,19 @@ describe('ShareLinkDialog', () => {
     expect(labels).toEqual(['Fresh', 'Old one'])
   })
 
+  it('offers 90- and 365-day expiries', async () => {
+    shareLinks.create.mockResolvedValue({ ...existing, id: 'l4' })
+    renderDialog()
+    await screen.findByText('Old one')
+    fireEvent.change(screen.getByDisplayValue('share.expiry.week'), { target: { value: '365' } })
+    fireEvent.click(screen.getByText('share.form.create'))
+    await waitFor(() =>
+      expect(shareLinks.create).toHaveBeenCalledWith(
+        expect.objectContaining({ expires_in_days: 365 })
+      )
+    )
+  })
+
   it('sends a 7-day expiry by default and no password', async () => {
     shareLinks.create.mockResolvedValue({ ...existing, id: 'l3' })
     renderDialog()

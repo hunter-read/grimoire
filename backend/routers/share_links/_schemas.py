@@ -14,6 +14,11 @@ class ShareLinkCreate(BaseModel):
     expires_in_days: Optional[int] = Field(None, ge=1, le=3650)
     # Optional password the share page asks for before showing anything.
     password: Optional[str] = Field(None, min_length=4, max_length=200)
+    # Serve a derived form of the item instead (issue #551). "otfbm": a map
+    # resized for an OTFBM background, at `cell` pixels per cell (20-100;
+    # omitted for the suggested size).
+    variant: Optional[Literal["otfbm"]] = None
+    cell: Optional[int] = Field(None, ge=20, le=100)
 
 
 class ShareLinkUpdate(BaseModel):
@@ -36,6 +41,9 @@ class ShareLinkOut(BaseModel):
     label: str
     filename: str
     has_password: bool
+    # null for the item itself; "otfbm" with {"cell": n} for an OTFBM background.
+    variant: Optional[str] = None
+    variant_options: Optional[dict] = None
     # active | disabled | revoked | expired | suspended | unavailable
     state: str
     created_at: Optional[str] = None

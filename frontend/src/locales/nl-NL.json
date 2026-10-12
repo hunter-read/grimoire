@@ -587,6 +587,29 @@
       "downloadUvtt": "Downloaden als Universal VTT",
       "downloadUvttHint": "Afbeelding en raster als .uvtt-bestand"
     },
+    "otfbm": {
+      "menuLabel": "Instellen voor OTFBM (Avrae)",
+      "title": "Instellen voor OTFBM",
+      "intro": "OTFBM tekent je kaart op ware grootte onder een eigen raster, dus de afbeelding wordt geschaald tot elk vak klopt. Grimoire biedt de geschaalde afbeelding aan via een deellink, dus het !map-commando kan zo in Discord worden geplakt.",
+      "cellSize": "Vakgrootte (px)",
+      "cellHint": "{{min}}–{{max}} px. {{suggested}} px aanbevolen voor deze kaart.",
+      "cellInvalid": "Voer een geheel getal in van {{min}} tot {{max}}.",
+      "summary": "{{width}} × {{height}} vakken · afbeelding {{imageWidth}} × {{imageHeight}} px",
+      "defaultGrid": "Er is geen raster gevonden op deze kaart, dus wordt uitgegaan van vakken van 140 px. Klopt het niet, stel dan eerst het raster in bij de kaartdetails.",
+      "truncated": "OTFBM toont maximaal 99 vakken per zijde, dus de verre rand van deze kaart valt weg.",
+      "download": "Afbeelding downloaden",
+      "command": "Avrae-commando",
+      "copy": "Kopiëren",
+      "copied": "Gekopieerd",
+      "loadFailed": "De OTFBM-instellingen voor deze kaart konden niet worden bepaald.",
+      "linkTitle": "Deellink voor OTFBM",
+      "createLink": "Deellink maken",
+      "linkHint": "OTFBM haalt de achtergrond via deze link op telkens als de kaart wordt getekend, dus je Grimoire-server moet vanaf internet bereikbaar zijn.",
+      "linkLabel": "OTFBM-achtergrond ({{cell}} px)",
+      "linkUntil": "Gebruikt je deellink, die verloopt op {{when}}. Beheer hem onder Instellingen → Account → Delen.",
+      "linkForever": "Gebruikt je deellink, die nooit verloopt. Beheer hem onder Instellingen → Account → Delen.",
+      "selfHost": "Of host hem zelf:"
+    },
     "vtt": {
       "title": "VTT-editor",
       "edit": "VTT bewerken",
@@ -3347,6 +3370,8 @@
       "day": "1 dag",
       "week": "7 dagen",
       "month": "30 dagen",
+      "quarter": "90 dagen",
+      "year": "365 dagen",
       "never": "Nooit"
     },
     "form": {

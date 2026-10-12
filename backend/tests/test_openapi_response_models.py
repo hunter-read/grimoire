@@ -39,6 +39,8 @@ UNTYPED_BY_DESIGN = {
     # parse it -- and its shape is the Universal VTT spec's, not ours.
     "/api/maps/{map_id}/export.uvtt",
     "/api/maps/{map_id}/file",
+    # The resized OTFBM background image itself (JPEG/PNG), not JSON.
+    "/api/maps/{map_id}/otfbm/image",
     "/api/maps/{map_id}/page/{page_num}",
     "/api/maps/{map_id}/thumbnail",
     # Streams the battlemap image decoded out of a Universal VTT envelope.

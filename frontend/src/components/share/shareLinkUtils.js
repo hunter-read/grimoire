@@ -8,6 +8,8 @@ export const EXPIRY_OPTIONS = [
   { value: '1', key: 'day' },
   { value: '7', key: 'week' },
   { value: '30', key: 'month' },
+  { value: '90', key: 'quarter' },
+  { value: '365', key: 'year' },
   { value: '', key: 'never' },
 ]
 

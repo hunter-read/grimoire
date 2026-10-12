@@ -29,7 +29,6 @@ const STRING_FIELDS = [
   'oidc_end_session_endpoint',
   'oidc_client_id',
   'oidc_signing_alg',
-  'oidc_button_text',
   'oidc_groups_claim',
   'oidc_permissions_claim',
   'oidc_match_by',
@@ -563,12 +562,8 @@ export default function OIDCSettingsSection() {
         </select>
       </div>
 
-      {fieldRow({
-        key: 'oidc_button_text',
-        label: t('authSettings.oidc.buttonText'),
-        hint: t('authSettings.oidc.buttonTextHint'),
-      })}
-      <OIDCButtonAppearance data={data} label={draft.oidc_button_text} onSaved={setData} />
+      {/* The button's text, colours, radius and icon, with a live preview. */}
+      <OIDCButtonAppearance data={data} onSaved={setData} />
       {fieldRow({
         key: 'oidc_groups_claim',
         label: t('authSettings.oidc.groupsClaim'),

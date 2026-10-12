@@ -33,7 +33,6 @@ vi.mock('./AudioPlayer', () => ({
   default: () => <button>play</button>,
 }))
 const toggleFavorite = vi.fn()
-vi.mock('../campaigns/AddToCampaignButton', () => ({ default: () => null }))
 vi.mock('../../context/FavoritesContext', () => ({
   useFavorites: () => ({ isFavorite: () => false, toggleFavorite }),
 }))
@@ -237,10 +236,12 @@ describe('AudioDetailView', () => {
     })
   })
 
-  it('favourites the track from its detail toolbar', async () => {
+  it('favourites the track from the overflow menu', async () => {
     api.get.mockResolvedValue(detail())
     render(<AudioDetailView />)
-    await userEvent.click(await screen.findByRole('button', { name: 'Add to favorites' }))
+    // Favourite lives in the overflow menu with campaigns and share links.
+    await userEvent.click(await screen.findByRole('button', { name: 'More actions' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Add to favorites' }))
     expect(toggleFavorite).toHaveBeenCalledWith('audio', 'a1')
   })
 

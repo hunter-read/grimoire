@@ -336,3 +336,82 @@ class TestThrottle:
             client.post(f"/api/share/{token_of(locked)}/unlock", json={"password": "wrong"})
         r = client.post(f"/api/share/{token_of(locked)}/unlock", json={"password": "right one"})
         assert r.status_code == 429
+
+
+class TestOtfbmVariant:
+    """A share link can serve a map resized as an OTFBM background (issue #551),
+    so Avrae's !map command gets a working -bg URL in one step."""
+
+    @pytest.fixture
+    def village(self, tmp_path):
+        # 1400x1960 is 10x14 cells at the default 140px/cell.
+        return make_map(
+            filename="Village.png",
+            filepath=png(tmp_path / "Village.png", size=(1400, 1960)),
+            relative_path="DnD/Maps/Village.png",
+        )
+
+    def test_serves_the_resized_background(self, client, gm_headers, village):
+        link = create(client, gm_headers, "map", village.id, variant="otfbm").json()
+        assert link["variant"] == "otfbm"
+        assert link["variant_options"] == {"cell": 70}
+        assert link["file_url"].endswith("/village-10x14c70.jpg")
+        r = _fetch(client, link, "/village-10x14c70.jpg")
+        assert r.headers["content-type"] == "image/jpeg"
+        with Image.open(io.BytesIO(r.content)) as img:
+            assert img.size == (700, 980)
+        assert _fetch(client, link, "/meta").json()["media_type"] == "image/jpeg"
+
+    def test_takes_a_cell_size(self, client, gm_headers, village):
+        link = create(client, gm_headers, "map", village.id, variant="otfbm", cell=50).json()
+        assert link["variant_options"] == {"cell": 50}
+        with Image.open(io.BytesIO(_fetch(client, link).content)) as img:
+            assert img.size == (500, 700)
+
+    def test_transparent_map_is_png(self, client, gm_headers, tmp_path):
+        path = tmp_path / "cut.png"
+        Image.new("RGBA", (280, 140), (0, 0, 0, 0)).save(str(path))
+        m = make_map(filename="cut.png", filepath=str(path))
+        link = create(client, gm_headers, "map", m.id, variant="otfbm").json()
+        assert link["file_url"].endswith(".png")
+        assert _fetch(client, link).headers["content-type"] == "image/png"
+        assert _fetch(client, link, "/meta").json()["media_type"] == "image/png"
+
+    def test_only_maps(self, client, gm_headers, tmp_path):
+        t = make_token(filename="t.png", filepath=png(tmp_path / "t.png"))
+        r = create(client, gm_headers, "token", t.id, variant="otfbm")
+        assert r.status_code == 400
+
+    def test_not_for_a_pdf_map(self, client, gm_headers, tmp_path):
+        import fitz
+
+        path = tmp_path / "Atlas.pdf"
+        doc = fitz.open()
+        doc.new_page()
+        doc.save(str(path))
+        doc.close()
+        m = make_map(filename="Atlas.pdf", filepath=str(path))
+        assert create(client, gm_headers, "map", m.id, variant="otfbm").status_code == 400
+
+    def test_list_filters_by_variant(self, client, gm_headers, village):
+        plain = create(client, gm_headers, "map", village.id).json()
+        otfbm = create(client, gm_headers, "map", village.id, variant="otfbm").json()
+        listed = client.get(
+            "/api/share-links",
+            params={"resource_id": village.id, "variant": "otfbm"},
+            headers=gm_headers,
+        ).json()
+        ids = {item["id"] for item in listed}
+        assert otfbm["id"] in ids
+        assert plain["id"] not in ids
+
+    def test_map_that_can_no_longer_be_resized_is_404(self, client, gm_headers, village, monkeypatch):
+        link = create(client, gm_headers, "map", village.id, variant="otfbm").json()
+        from backend.routers.maps import otfbm_export
+        from fastapi import HTTPException
+
+        def broken(*_a, **_k):
+            raise HTTPException(400, "Map image could not be read")
+
+        monkeypatch.setattr(otfbm_export, "otfbm_background", broken)
+        assert _fetch(client, link).status_code == 404

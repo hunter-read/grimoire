@@ -71,3 +71,12 @@ export const canExportUvtt = (map) => {
   if (isVttFile(map) || map.media_kind === 'vtt') return true
   return !linkedVtt(map)
 }
+
+/**
+ * Whether a map can be exported as an OTFBM background (issue #551).
+ *
+ * Any map with a single still picture — the same maps the editor accepts. A
+ * raster linked to a `.uvtt` is not excluded the way the `.uvtt` export is:
+ * OTFBM has no walls or lights, so the linked file has nothing ours would lack.
+ */
+export const canExportOtfbm = (map) => editTargets(map).length > 0

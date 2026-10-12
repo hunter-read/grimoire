@@ -131,6 +131,8 @@ GUEST_REACHABLE = {
     "/api/maps/{map_id}": "GET",
     "/api/maps/{map_id}/export.uvtt": "GET",
     "/api/maps/{map_id}/file": "GET",
+    "/api/maps/{map_id}/otfbm": "GET",
+    "/api/maps/{map_id}/otfbm/image": "GET",
     "/api/maps/{map_id}/page/{page_num}": "GET",
     "/api/maps/{map_id}/thumbnail": "GET",
     "/api/maps/{map_id}/vtt/authoring": "GET",
@@ -357,6 +359,21 @@ def test_guest_cannot_create_or_list_share_links(client, guest, gm_headers, camp
     assert client.post("/api/share-links", json=body, headers=headers).status_code == 403
     assert client.get("/api/share-links", headers=headers).status_code == 403
     assert client.get("/api/share-links/permission", headers=headers).status_code == 403
+
+
+def test_guest_cannot_use_the_otfbm_export(client, gm_headers, campaign, guest, tmp_path):
+    # The OTFBM export (issue #551) needs permission to create share links,
+    # which a guest never has - even for a map shared into their campaign.
+    from PIL import Image
+
+    headers, _ = guest
+    path = tmp_path / "shared.png"
+    Image.new("RGB", (280, 140)).save(str(path))
+    shared = make_map(filename="shared.png", filepath=str(path))
+    _share(client, gm_headers, campaign, "map", shared.id)
+
+    for suffix in ("otfbm", "otfbm/image"):
+        assert client.get(f"/api/maps/{shared.id}/{suffix}", headers=headers).status_code == 403
 
 
 # --- Favorites ---------------------------------------------------------------

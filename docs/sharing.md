@@ -6,14 +6,14 @@ A link opens exactly one item and nothing else. It is not a login and it reveals
 
 ## Making a link
 
-Open the item and choose **Share** - in the toolbar on a map, token, audio or model page, and in the reader (the **⋮** menu for PDFs). Give the link an optional label, pick how long it lasts (1 day, 7 days, 30 days, or never), and optionally set a password. The dialog lists every link you have made for that item, with buttons to copy each one or revoke it.
+Choose **Share** from an item's **⋮** menu - on a map, token, audio or model page, on a book in the library, and in the reader for a PDF (other books have a Share button in the reader's toolbar). Give the link an optional label, pick how long it lasts (1, 7, 30, 90 or 365 days, or never), and optionally set a password. The dialog lists every link you have made for that item, with buttons to copy each one or revoke it.
 
 Each link has two addresses:
 
 | Button | Address | Use it for |
 | --- | --- | --- |
 | **Copy link** | `…/share/<token>` | Sending to a person. It opens a page with a preview, a download button and, if the link has one, a password prompt. |
-| **Copy file URL** | `…/api/share/<token>/<file>.png` | Tools that load a file from a URL: a VTT's "import by URL", OTFBM, a Discord embed. It is the file itself, and ends in the file's real extension because some tools decide how to read a file from that. |
+| **Copy file URL** | `…/api/share/<token>/<file>.png` | Tools that load a file from a URL: a VTT's "import by URL", [OTFBM](otfbm.md), a Discord embed. It is the file itself, and ends in the file's real extension because some tools decide how to read a file from that. |
 
 What the file address serves:
 
@@ -21,6 +21,8 @@ What the file address serves:
 - **Image maps** - the original image.
 - **PDF maps** - the first page, as an image.
 - **Universal VTT maps** (`.uvtt`, `.dd2vtt`) - the battlemap image inside them.
+
+A map's OTFBM setup (in its **⋮** menu) makes a special kind of share link: one that serves the map resized to match OTFBM's grid rather than the original image. It is listed with your other links, labelled "OTFBM background", and revoked the same way. See [OTFBM and Avrae](otfbm.md).
 
 ### Passwords
 

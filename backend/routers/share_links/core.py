@@ -50,6 +50,7 @@ def get_share_permission(
 def list_share_links(
     resource_type: Optional[str] = None,
     resource_id: Optional[str] = None,
+    variant: Optional[str] = None,
     current_user: CurrentUser = Depends(require_not_guest),
     db: Session = Depends(get_db),
 ):
@@ -58,6 +59,8 @@ def list_share_links(
         query = query.filter_by(resource_type=resource_type)
     if resource_id:
         query = query.filter_by(resource_id=resource_id)
+    if variant:
+        query = query.filter_by(variant=variant)
     return [_links.serialize(db, link) for link in _newest_first(query)]
 
 
@@ -94,13 +97,29 @@ def create_share_link(
     if not os.path.exists(record.filepath):
         raise HTTPException(404, "File not found on disk")
 
+    filename = _content.served_filename(data.resource_type, record)
+    options = None
+    if data.variant == "otfbm":
+        # Rendered now rather than on first fetch: the filename carries the
+        # served extension (PNG only for a transparent map), and the cache is
+        # warm for OTFBM's first request.
+        if data.resource_type != "map":
+            raise HTTPException(400, "Only maps can be shared as an OTFBM background")
+        from ..maps.otfbm_export import otfbm_background, otfbm_filename
+
+        plan, _raw, ext = otfbm_background(record, data.cell)
+        filename = otfbm_filename(record, plan, ext)
+        options = {"cell": plan["cell"]}
+
     link = ShareLink(
         token=policy.new_token(),
         user_id=current_user.id,
         resource_type=data.resource_type,
         resource_id=record.id,
         label=data.label.strip(),
-        filename=_content.served_filename(data.resource_type, record),
+        filename=filename,
+        variant=data.variant,
+        variant_options=options,
         password_hash=hash_password(data.password) if data.password else None,
         expires_at=policy.expires_at_for(data.expires_in_days),
         use_count=0,

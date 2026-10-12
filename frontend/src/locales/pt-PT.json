@@ -587,6 +587,29 @@
       "downloadUvtt": "Transferir como Universal VTT",
       "downloadUvttHint": "Imagem e grelha num ficheiro .uvtt"
     },
+    "otfbm": {
+      "menuLabel": "Preparar para OTFBM (Avrae)",
+      "title": "Preparar para OTFBM",
+      "intro": "O OTFBM desenha o mapa no tamanho real sob a sua própria grelha, por isso a imagem é redimensionada até cada quadrado alinhar. O Grimoire serve a imagem redimensionada através de uma ligação de partilha, e o comando !map fica pronto a colar no Discord.",
+      "cellSize": "Tamanho do quadrado (px)",
+      "cellHint": "{{min}}–{{max}} px. {{suggested}} px sugeridos para este mapa.",
+      "cellInvalid": "Introduza um número inteiro de {{min}} a {{max}}.",
+      "summary": "{{width}} × {{height}} quadrados · imagem de {{imageWidth}} × {{imageHeight}} px",
+      "defaultGrid": "Não foi encontrada nenhuma grelha neste mapa, por isso assumem-se quadrados de 140 px. Se não alinhar, defina primeiro a grelha nos detalhes do mapa.",
+      "truncated": "O OTFBM mostra no máximo 99 quadrados por lado, por isso a extremidade mais distante deste mapa será cortada.",
+      "download": "Transferir imagem",
+      "command": "Comando do Avrae",
+      "copy": "Copiar",
+      "copied": "Copiado",
+      "loadFailed": "Não foi possível determinar a configuração do OTFBM para este mapa.",
+      "linkTitle": "Ligação de partilha para o OTFBM",
+      "createLink": "Criar ligação de partilha",
+      "linkHint": "O OTFBM obtém o fundo a partir desta ligação sempre que desenha o mapa, por isso o seu servidor Grimoire tem de estar acessível a partir da internet.",
+      "linkLabel": "Fundo OTFBM ({{cell}} px)",
+      "linkUntil": "Usa a sua ligação de partilha, que expira a {{when}}. Faça a gestão em Definições → Conta → Partilha.",
+      "linkForever": "Usa a sua ligação de partilha, que nunca expira. Faça a gestão em Definições → Conta → Partilha.",
+      "selfHost": "Ou aloje-a por conta própria:"
+    },
     "vtt": {
       "title": "Editor VTT",
       "edit": "Editar VTT",
@@ -3347,6 +3370,8 @@
       "day": "1 dia",
       "week": "7 dias",
       "month": "30 dias",
+      "quarter": "90 dias",
+      "year": "365 dias",
       "never": "Nunca"
     },
     "form": {
