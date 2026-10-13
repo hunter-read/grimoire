@@ -228,7 +228,8 @@ def is_vtt_data(filename: str) -> bool:
 # capability table (viewable / thumbnailable / which loader), not just an
 # extension set, so it lives beside the code that reads those files.
 
-AUDIO_EXTS = {".mp3", ".ogg", ".opus", ".flac", ".wav", ".m4a", ".aac"}
+# `.m4b` is the audiobook flavour of `.m4a` - the same MP4/AAC container (issue #564).
+AUDIO_EXTS = {".mp3", ".ogg", ".opus", ".flac", ".wav", ".m4a", ".m4b", ".aac"}
 # Archive files shown alongside books in a category and served/bundled as opaque
 # blobs (their contents are not extracted during the scan).  Comic-book variants
 # (.cbz/.cbr/.cb7/.cbt) additionally get a first-image thumbnail, see

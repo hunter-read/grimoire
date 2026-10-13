@@ -69,7 +69,7 @@ def _has_embedded_art(filepath: str) -> bool:
 def _extract_embedded_art(filepath: str) -> Optional[Tuple[bytes, str]]:
     """Return ``(image_bytes, mime)`` for embedded cover art, or None.
 
-    Handles ID3 APIC (MP3), FLAC/Opus PICTURE blocks, and MP4/M4A ``covr`` atoms.
+    Handles ID3 APIC (MP3), FLAC/Opus PICTURE blocks, and MP4/M4A/M4B ``covr`` atoms.
     """
     try:
         from mutagen import File as MutagenFile
@@ -95,7 +95,7 @@ def _extract_embedded_art(filepath: str) -> Optional[Tuple[bytes, str]]:
                 apic = apics[0]
                 return (bytes(apic.data), getattr(apic, "mime", "") or "image/jpeg")
 
-        # MP4 / M4A cover atoms
+        # MP4 / M4A / M4B cover atoms
         covr = tags.get("covr") if hasattr(tags, "get") else None
         if covr:
             cover = covr[0]

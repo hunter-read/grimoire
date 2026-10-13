@@ -57,7 +57,7 @@ never writes to it.
 
 ### Audio
 
-- **Audio library** - Ambient tracks, soundscapes, music, and effects (MP3, OGG, Opus, FLAC, WAV, M4A, AAC), reading embedded duration, tags, and album art.
+- **Audio library** - Ambient tracks, soundscapes, music, and effects (MP3, OGG, Opus, FLAC, WAV, M4A, AAC) and audiobooks (M4B) with chapter navigation, reading embedded duration, tags, and album art.
 - **Global player** - A persistent pop-out player that keeps playing as you navigate, with a queue you can reorder and a repeat toggle.
 - **Soundboard** - A floating, draggable grid of one-tap pads that play _over_ the player and each other, with per-pad loop toggles and a configurable grid up to 8×15.
 - **Saved sets** - Name and keep playlists and boards. They live on your account rather than one browser, so a board built at home is there at the table.

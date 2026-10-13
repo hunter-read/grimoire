@@ -420,7 +420,7 @@ audio/
     └── track.mp3
 ```
 
-The folder name is shown as a group header in the audio library. Supported formats: `.mp3`, `.ogg`, `.opus`, `.flac`, `.wav`, `.m4a`, `.aac`. Duration and embedded title/artist/album tags are read on scan. For artwork, Grimoire uses a `cover.*` or `folder.*` image in the track's folder if present, otherwise falls back to embedded album art.
+The folder name is shown as a group header in the audio library. Supported formats: `.mp3`, `.ogg`, `.opus`, `.flac`, `.wav`, `.m4a`, `.m4b`, `.aac`. Duration and embedded title/artist/album tags are read on scan. For artwork, Grimoire uses a `cover.*` or `folder.*` image in the track's folder if present, otherwise falls back to embedded album art.
 
 ## 3D Models - organize by creature, set, or creator
 

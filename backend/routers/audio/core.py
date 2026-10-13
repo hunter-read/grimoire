@@ -12,7 +12,13 @@ from ...models.base import utc_iso
 from ...services import bulk_service, tag_service, variants
 from ...services.browse.media import MediaBrowse, MediaBrowser
 from ...auth import require_gm_or_admin, get_current_user, CurrentUser
-from ...indexer import _extract_embedded_art, _find_folder_artwork, archive_ext, archive_mime
+from ...indexer import (
+    _extract_embedded_art,
+    _find_folder_artwork,
+    archive_ext,
+    archive_mime,
+    read_chapters,
+)
 from .._browse import media_browse_params
 from .._bulk_schemas import BulkAddTags, BulkFolderTags
 from .._media_access import assert_media_access, guest_visible_variants
@@ -26,6 +32,8 @@ _AUDIO_MIME = {
     ".flac": "audio/flac",
     ".wav": "audio/wav",
     ".m4a": "audio/mp4",
+    # Audiobooks: the same container as .m4a, so the same player handles them.
+    ".m4b": "audio/mp4",
     ".aac": "audio/aac",
 }
 
@@ -135,6 +143,25 @@ def get_audio(
         "variant_main_id": variant_parent.id,
         "variants": [variants.serialize_variant(v) for v in siblings],
     }
+
+
+def get_audio_chapters(
+    audio_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Chapter markers embedded in the track (audiobooks, issue #564).
+
+    Read from the file on request rather than stored at scan time: only the
+    player asks, once per track it loads, and the read seeks past the audio.
+    """
+    a = db.query(Audio).filter_by(id=audio_id).first()
+    if not a:
+        raise HTTPException(404)
+    assert_media_access(db, current_user, "audio", a.id)
+    if archive_ext(a.filename) or not os.path.exists(a.filepath):
+        return {"chapters": []}
+    return {"chapters": read_chapters(a.filepath)}
 
 
 def serve_audio_file(

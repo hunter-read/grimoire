@@ -11,6 +11,7 @@ from .core import (
     update_audio_folder,
     bulk_update_audio_folders,
     get_audio,
+    get_audio_chapters,
     serve_audio_file,
     serve_audio_artwork,
     update_audio,
@@ -24,6 +25,7 @@ from .covers import (
     upload_audio_cover,
 )
 from ._schemas import (
+    AudioChaptersResponse,
     AudioCoverResponse,
     AudioDetailResponse,
     AudioFoldersResponse,
@@ -85,6 +87,18 @@ router.add_api_route(
     summary="Get an audio track",
     description="Returns full track metadata including duration, embedded tags, and folder tags.",
     response_model=AudioDetailResponse,
+)
+router.add_api_route(
+    "/audio/{audio_id}/chapters",
+    get_audio_chapters,
+    methods=["GET"],
+    summary="Audio chapter markers",
+    description=(
+        "Returns the chapter markers embedded in the track (`.m4b`/`.m4a` Nero or "
+        "QuickTime chapters, MP3 ID3 `CHAP` frames) as `{chapters: [{start, title}]}`, "
+        "ordered by start in seconds. Empty when the file has none."
+    ),
+    response_model=AudioChaptersResponse,
 )
 router.add_api_route(
     "/audio/{audio_id}/file",

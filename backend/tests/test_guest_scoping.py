@@ -18,7 +18,7 @@ from backend import auth
 from backend.config import SessionLocal
 from backend.main import app
 from backend.models import CampaignResource
-from .conftest import make_book, make_game_system, make_map
+from .conftest import make_audio, make_book, make_game_system, make_map
 
 
 # Every route a guest token gets past the role guards on, with its methods. Each
@@ -37,6 +37,7 @@ GUEST_REACHABLE = {
     "/api/audio-sets/{set_id}": "DELETE GET PATCH",
     "/api/audio/{audio_id}": "GET",
     "/api/audio/{audio_id}/artwork": "GET",
+    "/api/audio/{audio_id}/chapters": "GET",
     "/api/audio/{audio_id}/file": "GET",
     "/api/auth/me": "GET",
     "/api/auth/sessions": "GET",
@@ -301,6 +302,18 @@ def test_guest_book_metadata_follows_campaign_share(client, gm_headers, campaign
     r = client.get(f"/api/books/{public.id}", headers=headers)
     assert r.status_code == 200
     assert r.json()["title"] == public.title
+
+
+def test_guest_audio_chapters_follow_campaign_share(client, gm_headers, campaign, guest):
+    headers, _ = guest
+    unshared = make_audio()
+    public = make_audio()
+    _share(client, gm_headers, campaign, "audio", public.id, "public")
+
+    assert client.get(f"/api/audio/{unshared.id}/chapters", headers=headers).status_code == 403
+    r = client.get(f"/api/audio/{public.id}/chapters", headers=headers)
+    assert r.status_code == 200
+    assert r.json() == {"chapters": []}
 
 
 def _variant_ids(client, url, headers) -> set:

@@ -938,7 +938,7 @@ inert even if it is navigated to directly.
 
 ### Audio
 
-Audio tracks behave like maps/tokens, with embedded metadata. Supported formats: `.mp3`, `.ogg`, `.opus`, `.flac`, `.wav`, `.m4a`, `.aac`.
+Audio tracks behave like maps/tokens, with embedded metadata. Supported formats: `.mp3`, `.ogg`, `.opus`, `.flac`, `.wav`, `.m4a`, `.m4b`, `.aac`.
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
@@ -946,6 +946,7 @@ Audio tracks behave like maps/tokens, with embedded metadata. Supported formats:
 | `/api/audio/groups` | GET | any (not guest) | Folders holding matching tracks, with counts. Query: the browse filters |
 | `/api/audio/:id` | GET | any | Track detail incl. `folder_path` and `folder_tags` |
 | `/api/audio/:id` | PATCH | gm/admin | Update `description`, `tags` |
+| `/api/audio/:id/chapters` | GET | any | Chapter markers embedded in the file, read on request: `{chapters: [{start, title}]}` ordered by `start` (seconds). Reads `.m4b`/`.m4a` QuickTime chapter tracks and Nero `chpl` lists, and MP3 ID3 `CHAP` frames. `title` is `""` when the file names none. Empty for a track without chapters, an archive, or a missing file |
 | `/api/audio/:id/file` | GET | any | Stream/download the audio file (supports HTTP range requests), or the archive (served with the archive's MIME type) |
 | `/api/audio/:id/artwork` | GET | any | Track artwork, resolving a cover set through the UI first, then folder cover art, then embedded album art. 404 if none |
 | `/api/audio/:id/cover` | GET | gm/admin | Only a cover set through the UI, for the editor preview. 404 when the track has none, even if it has folder or embedded art |

@@ -150,6 +150,9 @@ from .metadata import (  # noqa: E402,F401
     resolve_scope,
 )
 
+# --- Audiobook chapter markers -------------------------------------------------
+from .chapters import read_chapters  # noqa: E402,F401
+
 # --- Full-text indexing --------------------------------------------------------
 from .text_index import (  # noqa: E402,F401
     index_book_text,

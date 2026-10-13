@@ -19,6 +19,8 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Import characters from other tools - a Forge Steel hero, a Pathbuilder 2e export, a D&D Beyond or DiceCloud link - through character importers: community add-ons an admin installs under Settings → Add-ons → Character importers. Characters → Import a character recognises the file by itself, builds it on the right sheet (installing the sheet if needed), and matches picks against your installed content, keeping anything it lacks as a custom entry (thanks @ianfhunter)
 - Anyone can install an importer that only reads uploaded files - Forge Steel and Pathbuilder included - for their own account, from the import dialog. Importers that fetch links or run scripts still need an admin, and the dialog says so: admins get an Install for everyone button, everyone else is told to ask
 - An importer can ask for something per import, such as an API key for a private character. The dialog shows the field, asks again when an import turns out to need it, and never stores what you type
+- Audiobooks: `.m4b` files are picked up by the scan and play in the audio player like any other track, with their duration, tags and cover art
+- The audio player lists an audiobook's chapters and shows the one playing; pick a chapter to jump to it. Works for `.m4b`/`.m4a` and chaptered MP3 files
 - Admins can style the OIDC sign-in button to match their provider: background, text and border colours, corner radius, and an uploaded logo, under Settings → Authentication, or pinned with `OIDC_BUTTON_*` environment variables
 
 ### Changed

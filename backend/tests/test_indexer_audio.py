@@ -4,6 +4,7 @@ Covers the metadata reader, folder/embedded-artwork lookup, and the audio scan
 loop in scan_library (the code added for the audio library feature).
 """
 import os
+import shutil
 import tempfile
 import uuid
 import wave
@@ -20,6 +21,8 @@ from backend.indexer import (
     _has_embedded_art,
     scan_library,
 )
+
+M4B_FIXTURE = os.path.join(os.path.dirname(__file__), "fixtures", "audio", "audiobook.m4b")
 
 
 def _write_wav(path, seconds=1):
@@ -70,6 +73,23 @@ class TestReadAudioMetadata:
         assert meta["duration"] == 0.0
         assert meta["title"] == ""
         assert meta["embedded_art"] is False
+
+
+class TestM4bAudiobook:
+    """`.m4b` is the same MP4 container as `.m4a` (issue #564)."""
+
+    def test_reads_duration_and_tags(self):
+        info = _read_audio_metadata(M4B_FIXTURE)
+        assert info["duration"] > 0.9
+        assert info["title"] == "Test Audiobook"
+        assert info["artist"] == "Test Narrator"
+        assert info["album"] == "Test Adventure Path"
+        assert info["embedded_art"] is True
+
+    def test_extracts_png_cover_atom(self):
+        data, mime = _extract_embedded_art(M4B_FIXTURE)
+        assert mime == "image/png"
+        assert data.startswith(b"\x89PNG")
 
 
 class TestFolderArtwork:
@@ -157,5 +177,21 @@ class TestAudioScanLoop:
             db.close()
 
     def test_audio_exts_cover_target_formats(self):
-        for ext in (".mp3", ".ogg", ".opus", ".flac", ".wav", ".m4a", ".aac"):
+        for ext in (".mp3", ".ogg", ".opus", ".flac", ".wav", ".m4a", ".m4b", ".aac"):
             assert ext in AUDIO_EXTS
+
+    def test_scan_registers_m4b_audiobook(self):
+        tmp, lib = self._mk_lib()
+        path = os.path.join(lib, "audio", "Ambient", f"book-{uuid.uuid4().hex[:6]}.m4b")
+        shutil.copy(M4B_FIXTURE, path)
+        db = SessionLocal()
+        try:
+            stats = scan_library(lib, tempfile.mkdtemp(), db)
+            assert stats["new_audio"] >= 1
+            row = db.query(Audio).filter(Audio.filepath == path).first()
+            assert row is not None
+            assert row.title == "Test Audiobook"
+            assert row.duration > 0
+            assert row.has_artwork is True
+        finally:
+            db.close()

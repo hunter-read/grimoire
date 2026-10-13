@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   LuPlay,
@@ -7,13 +7,16 @@ import {
   LuSkipForward,
   LuRepeat1,
   LuListMusic,
+  LuListOrdered,
   LuX,
   LuMusic,
 } from 'react-icons/lu'
 import { mediaUrl } from '../../api'
 import { formatDuration } from '../../utils'
 import { useAudioPlayer } from '../../context/AudioPlayerContext'
+import useTrackChapters, { chapterIndexAt, chapterLabel } from '../../hooks/useTrackChapters'
 import AudioQueuePanel from './AudioQueuePanel'
+import AudioChaptersPanel from './AudioChaptersPanel'
 
 const PLAYER_HEIGHT = 72
 
@@ -61,6 +64,12 @@ export default function GlobalAudioPlayer({ isMobile = false, sidebarWidth = 0 }
 
   const src = currentTrack ? mediaUrl(`/audio/${currentTrack.id}/file`) : null
 
+  // Audiobooks carry chapter markers (issue #564). A lone chapter is no
+  // navigation, so the chapter controls only appear from two up.
+  const chapters = useTrackChapters(currentTrack?.id)
+  const hasChapters = chapters.length > 1
+  const [showChapters, setShowChapters] = useState(false)
+
   // When the source changes and playback was requested (play/skip/jump), start
   // playing once the element has the new src.
   useEffect(() => {
@@ -102,6 +111,23 @@ export default function GlobalAudioPlayer({ isMobile = false, sidebarWidth = 0 }
     next()
   }
 
+  const chapterIndex = hasChapters ? chapterIndexAt(chapters, currentTime) : -1
+
+  // The chapter list and the queue share the slot above the bar, so opening
+  // one closes the other.
+  const onToggleChapters = () => {
+    if (!showChapters && expanded) toggleExpanded()
+    setShowChapters((open) => !open)
+  }
+  const onToggleQueue = () => {
+    if (!expanded) setShowChapters(false)
+    toggleExpanded()
+  }
+  const onSelectChapter = (start) => {
+    seek(start)
+    if (!isPlaying) togglePlay()
+  }
+
   const bottom = isMobile ? 64 : 0
   // On desktop, start the bar at the sidebar's right edge so it doesn't cover
   // the sidebar (and its logout button). On mobile the sidebar is a bottom bar.
@@ -110,6 +136,15 @@ export default function GlobalAudioPlayer({ isMobile = false, sidebarWidth = 0 }
   return (
     <>
       {expanded && <AudioQueuePanel bottom={bottom + PLAYER_HEIGHT} left={left} />}
+      {!expanded && showChapters && hasChapters && (
+        <AudioChaptersPanel
+          chapters={chapters}
+          currentIndex={chapterIndex}
+          onSelect={onSelectChapter}
+          bottom={bottom + PLAYER_HEIGHT}
+          left={left}
+        />
+      )}
 
       <div
         style={{
@@ -190,7 +225,9 @@ export default function GlobalAudioPlayer({ isMobile = false, sidebarWidth = 0 }
                 whiteSpace: 'nowrap',
               }}
             >
-              {currentTrack.artist || t('audio.player.title')}
+              {chapterIndex >= 0
+                ? chapterLabel(t, chapters, chapterIndex)
+                : currentTrack.artist || t('audio.player.title')}
             </div>
           </div>
         </div>
@@ -259,8 +296,18 @@ export default function GlobalAudioPlayer({ isMobile = false, sidebarWidth = 0 }
 
         {/* Queue + close */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+          {hasChapters && (
+            <button
+              onClick={onToggleChapters}
+              aria-label={t('audio.player.toggleChapters')}
+              aria-pressed={showChapters}
+              style={iconBtn(showChapters)}
+            >
+              <LuListOrdered size={18} />
+            </button>
+          )}
           <button
-            onClick={toggleExpanded}
+            onClick={onToggleQueue}
             aria-label={t('audio.player.toggleQueue')}
             aria-pressed={expanded}
             style={iconBtn(expanded)}

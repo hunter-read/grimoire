@@ -78,6 +78,19 @@ class AudioDetailResponse(AudioOut, VariantFamilyMixin):
     folder_tags: list[str]
 
 
+class AudioChapterOut(BaseModel):
+    # Seconds from the start of the track.
+    start: float
+    # Blank when the file names no title; the player numbers it instead.
+    title: str
+
+
+class AudioChaptersResponse(BaseModel):
+    """`GET /audio/{id}/chapters` - empty for a track without chapter markers."""
+
+    chapters: list[AudioChapterOut]
+
+
 class FolderTagsOut(BaseModel):
     """One folder path and its tags.
 
