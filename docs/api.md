@@ -1917,7 +1917,7 @@ campaign, which is exactly who wants a character sheet.
 | `/api/characters/:id` | DELETE | user | Delete a character |
 | `/api/characters/import` | POST | user | Rebuild a character from an exported file |
 | `/api/characters/import-sources` | GET | user | URL import sources declared by the user's installed sheets (id, name, url_patterns, example_url, available, schema_*) |
-| `/api/characters/import-from-url` | POST | user | Import from a supported external URL. Body: `{url, api_key?, import_entries?, schema_id?}`. Matches `url` against sheet `import_sources`; Private sources may require `api_key` |
+| `/api/characters/import-from-url` | POST | user (not guest) | Import from a supported external URL. Body: `{url, api_key?, import_entries?, schema_id?}`. Matches `url` against sheet `import_sources`; private DiceCloud sheets may use `api_key` or the user's saved DiceCloud key in settings |
 | `/api/characters/:id/export` | GET | user | Export a character as a self-contained file |
 | `/api/characters/:id/portrait` | POST | user | Set a portrait (PNG/JPEG/WebP/GIF, 5 MB) |
 | `/api/characters/:id/portrait` | GET | user | The portrait image |

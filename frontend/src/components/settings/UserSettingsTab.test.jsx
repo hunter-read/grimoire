@@ -12,6 +12,7 @@ vi.mock('./UserAccountSections', () => ({
   EmailSection: () => <div>email</div>,
   ExplicitContentSection: () => <div>explicit</div>,
   ChangePasswordSection: () => <div>password</div>,
+  DiceCloudApiKeySection: () => <div>dicecloud-api-key</div>,
   DeleteAccountSection: ({ user }) => <div>delete:{user?.username}</div>,
   OPDSSection: () => <div>opds</div>,
 }))
@@ -53,6 +54,7 @@ describe('UserSettingsTab', () => {
       'explicit',
       'opds',
       'password',
+      'dicecloud-api-key',
     ]) {
       expect(screen.getByText(label)).toBeInTheDocument()
     }

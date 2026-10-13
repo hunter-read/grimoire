@@ -1145,6 +1145,16 @@
       "description": "Alla länkar du har skapat. Kopiera en igen, eller återkalla den så slutar den fungera.",
       "noPermission": "Du kan inte skapa delningslänkar just nu. Länkar du skapat tidigare är pausade, inte borttagna, och fungerar igen om en administratör ger tillbaka behörigheten.",
       "none": "Du har inte skapat några delningslänkar."
+    },
+    "dicecloudApiKey": {
+      "title": "DiceCloud API key",
+      "description": "Saved for private DiceCloud v1 character URL imports. Public DiceCloud links need no key. The key stays on your account only.",
+      "label": "API key",
+      "placeholder": "Paste your DiceCloud API key",
+      "save": "Save key",
+      "clear": "Clear saved key",
+      "saved": "A key is saved on your account.",
+      "notSaved": "No key saved yet."
     }
   },
   "appSettings": {
@@ -3161,7 +3171,7 @@
     "importing": "Importerar…",
     "importApiKey": "DiceCloud API key",
     "importApiKeyPlaceholder": "Only for private sheets",
-    "importApiKeyHelp": "Public DiceCloud links import without a key. Use a key (or DICECLOUD_API_KEY on the server) only for private characters.",
+    "importApiKeyHelp": "Public DiceCloud links import without a key. For private characters, paste a key or save one under Settings → Security & Account.",
     "importSupported": "Stödda karaktärsark",
     "importSupportedEmpty": "Inget installerat ark anger ännu en URL-importkälla. Du kan fortfarande importera en Grimoire-exportfil.",
     "importSourceUnavailable": "konverterare inte installerad på den här servern",

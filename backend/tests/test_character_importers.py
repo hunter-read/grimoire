@@ -105,6 +105,10 @@ def test_parse_character_id():
     assert dicecloud_v1.parse_character_id("AbCdEfGh") == "AbCdEfGh"
     with pytest.raises(ValueError):
         dicecloud_v1.parse_character_id("not a url")
+    with pytest.raises(ValueError):
+        dicecloud_v1.parse_character_id(
+            "https://evil.example/v1.dicecloud.com/character/AbCdEfGh"
+        )
 
 
 def test_import_from_url_public_without_api_key():
@@ -331,7 +335,6 @@ def test_convert_url_uses_registry(monkeypatch):
         }
 
     monkeypatch.setitem(importers._REGISTRY, "dicecloud-v1", fake)
-    monkeypatch.delenv("DICECLOUD_API_KEY", raising=False)
     out = importers.convert_url(
         "https://v1.dicecloud.com/character/x",
         source_id="dicecloud-v1",
@@ -369,6 +372,10 @@ def test_parse_dndbeyond_character_id():
     assert dndbeyond.parse_character_id("93643159") == "93643159"
     with pytest.raises(ValueError):
         dndbeyond.parse_character_id("not a url")
+    with pytest.raises(ValueError):
+        dndbeyond.parse_character_id(
+            "https://evil.example/www.dndbeyond.com/characters/93643159"
+        )
 
 
 def test_convert_dndbeyond_sample():
@@ -660,7 +667,7 @@ def test_convert_url_wraps_value_error(monkeypatch):
         )
 
 
-def test_convert_url_uses_env_api_key(monkeypatch):
+def test_convert_url_does_not_use_env_api_key(monkeypatch):
     seen = {}
 
     def fake(url, *, api_key, schema_id):
@@ -674,7 +681,29 @@ def test_convert_url_uses_env_api_key(monkeypatch):
         source_id="dicecloud-v1",
         schema_id="demo",
     )
-    assert seen["api_key"] == "from-env"
+    assert seen["api_key"] == ""
+
+
+def test_convert_url_wraps_unexpected_shape_errors(monkeypatch):
+    def boom(url, *, api_key="", schema_id=""):
+        raise KeyError("characters")
+
+    monkeypatch.setitem(importers._REGISTRY, "dicecloud-v1", boom)
+    with pytest.raises(importers.ImportSourceError, match="Couldn't read that character"):
+        importers.convert_url(
+            "https://v1.dicecloud.com/character/x",
+            source_id="dicecloud-v1",
+            schema_id="demo",
+            api_key="k",
+        )
+
+
+def test_safe_eval_rejects_huge_exponentiation():
+    evaluator = dicecloud_v1._SafeEval({})
+    with pytest.raises(ValueError, match="out of range"):
+        evaluator.eval("999**99")
+    with pytest.raises(ValueError, match="arithmetic error|division"):
+        evaluator.eval("1/0")
 
 
 def test_convert_url_generic_converter(monkeypatch):

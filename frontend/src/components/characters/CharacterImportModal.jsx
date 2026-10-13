@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuFileUp, LuLink } from 'react-icons/lu'
 import { characters as charactersApi } from '../../api'
+import { useAuth } from '../../context/AuthContext'
 import CharacterDialog from './CharacterDialog'
 import { goldBtn, ghostBtn, disabledBtn, fieldInput, fieldLabel, helpText } from './characterStyles'
 
@@ -11,6 +12,7 @@ import { goldBtn, ghostBtn, disabledBtn, fieldInput, fieldLabel, helpText } from
  */
 export default function CharacterImportModal({ onImported, onClose }) {
   const { t } = useTranslation()
+  const { user } = useAuth()
   const fileRef = useRef(null)
   const [url, setUrl] = useState('')
   const [apiKey, setApiKey] = useState('')
@@ -20,6 +22,7 @@ export default function CharacterImportModal({ onImported, onClose }) {
   const [dragging, setDragging] = useState(false)
   // Revealed only when a URL import fails because the sheet needs credentials.
   const [keyRequired, setKeyRequired] = useState(false)
+  const hasSavedKey = Boolean(user?.has_dicecloud_api_key)
 
   useEffect(() => {
     let cancelled = false
@@ -100,7 +103,9 @@ export default function CharacterImportModal({ onImported, onClose }) {
     seen.get(key).sources.push(source)
   }
 
-  const showApiKey = keyRequired || Boolean(apiKey)
+  // Show the paste field when the import needs a key and none is saved yet,
+  // or when the user already started typing one for this attempt.
+  const showApiKey = (keyRequired && !hasSavedKey) || Boolean(apiKey)
 
   return (
     <CharacterDialog

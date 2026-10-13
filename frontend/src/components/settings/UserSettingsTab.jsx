@@ -4,6 +4,7 @@ import {
   EmailSection,
   ExplicitContentSection,
   ChangePasswordSection,
+  DiceCloudApiKeySection,
   DeleteAccountSection,
   OPDSSection,
 } from './UserAccountSections'
@@ -95,6 +96,12 @@ export default function UserSettingsTab({ user, onLogout }) {
           <SectionDivider />
           <ActiveSessionsSection />
           <SectionDivider />
+          {user?.role !== 'guest' && (
+            <>
+              <DiceCloudApiKeySection />
+              <SectionDivider />
+            </>
+          )}
           {canHoldKeys && (
             <>
               <ApiKeySection />

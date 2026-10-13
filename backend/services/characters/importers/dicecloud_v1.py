@@ -1,8 +1,8 @@
 """DiceCloud v1 → Grimoire character payload.
 
 Registered as import source id ``dicecloud-v1`` for D&D 5e sheets that declare
-it under ``import_sources``. Fetches via the v1 JSON API (``?key=``); configure
-``DICECLOUD_API_KEY`` or pass ``api_key`` on the import-from-url request.
+it under ``import_sources``. Fetches via the v1 JSON API (``?key=``); pass
+``api_key`` on the import-from-url request, or save one in user settings.
 """
 
 from __future__ import annotations
@@ -19,7 +19,11 @@ from typing import Any, Callable, Optional
 
 EXPORT_SCHEMA = "grimoire://character/v1"
 DEFAULT_SCHEMA_ID = "dnd-5e-2024"
-API_BASE = "https://v1.dicecloud.com"
+API_HOST = "v1.dicecloud.com"
+API_BASE = f"https://{API_HOST}"
+# Bound DiceCloud ``**`` so a hostile calculation cannot exhaust memory/CPU.
+_POW_MAX_BASE = 1_000_000
+_POW_MAX_EXP = 10
 
 STAT_NAMES = (
     "strength",
@@ -68,21 +72,29 @@ SAVE_FIELDS = {
     "charisma save": "charisma_save_prof",
 }
 
-CHAR_ID_RE = re.compile(
-    r"(?:https?://)?v1\.dicecloud\.com/character/([\w]+)", re.IGNORECASE
-)
-
-
 # --- fetch -----------------------------------------------------------------
 
 
 def parse_character_id(value: str) -> str:
+    """Extract a DiceCloud v1 character id from a bare id or canonical URL.
+
+    The host must be exactly ``v1.dicecloud.com`` so a substring like
+    ``evil.example/v1.dicecloud.com/...`` cannot sneak through.
+    """
     value = value.strip()
-    m = CHAR_ID_RE.search(value)
-    if m:
-        return m.group(1)
     if re.fullmatch(r"[\w]+", value):
         return value
+    parsed = urllib.parse.urlparse(value if "://" in value else f"https://{value}")
+    host = (parsed.hostname or "").lower()
+    if host != API_HOST:
+        raise ValueError(f"Not a DiceCloud v1 character id or URL: {value!r}")
+    parts = [p for p in parsed.path.split("/") if p]
+    if (
+        len(parts) >= 2
+        and parts[0].lower() == "character"
+        and re.fullmatch(r"[\w]+", parts[1])
+    ):
+        return parts[1]
     raise ValueError(f"Not a DiceCloud v1 character id or URL: {value!r}")
 
 
@@ -251,20 +263,32 @@ class _SafeEval(ast.NodeVisitor):
     def visit_BinOp(self, node: ast.BinOp) -> Any:
         left, right = self.visit(node.left), self.visit(node.right)
         op = node.op
-        if isinstance(op, ast.Add):
-            return left + right
-        if isinstance(op, ast.Sub):
-            return left - right
-        if isinstance(op, ast.Mult):
-            return left * right
-        if isinstance(op, ast.Div):
-            return left / right
-        if isinstance(op, ast.FloorDiv):
-            return left // right
-        if isinstance(op, ast.Mod):
-            return left % right
-        if isinstance(op, ast.Pow):
-            return left**right
+        try:
+            if isinstance(op, ast.Add):
+                return left + right
+            if isinstance(op, ast.Sub):
+                return left - right
+            if isinstance(op, ast.Mult):
+                return left * right
+            if isinstance(op, ast.Div):
+                return left / right
+            if isinstance(op, ast.FloorDiv):
+                return left // right
+            if isinstance(op, ast.Mod):
+                return left % right
+            if isinstance(op, ast.Pow):
+                if not isinstance(left, (int, float)) or not isinstance(right, (int, float)):
+                    raise ValueError("non-numeric power")
+                if abs(left) > _POW_MAX_BASE or abs(right) > _POW_MAX_EXP:
+                    raise ValueError("exponentiation out of range")
+                result = left**right
+                if isinstance(result, complex) or (
+                    isinstance(result, float) and not math.isfinite(result)
+                ):
+                    raise ValueError("non-finite result")
+                return result
+        except ArithmeticError as exc:
+            raise ValueError("arithmetic error") from exc
         raise ValueError(f"unsupported operator {type(op).__name__}")
 
     def visit_UnaryOp(self, node: ast.UnaryOp) -> Any:
@@ -340,7 +364,15 @@ def calculate_stat(data: dict, stat: str, *, base: float = 0, names: Optional[di
                 continue
             try:
                 value = float(evaluator.eval(calc))
-            except (ValueError, KeyError, SyntaxError, TypeError):
+            except (
+                ValueError,
+                KeyError,
+                SyntaxError,
+                TypeError,
+                ZeroDivisionError,
+                OverflowError,
+                ArithmeticError,
+            ):
                 continue
         if op == "base" and value > base:
             base = value
@@ -854,8 +886,8 @@ def convert(data: dict, *, schema_id: str = DEFAULT_SCHEMA_ID, schema_doc: Optio
 def import_from_url(url: str, *, api_key: str = "", schema_id: str = DEFAULT_SCHEMA_ID) -> dict:
     """Fetch a DiceCloud v1 character URL and return a Grimoire import payload.
 
-    Public sheets use Meteor DDP (no key). Private sheets need ``api_key`` or
-    ``DICECLOUD_API_KEY``.
+    Public sheets use Meteor DDP (no key). Private sheets need ``api_key``
+    (request body or the user's saved DiceCloud key in settings).
     """
     char_id = parse_character_id(url)
     key = (api_key or "").strip()

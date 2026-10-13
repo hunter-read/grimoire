@@ -92,7 +92,7 @@ Below those controls, the dialog lists each installed sheet that advertises URL 
 
 The D&D 5e (2024) sheet declares:
 
-- **DiceCloud v1** (`https://v1.dicecloud.com/character/…`) — public links need no key (Meteor DDP); private sheets need `DICECLOUD_API_KEY` or a key pasted in the dialog.
+- **DiceCloud v1** (`https://v1.dicecloud.com/character/…`) — public links need no key (Meteor DDP); private sheets need a DiceCloud API key pasted in the dialog or saved under Settings → Security & Account.
 - **D&D Beyond** (`https://www.dndbeyond.com/characters/…`) — public / shared characters only (Beyond’s `/character/{id}/json` endpoint).
 
 ## Building a character

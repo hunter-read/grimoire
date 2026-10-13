@@ -143,3 +143,6 @@ class AuthMeResponse(BaseModel):
     # See LoginUser.share_links_allowed.
     share_links_allowed: bool = False
     oidc_linked: bool
+    # Whether the user has a DiceCloud v1 API key saved for private URL import.
+    # The plaintext is never returned.
+    has_dicecloud_api_key: bool = False

@@ -1003,7 +1003,7 @@ class TestUrlImport:
         assert len(match) == 1
         assert match[0]["id"] == "dicecloud-v1"
         assert match[0]["available"] is True
-        assert "v1.dicecloud.com" in match[0]["url_patterns"][0]
+        assert match[0]["url_patterns"][0] == "https://v1.dicecloud.com/character/*"
 
     def test_rejects_unknown_url(self, client, admin_headers, installed):
         resp = client.post(
@@ -1061,9 +1061,9 @@ class TestUrlImport:
     def test_imports_from_url(self, client, admin_headers, installed, monkeypatch):
         import io
 
-        import httpx
         from PIL import Image
 
+        from backend.routers.characters import core as characters_core
         from backend.services.characters import importers as url_importers
 
         def fake_convert(url, *, source_id, schema_id, api_key=None):
@@ -1082,12 +1082,12 @@ class TestUrlImport:
         Image.new("RGB", (8, 8), color=(20, 40, 60)).save(png, format="PNG")
         portrait_bytes = png.getvalue()
 
-        def fake_get(url, **kwargs):
+        def fake_download(url):
             assert url == "https://example.com/p.png"
-            return httpx.Response(200, content=portrait_bytes, headers={"content-type": "image/png"})
+            return portrait_bytes, "image/png"
 
         monkeypatch.setattr(url_importers, "convert_url", fake_convert)
-        monkeypatch.setattr(httpx, "get", fake_get)
+        monkeypatch.setattr(characters_core, "_download_portrait_bytes", fake_download)
         resp = client.post(
             "/api/characters/import-from-url",
             json={
@@ -1107,8 +1107,7 @@ class TestUrlImport:
     def test_import_succeeds_when_portrait_download_fails(
         self, client, admin_headers, installed, monkeypatch
     ):
-        import httpx
-
+        from backend.routers.characters import core as characters_core
         from backend.services.characters import importers as url_importers
 
         monkeypatch.setattr(
@@ -1123,10 +1122,7 @@ class TestUrlImport:
                 "portrait_url": "https://example.com/missing.png",
             },
         )
-        def boom(*a, **k):
-            raise httpx.ConnectError("down")
-
-        monkeypatch.setattr(httpx, "get", boom)
+        monkeypatch.setattr(characters_core, "_download_portrait_bytes", lambda url: None)
         resp = client.post(
             "/api/characters/import-from-url",
             json={"url": "https://v1.dicecloud.com/character/AbCdEfGh", "api_key": "k"},
@@ -1137,3 +1133,71 @@ class TestUrlImport:
         assert body["name"] == "No Art"
         assert not body.get("portrait_path")
         client.delete(f"/api/characters/{body['id']}", headers=admin_headers)
+
+    def test_uses_saved_dicecloud_api_key(self, client, admin_headers, installed, monkeypatch):
+        from backend.models import User
+        from backend.config import SessionLocal
+        from backend.services.characters import importers as url_importers
+
+        seen = {}
+
+        def fake_convert(url, *, source_id, schema_id, api_key=None):
+            seen["api_key"] = api_key
+            return {
+                "$schema": "grimoire://character/v1",
+                "schema_id": schema_id,
+                "name": "Saved Key Hero",
+                "data": {"hero_name": "Saved Key Hero"},
+                "entries": {},
+            }
+
+        monkeypatch.setattr(url_importers, "convert_url", fake_convert)
+        db = SessionLocal()
+        try:
+            me = client.get("/api/auth/me", headers=admin_headers).json()
+            user = db.query(User).filter_by(id=me["id"]).first()
+            user.dicecloud_api_key = "saved-from-settings"
+            db.commit()
+        finally:
+            db.close()
+
+        resp = client.post(
+            "/api/characters/import-from-url",
+            json={"url": "https://v1.dicecloud.com/character/AbCdEfGh"},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200, resp.text
+        assert seen["api_key"] == "saved-from-settings"
+        client.delete(f"/api/characters/{resp.json()['id']}", headers=admin_headers)
+
+    def test_guests_cannot_import_from_url(self, client, admin_headers, gm_headers, installed):
+        assert (
+            client.patch(
+                "/api/settings",
+                json={"guest_access_enabled": True},
+                headers=admin_headers,
+            ).status_code
+            == 200
+        )
+        campaign = client.post(
+            "/api/campaigns",
+            json={"name": "Guest Import Block", "is_gm_campaign": True},
+            headers=gm_headers,
+        ).json()
+        guest = client.post(
+            f"/api/campaigns/{campaign['id']}/guests",
+            json={"nickname": "Visitor"},
+            headers=gm_headers,
+        ).json()
+        assert "guest_code" in guest, guest
+        login = client.post(
+            "/api/auth/guest-login", json={"code": guest["guest_code"]}
+        ).json()
+        guest_headers = {"Authorization": f"Bearer {login['token']}"}
+        resp = client.post(
+            "/api/characters/import-from-url",
+            json={"url": "https://v1.dicecloud.com/character/AbCdEfGh"},
+            headers=guest_headers,
+        )
+        assert resp.status_code == 403
+        client.delete(f"/api/campaigns/{campaign['id']}", headers=gm_headers)

@@ -171,6 +171,9 @@ class PreferencesUpdate(BaseModel):
     allow_explicit: Optional[bool] = None
     display_name: Optional[str] = None
     email: Optional[str] = None  # "" clears
+    # DiceCloud v1 API key for private character URL import. "" clears; omit to
+    # leave unchanged. The plaintext is never echoed back — only a has_ flag.
+    dicecloud_api_key: Optional[str] = None
 
     @field_validator("email")
     @classmethod
@@ -178,6 +181,18 @@ class PreferencesUpdate(BaseModel):
         if v is None or v == "":
             return v
         return _normalize_email(v)
+
+    @field_validator("dicecloud_api_key")
+    @classmethod
+    def dicecloud_api_key_valid(cls, v):
+        if v is None or v == "":
+            return v
+        v = v.strip()
+        if not v:
+            return ""
+        if len(v) > 500:
+            raise ValueError("DiceCloud API key is too long")
+        return v
 
 
 class UserOut(BaseModel):
@@ -247,6 +262,8 @@ class PreferencesResponse(BaseModel):
     allow_explicit: Optional[bool] = None
     display_name: Optional[str] = None
     email: Optional[str] = None
+    # True when a DiceCloud key is saved; the plaintext is never returned.
+    has_dicecloud_api_key: bool = False
 
 
 class PasswordChangeResponse(BaseModel):

@@ -17,9 +17,9 @@ from typing import Any, Optional
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from ...auth import CurrentUser, get_current_user
+from ...auth import CurrentUser, get_current_user, require_not_guest
 from ...config import CHARACTER_PORTRAIT_DIR, get_db
-from ...models import Character, CharacterSchema, ContentEntry, Ruleset, RulesetEntry
+from ...models import Character, CharacterSchema, ContentEntry, Ruleset, RulesetEntry, User
 from ...services.characters import rulesets as rs
 from ...services import characters as svc
 from ...services.characters import catalogue
@@ -691,6 +691,64 @@ def list_import_sources(
     return {"sources": sources}
 
 
+def _download_portrait_bytes(portrait_url: str) -> Optional[tuple[bytes, Optional[str]]]:
+    """Fetch a remote portrait, capped at :data:`portraits.MAX_PORTRAIT_BYTES`.
+
+    Streams the body and stops early when the response is too large — the same
+    pattern as ``addons/fetch.py`` — so a hostile host cannot fill memory.
+    Returns ``None`` on any fetch failure (caller treats portrait as optional).
+    """
+    from urllib.parse import urlparse
+
+    import httpx
+
+    from .portraits import MAX_PORTRAIT_BYTES
+
+    parsed = urlparse(portrait_url)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        return None
+    try:
+        with httpx.Client(
+            timeout=20.0,
+            follow_redirects=True,
+            headers={"User-Agent": "grimoire-character-import/0.1"},
+        ) as client:
+            with client.stream("GET", portrait_url) as response:
+                if response.status_code >= 400:
+                    logger.info(
+                        "Portrait download failed: HTTP %s for %s",
+                        response.status_code,
+                        portrait_url,
+                    )
+                    return None
+                declared = response.headers.get("content-length")
+                if (
+                    declared
+                    and declared.isdigit()
+                    and int(declared) > MAX_PORTRAIT_BYTES
+                ):
+                    logger.info(
+                        "Portrait download skipped: Content-Length %s exceeds cap",
+                        declared,
+                    )
+                    return None
+                chunks: list[bytes] = []
+                total = 0
+                for chunk in response.iter_bytes():
+                    total += len(chunk)
+                    if total > MAX_PORTRAIT_BYTES:
+                        logger.info(
+                            "Portrait download aborted: exceeded %s bytes",
+                            MAX_PORTRAIT_BYTES,
+                        )
+                        return None
+                    chunks.append(chunk)
+                return b"".join(chunks), response.headers.get("content-type")
+    except Exception as exc:
+        logger.info("Portrait download failed for %s: %s", portrait_url, exc)
+        return None
+
+
 def _try_import_portrait(
     *,
     character_id: str,
@@ -703,40 +761,18 @@ def _try_import_portrait(
     A failed portrait must not undo a successful character create — the sheet
     is usable without art.
     """
-    from urllib.parse import urlparse
-
-    import httpx
-
     from . import portraits as portrait_svc
 
-    parsed = urlparse(portrait_url)
-    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+    downloaded = _download_portrait_bytes(portrait_url)
+    if not downloaded:
         return
-    try:
-        response = httpx.get(
-            portrait_url,
-            timeout=20.0,
-            follow_redirects=True,
-            headers={"User-Agent": "grimoire-character-import/0.1"},
-        )
-    except Exception as exc:
-        logger.info("Portrait download failed for %s: %s", character_id, exc)
-        return
-    if response.status_code >= 400:
-        logger.info(
-            "Portrait download failed for %s: HTTP %s",
-            character_id,
-            response.status_code,
-        )
-        return
+    data, content_type = downloaded
 
     row = db.query(Character).filter_by(id=character_id, user_id=current_user.id).first()
     if not row:
         return
     try:
-        portrait_svc.set_portrait_bytes(
-            row, response.content, response.headers.get("content-type")
-        )
+        portrait_svc.set_portrait_bytes(row, data, content_type)
         db.commit()
     except Exception as exc:
         db.rollback()
@@ -745,10 +781,14 @@ def _try_import_portrait(
 
 def import_character_from_url(
     data: CharacterImportFromUrl,
-    current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(require_not_guest),
     db: Session = Depends(get_db),
 ):
-    """Import a character by URL using a sheet-declared import source."""
+    """Import a character by URL using a sheet-declared import source.
+
+    Guests are excluded: URL import fetches arbitrary remote hosts (and may use
+    a saved DiceCloud key), which is outside a guest's campaign-scoped access.
+    """
     from ...services.characters import importers as url_importers
 
     url = (data.url or "").strip()
@@ -770,12 +810,17 @@ def import_character_from_url(
             detail=f"Import source {source['id']!r} is not available on this server",
         )
 
+    api_key = (data.api_key or "").strip()
+    if not api_key and source["id"] == "dicecloud-v1":
+        user = db.query(User).filter_by(id=current_user.id).first()
+        api_key = ((user.dicecloud_api_key if user else None) or "").strip()
+
     try:
         payload = url_importers.convert_url(
             url,
             source_id=source["id"],
             schema_id=source["schema_id"],
-            api_key=data.api_key,
+            api_key=api_key or None,
         )
     except url_importers.ImportSourceError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

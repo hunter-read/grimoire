@@ -223,7 +223,7 @@ class CharacterImport(BaseModel):
 class CharacterImportFromUrl(BaseModel):
     url: str = Field(min_length=1, max_length=2000)
     # Optional credentials for sources that need them (DiceCloud v1 API key).
-    # Falls back to DICECLOUD_API_KEY on the server when omitted.
+    # Falls back to the calling user's saved DiceCloud key in settings.
     api_key: Optional[str] = Field(default=None, max_length=500)
     import_entries: bool = True
     # Prefer this installed sheet when several declare the same source.

@@ -43,6 +43,9 @@ class User(Base):
     # allows the role); True/False grants or denies it regardless of role. See
     # ``backend/services/share_links.py``.
     share_links_enabled = Column(Boolean, nullable=True, default=None)
+    # Per-user DiceCloud v1 API key for private character URL import. DiceCloud
+    # keys are account credentials, so they must not be shared server-wide.
+    dicecloud_api_key = Column(String(500), nullable=True)
     opds_token = Column(String(64), nullable=True, unique=True, index=True)
     # Revocable per-user token authenticating the campaign calendar (ICS) feeds.
     # Deliberately separate from opds_token and from the JWT: calendar apps can

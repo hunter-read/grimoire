@@ -1145,6 +1145,16 @@
       "description": "Todas as ligações que criou. Copie uma de novo, ou revogue-a para deixar de funcionar.",
       "noPermission": "Neste momento não pode criar ligações de partilha. As que criou estão em pausa, não eliminadas, e voltam a funcionar se um admin lhe devolver a permissão.",
       "none": "Ainda não criou ligações de partilha."
+    },
+    "dicecloudApiKey": {
+      "title": "DiceCloud API key",
+      "description": "Saved for private DiceCloud v1 character URL imports. Public DiceCloud links need no key. The key stays on your account only.",
+      "label": "API key",
+      "placeholder": "Paste your DiceCloud API key",
+      "save": "Save key",
+      "clear": "Clear saved key",
+      "saved": "A key is saved on your account.",
+      "notSaved": "No key saved yet."
     }
   },
   "appSettings": {
@@ -3161,7 +3171,7 @@
     "importing": "Importando…",
     "importApiKey": "DiceCloud API key",
     "importApiKeyPlaceholder": "Only for private sheets",
-    "importApiKeyHelp": "Public DiceCloud links import without a key. Use a key (or DICECLOUD_API_KEY on the server) only for private characters.",
+    "importApiKeyHelp": "Public DiceCloud links import without a key. For private characters, paste a key or save one under Settings → Security & Account.",
     "importSupported": "Fichas de personagem compatíveis",
     "importSupportedEmpty": "Nenhuma ficha instalada declara ainda uma fonte de importação por URL. Você ainda pode importar um arquivo de exportação do Grimoire.",
     "importSourceUnavailable": "conversor não instalado neste servidor",

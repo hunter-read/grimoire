@@ -302,4 +302,5 @@ def auth_me(
         "api_keys_allowed": user_keys_allowed(u),
         "share_links_allowed": share_policy.user_can_share(db, u),
         "oidc_linked": bool(u.oidc_subject),
+        "has_dicecloud_api_key": bool(u.dicecloud_api_key),
     }

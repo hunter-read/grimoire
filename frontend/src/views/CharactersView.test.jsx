@@ -34,6 +34,10 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useNavigate: () => mockNavigate }
 })
 
+vi.mock('../context/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 'u1', role: 'player', has_dicecloud_api_key: false } }),
+}))
+
 const SCHEMA = { schema_id: 'dnd-5e', name: 'D&D 5e', version: '1.0.0', character_count: 1 }
 const CHARACTER = {
   id: 'c1',
@@ -313,7 +317,9 @@ describe('CharactersView', () => {
       expect(within(dialog).getByLabelText(/Import from URL/i)).toBeInTheDocument()
       expect(within(dialog).getByText(/Supported character sheets/i)).toBeInTheDocument()
       expect(within(dialog).getByText('DiceCloud v1')).toBeInTheDocument()
-      expect(within(dialog).getAllByText(/v1\.dicecloud\.com\/character/).length).toBeGreaterThan(0)
+      expect(
+        within(dialog).getByText('https://v1.dicecloud.com/character/*')
+      ).toBeInTheDocument()
     })
 
     it('imports a file and opens the new character', async () => {

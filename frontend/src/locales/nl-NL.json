@@ -1145,6 +1145,16 @@
       "description": "Alle links die je hebt gemaakt. Kopieer er een opnieuw, of trek hem in zodat hij niet meer werkt.",
       "noPermission": "Je kunt nu geen deellinks maken. Links die je eerder maakte zijn gepauzeerd, niet verwijderd, en werken weer als een admin je toestemming herstelt.",
       "none": "Je hebt nog geen deellinks gemaakt."
+    },
+    "dicecloudApiKey": {
+      "title": "DiceCloud API key",
+      "description": "Saved for private DiceCloud v1 character URL imports. Public DiceCloud links need no key. The key stays on your account only.",
+      "label": "API key",
+      "placeholder": "Paste your DiceCloud API key",
+      "save": "Save key",
+      "clear": "Clear saved key",
+      "saved": "A key is saved on your account.",
+      "notSaved": "No key saved yet."
     }
   },
   "appSettings": {
@@ -3161,7 +3171,7 @@
     "importing": "Bezig met importeren…",
     "importApiKey": "DiceCloud API key",
     "importApiKeyPlaceholder": "Only for private sheets",
-    "importApiKeyHelp": "Public DiceCloud links import without a key. Use a key (or DICECLOUD_API_KEY on the server) only for private characters.",
+    "importApiKeyHelp": "Public DiceCloud links import without a key. For private characters, paste a key or save one under Settings → Security & Account.",
     "importSupported": "Ondersteunde karaktervellen",
     "importSupportedEmpty": "Geen geïnstalleerd vel declareert nog een URL-importbron. Je kunt nog steeds een Grimoire-exportbestand importeren.",
     "importSourceUnavailable": "converter niet geïnstalleerd op deze server",

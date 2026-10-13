@@ -33,11 +33,17 @@ def update_own_preferences(
             if conflict and conflict.id != user.id:
                 raise HTTPException(400, "Email already in use")
         user.email = new_email
+    if data.dicecloud_api_key is not None:
+        # Guests are campaign-scoped and must not store external import credentials.
+        if current_user.role == "guest":
+            raise HTTPException(403, "Guests cannot save a DiceCloud API key")
+        user.dicecloud_api_key = data.dicecloud_api_key or None  # "" → clear
     db.commit()
     return {
         "allow_explicit": user.allow_explicit,
         "display_name": user.display_name,
         "email": user.email,
+        "has_dicecloud_api_key": bool(user.dicecloud_api_key),
     }
 
 

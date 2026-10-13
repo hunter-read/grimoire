@@ -8,7 +8,6 @@ payload for :func:`import_character`.
 from __future__ import annotations
 
 import fnmatch
-import os
 from typing import Any, Callable, Optional
 from urllib.parse import urlparse
 
@@ -95,19 +94,28 @@ def convert_url(
     schema_id: str,
     api_key: Optional[str] = None,
 ) -> dict:
-    """Run the registered converter for ``source_id``."""
+    """Run the registered converter for ``source_id``.
+
+    ``api_key`` is the caller's DiceCloud key (request body or their saved
+    settings value). There is no shared server-wide fallback — DiceCloud keys
+    are per-account credentials.
+    """
     fn = _REGISTRY.get(source_id)
     if not fn:
         raise ImportSourceError(
             f"No converter is installed for import source {source_id!r}"
         )
-    key = (api_key or "").strip() or os.environ.get("DICECLOUD_API_KEY", "").strip()
+    key = (api_key or "").strip()
     try:
         if source_id == "dicecloud-v1":
             return fn(url, api_key=key, schema_id=schema_id)
         return fn(url, schema_id=schema_id)
     except ValueError as exc:
         raise ImportSourceError(str(exc)) from exc
+    except (KeyError, AttributeError, TypeError, IndexError) as exc:
+        # Upstream sheet JSON shapes change without notice; surface a useful
+        # 400 rather than an opaque 500.
+        raise ImportSourceError("Couldn't read that character") from exc
 
 
 def looks_like_http_url(value: str) -> bool:

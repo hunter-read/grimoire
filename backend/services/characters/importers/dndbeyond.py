@@ -89,24 +89,34 @@ _SKIP_CLASS_FEATURES = {
     "equipment",
 }
 
-CHAR_ID_RE = re.compile(
-    r"(?:https?://)?(?:www\.)?dndbeyond\.com/characters?/(\d+)",
-    re.IGNORECASE,
-)
 _TAG_RE = re.compile(r"<[^>]+>")
 _WS_RE = re.compile(r"[ \t]+\n")
+_DDB_HOSTS = frozenset({"dndbeyond.com", "www.dndbeyond.com"})
 
 
 # --- fetch -----------------------------------------------------------------
 
 
 def parse_character_id(value: str) -> str:
+    """Extract a D&D Beyond character id from a bare id or canonical URL.
+
+    The host must be ``dndbeyond.com`` (optional ``www.``) so a substring like
+    ``evil.example/dndbeyond.com/...`` cannot sneak through.
+    """
     value = value.strip()
-    m = CHAR_ID_RE.search(value)
-    if m:
-        return m.group(1)
     if re.fullmatch(r"\d+", value):
         return value
+    parsed = urllib.parse.urlparse(value if "://" in value else f"https://{value}")
+    host = (parsed.hostname or "").lower()
+    if host not in _DDB_HOSTS:
+        raise ValueError(f"Not a D&D Beyond character id or URL: {value!r}")
+    parts = [p for p in parsed.path.split("/") if p]
+    if (
+        len(parts) >= 2
+        and parts[0].lower() in ("character", "characters")
+        and re.fullmatch(r"\d+", parts[1])
+    ):
+        return parts[1]
     raise ValueError(f"Not a D&D Beyond character id or URL: {value!r}")
 
 
