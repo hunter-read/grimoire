@@ -6,6 +6,9 @@ import {
   isSingleImageBook,
   isTextBook,
   CATEGORY_ICONS,
+  CATEGORY_LABELS,
+  CATEGORY_ORDER,
+  categoryLabel,
 } from './constants'
 
 describe('isArchiveBook', () => {
@@ -68,6 +71,18 @@ describe('isArchiveMedia', () => {
 describe('CATEGORY_ICONS', () => {
   it('has an icon for the core category', () => {
     expect(CATEGORY_ICONS.core).toBeTruthy()
+  })
+
+  it('gives every built-in category an icon and a label', () => {
+    for (const cat of CATEGORY_ORDER) {
+      expect(CATEGORY_ICONS[cat]).toBeTruthy()
+      expect(CATEGORY_LABELS[cat]).toBeTruthy()
+    }
+  })
+
+  it('lists magazine as a built-in category (#560)', () => {
+    expect(CATEGORY_ORDER).toContain('magazine')
+    expect(categoryLabel('magazine')).toBe('Magazines & Zines')
   })
 })
 

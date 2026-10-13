@@ -146,6 +146,9 @@ CATEGORY_MAP = {
     "handout": ["handout", "reference", "cheat", "quick ref", "screen"],
     "homebrew": ["homebrew", "custom", "house rules", "unofficial"],
     "starter-set": ["starter set", "starter kit", "beginner box", "boxed set", "essentials"],
+    # Last so a more specific word in a longer name still decides ("Zine Maps"
+    # stays a map); "zine" matches whole words only, never inside "magazine".
+    "magazine": ["magazine", "zine", "fanzine", "periodical"],
 }
 
 # Folder names that pick a category only when they are the *whole* folder name
@@ -158,6 +161,11 @@ CATEGORY_EXACT_NAMES = {
     "game master": "core",
     "sheet": "character-sheet",
     "source": "supplement",
+    # "Player Journals" and "Open Issues" are not periodicals, so these name the
+    # magazine shelf only on their own.
+    "journal": "magazine",
+    "issue": "magazine",
+    "back issue": "magazine",
 }
 
 # Normalized folder names (after slugify) that are treated as the system-agnostic

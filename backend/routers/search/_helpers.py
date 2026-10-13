@@ -118,6 +118,7 @@ _CATEGORY_PRIORITY = {
     "map": 4,
     "handout": 5,
     "homebrew": 6,
+    "magazine": 7,
 }
 
 

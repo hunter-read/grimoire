@@ -45,6 +45,7 @@ SCAFFOLD_CATEGORY_FOLDERS = (
     "Handouts",
     "Homebrew",
     "Starter Sets",
+    "Magazines",
 )
 
 

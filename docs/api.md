@@ -585,7 +585,7 @@ players and guests are exactly who restrictions exclude.
 visibility and cannot be made `public` or `private`; restricting a book demotes
 its existing shares.
 
-**Categories:** `core`, `supplement`, `adventure`, `character-sheet`, `map`, `handout`, `homebrew`, `starter-set`
+**Categories:** `core`, `supplement`, `adventure`, `character-sheet`, `map`, `handout`, `homebrew`, `starter-set`, `magazine`
 
 #### Metadata lookup from add-ons (issue #203)
 
@@ -2941,7 +2941,7 @@ for a corrected file: a better scan, a re-OCRed text layer, an errata printing.
 
 **`POST /api/files/folder/scaffold`** - `{path}`. Creates the standard category
 folders (`Core`, `Supplements`, `Adventures`, `Character Sheets`, `Maps`,
-`Handouts`, `Homebrew`, `Starter Sets`) inside a system folder. Each name is
+`Handouts`, `Homebrew`, `Starter Sets`, `Magazines`) inside a system folder. Each name is
 chosen to infer back to its canonical category slug, so the folders classify
 correctly on the next scan. Only valid for a folder that hosts categories - the
 `category_host` folders above: under `books/`, and not a container, since a

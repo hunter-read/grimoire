@@ -36,8 +36,9 @@ Folder name matching is **case-insensitive**, and hyphens, underscores, and spac
 | Character Sheets | `character-sheets`, `character sheets`, `charsheets`, `sheets` | Fillable sheets, alternative layouts |
 | Handouts | `handouts`, `reference`, `screen` | Reference cards, DM screens, quick-ref sheets |
 | Homebrew | `homebrew`, `custom`, `house-rules`, `unofficial` | Community/custom content, house rules |
+| Magazines & Zines | `magazines`, `zines`, `fanzines`, `periodicals`, `journals`, `issues`, `back issues` | Periodicals like *Dragon*, *White Dwarf* or *Knock!*, and system zines |
 
-> `players`, `gms`, `game masters`, `sheets` and `sources` count only when they are the whole folder name. In a longer name the more specific word decides: `Player Handouts` and `GM Screens` are handouts, `Cheat Sheets` stays with handouts, and `Source Adventures` are adventures.
+> `players`, `gms`, `game masters`, `sheets`, `sources`, `journals`, `issues` and `back issues` count only when they are the whole folder name. In a longer name the more specific word decides: `Player Handouts` and `GM Screens` are handouts, `Cheat Sheets` stays with handouts, `Source Adventures` are adventures, and `Zine Maps` are maps.
 >
 > Files placed directly in a system folder (not in a subfolder) default to the **core** category.
 >
