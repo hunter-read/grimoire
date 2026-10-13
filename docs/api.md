@@ -942,9 +942,9 @@ Audio tracks behave like maps/tokens, with embedded metadata. Supported formats:
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/audio` | GET | any | Paginated audio list (collection key `audio`). Query: `limit`, `offset`, and the [browse parameters](#browsing-the-media-collections) (`sort` also takes `title` and `duration`). Items include `duration`, `title`, `artist`, `album`, `has_artwork`, `is_archive` |
+| `/api/audio` | GET | any | Paginated audio list (collection key `audio`). Query: `limit`, `offset`, and the [browse parameters](#browsing-the-media-collections) (`sort` also takes `track`, `title` and `duration`). Items include `duration`, `title`, `artist`, `album`, `track_number`, `disc_number`, `has_artwork`, `is_archive`. `track_number`/`disc_number` come from the file's track/disc tags and are `null` when it has none |
 | `/api/audio/groups` | GET | any (not guest) | Folders holding matching tracks, with counts. Query: the browse filters |
-| `/api/audio/:id` | GET | any | Track detail incl. `folder_path` and `folder_tags` |
+| `/api/audio/:id` | GET | any | Track detail incl. `track_number`, `disc_number`, `folder_path` and `folder_tags` |
 | `/api/audio/:id` | PATCH | gm/admin | Update `description`, `tags` |
 | `/api/audio/:id/chapters` | GET | any | Chapter markers embedded in the file, read on request: `{chapters: [{start, title}]}` ordered by `start` (seconds). Reads `.m4b`/`.m4a` QuickTime chapter tracks and Nero `chpl` lists, and MP3 ID3 `CHAP` frames. `title` is `""` when the file names none. Empty for a track without chapters, an archive, or a missing file |
 | `/api/audio/:id/file` | GET | any | Stream/download the audio file (supports HTTP range requests), or the archive (served with the archive's MIME type) |
@@ -1012,7 +1012,7 @@ listing that folder returns:
 | `favorites` | `true` for the caller's favourites only |
 | `added_since` | Only items added at or after this ISO time; undated items never match |
 | `folder` | Only items directly in this folder, collection-relative (`""` for the collection root). Omit for the whole collection |
-| `sort` | `path` (folder order, the default), `name` (natural order: "Map 2" before "Map 10"), `size`, `added_at` (undated items last either way); audio also `title` and `duration`. Any other value is a 422 |
+| `sort` | `path` (folder order, the default), `name` (natural order: "Map 2" before "Map 10"), `size`, `added_at` (undated items last either way); audio also `title`, `duration` and `track` (album order: folder, then disc and track number, then name - untagged files first, in name order; on other collections the same as `path`). Any other value is a 422 |
 | `order` | `asc` or `desc` |
 
 `GET /api/<collection>/groups` returns `{total, groups: [{path, count}]}`: every

@@ -1,4 +1,5 @@
 import { LuMap, LuUser, LuMusic, LuBox } from 'react-icons/lu'
+import { trackDetails, trackLabel } from '../audio/trackLabel'
 
 /**
  * Per-entity configuration for the shared media gallery components (MediaCard,
@@ -155,7 +156,12 @@ export const MEDIA_CONFIGS = {
     downloadType: 'audio',
     archiveType: 'audio_folder',
     sessionKey: 'grimoire:audio:collapsed',
-    sortOptions: ['title', 'name', 'duration', 'size'],
+    // Album order - folder, disc, track, then name - is the default (issue #494).
+    sortOptions: ['track', 'title', 'name', 'duration', 'size'],
+    defaultSort: 'track',
+    // Rows read the tags: `03 · Title`, then `artist · album · duration`.
+    itemLabel: trackLabel,
+    itemDetails: trackDetails,
     gridMin: { comfortable: '200px', compact: '140px' },
     gridGap: 16,
     thumb: { kind: 'square' },

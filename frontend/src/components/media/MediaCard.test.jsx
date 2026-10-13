@@ -56,7 +56,34 @@ describe('MediaCard — audio', () => {
   it('renders an audio player in grid mode', () => {
     render(<MediaCard config={MEDIA_CONFIGS.audio} item={audioItem()} />)
     expect(screen.getByTestId('audio-player')).toHaveTextContent('a1')
-    expect(screen.getByText('tavern.mp3')).toBeInTheDocument()
+    expect(screen.getByText('Tavern Night')).toBeInTheDocument()
+  })
+
+  it('labels a list row by track number and title, with tag details beneath', () => {
+    // Issue #494: the tags, not the filename, name the row.
+    render(
+      <MediaCard
+        config={MEDIA_CONFIGS.audio}
+        item={audioItem({
+          title: 'Die Sümpfe Harodiens',
+          track_number: 3,
+          artist: 'Sphärenklang',
+          album: 'Thorwal',
+          duration: 125,
+        })}
+        list
+      />
+    )
+    expect(screen.getByText('03 · Die Sümpfe Harodiens')).toBeInTheDocument()
+    expect(screen.getByText('Sphärenklang · Thorwal · 2:05')).toBeInTheDocument()
+    expect(screen.queryByText('tavern.mp3')).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '03 · Die Sümpfe Harodiens' })).toBeInTheDocument()
+  })
+
+  it('falls back to the filename and size for an untagged track', () => {
+    render(<MediaCard config={MEDIA_CONFIGS.audio} item={audioItem({ title: '' })} list />)
+    expect(screen.getByText('tavern')).toBeInTheDocument()
+    expect(screen.getByText('1000 B')).toBeInTheDocument()
   })
 
   it('renders an audio player with Play Next in list mode', () => {
@@ -88,10 +115,10 @@ describe('MediaCard — audio', () => {
   })
 
   it('renders a real link to the audio detail page', () => {
-    // Non-bulk: CardLink renders an <a> overlay with aria-label = item.filename.
-    // Middle/ctrl-click open a new tab natively (no JS needed).
+    // Non-bulk: CardLink renders an <a> overlay labelled like the card - the
+    // track's title here. Middle/ctrl-click open a new tab natively (no JS needed).
     render(<MediaCard config={MEDIA_CONFIGS.audio} item={audioItem()} />)
-    const link = screen.getByRole('link', { name: 'tavern.mp3' })
+    const link = screen.getByRole('link', { name: 'Tavern Night' })
     expect(link).toHaveAttribute('href', '/audio/a1')
   })
 })
@@ -277,13 +304,13 @@ describe('MediaCard — map (no audio controls)', () => {
   // natively. Tests verify the correct href; no window.open assertions needed.
   describe('real link card (issue #313)', () => {
     it.each([
-      ['map', 'map', mapItem, '/maps/m1'],
-      ['audio', 'audio', audioItem, '/audio/a1'],
+      ['map', 'map', mapItem, 'cave.png', '/maps/m1'],
+      ['audio', 'audio', audioItem, 'Tavern Night', '/audio/a1'],
     ])(
       'non-bulk %s card has the right href for native new-tab support',
-      (_label, key, makeItem, href) => {
+      (_label, key, makeItem, name, href) => {
         render(<MediaCard config={MEDIA_CONFIGS[key]} item={makeItem()} />)
-        const link = screen.getByRole('link', { name: makeItem().filename })
+        const link = screen.getByRole('link', { name })
         expect(link).toHaveAttribute('href', href)
       }
     )
@@ -314,7 +341,7 @@ describe('MediaCard — now playing (audio list rows)', () => {
 
   // Outside bulk mode the row is a plain container holding a stretched <a>, so
   // the now-playing state sits on the link's parent rather than on a button.
-  const row = () => screen.getByRole('link', { name: 'tavern.mp3' }).parentElement
+  const row = () => screen.getByRole('link', { name: 'Tavern Night' }).parentElement
 
   it('leaves an unrelated row unmarked', () => {
     currentId = 'other'
@@ -361,7 +388,9 @@ describe('MediaCard — now playing (audio list rows)', () => {
     currentId = 'a1'
     playingId = 'a1'
     renderRow({ is_archive: true })
-    expect(row()).not.toHaveAttribute('aria-current')
+    // An archive is labelled by its whole filename rather than a tag title.
+    const archiveRow = screen.getByRole('link', { name: 'tavern.mp3' }).parentElement
+    expect(archiveRow).not.toHaveAttribute('aria-current')
   })
 })
 

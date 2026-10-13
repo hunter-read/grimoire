@@ -24,15 +24,34 @@ logger = logging.getLogger("grimoire.indexer")
 # ---------------------------------------------------------------------------
 
 
+# Easy-mode tag names and the ID3 frames that hold them.
+_ID3_FRAMES = {
+    "title": "TIT2",
+    "artist": "TPE1",
+    "album": "TALB",
+    "tracknumber": "TRCK",
+    "discnumber": "TPOS",
+}
+
+
 def _read_audio_metadata(filepath: str) -> dict:
     """Read duration and embedded tags from an audio file (best-effort).
 
     Returns a dict with ``duration`` (float seconds), ``title``, ``artist``,
-    ``album`` (strings, blank when absent) and ``embedded_art`` (bool — whether
-    the file carries embedded cover art).  Never raises; on any failure it
-    returns zeroed/empty values so scanning continues.
+    ``album`` (strings, blank when absent), ``track_number`` / ``disc_number``
+    (ints, 0 when absent) and ``embedded_art`` (bool — whether the file carries
+    embedded cover art).  Never raises; on any failure it returns zeroed/empty
+    values so scanning continues.
     """
-    info = {"duration": 0.0, "title": "", "artist": "", "album": "", "embedded_art": False}
+    info = {
+        "duration": 0.0,
+        "title": "",
+        "artist": "",
+        "album": "",
+        "track_number": 0,
+        "disc_number": 0,
+        "embedded_art": False,
+    }
     try:
         from mutagen import File as MutagenFile  # local import keeps startup light
 
@@ -42,8 +61,17 @@ def _read_audio_metadata(filepath: str) -> dict:
                 length = getattr(easy.info, "length", 0) or 0
                 info["duration"] = round(float(length), 3)
 
+            # Easy mode wraps ID3 only for MP3: WAV and AIFF hand back the raw
+            # ID3 tags, keyed by frame, so read those by frame id instead.
+            raw = getattr(easy, "tags", None)
+            id3 = raw if hasattr(raw, "getall") else None
+
             def _first(key: str) -> str:
-                val = easy.get(key) if hasattr(easy, "get") else None
+                if id3 is not None:
+                    frames = id3.getall(_ID3_FRAMES[key])
+                    val = frames[0].text if frames else None
+                else:
+                    val = easy.get(key) if hasattr(easy, "get") else None
                 if isinstance(val, (list, tuple)) and val:
                     return str(val[0]).strip()
                 return str(val).strip() if val else ""
@@ -51,11 +79,24 @@ def _read_audio_metadata(filepath: str) -> dict:
             info["title"] = _first("title")
             info["artist"] = _first("artist")
             info["album"] = _first("album")
+            info["track_number"] = _leading_number(_first("tracknumber"))
+            info["disc_number"] = _leading_number(_first("discnumber"))
 
         info["embedded_art"] = _has_embedded_art(filepath)
     except Exception as exc:
         logger.debug(f"Could not read audio metadata for '{filepath}': {exc}")
     return info
+
+
+def _leading_number(value: str) -> int:
+    """The position in a track/disc tag: ``"3/12"`` -> 3, ``"03"`` -> 3.
+
+    ID3 ``TRCK``/``TPOS`` and the Vorbis/MP4 equivalents store "n" or "n/total";
+    only the position matters for ordering. Anything unreadable is 0, the same
+    as no tag at all.
+    """
+    match = re.match(r"\s*(\d+)", value or "")
+    return int(match.group(1)) if match else 0
 
 
 def _has_embedded_art(filepath: str) -> bool:

@@ -2739,6 +2739,7 @@
     "searchPlaceholder": "Search by title…",
     "sortSize": "Size",
     "sortDuration": "Duration",
+    "sortTrack": "Track",
     "groupByFolder": "Group",
     "filterParentSystem": "Parent System",
     "allParentSystems": "All parent systems",

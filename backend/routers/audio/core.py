@@ -49,6 +49,9 @@ def _serialize(a: Audio, tags: list[str] | None = None) -> dict:
         "title": a.title or "",
         "artist": a.artist or "",
         "album": a.album or "",
+        # Null both for "no tag" (stored as 0) and "not read yet" (NULL).
+        "track_number": a.track_number or None,
+        "disc_number": a.disc_number or None,
         "has_artwork": bool(a.has_artwork),
         # True only for a cover set through the UI (issue #286) — lets the editor
         # offer "remove cover" without mistaking folder/embedded art for one.

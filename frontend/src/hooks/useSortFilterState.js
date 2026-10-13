@@ -34,11 +34,12 @@ export const DEFAULT_SORT_FILTER = { sort: 'name', order: 'asc', filters: {} }
  *
  * @param {string} key    sessionStorage key, unique per scope
  * @param {object} saved  the useSavedFilters() result for this scope
+ * @param {object} [initial]  the built-in state before any default preset
  * @returns [sortFilter, setSortFilter]
  */
-export default function useSortFilterState(key, saved) {
+export default function useSortFilterState(key, saved, initial = DEFAULT_SORT_FILTER) {
   const restoreView = useRestoredView()
-  const [sortFilter, setSortFilter] = useSessionState(key, DEFAULT_SORT_FILTER, {
+  const [sortFilter, setSortFilter] = useSessionState(key, initial, {
     restore: restoreView,
   })
 

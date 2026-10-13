@@ -2739,6 +2739,7 @@
     "searchPlaceholder": "Search by title…",
     "sortSize": "Size",
     "sortDuration": "Duration",
+    "sortTrack": "Faixa",
     "groupByFolder": "Agrupar",
     "filterParentSystem": "Sistema principal",
     "allParentSystems": "All parent systems",

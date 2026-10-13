@@ -32,6 +32,10 @@ export default function MediaCard({ config, item, bulkMode, selected, onToggle, 
   const [hovered, setHovered] = useState(false)
   const { isCurrent, isPlayingId } = useAudioPlayer()
   const Icon = config.icon
+  // What the card is called and the line beneath it. Most collections show the
+  // filename and size; audio reads its tags instead (issue #494).
+  const label = config.itemLabel ? config.itemLabel(item) : item.filename
+  const details = config.itemDetails ? config.itemDetails(item) : formatSize(item.file_size)
 
   // Outside bulk mode the card is a real link (a CardLink overlay), so middle
   // click and ctrl/cmd-click open the detail page in a new tab (issue #313).
@@ -49,11 +53,11 @@ export default function MediaCard({ config, item, bulkMode, selected, onToggle, 
         },
         role: 'button',
         tabIndex: 0,
-        'aria-label': item.filename,
+        'aria-label': label,
         'aria-pressed': selected,
       }
     : {}
-  const cardLink = !bulkMode && <CardLink to={config.detailPath(item.id)} label={item.filename} />
+  const cardLink = !bulkMode && <CardLink to={config.detailPath(item.id)} label={label} />
 
   // Badges that apply to this item, in config order. `footer` badges render in
   // the card footer next to the size (and in the list-mode metadata row) rather
@@ -165,7 +169,7 @@ export default function MediaCard({ config, item, bulkMode, selected, onToggle, 
             }}
           >
             <RecentlyAddedBadge addedAt={item.added_at} />
-            {item.filename}
+            {label}
           </div>
           <div
             style={{
@@ -177,7 +181,16 @@ export default function MediaCard({ config, item, bulkMode, selected, onToggle, 
               alignItems: 'center',
             }}
           >
-            <span>{formatSize(item.file_size)}</span>
+            <span
+              style={{
+                minWidth: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {details}
+            </span>
             {isActiveTrack && (
               <span style={{ color: 'var(--gold)' }}>
                 {t(isPlayingTrack ? 'audio.nowPlaying' : 'audio.nowPlayingPaused')}
@@ -363,7 +376,7 @@ export default function MediaCard({ config, item, bulkMode, selected, onToggle, 
           }}
         >
           <RecentlyAddedBadge addedAt={item.added_at} />
-          {item.filename}
+          {label}
         </div>
         <div
           style={{
@@ -379,7 +392,17 @@ export default function MediaCard({ config, item, bulkMode, selected, onToggle, 
               line up down a column of cards instead of starting at a ragged
               offset that depends on how long each file size renders. Icons are
               fixed-width, so the row cannot overflow the way text chips could. */}
-          <span style={{ marginRight: 'auto' }}>{formatSize(item.file_size)}</span>
+          <span
+            style={{
+              marginRight: 'auto',
+              minWidth: 0,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {details}
+          </span>
           {footerBadges.map((b) => (
             <VariantBadge key={b.flag} item={item} />
           ))}

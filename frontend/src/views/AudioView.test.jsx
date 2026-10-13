@@ -138,10 +138,10 @@ describe('AudioView', () => {
     )
   }
 
-  it('renders track filenames after loading', async () => {
+  it('renders untitled tracks by filename, without the extension', async () => {
     setupAudio([makeTrack({ filename: 'tavern.mp3', relative_path: 'audio/tavern.mp3' })])
     renderView()
-    await waitFor(() => expect(screen.getByText('tavern.mp3')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('tavern')).toBeInTheDocument())
   })
 
   it('shows a spinner while loading', () => {
@@ -153,7 +153,7 @@ describe('AudioView', () => {
   it('renders play controls (card + folder) for tracks', async () => {
     setupAudio([makeTrack({ filename: 'battle.mp3', relative_path: 'audio/battle.mp3' })])
     renderView()
-    await waitFor(() => expect(screen.getByText('battle.mp3')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('battle')).toBeInTheDocument())
     // Both the per-track card play button and the folder "Play" button render.
     expect(screen.getAllByRole('button', { name: /play/i }).length).toBeGreaterThanOrEqual(2)
   })
@@ -165,11 +165,11 @@ describe('AudioView', () => {
       makeTrack({ id: 'a2', filename: 'door.mp3', relative_path: 'audio/door.mp3' }),
     ])
     renderViewWithSoundboard()
-    await waitFor(() => expect(screen.getByText('thunder.mp3')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('thunder')).toBeInTheDocument())
 
     await userEvent.click(screen.getByRole('button', { name: /multi-select|select/i }))
-    await userEvent.click(screen.getByText('thunder.mp3'))
-    await userEvent.click(screen.getByText('door.mp3'))
+    await userEvent.click(screen.getByText('thunder'))
+    await userEvent.click(screen.getByText('door'))
 
     await userEvent.click(screen.getByRole('button', { name: /add to soundboard/i }))
 
@@ -190,11 +190,11 @@ describe('AudioView', () => {
     mockIsFavorite.mockImplementation((type, id) => type === 'audio' && id === 'fav')
 
     renderView()
-    await waitFor(() => expect(screen.getByText('fav.mp3')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('fav')).toBeInTheDocument())
 
     await toggleFavoritesFilter()
 
-    expect(screen.getByText('fav.mp3')).toBeInTheDocument()
-    expect(screen.queryByText('other.mp3')).not.toBeInTheDocument()
+    expect(screen.getByText('fav')).toBeInTheDocument()
+    expect(screen.queryByText('other')).not.toBeInTheDocument()
   })
 })

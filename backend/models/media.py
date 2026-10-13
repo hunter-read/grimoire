@@ -163,6 +163,11 @@ class Audio(Base):
     title = Column(String(500), default="")
     artist = Column(String(500), default="")
     album = Column(String(500), default="")
+    # Position on the album from the track/disc tags (issue #494): 0 when the
+    # file has no such tag, NULL when the row predates reading them - the next
+    # scan reads those once, so NULL never means "untagged".
+    track_number = Column(Integer, nullable=True)
+    disc_number = Column(Integer, nullable=True)
     # True when folder cover art or embedded album art is available.
     has_artwork = Column(Boolean, default=False)
     # Bare filename of a cover set through the UI, under DATA_PATH/audio_covers/.
@@ -188,7 +193,21 @@ class Audio(Base):
     sort_name = Column(String(600), nullable=True)
     folder_path = Column(String(1000), nullable=True)
 
-    __table_args__ = _browse_indexes("audio")
+    __table_args__ = (
+        *_browse_indexes("audio"),
+        # The "track" sort: one folder's tracks in album order (issue #494).
+        # Ends like ix_audio_browse_folder so the same tie-breaks read off it.
+        Index(
+            "ix_audio_browse_track",
+            "variant_parent_id",
+            "folder_path",
+            "disc_number",
+            "track_number",
+            "sort_name",
+            "filename",
+            "id",
+        ),
+    )
 
 
 class AudioFolder(Base):
