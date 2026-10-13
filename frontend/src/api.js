@@ -65,9 +65,14 @@ async function authedFetch(url, build) {
 // naming rule in issue #430). Join the messages instead, dropping Pydantic's
 // "Value error, " prefix, which means nothing to someone who did not write the
 // validator.
+//
+// A detail may also be an object carrying a `message` beside data the caller
+// acts on (`{message, needs_input}` from a character import); the message is
+// what the user reads.
 function errorDetail(body) {
   const detail = body?.detail
   if (typeof detail === 'string') return detail
+  if (typeof detail?.message === 'string') return detail.message
   if (!Array.isArray(detail)) return null
   const messages = detail
     .map((e) => String(e?.msg || '').replace(/^Value error,\s*/, ''))
@@ -697,6 +702,20 @@ export const characters = {
   export: (id) => api.get(`/characters/${id}/export`),
   import: (payload, importEntries = true) =>
     api.post('/characters/import', { payload, import_entries: importEntries }),
+  // Other tools' characters, through the character-importer add-ons an admin
+  // has installed. `body` is `{text, filename}` for a file or `{url}` for a
+  // link, plus an optional `importer_id` to settle which importer reads it.
+  listImporters: () => api.get('/characters/importers'),
+  importExternal: (body) => api.post('/characters/import/external', body),
+  // A file-only YAML importer into your own account, or removing it again.
+  installImporter: (id) => api.post(`/characters/importers/${encodeURIComponent(id)}/install`),
+  removeImporter: (id) => api.delete(`/characters/importers/${encodeURIComponent(id)}`),
+  // An admin installing an importer for everyone: the ordinary add-on install.
+  installImporterForEveryone: (id, indexUrl) =>
+    api.post(`/addons/${encodeURIComponent(id)}/install`, {
+      approve_script: false,
+      ...(indexUrl ? { index_url: indexUrl } : {}),
+    }),
   // `v` is the character's `portrait_version`, which changes with the image:
   // portraits are cached for minutes, so the same URL would keep showing the
   // old art after a replacement.

@@ -1,0 +1,239 @@
+{
+ "characters": [
+  {
+   "_id": "Hand1Built2Wizard",
+   "name": "Mirelle",
+   "race": "Human",
+   "alignment": "Neutral",
+   "gender": "",
+   "description": "Ink-stained fingers.",
+   "picture": "",
+   "backstory": "Sage\nKnew too much.",
+   "personality": "Curious.",
+   "ideals": "",
+   "bonds": "",
+   "flaws": "",
+   "hitPoints": {
+    "adjustment": -5
+   },
+   "tempHP": {
+    "adjustment": 2
+   },
+   "deathSave": {
+    "pass": 0,
+    "fail": 1
+   }
+  }
+ ],
+ "classes": [
+  {
+   "name": "Wizard",
+   "level": 3
+  }
+ ],
+ "effects": [
+  {
+   "stat": "strength",
+   "operation": "base",
+   "enabled": true,
+   "value": 8
+  },
+  {
+   "stat": "dexterity",
+   "operation": "base",
+   "enabled": true,
+   "value": 14
+  },
+  {
+   "stat": "constitution",
+   "operation": "base",
+   "enabled": true,
+   "value": 12
+  },
+  {
+   "stat": "intelligence",
+   "operation": "base",
+   "enabled": true,
+   "value": 15
+  },
+  {
+   "stat": "intelligence",
+   "operation": "add",
+   "enabled": true,
+   "value": 1
+  },
+  {
+   "stat": "wisdom",
+   "operation": "base",
+   "enabled": true,
+   "value": 13
+  },
+  {
+   "stat": "charisma",
+   "operation": "base",
+   "enabled": true,
+   "value": 10
+  },
+  {
+   "stat": "hitPoints",
+   "operation": "base",
+   "enabled": true,
+   "value": 6
+  },
+  {
+   "stat": "hitPoints",
+   "operation": "add",
+   "enabled": true,
+   "calculation": "(level - 1) * 4"
+  },
+  {
+   "stat": "hitPoints",
+   "operation": "add",
+   "enabled": true,
+   "calculation": "level * constitutionMod"
+  },
+  {
+   "stat": "armor",
+   "operation": "base",
+   "enabled": true,
+   "calculation": "13 + dexterityMod"
+  },
+  {
+   "stat": "speed",
+   "operation": "base",
+   "enabled": true,
+   "value": 30
+  },
+  {
+   "stat": "level1SpellSlots",
+   "operation": "base",
+   "enabled": true,
+   "value": 4
+  },
+  {
+   "stat": "level2SpellSlots",
+   "operation": "base",
+   "enabled": true,
+   "value": 2
+  },
+  {
+   "stat": "charisma",
+   "operation": "add",
+   "enabled": true,
+   "calculation": "__import__('os').system('true')"
+  },
+  {
+   "stat": "wisdom",
+   "operation": "add",
+   "value": 5,
+   "enabled": false
+  }
+ ],
+ "proficiencies": [
+  {
+   "name": "arcana",
+   "type": "skill",
+   "value": 2
+  },
+  {
+   "name": "history",
+   "type": "skill",
+   "value": 1
+  },
+  {
+   "name": "stealth",
+   "type": "skill",
+   "value": 0.5
+  },
+  {
+   "name": "intelligenceSave",
+   "type": "save",
+   "value": 1
+  },
+  {
+   "name": "Daggers, Quarterstaffs",
+   "type": "weapon",
+   "value": 1
+  },
+  {
+   "name": "Common",
+   "type": "language",
+   "value": 1
+  },
+  {
+   "name": "Draconic",
+   "type": "language",
+   "value": 1
+  }
+ ],
+ "spells": [
+  {
+   "name": "Magic Missile",
+   "prepared": "prepared"
+  },
+  {
+   "name": "Shield",
+   "prepared": "unprepared"
+  },
+  {
+   "name": "Forgotten Spell",
+   "prepared": "prepared",
+   "removed": true
+  }
+ ],
+ "spellLists": [
+  {
+   "name": "Wizard",
+   "attackBonus": "intelligenceMod + proficiencyBonus"
+  }
+ ],
+ "items": [
+  {
+   "name": "Gold piece",
+   "quantity": 15
+  },
+  {
+   "name": "Spellbook",
+   "quantity": 1,
+   "enabled": true,
+   "description": "Her life's work."
+  },
+  {
+   "name": "Wand of Magic Missiles",
+   "quantity": 1,
+   "attuned": true
+  }
+ ],
+ "features": [
+  {
+   "name": "Base Ability Scores",
+   "enabled": true
+  },
+  {
+   "name": "Arcane Recovery",
+   "description": "Recover slots on a short rest.",
+   "enabled": true
+  },
+  {
+   "name": "Feat: Alert",
+   "description": "Always ready.",
+   "enabled": true
+  }
+ ],
+ "attacks": [
+  {
+   "name": "Dagger",
+   "attackBonus": "dexterityMod + proficiencyBonus",
+   "damage": "1d4 + {dexterityMod}",
+   "damageType": "piercing",
+   "details": "Finesse",
+   "enabled": true
+  }
+ ],
+ "notes": [
+  {
+   "name": "Session 1",
+   "description": "Met the king."
+  }
+ ]
+}

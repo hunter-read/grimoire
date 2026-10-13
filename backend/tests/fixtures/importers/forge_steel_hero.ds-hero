@@ -1,0 +1,460 @@
+{
+ "id": "fixture-hero",
+ "name": "Kestrel",
+ "picture": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgAAACAAFUok9dAAAAAElFTkSuQmCC",
+ "ancestry": {
+  "id": "ancestry-human",
+  "name": "Human",
+  "description": "Humans of Orden.",
+  "features": [
+   {
+    "id": "h1",
+    "name": "Detect the Supernatural",
+    "description": "You sense the supernatural.",
+    "type": "Text",
+    "data": null
+   },
+   {
+    "id": "h2",
+    "name": "Purchased Traits",
+    "description": "",
+    "type": "Choice",
+    "data": {
+     "options": [
+      {
+       "feature": {
+        "id": "h2a",
+        "name": "Staying Power",
+        "description": "More recoveries.",
+        "type": "Text",
+        "data": null
+       },
+       "value": 2
+      },
+      {
+       "feature": {
+        "id": "h2b",
+        "name": "Perseverance",
+        "description": "Edge on endurance.",
+        "type": "Text",
+        "data": null
+       },
+       "value": 1
+      }
+     ],
+     "count": 3,
+     "selected": [
+      {
+       "id": "h2a",
+       "name": "Staying Power",
+       "description": "More recoveries.",
+       "type": "Text",
+       "data": null
+      }
+     ]
+    }
+   }
+  ],
+  "culture": {
+   "id": "c-human",
+   "name": "Human",
+   "language": {
+    "type": "Language Choice",
+    "data": {
+     "selected": [
+      "Vaslorian"
+     ]
+    }
+   }
+  }
+ },
+ "culture": {
+  "id": "c1",
+  "name": "Artisan Guild",
+  "description": "Urban, bureaucratic, creative.",
+  "type": "Ancestral",
+  "language": {
+   "id": "l",
+   "name": "Language",
+   "type": "Language Choice",
+   "data": {
+    "selected": [
+     "Caelian"
+    ]
+   }
+  },
+  "environment": {
+   "id": "e",
+   "name": "Urban",
+   "type": "Skill Choice",
+   "data": {
+    "selected": [
+     "Gamble"
+    ]
+   }
+  },
+  "organization": {
+   "id": "o",
+   "name": "Bureaucratic",
+   "type": "Skill Choice",
+   "data": {
+    "selected": [
+     "Interrogate"
+    ]
+   }
+  },
+  "upbringing": {
+   "id": "u",
+   "name": "Creative",
+   "type": "Skill Choice",
+   "data": {
+    "selected": [
+     "Forgery"
+    ]
+   }
+  }
+ },
+ "class": {
+  "id": "class-fury",
+  "name": "Fury",
+  "level": 2,
+  "primaryCharacteristics": [
+   "Might",
+   "Agility"
+  ],
+  "characteristics": [
+   {
+    "characteristic": "Might",
+    "value": 2
+   },
+   {
+    "characteristic": "Agility",
+    "value": 2
+   },
+   {
+    "characteristic": "Reason",
+    "value": -1
+   },
+   {
+    "characteristic": "Intuition",
+    "value": 0
+   },
+   {
+    "characteristic": "Presence",
+    "value": 1
+   }
+  ],
+  "featuresByLevel": [
+   {
+    "level": 1,
+    "features": [
+     {
+      "id": "f1",
+      "name": "Stamina",
+      "description": "",
+      "type": "Bonus",
+      "data": {
+       "field": "Stamina",
+       "value": 21
+      }
+     },
+     {
+      "id": "f2",
+      "name": "Ferocity",
+      "description": "Your heroic resource.",
+      "type": "Heroic Resource",
+      "data": {}
+     },
+     {
+      "id": "f3",
+      "name": "Skills",
+      "description": "",
+      "type": "Skill Choice",
+      "data": {
+       "selected": [
+        "Climb",
+        "Lift"
+       ]
+      }
+     },
+     {
+      "id": "f4",
+      "name": "Kit",
+      "description": "",
+      "type": "Kit",
+      "data": {
+       "count": 2,
+       "selected": [
+        {
+         "id": "k1",
+         "name": "Panther",
+         "description": "A kit.",
+         "features": [
+          {
+           "id": "k1a",
+           "name": "Devastating Rush",
+           "description": "",
+           "type": "Ability",
+           "data": {
+            "ability": {
+             "id": "kit-panther-rush",
+             "name": "Devastating Rush",
+             "description": "Charge."
+            }
+           }
+          }
+         ]
+        },
+        {
+         "id": "k2",
+         "name": "Mountain",
+         "description": "A kit.",
+         "features": [
+          {
+           "id": "k2a",
+           "name": "Pain for Pain",
+           "description": "",
+           "type": "Ability",
+           "data": {
+            "ability": {
+             "id": "kit-mountain-pain",
+             "name": "Pain for Pain",
+             "description": "Hit back."
+            }
+           }
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "id": "f5",
+      "name": "Aspect Ward",
+      "description": "",
+      "type": "Choice",
+      "data": {
+       "selected": [
+        {
+         "id": "f5a",
+         "name": "Primordial Strength",
+         "description": "Hit harder.",
+         "type": "Text"
+        }
+       ]
+      }
+     },
+     {
+      "id": "f6",
+      "name": "Back!",
+      "description": "",
+      "type": "Ability",
+      "data": {
+       "ability": {
+        "id": "back",
+        "name": "Back!",
+        "description": "Claws."
+       }
+      }
+     },
+     {
+      "id": "f7",
+      "name": "Signature Ability",
+      "description": "",
+      "type": "Class Ability",
+      "data": {
+       "selectedIDs": [
+        "fury-ab-1"
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "level": 2,
+    "features": [
+     {
+      "id": "f8",
+      "name": "Perk",
+      "description": "",
+      "type": "Perk",
+      "data": {
+       "selected": [
+        {
+         "id": "p1",
+         "name": "Brawny",
+         "description": "Strong."
+        }
+       ]
+      }
+     }
+    ]
+   },
+   {
+    "level": 3,
+    "features": [
+     {
+      "id": "f9",
+      "name": "Later Skills",
+      "description": "",
+      "type": "Skill Choice",
+      "data": {
+       "selected": [
+        "Hide"
+       ]
+      }
+     }
+    ]
+   }
+  ],
+  "abilities": [
+   {
+    "id": "fury-ab-1",
+    "name": "Brutal Slam",
+    "description": "Slam."
+   },
+   {
+    "id": "fury-ab-2",
+    "name": "Hit and Run",
+    "description": "Run."
+   }
+  ],
+  "subclasses": [
+   {
+    "id": "s1",
+    "name": "Berserker",
+    "selected": false,
+    "featuresByLevel": [],
+    "abilities": []
+   },
+   {
+    "id": "s2",
+    "name": "Reaver",
+    "selected": true,
+    "abilities": [],
+    "featuresByLevel": [
+     {
+      "level": 1,
+      "features": [
+       {
+        "id": "s2f",
+        "name": "Primordial Cunning",
+        "description": "Cunning.",
+        "type": "Text"
+       }
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "career": {
+  "id": "car",
+  "name": "Soldier",
+  "description": "You fought.",
+  "features": [
+   {
+    "id": "cf1",
+    "name": "Language",
+    "type": "Language Choice",
+    "data": {
+     "selected": [
+      "Khoursirian"
+     ]
+    }
+   }
+  ],
+  "incitingIncidents": {
+   "options": [],
+   "selected": {
+    "id": "ii",
+    "name": "Betrayed",
+    "description": "Your unit sold you out."
+   }
+  }
+ },
+ "complication": null,
+ "features": [
+  {
+   "id": "d",
+   "name": "Default Language",
+   "type": "Language Choice",
+   "data": {
+    "selected": [
+     "Caelian"
+    ]
+   }
+  }
+ ],
+ "state": {
+  "staminaDamage": 3,
+  "staminaTemp": 2,
+  "recoveriesUsed": 1,
+  "surges": 1,
+  "victories": 2,
+  "xp": 9,
+  "renown": 1,
+  "wealth": 2,
+  "conditions": [
+   {
+    "id": "c1",
+    "type": "Slowed",
+    "text": "",
+    "ends": "End of turn"
+   },
+   {
+    "id": "c2",
+    "type": "Weakened",
+    "text": "",
+    "ends": "Save ends"
+   },
+   {
+    "id": "c3",
+    "type": "Taunted",
+    "text": "",
+    "ends": "Until removed"
+   },
+   {
+    "id": "c4",
+    "type": "Custom Condition",
+    "text": "Cursed by the lich",
+    "ends": "Save ends"
+   }
+  ],
+  "inventory": [
+   {
+    "id": "i1",
+    "name": "Bastion Belt",
+    "type": "Trinket (2nd echelon)",
+    "count": 1
+   },
+   {
+    "id": "i2",
+    "name": "Blade of Quintessence",
+    "type": "Leveled Weapon",
+    "count": 1
+   },
+   {
+    "id": "i3",
+    "name": "Healing Potion",
+    "type": "Consumable (1st echelon)",
+    "count": 3
+   }
+  ],
+  "projects": [
+   {
+    "name": "Forge a blade",
+    "goal": 90
+   }
+  ],
+  "titles": [
+   {
+    "id": "t",
+    "name": "Brawler",
+    "description": "Tough."
+   }
+  ],
+  "notes": "Owes a favour.",
+  "inventoryText": "50 ft of rope"
+ }
+}

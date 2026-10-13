@@ -111,6 +111,16 @@ describe('api', () => {
       await expect(api.get('/tags')).rejects.toThrow(/./)
     })
 
+    it('reads the message out of an object detail, keeping the rest on the body', async () => {
+      const detail = { message: 'Fill in API key', needs_input: ['api_key'] }
+      global.fetch = mockFetch(400, { detail })
+
+      await expect(api.post('/characters/import/external', {})).rejects.toMatchObject({
+        message: 'Fill in API key',
+        body: { detail },
+      })
+    })
+
     it('throws an error with the correct status code', async () => {
       global.fetch = mockFetch(404, { detail: 'Not found' })
 
@@ -1032,6 +1042,24 @@ describe('character, content, and ruleset helpers', () => {
     expect(url()).toBe('/api/characters/c1')
     await characters.remove('c1')
     expect(url()).toBe('/api/characters/c1')
+    await characters.listImporters()
+    expect(url()).toBe('/api/characters/importers')
+    await characters.importExternal({ url: 'https://example.test/c/1' })
+    expect(url()).toBe('/api/characters/import/external')
+    expect(JSON.parse(fetch.mock.calls.at(-1)[1].body)).toEqual({ url: 'https://example.test/c/1' })
+    await characters.installImporter('forge steel')
+    expect(url()).toBe('/api/characters/importers/forge%20steel/install')
+    await characters.removeImporter('forge-steel')
+    expect(url()).toBe('/api/characters/importers/forge-steel')
+    expect(fetch.mock.calls.at(-1)[1].method).toBe('DELETE')
+    await characters.installImporterForEveryone('forge-steel', 'https://i.test/index.json')
+    expect(url()).toBe('/api/addons/forge-steel/install')
+    expect(JSON.parse(fetch.mock.calls.at(-1)[1].body)).toEqual({
+      approve_script: false,
+      index_url: 'https://i.test/index.json',
+    })
+    await characters.installImporterForEveryone('forge-steel')
+    expect(JSON.parse(fetch.mock.calls.at(-1)[1].body)).toEqual({ approve_script: false })
   })
 
   it('covers the content helpers, including bracketed filters', async () => {

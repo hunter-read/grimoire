@@ -1,0 +1,101 @@
+{
+ "success": true,
+ "build": {
+  "name": "Ilse",
+  "class": "Fighter",
+  "level": 3,
+  "xp": 120,
+  "ancestry": "Dwarf",
+  "heritage": "Rock Dwarf",
+  "background": "Acolyte",
+  "deity": "Not set",
+  "sizeName": "Medium",
+  "keyability": "str",
+  "languages": [
+   "Common",
+   "Dwarven"
+  ],
+  "abilities": {
+   "str": 18,
+   "dex": 12,
+   "con": 16,
+   "int": 10,
+   "wis": 13,
+   "cha": 8
+  },
+  "proficiencies": {
+   "classDC": 2,
+   "perception": 4,
+   "fortitude": 4,
+   "reflex": 4,
+   "will": 2,
+   "athletics": 4,
+   "intimidation": 2,
+   "religion": 2,
+   "arcana": 0,
+   "simple": 4
+  },
+  "feats": [
+   [
+    "Rock Dwarf",
+    null,
+    "Heritage",
+    1
+   ],
+   [
+    "Sudden Charge",
+    null,
+    "Class Feat",
+    1
+   ],
+   [
+    "Homebrew Feat",
+    null,
+    "General Feat",
+    3
+   ]
+  ],
+  "lores": [
+   [
+    "Warfare",
+    2
+   ]
+  ],
+  "weapons": [
+   {
+    "name": "Warhammer",
+    "display": "+1 Warhammer",
+    "die": "d8",
+    "damageType": "B",
+    "attack": 9
+   }
+  ],
+  "armor": [
+   {
+    "name": "Scale Mail",
+    "display": "Scale Mail",
+    "qty": 1
+   }
+  ],
+  "equipment": [
+   [
+    "Rope",
+    1,
+    "Invested"
+   ],
+   [
+    "Torch",
+    5
+   ]
+  ],
+  "money": {
+   "cp": 3,
+   "sp": 4,
+   "gp": 12,
+   "pp": 0
+  },
+  "spellCasters": [],
+  "focusPoints": 0,
+  "focus": {}
+ }
+}

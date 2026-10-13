@@ -7,10 +7,19 @@ from ._schemas import (
     CharacterDetail,
     CharacterExport,
     CharacterListResponse,
+    ImportedCharacter,
+    ImporterListResponse,
+    UserImporterInstalled,
     PortraitResponse,
     SchemaDeletedResponse,
     SchemaDetail,
     SchemaListResponse,
+)
+from .importers import (
+    import_external,
+    install_user_importer,
+    list_importers,
+    uninstall_user_importer,
 )
 from .portraits import delete_portrait, get_portrait, upload_portrait
 from .core import (
@@ -82,6 +91,34 @@ router.add_api_route(
     methods=["POST"],
     summary="Import a character from an exported file",
     response_model=CharacterDetail,
+)
+router.add_api_route(
+    "/importers",
+    list_importers,
+    methods=["GET"],
+    summary="List installed character importers",
+    response_model=ImporterListResponse,
+)
+router.add_api_route(
+    "/importers/{importer_id}/install",
+    install_user_importer,
+    methods=["POST"],
+    summary="Install a file-only character importer for yourself",
+    response_model=UserImporterInstalled,
+)
+router.add_api_route(
+    "/importers/{importer_id}",
+    uninstall_user_importer,
+    methods=["DELETE"],
+    summary="Remove a character importer you installed",
+    response_model=CharacterDeletedResponse,
+)
+router.add_api_route(
+    "/import/external",
+    import_external,
+    methods=["POST"],
+    summary="Import a character from another tool's file or link",
+    response_model=ImportedCharacter,
 )
 router.add_api_route(
     "",

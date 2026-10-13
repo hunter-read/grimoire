@@ -16,6 +16,9 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Admins choose who may create share links: GMs by default, players once allowed, and any user can be allowed or denied individually from the Users page, where their links are listed and can be revoked
 - `SHARE_LINKS_ENABLED=false` turns share links off for the whole server
 - Set a map up for OTFBM, the battle map renderer behind Avrae's `!map` on Discord: Grimoire resizes the map to OTFBM's grid, serves it through a share link, and gives you the command to paste
+- Import characters from other tools - a Forge Steel hero, a Pathbuilder 2e export, a D&D Beyond or DiceCloud link - through character importers: community add-ons an admin installs under Settings → Add-ons → Character importers. Characters → Import a character recognises the file by itself, builds it on the right sheet (installing the sheet if needed), and matches picks against your installed content, keeping anything it lacks as a custom entry (thanks @ianfhunter)
+- Anyone can install an importer that only reads uploaded files - Forge Steel and Pathbuilder included - for their own account, from the import dialog. Importers that fetch links or run scripts still need an admin, and the dialog says so: admins get an Install for everyone button, everyone else is told to ask
+- An importer can ask for something per import, such as an API key for a private character. The dialog shows the field, asks again when an import turns out to need it, and never stores what you type
 - Admins can style the OIDC sign-in button to match their provider: background, text and border colours, corner radius, and an uploaded logo, under Settings → Authentication, or pinned with `OIDC_BUTTON_*` environment variables
 
 ### Changed

@@ -93,8 +93,94 @@ describe('AddonsSection', () => {
   it('shows empty states', async () => {
     mockState()
     render(<AddonsSection />)
-    expect(await screen.findByText('addons.noneInstalled')).toBeInTheDocument()
-    expect(screen.getByText('addons.noneAvailable')).toBeInTheDocument()
+    // One per category: metadata scrapers and character importers.
+    expect(await screen.findAllByText('addons.noneInstalled')).toHaveLength(2)
+    expect(screen.getAllByText('addons.noneAvailable')).toHaveLength(2)
+  })
+
+  it('files character importers under their own heading', async () => {
+    const importer = {
+      ...YAML_ADDON,
+      id: 'forge-steel',
+      name: 'Forge Steel',
+      kind: 'character-importer',
+      target: 'character',
+    }
+    mockState({ available: [YAML_ADDON, importer] })
+    render(<AddonsSection />)
+    await screen.findByText('Forge Steel')
+    expect(screen.getByText('addons.categories.importers')).toBeInTheDocument()
+    const lists = screen.getAllByRole('list')
+    const holding = (name) => lists.findIndex((list) => list.textContent.includes(name))
+    expect(holding('Forge Steel')).toBeGreaterThan(holding('TTRPG Wiki'))
+  })
+
+  describe('where things are reported', () => {
+    const IMPORTER = {
+      ...YAML_ADDON,
+      id: 'forge-steel',
+      name: 'Forge Steel',
+      kind: 'character-importer',
+      target: 'character',
+    }
+    const after = (earlier, later) =>
+      Boolean(earlier.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING)
+
+    it('keeps refresh and the script switch above every category', async () => {
+      mockState({ available: [YAML_ADDON, IMPORTER] })
+      render(<AddonsSection />)
+      const refresh = await screen.findByRole('button', { name: /addons.refresh/i })
+      const scripts = screen.getByText('addons.allowScripts')
+      const metadata = screen.getByText('addons.categories.metadata')
+      expect(after(refresh, metadata)).toBe(true)
+      expect(after(scripts, metadata)).toBe(true)
+    })
+
+    it("reports a character importer's failed install in the importers section", async () => {
+      mockState({ available: [YAML_ADDON, IMPORTER] })
+      api.post.mockRejectedValue(new Error('Could not download forge-steel.yml'))
+      const user = userEvent.setup()
+      render(<AddonsSection />)
+      await screen.findByText('Forge Steel')
+
+      const list = screen.getAllByRole('list').find((l) => l.textContent.includes('Forge Steel'))
+      await user.click(within(list).getByRole('button', { name: /addons.install/i }))
+
+      const alert = await screen.findByRole('alert')
+      expect(alert).toHaveTextContent('Could not download forge-steel.yml')
+      expect(after(screen.getByText('addons.categories.importers'), alert)).toBe(true)
+    })
+
+    it("reports a scraper's failed install in the scrapers section", async () => {
+      mockState({ available: [YAML_ADDON, IMPORTER] })
+      api.post.mockRejectedValue(new Error('Could not download ttrpg-wiki.yml'))
+      const user = userEvent.setup()
+      render(<AddonsSection />)
+      await screen.findByText('TTRPG Wiki')
+
+      const list = screen.getAllByRole('list').find((l) => l.textContent.includes('TTRPG Wiki'))
+      await user.click(within(list).getByRole('button', { name: /addons.install/i }))
+
+      const alert = await screen.findByRole('alert')
+      expect(after(screen.getByText('addons.categories.metadata'), alert)).toBe(true)
+      expect(after(alert, screen.getByText('addons.categories.importers'))).toBe(true)
+    })
+
+    it('shows a partial refresh as done, with the sources it could not reach', async () => {
+      mockState()
+      api.post.mockResolvedValue({
+        errors: [{ url: 'https://x.example/index.json', error: '404' }],
+      })
+      const user = userEvent.setup()
+      render(<AddonsSection />)
+      await user.click(await screen.findByRole('button', { name: /addons.refresh/i }))
+
+      expect(await screen.findByRole('status')).toHaveTextContent('addons.refreshed')
+      expect(screen.getByRole('alert')).toHaveTextContent('https://x.example/index.json: 404')
+      expect(after(screen.getByRole('alert'), screen.getByText('addons.categories.metadata'))).toBe(
+        true
+      )
+    })
   })
 
   it('installs a YAML add-on directly, without a warning dialog', async () => {

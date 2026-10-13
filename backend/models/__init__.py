@@ -8,7 +8,7 @@ from .access import UserAccessGrant
 from .api_keys import ApiKey
 from .audio_sets import SET_TYPES, AudioSet
 from .base import Base
-from .characters import Character, CharacterSchema
+from .characters import Character, CharacterSchema, UserImporter
 from .content import ContentEntry, ContentPack, Ruleset, RulesetEntry
 from .campaigns import (
     Campaign,
@@ -101,6 +101,7 @@ __all__ = [
     # Characters
     "CharacterSchema",
     "Character",
+    "UserImporter",
     # Character content catalog
     "ContentPack",
     "ContentEntry",

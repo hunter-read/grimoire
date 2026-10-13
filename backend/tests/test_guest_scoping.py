@@ -113,6 +113,14 @@ GUEST_REACHABLE = {
     "/api/changelog": "GET",
     "/api/characters": "GET POST",
     "/api/characters/import": "POST",
+    # Another tool's character, through an admin-installed importer, into the
+    # caller's own account; a campaign named must be one they are in.
+    "/api/characters/import/external": "POST",
+    "/api/characters/importers": "GET",
+    # A file-only YAML importer into the caller's own account - no network
+    # request, no code - or removing one they installed.
+    "/api/characters/importers/{importer_id}": "DELETE",
+    "/api/characters/importers/{importer_id}/install": "POST",
     "/api/characters/schemas": "GET POST",
     "/api/characters/schemas/browse": "GET",
     "/api/characters/schemas/install/{sheet_id}": "POST",

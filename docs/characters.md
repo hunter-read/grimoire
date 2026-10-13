@@ -277,6 +277,83 @@ correctly without sharing that content with anyone else. Put the character in a
 campaign and the party still sees it whole: a sheet always reads its entries the
 way its owner does.
 
+## Importing from other tools
+
+**Characters → Import a character** also reads characters built elsewhere -
+a Forge Steel hero, a Pathbuilder 2e export - through **character importers**:
+community [add-ons](addons.md). Grimoire has no built-in knowledge of any other tool's
+format. There are far too many character builders for that, and each one
+changes its format on its own schedule, so a fix ships as an add-on update
+rather than a Grimoire release.
+
+### Getting an importer
+
+The dialog lists the importers you can use and, under **More importers**, the
+ones the catalogue offers that you do not have:
+
+- **Install** - an importer that only reads files you upload, with no code of
+  its own, can be installed by anyone for their own account, the same way you
+  install a sheet. Forge Steel and Pathbuilder are both this kind. Nobody else's
+  list changes, and you can remove it again from the same list.
+- **Ask an admin to install this** - an importer that fetches characters from
+  a link has the server contact another site, and one with a script runs code
+  on the server, so those are an admin's call. An admin sees **Install for
+  everyone** in the dialog instead, or a link to **Settings → Add-ons** when
+  the importer has a script, where it asks for consent. D&D Beyond and
+  DiceCloud are both this kind.
+
+An importer an admin installs is available to everyone, and replaces a copy
+you installed yourself.
+
+### Importing
+
+Drop a file on the dialog, or choose one. Grimoire works out which importer it
+belongs to from the file's extension and contents, so there is nothing to pick.
+A Grimoire export still imports as described [above](#sharing-a-character). An
+importer that reads links adds a paste box. **Read it as** is only needed when
+two importers both recognise a file. The dialog lists the importers installed
+on your server, with the sheet each one builds on.
+
+What an import does:
+
+- **It builds the character on the importer's sheet.** If you do not have that
+  sheet yet, it is installed from the catalogue for you.
+- **Picks become references.** A class, a spell or a feat is matched by name
+  against the installed content packs and the rulesets you can read, exactly
+  as if you had picked it from the catalogue. Something your content lacks - an
+  ancestry from a book you have no pack for - is kept as a custom entry,
+  carrying the description from the export where there is one, so nothing you
+  chose is lost.
+- **Derived values are left to the sheet.** Stamina, hit points, AC and speed
+  follow from your class, kit and ancestry here as they do for a character you
+  build by hand, so the importer does not freeze them at the values in the file.
+- **It is a one-time copy, not a sync.** Editing the character in Grimoire never
+  reaches back to the tool it came from, and re-importing makes a new character.
+
+A portrait embedded in the export (Forge Steel keeps one) comes along too.
+
+Some sources need something from you - an API key for a private character, say.
+An importer that does shows the field once it is chosen, and if an import turns
+out to need it, the dialog selects that importer, marks the field, and offers
+**Try again** with the same file or link. What you type is sent with that one
+import and never stored.
+
+| Importer | Reads | Builds on |
+| --- | --- | --- |
+| Forge Steel | `.ds-hero` files from Forge Steel's **Export** | Draw Steel |
+| Pathbuilder 2e | The JSON from **Menu → Export → Export JSON** - open its link in your browser and save the page | Pathfinder 2e |
+| D&D Beyond | A character's link - its **Character Privacy** setting must be **Public** | D&D 5e (2024) |
+| DiceCloud v1 | A character's link. A private one asks for your DiceCloud API key, used for that one import | D&D 5e (2024) |
+
+Pathbuilder's site blocks requests that do not come from a browser, so
+Grimoire cannot fetch an Export JSON link itself. Open the link, save the page
+as a `.json` file, and upload that.
+
+To support another tool, write an importer - see
+[Writing a character importer](https://github.com/grimoire-codex/community-add-ons/blob/main/docs/character-importers.md)
+in the community repository. Most are a page of YAML mapping the tool's export
+onto a sheet's fields; a format YAML cannot express can ship a script instead.
+
 ## Writing your own sheet or content pack
 
 A sheet you write works exactly like a catalogue one: paste it under **Manage

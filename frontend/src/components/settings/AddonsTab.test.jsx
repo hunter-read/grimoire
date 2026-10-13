@@ -28,7 +28,7 @@ describe('AddonsTab', () => {
 
   it('renders the add-ons manager', async () => {
     render(<AddonsTab />)
-    expect(await screen.findByText('addons.installedHeading')).toBeInTheDocument()
+    expect((await screen.findAllByText('addons.installedHeading')).length).toBeGreaterThan(0)
   })
 
   it('groups add-ons under their category heading', async () => {

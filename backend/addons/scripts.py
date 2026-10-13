@@ -25,7 +25,16 @@ logger = logging.getLogger("grimoire.addons")
 
 
 class AddonScriptError(Exception):
-    """A script-backed add-on failed to produce a usable result."""
+    """A script-backed add-on failed to produce a usable result.
+
+    ``needs_input`` names the inputs a character importer's script asked for -
+    an API key for a private sheet - so the caller can ask the user for them
+    and try again rather than report a dead end.
+    """
+
+    def __init__(self, message: str, needs_input: Optional[list[str]] = None) -> None:
+        super().__init__(message)
+        self.needs_input = needs_input or []
 
 
 def _run(request: dict, manifest: AddonManifest) -> dict:
@@ -89,7 +98,9 @@ def _run(request: dict, manifest: AddonManifest) -> dict:
         raise AddonScriptError("script did not return an object")
     if result.get("error"):
         # A script reporting its own failure is an expected outcome, not a bug.
-        raise AddonScriptError(str(result["error"]))
+        asked = result.get("needs_input")
+        needs = [str(key) for key in asked if isinstance(key, str)] if isinstance(asked, list) else []
+        raise AddonScriptError(str(result["error"]), needs_input=needs)
     return result
 
 
@@ -125,6 +136,54 @@ def fetch(identity: str, manifest: AddonManifest) -> tuple[dict[str, Any], str]:
     if not isinstance(fields, dict):
         raise AddonScriptError("script did not return a 'fields' object")
     return fields, str(result.get("url") or "")
+
+
+def run_import(
+    manifest: AddonManifest,
+    *,
+    document: Any = None,
+    text: str = "",
+    filename: str = "",
+    identity: str = "",
+    inputs: Optional[dict[str, str]] = None,
+) -> dict[str, Any]:
+    """Run a character importer's script. Returns the mapped character.
+
+    The script receives what the user gave - the parsed ``document`` (or None
+    when the file is not JSON), its raw ``text`` and ``filename``, or the
+    ``identity`` a pasted link carried - and answers with the same shape the
+    declarative engine produces: ``{"name", "portrait", "fields"}``. Its
+    output is checked here for shape and, like everything else, coerced
+    against the sheet before anything is stored.
+
+    ``inputs`` are what the user typed for the importer's declared inputs. They
+    travel in the request - handed to the child through multiprocessing's pipe,
+    never its command line - and are not kept anywhere.
+    """
+    result = _run(
+        {
+            "action": "import",
+            "document": document,
+            "text": text,
+            "filename": filename,
+            "identity": identity,
+            "inputs": dict(inputs or {}),
+        },
+        manifest,
+    )
+    fields = result.get("fields")
+    if not isinstance(fields, dict):
+        raise AddonScriptError("script did not return a 'fields' object")
+    portrait = result.get("portrait")
+    return {
+        "name": str(result.get("name") or "")[:200],
+        "portrait": portrait if isinstance(portrait, str) else None,
+        "fields": {
+            str(key): value if isinstance(value, list) else [value]
+            for key, value in fields.items()
+            if value is not None
+        },
+    }
 
 
 def _as_score(value: Optional[Any]) -> float:

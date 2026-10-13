@@ -9,6 +9,7 @@ from typing import Any, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from .importer_manifest import ImporterSpec
 from .constants import (
     DEFAULT_CACHE_TTL,
     DEFAULT_MIN_SCORE,
@@ -306,8 +307,10 @@ class AddonManifest(BaseModel):
     id: str
     name: str
     version: str
-    kind: Literal["scraper"]
-    target: Literal["game-system", "book"] = "game-system"
+    kind: Literal["scraper", "character-importer"]
+    # What the add-on fills in. A character importer always makes characters,
+    # so it defaults to (and may only name) "character".
+    target: Literal["game-system", "book", "character"] = "game-system"
     description: str = ""
     homepage: str = ""
     # Who wrote the add-on. A GitHub username (optionally "@name"), or a plain
@@ -323,6 +326,38 @@ class AddonManifest(BaseModel):
     detail: Optional[DetailSpec] = None
     search: Optional[SearchSpec] = None
     map: dict[str, Union[MappingEntry, list[MappingEntry]]] = Field(default_factory=dict)
+    # Character importers only: what they read and how it maps onto a sheet.
+    importer: Optional[ImporterSpec] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def importer_target(cls, data: Any) -> Any:
+        """Default an importer's ``target`` to "character" rather than the
+        scraper default, so a definition need not spell it out."""
+        if isinstance(data, dict) and data.get("kind") == "character-importer":
+            data = dict(data)
+            data.setdefault("target", "character")
+        return data
+
+    @property
+    def is_importer(self) -> bool:
+        return self.kind == "character-importer"
+
+    @property
+    def user_installable(self) -> bool:
+        """Whether any user may install this for their own account.
+
+        Only a character importer that reads uploaded files with YAML: it runs
+        no code and makes no request, so it can do nothing a pasted character
+        sheet could not. A script, or a `url` that has the server fetch from
+        somewhere, needs an admin.
+        """
+        return (
+            self.is_importer
+            and self.script is None
+            and self.importer is not None
+            and self.importer.url is None
+        )
 
     @field_validator("id")
     @classmethod
@@ -342,6 +377,10 @@ class AddonManifest(BaseModel):
         on ``target`` — a book scraper may write ``isbn``, a system scraper
         may not.
         """
+        if self.is_importer:
+            # An importer maps onto a sheet's fields, which are only known once
+            # the sheet is installed; they are checked at import time instead.
+            return self
         allowed = MAPPABLE_BY_TARGET.get(self.target, ())
         unknown = sorted(set(self.map) - set(allowed))
         if unknown:
@@ -357,6 +396,31 @@ class AddonManifest(BaseModel):
 
     @model_validator(mode="after")
     def needs_a_backend(self) -> "AddonManifest":
+        if self.is_importer:
+            if self.target != "character":
+                raise ValueError("a character importer's target must be 'character'")
+            if self.importer is None:
+                raise ValueError("a character importer needs an 'importer' block")
+            if self.source is not None or self.map or self.search is not None:
+                raise ValueError(
+                    "a character importer reads its input from 'importer', "
+                    "not 'source', 'search' or 'map'"
+                )
+            if self.script is None:
+                if self.importer.inputs:
+                    # Values typed in the dialog go to a script and nowhere
+                    # else; a YAML importer has nothing to hand them to.
+                    raise ValueError("'importer.inputs' need a 'script' to receive them")
+                if not self.importer.fields:
+                    raise ValueError("a character importer needs 'importer.fields' or a 'script'")
+                if self.importer.url is not None and not self.importer.url.fetch:
+                    # Only a script can do anything with a bare id.
+                    raise ValueError("'importer.url' needs 'fetch' unless the importer has a script")
+            return self
+        if self.importer is not None:
+            raise ValueError("only a character importer may have an 'importer' block")
+        if self.target == "character":
+            raise ValueError("a scraper's target must be 'game-system' or 'book'")
         if self.source is None and self.script is None:
             raise ValueError("manifest needs either 'source' or 'script'")
         if self.source is not None:
@@ -396,6 +460,11 @@ class IndexEntry(BaseModel):
     grimoire_min_version: str = ""
     changelog: Optional[list[dict]] = None
     index_url: str = ""
+    # Character importers: the sheet it builds on, and whether a user may
+    # install it themselves. Only a hint for listing - an install re-checks the
+    # downloaded manifest rather than trusting the index.
+    sheet: str = ""
+    user_installable: bool = False
 
 
 class AddonIndex(BaseModel):

@@ -2,8 +2,13 @@
 
 Add-ons are installable extensions, authored and maintained separately from
 Grimoire in the [`grimoire-codex/community-add-ons`](https://github.com/grimoire-codex/community-add-ons)
-repo. Today they are **metadata scrapers**: they look a game system or a book up
-on an external source and offer to fill in its details.
+repo. There are two kinds:
+
+- **Metadata scrapers** look a game system or a book up on an external source
+  and offer to fill in its details.
+- **Character importers** read a character built in another tool - a Forge
+  Steel hero, a Pathbuilder export - and build it on one of Grimoire's
+  [character sheets](characters.md#importing-from-other-tools).
 
 Keeping definitions out of this repo means a source that changes its layout can
 be fixed by a community PR, not a Grimoire release.
@@ -11,17 +16,20 @@ be fixed by a community PR, not a Grimoire release.
 ## Using them
 
 **Settings → Add-ons** (admin only). Add-ons are grouped by what they do, under
-collapsible category headings - everything today is a **Metadata scraper**, and
-future kinds (VTT integrations, character sheet builders) get their own heading
-alongside it.
+collapsible category headings - **Metadata scrapers** and **Character
+importers** - and future kinds (VTT integrations) get their own heading
+alongside them.
 
 1. **Refresh** fetches the index from the configured URL (defaults to the
    community repo).
 2. **Install** the add-ons you want. They land in `DATA_PATH/add-ons/<id>/`.
-3. Open a game system or a book → **Edit** → **Fetch metadata**.
+3. Open a game system or a book → **Edit** → **Fetch metadata**, or for an
+   importer, **Characters → Import a character**.
 
-Each add-on declares a `target` - `game-system` or `book` - and only appears in
-the editor for that kind of thing.
+Each scraper declares a `target` - `game-system` or `book` - and only appears in
+the editor for that kind of thing. An importer's target is `character`; once
+installed it is available to every account, guests included, since an import
+only ever creates a character in the importing user's own account.
 
 Pick a source, confirm the match, then review a per-field diff and tick what you
 want. Fields your system already has are **not** pre-selected, so a fetch never
@@ -91,6 +99,13 @@ update it the way you installed it.
 | --- | --- | --- | --- |
 | TTRPG Wiki | game system | [ttrpgwiki.com](https://ttrpgwiki.com) | description, publisher, year, licence, system family, edition, genres, dice, tags, links |
 | DriveThruRPG | book | [drivethrurpg.com](https://www.drivethrurpg.com) | title, description, authors, artists, publisher, genres, ISBN, product code, year, links |
+
+| Importer | Reads | Builds on |
+| --- | --- | --- |
+| Forge Steel | `.ds-hero` hero files | the `draw-steel` sheet |
+| Pathbuilder 2e | Export JSON, saved as a file | the `pathfinder-2e` sheet |
+| D&D Beyond | A publicly shared character's link, or its JSON (script) | the `dnd-5e-2024` sheet |
+| DiceCloud v1 | A character's link - a private one with your API key - or its API JSON (script) | the `dnd-5e-2024` sheet |
 
 **A note on DriveThruRPG:** its web storefront is behind a Cloudflare bot
 challenge, so the scraper does not touch it. It uses the OneBookShelf JSON API
@@ -172,6 +187,53 @@ arbitrary destination. To link somewhere else, use `homepage`.
 | `scripts.py` | Subprocess runner for script-backed add-ons |
 | `service.py` | Resolves YAML vs. script; answers search/fetch |
 | `diff.py` | Compares fetched values against a system's current ones |
+| `jsonpath.py` | The closed JSONPath subset importers read exports with |
+| `importer_manifest.py` | Pydantic models for an importer's `importer` block |
+| `importer.py` | The importer engine: recognise a file or link, map it to per-field values |
+
+The importer engine stops at "these values for these fields". Turning them into
+a character - collapsing values by field type, matching names against installed
+content, coercing against the sheet - is `services/characters/importing.py`,
+shared by declarative and script-backed importers alike. The handlers are in
+`routers/characters/importers.py`.
+
+### Character importers
+
+An importer's `importer` block names the sheet it builds on, how to recognise
+its input - file `extensions`, `detect` paths that must hold, and/or a `url`
+pattern - and a mapping from each sheet field to [JSONPath](https://github.com/grimoire-codex/community-add-ons/blob/main/docs/character-importers.md#paths)
+into the export. The path language is a closed subset (members, indexes,
+wildcards, recursive descent, filters) parsed into steps once; like the
+scraper transforms, there is nothing a definition can write that reaches
+`eval`. Every path is compiled when the manifest loads, so a typo fails at
+install.
+
+A pasted link never makes Grimoire request that link. The importer's `pattern`
+pulls an id out of it, and Grimoire requests only the importer's own `fetch`
+URL with that id filled in - so a link cannot point the server somewhere the
+definition did not name. The response is never cached, since it is one
+person's character. A portrait is accepted only as a `data:image/...` URL
+inside the export, for the same reason: fetching an image URL found in an
+uploaded file would let the file aim the server at any address.
+
+**Who installs what.** An importer that reads uploaded files with YAML - no
+script, no `url` - makes no network request and runs no code, so it can do
+nothing a pasted character sheet could not. Any user may install one of those
+for their own account from the import dialog; it is stored per user in the
+`user_importers` table (see `addons/user_importers.py`) rather than under
+`DATA_PATH/add-ons/`, from the same index and through the same digest check.
+The rule is `AddonManifest.user_installable`, and it is applied to the manifest
+actually downloaded and again each time a stored one is loaded - the index's
+`user_installable` flag only decides what is offered. Link and script
+importers stay here, admin-only. A server-wide copy wins over a user's own.
+`DISABLE_EXTERNAL_ADD_ON_INSTALL` stops per-user installs too.
+
+A script-backed importer may declare `inputs` - an API key for a private
+character - which the import dialog shows. The answers ride in that import's
+request to the script (through multiprocessing's pipe, not the child's command
+line) and are never stored or logged; only the keys the importer declared for
+that kind of import are passed. A script asks for one it needs by returning
+`needs_input`, which the endpoint turns into a 400 the dialog acts on.
 
 A manifest declares a source URL, how to find records in the response, how to
 rank them against a query, and how to map source fields onto Grimoire's. The

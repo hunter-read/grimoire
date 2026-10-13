@@ -18,6 +18,7 @@ vi.mock('../api', () => ({
   characters: {
     portraitUrl: (id, v) => `/api/characters/${id}/portrait${v ? `?v=${v}` : ''}`,
     import: (...a) => mockImportCharacter(...a),
+    listImporters: () => Promise.resolve({ importers: [] }),
     list: (...a) => mockList(...a),
     listSchemas: (...a) => mockListSchemas(...a),
     create: (...a) => mockCreate(...a),
@@ -277,17 +278,23 @@ describe('CharactersView', () => {
   describe('importing a character file', () => {
     const fileOf = (text) => {
       const file = new File([text], 'c.json', { type: 'application/json' })
-      // jsdom's File has no text(), which is what the view reads it with.
+      // jsdom's File has no text(), which is what the dialog reads it with.
       file.text = () => Promise.resolve(text)
       return file
     }
 
-    it('imports a file and opens the new character', async () => {
-      mockImportCharacter.mockResolvedValue({ id: 'imported' })
+    const openImport = async () => {
       renderView()
       await screen.findByText('Vex')
+      await userEvent.click(screen.getByRole('button', { name: /Import a character/i }))
+      return screen.findByRole('dialog')
+    }
+
+    it('imports a file and opens the new character', async () => {
+      mockImportCharacter.mockResolvedValue({ id: 'imported' })
+      await openImport()
       await userEvent.upload(
-        screen.getByLabelText(/Import a character/i),
+        screen.getByLabelText(/Choose a file/i),
         fileOf('{"schema_id":"demo","name":"Imported"}')
       )
       await waitFor(() =>
@@ -300,22 +307,26 @@ describe('CharactersView', () => {
     })
 
     it('reports a file that is not JSON', async () => {
-      renderView()
-      await screen.findByText('Vex')
-      await userEvent.upload(screen.getByLabelText(/Import a character/i), fileOf('nope'))
+      await openImport()
+      await userEvent.upload(screen.getByLabelText(/Choose a file/i), fileOf('nope'))
       expect(await screen.findByRole('alert')).toHaveTextContent(/not valid JSON/i)
       expect(mockImportCharacter).not.toHaveBeenCalled()
     })
 
     it('surfaces a rejected import', async () => {
       mockImportCharacter.mockRejectedValue(new Error('that schema is not installed'))
-      renderView()
-      await screen.findByText('Vex')
+      await openImport()
       await userEvent.upload(
-        screen.getByLabelText(/Import a character/i),
+        screen.getByLabelText(/Choose a file/i),
         fileOf('{"schema_id":"ghost"}')
       )
       expect(await screen.findByRole('alert')).toHaveTextContent('not installed')
+    })
+
+    it('closes without importing', async () => {
+      await openImport()
+      await userEvent.click(screen.getByRole('button', { name: /Cancel/i }))
+      expect(screen.queryByRole('dialog')).toBeNull()
     })
   })
 
