@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { LuDownload } from 'react-icons/lu'
 import api from '../../api'
 import { CATEGORY_ORDER, categoryLabel, slugify } from '../../constants'
 import CategoryPicker from '../metadata/CategoryPicker'
@@ -9,6 +10,9 @@ import LookupCombobox from '../metadata/LookupCombobox'
 import TagPicker from '../metadata/TagPicker'
 import useLookups from '../metadata/useLookups'
 import { cleanLinks, linksForEditing } from '../metadata/metadataUtils'
+import MetadataFetchDialog from '../system/MetadataFetchDialog'
+import useMetadataSources from '../system/useMetadataSources'
+import { intoBookForm } from '../system/metadataFieldValue'
 
 /**
  * The editable form behind the details sidebar's Edit button.
@@ -16,10 +20,15 @@ import { cleanLinks, linksForEditing } from '../metadata/metadataUtils'
  * Same fields and PATCH payload as the library's BookEditor, laid out in one
  * column to fit the sidebar. Kept separate from BookEditor rather than reusing
  * it: that component is a two-column card with its own header, close button,
- * fetch-metadata action, and reset-progress control, none of which belong in a
- * 320px reader panel.
+ * versions, and Grimoire Codex DB sections, none of which belong in a 320px
+ * reader panel.
+ *
+ * Fetch metadata is offered here too, so a book can be filled from a source
+ * without leaving the reader for its system page. The dialog saves what it
+ * applies, so `onApplied` hands those fields up straight away — the reader's
+ * copy of the book stays current even if this form is then cancelled.
  */
-export default function DetailsSidebarEditor({ book, onSaved, onCancel }) {
+export default function DetailsSidebarEditor({ book, onSaved, onCancel, onApplied }) {
   const { t } = useTranslation()
   const { genres: genreTree, licenses, reload: reloadLookups } = useLookups()
   const licenseOptions = licenses.map((l) => l.name)
@@ -45,6 +54,19 @@ export default function DetailsSidebarEditor({ book, onSaved, onCancel }) {
   const [tags, setTags] = useState(book.tags || [])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(false)
+  // Shown only when a source is available, as in BookEditor.
+  const { sources: metadataSources } = useMetadataSources('books', book.id)
+  const hasSources = metadataSources.length > 0
+  const [fetching, setFetching] = useState(false)
+
+  // Applied fields arrive in API shape; the form holds some of them as text.
+  // The Grimoire Codex DB link is saved by the dialog and kept out of the form.
+  const handleFetched = (fields) => {
+    const { tags: fetchedTags, codex_id: _codexId, ...rest } = fields
+    setForm((f) => ({ ...f, ...intoBookForm(rest) }))
+    if (fetchedTags) setTags(fetchedTags)
+    onApplied?.(fields)
+  }
 
   const categoryOptions = [...new Set([...CATEGORY_ORDER, form.category].filter(Boolean))].map(
     (slug) => ({ value: slug, label: categoryLabel(slug) })
@@ -116,6 +138,32 @@ export default function DetailsSidebarEditor({ book, onSaved, onCancel }) {
 
   return (
     <div>
+      {/* Above the fields it fills, so applied values land where the eye goes next. */}
+      {hasSources && (
+        <button
+          type="button"
+          onClick={() => setFetching(true)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+            width: '100%',
+            padding: '6px 14px',
+            marginBottom: 14,
+            borderRadius: 5,
+            background: 'none',
+            border: '1px solid var(--border)',
+            color: 'var(--text-dim)',
+            fontSize: 13,
+            cursor: 'pointer',
+          }}
+        >
+          <LuDownload size={13} aria-hidden="true" />
+          {t('bookEditor.fetchMetadata')}
+        </button>
+      )}
+
       {field(t('bookEditor.titleLabel'), 'title')}
       {field(t('bookEditor.descriptionLabel'), 'description', { textarea: true })}
 
@@ -247,6 +295,15 @@ export default function DetailsSidebarEditor({ book, onSaved, onCancel }) {
           {saving ? t('bookEditor.saving') : t('bookEditor.save')}
         </button>
       </div>
+
+      {fetching && (
+        <MetadataFetchDialog
+          resource={book}
+          kind="books"
+          onApply={handleFetched}
+          onClose={() => setFetching(false)}
+        />
+      )}
     </div>
   )
 }

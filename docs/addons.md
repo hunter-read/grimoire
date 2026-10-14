@@ -27,8 +27,9 @@ alongside them.
 1. **Refresh** fetches the index from the configured URL (defaults to the
    community repo).
 2. **Install** the add-ons you want. They land in `DATA_PATH/add-ons/<id>/`.
-3. Open a game system or a book → **Edit** → **Fetch metadata**, or for an
-   importer, **Characters → Import a character**.
+3. Open a game system or a book → **Edit** → **Fetch metadata** (in the reader,
+   a book's details panel → pencil → **Fetch metadata**), or for an importer,
+   **Characters → Import a character**.
 
 Each scraper declares a `target` - `game-system` or `book` - and only appears in
 the editor for that kind of thing. An importer's target is `character`; once

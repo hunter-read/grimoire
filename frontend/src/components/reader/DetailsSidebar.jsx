@@ -100,6 +100,7 @@ export default function DetailsSidebar({ book, onClose, onSave }) {
               setEditing(false)
             }}
             onCancel={() => setEditing(false)}
+            onApplied={(fields) => onSave?.({ ...book, ...fields })}
           />
         ) : (
           <>

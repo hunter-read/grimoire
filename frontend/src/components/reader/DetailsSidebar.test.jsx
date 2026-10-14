@@ -12,10 +12,11 @@ vi.mock('../../context/AuthContext', () => ({
 // The editor is exercised in its own test; here it only needs to be
 // identifiable so the Edit toggle can be asserted on.
 vi.mock('./DetailsSidebarEditor', () => ({
-  default: ({ onCancel }) => (
+  default: ({ onCancel, onApplied }) => (
     <div>
       <span>editor</span>
       <button onClick={onCancel}>cancel-editor</button>
+      <button onClick={() => onApplied({ publisher: 'Fetched Press' })}>apply-fetched</button>
     </div>
   ),
 }))
@@ -112,5 +113,19 @@ describe('DetailsSidebar', () => {
     await userEvent.click(screen.getByText('cancel-editor'))
     expect(screen.queryByText('editor')).not.toBeInTheDocument()
     expect(screen.getByText("Player's Handbook")).toBeInTheDocument()
+  })
+
+  // Fetch metadata saves as it applies, so the reader's book updates at once
+  // and stays editing — a later Cancel must not leave it showing stale values.
+  it('passes fetched fields up without leaving the editor', async () => {
+    mockUser.role = 'gm'
+    const { props } = renderSidebar()
+    await userEvent.click(screen.getByRole('button', { name: 'Edit metadata' }))
+    await userEvent.click(screen.getByText('apply-fetched'))
+
+    expect(props.onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'book-1', publisher: 'Fetched Press' })
+    )
+    expect(screen.getByText('editor')).toBeInTheDocument()
   })
 })
