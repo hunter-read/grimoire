@@ -165,4 +165,35 @@ describe('LoginView', () => {
     const btn = screen.getByRole('button', { name: /entering/i })
     expect(btn).toBeDisabled()
   })
+
+  it('renders the admin-styled OIDC button with its icon', async () => {
+    global.fetch = vi.fn().mockImplementation((url) => {
+      if (url === '/api/auth/config') {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              password_auth_enabled: false,
+              oidc_enabled: true,
+              oidc_button_text: 'Sign in with GitHub',
+              oidc_button_bg_color: '#24292f',
+              oidc_button_text_color: '#ffffff',
+              oidc_button_border_color: '#24292f',
+              oidc_button_radius: 6,
+              oidc_button_icon_url: '/api/auth/openid/button-icon?v=abc',
+            }),
+        })
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
+    })
+
+    const { container } = render(<LoginView onLogin={vi.fn()} />)
+    const btn = await screen.findByRole('button', { name: 'Sign in with GitHub' })
+    expect(btn.style.background).toBe('rgb(36, 41, 47)')
+    expect(btn.style.color).toBe('rgb(255, 255, 255)')
+    expect(btn.style.borderRadius).toBe('6px')
+    expect(container.querySelector('button img').getAttribute('src')).toBe(
+      '/api/auth/openid/button-icon?v=abc'
+    )
+  })
 })

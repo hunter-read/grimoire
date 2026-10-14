@@ -1,7 +1,7 @@
 """Request and response models for the character endpoints."""
-from typing import Any, Optional
+from typing import Annotated, Any, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 
 
 class SchemaSummary(BaseModel):
@@ -228,3 +228,109 @@ class PortraitResponse(BaseModel):
 class CharacterDeletedResponse(BaseModel):
     deleted: bool = True
     id: str
+
+
+class ImporterInputSummary(BaseModel):
+    """A field the import dialog shows for an importer - an API key, say."""
+
+    key: str
+    label: str
+    help: str = ""
+    secret: bool = False
+    required: bool = False
+    when: Literal["always", "file", "link"] = "always"
+
+
+class ImporterSummary(BaseModel):
+    """One installed character-importer add-on, as the import dialog shows it."""
+
+    id: str
+    name: str
+    description: str = ""
+    homepage: str = ""
+    author: str = ""
+    author_url: str = ""
+    attribution: str = ""
+    # The sheet its characters are built on, and whether the caller has it.
+    # A missing sheet is installed from the catalogue on the first import.
+    sheet: str
+    sheet_name: str = ""
+    sheet_installed: bool = False
+    extensions: list[str] = Field(default_factory=list)
+    accepts_files: bool = False
+    accepts_url: bool = False
+    url_hint: str = ""
+    inputs: list[ImporterInputSummary] = Field(default_factory=list)
+    version: str = ""
+    # "server": installed by an admin for everyone. "user": the caller's own.
+    scope: Literal["server", "user"] = "server"
+    # Set when the caller's own copy has a newer version in the catalogue.
+    available_version: str = ""
+
+
+class AvailableImporter(BaseModel):
+    """An importer the catalogue offers that the caller does not have."""
+
+    id: str
+    name: str
+    description: str = ""
+    homepage: str = ""
+    author: str = ""
+    author_url: str = ""
+    version: str = ""
+    sheet: str = ""
+    sheet_name: str = ""
+    requires_script: bool = False
+    # How the caller could get it: "user" - install it for themselves;
+    # "server" - an admin installs it for everyone, from the dialog;
+    # "settings" - an admin installs it from Settings, where a script's
+    # consent is asked; "admin" - only an admin can, so the caller asks one.
+    install_as: Literal["user", "server", "settings", "admin"]
+    index_url: str = ""
+
+
+class ImporterListResponse(BaseModel):
+    importers: list[ImporterSummary]
+    available: list[AvailableImporter] = Field(default_factory=list)
+    # False when the server may not install from a community repository.
+    downloads_enabled: bool = True
+
+
+class UserImporterInstalled(BaseModel):
+    id: str
+    name: str
+    version: str = ""
+
+
+class ExternalCharacterImport(BaseModel):
+    """Another tool's character: a file's text, or a link to it.
+
+    ``importer_id`` is optional - the importer that recognises the file or
+    link is chosen automatically, and naming one only settles a tie.
+    """
+
+    importer_id: Optional[str] = None
+    # Bounded so an upload cannot hand the parser something enormous. Big
+    # enough for a builder that embeds its whole rulebook in every export, as
+    # Forge Steel does.
+    text: str = Field(default="", max_length=10 * 1024 * 1024)
+    filename: str = Field(default="", max_length=255)
+    url: str = Field(default="", max_length=2048)
+    campaign_id: Optional[str] = None
+    # Answers to the importer's declared `inputs`, by key. Passed to its script
+    # for this import only and never stored; a key it did not declare is
+    # dropped.
+    inputs: dict[
+        Annotated[str, StringConstraints(max_length=40)],
+        Annotated[str, StringConstraints(max_length=2000)],
+    ] = Field(default_factory=dict, max_length=10)
+
+
+class ImportedCharacter(CharacterDetail):
+    """The new character, and what the import could not match."""
+
+    importer_id: str = ""
+    importer_name: str = ""
+    # Names that matched nothing in the installed content and were kept as
+    # custom entries, so the player knows what to check.
+    unmatched: list[str] = Field(default_factory=list)

@@ -36,8 +36,9 @@ Folder name matching is **case-insensitive**, and hyphens, underscores, and spac
 | Character Sheets | `character-sheets`, `character sheets`, `charsheets`, `sheets` | Fillable sheets, alternative layouts |
 | Handouts | `handouts`, `reference`, `screen` | Reference cards, DM screens, quick-ref sheets |
 | Homebrew | `homebrew`, `custom`, `house-rules`, `unofficial` | Community/custom content, house rules |
+| Magazines & Zines | `magazines`, `zines`, `fanzines`, `periodicals`, `journals`, `issues`, `back issues` | Periodicals like *Dragon*, *White Dwarf* or *Knock!*, and system zines |
 
-> `players`, `gms`, `game masters`, `sheets` and `sources` count only when they are the whole folder name. In a longer name the more specific word decides: `Player Handouts` and `GM Screens` are handouts, `Cheat Sheets` stays with handouts, and `Source Adventures` are adventures.
+> `players`, `gms`, `game masters`, `sheets`, `sources`, `journals`, `issues` and `back issues` count only when they are the whole folder name. In a longer name the more specific word decides: `Player Handouts` and `GM Screens` are handouts, `Cheat Sheets` stays with handouts, `Source Adventures` are adventures, and `Zine Maps` are maps.
 >
 > Files placed directly in a system folder (not in a subfolder) default to the **core** category.
 >
@@ -380,6 +381,8 @@ Animated maps (`.webm`, `.mp4`) and Universal VTT exports (`.uvtt`, `.dd2vtt`) s
 
 Any image map can also be **exported as a Universal VTT file**, from the Download menu on its detail page. The `.uvtt` carries the map image and its grid, so it drops into Foundry, Roll20, or any VTT that reads the format with the grid already lined up, instead of you scaling the image by hand. Maps that already have a real `.uvtt` linked to them do not offer the option, since the file you already have carries walls and lighting of its own.
 
+A map's **⋮** menu can also **set it up for OTFBM**, the battle-map renderer behind Avrae's `!map` command on Discord, for anyone allowed to create [share links](sharing.md). Grimoire resizes the image so its squares match OTFBM's grid, serves it through a share link, and gives you the command to paste - see [OTFBM and Avrae](otfbm.md).
+
 ### Walls, doors, and lights
 
 The export can carry more than the image and the grid. **Edit VTT** on a map's detail
@@ -418,7 +421,7 @@ audio/
     └── track.mp3
 ```
 
-The folder name is shown as a group header in the audio library. Supported formats: `.mp3`, `.ogg`, `.opus`, `.flac`, `.wav`, `.m4a`, `.aac`. Duration and embedded title/artist/album tags are read on scan. For artwork, Grimoire uses a `cover.*` or `folder.*` image in the track's folder if present, otherwise falls back to embedded album art.
+The folder name is shown as a group header in the audio library. Supported formats: `.mp3`, `.ogg`, `.opus`, `.flac`, `.wav`, `.m4a`, `.m4b`, `.aac`. Duration and embedded title/artist/album tags are read on scan. For artwork, Grimoire uses a `cover.*` or `folder.*` image in the track's folder if present, otherwise falls back to embedded album art.
 
 ## 3D Models - organize by creature, set, or creator
 

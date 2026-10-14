@@ -11,6 +11,7 @@ import { ReaderSection, LibrarySection, LanguageSection } from './UserPreference
 import AppearanceSection from './AppearanceSection'
 import ActiveSessionsSection from './ActiveSessionsSection'
 import ApiKeySection from './ApiKeySection'
+import ShareLinksSection from './ShareLinksSection'
 import { useUISettings } from '../../context/UISettingsContext'
 import CollapsibleSection from './CollapsibleSection'
 import SectionDivider from './SectionDivider'
@@ -25,10 +26,14 @@ import SectionDivider from './SectionDivider'
  */
 export default function UserSettingsTab({ user, onLogout }) {
   const { t } = useTranslation()
-  const { api_keys_enabled: keysEnabled } = useUISettings()
+  const { api_keys_enabled: keysEnabled, share_links_enabled: shareEnabled } = useUISettings()
   // `api_keys_allowed` is the server's answer for this user: admins always, anyone
   // else once an admin grants it, never a guest - and never with keys off.
   const canHoldKeys = keysEnabled !== false && Boolean(user?.api_keys_allowed)
+  // Share links (issue #541): listed for every non-guest while the instance has
+  // them, so someone whose permission was withdrawn can still see and revoke
+  // the links they made.
+  const showShareLinks = shareEnabled !== false && user?.role !== 'guest'
   return (
     <div>
       <CollapsibleSection
@@ -69,6 +74,16 @@ export default function UserSettingsTab({ user, onLogout }) {
           <OPDSSection />
         </div>
       </CollapsibleSection>
+
+      {showShareLinks && (
+        <CollapsibleSection
+          title={t('userSettings.groups.sharing')}
+          description={t('userSettings.groups.sharingDesc')}
+          storageKey="grimoire:settings:account:sharing"
+        >
+          <ShareLinksSection canShare={Boolean(user?.share_links_allowed)} />
+        </CollapsibleSection>
+      )}
 
       <CollapsibleSection
         title={t('userSettings.groups.security')}

@@ -17,7 +17,6 @@ vi.mock('./ModelViewerPane', () => ({
 }))
 
 const toggleFavorite = vi.fn()
-vi.mock('../campaigns/AddToCampaignButton', () => ({ default: () => null }))
 vi.mock('../../context/FavoritesContext', () => ({
   useFavorites: () => ({ isFavorite: () => false, toggleFavorite }),
 }))
@@ -216,9 +215,11 @@ describe('ModelDetailView', () => {
     })
   })
 
-  it('favourites the model from its detail toolbar', async () => {
+  it('favourites the model from the overflow menu', async () => {
     renderAt(aModel())
-    await userEvent.click(await screen.findByRole('button', { name: 'Add to favorites' }))
+    // Favourite lives in the overflow menu with campaigns and share links.
+    await userEvent.click(await screen.findByRole('button', { name: 'More actions' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Add to favorites' }))
     expect(toggleFavorite).toHaveBeenCalledWith('model', 'm1')
   })
 

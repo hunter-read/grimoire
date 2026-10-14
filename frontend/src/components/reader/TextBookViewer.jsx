@@ -5,6 +5,7 @@ import { LuArrowLeft, LuDownload, LuHeart } from 'react-icons/lu'
 import api, { mediaUrl } from '../../api'
 import { useFavorites } from '../../context/FavoritesContext'
 import Spinner from '../Spinner'
+import ShareLinkButton from '../share/ShareLinkButton'
 
 const btnStyle = {
   background: 'var(--bg-card)',
@@ -136,6 +137,7 @@ export default function TextBookViewer({ book, bookId, backPath }) {
         >
           <LuHeart size={16} fill={fav ? 'currentColor' : 'none'} aria-hidden="true" />
         </button>
+        <ShareLinkButton resourceType="book" resourceId={bookId} title={book.title} compact />
         <a
           href={mediaUrl(`/books/${bookId}/file`)}
           download={book.filename || ''}

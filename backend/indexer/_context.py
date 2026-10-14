@@ -20,23 +20,43 @@ from typing import Callable, Optional
 
 from sqlalchemy.orm import Session
 
+from ..filenames import is_undecodable, warn_skipped
 from ..library_ignore import IgnoreMatcher
 from .categories import slugify
 from .metadata import is_exported_cover_name
 from .thumbnails import archive_ext
 
 
-def _prune_dirs(root: str, dirs: list[str], ignore: Optional[IgnoreMatcher]) -> list[str]:
+def _readable_name(root: str, name: str, *, warn: bool = True) -> bool:
+    """Whether ``name`` is valid UTF-8, logging the skip when it is not.
+
+    A name that is not (issue #547) cannot be stored, served, or logged, so the
+    entry is left out of the scan rather than allowed to fail the whole walk.
+    ``warn`` is off for the counting pass, which visits the same entries the
+    walk is about to, so each one is reported once.
+    """
+    if not is_undecodable(name):
+        return True
+    if warn:
+        warn_skipped(os.path.join(root, name))
+    return False
+
+
+def _prune_dirs(
+    root: str, dirs: list[str], ignore: Optional[IgnoreMatcher], *, warn: bool = True
+) -> list[str]:
     """Return the walk subdirectories to descend into.
 
-    Drops hidden dirs (``.``-prefixed) and, when an ``ignore`` matcher is given,
-    any directory excluded by a ``.grimoireignore`` rule — pruning the whole
-    subtree so ignored folders are never walked.
+    Drops hidden dirs (``.``-prefixed), dirs whose name is not valid UTF-8, and,
+    when an ``ignore`` matcher is given, any directory excluded by a
+    ``.grimoireignore`` rule — pruning the whole subtree so those folders are
+    never walked.
     """
     return [
         d
         for d in dirs
         if not d.startswith(".")
+        and _readable_name(root, d, warn=warn)
         and not (ignore and ignore.is_ignored(os.path.join(root, d), is_dir=True))
     ]
 
@@ -46,10 +66,13 @@ def _keep_entry(path: Path, ignore: Optional[IgnoreMatcher], *, is_dir: bool) ->
 
     The ``os.walk`` paths prune with :func:`_prune_dirs`, but the system and
     container walks list a directory themselves (``Path.iterdir``) and so need
-    the same hidden-plus-``.grimoireignore`` test applied per entry (issue #333).
+    the same hidden-plus-``.grimoireignore`` test applied per entry (issue #333),
+    along with the same UTF-8 name check.
     """
-    return not path.name.startswith(".") and not (
-        ignore and ignore.is_ignored(str(path), is_dir=is_dir)
+    return (
+        not path.name.startswith(".")
+        and _readable_name(str(path.parent), path.name)
+        and not (ignore and ignore.is_ignored(str(path), is_dir=is_dir))
     )
 
 
@@ -72,9 +95,9 @@ def _count_eligible_files(
     """
     count = 0
     for root, dirs, files in os.walk(directory):
-        dirs[:] = _prune_dirs(root, dirs, ignore)
+        dirs[:] = _prune_dirs(root, dirs, ignore, warn=False)
         for f in files:
-            if f.startswith("."):
+            if f.startswith(".") or is_undecodable(f):
                 continue
             if ignore and ignore.is_ignored(os.path.join(root, f), is_dir=False):
                 continue

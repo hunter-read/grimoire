@@ -148,6 +148,22 @@ describe('useMediaGallery (grouped)', () => {
     expect(params(request)).toMatchObject({ sort: 'name', order: 'asc', offset: '0' })
   })
 
+  it("opens in the collection's own default sort", async () => {
+    // Audio opens in album order (issue #494); the config says so.
+    setup(library)
+    const { result } = renderHook(() => useMediaGallery({ ...config, defaultSort: 'track' }), {
+      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+    })
+    await waitFor(() => expect(result.current.data).not.toBeNull())
+    expect(result.current.sortFilter.sort).toBe('track')
+    act(() => result.current.loadFolder('Caves/Deep'))
+    await waitFor(() =>
+      expect(calls('/maps').some((u) => params(u).folder === 'Caves/Deep')).toBe(true)
+    )
+    const request = calls('/maps').find((u) => params(u).folder === 'Caves/Deep')
+    expect(params(request)).toMatchObject({ sort: 'track', order: 'asc' })
+  })
+
   it('keeps a folder the user opened open when the filters change', async () => {
     setup(library)
     const { result } = renderGallery()

@@ -181,6 +181,14 @@ kept in plaintext is migrated on upgrade: it keeps working unchanged, named
 `Stats API key (migrated)`, owned by the earliest-created admin, with
 `stats: Read` and nothing else.
 
+### Share links
+
+A [share link](sharing.md) is a public URL for one book, map, token, audio track
+or 3D model, so a player's browser, a VTT or a Discord bot can load it with no
+account. The token in the path is the only credential: `/api/share/*` takes no
+session, cookie (other than a password unlock) or API key, and grants nothing but
+that one item. See [Share links](#share-links-1) below.
+
 ### Rate limiting
 
 The credential-checking endpoints - `/api/auth/login`, `/api/auth/setup`, and `/api/auth/guest-login` - are rate-limited per client IP (default `10/minute`, configurable via `AUTH_RATE_LIMIT`). Exceeding the limit returns `429 Too Many Requests` with `{"error": "Rate limit exceeded: ..."}`. Keying honors `X-Forwarded-For` behind a reverse proxy. See [Security hardening](security.md).
@@ -236,7 +244,7 @@ environment:
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
 | `/api/auth/status` | GET | - | Returns `{"initialized": bool}` - used by the frontend to decide whether to show first-run setup |
-| `/api/auth/config` | GET | - | Public auth configuration for the login screen: `{password_auth_enabled, guest_access_enabled, custom_login_message_enabled, custom_login_message, oidc_enabled, oidc_button_text, oidc_auto_launch}`. The custom message is only returned when its toggle is on. OIDC fields are only true/non-empty when the IdP is fully configured. |
+| `/api/auth/config` | GET | - | Public auth configuration for the login screen: `{password_auth_enabled, guest_access_enabled, custom_login_message_enabled, custom_login_message, oidc_enabled, oidc_button_text, oidc_button_bg_color, oidc_button_text_color, oidc_button_border_color, oidc_button_radius, oidc_button_icon_url, oidc_auto_launch}`. The custom message is only returned when its toggle is on. OIDC fields are only true/non-empty when the IdP is fully configured. The `oidc_button_*` appearance fields are validated hex colors or `""` (theme default), `oidc_button_radius` is px or `null`, and `oidc_button_icon_url` is a relative URL or `""` - see [Style the sign-in button](oidc.md#style-the-sign-in-button). |
 | `/api/auth/setup` | POST | - | First-run admin account creation. Body: `{username, password}`. Returns `{token, user}` and sets the `grimoire_session` cookie. Fails with 400 if any users exist. |
 | `/api/auth/login` | POST | - | Authenticate. Body: `{username, password}`. Returns `{token, user}` (`user` includes `display_name`) and sets the `grimoire_session` cookie. Returns 403 if password authentication is disabled. |
 | `/api/auth/guest-login` | POST | - | Exchange a campaign guest invite code for a JWT. Body: `{code}`. Returns `{token, user, campaign_id}` and sets the `grimoire_session` cookie - `user.display_name` is the GM-set guest nickname. Returns 403 if guest access is disabled, 401 for an unknown/expired code. |
@@ -248,16 +256,17 @@ environment:
 | `/api/auth/sessions/{session_id}` | DELETE | any | Revokes a single session belonging to the caller. Returns 404 for an unknown session or one owned by another user. |
 | `/api/auth/openid/login` | GET | - | Start an OIDC login. Redirects to the IdP. Optional `?return_to=/path` to redirect after callback. Returns 503 if OIDC isn't configured. |
 | `/api/auth/openid/callback` | GET | - | OIDC callback. Validates the code, finds/creates the local user, opens a revocable session (`origin: "oidc"`), sets the `grimoire_session` and `grimoire_refresh` cookies, and redirects to the frontend with `#oidc_token=<jwt>`. Only the short-lived access token travels in the fragment; the refresh token is cookie-only. |
+| `/api/auth/openid/button-icon` | GET | - | The admin-configured icon for the OIDC button, always a server-normalized PNG (≤192 px). 404 when no icon is set. Served with `X-Content-Type-Options: nosniff` and `Content-Security-Policy: default-src 'none'; sandbox`. Use the URL from `/api/auth/config`: when its `v` query parameter matches the current icon the response is cacheable forever; otherwise it is `no-cache` with an `ETag`. |
 | `/api/auth/openid/discover` | POST | admin | Server-side discovery fetch. Body: `{issuer_url}`. Returns the relevant endpoints from `.well-known/openid-configuration`. |
 
 ### Users
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/users` | GET | admin | List all users (each entry includes `email`, `allow_explicit`, `campaign_access`, `api_keys_enabled`, `campaign_count` (number of campaigns the user owns), and `oidc_linked`) |
-| `/api/users` | POST | admin | Create a user. Body: `{username, password?, role?, email?, allow_explicit?, campaign_access?, api_keys_enabled?}` (role defaults to `player`; email is optional and unique case-insensitively; `password` may be omitted to create an OIDC-only account when password auth is disabled, otherwise it must be ≥8 chars). Returns the created user with `allow_explicit`, `campaign_access`, `campaign_count`, and `oidc_linked`. |
+| `/api/users` | GET | admin | List all users (each entry includes `email`, `allow_explicit`, `campaign_access`, `api_keys_enabled`, `share_links`/`share_links_allowed`/`share_links_source` (see below), `campaign_count` (number of campaigns the user owns), and `oidc_linked`) |
+| `/api/users` | POST | admin | Create a user. Body: `{username, password?, role?, email?, allow_explicit?, campaign_access?, api_keys_enabled?, share_links?}` (role defaults to `player`; email is optional and unique case-insensitively; `password` may be omitted to create an OIDC-only account when password auth is disabled, otherwise it must be ≥8 chars). Returns the created user with `allow_explicit`, `campaign_access`, `campaign_count`, and `oidc_linked`. |
 | `/api/users/guests` | GET | admin | List every per-campaign guest account. Each entry: `{id, display_name, created_at, campaign_id, campaign_name, invited_by}` (`invited_by` is the campaign owner's display name/username). Guests never appear in `GET /api/users`. |
-| `/api/users/:id` | PATCH | admin | Update `role`, `password`, `allow_explicit`, `campaign_access`, `api_keys_enabled`, or `email` (use `""` to clear the email). `api_keys_enabled` lets a non-admin hold [API keys](#api-keys) (admins always may); OIDC's `apiKeys` permissions claim overrides it on next login. `campaign_access: false` blocks the user from creating/joining/managing campaigns without deleting existing ones; OIDC's `campaignAccess` permissions claim overrides it on next login. Changing a GM's role **drops their access grants** - see [Access levels](#access-levels-issue-258). |
+| `/api/users/:id` | PATCH | admin | Update `role`, `password`, `allow_explicit`, `campaign_access`, `api_keys_enabled`, `share_links`, or `email` (use `""` to clear the email). `share_links` is the user's [share link](#share-links-1) override: `"role"` follows the role default, `"allow"`/`"deny"` grant or refuse it whatever the role. Responses report it alongside `share_links_allowed` (the effective answer) and `share_links_source` (`role`, `user` or `disabled`), so a GM with no override reads as allowed by role. `api_keys_enabled` lets a non-admin hold [API keys](#api-keys) (admins always may); OIDC's `apiKeys` permissions claim overrides it on next login. `campaign_access: false` blocks the user from creating/joining/managing campaigns without deleting existing ones; OIDC's `campaignAccess` permissions claim overrides it on next login. Changing a GM's role **drops their access grants** - see [Access levels](#access-levels-issue-258). |
 | `/api/users/:id/convert` | POST | admin | Convert a guest account to a permanent user. Body: `{username, password?, role?}` (role defaults to `player`, cannot be `guest`). `password` is required only when password auth is enabled; ≥8 chars. Keeps the guest's campaign membership and character, clears its invite code, and returns the promoted user. 400 if the target isn't a guest or the username is taken. |
 | `/api/users/:id/merge` | POST | admin | Fold one or more guest accounts into the account at `:id`, so someone invited to several campaigns ends up with a single login. Body: `{source_ids: [...]}` (non-empty, no duplicates, cannot contain `:id`). Moves each source's campaign memberships, notes, character-builder characters, installed sheets, personal rulesets, and other personal rows onto the target, then deletes the emptied sources and ends their sessions. Merged-in memberships have their invite code cleared - campaign access comes from the membership itself, so the person keeps every campaign and uses the surviving account's credentials. Rows that would collide (target is already in that campaign, or has that sheet installed) are dropped in favour of the target's. Sources must be guests; the target may be a guest or a permanent user. Returns `{id, display_name, merged_ids, memberships_moved}`. 400 if a source isn't a guest or `:id` is among the sources, 404 if the target or any source is missing. |
 | `/api/users/:id` | DELETE | admin | Delete a user (cannot delete self or last admin). Also the way to remove a guest account, including one orphaned by its campaign's deletion (null `campaign_id`/`invited_by`). |
@@ -526,6 +535,10 @@ does not support pasting, and a request with neither `identity` nor `paste`.
 | `/api/books/:id/page/:num` | GET | any | Render a document page (PDF/EPUB/DjVu) as WebP. Comic archives (`.cbz`/`.cbr`/`.cb7`/`.cbt`) return the stored page image from inside the archive as-is; single-image books return the file and accept only page 1; text books 404 (no rendered page). Query: `width` (default 1200, max 3000), `v` (the book's `content_token`, cache-busting; ignored server-side). Cached under a content-addressed key, so replacing the file supersedes earlier renders. Sends an `ETag` and honours `If-None-Match` (`304`). |
 | `/api/books/:id/page/:num/text` | GET | any | Plain text of a page (from FTS index or live extraction). Serves any indexable format - PDF, EPUB, DjVu, and `.txt`/`.md`/`.rtf` |
 | `/api/books/:id/page/:num/words` | GET | any | Word bounding boxes `{x0, y0, x1, y1, text}` for text overlay. Only rendered documents have page geometry; comics and text books return an empty overlay |
+| `/api/books/:id/page/:num/size` | GET | any | The page's `{width, height}` in PDF points (1/72 inch). Rendered documents only (PDF, EPUB, DjVu, XPS); other formats 400 |
+| `/api/books/:id/page/:num/shapes` | GET | any | Suggested cut-outs on a page - see [Page export](#page-export). `{shapes: [{shape, x, y, w, h}]}` |
+| `/api/books/:id/export` | POST | any | Export pages or cut-outs as a download - see [Page export](#page-export). Read-only, so an API key's Read scope covers it |
+| `/api/books/:id/export/save` | POST | admin | The same export written into a library folder instead - see [Page export](#page-export) |
 
 **Book list response:** `{"total": int, "books": [...]}`
 
@@ -581,7 +594,7 @@ players and guests are exactly who restrictions exclude.
 visibility and cannot be made `public` or `private`; restricting a book demotes
 its existing shares.
 
-**Categories:** `core`, `supplement`, `adventure`, `character-sheet`, `map`, `handout`, `homebrew`, `starter-set`
+**Categories:** `core`, `supplement`, `adventure`, `character-sheet`, `map`, `handout`, `homebrew`, `starter-set`, `magazine`
 
 #### Metadata lookup from add-ons (issue #203)
 
@@ -651,6 +664,59 @@ OPDS catalogue — an archive or a feed should be complete — and in
 `/api/stats`'s `total_size_mb` and `library_size_mb`, since those bytes really
 are on disk, while the item counts exclude them.
 
+
+#### Page export
+
+Whole pages or areas cut out of them (issue #207), from any book PyMuPDF renders
+(PDF, EPUB, DjVu, XPS) and from PDF maps (`/api/maps/:id/...`, same bodies).
+Comic archives, text books and image maps return 400. Access is the same as reading
+the book: whoever can open it can export from it.
+
+`POST /api/books/:id/export` takes a JSON body:
+
+| Field | Applies to | Meaning |
+|-------|------------|---------|
+| `kind` | both | `pages` or `regions` |
+| `format` | both | `pdf` (default), `png`, `jpeg` or `webp` |
+| `dpi` | images | Render resolution, 36-600 (default 150). A PDF keeps the page's own vectors and ignores it |
+| `pages` | `pages` | A page list such as `"12-15, 20"`. Order is kept, repeats dropped, a backwards range read forwards |
+| `join_spreads` | `pages`, images | Join facing pages into one image each |
+| `spread_offset` | `pages`, images | How pages pair: `0` keeps page 1 alone (pairs 2-3, 4-5), `1` pairs it with page 2 - the reader's own toggle |
+| `regions` | `regions` | Up to 200 cut-outs: `{pages, shape, x, y, w, h, name?}` |
+
+A region's `pages` is one page, or two consecutive pages for an area across a
+spread. `x`/`y`/`w`/`h` are fractions (0-1) of those pages laid side by side at the
+first page's height. `shape` is `rect` or `ellipse`; an ellipse is transparent outside
+the circle (white corners in JPEG) and cannot be saved as PDF. A rectangle saved as
+PDF stays vector. `name` becomes the filename; without one it is
+`<title> (p<page>) <n>`.
+
+One output file is returned as itself; several come back as a zip. Filenames are
+sent in `Content-Disposition` with an RFC 6266 `filename*` for non-ASCII titles.
+Limits: images are rendered at most 100 pages per request, and no single image may
+exceed 50 megapixels - both fail with a 400 whose `detail` says what to change.
+
+`POST /api/books/:id/export/save` (admin) takes the same body plus `destination`, a
+library folder. Each file is written on its own (never a zip) through the upload
+path, so it is renamed rather than overwriting, refused on a read-only library, and
+refused for a type that collection does not index (a PDF into `tokens/`). Returns
+`{folder, saved: [{path, name, size}]}`; the files appear once a scan reaches that
+folder (`POST /api/rescan` with `scope`).
+
+`GET /api/books/:id/page/:num/shapes` suggests cut-outs by reading the page's
+structure: each embedded image, and each vector path drawn as a circle (a token
+frame). An image whose soft mask hides its corners, or a frame drawn around an
+image, comes back as an `ellipse`. Images stacked in the same spot (a card's art,
+frame and texture layers) are one piece, and a piece's own decorations - a name banner
+inside a card - are not offered separately. Backgrounds covering most of the page,
+ornaments, and panels holding several like-sized pieces are left out. When the page
+is mostly one picture and its structure yields nothing - a token sheet flattened into
+one page-sized image, or a scan - the pixels
+are read instead: everything that differs from the page's plain background colour is
+a piece, tokens touching each other are split apart, and a round piece's box is fitted
+to its circle. A page with no plain background (a full-bleed illustration) returns no
+shapes. Results are in reading order.
+
 ### Maps
 
 Archive files (`.zip`, `.rar`, `.7z`, `.tar`, `.tar.gz`, …) under `maps/`, `tokens/`,
@@ -681,7 +747,13 @@ a book whose file is missing.
 | `/api/maps/:id` | PATCH | gm/admin | Update `description`, `tags`, `map_type`, `grid_size`, and the grid override `grid_width`/`grid_height`/`grid_px` |
 | `/api/maps/:id/file` | GET | any | Download/stream the original map image, PDF, or archive (served with the archive's MIME type) |
 | `/api/maps/:id/page/:n` | GET | any | Render page `n` of a PDF map to WebP (`width?` target pixel width, default 1600, max 3000). Image maps stream as-is and only accept page 1; archives return 400 |
+| `/api/maps/:id/page/:n/size` | GET | any | A PDF map page's `{width, height}` in points. 400 for non-PDF maps |
+| `/api/maps/:id/page/:n/shapes` | GET | any | Suggested cut-outs on a PDF map page, as for [books](#page-export) |
+| `/api/maps/:id/export` | POST | any | Export PDF map pages or cut-outs, as for [books](#page-export). 400 for non-PDF maps |
+| `/api/maps/:id/export/save` | POST | admin | Save a map export into the library, as for [books](#page-export) |
 | `/api/maps/:id/export.uvtt` | GET | any | Export a map as a Universal VTT file (`application/octet-stream`, attachment named `<slug>.uvtt`). An existing `.uvtt` re-exports, carrying its own embedded image plus any edited geometry. 400 for PDF, video and archive maps, and for a raster map already **variant-linked** to a Universal VTT file |
+| `/api/maps/:id/otfbm` | GET | may share | How to set the map up as an [OTFBM](#otfbm-export) background: whole-cell `width`/`height` (the `-mapsize`), `cell` (the `-options c` value; `?cell=` 20-100, defaults to `suggested_cell`), the map's own `source_px`, `grid_source`, the resized `image_width`/`image_height`, and `truncated` when the map exceeds 99 cells per side. 400 for PDF, video and archive maps |
+| `/api/maps/:id/otfbm/image` | GET | may share | The map resized so each cell is `?cell=` pixels, as a JPEG (PNG when the map has transparency). Attachment named `<slug>-<W>x<H>c<cell>.jpg`. 400 for PDF, video and archive maps |
 | `/api/maps/:id/vtt/image` | GET | any | Decode and stream the image embedded in a `.uvtt`/`.dd2vtt` map. 400 if the map is not Universal VTT or carries no image |
 | `/api/maps/:id/vtt/data` | GET | any | Grid resolution plus wall/portal/light counts parsed from a `.uvtt`/`.dd2vtt` map, image omitted. 400 if the map is not Universal VTT |
 | `/api/maps/:id/vtt/authoring` | GET | any | Walls, portals, lights and environment authored in the in-app editor, plus the resolved grid to draw them on, the `image_url` to draw against, and `is_vtt`/`seeded_from_file` flags. `data` is `null` when nothing has been authored; for an unedited `.uvtt` it is seeded from the file's own geometry |
@@ -764,6 +836,39 @@ envelope as base64, so there is nothing at the path to re-encode, and passing it
 through keeps the exported image byte-identical to the original's. Its grid also
 comes from the file's own `pixels_per_grid` unless a manual override is set,
 since that is what the geometry inside was drawn against.
+
+#### OTFBM export
+
+`GET /api/maps/:id/otfbm` and `/otfbm/image` (issue #551) set a map up as an
+[OTFBM](https://otfbm.io) background for Avrae's `!map -mapsize WxH -options c<cell> -bg <url>`.
+OTFBM draws the background at its native resolution under a grid of `cell`
+pixels, without scaling it, so the image is resized by `cell / source_px` to make
+each of the map's cells exactly `cell` pixels.
+
+The grid is the same resolved grid the Universal VTT export uses (manual
+override, then detection, then 140px; a `.uvtt`'s own `pixels_per_grid`).
+`-mapsize` takes whole cells, so a fractional grid rounds **down** unless it is
+within 0.1 of the next cell: the partial-cell bleed around a printed map is not
+a playable square, while 32.97 is plainly 33. It is capped at OTFBM's 99 cells
+per side, and `truncated` reports when that cap applies. `suggested_cell` is the
+map's own cell size capped at 70, so the default never upscales.
+
+Unlike `export.uvtt`, a raster map variant-linked to a Universal VTT file is
+**not** refused: OTFBM has no walls or lights, so the linked file holds nothing
+this export would be missing.
+
+The image is JPEG unless the map has pixels that are actually transparent (an
+opaque alpha channel does not count), in which case it is PNG - OTFBM reads
+neither WebP nor anything without a `.png`/`.jpg`/`.gif` extension.
+
+OTFBM fetches the background anonymously, so it is served through a
+[share link](#share-links-1) with `variant: "otfbm"`: the link serves this resized
+image instead of the original map, and its `file_url` (ending in
+`<slug>-<W>x<H>c<cell>.jpg`) is the `-bg` URL. Both endpoints here therefore
+need permission to create share links (`403` otherwise, guests included); the
+image endpoint remains for hosting the background elsewhere. The resized image
+is cached on disk, keyed on the file's mtime and the planned sizes, since OTFBM
+re-fetches it on every render.
 
 #### Universal VTT authoring
 
@@ -899,14 +1004,15 @@ inert even if it is navigated to directly.
 
 ### Audio
 
-Audio tracks behave like maps/tokens, with embedded metadata. Supported formats: `.mp3`, `.ogg`, `.opus`, `.flac`, `.wav`, `.m4a`, `.aac`.
+Audio tracks behave like maps/tokens, with embedded metadata. Supported formats: `.mp3`, `.ogg`, `.opus`, `.flac`, `.wav`, `.m4a`, `.m4b`, `.aac`.
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/audio` | GET | any | Paginated audio list (collection key `audio`). Query: `limit`, `offset`, and the [browse parameters](#browsing-the-media-collections) (`sort` also takes `title` and `duration`). Items include `duration`, `title`, `artist`, `album`, `has_artwork`, `is_archive` |
+| `/api/audio` | GET | any | Paginated audio list (collection key `audio`). Query: `limit`, `offset`, and the [browse parameters](#browsing-the-media-collections) (`sort` also takes `track`, `title` and `duration`). Items include `duration`, `title`, `artist`, `album`, `track_number`, `disc_number`, `has_artwork`, `is_archive`. `track_number`/`disc_number` come from the file's track/disc tags and are `null` when it has none |
 | `/api/audio/groups` | GET | any (not guest) | Folders holding matching tracks, with counts. Query: the browse filters |
-| `/api/audio/:id` | GET | any | Track detail incl. `folder_path` and `folder_tags` |
+| `/api/audio/:id` | GET | any | Track detail incl. `track_number`, `disc_number`, `folder_path` and `folder_tags` |
 | `/api/audio/:id` | PATCH | gm/admin | Update `description`, `tags` |
+| `/api/audio/:id/chapters` | GET | any | Chapter markers embedded in the file, read on request: `{chapters: [{start, title}]}` ordered by `start` (seconds). Reads `.m4b`/`.m4a` QuickTime chapter tracks and Nero `chpl` lists, and MP3 ID3 `CHAP` frames. `title` is `""` when the file names none. Empty for a track without chapters, an archive, or a missing file |
 | `/api/audio/:id/file` | GET | any | Stream/download the audio file (supports HTTP range requests), or the archive (served with the archive's MIME type) |
 | `/api/audio/:id/artwork` | GET | any | Track artwork, resolving a cover set through the UI first, then folder cover art, then embedded album art. 404 if none |
 | `/api/audio/:id/cover` | GET | gm/admin | Only a cover set through the UI, for the editor preview. 404 when the track has none, even if it has folder or embedded art |
@@ -972,7 +1078,7 @@ listing that folder returns:
 | `favorites` | `true` for the caller's favourites only |
 | `added_since` | Only items added at or after this ISO time; undated items never match |
 | `folder` | Only items directly in this folder, collection-relative (`""` for the collection root). Omit for the whole collection |
-| `sort` | `path` (folder order, the default), `name` (natural order: "Map 2" before "Map 10"), `size`, `added_at` (undated items last either way); audio also `title` and `duration`. Any other value is a 422 |
+| `sort` | `path` (folder order, the default), `name` (natural order: "Map 2" before "Map 10"), `size`, `added_at` (undated items last either way); audio also `title`, `duration` and `track` (album order: folder, then disc and track number, then name - untagged files first, in name order; on other collections the same as `path`). Any other value is a 422 |
 | `order` | `asc` or `desc` |
 
 `GET /api/<collection>/groups` returns `{total, groups: [{path, count}]}`: every
@@ -1576,6 +1682,8 @@ Feeds are **personalised to the token's owner**: each event's `SUMMARY` and `DES
 | `/api/settings` | GET | Get all application settings |
 | `/api/settings` | PATCH | Update application settings |
 | `/api/settings/ui` | GET | UI visibility flags (any authenticated user) |
+| `/api/settings/oidc-button-icon` | POST | Upload the OIDC button icon. Multipart `file`: PNG, JPEG, WebP, GIF or SVG, max 1 MB (413 above that, 400 for anything that isn't a decodable image). The image is re-encoded - SVGs are rasterized - to a PNG at most 192 px on its longest side, so the uploaded bytes are never served. 400 when `OIDC_BUTTON_ICON` pins it. Returns the full settings. |
+| `/api/settings/oidc-button-icon` | DELETE | Remove the uploaded icon. 400 when `OIDC_BUTTON_ICON` pins it. Returns the full settings. |
 
 The settings response no longer carries a `stats_api_key`, and `PATCH` ignores
 one: API keys moved to [`/api/api-keys`](#api-keys-1), where the key
@@ -1612,6 +1720,8 @@ than appearing and failing.
 | `show_stat_version` | bool | Show/hide version in sidebar |
 | `password_auth_enabled` | bool | Allow password sign-in. Cannot be patched if `ALLOW_PASSWORD_AUTHENTICATION` is set in the environment (returns 400). The `password_auth_env_locked` field on the GET response indicates whether the env override is active. |
 | `guest_access_enabled` | bool | Allow GMs/admins to create guest invite codes. Cannot be patched if `GUEST_ACCESS_ENABLED` is set in the environment (returns 400). The `guest_access_env_locked` field on the GET response indicates whether the env override is active. |
+| `share_links_role_gm` | bool | Whether GMs may create [share links](#share-links-1) without a per-user override. Default `true`. Admins always may. |
+| `share_links_role_player` | bool | Whether players may create share links without a per-user override. Default `false`. |
 | `disable_folder_category_inference` | bool | When `true`, the indexer does not infer a book's category from its folder names; books fall back to `uncategorized`. Cannot be patched if `DISABLE_FOLDER_CATEGORY_INFERENCE` is set in the environment (returns 400). The `disable_folder_category_inference_env_locked` field on the GET response indicates whether the env override is active. A per-system `.no-auto-category` marker file disables inference for just that system. |
 | `custom_login_message_enabled` | bool | Show a custom message above the sign-in form |
 | `custom_login_message` | string | HTML for the login message. Sanitized server-side: only `<b>`, `<strong>`, `<i>`, `<em>`, `<s>`, `<strike>`, `<del>`, `<u>`, `<p>`, `<br>`, `<ul>`, `<ol>`, `<li>`, and `<a href>` (http/https/mailto/relative) are allowed; everything else is dropped. |
@@ -1626,13 +1736,17 @@ than appearing and failing.
 | `oidc_client_secret` | string | **Write-only.** Setting a non-empty string saves it. Empty string is a no-op (so form re-submits don't clobber). The literal `"__CLEAR__"` wipes the stored secret. GET responses never return the value - instead, `oidc_client_secret_set: bool` and `oidc_client_secret_length: int` are returned. |
 | `oidc_signing_alg` | string | One of `RS256`/`RS384`/`RS512`/`ES256`/`ES384`/`ES512`/`PS256`/`PS384`/`PS512`/`HS256`. Default `RS256`. |
 | `oidc_button_text` | string | Label for the SSO button on the login page. |
+| `oidc_button_bg_color` | string | Button background as a CSS hex color (`#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`), stored lowercase. `""` = theme default. Anything else returns 400. |
+| `oidc_button_text_color` | string | Button text color, same format. |
+| `oidc_button_border_color` | string | Button border color, same format. |
+| `oidc_button_radius` | string | Corner radius in px, an integer `0`-`40`. `""` = default. |
 | `oidc_groups_claim` | string | Optional. Name of the claim containing group memberships. When set, roles are assigned from groups named (case-insensitively) `admin`, `gm`, or `player`; users without a matching group are denied. |
 | `oidc_permissions_claim` | string | Optional. Name of the claim containing a permissions object (e.g. `{viewNSFW: bool}`). When set, the claim must be present in every login or access is denied. |
 | `oidc_match_by` | string | One of `none`, `email`, `username`. How to link an existing local account to an OIDC subject on first login. |
 | `oidc_auto_launch` | bool | When true, `/login` immediately redirects to the IdP. Suppress with `?autoLaunch=0`. |
 | `oidc_auto_register` | bool | Auto-create local accounts on first OIDC login. |
 
-GET responses also include a sibling `<key>_env_locked: bool` for each individual OIDC setting, indicating whether the value is pinned by an environment variable. Patching a locked field returns 400. The fixed callback URL is exposed as `oidc_redirect_uri`.
+GET responses also include a sibling `<key>_env_locked: bool` for each individual OIDC setting, indicating whether the value is pinned by an environment variable. Patching a locked field returns 400. The fixed callback URL is exposed as `oidc_redirect_uri`, and the current button icon (set through `/api/settings/oidc-button-icon`, or pinned by `OIDC_BUTTON_ICON`) as `oidc_button_icon_url` (`""` when there is none).
 
 ### API keys
 
@@ -1692,6 +1806,78 @@ A new record that waits for review is not linked (`linked: false`): it exists in
 GrimoireCodexDB only once approved. Book and system detail responses, and the books listed
 in a system, carry `codex_id` (`null` when unlinked). For API keys these endpoints
 fall under the `codex` permission.
+
+### Share links
+
+Public, revocable URLs for a single library item (issue #541). See
+[docs/sharing.md](sharing.md) for the feature as users see it.
+
+**Who may create them.** Everything is off with `SHARE_LINKS_ENABLED=false`.
+Otherwise a per-user override (`users.share_links_enabled`, set through
+`PATCH /api/users/:id` with `share_links`) wins either way; with no override the
+role decides - admins always, GMs unless `share_links_role_gm` is off, players
+only once `share_links_role_player` is on. Guests never may. `GET /api/auth/me`
+reports the result as `share_links_allowed`.
+
+**Whether a link works** is decided on every request, never stored. A link stops
+working when it is revoked, when it expires, when its creator may no longer
+create share links, or when its creator can no longer read the item (the same
+check the item's own `/file` route makes - access levels and the explicit-content
+setting included), or the item is gone. Only revoking is permanent: a link
+suspended by a lost permission is kept and works again if the permission
+returns. The management API reports this as `state`: `active`, `disabled`,
+`revoked`, `expired`, `suspended` or `unavailable`.
+
+#### Management
+
+Session or API key (`share-links` permission); never guests. You manage your own
+links - including after losing the permission, so you can still revoke them - and
+an admin can list and revoke anyone's.
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/share-links` | GET | any | Your links, newest first. Filter with `resource_type`, `resource_id` and `variant`. Each: `{id, url, file_url, resource_type, resource_id, resource_name, label, filename, has_password, variant, variant_options, state, created_at, expires_at, revoked_at, last_used_at, use_count}`. `url` is the share page; `file_url` the raw file. |
+| `/api/share-links` | POST | may share | Create a link. Body: `{resource_type: "book"\|"map"\|"token"\|"audio"\|"model", resource_id, label?, expires_in_days? (1-3650, null = never), password? (4-200 chars), variant? ("otfbm"), cell? (20-100)}`. `variant: "otfbm"` (maps with a single picture only, `400` otherwise) makes the link serve the map resized as an [OTFBM background](#otfbm-export) at `cell` pixels per cell (the suggested size when omitted); the link then carries `variant: "otfbm"` and `variant_options: {cell}`. `403` when share links are off, you may not share, or you cannot read the item; `404` for an unknown item or a file missing on disk. |
+| `/api/share-links/permission` | GET | any | `{enabled, allowed, source, override, role_allows}` for you. |
+| `/api/share-links/all` | GET | admin | Every user's links, with `user_id` and `username`. |
+| `/api/share-links/users/:user_id` | GET | admin | One user's links, with `user_id` and `username`. |
+| `/api/share-links/:id` | PATCH | owner or admin | Change `label`, `expires_in_days` (null = never) or `password` (null or `""` removes it). Only the fields sent change. `400` for a revoked link. |
+| `/api/share-links/:id/revoke` | POST | owner or admin | Stop the link working for good. It stays listed as `revoked`. |
+| `/api/share-links/:id` | DELETE | owner or admin | Remove the link entirely. `{status: "deleted"}`. |
+
+Someone else's link is `404` to anyone but an admin.
+
+#### Public
+
+No authentication. Every way a link can fail to work is the same `404`.
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/share/:token/meta` | GET | What the share page shows: `{password_required, unlocked, resource_type, name, label, filename, media_type, media_kind, file_size, file_url, download_url, expires_at}`. Until a password-protected link is unlocked, only the first two fields are set. `media_kind` is `image`, `audio`, `video`, `pdf`, `model` or `file`. |
+| `/api/share/:token/unlock` | POST | Body `{password}`. Sets an HttpOnly `grimoire_share` cookie, scoped to `/api/share/:token`, that unlocks that one link in this browser for 12 hours. Changing the password invalidates it. `403` for a wrong password. |
+| `/api/share/:token` | GET, HEAD | The item, inline (`?download=1` for an attachment). `401` when the link needs a password and this browser has not unlocked it. |
+| `/api/share/:token/:filename` | GET, HEAD | The same; the filename is ignored. It is there for tools that pick a decoder from the URL's extension, which is why `file_url` ends in the served file's real extension. |
+
+What is served: a book, token, audio track (with `Range` support) or 3D model
+serves its file; an image map serves the original image; a PDF map its first page
+rendered to WebP; a Universal VTT map its embedded image; an archive the archive.
+
+Responses carry `Access-Control-Allow-Origin: *` and
+`Cross-Origin-Resource-Policy: cross-origin` (a WebGL canvas such as Owlbear
+Rodeo's cannot read an image without them, and no credentials are involved),
+`X-Robots-Tag: noindex, nofollow`, `Referrer-Policy: no-referrer` and
+`Cache-Control: private, max-age=300`. A password-protected link drops the
+cross-origin headers and sends `Cache-Control: private, no-store`.
+
+Each `GET` adds one to `use_count` and sets `last_used_at`; `HEAD` and range
+requests that do not start at byte 0 (seeking through audio) are not counted.
+
+**Throttling.** Requests for tokens that do not exist count against the auth rate
+limit per client IP; past it, every share request from that IP gets `429`. Only
+unknown tokens count - a revoked, expired or suspended link is still a known
+token - so a tool that keeps fetching a dead link never locks its working links
+out (those tools fetch every link from one server address). Wrong passwords count
+separately, per IP and link.
 
 ### Add-ons *(admin only)*
 
@@ -1834,6 +2020,10 @@ campaign, which is exactly who wants a character sheet.
 | `/api/characters/:id` | PUT | user | Update `name`, `data`, `unset`, `campaign_id` and/or `status`. `data` is a **partial patch** - only the fields it names are touched. See below for the reserved keys |
 | `/api/characters/:id` | DELETE | user | Delete a character |
 | `/api/characters/import` | POST | user | Rebuild a character from an exported file |
+| `/api/characters/importers` | GET | user | `{importers, available, downloads_enabled}`. `importers` are the ones you can run - the server's and your own - each with `scope` (`server`/`user`), the `sheet` it builds on, `sheet_installed`, `extensions`, `accepts_files`, `accepts_url`, the `inputs` it asks for (`{key, label, help, secret, required, when}`), and `available_version` when your own copy has an update. `available` are catalogue importers you lack, each with `install_as`: `user` (install it yourself), `server` (an admin installs it for everyone via `POST /api/addons/:id/install`), `settings` (an admin installs it from Settings, where a script's consent is asked) or `admin` (ask one). An empty add-on index is refreshed once from the configured sources |
+| `/api/characters/importers/:id/install` | POST | user | Install a catalogue importer into your own account, or update your copy. Only one that reads files with YAML - the downloaded manifest is checked, whatever the index says; 400 otherwise, 403 when installs are switched off |
+| `/api/characters/importers/:id` | DELETE | user | Remove an importer you installed. Characters imported with it are kept |
+| `/api/characters/import/external` | POST | user | Build a character from another tool's export. Body: `{text, filename}` for a file or `{url}` for a link, plus optional `importer_id`, `campaign_id` and `inputs` (`{key: value}` answers to the importer's declared inputs - passed to its script for this import only, never stored; undeclared keys are dropped). The importer is chosen from the file's extension and contents (or the link) unless `importer_id` names one; 409 when several claim it. The importer's sheet is installed from the catalogue if missing. Returns the character plus `importer_id`, `importer_name`, and `unmatched` - names kept as custom entries because no installed content matched. When an input is missing - a required one, or one the script asks for, such as a key for a private character - the answer is 400 with `detail: {message, importer_id, needs_input: [keys]}`; send the import again with `importer_id` and `inputs` |
 | `/api/characters/:id/export` | GET | user | Export a character as a self-contained file |
 | `/api/characters/:id/portrait` | POST | user | Set a portrait (PNG/JPEG/WebP/GIF, 5 MB) |
 | `/api/characters/:id/portrait` | GET | user | The portrait image |
@@ -2575,7 +2765,7 @@ per-format field mapping and how export interacts with sidecar import.
 A backup is a single timestamped `.zip` named `grimoire-backup-<UTC timestamp>.zip`,
 holding a consistent snapshot of the SQLite database (taken with SQLite's online
 backup API, not a file copy) plus the user-authored directories under `DATA_PATH`:
-`campaign_uploads/`, `system_covers/`, and `audio_covers/`. A `details.json`
+`campaign_uploads/`, `system_covers/`, `audio_covers/`, and `branding/`. A `details.json`
 manifest records the app version, timestamp, and trigger. The **library is never
 included**, nor are the regenerable caches (`thumbnails/`, `page_cache/`).
 
@@ -2670,6 +2860,15 @@ where the scanner reads it - the same rules the write endpoints enforce. The
 top-level `children_accept_container_kind` and `children_accept_frames_marker`
 ask the question about a folder created *inside* the one being browsed, for a
 "new folder" action anchored on it that has no row to read the flags from.
+
+An entry whose name on disk is not valid UTF-8 carries `unreadable_name: true`.
+JSON cannot hold the real name, so its `name` and `path` show `U+FFFD` (`�`) in
+place of each bad byte. That path names nothing on disk, so the other endpoints
+treat it as a path that does not exist. Clients should list the entry but offer
+no actions on it.
+Nothing else is looked up for it: the scanner skips such names, so there is no
+record, system, or marker to report. See the
+[FAQ](faq.md#a-folder-is-skipped-by-the-scan-and-the-file-manager-shows--in-its-name).
 
 The listing is **one folder's immediate children only** - it does not recurse -
 and is bounded: `total` is the folder's true entry count and `truncated` says
@@ -2845,7 +3044,7 @@ for a corrected file: a better scan, a re-OCRed text layer, an errata printing.
 
 **`POST /api/files/folder/scaffold`** - `{path}`. Creates the standard category
 folders (`Core`, `Supplements`, `Adventures`, `Character Sheets`, `Maps`,
-`Handouts`, `Homebrew`, `Starter Sets`) inside a system folder. Each name is
+`Handouts`, `Homebrew`, `Starter Sets`, `Magazines`) inside a system folder. Each name is
 chosen to infer back to its canonical category slug, so the folders classify
 correctly on the next scan. Only valid for a folder that hosts categories - the
 `category_host` folders above: under `books/`, and not a container, since a

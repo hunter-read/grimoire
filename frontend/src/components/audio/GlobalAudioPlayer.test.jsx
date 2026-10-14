@@ -1,18 +1,33 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AudioPlayerProvider, useAudioPlayer } from '../../context/AudioPlayerContext'
 import GlobalAudioPlayer from './GlobalAudioPlayer'
+import { _clearChapterCache } from '../../hooks/useTrackChapters'
+
+// Track 'book' is an audiobook with chapter markers; every other track has none.
+const BOOK_CHAPTERS = [
+  { start: 0, title: 'Prologue' },
+  { start: 60, title: '' },
+  { start: 120, title: 'Epilogue' },
+]
 
 vi.mock('../../api', () => ({
   // The queue panel's save control loads the user's saved sets (useAudioSets).
-  default: { get: vi.fn(() => Promise.resolve({ sets: [] })) },
+  default: {
+    get: vi.fn((url) =>
+      Promise.resolve(
+        url === '/audio/book/chapters' ? { chapters: BOOK_CHAPTERS } : { sets: [], chapters: [] }
+      )
+    ),
+  },
   mediaUrl: (path) => `http://localhost${path}`,
 }))
 
 // jsdom doesn't implement media playback; stub it so play()/pause() are no-ops.
 beforeEach(() => {
   sessionStorage.clear()
+  _clearChapterCache()
   window.HTMLMediaElement.prototype.play = vi.fn().mockResolvedValue()
   window.HTMLMediaElement.prototype.pause = vi.fn()
 })
@@ -216,5 +231,57 @@ describe('GlobalAudioPlayer', () => {
     )
     act(() => api.toggleRepeat())
     expect(prefetchHref()).toBeUndefined()
+  })
+
+  describe('chapters', () => {
+    const playBook = () =>
+      act(() => api.playQueue([{ id: 'book', title: 'Crimson Throne', artist: 'Narrator' }]))
+
+    it('offers no chapter control for a track without chapters', async () => {
+      renderPlayer()
+      act(() => api.playQueue([{ id: 'a', title: 'A', artist: 'Bard' }]))
+      await waitFor(() => expect(screen.getByText('Bard')).toBeInTheDocument())
+      expect(screen.queryByRole('button', { name: /show chapters/i })).not.toBeInTheDocument()
+    })
+
+    it('shows the playing chapter in place of the artist', async () => {
+      renderPlayer()
+      playBook()
+      expect(await screen.findByText('Prologue')).toBeInTheDocument()
+      expect(screen.queryByText('Narrator')).not.toBeInTheDocument()
+      act(() => api.setCurrentTime(90))
+      // The second chapter has no title, so it is numbered.
+      expect(screen.getByText('Chapter 2')).toBeInTheDocument()
+    })
+
+    it('lists chapters and seeks to one when picked', async () => {
+      renderPlayer()
+      playBook()
+      await userEvent.click(await screen.findByRole('button', { name: /show chapters/i }))
+      const panel = screen.getByRole('region', { name: /chapters/i })
+      expect(panel).toHaveTextContent('Chapters (3)')
+      await userEvent.click(screen.getByRole('button', { name: /epilogue/i }))
+      expect(screen.getByTestId('global-audio-element').currentTime).toBe(120)
+      expect(window.HTMLMediaElement.prototype.play).toHaveBeenCalled()
+    })
+
+    it('swaps between the chapter list and the queue', async () => {
+      renderPlayer()
+      playBook()
+      const chaptersBtn = await screen.findByRole('button', { name: /show chapters/i })
+      await userEvent.click(chaptersBtn)
+      expect(screen.getByRole('region', { name: /chapters/i })).toBeInTheDocument()
+
+      await userEvent.click(screen.getByRole('button', { name: /show queue/i }))
+      expect(screen.queryByRole('region', { name: /chapters/i })).not.toBeInTheDocument()
+      expect(chaptersBtn).toHaveAttribute('aria-pressed', 'false')
+
+      await userEvent.click(chaptersBtn)
+      expect(screen.getByRole('region', { name: /chapters/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /show queue/i })).toHaveAttribute(
+        'aria-pressed',
+        'false'
+      )
+    })
   })
 })

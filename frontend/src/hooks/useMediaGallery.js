@@ -4,7 +4,7 @@ import useSessionState from './useSessionState'
 import useViewMode from './useViewMode'
 import useBulkSelection from './useBulkSelection'
 import useSavedFilters from './useSavedFilters'
-import useSortFilterState from './useSortFilterState'
+import useSortFilterState, { DEFAULT_SORT_FILTER } from './useSortFilterState'
 import usePagedLists from './usePagedLists'
 import useTagLabels from './useTagLabels'
 import { queryTags, toggleQueryTag } from '../components/library/tagQuery'
@@ -68,12 +68,17 @@ export default function useMediaGallery(config) {
   const savedFilters = useSavedFilters(collection)
   // Persisted for the session so returning from a detail view keeps the filters
   // the user had, rather than snapping back to their saved default.
-  const [sortFilter, setSortFilter] = useSortFilterState(`${sessionKey}:sortFilter`, savedFilters)
+  // A collection can open in its own order (audio: album order, issue #494).
+  const [sortFilter, setSortFilter] = useSortFilterState(
+    `${sessionKey}:sortFilter`,
+    savedFilters,
+    config.defaultSort ? { ...DEFAULT_SORT_FILTER, sort: config.defaultSort } : DEFAULT_SORT_FILTER
+  )
 
   const activeFilters = sortFilter.filters || {}
   const filter = activeFilters.search || ''
   const favOnly = activeFilters.favorites === true
-  const { sort = 'name', order = 'asc' } = sortFilter
+  const { sort = config.defaultSort || 'name', order = 'asc' } = sortFilter
   // The inline tag chips only know about real tags — the group structure and
   // the special sentinels are flattened away so they never render as a chip.
   const selectedTags = new Set(queryTags(activeFilters.tags).map((tg) => tg.toLowerCase()))

@@ -10,10 +10,9 @@ import useArrowKeyNavigation from '../../hooks/useArrowKeyNavigation'
 import Spinner from '../Spinner'
 import { formatSize } from '../../utils'
 import InlineTagEditor from '../maps/InlineTagEditor'
-import AddToCampaignButton from '../campaigns/AddToCampaignButton'
-import DetailFavoriteButton from '../DetailFavoriteButton'
 import VariantPicker from '../VariantPicker'
 import DownloadVersionButton from '../DownloadVersionButton'
+import DetailMoreMenu from '../media/DetailMoreMenu'
 import MetaRow from '../MetaRow'
 import TagSection from '../TagSection'
 import ArchivePlaceholder from '../media/ArchivePlaceholder'
@@ -198,9 +197,10 @@ export default function ModelDetailView() {
           </button>
         )}
         <VariantPicker item={model} detailPath={(id) => `/models/${id}`} compact />
-        <DetailFavoriteButton type="model" id={modelId} compact={isMobilePhone} />
-        <AddToCampaignButton resourceType="model" resourceId={modelId} />
         <DownloadVersionButton type="models" id={modelId} item={model} compact={isMobilePhone} />
+        {/* Favourite, campaigns and share links live in the overflow menu, as in
+            the book reader, so the toolbar keeps room for the title. */}
+        <DetailMoreMenu resourceType="model" resourceId={modelId} title={model.filename} />
       </div>
 
       {/* Body */}

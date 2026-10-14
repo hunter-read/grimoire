@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event'
 import MapPdfViewer from './MapPdfViewer'
 
 vi.mock('../../api', () => ({
+  // Page sizes for the export panel's cut-out stage.
+  default: { get: vi.fn(() => Promise.resolve({ width: 600, height: 800 })) },
   mediaUrl: (p, params) => {
     const qs = params ? new URLSearchParams(params).toString() : ''
     return `/api${p}${qs ? `?${qs}` : ''}`
@@ -130,5 +132,35 @@ describe('MapPdfViewer', () => {
     const spreadBtn = screen.queryByRole('button', { name: /spread/i })
     // The button exists in the DOM but its container is hidden; assert single mode.
     if (spreadBtn) expect(spreadBtn.closest('div')).toHaveStyle({ display: 'none' })
+  })
+
+  it('opens the export panel from the toolbar, on the page being viewed', async () => {
+    setup({ relativePath: 'maps/dungeon.pdf' })
+    await userEvent.click(screen.getByRole('button', { name: /next page/i }))
+    await userEvent.click(screen.getByRole('button', { name: 'Export' }))
+    expect(screen.getByLabelText('Pages')).toHaveValue('2')
+    expect(screen.getByRole('button', { name: 'Export' })).toHaveAttribute('aria-pressed', 'true')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Export' }))
+    expect(screen.queryByLabelText('Pages')).not.toBeInTheDocument()
+  })
+
+  it('leaves the raw PDF view for pages when export opens', async () => {
+    setup()
+    await userEvent.click(screen.getByRole('button', { name: /^pdf$/i }))
+    await userEvent.click(screen.getByRole('button', { name: 'Export' }))
+    expect(document.querySelector('iframe')).not.toBeInTheDocument()
+    expect(screen.getByTestId('single-page')).toBeInTheDocument()
+  })
+
+  it('swaps the page for the cut-out stage on the Cut out tab', async () => {
+    setup()
+    await userEvent.click(screen.getByRole('button', { name: 'Export' }))
+    await userEvent.click(screen.getByRole('radio', { name: 'Cut out' }))
+    expect(await screen.findByTestId('cutout-stage')).toBeInTheDocument()
+    expect(screen.getByTestId('single-page').parentElement).toHaveStyle({ display: 'none' })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Close export' }))
+    expect(screen.queryByTestId('cutout-stage')).not.toBeInTheDocument()
   })
 })

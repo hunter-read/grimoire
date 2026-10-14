@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { canExportUvtt, editTargets, isVttFile, linkedVtt } from './editTargets'
+import { canExportOtfbm, canExportUvtt, editTargets, isVttFile, linkedVtt } from './editTargets'
 
 const raster = (over = {}) => ({ id: 'm1', filename: 'keep.png', variants: [], ...over })
 
@@ -105,5 +105,25 @@ describe('canExportUvtt', () => {
   it('refuses formats with no raster', () => {
     expect(canExportUvtt(raster({ is_pdf: true }))).toBe(false)
     expect(canExportUvtt(raster({ media_kind: 'video' }))).toBe(false)
+  })
+})
+
+describe('canExportOtfbm', () => {
+  it('allows a plain raster map and a .uvtt', () => {
+    expect(canExportOtfbm(raster())).toBe(true)
+    expect(canExportOtfbm({ id: 'v1', filename: 'keep.uvtt', media_kind: 'vtt' })).toBe(true)
+  })
+
+  it('allows a raster paired with a .uvtt', () => {
+    // OTFBM has no walls, so the linked file holds nothing ours would lack.
+    const map = raster({ variants: [{ id: 'v1', kind: 'universal-vtt', filename: 'k.uvtt' }] })
+    expect(canExportOtfbm(map)).toBe(true)
+  })
+
+  it('refuses formats with no single raster', () => {
+    expect(canExportOtfbm(raster({ is_pdf: true }))).toBe(false)
+    expect(canExportOtfbm(raster({ media_kind: 'video' }))).toBe(false)
+    expect(canExportOtfbm(raster({ is_archive: true }))).toBe(false)
+    expect(canExportOtfbm(null)).toBe(false)
   })
 })

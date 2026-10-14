@@ -31,7 +31,9 @@ from .tag_query import TagMatcher
 
 # Accepted ``sort`` values. ``path`` is folder order (the grouped gallery's
 # reading order); the rest are the gallery's sort menu.
-SORTS = frozenset({"path", "name", "size", "added_at", "title", "duration"})
+# ``track`` is album order - folder, then disc and track number, then name - for
+# collections that read those tags (audio, issue #494); elsewhere it is ``path``.
+SORTS = frozenset({"path", "name", "size", "added_at", "title", "duration", "track"})
 
 
 @dataclass
@@ -191,7 +193,18 @@ class MediaBrowser:
         folder = folder_column(model)
         if sort == "name":
             return directed(model.sort_name, folder, model.filename, model.id)
-        if sort == "path":
+        if sort == "track" and hasattr(model, "track_number"):
+            # Untagged files (0) sort ahead of numbered ones and then by name,
+            # so a folder with no tags reads exactly as the ``path`` order.
+            return directed(
+                folder,
+                model.disc_number,
+                model.track_number,
+                model.sort_name,
+                model.filename,
+                model.id,
+            )
+        if sort in ("path", "track"):
             return directed(folder, model.sort_name, model.filename, model.id)
         tail = directed(model.sort_name, rowid(model))
         if sort == "added_at":

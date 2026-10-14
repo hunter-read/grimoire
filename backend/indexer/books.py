@@ -26,8 +26,15 @@ from ._book_records import (  # noqa: F401  (re-exported for patch compatibility
     _refresh_signature,
     _register_book,
 )
+from ..filenames import display_name
 from ._subprocess import _run_with_timeout
-from ._context import _ScanContext, _keep_entry, _prune_dirs, _title_from_filename
+from ._context import (
+    _ScanContext,
+    _keep_entry,
+    _prune_dirs,
+    _readable_name,
+    _title_from_filename,
+)
 from .categories import (
     folder_category_inference_disabled,
     is_special_collection_folder,
@@ -98,39 +105,66 @@ def _scan_books(ctx: _ScanContext, books_dir: Path) -> None:
             return
 
     for system_dir, folder, system in registered:
-        if folder.container_kind and folder.container_kind != CONTAINER_AGNOSTIC:
-            # The folder holds systems, not categories — recurse one level.
-            if _scan_container(ctx, system, folder, category_inference_off, scope_parts):
-                return
+        # One system's failure is that system's alone (issue #547). Books commit
+        # one at a time, so the rollback only drops the book that was in flight,
+        # and the remaining systems are still walked.
+        try:
+            stopped = _scan_system_folder(
+                ctx, system_dir, folder, system, category_inference_off, scope_parts, scoped
+            )
+        except Exception as e:
+            logger.error(
+                "Scanning the system folder '%s' failed, moving on to the next one: %s",
+                display_name(str(system_dir)),
+                e,
+            )
+            session.rollback()
+            ctx.stats["errors"] += 1
             continue
-
-        # Per-system opt-out: a marker file at the system root disables
-        # folder-name category inference for just this system.
-        system_category_off = category_inference_off or (
-            system_dir / NO_AUTO_CATEGORY_MARKER
-        ).exists()
-        # Both special collections (agnostic + one-page) use immediate-subfolder
-        # names as category labels rather than CATEGORY_MAP inference. The
-        # agnostic collection reaches here even though it carries a container
-        # kind: unlike every other kind, its subfolders are *categories*
-        # ("system-agnostic/maps/" is the maps category), so it is one system
-        # holding books rather than a shelf of systems.
-        is_special = is_special_collection_folder(folder.name) or (
-            folder.container_kind == CONTAINER_AGNOSTIC
-        )
-        # When scoped to a path deeper than the system dir, walk only that
-        # subtree; otherwise walk the whole system.
-        walk_root = ctx.scope_dir if scoped else system_dir
-        if _scan_books_in_system(
-            ctx,
-            system,
-            folder.name,
-            system_category_off,
-            is_special,
-            walk_root,
-            system_root=system_dir,
-        ):
+        if stopped:
             return
+
+
+def _scan_system_folder(
+    ctx: _ScanContext,
+    system_dir: Path,
+    folder: _SystemFolder,
+    system: GameSystem,
+    category_inference_off: bool,
+    scope_parts: tuple[str, ...],
+    scoped: bool,
+) -> bool:
+    """Walk one registered top-level books folder. True when a stop was requested."""
+    if folder.container_kind and folder.container_kind != CONTAINER_AGNOSTIC:
+        # The folder holds systems, not categories — recurse one level.
+        return _scan_container(ctx, system, folder, category_inference_off, scope_parts)
+
+    # Per-system opt-out: a marker file at the system root disables
+    # folder-name category inference for just this system.
+    system_category_off = category_inference_off or (
+        system_dir / NO_AUTO_CATEGORY_MARKER
+    ).exists()
+    # Both special collections (agnostic + one-page) use immediate-subfolder
+    # names as category labels rather than CATEGORY_MAP inference. The
+    # agnostic collection reaches here even though it carries a container
+    # kind: unlike every other kind, its subfolders are *categories*
+    # ("system-agnostic/maps/" is the maps category), so it is one system
+    # holding books rather than a shelf of systems.
+    is_special = is_special_collection_folder(folder.name) or (
+        folder.container_kind == CONTAINER_AGNOSTIC
+    )
+    # When scoped to a path deeper than the system dir, walk only that
+    # subtree; otherwise walk the whole system.
+    walk_root = ctx.scope_dir if scoped and ctx.scope_dir is not None else system_dir
+    return _scan_books_in_system(
+        ctx,
+        system,
+        folder.name,
+        system_category_off,
+        is_special,
+        walk_root,
+        system_root=system_dir,
+    )
 
 
 def _child_display_name(container: GameSystem, folder: _SystemFolder, kind: str) -> str:
@@ -433,7 +467,7 @@ def _scan_books_in_system(
                     opf_cover_filenames.add(cover_fn)
 
         for filename in sorted(files):
-            if filename.startswith("."):
+            if filename.startswith(".") or not _readable_name(root, filename):
                 continue
 
             filepath = os.path.join(root, filename)

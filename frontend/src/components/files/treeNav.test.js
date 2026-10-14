@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  isActionable,
   indexOfPath,
   nextSelectable,
   parentIndex,
@@ -195,5 +196,29 @@ describe('rangeBetween', () => {
   it('returns nothing when either end has left the screen', () => {
     expect(rangeBetween(tree, 'books/core', 'books/gone')).toEqual([])
     expect(rangeBetween(tree, 'books/gone', 'books/core')).toEqual([])
+  })
+})
+
+describe('unreadable names', () => {
+  const locked = (path, depth) => ({
+    entry: { path, name: path.split('/').pop(), is_dir: true, unreadable_name: true },
+    depth,
+    isOpen: false,
+  })
+  const rows = [file('books/a.pdf', 0), locked('books/M\ufffdRK', 0), file('books/z.pdf', 0)]
+
+  it('marks an entry with an unreadable name as not actionable', () => {
+    expect(isActionable(rows[0].entry)).toBe(true)
+    expect(isActionable(rows[1].entry)).toBe(false)
+    expect(isActionable(undefined)).toBe(false)
+  })
+
+  it('arrows straight past it', () => {
+    expect(nextSelectable(rows, 1, 1)).toBe(2)
+    expect(nextSelectable(rows, 1, -1)).toBe(0)
+  })
+
+  it('leaves it out of a range selection', () => {
+    expect(rangeBetween(rows, 'books/a.pdf', 'books/z.pdf')).toEqual(['books/a.pdf', 'books/z.pdf'])
   })
 })

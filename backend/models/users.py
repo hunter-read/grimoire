@@ -38,6 +38,11 @@ class User(Base):
     # Whether the user may create and use API keys (issue #489). Off unless an
     # admin (or the OIDC permissions claim) turns it on; admins always may.
     api_keys_enabled = Column(Boolean, default=False)
+    # Per-user override for creating share links (issue #541). NULL follows the
+    # user's role (admins and, by default, GMs may; players only when an admin
+    # allows the role); True/False grants or denies it regardless of role. See
+    # ``backend/services/share_links.py``.
+    share_links_enabled = Column(Boolean, nullable=True, default=None)
     opds_token = Column(String(64), nullable=True, unique=True, index=True)
     # Revocable per-user token authenticating the campaign calendar (ICS) feeds.
     # Deliberately separate from opds_token and from the JWT: calendar apps can

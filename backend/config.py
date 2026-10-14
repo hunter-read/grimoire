@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy.orm import Session
 
+from .filenames import display_name
 from .models import init_db
 
 # The repo root, two levels up from this file (backend/config.py).
@@ -51,6 +52,8 @@ CAMPAIGN_UPLOAD_DIR = os.path.join(DATA_PATH, "campaign_uploads")
 CHARACTER_PORTRAIT_DIR = os.path.join(DATA_PATH, "character_portraits")
 SYSTEM_COVER_DIR = os.path.join(DATA_PATH, "system_covers")
 AUDIO_COVER_DIR = os.path.join(DATA_PATH, "audio_covers")
+# Admin-uploaded login-page assets (the OIDC button icon, issue #377).
+BRANDING_DIR = os.path.join(DATA_PATH, "branding")
 VALKEY_URL = os.environ.get("VALKEY_URL", "")
 
 # OCR: image-only PDFs (scanned pages with no embedded text layer) can be run
@@ -322,6 +325,13 @@ GUEST_ACCESS_ENABLED_ENV: Optional[bool] = _bool_env("GUEST_ACCESS_ENABLED")
 # /api/api-keys endpoints refuse, and the UI hides them.
 API_KEYS_ENABLED: bool = _bool_env("API_KEYS_ENABLED") is not False
 
+# Share links for the whole instance (issue #541): public, revocable URLs for a
+# single library item. On unless set to "false", which turns them off for
+# everyone: every existing link stops resolving (404), creating one is refused,
+# and the UI hides the share menus. Links are kept, so turning it back on
+# restores them.
+SHARE_LINKS_ENABLED: bool = _bool_env("SHARE_LINKS_ENABLED") is not False
+
 
 #   CORS_ALLOWED_ORIGINS — comma-separated origins (scheme://host[:port]) whose
 #             pages may call the API from the browser, e.g. a Foundry VTT module
@@ -367,7 +377,7 @@ CORS_ALLOWED_ORIGINS = _read_cors_allowed_origins()
 # ---------------------------------------------------------------------------
 # A backup is a single timestamped .zip holding a consistent snapshot of the
 # SQLite database plus the user-authored files under DATA_PATH that no rescan
-# could rebuild (campaign uploads, system covers, audio covers). It deliberately
+# could rebuild (campaign uploads, system and audio covers, branding). It deliberately
 # does NOT include the library itself — that is mounted read-only and is the
 # operator's to back up — nor the regenerable caches (thumbnails, page_cache).
 #
@@ -465,6 +475,13 @@ OIDC_ENV: dict = {
     "oidc_client_secret": os.environ.get("OIDC_CLIENT_SECRET"),
     "oidc_signing_alg": os.environ.get("OIDC_SIGNING_ALG"),
     "oidc_button_text": os.environ.get("OIDC_BUTTON_TEXT"),
+    # Login-button appearance (issue #377). Colors are CSS hex values; the icon
+    # is a path to an image file inside the container, normalized like an upload.
+    "oidc_button_bg_color": os.environ.get("OIDC_BUTTON_BG_COLOR"),
+    "oidc_button_text_color": os.environ.get("OIDC_BUTTON_TEXT_COLOR"),
+    "oidc_button_border_color": os.environ.get("OIDC_BUTTON_BORDER_COLOR"),
+    "oidc_button_radius": os.environ.get("OIDC_BUTTON_RADIUS"),
+    "oidc_button_icon": os.environ.get("OIDC_BUTTON_ICON"),
     "oidc_groups_claim": os.environ.get("OIDC_GROUPS_CLAIM"),
     "oidc_permissions_claim": os.environ.get("OIDC_PERMISSIONS_CLAIM"),
     "oidc_match_by": os.environ.get("OIDC_MATCH_BY"),
@@ -593,7 +610,10 @@ class _MemoryLogHandler(logging.Handler):
                     timestamp=ts,
                     level=record.levelname,
                     logger_name=record.name,
-                    message=self.format(record),
+                    # A filename that is not UTF-8 (issue #547) can reach a
+                    # message through any logger; kept raw, it would make every
+                    # /api/logs response fail to serialise until it aged out.
+                    message=display_name(self.format(record)),
                 )
                 self._buf.append(entry)
         except Exception:
@@ -659,6 +679,7 @@ os.makedirs(os.path.join(CAMPAIGN_UPLOAD_DIR, "files"), exist_ok=True)
 os.makedirs(CHARACTER_PORTRAIT_DIR, exist_ok=True)
 os.makedirs(SYSTEM_COVER_DIR, exist_ok=True)
 os.makedirs(AUDIO_COVER_DIR, exist_ok=True)
+os.makedirs(BRANDING_DIR, exist_ok=True)
 
 engine, SessionLocal = init_db(DB_PATH)
 

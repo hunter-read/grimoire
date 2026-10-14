@@ -186,6 +186,7 @@
     "noResultsFound": "Inga resultat hittades.",
     "tagsLabel": "Taggar:",
     "showLess": "Visa mindre",
+    "readMore": "Läs mer",
     "clearTags": "Rensa",
     "download": "Ladda ner",
     "backToLibrary2": "Tillbaka till biblioteket",
@@ -247,7 +248,111 @@
     "spreadIncludeCover": "Inkludera omslag i uppslag (para sidorna 1-2, 3-4…)",
     "spreadExcludeCover": "Exkludera omslag från uppslag (para sidorna 2-3, 4-5…)",
     "archiveNotViewable": "Det här är en arkivfil och kan inte visas i läsaren. Ladda ner den för att öppna innehållet.",
-    "textUnavailable": "Det här dokumentets text kunde inte läsas in."
+    "textUnavailable": "Det här dokumentets text kunde inte läsas in.",
+    "shortcutExport": "Exportera sidor och urklipp"
+  },
+  "pageExport": {
+    "menuItem": "Exportera sidor och urklipp",
+    "title": "Exportera",
+    "close": "Stäng export",
+    "tabPages": "Hela sidor",
+    "tabCut": "Klipp ut",
+    "pagesLabel": "Sidor",
+    "pagesHint": "Enstaka sidor och intervall, t.ex. 12-15, 20",
+    "quickThisPage": "Den här sidan",
+    "quickThisSpread": "Det här uppslaget",
+    "quickSection": "Avsnitt: {{title}}",
+    "quickAll": "Alla {{count}}",
+    "pageSpan": "Sidor {{start}}–{{end}}",
+    "errors": {
+      "empty": "Välj minst en sida",
+      "notAPage": "”{{part}}” är varken en sida eller ett intervall som 12-15",
+      "fromOne": "Sidorna numreras från 1",
+      "pastEnd": "Sida {{page}} ligger efter slutet - dokumentet har {{total}} sidor"
+    },
+    "formatLabel": "Spara som",
+    "format": {
+      "pdf": "PDF",
+      "png": "PNG",
+      "jpeg": "JPEG",
+      "webp": "WebP"
+    },
+    "formatHint": {
+      "pdf": "Texten går att markera och skrivs ut i full kvalitet.",
+      "png": "Förlustfritt, med transparens. Bäst för kartor och tokens.",
+      "jpeg": "Minsta filerna. Ingen transparens - cirklar får vita hörn.",
+      "webp": "Små filer med transparens. De flesta virtuella spelbord stöder det."
+    },
+    "resolutionLabel": "Upplösning",
+    "dpi": {
+      "screen": "Skärm",
+      "standard": "Standard",
+      "print": "Tryck"
+    },
+    "dpiValue": "{{dpi}} dpi",
+    "sizePerPage": "{{width}} × {{height}} px per sida",
+    "sizePerSpread": "{{width}} × {{height}} px per uppslag",
+    "sizeForCutout": "Urklipp {{n}}: {{width}} × {{height}} px",
+    "joinSpreads": "Slå ihop motstående sidor till en bild",
+    "joinSpreadsHint": "För kartor som är tryckta över två sidor.",
+    "toolLabel": "Form",
+    "tool": {
+      "rect": "Rektangel",
+      "square": "Kvadrat",
+      "circle": "Cirkel"
+    },
+    "drawHint": "Dra på sidan för att klippa ut ett område. Varje blir en egen fil. Håll ned Skift för att behålla en kvadrat.",
+    "findShapes": "Hitta former på den här sidan",
+    "findShapesSpread": "Hitta former på de här sidorna",
+    "finding": "Letar…",
+    "findHint": "Plockar ut de separata bilderna på en sida - tokens, kort, kartor.",
+    "foundNone": "Inget hittades. Delar hittas mot en enfärgad sidbakgrund, så rita dem för hand.",
+    "foundAlready": "Allt som hittades är redan utklippt.",
+    "foundSome_one": "Hittade {{count}} - ta bort den om du inte behöver den.",
+    "foundSome_other": "Hittade {{count}} - ta bort dem du inte behöver.",
+    "findFailed": "Kunde inte leta efter former på den här sidan",
+    "circlesNoPdf": "PDF kan inte innehålla runda urklipp - välj PNG eller WebP.",
+    "listTitle": "Urklipp ({{count}})",
+    "clearAll": "Rensa alla",
+    "emptyTitle": "Inga urklipp ännu",
+    "emptyBody": "Rita runt en karta, tabell eller token på sidan, eller låt Grimoire hitta dem.",
+    "showPage": "Visa den här sidan",
+    "pageGroup": "Sida {{page}}",
+    "spreadGroup": "Sidor {{first}}–{{last}}",
+    "nameLabel": "Filnamn för urklipp {{n}}",
+    "remove": "Ta bort urklipp {{n}}",
+    "rowMeta": "{{shape}} · {{width}} × {{height}} px",
+    "keysHelp": "Piltangenterna flyttar, Skift flyttar längre, Alt och piltangenter ändrar storleken, Delete tar bort.",
+    "stageLabel": "Sida {{pages}} - dra för att klippa ut ett område",
+    "boxLabel": "Urklipp {{n}}, {{shape}}",
+    "stageHint": "Dra för att klippa ut ett område",
+    "summaryPdf_one": "{{count}} sida → 1 PDF",
+    "summaryPdf_other": "{{count}} sidor → 1 PDF",
+    "summaryImages_one": "1 {{format}}-bild",
+    "summaryImages_other": "{{count}} {{format}}-bilder, zippade",
+    "summaryFiles_one": "1 {{format}}-fil",
+    "summaryFiles_other": "{{count}} {{format}}-filer, zippade",
+    "nothingToExport": "Rita ett urklipp för att exportera det",
+    "downloaded": "Nedladdat",
+    "preparing": "Förbereder…",
+    "failed": "Exporten misslyckades",
+    "saveToLibrary": "Spara i biblioteket",
+    "saveToLibraryHint": "Spara filerna i en biblioteksmapp i stället för att ladda ner dem",
+    "saveTitle": "Spara i biblioteket",
+    "savedTitle": "Sparat i biblioteket",
+    "savePrompt": "{{summary}} från {{title}}. Välj en mapp:",
+    "quickBeside": "Bredvid originalet",
+    "saveInto": "Sparar i {{folder}}",
+    "pickFolder": "Välj en mapp i Böcker, Kartor eller Tokens.",
+    "pdfIntoTokens": "Tokens tar bara bilder - välj PNG, JPEG eller WebP, eller en annan mapp.",
+    "saveHere": "Spara här",
+    "saving": "Sparar…",
+    "saveFailed": "Kunde inte spara i biblioteket",
+    "savedBody_one": "1 fil sparad i {{folder}}.",
+    "savedBody_other": "{{count}} filer sparade i {{folder}}.",
+    "indexing_one": "Indexeras nu - den dyker upp i biblioteket om en stund.",
+    "indexing_other": "Indexeras nu - de dyker upp i biblioteket om en stund.",
+    "indexLater": "En biblioteksskanning pågår redan - de dyker upp när den når den mappen."
   },
   "search": {
     "title": "Sök i ditt bibliotek",
@@ -379,6 +484,7 @@
     "nsfw": "NSFW",
     "indexed": "Indexerad",
     "missing": "Saknas",
+    "unreadableName": "Det här namnet är inte giltig UTF-8, oftast för att det skapades i Windows och kopierades till en Linux-delning. Grimoire kan inte öppna eller ändra det, och biblioteksskanningar hoppar över det. Byt namn på det direkt på delningen och skanna sedan om.",
     "itemCount": "{{count}} objekt",
     "itemCount_other": "{{count}} objekt",
     "rename": "Byt namn",
@@ -585,6 +691,29 @@
       "vttLights": "Ljus",
       "downloadUvtt": "Ladda ner som Universal VTT",
       "downloadUvttHint": "Bild och rutnät som en .uvtt-fil"
+    },
+    "otfbm": {
+      "menuLabel": "Förbered för OTFBM (Avrae)",
+      "title": "Förbered för OTFBM",
+      "intro": "OTFBM ritar kartan i verklig storlek under sitt eget rutnät, så bilden skalas tills varje ruta stämmer. Grimoire levererar den skalade bilden via en delningslänk, så !map-kommandot är redo att klistra in i Discord.",
+      "cellSize": "Rutstorlek (px)",
+      "cellHint": "{{min}}–{{max}} px. {{suggested}} px föreslås för den här kartan.",
+      "cellInvalid": "Ange ett heltal från {{min}} till {{max}}.",
+      "summary": "{{width}} × {{height}} rutor · bild {{imageWidth}} × {{imageHeight}} px",
+      "defaultGrid": "Inget rutnät hittades på den här kartan, så rutor på 140 px antas. Om det inte stämmer, ställ först in rutnätet i kartans detaljer.",
+      "truncated": "OTFBM visar högst 99 rutor per sida, så den bortre kanten av kartan skärs av.",
+      "download": "Ladda ner bild",
+      "command": "Avrae-kommando",
+      "copy": "Kopiera",
+      "copied": "Kopierat",
+      "loadFailed": "Det gick inte att ta fram OTFBM-inställningarna för den här kartan.",
+      "linkTitle": "Delningslänk för OTFBM",
+      "createLink": "Skapa delningslänk",
+      "linkHint": "OTFBM hämtar bakgrunden från länken varje gång kartan ritas, så din Grimoire-server måste kunna nås från internet.",
+      "linkLabel": "OTFBM-bakgrund ({{cell}} px)",
+      "linkUntil": "Använder din delningslänk, som går ut {{when}}. Hantera den under Inställningar → Konto → Delning.",
+      "linkForever": "Använder din delningslänk, som aldrig går ut. Hantera den under Inställningar → Konto → Delning.",
+      "selfHost": "Eller lägg upp den själv:"
     },
     "vtt": {
       "title": "VTT-redigerare",
@@ -956,6 +1085,22 @@
       "signingAlg": "Signeringsalgoritm",
       "buttonText": "Knapptext",
       "buttonTextHint": "Vad SSO-knappen på inloggningsskärmen kommer att säga.",
+      "buttonAppearance": "Knappens utseende",
+      "buttonAppearanceHint": "Få knappen att likna leverantörens officiella inloggningsknapp: ladda upp dess logotyp och kopiera färgerna från dess varumärkesriktlinjer. Lämna ett fält tomt för att behålla temats utseende.",
+      "buttonPreview": "Förhandsvisning av knappen",
+      "buttonBgColor": "Bakgrundsfärg",
+      "buttonTextColor": "Textfärg",
+      "buttonBorderColor": "Kantfärg",
+      "buttonColorPicker": "Färgväljare: {{field}}",
+      "buttonColorPlaceholder": "Temats standard",
+      "buttonRadius": "Hörnradie (px)",
+      "buttonIcon": "Ikon",
+      "buttonIconUpload": "Ladda upp ikon",
+      "buttonIconReplace": "Byt ikon",
+      "buttonIconRemove": "Ta bort ikon",
+      "buttonIconHint": "PNG, JPEG, WebP, GIF eller SVG, upp till 1 MB. Konverteras till en liten PNG vid uppladdning.",
+      "buttonInvalidColor": "Använd en hexfärg som #1a2b3c, eller lämna fältet tomt.",
+      "buttonInvalidRadius": "Använd ett heltal från 0 till 40, eller lämna fältet tomt.",
       "groupsClaim": "Groups claim",
       "groupsClaimHint": "Namnet på OIDC-claimen som innehåller en lista över användarens grupper (vanligtvis 'groups'). När det är inställt tilldelar appen roller utifrån medlemskap i grupper med namn (skiftlägesokänsligt) 'admin', 'gm' eller 'player' - högsta nivå vinner. Om ingen grupp matchar nekas åtkomst.",
       "permissionsClaim": "Avancerad permissions claim",
@@ -1096,7 +1241,15 @@
       "reading": "Läsning & bibliotek",
       "readingDesc": "Läsarbeteende, biblioteksinställningar och flöden.",
       "security": "Säkerhet & konto",
-      "securityDesc": "Lösenord, aktiva sessioner och radering av konto."
+      "securityDesc": "Lösenord, aktiva sessioner och radering av konto.",
+      "sharing": "Delning",
+      "sharingDesc": "Offentliga länkar du har skapat till objekt i biblioteket."
+    },
+    "shareLinks": {
+      "title": "Delningslänkar",
+      "description": "Alla länkar du har skapat. Kopiera en igen, eller återkalla den så slutar den fungera.",
+      "noPermission": "Du kan inte skapa delningslänkar just nu. Länkar du skapat tidigare är pausade, inte borttagna, och fungerar igen om en administratör ger tillbaka behörigheten.",
+      "none": "Du har inte skapat några delningslänkar."
     }
   },
   "appSettings": {
@@ -1278,6 +1431,10 @@
         "all": {
           "label": "Alla behörigheter",
           "description": "Alla delar på en gång, även sådana som läggs till i framtida versioner"
+        },
+        "share-links": {
+          "label": "Delningslänkar",
+          "description": "Skapa, lista och återkalla dina offentliga delningslänkar"
         }
       }
     },
@@ -1359,7 +1516,32 @@
     "noPermissions": "Inga",
     "ownedCampaigns": "Ägda kampanjer",
     "deleteUserShort": "Ta bort användare",
-    "emailLabel": "E-post"
+    "emailLabel": "E-post",
+    "shareLinks": {
+      "label": "Delningslänkar",
+      "followRole": "Följ roll",
+      "allow": "Tillåt",
+      "deny": "Neka",
+      "status": {
+        "allowed": "Tillåtet",
+        "denied": "Inte tillåtet"
+      },
+      "source": {
+        "role": "(från roll)",
+        "user": "(inställt för användaren)",
+        "disabled": "(avstängt på servern)",
+        "guest": "(gäster kan inte dela)"
+      },
+      "badge": "Delningslänkar",
+      "listLabel": "Delningslänkar",
+      "none": "Inga delningslänkar.",
+      "rolesTitle": "Delningslänkar",
+      "rolesHint": "Vem som som standard får skapa offentliga delningslänkar. En användares egen inställning i tabellen går före.",
+      "disabled": "Delningslänkar är avstängda på den här servern (SHARE_LINKS_ENABLED=false).",
+      "adminAlways": "Administratörer kan alltid skapa delningslänkar",
+      "rolesFailed": "Det gick inte att uppdatera standardinställningarna för delningslänkar.",
+      "failedUpdate": "Det gick inte att ändra behörigheten för delningslänkar."
+    }
   },
   "maintenance": {
     "groups": {
@@ -2163,6 +2345,7 @@
     "character-sheet": "Rollpersonsblad",
     "map": "Kartor",
     "handout": "Utdelningsmaterial & referens",
+    "magazine": "Tidskrifter & fanzines",
     "homebrew": "Egentillverkat"
   },
   "wiki": {
@@ -2543,6 +2726,9 @@
       "playNext": "Spela härnäst",
       "queued": "I kön",
       "toggleQueue": "Visa kö",
+      "toggleChapters": "Visa kapitel",
+      "chapters": "Kapitel",
+      "chapterNumber": "Kapitel {{n}}",
       "close": "Stäng spelaren",
       "seek": "Sök",
       "removeFromQueue": "Ta bort från kön",
@@ -2663,6 +2849,7 @@
     "searchPlaceholder": "Sök efter titel…",
     "sortSize": "Storlek",
     "sortDuration": "Längd",
+    "sortTrack": "Spår",
     "groupByFolder": "Gruppera",
     "filterParentSystem": "Övergripande System",
     "allParentSystems": "Alla Övergripande System",
@@ -2771,7 +2958,9 @@
     "installFromSpecificSource": "Installera från specifik källa",
     "categories": {
       "metadata": "Metadataskrapare",
-      "metadataDesc": "Tillägg som fyller i speldetaljer och bokdetaljer från externa källor."
+      "metadataDesc": "Tillägg som fyller i speldetaljer och bokdetaljer från externa källor.",
+      "importers": "Rollpersonsimportörer",
+      "importersDesc": "Tillägg som läser rollpersoner från andra verktyg - rollpersonsbyggare och deras exportfiler - för Rollpersoner → Importera."
     }
   },
   "metadataFetch": {
@@ -3114,6 +3303,39 @@
     "setPortrait": "Ange ett porträtt",
     "export": "Exportera rollperson",
     "importCharacter": "Importera en rollperson",
+    "importHelp": "Hämta in en rollperson som exporterats från Grimoire, eller som skapats i ett annat verktyg, via en importör.",
+    "importing": "Importerar…",
+    "importDropHere": "Släpp en rollpersonsfil här",
+    "importChooseFile": "Välj en fil",
+    "importTooLarge": "Filen är för stor för att importeras (högst 10 MB).",
+    "importLink": "Eller klistra in en länk",
+    "importLinkPlaceholder": "https://…",
+    "importLinkButton": "Importera länk",
+    "importAs": "Läs som",
+    "importAuto": "Känn igen automatiskt",
+    "importGrimoire": "Grimoire-rollpersonsfil",
+    "importAsHelp": "Låt detta stå på automatiskt om inte två importörer känner igen din fil.",
+    "importersHeading": "Installerade importörer",
+    "importersNone": "Inga installerade ännu, så bara Grimoires egna rollpersonsfiler kan importeras.",
+    "importerTakesLinks": "länkar",
+    "importerSheet": "bygger på {{sheet}}",
+    "importerSheetMissing": "installerar formuläret {{sheet}} första gången",
+    "importersAvailableHeading": "Fler importörer",
+    "importerInstall": "Installera",
+    "importerInstallForEveryone": "Installera för alla",
+    "importerInstallInSettings": "Installera under Inställningar → Tillägg",
+    "importerAskAdmin": "Be en administratör installera den",
+    "importerRemove": "Ta bort {{name}}",
+    "importerUpdate": "Uppdatera till v{{version}}",
+    "importerYours": "installerad åt dig",
+    "importersDownloadsOff": "Att installera importörer är avstängt på den här servern.",
+    "importerLinkExample": "Exempellänk:",
+    "importerWebsite": "Webbplats",
+    "importInputsFor": "För {{name}}",
+    "importInputForLinks": "Används när du importerar en länk.",
+    "importInputForFiles": "Används när du importerar en fil.",
+    "importInputsNotKept": "Skickas bara med den här importen - Grimoire sparar det inte.",
+    "importTryAgain": "Försök igen",
     "portraitOf": "Porträtt av {{name}}",
     "partyMember": "gruppmedlem",
     "browseSheets": "Bläddra bland formulär",
@@ -3302,5 +3524,89 @@
       "systemAgnostic": "Systemoberoende",
       "onePage": "En sida"
     }
+  },
+  "share": {
+    "button": "Dela",
+    "type": {
+      "book": "Bok",
+      "map": "Karta",
+      "token": "Token",
+      "audio": "Ljud",
+      "model": "3D-modell"
+    },
+    "state": {
+      "active": "Aktiv",
+      "disabled": "Av",
+      "revoked": "Återkallad",
+      "expired": "Utgången",
+      "suspended": "Pausad",
+      "unavailable": "Ej tillgänglig"
+    },
+    "stateHint": {
+      "active": "Alla med länken kan öppna den.",
+      "disabled": "Delningslänkar är avstängda på den här servern.",
+      "revoked": "Länken har återkallats och fungerar inte längre.",
+      "expired": "Länken har gått ut.",
+      "suspended": "Fungerar inte medan ägaren inte får dela. Den fungerar igen om ägaren får det.",
+      "unavailable": "Fungerar inte: objektet är borta eller saknas på disken, eller så kan ägaren inte längre öppna det."
+    },
+    "row": {
+      "expires": "Går ut {{when}}",
+      "noExpiry": "Går aldrig ut",
+      "uses_one": "använd {{count}} gång",
+      "uses_other": "använd {{count}} gånger",
+      "lastUsed": "senast använd {{when}}",
+      "passwordProtected": "Lösenordsskyddad",
+      "owner": "av {{name}}",
+      "copied": "Kopierad",
+      "copyLink": "Kopiera länk",
+      "copyFile": "Kopiera fil-URL",
+      "copyFileHint": "Själva filen, för VTT:er, OTFBM och Discord",
+      "revoke": "Återkalla",
+      "delete": "Ta bort",
+      "confirmDelete": "Ta bort för gott"
+    },
+    "expiry": {
+      "day": "1 dag",
+      "week": "7 dagar",
+      "month": "30 dagar",
+      "quarter": "90 dagar",
+      "year": "365 dagar",
+      "never": "Aldrig"
+    },
+    "form": {
+      "label": "Etikett",
+      "labelPlaceholder": "t.ex. Utdelning session 12",
+      "expiry": "Går ut efter",
+      "password": "Lösenord (valfritt)",
+      "passwordPlaceholder": "Lämna tomt för inget lösenord",
+      "passwordTooShort": "Minst 4 tecken.",
+      "passwordHint": "Den som öppnar länken måste ange det. Verktyg som laddar filen direkt kan inte det, så lämna det tomt för VTT:er och Discord.",
+      "create": "Skapa länk"
+    },
+    "dialog": {
+      "title": "Delningslänk",
+      "intro": "Alla med en delningslänk kan öppna objektet utan konto, tills länken går ut eller du återkallar den.",
+      "existing": "Dina länkar för det här objektet",
+      "none": "Du har inte delat det här än."
+    },
+    "loadFailed": "Det gick inte att läsa in delningslänkar.",
+    "createFailed": "Det gick inte att skapa länken.",
+    "revokeFailed": "Det gick inte att återkalla länken.",
+    "deleteFailed": "Det gick inte att ta bort länken."
+  },
+  "sharePage": {
+    "missingTitle": "Den här länken fungerar inte",
+    "missingBody": "Den kan ha gått ut eller återkallats, eller så är objektet inte längre tillgängligt.",
+    "throttled": "För många försök. Vänta en minut och försök igen.",
+    "lockedTitle": "Lösenord krävs",
+    "lockedBody": "Ange lösenordet du fick för att öppna den här länken.",
+    "password": "Lösenord",
+    "unlock": "Öppna",
+    "wrongPassword": "Lösenordet stämmer inte.",
+    "expires": "Länken går ut {{when}}",
+    "download": "Ladda ner",
+    "open": "Öppna",
+    "sharedFrom": "Delat från Grimoire"
   }
 }

@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, require_admin
 from ...config import DATA_PATH, get_db, logger
+from ...filenames import display_name, is_undecodable
 from ...indexer import refresh_book_file, reset_book_index
 from ...indexer.constants import SINGLETON_CONTAINER_KINDS
 from ...indexer.formats import can_index
@@ -142,13 +143,18 @@ def browse(
     # so opening a system folder loaded records for its entire subtree.
     records: dict = {}
     if model is not None:
-        wanted = [c.path for c in children if not c.is_dir()]
+        # A path that is not UTF-8 cannot be bound into a query, and the
+        # scanner never stores one, so there is no row to find for it anyway.
+        wanted = [c.path for c in children if not c.is_dir() and not is_undecodable(c.path)]
         if wanted:
             for row in db.query(model).filter(model.filepath.in_(wanted)).all():
                 records[row.filepath] = row
 
     for child in children:
         child_path = Path(child.path)
+        if is_undecodable(child.name):
+            entries.append(_unreadable_entry(child, child_path))
+            continue
         if child.is_dir():
             markers = fs.read_folder_markers(child_path)
             # A books/<system> folder maps to a GameSystem row, which carries
@@ -222,6 +228,30 @@ def browse(
         total=total,
         truncated=total > len(entries),
         singletons_taken=taken,
+    )
+
+
+def _unreadable_entry(child: os.DirEntry, child_path: Path) -> BrowseEntry:
+    """The row for an entry whose name is not valid UTF-8 (issue #547).
+
+    The real name cannot be put in a JSON response, so the name and path show a
+    placeholder for each bad byte instead. Nothing is looked up for it: the
+    scanner skips such entries, so there is no record, system, or marker to read.
+    """
+    is_dir = child.is_dir()
+    size = None
+    if not is_dir:
+        try:
+            size = child.stat().st_size
+        except OSError:
+            size = None
+    return BrowseEntry(
+        name=display_name(child.name),
+        path=display_name(fs.to_relative(child_path)),
+        is_dir=is_dir,
+        size=size,
+        child_count=_child_count(child_path) if is_dir else None,
+        unreadable_name=True,
     )
 
 

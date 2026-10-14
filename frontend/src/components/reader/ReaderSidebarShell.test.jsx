@@ -63,4 +63,21 @@ describe('ReaderSidebarShell', () => {
     )
     expect(screen.getByText('panel contents')).toBeInTheDocument()
   })
+
+  // The export panel's cut-out tab draws on the page, so on a phone it docks
+  // under the page instead of replacing it.
+  it('docks under the page as a sheet on a phone when asked', () => {
+    isMobile.mockReturnValue(true)
+    render(<ReaderSidebarShell sheet>body</ReaderSidebarShell>)
+
+    const shell = screen.getByTestId('reader-sidebar')
+    expect(shell).toHaveStyle({ width: '100%', maxHeight: '48%' })
+    expect(shell.style.borderTop).toBe('1px solid var(--border)')
+  })
+
+  it('ignores the sheet request on a desktop', () => {
+    isMobile.mockReturnValue(false)
+    render(<ReaderSidebarShell sheet>body</ReaderSidebarShell>)
+    expect(screen.getByTestId('reader-sidebar')).toHaveStyle({ width: '280px' })
+  })
 })

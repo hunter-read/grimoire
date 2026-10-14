@@ -11,6 +11,7 @@ from pathlib import Path
 
 from sqlalchemy.orm import Session
 
+from ..filenames import is_undecodable
 from ..models import (
     Model3D,
     Model3DFolder,
@@ -134,7 +135,9 @@ def _apply_tags_from_library(
         folder_model, file_model = _section_models[section]
 
         for root, dirs, files in os.walk(section_dir):
-            dirs[:] = [d for d in dirs if not d.startswith(".")]
+            # Names that are not UTF-8 were already reported by the walk that
+            # skipped them, and a folder path holding one cannot be queried.
+            dirs[:] = [d for d in dirs if not d.startswith(".") and not is_undecodable(d)]
 
             if not _within_scope(Path(root), scope_dir):
                 continue
@@ -177,7 +180,11 @@ def _apply_tags_from_library(
     books_dir = resolve_collection_dir(library, "books")
     if books_dir.exists() and (scope_dir is None or _within_scope(scope_dir, books_dir)):
         for system_dir in sorted(books_dir.iterdir()):
-            if not system_dir.is_dir() or system_dir.name.startswith("."):
+            if (
+                not system_dir.is_dir()
+                or system_dir.name.startswith(".")
+                or is_undecodable(system_dir.name)
+            ):
                 continue
             # System-level tags only matter when the scope includes this system dir.
             if scope_dir is not None and not _within_scope(scope_dir, system_dir):

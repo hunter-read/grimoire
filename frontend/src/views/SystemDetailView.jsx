@@ -18,6 +18,7 @@ import Spinner from '../components/Spinner'
 import Tag from '../components/Tag'
 import SystemEditor from '../components/system/SystemEditor'
 import SystemLinks from '../components/system/SystemLinks'
+import SystemDescription from '../components/system/SystemDescription'
 import SystemSearchResults from '../components/system/SystemSearchResults'
 import SystemCategorySection from '../components/system/SystemCategorySection'
 import SystemContainerView from '../components/system/SystemContainerView'
@@ -451,19 +452,7 @@ export default function SystemDetailView() {
                   ))}
                 </div>
               )}
-              {system.description && (
-                <p
-                  style={{
-                    fontSize: 16,
-                    color: 'var(--text-dim)',
-                    lineHeight: 1.6,
-                    fontFamily: 'Alegreya, serif',
-                    marginBottom: 12,
-                  }}
-                >
-                  {system.description}
-                </p>
-              )}
+              {system.description && <SystemDescription text={system.description} />}
               {/* Genres are shown before tags per issue #202. */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 0, marginBottom: 8 }}>
                 {(system.genres && system.genres.length

@@ -1,0 +1,307 @@
+{
+ "id": 1001,
+ "readonlyUrl": "https://www.dndbeyond.com/characters/1001",
+ "name": "Brakka",
+ "avatarUrl": null,
+ "alignmentId": 5,
+ "currentXp": 900,
+ "inspiration": true,
+ "gender": "She/her",
+ "age": 61,
+ "height": null,
+ "weight": "",
+ "eyes": "Grey",
+ "hair": null,
+ "skin": null,
+ "stats": [
+  {
+   "id": 1,
+   "value": 15
+  },
+  {
+   "id": 2,
+   "value": 12
+  },
+  {
+   "id": 3,
+   "value": 14
+  },
+  {
+   "id": 4,
+   "value": 8
+  },
+  {
+   "id": 5,
+   "value": 13
+  },
+  {
+   "id": 6,
+   "value": 10
+  }
+ ],
+ "bonusStats": [
+  {
+   "id": 1,
+   "value": null
+  }
+ ],
+ "overrideStats": [
+  {
+   "id": 6,
+   "value": null
+  }
+ ],
+ "baseHitPoints": 22,
+ "bonusHitPoints": null,
+ "overrideHitPoints": null,
+ "removedHitPoints": 4,
+ "temporaryHitPoints": 3,
+ "preferences": {
+  "hitPointType": 1
+ },
+ "deathSaves": {
+  "successCount": 1,
+  "failCount": 0
+ },
+ "classes": [
+  {
+   "level": 3,
+   "definition": {
+    "name": "Fighter",
+    "hitDice": 10,
+    "classFeatures": [
+     {
+      "name": "Hit Points",
+      "requiredLevel": 1,
+      "description": "<p>Scaffolding.</p>"
+     },
+     {
+      "name": "Second Wind",
+      "requiredLevel": 1,
+      "description": "<p>Regain <strong>1d10</strong> HP.</p>"
+     },
+     {
+      "name": "Extra Attack",
+      "requiredLevel": 5,
+      "description": "Not yet."
+     }
+    ]
+   },
+   "subclassDefinition": {
+    "name": "Champion",
+    "classFeatures": [
+     {
+      "name": "Improved Critical",
+      "requiredLevel": 3,
+      "description": "Crit on 19."
+     }
+    ]
+   }
+  }
+ ],
+ "modifiers": {
+  "race": [
+   {
+    "type": "bonus",
+    "subType": "constitution-score",
+    "value": 2
+   },
+   {
+    "type": "language",
+    "subType": "dwarvish",
+    "friendlySubtypeName": "Dwarvish"
+   },
+   {
+    "type": "proficiency",
+    "subType": "smiths-tools",
+    "friendlySubtypeName": "Smith's Tools"
+   }
+  ],
+  "class": [
+   {
+    "type": "proficiency",
+    "subType": "strength-saving-throws"
+   },
+   {
+    "type": "proficiency",
+    "subType": "constitution-saving-throws"
+   },
+   {
+    "type": "proficiency",
+    "subType": "athletics"
+   },
+   {
+    "type": "expertise",
+    "subType": "intimidation"
+   },
+   {
+    "type": "half-proficiency",
+    "subType": "stealth"
+   },
+   {
+    "type": "proficiency",
+    "subType": "light-armor"
+   },
+   {
+    "type": "proficiency",
+    "subType": "medium-armor"
+   },
+   {
+    "type": "proficiency",
+    "subType": "shields"
+   },
+   {
+    "type": "proficiency",
+    "subType": "martial-weapons",
+    "friendlySubtypeName": "Martial Weapons"
+   }
+  ],
+  "feat": [
+   {
+    "type": "bonus",
+    "subType": "hit-points-per-level",
+    "value": 2
+   }
+  ]
+ },
+ "race": {
+  "fullName": "Hill Dwarf",
+  "baseName": "Dwarf",
+  "size": "Medium",
+  "weightSpeeds": {
+   "normal": {
+    "walk": 25
+   }
+  },
+  "racialTraits": [
+   {
+    "definition": {
+     "name": "Speed",
+     "description": "25 feet."
+    }
+   },
+   {
+    "definition": {
+     "name": "Dwarven Resilience",
+     "description": "<p>Resist poison.</p>"
+    }
+   }
+  ]
+ },
+ "background": {
+  "definition": {
+   "name": "Soldier"
+  },
+  "customBackground": {
+   "name": null
+  }
+ },
+ "feats": [
+  {
+   "definition": {
+    "name": "Tough",
+    "description": "<p>More hit points.</p>"
+   }
+  }
+ ],
+ "inventory": [
+  {
+   "quantity": 1,
+   "equipped": true,
+   "definition": {
+    "name": "Longsword",
+    "filterType": "Weapon",
+    "type": "Longsword",
+    "damage": {
+     "diceString": "1d8"
+    },
+    "damageType": "Slashing",
+    "properties": [
+     {
+      "name": "Versatile"
+     }
+    ],
+    "range": 5,
+    "longRange": 5
+   }
+  },
+  {
+   "quantity": 1,
+   "equipped": true,
+   "definition": {
+    "name": "Shield",
+    "filterType": "Armor",
+    "type": "Shield"
+   }
+  },
+  {
+   "quantity": 2,
+   "equipped": false,
+   "definition": {
+    "name": "Rope, Hempen (50 feet)",
+    "filterType": "Other Gear"
+   }
+  },
+  {
+   "quantity": 1,
+   "equipped": false,
+   "isAttuned": true,
+   "definition": {
+    "name": "Cloak of Protection",
+    "magic": true,
+    "rarity": "Uncommon"
+   }
+  }
+ ],
+ "customItems": [
+  {
+   "name": "Lucky Coin",
+   "quantity": 1,
+   "description": "From her mother."
+  }
+ ],
+ "customProficiencies": [],
+ "currencies": {
+  "gp": 15,
+  "sp": 3,
+  "cp": 0,
+  "ep": 0,
+  "pp": 0
+ },
+ "classSpells": [],
+ "spells": {
+  "race": [
+   {
+    "definition": {
+     "name": "Light"
+    }
+   }
+  ],
+  "class": [],
+  "item": null,
+  "feat": []
+ },
+ "actions": {
+  "class": [
+   {
+    "name": "Second Wind Healing",
+    "snippet": "Covered by Second Wind."
+   },
+   {
+    "name": "Action Surge",
+    "snippet": "One more action."
+   }
+  ]
+ },
+ "notes": {
+  "backstory": "<p>Born in the hills.</p>",
+  "allies": "The Iron Guild",
+  "otherNotes": null
+ },
+ "traits": {
+  "personalityTraits": "Blunt.",
+  "ideals": null,
+  "bonds": "",
+  "flaws": "Stubborn."
+ }
+}

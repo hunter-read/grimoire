@@ -262,6 +262,53 @@ class TestExactFolderNames:
         assert guess_category("books/D&D 5e/Lore/Players/x.pdf") == "lore"
 
 
+class TestMagazineCategory:
+    """Periodicals and zines get their own shelf (#560)."""
+
+    def test_magazines_folder(self):
+        assert guess_category("books/D&D 5e/Magazines/dragon-1.pdf") == "magazine"
+
+    def test_named_magazine_folder(self):
+        assert guess_category("books/AD&D/Dragon Magazine/dragon-100.pdf") == "magazine"
+
+    def test_zines_folder(self):
+        assert guess_category("books/OSR/Zines/knock-1.pdf") == "magazine"
+
+    def test_fanzines_folder(self):
+        assert guess_category("books/OSR/Fanzines/fight-on-1.pdf") == "magazine"
+
+    def test_periodicals_folder(self):
+        assert guess_category("books/Warhammer/Periodicals/wd-1.pdf") == "magazine"
+
+    def test_zine_is_not_matched_inside_magazine_or_other_words(self):
+        # "zine" is whole-word only, so a word that merely starts with it is custom.
+        assert guess_category("books/OSR/Zinest/x.pdf") == "zinest"
+
+    def test_journals_folder(self):
+        assert guess_category("books/D&D 5e/Journals/x.pdf") == "magazine"
+
+    def test_issues_folder(self):
+        assert guess_category("books/D&D 5e/Issues/x.pdf") == "magazine"
+
+    def test_back_issues_folder(self):
+        assert guess_category("books/D&D 5e/Back Issues/x.pdf") == "magazine"
+
+    def test_journal_inside_longer_name_does_not_match(self):
+        assert guess_category("books/D&D 5e/Player Journals/x.pdf") == "player-journals"
+
+    def test_issue_inside_longer_name_does_not_match(self):
+        assert guess_category("books/D&D 5e/Open Issues/x.pdf") == "open-issues"
+
+    def test_more_specific_word_wins_over_zine(self):
+        assert guess_category("books/OSR/Zine Adventures/x.pdf") == "adventure"
+        assert guess_category("books/OSR/Zine Maps/x.pdf") == "map"
+
+    def test_agnostic_collection_keeps_subfolder_name(self):
+        # The agnostic collection files by subfolder name, not keyword, so an
+        # existing "OSR Zines" shelf there is not re-filed.
+        assert agnostic_category("books/Generic/OSR Zines/knock-1.pdf") == "osr-zines"
+
+
 class TestUnofficialKeyword:
     def test_unofficial_folder_is_homebrew(self):
         assert guess_category("books/D&D 5e/Unofficial/x.pdf") == "homebrew"

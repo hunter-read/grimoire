@@ -199,6 +199,10 @@ class BookDetail(BaseModel):
     codex_id: Optional[str] = None
     title: str
     filename: str
+    # Library-relative path. The handler always sent it, but it was missing here,
+    # so the response model stripped it - which hid the reader's move/rename/
+    # delete actions and the details "Path" row, both keyed on it.
+    relative_path: Optional[str] = None
     category: Optional[str] = None
     description: Optional[str] = None
     page_count: Optional[int] = None

@@ -99,6 +99,34 @@ def strip_query(value: str) -> str:
     return urlunsplit((parts.scheme, parts.netloc, parts.path, "", ""))
 
 
+def _number(value: str) -> Union[int, float, None]:
+    try:
+        number = float(value.strip())
+    except ValueError:
+        return None
+    return int(number) if number.is_integer() else number
+
+
+def modifier(value: str) -> str:
+    """An ability score as its modifier: ``18`` becomes ``4``, ``9`` becomes ``-1``.
+
+    For character importers, whose sources store the score while a sheet
+    stores the modifier. Anything that is not a number is returned unchanged.
+    """
+    number = _number(value)
+    if number is None:
+        return value
+    return str(int((number - 10) // 2))
+
+
+def signed(value: str) -> str:
+    """A number with its sign: ``4`` becomes ``+4``, ``-1`` stays ``-1``."""
+    number = _number(value)
+    if number is None:
+        return value
+    return f"+{number}" if number >= 0 else str(number)
+
+
 _TRANSFORMS: dict[str, Callable[[str], str]] = {
     "slugify": slugify,
     "titlecase": titlecase,
@@ -108,7 +136,14 @@ _TRANSFORMS: dict[str, Callable[[str], str]] = {
     "upper_dice": upper_dice,
     "strip_query": strip_query,
     "strip_html": strip_html,
+    "modifier": modifier,
+    "signed": signed,
 }
+
+
+def names() -> frozenset[str]:
+    """Every transform a definition may name."""
+    return frozenset(_TRANSFORMS)
 
 
 def apply(value: str, names: Union[str, Iterable[str], None]) -> str:

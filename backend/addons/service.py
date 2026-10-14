@@ -49,9 +49,18 @@ def _document(manifest: AddonManifest, query: str = "", force: bool = False) -> 
     )
 
 
+def _scraper(db: Session, addon_id: str) -> AddonManifest:
+    """A runnable add-on that is a metadata scraper - an importer has nothing
+    to search."""
+    manifest = get_runnable(db, addon_id)
+    if manifest.kind != "scraper":
+        raise AddonError(f"add-on '{addon_id}' is not a metadata scraper")
+    return manifest
+
+
 def search(db: Session, addon_id: str, query: str) -> list[dict]:
     """Ranked candidates for ``query`` from one add-on."""
-    manifest = get_runnable(db, addon_id)
+    manifest = _scraper(db, addon_id)
     if not query.strip():
         return []
     if manifest.requires_script:
@@ -70,7 +79,7 @@ def fetch_fields(
     in a per-query response rather than a catalogue the whole of which is
     cached; the client passes back the query its candidate came from.
     """
-    manifest = get_runnable(db, addon_id)
+    manifest = _scraper(db, addon_id)
 
     if manifest.requires_script:
         fields, url = scripts.fetch(identity, manifest)
@@ -100,7 +109,7 @@ def resolve_identity(db: Session, addon_id: str, text: str) -> str:
     support pasting, or the text is not recognisable — the alternative is
     firing off a request that is certain to fail.
     """
-    manifest = get_runnable(db, addon_id)
+    manifest = _scraper(db, addon_id)
     if manifest.search is None or not manifest.search.identity_pattern:
         raise AddonError("this source does not support pasting a link or ID")
 

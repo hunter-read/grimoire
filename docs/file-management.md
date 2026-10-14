@@ -94,8 +94,8 @@ of Grimoire's own concepts) built for bulk reorganization:
   **New folder** button beside *Up* to create one in the folder you are currently
   viewing - handy in an empty folder, where there is no row to right-click.
 - **Set up a system in one step** with **Create standard category folders** -
-  Core, Supplements, Adventures, Character Sheets, Maps, Handouts, Homebrew, and
-  Starter Sets, named so the scanner classifies them correctly. Offered on system
+  Core, Supplements, Adventures, Character Sheets, Maps, Handouts, Homebrew,
+  Starter Sets, and Magazines, named so the scanner classifies them correctly. Offered on system
   folders only. A container holds *systems*, not categories, so the option does
   not appear on one - it appears on the folders inside it, however deeply the
   containers nest. Reachable both from right-click on a system folder and from

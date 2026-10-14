@@ -16,16 +16,10 @@ from ...auth import CurrentUser, get_current_user
 from ...config import CHARACTER_PORTRAIT_DIR, get_db
 from ...file_cache import cached_file_response
 from ...models import Character
+# The image types a portrait may be, mirroring campaign character art. Shared
+# with importing, which accepts a portrait embedded in another tool's export.
+from ...services.characters.importing import MAX_PORTRAIT_BYTES, PORTRAIT_TYPES
 from ._helpers import readable_character_or_404
-
-#: The image types a portrait may be, mirroring campaign character art.
-PORTRAIT_TYPES = {
-    "image/png": ".png",
-    "image/jpeg": ".jpg",
-    "image/webp": ".webp",
-    "image/gif": ".gif",
-}
-MAX_PORTRAIT_BYTES = 5 * 1024 * 1024
 
 
 def _owned_or_404(db: Session, character_id: str, user_id: str) -> Character:
@@ -77,20 +71,26 @@ def upload_portrait(
     """Set a character's portrait. Only the character's owner may."""
     character = _owned_or_404(db, character_id, current_user.id)
     data = _read_image(file)
-
-    # Replacing drops the old file first: a character has one portrait, and
-    # leaving the previous extension behind would orphan it on disk.
-    _remove_existing(character_id)
-    filename = f"{character_id}{PORTRAIT_TYPES[file.content_type]}"
-    with open(os.path.join(CHARACTER_PORTRAIT_DIR, filename), "wb") as handle:
-        handle.write(data)
-
-    character.portrait_path = filename
+    filename = store_portrait(character, data, PORTRAIT_TYPES[file.content_type])
     db.commit()
     # The version the character's own payload reports, so the client can show
     # the new image straight away under a URL no cache has seen.
     version = os.stat(os.path.join(CHARACTER_PORTRAIT_DIR, filename)).st_mtime_ns
     return {"portrait_path": filename, "portrait_version": version}
+
+
+def store_portrait(character: Character, data: bytes, extension: str) -> str:
+    """Write already-verified image bytes as a character's portrait.
+
+    The caller commits. Replacing drops the old file first: a character has
+    one portrait, and leaving the previous extension behind would orphan it.
+    """
+    _remove_existing(character.id)
+    filename = f"{character.id}{extension}"
+    with open(os.path.join(CHARACTER_PORTRAIT_DIR, filename), "wb") as handle:
+        handle.write(data)
+    character.portrait_path = filename
+    return filename
 
 
 def get_portrait(

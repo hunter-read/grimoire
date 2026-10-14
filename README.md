@@ -16,6 +16,9 @@
 
 </div>
 
+> [!TIP]
+> **Looking for a group to play with?** I also built [findtabletop.games](https://findtabletop.games), a free way to find tabletop RPG groups and players. Grimoire handles your library; findtabletop.games helps you find the table.
+
 A self-hosted web app for your tabletop RPG library. Point it at a folder of PDFs, maps,
 tokens, audio, and 3D models, and Grimoire turns it into a searchable library you can
 read from any device - every page of every book indexed, including scanned ones.
@@ -54,7 +57,7 @@ never writes to it.
 
 ### Audio
 
-- **Audio library** - Ambient tracks, soundscapes, music, and effects (MP3, OGG, Opus, FLAC, WAV, M4A, AAC), reading embedded duration, tags, and album art.
+- **Audio library** - Ambient tracks, soundscapes, music, and effects (MP3, OGG, Opus, FLAC, WAV, M4A, AAC) and audiobooks (M4B) with chapter navigation, reading embedded duration, tags, and album art.
 - **Global player** - A persistent pop-out player that keeps playing as you navigate, with a queue you can reorder and a repeat toggle.
 - **Soundboard** - A floating, draggable grid of one-tap pads that play _over_ the player and each other, with per-pad loop toggles and a configurable grid up to 8×15.
 - **Saved sets** - Name and keep playlists and boards. They live on your account rather than one browser, so a board built at home is there at the table.
@@ -70,7 +73,7 @@ never writes to it.
 - **Book restrictions** - Restrict a book, system, or category to _GMs and admins_ or _admins only_. Restricted content is hidden outright - from library, search, downloads, favourites, and OPDS - since the title and cover are the spoiler. See [Restricting books](docs/users-and-permissions.md#restricting-books).
 - **GrimoireCodexDB** - Look books and systems up in the built-in community catalogue, link them, and send corrections back. See [GrimoireCodexDB](docs/codex.md).
 - **Community add-ons** - Install community metadata scrapers to fill in system and book details from external sources, reviewing a field-by-field diff before anything is written. See [Community add-ons](docs/addons.md).
-- **Character sheets** - A schema-driven character builder: install a sheet for your system, build characters against it, browse a content catalogue, and give each table its own ruleset of allowed content. Sheets are per user, so no admin approval is involved. See [Character sheets](docs/characters.md).
+- **Character sheets** - A schema-driven character builder: install a sheet for your system, build characters against it, browse a content catalogue, and give each table its own ruleset of allowed content. Sheets are per user, so no admin approval is involved. Import characters from Forge Steel, Pathbuilder and other tools through community importers. See [Character sheets](docs/characters.md).
 - **Themes and light mode** - Light, dark, or system, plus installable colour themes (including a WCAG AAA **High Contrast** palette). Themes are per user, so no admin approval is involved. See [Themes](docs/themes.md).
 - **Docker ready** - One command to run, mount your library directory, done. Works on desktop, tablet, and phone.
 
@@ -323,6 +326,8 @@ kept in the repo so it versions with the release you are running:
 | [Wiki note templates](docs/wiki-templates.md) | Starting a campaign page from a template                                        |
 | [Token editor](docs/token-editor.md)          | Turning any picture into a VTT-ready token                                      |
 | [Universal VTT editor](docs/uvtt-editor.md)   | Drawing walls, doors, and lights for dynamic lighting                           |
+| [Share links](docs/sharing.md)                | Public links to library items for people without an account                     |
+| [OTFBM and Avrae](docs/otfbm.md)              | Setting a map up as an OTFBM background for Avrae's `!map` on Discord           |
 | [Setting images](docs/setting-images.md)      | Campaign banners, system covers, and audio artwork                              |
 | [Character sheets](docs/characters.md)        | The schema-driven character builder, content packs, and rulesets                |
 | [Themes](docs/themes.md)                      | Light, dark, and installable colour themes                                      |
@@ -343,13 +348,13 @@ kept in the repo so it versions with the release you are running:
 
 ### Reference
 
-| Guide                                | What's in it                                                       |
-| ------------------------------------ | ------------------------------------------------------------------ |
-| [FAQ](docs/faq.md)                   | Common problems, and worked OIDC examples for Authentik and Google |
-| [API reference](docs/api.md)         | Every endpoint, with roles and request bodies                      |
-| [Architecture](docs/architecture.md) | Module map, request lifecycle, auth flow - for contributors        |
-| [Data model](docs/data-model.md)     | ER diagram and table-by-table schema                               |
-| [CI/CD pipelines](docs/pipelines.md) | Workflows, coverage gates, and the release checklist               |
+| Guide                                | What's in it                                                                                                        |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| [FAQ](docs/faq.md)                   | Common problems (including folders skipped for a non-UTF-8 name), and worked OIDC examples for Authentik and Google |
+| [API reference](docs/api.md)         | Every endpoint, with roles and request bodies                                                                       |
+| [Architecture](docs/architecture.md) | Module map, request lifecycle, auth flow - for contributors                                                         |
+| [Data model](docs/data-model.md)     | ER diagram and table-by-table schema                                                                                |
+| [CI/CD pipelines](docs/pipelines.md) | Workflows, coverage gates, and the release checklist                                                                |
 
 The live API is also self-documenting while the server is running:
 [`/api/docs`](http://localhost:9481/api/docs) (Swagger UI),

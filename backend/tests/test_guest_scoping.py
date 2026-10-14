@@ -18,7 +18,7 @@ from backend import auth
 from backend.config import SessionLocal
 from backend.main import app
 from backend.models import CampaignResource
-from .conftest import make_book, make_game_system, make_map
+from .conftest import make_audio, make_book, make_game_system, make_map
 
 
 # Every route a guest token gets past the role guards on, with its methods. Each
@@ -37,6 +37,7 @@ GUEST_REACHABLE = {
     "/api/audio-sets/{set_id}": "DELETE GET PATCH",
     "/api/audio/{audio_id}": "GET",
     "/api/audio/{audio_id}/artwork": "GET",
+    "/api/audio/{audio_id}/chapters": "GET",
     "/api/audio/{audio_id}/file": "GET",
     "/api/auth/me": "GET",
     "/api/auth/sessions": "GET",
@@ -45,8 +46,11 @@ GUEST_REACHABLE = {
     "/api/bookmarks": "GET POST",
     "/api/bookmarks/{bookmark_id}": "DELETE PATCH",
     "/api/books/{book_id}": "GET",
+    "/api/books/{book_id}/export": "POST",
     "/api/books/{book_id}/file": "GET",
     "/api/books/{book_id}/page/{page_num}": "GET",
+    "/api/books/{book_id}/page/{page_num}/shapes": "GET",
+    "/api/books/{book_id}/page/{page_num}/size": "GET",
     "/api/books/{book_id}/page/{page_num}/text": "GET",
     "/api/books/{book_id}/page/{page_num}/words": "GET",
     "/api/books/{book_id}/thumbnail": "GET",
@@ -113,6 +117,14 @@ GUEST_REACHABLE = {
     "/api/changelog": "GET",
     "/api/characters": "GET POST",
     "/api/characters/import": "POST",
+    # Another tool's character, through an admin-installed importer, into the
+    # caller's own account; a campaign named must be one they are in.
+    "/api/characters/import/external": "POST",
+    "/api/characters/importers": "GET",
+    # A file-only YAML importer into the caller's own account - no network
+    # request, no code - or removing one they installed.
+    "/api/characters/importers/{importer_id}": "DELETE",
+    "/api/characters/importers/{importer_id}/install": "POST",
     "/api/characters/schemas": "GET POST",
     "/api/characters/schemas/browse": "GET",
     "/api/characters/schemas/install/{sheet_id}": "POST",
@@ -129,9 +141,14 @@ GUEST_REACHABLE = {
     "/api/favorites/{item_type}/{item_id}": "DELETE",
     "/api/latest-release": "GET",
     "/api/maps/{map_id}": "GET",
+    "/api/maps/{map_id}/export": "POST",
     "/api/maps/{map_id}/export.uvtt": "GET",
     "/api/maps/{map_id}/file": "GET",
+    "/api/maps/{map_id}/otfbm": "GET",
+    "/api/maps/{map_id}/otfbm/image": "GET",
     "/api/maps/{map_id}/page/{page_num}": "GET",
+    "/api/maps/{map_id}/page/{page_num}/shapes": "GET",
+    "/api/maps/{map_id}/page/{page_num}/size": "GET",
     "/api/maps/{map_id}/thumbnail": "GET",
     "/api/maps/{map_id}/vtt/authoring": "GET",
     "/api/maps/{map_id}/vtt/data": "GET",
@@ -293,6 +310,46 @@ def test_guest_book_metadata_follows_campaign_share(client, gm_headers, campaign
     assert r.json()["title"] == public.title
 
 
+def test_guest_page_export_follows_campaign_share(client, gm_headers, campaign, guest, tmp_path):
+    """Export, page sizes and shape detection check access like /file does."""
+    import fitz
+
+    headers, _ = guest
+    path = tmp_path / f"export-{uid()}.pdf"
+    doc = fitz.open()
+    doc.new_page(width=200, height=300)
+    doc.save(str(path))
+    system = make_game_system()
+    unshared = make_book(system.id, filepath=str(path), mime_type="application/pdf")
+    shared = make_book(
+        system.id, filepath=str(path) + ".shared.pdf", mime_type="application/pdf"
+    )
+    (tmp_path / (path.name + ".shared.pdf")).write_bytes(path.read_bytes())
+    _share(client, gm_headers, campaign, "book", shared.id, "public")
+    body = {"kind": "pages", "pages": "1"}
+
+    for book, status in ((unshared, 403), (shared, 200)):
+        assert client.post(f"/api/books/{book.id}/export", json=body, headers=headers).status_code == status
+        assert client.get(f"/api/books/{book.id}/page/1/size", headers=headers).status_code == status
+        assert client.get(f"/api/books/{book.id}/page/1/shapes", headers=headers).status_code == status
+
+    unshared_map = make_map(filename="m.pdf", filepath=str(path))
+    assert client.post(f"/api/maps/{unshared_map.id}/export", json=body, headers=headers).status_code == 403
+    assert client.get(f"/api/maps/{unshared_map.id}/page/1/size", headers=headers).status_code == 403
+
+
+def test_guest_audio_chapters_follow_campaign_share(client, gm_headers, campaign, guest):
+    headers, _ = guest
+    unshared = make_audio()
+    public = make_audio()
+    _share(client, gm_headers, campaign, "audio", public.id, "public")
+
+    assert client.get(f"/api/audio/{unshared.id}/chapters", headers=headers).status_code == 403
+    r = client.get(f"/api/audio/{public.id}/chapters", headers=headers)
+    assert r.status_code == 200
+    assert r.json() == {"chapters": []}
+
+
 def _variant_ids(client, url, headers) -> set:
     r = client.get(url, headers=headers)
     assert r.status_code == 200, r.text
@@ -341,6 +398,37 @@ def test_guest_map_variants_trimmed_to_shared(
         }
     finally:
         os.unlink(f.name)
+
+
+def test_guest_cannot_create_or_list_share_links(client, guest, gm_headers, campaign, tmp_path):
+    # Share links (issue #541) are never available to guests, even for an item
+    # shared into their campaign - and no override can change that.
+    from PIL import Image
+
+    headers, _ = guest
+    path = tmp_path / "s.png"
+    Image.new("RGB", (10, 10)).save(str(path))
+    m = make_map(filename="s.png", filepath=str(path))
+    _share(client, gm_headers, campaign, "map", m.id)
+    body = {"resource_type": "map", "resource_id": m.id}
+    assert client.post("/api/share-links", json=body, headers=headers).status_code == 403
+    assert client.get("/api/share-links", headers=headers).status_code == 403
+    assert client.get("/api/share-links/permission", headers=headers).status_code == 403
+
+
+def test_guest_cannot_use_the_otfbm_export(client, gm_headers, campaign, guest, tmp_path):
+    # The OTFBM export (issue #551) needs permission to create share links,
+    # which a guest never has - even for a map shared into their campaign.
+    from PIL import Image
+
+    headers, _ = guest
+    path = tmp_path / "shared.png"
+    Image.new("RGB", (280, 140)).save(str(path))
+    shared = make_map(filename="shared.png", filepath=str(path))
+    _share(client, gm_headers, campaign, "map", shared.id)
+
+    for suffix in ("otfbm", "otfbm/image"):
+        assert client.get(f"/api/maps/{shared.id}/{suffix}", headers=headers).status_code == 403
 
 
 # --- Favorites ---------------------------------------------------------------

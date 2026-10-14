@@ -27,6 +27,9 @@ vi.mock('./AppearanceSection', () => ({ default: () => <div>appearance</div> }))
 vi.mock('./SectionDivider', () => ({ default: () => <hr /> }))
 
 vi.mock('./ApiKeySection', () => ({ default: () => <div>api-keys</div> }))
+vi.mock('./ShareLinksSection', () => ({
+  default: ({ canShare }) => <div>{canShare ? 'share-links:can' : 'share-links:cannot'}</div>,
+}))
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (k) => k }),
@@ -103,6 +106,37 @@ describe('UserSettingsTab', () => {
     expect(screen.queryByText('email')).not.toBeInTheDocument()
     expect(screen.getByText('reader')).toBeInTheDocument()
     expect(screen.getByText('password')).toBeInTheDocument()
+  })
+
+  describe('share links', () => {
+    const renderAs = (user, shareEnabled = true) =>
+      render(
+        <UISettingsProvider value={{ share_links_enabled: shareEnabled }}>
+          <UserSettingsTab user={{ username: 'ada', ...user }} onLogout={() => {}} />
+        </UISettingsProvider>
+      )
+
+    it('lists them for a user who may share', () => {
+      renderAs({ role: 'gm', share_links_allowed: true })
+      expect(screen.getByText('userSettings.groups.sharing')).toBeInTheDocument()
+      expect(screen.getByText('share-links:can')).toBeInTheDocument()
+    })
+
+    // Their links are suspended, not deleted, so they still need to see them.
+    it('still lists them for a user who lost the permission', () => {
+      renderAs({ role: 'player', share_links_allowed: false })
+      expect(screen.getByText('share-links:cannot')).toBeInTheDocument()
+    })
+
+    it('hides them from guests', () => {
+      renderAs({ role: 'guest' })
+      expect(screen.queryByText('userSettings.groups.sharing')).toBeNull()
+    })
+
+    it('hides them when share links are off for the instance', () => {
+      renderAs({ role: 'admin', share_links_allowed: true }, false)
+      expect(screen.queryByText('userSettings.groups.sharing')).toBeNull()
+    })
   })
 
   describe('API keys', () => {

@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuTrash2, LuScroll } from 'react-icons/lu'
+import { LuTrash2, LuScroll, LuShare2 } from 'react-icons/lu'
 import SetEmailInline from './SetEmailInline'
 import SetPasswordInline from './SetPasswordInline'
 import UserCampaignsList from './UserCampaignsList'
 import UserAccessGrantsSection from './UserAccessGrantsSection'
-import EditorField, { fieldLabelStyle } from './EditorField'
+import EditorField from './EditorField'
 import PermissionToggle from './PermissionToggle'
+import ShareLinksPermissionSelect from './ShareLinksPermissionSelect'
+import UserEditorDisclosure from './UserEditorDisclosure'
+import UserShareLinksList from './UserShareLinksList'
 import { ghostBtnStyle } from './settingsButtons'
 
 export default function UserExpandedEditor({
@@ -19,6 +22,8 @@ export default function UserExpandedEditor({
   onCampaignAccessChange,
   apiKeysEnabled = false,
   onApiKeysChange,
+  shareLinksEnabled = false,
+  onShareLinksChange,
   onPasswordReset,
   onEmailChange,
   onDelete,
@@ -112,6 +117,9 @@ export default function UserExpandedEditor({
                 }
               />
             )}
+            {shareLinksEnabled && (
+              <ShareLinksPermissionSelect user={user} onChange={onShareLinksChange} />
+            )}
             <PermissionToggle
               id={`explicit-${user.id}`}
               label={t('users.explicit')}
@@ -147,15 +155,20 @@ export default function UserExpandedEditor({
       {/* Library access grants (issue #258) */}
       {isAdmin && !isSelf && <UserAccessGrantsSection userId={user.id} userRole={user.role} />}
 
-      {/* Campaigns */}
+      {/* Campaigns and share links: collapsed until asked for, so expanding a
+          row does not fetch either list (issue #541). */}
       {showCampaigns && (
-        <div>
-          <div style={fieldLabelStyle}>
-            <LuScroll size={12} style={{ marginRight: 5, verticalAlign: -1 }} />
-            {t('users.campaigns.toggleLabel')}
-          </div>
+        <UserEditorDisclosure
+          icon={<LuScroll size={12} />}
+          label={t('users.campaigns.toggleLabel')}
+        >
           <UserCampaignsList userId={user.id} />
-        </div>
+        </UserEditorDisclosure>
+      )}
+      {isAdmin && shareLinksEnabled && (
+        <UserEditorDisclosure icon={<LuShare2 size={12} />} label={t('users.shareLinks.listLabel')}>
+          <UserShareLinksList userId={user.id} />
+        </UserEditorDisclosure>
       )}
 
       {/* Delete */}

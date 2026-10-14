@@ -1,7 +1,7 @@
 """OIDC package — registers admin discovery and public login/callback routes."""
 import httpx  # re-exported so tests can patch ``backend.routers.oidc.httpx.get``
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
 
 from ._helpers import (
     _OIDCError,
@@ -10,6 +10,7 @@ from ._helpers import (
     _role_from_groups,
 )
 from ._schemas import DiscoverResponse
+from .button_icon import serve_oidc_button_icon
 from .core import discover, oidc_callback, oidc_login
 
 router = APIRouter(prefix="/auth/openid", tags=["auth"])
@@ -45,6 +46,20 @@ public_router.add_api_route(
         "Receives the authorization code from the IdP, exchanges it for "
         "tokens, validates the ID token, resolves or creates the local user, "
         "and redirects to the frontend with a one-time grimoire token."
+    ),
+)
+public_router.add_api_route(
+    "/button-icon",
+    serve_oidc_button_icon,
+    methods=["GET"],
+    summary="OIDC login-button icon",
+    response_class=Response,
+    description=(
+        "Public (the login page is pre-auth). Serves the admin-configured icon for "
+        "the OIDC sign-in button as a server-normalized PNG. 404 when no icon is "
+        "set. Use the URL from "
+        "`/api/auth/config` → `oidc_button_icon_url`; its `v` parameter makes the "
+        "response cacheable forever."
     ),
 )
 

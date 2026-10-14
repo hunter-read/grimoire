@@ -65,9 +65,14 @@ async function authedFetch(url, build) {
 // naming rule in issue #430). Join the messages instead, dropping Pydantic's
 // "Value error, " prefix, which means nothing to someone who did not write the
 // validator.
+//
+// A detail may also be an object carrying a `message` beside data the caller
+// acts on (`{message, needs_input}` from a character import); the message is
+// what the user reads.
 function errorDetail(body) {
   const detail = body?.detail
   if (typeof detail === 'string') return detail
+  if (typeof detail?.message === 'string') return detail.message
   if (!Array.isArray(detail)) return null
   const messages = detail
     .map((e) => String(e?.msg || '').replace(/^Value error,\s*/, ''))
@@ -97,6 +102,23 @@ async function handleResponse(res) {
     throw Object.assign(new Error(detail), { status: res.status, body })
   }
   return body
+}
+
+// The filename a Content-Disposition header names. The RFC 6266 `filename*`
+// form wins when present: it carries the real UTF-8 name, where the plain
+// `filename` is an ASCII fallback with `?` in place of anything else.
+export function dispositionFilename(header) {
+  if (!header) return null
+  const star = header.match(/filename\*=UTF-8''([^;]+)/i)
+  if (star) {
+    try {
+      return decodeURIComponent(star[1].trim())
+    } catch {
+      // Malformed escape: fall through to the plain form.
+    }
+  }
+  const plain = header.match(/filename="?([^";]+)"?/i)
+  return plain ? plain[1] : null
 }
 
 // Build a URL for an <img>/download/media endpoint. These requests can't send
@@ -542,6 +564,9 @@ export const settings = {
   get: () => api.get('/settings'),
   getUi: () => api.get('/settings/ui'),
   patch: (data) => api.patch('/settings', data),
+  // OIDC login-button icon (issue #377). Both return the full settings.
+  uploadOidcButtonIcon: (file) => api.upload('/settings/oidc-button-icon', file),
+  deleteOidcButtonIcon: () => api.delete('/settings/oidc-button-icon'),
 }
 
 // Personal API keys (issue #489). A key acts as its owner. The full key is
@@ -558,6 +583,20 @@ export const apiKeys = {
 
 // Backups (issue #338). Admin-only. A backup is a timestamped .zip holding the
 // database plus user-authored assets — never the library itself.
+// Share links (issue #541): public, revocable URLs for one library item.
+export const shareLinks = {
+  list: (params = {}) => {
+    const qs = new URLSearchParams(params).toString()
+    return api.get(`/share-links${qs ? `?${qs}` : ''}`)
+  },
+  listForUser: (userId) => api.get(`/share-links/users/${userId}`),
+  permission: () => api.get('/share-links/permission'),
+  create: (data) => api.post('/share-links', data),
+  update: (id, data) => api.patch(`/share-links/${id}`, data),
+  revoke: (id) => api.post(`/share-links/${id}/revoke`),
+  remove: (id) => api.delete(`/share-links/${id}`),
+}
+
 export const backups = {
   list: () => api.get('/backups'),
   create: () => api.post('/backups'),
@@ -680,6 +719,20 @@ export const characters = {
   export: (id) => api.get(`/characters/${id}/export`),
   import: (payload, importEntries = true) =>
     api.post('/characters/import', { payload, import_entries: importEntries }),
+  // Other tools' characters, through the character-importer add-ons an admin
+  // has installed. `body` is `{text, filename}` for a file or `{url}` for a
+  // link, plus an optional `importer_id` to settle which importer reads it.
+  listImporters: () => api.get('/characters/importers'),
+  importExternal: (body) => api.post('/characters/import/external', body),
+  // A file-only YAML importer into your own account, or removing it again.
+  installImporter: (id) => api.post(`/characters/importers/${encodeURIComponent(id)}/install`),
+  removeImporter: (id) => api.delete(`/characters/importers/${encodeURIComponent(id)}`),
+  // An admin installing an importer for everyone: the ordinary add-on install.
+  installImporterForEveryone: (id, indexUrl) =>
+    api.post(`/addons/${encodeURIComponent(id)}/install`, {
+      approve_script: false,
+      ...(indexUrl ? { index_url: indexUrl } : {}),
+    }),
   // `v` is the character's `portrait_version`, which changes with the image:
   // portraits are cached for minutes, so the same URL would keep showing the
   // old art after a replacement.
@@ -827,8 +880,15 @@ const api = {
 
   // Fetch a file response and trigger a browser download. The server's
   // Content-Disposition filename wins; `fallback` is used only if it's absent.
-  download: async (url, fallback) => {
-    const res = await authedFetch(`/api${url}`, () => ({ headers: authHeaders() }))
+  // `method`/`body` let an export POST its request (a JSON body) and still land
+  // as a download.
+  download: async (url, fallback, { method = 'GET', body } = {}) => {
+    const hasBody = body !== undefined
+    const res = await authedFetch(`/api${url}`, () => ({
+      method,
+      headers: authHeaders(hasBody),
+      body: hasBody ? JSON.stringify(body) : undefined,
+    }))
     if (res.status === 401) {
       window.dispatchEvent(new CustomEvent('grimoire:unauthorized'))
       throw Object.assign(new Error('Unauthorized'), { status: 401 })
@@ -842,9 +902,7 @@ const api = {
       }
       throw Object.assign(new Error(detail), { status: res.status })
     }
-    const disposition = res.headers.get('Content-Disposition') || ''
-    const match = disposition.match(/filename="?([^"]+)"?/)
-    const filename = match ? match[1] : fallback
+    const filename = dispositionFilename(res.headers.get('Content-Disposition')) || fallback
     const blob = await res.blob()
     const objectUrl = URL.createObjectURL(blob)
     const a = document.createElement('a')

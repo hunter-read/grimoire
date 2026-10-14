@@ -62,6 +62,7 @@ export default function ReaderToolbar({
   onToggleFavorite,
   onBookmarkPage,
   onShowDetails,
+  onExport,
   onFileChanged,
   zoom = 1,
   canZoomIn = false,
@@ -95,6 +96,7 @@ export default function ReaderToolbar({
       isFavorite={isFavorite}
       onToggleFavorite={onToggleFavorite}
       onShowDetails={onShowDetails}
+      onExport={onExport}
       onToggleShortcuts={onToggleShortcuts}
       onFileChanged={onFileChanged}
     />
@@ -374,6 +376,7 @@ export default function ReaderToolbar({
               ['t', t('reader.shortcutToc')],
               ['b', t('reader.shortcutBookmarks')],
               ['s', t('reader.shortcutSearch')],
+              ...(onExport ? [['e', t('reader.shortcutExport')]] : []),
               ['?', t('reader.shortcutHelp')],
               ['Esc', t('reader.shortcutClose')],
             ].map(([key, desc]) => (

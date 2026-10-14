@@ -54,6 +54,10 @@ class AudioOut(VariantCountMixin):
     title: str
     artist: str
     album: str
+    # Position from the track/disc tags (issue #494); null when the file has no
+    # such tag or has not been rescanned since they were first read.
+    track_number: Optional[int] = None
+    disc_number: Optional[int] = None
     has_artwork: bool
     # True only when a cover was set through the UI (issue #286).
     has_cover: bool = False
@@ -76,6 +80,19 @@ class AudioDetailResponse(AudioOut, VariantFamilyMixin):
 
     folder_path: str
     folder_tags: list[str]
+
+
+class AudioChapterOut(BaseModel):
+    # Seconds from the start of the track.
+    start: float
+    # Blank when the file names no title; the player numbers it instead.
+    title: str
+
+
+class AudioChaptersResponse(BaseModel):
+    """`GET /audio/{id}/chapters` - empty for a track without chapter markers."""
+
+    chapters: list[AudioChapterOut]
 
 
 class FolderTagsOut(BaseModel):

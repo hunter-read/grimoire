@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+from ..filenames import display_name as safe_name
 from ._context import _ScanContext
 from .categories import (
     detect_container_kind,
@@ -156,7 +157,48 @@ def _register_system(
     publisher: str = "",
     attribute_parent: bool = True,
 ) -> Optional[GameSystem]:
-    """Insert or update the GameSystem row for one folder. None on DB failure.
+    """Insert or update the GameSystem row for one folder. None on any failure.
+
+    Runs in a savepoint so a folder the database rejects is skipped on its own.
+    Every system is registered before any is committed, so an error escaping
+    here used to roll back - or abort - the registration of every other folder
+    in the library along with it (issue #547). The keyword arguments are
+    :func:`_register_system_row`'s.
+    """
+    try:
+        with ctx.session.begin_nested():
+            return _register_system_row(
+                ctx,
+                folder,
+                display_name=display_name,
+                parent=parent,
+                edition=edition,
+                system_family=system_family,
+                publisher=publisher,
+                attribute_parent=attribute_parent,
+            )
+    except Exception as e:
+        logger.error(
+            "Could not register the system folder '%s', skipping it: %s",
+            safe_name(str(folder.path)),
+            e,
+        )
+        ctx.stats["errors"] += 1
+        return None
+
+
+def _register_system_row(
+    ctx: _ScanContext,
+    folder: _SystemFolder,
+    *,
+    display_name: str | None = None,
+    parent: Optional[GameSystem] = None,
+    edition: str = "",
+    system_family: str = "",
+    publisher: str = "",
+    attribute_parent: bool = True,
+) -> Optional[GameSystem]:
+    """The body of :func:`_register_system`, outside its savepoint.
 
     ``display_name`` overrides the stored name for a container's children (e.g.
     "Dungeons & Dragons 5e" for the ``5e`` folder). It is only ever applied to a

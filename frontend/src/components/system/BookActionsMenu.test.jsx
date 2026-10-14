@@ -54,6 +54,17 @@ vi.mock('../../hooks/useBookPrefs', () => ({
   saveBookPrefs: (...args) => mockSaveBookPrefs(...args),
 }))
 
+let mockCanShare = false
+vi.mock('../share/useCanShare', () => ({ default: () => mockCanShare }))
+vi.mock('../share/ShareLinkDialog', () => ({
+  default: ({ resourceType, resourceId, onClose }) => (
+    <div>
+      <span>{`share-dialog:${resourceType}:${resourceId}`}</span>
+      <button onClick={onClose}>close-share</button>
+    </div>
+  ),
+}))
+
 function makeBook(overrides = {}) {
   return {
     id: 'b1',
@@ -82,6 +93,44 @@ describe('BookActionsMenu', () => {
     mockSaveBookPrefs.mockClear()
     mockFavorite = false
     mockToggleFavorite.mockClear()
+    mockCanShare = false
+  })
+
+  // Issue #541: the same share dialog as the reader, from the library's menu.
+  describe('share', () => {
+    it('is hidden from someone who may not create share links', () => {
+      renderMenu()
+      fireEvent.click(screen.getByLabelText('bookActions.menu'))
+      expect(screen.queryByRole('menuitem', { name: 'share.button' })).toBeNull()
+    })
+
+    it('opens the share dialog for this book and closes the menu', () => {
+      mockCanShare = true
+      renderMenu({ id: 'b7', title: 'Core Rules' })
+      fireEvent.click(screen.getByLabelText('bookActions.menu'))
+      fireEvent.click(screen.getByRole('menuitem', { name: 'share.button' }))
+      expect(screen.getByText('share-dialog:book:b7')).toBeInTheDocument()
+      expect(screen.queryByRole('menu')).toBeNull()
+      fireEvent.click(screen.getByText('close-share'))
+      expect(screen.queryByText('share-dialog:book:b7')).toBeNull()
+    })
+
+    // The menu sits in a row whose click opens the reader; clicks inside the
+    // dialog must not reach it.
+    it('keeps clicks in the dialog from reaching the book row', () => {
+      mockCanShare = true
+      const onRowClick = vi.fn()
+      render(
+        <div onClick={onRowClick}>
+          <BookActionsMenu book={makeBook()} onEdit={() => {}} />
+        </div>
+      )
+      fireEvent.click(screen.getByLabelText('bookActions.menu'))
+      fireEvent.click(screen.getByRole('menuitem', { name: 'share.button' }))
+      onRowClick.mockClear()
+      fireEvent.click(screen.getByText('share-dialog:book:b1'))
+      expect(onRowClick).not.toHaveBeenCalled()
+    })
   })
 
   describe('favorite', () => {

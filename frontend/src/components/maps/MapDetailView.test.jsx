@@ -19,7 +19,6 @@ vi.mock('react-router-dom', () => ({
 }))
 
 const toggleFavorite = vi.fn()
-vi.mock('../campaigns/AddToCampaignButton', () => ({ default: () => null }))
 vi.mock('../../context/FavoritesContext', () => ({
   useFavorites: () => ({ isFavorite: () => false, toggleFavorite }),
 }))
@@ -34,6 +33,22 @@ vi.mock('../DownloadVersionButton', () => ({
   default: ({ extraItems = [] }) => (
     <div data-testid="download-extras">{extraItems.map((e) => e.href).join(',')}</div>
   ),
+}))
+vi.mock('../media/DetailMoreMenu', () => ({
+  default: ({ resourceType, resourceId, extraItems = [] }) => (
+    <div data-testid="map-more-menu">
+      {`menu:${resourceType}:${resourceId}`}
+      {extraItems.map((item) => (
+        <div key={item.key} data-testid={`menu-extra-${item.key}`}>
+          {`${item.label}:${item.requiresShare}`}
+          {item.render(() => {})}
+        </div>
+      ))}
+    </div>
+  ),
+}))
+vi.mock('./OtfbmExportModal', () => ({
+  default: ({ mapId }) => <div data-testid="otfbm-modal">{`otfbm:${mapId}`}</div>,
 }))
 vi.mock('./InlineTagEditor', () => ({
   default: ({ onSave }) => (
@@ -345,18 +360,37 @@ describe('MapDetailView', () => {
       expect(screen.getByTestId('download-extras')).toHaveTextContent('/maps/m2/export.uvtt')
     })
 
+    // The less-used actions (favourite, campaigns, share links, OTFBM) live in
+    // the overflow menu, so the toolbar keeps room for the title.
+    it('puts the secondary actions in the overflow menu', async () => {
+      mockApi('m2')
+      render(<MapDetailView />)
+      expect(await screen.findByTestId('map-more-menu')).toHaveTextContent('menu:map:m2')
+      expect(screen.queryByRole('button', { name: 'Add to favorites' })).toBeNull()
+    })
+
+    // OTFBM is a share link to the resized background, so it needs the share
+    // permission, and only a map with a single picture offers it.
+    it('adds the OTFBM setup to the menu for a raster map', async () => {
+      mockApi('m2')
+      render(<MapDetailView />)
+      const extra = await screen.findByTestId('menu-extra-otfbm')
+      expect(extra).toHaveTextContent(':true')
+      expect(screen.getByTestId('otfbm-modal')).toHaveTextContent('otfbm:m2')
+    })
+
+    it('offers no OTFBM setup for a PDF map', async () => {
+      mockApi('m2', { is_pdf: true, page_count: 3, grid: null })
+      render(<MapDetailView />)
+      await screen.findByTestId('map-more-menu')
+      expect(screen.queryByTestId('menu-extra-otfbm')).toBeNull()
+    })
+
     it('offers the UVTT export for a raster map', async () => {
       mockApi('m2', { grid: { width: 10, height: 14, cell_px: 140, source: 'computed' } })
       render(<MapDetailView />)
       await screen.findByTestId('image-pane')
       expect(screen.getByTestId('download-extras')).toHaveTextContent('/maps/m2/export.uvtt')
     })
-  })
-
-  it('favourites the map from its detail toolbar', async () => {
-    mockApi('m2')
-    render(<MapDetailView />)
-    await userEvent.click(await screen.findByRole('button', { name: 'Add to favorites' }))
-    expect(toggleFavorite).toHaveBeenCalledWith('map', 'm2')
   })
 })

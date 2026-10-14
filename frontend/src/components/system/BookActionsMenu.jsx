@@ -14,6 +14,7 @@ import {
   LuTrash2,
   LuBookmarkX,
   LuHeart,
+  LuShare2,
 } from 'react-icons/lu'
 import api, { mediaUrl } from '../../api'
 import { useUISettings } from '../../context/UISettingsContext'
@@ -22,6 +23,8 @@ import { getBookPrefs, saveBookPrefs } from '../../hooks/useBookPrefs'
 import useFileActions from '../../hooks/useFileActions'
 import useAnchoredMenu, { pointFromEvent } from '../../hooks/useAnchoredMenu'
 import AddToCampaignModal from '../AddToCampaignModal'
+import ShareLinkDialog from '../share/ShareLinkDialog'
+import useCanShare from '../share/useCanShare'
 import VariantMenuItems from './VariantMenuItems'
 import DownloadVariantItems from './DownloadVariantItems'
 
@@ -41,6 +44,9 @@ const MENU_WIDTH = 220
  * per-user browser state, so — unlike the metadata editor it used to live in —
  * the item is offered to every role, not just gm/admin. It appears only when
  * there is progress to clear.
+ *
+ * "Share" opens the share-link dialog for this book (issue #541), for anyone
+ * allowed to create share links - the same dialog as the reader's menu.
  *
  * "Add to campaign" opens the shared AddToCampaignModal with this one book,
  * mirroring the bulk-select action so a single book doesn't need multi-select.
@@ -90,6 +96,8 @@ export default function BookActionsMenu({
   const fav = isFavorite('book', book.id)
   const [open, setOpen] = useState(false)
   const [addToCampaign, setAddToCampaign] = useState(false)
+  const [sharing, setSharing] = useState(false)
+  const canShare = useCanShare()
   const [showDpi, setShowDpi] = useState(false)
   const [dpi, setDpi] = useState(book.ocr_dpi ? String(book.ocr_dpi) : '')
   const [state, setState] = useState('idle') // idle | working | done | error
@@ -326,6 +334,21 @@ export default function BookActionsMenu({
               </button>
             )}
 
+            {canShare && (
+              <button
+                role="menuitem"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  close()
+                  setSharing(true)
+                }}
+                style={itemStyle}
+              >
+                <LuShare2 size={15} aria-hidden="true" />
+                {t('share.button')}
+              </button>
+            )}
+
             {book.variant_count > 0 ? (
               <DownloadVariantItems book={book} itemStyle={itemStyle} onPick={close} />
             ) : (
@@ -513,6 +536,19 @@ export default function BookActionsMenu({
           portalled with propagation stopped: the menu sits inside a book row
           whose own click handler opens the reader, which would otherwise fire
           behind the modal on every click inside it. */}
+      {sharing &&
+        createPortal(
+          <div onClick={(e) => e.stopPropagation()}>
+            <ShareLinkDialog
+              resourceType="book"
+              resourceId={book.id}
+              title={book.title}
+              onClose={() => setSharing(false)}
+            />
+          </div>,
+          document.body
+        )}
+
       {addToCampaign &&
         createPortal(
           <div onClick={(e) => e.stopPropagation()}>

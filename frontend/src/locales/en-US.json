@@ -186,6 +186,7 @@
     "noResultsFound": "No results found.",
     "tagsLabel": "Tags:",
     "showLess": "Show less",
+    "readMore": "Read more",
     "clearTags": "Clear",
     "download": "Download",
     "backToLibrary2": "Back to Library",
@@ -247,7 +248,111 @@
     "spreadIncludeCover": "Include cover in spread (pair pages 1-2, 3-4…)",
     "spreadExcludeCover": "Exclude cover from spread (pair pages 2-3, 4-5…)",
     "archiveNotViewable": "This is an archive file and cannot be viewed in the reader. Download it to open its contents.",
-    "textUnavailable": "This document's text could not be loaded."
+    "textUnavailable": "This document's text could not be loaded.",
+    "shortcutExport": "Export pages & cut-outs"
+  },
+  "pageExport": {
+    "menuItem": "Export pages & cut-outs",
+    "title": "Export",
+    "close": "Close export",
+    "tabPages": "Whole pages",
+    "tabCut": "Cut out",
+    "pagesLabel": "Pages",
+    "pagesHint": "Single pages and ranges, like 12-15, 20",
+    "quickThisPage": "This page",
+    "quickThisSpread": "This spread",
+    "quickSection": "Section: {{title}}",
+    "quickAll": "All {{count}}",
+    "pageSpan": "Pages {{start}}–{{end}}",
+    "errors": {
+      "empty": "Choose at least one page",
+      "notAPage": "“{{part}}” isn't a page or a range like 12-15",
+      "fromOne": "Pages are numbered from 1",
+      "pastEnd": "Page {{page}} is past the end - this has {{total}} pages"
+    },
+    "formatLabel": "Save as",
+    "format": {
+      "pdf": "PDF",
+      "png": "PNG",
+      "jpeg": "JPEG",
+      "webp": "WebP"
+    },
+    "formatHint": {
+      "pdf": "Keeps text selectable and prints at full quality.",
+      "png": "Lossless, with transparency. Best for maps and tokens.",
+      "jpeg": "Smallest files. No transparency - circles get white corners.",
+      "webp": "Small files with transparency. Most virtual tabletops accept it."
+    },
+    "resolutionLabel": "Resolution",
+    "dpi": {
+      "screen": "Screen",
+      "standard": "Standard",
+      "print": "Print"
+    },
+    "dpiValue": "{{dpi}} dpi",
+    "sizePerPage": "{{width}} × {{height}} px per page",
+    "sizePerSpread": "{{width}} × {{height}} px per spread",
+    "sizeForCutout": "Cut-out {{n}}: {{width}} × {{height}} px",
+    "joinSpreads": "Join facing pages into one image",
+    "joinSpreadsHint": "For maps printed across two pages.",
+    "toolLabel": "Shape",
+    "tool": {
+      "rect": "Rectangle",
+      "square": "Square",
+      "circle": "Circle"
+    },
+    "drawHint": "Drag on the page to cut out an area. Each one becomes its own file. Hold Shift to keep a rectangle square.",
+    "findShapes": "Find shapes on this page",
+    "findShapesSpread": "Find shapes on these pages",
+    "finding": "Looking…",
+    "findHint": "Picks out the separate pictures on a page - tokens, cards, maps.",
+    "foundNone": "Nothing found here. Pieces are picked out against a plain page background, so draw these by hand.",
+    "foundAlready": "Everything found here is already cut out.",
+    "foundSome_one": "Found {{count}} - remove it if you don't need it.",
+    "foundSome_other": "Found {{count}} - remove any you don't need.",
+    "findFailed": "Couldn't look for shapes on this page",
+    "circlesNoPdf": "PDF can't hold round cut-outs - choose PNG or WebP.",
+    "listTitle": "Cut-outs ({{count}})",
+    "clearAll": "Clear all",
+    "emptyTitle": "No cut-outs yet",
+    "emptyBody": "Draw around a map, table or token on the page, or let Grimoire find them.",
+    "showPage": "Show this page",
+    "pageGroup": "Page {{page}}",
+    "spreadGroup": "Pages {{first}}–{{last}}",
+    "nameLabel": "File name for cut-out {{n}}",
+    "remove": "Remove cut-out {{n}}",
+    "rowMeta": "{{shape}} · {{width}} × {{height}} px",
+    "keysHelp": "Arrow keys move it, Shift moves it further, Alt and arrow keys resize it, Delete removes it.",
+    "stageLabel": "Page {{pages}} - drag to cut out an area",
+    "boxLabel": "Cut-out {{n}}, {{shape}}",
+    "stageHint": "Drag to cut out an area",
+    "summaryPdf_one": "{{count}} page → 1 PDF",
+    "summaryPdf_other": "{{count}} pages → 1 PDF",
+    "summaryImages_one": "1 {{format}} image",
+    "summaryImages_other": "{{count}} {{format}} images, zipped",
+    "summaryFiles_one": "1 {{format}} file",
+    "summaryFiles_other": "{{count}} {{format}} files, zipped",
+    "nothingToExport": "Draw a cut-out to export it",
+    "downloaded": "Downloaded",
+    "preparing": "Preparing…",
+    "failed": "Export failed",
+    "saveToLibrary": "Save to library",
+    "saveToLibraryHint": "Save the files into a library folder instead of downloading them",
+    "saveTitle": "Save to library",
+    "savedTitle": "Saved to library",
+    "savePrompt": "{{summary}} from {{title}}. Choose a folder:",
+    "quickBeside": "Beside the original",
+    "saveInto": "Saving into {{folder}}",
+    "pickFolder": "Pick a folder inside Books, Maps or Tokens.",
+    "pdfIntoTokens": "Tokens only take images - choose PNG, JPEG or WebP, or another folder.",
+    "saveHere": "Save here",
+    "saving": "Saving…",
+    "saveFailed": "Couldn't save to the library",
+    "savedBody_one": "1 file saved to {{folder}}.",
+    "savedBody_other": "{{count}} files saved to {{folder}}.",
+    "indexLater": "A library scan is already running - they will appear once it reaches that folder.",
+    "indexing_one": "Indexing it now - it will appear in the library in a moment.",
+    "indexing_other": "Indexing them now - they will appear in the library in a moment."
   },
   "search": {
     "title": "Search Your Library",
@@ -379,6 +484,7 @@
     "nsfw": "NSFW",
     "indexed": "Indexed",
     "missing": "Missing",
+    "unreadableName": "This name isn't valid UTF-8, usually because it was created on Windows and copied to a Linux share. Grimoire can't open or change it, and library scans skip it. Rename it on the share itself, then rescan.",
     "itemCount": "{{count}} item",
     "itemCount_other": "{{count}} items",
     "rename": "Rename",
@@ -585,6 +691,29 @@
       "vttLights": "Lights",
       "downloadUvtt": "Download as Universal VTT",
       "downloadUvttHint": "Image and grid as a .uvtt file"
+    },
+    "otfbm": {
+      "menuLabel": "Set up for OTFBM (Avrae)",
+      "title": "Set up for OTFBM",
+      "intro": "OTFBM draws your map at its real size under its own grid, so the image is resized until each square lines up. Grimoire serves the resized image through a share link, so the !map command is ready to paste into Discord.",
+      "cellSize": "Square size (px)",
+      "cellHint": "{{min}}–{{max}} px. {{suggested}} px suggested for this map.",
+      "cellInvalid": "Enter a whole number from {{min}} to {{max}}.",
+      "summary": "{{width}} × {{height}} squares · image {{imageWidth}} × {{imageHeight}} px",
+      "defaultGrid": "No grid was found on this map, so 140 px squares are assumed. If it doesn't line up, set the grid in the map's details first.",
+      "truncated": "OTFBM shows at most 99 squares per side, so the far edge of this map will be cut off.",
+      "download": "Download image",
+      "command": "Avrae command",
+      "copy": "Copy",
+      "copied": "Copied",
+      "loadFailed": "Couldn't work out the OTFBM setup for this map.",
+      "linkTitle": "Share link for OTFBM",
+      "createLink": "Create share link",
+      "linkHint": "OTFBM fetches the background from this link every time it draws the map, so your Grimoire server must be reachable from the internet.",
+      "linkLabel": "OTFBM background ({{cell}} px)",
+      "linkUntil": "Uses your share link, which expires {{when}}. Manage it under Settings → Account → Sharing.",
+      "linkForever": "Uses your share link, which never expires. Manage it under Settings → Account → Sharing.",
+      "selfHost": "Or host it yourself:"
     },
     "vtt": {
       "title": "VTT Editor",
@@ -956,6 +1085,22 @@
       "signingAlg": "Signing Algorithm",
       "buttonText": "Button Text",
       "buttonTextHint": "What the SSO button on the login screen will say.",
+      "buttonAppearance": "Button Appearance",
+      "buttonAppearanceHint": "Make the button match your provider's official sign-in button: upload its logo and copy the colors from its branding guidelines. Leave a field empty to keep the theme's look.",
+      "buttonPreview": "Button preview",
+      "buttonBgColor": "Background Color",
+      "buttonTextColor": "Text Color",
+      "buttonBorderColor": "Border Color",
+      "buttonColorPicker": "{{field}} picker",
+      "buttonColorPlaceholder": "Theme default",
+      "buttonRadius": "Corner Radius (px)",
+      "buttonIcon": "Icon",
+      "buttonIconUpload": "Upload icon",
+      "buttonIconReplace": "Replace icon",
+      "buttonIconRemove": "Remove icon",
+      "buttonIconHint": "PNG, JPEG, WebP, GIF or SVG, up to 1 MB. Converted to a small PNG on upload.",
+      "buttonInvalidColor": "Use a hex color such as #1a2b3c, or leave it empty.",
+      "buttonInvalidRadius": "Use a whole number from 0 to 40, or leave it empty.",
       "groupsClaim": "Groups Claim",
       "groupsClaimHint": "Name of the OIDC claim that contains a list of the user's groups (commonly 'groups'). When set, the app assigns roles from membership in groups named (case-insensitively) 'admin', 'gm', or 'player' - highest level wins. If no group matches, access is denied.",
       "permissionsClaim": "Advanced Permissions Claim",
@@ -1096,7 +1241,15 @@
       "reading": "Reading & Library",
       "readingDesc": "Reader behaviour, library browsing, and feeds.",
       "security": "Security & Account",
-      "securityDesc": "Password, active sessions, and account removal."
+      "securityDesc": "Password, active sessions, and account removal.",
+      "sharing": "Sharing",
+      "sharingDesc": "Public links you've made to items in the library."
+    },
+    "shareLinks": {
+      "title": "Share links",
+      "description": "Every link you've made. Copy one again, or revoke it to stop it working.",
+      "noPermission": "You can't create share links right now. Links you made before are paused, not deleted, and work again if an admin restores your permission.",
+      "none": "You haven't made any share links."
     }
   },
   "appSettings": {
@@ -1278,6 +1431,10 @@
         "all": {
           "label": "All permissions",
           "description": "Every area at once, including any added in future versions"
+        },
+        "share-links": {
+          "label": "Share links",
+          "description": "Create, list and revoke your public share links"
         }
       }
     },
@@ -1359,7 +1516,32 @@
     "noPermissions": "None",
     "ownedCampaigns": "Owned campaigns",
     "deleteUserShort": "Delete user",
-    "emailLabel": "Email"
+    "emailLabel": "Email",
+    "shareLinks": {
+      "label": "Share links",
+      "followRole": "Follow role",
+      "allow": "Allow",
+      "deny": "Deny",
+      "status": {
+        "allowed": "Allowed",
+        "denied": "Not allowed"
+      },
+      "source": {
+        "role": "(from role)",
+        "user": "(set for this user)",
+        "disabled": "(turned off on this server)",
+        "guest": "(guests can't share)"
+      },
+      "badge": "Share links",
+      "listLabel": "Share links",
+      "none": "No share links.",
+      "rolesTitle": "Share links",
+      "rolesHint": "Who can create public share links by default. A user's own setting in the table overrides this.",
+      "disabled": "Share links are turned off on this server (SHARE_LINKS_ENABLED=false).",
+      "adminAlways": "Admins can always create share links",
+      "rolesFailed": "Couldn't update the share link defaults.",
+      "failedUpdate": "Couldn't update the share link permission."
+    }
   },
   "maintenance": {
     "groups": {
@@ -2163,6 +2345,7 @@
     "character-sheet": "Character Sheets",
     "map": "Maps",
     "handout": "Handouts & Reference",
+    "magazine": "Magazines & Zines",
     "homebrew": "Homebrew"
   },
   "wiki": {
@@ -2543,6 +2726,9 @@
       "playNext": "Play next",
       "queued": "In the queue",
       "toggleQueue": "Show queue",
+      "toggleChapters": "Show chapters",
+      "chapters": "Chapters",
+      "chapterNumber": "Chapter {{n}}",
       "close": "Close player",
       "seek": "Seek",
       "removeFromQueue": "Remove from queue",
@@ -2663,6 +2849,7 @@
     "searchPlaceholder": "Search by title…",
     "sortSize": "Size",
     "sortDuration": "Duration",
+    "sortTrack": "Track",
     "groupByFolder": "Group",
     "filterParentSystem": "Parent System",
     "allParentSystems": "All parent systems",
@@ -2771,7 +2958,9 @@
     "installFromSpecificSource": "Install from specific source",
     "categories": {
       "metadata": "Metadata scrapers",
-      "metadataDesc": "Add-ons that fill in game system and book details from external sources."
+      "metadataDesc": "Add-ons that fill in game system and book details from external sources.",
+      "importers": "Character importers",
+      "importersDesc": "Add-ons that read characters from other tools - character builders and their export files - for Characters → Import."
     }
   },
   "metadataFetch": {
@@ -3114,6 +3303,39 @@
     "setPortrait": "Set a portrait",
     "export": "Export character",
     "importCharacter": "Import a character",
+    "importHelp": "Bring in a character exported from Grimoire, or one built in another tool through an importer.",
+    "importing": "Importing…",
+    "importDropHere": "Drop a character file here",
+    "importChooseFile": "Choose a file",
+    "importTooLarge": "That file is too large to import (10 MB at most).",
+    "importLink": "Or paste a link",
+    "importLinkPlaceholder": "https://…",
+    "importLinkButton": "Import link",
+    "importAs": "Read it as",
+    "importAuto": "Recognise automatically",
+    "importGrimoire": "Grimoire character file",
+    "importAsHelp": "Leave this on automatic unless two importers both recognise your file.",
+    "importersHeading": "Installed importers",
+    "importersNone": "None installed yet, so only Grimoire's own character files can be imported.",
+    "importerTakesLinks": "links",
+    "importerSheet": "builds on {{sheet}}",
+    "importerSheetMissing": "installs the {{sheet}} sheet on first use",
+    "importersAvailableHeading": "More importers",
+    "importerInstall": "Install",
+    "importerInstallForEveryone": "Install for everyone",
+    "importerInstallInSettings": "Install in Settings → Add-ons",
+    "importerAskAdmin": "Ask an admin to install this",
+    "importerRemove": "Remove {{name}}",
+    "importerUpdate": "Update to v{{version}}",
+    "importerYours": "installed for you",
+    "importersDownloadsOff": "Installing importers is turned off on this server.",
+    "importerLinkExample": "Example link:",
+    "importerWebsite": "Website",
+    "importInputsFor": "For {{name}}",
+    "importInputForLinks": "Used when importing a link.",
+    "importInputForFiles": "Used when importing a file.",
+    "importInputsNotKept": "Sent with this import only - Grimoire does not keep it.",
+    "importTryAgain": "Try again",
     "portraitOf": "Portrait of {{name}}",
     "partyMember": "party member",
     "browseSheets": "Browse sheets",
@@ -3302,5 +3524,89 @@
       "systemAgnostic": "System-agnostic",
       "onePage": "One-page"
     }
+  },
+  "share": {
+    "button": "Share",
+    "type": {
+      "book": "Book",
+      "map": "Map",
+      "token": "Token",
+      "audio": "Audio",
+      "model": "3D model"
+    },
+    "state": {
+      "active": "Active",
+      "disabled": "Off",
+      "revoked": "Revoked",
+      "expired": "Expired",
+      "suspended": "Suspended",
+      "unavailable": "Unavailable"
+    },
+    "stateHint": {
+      "active": "Anyone with the link can open it.",
+      "disabled": "Share links are turned off on this server.",
+      "revoked": "This link was revoked and no longer works.",
+      "expired": "This link has expired.",
+      "suspended": "Not working while its owner isn't allowed to share. It works again if they are.",
+      "unavailable": "Not working: the item is gone or missing on disk, or its owner can no longer open it."
+    },
+    "row": {
+      "expires": "Expires {{when}}",
+      "noExpiry": "Never expires",
+      "uses_one": "{{count}} use",
+      "uses_other": "{{count}} uses",
+      "lastUsed": "last used {{when}}",
+      "passwordProtected": "Password protected",
+      "owner": "by {{name}}",
+      "copied": "Copied",
+      "copyLink": "Copy link",
+      "copyFile": "Copy file URL",
+      "copyFileHint": "The file itself, for VTTs, OTFBM and Discord",
+      "revoke": "Revoke",
+      "delete": "Delete",
+      "confirmDelete": "Delete for good"
+    },
+    "expiry": {
+      "day": "1 day",
+      "week": "7 days",
+      "month": "30 days",
+      "quarter": "90 days",
+      "year": "365 days",
+      "never": "Never"
+    },
+    "form": {
+      "label": "Label",
+      "labelPlaceholder": "e.g. Session 12 handout",
+      "expiry": "Expires after",
+      "password": "Password (optional)",
+      "passwordPlaceholder": "Leave empty for no password",
+      "passwordTooShort": "At least 4 characters.",
+      "passwordHint": "People opening the link must enter it. Tools that load the file directly can't, so leave it empty for VTTs and Discord.",
+      "create": "Create link"
+    },
+    "dialog": {
+      "title": "Share link",
+      "intro": "Anyone with a share link can open this item without an account, until it expires or you revoke it.",
+      "existing": "Your links for this item",
+      "none": "You haven't shared this yet."
+    },
+    "loadFailed": "Couldn't load share links.",
+    "createFailed": "Couldn't create the link.",
+    "revokeFailed": "Couldn't revoke the link.",
+    "deleteFailed": "Couldn't delete the link."
+  },
+  "sharePage": {
+    "missingTitle": "This link doesn't work",
+    "missingBody": "It may have expired or been revoked, or the item is no longer available.",
+    "throttled": "Too many attempts. Wait a minute and try again.",
+    "lockedTitle": "Password required",
+    "lockedBody": "Enter the password you were given to open this link.",
+    "password": "Password",
+    "unlock": "Open",
+    "wrongPassword": "That password isn't right.",
+    "expires": "Link expires {{when}}",
+    "download": "Download",
+    "open": "Open",
+    "sharedFrom": "Shared from Grimoire"
   }
 }

@@ -186,6 +186,7 @@
     "noResultsFound": "Geen resultaten gevonden.",
     "tagsLabel": "Labels:",
     "showLess": "Minder tonen",
+    "readMore": "Meer lezen",
     "clearTags": "Wissen",
     "download": "Downloaden",
     "backToLibrary2": "Terug naar bibliotheek",
@@ -247,7 +248,111 @@
     "spreadIncludeCover": "Omslag opnemen in dubbele pagina (pagina's 1-2, 3-4 koppelen…)",
     "spreadExcludeCover": "Omslag uitsluiten van dubbele pagina (pagina's 2-3, 4-5 koppelen…)",
     "archiveNotViewable": "Dit is een archiefbestand en kan niet in de lezer worden bekeken. Download het om de inhoud te openen.",
-    "textUnavailable": "This document's text could not be loaded."
+    "textUnavailable": "This document's text could not be loaded.",
+    "shortcutExport": "Pagina's en uitsneden exporteren"
+  },
+  "pageExport": {
+    "menuItem": "Pagina's en uitsneden exporteren",
+    "title": "Exporteren",
+    "close": "Export sluiten",
+    "tabPages": "Hele pagina's",
+    "tabCut": "Uitsnijden",
+    "pagesLabel": "Pagina's",
+    "pagesHint": "Losse pagina's en reeksen, zoals 12-15, 20",
+    "quickThisPage": "Deze pagina",
+    "quickThisSpread": "Deze spread",
+    "quickSection": "Sectie: {{title}}",
+    "quickAll": "Alle {{count}}",
+    "pageSpan": "Pagina's {{start}}–{{end}}",
+    "errors": {
+      "empty": "Kies ten minste één pagina",
+      "notAPage": "‘{{part}}’ is geen pagina of reeks zoals 12-15",
+      "fromOne": "Pagina's worden vanaf 1 genummerd",
+      "pastEnd": "Pagina {{page}} ligt voorbij het einde - dit document heeft {{total}} pagina's"
+    },
+    "formatLabel": "Opslaan als",
+    "format": {
+      "pdf": "PDF",
+      "png": "PNG",
+      "jpeg": "JPEG",
+      "webp": "WebP"
+    },
+    "formatHint": {
+      "pdf": "Tekst blijft selecteerbaar en wordt op volle kwaliteit afgedrukt.",
+      "png": "Verliesvrij, met transparantie. Het best voor kaarten en tokens.",
+      "jpeg": "Kleinste bestanden. Geen transparantie - cirkels krijgen witte hoeken.",
+      "webp": "Kleine bestanden met transparantie. De meeste virtuele speltafels ondersteunen het."
+    },
+    "resolutionLabel": "Resolutie",
+    "dpi": {
+      "screen": "Scherm",
+      "standard": "Standaard",
+      "print": "Afdrukken"
+    },
+    "dpiValue": "{{dpi}} dpi",
+    "sizePerPage": "{{width}} × {{height}} px per pagina",
+    "sizePerSpread": "{{width}} × {{height}} px per spread",
+    "sizeForCutout": "Uitsnede {{n}}: {{width}} × {{height}} px",
+    "joinSpreads": "Tegenover elkaar liggende pagina's samenvoegen tot één afbeelding",
+    "joinSpreadsHint": "Voor kaarten die over twee pagina's zijn gedrukt.",
+    "toolLabel": "Vorm",
+    "tool": {
+      "rect": "Rechthoek",
+      "square": "Vierkant",
+      "circle": "Cirkel"
+    },
+    "drawHint": "Sleep over de pagina om een gebied uit te snijden. Elk wordt een eigen bestand. Houd Shift ingedrukt voor een vierkant.",
+    "findShapes": "Vormen op deze pagina zoeken",
+    "findShapesSpread": "Vormen op deze pagina's zoeken",
+    "finding": "Zoeken…",
+    "findHint": "Vindt de losse afbeeldingen op een pagina - tokens, speelkaarten, kaarten.",
+    "foundNone": "Niets gevonden. Stukken worden herkend tegen een effen paginaachtergrond, dus teken ze met de hand.",
+    "foundAlready": "Alles wat gevonden is, is al uitgesneden.",
+    "foundSome_one": "{{count}} gevonden - verwijder hem als je hem niet nodig hebt.",
+    "foundSome_other": "{{count}} gevonden - verwijder wat je niet nodig hebt.",
+    "findFailed": "Kon op deze pagina niet naar vormen zoeken",
+    "circlesNoPdf": "PDF kan geen ronde uitsneden bevatten - kies PNG of WebP.",
+    "listTitle": "Uitsneden ({{count}})",
+    "clearAll": "Alles wissen",
+    "emptyTitle": "Nog geen uitsneden",
+    "emptyBody": "Teken rond een kaart, tabel of token op de pagina, of laat Grimoire ze vinden.",
+    "showPage": "Deze pagina tonen",
+    "pageGroup": "Pagina {{page}}",
+    "spreadGroup": "Pagina's {{first}}–{{last}}",
+    "nameLabel": "Bestandsnaam voor uitsnede {{n}}",
+    "remove": "Uitsnede {{n}} verwijderen",
+    "rowMeta": "{{shape}} · {{width}} × {{height}} px",
+    "keysHelp": "Pijltjestoetsen verplaatsen, Shift verder, Alt en pijltjes wijzigen de grootte, Delete verwijdert.",
+    "stageLabel": "Pagina {{pages}} - sleep om een gebied uit te snijden",
+    "boxLabel": "Uitsnede {{n}}, {{shape}}",
+    "stageHint": "Sleep om een gebied uit te snijden",
+    "summaryPdf_one": "{{count}} pagina → 1 PDF",
+    "summaryPdf_other": "{{count}} pagina's → 1 PDF",
+    "summaryImages_one": "1 {{format}}-afbeelding",
+    "summaryImages_other": "{{count}} {{format}}-afbeeldingen, gezipt",
+    "summaryFiles_one": "1 {{format}}-bestand",
+    "summaryFiles_other": "{{count}} {{format}}-bestanden, gezipt",
+    "nothingToExport": "Teken een uitsnede om die te exporteren",
+    "downloaded": "Gedownload",
+    "preparing": "Voorbereiden…",
+    "failed": "Exporteren mislukt",
+    "saveToLibrary": "Opslaan in bibliotheek",
+    "saveToLibraryHint": "De bestanden in een bibliotheekmap opslaan in plaats van ze te downloaden",
+    "saveTitle": "Opslaan in bibliotheek",
+    "savedTitle": "Opgeslagen in bibliotheek",
+    "savePrompt": "{{summary}} uit {{title}}. Kies een map:",
+    "quickBeside": "Naast het origineel",
+    "saveInto": "Opslaan in {{folder}}",
+    "pickFolder": "Kies een map binnen Boeken, Kaarten of Tokens.",
+    "pdfIntoTokens": "Tokens nemen alleen afbeeldingen - kies PNG, JPEG of WebP, of een andere map.",
+    "saveHere": "Hier opslaan",
+    "saving": "Opslaan…",
+    "saveFailed": "Kon niet opslaan in de bibliotheek",
+    "savedBody_one": "1 bestand opgeslagen in {{folder}}.",
+    "savedBody_other": "{{count}} bestanden opgeslagen in {{folder}}.",
+    "indexing_one": "Wordt nu geïndexeerd - het verschijnt zo in de bibliotheek.",
+    "indexing_other": "Worden nu geïndexeerd - ze verschijnen zo in de bibliotheek.",
+    "indexLater": "Er loopt al een bibliotheekscan - ze verschijnen zodra die deze map bereikt."
   },
   "search": {
     "title": "Zoek in je bibliotheek",
@@ -379,6 +484,7 @@
     "nsfw": "NSFW",
     "indexed": "Geïndexeerd",
     "missing": "Ontbreekt",
+    "unreadableName": "Deze naam is geen geldige UTF-8, meestal omdat hij op Windows is gemaakt en naar een Linux-share is gekopieerd. Grimoire kan hem niet openen of wijzigen, en bibliotheekscans slaan hem over. Hernoem hem op de share zelf en scan daarna opnieuw.",
     "itemCount": "{{count}} item",
     "itemCount_other": "{{count}} items",
     "rename": "Hernoemen",
@@ -585,6 +691,29 @@
       "vttLights": "Lichten",
       "downloadUvtt": "Downloaden als Universal VTT",
       "downloadUvttHint": "Afbeelding en raster als .uvtt-bestand"
+    },
+    "otfbm": {
+      "menuLabel": "Instellen voor OTFBM (Avrae)",
+      "title": "Instellen voor OTFBM",
+      "intro": "OTFBM tekent je kaart op ware grootte onder een eigen raster, dus de afbeelding wordt geschaald tot elk vak klopt. Grimoire biedt de geschaalde afbeelding aan via een deellink, dus het !map-commando kan zo in Discord worden geplakt.",
+      "cellSize": "Vakgrootte (px)",
+      "cellHint": "{{min}}–{{max}} px. {{suggested}} px aanbevolen voor deze kaart.",
+      "cellInvalid": "Voer een geheel getal in van {{min}} tot {{max}}.",
+      "summary": "{{width}} × {{height}} vakken · afbeelding {{imageWidth}} × {{imageHeight}} px",
+      "defaultGrid": "Er is geen raster gevonden op deze kaart, dus wordt uitgegaan van vakken van 140 px. Klopt het niet, stel dan eerst het raster in bij de kaartdetails.",
+      "truncated": "OTFBM toont maximaal 99 vakken per zijde, dus de verre rand van deze kaart valt weg.",
+      "download": "Afbeelding downloaden",
+      "command": "Avrae-commando",
+      "copy": "Kopiëren",
+      "copied": "Gekopieerd",
+      "loadFailed": "De OTFBM-instellingen voor deze kaart konden niet worden bepaald.",
+      "linkTitle": "Deellink voor OTFBM",
+      "createLink": "Deellink maken",
+      "linkHint": "OTFBM haalt de achtergrond via deze link op telkens als de kaart wordt getekend, dus je Grimoire-server moet vanaf internet bereikbaar zijn.",
+      "linkLabel": "OTFBM-achtergrond ({{cell}} px)",
+      "linkUntil": "Gebruikt je deellink, die verloopt op {{when}}. Beheer hem onder Instellingen → Account → Delen.",
+      "linkForever": "Gebruikt je deellink, die nooit verloopt. Beheer hem onder Instellingen → Account → Delen.",
+      "selfHost": "Of host hem zelf:"
     },
     "vtt": {
       "title": "VTT-editor",
@@ -956,6 +1085,22 @@
       "signingAlg": "Ondertekeningsalgoritme",
       "buttonText": "Knoptekst",
       "buttonTextHint": "Wat de SSO-knop op het aanmeldscherm zal weergeven.",
+      "buttonAppearance": "Uiterlijk van de knop",
+      "buttonAppearanceHint": "Laat de knop lijken op de officiële inlogknop van je provider: upload het logo en neem de kleuren over uit de huisstijlrichtlijnen. Laat een veld leeg om het uiterlijk van het thema te behouden.",
+      "buttonPreview": "Voorbeeld van de knop",
+      "buttonBgColor": "Achtergrondkleur",
+      "buttonTextColor": "Tekstkleur",
+      "buttonBorderColor": "Randkleur",
+      "buttonColorPicker": "Kleurkiezer: {{field}}",
+      "buttonColorPlaceholder": "Standaard van thema",
+      "buttonRadius": "Hoekradius (px)",
+      "buttonIcon": "Pictogram",
+      "buttonIconUpload": "Pictogram uploaden",
+      "buttonIconReplace": "Pictogram vervangen",
+      "buttonIconRemove": "Pictogram verwijderen",
+      "buttonIconHint": "PNG, JPEG, WebP, GIF of SVG, tot 1 MB. Wordt bij het uploaden omgezet naar een kleine PNG.",
+      "buttonInvalidColor": "Gebruik een hexkleur zoals #1a2b3c, of laat het veld leeg.",
+      "buttonInvalidRadius": "Gebruik een geheel getal van 0 tot 40, of laat het veld leeg.",
       "groupsClaim": "Groups-claim",
       "groupsClaimHint": "Naam van de OIDC-claim die een lijst van de groepen van de gebruiker bevat (gewoonlijk 'groups'). Indien ingesteld, kent de app rollen toe op basis van het lidmaatschap van groepen met de namen (niet hoofdlettergevoelig) 'admin', 'gm' of 'player' - het hoogste niveau wint. Als geen enkele groep overeenkomt, wordt de toegang geweigerd.",
       "permissionsClaim": "Geavanceerde rechten-claim",
@@ -1096,7 +1241,15 @@
       "reading": "Lezen en bibliotheek",
       "readingDesc": "Lezergedrag, bladeren door de bibliotheek en feeds.",
       "security": "Beveiliging en account",
-      "securityDesc": "Wachtwoord, actieve sessies en accountverwijdering."
+      "securityDesc": "Wachtwoord, actieve sessies en accountverwijdering.",
+      "sharing": "Delen",
+      "sharingDesc": "Openbare links die je hebt gemaakt naar items in de bibliotheek."
+    },
+    "shareLinks": {
+      "title": "Deellinks",
+      "description": "Alle links die je hebt gemaakt. Kopieer er een opnieuw, of trek hem in zodat hij niet meer werkt.",
+      "noPermission": "Je kunt nu geen deellinks maken. Links die je eerder maakte zijn gepauzeerd, niet verwijderd, en werken weer als een admin je toestemming herstelt.",
+      "none": "Je hebt nog geen deellinks gemaakt."
     }
   },
   "appSettings": {
@@ -1278,6 +1431,10 @@
         "all": {
           "label": "Alle rechten",
           "description": "Alle onderdelen tegelijk, ook onderdelen die in toekomstige versies worden toegevoegd"
+        },
+        "share-links": {
+          "label": "Deellinks",
+          "description": "Je openbare deellinks maken, weergeven en intrekken"
         }
       }
     },
@@ -1359,7 +1516,32 @@
     "noPermissions": "Geen",
     "ownedCampaigns": "Eigen campagnes",
     "deleteUserShort": "Gebruiker verwijderen",
-    "emailLabel": "E-mail"
+    "emailLabel": "E-mail",
+    "shareLinks": {
+      "label": "Deellinks",
+      "followRole": "Rol volgen",
+      "allow": "Toestaan",
+      "deny": "Weigeren",
+      "status": {
+        "allowed": "Toegestaan",
+        "denied": "Niet toegestaan"
+      },
+      "source": {
+        "role": "(via rol)",
+        "user": "(ingesteld voor deze gebruiker)",
+        "disabled": "(uit op deze server)",
+        "guest": "(gasten kunnen niet delen)"
+      },
+      "badge": "Deellinks",
+      "listLabel": "Deellinks",
+      "none": "Geen deellinks.",
+      "rolesTitle": "Deellinks",
+      "rolesHint": "Wie standaard openbare deellinks mag maken. De eigen instelling van een gebruiker in de tabel gaat voor.",
+      "disabled": "Deellinks staan uit op deze server (SHARE_LINKS_ENABLED=false).",
+      "adminAlways": "Admins kunnen altijd deellinks maken",
+      "rolesFailed": "De standaardinstellingen voor deellinks konden niet worden bijgewerkt.",
+      "failedUpdate": "De deellink-toestemming kon niet worden gewijzigd."
+    }
   },
   "maintenance": {
     "groups": {
@@ -2163,6 +2345,7 @@
     "character-sheet": "Personagevellen",
     "map": "Kaarten",
     "handout": "Hand-outs en naslag",
+    "magazine": "Tijdschriften & zines",
     "homebrew": "Homebrew"
   },
   "wiki": {
@@ -2543,6 +2726,9 @@
       "playNext": "Volgende afspelen",
       "queued": "In de wachtrij",
       "toggleQueue": "Wachtrij tonen",
+      "toggleChapters": "Hoofdstukken tonen",
+      "chapters": "Hoofdstukken",
+      "chapterNumber": "Hoofdstuk {{n}}",
       "close": "Speler sluiten",
       "seek": "Zoeken",
       "removeFromQueue": "Uit wachtrij verwijderen",
@@ -2663,6 +2849,7 @@
     "searchPlaceholder": "Search by title…",
     "sortSize": "Size",
     "sortDuration": "Duration",
+    "sortTrack": "Tracknummer",
     "groupByFolder": "Groeperen",
     "filterParentSystem": "Oudersysteem",
     "allParentSystems": "All parent systems",
@@ -2771,7 +2958,9 @@
     "installFromSpecificSource": "Installeren van specifieke bron",
     "categories": {
       "metadata": "Metadata-scrapers",
-      "metadataDesc": "Add-ons die details over spelsystemen en boeken aanvullen uit externe bronnen."
+      "metadataDesc": "Add-ons die details over spelsystemen en boeken aanvullen uit externe bronnen.",
+      "importers": "Personage-importers",
+      "importersDesc": "Add-ons die personages uit andere tools lezen - personagebouwers en hun exportbestanden - voor Personages → Importeren."
     }
   },
   "metadataFetch": {
@@ -3114,6 +3303,39 @@
     "setPortrait": "Portret instellen",
     "export": "Personage exporteren",
     "importCharacter": "Personage importeren",
+    "importHelp": "Haal een personage binnen dat uit Grimoire is geëxporteerd, of een dat in een andere tool is gemaakt, via een importer.",
+    "importing": "Importeren…",
+    "importDropHere": "Sleep hier een personagebestand naartoe",
+    "importChooseFile": "Kies een bestand",
+    "importTooLarge": "Dat bestand is te groot om te importeren (maximaal 10 MB).",
+    "importLink": "Of plak een link",
+    "importLinkPlaceholder": "https://…",
+    "importLinkButton": "Link importeren",
+    "importAs": "Lezen als",
+    "importAuto": "Automatisch herkennen",
+    "importGrimoire": "Grimoire-personagebestand",
+    "importAsHelp": "Laat dit op automatisch staan, tenzij twee importers je bestand herkennen.",
+    "importersHeading": "Geïnstalleerde importers",
+    "importersNone": "Nog geen geïnstalleerd, dus alleen Grimoires eigen personagebestanden kunnen worden geïmporteerd.",
+    "importerTakesLinks": "links",
+    "importerSheet": "gebruikt het blad {{sheet}}",
+    "importerSheetMissing": "installeert het blad {{sheet}} bij eerste gebruik",
+    "importersAvailableHeading": "Meer importers",
+    "importerInstall": "Installeren",
+    "importerInstallForEveryone": "Voor iedereen installeren",
+    "importerInstallInSettings": "Installeren in Instellingen → Add-ons",
+    "importerAskAdmin": "Vraag een beheerder om dit te installeren",
+    "importerRemove": "{{name}} verwijderen",
+    "importerUpdate": "Bijwerken naar v{{version}}",
+    "importerYours": "voor jou geïnstalleerd",
+    "importersDownloadsOff": "Importers installeren staat uit op deze server.",
+    "importerLinkExample": "Voorbeeldlink:",
+    "importerWebsite": "Website",
+    "importInputsFor": "Voor {{name}}",
+    "importInputForLinks": "Gebruikt bij het importeren van een link.",
+    "importInputForFiles": "Gebruikt bij het importeren van een bestand.",
+    "importInputsNotKept": "Alleen met deze import verstuurd - Grimoire bewaart het niet.",
+    "importTryAgain": "Opnieuw proberen",
     "portraitOf": "Portret van {{name}}",
     "partyMember": "groepslid",
     "browseSheets": "Bladen doorbladeren",
@@ -3302,5 +3524,89 @@
       "systemAgnostic": "Systeemonafhankelijk",
       "onePage": "Eén pagina"
     }
+  },
+  "share": {
+    "button": "Delen",
+    "type": {
+      "book": "Boek",
+      "map": "Kaart",
+      "token": "Token",
+      "audio": "Audio",
+      "model": "3D-model"
+    },
+    "state": {
+      "active": "Actief",
+      "disabled": "Uit",
+      "revoked": "Ingetrokken",
+      "expired": "Verlopen",
+      "suspended": "Gepauzeerd",
+      "unavailable": "Niet beschikbaar"
+    },
+    "stateHint": {
+      "active": "Iedereen met de link kan hem openen.",
+      "disabled": "Deellinks staan uit op deze server.",
+      "revoked": "Deze link is ingetrokken en werkt niet meer.",
+      "expired": "Deze link is verlopen.",
+      "suspended": "Werkt niet zolang de eigenaar niet mag delen. Werkt weer zodra dat wel mag.",
+      "unavailable": "Werkt niet: het item is weg of ontbreekt op schijf, of de eigenaar kan het niet meer openen."
+    },
+    "row": {
+      "expires": "Verloopt op {{when}}",
+      "noExpiry": "Verloopt nooit",
+      "uses_one": "{{count}} keer gebruikt",
+      "uses_other": "{{count}} keer gebruikt",
+      "lastUsed": "laatst gebruikt op {{when}}",
+      "passwordProtected": "Beveiligd met wachtwoord",
+      "owner": "door {{name}}",
+      "copied": "Gekopieerd",
+      "copyLink": "Link kopiëren",
+      "copyFile": "Bestands-URL kopiëren",
+      "copyFileHint": "Het bestand zelf, voor VTT's, OTFBM en Discord",
+      "revoke": "Intrekken",
+      "delete": "Verwijderen",
+      "confirmDelete": "Definitief verwijderen"
+    },
+    "expiry": {
+      "day": "1 dag",
+      "week": "7 dagen",
+      "month": "30 dagen",
+      "quarter": "90 dagen",
+      "year": "365 dagen",
+      "never": "Nooit"
+    },
+    "form": {
+      "label": "Label",
+      "labelPlaceholder": "bijv. Hand-out sessie 12",
+      "expiry": "Verloopt na",
+      "password": "Wachtwoord (optioneel)",
+      "passwordPlaceholder": "Leeg laten voor geen wachtwoord",
+      "passwordTooShort": "Minstens 4 tekens.",
+      "passwordHint": "Wie de link opent, moet het invoeren. Programma's die het bestand rechtstreeks laden kunnen dat niet, dus laat het leeg voor VTT's en Discord.",
+      "create": "Link maken"
+    },
+    "dialog": {
+      "title": "Deellink",
+      "intro": "Iedereen met een deellink kan dit item zonder account openen, totdat de link verloopt of je hem intrekt.",
+      "existing": "Jouw links voor dit item",
+      "none": "Je hebt dit nog niet gedeeld."
+    },
+    "loadFailed": "Deellinks konden niet worden geladen.",
+    "createFailed": "De link kon niet worden gemaakt.",
+    "revokeFailed": "De link kon niet worden ingetrokken.",
+    "deleteFailed": "De link kon niet worden verwijderd."
+  },
+  "sharePage": {
+    "missingTitle": "Deze link werkt niet",
+    "missingBody": "Hij is misschien verlopen of ingetrokken, of het item is niet meer beschikbaar.",
+    "throttled": "Te veel pogingen. Wacht een minuut en probeer het opnieuw.",
+    "lockedTitle": "Wachtwoord vereist",
+    "lockedBody": "Voer het wachtwoord in dat je hebt gekregen om deze link te openen.",
+    "password": "Wachtwoord",
+    "unlock": "Openen",
+    "wrongPassword": "Dat wachtwoord klopt niet.",
+    "expires": "Link verloopt op {{when}}",
+    "download": "Downloaden",
+    "open": "Openen",
+    "sharedFrom": "Gedeeld via Grimoire"
   }
 }

@@ -22,7 +22,8 @@ grimoire-backup-20260821T140355Z.zip
 ├── grimoire.db         the SQLite database
 ├── campaign_uploads/   banners, character art, sheets, campaign files
 ├── system_covers/      custom game-system cover images
-└── audio_covers/       custom audio cover art
+├── audio_covers/       custom audio cover art
+└── branding/          the uploaded OIDC sign-in button icon
 ```
 
 Your library - the PDFs, maps, tokens, audio, and models themselves - is **not** in here,
@@ -77,6 +78,7 @@ mv grimoire.db grimoire.db.before-restore
 mv campaign_uploads campaign_uploads.before-restore   # if present
 mv system_covers   system_covers.before-restore       # if present
 mv audio_covers    audio_covers.before-restore        # if present
+mv branding        branding.before-restore            # if present
 ```
 
 Also remove the SQLite side files if they are there, since they belong to the database you
@@ -93,13 +95,14 @@ cp /tmp/grimoire-restore/grimoire.db .
 cp -r /tmp/grimoire-restore/campaign_uploads . 2>/dev/null || true
 cp -r /tmp/grimoire-restore/system_covers   . 2>/dev/null || true
 cp -r /tmp/grimoire-restore/audio_covers    . 2>/dev/null || true
+cp -r /tmp/grimoire-restore/branding        . 2>/dev/null || true
 ```
 
 Make sure the files are owned by whoever the container runs as. If you run Grimoire as a
 non-root user, `chown` them to match the rest of the data directory:
 
 ```bash
-chown -R --reference=. grimoire.db campaign_uploads system_covers audio_covers
+chown -R --reference=. grimoire.db campaign_uploads system_covers audio_covers branding
 ```
 
 ## 6. Start up and rescan

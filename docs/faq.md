@@ -141,6 +141,48 @@ A running scan now records a heartbeat every 30 seconds. Once that heartbeat has
 
 ---
 
+## A folder is skipped by the scan, and the file manager shows `�` in its name
+
+The folder's (or file's) name on disk is not valid UTF-8. This usually happens when the name was created on Windows in a legacy code page and copied to a share that stores names as raw bytes. For example, Windows-1252 writes the `Ö` in "MÖRK BORG" as the single byte `0xD6`, which on its own is not UTF-8. Copying through a Windows NFS mount is a common source.
+
+Grimoire can't reliably guess which character was meant (the same byte is `Ö` in one code page and `Ц` in another), so it never renames anything for you. It does this instead:
+
+- **The scan skips that entry** and carries on with everything else. The log shows a warning naming the path, with `�` in place of each bad character and a guess at the intended spelling:
+
+  ```
+  Skipping '/app/library/books/M�RK BORG': its name is not valid UTF-8 (read as Windows-1252 it would be '/app/library/books/MÖRK BORG'). Rename it on the share to include it in the library.
+  ```
+
+- **The file manager lists it greyed out**, with `�` for each bad character and a `?` icon that explains the problem. It can't be opened, selected, moved, renamed, or deleted from Grimoire, because its real name can't be sent to the browser.
+
+Older versions handled this badly: one such name stopped the whole scan, so no new systems were added anywhere, and the file manager showed "Internal Server Error" with `UnicodeEncodeError ... surrogates not allowed` in the container log.
+
+**Fix** - rename the entry on the share itself, then rescan. To list every affected path, run this against the container (it reads your `LIBRARY_PATH`, so it works whatever the mount is):
+
+```bash
+docker exec -i grimoire python3 - <<'EOF'
+import os
+for root, dirs, files in os.walk(os.environ.get("LIBRARY_PATH", "./library")):
+    for name in dirs + files:
+        raw = os.fsencode(os.path.join(root, name))
+        try:
+            raw.decode("utf-8")
+        except UnicodeDecodeError:
+            print(raw, "->", raw.decode("cp1252", "replace"))
+EOF
+```
+
+On the Linux host or NAS that holds the files, [`convmv`](https://www.j3e.de/linux/convmv/) can fix them all at once. Run it without `--notest` first to preview the changes:
+
+```bash
+convmv -f cp1252 -t utf-8 -r /path/to/your/library            # preview
+convmv -f cp1252 -t utf-8 -r --notest /path/to/your/library   # rename
+```
+
+To stop new names arriving this way, copy files onto the share over SMB or from a Linux or macOS machine rather than through a Windows NFS mount.
+
+---
+
 ## How do I zoom in on a page?
 
 In the reader's **Page** and **Spread** modes, the toolbar has a zoom cluster - minus, the current level, and plus - with a reset button that appears once you are zoomed in. Zoom runs from 100% to 200% in 25% steps.

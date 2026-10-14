@@ -4,9 +4,11 @@ Covers the metadata reader, folder/embedded-artwork lookup, and the audio scan
 loop in scan_library (the code added for the audio library feature).
 """
 import os
+import shutil
 import tempfile
 import uuid
 import wave
+import zipfile
 
 from PIL import Image
 
@@ -14,12 +16,15 @@ from backend.config import SessionLocal
 from backend.models import Audio
 from backend.indexer import (
     AUDIO_EXTS,
+    _leading_number,
     _read_audio_metadata,
     _find_folder_artwork,
     _extract_embedded_art,
     _has_embedded_art,
     scan_library,
 )
+
+M4B_FIXTURE = os.path.join(os.path.dirname(__file__), "fixtures", "audio", "audiobook.m4b")
 
 
 def _write_wav(path, seconds=1):
@@ -30,10 +35,12 @@ def _write_wav(path, seconds=1):
         w.writeframes(b"\x00\x00" * (8000 * seconds))
 
 
-def _write_wav_with_id3(path, *, title="", artist="", album="", with_art=False):
+def _write_wav_with_id3(
+    path, *, title="", artist="", album="", track="", disc="", with_art=False
+):
     _write_wav(path)
     from mutagen.wave import WAVE
-    from mutagen.id3 import TIT2, TPE1, TALB, APIC
+    from mutagen.id3 import TIT2, TPE1, TALB, TPOS, TRCK, APIC
 
     f = WAVE(path)
     f.add_tags()
@@ -43,6 +50,10 @@ def _write_wav_with_id3(path, *, title="", artist="", album="", with_art=False):
         f.tags.add(TPE1(encoding=3, text=artist))
     if album:
         f.tags.add(TALB(encoding=3, text=album))
+    if track:
+        f.tags.add(TRCK(encoding=3, text=track))
+    if disc:
+        f.tags.add(TPOS(encoding=3, text=disc))
     if with_art:
         png = b"\x89PNG\r\n\x1a\n" + b"x" * 32
         f.tags.add(APIC(encoding=3, mime="image/png", type=3, desc="cover", data=png))
@@ -70,6 +81,57 @@ class TestReadAudioMetadata:
         assert meta["duration"] == 0.0
         assert meta["title"] == ""
         assert meta["embedded_art"] is False
+        assert meta["track_number"] == 0
+
+    def test_reads_id3_tags_from_wav(self):
+        """WAV's ID3 tags are read by frame - easy mode only wraps MP3's (issue #494)."""
+        tmp = tempfile.mkdtemp()
+        wav = os.path.join(tmp, "tagged.wav")
+        _write_wav_with_id3(
+            wav, title="Die Sümpfe", artist="Sphärenklang", album="Thorwal", track="3/12", disc="2"
+        )
+        meta = _read_audio_metadata(wav)
+        assert meta["title"] == "Die Sümpfe"
+        assert meta["artist"] == "Sphärenklang"
+        assert meta["album"] == "Thorwal"
+        assert meta["track_number"] == 3
+        assert meta["disc_number"] == 2
+
+    def test_untagged_wav_has_no_track_number(self):
+        tmp = tempfile.mkdtemp()
+        wav = os.path.join(tmp, "plain.wav")
+        _write_wav_with_id3(wav, title="Only a title")
+        meta = _read_audio_metadata(wav)
+        assert (meta["track_number"], meta["disc_number"]) == (0, 0)
+
+
+class TestLeadingNumber:
+    def test_parses_position_forms(self):
+        assert _leading_number("3/12") == 3
+        assert _leading_number("03") == 3
+        assert _leading_number(" 7 ") == 7
+
+    def test_unreadable_is_zero(self):
+        assert _leading_number("") == 0
+        assert _leading_number("A-side") == 0
+        assert _leading_number(None) == 0
+
+
+class TestM4bAudiobook:
+    """`.m4b` is the same MP4 container as `.m4a` (issue #564)."""
+
+    def test_reads_duration_and_tags(self):
+        info = _read_audio_metadata(M4B_FIXTURE)
+        assert info["duration"] > 0.9
+        assert info["title"] == "Test Audiobook"
+        assert info["artist"] == "Test Narrator"
+        assert info["album"] == "Test Adventure Path"
+        assert info["embedded_art"] is True
+
+    def test_extracts_png_cover_atom(self):
+        data, mime = _extract_embedded_art(M4B_FIXTURE)
+        assert mime == "image/png"
+        assert data.startswith(b"\x89PNG")
 
 
 class TestFolderArtwork:
@@ -156,6 +218,199 @@ class TestAudioScanLoop:
         finally:
             db.close()
 
+    def test_scan_stores_track_and_disc_numbers(self):
+        tmp, lib = self._mk_lib()
+        wav = os.path.join(lib, "audio", "Ambient", "01 - whatever.wav")
+        _write_wav_with_id3(wav, title="Harodien", track="4/9", disc="1/2")
+        db = SessionLocal()
+        try:
+            scan_library(lib, tempfile.mkdtemp(), db)
+            row = db.query(Audio).filter(Audio.filepath == wav).first()
+            assert (row.track_number, row.disc_number) == (4, 1)
+            assert row.title == "Harodien"
+        finally:
+            db.close()
+
+    def test_rescan_backfills_track_numbers_once(self):
+        """A row registered before track numbers were read gets them on rescan."""
+        tmp, lib = self._mk_lib()
+        adir = os.path.join(lib, "audio", "Ambient")
+        tagged = os.path.join(adir, "tagged.wav")
+        plain = os.path.join(adir, "plain.wav")
+        archive = os.path.join(adir, "pack.zip")
+        _write_wav_with_id3(tagged, track="2", title="Tagged", artist="Bard")
+        _write_wav(plain)
+        with zipfile.ZipFile(archive, "w") as z:
+            z.writestr("inner.wav", b"")
+        data = tempfile.mkdtemp()
+        db = SessionLocal()
+        try:
+            scan_library(lib, data, db)
+            paths = (tagged, plain, archive)
+            # Put the rows back as a pre-upgrade scan left them.
+            db.query(Audio).filter(Audio.filepath.in_(paths)).update(
+                {"track_number": None, "disc_number": None, "title": ""},
+                synchronize_session=False,
+            )
+            # A value already stored is kept, not replaced by the tag.
+            db.query(Audio).filter(Audio.filepath == tagged).update(
+                {"artist": "Edited"}, synchronize_session=False
+            )
+            db.commit()
+
+            scan_library(lib, data, db)
+            db.expire_all()
+            rows = {r.filepath: r for r in db.query(Audio).filter(Audio.filepath.in_(paths))}
+            assert (rows[tagged].track_number, rows[tagged].disc_number) == (2, 0)
+            assert (rows[tagged].title, rows[tagged].artist) == ("Tagged", "Edited")
+            assert (rows[plain].track_number, rows[plain].disc_number) == (0, 0)
+            assert (rows[archive].track_number, rows[archive].disc_number) == (0, 0)
+        finally:
+            db.close()
+
     def test_audio_exts_cover_target_formats(self):
-        for ext in (".mp3", ".ogg", ".opus", ".flac", ".wav", ".m4a", ".aac"):
+        for ext in (".mp3", ".ogg", ".opus", ".flac", ".wav", ".m4a", ".m4b", ".aac"):
             assert ext in AUDIO_EXTS
+
+    def test_scan_registers_m4b_audiobook(self):
+        tmp, lib = self._mk_lib()
+        path = os.path.join(lib, "audio", "Ambient", f"book-{uuid.uuid4().hex[:6]}.m4b")
+        shutil.copy(M4B_FIXTURE, path)
+        db = SessionLocal()
+        try:
+            stats = scan_library(lib, tempfile.mkdtemp(), db)
+            assert stats["new_audio"] >= 1
+            row = db.query(Audio).filter(Audio.filepath == path).first()
+            assert row is not None
+            assert row.title == "Test Audiobook"
+            assert row.duration > 0
+            assert row.has_artwork is True
+        finally:
+            db.close()
+
+
+class TestAudioScanFailures:
+    """The audio walk skips or rolls back one track and carries on with the rest."""
+
+    def _lib(self):
+        lib = os.path.join(tempfile.mkdtemp(), "library")
+        adir = os.path.join(lib, "audio", f"Set-{uuid.uuid4().hex[:6]}")
+        os.makedirs(adir)
+        return lib, adir
+
+    def _timeout_on(self, monkeypatch, prefix, needle):
+        """Make the DB step whose label starts with ``prefix`` hang for ``needle``."""
+        from backend.indexer import media
+
+        real = media._run_with_timeout
+
+        def fake(fn, timeout, label):
+            if label.startswith(prefix) and needle in label:
+                raise TimeoutError(label)
+            return real(fn, timeout, label)
+
+        monkeypatch.setattr(media, "_run_with_timeout", fake)
+
+    def _row(self, db, path):
+        return db.query(Audio).filter(Audio.filepath == path).first()
+
+    def test_query_hang_skips_the_track(self, monkeypatch):
+        lib, adir = self._lib()
+        wav = os.path.join(adir, "hang.wav")
+        _write_wav(wav)
+        self._timeout_on(monkeypatch, "query audio", wav)
+        db = SessionLocal()
+        try:
+            stats = scan_library(lib, tempfile.mkdtemp(), db)
+            assert stats["errors"] >= 1
+            assert self._row(db, wav) is None
+        finally:
+            db.close()
+
+    def test_commit_hang_rolls_back_the_insert(self, monkeypatch):
+        lib, adir = self._lib()
+        wav = os.path.join(adir, "stuck.wav")
+        _write_wav(wav)
+        self._timeout_on(monkeypatch, "commit audio", wav)
+        db = SessionLocal()
+        try:
+            stats = scan_library(lib, tempfile.mkdtemp(), db)
+            assert stats["errors"] >= 1
+            assert self._row(db, wav) is None
+        finally:
+            db.close()
+
+    def test_backfill_commit_hang_leaves_the_row_to_retry(self, monkeypatch):
+        lib, adir = self._lib()
+        wav = os.path.join(adir, "later.wav")
+        _write_wav_with_id3(wav, track="5")
+        data = tempfile.mkdtemp()
+        db = SessionLocal()
+        try:
+            scan_library(lib, data, db)
+            db.query(Audio).filter(Audio.filepath == wav).update(
+                {"track_number": None}, synchronize_session=False
+            )
+            db.commit()
+            self._timeout_on(monkeypatch, "commit audio", wav)
+            stats = scan_library(lib, data, db)
+            assert stats["errors"] >= 1
+            db.expire_all()
+            # Rolled back, so the next scan tries again.
+            assert self._row(db, wav).track_number is None
+        finally:
+            db.close()
+
+    def test_duplicate_insert_is_skipped(self, monkeypatch):
+        from sqlalchemy.exc import IntegrityError
+        from backend.indexer import media
+
+        lib, adir = self._lib()
+        wav = os.path.join(adir, "twice.wav")
+        _write_wav(wav)
+        real = media._run_with_timeout
+
+        def fake(fn, timeout, label):
+            if label.startswith("commit audio") and wav in label:
+                raise IntegrityError("INSERT", {}, Exception("UNIQUE constraint failed"))
+            return real(fn, timeout, label)
+
+        monkeypatch.setattr(media, "_run_with_timeout", fake)
+        db = SessionLocal()
+        try:
+            stats = scan_library(lib, tempfile.mkdtemp(), db)
+            assert stats["errors"] == 0
+            assert self._row(db, wav) is None
+        finally:
+            db.close()
+
+    def test_unstattable_file_is_skipped(self, monkeypatch):
+        from backend.indexer import media
+
+        lib, adir = self._lib()
+        wav = os.path.join(adir, "vanishing.wav")
+        _write_wav(wav)
+        real = media.file_signature
+        monkeypatch.setattr(media, "file_signature", lambda p: None if p == wav else real(p))
+        db = SessionLocal()
+        try:
+            scan_library(lib, tempfile.mkdtemp(), db)
+            assert self._row(db, wav) is None
+        finally:
+            db.close()
+
+    def test_ignored_track_is_not_registered(self):
+        lib, adir = self._lib()
+        kept = os.path.join(adir, "kept.wav")
+        skipped = os.path.join(adir, "skipped.wav")
+        _write_wav(kept)
+        _write_wav(skipped)
+        with open(os.path.join(lib, ".grimoireignore"), "w") as f:
+            f.write("skipped.wav\n")
+        db = SessionLocal()
+        try:
+            scan_library(lib, tempfile.mkdtemp(), db)
+            assert self._row(db, kept) is not None
+            assert self._row(db, skipped) is None
+        finally:
+            db.close()

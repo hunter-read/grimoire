@@ -1,39 +1,55 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import App from './App'
 
-let authStatus = 'loading'
+let status = 'authenticated'
+let pathname = '/'
 vi.mock('./context/AuthContext', () => ({
-  useAuth: () => ({ status: authStatus, login: vi.fn() }),
+  useAuth: () => ({ status, login: vi.fn() }),
 }))
+vi.mock('react-router-dom', () => ({
+  useLocation: () => ({ pathname }),
+}))
+// vi.mock is hoisted, so each factory carries its own pass-through provider.
 vi.mock('./context/FavoritesContext', () => ({ FavoritesProvider: ({ children }) => children }))
-vi.mock('./context/AudioPlayerContext', () => ({ AudioPlayerProvider: ({ children }) => children }))
+vi.mock('./context/AudioPlayerContext', () => ({
+  AudioPlayerProvider: ({ children }) => children,
+}))
+vi.mock('./context/SoundboardContext', () => ({ SoundboardProvider: ({ children }) => children }))
+vi.mock('./context/ThemeContext', () => ({ ThemeProvider: ({ children }) => children }))
 vi.mock('./views/SetupView', () => ({ default: () => <div>setup</div> }))
 vi.mock('./views/LoginView', () => ({ default: () => <div>login</div> }))
+vi.mock('./views/ShareView', () => ({ default: ({ token }) => <div>{`share:${token}`}</div> }))
 vi.mock('./components/LoadingScreen', () => ({ default: () => <div>loading</div> }))
 vi.mock('./components/AppShell', () => ({ default: () => <div>shell</div> }))
 
-describe('App auth gating', () => {
-  it('shows the loading screen while auth is resolving', () => {
-    authStatus = 'loading'
+beforeEach(() => {
+  status = 'authenticated'
+  pathname = '/'
+})
+
+describe('App', () => {
+  it.each([
+    ['loading', 'loading'],
+    ['uninitialized', 'setup'],
+    ['unauthenticated', 'login'],
+    ['authenticated', 'shell'],
+  ])('renders the %s state', (s, text) => {
+    status = s
     render(<App />)
-    expect(screen.getByText('loading')).toBeInTheDocument()
+    expect(screen.getByText(text)).toBeInTheDocument()
   })
 
-  it('shows setup when uninitialized', () => {
-    authStatus = 'uninitialized'
+  // Issue #541: a share link's page is public, so it renders before any login.
+  it('renders a share page for anyone, signed in or not', () => {
+    status = 'unauthenticated'
+    pathname = '/share/abc%2Ddef/'
     render(<App />)
-    expect(screen.getByText('setup')).toBeInTheDocument()
+    expect(screen.getByText('share:abc-def')).toBeInTheDocument()
   })
 
-  it('shows login when unauthenticated', () => {
-    authStatus = 'unauthenticated'
-    render(<App />)
-    expect(screen.getByText('login')).toBeInTheDocument()
-  })
-
-  it('renders the app shell (wrapped in providers) when authenticated', () => {
-    authStatus = 'authenticated'
+  it('does not treat a deeper path as a share page', () => {
+    pathname = '/share/abc/extra'
     render(<App />)
     expect(screen.getByText('shell')).toBeInTheDocument()
   })

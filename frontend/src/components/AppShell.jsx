@@ -61,6 +61,8 @@ export default function AppShell() {
     // so a server with API_KEYS_ENABLED=false never sees the key views flash
     // in and fire requests it will refuse.
     api_keys_enabled: false,
+    // And share links, for the same reason: no Share button until confirmed.
+    share_links_enabled: false,
   })
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(

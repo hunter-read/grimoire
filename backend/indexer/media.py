@@ -19,7 +19,7 @@ from typing import Any, Callable, Optional
 from sqlalchemy.exc import IntegrityError
 
 from backend import indexer  # package namespace, for patch-sensitive calls
-from ._context import _ScanContext, _prune_dirs, _title_from_filename
+from ._context import _ScanContext, _prune_dirs, _readable_name, _title_from_filename
 from ._subprocess import _run_with_timeout
 from .added_dates import added_at_for_insert
 from .constants import (
@@ -129,7 +129,7 @@ def _scan_media(
         dirs[:] = _prune_dirs(root, dirs, ignore)
 
         for filename in sorted(files):
-            if filename.startswith("."):
+            if filename.startswith(".") or not _readable_name(root, filename):
                 continue
 
             filepath = os.path.join(root, filename)
@@ -283,6 +283,34 @@ def _scan_media(
                 logger.debug(f"{singular.capitalize()} already exists, skipping: {filepath}")
 
 
+def _backfill_track_numbers(
+    ctx: _ScanContext, track: Audio, filepath: str, is_archive: bool
+) -> None:
+    """Read the track/disc tags of a track registered before they were stored.
+
+    Runs once per such row (issue #494): afterwards the columns hold a number,
+    0 meaning "no tag", so later scans skip the row as before. Archives carry no
+    tags and get 0 without being opened.
+
+    The same read fills a blank title, artist or album - WAV and AIFF tags were
+    not read at all before - but never replaces one already stored.
+    """
+    if is_archive:
+        track.track_number, track.disc_number = 0, 0
+    else:
+        meta = _read_audio_metadata(filepath)
+        track.track_number, track.disc_number = meta["track_number"], meta["disc_number"]
+        for field in ("title", "artist", "album"):
+            if not getattr(track, field) and meta[field]:
+                setattr(track, field, meta[field])
+    try:
+        _run_with_timeout(ctx.session.commit, _DB_TIMEOUT, f"commit audio '{filepath}'")
+    except TimeoutError as e:
+        logger.error(f"DB hang: {e} - rolling back '{filepath}'")
+        ctx.session.rollback()
+        ctx.stats["errors"] += 1
+
+
 def _scan_audio(ctx: _ScanContext, walk_dir: Path) -> None:
     """Walk the audio tree, registering tracks with their metadata and artwork flag."""
     session = ctx.session
@@ -292,7 +320,7 @@ def _scan_audio(ctx: _ScanContext, walk_dir: Path) -> None:
         dirs[:] = _prune_dirs(root, dirs, ignore)
 
         for filename in sorted(files):
-            if filename.startswith("."):
+            if filename.startswith(".") or not _readable_name(root, filename):
                 continue
 
             filepath = os.path.join(root, filename)
@@ -329,7 +357,10 @@ def _scan_audio(ctx: _ScanContext, walk_dir: Path) -> None:
                 stats["errors"] += 1
                 continue
             if existing:
-                logger.debug(f"Already registered, skipping: {filename}")
+                if existing.track_number is None:
+                    _backfill_track_numbers(ctx, existing, filepath, bool(arc_ext))
+                else:
+                    logger.debug(f"Already registered, skipping: {filename}")
                 continue
 
             signature = file_signature(filepath)
@@ -341,7 +372,15 @@ def _scan_audio(ctx: _ScanContext, walk_dir: Path) -> None:
             # Archives carry no tags/duration and no embedded art (issue #250):
             # register them as opaque, downloadable items with empty metadata.
             if arc_ext:
-                meta = {"duration": 0.0, "title": "", "artist": "", "album": "", "embedded_art": None}
+                meta = {
+                    "duration": 0.0,
+                    "title": "",
+                    "artist": "",
+                    "album": "",
+                    "track_number": 0,
+                    "disc_number": 0,
+                    "embedded_art": None,
+                }
                 has_artwork = False
             else:
                 meta = _read_audio_metadata(filepath)
@@ -359,6 +398,8 @@ def _scan_audio(ctx: _ScanContext, walk_dir: Path) -> None:
                 title=meta["title"],
                 artist=meta["artist"],
                 album=meta["album"],
+                track_number=meta["track_number"],
+                disc_number=meta["disc_number"],
                 has_artwork=has_artwork,
                 added_at=added_at_for_insert(ctx.date_inserts),
             )

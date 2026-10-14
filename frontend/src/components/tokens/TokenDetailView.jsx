@@ -12,10 +12,9 @@ import api, { mediaUrl } from '../../api'
 import Spinner from '../Spinner'
 import { formatSize } from '../../utils'
 import InlineTagEditor from '../maps/InlineTagEditor'
-import AddToCampaignButton from '../campaigns/AddToCampaignButton'
-import DetailFavoriteButton from '../DetailFavoriteButton'
 import VariantPicker from '../VariantPicker'
 import DownloadVersionButton from '../DownloadVersionButton'
+import DetailMoreMenu from '../media/DetailMoreMenu'
 import MetaRow from '../MetaRow'
 import TagSection from '../TagSection'
 import ArchivePlaceholder from '../media/ArchivePlaceholder'
@@ -199,7 +198,7 @@ export default function TokenDetailView() {
             title={t('tokenEditor.title')}
             aria-label={t('tokenEditor.title')}
             style={{
-              // Matches AddToCampaignButton and its neighbours in this toolbar
+              // Matches the version picker and Download button in this toolbar
               // rather than inventing a third button shape for one control.
               background: 'var(--bg-card)',
               border: '1px solid var(--border)',
@@ -218,9 +217,10 @@ export default function TokenDetailView() {
           </button>
         )}
         <VariantPicker item={token} detailPath={(id) => `/tokens/${id}`} compact />
-        <DetailFavoriteButton type="token" id={tokenId} compact={isMobilePhone} />
-        <AddToCampaignButton resourceType="token" resourceId={tokenId} />
         <DownloadVersionButton type="tokens" id={tokenId} item={token} compact={isMobilePhone} />
+        {/* Favourite, campaigns and share links live in the overflow menu, as in
+            the book reader, so the toolbar keeps room for the title. */}
+        <DetailMoreMenu resourceType="token" resourceId={tokenId} title={token.filename} />
       </div>
 
       {/* Body */}

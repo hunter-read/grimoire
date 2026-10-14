@@ -54,6 +54,9 @@ class LoginUser(BaseModel):
     # Whether this user may create and use API keys right now (issue #489): the
     # instance switch and their own, admins always. Drives the Account tab.
     api_keys_allowed: bool = False
+    # Whether this user may create share links right now (issue #541): the
+    # instance switch, their override, then their role. Drives the Share menus.
+    share_links_allowed: bool = False
 
 
 class LoginResponse(BaseModel):
@@ -115,6 +118,13 @@ class AuthConfigResponse(BaseModel):
     custom_login_message: str
     oidc_enabled: bool
     oidc_button_text: str
+    # Admin-configured button appearance (issue #377). Colors are validated hex
+    # or "" for the theme default; radius is px or null for the default.
+    oidc_button_bg_color: str = ""
+    oidc_button_text_color: str = ""
+    oidc_button_border_color: str = ""
+    oidc_button_radius: Optional[int] = None
+    oidc_button_icon_url: str = ""
     oidc_auto_launch: bool
 
 
@@ -130,4 +140,6 @@ class AuthMeResponse(BaseModel):
     campaign_access: bool
     # See LoginUser.api_keys_allowed.
     api_keys_allowed: bool
+    # See LoginUser.share_links_allowed.
+    share_links_allowed: bool = False
     oidc_linked: bool

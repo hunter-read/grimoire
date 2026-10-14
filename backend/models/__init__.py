@@ -8,7 +8,7 @@ from .access import UserAccessGrant
 from .api_keys import ApiKey
 from .audio_sets import SET_TYPES, AudioSet
 from .base import Base
-from .characters import Character, CharacterSchema
+from .characters import Character, CharacterSchema, UserImporter
 from .content import ContentEntry, ContentPack, Ruleset, RulesetEntry
 from .campaigns import (
     Campaign,
@@ -51,6 +51,7 @@ from .media import (
     TokenFolder,
 )
 from .settings import AppSetting
+from .share_links import ShareLink
 from .tags import RESOURCE_TYPES, SHARED_CATEGORY, TAG_CATEGORIES, ResourceTag, Tag
 from .variants import VARIANT_KINDS, VARIANT_KINDS_BY_TYPE, kinds_for
 from .users import AuthSession, Bookmark, Favorite, SavedFilter, User, UserTheme
@@ -100,6 +101,7 @@ __all__ = [
     # Characters
     "CharacterSchema",
     "Character",
+    "UserImporter",
     # Character content catalog
     "ContentPack",
     "ContentEntry",
@@ -125,6 +127,7 @@ __all__ = [
     # Settings
     "AppSetting",
     "ApiKey",
+    "ShareLink",
     # Tags
     "Tag",
     "ResourceTag",

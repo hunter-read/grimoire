@@ -8,13 +8,14 @@ import { useUISettings } from '../../context/UISettingsContext'
 import UserRow from './UserRow'
 import AddUserForm from './AddUserForm'
 import GuestsSection from './GuestsSection'
+import ShareLinkRolesSection from './ShareLinkRolesSection'
 
 const COLUMN_COUNT = 5
 
 export default function UsersTab() {
   const { t } = useTranslation()
   const { user: currentUser } = useAuth()
-  const { api_keys_enabled: keysEnabled } = useUISettings()
+  const { api_keys_enabled: keysEnabled, share_links_enabled: shareEnabled } = useUISettings()
   const [users, setUsers] = useState(null)
   const [passwordAuthEnabled, setPasswordAuthEnabled] = useState(true)
   const [showAddForm, setShowAddForm] = useState(false)
@@ -63,6 +64,14 @@ export default function UsersTab() {
       mergeUser(await api.patch(`/users/${userId}`, { api_keys_enabled: allowed }))
     } catch (err) {
       setError(err.message || t('users.failedUpdateApiKeys'))
+    }
+  }
+
+  const handleShareLinksChange = async (userId, override) => {
+    try {
+      mergeUser(await api.patch(`/users/${userId}`, { share_links: override }))
+    } catch (err) {
+      setError(err.message || t('users.shareLinks.failedUpdate'))
     }
   }
 
@@ -143,6 +152,10 @@ export default function UsersTab() {
         </button>
       </div>
 
+      {shareEnabled !== false && (
+        <ShareLinkRolesSection onChanged={() => api.get('/users').then(setUsers)} />
+      )}
+
       {showAddForm && (
         <AddUserForm
           passwordAuthEnabled={passwordAuthEnabled}
@@ -219,6 +232,8 @@ export default function UsersTab() {
                 onCampaignAccessChange={handleCampaignAccessChange}
                 apiKeysEnabled={keysEnabled !== false}
                 onApiKeysChange={handleApiKeysChange}
+                shareLinksEnabled={shareEnabled !== false}
+                onShareLinksChange={handleShareLinksChange}
                 onPasswordReset={handlePasswordReset}
                 onEmailChange={handleEmailChange}
                 onDelete={handleDelete}

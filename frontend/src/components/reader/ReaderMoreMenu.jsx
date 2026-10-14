@@ -14,7 +14,9 @@ import {
   LuHeart,
   LuInfo,
   LuKeyboard,
+  LuScissors,
   LuScroll,
+  LuShare2,
   LuTrash2,
 } from 'react-icons/lu'
 import { mediaUrl } from '../../api'
@@ -22,6 +24,8 @@ import { useUISettings } from '../../context/UISettingsContext'
 import useFileActions from '../../hooks/useFileActions'
 import useAnchoredMenu from '../../hooks/useAnchoredMenu'
 import AddToCampaignModal from '../AddToCampaignModal'
+import ShareLinkDialog from '../share/ShareLinkDialog'
+import useCanShare from '../share/useCanShare'
 import ReaderVariantItems from './ReaderVariantItems'
 
 const MENU_WIDTH = 236
@@ -46,6 +50,10 @@ export const MODE_ITEMS = [
  * library views' kebab. Deleting the open book leaves the reader pointed at a
  * file that is gone, so `onFileChanged` is how the caller navigates away.
  *
+ * Export (issue #207) sits beside Download: both take something out of the
+ * book, one the whole file and the other chosen pages or cut-out areas. It is
+ * omitted when the caller passes no `onExport` (formats it cannot export).
+ *
  * The menu is portalled to document.body at fixed coordinates so it isn't
  * clipped by the toolbar, mirroring BookActionsMenu in the library views.
  */
@@ -60,6 +68,7 @@ export default function ReaderMoreMenu({
   isFavorite,
   onToggleFavorite,
   onShowDetails,
+  onExport,
   onToggleShortcuts,
   onFileChanged,
 }) {
@@ -67,6 +76,8 @@ export default function ReaderMoreMenu({
   const { hide_campaigns } = useUISettings()
   const [open, setOpen] = useState(false)
   const [addToCampaign, setAddToCampaign] = useState(false)
+  const [sharing, setSharing] = useState(false)
+  const canShare = useCanShare()
   const fileActions = useFileActions({ onChanged: onFileChanged })
   const knowsFile = Boolean(book?.relative_path)
   const showFileActions = fileActions.available && knowsFile
@@ -180,6 +191,13 @@ export default function ReaderMoreMenu({
               />
             )}
 
+            {canShare && (
+              <button role="menuitem" onClick={run(() => setSharing(true))} style={itemStyle}>
+                <LuShare2 size={15} aria-hidden="true" />
+                {t('share.button')}
+              </button>
+            )}
+
             <button role="menuitem" onClick={run(onShowDetails)} style={itemStyle}>
               <LuInfo size={15} aria-hidden="true" />
               {t('bookActions.details')}
@@ -258,6 +276,13 @@ export default function ReaderMoreMenu({
               {t('reader.downloadFile')}
             </a>
 
+            {onExport && (
+              <button role="menuitem" onClick={run(onExport)} style={itemStyle}>
+                <LuScissors size={15} aria-hidden="true" />
+                {t('pageExport.menuItem')}
+              </button>
+            )}
+
             <button role="menuitem" onClick={run(onToggleShortcuts)} style={itemStyle}>
               <LuKeyboard size={15} aria-hidden="true" />
               {t('reader.keyboardShortcuts')}
@@ -303,6 +328,15 @@ export default function ReaderMoreMenu({
 
       {/* Outside the menu so the dialogs survive it closing on click. */}
       {fileActions.modals}
+
+      {sharing && (
+        <ShareLinkDialog
+          resourceType="book"
+          resourceId={bookId}
+          title={book?.title}
+          onClose={() => setSharing(false)}
+        />
+      )}
 
       {/* Rendered outside the menu so it survives the menu closing on click. */}
       {addToCampaign && (

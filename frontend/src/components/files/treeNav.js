@@ -12,8 +12,17 @@
  * range-selection helper.
  */
 
+/**
+ * Whether an entry can be acted on at all.
+ *
+ * An entry whose name on disk is not valid UTF-8 (issue #547) arrives with a
+ * placeholder in its name and path. That path does not exist, so every action
+ * on it would fail, and the entry is shown but never selected.
+ */
+export const isActionable = (entry) => !!entry && !entry.unreadable_name
+
 /** Whether a row is one the cursor can land on. */
-const selectable = (row) => !!row?.entry
+const selectable = (row) => isActionable(row?.entry)
 
 /** Index of the row holding `path`, or -1. */
 export function indexOfPath(rows, path) {

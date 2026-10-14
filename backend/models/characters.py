@@ -121,3 +121,36 @@ class Character(Base):
 
     created_at = Column(DateTime, default=_utcnow)
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+
+
+class UserImporter(Base):
+    """A character importer one user installed for themselves.
+
+    Importers are add-ons, normally installed server-wide by an admin under
+    ``DATA_PATH/add-ons/``. One that only reads uploaded files with a YAML
+    mapping makes no network request and runs no code, so it is no riskier
+    than a pasted character sheet - and like a sheet, any user may install it
+    for their own account without asking. Importers that fetch links or run
+    scripts stay admin-only.
+
+    ``manifest`` is the parsed YAML as downloaded. It is re-validated, and
+    re-checked as one a user may install, every time it is loaded, so a row
+    edited in the database cannot smuggle in a script or a fetch URL.
+    """
+
+    __tablename__ = "user_importers"
+
+    id = Column(String(36), primary_key=True, default=_uuid)
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    importer_id = Column(String(100), nullable=False)
+    name = Column(String(200), nullable=False, default="")
+    version = Column(String(20), default="")
+    manifest = Column(JSON, default=dict)
+    # Which index it came from and the digest it matched, for updates.
+    source_url = Column(Text, nullable=True)
+    sha256 = Column(String(64), nullable=True)
+
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+
+    __table_args__ = (UniqueConstraint("user_id", "importer_id"),)

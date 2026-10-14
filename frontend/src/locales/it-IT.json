@@ -186,6 +186,7 @@
     "noResultsFound": "Nessun risultato trovato.",
     "tagsLabel": "Tag:",
     "showLess": "Mostra meno",
+    "readMore": "Leggi di più",
     "clearTags": "Pulisci",
     "download": "Scarica",
     "backToLibrary2": "Torna alla libreria",
@@ -247,7 +248,111 @@
     "spreadIncludeCover": "Includi la copertina nella doppia pagina (abbina pagine 1-2, 3-4…)",
     "spreadExcludeCover": "Escludi la copertina dalla doppia pagina (abbina pagine 2-3, 4-5…)",
     "archiveNotViewable": "Questo è un file archivio e non può essere visualizzato nel lettore. Scaricalo per aprirne il contenuto.",
-    "textUnavailable": "Non è stato possibile caricare il testo di questo documento."
+    "textUnavailable": "Non è stato possibile caricare il testo di questo documento.",
+    "shortcutExport": "Esporta pagine e ritagli"
+  },
+  "pageExport": {
+    "menuItem": "Esporta pagine e ritagli",
+    "title": "Esporta",
+    "close": "Chiudi esportazione",
+    "tabPages": "Pagine intere",
+    "tabCut": "Ritaglia",
+    "pagesLabel": "Pagine",
+    "pagesHint": "Pagine singole e intervalli, ad es. 12-15, 20",
+    "quickThisPage": "Questa pagina",
+    "quickThisSpread": "Questa doppia pagina",
+    "quickSection": "Sezione: {{title}}",
+    "quickAll": "Tutte ({{count}})",
+    "pageSpan": "Pagine {{start}}–{{end}}",
+    "errors": {
+      "empty": "Scegli almeno una pagina",
+      "notAPage": "«{{part}}» non è una pagina né un intervallo come 12-15",
+      "fromOne": "Le pagine sono numerate da 1",
+      "pastEnd": "La pagina {{page}} è oltre la fine - questo documento ha {{total}} pagine"
+    },
+    "formatLabel": "Salva come",
+    "format": {
+      "pdf": "PDF",
+      "png": "PNG",
+      "jpeg": "JPEG",
+      "webp": "WebP"
+    },
+    "formatHint": {
+      "pdf": "Il testo resta selezionabile e si stampa alla massima qualità.",
+      "png": "Senza perdita, con trasparenza. Ideale per mappe e token.",
+      "jpeg": "File più leggeri. Nessuna trasparenza - i cerchi avranno angoli bianchi.",
+      "webp": "File leggeri con trasparenza. La maggior parte dei tavoli virtuali lo accetta."
+    },
+    "resolutionLabel": "Risoluzione",
+    "dpi": {
+      "screen": "Schermo",
+      "standard": "Standard",
+      "print": "Stampa"
+    },
+    "dpiValue": "{{dpi}} dpi",
+    "sizePerPage": "{{width}} × {{height}} px per pagina",
+    "sizePerSpread": "{{width}} × {{height}} px per doppia pagina",
+    "sizeForCutout": "Ritaglio {{n}}: {{width}} × {{height}} px",
+    "joinSpreads": "Unisci le pagine affiancate in un'unica immagine",
+    "joinSpreadsHint": "Per mappe stampate su due pagine.",
+    "toolLabel": "Forma",
+    "tool": {
+      "rect": "Rettangolo",
+      "square": "Quadrato",
+      "circle": "Cerchio"
+    },
+    "drawHint": "Trascina sulla pagina per ritagliare un'area. Ognuna diventa un file a sé. Tieni premuto Maiusc per mantenere un quadrato.",
+    "findShapes": "Trova le forme in questa pagina",
+    "findShapesSpread": "Trova le forme in queste pagine",
+    "finding": "Ricerca…",
+    "findHint": "Individua le immagini separate di una pagina: token, carte, mappe.",
+    "foundNone": "Nessun risultato. I pezzi vengono individuati su uno sfondo di pagina uniforme: ritagliali a mano.",
+    "foundAlready": "Tutto ciò che è stato trovato è già ritagliato.",
+    "foundSome_one": "Trovato {{count}} - rimuovilo se non serve.",
+    "foundSome_other": "Trovati {{count}} - rimuovi quelli che non servono.",
+    "findFailed": "Impossibile cercare forme in questa pagina",
+    "circlesNoPdf": "Il PDF non può contenere ritagli rotondi - scegli PNG o WebP.",
+    "listTitle": "Ritagli ({{count}})",
+    "clearAll": "Rimuovi tutti",
+    "emptyTitle": "Ancora nessun ritaglio",
+    "emptyBody": "Disegna attorno a una mappa, una tabella o un token nella pagina, oppure lascia che Grimoire li trovi.",
+    "showPage": "Mostra questa pagina",
+    "pageGroup": "Pagina {{page}}",
+    "spreadGroup": "Pagine {{first}}–{{last}}",
+    "nameLabel": "Nome file del ritaglio {{n}}",
+    "remove": "Rimuovi il ritaglio {{n}}",
+    "rowMeta": "{{shape}} · {{width}} × {{height}} px",
+    "keysHelp": "Le frecce lo spostano, Maiusc lo sposta di più, Alt e le frecce lo ridimensionano, Canc lo rimuove.",
+    "stageLabel": "Pagina {{pages}} - trascina per ritagliare un'area",
+    "boxLabel": "Ritaglio {{n}}, {{shape}}",
+    "stageHint": "Trascina per ritagliare un'area",
+    "summaryPdf_one": "{{count}} pagina → 1 PDF",
+    "summaryPdf_other": "{{count}} pagine → 1 PDF",
+    "summaryImages_one": "1 immagine {{format}}",
+    "summaryImages_other": "{{count}} immagini {{format}}, in uno zip",
+    "summaryFiles_one": "1 file {{format}}",
+    "summaryFiles_other": "{{count}} file {{format}}, in uno zip",
+    "nothingToExport": "Disegna un ritaglio per esportarlo",
+    "downloaded": "Scaricato",
+    "preparing": "Preparazione…",
+    "failed": "Esportazione non riuscita",
+    "saveToLibrary": "Salva nella libreria",
+    "saveToLibraryHint": "Salva i file in una cartella della libreria invece di scaricarli",
+    "saveTitle": "Salva nella libreria",
+    "savedTitle": "Salvato nella libreria",
+    "savePrompt": "{{summary}} da {{title}}. Scegli una cartella:",
+    "quickBeside": "Accanto all'originale",
+    "saveInto": "Salvataggio in {{folder}}",
+    "pickFolder": "Scegli una cartella in Libri, Mappe o Token.",
+    "pdfIntoTokens": "I token accettano solo immagini - scegli PNG, JPEG o WebP, oppure un'altra cartella.",
+    "saveHere": "Salva qui",
+    "saving": "Salvataggio…",
+    "saveFailed": "Impossibile salvare nella libreria",
+    "savedBody_one": "1 file salvato in {{folder}}.",
+    "savedBody_other": "{{count}} file salvati in {{folder}}.",
+    "indexing_one": "Indicizzazione in corso - comparirà nella libreria tra un attimo.",
+    "indexing_other": "Indicizzazione in corso - compariranno nella libreria tra un attimo.",
+    "indexLater": "È già in corso una scansione della libreria - compariranno quando raggiungerà quella cartella."
   },
   "search": {
     "title": "Cerca nella tua libreria",
@@ -379,6 +484,7 @@
     "nsfw": "NSFW",
     "indexed": "Indicizzato",
     "missing": "Mancante",
+    "unreadableName": "Questo nome non è UTF-8 valido, di solito perché è stato creato su Windows e copiato su una condivisione Linux. Grimoire non può aprirlo né modificarlo e le scansioni della libreria lo saltano. Rinominalo direttamente sulla condivisione, poi avvia una nuova scansione.",
     "itemCount": "{{count}} elemento",
     "itemCount_other": "{{count}} elementi",
     "rename": "Rinomina",
@@ -585,6 +691,29 @@
       "vttLights": "Luci",
       "downloadUvtt": "Scarica come Universal VTT",
       "downloadUvttHint": "Immagine e griglia come file .uvtt"
+    },
+    "otfbm": {
+      "menuLabel": "Prepara per OTFBM (Avrae)",
+      "title": "Prepara per OTFBM",
+      "intro": "OTFBM disegna la mappa alle sue dimensioni reali sotto la propria griglia, quindi l'immagine viene ridimensionata finché ogni casella non combacia. Grimoire serve l'immagine ridimensionata tramite un link di condivisione, così il comando !map è pronto da incollare su Discord.",
+      "cellSize": "Dimensione casella (px)",
+      "cellHint": "{{min}}–{{max}} px. {{suggested}} px consigliati per questa mappa.",
+      "cellInvalid": "Inserisci un numero intero da {{min}} a {{max}}.",
+      "summary": "{{width}} × {{height}} caselle · immagine {{imageWidth}} × {{imageHeight}} px",
+      "defaultGrid": "Su questa mappa non è stata trovata alcuna griglia, quindi si presumono caselle da 140 px. Se non combacia, imposta prima la griglia nei dettagli della mappa.",
+      "truncated": "OTFBM mostra al massimo 99 caselle per lato, quindi il bordo più lontano di questa mappa verrà tagliato.",
+      "download": "Scarica immagine",
+      "command": "Comando Avrae",
+      "copy": "Copia",
+      "copied": "Copiato",
+      "loadFailed": "Impossibile determinare la configurazione OTFBM per questa mappa.",
+      "linkTitle": "Link di condivisione per OTFBM",
+      "createLink": "Crea link di condivisione",
+      "linkHint": "OTFBM scarica lo sfondo da questo link ogni volta che disegna la mappa, quindi il tuo server Grimoire deve essere raggiungibile da internet.",
+      "linkLabel": "Sfondo OTFBM ({{cell}} px)",
+      "linkUntil": "Usa il tuo link di condivisione, che scade il {{when}}. Gestiscilo in Impostazioni → Account → Condivisione.",
+      "linkForever": "Usa il tuo link di condivisione, che non scade mai. Gestiscilo in Impostazioni → Account → Condivisione.",
+      "selfHost": "Oppure ospitala tu:"
     },
     "vtt": {
       "title": "Editor VTT",
@@ -956,6 +1085,22 @@
       "signingAlg": "Algoritmo di firma",
       "buttonText": "Testo del pulsante",
       "buttonTextHint": "Il testo del pulsante SSO nella schermata di accesso.",
+      "buttonAppearance": "Aspetto del pulsante",
+      "buttonAppearanceHint": "Rendi il pulsante uguale al pulsante di accesso ufficiale del tuo provider: carica il suo logo e copia i colori dalle sue linee guida del marchio. Lascia un campo vuoto per mantenere l'aspetto del tema.",
+      "buttonPreview": "Anteprima del pulsante",
+      "buttonBgColor": "Colore di sfondo",
+      "buttonTextColor": "Colore del testo",
+      "buttonBorderColor": "Colore del bordo",
+      "buttonColorPicker": "Selettore: {{field}}",
+      "buttonColorPlaceholder": "Predefinito del tema",
+      "buttonRadius": "Raggio degli angoli (px)",
+      "buttonIcon": "Icona",
+      "buttonIconUpload": "Carica icona",
+      "buttonIconReplace": "Sostituisci icona",
+      "buttonIconRemove": "Rimuovi icona",
+      "buttonIconHint": "PNG, JPEG, WebP, GIF o SVG, fino a 1 MB. Convertita in un piccolo PNG al caricamento.",
+      "buttonInvalidColor": "Usa un colore esadecimale come #1a2b3c oppure lascia vuoto.",
+      "buttonInvalidRadius": "Usa un numero intero da 0 a 40 oppure lascia vuoto.",
       "groupsClaim": "Claim dei gruppi",
       "groupsClaimHint": "Nome del claim OIDC che contiene l'elenco dei gruppi dell'utente (di solito 'groups'). Se impostato, l'app assegna i ruoli in base all'appartenenza ai gruppi denominati (senza distinzione tra maiuscole e minuscole) 'admin', 'gm' o 'player': vince il livello più alto. Se nessun gruppo corrisponde, l'accesso viene negato.",
       "permissionsClaim": "Claim dei permessi avanzati",
@@ -1096,7 +1241,15 @@
       "reading": "Lettura e libreria",
       "readingDesc": "Comportamento del lettore, navigazione della libreria e feed.",
       "security": "Sicurezza e account",
-      "securityDesc": "Password, sessioni attive ed eliminazione dell'account."
+      "securityDesc": "Password, sessioni attive ed eliminazione dell'account.",
+      "sharing": "Condivisione",
+      "sharingDesc": "I link pubblici che hai creato verso elementi della libreria."
+    },
+    "shareLinks": {
+      "title": "Link di condivisione",
+      "description": "Tutti i link che hai creato. Copiane uno di nuovo, o revocalo perché smetta di funzionare.",
+      "noPermission": "Al momento non puoi creare link di condivisione. Quelli che hai creato sono in pausa, non eliminati, e torneranno a funzionare se un admin ti restituisce il permesso.",
+      "none": "Non hai creato nessun link di condivisione."
     }
   },
   "appSettings": {
@@ -1278,6 +1431,10 @@
         "all": {
           "label": "Tutte le autorizzazioni",
           "description": "Tutte le aree insieme, comprese quelle aggiunte nelle versioni future"
+        },
+        "share-links": {
+          "label": "Link di condivisione",
+          "description": "Creare, elencare e revocare i tuoi link di condivisione pubblici"
         }
       }
     },
@@ -1359,7 +1516,32 @@
     "noPermissions": "Nessuno",
     "ownedCampaigns": "Campagne possedute",
     "deleteUserShort": "Elimina utente",
-    "emailLabel": "Email"
+    "emailLabel": "Email",
+    "shareLinks": {
+      "label": "Link di condivisione",
+      "followRole": "Segui il ruolo",
+      "allow": "Consenti",
+      "deny": "Nega",
+      "status": {
+        "allowed": "Consentito",
+        "denied": "Non consentito"
+      },
+      "source": {
+        "role": "(dal ruolo)",
+        "user": "(impostato per questo utente)",
+        "disabled": "(disattivato su questo server)",
+        "guest": "(gli ospiti non possono condividere)"
+      },
+      "badge": "Link di condivisione",
+      "listLabel": "Link di condivisione",
+      "none": "Nessun link di condivisione.",
+      "rolesTitle": "Link di condivisione",
+      "rolesHint": "Chi può creare link di condivisione pubblici per impostazione predefinita. L'impostazione del singolo utente nella tabella ha la precedenza.",
+      "disabled": "I link di condivisione sono disattivati su questo server (SHARE_LINKS_ENABLED=false).",
+      "adminAlways": "Gli admin possono sempre creare link di condivisione",
+      "rolesFailed": "Impossibile aggiornare le impostazioni predefinite dei link.",
+      "failedUpdate": "Impossibile modificare il permesso per i link di condivisione."
+    }
   },
   "maintenance": {
     "groups": {
@@ -2163,6 +2345,7 @@
     "character-sheet": "Schede personaggio",
     "map": "Mappe",
     "handout": "Handout e materiale di riferimento",
+    "magazine": "Riviste e fanzine",
     "homebrew": "Homebrew"
   },
   "wiki": {
@@ -2543,6 +2726,9 @@
       "playNext": "Riproduci per prossima",
       "queued": "In coda",
       "toggleQueue": "Mostra coda",
+      "toggleChapters": "Mostra capitoli",
+      "chapters": "Capitoli",
+      "chapterNumber": "Capitolo {{n}}",
       "close": "Chiudi lettore",
       "seek": "Sposta",
       "removeFromQueue": "Rimuovi dalla coda",
@@ -2663,6 +2849,7 @@
     "searchPlaceholder": "Cerca per titolo…",
     "sortSize": "Dimensione",
     "sortDuration": "Durata",
+    "sortTrack": "Traccia",
     "groupByFolder": "Raggruppa",
     "filterParentSystem": "Sistema padre",
     "allParentSystems": "Tutti i sistemi padre",
@@ -2771,7 +2958,9 @@
     "installFromSpecificSource": "Installa da una fonte specifica",
     "categories": {
       "metadata": "Scraper di metadati",
-      "metadataDesc": "Add-on che compilano i dettagli di sistemi di gioco e libri da fonti esterne."
+      "metadataDesc": "Add-on che compilano i dettagli di sistemi di gioco e libri da fonti esterne.",
+      "importers": "Importatori di personaggi",
+      "importersDesc": "Componenti aggiuntivi che leggono personaggi da altri strumenti - creatori di personaggi e i loro file di esportazione - per Personaggi → Importa."
     }
   },
   "metadataFetch": {
@@ -3114,6 +3303,39 @@
     "setPortrait": "Imposta ritratto",
     "export": "Esporta personaggio",
     "importCharacter": "Importa un personaggio",
+    "importHelp": "Importa un personaggio esportato da Grimoire, o creato in un altro strumento tramite un importatore.",
+    "importing": "Importazione…",
+    "importDropHere": "Trascina qui un file personaggio",
+    "importChooseFile": "Scegli un file",
+    "importTooLarge": "Il file è troppo grande da importare (massimo 10 MB).",
+    "importLink": "Oppure incolla un link",
+    "importLinkPlaceholder": "https://…",
+    "importLinkButton": "Importa link",
+    "importAs": "Leggilo come",
+    "importAuto": "Riconosci automaticamente",
+    "importGrimoire": "File personaggio di Grimoire",
+    "importAsHelp": "Lascialo su automatico, a meno che due importatori riconoscano il tuo file.",
+    "importersHeading": "Importatori installati",
+    "importersNone": "Nessuno ancora installato: si possono importare solo i file personaggio di Grimoire.",
+    "importerTakesLinks": "link",
+    "importerSheet": "usa la scheda {{sheet}}",
+    "importerSheetMissing": "installa la scheda {{sheet}} al primo utilizzo",
+    "importersAvailableHeading": "Altri importatori",
+    "importerInstall": "Installa",
+    "importerInstallForEveryone": "Installa per tutti",
+    "importerInstallInSettings": "Installa in Impostazioni → Componenti aggiuntivi",
+    "importerAskAdmin": "Chiedi a un admin di installarlo",
+    "importerRemove": "Rimuovi {{name}}",
+    "importerUpdate": "Aggiorna alla v{{version}}",
+    "importerYours": "installato per te",
+    "importersDownloadsOff": "L'installazione di importatori è disattivata su questo server.",
+    "importerLinkExample": "Link di esempio:",
+    "importerWebsite": "Sito web",
+    "importInputsFor": "Per {{name}}",
+    "importInputForLinks": "Usato quando importi un link.",
+    "importInputForFiles": "Usato quando importi un file.",
+    "importInputsNotKept": "Inviato solo con questa importazione - Grimoire non lo conserva.",
+    "importTryAgain": "Riprova",
     "portraitOf": "Ritratto di {{name}}",
     "partyMember": "membro del gruppo",
     "browseSheets": "Sfoglia le schede",
@@ -3302,5 +3524,89 @@
       "systemAgnostic": "Generico",
       "onePage": "Una pagina"
     }
+  },
+  "share": {
+    "button": "Condividi",
+    "type": {
+      "book": "Libro",
+      "map": "Mappa",
+      "token": "Pedina",
+      "audio": "Audio",
+      "model": "Modello 3D"
+    },
+    "state": {
+      "active": "Attivo",
+      "disabled": "Disattivato",
+      "revoked": "Revocato",
+      "expired": "Scaduto",
+      "suspended": "Sospeso",
+      "unavailable": "Non disponibile"
+    },
+    "stateHint": {
+      "active": "Chiunque abbia il link può aprirlo.",
+      "disabled": "I link di condivisione sono disattivati su questo server.",
+      "revoked": "Questo link è stato revocato e non funziona più.",
+      "expired": "Questo link è scaduto.",
+      "suspended": "Non funziona finché il proprietario non può condividere. Torna a funzionare se riottiene il permesso.",
+      "unavailable": "Non funziona: l'elemento non c'è più o manca sul disco, oppure il proprietario non può più aprirlo."
+    },
+    "row": {
+      "expires": "Scade il {{when}}",
+      "noExpiry": "Non scade mai",
+      "uses_one": "{{count}} utilizzo",
+      "uses_other": "{{count}} utilizzi",
+      "lastUsed": "ultimo utilizzo il {{when}}",
+      "passwordProtected": "Protetto da password",
+      "owner": "di {{name}}",
+      "copied": "Copiato",
+      "copyLink": "Copia link",
+      "copyFile": "Copia URL del file",
+      "copyFileHint": "Il file stesso, per VTT, OTFBM e Discord",
+      "revoke": "Revoca",
+      "delete": "Elimina",
+      "confirmDelete": "Elimina definitivamente"
+    },
+    "expiry": {
+      "day": "1 giorno",
+      "week": "7 giorni",
+      "month": "30 giorni",
+      "quarter": "90 giorni",
+      "year": "365 giorni",
+      "never": "Mai"
+    },
+    "form": {
+      "label": "Etichetta",
+      "labelPlaceholder": "es. Dispensa sessione 12",
+      "expiry": "Scade dopo",
+      "password": "Password (facoltativa)",
+      "passwordPlaceholder": "Lascia vuoto per nessuna password",
+      "passwordTooShort": "Almeno 4 caratteri.",
+      "passwordHint": "Chi apre il link deve inserirla. Gli strumenti che caricano direttamente il file non possono, quindi lasciala vuota per VTT e Discord.",
+      "create": "Crea link"
+    },
+    "dialog": {
+      "title": "Link di condivisione",
+      "intro": "Chiunque abbia un link di condivisione può aprire questo elemento senza account, finché non scade o non lo revochi.",
+      "existing": "I tuoi link per questo elemento",
+      "none": "Non l'hai ancora condiviso."
+    },
+    "loadFailed": "Impossibile caricare i link di condivisione.",
+    "createFailed": "Impossibile creare il link.",
+    "revokeFailed": "Impossibile revocare il link.",
+    "deleteFailed": "Impossibile eliminare il link."
+  },
+  "sharePage": {
+    "missingTitle": "Questo link non funziona",
+    "missingBody": "Potrebbe essere scaduto o revocato, oppure l'elemento non è più disponibile.",
+    "throttled": "Troppi tentativi. Attendi un minuto e riprova.",
+    "lockedTitle": "Password richiesta",
+    "lockedBody": "Inserisci la password che ti è stata data per aprire questo link.",
+    "password": "Password",
+    "unlock": "Apri",
+    "wrongPassword": "La password non è corretta.",
+    "expires": "Il link scade il {{when}}",
+    "download": "Scarica",
+    "open": "Apri",
+    "sharedFrom": "Condiviso da Grimoire"
   }
 }

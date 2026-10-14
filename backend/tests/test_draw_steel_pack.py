@@ -272,3 +272,46 @@ class TestDrawSteelKitModifiers:
 
     def test_surge_damage_is_the_highest_characteristic(self, ds):
         assert _computed(ds, might=2, agility=3)["surge_damage"] == 3
+
+
+class TestDrawSteelSecondKit:
+    """A tactician's Field Arsenal: two kits at once, each bonus the higher of
+    the two - damage tier by tier - and both kits' weapons and armor."""
+
+    def test_each_bonus_is_the_higher_kits(self, ds):
+        context = _context(ds, kit={"_ref": "mountain"}, kit_2={"_ref": "martial-artist"})
+        assert context["kit_stamina"] == 9
+        assert context["kit_speed"] == 3
+        assert context["kit_stability"] == 2
+        assert context["kit_disengage"] == 1
+        assert context["speed"] == 8
+
+    def test_damage_is_compared_tier_by_tier(self, ds):
+        # Mountain is +0/+0/+4 and martial artist +2/+2/+2.
+        context = _context(ds, kit={"_ref": "mountain"}, kit_2={"_ref": "martial-artist"})
+        assert context["melee_damage_bonus"] == "+2/+2/+4"
+
+    def test_a_bonus_only_one_kit_gives_is_kept(self, ds):
+        context = _context(ds, kit={"_ref": "cloak-and-dagger"}, kit_2={"_ref": "battlemind"})
+        # Battlemind has no ranged damage, so cloak and dagger's stands.
+        assert context["ranged_damage_bonus"] == "+1/+1/+1"
+        assert context["melee_damage_bonus"] == "+2/+2/+2"
+        assert context["ranged_distance_bonus"] == 5
+
+    def test_weapons_and_armor_combine_without_repeating(self, ds):
+        context = _context(ds, kit={"_ref": "cloak-and-dagger"}, kit_2={"_ref": "battlemind"})
+        assert context["kit_weapon"] == "Light Weapon, Medium Weapon"
+        assert context["kit_armor"] == "Light Armor"
+        context = _context(ds, kit={"_ref": "mountain"}, kit_2={"_ref": "martial-artist"})
+        assert context["kit_armor"] == "Heavy Armor"
+
+    def test_a_second_kit_alone_still_counts(self, ds):
+        context = _context(ds, kit_2={"_ref": "sniper"})
+        assert context["kit_weapon"] == "Bow"
+        assert context["ranged_damage_bonus"] == "+0/+0/+4"
+        assert context["kit_speed"] == 1
+
+    def test_one_kit_reads_as_before(self, ds):
+        context = _context(ds, kit={"_ref": "mountain"})
+        assert context["melee_damage_bonus"] == "+0/+0/+4"
+        assert context["kit_weapon"] == "Heavy Weapon"

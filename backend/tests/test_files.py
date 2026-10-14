@@ -1443,6 +1443,7 @@ class TestScaffoldCategories:
             "Supplements": "supplement",
             "Adventures": "adventure",
             "Character Sheets": "character-sheet",
+            "Magazines": "magazine",
         }
         for folder, category in expected.items():
             assert guess_category(f"books/System-{library_tree}/{folder}/x.pdf") == category

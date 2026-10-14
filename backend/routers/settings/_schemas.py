@@ -32,6 +32,10 @@ class SettingsPatch(BaseModel):
     campaign_upload_max_total_mb: Optional[int] = None
     password_auth_enabled: Optional[bool] = None
     guest_access_enabled: Optional[bool] = None
+    # Share-link role defaults (issue #541). Admins always may share; these say
+    # whether GMs and players may without a per-user override.
+    share_links_role_gm: Optional[bool] = None
+    share_links_role_player: Optional[bool] = None
     disable_folder_category_inference: Optional[bool] = None
     custom_login_message_enabled: Optional[bool] = None
     custom_login_message: Optional[str] = None  # HTML (sanitized on save)
@@ -52,6 +56,12 @@ class SettingsPatch(BaseModel):
     oidc_client_secret: Optional[str] = None
     oidc_signing_alg: Optional[str] = None
     oidc_button_text: Optional[str] = None
+    # Login-button appearance (issue #377): CSS hex colors and a px radius;
+    # "" resets to the theme default. The icon has its own upload endpoint.
+    oidc_button_bg_color: Optional[str] = None
+    oidc_button_text_color: Optional[str] = None
+    oidc_button_border_color: Optional[str] = None
+    oidc_button_radius: Optional[str] = None
     oidc_groups_claim: Optional[str] = None
     oidc_permissions_claim: Optional[str] = None
     oidc_match_by: Optional[str] = None
@@ -94,6 +104,11 @@ class SettingsResponse(BaseModel):
     password_auth_env_locked: bool
     guest_access_enabled: bool
     guest_access_env_locked: bool
+    # Share links (issue #541): whether they exist (SHARE_LINKS_ENABLED), and
+    # whether GMs and players may create them by default.
+    share_links_enabled: bool
+    share_links_role_gm: bool
+    share_links_role_player: bool
     disable_folder_category_inference: bool
     disable_folder_category_inference_env_locked: bool
     custom_login_message_enabled: bool
@@ -111,6 +126,12 @@ class SettingsResponse(BaseModel):
     oidc_client_id: str
     oidc_signing_alg: str
     oidc_button_text: str
+    oidc_button_bg_color: str
+    oidc_button_text_color: str
+    oidc_button_border_color: str
+    oidc_button_radius: str
+    # Relative URL of the normalized icon ("" when none), cache-busted by version.
+    oidc_button_icon_url: str
     oidc_groups_claim: str
     oidc_permissions_claim: str
     oidc_match_by: str
@@ -129,6 +150,11 @@ class SettingsResponse(BaseModel):
     oidc_client_id_env_locked: bool
     oidc_signing_alg_env_locked: bool
     oidc_button_text_env_locked: bool
+    oidc_button_bg_color_env_locked: bool
+    oidc_button_text_color_env_locked: bool
+    oidc_button_border_color_env_locked: bool
+    oidc_button_radius_env_locked: bool
+    oidc_button_icon_env_locked: bool
     oidc_groups_claim_env_locked: bool
     oidc_permissions_claim_env_locked: bool
     oidc_match_by_env_locked: bool
@@ -160,4 +186,5 @@ class UISettingsResponse(BaseModel):
     campaign_upload_max_total_mb: int
     guest_access_enabled: bool
     api_keys_enabled: bool
+    share_links_enabled: bool
     library_writable: bool

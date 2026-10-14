@@ -6,44 +6,81 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Release candidates are omitted; their contents are rolled into the stable release that followed.
 
+## [Unreleased]
+
+### Added
+
+- Share links: a public link to a book, map, token, audio track or 3D model that anyone can open without an account, until it expires or you revoke it
+- A share link can expire after 1 day up to a year, or never, can require a password, and has a direct file address for VTTs and Discord
+- See, copy and revoke your share links under Settings → Account → Sharing
+- Admins choose who may create share links: GMs by default, players once allowed, and any user can be allowed or denied individually from the Users page, where their links are listed and can be revoked
+- `SHARE_LINKS_ENABLED=false` turns share links off for the whole server
+- Set a map up for OTFBM, the battle map renderer behind Avrae's `!map` on Discord: Grimoire resizes the map to OTFBM's grid, serves it through a share link, and gives you the command to paste
+- Import characters from other tools - a Forge Steel hero, a Pathbuilder 2e export, a D&D Beyond or DiceCloud link - through character importers: community add-ons an admin installs under Settings → Add-ons → Character importers. Characters → Import a character recognises the file by itself, builds it on the right sheet (installing the sheet if needed), and matches picks against your installed content, keeping anything it lacks as a custom entry (thanks @ianfhunter)
+- Anyone can install an importer that only reads uploaded files - Forge Steel and Pathbuilder included - for their own account, from the import dialog. Importers that fetch links or run scripts still need an admin, and the dialog says so: admins get an Install for everyone button, everyone else is told to ask
+- An importer can ask for something per import, such as an API key for a private character. The dialog shows the field, asks again when an import turns out to need it, and never stores what you type
+- Audiobooks: `.m4b` files are picked up by the scan and play in the audio player like any other track, with their duration, tags and cover art
+- The audio player lists an audiobook's chapters and shows the one playing; pick a chapter to jump to it. Works for `.m4b`/`.m4a` and chaptered MP3 files
+- The audio list names each track by its tags - `03 · Die Sümpfe Harodiens`, with artist, album and duration beneath - and falls back to the filename, without its extension, for untagged files
+- Audio opens in album order: within a folder, tracks play by disc and track number whatever their files are called. Pick Track in the sort menu to get it back after choosing another order. Existing tracks pick up their numbers on the next scan
+- Admins can style the OIDC sign-in button to match their provider: background, text and border colours, corner radius, and an uploaded logo, under Settings → Authentication, or pinned with `OIDC_BUTTON_*` environment variables
+- Magazines & Zines is a built-in book category: folders named `Magazines`, `Zines`, `Periodicals`, `Dragon Magazine` and the like are filed there on the next scan, and Create standard category folders adds a `Magazines` folder
+- Export from the reader (⋮ → Export pages & cut-outs, or press `e`): save a page range as a PDF - a character sheet, a chapter, the whole section the page is in - or as PNG, JPEG or WebP images, with facing pages joined into one picture for maps printed across a spread
+- Cut out maps, tables, cards and tokens: draw rectangles, squares or circles on a page, or across both halves of a spread, and each one downloads as its own file - round tokens with transparent corners. Find shapes picks out every token or picture on a page for you
+- The PDF map viewer has the same Export button
+- Admins on a writable library can save an export straight into a library folder - beside the book, or into Tokens or Maps - instead of downloading it, and Grimoire indexes the new files right away
+
+### Changed
+
+- Map, token, audio and model pages keep Favorite, Add to campaign and Share in a ⋮ menu, as the book reader does, so the toolbar has room for the title
+- The Campaigns list on the Users page stays collapsed until opened
+
+### Fixed
+
+- Titles, artists and albums tagged inside WAV and AIFF files are now read, and show in the audio list and on the track's page
+- Admins see Move, Rename and Delete in the reader's ⋮ menu, and a book's details show its file path - the book's library path was being dropped from the reader's data
+- A folder or file whose name isn't valid UTF-8, often one named on Windows and copied to a Linux share, no longer stops the whole library scan. The scan skips it and logs which one to rename
+- The file manager no longer fails with "Internal Server Error" on such a name. It shows the entry greyed out with a placeholder character, and a ? icon explains why it can't be changed from Grimoire
+- A game system's description keeps the paragraph breaks entered in its editor instead of running together as one block. Long descriptions show their first few lines with a Read more button
+
 ## [1.8.0] - 2026-10-08
 
 ### Added
 
 - Rescan and File manager buttons on every Settings tab, with scan progress and a stop button
-- Upload with `on_conflict=replace` to swap in a corrected file for a book and keep its tags, metadata, bookmarks, and favorites (#497)
-- Character sheets: install a sheet for your game from the community catalogue, or paste your own, and build characters on it (#129)
+- Upload with `on_conflict=replace` to swap in a corrected file for a book and keep its tags, metadata, bookmarks, and favorites
+- Character sheets: install a sheet for your game from the community catalogue, or paste your own, and build characters on it
 - Ten sheets in the catalogue: D&D 5e (2024), Draw Steel, Pathfinder 2e and 1e, Call of Cthulhu 7e, Traveller, Cosmere RPG, Dungeon Crawler Carl, Cairn, and Basic Fantasy
 - Sheets work out modifiers, saves and totals as you type, and any calculated value can be overridden
 - Picking a class, background or species fills in what it grants, and changing the pick takes it back off
-- Content packs add a searchable catalogue of spells, classes and feats; packs for the D&D 5e SRD, Draw Steel, and Pathfinder Player Core are available (#131)
+- Content packs add a searchable catalogue of spells, classes and feats; packs for the D&D 5e SRD, Draw Steel, and Pathfinder Player Core are available
 - Rulesets give each campaign its own content and house rules, edited by its GM
 - Put a character in a campaign you run, a personal campaign, or one you've joined, so the table can read the sheet
 - Keep several characters in one campaign, and mark one retired or dead instead of deleting it
 - Character art, and export or import of a character as a self-contained file
 - A guide and full reference for writing your own sheets and content packs, in the community add-ons repository
-- Items added in the last week carry a "New" badge, and books can be sorted by date added or filtered to recent additions (#535)
-- More category folder names: `Players`, `GMs` and `Game Masters` hold core rulebooks, `Sheets` holds character sheets, `Sources` holds supplements, and `Unofficial` holds homebrew (#539)
+- Items added in the last week carry a "New" badge, and books can be sorted by date added or filtered to recent additions
+- More category folder names: `Players`, `GMs` and `Game Masters` hold core rulebooks, `Sheets` holds character sheets, `Sources` holds supplements, and `Unofficial` holds homebrew
 
 ### Changed
 
 - Groups with more than 25 items open collapsed; your own open/close choices are kept
-- Large libraries load as you scroll: a system's books, the map, token, audio and model galleries, and tag pages fetch one page at a time from the server (#537)
+- Large libraries load as you scroll: a system's books, the map, token, audio and model galleries, and tag pages fetch one page at a time from the server
 
 ### Fixed
 
-- A fully zoomed-out book page fits above the phone's bottom navigation bar (#520)
+- A fully zoomed-out book page fits above the phone's bottom navigation bar
 - Game system headers show up to three links, with the rest in a "More" menu
 - A rescan shows as running on every rescan button at once
 - Expanding a folder in the map, token or audio galleries keeps your place instead of jumping to the top of the page
 - Clicking a tag in a system's book list opens the Tags page instead of the book
-- Guests see only what their campaign shares with them (#519)
+- Guests see only what their campaign shares with them
 - Guest invite codes are visible only to the campaign's GM
 - Copying a blank character sheet is limited to sheets the member can open
-- A scan stuck at "running" after a restart or crash can be cleared with **Stop** (#524)
+- A scan stuck at "running" after a restart or crash can be cleared with **Stop**
 - A PDF's table of contents still shows when one bookmark points past the last page
 - A book whose file got shorter opens on its last page instead of a page that no longer exists
-- Links and formatting inside a `||GM secret||` in campaign notes render correctly, and paragraphs in notes keep their spacing (#536)
+- Links and formatting inside a `||GM secret||` in campaign notes render correctly, and paragraphs in notes keep their spacing
 
 ## [1.7.3] - 2026-10-01
 
@@ -241,7 +278,7 @@ Library management is the headline: an in-app file manager for creating folders,
 
 ### Documentation
 
-- FAQ section on configuring OIDC with Google (thanks @DRebd, #375)
+- FAQ section on configuring OIDC with Google (thanks @DRebd)
 
 ## [1.5.6] - 2026-08-10
 
@@ -266,7 +303,7 @@ Library management is the headline: an in-app file manager for creating folders,
 - Filter/sort bar mobile behaviour; child-system grids use the system view mode
 - Embed picker page input is focused when "at page" is clicked
 - Now-playing indicator in the audio list view
-- Middle click opens cards and chips in a new tab (thanks @strass, #323)
+- Middle click opens cards and chips in a new tab (thanks @strass)
 - Parent-system cover on favorites; clearer container marking
 - Selection is kept after bulk edits and tag applies
 - Scroll position is restored when returning via in-app Back buttons
@@ -395,8 +432,8 @@ Audio support: add audio to your library, play it in-app, and build playlists so
 
 ### Fixed
 
-- Category keywords match on whole tokens rather than substrings (#188)
-- Docker entrypoint respects the `WORKERS` env var for the uvicorn worker count (thanks @fesxj, #142)
+- Category keywords match on whole tokens rather than substrings
+- Docker entrypoint respects the `WORKERS` env var for the uvicorn worker count (thanks @fesxj)
 
 ## [1.4.0] - 2026-06-18
 
@@ -432,96 +469,96 @@ Campaigns reworked: expanded notes and a single consolidated campaign overview p
 
 ### Fixed
 
-- Configured groups and permissions claim names are requested as OIDC scopes (#92)
+- Configured groups and permissions claim names are requested as OIDC scopes
 
 ## [1.3.1] - 2026-05-20
 
 ### Fixed
 
-- `users.hashed_password` migrated to nullable so OIDC user creation works (#91)
+- `users.hashed_password` migrated to nullable so OIDC user creation works
 
 ## [1.3.0] - 2026-05-18
 
 ### Added
 
-- OpenID Connect authentication and an email field on users (#72)
-- System Agnostic parent folder support (#55)
-- Scheduled database cleanup as part of scheduled rescan (#69)
-- Tag export under Settings → Maintenance (#63)
-- Search filters, grouped results, and a favorites-only filter (#87)
-- Tag autocomplete, keyboard shortcut overlay, and reading improvements (thanks @KrapfalAT, #49)
+- OpenID Connect authentication and an email field on users
+- System Agnostic parent folder support
+- Scheduled database cleanup as part of scheduled rescan
+- Tag export under Settings → Maintenance
+- Search filters, grouped results, and a favorites-only filter
+- Tag autocomplete, keyboard shortcut overlay, and reading improvements (thanks @KrapfalAT)
 
 ### Fixed
 
-- Tags normalized to lowercase across all write paths and existing data (#58)
-- Admin user deletion blocked by foreign key constraints (#60)
-- Ungrouped items displayed above grouped folder sections (#68)
-- Safer database cleanup during scans and on hung mounts (#70)
-- Thumbnail 404 after a book rename (#85)
-- Image files within books are viewable (#86)
-- Image-only PDFs are no longer marked as index failed (#89)
-- Env table rendering in the README (thanks @joshgamache, #76)
+- Tags normalized to lowercase across all write paths and existing data
+- Admin user deletion blocked by foreign key constraints
+- Ungrouped items displayed above grouped folder sections
+- Safer database cleanup during scans and on hung mounts
+- Thumbnail 404 after a book rename
+- Image files within books are viewable
+- Image-only PDFs are no longer marked as index failed
+- Env table rendering in the README (thanks @joshgamache)
 
 ## [1.2.1] - 2026-04-16
 
 ### Added
 
-- German localisation with a dynamic language switcher in settings (thanks @KrapfalAT, #36)
-- French localisation (#37)
-- Version update notifications and an About modal (#45)
+- German localisation with a dynamic language switcher in settings (thanks @KrapfalAT)
+- French localisation
+- Version update notifications and an About modal
 
 ### Fixed
 
-- Region added to localization (#38)
-- `navigator.language` used as a fallback, plus a dropdown for language selection (#47)
-- `no-store` cache header on `index.html`; enhanced PWA manifest (#44)
+- Region added to localization
+- `navigator.language` used as a fallback, plus a dropdown for language selection
+- `no-store` cache header on `index.html`; enhanced PWA manifest
 
 ### Documentation
 
-- Updated Docker documentation in the README (#41, #48)
+- Updated Docker documentation in the README
 
 ## [1.2.0] - 2026-04-15
 
 ### Added
 
-- i18n localization support (#31)
+- i18n localization support
 - OPDS catalog support
-- Books can be grouped into collapsible subfolders within any category (#34)
+- Books can be grouped into collapsible subfolders within any category
 
 ### Changed
 
-- Scroll position and folder expand/collapse state persist across navigation (#32)
+- Scroll position and folder expand/collapse state persist across navigation
 
 ### Fixed
 
-- Reader back button returns to the last read page before a ToC or bookmark jump (#33)
+- Reader back button returns to the last read page before a ToC or bookmark jump
 
 ## [1.1.2] - 2026-04-14
 
 ### Added
 
-- Reading progress and recently opened books (thanks @KrapfalAT, #19)
-- Tag support for library books (thanks @KrapfalAT, #18)
-- Archive download with a format picker modal for systems, maps, and tokens (#25)
-- Book sorting, reader keyboard shortcuts, and a favorite indicator (thanks @KrapfalAT, #28)
-- Admins can set a new password for any other user in user management settings (#27)
+- Reading progress and recently opened books (thanks @KrapfalAT)
+- Tag support for library books (thanks @KrapfalAT)
+- Archive download with a format picker modal for systems, maps, and tokens
+- Book sorting, reader keyboard shortcuts, and a favorite indicator (thanks @KrapfalAT)
+- Admins can set a new password for any other user in user management settings
 
 ### Fixed
 
-- Infinite scan loop when a file hung thumbnail generation (#21)
-- `is_missing` flag tracks library items whose files no longer exist on disk (#29)
+- Infinite scan loop when a file hung thumbnail generation
+- `is_missing` flag tracks library items whose files no longer exist on disk
 
 ## [1.1.1] - 2026-04-12
 
 ### Added
 
-- Filter and collapse/expand toolbar in the library view (thanks @rauchmo, #10)
-- arm64/v8 builds in the GitHub Actions release pipeline (#15)
+- Filter and collapse/expand toolbar in the library view (thanks @rauchmo)
+- arm64/v8 builds in the GitHub Actions release pipeline
 
 ### Fixed
 
-- Improved logging and indexer locking behaviour (#15)
-- GMs can set player status in schedules (#15)
+- Improved logging and indexer locking behaviour
+- GMs can set player status in schedules
 - Search bar and toolbar buttons on mobile
 - Bulk tag toolbar on both mobile and desktop
 
@@ -529,12 +566,12 @@ Campaigns reworked: expanded notes and a single consolidated campaign overview p
 
 ### Added
 
-- Scan cancellation (#8)
-- Log viewer in the settings page (#8)
+- Scan cancellation
+- Log viewer in the settings page
 
 ### Fixed
 
-- Roles in sync endpoints correctly reflect the UI (#8)
+- Roles in sync endpoints correctly reflect the UI
 
 ## [1.0.1] - 2026-04-10
 
@@ -558,6 +595,7 @@ Initial release. A self-hosted library manager for your TTRPG PDFs, battlemaps, 
 - Explicit content controls with per-user opt-in
 - Docker-first deployment
 
+[Unreleased]: https://github.com/hunter-read/grimoire/compare/v1.8.0...HEAD
 [1.8.0]: https://github.com/hunter-read/grimoire/compare/v1.7.3...v1.8.0
 [1.7.3]: https://github.com/hunter-read/grimoire/compare/v1.7.2...v1.7.3
 [1.7.2]: https://github.com/hunter-read/grimoire/compare/v1.7.1...v1.7.2

@@ -7,6 +7,7 @@ import {
   LuFileText,
   LuWrench,
   LuPackage,
+  LuNewspaper,
 } from 'react-icons/lu'
 
 export const CATEGORY_ORDER = [
@@ -17,6 +18,7 @@ export const CATEGORY_ORDER = [
   'handout',
   'character-sheet',
   'map',
+  'magazine',
   'homebrew',
 ]
 
@@ -28,6 +30,7 @@ export const CATEGORY_LABELS = {
   'character-sheet': 'Character Sheets',
   map: 'Maps',
   handout: 'Handouts & Reference',
+  magazine: 'Magazines & Zines',
   homebrew: 'Homebrew',
 }
 
@@ -39,6 +42,7 @@ export const CATEGORY_ICONS = {
   'character-sheet': LuClipboard,
   map: LuMap,
   handout: LuFileText,
+  magazine: LuNewspaper,
   homebrew: LuWrench,
 }
 

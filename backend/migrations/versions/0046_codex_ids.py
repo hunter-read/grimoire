@@ -8,8 +8,8 @@ means "not linked".
 Plain in-place ALTERs, as in 0040. Idempotent.
 
 Revision ID: 9c4d2e7a1f30
-Revises: 6b1e0c9d4a27
-Create Date: 2026-10-08 00:00:00.000000+00:00
+Revises: 2d9b6e4f8a13
+Create Date: 2026-10-14 00:00:00.000000+00:00
 
 """
 from typing import Sequence, Union
@@ -21,7 +21,7 @@ from sqlalchemy import inspect
 
 # revision identifiers, used by Alembic.
 revision: str = "9c4d2e7a1f30"
-down_revision: Union[str, None] = "6b1e0c9d4a27"
+down_revision: Union[str, None] = "2d9b6e4f8a13"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

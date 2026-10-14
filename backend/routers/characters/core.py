@@ -422,25 +422,7 @@ def create_character(
     helpers.assert_in_campaign(db, current_user.id, data.campaign_id)
 
     document = _validated_document(schema)
-    initial = _coerce_all(document, data.data or {})
-    # A new character starts with the sheet's starting values recorded - level
-    # 1, scores of 10 - so everything that reads its data sees them, not only a
-    # sheet that knows to display a default. A field whose value is derived
-    # from a choice (`default_from`) is left out: storing it would make it the
-    # player's own value, and it would stop following the choice.
-    for field_name, definition in (document.get("fields") or {}).items():
-        if (
-            isinstance(definition, dict)
-            and "default" in definition
-            and not definition.get("default_from")
-            and field_name not in initial
-        ):
-            initial[field_name] = svc.coerce_value(definition, definition["default"])
-    # A sheet whose `name_field` names one of its own fields starts that field
-    # as the name the player gave at creation, rather than blank beside it.
-    name_field = _name_field(document)
-    if name_field and name_field not in initial and (data.name or "").strip():
-        initial[name_field] = (data.name or "").strip()[:200]
+    initial = _starting_data(document, _coerce_all(document, data.data or {}), data.name or "")
 
     row = Character(
         user_id=current_user.id,
@@ -453,6 +435,31 @@ def create_character(
     db.commit()
     db.refresh(row)
     return _serialize_character(row, schema, detail=True, db=db, viewer_id=current_user.id)
+
+
+def _starting_data(document: dict, initial: dict, name: str) -> dict:
+    """A new character's data: what was given, plus the sheet's starting values.
+
+    A new character starts with the sheet's starting values recorded - level
+    1, scores of 10 - so everything that reads its data sees them, not only a
+    sheet that knows to display a default. A field whose value is derived from
+    a choice (`default_from`) is left out: storing it would make it the
+    player's own value, and it would stop following the choice.
+    """
+    for field_name, definition in (document.get("fields") or {}).items():
+        if (
+            isinstance(definition, dict)
+            and "default" in definition
+            and not definition.get("default_from")
+            and field_name not in initial
+        ):
+            initial[field_name] = svc.coerce_value(definition, definition["default"])
+    # A sheet whose `name_field` names one of its own fields starts that field
+    # as the name the player gave at creation, rather than blank beside it.
+    name_field = _name_field(document)
+    if name_field and name_field not in initial and name.strip():
+        initial[name_field] = name.strip()[:200]
+    return initial
 
 
 def update_character(

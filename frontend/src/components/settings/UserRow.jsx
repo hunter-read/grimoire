@@ -17,6 +17,8 @@ export default function UserRow({
   onCampaignAccessChange,
   apiKeysEnabled = false,
   onApiKeysChange,
+  shareLinksEnabled = false,
+  onShareLinksChange,
   onPasswordReset,
   onEmailChange,
   onDelete,
@@ -98,6 +100,7 @@ export default function UserRow({
             // Admins always hold keys; anyone else once granted. Nothing to show
             // while keys are off for the whole instance.
             apiKeys={apiKeysEnabled && (user.role === 'admin' || Boolean(user.api_keys_enabled))}
+            shareLinks={shareLinksEnabled && Boolean(user.share_links_allowed)}
           />
         </td>
 
@@ -134,6 +137,8 @@ export default function UserRow({
               onCampaignAccessChange={onCampaignAccessChange}
               apiKeysEnabled={apiKeysEnabled}
               onApiKeysChange={onApiKeysChange}
+              shareLinksEnabled={shareLinksEnabled}
+              onShareLinksChange={onShareLinksChange}
               onPasswordReset={onPasswordReset}
               onEmailChange={onEmailChange}
               onDelete={onDelete}

@@ -154,6 +154,41 @@ class TestSorts:
         ).json()
         assert [a["title"] for a in by_length["audio"]] == ["alpha", "Beta"]
 
+    def test_audio_track_order(self, client, admin_headers):
+        """Disc, then track, then name - however the files are named (issue #494)."""
+        pack = _uid("Album")
+
+        def track(name, disc, number):
+            make_audio(
+                filename=name,
+                relative_path=f"audio/{pack}/{name}",
+                disc_number=disc,
+                track_number=number,
+            )
+
+        track("a.mp3", 2, 1)
+        track("b.mp3", 1, 2)
+        track("c.mp3", 1, 1)
+        # Untagged files lead, in name order, as they would under `path`.
+        track("z-intro.mp3", 0, 0)
+        track("y-bonus.mp3", 0, 0)
+        body = client.get(
+            "/api/audio", params={"folder": pack, "sort": "track"}, headers=admin_headers
+        ).json()
+        names = [a["filename"] for a in body["audio"]]
+        assert names == ["y-bonus.mp3", "z-intro.mp3", "c.mp3", "b.mp3", "a.mp3"]
+        first = body["audio"][2]
+        assert (first["disc_number"], first["track_number"]) == (1, 1)
+        # Stored 0 ("no tag") comes back as null.
+        assert body["audio"][0]["track_number"] is None
+
+    def test_track_sort_is_folder_order_elsewhere(self, client, admin_headers):
+        pack = _uid("Tracks")
+        for n in ("b.png", "a.png"):
+            make_token(filename=n, relative_path=f"tokens/{pack}/{n}")
+        body = _tokens(client, admin_headers, folder=pack, sort="track")
+        assert _names(body) == ["a.png", "b.png"]
+
     def test_unknown_sort_is_rejected(self, client, admin_headers):
         resp = client.get("/api/tokens?sort=colour", headers=admin_headers)
         assert resp.status_code == 422

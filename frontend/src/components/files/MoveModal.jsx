@@ -1,59 +1,23 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuFolderOpen } from 'react-icons/lu'
 import { files as filesApi } from '../../api'
 import Spinner from '../Spinner'
-import MoveFolderRow, { moveRowStyle } from './MoveFolderRow'
+import FolderTree from './FolderTree'
 
 /**
  * Pick a destination folder for a move.
  *
  * The file manager moves things by dragging one pane onto another, which needs
  * both ends on screen — a luxury a book's own page does not have. This is the
- * same tree with the file half removed: only folders are listed, because the
- * only question being asked is *where*, and showing files would offer targets
- * that cannot be dropped on.
- *
- * Folders expand in place and load lazily, one request per folder on first open,
- * so opening the dialog costs a single listing of the root rather than a walk of
- * the library. Unwritable folders stay visible but unselectable: hiding them
- * would make a read-only mount look like a missing folder.
+ * same tree with the file half removed (see FolderTree): only folders are
+ * listed, because the only question being asked is *where*, and showing files
+ * would offer targets that cannot be dropped on.
  */
 export default function MoveModal({ items, onClose, onMoved }) {
   const { t } = useTranslation()
-  // path -> { entries, writable, loading }
-  const [folders, setFolders] = useState({})
-  const [expanded, setExpanded] = useState(() => new Set(['']))
   const [selected, setSelected] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
-
-  const load = useCallback(async (target) => {
-    setFolders((prev) =>
-      prev[target]?.entries ? prev : { ...prev, [target]: { loading: true, entries: [] } }
-    )
-    try {
-      const res = await filesApi.browse(target)
-      setFolders((prev) => ({
-        ...prev,
-        [target]: {
-          // Folders only: a file is never a destination.
-          entries: (res.entries || []).filter((e) => e.is_dir),
-          writable: res.writable,
-          loading: false,
-        },
-      }))
-    } catch {
-      setFolders((prev) => ({
-        ...prev,
-        [target]: { entries: [], writable: false, loading: false },
-      }))
-    }
-  }, [])
-
-  useEffect(() => {
-    load('')
-  }, [load])
 
   // Escape closes, unless a move is already in flight. A window listener rather
   // than a handler on the panel: nothing here is autofocused, so focus may still
@@ -65,19 +29,6 @@ export default function MoveModal({ items, onClose, onMoved }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [busy, onClose])
 
-  const toggle = (path) => {
-    setExpanded((prev) => {
-      const next = new Set(prev)
-      if (next.has(path)) {
-        next.delete(path)
-      } else {
-        next.add(path)
-        if (!folders[path]) load(path)
-      }
-      return next
-    })
-  }
-
   // The paths being moved, and their parents. A folder cannot be moved inside
   // itself, and moving something into the folder it already sits in is a no-op —
   // both are refused by the API, so the picker never offers them.
@@ -85,21 +36,6 @@ export default function MoveModal({ items, onClose, onMoved }) {
   const parents = new Set(sources.map((p) => p.split('/').slice(0, -1).join('/')))
   const isBlocked = (path) =>
     parents.has(path) || sources.some((s) => path === s || path.startsWith(`${s}/`))
-
-  const rows = []
-  const walk = (path, depth) => {
-    const folder = folders[path]
-    if (!folder) return
-    if (folder.loading && !folder.entries.length) {
-      rows.push({ kind: 'loading', path, depth })
-      return
-    }
-    for (const entry of folder.entries) {
-      rows.push({ kind: 'folder', entry, depth })
-      if (expanded.has(entry.path)) walk(entry.path, depth + 1)
-    }
-  }
-  walk('', 0)
 
   const submit = async () => {
     if (selected === null || busy) return
@@ -120,8 +56,6 @@ export default function MoveModal({ items, onClose, onMoved }) {
     }
   }
 
-  const rootWritable = folders['']?.writable !== false
-
   return (
     <div style={backdrop} onClick={onClose}>
       <div
@@ -138,43 +72,13 @@ export default function MoveModal({ items, onClose, onMoved }) {
             : t('files.movePromptMany', { count: items.length })}
         </p>
 
-        <div style={treeBox} data-testid="move-tree">
-          <button
-            type="button"
-            onClick={() => rootWritable && setSelected('')}
-            disabled={!rootWritable}
-            aria-pressed={selected === ''}
-            style={moveRowStyle(0, selected === '', !rootWritable)}
-          >
-            <span style={{ width: 13 }} />
-            <LuFolderOpen size={13} aria-hidden="true" />
-            {t('files.libraryRoot')}
-          </button>
-
-          {rows.map((row) =>
-            row.kind === 'loading' ? (
-              <div
-                key={`loading-${row.path}`}
-                style={{ ...moveRowStyle(row.depth + 1, false, true), cursor: 'default' }}
-              >
-                <Spinner size={12} />
-              </div>
-            ) : (
-              <MoveFolderRow
-                key={row.entry.path}
-                entry={row.entry}
-                depth={row.depth + 1}
-                open={expanded.has(row.entry.path)}
-                selected={selected === row.entry.path}
-                blocked={isBlocked(row.entry.path)}
-                onToggle={() => toggle(row.entry.path)}
-                onSelect={() => setSelected(row.entry.path)}
-                blockedLabel={t('files.moveBlocked')}
-                expandLabel={t('files.expandFolder', { name: row.entry.name })}
-              />
-            )
-          )}
-        </div>
+        <FolderTree
+          testId="move-tree"
+          selected={selected}
+          onSelect={setSelected}
+          isBlocked={isBlocked}
+          blockedLabel={t('files.moveBlocked')}
+        />
 
         {error && (
           <div style={{ color: 'var(--danger)', fontSize: 12, marginTop: 10 }} role="alert">
@@ -218,15 +122,6 @@ const panel = {
   borderRadius: 10,
   padding: 20,
   width: 'min(480px, 100%)',
-}
-
-const treeBox = {
-  border: '1px solid var(--border)',
-  borderRadius: 8,
-  background: 'var(--bg-card)',
-  padding: 4,
-  maxHeight: 320,
-  overflowY: 'auto',
 }
 
 function btn(primary) {

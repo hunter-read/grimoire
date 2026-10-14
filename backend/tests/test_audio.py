@@ -12,6 +12,8 @@ from backend.tests.conftest import make_audio
 from backend.config import SessionLocal
 from backend.models import Audio, AudioFolder
 
+M4B_FIXTURE = os.path.join(os.path.dirname(__file__), "fixtures", "audio", "audiobook.m4b")
+
 
 def _write_wav(path):
     with wave.open(path, "w") as w:
@@ -242,3 +244,53 @@ class TestServeAudioFile:
             "/api/audio/does-not-exist", json={"description": "x"}, headers=gm_headers
         )
         assert resp.status_code == 404
+
+
+@pytest.fixture(scope="module")
+def book():
+    return make_audio(
+        filename="book.m4b", filepath=M4B_FIXTURE, relative_path="audio/Books/book.m4b"
+    )
+
+
+class TestAudiobook:
+    """`.m4b` audiobooks play in the existing player and expose chapters (issue #564)."""
+
+    def test_serves_m4b_as_mp4_audio(self, client, admin_headers, book):
+        resp = client.get(f"/api/audio/{book.id}/file", headers=admin_headers)
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "audio/mp4"
+
+    def test_range_request_for_seeking(self, client, admin_headers, book):
+        headers = {**admin_headers, "Range": "bytes=100-199"}
+        resp = client.get(f"/api/audio/{book.id}/file", headers=headers)
+        assert resp.status_code == 206
+        assert len(resp.content) == 100
+
+    def test_chapters(self, client, player_headers, book):
+        resp = client.get(f"/api/audio/{book.id}/chapters", headers=player_headers)
+        assert resp.status_code == 200
+        chapters = resp.json()["chapters"]
+        assert [c["start"] for c in chapters] == [0.0, 0.4, 0.8]
+        assert chapters[0]["title"] == "Prologue"
+
+    def test_chapters_empty_for_track_without_markers(self, client, admin_headers):
+        tmp = tempfile.mkdtemp()
+        wav = os.path.join(tmp, "tone.wav")
+        _write_wav(wav)
+        a = make_audio(filename="tone.wav", filepath=wav)
+        resp = client.get(f"/api/audio/{a.id}/chapters", headers=admin_headers)
+        assert resp.json() == {"chapters": []}
+
+    def test_chapters_empty_when_file_missing(self, client, admin_headers):
+        a = make_audio(filename="gone.m4b", filepath="/tmp/definitely-missing-book.m4b")
+        resp = client.get(f"/api/audio/{a.id}/chapters", headers=admin_headers)
+        assert resp.status_code == 200
+        assert resp.json() == {"chapters": []}
+
+    def test_chapters_404_for_unknown_id(self, client, admin_headers):
+        resp = client.get("/api/audio/does-not-exist/chapters", headers=admin_headers)
+        assert resp.status_code == 404
+
+    def test_chapters_require_auth(self, client, book):
+        assert client.get(f"/api/audio/{book.id}/chapters").status_code == 401

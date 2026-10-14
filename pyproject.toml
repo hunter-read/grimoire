@@ -59,6 +59,7 @@ module = [
     "backend.api_keys",
     "backend.security",
     "backend.file_cache",
+    "backend.filenames",
     "backend.ocr",
     "backend.scheduler",
     "backend.pdf_worker",

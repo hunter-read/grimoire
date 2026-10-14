@@ -1,7 +1,9 @@
 """Shared helpers and defaults for settings endpoints."""
 import json
+import logging
 import re
 
+from ... import config
 from ...config import (
     ALLOW_PASSWORD_AUTHENTICATION_ENV,
     DISABLE_FOLDER_CATEGORY_INFERENCE_ENV,
@@ -10,6 +12,9 @@ from ...config import (
     BASE_URL,
 )
 from ...models import AppSetting
+from ...services.oidc_button import current_icon, normalize_color, normalize_radius
+
+logger = logging.getLogger("grimoire.oidc")
 
 
 _VALID_INTERVALS = ("hourly", "daily", "weekly")
@@ -42,6 +47,9 @@ _DEFAULTS = {
     "password_auth_enabled": "true",
     # Whether GMs/admins may create guest invite codes for their campaigns.
     "guest_access_enabled": "false",
+    # Share-link role defaults (issue #541); see services/share_links.py.
+    "share_links_role_gm": "true",
+    "share_links_role_player": "false",
     # When true, the indexer does not infer a book's category from its folder
     # names (books fall back to the neutral "uncategorized" category).
     "disable_folder_category_inference": "false",
@@ -60,6 +68,13 @@ _DEFAULTS = {
     "oidc_client_secret": "",
     "oidc_signing_alg": "RS256",
     "oidc_button_text": "Sign in with SSO",
+    # Login-button appearance (issue #377). "" = the theme's default look.
+    "oidc_button_bg_color": "",
+    "oidc_button_text_color": "",
+    "oidc_button_border_color": "",
+    "oidc_button_radius": "",
+    # Content hash of the uploaded icon in BRANDING_DIR; "" = no icon.
+    "oidc_button_icon": "",
     "oidc_groups_claim": "",
     "oidc_permissions_claim": "",
     "oidc_match_by": "none",  # none | email | username
@@ -84,12 +99,40 @@ _OIDC_STRING_FIELDS = (
     "oidc_client_id",
     "oidc_signing_alg",
     "oidc_button_text",
+    "oidc_button_bg_color",
+    "oidc_button_text_color",
+    "oidc_button_border_color",
+    "oidc_button_radius",
     "oidc_groups_claim",
     "oidc_permissions_claim",
     "oidc_match_by",
 )
 _OIDC_BOOL_FIELDS = ("oidc_enabled", "oidc_auto_launch", "oidc_auto_register")
-_OIDC_LOCKABLE_FIELDS = _OIDC_STRING_FIELDS + _OIDC_BOOL_FIELDS + ("oidc_client_secret",)
+# Set through their own endpoints rather than the PATCH body, but env-lockable.
+_OIDC_LOCKABLE_FIELDS = _OIDC_STRING_FIELDS + _OIDC_BOOL_FIELDS + (
+    "oidc_client_secret",
+    "oidc_button_icon",
+)
+_OIDC_BUTTON_COLOR_FIELDS = (
+    "oidc_button_bg_color",
+    "oidc_button_text_color",
+    "oidc_button_border_color",
+)
+OIDC_BUTTON_ICON_PATH = "/api/auth/openid/button-icon"
+
+
+def _warn_invalid_button_env() -> None:
+    """Log once at startup for env-pinned button styles that will be ignored."""
+    for key in _OIDC_BUTTON_COLOR_FIELDS:
+        val = OIDC_ENV.get(key)
+        if val is not None and normalize_color(val) is None:
+            logger.warning("%s=%r is not a CSS hex color; ignoring it", key.upper(), val)
+    radius = OIDC_ENV.get("oidc_button_radius")
+    if radius is not None and normalize_radius(radius) is None:
+        logger.warning("OIDC_BUTTON_RADIUS=%r is not an integer 0-40; ignoring it", radius)
+
+
+_warn_invalid_button_env()
 
 
 def _get_raw(db) -> dict:
@@ -133,6 +176,10 @@ def _to_typed(raw: dict) -> dict:
         "password_auth_env_locked": ALLOW_PASSWORD_AUTHENTICATION_ENV is not None,
         "guest_access_enabled": guest_access_effective(raw),
         "guest_access_env_locked": GUEST_ACCESS_ENABLED_ENV is not None,
+        # Read at call time, so the switch is honoured however config is set.
+        "share_links_enabled": config.SHARE_LINKS_ENABLED,
+        "share_links_role_gm": raw.get("share_links_role_gm", "true") == "true",
+        "share_links_role_player": raw.get("share_links_role_player", "false") == "true",
         "disable_folder_category_inference": disable_folder_category_inference_effective(raw),
         "disable_folder_category_inference_env_locked": (
             DISABLE_FOLDER_CATEGORY_INFERENCE_ENV is not None
@@ -171,6 +218,7 @@ def _oidc_to_typed(raw: dict) -> dict:
     return {
         **eff,
         "oidc_redirect_uri": oidc_redirect_uri(),
+        "oidc_button_icon_url": oidc_button_icon_url(raw),
         "oidc_client_secret_set": bool(secret),
         "oidc_client_secret_length": len(secret) if secret else 0,
         **locks,
@@ -229,6 +277,11 @@ def oidc_effective(raw: dict) -> dict:
         "oidc_client_id": s("oidc_client_id"),
         "oidc_signing_alg": s("oidc_signing_alg") or "RS256",
         "oidc_button_text": s("oidc_button_text") or "Sign in with SSO",
+        # Re-validated on read so a bad env pin degrades to the default look.
+        "oidc_button_bg_color": normalize_color(s("oidc_button_bg_color")) or "",
+        "oidc_button_text_color": normalize_color(s("oidc_button_text_color")) or "",
+        "oidc_button_border_color": normalize_color(s("oidc_button_border_color")) or "",
+        "oidc_button_radius": normalize_radius(s("oidc_button_radius")) or "",
         "oidc_groups_claim": s("oidc_groups_claim"),
         "oidc_permissions_claim": s("oidc_permissions_claim"),
         "oidc_match_by": s("oidc_match_by") or "none",
@@ -243,6 +296,16 @@ def oidc_effective_client_secret(raw: dict) -> str:
     if env_val is not None:
         return env_val
     return raw.get("oidc_client_secret", "") or ""
+
+
+def oidc_button_icon_url(raw: dict) -> str:
+    """Relative URL of the effective login-button icon, or "" when there is none.
+
+    The ``v`` query parameter is the icon's content hash, so the browser can
+    cache it forever and still pick up a replacement immediately.
+    """
+    icon = current_icon(raw.get("oidc_button_icon", ""), OIDC_ENV.get("oidc_button_icon"))
+    return f"{OIDC_BUTTON_ICON_PATH}?v={icon[1]}" if icon else ""
 
 
 def oidc_redirect_uri() -> str:

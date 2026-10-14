@@ -260,19 +260,20 @@ class TestLogsPagination:
 
 
 class TestMemoryHandler:
+    # The buffer is a bounded deque, so once the full suite has logged more
+    # than _LOG_BUFFER_MAX records the total stops growing. Look for the probe
+    # message among the newest entries instead of comparing counts.
     def test_buffer_captures_info(self):
         from backend.config import _memory_handler
-        initial = _memory_handler.get_total(min_level=logging.INFO)
         logging.getLogger("grimoire").info("memory handler capture test")
-        after = _memory_handler.get_total(min_level=logging.INFO)
-        assert after > initial
+        entries, _ = _memory_handler.get_entries(min_level=logging.INFO, limit=50)
+        assert "memory handler capture test" in [e["message"] for e in entries]
 
     def test_buffer_captures_debug(self):
         from backend.config import _memory_handler
-        initial = _memory_handler.get_total(min_level=logging.DEBUG)
         logging.getLogger("grimoire").debug("memory handler debug capture test")
-        after = _memory_handler.get_total(min_level=logging.DEBUG)
-        assert after > initial
+        entries, _ = _memory_handler.get_entries(min_level=logging.DEBUG, limit=50)
+        assert "memory handler debug capture test" in [e["message"] for e in entries]
 
     def test_get_entries_respects_min_level(self):
         from backend.config import _memory_handler

@@ -313,6 +313,49 @@ def serve_map_vtt_image(
     )
 
 
+def _has_single_raster(m: GenericMap) -> bool:
+    """Whether a map is one still picture an export can be built from.
+
+    A PDF, video or archive has no single raster to embed. A .uvtt *is* one of
+    these files: its picture is inside the envelope, so it qualifies.
+    """
+    is_vtt = is_vtt_data(m.filename)
+    opaque = Path(m.filepath).suffix.lower() in MAP_OPAQUE_EXTS
+    return not (_is_pdf(m.filepath) or archive_ext(m.filename) or (opaque and not is_vtt))
+
+
+def _export_grid(m: GenericMap, is_vtt: bool) -> tuple[dict, dict]:
+    """Measure a map and resolve the grid an export uses: ``(info, grid)``.
+
+    Shared by the Universal VTT and OTFBM exports so the two cannot disagree
+    about a map's grid. 400s when the picture cannot be measured.
+    """
+    info = _map_image_info(m.filepath, m.relative_path, (m.grid_width, m.grid_height, m.grid_px))
+    # A .uvtt's raster is inside the envelope, so nothing at the path measures.
+    if is_vtt and not info.get("pixel_width"):
+        px_w, px_h = vtt_image_size(m.filepath)
+        if px_w:
+            info = {**info, "pixel_width": px_w, "pixel_height": px_h}
+    if not info.get("pixel_width"):
+        raise HTTPException(400, "Map image could not be read")
+    grid = resolve_grid(m, info)
+    # As in the authoring handler: the file's own cell size is what its geometry
+    # was drawn against, so it wins over detection or a default.
+    if is_vtt and grid["source"] != "manual":
+        try:
+            file_px = (vtt_metadata(m.filepath) or {}).get("pixels_per_grid")
+        except ValueError:
+            file_px = None
+        if isinstance(file_px, (int, float)) and file_px > 0:
+            grid = {
+                "width": round2(info["pixel_width"] / file_px),
+                "height": round2(info["pixel_height"] / file_px),
+                "px": float(file_px),
+                "source": "vtt",
+            }
+    return info, grid
+
+
 def export_map_uvtt(
     map_id: str,
     current_user: CurrentUser = Depends(get_current_user),
@@ -340,8 +383,7 @@ def export_map_uvtt(
     # these files, so it re-exports rather than being rejected: the GM may have
     # edited its walls, and the export is how the edit leaves Grimoire.
     is_vtt = is_vtt_data(m.filename)
-    opaque = Path(m.filepath).suffix.lower() in MAP_OPAQUE_EXTS
-    if _is_pdf(m.filepath) or archive_ext(m.filename) or (opaque and not is_vtt):
+    if not _has_single_raster(m):
         raise HTTPException(400, "Only image maps can be exported to Universal VTT")
 
     # A raster map already linked to a real Universal VTT file has nothing to
@@ -360,29 +402,7 @@ def export_map_uvtt(
         ):
             raise HTTPException(400, "This map is already linked to a Universal VTT file")
 
-    info = _map_image_info(m.filepath, m.relative_path, (m.grid_width, m.grid_height, m.grid_px))
-    # A .uvtt's raster is inside the envelope, so nothing at the path measures.
-    if is_vtt and not info.get("pixel_width"):
-        px_w, px_h = vtt_image_size(m.filepath)
-        if px_w:
-            info = {**info, "pixel_width": px_w, "pixel_height": px_h}
-    if not info.get("pixel_width"):
-        raise HTTPException(400, "Map image could not be read")
-    grid = resolve_grid(m, info)
-    # As in the authoring handler: the file's own cell size is what its geometry
-    # was drawn against, so it wins over detection or a default.
-    if is_vtt and grid["source"] != "manual":
-        try:
-            file_px = (vtt_metadata(m.filepath) or {}).get("pixels_per_grid")
-        except ValueError:
-            file_px = None
-        if isinstance(file_px, (int, float)) and file_px > 0:
-            grid = {
-                "width": round2(info["pixel_width"] / file_px),
-                "height": round2(info["pixel_height"] / file_px),
-                "px": float(file_px),
-                "source": "vtt",
-            }
+    info, grid = _export_grid(m, is_vtt)
 
     try:
         mtime = int(os.path.getmtime(m.filepath))
