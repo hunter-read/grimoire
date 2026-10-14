@@ -454,6 +454,16 @@ export default function SystemEditor({ system, onSave, onCoverChange, onCodexLin
           form payload), so this sits outside the save flow. It is the only way
           to give a container folder art, since it has no books to pick from. */}
       <CoverUpload system={system} onChange={onCoverChange} />
+      {/* Like the cover upload, its send and unlink actions apply immediately. */}
+      <CodexPanel
+        kind="systems"
+        resourceId={system.id}
+        codexId={codexId}
+        onLinkChange={(id) => {
+          setCodexId(id)
+          onCodexLinkChange?.(id)
+        }}
+      />
 
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
         <button
@@ -493,16 +503,6 @@ export default function SystemEditor({ system, onSave, onCoverChange, onCodexLin
           </button>
         )}
       </div>
-
-      <CodexPanel
-        kind="systems"
-        resourceId={system.id}
-        codexId={codexId}
-        onLinkChange={(id) => {
-          setCodexId(id)
-          onCodexLinkChange?.(id)
-        }}
-      />
 
       {fetching && (
         <MetadataFetchDialog

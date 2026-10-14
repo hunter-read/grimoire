@@ -305,10 +305,18 @@ export default function BookEditor({
         </div>
       </div>
 
-      {/* Versions live outside the form: linking, promoting, and deleting apply
-          immediately through their own endpoints rather than waiting on Save,
-          so they must not look like fields the Save button is going to commit. */}
+      {/* Versions and the Grimoire Codex DB link live outside the form: their
+          actions apply immediately through their own endpoints rather than
+          waiting on Save, so they must not look like fields the Save button is
+          going to commit. */}
       <BookVersionsSection book={book} onChanged={onVariantsChanged} />
+      <CodexPanel
+        kind="books"
+        resourceId={book.id}
+        codexId={codexId}
+        onLinkChange={setCodexId}
+        compact
+      />
 
       {/* Buttons stay a plain row anchored bottom-left; nothing else shares it,
           so the pair never shifts as fields above them change height. */}
@@ -366,8 +374,6 @@ export default function BookEditor({
           </button>
         )}
       </div>
-
-      <CodexPanel kind="books" resourceId={book.id} codexId={codexId} onLinkChange={setCodexId} />
 
       {fetching && (
         <MetadataFetchDialog

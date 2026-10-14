@@ -78,7 +78,8 @@ the UI: `GRIMOIRE_CODEX_DB_URL` and `GRIMOIRE_CODEX_DB_SEND_HASHES`. See
 
 ## Finding and linking a record
 
-1. Open a book's or system's editor and choose **Fetch metadata**.
+1. Open a book's or system's editor and choose **Fetch metadata**. In the reader, it is
+   also at the top of the details panel's editor.
 2. Pick **Grimoire Codex DB** as the source. For a book, the first search uses
    everything Grimoire knows about it; each result shows why it matched (for example
    "Same ISBN, Same author"). For a system, it searches by name.
@@ -90,7 +91,7 @@ the UI: `GRIMOIRE_CODEX_DB_URL` and `GRIMOIRE_CODEX_DB_SEND_HASHES`. See
 Some fields are never offered from Grimoire Codex DB because they describe your file rather
 than the book: category, page count and file size.
 
-To unlink, choose **Unlink** in the editor's Grimoire Codex DB panel. That only clears
+To unlink, choose **Unlink** in the editor's Grimoire Codex DB section. That only clears
 the local `codex_id`; nothing changes in Grimoire Codex DB.
 
 ## Sending records

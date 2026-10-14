@@ -13,11 +13,15 @@ import { CODEX_FIELDS, codexFieldLabel } from './codexFields'
  * Finding and linking a record is not here: that is "Fetch metadata", where
  * Grimoire Codex DB is a built-in source and applying a result links the record.
  *
+ * Like the editor's other act-immediately sections (versions, cover upload) it
+ * is an unframed block above the Save row, styled at its host's scale rather
+ * than as a card of its own — `compact` matches the book editor's denser type.
+ *
  * `kind` is 'books' or 'systems'. `codexId` is owned by the editor, which also
  * learns of links made through Fetch metadata; `onLinkChange` reports changes
  * made here.
  */
-export default function CodexPanel({ kind, resourceId, codexId, onLinkChange }) {
+export default function CodexPanel({ kind, resourceId, codexId, onLinkChange, compact = false }) {
   const { t } = useTranslation()
   const status = useCodexStatus()
   const [sending, setSending] = useState(false)
@@ -35,6 +39,7 @@ export default function CodexPanel({ kind, resourceId, codexId, onLinkChange }) 
   // A new record needs a word on where it came from: Grimoire Codex DB asks newer
   // contributors for evidence, and a reviewer needs it either way.
   const canSend = !busy && (linked ? fields.length > 0 : note.trim().length > 0)
+  const s = compact ? COMPACT : REGULAR
 
   const toggle = (field) =>
     setFields((prev) => (prev.includes(field) ? prev.filter((f) => f !== field) : [...prev, field]))
@@ -72,44 +77,46 @@ export default function CodexPanel({ kind, resourceId, codexId, onLinkChange }) 
   }
 
   return (
-    <section aria-labelledby={`codex-${resourceId}`} style={panel}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <LuDatabase size={15} aria-hidden="true" style={{ color: 'var(--gold)', flexShrink: 0 }} />
-        <div style={{ flex: '1 1 200px', minWidth: 0 }}>
-          <h4 id={`codex-${resourceId}`} style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>
-            {t('codex.panel.title')}
-          </h4>
-          <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
-            {linked ? (
-              <a href={recordUrl} target="_blank" rel="noreferrer" style={link}>
-                {t('codex.panel.linked')} <LuExternalLink size={11} aria-hidden="true" />
-              </a>
-            ) : (
-              t('codex.panel.notLinked')
-            )}
-          </p>
-        </div>
-        {!sending && (
-          <button type="button" onClick={() => setSending(true)} disabled={busy} style={button}>
-            <LuSend size={12} aria-hidden="true" />
+    <section aria-labelledby={`codex-${resourceId}`} style={s.section}>
+      <h4 id={`codex-${resourceId}`} style={s.heading}>
+        <LuDatabase size={14} aria-hidden="true" />
+        {t('codex.panel.title')}
+      </h4>
+      <p style={{ ...s.text, color: 'var(--text-muted)', margin: 0 }}>
+        {linked ? (
+          <a href={recordUrl} target="_blank" rel="noreferrer" style={link}>
+            {t('codex.panel.linked')} <LuExternalLink size={11} aria-hidden="true" />
+          </a>
+        ) : (
+          t('codex.panel.notLinked')
+        )}
+      </p>
+
+      {!sending && (
+        <div style={actionRow}>
+          <button
+            type="button"
+            onClick={() => setSending(true)}
+            disabled={busy}
+            style={button(s, busy)}
+          >
+            <LuSend size={13} aria-hidden="true" />
             {linked ? t('codex.panel.sendCorrection') : t('codex.panel.add')}
           </button>
-        )}
-        {!sending && linked && (
-          <button type="button" onClick={unlink} disabled={busy} style={button}>
-            <LuUnlink size={12} aria-hidden="true" />
-            {t('codex.panel.unlink')}
-          </button>
-        )}
-      </div>
+          {linked && (
+            <button type="button" onClick={unlink} disabled={busy} style={button(s, busy)}>
+              <LuUnlink size={13} aria-hidden="true" />
+              {t('codex.panel.unlink')}
+            </button>
+          )}
+        </div>
+      )}
 
       {sending && (
         <div style={{ marginTop: 12 }}>
           {linked ? (
             <fieldset style={{ border: 'none', margin: 0, padding: 0 }}>
-              <legend style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 6 }}>
-                {t('codex.panel.chooseFields')}
-              </legend>
+              <legend style={{ ...s.label, padding: 0 }}>{t('codex.panel.chooseFields')}</legend>
               <div style={fieldGrid}>
                 {available.map((field) => (
                   <label key={field} style={checkRow}>
@@ -125,13 +132,11 @@ export default function CodexPanel({ kind, resourceId, codexId, onLinkChange }) 
               </div>
             </fieldset>
           ) : (
-            <p
-              style={{ fontSize: 12, color: 'var(--text-dim)', margin: '0 0 8px', lineHeight: 1.5 }}
-            >
+            <p style={{ ...s.text, color: 'var(--text-dim)', margin: '0 0 10px', lineHeight: 1.5 }}>
               {t(kind === 'books' ? 'codex.panel.addBookHint' : 'codex.panel.addSystemHint')}
             </p>
           )}
-          <label htmlFor={`codex-note-${resourceId}`} style={labelStyle}>
+          <label htmlFor={`codex-note-${resourceId}`} style={s.label}>
             {linked ? t('codex.panel.noteOptional') : t('codex.panel.noteRequired')}
           </label>
           <textarea
@@ -141,21 +146,21 @@ export default function CodexPanel({ kind, resourceId, codexId, onLinkChange }) 
             rows={2}
             maxLength={2000}
             placeholder={t('codex.panel.notePlaceholder')}
-            style={{ width: '100%', resize: 'vertical', fontSize: 13 }}
+            style={{ width: '100%', resize: 'vertical', fontSize: 13, boxSizing: 'border-box' }}
           />
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <button type="button" onClick={send} disabled={!canSend} style={primary(canSend)}>
-              {busy ? t('codex.panel.sending') : t('codex.panel.send')}
-            </button>
-            <button type="button" onClick={close} disabled={busy} style={button}>
+          <div style={actionRow}>
+            <button type="button" onClick={close} disabled={busy} style={button(s, busy)}>
               {t('codex.panel.cancel')}
+            </button>
+            <button type="button" onClick={send} disabled={!canSend} style={primary(s, canSend)}>
+              {busy ? t('codex.panel.sending') : t('codex.panel.send')}
             </button>
           </div>
         </div>
       )}
 
       {result && (
-        <p role="status" style={{ fontSize: 12, color: 'var(--text-dim)', margin: '10px 0 0' }}>
+        <p role="status" style={{ ...s.text, color: 'var(--text-dim)', margin: '10px 0 0' }}>
           {result.status === 'applied' ? t('codex.panel.applied') : t('codex.panel.pending')}{' '}
           <a href={result.edit_url} target="_blank" rel="noreferrer" style={link}>
             {t('codex.panel.viewEdit')}
@@ -163,7 +168,7 @@ export default function CodexPanel({ kind, resourceId, codexId, onLinkChange }) 
         </p>
       )}
       {error && (
-        <p role="alert" style={{ fontSize: 12, color: 'var(--danger)', margin: '10px 0 0' }}>
+        <p role="alert" style={{ ...s.text, color: 'var(--danger)', margin: '10px 0 0' }}>
           {error}
         </p>
       )}
@@ -171,12 +176,47 @@ export default function CodexPanel({ kind, resourceId, codexId, onLinkChange }) 
   )
 }
 
-const panel = {
-  marginTop: 16,
-  padding: '12px 14px',
-  border: '1px solid var(--border)',
-  borderRadius: 6,
-  background: 'var(--bg-card)',
+// The two hosts' own section idioms: the book editor's Versions heading and
+// 12px field labels, and the system editor's 14px muted section labels. A
+// hairline above sets it apart from the fields, as the Versions rows do.
+//
+// The heading is an h4 for the outline but must not look like one: the global
+// h1-h4 rule makes headings gold Cinzel, which no neighbouring section uses.
+const headingReset = { fontFamily: 'inherit', letterSpacing: 'normal' }
+const divider = { borderTop: '1px solid var(--border)', paddingTop: 14 }
+
+const COMPACT = {
+  section: { ...divider, marginTop: 20 },
+  heading: {
+    ...headingReset,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    margin: '0 0 4px',
+    fontSize: 13,
+    fontWeight: 600,
+    color: 'var(--text)',
+  },
+  text: { fontSize: 12 },
+  label: { fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 3 },
+  radius: 5,
+}
+
+const REGULAR = {
+  section: { ...divider, marginTop: 16, marginBottom: 8 },
+  heading: {
+    ...headingReset,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    margin: '0 0 6px',
+    fontSize: 14,
+    fontWeight: 400,
+    color: 'var(--text-muted)',
+  },
+  text: { fontSize: 13 },
+  label: { fontSize: 14, color: 'var(--text-muted)', display: 'block', marginBottom: 4 },
+  radius: 6,
 }
 
 const link = {
@@ -187,26 +227,35 @@ const link = {
   gap: 4,
 }
 
-const button = {
+const actionRow = { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 10 }
+
+const button = (s, busy) => ({
   display: 'inline-flex',
   alignItems: 'center',
   gap: 6,
-  padding: '5px 12px',
-  borderRadius: 5,
+  padding: '6px 14px',
+  borderRadius: s.radius,
   background: 'none',
   border: '1px solid var(--border)',
   color: 'var(--text-dim)',
-  fontSize: 12,
-  cursor: 'pointer',
-}
+  fontSize: 13,
+  cursor: busy ? 'default' : 'pointer',
+  opacity: busy ? 0.6 : 1,
+})
 
-const primary = (enabled) => ({
-  ...button,
-  background: enabled ? 'var(--gold-dim)' : 'var(--bg-deep)',
-  borderColor: enabled ? 'var(--gold-dim)' : 'var(--border)',
-  color: enabled ? 'var(--bg-deep)' : 'var(--text-muted)',
+// Outlined rather than filled: the editor's Save sits just below, and it stays
+// the one filled gold button so the two forms never read as one. Dimmed, not
+// recoloured, while it cannot send.
+const primary = (s, enabled) => ({
+  padding: '6px 14px',
+  borderRadius: s.radius,
+  background: 'none',
+  border: '1px solid var(--gold-dim)',
+  color: 'var(--gold)',
+  fontSize: 13,
   fontWeight: 600,
   cursor: enabled ? 'pointer' : 'default',
+  opacity: enabled ? 1 : 0.5,
 })
 
 const fieldGrid = {
@@ -220,9 +269,7 @@ const checkRow = {
   display: 'flex',
   alignItems: 'center',
   gap: 6,
-  fontSize: 12,
+  fontSize: 13,
   color: 'var(--text)',
   cursor: 'pointer',
 }
-
-const labelStyle = { fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 3 }
