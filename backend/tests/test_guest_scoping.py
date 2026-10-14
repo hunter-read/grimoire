@@ -46,8 +46,11 @@ GUEST_REACHABLE = {
     "/api/bookmarks": "GET POST",
     "/api/bookmarks/{bookmark_id}": "DELETE PATCH",
     "/api/books/{book_id}": "GET",
+    "/api/books/{book_id}/export": "POST",
     "/api/books/{book_id}/file": "GET",
     "/api/books/{book_id}/page/{page_num}": "GET",
+    "/api/books/{book_id}/page/{page_num}/shapes": "GET",
+    "/api/books/{book_id}/page/{page_num}/size": "GET",
     "/api/books/{book_id}/page/{page_num}/text": "GET",
     "/api/books/{book_id}/page/{page_num}/words": "GET",
     "/api/books/{book_id}/thumbnail": "GET",
@@ -138,11 +141,14 @@ GUEST_REACHABLE = {
     "/api/favorites/{item_type}/{item_id}": "DELETE",
     "/api/latest-release": "GET",
     "/api/maps/{map_id}": "GET",
+    "/api/maps/{map_id}/export": "POST",
     "/api/maps/{map_id}/export.uvtt": "GET",
     "/api/maps/{map_id}/file": "GET",
     "/api/maps/{map_id}/otfbm": "GET",
     "/api/maps/{map_id}/otfbm/image": "GET",
     "/api/maps/{map_id}/page/{page_num}": "GET",
+    "/api/maps/{map_id}/page/{page_num}/shapes": "GET",
+    "/api/maps/{map_id}/page/{page_num}/size": "GET",
     "/api/maps/{map_id}/thumbnail": "GET",
     "/api/maps/{map_id}/vtt/authoring": "GET",
     "/api/maps/{map_id}/vtt/data": "GET",
@@ -302,6 +308,34 @@ def test_guest_book_metadata_follows_campaign_share(client, gm_headers, campaign
     r = client.get(f"/api/books/{public.id}", headers=headers)
     assert r.status_code == 200
     assert r.json()["title"] == public.title
+
+
+def test_guest_page_export_follows_campaign_share(client, gm_headers, campaign, guest, tmp_path):
+    """Export, page sizes and shape detection check access like /file does."""
+    import fitz
+
+    headers, _ = guest
+    path = tmp_path / f"export-{uid()}.pdf"
+    doc = fitz.open()
+    doc.new_page(width=200, height=300)
+    doc.save(str(path))
+    system = make_game_system()
+    unshared = make_book(system.id, filepath=str(path), mime_type="application/pdf")
+    shared = make_book(
+        system.id, filepath=str(path) + ".shared.pdf", mime_type="application/pdf"
+    )
+    (tmp_path / (path.name + ".shared.pdf")).write_bytes(path.read_bytes())
+    _share(client, gm_headers, campaign, "book", shared.id, "public")
+    body = {"kind": "pages", "pages": "1"}
+
+    for book, status in ((unshared, 403), (shared, 200)):
+        assert client.post(f"/api/books/{book.id}/export", json=body, headers=headers).status_code == status
+        assert client.get(f"/api/books/{book.id}/page/1/size", headers=headers).status_code == status
+        assert client.get(f"/api/books/{book.id}/page/1/shapes", headers=headers).status_code == status
+
+    unshared_map = make_map(filename="m.pdf", filepath=str(path))
+    assert client.post(f"/api/maps/{unshared_map.id}/export", json=body, headers=headers).status_code == 403
+    assert client.get(f"/api/maps/{unshared_map.id}/page/1/size", headers=headers).status_code == 403
 
 
 def test_guest_audio_chapters_follow_campaign_share(client, gm_headers, campaign, guest):

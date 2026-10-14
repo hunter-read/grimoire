@@ -30,7 +30,7 @@ const EMPTY = {
 // Fired when any instance starts a scan, so the others on screen (the settings
 // header quick action and the Maintenance section, say) switch to fast polling
 // at once instead of looking idle until their next 30s poll.
-const SCAN_STARTED = 'grimoire:scan-started'
+export const SCAN_STARTED = 'grimoire:scan-started'
 
 /**
  * Polls /scan-status and exposes the current scan state plus a helper to start a

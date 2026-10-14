@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import api, {
+  dispositionFilename,
   mediaUrl,
   bookPageUrl,
   campaigns,
@@ -331,6 +332,28 @@ describe('api', () => {
       await api.download('/campaigns/c1/wiki/export?format=zip', 'fallback.zip')
       expect(click).toHaveBeenCalled()
       expect(URL.revokeObjectURL).toHaveBeenCalled()
+    })
+
+    it('can POST a JSON body and keeps a UTF-8 filename', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        status: 200,
+        ok: true,
+        headers: {
+          get: () => `attachment; filename="M?rk.png"; filename*=UTF-8''M%C3%B6rk.png`,
+        },
+        blob: () => Promise.resolve(new Blob(['data'])),
+      })
+      let downloaded
+      vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function () {
+        downloaded = this.download
+      })
+      await api.download('/books/b1/export', 'f.zip', { method: 'POST', body: { kind: 'pages' } })
+      const [url, init] = global.fetch.mock.calls[0]
+      expect(url).toBe('/api/books/b1/export')
+      expect(init.method).toBe('POST')
+      expect(init.body).toBe('{"kind":"pages"}')
+      expect(init.headers['Content-Type']).toBe('application/json')
+      expect(downloaded).toBe('Mörk.png')
     })
 
     it('throws the detail message on a non-OK download', async () => {
@@ -1126,5 +1149,20 @@ describe('character, content, and ruleset helpers', () => {
     expect(url()).toBe('/api/rulesets/r1/entries/e1')
     await rulesets.removeEntry('r1', 'e1')
     expect(url()).toBe('/api/rulesets/r1/entries/e1')
+  })
+})
+
+describe('dispositionFilename', () => {
+  it('prefers the UTF-8 name, falls back to the plain one, and copes with junk', () => {
+    expect(dispositionFilename(`attachment; filename="a.png"; filename*=UTF-8''%C3%A9.png`)).toBe(
+      'é.png'
+    )
+    expect(dispositionFilename('attachment; filename="wiki.zip"')).toBe('wiki.zip')
+    expect(dispositionFilename('attachment; filename=plain.txt')).toBe('plain.txt')
+    expect(dispositionFilename(`attachment; filename="x.png"; filename*=UTF-8''%E0%A4`)).toBe(
+      'x.png'
+    )
+    expect(dispositionFilename('inline')).toBeNull()
+    expect(dispositionFilename(null)).toBeNull()
   })
 })

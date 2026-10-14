@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams, useLocation } from 'react-rout
 import { useTranslation } from 'react-i18next'
 import { LuArrowLeft, LuDownload, LuHeart } from 'react-icons/lu'
 import api, { bookPageUrl, mediaUrl } from '../api'
-import { isArchiveBook, isSingleImageBook, isTextBook } from '../constants'
+import { isArchiveBook, isComicBook, isSingleImageBook, isTextBook } from '../constants'
 import Spinner from '../components/Spinner'
 import { getBookPrefs, saveBookPrefs, saveRecentBook } from '../hooks/useBookPrefs'
 import { getUserPrefs, getWheelAction } from '../hooks/useUserPrefs'
@@ -22,6 +22,9 @@ import SpreadPage from '../components/reader/SpreadPage'
 import SinglePage from '../components/reader/SinglePage'
 import ImageBookViewer from '../components/reader/ImageBookViewer'
 import TextBookViewer from '../components/reader/TextBookViewer'
+import CutoutStage from '../components/reader/export/CutoutStage'
+import ExportSidebar from '../components/reader/export/ExportSidebar'
+import usePageExport from '../components/reader/export/usePageExport'
 import {
   PAGE_WIDTH,
   PRELOAD_CACHE_MAX,
@@ -168,6 +171,31 @@ export default function ReaderView() {
     setSelectionPopup(null)
     saveBookPrefs(bookId, { page: currentPage })
   }, [currentPage, bookId])
+
+  // Export (issue #207). The pages on screen are what "This page" / "This
+  // spread" mean and what the cut-out stage draws on. Comic archives page in
+  // the reader but are not documents the server can export from.
+  const spreadShown =
+    mode === 'spread' && (spreadOffset === 1 || currentPage !== 1) && currentPage + 1 <= totalPages
+  const exportPages = spreadShown ? [currentPage, currentPage + 1] : [currentPage]
+  const exporter = usePageExport({
+    basePath: `/books/${bookId}`,
+    title: book?.title || '',
+    visiblePages: exportPages,
+    active: panel === 'export',
+  })
+  const canExport = !!book && !isComicBook(book)
+  const openExport = () => {
+    // The native PDF viewer has no page to draw on or count from.
+    if (mode === 'pdf') setMode('page')
+    exporter.openAt(exportPages)
+    setPanel('export')
+  }
+  // Read through a ref by the keyboard handler, which would otherwise have to
+  // re-subscribe on every render to see the current pages.
+  const openExportRef = useRef(openExport)
+  openExportRef.current = openExport
+  const showStage = panel === 'export' && exporter.tab === 'cut'
 
   const togglePanel = (name) => setPanel((p) => (p === name ? null : name))
 
@@ -363,12 +391,28 @@ export default function ReaderView() {
       if (e.key === 't') togglePanel('toc')
       if (e.key === 'b') togglePanel('bookmarks')
       if (e.key === 's') togglePanel('search')
+      if (e.key === 'e' && canExport) {
+        if (panel === 'export') setPanel(null)
+        else openExportRef.current()
+      }
       if (e.key === '?') setShowShortcuts((v) => !v)
       if (e.key === 'Escape') setShowShortcuts(false)
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [mode, currentPage, step, goToPage, bookId, toggleFavorite, zoomIn, zoomOut, resetZoom])
+  }, [
+    mode,
+    currentPage,
+    step,
+    goToPage,
+    bookId,
+    toggleFavorite,
+    zoomIn,
+    zoomOut,
+    resetZoom,
+    panel,
+    canExport,
+  ])
 
   // Page images are pre-rendered WebP, so scaling them up in CSS softens the
   // text. Past the threshold, re-request the page at a higher render width and
@@ -508,6 +552,7 @@ export default function ReaderView() {
           setPendingLabel('')
         }}
         onShowDetails={() => setPanel('details')}
+        onExport={canExport ? openExport : undefined}
         onFileChanged={({ action }) => {
           // A deleted book has nothing left to render, and a moved one is served
           // from a path this view already resolved, so both leave the reader.
@@ -525,7 +570,17 @@ export default function ReaderView() {
       />
 
       {/* Content + optional sidebar */}
-      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex' }}>
+      {/* On a phone the cut-out stage keeps the page on screen with the export
+          panel docked beneath it, so the row stacks instead. */}
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: isMobilePhone && showStage ? 'column' : 'row',
+        }}
+      >
         {/* On a phone an open panel takes the whole viewport, so the page is
             hidden rather than squeezed beside it. `display: none` keeps the
             component mounted, so zoom, pan and the preload caches survive
@@ -535,7 +590,9 @@ export default function ReaderView() {
           style={{
             flex: 1,
             overflow: 'hidden',
-            display: isMobilePhone && panel ? 'none' : 'flex',
+            // Hidden rather than unmounted behind the cut-out stage too, so its
+            // wheel listener and preload caches are intact on the way back.
+            display: (isMobilePhone && panel) || showStage ? 'none' : 'flex',
             background: 'var(--bg-deep)',
             touchAction: 'none',
           }}
@@ -585,6 +642,10 @@ export default function ReaderView() {
           )}
         </div>
 
+        {showStage && (
+          <CutoutStage exporter={exporter} pageUrl={pageUrl} zoom={zoom} getAlt={getAlt} />
+        )}
+
         {panel === 'toc' && (
           <TocSidebar
             bookId={bookId}
@@ -617,6 +678,24 @@ export default function ReaderView() {
             refreshKey={bookmarkRefreshKey}
             onGoToPage={(page, text) => {
               setActiveHighlight(text || null)
+              pushNextRef.current = true
+              goToPage(page)
+            }}
+            onClose={() => setPanel(null)}
+          />
+        )}
+        {panel === 'export' && (
+          <ExportSidebar
+            exporter={exporter}
+            title={book.title}
+            totalPages={totalPages}
+            currentPage={currentPage}
+            isSpread={mode === 'spread'}
+            spreadOffset={spreadOffset}
+            tocPath={book.mime_type === 'application/pdf' ? `/books/${bookId}/toc` : null}
+            pageUrl={pageUrl}
+            sourcePath={book.relative_path}
+            onShowPage={(page) => {
               pushNextRef.current = true
               goToPage(page)
             }}

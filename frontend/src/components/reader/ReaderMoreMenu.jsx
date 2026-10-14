@@ -14,6 +14,7 @@ import {
   LuHeart,
   LuInfo,
   LuKeyboard,
+  LuScissors,
   LuScroll,
   LuShare2,
   LuTrash2,
@@ -49,6 +50,10 @@ export const MODE_ITEMS = [
  * library views' kebab. Deleting the open book leaves the reader pointed at a
  * file that is gone, so `onFileChanged` is how the caller navigates away.
  *
+ * Export (issue #207) sits beside Download: both take something out of the
+ * book, one the whole file and the other chosen pages or cut-out areas. It is
+ * omitted when the caller passes no `onExport` (formats it cannot export).
+ *
  * The menu is portalled to document.body at fixed coordinates so it isn't
  * clipped by the toolbar, mirroring BookActionsMenu in the library views.
  */
@@ -63,6 +68,7 @@ export default function ReaderMoreMenu({
   isFavorite,
   onToggleFavorite,
   onShowDetails,
+  onExport,
   onToggleShortcuts,
   onFileChanged,
 }) {
@@ -269,6 +275,13 @@ export default function ReaderMoreMenu({
               <LuDownload size={15} aria-hidden="true" />
               {t('reader.downloadFile')}
             </a>
+
+            {onExport && (
+              <button role="menuitem" onClick={run(onExport)} style={itemStyle}>
+                <LuScissors size={15} aria-hidden="true" />
+                {t('pageExport.menuItem')}
+              </button>
+            )}
 
             <button role="menuitem" onClick={run(onToggleShortcuts)} style={itemStyle}>
               <LuKeyboard size={15} aria-hidden="true" />

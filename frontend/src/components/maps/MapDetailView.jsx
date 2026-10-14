@@ -297,6 +297,7 @@ export default function MapDetailView() {
             <MapPdfViewer
               mapId={mapId}
               filename={map.filename}
+              relativePath={map.relative_path}
               totalPages={map.page_count || 1}
               isMobilePhone={isMobilePhone}
             />

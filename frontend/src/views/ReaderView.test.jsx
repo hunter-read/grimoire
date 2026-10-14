@@ -592,3 +592,78 @@ describe('ReaderView — mobile panel layout', () => {
     expect(pageContainer()).toHaveStyle({ display: 'flex' })
   })
 })
+
+describe('ReaderView — export (issue #207)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    setupApiMocks()
+    const base = api.get.getMockImplementation()
+    api.get.mockImplementation((url) =>
+      url.endsWith('/size') ? Promise.resolve({ width: 600, height: 800 }) : base(url)
+    )
+    vi.stubGlobal('requestAnimationFrame', (cb) => {
+      cb()
+      return 0
+    })
+    vi.stubGlobal('cancelAnimationFrame', () => {})
+  })
+
+  const pageContainer = () => document.querySelector('[style*="touch-action: none"]')
+
+  it('opens from the overflow menu on the page being read', async () => {
+    renderReader()
+    await waitFor(() => screen.getByText('Test Book'))
+    await waitForReaderIdle()
+
+    await userEvent.click(screen.getByRole('button', { name: 'More actions' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Export pages & cut-outs' }))
+
+    expect(screen.getByLabelText('Pages')).toHaveValue('1')
+    expect(api.get).toHaveBeenCalledWith('/books/book-1/page/1/size')
+  })
+
+  it('toggles with the "e" key and swaps the page for the cut-out stage', async () => {
+    renderReader()
+    await waitFor(() => screen.getByText('Test Book'))
+    await waitForReaderIdle()
+
+    await userEvent.keyboard('e')
+    expect(screen.getByRole('radio', { name: 'Whole pages' })).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('radio', { name: 'Cut out' }))
+    expect(await screen.findByTestId('cutout-stage')).toBeInTheDocument()
+    expect(pageContainer()).toHaveStyle({ display: 'none' })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Close export' }))
+    expect(screen.queryByTestId('cutout-stage')).not.toBeInTheDocument()
+    expect(pageContainer()).toHaveStyle({ display: 'flex' })
+
+    await userEvent.keyboard('e')
+    expect(screen.getByRole('button', { name: 'Close export' })).toBeInTheDocument()
+    await userEvent.keyboard('e')
+    expect(screen.queryByRole('button', { name: 'Close export' })).not.toBeInTheDocument()
+  })
+
+  it('is not offered for comic archives', async () => {
+    const base = api.get.getMockImplementation()
+    api.get.mockImplementation((url) =>
+      url === '/books/book-1'
+        ? Promise.resolve({
+            ...BOOK,
+            filename: 'issue.cbz',
+            mime_type: 'application/vnd.comicbook+zip',
+          })
+        : base(url)
+    )
+    renderReader()
+    await waitFor(() => screen.getByText('Test Book'))
+    await waitForReaderIdle()
+
+    await userEvent.click(screen.getByRole('button', { name: 'More actions' }))
+    expect(
+      screen.queryByRole('menuitem', { name: 'Export pages & cut-outs' })
+    ).not.toBeInTheDocument()
+    await userEvent.keyboard('{Escape}e')
+    expect(screen.queryByRole('button', { name: 'Close export' })).not.toBeInTheDocument()
+  })
+})

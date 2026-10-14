@@ -1,10 +1,18 @@
 """Maps package — registers all map routes on a single router."""
 from fastapi import APIRouter, Depends
 
+from ... import api_keys
 from ...auth import require_not_guest
 from .._browse import FolderGroupsResponse
 from .._bulk_schemas import BulkResult, BulkTagResult
+from .._page_export import DetectShapesResponse, PageSizeResponse, SaveExportResponse
 from .otfbm_export import export_map_otfbm_image, get_map_otfbm
+from .page_export import (
+    detect_map_page_shapes,
+    export_map_pages,
+    get_map_page_size,
+    save_map_export,
+)
 from .core import (
     export_map_uvtt,
     get_map_authoring,
@@ -103,6 +111,39 @@ router.add_api_route(
     methods=["GET"],
     summary="Render a map page",
     description="Renders a single page of a PDF map to WebP (`?width=` sets the target pixel width, default 1600, max 3000). Image maps are streamed as-is and only accept page 1. Accepts `?token=` for browser-embedded images.",
+)
+# Page export for PDF maps (issue #207) - the same export the book reader has.
+router.add_api_route(
+    "/maps/{map_id}/page/{page_num}/size",
+    get_map_page_size,
+    methods=["GET"],
+    summary="Get a map page's size",
+    description="The PDF map page's width and height in points. 400 for non-PDF maps.",
+    response_model=PageSizeResponse,
+)
+router.add_api_route(
+    "/maps/{map_id}/page/{page_num}/shapes",
+    detect_map_page_shapes,
+    methods=["GET"],
+    summary="Suggest cut-outs on a map page",
+    description="As `GET /books/{id}/page/{n}/shapes`, for a PDF map. 400 for non-PDF maps.",
+    response_model=DetectShapesResponse,
+)
+router.add_api_route(
+    "/maps/{map_id}/export",
+    export_map_pages,
+    methods=["POST"],
+    summary="Export map pages or cut-outs",
+    description="As `POST /books/{id}/export`, for a PDF map. 400 for non-PDF maps.",
+    openapi_extra=api_keys.READ_ONLY,
+)
+router.add_api_route(
+    "/maps/{map_id}/export/save",
+    save_map_export,
+    methods=["POST"],
+    summary="Save a map export into the library",
+    description="As `POST /books/{id}/export/save`, for a PDF map. Admin role required.",
+    response_model=SaveExportResponse,
 )
 router.add_api_route(
     "/maps/{map_id}/vtt/image",

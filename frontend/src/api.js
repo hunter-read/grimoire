@@ -104,6 +104,23 @@ async function handleResponse(res) {
   return body
 }
 
+// The filename a Content-Disposition header names. The RFC 6266 `filename*`
+// form wins when present: it carries the real UTF-8 name, where the plain
+// `filename` is an ASCII fallback with `?` in place of anything else.
+export function dispositionFilename(header) {
+  if (!header) return null
+  const star = header.match(/filename\*=UTF-8''([^;]+)/i)
+  if (star) {
+    try {
+      return decodeURIComponent(star[1].trim())
+    } catch {
+      // Malformed escape: fall through to the plain form.
+    }
+  }
+  const plain = header.match(/filename="?([^";]+)"?/i)
+  return plain ? plain[1] : null
+}
+
 // Build a URL for an <img>/download/media endpoint. These requests can't send
 // an Authorization header, so they authenticate via the HttpOnly session cookie
 // set at login — the JWT is deliberately NOT put in the URL (query params leak
@@ -863,8 +880,15 @@ const api = {
 
   // Fetch a file response and trigger a browser download. The server's
   // Content-Disposition filename wins; `fallback` is used only if it's absent.
-  download: async (url, fallback) => {
-    const res = await authedFetch(`/api${url}`, () => ({ headers: authHeaders() }))
+  // `method`/`body` let an export POST its request (a JSON body) and still land
+  // as a download.
+  download: async (url, fallback, { method = 'GET', body } = {}) => {
+    const hasBody = body !== undefined
+    const res = await authedFetch(`/api${url}`, () => ({
+      method,
+      headers: authHeaders(hasBody),
+      body: hasBody ? JSON.stringify(body) : undefined,
+    }))
     if (res.status === 401) {
       window.dispatchEvent(new CustomEvent('grimoire:unauthorized'))
       throw Object.assign(new Error('Unauthorized'), { status: 401 })
@@ -878,9 +902,7 @@ const api = {
       }
       throw Object.assign(new Error(detail), { status: res.status })
     }
-    const disposition = res.headers.get('Content-Disposition') || ''
-    const match = disposition.match(/filename="?([^"]+)"?/)
-    const filename = match ? match[1] : fallback
+    const filename = dispositionFilename(res.headers.get('Content-Disposition')) || fallback
     const blob = await res.blob()
     const objectUrl = URL.createObjectURL(blob)
     const a = document.createElement('a')

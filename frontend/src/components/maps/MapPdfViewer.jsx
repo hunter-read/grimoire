@@ -7,6 +7,7 @@ import {
   LuColumns2,
   LuFile,
   LuPanelLeft,
+  LuScissors,
 } from 'react-icons/lu'
 import { mediaUrl } from '../../api'
 import useReaderGestures from '../../hooks/useReaderGestures'
@@ -15,6 +16,9 @@ import { getBookPrefs, saveBookPrefs } from '../../hooks/useBookPrefs'
 import SinglePage from '../reader/SinglePage'
 import SpreadPage from '../reader/SpreadPage'
 import { PAGE_WIDTH, SPREAD_WIDTH } from '../reader/pageRender'
+import CutoutStage from '../reader/export/CutoutStage'
+import ExportSidebar from '../reader/export/ExportSidebar'
+import usePageExport from '../reader/export/usePageExport'
 
 const MODES = [
   { key: 'page', Icon: LuFileText },
@@ -63,9 +67,13 @@ const stepBtn = {
  * PDF map viewer with the same single / spread / raw-PDF modes as the book
  * reader, but without the text-highlight overlay. `mapId` identifies the map,
  * `filename` is used for the raw-PDF iframe title, and `totalPages` is the PDF
- * page count.
+ * page count. `relativePath` is the map's library path, where "Save to library"
+ * suggests putting exported pages and cut-outs.
+ *
+ * Export (issue #207) is the reader's: the same panel and cut-out stage, pointed
+ * at the map endpoints.
  */
-export default function MapPdfViewer({ mapId, filename, totalPages, isMobilePhone }) {
+export default function MapPdfViewer({ mapId, filename, relativePath, totalPages, isMobilePhone }) {
   const { t } = useTranslation()
 
   const _prefs = getBookPrefs(`map:${mapId}`)
@@ -189,6 +197,25 @@ export default function MapPdfViewer({ mapId, filename, totalPages, isMobilePhon
   const hasRight =
     mode === 'spread' && (spreadOffset === 1 || currentPage !== 1) && rightPage <= totalPages
 
+  const [exportOpen, setExportOpen] = useState(false)
+  const exporter = usePageExport({
+    basePath: `/maps/${mapId}`,
+    title: (filename || '').replace(/\.[^.]+$/, ''),
+    visiblePages: hasRight ? [currentPage, rightPage] : [currentPage],
+    active: exportOpen,
+  })
+  const showStage = exportOpen && exporter.tab === 'cut'
+  const toggleExport = () => {
+    if (exportOpen) {
+      setExportOpen(false)
+      return
+    }
+    // The browser's own PDF viewer has no page to draw on or count from.
+    if (mode === 'pdf') setMode('page')
+    exporter.openAt(hasRight ? [currentPage, rightPage] : [currentPage])
+    setExportOpen(true)
+  }
+
   const getAlt = (p) => `${t('reader.page')} ${p} — ${filename}`
 
   const changeMode = (key) => {
@@ -293,50 +320,94 @@ export default function MapPdfViewer({ mapId, filename, totalPages, isMobilePhon
             <LuPanelLeft size={13} /> {t('reader.spreadCover')}
           </button>
         )}
+
+        <button
+          onClick={toggleExport}
+          aria-pressed={exportOpen}
+          title={t('pageExport.menuItem')}
+          style={{
+            ...toolbarBtn(exportOpen),
+            border: '1px solid var(--border)',
+            borderRadius: 6,
+          }}
+        >
+          <LuScissors size={13} aria-hidden="true" />
+          {!isMobilePhone && t('pageExport.title')}
+        </button>
       </div>
 
-      {/* Page content */}
+      {/* Page content, with the export panel beside it (or, on a phone with
+          the cut-out stage up, beneath it). */}
       <div
-        ref={contentRef}
         style={{
           flex: 1,
           minHeight: 0,
           overflow: 'hidden',
           display: 'flex',
-          background: 'var(--bg-deep)',
-          touchAction: 'none',
+          flexDirection: isMobilePhone && showStage ? 'column' : 'row',
         }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
       >
-        {mode === 'pdf' ? (
-          <iframe
-            src={mediaUrl(`/maps/${mapId}/file`) + `#page=${currentPage}`}
-            style={{ width: '100%', height: '100%', border: 'none' }}
-            title={filename}
-          />
-        ) : mode === 'spread' ? (
-          <SpreadPage
+        <div
+          ref={contentRef}
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflow: 'hidden',
+            display: (isMobilePhone && exportOpen) || showStage ? 'none' : 'flex',
+            background: 'var(--bg-deep)',
+            touchAction: 'none',
+          }}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          {mode === 'pdf' ? (
+            <iframe
+              src={mediaUrl(`/maps/${mapId}/file`) + `#page=${currentPage}`}
+              style={{ width: '100%', height: '100%', border: 'none' }}
+              title={filename}
+            />
+          ) : mode === 'spread' ? (
+            <SpreadPage
+              currentPage={currentPage}
+              rightPage={rightPage}
+              hasRight={hasRight}
+              getAlt={getAlt}
+              zoom={zoom}
+              pan={pan}
+              axisRef={axisRef}
+              directionRef={directionRef}
+              pageUrl={pageUrl}
+            />
+          ) : (
+            <SinglePage
+              currentPage={currentPage}
+              getAlt={getAlt}
+              zoom={zoom}
+              pan={pan}
+              axisRef={axisRef}
+              directionRef={directionRef}
+              pageUrl={pageUrl}
+            />
+          )}
+        </div>
+
+        {showStage && (
+          <CutoutStage exporter={exporter} pageUrl={pageUrl} zoom={zoom} getAlt={getAlt} />
+        )}
+
+        {exportOpen && (
+          <ExportSidebar
+            exporter={exporter}
+            title={(filename || '').replace(/\.[^.]+$/, '')}
+            totalPages={totalPages}
             currentPage={currentPage}
-            rightPage={rightPage}
-            hasRight={hasRight}
-            getAlt={getAlt}
-            zoom={zoom}
-            pan={pan}
-            axisRef={axisRef}
-            directionRef={directionRef}
+            isSpread={mode === 'spread'}
+            spreadOffset={spreadOffset}
             pageUrl={pageUrl}
-          />
-        ) : (
-          <SinglePage
-            currentPage={currentPage}
-            getAlt={getAlt}
-            zoom={zoom}
-            pan={pan}
-            axisRef={axisRef}
-            directionRef={directionRef}
-            pageUrl={pageUrl}
+            sourcePath={relativePath}
+            onShowPage={(page) => goToPage(page)}
+            onClose={() => setExportOpen(false)}
           />
         )}
       </div>

@@ -21,6 +21,8 @@ UNTYPED_BY_DESIGN = {
     "/api/auth/openid/login",
     # Streams the backup .zip itself, not JSON.
     "/api/backups/{backup_id}/download",
+    # Page export (issue #207): the exported PDF, image or zip of them, as a download.
+    "/api/books/{book_id}/export",
     "/api/books/{book_id}/file",
     "/api/books/{book_id}/page/{page_num}",
     "/api/books/{book_id}/thumbnail",
@@ -38,6 +40,8 @@ UNTYPED_BY_DESIGN = {
     # is a download rather than an API object -- clients save it, they do not
     # parse it -- and its shape is the Universal VTT spec's, not ours.
     "/api/maps/{map_id}/export.uvtt",
+    # Page export from a PDF map, as for books above.
+    "/api/maps/{map_id}/export",
     "/api/maps/{map_id}/file",
     # The resized OTFBM background image itself (JPEG/PNG), not JSON.
     "/api/maps/{map_id}/otfbm/image",

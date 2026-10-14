@@ -530,6 +530,10 @@ does not support pasting, and a request with neither `identity` nor `paste`.
 | `/api/books/:id/page/:num` | GET | any | Render a document page (PDF/EPUB/DjVu) as WebP. Comic archives (`.cbz`/`.cbr`/`.cb7`/`.cbt`) return the stored page image from inside the archive as-is; single-image books return the file and accept only page 1; text books 404 (no rendered page). Query: `width` (default 1200, max 3000), `v` (the book's `content_token`, cache-busting; ignored server-side). Cached under a content-addressed key, so replacing the file supersedes earlier renders. Sends an `ETag` and honours `If-None-Match` (`304`). |
 | `/api/books/:id/page/:num/text` | GET | any | Plain text of a page (from FTS index or live extraction). Serves any indexable format - PDF, EPUB, DjVu, and `.txt`/`.md`/`.rtf` |
 | `/api/books/:id/page/:num/words` | GET | any | Word bounding boxes `{x0, y0, x1, y1, text}` for text overlay. Only rendered documents have page geometry; comics and text books return an empty overlay |
+| `/api/books/:id/page/:num/size` | GET | any | The page's `{width, height}` in PDF points (1/72 inch). Rendered documents only (PDF, EPUB, DjVu, XPS); other formats 400 |
+| `/api/books/:id/page/:num/shapes` | GET | any | Suggested cut-outs on a page - see [Page export](#page-export). `{shapes: [{shape, x, y, w, h}]}` |
+| `/api/books/:id/export` | POST | any | Export pages or cut-outs as a download - see [Page export](#page-export). Read-only, so an API key's Read scope covers it |
+| `/api/books/:id/export/save` | POST | admin | The same export written into a library folder instead - see [Page export](#page-export) |
 
 **Book list response:** `{"total": int, "books": [...]}`
 
@@ -655,6 +659,59 @@ OPDS catalogue — an archive or a feed should be complete — and in
 `/api/stats`'s `total_size_mb` and `library_size_mb`, since those bytes really
 are on disk, while the item counts exclude them.
 
+
+#### Page export
+
+Whole pages or areas cut out of them (issue #207), from any book PyMuPDF renders
+(PDF, EPUB, DjVu, XPS) and from PDF maps (`/api/maps/:id/...`, same bodies).
+Comic archives, text books and image maps return 400. Access is the same as reading
+the book: whoever can open it can export from it.
+
+`POST /api/books/:id/export` takes a JSON body:
+
+| Field | Applies to | Meaning |
+|-------|------------|---------|
+| `kind` | both | `pages` or `regions` |
+| `format` | both | `pdf` (default), `png`, `jpeg` or `webp` |
+| `dpi` | images | Render resolution, 36-600 (default 150). A PDF keeps the page's own vectors and ignores it |
+| `pages` | `pages` | A page list such as `"12-15, 20"`. Order is kept, repeats dropped, a backwards range read forwards |
+| `join_spreads` | `pages`, images | Join facing pages into one image each |
+| `spread_offset` | `pages`, images | How pages pair: `0` keeps page 1 alone (pairs 2-3, 4-5), `1` pairs it with page 2 - the reader's own toggle |
+| `regions` | `regions` | Up to 200 cut-outs: `{pages, shape, x, y, w, h, name?}` |
+
+A region's `pages` is one page, or two consecutive pages for an area across a
+spread. `x`/`y`/`w`/`h` are fractions (0-1) of those pages laid side by side at the
+first page's height. `shape` is `rect` or `ellipse`; an ellipse is transparent outside
+the circle (white corners in JPEG) and cannot be saved as PDF. A rectangle saved as
+PDF stays vector. `name` becomes the filename; without one it is
+`<title> (p<page>) <n>`.
+
+One output file is returned as itself; several come back as a zip. Filenames are
+sent in `Content-Disposition` with an RFC 6266 `filename*` for non-ASCII titles.
+Limits: images are rendered at most 100 pages per request, and no single image may
+exceed 50 megapixels - both fail with a 400 whose `detail` says what to change.
+
+`POST /api/books/:id/export/save` (admin) takes the same body plus `destination`, a
+library folder. Each file is written on its own (never a zip) through the upload
+path, so it is renamed rather than overwriting, refused on a read-only library, and
+refused for a type that collection does not index (a PDF into `tokens/`). Returns
+`{folder, saved: [{path, name, size}]}`; the files appear once a scan reaches that
+folder (`POST /api/rescan` with `scope`).
+
+`GET /api/books/:id/page/:num/shapes` suggests cut-outs by reading the page's
+structure: each embedded image, and each vector path drawn as a circle (a token
+frame). An image whose soft mask hides its corners, or a frame drawn around an
+image, comes back as an `ellipse`. Images stacked in the same spot (a card's art,
+frame and texture layers) are one piece, and a piece's own decorations - a name banner
+inside a card - are not offered separately. Backgrounds covering most of the page,
+ornaments, and panels holding several like-sized pieces are left out. When the page
+is mostly one picture and its structure yields nothing - a token sheet flattened into
+one page-sized image, or a scan - the pixels
+are read instead: everything that differs from the page's plain background colour is
+a piece, tokens touching each other are split apart, and a round piece's box is fitted
+to its circle. A page with no plain background (a full-bleed illustration) returns no
+shapes. Results are in reading order.
+
 ### Maps
 
 Archive files (`.zip`, `.rar`, `.7z`, `.tar`, `.tar.gz`, …) under `maps/`, `tokens/`,
@@ -685,6 +742,10 @@ a book whose file is missing.
 | `/api/maps/:id` | PATCH | gm/admin | Update `description`, `tags`, `map_type`, `grid_size`, and the grid override `grid_width`/`grid_height`/`grid_px` |
 | `/api/maps/:id/file` | GET | any | Download/stream the original map image, PDF, or archive (served with the archive's MIME type) |
 | `/api/maps/:id/page/:n` | GET | any | Render page `n` of a PDF map to WebP (`width?` target pixel width, default 1600, max 3000). Image maps stream as-is and only accept page 1; archives return 400 |
+| `/api/maps/:id/page/:n/size` | GET | any | A PDF map page's `{width, height}` in points. 400 for non-PDF maps |
+| `/api/maps/:id/page/:n/shapes` | GET | any | Suggested cut-outs on a PDF map page, as for [books](#page-export) |
+| `/api/maps/:id/export` | POST | any | Export PDF map pages or cut-outs, as for [books](#page-export). 400 for non-PDF maps |
+| `/api/maps/:id/export/save` | POST | admin | Save a map export into the library, as for [books](#page-export) |
 | `/api/maps/:id/export.uvtt` | GET | any | Export a map as a Universal VTT file (`application/octet-stream`, attachment named `<slug>.uvtt`). An existing `.uvtt` re-exports, carrying its own embedded image plus any edited geometry. 400 for PDF, video and archive maps, and for a raster map already **variant-linked** to a Universal VTT file |
 | `/api/maps/:id/otfbm` | GET | may share | How to set the map up as an [OTFBM](#otfbm-export) background: whole-cell `width`/`height` (the `-mapsize`), `cell` (the `-options c` value; `?cell=` 20-100, defaults to `suggested_cell`), the map's own `source_px`, `grid_source`, the resized `image_width`/`image_height`, and `truncated` when the map exceeds 99 cells per side. 400 for PDF, video and archive maps |
 | `/api/maps/:id/otfbm/image` | GET | may share | The map resized so each cell is `?cell=` pixels, as a JPEG (PNG when the map has transparency). Attachment named `<slug>-<W>x<H>c<cell>.jpg`. 400 for PDF, video and archive maps |

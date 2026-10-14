@@ -201,4 +201,21 @@ describe('ReaderMoreMenu', () => {
     await userEvent.click(screen.getByRole('menuitem', { name: 'Keyboard Shortcuts' }))
     expect(props.onToggleShortcuts).toHaveBeenCalledOnce()
   })
+
+  // Issue #207: export sits beside Download, and only when the reader offers it.
+  it('offers Export when the reader can export, and runs it', async () => {
+    const onExport = vi.fn()
+    renderMenu({ onExport })
+    await openMenu()
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Export pages & cut-outs' }))
+    expect(onExport).toHaveBeenCalled()
+  })
+
+  it('leaves Export out when the reader cannot export', async () => {
+    renderMenu()
+    await openMenu()
+    expect(
+      screen.queryByRole('menuitem', { name: 'Export pages & cut-outs' })
+    ).not.toBeInTheDocument()
+  })
 })

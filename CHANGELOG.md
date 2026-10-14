@@ -25,6 +25,10 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Audio opens in album order: within a folder, tracks play by disc and track number whatever their files are called. Pick Track in the sort menu to get it back after choosing another order. Existing tracks pick up their numbers on the next scan
 - Admins can style the OIDC sign-in button to match their provider: background, text and border colours, corner radius, and an uploaded logo, under Settings → Authentication, or pinned with `OIDC_BUTTON_*` environment variables
 - Magazines & Zines is a built-in book category: folders named `Magazines`, `Zines`, `Periodicals`, `Dragon Magazine` and the like are filed there on the next scan, and Create standard category folders adds a `Magazines` folder
+- Export from the reader (⋮ → Export pages & cut-outs, or press `e`): save a page range as a PDF - a character sheet, a chapter, the whole section the page is in - or as PNG, JPEG or WebP images, with facing pages joined into one picture for maps printed across a spread
+- Cut out maps, tables, cards and tokens: draw rectangles, squares or circles on a page, or across both halves of a spread, and each one downloads as its own file - round tokens with transparent corners. Find shapes picks out every token or picture on a page for you
+- The PDF map viewer has the same Export button
+- Admins on a writable library can save an export straight into a library folder - beside the book, or into Tokens or Maps - instead of downloading it, and Grimoire indexes the new files right away
 
 ### Changed
 
@@ -34,6 +38,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 ### Fixed
 
 - Titles, artists and albums tagged inside WAV and AIFF files are now read, and show in the audio list and on the track's page
+- Admins see Move, Rename and Delete in the reader's ⋮ menu, and a book's details show its file path - the book's library path was being dropped from the reader's data
 - A folder or file whose name isn't valid UTF-8, often one named on Windows and copied to a Linux share, no longer stops the whole library scan. The scan skips it and logs which one to rename
 - The file manager no longer fails with "Internal Server Error" on such a name. It shows the entry greyed out with a placeholder character, and a ? icon explains why it can't be changed from Grimoire
 - A game system's description keeps the paragraph breaks entered in its editor instead of running together as one block. Long descriptions show their first few lines with a Read more button
