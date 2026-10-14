@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuLayers, LuTrash2 } from 'react-icons/lu'
+import { LuLayers, LuPencil, LuTrash2 } from 'react-icons/lu'
 
 import api, { duplicates, mediaUrl } from '../../api'
 import { useAuth } from '../../context/AuthContext'
 import { formatSize } from '../../utils'
 import { kindsFor } from '../../constants/variantKinds'
+import variantLabel, { mainOption } from '../../utils/variantLabel'
+import VariantDescribeForm from '../VariantDescribeForm'
 
 /**
  * Manage the versions filed under one book, from the book itself.
@@ -14,7 +16,8 @@ import { kindsFor } from '../../constants/variantKinds'
  * be reachable only from there: an admin who linked a printer-friendly copy when
  * they meant black-and-white, or who wants the spreads cut to be the main
  * version, had no way back (issues #304, #306). This is that way back — change a
- * version's kind, promote it to main, unlink it, or delete the file.
+ * version's kind, promote it to main, unlink it, or delete the file. Any version
+ * - the main one included - can also be renamed (issue #556).
  *
  * Admin-only, because every endpoint behind it is `require_admin`; a non-admin
  * gets the read-only list from the details modal instead of controls that would
@@ -27,6 +30,7 @@ export default function BookVersionsSection({ book, onChanged }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(null)
+  const [renaming, setRenaming] = useState(null)
 
   // A list row carries only the count; a detail payload carries the family
   // itself. Either way, a book with no other versions must not cost a request —
@@ -66,8 +70,9 @@ export default function BookVersionsSection({ book, onChanged }) {
 
   if (!family || variants.length === 0) return null
 
-  const changeKind = (variantId, kind) =>
-    run(() => duplicates.link('book', mainId, [{ id: variantId, kind, label: '' }]))
+  // `describe` rather than a re-link, so the version keeps its label.
+  const changeKind = (entry, kind) =>
+    run(() => duplicates.describe('book', entry.id, { kind, label: entry.label || '' }))
 
   const makeMain = (variantId) =>
     run(
@@ -75,9 +80,11 @@ export default function BookVersionsSection({ book, onChanged }) {
         duplicates.promote('book', {
           newParentId: variantId,
           oldParentId: mainId,
-          // The old main becomes a plain "version" of the new one; the admin can
-          // refine that with the kind picker straight after.
-          kind: 'version',
+          // The old main keeps its own description if it had one (it is still
+          // the same file), else becomes a plain "version" of the new one; the
+          // admin can refine that with the kind picker straight after.
+          kind: family.variant_main_kind || 'version',
+          label: family.variant_main_label || '',
         }),
       // Promoting changes which book is the row, and the new main may live in a
       // different category than the one it replaced, so the caller has to
@@ -112,10 +119,18 @@ export default function BookVersionsSection({ book, onChanged }) {
     opacity: busy ? 0.6 : 1,
   }
 
+  const main = mainOption(family)
   const entries = [
-    { id: mainId, isMain: true, filename: family.filename, file_size: family.file_size },
+    { ...main, file_size: family.file_size, is_missing: family.is_missing },
     ...variants,
   ]
+
+  // Under the filename, so it never repeats it: the kind and label alone.
+  const describeEntry = (entry) => {
+    if (entry.isMain) return variantLabel(entry, t)
+    const kindText = t(`variants.kind.${entry.kind}`, { defaultValue: entry.kind })
+    return entry.label ? `${kindText} · ${entry.label}` : kindText
+  }
 
   return (
     <div style={{ marginTop: 20 }}>
@@ -151,7 +166,7 @@ export default function BookVersionsSection({ book, onChanged }) {
               )}
             </div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-              {entry.isMain ? t('variants.mainVersion') : t(`variants.kind.${entry.kind}`)}
+              {describeEntry(entry)}
               {entry.file_size ? ` · ${formatSize(entry.file_size)}` : ''}
             </div>
           </div>
@@ -164,13 +179,26 @@ export default function BookVersionsSection({ book, onChanged }) {
             {t('common.download')}
           </a>
 
+          {isAdmin && (
+            <button
+              type="button"
+              disabled={busy}
+              aria-label={t('variants.renameNamed', { name: describeEntry(entry) })}
+              title={t('variants.rename')}
+              onClick={() => setRenaming(renaming === entry.id ? null : entry.id)}
+              style={btnStyle}
+            >
+              <LuPencil size={12} aria-hidden="true" />
+            </button>
+          )}
+
           {isAdmin && !entry.isMain && (
             <>
               <select
                 aria-label={t('variants.changeKind')}
                 value={entry.kind}
                 disabled={busy}
-                onChange={(e) => changeKind(entry.id, e.target.value)}
+                onChange={(e) => changeKind(entry, e.target.value)}
                 style={{
                   background: 'var(--bg-card)',
                   color: 'var(--text)',
@@ -216,6 +244,21 @@ export default function BookVersionsSection({ book, onChanged }) {
                 <LuTrash2 size={12} aria-hidden="true" />
               </button>
             </>
+          )}
+
+          {renaming === entry.id && (
+            <div style={{ flexBasis: '100%', padding: '4px 0' }}>
+              <VariantDescribeForm
+                option={entry}
+                resourceType="book"
+                onSaved={() => {
+                  setRenaming(null)
+                  load()
+                  onChanged?.(null)
+                }}
+                onCancel={() => setRenaming(null)}
+              />
+            </div>
           )}
 
           {confirmDelete === entry.id && (

@@ -70,11 +70,18 @@ class VariantFamilyMixin(BaseModel):
     `variant_main_id` is the item that represents the family in listings — the
     item itself unless it is a variant. `variants` is the full sibling list, so
     a viewer can render its picker without a second request; it is empty for an
-    item that has no other versions.
+    item that has no other versions. The `variant_main_*` fields name the main
+    entry of that picker.
     """
 
     variant_parent_id: Optional[str] = None
     variant_kind: str = ""
     variant_label: str = ""
     variant_main_id: Optional[str] = None
+    # How the picker names the main entry, read from the parent so a viewer
+    # holding a variant can still describe the main. Empty kind and label mean
+    # "Main version" (issue #556). See `services.variants.main_fields`.
+    variant_main_kind: str = ""
+    variant_main_label: str = ""
+    variant_main_filename: str = ""
     variants: list[VariantEntry] = []

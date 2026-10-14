@@ -1718,6 +1718,7 @@
       "isParent": "Versión principal",
       "makeParent": "Convertir en versión principal",
       "swapParent": "Intercambiar versión principal",
+      "parentKindLabel": "La copia conservada es una…",
       "kindLabel": "La otra copia es una…",
       "labelLabel": "Etiqueta (opcional)",
       "labelPlaceholder": "p. ej. v1.0.1",
@@ -3156,7 +3157,12 @@
     "deleteConfirm": "Delete this version?",
     "deleteFile": "Delete file",
     "deleteEntryOnly": "Remove entry only",
-    "missing": "Missing"
+    "missing": "Missing",
+    "rename": "Renombrar versión",
+    "renameNamed": "Renombrar {{name}}",
+    "renameKind": "Tipo",
+    "renameLabel": "Etiqueta (opcional)",
+    "labelPlaceholder": "p. ej. v1.2, iluminación nocturna"
   },
   "access": {
     "pickerLabel": "Quién puede ver esto",

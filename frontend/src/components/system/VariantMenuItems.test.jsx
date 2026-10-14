@@ -42,6 +42,18 @@ describe('VariantMenuItems', () => {
     expect(screen.getByRole('menuitemradio', { name: /printer-friendly/ })).toBeInTheDocument()
   })
 
+  it('names a described main version by its label (issue #556)', async () => {
+    get.mockResolvedValue({
+      id: 'b1',
+      variant_main_id: 'b1',
+      variant_main_label: 'Screen edition',
+      variants: [{ id: 'b2', kind: 'printer-friendly', label: '' }],
+    })
+    renderItems()
+    await userEvent.click(screen.getByRole('menuitem', { name: /switchLabel/ }))
+    expect(await screen.findByRole('menuitemradio', { name: /Screen edition/ })).toBeInTheDocument()
+  })
+
   it('fetches only once even if toggled repeatedly', async () => {
     renderItems()
     const trigger = screen.getByRole('menuitem', { name: /switchLabel/ })

@@ -144,6 +144,7 @@ def get_audio(
         "variant_kind": a.variant_kind or "",
         "variant_label": a.variant_label or "",
         "variant_main_id": variant_parent.id,
+        **variants.main_fields(variant_parent),
         "variants": [variants.serialize_variant(v) for v in siblings],
     }
 

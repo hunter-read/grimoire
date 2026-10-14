@@ -1718,6 +1718,7 @@
       "isParent": "Versione principale",
       "makeParent": "Rendi questa la versione principale",
       "swapParent": "Scambia versione principale",
+      "parentKindLabel": "La copia mantenuta è una…",
       "kindLabel": "L'altra copia è una…",
       "labelLabel": "Etichetta (facoltativa)",
       "labelPlaceholder": "es. v1.0.1",
@@ -3156,7 +3157,12 @@
     "deleteConfirm": "Eliminare questa versione?",
     "deleteFile": "Elimina file",
     "deleteEntryOnly": "Rimuovi solo la voce",
-    "missing": "Mancante"
+    "missing": "Mancante",
+    "rename": "Rinomina versione",
+    "renameNamed": "Rinomina {{name}}",
+    "renameKind": "Tipo",
+    "renameLabel": "Etichetta (facoltativa)",
+    "labelPlaceholder": "es. v1.2, illuminazione notturna"
   },
   "access": {
     "pickerLabel": "Chi può vederlo",

@@ -8,6 +8,7 @@ const mockLink = vi.fn()
 const mockPromote = vi.fn()
 const mockUnlink = vi.fn()
 const mockDelete = vi.fn()
+const mockDescribe = vi.fn()
 
 vi.mock('../../api', () => ({
   default: { get: (...a) => mockGet(...a) },
@@ -17,6 +18,7 @@ vi.mock('../../api', () => ({
     promote: (...a) => mockPromote(...a),
     unlink: (...a) => mockUnlink(...a),
     deleteItem: (...a) => mockDelete(...a),
+    describe: (...a) => mockDescribe(...a),
   },
 }))
 
@@ -37,6 +39,10 @@ vi.mock('react-i18next', () => ({
       if (k === 'variants.deleteConfirm') return 'Delete this version?'
       if (k === 'variants.changeKind') return 'Change version type'
       if (k === 'common.cancel') return 'Cancel'
+      if (k === 'common.save') return 'Save'
+      if (k === 'variants.renameNamed') return `Rename ${o.name}`
+      if (k === 'variants.renameKind') return 'Type'
+      if (k === 'variants.renameLabel') return 'Label'
       if (k.startsWith('variants.kind.')) return k.replace('variants.kind.', '')
       return k
     },
@@ -62,6 +68,7 @@ beforeEach(() => {
   mockPromote.mockReset().mockResolvedValue({})
   mockUnlink.mockReset().mockResolvedValue({})
   mockDelete.mockReset().mockResolvedValue({})
+  mockDescribe.mockReset().mockImplementation((_type, id, desc) => Promise.resolve({ id, ...desc }))
 })
 
 describe('BookVersionsSection', () => {
@@ -91,11 +98,55 @@ describe('BookVersionsSection', () => {
     render(<BookVersionsSection book={row} />)
     const select = await screen.findByLabelText('Change version type')
     await userEvent.selectOptions(select, 'black-and-white')
+    // `describe`, not a re-link, so a label the version already carries stays.
     await waitFor(() =>
-      expect(mockLink).toHaveBeenCalledWith('book', 'b1', [
-        { id: 'b2', kind: 'black-and-white', label: '' },
-      ])
+      expect(mockDescribe).toHaveBeenCalledWith('book', 'b2', {
+        kind: 'black-and-white',
+        label: '',
+      })
     )
+    expect(mockLink).not.toHaveBeenCalled()
+  })
+
+  it('names a described main version instead of "Main version" (issue #556)', async () => {
+    mockGet.mockResolvedValue({
+      ...family,
+      variant_main_kind: 'form-fillable',
+      variant_main_label: 'v2',
+      variant_main_filename: 'core.pdf',
+    })
+    render(<BookVersionsSection book={row} />)
+    expect(await screen.findByText(/form-fillable · v2/)).toBeInTheDocument()
+    expect(screen.queryByText(/Main version/)).not.toBeInTheDocument()
+  })
+
+  it('renames the main version and reloads the family', async () => {
+    const onChanged = vi.fn()
+    render(<BookVersionsSection book={row} onChanged={onChanged} />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Rename Main version' }))
+    await userEvent.selectOptions(screen.getByLabelText('Type'), 'spreads')
+    await userEvent.type(screen.getByLabelText('Label'), 'scan')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(mockDescribe).toHaveBeenCalledWith('book', 'b1', { kind: 'spreads', label: 'scan' })
+    )
+    await waitFor(() => expect(onChanged).toHaveBeenCalledWith(null))
+    expect(mockGet).toHaveBeenCalledTimes(2)
+    expect(screen.queryByLabelText('Type')).not.toBeInTheDocument()
+  })
+
+  it('closes the rename form on cancel', async () => {
+    render(<BookVersionsSection book={row} />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Rename Main version' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByLabelText('Type')).not.toBeInTheDocument()
+  })
+
+  it('offers no rename to a non-admin', async () => {
+    role = 'gm'
+    render(<BookVersionsSection book={row} />)
+    await screen.findByText('core.pdf')
+    expect(screen.queryByRole('button', { name: /^Rename/ })).not.toBeInTheDocument()
   })
 
   it('offers only the book kinds', async () => {
@@ -135,6 +186,21 @@ describe('BookVersionsSection', () => {
         newParentId: 'b2',
         oldParentId: 'b1',
         kind: 'version',
+        label: '',
+      })
+    )
+  })
+
+  it('lets a demoted main keep its own description', async () => {
+    mockGet.mockResolvedValue({ ...family, variant_main_kind: 'spreads', variant_main_label: 'x' })
+    render(<BookVersionsSection book={row} />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Make main' }))
+    await waitFor(() =>
+      expect(mockPromote).toHaveBeenCalledWith('book', {
+        newParentId: 'b2',
+        oldParentId: 'b1',
+        kind: 'spreads',
+        label: 'x',
       })
     )
   })

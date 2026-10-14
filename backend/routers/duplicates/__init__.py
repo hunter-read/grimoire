@@ -10,6 +10,7 @@ from fastapi import APIRouter
 from ._schemas import (
     CompareResult,
     DeleteItemResult,
+    DescribeResult,
     DismissalListResponse,
     DismissalOut,
     GroupListResponse,
@@ -23,6 +24,7 @@ from ._schemas import (
 from .core import (
     compare_items,
     delete_item,
+    describe_variant,
     link_variants,
     merge_metadata,
     promote_variant,
@@ -46,6 +48,13 @@ router.add_api_route(
     methods=["POST"],
     summary="File items under a parent as its variants",
     response_model=LinkResult,
+)
+router.add_api_route(
+    "/describe",
+    describe_variant,
+    methods=["POST"],
+    summary="Set the kind and label one version shows in the picker",
+    response_model=DescribeResult,
 )
 router.add_api_route(
     "/promote",

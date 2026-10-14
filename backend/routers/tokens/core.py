@@ -154,6 +154,7 @@ def get_token(
         "variant_kind": t.variant_kind or "",
         "variant_label": t.variant_label or "",
         "variant_main_id": variant_parent.id,
+        **variants.main_fields(variant_parent),
         "variants": [variants.serialize_variant(v) for v in siblings],
     }
 

@@ -652,7 +652,10 @@ A variant is **hidden from list endpoints, counts, and search**, so one book
 occupies one shelf slot, but it stays fully reachable by id: `GET /api/books/:id`,
 its page renders, and its thumbnail all work normally. Detail responses carry
 `variant_parent_id`, `variant_kind`, `variant_label`, `variant_main_id` (the
-entry that represents the family in listings), and `variants` (the full sibling
+entry that represents the family in listings), `variant_main_kind`,
+`variant_main_label` and `variant_main_filename` (how the picker names that main
+entry, read from the parent so a response for a variant can still describe it;
+an empty kind and label mean "Main version"), and `variants` (the full sibling
 list, so a version picker needs no second request). List rows carry
 `variant_count`, plus `variant_kinds` on the map, token, and audio lists — the
 distinct kinds among the hidden versions, sorted and deduplicated, so a gallery
@@ -2600,7 +2603,8 @@ about them (issues #304, #306).
 | `/api/duplicates/cancel-scan` | POST | Stop a running scan. `{status: "stop_requested"}` for a live one, `"cleared_stale"` when it cleared a scan that was no longer really running, `"not_running"` when there was nothing to stop |
 | `/api/duplicates/groups` | GET | Candidate groups from the last completed scan. Query: `resource_type`, `min_confidence`, `limit` (max 200), `offset`. `total` counts the open groups walked to fill the page, not the whole table - a short page means the end |
 | `/api/duplicates/compare` | GET | Side-by-side data for 2–4 items. Query: `resource_type`, repeated `ids` |
-| `/api/duplicates/link` | POST | File items under a parent as its variants |
+| `/api/duplicates/link` | POST | File items under a parent as its variants. Optional `parent_kind`/`parent_label` name the parent too |
+| `/api/duplicates/describe` | POST | Set the `kind` and `label` one version shows in the picker - a variant or the main version. Body: `resource_type`, `id`, `kind`, `label` |
 | `/api/duplicates/promote` | POST | Make a different copy the main version of an existing family |
 | `/api/duplicates/unlink` | POST | Promote variants back to standalone entries |
 | `/api/duplicates/merge-metadata` | POST | Copy chosen metadata fields between two records |
@@ -2694,6 +2698,26 @@ record that *already* carries such a kind, from before the vocabulary was scoped
 per collection: re-saving it unchanged is allowed, so that one stuck field does
 not block every other edit to the row. It can be corrected, but not copied to a
 second record.
+
+The main version can describe itself the same way (issue #556): a map pack's
+main copy is often the gridless cut, and "Main version" hides that. The parent's
+own `variant_kind`/`variant_label` name it, and detail responses expose them as
+`variant_main_kind`/`variant_main_label`. `POST /duplicates/describe` sets them
+- and works on a variant too, without naming its parent. A main version may
+have an empty kind (that is "Main version"); a variant may not, and an unknown
+kind is a `400`, a missing id a `404`. `link` takes optional `parent_kind` and
+`parent_label` to name the parent in the same request; either left out keeps
+what the parent already has, they are only applied when at least one child
+linked, and a bad `parent_kind` is reported as an `errors` entry for the parent
+rather than failing the links. The kind describes the file rather than its
+position, so a variant promoted to main - by `promote`, or by `reparent_to` on a
+delete - keeps its kind and label as the main's description.
+
+For a two-way `compare`, each item also carries `suggested_kind` and
+`suggested_label`: the scan's filename-based guess at what that copy is relative
+to the other (`Tavern_nogrid.png` → `gridless`, `Tavern_grid.png` → `gridded`).
+`other` means the names did not tell them apart; both are empty for a wider
+compare, since the guess is relational.
 
 Only two levels are allowed — a variant cannot itself have variants — which
 makes cycles impossible and keeps the version picker flat. Deleting a record that has

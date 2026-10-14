@@ -34,6 +34,7 @@ const promote = vi.fn()
 const dismiss = vi.fn()
 const deleteItem = vi.fn()
 const mergeMetadata = vi.fn()
+const describeVariant = vi.fn()
 
 vi.mock('../api', () => ({
   default: { get: vi.fn(), post: vi.fn() },
@@ -50,6 +51,7 @@ vi.mock('../api', () => ({
     dismiss: (...a) => dismiss(...a),
     deleteItem: (...a) => deleteItem(...a),
     mergeMetadata: (...a) => mergeMetadata(...a),
+    describe: (...a) => describeVariant(...a),
   },
 }))
 
@@ -120,13 +122,19 @@ describe('DuplicateCompareView', () => {
     render(<DuplicateCompareView />)
     await waitFor(() => expect(screen.getByText('a.pdf')).toBeInTheDocument())
 
-    await userEvent.selectOptions(screen.getByRole('combobox'), 'form-fillable')
+    await userEvent.selectOptions(
+      screen.getByLabelText('maintenance.dupes.kindLabel'),
+      'form-fillable'
+    )
     await userEvent.type(screen.getByRole('textbox'), 'v2')
     await userEvent.click(screen.getByRole('button', { name: /maintenance.dupes.linkAs/ }))
 
-    expect(link).toHaveBeenCalledWith('book', 'a', [
-      { id: 'b', kind: 'form-fillable', label: 'v2' },
-    ])
+    expect(link).toHaveBeenCalledWith(
+      'book',
+      'a',
+      [{ id: 'b', kind: 'form-fillable', label: 'v2' }],
+      { kind: '', label: '' }
+    )
   })
 
   it('lets the user re-elect the parent, reversing the link', async () => {
@@ -137,7 +145,10 @@ describe('DuplicateCompareView', () => {
     await userEvent.click(screen.getByRole('button', { name: /maintenance.dupes.linkAs/ }))
 
     // b is now the main version and a is filed under it.
-    expect(link).toHaveBeenCalledWith('book', 'b', [{ id: 'a', kind: 'other', label: '' }])
+    expect(link).toHaveBeenCalledWith('book', 'b', [{ id: 'a', kind: 'other', label: '' }], {
+      kind: '',
+      label: '',
+    })
   })
 
   it('swaps the parent from the toolbar button', async () => {
@@ -147,7 +158,10 @@ describe('DuplicateCompareView', () => {
     await userEvent.click(screen.getByRole('button', { name: /maintenance.dupes.swapParent/ }))
     await userEvent.click(screen.getByRole('button', { name: /maintenance.dupes.linkAs/ }))
 
-    expect(link).toHaveBeenCalledWith('book', 'b', [{ id: 'a', kind: 'other', label: '' }])
+    expect(link).toHaveBeenCalledWith('book', 'b', [{ id: 'a', kind: 'other', label: '' }], {
+      kind: '',
+      label: '',
+    })
   })
 
   it('promotes instead of linking when the demoted copy already has a family', async () => {
@@ -445,7 +459,95 @@ describe('DuplicateCompareView kind options', () => {
     await userEvent.selectOptions(kindSelect(), 'universal-vtt')
     await userEvent.click(screen.getByText(/maintenance.dupes.linkAs/))
     await waitFor(() =>
-      expect(link).toHaveBeenCalledWith('map', 'a', [{ id: 'b', kind: 'universal-vtt', label: '' }])
+      expect(link).toHaveBeenCalledWith(
+        'map',
+        'a',
+        [{ id: 'b', kind: 'universal-vtt', label: '' }],
+        { kind: '', label: '' }
+      )
     )
+  })
+})
+
+describe('DuplicateCompareView naming the kept copy (issue #556)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    role = 'admin'
+    resourceType = 'map'
+    link.mockResolvedValue({ linked: ['b'] })
+    promote.mockResolvedValue({})
+    describeVariant.mockResolvedValue({})
+  })
+
+  const gridPair = (extraA = {}, extraB = {}) =>
+    payload({
+      resource_type: 'map',
+      items: [
+        item('a', { filename: 'Tavern_nogrid.png', suggested_kind: 'gridless', ...extraA }),
+        item('b', { filename: 'Tavern_grid.png', suggested_kind: 'gridded', ...extraB }),
+      ],
+    })
+
+  const parentSelect = () => screen.getByLabelText('maintenance.dupes.parentKindLabel')
+  const childSelect = () => screen.getByLabelText('maintenance.dupes.kindLabel')
+
+  it('seeds both sides from the filename suggestions', async () => {
+    compare.mockResolvedValue(gridPair())
+    render(<DuplicateCompareView />)
+    await waitFor(() => expect(parentSelect()).toHaveValue('gridless'))
+    expect(childSelect()).toHaveValue('gridded')
+
+    await userEvent.click(screen.getByRole('button', { name: /maintenance.dupes.linkAs/ }))
+    expect(link).toHaveBeenCalledWith('map', 'a', [{ id: 'b', kind: 'gridded', label: '' }], {
+      kind: 'gridless',
+      label: '',
+    })
+  })
+
+  it('swaps the suggestions when the parent flips', async () => {
+    compare.mockResolvedValue(gridPair())
+    render(<DuplicateCompareView />)
+    await waitFor(() => expect(parentSelect()).toHaveValue('gridless'))
+    await userEvent.click(screen.getAllByRole('radio')[1])
+    expect(parentSelect()).toHaveValue('gridded')
+    expect(childSelect()).toHaveValue('gridless')
+  })
+
+  it('treats an "other" guess as no description', async () => {
+    compare.mockResolvedValue(gridPair({ suggested_kind: 'other' }))
+    render(<DuplicateCompareView />)
+    await waitFor(() => expect(childSelect()).toHaveValue('gridded'))
+    expect(parentSelect()).toHaveValue('')
+  })
+
+  it("keeps the kept copy's own kind and label over a guess", async () => {
+    compare.mockResolvedValue(gridPair({ variant_kind: 'video', variant_label: 'night' }))
+    render(<DuplicateCompareView />)
+    await waitFor(() => expect(parentSelect()).toHaveValue('video'))
+    await userEvent.click(screen.getByRole('button', { name: /maintenance.dupes.linkAs/ }))
+    expect(link).toHaveBeenCalledWith('map', 'a', expect.any(Array), {
+      kind: 'video',
+      label: 'night',
+    })
+  })
+
+  it('describes the new parent after a promote when its kind changed', async () => {
+    compare.mockResolvedValue(gridPair({}, { variants: [{ id: 'c' }] }))
+    render(<DuplicateCompareView />)
+    await waitFor(() => expect(parentSelect()).toHaveValue('gridless'))
+    await userEvent.click(screen.getByRole('button', { name: /maintenance.dupes.linkAs/ }))
+    await waitFor(() =>
+      expect(describeVariant).toHaveBeenCalledWith('map', 'a', { kind: 'gridless', label: '' })
+    )
+    expect(promote).toHaveBeenCalled()
+  })
+
+  it('skips the describe call when the kind is unchanged', async () => {
+    compare.mockResolvedValue(gridPair({ suggested_kind: 'other' }, { variants: [{ id: 'c' }] }))
+    render(<DuplicateCompareView />)
+    await waitFor(() => expect(childSelect()).toHaveValue('gridded'))
+    await userEvent.click(screen.getByRole('button', { name: /maintenance.dupes.linkAs/ }))
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/settings/duplicates'))
+    expect(describeVariant).not.toHaveBeenCalled()
   })
 })

@@ -216,7 +216,12 @@ export default function TokenDetailView() {
             {!isMobilePhone && t('tokenEditor.title')}
           </button>
         )}
-        <VariantPicker item={token} detailPath={(id) => `/tokens/${id}`} compact />
+        <VariantPicker
+          item={token}
+          detailPath={(id) => `/tokens/${id}`}
+          resourceType="token"
+          compact
+        />
         <DownloadVersionButton type="tokens" id={tokenId} item={token} compact={isMobilePhone} />
         {/* Favourite, campaigns and share links live in the overflow menu, as in
             the book reader, so the toolbar keeps room for the title. */}

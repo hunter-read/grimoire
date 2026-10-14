@@ -27,6 +27,29 @@ class LinkRequest(BaseModel):
     # Capped for the same reason bulk updates are: one request should not be
     # able to restructure an entire library.
     children: list[LinkChild] = Field(..., min_length=1, max_length=20)
+    # How the parent names itself in the picker (issue #556). None leaves it
+    # as it is; an empty kind and label mean "Main version".
+    parent_kind: Optional[str] = None
+    parent_label: Optional[str] = None
+
+
+class DescribeRequest(BaseModel):
+    """Rename one family member in the picker, from either end.
+
+    For a variant this is the kind/label a link set. For a main version it is
+    what replaces "Main version"; an empty kind and label restore that.
+    """
+
+    resource_type: ResourceType
+    id: str
+    kind: str = ""
+    label: str = ""
+
+
+class DescribeResult(BaseModel):
+    id: str
+    kind: str
+    label: str
 
 
 class PromoteRequest(BaseModel):
@@ -129,7 +152,14 @@ class CompareItem(BaseModel):
     reference_counts: dict[str, int] = {}
     variant_parent_id: Optional[str] = None
     variant_kind: str = ""
+    variant_label: str = ""
     variants: list[VariantEntry] = []
+    # The scan's filename-based guess at what this copy is relative to the
+    # other one (gridless, printer-friendly, ...), so the form can be
+    # pre-filled for both sides. Only filled for a two-way compare, since the
+    # guess is relational. "other" means nothing told the two apart.
+    suggested_kind: str = ""
+    suggested_label: str = ""
     # The family this copy already belongs to, when it is itself a variant.
     # Named rather than left as a bare id because the compare view has to offer
     # the user a way *out* of that dead end, and "promote its main version

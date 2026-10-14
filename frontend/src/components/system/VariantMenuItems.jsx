@@ -4,6 +4,7 @@ import { LuCheck, LuLayers } from 'react-icons/lu'
 import { useNavigate } from 'react-router-dom'
 
 import api from '../../api'
+import variantLabel, { mainOption } from '../../utils/variantLabel'
 
 /**
  * "Switch version" rows for a book's overflow menu.
@@ -33,7 +34,7 @@ export default function VariantMenuItems({ book, itemStyle, onPick }) {
       .get(`/books/${book.id}`)
       .then((data) =>
         setFamily([
-          { id: data.variant_main_id || data.id, isMain: true },
+          mainOption(data),
           ...(data.variants || []).map((v) => ({ ...v, isMain: false })),
         ])
       )
@@ -41,11 +42,7 @@ export default function VariantMenuItems({ book, itemStyle, onPick }) {
       .finally(() => setLoading(false))
   }, [open, family, loading, book.id])
 
-  const label = (option) => {
-    if (option.isMain) return t('variants.mainVersion')
-    if (option.label) return option.label
-    return t(`variants.kind.${option.kind}`, { defaultValue: option.kind })
-  }
+  const label = (option) => variantLabel(option, t)
 
   return (
     <>

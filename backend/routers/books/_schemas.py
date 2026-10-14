@@ -250,6 +250,11 @@ class BookDetail(BaseModel):
     variant_kind: str = ""
     variant_label: str = ""
     variant_main_id: Optional[str] = None
+    # How the picker names the main entry (issue #556); empty means
+    # "Main version". Mirrors `VariantFamilyMixin`.
+    variant_main_kind: str = ""
+    variant_main_label: str = ""
+    variant_main_filename: str = ""
     variants: list[VariantEntry] = []
     game_system: Optional[BookSystemRef] = None
 

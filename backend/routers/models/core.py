@@ -155,6 +155,7 @@ def get_model(
         "variant_kind": m.variant_kind or "",
         "variant_label": m.variant_label or "",
         "variant_main_id": variant_parent.id,
+        **variants.main_fields(variant_parent),
         "variants": [variants.serialize_variant(v) for v in siblings],
     }
 

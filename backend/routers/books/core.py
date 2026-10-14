@@ -227,6 +227,7 @@ def get_book(
         "variant_kind": book.variant_kind or "",
         "variant_label": book.variant_label or "",
         "variant_main_id": variant_parent.id,
+        **variants.main_fields(variant_parent),
         "variants": [variants.serialize_variant(v) for v in siblings],
         "game_system": {"id": system.id, "name": system.name, "slug": system.slug}
         if system

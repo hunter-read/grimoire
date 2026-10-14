@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import VariantPicker from './VariantPicker'
@@ -10,10 +10,21 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useNavigate: () => mockNavigate }
 })
 
+let role = 'player'
+vi.mock('../context/AuthContext', () => ({ useAuth: () => ({ user: { role } }) }))
+
+const describeVariant = vi.fn()
+vi.mock('../api', () => ({ duplicates: { describe: (...a) => describeVariant(...a) } }))
+
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (k, o) => {
       if (k === 'variants.badge') return `${o.count} versions`
+      if (k === 'variants.renameNamed') return `Rename ${o.name}`
+      if (k === 'variants.renameKind') return 'Type'
+      if (k === 'variants.renameLabel') return 'Label'
+      if (k === 'common.save') return 'Save'
+      if (k === 'common.cancel') return 'Cancel'
       if (k === 'variants.mainVersion') return 'Main version'
       if (k === 'variants.switchLabel') return 'Switch version'
       if (k.startsWith('variants.kind.')) return k.replace('variants.kind.', '')
@@ -22,10 +33,10 @@ vi.mock('react-i18next', () => ({
   }),
 }))
 
-const renderPicker = (item) =>
+const renderPicker = (item, props = {}) =>
   render(
     <MemoryRouter>
-      <VariantPicker item={item} detailPath={(id) => `/maps/${id}`} />
+      <VariantPicker item={item} detailPath={(id) => `/maps/${id}`} {...props} />
     </MemoryRouter>
   )
 
@@ -180,5 +191,111 @@ describe('VariantPicker', () => {
     await openMenu()
     await userEvent.click(document.body)
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('names a described main entry, even from a variant (issue #556)', async () => {
+    renderPicker({
+      id: 'b',
+      variant_main_id: 'a',
+      variant_main_kind: 'gridless',
+      variant_main_filename: 'Tavern_nogrid.png',
+      filename: 'Tavern_grid.png',
+      variants: [{ id: 'b', kind: 'gridded', label: '', filename: 'Tavern_grid.png' }],
+    })
+    await openMenu()
+    const main = screen.getByRole('menuitem', { name: /gridless/ })
+    expect(main).toHaveTextContent('Tavern_nogrid.png')
+    expect(screen.queryByRole('menuitem', { name: /Main version/ })).not.toBeInTheDocument()
+  })
+
+  describe('renaming', () => {
+    const family = {
+      id: 'a',
+      variant_main_id: 'a',
+      filename: 'Tavern_nogrid.png',
+      variant_main_filename: 'Tavern_nogrid.png',
+      variants: [{ id: 'b', kind: 'gridded', label: '', filename: 'Tavern_grid.png' }],
+    }
+
+    beforeEach(() => {
+      role = 'admin'
+      describeVariant
+        .mockReset()
+        .mockImplementation((_t, id, desc) => Promise.resolve({ id, ...desc }))
+    })
+    afterEach(() => {
+      role = 'player'
+    })
+
+    it('is offered to an admin when the collection is known', async () => {
+      renderPicker(family, { resourceType: 'map' })
+      await openMenu()
+      expect(screen.getByRole('button', { name: 'Rename Main version' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Rename gridded' })).toBeInTheDocument()
+    })
+
+    it('is not offered without a collection', async () => {
+      renderPicker(family)
+      await openMenu()
+      expect(screen.queryByRole('button', { name: /^Rename/ })).not.toBeInTheDocument()
+    })
+
+    it('is not offered to a non-admin', async () => {
+      role = 'gm'
+      renderPicker(family, { resourceType: 'map' })
+      await openMenu()
+      expect(screen.queryByRole('button', { name: /^Rename/ })).not.toBeInTheDocument()
+    })
+
+    it('renames the main entry in place', async () => {
+      renderPicker(family, { resourceType: 'map' })
+      await openMenu()
+      await userEvent.click(screen.getByRole('button', { name: 'Rename Main version' }))
+      await userEvent.selectOptions(screen.getByLabelText('Type'), 'gridless')
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+      await waitFor(() =>
+        expect(describeVariant).toHaveBeenCalledWith('map', 'a', { kind: 'gridless', label: '' })
+      )
+      // Applied straight away, and the menu stays open on the list.
+      expect(await screen.findByRole('menuitem', { name: /gridless/ })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Switch version' })).toHaveTextContent('gridless')
+      expect(mockNavigate).not.toHaveBeenCalledWith('/maps/a')
+    })
+
+    it('goes back to the list on cancel', async () => {
+      renderPicker(family, { resourceType: 'map' })
+      await openMenu()
+      await userEvent.click(screen.getByRole('button', { name: 'Rename gridded' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+      expect(screen.queryByLabelText('Type')).not.toBeInTheDocument()
+      expect(screen.getByRole('menuitem', { name: /gridded/ })).toBeInTheDocument()
+    })
+
+    it('drops an open rename when the menu closes', async () => {
+      renderPicker(family, { resourceType: 'map' })
+      await openMenu()
+      await userEvent.click(screen.getByRole('button', { name: 'Rename gridded' }))
+      await userEvent.keyboard('{Escape}')
+      await openMenu()
+      expect(screen.queryByLabelText('Type')).not.toBeInTheDocument()
+    })
+
+    it('drops an open rename on a click outside', async () => {
+      renderPicker(family, { resourceType: 'map' })
+      await openMenu()
+      await userEvent.click(screen.getByRole('button', { name: 'Rename gridded' }))
+      await userEvent.click(document.body)
+      await openMenu()
+      expect(screen.queryByLabelText('Type')).not.toBeInTheDocument()
+    })
+
+    it('drops an open rename when the trigger is clicked again', async () => {
+      renderPicker(family, { resourceType: 'map' })
+      await openMenu()
+      await userEvent.click(screen.getByRole('button', { name: 'Rename gridded' }))
+      await openMenu()
+      await openMenu()
+      expect(screen.queryByLabelText('Type')).not.toBeInTheDocument()
+    })
   })
 })

@@ -1718,6 +1718,7 @@
       "isParent": "Huvudversion",
       "makeParent": "Gör den här till huvudversionen",
       "swapParent": "Byt huvudversion",
+      "parentKindLabel": "Den behållna kopian är en…",
       "kindLabel": "Den andra kopian är en…",
       "labelLabel": "Etikett (valfritt)",
       "labelPlaceholder": "t.ex. v1.0.1",
@@ -3156,7 +3157,12 @@
     "deleteConfirm": "Ta bort den här versionen?",
     "deleteFile": "Ta bort fil",
     "deleteEntryOnly": "Ta bara bort posten",
-    "missing": "Saknas"
+    "missing": "Saknas",
+    "rename": "Byt namn på version",
+    "renameNamed": "Byt namn på {{name}}",
+    "renameKind": "Typ",
+    "renameLabel": "Etikett (valfri)",
+    "labelPlaceholder": "t.ex. v1.2, nattbelysning"
   },
   "access": {
     "pickerLabel": "Vem kan se det här",

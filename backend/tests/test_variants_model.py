@@ -361,7 +361,8 @@ class TestPromote:
             db.commit()
 
             assert _fresh(db, Book, child).variant_parent_id is None
-            assert _fresh(db, Book, child).variant_kind == ""
+            # Its kind now names the main version (issue #556).
+            assert _fresh(db, Book, child).variant_kind == "version"
             assert _fresh(db, Book, parent).variant_parent_id == child.id
             assert _fresh(db, Book, other).variant_parent_id == child.id
         finally:

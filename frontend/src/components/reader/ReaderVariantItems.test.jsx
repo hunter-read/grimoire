@@ -50,6 +50,12 @@ describe('ReaderVariantItems', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
+  it('names a described main version by its kind (issue #556)', () => {
+    renderItems({ book: { ...book, variant_main_kind: 'form-fillable' } })
+    expect(screen.getByRole('menuitemradio', { name: /form-fillable/ })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitemradio', { name: /mainVersion/ })).not.toBeInTheDocument()
+  })
+
   it('lists the main entry and every variant', () => {
     renderItems()
     expect(screen.getByRole('menuitemradio', { name: /mainVersion/ })).toBeInTheDocument()

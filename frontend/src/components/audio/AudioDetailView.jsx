@@ -182,7 +182,12 @@ export default function AudioDetailView() {
             />
           </button>
         )}
-        <VariantPicker item={track} detailPath={(id) => `/audio/${id}`} compact />
+        <VariantPicker
+          item={track}
+          detailPath={(id) => `/audio/${id}`}
+          resourceType="audio"
+          compact
+        />
         <DownloadVersionButton type="audio" id={audioId} item={track} compact={isMobilePhone} />
         {/* Favourite, campaigns and share links live in the overflow menu, as in
             the book reader, so the toolbar keeps room for the title. */}

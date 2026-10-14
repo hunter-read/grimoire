@@ -629,12 +629,19 @@ export const duplicates = {
     ids.forEach((id) => qs.append('ids', id))
     return api.get(`/duplicates/compare?${qs.toString()}`)
   },
-  link: (resourceType, parentId, children) =>
+  // `parent` optionally names the main version as well (`{ kind, label }`);
+  // left out, the parent keeps whatever description it already has.
+  link: (resourceType, parentId, children, parent = null) =>
     api.post('/duplicates/link', {
       resource_type: resourceType,
       parent_id: parentId,
       children,
+      ...(parent ? { parent_kind: parent.kind ?? '', parent_label: parent.label ?? '' } : {}),
     }),
+  // Set the kind and label one version shows in the picker, from either end of
+  // the family. For a main version an empty kind and label mean "Main version".
+  describe: (resourceType, id, { kind = '', label = '' } = {}) =>
+    api.post('/duplicates/describe', { resource_type: resourceType, id, kind, label }),
   // Hand an existing family a different main version. Distinct from `link`,
   // which refuses to put a parent under something else — see the promote
   // endpoint for why re-electing a parent needs its own call.

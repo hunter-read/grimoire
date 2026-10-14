@@ -219,6 +219,10 @@ def search_resources_global(
                 "name": name,
                 "subtitle": folder,
                 "has_thumbnail": has_thumb,
+                # The main version's own description, for the version chooser
+                # to name it instead of "Main version" (issue #556).
+                "variant_kind": item.variant_kind or "",
+                "variant_label": item.variant_label or "",
             }
             if q and q_lower in folder.lower():
                 folder_hits.append(row)

@@ -229,7 +229,7 @@ export default function MapDetailView() {
             />
           </button>
         )}
-        <VariantPicker item={map} detailPath={(id) => `/maps/${id}`} compact />
+        <VariantPicker item={map} detailPath={(id) => `/maps/${id}`} resourceType="map" compact />
         {/* The VTT editor authors walls, doors and lights (issues #126/#127).
             A .uvtt opens on the geometry it already carries; a map paired with
             one offers the choice, since only the user knows which they mean.

@@ -1718,6 +1718,7 @@
       "isParent": "Hoofdversie",
       "makeParent": "Als hoofdversie instellen",
       "swapParent": "Hoofdversie wisselen",
+      "parentKindLabel": "De behouden kopie is een…",
       "kindLabel": "De andere kopie is een…",
       "labelLabel": "Label (optioneel)",
       "labelPlaceholder": "bijv. v1.0.1",
@@ -3156,7 +3157,12 @@
     "deleteConfirm": "Delete this version?",
     "deleteFile": "Delete file",
     "deleteEntryOnly": "Remove entry only",
-    "missing": "Missing"
+    "missing": "Missing",
+    "rename": "Versie hernoemen",
+    "renameNamed": "{{name}} hernoemen",
+    "renameKind": "Type",
+    "renameLabel": "Label (optioneel)",
+    "labelPlaceholder": "bijv. v1.2, nachtverlichting"
   },
   "access": {
     "pickerLabel": "Wie dit kan zien",

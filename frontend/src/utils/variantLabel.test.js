@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 
-import variantLabel, { variantFilename } from './variantLabel'
+import variantLabel, { mainOption, variantFilename } from './variantLabel'
 
 // The real translator, minus i18n: the helper only ever looks up
 // `variants.kind.*`, so echoing the key back with a recognisable shape is
@@ -21,8 +21,21 @@ const t = (key, opts) => {
 }
 
 describe('variantLabel', () => {
-  it('names the main entry without consulting its kind', () => {
+  it('names an undescribed main entry "Main version", not its filename', () => {
     expect(variantLabel({ isMain: true, filename: 'map.webp' }, t)).toBe('Main version')
+    expect(variantLabel({ isMain: true, kind: 'version', filename: 'map.webp' }, t)).toBe(
+      'Main version'
+    )
+  })
+
+  it('names a described main entry by its kind and label (issue #556)', () => {
+    expect(variantLabel({ isMain: true, kind: 'gridded', filename: 'a.webp' }, t)).toBe('Gridded')
+    expect(variantLabel({ isMain: true, kind: '', label: 'Gridless', filename: 'a.webp' }, t)).toBe(
+      'Gridless'
+    )
+    expect(variantLabel({ isMain: true, kind: 'gridded', label: 'night' }, t)).toBe(
+      'Gridded · night'
+    )
   })
 
   it('shows the kind and the label together', () => {
@@ -111,5 +124,35 @@ describe('variantFilename', () => {
 
   it('gives the filename for the main entry, which is named by role only', () => {
     expect(variantFilename({ isMain: true, filename: 'main.webp' }, t)).toBe('main.webp')
+  })
+})
+
+describe('mainOption', () => {
+  it('reads the main entry from the variant_main_* fields', () => {
+    const item = {
+      id: 'child',
+      filename: 'Tavern_grid.png',
+      variant_main_id: 'main',
+      variant_main_kind: 'gridless',
+      variant_main_label: 'night',
+      variant_main_filename: 'Tavern_nogrid.png',
+    }
+    expect(mainOption(item)).toEqual({
+      id: 'main',
+      isMain: true,
+      kind: 'gridless',
+      label: 'night',
+      filename: 'Tavern_nogrid.png',
+    })
+  })
+
+  it('falls back to the row itself for an older response', () => {
+    expect(mainOption({ filename: 'a.png' }, 'x')).toEqual({
+      id: 'x',
+      isMain: true,
+      kind: '',
+      label: '',
+      filename: 'a.png',
+    })
   })
 })

@@ -1718,6 +1718,7 @@
       "isParent": "Version principale",
       "makeParent": "Définir comme version principale",
       "swapParent": "Permuter la version principale",
+      "parentKindLabel": "La copie conservée est une…",
       "kindLabel": "L'autre copie est une…",
       "labelLabel": "Étiquette (facultatif)",
       "labelPlaceholder": "ex. v1.0.1",
@@ -3156,7 +3157,12 @@
     "deleteConfirm": "Delete this version?",
     "deleteFile": "Delete file",
     "deleteEntryOnly": "Remove entry only",
-    "missing": "Missing"
+    "missing": "Missing",
+    "rename": "Renommer la version",
+    "renameNamed": "Renommer {{name}}",
+    "renameKind": "Type",
+    "renameLabel": "Libellé (facultatif)",
+    "labelPlaceholder": "ex. v1.2, éclairage de nuit"
   },
   "access": {
     "pickerLabel": "Qui peut voir ceci",

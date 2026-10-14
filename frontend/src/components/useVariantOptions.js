@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import api from '../api'
-import variantLabel, { variantFilename } from '../utils/variantLabel'
+import variantLabel, { mainOption, variantFilename } from '../utils/variantLabel'
 
 // The API path segment differs from the download segment for audio only, but
 // every caller already knows its download type, so that is what is passed in.
@@ -53,14 +53,7 @@ export default function useVariantOptions(type, id, item) {
 
   const source = inline || fetched
   const options = source
-    ? [
-        {
-          id: source.variant_main_id || source.id || id,
-          isMain: true,
-          filename: source.filename,
-        },
-        ...(source.variants || []).map((v) => ({ ...v, isMain: false })),
-      ]
+    ? [mainOption(source, id), ...(source.variants || []).map((v) => ({ ...v, isMain: false }))]
     : []
 
   const label = useCallback((option) => variantLabel(option, t), [t])

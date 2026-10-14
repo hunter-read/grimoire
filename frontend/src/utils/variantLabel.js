@@ -22,13 +22,12 @@ const GENERIC_KINDS = new Set(['version', 'other'])
 /**
  * The name of one version: kind, label, or both.
  *
- * @param {object} option one version: `{ isMain, kind, label, filename }`
+ * @param {object} option one version: `{ isMain, kind, label, filename }`. A main
+ *   version's kind and label are optional; without them it is "Main version".
  * @param {Function} t i18next translate
  * @returns {string} the text for this row
  */
 export default function variantLabel(option, t) {
-  if (option.isMain) return t('variants.mainVersion')
-
   // A label that is just the filename is not a description of anything - it is
   // what the linker filled in when it had nothing better, and the indexer does
   // exactly that for an auto-detected pair. Treating it as a real label prints
@@ -36,6 +35,12 @@ export default function variantLabel(option, t) {
   const label = labelText(option)
   const kind = option.kind || ''
   const generic = !kind || GENERIC_KINDS.has(kind)
+
+  // The main version names itself the same way once it has been described (a
+  // map pack's main is often the gridless cut - issue #556). Undescribed, it is
+  // "Main version" rather than its filename: that is still the most useful
+  // thing to say about the copy every other entry is a version *of*.
+  if (option.isMain && generic && !label) return t('variants.mainVersion')
 
   // Nothing describes this one: fall back to the filename, which at least
   // distinguishes it from its siblings.
@@ -77,4 +82,25 @@ export function variantFilename(option, t) {
   const filename = (option.filename || '').trim()
   if (!filename) return ''
   return variantLabel(option, t).includes(filename) ? '' : filename
+}
+
+/**
+ * The main entry of a family's picker, built from a detail response.
+ *
+ * The response may be for any member of the family, so the main's name and
+ * filename come from the `variant_main_*` fields rather than from the row
+ * itself - which, for a variant, describes the variant.
+ *
+ * @param {object} item a detail response carrying the family
+ * @param {string} [fallbackId] id to use when the response has none
+ * @returns {object} `{ id, isMain, kind, label, filename }`
+ */
+export function mainOption(item, fallbackId) {
+  return {
+    id: item.variant_main_id || item.id || fallbackId,
+    isMain: true,
+    kind: item.variant_main_kind || '',
+    label: item.variant_main_label || '',
+    filename: item.variant_main_filename || item.filename,
+  }
 }

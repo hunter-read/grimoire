@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from ...auth import CurrentUser, require_admin
 from ...config import get_db, logger
 from ...services import tag_service, variants
+from ...services.duplicates import scoring
 from ...services.library_fs.constants import LibraryFSError
 from ...services.library_fs.deletes import delete_record
 from ...services.library_fs.references import reference_counts
@@ -28,6 +29,7 @@ from ._helpers import (
 )
 from ._schemas import (
     DeleteItemRequest,
+    DescribeRequest,
     LinkRequest,
     MergeMetadataRequest,
     PromoteRequest,
@@ -69,6 +71,23 @@ def link_variants(
         except VariantError as exc:
             errors.append({"id": child.id, "detail": exc.message})
 
+    # The parent is described only once something was actually filed under it:
+    # naming a main version of a family that does not exist would be a stray
+    # write the user did not see happen.
+    if linked and (data.parent_kind is not None or data.parent_label is not None):
+        parent = db.query(model).filter_by(id=data.parent_id).first()
+        try:
+            variants.describe(
+                db,
+                model,
+                data.parent_id,
+                data.parent_kind if data.parent_kind is not None else parent.variant_kind,
+                data.parent_label if data.parent_label is not None else parent.variant_label,
+                resource_type=data.resource_type,
+            )
+        except VariantError as exc:
+            errors.append({"id": data.parent_id, "detail": exc.message})
+
     if linked:
         db.commit()
         logger.info(
@@ -77,6 +96,28 @@ def link_variants(
     else:
         db.rollback()
     return {"parent_id": data.parent_id, "linked": linked, "errors": errors}
+
+
+def describe_variant(
+    data: DescribeRequest,
+    _: CurrentUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Set the kind and label one version shows in the picker.
+
+    The one edit that reaches a main version: without it the main copy of a
+    family is always "Main version", however much more the user knows about it.
+    """
+    model = resolve_model(data.resource_type)
+    try:
+        record = variants.describe(
+            db, model, data.id, data.kind, data.label, resource_type=data.resource_type
+        )
+    except VariantError as exc:
+        db.rollback()
+        raise http_error(exc) from exc
+    db.commit()
+    return {"id": record.id, "kind": record.variant_kind or "", "label": record.variant_label or ""}
 
 
 def promote_variant(
@@ -274,8 +315,13 @@ def compare_items(
     records = [get_or_404(db, model, item_id) for item_id in ids]
 
     items = []
-    for record in records:
+    for index, record in enumerate(records):
         parent, siblings = variants.family_for(db, model, record)
+        suggested_kind, suggested_label = "", ""
+        if len(records) == 2:
+            suggested_kind, suggested_label = scoring.suggest_kind(
+                record, records[1 - index], resource_type
+            )
         created = getattr(record, "created_at", None)
         # Only when the record is a variant of something else. `family_for`
         # returns the record itself for a parent (and for a dangling link), and
@@ -310,7 +356,10 @@ def compare_items(
                 "reference_counts": reference_counts(db, model, record.id),
                 "variant_parent_id": record.variant_parent_id,
                 "variant_kind": record.variant_kind or "",
+                "variant_label": record.variant_label or "",
                 "variants": [variants.serialize_variant(v) for v in siblings],
+                "suggested_kind": suggested_kind,
+                "suggested_label": suggested_label,
                 "variant_main": main,
             }
         )

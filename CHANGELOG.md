@@ -29,6 +29,8 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Cut out maps, tables, cards and tokens: draw rectangles, squares or circles on a page, or across both halves of a spread, and each one downloads as its own file - round tokens with transparent corners. Find shapes picks out every token or picture on a page for you
 - The PDF map viewer has the same Export button
 - Admins on a writable library can save an export straight into a library folder - beside the book, or into Tokens or Maps - instead of downloading it, and Grimoire indexes the new files right away
+- Name the main version of a family instead of "Main version": a map pack whose main copy is the gridless cut can say Gridless. Admins rename any version - the main one included - from the version picker on a map, token, audio or 3D model page, or from a book's Versions section
+- Reviewing duplicates pre-fills what each copy is from its filename, for the copy you keep as well as the other - a `Tavern_nogrid` / `Tavern_grid` pair arrives as Gridless main, Gridded variant
 
 ### Changed
 

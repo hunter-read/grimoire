@@ -196,7 +196,12 @@ export default function ModelDetailView() {
             />
           </button>
         )}
-        <VariantPicker item={model} detailPath={(id) => `/models/${id}`} compact />
+        <VariantPicker
+          item={model}
+          detailPath={(id) => `/models/${id}`}
+          resourceType="model"
+          compact
+        />
         <DownloadVersionButton type="models" id={modelId} item={model} compact={isMobilePhone} />
         {/* Favourite, campaigns and share links live in the overflow menu, as in
             the book reader, so the toolbar keeps room for the title. */}

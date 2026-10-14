@@ -54,6 +54,9 @@ export default function DuplicateCompareView() {
   const [parentId, setParentId] = useState('')
   const [kind, setKind] = useState('other')
   const [label, setLabel] = useState('')
+  // What the kept copy is, so the picker can say "Gridless" instead of "Main
+  // version" (issue #556). Empty is "Main version".
+  const [parentKind, setParentKind] = useState('')
   const [page, setPage] = useState(1)
   const [confirmDelete, setConfirmDelete] = useState(null)
   // Default on: someone resolving duplicates has decided this copy is
@@ -137,6 +140,41 @@ export default function DuplicateCompareView() {
     if (!kindOptions.includes(kind)) setKind('other')
   }, [kindOptions, kind])
 
+  const parentKindOptions = useMemo(
+    () => ['', ...kindsFor(resourceType, parentItem?.variant_kind || '')],
+    [resourceType, parentItem?.variant_kind]
+  )
+
+  // Seeded from the scan's filename reading whenever the pair or the choice of
+  // parent changes: a `Tavern_nogrid` / `Tavern_grid` pair arrives already
+  // filled in as gridless main, gridded variant. The guess is per side, so
+  // flipping the parent swaps it. A kind the kept copy already carries wins -
+  // the user said so earlier - and "other" means the names did not differ.
+  useEffect(() => {
+    if (!parentItem || !childItem) return
+    const hint = childItem.suggested_kind
+    setKind(hint && kindOptions.includes(hint) ? hint : 'other')
+    setLabel(childItem.suggested_label || '')
+    const own = parentItem.variant_parent_id ? '' : parentItem.variant_kind || ''
+    const guess = parentItem.suggested_kind === 'other' ? '' : parentItem.suggested_kind || ''
+    setParentKind(own || guess)
+    // Only on a new pair or a flipped parent: re-running on every kind list
+    // change would throw away what the user picked.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, parentId])
+
+  // The kept copy's own label is carried over untouched; this form only sets
+  // its kind.
+  const parentDescription = () => ({ kind: parentKind, label: parentItem?.variant_label || '' })
+
+  // Promote has no parent fields - the new parent keeps its own description -
+  // so a changed kind is one more call after it.
+  const describeParentAfterPromote = async () => {
+    const desc = parentDescription()
+    if (desc.kind === (parentItem?.variant_kind || '')) return
+    await dupesApi.describe(resourceType, parentId, desc)
+  }
+
   const copyMetadata = async (fields) => {
     setBusy(true)
     try {
@@ -160,30 +198,39 @@ export default function DuplicateCompareView() {
   }
 
   const linkPair = () =>
-    act(() =>
-      childHasFamily
-        ? dupesApi.promote(resourceType, {
-            newParentId: parentId,
-            oldParentId: childId,
-            kind,
-            label,
-          })
-        : dupesApi.link(resourceType, parentId, [{ id: childId, kind, label }])
-    )
+    act(async () => {
+      if (childHasFamily) {
+        await dupesApi.promote(resourceType, {
+          newParentId: parentId,
+          oldParentId: childId,
+          kind,
+          label,
+        })
+        await describeParentAfterPromote()
+      } else {
+        await dupesApi.link(
+          resourceType,
+          parentId,
+          [{ id: childId, kind, label }],
+          parentDescription()
+        )
+      }
+    })
 
   // One promote against the family the child already belongs to: its main
   // version becomes a variant of the copy being kept, and everything under it —
   // the child included — re-homes there. This is the operation the refusal
   // message was describing; the user just had no way to reach it.
   const promoteOverFamily = () =>
-    act(() =>
-      dupesApi.promote(resourceType, {
+    act(async () => {
+      await dupesApi.promote(resourceType, {
         newParentId: parentId,
         oldParentId: childsMain.id,
         kind,
         label,
       })
-    )
+      await describeParentAfterPromote()
+    })
 
   // Same keeper, but paired against the main version instead — the comparison
   // the promote actually applies to, for a user who would rather look before
@@ -402,6 +449,29 @@ export default function DuplicateCompareView() {
             marginBottom: 14,
           }}
         >
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 13 }}>
+            {t('maintenance.dupes.parentKindLabel')}
+            <select
+              value={parentKind}
+              onChange={(e) => setParentKind(e.target.value)}
+              style={{
+                background: 'var(--bg-deep)',
+                border: '1px solid var(--border)',
+                color: 'var(--text)',
+                borderRadius: 6,
+                padding: '7px 10px',
+                fontSize: 13,
+                minWidth: 190,
+              }}
+            >
+              {parentKindOptions.map((k) => (
+                <option key={k || 'main'} value={k}>
+                  {k ? t(`variants.kind.${k}`, { defaultValue: k }) : t('variants.mainVersion')}
+                </option>
+              ))}
+            </select>
+          </label>
+
           <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 13 }}>
             {t('maintenance.dupes.kindLabel')}
             <select

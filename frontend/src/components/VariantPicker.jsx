@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
-import { LuCheck, LuChevronDown } from 'react-icons/lu'
+import { LuCheck, LuChevronDown, LuPencil } from 'react-icons/lu'
 
-import variantLabel, { variantFilename } from '../utils/variantLabel'
+import { useAuth } from '../context/AuthContext'
+import variantLabel, { mainOption, variantFilename } from '../utils/variantLabel'
+import VariantDescribeForm from './VariantDescribeForm'
 
 /**
  * Switch between the versions of one item.
@@ -21,22 +23,42 @@ import variantLabel, { variantFilename } from '../utils/variantLabel'
  *
  * Renders nothing when there is only one version, so callers can mount it
  * unconditionally rather than repeating the check at every call site.
+ *
+ * Given a `resourceType`, an admin can rename any version from the menu -
+ * including the main one, which is otherwise always "Main version" (issue
+ * #556). A saved name is applied here straight away rather than making every
+ * detail view refetch the item for a menu label.
  */
-export default function VariantPicker({ item, detailPath, compact = false }) {
+export default function VariantPicker({ item, detailPath, resourceType, compact = false }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const isAdmin = useAuth()?.user?.role === 'admin'
   const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState(null)
+  const [renamed, setRenamed] = useState({})
   const wrapRef = useRef(null)
+  const canRename = isAdmin && !!resourceType
+
+  const close = () => {
+    setOpen(false)
+    setEditing(null)
+  }
 
   // Dismissal is wired the way every other menu in the app does it (the download
   // menu, the reader's ⋮, the campaign menus): mousedown outside, or Escape.
   useEffect(() => {
     if (!open) return undefined
     const onDown = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false)
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+        setOpen(false)
+        setEditing(null)
+      }
     }
     const onKey = (e) => {
-      if (e.key === 'Escape') setOpen(false)
+      if (e.key === 'Escape') {
+        setOpen(false)
+        setEditing(null)
+      }
     }
     document.addEventListener('mousedown', onDown)
     document.addEventListener('keydown', onKey)
@@ -51,15 +73,15 @@ export default function VariantPicker({ item, detailPath, compact = false }) {
 
   // The family is (main entry + its variants); the main entry is not in
   // `variants`, so it is prepended here to make one flat list of choices.
-  const mainId = item.variant_main_id || item.id
-  const options = [
-    { id: mainId, kind: '', label: '', isMain: true, filename: item.filename },
-    ...siblings.map((v) => ({ ...v, isMain: false })),
-  ]
+  // The main entry comes from the `variant_main_*` fields: when this item is a
+  // variant, its own row describes the variant, not the main.
+  const options = [mainOption(item), ...siblings.map((v) => ({ ...v, isMain: false }))].map((o) =>
+    renamed[o.id] ? { ...o, ...renamed[o.id] } : o
+  )
   const current = options.find((o) => o.id === item.id)
 
   const choose = (id) => {
-    setOpen(false)
+    close()
     if (id !== item.id) navigate(detailPath(id))
   }
 
@@ -95,7 +117,10 @@ export default function VariantPicker({ item, detailPath, compact = false }) {
         aria-label={t('variants.switchLabel')}
         aria-haspopup="menu"
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          setOpen((v) => !v)
+          setEditing(null)
+        }}
         style={{
           background: 'var(--bg-card)',
           color: 'var(--text)',
@@ -139,7 +164,23 @@ export default function VariantPicker({ item, detailPath, compact = false }) {
           {options.map((option) => {
             const filename = variantFilename(option, t)
             const isCurrent = option.id === item.id
-            return (
+            const name = variantLabel(option, t)
+            if (editing === option.id) {
+              return (
+                <div key={option.id} style={{ padding: '6px 12px' }}>
+                  <VariantDescribeForm
+                    option={option}
+                    resourceType={resourceType}
+                    onSaved={(desc) => {
+                      setRenamed((prev) => ({ ...prev, [option.id]: desc }))
+                      setEditing(null)
+                    }}
+                    onCancel={() => setEditing(null)}
+                  />
+                </div>
+              )
+            }
+            const row = (
               <button
                 key={option.id}
                 type="button"
@@ -150,6 +191,8 @@ export default function VariantPicker({ item, detailPath, compact = false }) {
                   display: 'flex',
                   alignItems: 'flex-start',
                   gap: 6,
+                  flex: 1,
+                  minWidth: 0,
                   width: '100%',
                   padding: '6px 12px',
                   border: 'none',
@@ -168,7 +211,7 @@ export default function VariantPicker({ item, detailPath, compact = false }) {
                   style={{ marginTop: 3, flexShrink: 0, opacity: isCurrent ? 1 : 0 }}
                 />
                 <span style={{ minWidth: 0 }}>
-                  {variantLabel(option, t)}
+                  {name}
                   {filename && (
                     <span
                       style={{
@@ -184,6 +227,29 @@ export default function VariantPicker({ item, detailPath, compact = false }) {
                   )}
                 </span>
               </button>
+            )
+            if (!canRename) return row
+            // A sibling of the menu item rather than inside it: a button
+            // nested in a button is invalid, and would choose the row too.
+            return (
+              <div key={option.id} style={{ display: 'flex', alignItems: 'stretch' }}>
+                {row}
+                <button
+                  type="button"
+                  aria-label={t('variants.renameNamed', { name })}
+                  title={t('variants.rename')}
+                  onClick={() => setEditing(option.id)}
+                  style={{
+                    border: 'none',
+                    background: 'transparent',
+                    color: 'var(--text-muted)',
+                    padding: '0 10px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <LuPencil size={12} aria-hidden="true" />
+                </button>
+              </div>
             )
           })}
         </div>

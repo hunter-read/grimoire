@@ -2,6 +2,8 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { LuCheck, LuLayers } from 'react-icons/lu'
 
+import variantLabel, { mainOption } from '../../utils/variantLabel'
+
 /**
  * "Switch version" rows for the reader's overflow menu.
  *
@@ -19,10 +21,7 @@ export default function ReaderVariantItems({ book, bookId, itemStyle, dividerSty
   const [searchParams] = useSearchParams()
 
   // (main entry + its variants) as one flat list.
-  const options = [
-    { id: book.variant_main_id || book.id, isMain: true },
-    ...(book.variants || []).map((v) => ({ ...v, isMain: false })),
-  ]
+  const options = [mainOption(book), ...(book.variants || []).map((v) => ({ ...v, isMain: false }))]
   if (options.length < 2) return null
 
   return (
@@ -49,9 +48,7 @@ export default function ReaderVariantItems({ book, bookId, itemStyle, dividerSty
           ) : (
             <span style={{ width: 13 }} />
           )}
-          {option.isMain
-            ? t('variants.mainVersion')
-            : option.label || t(`variants.kind.${option.kind}`, { defaultValue: option.kind })}
+          {variantLabel(option, t)}
         </button>
       ))}
     </>

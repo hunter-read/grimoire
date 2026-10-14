@@ -15,6 +15,10 @@ The rules, all enforced here rather than in the schema:
 * **Same collection.** A map cannot be a variant of a book. Enforced structurally
   by taking the model as a parameter — there is no cross-model call.
 * **Nothing is hidden by default.** ``parents_only`` is opt-in per query site.
+* **The parent can describe itself too.** ``variant_kind``/``variant_label`` on a
+  parent row name the *main* copy in the picker (a gridless map whose only
+  variant is the gridded cut, issue #556). Empty means "Main version". The
+  columns describe the file, not its position, so they survive a promote.
 
 That last point is deliberate. A mapper-level default or ``with_loader_criteria``
 would apply to *every* query, including the by-id lookups that must still resolve
@@ -84,6 +88,21 @@ def serialize_variant(record: Any) -> dict:
     if mime_type is not None:
         data["mime_type"] = mime_type
     return data
+
+
+def main_fields(parent: Any) -> dict:
+    """How a detail response names the family's main version.
+
+    A viewer that was handed one of the variants still has to render the main
+    entry of its picker, and the row it holds is not that entry - its own
+    ``variant_kind`` describes the variant. So the main's description and
+    filename travel with every detail response, read from the parent.
+    """
+    return {
+        "variant_main_kind": parent.variant_kind or "",
+        "variant_main_label": parent.variant_label or "",
+        "variant_main_filename": parent.filename,
+    }
 
 
 def variants_of(db: Session, model: Any, parent_id: str) -> list[Any]:
@@ -233,6 +252,10 @@ def assert_can_parent(db: Session, model: Any, parent_id: str, child_id: str) ->
     return parent, child
 
 
+def _clean_label(label: str) -> str:
+    return (label or "").strip()[:120]
+
+
 def link(
     db: Session,
     model: Any,
@@ -246,8 +269,38 @@ def link(
     parent, child = assert_can_parent(db, model, parent_id, child_id)
     child.variant_parent_id = parent.id
     child.variant_kind = validate_kind(kind, resource_type, child.variant_kind)
-    child.variant_label = (label or "").strip()[:120]
+    child.variant_label = _clean_label(label)
     return child
+
+
+def describe(
+    db: Session,
+    model: Any,
+    item_id: str,
+    kind: str,
+    label: str = "",
+    resource_type: str = "",
+) -> Any:
+    """Set the kind and label one family member shows in the picker.
+
+    Works from either end. For a variant it is the same edit a re-link makes,
+    without having to name the parent. For a main version it is the only way
+    to say what that copy *is* - otherwise it is always "Main version", which
+    hides that the main of a map pack is, say, the gridless cut (issue #556).
+
+    A main version may have no kind at all (that is the "Main version"
+    fallback); a variant may not, matching :func:`link`. Does not commit.
+    """
+    record = db.query(model).filter_by(id=item_id).first()
+    if record is None:
+        raise VariantError("That item no longer exists.", code="not_found")
+    cleaned = (kind or "").strip().lower()
+    if record.variant_parent_id is None and not cleaned:
+        record.variant_kind = ""
+    else:
+        record.variant_kind = validate_kind(kind, resource_type, record.variant_kind)
+    record.variant_label = _clean_label(label)
+    return record
 
 
 def unlink(db: Session, model: Any, ids: Iterable[str]) -> list[str]:
@@ -331,9 +384,9 @@ def promote(
             code="conflict",
         )
 
+    # The promoted copy keeps its kind and label: they describe the file, so a
+    # gridded cut promoted to main is still gridded, and now says so as the main.
     new_parent.variant_parent_id = None
-    new_parent.variant_kind = ""
-    new_parent.variant_label = ""
 
     moved = 0
     for child in variants_of(db, model, old_parent_id):
@@ -344,7 +397,7 @@ def promote(
 
     old_parent.variant_parent_id = new_parent_id
     old_parent.variant_kind = validate_kind(kind, resource_type, old_parent.variant_kind)
-    old_parent.variant_label = (label or "").strip()[:120]
+    old_parent.variant_label = _clean_label(label)
     return moved + 1
 
 
@@ -370,10 +423,9 @@ def reparent_children(
     moved = 0
     for child in children:
         if child.id == new_parent_id:
-            # Promoted to parent: it can no longer describe itself as a variant.
+            # Promoted to parent. Its kind and label stay: they now name the
+            # main version, which is still the same file (see :func:`promote`).
             child.variant_parent_id = None
-            child.variant_kind = ""
-            child.variant_label = ""
             continue
         child.variant_parent_id = new_parent_id
         moved += 1

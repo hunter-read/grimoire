@@ -229,6 +229,9 @@ class ResourceSearchHit(BaseModel):
     # `has_thumbnail` is a `default=False` column for books/maps/tokens; the
     # audio branch coalesces it with `bool(...)`.
     has_thumbnail: Optional[bool] = None
+    # How the hit names itself among its versions; empty for "Main version".
+    variant_kind: str = ""
+    variant_label: str = ""
     # The hit's other versions. The search returns main versions only — one row
     # per map, not one per cut of it — which is what a campaign linking a
     # resource wants; a picker that composes with the file (the token editor)
