@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCircleCheck, LuRefreshCw, LuCopy, LuLock, LuEye, LuEyeOff } from 'react-icons/lu'
 import api, { settings as settingsApi } from '../../api'
@@ -49,6 +49,22 @@ export default function OIDCSettingsSection() {
   const [error, setError] = useState('')
   const [redirectCopied, setRedirectCopied] = useState(false)
 
+  // The "Saved" and "Copied" ticks clear themselves after a moment. Their
+  // timers are cancelled on unmount, so leaving the page mid-tick never sets
+  // state on a component that is gone.
+  const timersRef = useRef(new Set())
+  useEffect(() => {
+    const timers = timersRef.current
+    return () => timers.forEach((id) => clearTimeout(id))
+  }, [])
+  const later = useCallback((fn, ms) => {
+    const id = setTimeout(() => {
+      timersRef.current.delete(id)
+      fn()
+    }, ms)
+    timersRef.current.add(id)
+  }, [])
+
   const reload = useCallback(() => {
     settingsApi.get().then(setData)
   }, [])
@@ -78,7 +94,7 @@ export default function OIDCSettingsSection() {
       const updated = await settingsApi.patch({ [key]: value })
       setData(updated)
       setSavedField(key)
-      setTimeout(() => setSavedField(null), 1800)
+      later(() => setSavedField(null), 1800)
     } catch (e) {
       setError(e?.message || t('authSettings.oidc.saveFailed'))
     } finally {
@@ -155,7 +171,7 @@ export default function OIDCSettingsSection() {
       setData(updated)
       setSecretDraft('')
       setSavedField('oidc_client_secret')
-      setTimeout(() => setSavedField(null), 1800)
+      later(() => setSavedField(null), 1800)
     } catch (e) {
       setError(e?.message || t('authSettings.oidc.saveFailed'))
     } finally {
@@ -180,7 +196,7 @@ export default function OIDCSettingsSection() {
   const handleCopyRedirect = () => {
     navigator.clipboard.writeText(data.oidc_redirect_uri)
     setRedirectCopied(true)
-    setTimeout(() => setRedirectCopied(false), 1500)
+    later(() => setRedirectCopied(false), 1500)
   }
 
   // ---------- helpers ----------

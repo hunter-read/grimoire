@@ -86,6 +86,28 @@ describe('OIDCSettingsSection', () => {
     await waitFor(() => expect(settingsApi.patch).toHaveBeenCalledWith({ oidc_client_id: 'app' }))
   })
 
+  // The "Saved" tick clears itself after a moment. Leaving the page before it
+  // does must cancel that timer: a stray timer set state on a component (and,
+  // in CI, a test environment) that was already gone.
+  it('cancels the saved-tick timer when the page is left mid-tick', async () => {
+    settingsApi.get.mockResolvedValue(baseSettings())
+    settingsApi.patch.mockResolvedValue(baseSettings({ oidc_client_id: 'app' }))
+    const set = vi.spyOn(globalThis, 'setTimeout')
+    const clear = vi.spyOn(globalThis, 'clearTimeout')
+    const { unmount } = render(<OIDCSettingsSection />)
+    const input = await screen.findByLabelText('authSettings.oidc.clientId')
+    await userEvent.type(input, 'app')
+    await userEvent.tab()
+    // The tick's timer is the 1.8s one the save schedules.
+    await waitFor(() => expect(set.mock.calls.some(([, ms]) => ms === 1800)).toBe(true))
+    const index = set.mock.calls.findIndex(([, ms]) => ms === 1800)
+    const id = set.mock.results[index].value
+    unmount()
+    expect(clear).toHaveBeenCalledWith(id)
+    set.mockRestore()
+    clear.mockRestore()
+  })
+
   it('does not save a string field when the value is unchanged', async () => {
     settingsApi.get.mockResolvedValue(baseSettings({ oidc_client_id: 'app' }))
     render(<OIDCSettingsSection />)
