@@ -1409,8 +1409,8 @@
           "description": "Componenti aggiuntivi per i metadati della community: installare, aggiornare, attivare, eseguire"
         },
         "codex": {
-          "label": "GrimoireCodexDB",
-          "description": "Impostazioni di connessione al GrimoireCodexDB, invio e scollegamento delle schede"
+          "label": "Grimoire Codex DB",
+          "description": "Impostazioni di connessione al Grimoire Codex DB, invio e scollegamento delle schede"
         },
         "maintenance": {
           "label": "Manutenzione",
@@ -2252,7 +2252,7 @@
     "removeCover": "Rimuovi",
     "coverUploadFailed": "Caricamento non riuscito",
     "folderCoverInUse": "È in uso un'immagine di copertina trovata nella cartella di questo sistema. Rimuovila dalla cartella per usare invece un caricamento.",
-    "codex_id": "Collegamento a GrimoireCodexDB"
+    "codex_id": "Collegamento a Grimoire Codex DB"
   },
   "bookEditor": {
     "title": "Modifica libro",
@@ -3477,42 +3477,36 @@
   },
   "codex": {
     "settings": {
-      "title": "GrimoireCodexDB",
+      "title": "Grimoire Codex DB",
       "description": "Il catalogo comunitario di sistemi e manuali di GdR, integrato in Grimoire. «Recupera metadati» può cercare lì le schede, e applicare un risultato vi collega la scheda.",
-      "enabled": "Cerca metadati in GrimoireCodexDB",
-      "url": "Indirizzo del GrimoireCodexDB",
-      "urlHint": "Modificalo solo per usare un'istanza self-hosted di GrimoireCodexDB.",
+      "url": "Indirizzo del Grimoire Codex DB",
+      "urlHint": "Modificalo solo per usare un'istanza self-hosted di Grimoire Codex DB.",
       "sendHashes": "Invia gli hash dei file durante la ricerca dei manuali",
-      "sendHashesHint": "Identifica un manuale con precisione, anche con un nome file disordinato, ma comunica al GrimoireCodexDB quali file contiene questa biblioteca.",
-      "token": "Token API",
-      "tokenPlaceholder": "cdx_…",
-      "tokenSaved": "Un token è salvato. Incollane uno nuovo per sostituirlo.",
-      "saveToken": "Salva token",
-      "removeToken": "Rimuovi token",
-      "tokenHint": "Serve solo per inviare manuali e sistemi al GrimoireCodexDB. Creane uno su GrimoireCodexDB in Account → Token API. Tutto ciò che invii è attribuito a quell’account.",
+      "sendHashesHint": "Identifica un manuale con precisione, anche con un nome file disordinato, ma comunica al Grimoire Codex DB quali file contiene questa biblioteca.",
+      "tokenFromEnv": "Usa il token API impostato in GRIMOIRE_CODEX_DB_API_TOKEN. Tutto ciò che invii è attribuito all’account Grimoire Codex DB di quel token.",
       "test": "Prova connessione",
-      "connected": "Connesso. Aggiungi un token per inviare schede.",
+      "connected": "Connesso.",
       "connectedAs": "Connesso come {{name}} ({{role}})",
       "lockedBy": "Impostato da {{name}} nell’ambiente."
     },
     "panel": {
-      "title": "GrimoireCodexDB",
-      "linked": "Collegato · vedi sul GrimoireCodexDB",
-      "notLinked": "Non collegato. Usa «Recupera metadati» per trovarlo nel GrimoireCodexDB.",
+      "title": "Grimoire Codex DB",
+      "linked": "Collegato · vedi sul Grimoire Codex DB",
+      "notLinked": "Non collegato. Usa «Recupera metadati» per trovarlo nel Grimoire Codex DB.",
       "sendCorrection": "Invia correzioni",
-      "add": "Aggiungi al GrimoireCodexDB",
+      "add": "Aggiungi al Grimoire Codex DB",
       "unlink": "Scollega",
-      "chooseFields": "Quali campi deve prendere il GrimoireCodexDB da questa biblioteca?",
-      "addBookHint": "Crea il manuale in GrimoireCodexDB, sotto la scheda GrimoireCodexDB del suo sistema di gioco, visibile a tutti. A seconda del tuo account GrimoireCodexDB potrebbe attendere una revisione.",
-      "addSystemHint": "Crea il sistema in GrimoireCodexDB, visibile a tutti. A seconda del tuo account GrimoireCodexDB potrebbe attendere una revisione.",
+      "chooseFields": "Quali campi deve prendere il Grimoire Codex DB da questa biblioteca?",
+      "addBookHint": "Crea il manuale in Grimoire Codex DB, sotto la scheda Grimoire Codex DB del suo sistema di gioco, visibile a tutti. A seconda del tuo account Grimoire Codex DB potrebbe attendere una revisione.",
+      "addSystemHint": "Crea il sistema in Grimoire Codex DB, visibile a tutti. A seconda del tuo account Grimoire Codex DB potrebbe attendere una revisione.",
       "noteOptional": "Nota per chi revisiona (facoltativa)",
       "noteRequired": "Da dove proviene?",
       "notePlaceholder": "es. Dalla pagina prodotto dell’editore",
       "send": "Invia",
       "sending": "Invio…",
       "cancel": "Annulla",
-      "applied": "Inviato e pubblicato sul GrimoireCodexDB.",
-      "pending": "Inviato. In attesa di revisione sul GrimoireCodexDB.",
+      "applied": "Inviato e pubblicato sul Grimoire Codex DB.",
+      "pending": "Inviato. In attesa di revisione sul Grimoire Codex DB.",
       "viewEdit": "Vedi la modifica"
     },
     "fields": {

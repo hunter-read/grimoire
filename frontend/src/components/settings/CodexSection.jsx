@@ -9,18 +9,17 @@ import { clearCodexStatusCache } from '../codex/useCodexStatus'
 import { clearMetadataSourcesCache } from '../system/useMetadataSources'
 
 /**
- * Admin settings for GrimoireCodexDB (issue #35), the built-in metadata source.
+ * Admin settings for Grimoire Codex DB (issue #35), the built-in metadata source.
  *
- * Lookup is on by default and only runs when someone fetches metadata. Sending
- * records needs an API token from a GrimoireCodexDB account; the token is write-only, so
- * the page only ever knows whether one is set. A setting pinned by a CODEX_*
- * environment variable shows read-only.
+ * Only rendered on a server with GRIMOIRE_CODEX_DB_API_TOKEN set (see AddonsTab). The token
+ * itself lives only in the environment and never reaches the page; setting it is
+ * what turns Grimoire Codex DB on. Lookup only runs when someone fetches metadata. A setting pinned by a
+ * GRIMOIRE_CODEX_DB_* environment variable shows read-only.
  */
 export default function CodexSection() {
   const { t } = useTranslation()
   const [values, setValues] = useState(null)
   const [url, setUrl] = useState('')
-  const [token, setToken] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
@@ -42,31 +41,23 @@ export default function CodexSection() {
     setSaving(true)
     setError('')
     setTest(null)
-    return api
+    api
       .put('/codex/settings', patch)
       .then((s) => {
         setValues(s)
         setUrl(s.url)
-        // The source list and the editors' GrimoireCodexDB panel both read these.
+        // The source list and the editors' Grimoire Codex DB panel both read these.
         clearMetadataSourcesCache()
         clearCodexStatusCache()
         setSaved(true)
         setTimeout(() => setSaved(false), 2000)
-        return true
       })
-      .catch((e) => {
-        setError(e.message)
-        return false
-      })
+      .catch((e) => setError(e.message))
       .finally(() => setSaving(false))
   }
 
   const saveUrl = () => {
     if (url.trim() && url.trim() !== values.url) save({ url: url.trim() })
-  }
-
-  const saveToken = () => {
-    if (token.trim()) save({ api_token: token.trim() }).then((ok) => ok && setToken(''))
   }
 
   const runTest = () => {
@@ -102,17 +93,6 @@ export default function CodexSection() {
         )
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18, maxWidth: 560 }}>
-          <SettingToggle
-            id="codex-enabled"
-            checked={values.enabled}
-            disabled={saving || locked('enabled')}
-            onChange={(v) => save({ enabled: v })}
-            label={t('codex.settings.enabled')}
-            hint={
-              locked('enabled') ? t('codex.settings.lockedBy', { name: 'CODEX_ENABLED' }) : null
-            }
-          />
-
           <div>
             <label htmlFor="codex-url" style={label}>
               {t('codex.settings.url')}
@@ -131,7 +111,7 @@ export default function CodexSection() {
             />
             <p style={hintText}>
               {locked('url')
-                ? t('codex.settings.lockedBy', { name: 'CODEX_URL' })
+                ? t('codex.settings.lockedBy', { name: 'GRIMOIRE_CODEX_DB_URL' })
                 : t('codex.settings.urlHint')}
             </p>
           </div>
@@ -144,66 +124,15 @@ export default function CodexSection() {
             label={t('codex.settings.sendHashes')}
             hint={
               locked('send_hashes')
-                ? t('codex.settings.lockedBy', { name: 'CODEX_SEND_HASHES' })
+                ? t('codex.settings.lockedBy', { name: 'GRIMOIRE_CODEX_DB_SEND_HASHES' })
                 : t('codex.settings.sendHashesHint')
             }
           />
 
-          <div>
-            <label htmlFor="codex-token" style={label}>
-              {t('codex.settings.token')}
-            </label>
-            {locked('api_token') ? (
-              <p style={hintText}>{t('codex.settings.lockedBy', { name: 'CODEX_API_TOKEN' })}</p>
-            ) : (
-              <>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <input
-                    id="codex-token"
-                    type="password"
-                    value={token}
-                    onChange={(e) => setToken(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && saveToken()}
-                    placeholder={
-                      values.has_token
-                        ? t('codex.settings.tokenSaved')
-                        : t('codex.settings.tokenPlaceholder')
-                    }
-                    autoComplete="off"
-                    spellCheck={false}
-                    style={{ ...input, flex: '1 1 220px' }}
-                  />
-                  <button
-                    type="button"
-                    onClick={saveToken}
-                    disabled={saving || !token.trim()}
-                    style={button}
-                  >
-                    {t('codex.settings.saveToken')}
-                  </button>
-                  {values.has_token && (
-                    <button
-                      type="button"
-                      onClick={() => save({ api_token: '' })}
-                      disabled={saving}
-                      style={button}
-                    >
-                      {t('codex.settings.removeToken')}
-                    </button>
-                  )}
-                </div>
-                <p style={hintText}>{t('codex.settings.tokenHint')}</p>
-              </>
-            )}
-          </div>
+          <p style={{ ...hintText, margin: 0 }}>{t('codex.settings.tokenFromEnv')}</p>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              onClick={runTest}
-              disabled={!values.enabled || test?.busy}
-              style={button}
-            >
+            <button type="button" onClick={runTest} disabled={test?.busy} style={button}>
               {t('codex.settings.test')}
             </button>
             {test?.busy && <Spinner size={14} />}

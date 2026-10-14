@@ -4,9 +4,9 @@ Systems and books expose the same three-step flow — list sources, search, fetc
 a diff — against different targets. The error translation and diff assembly are
 identical, so they live here rather than being duplicated per router.
 
-Sources are the installed community add-ons plus GrimoireCodexDB, which is built
+Sources are the installed community add-ons plus Grimoire Codex DB, which is built
 in (issue #35) under the reserved id ``codex.SOURCE_ID`` and listed first while
-it is enabled.
+``GRIMOIRE_CODEX_DB_API_TOKEN`` is set.
 """
 from typing import Any, Optional, Union
 
@@ -71,7 +71,7 @@ class MetadataFetchResponse(BaseModel):
 
 
 def list_sources(db: Session, target: str) -> dict:
-    """Sources currently able to supply metadata for ``target``: GrimoireCodexDB, then add-ons."""
+    """Sources currently able to supply metadata for ``target``: Grimoire Codex DB, then add-ons."""
     settings = codex.load(db)
     builtin = [codex_lookup.source(settings)] if settings.enabled else []
     return {
@@ -109,7 +109,7 @@ def _translate(exc: Exception) -> HTTPException:
 
 
 def _codex_error(exc: Exception) -> HTTPException:
-    """GrimoireCodexDB unreachable or failing is a 502; turned off or bad input is a 400."""
+    """Grimoire Codex DB unreachable or failing is a 502; not configured or bad input is a 400."""
     if isinstance(exc, codex.CodexError):
         return codex.http_error(exc)
     return HTTPException(400, str(exc))
@@ -125,7 +125,7 @@ def search(
 ) -> dict:
     """Ranked candidates for ``query``, defaulting to ``fallback``.
 
-    ``target`` and ``resource`` are only used by GrimoireCodexDB, which matches a book on
+    ``target`` and ``resource`` are only used by Grimoire Codex DB, which matches a book on
     everything known about it rather than on the query text alone.
     """
     effective = query.strip() or fallback

@@ -1409,8 +1409,8 @@
           "description": "Modules de métadonnées communautaires : installer, mettre à jour, activer, exécuter"
         },
         "codex": {
-          "label": "GrimoireCodexDB",
-          "description": "Réglages de connexion au GrimoireCodexDB, envoi et déliaison de fiches"
+          "label": "Grimoire Codex DB",
+          "description": "Réglages de connexion au Grimoire Codex DB, envoi et déliaison de fiches"
         },
         "maintenance": {
           "label": "Maintenance",
@@ -2252,7 +2252,7 @@
     "removeCover": "Supprimer",
     "coverUploadFailed": "Échec de l'envoi",
     "folderCoverInUse": "Une image de couverture trouvée dans le dossier de ce système est utilisée. Retirez-la du dossier pour utiliser un envoi à la place.",
-    "codex_id": "Lien GrimoireCodexDB"
+    "codex_id": "Lien Grimoire Codex DB"
   },
   "bookEditor": {
     "title": "Modifier le livre",
@@ -3477,42 +3477,36 @@
   },
   "codex": {
     "settings": {
-      "title": "GrimoireCodexDB",
+      "title": "Grimoire Codex DB",
       "description": "Le catalogue communautaire des systèmes et livres de JDR, intégré à Grimoire. « Récupérer les métadonnées » peut y chercher des fiches, et appliquer un résultat y lie la fiche.",
-      "enabled": "Chercher les métadonnées dans GrimoireCodexDB",
-      "url": "Adresse du GrimoireCodexDB",
-      "urlHint": "À modifier uniquement pour utiliser une instance auto-hébergée de GrimoireCodexDB.",
+      "url": "Adresse du Grimoire Codex DB",
+      "urlHint": "À modifier uniquement pour utiliser une instance auto-hébergée de Grimoire Codex DB.",
       "sendHashes": "Envoyer les empreintes des fichiers lors de la recherche de livres",
-      "sendHashesHint": "Identifie un livre avec précision, même si le nom du fichier est approximatif, mais indique au GrimoireCodexDB quels fichiers contient cette bibliothèque.",
-      "token": "Jeton d'API",
-      "tokenPlaceholder": "cdx_…",
-      "tokenSaved": "Un jeton est enregistré. Collez-en un nouveau pour le remplacer.",
-      "saveToken": "Enregistrer le jeton",
-      "removeToken": "Supprimer le jeton",
-      "tokenHint": "Nécessaire uniquement pour envoyer des livres et des systèmes au GrimoireCodexDB. Créez-en un sur GrimoireCodexDB dans Compte → Jetons d'API. Tout envoi est crédité à ce compte.",
+      "sendHashesHint": "Identifie un livre avec précision, même si le nom du fichier est approximatif, mais indique au Grimoire Codex DB quels fichiers contient cette bibliothèque.",
+      "tokenFromEnv": "Utilise le jeton d'API défini dans GRIMOIRE_CODEX_DB_API_TOKEN. Tout envoi est crédité au compte Grimoire Codex DB de ce jeton.",
       "test": "Tester la connexion",
-      "connected": "Connecté. Ajoutez un jeton pour envoyer des fiches.",
+      "connected": "Connecté.",
       "connectedAs": "Connecté en tant que {{name}} ({{role}})",
       "lockedBy": "Défini par {{name}} dans l'environnement."
     },
     "panel": {
-      "title": "GrimoireCodexDB",
-      "linked": "Lié · voir sur le GrimoireCodexDB",
-      "notLinked": "Non lié. Utilisez « Récupérer les métadonnées » pour le trouver dans le GrimoireCodexDB.",
+      "title": "Grimoire Codex DB",
+      "linked": "Lié · voir sur le Grimoire Codex DB",
+      "notLinked": "Non lié. Utilisez « Récupérer les métadonnées » pour le trouver dans le Grimoire Codex DB.",
       "sendCorrection": "Envoyer des corrections",
-      "add": "Ajouter au GrimoireCodexDB",
+      "add": "Ajouter au Grimoire Codex DB",
       "unlink": "Délier",
-      "chooseFields": "Quels champs le GrimoireCodexDB doit-il reprendre de cette bibliothèque ?",
-      "addBookHint": "Cela crée le livre dans GrimoireCodexDB, sous la fiche GrimoireCodexDB de son système de jeu, visible de tous. Selon votre compte GrimoireCodexDB, il peut attendre une relecture.",
-      "addSystemHint": "Cela crée le système dans GrimoireCodexDB, visible de tous. Selon votre compte GrimoireCodexDB, il peut attendre une relecture.",
+      "chooseFields": "Quels champs le Grimoire Codex DB doit-il reprendre de cette bibliothèque ?",
+      "addBookHint": "Cela crée le livre dans Grimoire Codex DB, sous la fiche Grimoire Codex DB de son système de jeu, visible de tous. Selon votre compte Grimoire Codex DB, il peut attendre une relecture.",
+      "addSystemHint": "Cela crée le système dans Grimoire Codex DB, visible de tous. Selon votre compte Grimoire Codex DB, il peut attendre une relecture.",
       "noteOptional": "Note pour les relecteurs (facultatif)",
       "noteRequired": "D'où cela vient-il ?",
       "notePlaceholder": "p. ex. Depuis la page produit de l'éditeur",
       "send": "Envoyer",
       "sending": "Envoi…",
       "cancel": "Annuler",
-      "applied": "Envoyé et en ligne sur le GrimoireCodexDB.",
-      "pending": "Envoyé. En attente de relecture sur le GrimoireCodexDB.",
+      "applied": "Envoyé et en ligne sur le Grimoire Codex DB.",
+      "pending": "Envoyé. En attente de relecture sur le Grimoire Codex DB.",
       "viewEdit": "Voir la modification"
     },
     "fields": {

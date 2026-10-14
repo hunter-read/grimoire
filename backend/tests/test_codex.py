@@ -1,9 +1,10 @@
-"""Tests for the GrimoireCodexDB integration (issue #35).
+"""Tests for the Grimoire Codex DB integration (issue #35).
 
-GrimoireCodexDB is faked with an ``httpx.MockTransport`` so every request Grimoire makes
+Grimoire Codex DB is faked with an ``httpx.MockTransport`` so every request Grimoire makes
 is recorded and checked: what it sends matters as much as what it does with
-the answer (hashes only when opted in, the token only on writes, no system
-list on a correction).
+the answer (hashes only when opted in, the token on every call, no system
+list on a correction). The ``fake`` fixture sets ``GRIMOIRE_CODEX_DB_API_TOKEN``; without
+it the integration is off and hidden (``TestUnconfigured``).
 """
 import json
 from typing import Any, Callable
@@ -83,6 +84,7 @@ def fake(monkeypatch):
     )
     for var in codex.settings.ENV_VARS.values():
         monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("GRIMOIRE_CODEX_DB_API_TOKEN", "cdx_tok")
     db = SessionLocal()
     codex.save(db, url="https://codex.test")
     db.commit()
@@ -118,46 +120,89 @@ def _link(model, row_id: str, codex_id: str) -> None:
 # --- Settings ------------------------------------------------------------------------------
 
 
+class TestUnconfigured:
+    """Without GRIMOIRE_CODEX_DB_API_TOKEN, Grimoire Codex DB is neither offered nor reachable."""
+
+    def test_nothing_is_offered_or_sent(self, client, admin_headers, gm_headers, fake, monkeypatch):
+        monkeypatch.delenv("GRIMOIRE_CODEX_DB_API_TOKEN")
+        system = make_game_system()
+        book = make_book(system.id)
+        r = client.get("/api/codex/status", headers=gm_headers)
+        assert r.json() == {"enabled": False, "url": "https://codex.test"}
+
+        sources = client.get(f"/api/books/{book.id}/metadata-sources", headers=gm_headers).json()
+        assert all(s["id"] != "grimoire-codex" for s in sources["sources"])
+        r = client.post(
+            f"/api/books/{book.id}/metadata-search",
+            json={"source_id": "grimoire-codex", "query": ""},
+            headers=gm_headers,
+        )
+        assert r.status_code == 400
+        assert "not configured" in r.json()["detail"]
+
+        for method, path in [
+            ("GET", "/api/codex/settings"),
+            ("PUT", "/api/codex/settings"),
+            ("POST", "/api/codex/test"),
+            ("POST", f"/api/codex/systems/{system.id}/submit"),
+            ("POST", f"/api/codex/books/{book.id}/submit"),
+            ("DELETE", f"/api/codex/systems/{system.id}/link"),
+            ("DELETE", f"/api/codex/books/{book.id}/link"),
+        ]:
+            r = client.request(method, path, json={}, headers=admin_headers)
+            assert r.status_code == 404, (method, path)
+        assert fake.requests == []
+
+    def test_a_blank_token_counts_as_unset(self, fake, monkeypatch):
+        monkeypatch.setenv("GRIMOIRE_CODEX_DB_API_TOKEN", "  ")
+        db = SessionLocal()
+        settings = codex.load(db)
+        db.close()
+        assert not settings.enabled
+
+
 class TestSettings:
-    def test_defaults_and_token_is_write_only(self, client, admin_headers, fake):
+    def test_defaults_and_the_token_is_never_returned(self, client, admin_headers, fake):
         r = client.get("/api/codex/settings", headers=admin_headers)
         assert r.status_code == 200
         assert r.json() == {
-            "enabled": True,
             "url": "https://codex.test",
-            "can_submit": False,
             "send_hashes": False,
-            "has_token": False,
             "locked": [],
         }
         r = client.put(
             "/api/codex/settings",
-            json={"api_token": "cdx_secret", "url": "https://other.test/", "send_hashes": True},
+            json={"url": "https://other.test/", "send_hashes": True},
             headers=admin_headers,
         )
         assert r.status_code == 200
         body = r.json()
-        assert "cdx_secret" not in json.dumps(body)
-        assert body["has_token"] and body["can_submit"] and body["send_hashes"]
-        assert body["url"] == "https://other.test"
+        assert "cdx_tok" not in json.dumps(body)
+        assert body["send_hashes"] and body["url"] == "https://other.test"
+
+    def test_the_token_cannot_be_set_through_the_api(self, client, admin_headers, fake):
+        client.put("/api/codex/settings", json={"api_token": "cdx_other"}, headers=admin_headers)
+        db = SessionLocal()
+        assert db.query(AppSetting).filter(AppSetting.key.like("%token%")).count() == 0
+        db.close()
 
     def test_rejects_bad_url_and_non_admins(self, client, admin_headers, gm_headers, fake):
         r = client.put("/api/codex/settings", json={"url": "ftp://x"}, headers=admin_headers)
         assert r.status_code == 400
         assert client.get("/api/codex/settings", headers=gm_headers).status_code == 403
-        r = client.put("/api/codex/settings", json={"enabled": False}, headers=gm_headers)
+        r = client.put("/api/codex/settings", json={"send_hashes": True}, headers=gm_headers)
         assert r.status_code == 403
 
     def test_environment_pins_a_setting(self, client, admin_headers, fake, monkeypatch):
-        monkeypatch.setenv("CODEX_URL", "https://pinned.test/")
-        monkeypatch.setenv("CODEX_SEND_HASHES", "true")
+        monkeypatch.setenv("GRIMOIRE_CODEX_DB_URL", "https://pinned.test/")
+        monkeypatch.setenv("GRIMOIRE_CODEX_DB_SEND_HASHES", "true")
         body = client.get("/api/codex/settings", headers=admin_headers).json()
         assert body["url"] == "https://pinned.test"
         assert body["send_hashes"] is True
         assert body["locked"] == ["send_hashes", "url"]
         r = client.put("/api/codex/settings", json={"url": "https://x.test"}, headers=admin_headers)
         assert r.status_code == 400
-        assert "CODEX_URL" in r.json()["detail"]
+        assert "GRIMOIRE_CODEX_DB_URL" in r.json()["detail"]
 
     def test_invalid_stored_url_falls_back_to_default(self, fake):
         db = SessionLocal()
@@ -168,15 +213,13 @@ class TestSettings:
 
     def test_status_is_visible_to_players(self, client, player_headers, fake):
         r = client.get("/api/codex/status", headers=player_headers)
-        assert r.json() == {"enabled": True, "url": "https://codex.test", "can_submit": False}
+        assert r.json() == {"enabled": True, "url": "https://codex.test"}
 
     def test_connection_reports_the_account(self, client, admin_headers, fake):
         fake.on("GET", "/api/v1/me", body={"user": None})
         r = client.post("/api/codex/test", headers=admin_headers)
         assert r.json() == {"ok": True, "url": "https://codex.test", "account": None}
-        assert "authorization" not in fake.last("/api/v1/me").headers
 
-        _set(token="cdx_tok")
         fake.on("GET", "/api/v1/me", body={"user": {"name": "Hunter", "role": "editor"}})
         r = client.post("/api/codex/test", headers=admin_headers)
         assert r.json()["account"] == {"name": "Hunter", "role": "editor"}
@@ -185,7 +228,7 @@ class TestSettings:
         fake.on("GET", "/api/v1/me", status=401, body={"error": "Invalid API token"})
         r = client.post("/api/codex/test", headers=admin_headers)
         assert r.status_code == 400
-        assert "token" in r.json()["detail"]
+        assert "GRIMOIRE_CODEX_DB_API_TOKEN" in r.json()["detail"]
 
     def test_connection_failure_is_a_502(self, client, admin_headers, fake):
         def boom(_req):
@@ -201,23 +244,12 @@ class TestSettings:
 
 
 class TestLookup:
-    def test_codex_is_listed_first_and_can_be_turned_off(self, client, gm_headers, fake):
+    def test_codex_is_listed_first(self, client, gm_headers, fake):
         system = make_game_system()
         book = make_book(system.id)
         sources = client.get(f"/api/books/{book.id}/metadata-sources", headers=gm_headers).json()
         assert sources["sources"][0]["id"] == "grimoire-codex"
         assert sources["sources"][0]["supports_paste"] is True
-
-        _set(enabled=False)
-        sources = client.get(f"/api/books/{book.id}/metadata-sources", headers=gm_headers).json()
-        assert all(s["id"] != "grimoire-codex" for s in sources["sources"])
-        r = client.post(
-            f"/api/books/{book.id}/metadata-search",
-            json={"source_id": "grimoire-codex", "query": ""},
-            headers=gm_headers,
-        )
-        assert r.status_code == 400
-        assert fake.requests == []
 
     def test_book_search_sends_every_signal_but_hashes(self, client, gm_headers, fake):
         system = make_game_system(name="Dungeon Crawl Classics")
@@ -269,6 +301,7 @@ class TestLookup:
         assert sent["systems"] == ["Dungeon Crawl Classics"]
         assert sent["page_count"] == 16
         assert "hashes" not in sent
+        assert fake.last("/api/v1/match").headers["authorization"] == "Bearer cdx_tok"
 
         _set(send_hashes=True)
         client.post(
@@ -393,15 +426,7 @@ class TestLookup:
 
 
 class TestSubmit:
-    def test_needs_a_token(self, client, gm_headers, fake):
-        system = make_game_system()
-        r = client.post(f"/api/codex/systems/{system.id}/submit", json={}, headers=gm_headers)
-        assert r.status_code == 400
-        assert "token" in r.json()["detail"]
-        assert fake.requests == []
-
     def test_new_system_is_linked_once_applied(self, client, gm_headers, fake):
-        _set(token="cdx_tok")
         system = make_game_system(name="Cairn", edition="2e", tags=["osr"])
         fake.on(
             "POST",
@@ -425,7 +450,6 @@ class TestSubmit:
         assert _codex_id(GameSystem, system.id) == "sy_cairn2"
 
     def test_new_book_needs_a_linked_system_and_waits_unlinked(self, client, gm_headers, fake):
-        _set(token="cdx_tok")
         system = make_game_system()
         book = make_book(system.id, title="Tomb of the Serpent Kings", content_hash="cd" * 32)
         r = client.post(f"/api/codex/books/{book.id}/submit", json={}, headers=gm_headers)
@@ -447,7 +471,7 @@ class TestSubmit:
         assert _codex_id(Book, book.id) is None
 
     def test_correction_sends_only_chosen_fields(self, client, gm_headers, fake):
-        _set(token="cdx_tok", send_hashes=True)
+        _set(send_hashes=True)
         system = make_game_system()
         _link(GameSystem, system.id, "sy_osr001")
         book = make_book(system.id, page_count=44, content_hash="EF" * 32, file_size=1234)
@@ -467,7 +491,7 @@ class TestSubmit:
         assert sent["codex_id"] == "bk_abc123"
         assert sent["fields"] == ["page_count"]
         assert sent["record"] == {"page_count": 44}
-        # A GrimoireCodexDB book can be in several systems; a correction never rewrites them.
+        # A Grimoire Codex DB book can be in several systems; a correction never rewrites them.
         assert "systems" not in sent
         assert sent["fingerprints"] == [{"algo": "sha256", "hash": "ef" * 32, "size": 1234}]
 
@@ -477,7 +501,6 @@ class TestSubmit:
         assert r.status_code == 400
 
     def test_codex_validation_errors_reach_the_user(self, client, gm_headers, fake):
-        _set(token="cdx_tok")
         system = make_game_system()
         fake.on("POST", "/api/v1/grimoire/systems", status=422, body={"error": "Name is required"})
         r = client.post(f"/api/codex/systems/{system.id}/submit", json={}, headers=gm_headers)
@@ -523,7 +546,7 @@ def test_candidate_label_and_incoming_fields():
 
 def test_non_json_and_oversized_responses(fake, monkeypatch):
     settings = codex.CodexSettings(
-        enabled=True, url="https://codex.test", token="", send_hashes=False, locked=frozenset()
+        url="https://codex.test", token="cdx_tok", send_hashes=False, locked=frozenset()
     )
     fake.routes[("GET", "/api/v1/me")] = lambda _req: httpx.Response(200, content=b"<html>")
     with pytest.raises(codex.CodexError, match="not JSON"):

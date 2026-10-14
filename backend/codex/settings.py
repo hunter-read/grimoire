@@ -1,13 +1,18 @@
-"""GrimoireCodexDB connection settings (issue #35).
+"""Grimoire Codex DB connection settings (issue #35).
 
-Stored as ``codex_*`` rows in ``app_settings``, each overridable by an
-environment variable. A variable that is set pins the value and the admin UI
-shows it read-only, the same convention as the other env-locked settings.
+The integration is on exactly when ``GRIMOIRE_CODEX_DB_API_TOKEN`` is set; there
+is no separate switch. Without it Grimoire Codex DB is not offered anywhere, its
+settings are hidden and its endpoints answer 404. The token comes only from the
+environment, never the database, so it is never written to app data or a backup.
 
-Lookup is on by default and only ever runs when someone asks for it (fetching
-metadata, sending a record). Nothing is sent in the background. File hashes are
-the one signal that can say "this library holds this exact file", so sending
-them is opt-in. Submitting needs an API token from the user's GrimoireCodexDB account.
+The other settings are stored as ``codex_*`` rows in ``app_settings``, each
+overridable by an environment variable. A variable that is set pins the value
+and the admin UI shows it read-only, the same convention as the other
+env-locked settings.
+
+Lookup only ever runs when someone asks for it (fetching metadata, sending a
+record). Nothing is sent in the background. File hashes are the one signal that can say "this library holds
+this exact file", so sending them is opt-in.
 """
 import os
 from dataclasses import dataclass
@@ -20,24 +25,21 @@ from ..models import AppSetting
 
 DEFAULT_URL = "https://db.grimoirecodex.org"
 
+TOKEN_ENV_VAR = "GRIMOIRE_CODEX_DB_API_TOKEN"
+
 _DEFAULTS = {
-    "codex_enabled": "true",
     "codex_url": DEFAULT_URL,
-    "codex_api_token": "",
     "codex_send_hashes": "false",
 }
 
 ENV_VARS = {
-    "codex_enabled": "CODEX_ENABLED",
-    "codex_url": "CODEX_URL",
-    "codex_api_token": "CODEX_API_TOKEN",
-    "codex_send_hashes": "CODEX_SEND_HASHES",
+    "codex_url": "GRIMOIRE_CODEX_DB_URL",
+    "codex_send_hashes": "GRIMOIRE_CODEX_DB_SEND_HASHES",
 }
 
 
 @dataclass(frozen=True)
 class CodexSettings:
-    enabled: bool
     url: str
     token: str
     send_hashes: bool
@@ -45,38 +47,41 @@ class CodexSettings:
     locked: frozenset[str]
 
     @property
-    def can_submit(self) -> bool:
-        return self.enabled and bool(self.token)
+    def enabled(self) -> bool:
+        """``GRIMOIRE_CODEX_DB_API_TOKEN`` is set. That alone turns the integration on."""
+        return bool(self.token)
 
     def public(self) -> dict:
         """The settings as the API returns them: the token is never echoed back."""
         return {
-            "enabled": self.enabled,
             "url": self.url,
             "send_hashes": self.send_hashes,
-            "has_token": bool(self.token),
-            "can_submit": self.can_submit,
             "locked": sorted(k.removeprefix("codex_") for k in self.locked),
         }
 
 
 def normalize_url(value: str) -> str:
-    """Validate a GrimoireCodexDB base URL and strip any trailing slash.
+    """Validate a Grimoire Codex DB base URL and strip any trailing slash.
 
     Plain http is allowed so a self-hosted dev instance on the LAN works.
     """
     url = value.strip().rstrip("/")
     parts = urlsplit(url)
     if parts.scheme not in ("http", "https") or not parts.netloc:
-        raise ValueError("The GrimoireCodexDB URL must be an http(s) address")
+        raise ValueError("The Grimoire Codex DB URL must be an http(s) address")
     if parts.query or parts.fragment:
-        raise ValueError("The GrimoireCodexDB URL must not have a query or fragment")
+        raise ValueError("The Grimoire Codex DB URL must not have a query or fragment")
     return url
 
 
 def _env(key: str) -> Optional[str]:
     raw = os.environ.get(ENV_VARS[key])
     return raw.strip() if raw is not None else None
+
+
+def token() -> str:
+    """The API token from ``GRIMOIRE_CODEX_DB_API_TOKEN``, or "" when it is unset or blank."""
+    return os.environ.get(TOKEN_ENV_VAR, "").strip()
 
 
 def load(db: Session) -> CodexSettings:
@@ -97,9 +102,8 @@ def load(db: Session) -> CodexSettings:
     except ValueError:
         url = DEFAULT_URL
     return CodexSettings(
-        enabled=raw["codex_enabled"].lower() == "true",
         url=url,
-        token=raw["codex_api_token"],
+        token=token(),
         send_hashes=raw["codex_send_hashes"].lower() == "true",
         locked=frozenset(locked),
     )
@@ -108,23 +112,17 @@ def load(db: Session) -> CodexSettings:
 def save(
     db: Session,
     *,
-    enabled: Optional[bool] = None,
     url: Optional[str] = None,
-    token: Optional[str] = None,
     send_hashes: Optional[bool] = None,
 ) -> None:
-    """Store the given settings. ``None`` leaves a setting alone; ``token=""`` clears it.
+    """Store the given settings. ``None`` leaves a setting alone.
 
     Raises ``ValueError`` for an invalid URL or a setting pinned by the environment.
     Does not commit.
     """
     updates: dict[str, str] = {}
-    if enabled is not None:
-        updates["codex_enabled"] = "true" if enabled else "false"
     if url is not None:
         updates["codex_url"] = normalize_url(url)
-    if token is not None:
-        updates["codex_api_token"] = token.strip()
     if send_hashes is not None:
         updates["codex_send_hashes"] = "true" if send_hashes else "false"
     for key, value in updates.items():

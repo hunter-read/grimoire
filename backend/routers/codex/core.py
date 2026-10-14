@@ -1,7 +1,10 @@
-"""GrimoireCodexDB endpoints (issue #35): settings, connection test, send and unlink.
+"""Grimoire Codex DB endpoints (issue #35): settings, connection test, send and unlink.
 
-Lookup itself is not here: GrimoireCodexDB is a built-in source of the regular metadata
+Lookup itself is not here: Grimoire Codex DB is a built-in source of the regular metadata
 endpoints (``/books/{id}/metadata-*``, ``/systems/{id}/metadata-*``).
+
+Without ``GRIMOIRE_CODEX_DB_API_TOKEN`` the integration does not exist on this server: every
+endpoint here but ``/status`` answers 404 (see ``require_enabled``).
 """
 from typing import Any, Union
 
@@ -18,13 +21,19 @@ from ...services import access_control
 from ._schemas import CodexSettingsUpdate, CodexSubmit
 
 
+def require_enabled() -> None:
+    """404 unless ``GRIMOIRE_CODEX_DB_API_TOKEN`` is set, so an unconfigured server shows no trace of it."""
+    if not codex.settings.token():
+        raise HTTPException(404, "Grimoire Codex DB is not configured on this server")
+
+
 def get_status(
     _: CurrentUser = Depends(require_not_guest),  # noqa: ARG001
     db: Session = Depends(get_db),
 ):
-    """Whether GrimoireCodexDB is on and where, so the UI knows which actions to offer."""
+    """Whether Grimoire Codex DB is configured, and where, so the UI knows what to show."""
     s = codex.load(db)
-    return {"enabled": s.enabled, "url": s.url, "can_submit": s.can_submit}
+    return {"enabled": s.enabled, "url": s.url}
 
 
 def get_settings(
@@ -39,15 +48,9 @@ def update_settings(
     _: CurrentUser = Depends(require_admin),  # noqa: ARG001
     db: Session = Depends(get_db),
 ):
-    """Change the connection. The token is write-only: it is never returned."""
+    """Change the connection. The token is set by ``GRIMOIRE_CODEX_DB_API_TOKEN`` only."""
     try:
-        codex.save(
-            db,
-            enabled=data.enabled,
-            url=data.url,
-            token=data.api_token,
-            send_hashes=data.send_hashes,
-        )
+        codex.save(db, url=data.url, send_hashes=data.send_hashes)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     db.commit()
@@ -58,7 +61,7 @@ def test_connection(
     _: CurrentUser = Depends(require_admin),  # noqa: ARG001
     db: Session = Depends(get_db),
 ):
-    """Reach GrimoireCodexDB and, with a token set, report the account it belongs to."""
+    """Reach Grimoire Codex DB and report the account the token belongs to."""
     s = codex.load(db)
     try:
         me = codex_client.me(s)
@@ -98,7 +101,7 @@ def _submit(db: Session, resource: Union[Book, GameSystem], target: str, data: C
     edit = result.get("edit") or {}
     status = "applied" if edit.get("status") == "applied" else "pending"
     codex_id = result.get("codex_id")
-    # A new record that waits for review does not exist in GrimoireCodexDB yet, and may
+    # A new record that waits for review does not exist in Grimoire Codex DB yet, and may
     # never: link it only once it does, so a rejection cannot leave a dead link.
     linked = bool(codex_id) and (status == "applied" or bool(resource.codex_id))
     if linked and resource.codex_id != codex_id:
@@ -118,7 +121,7 @@ def submit_book(
     current_user: CurrentUser = Depends(require_gm_or_admin),
     db: Session = Depends(get_db),
 ):
-    """Send a book to GrimoireCodexDB: a new record, or a correction to the linked one."""
+    """Send a book to Grimoire Codex DB: a new record, or a correction to the linked one."""
     return _submit(db, _book(db, book_id, current_user), "book", data)
 
 
@@ -128,7 +131,7 @@ def submit_system(
     current_user: CurrentUser = Depends(require_gm_or_admin),
     db: Session = Depends(get_db),
 ):
-    """Send a game system to GrimoireCodexDB: a new record, or a correction to the linked one."""
+    """Send a game system to Grimoire Codex DB: a new record, or a correction to the linked one."""
     return _submit(db, _system(db, system_id, current_user), "game-system", data)
 
 
@@ -137,7 +140,7 @@ def unlink_book(
     current_user: CurrentUser = Depends(require_gm_or_admin),
     db: Session = Depends(get_db),
 ):
-    """Forget which GrimoireCodexDB record this book is. Nothing changes in GrimoireCodexDB."""
+    """Forget which Grimoire Codex DB record this book is. Nothing changes in Grimoire Codex DB."""
     book = _book(db, book_id, current_user)
     book.codex_id = None
     db.commit()
@@ -149,7 +152,7 @@ def unlink_system(
     current_user: CurrentUser = Depends(require_gm_or_admin),
     db: Session = Depends(get_db),
 ):
-    """Forget which GrimoireCodexDB record this system is. Nothing changes in GrimoireCodexDB."""
+    """Forget which Grimoire Codex DB record this system is. Nothing changes in Grimoire Codex DB."""
     system = _system(db, system_id, current_user)
     system.codex_id = None
     db.commit()

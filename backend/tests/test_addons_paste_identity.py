@@ -40,8 +40,8 @@ BASE = {
 
 @pytest.fixture(autouse=True)
 def codex_off(monkeypatch):
-    """These tests are about add-ons: keep the built-in GrimoireCodexDB source out of the lists."""
-    monkeypatch.setenv("CODEX_ENABLED", "false")
+    """These tests are about add-ons: keep the built-in Grimoire Codex DB source out of the lists."""
+    monkeypatch.delenv("GRIMOIRE_CODEX_DB_API_TOKEN", raising=False)
 
 
 

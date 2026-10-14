@@ -13,9 +13,9 @@ repo. There are two kinds:
 Keeping definitions out of this repo means a source that changes its layout can
 be fixed by a community PR, not a Grimoire release.
 
-[GrimoireCodexDB](codex.md), the community catalogue, is not an add-on: it is
-built in, needs no install, and appears first in **Fetch metadata** alongside any
-add-ons you install.
+[Grimoire Codex DB](codex.md), the community catalogue, is not an add-on: it is
+built in and needs no install. Once `GRIMOIRE_CODEX_DB_API_TOKEN` is set, it appears first in
+**Fetch metadata** alongside any add-ons you install.
 
 ## Using them
 

@@ -1409,8 +1409,8 @@
           "description": "Community-add-ons voor metadata: installeren, bijwerken, inschakelen, uitvoeren"
         },
         "codex": {
-          "label": "GrimoireCodexDB",
-          "description": "GrimoireCodexDB-verbindingsinstellingen, en records sturen en ontkoppelen"
+          "label": "Grimoire Codex DB",
+          "description": "Grimoire Codex DB-verbindingsinstellingen, en records sturen en ontkoppelen"
         },
         "maintenance": {
           "label": "Onderhoud",
@@ -2252,7 +2252,7 @@
     "removeCover": "Verwijderen",
     "coverUploadFailed": "Uploaden mislukt",
     "folderCoverInUse": "Er wordt een omslagafbeelding uit de bibliotheekmap van dit systeem gebruikt. Verwijder deze uit de map om in plaats daarvan een upload te gebruiken.",
-    "codex_id": "GrimoireCodexDB-koppeling"
+    "codex_id": "Grimoire Codex DB-koppeling"
   },
   "bookEditor": {
     "title": "Boek bewerken",
@@ -3477,42 +3477,36 @@
   },
   "codex": {
     "settings": {
-      "title": "GrimoireCodexDB",
+      "title": "Grimoire Codex DB",
       "description": "De communitycatalogus van TTRPG-systemen en -boeken, ingebouwd in Grimoire. \"Metadata ophalen\" kan daar records opzoeken, en een resultaat toepassen koppelt het record eraan.",
-      "enabled": "Metadata opzoeken in GrimoireCodexDB",
-      "url": "GrimoireCodexDB-adres",
-      "urlHint": "Wijzig dit alleen om een zelf gehoste GrimoireCodexDB te gebruiken.",
+      "url": "Grimoire Codex DB-adres",
+      "urlHint": "Wijzig dit alleen om een zelf gehoste Grimoire Codex DB te gebruiken.",
       "sendHashes": "Bestandshashes meesturen bij het opzoeken van boeken",
-      "sendHashesHint": "Herkent een boek precies, ook met een rommelige bestandsnaam, maar vertelt GrimoireCodexDB welke bestanden deze bibliotheek bevat.",
-      "token": "API-token",
-      "tokenPlaceholder": "cdx_…",
-      "tokenSaved": "Er is een token opgeslagen. Plak een nieuwe om die te vervangen.",
-      "saveToken": "Token opslaan",
-      "removeToken": "Token verwijderen",
-      "tokenHint": "Alleen nodig om boeken en systemen naar GrimoireCodexDB te sturen. Maak er een aan op GrimoireCodexDB onder Account → API-tokens. Alles wat je stuurt staat op naam van dat account.",
+      "sendHashesHint": "Herkent een boek precies, ook met een rommelige bestandsnaam, maar vertelt Grimoire Codex DB welke bestanden deze bibliotheek bevat.",
+      "tokenFromEnv": "Gebruikt de API-token uit GRIMOIRE_CODEX_DB_API_TOKEN. Alles wat je stuurt staat op naam van het Grimoire Codex DB-account van die token.",
       "test": "Verbinding testen",
-      "connected": "Verbonden. Voeg een token toe om records te sturen.",
+      "connected": "Verbonden.",
       "connectedAs": "Verbonden als {{name}} ({{role}})",
       "lockedBy": "Ingesteld door {{name}} in de omgeving."
     },
     "panel": {
-      "title": "GrimoireCodexDB",
-      "linked": "Gekoppeld · bekijken op GrimoireCodexDB",
-      "notLinked": "Niet gekoppeld. Gebruik \"Metadata ophalen\" om het in GrimoireCodexDB te vinden.",
+      "title": "Grimoire Codex DB",
+      "linked": "Gekoppeld · bekijken op Grimoire Codex DB",
+      "notLinked": "Niet gekoppeld. Gebruik \"Metadata ophalen\" om het in Grimoire Codex DB te vinden.",
       "sendCorrection": "Correcties sturen",
-      "add": "Toevoegen aan GrimoireCodexDB",
+      "add": "Toevoegen aan Grimoire Codex DB",
       "unlink": "Ontkoppelen",
-      "chooseFields": "Welke velden moet GrimoireCodexDB uit deze bibliotheek overnemen?",
-      "addBookHint": "Dit maakt het boek aan in GrimoireCodexDB, onder het GrimoireCodexDB-record van zijn spelsysteem, zichtbaar voor iedereen. Afhankelijk van je GrimoireCodexDB-account wacht het mogelijk op beoordeling.",
-      "addSystemHint": "Dit maakt het systeem aan in GrimoireCodexDB, zichtbaar voor iedereen. Afhankelijk van je GrimoireCodexDB-account wacht het mogelijk op beoordeling.",
+      "chooseFields": "Welke velden moet Grimoire Codex DB uit deze bibliotheek overnemen?",
+      "addBookHint": "Dit maakt het boek aan in Grimoire Codex DB, onder het Grimoire Codex DB-record van zijn spelsysteem, zichtbaar voor iedereen. Afhankelijk van je Grimoire Codex DB-account wacht het mogelijk op beoordeling.",
+      "addSystemHint": "Dit maakt het systeem aan in Grimoire Codex DB, zichtbaar voor iedereen. Afhankelijk van je Grimoire Codex DB-account wacht het mogelijk op beoordeling.",
       "noteOptional": "Notitie voor beoordelaars (optioneel)",
       "noteRequired": "Waar komt dit vandaan?",
       "notePlaceholder": "bijv. Van de productpagina van de uitgever",
       "send": "Sturen",
       "sending": "Bezig met sturen…",
       "cancel": "Annuleren",
-      "applied": "Verstuurd en live op GrimoireCodexDB.",
-      "pending": "Verstuurd. Het wacht op beoordeling in GrimoireCodexDB.",
+      "applied": "Verstuurd en live op Grimoire Codex DB.",
+      "pending": "Verstuurd. Het wacht op beoordeling in Grimoire Codex DB.",
       "viewEdit": "Wijziging bekijken"
     },
     "fields": {

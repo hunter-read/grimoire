@@ -1,9 +1,9 @@
-"""GrimoireCodexDB as a built-in metadata source (issue #35).
+"""Grimoire Codex DB as a built-in metadata source (issue #35).
 
 Plugs into the same list-sources / search / fetch flow as community add-ons
 (``routers/_metadata_lookup.py``), under the reserved source id
 ``grimoire-codex``. Unlike an add-on it ships with Grimoire and needs no
-install; an admin can turn it off in settings.
+install; it is on whenever ``GRIMOIRE_CODEX_DB_API_TOKEN`` is set.
 """
 import re
 from typing import Any, Optional, Union
@@ -18,19 +18,19 @@ from .settings import CodexSettings
 SOURCE_ID = "grimoire-codex"
 
 _ID = r"[A-Za-z0-9_-]{4,40}"
-# A pasted GrimoireCodexDB link (https://db.grimoirecodex.org/books/abc123) or a bare id.
+# A pasted Grimoire Codex DB link (https://db.grimoirecodex.org/books/abc123) or a bare id.
 _LINK = re.compile(rf"/(books|systems)/({_ID})(?:[/?#]|$)")
 _BARE = re.compile(rf"^{_ID}$")
 
 
 def source(settings: CodexSettings) -> dict[str, Any]:
-    """The entry ``list_sources`` shows for GrimoireCodexDB."""
+    """The entry ``list_sources`` shows for Grimoire Codex DB."""
     return {
         "id": SOURCE_ID,
-        "name": "GrimoireCodexDB",
+        "name": "Grimoire Codex DB",
         "description": "The community TTRPG catalogue. Applying a result also links this record to it.",
         "homepage": settings.url,
-        "attribution": "GrimoireCodexDB contributors",
+        "attribution": "Grimoire Codex DB contributors",
         "supports_paste": True,
     }
 
@@ -68,7 +68,7 @@ def search(
         {
             "identity": h["id"],
             "label": " · ".join(p for p in (h.get("name", ""), h.get("detail", "")) if p),
-            # GrimoireCodexDB returns search hits best first without a score; keep that order.
+            # Grimoire Codex DB returns search hits best first without a score; keep that order.
             "score": round(1 - i / max(len(hits), 1), 2),
             "url": f"{settings.url}/systems/{h['id']}",
         }
@@ -77,16 +77,16 @@ def search(
 
 
 def resolve_paste(target: str, pasted: str) -> str:
-    """The GrimoireCodexDB id in a pasted link or bare id, or ``ValueError``."""
+    """The Grimoire Codex DB id in a pasted link or bare id, or ``ValueError``."""
     text = pasted.strip()
     found = _LINK.search(text)
     if found:
         if found.group(1) != ("books" if target == "book" else "systems"):
-            raise ValueError(f"That link is not a GrimoireCodexDB {_entity(target)}")
+            raise ValueError(f"That link is not a Grimoire Codex DB {_entity(target)}")
         return found.group(2)
     if _BARE.match(text):
         return text
-    raise ValueError("Paste a GrimoireCodexDB link or record id")
+    raise ValueError("Paste a Grimoire Codex DB link or record id")
 
 
 def fetch(settings: CodexSettings, target: str, identity: str) -> dict[str, Any]:
@@ -94,7 +94,7 @@ def fetch(settings: CodexSettings, target: str, identity: str) -> dict[str, Any]
     exported = client.export(settings, _entity(target), identity)
     return {
         "url": str(exported.get("codex_url") or f"{settings.url}/{_entity(target)}s/{identity}"),
-        "attribution": "GrimoireCodexDB contributors",
+        "attribution": "Grimoire Codex DB contributors",
         "fields": incoming_fields(target, exported),
         "identity": str(exported.get("codex_id") or identity),
     }

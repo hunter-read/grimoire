@@ -342,13 +342,13 @@ describe('SystemEditor — renaming (issues #261, #262)', () => {
   })
 })
 
-describe('SystemEditor — GrimoireCodexDB (issue #35)', () => {
+describe('SystemEditor — Grimoire Codex DB (issue #35)', () => {
   const withCodex = () =>
     api.get.mockImplementation((path) => {
       if (path === '/codex/status')
-        return Promise.resolve({ enabled: true, url: 'https://codex.test', can_submit: false })
+        return Promise.resolve({ enabled: true, url: 'https://codex.test' })
       if (path.includes('metadata-sources'))
-        return Promise.resolve({ sources: [{ id: 'grimoire-codex', name: 'GrimoireCodexDB' }] })
+        return Promise.resolve({ sources: [{ id: 'grimoire-codex', name: 'Grimoire Codex DB' }] })
       return Promise.resolve(path.includes('genres') ? { genres: [] } : { families: [] })
     })
 
@@ -360,7 +360,7 @@ describe('SystemEditor — GrimoireCodexDB (issue #35)', () => {
     await userEvent.click(await screen.findByRole('button', { name: /fetch metadata/i }))
     await userEvent.click(screen.getByRole('button', { name: 'apply fetched' }))
     expect(onSave).toHaveBeenCalledWith({ edition: '2e', codex_id: 'sy_cairn2' })
-    expect(await screen.findByRole('link', { name: /view on GrimoireCodexDB/i })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: /view on Grimoire Codex DB/i })).toHaveAttribute(
       'href',
       'https://codex.test/systems/sy_cairn2'
     )

@@ -130,7 +130,7 @@ PERMISSIONS: dict[str, Permission] = {
     ),
     "codex": Permission(
         ("codex",),
-        "GrimoireCodexDB: connection settings, sending records and unlinking them",
+        "Grimoire Codex DB: connection settings, sending records and unlinking them",
         "admin",
     ),
     "maintenance": Permission(("maintenance",), "Metadata sidecar settings and export", "admin"),

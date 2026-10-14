@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CodexSection from './CodexSection'
 
@@ -10,11 +10,8 @@ vi.mock('../../api', () => ({
 const api = (await import('../../api')).default
 
 const SETTINGS = {
-  enabled: true,
   url: 'https://db.grimoirecodex.org',
-  can_submit: false,
   send_hashes: false,
-  has_token: false,
   locked: [],
 }
 
@@ -22,27 +19,13 @@ beforeEach(() => {
   vi.clearAllMocks()
   localStorage.clear()
   api.get.mockResolvedValue(SETTINGS)
-  api.put.mockImplementation((_url, patch) => {
-    const next = { ...SETTINGS, ...patch }
-    if ('api_token' in patch) next.has_token = !!patch.api_token
-    delete next.api_token
-    return Promise.resolve(next)
-  })
+  api.put.mockImplementation((_url, patch) => Promise.resolve({ ...SETTINGS, ...patch }))
 })
 
 describe('CodexSection', () => {
-  it('turns lookup off', async () => {
-    render(<CodexSection />)
-    const toggle = await screen.findByLabelText('Look up metadata in GrimoireCodexDB')
-    expect(toggle).toBeChecked()
-    await userEvent.click(toggle)
-    expect(api.put).toHaveBeenCalledWith('/codex/settings', { enabled: false })
-    await waitFor(() => expect(toggle).not.toBeChecked())
-  })
-
   it('saves the address on blur only when it changed', async () => {
     render(<CodexSection />)
-    const url = await screen.findByLabelText('GrimoireCodexDB address')
+    const url = await screen.findByLabelText('Grimoire Codex DB address')
     await userEvent.click(url)
     await userEvent.tab()
     expect(api.put).not.toHaveBeenCalled()
@@ -57,26 +40,20 @@ describe('CodexSection', () => {
     expect(api.put).toHaveBeenCalledWith('/codex/settings', { send_hashes: true })
   })
 
-  it('saves the token write-only and can remove it', async () => {
+  it('says the token comes from the environment and offers no way to change it', async () => {
     render(<CodexSection />)
-    const input = await screen.findByLabelText('API token')
-    expect(screen.getByRole('button', { name: 'Save token' })).toBeDisabled()
-    await userEvent.type(input, 'cdx_secret')
-    await userEvent.click(screen.getByRole('button', { name: 'Save token' }))
-    expect(api.put).toHaveBeenCalledWith('/codex/settings', { api_token: 'cdx_secret' })
-    await waitFor(() => expect(input).toHaveValue(''))
-    expect(input).toHaveAttribute('placeholder', expect.stringMatching(/token is saved/))
-    await userEvent.click(screen.getByRole('button', { name: 'Remove token' }))
-    expect(api.put).toHaveBeenLastCalledWith('/codex/settings', { api_token: '' })
+    expect(
+      await screen.findByText(/Uses the API token set in GRIMOIRE_CODEX_DB_API_TOKEN/)
+    ).toBeInTheDocument()
+    expect(screen.queryByLabelText(/token/i)).not.toBeInTheDocument()
   })
 
   it('shows settings pinned by the environment as read-only', async () => {
-    api.get.mockResolvedValue({ ...SETTINGS, locked: ['enabled', 'url', 'api_token'] })
+    api.get.mockResolvedValue({ ...SETTINGS, locked: ['url', 'send_hashes'] })
     render(<CodexSection />)
-    expect(await screen.findByLabelText('Look up metadata in GrimoireCodexDB')).toBeDisabled()
-    expect(screen.getByLabelText('GrimoireCodexDB address')).toBeDisabled()
-    expect(screen.getByText('Set by CODEX_API_TOKEN in the environment.')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Save token' })).not.toBeInTheDocument()
+    expect(await screen.findByLabelText('Grimoire Codex DB address')).toBeDisabled()
+    expect(screen.getByLabelText('Send file hashes when looking up books')).toBeDisabled()
+    expect(screen.getByText('Set by GRIMOIRE_CODEX_DB_URL in the environment.')).toBeInTheDocument()
   })
 
   it('tests the connection', async () => {
@@ -91,15 +68,15 @@ describe('CodexSection', () => {
 
     api.post.mockResolvedValueOnce({ ok: true, url: 'x', account: null })
     await userEvent.click(screen.getByRole('button', { name: 'Test connection' }))
-    expect(await screen.findByRole('status')).toHaveTextContent('Add a token')
+    expect(await screen.findByRole('status')).toHaveTextContent(/^Connected\.$/)
 
-    api.post.mockRejectedValueOnce(new Error('Could not reach GrimoireCodexDB'))
+    api.post.mockRejectedValueOnce(new Error('Could not reach Grimoire Codex DB'))
     await userEvent.click(screen.getByRole('button', { name: 'Test connection' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not reach')
   })
 
   it('reports a rejected save and a failed load', async () => {
-    api.put.mockRejectedValueOnce(new Error('The GrimoireCodexDB URL must be an http(s) address'))
+    api.put.mockRejectedValueOnce(new Error('The Grimoire Codex DB URL must be an http(s) address'))
     const { unmount } = render(<CodexSection />)
     await userEvent.click(await screen.findByLabelText('Send file hashes when looking up books'))
     expect(await screen.findByRole('alert')).toHaveTextContent('http(s) address')

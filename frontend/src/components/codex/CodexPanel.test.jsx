@@ -11,7 +11,7 @@ vi.mock('../../api', () => ({
 
 const api = (await import('../../api')).default
 
-const STATUS = { enabled: true, url: 'https://codex.test', can_submit: true }
+const STATUS = { enabled: true, url: 'https://codex.test' }
 
 function renderPanel(props = {}) {
   const onLinkChange = vi.fn()
@@ -34,7 +34,7 @@ beforeEach(() => {
 })
 
 describe('CodexPanel', () => {
-  it('renders nothing while GrimoireCodexDB is turned off', async () => {
+  it('renders nothing while Grimoire Codex DB is turned off', async () => {
     api.get.mockResolvedValue({ ...STATUS, enabled: false })
     const { container } = render(<CodexPanel kind="books" resourceId="b1" codexId={null} />)
     await waitFor(() => expect(api.get).toHaveBeenCalledWith('/codex/status'))
@@ -48,10 +48,10 @@ describe('CodexPanel', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('links to the GrimoireCodexDB record and unlinks', async () => {
+  it('links to the Grimoire Codex DB record and unlinks', async () => {
     api.delete.mockResolvedValue({ status: 'ok' })
     const onLinkChange = renderPanel({ codexId: 'bk_abc123' })
-    const link = await screen.findByRole('link', { name: /view on GrimoireCodexDB/i })
+    const link = await screen.findByRole('link', { name: /view on Grimoire Codex DB/i })
     expect(link).toHaveAttribute('href', 'https://codex.test/books/bk_abc123')
     await userEvent.click(screen.getByRole('button', { name: 'Unlink' }))
     expect(api.delete).toHaveBeenCalledWith('/codex/books/b1/link')
@@ -66,13 +66,15 @@ describe('CodexPanel', () => {
       edit_url: 'https://codex.test/edits/ed_1',
     })
     const onLinkChange = renderPanel()
-    await userEvent.click(await screen.findByRole('button', { name: 'Add to GrimoireCodexDB' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Add to Grimoire Codex DB' }))
     const send = screen.getByRole('button', { name: 'Send' })
     expect(send).toBeDisabled()
     await userEvent.type(screen.getByLabelText('Where is this from?'), 'My PDF')
     await userEvent.click(send)
     expect(api.post).toHaveBeenCalledWith('/codex/books/b1/submit', { note: 'My PDF' })
-    expect(await screen.findByRole('status')).toHaveTextContent('Sent and live on GrimoireCodexDB.')
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Sent and live on Grimoire Codex DB.'
+    )
     expect(screen.getByRole('link', { name: 'View the edit' })).toHaveAttribute(
       'href',
       'https://codex.test/edits/ed_1'
@@ -103,10 +105,10 @@ describe('CodexPanel', () => {
     expect(onLinkChange).not.toHaveBeenCalled()
   })
 
-  it('shows the error GrimoireCodexDB returned and can be cancelled', async () => {
+  it('shows the error Grimoire Codex DB returned and can be cancelled', async () => {
     api.post.mockRejectedValue(new Error('Name is required'))
     renderPanel({ kind: 'systems' })
-    await userEvent.click(await screen.findByRole('button', { name: 'Add to GrimoireCodexDB' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Add to Grimoire Codex DB' }))
     expect(screen.getByText(/creates the system/)).toBeInTheDocument()
     await userEvent.type(screen.getByLabelText('Where is this from?'), 'x')
     await userEvent.click(screen.getByRole('button', { name: 'Send' }))
@@ -123,14 +125,7 @@ describe('CodexPanel', () => {
     expect(onLinkChange).not.toHaveBeenCalled()
   })
 
-  it('offers no sending without a token', async () => {
-    api.get.mockResolvedValue({ ...STATUS, can_submit: false })
-    renderPanel()
-    expect(await screen.findByText(/Not linked/)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Add to GrimoireCodexDB' })).not.toBeInTheDocument()
-  })
-
-  it('asks GrimoireCodexDB for its status once per session', async () => {
+  it('asks Grimoire Codex DB for its status once per session', async () => {
     const first = render(<CodexPanel kind="books" resourceId="b1" codexId={null} />)
     await screen.findByText(/Not linked/)
     first.unmount()
