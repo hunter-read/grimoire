@@ -48,6 +48,9 @@ export default function useSystemSearch(systemId, restoreView) {
     if (restoreView && searchQuery && searchQuery.length >= 2) doSearch(searchQuery)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // A debounced query still pending when the view unmounts must not fire.
+  useEffect(() => () => clearTimeout(searchTimer.current), [])
+
   const handleSearchInput = (e) => {
     const v = e.target.value
     setSearchQuery(v)

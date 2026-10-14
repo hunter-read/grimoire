@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCircleCheck } from 'react-icons/lu'
 import i18n, { AVAILABLE_LANGUAGES } from '../../i18n'
@@ -7,10 +7,14 @@ export default function LanguageSection() {
   const { t } = useTranslation()
   const [lang, setLang] = useState(localStorage.getItem('grimoire:language') || 'en-US')
   const [saved, setSaved] = useState(false)
+  const flashTimer = useRef(null)
+
+  useEffect(() => () => clearTimeout(flashTimer.current), [])
 
   const flash = () => {
     setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+    clearTimeout(flashTimer.current)
+    flashTimer.current = setTimeout(() => setSaved(false), 2000)
   }
   const handleLang = (e) => {
     const v = e.target.value

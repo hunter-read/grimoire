@@ -101,4 +101,13 @@ describe('useSystemSearch', () => {
     renderHook(() => useSystemSearch('sys1', false))
     expect(api.get).not.toHaveBeenCalled()
   })
+
+  // Leaving the view mid-debounce must not fire a stray request.
+  it('drops a pending search when the view unmounts', () => {
+    const { result, unmount } = renderHook(() => useSystemSearch('sys1', false))
+    typeInto(result, 'drag')
+    unmount()
+    act(() => vi.advanceTimersByTime(350))
+    expect(api.get).not.toHaveBeenCalled()
+  })
 })

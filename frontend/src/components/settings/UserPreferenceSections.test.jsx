@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import { LanguageSection, LibrarySection } from './UserPreferenceSections'
 import { getUserPrefs } from '../../hooks/useUserPrefs'
 import { RECENT_DEFAULT, RECENT_MAX } from '../../hooks/useBookPrefs'
@@ -84,6 +84,31 @@ describe('LanguageSection — language change', () => {
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'fr-CA' } })
     // The LuCircleCheck is rendered as an svg icon; the save flash is visible
     expect(document.querySelector('svg')).toBeInTheDocument()
+  })
+
+  it('hides the saved indicator after two seconds', () => {
+    vi.useFakeTimers()
+    try {
+      render(<LanguageSection />)
+      fireEvent.change(screen.getByRole('combobox'), { target: { value: 'fr-CA' } })
+      act(() => vi.advanceTimersByTime(2000))
+      expect(document.querySelector('svg')).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  // The flash timer must not outlive the section (it fired after teardown in CI).
+  it('cancels the saved flash when unmounted', () => {
+    vi.useFakeTimers()
+    try {
+      const { unmount } = render(<LanguageSection />)
+      fireEvent.change(screen.getByRole('combobox'), { target: { value: 'fr-CA' } })
+      unmount()
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 

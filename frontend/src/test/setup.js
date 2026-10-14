@@ -1,5 +1,10 @@
 import '@testing-library/jest-dom'
+import { configure } from '@testing-library/react'
 import '../i18n'
+
+// The default 1s findBy/waitFor timeout flakes on a loaded CI runner running
+// the whole suite under coverage; a passing wait returns as soon as it holds.
+configure({ asyncUtilTimeout: 3000 })
 
 // Node.js 22+ has a native localStorage/sessionStorage that lacks clear() and
 // doesn't reset between tests. Replace both with proper in-memory implementations.
