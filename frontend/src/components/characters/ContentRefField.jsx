@@ -36,9 +36,7 @@ export default function ContentRefField({
   const entry = !inline && ref?._ref ? entries[ref._ref] : null
   // A reference whose entry is not installed still shows what was chosen: the
   // id is what the player picked, and hiding it would look like data loss.
-  const display = inline
-    ? ref.name || t('characters.customEntry')
-    : entry?.name || ref?._ref || ''
+  const display = inline ? ref.name || t('characters.customEntry') : entry?.name || ref?._ref || ''
   const missing = !inline && !!ref?._ref && !entry
 
   // The fields a freeform entry can be given - the content type's own, so a
@@ -90,14 +88,12 @@ export default function ContentRefField({
                   type="button"
                   onClick={() => setEditingInline((open) => !open)}
                   aria-expanded={editingInline}
-                  aria-label={t(
-                    editingInline ? 'characters.hideEntry' : 'characters.showEntry',
-                    { name: ref.name || t('characters.customEntry') }
-                  )}
-                  title={t(
-                    editingInline ? 'characters.hideEntry' : 'characters.showEntry',
-                    { name: ref.name || t('characters.customEntry') }
-                  )}
+                  aria-label={t(editingInline ? 'characters.hideEntry' : 'characters.showEntry', {
+                    name: ref.name || t('characters.customEntry'),
+                  })}
+                  title={t(editingInline ? 'characters.hideEntry' : 'characters.showEntry', {
+                    name: ref.name || t('characters.customEntry'),
+                  })}
                   style={{ ...iconBtn, padding: 3 }}
                 >
                   <LuPencil size={14} />
@@ -125,9 +121,7 @@ export default function ContentRefField({
                   <div
                     key={key}
                     style={
-                      fieldDefinition.type === 'textarea'
-                        ? { gridColumn: '1 / -1' }
-                        : undefined
+                      fieldDefinition.type === 'textarea' ? { gridColumn: '1 / -1' } : undefined
                     }
                   >
                     <FieldRenderer
