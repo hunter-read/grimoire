@@ -128,9 +128,58 @@ describe('ContentRefField', () => {
         allow_freeform: true,
       },
     })
-    await userEvent.type(screen.getByDisplayValue('Homebrew'), 'er')
-    expect(onChange).toHaveBeenCalled()
-    expect(onChange.mock.calls.at(-1)[0]).toEqual({ _inline: true, name: 'Homebrewer' })
+    // The field is controlled and nothing feeds `value` back, so type one key.
+    await userEvent.type(screen.getByDisplayValue('Homebrew'), '!')
+    expect(onChange).toHaveBeenCalledWith({ _inline: true, name: 'Homebrew!' }, { entry: null })
+  })
+
+  it("opens a freeform entry to its content type's fields", async () => {
+    const onChange = vi.fn()
+    renderRef({
+      value: { _inline: true, name: 'Homebrew' },
+      onChange,
+      definition: {
+        type: 'content_ref',
+        label: 'Class',
+        content_type: 'spell',
+        allow_freeform: true,
+      },
+      typeDefinition: {
+        ...TYPE,
+        fields: { name: { type: 'text' }, school: { type: 'text', label: 'School' } },
+      },
+    })
+    expect(screen.queryByLabelText('School')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Show Homebrew' }))
+    await userEvent.type(screen.getByLabelText('School'), 'e')
+    expect(onChange).toHaveBeenLastCalledWith(
+      { _inline: true, name: 'Homebrew', school: 'e' },
+      { entry: null }
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Hide Homebrew' }))
+    expect(screen.queryByLabelText('School')).not.toBeInTheDocument()
+  })
+
+  it('clears a freeform entry', async () => {
+    const onChange = vi.fn()
+    renderRef({
+      value: { _inline: true, name: 'Homebrew' },
+      onChange,
+      definition: {
+        type: 'content_ref',
+        label: 'Class',
+        content_type: 'spell',
+        allow_freeform: true,
+      },
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Clear' }))
+    expect(onChange).toHaveBeenCalledWith(null, { entry: null })
+  })
+
+  it('shows a freeform entry read-only without its controls', () => {
+    renderRef({ value: { _inline: true, name: 'Homebrew' }, readOnly: true })
+    expect(screen.getByDisplayValue('Homebrew')).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Clear' })).not.toBeInTheDocument()
   })
 })
 
