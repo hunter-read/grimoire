@@ -5,6 +5,7 @@ import logging
 import secrets
 import warnings
 from typing import Optional
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -29,6 +30,30 @@ def _pkce_pair() -> tuple[str, str]:
     digest = hashlib.sha256(verifier.encode("ascii")).digest()
     challenge = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
     return verifier, challenge
+
+
+def _safe_return_to(value: Optional[str]) -> str:
+    """Return ``value`` if it is a same-origin path, else ``"/"``.
+
+    The callback redirects to ``{return_to}#oidc_token=<JWT>``, so anything
+    that a browser could resolve to another origin would hand that origin the
+    token. A bare ``startswith("/")`` is not enough: ``//evil.example`` is
+    protocol-relative, browsers treat ``\\`` as ``/`` (so ``/\\evil.example``
+    is too), and they strip tabs/newlines anywhere in a URL (so
+    ``/\\t/evil.example`` collapses to ``//evil.example``).
+    """
+    if not value or not value.startswith("/") or len(value) > 2048:
+        return "/"
+    if value[1:2] in ("/", "\\"):
+        return "/"
+    # Reject backslashes, control characters and whitespace outright rather
+    # than reasoning about how each browser normalises them.
+    if any(c == "\\" or c == "#" or ord(c) < 0x21 or ord(c) == 0x7F for c in value):
+        return "/"
+    parts = urlsplit(value)
+    if parts.scheme or parts.netloc:
+        return "/"
+    return value
 
 
 def _discovery_doc(issuer: str) -> dict:

@@ -49,6 +49,10 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - The file manager no longer fails with "Internal Server Error" on such a name. It shows the entry greyed out with a placeholder character, and a ? icon explains why it can't be changed from Grimoire
 - A game system's description keeps the paragraph breaks entered in its editor instead of running together as one block. Long descriptions show their first few lines with a Read more button
 
+### Security
+
+- SSO sign-in only returns you to a page on your own Grimoire. A crafted sign-in link could send you, and your new session, to another site once you'd signed in with your identity provider
+
 ## [1.8.0] - 2026-10-08
 
 ### Added

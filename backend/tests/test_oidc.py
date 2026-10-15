@@ -11,6 +11,7 @@ from backend.routers.oidc import (
     _resolve_user,
     _OIDCError,
 )
+from backend.routers.oidc._helpers import _safe_return_to
 
 
 # ---------------------------------------------------------------------------
@@ -503,6 +504,54 @@ class TestOIDCLoginStart:
         )
 
 
+    def test_login_sanitizes_offsite_return_to(self, client, admin_headers):
+        """GHSA-79mw-m4jj-qp8f: an off-origin return_to never reaches the state."""
+        from urllib.parse import parse_qs, urlsplit
+
+        from backend.routers.oidc import core as oidc_core
+
+        client.patch(
+            "/api/settings",
+            headers=admin_headers,
+            json={
+                "oidc_enabled": True,
+                "oidc_issuer_url": "https://idp.example.com/realm",
+                "oidc_authorization_endpoint": "https://idp.example.com/realm/auth",
+                "oidc_token_endpoint": "https://idp.example.com/realm/token",
+                "oidc_jwks_uri": "https://idp.example.com/realm/jwks",
+                "oidc_client_id": "grimoire",
+                "oidc_client_secret": "secret",
+            },
+        )
+        try:
+            for evil, expected in (
+                ("//attacker.example/collect", "/"),
+                ("/library?x=1", "/library?x=1"),
+            ):
+                resp = client.get(
+                    "/api/auth/openid/login",
+                    params={"return_to": evil},
+                    follow_redirects=False,
+                )
+                assert resp.status_code == 302
+                state = parse_qs(urlsplit(resp.headers["location"]).query)["state"][0]
+                saved = oidc_core._state_store.pop(state)
+                assert saved["return_to"] == expected
+        finally:
+            client.patch(
+                "/api/settings",
+                headers=admin_headers,
+                json={
+                    "oidc_enabled": False,
+                    "oidc_issuer_url": "",
+                    "oidc_authorization_endpoint": "",
+                    "oidc_token_endpoint": "",
+                    "oidc_jwks_uri": "",
+                    "oidc_client_id": "",
+                    "oidc_client_secret": "__CLEAR__",
+                },
+            )
+
 class TestOIDCCallback:
     """The callback exchanges the code, resolves the user, and hands back a
     token — via the URL fragment AND an HttpOnly session cookie (issue #156)."""
@@ -582,6 +631,50 @@ class TestOIDCCallback:
         finally:
             self._cleanup(client, admin_headers)
 
+    @pytest.mark.parametrize(
+        "return_to",
+        [
+            "//attacker.example/collect",
+            "/\\attacker.example/collect",
+            "/\t/attacker.example/collect",
+            "https://attacker.example/collect",
+        ],
+    )
+    def test_callback_never_redirects_offsite(self, client, admin_headers, return_to):
+        """GHSA-79mw-m4jj-qp8f: the token-bearing redirect stays on our origin,
+        even if a hostile return_to somehow made it into the state store."""
+        from backend.routers.oidc import core as oidc_core
+
+        self._configure(client, admin_headers)
+        try:
+            oidc_core._state_store.put(
+                "state-evil",
+                {"code_verifier": "verifier", "nonce": "nonce123", "return_to": return_to},
+            )
+            token_resp = httpx.Response(
+                200,
+                json={"id_token": "id-tok", "access_token": "acc-tok"},
+                request=httpx.Request("POST", "https://idp.example.com/realm/token"),
+            )
+            with (
+                patch.object(oidc_core.httpx, "post", return_value=token_resp),
+                patch.object(oidc_core, "_discover_issuer", return_value="https://idp.example.com/realm"),
+                patch.object(
+                    oidc_core,
+                    "_validate_id_token",
+                    return_value={"sub": "oidc-sub-evil", "email": "evil@example.com"},
+                ),
+                patch.object(oidc_core, "_fetch_userinfo", return_value={}),
+            ):
+                resp = client.get(
+                    "/api/auth/openid/callback?code=abc&state=state-evil",
+                    follow_redirects=False,
+                )
+            assert resp.status_code == 302
+            assert resp.headers["location"].startswith("/#oidc_token=")
+        finally:
+            self._cleanup(client, admin_headers)
+
     def test_callback_idp_error_redirects_to_login(self, client):
         resp = client.get(
             "/api/auth/openid/callback?error=access_denied&error_description=nope",
@@ -629,6 +722,36 @@ class TestOIDCCallback:
 # Pure-function helpers
 # ---------------------------------------------------------------------------
 
+
+class TestSafeReturnTo:
+    @pytest.mark.parametrize(
+        "value",
+        ["/", "/library", "/books/12?page=3", "/campaigns/4/wiki/a%2Fb"],
+    )
+    def test_same_origin_paths_kept(self, value):
+        assert _safe_return_to(value) == value
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            None,
+            "",
+            "library",
+            "https://attacker.example/",
+            "javascript:alert(1)",
+            "//attacker.example/collect",
+            "///attacker.example",
+            "/\\attacker.example",
+            "/\t/attacker.example",
+            "/\n/attacker.example",
+            "/ /attacker.example",
+            "/ok\\..\\x",
+            "/ok#frag",
+            "/" + "a" * 3000,
+        ],
+    )
+    def test_offsite_or_odd_values_fall_back_to_root(self, value):
+        assert _safe_return_to(value) == "/"
 
 class TestRoleFromGroups:
     def test_no_claim_returns_none(self):

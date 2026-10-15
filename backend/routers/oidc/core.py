@@ -38,6 +38,7 @@ from ._helpers import (
     _fetch_userinfo,
     _pkce_pair,
     _resolve_user,
+    _safe_return_to,
     _state_store,
     _try_endpoint,
     _validate_id_token,
@@ -100,7 +101,7 @@ def oidc_login(
     verifier, challenge = _pkce_pair()
     _state_store.put(
         state,
-        {"nonce": nonce, "code_verifier": verifier, "return_to": return_to or "/"},
+        {"nonce": nonce, "code_verifier": verifier, "return_to": _safe_return_to(return_to)},
     )
 
     scopes = ["openid", "email", "profile"]
@@ -245,9 +246,9 @@ def oidc_callback(
     # <img>/download GETs authenticate without the JWT in the URL. The refresh
     # token goes only into its HttpOnly cookie — never the fragment, since a
     # fragment lands in browser history and in any JS on the landing page.
-    return_to = saved.get("return_to") or "/"
-    if not return_to.startswith("/"):
-        return_to = "/"
+    # Re-validated here too: the token rides on this redirect, so it must never
+    # leave the Grimoire origin whatever ended up in the state store.
+    return_to = _safe_return_to(saved.get("return_to"))
     resp = RedirectResponse(f"{return_to}#oidc_token={token}", status_code=302)
     set_auth_cookie(resp, token)
     set_refresh_cookie(resp, refresh_token)
