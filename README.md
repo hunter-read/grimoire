@@ -345,6 +345,7 @@ kept in the repo so it versions with the release you are running:
 | [Grimoire Codex DB](docs/codex.md)                        | The built-in community catalogue: lookup, linking, sending      |
 | [Community add-ons](docs/addons.md)                    | Installable metadata scrapers                                   |
 | [OPDS catalog](docs/opds.md)                           | Connecting e-reader apps to your library                        |
+| [MCP server](docs/mcp.md)                              | Letting AI assistants like Claude Code use your library         |
 
 ### Reference
 

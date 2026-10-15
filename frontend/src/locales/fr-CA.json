@@ -1321,6 +1321,8 @@
         "copy": "Copier la clé",
         "copied": "Copiée dans le presse-papiers",
         "example": "Exemple de requête :",
+        "mcpExample": "Connecter un assistant IA (Claude Code) :",
+        "mcpHint": "La clé doit avoir au moins Lecture sur Recherche pour cela.",
         "done": "Terminé"
       },
       "confirm": {

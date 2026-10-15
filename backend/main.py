@@ -24,7 +24,9 @@ from .security import (
 from .config import (
     CORS_ALLOWED_ORIGINS,
     DATA_PATH,
+    API_KEYS_ENABLED,
     LIBRARY_PATH,
+    MCP_ENABLED,
     OPDS_ENABLED,
     SessionLocal,
     VERSION,
@@ -55,6 +57,7 @@ from .routers import (
     duplicates as duplicates_router,
     maintenance as maintenance_router,
     maps as maps_router,
+    mcp as mcp_router,
     models as models_router,
     oidc as oidc_router,
     opds as opds_router,
@@ -360,6 +363,12 @@ app.include_router(campaigns_router.public_router)
 app.include_router(share_router.public_router)
 if OPDS_ENABLED:
     app.include_router(opds_router.router)
+# The MCP server sits outside /api: it authenticates with API keys alone,
+# checked per tool call (see routers/mcp/core.py).
+if MCP_ENABLED:
+    if not API_KEYS_ENABLED:
+        logger.warning("MCP_ENABLED is on but API_KEYS_ENABLED is off - /mcp will refuse every key.")
+    app.include_router(mcp_router.router)
 
 # --- Authenticated /api/* routes ---------------------------------------------
 api = APIRouter(prefix="/api", dependencies=[Depends(get_current_user)])

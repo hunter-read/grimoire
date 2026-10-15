@@ -243,6 +243,9 @@ def get_ui_settings(_: CurrentUser = Depends(get_current_user), db: Session = De
         # Whether share links exist on this instance (SHARE_LINKS_ENABLED); the
         # UI hides every share menu when they don't.
         "share_links_enabled": config.SHARE_LINKS_ENABLED,
+        # Whether /mcp is served (MCP_ENABLED); the new-key dialog then shows how
+        # to connect an AI assistant with the key.
+        "mcp_enabled": config.MCP_ENABLED,
         # Whether the library can be modified at all. The file-management actions
         # (move / rename / delete) are hidden rather than shown-and-failing when
         # the library is mounted read-only, and every view outside the file

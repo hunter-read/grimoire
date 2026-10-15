@@ -1321,6 +1321,8 @@
         "copy": "Copiar chave",
         "copied": "Copiada para a área de transferência",
         "example": "Exemplo de requisição:",
+        "mcpExample": "Conectar um assistente de IA (Claude Code):",
+        "mcpHint": "Para isso a chave precisa de pelo menos Leitura em Pesquisa.",
         "done": "Concluído"
       },
       "confirm": {

@@ -1321,6 +1321,8 @@
         "copy": "Copy key",
         "copied": "Copied to clipboard",
         "example": "Example request:",
+        "mcpExample": "Connect an AI assistant (Claude Code):",
+        "mcpHint": "The key needs at least Read on Search for this.",
         "done": "Done"
       },
       "confirm": {

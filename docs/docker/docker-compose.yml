@@ -25,6 +25,8 @@ services:
 
       # Optional — enable OPDS catalog access. Each user can generate a personal feed URL in Account Settings.
       # - OPDS_ENABLED=true
+      # Optional — serve the MCP endpoint at /mcp for AI assistants such as Claude Code (authenticates with API keys). See docs/mcp.md.
+      # - MCP_ENABLED=true
 
     volumes:
       # Left side: absolute path on the host to your TTRPG library folder.

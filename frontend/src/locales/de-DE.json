@@ -1321,6 +1321,8 @@
         "copy": "Schlüssel kopieren",
         "copied": "In die Zwischenablage kopiert",
         "example": "Beispielanfrage:",
+        "mcpExample": "KI-Assistenten verbinden (Claude Code):",
+        "mcpHint": "Der Schlüssel braucht dafür mindestens Lesezugriff auf Suche.",
         "done": "Fertig"
       },
       "confirm": {

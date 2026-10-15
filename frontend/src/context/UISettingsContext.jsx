@@ -14,6 +14,8 @@ const UISettingsContext = createContext({
   api_keys_enabled: true,
   // Whether share links exist on this instance at all (SHARE_LINKS_ENABLED).
   share_links_enabled: true,
+  // Whether the MCP server for AI assistants is served at /mcp (MCP_ENABLED).
+  mcp_enabled: false,
   // Whether the library can be written to at all. Gates the move / rename /
   // delete actions everywhere outside the file manager, which asks per folder.
   library_writable: false,

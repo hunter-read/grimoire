@@ -10,6 +10,10 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Added
 
+- An MCP server, so AI assistants such as Claude Code can work with your library: search it, read and look at book pages, browse your systems and books, and read your campaigns' wiki and session notes - citing the book and page they found an answer on. Off by default: set `MCP_ENABLED=true`, then connect with an API key, which decides what the assistant can reach
+- Assistants can also add to your library when you ask: bookmark a page, tag books, or write a new campaign wiki page (private unless you say to share it). They never change or delete what's there
+- Two ready-made assistant prompts: prep your next session from a campaign's notes and wiki, and answer rules questions from your own books with the page they're on
+- With MCP on, the dialog that shows a new API key also gives the command to connect Claude Code with it
 - Share links: a public link to a book, map, token, audio track or 3D model that anyone can open without an account, until it expires or you revoke it
 - A share link can expire after 1 day up to a year, or never, can require a password, and has a direct file address for VTTs and Discord
 - See, copy and revoke your share links under Settings → Account → Sharing

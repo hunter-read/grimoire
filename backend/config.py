@@ -39,6 +39,9 @@ def _version_from_file() -> str:
 VERSION = os.environ.get("APP_VERSION") or _version_from_file() or "unknown"
 COMMIT_HASH = os.environ.get("COMMIT_HASH", "")
 OPDS_ENABLED = os.environ.get("OPDS_ENABLED", "false").lower() == "true"
+# The MCP server at /mcp, for AI assistants (Claude Code, ...). Off by default;
+# when on, it authenticates with API keys, so API_KEYS_ENABLED must be on too.
+MCP_ENABLED = os.environ.get("MCP_ENABLED", "false").lower() == "true"
 # Public base URL of this instance (e.g. "https://grimoire.example.com").
 # Used to build absolute links in OPDS feeds and anywhere a fully-qualified URL is needed.
 BASE_URL = os.environ.get("BASE_URL", "http://localhost:9481").rstrip("/")

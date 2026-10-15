@@ -181,6 +181,13 @@ kept in plaintext is migrated on upgrade: it keeps working unchanged, named
 `Stats API key (migrated)`, owned by the earliest-created admin, with
 `stats: Read` and nothing else.
 
+**MCP.** With `MCP_ENABLED=true`, keys also authenticate the
+[MCP server](mcp.md) at `POST /mcp` (outside `/api`). There the route is always
+the same, so each MCP tool, resource and prompt checks the permission it needs -
+`search_library` needs `search: Read`, `create_wiki_page` needs
+`campaigns: Write` - and a key is only shown the ones it can use. See
+[What it can do](mcp.md#what-it-can-do) for the full table.
+
 ### Share links
 
 A [share link](sharing.md) is a public URL for one book, map, token, audio track

@@ -37,7 +37,7 @@ import datetime
 import hashlib
 import hmac
 import secrets
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Iterable, NamedTuple, Optional
 
 from fastapi import HTTPException, Request
@@ -208,6 +208,11 @@ def granted_level(permissions: Optional[dict[str, str]], permission: str) -> str
     return explicit if _RANK.get(explicit, 0) >= _RANK.get(floor, 0) else floor
 
 
+def has_level(permissions: Optional[dict[str, str]], permission: str, needed: str) -> bool:
+    """Whether a key with ``permissions`` holds at least ``needed`` on ``permission``."""
+    return _RANK.get(granted_level(permissions, permission), 0) >= _RANK[needed]
+
+
 def route_permission(route: Any) -> Optional[str]:
     """The permission a route falls under, or None when keys may not use it."""
     tags = list(getattr(route, "tags", None) or [])
@@ -325,6 +330,9 @@ class KeyPrincipal:
     user_id: str
     username: str
     role: str
+    # The key's own permission map, for callers that check per action rather
+    # than per route - the MCP server checks it once per tool call.
+    permissions: dict[str, str] = field(default_factory=dict)
 
 
 def keys_enabled() -> bool:
@@ -352,7 +360,7 @@ def user_keys_allowed(user: Any) -> bool:
     return bool(getattr(user, "api_keys_enabled", False))
 
 
-def authenticate(presented: str, request: Request) -> KeyPrincipal:
+def authenticate(presented: str, request: Request, *, check_route: bool = True) -> KeyPrincipal:
     """Resolve ``presented`` to a key and check it may call the matched route.
 
     401 for a key that doesn't exist or has expired; 403 for a valid key on a
@@ -361,6 +369,11 @@ def authenticate(presented: str, request: Request) -> KeyPrincipal:
     owner may no longer hold keys. With keys off for the instance, every key is
     refused outright. Failed attempts are throttled per client IP (429), see
     ``security.py``.
+
+    ``check_route=False`` skips the route check for an endpoint that checks the
+    key's permissions itself, per action (the MCP server, one ``/mcp`` route
+    fronting many tools). Everything else - existence, expiry, the owner still
+    being allowed keys, throttling - still applies.
     """
     from .config import SessionLocal
     from .models import ApiKey, User
@@ -394,24 +407,29 @@ def authenticate(presented: str, request: Request) -> KeyPrincipal:
         if not user_keys_allowed(owner):
             raise HTTPException(403, "API keys are not enabled for your account")
 
-        permission = route_permission(route)
-        if permission is None:
-            raise HTTPException(403, "API keys cannot be used for this endpoint")
-        needed = required_level(route, method)
-        granted = granted_level(row.permissions, permission)
-        if _RANK.get(granted, 0) < _RANK[needed]:
-            raise HTTPException(
-                403,
-                f"This API key needs {needed!r} access to {permission!r} "
-                f"(it has {granted!r})",
-            )
+        if check_route:
+            permission = route_permission(route)
+            if permission is None:
+                raise HTTPException(403, "API keys cannot be used for this endpoint")
+            needed = required_level(route, method)
+            granted = granted_level(row.permissions, permission)
+            if _RANK.get(granted, 0) < _RANK[needed]:
+                raise HTTPException(
+                    403,
+                    f"This API key needs {needed!r} access to {permission!r} "
+                    f"(it has {granted!r})",
+                )
 
         last = as_utc(row.last_used_at)
         if last is None or now - last >= LAST_USED_THROTTLE:
             row.last_used_at = now
             db.commit()
         return KeyPrincipal(
-            id=row.id, user_id=owner.id, username=owner.username, role=owner.role or "player"
+            id=row.id,
+            user_id=owner.id,
+            username=owner.username,
+            role=owner.role or "player",
+            permissions=dict(row.permissions or {}),
         )
     finally:
         db.close()

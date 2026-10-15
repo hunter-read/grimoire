@@ -1321,6 +1321,8 @@
         "copy": "Sleutel kopiëren",
         "copied": "Gekopieerd naar klembord",
         "example": "Voorbeeldverzoek:",
+        "mcpExample": "Een AI-assistent koppelen (Claude Code):",
+        "mcpHint": "De sleutel heeft hiervoor minstens Lezen op Zoeken nodig.",
         "done": "Klaar"
       },
       "confirm": {

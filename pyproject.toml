@@ -65,6 +65,8 @@ module = [
     "backend.pdf_worker",
     "backend.indexer",
     "backend.indexer.*",
+    "backend.mcp_server",
+    "backend.mcp_server.*",
     "backend.models.*",
     "backend.services",
     "backend.services.*",

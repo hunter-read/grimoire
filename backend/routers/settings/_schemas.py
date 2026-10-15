@@ -187,4 +187,5 @@ class UISettingsResponse(BaseModel):
     guest_access_enabled: bool
     api_keys_enabled: bool
     share_links_enabled: bool
+    mcp_enabled: bool
     library_writable: bool

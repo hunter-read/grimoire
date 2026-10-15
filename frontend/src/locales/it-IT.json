@@ -1321,6 +1321,8 @@
         "copy": "Copia chiave",
         "copied": "Copiata negli appunti",
         "example": "Richiesta di esempio:",
+        "mcpExample": "Collega un assistente IA (Claude Code):",
+        "mcpHint": "Per questo la chiave deve avere almeno Lettura su Ricerca.",
         "done": "Fatto"
       },
       "confirm": {

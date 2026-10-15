@@ -1321,6 +1321,8 @@
         "copy": "Kopiera nyckel",
         "copied": "Kopierad till urklipp",
         "example": "Exempelförfrågan:",
+        "mcpExample": "Anslut en AI-assistent (Claude Code):",
+        "mcpHint": "Nyckeln behöver minst Läsa på Sök för detta.",
         "done": "Klar"
       },
       "confirm": {

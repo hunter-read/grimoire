@@ -1,11 +1,24 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCircleCheck, LuCopy, LuTriangleAlert } from 'react-icons/lu'
+import { useUISettings } from '../../context/UISettingsContext'
+
+const exampleStyle = {
+  display: 'block',
+  fontSize: 11,
+  background: 'var(--bg-card)',
+  padding: '6px 8px',
+  borderRadius: 4,
+  wordBreak: 'break-all',
+  color: 'var(--text-dim)',
+  marginBottom: 20,
+}
 
 // Shown once, right after a key is created or regenerated: the only time the
 // full key exists outside the integration it is pasted into.
 export default function ApiKeyReveal({ apiKey, secret, onClose }) {
   const { t } = useTranslation()
+  const { mcp_enabled: mcpEnabled } = useUISettings()
   const [copied, setCopied] = useState(false)
 
   const copy = async () => {
@@ -19,6 +32,7 @@ export default function ApiKeyReveal({ apiKey, secret, onClose }) {
   }
 
   const example = `curl -H "X-API-Key: ${secret}" ${window.location.origin}/api/stats`
+  const mcpExample = `claude mcp add --transport http grimoire ${window.location.origin}/mcp --header "X-API-Key: ${secret}"`
 
   return (
     <div
@@ -111,20 +125,20 @@ export default function ApiKeyReveal({ apiKey, secret, onClose }) {
         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>
           {t('appSettings.apiKeys.reveal.example')}
         </div>
-        <code
-          style={{
-            display: 'block',
-            fontSize: 11,
-            background: 'var(--bg-card)',
-            padding: '6px 8px',
-            borderRadius: 4,
-            wordBreak: 'break-all',
-            color: 'var(--text-dim)',
-            marginBottom: 20,
-          }}
-        >
-          {example}
-        </code>
+        <code style={exampleStyle}>{example}</code>
+        {mcpEnabled && (
+          <>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>
+              {t('appSettings.apiKeys.reveal.mcpExample')}
+            </div>
+            <code data-testid="api-key-mcp-example" style={{ ...exampleStyle, marginBottom: 6 }}>
+              {mcpExample}
+            </code>
+            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 20 }}>
+              {t('appSettings.apiKeys.reveal.mcpHint')}
+            </div>
+          </>
+        )}
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <button
             type="button"
