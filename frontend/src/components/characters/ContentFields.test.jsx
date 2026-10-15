@@ -94,6 +94,44 @@ describe('ContentRefField', () => {
     renderRef({ value: { _ref: 'fireball' }, readOnly: true })
     expect(screen.queryByLabelText(/Browse catalog/i)).not.toBeInTheDocument()
   })
+
+  it('offers a custom entry when freeform is allowed', async () => {
+    const onChange = vi.fn()
+    renderRef({
+      value: null,
+      onChange,
+      definition: {
+        type: 'content_ref',
+        label: 'Class',
+        content_type: 'spell',
+        allow_freeform: true,
+      },
+    })
+    await userEvent.click(screen.getByText(/Add custom/i))
+    expect(onChange).toHaveBeenCalledWith({ _inline: true, name: '' }, { entry: null })
+  })
+
+  it('hides the custom button when freeform is not allowed', () => {
+    renderRef({ value: null })
+    expect(screen.queryByText(/Add custom/i)).not.toBeInTheDocument()
+  })
+
+  it('edits a freeform entry name', async () => {
+    const onChange = vi.fn()
+    renderRef({
+      value: { _inline: true, name: 'Homebrew' },
+      onChange,
+      definition: {
+        type: 'content_ref',
+        label: 'Species',
+        content_type: 'spell',
+        allow_freeform: true,
+      },
+    })
+    await userEvent.type(screen.getByDisplayValue('Homebrew'), 'er')
+    expect(onChange).toHaveBeenCalled()
+    expect(onChange.mock.calls.at(-1)[0]).toEqual({ _inline: true, name: 'Homebrewer' })
+  })
 })
 
 describe('ContentListField', () => {
