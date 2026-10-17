@@ -15,6 +15,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - After a reading session, Grimoire closes the books it had open and gives back the memory used to render their pages once nobody has read anything for 5 minutes. `PAGE_IDLE_RELEASE` sets how long it waits; `0` turns this off
 - Faster first start for a new or updated container: the image now ships the compiled Python it needs instead of building it on first start
 - Updated FastAPI, Pydantic and Uvicorn. API keys keep exactly the access they had
+- The MCP server now runs on the official MCP Python SDK instead of Grimoire's own protocol code, and also accepts the older `2024-11-05` protocol revision. Tools, resources, prompts and API-key permissions are unchanged
 
 ### Fixed
 

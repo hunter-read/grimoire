@@ -196,17 +196,15 @@ class TestAnswerFromMyBooks:
 
 
 class TestPromptErrors:
-    @pytest.mark.parametrize(
-        "params, message",
-        [
-            ({"name": "nope"}, "Unknown prompt: nope"),
-            ({"name": "prep_session", "arguments": ["x"]}, "arguments must be an object"),
-        ],
-    )
-    def test_bad_requests(self, mcp_client, full_key, params, message):
+    def test_unknown_prompt(self, mcp_client, full_key):
+        error = error_of(mcp_client, full_key, "prompts/get", {"name": "nope"})
+        assert error["code"] == errors.INVALID_PARAMS
+        assert error["message"] == "Unknown prompt: nope"
+
+    def test_arguments_must_be_an_object(self, mcp_client, full_key):
+        params = {"name": "prep_session", "arguments": ["x"]}
         error = error_of(mcp_client, full_key, "prompts/get", params)
         assert error["code"] == errors.INVALID_PARAMS
-        assert error["message"] == message
 
     def test_required_arguments_are_enforced(self, mcp_client, full_key, monkeypatch):
         strict = prompts.Prompt(

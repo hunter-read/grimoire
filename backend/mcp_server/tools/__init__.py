@@ -6,7 +6,7 @@ themselves are grouped by area (``library``, ``pages``, ``campaigns``).
 A tool that runs and fails (bad arguments, missing book, a permission the key
 lacks) answers with ``isError: true`` and a sentence saying what went wrong,
 so the model can correct itself and retry. JSON-RPC errors are kept for calls
-that are malformed at the protocol level (see protocol.py).
+that are malformed at the protocol level (see server.py).
 
 ``tools/list`` shows a key only the tools it may call, by permission and by its
 owner's role, so the model is never offered one that would only refuse.

@@ -10,7 +10,7 @@ import pytest
 from fastapi import HTTPException
 
 from backend import api_keys
-from backend.mcp_server import protocol, tools
+from backend.mcp_server import errors, server, tools
 from backend.tests._mcp import index_page, make_key, mcp_test_client, rpc
 from backend.tests.conftest import make_book, make_game_system
 
@@ -63,20 +63,40 @@ class TestHandshake:
             mcp_client,
             search_key,
             "initialize",
-            {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "t"}},
+            {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {"name": "t", "version": "1"},
+            },
         )
         assert resp.status_code == 200
         result = resp.json()["result"]
         assert resp.json()["id"] == 1
         assert result["protocolVersion"] == "2025-06-18"
-        assert set(result["capabilities"]) == {"tools", "resources", "prompts", "completions"}
+        assert set(result["capabilities"]) - {"experimental"} == {
+            "tools",
+            "resources",
+            "prompts",
+            "completions",
+        }
         assert result["capabilities"]["resources"]["subscribe"] is False
         assert result["serverInfo"]["name"] == "grimoire"
         assert "TTRPG" in result["instructions"] or "tabletop" in result["instructions"]
 
     def test_initialize_counter_offers_latest_for_unknown_version(self, mcp_client, search_key):
-        result = _rpc(mcp_client, search_key, "initialize", {"protocolVersion": "1999-01-01"})
-        assert result.json()["result"]["protocolVersion"] == protocol.LATEST_PROTOCOL_VERSION
+        from mcp.types import LATEST_PROTOCOL_VERSION
+
+        params = {
+            "protocolVersion": "1999-01-01",
+            "capabilities": {},
+            "clientInfo": {"name": "t", "version": "1"},
+        }
+        result = _rpc(mcp_client, search_key, "initialize", params)
+        assert result.json()["result"]["protocolVersion"] == LATEST_PROTOCOL_VERSION
+
+    def test_initialize_needs_client_info(self, mcp_client, search_key):
+        error = _rpc(mcp_client, search_key, "initialize", {"protocolVersion": "2025-06-18"})
+        assert error.json()["error"]["code"] == errors.INVALID_PARAMS
 
     def test_notification_gets_202_and_no_body(self, mcp_client, search_key):
         resp = mcp_client.post(
@@ -109,50 +129,58 @@ class TestHandshake:
 
 
 class TestProtocolErrors:
+    """Malformed calls are refused by the SDK. These pin that they are refused,
+    not the SDK's exact wording or codes, which it owns."""
+
     def test_unknown_method(self, mcp_client, search_key):
-        error = _rpc(mcp_client, search_key, "sampling/createMessage").json()["error"]
-        assert error["code"] == protocol.METHOD_NOT_FOUND
+        body = _rpc(mcp_client, search_key, "sampling/createMessage").json()
+        assert "result" not in body and body["error"]["code"] < 0
 
     def test_body_that_is_not_json(self, mcp_client, search_key):
-        resp = mcp_client.post("/mcp", content=b"{nope", headers={"X-API-Key": search_key})
+        resp = mcp_client.post(
+            "/mcp",
+            content=b"{nope",
+            headers={"X-API-Key": search_key, "Content-Type": "application/json"},
+        )
         assert resp.status_code == 400
-        assert resp.json()["error"]["code"] == protocol.PARSE_ERROR
+        assert resp.json()["error"]["code"] == errors.PARSE_ERROR
 
     @pytest.mark.parametrize(
         "body",
         [
             [{"jsonrpc": "2.0", "id": 1, "method": "ping"}],  # batches are not supported
             {"jsonrpc": "1.0", "id": 1, "method": "ping"},
-            {"jsonrpc": "2.0", "id": True, "method": "ping"},
-            {"jsonrpc": "2.0", "id": None, "method": "ping"},
+            {"jsonrpc": "2.0", "id": 3, "method": 5},
         ],
     )
-    def test_invalid_request_has_no_id_and_is_a_400(self, mcp_client, search_key, body):
+    def test_invalid_message_is_a_400(self, mcp_client, search_key, body):
         resp = mcp_client.post("/mcp", json=body, headers={"X-API-Key": search_key})
         assert resp.status_code == 400
-        assert resp.json()["id"] is None
-        assert resp.json()["error"]["code"] == protocol.INVALID_REQUEST
+        assert "result" not in resp.json() and resp.json()["error"]["code"] < 0
 
-    def test_method_must_be_a_string(self, mcp_client, search_key):
+    @pytest.mark.parametrize("request_id", [True, None])
+    def test_a_message_without_a_usable_id_gets_no_answer(
+        self, mcp_client, search_key, request_id
+    ):
+        """Without an id there is nothing to answer to: it is taken as a notification."""
         resp = mcp_client.post(
             "/mcp",
-            json={"jsonrpc": "2.0", "id": 3, "method": 5},
+            json={"jsonrpc": "2.0", "id": request_id, "method": "ping"},
             headers={"X-API-Key": search_key},
         )
-        assert resp.status_code == 200
-        assert resp.json()["error"]["code"] == protocol.INVALID_REQUEST
+        assert resp.status_code == 202
 
     def test_params_must_be_an_object(self, mcp_client, search_key):
         error = _rpc(mcp_client, search_key, "tools/list", params=[1]).json()["error"]
-        assert error["code"] == protocol.INVALID_PARAMS
+        assert error["code"] == errors.INVALID_PARAMS
 
     def test_tools_call_needs_a_name(self, mcp_client, search_key):
         error = _rpc(mcp_client, search_key, "tools/call", {"arguments": {}}).json()["error"]
-        assert error["code"] == protocol.INVALID_PARAMS
+        assert error["code"] == errors.INVALID_PARAMS
 
     def test_unknown_tool_is_a_protocol_error(self, mcp_client, search_key):
         error = _rpc(mcp_client, search_key, "tools/call", {"name": "nope"}).json()["error"]
-        assert error["code"] == protocol.INVALID_PARAMS
+        assert error["code"] == errors.INVALID_PARAMS
         assert "nope" in error["message"]
 
     def test_unsupported_protocol_version_header(self, mcp_client, search_key):
@@ -294,9 +322,11 @@ class TestInternalErrors:
         def boom(ctx):
             raise RuntimeError("secret internals")
 
-        monkeypatch.setattr(protocol, "list_tools", boom)
+        monkeypatch.setattr(server, "list_tools", boom)
         error = _rpc(mcp_client, search_key, "tools/list").json()["error"]
-        assert error == {"code": protocol.INTERNAL_ERROR, "message": "Internal error"}
+        assert error["code"] == errors.INTERNAL_ERROR
+        assert error["message"] == "Internal error"
+        assert "secret" not in str(error)
 
 
 class TestHasLevel:
@@ -316,3 +346,95 @@ class TestUISettingsFlag:
 
         monkeypatch.setattr(config, "MCP_ENABLED", True)
         assert client.get("/api/settings/ui", headers=player_headers).json()["mcp_enabled"] is True
+
+
+# ---------------------------------------------------------------------------
+# The SDK underneath
+# ---------------------------------------------------------------------------
+
+
+class TestAcceptHeader:
+    """The SDK requires Accept: application/json; Grimoire's endpoint never did."""
+
+    @pytest.mark.parametrize("accept", ["*/*", "application/json, text/event-stream", None])
+    def test_json_or_wildcard_is_answered(self, mcp_client, search_key, accept):
+        headers = {"Accept": accept} if accept else {}
+        resp = _rpc(mcp_client, search_key, "ping", headers=headers)
+        assert resp.status_code == 200
+        assert resp.json()["result"] == {}
+
+    def test_a_client_that_refuses_json_is_406(self, mcp_client, search_key):
+        resp = _rpc(mcp_client, search_key, "ping", headers={"Accept": "text/html"})
+        assert resp.status_code == 406
+
+
+def test_sdk_is_not_loaded_unless_mcp_is_enabled(tmp_path):
+    """MCP off (the default) must not cost every server the SDK's memory."""
+    import os
+    import subprocess
+    import sys
+
+    env = {
+        **os.environ,
+        "DATA_PATH": str(tmp_path),
+        "LIBRARY_PATH": str(tmp_path),
+        "DISABLE_VERSION_CHECKING": "true",
+    }
+    env.pop("MCP_ENABLED", None)
+    probe = "import sys, backend.main; print('mcp' in sys.modules)"
+    out = subprocess.run(
+        [sys.executable, "-c", probe], env=env, capture_output=True, text=True, check=True
+    )
+    assert out.stdout.strip().splitlines()[-1] == "False"
+
+
+def test_the_sdk_client_connects_over_http(search_key, indexed_book):
+    """End to end with the SDK's own client over a real socket, as Claude Code connects."""
+    import asyncio
+    import socket
+    import threading
+    import time
+
+    import httpx
+    import uvicorn
+    from fastapi import FastAPI
+    from mcp import ClientSession
+    from mcp.client.streamable_http import streamable_http_client
+
+    from backend.routers import mcp as mcp_router
+
+    app = FastAPI()
+    app.include_router(mcp_router.router)
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    uv = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning"))
+    thread = threading.Thread(target=uv.run, daemon=True)
+    thread.start()
+    for _ in range(100):
+        if uv.started:
+            break
+        time.sleep(0.05)
+
+    async def session_flow():
+        async with httpx.AsyncClient(headers={"X-API-Key": search_key}) as http:
+            async with streamable_http_client(f"http://127.0.0.1:{port}/mcp", http_client=http) as (
+                read,
+                write,
+                _,
+            ):
+                async with ClientSession(read, write) as session:
+                    init = await session.initialize()
+                    listed = await session.list_tools()
+                    found = await session.call_tool("search_library", {"query": WORD})
+                    return init, listed, found
+
+    try:
+        init, listed, found = asyncio.run(session_flow())
+    finally:
+        uv.should_exit = True
+        thread.join(timeout=10)
+    assert init.serverInfo.name == "grimoire"
+    assert "search_library" in {t.name for t in listed.tools}
+    assert found.isError is False
+    assert WORD in found.content[0].text
