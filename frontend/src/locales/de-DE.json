@@ -3542,7 +3542,8 @@
       "revoked": "Widerrufen",
       "expired": "Abgelaufen",
       "suspended": "Pausiert",
-      "unavailable": "Nicht verfügbar"
+      "unavailable": "Nicht verfügbar",
+      "lost": "Verloren"
     },
     "stateHint": {
       "active": "Jeder mit dem Link kann ihn öffnen.",
@@ -3550,7 +3551,8 @@
       "revoked": "Dieser Link wurde widerrufen und funktioniert nicht mehr.",
       "expired": "Dieser Link ist abgelaufen.",
       "suspended": "Funktioniert nicht, solange sein Besitzer nicht teilen darf. Er funktioniert wieder, sobald er es darf.",
-      "unavailable": "Funktioniert nicht: Das Element ist weg oder fehlt auf der Festplatte, oder sein Besitzer kann es nicht mehr öffnen."
+      "unavailable": "Funktioniert nicht: Das Element ist weg oder fehlt auf der Festplatte, oder sein Besitzer kann es nicht mehr öffnen.",
+      "lost": "Dieser Link funktioniert nicht mehr, weil sich der geheime Schlüssel des Servers geändert hat. Widerrufe ihn und erstelle einen neuen."
     },
     "row": {
       "expires": "Läuft am {{when}} ab",

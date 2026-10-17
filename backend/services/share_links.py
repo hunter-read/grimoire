@@ -37,6 +37,8 @@ Source = Literal["disabled", "guest", "role", "user"]
 # The override as the admin API speaks it.
 Override = Literal["role", "allow", "deny"]
 
+# "lost" is never decided here: the management API reports it for a link whose
+# token was sealed under a SECRET_KEY since replaced (issue #583).
 LinkState = Literal["active", "disabled", "revoked", "expired", "suspended", "unavailable"]
 
 

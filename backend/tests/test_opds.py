@@ -473,3 +473,48 @@ class TestOpenApiSchema:
             "application/atom+xml;profile=opds-catalog;kind=navigation"
         )
         assert resp.text.startswith("<?xml")
+
+
+class TestOpdsTokenAtRest:
+    """The feed token is never stored as itself (issue #583)."""
+
+    def _row(self, username):
+        db = SessionLocal()
+        try:
+            user = db.query(User).filter_by(username=username).one()
+            return user.opds_token_hash, user.opds_token_sealed
+        finally:
+            db.close()
+
+    def test_the_database_holds_no_usable_token(self, opds_client, opds_admin_headers):
+        token = _generate_token(opds_client, opds_admin_headers)
+        token_hash, sealed = self._row("admin")
+        assert token not in (token_hash, sealed) and token not in sealed
+        assert opds_client.get(f"/opds/{token}").status_code == 200
+        for stolen in (token_hash, sealed):
+            assert opds_client.get(f"/opds/{stolen}").status_code == 404
+
+    def test_the_feed_url_can_be_shown_again(self, opds_client, opds_admin_headers):
+        token = _generate_token(opds_client, opds_admin_headers)
+        status = opds_client.get("/api/users/me/opds", headers=opds_admin_headers).json()
+        assert status["has_token"] is True
+        assert status["feed_url"].endswith(f"/opds/{token}")
+
+    def test_a_changed_secret_key_offers_a_new_token(
+        self, opds_client, opds_admin_headers, monkeypatch
+    ):
+        from backend import token_vault
+
+        token = _generate_token(opds_client, opds_admin_headers)
+        # The sealing key only, so the admin stays signed in.
+        monkeypatch.setattr(token_vault, "_secret", lambda: "a-different-secret")
+        status = opds_client.get("/api/users/me/opds", headers=opds_admin_headers).json()
+        assert status["has_token"] is False and status["feed_url"] is None
+        assert opds_client.get(f"/opds/{token}").status_code == 404
+        fresh = _generate_token(opds_client, opds_admin_headers)
+        assert opds_client.get(f"/opds/{fresh}").status_code == 200
+
+    def test_revoking_clears_both_values(self, opds_client, opds_admin_headers):
+        _generate_token(opds_client, opds_admin_headers)
+        assert opds_client.delete("/api/users/me/opds", headers=opds_admin_headers).status_code == 200
+        assert self._row("admin") == (None, None)

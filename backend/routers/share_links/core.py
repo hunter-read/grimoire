@@ -11,6 +11,7 @@ from typing import Optional
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from ... import token_vault
 from ...auth import CurrentUser, hash_password, require_admin, require_not_guest
 from ...config import get_db
 from ...models import ShareLink, User
@@ -111,8 +112,10 @@ def create_share_link(
         filename = otfbm_filename(record, plan, ext)
         options = {"cell": plan["cell"]}
 
+    token = policy.new_token()
     link = ShareLink(
-        token=policy.new_token(),
+        token_hash=token_vault.lookup_hash(token),
+        token_sealed=token_vault.seal(token),
         user_id=current_user.id,
         resource_type=data.resource_type,
         resource_id=record.id,

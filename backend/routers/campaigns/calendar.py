@@ -21,6 +21,7 @@ from fastapi import Depends, HTTPException, Path
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
+from ... import token_vault
 from ...auth import CurrentUser, get_current_user
 from ...config import BASE_URL, get_db
 from ...models import Campaign, CampaignMember, CampaignSchedule, SessionAvailability, User
@@ -168,7 +169,11 @@ def _resolve_feed_user(db: Session, token: str) -> User:
     404 rather than 401: an unauthenticated caller poking at feed URLs should not
     be able to tell a revoked token from one that never existed.
     """
-    user = db.query(User).filter_by(calendar_token=token).first() if token else None
+    user = (
+        db.query(User).filter_by(calendar_token_hash=token_vault.lookup_hash(token)).first()
+        if token
+        else None
+    )
     if not user:
         raise HTTPException(404, "Calendar feed not found")
     return user
@@ -251,7 +256,9 @@ def download_campaign_calendar(
 def _subscription_payload(user: User, campaign_id: Optional[str] = None) -> dict:
     """Shape the subscription status the UI renders."""
     configured = base_url_configured()
-    token = user.calendar_token
+    # None too when it was sealed under a different SECRET_KEY: that token can
+    # no longer match a feed request either, so the user is offered a new one.
+    token = token_vault.unseal(user.calendar_token_sealed)
     feed_url = campaign_url = webcal_url = None
 
     if token and configured:
@@ -300,7 +307,9 @@ def generate_calendar_token(
             "calendar subscription URLs can be issued",
         )
     user = _get_user(db, current_user.id)
-    user.calendar_token = secrets.token_urlsafe(32)
+    token = secrets.token_urlsafe(32)
+    user.calendar_token_hash = token_vault.lookup_hash(token)
+    user.calendar_token_sealed = token_vault.seal(token)
     db.commit()
     return _subscription_payload(user, campaign_id)
 
@@ -311,6 +320,7 @@ def revoke_calendar_token(
 ):
     """Revoke the caller's calendar token; every subscribed URL stops working."""
     user = _get_user(db, current_user.id)
-    user.calendar_token = None
+    user.calendar_token_hash = None
+    user.calendar_token_sealed = None
     db.commit()
     return _subscription_payload(user)

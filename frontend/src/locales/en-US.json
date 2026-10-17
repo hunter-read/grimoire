@@ -3542,7 +3542,8 @@
       "revoked": "Revoked",
       "expired": "Expired",
       "suspended": "Suspended",
-      "unavailable": "Unavailable"
+      "unavailable": "Unavailable",
+      "lost": "Lost"
     },
     "stateHint": {
       "active": "Anyone with the link can open it.",
@@ -3550,7 +3551,8 @@
       "revoked": "This link was revoked and no longer works.",
       "expired": "This link has expired.",
       "suspended": "Not working while its owner isn't allowed to share. It works again if they are.",
-      "unavailable": "Not working: the item is gone or missing on disk, or its owner can no longer open it."
+      "unavailable": "Not working: the item is gone or missing on disk, or its owner can no longer open it.",
+      "lost": "This link no longer works because the server's secret key changed. Revoke it and make a new one."
     },
     "row": {
       "expires": "Expires {{when}}",

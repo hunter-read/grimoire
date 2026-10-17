@@ -3542,7 +3542,8 @@
       "revoked": "Revocato",
       "expired": "Scaduto",
       "suspended": "Sospeso",
-      "unavailable": "Non disponibile"
+      "unavailable": "Non disponibile",
+      "lost": "Perso"
     },
     "stateHint": {
       "active": "Chiunque abbia il link può aprirlo.",
@@ -3550,7 +3551,8 @@
       "revoked": "Questo link è stato revocato e non funziona più.",
       "expired": "Questo link è scaduto.",
       "suspended": "Non funziona finché il proprietario non può condividere. Torna a funzionare se riottiene il permesso.",
-      "unavailable": "Non funziona: l'elemento non c'è più o manca sul disco, oppure il proprietario non può più aprirlo."
+      "unavailable": "Non funziona: l'elemento non c'è più o manca sul disco, oppure il proprietario non può più aprirlo.",
+      "lost": "Questo link non funziona più perché la chiave segreta del server è cambiata. Revocalo e creane uno nuovo."
     },
     "row": {
       "expires": "Scade il {{when}}",

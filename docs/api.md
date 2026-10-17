@@ -1840,7 +1840,9 @@ check the item's own `/file` route makes - access levels and the explicit-conten
 setting included), or the item is gone. Only revoking is permanent: a link
 suspended by a lost permission is kept and works again if the permission
 returns. The management API reports this as `state`: `active`, `disabled`,
-`revoked`, `expired`, `suspended` or `unavailable`.
+`revoked`, `expired`, `suspended` or `unavailable` - or `lost`, for a link whose token
+was stored under a `SECRET_KEY` that has since changed. A lost link can never work
+again; its `url` and `file_url` are `null`, and it can only be revoked or deleted.
 
 #### Management
 

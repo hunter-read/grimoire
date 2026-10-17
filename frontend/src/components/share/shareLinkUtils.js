@@ -20,6 +20,8 @@ export const STATE_TONE = {
   unavailable: 'var(--warning)',
   expired: 'var(--text-muted)',
   revoked: 'var(--danger)',
+  // Sealed under a SECRET_KEY since replaced: dead for good, like a revoked one.
+  lost: 'var(--danger)',
   disabled: 'var(--text-muted)',
 }
 

@@ -82,6 +82,15 @@ describe('ShareLinkRow', () => {
     expect(screen.getByLabelText('share.row.passwordProtected')).toBeInTheDocument()
   })
 
+  it('offers nothing to copy for a link lost to a changed secret key', () => {
+    // The server could not decrypt it (issue #583): no URLs, but it can still be revoked.
+    renderRow({ link: { ...base, state: 'lost', url: null, file_url: null } })
+    expect(screen.getByText('share.state.lost')).toHaveAttribute('title', 'share.stateHint.lost')
+    expect(screen.queryByText('share.row.copyLink')).toBeNull()
+    expect(screen.queryByText('share.row.copyFile')).toBeNull()
+    expect(screen.getByText('share.row.revoke')).toBeInTheDocument()
+  })
+
   it('revokes', () => {
     const onRevoke = vi.fn()
     renderRow({ onRevoke })

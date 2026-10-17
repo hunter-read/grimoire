@@ -11,6 +11,7 @@ from fastapi import Cookie, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
+from ... import token_vault
 from ...auth import verify_password
 from ...config import get_db
 from ...models import ShareLink
@@ -49,7 +50,7 @@ _PROTECTED_HEADERS = {
 def _find(db: Session, token: str, request: Request) -> ShareLink:
     if share_attempts_blocked(request, SHARE_LOOKUP_SCOPE):
         raise HTTPException(429, "Too many attempts - try again shortly")
-    link = db.query(ShareLink).filter_by(token=token).first()
+    link = db.query(ShareLink).filter_by(token_hash=token_vault.lookup_hash(token)).first()
     if link is None:
         # Only an unknown token counts towards the throttle; see security.py.
         record_share_failure(request, SHARE_LOOKUP_SCOPE)
@@ -79,7 +80,7 @@ def share_meta(
     if not unlocked:
         return body
     mime = _content.link_media_type(link, record)
-    file_path = f"/api/share/{link.token}/{link.filename or link.resource_type}"
+    file_path = f"/api/share/{token}/{link.filename or link.resource_type}"
     body.update(
         {
             "resource_type": link.resource_type,
@@ -114,7 +115,7 @@ def unlock_share(
     if not verify_password(data.password, link.password_hash):
         record_share_failure(request, SHARE_UNLOCK_SCOPE, link.id)
         raise HTTPException(403, "Wrong password")
-    response.set_cookie(value=_links.unlock_token(link), **_links.unlock_cookie_options(link))
+    response.set_cookie(value=_links.unlock_token(link), **_links.unlock_cookie_options(token))
     return {"unlocked": True}
 
 

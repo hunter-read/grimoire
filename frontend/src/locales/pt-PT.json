@@ -3542,7 +3542,8 @@
       "revoked": "Revogada",
       "expired": "Expirada",
       "suspended": "Suspensa",
-      "unavailable": "Indisponível"
+      "unavailable": "Indisponível",
+      "lost": "Perdido"
     },
     "stateHint": {
       "active": "Qualquer pessoa com a ligação pode abri-la.",
@@ -3550,7 +3551,8 @@
       "revoked": "Esta ligação foi revogada e já não funciona.",
       "expired": "Esta ligação expirou.",
       "suspended": "Não funciona enquanto o dono não puder partilhar. Volta a funcionar se recuperar a permissão.",
-      "unavailable": "Não funciona: o item já não existe ou falta no disco, ou o dono já não o consegue abrir."
+      "unavailable": "Não funciona: o item já não existe ou falta no disco, ou o dono já não o consegue abrir.",
+      "lost": "Esta ligação deixou de funcionar porque a chave secreta do servidor mudou. Revogue-a e crie uma nova."
     },
     "row": {
       "expires": "Expira a {{when}}",

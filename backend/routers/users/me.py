@@ -4,6 +4,7 @@ import secrets
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from ... import token_vault
 from ...config import OPDS_ENABLED, BASE_URL, get_db
 from ...models import User
 from ...auth import get_current_user, CurrentUser, hash_password, verify_password
@@ -87,8 +88,11 @@ def get_opds_status(
     user = db.query(User).filter_by(id=current_user.id).first()
     if not user:
         raise HTTPException(404, "User not found")
-    feed_url = f"{BASE_URL}/opds/{user.opds_token}" if user.opds_token else None
-    return {"opds_enabled": True, "has_token": bool(user.opds_token), "feed_url": feed_url}
+    # None too when it was sealed under a different SECRET_KEY: that token can
+    # no longer match a feed request either, so the user is offered a new one.
+    token = token_vault.unseal(user.opds_token_sealed)
+    feed_url = f"{BASE_URL}/opds/{token}" if token else None
+    return {"opds_enabled": True, "has_token": bool(token), "feed_url": feed_url}
 
 
 def generate_opds_token(
@@ -105,7 +109,8 @@ def generate_opds_token(
     user = db.query(User).filter_by(id=current_user.id).first()
     if not user:
         raise HTTPException(404, "User not found")
-    user.opds_token = token
+    user.opds_token_hash = token_vault.lookup_hash(token)
+    user.opds_token_sealed = token_vault.seal(token)
     db.commit()
     feed_url = f"{BASE_URL}/opds/{token}"
     return {"opds_enabled": True, "has_token": True, "feed_url": feed_url}
@@ -121,6 +126,7 @@ def revoke_opds_token(
     user = db.query(User).filter_by(id=current_user.id).first()
     if not user:
         raise HTTPException(404, "User not found")
-    user.opds_token = None
+    user.opds_token_hash = None
+    user.opds_token_sealed = None
     db.commit()
     return {"opds_enabled": True, "has_token": False, "feed_url": None}
