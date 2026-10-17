@@ -1936,6 +1936,8 @@
       "systemFilterLabel": "Filtrera efter spelsystem",
       "systemFilterAll": "Alla system",
       "type_audio": "Ljud",
+      "type_model": "Modeller",
+      "selectFolder": "Markera allt i {{name}}",
       "addSelected": "Lägg till {{count}} valda",
       "addByTag": "Lägg till alla med tagg…",
       "addByTagButton": "Lägg till"

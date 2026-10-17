@@ -3,7 +3,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ResourcePicker from './ResourcePicker'
+import { PICKER_TYPES } from './resourcesShared'
 import { campaigns, tags } from '../../api'
+import { UISettingsProvider } from '../../context/UISettingsContext'
 
 vi.mock('../../api', () => ({
   campaigns: { searchResources: vi.fn() },
@@ -42,6 +44,7 @@ const byType = {
   map: [{ resource_type: 'map', resource_id: 'm1', name: 'Tavern', subtitle: 'dungeons' }],
   token: [],
   audio: [{ resource_type: 'audio', resource_id: 'a1', name: 'Battle Theme', subtitle: '' }],
+  model: [{ resource_type: 'model', resource_id: 'x1', name: 'Dragon Mini', subtitle: 'minis' }],
 }
 
 beforeEach(() => {
@@ -205,5 +208,119 @@ describe('ResourcePicker', () => {
       await waitFor(() => expect(tags.allItems).toHaveBeenCalled())
       expect(screen.getByText('Selected (1)')).toBeInTheDocument()
     })
+  })
+})
+
+describe('ResourcePicker — select a whole folder (issue #555)', () => {
+  const folderBox = (name) => screen.getByRole('checkbox', { name: `Select everything in ${name}` })
+
+  it('selects every item in a folder, subfolders included, and clears it again', async () => {
+    render(<Harness />)
+    await screen.findByText('D&D 5e')
+    await userEvent.click(folderBox('D&D 5e'))
+    // Player's Handbook (core) and Curse of Strahd (adventures/ravenloft).
+    expect(screen.getByText('Selected (2)')).toBeInTheDocument()
+    expect(folderBox('D&D 5e')).toBeChecked()
+    expect(folderBox('Pathfinder')).not.toBeChecked()
+
+    await userEvent.click(folderBox('D&D 5e'))
+    expect(screen.getByText('Selected (0)')).toBeInTheDocument()
+  })
+
+  it('does not open or close the folder', async () => {
+    render(<Harness />)
+    await screen.findByText('D&D 5e')
+    await userEvent.click(folderBox('D&D 5e'))
+    expect(screen.queryByText('core')).not.toBeInTheDocument()
+  })
+
+  it('shows a partial state while only some of the folder is selected', async () => {
+    render(<Harness />)
+    await userEvent.click(await screen.findByText('D&D 5e'))
+    await userEvent.click(screen.getByText('core'))
+    await userEvent.click(screen.getByText("Player's Handbook"))
+    expect(folderBox('D&D 5e').indeterminate).toBe(true)
+    expect(folderBox('D&D 5e')).not.toBeChecked()
+    // The subfolder holding only that book is fully selected.
+    expect(folderBox('core')).toBeChecked()
+    expect(folderBox('core').indeterminate).toBe(false)
+
+    // Ticking the partial folder fills it rather than clearing it.
+    await userEvent.click(folderBox('D&D 5e'))
+    expect(screen.getByText('Selected (2)')).toBeInTheDocument()
+    expect(folderBox('D&D 5e').indeterminate).toBe(false)
+  })
+
+  it('keeps the visibility already set on picks inside the folder', async () => {
+    render(
+      <Harness
+        initial={[
+          { resource_type: 'book', resource_id: 'b1', name: "Player's Handbook", visibility: 'gm' },
+        ]}
+      />
+    )
+    await screen.findByText('D&D 5e')
+    await userEvent.click(folderBox('D&D 5e'))
+    expect(screen.getByText('Selected (2)')).toBeInTheDocument()
+    const visibilities = screen.getAllByRole('combobox', { name: 'Visibility' })
+    expect(visibilities.map((s) => s.value)).toEqual(['gm', 'public'])
+  })
+
+  it('works on the other tabs too', async () => {
+    render(<Harness />)
+    await screen.findByText('D&D 5e')
+    await userEvent.click(screen.getByRole('button', { name: 'Models' }))
+    await userEvent.click(await screen.findByRole('checkbox', { name: /minis/ }))
+    expect(screen.getByText('Selected (1)')).toBeInTheDocument()
+  })
+})
+
+describe('ResourcePicker — type tabs', () => {
+  it('labels the Models tab instead of showing its translation key', async () => {
+    render(<Harness />)
+    expect(await screen.findByRole('button', { name: 'Models' })).toBeInTheDocument()
+  })
+
+  it('has a tab label for every type in every language', async () => {
+    const locales = import.meta.glob('../../locales/*.json', { eager: true })
+    const missing = []
+    for (const [file, mod] of Object.entries(locales)) {
+      const labels = (mod.default ?? mod).campaignEditor?.resources ?? {}
+      for (const type of PICKER_TYPES) {
+        if (!labels[`type_${type}`]) missing.push(`${file}: type_${type}`)
+      }
+      if (!labels.selectFolder) missing.push(`${file}: selectFolder`)
+    }
+    expect(Object.keys(locales).length).toBeGreaterThan(5)
+    expect(missing).toEqual([])
+  })
+
+  it('leaves out sections hidden in Settings', async () => {
+    render(
+      <UISettingsProvider value={{ hide_models: true, hide_tokens: true }}>
+        <Harness />
+      </UISettingsProvider>
+    )
+    await screen.findByRole('button', { name: 'Books' })
+    expect(screen.getByRole('button', { name: 'Maps' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Models' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Tokens' })).not.toBeInTheDocument()
+  })
+
+  it('does not add hidden sections by tag', async () => {
+    tags.list.mockResolvedValue({ tags: [{ internal: 'dragons', display: 'dragons', count: 2 }] })
+    tags.allItems.mockResolvedValue([
+      { item_type: 'model', item_id: 'x1', title: 'Dragon Mini' },
+      { item_type: 'map', item_id: 'm1', title: 'Tavern' },
+    ])
+    render(
+      <UISettingsProvider value={{ hide_models: true }}>
+        <Harness />
+      </UISettingsProvider>
+    )
+    await userEvent.selectOptions(await screen.findByLabelText(/add all with tag/i), 'dragons')
+    await userEvent.click(screen.getByRole('button', { name: 'Add' }))
+    expect(await screen.findByText('Selected (1)')).toBeInTheDocument()
+    expect(screen.getByText('Tavern')).toBeInTheDocument()
   })
 })

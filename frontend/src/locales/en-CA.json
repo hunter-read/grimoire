@@ -1936,6 +1936,8 @@
       "systemFilterLabel": "Filter by game system",
       "systemFilterAll": "All systems",
       "type_audio": "Audio",
+      "type_model": "Models",
+      "selectFolder": "Select everything in {{name}}",
       "addSelected": "Add {{count}} selected",
       "addByTag": "Add all with tag…",
       "addByTagButton": "Add"

@@ -16,8 +16,14 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Faster first start for a new or updated container: the image now ships the compiled Python it needs instead of building it on first start
 - Updated FastAPI, Pydantic and Uvicorn. API keys keep exactly the access they had
 
+### Added
+
+- When linking resources to a campaign, tick a folder to select everything in it, subfolders included. A partly selected folder shows a dash, and ticking it again clears it
+
 ### Fixed
 
+- The campaign resource picker's Models tab showed `campaignEditor.resources.type_model` instead of its name
+- The campaign resource picker offered tabs for maps, tokens, audio or models even when those sections were hidden in Settings, and adding by tag could add them
 - Reading more than ten books at once, or replacing a book's file while someone was reading it, could close the book under a page that was still loading and fail that page
 
 ## [1.9.0] - 2026-10-15

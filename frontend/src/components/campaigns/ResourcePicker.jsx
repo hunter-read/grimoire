@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuSearch, LuBookOpen, LuTrash2, LuTags } from 'react-icons/lu'
 import { campaigns, tags as tagsApi } from '../../api'
+import { useUISettings } from '../../context/UISettingsContext'
 import Spinner from '../Spinner'
 import ResourceGroup from './ResourceGroup'
 import { TYPE_ICONS, PICKER_TYPES, resourceKey, buildFolderTree } from './resourcesShared'
@@ -19,6 +20,23 @@ import {
 
 // How long to wait after the last keystroke before querying the server.
 const DEBOUNCE_MS = 250
+
+// The Settings switch that hides each library section from the sidebar. A type
+// hidden there gets no tab here either (issue #555). Books can't be hidden.
+const HIDE_SETTING = {
+  map: 'hide_maps',
+  token: 'hide_tokens',
+  audio: 'hide_audio',
+  model: 'hide_models',
+}
+
+/** A library row as an entry in the selection, shared with players by default. */
+const asSelection = (r) => ({
+  resource_type: r.resource_type,
+  resource_id: r.resource_id,
+  name: r.name,
+  visibility: 'public',
+})
 
 /**
  * Unified library-resource picker: browse books/maps/tokens/audio by folder,
@@ -47,13 +65,17 @@ export default function ResourcePicker({
   pinSystem = '',
 }) {
   const { t } = useTranslation()
+  const uiSettings = useUISettings()
+  const types = PICKER_TYPES.filter((type) => !uiSettings[HIDE_SETTING[type]])
   // Resources for the active type tab, as returned by the server.
   const [all, setAll] = useState(null)
   const [query, setQuery] = useState('')
   // The query actually sent to the server, trailing the input by DEBOUNCE_MS so
   // typing doesn't fire a request per keystroke.
   const [debouncedQuery, setDebouncedQuery] = useState('')
-  const [typeFilter, setTypeFilter] = useState('book')
+  const [activeTab, setActiveTab] = useState('book')
+  // A tab whose section was hidden since it was chosen falls back to books.
+  const typeFilter = types.includes(activeTab) ? activeTab : 'book'
   const [openKeys, setOpenKeys] = useState(() => new Set())
   // "Add by tag" (issue #235.8): the loaded tag list and any add error.
   const [tagList, setTagList] = useState([])
@@ -109,7 +131,8 @@ export default function ResourcePicker({
         const have = new Set(prev.map(resourceKey))
         const additions = []
         for (const it of items || []) {
-          if (!PICKER_TYPES.includes(it.item_type)) continue // skip systems
+          // Systems aren't campaign resources; hidden sections aren't offered.
+          if (!types.includes(it.item_type)) continue
           const key = `${it.item_type}:${it.item_id}`
           if (have.has(key)) continue
           if (excludeKeys && excludeKeys.has(key)) continue
@@ -149,12 +172,7 @@ export default function ResourcePicker({
             // path segment so the system prefix doesn't break pre-selection.
             (r.subtitle || '').split('/').pop() === 'core'
         )
-        .map((r) => ({
-          resource_type: r.resource_type,
-          resource_id: r.resource_id,
-          name: r.name,
-          visibility: 'public',
-        }))
+        .map(asSelection)
     })
   }, [all, systemId, preselectCore, setSelected, typeFilter, debouncedQuery])
 
@@ -166,17 +184,22 @@ export default function ResourcePicker({
       if (prev.some((s) => resourceKey(s) === key)) {
         return prev.filter((s) => resourceKey(s) !== key)
       }
-      return [
-        ...prev,
-        {
-          resource_type: r.resource_type,
-          resource_id: r.resource_id,
-          name: r.name,
-          visibility: 'public',
-        },
-      ]
+      return [...prev, asSelection(r)]
     })
   }
+
+  // A folder's checkbox (issue #555): select every row in it, or clear them all.
+  // Rows already selected keep their visibility and their place in the list.
+  const toggleFolder = (rows, select) =>
+    setSelected((prev) => {
+      if (!select) {
+        const drop = new Set(rows.map(resourceKey))
+        return prev.filter((s) => !drop.has(resourceKey(s)))
+      }
+      const have = new Set(prev.map(resourceKey))
+      const additions = rows.filter((r) => !have.has(resourceKey(r))).map(asSelection)
+      return additions.length ? [...prev, ...additions] : prev
+    })
 
   const setVisibility = (r, visibility) =>
     setSelected((prev) =>
@@ -212,11 +235,11 @@ export default function ResourcePicker({
 
       {/* Type tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
-        {PICKER_TYPES.map((type) => (
+        {types.map((type) => (
           <button
             key={type}
             type="button"
-            onClick={() => setTypeFilter(type)}
+            onClick={() => setActiveTab(type)}
             style={typeTab(typeFilter === type)}
           >
             {t(`campaignEditor.resources.type_${type}`)}
@@ -289,6 +312,7 @@ export default function ResourcePicker({
               onToggle={toggleGroup}
               selectedKeys={selectedKeys}
               toggleRow={toggleRow}
+              toggleFolder={toggleFolder}
             />
           ))
         )}
