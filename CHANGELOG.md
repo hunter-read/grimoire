@@ -10,8 +10,8 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Changed
 
-- Grimoire uses much less memory: about 220 MB once your library is scanned, down from about 500 MB, and 185 MB before the first scan
-- The image runs one worker by default (`WORKERS=1`). One worker serves several readers at once nearly as fast as two. If your compose file sets `WORKERS=2` from an older example, change it to `1` to get the saving; the performance docs explain when two is worth it
+- Grimoire uses much less memory: about 250 MB once your library is scanned, down from about 550 MB, and about half as much at peak while several people read
+- The image runs one worker by default (`WORKERS=1`), and one worker now serves several readers at once faster than two did before. If your compose file sets `WORKERS=2` from an older example, change it to `1` to get the saving; the performance docs explain when two is worth it
 - After a reading session, Grimoire closes the books it had open and gives back the memory used to render their pages once nobody has read anything for 5 minutes. `PAGE_IDLE_RELEASE` sets how long it waits; `0` turns this off
 - Faster first start for a new or updated container: the image now ships the compiled Python it needs instead of building it on first start
 - Updated FastAPI, Pydantic and Uvicorn. API keys keep exactly the access they had

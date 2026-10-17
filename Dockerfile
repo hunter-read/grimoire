@@ -142,10 +142,10 @@ EXPOSE 9481
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
     CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:9481/api/health', timeout=4).status == 200 else 1)" || exit 1
 
-# One worker by default. Each uvicorn worker is a full copy of the app (~190 MB
-# idle); page rendering runs in C outside the GIL, so threads in one worker
-# measured within ~8% of two workers' throughput with four concurrent readers.
-# Raise it on hosts with spare RAM and many simultaneous readers.
+# One worker by default. Each uvicorn worker is a full copy of the app (125-190
+# MB idle). One worker matches two for a single reader; with four people reading
+# uncached pages at once, two measured ~10% faster on 2 cores and ~40% on 4. See
+# docs/performance.md#workers for when raising it is worth the memory.
 ENV WORKERS=1
 CMD ["sh", "-c", "exec python -m uvicorn backend.main:app --host 0.0.0.0 --port 9481 --workers ${WORKERS}"]
 
