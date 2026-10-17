@@ -56,7 +56,6 @@ class TestStopFlag:
         fake.delete.side_effect = RedisError("down")
         fake.exists.side_effect = RedisError("down")
         monkeypatch.setattr(job, "_valkey", fake)
-        monkeypatch.setattr(job, "_VALKEY_ERRORS", (RedisError,))
 
         job.request_stop()
         assert job.is_stop_requested() is True  # in-process flag carried it

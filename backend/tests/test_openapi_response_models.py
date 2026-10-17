@@ -5,7 +5,7 @@ generated spec describes real types instead of `{}`. These tests keep that true:
 a new route that forgets one fails here rather than silently shipping an untyped
 schema to API clients.
 """
-from fastapi.routing import APIRoute
+from backend.route_table import endpoint_routes
 
 from backend.main import app
 
@@ -95,8 +95,10 @@ def test_json_routes_declare_a_response_schema():
 def test_no_response_model_is_an_empty_shell():
     """A model with no fields would filter the whole body away at runtime."""
     hollow = []
-    for route in app.routes:
-        if not isinstance(route, APIRoute) or route.response_model is None:
+    routes = endpoint_routes(app.routes)
+    assert len(routes) >= 300, f"route walk found only {len(routes)} routes"
+    for route in routes:
+        if route.response_model is None:
             continue
         model = route.response_model
         fields = getattr(model, "model_fields", None)

@@ -14,7 +14,7 @@ variable is set, its value wins and the matching field is shown read-only in Set
 | Variable | Default | Description |
 |---|---|---|
 | `SECRET_KEY` | auto-generated | JWT signing secret. Leave unset and Grimoire generates a random key on first boot and persists it at `DATA_PATH/secret_key`, reusing it across restarts. Set it explicitly (`openssl rand -hex 32`) if you run multiple replicas that don't share `DATA_PATH`. Grimoire refuses to start if it's set to a placeholder published in these docs (`change-me`, `replace-this-with-a-long-random-string`, `grimoire-dev-secret-change-in-production`) - see the [FAQ](faq.md#grimoire-wont-start-and-the-log-mentions-secret_key). |
-| `WORKERS` | `2` | Number of uvicorn worker processes |
+| `WORKERS` | `1` | Number of uvicorn worker processes. Each one is a full copy of the app (~190 MB), so raise it only with RAM to spare and many simultaneous readers - see [Memory use](performance.md#memory-use). |
 | `LIBRARY_PATH` | `/app/library` | Optional path to your library directory inside the container if not mounted at /app/library |
 | `DATA_PATH` | `/app/data` | Optional path for the database, thumbnails, and search cache inside the container if not mounted at /app/data |
 | `BASE_URL` | `http://localhost:9481` | Public base URL of this instance. Set this to the URL you use to access Grimoire (e.g. `https://grimoire.example.com`) when running behind a reverse proxy - used to build absolute links in OPDS feeds, campaign calendar subscription links, and other places that need a fully-qualified URL. |
@@ -22,6 +22,8 @@ variable is set, its value wins and the matching field is shown read-only in Set
 | `VALKEY_URL` | - | Optional Redis-compatible cache URL for rendered page images (e.g. `redis://valkey:6379/0`) |
 | `PAGE_CACHE_TTL` | `604800` | Optional. Seconds a rendered page stays in the Valkey cache (default 7 days). `0` means no expiry. Ignored when `VALKEY_URL` is unset. |
 | `PAGE_CACHE_MAX_MB` | `2048` | Optional. Size ceiling for the on-disk rendered-page cache at `DATA_PATH/page_cache`. Trimmed oldest-first at startup and after each library scan. `0` disables the trim and lets it grow without bound. |
+| `PAGE_RECLAIM_INTERVAL` | `10` | Optional. After this many page renders, Grimoire hands the memory used to decode page images back to the OS. Lower (e.g. `3`) trims peak memory while several people read at once, at a few percent of render speed. `0` disables it. |
+| `PAGE_IDLE_RELEASE` | `300` | Optional. Seconds with no page renders after which open books are closed and render memory is released, so the server drops back to its idle footprint after a reading session. Books reopen on the next page view. `0` disables it. |
 | `OCR_ENABLED` | `true` | Optional. Set to `false` to disable OCR of image-only PDFs even on the OCR-capable image. See [OCR](performance.md#ocr). |
 | `OCR_LANGUAGES` | `eng` | Optional. Tesseract language codes for OCR, e.g. `eng` or `eng+deu+fra`. Extra languages require their tessdata files to be present (see [OCR](performance.md#ocr)). |
 | `OCR_CONCURRENCY` | `1` | Optional. Number of scanned books OCR'd in parallel by the background OCR worker. Raise on multi-core hosts with spare CPU; keep at `1` on small boxes. Set to `0` to turn OCR off (same as `OCR_ENABLED=false`). See [Speeding up OCR](performance.md#speeding-up-ocr). |

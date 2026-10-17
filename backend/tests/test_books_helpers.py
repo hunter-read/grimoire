@@ -27,6 +27,70 @@ def _write_pdf(tmp_path, name="doc.pdf") -> str:
     return path
 
 
+class TestIdleRelease:
+    """Open documents and MuPDF's store are released once reading goes idle."""
+
+    def setup_method(self):
+        _helpers._pdf_cache.clear()
+
+    def test_nothing_released_inside_the_idle_window(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(_helpers, "PAGE_IDLE_RELEASE", 300)
+        path = _write_pdf(str(tmp_path))
+        _helpers._get_pdf_doc(path)
+        assert _helpers.release_idle_documents(now=_helpers._last_pdf_use + 299) is False
+        assert path in _helpers._pdf_cache
+
+    def test_idle_documents_are_closed_and_memory_reclaimed(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(_helpers, "PAGE_IDLE_RELEASE", 300)
+        reclaimed = MagicMock()
+        monkeypatch.setattr(_helpers, "_reclaim_render_memory", reclaimed)
+        docs = [MagicMock(), MagicMock()]
+        _helpers._pdf_cache.update({"a": docs[0], "b": docs[1]})
+        _helpers._last_pdf_use = 1000.0
+        assert _helpers.release_idle_documents(now=1300.0) is True
+        assert not _helpers._pdf_cache
+        for d in docs:
+            d.close.assert_called_once()
+        reclaimed.assert_called_once()
+
+    def test_close_errors_do_not_stop_the_release(self, monkeypatch):
+        monkeypatch.setattr(_helpers, "PAGE_IDLE_RELEASE", 300)
+        monkeypatch.setattr(_helpers, "_reclaim_render_memory", MagicMock())
+        broken, fine = MagicMock(), MagicMock()
+        broken.close.side_effect = RuntimeError("already closed")
+        _helpers._pdf_cache.update({"broken": broken, "fine": fine})
+        _helpers._last_pdf_use = 0.0
+        assert _helpers.release_idle_documents(now=1000.0) is True
+        fine.close.assert_called_once()
+
+    def test_disabled_never_starts_a_sweeper(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(_helpers, "PAGE_IDLE_RELEASE", 0)
+        monkeypatch.setattr(_helpers, "_sweeper", None)
+        _helpers._get_pdf_doc(_write_pdf(str(tmp_path)))
+        assert _helpers._sweeper is None
+
+    def test_sweeper_releases_then_exits_and_restarts_on_next_open(self, tmp_path, monkeypatch):
+        """End to end with a 1s window: release, thread exit, fresh thread on reopen."""
+        import time
+
+        monkeypatch.setattr(_helpers, "PAGE_IDLE_RELEASE", 1)
+        monkeypatch.setattr(_helpers, "_sweeper", None)
+        path = _write_pdf(str(tmp_path))
+        _helpers._get_pdf_doc(path)
+        first = _helpers._sweeper
+        assert first is not None and first.is_alive()
+        first.join(timeout=10)
+        assert not first.is_alive(), "sweeper should exit once nothing is open"
+        assert not _helpers._pdf_cache and _helpers._sweeper is None
+
+        _helpers._get_pdf_doc(path)
+        second = _helpers._sweeper
+        assert second is not None and second is not first
+        second.join(timeout=10)
+        time.sleep(0)  # let the thread finish clearing state
+        assert not _helpers._pdf_cache
+
+
 class TestGetPdfDoc:
     def setup_method(self):
         _helpers._pdf_cache.clear()

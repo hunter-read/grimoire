@@ -273,9 +273,13 @@ def available_levels(routes: Iterable[Any], role: str) -> dict[str, list[str]]:
     routes, and Read and Write only if it can call a write route - so a player
     sees game systems as Read at most, and never sees logs or users at all.
     """
+    from .route_table import effective_routes
+
     rank = ROLE_RANK.get(role, 0)
     reach: dict[str, str] = {}
-    for route in routes:
+    # The routes as served, with tags and guards merged from every router they
+    # were included into - not the bare module-router declarations.
+    for route in effective_routes(routes):
         perm = route_permission(route)
         min_role = route_min_role(route) if perm else None
         if perm is None or min_role is None or ROLE_RANK[min_role] > rank:
@@ -384,7 +388,11 @@ def authenticate(presented: str, request: Request, *, check_route: bool = True) 
     if api_key_attempts_blocked(request):
         raise HTTPException(429, "Too many invalid API key attempts - try again later")
 
-    route = request.scope.get("route")
+    from .route_table import request_route
+
+    # The effective route (parent routers' tags and guards merged in). None when
+    # it cannot be resolved, which route_permission() refuses below.
+    route = request_route(request)
     method = request.method
     presented_hash = hash_key(presented.strip())
     now = datetime.datetime.now(datetime.timezone.utc)

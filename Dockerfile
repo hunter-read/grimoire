@@ -112,6 +112,18 @@ COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
 RUN mkdir -p /data /library
 
+# Ship bytecode for exactly the modules the server imports. The base image and
+# the builder stage both strip __pycache__, so without this every freshly
+# created container compiles ~1,350 modules on first start: ~4 s slower, and
+# the compiler's scratch allocations fragment the heap for the life of the
+# process (~18 MB more RSS per worker, measured). Importing the app once here
+# writes .pyc files for what it actually loads (~30 MB uncompressed) instead of
+# compiling all of site-packages (~52 MB). The throwaway DATA_PATH absorbs the
+# migration run and generated secret that importing the app performs.
+RUN DATA_PATH=/tmp/warm LIBRARY_PATH=/tmp/warm DISABLE_VERSION_CHECKING=true \
+        python -c "import backend.main" \
+    && rm -rf /tmp/warm
+
 # Empty by default so an image built without --build-arg falls through to the
 # VERSION file copied above rather than reporting a literal "dev".
 ARG APP_VERSION=""
@@ -119,13 +131,22 @@ ARG COMMIT_HASH="dev"
 ENV APP_VERSION=${APP_VERSION}
 ENV COMMIT_HASH=${COMMIT_HASH}
 ENV PYTHONUNBUFFERED=1
+# glibc otherwise gives each thread its own malloc arena (up to 8 per core), and
+# page renders run on a threadpool, so freed memory ends up scattered across
+# arenas it can't be returned from. Two arenas measured 34-51 MB lower peak
+# memory during concurrent reading with no change in render throughput.
+ENV MALLOC_ARENA_MAX=2
 
 EXPOSE 9481
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
     CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:9481/api/health', timeout=4).status == 200 else 1)" || exit 1
 
-ENV WORKERS=2
+# One worker by default. Each uvicorn worker is a full copy of the app (~190 MB
+# idle); page rendering runs in C outside the GIL, so threads in one worker
+# measured within ~8% of two workers' throughput with four concurrent readers.
+# Raise it on hosts with spare RAM and many simultaneous readers.
+ENV WORKERS=1
 CMD ["sh", "-c", "exec python -m uvicorn backend.main:app --host 0.0.0.0 --port 9481 --workers ${WORKERS}"]
 
 # Stage 5a: Slim variant — no OCR engine. Grimoire degrades gracefully: image-only

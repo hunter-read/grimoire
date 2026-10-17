@@ -56,6 +56,14 @@ Edited a PDF in place (embedded encounter notes, added errata)? Its search index
 
 PDFs are rendered page-by-page server-side as WebP images rather than streamed as raw files. This keeps the viewer fast on mobile and avoids loading large files into the browser. Switch to the native PDF viewer anytime via the toolbar.
 
+## Memory use
+
+Out of the box Grimoire runs a single worker process and settles at roughly 200 MB once your library is scanned. Reading adds to that temporarily: rendering an illustrated page decodes its images to full size, which can take a few hundred MB while someone is turning pages. Grimoire hands that memory back automatically - every `PAGE_RECLAIM_INTERVAL` renders, and again once nobody has read anything for `PAGE_IDLE_RELEASE` seconds - so it returns to its idle footprint after a reading session.
+
+- **`WORKERS`** - each extra worker is another full copy of the app (~190 MB). Page rendering happens outside Python's global lock, so one worker serves several simultaneous readers almost as fast as two (within ~10% in testing). Raise it only if you have RAM to spare and regularly have many people reading at once.
+- **`PAGE_RECLAIM_INTERVAL`** - lower it (e.g. `3`) to keep peaks down when several people read at once; it costs a few percent of render speed.
+- **`OCR_CONCURRENCY`** - each parallel OCR job adds 50-250 MB while it runs (see [Speeding up OCR](#speeding-up-ocr)).
+
 ## Caching
 
 Rendered pages are cached to disk by default. Provide a `VALKEY_URL` to use an in-memory Redis-compatible cache instead for faster repeat loads.

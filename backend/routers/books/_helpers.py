@@ -3,13 +3,14 @@ import ctypes
 import functools
 import platform
 import threading
+import time
 from collections import OrderedDict
 from typing import Optional
 
 import fitz  # type: ignore[import-untyped]
 from fastapi import HTTPException
 
-from ...config import PAGE_RECLAIM_INTERVAL, SessionLocal, logger
+from ...config import PAGE_IDLE_RELEASE, PAGE_RECLAIM_INTERVAL, SessionLocal, logger
 from ...indexer.formats import open_document
 from ...models import Book, User
 from ...services import access_control
@@ -21,6 +22,9 @@ from ._schemas import ACCESS_INHERIT
 _PDF_CACHE_MAX = 10
 _pdf_cache: OrderedDict = OrderedDict()
 _pdf_cache_lock = threading.Lock()
+# monotonic time of the last _get_pdf_doc() call; read by the idle sweeper.
+_last_pdf_use = 0.0
+_sweeper: threading.Thread | None = None
 
 
 # glibc's malloc_trim() is what actually returns freed arenas to the OS. It does
@@ -87,7 +91,10 @@ def note_page_render() -> bool:
 
 
 def _get_pdf_doc(filepath: str) -> fitz.Document:
+    global _last_pdf_use
     with _pdf_cache_lock:
+        _last_pdf_use = time.monotonic()
+        _ensure_idle_sweeper()
         if filepath in _pdf_cache:
             _pdf_cache.move_to_end(filepath)
             return _pdf_cache[filepath]
@@ -123,6 +130,59 @@ def _cached_book_info(book_id: str) -> Optional[tuple]:
         return (book.filepath, book.mime_type, book.title, book.content_hash)
     finally:
         db.close()
+
+
+def _ensure_idle_sweeper() -> None:
+    """Start the idle sweeper if it isn't running. Caller holds _pdf_cache_lock.
+
+    The thread exists only while documents are open: it exits after releasing
+    them, so an idle server runs no extra thread at all.
+    """
+    global _sweeper
+    if PAGE_IDLE_RELEASE <= 0 or _sweeper is not None:
+        return
+    _sweeper = threading.Thread(target=_idle_sweep, name="pdf-idle-release", daemon=True)
+    _sweeper.start()
+
+
+def release_idle_documents(now: float | None = None) -> bool:
+    """Close every cached document and reclaim render memory if reading has gone idle.
+
+    Returns whether a release happened. Only documents unused for the whole
+    PAGE_IDLE_RELEASE window are closed: a handle is used outside the lock while
+    a page renders, and closing it mid-render would be a use-after-free inside
+    MuPDF, so the idle window (minutes) must dwarf any single render (seconds).
+    """
+    now = time.monotonic() if now is None else now
+    with _pdf_cache_lock:
+        if now - _last_pdf_use < PAGE_IDLE_RELEASE:
+            return False
+        docs = list(_pdf_cache.values())
+        _pdf_cache.clear()
+    for doc in docs:
+        try:
+            doc.close()
+        except (RuntimeError, ValueError) as e:
+            logger.debug("Failed to close idle PDF document: %s", e)
+    _reclaim_render_memory()
+    return True
+
+
+def _idle_sweep() -> None:
+    global _sweeper
+    # Wake at a fraction of the window so release lands within ~25% of it.
+    interval = max(1.0, PAGE_IDLE_RELEASE / 4)
+    while True:
+        time.sleep(interval)
+        if release_idle_documents():
+            logger.debug("Released idle PDF documents and render memory")
+        # Exit only when nothing is open, deciding under the same lock
+        # _get_pdf_doc takes: a book opened after this point sees _sweeper is
+        # None and starts a fresh sweeper, so no open document is ever orphaned.
+        with _pdf_cache_lock:
+            if not _pdf_cache:
+                _sweeper = None
+                return
 
 
 def evict_pdf(filepath: str) -> bool:
