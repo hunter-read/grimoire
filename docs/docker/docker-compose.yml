@@ -11,7 +11,7 @@ services:
       - DATA_PATH=/data
 
       # Number of uvicorn worker processes. 2–4 is typical; more workers = more memory use.
-      - WORKERS=2
+      - WORKERS=1
 
       # Optional — used to sign JWT tokens. Leave it unset and Grimoire generates
       # a random key on first boot and persists it under DATA_PATH, so logins

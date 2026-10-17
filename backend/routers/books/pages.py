@@ -36,8 +36,8 @@ from ...services.content_cache import content_token, page_cache_prefix
 from ._helpers import (
     _assert_book_access,
     _cached_book_info,
-    _get_pdf_doc,
     note_page_render,
+    open_pdf,
 )
 
 
@@ -181,19 +181,19 @@ def serve_book_page(
     if not os.path.exists(filepath):
         _mark_missing(db, book_id)
         raise HTTPException(404, "File not found on disk")
-    doc = _get_pdf_doc(filepath)
-    if page_num < 1 or page_num > len(doc):
-        raise HTTPException(400, f"Page must be between 1 and {len(doc)}")
-    page = doc[page_num - 1]
-    zoom = width / page.rect.width
-    pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
-    buf = io.BytesIO()
-    Image.frombytes("RGB", (pix.width, pix.height), pix.samples).save(
-        buf, format="webp", quality=85, method=0
-    )
-    img_bytes = buf.getvalue()
-    # Drop the pixmap before reclaiming so its buffer is part of what's freed.
-    del pix
+    with open_pdf(filepath) as doc:
+        if page_num < 1 or page_num > len(doc):
+            raise HTTPException(400, f"Page must be between 1 and {len(doc)}")
+        page = doc[page_num - 1]
+        zoom = width / page.rect.width
+        pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
+        buf = io.BytesIO()
+        Image.frombytes("RGB", (pix.width, pix.height), pix.samples).save(
+            buf, format="webp", quality=85, method=0
+        )
+        img_bytes = buf.getvalue()
+        # Drop the pixmap before reclaiming so its buffer is part of what's freed.
+        del pix, page
     note_page_render()
 
     # Fall back to the disk cache when Valkey is absent or the write failed, so
@@ -242,10 +242,10 @@ def get_page_text(
         return {"text": pages[page_num - 1]["content"]}
     if not is_fitz_mime(book_info[1]):
         raise HTTPException(404)
-    doc = _get_pdf_doc(filepath)
-    if page_num < 1 or page_num > len(doc):
-        raise HTTPException(400, f"Page must be between 1 and {len(doc)}")
-    return {"text": doc[page_num - 1].get_text("text").strip()}
+    with open_pdf(filepath) as doc:
+        if page_num < 1 or page_num > len(doc):
+            raise HTTPException(400, f"Page must be between 1 and {len(doc)}")
+        return {"text": doc[page_num - 1].get_text("text").strip()}
 
 
 def get_page_words(
@@ -268,13 +268,12 @@ def get_page_words(
     # no page geometry, so they get an empty overlay rather than a 500.
     if not is_fitz_mime(book_info[1]):
         return {"width": 0, "height": 0, "words": []}
-    doc = _get_pdf_doc(filepath)
-    if page_num < 1 or page_num > len(doc):
-        raise HTTPException(400, f"Page must be between 1 and {len(doc)}")
-
-    page = doc[page_num - 1]
-    rect = page.rect
-    raw_words = page.get_text("words")
+    with open_pdf(filepath) as doc:
+        if page_num < 1 or page_num > len(doc):
+            raise HTTPException(400, f"Page must be between 1 and {len(doc)}")
+        page = doc[page_num - 1]
+        rect = page.rect
+        raw_words = page.get_text("words")
     return {
         "width": rect.width,
         "height": rect.height,

@@ -1,8 +1,9 @@
 """Direct unit tests for the shared book endpoint helpers.
 
-Covers the in-process PDF document cache (including LRU eviction and the
-best-effort close of an evicted document), the book-info memo cache, and the
-explicit-content permission lookup.
+Covers the in-process PDF document cache (LRU eviction, leases that keep a
+document open while it is in use, idle release, and the best-effort close of a
+retired document), the book-info memo cache, and the explicit-content
+permission lookup.
 """
 import os
 import threading
@@ -10,6 +11,7 @@ import uuid
 from unittest.mock import MagicMock
 
 import fitz  # type: ignore[import-untyped]
+import pytest
 
 from backend.config import SessionLocal
 from backend.models import User
@@ -27,6 +29,19 @@ def _write_pdf(tmp_path, name="doc.pdf") -> str:
     return path
 
 
+
+def _cache(**docs):
+    """Seed the cache with stand-in documents, oldest first."""
+    for key, doc in docs.items():
+        _helpers._pdf_cache[key] = _helpers._CachedDoc(doc)
+
+
+def _lease(path):
+    """Take a lease the way a request does and return the document."""
+    with _helpers.open_pdf(path) as doc:
+        return doc
+
+
 class TestIdleRelease:
     """Open documents and MuPDF's store are released once reading goes idle."""
 
@@ -36,16 +51,16 @@ class TestIdleRelease:
     def test_nothing_released_inside_the_idle_window(self, tmp_path, monkeypatch):
         monkeypatch.setattr(_helpers, "PAGE_IDLE_RELEASE", 300)
         path = _write_pdf(str(tmp_path))
-        _helpers._get_pdf_doc(path)
+        _lease(path)
         assert _helpers.release_idle_documents(now=_helpers._last_pdf_use + 299) is False
         assert path in _helpers._pdf_cache
 
-    def test_idle_documents_are_closed_and_memory_reclaimed(self, tmp_path, monkeypatch):
+    def test_idle_documents_are_closed_and_memory_reclaimed(self, monkeypatch):
         monkeypatch.setattr(_helpers, "PAGE_IDLE_RELEASE", 300)
         reclaimed = MagicMock()
         monkeypatch.setattr(_helpers, "_reclaim_render_memory", reclaimed)
         docs = [MagicMock(), MagicMock()]
-        _helpers._pdf_cache.update({"a": docs[0], "b": docs[1]})
+        _cache(a=docs[0], b=docs[1])
         _helpers._last_pdf_use = 1000.0
         assert _helpers.release_idle_documents(now=1300.0) is True
         assert not _helpers._pdf_cache
@@ -53,12 +68,24 @@ class TestIdleRelease:
             d.close.assert_called_once()
         reclaimed.assert_called_once()
 
+    def test_a_document_still_rendering_is_closed_by_its_render(self, monkeypatch):
+        """A render longer than the idle window must not lose its document."""
+        monkeypatch.setattr(_helpers, "PAGE_IDLE_RELEASE", 300)
+        monkeypatch.setattr(_helpers, "_reclaim_render_memory", MagicMock())
+        busy = MagicMock()
+        monkeypatch.setattr(_helpers, "open_document", lambda _p: busy)
+        with _helpers.open_pdf("/library/slow.pdf") as doc:
+            assert _helpers.release_idle_documents(now=_helpers._last_pdf_use + 301) is True
+            assert "/library/slow.pdf" not in _helpers._pdf_cache
+            doc.close.assert_not_called()
+        busy.close.assert_called_once()
+
     def test_close_errors_do_not_stop_the_release(self, monkeypatch):
         monkeypatch.setattr(_helpers, "PAGE_IDLE_RELEASE", 300)
         monkeypatch.setattr(_helpers, "_reclaim_render_memory", MagicMock())
         broken, fine = MagicMock(), MagicMock()
         broken.close.side_effect = RuntimeError("already closed")
-        _helpers._pdf_cache.update({"broken": broken, "fine": fine})
+        _cache(broken=broken, fine=fine)
         _helpers._last_pdf_use = 0.0
         assert _helpers.release_idle_documents(now=1000.0) is True
         fine.close.assert_called_once()
@@ -66,41 +93,48 @@ class TestIdleRelease:
     def test_disabled_never_starts_a_sweeper(self, tmp_path, monkeypatch):
         monkeypatch.setattr(_helpers, "PAGE_IDLE_RELEASE", 0)
         monkeypatch.setattr(_helpers, "_sweeper", None)
-        _helpers._get_pdf_doc(_write_pdf(str(tmp_path)))
+        _lease(_write_pdf(str(tmp_path)))
         assert _helpers._sweeper is None
 
     def test_sweeper_releases_then_exits_and_restarts_on_next_open(self, tmp_path, monkeypatch):
         """End to end with a 1s window: release, thread exit, fresh thread on reopen."""
-        import time
-
         monkeypatch.setattr(_helpers, "PAGE_IDLE_RELEASE", 1)
         monkeypatch.setattr(_helpers, "_sweeper", None)
         path = _write_pdf(str(tmp_path))
-        _helpers._get_pdf_doc(path)
+        doc = _lease(path)
         first = _helpers._sweeper
         assert first is not None and first.is_alive()
         first.join(timeout=10)
         assert not first.is_alive(), "sweeper should exit once nothing is open"
         assert not _helpers._pdf_cache and _helpers._sweeper is None
+        assert doc.is_closed
 
-        _helpers._get_pdf_doc(path)
+        _lease(path)
         second = _helpers._sweeper
         assert second is not None and second is not first
         second.join(timeout=10)
-        time.sleep(0)  # let the thread finish clearing state
         assert not _helpers._pdf_cache
 
 
-class TestGetPdfDoc:
+class TestOpenPdf:
     def setup_method(self):
         _helpers._pdf_cache.clear()
 
     def test_caches_and_returns_same_document(self, tmp_path):
         path = _write_pdf(str(tmp_path))
-        doc1 = _helpers._get_pdf_doc(path)
-        doc2 = _helpers._get_pdf_doc(path)
+        doc1 = _lease(path)
+        doc2 = _lease(path)
         assert doc1 is doc2
         assert path in _helpers._pdf_cache
+        assert _helpers._pdf_cache[path].users == 0
+
+    def test_lease_is_returned_when_the_block_raises(self, tmp_path):
+        path = _write_pdf(str(tmp_path))
+        with pytest.raises(KeyError):
+            with _helpers.open_pdf(path):
+                assert _helpers._pdf_cache[path].users == 1
+                raise KeyError("boom")
+        assert _helpers._pdf_cache[path].users == 0
 
     def test_evicts_least_recently_used_when_full(self, tmp_path):
         # Fill the cache past its max so the oldest entry is evicted + closed.
@@ -108,11 +142,52 @@ class TestGetPdfDoc:
             _write_pdf(str(tmp_path), f"d{i}.pdf")
             for i in range(_helpers._PDF_CACHE_MAX + 1)
         ]
-        for p in paths:
-            _helpers._get_pdf_doc(p)
+        first = _lease(paths[0])
+        for p in paths[1:]:
+            _lease(p)
         assert len(_helpers._pdf_cache) == _helpers._PDF_CACHE_MAX
-        # The first-inserted document was evicted.
+        # The first-inserted document was evicted, and closed since nobody held it.
         assert paths[0] not in _helpers._pdf_cache
+        assert first.is_closed
+
+    def test_evicting_a_document_in_use_waits_for_its_reader(self, tmp_path):
+        """Eleven books read at once: the evicted one stays open until its page is done."""
+        paths = [
+            _write_pdf(str(tmp_path), f"d{i}.pdf")
+            for i in range(_helpers._PDF_CACHE_MAX + 1)
+        ]
+        with _helpers.open_pdf(paths[0]) as reading:
+            for p in paths[1:]:
+                _lease(p)
+            assert paths[0] not in _helpers._pdf_cache
+            assert not reading.is_closed
+            # Still fully usable mid-"render".
+            assert reading[0].get_pixmap().width > 0
+        assert reading.is_closed
+
+    def test_concurrent_readers_never_see_a_closed_document(self, tmp_path):
+        """Many threads across more books than the cache holds: no render fails."""
+        paths = [
+            _write_pdf(str(tmp_path), f"c{i}.pdf")
+            for i in range(_helpers._PDF_CACHE_MAX * 2)
+        ]
+        errors = []
+
+        def reader(offset):
+            for i in range(40):
+                try:
+                    with _helpers.open_pdf(paths[(offset + i) % len(paths)]) as doc:
+                        doc[0].get_pixmap(matrix=fitz.Matrix(0.2, 0.2))
+                except Exception as e:  # pragma: no cover - the failure being tested
+                    errors.append(e)
+
+        threads = [threading.Thread(target=reader, args=(n,)) for n in range(8)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        assert errors == []
+        assert all(entry.users == 0 for entry in _helpers._pdf_cache.values())
 
     def test_evicted_close_error_is_logged_not_raised(self, tmp_path, caplog):
         # A broken evicted document whose close() raises must not blow up the
@@ -120,15 +195,14 @@ class TestGetPdfDoc:
         broken = MagicMock()
         broken.close.side_effect = RuntimeError("already closed")
         _helpers._pdf_cache.clear()
-        for i in range(_helpers._PDF_CACHE_MAX):
-            _helpers._pdf_cache[f"stale-{i}"] = MagicMock()
+        _cache(**{f"stale-{i}": MagicMock() for i in range(1, _helpers._PDF_CACHE_MAX)})
         # Make the oldest entry the broken one.
-        _helpers._pdf_cache["stale-0"] = broken
+        _cache(**{"stale-0": broken})
         _helpers._pdf_cache.move_to_end("stale-0", last=False)
 
         path = _write_pdf(str(tmp_path))
         with caplog.at_level("DEBUG", logger="grimoire"):
-            _helpers._get_pdf_doc(path)  # triggers eviction of `broken`
+            _lease(path)  # triggers eviction of `broken`
         broken.close.assert_called_once()
         assert any("evicted pdf" in r.message.lower() for r in caplog.records)
 
@@ -141,7 +215,7 @@ class TestEvictPdf:
 
     def test_drops_and_closes_the_cached_handle(self, tmp_path):
         path = _write_pdf(str(tmp_path))
-        doc = _helpers._get_pdf_doc(path)
+        doc = _lease(path)
         assert path in _helpers._pdf_cache
 
         assert _helpers.evict_pdf(path) is True
@@ -149,7 +223,16 @@ class TestEvictPdf:
         assert doc.is_closed
 
         # A later request opens the file afresh rather than reusing the old handle.
-        assert _helpers._get_pdf_doc(path) is not doc
+        assert _lease(path) is not doc
+
+    def test_a_render_in_progress_keeps_its_handle_until_done(self, tmp_path):
+        path = _write_pdf(str(tmp_path))
+        with _helpers.open_pdf(path) as doc:
+            assert _helpers.evict_pdf(path) is True
+            assert not doc.is_closed
+            # The next request already gets the new file.
+            assert _lease(path) is not doc
+        assert doc.is_closed
 
     def test_returns_false_when_nothing_is_cached(self, tmp_path):
         assert _helpers.evict_pdf(str(tmp_path / "never-opened.pdf")) is False
@@ -157,7 +240,7 @@ class TestEvictPdf:
     def test_close_failure_is_logged_not_raised(self, caplog):
         broken = MagicMock()
         broken.close.side_effect = RuntimeError("already closed")
-        _helpers._pdf_cache["/library/broken.pdf"] = broken
+        _cache(**{"/library/broken.pdf": broken})
 
         with caplog.at_level("DEBUG", logger="grimoire"):
             assert _helpers.evict_pdf("/library/broken.pdf") is True

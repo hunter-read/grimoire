@@ -112,3 +112,71 @@ def test_every_grimoire_api_route_resolves_with_the_login_guard():
     # (calendar feeds, health); everything else must carry the guard.
     public = {r.path for r in routes if r.path in {"/api/health"} or "/calendar/" in r.path}
     assert set(unguarded) <= public, sorted(set(unguarded) - public)
+
+
+def _request_for(ctx, method):
+    """A request as the router hands it to a handler: the declared route in scope."""
+    from fastapi.routing import APIRoute
+
+    sample = {"path": "a/b"}
+    path = ctx.path_format
+    for name, conv in (ctx.param_convertors or {}).items():
+        value = sample.get(type(conv).__name__.replace("Convertor", "").lower(), "x")
+        path = path.replace("{" + name + "}", value)
+
+    class _Req:
+        app = grimoire_app
+        scope = {
+            "type": "http",
+            "method": method,
+            "path": path,
+            "root_path": "",
+            "route": ctx.original_route,
+        }
+
+    assert isinstance(ctx.original_route, APIRoute)
+    return _Req()
+
+
+def test_every_served_route_resolves_to_itself():
+    """API-key checks run against exactly the route that served the request."""
+    routes = route_table.endpoint_routes(grimoire_app.routes)
+    assert len(routes) >= 300
+    wrong = []
+    for ctx in routes:
+        for method in sorted(ctx.methods or ()):
+            got = route_table.request_route(_request_for(ctx, method))
+            if got is None or got.path != ctx.path or list(got.tags) != list(ctx.tags):
+                wrong.append(f"{method} {ctx.path}")
+    assert wrong == []
+
+
+def test_no_grimoire_route_is_mounted_twice():
+    """A second mount would make resolution depend on path matching; keep it single."""
+    table = route_table._build_table(grimoire_app)
+    assert [ctxs[0].path for ctxs in table.values() if len(ctxs) > 1] == []
+
+
+def test_concurrent_rebuilds_never_fail():
+    """Requests racing a table rebuild see the old table or the new one, never neither."""
+    import threading
+
+    ctx = route_table.endpoint_routes(grimoire_app.routes)[0]
+    method = sorted(ctx.methods)[0]
+    errors, misses = [], []
+
+    def resolve():
+        for _ in range(200):
+            setattr(grimoire_app.state, route_table._TABLE_ATTR, None)
+            try:
+                if route_table.request_route(_request_for(ctx, method)) is None:
+                    misses.append(1)
+            except Exception as e:  # pragma: no cover - the failure being tested
+                errors.append(e)
+
+    threads = [threading.Thread(target=resolve) for _ in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert errors == [] and misses == []

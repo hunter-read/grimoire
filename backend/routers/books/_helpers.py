@@ -5,7 +5,8 @@ import platform
 import threading
 import time
 from collections import OrderedDict
-from typing import Optional
+from contextlib import contextmanager
+from typing import Iterator, Optional
 
 import fitz  # type: ignore[import-untyped]
 from fastapi import HTTPException
@@ -17,12 +18,29 @@ from ...services import access_control
 from ._schemas import ACCESS_INHERIT
 
 
+class _CachedDoc:
+    """An open fitz Document plus how many requests are using it right now.
+
+    A document leaves the cache (LRU eviction, file replaced, idle release) the
+    moment it is retired, but it is only *closed* once its last user is done:
+    closing it under a render in another thread would pull the document out
+    from under that render.
+    """
+
+    __slots__ = ("doc", "users", "retired")
+
+    def __init__(self, doc: fitz.Document) -> None:
+        self.doc = doc
+        self.users = 0
+        self.retired = False
+
+
 # LRU cache of open fitz Documents (avoids re-opening large PDFs on every render).
-# fitz documents are thread-safe for concurrent read operations.
+# Use them only through open_pdf(), which leases the document for the duration.
 _PDF_CACHE_MAX = 10
-_pdf_cache: OrderedDict = OrderedDict()
+_pdf_cache: "OrderedDict[str, _CachedDoc]" = OrderedDict()
 _pdf_cache_lock = threading.Lock()
-# monotonic time of the last _get_pdf_doc() call; read by the idle sweeper.
+# monotonic time a document was last leased or handed back; read by the idle sweeper.
 _last_pdf_use = 0.0
 _sweeper: threading.Thread | None = None
 
@@ -90,28 +108,75 @@ def note_page_render() -> bool:
     return True
 
 
-def _get_pdf_doc(filepath: str) -> fitz.Document:
+def _close_doc(doc: fitz.Document, why: str) -> None:
+    try:
+        doc.close()
+    except (RuntimeError, ValueError) as e:
+        # Best-effort: the document may already be closed or broken. Log at
+        # debug so a leaked handle is diagnosable.
+        logger.debug("Failed to close %s PDF document: %s", why, e)
+
+
+def _retire(entry: _CachedDoc) -> Optional[fitz.Document]:
+    """Mark a document as leaving the cache. Caller holds _pdf_cache_lock.
+
+    Returns the document if nobody is using it, for the caller to close once the
+    lock is released; otherwise its last user closes it in _release_pdf().
+    """
+    entry.retired = True
+    return entry.doc if entry.users == 0 else None
+
+
+def _acquire_pdf(filepath: str) -> _CachedDoc:
     global _last_pdf_use
+    to_close = []
     with _pdf_cache_lock:
         _last_pdf_use = time.monotonic()
         _ensure_idle_sweeper()
-        if filepath in _pdf_cache:
+        entry = _pdf_cache.get(filepath)
+        if entry is not None:
             _pdf_cache.move_to_end(filepath)
-            return _pdf_cache[filepath]
-        # open_document applies the shared reflow layout, so an EPUB served by
-        # the reader paginates exactly as the indexer counted and indexed it
-        # (issue #373). A no-op for fixed-layout formats like PDF.
-        doc = open_document(filepath)
-        _pdf_cache[filepath] = doc
-        if len(_pdf_cache) > _PDF_CACHE_MAX:
-            _, evicted = _pdf_cache.popitem(last=False)
-            try:
-                evicted.close()
-            except (RuntimeError, ValueError) as e:
-                # Best-effort: the evicted document may already be closed or
-                # broken. Log at debug so a leaked handle is diagnosable.
-                logger.debug("Failed to close evicted PDF document: %s", e)
-        return doc
+        else:
+            # open_document applies the shared reflow layout, so an EPUB served by
+            # the reader paginates exactly as the indexer counted and indexed it
+            # (issue #373). A no-op for fixed-layout formats like PDF.
+            entry = _CachedDoc(open_document(filepath))
+            _pdf_cache[filepath] = entry
+            while len(_pdf_cache) > _PDF_CACHE_MAX:
+                _, evicted = _pdf_cache.popitem(last=False)
+                doc = _retire(evicted)
+                if doc is not None:
+                    to_close.append(doc)
+        entry.users += 1
+    for doc in to_close:
+        _close_doc(doc, "evicted")
+    return entry
+
+
+def _release_pdf(entry: _CachedDoc) -> None:
+    global _last_pdf_use
+    with _pdf_cache_lock:
+        entry.users -= 1
+        # A long render counts as reading right up to the moment it finishes.
+        _last_pdf_use = time.monotonic()
+        close = entry.retired and entry.users == 0
+    if close:
+        _close_doc(entry.doc, "retired")
+
+
+@contextmanager
+def open_pdf(filepath: str) -> Iterator[fitz.Document]:
+    """The cached fitz Document for ``filepath``, leased for the ``with`` block.
+
+    Use the document (and any page or pixmap taken from it) only inside the
+    block. While it is leased it is never closed, even if it is evicted, its
+    file is replaced, or the idle release runs; the last lease closes it then.
+    """
+    entry = _acquire_pdf(filepath)
+    try:
+        yield entry.doc
+    finally:
+        _release_pdf(entry)
 
 
 @functools.lru_cache(maxsize=2000)
@@ -148,22 +213,19 @@ def _ensure_idle_sweeper() -> None:
 def release_idle_documents(now: float | None = None) -> bool:
     """Close every cached document and reclaim render memory if reading has gone idle.
 
-    Returns whether a release happened. Only documents unused for the whole
-    PAGE_IDLE_RELEASE window are closed: a handle is used outside the lock while
-    a page renders, and closing it mid-render would be a use-after-free inside
-    MuPDF, so the idle window (minutes) must dwarf any single render (seconds).
+    Returns whether a release happened: only once no document has been leased
+    or handed back for the whole PAGE_IDLE_RELEASE window. A document still
+    leased by a render leaves the cache too, but is closed by that render when it
+    finishes rather than here.
     """
     now = time.monotonic() if now is None else now
     with _pdf_cache_lock:
         if now - _last_pdf_use < PAGE_IDLE_RELEASE:
             return False
-        docs = list(_pdf_cache.values())
+        docs = [doc for entry in _pdf_cache.values() if (doc := _retire(entry)) is not None]
         _pdf_cache.clear()
     for doc in docs:
-        try:
-            doc.close()
-        except (RuntimeError, ValueError) as e:
-            logger.debug("Failed to close idle PDF document: %s", e)
+        _close_doc(doc, "idle")
     _reclaim_render_memory()
     return True
 
@@ -177,7 +239,7 @@ def _idle_sweep() -> None:
         if release_idle_documents():
             logger.debug("Released idle PDF documents and render memory")
         # Exit only when nothing is open, deciding under the same lock
-        # _get_pdf_doc takes: a book opened after this point sees _sweeper is
+        # _acquire_pdf takes: a book opened after this point sees _sweeper is
         # None and starts a fresh sweeper, so no open document is ever orphaned.
         with _pdf_cache_lock:
             if not _pdf_cache:
@@ -191,17 +253,16 @@ def evict_pdf(filepath: str) -> bool:
     Required when a file is replaced in place: the cached handle refers to the
     *old* document, and on POSIX the unlinked inode stays alive as long as we
     hold it open, so every subsequent render would keep serving the previous
-    file's pages until the entry aged out of the LRU.
+    file's pages until the entry aged out of the LRU. A render already in
+    progress finishes on the old handle and closes it; the next one reopens.
     """
     with _pdf_cache_lock:
-        doc = _pdf_cache.pop(filepath, None)
-    if doc is None:
-        return False
-    try:
-        doc.close()
-    except (RuntimeError, ValueError) as e:
-        # Best-effort, same rationale as the LRU eviction above.
-        logger.debug("Failed to close replaced PDF document: %s", e)
+        entry = _pdf_cache.pop(filepath, None)
+        if entry is None:
+            return False
+        doc = _retire(entry)
+    if doc is not None:
+        _close_doc(doc, "replaced")
     return True
 
 

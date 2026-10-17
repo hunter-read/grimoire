@@ -14,7 +14,7 @@ variable is set, its value wins and the matching field is shown read-only in Set
 | Variable | Default | Description |
 |---|---|---|
 | `SECRET_KEY` | auto-generated | JWT signing secret. Leave unset and Grimoire generates a random key on first boot and persists it at `DATA_PATH/secret_key`, reusing it across restarts. Set it explicitly (`openssl rand -hex 32`) if you run multiple replicas that don't share `DATA_PATH`. Grimoire refuses to start if it's set to a placeholder published in these docs (`change-me`, `replace-this-with-a-long-random-string`, `grimoire-dev-secret-change-in-production`) - see the [FAQ](faq.md#grimoire-wont-start-and-the-log-mentions-secret_key). |
-| `WORKERS` | `1` | Number of uvicorn worker processes. Each one is a full copy of the app (~190 MB), so raise it only with RAM to spare and many simultaneous readers - see [Memory use](performance.md#memory-use). |
+| `WORKERS` | `1` | Number of uvicorn worker processes. Each one is a full copy of the app (~190 MB). One serves a typical gaming table - see [Workers](performance.md#workers) for when to raise it to `2`. |
 | `LIBRARY_PATH` | `/app/library` | Optional path to your library directory inside the container if not mounted at /app/library |
 | `DATA_PATH` | `/app/data` | Optional path for the database, thumbnails, and search cache inside the container if not mounted at /app/data |
 | `BASE_URL` | `http://localhost:9481` | Public base URL of this instance. Set this to the URL you use to access Grimoire (e.g. `https://grimoire.example.com`) when running behind a reverse proxy - used to build absolute links in OPDS feeds, campaign calendar subscription links, and other places that need a fully-qualified URL. |

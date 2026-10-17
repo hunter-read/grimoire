@@ -52,19 +52,24 @@ def _original(route: Any) -> Any:
     return getattr(route, "original_route", route)
 
 
-def _table(app: Any) -> dict[int, list[Any]]:
-    """Effective contexts grouped by the identity of their declared route.
+def _build_table(app: Any) -> dict[int, list[Any]]:
+    """Effective contexts grouped by the identity of their declared route, cached on the app.
 
-    Cached on the app. A router included in more than one place yields several
-    contexts for the same declared route, which is why each key holds a list.
+    A router included in more than one place yields several contexts for the
+    same declared route, which is why each key holds a list. The finished table
+    is swapped in with a single attribute write, so concurrent requests see
+    either the old table or the new one, never a half-built or missing one.
     """
-    table = getattr(app.state, _TABLE_ATTR, None)
-    if table is None:
-        table = {}
-        for ctx in effective_routes(app.routes):
-            table.setdefault(id(_original(ctx)), []).append(ctx)
-        setattr(app.state, _TABLE_ATTR, table)
+    table: dict[int, list[Any]] = {}
+    for ctx in effective_routes(app.routes):
+        table.setdefault(id(_original(ctx)), []).append(ctx)
+    setattr(app.state, _TABLE_ATTR, table)
     return table
+
+
+def _table(app: Any) -> dict[int, list[Any]]:
+    table = getattr(app.state, _TABLE_ATTR, None)
+    return table if table is not None else _build_table(app)
 
 
 def request_route(request: Any) -> Optional[Any]:
@@ -76,8 +81,7 @@ def request_route(request: Any) -> Optional[Any]:
     if candidates is None:
         # Routers mounted after the table was built (tests, late includes):
         # rebuild once, then fail closed if the route is still unknown.
-        reset(request.app)
-        candidates = _table(request.app).get(id(declared), [])
+        candidates = _build_table(request.app).get(id(declared), [])
     if len(candidates) == 1:
         return candidates[0]
     # Same declared route mounted under several prefixes: pick the one whose
@@ -93,8 +97,3 @@ def _matches(ctx: Any, scope: dict) -> bool:
         return False
     return match == Match.FULL
 
-
-def reset(app: Any) -> None:
-    """Drop the cached table (tests that mount routers after startup)."""
-    if hasattr(app.state, _TABLE_ATTR):
-        delattr(app.state, _TABLE_ATTR)
