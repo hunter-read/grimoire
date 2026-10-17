@@ -185,7 +185,7 @@ To stop new names arriving this way, copy files onto the share over SMB or from 
 
 ## How do I zoom in on a page?
 
-In the reader's **Page** and **Spread** modes, the toolbar has a zoom cluster - minus, the current level, and plus - with a reset button that appears once you are zoomed in. Zoom runs from 100% to 200% in 25% steps.
+In the reader's **Page** and **Spread** modes, the toolbar has a zoom cluster - minus, the current level, and plus - with a reset button that appears once you are zoomed in. Zoom runs from 100% to 800%: in 25% steps up to 200%, then 250%, 300%, 400%, 500%, 600% and 800%. Scroll and pinch zoom smoothly in between.
 
 There are also keyboard shortcuts:
 
@@ -195,7 +195,11 @@ There are also keyboard shortcuts:
 | `-` | Zoom out |
 | `0` | Reset to 100% |
 
-While zoomed, drag with the mouse (or one finger on touch) to pan around the page. Pinch-to-zoom works on touch devices as usual. Zoom resets when you turn the page.
+While zoomed, drag with the mouse (or one finger on touch) to pan around the page. Pinch-to-zoom works on touch devices as usual.
+
+Zoom stays when you turn the page, so a small-print book can be read zoomed in. You keep the column you were reading and land at the top of the next page, or the bottom of the previous one. Opening another book, switching between Page and Spread, or pressing reset puts it back to 100%. While zoomed, a swipe pans instead of turning the page; use the arrows in the toolbar.
+
+Past about 200% the page sharpens in patches a moment after you stop zooming or panning: Grimoire renders just the part you are looking at in full detail and lays it over the page, so text stays crisp at 800% without the server rendering an enormous image of the whole page.
 
 **PDF** mode is the browser's own PDF viewer, so use its built-in zoom there instead.
 

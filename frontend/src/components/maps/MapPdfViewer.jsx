@@ -26,20 +26,6 @@ const MODES = [
   { key: 'pdf', Icon: LuFile },
 ]
 
-// Inject the page-turn keyframes the reader page components rely on (the reader
-// registers these too, but a map PDF may be opened without ever mounting it).
-if (typeof document !== 'undefined' && !document.getElementById('reader-anim')) {
-  const s = document.createElement('style')
-  s.id = 'reader-anim'
-  s.textContent = `
-    @keyframes pageEnterRight  { from { opacity: 0.2; transform: translateX(60px);  } to { opacity: 1; transform: none; } }
-    @keyframes pageEnterLeft   { from { opacity: 0.2; transform: translateX(-60px); } to { opacity: 1; transform: none; } }
-    @keyframes pageEnterBottom { from { opacity: 0.2; transform: translateY(60px);  } to { opacity: 1; transform: none; } }
-    @keyframes pageEnterTop    { from { opacity: 0.2; transform: translateY(-60px); } to { opacity: 1; transform: none; } }
-  `
-  document.head.appendChild(s)
-}
-
 const toolbarBtn = (active) => ({
   background: active ? 'var(--bg-card-hover)' : 'var(--bg-card)',
   color: active ? 'var(--gold)' : 'var(--text-dim)',

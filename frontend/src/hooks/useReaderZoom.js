@@ -1,13 +1,15 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 
-// Zoom bounds and granularity. The ceiling is 2x deliberately: page images are
-// pre-rendered WebP and the render endpoint caps `width` at 3000px, so a 1600px
-// page can only be re-fetched sharp up to 3000/1600 = 1.875x. Going past 2x
-// would just scale a bitmap and look soft, so the ceiling sits where the image
-// still holds up (issue #249).
+// Zoom bounds and granularity. Up to 8x (issue #574). The whole-page image can
+// only be re-fetched sharp up to the render endpoint's 3000px cap; past that
+// the reader lays sharp tiles of just the visible area over it (ZoomTiles), so
+// the ceiling is no longer where the bitmap goes soft (issue #249).
 export const MIN_ZOOM = 1
-export const MAX_ZOOM = 2
+export const MAX_ZOOM = 8
 export const ZOOM_STEP = 0.25
+// The stops the zoom buttons and +/- keys step through: fine steps where small
+// changes matter, coarser ones higher up so 8x is not 28 presses away.
+export const ZOOM_LEVELS = [1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 5, 6, 8]
 
 // Past this zoom level, re-request the page at a higher render width so text
 // stays crisp. Below it the base width is already sharp enough.
@@ -17,8 +19,41 @@ export const MAX_RENDER_WIDTH = 3000
 
 export const clampZoom = (z) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z))
 
-/** Round to the nearest step so button and wheel zoom land on the same values. */
+/** Round to the nearest step, to quantise the whole-page render width. */
 const snap = (z) => Math.round(z / ZOOM_STEP) * ZOOM_STEP
+
+// Wheel and pinch land between stops; a hair of slack keeps 1.2499 from
+// counting as below 1.25.
+const EPSILON = 1e-3
+
+/** The next stop above `z`, or MAX_ZOOM. */
+export const nextZoomLevel = (z) => ZOOM_LEVELS.find((l) => l > z + EPSILON) ?? MAX_ZOOM
+
+/** The next stop below `z`, or MIN_ZOOM. */
+export const prevZoomLevel = (z) =>
+  [...ZOOM_LEVELS].reverse().find((l) => l < z - EPSILON) ?? MIN_ZOOM
+
+/**
+ * The pan for a page turned while zoomed: same zoom, same column, but at the
+ * top of the new page when reading forward and the bottom when going back, the
+ * way a continuous scroll would arrive there.
+ *
+ * Measured on the page being left, since the next one is not laid out yet;
+ * pages in one book share a size. `top`/`bottom` are the page's screen edges and
+ * `viewHeight` the reader's, both relative to the reader's centre, so they work
+ * straight from getBoundingClientRect(). Pan is pre-scale (the transform is
+ * `scale(z) translate(pan)`), hence the divisions by zoom.
+ */
+export function panForTurn({ direction, zoom, pan, top, bottom, viewHeight, margin = 12 }) {
+  const pageTop = top / zoom - pan.y
+  const pageBottom = bottom / zoom - pan.y
+  const halfView = viewHeight / 2 / zoom
+  // A page that fits on screen at this zoom is simply centred.
+  if (pageBottom - pageTop <= 2 * halfView) return { x: pan.x, y: 0 - (pageTop + pageBottom) / 2 }
+  const inset = margin / zoom
+  const y = direction >= 0 ? -halfView + inset - pageTop : halfView - inset - pageBottom
+  return { x: pan.x, y }
+}
 
 /**
  * The render width to request for a page at a given zoom. Returns the base width
@@ -42,7 +77,8 @@ export function renderWidthFor(baseWidth, zoom) {
  * centre. Without this, zooming past ~1.5x walks the region of interest off
  * screen and you have to pan back to what you were looking at.
  *
- * `resetKey` (the current page) resets zoom and pan on page change.
+ * `resetKey` resets zoom and pan when it changes - the book and view mode, not
+ * the page: zoom carries across page turns (see panForTurn).
  *
  * @returns {{zoom, pan, setPan, zoomIn, zoomOut, resetZoom, zoomAt, canZoomIn, canZoomOut, isZoomed}}
  */
@@ -93,8 +129,8 @@ export default function useReaderZoom({ resetKey } = {}) {
     [apply]
   )
 
-  const zoomIn = useCallback(() => zoomTo(snap(zoomRef.current + ZOOM_STEP)), [zoomTo])
-  const zoomOut = useCallback(() => zoomTo(snap(zoomRef.current - ZOOM_STEP)), [zoomTo])
+  const zoomIn = useCallback(() => zoomTo(nextZoomLevel(zoomRef.current)), [zoomTo])
+  const zoomOut = useCallback(() => zoomTo(prevZoomLevel(zoomRef.current)), [zoomTo])
   const resetZoom = useCallback(() => apply(MIN_ZOOM, { x: 0, y: 0 }), [apply])
 
   /** Continuous zoom by a relative delta, anchored at a point. For the wheel. */

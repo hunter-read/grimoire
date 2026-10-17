@@ -11,6 +11,9 @@ import { PAGE_WIDTH, animStyle } from './pageRender'
  *
  * `renderWidth` is the width to request the page image at; the reader raises it
  * when zoomed so text stays sharp instead of being scaled up as a bitmap.
+ *
+ * `renderTiles(page, words)` adds the reader's zoom tiles over the page image,
+ * under the selectable text (issue #574). Only pages with geometry get them.
  */
 export default function SinglePage({
   bookId,
@@ -25,6 +28,7 @@ export default function SinglePage({
   activeHighlight,
   pageUrl,
   renderWidth = PAGE_WIDTH,
+  renderTiles,
 }) {
   const urlFor = pageUrl ?? ((p, width) => mediaUrl(`/books/${bookId}/page/${p}`, { width }))
   const wd = wordsCacheRef?.current[currentPage]
@@ -54,6 +58,7 @@ export default function SinglePage({
         >
           <img
             src={urlFor(currentPage, renderWidth)}
+            data-page-image
             alt={getAlt(currentPage)}
             draggable={false}
             style={{
@@ -65,6 +70,7 @@ export default function SinglePage({
               userSelect: 'none',
             }}
           />
+          {renderTiles?.(currentPage, wd)}
           <TextOverlay
             words={wd.words}
             naturalWidth={wd.width}
@@ -76,6 +82,7 @@ export default function SinglePage({
       ) : (
         <img
           src={urlFor(currentPage, renderWidth)}
+          data-page-image
           alt={getAlt(currentPage)}
           style={{
             maxHeight: '100%',

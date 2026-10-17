@@ -25,6 +25,8 @@ UNTYPED_BY_DESIGN = {
     "/api/books/{book_id}/export",
     "/api/books/{book_id}/file",
     "/api/books/{book_id}/page/{page_num}",
+    # One zoom tile of a rendered page (issue #574), a WebP like the page itself.
+    "/api/books/{book_id}/page/{page_num}/tile",
     "/api/books/{book_id}/thumbnail",
     "/api/campaigns/{campaign_id}/banner",
     # Serves the portrait image itself, like the campaign art route.

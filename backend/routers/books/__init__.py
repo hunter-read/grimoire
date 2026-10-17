@@ -20,6 +20,7 @@ from .metadata import (
     search_metadata,
 )
 from .pages import get_book_toc, serve_book_page, get_page_text, get_page_words
+from .tiles import serve_book_page_tile
 from .export import detect_book_page_shapes, export_book, get_book_page_size, save_book_export
 from ._helpers import _invalidate_book_cache  # re-exported for library.py
 from .._bulk_schemas import BulkResult, BulkTagResult
@@ -123,6 +124,18 @@ router.add_api_route(
     serve_book_page,
     methods=["GET"],
     summary="Render a PDF page as WebP",
+)
+router.add_api_route(
+    "/{book_id}/page/{page_num}/tile",
+    serve_book_page_tile,
+    methods=["GET"],
+    summary="Render one zoom tile of a page as WebP",
+    description=(
+        "One square (at most 1024px) of a page rendered as if the whole page were "
+        "`width` pixels wide, for sharp zoom past what a whole-page render allows. "
+        "`col`/`row` count tiles from the top left; `width` is a multiple of 256 "
+        "up to 16384. Rendered documents only (PDF, EPUB, DjVu)."
+    ),
 )
 router.add_api_route(
     "/{book_id}/page/{page_num}/text", get_page_text, methods=["GET"], summary="Get page text",

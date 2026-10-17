@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import { createRef } from 'react'
 import useReaderGestures from './useReaderGestures'
+import { MAX_ZOOM } from './useReaderZoom'
 
 /** Mount the hook against a real element so the native wheel listener binds. */
 function setup(overrides = {}) {
@@ -262,9 +263,9 @@ describe('useReaderGestures — touch', () => {
     result.current.handleTouchMove(touchEvent([touch(0, 0), touch(200, 0)]))
     expect(opts.setZoomDirect).toHaveBeenCalledWith(2)
 
-    // Spreading further is held at the ceiling rather than softening the image.
-    result.current.handleTouchMove(touchEvent([touch(0, 0), touch(900, 0)]))
-    expect(opts.setZoomDirect).toHaveBeenLastCalledWith(2)
+    // Spreading past the ceiling is held there.
+    result.current.handleTouchMove(touchEvent([touch(0, 0), touch(1200, 0)]))
+    expect(opts.setZoomDirect).toHaveBeenLastCalledWith(MAX_ZOOM)
   })
 
   it('snaps back to 1x when a pinch ends barely zoomed', () => {

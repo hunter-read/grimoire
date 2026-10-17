@@ -5,21 +5,14 @@ from pathlib import Path
 
 from fastapi import Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
-from fastapi.responses import FileResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, Response
 from sqlalchemy import text as sql_text
 
 import fitz  # type: ignore[import-untyped]
 from PIL import Image  # type: ignore[import-untyped]
 
 from ...auth import CurrentUser, get_current_user
-from ...config import (
-    _PAGE_CACHE_HEADERS,
-    PAGE_CACHE_DIR,
-    _valkey,
-    get_db,
-    logger,
-    valkey_cache_set,
-)
+from ...config import _PAGE_CACHE_HEADERS, PAGE_CACHE_DIR, get_db
 from ...file_cache import etag_matches
 from ...indexer import comics, text_documents
 from ...indexer.formats import (
@@ -39,6 +32,7 @@ from ._helpers import (
     note_page_render,
     open_pdf,
 )
+from ._render_cache import serve_cached_render
 
 
 def _mark_missing(db: Session, book_id: str) -> None:
@@ -152,59 +146,33 @@ def serve_book_page(
         raise HTTPException(404)
 
     # The content token is part of the key: a replaced file renders under a new
-    # key rather than hitting the previous file's entry.
+    # key rather than hitting the previous file's entry. The cache filename is
+    # derived from the DB-sourced filepath (never user input), so no tainted
+    # data touches the filesystem path.
     valkey_key = f"page:{book_id}:{token}:{page_num}:{width}"
-
-    if _valkey is not None:
-        try:
-            cached = _valkey.get(valkey_key)
-            if cached:
-                return StreamingResponse(
-                    io.BytesIO(cached), media_type="image/webp", headers=cache_headers
-                )
-        except Exception as e:
-            logger.warning(f"Valkey get error: {e}")
-
-    # Derive cache filename from the DB-sourced filepath (never user input)
-    # so no tainted data touches the filesystem path.
     file_hash = page_cache_prefix(filepath)
     cache_path = os.path.join(PAGE_CACHE_DIR, f"{file_hash}_{token}_{page_num}_{width}.webp")
-    if os.path.exists(cache_path):
-        if _valkey is not None:
-            try:
-                with open(cache_path, "rb") as f:
-                    valkey_cache_set(valkey_key, f.read())
-            except OSError as e:
-                logger.warning(f"Page cache read error: {e}")
-        return FileResponse(cache_path, media_type="image/webp", headers=cache_headers)
 
-    if not os.path.exists(filepath):
-        _mark_missing(db, book_id)
-        raise HTTPException(404, "File not found on disk")
-    with open_pdf(filepath) as doc:
-        if page_num < 1 or page_num > len(doc):
-            raise HTTPException(400, f"Page must be between 1 and {len(doc)}")
-        page = doc[page_num - 1]
-        zoom = width / page.rect.width
-        pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
-        buf = io.BytesIO()
-        Image.frombytes("RGB", (pix.width, pix.height), pix.samples).save(
-            buf, format="webp", quality=85, method=0
-        )
-        img_bytes = buf.getvalue()
-        # Drop the pixmap before reclaiming so its buffer is part of what's freed.
-        del pix, page
-    note_page_render()
+    def render() -> bytes:
+        if not os.path.exists(filepath):
+            _mark_missing(db, book_id)
+            raise HTTPException(404, "File not found on disk")
+        with open_pdf(filepath) as doc:
+            if page_num < 1 or page_num > len(doc):
+                raise HTTPException(400, f"Page must be between 1 and {len(doc)}")
+            page = doc[page_num - 1]
+            zoom = width / page.rect.width
+            pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
+            buf = io.BytesIO()
+            Image.frombytes("RGB", (pix.width, pix.height), pix.samples).save(
+                buf, format="webp", quality=85, method=0
+            )
+            # Drop the pixmap before reclaiming so its buffer is part of what's freed.
+            del pix, page
+        note_page_render()
+        return buf.getvalue()
 
-    # Fall back to the disk cache when Valkey is absent or the write failed, so
-    # a Valkey outage degrades to the on-disk path instead of losing the render.
-    if not valkey_cache_set(valkey_key, img_bytes):
-        with open(cache_path, "wb") as f:
-            f.write(img_bytes)
-
-    return StreamingResponse(
-        io.BytesIO(img_bytes), media_type="image/webp", headers=cache_headers
-    )
+    return serve_cached_render(valkey_key, cache_path, cache_headers, render)
 
 
 def get_page_text(

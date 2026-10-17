@@ -8,6 +8,7 @@ import { SPREAD_WIDTH, animStyle } from './pageRender'
  * Pass `pageUrl(page, width)` to override where page images come from (defaults
  * to the book page endpoint). When `wordsCacheRef` is omitted the selectable
  * text overlay is skipped — used by maps, which render pages without text.
+ * `renderTiles(page, words)` adds the reader's zoom tiles, as on SinglePage.
  */
 export default function SpreadPage({
   bookId,
@@ -24,6 +25,7 @@ export default function SpreadPage({
   activeHighlight,
   pageUrl,
   renderWidth = SPREAD_WIDTH,
+  renderTiles,
 }) {
   const urlFor = pageUrl ?? ((p, width) => mediaUrl(`/books/${bookId}/page/${p}`, { width }))
   return (
@@ -56,6 +58,7 @@ export default function SpreadPage({
           >
             <img
               src={urlFor(p, renderWidth)}
+              data-page-image
               alt={getAlt(p)}
               draggable={false}
               style={{
@@ -67,6 +70,7 @@ export default function SpreadPage({
                 userSelect: 'none',
               }}
             />
+            {renderTiles?.(p, wd)}
             <TextOverlay
               words={wd.words}
               naturalWidth={wd.width}
@@ -79,6 +83,7 @@ export default function SpreadPage({
           <img
             key={p}
             src={urlFor(p, renderWidth)}
+            data-page-image
             alt={getAlt(p)}
             style={{
               maxHeight: '100%',

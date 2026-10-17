@@ -54,6 +54,8 @@ GUEST_REACHABLE = {
     "/api/books/{book_id}/page/{page_num}/shapes": "GET",
     "/api/books/{book_id}/page/{page_num}/size": "GET",
     "/api/books/{book_id}/page/{page_num}/text": "GET",
+    # Zoom tiles (issue #574): _authorize_book, exactly as the page itself.
+    "/api/books/{book_id}/page/{page_num}/tile": "GET",
     "/api/books/{book_id}/page/{page_num}/words": "GET",
     "/api/books/{book_id}/thumbnail": "GET",
     "/api/books/{book_id}/toc": "GET",
