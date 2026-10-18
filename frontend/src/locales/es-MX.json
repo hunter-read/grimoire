@@ -3546,7 +3546,8 @@
       "revoked": "Revocado",
       "expired": "Caducado",
       "suspended": "Suspendido",
-      "unavailable": "No disponible"
+      "unavailable": "No disponible",
+      "lost": "Perdido"
     },
     "stateHint": {
       "active": "Cualquiera con el enlace puede abrirlo.",
@@ -3554,7 +3555,8 @@
       "revoked": "Este enlace se revocó y ya no funciona.",
       "expired": "Este enlace ha caducado.",
       "suspended": "No funciona mientras su propietario no pueda compartir. Vuelve a funcionar si recupera el permiso.",
-      "unavailable": "No funciona: el elemento ya no existe o falta en el disco, o su propietario ya no puede abrirlo."
+      "unavailable": "No funciona: el elemento ya no existe o falta en el disco, o su propietario ya no puede abrirlo.",
+      "lost": "Este enlace ya no funciona porque cambió la clave secreta del servidor. Revócalo y crea uno nuevo."
     },
     "row": {
       "expires": "Caduca el {{when}}",

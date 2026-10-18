@@ -32,9 +32,10 @@ class ShareLinkUpdate(BaseModel):
 
 class ShareLinkOut(BaseModel):
     id: str
-    # The share page, and the raw file for tools that load a URL directly.
-    url: str
-    file_url: str
+    # The share page, and the raw file for tools that load a URL directly. null
+    # when the link is "lost" (sealed under a SECRET_KEY since replaced).
+    url: Optional[str] = None
+    file_url: Optional[str] = None
     resource_type: str
     resource_id: str
     resource_name: str
@@ -44,7 +45,7 @@ class ShareLinkOut(BaseModel):
     # null for the item itself; "otfbm" with {"cell": n} for an OTFBM background.
     variant: Optional[str] = None
     variant_options: Optional[dict] = None
-    # active | disabled | revoked | expired | suspended | unavailable
+    # active | disabled | revoked | expired | suspended | unavailable | lost
     state: str
     created_at: Optional[str] = None
     expires_at: Optional[str] = None

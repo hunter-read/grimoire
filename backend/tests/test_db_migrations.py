@@ -278,9 +278,10 @@ class TestAlembicCutover:
 
         # Schema is fully current.
         assert ucols["hashed_password"]["nullable"] is True
-        assert {"opds_token", "email", "oidc_subject", "campaign_access", "is_guest"} <= set(
+        assert {"opds_token_hash", "email", "oidc_subject", "campaign_access", "is_guest"} <= set(
             ucols
         )
+        assert "opds_token" not in ucols
         assert {"visibility", "category_id", "sort_order", "gm_only"} <= rcols
         # Tables absent from the old DB were created; FTS table exists.
         assert {"game_systems", "campaigns", "wiki_pages", "book_search"} <= tables
@@ -1026,3 +1027,159 @@ class TestReindexMovedBooks:
         assert books["no-text"] == (1, 0, 0, "no-text", 12, 3)
         assert books["queued"] == (0, 1, 0, "", 12, 3)
         assert books["failed"] == (0, 0, 1, "extraction crashed", 12, 3)
+
+
+class TestBearerTokensAtRest:
+    """0047 hashes and seals the OPDS, calendar and share-link tokens (issue #583)."""
+
+    OPDS = "legacy-opds-token-" + "o" * 40
+    CALENDAR = "legacy-calendar-token-" + "c" * 20
+    SHARE = "legacy-share-token-" + "s" * 24
+    # Enough rows that rewriting them splits and rebalances pages: that is what
+    # leaves old row images behind in the file (a handful of rows does not).
+    CROWD = [f"crowd-opds-token-{i:04d}-" + "x" * 40 for i in range(300)]
+
+    def _db_with_plaintext_tokens(self):
+        """A current DB rewound to before 0047, holding one token of each kind."""
+        path = _fresh_db()
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            command.downgrade(_alembic_config(conn), "9c4d2e7a1f30")
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "INSERT INTO users (id, username, role, created_at, opds_token, calendar_token) "
+                    "VALUES ('u1', 'reader', 'gm', '2026-01-01 00:00:00', :o, :c)"
+                ),
+                {"o": self.OPDS, "c": self.CALENDAR},
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO share_links (id, token, user_id, resource_type, resource_id) "
+                    "VALUES ('l1', :t, 'u1', 'map', 'm1')"
+                ),
+                {"t": self.SHARE},
+            )
+            for i, token in enumerate(self.CROWD):
+                conn.execute(
+                    text(
+                        "INSERT INTO users (id, username, role, created_at, opds_token) "
+                        "VALUES (:id, :id, 'player', '2026-01-01 00:00:00', :t)"
+                    ),
+                    {"id": f"crowd-{i}", "t": token},
+                )
+        engine.dispose()
+        return path
+
+    def _one(self, path, sql):
+        engine = create_engine(f"sqlite:///{path}")
+        try:
+            with engine.connect() as conn:
+                return conn.execute(text(sql)).one()
+        finally:
+            engine.dispose()
+
+    def test_existing_tokens_keep_working_by_their_hash(self):
+        from backend import token_vault
+
+        path = self._db_with_plaintext_tokens()
+        init_db(path)
+        opds_hash, opds_sealed, cal_hash, cal_sealed = self._one(
+            path,
+            "SELECT opds_token_hash, opds_token_sealed, calendar_token_hash, "
+            "calendar_token_sealed FROM users WHERE id = 'u1'",
+        )
+        # The URLs already handed out match: the same token hashes to the stored value.
+        assert opds_hash == token_vault.lookup_hash(self.OPDS)
+        assert cal_hash == token_vault.lookup_hash(self.CALENDAR)
+        assert token_vault.unseal(opds_sealed) == self.OPDS
+        assert token_vault.unseal(cal_sealed) == self.CALENDAR
+        share_hash, share_sealed = self._one(
+            path, "SELECT token_hash, token_sealed FROM share_links WHERE id = 'l1'"
+        )
+        assert share_hash == token_vault.lookup_hash(self.SHARE)
+        assert token_vault.unseal(share_sealed) == self.SHARE
+        assert _stamped_revision(path) == _alembic_head(path)
+
+    def test_the_plaintext_columns_are_gone(self):
+        path = self._db_with_plaintext_tokens()
+        init_db(path)
+        insp = inspect(create_engine(f"sqlite:///{path}"))
+        users = {c["name"] for c in insp.get_columns("users")}
+        links = {c["name"] for c in insp.get_columns("share_links")}
+        assert not {"opds_token", "calendar_token"} & users
+        assert "token" not in links
+        assert "ix_share_links_token_hash" in {i["name"] for i in insp.get_indexes("share_links")}
+
+    def test_no_plaintext_token_survives_anywhere_in_the_file(self):
+        """Not in a column, and not in a freed page a backup would copy either."""
+        path = self._db_with_plaintext_tokens()
+        init_db(path)
+        create_engine(f"sqlite:///{path}").dispose()
+        raw = b""
+        for suffix in ("", "-wal", "-journal"):
+            if os.path.exists(path + suffix):
+                with open(path + suffix, "rb") as f:
+                    raw += f.read()
+        left = [t for t in (self.OPDS, self.CALENDAR, self.SHARE, *self.CROWD) if t.encode() in raw]
+        assert left == []
+        # The one-time compaction ran and cleared its flag.
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            assert (
+                conn.execute(
+                    text("SELECT 1 FROM app_settings WHERE key = 'db_compact_pending'")
+                ).first()
+                is None
+            )
+        engine.dispose()
+
+    def test_compaction_failure_is_logged_not_fatal(self, monkeypatch, caplog):
+        from sqlalchemy.engine import Connection
+        from sqlalchemy.exc import OperationalError
+
+        path = self._db_with_plaintext_tokens()
+        real = Connection.exec_driver_sql
+
+        def locked(self, statement, *args, **kwargs):
+            if statement == "VACUUM":
+                raise OperationalError("VACUUM", {}, Exception("database is locked"))
+            return real(self, statement, *args, **kwargs)
+
+        monkeypatch.setattr(Connection, "exec_driver_sql", locked)
+        with caplog.at_level("WARNING", logger="grimoire"):
+            init_db(path)
+        assert any("compaction postponed" in r.message for r in caplog.records)
+        flag = "SELECT 1 FROM app_settings WHERE key = 'db_compact_pending'"
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            assert conn.execute(text(flag)).first()
+        engine.dispose()
+
+        # The next start, with nothing in the way, compacts and clears it.
+        monkeypatch.setattr(Connection, "exec_driver_sql", real)
+        init_db(path)
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            assert conn.execute(text(flag)).first() is None
+        engine.dispose()
+
+    def test_rerunning_is_a_no_op(self):
+        path = self._db_with_plaintext_tokens()
+        init_db(path)
+        before = self._one(path, "SELECT opds_token_hash, opds_token_sealed FROM users WHERE id='u1'")
+        init_db(path)
+        after = self._one(path, "SELECT opds_token_hash, opds_token_sealed FROM users WHERE id='u1'")
+        assert before == after
+
+    def test_downgrade_restores_the_plaintext_tokens(self):
+        path = self._db_with_plaintext_tokens()
+        init_db(path)
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            command.downgrade(_alembic_config(conn), "9c4d2e7a1f30")
+        engine.dispose()
+        assert self._one(
+            path, "SELECT opds_token, calendar_token FROM users WHERE id = 'u1'"
+        ) == (self.OPDS, self.CALENDAR)
+        assert self._one(path, "SELECT token FROM share_links WHERE id = 'l1'") == (self.SHARE,)

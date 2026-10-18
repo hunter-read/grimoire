@@ -11,6 +11,7 @@ import uuid
 
 import pytest
 
+from backend import token_vault
 from backend.config import SessionLocal
 from backend.models import User
 from backend.routers.campaigns import _calendar, calendar as calendar_mod
@@ -689,7 +690,8 @@ class TestTokenIsolation:
         db = SessionLocal()
         try:
             user = db.query(User).filter_by(id=gm_id).first()
-            user.opds_token = "opds-fixed-token"
+            user.opds_token_hash = token_vault.lookup_hash("opds-fixed-token")
+            user.opds_token_sealed = token_vault.seal("opds-fixed-token")
             db.commit()
         finally:
             db.close()
@@ -699,10 +701,51 @@ class TestTokenIsolation:
         db = SessionLocal()
         try:
             user = db.query(User).filter_by(id=gm_id).first()
-            assert user.opds_token == "opds-fixed-token"
-            assert user.calendar_token != user.opds_token
+            assert token_vault.unseal(user.opds_token_sealed) == "opds-fixed-token"
+            assert token_vault.unseal(user.calendar_token_sealed) != "opds-fixed-token"
+            assert user.calendar_token_hash != user.opds_token_hash
         finally:
             db.close()
 
         # The JWT still works.
         assert client.get("/api/campaigns", headers=gm_headers).status_code == 200
+
+
+class TestCalendarTokenAtRest:
+    """The feed token is never stored as itself (issue #583)."""
+
+    def _row(self, user_id):
+        db = SessionLocal()
+        try:
+            user = db.query(User).filter_by(id=user_id).one()
+            return user.calendar_token_hash, user.calendar_token_sealed
+        finally:
+            db.close()
+
+    def test_the_database_holds_no_usable_token(self, client, gm_headers, gm_id):
+        token = token_of(client, gm_headers)
+        token_hash, sealed = self._row(gm_id)
+        assert token not in (token_hash, sealed) and token not in sealed
+        assert client.get(f"/api/campaigns/calendar/{token}/all.ics").status_code == 200
+        for stolen in (token_hash, sealed):
+            assert client.get(f"/api/campaigns/calendar/{stolen}/all.ics").status_code == 404
+
+    def test_the_feed_url_can_be_shown_again(self, client, gm_headers):
+        token = token_of(client, gm_headers)
+        status = client.get("/api/campaigns/calendar/subscription", headers=gm_headers).json()
+        assert status["has_token"] is True
+        assert f"/calendar/{token}/all.ics" in status["feed_url"]
+
+    def test_a_changed_secret_key_offers_a_new_token(self, client, gm_headers, monkeypatch):
+        token = token_of(client, gm_headers)
+        # The sealing key only, so the GM stays signed in.
+        monkeypatch.setattr(token_vault, "_secret", lambda: "a-different-secret")
+        status = client.get("/api/campaigns/calendar/subscription", headers=gm_headers).json()
+        assert status["has_token"] is False and status["feed_url"] is None
+        assert client.get(f"/api/campaigns/calendar/{token}/all.ics").status_code == 404
+
+    def test_revoking_clears_both_values(self, client, gm_headers, gm_id):
+        token_of(client, gm_headers)
+        r = client.delete("/api/campaigns/calendar/subscription", headers=gm_headers)
+        assert r.status_code == 200, r.text
+        assert self._row(gm_id) == (None, None)

@@ -734,6 +734,22 @@ def valkey_errors() -> tuple:
 
 
 _VALKEY_ERRORS: Optional[tuple] = None
+
+
+def redact_url(url: str) -> str:
+    """``url`` with any username and password replaced, for logging.
+
+    A Valkey with ``requirepass`` is configured as ``redis://:password@host``,
+    and the log is readable in-app and by API keys with the logs permission
+    (issue #583). The host stays, so the line still says where it connected.
+    """
+    parts = urllib.parse.urlsplit(url)
+    if "@" not in parts.netloc:
+        return url
+    host = parts.netloc.rsplit("@", 1)[1]
+    return urllib.parse.urlunsplit(parts._replace(netloc=f"***@{host}"))
+
+
 if VALKEY_URL:
     try:
         import redis as _redis_mod  # type: ignore[import-untyped]
@@ -744,7 +760,7 @@ if VALKEY_URL:
         # we only use this as a page cache and don't need the feature.
         _valkey = _redis_mod.from_url(VALKEY_URL, decode_responses=False)
         _valkey.ping()
-        logger.info(f"Valkey page cache connected: {VALKEY_URL}")
+        logger.info(f"Valkey page cache connected: {redact_url(VALKEY_URL)}")
     except Exception as e:
         logger.warning(f"Valkey connection failed, falling back to disk cache: {e}")
         _valkey = None

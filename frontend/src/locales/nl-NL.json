@@ -3546,7 +3546,8 @@
       "revoked": "Ingetrokken",
       "expired": "Verlopen",
       "suspended": "Gepauzeerd",
-      "unavailable": "Niet beschikbaar"
+      "unavailable": "Niet beschikbaar",
+      "lost": "Verloren"
     },
     "stateHint": {
       "active": "Iedereen met de link kan hem openen.",
@@ -3554,7 +3555,8 @@
       "revoked": "Deze link is ingetrokken en werkt niet meer.",
       "expired": "Deze link is verlopen.",
       "suspended": "Werkt niet zolang de eigenaar niet mag delen. Werkt weer zodra dat wel mag.",
-      "unavailable": "Werkt niet: het item is weg of ontbreekt op schijf, of de eigenaar kan het niet meer openen."
+      "unavailable": "Werkt niet: het item is weg of ontbreekt op schijf, of de eigenaar kan het niet meer openen.",
+      "lost": "Deze link werkt niet meer omdat de geheime sleutel van de server is gewijzigd. Trek hem in en maak een nieuwe."
     },
     "row": {
       "expires": "Verloopt op {{when}}",

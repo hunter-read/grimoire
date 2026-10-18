@@ -89,6 +89,32 @@ class TestSnapshotDatabase:
         finally:
             conn.close()
 
+    def test_snapshot_carries_no_deleted_data(self, tmp_path):
+        """Only live rows: what was deleted or overwritten stays behind (issue #583).
+
+        A page-for-page copy would carry old row images out of the server in
+        the free space of the live file.
+        """
+        from backend.config import SessionLocal
+        from backend.models import AppSetting
+
+        secrets_ = [f"deleted-secret-{i:03d}-" + "z" * 60 for i in range(200)]
+        db = SessionLocal()
+        try:
+            db.add_all(AppSetting(key=f"snap-test-{i}", value=v) for i, v in enumerate(secrets_))
+            db.commit()
+            db.query(AppSetting).filter(AppSetting.key.like("snap-test-%")).delete(
+                synchronize_session=False
+            )
+            db.commit()
+        finally:
+            db.close()
+
+        dest = tmp_path / "clean.db"
+        backup_service.snapshot_database(str(dest))
+        raw = dest.read_bytes()
+        assert [s for s in secrets_ if s.encode() in raw] == []
+
 
 # ---------------------------------------------------------------------------
 # Archive creation

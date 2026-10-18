@@ -30,6 +30,11 @@ Your library - the PDFs, maps, tokens, audio, and models themselves - is **not**
 and does not need to be restored. Neither are thumbnails or rendered pages, which
 regenerate on demand.
 
+Nor is `secret_key`. Restore onto the same server, or one with the same `SECRET_KEY`, and
+everything works as before. On a server with a different key, everyone signs in again,
+OPDS and calendar feeds need a new URL, and share links show as **Lost** and need making
+again - see [Security](security.md#feed-and-share-tokens-at-rest).
+
 ## 1. Stop the server
 
 ```bash

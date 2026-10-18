@@ -3546,7 +3546,8 @@
       "revoked": "Révoqué",
       "expired": "Expiré",
       "suspended": "Suspendu",
-      "unavailable": "Indisponible"
+      "unavailable": "Indisponible",
+      "lost": "Perdu"
     },
     "stateHint": {
       "active": "Toute personne disposant du lien peut l'ouvrir.",
@@ -3554,7 +3555,8 @@
       "revoked": "Ce lien a été révoqué et ne fonctionne plus.",
       "expired": "Ce lien a expiré.",
       "suspended": "Inactif tant que son propriétaire n'a pas le droit de partager. Il refonctionne s'il le récupère.",
-      "unavailable": "Inactif : l'élément a disparu ou manque sur le disque, ou son propriétaire ne peut plus l'ouvrir."
+      "unavailable": "Inactif : l'élément a disparu ou manque sur le disque, ou son propriétaire ne peut plus l'ouvrir.",
+      "lost": "Ce lien ne fonctionne plus car la clé secrète du serveur a changé. Révoquez-le et créez-en un nouveau."
     },
     "row": {
       "expires": "Expire le {{when}}",

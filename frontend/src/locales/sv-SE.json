@@ -3546,7 +3546,8 @@
       "revoked": "Återkallad",
       "expired": "Utgången",
       "suspended": "Pausad",
-      "unavailable": "Ej tillgänglig"
+      "unavailable": "Ej tillgänglig",
+      "lost": "Förlorad"
     },
     "stateHint": {
       "active": "Alla med länken kan öppna den.",
@@ -3554,7 +3555,8 @@
       "revoked": "Länken har återkallats och fungerar inte längre.",
       "expired": "Länken har gått ut.",
       "suspended": "Fungerar inte medan ägaren inte får dela. Den fungerar igen om ägaren får det.",
-      "unavailable": "Fungerar inte: objektet är borta eller saknas på disken, eller så kan ägaren inte längre öppna det."
+      "unavailable": "Fungerar inte: objektet är borta eller saknas på disken, eller så kan ägaren inte längre öppna det.",
+      "lost": "Den här länken fungerar inte längre eftersom serverns hemliga nyckel har ändrats. Återkalla den och skapa en ny."
     },
     "row": {
       "expires": "Går ut {{when}}",

@@ -41,21 +41,21 @@ _lock = threading.Lock()
 
 
 def snapshot_database(destination: str) -> None:
-    """Write a consistent copy of the SQLite database to `destination`.
+    """Write a consistent, compacted copy of the SQLite database to `destination`.
 
     The database runs in WAL mode, where a plain file copy can capture a torn
     state: committed pages may still live in the -wal file, and the copy has no
-    way to know which. SQLite's online backup API walks the database under a
-    read lock and produces a single self-consistent file with the WAL already
-    folded in, which is why `cp` is not a valid substitute here.
+    way to know which. ``VACUUM INTO`` reads the database under one read
+    transaction, WAL included, which is why `cp` is not a valid substitute here.
+
+    It also writes only live rows. A page-for-page copy (the online backup API)
+    carries whatever deleted or overwritten data still sits in free pages and in
+    the gaps inside pages - a token replaced long ago, a deleted note - and a
+    backup is exactly the file that leaves the server (issue #583).
     """
     source = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
     try:
-        target = sqlite3.connect(destination)
-        try:
-            source.backup(target)
-        finally:
-            target.close()
+        source.execute("VACUUM INTO ?", (destination,))
     finally:
         source.close()
 

@@ -105,7 +105,7 @@ export default function ShareLinkRow({
         </div>
       </div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        {!revoked && (
+        {!revoked && link.url && (
           <button
             type="button"
             onClick={() => copy('page', publicUrl(link.url))}
@@ -115,7 +115,7 @@ export default function ShareLinkRow({
             {copied === 'page' ? t('share.row.copied') : t('share.row.copyLink')}
           </button>
         )}
-        {!revoked && !link.has_password && (
+        {!revoked && link.file_url && !link.has_password && (
           <button
             type="button"
             onClick={() => copy('file', publicUrl(link.file_url))}

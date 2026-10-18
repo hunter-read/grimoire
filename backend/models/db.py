@@ -511,6 +511,45 @@ def _apply_migrations(engine: Engine) -> None:
         command.upgrade(cfg, "head")
 
 
+# Set in app_settings by a migration that replaced sensitive values in place
+# (0047: plaintext feed and share tokens). See _compact_if_pending.
+COMPACT_PENDING_KEY = "db_compact_pending"
+
+
+def _compact_if_pending(engine: Engine) -> None:
+    """Rebuild the database file once after a migration replaced sensitive data.
+
+    Replacing a value in place does not erase it: SQLite leaves old row images
+    in the unused space of pages, in free pages and in WAL frames until that
+    space is reused, so a copy of the file can still carry them. Backups are
+    written with VACUUM INTO and never do, but a raw copy of the data directory
+    would (and need not carry ``secret_key``, if SECRET_KEY is set in the
+    environment). VACUUM rebuilds the file from live rows only.
+
+    Runs once: the flag is cleared after a successful VACUUM. If it cannot run
+    now (another worker reading, too little disk for the temporary copy) it is
+    logged and retried at the next start - the data itself is already migrated.
+    """
+    with engine.connect() as conn:
+        pending = conn.execute(
+            text("SELECT 1 FROM app_settings WHERE key = :k"), {"k": COMPACT_PENDING_KEY}
+        ).first()
+    if pending is None:
+        return
+    logger.info("Compacting the database once to clear superseded credentials...")
+    try:
+        with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+            conn.exec_driver_sql("VACUUM")
+            conn.execute(
+                text("DELETE FROM app_settings WHERE key = :k"), {"k": COMPACT_PENDING_KEY}
+            )
+            # VACUUM in WAL mode writes through the WAL; fold it in and empty it
+            # so the old images do not linger in its frames either.
+            conn.exec_driver_sql("PRAGMA wal_checkpoint(TRUNCATE)")
+    except OperationalError as exc:
+        logger.warning("Database compaction postponed to the next start: %s", exc)
+
+
 def _post_migration_setup(engine: Engine) -> None:
     """One-time data fixups and FTS5 setup that run on every startup.
 
@@ -618,6 +657,7 @@ def init_db(db_path: str) -> Tuple[Engine, sessionmaker[Session]]:
     with _migration_lock(db_path):
         _apply_migrations(engine)
         _post_migration_setup(engine)
+        _compact_if_pending(engine)
 
     Session = sessionmaker(bind=engine)
     return engine, Session

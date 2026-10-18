@@ -43,12 +43,19 @@ class User(Base):
     # allows the role); True/False grants or denies it regardless of role. See
     # ``backend/services/share_links.py``.
     share_links_enabled = Column(Boolean, nullable=True, default=None)
-    opds_token = Column(String(64), nullable=True, unique=True, index=True)
-    # Revocable per-user token authenticating the campaign calendar (ICS) feeds.
-    # Deliberately separate from opds_token and from the JWT: calendar apps can
-    # only carry credentials in the URL, so this grants read access to schedule
-    # data alone and can be rotated without touching login or OPDS.
-    calendar_token = Column(String(64), nullable=True, unique=True, index=True)
+    # The OPDS feed token, never stored as itself (issue #583): `_hash` is what
+    # feed requests are matched on and `_sealed` the token encrypted so the
+    # owner can copy the feed URL again. Both need SECRET_KEY, which backups do
+    # not contain. See backend/token_vault.py.
+    opds_token_hash = Column(String(64), nullable=True, unique=True, index=True)
+    opds_token_sealed = Column(Text, nullable=True)
+    # Revocable per-user token authenticating the campaign calendar (ICS) feeds,
+    # stored like the OPDS token. Deliberately separate from it and from the
+    # JWT: calendar apps can only carry credentials in the URL, so this grants
+    # read access to schedule data alone and can be rotated without touching
+    # login or OPDS.
+    calendar_token_hash = Column(String(64), nullable=True, unique=True, index=True)
+    calendar_token_sealed = Column(Text, nullable=True)
     oidc_subject = Column(String(255), nullable=True, unique=True, index=True)
     # Appearance for the default app mode (Grimoire). `theme_mode` is
     # light/dark/system; `theme_id` names an installed UserTheme, or is null for

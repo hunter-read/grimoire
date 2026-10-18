@@ -1,5 +1,5 @@
 """Share links (issue #541)."""
-from sqlalchemy import JSON, Column, DateTime, ForeignKey, Index, Integer, String
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, Index, Integer, String, Text
 
 from .base import Base, _utcnow, _uuid
 
@@ -14,9 +14,12 @@ class ShareLink(Base):
     the item. A link whose creator loses either right stops resolving but is
     kept, so it comes back if the right does.
 
-    ``token`` is stored in plaintext, like the calendar and OPDS tokens, so the
-    creator can copy the link again from their list. ``password_hash`` (bcrypt,
-    as for account passwords) makes the link require a password on top.
+    The token itself is never stored (issue #583): ``token_hash`` is what
+    requests are matched on and ``token_sealed`` the token encrypted, so the
+    creator can copy the link again from their list. Both need SECRET_KEY,
+    which backups do not contain - see ``backend/token_vault.py``.
+    ``password_hash`` (bcrypt, as for account passwords) makes the link
+    require a password on top.
 
     ``filename`` is the name the direct-file URL ends in. Some tools pick the
     decoder from the URL's extension, so it carries the extension of what is
@@ -29,7 +32,8 @@ class ShareLink(Base):
     __tablename__ = "share_links"
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    token = Column(String(64), nullable=False, unique=True, index=True)
+    token_hash = Column(String(64), nullable=False, unique=True, index=True)
+    token_sealed = Column(Text, nullable=False)
     # The creator. Links are deleted with their user.
     user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
     # book | map | token | audio | model

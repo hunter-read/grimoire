@@ -17,8 +17,11 @@ grimoire-backup-20260821T140355Z.zip
 └── branding/          the uploaded OIDC sign-in button icon
 ```
 
-The database is copied with SQLite's online backup API rather than a file copy, so the
-snapshot is consistent even while Grimoire is running. Database writes are paused for the
+The database is copied with SQLite's `VACUUM INTO` rather than a file copy, so the
+snapshot is consistent even while Grimoire is running, and holds only live data - nothing
+deleted or overwritten comes along in the file's free space. Feed and share-link tokens
+in it are hashed and encrypted with your `SECRET_KEY`, which is not in the backup - see
+[Security](security.md#feed-and-share-tokens-at-rest). Database writes are paused for the
 duration of the snapshot - brief for a typical library, but not instant.
 
 ## Your library is not backed up

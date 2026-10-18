@@ -14,6 +14,7 @@ from urllib.parse import quote
 import jwt
 from sqlalchemy.orm import Session
 
+from ... import token_vault
 from ...auth import ALGORITHM, COOKIE_SECURE, SECRET_KEY
 from ...config import BASE_URL
 from ...models import ShareLink, User
@@ -35,24 +36,30 @@ def evaluate(db: Session, link: ShareLink) -> tuple[str, Any, Any]:
     return policy.link_state(db, link, creator, readable), creator, record
 
 
-def page_url(link: ShareLink) -> str:
+def page_url(token: str) -> str:
     """The share page: a preview, a download button, and the password prompt."""
-    return f"{BASE_URL.rstrip('/')}/share/{link.token}"
+    return f"{BASE_URL.rstrip('/')}/share/{token}"
 
 
-def file_url(link: ShareLink) -> str:
+def file_url(link: ShareLink, token: str) -> str:
     """The raw file, for tools that load a URL directly (VTTs, OTFBM, Discord)."""
     name = quote(link.filename or link.resource_type)
-    return f"{BASE_URL.rstrip('/')}/api/share/{link.token}/{name}"
+    return f"{BASE_URL.rstrip('/')}/api/share/{token}/{name}"
 
 
 def serialize(db: Session, link: ShareLink, *, with_owner: bool = False) -> dict:
     """A link as the management API returns it."""
     state, creator, record = evaluate(db, link)
+    # The link's own token, decrypted for its owner to copy (issue #583). None
+    # means it was sealed under a different SECRET_KEY: requests can no longer
+    # match it either, so the link is dead for good and reads as "lost".
+    token = token_vault.unseal(link.token_sealed)
+    if token is None and state != "revoked":
+        state = "lost"
     out = {
         "id": link.id,
-        "url": page_url(link),
-        "file_url": file_url(link),
+        "url": page_url(token) if token else None,
+        "file_url": file_url(link, token) if token else None,
         "resource_type": link.resource_type,
         "resource_id": link.resource_id,
         "resource_name": _content.display_name(link.resource_type, record),
@@ -113,7 +120,7 @@ def is_unlocked(link: ShareLink, cookie: Optional[str]) -> bool:
     )
 
 
-def unlock_cookie_options(link: ShareLink) -> dict:
+def unlock_cookie_options(token: str) -> dict:
     """Cookie attributes for an unlock. Scoped to this one link's URLs, so
     unlocking one link never unlocks another, and HttpOnly like the session."""
     return {
@@ -122,5 +129,5 @@ def unlock_cookie_options(link: ShareLink) -> dict:
         "httponly": True,
         "secure": COOKIE_SECURE,
         "samesite": "lax",
-        "path": f"/api/share/{link.token}",
+        "path": f"/api/share/{token}",
     }

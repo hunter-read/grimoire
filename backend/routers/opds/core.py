@@ -14,6 +14,7 @@ from fastapi import Depends, HTTPException
 from fastapi.responses import Response, FileResponse
 from sqlalchemy.orm import Session
 
+from ... import token_vault
 from ...config import get_db
 from ...models import Book, User
 from ...services import access_control, tag_service
@@ -40,7 +41,7 @@ def _resolve_user(db, token: str) -> User:
     a guest token (e.g. left over from before a role change) is rejected here so
     the feed and download routes can't be used to bypass campaign scoping.
     """
-    user = db.query(User).filter_by(opds_token=token).first()
+    user = db.query(User).filter_by(opds_token_hash=token_vault.lookup_hash(token)).first()
     if not user or user.role == "guest":
         raise HTTPException(404, "Not found")
     return user

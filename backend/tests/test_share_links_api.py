@@ -1,5 +1,5 @@
 """Creating and managing share links, and the permission surfaces (issue #541)."""
-from backend import config
+from backend import config, token_vault
 from backend.config import SessionLocal
 from backend.models import ShareLink, User
 from backend.tests.conftest import make_map, make_token
@@ -199,12 +199,20 @@ class TestAdmin:
         uid = r.json()["id"]
         db = SessionLocal()
         m = make_map(filepath=png(tmp_path / "d.png"), filename="d.png")
-        db.add(ShareLink(token="tok-delete-me", user_id=uid, resource_type="map", resource_id=m.id))
+        db.add(
+            ShareLink(
+                token_hash=token_vault.lookup_hash("tok-delete-me"),
+                token_sealed=token_vault.seal("tok-delete-me"),
+                user_id=uid,
+                resource_type="map",
+                resource_id=m.id,
+            )
+        )
         db.commit()
         db.close()
         assert client.delete(f"/api/users/{uid}", headers=admin_headers).status_code == 204
         db = SessionLocal()
-        assert db.query(ShareLink).filter_by(token="tok-delete-me").first() is None
+        assert db.query(ShareLink).filter_by(user_id=uid).first() is None
         db.close()
 
 
@@ -277,3 +285,68 @@ class TestPermissionSurfaces:
         assert client.get("/api/settings/ui", headers=player_headers).json()["share_links_enabled"] is True
         monkeypatch.setattr(config, "SHARE_LINKS_ENABLED", False)
         assert client.get("/api/settings/ui", headers=player_headers).json()["share_links_enabled"] is False
+
+
+class TestTokenAtRest:
+    """The link's token is never stored as itself (issue #583)."""
+
+    def _row(self, link_id):
+        db = SessionLocal()
+        try:
+            row = db.query(ShareLink).filter_by(id=link_id).one()
+            return row.token_hash, row.token_sealed
+        finally:
+            db.close()
+
+    def test_the_database_holds_no_usable_token(self, client, gm_headers, shared_map):
+        link = create(client, gm_headers, "map", shared_map.id).json()
+        token = link["url"].rsplit("/", 1)[1]
+        token_hash, sealed = self._row(link["id"])
+        assert token not in (token_hash, sealed)
+        assert token not in sealed
+        # The link works by its real token...
+        assert client.get(f"/api/share/{token}/meta").status_code == 200
+        # ...and a value lifted from the database does not.
+        for stolen in (token_hash, sealed):
+            assert client.get(f"/api/share/{stolen}/meta").status_code == 404
+            assert client.get(f"/api/share/{stolen}").status_code == 404
+
+    def test_the_owner_can_still_copy_it(self, client, gm_headers, shared_map):
+        link = create(client, gm_headers, "map", shared_map.id).json()
+        listed = client.get("/api/share-links", headers=gm_headers).json()
+        again = next(item for item in listed if item["id"] == link["id"])
+        assert again["url"] == link["url"]
+        assert again["file_url"] == link["file_url"]
+
+    def test_a_changed_secret_key_reads_as_lost(self, client, gm_headers, shared_map, monkeypatch):
+        link = create(client, gm_headers, "map", shared_map.id).json()
+        token = link["url"].rsplit("/", 1)[1]
+        # The key tokens are sealed under, not the session one, so the GM stays
+        # signed in - as after restoring links sealed under an earlier SECRET_KEY.
+        monkeypatch.setattr(token_vault, "_secret", lambda: "a-different-secret")
+        listed = client.get("/api/share-links", headers=gm_headers).json()
+        lost = next(item for item in listed if item["id"] == link["id"])
+        assert lost["state"] == "lost"
+        assert lost["url"] is None and lost["file_url"] is None
+        assert client.get(f"/api/share/{token}/meta").status_code == 404
+
+    def test_a_revoked_link_stays_revoked_when_lost(
+        self, client, gm_headers, shared_map, monkeypatch
+    ):
+        link = create(client, gm_headers, "map", shared_map.id).json()
+        revoke = client.post(f"/api/share-links/{link['id']}/revoke", headers=gm_headers)
+        assert revoke.status_code == 200, revoke.text
+        # The key tokens are sealed under, not the session one, so the GM stays
+        # signed in - as after restoring links sealed under an earlier SECRET_KEY.
+        monkeypatch.setattr(token_vault, "_secret", lambda: "a-different-secret")
+        listed = client.get("/api/share-links", headers=gm_headers).json()
+        assert next(i for i in listed if i["id"] == link["id"])["state"] == "revoked"
+
+    def test_the_unlock_cookie_is_scoped_to_the_real_token(
+        self, client, gm_headers, shared_map
+    ):
+        link = create(client, gm_headers, "map", shared_map.id, password="hunter22").json()
+        token = link["url"].rsplit("/", 1)[1]
+        r = client.post(f"/api/share/{token}/unlock", json={"password": "hunter22"})
+        assert r.status_code == 200
+        assert f"Path=/api/share/{token}" in r.headers["set-cookie"]

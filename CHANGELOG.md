@@ -31,6 +31,13 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - The campaign resource picker offered tabs for maps, tokens, audio or models even when those sections were hidden in Settings, and adding by tag could add them
 - Reading more than ten books at once, or replacing a book's file while someone was reading it, could close the book under a page that was still loading and fail that page
 
+### Security
+
+- OPDS feed, calendar feed and share-link tokens are no longer stored in plaintext. The database holds a keyed hash to match requests on and an encrypted copy so you can still copy your links, both tied to `SECRET_KEY`, which backups do not contain - so a leaked backup no longer hands out working feeds or share links. Every URL already handed out keeps working: the upgrade converts them in place, then compacts the database once so the old values do not linger in it
+- Backups now contain only live data. The database used to be copied page by page, which carried deleted and overwritten rows along in the file's free space
+- The Valkey password no longer appears in the log when `VALKEY_URL` includes one
+- Changing `SECRET_KEY` now also ends every feed URL and share link, as it already did every session. Share links made under the old key show as **Lost**
+
 ## [1.9.0] - 2026-10-15
 
 ### Added
