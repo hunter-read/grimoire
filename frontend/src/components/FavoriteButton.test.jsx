@@ -66,12 +66,12 @@ describe('FavoriteButton', () => {
   it('sits on a themed disc rather than a fixed dark scrim', () => {
     setup(true)
     const button = screen.getByRole('button')
-    expect(button).toHaveStyle({ background: 'var(--bg-panel)' })
+    expect(button.style.background).toBe('var(--bg-panel)')
     expect(button.style.border).toBe('1px solid var(--border)')
   })
 
   it('uses the same disc whether or not the item is favorited', () => {
     setup(false)
-    expect(screen.getByRole('button')).toHaveStyle({ background: 'var(--bg-panel)' })
+    expect(screen.getByRole('button').style.background).toBe('var(--bg-panel)')
   })
 })

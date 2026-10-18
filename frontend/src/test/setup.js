@@ -1,10 +1,15 @@
 import '@testing-library/jest-dom'
 import { configure } from '@testing-library/react'
 import '../i18n'
+import { trackTimers } from './pendingTimers'
 
 // The default 1s findBy/waitFor timeout flakes on a loaded CI runner running
 // the whole suite under coverage; a passing wait returns as soon as it holds.
 configure({ asyncUtilTimeout: 3000 })
+
+// Cancel the timers a file leaves pending once its tests are done, so none can
+// fire into the torn-down environment and fail the run (see pendingTimers.ts).
+afterAll(trackTimers())
 
 // Node.js 22+ has a native localStorage/sessionStorage that lacks clear() and
 // doesn't reset between tests. Replace both with proper in-memory implementations.

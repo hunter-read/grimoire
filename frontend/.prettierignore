@@ -1,2 +1,5 @@
 dist
 node_modules
+
+# Generated from the backend OpenAPI schema (npm run api:types).
+src/api/schema.d.ts

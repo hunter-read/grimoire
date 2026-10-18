@@ -62,7 +62,7 @@ modules like [`books/pages.py`](../backend/routers/books/pages.py) or
 | Path | Responsibility |
 | --- | --- |
 | [`frontend/src/App.jsx`](../frontend/src/App.jsx) | Router setup, protected routes, and the context-provider tree. |
-| [`frontend/src/api.js`](../frontend/src/api.js) | Centralized `fetch` wrapper - attaches the JWT, handles errors, exposes the `mediaUrl(...)` helper for `?token=` image/download URLs, and the per-feature API namespaces (`campaigns`, `auth`, `settings`, …). |
+| [`frontend/src/api.ts`](../frontend/src/api.ts) | The API client everything imports from. [`api/client.ts`](../frontend/src/api/client.ts) is the transport - attaches the JWT, refreshes a stale token once, turns error bodies into `ApiError`s - plus the `client` typed from the OpenAPI schema and the `mediaUrl(...)` helper for image/download URLs; the per-feature namespaces (`campaigns`, `auth`, `settings`, …) live beside it in `api/`. [`api/schema.d.ts`](../frontend/src/api/schema.d.ts) is generated from the backend - see [TypeScript](typescript.md). |
 | [`frontend/src/context/`](../frontend/src/context/) | `AuthContext` (token + current user), `UISettingsContext`, `FavoritesContext`. |
 | [`frontend/src/views/`](../frontend/src/views/) | Page-level components - one per route. |
 | [`frontend/src/components/`](../frontend/src/components/) | Shared UI components (one component per file - enforced by ESLint). |
@@ -75,7 +75,7 @@ A typical authenticated API call:
 ```mermaid
 sequenceDiagram
     participant UI as React view
-    participant API as api.js
+    participant API as api.ts
     participant FA as FastAPI (/api)
     participant Dep as get_current_user
     participant H as handler (core.py)
@@ -95,7 +95,7 @@ sequenceDiagram
 
 Key points:
 
-- **Frontend** - [`api.js`](../frontend/src/api.js) reads the JWT from `localStorage`
+- **Frontend** - [`api/client.ts`](../frontend/src/api/client.ts) reads the JWT from `localStorage`
   (`grimoire_token`) and sends it as an `Authorization: Bearer` header. On any `401` it
   dispatches a `grimoire:unauthorized` window event; `AuthContext` listens and clears the
   stored token, bouncing the user to login.

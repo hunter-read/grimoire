@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, type CSSProperties, type MouseEvent, type ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -18,13 +18,13 @@ import {
   LuPanelLeftClose,
   LuPanelLeftOpen,
 } from 'react-icons/lu'
-import api from '../api'
+import api, { type Schema } from '../api'
 import AboutModal from './AboutModal'
 
 const UPDATE_DISMISSED_KEY = 'grimoire_update_dismissed'
 
-function useLatestRelease() {
-  const [latest, setLatest] = useState(null)
+function useLatestRelease(): string | null {
+  const [latest, setLatest] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -49,14 +49,25 @@ function useLatestRelease() {
   return latest
 }
 
-function isNewer(latestVersion, currentVersion) {
+function isNewer(latestVersion: string | null, currentVersion?: string | null): boolean {
   if (!latestVersion || !currentVersion || currentVersion === 'dev') return false
-  const parse = (v) => v.split('.').map(Number)
+  const parse = (v: string) => v.split('.').map(Number)
   const [lMaj, lMin, lPat] = parse(latestVersion)
   const [cMaj, cMin, cPat] = parse(currentVersion)
   if (lMaj !== cMaj) return lMaj > cMaj
   if (lMin !== cMin) return lMin > cMin
   return lPat > cPat
+}
+
+interface SidebarProps {
+  stats?: Schema<'StatsResponse'> | null
+  about?: Schema<'AboutResponse'> | null
+  user?: Pick<Schema<'UserOut'>, 'username' | 'display_name' | 'role'> | null
+  onLogout?: () => void
+  // Partial: the shell renders with defaults before /settings/ui answers.
+  uiSettings?: Partial<Schema<'UISettingsResponse'>>
+  collapsed?: boolean
+  onToggleCollapse?: () => void
 }
 
 export default function Sidebar({
@@ -67,7 +78,7 @@ export default function Sidebar({
   uiSettings = {},
   collapsed = false,
   onToggleCollapse,
-}) {
+}: SidebarProps) {
   const { t } = useTranslation()
   // Guests only see their campaign(s) — no library, maps, tokens, search,
   // favorites, or settings.
@@ -90,7 +101,7 @@ export default function Sidebar({
   } = uiSettings
 
   // Stats come back in MB; roll over to GB once the number stops reading well.
-  const formatSize = (raw) => {
+  const formatSize = (raw?: number | null) => {
     const mb = raw || 0
     return mb >= 1024
       ? t('common.sizeGB', { size: (mb / 1024).toFixed(2) })
@@ -101,21 +112,20 @@ export default function Sidebar({
   const latestVersion = useLatestRelease()
   const hasUpdate = isNewer(latestVersion, about?.version)
 
-  const [updateDismissed, setUpdateDismissed] = useState(() => {
-    const stored = localStorage.getItem(UPDATE_DISMISSED_KEY)
-    return stored === latestVersion
-  })
+  // The release the user last dismissed the banner for. Derived against the
+  // latest version on every render, not synced into state by an effect: an
+  // effect runs after the paint, so the render where the release check lands
+  // would flash the banner for a version already dismissed.
+  const [dismissedVersion, setDismissedVersion] = useState(() =>
+    localStorage.getItem(UPDATE_DISMISSED_KEY)
+  )
+  const updateDismissed = latestVersion !== null && dismissedVersion === latestVersion
 
-  // Re-check dismissal if latestVersion changes (e.g. on first load)
-  useEffect(() => {
-    const stored = localStorage.getItem(UPDATE_DISMISSED_KEY)
-    setUpdateDismissed(stored === latestVersion)
-  }, [latestVersion])
-
-  const dismissUpdate = (e) => {
+  const dismissUpdate = (e: MouseEvent) => {
     e.stopPropagation()
+    if (!latestVersion) return
     localStorage.setItem(UPDATE_DISMISSED_KEY, latestVersion)
-    setUpdateDismissed(true)
+    setDismissedVersion(latestVersion)
   }
 
   const showUpdateBanner = hasUpdate && !updateDismissed
@@ -131,7 +141,12 @@ export default function Sidebar({
     show_stat_size ||
     show_stat_library_size
 
-  const navItem = (to, icon, label, { end = true } = {}) => (
+  const navItem = (
+    to: string,
+    icon: ReactNode,
+    label: string,
+    { end = true }: { end?: boolean } = {}
+  ) => (
     <NavLink
       to={to}
       end={end}
@@ -494,7 +509,7 @@ export default function Sidebar({
   )
 }
 
-const navLinkStyle = (active, collapsed = false) => ({
+const navLinkStyle = (active: boolean, collapsed = false): CSSProperties => ({
   display: 'flex',
   alignItems: 'center',
   justifyContent: collapsed ? 'center' : 'flex-start',

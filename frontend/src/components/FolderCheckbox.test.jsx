@@ -32,12 +32,12 @@ describe('FolderCheckbox', () => {
 
   it('fills with the accent colour when checked', () => {
     const { container } = render(<FolderCheckbox checked onChange={() => {}} />)
-    expect(box(container)).toHaveStyle({ background: 'var(--gold)' })
+    expect(box(container).style.background).toBe('var(--gold)')
   })
 
   it('fills with the accent colour when indeterminate', () => {
     const { container } = render(<FolderCheckbox indeterminate onChange={() => {}} />)
-    expect(box(container)).toHaveStyle({ background: 'var(--gold)' })
+    expect(box(container).style.background).toBe('var(--gold)')
   })
 
   // Unchecked is an empty input surface with a visible border. It previously
@@ -45,7 +45,7 @@ describe('FolderCheckbox', () => {
   // against a light theme.
   it('uses themed input colours when unchecked', () => {
     const { container } = render(<FolderCheckbox checked={false} onChange={() => {}} />)
-    expect(box(container)).toHaveStyle({ background: 'var(--bg-input)' })
+    expect(box(container).style.background).toBe('var(--bg-input)')
     // Read the inline style directly: jsdom does not expand the `border`
     // shorthand when its value contains a custom property.
     expect(box(container).style.border).toBe('2px solid var(--border-light)')

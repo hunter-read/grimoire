@@ -1,6 +1,36 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { files as filesApi } from '../api'
+import { files as filesApi, type Schema } from '../api'
 import { isActionable, rangeBetween } from '../components/files/treeNav'
+
+type BrowseEntry = Schema<'BrowseEntry'>
+
+/** One loaded (or loading) folder in the pane's cache. */
+export interface FolderState {
+  entries?: BrowseEntry[]
+  writable?: boolean
+  categoryHost?: boolean
+  childrenAcceptContainerKind?: boolean
+  childrenAcceptFramesMarker?: boolean
+  parent?: string | null
+  total?: number
+  truncated?: boolean
+  singletonsTaken?: Record<string, unknown>
+  loading: boolean
+  error: string | null
+}
+
+/** A visible row: an entry, or a placeholder standing in for a folder's children. */
+export type PaneRow =
+  | { entry: BrowseEntry; depth: number; isOpen: boolean; placeholder?: undefined }
+  | {
+      placeholder: 'loading' | 'error' | 'empty' | 'truncated'
+      path: string
+      depth: number
+      entry?: undefined
+      text?: string
+      shown?: number
+      total?: number
+    }
 
 /**
  * State for one pane of the library file manager (issue #302).
@@ -24,26 +54,33 @@ import { isActionable, rangeBetween } from '../components/files/treeNav'
 export function useLibraryPane(initialPath = '') {
   const [path, setPath] = useState(initialPath)
   // path -> { entries, writable, parent, loading, error }
-  const [folders, setFolders] = useState({})
-  const [expanded, setExpanded] = useState(() => new Set())
-  const [selected, setSelected] = useState(() => new Set())
+  const [folders, setFolders] = useState<Record<string, FolderState>>({})
+  const [expanded, setExpanded] = useState(() => new Set<string>())
+  const [selected, setSelected] = useState(() => new Set<string>())
   // The keyboard cursor: the row arrow keys act on. Held as a *path* rather than
   // a row index because every expand, collapse, refresh and sibling delete
   // renumbers the rows — the same reason `selected` is keyed by path.
-  const [cursor, setCursor] = useState(null)
+  const [cursor, setCursor] = useState<string | null>(null)
   // Where a shift-range measures from. A ref, not state: it only ever changes
   // alongside a selection change that already re-renders.
-  const anchor = useRef(null)
+  const anchor = useRef<string | null>(null)
   // The cursor's last known neighbours, recorded while its row is still in the
   // tree, and whether a cursor that leaves the tree should fall back to one of
   // them. See the pair of effects below `cursorTo`.
-  const neighbours = useRef(null)
+  const neighbours = useRef<{ prev: string | null; next: string | null } | null>(null)
   const keepCursor = useRef(true)
   // Guards against two loads racing for the same folder (an expand arriving
   // while a refresh is already in flight).
-  const inFlight = useRef(new Set())
+  const inFlight = useRef(new Set<string>())
+  // Every folder a load has been started for. Expanding asks this, not the
+  // `folders` state, whether a fetch is needed: state read from inside a
+  // setState updater is not available synchronously in React 19, which runs
+  // updaters during the next render - so a folder expanded that way never
+  // loaded and sat on "Loading…".
+  const requested = useRef(new Set<string>())
 
-  const load = useCallback(async (target) => {
+  const load = useCallback(async (target: string) => {
+    requested.current.add(target)
     if (inFlight.current.has(target)) return
     inFlight.current.add(target)
     setFolders((prev) => ({
@@ -69,6 +106,7 @@ export function useLibraryPane(initialPath = '') {
         },
       }))
     } catch (e) {
+      const message = (e as Error | null)?.message
       setFolders((prev) => ({
         ...prev,
         [target]: {
@@ -77,7 +115,7 @@ export function useLibraryPane(initialPath = '') {
           categoryHost: false,
           parent: prev[target]?.parent ?? null,
           loading: false,
-          error: e.message || 'Could not read that folder',
+          error: message || 'Could not read that folder',
         },
       }))
     } finally {
@@ -90,7 +128,7 @@ export function useLibraryPane(initialPath = '') {
     load(path)
   }, [path, load])
 
-  const navigate = useCallback((next) => {
+  const navigate = useCallback((next?: string | null) => {
     const target = next ?? ''
     setPath(target)
     // Navigating is a change of context: drop expansion and selection, which
@@ -109,7 +147,7 @@ export function useLibraryPane(initialPath = '') {
    * cache, so toggling a folder repeatedly does not re-hit the API.
    */
   const toggleExpand = useCallback(
-    (folderPath) => {
+    (folderPath: string) => {
       setExpanded((prev) => {
         const next = new Set(prev)
         if (next.has(folderPath)) {
@@ -123,29 +161,21 @@ export function useLibraryPane(initialPath = '') {
         }
         return next
       })
-      setFolders((prev) => {
-        if (!prev[folderPath]) load(folderPath)
-        return prev
-      })
+      if (!requested.current.has(folderPath)) load(folderPath)
     },
     [load]
   )
 
   /** Expand a folder without collapsing it if already open (used by drag-hover). */
   const expand = useCallback(
-    (folderPath) => {
-      let needsLoad = false
+    (folderPath: string) => {
       setExpanded((prev) => {
         if (prev.has(folderPath)) return prev
         const next = new Set(prev)
         next.add(folderPath)
         return next
       })
-      setFolders((prev) => {
-        if (!prev[folderPath]) needsLoad = true
-        return prev
-      })
-      if (needsLoad) load(folderPath)
+      if (!requested.current.has(folderPath)) load(folderPath)
     },
     [load]
   )
@@ -171,7 +201,7 @@ export function useLibraryPane(initialPath = '') {
    * thing on screen and has no disclosure triangle of its own.
    */
   const refreshPath = useCallback(
-    (target) => {
+    (target?: string | null) => {
       const folderPath = target ?? ''
       if (folderPath !== path) {
         setExpanded((prev) => {
@@ -190,7 +220,7 @@ export function useLibraryPane(initialPath = '') {
     [load, path]
   )
 
-  const toggle = useCallback((entryPath) => {
+  const toggle = useCallback((entryPath: string) => {
     setSelected((prev) => {
       const next = new Set(prev)
       if (next.has(entryPath)) next.delete(entryPath)
@@ -199,7 +229,7 @@ export function useLibraryPane(initialPath = '') {
     })
   }, [])
 
-  const selectOnly = useCallback((entryPath) => setSelected(new Set([entryPath])), [])
+  const selectOnly = useCallback((entryPath: string) => setSelected(new Set([entryPath])), [])
   const clearSelection = useCallback(() => {
     setSelected(new Set())
     setCursor(null)
@@ -217,8 +247,8 @@ export function useLibraryPane(initialPath = '') {
    * looks like it did nothing at all.
    */
   const rows = useMemo(() => {
-    const out = []
-    const walk = (folderPath, depth) => {
+    const out: PaneRow[] = []
+    const walk = (folderPath: string, depth: number) => {
       const folder = folders[folderPath]
       // A folder that is mid-load has a state object but no entries yet, so this
       // must tolerate the missing array rather than assume it.
@@ -237,7 +267,7 @@ export function useLibraryPane(initialPath = '') {
               depth: depth + 1,
               text: child.error,
             })
-          } else if (child.entries.length === 0) {
+          } else if (!child.entries?.length) {
             out.push({ placeholder: 'empty', path: entry.path, depth: depth + 1 })
           } else {
             walk(entry.path, depth + 1)
@@ -249,7 +279,7 @@ export function useLibraryPane(initialPath = '') {
                 placeholder: 'truncated',
                 path: entry.path,
                 depth: depth + 1,
-                shown: child.entries.length,
+                shown: child.entries?.length ?? 0,
                 total: child.total,
               })
             }
@@ -264,7 +294,7 @@ export function useLibraryPane(initialPath = '') {
         placeholder: 'truncated',
         path,
         depth: 0,
-        shown: rootFolder.entries.length,
+        shown: rootFolder.entries?.length ?? 0,
         total: rootFolder.total,
       })
     }
@@ -272,7 +302,9 @@ export function useLibraryPane(initialPath = '') {
   }, [folders, expanded, path])
 
   const selectAll = useCallback(() => {
-    setSelected(new Set(rows.filter((r) => isActionable(r.entry)).map((r) => r.entry.path)))
+    setSelected(
+      new Set(rows.flatMap((r) => (r.entry && isActionable(r.entry) ? [r.entry.path] : [])))
+    )
   }, [rows])
 
   /**
@@ -288,7 +320,10 @@ export function useLibraryPane(initialPath = '') {
    *    which is how a discontiguous selection gets built.
    */
   const cursorTo = useCallback(
-    (entryPath, { extend = false, select = true } = {}) => {
+    (
+      entryPath: string | null | undefined,
+      { extend = false, select = true }: { extend?: boolean; select?: boolean } = {}
+    ) => {
       if (entryPath == null) return
       setCursor(entryPath)
       if (extend && anchor.current) {
@@ -310,9 +345,10 @@ export function useLibraryPane(initialPath = '') {
   useEffect(() => {
     const i = rows.findIndex((r) => r.entry?.path === cursor)
     if (i === -1) return
-    const at = (from, dir) => {
+    const at = (from: number, dir: number) => {
       for (let j = from; j >= 0 && j < rows.length; j += dir) {
-        if (isActionable(rows[j].entry)) return rows[j].entry.path
+        const entry = rows[j].entry
+        if (entry && isActionable(entry)) return entry.path
       }
       return null
     }
@@ -350,8 +386,8 @@ export function useLibraryPane(initialPath = '') {
   // row rather than removing it, so the neighbour fallback above would leave the
   // user beside the file they just renamed instead of on it — but the new row
   // only appears once the refresh lands, which is several renders later.
-  const pending = useRef(null)
-  const cursorWhenReady = useCallback((entryPath) => {
+  const pending = useRef<string | null>(null)
+  const cursorWhenReady = useCallback((entryPath: string) => {
     pending.current = entryPath
   }, [])
 
@@ -403,7 +439,7 @@ export function useLibraryPane(initialPath = '') {
     cursorWhenReady,
     // `writable` for an arbitrary folder, so a drop target deep in the tree can
     // be validated without assuming the root's permissions.
-    isWritable: (folderPath) => folders[folderPath]?.writable ?? root?.writable ?? false,
+    isWritable: (folderPath: string) => folders[folderPath]?.writable ?? root?.writable ?? false,
   }
 }
 

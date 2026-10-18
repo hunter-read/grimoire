@@ -36,6 +36,11 @@ beforeEach(() => {
   stubTree()
 })
 
+// The rows that hold an entry. While an expanded folder loads, a placeholder
+// row stands in for its children - so the row count can already be right before
+// they arrive, and waiting on it alone races the load.
+const loaded = (rows) => rows.filter((r) => r.entry)
+
 describe('useLibraryPane', () => {
   it('reports whether the anchored folder hosts category folders', async () => {
     filesApi.browse.mockResolvedValue(listing('books/System', [], { category_host: true }))
@@ -65,7 +70,7 @@ describe('useLibraryPane', () => {
 
     act(() => result.current.toggleExpand('books/core'))
     await waitFor(() => expect(filesApi.browse).toHaveBeenCalledWith('books/core'))
-    await waitFor(() => expect(result.current.rows).toHaveLength(3))
+    await waitFor(() => expect(loaded(result.current.rows)).toHaveLength(3))
 
     const [folder, child, sibling] = result.current.rows
     expect(folder.entry.name).toBe('core')
@@ -81,7 +86,7 @@ describe('useLibraryPane', () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
 
     act(() => result.current.toggleExpand('books/core'))
-    await waitFor(() => expect(result.current.rows).toHaveLength(3))
+    await waitFor(() => expect(loaded(result.current.rows)).toHaveLength(3))
     filesApi.browse.mockClear()
 
     act(() => result.current.toggleExpand('books/core'))
@@ -89,7 +94,7 @@ describe('useLibraryPane', () => {
 
     // Re-expanding is instant: no second fetch for an already-loaded folder.
     act(() => result.current.toggleExpand('books/core'))
-    await waitFor(() => expect(result.current.rows).toHaveLength(3))
+    await waitFor(() => expect(loaded(result.current.rows)).toHaveLength(3))
     expect(filesApi.browse).not.toHaveBeenCalled()
   })
 
@@ -150,11 +155,11 @@ describe('useLibraryPane', () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
 
     act(() => result.current.expand('books/core'))
-    await waitFor(() => expect(result.current.rows).toHaveLength(3))
+    await waitFor(() => expect(loaded(result.current.rows)).toHaveLength(3))
 
     // Spring-loaded drag hover calls this repeatedly; it must stay open.
     act(() => result.current.expand('books/core'))
-    await waitFor(() => expect(result.current.rows).toHaveLength(3))
+    await waitFor(() => expect(loaded(result.current.rows)).toHaveLength(3))
   })
 
   it('records an error instead of throwing when the folder cannot be read', async () => {
@@ -185,7 +190,7 @@ describe('useLibraryPane', () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
 
     act(() => result.current.toggleExpand('books/core'))
-    await waitFor(() => expect(result.current.rows).toHaveLength(3))
+    await waitFor(() => expect(loaded(result.current.rows)).toHaveLength(3))
     act(() => result.current.selectOnly('books/loose.pdf'))
 
     act(() => result.current.navigate('maps'))
@@ -200,7 +205,7 @@ describe('useLibraryPane', () => {
 
     act(() => result.current.selectOnly('books/loose.pdf'))
     act(() => result.current.toggleExpand('books/core'))
-    await waitFor(() => expect(result.current.rows).toHaveLength(3))
+    await waitFor(() => expect(loaded(result.current.rows)).toHaveLength(3))
     // Expanding does not remove anything from view, so the selection stands.
     expect(result.current.selected.has('books/loose.pdf')).toBe(true)
   })
@@ -221,7 +226,7 @@ describe('useLibraryPane', () => {
     const { result } = renderHook(() => useLibraryPane('books'))
     await waitFor(() => expect(result.current.loading).toBe(false))
     act(() => result.current.toggleExpand('books/core'))
-    await waitFor(() => expect(result.current.rows).toHaveLength(3))
+    await waitFor(() => expect(loaded(result.current.rows)).toHaveLength(3))
 
     act(() => result.current.selectAll())
     expect(result.current.selected.size).toBe(3)
@@ -248,7 +253,7 @@ describe('useLibraryPane', () => {
     const { result } = renderHook(() => useLibraryPane('books'))
     await waitFor(() => expect(result.current.loading).toBe(false))
     act(() => result.current.toggleExpand('books/core'))
-    await waitFor(() => expect(result.current.rows).toHaveLength(3))
+    await waitFor(() => expect(loaded(result.current.rows)).toHaveLength(3))
     filesApi.browse.mockClear()
 
     await act(async () => {
@@ -280,7 +285,7 @@ describe('useLibraryPane', () => {
     const { result } = renderHook(() => useLibraryPane('books'))
     await waitFor(() => expect(result.current.loading).toBe(false))
     act(() => result.current.toggleExpand('books/core'))
-    await waitFor(() => expect(result.current.rows).toHaveLength(3))
+    await waitFor(() => expect(loaded(result.current.rows)).toHaveLength(3))
     filesApi.browse.mockClear()
 
     await act(async () => {
@@ -396,7 +401,7 @@ describe('useLibraryPane cursor', () => {
     // sibling is exactly where the user wants to be.
     const { result } = await ready()
     act(() => result.current.toggleExpand('books/core'))
-    await waitFor(() => expect(result.current.rows).toHaveLength(3))
+    await waitFor(() => expect(loaded(result.current.rows)).toHaveLength(3))
 
     act(() => result.current.cursorTo('books/core/phb.pdf'))
     expect(result.current.cursor).toBe('books/core/phb.pdf')
@@ -473,7 +478,7 @@ describe('useLibraryPane cursor', () => {
     const { result } = await ready()
     act(() => result.current.cursorTo('books/loose.pdf'))
     act(() => result.current.toggleExpand('books/core'))
-    await waitFor(() => expect(result.current.rows).toHaveLength(3))
+    await waitFor(() => expect(loaded(result.current.rows)).toHaveLength(3))
     expect(result.current.cursor).toBe('books/loose.pdf')
   })
 

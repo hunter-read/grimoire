@@ -107,7 +107,7 @@ describe('VttCanvas', () => {
 
   it('draws the grid overlay at the calibrated size and offset', () => {
     render(<VttCanvas {...props} offset={{ x: 7, y: 9 }} />)
-    expect(screen.getByTestId('canvas-grid')).toHaveStyle({ backgroundPosition: '7px 9px' })
+    expect(screen.getByTestId('canvas-grid').style.backgroundPosition).toBe('7px 9px')
   })
 
   it('shows the in-progress shape with a rubber band to the cursor', () => {

@@ -67,7 +67,7 @@ describe('GridCalibrator', () => {
 
   it('positions the overlay by the calibrated offset', () => {
     render(<GridCalibrator {...props} offset={{ x: 20, y: 35 }} />)
-    expect(screen.getByTestId('grid-overlay')).toHaveStyle({ backgroundPosition: '20px 35px' })
+    expect(screen.getByTestId('grid-overlay').style.backgroundPosition).toBe('20px 35px')
   })
 
   it('scales the grid line with the zoom so it never drops out', () => {

@@ -33,6 +33,12 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      # TypeScript 7 (the native port) is held back until the tools built on
+      # TypeScript's JS API support it: openapi-typescript (generates
+      # src/api/schema.d.ts) peers on ^5 and typescript-eslint on <6.1.
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: github-actions
     directory: /

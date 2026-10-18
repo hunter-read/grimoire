@@ -44,7 +44,7 @@ describe('LazyImg', () => {
       )
       const box = container.querySelector('span')
       expect(box).toHaveStyle({ width: '60px', height: '80px' })
-      expect(box).toHaveStyle({ background: 'var(--bg-deep)' })
+      expect(box.style.background).toBe('var(--bg-deep)')
     })
 
     it('drops the tint once the image has loaded', () => {
@@ -52,7 +52,7 @@ describe('LazyImg', () => {
         <LazyImg src="/x.webp" alt="" placeholder style={{ width: 60, height: 80 }} />
       )
       fireEvent.load(container.querySelector('img'))
-      expect(container.querySelector('span')).toHaveStyle({ background: 'none' })
+      expect(container.querySelector('span').style.background).toBe('none')
     })
 
     // Otherwise a broken image leaves the tint sitting there forever.
@@ -61,7 +61,7 @@ describe('LazyImg', () => {
         <LazyImg src="/gone.webp" alt="" placeholder style={{ width: 60, height: 80 }} />
       )
       fireEvent.error(container.querySelector('img'))
-      expect(container.querySelector('span')).toHaveStyle({ background: 'none' })
+      expect(container.querySelector('span').style.background).toBe('none')
     })
 
     it('accepts the size from width/height props', () => {

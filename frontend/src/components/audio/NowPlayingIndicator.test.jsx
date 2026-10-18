@@ -39,6 +39,6 @@ describe('NowPlayingIndicator', () => {
 
   it('accepts a custom colour', () => {
     const { container } = render(<NowPlayingIndicator color="red" />)
-    expect(container.querySelector('.grimoire-eq-bar')).toHaveStyle({ background: 'red' })
+    expect(container.querySelector('.grimoire-eq-bar').style.background).toBe('red')
   })
 })

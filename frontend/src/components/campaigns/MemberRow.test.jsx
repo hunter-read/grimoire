@@ -244,7 +244,8 @@ describe('MemberRow sheet actions', () => {
   it('offers in-app editing for an uploaded PDF sheet', async () => {
     renderRow({ has_sheet: true, character_sheet_filename: 'char.pdf' }, { currentUserId: 'u1' })
     await userEvent.click(screen.getByText('Edit in app'))
-    expect(screen.getByTestId('sheet-editor')).toBeInTheDocument()
+    // The editor is lazy-loaded, so it mounts once its Suspense boundary resolves.
+    expect(await screen.findByTestId('sheet-editor')).toBeInTheDocument()
   })
 })
 

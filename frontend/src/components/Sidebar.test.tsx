@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import type { ComponentProps } from 'react'
 import Sidebar from './Sidebar'
+import type { Schema } from '../api'
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -9,7 +11,7 @@ import Sidebar from './Sidebar'
 
 // Stub AboutModal so Sidebar tests don't need to worry about portal/modal internals
 vi.mock('./AboutModal', () => ({
-  default: ({ onClose }) => (
+  default: ({ onClose }: { onClose: () => void }) => (
     <div data-testid="about-modal">
       <button onClick={onClose}>Close About</button>
     </div>
@@ -25,12 +27,15 @@ import api from '../api'
 
 const DISMISSED_KEY = 'grimoire_update_dismissed'
 
-const baseStats = {
+const baseStats: Schema<'StatsResponse'> = {
   game_systems: 5,
   books: 42,
+  indexed_books: 40,
   total_pages: 10000,
   maps: 8,
   tokens: 30,
+  audio: 3,
+  models: 2,
   total_size_mb: 512,
   library_size_mb: 2048,
 }
@@ -46,17 +51,25 @@ const baseUser = { username: 'jdoe', display_name: 'Jane Doe', role: 'player' }
 // Drive the update check: resolve api.get('/latest-release') with the given
 // version (tag_name-style "v2.0.0" accepted for parity with the old fixtures),
 // or reject to simulate an unreachable backend.
-function mockLatest(tagName = null, { reject = false } = {}) {
+function mockLatest(tagName: string | null = null, { reject = false } = {}) {
   if (reject) {
-    api.get.mockRejectedValue(new Error('network error'))
+    vi.mocked(api.get).mockRejectedValue(new Error('network error'))
     return
   }
-  api.get.mockResolvedValue({
+  vi.mocked(api.get).mockResolvedValue({
     latest_version: tagName ? tagName.replace(/^v/, '') : null,
   })
 }
 
-function renderSidebar(props = {}) {
+// Let the release check resolve and render before asserting on its outcome.
+// Waiting only for api.get to be *called* asserts before the answer lands, so a
+// "no banner" check would pass whatever the answer was.
+async function settle() {
+  await waitFor(() => expect(api.get).toHaveBeenCalledWith('/latest-release'))
+  await act(async () => {})
+}
+
+function renderSidebar(props: Partial<ComponentProps<typeof Sidebar>> = {}) {
   return render(
     <MemoryRouter>
       <Sidebar
@@ -259,18 +272,14 @@ describe('Sidebar update banner', () => {
   it('does not show update banner when already on the latest version', async () => {
     mockLatest('v1.2.0') // same as baseStats.version
     renderSidebar()
-    await waitFor(() => {
-      expect(api.get).toHaveBeenCalledWith('/latest-release')
-    })
+    await settle()
     expect(screen.queryByText(/update available/i)).toBeNull()
   })
 
   it('does not show update banner when current version is newer than remote', async () => {
     mockLatest('v1.1.0')
     renderSidebar()
-    await waitFor(() => {
-      expect(api.get).toHaveBeenCalledWith('/latest-release')
-    })
+    await settle()
     expect(screen.queryByText(/update available/i)).toBeNull()
   })
 
@@ -284,12 +293,10 @@ describe('Sidebar update banner', () => {
     expect(screen.queryByText(/update available/i)).toBeNull()
   })
 
-  it('does not show update banner when stats version is "dev"', async () => {
+  it('does not show update banner when running a dev build', async () => {
     mockLatest('v2.0.0')
-    renderSidebar({ stats: { ...baseStats, version: 'dev' } })
-    await waitFor(() => {
-      expect(api.get).toHaveBeenCalledWith('/latest-release')
-    })
+    renderSidebar({ about: { ...baseAbout, version: 'dev' } })
+    await settle()
     expect(screen.queryByText(/update available/i)).toBeNull()
   })
 })
@@ -323,9 +330,7 @@ describe('Sidebar update banner dismiss', () => {
     localStorage.setItem(DISMISSED_KEY, '2.0.0')
     mockLatest('v2.0.0')
     renderSidebar()
-    await waitFor(() => {
-      expect(api.get).toHaveBeenCalledWith('/latest-release')
-    })
+    await settle()
     expect(screen.queryByText(/update available/i)).toBeNull()
   })
 

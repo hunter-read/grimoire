@@ -178,7 +178,8 @@ describe('TagsView', () => {
     renderView('/tags?tag=forest')
     await waitFor(() => expect(mockItems).toHaveBeenCalledWith('forest'))
     expect(await screen.findByText('Woods')).toBeInTheDocument()
-    expect(screen.getByTestId('map-card')).toHaveTextContent('mf1')
+    // The folder's items page in after its header renders (issue #221).
+    expect(await screen.findByTestId('map-card')).toHaveTextContent('mf1')
   })
 
   it('deep-links to a tag from the ?tag= query param', async () => {

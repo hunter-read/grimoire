@@ -2,12 +2,15 @@
 /**
  * Per-changed-file coverage gate.
  *
- * Fails if any changed frontend source file (src/**.{js,jsx}, excluding tests)
+ * Fails if any changed frontend source file (src/**.{js,jsx,ts,tsx}, excluding
+ * tests and type declarations)
  * has line coverage below MIN_PCT. This enforces the "each change brings
  * coverage up" goal without imposing a hard global threshold in vite.config.js.
  *
  * Strict by design: a changed source file that is absent from the coverage
- * report (i.e. has no test exercising it at all) is treated as 0% and fails.
+ * report (i.e. has no test exercising it at all) is treated as 0% and fails -
+ * unless it holds no runtime code at all (only types, or only re-exports), which
+ * the report leaves out because there is nothing in it to cover.
  *
  * Reads coverage/coverage-summary.json — run `npm run test:coverage` first.
  *
@@ -17,6 +20,7 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
+import ts from 'typescript'
 
 const MIN_PCT = Number(process.env.MIN_COVERAGE || 80)
 const SUMMARY_PATH = resolve(process.cwd(), 'coverage/coverage-summary.json')
@@ -69,24 +73,50 @@ function changedSourceFiles(base, root) {
     ...gitLines(['diff', '--name-only', '--diff-filter=ACMR', 'HEAD', '--', 'frontend/src'], root),
     ...gitLines(['ls-files', '--others', '--exclude-standard', '--', 'frontend/src'], root),
   ])
-  return [...files]
-    .map((p) => p.trim())
-    .filter(Boolean)
-    .filter((p) => /\.(js|jsx)$/.test(p))
-    .filter((p) => !/\.test\.(js|jsx)$/.test(p))
-    .filter((p) => !p.startsWith('frontend/src/test/'))
-    // Mirror the coverage `exclude` globs in vite.config.js so files that are
-    // intentionally not instrumented (entry point, third-party setup glue,
-    // config) aren't flagged as 0%.
-    .filter((p) => p !== 'frontend/src/main.jsx')
-    .filter((p) => !p.startsWith('frontend/src/lib/'))
-    .filter((p) => !/\.config\.(js|jsx)$/.test(p))
-    .map((p) => resolve(root, p))
-    // A file the branch added and then deleted is still "changed" against the
-    // base, but there is nothing left to cover. `--diff-filter` cannot express
-    // this: the add is in base...HEAD while the delete is only in the working
-    // tree, so the two never cancel out.
-    .filter((p) => existsSync(p))
+  return (
+    [...files]
+      .map((p) => p.trim())
+      .filter(Boolean)
+      .filter((p) => /\.(js|jsx|ts|tsx)$/.test(p))
+      .filter((p) => !/\.d\.ts$/.test(p))
+      .filter((p) => !/\.test\.(js|jsx|ts|tsx)$/.test(p))
+      .filter((p) => !p.startsWith('frontend/src/test/'))
+      // Mirror the coverage `exclude` globs in vite.config.js so files that are
+      // intentionally not instrumented (entry point, third-party setup glue,
+      // config) aren't flagged as 0%.
+      .filter((p) => p !== 'frontend/src/main.jsx')
+      .filter((p) => !p.startsWith('frontend/src/lib/'))
+      .filter((p) => !/\.config\.(js|jsx|ts|tsx)$/.test(p))
+      .map((p) => resolve(root, p))
+      // A file the branch added and then deleted is still "changed" against the
+      // base, but there is nothing left to cover. `--diff-filter` cannot express
+      // this: the add is in base...HEAD while the delete is only in the working
+      // tree, so the two never cancel out.
+      .filter((p) => existsSync(p))
+  )
+}
+
+// Whether a TypeScript file compiles to nothing but module wiring - imports and
+// re-exports - so it has no statements a test could execute. Asks the compiler
+// rather than guessing from the source: types, interfaces and `import type`
+// vanish in the emitted JavaScript.
+function hasNoRuntimeCode(file) {
+  if (!/\.(ts|tsx)$/.test(file)) return false
+  const { outputText } = ts.transpileModule(readFileSync(file, 'utf8'), {
+    compilerOptions: {
+      module: ts.ModuleKind.ESNext,
+      target: ts.ScriptTarget.ES2022,
+      jsx: ts.JsxEmit.ReactJSX,
+      removeComments: true,
+    },
+  })
+  const source = ts.createSourceFile('out.js', outputText, ts.ScriptTarget.ES2022)
+  return source.statements.every(
+    (node) =>
+      ts.isImportDeclaration(node) ||
+      (ts.isExportDeclaration(node) &&
+        (node.moduleSpecifier || !node.exportClause?.elements.length))
+  )
 }
 
 function main() {
@@ -111,8 +141,13 @@ function main() {
 
   const failures = []
   const passes = []
+  const skipped = []
   for (const file of changed) {
     const entry = summary[file]
+    if (entry === undefined && hasNoRuntimeCode(file)) {
+      skipped.push(file.replace(`${root}/`, ''))
+      continue
+    }
     const pct = entry?.lines?.pct
     // Absent from the report = untested = 0% (strict).
     const value = typeof pct === 'number' ? pct : 0
@@ -121,6 +156,7 @@ function main() {
     else passes.push({ rel, pct: value })
   }
 
+  for (const rel of skipped) console.log(`-  no runtime code  ${rel}`)
   for (const p of passes) console.log(`✓ ${p.pct.toFixed(2)}%  ${p.rel}`)
   for (const f of failures) {
     const note = f.untested ? ' (no coverage — needs tests)' : ''

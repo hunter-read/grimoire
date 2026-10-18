@@ -356,6 +356,7 @@ kept in the repo so it versions with the release you are running:
 | [Architecture](docs/architecture.md) | Module map, request lifecycle, auth flow - for contributors                                                         |
 | [Data model](docs/data-model.md)     | ER diagram and table-by-table schema                                                                                |
 | [CI/CD pipelines](docs/pipelines.md) | Workflows, coverage gates, and the release checklist                                                                |
+| [TypeScript](docs/typescript.md)     | The frontend's TypeScript migration, API types generated from the backend, and converting a file                     |
 
 The live API is also self-documenting while the server is running:
 [`/api/docs`](http://localhost:9481/api/docs) (Swagger UI),

@@ -24,6 +24,8 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Updated FastAPI, Pydantic and Uvicorn. API keys keep exactly the access they had
 - The image builds its frontend with Node 22, the version CI tests with; Node 20 is end of life. Running from source now needs Node 22 or newer
 - The MCP server now runs on the official MCP Python SDK instead of Grimoire's own protocol code, and also accepts the older `2024-11-05` protocol revision. Tools, resources, prompts and API-key permissions are unchanged
+- Updated the frontend to React 19, along with its build, test and lint tooling
+- For contributors: the frontend is moving to TypeScript. Its API client is now typed from the backend's OpenAPI schema, so a change to a request or response shows up as a type error in the same pull request, and new or changed frontend files are written in TypeScript. See the TypeScript docs
 
 ### Fixed
 
@@ -31,6 +33,8 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - The campaign resource picker's Models tab showed `campaignEditor.resources.type_model` instead of its name
 - The campaign resource picker offered tabs for maps, tokens, audio or models even when those sections were hidden in Settings, and adding by tag could add them
 - Reading more than ten books at once, or replacing a book's file while someone was reading it, could close the book under a page that was still loading and fail that page
+- The sidebar could flash the "Update available" banner on load for a version you had already dismissed
+- In the map, token, audio and model galleries, the Filters dialog closed after every change, so only one filter could be set at a time, and typing quickly in the search box could lose the end of what you typed while results reloaded. The gallery now stays on screen while new results load
 
 ### Security
 

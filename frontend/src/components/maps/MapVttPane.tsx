@@ -1,7 +1,17 @@
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import api, { mediaUrl } from '../../api'
+import api, { mediaUrl, type ResponseOf } from '../../api'
 import Spinner from '../Spinner'
+import useMediaLoadState from '../../hooks/useMediaLoadState'
+
+type VttData = ResponseOf<'/maps/{map_id}/vtt/data', 'get'>
+
+interface MapVttPaneProps {
+  mapId: string
+  filename: string
+  isMobilePhone?: boolean
+  onData?: (data: VttData | null) => void
+}
 
 /**
  * Viewer for Universal VTT exports (.uvtt/.dd2vtt).
@@ -14,15 +24,9 @@ import Spinner from '../Spinner'
  *
  * See https://arkenforge.com/universal-vtt-files/ for the format.
  */
-export default function MapVttPane({ mapId, filename, isMobilePhone, onData }) {
+export default function MapVttPane({ mapId, filename, isMobilePhone, onData }: MapVttPaneProps) {
   const { t } = useTranslation()
-  const [loaded, setLoaded] = useState(false)
-  const [failed, setFailed] = useState(false)
-
-  useEffect(() => {
-    setLoaded(false)
-    setFailed(false)
-  }, [mapId])
+  const { loaded, failed, onLoad, onError } = useMediaLoadState(mapId)
 
   // Feature counts are surfaced in the sidebar by the parent.
   useEffect(() => {
@@ -30,7 +34,7 @@ export default function MapVttPane({ mapId, filename, isMobilePhone, onData }) {
     api
       .get(`/maps/${mapId}/vtt/data`)
       .then((d) => {
-        if (!cancelled) onData?.(d)
+        if (!cancelled) onData?.(d as VttData)
       })
       .catch(() => {
         if (!cancelled) onData?.(null)
@@ -67,8 +71,8 @@ export default function MapVttPane({ mapId, filename, isMobilePhone, onData }) {
           key={mapId}
           src={mediaUrl(`/maps/${mapId}/vtt/image`)}
           alt={filename}
-          onLoad={() => setLoaded(true)}
-          onError={() => setFailed(true)}
+          onLoad={onLoad}
+          onError={onError}
           style={{
             maxWidth: '100%',
             maxHeight: isMobilePhone ? undefined : 'calc(100vh - 60px)',

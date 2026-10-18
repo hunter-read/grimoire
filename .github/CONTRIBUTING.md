@@ -48,8 +48,12 @@ Join the [Discord server](https://discord.gg/9Sd4CGZC63) to chat, share feedback
    pytest -q
 
    # Frontend
-   cd frontend && npm test
+   cd frontend && npm test && npm run typecheck
    ```
+
+   New frontend code is TypeScript, and so is any JavaScript file you modify - see
+   [TypeScript in the frontend](../docs/typescript.md). If you change a backend route or
+   model, run `npm run api:types` in `frontend/` and commit the regenerated API types.
 
 4. Open a pull request against `main`. The PR template will prompt you for a summary and testing notes.
 
@@ -60,7 +64,7 @@ grimoire/
 ├── backend/        # FastAPI application (Python)
 │   ├── routers/    # API route handlers
 │   └── models.py   # SQLAlchemy ORM models
-├── frontend/       # React 18 SPA
+├── frontend/       # React 19 SPA (TypeScript, migrating from JavaScript)
 │   ├── src/
 │   │   ├── components/
 │   │   ├── views/

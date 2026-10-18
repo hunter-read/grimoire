@@ -1,7 +1,13 @@
-import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { mediaUrl } from '../../api'
 import Spinner from '../Spinner'
+import useMediaLoadState from '../../hooks/useMediaLoadState'
+
+interface MapVideoPaneProps {
+  mapId: string
+  filename: string
+  isMobilePhone?: boolean
+}
 
 /**
  * Player pane for animated battlemaps (.webm/.mp4).
@@ -12,15 +18,9 @@ import Spinner from '../Spinner'
  * autoplay — muted autoplay is what browsers allow without a user gesture.
  * Controls stay on so the GM can pause or scrub.
  */
-export default function MapVideoPane({ mapId, filename, isMobilePhone }) {
+export default function MapVideoPane({ mapId, filename, isMobilePhone }: MapVideoPaneProps) {
   const { t } = useTranslation()
-  const [ready, setReady] = useState(false)
-  const [failed, setFailed] = useState(false)
-
-  useEffect(() => {
-    setReady(false)
-    setFailed(false)
-  }, [mapId])
+  const { loaded: ready, failed, onLoad, onError } = useMediaLoadState(mapId)
 
   return (
     <>
@@ -55,8 +55,8 @@ export default function MapVideoPane({ mapId, filename, isMobilePhone }) {
           autoPlay
           playsInline
           preload="metadata"
-          onLoadedData={() => setReady(true)}
-          onError={() => setFailed(true)}
+          onLoadedData={onLoad}
+          onError={onError}
           style={{
             maxWidth: '100%',
             maxHeight: isMobilePhone ? undefined : 'calc(100vh - 60px)',

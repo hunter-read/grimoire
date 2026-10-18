@@ -278,6 +278,32 @@ describe('useMediaGallery (flat)', () => {
     await waitFor(() => expect(result.current.flatItems.map((i) => i.id)).toEqual(['big', 'small']))
   })
 
+  // Dropping back to "nothing to draw" sent the views to their full-page
+  // spinner, unmounting the search box mid-typing so the rest of the query was
+  // lost (found by the e2e gallery search tests under React 19).
+  it('stays drawn while a new search loads', async () => {
+    setup([item({ id: 'g', filename: 'goblin.png' }), item({ id: 'd', filename: 'dragon.png' })])
+    const { result } = renderGallery()
+    await waitFor(() => expect(result.current.flatItems).toHaveLength(2))
+
+    // Hold the next list request open, as a slow server would.
+    const answer = api.get.getMockImplementation()
+    let release
+    api.get.mockImplementation((url) =>
+      url.split('?')[0] === '/maps' && params(url).q
+        ? new Promise((resolve) => {
+            release = () => resolve(answer(url))
+          })
+        : answer(url)
+    )
+    act(() => result.current.setFilter('gob'))
+    await waitFor(() => expect(release).toBeDefined())
+
+    expect(result.current.data).not.toBeNull()
+    await act(async () => release())
+    await waitFor(() => expect(result.current.flatItems.map((i) => i.id)).toEqual(['g']))
+  })
+
   it('reports an empty result', async () => {
     setup([])
     const { result } = renderGallery()

@@ -116,10 +116,9 @@ describe('VttEditorView', () => {
     })
     renderEditor()
     await screen.findByTestId('vtt-canvas')
-    expect(screen.getByTestId('canvas-grid')).toHaveStyle({
-      backgroundSize: '70px 70px, 70px 70px',
-      backgroundPosition: '5px 5px',
-    })
+    const grid = screen.getByTestId('canvas-grid')
+    expect(grid.style.backgroundSize).toBe('70px 70px, 70px 70px')
+    expect(grid.style.backgroundPosition).toBe('5px 5px')
   })
 
   it('skips calibration for a map that already carries authored geometry', async () => {

@@ -1,0 +1,31 @@
+{
+  // Type-checks the frontend (`npm run typecheck`, run in CI). Nothing is
+  // emitted: Vite and Vitest compile .ts/.tsx themselves.
+  //
+  // The migration is incremental (issue #587): .js/.jsx files are part of the
+  // program, so TypeScript files can import them, but they are not checked
+  // until they are renamed to .ts/.tsx (or opt in early with `// @ts-check`).
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "jsx": "react-jsx",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "skipLibCheck": true,
+
+    "strict": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+
+    "types": ["vite/client", "vitest/globals", "@testing-library/jest-dom/vitest"]
+  },
+  "include": ["src"],
+  "exclude": ["src/**/node_modules"]
+}

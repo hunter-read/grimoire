@@ -23,13 +23,22 @@ cut by pushing a version tag.
 ## CI (`ci.yml`)
 
 Runs on every push to `main`/`dev` and on all pull requests. Validates the change without
-publishing anything. Two jobs run in parallel:
+publishing anything. Three jobs run in parallel:
 
 **Frontend (`frontend/`):**
 - `npm run format:check` - Prettier formatting
 - `npm run lint` - ESLint (errors fail CI)
+- `npm run typecheck` - `tsc` over `src/` (see [TypeScript](typescript.md))
+- `npm run typescript:check` (PRs only) - the TypeScript ratchet: fails if the PR adds a
+  `.js`/`.jsx` file under `src/`, or modifies a non-test one, so the JavaScript only shrinks
 - `npm run test:coverage` - Vitest with coverage
 - `npm run build` - production build (catches broken imports / JSX errors)
+
+**API types up to date:** regenerates `frontend/src/api/schema.d.ts` from the backend's
+OpenAPI schema (`npm run api:types:check`) and fails if the committed copy differs. A backend
+change to a request or response shape therefore has to land with its frontend types, and the
+frontend job's `tsc` checks the code against them. It installs both toolchains: Python
+exports the schema from the app, Node turns it into TypeScript.
 
 **Backend:**
 - `ruff check backend/` - lint

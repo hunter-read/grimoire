@@ -10,15 +10,55 @@ import useTagLabels from './useTagLabels'
 import { queryTags, toggleQueryTag } from '../components/library/tagQuery'
 import { browseKey, commonFilterParams, withQuery } from '../utils/browseParams'
 
+// The sort/filter state the SortFilterBar edits (see useSortFilterState).
+interface SortFilter {
+  sort?: string
+  order?: 'asc' | 'desc'
+  filters: Record<string, unknown> & { search?: string; tags?: unknown; favorites?: boolean }
+}
+
 // The list key for the ungrouped gallery; folder lists are keyed by their path.
 export const FLAT = '\u0000flat'
 
 // The top-level group items sitting directly in the collection folder belong to.
 export const ROOT_FOLDER = '(Root)'
 
+/** One gallery item as the list endpoints return it. */
+export interface GalleryItem {
+  id: string
+  tags?: string[]
+  [field: string]: unknown
+}
+
+/** The `mediaConfig.js` fields the gallery reads. */
+export interface GalleryConfig {
+  type: 'map' | 'token' | 'audio' | 'model'
+  collection: string
+  foldersUrl: string
+  listUrl: string
+  sessionKey: string
+  defaultSort?: string
+}
+
+/** The grouped view's folders, each with how many items it holds. */
+interface Groups {
+  total: number
+  groups: { path: string; count: number }[]
+}
+
+/** One folder (or the folder's own items, under '') as MediaFolderGroup draws it. */
+interface SubfolderEntry {
+  path: string
+  count: number
+  items: GalleryItem[]
+  loading: boolean
+  hasMore: boolean
+  started: boolean
+}
+
 // Stable empty list, so memos depending on the flat items do not rebuild on
 // every render before the first page lands.
-const EMPTY_ITEMS = []
+const EMPTY_ITEMS: GalleryItem[] = []
 
 // Largest page the server serves; used when a whole folder is needed at once
 // (queuing a folder of audio to play).
@@ -29,7 +69,7 @@ const FULL_PAGE = 500
  * `[top folder, path below it]`, with items at the collection root under
  * `(Root)`. Mirrors getTopFolder/getSubPath in mediaConfig.js.
  */
-export function splitFolder(path) {
+export function splitFolder(path: string | null | undefined): [string, string] {
   if (!path) return [ROOT_FOLDER, '']
   const cut = path.indexOf('/')
   return cut === -1 ? [path, ''] : [path.slice(0, cut), path.slice(cut + 1)]
@@ -47,23 +87,23 @@ export function splitFolder(path) {
  * the whole collection, so a library of a few hundred thousand tokens opens as
  * quickly as a small one.
  */
-export default function useMediaGallery(config) {
+export default function useMediaGallery(config: GalleryConfig) {
   const { type, collection, foldersUrl, listUrl, sessionKey } = config
 
-  const [folderTags, setFolderTags] = useState({})
+  const [folderTags, setFolderTags] = useState<Record<string, string[]>>({})
   // Folder paths whose images are token-editor frames, from the same endpoint.
   // Only the token gallery ever gets a non-empty set; other collections have no
   // such concept and simply never see the field.
-  const [frameFolders, setFrameFolders] = useState(() => new Set())
+  const [frameFolders, setFrameFolders] = useState(() => new Set<string>())
   const [grouped, setGrouped] = useSessionState(`${sessionKey}:grouped`, true)
   const [viewMode, cycleViewMode] = useViewMode(type)
-  const [collapsed, setCollapsed] = useSessionState(sessionKey, new Set())
-  const [editingFolder, setEditingFolder] = useState(null)
+  const [collapsed, setCollapsed] = useSessionState(sessionKey, new Set<string>())
+  const [editingFolder, setEditingFolder] = useState<string | null>(null)
   const [bulkApplying, setBulkApplying] = useState(false)
   // How many items the whole collection holds, unfiltered - the "y" of
   // "Displaying x of y".
-  const [collectionTotal, setCollectionTotal] = useState(null)
-  const [groups, setGroups] = useState(null)
+  const [collectionTotal, setCollectionTotal] = useState<number | null>(null)
+  const [groups, setGroups] = useState<Groups | null>(null)
 
   const savedFilters = useSavedFilters(collection)
   // Persisted for the session so returning from a detail view keeps the filters
@@ -81,16 +121,18 @@ export default function useMediaGallery(config) {
   const { sort = config.defaultSort || 'name', order = 'asc' } = sortFilter
   // The inline tag chips only know about real tags — the group structure and
   // the special sentinels are flattened away so they never render as a chip.
-  const selectedTags = new Set(queryTags(activeFilters.tags).map((tg) => tg.toLowerCase()))
-  const setFilter = (v) =>
-    setSortFilter((s) => ({ ...s, filters: { ...s.filters, search: v || undefined } }))
-  const toggleTag = (tag) =>
-    setSortFilter((s) => {
+  const selectedTags = new Set<string>(
+    queryTags(activeFilters.tags).map((tg: string) => tg.toLowerCase())
+  )
+  const setFilter = (v: string) =>
+    setSortFilter((s: SortFilter) => ({ ...s, filters: { ...s.filters, search: v || undefined } }))
+  const toggleTag = (tag: string) =>
+    setSortFilter((s: SortFilter) => {
       const next = toggleQueryTag(s.filters.tags, tag)
       return { ...s, filters: { ...s.filters, tags: next.length ? next : undefined } }
     })
   const clearTags = () =>
-    setSortFilter((s) => ({ ...s, filters: { ...s.filters, tags: undefined } }))
+    setSortFilter((s: SortFilter) => ({ ...s, filters: { ...s.filters, tags: undefined } }))
 
   // What the server is asked for changes only with these; the folder counts do
   // not depend on the order, so they have their own key.
@@ -109,9 +151,13 @@ export default function useMediaGallery(config) {
     let cancelled = false
     api
       .get(foldersUrl)
-      .then((foldersData) => {
+      .then((body) => {
         if (cancelled) return
-        const ft = {}
+        const foldersData = body as {
+          folders?: { path: string; tags: string[] }[]
+          frame_folders?: string[]
+        } | null
+        const ft: Record<string, string[]> = {}
         for (const f of foldersData?.folders || []) ft[f.path] = f.tags
         setFolderTags(ft)
         setFrameFolders(new Set(foldersData?.frame_folders || []))
@@ -119,7 +165,7 @@ export default function useMediaGallery(config) {
       .catch(() => {})
     api
       .get(withQuery(listUrl, { limit: 1 }))
-      .then((page) => !cancelled && setCollectionTotal(page.total))
+      .then((page) => !cancelled && setCollectionTotal((page as { total: number }).total))
       .catch(() => {})
     return () => {
       cancelled = true
@@ -134,7 +180,7 @@ export default function useMediaGallery(config) {
   filtersRef.current = activeFilters
 
   const fetchPage = useCallback(
-    (key, offset, limit) => {
+    (key: string, offset: number, limit: number) => {
       const params = {
         ...commonFilterParams(filtersRef.current),
         sort,
@@ -143,9 +189,10 @@ export default function useMediaGallery(config) {
         offset,
         ...(key === FLAT ? {} : { folder: key }),
       }
-      return api
-        .get(withQuery(listUrl, params))
-        .then((page) => ({ total: page?.total ?? 0, rows: page?.[collection] || [] }))
+      return api.get(withQuery(listUrl, params)).then((body) => {
+        const page = body as ({ total?: number } & Record<string, unknown>) | null
+        return { total: page?.total ?? 0, rows: (page?.[collection] as GalleryItem[]) || [] }
+      })
     },
     [listUrl, collection, sort, order]
   )
@@ -166,10 +213,10 @@ export default function useMediaGallery(config) {
       return false
     }
   })
-  const seenFolders = useRef(null)
+  const seenFolders = useRef<Set<string> | null>(null)
   const applyGroups = useCallback(
-    (body) => {
-      const keys = []
+    (body: Groups) => {
+      const keys: string[] = []
       for (const g of body.groups) {
         const [folder, sub] = splitFolder(g.path)
         keys.push(folder)
@@ -179,9 +226,10 @@ export default function useMediaGallery(config) {
         seenFolders.current = new Set(keys)
         if (!hadStoredState) setCollapsed(new Set(keys))
       } else {
-        const fresh = keys.filter((k) => !seenFolders.current.has(k))
-        fresh.forEach((k) => seenFolders.current.add(k))
-        if (fresh.length) setCollapsed((prev) => new Set([...prev, ...fresh]))
+        const seen = seenFolders.current
+        const fresh = keys.filter((k) => !seen.has(k))
+        fresh.forEach((k) => seen.add(k))
+        if (fresh.length) setCollapsed((prev: Set<string>) => new Set([...prev, ...fresh]))
       }
       setGroups(body)
     },
@@ -198,9 +246,10 @@ export default function useMediaGallery(config) {
     let cancelled = false
     api
       .get(withQuery(`${listUrl}/groups`, commonFilterParams(filtersRef.current)))
-      .then(
-        (body) => !cancelled && applyGroups({ total: body?.total ?? 0, groups: body?.groups || [] })
-      )
+      .then((res) => {
+        const body = res as Partial<Groups> | null
+        if (!cancelled) applyGroups({ total: body?.total ?? 0, groups: body?.groups || [] })
+      })
       .catch(() => !cancelled && applyGroups({ total: 0, groups: [] }))
     return () => {
       cancelled = true
@@ -209,7 +258,7 @@ export default function useMediaGallery(config) {
 
   const { ensure, loadMore, get: getList } = pages
   const loadFolder = useCallback(
-    (key) => (getList(key) ? loadMore(key) : ensure(key)),
+    (key: string) => (getList(key) ? loadMore(key) : ensure(key)),
     [getList, loadMore, ensure]
   )
 
@@ -218,15 +267,15 @@ export default function useMediaGallery(config) {
     if (!grouped) ensure(FLAT)
   }, [grouped, ensure, pages.lists])
 
-  const toggleCollapse = (key) =>
-    setCollapsed((prev) => {
+  const toggleCollapse = (key: string) =>
+    setCollapsed((prev: Set<string>) => {
       const next = new Set(prev)
       if (next.has(key)) next.delete(key)
       else next.add(key)
       return next
     })
 
-  const saveFolderTags = async (path, tags) => {
+  const saveFolderTags = async (path: string, tags: string[]) => {
     await api.patch(foldersUrl, { path, tags })
     setFolderTags((prev) => ({ ...prev, [path]: tags }))
   }
@@ -234,8 +283,9 @@ export default function useMediaGallery(config) {
   // Every item loaded so far, across the open folders (or the flat list),
   // de-duplicated - what bulk selection and edits act on.
   const loadedItems = useMemo(() => {
-    const seen = new Map()
-    for (const list of Object.values(pages.lists)) {
+    const seen = new Map<string, GalleryItem>()
+    const all = Object.values(pages.lists) as { items: GalleryItem[] }[]
+    for (const list of all) {
       for (const item of list.items) if (!seen.has(item.id)) seen.set(item.id, item)
     }
     return [...seen.values()]
@@ -244,14 +294,14 @@ export default function useMediaGallery(config) {
   // Tag the whole selection in one request per kind (items, folders) rather than
   // one per item. The old fan-out raced on tag creation server-side and returned
   // intermittent 500s that left the button stuck on "Applying" (issue #270).
-  const applyBulkTags = async (newTags) => {
+  const applyBulkTags = async (newTags: string[]) => {
     if (!newTags.length || totalSelected === 0 || bulkApplying) return
     setBulkApplying(true)
     try {
-      const ids = [...selectedIds]
+      const ids: string[] = [...selectedIds]
       if (ids.length) await bulkApi.addTags(type, ids, newTags)
 
-      const folders = [...selectedFolderPaths].map((path) => ({
+      const folders = [...(selectedFolderPaths as Set<string>)].map((path) => ({
         path,
         tags: [...new Set([...(folderTags[path] || []), ...newTags])],
       }))
@@ -263,7 +313,7 @@ export default function useMediaGallery(config) {
         }))
       }
 
-      pages.mapItems((item) =>
+      pages.mapItems((item: GalleryItem) =>
         selectedIds.has(item.id)
           ? { ...item, tags: [...new Set([...(item.tags || []), ...newTags])] }
           : item
@@ -280,15 +330,15 @@ export default function useMediaGallery(config) {
 
   const selectedObjects = () => loadedItems.filter((i) => selectedIds.has(i.id))
 
-  const applyEdits = (edited) =>
-    pages.mapItems((i) => (edited[i.id] ? { ...i, ...edited[i.id] } : i))
+  const applyEdits = (edited: Record<string, Partial<GalleryItem>>) =>
+    pages.mapItems((i: GalleryItem) => (edited[i.id] ? { ...i, ...edited[i.id] } : i))
 
   // Every item of one folder, for actions that need them all at once (queuing
   // a folder of audio). Fetched in full pages with the gallery's filters and
   // order, independent of how much of the folder is on screen.
   const fetchFolderItems = useCallback(
-    async (paths) => {
-      const out = []
+    async (paths: string[]) => {
+      const out: GalleryItem[] = []
       for (const path of paths) {
         for (let offset = 0; ; offset += FULL_PAGE) {
           const params = {
@@ -299,8 +349,10 @@ export default function useMediaGallery(config) {
             limit: FULL_PAGE,
             offset,
           }
-          const page = await api.get(withQuery(listUrl, params))
-          const rows = page[collection] || []
+          const page = (await api.get(withQuery(listUrl, params))) as {
+            total: number
+          } & Record<string, unknown>
+          const rows = (page[collection] as GalleryItem[]) || []
           out.push(...rows)
           if (rows.length < FULL_PAGE || out.length >= page.total) break
         }
@@ -318,9 +370,9 @@ export default function useMediaGallery(config) {
   // `[[folder, { sub: { path, count, items, total, loading, hasMore } }]]`, the
   // shape MediaFolderGroup renders: top-level folders in name order, each with
   // the folders below it that hold items ('' for its own items).
-  const folderEntries = useMemo(() => {
+  const folderEntries = useMemo((): [string, Record<string, SubfolderEntry>][] => {
     if (!groups) return []
-    const byFolder = {}
+    const byFolder: Record<string, Record<string, SubfolderEntry>> = {}
     for (const g of groups.groups) {
       const [folder, sub] = splitFolder(g.path)
       const list = getList(g.path)
@@ -338,7 +390,9 @@ export default function useMediaGallery(config) {
   }, [groups, getList, dir, collator])
 
   const flatList = getList(FLAT)
-  const flatItems = pages.lists[FLAT]?.items || EMPTY_ITEMS
+  // usePagedLists is still JavaScript; its lists hold the pages loaded so far.
+  const lists = pages.lists as Record<string, { items: GalleryItem[] } | undefined>
+  const flatItems = lists[FLAT]?.items || EMPTY_ITEMS
 
   // Subtitle counts: what the filters match, out of the whole collection.
   const filteredCount = grouped ? (groups?.total ?? 0) : (flatList?.total ?? 0)
@@ -350,7 +404,7 @@ export default function useMediaGallery(config) {
   const orderedIds = useMemo(
     () =>
       grouped
-        ? folderEntries.flatMap(([, subfolders]) =>
+        ? folderEntries.flatMap(([, subfolders]): string[] =>
             Object.keys(subfolders)
               .sort((a, b) => (a === '' ? 1 : b === '' ? -1 : a.localeCompare(b)))
               .flatMap((sub) => subfolders[sub].items.map((i) => i.id))
@@ -358,11 +412,12 @@ export default function useMediaGallery(config) {
         : flatItems.map((i) => i.id),
     [grouped, folderEntries, flatItems]
   )
-  const toggleSelect = (id, mods = {}) => bulk.toggleItem(id, { ...mods, orderedIds })
+  const toggleSelect = (id: string, mods: Record<string, unknown> = {}) =>
+    bulk.toggleItem(id, { ...mods, orderedIds })
 
   // Collapse/expand-all affordance state.
   const allKeys = useMemo(() => {
-    const keys = new Set()
+    const keys = new Set<string>()
     folderEntries.forEach(([folder, subfolders]) => {
       keys.add(folder)
       Object.keys(subfolders)
@@ -381,7 +436,16 @@ export default function useMediaGallery(config) {
 
   // Something to draw: the folder list, or the flat list's first page.
   const ready = grouped ? groups !== null : flatList?.total != null
-  const data = ready ? { total: filteredCount } : null
+  // Once drawn, the gallery stays drawn. A new search or filter swaps in a fresh
+  // flat list whose first page is briefly not there yet; falling back to the
+  // views' full-page spinner for that moment unmounted the whole layout, search
+  // box included, so whatever was typed while it reloaded was lost - and under
+  // React 19 that reload lands between keystrokes.
+  const [drawn, setDrawn] = useState(false)
+  useEffect(() => {
+    if (ready) setDrawn(true)
+  }, [ready])
+  const data = ready || drawn ? { total: filteredCount } : null
 
   return {
     // raw + status

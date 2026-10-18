@@ -49,9 +49,11 @@ export default defineConfig({
       // design — the per-changed-file gate lives in the CI script instead.
       reporter: ['text', 'html', 'json-summary'],
       reportsDirectory: './coverage',
-      include: ['src/**/*.{js,jsx}'],
+      include: ['src/**/*.{js,jsx,ts,tsx}'],
       exclude: [
-        'src/**/*.test.{js,jsx}',
+        'src/**/*.test.{js,jsx,ts,tsx}',
+        // Type declarations (the generated API schema among them) hold no code.
+        'src/**/*.d.ts',
         'src/test/**',
         'src/main.jsx',
         // Third-party setup glue (pdf.js worker wiring, the three.js bundle
@@ -61,7 +63,7 @@ export default defineConfig({
         // blanket exclusion silently left it ungated.
         'src/lib/pdfjs.js',
         'src/lib/three.js',
-        'src/**/*.config.{js,jsx}',
+        'src/**/*.config.{js,jsx,ts,tsx}',
       ],
     },
   },

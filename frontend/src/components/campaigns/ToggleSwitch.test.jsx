@@ -46,9 +46,9 @@ describe('ToggleSwitch', () => {
       <ToggleSwitch id="t5" checked onChange={() => {}} label="x" />
     )
     const knob = () => container.querySelectorAll('span > span')[1]
-    expect(knob()).toHaveStyle({ background: 'var(--on-accent)' })
+    expect(knob().style.background).toBe('var(--on-accent)')
 
     rerender(<ToggleSwitch id="t5" checked={false} onChange={() => {}} label="x" />)
-    expect(knob()).toHaveStyle({ background: 'var(--text-muted)' })
+    expect(knob().style.background).toBe('var(--text-muted)')
   })
 })

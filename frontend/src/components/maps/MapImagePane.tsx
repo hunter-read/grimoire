@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { mediaUrl } from '../../api'
 import Spinner from '../Spinner'
+import useMediaLoadState from '../../hooks/useMediaLoadState'
 
 /**
  * The raster pane of the map detail view.
@@ -20,18 +21,24 @@ import Spinner from '../Spinner'
  * underneath, so the pane immediately reflects the map being navigated to
  * instead of the one the user just left.
  */
-export default function MapImagePane({ mapId, filename, hasThumbnail, imageStyle, isMobilePhone }) {
-  const { t } = useTranslation()
-  const [loaded, setLoaded] = useState(false)
-  const [failed, setFailed] = useState(false)
+interface MapImagePaneProps {
+  mapId: string
+  filename: string
+  hasThumbnail?: boolean
+  imageStyle?: CSSProperties
+  isMobilePhone?: boolean
+}
 
-  // Reset per map: a new id means a new image to wait for. Keyed state rather
-  // than an onLoad-only reset so a cached image that fires load synchronously
-  // still starts from a clean slate.
-  useEffect(() => {
-    setLoaded(false)
-    setFailed(false)
-  }, [mapId])
+export default function MapImagePane({
+  mapId,
+  filename,
+  hasThumbnail,
+  imageStyle,
+  isMobilePhone,
+}: MapImagePaneProps) {
+  const { t } = useTranslation()
+  // Per map: a new id means a new image to wait for.
+  const { loaded, failed, onLoad, onError } = useMediaLoadState(mapId)
 
   const src = mediaUrl(`/maps/${mapId}/page/1`, { width: 2000 })
 
@@ -84,8 +91,8 @@ export default function MapImagePane({ mapId, filename, hasThumbnail, imageStyle
           key={mapId}
           src={src}
           alt={filename}
-          onLoad={() => setLoaded(true)}
-          onError={() => setFailed(true)}
+          onLoad={onLoad}
+          onError={onError}
           style={{
             maxWidth: '100%',
             maxHeight: isMobilePhone ? undefined : 'calc(100vh - 60px)',

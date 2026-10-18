@@ -200,7 +200,7 @@ describe('SortFilterBar', () => {
   it('draws the sticky backdrop at the row width', () => {
     render(<Harness sticky />)
     const bar = screen.getByTestId('sort-filter-bar')
-    expect(bar).toHaveStyle({ background: 'var(--bg-deep)' })
+    expect(bar.style.background).toBe('var(--bg-deep)')
     // Read off the inline style: jsdom does not resolve the border shorthand
     // when the colour is a var() reference.
     expect(bar.style.borderBottom).toBe('1px solid var(--border)')
