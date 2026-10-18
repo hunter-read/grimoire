@@ -105,7 +105,7 @@ Grimoire answers each `POST` with one JSON body and keeps no session, so it work
 reverse proxy that passes `POST` requests through. `GET` and `DELETE` on `/mcp` (a
 server-to-client stream and session teardown, both optional in the spec) return `405`.
 
-Supported protocol revisions: `2025-11-25`, `2025-06-18` and `2025-03-26`.
+The protocol is handled by the official [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk), so Grimoire speaks whatever revisions it supports: currently `2025-11-25`, `2025-06-18`, `2025-03-26` and `2024-11-05`.
 
 ## Troubleshooting
 
@@ -118,6 +118,7 @@ Supported protocol revisions: `2025-11-25`, `2025-06-18` and `2025-03-26`.
 - **The assistant is missing a tool** - the key lacks the permission it needs (see the tables
   above), or, for `tag_books`, your account is a player.
 - **`/mcp` returns the Grimoire web page, or `405` for `POST`** - `MCP_ENABLED` is not set.
+- **`406 Not Acceptable`** - the client's `Accept` header excludes `application/json`. MCP clients send `application/json, text/event-stream`; a script calling `/mcp` directly should send that, or `*/*`.
 
 ## See also
 

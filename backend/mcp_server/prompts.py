@@ -168,12 +168,11 @@ def list_prompts(ctx: ToolContext) -> list[dict[str, Any]]:
     return [p.definition() for p in PROMPTS.values() if _allowed(p, ctx)]
 
 
-def get_prompt(name: Any, arguments: Any, ctx: ToolContext) -> dict[str, Any]:
-    prompt = PROMPTS.get(name) if isinstance(name, str) else None
+def get_prompt(name: str, arguments: dict[str, str], ctx: ToolContext) -> dict[str, Any]:
+    """The prompt's messages. The SDK has already checked the request's shape."""
+    prompt = PROMPTS.get(name)
     if prompt is None or not _allowed(prompt, ctx):
         raise errors.ProtocolError(errors.INVALID_PARAMS, f"Unknown prompt: {name}")
-    if not isinstance(arguments, dict):
-        raise errors.ProtocolError(errors.INVALID_PARAMS, "arguments must be an object")
     args = {k: str(v) for k, v in arguments.items() if v not in (None, "")}
     missing = [a.name for a in prompt.arguments if a.required and a.name not in args]
     if missing:

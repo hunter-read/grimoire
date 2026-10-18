@@ -1,9 +1,9 @@
 """MCP package — the /mcp endpoint for AI assistants, authenticated by API key."""
 from fastapi import APIRouter, Depends
 
-from .core import check_origin, mcp_not_allowed, mcp_post
+from .core import check_origin, lifespan, mcp_not_allowed, mcp_post
 
-router = APIRouter(tags=["mcp"], dependencies=[Depends(check_origin)])
+router = APIRouter(tags=["mcp"], dependencies=[Depends(check_origin)], lifespan=lifespan)
 router.add_api_route(
     "/mcp",
     mcp_post,
