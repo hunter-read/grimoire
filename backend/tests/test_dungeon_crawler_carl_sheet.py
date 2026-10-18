@@ -10,20 +10,16 @@ import re
 
 import pytest
 
+from backend.tests import community_addons
 from backend.services import characters as svc
 from backend.services.characters.schema import _build_context
 
-_DIR = os.path.abspath(os.path.join(
-    os.path.dirname(__file__), "..", "..", "..", "community-add-ons", "character-sheets", "dungeon-crawler-carl",
-))
+_DIR = community_addons.path("character-sheets", "dungeon-crawler-carl")
 _SHEET = os.path.join(_DIR, "dungeon-crawler-carl.json")
 _LAYOUT = os.path.join(_DIR, "dungeon-crawler-carl.html")
 _STYLES = os.path.join(_DIR, "dungeon-crawler-carl.css")
 
-pytestmark = pytest.mark.skipif(
-    not os.path.isfile(_SHEET),
-    reason="the community-add-ons repository is not checked out beside this one",
-)
+pytestmark = community_addons.marks(_SHEET)
 
 
 @pytest.fixture(scope="module")

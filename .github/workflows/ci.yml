@@ -157,6 +157,17 @@ jobs:
           # the PR base branch.
           fetch-depth: 0
 
+      # The cross-repo contract tests check the add-ons actually published in
+      # the community repo against this repo's interpreter, importer and sheet
+      # renderer (see backend/tests/community_addons.py). Without this checkout
+      # they skip, and REQUIRE_COMMUNITY_ADDONS below turns those skips into a
+      # failure, so a missing or renamed path can't hide them again.
+      - name: Check out community add-ons
+        uses: actions/checkout@v7
+        with:
+          repository: grimoire-codex/community-add-ons
+          path: community-add-ons
+
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
@@ -180,6 +191,9 @@ jobs:
         run: mypy backend/
 
       - name: Run tests with coverage
+        env:
+          COMMUNITY_ADDONS_PATH: ${{ github.workspace }}/community-add-ons
+          REQUIRE_COMMUNITY_ADDONS: "true"
         run: pytest backend/tests/ -v --cov=backend --cov-report=json --cov-report=term
 
       - name: Check per-changed-file coverage

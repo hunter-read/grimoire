@@ -13,17 +13,13 @@ import os
 
 import pytest
 
+from backend.tests import community_addons
 from backend.services import characters as svc
 
-_REPO = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "community-add-ons")
-)
+_REPO = community_addons.ROOT
 _SHEET_DIR = os.path.join(_REPO, "character-sheets")
 
-pytestmark = pytest.mark.skipif(
-    not os.path.isdir(_SHEET_DIR),
-    reason="the community-add-ons repository is not checked out beside this one",
-)
+pytestmark = community_addons.marks(_SHEET_DIR)
 
 
 def _sheets():
@@ -131,8 +127,7 @@ def _srd_entries(document: dict) -> dict:
 
 @pytest.fixture(scope="module")
 def dnd():
-    if not os.path.isdir(_PACK_DIR):
-        pytest.skip("the 5e SRD pack is not present")
+    community_addons.skip_unless_present(_PACK_DIR)
     document = svc.validate_schema(
         _load(os.path.join(_SHEET_DIR, "dnd-5e-2024", "dnd-5e-2024.json"))
     )
@@ -481,8 +476,7 @@ class TestSrdPackIsSrdOnly:
 
     @pytest.mark.parametrize("content_type", ["background", "species", "feat"])
     def test_holds_only_srd_entries(self, content_type):
-        if not os.path.isdir(_PACK_DIR):
-            pytest.skip("the 5e SRD pack is not present")
+        community_addons.skip_unless_present(_PACK_DIR)
         with open(os.path.join(_PACK_DIR, f"{content_type}.json"), encoding="utf-8") as handle:
             ids = {row["_id"] for row in json.load(handle)}
         assert ids <= self.SRD[content_type], ids - self.SRD[content_type]

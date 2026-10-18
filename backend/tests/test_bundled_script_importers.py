@@ -19,6 +19,7 @@ import urllib.error
 
 import pytest
 
+from backend.tests import community_addons
 from backend.config import SessionLocal
 from backend.services.characters import importing, packs
 from backend.tests.test_bundled_importers import (
@@ -29,10 +30,7 @@ from backend.tests.test_bundled_importers import (
     _sheet,
 )
 
-pytestmark = pytest.mark.skipif(
-    not os.path.isdir(_IMPORTERS),
-    reason="the community-add-ons repository is not checked out beside this one",
-)
+pytestmark = community_addons.marks(_IMPORTERS)
 
 
 def _script_path(addon_id: str) -> str:

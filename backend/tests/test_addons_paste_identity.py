@@ -5,13 +5,13 @@ another tab already knows exactly which item they want. These cover the
 extraction itself, the guards on a community-supplied regex, and the endpoint
 path that accepts pasted text in place of a search result.
 """
-import os
 import uuid
 
 import pytest
 import yaml
 from pydantic import ValidationError
 
+from backend.tests import community_addons
 from backend.addons import fetch, interpreter, registry
 from backend.addons.constants import (
     SETTING_ALLOW_SCRIPTS,
@@ -344,6 +344,7 @@ class TestFetchByPaste:
 class TestShippedDefinitions:
     """The real definitions must actually parse the URLs users will paste."""
 
+    @pytest.mark.community_addons
     @pytest.mark.parametrize(
         "addon,url,expected",
         [
@@ -360,15 +361,8 @@ class TestShippedDefinitions:
         ],
     )
     def test_real_urls_resolve(self, addon, url, expected):
-        path = os.path.normpath(
-            os.path.join(
-                os.path.dirname(__file__),
-                "..", "..", "..",
-                "community-add-ons", "scrapers", addon, f"{addon}.yml",
-            )
-        )
-        if not os.path.isfile(path):
-            pytest.skip("community-add-ons checkout not present")
+        path = community_addons.path("scrapers", addon, f"{addon}.yml")
+        community_addons.skip_unless_present(path)
         with open(path, encoding="utf-8") as fh:
             manifest = AddonManifest(**yaml.safe_load(fh))
         assert interpreter.resolve_identity(url, manifest) == expected

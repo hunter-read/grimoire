@@ -46,7 +46,22 @@ exports the schema from the app, Node turns it into TypeScript.
 **Backend:**
 - `ruff check backend/` - lint
 - `python -c "import backend.main"` - import smoke check
-- `pytest` with coverage
+- `pytest` with coverage, including the community add-on contract tests (below)
+
+**Community add-on contract tests:** nearly 400 tests (more as add-ons are added, since many are parametrised over them) load the add-ons actually published in
+[`grimoire-codex/community-add-ons`](https://github.com/grimoire-codex/community-add-ons)
+(scrapers, character importers, sheets, content packs) and check them against this repo's
+interpreter, manifest models, importer and sheet renderer. A change on either side can break
+a published add-on without anything else failing, so the backend job checks that repo's
+`main` out beside the code and points `COMMUNITY_ADDONS_PATH` at it.
+
+Locally the tests find a checkout at `../community-add-ons` (or wherever
+`COMMUNITY_ADDONS_PATH` points) and skip without one, so cloning Grimoire alone still gives
+a passing suite. CI also sets `REQUIRE_COMMUNITY_ADDONS=true`, which makes `conftest.py`
+fail the run if any of them skipped for want of the checkout, so a missing checkout or a
+file the community repo renamed can't quietly turn them back into skips. Each one carries
+the `community_addons` pytest marker, so `pytest -m community_addons` runs just these. See
+[`backend/tests/community_addons.py`](../backend/tests/community_addons.py).
 
 **Per-changed-file coverage gate (PRs only):** on pull requests, each job additionally runs
 the coverage check (`npm run coverage:check` / `backend/scripts/check_coverage.py`), which

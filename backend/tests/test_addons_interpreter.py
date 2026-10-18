@@ -11,27 +11,16 @@ import os
 import pytest
 import yaml
 
+from backend.tests import community_addons
 from backend.addons import interpreter, transforms
 from backend.addons.interpreter import AddonDataError
 from backend.addons.manifest import AddonManifest
 
 FIXTURE_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
 
-# The shipped TTRPG Wiki definition, when the community-add-ons checkout is a
-# sibling of this repo.  Tests that need it skip cleanly when it is absent (CI
-# clones only this repo).
-_COMMUNITY_MANIFEST = os.path.normpath(
-    os.path.join(
-        os.path.dirname(__file__),
-        "..",
-        "..",
-        "..",
-        "community-add-ons",
-        "scrapers",
-        "ttrpg-wiki",
-        "ttrpg-wiki.yml",
-    )
-)
+# The shipped TTRPG Wiki definition, from the community-add-ons checkout (see
+# community_addons.py: optional locally, required in CI).
+_COMMUNITY_MANIFEST = community_addons.path("scrapers", "ttrpg-wiki", "ttrpg-wiki.yml")
 
 
 @pytest.fixture(scope="module")
@@ -438,9 +427,9 @@ class TestTransforms:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.community_addons
 @pytest.mark.skipif(
-    not os.path.isfile(_COMMUNITY_MANIFEST),
-    reason="community-add-ons checkout not present",
+    not os.path.isfile(_COMMUNITY_MANIFEST), reason=community_addons.MISSING
 )
 class TestShippedDefinition:
     """Guards the real TTRPG Wiki definition against drift in this engine.

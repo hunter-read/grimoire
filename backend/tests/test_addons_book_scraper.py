@@ -12,23 +12,13 @@ import os
 import pytest
 import yaml
 
+from backend.tests import community_addons
 from backend.addons import interpreter, transforms
 from backend.addons.manifest import AddonManifest
 
 FIXTURE_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
 
-_COMMUNITY_MANIFEST = os.path.normpath(
-    os.path.join(
-        os.path.dirname(__file__),
-        "..",
-        "..",
-        "..",
-        "community-add-ons",
-        "scrapers",
-        "drivethrurpg",
-        "drivethrurpg.yml",
-    )
-)
+_COMMUNITY_MANIFEST = community_addons.path("scrapers", "drivethrurpg", "drivethrurpg.yml")
 
 
 def _fixture(name):
@@ -301,9 +291,9 @@ class TestBookMapping:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.community_addons
 @pytest.mark.skipif(
-    not os.path.isfile(_COMMUNITY_MANIFEST),
-    reason="community-add-ons checkout not present",
+    not os.path.isfile(_COMMUNITY_MANIFEST), reason=community_addons.MISSING
 )
 class TestShippedDefinition:
     """Guards the real DriveThruRPG definition against drift in this engine."""

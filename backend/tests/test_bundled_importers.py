@@ -13,22 +13,18 @@ import os
 import pytest
 import yaml
 
+from backend.tests import community_addons
 from backend.addons import importer as engine
 from backend.addons.manifest import AddonManifest
 from backend.config import SessionLocal
 from backend.services.characters import importing, packs
 from backend.services.characters.schema import validate_schema
 
-_REPO = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "community-add-ons")
-)
+_REPO = community_addons.ROOT
 _IMPORTERS = os.path.join(_REPO, "importers")
 _FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures", "importers")
 
-pytestmark = pytest.mark.skipif(
-    not os.path.isdir(_IMPORTERS),
-    reason="the community-add-ons repository is not checked out beside this one",
-)
+pytestmark = community_addons.marks(_IMPORTERS)
 
 
 def _importer_ids() -> list[str]:

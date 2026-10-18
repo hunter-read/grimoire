@@ -16,19 +16,14 @@ import re
 
 import pytest
 
+from backend.tests import community_addons
 from backend.services import characters as svc
 
-_DIR = os.path.abspath(os.path.join(
-    os.path.dirname(__file__), "..", "..", "..", "community-add-ons", "character-sheets",
-    "call-of-cthulhu-7e",
-))
+_DIR = community_addons.path("character-sheets", "call-of-cthulhu-7e")
 _SHEET = os.path.join(_DIR, "call-of-cthulhu-7e.json")
 _LAYOUT = os.path.join(_DIR, "call-of-cthulhu-7e.html")
 
-pytestmark = pytest.mark.skipif(
-    not os.path.isfile(_SHEET),
-    reason="the community-add-ons repository is not checked out beside this one",
-)
+pytestmark = community_addons.marks(_SHEET)
 
 BASE = {"strength": 50, "constitution": 50, "size": 50, "dexterity": 50, "appearance": 50,
         "intelligence": 50, "power": 50, "education": 50, "age": 25}

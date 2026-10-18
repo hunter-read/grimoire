@@ -17,20 +17,15 @@ import re
 
 import pytest
 
+from backend.tests import community_addons
 from backend.services import characters as svc
 
-_DIR = os.path.abspath(os.path.join(
-    os.path.dirname(__file__), "..", "..", "..", "community-add-ons", "character-sheets",
-    "traveller-2e",
-))
+_DIR = community_addons.path("character-sheets", "traveller-2e")
 _SHEET = os.path.join(_DIR, "traveller-2e.json")
 _LAYOUT = os.path.join(_DIR, "traveller-2e.html")
 _STYLES = os.path.join(_DIR, "traveller-2e.css")
 
-pytestmark = pytest.mark.skipif(
-    not os.path.isfile(_SHEET),
-    reason="the community-add-ons repository is not checked out beside this one",
-)
+pytestmark = community_addons.marks(_SHEET)
 
 BASE = {"str_base": 9, "dex_base": 10, "end_base": 8, "int_base": 11, "edu_base": 12,
         "soc_base": 5}

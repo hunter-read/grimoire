@@ -30,6 +30,7 @@ from backend.models import (  # noqa: E402
     Campaign,
 )
 from backend.services import tag_service  # noqa: E402
+from backend.tests import community_addons  # noqa: E402
 
 
 def _sync_tags(resource_type: str, resource_id: str, tags) -> None:
@@ -43,6 +44,42 @@ def _sync_tags(resource_type: str, resource_id: str, tags) -> None:
         db.commit()
     finally:
         db.close()
+
+
+# ---------------------------------------------------------------------------
+# Community add-on contract tests must run in CI, not skip (issue #581)
+# ---------------------------------------------------------------------------
+
+_community_skips: list[str] = []
+
+
+def pytest_runtest_logreport(report):
+    """Note every contract test that skipped for want of the community checkout."""
+    if (
+        community_addons.REQUIRED
+        and report.skipped
+        and community_addons.MISSING in str(report.longrepr)
+    ):
+        _community_skips.append(report.nodeid)
+
+
+def pytest_terminal_summary(terminalreporter):
+    if _community_skips:
+        terminalreporter.section("community-add-ons contract tests skipped", red=True)
+        terminalreporter.write_line(
+            f"REQUIRE_COMMUNITY_ADDONS is set, but {len(_community_skips)} test(s) skipped "
+            f"because {community_addons.ROOT} (or a file in it) is missing:"
+        )
+        for nodeid in _community_skips[:20]:
+            terminalreporter.write_line(f"  {nodeid}")
+        if len(_community_skips) > 20:
+            terminalreporter.write_line(f"  ... and {len(_community_skips) - 20} more")
+
+
+def pytest_sessionfinish(session, exitstatus):
+    # A skip is not a pass here: it means the contract went unchecked.
+    if _community_skips and exitstatus == pytest.ExitCode.OK:
+        session.exitstatus = pytest.ExitCode.TESTS_FAILED
 
 
 # ---------------------------------------------------------------------------

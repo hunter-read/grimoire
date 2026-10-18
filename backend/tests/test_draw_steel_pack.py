@@ -15,21 +15,17 @@ import re
 
 import pytest
 
+from backend.tests import community_addons
 from backend.config import SessionLocal
 from backend.services import characters as svc
 from backend.services.characters import packs
 
-_REPO = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "community-add-ons")
-)
+_REPO = community_addons.ROOT
 _SHEET = os.path.join(_REPO, "character-sheets", "draw-steel", "draw-steel.json")
 _LAYOUT = os.path.join(_REPO, "character-sheets", "draw-steel", "draw-steel.html")
 _PACK_DIR = os.path.join(_REPO, "content-packs", "draw-steel-core")
 
-pytestmark = pytest.mark.skipif(
-    not (os.path.isfile(_SHEET) and os.path.isdir(_PACK_DIR)),
-    reason="the community-add-ons repository is not checked out beside this one",
-)
+pytestmark = community_addons.marks(_SHEET, _PACK_DIR)
 
 
 def _rows(content_type: str) -> list[dict]:

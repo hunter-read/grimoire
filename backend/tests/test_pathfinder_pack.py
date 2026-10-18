@@ -14,21 +14,17 @@ import re
 
 import pytest
 
+from backend.tests import community_addons
 from backend.config import SessionLocal
 from backend.services import characters as svc
 from backend.services.characters import packs
 
-_REPO = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "community-add-ons")
-)
+_REPO = community_addons.ROOT
 _SHEET = os.path.join(_REPO, "character-sheets", "pathfinder-2e", "pathfinder-2e.json")
 _LAYOUT = os.path.join(_REPO, "character-sheets", "pathfinder-2e", "pathfinder-2e.html")
 _PACK_DIR = os.path.join(_REPO, "content-packs", "pf2e-player-core")
 
-pytestmark = pytest.mark.skipif(
-    not (os.path.isfile(_SHEET) and os.path.isdir(_PACK_DIR)),
-    reason="the community-add-ons repository is not checked out beside this one",
-)
+pytestmark = community_addons.marks(_SHEET, _PACK_DIR)
 
 TYPES = ["ancestry", "heritage", "background", "class", "feature", "feat", "spell"]
 
