@@ -19,13 +19,13 @@ jobs:
       github.event_name != 'pull_request' ||
       github.event.pull_request.head.ref != 'dev'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # Full history so the per-changed-file coverage gate can diff against
           # the PR base branch.
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -75,7 +75,7 @@ jobs:
 
       - name: Update frontend coverage badge
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: schneegans/dynamic-badges-action@v1.7.0
+        uses: schneegans/dynamic-badges-action@v1.9.0
         with:
           auth: ${{ secrets.GIST_SECRET }}
           gistID: ${{ vars.FRONTEND_COVERAGE_GIST_ID }}
@@ -95,13 +95,13 @@ jobs:
       github.event_name != 'pull_request' ||
       github.event.pull_request.head.ref != 'dev'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # Full history so the per-changed-file coverage gate can diff against
           # the PR base branch.
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
@@ -146,7 +146,7 @@ jobs:
 
       - name: Update backend coverage badge
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: schneegans/dynamic-badges-action@v1.7.0
+        uses: schneegans/dynamic-badges-action@v1.9.0
         with:
           auth: ${{ secrets.GIST_SECRET }}
           gistID: ${{ vars.BACKEND_COVERAGE_GIST_ID }}
