@@ -2,7 +2,7 @@
 # Pinned to BUILDPLATFORM: the Vite bundle is architecture-independent, so on a
 # multi-arch build this stage runs once natively instead of once per target
 # platform (the arm64 pass would otherwise run the whole build under QEMU).
-FROM --platform=$BUILDPLATFORM node:20-alpine AS frontend-builder
+FROM --platform=$BUILDPLATFORM node:22-alpine AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm ci

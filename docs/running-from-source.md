@@ -33,7 +33,7 @@ See [OCR](performance.md#ocr) for the difference between the two variants.
 
 ## Running without Docker
 
-If you prefer to run Grimoire directly on the host, you need Python 3.12+ and Node 20+.
+If you prefer to run Grimoire directly on the host, you need Python 3.12+ and Node 22+.
 
 ### 1. Build the frontend
 

@@ -284,7 +284,7 @@ Pull the new image and restart (`docker compose pull && docker compose up -d`). 
 
 ## Running from source
 
-Prefer to build the image yourself or run Grimoire directly on the host (Python 3.12+, Node 20+) without Docker? See [Running from source](docs/running-from-source.md).
+Prefer to build the image yourself or run Grimoire directly on the host (Python 3.12+, Node 22+) without Docker? See [Running from source](docs/running-from-source.md).
 
 ---
 

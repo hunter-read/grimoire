@@ -1,0 +1,63 @@
+# Version updates for every ecosystem the repo pins. Security updates are on
+# regardless; this adds routine bumps, grouped so a single maintainer sees a
+# handful of PRs a week rather than one per package. See docs/pipelines.md.
+version: 2
+updates:
+  - package-ecosystem: pip
+    # / holds requirements-test.txt; /backend holds the runtime pins.
+    directories:
+      - /
+      - /backend
+    schedule:
+      interval: weekly
+    labels: [dependencies]
+    commit-message:
+      prefix: Build
+      include: scope
+    groups:
+      # Moved together: FastAPI pins a Starlette range and both lean on
+      # Pydantic, so bumping one alone tends not to resolve.
+      web-stack:
+        patterns: [fastapi, starlette, "uvicorn*", "pydantic*"]
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    labels: [dependencies]
+    commit-message:
+      prefix: Build
+      include: scope
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    labels: [dependencies, ci]
+    commit-message:
+      prefix: Build
+      include: scope
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: monthly
+    labels: [dependencies]
+    commit-message:
+      prefix: Build
+      include: scope
+    ignore:
+      # The image's Python and Node must match the versions ci.yml tests with,
+      # so a runtime move is a deliberate change to both, not a Dependabot bump.
+      - dependency-name: python
+        update-types: [version-update:semver-major, version-update:semver-minor]
+      - dependency-name: node
+        update-types: [version-update:semver-major]

@@ -1,6 +1,7 @@
 # CI/CD Pipelines
 
-Grimoire uses four GitHub Actions workflows (in [`.github/workflows/`](../.github/workflows/)).
+Grimoire uses four GitHub Actions workflows (in [`.github/workflows/`](../.github/workflows/)),
+plus Dependabot for dependency updates.
 Docker images are published to Docker Hub at `hunterreadca/grimoire`.
 
 The branch model is: feature branches → `dev` (integration) → `main` (stable). Releases are
@@ -86,6 +87,28 @@ JavaScript/TypeScript) with the `security-extended` query pack. It runs on pushe
 on pull requests targeting `main` or `dev`, and on a weekly schedule (Mondays at 08:00 UTC).
 Findings surface in the repository's **Security → Code scanning** tab. No action is needed
 unless it flags something.
+
+---
+
+## Dependabot (`dependabot.yml`)
+
+[`.github/dependabot.yml`](../.github/dependabot.yml) opens version-update PRs against `main`
+for every ecosystem the repo pins. Security updates arrive on their own, whatever the schedule.
+
+| Ecosystem | Where | Schedule | Grouping |
+|---|---|---|---|
+| pip | `backend/requirements.txt`, `requirements-test.txt` | Weekly | FastAPI, Starlette, Uvicorn and Pydantic in one `web-stack` PR; other minor and patch bumps in one PR; majors one PR each |
+| npm | `frontend/` | Weekly | Minor and patch bumps in one PR; majors one PR each |
+| GitHub Actions | `.github/workflows/` | Monthly | All actions in one PR |
+| Docker | `Dockerfile` base images | Monthly | One PR per image |
+
+The Docker updates skip Python minor/major and Node major versions on purpose. The image has
+to build and run on the same runtimes `ci.yml` tests with, so a runtime move is done by hand,
+changing the `Dockerfile` and `ci.yml` in the same PR. Patch and digest bumps of those images,
+and bumps of the other base images, still come through.
+
+Each PR runs the normal CI, including the per-changed-file coverage gate, so a green grouped
+bump is usually safe to merge as is.
 
 ---
 
