@@ -7,22 +7,28 @@ on:
       - dev
   pull_request:
 
+# A newer push to the same PR makes the run in progress pointless: cancel it
+# rather than let it hold runners. Pushes to main/dev always finish, since the
+# coverage badges and nightly images come from them.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  frontend:
-    name: Frontend build + test
+  frontend-checks:
+    name: Frontend lint + build
     runs-on: ubuntu-latest
     # A direct push to `dev` while the `dev -> main` PR is open makes CI run
     # twice for the same commit: once for `push` and once for `pull_request`.
     # Skip the redundant `pull_request` run when its head branch is `dev` — the
-    # `push` run already covers that commit.
+    # `push` run already covers that commit. Every job below does the same.
     if: >-
       github.event_name != 'pull_request' ||
       github.event.pull_request.head.ref != 'dev'
     steps:
       - uses: actions/checkout@v7
         with:
-          # Full history so the per-changed-file coverage gate can diff against
-          # the PR base branch.
+          # Full history so the TypeScript ratchet can diff against the PR base.
           fetch-depth: 0
 
       - uses: actions/setup-node@v7
@@ -58,9 +64,98 @@ jobs:
           git fetch --no-tags --depth=1 origin "${{ github.event.pull_request.base.ref }}"
           npm run typescript:check
 
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+
+  # The test suite is split three ways and run in parallel: most of its time is
+  # building a jsdom environment for each of ~470 files, which parallelises
+  # across runners where it can't within one. Each shard writes a blob report
+  # holding its results and coverage, merged by the `frontend` job below.
+  frontend-tests:
+    name: Frontend tests (${{ matrix.shard }}/3)
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.ref != 'dev'
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm install
+
       - name: Run tests with coverage
         working-directory: frontend
-        run: npm run test:coverage
+        run: npx vitest run --coverage --shard=${{ matrix.shard }}/3 --reporter=dot --reporter=blob
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: vitest-blob-${{ matrix.shard }}
+          path: frontend/.vitest/blob/
+          # The directory starts with a dot, which upload-artifact skips by default.
+          include-hidden-files: true
+          retention-days: 1
+          if-no-files-found: error
+
+  # Keeps the name branch protection requires. It runs even when a job it needs
+  # failed (a skipped required check would count as passed) and fails itself
+  # then, so the frontend is only green when lint, build and every shard are.
+  frontend:
+    name: Frontend build + test
+    runs-on: ubuntu-latest
+    needs: [frontend-checks, frontend-tests]
+    if: >-
+      always() && (
+        github.event_name != 'pull_request' ||
+        github.event.pull_request.head.ref != 'dev'
+      )
+    steps:
+      - name: Lint, build and every test shard passed
+        env:
+          CHECKS: ${{ needs.frontend-checks.result }}
+          TESTS: ${{ needs.frontend-tests.result }}
+        run: |
+          echo "lint + build: $CHECKS, tests: $TESTS"
+          test "$CHECKS" = success && test "$TESTS" = success
+
+      - uses: actions/checkout@v7
+        with:
+          # Full history so the per-changed-file coverage gate can diff against
+          # the PR base branch.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm install
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: vitest-blob-*
+          path: frontend/.vitest/blob
+          merge-multiple: true
+
+      # Rebuilds coverage/coverage-summary.json from the shards' blobs: the same
+      # report one unsharded run writes, so the gate and badge read it unchanged.
+      - name: Merge test results and coverage
+        working-directory: frontend
+        run: npx vitest run --merge-reports --coverage --reporter=dot
 
       - name: Check per-changed-file coverage
         if: github.event_name == 'pull_request'
@@ -70,10 +165,6 @@ jobs:
         run: |
           git fetch --no-tags --depth=1 origin "${{ github.event.pull_request.base.ref }}"
           npm run coverage:check
-
-      - name: Build
-        working-directory: frontend
-        run: npm run build
 
       # Publish a coverage badge from the numbers just computed. Runs only on a
       # push to main so the badge tracks the released code, never a PR/feature
@@ -190,11 +281,20 @@ jobs:
       - name: Type check
         run: mypy backend/
 
+      # Four workers, one per runner core (pytest-xdist). conftest.py hands each
+      # a contiguous run of test files in their usual order, so the tests see
+      # the same predecessors they do in a serial run; the worker count is fixed
+      # rather than "auto" so those slices are the same on every run. sysmon is
+      # Python 3.12's low-overhead tracing hook, which makes measuring coverage
+      # far cheaper than the default tracer (line coverage is all the gate reads).
       - name: Run tests with coverage
         env:
           COMMUNITY_ADDONS_PATH: ${{ github.workspace }}/community-add-ons
           REQUIRE_COMMUNITY_ADDONS: "true"
-        run: pytest backend/tests/ -v --cov=backend --cov-report=json --cov-report=term
+          COVERAGE_CORE: sysmon
+        run: >-
+          pytest backend/tests/ -n 4 --dist loadgroup
+          --cov=backend --cov-report=json --cov-report=term
 
       - name: Check per-changed-file coverage
         if: github.event_name == 'pull_request'
@@ -226,3 +326,73 @@ jobs:
           valColorRange: ${{ steps.backend_cov.outputs.pct }}
           minColorRange: 50
           maxColorRange: 90
+
+  # Builds both image targets and starts each one on a tiny generated library
+  # (backend/scripts/smoke_test_image.py): healthy, non-root, first-run setup,
+  # scan, search, page render, thumbnails, unar/ffmpeg/tesseract, and an upgrade
+  # from a root-owned /data. The unit tests run from a virtualenv, so this is
+  # the only check that the image itself builds and serves before it ships -
+  # `slim` used to be built for the first time at release.
+  image-changes:
+    name: Image inputs changed
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.ref != 'dev'
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # Every push to main/dev builds the image. A PR does when it touches what
+      # goes into it: the Dockerfile, dependencies, backend code (the build runs
+      # the app's start-up to warm its bytecode) or this workflow. Frontend
+      # source, tests and docs are covered by the jobs above.
+      - id: diff
+        env:
+          BASE: ${{ github.event.pull_request.base.ref }}
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git fetch --no-tags origin "$BASE"
+          if git diff --name-only "origin/$BASE...HEAD" | grep -vE '^backend/tests/' | grep -qE \
+            '^(Dockerfile|\.dockerignore|alembic\.ini|VERSION|backend/|frontend/package(-lock)?\.json|\.github/workflows/ci\.yml)'; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  image:
+    name: Docker image (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    needs: image-changes
+    if: needs.image-changes.outputs.changed == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [slim, ocr]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      # amd64 only, and loaded locally rather than pushed. The GitHub Actions
+      # cache keeps the ffmpeg build and the Python wheels between runs, so a
+      # typical PR rebuilds only the layers its change touches.
+      - name: Build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          target: ${{ matrix.target }}
+          tags: grimoire:ci-${{ matrix.target }}
+          load: true
+          cache-from: type=gha,scope=image-${{ matrix.target }}
+          cache-to: type=gha,mode=max,scope=image-${{ matrix.target }}
+
+      - name: Smoke test
+        run: python3 backend/scripts/smoke_test_image.py grimoire:ci-${{ matrix.target }} --target ${{ matrix.target }}
+

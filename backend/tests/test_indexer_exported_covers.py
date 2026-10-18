@@ -142,14 +142,19 @@ class TestExportedCoversNotIndexed:
         (loose / "honey-heist.pdf").write_bytes(b"%PDF-1.4")
         (loose / "honey-heist.cover.jpg").write_bytes(b"\xff\xd8\xff\xe0stub")
 
-        self._scan()
+        def _names():
+            db = SessionLocal()
+            try:
+                return {s.name for s in db.query(GameSystem).all()}
+            finally:
+                db.close()
 
-        db = SessionLocal()
-        try:
-            names = {s.name for s in db.query(GameSystem).all()}
-        finally:
-            db.close()
-        assert not any("cover" in n.lower() for n in names)
+        # Only what this scan added: the database is shared with every other
+        # test, and some of them name their own systems after covers.
+        before = _names()
+        self._scan()
+        added = _names() - before
+        assert not any("cover" in n.lower() for n in added)
 
     def test_ordinary_jpg_book_is_still_indexed(self):
         # The filter keys on the compound suffix precisely so plain images stay

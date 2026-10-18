@@ -16,7 +16,7 @@ cut by pushing a version tag.
 
 | Workflow | File | Trigger | Produces |
 |---|---|---|---|
-| **CI** | [`ci.yml`](../.github/workflows/ci.yml) | Push to `main`/`dev`, and pull requests | Lint + test + coverage validation (no image) |
+| **CI** | [`ci.yml`](../.github/workflows/ci.yml) | Push to `main`/`dev`, and pull requests | Lint + test + coverage validation, and a smoke test of both image targets (nothing published) |
 | **CodeQL** | [`codeql.yml`](../.github/workflows/codeql.yml) | Push to `main`, PRs to `main`/`dev`, weekly cron | Security analysis (Python + JS/TS) |
 | **Nightly** | [`nightly.yml`](../.github/workflows/nightly.yml) | Daily at 07:00 UTC (or manually), off `main` | `:nightly` multi-arch Docker image |
 | **Release** | [`release.yml`](../.github/workflows/release.yml) | Push a `vX.Y.Z` tag | Versioned + `:latest` images (OCR & slim) + GitHub Release |
@@ -26,16 +26,24 @@ cut by pushing a version tag.
 ## CI (`ci.yml`)
 
 Runs on every push to `main`/`dev` and on all pull requests. Validates the change without
-publishing anything. Three jobs run in parallel:
+publishing anything. The jobs run in parallel, and a newer push to the same PR cancels the
+run in progress. Branch protection requires **Frontend build + test** and **Backend lint +
+test**.
 
-**Frontend (`frontend/`):**
-- `npm run format:check` - Prettier formatting
-- `npm run lint` - ESLint (errors fail CI)
-- `npm run typecheck` - `tsc` over `src/` (see [TypeScript](typescript.md))
-- `npm run typescript:check` (PRs only) - the TypeScript ratchet: fails if the PR adds a
-  `.js`/`.jsx` file under `src/`, or modifies a non-test one, so the JavaScript only shrinks
-- `npm run test:coverage` - Vitest with coverage
-- `npm run build` - production build (catches broken imports / JSX errors)
+**Frontend (`frontend/`)** is split so the slow part runs in parallel:
+- **Frontend lint + build:** `npm run format:check` (Prettier), `npm run lint` (ESLint;
+  errors fail CI), `npm run typecheck` (`tsc` over `src/`, see [TypeScript](typescript.md)),
+  `npm run typescript:check` (PRs only - the TypeScript ratchet: fails if the PR adds a
+  `.js`/`.jsx` file under `src/`, or modifies a non-test one, so the JavaScript only
+  shrinks), and `npm run build` (catches broken imports / JSX errors).
+- **Frontend tests (1/3, 2/3, 3/3):** Vitest with coverage, a third of the test files each
+  (`--shard`). Most of the suite's time is creating a jsdom environment per file, which
+  spreads across runners where it can't within one. Each shard uploads a blob report.
+- **Frontend build + test:** the required check. It merges the shards' blob reports
+  (`vitest --merge-reports --coverage`), which rebuilds the same `coverage-summary.json` an
+  unsharded run writes, then runs the coverage gate and, on `main`, the badge. It always
+  runs and fails if the lint/build job or any shard failed, since a required check that was
+  merely skipped would count as passing.
 
 **API types up to date:** regenerates `frontend/src/api/schema.d.ts` from the backend's
 OpenAPI schema (`npm run api:types:check`) and fails if the committed copy differs. A backend
@@ -46,7 +54,26 @@ exports the schema from the app, Node turns it into TypeScript.
 **Backend:**
 - `ruff check backend/` - lint
 - `python -c "import backend.main"` - import smoke check
-- `pytest` with coverage, including the community add-on contract tests (below)
+- `pytest` with coverage, including the community add-on contract tests (below), on four
+  workers (`-n 4 --dist loadgroup`, pytest-xdist). The tests share one database and lean on
+  what earlier files left behind, so `conftest.py` gives each worker a contiguous run of test
+  files in their usual order rather than handing them out one at a time: each slice runs
+  exactly as it would serially. The worker count is pinned, not `auto`, so the slices are the
+  same on every run. Coverage is measured with `COVERAGE_CORE=sysmon`, Python 3.12's
+  low-overhead tracing hook. Locally, `python3 -m pytest -n 4 --dist loadgroup` does the same.
+
+**Docker image (slim, ocr):** builds each image target (amd64, loaded rather than pushed,
+layers cached in the GitHub Actions cache) and runs
+[`backend/scripts/smoke_test_image.py`](../backend/scripts/smoke_test_image.py) against it.
+That generates a tiny library (a PDF, a CBR and an image map, from the standard library
+alone), starts the image on it with an empty `/data`, and checks through the API that it
+comes up healthy as a non-root user, first-run setup works, the scan indexes everything, the
+PDF is searchable and renders, thumbnails are made, and `unar`, `ffmpeg` and (OCR only)
+`tesseract` run. It then makes `/data` root-owned, as an install upgraded from the old
+root-run image has it, restarts, and checks the data is handed over. Every push to
+`main`/`dev` runs it; a PR does when it touches the Dockerfile, dependencies, backend code or
+`ci.yml`. Not a required check, but it is the only one that builds `slim` before a release.
+Run it locally with `python3 backend/scripts/smoke_test_image.py <image> --target slim|ocr`.
 
 **Community add-on contract tests:** nearly 400 tests (more as add-ons are added, since many are parametrised over them) load the add-ons actually published in
 [`grimoire-codex/community-add-ons`](https://github.com/grimoire-codex/community-add-ons)

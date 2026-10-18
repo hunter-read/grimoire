@@ -15,6 +15,8 @@ __pycache__/
 frontend/node_modules
 frontend/dist
 frontend/coverage
+# Vitest shard reports (CI merges them; see .github/workflows/ci.yml)
+frontend/.vitest
 frontend/static/pdfjs-wasm
 node_modules
 .venv*

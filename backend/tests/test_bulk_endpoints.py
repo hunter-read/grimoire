@@ -19,9 +19,18 @@ from backend.tests.conftest import (
 
 
 def _tags_of(resource_type, resource_id):
+    """The resource's tags, lowercased.
+
+    Tags are shared by name, and a tag keeps the spelling it was first created
+    with: if another test already made "cave", this one's "Cave" displays as
+    "cave". What these tests check is that the tag was applied, so compare
+    without case rather than depend on which test ran first.
+    """
     db = SessionLocal()
     try:
-        return tag_service.display_tags_for_resource(db, resource_type, resource_id)
+        return [
+            t.lower() for t in tag_service.display_tags_for_resource(db, resource_type, resource_id)
+        ]
     finally:
         db.close()
 
@@ -41,7 +50,7 @@ class TestBulkAddTags:
         assert set(body["updated"]) == {t.id for t in tokens}
         assert body["errors"] == []
         for t in tokens:
-            assert "Goblin" in _tags_of("token", t.id)
+            assert "goblin" in _tags_of("token", t.id)
 
     def test_is_additive(self, client, admin_headers):
         t = make_token(tags=["existing"])

@@ -665,43 +665,51 @@ class TestRunCleanupSync:
 
 class TestSettingsBroadPatch:
     def test_patch_many_fields_persists_and_clamps(self, client, admin_headers):
-        resp = client.patch(
-            "/api/settings",
-            json={
-                "rescan_schedule_enabled": True,
-                "rescan_schedule_interval": "weekly",
-                "rescan_schedule_hour": 99,  # clamped to 23
-                "rescan_schedule_minute": 200,  # clamped to 59
-                "rescan_schedule_weekday": 9,  # clamped to 6
-                "hide_maps": True,
-                "hide_tokens": True,
-                "hide_audio": True,
-                "hide_campaigns": True,
-                "show_stat_systems": False,
-                "show_stat_books": True,
-                "show_stat_audio": True,
-                "campaign_uploads_disabled": True,
-                "campaign_upload_max_file_mb": -5,  # clamped to 0
-                "campaign_upload_max_total_mb": 50,
-                "custom_login_message_enabled": True,
-                "custom_login_message": "Welcome adventurers",
-            },
-            headers=admin_headers,
-        )
-        assert resp.status_code == 200
-        body = resp.json()
-        assert body["rescan_schedule_hour"] == 23
-        assert body["rescan_schedule_minute"] == 59
-        assert body["rescan_schedule_weekday"] == 6
-        assert body["hide_audio"] is True
-        assert body["show_stat_audio"] is True
-        # Campaign upload limits surface on the /ui endpoint (clamped to >= 0).
-        ui = client.get("/api/settings/ui", headers=admin_headers).json()
-        assert ui["campaign_upload_max_file_mb"] == 0
-        assert ui["campaign_upload_max_total_mb"] == 50
-        # The audio stat toggle also reaches the UI-settings endpoint that the
-        # sidebar reads. Default is off; we just set it on.
-        assert ui["show_stat_audio"] is True
+        changes = {
+            "rescan_schedule_enabled": True,
+            "rescan_schedule_interval": "weekly",
+            "rescan_schedule_hour": 99,  # clamped to 23
+            "rescan_schedule_minute": 200,  # clamped to 59
+            "rescan_schedule_weekday": 9,  # clamped to 6
+            "hide_maps": True,
+            "hide_tokens": True,
+            "hide_audio": True,
+            "hide_campaigns": True,
+            "show_stat_systems": False,
+            "show_stat_books": True,
+            "show_stat_audio": True,
+            "campaign_uploads_disabled": True,
+            "campaign_upload_max_file_mb": -5,  # clamped to 0
+            "campaign_upload_max_total_mb": 50,
+            "custom_login_message_enabled": True,
+            "custom_login_message": "Welcome adventurers",
+        }
+        # These are app-wide (uploads off, maps and campaigns hidden), so put
+        # them back afterwards: any test that runs later would otherwise inherit
+        # them, which under pytest-xdist means whichever file shares a worker.
+        before = client.get("/api/settings", headers=admin_headers).json()
+        resp = client.patch("/api/settings", json=changes, headers=admin_headers)
+        try:
+            assert resp.status_code == 200
+            body = resp.json()
+            assert body["rescan_schedule_hour"] == 23
+            assert body["rescan_schedule_minute"] == 59
+            assert body["rescan_schedule_weekday"] == 6
+            assert body["hide_audio"] is True
+            assert body["show_stat_audio"] is True
+            # Campaign upload limits surface on the /ui endpoint (clamped to >= 0).
+            ui = client.get("/api/settings/ui", headers=admin_headers).json()
+            assert ui["campaign_upload_max_file_mb"] == 0
+            assert ui["campaign_upload_max_total_mb"] == 50
+            # The audio stat toggle also reaches the UI-settings endpoint that the
+            # sidebar reads. Default is off; we just set it on.
+            assert ui["show_stat_audio"] is True
+        finally:
+            client.patch(
+                "/api/settings",
+                json={k: before[k] for k in changes if k in before},
+                headers=admin_headers,
+            )
 
     def test_invalid_interval_rejected(self, client, admin_headers):
         resp = client.patch(

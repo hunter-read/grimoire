@@ -47,6 +47,65 @@ def _sync_tags(resource_type: str, resource_id: str, tags) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Parallel runs keep the serial order (pytest-xdist, issue #582)
+# ---------------------------------------------------------------------------
+
+
+# tryfirst: xdist's own hook turns xdist_group marks into scheduling groups,
+# so they have to be on the items before it runs.
+@pytest.hookimpl(tryfirst=True)
+def pytest_collection_modifyitems(config, items):
+    """Split the suite into one contiguous run of files per xdist worker.
+
+    The tests share one database and one library folder, and plenty of them
+    lean on what earlier files left behind. Run serially that order is fixed,
+    so it works; handed out file by file, each worker would see a different,
+    changing mix, and those dependencies surface as failures that move from
+    run to run. So with ``--dist loadgroup`` each worker gets a contiguous
+    slice of the files in their usual order, sized by test count, and runs it
+    exactly as a serial run would - only the first file of each slice loses
+    its predecessors. Without xdist this does nothing.
+    """
+    workers = int(os.environ.get("PYTEST_XDIST_WORKER_COUNT") or 0)
+    if workers < 2 or not items:
+        return
+    per_chunk = len(items) / workers
+    chunk_of: dict[str, int] = {}
+    seen = 0
+    for item in items:
+        path = item.nodeid.split("::", 1)[0]
+        if path not in chunk_of:
+            chunk_of[path] = min(workers - 1, int(seen / per_chunk))
+        seen += 1
+    for item in items:
+        chunk = chunk_of[item.nodeid.split("::", 1)[0]]
+        item.add_marker(pytest.mark.xdist_group(f"chunk-{chunk}"))
+
+
+# ---------------------------------------------------------------------------
+# Reports must survive the trip from a pytest-xdist worker
+# ---------------------------------------------------------------------------
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    """Escape what UTF-8 can't encode in a test's captured output.
+
+    Several tests deliberately log filenames that aren't valid UTF-8 (issue
+    #547), so the captured log holds lone surrogates. That's harmless in one
+    process, but xdist sends each report to the controller as UTF-8, and a
+    surrogate there crashes the worker and silently drops every test it had
+    left to run.
+    """
+    outcome = yield
+    report = outcome.get_result()
+    report.sections = [
+        (title, text.encode("utf-8", "backslashreplace").decode("utf-8"))
+        for title, text in report.sections
+    ]
+
+
+# ---------------------------------------------------------------------------
 # Community add-on contract tests must run in CI, not skip (issue #581)
 # ---------------------------------------------------------------------------
 
@@ -90,7 +149,26 @@ def pytest_sessionfinish(session, exitstatus):
 @pytest.fixture(scope="session")
 def client():
     with TestClient(app, raise_server_exceptions=True) as c:
+        wait_for_startup_scan()
         yield c
+
+
+def wait_for_startup_scan() -> None:
+    """Block until the app's start-up library scan has finished.
+
+    Call it after entering any ``TestClient`` that runs the lifespan.
+
+    The lifespan starts it on a background thread, holding DATA_PATH/.scan.lock
+    until it's done. Left running, it races whichever tests come first: they
+    see "a scan is in progress", or rows appearing and vanishing under them.
+    Run serially that was always the same few files, which didn't care; under
+    pytest-xdist any file can be first on a worker.
+    """
+    import fcntl
+
+    with open(os.path.join(_DATA_DIR, ".scan.lock"), "a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        fcntl.flock(lock, fcntl.LOCK_UN)
 
 
 @pytest.fixture(autouse=True)

@@ -24,8 +24,8 @@ from unittest.mock import patch
 import fitz
 import pytest
 
-from backend import filenames
-from backend.config import LIBRARY_PATH, SessionLocal, _memory_handler
+from backend import config, filenames
+from backend.config import LIBRARY_PATH, SessionLocal
 from backend.indexer import scan_library
 from backend.indexer import books as books_mod
 from backend.indexer import systems as systems_mod
@@ -137,7 +137,9 @@ class TestWalkFilters:
 class TestLogBuffer:
     def test_buffered_message_is_serialisable(self):
         logging.getLogger("grimoire.test").warning("raw name %s", BAD)
-        entries, _ = _memory_handler.get_entries(limit=5)
+        # Looked up now, not imported: test_opds reloads config, which attaches a
+        # fresh handler and reformats the old one with the console format.
+        entries, _ = config._memory_handler.get_entries(limit=5)
         newest = entries[-1]["message"]
         assert newest == "raw name M�RK BORG"
         json.dumps(entries)

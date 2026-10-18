@@ -17,6 +17,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from backend.config import SessionLocal  # noqa: E402
 from backend.models import User, Book, GameSystem  # noqa: E402
+from backend.tests.conftest import wait_for_startup_scan  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -41,6 +42,7 @@ def opds_client():
     importlib.reload(main_mod)
 
     with TestClient(main_mod.app, raise_server_exceptions=True) as c:
+        wait_for_startup_scan()
         yield c
 
 
