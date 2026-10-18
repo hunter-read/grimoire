@@ -242,6 +242,8 @@
     "shortcutClose": "Panels schließen",
     "spreadCover": "Titelseite",
     "spreadPairCover": "Titelseite mit Seite 2 paaren",
+    "spreadJoinPages": "Seiten verbinden",
+    "spreadJoinPagesHint": "Beide Seiten als ein Bild zeigen, ohne Lücke dazwischen",
     "zoomIn": "Vergrößern",
     "zoomOut": "Verkleinern",
     "zoomReset": "Zoom zurücksetzen",

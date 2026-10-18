@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import {
   LuBookCopy,
+  LuBookOpen,
   LuCheck,
   LuColumns2,
   LuDownload,
@@ -64,6 +65,8 @@ export default function ReaderMoreMenu({
   onModeChange,
   spreadOffset,
   onSpreadOffsetChange,
+  joinSpread = false,
+  onJoinSpreadChange,
   isMobilePhone,
   isFavorite,
   onToggleFavorite,
@@ -257,6 +260,28 @@ export default function ReaderMoreMenu({
                         <LuBookCopy size={14} aria-hidden="true" />
                         <span style={{ flex: 1 }}>{t('reader.spreadPairCover')}</span>
                         {spreadOffset === 1 && <LuCheck size={13} aria-hidden="true" />}
+                      </button>
+                    )}
+                    {/* Join pages (issue #588): the pair as one image, no gap.
+                        Leaves the menu open, like cover pairing above. */}
+                    {key === 'spread' && mode === 'spread' && onJoinSpreadChange && (
+                      <button
+                        role="menuitemcheckbox"
+                        aria-checked={joinSpread}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onJoinSpreadChange(!joinSpread)
+                        }}
+                        style={{
+                          ...itemStyle,
+                          paddingLeft: 34,
+                          fontSize: 12,
+                          color: joinSpread ? 'var(--gold)' : 'var(--text-dim)',
+                        }}
+                      >
+                        <LuBookOpen size={14} aria-hidden="true" />
+                        <span style={{ flex: 1 }}>{t('reader.spreadJoinPages')}</span>
+                        {joinSpread && <LuCheck size={13} aria-hidden="true" />}
                       </button>
                     )}
                   </Fragment>

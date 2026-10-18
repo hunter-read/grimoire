@@ -88,7 +88,10 @@ def render_region(doc: fitz.Document, region: Region, dpi: int) -> Image.Image:
         prect = page.rect
         span_x1 = part.offset + prect.width * part.scale
         ix0, ix1 = max(rx0, part.offset), min(rx1, span_x1)
-        if ix1 <= ix0:
+        # The whole pixels this part covers. Neighbouring parts round their shared
+        # gutter edge the same way, so they meet exactly (issue #588).
+        px0, px1 = round((ix0 - rx0) * k), min(out_w, round((ix1 - rx0) * k))
+        if ix1 <= ix0 or px1 <= px0:
             continue
         clip = fitz.Rect(
             prect.x0 + (ix0 - part.offset) / part.scale,
@@ -96,11 +99,17 @@ def render_region(doc: fitz.Document, region: Region, dpi: int) -> Image.Image:
             prect.x0 + (ix1 - part.offset) / part.scale,
             prect.y0 + ry1 / part.scale,
         )
-        zoom = k * part.scale
-        pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), clip=clip, alpha=False)
+        # Render the clip to exactly px1 - px0 columns, starting on a whole pixel.
+        # At the plain zoom a part whose edge falls mid-pixel ends in a half-
+        # covered, half-white column, which shows as a light seam down the gutter
+        # of a joined spread. The horizontal stretch this adds is under a pixel.
+        zoom_x = (px1 - px0) / clip.width
+        zoom_y = k * part.scale
+        matrix = fitz.Matrix(zoom_x, 0, 0, zoom_y, -clip.x0 * zoom_x, -clip.y0 * zoom_y)
+        pix = page.get_pixmap(matrix=matrix, clip=clip, alpha=False)
         tile = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
         del pix
-        canvas.paste(tile, (round((ix0 - rx0) * k), 0))
+        canvas.paste(tile, (px0, 0))
 
     if region.shape == "ellipse":
         canvas = _mask_ellipse(canvas)

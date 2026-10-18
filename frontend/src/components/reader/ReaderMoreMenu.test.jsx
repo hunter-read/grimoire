@@ -160,16 +160,46 @@ describe('ReaderMoreMenu', () => {
   it('reflects the spread offset as the cover-pairing checked state', async () => {
     renderMenu({ mode: 'spread', spreadOffset: 0 })
     await openMenu()
-    expect(screen.getByRole('menuitemcheckbox')).toHaveAttribute('aria-checked', 'false')
+    expect(
+      screen.getByRole('menuitemcheckbox', { name: 'Pair cover with page 2' })
+    ).toHaveAttribute('aria-checked', 'false')
   })
 
   it('toggles cover pairing without closing the menu, so the result is visible', async () => {
     const { props } = renderMenu({ mode: 'spread', spreadOffset: 1 })
     await openMenu()
-    await userEvent.click(screen.getByRole('menuitemcheckbox'))
+    await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Pair cover with page 2' }))
 
     expect(props.onSpreadOffsetChange).toHaveBeenCalledWith(0)
     expect(screen.getByRole('menu')).toBeInTheDocument()
+  })
+
+  it('offers joining the pages right under cover pairing, without closing the menu', async () => {
+    const onJoinSpreadChange = vi.fn()
+    renderMenu({ mode: 'spread', joinSpread: false, onJoinSpreadChange })
+    await openMenu()
+    const items = [...screen.getByRole('menu').querySelectorAll('[role^="menuitem"]')].map((el) =>
+      el.textContent.trim()
+    )
+    expect(items.indexOf('Join pages')).toBe(items.indexOf('Pair cover with page 2') + 1)
+    const join = screen.getByRole('menuitemcheckbox', { name: 'Join pages' })
+    expect(join).toHaveAttribute('aria-checked', 'false')
+    await userEvent.click(join)
+    expect(onJoinSpreadChange).toHaveBeenCalledWith(true)
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+  })
+
+  it('shows joining as checked when it is on, and only in spread mode', async () => {
+    renderMenu({ mode: 'spread', joinSpread: true, onJoinSpreadChange: vi.fn() })
+    await openMenu()
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Join pages' })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    )
+    cleanup()
+    renderMenu({ mode: 'page', onJoinSpreadChange: vi.fn() })
+    await openMenu()
+    expect(screen.queryByRole('menuitemcheckbox', { name: 'Join pages' })).not.toBeInTheDocument()
   })
 
   it('drops the mode items on phones', async () => {

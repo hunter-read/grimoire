@@ -81,12 +81,15 @@ export default function ReaderView() {
       : (_globalMode ?? (['page', 'spread', 'pdf'].includes(_prefs.mode) ? _prefs.mode : 'page'))
 
   const initialSpreadOffset = _prefs.spreadOffset ?? 0
+  // Per book: one full of two-page art can stay joined while others don't (issue #588).
+  const initialJoinSpread = _prefs.joinSpread === true
 
   const [book, setBook] = useState(null)
   const [currentPage, setCurrentPage] = useState(initialPage)
   const [totalPages, setTotalPages] = useState(0)
   const [mode, setMode] = useState(initialMode)
   const [spreadOffset, setSpreadOffset] = useState(initialSpreadOffset)
+  const [joinSpread, setJoinSpread] = useState(initialJoinSpread)
   const [pageInput, setPageInput] = useState(String(initialPage))
   const [panel, setPanel] = useState(null)
   const [activeSearchQuery, setActiveSearchQuery] = useState(null)
@@ -531,6 +534,11 @@ export default function ReaderView() {
           setSpreadOffset(next)
           saveBookPrefs(bookId, { spreadOffset: next })
         }}
+        joinSpread={joinSpread}
+        onJoinSpreadChange={(next) => {
+          setJoinSpread(next)
+          saveBookPrefs(bookId, { joinSpread: next })
+        }}
         currentPage={currentPage}
         totalPages={totalPages}
         step={step}
@@ -623,6 +631,7 @@ export default function ReaderView() {
               activeHighlight={activeHighlight}
               renderWidth={renderWidth}
               pageUrl={pageUrl}
+              joined={joinSpread}
             />
           ) : (
             <SinglePage

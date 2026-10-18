@@ -242,6 +242,8 @@
     "shortcutClose": "Cerrar paneles",
     "spreadCover": "Portada",
     "spreadPairCover": "Emparejar portada con la página 2",
+    "spreadJoinPages": "Unir páginas",
+    "spreadJoinPagesHint": "Mostrar las dos páginas como una sola imagen, sin espacio entre ellas",
     "zoomIn": "Acercar",
     "zoomOut": "Alejar",
     "zoomReset": "Restablecer zoom",

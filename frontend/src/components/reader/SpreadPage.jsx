@@ -1,4 +1,5 @@
 import { mediaUrl } from '../../api'
+import JoinedSpread from './JoinedSpread'
 import TextOverlay from './TextOverlay'
 import { SPREAD_WIDTH, animStyle } from './pageRender'
 
@@ -8,6 +9,10 @@ import { SPREAD_WIDTH, animStyle } from './pageRender'
  * Pass `pageUrl(page, width)` to override where page images come from (defaults
  * to the book page endpoint). When `wordsCacheRef` is omitted the selectable
  * text overlay is skipped — used by maps, which render pages without text.
+ *
+ * `joined` draws a two-page spread as one image, without the gap between the
+ * pages (issue #588; see JoinedSpread). A page shown on its own - the cover,
+ * or a last odd page - looks the same either way.
  */
 export default function SpreadPage({
   bookId,
@@ -24,8 +29,11 @@ export default function SpreadPage({
   activeHighlight,
   pageUrl,
   renderWidth = SPREAD_WIDTH,
+  joined = false,
 }) {
   const urlFor = pageUrl ?? ((p, width) => mediaUrl(`/books/${bookId}/page/${p}`, { width }))
+  const pages = [currentPage, hasRight ? rightPage : null].filter(Boolean)
+  const joinPair = joined && pages.length === 2
   return (
     <div
       key={currentPage}
@@ -35,62 +43,76 @@ export default function SpreadPage({
         height: '100%',
         boxSizing: 'border-box',
         display: 'flex',
-        gap: 12,
+        gap: joinPair ? 0 : 12,
         alignItems: 'center',
         justifyContent: 'center',
+        // JoinedSpread sizes the pair from this box with container-query units.
+        ...(joinPair ? { containerType: 'size' } : null),
         ...animStyle(axisRef, directionRef, zoom, pan),
       }}
     >
-      {[currentPage, hasRight ? rightPage : null].filter(Boolean).map((p) => {
-        const wd = wordsCacheRef?.current[p]
-        return wd ? (
-          <div
-            key={p}
-            style={{
-              position: 'relative',
-              aspectRatio: `${wd.width} / ${wd.height}`,
-              maxHeight: '100%',
-              maxWidth: 'calc(50% - 6px)',
-              lineHeight: 0,
-            }}
-          >
+      {joinPair ? (
+        <JoinedSpread
+          pages={pages}
+          urlFor={urlFor}
+          renderWidth={renderWidth}
+          getAlt={getAlt}
+          wordsCacheRef={wordsCacheRef}
+          activeSearchQuery={activeSearchQuery}
+          activeHighlight={activeHighlight}
+        />
+      ) : (
+        pages.map((p) => {
+          const wd = wordsCacheRef?.current[p]
+          return wd ? (
+            <div
+              key={p}
+              style={{
+                position: 'relative',
+                aspectRatio: `${wd.width} / ${wd.height}`,
+                maxHeight: '100%',
+                maxWidth: 'calc(50% - 6px)',
+                lineHeight: 0,
+              }}
+            >
+              <img
+                src={urlFor(p, renderWidth)}
+                alt={getAlt(p)}
+                draggable={false}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  display: 'block',
+                  borderRadius: 4,
+                  boxShadow: '0 4px 20px var(--shadow)',
+                  userSelect: 'none',
+                }}
+              />
+              <TextOverlay
+                words={wd.words}
+                naturalWidth={wd.width}
+                naturalHeight={wd.height}
+                highlightQuery={activeSearchQuery}
+                highlightText={activeHighlight}
+              />
+            </div>
+          ) : (
             <img
+              key={p}
               src={urlFor(p, renderWidth)}
               alt={getAlt(p)}
-              draggable={false}
               style={{
-                width: '100%',
-                height: '100%',
+                maxHeight: '100%',
+                maxWidth: 'calc(50% - 6px)',
+                width: 'auto',
                 display: 'block',
                 borderRadius: 4,
                 boxShadow: '0 4px 20px var(--shadow)',
-                userSelect: 'none',
               }}
             />
-            <TextOverlay
-              words={wd.words}
-              naturalWidth={wd.width}
-              naturalHeight={wd.height}
-              highlightQuery={activeSearchQuery}
-              highlightText={activeHighlight}
-            />
-          </div>
-        ) : (
-          <img
-            key={p}
-            src={urlFor(p, renderWidth)}
-            alt={getAlt(p)}
-            style={{
-              maxHeight: '100%',
-              maxWidth: 'calc(50% - 6px)',
-              width: 'auto',
-              display: 'block',
-              borderRadius: 4,
-              boxShadow: '0 4px 20px var(--shadow)',
-            }}
-          />
-        )
-      })}
+          )
+        })
+      )}
     </div>
   )
 }

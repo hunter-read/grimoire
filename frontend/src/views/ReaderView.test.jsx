@@ -311,11 +311,35 @@ describe('ReaderView — spread mode (integration)', () => {
 
     await userEvent.click(screen.getByLabelText('More actions'))
     // The menu stays open across toggles, so both flips work in one pass.
-    await userEvent.click(screen.getByRole('menuitemcheckbox'))
+    await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Pair cover with page 2' }))
     expect(JSON.parse(localStorage.getItem('grimoire:book:book-1')).spreadOffset).toBe(1)
 
-    await userEvent.click(screen.getByRole('menuitemcheckbox'))
+    await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Pair cover with page 2' }))
     expect(JSON.parse(localStorage.getItem('grimoire:book:book-1')).spreadOffset).toBe(0)
+  })
+
+  it('persists joining the spread pages per book (issue #588)', async () => {
+    localStorage.setItem('grimoire:book:book-1', JSON.stringify({ mode: 'spread' }))
+    renderReader()
+    await waitFor(() => screen.getByText('Test Book'))
+    await userEvent.click(screen.getByLabelText('More actions'))
+    await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Join pages' }))
+    expect(JSON.parse(localStorage.getItem('grimoire:book:book-1')).joinSpread).toBe(true)
+  })
+
+  it('restores joined spreads on mount', async () => {
+    localStorage.setItem(
+      'grimoire:book:book-1',
+      JSON.stringify({ mode: 'spread', joinSpread: true, page: 2 })
+    )
+    renderReader()
+    await waitFor(() => screen.getByText('Test Book'))
+    await userEvent.click(screen.getByLabelText('More actions'))
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Join pages' })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    )
+    expect(document.querySelector('[data-joined-spread]')).toBeInTheDocument()
   })
 
   it('opens on the last page when the saved page is past the end of the book', async () => {
@@ -346,7 +370,9 @@ describe('ReaderView — spread mode (integration)', () => {
     await waitFor(() => screen.getByText('Test Book'))
 
     await userEvent.click(screen.getByLabelText('More actions'))
-    expect(screen.getByRole('menuitemcheckbox')).toHaveAttribute('aria-checked', 'true')
+    expect(
+      screen.getByRole('menuitemcheckbox', { name: 'Pair cover with page 2' })
+    ).toHaveAttribute('aria-checked', 'true')
   })
 })
 

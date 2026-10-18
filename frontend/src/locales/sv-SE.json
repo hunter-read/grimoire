@@ -242,6 +242,8 @@
     "shortcutClose": "Stäng paneler",
     "spreadCover": "Omslag",
     "spreadPairCover": "Para omslag med sida 2",
+    "spreadJoinPages": "Sammanfoga sidor",
+    "spreadJoinPagesHint": "Visa de två sidorna som en bild, utan mellanrum",
     "zoomIn": "Zooma in",
     "zoomOut": "Zooma ut",
     "zoomReset": "Återställ zoom",

@@ -44,6 +44,8 @@ export default function ReaderToolbar({
   onModeChange,
   spreadOffset,
   onSpreadOffsetChange,
+  joinSpread,
+  onJoinSpreadChange,
   currentPage,
   totalPages,
   step,
@@ -92,6 +94,8 @@ export default function ReaderToolbar({
       onModeChange={onModeChange}
       spreadOffset={spreadOffset}
       onSpreadOffsetChange={onSpreadOffsetChange}
+      joinSpread={joinSpread}
+      onJoinSpreadChange={onJoinSpreadChange}
       isMobilePhone={isMobilePhone}
       isFavorite={isFavorite}
       onToggleFavorite={onToggleFavorite}

@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Release candidates are omitted; their contents are rolled into the stable release that followed.
 
+## [Unreleased]
+
+### Added
+
+- **Join pages** in spread view draws the two pages as one image, with no gap, inner corners or shadow between them, so a map or illustration printed across a spread reads as one picture. It is under Spread in the reader's menu and a button in the PDF map viewer, and is remembered per book and per map
+
+### Fixed
+
+- Exporting a spread as one joined image could leave a faint light line down the middle at some page sizes and resolutions
+
 ## [1.9.0] - 2026-10-15
 
 ### Added

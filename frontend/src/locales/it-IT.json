@@ -242,6 +242,8 @@
     "shortcutClose": "Chiudi i pannelli",
     "spreadCover": "Copertina",
     "spreadPairCover": "Abbina la copertina a pagina 2",
+    "spreadJoinPages": "Unisci pagine",
+    "spreadJoinPagesHint": "Mostra le due pagine come un'unica immagine, senza spazio tra loro",
     "zoomIn": "Ingrandisci",
     "zoomOut": "Riduci",
     "zoomReset": "Reimposta zoom",

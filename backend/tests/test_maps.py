@@ -71,6 +71,13 @@ class TestListMapsOrdering:
         assert resp.status_code == 200
         return [m["relative_path"] for m in resp.json()["maps"]]
 
+    def _ids(self, client, headers, query=""):
+        # Paging is checked by id: other tests may leave several maps at one
+        # path, which would look like an overlap when compared by path.
+        resp = client.get(f"/api/maps{query}", headers=headers)
+        assert resp.status_code == 200
+        return [m["id"] for m in resp.json()["maps"]]
+
     def test_orders_by_path(self, client, admin_headers, scattered):
         paths = [p for p in self._paths(client, admin_headers) if p.startswith("DnD/")]
         assert paths == sorted(paths)
@@ -96,10 +103,10 @@ class TestListMapsOrdering:
         assert rows[0]["relative_path"] == "DnD/Zones/a.png"
 
     def test_filename_paging_does_not_overlap_or_drop_rows(self, client, admin_headers, scattered):
-        first = self._paths(client, admin_headers, "?sort=name&limit=2&offset=0")
-        second = self._paths(client, admin_headers, "?sort=name&limit=2&offset=2")
+        first = self._ids(client, admin_headers, "?sort=name&limit=2&offset=0")
+        second = self._ids(client, admin_headers, "?sort=name&limit=2&offset=2")
         assert len(set(first) & set(second)) == 0
-        combined = self._paths(client, admin_headers, "?sort=name&limit=4&offset=0")
+        combined = self._ids(client, admin_headers, "?sort=name&limit=4&offset=0")
         assert first + second == combined
 
     def test_rejects_an_unknown_sort(self, client, admin_headers):
@@ -107,10 +114,10 @@ class TestListMapsOrdering:
         assert resp.status_code == 422
 
     def test_pages_do_not_overlap_or_drop_rows(self, client, admin_headers, scattered):
-        first = self._paths(client, admin_headers, "?limit=2&offset=0")
-        second = self._paths(client, admin_headers, "?limit=2&offset=2")
+        first = self._ids(client, admin_headers, "?limit=2&offset=0")
+        second = self._ids(client, admin_headers, "?limit=2&offset=2")
         assert len(set(first) & set(second)) == 0
-        combined = self._paths(client, admin_headers, "?limit=4&offset=0")
+        combined = self._ids(client, admin_headers, "?limit=4&offset=0")
         assert first + second == combined
 
 

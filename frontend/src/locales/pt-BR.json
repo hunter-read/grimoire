@@ -242,6 +242,8 @@
     "shortcutClose": "Fechar painéis",
     "spreadCover": "Capa",
     "spreadPairCover": "Parear capa com a página 2",
+    "spreadJoinPages": "Unir páginas",
+    "spreadJoinPagesHint": "Mostrar as duas páginas como uma única imagem, sem espaço entre elas",
     "zoomIn": "Ampliar",
     "zoomOut": "Reduzir",
     "zoomReset": "Redefinir zoom",

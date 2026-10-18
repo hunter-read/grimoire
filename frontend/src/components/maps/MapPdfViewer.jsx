@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
+  LuBookOpen,
   LuChevronLeft,
   LuChevronRight,
   LuFileText,
@@ -85,9 +86,12 @@ export default function MapPdfViewer({ mapId, filename, relativePath, totalPages
     ? 'page'
     : (_globalMode ?? (['page', 'spread', 'pdf'].includes(_prefs.mode) ? _prefs.mode : 'page'))
   const initialSpreadOffset = _prefs.spreadOffset ?? 0
+  // A battle map drawn across two pages reads best joined (issue #588).
+  const initialJoinSpread = _prefs.joinSpread === true
 
   const [mode, setMode] = useState(initialMode)
   const [spreadOffset, setSpreadOffset] = useState(initialSpreadOffset)
+  const [joinSpread, setJoinSpread] = useState(initialJoinSpread)
   const [currentPage, setCurrentPage] = useState(1)
   const [pageInput, setPageInput] = useState('1')
   const [zoom, setZoom] = useState(1)
@@ -320,6 +324,24 @@ export default function MapPdfViewer({ mapId, filename, relativePath, totalPages
             <LuPanelLeft size={13} /> {t('reader.spreadCover')}
           </button>
         )}
+        {mode === 'spread' && !isMobilePhone && (
+          <button
+            onClick={() => {
+              const next = !joinSpread
+              setJoinSpread(next)
+              saveBookPrefs(`map:${mapId}`, { joinSpread: next })
+            }}
+            aria-pressed={joinSpread}
+            title={t('reader.spreadJoinPagesHint')}
+            style={{
+              ...toolbarBtn(joinSpread),
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+            }}
+          >
+            <LuBookOpen size={13} /> {t('reader.spreadJoinPages')}
+          </button>
+        )}
 
         <button
           onClick={toggleExport}
@@ -378,6 +400,7 @@ export default function MapPdfViewer({ mapId, filename, relativePath, totalPages
               axisRef={axisRef}
               directionRef={directionRef}
               pageUrl={pageUrl}
+              joined={joinSpread}
             />
           ) : (
             <SinglePage

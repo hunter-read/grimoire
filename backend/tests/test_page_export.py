@@ -130,6 +130,25 @@ class TestRender:
         img = render_region(doc, pe.Region((1, 2), "rect", 0, 0, 1, 1), 72)
         assert img.size == (400, 300)
 
+    @pytest.mark.parametrize("dpi", [72, 96, 150, 300])
+    @pytest.mark.parametrize("sizes", [((200, 300), (200, 300)), ((201.7, 300), (199.3, 297.1))])
+    def test_a_joined_spread_has_no_seam(self, dpi, sizes):
+        """The exported spread matches the reader's joined view: no gap at the gutter (#588).
+
+        Odd page sizes and resolutions put the join on a fractional pixel, where
+        rounding could leave a white column between the two halves.
+        """
+        doc = fitz.open()
+        for width, height in sizes:
+            page = doc.new_page(width=width, height=height)
+            page.draw_rect(page.rect, color=None, fill=(0.1, 0.1, 0.1))
+        img = render_region(doc, pe.Region((1, 2), "rect", 0, 0, 1, 1), dpi).convert("L")
+        comp = composite_for(doc, (1, 2))
+        gutter = round(comp.parts[1].offset * dpi / 72)
+        for x in range(max(0, gutter - 2), min(img.width, gutter + 3)):
+            column = [img.getpixel((x, y)) for y in range(2, img.height - 2)]
+            assert max(column) < 80, f"light seam at x={x}"
+
     def test_region_across_the_gutter(self):
         doc = fitz.open()
         left = doc.new_page(width=100, height=100)

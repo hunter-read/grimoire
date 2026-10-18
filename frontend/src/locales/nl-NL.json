@@ -242,6 +242,8 @@
     "shortcutClose": "Panelen sluiten",
     "spreadCover": "Omslag",
     "spreadPairCover": "Omslag koppelen aan pagina 2",
+    "spreadJoinPages": "Pagina's samenvoegen",
+    "spreadJoinPagesHint": "Toon de twee pagina's als één afbeelding, zonder ruimte ertussen",
     "zoomIn": "Inzoomen",
     "zoomOut": "Uitzoomen",
     "zoomReset": "Zoom herstellen",

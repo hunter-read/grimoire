@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import MapPdfViewer from './MapPdfViewer'
 
+import { saveBookPrefs } from '../../hooks/useBookPrefs'
 vi.mock('../../api', () => ({
   // Page sizes for the export panel's cut-out stage.
   default: { get: vi.fn(() => Promise.resolve({ width: 600, height: 800 })) },
@@ -36,8 +37,8 @@ vi.mock('../reader/SinglePage', () => ({
   ),
 }))
 vi.mock('../reader/SpreadPage', () => ({
-  default: ({ currentPage, rightPage, hasRight, pageUrl }) => (
-    <div data-testid="spread-page">
+  default: ({ currentPage, rightPage, hasRight, pageUrl, joined }) => (
+    <div data-testid="spread-page" data-joined={joined ? 'yes' : 'no'}>
       {pageUrl(currentPage, 1000)}
       {hasRight ? `|${pageUrl(rightPage, 1000)}` : ''}
     </div>
@@ -114,6 +115,23 @@ describe('MapPdfViewer', () => {
     const spread = screen.getByTestId('spread-page')
     expect(spread).toHaveTextContent('/api/maps/m1/page/1?width=1000')
     expect(spread).toHaveTextContent('/api/maps/m1/page/2?width=1000')
+  })
+
+  it('joins the spread pages, remembered for this map', async () => {
+    setup()
+    await userEvent.click(screen.getByRole('button', { name: /spread/i }))
+    expect(screen.getByTestId('spread-page')).toHaveAttribute('data-joined', 'no')
+    const join = screen.getByRole('button', { name: /join pages/i })
+    expect(join).toHaveAttribute('aria-pressed', 'false')
+    await userEvent.click(join)
+    expect(screen.getByTestId('spread-page')).toHaveAttribute('data-joined', 'yes')
+    expect(join).toHaveAttribute('aria-pressed', 'true')
+    expect(saveBookPrefs).toHaveBeenCalledWith('map:m1', { joinSpread: true })
+  })
+
+  it('offers joining only in spread mode', () => {
+    setup()
+    expect(screen.queryByRole('button', { name: /join pages/i })).not.toBeInTheDocument()
   })
 
   it('renders the raw PDF in an iframe in pdf mode', async () => {

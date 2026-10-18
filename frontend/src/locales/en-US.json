@@ -242,6 +242,8 @@
     "shortcutClose": "Close panels",
     "spreadCover": "Cover",
     "spreadPairCover": "Pair cover with page 2",
+    "spreadJoinPages": "Join pages",
+    "spreadJoinPagesHint": "Show the two pages as one image, with no gap between them",
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out",
     "zoomReset": "Reset zoom",
