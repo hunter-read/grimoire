@@ -23,7 +23,7 @@ py7zr==1.1.3
 striprtf==0.0.33
 pytesseract==0.3.13
 pathspec==1.1.1
-tzdata==2025.2
+tzdata==2026.5
 PyYAML==6.0.3
 mcp==1.30.0
 cryptography==50.0.2
