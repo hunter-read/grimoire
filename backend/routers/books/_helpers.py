@@ -25,14 +25,22 @@ class _CachedDoc:
     moment it is retired, but it is only *closed* once its last user is done:
     closing it under a render in another thread would pull the document out
     from under that render.
+
+    ``lock`` serialises *use*: PyMuPDF does not support two threads in one
+    document at once ("may cause incorrect behaviour or even crash Python"),
+    and page handlers run on the threadpool, so two people reading the same
+    book would otherwise be exactly that. It costs no throughput, since PyMuPDF
+    holds the GIL while it renders anyway. Re-entrant so a nested open_pdf() of
+    the same file on one thread can't deadlock itself.
     """
 
-    __slots__ = ("doc", "users", "retired")
+    __slots__ = ("doc", "users", "retired", "lock")
 
     def __init__(self, doc: fitz.Document) -> None:
         self.doc = doc
         self.users = 0
         self.retired = False
+        self.lock = threading.RLock()
 
 
 # LRU cache of open fitz Documents (avoids re-opening large PDFs on every render).
@@ -42,6 +50,9 @@ _pdf_cache: "OrderedDict[str, _CachedDoc]" = OrderedDict()
 _pdf_cache_lock = threading.Lock()
 # monotonic time a document was last leased or handed back; read by the idle sweeper.
 _last_pdf_use = 0.0
+# Bumped by evict_pdf(). Documents are opened outside _pdf_cache_lock, so a file
+# replaced mid-open would otherwise have its old handle cached after the evict.
+_evictions = 0
 _sweeper: threading.Thread | None = None
 
 
@@ -129,27 +140,46 @@ def _retire(entry: _CachedDoc) -> Optional[fitz.Document]:
 
 def _acquire_pdf(filepath: str) -> _CachedDoc:
     global _last_pdf_use
-    to_close = []
     with _pdf_cache_lock:
         _last_pdf_use = time.monotonic()
         _ensure_idle_sweeper()
         entry = _pdf_cache.get(filepath)
         if entry is not None:
             _pdf_cache.move_to_end(filepath)
+            entry.users += 1
+            return entry
+        evictions = _evictions
+
+    # Opened outside the lock: a large PDF or an EPUB reflow can take seconds,
+    # and holding the lock would stall every other render, cache hits for
+    # unrelated books included. open_document applies the shared reflow layout,
+    # so an EPUB served by the reader paginates exactly as the indexer counted
+    # and indexed it (issue #373). A no-op for fixed-layout formats like PDF.
+    opened = _CachedDoc(open_document(filepath))
+
+    to_close = []
+    with _pdf_cache_lock:
+        entry = _pdf_cache.get(filepath)
+        if entry is not None:
+            # Another thread opened it meanwhile: use theirs, drop ours.
+            _pdf_cache.move_to_end(filepath)
+            to_close.append((opened.doc, "duplicate"))
+        elif evictions != _evictions:
+            # The file may have been replaced while we opened it. Serve this
+            # request from what we opened, but don't cache it: the next one reopens.
+            entry = opened
+            entry.retired = True
         else:
-            # open_document applies the shared reflow layout, so an EPUB served by
-            # the reader paginates exactly as the indexer counted and indexed it
-            # (issue #373). A no-op for fixed-layout formats like PDF.
-            entry = _CachedDoc(open_document(filepath))
+            entry = opened
             _pdf_cache[filepath] = entry
             while len(_pdf_cache) > _PDF_CACHE_MAX:
                 _, evicted = _pdf_cache.popitem(last=False)
                 doc = _retire(evicted)
                 if doc is not None:
-                    to_close.append(doc)
+                    to_close.append((doc, "evicted"))
         entry.users += 1
-    for doc in to_close:
-        _close_doc(doc, "evicted")
+    for doc, why in to_close:
+        _close_doc(doc, why)
     return entry
 
 
@@ -168,13 +198,19 @@ def _release_pdf(entry: _CachedDoc) -> None:
 def open_pdf(filepath: str) -> Iterator[fitz.Document]:
     """The cached fitz Document for ``filepath``, leased for the ``with`` block.
 
-    Use the document (and any page or pixmap taken from it) only inside the
-    block. While it is leased it is never closed, even if it is evicted, its
-    file is replaced, or the idle release runs; the last lease closes it then.
+    Use the document (and any page taken from it) only inside the block. While
+    it is leased it is never closed, even if it is evicted, its file is
+    replaced, or the idle release runs; the last lease closes it then.
+
+    The block also holds the document's lock, so other threads using the same
+    book wait for it. Keep it to MuPDF work: copy the pixels out and encode
+    them after the block, since Pillow's encoder releases the GIL and runs in
+    parallel with other renders.
     """
     entry = _acquire_pdf(filepath)
     try:
-        yield entry.doc
+        with entry.lock:
+            yield entry.doc
     finally:
         _release_pdf(entry)
 
@@ -256,7 +292,9 @@ def evict_pdf(filepath: str) -> bool:
     file's pages until the entry aged out of the LRU. A render already in
     progress finishes on the old handle and closes it; the next one reopens.
     """
+    global _evictions
     with _pdf_cache_lock:
+        _evictions += 1
         entry = _pdf_cache.pop(filepath, None)
         if entry is None:
             return False

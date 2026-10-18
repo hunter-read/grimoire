@@ -29,6 +29,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Fixed
 
+- Two people reading the same book at once no longer render its pages in the same PDF document simultaneously, which the PDF library does not support and which could crash the server. Opening a large PDF or EPUB also no longer holds up page loads for other books
 - Exporting a spread as one joined image could leave a faint light line down the middle at some page sizes and resolutions
 - The campaign resource picker's Models tab showed `campaignEditor.resources.type_model` instead of its name
 - The campaign resource picker offered tabs for maps, tokens, audio or models even when those sections were hidden in Settings, and adding by tag could add them

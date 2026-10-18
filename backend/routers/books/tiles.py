@@ -106,11 +106,12 @@ def serve_book_page_tile(
                 clip=tile_clip(page.rect, width, col, row),
                 alpha=False,
             )
-            buf = io.BytesIO()
-            Image.frombytes("RGB", (pix.width, pix.height), pix.samples).save(
-                buf, format="webp", quality=85, method=0
-            )
+            img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
             del pix, page
+        # Encoded outside open_pdf(): a zoomed view asks for several tiles of
+        # one book at once, and their encodes can run in parallel.
+        buf = io.BytesIO()
+        img.save(buf, format="webp", quality=85, method=0)
         # Not counted by note_page_render(): a zoomed view asks for several
         # tiles of one page, and reclaiming between them would drop the decoded
         # images the next tile needs. The page turns around them still count.

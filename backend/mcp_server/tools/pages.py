@@ -91,10 +91,10 @@ def _render(filepath: str, mime_type: str, page: int) -> tuple[bytes, str]:
         pdf_page = doc[page - 1]
         zoom = VIEW_WIDTH / pdf_page.rect.width
         pix = pdf_page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
-        buf = io.BytesIO()
-        Image.frombytes("RGB", (pix.width, pix.height), pix.samples).save(
-            buf, format="webp", quality=80
-        )
+        img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+    # Encoded outside open_pdf() so the book's lock isn't held through it.
+    buf = io.BytesIO()
+    img.save(buf, format="webp", quality=80)
     return buf.getvalue(), "image/webp"
 
 

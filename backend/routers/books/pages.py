@@ -163,12 +163,13 @@ def serve_book_page(
             page = doc[page_num - 1]
             zoom = width / page.rect.width
             pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
-            buf = io.BytesIO()
-            Image.frombytes("RGB", (pix.width, pix.height), pix.samples).save(
-                buf, format="webp", quality=85, method=0
-            )
+            img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
             # Drop the pixmap before reclaiming so its buffer is part of what's freed.
             del pix, page
+        # Encoded outside open_pdf() so the book's lock isn't held through it.
+        buf = io.BytesIO()
+        img.save(buf, format="webp", quality=85, method=0)
+        del img
         note_page_render()
         return buf.getvalue()
 

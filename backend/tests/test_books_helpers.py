@@ -207,6 +207,128 @@ class TestOpenPdf:
         assert any("evicted pdf" in r.message.lower() for r in caplog.records)
 
 
+class TestDocumentLock:
+    """PyMuPDF is not thread-safe: one document is only ever used by one thread at a time."""
+
+    def setup_method(self):
+        _helpers._pdf_cache.clear()
+
+    def test_threads_never_overlap_inside_one_document(self, tmp_path):
+        path = _write_pdf(str(tmp_path))
+        inside, peak, errors = [0], [0], []
+        count_lock = threading.Lock()
+
+        def reader():
+            for _ in range(25):
+                try:
+                    with _helpers.open_pdf(path) as doc:
+                        with count_lock:
+                            inside[0] += 1
+                            peak[0] = max(peak[0], inside[0])
+                        doc[0].get_pixmap(matrix=fitz.Matrix(0.2, 0.2))
+                        with count_lock:
+                            inside[0] -= 1
+                except Exception as e:  # pragma: no cover - the failure being tested
+                    errors.append(e)
+
+        threads = [threading.Thread(target=reader) for _ in range(8)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        assert errors == []
+        assert peak[0] == 1
+
+    def test_other_books_are_not_held_up(self, tmp_path):
+        first, second = _write_pdf(str(tmp_path), "a.pdf"), _write_pdf(str(tmp_path), "b.pdf")
+        holding, done = threading.Event(), threading.Event()
+
+        def hold_first():
+            with _helpers.open_pdf(first):
+                holding.set()
+                done.wait(timeout=10)
+
+        t = threading.Thread(target=hold_first)
+        t.start()
+        assert holding.wait(timeout=10)
+        try:
+            # Would block until timeout if the lock were global rather than per book.
+            assert _lease(second).page_count == 1
+        finally:
+            done.set()
+            t.join()
+
+    def test_nested_open_of_the_same_book_does_not_deadlock(self, tmp_path):
+        path = _write_pdf(str(tmp_path))
+        with _helpers.open_pdf(path) as outer:
+            with _helpers.open_pdf(path) as inner:
+                assert inner is outer
+
+    def test_opening_does_not_hold_the_cache_lock(self, tmp_path, monkeypatch):
+        """A slow open (a big PDF, an EPUB reflow) must not stall other books' renders."""
+        cached = _write_pdf(str(tmp_path), "cached.pdf")
+        _lease(cached)
+        opening, release = threading.Event(), threading.Event()
+        lock_held_during_open = []
+
+        def slow_open(_path):
+            lock_held_during_open.append(_helpers._pdf_cache_lock.locked())
+            opening.set()
+            release.wait(timeout=10)
+            return MagicMock()
+
+        monkeypatch.setattr(_helpers, "open_document", slow_open)
+        t = threading.Thread(target=_lease, args=("/library/huge.pdf",))
+        t.start()
+        assert opening.wait(timeout=10)
+        try:
+            assert _lease(cached).page_count == 1
+        finally:
+            release.set()
+            t.join()
+        assert lock_held_during_open == [False]
+        assert "/library/huge.pdf" in _helpers._pdf_cache
+
+    def test_racing_opens_keep_one_document_and_close_the_other(self, monkeypatch):
+        opened = []
+        both_opening = threading.Barrier(2, timeout=10)
+
+        def racing_open(_path):
+            doc = MagicMock()
+            opened.append(doc)
+            both_opening.wait()
+            return doc
+
+        monkeypatch.setattr(_helpers, "open_document", racing_open)
+        got = []
+        threads = [
+            threading.Thread(target=lambda: got.append(_lease("/library/same.pdf")))
+            for _ in range(2)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        kept = _helpers._pdf_cache["/library/same.pdf"].doc
+        assert got == [kept, kept]
+        loser = next(d for d in opened if d is not kept)
+        loser.close.assert_called_once()
+        kept.close.assert_not_called()
+
+    def test_a_file_replaced_mid_open_is_used_once_not_cached(self, monkeypatch):
+        doc = MagicMock()
+
+        def open_then_replaced(path):
+            _helpers.evict_pdf(path)  # the file is replaced while we read it
+            return doc
+
+        monkeypatch.setattr(_helpers, "open_document", open_then_replaced)
+        with _helpers.open_pdf("/library/replaced.pdf") as got:
+            assert got is doc
+            assert "/library/replaced.pdf" not in _helpers._pdf_cache
+        doc.close.assert_called_once()
+
+
 class TestEvictPdf:
     """A replaced file must not keep serving from the handle on its old inode."""
 

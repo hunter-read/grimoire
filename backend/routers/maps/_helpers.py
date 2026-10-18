@@ -81,14 +81,15 @@ def render_map_pdf_page(filepath: str, page_num: int, width: int) -> bytes:
         page = doc[page_num - 1]
         zoom = width / page.rect.width
         pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
-        buf = io.BytesIO()
-        PILImage.frombytes("RGB", (pix.width, pix.height), pix.samples).save(
-            buf, format="webp", quality=85, method=0
-        )
-        img_bytes = buf.getvalue()
-        # Shares the books' reclaim counter: both paths rasterize through the same
-        # process-global MuPDF store, so they must be accounted for together.
+        img = PILImage.frombytes("RGB", (pix.width, pix.height), pix.samples)
         del pix, page
+    # Encoded outside open_pdf() so the document's lock isn't held through it.
+    buf = io.BytesIO()
+    img.save(buf, format="webp", quality=85, method=0)
+    img_bytes = buf.getvalue()
+    del img
+    # Shares the books' reclaim counter: both paths rasterize through the same
+    # process-global MuPDF store, so they must be accounted for together.
     note_page_render()
 
     if not valkey_cache_set(valkey_key, img_bytes):
