@@ -5,6 +5,17 @@ it is reachable from the internet.
 
 ---
 
+## Non-root container
+
+The image does not run Grimoire as root. It starts as root only to hand `DATA_PATH` to an
+unprivileged user, then drops to that user before Grimoire starts. Add-on scripts, the
+PDF, image and archive parsers, and `ffmpeg` all run without root, so a flaw in one of
+them can't reach beyond what that user can. By default the user is whoever owns the
+mounted library; `PUID`/`PGID` choose it and `--user` (or Kubernetes `runAsUser`) skips the
+switch entirely. See [Which user Grimoire runs as](docker-install.md#which-user-grimoire-runs-as).
+
+The image's own code under `/app` stays owned by root, so the running app can't modify it.
+
 ## Auth rate limiting
 
 The credential-checking endpoints - `/api/auth/login`, `/api/auth/setup`, and `/api/auth/guest-login` - are rate-limited per client IP to slow online password / invite-code brute-forcing. Failed [API key](api.md#api-keys) attempts count against the same limit on every endpoint; only failures count, so a working integration is never throttled, and an IP over the limit is refused even with a valid key so a guess can't be confirmed. The default is **`10/minute`** per IP; exceeding it returns HTTP `429`. Tune it with `AUTH_RATE_LIMIT` (a [`limits`](https://limits.readthedocs.io/en/stable/quickstart.html#rate-limit-string-notation) string such as `20/minute` or `100/hour`), or turn it off with `RATE_LIMIT_ENABLED=false`.

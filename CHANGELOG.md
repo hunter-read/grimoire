@@ -38,6 +38,8 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Security
 
+- Grimoire no longer runs as root inside the container. It switches to an ordinary user before starting - by default whoever owns your library folder - so a flaw in a PDF or archive parser or a third-party add-on would not have root access. Existing installs need no changes: the first start hands your data folder to that user, and if that user couldn't reach something root could, Grimoire stays root and the log explains how to fix it. Set `PUID` and `PGID` to choose the user, or start the container with `--user`. Rootless Podman and Docker are unaffected
+- The image build now checks the `ffmpeg` source against a pinned checksum, pins its base images by digest, and no longer hides a failed Python dependency install
 - OPDS feed, calendar feed and share-link tokens are no longer stored in plaintext. The database holds a keyed hash to match requests on and an encrypted copy so you can still copy your links, both tied to `SECRET_KEY`, which backups do not contain - so a leaked backup no longer hands out working feeds or share links. Every URL already handed out keeps working: the upgrade converts them in place, then compacts the database once so the old values do not linger in it
 - Backups now contain only live data. The database used to be copied page by page, which carried deleted and overwritten rows along in the file's free space
 - The Valkey password no longer appears in the log when `VALKEY_URL` includes one

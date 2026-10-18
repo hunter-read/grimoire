@@ -89,9 +89,9 @@ DISABLE_VERSION_CHECKING = (
 def _apply_configured_umask() -> None:
     """Set the process umask from ``UMASK``/``GRIMOIRE_UMASK`` when either is set.
 
-    The container entrypoint applies this too, but Grimoire is not always started
-    through it — a bare ``docker run``, Kubernetes overriding the command, or a
-    source install all land here with whatever umask they inherited (issue #428:
+    Grimoire is not always started from a shell that can set a umask — a bare
+    ``docker run``, Kubernetes overriding the command, or a source install all
+    land here with whatever umask they inherited (issue #428:
     k8s gives no easy way to set a process umask). Applying it in-process makes
     the variable mean the same thing however Grimoire was launched.
 

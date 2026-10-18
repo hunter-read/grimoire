@@ -2,7 +2,11 @@
 # Pinned to BUILDPLATFORM: the Vite bundle is architecture-independent, so on a
 # multi-arch build this stage runs once natively instead of once per target
 # platform (the arm64 pass would otherwise run the whole build under QEMU).
-FROM --platform=$BUILDPLATFORM node:22-alpine AS frontend-builder
+#
+# Every base image is pinned by digest as well as tag, so a re-pushed tag can't
+# change what a build pulls. Dependabot's docker ecosystem keeps the digests
+# current (.github/dependabot.yml).
+FROM --platform=$BUILDPLATFORM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm ci
@@ -10,7 +14,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # Stage 2: Build Python dependencies (compilers live here, not in the runtime image)
-FROM python:3.12-slim AS backend-builder
+FROM python:3.12-slim@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1 AS backend-builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
@@ -22,8 +26,10 @@ COPY backend/requirements.txt .
 # and friends ship them unstripped). --strip-unneeded leaves the dynamic symbols
 # needed for linking, so this is a pure size win: ~40 MB off the runtime image.
 # `strip` comes from binutils, already present as a dependency of gcc/g++ above.
+# Only the strip is allowed to fail (the parentheses matter: a bare `|| true`
+# would also swallow a failed pip install).
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt \
-    && find /install -name '*.so*' -type f -exec strip --strip-unneeded {} + || true \
+    && (find /install -name '*.so*' -type f -exec strip --strip-unneeded {} + || true) \
     && rm -rf /install/lib/python3.12/site-packages/pymupdf/mupdf-devel \
     && find /install -name '__pycache__' -type d -prune -exec rm -rf {} +
 
@@ -43,9 +49,15 @@ RUN pip install --no-cache-dir --prefix=/install -r requirements.txt \
 # --enable-zlib is not optional despite nothing here compressing video: the PNG
 # *encoder* needs it, and without it the build silently produces a binary that
 # demuxes and decodes correctly, then dies with "Unknown encoder 'png'".
-FROM debian:bookworm-slim AS ffmpeg-builder
+FROM debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587 AS ffmpeg-builder
 
+# Bumping the version means bumping the checksum with it. Take it from a tarball
+# whose signature checks out against the FFmpeg release key
+# (https://ffmpeg.org/ffmpeg-devel.asc, fingerprint
+# FCF9 86EA 15E6 E293 A564 4F10 B432 2F04 D676 58D8):
+#   gpg --verify ffmpeg-X.tar.xz.asc ffmpeg-X.tar.xz && sha256sum ffmpeg-X.tar.xz
 ARG FFMPEG_VERSION=7.0.2
+ARG FFMPEG_SHA256=8646515b638a3ad303e23af6a3587734447cb8fc0a0c064ecdb8e95c4fd8b389
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
@@ -59,8 +71,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /ffmpeg
-RUN curl -fsSL "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz" \
-    | tar xJ --strip-components=1
+RUN curl -fsSL -o /tmp/ffmpeg.tar.xz "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz" \
+    && echo "${FFMPEG_SHA256}  /tmp/ffmpeg.tar.xz" | sha256sum -c - \
+    && tar xJf /tmp/ffmpeg.tar.xz --strip-components=1 \
+    && rm /tmp/ffmpeg.tar.xz
 
 # vp8/vp9 cover .webm, h264/hevc cover .mp4, av1 is the emerging third; mjpeg and
 # rawvideo are cheap insurance for oddly-muxed exports. matroska and mov are the
@@ -86,7 +100,7 @@ RUN ./configure \
     && strip ffmpeg
 
 # Stage 4: Runtime base shared by both variants (no build toolchain)
-FROM python:3.12-slim AS runtime-base
+FROM python:3.12-slim@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1 AS runtime-base
 
 WORKDIR /app
 
@@ -110,7 +124,16 @@ COPY CHANGELOG.md ./CHANGELOG.md
 COPY VERSION ./VERSION
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
-RUN mkdir -p /data /library
+# The unprivileged user Grimoire runs as (issue #579). 1000:1000 is only the
+# default: the entrypoint switches to PUID/PGID, or to whoever owns the mounted
+# library, and skips all of this under --user. /data and /library are owned by
+# it so a fresh named volume starts out writable; /app stays root-owned, so the
+# running app can't rewrite its own code.
+RUN groupadd --gid 1000 grimoire \
+    && useradd --uid 1000 --gid 1000 --home-dir /home/grimoire --create-home \
+        --shell /usr/sbin/nologin grimoire \
+    && mkdir -p /data /library \
+    && chown grimoire:grimoire /data /library
 
 # Ship bytecode for exactly the modules the server imports. The base image and
 # the builder stage both strip __pycache__, so without this every freshly
@@ -147,6 +170,11 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
 # uncached pages at once, two measured ~10% faster on 2 cores and ~40% on 4. See
 # docs/performance.md#workers for when raising it is worth the memory.
 ENV WORKERS=1
+# Starts as root only long enough to hand /data to the unprivileged user, then
+# drops to it before exec'ing the command. See backend/container_entrypoint.py
+# and docs/docker-install.md#which-user-grimoire-runs-as. -I keeps backend/ off
+# sys.path, so nothing there can shadow a stdlib module.
+ENTRYPOINT ["python", "-I", "/app/backend/container_entrypoint.py"]
 CMD ["sh", "-c", "exec python -m uvicorn backend.main:app --host 0.0.0.0 --port 9481 --workers ${WORKERS}"]
 
 # Stage 5a: Slim variant — no OCR engine. Grimoire degrades gracefully: image-only

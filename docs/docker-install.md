@@ -269,6 +269,77 @@ Your library and all your data (bookmarks, metadata, accounts) are stored in a s
 
 ---
 
+## Which user Grimoire runs as
+
+You don't need to set anything here - this is for people who want to know, or to choose.
+
+Grimoire does not run as root. The container starts as root just long enough to get your
+data folder ready, then switches to an ordinary user before Grimoire starts. That way, if a
+bad PDF or a third-party add-on ever found a hole in Grimoire, it would not have root
+access to your files.
+
+By default it runs as **whoever owns your library folder**, so files Grimoire creates there
+(uploads, exported sidecars) belong to you, just like the rest of your library. If your
+library folder belongs to root, it uses the owner of your data folder instead, and if that
+belongs to root too, it uses the built-in `grimoire` user (uid and gid `1000`).
+
+On each start it also makes sure everything in your data folder belongs to that user. After
+updating from a version that ran as root, the first start hands the old root-owned files
+over, which can take a moment with a large thumbnail cache. Your library is never changed.
+
+Your setup keeps working as it did, whatever it is. If the chosen user could not read your
+library, could not write to a library that root could write to (one mounted without `:ro`),
+or could not write to your data folder (for example a network share that refuses to change
+file owners), Grimoire stays root and says so in the log (`docker compose logs grimoire`),
+along with how to fix it.
+
+### Choosing the user: `PUID` and `PGID`
+
+To pick the user yourself, set `PUID` and `PGID`. This is the same convention Unraid and
+LinuxServer images use. Find your own ids with `id -u` and `id -g` on Linux:
+
+```yaml
+    environment:
+      - PUID=1000
+      - PGID=1000
+```
+
+Unraid's usual owner is `PUID=99` and `PGID=100`. When you set these, Grimoire always
+uses them, even if that user can't reach everything, so check the log after a change.
+`PUID=0` keeps Grimoire running as root.
+
+### Running as a fixed user: `--user`
+
+You can also start the container as an unprivileged user from the start, with `user:` in
+compose, `docker run --user`, or `runAsUser` in Kubernetes. Grimoire then skips all of the
+above and runs as that user. Nothing can change file owners in this mode, so your data
+folder must already be writable by that user. On an install that used to run as root, fix
+it once on the host first:
+
+```bash
+sudo chown -R 1000:1000 /path/to/grimoire/data
+```
+
+```yaml
+services:
+  grimoire:
+    image: hunterreadca/grimoire:latest
+    user: "1000:1000"
+```
+
+In Kubernetes, set `runAsUser: 1000`, `runAsGroup: 1000` and `fsGroup: 1000` in the pod's
+`securityContext`, which also satisfies `runAsNonRoot: true`.
+
+### Rootless Podman and Docker
+
+Under rootless Podman (including Quadlets) or rootless Docker, "root" inside the container
+is already your own unprivileged account on the host, so Grimoire stays as it. Files it
+creates belong to you, as before. Setting `PUID`/`PGID` still switches to that user inside
+the container. Podman's `--userns=keep-id` runs the container as your own uid, which works
+the same as `--user`.
+
+---
+
 ## Troubleshooting
 
 **The page won't load at `localhost:9481`**

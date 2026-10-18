@@ -55,6 +55,7 @@ module = [
     "backend.config",
     "backend.auth",
     "backend.codex",
+    "backend.container_entrypoint",
     "backend.codex.*",
     "backend.api_keys",
     "backend.security",
