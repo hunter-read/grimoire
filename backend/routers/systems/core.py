@@ -194,9 +194,10 @@ def get_system(
         cover_book_id = system.cover_book_id
         if not cover_book_id and not system.container_kind:
             with_thumb = book_q.filter(Book.has_thumbnail == True)  # noqa: E712
-            auto = with_thumb.filter(Book.category == "core").with_entities(Book.id).first()
-            auto = auto or with_thumb.with_entities(Book.id).first()
-            cover_book_id = auto[0] if auto else None
+            cover_book_id = (
+                with_thumb.filter(Book.category == "core").with_entities(Book.id).limit(1).scalar()
+                or with_thumb.with_entities(Book.id).limit(1).scalar()
+            )
         summary = serialize_system_summary(
             system,
             book_count=int(count or 0),

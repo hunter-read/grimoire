@@ -26,7 +26,7 @@ from typing import Any, Literal, Optional
 
 from fastapi import Depends, HTTPException, Query
 from sqlalchemy import exists, func, literal_column, nullslast, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import InstrumentedAttribute, Session
 
 from ...auth import CurrentUser, get_current_user
 from ...config import get_db
@@ -43,7 +43,7 @@ from ._serializers import _category_depth, serialize_book
 BOOK_SORTS = frozenset({"title", "year", "page_count", "size", "product_code", "added_at"})
 
 # Sorts whose folder stand-in is a column value (see ``ShelfBrowser.groups``).
-_SORT_COLUMNS = {
+_SORT_COLUMNS: dict[str, InstrumentedAttribute[Any]] = {
     "year": Book.year,
     "page_count": Book.page_count,
     "size": Book.file_size,
