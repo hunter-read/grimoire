@@ -1938,6 +1938,8 @@
       "systemFilterLabel": "Filteren op speelsysteem",
       "systemFilterAll": "Alle systemen",
       "type_audio": "Audio",
+      "type_model": "Models",
+      "selectFolder": "Alles in {{name}} selecteren",
       "addSelected": "{{count}} geselecteerde toevoegen",
       "addByTag": "Alles met tag toevoegen…",
       "addByTagButton": "Toevoegen"

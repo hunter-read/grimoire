@@ -13,6 +13,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - **Join pages** in spread view draws the two pages as one image, with no gap, inner corners or shadow between them, so a map or illustration printed across a spread reads as one picture. It is under Spread in the reader's menu and a button in the PDF map viewer, and is remembered per book and per map
 - The reader zooms up to 800%, from 200%. Past about 200% Grimoire renders just the part of the page you are looking at in full detail and lays it over the page, so small print stays sharp without rendering a huge image of the whole page
 - Zoom now stays when you turn the page, landing at the top of the next page in the same column. A new book, switching between Page and Spread, or reset returns to 100%
+- When linking resources to a campaign, tick a folder to select everything in it, subfolders included. A partly selected folder shows a dash, and ticking it again clears it
 
 ### Changed
 
@@ -26,6 +27,8 @@ Release candidates are omitted; their contents are rolled into the stable releas
 ### Fixed
 
 - Exporting a spread as one joined image could leave a faint light line down the middle at some page sizes and resolutions
+- The campaign resource picker's Models tab showed `campaignEditor.resources.type_model` instead of its name
+- The campaign resource picker offered tabs for maps, tokens, audio or models even when those sections were hidden in Settings, and adding by tag could add them
 - Reading more than ten books at once, or replacing a book's file while someone was reading it, could close the book under a page that was still loading and fail that page
 
 ## [1.9.0] - 2026-10-15

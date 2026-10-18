@@ -1938,6 +1938,8 @@
       "systemFilterLabel": "Filtrar por sistema de jogo",
       "systemFilterAll": "Todos os sistemas",
       "type_audio": "Áudio",
+      "type_model": "Models",
+      "selectFolder": "Selecionar tudo em {{name}}",
       "addSelected": "Adicionar {{count}} selecionados",
       "addByTag": "Adicionar todos com tag…",
       "addByTagButton": "Adicionar"
