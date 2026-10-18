@@ -42,7 +42,7 @@
     "jsdom": "^29.0.1",
     "prettier": "^3.8.3",
     "vite": "^8.0.16",
-    "vitest": "^4.1.11"
+    "vitest": "^5.0.4"
   },
   "overrides": {
     "brace-expansion": "^1.1.16"
