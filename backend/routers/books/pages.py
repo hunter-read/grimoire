@@ -1,5 +1,4 @@
 """Book page rendering, TOC, and text-extraction endpoint handlers."""
-import io
 import os
 from pathlib import Path
 
@@ -8,8 +7,6 @@ from sqlalchemy.orm import Session
 from fastapi.responses import FileResponse, Response
 from sqlalchemy import text as sql_text
 
-import fitz  # type: ignore[import-untyped]
-from PIL import Image  # type: ignore[import-untyped]
 
 from ...auth import CurrentUser, get_current_user
 from ...config import _PAGE_CACHE_HEADERS, PAGE_CACHE_DIR, get_db
@@ -20,19 +17,13 @@ from ...indexer.formats import (
     can_index,
     is_comic_path,
     is_fitz_mime,
-    open_document,
 )
-from ...indexer.outline import read_toc
 from ...indexer.thumbnails import archive_ext
 from ...models import Book
 from ...services.content_cache import content_token, page_cache_prefix
-from ._helpers import (
-    _assert_book_access,
-    _cached_book_info,
-    note_page_render,
-    open_pdf,
-)
-from ._render_cache import serve_cached_render
+from ...render import pool as render_pool
+from ._helpers import _assert_book_access, _cached_book_info
+from ._render_cache import render_errors, serve_cached_render
 
 
 def _mark_missing(db: Session, book_id: str) -> None:
@@ -67,11 +58,11 @@ def get_book_toc(
     if not book or not is_fitz_mime(book.mime_type):
         raise HTTPException(404)
     _assert_book_access(db, book, current_user)
-    doc = open_document(book.filepath)
     # Not `get_toc` directly: MuPDF drops the whole outline over one bookmark
-    # it can't resolve, which left books with a perfectly usable TOC showing none.
-    raw = read_toc(doc)
-    doc.close()
+    # it can't resolve, which left books with a perfectly usable TOC showing none
+    # (see render/outline.py). Read in a render worker, like the pages.
+    with render_errors("The table of contents could not be read"):
+        raw = render_pool.document_toc(book.filepath)
 
     def build_tree(items, min_level):
         result = []
@@ -157,21 +148,8 @@ def serve_book_page(
         if not os.path.exists(filepath):
             _mark_missing(db, book_id)
             raise HTTPException(404, "File not found on disk")
-        with open_pdf(filepath) as doc:
-            if page_num < 1 or page_num > len(doc):
-                raise HTTPException(400, f"Page must be between 1 and {len(doc)}")
-            page = doc[page_num - 1]
-            zoom = width / page.rect.width
-            pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
-            img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
-            # Drop the pixmap before reclaiming so its buffer is part of what's freed.
-            del pix, page
-        # Encoded outside open_pdf() so the book's lock isn't held through it.
-        buf = io.BytesIO()
-        img.save(buf, format="webp", quality=85, method=0)
-        del img
-        note_page_render()
-        return buf.getvalue()
+        with render_errors():
+            return render_pool.render_page(filepath, page_num, width)
 
     return serve_cached_render(valkey_key, cache_path, cache_headers, render)
 
@@ -211,10 +189,8 @@ def get_page_text(
         return {"text": pages[page_num - 1]["content"]}
     if not is_fitz_mime(book_info[1]):
         raise HTTPException(404)
-    with open_pdf(filepath) as doc:
-        if page_num < 1 or page_num > len(doc):
-            raise HTTPException(400, f"Page must be between 1 and {len(doc)}")
-        return {"text": doc[page_num - 1].get_text("text").strip()}
+    with render_errors("This page's text could not be read"):
+        return {"text": render_pool.page_text(filepath, page_num)}
 
 
 def get_page_words(
@@ -237,16 +213,5 @@ def get_page_words(
     # no page geometry, so they get an empty overlay rather than a 500.
     if not is_fitz_mime(book_info[1]):
         return {"width": 0, "height": 0, "words": []}
-    with open_pdf(filepath) as doc:
-        if page_num < 1 or page_num > len(doc):
-            raise HTTPException(400, f"Page must be between 1 and {len(doc)}")
-        page = doc[page_num - 1]
-        rect = page.rect
-        raw_words = page.get_text("words")
-    return {
-        "width": rect.width,
-        "height": rect.height,
-        "words": [
-            {"x0": w[0], "y0": w[1], "x1": w[2], "y1": w[3], "text": w[4]} for w in raw_words
-        ],
-    }
+    with render_errors("This page's words could not be read"):
+        return render_pool.page_words(filepath, page_num)

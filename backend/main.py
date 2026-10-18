@@ -75,6 +75,7 @@ from .routers import (
     users as users_router,
 )
 from .routers.library import run_rescan_sync
+from .render import pool as render_pool
 from .seed_users import seed_users
 
 _DESCRIPTION = """
@@ -201,6 +202,7 @@ async def lifespan(app: FastAPI):
         logger.info("Startup scan already running in another worker, skipping.")
         lock_file.close()
         yield
+        render_pool.shutdown()
         return
 
     # Drop cached renders from a previous run. Page keys carry no content hash,
@@ -290,6 +292,7 @@ async def lifespan(app: FastAPI):
     yield
 
     session_purger.stop()
+    render_pool.shutdown()
 
 
 app = FastAPI(

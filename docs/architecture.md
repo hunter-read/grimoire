@@ -36,6 +36,7 @@ backend on port 9481.
 | [`backend/pdf_worker.py`](../backend/pdf_worker.py) | Standalone entry point for the spawned PDF text-extraction process. Imports only `fitz`/OCR libs and `backend.config` for its settings, which opens no DB and runs no migrations, so a throwaway extraction child stays light. |
 | [`backend/addons/`](../backend/addons/) | Community add-ons: installable metadata scrapers. Manifest validation, on-disk discovery and install state, integrity-verified installation, HTTP fetching with a response cache, the declarative interpreter (records → ranked search → mapped fields), the isolated script runner, and the fetched-vs-current diff. See [`docs/addons.md`](addons.md). |
 | [`backend/mcp_server/`](../backend/mcp_server/) | The MCP server for AI assistants, behind `MCP_ENABLED`. `server.py` (the official `mcp` SDK server: it owns JSON-RPC, version negotiation and the transport, and calls Grimoire's tools, resources and prompts), `tools/` (the tools, grouped by area, each calling the REST handler for the same job), `resources.py` (`grimoire://` URIs), `prompts.py` (prompts and argument completion). The HTTP transport is `routers/mcp`. See [`docs/mcp.md`](mcp.md). |
+| [`backend/render/`](../backend/render/) | Page rendering: `pool.py` (the API the page, tile, map and MCP routes call, and the pool of render worker processes behind it), `worker.py` (a worker's entry point), `ops.py` (the MuPDF work itself, shared with the in-process path), `documents.py` (`open_document` and the EPUB layout, re-exported by `indexer.formats`), `outline.py` (the table-of-contents reader, re-exported by `indexer.outline`) and `memory.py` (the store-shrink + `malloc_trim` reclaim). See [Page rendering](#page-rendering) below. |
 | [`backend/addon_worker.py`](../backend/addon_worker.py) | Standalone entry point for the spawned add-on script process. Like `pdf_worker`, imports nothing from `backend` - a child running third-party code must not reach the DB or our internals. |
 | [`backend/routers/`](../backend/routers/) | One package per feature area (see the router shape below). |
 | [`backend/scheduler.py`](../backend/scheduler.py), [`backend/session_creator.py`](../backend/session_creator.py) | Campaign session scheduling - apply recurrence on startup and auto-create upcoming sessions. |
@@ -120,7 +121,8 @@ Book pages are rendered on demand by
 2. Else if it's on the **disk cache**
    (`DATA_PATH/page_cache/<path-hash>_<content-token>_<page>_<width>.webp`), serve it (and
    backfill Valkey).
-3. Else **render** the page with PyMuPDF, write it to both caches, and stream it.
+3. Else **render** the page with PyMuPDF, write it to both caches, and stream it. See
+   [Page rendering](#page-rendering) for where that render runs.
 
 Both cache keys embed a **content token** - the first 8 hex chars of the book's
 `content_hash` (`content_token()` in
@@ -141,6 +143,49 @@ via the HttpOnly session cookie. Thumbnails work the same way, cached under
 The disk cache is bounded by `PAGE_CACHE_MAX_MB` and trimmed oldest-first by
 `sweep_page_cache()` at startup and after each library scan - superseded renders are
 unreachable but still occupy space, so a sweep is what reclaims them.
+
+### Page rendering
+
+Everything a request asks of PyMuPDF goes through
+[`render/pool.py`](../backend/render/pool.py): whole pages, zoom tiles, PDF maps, the MCP
+`view_page` tool, the reader's text and word-box lookups, the table of contents, and page
+export with its page-size and shape-detection helpers. By default that work runs in spawned
+processes rather than in the app process - a pool of `RENDER_WORKERS` (default 1) workers,
+plus a one-shot process per export:
+
+- **Crash isolation.** MuPDF is C; a malformed file can crash it. A crash kills one worker,
+  fails the requests it had in flight with a 500, and the next request starts a fresh worker.
+  The app process, which has no supervisor at `WORKERS=1`, stays up. A request that gets no
+  answer in `REQUEST_TIMEOUT` (120 s) stops its worker the same way.
+- **One worker per book.** A file path hashes (BLAKE2b) to a worker, which keeps up to ten
+  documents open. A book is therefore only ever used by one thread, which PyMuPDF requires,
+  with no locking. Hashing rather than balancing means a few busy books can share a worker
+  while another sits idle; across many readers it evens out.
+- **Parallelism.** PyMuPDF holds the GIL while it rasterises, so threads cannot render in
+  parallel; processes can. Inside a worker, rasterizing runs on one thread and WebP encoding
+  (which releases the GIL) on two more, so encoding one page overlaps rasterizing the next.
+- **Lazy start, idle exit.** A worker starts on the first request routed to it (about 0.2 s)
+  and exits after `PAGE_IDLE_RELEASE` seconds without one, returning all of its memory.
+- **Light children.** A worker imports only `backend.render` (PyMuPDF and Pillow, about
+  50 MB) - not `backend.config`, the indexer or SQLAlchemy; its settings arrive as arguments.
+
+- **Exports run on their own.** An export can take minutes (up to 100 images or 200
+  cut-outs), which would hold up every book routed to its worker and trip the request
+  timeout, so each one runs in a fresh process
+  ([`render.pool.export`](../backend/render/pool.py) and `worker.export_main`, running
+  [`services/page_export/run.py`](../backend/services/page_export/run.py)) with its own
+  `EXPORT_TIMEOUT` of 10 minutes. The result comes back through a temp file, as text
+  extraction's does.
+
+The protocol is a pipe per worker carrying `(request_id, op, args)` and answers matched by
+id. Errors the caller turns into a 400 (`PageOutOfRange`, `TileOutOfRange`) cross the pipe
+as themselves; anything else arrives as a `RenderError`. `evict(path)`, called when a file is
+replaced in place, reaches the worker holding it and is ordered with that worker's other
+requests.
+
+`RENDER_WORKERS=0` runs the same operations in the app process through the `open_pdf()`
+document cache in [`routers/books/_helpers.py`](../backend/routers/books/_helpers.py), as
+rendering worked before: no extra process, no crash isolation.
 
 ### Change and move detection
 

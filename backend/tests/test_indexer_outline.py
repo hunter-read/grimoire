@@ -10,8 +10,9 @@ import os
 import fitz
 import pytest
 
-from backend.indexer import outline
-from backend.indexer.outline import read_toc
+from backend.indexer.outline import read_toc as reexported_read_toc
+from backend.render import outline
+from backend.render.outline import read_toc
 from backend.routers.books._helpers import _invalidate_book_cache
 from .conftest import make_book, make_game_system
 
@@ -238,3 +239,8 @@ def _quiet_mupdf():
     fitz.TOOLS.mupdf_display_errors(False)
     yield
     fitz.TOOLS.mupdf_display_errors(previous)
+
+
+def test_the_indexer_path_still_exports_read_toc():
+    # The reader moved to backend.render.outline (issue #615); old imports still work.
+    assert reexported_read_toc is read_toc

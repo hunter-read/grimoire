@@ -286,6 +286,25 @@ def _read_page_idle_release() -> int:
 PAGE_IDLE_RELEASE = _read_page_idle_release()
 
 
+#   RENDER_WORKERS — how many processes render PDF, EPUB and DjVu pages (issue
+#             #615). Rendering runs outside the app process so a file that
+#             crashes MuPDF fails that one request instead of stopping the
+#             server, and a book's pages always go to the same worker. More
+#             than one lets renders of different books run in parallel, since
+#             PyMuPDF holds the GIL while it rasterises. Workers start on the
+#             first render and stop after PAGE_IDLE_RELEASE seconds without one,
+#             which hands all of their memory back. 0 renders inside the app
+#             process, as before: no crash isolation, but no extra process.
+def _read_render_workers() -> int:
+    try:
+        return max(0, int(os.environ.get("RENDER_WORKERS", "1")))
+    except ValueError:
+        return 1
+
+
+RENDER_WORKERS = _read_render_workers()
+
+
 #   PAGE_CACHE_TTL — seconds a rendered page stays in Valkey. Rendered pages are
 #             a regenerable cache, not durable data: without an expiry they
 #             accumulate until Valkey hits maxmemory and starts evicting under

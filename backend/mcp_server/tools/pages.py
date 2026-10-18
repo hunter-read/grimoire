@@ -6,13 +6,10 @@ page - its maps, stat blocks and tables - as a player would.
 """
 from __future__ import annotations
 
-import io
 import os
 from typing import Any, Optional
 
-import fitz  # type: ignore[import-untyped]
 from fastapi import HTTPException
-from PIL import Image  # type: ignore[import-untyped]
 from pydantic import BaseModel, Field
 
 from ... import api_keys
@@ -69,7 +66,8 @@ def _render(filepath: str, mime_type: str, page: int) -> tuple[bytes, str]:
     from ...indexer import comics
     from ...indexer.formats import is_comic_path, is_fitz_mime
     from ...indexer.thumbnails import archive_ext
-    from ...routers.books._helpers import open_pdf
+    from ...render import pool as render_pool
+    from ...render.ops import PageOutOfRange, RenderError
 
     if not os.path.exists(filepath):
         raise HTTPException(404, "The book's file is missing from the library")
@@ -85,17 +83,15 @@ def _render(filepath: str, mime_type: str, page: int) -> tuple[bytes, str]:
             return fh.read(), mime_type
     if not is_fitz_mime(mime_type):
         raise HTTPException(400, "This book has no rendered pages; use read_pages instead")
-    with open_pdf(filepath) as doc:
-        if page > len(doc):
-            raise HTTPException(400, f"This book has {len(doc)} pages")
-        pdf_page = doc[page - 1]
-        zoom = VIEW_WIDTH / pdf_page.rect.width
-        pix = pdf_page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
-        img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
-    # Encoded outside open_pdf() so the book's lock isn't held through it.
-    buf = io.BytesIO()
-    img.save(buf, format="webp", quality=80)
-    return buf.getvalue(), "image/webp"
+    try:
+        # Pillow's default WebP method (4), which this tool has always used:
+        # an assistant is sent the image once, so smaller beats faster here.
+        data = render_pool.render_page(filepath, page, VIEW_WIDTH, quality=80, method=4)
+    except PageOutOfRange as e:
+        raise HTTPException(400, f"This book has {e.page_count} pages") from None
+    except RenderError:
+        raise HTTPException(500, "This page could not be rendered") from None
+    return data, "image/webp"
 
 
 def view_page(args: ViewPageArgs, ctx: ToolContext) -> ToolOutput:
