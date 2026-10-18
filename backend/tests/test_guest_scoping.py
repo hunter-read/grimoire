@@ -14,6 +14,8 @@ import uuid
 import pytest
 from fastapi.routing import APIRoute
 
+from backend.route_table import endpoint_routes
+
 from backend import auth
 from backend.config import SessionLocal
 from backend.main import app
@@ -206,9 +208,9 @@ def _login_and_guard(route: APIRoute) -> tuple[bool, bool]:
 
 def test_guest_reachable_routes_are_reviewed():
     reachable: dict[str, set[str]] = {}
-    for route in app.routes:
-        if not isinstance(route, APIRoute):
-            continue
+    routes = endpoint_routes(app.routes)
+    assert len(routes) >= 300, f"route walk found only {len(routes)} routes"
+    for route in routes:
         needs_login, guarded = _login_and_guard(route)
         if needs_login and not guarded:
             reachable.setdefault(route.path, set()).update(route.methods)

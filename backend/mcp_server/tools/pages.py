@@ -69,7 +69,7 @@ def _render(filepath: str, mime_type: str, page: int) -> tuple[bytes, str]:
     from ...indexer import comics
     from ...indexer.formats import is_comic_path, is_fitz_mime
     from ...indexer.thumbnails import archive_ext
-    from ...routers.books._helpers import _get_pdf_doc
+    from ...routers.books._helpers import open_pdf
 
     if not os.path.exists(filepath):
         raise HTTPException(404, "The book's file is missing from the library")
@@ -85,16 +85,16 @@ def _render(filepath: str, mime_type: str, page: int) -> tuple[bytes, str]:
             return fh.read(), mime_type
     if not is_fitz_mime(mime_type):
         raise HTTPException(400, "This book has no rendered pages; use read_pages instead")
-    doc = _get_pdf_doc(filepath)
-    if page > len(doc):
-        raise HTTPException(400, f"This book has {len(doc)} pages")
-    pdf_page = doc[page - 1]
-    zoom = VIEW_WIDTH / pdf_page.rect.width
-    pix = pdf_page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
-    buf = io.BytesIO()
-    Image.frombytes("RGB", (pix.width, pix.height), pix.samples).save(
-        buf, format="webp", quality=80
-    )
+    with open_pdf(filepath) as doc:
+        if page > len(doc):
+            raise HTTPException(400, f"This book has {len(doc)} pages")
+        pdf_page = doc[page - 1]
+        zoom = VIEW_WIDTH / pdf_page.rect.width
+        pix = pdf_page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
+        buf = io.BytesIO()
+        Image.frombytes("RGB", (pix.width, pix.height), pix.samples).save(
+            buf, format="webp", quality=80
+        )
     return buf.getvalue(), "image/webp"
 
 

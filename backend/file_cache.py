@@ -17,13 +17,22 @@ of the source file's contents, so a given URL's body genuinely cannot change and
 ``immutable`` is honest. ``etag_matches`` serves that side.
 """
 
+import hashlib
 import os
 from email.utils import formatdate, parsedate
 from typing import Any
 
 from fastapi import Request
 from fastapi.responses import FileResponse, Response
-from starlette.responses import md5_hexdigest
+
+
+def md5_hexdigest(data: bytes, *, usedforsecurity: bool = True) -> str:
+    """Same digest Starlette's FileResponse uses for its ETag.
+
+    Defined here rather than imported: ``starlette.responses.md5_hexdigest`` was
+    a private helper and is gone in Starlette 1.x.
+    """
+    return hashlib.md5(data, usedforsecurity=usedforsecurity).hexdigest()
 
 # Cache for 5 minutes, then revalidate against the validators below. "private"
 # keeps these access-controlled responses out of shared/proxy caches.

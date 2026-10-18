@@ -103,7 +103,7 @@ services:
     environment:
  - LIBRARY_PATH=/library
  - DATA_PATH=/data
- - WORKERS=2
+ - WORKERS=1
  - VALKEY_URL=redis://valkey:6379/0
     volumes:
  - /YOUR/LIBRARY/FOLDER:/library:ro

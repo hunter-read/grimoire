@@ -93,7 +93,10 @@ class TestLogsResponseShape:
         assert isinstance(entry["seq"], int)
         assert entry["seq"] > 0
 
-    def test_timestamp_format(self, client, admin_headers):
+    def test_timestamp_format(self, client, admin_headers, monkeypatch):
+        # LOG_TIMEZONE is resolved from TZ at import, so pin the default here:
+        # otherwise this only passes on a machine whose TZ is unset or UTC.
+        monkeypatch.setattr(config, "LOG_TIMEZONE", datetime.timezone.utc)
         logging.getLogger("grimoire").info("timestamp format probe")
         resp = client.get("/api/logs?level=info&limit=500", headers=admin_headers)
         entries = resp.json()["entries"]
