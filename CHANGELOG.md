@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Release candidates are omitted; their contents are rolled into the stable release that followed.
 
+## [Unreleased]
+
+### Changed
+
+- Grimoire uses much less memory: about 250 MB once your library is scanned, down from about 550 MB, and about half as much at peak while several people read
+- The image runs one worker by default (`WORKERS=1`), and one worker now serves several readers at once faster than two did before. If your compose file sets `WORKERS=2` from an older example, change it to `1` to get the saving; the performance docs explain when two is worth it
+- After a reading session, Grimoire closes the books it had open and gives back the memory used to render their pages once nobody has read anything for 5 minutes. `PAGE_IDLE_RELEASE` sets how long it waits; `0` turns this off
+- Faster first start for a new or updated container: the image now ships the compiled Python it needs instead of building it on first start
+- Updated FastAPI, Pydantic and Uvicorn. API keys keep exactly the access they had
+
+### Fixed
+
+- Reading more than ten books at once, or replacing a book's file while someone was reading it, could close the book under a page that was still loading and fail that page
+
 ## [1.9.0] - 2026-10-15
 
 ### Added

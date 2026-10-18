@@ -14,7 +14,7 @@ from PIL import Image as PILImage  # type: ignore[import-untyped]
 
 from ...config import PAGE_CACHE_DIR, _valkey, logger, valkey_cache_set
 from ...indexer import MAP_OPAQUE_EXTS, VTT_DATA_EXTS, archive_ext, map_video_mime
-from ..books._helpers import _get_pdf_doc, note_page_render
+from ..books._helpers import note_page_render, open_pdf
 from .vtt_authoring import VttDataError, normalize_vtt_data
 
 
@@ -75,20 +75,20 @@ def render_map_pdf_page(filepath: str, page_num: int, width: int) -> bytes:
         valkey_cache_set(valkey_key, data)
         return data
 
-    doc = _get_pdf_doc(filepath)
-    if page_num < 1 or page_num > len(doc):
-        raise ValueError(f"Page must be between 1 and {len(doc)}")
-    page = doc[page_num - 1]
-    zoom = width / page.rect.width
-    pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
-    buf = io.BytesIO()
-    PILImage.frombytes("RGB", (pix.width, pix.height), pix.samples).save(
-        buf, format="webp", quality=85, method=0
-    )
-    img_bytes = buf.getvalue()
-    # Shares the books' reclaim counter: both paths rasterize through the same
-    # process-global MuPDF store, so they must be accounted for together.
-    del pix
+    with open_pdf(filepath) as doc:
+        if page_num < 1 or page_num > len(doc):
+            raise ValueError(f"Page must be between 1 and {len(doc)}")
+        page = doc[page_num - 1]
+        zoom = width / page.rect.width
+        pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
+        buf = io.BytesIO()
+        PILImage.frombytes("RGB", (pix.width, pix.height), pix.samples).save(
+            buf, format="webp", quality=85, method=0
+        )
+        img_bytes = buf.getvalue()
+        # Shares the books' reclaim counter: both paths rasterize through the same
+        # process-global MuPDF store, so they must be accounted for together.
+        del pix, page
     note_page_render()
 
     if not valkey_cache_set(valkey_key, img_bytes):
@@ -175,15 +175,15 @@ def _map_image_info(
     if _is_pdf(filepath):
         info["is_pdf"] = True
         try:
-            doc = _get_pdf_doc(filepath)
-            info["page_count"] = len(doc)
-            if len(doc):
-                rect = doc[0].rect
-                # PDF user-space units are 1/72". Report page-1 pixel size at 72
-                # DPI (i.e. the point dimensions) so grid detection can run.
-                info["pixel_width"] = round(rect.width)
-                info["pixel_height"] = round(rect.height)
-                info["dpi"] = 72
+            with open_pdf(filepath) as doc:
+                info["page_count"] = len(doc)
+                if len(doc):
+                    rect = doc[0].rect
+                    # PDF user-space units are 1/72". Report page-1 pixel size at 72
+                    # DPI (i.e. the point dimensions) so grid detection can run.
+                    info["pixel_width"] = round(rect.width)
+                    info["pixel_height"] = round(rect.height)
+                    info["dpi"] = 72
         except Exception:
             return info
     else:

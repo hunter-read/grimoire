@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from ... import config
-from ...config import SessionLocal, LIBRARY_PATH, DATA_PATH, logger, _valkey
+from ...config import SessionLocal, LIBRARY_PATH, DATA_PATH, logger, _valkey, valkey_errors
 from ...models import Book, Model3D
 from ...indexer import scan_library, index_book_text, ocr_book, reindex_single_book
 from ...indexer.formats import INDEXABLE_MIMES
@@ -15,12 +15,6 @@ from ..books import _invalidate_book_cache
 # Errors raised by the Valkey/Redis client for connection/protocol failures.
 # When a Valkey op fails this way, callers fall back to in-process state; any
 # other exception type is a real bug and should not be swallowed.
-try:
-    from redis.exceptions import RedisError as _RedisError
-
-    _VALKEY_ERRORS: tuple = (_RedisError,)
-except ImportError:  # redis not installed → _valkey is always None, never used
-    _VALKEY_ERRORS = ()
 
 _SCAN_KEY = "grimoire:scan_status"
 _STOP_KEY = "grimoire:scan_stop"
@@ -88,7 +82,7 @@ def request_stop() -> None:
     if _valkey:
         try:
             _valkey.set(_STOP_KEY, "1", ex=3600)
-        except _VALKEY_ERRORS as e:
+        except valkey_errors() as e:
             logger.warning("Valkey set(stop) failed, using in-process flag: %s", e)
 
 
@@ -98,7 +92,7 @@ def clear_stop() -> None:
     if _valkey:
         try:
             _valkey.delete(_STOP_KEY)
-        except _VALKEY_ERRORS as e:
+        except valkey_errors() as e:
             logger.warning("Valkey delete(stop) failed, using in-process flag: %s", e)
 
 
@@ -106,7 +100,7 @@ def is_stop_requested() -> bool:
     if _valkey:
         try:
             return bool(_valkey.exists(_STOP_KEY))
-        except _VALKEY_ERRORS as e:
+        except valkey_errors() as e:
             logger.warning("Valkey exists(stop) failed, using in-process flag: %s", e)
     return _stop_requested
 
@@ -123,7 +117,7 @@ def _beat() -> None:
         try:
             _valkey.set(_HEARTBEAT_KEY, now, ex=86400)
             return
-        except _VALKEY_ERRORS as e:
+        except valkey_errors() as e:
             logger.warning("Valkey set(heartbeat) failed, using in-process heartbeat: %s", e)
     _heartbeat = now
 
@@ -134,7 +128,7 @@ def _get_heartbeat() -> Optional[str]:
             raw = _valkey.get(_HEARTBEAT_KEY)
             if raw:
                 return raw.decode() if isinstance(raw, bytes) else str(raw)
-        except _VALKEY_ERRORS as e:
+        except valkey_errors() as e:
             logger.warning("Valkey get(heartbeat) failed, using in-process heartbeat: %s", e)
     return _heartbeat
 
@@ -145,7 +139,7 @@ def _read_status() -> dict:
             raw = _valkey.get(_SCAN_KEY)
             if raw:
                 return json.loads(raw)
-        except (*_VALKEY_ERRORS, ValueError) as e:
+        except (*valkey_errors(), ValueError) as e:
             # ValueError covers a corrupt/non-JSON cached status blob.
             logger.warning("Valkey get(status) failed, using in-process status: %s", e)
     return dict(_scan_status)
@@ -166,7 +160,7 @@ def _set_status(updates: dict) -> None:
             current.update(updates)
             _valkey.set(_SCAN_KEY, json.dumps(current), ex=86400)
             return
-        except _VALKEY_ERRORS as e:
+        except valkey_errors() as e:
             logger.warning("Valkey set(status) failed, using in-process status: %s", e)
     _scan_status.update(updates)
 

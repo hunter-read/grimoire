@@ -56,6 +56,28 @@ Edited a PDF in place (embedded encounter notes, added errata)? Its search index
 
 PDFs are rendered page-by-page server-side as WebP images rather than streamed as raw files. This keeps the viewer fast on mobile and avoids loading large files into the browser. Switch to the native PDF viewer anytime via the toolbar.
 
+## Memory use
+
+Out of the box Grimoire runs a single worker process and settles at roughly 250 MB once your library is scanned. Reading adds to that temporarily: rendering an illustrated page decodes its images to full size, which can take a few hundred MB while someone is turning pages. Grimoire hands that memory back automatically - every `PAGE_RECLAIM_INTERVAL` renders, and again once nobody has read anything for `PAGE_IDLE_RELEASE` seconds - so it returns to its idle footprint after a reading session.
+
+- **`WORKERS`** - see [Workers](#workers) below.
+- **`PAGE_RECLAIM_INTERVAL`** - lower it (e.g. `3`) to keep peaks down when several people read at once; it costs a few percent of render speed.
+- **`OCR_CONCURRENCY`** - each parallel OCR job adds 50-250 MB while it runs (see [Speeding up OCR](#speeding-up-ocr)).
+
+### Workers
+
+`WORKERS` defaults to `1`, which suits most servers: one worker serves many people at once on separate threads, and a single reader turns pages just as fast as with two. Each extra worker is a full copy of the app (roughly 125-190 MB).
+
+A second worker pays off when several people turn pages nobody has viewed yet at the same moment: with four such readers on a 4-core host, one worker served 5.5 pages/s and two served 7.6 (1.9.0's two workers: 4.5). On 2 cores the gain was about 10%. Already-viewed pages come from the cache either way.
+
+Raise it to `2` when all of these hold:
+
+- Three or four people or more regularly read at the same time.
+- Page turns feel slow when they do, and `docker stats` shows Grimoire at about 100% CPU (one full core) while other cores sit idle.
+- The host has 4 or more CPU cores and ~200 MB of RAM to spare.
+
+More workers than CPU cores never helps. With more than one worker, set `VALKEY_URL` too: otherwise each worker keeps its own page cache, sign-in rate limits and scan progress, and the scan status can look stuck while the other worker runs the scan. Grimoire does not scale workers on its own - a new worker takes seconds and 125-190 MB to start, so it would arrive after a burst had passed.
+
 ## Caching
 
 Rendered pages are cached to disk by default. Provide a `VALKEY_URL` to use an in-memory Redis-compatible cache instead for faster repeat loads.

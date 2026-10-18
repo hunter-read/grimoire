@@ -24,7 +24,7 @@ from typing import Any, Callable, Optional, Sequence
 
 from sqlalchemy.orm import Session
 
-from ...config import SessionLocal, _valkey
+from ...config import SessionLocal, _valkey, valkey_errors
 from ...models.collections import models_by_singular
 from ...models.duplicates import DuplicateGroup
 from . import dismissals, scoring, signals
@@ -33,12 +33,6 @@ from .grouping import Edge, build_groups
 
 logger = logging.getLogger("grimoire.duplicates")
 
-try:
-    from redis.exceptions import RedisError as _RedisError
-
-    _VALKEY_ERRORS: tuple = (_RedisError,)
-except ImportError:  # redis not installed - _valkey is always None
-    _VALKEY_ERRORS = ()
 
 _DUP_KEY = "grimoire:duplicate_scan_status"
 _DUP_STOP = "grimoire:duplicate_scan_stop"
@@ -88,7 +82,7 @@ def request_stop() -> None:
     if _valkey:
         try:
             _valkey.set(_DUP_STOP, "1", ex=3600)
-        except _VALKEY_ERRORS as e:
+        except valkey_errors() as e:
             logger.warning("Valkey set(dup stop) failed, using in-process flag: %s", e)
 
 
@@ -98,7 +92,7 @@ def clear_stop() -> None:
     if _valkey:
         try:
             _valkey.delete(_DUP_STOP)
-        except _VALKEY_ERRORS as e:
+        except valkey_errors() as e:
             logger.warning("Valkey delete(dup stop) failed, using in-process flag: %s", e)
 
 
@@ -106,7 +100,7 @@ def is_stop_requested() -> bool:
     if _valkey:
         try:
             return bool(_valkey.exists(_DUP_STOP))
-        except _VALKEY_ERRORS as e:
+        except valkey_errors() as e:
             logger.warning("Valkey exists(dup stop) failed, using in-process flag: %s", e)
     return _stop_requested
 
@@ -117,7 +111,7 @@ def get_status() -> dict:
             raw = _valkey.get(_DUP_KEY)
             if raw:
                 return json.loads(raw)
-        except (*_VALKEY_ERRORS, ValueError) as e:
+        except (*valkey_errors(), ValueError) as e:
             logger.warning("Valkey get(dup status) failed, using in-process: %s", e)
     return dict(_status)
 
@@ -138,7 +132,7 @@ def set_status(updates: dict) -> None:
             current.update(updates)
             _valkey.set(_DUP_KEY, json.dumps(current), ex=86400)
             return
-        except _VALKEY_ERRORS as e:
+        except valkey_errors() as e:
             logger.warning("Valkey set(dup status) failed, using in-process: %s", e)
     _status.update(updates)
 

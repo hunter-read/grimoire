@@ -3,7 +3,7 @@ import datetime
 import uuid
 
 import pytest
-from fastapi.routing import APIRoute
+from backend.route_table import endpoint_routes
 
 from backend import api_keys
 from backend.config import SessionLocal
@@ -27,12 +27,19 @@ def _create(client, headers, permissions=None, **extra):
     return body["key"], body["api_key"]
 
 
+# Fewer than this means the route walk itself broke (e.g. a FastAPI upgrade
+# changed what app.routes holds) and every check below would pass vacuously.
+_MIN_ROUTES = 300
+
+
 def _k(key):
     return {"X-API-Key": key}
 
 
 def _api_routes():
-    return [r for r in app.routes if isinstance(r, APIRoute) and r.path.startswith("/api/")]
+    routes = [r for r in endpoint_routes(app.routes) if r.path.startswith("/api/")]
+    assert len(routes) >= _MIN_ROUTES, f"route walk found only {len(routes)} /api routes"
+    return routes
 
 
 def _route(path, method):

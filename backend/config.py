@@ -246,6 +246,22 @@ def _read_page_reclaim_interval() -> int:
 PAGE_RECLAIM_INTERVAL = _read_page_reclaim_interval()
 
 
+#   PAGE_IDLE_RELEASE — seconds without any page render after which the reader's
+#             open PDF handles are closed and the reclaim above runs once more.
+#             The every-N reclaim never fires for a short session (open a book,
+#             read two pages, leave), so without this the decoded images and up
+#             to ten open documents stay resident until someone reads again.
+#             Documents reopen on the next render. 0 disables it.
+def _read_page_idle_release() -> int:
+    try:
+        return max(0, int(os.environ.get("PAGE_IDLE_RELEASE", "300")))
+    except ValueError:
+        return 300
+
+
+PAGE_IDLE_RELEASE = _read_page_idle_release()
+
+
 #   PAGE_CACHE_TTL — seconds a rendered page stays in Valkey. Rendered pages are
 #             a regenerable cache, not durable data: without an expiry they
 #             accumulate until Valkey hits maxmemory and starts evicting under
@@ -696,6 +712,28 @@ def get_db() -> Iterator[Session]:
 
 
 _valkey: Optional[object] = None
+
+
+def valkey_errors() -> tuple:
+    """Exception types a Valkey/Redis call raises for connection/protocol failures.
+
+    Resolved on first use rather than at import: ``redis.exceptions`` loads the
+    whole client package (~6 MB per worker), which a server without
+    ``VALKEY_URL`` never needs. Use it directly in ``except`` clauses -- the
+    expression is only evaluated while an exception is being handled.
+    """
+    global _VALKEY_ERRORS
+    if _VALKEY_ERRORS is None:
+        try:
+            from redis.exceptions import RedisError
+        except ImportError:  # redis not installed: _valkey is always None
+            _VALKEY_ERRORS = ()
+        else:
+            _VALKEY_ERRORS = (RedisError,)
+    return _VALKEY_ERRORS
+
+
+_VALKEY_ERRORS: Optional[tuple] = None
 if VALKEY_URL:
     try:
         import redis as _redis_mod  # type: ignore[import-untyped]

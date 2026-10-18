@@ -267,17 +267,6 @@ class SystemSummary(BaseModel):
         coerce_publisher_list
     )
 
-    # As on `BookOut` — free-form JSON columns, normalized on the way out.
-    _coerce_names = field_validator("genres", "dice_materials", mode="before")(
-        coerce_str_list
-    )
-    _coerce_urls = field_validator("urls", "character_builder_urls", mode="before")(
-        coerce_link_list
-    )
-    _coerce_publishers = field_validator("publishers", mode="before")(
-        coerce_publisher_list
-    )
-
 
 class SystemDetail(SystemSummary):
     """`get_system` adds the system's books and, for a container, its children."""
