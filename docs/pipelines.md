@@ -2,7 +2,10 @@
 
 Grimoire uses four GitHub Actions workflows (in [`.github/workflows/`](../.github/workflows/)),
 plus Dependabot for dependency updates.
-Docker images are published to Docker Hub at `hunterreadca/grimoire`.
+Docker images are published to Docker Hub at `hunterreadca/grimoire` and mirrored, with the
+same tags, to the GitHub Container Registry at `ghcr.io/hunter-read/grimoire`. Docker Hub
+logs in with the `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN` secrets; GHCR uses the workflow's
+own `GITHUB_TOKEN` (the publishing jobs request `packages: write`), so it needs no secret.
 
 The branch model is: feature branches → `dev` (integration) → `main` (stable). Releases are
 cut by pushing a version tag.
@@ -130,12 +133,12 @@ the next window.
 
 **Skips when nothing changed.** Before building, the workflow compares `main`'s HEAD SHA
 against the `org.opencontainers.image.revision` label on the `:nightly` image already in the
-registry. If they match, the run exits early instead of republishing an identical image. A
+registry (Docker Hub - both registries receive the same push). If they match, the run exits early instead of republishing an identical image. A
 missing tag (the first run) or an unreadable label falls through to building, so the check
 can never wedge the pipeline shut. The manual `force` input overrides the skip.
 
 **What it produces:**
-- `hunterreadca/grimoire:nightly` - multi-arch (`linux/amd64`, `linux/arm64/v8`), built from
+- `hunterreadca/grimoire:nightly` and `ghcr.io/hunter-read/grimoire:nightly` - multi-arch (`linux/amd64`, `linux/arm64/v8`), built from
   the Dockerfile's `ocr` target (bundles Tesseract OCR).
 
 Built with `APP_VERSION=nightly` and the commit SHA (recorded both as `COMMIT_HASH` and as
@@ -194,6 +197,9 @@ builds and pushes **two** multi-arch image variants (`linux/amd64`, `linux/arm64
 - `hunterreadca/grimoire:1.5-slim`
 - `hunterreadca/grimoire:1.5.0-slim`
 
+Every tag above is pushed to `ghcr.io/hunter-read/grimoire` as well, in the same
+`docker/build-push-action` step, so the two registries always carry identical images.
+
 Finally it creates a **GitHub Release** for the tag with auto-generated release notes (from
 merged PRs and commits since the last release).
 
@@ -204,6 +210,7 @@ See [OCR](performance.md#ocr) for the difference between the OCR and slim varian
 ```bash
 docker pull hunterreadca/grimoire:1.5.0        # or :1.5, :1, :latest
 docker pull hunterreadca/grimoire:1.5.0-slim   # slim variant
+docker pull ghcr.io/hunter-read/grimoire:1.5.0 # same image from GHCR
 ```
 
 ---

@@ -19,11 +19,17 @@ on:
 
 env:
   IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/grimoire
+  # Mirrored to the GitHub Container Registry. GHCR needs a lowercase name,
+  # which `github.repository` (hunter-read/grimoire) already is.
+  GHCR_IMAGE: ghcr.io/${{ github.repository }}
 
 jobs:
   nightly:
     name: Build and push nightly
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write   # push to GHCR
 
     steps:
       - uses: actions/checkout@v7
@@ -68,6 +74,14 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Log in to GHCR
+        if: steps.changed.outputs.build == 'true'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Set up QEMU
         if: steps.changed.outputs.build == 'true'
         uses: docker/setup-qemu-action@v4
@@ -87,10 +101,13 @@ jobs:
           build-args: |
             APP_VERSION=nightly
             COMMIT_HASH=${{ steps.changed.outputs.sha }}
-          # The revision label is what the next run's skip check reads back.
+          # The revision label is what the next run's skip check reads back;
+          # the source label links the GHCR package to this repo.
           labels: |
             org.opencontainers.image.revision=${{ steps.changed.outputs.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           tags: |
             ${{ env.IMAGE }}:nightly
+            ${{ env.GHCR_IMAGE }}:nightly
           cache-from: type=gha
           cache-to: type=gha,mode=max

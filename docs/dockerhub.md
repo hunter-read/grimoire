@@ -24,6 +24,13 @@ Images are published to [Docker Hub](https://hub.docker.com/r/hunterreadca/grimo
 docker pull hunterreadca/grimoire:<tag>
 ```
 
+Release and `nightly` images are also published, under the same tags, to the
+[GitHub Container Registry](https://github.com/hunter-read/grimoire/pkgs/container/grimoire):
+
+```bash
+docker pull ghcr.io/hunter-read/grimoire:<tag>
+```
+
 Every release is published under several tags so you can choose how tightly to
 pin. Given a release `v1.4.2`, the same image is pushed as `1.4.2`, `1.4`, and
 `1`, and `latest` is moved to point at it:

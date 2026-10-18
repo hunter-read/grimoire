@@ -213,7 +213,7 @@ open http://localhost:9481
 
 On first launch you'll be prompted to create an admin account, or you can pre-seed users automatically (see [Pre-seeding users](docs/users-and-permissions.md#pre-seeding-users)).
 
-### 3. Pull from DockerHub
+### 3. Pull from DockerHub (or GHCR)
 
 ```bash
 docker pull hunterreadca/grimoire:latest
@@ -223,6 +223,12 @@ Or pin to a specific release:
 
 ```bash
 docker pull hunterreadca/grimoire:1.5.0
+```
+
+Release and `nightly` tags are mirrored to the GitHub Container Registry, if you'd rather pull from there:
+
+```bash
+docker pull ghcr.io/hunter-read/grimoire:latest
 ```
 
 **Image variants:** the default tags (`latest`, `1.5.0`, …) include the Tesseract OCR engine so image-only PDFs are searchable (see [OCR](docs/performance.md#ocr)). If you don't need OCR and prefer a smaller image, use the matching `-slim` tag (e.g. `hunterreadca/grimoire:latest`'s slim counterpart `:slim`, or a pinned `:1.5.0-slim`), which omits Tesseract.
