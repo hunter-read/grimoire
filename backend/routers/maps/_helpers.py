@@ -12,7 +12,7 @@ from typing import Any, Optional
 import fitz  # type: ignore[import-untyped]
 from PIL import Image as PILImage  # type: ignore[import-untyped]
 
-from ...config import PAGE_CACHE_DIR, _valkey, logger, valkey_cache_set
+from ...config import PAGE_CACHE_DIR, valkey_client, logger, valkey_cache_set
 from ...indexer import MAP_OPAQUE_EXTS, VTT_DATA_EXTS, archive_ext, map_video_mime
 from ..books._helpers import note_page_render, open_pdf
 from .vtt_authoring import VttDataError, normalize_vtt_data
@@ -57,9 +57,9 @@ def render_map_pdf_page(filepath: str, page_num: int, width: int) -> bytes:
     the book-specific text/word extraction. ``page_num`` is 1-based.
     """
     valkey_key = f"mappage:{filepath}:{page_num}:{width}"
-    if _valkey is not None:
+    if (client := valkey_client()) is not None:
         try:
-            cached = _valkey.get(valkey_key)
+            cached = client.get(valkey_key)
             if cached:
                 return cached
         except Exception as e:
@@ -272,9 +272,9 @@ def render_map_preview(filepath: str, width: int) -> bytes:
     than a blurry enlargement.
     """
     valkey_key = f"mappreview:{filepath}:{width}"
-    if _valkey is not None:
+    if (client := valkey_client()) is not None:
         try:
-            cached = _valkey.get(valkey_key)
+            cached = client.get(valkey_key)
             if cached:
                 return cached
         except Exception as e:

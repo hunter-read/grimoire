@@ -5,6 +5,7 @@ route) so the scan/stop/status orchestration is actually exercised.
 """
 from unittest.mock import MagicMock, patch
 
+from backend import config
 from backend.routers.library import _helpers
 
 
@@ -216,7 +217,7 @@ class TestValkeyBranches:
         fake.delete.side_effect = lambda k: store.pop(k, None)
         fake.exists.side_effect = lambda k: k in store
 
-        with patch.object(_helpers, "_valkey", fake):
+        with patch.object(config, "_valkey", fake):
             _helpers._set_status({**_helpers._DEFAULT_STATUS, "running": True})
             assert _helpers._get_status()["running"] is True
             _helpers.request_stop()
@@ -233,7 +234,7 @@ class TestValkeyBranches:
         fake.exists.side_effect = RedisError("boom")
         fake.delete.side_effect = RedisError("boom")
 
-        with patch.object(_helpers, "_valkey", fake):
+        with patch.object(config, "_valkey", fake):
             # A Valkey connection failure is the expected case: swallow + log and
             # fall back to in-process state without raising.
             _helpers._set_status({"running": False})
@@ -248,7 +249,7 @@ class TestValkeyBranches:
         fake = MagicMock()
         fake.get.return_value = b"not-json"
 
-        with patch.object(_helpers, "_valkey", fake):
+        with patch.object(config, "_valkey", fake):
             # Falls back to the in-process default rather than raising.
             assert isinstance(_helpers._get_status(), dict)
 
@@ -259,6 +260,6 @@ class TestValkeyBranches:
         fake = MagicMock()
         fake.set.side_effect = RuntimeError("unexpected")
 
-        with patch.object(_helpers, "_valkey", fake):
+        with patch.object(config, "_valkey", fake):
             with pytest.raises(RuntimeError):
                 _helpers.request_stop()

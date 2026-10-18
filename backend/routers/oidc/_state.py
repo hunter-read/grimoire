@@ -17,7 +17,7 @@ import logging
 import time
 from typing import Optional, Protocol
 
-from ...config import _valkey
+from ...config import valkey_client
 
 
 logger = logging.getLogger("grimoire.oidc")
@@ -179,7 +179,7 @@ class ValkeyJWKSCache:
 
 def make_state_store(client: object = None) -> StateStore:
     """Return the Valkey-backed store when Valkey is configured, else in-memory."""
-    client = client if client is not None else _valkey
+    client = client if client is not None else valkey_client()
     if client is None:
         return MemoryStateStore()
     logger.info("OIDC login state is shared through Valkey")
@@ -188,11 +188,52 @@ def make_state_store(client: object = None) -> StateStore:
 
 def make_jwks_cache(client: object = None) -> JWKSCache:
     """Return the Valkey-backed JWKS cache when configured, else in-memory."""
-    client = client if client is not None else _valkey
+    client = client if client is not None else valkey_client()
     if client is None:
         return MemoryJWKSCache()
     return ValkeyJWKSCache(client)
 
 
-_state_store: StateStore = make_state_store()
-_jwks_cache: JWKSCache = make_jwks_cache()
+class _LazyStateStore:
+    """Chooses its backend on first use, not at import.
+
+    Valkey is connected by config.startup(), after this module is imported, so
+    choosing at import would always pick the in-memory store and break OIDC
+    logins that land on a different worker than the one that started them.
+    """
+
+    def __init__(self) -> None:
+        self._store: Optional[StateStore] = None
+
+    def _backend(self) -> StateStore:
+        if self._store is None:
+            self._store = make_state_store()
+        return self._store
+
+    def put(self, state: str, payload: dict) -> None:
+        self._backend().put(state, payload)
+
+    def pop(self, state: str) -> Optional[dict]:
+        return self._backend().pop(state)
+
+
+class _LazyJWKSCache:
+    """The JWKS counterpart of _LazyStateStore."""
+
+    def __init__(self) -> None:
+        self._cache: Optional[JWKSCache] = None
+
+    def _backend(self) -> JWKSCache:
+        if self._cache is None:
+            self._cache = make_jwks_cache()
+        return self._cache
+
+    def get(self, jwks_uri: str) -> Optional[dict]:
+        return self._backend().get(jwks_uri)
+
+    def set(self, jwks_uri: str, keys: dict) -> None:
+        self._backend().set(jwks_uri, keys)
+
+
+_state_store: StateStore = _LazyStateStore()
+_jwks_cache: JWKSCache = _LazyJWKSCache()

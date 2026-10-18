@@ -1,6 +1,7 @@
 """Tests for the unauthenticated /api/health probe used by the HEALTHCHECK."""
 from unittest.mock import MagicMock
 
+from backend import config
 import backend.main as main
 
 
@@ -33,7 +34,7 @@ def test_health_checks_valkey_when_configured(client, monkeypatch):
     """When Valkey is configured, a successful ping is reported."""
     fake = MagicMock()
     fake.ping.return_value = True
-    monkeypatch.setattr(main, "_valkey", fake)
+    monkeypatch.setattr(config, "_valkey", fake)
     resp = client.get("/api/health")
     assert resp.status_code == 200
     body = resp.json()
@@ -45,7 +46,7 @@ def test_health_reports_valkey_error(client, monkeypatch):
     """A failing Valkey ping marks the app unhealthy with a 503."""
     fake = MagicMock()
     fake.ping.side_effect = RuntimeError("valkey down")
-    monkeypatch.setattr(main, "_valkey", fake)
+    monkeypatch.setattr(config, "_valkey", fake)
     resp = client.get("/api/health")
     assert resp.status_code == 503
     body = resp.json()

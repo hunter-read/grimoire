@@ -26,9 +26,11 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - The MCP server now runs on the official MCP Python SDK instead of Grimoire's own protocol code, and also accepts the older `2024-11-05` protocol revision. Tools, resources, prompts and API-key permissions are unchanged
 - Updated the frontend to React 19, along with its build, test and lint tooling
 - For contributors: the frontend is moving to TypeScript. Its API client is now typed from the backend's OpenAPI schema, so a change to a request or response shows up as a type error in the same pull request, and new or changed frontend files are written in TypeScript. See the TypeScript docs
+- For contributors: importing a backend module no longer starts Grimoire. `backend.config` only reads settings; creating the data folders, migrating the database and connecting to Valkey happen in `config.startup()`, which the app runs as it starts. Scripts and workers can import settings without touching the database. See the architecture docs
 
 ### Fixed
 
+- With `VALKEY_URL` pointing at a cache that can't be reached, Grimoire could take about two minutes to start before falling back to the disk cache. It now gives up after a couple of seconds
 - Two people reading the same book at once no longer render its pages in the same PDF document simultaneously, which the PDF library does not support and which could crash the server. Opening a large PDF or EPUB also no longer holds up page loads for other books
 - Exporting a spread as one joined image could leave a faint light line down the middle at some page sizes and resolutions
 - The campaign resource picker's Models tab showed `campaignEditor.resources.type_model` instead of its name

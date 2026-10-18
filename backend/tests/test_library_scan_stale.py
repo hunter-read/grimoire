@@ -12,6 +12,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from backend import config
 from backend.routers.library import _helpers
 from backend.tests.conftest import live_scan_status
 
@@ -84,7 +85,7 @@ class TestHeartbeat:
     def test_valkey_keeps_the_heartbeat_out_of_the_status_blob(self):
         """A heartbeat write must never rewrite the status a scan is updating."""
         fake, store = _fake_valkey()
-        with patch.object(_helpers, "_valkey", fake):
+        with patch.object(config, "_valkey", fake):
             _helpers._set_status({**_helpers._DEFAULT_STATUS, "running": True})
             blob = store[_helpers._SCAN_KEY]
             _helpers._beat()
@@ -94,7 +95,7 @@ class TestHeartbeat:
 
     def test_valkey_bytes_heartbeat_is_decoded(self):
         fake, store = _fake_valkey()
-        with patch.object(_helpers, "_valkey", fake):
+        with patch.object(config, "_valkey", fake):
             store[_helpers._HEARTBEAT_KEY] = b"2026-01-01T00:00:00+00:00"
             assert _helpers._get_heartbeat() == "2026-01-01T00:00:00+00:00"
 
@@ -104,7 +105,7 @@ class TestHeartbeat:
         fake = MagicMock()
         fake.get.side_effect = RedisError("boom")
         fake.set.side_effect = RedisError("boom")
-        with patch.object(_helpers, "_valkey", fake):
+        with patch.object(config, "_valkey", fake):
             _helpers._heartbeat = None
             _helpers._beat()
             assert _helpers._get_heartbeat() == _helpers._heartbeat is not None

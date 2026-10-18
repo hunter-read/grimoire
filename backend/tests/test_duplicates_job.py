@@ -8,6 +8,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from backend import config
 from backend.config import SessionLocal
 from backend.models import Book
 from backend.models.duplicates import DuplicateGroup
@@ -36,7 +37,7 @@ class TestStopFlag:
     def test_uses_valkey_when_present(self, monkeypatch):
         fake = MagicMock()
         fake.exists.return_value = 1
-        monkeypatch.setattr(job, "_valkey", fake)
+        monkeypatch.setattr(config, "_valkey", fake)
 
         job.request_stop()
         fake.set.assert_called_once()
@@ -55,7 +56,7 @@ class TestStopFlag:
         fake.set.side_effect = RedisError("down")
         fake.delete.side_effect = RedisError("down")
         fake.exists.side_effect = RedisError("down")
-        monkeypatch.setattr(job, "_valkey", fake)
+        monkeypatch.setattr(config, "_valkey", fake)
 
         job.request_stop()
         assert job.is_stop_requested() is True  # in-process flag carried it
@@ -74,7 +75,7 @@ class TestStatus:
         fake = MagicMock()
         fake.get.side_effect = lambda k: store.get(k)
         fake.set.side_effect = lambda k, v, ex=None: store.__setitem__(k, v)
-        monkeypatch.setattr(job, "_valkey", fake)
+        monkeypatch.setattr(config, "_valkey", fake)
 
         job.set_status({"phase": "grouping"})
         assert job.get_status()["phase"] == "grouping"
@@ -83,7 +84,7 @@ class TestStatus:
     def test_corrupt_valkey_blob_falls_back(self, monkeypatch):
         fake = MagicMock()
         fake.get.return_value = "{not json"
-        monkeypatch.setattr(job, "_valkey", fake)
+        monkeypatch.setattr(config, "_valkey", fake)
         # Must not raise - a corrupt cache is not a reason to fail a request.
         assert job.get_status()["running"] is False
 

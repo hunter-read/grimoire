@@ -24,7 +24,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from .config import VALKEY_URL, logger
+from .config import VALKEY_CONNECT_TIMEOUT, VALKEY_SOCKET_TIMEOUT, VALKEY_URL, logger
 
 # --- Rate limiting -----------------------------------------------------------
 
@@ -69,10 +69,20 @@ def client_ip(request: Request) -> str:
 
 
 # swallow_errors + in_memory_fallback: if the Valkey store is down, degrade to
-# in-memory limiting instead of erroring the request open or closed.
+# in-memory limiting instead of erroring the request open or closed. The
+# timeouts make "down" mean seconds: without them a login against an
+# unreachable host waits out the OS TCP connect timeout first.
 limiter = Limiter(
     key_func=client_ip,
     storage_uri=VALKEY_URL or "memory://",
+    storage_options=(
+        {
+            "socket_connect_timeout": VALKEY_CONNECT_TIMEOUT,
+            "socket_timeout": VALKEY_SOCKET_TIMEOUT,
+        }
+        if VALKEY_URL
+        else {}
+    ),
     in_memory_fallback_enabled=True,
     swallow_errors=True,
     enabled=_RATE_LIMIT_ENABLED,

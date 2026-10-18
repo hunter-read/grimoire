@@ -1,11 +1,10 @@
 """Standalone worker for running a community add-on's Python script.
 
 Entry point for the spawned child process created by
-``backend.addons.scripts._run``. Like ``pdf_worker``, it deliberately imports
-**nothing** from the rest of the ``backend`` package: importing
-``backend.config`` at module load runs Alembic migrations, opens the SQLite
-engine, and pings Valkey — none of which a throwaway process running
-third-party code should do, and none of which that code should be able to reach.
+``backend.addons.scripts._run``. It deliberately imports **nothing** from the
+rest of the ``backend`` package, not even ``config`` (which would be safe to
+import, issue #585): the third-party code it runs needs none of Grimoire's
+settings, and should not find them already loaded in its process.
 
 The add-on script is loaded from its own directory and handed a JSON request on
 stdin, per the contract in ``docs/scripts.md`` of the community-add-ons repo. Its

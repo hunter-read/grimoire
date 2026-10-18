@@ -139,9 +139,10 @@ class TestLogTimezone:
 
     def test_unknown_zone_falls_back_to_utc(self, monkeypatch):
         monkeypatch.setenv("TZ", "Not/AZone")
-        config._BAD_TIMEZONES.clear()
+        # The warning waits for startup() rather than printing at import.
+        monkeypatch.setattr(config, "_deferred_warnings", [])
         assert config._resolve_log_timezone() is datetime.timezone.utc
-        assert "Not/AZone" in config._BAD_TIMEZONES
+        assert [args for _, args in config._deferred_warnings] == [("Not/AZone",)]
 
     @pytest.mark.parametrize(
         "tz, expected_hhmmss, expected_suffix",

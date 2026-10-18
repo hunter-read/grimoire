@@ -1,17 +1,43 @@
-"""Shared configuration, database, and cache setup for Grimoire."""
+"""Grimoire's configuration, plus the database and cache it starts.
+
+Importing this module only reads settings: it parses environment variables and
+sets up logging, and does no file, database or network I/O (issue #585). That
+makes it safe to import from anywhere, including the isolated worker processes
+and one-off scripts, without migrating the database or creating directories.
+
+Starting the application is a separate, explicit step: ``startup()`` creates
+the data directories, opens and migrates the database, connects to Valkey and
+logs any configuration problems. ``main.py``'s lifespan calls it before serving.
+``SessionLocal`` still works without it, so scripts and tests keep working: the
+first session opened initialises the database on demand.
+"""
 import os
 import logging
 import collections
 import threading
 import datetime
 import urllib.parse
-from typing import Iterator, Optional
+from typing import TYPE_CHECKING, Any, Callable, Iterator, Optional
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from sqlalchemy.orm import Session
-
 from .filenames import display_name
-from .models import init_db
+
+if TYPE_CHECKING:
+    from sqlalchemy.engine import Engine
+    from sqlalchemy.orm import Session, sessionmaker
+
+# Configuration problems found while parsing, logged by startup() rather than at
+# import: a worker process importing this module would otherwise repeat every
+# warning each time one is spawned.
+_deferred_warnings: list[tuple[str, tuple]] = []
+
+
+def _defer_warning(msg: str, *args: Any) -> None:
+    _deferred_warnings.append((msg, args))
+
+
+def _log_warning(msg: str, *args: Any) -> None:
+    logging.getLogger("grimoire").warning(msg, *args)
 
 # The repo root, two levels up from this file (backend/config.py).
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -35,8 +61,9 @@ def _version_from_file() -> str:
 # so fall back to the file that ships alongside the code. "unknown" is the last
 # resort deliberately: a version-shaped fallback like "1.0.0" names a release
 # that did exist, so a failed lookup would be indistinguishable from an ancient
-# install (issue #457).
-VERSION = os.environ.get("APP_VERSION") or _version_from_file() or "unknown"
+# install (issue #457). Resolved on first use (see __getattr__ at the bottom),
+# so importing config reads no file.
+VERSION: str
 COMMIT_HASH = os.environ.get("COMMIT_HASH", "")
 OPDS_ENABLED = os.environ.get("OPDS_ENABLED", "false").lower() == "true"
 # The MCP server at /mcp, for AI assistants (Claude Code, ...). Off by default;
@@ -86,7 +113,7 @@ DISABLE_VERSION_CHECKING = (
 )
 
 
-def _apply_configured_umask() -> None:
+def _apply_configured_umask(warn: Callable[..., None] = _log_warning) -> None:
     """Set the process umask from ``UMASK``/``GRIMOIRE_UMASK`` when either is set.
 
     Grimoire is not always started from a shell that can set a umask — a bare
@@ -106,15 +133,10 @@ def _apply_configured_umask() -> None:
     try:
         value = int(raw, 8)
     except ValueError:
-        logging.getLogger("grimoire").warning(
-            "UMASK=%r is not an octal number (expected e.g. 022 or 002) - ignoring it.",
-            raw,
-        )
+        warn("UMASK=%r is not an octal number (expected e.g. 022 or 002) - ignoring it.", raw)
         return
     if not 0 <= value <= 0o777:
-        logging.getLogger("grimoire").warning(
-            "UMASK=%r is out of range (expected 000-777) - ignoring it.", raw
-        )
+        warn("UMASK=%r is out of range (expected 000-777) - ignoring it.", raw)
         return
     os.umask(value)
 
@@ -132,7 +154,9 @@ def _read_umask() -> int:
     return current
 
 
-_apply_configured_umask()
+# Applied here rather than in startup(): it is process state, not I/O, and it
+# has to be in force before anything - a script, a worker - writes a file.
+_apply_configured_umask(_defer_warning)
 UMASK = _read_umask()
 
 # Mode for files Grimoire creates *inside the library*, where other tools and
@@ -359,7 +383,7 @@ SHARE_LINKS_ENABLED: bool = _bool_env("SHARE_LINKS_ENABLED") is not False
 #             that is not http(s) is ignored with a warning, so a typo cannot
 #             open the API to every site. A trailing slash is tolerated, since
 #             that is how an origin usually gets pasted from the address bar.
-def _read_cors_allowed_origins() -> list[str]:
+def _read_cors_allowed_origins(warn: Callable[..., None] = _log_warning) -> list[str]:
     """The configured CORS origins, normalized, in order, without duplicates."""
     origins: list[str] = []
     for entry in (os.environ.get("CORS_ALLOWED_ORIGINS") or "").split(","):
@@ -376,7 +400,7 @@ def _read_cors_allowed_origins() -> list[str]:
             or parsed.fragment
             or parsed.username is not None
         ):
-            logging.getLogger("grimoire").warning(
+            warn(
                 "CORS_ALLOWED_ORIGINS entry %r is not an origin like "
                 "https://foundry.example.com - ignoring it.",
                 raw,
@@ -388,7 +412,7 @@ def _read_cors_allowed_origins() -> list[str]:
     return origins
 
 
-CORS_ALLOWED_ORIGINS = _read_cors_allowed_origins()
+CORS_ALLOWED_ORIGINS = _read_cors_allowed_origins(_defer_warning)
 
 
 # ---------------------------------------------------------------------------
@@ -512,9 +536,6 @@ OIDC_ENV: dict = {
 # Set the standard TZ env var to an IANA zone name such as "America/Toronto"
 # or "Europe/Berlin". Defaults to UTC. An unknown or unavailable zone name
 # falls back to UTC with a warning rather than crashing.
-_BAD_TIMEZONES: list[str] = []
-
-
 def _resolve_log_timezone() -> datetime.tzinfo:
     name = (os.environ.get("TZ") or "").strip()
     if not name or name.upper() == "UTC":
@@ -522,9 +543,11 @@ def _resolve_log_timezone() -> datetime.tzinfo:
     try:
         return ZoneInfo(name)
     except (ZoneInfoNotFoundError, ValueError, OSError):
-        # Deferred: logging isn't configured yet, so stash the bad value and
-        # emit the warning once the logger is up (see below).
-        _BAD_TIMEZONES.append(name)
+        _defer_warning(
+            "Unknown timezone %r (from TZ); logging in UTC instead. "
+            "Use an IANA zone name like 'America/Toronto'.",
+            name,
+        )
         return datetime.timezone.utc
 
 
@@ -570,13 +593,6 @@ for _h in logging.root.handlers:
 
 logger = logging.getLogger("grimoire")
 logger.setLevel(logging.DEBUG)
-
-for _bad_tz in _BAD_TIMEZONES:
-    logger.warning(
-        "Unknown timezone %r (from TZ); logging in UTC instead. "
-        "Use an IANA zone name like 'America/Toronto'.",
-        _bad_tz,
-    )
 
 _LOG_BUFFER_MAX = 20000
 
@@ -683,32 +699,102 @@ _memory_handler.setFormatter(logging.Formatter("%(message)s"))
 
 logging.root.addHandler(_memory_handler)
 
-os.makedirs(DATA_PATH, exist_ok=True)
-os.makedirs(THUMB_DIR, exist_ok=True)
-os.makedirs(os.path.join(THUMB_DIR, "books"), exist_ok=True)
-os.makedirs(os.path.join(THUMB_DIR, "maps"), exist_ok=True)
-os.makedirs(PAGE_CACHE_DIR, exist_ok=True)
-os.makedirs(os.path.join(CAMPAIGN_UPLOAD_DIR, "banners"), exist_ok=True)
-os.makedirs(os.path.join(CAMPAIGN_UPLOAD_DIR, "art"), exist_ok=True)
-os.makedirs(os.path.join(CAMPAIGN_UPLOAD_DIR, "tokens"), exist_ok=True)
-os.makedirs(os.path.join(CAMPAIGN_UPLOAD_DIR, "sheets"), exist_ok=True)
-os.makedirs(os.path.join(CAMPAIGN_UPLOAD_DIR, "files"), exist_ok=True)
-# Character portraits. Beside the campaign uploads rather than inside one,
-# because a character may have no campaign.
-os.makedirs(CHARACTER_PORTRAIT_DIR, exist_ok=True)
-os.makedirs(SYSTEM_COVER_DIR, exist_ok=True)
-os.makedirs(AUDIO_COVER_DIR, exist_ok=True)
-os.makedirs(BRANDING_DIR, exist_ok=True)
+# ---------------------------------------------------------------------------
+# Start-up: everything below does I/O, so none of it runs at import.
+# ---------------------------------------------------------------------------
 
-engine, SessionLocal = init_db(DB_PATH)
+# Data directories Grimoire writes into, created by startup(). Character
+# portraits sit beside the campaign uploads rather than inside them, because a
+# character may have no campaign.
+_DATA_DIRS = (
+    DATA_PATH,
+    THUMB_DIR,
+    os.path.join(THUMB_DIR, "books"),
+    os.path.join(THUMB_DIR, "maps"),
+    PAGE_CACHE_DIR,
+    os.path.join(CAMPAIGN_UPLOAD_DIR, "banners"),
+    os.path.join(CAMPAIGN_UPLOAD_DIR, "art"),
+    os.path.join(CAMPAIGN_UPLOAD_DIR, "tokens"),
+    os.path.join(CAMPAIGN_UPLOAD_DIR, "sheets"),
+    os.path.join(CAMPAIGN_UPLOAD_DIR, "files"),
+    CHARACTER_PORTRAIT_DIR,
+    SYSTEM_COVER_DIR,
+    AUDIO_COVER_DIR,
+    BRANDING_DIR,
+)
 
 
-def get_db() -> Iterator[Session]:
-    db = SessionLocal()
+def ensure_data_dirs() -> None:
+    for path in _DATA_DIRS:
+        os.makedirs(path, exist_ok=True)
+
+
+# The engine, once init_database() has run. SessionLocal is created unbound on
+# first access (see __getattr__) and bound to this engine by init_database().
+engine: Optional["Engine"] = None
+SessionLocal: "sessionmaker[Session]"
+_db_lock = threading.Lock()
+
+
+def _session_factory() -> "sessionmaker[Session]":
+    """The shared session factory, created (unbound) on first use.
+
+    Created here rather than at import so importing config doesn't load
+    SQLAlchemy - a worker process that only reads settings never needs it. It is
+    the same object for the life of the process, so ``from config import
+    SessionLocal`` taken before startup still sees the database once it's bound.
+    """
+    factory = globals().get("SessionLocal")
+    if factory is None:
+        from sqlalchemy.orm import sessionmaker
+
+        class _DeferredSessionmaker(sessionmaker):
+            def __call__(self, **local_kw: Any) -> Any:
+                # A script, a test or a worker that never called startup()
+                # still gets a migrated database rather than an unbound session.
+                if self.kw.get("bind") is None:
+                    init_database()
+                return super().__call__(**local_kw)
+
+        factory = _DeferredSessionmaker()
+        globals()["SessionLocal"] = factory
+    return factory
+
+
+def init_database() -> "Engine":
+    """Open and migrate the database, and bind SessionLocal to it. Idempotent."""
+    global engine
+    with _db_lock:
+        if engine is None:
+            from .models import init_db
+
+            os.makedirs(DATA_PATH, exist_ok=True)
+            engine, _ = init_db(DB_PATH)
+            _session_factory().configure(bind=engine)
+        return engine
+
+
+def get_db() -> Iterator["Session"]:
+    db = _session_factory()()
     try:
         yield db
     finally:
         db.close()
+
+
+def startup() -> None:
+    """Start the application: everything importing config deliberately doesn't do.
+
+    Logs the configuration problems found while parsing, creates the data
+    directories, opens and migrates the database, and connects to Valkey.
+    Idempotent, so every uvicorn worker (and a test client) can call it.
+    """
+    while _deferred_warnings:
+        msg, args = _deferred_warnings.pop(0)
+        logger.warning(msg, *args)
+    ensure_data_dirs()
+    init_database()
+    connect_valkey()
 
 
 _valkey: Optional[object] = None
@@ -750,7 +836,26 @@ def redact_url(url: str) -> str:
     return urllib.parse.urlunsplit(parts._replace(netloc=f"***@{host}"))
 
 
-if VALKEY_URL:
+# Seconds to wait for Valkey to accept a connection, and for any one command.
+# Without them an unreachable host that drops packets blocks start-up until the
+# OS gives up on the TCP connect (about two minutes on Linux), before uvicorn
+# has bound its port. The cache is an optimisation, so a dead one should cost a
+# couple of seconds and then fall back to the disk cache. The command timeout
+# is longer: a page render is a few hundred KB, and a busy Valkey should not
+# count as a dead one.
+VALKEY_CONNECT_TIMEOUT = 2.0
+VALKEY_SOCKET_TIMEOUT = 5.0
+
+
+def connect_valkey() -> Optional[Any]:
+    """Connect to Valkey when VALKEY_URL is set. Returns the client, or None.
+
+    Called by startup(). A failure is logged and leaves the disk cache in
+    charge; it never stops Grimoire starting. Idempotent.
+    """
+    global _valkey
+    if not VALKEY_URL or _valkey is not None:
+        return _valkey
     try:
         import redis as _redis_mod  # type: ignore[import-untyped]
 
@@ -758,12 +863,28 @@ if VALKEY_URL:
         # Enterprise feature) on connect under RESP3; Valkey/OSS Redis reject it
         # and redis-py logs a benign DEBUG line. That logger is quieted above —
         # we only use this as a page cache and don't need the feature.
-        _valkey = _redis_mod.from_url(VALKEY_URL, decode_responses=False)
-        _valkey.ping()
-        logger.info(f"Valkey page cache connected: {redact_url(VALKEY_URL)}")
+        client = _redis_mod.from_url(
+            VALKEY_URL,
+            decode_responses=False,
+            socket_connect_timeout=VALKEY_CONNECT_TIMEOUT,
+            socket_timeout=VALKEY_SOCKET_TIMEOUT,
+        )
+        client.ping()
     except Exception as e:
         logger.warning(f"Valkey connection failed, falling back to disk cache: {e}")
-        _valkey = None
+        return None
+    _valkey = client
+    logger.info(f"Valkey page cache connected: {redact_url(VALKEY_URL)}")
+    return _valkey
+
+
+def valkey_client() -> Optional[Any]:
+    """The Valkey client, or None when it isn't configured or couldn't connect.
+
+    Call it where the client is used rather than importing ``_valkey``: that
+    name is bound by startup(), after most modules have been imported.
+    """
+    return _valkey
 
 
 # Key prefixes for regenerable render caches. Scan state lives under "grimoire:"
@@ -839,3 +960,14 @@ def _valkey_unlink(keys: list) -> int:
         return int(_valkey.unlink(*keys))  # type: ignore[attr-defined]
     except Exception:
         return int(_valkey.delete(*keys))  # type: ignore[attr-defined]
+
+
+def __getattr__(name: str) -> Any:
+    """Module attributes resolved on first use, so importing config does no I/O."""
+    if name == "VERSION":
+        version = os.environ.get("APP_VERSION") or _version_from_file() or "unknown"
+        globals()["VERSION"] = version
+        return version
+    if name == "SessionLocal":
+        return _session_factory()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

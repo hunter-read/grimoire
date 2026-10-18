@@ -28,12 +28,12 @@ backend on port 9481.
 | Path | Responsibility |
 | --- | --- |
 | [`backend/main.py`](../backend/main.py) | FastAPI app construction, router registration, the `lifespan` startup hook (library scan, user seeding, wiki migrations, scheduler), and the SPA catch-all `serve_frontend`. |
-| [`backend/config.py`](../backend/config.py) | Environment loading, `DATA_PATH`/`LIBRARY_PATH` and cache dirs, logging setup (incl. the in-memory ring buffer for `/api/logs`), the SQLAlchemy `engine` + `SessionLocal`, the `get_db` dependency, and the optional `_valkey` client. |
+| [`backend/config.py`](../backend/config.py) | Settings parsed from the environment, `DATA_PATH`/`LIBRARY_PATH` and cache dirs, logging setup (incl. the in-memory ring buffer for `/api/logs`), and `startup()`, which creates the data dirs, opens and migrates the database (`engine`, `SessionLocal`, the `get_db` dependency) and connects the optional Valkey client (`valkey_client()`). Importing it does no file, database or network I/O - see [Startup and migrations](#startup-and-migrations). |
 | [`backend/models/`](../backend/models/) | ORM models split by domain (`library.py`, `media.py`, `users.py`, `campaigns.py`, `settings.py`); `db.py` holds `init_db`, runtime migrations, and FTS5 setup. See [`docs/data-model.md`](data-model.md). |
 | [`backend/auth.py`](../backend/auth.py) | JWT creation/validation, password hashing (`bcrypt_sha256`), the `get_current_user` dependency, and the role-guard dependencies (`require_admin`, `require_gm_or_admin`, `require_not_guest`). |
 | [`backend/api_keys.py`](../backend/api_keys.py) | Personal API keys: the tag → permission table, the read-only / excluded route markers, the role-derived levels each user is offered, key hashing, and the per-request check `get_current_user` runs when an `X-API-Key` is presented. See [API keys](api.md#api-keys). |
 | [`backend/indexer/`](../backend/indexer/) | Library scanning, PDF FTS5 indexing, thumbnail generation, and OPF/metadata parsing. PDF text extraction runs in an isolated subprocess (see below). |
-| [`backend/pdf_worker.py`](../backend/pdf_worker.py) | Standalone entry point for the spawned PDF text-extraction process. Imports only `fitz`/OCR libs - never `backend.config` - so a throwaway extraction child does not open the DB or run migrations. |
+| [`backend/pdf_worker.py`](../backend/pdf_worker.py) | Standalone entry point for the spawned PDF text-extraction process. Imports only `fitz`/OCR libs and `backend.config` for its settings, which opens no DB and runs no migrations, so a throwaway extraction child stays light. |
 | [`backend/addons/`](../backend/addons/) | Community add-ons: installable metadata scrapers. Manifest validation, on-disk discovery and install state, integrity-verified installation, HTTP fetching with a response cache, the declarative interpreter (records → ranked search → mapped fields), the isolated script runner, and the fetched-vs-current diff. See [`docs/addons.md`](addons.md). |
 | [`backend/mcp_server/`](../backend/mcp_server/) | The MCP server for AI assistants, behind `MCP_ENABLED`. `server.py` (the official `mcp` SDK server: it owns JSON-RPC, version negotiation and the transport, and calls Grimoire's tools, resources and prompts), `tools/` (the tools, grouped by area, each calling the REST handler for the same job), `resources.py` (`grimoire://` URIs), `prompts.py` (prompts and argument completion). The HTTP transport is `routers/mcp`. See [`docs/mcp.md`](mcp.md). |
 | [`backend/addon_worker.py`](../backend/addon_worker.py) | Standalone entry point for the spawned add-on script process. Like `pdf_worker`, imports nothing from `backend` - a child running third-party code must not reach the DB or our internals. |
@@ -246,16 +246,30 @@ Notes:
 
 ## Startup and migrations
 
-The `lifespan` async context manager in [`main.py`](../backend/main.py#L87) runs once per
+Importing the backend starts nothing. `backend.config` only parses settings and sets up
+logging: it creates no directories, opens no database, connects to nothing, and doesn't
+load SQLAlchemy. So a worker process, a script or a REPL can import any module without
+migrating the database. Configuration problems it finds (a bad `TZ`, `UMASK` or
+`CORS_ALLOWED_ORIGINS`) are logged by `startup()`, not at import, so spawned workers don't
+repeat them. `auth.SECRET_KEY` is resolved on first use for the same reason, since it may
+create `DATA_PATH/secret_key`.
+
+The `lifespan` async context manager in [`main.py`](../backend/main.py) runs once per
 process on startup:
 
-1. **Single-worker guard** - acquire a non-blocking `flock` on `DATA_PATH/.scan.lock`. Only
+1. **`config.startup()`** - log configuration warnings, create the data directories, open
+   and migrate the database, and connect to Valkey with a 2 s connect timeout (so an
+   unreachable cache costs seconds, not the OS TCP timeout, before falling back to the disk
+   cache). Then `auth.SECRET_KEY` is resolved, so a placeholder key still stops the server
+   before it serves anything. Code outside the app that never calls `startup()` still
+   works: the first `SessionLocal()` initialises the database on demand.
+2. **Single-worker guard** - acquire a non-blocking `flock` on `DATA_PATH/.scan.lock`. Only
    the winning worker runs the startup library scan; others skip it. The scan runs on a
    background daemon thread so it doesn't block the app coming up.
-2. **User seeding** - `seed_users(...)` applies env-driven / first-run accounts.
-3. **Wiki migrations** - `wiki_migration` and `wiki_category_migration` roll legacy session
+3. **User seeding** - `seed_users(...)` applies env-driven / first-run accounts.
+4. **Wiki migrations** - `wiki_migration` and `wiki_category_migration` roll legacy session
    notes and flat note-categories into the current nested-page model.
-4. **Scheduler** - apply campaign session recurrence and start the session creator (skipped
+5. **Scheduler** - apply campaign session recurrence and start the session creator (skipped
    under pytest).
 
 ### Crash-isolated PDF indexing
@@ -332,7 +346,8 @@ a second writer racing the scan could restore `running: true` over its final
 Schema changes are managed by **Alembic** (revisions in
 [`backend/migrations/`](../backend/migrations/), config in
 [`alembic.ini`](../alembic.ini)). `init_db` in
-[`backend/models/db.py`](../backend/models/db.py) applies them at startup:
+[`backend/models/db.py`](../backend/models/db.py) applies them at startup (called from
+`config.init_database()`):
 
 - **Fresh / already-on-Alembic database** → `alembic upgrade head` runs every revision
   from the baseline (or just the new ones), landing at the head revision recorded in

@@ -3,6 +3,7 @@ import json
 
 from unittest.mock import patch
 
+from backend import config
 from backend.routers.oidc import _state
 
 
@@ -178,18 +179,18 @@ class TestValkeyJWKSCache:
 
 class TestBackendSelection:
     def test_falls_back_to_memory_without_valkey(self):
-        with patch.object(_state, "_valkey", None):
+        with patch.object(config, "_valkey", None):
             assert isinstance(_state.make_state_store(), _state.MemoryStateStore)
             assert isinstance(_state.make_jwks_cache(), _state.MemoryJWKSCache)
 
     def test_uses_valkey_when_configured(self):
         fake = FakeValkey()
-        with patch.object(_state, "_valkey", fake):
+        with patch.object(config, "_valkey", fake):
             assert isinstance(_state.make_state_store(), _state.ValkeyStateStore)
             assert isinstance(_state.make_jwks_cache(), _state.ValkeyJWKSCache)
 
     def test_explicit_client_overrides_module_default(self):
         fake = FakeValkey()
-        with patch.object(_state, "_valkey", None):
+        with patch.object(config, "_valkey", None):
             assert isinstance(_state.make_state_store(fake), _state.ValkeyStateStore)
             assert isinstance(_state.make_jwks_cache(fake), _state.ValkeyJWKSCache)

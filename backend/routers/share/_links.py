@@ -14,8 +14,8 @@ from urllib.parse import quote
 import jwt
 from sqlalchemy.orm import Session
 
-from ... import token_vault
-from ...auth import ALGORITHM, COOKIE_SECURE, SECRET_KEY
+from ... import auth, token_vault
+from ...auth import ALGORITHM, COOKIE_SECURE
 from ...config import BASE_URL
 from ...models import ShareLink, User
 from ...models.base import utc_iso
@@ -98,7 +98,7 @@ def unlock_token(link: ShareLink) -> str:
             "iat": now,
             "exp": now + datetime.timedelta(hours=UNLOCK_HOURS),
         },
-        SECRET_KEY,
+        auth.SECRET_KEY,
         algorithm=ALGORITHM,
     )
 
@@ -110,7 +110,7 @@ def is_unlocked(link: ShareLink, cookie: Optional[str]) -> bool:
     if not cookie:
         return False
     try:
-        claims = jwt.decode(cookie, SECRET_KEY, algorithms=[ALGORITHM])
+        claims = jwt.decode(cookie, auth.SECRET_KEY, algorithms=[ALGORITHM])
     except jwt.InvalidTokenError:
         return False
     return (

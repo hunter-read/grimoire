@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from backend import config
 from backend.routers.books import _render_cache
 
 
@@ -31,7 +32,7 @@ def _body(resp):
 class TestWithoutValkey:
     @pytest.fixture(autouse=True)
     def no_valkey(self, monkeypatch):
-        monkeypatch.setattr(_render_cache, "_valkey", None)
+        monkeypatch.setattr(config, "_valkey", None)
         monkeypatch.setattr(_render_cache, "valkey_cache_set", lambda *_a: False)
 
     def test_renders_and_writes_the_disk_cache(self, cache_path):
@@ -53,7 +54,7 @@ class TestWithValkey:
     def test_a_valkey_hit_is_served_as_is(self, cache_path, monkeypatch):
         fake = MagicMock()
         fake.get.return_value = b"from-valkey"
-        monkeypatch.setattr(_render_cache, "_valkey", fake)
+        monkeypatch.setattr(config, "_valkey", fake)
         render = MagicMock()
         assert _body(_serve(cache_path, render)) == b"from-valkey"
         render.assert_not_called()
@@ -61,7 +62,7 @@ class TestWithValkey:
     def test_a_valkey_error_falls_through_to_rendering(self, cache_path, monkeypatch):
         fake = MagicMock()
         fake.get.side_effect = ConnectionError("down")
-        monkeypatch.setattr(_render_cache, "_valkey", fake)
+        monkeypatch.setattr(config, "_valkey", fake)
         monkeypatch.setattr(_render_cache, "valkey_cache_set", lambda *_a: False)
         assert _body(_serve(cache_path, lambda: b"fresh")) == b"fresh"
 
@@ -71,7 +72,7 @@ class TestWithValkey:
         fake = MagicMock()
         fake.get.return_value = None
         stored = {}
-        monkeypatch.setattr(_render_cache, "_valkey", fake)
+        monkeypatch.setattr(config, "_valkey", fake)
         monkeypatch.setattr(
             _render_cache, "valkey_cache_set", lambda k, v: stored.update({k: v}) or True
         )
@@ -83,7 +84,7 @@ class TestWithValkey:
             f.write(b"cached")
         fake = MagicMock()
         fake.get.return_value = None
-        monkeypatch.setattr(_render_cache, "_valkey", fake)
+        monkeypatch.setattr(config, "_valkey", fake)
         real_open = open
 
         def flaky_open(path, mode="r", *a, **k):
@@ -99,7 +100,7 @@ class TestWithValkey:
     def test_a_fresh_render_goes_to_valkey_not_disk(self, cache_path, monkeypatch):
         fake = MagicMock()
         fake.get.return_value = None
-        monkeypatch.setattr(_render_cache, "_valkey", fake)
+        monkeypatch.setattr(config, "_valkey", fake)
         monkeypatch.setattr(_render_cache, "valkey_cache_set", lambda *_a: True)
         assert _body(_serve(cache_path, lambda: b"fresh")) == b"fresh"
         assert not os.path.exists(cache_path)

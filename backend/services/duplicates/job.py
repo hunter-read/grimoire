@@ -24,7 +24,7 @@ from typing import Any, Callable, Optional, Sequence
 
 from sqlalchemy.orm import Session
 
-from ...config import SessionLocal, _valkey, valkey_errors
+from ...config import SessionLocal, valkey_client, valkey_errors
 from ...models.collections import models_by_singular
 from ...models.duplicates import DuplicateGroup
 from . import dismissals, scoring, signals
@@ -79,9 +79,9 @@ _PROGRESS_INTERVAL = 5
 def request_stop() -> None:
     global _stop_requested
     _stop_requested = True
-    if _valkey:
+    if (client := valkey_client()) is not None:
         try:
-            _valkey.set(_DUP_STOP, "1", ex=3600)
+            client.set(_DUP_STOP, "1", ex=3600)
         except valkey_errors() as e:
             logger.warning("Valkey set(dup stop) failed, using in-process flag: %s", e)
 
@@ -89,26 +89,26 @@ def request_stop() -> None:
 def clear_stop() -> None:
     global _stop_requested
     _stop_requested = False
-    if _valkey:
+    if (client := valkey_client()) is not None:
         try:
-            _valkey.delete(_DUP_STOP)
+            client.delete(_DUP_STOP)
         except valkey_errors() as e:
             logger.warning("Valkey delete(dup stop) failed, using in-process flag: %s", e)
 
 
 def is_stop_requested() -> bool:
-    if _valkey:
+    if (client := valkey_client()) is not None:
         try:
-            return bool(_valkey.exists(_DUP_STOP))
+            return bool(client.exists(_DUP_STOP))
         except valkey_errors() as e:
             logger.warning("Valkey exists(dup stop) failed, using in-process flag: %s", e)
     return _stop_requested
 
 
 def get_status() -> dict:
-    if _valkey:
+    if (client := valkey_client()) is not None:
         try:
-            raw = _valkey.get(_DUP_KEY)
+            raw = client.get(_DUP_KEY)
             if raw:
                 return json.loads(raw)
         except (*valkey_errors(), ValueError) as e:
@@ -126,11 +126,11 @@ def set_status(updates: dict) -> None:
     # heartbeat covers the slow phases too — those report rarely, but they do
     # report, and a scan that is alive anywhere is alive.
     updates = {**updates, "heartbeat": _now()}
-    if _valkey:
+    if (client := valkey_client()) is not None:
         try:
             current = get_status()
             current.update(updates)
-            _valkey.set(_DUP_KEY, json.dumps(current), ex=86400)
+            client.set(_DUP_KEY, json.dumps(current), ex=86400)
             return
         except valkey_errors() as e:
             logger.warning("Valkey set(dup status) failed, using in-process: %s", e)

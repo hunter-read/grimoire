@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from ... import config
-from ...config import SessionLocal, LIBRARY_PATH, DATA_PATH, logger, _valkey, valkey_errors
+from ...config import SessionLocal, LIBRARY_PATH, DATA_PATH, logger, valkey_client, valkey_errors
 from ...models import Book, Model3D
 from ...indexer import scan_library, index_book_text, ocr_book, reindex_single_book
 from ...indexer.formats import INDEXABLE_MIMES
@@ -79,9 +79,9 @@ _heartbeat: Optional[str] = None
 def request_stop() -> None:
     global _stop_requested
     _stop_requested = True
-    if _valkey:
+    if (client := valkey_client()) is not None:
         try:
-            _valkey.set(_STOP_KEY, "1", ex=3600)
+            client.set(_STOP_KEY, "1", ex=3600)
         except valkey_errors() as e:
             logger.warning("Valkey set(stop) failed, using in-process flag: %s", e)
 
@@ -89,17 +89,17 @@ def request_stop() -> None:
 def clear_stop() -> None:
     global _stop_requested
     _stop_requested = False
-    if _valkey:
+    if (client := valkey_client()) is not None:
         try:
-            _valkey.delete(_STOP_KEY)
+            client.delete(_STOP_KEY)
         except valkey_errors() as e:
             logger.warning("Valkey delete(stop) failed, using in-process flag: %s", e)
 
 
 def is_stop_requested() -> bool:
-    if _valkey:
+    if (client := valkey_client()) is not None:
         try:
-            return bool(_valkey.exists(_STOP_KEY))
+            return bool(client.exists(_STOP_KEY))
         except valkey_errors() as e:
             logger.warning("Valkey exists(stop) failed, using in-process flag: %s", e)
     return _stop_requested
@@ -113,9 +113,9 @@ def _beat() -> None:
     """Record that the scan owning the status is still alive."""
     global _heartbeat
     now = _now()
-    if _valkey:
+    if (client := valkey_client()) is not None:
         try:
-            _valkey.set(_HEARTBEAT_KEY, now, ex=86400)
+            client.set(_HEARTBEAT_KEY, now, ex=86400)
             return
         except valkey_errors() as e:
             logger.warning("Valkey set(heartbeat) failed, using in-process heartbeat: %s", e)
@@ -123,9 +123,9 @@ def _beat() -> None:
 
 
 def _get_heartbeat() -> Optional[str]:
-    if _valkey:
+    if (client := valkey_client()) is not None:
         try:
-            raw = _valkey.get(_HEARTBEAT_KEY)
+            raw = client.get(_HEARTBEAT_KEY)
             if raw:
                 return raw.decode() if isinstance(raw, bytes) else str(raw)
         except valkey_errors() as e:
@@ -134,9 +134,9 @@ def _get_heartbeat() -> Optional[str]:
 
 
 def _read_status() -> dict:
-    if _valkey:
+    if (client := valkey_client()) is not None:
         try:
-            raw = _valkey.get(_SCAN_KEY)
+            raw = client.get(_SCAN_KEY)
             if raw:
                 return json.loads(raw)
         except (*valkey_errors(), ValueError) as e:
@@ -154,11 +154,11 @@ def _set_status(updates: dict) -> None:
     # Every write is a sign of life, so the heartbeat starts with the scan
     # rather than one HEARTBEAT_INTERVAL_SECONDS later.
     _beat()
-    if _valkey:
+    if (client := valkey_client()) is not None:
         try:
             current = _read_status()
             current.update(updates)
-            _valkey.set(_SCAN_KEY, json.dumps(current), ex=86400)
+            client.set(_SCAN_KEY, json.dumps(current), ex=86400)
             return
         except valkey_errors() as e:
             logger.warning("Valkey set(status) failed, using in-process status: %s", e)

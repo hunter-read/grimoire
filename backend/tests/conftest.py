@@ -1,7 +1,8 @@
 """Shared fixtures for Grimoire backend tests.
 
-All backend modules are imported AFTER the temp DATA_PATH is set so that
-config.py initialises the SQLite database in a throwaway directory.
+All backend modules are imported AFTER the temp DATA_PATH is set: config.py
+reads its settings at import, so this is what puts the database (created by
+startup(), or by the first session opened) in a throwaway directory.
 """
 import os
 import tempfile

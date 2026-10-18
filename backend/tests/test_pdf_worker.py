@@ -6,6 +6,7 @@ none of the heavy ``backend`` app modules.
 """
 from __future__ import annotations
 
+import os
 import pickle
 import subprocess
 import sys
@@ -15,7 +16,7 @@ from unittest.mock import MagicMock, patch
 
 import fitz
 
-from backend import indexer, pdf_worker
+from backend import config, indexer, pdf_worker
 
 
 def _make_text_pdf(path: Path, texts: list[str]) -> None:
@@ -49,7 +50,8 @@ def _make_image_only_pdf(path: Path) -> None:
 
 
 def test_ocr_settings_disabled_by_env(monkeypatch):
-    monkeypatch.setenv("OCR_ENABLED", "false")
+    monkeypatch.setattr(config, "OCR_ENABLED", False)
+    monkeypatch.setattr(config, "OCR_LANGUAGES", "eng")
     enabled, langs = pdf_worker._ocr_settings()
     assert enabled is False
     assert langs == "eng"
@@ -57,8 +59,8 @@ def test_ocr_settings_disabled_by_env(monkeypatch):
 
 def test_ocr_settings_enabled_probes_tesseract(monkeypatch):
     """When OCR_ENABLED and tesseract is importable, settings report enabled."""
-    monkeypatch.setenv("OCR_ENABLED", "true")
-    monkeypatch.setenv("OCR_LANGUAGES", "eng+deu")
+    monkeypatch.setattr(config, "OCR_ENABLED", True)
+    monkeypatch.setattr(config, "OCR_LANGUAGES", "eng+deu")
     fake_tess = MagicMock()
     fake_tess.get_tesseract_version.return_value = "5.0.0"
     with patch.dict(sys.modules, {"pytesseract": fake_tess}):
@@ -68,7 +70,7 @@ def test_ocr_settings_enabled_probes_tesseract(monkeypatch):
 
 
 def test_ocr_settings_enabled_but_tesseract_missing(monkeypatch):
-    monkeypatch.setenv("OCR_ENABLED", "true")
+    monkeypatch.setattr(config, "OCR_ENABLED", True)
     fake_tess = MagicMock()
     fake_tess.get_tesseract_version.side_effect = RuntimeError("no binary")
     with patch.dict(sys.modules, {"pytesseract": fake_tess}):
@@ -189,21 +191,24 @@ def test_ocr_page_skips_text_layer_pages(tmp_path):
 
 def test_ocr_scale_default(monkeypatch):
     monkeypatch.delenv("OCR_DPI", raising=False)
+    assert config._read_ocr_dpi() == 150.0
+    monkeypatch.setattr(config, "OCR_DPI", config._read_ocr_dpi())
     assert pdf_worker._ocr_scale() == 150.0 / 72.0
 
 
-def test_ocr_scale_reads_env(monkeypatch):
-    monkeypatch.setenv("OCR_DPI", "300")
+def test_ocr_scale_reads_config(monkeypatch):
+    monkeypatch.setattr(config, "OCR_DPI", 300.0)
     assert pdf_worker._ocr_scale() == 300.0 / 72.0
 
 
-def test_ocr_scale_clamps_and_handles_bad_value(monkeypatch):
+def test_ocr_dpi_clamps_and_handles_bad_value(monkeypatch):
+    """Parsed once, in config, rather than re-read from the environment per page."""
     monkeypatch.setenv("OCR_DPI", "5000")
-    assert pdf_worker._ocr_scale() == 600.0 / 72.0  # clamped high
+    assert config._read_ocr_dpi() == 600.0  # clamped high
     monkeypatch.setenv("OCR_DPI", "10")
-    assert pdf_worker._ocr_scale() == 72.0 / 72.0  # clamped low
+    assert config._read_ocr_dpi() == 72.0  # clamped low
     monkeypatch.setenv("OCR_DPI", "bogus")
-    assert pdf_worker._ocr_scale() == 150.0 / 72.0  # fallback
+    assert config._read_ocr_dpi() == 150.0  # fallback
 
 
 def test_ocr_page_uses_configured_dpi(tmp_path, monkeypatch):
@@ -213,7 +218,7 @@ def test_ocr_page_uses_configured_dpi(tmp_path, monkeypatch):
     doc = fitz.open(str(pdf))
     page = doc[0]
 
-    monkeypatch.setenv("OCR_DPI", "72")  # scale 1.0 → smaller pixmap
+    monkeypatch.setattr(config, "OCR_DPI", 72.0)  # scale 1.0 → smaller pixmap
     fake_tess = MagicMock()
     fake_tess.image_to_string.return_value = "x"
     captured = {}
@@ -231,11 +236,11 @@ def test_ocr_page_uses_configured_dpi(tmp_path, monkeypatch):
     assert captured["matrix"] == fitz.Matrix(1.0, 1.0)
 
 
-def test_ocr_scale_explicit_dpi_overrides_env(monkeypatch):
-    monkeypatch.setenv("OCR_DPI", "150")
+def test_ocr_scale_explicit_dpi_overrides_config(monkeypatch):
+    monkeypatch.setattr(config, "OCR_DPI", 150.0)
     # Explicit per-book DPI wins over the env default.
     assert pdf_worker._ocr_scale(300) == 300.0 / 72.0
-    # None falls back to the env value.
+    # None falls back to the configured value.
     assert pdf_worker._ocr_scale(None) == 150.0 / 72.0
 
 
@@ -290,19 +295,21 @@ def test_ocr_page_main_writes_pickled_text(tmp_path):
 
 
 def test_worker_imports_no_heavy_backend_modules():
-    """Importing pdf_worker must not pull in backend.config (DB/Valkey/Alembic).
+    """Importing pdf_worker must not open the database, run migrations or touch disk.
 
-    Run in a clean interpreter so a config import elsewhere in the test session
-    can't mask a real dependency.  Guards the isolation guarantee: a throwaway
-    extraction process must not open the SQLite engine or run migrations.
+    It reads its settings from backend.config, which is fine only because that
+    import does no I/O (issue #585). Run in a clean interpreter so an import
+    elsewhere in the test session can't mask a real dependency.
     """
     code = (
         "import backend.pdf_worker, sys; "
-        "assert 'backend.config' not in sys.modules, "
-        "'pdf_worker must not import backend.config'; "
+        "loaded = [m for m in ('sqlalchemy', 'backend.models', 'redis') if m in sys.modules]; "
+        "assert not loaded, f'pdf_worker loaded {loaded}'; "
         "print('ok')"
     )
-    with tempfile.TemporaryDirectory() as data:
+    with tempfile.TemporaryDirectory() as tmp:
+        # Not created yet: anything that makes it (dirs, a database) is I/O.
+        data = os.path.join(tmp, "data")
         env = {"PATH": "/usr/bin:/bin", "DATA_PATH": data}
         # Preserve the interpreter's import path so 'backend' resolves.
         proc = subprocess.run(
@@ -312,5 +319,6 @@ def test_worker_imports_no_heavy_backend_modules():
             cwd=str(Path(__file__).resolve().parents[2]),
             env={**env},
         )
+        assert not os.path.exists(data), "importing pdf_worker created DATA_PATH"
     assert proc.returncode == 0, f"stdout={proc.stdout!r} stderr={proc.stderr!r}"
     assert "ok" in proc.stdout

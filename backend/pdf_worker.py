@@ -1,11 +1,11 @@
 """Standalone PDF text-extraction worker for the isolated extraction subprocess.
 
 This module is the entry point run inside the spawned child process created by
-``indexer.extract_text_isolated``.  It deliberately imports **nothing** from the
-rest of the ``backend`` package: importing ``backend.config`` at module load
-runs Alembic migrations, opens the SQLite engine, and pings Valkey — none of
-which a throwaway extraction process should do.  Everything here depends only on
-``fitz`` (always needed) and, when OCR is configured, ``PIL``/``pytesseract``.
+``indexer.extract_text_isolated``.  It imports nothing from the rest of the
+``backend`` package except ``config``, for its settings: importing that does no
+file, database or network I/O and doesn't load SQLAlchemy (issue #585), so a
+throwaway extraction process pays for neither.  Everything else here depends only
+on ``fitz`` (always needed) and, when OCR is configured, ``PIL``/``pytesseract``.
 
 Keep the extraction logic in ``run`` behaviourally identical to
 ``indexer.extract_text_from_pdf`` (the in-process reference used by tests and the
@@ -18,16 +18,17 @@ import pickle
 
 import fitz  # PyMuPDF
 
+from . import config
+
 
 def _ocr_settings() -> tuple[bool, str]:
-    """Read OCR config from the environment (mirrors backend.config defaults).
+    """The OCR settings from ``backend.config``.
 
     Returns ``(enabled, languages)``.  ``enabled`` also requires the tesseract
     binary to be importable and runnable, probed lazily so the slim image (no
     tesseract) simply skips OCR.
     """
-    enabled = os.environ.get("OCR_ENABLED", "true").lower() == "true"
-    languages = os.environ.get("OCR_LANGUAGES", "eng").strip() or "eng"
+    enabled, languages = config.OCR_ENABLED, config.OCR_LANGUAGES
     if not enabled:
         return False, languages
     try:
@@ -113,10 +114,7 @@ def _ocr_scale(dpi: int | None = None) -> float:
         except (TypeError, ValueError):
             value = 150.0
     else:
-        try:
-            value = float(os.environ.get("OCR_DPI", "150"))
-        except ValueError:
-            value = 150.0
+        value = config.OCR_DPI
     value = max(72.0, min(value, 600.0))  # clamp to a sane range
     return value / 72.0
 

@@ -5,7 +5,8 @@ import datetime
 import logging
 import secrets
 import stat
-from typing import Optional
+import threading
+from typing import Any, Optional
 
 import jwt
 from fastapi import Cookie, Depends, Header, HTTPException, Query, Request, Response
@@ -40,7 +41,7 @@ TOKEN_EXPIRE_DAYS = 30
 
 
 class InsecureSecretKeyError(RuntimeError):
-    """Raised at import time when SECRET_KEY is set to a published placeholder."""
+    """Raised at start-up when SECRET_KEY is set to a published placeholder."""
 
 
 def _load_or_create_secret_key(data_path: str) -> str:
@@ -118,10 +119,26 @@ def resolve_secret_key(env_value: Optional[str], data_path: str) -> str:
     return key
 
 
-SECRET_KEY = resolve_secret_key(
-    os.environ.get("SECRET_KEY"),
-    os.environ.get("DATA_PATH", "./data"),
-)
+# The JWT signing key. Resolved on first use (see __getattr__ at the bottom)
+# rather than at import, since resolving it may read or create a file under
+# DATA_PATH; main.py's lifespan touches it so a bad key still fails start-up.
+SECRET_KEY: str
+# Two first-boot requests resolving at once would each generate and write a key.
+_secret_key_lock = threading.Lock()
+
+
+def _secret_key() -> str:
+    key = globals().get("SECRET_KEY")
+    if key is None:
+        with _secret_key_lock:
+            key = globals().get("SECRET_KEY")
+            if key is None:
+                key = resolve_secret_key(
+                    os.environ.get("SECRET_KEY"),
+                    os.environ.get("DATA_PATH", "./data"),
+                )
+                globals()["SECRET_KEY"] = key
+    return key
 
 # Name of the HttpOnly session cookie that carries the JWT. This lets
 # <img>/download GETs authenticate without the token appearing in the URL
@@ -189,11 +206,11 @@ def create_token(
     }
     if session_id:
         payload["sid"] = str(session_id)
-    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    return jwt.encode(payload, _secret_key(), algorithm=ALGORITHM)
 
 
 def decode_token(token: str) -> dict:
-    return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    return jwt.decode(token, _secret_key(), algorithms=[ALGORITHM])
 
 
 def set_auth_cookie(response: Response, token: str) -> None:
@@ -364,3 +381,9 @@ def require_not_guest(
     if user.role == "guest":
         raise HTTPException(403, "Guests cannot access this area")
     return user
+
+
+def __getattr__(name: str) -> Any:
+    if name == "SECRET_KEY":
+        return _secret_key()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

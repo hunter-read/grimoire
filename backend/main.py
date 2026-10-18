@@ -30,9 +30,10 @@ from .config import (
     OPDS_ENABLED,
     SessionLocal,
     VERSION,
-    _valkey,
     logger,
     purge_valkey_page_cache,
+    startup,
+    valkey_client,
 )
 from .routers import (
     addons as addons_router,
@@ -162,6 +163,16 @@ _TAGS = [
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Importing the app does no I/O (issue #585): this is where it starts. Data
+    # directories, migrations and the Valkey connection come first, since
+    # everything below uses them.
+    startup()
+    # Resolved now rather than on the first login, so a published placeholder
+    # SECRET_KEY still stops the server before it serves anything.
+    from . import auth
+
+    auth.SECRET_KEY  # noqa: B018
+
     # Clear duplicate-scan state left over from a previous run. A scan only ever
     # clears its own "running" flag from the finally block of the thread running
     # it, so a process that was killed mid-scan leaves the status stuck at
@@ -343,9 +354,9 @@ def health():
     finally:
         db.close()
 
-    if _valkey is not None:
+    if (client := valkey_client()) is not None:
         try:
-            _valkey.ping()
+            client.ping()
             checks["valkey"] = "ok"
         except Exception:
             checks["valkey"] = "error"

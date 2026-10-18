@@ -141,10 +141,11 @@ RUN groupadd --gid 1000 grimoire \
 # the compiler's scratch allocations fragment the heap for the life of the
 # process (~18 MB more RSS per worker, measured). Importing the app once here
 # writes .pyc files for what it actually loads (~30 MB uncompressed) instead of
-# compiling all of site-packages (~52 MB). The throwaway DATA_PATH absorbs the
-# migration run and generated secret that importing the app performs.
+# compiling all of site-packages (~52 MB). Importing the app does no I/O, so
+# startup() runs too, against a throwaway DATA_PATH: that is what loads Alembic
+# and the migrations, which every container runs on its first start.
 RUN DATA_PATH=/tmp/warm LIBRARY_PATH=/tmp/warm DISABLE_VERSION_CHECKING=true \
-        python -c "import backend.main" \
+        python -c "import backend.main; from backend.config import startup; startup()" \
     && rm -rf /tmp/warm
 
 # Empty by default so an image built without --build-arg falls through to the

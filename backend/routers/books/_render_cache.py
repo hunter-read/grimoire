@@ -12,7 +12,7 @@ from typing import Callable
 
 from fastapi.responses import FileResponse, Response, StreamingResponse
 
-from ...config import _valkey, logger, valkey_cache_set
+from ...config import valkey_client, logger, valkey_cache_set
 
 
 def serve_cached_render(
@@ -22,16 +22,16 @@ def serve_cached_render(
     render: Callable[[], bytes],
 ) -> Response:
     """The cached WebP for ``valkey_key``/``cache_path``, rendering it on a miss."""
-    if _valkey is not None:
+    if (client := valkey_client()) is not None:
         try:
-            cached = _valkey.get(valkey_key)
+            cached = client.get(valkey_key)
             if cached:
                 return StreamingResponse(io.BytesIO(cached), media_type="image/webp", headers=headers)
         except Exception as e:
             logger.warning(f"Valkey get error: {e}")
 
     if os.path.exists(cache_path):
-        if _valkey is not None:
+        if (client := valkey_client()) is not None:
             try:
                 with open(cache_path, "rb") as f:
                     valkey_cache_set(valkey_key, f.read())
