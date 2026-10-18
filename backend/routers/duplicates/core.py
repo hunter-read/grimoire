@@ -5,7 +5,7 @@ explicit request the user made about one group they looked at, which is the
 central promise of issue #304: these are irreplaceable purchased files and a
 false positive is unrecoverable.
 """
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -295,6 +295,12 @@ def delete_item(
     return result
 
 
+def _created_timestamp(record: Any) -> float:
+    """When ``record`` was created, as a timestamp; 0 for a row without one."""
+    created = getattr(record, "created_at", None)
+    return created.timestamp() if created else 0
+
+
 def compare_items(
     resource_type: str = Query(...),
     ids: list[str] = Query(...),
@@ -383,7 +389,7 @@ def compare_items(
         key=lambda r: (
             getattr(r, "page_count", 0) or 0,
             r.file_size or 0,
-            -(getattr(r, "created_at", None).timestamp() if getattr(r, "created_at", None) else 0),
+            -_created_timestamp(r),
         ),
     )
 

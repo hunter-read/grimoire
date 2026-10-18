@@ -3,9 +3,11 @@ import datetime
 import uuid
 from typing import Optional
 
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import DeclarativeBase
 
-Base = declarative_base()
+
+class Base(DeclarativeBase):
+    """Typed declarative base: model attributes are declared as ``Mapped[...]``."""
 
 
 def _utcnow() -> datetime.datetime:

@@ -16,7 +16,7 @@ from __future__ import annotations
 import json
 from typing import Any, Optional
 
-from sqlalchemy import and_, bindparam, false, not_, or_, select, true
+from sqlalchemy import BindParameter, and_, bindparam, false, not_, or_, select, true
 from sqlalchemy.orm import Session
 
 from ...models import ResourceTag, Tag
@@ -113,7 +113,9 @@ class TagMatcher:
         """
         if not folders:
             return false()
-        param = bindparam(None, folders, expanding=True, literal_execute=True)
+        param: BindParameter[list[str]] = bindparam(
+            None, folders, expanding=True, literal_execute=True
+        )
         return folder_column(self.model).in_(param)
 
     def _under(self, internals: set[str]) -> Any:

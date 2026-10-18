@@ -168,14 +168,15 @@ def hash_password(password: str) -> str:
     return pwd_context.hash(password)
 
 
-def verify_password(plain: str, hashed: str) -> bool:
+def verify_password(plain: str, hashed: Optional[str]) -> bool:
+    """False for a user with no password (OIDC-only, guest): passlib treats a None hash as a miss."""
     return pwd_context.verify(plain, hashed)
 
 
 def create_token(
     user_id: str,
     username: str,
-    role: str,
+    role: Optional[str],
     session_id: Optional[str] = None,
     expires_minutes: Optional[int] = None,
 ) -> str:

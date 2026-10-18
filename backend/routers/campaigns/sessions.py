@@ -1,6 +1,7 @@
 """Session note endpoint handlers for campaigns."""
 
 import datetime
+from typing import Any
 
 from fastapi import Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -37,7 +38,7 @@ def search_session_notes(
         return {"results": [], "query": q}
 
     all_users = {u.id: u for u in db.query(User).all()}
-    results = []
+    results: list[dict[str, Any]] = []
 
     # Player notes — visible to all campaign members
     for note in (
@@ -59,7 +60,7 @@ def search_session_notes(
                 "author_id": note.user_id,
                 "author_username": author.username if author else "",
                 "author_display_name": author.display_name if author else None,
-                "snippet": extract_snippet(note.content, q),
+                "snippet": extract_snippet(note.content or "", q),
             }
         )
 
@@ -67,9 +68,9 @@ def search_session_notes(
     gm_notes = db.query(GMSessionNote).filter(GMSessionNote.session_id.in_(session_map)).all()
     owner = all_users.get(c.owner_id)
 
-    for note in gm_notes:
-        s = session_map[note.session_id]
-        if note.external_content and q.lower() in note.external_content.lower():
+    for gm_note in gm_notes:
+        s = session_map[gm_note.session_id]
+        if gm_note.external_content and q.lower() in gm_note.external_content.lower():
             results.append(
                 {
                     "session_id": s.id,
@@ -79,15 +80,15 @@ def search_session_notes(
                     "author_id": c.owner_id,
                     "author_username": owner.username if owner else "",
                     "author_display_name": owner.display_name if owner else None,
-                    "snippet": extract_snippet(note.external_content, q),
+                    "snippet": extract_snippet(gm_note.external_content, q),
                 }
             )
 
     # GM internal notes — owner/admin only
     if is_owner:
-        for note in gm_notes:
-            s = session_map[note.session_id]
-            if note.internal_content and q.lower() in note.internal_content.lower():
+        for gm_note in gm_notes:
+            s = session_map[gm_note.session_id]
+            if gm_note.internal_content and q.lower() in gm_note.internal_content.lower():
                 results.append(
                     {
                         "session_id": s.id,
@@ -97,7 +98,7 @@ def search_session_notes(
                         "author_id": c.owner_id,
                         "author_username": owner.username if owner else "",
                         "author_display_name": owner.display_name if owner else None,
-                        "snippet": extract_snippet(note.internal_content, q),
+                        "snippet": extract_snippet(gm_note.internal_content, q),
                     }
                 )
 

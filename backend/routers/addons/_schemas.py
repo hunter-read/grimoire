@@ -1,5 +1,5 @@
 """Pydantic schemas for the add-ons API."""
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -33,7 +33,7 @@ class AddonSettingsUpdate(BaseModel):
 
     @field_validator("index_urls", "index_url")
     @classmethod
-    def http_urls(cls, v: Optional[object]) -> Optional[object]:
+    def http_urls(cls, v: Any) -> Any:
         if v is None:
             return v
         urls = [v] if isinstance(v, str) else v

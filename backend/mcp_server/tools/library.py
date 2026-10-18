@@ -168,9 +168,12 @@ def list_books(args: ListBooksArgs, ctx: ToolContext) -> str:
     if not books:
         return "No books matched." if args.offset == 0 else f"No books past offset {args.offset}."
     ids = {b["game_system_id"] for b in books if b["game_system_id"]}
-    names = dict(
-        ctx.db.query(GameSystem.id, GameSystem.name).filter(GameSystem.id.in_(ids)).all()
-    )
+    names = {
+        system_id: name
+        for system_id, name in ctx.db.query(GameSystem.id, GameSystem.name)
+        .filter(GameSystem.id.in_(ids))
+        .all()
+    }
     first = args.offset + 1
     lines = [f"Books {first}-{args.offset + len(books)} of {total}, by title:"]
     for b in books:

@@ -300,11 +300,11 @@ def resolve_entries(
     if not wanted:
         return {"entries": {}}
 
-    ids = wanted[: helpers.MAX_PAGE_SIZE]
+    capped = wanted[: helpers.MAX_PAGE_SIZE]
     rows = (
         db.query(ContentEntry)
         .filter(ContentEntry.schema_id == schema_id)
-        .filter(ContentEntry.entry_id.in_(ids))
+        .filter(ContentEntry.entry_id.in_(capped))
         .all()
     )
     found = {
@@ -325,7 +325,7 @@ def resolve_entries(
         db.query(RulesetEntry)
         .join(Ruleset, Ruleset.id == RulesetEntry.ruleset_id)
         .filter(RulesetEntry.schema_id == schema_id)
-        .filter(RulesetEntry.entry_id.in_(ids))
+        .filter(RulesetEntry.entry_id.in_(capped))
         .filter(rs.readable_filter(db, current_user.id))
         .all()
     ):

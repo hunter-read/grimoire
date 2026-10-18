@@ -1,5 +1,5 @@
 """Full-text search endpoint handlers."""
-from typing import Optional
+from typing import Any, Optional, Sequence
 
 from fastapi import Depends, Query
 from sqlalchemy import text
@@ -54,7 +54,7 @@ def search_library(
     parsed = parse_query(q)
     content_q = parsed.content_query
 
-    rows = []
+    rows: Sequence[Any] = []
     if content_q:
         if book_id:
             sql = text(

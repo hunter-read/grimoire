@@ -161,8 +161,11 @@ def load_source_image(
             return embedded[0]
         raise HTTPException(404, "That track has no artwork")
 
-    model = GenericMap if source_type == "map" else Token
-    item = db.query(model).filter_by(id=source_id).first()
+    item: GenericMap | Token | None
+    if source_type == "map":
+        item = db.query(GenericMap).filter_by(id=source_id).first()
+    else:
+        item = db.query(Token).filter_by(id=source_id).first()
     if not item:
         raise HTTPException(404, "Source not found")
     assert_media_access(db, user, source_type, item.id)

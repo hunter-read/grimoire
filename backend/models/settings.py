@@ -1,5 +1,8 @@
 """Application-wide key-value settings model."""
-from sqlalchemy import Column, String, Text
+from typing import Optional
+
+from sqlalchemy import String, Text
+from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base
 
@@ -9,5 +12,5 @@ class AppSetting(Base):
 
     __tablename__ = "app_settings"
 
-    key = Column(String(100), primary_key=True)
-    value = Column(Text, default="")
+    key: Mapped[str] = mapped_column(String(100), primary_key=True)
+    value: Mapped[Optional[str]] = mapped_column(Text, default="")

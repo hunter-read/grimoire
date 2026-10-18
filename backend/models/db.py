@@ -132,6 +132,7 @@ def _migrate_schedule_times_to_local(conn: Connection) -> None:
                 ):
                     definition.pop("time_utc", None)
                     hour, minute = (int(p) for p in str(stale).split(":")[:2])
+                    zone: zoneinfo.ZoneInfo | None
                     try:
                         zone = zoneinfo.ZoneInfo(str(definition["timezone"]))
                     except (zoneinfo.ZoneInfoNotFoundError, ValueError):

@@ -9,6 +9,14 @@ sync when you change a model**.
 The backend runs on SQLite. All primary keys are 36-char UUID strings (`_uuid()`) except
 `app_settings`, which is keyed by its `key` string. Timestamps are UTC (`_utcnow()`).
 
+Columns are declared in SQLAlchemy 2.0's typed style, `name: Mapped[str] = mapped_column(...)`,
+so mypy knows each attribute's Python type. The annotation also sets nullability when
+`mapped_column` is not given `nullable=`: `Mapped[str]` means `NOT NULL` and
+`Mapped[Optional[str]]` allows NULL. A column that can hold NULL in the database - including
+one with a `default` but no `nullable=False` - is annotated `Optional[...]`, so code reading it
+has to handle `None`. Relationships are annotated too (`Mapped[list["Book"]]`,
+`Mapped[Optional["GameSystem"]]`).
+
 ## Entity-Relationship Diagram
 
 The diagram groups tables by their model file. Solid lines are foreign keys; the crow's-foot

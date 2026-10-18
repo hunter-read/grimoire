@@ -25,7 +25,7 @@ from . import tag_service
 
 # resource_type → ORM model. Mirrors ``models.RESOURCE_TYPES``; the bulk routers
 # pass their own type so an unknown one is a programming error, not user input.
-_MODELS: dict[str, type] = {
+_MODELS: dict[str, Any] = {
     "system": GameSystem,
     **models_by_singular(),
 }

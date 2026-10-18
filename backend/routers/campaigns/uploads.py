@@ -73,11 +73,11 @@ def _make_banner_thumb(data: bytes) -> Optional[bytes]:
     from PIL import Image
 
     try:
-        img = Image.open(io.BytesIO(data))
+        img: Image.Image = Image.open(io.BytesIO(data))
         if img.mode not in ("RGB", "RGBA"):
             img = img.convert("RGB")
         # Only ever scale down — never upscale a banner that's already small.
-        img.thumbnail((_BANNER_THUMB_MAX_W, 10_000), Image.LANCZOS)
+        img.thumbnail((_BANNER_THUMB_MAX_W, 10_000), Image.Resampling.LANCZOS)
         out = io.BytesIO()
         img.save(out, "WEBP", quality=80)
         return out.getvalue()
@@ -90,15 +90,19 @@ def _banner_thumb_path(campaign_id: str) -> str:
     return os.path.join(_BANNER_DIR, f"{campaign_id}_sm.webp")
 
 
-def _read_upload(upload: UploadFile, allowed: dict, max_bytes: int) -> bytes:
-    if upload.content_type not in allowed:
+def _read_upload(
+    upload: UploadFile, allowed: dict[str, str], max_bytes: int
+) -> tuple[bytes, str]:
+    """The upload's bytes and the file extension for its (allowed) content type."""
+    if upload.content_type is None or upload.content_type not in allowed:
         raise HTTPException(400, f"Unsupported file type: {upload.content_type}")
+    ext = allowed[upload.content_type]
     data = upload.file.read(max_bytes + 1)
     if len(data) > max_bytes:
         raise HTTPException(413, "File is too large")
     if not data:
         raise HTTPException(400, "Empty file")
-    return data
+    return data, ext
 
 
 def _remove_existing(directory: str, stem: str) -> None:
@@ -173,10 +177,10 @@ def upload_banner(
 ):
     c = get_campaign_or_404(db, campaign_id)
     assert_can_manage(c, current_user, db)
-    data = _read_upload(file, _IMAGE_TYPES, _MAX_IMAGE_BYTES)
+    data, ext = _read_upload(file, _IMAGE_TYPES, _MAX_IMAGE_BYTES)
     _validate_image(data)
 
-    filename = _store_banner(c, data, _IMAGE_TYPES[file.content_type])
+    filename = _store_banner(c, data, ext)
     db.commit()
     return {"banner_path": filename}
 
@@ -297,10 +301,9 @@ def upload_member_art(
     c = get_campaign_or_404(db, campaign_id)
     member = _get_member_or_404(db, campaign_id, member_id)
     _assert_can_edit_member(c, member, current_user)
-    data = _read_upload(file, _IMAGE_TYPES, _MAX_IMAGE_BYTES)
+    data, ext = _read_upload(file, _IMAGE_TYPES, _MAX_IMAGE_BYTES)
     _validate_image(data)
 
-    ext = _IMAGE_TYPES[file.content_type]
     _remove_existing(_ART_DIR, member_id)
     filename = f"{member_id}{ext}"
     with open(os.path.join(_ART_DIR, filename), "wb") as f:
@@ -359,10 +362,9 @@ def upload_member_token(
     c = get_campaign_or_404(db, campaign_id)
     member = _get_member_or_404(db, campaign_id, member_id)
     _assert_can_edit_member(c, member, current_user)
-    data = _read_upload(file, _IMAGE_TYPES, _MAX_IMAGE_BYTES)
+    data, ext = _read_upload(file, _IMAGE_TYPES, _MAX_IMAGE_BYTES)
     _validate_image(data)
 
-    ext = _IMAGE_TYPES[file.content_type]
     os.makedirs(_TOKEN_DIR, exist_ok=True)
     _remove_existing(_TOKEN_DIR, member_id)
     filename = f"{member_id}{ext}"
@@ -420,11 +422,10 @@ def upload_member_sheet(
     c = get_campaign_or_404(db, campaign_id)
     member = _get_member_or_404(db, campaign_id, member_id)
     _assert_can_edit_member(c, member, current_user)
-    data = _read_upload(file, _SHEET_TYPES, _MAX_SHEET_BYTES)
+    data, ext = _read_upload(file, _SHEET_TYPES, _MAX_SHEET_BYTES)
     if file.content_type in _IMAGE_TYPES:
         _validate_image(data)
 
-    ext = _SHEET_TYPES[file.content_type]
     _remove_existing(_SHEET_DIR, member_id)
     filename = f"{member_id}{ext}"
     with open(os.path.join(_SHEET_DIR, filename), "wb") as f:
@@ -520,14 +521,14 @@ def _resolve_resource_category(
         db.flush()
         return str(cat.id)
     if category_id:
-        cat = (
+        existing = (
             db.query(CampaignCategory)
             .filter_by(id=category_id, campaign_id=campaign_id, kind="resource")
             .first()
         )
-        if not cat:
+        if not existing:
             raise HTTPException(400, "Invalid category")
-        return str(cat.id)
+        return str(existing.id)
     return None
 
 
@@ -641,7 +642,7 @@ def upload_campaign_image(
     if disabled and not is_admin:
         raise HTTPException(403, "Campaign file uploads are disabled by the administrator")
 
-    data = _read_upload(file, _IMAGE_TYPES, _MAX_IMAGE_BYTES)
+    data, ext = _read_upload(file, _IMAGE_TYPES, _MAX_IMAGE_BYTES)
     _validate_image(data)
     if not is_admin and max_file and len(data) > max_file:
         raise HTTPException(413, "File exceeds the per-file size limit")
@@ -651,7 +652,6 @@ def upload_campaign_image(
         db, campaign_id, category_id, new_category_name
     )
 
-    ext = _IMAGE_TYPES[file.content_type]
     stored = f"{uuid.uuid4().hex}{ext}"
     with open(os.path.join(_FILES_DIR, stored), "wb") as f:
         f.write(data)

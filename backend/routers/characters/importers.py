@@ -126,11 +126,11 @@ def list_importers(
         summary = _summary(manifest, installed)
         is_own = manifest.id not in server
         summary["scope"] = "user" if is_own else "server"
-        entry = offered.get(manifest.id)
+        offer = offered.get(manifest.id)
         # Only the user's own copy is theirs to update; the server's is the
         # admin's, in Settings.
-        if is_own and entry is not None and is_newer(entry.version, manifest.version):
-            summary["available_version"] = entry.version
+        if is_own and offer is not None and is_newer(offer.version, manifest.version):
+            summary["available_version"] = offer.version
         importers.append(summary)
 
     is_admin = current_user.role == "admin"

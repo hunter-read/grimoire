@@ -6,6 +6,8 @@ or delete a page; which pages a user has hidden; and the `[[Page Title]]` link
 graph that is rebuilt on every save. See ``wikilinks.py`` for the target grammar.
 """
 
+from typing import Optional
+
 from fastapi import HTTPException
 from ...auth import CurrentUser
 from ...models import WikiPage, WikiPageHidden, WikiPageLink, WikiPageShare
@@ -148,7 +150,9 @@ def hidden_page_ids(db, campaign_id: str, user_id: str, campaign=None) -> set:
     return out
 
 
-def _ensure_unique_slug(db, campaign_id: str, base_slug: str, exclude_id: str = None) -> str:
+def _ensure_unique_slug(
+    db, campaign_id: str, base_slug: str, exclude_id: Optional[str] = None
+) -> str:
     slug = base_slug
     n = 2
     while True:
@@ -192,7 +196,7 @@ def _rebuild_link_rows(db, campaign_id: str, page: WikiPage) -> None:
     """
     db.query(WikiPageLink).filter_by(source_page_id=page.id).delete()
     target_ids = set()
-    for link in parse_page_links(page.body):
+    for link in parse_page_links(page.body or ""):
         target = resolve_link_target(db, campaign_id, link)
         if target is not None and target.id != page.id:
             target_ids.add(target.id)
@@ -217,7 +221,7 @@ def rebuild_links(db, campaign, page: WikiPage, current_user: CurrentUser) -> No
     db.query(WikiPageLink).filter_by(source_page_id=page.id).delete()
 
     target_ids = set()
-    for link in parse_page_links(page.body):
+    for link in parse_page_links(page.body or ""):
         target = resolve_link_target(db, campaign.id, link)
         if target is None:
             if link.page_id:
@@ -284,7 +288,7 @@ def rewrite_inbound_titles(db, campaign_id: str, page: WikiPage, old_title: str)
 
 
 def _resolve_parent(
-    db, campaign_id: str, parent_id, page_id: str = None, campaign=None, user=None
+    db, campaign_id: str, parent_id, page_id: Optional[str] = None, campaign=None, user=None
 ):
     """Validate a parent-page id for this campaign. Empty string moves to root.
 

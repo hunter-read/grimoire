@@ -131,6 +131,7 @@ def encode_map_image(filepath: str, quality: int = WEBP_QUALITY) -> str:
     partition, so a map that cannot be encoded at 85 still exports rather than
     erroring.
     """
+    img: PILImage.Image  # convert()/resize() return a plain Image
     with PILImage.open(filepath) as img:
         if img.mode == "P":
             img = img.convert("RGBA" if "transparency" in img.info else "RGB")
@@ -140,7 +141,7 @@ def encode_map_image(filepath: str, quality: int = WEBP_QUALITY) -> str:
             scale = WEBP_MAX_DIM / max(img.width, img.height)
             img = img.resize(
                 (max(1, int(img.width * scale)), max(1, int(img.height * scale))),
-                PILImage.LANCZOS,
+                PILImage.Resampling.LANCZOS,
             )
         raw = None
         for attempt_q in (quality, 75, 65):

@@ -14,10 +14,11 @@ timeout, mirroring the rest of the indexer.
 
 import logging
 import threading
-from typing import Callable, Optional
+from typing import Any, Callable, Optional, cast
 
 import fitz
 from PIL import Image
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session
 
 from . import config
@@ -92,13 +93,14 @@ def requeue_image_only_books(session: Session) -> int:
 
     from sqlalchemy import text as _sql_text
 
-    result = session.execute(
+    # A DML statement's result is a CursorResult; Session.execute is typed as the base Result.
+    result = cast(CursorResult[Any], session.execute(
         _sql_text(
             "UPDATE books SET ocr_pending = 1, ocr_pages_done = 0, ocr_pages_skipped = 0, "
             "indexed = 0, index_failed = 0, index_error = '' "
             "WHERE index_error = 'image-only'"
         )
-    )
+    ))
     count = result.rowcount or 0
     if count:
         session.commit()
@@ -149,7 +151,7 @@ def ocr_image(image: Image.Image, should_stop: Optional[Callable[[], bool]] = No
 def ocr_pixmap(pixmap: "fitz.Pixmap", should_stop: Optional[Callable[[], bool]] = None) -> str:
     """Run OCR on a PyMuPDF pixmap by converting it to a PIL image first."""
     try:
-        image = Image.frombytes("RGB", [pixmap.width, pixmap.height], pixmap.samples)
+        image = Image.frombytes("RGB", (pixmap.width, pixmap.height), pixmap.samples)
     except Exception as exc:
         logger.error(f"Could not convert page pixmap for OCR: {exc}")
         return ""

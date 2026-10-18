@@ -54,7 +54,7 @@ def read_chapters(filepath: str) -> list[Chapter]:
 
 def _normalise(chapters: list[Chapter]) -> list[Chapter]:
     """Sort by start, drop negative starts, and round for a stable payload."""
-    out = [
+    out: list[Chapter] = [
         {"start": round(float(c["start"]), 3), "title": str(c["title"]).strip()}
         for c in chapters
         if c["start"] >= 0

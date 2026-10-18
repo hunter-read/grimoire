@@ -1,5 +1,6 @@
 """Add-on management endpoints (admin only)."""
 import logging
+from typing import Any
 
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -27,7 +28,7 @@ def list_addons(
     }
 
     # Gather available_in data
-    available_map = {}
+    available_map: dict[str, Any] = {}
     for entry in addons.available(db):
         if entry.id not in available_map:
             available_map[entry.id] = []

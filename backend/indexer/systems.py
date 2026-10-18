@@ -130,7 +130,7 @@ def _unique_system_name(ctx: _ScanContext, name: str, slug: str) -> str:
     while True:
         try:
             clash = _run_with_timeout(
-                lambda c=candidate: session.query(GameSystem).filter_by(name=c).first(),
+                lambda c=candidate: session.query(GameSystem).filter_by(name=c).first(),  # type: ignore[misc]  # default-arg capture defeats lambda inference
                 _DB_TIMEOUT,
                 f"query system by name '{candidate}'",
             )
@@ -222,7 +222,7 @@ def _register_system_row(
     logger.debug(f"DB: querying system '{folder.slug}'")
     try:
         system = _run_with_timeout(
-            lambda slug=folder.slug: session.query(GameSystem).filter_by(slug=slug).first(),
+            lambda slug=folder.slug: session.query(GameSystem).filter_by(slug=slug).first(),  # type: ignore[misc]  # default-arg capture defeats lambda inference
             _DB_TIMEOUT,
             f"query system '{folder.slug}'",
         )

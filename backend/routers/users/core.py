@@ -34,11 +34,12 @@ def list_users(_: CurrentUser = Depends(require_admin), db: Session = Depends(ge
         .order_by(User.username)
         .all()
     )
-    owned_counts = dict(
-        db.query(Campaign.owner_id, func.count(Campaign.id))
+    owned_counts = {
+        owner_id: count
+        for owner_id, count in db.query(Campaign.owner_id, func.count(Campaign.id))
         .group_by(Campaign.owner_id)
         .all()
-    )
+    }
     return [
         {
             "id": u.id,
@@ -52,7 +53,7 @@ def list_users(_: CurrentUser = Depends(require_admin), db: Session = Depends(ge
             **_share_fields(db, u),
             "campaign_count": owned_counts.get(u.id, 0),
             "oidc_linked": bool(u.oidc_subject),
-            "created_at": u.created_at.isoformat(),
+            "created_at": u.created_at.isoformat() if u.created_at else None,
         }
         for u in users
     ]
@@ -86,7 +87,7 @@ def list_guests(_: CurrentUser = Depends(require_admin), db: Session = Depends(g
             {
                 "id": g.id,
                 "display_name": g.display_name,
-                "created_at": g.created_at.isoformat(),
+                "created_at": g.created_at.isoformat() if g.created_at else None,
                 "campaign_id": campaign.id if campaign else None,
                 "campaign_name": campaign.name if campaign else None,
                 "invited_by": (
@@ -260,7 +261,7 @@ def convert_guest(
         **_share_fields(db, user),
         "campaign_count": db.query(Campaign).filter_by(owner_id=user.id).count(),
         "oidc_linked": bool(user.oidc_subject),
-        "created_at": user.created_at.isoformat(),
+        "created_at": user.created_at.isoformat() if user.created_at else None,
     }
 
 

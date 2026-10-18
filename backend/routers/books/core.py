@@ -310,7 +310,9 @@ def bulk_update_books(
     return result
 
 
-def _relocate_recategorised(db: Session, book_ids: list[str], before: dict[str, str]) -> None:
+def _relocate_recategorised(
+    db: Session, book_ids: list[str], before: dict[str, Optional[str]]
+) -> None:
     """Move every book whose category actually changed into its new folder.
 
     Runs after the bulk service has committed, so a relocation failure cannot

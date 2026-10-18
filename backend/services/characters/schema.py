@@ -565,10 +565,10 @@ def validate_schema(document: Any, *, scope: str = "gc-sheet") -> dict:
         if definition.get("type") in _CONTENT_TYPES_FIELDS:
             wanted = definition.get("content_type")
             if wanted not in content_types:
-                known = ", ".join(sorted(content_types)) or "none declared"
+                declared = ", ".join(sorted(content_types)) or "none declared"
                 raise SchemaError(
                     f"Field {field_name!r} picks from content type {wanted!r}, "
-                    f"which the schema does not define (has: {known})"
+                    f"which the schema does not define (has: {declared})"
                 )
 
     for field_name, definition in fields.items():

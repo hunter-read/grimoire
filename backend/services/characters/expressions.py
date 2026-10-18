@@ -648,7 +648,7 @@ def _eval_node(node: tuple, context: dict) -> Any:
     raise ExpressionError(f"Unsupported expression node {kind!r}")
 
 
-def evaluate(source: Union[str, tuple], context: dict, default: Any = 0) -> Any:
+def evaluate(source: Any, context: dict, default: Any = 0) -> Any:
     """Evaluate an expression against a context of field values.
 
     Returns ``default`` if the expression cannot be parsed. Callers that need to

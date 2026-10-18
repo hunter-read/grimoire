@@ -89,6 +89,7 @@ def load(db: Session) -> CodexSettings:
     rows = {
         r.key: r.value
         for r in db.query(AppSetting).filter(AppSetting.key.in_(list(_DEFAULTS))).all()
+        if r.value is not None
     }
     raw = {**_DEFAULTS, **rows}
     locked = set()

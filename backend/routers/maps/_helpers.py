@@ -295,11 +295,12 @@ def render_map_preview(filepath: str, width: int) -> bytes:
         valkey_cache_set(valkey_key, data)
         return data
 
+    img: PILImage.Image  # convert()/resize() return a plain Image
     with PILImage.open(filepath) as img:
         img = img.convert("RGB") if img.mode not in ("RGB", "L") else img
         if img.width > width:
             height = round(img.height * width / img.width)
-            img = img.resize((width, height), PILImage.LANCZOS)
+            img = img.resize((width, height), PILImage.Resampling.LANCZOS)
         buf = io.BytesIO()
         img.save(buf, format="webp", quality=82, method=0)
     img_bytes = buf.getvalue()

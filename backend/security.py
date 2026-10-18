@@ -68,21 +68,25 @@ def client_ip(request: Request) -> str:
     return "127.0.0.1"
 
 
+# The timeouts make "down" mean seconds: without them a login against an
+# unreachable host waits out the OS TCP connect timeout first. slowapi annotates
+# storage_options as Dict[str, str], but it is passed to the redis client as
+# keyword arguments, where the timeouts must be numbers.
+_storage_options: dict[str, Any] = (
+    {
+        "socket_connect_timeout": VALKEY_CONNECT_TIMEOUT,
+        "socket_timeout": VALKEY_SOCKET_TIMEOUT,
+    }
+    if VALKEY_URL
+    else {}
+)
+
 # swallow_errors + in_memory_fallback: if the Valkey store is down, degrade to
-# in-memory limiting instead of erroring the request open or closed. The
-# timeouts make "down" mean seconds: without them a login against an
-# unreachable host waits out the OS TCP connect timeout first.
+# in-memory limiting instead of erroring the request open or closed.
 limiter = Limiter(
     key_func=client_ip,
     storage_uri=VALKEY_URL or "memory://",
-    storage_options=(
-        {
-            "socket_connect_timeout": VALKEY_CONNECT_TIMEOUT,
-            "socket_timeout": VALKEY_SOCKET_TIMEOUT,
-        }
-        if VALKEY_URL
-        else {}
-    ),
+    storage_options=_storage_options,
     in_memory_fallback_enabled=True,
     swallow_errors=True,
     enabled=_RATE_LIMIT_ENABLED,

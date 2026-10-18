@@ -122,7 +122,7 @@ def suggest_kind(record: Any, other: Any, resource_type: str = "") -> tuple[str,
     # Format markers, for maps: the pair is only telling when the two sides
     # disagree, exactly as with the grid.
     my_ext = _ext_kind(record.filename)
-    if my_ext in allowed and my_ext != _ext_kind(other.filename):
+    if my_ext is not None and my_ext in allowed and my_ext != _ext_kind(other.filename):
         return my_ext, ""
 
     # An explicit version column beats anything parsed out of a filename.

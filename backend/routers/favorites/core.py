@@ -131,18 +131,18 @@ def list_favorites(user: CurrentUser = Depends(get_current_user), db: Session = 
                 }
             )
         elif r.item_type == "model" and r.item_id in models:
-            m = models[r.item_id]
+            model3d = models[r.item_id]
             enriched.append(
                 {
                     "item_type": "model",
-                    "item_id": m.id,
-                    "filename": m.filename,
-                    "has_thumbnail": m.has_thumbnail,
-                    "file_size": m.file_size,
-                    "triangle_count": m.triangle_count,
-                    "is_presupported": m.is_supported is True,
-                    "is_unsupported": m.is_supported is False,
-                    "tags": model_tags.get(m.id, []),
+                    "item_id": model3d.id,
+                    "filename": model3d.filename,
+                    "has_thumbnail": model3d.has_thumbnail,
+                    "file_size": model3d.file_size,
+                    "triangle_count": model3d.triangle_count,
+                    "is_presupported": model3d.is_supported is True,
+                    "is_unsupported": model3d.is_supported is False,
+                    "tags": model_tags.get(model3d.id, []),
                 }
             )
         elif r.item_type == "system" and r.item_id in systems:

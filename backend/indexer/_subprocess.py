@@ -69,8 +69,8 @@ class PdfExtractionCrashError(Exception):
 def _run_with_timeout(fn: Callable[[], Any], timeout: int, label: str) -> Any:
     """Run fn() in a daemon thread.  Returns its result, or raises TimeoutError if it
     does not complete within `timeout` seconds.  `label` is used in log/error messages."""
-    result = [None]
-    exc = [None]
+    result: list[Any] = [None]
+    exc: list[Optional[Exception]] = [None]
 
     def _worker() -> None:
         try:
@@ -98,8 +98,8 @@ def _fitz_open_with_timeout(
     If `should_stop` callable is provided, the wait is interrupted early when it
     returns True, raising TimeoutError so the caller can exit cleanly.
     """
-    result = [None]
-    exc = [None]
+    result: list[Any] = [None]
+    exc: list[Optional[Exception]] = [None]
 
     def _open() -> None:
         try:

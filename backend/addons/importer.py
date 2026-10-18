@@ -169,7 +169,7 @@ def read_value(
 ) -> list[Any]:
     """Every value one spec selects, finished."""
     if isinstance(spec, str):
-        spec = ImporterValue(**{"from": spec})
+        spec = ImporterValue.model_validate({"from": spec})
     return _finish(spec, _raw(spec, document, current))
 
 

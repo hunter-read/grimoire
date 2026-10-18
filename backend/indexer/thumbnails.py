@@ -153,7 +153,7 @@ def _generate_thumbnail_task(
             if data is None:
                 result[0] = False
                 return
-            img = Image.open(io.BytesIO(data))
+            img: Image.Image = Image.open(io.BytesIO(data))
             if img.mode != "RGB":
                 img = img.convert("RGB")
         elif ext in FITZ_EXTS:
@@ -166,7 +166,7 @@ def _generate_thumbnail_task(
             page = doc[0]
             mat = fitz.Matrix(2, 2)
             pix = page.get_pixmap(matrix=mat, alpha=False)
-            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+            img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
             doc.close()
         elif ext in VTT_DATA_EXTS:
             # A Universal VTT file carries its battlemap as base64 inside the
@@ -208,7 +208,7 @@ def _generate_thumbnail_task(
             result[0] = False
             return
 
-        img.thumbnail(size, Image.LANCZOS)
+        img.thumbnail(size, Image.Resampling.LANCZOS)
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         img.save(output_path, "WEBP", quality=80)
         result[0] = True

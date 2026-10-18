@@ -1,5 +1,9 @@
 """Share links (issue #541)."""
-from sqlalchemy import JSON, Column, DateTime, ForeignKey, Index, Integer, String, Text
+import datetime
+from typing import Any, Optional
+
+from sqlalchemy import JSON, DateTime, ForeignKey, Index, Integer, String, Text
+from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, _utcnow, _uuid
 
@@ -31,27 +35,27 @@ class ShareLink(Base):
 
     __tablename__ = "share_links"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
-    token_hash = Column(String(64), nullable=False, unique=True, index=True)
-    token_sealed = Column(Text, nullable=False)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    token_sealed: Mapped[str] = mapped_column(Text, nullable=False)
     # The creator. Links are deleted with their user.
-    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False, index=True)
     # book | map | token | audio | model
-    resource_type = Column(String(20), nullable=False)
-    resource_id = Column(String(36), nullable=False)
-    label = Column(String(200), default="")
-    filename = Column(String(255), default="")
+    resource_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    resource_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    label: Mapped[Optional[str]] = mapped_column(String(200), default="")
+    filename: Mapped[Optional[str]] = mapped_column(String(255), default="")
     # A derived form of the item to serve instead of the item itself (issue
     # #551). NULL serves the item as-is; "otfbm" serves a map resized for an
     # OTFBM background at ``variant_options["cell"]`` pixels per cell.
-    variant = Column(String(20), nullable=True)
-    variant_options = Column(JSON, nullable=True)
-    password_hash = Column(String(255), nullable=True)
-    created_at = Column(DateTime, default=_utcnow)
-    expires_at = Column(DateTime, nullable=True)
-    revoked_at = Column(DateTime, nullable=True)
-    revoked_by_id = Column(String(36), nullable=True)
-    last_used_at = Column(DateTime, nullable=True)
-    use_count = Column(Integer, default=0)
+    variant: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    variant_options: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
+    password_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
+    expires_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True)
+    revoked_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True)
+    revoked_by_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
+    last_used_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True)
+    use_count: Mapped[Optional[int]] = mapped_column(Integer, default=0)
 
     __table_args__ = (Index("ix_share_links_resource", "resource_type", "resource_id"),)

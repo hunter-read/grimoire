@@ -18,8 +18,10 @@ for a schema the user wrote or pasted. That is the same provenance triple
 ``UserTheme`` and ``WikiTemplate`` carry, and it means the three features stay
 recognisably one pattern.
 """
+import datetime
+from typing import Any, Optional
+
 from sqlalchemy import (
-    Column,
     DateTime,
     ForeignKey,
     JSON,
@@ -27,6 +29,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
+from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, _utcnow, _uuid
 
@@ -49,28 +52,28 @@ class CharacterSchema(Base):
 
     __tablename__ = "character_schemas"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
-    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False, index=True)
     # Stable identifier: the community id for a downloaded schema, or a slug
     # derived from the name for an authored one. Unique per user, so installing
     # the same schema twice updates it rather than duplicating it.
-    schema_id = Column(String(100), nullable=False)
-    name = Column(String(200), nullable=False)
+    schema_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
     # The game this sheet is for, free text and display-only. Kept out of the
     # document so the picker can group by it without parsing every schema.
-    system = Column(String(200), default="")
-    description = Column(Text, default="")
+    system: Mapped[Optional[str]] = mapped_column(String(200), default="")
+    description: Mapped[Optional[str]] = mapped_column(Text, default="")
     # Schema-author version (semver), distinct from source_version below: this
     # is what the document itself claims, which an authored schema also has.
-    version = Column(String(20), default="1.0.0")
-    document = Column(JSON, default=dict)
+    version: Mapped[Optional[str]] = mapped_column(String(20), default="1.0.0")
+    document: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, default=dict)
 
-    source_id = Column(String(100), nullable=True)
-    source_url = Column(Text, nullable=True)
-    source_version = Column(String(20), nullable=True)
+    source_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    source_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    source_version: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
 
-    created_at = Column(DateTime, default=_utcnow)
-    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
+    updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)
 
     __table_args__ = (UniqueConstraint("user_id", "schema_id"),)
 
@@ -97,30 +100,30 @@ class Character(Base):
 
     __tablename__ = "characters"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
-    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
-    schema_ref = Column(String(100), nullable=False, index=True)
-    name = Column(String(200), nullable=False, default="")
-    data = Column(JSON, default=dict)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    schema_ref: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    data: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, default=dict)
 
     # The campaign this character is played in, if any. Nullable because a
     # character may exist before a campaign does — a player rolls one up and
     # joins a table later — and because a character can outlive the game it was
     # made for. Setting it lets the party see the sheet.
-    campaign_id = Column(String(36), ForeignKey("campaigns.id"), nullable=True, index=True)
+    campaign_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("campaigns.id"), nullable=True, index=True)
 
     # Where the character stands in their story: "active", "retired" or
     # "dead". A player whose character falls rolls a new one in the same
     # campaign; the old sheet stays, marked, rather than being deleted to make
     # room. Nothing limits a player to one character per campaign.
-    status = Column(String(20), nullable=False, default="active", server_default="active")
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="active", server_default="active")
 
     # Filename under DATA_PATH/uploads/characters/, not a path: the directory is
     # ours to choose and storing one would make moving it a migration.
-    portrait_path = Column(String(255), nullable=True)
+    portrait_path: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
-    created_at = Column(DateTime, default=_utcnow)
-    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
+    updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)
 
 
 class UserImporter(Base):
@@ -140,17 +143,17 @@ class UserImporter(Base):
 
     __tablename__ = "user_importers"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
-    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
-    importer_id = Column(String(100), nullable=False)
-    name = Column(String(200), nullable=False, default="")
-    version = Column(String(20), default="")
-    manifest = Column(JSON, default=dict)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    importer_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    version: Mapped[Optional[str]] = mapped_column(String(20), default="")
+    manifest: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, default=dict)
     # Which index it came from and the digest it matched, for updates.
-    source_url = Column(Text, nullable=True)
-    sha256 = Column(String(64), nullable=True)
+    source_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    sha256: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
 
-    created_at = Column(DateTime, default=_utcnow)
-    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
+    updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)
 
     __table_args__ = (UniqueConstraint("user_id", "importer_id"),)

@@ -16,7 +16,7 @@ import hashlib
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Optional
+from typing import AbstractSet, Callable, Optional
 
 from sqlalchemy.orm import Session
 
@@ -78,7 +78,7 @@ def _keep_entry(path: Path, ignore: Optional[IgnoreMatcher], *, is_dir: bool) ->
 
 def _count_eligible_files(
     directory: Path,
-    extensions: set,
+    extensions: AbstractSet[str],
     ignore: Optional[IgnoreMatcher] = None,
     *,
     skip_exported_covers: bool = False,
@@ -162,7 +162,7 @@ class _ScanContext:
         return thumb_path_for(self.thumb_dir, section, title, filepath)
 
 
-def thumb_path_for(thumb_dir: str, section: str, title: str, filepath: str) -> str:
+def thumb_path_for(thumb_dir: str | Path, section: str, title: str, filepath: str) -> str:
     """Where a thumbnail for ``filepath`` lives on disk.
 
     The one spelling of the rule. The name embeds a slug of the title and a hash

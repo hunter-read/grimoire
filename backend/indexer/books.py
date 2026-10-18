@@ -387,7 +387,7 @@ def _scan_one_page_loose_files(
             path=path.parent,
             name=stem,
             slug=f"{container_folder.slug}--{slugify(stem)}",
-            is_nsfw=container.is_explicit,
+            is_nsfw=bool(container.is_explicit),
             container_kind="",
         )
         child = _register_system(
@@ -513,7 +513,7 @@ def _scan_books_in_system(
             logger.debug(f"DB: querying existing book '{filepath}'")
             try:
                 existing = _run_with_timeout(
-                    lambda fp=filepath: session.query(Book).filter_by(filepath=fp).first(),
+                    lambda fp=filepath: session.query(Book).filter_by(filepath=fp).first(),  # type: ignore[misc]  # default-arg capture defeats lambda inference
                     _DB_TIMEOUT,
                     f"query book '{filepath}'",
                 )

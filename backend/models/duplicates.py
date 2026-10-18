@@ -7,7 +7,11 @@ review UI can page thousands of groups without holding them in a status blob.
 look-alikes are not duplicates, which has to outlive every future scan or the
 tool re-proposes the same false positive forever.
 """
-from sqlalchemy import Column, DateTime, Float, Index, JSON, String, Text, UniqueConstraint
+import datetime
+from typing import Any, Optional
+
+from sqlalchemy import DateTime, Float, Index, JSON, String, Text, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, _utcnow, _uuid
 
@@ -22,18 +26,18 @@ class DuplicateGroup(Base):
 
     __tablename__ = "duplicate_groups"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     # Which run produced this row. Lets a completed run replace its predecessor
     # atomically, and a cancelled run delete only its own partial output.
-    scan_id = Column(String(36), nullable=False, index=True)
-    resource_type = Column(String(20), nullable=False)  # book | map | token | audio
+    scan_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    resource_type: Mapped[str] = mapped_column(String(20), nullable=False)  # book | map | token | audio
     # sha256 of the sorted member ids — stable across re-runs, so a group keeps
     # its identity even as its confidence or reasons change.
-    group_key = Column(String(64), nullable=False)
-    member_ids = Column(JSON, default=list)
-    confidence = Column(Float, default=0.0)
+    group_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    member_ids: Mapped[Optional[list[Any]]] = mapped_column(JSON, default=list)
+    confidence: Mapped[Optional[float]] = mapped_column(Float, default=0.0)
     # Which signals fired: any of "hash", "metadata", "text", "grid".
-    reasons = Column(JSON, default=list)
+    reasons: Mapped[Optional[list[Any]]] = mapped_column(JSON, default=list)
     # The pairwise matches this cluster was built from, as
     # ``[{"a": id, "b": id, "reason": str, "score": float}, ...]``.
     #
@@ -43,12 +47,12 @@ class DuplicateGroup(Base):
     # group as "D versus everything" both invents pairs that never matched and
     # hides the pair that did. The edges say which comparisons actually fired,
     # so review can show those and nothing else.
-    edges = Column(JSON, default=list)
+    edges: Mapped[Optional[list[Any]]] = mapped_column(JSON, default=list)
     # Advisory only — the user always picks. Highest page count, then largest
     # file, then oldest row.
-    suggested_parent_id = Column(String(36), nullable=True)
-    suggested_kinds = Column(JSON, default=dict)  # {member_id: variant_kind}
-    created_at = Column(DateTime, default=_utcnow)
+    suggested_parent_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
+    suggested_kinds: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, default=dict)  # {member_id: variant_kind}
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
 
     __table_args__ = (Index("ix_duplicate_groups_scan_type", "scan_id", "resource_type"),)
 
@@ -68,15 +72,15 @@ class DuplicateDismissal(Base):
 
     __tablename__ = "duplicate_dismissals"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
-    resource_type = Column(String(20), nullable=False)
-    group_key = Column(String(64), nullable=False)
-    member_ids = Column(JSON, default=list)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    resource_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    group_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    member_ids: Mapped[Optional[list[Any]]] = mapped_column(JSON, default=list)
     # No foreign key: the dismissal outlives the account that made it, and
     # losing a user should not resurrect every group they dismissed.
-    dismissed_by = Column(String(36), nullable=True)
-    note = Column(Text, default="")
-    created_at = Column(DateTime, default=_utcnow)
+    dismissed_by: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
+    note: Mapped[Optional[str]] = mapped_column(Text, default="")
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
 
     __table_args__ = (
         UniqueConstraint("resource_type", "group_key", name="uq_dismissal_group"),

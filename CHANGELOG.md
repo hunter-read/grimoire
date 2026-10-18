@@ -27,6 +27,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Updated the frontend to React 19, along with its build, test and lint tooling
 - For contributors: the frontend is moving to TypeScript. Its API client is now typed from the backend's OpenAPI schema, so a change to a request or response shows up as a type error in the same pull request, and new or changed frontend files are written in TypeScript. See the TypeScript docs
 - For contributors: importing a backend module no longer starts Grimoire. `backend.config` only reads settings; creating the data folders, migrating the database and connecting to Valkey happen in `config.startup()`, which the app runs as it starts. Scripts and workers can import settings without touching the database. See the architecture docs
+- For contributors: the database models are declared with SQLAlchemy 2.0's typed `Mapped[...]` columns, and mypy now runs with all of its error checks on. The schema itself is unchanged
 
 ### Fixed
 
@@ -38,6 +39,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Reading more than ten books at once, or replacing a book's file while someone was reading it, could close the book under a page that was still loading and fail that page
 - The sidebar could flash the "Update available" banner on load for a version you had already dismissed
 - In the map, token, audio and model galleries, the Filters dialog closed after every change, so only one filter could be set at a time, and typing quickly in the search box could lose the end of what you typed while results reloaded. The gallery now stays on screen while new results load
+- On a GM-run campaign's Schedule tab, setting a player's availability failed instead of saving
 
 ### Security
 

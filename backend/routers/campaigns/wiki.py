@@ -187,7 +187,7 @@ def get_page(
     # from the GM, and not from the other players.
     is_gm = c.owner_id == current_user.id
     all_users = {u.id: u for u in db.query(User).all()}
-    author = all_users.get(page.created_by_id)
+    author = all_users.get(page.created_by_id or "")
 
     # Backlinks: other pages that link here, filtered to what the viewer can see.
     backlink_rows = db.query(WikiPageLink).filter_by(target_page_id=page.id).all()
@@ -216,7 +216,7 @@ def get_page(
         # stored secrets back by position (merge_gm_secrets). (Personal
         # campaigns only ever have the owner as a viewer, so nothing is
         # stripped.)
-        "body": page.body if is_gm else strip_gm_secrets(page.body),
+        "body": page.body if is_gm else strip_gm_secrets(page.body or ""),
         "visibility": page.visibility,
         "page_type": page.page_type,
         "session_date": page.session_date,
@@ -380,7 +380,7 @@ def update_page(
             # GM-authored page. Escaping first is what keeps the two apart — by
             # the time secrets are re-inserted, the only ||...|| spans in the
             # body are the GM's own.
-            page.body = merge_gm_secrets(page.body, escape_player_pipes(data.body))
+            page.body = merge_gm_secrets(page.body or "", escape_player_pipes(data.body))
     # Personal campaigns have no visibility levels at all (see create_page), so a
     # change is ignored rather than rejected: the client has no control to have
     # sent it from, and a 400 would only turn a harmless no-op into an error.

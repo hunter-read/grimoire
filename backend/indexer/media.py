@@ -14,7 +14,7 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import AbstractSet, Any, Callable, Optional
 
 from sqlalchemy.exc import IntegrityError
 
@@ -103,7 +103,7 @@ def _scan_media(
     ctx: _ScanContext,
     walk_dir: Path,
     section: str,
-    exts: set,
+    exts: AbstractSet[str],
     model: Any,
     thumb_size: tuple,
     enrich: Optional[Callable[[Any, str], None]] = None,
@@ -160,7 +160,7 @@ def _scan_media(
             logger.debug(f"DB: querying existing {singular} '{filepath}'")
             try:
                 existing = _run_with_timeout(
-                    lambda fp=filepath: session.query(model).filter_by(filepath=fp).first(),
+                    lambda fp=filepath: session.query(model).filter_by(filepath=fp).first(),  # type: ignore[misc]  # default-arg capture defeats lambda inference
                     _DB_TIMEOUT,
                     f"query {singular} '{filepath}'",
                 )
@@ -348,7 +348,7 @@ def _scan_audio(ctx: _ScanContext, walk_dir: Path) -> None:
             logger.debug(f"DB: querying existing audio '{filepath}'")
             try:
                 existing = _run_with_timeout(
-                    lambda fp=filepath: session.query(Audio).filter_by(filepath=fp).first(),
+                    lambda fp=filepath: session.query(Audio).filter_by(filepath=fp).first(),  # type: ignore[misc]  # default-arg capture defeats lambda inference
                     _DB_TIMEOUT,
                     f"query audio '{filepath}'",
                 )

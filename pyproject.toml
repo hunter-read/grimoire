@@ -21,28 +21,6 @@ ignore = [
 python_version = "3.12"
 ignore_missing_imports = true
 exclude = '(backend/tests/|backend/migrations/)'
-# The ORM models use the legacy `Column(...)` attribute style (not
-# `Mapped[...]`), so mypy infers every ORM attribute access as `Column[...]`.
-# That produces a large volume of false positives on these codes at query and
-# assignment sites throughout the app. Disable them globally until the models
-# are migrated to the typed `Mapped[...]` style, at which point they can be
-# re-enabled per module.
-disable_error_code = [
-    "arg-type",
-    "assignment",
-    "union-attr",
-    "type-var",
-    "attr-defined",
-    "index",
-    "call-overload",
-    "return-value",
-    "var-annotated",
-    "dict-item",
-    # Default-arg capture lambdas passed to the timeout helpers (e.g.
-    # `lambda slug=slug: session.query(...)`) defeat mypy's lambda inference;
-    # not a real type error.
-    "misc",
-]
 
 # Non-handler "core logic" modules (helpers, models, indexer, config, services):
 # require full function annotations so return-type-hint coverage can't regress.

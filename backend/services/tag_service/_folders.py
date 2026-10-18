@@ -78,7 +78,7 @@ def upsert_folder_tags(
     return internals
 
 
-def folder_display_tags(db: Session, internals: Iterable[str]) -> list[str]:
+def folder_display_tags(db: Session, internals: Optional[Iterable[str]]) -> list[str]:
     """Resolve a folder's stored internal keys to display strings for API reads.
 
     Folder JSON holds internal keys; their display casing comes from the catalog

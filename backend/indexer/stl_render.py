@@ -29,7 +29,7 @@ import math
 import os
 import re
 import struct
-from typing import Iterator, List, Optional, Sequence, Tuple
+from typing import Iterator, List, Optional, Sequence, Tuple, cast
 
 logger = logging.getLogger("grimoire.indexer")
 
@@ -165,9 +165,10 @@ def _read_ascii(data: bytes) -> Optional[List[Triangle]]:
     tris = []
     for i in range(0, len(verts) - 2, 3):
         try:
-            tri = tuple(
+            # _VERTEX_RE captures exactly three coordinates per vertex.
+            tri = cast(Triangle, tuple(
                 tuple(float(c) for c in verts[i + k]) for k in range(3)
-            )
+            ))
         except ValueError:
             return None
         tris.append(tri)

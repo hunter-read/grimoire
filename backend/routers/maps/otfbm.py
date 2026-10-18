@@ -22,7 +22,7 @@ user hosts the picture and supplies the URL.
 """
 import io
 import math
-from typing import IO, Union
+from typing import IO, Union, cast
 
 from PIL import Image as PILImage  # type: ignore[import-untyped]
 
@@ -112,7 +112,8 @@ def _has_transparency(img: PILImage.Image) -> bool:
     if img.mode == "P":
         return "transparency" in img.info
     if img.mode in ("RGBA", "LA", "PA"):
-        extrema: tuple[int, int] = img.getchannel("A").getextrema()
+        # A single 8-bit band always reports (min, max) ints.
+        extrema = cast(tuple[int, int], img.getchannel("A").getextrema())
         return extrema[0] < 255
     return False
 
@@ -130,6 +131,7 @@ def render_otfbm_image(
     Raises ValueError when the picture cannot be decoded.
     """
     try:
+        img: PILImage.Image  # convert()/resize() return a plain Image
         with PILImage.open(source) as img:
             transparent = _has_transparency(img)
             img = img.convert("RGBA" if transparent else "RGB")
@@ -137,7 +139,7 @@ def render_otfbm_image(
                 # reducing_gap makes a large downscale far cheaper -- a whole
                 # battlemap shrinks to a Discord-sized picture here -- at no
                 # visible cost against plain LANCZOS.
-                img = img.resize((width, height), PILImage.LANCZOS, reducing_gap=3.0)
+                img = img.resize((width, height), PILImage.Resampling.LANCZOS, reducing_gap=3.0)
             buf = io.BytesIO()
             if transparent:
                 img.save(buf, format="png", optimize=True)

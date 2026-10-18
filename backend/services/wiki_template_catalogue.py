@@ -262,7 +262,7 @@ def build_tree(catalogue: dict) -> list[dict]:
         label = folder_label(path)
         return (0 if label.lower() == "generic" else 1, label.lower())
 
-    tree = []
+    tree: list[dict[str, Any]] = []
     for path in sorted(grouped, key=sort_key):
         templates_list = list(grouped[path].values())
         tree.append(

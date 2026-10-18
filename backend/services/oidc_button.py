@@ -124,7 +124,7 @@ def normalize_icon(data: bytes) -> bytes:
         data = _rasterize_svg(data)
 
     try:
-        img = Image.open(io.BytesIO(data))
+        img: Image.Image = Image.open(io.BytesIO(data))
     except Exception as e:
         raise IconError("File is not a valid image") from e
     if img.format not in _RASTER_FORMATS:

@@ -1,7 +1,9 @@
 """Library models — game systems, books, and book folders."""
+import datetime
+from typing import Any, Optional
+
 from sqlalchemy import (
     Boolean,
-    Column,
     DateTime,
     Float,
     ForeignKey,
@@ -11,7 +13,7 @@ from sqlalchemy import (
     String,
     Text,
 )
-from sqlalchemy.orm import backref, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, _utcnow, _uuid
 
@@ -21,44 +23,44 @@ class GameSystem(Base):
 
     __tablename__ = "game_systems"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
-    name = Column(String(255), unique=True, nullable=False)
-    slug = Column(String(255), unique=True, nullable=False)
-    description = Column(Text, default="")
-    publishers = Column(JSON, default=list)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    slug: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, default="")
+    publishers: Mapped[Optional[list[Any]]] = mapped_column(JSON, default=list)
     # Legacy single-value URL column. Kept for backward compatibility; new code
     # reads/writes the multi-value ``character_builder_urls`` list instead.
-    character_builder_url = Column(String(512), default="")
+    character_builder_url: Mapped[Optional[str]] = mapped_column(String(512), default="")
     # Admin-uploaded cover: bare filename stored under DATA_PATH/system_covers/.
-    cover_image = Column(String(512), default="")
+    cover_image: Mapped[Optional[str]] = mapped_column(String(512), default="")
     # Library-relative path to a cover.*/folder.* image found at the system's
     # folder root by the scanner. Takes precedence over the uploaded cover_image,
     # which in turn beats the cover_book_id fallback.
-    folder_cover_path = Column(String(1000), default="")
-    cover_book_id = Column(String(36), nullable=True)
+    folder_cover_path: Mapped[Optional[str]] = mapped_column(String(1000), default="")
+    cover_book_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
     # Legacy single-value genre column. Superseded by the ``genres`` JSON list;
     # kept so old databases keep working and the backfill has a source.
-    genre = Column(String(100), default="")
+    genre: Mapped[Optional[str]] = mapped_column(String(100), default="")
     # Multi-value metadata (issue #202).
-    genres = Column(JSON, default=list)
-    dice_materials = Column(JSON, default=list)
-    system_family = Column(String(150), default="")
+    genres: Mapped[Optional[list[Any]]] = mapped_column(JSON, default=list)
+    dice_materials: Mapped[Optional[list[Any]]] = mapped_column(JSON, default=list)
+    system_family: Mapped[Optional[str]] = mapped_column(String(150), default="")
     # Parent-system / edition hierarchy: a system_family (e.g. "d20 System") may
     # contain several parent_systems (e.g. "Dungeons & Dragons"), each of which
     # has editions (e.g. "5e"). ``parent_system`` + ``edition`` combine for
     # display ("Cyberpunk" + "Red" → "Cyberpunk Red").
-    parent_system = Column(String(150), default="")
-    edition = Column(String(80), default="")
-    license = Column(String(100), default="")
-    year = Column(Integer, nullable=True)
+    parent_system: Mapped[Optional[str]] = mapped_column(String(150), default="")
+    edition: Mapped[Optional[str]] = mapped_column(String(80), default="")
+    license: Mapped[Optional[str]] = mapped_column(String(100), default="")
+    year: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     # Labeled link lists: ``[{"label": str, "url": str}, ...]``.
-    urls = Column(JSON, default=list)
-    character_builder_urls = Column(JSON, default=list)
-    is_explicit = Column(Boolean, default=False)
-    is_system_agnostic = Column(Boolean, default=False)
+    urls: Mapped[Optional[list[Any]]] = mapped_column(JSON, default=list)
+    character_builder_urls: Mapped[Optional[list[Any]]] = mapped_column(JSON, default=list)
+    is_explicit: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
+    is_system_agnostic: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
     # Special "one-page / small RPG" collection, grouped with system-agnostic
     # in the library view. Set by the indexer from the folder name.
-    is_one_page = Column(Boolean, default=False)
+    is_one_page: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
 
     # System containers (issues #261, #262, #301). A container is a folder whose
     # immediate children are systems in their own right rather than categories:
@@ -75,33 +77,36 @@ class GameSystem(Base):
     # Containers may nest (a family holding a parent system, issue #301). Only
     # "parent" sets its children's parent_system; the rest hold independent
     # systems rather than variants of the shelf.
-    container_kind = Column(String(20), default="")
+    container_kind: Mapped[Optional[str]] = mapped_column(String(20), default="")
     # Set on the *children* of a container, pointing at the container row.
-    parent_id = Column(String(36), ForeignKey("game_systems.id"), nullable=True, index=True)
+    parent_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("game_systems.id"), nullable=True, index=True)
     # True once a user has renamed the system through the UI. The scanner keys
     # systems off their folder-derived slug and only writes ``name`` while this
     # is false, so a rename ("Dungeons & Dragons 2e" -> "Advanced Dungeons &
     # Dragons") survives every subsequent rescan.
-    name_is_custom = Column(Boolean, default=False)
+    name_is_custom: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
 
     # The Grimoire Codex DB record this system is linked to (issue #35): set when
     # metadata is fetched from Grimoire Codex DB or the system is sent to it. A Grimoire Codex DB id,
     # not a foreign key; NULL when the system is not linked.
-    codex_id = Column(String(40), nullable=True, index=True)
+    codex_id: Mapped[Optional[str]] = mapped_column(String(40), nullable=True, index=True)
 
     # Minimum role required to see this system and everything under it (issue
     # #258). One of backend.models.access.LEVEL_*; "" (the default) is open to
     # everyone. Acts as the fallback for books that set no level of their own,
     # and hides the system card itself from users below the level.
-    access_level = Column(String(10), default="")
+    access_level: Mapped[Optional[str]] = mapped_column(String(10), default="")
 
-    created_at = Column(DateTime, default=_utcnow)
-    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
+    updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)
 
-    books = relationship("Book", back_populates="game_system", cascade="all, delete-orphan")
-    children = relationship(
+    books: Mapped[list["Book"]] = relationship("Book", back_populates="game_system", cascade="all, delete-orphan")
+    parent: Mapped[Optional["GameSystem"]] = relationship(
+        "GameSystem", remote_side=[id], back_populates="children"
+    )
+    children: Mapped[list["GameSystem"]] = relationship(
         "GameSystem",
-        backref=backref("parent", remote_side=[id]),
+        back_populates="parent",
         cascade="all, delete-orphan",
         single_parent=True,
     )
@@ -112,50 +117,50 @@ class Book(Base):
 
     __tablename__ = "books"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
-    game_system_id = Column(String(36), ForeignKey("game_systems.id"), nullable=True, index=True)
-    title = Column(String(500), nullable=False)
-    filename = Column(String(500), nullable=False)
-    filepath = Column(String(1000), nullable=False, unique=True)
-    relative_path = Column(String(1000), nullable=False)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    game_system_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("game_systems.id"), nullable=True, index=True)
+    title: Mapped[str] = mapped_column(String(500), nullable=False)
+    filename: Mapped[str] = mapped_column(String(500), nullable=False)
+    filepath: Mapped[str] = mapped_column(String(1000), nullable=False, unique=True)
+    relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
 
-    category = Column(String(100), default="core", index=True)
-    description = Column(Text, default="")
-    authors = Column(JSON, default=list)
-    artists = Column(JSON, default=list)
-    publisher = Column(String(255), default="")
+    category: Mapped[Optional[str]] = mapped_column(String(100), default="core", index=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, default="")
+    authors: Mapped[Optional[list[Any]]] = mapped_column(JSON, default=list)
+    artists: Mapped[Optional[list[Any]]] = mapped_column(JSON, default=list)
+    publisher: Mapped[Optional[str]] = mapped_column(String(255), default="")
     # Legacy single-value URL column, superseded by the ``urls`` list. Kept for
     # backward compatibility and as the backfill source.
-    publisher_url = Column(String(512), default="")
+    publisher_url: Mapped[Optional[str]] = mapped_column(String(512), default="")
     # Labeled link list: ``[{"label": str, "url": str}, ...]``.
-    urls = Column(JSON, default=list)
+    urls: Mapped[Optional[list[Any]]] = mapped_column(JSON, default=list)
     # Genres (issue #202). Independent of the system's genres; a book may carry
     # its own (e.g. a grimdark D&D book tagged Horror as well as Fantasy).
-    genres = Column(JSON, default=list)
-    isbn = Column(String(20), default="")
+    genres: Mapped[Optional[list[Any]]] = mapped_column(JSON, default=list)
+    isbn: Mapped[Optional[str]] = mapped_column(String(20), default="")
     # The publisher's own catalogue number / SKU ("PZO9001", "TSR 9247", issue
     # #479). Most RPG PDFs carry no ISBN, so this is the identifier that tells
     # two printings or editions of one product apart.
-    product_code = Column(String(100), default="")
-    version = Column(String(50), default="")
-    language = Column(String(20), default="")
+    product_code: Mapped[Optional[str]] = mapped_column(String(100), default="")
+    version: Mapped[Optional[str]] = mapped_column(String(50), default="")
+    language: Mapped[Optional[str]] = mapped_column(String(20), default="")
     # Per-book license override. Empty means "inherit the system's license" — an
     # OGL SRD can sit inside an otherwise-proprietary system (issue: metadata).
-    license = Column(String(100), default="")
+    license: Mapped[Optional[str]] = mapped_column(String(100), default="")
     # Publication date with variable precision. ``year`` may stand alone;
     # ``month`` and/or ``day`` refine it. All nullable.
-    year = Column(Integer, nullable=True)
-    month = Column(Integer, nullable=True)
-    day = Column(Integer, nullable=True)
-    file_size = Column(Integer, default=0)
+    year: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    month: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    day: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    file_size: Mapped[Optional[int]] = mapped_column(Integer, default=0)
     # Content identity, used for two things the filepath cannot express: telling a
     # replaced file (same path, new bytes) from an untouched one, and recognising a
     # moved file (new path, same bytes) as the same book rather than a new one.
     # ``file_mtime`` + ``file_size`` are the cheap gate — the scan only re-hashes
     # when one of them changes, so an unchanged rescan reads no file content at all.
     # NULL means "not yet hashed" (pre-upgrade row) and is treated as unchanged.
-    content_hash = Column(String(64), nullable=True, index=True)
-    file_mtime = Column(Float, nullable=True)
+    content_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
+    file_mtime: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     # Variant grouping (issues #304, #306). A book that is a *variant* of another
     # — a printer-friendly cut, a form-fillable sheet, an older version — points
     # at its parent here and is hidden from browsing, counts, and search, while
@@ -172,45 +177,45 @@ class Book(Base):
     #
     # Only two levels are ever allowed: a variant may not itself have variants.
     # That makes cycles impossible by construction and keeps the picker flat.
-    variant_parent_id = Column(String(36), nullable=True, index=True)
+    variant_parent_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
     # One of models.variants.VARIANT_KINDS; drives the badge and picker label.
-    variant_kind = Column(String(30), default="")
+    variant_kind: Mapped[Optional[str]] = mapped_column(String(30), default="")
     # Free text for the specifics the kind cannot carry ("v1.0.1", "Gridded").
-    variant_label = Column(String(120), default="")
-    page_count = Column(Integer, default=0)
-    mime_type = Column(String(100), default="application/pdf")
-    has_thumbnail = Column(Boolean, default=False)
-    is_explicit = Column(Boolean, default=False)
-    indexed = Column(Boolean, default=False)
-    index_failed = Column(Boolean, default=False)
-    index_error = Column(String(500), default="")
-    scan_failed = Column(Boolean, default=False)
-    is_missing = Column(Boolean, default=False)
+    variant_label: Mapped[Optional[str]] = mapped_column(String(120), default="")
+    page_count: Mapped[Optional[int]] = mapped_column(Integer, default=0)
+    mime_type: Mapped[Optional[str]] = mapped_column(String(100), default="application/pdf")
+    has_thumbnail: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
+    is_explicit: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
+    indexed: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
+    index_failed: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
+    index_error: Mapped[Optional[str]] = mapped_column(String(500), default="")
+    scan_failed: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
+    is_missing: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
     # OCR is deferred to a separate background phase so scanned (image-only) PDFs
     # don't block the fast text-layer indexing of the rest of the library. A book
     # with no embedded text layer is marked ocr_pending here; a dedicated OCR
     # worker drains the queue page-by-page, checkpointing ocr_pages_done so a long
     # book resumes where it left off after a restart or crash instead of losing
     # hours of work. See docs/architecture.md and backend/indexer.ocr_book_page.
-    ocr_pending = Column(Boolean, default=False, index=True)
-    ocr_pages_done = Column(Integer, default=0)
+    ocr_pending: Mapped[Optional[bool]] = mapped_column(Boolean, default=False, index=True)
+    ocr_pages_done: Mapped[Optional[int]] = mapped_column(Integer, default=0)
     # Pages the OCR worker gave up on — exceeded OCR_PAGE_TIMEOUT or crashed the
     # isolated worker. Counted separately from ocr_pages_done (which advances for
     # skipped pages too, so the book never re-loops on one bad page) because a
     # book with skips is indexed but only partly searchable, and nothing else
     # distinguishes it from a clean read. Surfaced via the API so the UI can badge
     # it and the user can raise the timeout and re-read. See issue #450.
-    ocr_pages_skipped = Column(Integer, default=0)
+    ocr_pages_skipped: Mapped[Optional[int]] = mapped_column(Integer, default=0)
     # Optional per-book OCR resolution override (DPI). NULL means "use the global
     # OCR_DPI default". Set when a user re-OCRs a specific book at a higher DPI
     # for a sharper read than the library-wide default gives; persisted so the
     # override survives a restart mid-re-OCR. See indexer.ocr_book / the
     # POST /api/books/{id}/reindex endpoint.
-    ocr_dpi = Column(Integer, nullable=True)
+    ocr_dpi: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
     # The Grimoire Codex DB record this book is linked to (issue #35), set when its
     # metadata is fetched from Grimoire Codex DB or it is sent there. NULL when unlinked.
-    codex_id = Column(String(40), nullable=True, index=True)
+    codex_id: Mapped[Optional[str]] = mapped_column(String(40), nullable=True, index=True)
 
     # Minimum role required to see this book (issue #258). One of
     # backend.models.access.LEVEL_*, or NULL for "inherit".
@@ -221,22 +226,22 @@ class Book(Base):
     # a freely-shared player's guide stays visible inside an otherwise
     # admin-only adventure line. The book level always wins when it is set,
     # in either direction.
-    access_level = Column(String(10), nullable=True, index=True)
+    access_level: Mapped[Optional[str]] = mapped_column(String(10), nullable=True, index=True)
 
-    created_at = Column(DateTime, default=_utcnow)
-    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
+    updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)
     # When the book first appeared in the library (issue #199) - what the "new"
     # badge, the date-added sort and the "recently added" filter read. Set once
     # on insert; a move or an in-place file replacement keeps the original row
     # and so keeps this too. NULL for the library's first import, so a fresh
     # install does not badge everything as new (``indexer.added_dates``), and
     # for a legacy row with no ``created_at`` for migration 0040 to backfill.
-    added_at = Column(DateTime, nullable=True, default=_utcnow, index=True)
+    added_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True, default=_utcnow, index=True)
 
     # Natural-order title key and the book's directory, kept in step by
     # models/browse.py for paged browsing (issue #221).
-    sort_title = Column(String(600), nullable=True)
-    folder_path = Column(String(1000), nullable=True)
+    sort_title: Mapped[Optional[str]] = mapped_column(String(600), nullable=True)
+    folder_path: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
 
     __table_args__ = (
         Index("ix_books_indexer_queue", "indexed", "mime_type"),
@@ -257,7 +262,7 @@ class Book(Base):
         Index("ix_books_live", "id", "variant_parent_id"),
     )
 
-    game_system = relationship("GameSystem", back_populates="books")
+    game_system: Mapped[Optional["GameSystem"]] = relationship("GameSystem", back_populates="books")
 
 
 class BookFolder(Base):
@@ -265,9 +270,9 @@ class BookFolder(Base):
 
     __tablename__ = "book_folders"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
-    path = Column(String(1000), nullable=False, unique=True)
-    tags = Column(JSON, default=list)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    path: Mapped[str] = mapped_column(String(1000), nullable=False, unique=True)
+    tags: Mapped[Optional[list[Any]]] = mapped_column(JSON, default=list)
 
 
 class Genre(Base):
@@ -280,14 +285,14 @@ class Genre(Base):
 
     __tablename__ = "genres"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
-    name = Column(String(120), unique=True, nullable=False)
-    parent_id = Column(String(36), ForeignKey("genres.id"), nullable=True, index=True)
-    is_default = Column(Boolean, default=False)
-    sort_order = Column(Integer, default=0)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    name: Mapped[str] = mapped_column(String(120), unique=True, nullable=False)
+    parent_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("genres.id"), nullable=True, index=True)
+    is_default: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
+    sort_order: Mapped[Optional[int]] = mapped_column(Integer, default=0)
 
-    parent = relationship("Genre", remote_side=[id], back_populates="children")
-    children = relationship(
+    parent: Mapped[Optional["Genre"]] = relationship("Genre", remote_side=[id], back_populates="children")
+    children: Mapped[list["Genre"]] = relationship(
         "Genre", back_populates="parent", cascade="all, delete-orphan"
     )
 
@@ -297,10 +302,10 @@ class SystemFamily(Base):
 
     __tablename__ = "system_families"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
-    name = Column(String(150), unique=True, nullable=False)
-    is_default = Column(Boolean, default=False)
-    sort_order = Column(Integer, default=0)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    name: Mapped[str] = mapped_column(String(150), unique=True, nullable=False)
+    is_default: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
+    sort_order: Mapped[Optional[int]] = mapped_column(Integer, default=0)
 
 
 class ParentSystem(Base):
@@ -313,10 +318,10 @@ class ParentSystem(Base):
 
     __tablename__ = "parent_systems"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
-    name = Column(String(150), unique=True, nullable=False)
-    is_default = Column(Boolean, default=False)
-    sort_order = Column(Integer, default=0)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    name: Mapped[str] = mapped_column(String(150), unique=True, nullable=False)
+    is_default: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
+    sort_order: Mapped[Optional[int]] = mapped_column(Integer, default=0)
 
 
 class License(Base):
@@ -328,10 +333,10 @@ class License(Base):
 
     __tablename__ = "licenses"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
-    name = Column(String(100), unique=True, nullable=False)
-    is_default = Column(Boolean, default=False)
-    sort_order = Column(Integer, default=0)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    is_default: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
+    sort_order: Mapped[Optional[int]] = mapped_column(Integer, default=0)
 
 
 class DiceMaterial(Base):
@@ -343,9 +348,9 @@ class DiceMaterial(Base):
 
     __tablename__ = "dice_materials"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
-    name = Column(String(120), unique=True, nullable=False)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    name: Mapped[str] = mapped_column(String(120), unique=True, nullable=False)
     # Grouping label for the picker ("Dice", "Cards", "Other", "Custom").
-    group = Column(String(60), default="Custom")
-    is_default = Column(Boolean, default=False)
-    sort_order = Column(Integer, default=0)
+    group: Mapped[Optional[str]] = mapped_column(String(60), default="Custom")
+    is_default: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
+    sort_order: Mapped[Optional[int]] = mapped_column(Integer, default=0)

@@ -306,7 +306,9 @@ app = FastAPI(
 # Rate limiting on auth endpoints (see backend/security.py) and security
 # headers on every response.
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+# slowapi types its handler for RateLimitExceeded, narrower than Starlette's
+# Exception; Starlette only ever passes it that exception type.
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 app.add_middleware(SecurityHeadersMiddleware)
 # Optional CORS allowlist for browser-based integrations (issue #502). Added
 # last so it wraps everything above: preflights are answered before auth runs,

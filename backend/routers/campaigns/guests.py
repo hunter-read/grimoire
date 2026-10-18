@@ -10,6 +10,7 @@ its contributions (see delete_guest_user).
 import secrets
 import string
 import urllib.parse
+from typing import Optional
 
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -40,7 +41,7 @@ def _assert_guest_access(db):
         raise HTTPException(403, "Guest access is disabled on this server")
 
 
-def _serialize_guest(member: CampaignMember, user: User) -> dict:
+def _serialize_guest(member: CampaignMember, user: Optional[User]) -> dict:
     return {
         "id": member.id,
         "user_id": member.user_id,
@@ -198,5 +199,5 @@ def guest_share_template(
     c = _get_managed_campaign(db, campaign_id, current_user)
     member = _get_guest_member(db, campaign_id, member_id)
     user = db.query(User).filter_by(id=member.user_id).first()
-    nickname = user.display_name if user else ""
-    return _share_template(c, nickname, member.guest_code)
+    nickname = (user.display_name or "") if user else ""
+    return _share_template(c, nickname, member.guest_code or "")

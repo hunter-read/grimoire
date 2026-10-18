@@ -1,5 +1,9 @@
 """Personal API keys (issue #489)."""
-from sqlalchemy import JSON, Column, DateTime, ForeignKey, String
+import datetime
+from typing import Any, Optional
+
+from sqlalchemy import JSON, DateTime, ForeignKey, String
+from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, _utcnow, _uuid
 
@@ -20,12 +24,12 @@ class ApiKey(Base):
 
     __tablename__ = "api_keys"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
-    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
-    name = Column(String(100), nullable=False)
-    prefix = Column(String(16), nullable=False)
-    key_hash = Column(String(64), nullable=False, unique=True, index=True)
-    permissions = Column(JSON, default=dict)
-    created_at = Column(DateTime, default=_utcnow)
-    last_used_at = Column(DateTime, nullable=True)
-    expires_at = Column(DateTime, nullable=True)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    prefix: Mapped[str] = mapped_column(String(16), nullable=False)
+    key_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    permissions: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, default=dict)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
+    last_used_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True)
+    expires_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True)

@@ -1,12 +1,15 @@
 """Saved audio sets — named, per-user playlists and soundboards."""
+import datetime
+from typing import Any, Optional
+
 from sqlalchemy import (
-    Column,
     DateTime,
     ForeignKey,
     JSON,
     String,
     UniqueConstraint,
 )
+from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, _utcnow, _uuid
 
@@ -35,13 +38,13 @@ class AudioSet(Base):
 
     __tablename__ = "audio_sets"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
-    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
-    kind = Column(String(20), nullable=False)
-    name = Column(String(120), nullable=False)
-    entries = Column(JSON, default=list)
-    layout = Column(JSON, nullable=True)
-    created_at = Column(DateTime, default=_utcnow)
-    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    entries: Mapped[Optional[list[Any]]] = mapped_column(JSON, default=list)
+    layout: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
+    updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)
 
     __table_args__ = (UniqueConstraint("user_id", "kind", "name"),)

@@ -120,7 +120,7 @@ def list_resources(
     resources = db.query(CampaignResource).filter_by(campaign_id=campaign_id).all()
 
     # Pre-load shares for private resources in one pass.
-    share_map = {}
+    share_map: dict[str, set[str]] = {}
     for s in (
         db.query(CampaignResourceShare)
         .filter(

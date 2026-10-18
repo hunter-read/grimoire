@@ -40,6 +40,7 @@ import io
 import json
 import re
 import zipfile
+from typing import Optional
 
 from fastapi import Depends, File, Form, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
@@ -821,12 +822,12 @@ def _records_from_zip(data: bytes) -> tuple:
     raise HTTPException(400, "Zip contains no importable wiki files")
 
 
-def _parse_upload(filename: str, data: bytes) -> tuple:
+def _parse_upload(filename: Optional[str], data: bytes) -> tuple:
     name = (filename or "").lower()
     if name.endswith(".zip") or data[:2] == b"PK":
         return _records_from_zip(data)
     if name.endswith((".md", ".markdown", ".txt")):
-        return [parse_markdown_file(filename, data.decode("utf-8", "replace"))], "markdown"
+        return [parse_markdown_file(filename or "", data.decode("utf-8", "replace"))], "markdown"
     # Default (incl. .lk, which LegendKeeper exports as a JSON bundle): JSON.
     try:
         obj = json.loads(data.decode("utf-8", "replace"))

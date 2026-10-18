@@ -22,7 +22,8 @@ only for call sites that have already resolved the cascade.
 """
 from typing import Optional
 
-from sqlalchemy import Column, ForeignKey, String, UniqueConstraint
+from sqlalchemy import ForeignKey, String, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, _uuid
 
@@ -116,10 +117,10 @@ class UserAccessGrant(Base):
 
     __tablename__ = "user_access_grants"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
-    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
-    scope_type = Column(String(10), nullable=False)  # system | book
-    scope_id = Column(String(36), nullable=False, index=True)
-    level = Column(String(10), nullable=False, default=LEVEL_GM)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    scope_type: Mapped[str] = mapped_column(String(10), nullable=False)  # system | book
+    scope_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    level: Mapped[str] = mapped_column(String(10), nullable=False, default=LEVEL_GM)
 
     __table_args__ = (UniqueConstraint("user_id", "scope_type", "scope_id"),)

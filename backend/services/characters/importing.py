@@ -71,7 +71,7 @@ def _catalogue(
         found.setdefault(row.name.lower(), []).append(
             ({"_ref": row.entry_id, "_source": row.source}, _data(row.data))
         )
-    for row in (
+    for entry in (
         db.query(RulesetEntry)
         .join(Ruleset, Ruleset.id == RulesetEntry.ruleset_id)
         .filter(RulesetEntry.schema_id == schema_id)
@@ -80,8 +80,8 @@ def _catalogue(
         .filter(rs.readable_filter(db, user_id))
         .all()
     ):
-        found.setdefault(row.name.lower(), []).append(
-            ({"_ref": row.entry_id, "_source": "ruleset"}, _data(row.data))
+        found.setdefault(entry.name.lower(), []).append(
+            ({"_ref": entry.entry_id, "_source": "ruleset"}, _data(entry.data))
         )
     return found
 

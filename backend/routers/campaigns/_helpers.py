@@ -535,8 +535,8 @@ def serialize_campaign(c: Campaign, members: list, db) -> dict:
         "locked": not owner_has_access or bool(c.is_archived),
         "owner_has_campaign_access": owner_has_access,
         "members": members,
-        "created_at": c.created_at.isoformat(),
-        "updated_at": c.updated_at.isoformat(),
+        "created_at": c.created_at.isoformat() if c.created_at else None,
+        "updated_at": c.updated_at.isoformat() if c.updated_at else None,
         "last_accessed_at": c.last_accessed_at.isoformat() if c.last_accessed_at else None,
     }
 
@@ -556,8 +556,10 @@ def extract_snippet(content: str, query: str, window: int = 120) -> str:
     return snippet
 
 
-def compute_next_sessions(definition: dict, n: int = 10) -> List[str]:
+def compute_next_sessions(definition: Optional[dict], n: int = 10) -> List[str]:
     """Return the next n session dates (YYYY-MM-DD) from today based on schedule."""
+    if not definition:
+        return []
     frequency = definition.get("frequency", "weekly")
     # Offset by one day so sessions don't disappear for users west of UTC before midnight.
     today = datetime.date.today() - datetime.timedelta(days=1)

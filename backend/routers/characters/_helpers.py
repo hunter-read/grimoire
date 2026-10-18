@@ -112,7 +112,7 @@ def export_character(
                 "name": row.name,
                 "data": row.data if isinstance(row.data, dict) else {},
             }
-        for row in (
+        for entry in (
             db.query(RulesetEntry)
             .join(Ruleset, Ruleset.id == RulesetEntry.ruleset_id)
             .filter(RulesetEntry.schema_id == character.schema_ref)
@@ -121,12 +121,12 @@ def export_character(
             .all()
         ):
             embedded.setdefault(
-                row.entry_id,
+                entry.entry_id,
                 {
-                    "content_type": row.content_type,
+                    "content_type": entry.content_type,
                     "source": "ruleset",
-                    "name": row.name,
-                    "data": row.data if isinstance(row.data, dict) else {},
+                    "name": entry.name,
+                    "data": entry.data if isinstance(entry.data, dict) else {},
                 },
             )
 
@@ -212,7 +212,8 @@ def import_embedded_entries(
         ):
             continue
 
-        data = entry.get("data") if isinstance(entry.get("data"), dict) else {}
+        raw_data = entry.get("data")
+        data = raw_data if isinstance(raw_data, dict) else {}
         try:
             cleaned = (
                 rs.validate_entry(document, content_type, data) if document else dict(data)

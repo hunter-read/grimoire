@@ -4,7 +4,7 @@ import os
 import tarfile
 import zipfile
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
@@ -81,7 +81,7 @@ def _stream_zip(files: list[tuple[str, str]]):
     yield from iter(lambda: buf.read(65536), b"")
 
 
-def _stream_tar(files: list[tuple[str, str]], mode: str):
+def _stream_tar(files: list[tuple[str, str]], mode: Literal["w", "w:gz", "w:bz2"]):
     """mode is one of: 'w' (uncompressed), 'w:gz', 'w:bz2'"""
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode=mode) as tf:

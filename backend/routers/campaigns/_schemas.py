@@ -174,7 +174,7 @@ class ScheduleUpsert(BaseModel):
 class AvailabilityUpdate(BaseModel):
     status: str  # available | tentative | unavailable
     is_cancelled: Optional[bool] = None  # GM only
-    user_id: Optional[int] = None  # GM/admin only — set another member's availability
+    user_id: Optional[str] = None  # GM/admin only — set another member's availability
 
 
 class WikiPageCreate(BaseModel):

@@ -378,7 +378,8 @@ def _reconcile_missing(
     for key, model, enabled, _label in collections:
         if not enabled:
             continue
-        gone_rows, present_rows = [], []
+        gone_rows: list[Any] = []
+        present_rows: list[Any] = []
         for record in _scoped(session.query(model), model).all():
             (gone_rows if _gone(record.filepath) else present_rows).append(record)
         moved[key] = _detect_moves(ctx, model, gone_rows, present_rows)

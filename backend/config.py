@@ -797,7 +797,8 @@ def startup() -> None:
     connect_valkey()
 
 
-_valkey: Optional[object] = None
+# A redis.Redis client once connected. redis is imported lazily, so it is untyped here.
+_valkey: Any = None
 
 
 def valkey_errors() -> tuple:
@@ -903,9 +904,9 @@ def valkey_cache_set(key: str, value: bytes) -> bool:
         return False
     try:
         if PAGE_CACHE_TTL > 0:
-            _valkey.set(key, value, ex=PAGE_CACHE_TTL)  # type: ignore[attr-defined]
+            _valkey.set(key, value, ex=PAGE_CACHE_TTL)
         else:
-            _valkey.set(key, value)  # type: ignore[attr-defined]
+            _valkey.set(key, value)
         return True
     except Exception as e:
         logger.warning(f"Valkey set error: {e}")
@@ -925,7 +926,7 @@ def purge_valkey_keys(pattern: str) -> int:
     removed = 0
     try:
         batch: list = []
-        for key in _valkey.scan_iter(match=pattern, count=500):  # type: ignore[attr-defined]
+        for key in _valkey.scan_iter(match=pattern, count=500):
             batch.append(key)
             if len(batch) >= 500:
                 removed += _valkey_unlink(batch)
@@ -957,9 +958,9 @@ def purge_valkey_page_cache() -> int:
 def _valkey_unlink(keys: list) -> int:
     """UNLINK a batch of keys, falling back to DEL on older servers."""
     try:
-        return int(_valkey.unlink(*keys))  # type: ignore[attr-defined]
+        return int(_valkey.unlink(*keys))
     except Exception:
-        return int(_valkey.delete(*keys))  # type: ignore[attr-defined]
+        return int(_valkey.delete(*keys))
 
 
 def __getattr__(name: str) -> Any:

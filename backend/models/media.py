@@ -1,5 +1,9 @@
 """Media models — generic maps, tokens, audio, and 3D models, plus their folder tag tables."""
-from sqlalchemy import Boolean, Column, DateTime, Float, Index, Integer, JSON, String, Text
+import datetime
+from typing import Any, Optional
+
+from sqlalchemy import Boolean, DateTime, Float, Index, Integer, JSON, String, Text
+from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, _utcnow, _uuid
 
@@ -44,21 +48,21 @@ class GenericMap(Base):
 
     __tablename__ = "generic_maps"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
-    filename = Column(String(500), nullable=False)
-    filepath = Column(String(1000), nullable=False, unique=True)
-    relative_path = Column(String(1000), nullable=False)
-    description = Column(Text, default="")
-    map_type = Column(String(100), default="")
-    grid_size = Column(String(50), default="")
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    filename: Mapped[str] = mapped_column(String(500), nullable=False)
+    filepath: Mapped[str] = mapped_column(String(1000), nullable=False, unique=True)
+    relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, default="")
+    map_type: Mapped[Optional[str]] = mapped_column(String(100), default="")
+    grid_size: Mapped[Optional[str]] = mapped_column(String(50), default="")
     # Manual grid override (issue #125). NULL means "no override" — the detail
     # endpoint falls back to the detection in maps/_helpers.py. Stored as floats
     # rounded to 2dp because maps routinely bleed a partial cell past the grid
     # (a 33x24 map printed with a quarter-cell margin is really 33.5x24.5), and
     # UVTT's map_size is numeric, not integral. grid_px is pixels per cell.
-    grid_width = Column(Float, nullable=True)
-    grid_height = Column(Float, nullable=True)
-    grid_px = Column(Float, nullable=True)
+    grid_width: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    grid_height: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    grid_px: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     # Authored Universal VTT geometry — walls, portals, lights, environment —
     # drawn in the in-app editor (issues #126/#127). NULL means nothing has been
     # authored. Held here rather than in a sidecar file because the library is
@@ -68,28 +72,28 @@ class GenericMap(Base):
     # pixels_per_grid it was authored at, since everything is scale-relative and
     # replacing the source image would otherwise invalidate it undetectably.
     # See backend/routers/maps/vtt_authoring.py for the document shape.
-    vtt_data = Column(JSON, nullable=True)
-    file_size = Column(Integer, default=0)
+    vtt_data: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
+    file_size: Mapped[Optional[int]] = mapped_column(Integer, default=0)
     # Content identity — see the note on Book.content_hash. ``file_mtime`` +
     # ``file_size`` gate the re-hash so unchanged rescans read no file content;
     # the hash then distinguishes a replaced file from a moved one (issue #284).
-    content_hash = Column(String(64), nullable=True, index=True)
-    file_mtime = Column(Float, nullable=True)
+    content_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
+    file_mtime: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     # Variant grouping — see the note on Book.variant_parent_id. Two levels
     # only, no ForeignKey; enforced in services/variants.py.
-    variant_parent_id = Column(String(36), nullable=True, index=True)
-    variant_kind = Column(String(30), default="")
-    variant_label = Column(String(120), default="")
-    has_thumbnail = Column(Boolean, default=False)
-    is_missing = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=_utcnow)
+    variant_parent_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
+    variant_kind: Mapped[Optional[str]] = mapped_column(String(30), default="")
+    variant_label: Mapped[Optional[str]] = mapped_column(String(120), default="")
+    has_thumbnail: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
+    is_missing: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
     # When this first appeared in the library - the "new" badge and date-added
     # sort (issue #199). See ``Book.added_at`` for when it is NULL.
-    added_at = Column(DateTime, nullable=True, default=_utcnow, index=True)
+    added_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True, default=_utcnow, index=True)
     # Natural-order filename key and the item's directory, kept in step by
     # models/browse.py for paged browsing (issue #221).
-    sort_name = Column(String(600), nullable=True)
-    folder_path = Column(String(1000), nullable=True)
+    sort_name: Mapped[Optional[str]] = mapped_column(String(600), nullable=True)
+    folder_path: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
 
     __table_args__ = _browse_indexes("generic_maps")
 
@@ -99,9 +103,9 @@ class MapFolder(Base):
 
     __tablename__ = "map_folders"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
-    path = Column(String(1000), nullable=False, unique=True)
-    tags = Column(JSON, default=list)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    path: Mapped[str] = mapped_column(String(1000), nullable=False, unique=True)
+    tags: Mapped[Optional[list[Any]]] = mapped_column(JSON, default=list)
 
 
 class Token(Base):
@@ -109,31 +113,31 @@ class Token(Base):
 
     __tablename__ = "tokens"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
-    filename = Column(String(500), nullable=False)
-    filepath = Column(String(1000), nullable=False, unique=True)
-    relative_path = Column(String(1000), nullable=False)
-    description = Column(Text, default="")
-    is_explicit = Column(Boolean, default=False)
-    file_size = Column(Integer, default=0)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    filename: Mapped[str] = mapped_column(String(500), nullable=False)
+    filepath: Mapped[str] = mapped_column(String(1000), nullable=False, unique=True)
+    relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, default="")
+    is_explicit: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
+    file_size: Mapped[Optional[int]] = mapped_column(Integer, default=0)
     # Content identity — see the note on GenericMap.content_hash.
-    content_hash = Column(String(64), nullable=True, index=True)
-    file_mtime = Column(Float, nullable=True)
+    content_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
+    file_mtime: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     # Variant grouping — see the note on Book.variant_parent_id. Two levels
     # only, no ForeignKey; enforced in services/variants.py.
-    variant_parent_id = Column(String(36), nullable=True, index=True)
-    variant_kind = Column(String(30), default="")
-    variant_label = Column(String(120), default="")
-    has_thumbnail = Column(Boolean, default=False)
-    is_missing = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=_utcnow)
+    variant_parent_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
+    variant_kind: Mapped[Optional[str]] = mapped_column(String(30), default="")
+    variant_label: Mapped[Optional[str]] = mapped_column(String(120), default="")
+    has_thumbnail: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
+    is_missing: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
     # When this first appeared in the library - the "new" badge and date-added
     # sort (issue #199). See ``Book.added_at`` for when it is NULL.
-    added_at = Column(DateTime, nullable=True, default=_utcnow, index=True)
+    added_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True, default=_utcnow, index=True)
     # Natural-order filename key and the item's directory, kept in step by
     # models/browse.py for paged browsing (issue #221).
-    sort_name = Column(String(600), nullable=True)
-    folder_path = Column(String(1000), nullable=True)
+    sort_name: Mapped[Optional[str]] = mapped_column(String(600), nullable=True)
+    folder_path: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
 
     __table_args__ = _browse_indexes("tokens", explicit=True)
 
@@ -143,9 +147,9 @@ class TokenFolder(Base):
 
     __tablename__ = "token_folders"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
-    path = Column(String(1000), nullable=False, unique=True)
-    tags = Column(JSON, default=list)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    path: Mapped[str] = mapped_column(String(1000), nullable=False, unique=True)
+    tags: Mapped[Optional[list[Any]]] = mapped_column(JSON, default=list)
 
 
 class Audio(Base):
@@ -153,45 +157,45 @@ class Audio(Base):
 
     __tablename__ = "audio"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
-    filename = Column(String(500), nullable=False)
-    filepath = Column(String(1000), nullable=False, unique=True)
-    relative_path = Column(String(1000), nullable=False)
-    description = Column(Text, default="")
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    filename: Mapped[str] = mapped_column(String(500), nullable=False)
+    filepath: Mapped[str] = mapped_column(String(1000), nullable=False, unique=True)
+    relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, default="")
     # Embedded metadata (best-effort; populated by the indexer via mutagen).
-    duration = Column(Float, default=0.0)  # seconds
-    title = Column(String(500), default="")
-    artist = Column(String(500), default="")
-    album = Column(String(500), default="")
+    duration: Mapped[Optional[float]] = mapped_column(Float, default=0.0)  # seconds
+    title: Mapped[Optional[str]] = mapped_column(String(500), default="")
+    artist: Mapped[Optional[str]] = mapped_column(String(500), default="")
+    album: Mapped[Optional[str]] = mapped_column(String(500), default="")
     # Position on the album from the track/disc tags (issue #494): 0 when the
     # file has no such tag, NULL when the row predates reading them - the next
     # scan reads those once, so NULL never means "untagged".
-    track_number = Column(Integer, nullable=True)
-    disc_number = Column(Integer, nullable=True)
+    track_number: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    disc_number: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     # True when folder cover art or embedded album art is available.
-    has_artwork = Column(Boolean, default=False)
+    has_artwork: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
     # Bare filename of a cover set through the UI, under DATA_PATH/audio_covers/.
     # Takes precedence over folder art and embedded tags, since it is the only
     # one of the three a user can actually choose from Grimoire (issue #286).
-    cover_image = Column(String(255), default="")
-    file_size = Column(Integer, default=0)
+    cover_image: Mapped[Optional[str]] = mapped_column(String(255), default="")
+    file_size: Mapped[Optional[int]] = mapped_column(Integer, default=0)
     # Content identity — see the note on GenericMap.content_hash.
-    content_hash = Column(String(64), nullable=True, index=True)
-    file_mtime = Column(Float, nullable=True)
+    content_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
+    file_mtime: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     # Variant grouping — see the note on Book.variant_parent_id. Two levels
     # only, no ForeignKey; enforced in services/variants.py.
-    variant_parent_id = Column(String(36), nullable=True, index=True)
-    variant_kind = Column(String(30), default="")
-    variant_label = Column(String(120), default="")
-    is_missing = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=_utcnow)
+    variant_parent_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
+    variant_kind: Mapped[Optional[str]] = mapped_column(String(30), default="")
+    variant_label: Mapped[Optional[str]] = mapped_column(String(120), default="")
+    is_missing: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
     # When this first appeared in the library - the "new" badge and date-added
     # sort (issue #199). See ``Book.added_at`` for when it is NULL.
-    added_at = Column(DateTime, nullable=True, default=_utcnow, index=True)
+    added_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True, default=_utcnow, index=True)
     # Natural-order filename key and the item's directory, kept in step by
     # models/browse.py for paged browsing (issue #221).
-    sort_name = Column(String(600), nullable=True)
-    folder_path = Column(String(1000), nullable=True)
+    sort_name: Mapped[Optional[str]] = mapped_column(String(600), nullable=True)
+    folder_path: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
 
     __table_args__ = (
         *_browse_indexes("audio"),
@@ -215,9 +219,9 @@ class AudioFolder(Base):
 
     __tablename__ = "audio_folders"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
-    path = Column(String(1000), nullable=False, unique=True)
-    tags = Column(JSON, default=list)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    path: Mapped[str] = mapped_column(String(1000), nullable=False, unique=True)
+    tags: Mapped[Optional[list[Any]]] = mapped_column(JSON, default=list)
 
 
 class Model3D(Base):
@@ -232,44 +236,44 @@ class Model3D(Base):
 
     __tablename__ = "models_3d"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
-    filename = Column(String(500), nullable=False)
-    filepath = Column(String(1000), nullable=False, unique=True)
-    relative_path = Column(String(1000), nullable=False)
-    description = Column(Text, default="")
-    is_explicit = Column(Boolean, default=False)
-    file_size = Column(Integer, default=0)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    filename: Mapped[str] = mapped_column(String(500), nullable=False)
+    filepath: Mapped[str] = mapped_column(String(1000), nullable=False, unique=True)
+    relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, default="")
+    is_explicit: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
+    file_size: Mapped[Optional[int]] = mapped_column(Integer, default=0)
     # Triangles in the mesh, read from the binary STL header (84 bytes, no
     # parse). 0 when unknown — an ASCII mesh, or a format we do not parse.
-    triangle_count = Column(Integer, default=0)
+    triangle_count: Mapped[Optional[int]] = mapped_column(Integer, default=0)
     # Tri-state, and deliberately not a Boolean default: True is presupported
     # (ships with printing supports), False is unsupported, and NULL is "we
     # could not tell from the name or folder". Defaulting to False would assert
     # something about every model in a library that never uses the convention.
-    is_supported = Column(Boolean, nullable=True)
+    is_supported: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
     # Content identity — see the note on GenericMap.content_hash.
-    content_hash = Column(String(64), nullable=True, index=True)
-    file_mtime = Column(Float, nullable=True)
+    content_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
+    file_mtime: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     # Variant grouping — see the note on Book.variant_parent_id. Two levels
     # only, no ForeignKey; enforced in services/variants.py.
-    variant_parent_id = Column(String(36), nullable=True, index=True)
-    variant_kind = Column(String(30), default="")
-    variant_label = Column(String(120), default="")
-    has_thumbnail = Column(Boolean, default=False)
+    variant_parent_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
+    variant_kind: Mapped[Optional[str]] = mapped_column(String(30), default="")
+    variant_label: Mapped[Optional[str]] = mapped_column(String(120), default="")
+    has_thumbnail: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
     # Set when a mesh was too heavy to rasterise inline during the scan. The
     # deferred thumbnail queue drains these afterwards with a longer budget, so
     # a pile of photogrammetry scans slows nothing down until the fast phases
     # are finished. Mirrors Book.ocr_pending.
-    thumbnail_pending = Column(Boolean, default=False)
-    is_missing = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=_utcnow)
+    thumbnail_pending: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
+    is_missing: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
     # When this first appeared in the library - the "new" badge and date-added
     # sort (issue #199). See ``Book.added_at`` for when it is NULL.
-    added_at = Column(DateTime, nullable=True, default=_utcnow, index=True)
+    added_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True, default=_utcnow, index=True)
     # Natural-order filename key and the item's directory, kept in step by
     # models/browse.py for paged browsing (issue #221).
-    sort_name = Column(String(600), nullable=True)
-    folder_path = Column(String(1000), nullable=True)
+    sort_name: Mapped[Optional[str]] = mapped_column(String(600), nullable=True)
+    folder_path: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
 
     __table_args__ = _browse_indexes("models_3d", explicit=True)
 
@@ -279,6 +283,6 @@ class Model3DFolder(Base):
 
     __tablename__ = "model_3d_folders"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
-    path = Column(String(1000), nullable=False, unique=True)
-    tags = Column(JSON, default=list)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    path: Mapped[str] = mapped_column(String(1000), nullable=False, unique=True)
+    tags: Mapped[Optional[list[Any]]] = mapped_column(JSON, default=list)

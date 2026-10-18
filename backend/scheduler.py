@@ -119,7 +119,7 @@ def apply(db: Session) -> None:
     from .routers.library import run_rescan_sync
     from .routers.maintenance import run_cleanup_sync
 
-    rows = {r.key: r.value for r in db.query(AppSetting).all()}
+    rows = {r.key: r.value for r in db.query(AppSetting).all() if r.value is not None}
     enabled = rows.get("rescan_schedule_enabled", "false") == "true"
     interval = rows.get("rescan_schedule_interval", "daily")
     hour = int(rows.get("rescan_schedule_hour", "2"))

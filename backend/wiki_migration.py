@@ -48,7 +48,7 @@ def migrate(db) -> None:
     created = 0
     purged = 0
     # Lazily-created "Session Notes" note-category per campaign.
-    session_category = {}
+    session_category: dict[str, str] = {}
 
     def _session_category_id(campaign_id):
         if campaign_id in session_category:

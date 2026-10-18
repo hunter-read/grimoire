@@ -3,7 +3,7 @@ import os
 import re
 import logging
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 from xml.etree import ElementTree
 
 from ..metadata.formats import COVER_SUFFIX
@@ -268,7 +268,7 @@ def parse_opf_metadata(opf_path: str) -> dict:
         return {}
 
     root = tree.getroot()
-    meta = {}
+    meta: dict[str, Any] = {}
 
     def _find_text(tag: str) -> str:
         el = root.find(f"opf:metadata/dc:{tag}", _OPF_NS)

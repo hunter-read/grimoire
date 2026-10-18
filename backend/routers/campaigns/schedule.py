@@ -2,8 +2,10 @@
 
 import datetime
 import zoneinfo
+from typing import Any
 
 from fastapi import Depends, HTTPException
+from sqlalchemy import false
 from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, get_current_user
@@ -179,7 +181,7 @@ def get_availability(
         db.query(SessionAvailability)
         .filter(
             SessionAvailability.campaign_id == campaign_id,
-            SessionAvailability.session_date.in_(next_sessions) if next_sessions else False,
+            SessionAvailability.session_date.in_(next_sessions) if next_sessions else false(),
         )
         .all()
         if next_sessions
@@ -208,7 +210,7 @@ def get_availability(
     for uid in participant_ids:
         u = all_users.get(uid)
         is_owner = uid == c.owner_id
-        row = {
+        row: dict[str, Any] = {
             "user_id": uid,
             "username": u.username if u else "",
             "display_name": u.display_name if u else None,

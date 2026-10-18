@@ -5,6 +5,8 @@ campaign's linked resources — that's ``resources.py``). Used by the create wiz
 and the "add resource" flow. Split out of ``core.py`` (issue #152).
 """
 
+from typing import Optional
+
 from fastapi import Depends, HTTPException
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -78,8 +80,8 @@ def _book_subtitle(system_name: str, relative_path: str, category: str) -> str:
 
 def search_resources_global(
     q: str = "",
-    resource_type: str = None,
-    system_id: str = None,
+    resource_type: Optional[str] = None,
+    system_id: Optional[str] = None,
     limit: int = DEFAULT_LIMIT,
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),

@@ -39,7 +39,7 @@ from __future__ import annotations
 import json
 from typing import Any, Iterable, Optional
 
-from sqlalchemy import and_, false, or_, true
+from sqlalchemy import ColumnElement, and_, false, or_, true
 from sqlalchemy.orm import Query, Session
 
 from ..models import AppSetting, Book, GameSystem, User, UserAccessGrant
@@ -203,7 +203,7 @@ def effective_levels(db: Session, books: Iterable[Book]) -> dict[str, str]:
         }
     return {
         b.id: resolve_level(
-            db, b, system=systems.get(b.game_system_id), defaults=defaults
+            db, b, system=systems.get(b.game_system_id or ""), defaults=defaults
         )
         for b in books
     }
@@ -398,7 +398,7 @@ def visible_books(db: Session, q: Query, user: Any) -> Query:
         # books in that system that carry no book-scoped grant of their own,
         # which is where an explicitly-denied book inside a granted system stays
         # hidden — the book's own (absent) grant is the more specific statement.
-        exempt = []
+        exempt: list[ColumnElement[bool]] = []
         if granted_book_ids:
             exempt.append(Book.id.in_(granted_book_ids))
         if granted_system_ids:

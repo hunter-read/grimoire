@@ -145,7 +145,7 @@ def is_comic_path(path: str) -> bool:
     return Path(path).suffix.lower() in COMIC_EXTS
 
 
-def can_index(mime: str) -> bool:
+def can_index(mime: Optional[str]) -> bool:
     """True when this MIME type's text can be extracted into the FTS index.
 
     Replaces the ``mime_type == "application/pdf"`` filters that left EPUB and
@@ -166,7 +166,7 @@ def has_page_count(ext: str) -> bool:
     return bool(spec and spec.paged)
 
 
-def is_fitz_mime(mime: str) -> bool:
+def is_fitz_mime(mime: Optional[str]) -> bool:
     """True for documents PyMuPDF can open (PDF, EPUB, DjVu)."""
     return mime in FITZ_MIMES
 

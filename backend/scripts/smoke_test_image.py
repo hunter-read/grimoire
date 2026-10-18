@@ -37,6 +37,7 @@ import urllib.parse
 import urllib.request
 import zlib
 from collections.abc import Callable
+from typing import Any
 
 # A sentence that appears nowhere else, so a search hit can only be the fixture.
 PHRASE = "quixotic basilisk lantern"
@@ -185,14 +186,14 @@ class Api:
         except urllib.error.HTTPError as e:
             return e.code, e.read(), e.headers.get("Content-Type", "")
 
-    def json(self, method: str, path: str, body: object = None) -> object:
+    def json(self, method: str, path: str, body: object = None) -> Any:
         status, data, _ = self.request(method, path, body)
         if status != 200:
             raise SmokeFailure(f"{method} {path} -> {status}: {data[:300]!r}")
         return json.loads(data)
 
 
-def wait_for(description: str, probe, timeout: float, interval: float = 1.0) -> object:
+def wait_for(description: str, probe, timeout: float, interval: float = 1.0) -> Any:
     """Call ``probe`` until it returns something truthy, or fail after ``timeout``."""
     deadline = time.monotonic() + timeout
     last: object = None
@@ -287,7 +288,7 @@ def run_checks(api: Api, container: str, target: str) -> None:
     )
 
     maps = items(api.json("GET", "/api/maps?limit=100"))
-    cave = next((m for m in maps if "Smoke Cave" in json.dumps(m)), None)
+    cave: dict[str, Any] = next((m for m in maps if "Smoke Cave" in json.dumps(m)), {})
     check(cave, "the scan indexed the image map")
     check(
         wait_for("the map thumbnail", thumbnail(f"/api/maps/{cave['id']}/thumbnail"), 60),

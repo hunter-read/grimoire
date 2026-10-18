@@ -8,6 +8,7 @@ import os
 import json
 import logging
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy.orm import Session
 
@@ -111,7 +112,7 @@ def _apply_tags_from_library(
     """
     library = Path(library_path)
 
-    _section_models = {
+    _section_models: dict[str, tuple[Any, Any]] = {
         "maps": (MapFolder, GenericMap),
         "tokens": (TokenFolder, Token),
         "models": (Model3DFolder, Model3D),

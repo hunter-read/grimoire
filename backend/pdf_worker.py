@@ -127,7 +127,7 @@ def _ocr_page(page: "fitz.Page", languages: str, dpi: int | None = None) -> str:
 
         scale = _ocr_scale(dpi)
         pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), alpha=False)
-        image = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+        image = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
         return pytesseract.image_to_string(image, lang=languages).strip()
     except Exception:
         return ""

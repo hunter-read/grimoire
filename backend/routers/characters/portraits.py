@@ -29,8 +29,9 @@ def _owned_or_404(db: Session, character_id: str, user_id: str) -> Character:
     return row
 
 
-def _read_image(upload: UploadFile) -> bytes:
-    if upload.content_type not in PORTRAIT_TYPES:
+def _read_image(upload: UploadFile) -> tuple[bytes, str]:
+    """The upload's bytes and the portrait extension for its content type."""
+    if upload.content_type is None or upload.content_type not in PORTRAIT_TYPES:
         allowed = ", ".join(sorted(PORTRAIT_TYPES))
         raise HTTPException(
             status_code=400, detail=f"A portrait must be one of: {allowed}"
@@ -52,7 +53,7 @@ def _read_image(upload: UploadFile) -> bytes:
         Image.open(io.BytesIO(data)).verify()
     except Exception as exc:
         raise HTTPException(status_code=400, detail="That file is not an image") from exc
-    return data
+    return data, PORTRAIT_TYPES[upload.content_type]
 
 
 def _remove_existing(character_id: str) -> None:
@@ -70,8 +71,8 @@ def upload_portrait(
 ):
     """Set a character's portrait. Only the character's owner may."""
     character = _owned_or_404(db, character_id, current_user.id)
-    data = _read_image(file)
-    filename = store_portrait(character, data, PORTRAIT_TYPES[file.content_type])
+    data, ext = _read_image(file)
+    filename = store_portrait(character, data, ext)
     db.commit()
     # The version the character's own payload reports, so the client can show
     # the new image straight away under a URL no cache has seen.

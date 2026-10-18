@@ -209,9 +209,9 @@ def browse(
     # uses this to drop those options rather than offering a choice the API
     # would then refuse.
     taken = {
-        kind: path
+        kind: claimed
         for kind in SINGLETON_CONTAINER_KINDS
-        if (path := fs.find_singleton_container(kind)) is not None
+        if (claimed := fs.find_singleton_container(kind)) is not None
     }
     return BrowseResponse(
         path="" if target == root else fs.to_relative(target),

@@ -30,10 +30,10 @@ def _scope_name(db: Session, scope_type: str, scope_id: str) -> str:
     lets the UI show and remove one rather than hiding it.
     """
     if scope_type == SCOPE_SYSTEM:
-        row = db.query(GameSystem).filter_by(id=scope_id).first()
-        return row.name if row else ""
-    row = db.query(Book).filter_by(id=scope_id).first()
-    return row.title if row else ""
+        system = db.query(GameSystem).filter_by(id=scope_id).first()
+        return system.name if system else ""
+    book = db.query(Book).filter_by(id=scope_id).first()
+    return book.title if book else ""
 
 
 def _serialize(db: Session, grant: UserAccessGrant) -> dict:
@@ -93,6 +93,7 @@ def create_access_grant(
 
     # The target must exist: a grant naming nothing is a typo, and silently
     # storing it would leave the admin believing they had granted something.
+    exists: GameSystem | Book | None
     if data.scope_type == SCOPE_SYSTEM:
         exists = db.query(GameSystem).filter_by(id=data.scope_id).first()
     else:

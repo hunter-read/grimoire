@@ -1,9 +1,9 @@
 """Game system endpoint handlers."""
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import Depends, HTTPException, Query
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Query as OrmQuery, Session
 
 from ...auth import CurrentUser, get_current_user, require_gm_or_admin
 from ...config import get_db
@@ -53,7 +53,7 @@ def list_systems(
     # Per-system book count + total page count in one grouped query. Variants
     # are excluded so the card's count matches the number of rows the detail
     # view actually renders (issues #304, #306).
-    agg_q = db.query(
+    agg_q: OrmQuery[Any] = db.query(
         Book.game_system_id,
         func.count(Book.id),
         func.coalesce(func.sum(Book.page_count), 0),

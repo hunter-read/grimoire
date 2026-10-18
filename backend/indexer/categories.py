@@ -222,7 +222,7 @@ def folder_category_inference_disabled(session: Session) -> bool:
         .filter_by(key="disable_folder_category_inference")
         .first()
     )
-    return bool(row) and row.value == "true"
+    return row is not None and row.value == "true"
 
 
 def guess_category(filepath: str, system_depth: int = 2) -> str:

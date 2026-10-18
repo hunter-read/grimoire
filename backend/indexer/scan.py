@@ -173,11 +173,14 @@ def scan_library(
     scan_models = scope_section in (None, "models")
 
     # For a scoped books scan, walk only the scope dir; otherwise iterate every system.
-    books_walk_dir = scope_dir if scope_section == "books" else books_dir
-    maps_walk_dir = scope_dir if scope_section == "maps" else maps_dir
-    tokens_walk_dir = scope_dir if scope_section == "tokens" else tokens_dir
-    audio_walk_dir = scope_dir if scope_section == "audio" else audio_dir
-    models_walk_dir = scope_dir if scope_section == "models" else models_dir
+    def walk_dir(section: str, collection_dir: Path) -> Path:
+        return scope_dir if scope_section == section and scope_dir is not None else collection_dir
+
+    books_walk_dir = walk_dir("books", books_dir)
+    maps_walk_dir = walk_dir("maps", maps_dir)
+    tokens_walk_dir = walk_dir("tokens", tokens_dir)
+    audio_walk_dir = walk_dir("audio", audio_dir)
+    models_walk_dir = walk_dir("models", models_dir)
 
     totals = {
         "books": (

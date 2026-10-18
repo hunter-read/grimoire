@@ -90,19 +90,19 @@ def enrich_tagged_items(
                 }
             )
         elif rtype == "model" and rid in models:
-            m = models[rid]
-            if m.is_explicit and not see_explicit:
+            model3d = models[rid]
+            if model3d.is_explicit and not see_explicit:
                 continue
             items.append(
                 {
                     "item_type": "model",
-                    "item_id": m.id,
-                    "filename": m.filename,
-                    "has_thumbnail": m.has_thumbnail,
-                    "file_size": m.file_size,
-                    "triangle_count": m.triangle_count,
-                    "is_presupported": m.is_supported is True,
-                    "is_unsupported": m.is_supported is False,
+                    "item_id": model3d.id,
+                    "filename": model3d.filename,
+                    "has_thumbnail": model3d.has_thumbnail,
+                    "file_size": model3d.file_size,
+                    "triangle_count": model3d.triangle_count,
+                    "is_presupported": model3d.is_supported is True,
+                    "is_unsupported": model3d.is_supported is False,
                 }
             )
         elif rtype == "system" and rid in systems:

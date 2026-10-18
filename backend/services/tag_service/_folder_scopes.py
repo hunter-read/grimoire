@@ -327,7 +327,7 @@ def folder_groups_for_tag(
     """
     key = normalize_internal(internal)
     resolver = FolderResolver(db)
-    out = [
+    out: list[dict[str, Any]] = [
         {
             "resource_type": f.resource_type,
             "path": f.display_path,
@@ -352,7 +352,7 @@ def folders_for_tag(
     """
     key = normalize_internal(internal)
     resolver = FolderResolver(db)
-    out = [
+    out: list[dict[str, Any]] = [
         {
             "resource_type": f.resource_type,
             "path": f.display_path,

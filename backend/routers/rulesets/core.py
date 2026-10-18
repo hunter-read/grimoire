@@ -9,7 +9,7 @@ Reading runs through ``rulesets.readable_filter`` and every write through
 re-derived per endpoint.
 """
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -244,7 +244,7 @@ def delete_ruleset(
 
 
 def _entry_payload(entry: RulesetEntry, *, editable: bool, detail: bool = False) -> dict:
-    payload = {
+    payload: dict[str, Any] = {
         "id": entry.id,
         "ruleset_id": entry.ruleset_id,
         "content_type": entry.content_type,
@@ -652,6 +652,7 @@ def import_into_ruleset(
             ruleset.attribution = pack.attribution
             ruleset.source_pack_id = pack.pack_id
     else:
+        payload: Any
         if data.text.strip():
             # Pasted by hand, so read as JSON and then as YAML: a ruleset is a
             # document someone writes, and YAML is kinder to write.
@@ -661,12 +662,13 @@ def import_into_ruleset(
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
         else:
             payload = data.document or {}
-        grouped = payload.get("entries") if isinstance(payload, dict) else None
-        if grouped is None:
+        entries = payload.get("entries") if isinstance(payload, dict) else None
+        if entries is None:
             raise HTTPException(
                 status_code=400,
                 detail="Provide a pack to install, or a document with an 'entries' section",
             )
+        grouped = entries
         if isinstance(payload, dict) and payload.get("attribution") and not ruleset.attribution:
             ruleset.license = str(payload.get("license") or "")[:200]
             ruleset.license_url = str(payload.get("license_url") or "")

@@ -7194,7 +7194,7 @@ export interface components {
             /** Status */
             status: string;
             /** User Id */
-            user_id?: number | null;
+            user_id?: string | null;
         };
         /**
          * AvailableAddon
@@ -19160,8 +19160,8 @@ export interface operations {
         parameters: {
             query?: {
                 q?: string;
-                resource_type?: string;
-                system_id?: string;
+                resource_type?: string | null;
+                system_id?: string | null;
                 limit?: number;
                 token?: string | null;
             };

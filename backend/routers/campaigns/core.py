@@ -242,7 +242,7 @@ def get_campaign(
     # unshared-private rows here would hand out resource_ids that become
     # download handles on the by-id media/file routes.
     all_resources = db.query(CampaignResource).filter_by(campaign_id=campaign_id).all()
-    share_map = {}
+    share_map: dict[str, set[str]] = {}
     for s in (
         db.query(CampaignResourceShare)
         .filter(CampaignResourceShare.resource_id.in_([r.id for r in all_resources] or [""]))
@@ -403,7 +403,7 @@ def admin_list_user_campaigns(
             "description": c.description,
             "is_gm_campaign": c.is_gm_campaign,
             "system_id": c.system_id,
-            "system_name": system_names.get(c.system_id),
+            "system_name": system_names.get(c.system_id or ""),
         }
         for c in owned
     ]

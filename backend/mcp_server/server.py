@@ -85,7 +85,9 @@ def build_server() -> Server:
     server: Server = Server("grimoire", version=config.VERSION, instructions=INSTRUCTIONS)
 
     async def answer(work: Callable[[ToolContext], dict[str, Any]]) -> dict[str, Any]:
-        principal = getattr(server.request_context.request.state, PRINCIPAL_STATE)
+        request = server.request_context.request
+        assert request is not None  # set for every call over the HTTP transport
+        principal = getattr(request.state, PRINCIPAL_STATE)
         # Tools run blocking DB queries and renders; keep them off the event loop.
         return await anyio.to_thread.run_sync(_run_in_context, principal, work)
 

@@ -243,6 +243,60 @@ class TestAvailability:
         )
         assert r.status_code == 403
 
+    def test_gm_sets_a_players_availability(
+        self, client, gm_headers, player_headers, player_id, gm_campaign
+    ):
+        # User ids are UUID strings: the GM's edit of a player's cell must land on
+        # the player's row, not be rejected as a malformed id.
+        cid = gm_campaign["id"]
+        client.post(
+            f"/api/campaigns/{cid}/invite", json={"user_id": player_id}, headers=gm_headers
+        )
+        client.patch(
+            f"/api/campaigns/{cid}/members/{player_id}",
+            json={"status": "accepted"},
+            headers=player_headers,
+        )
+        client.put(
+            f"/api/campaigns/{cid}/schedule",
+            json={"frequency": "weekly", "days": [5], "time_utc": "18:00", "enabled": True},
+            headers=gm_headers,
+        )
+        date = client.get(f"/api/campaigns/{cid}/availability", headers=gm_headers).json()[
+            "next_sessions"
+        ][0]
+
+        r = client.put(
+            f"/api/campaigns/{cid}/availability/{date}",
+            json={"status": "unavailable", "user_id": player_id},
+            headers=gm_headers,
+        )
+        assert r.status_code == 200, r.text
+
+        rows = client.get(f"/api/campaigns/{cid}/availability", headers=gm_headers).json()["rows"]
+        by_user = {row["user_id"]: row["dates"][date] for row in rows}
+        assert by_user[player_id]["status"] == "unavailable"
+        assert by_user[gm_campaign["owner_id"]]["status"] is None
+
+    def test_player_cannot_set_another_members_availability(
+        self, client, gm_headers, player_headers, player_id, gm_campaign
+    ):
+        cid = gm_campaign["id"]
+        client.post(
+            f"/api/campaigns/{cid}/invite", json={"user_id": player_id}, headers=gm_headers
+        )
+        client.patch(
+            f"/api/campaigns/{cid}/members/{player_id}",
+            json={"status": "accepted"},
+            headers=player_headers,
+        )
+        r = client.put(
+            f"/api/campaigns/{cid}/availability/2026-01-01",
+            json={"status": "available", "user_id": gm_campaign["owner_id"]},
+            headers=player_headers,
+        )
+        assert r.status_code == 403
+
     def test_cancel_session_date_toggles(self, client, gm_headers, gm_campaign):
         cid = gm_campaign["id"]
         r = client.put(

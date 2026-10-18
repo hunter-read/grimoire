@@ -17,8 +17,10 @@ directory per pack, and loaded on startup and rescan. The directory is the
 source of truth for *what is installed*; these rows are a denormalised index of
 it, rebuilt from the JSON whenever it changes.
 """
+import datetime
+from typing import Any, Optional
+
 from sqlalchemy import (
-    Column,
     DateTime,
     ForeignKey,
     Index,
@@ -29,7 +31,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, _utcnow, _uuid
 
@@ -50,26 +52,26 @@ class ContentPack(Base):
 
     __tablename__ = "content_packs"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
-    pack_id = Column(String(100), nullable=False, unique=True, index=True)
-    schema_id = Column(String(100), nullable=False, index=True)
-    name = Column(String(200), nullable=False, default="")
-    version = Column(String(20), default="1.0.0")
-    description = Column(Text, default="")
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    pack_id: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)
+    schema_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    version: Mapped[Optional[str]] = mapped_column(String(20), default="1.0.0")
+    description: Mapped[Optional[str]] = mapped_column(Text, default="")
 
     # Where the entries came from and under what terms. Rendered verbatim.
-    license = Column(String(200), default="")
-    license_url = Column(Text, default="")
-    attribution = Column(Text, default="")
-    source_url = Column(Text, default="")
+    license: Mapped[Optional[str]] = mapped_column(String(200), default="")
+    license_url: Mapped[Optional[str]] = mapped_column(Text, default="")
+    attribution: Mapped[Optional[str]] = mapped_column(Text, default="")
+    source_url: Mapped[Optional[str]] = mapped_column(Text, default="")
 
     # Directory name under DATA_PATH/character-content/, so a pack can be found
     # again without guessing at its id.
-    directory = Column(String(255), default="")
-    entry_count = Column(Integer, default=0)
+    directory: Mapped[Optional[str]] = mapped_column(String(255), default="")
+    entry_count: Mapped[Optional[int]] = mapped_column(Integer, default=0)
 
-    created_at = Column(DateTime, default=_utcnow)
-    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
+    updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)
 
 
 class ContentEntry(Base):
@@ -88,20 +90,20 @@ class ContentEntry(Base):
 
     __tablename__ = "content_entries"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
-    pack_id = Column(String(36), ForeignKey("content_packs.id"), nullable=False, index=True)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    pack_id: Mapped[str] = mapped_column(String(36), ForeignKey("content_packs.id"), nullable=False, index=True)
 
-    schema_id = Column(String(100), nullable=False, index=True)
-    content_type = Column(String(100), nullable=False, index=True)
-    entry_id = Column(String(200), nullable=False)
+    schema_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    content_type: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    entry_id: Mapped[str] = mapped_column(String(200), nullable=False)
     # Which pack this came from, as a character's `_source` records it. "srd"
     # by convention for official open content.
-    source = Column(String(100), nullable=False, default="srd")
+    source: Mapped[str] = mapped_column(String(100), nullable=False, default="srd")
 
-    name = Column(String(500), nullable=False, default="")
-    data = Column(JSON, default=dict)
+    name: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    data: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, default=dict)
 
-    created_at = Column(DateTime, default=_utcnow)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
 
     __table_args__ = (
         UniqueConstraint("pack_id", "content_type", "entry_id"),
@@ -135,37 +137,37 @@ class Ruleset(Base):
 
     __tablename__ = "rulesets"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     # Null for a server ruleset. A campaign ruleset is deleted with its
     # campaign: the content existed to serve that table.
-    campaign_id = Column(
+    campaign_id: Mapped[Optional[str]] = mapped_column(
         String(36), ForeignKey("campaigns.id", ondelete="CASCADE"), nullable=True, index=True
     )
     # Set for a personal ruleset, which only this user reaches. Ownership,
     # unlike ``created_by_id``, which is attribution: deleting the user deletes
     # their personal rulesets, but a campaign or server ruleset they wrote
     # survives them.
-    owner_id = Column(String(36), ForeignKey("users.id"), nullable=True, index=True)
-    schema_id = Column(String(100), nullable=False, index=True)
+    owner_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("users.id"), nullable=True, index=True)
+    schema_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
 
-    name = Column(String(200), nullable=False, default="")
-    description = Column(Text, default="")
-    version = Column(String(20), default="1.0.0")
+    name: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    description: Mapped[Optional[str]] = mapped_column(Text, default="")
+    version: Mapped[Optional[str]] = mapped_column(String(20), default="1.0.0")
 
     # Licence metadata, rendered verbatim wherever the ruleset's content is
     # surfaced. Several open licences mandate exact wording.
-    license = Column(String(200), default="")
-    license_url = Column(Text, default="")
-    attribution = Column(Text, default="")
+    license: Mapped[Optional[str]] = mapped_column(String(200), default="")
+    license_url: Mapped[Optional[str]] = mapped_column(Text, default="")
+    attribution: Mapped[Optional[str]] = mapped_column(Text, default="")
 
     # The filesystem pack this was imported from, when it was.
-    source_pack_id = Column(String(100), nullable=True)
-    created_by_id = Column(String(36), ForeignKey("users.id"), nullable=True)
+    source_pack_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    created_by_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("users.id"), nullable=True)
 
-    created_at = Column(DateTime, default=_utcnow)
-    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
+    updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)
 
-    entries = relationship(
+    entries: Mapped[list["RulesetEntry"]] = relationship(
         "RulesetEntry", back_populates="ruleset", cascade="all, delete-orphan"
     )
 
@@ -180,26 +182,26 @@ class RulesetEntry(Base):
 
     __tablename__ = "ruleset_entries"
 
-    id = Column(String(36), primary_key=True, default=_uuid)
-    ruleset_id = Column(
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    ruleset_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("rulesets.id", ondelete="CASCADE"), nullable=False, index=True
     )
 
-    schema_id = Column(String(100), nullable=False, index=True)
-    content_type = Column(String(100), nullable=False, index=True)
-    entry_id = Column(String(200), nullable=False)
+    schema_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    content_type: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    entry_id: Mapped[str] = mapped_column(String(200), nullable=False)
 
-    name = Column(String(500), nullable=False, default="")
-    data = Column(JSON, default=dict)
+    name: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    data: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, default=dict)
 
     # The entry this was copied from, as "<source>:<entry_id>", so a variant
     # can be traced back to the SRD entry it started as.
-    forked_from = Column(String(300), nullable=True)
+    forked_from: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
 
-    created_at = Column(DateTime, default=_utcnow)
-    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
+    updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)
 
-    ruleset = relationship("Ruleset", back_populates="entries")
+    ruleset: Mapped["Ruleset"] = relationship("Ruleset", back_populates="entries")
 
     __table_args__ = (
         # One ruleset cannot define the same entry twice; two rulesets may each

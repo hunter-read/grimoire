@@ -8,7 +8,7 @@ half-written file where the scanner would index it.
 """
 import os
 from pathlib import Path
-from typing import Any, Optional
+from typing import AbstractSet, Any, Optional
 
 from sqlalchemy.orm import Session
 
@@ -28,7 +28,7 @@ from .moves import _dest_for
 from .paths import assert_writable, collection_of, safe_join, to_relative
 from ...models import Book
 
-def allowed_upload_exts(destination: Path) -> set[str]:
+def allowed_upload_exts(destination: Path) -> AbstractSet[str]:
     """The file extensions worth uploading into ``destination``.
 
     Scoped to the collection, because an upload the scanner will never index is

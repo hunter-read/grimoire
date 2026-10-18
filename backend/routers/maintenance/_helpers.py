@@ -15,7 +15,7 @@ _FS_TIMEOUT = 5  # seconds before an os.path.exists() call is treated as hung
 
 def _path_exists(filepath: str) -> bool:
     """Return whether filepath exists, with a timeout guard against hung mounts."""
-    result = [None]
+    result = [False]
 
     def _check():
         try:
@@ -218,8 +218,8 @@ def _prune_orphaned_tag_links(db) -> int:
         by_type[rtype] = live
 
     for link in db.query(ResourceTag).all():
-        live = by_type.get(link.resource_type)
-        if live is None or link.resource_id in live:
+        live_ids = by_type.get(link.resource_type)
+        if live_ids is None or link.resource_id in live_ids:
             continue
         db.delete(link)
         removed += 1
