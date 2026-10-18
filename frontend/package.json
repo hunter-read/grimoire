@@ -16,23 +16,23 @@
     "format:check": "prettier --check \"src/**/*.{js,jsx,json}\""
   },
   "dependencies": {
-    "@tanstack/react-virtual": "^3.14.13",
-    "i18next": "^26.0.4",
-    "pdfjs-dist": "^6.2.108",
+    "@tanstack/react-virtual": "^3.14.19",
+    "i18next": "^26.4.5",
+    "pdfjs-dist": "^6.4.299",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-i18next": "^17.0.3",
-    "react-icons": "^5.4.0",
+    "react-i18next": "^17.0.16",
+    "react-icons": "^5.7.0",
     "react-markdown": "^10.1.0",
-    "react-router-dom": "^7.18.2",
+    "react-router-dom": "^7.18.4",
     "remark-gfm": "^4.0.1",
-    "three": "^0.185.1"
+    "three": "^0.186.1"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.2",
-    "@testing-library/user-event": "^14.6.1",
-    "@vitejs/plugin-react": "^6.0.2",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
+    "@vitejs/plugin-react": "^6.1.2",
     "@vitest/coverage-istanbul": "^4.1.9",
     "@vitest/coverage-v8": "^4.1.9",
     "eslint": "^9.39.4",
@@ -40,8 +40,8 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "globals": "^15.15.0",
     "jsdom": "^29.0.1",
-    "prettier": "^3.8.3",
-    "vite": "^8.0.16",
+    "prettier": "^3.9.10",
+    "vite": "^8.3.4",
     "vitest": "^4.1.11"
   },
   "overrides": {
