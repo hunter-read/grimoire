@@ -13,6 +13,9 @@ import { SPREAD_WIDTH, animStyle } from './pageRender'
  * `joined` draws a two-page spread as one image, without the gap between the
  * pages (issue #588; see JoinedSpread). A page shown on its own - the cover,
  * or a last odd page - looks the same either way.
+ *
+ * `renderTiles(page, words)` adds the reader's zoom tiles, as on SinglePage,
+ * joined or not.
  */
 export default function SpreadPage({
   bookId,
@@ -30,6 +33,7 @@ export default function SpreadPage({
   pageUrl,
   renderWidth = SPREAD_WIDTH,
   joined = false,
+  renderTiles,
 }) {
   const urlFor = pageUrl ?? ((p, width) => mediaUrl(`/books/${bookId}/page/${p}`, { width }))
   const pages = [currentPage, hasRight ? rightPage : null].filter(Boolean)
@@ -60,6 +64,7 @@ export default function SpreadPage({
           wordsCacheRef={wordsCacheRef}
           activeSearchQuery={activeSearchQuery}
           activeHighlight={activeHighlight}
+          renderTiles={renderTiles}
         />
       ) : (
         pages.map((p) => {
@@ -77,6 +82,7 @@ export default function SpreadPage({
             >
               <img
                 src={urlFor(p, renderWidth)}
+                data-page-image
                 alt={getAlt(p)}
                 draggable={false}
                 style={{
@@ -88,6 +94,7 @@ export default function SpreadPage({
                   userSelect: 'none',
                 }}
               />
+              {renderTiles?.(p, wd)}
               <TextOverlay
                 words={wd.words}
                 naturalWidth={wd.width}
@@ -100,6 +107,7 @@ export default function SpreadPage({
             <img
               key={p}
               src={urlFor(p, renderWidth)}
+              data-page-image
               alt={getAlt(p)}
               style={{
                 maxHeight: '100%',

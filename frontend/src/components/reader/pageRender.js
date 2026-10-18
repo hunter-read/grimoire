@@ -1,6 +1,22 @@
 // Shared page-rendering constants and animation helper for the reader's page
 // components (SinglePage / SpreadPage) and ReaderView's image preloader.
 
+// Page-turn keyframes, injected once by whichever viewer loads first. They slide
+// with the `translate` property rather than `transform`: zoom and pan live in
+// `transform`, and the two compose, so a page turned while zoomed slides in at
+// its zoom instead of dropping to 1x for the animation and snapping back.
+if (typeof document !== 'undefined' && !document.getElementById('reader-anim')) {
+  const s = document.createElement('style')
+  s.id = 'reader-anim'
+  s.textContent = `
+    @keyframes pageEnterRight  { from { opacity: 0.2; translate: 60px 0;  } to { opacity: 1; translate: none; } }
+    @keyframes pageEnterLeft   { from { opacity: 0.2; translate: -60px 0; } to { opacity: 1; translate: none; } }
+    @keyframes pageEnterBottom { from { opacity: 0.2; translate: 0 60px;  } to { opacity: 1; translate: none; } }
+    @keyframes pageEnterTop    { from { opacity: 0.2; translate: 0 -60px; } to { opacity: 1; translate: none; } }
+  `
+  document.head.appendChild(s)
+}
+
 // Must match across visible images and preloader so browser cache hits.
 export const PAGE_WIDTH = 1600
 export const SPREAD_WIDTH = 1000

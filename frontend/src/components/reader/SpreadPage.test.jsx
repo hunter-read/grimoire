@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render, fireEvent } from '@testing-library/react'
 import SpreadPage from './SpreadPage'
 
@@ -104,6 +104,28 @@ describe('SpreadPage', () => {
       const [img] = pageImages(c)
       fireEvent.load(img)
       expect(c.querySelector('[data-joined-spread]').dataset.aspect).toBeUndefined()
+    })
+
+    it('lays zoom tiles over each joined page, square-cornered (issue #574)', () => {
+      const renderTiles = vi.fn((p) => <span data-testid={`tiles-${p}`} />)
+      const { getByTestId } = renderSpread({
+        joined: true,
+        renderTiles,
+        wordsCacheRef: { current: { 2: words(600, 800), 3: words(600, 800) } },
+      })
+      expect(getByTestId('tiles-2')).toBeInTheDocument()
+      expect(getByTestId('tiles-3')).toBeInTheDocument()
+      for (const call of renderTiles.mock.calls) expect(call[2]).toEqual({ joined: true })
+    })
+
+    it('adds tiles to unjoined pages with their usual corners', () => {
+      const renderTiles = vi.fn(() => null)
+      renderSpread({
+        renderTiles,
+        wordsCacheRef: { current: { 2: words(600, 800), 3: words(600, 800) } },
+      })
+      expect(renderTiles).toHaveBeenCalledTimes(2)
+      for (const call of renderTiles.mock.calls) expect(call[2]).toBeUndefined()
     })
 
     it('leaves a page shown on its own exactly as it was', () => {

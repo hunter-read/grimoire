@@ -9,7 +9,7 @@ import { getBookPrefs, saveBookPrefs, saveRecentBook } from '../hooks/useBookPre
 import { getUserPrefs, getWheelAction } from '../hooks/useUserPrefs'
 import { useFavorites } from '../context/FavoritesContext'
 import useReaderGestures from '../hooks/useReaderGestures'
-import useReaderZoom, { renderWidthFor } from '../hooks/useReaderZoom'
+import useReaderZoom, { panForTurn, renderWidthFor } from '../hooks/useReaderZoom'
 import useIsMobile from '../hooks/useIsMobile'
 import TocSidebar from '../components/reader/TocSidebar'
 import SearchSidebar from '../components/reader/SearchSidebar'
@@ -20,6 +20,7 @@ import SelectionPopup from '../components/reader/SelectionPopup'
 import ReaderToolbar from '../components/reader/ReaderToolbar'
 import SpreadPage from '../components/reader/SpreadPage'
 import SinglePage from '../components/reader/SinglePage'
+import ZoomTiles from '../components/reader/ZoomTiles'
 import ImageBookViewer from '../components/reader/ImageBookViewer'
 import TextBookViewer from '../components/reader/TextBookViewer'
 import CutoutStage from '../components/reader/export/CutoutStage'
@@ -32,19 +33,6 @@ import {
   TEXT_CACHE_MAX,
   pruneCache,
 } from '../components/reader/pageRender'
-
-// Inject page-turn keyframes once at module load
-if (typeof document !== 'undefined' && !document.getElementById('reader-anim')) {
-  const s = document.createElement('style')
-  s.id = 'reader-anim'
-  s.textContent = `
-    @keyframes pageEnterRight  { from { opacity: 0.2; transform: translateX(60px);  } to { opacity: 1; transform: none; } }
-    @keyframes pageEnterLeft   { from { opacity: 0.2; transform: translateX(-60px); } to { opacity: 1; transform: none; } }
-    @keyframes pageEnterBottom { from { opacity: 0.2; transform: translateY(60px);  } to { opacity: 1; transform: none; } }
-    @keyframes pageEnterTop    { from { opacity: 0.2; transform: translateY(-60px); } to { opacity: 1; transform: none; } }
-  `
-  document.head.appendChild(s)
-}
 
 // Must match across visible images and preloader so browser cache hits
 
@@ -107,6 +95,8 @@ export default function ReaderView() {
   const axisRef = useRef('x')
   const currentPageRef = useRef(1)
   const contentRef = useRef(null)
+  // Set below once zoom state exists; goToPage calls it to carry zoom over.
+  const turnPanRef = useRef(null)
   const isMountedSyncRef = useRef(false)
   // When true, the next setSearchParams call will push a new history entry
   // rather than replacing the current one. Set before any jump navigation
@@ -145,6 +135,7 @@ export default function ReaderView() {
       }
       directionRef.current = page >= currentPageRef.current ? 1 : -1
       axisRef.current = axis
+      if (page !== currentPageRef.current) turnPanRef.current?.(directionRef.current)
       currentPageRef.current = page
       setCurrentPage(page)
       setPageInput(String(page))
@@ -152,8 +143,9 @@ export default function ReaderView() {
     [totalPages, mode, spreadOffset]
   )
 
-  // Zoom/pan for the page image. Keyed on currentPage so both reset when you
-  // turn the page — landing on a new page zoomed into a corner is disorienting.
+  // Zoom/pan for the page image. Reset for a new book or view mode, but kept
+  // across page turns: reading a small-print book zoomed in shouldn't mean
+  // zooming in again on every page. See turnPanRef below for where it lands.
   const {
     zoom,
     pan,
@@ -168,7 +160,32 @@ export default function ReaderView() {
     canZoomIn,
     canZoomOut,
     isZoomed,
-  } = useReaderZoom({ resetKey: currentPage })
+  } = useReaderZoom({ resetKey: `${bookId}:${mode}` })
+
+  // A page turned while zoomed keeps the zoom and the column you were reading,
+  // and arrives at the top of the next page (the bottom when going back), as a
+  // continuous scroll would. Measured from the page being left.
+  useEffect(() => {
+    turnPanRef.current = (direction) => {
+      const view = contentRef.current
+      if (zoomRef.current <= 1 || !view) return
+      const pages = [...view.querySelectorAll('img[data-page-image]')]
+      if (!pages.length) return
+      const v = view.getBoundingClientRect()
+      const centre = v.top + v.height / 2
+      const rects = pages.map((el) => el.getBoundingClientRect())
+      setPan(
+        panForTurn({
+          direction,
+          zoom: zoomRef.current,
+          pan: panRef.current,
+          top: Math.min(...rects.map((r) => r.top)) - centre,
+          bottom: Math.max(...rects.map((r) => r.bottom)) - centre,
+          viewHeight: v.height,
+        })
+      )
+    }
+  })
 
   useEffect(() => {
     setSelectionPopup(null)
@@ -424,6 +441,23 @@ export default function ReaderView() {
   const baseWidth = mode === 'spread' ? SPREAD_WIDTH : PAGE_WIDTH
   const renderWidth = renderWidthFor(baseWidth, zoom)
 
+  // Past what that whole-page image can show, sharp tiles of the visible area
+  // go over it (issue #574). Pages without geometry (non-PDFs) keep the image.
+  const renderTiles = (p, wd, { joined = false } = {}) =>
+    wd?.width > 0 ? (
+      <ZoomTiles
+        rounded={!joined}
+        bookId={bookId}
+        page={p}
+        contentToken={contentToken}
+        aspect={wd.height / wd.width}
+        zoom={zoom}
+        pan={pan}
+        imageWidth={renderWidth}
+        viewRef={contentRef}
+      />
+    ) : null
+
   const wheelAction = getWheelAction()
 
   const { handleTouchStart, handleTouchMove, handleTouchEnd, handleMouseDown } = useReaderGestures({
@@ -632,6 +666,7 @@ export default function ReaderView() {
               renderWidth={renderWidth}
               pageUrl={pageUrl}
               joined={joinSpread}
+              renderTiles={renderTiles}
             />
           ) : (
             <SinglePage
@@ -647,6 +682,7 @@ export default function ReaderView() {
               activeHighlight={activeHighlight}
               renderWidth={renderWidth}
               pageUrl={pageUrl}
+              renderTiles={renderTiles}
             />
           )}
         </div>

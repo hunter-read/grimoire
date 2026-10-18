@@ -493,10 +493,10 @@ describe('ReaderView — zoom (issue #249)', () => {
   it('does not zoom past the clamp', async () => {
     renderReader()
     await waitFor(() => screen.getByText('Test Book'))
-    for (let i = 0; i < 8; i++) await press('+')
-    // Ceiling is 2x: page images are pre-rendered and the render endpoint caps
-    // width at 3000px, so beyond this the image would just be scaled up.
-    expect(screen.getByText('200%')).toBeInTheDocument()
+    for (let i = 0; i < 14; i++) await press('+')
+    // Ceiling is 8x (issue #574); past the whole-page image's limit, zoom
+    // tiles keep it sharp.
+    expect(screen.getByText('800%')).toBeInTheDocument()
   })
 
   it('ignores the zoom keys while a text input has focus', async () => {
@@ -513,14 +513,27 @@ describe('ReaderView — zoom (issue #249)', () => {
     input.remove()
   })
 
-  it('resets zoom when the page changes', async () => {
-    renderReader()
+  it('keeps the zoom when the page changes', async () => {
+    const { container } = renderReader()
     await waitFor(() => screen.getByText('Test Book'))
     await press('+')
-    expect(screen.getByText('125%')).toBeInTheDocument()
+    await press('+')
+    expect(screen.getByText('150%')).toBeInTheDocument()
 
     await press('ArrowRight')
-    await waitFor(() => expect(screen.getByText('100%')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByAltText(/page 2/i)).toBeInTheDocument())
+    expect(screen.getByText('150%')).toBeInTheDocument()
+    const page = container.querySelector('img[data-page-image]').closest('[style*="scale"]')
+    expect(page.style.transform).toContain('scale(1.5)')
+  })
+
+  it('steps through coarser zoom levels above 2x', async () => {
+    renderReader()
+    await waitFor(() => screen.getByText('Test Book'))
+    for (let i = 0; i < 5; i++) await press('+')
+    expect(screen.getByText('250%')).toBeInTheDocument()
+    await press('-')
+    expect(screen.getByText('200%')).toBeInTheDocument()
   })
 
   it('requests a sharper page render once zoomed past the threshold', async () => {

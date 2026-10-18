@@ -6,7 +6,11 @@ import useReaderZoom, {
   MIN_ZOOM,
   MAX_ZOOM,
   ZOOM_STEP,
+  ZOOM_LEVELS,
   MAX_RENDER_WIDTH,
+  nextZoomLevel,
+  prevZoomLevel,
+  panForTurn,
 } from './useReaderZoom'
 
 describe('clampZoom', () => {
@@ -37,8 +41,10 @@ describe('renderWidthFor', () => {
     expect(renderWidthFor(1000, 1.76)).toBe(renderWidthFor(1000, 1.74))
   })
 
-  it('leaves spread pages room to sharpen fully', () => {
-    expect(renderWidthFor(1000, MAX_ZOOM)).toBe(2000)
+  it('leaves spread pages room to sharpen fully at 2x', () => {
+    expect(renderWidthFor(1000, 2)).toBe(2000)
+    // Past the cap the whole-page image stops growing; zoom tiles take over.
+    expect(renderWidthFor(1000, MAX_ZOOM)).toBe(MAX_RENDER_WIDTH)
   })
 })
 
@@ -112,5 +118,74 @@ describe('useReaderZoom', () => {
     act(() => result.current.zoomIn())
     act(() => result.current.setPan((p) => ({ x: p.x + 10, y: p.y - 5 })))
     expect(result.current.pan).toEqual({ x: 10, y: -5 })
+  })
+})
+
+describe('zoom levels (issue #574)', () => {
+  it('reach 8x', () => {
+    expect(MAX_ZOOM).toBe(8)
+    expect(ZOOM_LEVELS.at(-1)).toBe(MAX_ZOOM)
+  })
+
+  it('step to the next stop either way', () => {
+    expect(nextZoomLevel(1)).toBe(1.25)
+    expect(nextZoomLevel(2)).toBe(2.5)
+    expect(prevZoomLevel(4)).toBe(3)
+    expect(prevZoomLevel(1.25)).toBe(1)
+  })
+
+  it('treat a wheel or pinch zoom between stops as the stop it passed', () => {
+    expect(nextZoomLevel(2.2)).toBe(2.5)
+    expect(prevZoomLevel(2.2)).toBe(2)
+    // A float a hair under a stop still counts as that stop.
+    expect(nextZoomLevel(1.2499999)).toBe(1.5)
+  })
+
+  it('stay inside the range at the ends', () => {
+    expect(nextZoomLevel(MAX_ZOOM)).toBe(MAX_ZOOM)
+    expect(prevZoomLevel(MIN_ZOOM)).toBe(MIN_ZOOM)
+  })
+
+  it('drive zoomIn and zoomOut', () => {
+    const { result } = renderHook(() => useReaderZoom())
+    for (let i = 0; i < ZOOM_LEVELS.length + 2; i++) act(() => result.current.zoomIn())
+    expect(result.current.zoom).toBe(MAX_ZOOM)
+    expect(result.current.canZoomIn).toBe(false)
+    act(() => result.current.zoomOut())
+    expect(result.current.zoom).toBe(6)
+  })
+})
+
+describe('panForTurn', () => {
+  // A page 2000px tall on screen at 2x, in an 800px view, scrolled to the middle.
+  const base = { zoom: 2, pan: { x: 30, y: 0 }, top: -1000, bottom: 1000, viewHeight: 800 }
+
+  it('lands at the top of the next page, keeping the column', () => {
+    const next = panForTurn({ ...base, direction: 1, margin: 0 })
+    expect(next.x).toBe(30)
+    // The page top (pre-scale -500) meets the view top (pre-scale -200).
+    expect(-500 + next.y).toBeCloseTo(-200)
+  })
+
+  it('lands at the bottom when going back', () => {
+    const next = panForTurn({ ...base, direction: -1, margin: 0 })
+    expect(500 + next.y).toBeCloseTo(200)
+  })
+
+  it('leaves a small margin above the page', () => {
+    const next = panForTurn({ ...base, direction: 1, margin: 12 })
+    // 12 screen pixels is 6 pre-scale pixels at 2x.
+    expect(-500 + next.y).toBeCloseTo(-194)
+  })
+
+  it('accounts for the pan already applied', () => {
+    const panned = { ...base, pan: { x: 0, y: 100 }, top: -800, bottom: 1200 }
+    const next = panForTurn({ ...panned, direction: 1, margin: 0 })
+    expect(next.y).toBeCloseTo(panForTurn({ ...base, direction: 1, margin: 0 }).y)
+  })
+
+  it('centres a page that fits on screen', () => {
+    const next = panForTurn({ ...base, top: -300, bottom: 300, direction: 1 })
+    expect(next).toEqual({ x: 30, y: 0 })
   })
 })

@@ -17,6 +17,9 @@ const SHADOW = '0 4px 20px var(--shadow)'
  * A page's aspect ratio comes from its word geometry when the reader has it
  * (PDF books) and otherwise from the image once it has loaded (PDF maps). Until
  * both are known the pages sit side by side at their natural size.
+ *
+ * `renderTiles(page, words)` lays the reader's zoom tiles over each page, which
+ * is a positioned box of exactly the page's size once the pair is fitted.
  */
 export default function JoinedSpread({
   pages,
@@ -26,6 +29,7 @@ export default function JoinedSpread({
   wordsCacheRef,
   activeSearchQuery,
   activeHighlight,
+  renderTiles,
 }) {
   const [loaded, setLoaded] = useState({})
   const aspects = pages.map((p) => {
@@ -79,6 +83,7 @@ export default function JoinedSpread({
           >
             <img
               src={urlFor(p, renderWidth)}
+              data-page-image
               alt={getAlt(p)}
               draggable={false}
               onLoad={remember(p)}
@@ -90,6 +95,7 @@ export default function JoinedSpread({
                   : { maxWidth: '100%', maxHeight: '100cqh', width: 'auto' }),
               }}
             />
+            {fitted && wd && renderTiles?.(p, wd, { joined: true })}
             {wd && (
               <TextOverlay
                 words={wd.words}
