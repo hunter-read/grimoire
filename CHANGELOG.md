@@ -70,6 +70,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Fixed
 
+- Search results in the reader's search sidebar showed apostrophes, quotes and ampersands as `&#x27;`, `&quot;` and `&amp;`
 - OPDS book covers didn't load in e-readers; they are now served under the feed's own token
 - Deleting a user, or merging a guest into an account, could fail when they had saved audio sets, installed themes or character importers, hidden wiki pages, or had made a wiki template
 - Merging a guest into an account failed when both had favourited the same item, saved a filter under the same name, answered availability for the same session date or written a note on the same session. The account you merge into now keeps its own copy, and keeps its default filter if both had one for the same view
