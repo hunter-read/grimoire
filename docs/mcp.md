@@ -115,7 +115,7 @@ and `[::1]` on any port, the host in `BASE_URL`, and any listed in `MCP_ALLOWED_
 (comma-separated, e.g. `nas.lan,192.168.1.20:9481`; a bare name allows any port). A browser's
 `Origin`, when one is sent, must name one of them too.
 
-The protocol is handled by the official [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk), so Grimoire speaks whatever revisions it supports: currently `2025-11-25`, `2025-06-18`, `2025-03-26` and `2024-11-05`.
+The protocol is handled by the official [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk), so Grimoire speaks whatever revisions it supports: currently `2026-07-28`, `2025-11-25`, `2025-06-18`, `2025-03-26` and `2024-11-05`. From `2026-07-28` the protocol is stateless - there is no `initialize`, and each request carries its own protocol version and client details - while the older revisions keep the `initialize` handshake.
 
 ## Troubleshooting
 

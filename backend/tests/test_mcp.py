@@ -84,7 +84,9 @@ class TestHandshake:
         assert "TTRPG" in result["instructions"] or "tabletop" in result["instructions"]
 
     def test_initialize_counter_offers_latest_for_unknown_version(self, mcp_client, search_key):
-        from mcp.types import LATEST_PROTOCOL_VERSION
+        # The latest handshake version, not LATEST_PROTOCOL_VERSION: from
+        # 2026-07-28 the protocol is stateless and has no initialize at all.
+        from mcp_types.version import LATEST_HANDSHAKE_VERSION
 
         params = {
             "protocolVersion": "1999-01-01",
@@ -92,7 +94,7 @@ class TestHandshake:
             "clientInfo": {"name": "t", "version": "1"},
         }
         result = _rpc(mcp_client, search_key, "initialize", params)
-        assert result.json()["result"]["protocolVersion"] == LATEST_PROTOCOL_VERSION
+        assert result.json()["result"]["protocolVersion"] == LATEST_HANDSHAKE_VERSION
 
     def test_initialize_needs_client_info(self, mcp_client, search_key):
         error = _rpc(mcp_client, search_key, "initialize", {"protocolVersion": "2025-06-18"})
@@ -329,6 +331,52 @@ class TestInternalErrors:
         assert "secret" not in str(error)
 
 
+class TestStatelessProtocol:
+    """From 2026-07-28 there is no initialize: every request names its version
+    and client in ``_meta``."""
+
+    MODERN = "2026-07-28"
+
+    def _modern_call(self, c, key, name, arguments):
+        from mcp_types import (
+            CLIENT_CAPABILITIES_META_KEY,
+            CLIENT_INFO_META_KEY,
+            PROTOCOL_VERSION_META_KEY,
+        )
+
+        meta = {
+            PROTOCOL_VERSION_META_KEY: self.MODERN,
+            CLIENT_INFO_META_KEY: {"name": "t", "version": "1"},
+            CLIENT_CAPABILITIES_META_KEY: {},
+        }
+        params = {"name": name, "arguments": arguments, "_meta": meta}
+        headers = {"MCP-Protocol-Version": self.MODERN, "Mcp-Method": "tools/call", "Mcp-Name": name}
+        return _rpc(c, key, "tools/call", params, headers=headers)
+
+    def test_tools_call(self, mcp_client, search_key, indexed_book):
+        resp = self._modern_call(mcp_client, search_key, "search_library", {"query": WORD})
+        assert resp.status_code == 200, resp.text
+        result = resp.json()["result"]
+        assert result["isError"] is False
+        assert WORD in result["content"][0]["text"]
+
+    def test_tools_call_does_not_list_tools_first(
+        self, mcp_client, search_key, indexed_book, monkeypatch
+    ):
+        # The SDK checks Mcp-Param-* headers against the tool's schema; it gets
+        # that from _tool_input_schema rather than a whole tools/list per call.
+        listed = []
+        monkeypatch.setattr(server, "list_tools", lambda ctx: listed.append(ctx) or [])
+        resp = self._modern_call(mcp_client, search_key, "search_library", {"query": WORD})
+        assert resp.status_code == 200, resp.text
+        assert listed == []
+
+    def test_schema_lookup(self):
+        schema = server._tool_input_schema("search_library")
+        assert schema is not None and "query" in schema["properties"]
+        assert server._tool_input_schema("nope") is None
+
+
 class TestHasLevel:
     def test_levels(self):
         assert api_keys.has_level({"search": "write"}, "search", "read")
@@ -421,7 +469,6 @@ def test_the_sdk_client_connects_over_http(search_key, indexed_book):
             async with streamable_http_client(f"http://127.0.0.1:{port}/mcp", http_client=http) as (
                 read,
                 write,
-                _,
             ):
                 async with ClientSession(read, write) as session:
                     init = await session.initialize()
@@ -434,9 +481,9 @@ def test_the_sdk_client_connects_over_http(search_key, indexed_book):
     finally:
         uv.should_exit = True
         thread.join(timeout=10)
-    assert init.serverInfo.name == "grimoire"
+    assert init.server_info.name == "grimoire"
     assert "search_library" in {t.name for t in listed.tools}
-    assert found.isError is False
+    assert found.is_error is False
     assert WORD in found.content[0].text
 
 

@@ -28,6 +28,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Updated FastAPI, Pydantic and Uvicorn. API keys keep exactly the access they had
 - The image builds its frontend with Node 22, the version CI tests with; Node 20 is end of life. Running from source now needs Node 22 or newer
 - The MCP server now runs on the official MCP Python SDK instead of Grimoire's own protocol code, and also accepts the older `2024-11-05` protocol revision. Tools, resources, prompts and API-key permissions are unchanged
+- The MCP server also speaks the `2026-07-28` protocol revision, the stateless one with no `initialize` step, so newer assistants connect on it. Older revisions still work, and tools, resources, prompts and API-key permissions are unchanged
 - Updated the frontend to React 19, along with its build, test and lint tooling
 - For contributors: the frontend is moving to TypeScript. Its API client is now typed from the backend's OpenAPI schema, so a change to a request or response shows up as a type error in the same pull request, and new or changed frontend files are written in TypeScript. See the TypeScript docs
 - For contributors: importing a backend module no longer starts Grimoire. `backend.config` only reads settings; creating the data folders, migrating the database and connecting to Valkey happen in `config.startup()`, which the app runs as it starts. Scripts and workers can import settings without touching the database. See the architecture docs

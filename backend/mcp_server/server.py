@@ -19,19 +19,20 @@ with ``MCP_ENABLED`` off never loads the SDK.
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 import anyio
 from mcp import types
+from mcp.server.context import ServerRequestContext
 from mcp.server.lowlevel import Server
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
-from mcp.shared.exceptions import McpError
+from mcp.shared.exceptions import MCPError
 
 from .. import config
 from ..auth import CurrentUser
 from . import prompts, resources
 from .errors import INTERNAL_ERROR, INVALID_PARAMS, ProtocolError
-from .tools import ToolContext, call_tool, list_tools
+from .tools import TOOLS, ToolContext, call_tool, list_tools
 
 logger = logging.getLogger("grimoire.mcp")
 
@@ -53,9 +54,9 @@ INSTRUCTIONS = (
 def _run_in_context(principal: Any, work: Callable[[ToolContext], dict[str, Any]]) -> dict[str, Any]:
     """Run ``work`` for ``principal`` with a DB session of its own (in a worker thread).
 
-    Errors leave as McpError so the SDK answers with a JSON-RPC error. Anything
-    unexpected is logged and answered with a bare "Internal error": the SDK
-    would otherwise send the exception's own text to the client.
+    Errors leave as MCPError so the SDK answers with a JSON-RPC error. Anything
+    unexpected is logged and answered with a bare "Internal error" rather than
+    the exception's own text.
     """
     db = config.SessionLocal()
     try:
@@ -72,88 +73,116 @@ def _run_in_context(principal: Any, work: Callable[[ToolContext], dict[str, Any]
         )
         return work(ctx)
     except ProtocolError as exc:
-        raise McpError(types.ErrorData(code=exc.code, message=exc.message)) from exc
+        raise MCPError(code=exc.code, message=exc.message) from exc
     except Exception as exc:
         db.rollback()
         logger.exception("MCP request failed")
-        raise McpError(types.ErrorData(code=INTERNAL_ERROR, message="Internal error")) from exc
+        raise MCPError(code=INTERNAL_ERROR, message="Internal error") from exc
     finally:
         db.close()
 
 
-def build_server() -> Server:
+async def _answer(
+    request_ctx: ServerRequestContext[Any, Any], work: Callable[[ToolContext], dict[str, Any]]
+) -> dict[str, Any]:
+    """Run ``work`` for the API key behind this request, off the event loop."""
+    request = request_ctx.request
+    assert request is not None  # set for every call over the HTTP transport
+    principal = getattr(request.state, PRINCIPAL_STATE)
+    # Tools run blocking DB queries and renders; keep them off the event loop.
+    return await anyio.to_thread.run_sync(_run_in_context, principal, work)
+
+
+def _tool_input_schema(name: str) -> Optional[dict[str, Any]]:
+    """A tool's argument schema, for the SDK's ``Mcp-Param-*`` header check.
+
+    Schemas are the same for every caller, so the SDK can look one up here
+    instead of running a whole ``tools/list`` (a DB session and a permission
+    pass) ahead of each ``tools/call``.
+    """
+    tool = TOOLS.get(name)
+    return tool.definition()["inputSchema"] if tool else None
+
+
+# The SDK hands each handler the request context and the validated params.
+# Grimoire validates tool arguments with the tools' own Pydantic models and
+# words its own errors, so the handlers only adapt between the SDK's types
+# and the tools, resources and prompts modules.
+
+Ctx = ServerRequestContext[Any, Any]
+
+
+async def _tools_list(ctx: Ctx, params: Optional[types.PaginatedRequestParams]) -> types.ListToolsResult:
+    data = await _answer(ctx, lambda c: {"tools": list_tools(c)})
+    return types.ListToolsResult.model_validate(data)
+
+
+async def _tools_call(ctx: Ctx, params: types.CallToolRequestParams) -> types.CallToolResult:
+    name, arguments = params.name, params.arguments or {}
+
+    def run(c: ToolContext) -> dict[str, Any]:
+        outcome = call_tool(name, arguments, c)
+        if outcome is None:
+            raise ProtocolError(INVALID_PARAMS, f"Unknown tool: {name}")
+        return outcome
+
+    return types.CallToolResult.model_validate(await _answer(ctx, run))
+
+
+async def _resources_list(
+    ctx: Ctx, params: Optional[types.PaginatedRequestParams]
+) -> types.ListResourcesResult:
+    data = await _answer(ctx, lambda c: {"resources": resources.list_resources(c)})
+    return types.ListResourcesResult.model_validate(data)
+
+
+async def _templates_list(
+    ctx: Ctx, params: Optional[types.PaginatedRequestParams]
+) -> types.ListResourceTemplatesResult:
+    data = await _answer(ctx, lambda c: {"resourceTemplates": resources.list_templates(c)})
+    return types.ListResourceTemplatesResult.model_validate(data)
+
+
+async def _resources_read(ctx: Ctx, params: types.ReadResourceRequestParams) -> types.ReadResourceResult:
+    uri = str(params.uri)
+    data = await _answer(ctx, lambda c: resources.read_resource(uri, c))
+    return types.ReadResourceResult.model_validate(data)
+
+
+async def _prompts_list(ctx: Ctx, params: Optional[types.PaginatedRequestParams]) -> types.ListPromptsResult:
+    data = await _answer(ctx, lambda c: {"prompts": prompts.list_prompts(c)})
+    return types.ListPromptsResult.model_validate(data)
+
+
+async def _prompts_get(ctx: Ctx, params: types.GetPromptRequestParams) -> types.GetPromptResult:
+    name, arguments = params.name, params.arguments or {}
+    data = await _answer(ctx, lambda c: prompts.get_prompt(name, arguments, c))
+    return types.GetPromptResult.model_validate(data)
+
+
+async def _complete(ctx: Ctx, params: types.CompleteRequestParams) -> types.CompleteResult:
+    ref = params.ref.model_dump(mode="json")
+    argument = params.argument.model_dump(mode="json")
+    data = await _answer(ctx, lambda c: prompts.complete(ref, argument, c))
+    return types.CompleteResult.model_validate(data)
+
+
+def build_server() -> Server[Any]:
     """The low-level SDK server with Grimoire's handlers registered."""
-    server: Server = Server("grimoire", version=config.VERSION, instructions=INSTRUCTIONS)
-
-    async def answer(work: Callable[[ToolContext], dict[str, Any]]) -> dict[str, Any]:
-        request = server.request_context.request
-        assert request is not None  # set for every call over the HTTP transport
-        principal = getattr(request.state, PRINCIPAL_STATE)
-        # Tools run blocking DB queries and renders; keep them off the event loop.
-        return await anyio.to_thread.run_sync(_run_in_context, principal, work)
-
-    # Handlers are registered on request_handlers directly rather than through
-    # the SDK's decorators. The call_tool decorator validates arguments against
-    # a tool schema cache shared by every caller (tools/list differs per key)
-    # and turns every exception into a result carrying its raw message; Grimoire
-    # validates with the tools' own Pydantic models and words its own errors.
-
-    async def tools_list(req: types.ListToolsRequest) -> types.ServerResult:
-        data = await answer(lambda ctx: {"tools": list_tools(ctx)})
-        return types.ServerResult(types.ListToolsResult.model_validate(data))
-
-    async def tools_call(req: types.CallToolRequest) -> types.ServerResult:
-        name, arguments = req.params.name, req.params.arguments or {}
-
-        def run(ctx: ToolContext) -> dict[str, Any]:
-            outcome = call_tool(name, arguments, ctx)
-            if outcome is None:
-                raise ProtocolError(INVALID_PARAMS, f"Unknown tool: {name}")
-            return outcome
-
-        return types.ServerResult(types.CallToolResult.model_validate(await answer(run)))
-
-    async def resources_list(req: types.ListResourcesRequest) -> types.ServerResult:
-        data = await answer(lambda ctx: {"resources": resources.list_resources(ctx)})
-        return types.ServerResult(types.ListResourcesResult.model_validate(data))
-
-    async def templates_list(req: types.ListResourceTemplatesRequest) -> types.ServerResult:
-        data = await answer(lambda ctx: {"resourceTemplates": resources.list_templates(ctx)})
-        return types.ServerResult(types.ListResourceTemplatesResult.model_validate(data))
-
-    async def resources_read(req: types.ReadResourceRequest) -> types.ServerResult:
-        uri = str(req.params.uri)
-        data = await answer(lambda ctx: resources.read_resource(uri, ctx))
-        return types.ServerResult(types.ReadResourceResult.model_validate(data))
-
-    async def prompts_list(req: types.ListPromptsRequest) -> types.ServerResult:
-        data = await answer(lambda ctx: {"prompts": prompts.list_prompts(ctx)})
-        return types.ServerResult(types.ListPromptsResult.model_validate(data))
-
-    async def prompts_get(req: types.GetPromptRequest) -> types.ServerResult:
-        name, arguments = req.params.name, req.params.arguments or {}
-        data = await answer(lambda ctx: prompts.get_prompt(name, arguments, ctx))
-        return types.ServerResult(types.GetPromptResult.model_validate(data))
-
-    async def complete(req: types.CompleteRequest) -> types.ServerResult:
-        ref = req.params.ref.model_dump(mode="json")
-        argument = req.params.argument.model_dump(mode="json")
-        data = await answer(lambda ctx: prompts.complete(ref, argument, ctx))
-        return types.ServerResult(types.CompleteResult.model_validate(data))
-
-    server.request_handlers.update(
-        {
-            types.ListToolsRequest: tools_list,
-            types.CallToolRequest: tools_call,
-            types.ListResourcesRequest: resources_list,
-            types.ListResourceTemplatesRequest: templates_list,
-            types.ReadResourceRequest: resources_read,
-            types.ListPromptsRequest: prompts_list,
-            types.GetPromptRequest: prompts_get,
-            types.CompleteRequest: complete,
-        }
+    return Server(
+        "grimoire",
+        version=config.VERSION,
+        instructions=INSTRUCTIONS,
+        get_tool_input_schema=_tool_input_schema,
+        on_list_tools=_tools_list,
+        on_call_tool=_tools_call,
+        on_list_resources=_resources_list,
+        on_list_resource_templates=_templates_list,
+        on_read_resource=_resources_read,
+        on_list_prompts=_prompts_list,
+        on_get_prompt=_prompts_get,
+        on_completion=_complete,
     )
-    return server
 
 
 def build_session_manager() -> StreamableHTTPSessionManager:
