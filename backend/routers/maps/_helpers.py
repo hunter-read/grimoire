@@ -9,12 +9,12 @@ import re
 from pathlib import Path
 from typing import Any, Optional
 
-import fitz  # type: ignore[import-untyped]
 from PIL import Image as PILImage  # type: ignore[import-untyped]
 
 from ...config import PAGE_CACHE_DIR, valkey_client, logger, valkey_cache_set
 from ...indexer import MAP_OPAQUE_EXTS, VTT_DATA_EXTS, archive_ext, map_video_mime
-from ..books._helpers import note_page_render, open_pdf
+from ...render import pool as render_pool
+from ...render.ops import PageOutOfRange
 from .vtt_authoring import VttDataError, normalize_vtt_data
 
 
@@ -75,22 +75,10 @@ def render_map_pdf_page(filepath: str, page_num: int, width: int) -> bytes:
         valkey_cache_set(valkey_key, data)
         return data
 
-    with open_pdf(filepath) as doc:
-        if page_num < 1 or page_num > len(doc):
-            raise ValueError(f"Page must be between 1 and {len(doc)}")
-        page = doc[page_num - 1]
-        zoom = width / page.rect.width
-        pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
-        img = PILImage.frombytes("RGB", (pix.width, pix.height), pix.samples)
-        del pix, page
-    # Encoded outside open_pdf() so the document's lock isn't held through it.
-    buf = io.BytesIO()
-    img.save(buf, format="webp", quality=85, method=0)
-    img_bytes = buf.getvalue()
-    del img
-    # Shares the books' reclaim counter: both paths rasterize through the same
-    # process-global MuPDF store, so they must be accounted for together.
-    note_page_render()
+    try:
+        img_bytes = render_pool.render_page(filepath, page_num, width)
+    except PageOutOfRange as e:
+        raise ValueError(str(e)) from None
 
     if not valkey_cache_set(valkey_key, img_bytes):
         with open(cache_path, "wb") as f:
@@ -176,17 +164,16 @@ def _map_image_info(
     if _is_pdf(filepath):
         info["is_pdf"] = True
         try:
-            with open_pdf(filepath) as doc:
-                info["page_count"] = len(doc)
-                if len(doc):
-                    rect = doc[0].rect
-                    # PDF user-space units are 1/72". Report page-1 pixel size at 72
-                    # DPI (i.e. the point dimensions) so grid detection can run.
-                    info["pixel_width"] = round(rect.width)
-                    info["pixel_height"] = round(rect.height)
-                    info["dpi"] = 72
+            doc_info = render_pool.document_info(filepath)
         except Exception:
             return info
+        info["page_count"] = doc_info["page_count"]
+        if doc_info["page_count"]:
+            # PDF user-space units are 1/72". Report page-1 pixel size at 72
+            # DPI (i.e. the point dimensions) so grid detection can run.
+            info["pixel_width"] = round(doc_info["width"])
+            info["pixel_height"] = round(doc_info["height"])
+            info["dpi"] = 72
     else:
         try:
             img = PILImage.open(filepath)

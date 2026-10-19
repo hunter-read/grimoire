@@ -118,7 +118,7 @@ class TestInvalidateBookContent:
         with (
             patch.object(content_cache, "PAGE_CACHE_DIR", tmp),
             patch.object(content_cache, "purge_valkey_keys", return_value=3) as purge,
-            patch("backend.routers.books._helpers.evict_pdf") as evict,
+            patch("backend.render.pool.evict") as evict,
         ):
             content_cache.invalidate_book_content("book-123", filepath, db=db)
 
@@ -135,7 +135,7 @@ class TestInvalidateBookContent:
         with (
             patch.object(content_cache, "PAGE_CACHE_DIR", tmp),
             patch.object(content_cache, "purge_valkey_keys", return_value=0),
-            patch("backend.routers.books._helpers.evict_pdf"),
+            patch("backend.render.pool.evict"),
         ):
             content_cache.invalidate_book_content("b", "/library/x.pdf", thumb_path=thumb)
 
@@ -151,7 +151,7 @@ class TestInvalidateBookContent:
         with (
             patch.object(content_cache, "PAGE_CACHE_DIR", tmp),
             patch.object(content_cache, "purge_valkey_keys", side_effect=Exception("down")),
-            patch("backend.routers.books._helpers.evict_pdf"),
+            patch("backend.render.pool.evict"),
         ):
             try:
                 content_cache.invalidate_book_content("b", filepath)
@@ -183,7 +183,7 @@ class TestInvalidateBookContent:
         with (
             patch.object(content_cache, "purge_valkey_keys", side_effect=Exception("down")),
             patch.object(content_cache, "purge_disk_pages", side_effect=OSError("disk gone")),
-            patch("backend.routers.books._helpers.evict_pdf", side_effect=Exception("boom")),
+            patch("backend.render.pool.evict", side_effect=Exception("boom")),
         ):
             content_cache.invalidate_book_content("b", "/library/x.pdf", db=db, thumb_path=thumb)
 

@@ -11,13 +11,17 @@ page-sized image, or a scan - ``detect_raster`` looks at the pixels instead.
 What comes back is a set of *suggestions*: the user can drop or adjust any of
 them before exporting.
 """
+import logging
 from dataclasses import dataclass
 
 import fitz  # type: ignore[import-untyped]
 
-from ...config import logger
 from .detect_raster import detect_raster_shapes
 from .spec import Shape
+
+# Not backend.config's logger (the same one): render workers import this module,
+# and they import nothing from the app beyond what rendering needs.
+logger = logging.getLogger("grimoire")
 
 # Anything covering more of the page than this is a background or a full-page
 # illustration, not a piece to cut out.

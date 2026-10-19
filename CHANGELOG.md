@@ -17,6 +17,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Password rules: new account passwords need at least 12 characters and new share-link passwords at least 8, and commonly used passwords are refused (checked against a list that ships with Grimoire, nothing leaves your server). Set `PASSWORD_MIN_LENGTH` and `SHARE_LINK_PASSWORD_MIN_LENGTH` to change the minimums. Passwords you already have keep working
 - Failed sign-ins are also counted per account, and wrong share-link passwords per link, whatever address they come from (`ACCOUNT_RATE_LIMIT`, default `20/hour`). A browser you have signed in from before keeps its own count
 - `TRUSTED_PROXIES` lists the reverse proxies whose `X-Forwarded-For` Grimoire reads. The default covers proxies and tunnels on the same host, Docker network or LAN, so most installs need no change. If a proxy reaches Grimoire from a public address - a VPS, or Cloudflare's proxy without Cloudflare Tunnel - add its addresses; see the security docs
+- Book pages are now rendered in a separate process, so a damaged PDF that crashes the PDF library fails that one page instead of stopping Grimoire. The same goes for a book's table of contents and for exporting pages and cut-outs. `RENDER_WORKERS` sets how many render processes run (default `1`); more render different books in parallel on multi-core hosts, and `0` keeps rendering inside Grimoire. Render processes stop when nobody is reading. See the performance docs
 
 ### Changed
 

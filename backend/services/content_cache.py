@@ -109,10 +109,11 @@ def invalidate_book_content(
         removed = 0
 
     # The open fitz handle still points at the replaced file's inode.
-    from ..routers.books._helpers import _invalidate_book_cache, evict_pdf
+    from ..render import pool as render_pool
+    from ..routers.books._helpers import _invalidate_book_cache
 
     try:
-        evict_pdf(filepath)
+        render_pool.evict(filepath)
     except Exception as e:
         logger.warning(f"Could not evict cached PDF handle for {filepath}: {e}")
 

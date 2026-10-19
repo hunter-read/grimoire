@@ -174,7 +174,7 @@ class TestTileCaching:
         def no_render(*_a, **_k):  # pragma: no cover - the failure being tested
             raise AssertionError("rendered again instead of using the cache")
 
-        monkeypatch.setattr(tiles, "open_pdf", no_render)
+        monkeypatch.setattr(tiles.render_pool, "render_tile", no_render)
         second = _tile(client, admin_headers, book, 0, 0)
         assert second.status_code == 200
         assert second.content == first.content

@@ -46,6 +46,8 @@ module = [
     "backend.indexer.*",
     "backend.mcp_server",
     "backend.mcp_server.*",
+    "backend.render",
+    "backend.render.*",
     "backend.models.*",
     "backend.services",
     "backend.services.*",

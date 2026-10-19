@@ -10,14 +10,10 @@ most, so a tile costs the same few MB whatever the zoom.
 pick a TILE_SIZE square of that virtual image, counted from the top left. Tiles
 on the right and bottom edges are cut to what is left of the page.
 """
-import io
-import math
 import os
 
-import fitz  # type: ignore[import-untyped]
 from fastapi import Depends, HTTPException, Query, Request
 from fastapi.responses import Response
-from PIL import Image  # type: ignore[import-untyped]
 from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, get_current_user
@@ -25,34 +21,17 @@ from ...config import _PAGE_CACHE_HEADERS, PAGE_CACHE_DIR, get_db
 from ...file_cache import etag_matches
 from ...indexer.formats import is_fitz_mime
 from ...services.content_cache import content_token, page_cache_prefix
-from ._helpers import _cached_book_info, open_pdf
-from ._render_cache import serve_cached_render
+from ...render import pool as render_pool
+from ...render.ops import TILE_SIZE, tile_clip, tile_grid  # noqa: F401  re-exported
+from ._helpers import _cached_book_info
+from ._render_cache import render_errors, serve_cached_render
 from .pages import _authorize_book, _mark_missing
 
-TILE_SIZE = 1024
 # Virtual page widths come in steps of this, so a page has a bounded number of
 # tile sets to cache rather than one per pixel of window width.
 WIDTH_STEP = 256
 MIN_WIDTH = WIDTH_STEP
 MAX_WIDTH = 16384
-
-
-def tile_grid(page_rect: fitz.Rect, width: int) -> tuple[int, int]:
-    """(columns, rows) of tiles covering the page rendered ``width`` pixels wide."""
-    height = page_rect.height * width / page_rect.width
-    return math.ceil(width / TILE_SIZE), math.ceil(height / TILE_SIZE)
-
-
-def tile_clip(page_rect: fitz.Rect, width: int, col: int, row: int) -> fitz.Rect:
-    """The area of the page, in page coordinates, that tile ``col``/``row`` shows."""
-    scale = width / page_rect.width
-    height = page_rect.height * scale
-    return fitz.Rect(
-        page_rect.x0 + col * TILE_SIZE / scale,
-        page_rect.y0 + row * TILE_SIZE / scale,
-        page_rect.x0 + min((col + 1) * TILE_SIZE, width) / scale,
-        page_rect.y0 + min((row + 1) * TILE_SIZE, height) / scale,
-    )
 
 
 def serve_book_page_tile(
@@ -93,28 +72,7 @@ def serve_book_page_tile(
         if not os.path.exists(filepath):
             _mark_missing(db, book_id)
             raise HTTPException(404, "File not found on disk")
-        with open_pdf(filepath) as doc:
-            if page_num < 1 or page_num > len(doc):
-                raise HTTPException(400, f"Page must be between 1 and {len(doc)}")
-            page = doc[page_num - 1]
-            cols, rows = tile_grid(page.rect, width)
-            if col >= cols or row >= rows:
-                raise HTTPException(400, f"This page has {cols}x{rows} tiles at width {width}")
-            scale = width / page.rect.width
-            pix = page.get_pixmap(
-                matrix=fitz.Matrix(scale, scale),
-                clip=tile_clip(page.rect, width, col, row),
-                alpha=False,
-            )
-            img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
-            del pix, page
-        # Encoded outside open_pdf(): a zoomed view asks for several tiles of
-        # one book at once, and their encodes can run in parallel.
-        buf = io.BytesIO()
-        img.save(buf, format="webp", quality=85, method=0)
-        # Not counted by note_page_render(): a zoomed view asks for several
-        # tiles of one page, and reclaiming between them would drop the decoded
-        # images the next tile needs. The page turns around them still count.
-        return buf.getvalue()
+        with render_errors("This tile could not be rendered"):
+            return render_pool.render_tile(filepath, page_num, width, col, row)
 
     return serve_cached_render(valkey_key, cache_path, headers, render)

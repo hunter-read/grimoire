@@ -56,11 +56,27 @@ Edited a PDF in place (embedded encounter notes, added errata)? Its search index
 
 PDFs are rendered page-by-page server-side as WebP images rather than streamed as raw files. This keeps the viewer fast on mobile and avoids loading large files into the browser. Switch to the native PDF viewer anytime via the toolbar.
 
+Pages are rendered in separate render worker processes, not in Grimoire itself, as are tables of contents and exports. If a damaged PDF crashes the PDF library, only that page (or export) fails: the worker is replaced and Grimoire keeps running. A worker starts when someone opens a page and stops once nobody has read anything for `PAGE_IDLE_RELEASE` seconds.
+
+**`RENDER_WORKERS`** (default `1`) sets how many there are. Each book is always rendered by the same worker, so a second worker helps when several people read *different* books at once. Turning 12 pages in each of 8 illustrated books at once on a 10-core machine:
+
+| `RENDER_WORKERS` | Pages per second |
+|---|---|
+| `0` (inside Grimoire, the old behaviour) | 10.8 |
+| `1` | 12.3 |
+| `2` | 19.1 |
+| `4` | 23.4 |
+
+Four workers fall short of four times one because books are shared out by a hash of their path, not by load: with 8 books, one worker got 4 of them and another none. More workers than CPU cores never helps. `RENDER_WORKERS` is cheaper than raising `WORKERS` for render speed: a render worker is about 50 MB plus what it is rendering, against 125-190 MB for a whole extra app worker.
+
+Set `RENDER_WORKERS=0` on a host that is very short of memory: rendering then happens inside Grimoire as it used to, without the crash protection. See [Memory use](#memory-use) for the trade-off.
+
 ## Memory use
 
 Out of the box Grimoire runs a single worker process and settles at roughly 250 MB once your library is scanned. Reading adds to that temporarily: rendering an illustrated page decodes its images to full size, which can take a few hundred MB while someone is turning pages. Grimoire hands that memory back automatically - every `PAGE_RECLAIM_INTERVAL` renders, and again once nobody has read anything for `PAGE_IDLE_RELEASE` seconds - so it returns to its idle footprint after a reading session.
 
 - **`WORKERS`** - see [Workers](#workers) below.
+- **`RENDER_WORKERS`** - render workers exist only while someone is reading, but while they do, each costs about 50 MB on top of the memory its renders use, and its peak is higher than the same renders inside Grimoire would be (measured: about 415 MB in the worker against about 255 MB of growth in Grimoire, reading three illustrated books). Once reading stops the workers exit and Grimoire is back to its idle size - slightly below where in-process rendering settles, since none of the render memory was ever in Grimoire itself. `RENDER_WORKERS=0` trades the crash protection for the lower peak.
 - **`PAGE_RECLAIM_INTERVAL`** - lower it (e.g. `3`) to keep peaks down when several people read at once; it costs a few percent of render speed.
 - **`OCR_CONCURRENCY`** - each parallel OCR job adds 50-250 MB while it runs (see [Speeding up OCR](#speeding-up-ocr)).
 

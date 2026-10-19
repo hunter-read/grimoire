@@ -10,15 +10,15 @@ import os
 from typing import Literal
 from urllib.parse import quote
 
-import fitz  # type: ignore[import-untyped]
 from fastapi import HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from ..config import logger
-from ..indexer.formats import open_document
+from ..render import pool as render_pool
 from ..services import library_fs as fs
 from ..services import page_export as pe
+from .books._render_cache import render_errors
 
 # Mirrors the file manager's mapping, so a save into the library fails with the
 # same status a plain upload into that folder would.
@@ -100,28 +100,17 @@ def _content_disposition(name: str) -> str:
 
 
 def _produce(filepath: str, title: str, req: ExportRequest) -> tuple[list[pe.ExportFile], str]:
-    """Run an export, returning its files and the name a zip of them would take."""
-    doc = open_document(filepath)
+    """Run an export, returning its files and the name a zip of them would take.
+
+    It runs in a process of its own (see ``render.pool.export``), so a file
+    that crashes MuPDF fails this export rather than the server.
+    """
+    spec = req.model_dump(include=set(ExportRequest.model_fields))
     try:
-        stem = pe.safe_stem(title)
-        if req.kind == "pages":
-            pages = pe.parse_page_spec(req.pages, len(doc))
-            files = pe.export_pages(
-                doc, title, pages, req.format, req.dpi, req.join_spreads, req.spread_offset
-            )
-            return files, f"{stem} ({pe.page_label(pages)})"
-        regions = [
-            pe.Region(
-                pages=tuple(r.pages), shape=r.shape, x=r.x, y=r.y, w=r.w, h=r.h, name=r.name
-            )
-            for r in req.regions
-        ]
-        files = pe.export_regions(doc, title, regions, req.format, req.dpi)
-        return files, f"{stem} (cut-outs)"
+        with render_errors("This export could not be made"):
+            return render_pool.export(filepath, title, spec)
     except pe.ExportError as e:
         raise HTTPException(400, str(e)) from e
-    finally:
-        doc.close()
 
 
 def export_response(filepath: str, title: str, req: ExportRequest) -> Response:
@@ -166,43 +155,21 @@ def save_export(filepath: str, title: str, req: SaveExportRequest) -> SaveExport
     return SaveExportResponse(folder=req.destination, saved=saved)
 
 
-def _open_page(filepath: str, page_num: int) -> tuple[fitz.Document, fitz.Page]:
+def _require_file(filepath: str) -> None:
     if not os.path.exists(filepath):
         raise HTTPException(404, "File not found on disk")
-    doc = open_document(filepath)
-    if page_num < 1 or page_num > len(doc):
-        count = len(doc)
-        doc.close()
-        raise HTTPException(400, f"Page must be between 1 and {count}")
-    return doc, doc[page_num - 1]
 
 
 def page_size(filepath: str, page_num: int) -> PageSizeResponse:
     """A page's size in PDF points, for showing what a resolution will produce."""
-    doc, page = _open_page(filepath, page_num)
-    try:
-        return PageSizeResponse(width=page.rect.width, height=page.rect.height)
-    finally:
-        doc.close()
+    _require_file(filepath)
+    with render_errors("This page could not be read"):
+        return PageSizeResponse(**render_pool.export_page_size(filepath, page_num))
 
 
 def detect_page_shapes(filepath: str, page_num: int) -> DetectShapesResponse:
     """Suggested cut-outs for one page, as fractions of the page."""
-    doc, page = _open_page(filepath, page_num)
-    try:
-        width, height = page.rect.width, page.rect.height
-        found = pe.detect_shapes(doc, page_num)
-        return DetectShapesResponse(
-            shapes=[
-                DetectedShape(
-                    shape=f.shape,
-                    x=(f.rect.x0 - page.rect.x0) / width,
-                    y=(f.rect.y0 - page.rect.y0) / height,
-                    w=f.rect.width / width,
-                    h=f.rect.height / height,
-                )
-                for f in found
-            ]
-        )
-    finally:
-        doc.close()
+    _require_file(filepath)
+    with render_errors("Shapes could not be found on this page"):
+        found = render_pool.detect_shapes(filepath, page_num)
+    return DetectShapesResponse(shapes=[DetectedShape(**shape) for shape in found])
