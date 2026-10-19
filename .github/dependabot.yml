@@ -4,10 +4,10 @@
 version: 2
 updates:
   - package-ecosystem: pip
-    # / holds requirements-test.txt; /backend holds the runtime pins.
-    directories:
-      - /
-      - /backend
+    # / holds requirements-test.txt, and Dependabot's scan from / also finds
+    # backend/requirements.txt (the runtime pins). Listing /backend as well
+    # opened every runtime bump twice.
+    directory: /
     schedule:
       interval: weekly
     labels: [dependencies]
@@ -21,6 +21,13 @@ updates:
         patterns: [fastapi, starlette, "uvicorn*", "pydantic*"]
       minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      # passlib 1.7.4 (unmaintained) breaks on bcrypt 5: its wrap-bug probe
+      # hashes a >72-byte password, which bcrypt 5 rejects with ValueError, so
+      # no password can be hashed or verified. bcrypt stays on 4.x until
+      # backend/auth.py stops depending on passlib.
+      - dependency-name: bcrypt
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: npm
     directory: /frontend
