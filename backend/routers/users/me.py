@@ -42,6 +42,10 @@ def update_own_preferences(
     if not user:
         raise HTTPException(404, "User not found")
     if data.allow_explicit is not None:
+        if data.allow_explicit and user.explicit_locked:
+            raise HTTPException(
+                403, "An admin has turned explicit content off for your account"
+            )
         user.allow_explicit = data.allow_explicit
     if data.display_name is not None:
         user.display_name = data.display_name.strip() or None
@@ -58,6 +62,7 @@ def update_own_preferences(
     db.commit()
     return {
         "allow_explicit": user.allow_explicit,
+        "explicit_locked": bool(user.explicit_locked),
         "display_name": user.display_name,
         "email": user.email,
     }

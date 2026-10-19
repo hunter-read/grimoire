@@ -36,6 +36,7 @@ from fastapi import Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
+from ...http_headers import content_disposition
 from ... import config
 from ...auth import CurrentUser, get_current_user
 from ...config import get_db
@@ -463,7 +464,7 @@ def export_wiki_template(
     return Response(
         content=buf.getvalue(),
         media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{slug}.zip"'},
+        headers={"Content-Disposition": content_disposition(f"{slug}.zip")},
     )
 
 

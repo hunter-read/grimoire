@@ -162,12 +162,28 @@ def _secret_key() -> str:
 AUTH_COOKIE_NAME = "grimoire_session"
 
 # Mark the cookie Secure whenever the instance is served over HTTPS, so it is
-# never sent over plaintext. Derived from BASE_URL — a bare "http://" self-host
-# (e.g. behind a LAN reverse proxy without TLS) still needs the cookie to be
-# sent, so Secure is off there.
+# never sent over plaintext. An https:// BASE_URL settles it for every response;
+# without one, each response decides from its own request (cookie_secure). A
+# bare "http://" self-host (e.g. behind a LAN reverse proxy without TLS) still
+# needs the cookie to be sent, so Secure is off there.
 COOKIE_SECURE = os.environ.get("BASE_URL", "http://localhost:9481").lower().startswith(
     "https://"
 )
+
+
+def cookie_secure(request: Optional[Request] = None) -> bool:
+    """Whether a cookie set in response to ``request`` should be Secure.
+
+    BASE_URL used to be the only signal, so an HTTPS site behind a proxy with no
+    BASE_URL set sent every auth cookie without Secure. Now the request counts
+    too: HTTPS on the connection, or ``X-Forwarded-Proto: https`` from a trusted
+    proxy (see ``security.request_is_https``).
+    """
+    if COOKIE_SECURE:
+        return True
+    from .security import request_is_https
+
+    return request_is_https(request)
 
 # bcrypt_sha256 pre-hashes with SHA-256 so passwords >72 chars are handled correctly
 pwd_context = CryptContext(
@@ -230,38 +246,38 @@ def decode_token(token: str) -> dict:
     return jwt.decode(token, _secret_key(), algorithms=[ALGORITHM])
 
 
-def set_auth_cookie(response: Response, token: str) -> None:
+def set_auth_cookie(response: Response, token: str, request: Optional[Request] = None) -> None:
     """Attach the session JWT as an HttpOnly cookie on a login/setup response.
 
     HttpOnly keeps it out of reach of JS (XSS can't exfiltrate it); SameSite=Lax
     prevents it riding cross-site requests (CSRF) while still being sent on the
     top-level navigations that download links rely on; Secure is set when served
-    over HTTPS. Lifetime matches the JWT's own expiry.
+    over HTTPS (see ``cookie_secure``). Lifetime matches the JWT's own expiry.
     """
     response.set_cookie(
         AUTH_COOKIE_NAME,
         token,
         max_age=TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
         httponly=True,
-        secure=COOKIE_SECURE,
+        secure=cookie_secure(request),
         samesite="lax",
         path="/",
     )
 
 
-def clear_auth_cookie(response: Response) -> None:
+def clear_auth_cookie(response: Response, request: Optional[Request] = None) -> None:
     """Remove the session cookie (logout). Attributes must match set_auth_cookie
     so the browser matches and deletes the right cookie."""
     response.delete_cookie(
         AUTH_COOKIE_NAME,
         httponly=True,
-        secure=COOKIE_SECURE,
+        secure=cookie_secure(request),
         samesite="lax",
         path="/",
     )
 
 
-def set_refresh_cookie(response: Response, token: str) -> None:
+def set_refresh_cookie(response: Response, token: str, request: Optional[Request] = None) -> None:
     """Attach the refresh token as an HttpOnly cookie.
 
     Scoped to ``/api/auth`` rather than ``/`` so the long-lived credential is
@@ -277,20 +293,20 @@ def set_refresh_cookie(response: Response, token: str) -> None:
         token,
         max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
         httponly=True,
-        secure=COOKIE_SECURE,
+        secure=cookie_secure(request),
         samesite="strict",
         path=REFRESH_COOKIE_PATH,
     )
 
 
-def clear_refresh_cookie(response: Response) -> None:
+def clear_refresh_cookie(response: Response, request: Optional[Request] = None) -> None:
     """Remove the refresh cookie. Attributes must match set_refresh_cookie."""
     from .sessions import REFRESH_COOKIE_NAME, REFRESH_COOKIE_PATH
 
     response.delete_cookie(
         REFRESH_COOKIE_NAME,
         httponly=True,
-        secure=COOKIE_SECURE,
+        secure=cookie_secure(request),
         samesite="strict",
         path=REFRESH_COOKIE_PATH,
     )
@@ -324,6 +340,11 @@ class CurrentUser:
         return self.api_key_id is not None
 
 
+# Methods on which the session cookie or ?token= may stand in for the
+# Authorization header (see get_current_user).
+_AMBIENT_AUTH_METHODS = frozenset({"GET", "HEAD"})
+
+
 def get_current_user(
     request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
@@ -355,7 +376,16 @@ def get_current_user(
     # Header (normal API calls) → cookie (image/download GETs) → ?token= query
     # param. The query param is a deprecated fallback kept only so pre-existing
     # links/clients keep working; new clients should never put the JWT in a URL.
-    raw = (credentials.credentials if credentials else None) or cookie_token or token
+    #
+    # The cookie and the query param only count for reads. A browser attaches
+    # the cookie by itself, and SameSite=Lax still lets a page on a sibling
+    # subdomain (same *site*) send a cookie-bearing POST, so accepting it on a
+    # write would make every write route a CSRF target. The SPA always sends
+    # the Authorization header, which no other page can add for it.
+    ambient = cookie_token or token
+    if request.method not in _AMBIENT_AUTH_METHODS:
+        ambient = None
+    raw = (credentials.credentials if credentials else None) or ambient
     if not raw:
         raise HTTPException(401, "Not authenticated")
 

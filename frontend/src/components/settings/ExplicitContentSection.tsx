@@ -7,16 +7,21 @@ import { useAuth } from '../../context/AuthContext'
 
 export default function ExplicitContentSection() {
   const { t } = useTranslation()
-  const { user, refreshUser } = useAuth()
+  const auth = useAuth()
+  // The shorter user a login returns has neither field; /auth/me has both.
+  const me = auth?.user && 'allow_explicit' in auth.user ? auth.user : null
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const allowed = user?.allow_explicit ?? true
+  const allowed = me?.allow_explicit ?? true
+  // Turned off by an admin or the sign-in provider: shown, but not changeable
+  // back on from here (the server refuses it too).
+  const locked = !allowed && !!me?.explicit_locked
 
   const toggle = async () => {
     setSaving(true)
     try {
       await api.patch('/users/me/preferences', { allow_explicit: !allowed })
-      await refreshUser()
+      await auth?.refreshUser()
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     } finally {
@@ -48,7 +53,7 @@ export default function ExplicitContentSection() {
           display: 'flex',
           alignItems: 'center',
           gap: 10,
-          cursor: 'pointer',
+          cursor: locked ? 'not-allowed' : 'pointer',
           width: 'fit-content',
         }}
       >
@@ -57,14 +62,28 @@ export default function ExplicitContentSection() {
           type="checkbox"
           checked={allowed}
           onChange={toggle}
-          disabled={saving}
-          style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--gold)' }}
+          disabled={saving || locked}
+          aria-describedby={locked ? 'explicit-content-locked' : undefined}
+          style={{
+            width: 16,
+            height: 16,
+            cursor: locked ? 'not-allowed' : 'pointer',
+            accentColor: 'var(--gold)',
+          }}
         />
         <span style={{ fontSize: 14, color: 'var(--text)' }}>
           {t('userSettings.contentPreferences.showExplicit')}
         </span>
         {saving && <Spinner size={13} />}
       </label>
+      {locked && (
+        <p
+          id="explicit-content-locked"
+          style={{ fontSize: 13, color: 'var(--text-dim)', marginTop: 8 }}
+        >
+          {t('userSettings.contentPreferences.lockedHint')}
+        </p>
+      )}
     </div>
   )
 }

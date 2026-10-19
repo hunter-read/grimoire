@@ -4,6 +4,8 @@ import re
 from typing import Optional, List
 from pydantic import BaseModel, field_validator
 
+from .._link_urls import require_http_url
+
 # Icon tint accepted from clients: a preset palette token (resolved to a themed
 # CSS variable in the UI) or a "#rrggbb" literal. "" clears the tint.
 ICON_COLOR_PRESETS = frozenset(
@@ -80,6 +82,8 @@ class MemberStatusUpdate(BaseModel):
     status: Optional[str] = None  # accepted | declined
     character_name: Optional[str] = None
     character_sheet_url: Optional[str] = None  # "" clears it
+
+    _http_sheet_url = field_validator("character_sheet_url")(require_http_url)
 
 
 class ResourceAdd(BaseModel):

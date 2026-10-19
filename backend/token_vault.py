@@ -17,6 +17,10 @@ Each token is now stored twice, neither usable without SECRET_KEY:
 The two keys come from SECRET_KEY by HKDF with distinct labels, so neither
 reveals the other or the JWT signing key itself.
 
+Stored secrets that Grimoire itself has to send somewhere - the OIDC client
+secret it presents to the identity provider - are sealed the same way under a
+third label (:func:`seal_secret`), so a backup does not carry them either.
+
 Changing SECRET_KEY strands every stored token: lookups stop matching and
 ``unseal`` returns None, which callers show as "no token yet" so the owner can
 simply make a new one. That is the same trade sessions already make.
@@ -33,6 +37,7 @@ from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 _LOOKUP_LABEL = b"grimoire/bearer-token/lookup/v1"
 _SEAL_LABEL = b"grimoire/bearer-token/seal/v1"
+_SECRET_LABEL = b"grimoire/stored-secret/seal/v1"
 
 
 def _derive(secret: str, label: bytes) -> bytes:
@@ -75,5 +80,25 @@ def unseal(sealed: Optional[str]) -> Optional[str]:
     _, cipher = _keys(_secret())
     try:
         return cipher.decrypt(sealed.encode("ascii")).decode("utf-8")
+    except (InvalidToken, ValueError):
+        return None
+
+
+@lru_cache(maxsize=4)
+def _secret_cipher(secret: str) -> Fernet:
+    return Fernet(base64.urlsafe_b64encode(_derive(secret, _SECRET_LABEL)))
+
+
+def seal_secret(value: str) -> str:
+    """A stored secret (not a bearer token) encrypted under its own key."""
+    return _secret_cipher(_secret()).encrypt(value.encode("utf-8")).decode("ascii")
+
+
+def unseal_secret(sealed: Optional[str]) -> Optional[str]:
+    """The secret ``sealed`` holds; None if there is none or SECRET_KEY changed."""
+    if not sealed:
+        return None
+    try:
+        return _secret_cipher(_secret()).decrypt(sealed.encode("ascii")).decode("utf-8")
     except (InvalidToken, ValueError):
         return None

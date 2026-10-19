@@ -36,6 +36,25 @@ describe('RichTextEditor', () => {
     expect(screen.getByRole('textbox', { name: 'Body' }).innerHTML).toBe('<p>hello</p>')
   })
 
+  it('sanitises a stored value before it reaches the editable region', () => {
+    setup({ value: `<a href="/x" onmouseover="alert(1)">hi</a><img src=x onerror="alert(2)">` })
+    const html = screen.getByRole('textbox', { name: 'Body' }).innerHTML
+    expect(html).not.toContain('onmouseover')
+    expect(html).not.toContain('onerror')
+    expect(html).not.toContain('<img')
+    expect(html).toContain('href="/x"')
+  })
+
+  it('leaves the DOM alone when the value is what was just typed', () => {
+    const { rerender, onChange } = setup()
+    const box = screen.getByRole('textbox', { name: 'Body' })
+    // contentEditable output the sanitiser would rewrite (adds rel/target).
+    box.innerHTML = '<a href="/x">typed</a>'
+    const child = box.firstChild
+    rerender(<RichTextEditor value={box.innerHTML} onChange={onChange} ariaLabel="Body" />)
+    expect(box.firstChild).toBe(child)
+  })
+
   it.each([
     ['richText.bold', 'bold'],
     ['richText.italic', 'italic'],

@@ -1148,3 +1148,22 @@ class TestKeyInCampaigns:
             client.patch(
                 "/api/settings", json={"guest_access_enabled": False}, headers=admin_headers
             )
+
+
+class TestAdminShareLinkListings:
+    """The admin listings return every user's live share URLs, which are
+    credentials in their own right, so a key may not read them."""
+
+    def test_key_refused_on_admin_listings(self, client, admin_headers, admin_id):
+        key, _ = _create(client, admin_headers, {"*": "write"})
+        assert client.get("/api/share-links/all", headers=_k(key)).status_code == 403
+        assert (
+            client.get(f"/api/share-links/users/{admin_id}", headers=_k(key)).status_code == 403
+        )
+
+    def test_key_still_lists_own_links(self, client, admin_headers):
+        key, _ = _create(client, admin_headers, {"share-links": "read"})
+        assert client.get("/api/share-links", headers=_k(key)).status_code == 200
+
+    def test_session_still_lists_all(self, client, admin_headers):
+        assert client.get("/api/share-links/all", headers=admin_headers).status_code == 200

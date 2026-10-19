@@ -46,6 +46,7 @@ from fastapi import Depends, File, Form, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 from fastapi.responses import Response
 
+from ...http_headers import content_disposition
 from ...auth import CurrentUser, get_current_user
 from ...config import get_db
 from ...models import WikiPage
@@ -260,7 +261,7 @@ def export_wiki(
         return Response(
             content=data,
             media_type="application/json",
-            headers={"Content-Disposition": f'attachment; filename="{base}-wiki.json"'},
+            headers={"Content-Disposition": content_disposition(f"{base}-wiki.json")},
         )
 
     if format == "mdfile":
@@ -271,7 +272,7 @@ def export_wiki(
         return Response(
             content=text.encode("utf-8"),
             media_type="text/markdown; charset=utf-8",
-            headers={"Content-Disposition": f'attachment; filename="{base}-wiki.md"'},
+            headers={"Content-Disposition": content_disposition(f"{base}-wiki.md")},
         )
 
     # format == "md": a zip of one markdown file per page.
@@ -291,7 +292,7 @@ def export_wiki(
     return Response(
         content=buf.getvalue(),
         media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{base}-wiki.zip"'},
+        headers={"Content-Disposition": content_disposition(f"{base}-wiki.zip")},
     )
 
 
@@ -790,6 +791,13 @@ def _records_from_zip(data: bytes) -> tuple:
     foldered = _Foldered()
     lk_objs: list = []
     bundle = None
+    # Only the compressed upload is capped on the way in, and a small zip can
+    # inflate to gigabytes. So the same limits a folder import has apply to what
+    # comes out: a file count, and a running total of decompressed bytes,
+    # checked against each entry's declared size before it is inflated and
+    # enforced on the bytes actually read in case the declaration lies.
+    entries = 0
+    remaining = _MAX_IMPORT_BYTES
     with zf:
         for info in zf.infolist():
             if info.is_dir():
@@ -798,7 +806,16 @@ def _records_from_zip(data: bytes) -> tuple:
             base = fn.replace("\\", "/").rsplit("/", 1)[-1].lower()
             if base.startswith(".") or base == "index.json":
                 continue
-            raw = zf.read(info)
+            entries += 1
+            if entries > _MAX_IMPORT_FILES:
+                raise HTTPException(413, f"Too many files (limit {_MAX_IMPORT_FILES})")
+            if info.file_size > remaining:
+                raise HTTPException(413, "Archive is too large once unpacked")
+            with zf.open(info) as fh:
+                raw = fh.read(remaining + 1)
+            if len(raw) > remaining:
+                raise HTTPException(413, "Archive is too large once unpacked")
+            remaining -= len(raw)
             if base.endswith((".md", ".markdown", ".txt")):
                 foldered.add(fn, raw.decode("utf-8", "replace"))
             elif base.endswith(".json"):

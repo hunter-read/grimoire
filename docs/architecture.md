@@ -267,8 +267,10 @@ sequenceDiagram
     IdP-->>G: id_token + access_token
     G->>IdP: fetch JWKS, validate id_token (iss/aud/nonce)
     G->>IdP: GET /userinfo (merge groups/roles)
-    G->>G: resolve/register user, create Grimoire JWT
-    G-->>B: 302 return_to#oidc_token=<JWT>
+    G->>G: resolve/register user, open a session
+    G-->>B: 302 return_to + Set-Cookie (session, refresh)
+    B->>G: POST /api/auth/refresh (refresh cookie)
+    G-->>B: access token
 ```
 
 Notes:
@@ -281,13 +283,19 @@ Notes:
   [`routers/oidc/_helpers.py`](../backend/routers/oidc/_helpers.py) is an in-process dict
   with a 10-minute TTL. This is sufficient for a single replica; a multi-replica deployment
   would need a shared store (tracked for the Valkey-backed state/JWKS work).
-- **Callback** - `oidc_callback` validates `state`, exchanges the code for tokens, validates
-  the `id_token` against the IdP's JWKS (checking issuer/audience/nonce), optionally merges
-  `/userinfo` claims (some IdPs only expose groups there), resolves or auto-registers the
-  user, then mints a Grimoire JWT.
-- **Token handoff** - the JWT is returned in the redirect **URL fragment**
-  (`#oidc_token=...`) rather than a query param, so it isn't logged by intermediate proxies.
-  The frontend reads it from the fragment and stores it like any other token.
+- **Callback** - `oidc_callback` checks and spends `state` before anything else (an IdP
+  error included), exchanges the code for tokens, validates the `id_token` against the IdP's
+  JWKS (checking issuer/audience/nonce), optionally merges `/userinfo` claims (some IdPs only
+  expose groups there) - only when the userinfo `sub` matches the ID token's, and taking
+  `email` with its `email_verified` from one response or the other, never a mix - resolves
+  or auto-registers the user, then opens a session.
+- **Token handoff** - nothing travels in the URL. The callback sets the session and refresh
+  cookies and redirects to `return_to`; the SPA then resumes the session from the refresh
+  cookie exactly as it does for a returning user (`AuthContext`). An older build put the JWT
+  in the fragment (`#oidc_token=...`); the login page now only strips such a fragment, since
+  accepting one let a link sign a visitor in to another account.
+- **Errors** redirect to `/login?oidc_error=...`, URL-encoded. An IdP error is shown as a
+  fixed message per OAuth error code; its `error_description` is logged, not shown.
 
 ## Startup and migrations
 

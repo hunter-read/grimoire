@@ -1183,3 +1183,96 @@ class TestBearerTokensAtRest:
             path, "SELECT opds_token, calendar_token FROM users WHERE id = 'u1'"
         ) == (self.OPDS, self.CALENDAR)
         assert self._one(path, "SELECT token FROM share_links WHERE id = 'l1'") == (self.SHARE,)
+
+
+class TestOidcClientSecretAtRest:
+    """0048 seals a plaintext OIDC client secret in app_settings."""
+
+    SECRET = "plaintext-oidc-client-secret-value"
+
+    def _db_with_plaintext_secret(self, value=SECRET):
+        path = _fresh_db()
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            command.downgrade(_alembic_config(conn), "5e1b8c3a7d42")
+        with engine.begin() as conn:
+            conn.execute(
+                text("INSERT OR REPLACE INTO app_settings (key, value) VALUES (:k, :v)"),
+                {"k": "oidc_client_secret", "v": value},
+            )
+            conn.execute(text("DELETE FROM app_settings WHERE key = 'db_compact_pending'"))
+        engine.dispose()
+        return path
+
+    def _stored(self, path):
+        engine = create_engine(f"sqlite:///{path}")
+        try:
+            with engine.connect() as conn:
+                return conn.execute(
+                    text("SELECT value FROM app_settings WHERE key = 'oidc_client_secret'")
+                ).scalar()
+        finally:
+            engine.dispose()
+
+    def test_plaintext_secret_is_sealed(self):
+        from backend import token_vault
+        from backend.routers.settings._helpers import oidc_effective_client_secret
+
+        path = self._db_with_plaintext_secret()
+        init_db(path)
+        stored = self._stored(path)
+        assert stored != self.SECRET
+        assert token_vault.unseal_secret(stored) == self.SECRET
+        assert oidc_effective_client_secret({"oidc_client_secret": stored}) == self.SECRET
+        assert _stamped_revision(path) == _alembic_head(path)
+
+    def test_no_plaintext_left_in_the_file(self):
+        path = self._db_with_plaintext_secret()
+        init_db(path)  # converts, then compacts on the same startup
+        with open(path, "rb") as fh:
+            assert self.SECRET.encode() not in fh.read()
+
+    def test_empty_secret_is_left_alone(self):
+        path = self._db_with_plaintext_secret("")
+        init_db(path)
+        assert self._stored(path) == ""
+
+    def test_downgrade_restores_plaintext(self):
+        path = self._db_with_plaintext_secret()
+        init_db(path)
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            command.downgrade(_alembic_config(conn), "5e1b8c3a7d42")
+        engine.dispose()
+        assert self._stored(path) == self.SECRET
+
+
+class TestExplicitLocked:
+    """0049 locks every existing "no explicit content", the reading that cannot
+    widen anyone's access."""
+
+    def test_existing_off_is_locked_and_on_is_not(self):
+        path = _fresh_db()
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            command.downgrade(_alembic_config(conn), "7a2f9d4c1e85")
+        with engine.begin() as conn:
+            for uid, allowed in (("off", 0), ("on", 1), ("unset", None)):
+                conn.execute(
+                    text(
+                        "INSERT INTO users (id, username, role, created_at, allow_explicit) "
+                        "VALUES (:id, :id, 'player', '2026-01-01 00:00:00', :a)"
+                    ),
+                    {"id": uid, "a": allowed},
+                )
+        engine.dispose()
+        init_db(path)
+        engine = create_engine(f"sqlite:///{path}")
+        try:
+            with engine.connect() as conn:
+                rows = dict(conn.execute(text("SELECT id, explicit_locked FROM users")).all())
+        finally:
+            engine.dispose()
+        assert rows["off"] == 1
+        assert rows["on"] == 0 and rows["unset"] == 0
+        assert _stamped_revision(path) == _alembic_head(path)

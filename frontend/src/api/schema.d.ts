@@ -5319,7 +5319,7 @@ export interface paths {
         };
         /**
          * List every share link
-         * @description Every user's share links, with their owners. Admin only.
+         * @description Every user's share links, with their owners. Admin only, and not with an API key: the live link URLs are credentials.
          */
         get: operations["list_all_share_links_api_share_links_all_get"];
         put?: never;
@@ -5359,7 +5359,7 @@ export interface paths {
         };
         /**
          * List a user's share links
-         * @description One user's share links, for the user admin page. Admin only.
+         * @description One user's share links, for the user admin page. Admin only, and not with an API key: the live link URLs are credentials.
          */
         get: operations["list_user_share_links_api_share_links_users__user_id__get"];
         put?: never;
@@ -7124,6 +7124,11 @@ export interface components {
             display_name?: string | null;
             /** Email */
             email?: string | null;
+            /**
+             * Explicit Locked
+             * @default false
+             */
+            explicit_locked?: boolean;
             /** Id */
             id: string;
             /** Oidc Linked */
@@ -7580,7 +7585,7 @@ export interface components {
             /** Title */
             title?: string | null;
             /** Urls */
-            urls?: components["schemas"]["backend__routers__books___schemas__LinkEntry"][] | null;
+            urls?: components["schemas"]["LinkEntry"][] | null;
             /** Version */
             version?: string | null;
             /** Year */
@@ -7673,7 +7678,7 @@ export interface components {
             /** Title */
             title: string;
             /** Urls */
-            urls: components["schemas"]["backend__routers__books___schemas__LinkEntry"][];
+            urls: components["schemas"]["LinkRef"][];
             /**
              * Variant Kind
              * @default
@@ -7859,7 +7864,7 @@ export interface components {
             /** Title */
             title: string;
             /** Urls */
-            urls: components["schemas"]["backend__routers__systems___schemas__LinkEntry"][];
+            urls: components["schemas"]["LinkRef"][];
             /**
              * Variant Count
              * @default 0
@@ -7923,7 +7928,7 @@ export interface components {
             /** Title */
             title?: string | null;
             /** Urls */
-            urls?: components["schemas"]["backend__routers__books___schemas__LinkEntry"][] | null;
+            urls?: components["schemas"]["LinkEntry"][] | null;
             /** Version */
             version?: string | null;
             /** Year */
@@ -10082,7 +10087,7 @@ export interface components {
             /** Character Builder Url */
             character_builder_url?: string | null;
             /** Character Builder Urls */
-            character_builder_urls?: components["schemas"]["backend__routers__systems___schemas__LinkEntry"][] | null;
+            character_builder_urls?: components["schemas"]["LinkEntry"][] | null;
             /** Codex Id */
             codex_id?: string | null;
             /** Cover Book Id */
@@ -10114,7 +10119,7 @@ export interface components {
             /** Tags */
             tags?: string[] | null;
             /** Urls */
-            urls?: components["schemas"]["backend__routers__systems___schemas__LinkEntry"][] | null;
+            urls?: components["schemas"]["LinkEntry"][] | null;
             /** Year */
             year?: number | null;
         };
@@ -10133,7 +10138,7 @@ export interface components {
             /** Character Builder Url */
             character_builder_url?: string | null;
             /** Character Builder Urls */
-            character_builder_urls?: components["schemas"]["backend__routers__systems___schemas__LinkEntry"][] | null;
+            character_builder_urls?: components["schemas"]["LinkEntry"][] | null;
             /** Codex Id */
             codex_id?: string | null;
             /** Cover Book Id */
@@ -10163,7 +10168,7 @@ export interface components {
             /** Tags */
             tags?: string[] | null;
             /** Urls */
-            urls?: components["schemas"]["backend__routers__systems___schemas__LinkEntry"][] | null;
+            urls?: components["schemas"]["LinkEntry"][] | null;
             /** Year */
             year?: number | null;
         };
@@ -10863,6 +10868,38 @@ export interface components {
              * @default
              */
             label?: string;
+        };
+        /**
+         * LinkEntry
+         * @description A labeled link sent by a client (publisher page, character builder…).
+         */
+        LinkEntry: {
+            /**
+             * Label
+             * @default
+             */
+            label?: string;
+            /**
+             * Url
+             * @default
+             */
+            url?: string;
+        };
+        /**
+         * LinkRef
+         * @description A labeled link as returned, with any non-http(s) URL blanked.
+         */
+        LinkRef: {
+            /**
+             * Label
+             * @default
+             */
+            label?: string;
+            /**
+             * Url
+             * @default
+             */
+            url?: string;
         };
         /** LinkRequest */
         LinkRequest: {
@@ -11876,6 +11913,11 @@ export interface components {
             display_name?: string | null;
             /** Email */
             email?: string | null;
+            /**
+             * Explicit Locked
+             * @default false
+             */
+            explicit_locked?: boolean;
         };
         /** PreferencesUpdate */
         PreferencesUpdate: {
@@ -11939,7 +11981,8 @@ export interface components {
          * @description A publisher on a game system: a name with an optional link.
          *
          *     Mirrors ``systems._schemas.PublisherEntry`` (the request-side model) for use
-         *     by the response models that surface the ``publishers`` column.
+         *     by the response models that surface the ``publishers`` column. A link that
+         *     is not http(s) comes back blank (see ``_link_urls``).
          */
         PublisherRef: {
             /**
@@ -13764,7 +13807,7 @@ export interface components {
             /** Character Builder Url */
             character_builder_url?: string | null;
             /** Character Builder Urls */
-            character_builder_urls: components["schemas"]["backend__routers__systems___schemas__LinkEntry"][];
+            character_builder_urls: components["schemas"]["LinkRef"][];
             /** Child Count */
             child_count: number;
             /** Children */
@@ -13824,7 +13867,7 @@ export interface components {
             /** Total Page Count */
             total_page_count: number;
             /** Urls */
-            urls: components["schemas"]["backend__routers__systems___schemas__LinkEntry"][];
+            urls: components["schemas"]["LinkRef"][];
             /** Year */
             year?: number | null;
         };
@@ -13853,7 +13896,7 @@ export interface components {
             /** Character Builder Url */
             character_builder_url?: string | null;
             /** Character Builder Urls */
-            character_builder_urls: components["schemas"]["backend__routers__systems___schemas__LinkEntry"][];
+            character_builder_urls: components["schemas"]["LinkRef"][];
             /** Child Count */
             child_count: number;
             /** Codex Id */
@@ -13909,7 +13952,7 @@ export interface components {
             /** Total Page Count */
             total_page_count: number;
             /** Urls */
-            urls: components["schemas"]["backend__routers__systems___schemas__LinkEntry"][];
+            urls: components["schemas"]["LinkRef"][];
             /** Year */
             year?: number | null;
         };
@@ -14618,6 +14661,11 @@ export interface components {
             display_name?: string | null;
             /** Email */
             email?: string | null;
+            /**
+             * Explicit Locked
+             * @default false
+             */
+            explicit_locked?: boolean;
             /** Id */
             id: string;
             /** Oidc Linked */
@@ -15502,22 +15550,6 @@ export interface components {
             status: string;
         };
         /**
-         * LinkEntry
-         * @description A labeled link on a book (publisher / DriveThruRPG page, etc.).
-         */
-        backend__routers__books___schemas__LinkEntry: {
-            /**
-             * Label
-             * @default
-             */
-            label?: string;
-            /**
-             * Url
-             * @default
-             */
-            url?: string;
-        };
-        /**
          * MetadataSearch
          * @description Search an installed add-on for candidates matching this book.
          */
@@ -15640,22 +15672,6 @@ export interface components {
         backend__routers__share_links___schemas__StatusResponse: {
             /** Status */
             status: string;
-        };
-        /**
-         * LinkEntry
-         * @description A labeled link (generic URL or character-builder URL).
-         */
-        backend__routers__systems___schemas__LinkEntry: {
-            /**
-             * Label
-             * @default
-             */
-            label?: string;
-            /**
-             * Url
-             * @default
-             */
-            url?: string;
         };
         /**
          * MetadataSearch

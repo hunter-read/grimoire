@@ -1,12 +1,28 @@
-import { useState, useEffect } from 'react'
+import {
+  useState,
+  useEffect,
+  type ComponentType,
+  type CSSProperties,
+  type ImgHTMLAttributes,
+} from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuBookOpen, LuMap, LuUser, LuBox, LuMusic, LuFile } from 'react-icons/lu'
-import api, { campaigns } from '../../api'
+import type { IconType } from 'react-icons'
+import { campaigns, client } from '../../api'
 import AudioPlayer from '../audio/AudioPlayer'
-import LazyImg from '../LazyImg'
+import LazyImgJs from '../LazyImg'
 
-const embedCardStyle = {
+// Still JavaScript, so TypeScript would read every destructured prop as required.
+const LazyImg = LazyImgJs as ComponentType<ImgHTMLAttributes<HTMLImageElement>>
+
+// Ids are uuids or slugs. The spec comes straight from wiki text anyone with
+// edit rights wrote, and the id lands in router paths and an authenticated API
+// request, so anything else ("../users", "x?y") is not an embed at all.
+const ID_RE = /^[A-Za-z0-9_-]+$/
+const PAGE_RE = /^\d+$/
+
+const embedCardStyle: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 8,
@@ -27,20 +43,28 @@ const embedCardStyle = {
  * Linkable embeds are real links, so middle click / ctrl-click opens them in a
  * new tab (issue #313).
  */
-export default function EmbedCard({ spec, campaignId }) {
+interface EmbedCardProps {
+  spec: string
+  campaignId?: string
+}
+
+export default function EmbedCard({ spec, campaignId }: EmbedCardProps) {
   const { t } = useTranslation()
-  const [type, id, page] = spec.split(':')
+  const [type, rawId = '', rawPage] = spec.split(':')
+  const valid = ID_RE.test(rawId) && (rawPage === undefined || PAGE_RE.test(rawPage))
+  const id = valid ? rawId : ''
+  const page = valid ? rawPage : undefined
 
   // A book embed names the book, so its title is fetched here. It stays null if
   // the book can't be resolved (deleted or unreadable), and the card falls back
   // to the generic "Book" label. Rules-of-hooks keeps this above the early
   // returns below, hence the type guard rather than a conditional hook.
-  const [bookTitle, setBookTitle] = useState(null)
+  const [bookTitle, setBookTitle] = useState<string | null>(null)
   useEffect(() => {
-    if (type !== 'book') return
+    if (type !== 'book' || !id) return
     let active = true
-    api
-      .get(`/books/${id}`)
+    client
+      .get('/books/{book_id}', { path: { book_id: id } })
       .then((b) => {
         if (active) setBookTitle(b.title || null)
       })
@@ -49,6 +73,8 @@ export default function EmbedCard({ spec, campaignId }) {
       active = false
     }
   }, [type, id])
+
+  if (!valid) return null
 
   // An embedded audio track plays in the global player (play / play next), with a
   // click-through to its detail page.
@@ -110,12 +136,13 @@ export default function EmbedCard({ spec, campaignId }) {
     )
   }
 
-  const meta = {
+  const cards: Record<string, { Icon: IconType; color: string; to: string }> = {
     book: { Icon: LuBookOpen, color: 'var(--type-book)', to: `/library/book/${id}` },
     map: { Icon: LuMap, color: 'var(--type-map)', to: `/maps/${id}` },
     token: { Icon: LuUser, color: 'var(--type-token)', to: `/tokens/${id}` },
     model: { Icon: LuBox, color: 'var(--type-model)', to: `/models/${id}` },
-  }[type]
+  }
+  const meta = cards[type]
   if (!meta) return null
   const { Icon, color } = meta
   const to = type === 'book' && page ? `${meta.to}?page=${page}` : meta.to

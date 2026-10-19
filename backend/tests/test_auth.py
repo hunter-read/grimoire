@@ -233,3 +233,23 @@ class TestAuthLogout:
         client.cookies.clear()
         resp = client.post("/api/auth/logout")
         assert resp.status_code == 200
+
+
+def test_login_unknown_user_still_runs_password_check(client, monkeypatch):
+    """An unknown username must cost a hash verify like a wrong password does, or
+    the response time reveals which usernames exist."""
+    from backend.routers.auth import core as auth_core
+
+    calls = []
+    real = auth_core.verify_password
+
+    def spy(plain, hashed):
+        calls.append(hashed)
+        return real(plain, hashed)
+
+    monkeypatch.setattr(auth_core, "verify_password", spy)
+    resp = client.post(
+        "/api/auth/login", json={"username": "nobody-by-this-name", "password": "whatever1"}
+    )
+    assert resp.status_code == 401
+    assert calls == [None]

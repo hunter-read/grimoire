@@ -4,6 +4,11 @@
 # repeat loads. Recommended for large libraries or multi-user setups.
 # Without Valkey, rendered pages are cached to disk under DATA_PATH instead.
 #
+# Valkey also holds sign-in lockout counters and OIDC sign-in state, so it is
+# password-protected. Put a password in a .env file next to this one first
+# (hex, so it needs no escaping in the URL below):
+#   echo "VALKEY_PASSWORD=$(openssl rand -hex 24)" > .env
+#
 # Usage:
 #   docker compose -f docs/docker/docker-compose.valkey.yml up -d
 
@@ -22,7 +27,8 @@ services:
       # persists it under DATA_PATH. Set it explicitly (openssl rand -hex 32)
       # if you run multiple replicas that do not share DATA_PATH.
       # - SECRET_KEY=
-      - VALKEY_URL=redis://valkey:6379/0
+      # The password goes in the URL's user-info part: redis://:<password>@host.
+      - VALKEY_URL=redis://:${VALKEY_PASSWORD:?set VALKEY_PASSWORD in .env}@valkey:6379/0
     volumes:
       # Writable so you can manage files from inside Grimoire. Append ":ro" to
       # keep the library read-only (in-app file management and sidecar export
@@ -38,6 +44,9 @@ services:
     image: valkey/valkey:8-alpine
     container_name: grimoire-valkey
     restart: unless-stopped
+    # No port is published, but any container on this network could otherwise
+    # read and write it - reset lockout counters, plant page images.
+    command: ["valkey-server", "--requirepass", "${VALKEY_PASSWORD:?set VALKEY_PASSWORD in .env}"]
     volumes:
       - valkey_data:/data
     networks:

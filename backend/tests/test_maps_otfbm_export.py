@@ -15,7 +15,10 @@ from PIL import Image
 from backend.routers.maps.otfbm import (
     MAX_CELL,
     MAX_MAPSIZE,
+    MAX_OUTPUT_PIXELS,
+    MAX_OUTPUT_SIDE,
     MIN_CELL,
+    MIN_SOURCE_PX,
     SUGGESTED_CELL,
     plan_otfbm,
     render_otfbm_image,
@@ -113,6 +116,99 @@ class TestPlan:
     def test_missing_cell_size_is_derived_from_the_raster(self):
         plan = plan_otfbm({"width": 10, "height": 5, "px": 0}, 1000, 500)
         assert plan["source_px"] == 100
+
+
+class TestPlanCeilings:
+    """A bogus grid cannot make the background enormous."""
+
+    def test_tiny_source_cell_is_floored(self):
+        # 0.01px cells asked for a 2,000x upscale.
+        plan = plan_otfbm(_grid(10, 10, 0.01), 1400, 1400, cell=20)
+        assert plan["source_px"] == MIN_SOURCE_PX
+        assert plan["image_width"] == round(1400 * 20 / MIN_SOURCE_PX)
+
+    def test_output_side_is_capped(self):
+        plan = plan_otfbm(_grid(1000, 2, 4), 4000, 8, cell=100)
+        # 4000x8 at 25x would be 100000x200: the long side is capped, and the
+        # short one shrinks by the same factor.
+        assert plan["image_width"] == MAX_OUTPUT_SIDE
+        assert plan["image_height"] == int(200 * MAX_OUTPUT_SIDE / 100000)
+
+    def test_output_pixels_are_capped(self):
+        plan = plan_otfbm(_grid(100, 100, 4), 8000, 8000, cell=100)
+        assert plan["image_width"] * plan["image_height"] <= MAX_OUTPUT_PIXELS
+        assert plan["image_width"] == plan["image_height"]
+
+    def test_largest_real_otfbm_grid_is_untouched(self):
+        # 99x99 cells at c100 is the biggest background OTFBM can use.
+        plan = plan_otfbm(_grid(99, 99, 100), 9900, 9900, cell=100)
+        assert (plan["image_width"], plan["image_height"]) == (9900, 9900)
+
+
+class TestRenderErrors:
+    @pytest.mark.parametrize("error", [MemoryError, Image.DecompressionBombError])
+    def test_decoder_failures_are_value_errors(self, tmp_path, monkeypatch, error):
+        path = _img(tmp_path / "m.png", 10, 10)
+
+        def boom(*args, **kwargs):
+            raise error("too big")
+
+        monkeypatch.setattr(Image, "open", boom)
+        with pytest.raises(ValueError):
+            render_otfbm_image(path, 5, 5)
+
+
+class TestGridPxFloor:
+    def test_sub_pixel_grid_is_refused(self, client, admin_headers, raster_map):
+        resp = client.patch(
+            f"/api/maps/{raster_map.id}", json={"grid_px": 0.01}, headers=admin_headers
+        )
+        assert resp.status_code == 422
+
+    def test_zero_still_clears(self, client, admin_headers, raster_map):
+        resp = client.patch(
+            f"/api/maps/{raster_map.id}", json={"grid_px": 0}, headers=admin_headers
+        )
+        assert resp.status_code == 200
+
+    def test_plausible_grid_is_kept(self, client, admin_headers, raster_map):
+        resp = client.patch(
+            f"/api/maps/{raster_map.id}", json={"grid_px": 70}, headers=admin_headers
+        )
+        assert resp.status_code == 200
+
+
+class TestRenderOnce:
+    def test_concurrent_cold_fetches_render_once(self, monkeypatch, raster_map):
+        import threading
+
+        from backend.routers.maps import otfbm_export
+
+        calls = []
+        real = otfbm_export.render_otfbm_image
+        gate = threading.Event()
+
+        def slow(*args, **kwargs):
+            calls.append(1)
+            gate.wait(2)
+            return real(*args, **kwargs)
+
+        monkeypatch.setattr(otfbm_export, "render_otfbm_image", slow)
+        results = []
+        threads = [
+            threading.Thread(
+                target=lambda: results.append(otfbm_export.otfbm_background(raster_map, 23))
+            )
+            for _ in range(4)
+        ]
+        for t in threads:
+            t.start()
+        gate.set()
+        for t in threads:
+            t.join(10)
+        assert len(results) == 4
+        assert len(calls) == 1
+        assert len({r[1] for r in results}) == 1
 
 
 class TestRender:

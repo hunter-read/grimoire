@@ -9,7 +9,6 @@ import pytest
 from PIL import Image
 
 from backend.config import LIBRARY_PATH
-from backend.routers._page_export import _content_disposition
 from backend.tests.conftest import make_book, make_game_system, make_map
 
 
@@ -309,12 +308,6 @@ class TestMapExport:
         gone = make_map(filename="gone.pdf", filepath=f"/nonexistent/{uuid.uuid4().hex}.pdf")
         resp = client.get(f"/api/maps/{gone.id}/page/1/shapes", headers=admin_headers)
         assert resp.status_code == 404
-
-
-def test_content_disposition_ascii_fallback():
-    header = _content_disposition('Mörk "Borg".png')
-    assert header.startswith('attachment; filename="M?rk \'Borg\'.png"')
-    assert "filename*=UTF-8''M%C3%B6rk%20%22Borg%22.png" in header
 
 
 def test_book_detail_carries_relative_path(client, admin_headers, pdf_book):

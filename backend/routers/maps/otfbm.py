@@ -45,6 +45,19 @@ MAX_MAPSIZE = 99
 # other direction: 32.97 is plainly 33, not 32.
 _WHOLE_CELL_TOLERANCE = 0.1
 
+# The smallest cell, in source pixels, a grid may claim. Below this a "grid" is a
+# mistake rather than a map - and since the background is scaled by
+# cell / source_px, a 0.01px cell asked for a 2,000x upscale.
+MIN_SOURCE_PX = 4.0
+
+# Ceilings on the rendered background. The largest grid OTFBM can show (99x99
+# cells at c100) is 9,900px square, just under the pixel cap. A plan past either
+# is scaled down to fit, keeping the aspect ratio: Pillow's decompression-bomb
+# guard only covers decoding, not the resize, and this output is reachable from
+# a share link without an account.
+MAX_OUTPUT_SIDE = 16383
+MAX_OUTPUT_PIXELS = 100_000_000
+
 # Quality for the JPEG background. The picture is downscaled for a Discord
 # render, so 90 is visually lossless there while keeping the file small enough
 # for the free image hosts OTFBM users rely on.
@@ -82,9 +95,11 @@ def plan_otfbm(grid: dict, px_w: int, px_h: int, cell: Union[int, None] = None) 
         # resolve_grid always supplies a cell size; this only guards a caller
         # passing something else, so the arithmetic below cannot divide by 0.
         source_px = float(px_w) / max(float(grid.get("width") or 1), 1.0)
+    source_px = max(source_px, MIN_SOURCE_PX)
     suggested = suggest_cell(source_px)
     chosen = max(MIN_CELL, min(MAX_CELL, int(cell))) if cell else suggested
     scale = chosen / source_px
+    image_width, image_height = _clamped_size(px_w * scale, px_h * scale)
     width, height = whole_cells(grid["width"]), whole_cells(grid["height"])
     return {
         "width": width,
@@ -93,13 +108,27 @@ def plan_otfbm(grid: dict, px_w: int, px_h: int, cell: Union[int, None] = None) 
         "suggested_cell": suggested,
         "source_px": round(source_px, 2),
         "grid_source": grid.get("source", "default"),
-        "image_width": max(1, round(px_w * scale)),
-        "image_height": max(1, round(px_h * scale)),
+        "image_width": image_width,
+        "image_height": image_height,
         "truncated": math.floor(grid["width"] + _WHOLE_CELL_TOLERANCE) > MAX_MAPSIZE
         or math.floor(grid["height"] + _WHOLE_CELL_TOLERANCE) > MAX_MAPSIZE,
         "min_cell": MIN_CELL,
         "max_cell": MAX_CELL,
     }
+
+
+def _clamped_size(width: float, height: float) -> tuple[int, int]:
+    """``(width, height)`` rounded, shrunk to fit the output ceilings if needed."""
+    shrink = min(
+        1.0,
+        MAX_OUTPUT_SIDE / max(width, 1.0),
+        MAX_OUTPUT_SIDE / max(height, 1.0),
+        math.sqrt(MAX_OUTPUT_PIXELS / max(width * height, 1.0)),
+    )
+    if shrink == 1.0:
+        return max(1, round(width)), max(1, round(height))
+    # Rounded down when shrinking, so the result never lands just over a cap.
+    return max(1, math.floor(width * shrink)), max(1, math.floor(height * shrink))
 
 
 def _has_transparency(img: PILImage.Image) -> bool:
@@ -145,6 +174,8 @@ def render_otfbm_image(
                 img.save(buf, format="png", optimize=True)
             else:
                 img.save(buf, format="jpeg", quality=JPEG_QUALITY, optimize=True)
-    except OSError as e:
+    except (OSError, PILImage.DecompressionBombError) as e:
         raise ValueError("Map image could not be read") from e
+    except MemoryError as e:
+        raise ValueError("Map image is too large to resize") from e
     return buf.getvalue(), "png" if transparent else "jpg"

@@ -1145,7 +1145,8 @@
     "contentPreferences": {
       "title": "Content Preferences",
       "description": "Control whether explicit content is shown to you.",
-      "showExplicit": "Show explicit content"
+      "showExplicit": "Show explicit content",
+      "lockedHint": "An admin has turned explicit content off for your account."
     },
     "changePassword": {
       "title": "Change Password",

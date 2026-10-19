@@ -34,6 +34,11 @@ class User(Base):
     # them out of the invitable-user pool and the user admin list.
     is_guest: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
     allow_explicit: Mapped[Optional[bool]] = mapped_column(Boolean, default=True)
+    # Set when explicit content was turned off for the user rather than by
+    # them - an admin, the seed file or the identity provider - so the user
+    # cannot turn it back on. Turning it on from any of those clears it, and a
+    # user may still turn it off for themselves at any time.
+    explicit_locked: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
     # Whether the user may create campaigns, be added to new campaigns, and manage
     # campaign content. Disabling it preserves existing campaigns but locks the user
     # out of all campaign writes. NULL is treated as enabled.

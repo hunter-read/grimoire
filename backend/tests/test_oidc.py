@@ -102,6 +102,43 @@ class TestOIDCSettings:
         assert body["oidc_client_secret_set"] is False
         assert body["oidc_client_secret_length"] == 0
 
+    def test_client_secret_is_stored_sealed(self, client, admin_headers):
+        from backend import token_vault
+        from backend.config import SessionLocal
+        from backend.models import AppSetting
+
+        client.patch(
+            "/api/settings", headers=admin_headers, json={"oidc_client_secret": "sealed-value-1"}
+        )
+        try:
+            db = SessionLocal()
+            try:
+                stored = db.query(AppSetting).filter_by(key="oidc_client_secret").one().value
+            finally:
+                db.close()
+            # A backup of the database alone does not carry the secret.
+            assert "sealed-value-1" not in stored
+            assert token_vault.unseal_secret(stored) == "sealed-value-1"
+        finally:
+            client.patch(
+                "/api/settings", headers=admin_headers, json={"oidc_client_secret": "__CLEAR__"}
+            )
+
+    def test_unreadable_secret_counts_as_unset_and_is_logged(self, monkeypatch, caplog):
+        from backend import auth, token_vault
+        from backend.routers.settings import _helpers
+
+        sealed = token_vault.seal_secret("written-under-the-old-key")
+        monkeypatch.setattr(auth, "SECRET_KEY", "a-different-secret-key-" + "k" * 20)
+        with caplog.at_level("ERROR", logger="grimoire.oidc"):
+            assert _helpers.oidc_effective_client_secret({"oidc_client_secret": sealed}) == ""
+            assert _helpers.oidc_effective_client_secret({"oidc_client_secret": sealed}) == ""
+        assert sum("cannot be decrypted" in r.message for r in caplog.records) == 1
+        assert not _helpers.oidc_is_configured(
+            {"oidc_enabled": "true", "oidc_issuer_url": "https://i", "oidc_client_id": "c",
+             "oidc_client_secret": sealed}
+        )
+
     def test_env_lock_blocks_individual_fields(self, client, admin_headers, monkeypatch):
         import backend.routers.settings.core as core
         import backend.routers.settings._helpers as helpers
@@ -553,8 +590,9 @@ class TestOIDCLoginStart:
             )
 
 class TestOIDCCallback:
-    """The callback exchanges the code, resolves the user, and hands back a
-    token — via the URL fragment AND an HttpOnly session cookie (issue #156)."""
+    """The callback exchanges the code, resolves the user, and signs them in
+    with HttpOnly session and refresh cookies (issue #156). No token rides on
+    the redirect: the SPA resumes the session from the refresh cookie."""
 
     def _configure(self, client, admin_headers):
         client.patch(
@@ -620,13 +658,14 @@ class TestOIDCCallback:
                 )
 
             assert resp.status_code == 302
-            # Token still handed to the SPA via the fragment...
-            assert "#oidc_token=" in resp.headers["location"]
-            # ...and the session cookie is set so media GETs authenticate.
+            # No token in the redirect - it would land in browser history...
+            assert resp.headers["location"] == "/"
+            # ...the session and refresh cookies carry the sign-in instead.
             set_cookie = "".join(
                 v for k, v in resp.headers.items() if k.lower() == "set-cookie"
             )
             assert "grimoire_session=" in set_cookie
+            assert "grimoire_refresh=" in set_cookie
             assert "httponly" in set_cookie.lower()
         finally:
             self._cleanup(client, admin_headers)
@@ -671,17 +710,61 @@ class TestOIDCCallback:
                     follow_redirects=False,
                 )
             assert resp.status_code == 302
-            assert resp.headers["location"].startswith("/#oidc_token=")
+            assert resp.headers["location"] == "/"
         finally:
             self._cleanup(client, admin_headers)
 
     def test_callback_idp_error_redirects_to_login(self, client):
+        from backend.routers.oidc import core as oidc_core
+
+        oidc_core._state_store.put(
+            "state-denied", {"code_verifier": "v", "nonce": "n", "return_to": "/"}
+        )
         resp = client.get(
-            "/api/auth/openid/callback?error=access_denied&error_description=nope",
+            "/api/auth/openid/callback?state=state-denied"
+            "&error=access_denied&error_description=nope",
             follow_redirects=False,
         )
         assert resp.status_code == 302
-        assert "oidc_error=nope" in resp.headers["location"]
+        location = resp.headers["location"]
+        assert location.startswith("/login?oidc_error=")
+        # A fixed message for the code; the IdP's description is only logged.
+        assert "nope" not in location
+        assert "cancelled" in location
+        # The state was spent.
+        assert oidc_core._state_store.pop("state-denied") is None
+
+    def test_callback_error_without_valid_state_is_refused(self, client):
+        """Anyone can build a callback link, so an error with no state this
+        server issued says only that, and carries nothing from the query."""
+        resp = client.get(
+            "/api/auth/openid/callback?state=forged&error=access_denied"
+            "&error_description=x%23oidc_token%3Dattacker",
+            follow_redirects=False,
+        )
+        location = resp.headers["location"]
+        assert "#" not in location and "attacker" not in location
+        assert "invalid" in location
+
+    def test_callback_error_description_never_plants_a_fragment(self, client):
+        from backend.routers.oidc import core as oidc_core
+
+        oidc_core._state_store.put(
+            "state-frag", {"code_verifier": "v", "nonce": "n", "return_to": "/"}
+        )
+        resp = client.get(
+            "/api/auth/openid/callback?state=state-frag&error=made_up"
+            "&error_description=x%23oidc_token%3Dattacker",
+            follow_redirects=False,
+        )
+        location = resp.headers["location"]
+        assert "#" not in location and "attacker" not in location
+
+    def test_error_redirect_is_url_encoded(self):
+        from backend.routers.oidc.core import _redirect_with_error
+
+        location = _redirect_with_error("bad #thing&x=1").headers["location"]
+        assert location == "/login?oidc_error=bad+%23thing%26x%3D1"
 
     def test_callback_missing_code_or_state(self, client):
         resp = client.get("/api/auth/openid/callback?code=abc", follow_redirects=False)
@@ -713,7 +796,7 @@ class TestOIDCCallback:
                     follow_redirects=False,
                 )
             assert resp.status_code == 302
-            assert "token%20exchange%20failed" in resp.headers["location"]
+            assert "oidc_error=token+exchange+failed" in resp.headers["location"]
         finally:
             self._cleanup(client, admin_headers)
 

@@ -1050,3 +1050,45 @@ class TestImportFolderUpload:
                     headers=gm_headers)
         resp = _import_folder(client, player_headers, c["id"], {"V/a.md": "A."})
         assert resp.status_code == 403
+
+
+class TestZipImportLimits:
+    """The upload cap is on compressed bytes; these bound what the zip unpacks to."""
+
+    def test_highly_compressible_entry_is_refused(self, client, gm_headers):
+        c = _campaign(client, gm_headers)
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            # 200 MB of one byte deflates to a couple of hundred KB.
+            with zf.open("bomb.md", "w") as fh:
+                chunk = b"a" * (1024 * 1024)
+                for _ in range(200):
+                    fh.write(chunk)
+        assert len(buf.getvalue()) < 2 * 1024 * 1024
+        resp = _import(client, gm_headers, c["id"], "wiki.zip", buf.getvalue(), "application/zip")
+        assert resp.status_code == 413
+
+    def test_total_across_entries_is_capped(self, client, gm_headers, monkeypatch):
+        from backend.routers.campaigns import wiki_io
+
+        monkeypatch.setattr(wiki_io, "_MAX_IMPORT_BYTES", 1000)
+        c = _campaign(client, gm_headers)
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            for i in range(3):
+                zf.writestr(f"page{i}.md", "# P\n" + "x" * 400)
+        resp = _import(client, gm_headers, c["id"], "wiki.zip", buf.getvalue(), "application/zip")
+        assert resp.status_code == 413
+
+    def test_entry_count_is_capped(self, client, gm_headers, monkeypatch):
+        from backend.routers.campaigns import wiki_io
+
+        monkeypatch.setattr(wiki_io, "_MAX_IMPORT_FILES", 3)
+        c = _campaign(client, gm_headers)
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            for i in range(4):
+                zf.writestr(f"page{i}.md", f"# Page {i}\n")
+        resp = _import(client, gm_headers, c["id"], "wiki.zip", buf.getvalue(), "application/zip")
+        assert resp.status_code == 413
+

@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from fastapi.responses import FileResponse, Response, StreamingResponse
 
+from ...http_headers import content_disposition
 from ...config import (
     _MEDIA_FILE_CACHE_HEADERS,
     _PAGE_CACHE_HEADERS,
@@ -47,6 +48,7 @@ from ._helpers import (
     vtt_metadata,
 )
 from ._schemas import FolderTagsUpdate, MapBulkUpdate, MapUpdate, VttAuthoringUpdate
+from .otfbm import MIN_SOURCE_PX
 from .uvtt import build_uvtt, check_grid_plausible, resolve_grid, round2
 from .vtt_authoring import VttDataError, doc_counts, normalize_vtt_data
 
@@ -351,7 +353,9 @@ def _export_grid(m: GenericMap, is_vtt: bool) -> tuple[dict, dict]:
             file_px = (vtt_metadata(m.filepath) or {}).get("pixels_per_grid")
         except ValueError:
             file_px = None
-        if isinstance(file_px, (int, float)) and file_px > 0:
+        # The same floor a manual grid has: a file claiming a sub-pixel cell
+        # would otherwise scale the OTFBM background up by thousands.
+        if isinstance(file_px, (int, float)) and file_px >= MIN_SOURCE_PX:
             grid = {
                 "width": round2(info["pixel_width"] / file_px),
                 "height": round2(info["pixel_height"] / file_px),
@@ -462,7 +466,7 @@ def export_map_uvtt(
         # Not application/json: this is a file to save, not an API payload, and
         # a JSON content type makes the browser offer it as .json.
         media_type="application/octet-stream",
-        headers={"Content-Disposition": f'attachment; filename="{name}"'},
+        headers={"Content-Disposition": content_disposition(name)},
     )
 
 
@@ -500,7 +504,9 @@ def get_map_authoring(
         except ValueError:
             meta = {}
         file_px = meta.get("pixels_per_grid")
-        if isinstance(file_px, (int, float)) and file_px > 0:
+        # The same floor a manual grid has: a file claiming a sub-pixel cell
+        # would otherwise scale the OTFBM background up by thousands.
+        if isinstance(file_px, (int, float)) and file_px >= MIN_SOURCE_PX:
             px_w, px_h = info.get("pixel_width"), info.get("pixel_height")
             grid = {
                 "width": round2(px_w / file_px) if px_w else meta.get("grid_width") or 0.0,

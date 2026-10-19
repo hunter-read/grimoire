@@ -41,6 +41,20 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Campaign wiki pages an assistant writes are always private to you, as are any pages its links create; share them from the wiki when you want your table to see them. The `create_wiki_page` tool no longer takes a `visibility` argument. New wiki pages can't be added to a campaign while its GM's campaign access is turned off, in the app or by an assistant
 - Campaign files download with a type based on their file extension
 - Passwords, email addresses, the admin role, sign-in settings, add-on sources and script approval, and guest invite codes are changed only from a signed-in session, not with an API key; a key's other access is unchanged. A share link made with a key also needs the key to have Read on that item's area (Books, Maps, Tokens, Audio or Models). See the API docs
+- Signing in with single sign-on no longer puts an access token in the page address. Grimoire sets the session cookies and sends you back where you were, and the app picks the session up from them, as it does when you return to Grimoire later. Sign-in errors from your provider show a standard message for its error code
+- Requests that change something need the `Authorization` header the app sends, or an API key. The session cookie and the deprecated `?token=` parameter now count only for viewing and downloading. Scripts that relied on the cookie for changes need to send the header
+- Turning explicit content off for a user is now a restriction they can't lift: when an admin, the `denyExplicit` seed setting or the OIDC `viewNSFW` permission turns it off, the user's own setting can no longer turn it back on (it shows why). Users can still turn it off for themselves at any time. Users who already have explicit content off start out restricted this way, since Grimoire can't tell who turned it off; an admin can turn it on for anyone who chose it themselves
+- With explicit content off, search no longer shows explicit books, tokens or models, and an explicit book's details answer "not found", the same as for books you can't open. The same applies to an assistant using the MCP server
+- Sign-in cookies are marked HTTPS-only whenever the request arrived over HTTPS - directly or through a trusted proxy - not only when `BASE_URL` starts with `https://`. The install guide now explains `BASE_URL`
+- The example Docker Compose files now give Valkey a password. If you run Valkey from one of them, add `--requirepass` to the Valkey service and the password to `VALKEY_URL` (`redis://:<password>@valkey:6379/0`); see the configuration docs
+- The OIDC client secret entered in Settings is stored encrypted under `SECRET_KEY`, so a backup doesn't carry it, and an existing one is converted on upgrade. If `SECRET_KEY` changes, single sign-on stops until the secret is entered again. Setting `OIDC_CLIENT_SECRET` instead is recommended
+- Users seeded from `users.json` follow the password rules, and an entry with a short or common password is skipped. Afterwards the file is kept as `users.json.imported` with password hashes in place of plaintext. The passwords in `users.json.example` must now be replaced before it imports anything
+- Links on books, game systems and publishers, and campaign members' character sheet links, must be `http://` or `https://`. Wiki links and images keep `http(s)`, `mailto:` and relative links, and wiki embeds with a malformed id are ignored
+- The admin-only lists of every user's share links can't be read with an API key
+- A map's grid can't claim cells smaller than 4 pixels, and OTFBM backgrounds are capped at 16383 pixels per side and 100 megapixels
+- A wiki imported as a `.zip` is held to the import limits once unpacked (25 MB and 2000 files), not only as uploaded
+- Single sign-on reads the provider's userinfo only when it describes the same user as the ID token, and takes an email address and whether it is verified from the same one of the two
+- Calibre `.opf` sidecars are read with a parser that refuses entity declarations
 
 ### Fixed
 
@@ -53,6 +67,12 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - The sidebar could flash the "Update available" banner on load for a version you had already dismissed
 - In the map, token, audio and model galleries, the Filters dialog closed after every change, so only one filter could be set at a time, and typing quickly in the search box could lose the end of what you typed while results reloaded. The gallery now stays on screen while new results load
 - On a GM-run campaign's Schedule tab, setting a player's availability failed instead of saving
+- A character sheet formula that was very long or deeply nested, produced a very large number, or read a field set to something like `1e999` could fail the sheet, or the schema install, with a server error, and a computed value that kept multiplying itself through a long chain could stall the server. Such a formula now gives its default value straight away
+- Downloads named after a campaign, book or file could fail when the name held an emoji or other non-Latin characters, or a quote
+- A tag containing both a `'` and a `"` broke the whole OPDS feed
+- Bookmarking a book that doesn't exist returned a server error; it now answers "not found", as does bookmarking a book you can't open
+- The custom login message is cleaned with a real HTML parser, so a quote inside a link can no longer change the link's other attributes, and the settings editor cleans a stored message again before showing it
+- Signing in with a username that doesn't exist takes as long as a wrong password
 
 ### Security
 

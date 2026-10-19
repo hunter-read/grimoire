@@ -78,7 +78,7 @@ are demoted to GM-only for you.
 
 ## Pre-seeding users
 
-Drop a `users.json` file into your data directory before first start and Grimoire will create those accounts automatically. The file is renamed to `users.json.imported` afterwards and never processed again.
+Drop a `users.json` file into your data directory before first start and Grimoire will create those accounts automatically. Afterwards the file is replaced by `users.json.imported`, a record of what was imported with every password replaced by its hash (so no plaintext password is left on disk), and is never processed again.
 
 ### Format
 
@@ -86,7 +86,7 @@ Drop a `users.json` file into your data directory before first start and Grimoir
 [
   {
     "username": "admin",
-    "password": "changeme",
+    "password": "a-long-passphrase-you-chose",
     "role": "admin"
   },
   {
@@ -96,7 +96,7 @@ Drop a `users.json` file into your data directory before first start and Grimoir
   },
   {
     "username": "alice",
-    "password": "alicepassword",
+    "password": "another-long-passphrase",
     "role": "player",
     "denyExplicit": true
   }
@@ -108,10 +108,11 @@ Drop a `users.json` file into your data directory before first start and Grimoir
 | `username` | Yes | Login username |
 | `password` | Yes | Plaintext password **or** a pre-hashed `$bcrypt-sha256$` string |
 | `role` | No | `admin`, `gm`, or `player` - defaults to `player` if missing |
-| `denyExplicit` | No | `true` to restrict explicit content for this user - defaults to `false` |
+| `denyExplicit` | No | `true` to turn explicit content off for this user, locked so they can't turn it back on themselves - defaults to `false` |
 
 **Rules:**
 - At least one entry must have `"role": "admin"` - the file is rejected otherwise.
+- Plaintext passwords follow the same [password rules](security.md) as any new password: at least `PASSWORD_MIN_LENGTH` characters (12 by default) and not a commonly used one. An entry that fails is skipped with a line in the log. If no admin entry passes, nothing is imported and the file is left in place to fix. Pre-hashed passwords are taken as they are.
 - Entries whose username already exists in the database are silently skipped.
 - On parse or validation errors the file is left untouched so you can fix and restart.
 
@@ -130,7 +131,8 @@ Copy the output (starts with `$bcrypt-sha256$`) into the `password` field.
 ```bash
 # Place users.json in your data volume before starting
 cp users.json.example /path/to/data/users.json
-# Edit the file, then:
+# Replace every "changeme" with a real password (the example's are refused
+# on purpose, so an unedited copy imports nothing), then:
 docker compose up -d
 ```
 

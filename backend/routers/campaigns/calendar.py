@@ -21,6 +21,7 @@ from fastapi import Depends, HTTPException, Path
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
+from ...http_headers import content_disposition
 from ... import token_vault
 from ...auth import CurrentUser, get_current_user
 from ...config import BASE_URL, get_db
@@ -68,7 +69,7 @@ def _ics_response(body: str, filename: str, *, inline: bool = False) -> Response
         content=body,
         media_type=_ICS_MEDIA_TYPE,
         headers={
-            "Content-Disposition": f'{disposition}; filename="{filename}"',
+            "Content-Disposition": content_disposition(filename, disposition),
             # Subscribed feeds are polled; a stale cached copy would silently
             # freeze someone's calendar after a reschedule.
             "Cache-Control": "no-store, max-age=0",

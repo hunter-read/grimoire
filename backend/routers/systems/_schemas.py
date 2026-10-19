@@ -13,6 +13,7 @@ from .._json_list_coercion import (
     coerce_publisher_list,
     coerce_str_list,
 )
+from .._link_urls import LinkEntry, LinkRef, http_url_or_none, require_http_url
 from .._variant_schemas import VariantCountMixin
 
 
@@ -20,12 +21,10 @@ class PublisherEntry(BaseModel):
     name: str
     url: str = ""
 
-
-class LinkEntry(BaseModel):
-    """A labeled link (generic URL or character-builder URL)."""
-
-    label: str = ""
-    url: str = ""
+    @field_validator("url")
+    @classmethod
+    def _http_only(cls, v: str) -> str:
+        return require_http_url(v) or ""
 
 
 class BookFolderUpdate(BaseModel):
@@ -70,6 +69,8 @@ class GameSystemUpdate(BaseModel):
     character_builder_url: Optional[str] = None
     character_builder_urls: Optional[list[LinkEntry]] = None
     urls: Optional[list[LinkEntry]] = None
+
+    _http_builder_url = field_validator("character_builder_url")(require_http_url)
     tags: Optional[list[str]] = None
     # Legacy single-value genre; still accepted. New clients send ``genres``.
     genre: Optional[str] = None
@@ -175,7 +176,7 @@ class BookOut(VariantCountMixin, BaseModel):
     genres: list[str]
     publisher: Optional[str] = None
     publisher_url: Optional[str] = None
-    urls: list[LinkEntry]
+    urls: list[LinkRef]
     # Coalesced with `or ""` by the serializer.
     isbn: str
     product_code: str = ""
@@ -209,6 +210,7 @@ class BookOut(VariantCountMixin, BaseModel):
         coerce_str_list
     )
     _coerce_urls = field_validator("urls", mode="before")(coerce_link_list)
+    _http_publisher_url = field_validator("publisher_url", mode="before")(http_url_or_none)
 
 
 class SystemSummary(BaseModel):
@@ -225,8 +227,8 @@ class SystemSummary(BaseModel):
     # row may predate the current shape, and a response model must not reject it.
     publishers: list[PublisherRef]
     character_builder_url: Optional[str] = None
-    character_builder_urls: list[LinkEntry]
-    urls: list[LinkEntry]
+    character_builder_urls: list[LinkRef]
+    urls: list[LinkRef]
     tags: list[str]
     genre: Optional[str] = None
     genres: list[str]
@@ -262,6 +264,9 @@ class SystemSummary(BaseModel):
     )
     _coerce_urls = field_validator("urls", "character_builder_urls", mode="before")(
         coerce_link_list
+    )
+    _http_builder_url = field_validator("character_builder_url", mode="before")(
+        http_url_or_none
     )
     _coerce_publishers = field_validator("publishers", mode="before")(
         coerce_publisher_list

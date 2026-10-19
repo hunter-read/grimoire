@@ -8,12 +8,12 @@ file path and a title to name the output after.
 import io
 import os
 from typing import Literal
-from urllib.parse import quote
 
 from fastapi import HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
+from ..http_headers import content_disposition
 from ..config import logger
 from ..render import pool as render_pool
 from ..services import library_fs as fs
@@ -88,17 +88,6 @@ class DetectShapesResponse(BaseModel):
     shapes: list[DetectedShape]
 
 
-def _content_disposition(name: str) -> str:
-    """An attachment header that survives non-ASCII titles.
-
-    Starlette encodes headers as Latin-1, so a raw "Mörk Borg" or a CJK title
-    would 500. The plain ``filename`` carries an ASCII fallback and
-    ``filename*`` the real name (RFC 6266), which every current browser prefers.
-    """
-    ascii_name = name.encode("ascii", "replace").decode("ascii").replace('"', "'")
-    return f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(name, safe='')}"
-
-
 def _produce(filepath: str, title: str, req: ExportRequest) -> tuple[list[pe.ExportFile], str]:
     """Run an export, returning its files and the name a zip of them would take.
 
@@ -120,7 +109,7 @@ def export_response(filepath: str, title: str, req: ExportRequest) -> Response:
     return Response(
         content=out.data,
         media_type=out.media_type,
-        headers={"Content-Disposition": _content_disposition(out.name)},
+        headers={"Content-Disposition": content_disposition(out.name)},
     )
 
 

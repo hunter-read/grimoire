@@ -12,10 +12,11 @@ from typing import Any, Optional
 from urllib.parse import quote
 
 import jwt
+from fastapi import Request
 from sqlalchemy.orm import Session
 
 from ... import auth, token_vault
-from ...auth import ALGORITHM, COOKIE_SECURE
+from ...auth import ALGORITHM, cookie_secure
 from ...config import BASE_URL
 from ...models import ShareLink, User
 from ...models.base import utc_iso
@@ -120,14 +121,14 @@ def is_unlocked(link: ShareLink, cookie: Optional[str]) -> bool:
     )
 
 
-def unlock_cookie_options(token: str) -> dict:
+def unlock_cookie_options(token: str, request: Optional[Request] = None) -> dict:
     """Cookie attributes for an unlock. Scoped to this one link's URLs, so
     unlocking one link never unlocks another, and HttpOnly like the session."""
     return {
         "key": UNLOCK_COOKIE,
         "max_age": UNLOCK_HOURS * 60 * 60,
         "httponly": True,
-        "secure": COOKIE_SECURE,
+        "secure": cookie_secure(request),
         "samesite": "lax",
         "path": f"/api/share/{token}",
     }

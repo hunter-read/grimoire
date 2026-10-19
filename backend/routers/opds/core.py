@@ -8,7 +8,7 @@ OPDS_ENABLED must be true (env var) for this router to be registered at all.
 """
 import datetime
 import os
-from xml.sax.saxutils import escape
+from xml.sax.saxutils import escape, quoteattr
 
 from fastapi import Depends, HTTPException
 from fastapi.responses import Response, FileResponse
@@ -60,7 +60,7 @@ def _book_to_entry(book: Book, token: str, base_url: str, tags: list[str]) -> st
     )
     entry_url = f"{base_url}/opds/{token}/entry/{book.id}"
     download_url = f"{base_url}/opds/{token}/download/{book.id}"
-    mime = escape(book.mime_type or "application/pdf")
+    mime = quoteattr(book.mime_type or "application/pdf")
 
     cover_link = ""
     if book.has_thumbnail:
@@ -70,9 +70,10 @@ def _book_to_entry(book: Book, token: str, base_url: str, tags: list[str]) -> st
             f'<link rel="http://opds-spec.org/image/thumbnail" href="{escape(thumb_url)}" type="image/jpeg"/>'
         )
 
-    tags_xml = "".join(
-        f"<category term={escape(repr(t))}/>" for t in tags
-    )
+    # quoteattr picks the quote character and escapes the other, so a tag holding
+    # both ' and " still yields well-formed XML (repr() did not, and one such
+    # tag broke the whole feed for every client).
+    tags_xml = "".join(f"<category term={quoteattr(t)}/>" for t in tags)
 
     return (
         f"<entry>"
@@ -84,7 +85,7 @@ def _book_to_entry(book: Book, token: str, base_url: str, tags: list[str]) -> st
         f"{tags_xml}"
         f"{cover_link}"
         f'<link rel="alternate" href="{escape(entry_url)}" type="{_ACQUISITION_TYPE}"/>'
-        f'<link rel="http://opds-spec.org/acquisition" href="{escape(download_url)}" type="{mime}"/>'
+        f'<link rel="http://opds-spec.org/acquisition" href="{escape(download_url)}" type={mime}/>'
         f"</entry>"
     )
 

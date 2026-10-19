@@ -190,6 +190,8 @@ class UserOut(BaseModel):
     role: Optional[str] = None
     # Both are coalesced by the handlers, so they are always concrete booleans.
     allow_explicit: bool
+    # Whether the user is held to allow_explicit=false (see User.explicit_locked).
+    explicit_locked: bool = False
     campaign_access: bool
     # The per-user API key switch as stored; admins may hold keys regardless.
     api_keys_enabled: bool
@@ -238,6 +240,8 @@ class PreferencesResponse(BaseModel):
     """Echoes the stored values, which are all nullable columns."""
 
     allow_explicit: Optional[bool] = None
+    # True when an admin, the seed file or the IdP turned explicit content off.
+    explicit_locked: bool = False
     display_name: Optional[str] = None
     email: Optional[str] = None
 

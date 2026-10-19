@@ -8,14 +8,8 @@ from ...services import tag_service
 from .._bulk_schemas import bulk_update_model
 from .._codex_schemas import codex_id_validator
 from .._json_list_coercion import coerce_link_list, coerce_str_list
+from .._link_urls import LinkEntry, LinkRef, http_url_or_none, require_http_url
 from .._variant_schemas import VariantEntry
-
-
-class LinkEntry(BaseModel):
-    """A labeled link on a book (publisher / DriveThruRPG page, etc.)."""
-
-    label: str = ""
-    url: str = ""
 
 
 # Accepted ``access_level`` values on the wire. "inherit" is the API spelling of
@@ -60,6 +54,8 @@ class BookUpdate(BaseModel):
     # Admin-only on the write path — enforced in the handler, not here.
     access_level: Optional[str] = None
     codex_id: Optional[str] = None
+
+    _http_publisher_url = field_validator("publisher_url")(require_http_url)
 
     # The Grimoire Codex DB record this one is linked to (issue #35), set when a
     # Grimoire Codex DB lookup is applied. Unlinking goes through DELETE /api/codex/.../link,
@@ -213,7 +209,7 @@ class BookDetail(BaseModel):
     genres: list[str]
     publisher: Optional[str] = None
     publisher_url: Optional[str] = None
-    urls: list[LinkEntry]
+    urls: list[LinkRef]
     # Coalesced with `or ""` by the handler.
     isbn: str
     product_code: str = ""
@@ -264,6 +260,7 @@ class BookDetail(BaseModel):
         coerce_str_list
     )
     _coerce_urls = field_validator("urls", mode="before")(coerce_link_list)
+    _http_publisher_url = field_validator("publisher_url", mode="before")(http_url_or_none)
 
 
 class StatusResponse(BaseModel):

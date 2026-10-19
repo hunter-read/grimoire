@@ -127,8 +127,57 @@ def oidc_login(
     return RedirectResponse(f"{auth_url}?{urlencode(params)}", status_code=302)
 
 
+# What the login page shows for each standard OAuth 2.0 / OIDC error code the
+# IdP can send back (RFC 6749 §4.1.2.1, OIDC Core §3.1.2.6). The IdP's own
+# error_description is logged, never shown: anyone can hand a user a callback
+# link, so nothing from the query string reaches the page as text.
+_IDP_ERRORS = {
+    "access_denied": "sign-in was cancelled or refused at the identity provider",
+    "login_required": "the identity provider needs you to sign in again",
+    "interaction_required": "the identity provider needs you to sign in again",
+    "consent_required": "the identity provider needs your consent first",
+    "account_selection_required": "choose an account at the identity provider",
+    "temporarily_unavailable": "the identity provider is temporarily unavailable",
+    "server_error": "the identity provider reported an error",
+}
+_IDP_ERROR_FALLBACK = "the identity provider refused the sign-in"
+
+
 def _redirect_with_error(msg: str) -> RedirectResponse:
-    return RedirectResponse(f"/login?oidc_error={msg}", status_code=302)
+    return RedirectResponse(f"/login?{urlencode({'oidc_error': msg})}", status_code=302)
+
+
+def merge_userinfo(claims: dict, userinfo: Optional[dict], eff: dict) -> dict:
+    """The ID token's claims with what the userinfo response adds.
+
+    Userinfo is discarded when its ``sub`` is not the ID token's (OIDC Core
+    §5.3.2): it would describe someone else. Otherwise the ID token wins for
+    everything except group, role and permission claims, which some IdPs only
+    put in userinfo. ``email`` and ``email_verified`` always come together from
+    one response - the ID token when it carries an email, else userinfo - so an
+    address is never paired with another response's verified flag. Email
+    matching and syncing rely on that pairing.
+    """
+    merged: dict = dict(claims)
+    if not userinfo:
+        return merged
+    if userinfo.get("sub") != claims.get("sub"):
+        logger.warning("OIDC userinfo ignored: its sub does not match the ID token's")
+        return merged
+    prefer = {"groups", "roles", eff["oidc_groups_claim"], eff["oidc_permissions_claim"]}
+    for k, v in userinfo.items():
+        if k in ("email", "email_verified"):
+            continue
+        if k in prefer:
+            merged[k] = v
+        else:
+            merged.setdefault(k, v)
+    if not claims.get("email"):
+        merged.pop("email_verified", None)
+        for k in ("email", "email_verified"):
+            if k in userinfo:
+                merged[k] = userinfo[k]
+    return merged
 
 
 def oidc_callback(
@@ -139,15 +188,20 @@ def oidc_callback(
     error_description: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
+    # The state is checked (and spent) before anything else, the IdP's error
+    # included, so a callback link this server did not start a sign-in for is
+    # refused the same way whatever else it carries.
+    saved = _state_store.pop(state) if state else None
+    if not saved:
+        return _redirect_with_error(
+            "invalid or expired login state" if state else "missing code or state"
+        )
     if error:
         # IdP refused before we even got a code (user denied, mis-config, etc.)
-        return _redirect_with_error(error_description or error)
-    if not code or not state:
+        logger.info("OIDC provider returned %s: %s", error, error_description or "")
+        return _redirect_with_error(_IDP_ERRORS.get(error, _IDP_ERROR_FALLBACK))
+    if not code:
         return _redirect_with_error("missing code or state")
-
-    saved = _state_store.pop(state)
-    if not saved:
-        return _redirect_with_error("invalid or expired login state")
 
     raw = _get_raw(db)
     eff = oidc_effective(raw)
@@ -211,19 +265,7 @@ def oidc_callback(
         or _try_endpoint(eff["oidc_issuer_url"], "userinfo_endpoint"),
         access_token,
     )
-    # Merge: claims wins for stable identifiers; userinfo wins for richer
-    # claims that aren't in the ID token (groups, etc.).
-    merged: dict = dict(claims)
-    for k, v in (userinfo or {}).items():
-        merged.setdefault(k, v)
-        if k in (
-            "groups",
-            "roles",
-            "email",
-            eff["oidc_groups_claim"],
-            eff["oidc_permissions_claim"],
-        ):
-            merged[k] = v  # prefer userinfo for these
+    merged = merge_userinfo(claims, userinfo, eff)
 
     # Resolve user
     try:
@@ -241,15 +283,14 @@ def oidc_callback(
         user_agent=request.headers.get("User-Agent") if request else None,
     )
     token = create_token(user.id, user.username, user.role, session_id=session.id)
-    # Hand the access token to the frontend via the URL fragment so it isn't
-    # logged by intermediate proxies. Also set the session cookie so
-    # <img>/download GETs authenticate without the JWT in the URL. The refresh
-    # token goes only into its HttpOnly cookie — never the fragment, since a
-    # fragment lands in browser history and in any JS on the landing page.
-    # Re-validated here too: the token rides on this redirect, so it must never
-    # leave the Grimoire origin whatever ended up in the state store.
+    # No token rides on the redirect: a token in the URL lands in browser
+    # history, and the login page used to accept one from any link. The SPA
+    # resumes the session from the HttpOnly refresh cookie set here, exactly as
+    # it does for a returning user; the session cookie lets <img>/download GETs
+    # authenticate meanwhile. return_to is re-validated in case anything odd
+    # ended up in the state store.
     return_to = _safe_return_to(saved.get("return_to"))
-    resp = RedirectResponse(f"{return_to}#oidc_token={token}", status_code=302)
-    set_auth_cookie(resp, token)
-    set_refresh_cookie(resp, refresh_token)
+    resp = RedirectResponse(return_to, status_code=302)
+    set_auth_cookie(resp, token, request)
+    set_refresh_cookie(resp, refresh_token, request)
     return resp

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from fastapi.responses import FileResponse, Response
 from sqlalchemy import text
 
+from ...http_headers import content_disposition
 from ...auth import CurrentUser, get_current_user, require_gm_or_admin
 from ...config import _PAGE_CACHE_HEADERS, THUMB_DIR, get_db
 from ...security import SAME_ORIGIN_FRAME_HEADERS, inert_svg_headers
@@ -169,7 +170,9 @@ def get_book(
         if not user_can_access_resource(db, current_user.id, "book", book.id):
             raise HTTPException(404, "Book not found")
     elif book.is_explicit and not _allow_explicit(db, current_user.id):
-        raise HTTPException(403, "Explicit content is disabled for your account")
+        # 404 like a restricted book: a distinct answer would confirm the book
+        # exists. MCP's book tools load through here, so they answer the same.
+        raise HTTPException(404, "Book not found")
     system = (
         db.query(GameSystem).filter_by(id=book.game_system_id).first()
         if book.game_system_id
@@ -466,7 +469,7 @@ def serve_book_file(
         media_type=book.mime_type,
         headers={
             "Accept-Ranges": "bytes",
-            "Content-Disposition": f'inline; filename="{book.filename}"',
+            "Content-Disposition": content_disposition(book.filename, "inline"),
             # The reader embeds this file in a same-origin <iframe> (PDF mode).
             # Override the global frame-ancestors 'none' so Firefox doesn't
             # block the frame, while keeping cross-origin framing denied.

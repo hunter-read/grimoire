@@ -49,6 +49,7 @@ def list_users(_: CurrentUser = Depends(require_admin), db: Session = Depends(ge
             "email": u.email,
             "role": u.role,
             "allow_explicit": bool(u.allow_explicit) if u.allow_explicit is not None else True,
+            "explicit_locked": bool(u.explicit_locked),
             "campaign_access": u.campaign_access is None or bool(u.campaign_access),
             "api_keys_enabled": bool(u.api_keys_enabled),
             **_share_fields(db, u),
@@ -123,6 +124,9 @@ def create_user(
     )
     if data.allow_explicit is not None:
         user.allow_explicit = data.allow_explicit
+        # An admin turning it off is a restriction the user can't lift; turning
+        # it on leaves the choice with them.
+        user.explicit_locked = not data.allow_explicit
     if data.campaign_access is not None:
         user.campaign_access = data.campaign_access
     if data.api_keys_enabled is not None:
@@ -138,6 +142,7 @@ def create_user(
         "email": user.email,
         "role": user.role,
         "allow_explicit": bool(user.allow_explicit) if user.allow_explicit is not None else True,
+        "explicit_locked": bool(user.explicit_locked),
         "campaign_access": user.campaign_access is None or bool(user.campaign_access),
         "api_keys_enabled": bool(user.api_keys_enabled),
         **_share_fields(db, user),
@@ -188,6 +193,9 @@ def update_user(
         user.hashed_password = hash_password(data.password)
     if data.allow_explicit is not None:
         user.allow_explicit = data.allow_explicit
+        # An admin turning it off is a restriction the user can't lift; turning
+        # it on leaves the choice with them.
+        user.explicit_locked = not data.allow_explicit
     if data.campaign_access is not None:
         user.campaign_access = data.campaign_access
     if data.api_keys_enabled is not None:
@@ -213,6 +221,7 @@ def update_user(
         "allow_explicit": bool(user.allow_explicit)
         if user.allow_explicit is not None
         else True,
+        "explicit_locked": bool(user.explicit_locked),
         "campaign_access": user.campaign_access is None or bool(user.campaign_access),
         "api_keys_enabled": bool(user.api_keys_enabled),
         **_share_fields(db, user),
@@ -271,6 +280,7 @@ def convert_guest(
         "email": user.email,
         "role": user.role,
         "allow_explicit": bool(user.allow_explicit) if user.allow_explicit is not None else True,
+        "explicit_locked": bool(user.explicit_locked),
         "campaign_access": user.campaign_access is None or bool(user.campaign_access),
         "api_keys_enabled": bool(user.api_keys_enabled),
         **_share_fields(db, user),

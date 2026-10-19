@@ -173,3 +173,35 @@ class TestBookmarks:
             },
         )
         assert resp.status_code == 401
+
+
+class TestBookmarkBookAccess:
+    """A bookmark can only be made on a book the caller can read, and every refusal
+    is the same 404 so bookmarking can't reveal which book ids exist."""
+
+    def test_missing_book_is_404(self, client, player_headers):
+        resp = client.post(
+            "/api/bookmarks",
+            json={"book_id": "no-such-book", "page_number": 1, "label": "x"},
+            headers=player_headers,
+        )
+        assert resp.status_code == 404
+
+    def test_restricted_book_is_404(self, client, player_headers):
+        book = make_book(make_game_system().id, access_level="gm")
+        resp = client.post(
+            "/api/bookmarks",
+            json={"book_id": book.id, "page_number": 1, "label": "x"},
+            headers=player_headers,
+        )
+        assert resp.status_code == 404
+        assert resp.json()["detail"] == "Book not found"
+
+    def test_readable_book_still_bookmarks(self, client, player_headers):
+        book = make_book(make_game_system().id)
+        resp = client.post(
+            "/api/bookmarks",
+            json={"book_id": book.id, "page_number": 1, "label": "x"},
+            headers=player_headers,
+        )
+        assert resp.status_code == 201

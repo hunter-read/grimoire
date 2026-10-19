@@ -11,6 +11,7 @@ from fastapi import Cookie, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
+from ...http_headers import content_disposition
 from ... import token_vault
 from ...auth import verify_password
 from ...config import get_db
@@ -124,7 +125,7 @@ def unlock_share(
         record_share_failure(request, SHARE_UNLOCK_SCOPE, link.id)
         record_account_failure(SHARE_LINK_SCOPE, link.id)
         raise HTTPException(403, "Wrong password")
-    response.set_cookie(value=_links.unlock_token(link), **_links.unlock_cookie_options(token))
+    response.set_cookie(value=_links.unlock_token(link), **_links.unlock_cookie_options(token, request))
     return {"unlocked": True}
 
 
@@ -158,9 +159,10 @@ def share_content(
     shared = _content.link_file(link, record)
     _record_use(db, link, request)
 
-    name = (link.filename or link.resource_type).replace('"', "")
     headers = dict(_PROTECTED_HEADERS if link.password_hash else _PUBLIC_HEADERS)
-    headers["Content-Disposition"] = f'{"attachment" if download else "inline"}; filename="{name}"'
+    headers["Content-Disposition"] = content_disposition(
+        link.filename or link.resource_type, "attachment" if download else "inline"
+    )
     headers.update(inert_svg_headers(shared.media_type, shared.path or ""))
     if shared.path is not None:
         return FileResponse(shared.path, media_type=shared.media_type, headers=headers)

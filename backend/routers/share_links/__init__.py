@@ -1,6 +1,8 @@
 """Share-link management (issue #541) - registers the routes on one router."""
 from fastapi import APIRouter
 
+from ... import api_keys
+
 from ._schemas import ShareLinkOut, ShareLinkPermission, StatusResponse
 from .core import (
     create_share_link,
@@ -57,16 +59,18 @@ router.add_api_route(
     list_all_share_links,
     methods=["GET"],
     summary="List every share link",
-    description="Every user's share links, with their owners. Admin only.",
+    description="Every user's share links, with their owners. Admin only, and not with an API key: the live link URLs are credentials.",
     response_model=list[ShareLinkOut],
+    openapi_extra=api_keys.EXCLUDED,
 )
 router.add_api_route(
     "/users/{user_id}",
     list_user_share_links,
     methods=["GET"],
     summary="List a user's share links",
-    description="One user's share links, for the user admin page. Admin only.",
+    description="One user's share links, for the user admin page. Admin only, and not with an API key: the live link URLs are credentials.",
     response_model=list[ShareLinkOut],
+    openapi_extra=api_keys.EXCLUDED,
 )
 router.add_api_route(
     "/{link_id}",

@@ -99,10 +99,13 @@ def auth_login(
     scope, key = (LOGIN_DEVICE_SCOPE, device) if device else (LOGIN_ACCOUNT_SCOPE, typed)
     if account_attempts_blocked(scope, key):
         raise HTTPException(429, "Too many failed sign-in attempts - try again later")
-    if not user or not verify_password(data.password, user.hashed_password):
+    # Verify even when no such user exists (passlib runs a dummy hash for a None
+    # hash), so an unknown username takes as long to refuse as a wrong password.
+    password_ok = verify_password(data.password, user.hashed_password if user else None)
+    if not user or not password_ok:
         record_account_failure(scope, key)
         raise HTTPException(401, "Invalid username or password")
-    login_devices.remember(response, user.id, device)
+    login_devices.remember(response, user.id, device, request)
     return issue_login(db, user, response, request)
 
 
@@ -148,6 +151,7 @@ def guest_login(
 
 
 def auth_logout(
+    request: Request,
     response: Response,
     refresh_token: Optional[str] = Cookie(None, alias=REFRESH_COOKIE_NAME),
     db: Session = Depends(get_db),
@@ -160,8 +164,8 @@ def auth_logout(
     """
     if refresh_token:
         revoke_session_by_token(db, refresh_token)
-    clear_auth_cookie(response)
-    clear_refresh_cookie(response)
+    clear_auth_cookie(response, request)
+    clear_refresh_cookie(response, request)
     return {"ok": True}
 
 
@@ -189,27 +193,27 @@ def auth_refresh(
         # Unknown, expired, revoked, or a detected replay (which has already
         # revoked the session inside get_active_session). Clear the dead cookie
         # so the client stops retrying with it.
-        clear_refresh_cookie(response)
-        clear_auth_cookie(response)
+        clear_refresh_cookie(response, request)
+        clear_auth_cookie(response, request)
         raise HTTPException(401, "Invalid or expired refresh token")
 
     user = db.query(User).filter_by(id=session.user_id).first()
     if not user:
         revoke_session(db, session)
-        clear_refresh_cookie(response)
-        clear_auth_cookie(response)
+        clear_refresh_cookie(response, request)
+        clear_auth_cookie(response, request)
         raise HTTPException(401, "User no longer exists")
     if user.role == "guest" and not _guest_still_invited(db, user):
         # A guest's session lasts only as long as guest access and their invite.
         revoke_session(db, session)
-        clear_refresh_cookie(response)
-        clear_auth_cookie(response)
+        clear_refresh_cookie(response, request)
+        clear_auth_cookie(response, request)
         raise HTTPException(401, "Guest access has ended")
 
     new_refresh = rotate_session(db, session)
     token = create_token(user.id, user.username, user.role, session_id=session.id)
-    set_auth_cookie(response, token)
-    set_refresh_cookie(response, new_refresh)
+    set_auth_cookie(response, token, request)
+    set_refresh_cookie(response, new_refresh, request)
     return {
         "token": token,
         "user": {
@@ -265,6 +269,7 @@ def revoke_one_session(
 
 
 def revoke_other_sessions(
+    request: Request,
     response: Response,
     user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -277,8 +282,8 @@ def revoke_other_sessions(
     """
     revoked = revoke_user_sessions(db, user.id, except_session_id=user.session_id)
     if not user.session_id:
-        clear_auth_cookie(response)
-        clear_refresh_cookie(response)
+        clear_auth_cookie(response, request)
+        clear_refresh_cookie(response, request)
     return {"ok": True, "revoked": revoked, "kept_current": bool(user.session_id)}
 
 
@@ -320,7 +325,7 @@ def auth_me(
     if AUTH_COOKIE_NAME not in request.cookies:
         auth_header = request.headers.get("Authorization", "")
         if auth_header.startswith("Bearer "):
-            set_auth_cookie(response, auth_header[len("Bearer ") :])
+            set_auth_cookie(response, auth_header[len("Bearer ") :], request)
 
     u = db.query(User).filter_by(id=user.id).first()
     if not u:
@@ -334,6 +339,7 @@ def auth_me(
         "email": u.email,
         "role": u.role,
         "allow_explicit": allow_explicit,
+        "explicit_locked": bool(u.explicit_locked),
         "campaign_access": campaign_access,
         "api_keys_allowed": user_keys_allowed(u),
         "share_links_allowed": share_policy.user_can_share(db, u),

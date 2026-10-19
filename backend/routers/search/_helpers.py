@@ -66,6 +66,12 @@ _SNIPPET_CLOSE = "\ue001"
 VISIBLE_BOOKS_SQL = "book_id IN (SELECT id FROM books WHERE variant_parent_id IS NULL)"
 
 
+# Appended to an FTS query when the user has explicit content off. A subquery
+# rather than an id list: it holds no request input, and the explicit set can be
+# large where the restricted set is small.
+EXPLICIT_BOOKS_CLAUSE = "AND book_id NOT IN (SELECT id FROM books WHERE is_explicit = 1)"
+
+
 def access_clause(excluded_book_ids) -> tuple[str, dict]:
     """Build the ``AND book_id NOT IN (...)`` fragment hiding restricted books.
 
@@ -269,6 +275,7 @@ def _search_media(
     *,
     extra_fields: Optional[dict] = None,
     serialize=None,
+    hide_explicit: bool = False,
 ) -> list:
     """Shared body of the map/token/audio searches.
 
@@ -285,6 +292,8 @@ def _search_media(
     clauses = _media_clauses(db, model, resource_type, terms, extra_fields)
     if not clauses:
         return []
+    if hide_explicit and hasattr(model, "is_explicit"):
+        clauses.append(model.is_explicit.isnot(True))
 
     direct = (
         db.query(model)
@@ -317,13 +326,14 @@ def _search_maps(db, parsed: ParsedQuery) -> list:
     )
 
 
-def _search_tokens(db, parsed: ParsedQuery) -> list:
+def _search_tokens(db, parsed: ParsedQuery, hide_explicit: bool = False) -> list:
     return _search_media(
         db,
         parsed,
         Token,
         TokenFolder,
         "token",
+        hide_explicit=hide_explicit,
         serialize=lambda t, tags: {
             "id": t.id,
             "filename": t.filename,
@@ -359,13 +369,14 @@ def _search_audio(db, parsed: ParsedQuery) -> list:
     )
 
 
-def _search_models(db, parsed: ParsedQuery) -> list:
+def _search_models(db, parsed: ParsedQuery, hide_explicit: bool = False) -> list:
     return _search_media(
         db,
         parsed,
         Model3D,
         Model3DFolder,
         "model",
+        hide_explicit=hide_explicit,
         serialize=lambda m, tags: {
             "id": m.id,
             "filename": m.filename,

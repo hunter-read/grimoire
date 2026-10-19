@@ -1,9 +1,8 @@
 """Shared helpers and defaults for settings endpoints."""
 import json
 import logging
-import re
 
-from ... import config
+from ... import config, token_vault
 from ...config import (
     ALLOW_PASSWORD_AUTHENTICATION_ENV,
     DISABLE_FOLDER_CATEGORY_INFERENCE_ENV,
@@ -13,6 +12,7 @@ from ...config import (
 )
 from ...models import AppSetting
 from ...services.oidc_button import current_icon, normalize_color, normalize_radius
+from ._login_message import sanitize_login_message  # noqa: F401  (re-exported)
 
 logger = logging.getLogger("grimoire.oidc")
 
@@ -290,12 +290,41 @@ def oidc_effective(raw: dict) -> dict:
     }
 
 
+# Sealed values already reported as unreadable, so a changed SECRET_KEY is
+# logged once rather than on every login-page load.
+_unreadable_secrets: set[str] = set()
+
+
+def seal_client_secret(value: str) -> str:
+    """The value to store for an OIDC client secret (see token_vault)."""
+    return token_vault.seal_secret(value) if value else ""
+
+
 def oidc_effective_client_secret(raw: dict) -> str:
-    """Return the effective client secret. Never call from public-facing code."""
+    """Return the effective client secret. Never call from public-facing code.
+
+    A stored secret is sealed under SECRET_KEY, so a database backup alone does
+    not carry it. If it no longer unseals (SECRET_KEY changed since it was
+    saved) it counts as unset - OIDC reads as not configured until an admin
+    enters it again - and that is logged.
+    """
     env_val = OIDC_ENV.get("oidc_client_secret")
     if env_val is not None:
         return env_val
-    return raw.get("oidc_client_secret", "") or ""
+    sealed = raw.get("oidc_client_secret", "") or ""
+    if not sealed:
+        return ""
+    secret = token_vault.unseal_secret(sealed)
+    if secret is None:
+        if sealed not in _unreadable_secrets:
+            _unreadable_secrets.add(sealed)
+            logger.error(
+                "The stored OIDC client secret cannot be decrypted - SECRET_KEY has "
+                "changed since it was saved. OIDC sign-in is off until the secret is "
+                "entered again in Settings > Authentication, or set OIDC_CLIENT_SECRET."
+            )
+        return ""
+    return secret
 
 
 def oidc_button_icon_url(raw: dict) -> str:
@@ -332,58 +361,3 @@ def oidc_is_configured(raw: dict) -> bool:
     if not oidc_effective_client_secret(raw):
         return False
     return True
-
-
-# ---------------------------------------------------------------------------
-# Custom login message HTML sanitization
-# ---------------------------------------------------------------------------
-# The login message is rendered as HTML on the (pre-auth) login screen, so we
-# strictly allowlist tags and attributes. The editor on the client only emits
-# this set of tags; anything else is dropped.
-
-_ALLOWED_TAGS = {"b", "strong", "i", "em", "s", "strike", "del", "u",
-                 "p", "br", "ul", "ol", "li", "a"}
-_ALLOWED_ATTRS = {"a": {"href", "title"}}
-_DANGEROUS_BLOCK_RE = re.compile(
-    r"<(script|style|iframe|object|embed|svg|math)\b[^>]*>.*?</\1\s*>",
-    re.IGNORECASE | re.DOTALL,
-)
-_TAG_RE = re.compile(r"<(/?)([a-zA-Z][a-zA-Z0-9]*)\b([^>]*)>")
-_ATTR_RE = re.compile(r"""([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*("([^"]*)"|'([^']*)')""")
-_SAFE_URL_RE = re.compile(r"^(https?:|mailto:|/|#)", re.IGNORECASE)
-
-
-def sanitize_login_message(html: str) -> str:
-    """Allowlist-sanitize HTML for the custom login message."""
-    if not html:
-        return ""
-
-    # First strip dangerous blocks (script/style/etc.) including their contents.
-    html = _DANGEROUS_BLOCK_RE.sub("", html)
-
-    def repl(match: re.Match) -> str:
-        closing = match.group(1) == "/"
-        tag = match.group(2).lower()
-        attrs_str = match.group(3) or ""
-        if tag not in _ALLOWED_TAGS:
-            return ""
-        if closing:
-            return f"</{tag}>"
-        # Build sanitized attribute list
-        kept: list[str] = []
-        allowed = _ALLOWED_ATTRS.get(tag, set())
-        for am in _ATTR_RE.finditer(attrs_str):
-            name = am.group(1).lower()
-            value = am.group(3) if am.group(3) is not None else am.group(4) or ""
-            if name not in allowed:
-                continue
-            if name == "href" and not _SAFE_URL_RE.match(value):
-                continue
-            kept.append(f'{name}="{value}"')
-        if tag == "a":
-            # Force safe link relations
-            kept.append('rel="noopener noreferrer nofollow"')
-            kept.append('target="_blank"')
-        return f"<{tag}{(' ' + ' '.join(kept)) if kept else ''}>"
-
-    return _TAG_RE.sub(repl, html)

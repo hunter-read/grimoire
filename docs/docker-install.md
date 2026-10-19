@@ -90,7 +90,7 @@ See the main [Library structure](library-structure.md) for the full folder layou
 
 Create a new file called `docker-compose.yml` in your Grimoire folder (e.g. `Documents/grimoire/docker-compose.yml`) and paste in the contents below.
 
-Then update the two lines marked with `YOUR` to point to the folders you created in Step 2. Path format differs by OS - see the examples beneath the file.
+Then update the two lines marked with `YOUR` to point to the folders you created in Step 2. Path format differs by OS - see the examples beneath the file. The two `YOUR_VALKEY_PASSWORD`s and `BASE_URL` are explained under [Valkey password](#valkey-password) and [Your Grimoire address](#your-grimoire-address).
 
 ```yaml
 services:
@@ -99,24 +99,28 @@ services:
     container_name: grimoire
     restart: unless-stopped
     ports:
- - "9481:9481"
+      - "9481:9481"
     environment:
- - LIBRARY_PATH=/library
- - DATA_PATH=/data
- - WORKERS=1
- - VALKEY_URL=redis://valkey:6379/0
+      - LIBRARY_PATH=/library
+      - DATA_PATH=/data
+      - WORKERS=1
+      # The address you open Grimoire at - see "Your Grimoire address" below.
+      - BASE_URL=http://localhost:9481
+      # Must match the password on the valkey service below.
+      - VALKEY_URL=redis://:YOUR_VALKEY_PASSWORD@valkey:6379/0
     volumes:
- - /YOUR/LIBRARY/FOLDER:/library:ro
- - /YOUR/GRIMOIRE/DATA/FOLDER:/data
+      - /YOUR/LIBRARY/FOLDER:/library:ro
+      - /YOUR/GRIMOIRE/DATA/FOLDER:/data
     depends_on:
- - valkey
+      - valkey
 
   valkey:
     image: valkey/valkey:8-alpine
     container_name: grimoire-valkey
     restart: unless-stopped
+    command: ["valkey-server", "--requirepass", "YOUR_VALKEY_PASSWORD"]
     volumes:
- - valkey-data:/data
+      - valkey-data:/data
 
 volumes:
   valkey-data:
@@ -159,6 +163,28 @@ volumes:
  - /home/yourname/grimoire/library:/library:ro
  - /home/yourname/grimoire/data:/data
 ```
+
+### Valkey password
+
+Valkey is the cache that keeps recently viewed pages in memory. It also holds
+sign-in counters, so it is protected with a password. Generate one - letters and
+digits only, so it can sit in the `VALKEY_URL` - for example with
+`openssl rand -hex 24`, and put the same value in both places marked
+`YOUR_VALKEY_PASSWORD`. You never type it anywhere else.
+
+### Your Grimoire address
+
+`BASE_URL` is the address you open Grimoire at. Leave it as
+`http://localhost:9481` while you only use Grimoire on this computer. If you
+reach it some other way, set it to exactly that address - for example
+`https://grimoire.example.com` behind a reverse proxy with HTTPS, or
+`http://192.168.1.20:9481` on your home network.
+
+It matters for more than links: when it starts with `https://`, your sign-in
+cookies are marked as HTTPS-only, so the browser never sends them over a
+plain connection. (Behind a proxy that passes on `X-Forwarded-Proto`, Grimoire
+does this for HTTPS requests anyway, but setting `BASE_URL` makes sure.) It is
+also the address used in OPDS feeds, calendar subscriptions and single sign-on.
 
 ### Secret key
 

@@ -94,6 +94,26 @@ def _is_trusted_proxy(host: str) -> bool:
     return any(addr in net for net in _TRUSTED_NETWORKS)
 
 
+def request_is_https(request: Any) -> bool:
+    """Whether ``request`` reached the browser over HTTPS.
+
+    True when the connection itself is HTTPS (uvicorn's ``--proxy-headers``
+    sets that for proxies it trusts), or when a trusted proxy
+    (``TRUSTED_PROXIES``) says so in ``X-Forwarded-Proto``. The header is
+    ignored from anyone else, who could otherwise claim HTTPS for a plaintext
+    connection.
+    """
+    if request is None:
+        return False
+    if getattr(request.url, "scheme", "") == "https":
+        return True
+    peer = request.client.host if request.client and request.client.host else None
+    if not peer or not _is_trusted_proxy(peer):
+        return False
+    proto = request.headers.get("x-forwarded-proto", "")
+    return proto.split(",")[0].strip().lower() == "https"
+
+
 def client_ip(request: Any) -> str:
     """Best-effort real client IP, for rate-limit keying and the session list.
 

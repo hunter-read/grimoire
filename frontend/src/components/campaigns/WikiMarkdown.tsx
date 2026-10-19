@@ -1,11 +1,19 @@
-import { Fragment, useMemo, useCallback } from 'react'
+import {
+  Fragment,
+  useMemo,
+  useCallback,
+  type ComponentType,
+  type CSSProperties,
+  type ImgHTMLAttributes,
+  type ReactNode,
+} from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import ReactMarkdown from 'react-markdown'
+import ReactMarkdown, { defaultUrlTransform, type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { LuFileQuestion } from 'react-icons/lu'
 import EmbedCard from './EmbedCard'
-import LazyImg from '../LazyImg'
+import LazyImgJs from '../LazyImg'
 import { isModifiedClick } from '../CardLink'
 import { isEmbed, parseTarget, resolvePage } from './wikiLinkTarget'
 import { buildHeadingComponents, headingDomId } from './wikiHeadings'
@@ -18,11 +26,29 @@ import { rehypeInlineSecrets, standsAlone } from './wikiSecrets'
 //   [[Page Title|label]]              -> [label](grimoire-wiki:<encoded target>)
 //   [[Page Title:id-ID:#Heading]]     -> [Page Title](grimoire-wiki:<encoded target>)
 //   [[book:ID]] / [[book:ID:PAGE]] / [[map:ID]] / [[token:ID]] / [[audio:ID]] / [[file:ID]] / [[image:ID]]
-//                                     -> [embed](grimoire-embed:book:ID:PAGE)
+//                                     -> [embed](grimoire-embed:<encoded book:ID:PAGE>)
 //
 // The href carries the *whole* raw target (URI-encoded) rather than a slug, so
 // the renderer can resolve by page id and honour a :#Heading suffix. Encoding
-// keeps ":" and spaces from being reinterpreted as part of the scheme.
+// keeps ":" and spaces from being reinterpreted as part of the scheme, and keeps
+// a ")" or space in the target from ending the markdown link early.
+// LazyImg and the heading renderers are still JavaScript, so TypeScript infers
+// every destructured prop as required; these give them the shapes they take.
+const LazyImg = LazyImgJs as ComponentType<ImgHTMLAttributes<HTMLImageElement>>
+const headingComponents = (): Components => buildHeadingComponents() as Components
+
+const WIKI_SCHEME = 'grimoire-wiki:'
+const EMBED_SCHEME = 'grimoire-embed:'
+
+// Our two private schemes pass through untouched; every other URL gets
+// react-markdown's default treatment, which keeps http(s), mailto, tel,
+// relative and fragment links and blanks anything else (javascript:, data:,
+// vbscript:, custom app schemes).
+export function wikiUrlTransform(url: string): string {
+  return url.startsWith(WIKI_SCHEME) || url.startsWith(EMBED_SCHEME)
+    ? url
+    : defaultUrlTransform(url)
+}
 const LINK_RE = /\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/g
 
 // ||GM-only text||. Only the owner ever receives a body still containing these
@@ -33,7 +59,7 @@ const SECRET_RE = /\|\|([\s\S]*?)\|\|/g
 
 // Decode a percent-encoded target, tolerating malformed input (a stray "%" would
 // otherwise throw). Returns the original string if it can't be decoded.
-function safeDecode(s) {
+function safeDecode(s: string): string {
   try {
     return decodeURIComponent(s)
   } catch {
@@ -41,7 +67,7 @@ function safeDecode(s) {
   }
 }
 
-function escapeLinkText(text) {
+function escapeLinkText(text: string): string {
   // Keep link text from breaking the markdown link syntax. Escape backslashes
   // first so a user-supplied trailing "\" can't combine with the "]" we add and
   // escape our own closing bracket.
@@ -49,17 +75,17 @@ function escapeLinkText(text) {
 }
 
 // Rewrite [[...]] page links and Grimoire embeds into our private link schemes.
-function rewriteLinks(text) {
-  return text.replace(LINK_RE, (_match, target, label) => {
+function rewriteLinks(text: string): string {
+  return text.replace(LINK_RE, (_match, target: string, label: string | undefined) => {
     const t = target.trim()
     if (isEmbed(t)) {
-      return `[embed](grimoire-embed:${t})`
+      return `[embed](${EMBED_SCHEME}${encodeURIComponent(t)})`
     }
     // The visible text is the label if given, else the title alone — the :id- and
     // :#Heading suffixes are addressing, not something the reader should see.
     const { title } = parseTarget(t)
     const linkText = escapeLinkText((label || title || t).trim())
-    return `[${linkText}](grimoire-wiki:${encodeURIComponent(t)})`
+    return `[${linkText}](${WIKI_SCHEME}${encodeURIComponent(t)})`
   })
 }
 
@@ -70,9 +96,14 @@ function rewriteLinks(text) {
 // paragraph in two — so it stays in the surrounding segment with its pipes
 // escaped, for rehypeInlineSecrets to wrap. Its inner markdown is untouched, so
 // [[links]] and formatting inside still work.
-function splitSecrets(body) {
+interface Segment {
+  block: boolean
+  text: string
+}
+
+function splitSecrets(body: string | null | undefined): Segment[] {
   const src = body || ''
-  const segments = []
+  const segments: Segment[] = []
   let buf = '' // accumulates ordinary text + inline secrets up to the next block
   const flush = () => {
     if (buf) {
@@ -82,7 +113,7 @@ function splitSecrets(body) {
   }
   let last = 0
   SECRET_RE.lastIndex = 0
-  let m
+  let m: RegExpExecArray | null
   while ((m = SECRET_RE.exec(src)) !== null) {
     buf += src.slice(last, m.index)
     const inner = m[1]
@@ -111,19 +142,35 @@ function splitSecrets(body) {
  * `:#Heading` suffix when present, so the caller can scroll to it after the page
  * loads. A link to the *current* page's heading scrolls in place instead.
  */
+interface WikiPageRef {
+  id: string
+  title: string
+  slug?: string | null
+}
+
+interface WikiMarkdownProps {
+  body: string | null | undefined
+  campaignId?: string
+  pages?: WikiPageRef[]
+  currentPageId?: string | null
+  onOpenPage?: (page: WikiPageRef | null, heading: string | null, link: WikiLink) => void
+}
+
+type WikiLink = ReturnType<typeof parseTarget>
+
 export default function WikiMarkdown({
   body,
   campaignId,
   pages = [],
   currentPageId = null,
   onOpenPage,
-}) {
+}: WikiMarkdownProps) {
   const { t } = useTranslation()
   const segments = useMemo(() => splitSecrets(body), [body])
 
   // Scroll to a heading inside the body currently on screen. Headings are given
   // ids by the `h1..h6` renderers below, keyed on the normalized heading text.
-  const scrollToHeading = useCallback((heading) => {
+  const scrollToHeading = useCallback((heading: string) => {
     if (typeof document === 'undefined') return
     const id = headingDomId(heading)
     // Guarded: scrollIntoView is absent in jsdom and older embedded views.
@@ -131,7 +178,7 @@ export default function WikiMarkdown({
   }, [])
 
   const openLink = useCallback(
-    (rawTarget) => {
+    (rawTarget: string) => {
       const link = parseTarget(rawTarget)
       const target = resolvePage(link, pages)
       if (target && target.id === currentPageId && link.heading) {
@@ -143,7 +190,7 @@ export default function WikiMarkdown({
     [pages, currentPageId, onOpenPage, scrollToHeading]
   )
 
-  const components = useMemo(
+  const components = useMemo<Components>(
     () => ({
       // Inline secrets, which rehypeInlineSecrets wraps in a <mark>.
       mark({ children }) {
@@ -167,11 +214,11 @@ export default function WikiMarkdown({
         )
       },
       a({ href, children, ...props }) {
-        if (href?.startsWith('grimoire-wiki:')) {
+        if (href?.startsWith(WIKI_SCHEME)) {
           // We percent-encode the target when rewriting, and react-markdown
           // additionally encodes non-ASCII (e.g. "breitfuß" -> "breitfu%C3%9F"),
           // so decode before parsing or the suffixes won't match (issue #252).
-          const rawTarget = safeDecode(href.slice('grimoire-wiki:'.length))
+          const rawTarget = safeDecode(href.slice(WIKI_SCHEME.length))
           const link = parseTarget(rawTarget)
           const target = resolvePage(link, pages)
           // A pinned link whose page is gone is broken; so is an unknown title.
@@ -236,8 +283,10 @@ export default function WikiMarkdown({
             </button>
           )
         }
-        if (href?.startsWith('grimoire-embed:')) {
-          return <EmbedCard spec={href.slice('grimoire-embed:'.length)} campaignId={campaignId} />
+        if (href?.startsWith(EMBED_SCHEME)) {
+          return (
+            <EmbedCard spec={safeDecode(href.slice(EMBED_SCHEME.length))} campaignId={campaignId} />
+          )
         }
         // Ordinary external/internal links.
         const external = href && /^https?:\/\//.test(href)
@@ -294,8 +343,11 @@ export default function WikiMarkdown({
       // Headings get a deterministic id derived from their text, which is what
       // a [[Page:#Heading]] link scrolls to. Keyed on normalized text (not
       // document order) so the anchor survives edits elsewhere in the page.
-      ...buildHeadingComponents(),
-      code({ inline, children }) {
+      ...headingComponents(),
+      code(codeProps) {
+        const { children } = codeProps
+        // Not part of react-markdown's typed props; kept as it was.
+        const inline = (codeProps as { inline?: boolean }).inline
         if (inline) {
           return (
             <code
@@ -340,14 +392,15 @@ export default function WikiMarkdown({
     )
   }
 
-  const renderMarkdown = (text) => (
+  const renderMarkdown = (text: string): ReactNode => (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       rehypePlugins={[rehypeInlineSecrets]}
       components={components}
       // Preserve our private grimoire-wiki:/grimoire-embed: schemes, which
-      // react-markdown's default urlTransform would otherwise strip.
-      urlTransform={(url) => url}
+      // react-markdown's default urlTransform would otherwise strip, without
+      // letting any other unsafe scheme through.
+      urlTransform={wikiUrlTransform}
     >
       {text}
     </ReactMarkdown>
@@ -371,7 +424,7 @@ export default function WikiMarkdown({
   )
 }
 
-const secretBlockStyle = {
+const secretBlockStyle: CSSProperties = {
   // Low-alpha gold tint + gold rule, so headings and body text inside stay legible.
   background: 'rgba(201, 168, 76, 0.1)',
   borderLeft: '3px solid var(--gold)',
@@ -380,7 +433,7 @@ const secretBlockStyle = {
   margin: '8px 0',
 }
 
-function cellStyle(header) {
+function cellStyle(header: boolean): CSSProperties {
   return {
     border: '1px solid var(--border)',
     padding: '6px 10px',

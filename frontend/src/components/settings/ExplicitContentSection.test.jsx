@@ -40,3 +40,21 @@ describe('ExplicitContentSection', () => {
     expect(screen.getByRole('checkbox')).toBeChecked()
   })
 })
+
+describe('ExplicitContentSection when an admin has locked it', () => {
+  it('disables the toggle and says why', () => {
+    mockUser = { allow_explicit: false, explicit_locked: true }
+    render(<ExplicitContentSection />)
+    const box = screen.getByRole('checkbox')
+    expect(box).not.toBeChecked()
+    expect(box).toBeDisabled()
+    expect(screen.getByText('userSettings.contentPreferences.lockedHint')).toBeInTheDocument()
+  })
+
+  it('stays usable when the user turned it off themselves', () => {
+    mockUser = { allow_explicit: false, explicit_locked: false }
+    render(<ExplicitContentSection />)
+    expect(screen.getByRole('checkbox')).toBeEnabled()
+    expect(screen.queryByText('userSettings.contentPreferences.lockedHint')).toBeNull()
+  })
+})

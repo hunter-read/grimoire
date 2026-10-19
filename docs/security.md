@@ -39,7 +39,9 @@ Every response carries a `Content-Security-Policy` scoped to what the SPA actual
 
 ## Session cookie for images and downloads
 
-Browser `<img>` and download requests can't send an `Authorization` header, so they authenticate via an `HttpOnly`, `SameSite=Lax` session cookie (`grimoire_session`) set at login rather than a token in the URL. **This means the JWT no longer appears in image/download URLs, so a reverse proxy, CDN, or load balancer in front of Grimoire no longer records it in access logs** (query-string tokens also leaked via `Referer` headers and browser history). Set `BASE_URL` to your `https://` public URL so the cookie is marked `Secure` and only ever sent over TLS. The old `?token=` query param is still accepted for backward compatibility but is deprecated.
+Browser `<img>` and download requests can't send an `Authorization` header, so they authenticate via an `HttpOnly`, `SameSite=Lax` session cookie (`grimoire_session`) set at login rather than a token in the URL. **This means the JWT no longer appears in image/download URLs, so a reverse proxy, CDN, or load balancer in front of Grimoire no longer records it in access logs** (query-string tokens also leaked via `Referer` headers and browser history). Set `BASE_URL` to your `https://` public URL so the cookie is marked `Secure` and only ever sent over TLS; without it, the cookie is still marked `Secure` on a request that arrived over HTTPS, or that a [trusted proxy](#behind-a-reverse-proxy) reports as `X-Forwarded-Proto: https`. The old `?token=` query param is still accepted for backward compatibility but is deprecated.
+
+The cookie and `?token=` only authenticate **reads** (`GET`/`HEAD`). A browser attaches the cookie on its own, and `SameSite=Lax` still lets a page on another subdomain of your domain send it with a form post, so anything that changes data needs the `Authorization` header the app always sends, which no other page can add.
 
 ## Sessions and token revocation
 
@@ -68,7 +70,9 @@ Two consequences of keying them on `SECRET_KEY`:
 - **Changing `SECRET_KEY` ends every feed and share link**, just as it signs everyone out. OPDS and calendar settings offer a new URL, and share links show as **Lost** - revoke or delete them and make new ones.
 - **Restoring a backup on a server with a different `SECRET_KEY`** has the same effect. Keep `secret_key` (or your `SECRET_KEY` value) with your backups if you want feeds and links to survive a move - but store it separately from them, or a stolen backup becomes usable again.
 
-Upgrading from a version that stored these tokens in plaintext converts them in place, so every feed URL and share link already handed out keeps working. The first start after that upgrade also compacts the database once (a `VACUUM`), so the old plaintext does not linger in the file's free space. It needs free disk space about the size of the database for a moment; if it cannot run, the log says so and it tries again at the next start.
+The **OIDC client secret** entered in Settings → Authentication is kept the same way: encrypted under a key derived from `SECRET_KEY`, and decrypted only when Grimoire presents it to your identity provider, so a backup does not carry it either. If `SECRET_KEY` changes, the stored secret can no longer be read; single sign-on stops until you enter the secret again, and the log says so. Setting `OIDC_CLIENT_SECRET` in the environment instead keeps it out of the database altogether and is the recommended setup.
+
+Upgrading from a version that stored these tokens or the client secret in plaintext converts them in place, so every feed URL and share link already handed out keeps working. The first start after that upgrade also compacts the database once (a `VACUUM`), so the old plaintext does not linger in the file's free space. It needs free disk space about the size of the database for a moment; if it cannot run, the log says so and it tries again at the next start.
 
 ---
 

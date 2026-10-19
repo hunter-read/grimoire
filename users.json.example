@@ -11,13 +11,13 @@
   },
   {
     "username": "alice",
-    "password": "alicepassword",
+    "password": "changeme",
     "role": "player",
     "denyExplicit": false
   },
   {
     "username": "bob",
-    "password": "bobpassword",
+    "password": "changeme",
     "role": "player",
     "denyExplicit": true
   }

@@ -11,11 +11,11 @@ function fireDragAt(type, el, clientY) {
   fireEvent(el, ev)
 }
 
-// EmbedCard fetches a book's title through the default export, so the mock
+// EmbedCard fetches a book's title through the typed client, so the mock
 // carries one — that fetch is what the embed-flicker regression test watches.
 const apiGet = vi.fn(() => Promise.resolve({ title: "Player's Handbook" }))
 vi.mock('../../api', () => ({
-  default: { get: (...args) => apiGet(...args) },
+  client: { get: (...args) => apiGet(...args) },
   mediaUrl: (path) => `http://localhost${path}`,
   campaigns: {
     listWikiPages: vi.fn(),

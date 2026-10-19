@@ -17,7 +17,8 @@ services:
       - LIBRARY_PATH=/library
       - DATA_PATH=/data
       - WORKERS=1
-      - VALKEY_URL=redis://valkey:6379/0
+      # Dev default only; set VALKEY_PASSWORD to override.
+      - VALKEY_URL=redis://:${VALKEY_PASSWORD:-grimoire-dev}@valkey:6379/0
       - OPDS_ENABLED=true
       - LOG_LEVEL=debug
     develop:
@@ -41,6 +42,7 @@ services:
     image: valkey/valkey:8-alpine
     container_name: grimoire-valkey
     restart: unless-stopped
+    command: ["valkey-server", "--requirepass", "${VALKEY_PASSWORD:-grimoire-dev}"]
     volumes:
       - valkey-data:/data
 

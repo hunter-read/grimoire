@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, field_validator
 from ...services import tag_service
 from .._bulk_schemas import bulk_update_model
 from .._variant_schemas import VariantCountMixin, VariantFamilyMixin
+from .otfbm import MIN_SOURCE_PX
 
 
 class MapUpdate(BaseModel):
@@ -33,6 +34,14 @@ class MapUpdate(BaseModel):
         if v is None:
             return None
         return round(v, 2) or None
+
+    @field_validator("grid_px")
+    @classmethod
+    def plausible_cell(cls, v):
+        # Runs after round_grid, so 0 (clear) has already become None.
+        if v is not None and v < MIN_SOURCE_PX:
+            raise ValueError(f"grid_px must be 0 (automatic) or at least {MIN_SOURCE_PX:g}")
+        return v
 
 
 # Batch form of MapUpdate: {"items": [{"id": ..., ...MapUpdate fields}]}.

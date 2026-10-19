@@ -18,7 +18,9 @@ Where that reasoning isn't obvious from the field name, there's a comment.
 
 from typing import Any, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
+
+from .._link_urls import http_url_or_none
 
 
 # --------------------------------------------------------------------------- #
@@ -54,6 +56,8 @@ class CampaignMemberOut(BaseModel):
     has_sheet: Optional[bool] = None
     character_sheet_filename: Optional[str] = None
     character_sheet_url: Optional[str] = None
+
+    _http_sheet_url = field_validator("character_sheet_url", mode="before")(http_url_or_none)
 
 
 class CampaignResourceRef(BaseModel):
@@ -151,6 +155,8 @@ class MemberStatusOut(BaseModel):
     status: Optional[str] = None
     character_name: Optional[str] = None
     character_sheet_url: Optional[str] = None
+
+    _http_sheet_url = field_validator("character_sheet_url", mode="before")(http_url_or_none)
 
 
 class EligibleMemberOut(BaseModel):

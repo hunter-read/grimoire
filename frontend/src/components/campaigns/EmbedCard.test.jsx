@@ -6,7 +6,7 @@ import EmbedCard from './EmbedCard'
 
 const get = vi.fn()
 vi.mock('../../api', () => ({
-  default: { get: (...args) => get(...args) },
+  client: { get: (...args) => get(...args) },
   campaigns: { fileUrl: (cid, id) => `http://localhost/campaigns/${cid}/files/${id}` },
   mediaUrl: (path) => `http://localhost${path}`,
 }))
@@ -68,7 +68,7 @@ describe('EmbedCard', () => {
   it('names the book alongside the page for a page-anchored book embed', async () => {
     renderEmbed({ spec: 'book:b1:42', campaignId: 'c1' })
     expect(await screen.findByText("Player's Handbook - p. 42")).toBeInTheDocument()
-    expect(get).toHaveBeenCalledWith('/books/b1')
+    expect(get).toHaveBeenCalledWith('/books/{book_id}', { path: { book_id: 'b1' } })
   })
 
   it('names the book for an embed without a page', async () => {
@@ -102,4 +102,19 @@ describe('EmbedCard', () => {
     expect(link.getAttribute('href')).toContain('/campaigns/camp1/files/doc555')
     expect(link.getAttribute('target')).toBe('_blank')
   })
+
+  it('fetches a book title through the typed client', async () => {
+    renderEmbed({ spec: 'book:b-1', campaignId: 'c1' })
+    expect(await screen.findByText("Player's Handbook")).toBeInTheDocument()
+    expect(get).toHaveBeenCalledWith('/books/{book_id}', { path: { book_id: 'b-1' } })
+  })
+
+  it.each(['book:../users', 'book:x?y=1', 'map:a/b', 'book:abc:2x', 'token:'])(
+    'renders nothing and fetches nothing for a malformed spec (%s)',
+    (spec) => {
+      const { container } = renderEmbed({ spec, campaignId: 'c1' })
+      expect(container).toBeEmptyDOMElement()
+      expect(get).not.toHaveBeenCalled()
+    }
+  )
 })

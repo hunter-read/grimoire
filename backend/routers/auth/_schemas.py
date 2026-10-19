@@ -141,6 +141,9 @@ class AuthMeResponse(BaseModel):
     role: Optional[str] = None
     # Both are coalesced by the handler, so they are always concrete booleans.
     allow_explicit: bool
+    # Set when explicit content was turned off for the user (by an admin, the
+    # seed file or the IdP); the user's own toggle can't turn it back on.
+    explicit_locked: bool = False
     campaign_access: bool
     # See LoginUser.api_keys_allowed.
     api_keys_allowed: bool

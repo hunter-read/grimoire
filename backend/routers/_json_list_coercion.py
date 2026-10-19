@@ -14,18 +14,23 @@ turning a plain ``GET`` into a 500.
 """
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
+
+from ._link_urls import http_url_or_blank
 
 
 class PublisherRef(BaseModel):
     """A publisher on a game system: a name with an optional link.
 
     Mirrors ``systems._schemas.PublisherEntry`` (the request-side model) for use
-    by the response models that surface the ``publishers`` column.
+    by the response models that surface the ``publishers`` column. A link that
+    is not http(s) comes back blank (see ``_link_urls``).
     """
 
     name: str = ""
     url: str = ""
+
+    _http_only = field_validator("url", mode="before")(http_url_or_blank)
 
 
 def coerce_str_list(v: Any) -> Any:

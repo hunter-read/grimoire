@@ -390,11 +390,13 @@ class TestWithAnApiKey:
         link = create(client, admin_headers, "map", shared_map.id).json()
         links_only = _key(client, admin_headers, {"share-links": "read"})
         with_maps = _key(client, admin_headers, {"share-links": "read", "maps": "read"})
-        for path in ("/api/share-links", "/api/share-links/all"):
-            listed = [item["id"] for item in client.get(path, headers=links_only).json()]
-            assert link["id"] not in listed
-            listed = [item["id"] for item in client.get(path, headers=with_maps).json()]
-            assert link["id"] in listed
+        path = "/api/share-links"
+        listed = [item["id"] for item in client.get(path, headers=links_only).json()]
+        assert link["id"] not in listed
+        listed = [item["id"] for item in client.get(path, headers=with_maps).json()]
+        assert link["id"] in listed
+        # The every-user listing carries other people's live URLs: no key at all.
+        assert client.get("/api/share-links/all", headers=with_maps).status_code == 403
 
     def test_changing_a_link_needs_the_area_too(self, client, admin_headers, shared_map):
         link = create(client, admin_headers, "map", shared_map.id, password="lantern harbor").json()

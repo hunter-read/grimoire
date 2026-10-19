@@ -520,3 +520,27 @@ class TestOpdsTokenAtRest:
         _generate_token(opds_client, opds_admin_headers)
         assert opds_client.delete("/api/users/me/opds", headers=opds_admin_headers).status_code == 200
         assert self._row("admin") == (None, None)
+
+
+class TestEntryQuoting:
+    """Tag and MIME attributes are quoted so any value gives well-formed XML."""
+
+    def _entry(self, tags, mime="application/pdf"):
+        import xml.etree.ElementTree as ET
+
+        from backend.models import Book
+        from backend.routers.opds.core import _book_to_entry
+
+        book = Book(id="b1", title="T", mime_type=mime, has_thumbnail=False)
+        xml = _book_to_entry(book, "tok", "http://x", tags)
+        return ET.fromstring(xml.replace("<entry>", '<entry xmlns="http://www.w3.org/2005/Atom">', 1))
+
+    def test_tag_with_both_quote_kinds(self):
+        root = self._entry(["it's \"fine\"", "<b>&"])
+        terms = [c.get("term") for c in root.iter("{http://www.w3.org/2005/Atom}category")]
+        assert terms == ["it's \"fine\"", "<b>&"]
+
+    def test_mime_type_is_quoted(self):
+        root = self._entry([], mime='a"b')
+        links = list(root.iter("{http://www.w3.org/2005/Atom}link"))
+        assert links[-1].get("type") == 'a"b'

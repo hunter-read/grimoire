@@ -23,12 +23,21 @@ Division by zero yields 0 rather than raising. A character sheet mid-edit is
 routinely in a nonsense state — a level of 0, an empty score box — and a sheet
 that renders "0" while you fill it in is far more useful than one that refuses
 to draw. The same reasoning covers unknown names, which read as 0/empty.
+
+Formulas are also bounded, because one runs on every sheet render and a schema
+can chain up to ``MAX_COMPUTED`` of them: nesting is capped at
+:data:`MAX_EXPRESSION_DEPTH`, a number literal at :data:`MAX_NUMBER_LENGTH`
+characters, and any number a step produces at :data:`MAX_MAGNITUDE`. Past a
+bound the formula yields its default, like any other formula that cannot be
+worked out - so a self-squaring chain stops at the first step that overflows
+rather than growing a million-digit integer.
 """
 import math
 import re
 from typing import Any, Callable, Union
 
 __all__ = [
+    "EVALUATION_ERRORS",
     "ExpressionError",
     "evaluate",
     "parse",
@@ -39,6 +48,24 @@ __all__ = [
 
 class ExpressionError(ValueError):
     """An expression could not be parsed, or used something not in the language."""
+
+
+#: How deeply parentheses, calls, conditionals and unary operators may nest.
+#: Each level costs about nine Python frames, so this stays far inside the
+#: interpreter's recursion limit (about 3,000 parentheses used to exhaust it).
+MAX_EXPRESSION_DEPTH = 64
+
+#: The longest number literal accepted, in characters. Far beyond any real
+#: sheet; Python refuses to parse an int of more than 4,300 digits at all.
+MAX_NUMBER_LENGTH = 32
+
+#: The largest magnitude any step may produce. A sheet's numbers are scores,
+#: weights and coin counts; this keeps every result exact in a float and in
+#: JSON, and every operation on it cheap.
+MAX_MAGNITUDE = 10**15
+
+#: round()'s digits argument is clamped to this, so it cannot ask for 10**huge.
+_MAX_ROUND_DIGITS = 15
 
 
 # --- tokeniser -----------------------------------------------------------
@@ -74,6 +101,8 @@ def _tokenise(source: str) -> list[tuple[str, Any]]:
         if kind == "ws":
             continue
         if kind == "number":
+            if len(text) > MAX_NUMBER_LENGTH:
+                raise ExpressionError(f"Number at {match.start()} is too long")
             tokens.append(("num", float(text) if "." in text else int(text)))
         elif kind == "string":
             tokens.append(("str", text[1:-1]))
@@ -105,16 +134,20 @@ def _to_number(value: Any) -> Union[int, float]:
     """
     if value is True or value is False:
         return int(value)
-    if isinstance(value, (int, float)):
+    if isinstance(value, float):
+        # inf and nan are not numbers a sheet can show or do sums with.
+        return value if math.isfinite(value) else 0
+    if isinstance(value, int):
         return value
     if isinstance(value, str):
         text = value.strip()
         if not text:
             return 0
         try:
-            return float(text) if "." in text else int(text)
+            number = float(text) if "." in text else int(text)
         except ValueError:
             return 0
+        return number if math.isfinite(number) else 0
     if isinstance(value, (list, dict)):
         return len(value)
     return 0
@@ -129,8 +162,9 @@ def _fn_ceil(value: Any) -> int:
 
 
 def _fn_round(value: Any, digits: Any = 0) -> Union[int, float]:
-    result = round(_to_number(value), int(_to_number(digits)))
-    return int(result) if _to_number(digits) == 0 else result
+    places = max(-_MAX_ROUND_DIGITS, min(_MAX_ROUND_DIGITS, int(_to_number(digits))))
+    result = round(_to_number(value), places)
+    return int(result) if places == 0 else result
 
 
 def _fn_abs(value: Any) -> Union[int, float]:
@@ -405,6 +439,15 @@ class _Parser:
     def __init__(self, tokens: list[tuple[str, Any]]):
         self.tokens = tokens
         self.pos = 0
+        self.depth = 0
+
+    def descend(self) -> None:
+        """Count one level of nesting, refusing past MAX_EXPRESSION_DEPTH."""
+        self.depth += 1
+        if self.depth > MAX_EXPRESSION_DEPTH:
+            raise ExpressionError(
+                f"Expression is nested more than {MAX_EXPRESSION_DEPTH} levels deep"
+            )
 
     def peek(self) -> tuple[str, Any]:
         return self.tokens[self.pos]
@@ -425,14 +468,20 @@ class _Parser:
 
     # conditional  →  or  [ '?' expr ':' expr ]
     def parse_expression(self) -> tuple:
-        condition = self.parse_or()
-        if self.at_op("?"):
-            self.take()
-            when_true = self.parse_expression()
-            self.expect_op(":")
-            when_false = self.parse_expression()
-            return ("cond", condition, when_true, when_false)
-        return condition
+        # Every nested sub-expression (parentheses, call arguments, conditional
+        # branches) comes back through here, so this is where depth is counted.
+        self.descend()
+        try:
+            condition = self.parse_or()
+            if self.at_op("?"):
+                self.take()
+                when_true = self.parse_expression()
+                self.expect_op(":")
+                when_false = self.parse_expression()
+                return ("cond", condition, when_true, when_false)
+            return condition
+        finally:
+            self.depth -= 1
 
     def parse_or(self) -> tuple:
         node = self.parse_and()
@@ -451,7 +500,11 @@ class _Parser:
     def parse_not(self) -> tuple:
         if self.at_op("not"):
             self.take()
-            return ("not", self.parse_not())
+            self.descend()
+            try:
+                return ("not", self.parse_not())
+            finally:
+                self.depth -= 1
         return self.parse_comparison()
 
     def parse_comparison(self) -> tuple:
@@ -476,12 +529,14 @@ class _Parser:
         return node
 
     def parse_unary(self) -> tuple:
-        if self.at_op("-"):
-            self.take()
-            return ("neg", self.parse_unary())
-        if self.at_op("+"):
-            self.take()
-            return self.parse_unary()
+        if self.at_op("-", "+"):
+            _, op = self.take()
+            self.descend()
+            try:
+                operand = self.parse_unary()
+            finally:
+                self.depth -= 1
+            return ("neg", operand) if op == "-" else operand
         return self.parse_primary()
 
     def parse_primary(self) -> tuple:
@@ -576,6 +631,17 @@ def _equal(left: Any, right: Any) -> bool:
     return _to_number(left) == _to_number(right)
 
 
+def _bounded(value: Any) -> Any:
+    """``value``, unless it is a number past MAX_MAGNITUDE or not finite."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return value
+    if isinstance(value, float) and not math.isfinite(value):
+        raise ExpressionError("Result is not a finite number")
+    if abs(value) > MAX_MAGNITUDE:
+        raise ExpressionError("Result is too large")
+    return value
+
+
 def _eval_node(node: tuple, context: dict) -> Any:
     kind = node[0]
 
@@ -584,7 +650,7 @@ def _eval_node(node: tuple, context: dict) -> Any:
     if kind == "name":
         return _lookup(node[1], context)
     if kind == "neg":
-        return -_to_number(_eval_node(node[1], context))
+        return _bounded(-_to_number(_eval_node(node[1], context)))
     if kind == "not":
         return not _truthy(_eval_node(node[1], context))
     if kind == "and":
@@ -617,7 +683,7 @@ def _eval_node(node: tuple, context: dict) -> Any:
             # `prepared` was None rather than True.
             kwargs["entries"] = context.get("_entries")
         try:
-            return FUNCTIONS[name](*args, **kwargs)
+            return _bounded(FUNCTIONS[name](*args, **kwargs))
         except ExpressionError:
             raise
         except (TypeError, ValueError):
@@ -627,44 +693,54 @@ def _eval_node(node: tuple, context: dict) -> Any:
 
     if kind == "binary":
         op = node[1]
-        left = _to_number(_eval_node(node[2], context))
-        right = _to_number(_eval_node(node[3], context))
+        # Operands are bounded too: a field value can arrive larger than any
+        # formula could produce, and dividing two such ints overflows a float.
+        left = _bounded(_to_number(_eval_node(node[2], context)))
+        right = _bounded(_to_number(_eval_node(node[3], context)))
         if op == "+":
-            return left + right
+            return _bounded(left + right)
         if op == "-":
-            return left - right
+            return _bounded(left - right)
         if op == "*":
-            return left * right
+            return _bounded(left * right)
         # Division by zero is routine on a half-filled sheet: see the module
         # docstring. Integer division stays integral so modifiers print cleanly.
         if op == "/":
             if right == 0:
                 return 0
             result = left / right
-            return int(result) if float(result).is_integer() else result
+            return _bounded(int(result) if float(result).is_integer() else result)
         if op == "%":
             return 0 if right == 0 else left % right
 
     raise ExpressionError(f"Unsupported expression node {kind!r}")
 
 
+#: Everything ``evaluate`` turns into the default value; schema validation
+#: catches the same set around ``parse``.
+EVALUATION_ERRORS = (
+    ExpressionError,
+    RecursionError,
+    OverflowError,
+    ValueError,
+    ZeroDivisionError,
+)
+
+
 def evaluate(source: Any, context: dict, default: Any = 0) -> Any:
     """Evaluate an expression against a context of field values.
 
-    Returns ``default`` if the expression cannot be parsed. Callers that need to
-    surface a bad formula (schema validation) should call ``parse`` directly.
+    Returns ``default`` if the expression cannot be parsed or worked out.
+    Callers that need to surface a bad formula (schema validation) should call
+    ``parse`` directly.
     """
     try:
         node = source if isinstance(source, tuple) else parse(source)
-    except ExpressionError:
-        return default
-    try:
         return _eval_node(node, context)
-    except ExpressionError:
-        return default
-    except RecursionError:
-        # A pathologically nested expression. Bounded by MAX_EXPRESSION_DEPTH at
-        # validation time, so reaching here means a row edited around it.
+    except EVALUATION_ERRORS:
+        # ExpressionError covers the bounds above. The rest should be
+        # unreachable now, but a formula is stranger-supplied and runs on every
+        # sheet render: whatever goes wrong, the sheet still draws.
         return default
 
 

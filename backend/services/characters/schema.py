@@ -14,10 +14,11 @@ that silently draws nothing at 2am mid-session.
 Evaluation is forgiving, for the opposite reason: a sheet is edited in place and
 is routinely half-filled, so a missing value reads as 0 rather than an error.
 """
+import math
 import re
 from typing import Any, Optional
 
-from .expressions import ExpressionError, evaluate, parse, referenced_names
+from .expressions import EVALUATION_ERRORS, evaluate, parse, referenced_names
 from .layout_html import LayoutHtmlError, parse_layout_html
 from .styles import StylesError, scope_styles
 
@@ -347,7 +348,7 @@ def _validate_computed(name: str, definition: Any) -> tuple:
 
     try:
         return parse(formula)
-    except ExpressionError as exc:
+    except EVALUATION_ERRORS as exc:
         raise SchemaError(f"Computed {name!r} has an invalid formula: {exc}") from exc
 
 
@@ -364,7 +365,7 @@ def _validate_condition(source: Any, what: str, known: set[str]) -> None:
         raise SchemaError(f"{what} must be a non-empty expression")
     try:
         ast = parse(source)
-    except ExpressionError as exc:
+    except EVALUATION_ERRORS as exc:
         raise SchemaError(f"{what} is not a valid expression: {exc}") from exc
 
     unknown = referenced_names(ast) - known
@@ -647,7 +648,11 @@ def coerce_value(
             return None
         try:
             number: Any = float(value)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
+            return None
+        if not math.isfinite(number):
+            # "1e999" parses as inf, which no formula can do sums with and
+            # JSON cannot carry. Treat it like any other unreadable number.
             return None
         if float(number).is_integer():
             number = int(number)

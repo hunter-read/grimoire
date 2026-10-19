@@ -11,7 +11,9 @@ from ...models import Book, GameSystem
 from ...services import access_control
 from ._books import search_book_metadata
 from ...services.search_query import FIELD_ALIASES, parse_query
+from ..books._helpers import _allow_explicit
 from ._helpers import (
+    EXPLICIT_BOOKS_CLAUSE,
     _search_models,
     SNIPPET_SQL,
     access_clause,
@@ -46,6 +48,12 @@ def search_library(
     user = access_control.load_user(db, current_user)
     excluded = access_control.restricted_book_ids(db, user)
     access_sql, access_params = access_clause(excluded)
+    # Explicit books are left out the same way - inside the query - when the
+    # user has explicit content off, so neither a snippet nor the page count
+    # gives one away.
+    hide_explicit = not _allow_explicit(db, current_user.id)
+    if hide_explicit:
+        access_sql = f"{access_sql} {EXPLICIT_BOOKS_CLAUSE}"
 
     # Field-scoped query syntax (issue #343). ``title:avatar`` searches book
     # titles and stops there; a bare query still searches page text, but now
@@ -149,7 +157,9 @@ def search_library(
     # pin — the user is already inside that book — so the lookup is skipped.
     book_matches = []
     if not book_id:
-        book_matches = search_book_metadata(db, parsed, user, system_id=system_id)
+        book_matches = search_book_metadata(
+            db, parsed, user, system_id=system_id, hide_explicit=hide_explicit
+        )
 
     maps = []
     tokens = []
@@ -157,9 +167,9 @@ def search_library(
     models = []
     if not book_id and not system_id:
         maps = _search_maps(db, parsed)
-        tokens = _search_tokens(db, parsed)
+        tokens = _search_tokens(db, parsed, hide_explicit=hide_explicit)
         audio = _search_audio(db, parsed)
-        models = _search_models(db, parsed)
+        models = _search_models(db, parsed, hide_explicit=hide_explicit)
 
     return {
         "query": q,

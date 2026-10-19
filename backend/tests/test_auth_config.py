@@ -192,3 +192,38 @@ class TestSanitizeLoginMessage:
         html = '<a href="mailto:a@b.co">mail</a>'
         out = sanitize_login_message(html)
         assert "mailto:a@b.co" in out
+
+
+class TestSanitizeLoginMessageEscaping:
+    """Output is rebuilt from parsed pieces, so quotes in a value stay inside it."""
+
+    def test_single_quoted_href_cannot_add_attributes(self):
+        out = sanitize_login_message("<a href='/x\" onmouseover=\"alert(1)'>hi</a>")
+        assert "onmouseover=\"" not in out
+        assert 'href="/x&quot; onmouseover=&quot;alert(1)"' in out
+
+    def test_title_quotes_escaped(self):
+        out = sanitize_login_message("<a title='a\"b' href=\"/\">x</a>")
+        assert 'title="a&quot;b"' in out
+
+    def test_text_is_escaped(self):
+        assert sanitize_login_message("1 &lt; 2 &amp; <b>3</b>") == "1 &lt; 2 &amp; <b>3</b>"
+
+    def test_entity_encoded_javascript_href_dropped(self):
+        out = sanitize_login_message('<a href="&#106;avascript:alert(1)">x</a>')
+        assert "href" not in out.split("rel=")[0]
+
+    def test_nested_dangerous_content_dropped(self):
+        out = sanitize_login_message("<svg><b>in</b><svg>x</svg></svg><i>after</i>")
+        assert out == "<i>after</i>"
+
+    def test_comments_and_doctype_dropped(self):
+        assert sanitize_login_message("<!-- c --><!DOCTYPE html><b>x</b>") == "<b>x</b>"
+
+    def test_self_closing_tags(self):
+        assert sanitize_login_message("a<br/>b<p/>") == "a<br>b<p></p>"
+        assert sanitize_login_message("<script/>x") == "x"
+
+    def test_round_trip_is_stable(self):
+        once = sanitize_login_message('<p><a href="/a?b=1&c=2" title="t">l</a> &amp; x</p>')
+        assert sanitize_login_message(once) == once

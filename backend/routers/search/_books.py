@@ -157,6 +157,7 @@ def search_book_metadata(
     *,
     system_id: Optional[str] = None,
     limit: int = TITLE_MATCH_LIMIT,
+    hide_explicit: bool = False,
 ) -> list[dict]:
     """Books whose own metadata matches the query, best match first.
 
@@ -192,6 +193,8 @@ def search_book_metadata(
         return []
 
     query = access_control.visible_books(db, query, user)
+    if hide_explicit:
+        query = query.filter(Book.is_explicit.isnot(True))
     books = query.limit(limit).all()
 
     ranked = sorted(books, key=lambda b: _title_rank(b, parsed))

@@ -332,4 +332,37 @@ describe('WikiMarkdown', () => {
     expect(container.querySelector('.wiki-markdown ul')).toBeTruthy()
     expect(screen.getByText('hidden one')).toBeTruthy()
   })
+
+  describe('link schemes', () => {
+    it.each([
+      ['data:text/html,<script>alert(1)</script>'],
+      ['vbscript:msgbox(1)'],
+      ['javascript:alert(1)'],
+      ['steam://run/1'],
+    ])('drops the href of a %s link', (url) => {
+      renderMd({ body: `[click](${url})` })
+      expect(screen.getByText('click').closest('a').getAttribute('href')).toBe('')
+    })
+
+    it('drops an unsafe image src', () => {
+      const { container } = renderMd({ body: '![x](data:image/svg+xml,<svg onload=alert(1)>)' })
+      const img = container.querySelector('img')
+      expect(img?.getAttribute('src') || '').toBe('')
+    })
+
+    it.each([['https://example.com/a'], ['mailto:gm@example.com'], ['/library'], ['#top']])(
+      'keeps a %s link',
+      (url) => {
+        renderMd({ body: `[ok](${url})` })
+        expect(screen.getByText('ok').closest('a').getAttribute('href')).toBe(url)
+      }
+    )
+
+    it('cannot break out of an embed link with a crafted target', () => {
+      // A ")" in the target used to end the generated markdown link early and
+      // turn the rest into a second, attacker-shaped link.
+      renderMd({ body: '[[map:x) [pwn](https://evil.example]]' })
+      expect(screen.queryByRole('link', { name: 'pwn' })).toBeNull()
+    })
+  })
 })

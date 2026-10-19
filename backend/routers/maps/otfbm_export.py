@@ -12,6 +12,7 @@ links: the point of it is a background OTFBM can fetch, which is a share link.
 import hashlib
 import io
 import os
+import threading
 from pathlib import Path
 from typing import Optional
 
@@ -19,6 +20,7 @@ from fastapi import Depends, HTTPException, Query
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
+from ...http_headers import content_disposition
 from ...auth import CurrentUser, get_current_user
 from ...config import PAGE_CACHE_DIR, get_db, logger
 from ...indexer import is_vtt_data, slugify
@@ -44,6 +46,26 @@ def otfbm_plan(m: GenericMap, cell: Optional[int]) -> dict:
     return plan_otfbm(grid, info["pixel_width"], info["pixel_height"], cell)
 
 
+# One lock per cache file, so simultaneous cold fetches of the same background
+# (a share link posted to a busy channel) render it once rather than once each.
+# Handlers run in the threadpool, so a thread lock covers one worker process.
+_render_locks: dict[str, threading.Lock] = {}
+_render_locks_guard = threading.Lock()
+
+
+def _render_lock(cache_path: str) -> threading.Lock:
+    with _render_locks_guard:
+        return _render_locks.setdefault(cache_path, threading.Lock())
+
+
+def _read_cached(cache_path: str) -> Optional[tuple[bytes, str]]:
+    if not os.path.exists(cache_path):
+        return None
+    with open(cache_path, "rb") as f:
+        raw = f.read()
+    return raw, "png" if _sniff_image_mime(raw) == "image/png" else "jpg"
+
+
 def otfbm_background(m: GenericMap, cell: Optional[int]) -> tuple[dict, bytes, str]:
     """``(plan, image bytes, extension)`` for a map's OTFBM background.
 
@@ -63,21 +85,31 @@ def otfbm_background(m: GenericMap, cell: Optional[int]) -> tuple[dict, bytes, s
     cache_path = os.path.join(
         PAGE_CACHE_DIR, f"otfbm_{hashlib.sha1(key.encode()).hexdigest()[:16]}.img"
     )
-    if os.path.exists(cache_path):
-        with open(cache_path, "rb") as f:
-            raw = f.read()
-        return plan, raw, "png" if _sniff_image_mime(raw) == "image/png" else "jpg"
+    cached = _read_cached(cache_path)
+    if cached:
+        return (plan, *cached)
 
-    try:
-        source = io.BytesIO(vtt_image_bytes(m.filepath)) if is_vtt_data(m.filename) else m.filepath
-        raw, ext = render_otfbm_image(source, plan["image_width"], plan["image_height"])
-    except ValueError as e:
-        raise HTTPException(400, str(e)) from None
-    try:
-        with open(cache_path, "wb") as f:
-            f.write(raw)
-    except OSError as e:  # a full or read-only cache must not fail the export
-        logger.warning(f"Could not cache OTFBM background: {e}")
+    with _render_lock(cache_path):
+        # Another request may have rendered it while this one waited.
+        cached = _read_cached(cache_path)
+        if cached:
+            return (plan, *cached)
+        try:
+            source = (
+                io.BytesIO(vtt_image_bytes(m.filepath)) if is_vtt_data(m.filename) else m.filepath
+            )
+            raw, ext = render_otfbm_image(source, plan["image_width"], plan["image_height"])
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from None
+        try:
+            # Written aside and moved into place, so a request reading the cache
+            # outside the lock never sees half a file.
+            partial = f"{cache_path}.{os.getpid()}.{threading.get_ident()}.tmp"
+            with open(partial, "wb") as f:
+                f.write(raw)
+            os.replace(partial, cache_path)
+        except OSError as e:  # a full or read-only cache must not fail the export
+            logger.warning(f"Could not cache OTFBM background: {e}")
     return plan, raw, ext
 
 
@@ -121,6 +153,6 @@ def export_map_otfbm_image(
         content=raw,
         media_type="image/png" if ext == "png" else "image/jpeg",
         headers={
-            "Content-Disposition": f'attachment; filename="{otfbm_filename(m, plan, ext)}"'
+            "Content-Disposition": content_disposition(otfbm_filename(m, plan, ext))
         },
     )

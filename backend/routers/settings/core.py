@@ -29,6 +29,7 @@ from ._helpers import (
     _OIDC_BUTTON_COLOR_FIELDS,
     guest_access_effective,
     sanitize_login_message,
+    seal_client_secret,
 )
 from ._schemas import SettingsPatch
 
@@ -209,7 +210,7 @@ def update_settings(
     # Client secret — special handling:
     #   None or "" → no change (so a form re-submit doesn't clobber)
     #   "__CLEAR__" → wipe the stored secret
-    #   anything else → set as-is
+    #   anything else → stored sealed (see oidc_effective_client_secret)
     if data.oidc_client_secret is not None and data.oidc_client_secret != "":
         if OIDC_ENV.get("oidc_client_secret") is not None:
             raise HTTPException(
@@ -218,7 +219,7 @@ def update_settings(
         if data.oidc_client_secret == "__CLEAR__":
             _set(db, "oidc_client_secret", "")
         else:
-            _set(db, "oidc_client_secret", data.oidc_client_secret)
+            _set(db, "oidc_client_secret", seal_client_secret(data.oidc_client_secret))
 
     db.commit()
 

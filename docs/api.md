@@ -32,7 +32,9 @@ Authorization: Bearer <token>
 
 **Session cookie** (used by browser-embedded images and file downloads):
 
-On a successful `/api/auth/login`, `/api/auth/setup`, `/api/auth/guest-login`, or OIDC callback, the server also sets an `HttpOnly`, `SameSite=Lax` cookie named `grimoire_session` carrying the JWT (marked `Secure` when `BASE_URL` is `https://`). `<img>` and download requests - which can't set an `Authorization` header - authenticate via this cookie, so the token never appears in the URL. `POST /api/auth/logout` clears it.
+On a successful `/api/auth/login`, `/api/auth/setup`, `/api/auth/guest-login`, or OIDC callback, the server also sets an `HttpOnly`, `SameSite=Lax` cookie named `grimoire_session` carrying the JWT (marked `Secure` when `BASE_URL` is `https://`, or when the request arrived over HTTPS - directly, or as `X-Forwarded-Proto: https` from a [trusted proxy](security.md)). `<img>` and download requests - which can't set an `Authorization` header - authenticate via this cookie, so the token never appears in the URL. `POST /api/auth/logout` clears it.
+
+The cookie (and the `?token=` parameter below) authenticate **`GET` and `HEAD` requests only**. A browser attaches the cookie by itself, and `SameSite=Lax` still lets a page on a sibling subdomain send one with a `POST`, so a request that changes anything must carry the `Authorization` header (or an `X-API-Key`); with only the cookie it gets a `401`.
 
 **Query parameter** (deprecated):
 ```
@@ -40,7 +42,7 @@ On a successful `/api/auth/login`, `/api/auth/setup`, `/api/auth/guest-login`, o
 ```
 Still accepted so pre-existing links keep working, but the JWT in a URL leaks into proxy/access logs, `Referer` headers, and browser history (see [#156](https://github.com/hunter-read/grimoire/issues/156)). The frontend no longer generates `?token=` URLs - use the cookie instead. This fallback may be removed in a future release.
 
-The auth precedence for any request is: `Authorization` header → `grimoire_session` cookie → `?token=` query param.
+The auth precedence for any request is: `X-API-Key` → `Authorization` header → `grimoire_session` cookie → `?token=` query param, the last two on `GET`/`HEAD` only.
 
 ### Token lifetimes and revocation
 
@@ -174,6 +176,11 @@ the rest of the route works as usual:
 - `POST /api/users` and `PATCH /api/users/{id}`: `password`, the `admin` role,
   and (on `PATCH`) a changed `email`. `POST /api/users/{id}/convert` likewise.
 - `PATCH /api/users/me/preferences`: a changed `email`.
+
+**Routes a key cannot use at all** beyond the excluded tags: `GET /api/share-links/all`
+and `GET /api/share-links/users/{user_id}`. They list every user's live share
+URLs, which are credentials in their own right, so they answer a key with `403`
+whatever its permissions; an admin reads them from a signed-in session.
 - `PATCH /api/settings`: `password_auth_enabled`, `guest_access_enabled`, the
   login message, and every `oidc_*` field.
 - `POST /api/addons/{id}/install` with `approve_script: true`, and
@@ -279,12 +286,12 @@ environment:
 | `/api/auth/guest-login` | POST | - | Exchange a campaign guest invite code for a JWT. Body: `{code}`. Returns `{token, user, campaign_id}` and sets the `grimoire_session` cookie - `user.display_name` is the GM-set guest nickname. Returns 403 if guest access is disabled, 401 for an unknown/expired code. |
 | `/api/auth/logout` | POST | - | Revokes the current session (identified by the `grimoire_refresh` cookie) and clears both auth cookies. Requires no auth so a client with an expired access token can still log out. The refresh token dies immediately; the current access token remains valid until it expires. |
 | `/api/auth/refresh` | POST | - | Exchanges the `grimoire_refresh` cookie for a new access token, rotating the refresh token. Returns `{token, user}` and re-sets both cookies. Returns 401 when the refresh token is missing, expired, or revoked; reusing an already-rotated token revokes the whole session. Rate-limited like the other credential endpoints. |
-| `/api/auth/me` | GET | any | Current user: `{id, username, display_name, email, role, allow_explicit, campaign_access, api_keys_allowed, oidc_linked}`. `api_keys_allowed` says whether they may use [API keys](#api-keys) right now. Also (re-)sets the `grimoire_session` cookie when the request authenticated via header but had no cookie, so clients that predate the cookie get one on next load. |
+| `/api/auth/me` | GET | any | Current user: `{id, username, display_name, email, role, allow_explicit, explicit_locked, campaign_access, api_keys_allowed, oidc_linked}`. `explicit_locked` is `true` when explicit content was turned off *for* the user (by an admin, the seed file or the OIDC `viewNSFW` permission), so their own preference can't turn it back on. `api_keys_allowed` says whether they may use [API keys](#api-keys) right now. Also (re-)sets the `grimoire_session` cookie when the request authenticated via header but had no cookie, so clients that predate the cookie get one on next load. |
 | `/api/auth/sessions` | GET | any | The caller's own live sessions, newest first: `[{id, origin, user_agent, ip_address, created_at, last_used_at, expires_at, current}]`. `origin` is `password`, `guest`, or `oidc`; `current` marks the session backing this request. |
 | `/api/auth/sessions/others` | DELETE | any | Logs out everywhere else - revokes all of the caller's sessions except the current one. Returns `{ok, revoked, kept_current}`. |
 | `/api/auth/sessions/{session_id}` | DELETE | any | Revokes a single session belonging to the caller. Returns 404 for an unknown session or one owned by another user. |
 | `/api/auth/openid/login` | GET | - | Start an OIDC login. Redirects to the IdP. Optional `?return_to=/path` to redirect after callback - it must be a same-origin path, and anything else (another host, `//host`, backslashes, control characters) falls back to `/`. Returns 503 if OIDC isn't configured. |
-| `/api/auth/openid/callback` | GET | - | OIDC callback. Validates the code, finds/creates the local user, opens a revocable session (`origin: "oidc"`), sets the `grimoire_session` and `grimoire_refresh` cookies, and redirects to the frontend with `#oidc_token=<jwt>`. Only the short-lived access token travels in the fragment; the refresh token is cookie-only. |
+| `/api/auth/openid/callback` | GET | - | OIDC callback. Checks and spends the `state` first - before anything else, an IdP error included - then validates the code, finds/creates the local user, opens a revocable session (`origin: "oidc"`), sets the `grimoire_session` and `grimoire_refresh` cookies, and redirects to the `return_to` path. **No token travels in the URL**: the SPA picks up the session from the refresh cookie, as it does for a returning user. Failures redirect to `/login?oidc_error=<message>` (URL-encoded); an IdP error is shown as a fixed message for its OAuth error code, never the IdP's `error_description`. Userinfo claims are used only when their `sub` matches the ID token's, and `email`/`email_verified` always come together from one of the two. |
 | `/api/auth/openid/button-icon` | GET | - | The admin-configured icon for the OIDC button, always a server-normalized PNG (≤192 px). 404 when no icon is set. Served with `X-Content-Type-Options: nosniff` and `Content-Security-Policy: default-src 'none'; sandbox`. Use the URL from `/api/auth/config`: when its `v` query parameter matches the current icon the response is cacheable forever; otherwise it is `no-cache` with an `ETag`. |
 | `/api/auth/openid/discover` | POST | admin | Server-side discovery fetch. Body: `{issuer_url}`. Returns the relevant endpoints from `.well-known/openid-configuration`. |
 
@@ -302,7 +309,7 @@ environment:
 | `/api/users/:id/access-grants` | GET | admin | List this user's library access grants. Each: `{id, user_id, scope_type, scope_id, scope_name, level}`. `scope_name` is `""` when the granted system/book has since been deleted. |
 | `/api/users/:id/access-grants` | POST | admin | Grant access to one restricted system or book. Body: `{scope_type: "system"\|"book", scope_id, level: "gm"\|"admin"}`. Only **GMs** may hold grants (400 otherwise) - admins already see everything and players cannot be granted past a restriction. Re-granting an existing scope updates its level rather than erroring. 404 if the target system/book does not exist. See [Access levels](#access-levels-issue-258). |
 | `/api/users/:id/access-grants/:grant_id` | DELETE | admin | Revoke a grant. `204` on success. |
-| `/api/users/me/preferences` | PATCH | any | Update own `display_name`, `allow_explicit`, or `email` (use `""` to clear) |
+| `/api/users/me/preferences` | PATCH | any | Update own `display_name`, `allow_explicit`, or `email` (use `""` to clear). Turning `allow_explicit` on is `403` while `explicit_locked` is set (see `/api/auth/me`); turning it off is always allowed. An admin setting `allow_explicit: false` on a user locks it, and `true` unlocks it. |
 | `/api/users/me/password` | PATCH | any | Change own password. Body: `{current_password, new_password}` |
 | `/api/users/me` | DELETE | any | Delete own account (admin accounts cannot self-delete) |
 
@@ -490,6 +497,12 @@ must be non-empty (`422` otherwise).
 
 **Link-list format** (`urls`, `character_builder_urls`): `[{"label": "DriveThruRPG", "url": "https://..."}]`
 
+Every link a client sets - these lists, `publishers[].url`, `publisher_url`,
+`character_builder_url` and a campaign member's `character_sheet_url` - must be an
+`http://` or `https://` URL (or empty); anything else is a `422`. Responses
+apply the same rule to what is stored, returning a link with any other scheme
+blank, so a row written before the check (or by an add-on) is never served as one.
+
 **Multi-value metadata** (issue #202): `genres` and `dice_materials` are string arrays; `genres` supersedes the legacy single `genre`, and `urls`/`character_builder_urls` supersede the legacy single-URL fields (the legacy fields remain accepted for backward compatibility). Systems in the special one-page collection carry `is_one_page: true` (grouped with `is_system_agnostic` in the library UI).
 
 **Cover art:** a system's cover resolves in precedence order - a `cover.*`/`folder.*` image at its library folder root, then an uploaded image, then a book thumbnail. The first two are served by `/api/systems/:id/cover`; the third is a plain `/api/books/:cover_book_id/thumbnail` URL. The `has_cover` field says whether the cover endpoint will return an image, so clients can pick a source without a speculative 404. Container folders hold no books, so the endpoint is their only source of art.
@@ -584,7 +597,7 @@ filter, so the result pages normally. A timestamp without an offset is read as U
 The map, token, audio and 3D model list and detail rows carry `added_at` too (the map
 detail route does not); those galleries sort and filter on it client-side.
 
-**Access control on by-id routes:** `GET /api/books` (the library browse) is blocked for guests, but the by-id content routes (`:id`, `:id/file`, `:id/thumbnail`, `:id/toc`, `:id/page/...`) are reachable by any authenticated user and enforce access themselves. Guests may only read a book **shared into a campaign they belong to** (via a `CampaignResource` whose visibility permits them); an unshared or `gm`-only book returns 403 (404 from `GET /api/books/:id`, so its title is not disclosed). The `variants` list on `GET /api/books/:id` is trimmed for a guest to the variants they may read. For non-guests, an `is_explicit` book returns 403 when the caller has `allow_explicit` disabled - the file/page routes enforce this the same way `GET /api/books/:id` does. A book deliberately shared into a guest's campaign is served regardless of its explicit flag (guests have no NSFW preference of their own).
+**Access control on by-id routes:** `GET /api/books` (the library browse) is blocked for guests, but the by-id content routes (`:id`, `:id/file`, `:id/thumbnail`, `:id/toc`, `:id/page/...`) are reachable by any authenticated user and enforce access themselves. Guests may only read a book **shared into a campaign they belong to** (via a `CampaignResource` whose visibility permits them); an unshared or `gm`-only book returns 403 (404 from `GET /api/books/:id`, so its title is not disclosed). The `variants` list on `GET /api/books/:id` is trimmed for a guest to the variants they may read. For non-guests, an `is_explicit` book returns 403 from the file/page routes when the caller has `allow_explicit` disabled, and 404 from `GET /api/books/:id` (as for a restricted book, so the answer doesn't confirm it exists). With explicit content off, search leaves explicit books, tokens and models out inside its queries, and the MCP book tools answer as for a book that does not exist. A book deliberately shared into a guest's campaign is served regardless of its explicit flag (guests have no NSFW preference of their own).
 
 #### Access levels (issue #258)
 
@@ -778,7 +791,7 @@ category, not to move a file. The same applies to a name collision at the
 destination (the file lands under a suffixed name), a book outside `books/`, and
 a book whose file is missing.
 
-| `/api/maps/:id` | PATCH | gm/admin | Update `description`, `tags`, `map_type`, `grid_size`, and the grid override `grid_width`/`grid_height`/`grid_px` |
+| `/api/maps/:id` | PATCH | gm/admin | Update `description`, `tags`, `map_type`, `grid_size`, and the grid override `grid_width`/`grid_height`/`grid_px` (`grid_px` is `0` to clear, or at least 4) |
 | `/api/maps/:id/file` | GET | any | Download/stream the original map image, PDF, or archive (served with the archive's MIME type) |
 | `/api/maps/:id/page/:n` | GET | any | Render page `n` of a PDF map to WebP (`width?` target pixel width, default 1600, max 3000). Image maps stream as-is and only accept page 1; archives return 400 |
 | `/api/maps/:id/page/:n/size` | GET | any | A PDF map page's `{width, height}` in points. 400 for non-PDF maps |
@@ -886,6 +899,12 @@ within 0.1 of the next cell: the partial-cell bleed around a printed map is not
 a playable square, while 32.97 is plainly 33. It is capped at OTFBM's 99 cells
 per side, and `truncated` reports when that cap applies. `suggested_cell` is the
 map's own cell size capped at 70, so the default never upscales.
+
+A grid can't claim cells under 4 source pixels: `PATCH grid_px` refuses a smaller
+non-zero value with `422`, a `.uvtt` claiming one is ignored, and any other route
+to a smaller cell is floored there. The rendered background is also capped at
+16383px per side and 100 megapixels, scaled down to fit (aspect ratio kept) past
+either - the largest grid OTFBM can show, 99x99 cells at `c100`, is 9900px square.
 
 Unlike `export.uvtt`, a raster map variant-linked to a Universal VTT file is
 **not** refused: OTFBM has no walls or lights, so the linked file holds nothing
@@ -1276,7 +1295,7 @@ Bookmarks are per-user - users cannot see or modify each other's bookmarks.
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
 | `/api/bookmarks?book_id=` | GET | any | List user's bookmarks for a book, sorted by page |
-| `/api/bookmarks` | POST | any | Create a bookmark. Body: `{book_id, page_number, label?, notes?, selected_text?}` |
+| `/api/bookmarks` | POST | any | Create a bookmark. Body: `{book_id, page_number, label?, notes?, selected_text?}`. `404` when the book doesn't exist or the caller can't read it. |
 | `/api/bookmarks/:id` | PATCH | any | Update `label` or `notes` |
 | `/api/bookmarks/:id` | DELETE | any | Delete a bookmark |
 
@@ -1492,7 +1511,7 @@ as a campaign file and links it as a `file` resource under an optional category.
 
 Resource types: `book`, `map`, `token`, `audio`, `model`, `file` (a GM-uploaded file stored under `DATA_PATH/campaign_uploads/files/`, separate from the library). Listed/serialized resources include `is_image` (true for `file` resources that hold an image upload - those render inline with a thumbnail instead of as a download card).
 
-Resource **visibility** is one of: `public` (every accepted member), `private` (the owner plus the users in `shared_user_ids`), or `gm` (owner only). The character-sheet upload endpoints also accept a URL alternative via the member PATCH: `PATCH /api/campaigns/:id/members/:user_id` with `{character_sheet_url}` (`""` clears it; setting a URL clears any uploaded sheet, and uploading a sheet clears the URL).
+Resource **visibility** is one of: `public` (every accepted member), `private` (the owner plus the users in `shared_user_ids`), or `gm` (owner only). The character-sheet upload endpoints also accept a URL alternative via the member PATCH: `PATCH /api/campaigns/:id/members/:user_id` with `{character_sheet_url}` (`""` clears it; setting a URL clears any uploaded sheet, and uploading a sheet clears the URL). The URL must be `http://` or `https://`.
 
 App-wide admin settings gate campaign file uploads (admins are exempt): `campaign_uploads_disabled` (bool), `campaign_upload_max_file_mb` (int, 0 = unlimited), `campaign_upload_max_total_mb` (int, 0 = unlimited). They are settable via `PATCH /api/settings` and exposed on `GET /api/settings/ui`.
 
@@ -1594,7 +1613,7 @@ Because a player edits this stripped body, a player saving an edit would otherwi
 | `/api/campaigns/:id/wiki/titles` | GET | member or owner | `{id, title, slug, ambiguous, parent_title, headings[]}` list for `[[link]]` autocomplete. `ambiguous` is true when another visible page normalizes to the same slug (the editor then emits `:id-`, and labels the suggestion `Title (parent_title)` to tell the collisions apart); `parent_title` is the immediate parent's title, or null at top level **or when that parent isn't visible to the caller**; `headings` is the page's ATX headings as `{text, level}` in document order, for `:#Heading` completions. Headings inside `\|\|GM secrets\|\|` are omitted for non-owners |
 | `/api/campaigns/:id/wiki/reorder` | PUT | member or owner | Drag-and-drop order. Body: `{ordered_ids}`. **Relative, not absolute**: `sort_order` is global but a caller only sees a subset, so the submitted list is applied as an ordering *of the slots those pages already occupy* - the pages named are redealt into their own existing positions, and every other page (invisible to the caller, or visible but not writable by them) keeps the `sort_order` it had. A caller's drag therefore never renumbers pages they cannot see. Ids the caller cannot write are skipped and hold their slot; unknown and duplicate ids are ignored rather than rejected |
 | `/api/campaigns/:id/wiki/export` | GET | owner or member | Export the wiki - a member can take their own copy of a campaign with them (e.g. when leaving, or moving to another platform), and this **works on an archived campaign** since it only reads. Everyone receives exactly what they can see in the app: pages failing the `can_view_page` check are omitted, and `||GM secrets||` are stripped from a player's bodies. The page filter now applies to the campaign owner too - since `gm` visibility means author-only, a GM is no more entitled to export a player's self-only note than to read it - but secrets stay GM-only regardless of who authored the page holding them. Query: `format` = `md` (a `.zip` of one Markdown file per page, with YAML frontmatter incl. `parent` slug - Obsidian-friendly), `mdfile` (a single `.md` file with every page concatenated in sidebar order, page titles as headings nested by tree depth and each page's own headings shifted below its title - for reading or printing, not re-import), or `json` (a Grimoire JSON bundle: `{grimoire_wiki_version, campaign, pages[]}`, each page carrying its `parent` slug). Returns a file download |
-| `/api/campaigns/:id/wiki/import` | POST | owner | Import pages from a multipart `file`, **or** from a whole picked folder as repeated `files` parts plus one `paths` entry per file (the browser's `webkitRelativePath`), paired by position - sending both `file` and `files` is `400`. A folder pick takes only markdown (dot-directories such as `.obsidian/` skipped) and the whole set imports in one request so nesting and links resolve together; the 25 MB cap applies to the pick as a whole, with at most 2000 files. Accepts a single `.md`/`.markdown`/`.txt`, a Grimoire `.json` bundle, a LegendKeeper export (`.json`/`.lk` - a per-page export or a current `{version, resources[]}` bundle with ProseMirror bodies), or a `.zip` (Markdown vault, Grimoire bundle, or LegendKeeper directory export). LegendKeeper HTML and ProseMirror bodies are converted to Markdown (lossy for LegendKeeper-only blocks, which are dropped); page nesting (`parent`/`parentId`) is preserved. In a zip, folders become nesting too - `Places/Cities/Waterdeep.md` nests three deep, a page being created per folder unless a folder note (`<Folder>/<Folder>.md`) or `index.md`/`_index.md` already stands for it; a record's own `parent` outranks its folder, so the Markdown zip export round-trips. Import is non-destructive: every record becomes a new page (slugs de-duplicated), existing pages are never overwritten, and internal links are remapped. Returns `{imported, format, pages[]}` |
+| `/api/campaigns/:id/wiki/import` | POST | owner | Import pages from a multipart `file`, **or** from a whole picked folder as repeated `files` parts plus one `paths` entry per file (the browser's `webkitRelativePath`), paired by position - sending both `file` and `files` is `400`. A folder pick takes only markdown (dot-directories such as `.obsidian/` skipped) and the whole set imports in one request so nesting and links resolve together; the 25 MB cap applies to the pick as a whole, with at most 2000 files. A `.zip` is held to the same limits once unpacked - 25 MB of decompressed content and 2000 files - and is refused with `413` past either. Accepts a single `.md`/`.markdown`/`.txt`, a Grimoire `.json` bundle, a LegendKeeper export (`.json`/`.lk` - a per-page export or a current `{version, resources[]}` bundle with ProseMirror bodies), or a `.zip` (Markdown vault, Grimoire bundle, or LegendKeeper directory export). LegendKeeper HTML and ProseMirror bodies are converted to Markdown (lossy for LegendKeeper-only blocks, which are dropped); page nesting (`parent`/`parentId`) is preserved. In a zip, folders become nesting too - `Places/Cities/Waterdeep.md` nests three deep, a page being created per folder unless a folder note (`<Folder>/<Folder>.md`) or `index.md`/`_index.md` already stands for it; a record's own `parent` outranks its folder, so the Markdown zip export round-trips. Import is non-destructive: every record becomes a new page (slugs de-duplicated), existing pages are never overwritten, and internal links are remapped. Returns `{imported, format, pages[]}` |
 | `/api/campaigns/:id/wiki/templates` | GET | owner | The campaign's note templates. Returns `{templates[], campaign_system, downloads_enabled}`; each template carries `{id, name, system, category, description, source_id, source_url, source_version, created_at}` (no `body` - use the detail read). `campaign_system` is the linked game-system name, falling back to free-text `system_name`, else `""`. `downloads_enabled` is false when `DISABLE_EXTERNAL_ADD_ON_INSTALL` is set. Also returns `categories` (the suggested set plus any the campaign already uses, for the editor's dropdown) and `authored_system` (the marker stored on hand-written templates) |
 | `/api/campaigns/:id/wiki/templates` | POST | owner | Write a new template. Body: `{name, category?, description?, body?, defaults?}`. `name` is required and non-blank. There is no `system`: a hand-written template is stored with the `__authored__` marker (reported as `authored_system` on the list endpoint). `defaults` is `{title?, icon?, icon_color?, visibility?, page_type?}` and is stored as a YAML frontmatter block on the body, so authored, uploaded, and downloaded templates all share one on-disk shape. Returns the template incl. `body` and `defaults` |
 | `/api/campaigns/:id/wiki/templates/browse` | GET | owner | The community catalogue as a folder tree. Returns `{folders[], downloaded_ids[], campaign_system, index_url, is_custom_url, generated}`; each folder is `{path, name, templates[]}` with the generic folder pinned first and the rest alphabetical. Each template is `{id, name, version, system, category, description, author, author_url}`, where `author` is the "by <author>" credit and `author_url` its server-derived GitHub profile link (both `""` when absent). Query `refresh=true` bypasses the 1-hour cache. `403` when downloading is disabled, `502` when the catalogue is unreachable |
@@ -1767,7 +1786,7 @@ than appearing and failing.
 | `oidc_jwks_uri` | string | Discovered or manual JWKS URL - required to validate the ID token signature. |
 | `oidc_end_session_endpoint` | string | Optional RP-initiated logout endpoint. |
 | `oidc_client_id` | string | Client ID issued by the IdP. |
-| `oidc_client_secret` | string | **Write-only.** Setting a non-empty string saves it. Empty string is a no-op (so form re-submits don't clobber). The literal `"__CLEAR__"` wipes the stored secret. GET responses never return the value - instead, `oidc_client_secret_set: bool` and `oidc_client_secret_length: int` are returned. |
+| `oidc_client_secret` | string | **Write-only.** Setting a non-empty string saves it, encrypted under `SECRET_KEY` so a database backup doesn't carry it (if `SECRET_KEY` later changes, the stored secret reads as unset and must be entered again). Setting `OIDC_CLIENT_SECRET` in the environment instead is recommended. Empty string is a no-op (so form re-submits don't clobber). The literal `"__CLEAR__"` wipes the stored secret. GET responses never return the value - instead, `oidc_client_secret_set: bool` and `oidc_client_secret_length: int` are returned. |
 | `oidc_signing_alg` | string | One of `RS256`/`RS384`/`RS512`/`ES256`/`ES384`/`ES512`/`PS256`/`PS384`/`PS512`/`HS256`. Default `RS256`. |
 | `oidc_button_text` | string | Label for the SSO button on the login page. |
 | `oidc_button_bg_color` | string | Button background as a CSS hex color (`#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`), stored lowercase. `""` = theme default. Anything else returns 400. |
@@ -1878,8 +1897,8 @@ an admin can list and revoke anyone's.
 | `/api/share-links` | GET | any | Your links, newest first. Filter with `resource_type`, `resource_id` and `variant`. Each: `{id, url, file_url, resource_type, resource_id, resource_name, label, filename, has_password, variant, variant_options, state, created_at, expires_at, revoked_at, last_used_at, use_count}`. `url` is the share page; `file_url` the raw file. |
 | `/api/share-links` | POST | may share | Create a link. Body: `{resource_type: "book"\|"map"\|"token"\|"audio"\|"model", resource_id, label?, expires_in_days? (1-3650, null = never), password? (4-200 chars), variant? ("otfbm"), cell? (20-100)}`. `variant: "otfbm"` (maps with a single picture only, `400` otherwise) makes the link serve the map resized as an [OTFBM background](#otfbm-export) at `cell` pixels per cell (the suggested size when omitted); the link then carries `variant: "otfbm"` and `variant_options: {cell}`. `403` when share links are off, you may not share, or you cannot read the item; `404` for an unknown item or a file missing on disk. |
 | `/api/share-links/permission` | GET | any | `{enabled, allowed, source, override, role_allows}` for you. |
-| `/api/share-links/all` | GET | admin | Every user's links, with `user_id` and `username`. |
-| `/api/share-links/users/:user_id` | GET | admin | One user's links, with `user_id` and `username`. |
+| `/api/share-links/all` | GET | admin | Every user's links, with `user_id` and `username`. Signed-in session only: `403` with an API key. |
+| `/api/share-links/users/:user_id` | GET | admin | One user's links, with `user_id` and `username`. Signed-in session only: `403` with an API key. |
 | `/api/share-links/:id` | PATCH | owner or admin | Change `label`, `expires_in_days` (null = never) or `password` (null or `""` removes it). Only the fields sent change. `400` for a revoked link. |
 | `/api/share-links/:id/revoke` | POST | owner or admin | Stop the link working for good. It stays listed as `revoked`. |
 | `/api/share-links/:id` | DELETE | owner or admin | Remove the link entirely. `{status: "deleted"}`. |

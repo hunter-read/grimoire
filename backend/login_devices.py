@@ -57,9 +57,14 @@ def device_for(request: Request, user_id: Optional[str]) -> Optional[str]:
     return device_id
 
 
-def remember(response: Response, user_id: str, device_id: Optional[str] = None) -> None:
+def remember(
+    response: Response,
+    user_id: str,
+    device_id: Optional[str] = None,
+    request: Optional[Request] = None,
+) -> None:
     """Set (or refresh) the device cookie for ``user_id`` after a successful login."""
-    from .auth import COOKIE_SECURE
+    from .auth import cookie_secure
 
     device_id = device_id or secrets.token_urlsafe(16)
     response.set_cookie(
@@ -67,7 +72,7 @@ def remember(response: Response, user_id: str, device_id: Optional[str] = None) 
         f"{user_id}.{device_id}.{_sign(str(user_id), device_id)}",
         max_age=DEVICE_COOKIE_DAYS * 24 * 60 * 60,
         httponly=True,
-        secure=COOKIE_SECURE,
+        secure=cookie_secure(request),
         samesite="strict",
         path=DEVICE_COOKIE_PATH,
     )

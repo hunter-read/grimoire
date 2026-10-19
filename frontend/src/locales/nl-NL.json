@@ -1145,7 +1145,8 @@
     "contentPreferences": {
       "title": "Inhoudsvoorkeuren",
       "description": "Bepaal of expliciete inhoud aan jou wordt getoond.",
-      "showExplicit": "Expliciete inhoud tonen"
+      "showExplicit": "Expliciete inhoud tonen",
+      "lockedHint": "Een beheerder heeft expliciete inhoud voor je account uitgeschakeld."
     },
     "changePassword": {
       "title": "Wachtwoord wijzigen",

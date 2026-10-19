@@ -579,3 +579,19 @@ class TestCalibrePerBookFolderStructure:
             db.close()
         assert book is not None
         assert book.title == "dungeon masters guide"
+
+
+def test_opf_with_entity_declarations_is_refused():
+    """OPF files come with the library, so a DOCTYPE declaring entities (the
+    shape of billion-laughs and external-entity payloads) is not parsed."""
+    payload = dedent("""\
+        <?xml version="1.0"?>
+        <!DOCTYPE package [<!ENTITY a "aaaaaaaaaa"><!ENTITY b "&a;&a;&a;&a;&a;">]>
+        <package xmlns="http://www.idpf.org/2007/opf" version="2.0">
+            <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+                <dc:title>&b;</dc:title>
+            </metadata>
+        </package>
+    """)
+    with tempfile.TemporaryDirectory() as d:
+        assert parse_opf_metadata(_write_opf(d, "evil.opf", payload)) == {}

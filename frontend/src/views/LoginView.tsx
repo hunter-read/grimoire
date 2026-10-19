@@ -1,16 +1,36 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type CSSProperties, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { sanitizeLoginMessage } from '../utils/sanitizeLoginMessage'
-import { auth as authApi } from '../api'
+import { auth as authApi, type ApiError } from '../api'
+import type { AuthUser } from '../context/AuthContext'
 import OidcLoginButton from '../components/OidcLoginButton'
 
-export default function LoginView({ onLogin }) {
+interface LoginConfig {
+  password_auth_enabled: boolean
+  guest_access_enabled: boolean
+  custom_login_message_enabled: boolean
+  custom_login_message: string
+  oidc_enabled: boolean
+  oidc_button_text: string
+  oidc_button_bg_color: string
+  oidc_button_text_color: string
+  oidc_button_border_color: string
+  oidc_button_radius: number | null
+  oidc_button_icon_url: string
+  oidc_auto_launch: boolean
+}
+
+interface LoginViewProps {
+  onLogin: (token: string, user: AuthUser) => void
+}
+
+export default function LoginView({ onLogin }: LoginViewProps) {
   const { t } = useTranslation()
   const [form, setForm] = useState({ username: '', password: '' })
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [config, setConfig] = useState({
+  const [config, setConfig] = useState<LoginConfig>({
     password_auth_enabled: true,
     guest_access_enabled: false,
     custom_login_message_enabled: false,
@@ -48,21 +68,13 @@ export default function LoginView({ onLogin }) {
     const err = queryParams.get('oidc_error')
     if (err) setOidcError(err)
 
-    // If the callback redirected here with a token in the URL fragment,
-    // pick it up and complete the login.
-    const hash = window.location.hash
-    if (hash.startsWith('#oidc_token=')) {
-      const token = hash.slice('#oidc_token='.length)
-      // Clear the fragment from the URL bar
+    // Older builds handed the OIDC access token over in the URL fragment. The
+    // callback now signs the browser in with cookies alone, and accepting a
+    // token from the URL let any link sign a visitor in to someone else's
+    // account - so a leftover #oidc_token is removed from the address bar (and
+    // history) without being used.
+    if (window.location.hash.startsWith('#oidc_token=')) {
       window.history.replaceState(null, '', window.location.pathname + window.location.search)
-      fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((user) => {
-          if (user) onLogin(token, user)
-          else setOidcError(t('login.oidcLoginFailed'))
-        })
-        .catch(() => setOidcError(t('login.oidcLoginFailed')))
-      return
     }
 
     fetch('/api/auth/config')
@@ -97,7 +109,7 @@ export default function LoginView({ onLogin }) {
     window.location.assign('/api/auth/openid/login')
   }
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
@@ -121,7 +133,7 @@ export default function LoginView({ onLogin }) {
     }
   }
 
-  const handleGuestSubmit = async (e) => {
+  const handleGuestSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setGuestError('')
     setGuestLoading(true)
@@ -133,7 +145,8 @@ export default function LoginView({ onLogin }) {
       }
       onLogin(data.token, data.user)
     } catch (err) {
-      setGuestError(err?.body?.detail || t('login.guestInvalidCode'))
+      const detail = ((err as ApiError)?.body as { detail?: string } | undefined)?.detail
+      setGuestError(detail || t('login.guestInvalidCode'))
     } finally {
       setGuestLoading(false)
     }
@@ -387,7 +400,7 @@ export default function LoginView({ onLogin }) {
   )
 }
 
-const labelStyle = {
+const labelStyle: CSSProperties = {
   display: 'block',
   fontSize: 15,
   color: 'var(--text-muted)',
@@ -395,7 +408,7 @@ const labelStyle = {
   letterSpacing: '0.03em',
 }
 
-const submitBtnStyle = (loading) => ({
+const submitBtnStyle = (loading: boolean): CSSProperties => ({
   width: '100%',
   padding: '12px',
   borderRadius: 8,
@@ -410,7 +423,7 @@ const submitBtnStyle = (loading) => ({
   border: '1px solid var(--gold)',
 })
 
-const revealBtnStyle = {
+const revealBtnStyle: CSSProperties = {
   position: 'absolute',
   top: '50%',
   right: 10,

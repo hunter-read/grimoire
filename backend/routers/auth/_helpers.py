@@ -52,8 +52,8 @@ def issue_login(
         ip_address=client_ip(request),
     )
     token = create_token(user.id, user.username, user.role, session_id=session.id)
-    set_auth_cookie(response, token)
-    set_refresh_cookie(response, refresh_token)
+    set_auth_cookie(response, token, request)
+    set_refresh_cookie(response, refresh_token, request)
     return {
         "token": token,
         "user": {

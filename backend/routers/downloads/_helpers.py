@@ -9,6 +9,7 @@ from typing import Literal, Optional
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 
+from ...http_headers import content_disposition
 from ...filenames import is_undecodable
 from ...models import Model3D, Audio, Book, GameSystem, GenericMap, Token, User
 from ...models.collections import COLLECTIONS
@@ -116,7 +117,7 @@ def _archive_response(
     return StreamingResponse(
         body,
         media_type=info["mime"],
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": content_disposition(filename)},
     )
 
 

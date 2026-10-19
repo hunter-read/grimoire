@@ -1145,7 +1145,8 @@
     "contentPreferences": {
       "title": "Preferências de conteúdo",
       "description": "Controle se o conteúdo explícito é mostrado a você.",
-      "showExplicit": "Mostrar conteúdo explícito"
+      "showExplicit": "Mostrar conteúdo explícito",
+      "lockedHint": "Um administrador desativou o conteúdo explícito para sua conta."
     },
     "changePassword": {
       "title": "Alterar senha",

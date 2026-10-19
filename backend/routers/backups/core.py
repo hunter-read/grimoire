@@ -5,6 +5,7 @@ from fastapi import Depends, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
+from ...http_headers import content_disposition
 from ...auth import CurrentUser, require_admin
 from ...config import get_db, logger
 from ...services import backup as backup_service
@@ -74,7 +75,7 @@ def download_backup(
         record.path,
         media_type="application/zip",
         filename=record.filename,
-        headers={"Content-Disposition": f'attachment; filename="{record.filename}"'},
+        headers={"Content-Disposition": content_disposition(record.filename)},
     )
 
 

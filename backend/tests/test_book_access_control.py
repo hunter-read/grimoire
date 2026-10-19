@@ -230,10 +230,11 @@ class TestExplicitEnforcementOnContentRoutes:
             try:
                 r = client.get(f"/api/books/{book.id}/file", headers=player_headers)
                 assert r.status_code == 403, r.text
-                # Metadata endpoint already enforced this; the file route now matches.
+                # The metadata endpoint enforces it too, answering as for a
+                # restricted book so the response doesn't confirm it exists.
                 assert client.get(
                     f"/api/books/{book.id}", headers=player_headers
-                ).status_code == 403
+                ).status_code == 404
             finally:
                 os.unlink(path)
         finally:

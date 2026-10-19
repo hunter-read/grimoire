@@ -3,8 +3,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ...config import get_db
-from ...models import Bookmark
+from ...models import Book, Bookmark
 from ...auth import get_current_user, CurrentUser
+from ..books._helpers import _can_read_book
 from ._helpers import _serialize
 from ._schemas import BookmarkCreate, BookmarkUpdate
 
@@ -30,6 +31,11 @@ def create_bookmark(
     user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # A book the user can't read gets the same 404 as one that doesn't exist, so
+    # bookmarking can't be used to probe which book ids are in the library.
+    book = db.query(Book).filter_by(id=data.book_id).first()
+    if not book or not _can_read_book(db, book, user):
+        raise HTTPException(404, "Book not found")
     bm = Bookmark(
         user_id=user.id,
         book_id=data.book_id,

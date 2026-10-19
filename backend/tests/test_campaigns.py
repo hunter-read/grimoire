@@ -2444,6 +2444,32 @@ class TestCharacterSheetUrl:
         )
         assert resp.json()["character_sheet_url"] is None
 
+    def test_non_http_sheet_url_refused(self, client, player_headers, member):
+        cid, player_id = member
+        resp = client.patch(
+            f"/api/campaigns/{cid}/members/{player_id}",
+            json={"character_sheet_url": "javascript:alert(1)"},
+            headers=player_headers,
+        )
+        assert resp.status_code == 422
+
+    def test_stored_non_http_sheet_url_is_not_returned(self, client, player_headers, member):
+        from backend.config import SessionLocal
+        from backend.models import CampaignMember
+
+        cid, player_id = member
+        db = SessionLocal()
+        try:
+            db.query(CampaignMember).filter_by(campaign_id=cid, user_id=player_id).update(
+                {"character_sheet_url": "data:text/html,x"}
+            )
+            db.commit()
+        finally:
+            db.close()
+        body = client.get(f"/api/campaigns/{cid}", headers=player_headers).json()
+        m = next(m for m in body["members"] if m.get("user_id") == player_id)
+        assert m["character_sheet_url"] is None
+
 
 # ---------------------------------------------------------------------------
 # Per-user campaign access control

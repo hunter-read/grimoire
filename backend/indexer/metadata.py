@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Any, Optional, Tuple
 from xml.etree import ElementTree
 
+import defusedxml.ElementTree as SafeElementTree
+
 from ..metadata.formats import COVER_SUFFIX
 from ..models import Book
 from .constants import (
@@ -262,7 +264,9 @@ def parse_opf_metadata(opf_path: str) -> dict:
     cover image referenced in the OPF <guide>, if present.
     """
     try:
-        tree = ElementTree.parse(opf_path)
+        # OPF sidecars arrive with the library, so parse them with entity
+        # declarations and external references refused.
+        tree = SafeElementTree.parse(opf_path)
     except Exception as e:
         logger.warning(f"Could not parse OPF file '{opf_path}': {e}")
         return {}

@@ -1,16 +1,17 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuBold, LuItalic, LuStrikethrough, LuLink, LuList, LuListOrdered } from 'react-icons/lu'
 import ToolbarButton from './ToolbarButton'
+import { sanitizeLoginMessage } from '../../utils/sanitizeLoginMessage'
 
-const editorWrapStyle = {
+const editorWrapStyle: CSSProperties = {
   border: '1px solid var(--border)',
   borderRadius: 8,
   background: 'var(--bg-card)',
   overflow: 'hidden',
 }
 
-const toolbarStyle = {
+const toolbarStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 2,
@@ -19,14 +20,14 @@ const toolbarStyle = {
   background: 'var(--bg-panel)',
 }
 
-const toolbarSepStyle = {
+const toolbarSepStyle: CSSProperties = {
   width: 1,
   height: 18,
   background: 'var(--border)',
   margin: '0 4px',
 }
 
-const editableStyle = {
+const editableStyle: CSSProperties = {
   minHeight: 120,
   padding: '10px 12px',
   fontSize: 14,
@@ -37,20 +38,34 @@ const editableStyle = {
 
 // Rich text editor — contentEditable with execCommand for bold/italic/strike,
 // link, and bulleted/numbered lists. Emits HTML via onChange.
-export default function RichTextEditor({ value, onChange, ariaLabel }) {
+interface RichTextEditorProps {
+  value: string | null | undefined
+  onChange: (html: string) => void
+  ariaLabel?: string
+}
+
+export default function RichTextEditor({ value, onChange, ariaLabel }: RichTextEditorProps) {
   const { t } = useTranslation()
-  const ref = useRef(null)
+  const ref = useRef<HTMLDivElement>(null)
   const [, forceUpdate] = useState(0)
 
   // Keep DOM in sync when `value` arrives from outside (e.g. initial load).
   useEffect(() => {
-    if (ref.current && ref.current.innerHTML !== (value || '')) {
-      ref.current.innerHTML = value || ''
-    }
+    const el = ref.current
+    if (!el) return
+    const html = value || ''
+    // While typing, the DOM already holds what onChange just reported.
+    if (el.innerHTML === html) return
+    // Anything else is the stored setting, which reaches innerHTML here in an
+    // admin's session: sanitise it the way the login page does first. Compared
+    // against the sanitised form so a value the sanitiser rewrites is applied
+    // once rather than on every render.
+    const safe = sanitizeLoginMessage(html)
+    if (el.innerHTML !== safe) el.innerHTML = safe
   }, [value])
 
   const exec = useCallback(
-    (command, arg) => {
+    (command: string, arg?: string) => {
       ref.current?.focus()
       // execCommand is deprecated but still the simplest cross-browser path
       // for inline formatting in a contentEditable. Behaviour here is fine

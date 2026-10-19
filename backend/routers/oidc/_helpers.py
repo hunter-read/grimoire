@@ -35,9 +35,10 @@ def _pkce_pair() -> tuple[str, str]:
 def _safe_return_to(value: Optional[str]) -> str:
     """Return ``value`` if it is a same-origin path, else ``"/"``.
 
-    The callback redirects to ``{return_to}#oidc_token=<JWT>``, so anything
-    that a browser could resolve to another origin would hand that origin the
-    token. A bare ``startswith("/")`` is not enough: ``//evil.example`` is
+    The callback redirects to ``return_to`` straight after setting the session
+    cookies, so anything a browser could resolve to another origin would make
+    the sign-in an open redirect (and, before the token left the URL, handed
+    that origin the token). A bare ``startswith("/")`` is not enough: ``//evil.example`` is
     protocol-relative, browsers treat ``\\`` as ``/`` (so ``/\\evil.example``
     is too), and they strip tabs/newlines anywhere in a URL (so
     ``/\\t/evil.example`` collapses to ``//evil.example``).
@@ -336,7 +337,9 @@ def _resolve_user(db, claims: dict, eff: dict) -> User:
     # Permissions claim → per-field user state
     if perms is not None:
         if "viewNSFW" in perms:
+            # The provider decides, so the user can't override a "no".
             user.allow_explicit = bool(perms["viewNSFW"])
+            user.explicit_locked = not user.allow_explicit
         if "campaignAccess" in perms:
             user.campaign_access = bool(perms["campaignAccess"])
         if "apiKeys" in perms:

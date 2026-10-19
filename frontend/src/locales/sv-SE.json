@@ -1145,7 +1145,8 @@
     "contentPreferences": {
       "title": "Innehållsinställningar",
       "description": "Styr om explicit innehåll visas för dig.",
-      "showExplicit": "Visa explicit innehåll"
+      "showExplicit": "Visa explicit innehåll",
+      "lockedHint": "En administratör har stängt av explicit innehåll för ditt konto."
     },
     "changePassword": {
       "title": "Byt lösenord",

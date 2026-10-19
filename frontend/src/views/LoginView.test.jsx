@@ -196,4 +196,26 @@ describe('LoginView', () => {
       '/api/auth/openid/button-icon?v=abc'
     )
   })
+
+  describe('an OIDC token in the URL fragment', () => {
+    it('is stripped from the address bar and never used to sign in', async () => {
+      window.history.replaceState(null, '', '/login?x=1#oidc_token=attacker-token')
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ password_auth_enabled: true }),
+      })
+      const onLogin = vi.fn()
+      render(<LoginView onLogin={onLogin} />)
+      expect(window.location.hash).toBe('')
+      expect(window.location.search).toBe('?x=1')
+      // The login form still loads its config...
+      await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/auth/config'))
+      // ...and the token was never sent anywhere or handed to onLogin.
+      for (const [, init] of global.fetch.mock.calls) {
+        expect(JSON.stringify(init || {})).not.toContain('attacker-token')
+      }
+      expect(onLogin).not.toHaveBeenCalled()
+      window.history.replaceState(null, '', '/')
+    })
+  })
 })

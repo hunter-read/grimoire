@@ -28,6 +28,7 @@ from typing import Any, Optional
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from ...http_headers import content_disposition
 from ...config import logger
 from ...filenames import is_undecodable
 from ...indexer import resolve_collection_dir
@@ -382,5 +383,5 @@ def frame_response_headers(path: Path) -> dict[str, Any]:
     """
     return {
         **INERT_DOCUMENT_HEADERS,
-        "Content-Disposition": f'inline; filename="{path.name}"',
+        "Content-Disposition": content_disposition(path.name, "inline"),
     }
