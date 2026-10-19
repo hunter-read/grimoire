@@ -25,6 +25,6 @@ pytesseract==0.3.13
 pathspec==1.1.1
 tzdata==2026.5
 PyYAML==6.0.3
-mcp==1.30.0
+mcp==2.3.0
 cryptography==50.0.2
 defusedxml==0.7.1
