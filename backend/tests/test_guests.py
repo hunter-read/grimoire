@@ -277,3 +277,50 @@ def test_non_gm_campaign_rejects_guests(client, gm_headers, admin_headers):
         headers=gm_headers,
     )
     assert resp.status_code == 400
+
+
+def _guest_session(client, gm_headers, gm_campaign):
+    """Create a guest and sign in with its code; returns (guest, refresh cookie)."""
+    created = client.post(
+        f"/api/campaigns/{gm_campaign}/guests", json={"nickname": "Rae"}, headers=gm_headers
+    ).json()
+    client.cookies.clear()
+    resp = client.post("/api/auth/guest-login", json={"code": created["guest_code"]})
+    assert resp.status_code == 200, resp.text
+    refresh = resp.cookies.get("grimoire_refresh")
+    assert refresh
+    return created, refresh
+
+
+def _refresh(client, refresh):
+    client.cookies.clear()
+    client.cookies.set("grimoire_refresh", refresh, path="/api/auth")
+    return client.post("/api/auth/refresh")
+
+
+def test_guest_sessions_end_when_guest_access_is_turned_off(
+    client, gm_headers, admin_headers, gm_campaign
+):
+    _set_guest_access(client, admin_headers, True)
+    _created, refresh = _guest_session(client, gm_headers, gm_campaign)
+    _set_guest_access(client, admin_headers, False)
+    try:
+        assert _refresh(client, refresh).status_code == 401
+    finally:
+        _set_guest_access(client, admin_headers, True)
+
+
+def test_guest_accounts_go_with_their_campaign(client, gm_headers, admin_headers, gm_campaign):
+    _set_guest_access(client, admin_headers, True)
+    created, refresh = _guest_session(client, gm_headers, gm_campaign)
+    client.cookies.clear()
+    assert client.delete(f"/api/campaigns/{gm_campaign}", headers=gm_headers).status_code in (
+        200,
+        204,
+    )
+    assert _refresh(client, refresh).status_code == 401
+    db = SessionLocal()
+    try:
+        assert db.query(User).filter_by(id=created["user_id"]).first() is None
+    finally:
+        db.close()

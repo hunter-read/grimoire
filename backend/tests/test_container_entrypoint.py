@@ -132,24 +132,24 @@ def _settings_db(data, value=None, table=True):
     conn.close()
 
 
-def test_backup_dir_env_wins(tmp_path):
-    _settings_db(tmp_path, "/elsewhere")
-    assert ep.configured_backup_dir({"BACKUP_DIR": "/backups"}, str(tmp_path)) == "/backups"
+def test_backup_dir_from_the_environment():
+    assert ep.configured_backup_dir({"BACKUP_DIR": "/backups"}) == "/backups"
+    assert ep.configured_backup_dir({}) is None
 
 
 def test_backup_dir_from_app_settings(tmp_path):
     _settings_db(tmp_path, " /backups ")
-    assert ep.configured_backup_dir({}, str(tmp_path)) == "/backups"
+    assert ep.app_backup_dir(str(tmp_path)) == "/backups"
 
 
 @pytest.mark.parametrize("value, table", [(None, True), ("", True), (None, False)])
 def test_backup_dir_default_or_unreadable(tmp_path, value, table):
     _settings_db(tmp_path, value, table=table)
-    assert ep.configured_backup_dir({}, str(tmp_path)) is None
+    assert ep.app_backup_dir(str(tmp_path)) is None
 
 
 def test_backup_dir_without_a_database(tmp_path):
-    assert ep.configured_backup_dir({}, str(tmp_path)) is None
+    assert ep.app_backup_dir(str(tmp_path)) is None
 
 
 # --- fix_ownership ----------------------------------------------------------
@@ -257,6 +257,31 @@ def test_library_checks_read_only_library_needs_no_write(tmp_path, monkeypatch):
     assert all(mode & os.W_OK == 0 for _, mode in checks)
 
 
+def test_library_checks_skip_links_lost_found_and_own_entries(tmp_path):
+    (tmp_path / "lost+found").mkdir()
+    (tmp_path / "dangling").symlink_to(tmp_path / "nowhere")
+    (tmp_path / "Books").mkdir()
+    checked = [path for path, _ in ep.library_checks(str(tmp_path))]
+    assert str(tmp_path / "Books") in checked
+    assert str(tmp_path / "lost+found") not in checked
+    assert str(tmp_path / "dangling") not in checked
+    own = os.stat(tmp_path / "Books").st_uid
+    checked = [path for path, _ in ep.library_checks(str(tmp_path), own)]
+    assert str(tmp_path / "Books") not in checked
+
+
+def test_fix_ownership_does_not_walk_through_a_symlinked_root(tmp_path, monkeypatch):
+    real = tmp_path / "real"
+    real.mkdir()
+    (real / "file").write_bytes(b"x")
+    link = tmp_path / "link"
+    link.symlink_to(real)
+    changed = []
+    monkeypatch.setattr(ep.os, "lchown", lambda path, uid, gid: changed.append(path))
+    ep.fix_ownership(str(link), 4242, 4242)
+    assert changed == [str(link)]
+
+
 def test_library_checks_survives_an_unlistable_library(tmp_path, monkeypatch):
     def refuse(_):
         raise PermissionError
@@ -350,6 +375,29 @@ def test_prepare_chowns_data_and_backups(volumes, tmp_path, monkeypatch):
     assert ep.prepare(env, str(library), str(data), 1000, 1000, False) is True
     assert data.is_dir()
     assert [root for root, _ in chowned] == [str(data), str(backups), str(home)]
+
+
+def test_prepare_only_checks_a_backup_folder_set_in_the_app(volumes, tmp_path, monkeypatch, capsys):
+    library, data, chowned = volumes
+    backups = tmp_path / "app-backups"
+    backups.mkdir()
+    data.mkdir()
+    _settings_db(data, str(backups))
+    _probe_failing(monkeypatch, {str(backups)})
+    assert ep.prepare({}, str(library), str(data), 1000, 1000, False) is True
+    assert str(backups) not in [root for root, _ in chowned]
+    assert "backup folder set in the app" in capsys.readouterr().err
+
+
+def test_prepare_leaves_a_symlinked_backup_dir_alone(volumes, tmp_path, monkeypatch):
+    library, data, chowned = volumes
+    real = tmp_path / "real-backups"
+    real.mkdir()
+    link = tmp_path / "linked-backups"
+    link.symlink_to(real)
+    _probe_failing(monkeypatch, set())
+    assert ep.prepare({"BACKUP_DIR": str(link)}, str(library), str(data), 1000, 1000, False)
+    assert [root for root, _ in chowned] == [str(data)]
 
 
 def test_prepare_never_chowns_a_library_inside_data(volumes, tmp_path, monkeypatch):

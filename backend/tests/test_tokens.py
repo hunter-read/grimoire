@@ -164,6 +164,16 @@ class TestServeTokenFile:
         assert resp.headers["content-type"] == "image/png"
         assert resp.content == b"fake-png"
 
+    def test_svg_token_is_served_as_an_inert_document(self, client, admin_headers, tmp_path):
+        f = tmp_path / "rune.svg"
+        f.write_bytes(b'<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"/>')
+        t = make_token(filename="rune.svg", filepath=str(f))
+        resp = client.get(f"/api/tokens/{t.id}/file", headers=admin_headers)
+        assert resp.status_code == 200
+        csp = resp.headers["content-security-policy"]
+        assert "sandbox" in csp
+        assert "default-src 'none'" in csp
+
     def test_missing_token_returns_404(self, client, admin_headers):
         assert (
             client.get("/api/tokens/does-not-exist/file", headers=admin_headers).status_code

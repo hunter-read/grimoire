@@ -6,6 +6,7 @@ player who belongs to several campaigns gets a distinct file per membership.
 """
 
 import io
+import mimetypes
 import os
 import uuid
 from typing import Optional
@@ -17,6 +18,7 @@ from ...auth import CurrentUser, get_current_user
 from ...config import CAMPAIGN_UPLOAD_DIR, logger, get_db
 from ...file_cache import cached_file_response
 from ...models import Campaign, CampaignMember
+from ...security import INERT_DOCUMENT_HEADERS
 from ._schemas import BannerFocusIn, BannerSourceIn
 from ._helpers import (
     assert_can_manage,
@@ -34,6 +36,8 @@ _IMAGE_TYPES = {
 }
 # Character sheets may be a PDF or an image.
 _SHEET_TYPES = {**_IMAGE_TYPES, "application/pdf": ".pdf"}
+# A stored sheet's content type, by the extension it was saved under.
+_SHEET_MEDIA_TYPES = {ext: mime for mime, ext in _SHEET_TYPES.items()}
 
 _MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5 MB
 _MAX_SHEET_BYTES = 15 * 1024 * 1024  # 15 MB
@@ -49,6 +53,54 @@ _FILES_DIR = os.path.join(CAMPAIGN_UPLOAD_DIR, "files")
 
 # Hard ceiling regardless of admin settings, to bound a single read.
 _MAX_FILE_BYTES = 200 * 1024 * 1024  # 200 MB
+
+# Content types a campaign file is labelled and served with. Anything else is
+# served as a plain download (application/octet-stream).
+_FILE_TYPES = frozenset(
+    {
+        "image/png",
+        "image/jpeg",
+        "image/gif",
+        "image/webp",
+        "image/avif",
+        "image/bmp",
+        "application/pdf",
+        "text/plain",
+        "text/markdown",
+        "text/csv",
+        "application/zip",
+        "application/json",
+    }
+)
+# Extensions some Python versions' built-in tables do not know (3.12 lacks all
+# of these), so a file's label does not depend on the host's /etc/mime.types.
+_EXTRA_FILE_TYPES = {
+    ".webp": "image/webp",
+    ".md": "text/markdown",
+    ".ogg": "audio/ogg",
+    ".opus": "audio/ogg",
+    ".flac": "audio/flac",
+    ".m4a": "audio/mp4",
+    ".mkv": "video/x-matroska",
+}
+
+
+def _file_media_type(media_type: Optional[str]) -> str:
+    """``media_type`` if it is one campaign files are served as, else a download."""
+    base = (media_type or "").split(";")[0].strip().lower()
+    if base in _FILE_TYPES or base.startswith(("audio/", "video/")):
+        return base
+    return "application/octet-stream"
+
+
+def _upload_media_type(filename: str) -> str:
+    """The content type for an uploaded campaign file, from its extension."""
+    ext = os.path.splitext(filename)[1].lower()
+    if ext in _EXTRA_FILE_TYPES:
+        return _EXTRA_FILE_TYPES[ext]
+    guessed, encoding = mimetypes.guess_type(filename)
+    # A compressed file ("notes.txt.gz") is not the type its inner suffix names.
+    return "application/octet-stream" if encoding else _file_media_type(guessed)
 
 
 def _validate_image(data: bytes) -> None:
@@ -457,10 +509,12 @@ def get_member_sheet(
     path = os.path.join(_SHEET_DIR, member.character_sheet_path)
     if not os.path.isfile(path):
         raise HTTPException(404, "No sheet")
+    ext = os.path.splitext(member.character_sheet_path)[1].lower()
     return cached_file_response(
         request,
         path,
         filename=member.character_sheet_filename or member.character_sheet_path,
+        media_type=_SHEET_MEDIA_TYPES.get(ext, "application/octet-stream"),
     )
 
 
@@ -581,13 +635,15 @@ def upload_campaign_file(
     with open(os.path.join(_FILES_DIR, stored), "wb") as f:
         f.write(data)
 
+    # Labelled by the file's extension, not the type the browser reported.
+    media_type = _upload_media_type(file.filename or "")
     cf = CampaignFile(
         campaign_id=campaign_id,
         stored_path=stored,
         filename=os.path.basename(file.filename or stored),
-        mime_type=file.content_type or "application/octet-stream",
+        mime_type=media_type,
         size_bytes=len(data),
-        is_image=(file.content_type in _IMAGE_TYPES),
+        is_image=(media_type in _IMAGE_TYPES),
         uploaded_by_id=current_user.id,
     )
     db.add(cf)
@@ -742,4 +798,12 @@ def get_campaign_file(
     path = os.path.join(_FILES_DIR, cf.stored_path)
     if not os.path.isfile(path):
         raise HTTPException(404, "File not found")
-    return cached_file_response(request, path, filename=cf.filename, media_type=cf.mime_type)
+    # Rows stored before uploads were labelled by extension get the same
+    # treatment, and the file is an inert document if opened on its own.
+    return cached_file_response(
+        request,
+        path,
+        filename=cf.filename,
+        media_type=_file_media_type(cf.mime_type),
+        headers=INERT_DOCUMENT_HEADERS,
+    )

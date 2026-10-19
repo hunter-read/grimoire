@@ -31,6 +31,15 @@ _TABLES: dict[str, Any] = {
     "model": Model3D,
 }
 
+# The API key permission each type is read under, for a link made with a key.
+AREAS: dict[str, str] = {
+    "book": "books",
+    "map": "maps",
+    "token": "tokens",
+    "audio": "audio",
+    "model": "models",
+}
+
 # A rendered PDF map page, as wide as the largest the map viewer asks for.
 _PDF_MAP_WIDTH = 3000
 

@@ -2,14 +2,20 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import ShareLinkDialog from './ShareLinkDialog'
 import ShareLinkButton from './ShareLinkButton'
-import { shareLinks } from '../../api'
+import { auth, shareLinks } from '../../api'
 import { UISettingsProvider } from '../../context/UISettingsContext'
+import { clearPasswordRulesCache } from '../../hooks/usePasswordRules'
 
 vi.mock('../../api', () => ({
+  auth: { status: vi.fn() },
   shareLinks: { list: vi.fn(), create: vi.fn(), revoke: vi.fn(), remove: vi.fn() },
 }))
+// Keys come back as-is; a `min` passed with one is shown after it.
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k) => k, i18n: { language: 'en-US' } }),
+  useTranslation: () => ({
+    t: (k, opts) => (opts?.min !== undefined ? `${k} (${opts.min})` : k),
+    i18n: { language: 'en-US' },
+  }),
 }))
 let authUser = null
 vi.mock('../../context/AuthContext', () => ({
@@ -29,10 +35,18 @@ const existing = {
   use_count: 1,
 }
 
+const status = (shareMin) => ({
+  initialized: true,
+  password_min_length: 12,
+  share_link_password_min_length: shareMin,
+})
+
 beforeEach(() => {
   vi.resetAllMocks()
+  clearPasswordRulesCache()
   authUser = null
   shareLinks.list.mockResolvedValue([existing])
+  auth.status.mockResolvedValue(status(8))
 })
 
 const renderDialog = (props = {}) =>
@@ -62,7 +76,7 @@ describe('ShareLinkDialog', () => {
     })
     fireEvent.change(screen.getByDisplayValue('share.expiry.week'), { target: { value: '' } })
     fireEvent.change(screen.getByPlaceholderText('share.form.passwordPlaceholder'), {
-      target: { value: 'secret' },
+      target: { value: 'secret12' },
     })
     fireEvent.click(screen.getByText('share.form.create'))
     await waitFor(() =>
@@ -71,7 +85,7 @@ describe('ShareLinkDialog', () => {
         resource_id: 'm1',
         label: 'Fresh',
         expires_in_days: null,
-        password: 'secret',
+        password: 'secret12',
       })
     )
     const labels = (await screen.findAllByText(/Fresh|Old one/)).map((n) => n.textContent)
@@ -106,14 +120,44 @@ describe('ShareLinkDialog', () => {
     )
   })
 
-  it('refuses a too-short password', async () => {
+  it('refuses a password shorter than 8 characters by default', async () => {
     renderDialog()
     await screen.findByText('Old one')
     fireEvent.change(screen.getByPlaceholderText('share.form.passwordPlaceholder'), {
-      target: { value: 'ab' },
+      target: { value: 'sevenxx' },
     })
-    expect(screen.getByText('share.form.passwordTooShort')).toBeInTheDocument()
+    expect(screen.getByText('share.form.passwordTooShort (8)')).toBeInTheDocument()
     expect(screen.getByText('share.form.create')).toBeDisabled()
+  })
+
+  it("uses the server's share-link minimum when it has been changed", async () => {
+    auth.status.mockResolvedValue(status(4))
+    renderDialog()
+    await screen.findByText('Old one')
+    const input = screen.getByPlaceholderText('share.form.passwordPlaceholder')
+    fireEvent.change(input, { target: { value: 'abc' } })
+    expect(await screen.findByText('share.form.passwordTooShort (4)')).toBeInTheDocument()
+    expect(screen.getByText('share.form.create')).toBeDisabled()
+
+    // Four characters is enough on this server.
+    fireEvent.change(input, { target: { value: 'abcd' } })
+    expect(screen.queryByText(/share\.form\.passwordTooShort/)).toBeNull()
+    expect(screen.getByText('share.form.create')).toBeEnabled()
+  })
+
+  it("shows the server's reason when it refuses a password as too common", async () => {
+    shareLinks.create.mockRejectedValue(
+      new Error('That password is too common - choose one that is harder to guess')
+    )
+    renderDialog()
+    await screen.findByText('Old one')
+    fireEvent.change(screen.getByPlaceholderText('share.form.passwordPlaceholder'), {
+      target: { value: 'password' },
+    })
+    fireEvent.click(screen.getByText('share.form.create'))
+    expect(
+      await screen.findByText('That password is too common - choose one that is harder to guess')
+    ).toBeInTheDocument()
   })
 
   it('shows a create failure', async () => {

@@ -17,8 +17,12 @@ from ...config import get_db
 from ...models import ShareLink
 from ...models.base import utc_iso
 from ...security import (
+    SHARE_LINK_SCOPE,
     SHARE_LOOKUP_SCOPE,
     SHARE_UNLOCK_SCOPE,
+    account_attempts_blocked,
+    inert_svg_headers,
+    record_account_failure,
     record_share_failure,
     share_attempts_blocked,
 )
@@ -110,10 +114,15 @@ def unlock_share(
     _working(db, link)
     if not link.password_hash:
         return {"unlocked": True}
-    if share_attempts_blocked(request, SHARE_UNLOCK_SCOPE, link.id):
+    # Wrong passwords are counted per client and per link; the per-link count
+    # holds however many addresses the attempts come from.
+    if share_attempts_blocked(request, SHARE_UNLOCK_SCOPE, link.id) or account_attempts_blocked(
+        SHARE_LINK_SCOPE, link.id
+    ):
         raise HTTPException(429, "Too many attempts - try again shortly")
     if not verify_password(data.password, link.password_hash):
         record_share_failure(request, SHARE_UNLOCK_SCOPE, link.id)
+        record_account_failure(SHARE_LINK_SCOPE, link.id)
         raise HTTPException(403, "Wrong password")
     response.set_cookie(value=_links.unlock_token(link), **_links.unlock_cookie_options(token))
     return {"unlocked": True}
@@ -152,6 +161,7 @@ def share_content(
     name = (link.filename or link.resource_type).replace('"', "")
     headers = dict(_PROTECTED_HEADERS if link.password_hash else _PUBLIC_HEADERS)
     headers["Content-Disposition"] = f'{"attachment" if download else "inline"}; filename="{name}"'
+    headers.update(inert_svg_headers(shared.media_type, shared.path or ""))
     if shared.path is not None:
         return FileResponse(shared.path, media_type=shared.media_type, headers=headers)
     return Response(content=shared.content or b"", media_type=shared.media_type, headers=headers)

@@ -1,6 +1,7 @@
 """Settings package — registers all settings routes on a single router."""
 from fastapi import APIRouter
 
+from ... import api_keys
 from .core import (
     get_settings,
     update_settings,
@@ -45,6 +46,8 @@ router.add_api_route(
         "192 px on its longest side, so the uploaded bytes are never served as-is. "
         "400 when `OIDC_BUTTON_ICON` pins the icon. Returns the full settings."
     ),
+    # Part of the sign-in page: session only, never a key.
+    openapi_extra=api_keys.EXCLUDED,
 )
 router.add_api_route(
     "/oidc-button-icon",
@@ -56,4 +59,6 @@ router.add_api_route(
         "Admin-only. Deletes the uploaded icon so the button shows text only. 400 "
         "when `OIDC_BUTTON_ICON` pins the icon. Returns the full settings."
     ),
+    # Part of the sign-in page: session only, never a key.
+    openapi_extra=api_keys.EXCLUDED,
 )

@@ -316,6 +316,8 @@ router.add_api_route(
     summary="Create a guest invite code for a GM campaign",
     status_code=201,
     response_model=GuestOut,
+    # Guest invite codes are logins: session only, never a key.
+    openapi_extra=api_keys.EXCLUDED,
 )
 router.add_api_route(
     "/{campaign_id}/guests",
@@ -323,6 +325,8 @@ router.add_api_route(
     methods=["GET"],
     summary="List a campaign's guests and their invite codes",
     response_model=list[GuestOut],
+    # Guest invite codes are logins: session only, never a key.
+    openapi_extra=api_keys.EXCLUDED,
 )
 router.add_api_route(
     "/{campaign_id}/guests/{member_id}/regenerate",
@@ -330,6 +334,8 @@ router.add_api_route(
     methods=["POST"],
     summary="Regenerate a guest's invite code",
     response_model=GuestOut,
+    # Guest invite codes are logins: session only, never a key.
+    openapi_extra=api_keys.EXCLUDED,
 )
 router.add_api_route(
     "/{campaign_id}/guests/{member_id}/share-template",
@@ -337,6 +343,8 @@ router.add_api_route(
     methods=["GET"],
     summary="Get share text and links for a guest invite code",
     response_model=GuestShareTemplateOut,
+    # Guest invite codes are logins: session only, never a key.
+    openapi_extra=api_keys.EXCLUDED,
 )
 router.add_api_route(
     "/{campaign_id}/guests/{member_id}",

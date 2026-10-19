@@ -1,27 +1,29 @@
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCircleCheck } from 'react-icons/lu'
 import api from '../../api'
+import usePasswordRules from '../../hooks/usePasswordRules'
 import Spinner from '../Spinner'
 
 export default function ChangePasswordSection() {
   const { t } = useTranslation()
+  const { passwordMinLength } = usePasswordRules()
   const [current, setCurrent] = useState('')
   const [next, setNext] = useState('')
   const [confirm, setConfirm] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError(null)
     if (next !== confirm) {
       setError(t('userSettings.changePassword.mismatch'))
       return
     }
-    if (next.length < 8) {
-      setError(t('userSettings.changePassword.tooShort'))
+    if (next.length < passwordMinLength) {
+      setError(t('userSettings.changePassword.tooShort', { min: passwordMinLength }))
       return
     }
     setSaving(true)
@@ -33,7 +35,7 @@ export default function ChangePasswordSection() {
       setConfirm('')
       setTimeout(() => setSaved(false), 3000)
     } catch (err) {
-      setError(err?.message || t('userSettings.changePassword.failed'))
+      setError((err as Error | undefined)?.message || t('userSettings.changePassword.failed'))
     } finally {
       setSaving(false)
     }

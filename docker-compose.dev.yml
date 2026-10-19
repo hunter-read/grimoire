@@ -17,7 +17,6 @@ services:
       - LIBRARY_PATH=/library
       - DATA_PATH=/data
       - WORKERS=1
-      - SECRET_KEY=7ba05239cdd5752065eb6bd5db866bf8a0919d2760b1fcf158744f5ef5833834
       - VALKEY_URL=redis://valkey:6379/0
       - OPDS_ENABLED=true
       - LOG_LEVEL=debug

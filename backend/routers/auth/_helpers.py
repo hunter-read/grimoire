@@ -18,17 +18,13 @@ def client_user_agent(request: Optional[Request]) -> Optional[str]:
 
 
 def client_ip(request: Optional[Request]) -> Optional[str]:
-    """Best-effort client IP, honouring X-Forwarded-For behind a reverse proxy.
-
-    Only the first hop is taken, and only for display in the session list — it
-    is never used for an access decision, so a spoofed header is cosmetic.
-    """
+    """Best-effort client IP for the session list, read the same way as for
+    rate limiting: X-Forwarded-For only from a trusted proxy (backend/security.py)."""
     if request is None:
         return None
-    forwarded = request.headers.get("X-Forwarded-For", "")
-    if forwarded:
-        return forwarded.split(",")[0].strip() or None
-    return request.client.host if request.client else None
+    from ...security import client_ip as resolved_client_ip
+
+    return resolved_client_ip(request)
 
 
 def issue_login(

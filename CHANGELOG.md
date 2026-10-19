@@ -14,6 +14,9 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - The reader zooms up to 800%, from 200%. Past about 200% Grimoire renders just the part of the page you are looking at in full detail and lays it over the page, so small print stays sharp without rendering a huge image of the whole page
 - Zoom now stays when you turn the page, landing at the top of the next page in the same column. A new book, switching between Page and Spread, or reset returns to 100%
 - When linking resources to a campaign, tick a folder to select everything in it, subfolders included. A partly selected folder shows a dash, and ticking it again clears it
+- Password rules: new account passwords need at least 12 characters and new share-link passwords at least 8, and commonly used passwords are refused (checked against a list that ships with Grimoire, nothing leaves your server). Set `PASSWORD_MIN_LENGTH` and `SHARE_LINK_PASSWORD_MIN_LENGTH` to change the minimums. Passwords you already have keep working
+- Failed sign-ins are also counted per account, and wrong share-link passwords per link, whatever address they come from (`ACCOUNT_RATE_LIMIT`, default `20/hour`). A browser you have signed in from before keeps its own count
+- `TRUSTED_PROXIES` lists the reverse proxies whose `X-Forwarded-For` Grimoire reads. The default covers proxies and tunnels on the same host, Docker network or LAN, so most installs need no change. If a proxy reaches Grimoire from a public address - a VPS, or Cloudflare's proxy without Cloudflare Tunnel - add its addresses; see the security docs
 
 ### Changed
 
@@ -28,6 +31,15 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - For contributors: the frontend is moving to TypeScript. Its API client is now typed from the backend's OpenAPI schema, so a change to a request or response shows up as a type error in the same pull request, and new or changed frontend files are written in TypeScript. See the TypeScript docs
 - For contributors: importing a backend module no longer starts Grimoire. `backend.config` only reads settings; creating the data folders, migrating the database and connecting to Valkey happen in `config.startup()`, which the app runs as it starts. Scripts and workers can import settings without touching the database. See the architecture docs
 - For contributors: the database models are declared with SQLAlchemy 2.0's typed `Mapped[...]` columns, and mypy now runs with all of its error checks on. The schema itself is unchanged
+- `X-Forwarded-For` is read only from a trusted proxy, right to left, so each client behind your proxy gets its own address in rate limiting and Active Sessions. A working API key is never refused because its address is over the failed-key limit
+- Requests from GM and admin accounts check the account's current role every time, so a role change, a deleted account or signing a device out applies straight away. A guest's session ends once guest access is turned off or the guest is removed, and deleting a campaign removes its guest accounts
+- Single sign-on's **Match Existing Users By** now links only accounts that aren't linked to a provider yet, and while it matches by email only an admin can change a user's email. See the OIDC docs for the details
+- Grimoire refuses to start with a `SECRET_KEY` copied from its docs, and logs a warning for one shorter than 32 characters. The install guide no longer shows an example key
+- At start-up the container only changes the owner of the data folder and a `BACKUP_DIR` set in its environment; a backup folder chosen in Settings is checked and reported in the log instead
+- For contributors: GitHub Actions are pinned to commit SHAs, and the release workflow publishes the GitHub release from its own job
+- Campaign wiki pages an assistant writes are always private to you, as are any pages its links create; share them from the wiki when you want your table to see them. The `create_wiki_page` tool no longer takes a `visibility` argument. New wiki pages can't be added to a campaign while its GM's campaign access is turned off, in the app or by an assistant
+- Campaign files download with a type based on their file extension
+- Passwords, email addresses, the admin role, sign-in settings, add-on sources and script approval, and guest invite codes are changed only from a signed-in session, not with an API key; a key's other access is unchanged. A share link made with a key also needs the key to have Read on that item's area (Books, Maps, Tokens, Audio or Models). See the API docs
 
 ### Fixed
 

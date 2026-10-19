@@ -10,7 +10,7 @@ player never gets a GM-only page or ``||secret||`` text.
 """
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -175,23 +175,17 @@ class CreateWikiPageArgs(BaseModel):
     body: str = Field(
         "", max_length=100_000, description="The page in Markdown. [[Page Title]] links pages."
     )
-    visibility: Literal["private", "shared"] = Field(
-        "private",
-        description="private: only the user can read it. shared: everyone in the campaign.",
-    )
 
 
 def create_wiki_page(args: CreateWikiPageArgs, ctx: ToolContext) -> str:
     from ...routers.campaigns._schemas import WikiPageCreate
     from ...routers.campaigns.wiki import create_page
 
+    # Always private to the user, and so are the pages its [[links]] create
+    # (they take the page's visibility). The user shares it from the wiki.
     page = create_page(
         campaign_id=args.campaign_id,
-        data=WikiPageCreate(
-            title=args.title,
-            body=args.body,
-            visibility="group" if args.visibility == "shared" else "gm",
-        ),
+        data=WikiPageCreate(title=args.title, body=args.body, visibility="gm"),
         current_user=ctx.user,
         db=ctx.db,
     )
@@ -250,10 +244,10 @@ TOOLS = (
         name="create_wiki_page",
         title="Create a campaign wiki page",
         description=(
-            "Adds a new page to a campaign's wiki, private to the user unless they say "
-            "to share it. Use it when the user asks you to write something into their "
-            "campaign, such as session prep, an NPC or a recap. It never changes "
-            "existing pages."
+            "Adds a new page to a campaign's wiki, private to the user; they can share "
+            "it from the wiki themselves. Use it when the user asks you to write "
+            "something into their campaign, such as session prep, an NPC or a recap. It "
+            "never changes existing pages."
         ),
         arguments=CreateWikiPageArgs,
         permission="campaigns",

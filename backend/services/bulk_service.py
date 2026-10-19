@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Iterable, Optional
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Query, Session
 
 from ..models.collections import models_by_singular
 from ..models import GameSystem
@@ -55,7 +55,13 @@ def apply_updates(
     ``tags`` are mirrored into the shared-tag tables rather than written to a
     column (issue #235), so they are applied via the service and then dropped
     from the ``setattr`` loop. Does not commit — the caller owns the transaction.
+
+    ``access_level`` is refused outright: it is an admin-only field with its own
+    translation (see ``books._helpers.pop_access_level``), so every caller must
+    take it out of the payload and apply it itself.
     """
+    if "access_level" in payload:
+        raise ValueError("access_level must be applied by the caller, not apply_updates")
     tag_service.sync_tags_from_payload(db, resource_type, obj.id, payload)
     payload.pop("tags", None)  # tags live in the shared-tag tables, not a column
     for field, value in payload.items():
@@ -71,6 +77,20 @@ def merge_tags(existing: Iterable[str], incoming: Iterable[str]) -> list[str]:
     return tag_service.dedupe_tags([*(existing or []), *(incoming or [])])
 
 
+def _load_rows(
+    db: Session,
+    resource_type: str,
+    ids: list[str],
+    scope: Optional[Callable[[Query], Query]],
+) -> dict[str, Any]:
+    """``{id: row}`` for the batch, limited to what ``scope`` lets through."""
+    model = _MODELS[resource_type]
+    q = db.query(model).filter(model.id.in_(ids or [""]))
+    if scope is not None:
+        q = scope(q)
+    return {r.id: r for r in q.all()}
+
+
 def run_bulk_update(
     db: Session,
     resource_type: str,
@@ -78,13 +98,15 @@ def run_bulk_update(
     *,
     payload_for: Callable[[Any], dict],
     validate: Optional[Callable[[Session, Any, dict], None]] = None,
+    scope: Optional[Callable[[Query], Query]] = None,
     not_found_detail: str = "Not found",
 ) -> dict:
     """Apply a batch of per-item updates in a single transaction.
 
     ``items`` are the request's per-item entries; ``payload_for`` turns one into
     the field dict to apply. Each item is resolved by ``item.id`` against the
-    model for ``resource_type``.
+    model for ``resource_type``, narrowed by ``scope`` when given — a row the
+    caller cannot see is reported exactly like a missing id.
 
     Items that don't resolve, or that a ``validate`` hook rejects with
     :class:`BulkItemError`, are reported in ``errors`` and skipped — one bad id
@@ -94,10 +116,8 @@ def run_bulk_update(
     Returns ``{updated: [ids], errors: [{id, detail}]}``. Commits once at the end,
     and only if at least one item applied.
     """
-    model = _MODELS[resource_type]
-
     ids = [item.id for item in items]
-    rows = {r.id: r for r in db.query(model).filter(model.id.in_(ids or [""])).all()}
+    rows = _load_rows(db, resource_type, ids, scope)
 
     updated: list[str] = []
     errors: list[dict] = []
@@ -127,17 +147,18 @@ def run_bulk_add_tags(
     ids: list[str],
     tags: list[str],
     *,
+    scope: Optional[Callable[[Query], Query]] = None,
     not_found_detail: str = "Not found",
 ) -> dict:
     """Additively apply ``tags`` to every resource in ``ids``, in one transaction.
 
     This is the path behind the bulk action bar's tag input — the operation that
     issue #270 reported as hanging. Existing tags on each item are preserved.
+    ``scope`` narrows which rows resolve, as in :func:`run_bulk_update`.
     Returns ``{updated: [ids], errors: [...], tags: {id: [display tags]}}`` so the
     caller can patch local state without refetching.
     """
-    model = _MODELS[resource_type]
-    rows = {r.id: r for r in db.query(model).filter(model.id.in_(ids or [""])).all()}
+    rows = _load_rows(db, resource_type, ids, scope)
 
     updated: list[str] = []
     errors: list[dict] = []

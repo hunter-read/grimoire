@@ -132,7 +132,7 @@
     "setupFailed": "Setup failed.",
     "serverUnreachable": "Could not reach the server.",
     "passwordMismatch": "Passwords do not match.",
-    "passwordTooShort": "Password must be at least 8 characters."
+    "passwordTooShort": "Password must be at least {{min}} characters."
   },
   "library": {
     "title": "Your Collection",
@@ -1157,7 +1157,7 @@
       "saving": "Saving…",
       "passwordUpdated": "Password updated",
       "mismatch": "New passwords do not match.",
-      "tooShort": "New password must be at least 8 characters.",
+      "tooShort": "New password must be at least {{min}} characters.",
       "failed": "Failed to change password."
     },
     "sessions": {
@@ -1494,8 +1494,8 @@
     "failedUpdateApiKeys": "Failed to update API key access.",
     "setPassword": "Set Password",
     "setPasswordTitle": "Set password for this user",
-    "newPasswordPlaceholder": "New password (min 8)",
-    "minChars": "Min 8 characters",
+    "newPasswordPlaceholder": "New password (min {{min}})",
+    "minChars": "Min {{min}} characters",
     "failedSetPassword": "Failed to set password",
     "deleteConfirm": "Delete?",
     "you": "(you)",
@@ -1504,7 +1504,7 @@
     "failedUpdateRole": "Failed to update role.",
     "failedUpdateExplicit": "Failed to update explicit setting.",
     "failedSetPasswordErr": "Failed to set password.",
-    "passwordTooShort": "Password must be at least 8 characters.",
+    "passwordTooShort": "Password must be at least {{min}} characters.",
     "emailOptional": "Email (optional)",
     "emailPlaceholder": "user@example.com",
     "noEmail": "no email",
@@ -3588,7 +3588,7 @@
       "expiry": "Expires after",
       "password": "Password (optional)",
       "passwordPlaceholder": "Leave empty for no password",
-      "passwordTooShort": "At least 4 characters.",
+      "passwordTooShort": "At least {{min}} characters.",
       "passwordHint": "People opening the link must enter it. Tools that load the file directly can't, so leave it empty for VTTs and Discord.",
       "create": "Create link"
     },

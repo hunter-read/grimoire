@@ -27,6 +27,7 @@ from ...services import bulk_service, tag_service, variants
 from ...services.browse.media import MediaBrowse, MediaBrowser
 from ...services.content_cache import content_token
 from ...file_cache import etag_matches
+from ...security import inert_svg_headers
 from ...auth import require_gm_or_admin, get_current_user, CurrentUser
 from ...indexer import MAP_OPAQUE_EXTS, archive_ext, archive_mime, is_vtt_data, slugify
 from .._browse import media_browse_params
@@ -207,7 +208,7 @@ def serve_map_file(
         m.filepath,
         media_type=media,
         filename=None if inline else m.filename,
-        headers=dict(_MEDIA_FILE_CACHE_HEADERS),
+        headers={**_MEDIA_FILE_CACHE_HEADERS, **inert_svg_headers(media, m.filepath)},
     )
 
 
@@ -262,8 +263,11 @@ def serve_map_page(
             except Exception:
                 # A format Pillow cannot decode still has a usable original.
                 logger.warning(f"Map preview render failed, serving original: {filepath}")
+        media = _map_media_type(filepath)
         return FileResponse(
-            filepath, media_type=_map_media_type(filepath), headers=_PAGE_CACHE_HEADERS
+            filepath,
+            media_type=media,
+            headers={**_PAGE_CACHE_HEADERS, **inert_svg_headers(media, filepath)},
         )
 
     try:

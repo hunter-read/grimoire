@@ -393,11 +393,11 @@ class TestSessionHelpers:
         rotate_session(db, session)
         assert session.expires_at > original_expiry - datetime.timedelta(days=5)
 
-    def test_revoke_user_sessions_counts_only_live_ones(self, db, admin_id):
-        create_session(db, admin_id)
-        create_session(db, admin_id)
-        assert revoke_user_sessions(db, admin_id) >= 2
-        assert revoke_user_sessions(db, admin_id) == 0
+    def test_revoke_user_sessions_counts_only_live_ones(self, db, session_user):
+        create_session(db, session_user["id"])
+        create_session(db, session_user["id"])
+        assert revoke_user_sessions(db, session_user["id"]) >= 2
+        assert revoke_user_sessions(db, session_user["id"]) == 0
 
     def test_purge_removes_long_dead_sessions(self, db, session_user):
         session, _ = create_session(db, session_user["id"])

@@ -22,11 +22,11 @@ from itertools import accumulate
 from typing import Any, Optional
 
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Query, Session
 
-from .. import variants
+from .. import access_control, variants
 from ..browse.paths import folder_prefixes, relative_folder, subtree_clause
-from ...models import Book, BookFolder
+from ...models import Book, BookFolder, GameSystem
 from ._catalog import default_display, normalize_internal
 from ._folders import _BOOK_RESOURCE_TYPE, _FOLDER_SOURCES, _catalog_display_map
 from ._paths import _book_folder_display, system_category_depths
@@ -96,10 +96,15 @@ class FolderResolver:
     One resolver per request: the prefixes (``maps/``, or each
     ``books/{System}/{CategoryDir}/``) are looked up once per collection or
     system category, however many folders are resolved.
+
+    With ``user``, :meth:`count` counts only the books that user can see, and
+    nothing in a system hidden from them.
     """
 
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, user: Any = None):
         self.db = db
+        self.user = None if user is None or access_control.sees_everything(user) else user
+        self._visible_systems: Optional[set[str]] = None
         self._media_prefixes: dict[str, list[str]] = {}
         self._book_prefixes: dict[tuple[str, str], list[str]] = {}
         self._depths: Optional[dict[str, int]] = None
@@ -178,12 +183,12 @@ class FolderResolver:
     def _book_histogram(self) -> dict[tuple[str, str], list[tuple[str, int]]]:
         """``{(system_id, category): [(stored folder, item count)]}`` for every book."""
         if self._book_hist is None:
-            rows = (
-                self.db.query(Book.game_system_id, Book.category, Book.folder_path, func.count())
-                .filter(variants.parent_filter(Book))
-                .group_by(Book.game_system_id, Book.category, Book.folder_path)
-                .all()
-            )
+            q: Query[Any] = self.db.query(
+                Book.game_system_id, Book.category, Book.folder_path, func.count()
+            ).filter(variants.parent_filter(Book))
+            if self.user is not None:
+                q = access_control.visible_books(self.db, q, self.user)
+            rows = q.group_by(Book.game_system_id, Book.category, Book.folder_path).all()
             hist: dict[tuple[str, str], list[tuple[str, int]]] = {}
             for sid, category, folder, n in rows:
                 hist.setdefault((sid or "", category or ""), []).append((folder or "", n))
@@ -204,6 +209,8 @@ class FolderResolver:
                 return 0
             system_id, category, sub = parts
             sub = sub.strip("/")
+            if not self.system_visible(system_id):
+                return 0
             if self._depths is None:
                 self._depths = system_category_depths(self.db)
             depth = self._depths.get(system_id, 2)
@@ -224,6 +231,15 @@ class FolderResolver:
             hi = bisect_left(keys, start[:-1] + chr(ord("/") + 1))
             total += totals[hi] - totals[lo]
         return total
+
+    def system_visible(self, system_id: str) -> bool:
+        """Whether the resolver's user may see the system a book folder sits in."""
+        if self.user is None:
+            return True
+        if self._visible_systems is None:
+            q = access_control.visible_systems(self.db, self.db.query(GameSystem.id), self.user)
+            self._visible_systems = {row[0] for row in q.all()}
+        return system_id in self._visible_systems
 
     def ids(self, resource_type: str, path: str) -> list[str]:
         scope = self.scope(resource_type, path)
@@ -251,7 +267,9 @@ def _group_by_tag(
     return by_tag, display
 
 
-def folder_tag_counts(db: Session, resource_type: Optional[str] = None) -> dict[str, dict]:
+def folder_tag_counts(
+    db: Session, resource_type: Optional[str] = None, *, user: Any = None
+) -> dict[str, dict]:
     """Folder-derived tags keyed by internal, with how many items each covers.
 
     Returns ``{internal: {"display", "count", "types", "by_type"}}``. ``count``
@@ -264,9 +282,10 @@ def folder_tag_counts(db: Session, resource_type: Optional[str] = None) -> dict[
 
     The counts come from one GROUP BY per collection (see
     :meth:`FolderResolver.count`), so a library with hundreds of tagged folders
-    still costs a handful of queries.
+    still costs a handful of queries. With ``user``, only what that user can see
+    is counted.
     """
-    resolver = FolderResolver(db)
+    resolver = FolderResolver(db, user)
     by_tag, display = _group_by_tag(tagged_folders(db, resource_type))
     out: dict[str, dict] = {}
     for internal, per_type in by_tag.items():

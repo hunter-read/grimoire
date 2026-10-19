@@ -15,6 +15,12 @@ _LIB_DIR = os.path.join(_DATA_DIR, "library")
 os.makedirs(_LIB_DIR, exist_ok=True)
 os.environ["DATA_PATH"] = _DATA_DIR
 os.environ["LIBRARY_PATH"] = _LIB_DIR
+# The TestClient connects as "testclient"; treat it as a reverse proxy so tests
+# can give each simulated client its own X-Forwarded-For address.
+os.environ.setdefault(
+    "TRUSTED_PROXIES",
+    "127.0.0.0/8,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7,testclient",
+)
 # ─────────────────────────────────────────────────────────────────────────────
 
 from fastapi.testclient import TestClient  # noqa: E402

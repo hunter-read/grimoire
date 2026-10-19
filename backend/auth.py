@@ -23,8 +23,16 @@ REJECTED_SECRET_KEYS = frozenset(
         "grimoire-dev-secret-change-in-production",
         "change-me",
         "replace-this-with-a-long-random-string",
+        # Example values that appeared in the install guide and the dev compose
+        # file before those switched to generating a key.
+        "zx7k2mQpR9nLwT4vBcYeHs3JuAoDfGiN",
+        "7ba05239cdd5752065eb6bd5db866bf8a0919d2760b1fcf158744f5ef5833834",
     }
 )
+
+# Shorter keys still start (refusing them would break running installs), but
+# get a warning at start-up: `openssl rand -hex 32` gives 64 characters.
+RECOMMENDED_SECRET_KEY_LENGTH = 32
 
 # Where a self-generated key is persisted when SECRET_KEY is unset, so tokens
 # survive restarts. Lives under DATA_PATH, which is a persistent volume in every
@@ -114,6 +122,14 @@ def resolve_secret_key(env_value: Optional[str], data_path: str) -> str:
             f"instance. Set SECRET_KEY to a private random value "
             f"(generate one with: openssl rand -hex 32), or unset it entirely to "
             f"let Grimoire generate and persist one under DATA_PATH."
+        )
+
+    if len(key) < RECOMMENDED_SECRET_KEY_LENGTH:
+        logger.warning(
+            "SECRET_KEY is shorter than recommended (32 characters or more). Use a "
+            "long random value (generate one with: openssl rand -hex 32), or unset "
+            "it to let Grimoire generate one. Changing it signs everyone out and "
+            "ends existing feed URLs and share links."
         )
 
     return key
@@ -288,6 +304,7 @@ class CurrentUser:
         role: str,
         session_id: Optional[str] = None,
         api_key_id: Optional[str] = None,
+        key_permissions: Optional[dict[str, str]] = None,
     ):
         self.id = id
         self.username = username
@@ -298,6 +315,9 @@ class CurrentUser:
         # Set when the request authenticated with an API key rather than a
         # session; ``id`` is then the key's owner.
         self.api_key_id = api_key_id
+        # The key's own permission map, for a handler that reaches into another
+        # area than its route's (a share link to a book). None for a session.
+        self.key_permissions = key_permissions
 
     @property
     def is_api_key(self) -> bool:
@@ -325,7 +345,11 @@ def get_current_user(
         # The key acts as its owner, so their role guards and handlers apply as
         # for their own session; the permission check above only narrows that.
         return CurrentUser(
-            id=key.user_id, username=key.username, role=key.role, api_key_id=key.id
+            id=key.user_id,
+            username=key.username,
+            role=key.role,
+            api_key_id=key.id,
+            key_permissions=key.permissions,
         )
 
     # Header (normal API calls) → cookie (image/download GETs) → ?token= query
@@ -337,7 +361,7 @@ def get_current_user(
 
     try:
         payload = decode_token(raw)
-        return CurrentUser(
+        user = CurrentUser(
             id=payload["sub"],
             username=payload["username"],
             role=payload["role"],
@@ -353,6 +377,41 @@ def get_current_user(
         )
     except jwt.InvalidTokenError:
         raise HTTPException(401, "Invalid token")
+    # GM and admin tokens are checked against the account as it is now (see
+    # _refresh_role); player and guest tokens are trusted until they expire.
+    if user.role in ("admin", "gm"):
+        _refresh_role(user)
+    return user
+
+
+def _refresh_role(user: CurrentUser) -> CurrentUser:
+    """Bring ``user.role`` up to date from the database.
+
+    An access token carries the role it was issued with, and is trusted until it
+    expires (see backend/sessions.py) - for players and guests, whose requests
+    (page images, map tiles) are the many. A GM or admin token is looked up on
+    each request instead, so a role change, a deleted account or an ended
+    session applies to everything those roles can do straight away. API-key
+    requests already carry the owner's current role.
+    """
+    if user.is_api_key:
+        return user
+    from .config import SessionLocal
+    from .models import AuthSession, User
+
+    db = SessionLocal()
+    try:
+        row = db.query(User).filter_by(id=user.id).first()
+        if row is None:
+            raise HTTPException(401, "User no longer exists")
+        if user.session_id:
+            session = db.query(AuthSession).filter_by(id=user.session_id).first()
+            if session is not None and session.revoked_at is not None:
+                raise HTTPException(401, "Session has ended - please log in again")
+        user.role = row.role or "player"
+    finally:
+        db.close()
+    return user
 
 
 def require_admin(

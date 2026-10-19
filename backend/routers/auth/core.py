@@ -5,6 +5,7 @@ from fastapi import Cookie, Depends, HTTPException, Request, Response
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from ... import login_devices, passwords
 from ...api_keys import user_keys_allowed
 from ...services import share_links as share_policy
 from ...auth import (
@@ -21,7 +22,14 @@ from ...auth import (
 )
 from ...config import get_db
 from ...models import AuthSession, CampaignMember, User
-from ...security import AUTH_RATE_LIMIT, limiter
+from ...security import (
+    AUTH_RATE_LIMIT,
+    LOGIN_ACCOUNT_SCOPE,
+    LOGIN_DEVICE_SCOPE,
+    account_attempts_blocked,
+    limiter,
+    record_account_failure,
+)
 from ...sessions import (
     REFRESH_COOKIE_NAME,
     get_active_session,
@@ -44,7 +52,11 @@ from ._schemas import GuestLoginRequest, LoginRequest, SetupRequest
 
 
 def auth_status(db: Session = Depends(get_db)):
-    return {"initialized": db.query(User).count() > 0}
+    return {
+        "initialized": db.query(User).count() > 0,
+        "password_min_length": passwords.PASSWORD_MIN_LENGTH,
+        "share_link_password_min_length": passwords.SHARE_LINK_PASSWORD_MIN_LENGTH,
+    }
 
 
 @limiter.limit(AUTH_RATE_LIMIT)
@@ -78,14 +90,32 @@ def auth_login(
         raise HTTPException(403, "Password authentication is disabled")
     # Usernames are matched case-insensitively so a user who registered as
     # "Admin" can still log in as "admin"/"ADMIN". Passwords stay case-sensitive.
-    user = (
-        db.query(User)
-        .filter(func.lower(User.username) == data.username.strip().lower())
+    typed = data.username.strip().lower()
+    user = db.query(User).filter(func.lower(User.username) == typed).first()
+    # Failed attempts are also counted per account, whatever address they come
+    # from. A browser this account has signed in from before keeps its own
+    # count, so failures elsewhere don't lock the owner out of it.
+    device = login_devices.device_for(request, user.id if user else None)
+    scope, key = (LOGIN_DEVICE_SCOPE, device) if device else (LOGIN_ACCOUNT_SCOPE, typed)
+    if account_attempts_blocked(scope, key):
+        raise HTTPException(429, "Too many failed sign-in attempts - try again later")
+    if not user or not verify_password(data.password, user.hashed_password):
+        record_account_failure(scope, key)
+        raise HTTPException(401, "Invalid username or password")
+    login_devices.remember(response, user.id, device)
+    return issue_login(db, user, response, request)
+
+
+def _guest_still_invited(db: Session, user: User) -> bool:
+    """Whether guest access is on and ``user`` still holds an accepted guest invite."""
+    if not guest_access_effective(_get_raw(db)):
+        return False
+    member = (
+        db.query(CampaignMember)
+        .filter_by(user_id=user.id, is_guest=True, status="accepted")
         .first()
     )
-    if not user or not verify_password(data.password, user.hashed_password):
-        raise HTTPException(401, "Invalid username or password")
-    return issue_login(db, user, response, request)
+    return member is not None
 
 
 @limiter.limit(AUTH_RATE_LIMIT)
@@ -169,6 +199,12 @@ def auth_refresh(
         clear_refresh_cookie(response)
         clear_auth_cookie(response)
         raise HTTPException(401, "User no longer exists")
+    if user.role == "guest" and not _guest_still_invited(db, user):
+        # A guest's session lasts only as long as guest access and their invite.
+        revoke_session(db, session)
+        clear_refresh_cookie(response)
+        clear_auth_cookie(response)
+        raise HTTPException(401, "Guest access has ended")
 
     new_refresh = rotate_session(db, session)
     token = create_token(user.id, user.username, user.role, session_id=session.id)

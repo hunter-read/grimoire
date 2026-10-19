@@ -1,7 +1,28 @@
-import { useState } from 'react'
+import { useState, type CSSProperties, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuUserCheck, LuTrash2, LuX } from 'react-icons/lu'
-import api from '../../api'
+import api, { type BodyOf, type Schema } from '../../api'
+import usePasswordRules from '../../hooks/usePasswordRules'
+
+interface Props {
+  guest: Schema<'backend__routers__users___schemas__GuestOut'>
+  passwordAuthEnabled?: boolean
+  converting?: boolean
+  selected?: boolean
+  onToggleSelected: () => void
+  onStartConvert: () => void
+  onCancelConvert: () => void
+  onConverted: (user: Schema<'UserOut'>) => void
+  onDeleted: () => void
+  onError: (message: string) => void
+}
+
+// A failed request's message: the server's `detail` when it sent one.
+const failure = (err: unknown): string | undefined => {
+  const e = err as { body?: { detail?: unknown }; message?: string } | null | undefined
+  const detail = e?.body?.detail
+  return (typeof detail === 'string' && detail) || e?.message || undefined
+}
 
 // A single guest row with an inline convert-to-permanent form, a delete action,
 // and a checkbox for selecting it as part of a merge. Password is only asked for
@@ -21,25 +42,26 @@ export default function GuestRow({
   onConverted,
   onDeleted,
   onError,
-}) {
+}: Props) {
   const { t } = useTranslation()
+  const { passwordMinLength } = usePasswordRules()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [role, setRole] = useState('player')
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
-  const submit = async (e) => {
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     onError('')
     setSaving(true)
     try {
-      const body = { username: username.trim(), role }
+      const body: BodyOf<'/users/{user_id}/convert', 'post'> = { username: username.trim(), role }
       if (passwordAuthEnabled) body.password = password
-      const updated = await api.post(`/users/${guest.id}/convert`, body)
+      const updated = (await api.post(`/users/${guest.id}/convert`, body)) as Schema<'UserOut'>
       onConverted(updated)
     } catch (err) {
-      onError(err?.body?.detail || err.message || t('guests.convertFailed'))
+      onError(failure(err) || t('guests.convertFailed'))
     } finally {
       setSaving(false)
     }
@@ -53,7 +75,7 @@ export default function GuestRow({
       await api.delete(`/users/${guest.id}`)
       onDeleted()
     } catch (err) {
-      onError(err?.body?.detail || err.message || t('guests.deleteFailed'))
+      onError(failure(err) || t('guests.deleteFailed'))
       setDeleting(false)
     }
   }
@@ -130,9 +152,9 @@ export default function GuestRow({
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder={t('users.newPasswordPlaceholder')}
+                  placeholder={t('users.newPasswordPlaceholder', { min: passwordMinLength })}
                   required
-                  minLength={8}
+                  minLength={passwordMinLength}
                   style={inputStyle}
                 />
               )}
@@ -152,10 +174,10 @@ export default function GuestRow({
   )
 }
 
-const cellStyle = { padding: '10px 14px', fontSize: 13, color: 'var(--text)' }
-const dimStyle = { color: 'var(--text-dim)' }
+const cellStyle: CSSProperties = { padding: '10px 14px', fontSize: 13, color: 'var(--text)' }
+const dimStyle: CSSProperties = { color: 'var(--text-dim)' }
 
-const iconBtnStyle = {
+const iconBtnStyle: CSSProperties = {
   background: 'none',
   border: '1px solid var(--border)',
   borderRadius: 6,
@@ -165,7 +187,7 @@ const iconBtnStyle = {
   cursor: 'pointer',
 }
 
-const inputStyle = {
+const inputStyle: CSSProperties = {
   padding: '6px 10px',
   borderRadius: 6,
   fontSize: 13,
@@ -174,7 +196,7 @@ const inputStyle = {
   color: 'var(--text)',
 }
 
-const saveBtnStyle = {
+const saveBtnStyle: CSSProperties = {
   padding: '6px 14px',
   borderRadius: 6,
   fontSize: 13,

@@ -426,6 +426,9 @@ def _write_pdf(path, pages=1):
     doc.close()
 
 
+_SVG_MAP = b'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"/>'
+
+
 class TestServeMapPage:
     def test_image_map_page1_returns_file(self, client, admin_headers, tmp_path):
         f = tmp_path / "battle.png"
@@ -435,6 +438,25 @@ class TestServeMapPage:
         assert resp.status_code == 200
         assert resp.headers["content-type"] == "image/png"
         assert resp.content == b"fake-png-bytes"
+
+    def test_svg_map_page_is_served_as_an_inert_document(self, client, admin_headers, tmp_path):
+        f = tmp_path / "plan.svg"
+        f.write_bytes(_SVG_MAP)
+        m = make_map(filename="plan.svg", filepath=str(f))
+        for url in (f"/api/maps/{m.id}/page/1", f"/api/maps/{m.id}/file"):
+            resp = client.get(url, headers=admin_headers)
+            assert resp.status_code == 200
+            assert resp.headers["content-type"].startswith("image/svg+xml")
+            csp = resp.headers["content-security-policy"]
+            assert "sandbox" in csp
+            assert "default-src 'none'" in csp
+
+    def test_raster_map_page_keeps_the_app_policy(self, client, admin_headers, tmp_path):
+        f = tmp_path / "battle.png"
+        f.write_bytes(b"fake-png-bytes")
+        m = make_map(filename="battle.png", filepath=str(f))
+        resp = client.get(f"/api/maps/{m.id}/page/1", headers=admin_headers)
+        assert "sandbox" not in resp.headers["content-security-policy"]
 
     def test_image_map_page_beyond_1_is_400(self, client, admin_headers, tmp_path):
         f = tmp_path / "battle.png"

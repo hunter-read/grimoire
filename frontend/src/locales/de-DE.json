@@ -132,7 +132,7 @@
     "setupFailed": "Einrichtung fehlgeschlagen.",
     "serverUnreachable": "Server nicht erreichbar.",
     "passwordMismatch": "Passwörter stimmen nicht überein.",
-    "passwordTooShort": "Passwort muss mindestens 8 Zeichen lang sein."
+    "passwordTooShort": "Passwort muss mindestens {{min}} Zeichen lang sein."
   },
   "library": {
     "title": "Deine Sammlung",
@@ -1157,7 +1157,7 @@
       "saving": "Speichern…",
       "passwordUpdated": "Passwort aktualisiert",
       "mismatch": "Neue Passwörter stimmen nicht überein.",
-      "tooShort": "Neues Passwort muss mindestens 8 Zeichen lang sein.",
+      "tooShort": "Neues Passwort muss mindestens {{min}} Zeichen lang sein.",
       "failed": "Passwort konnte nicht geändert werden."
     },
     "sessions": {
@@ -1494,8 +1494,8 @@
     "failedUpdateApiKeys": "API-Schlüssel-Zugriff konnte nicht aktualisiert werden.",
     "setPassword": "Passwort setzen",
     "setPasswordTitle": "Passwort für diesen Benutzer setzen",
-    "newPasswordPlaceholder": "Neues Passwort (min. 8)",
-    "minChars": "Mind. 8 Zeichen",
+    "newPasswordPlaceholder": "Neues Passwort (min. {{min}})",
+    "minChars": "Mind. {{min}} Zeichen",
     "failedSetPassword": "Passwort konnte nicht gesetzt werden",
     "deleteConfirm": "Löschen?",
     "you": "(du)",
@@ -1504,7 +1504,7 @@
     "failedUpdateRole": "Rolle konnte nicht aktualisiert werden.",
     "failedUpdateExplicit": "Explizit-Einstellung konnte nicht aktualisiert werden.",
     "failedSetPasswordErr": "Passwort konnte nicht gesetzt werden.",
-    "passwordTooShort": "Passwort muss mindestens 8 Zeichen lang sein.",
+    "passwordTooShort": "Passwort muss mindestens {{min}} Zeichen lang sein.",
     "emailOptional": "E-Mail (optional)",
     "emailPlaceholder": "benutzer@beispiel.de",
     "noEmail": "keine E-Mail",
@@ -3588,7 +3588,7 @@
       "expiry": "Läuft ab nach",
       "password": "Passwort (optional)",
       "passwordPlaceholder": "Leer lassen für kein Passwort",
-      "passwordTooShort": "Mindestens 4 Zeichen.",
+      "passwordTooShort": "Mindestens {{min}} Zeichen.",
       "passwordHint": "Wer den Link öffnet, muss es eingeben. Programme, die die Datei direkt laden, können das nicht – für VTTs und Discord also leer lassen.",
       "create": "Link erstellen"
     },

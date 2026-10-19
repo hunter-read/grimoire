@@ -132,7 +132,7 @@
     "setupFailed": "Échec de la configuration.",
     "serverUnreachable": "Impossible de joindre le serveur.",
     "passwordMismatch": "Les mots de passe ne correspondent pas.",
-    "passwordTooShort": "Le mot de passe doit contenir au moins 8 caractères."
+    "passwordTooShort": "Le mot de passe doit contenir au moins {{min}} caractères."
   },
   "library": {
     "title": "Votre collection",
@@ -1157,7 +1157,7 @@
       "saving": "Enregistrement…",
       "passwordUpdated": "Mot de passe mis à jour",
       "mismatch": "Les nouveaux mots de passe ne correspondent pas.",
-      "tooShort": "Le nouveau mot de passe doit contenir au moins 8 caractères.",
+      "tooShort": "Le nouveau mot de passe doit contenir au moins {{min}} caractères.",
       "failed": "Échec du changement de mot de passe."
     },
     "sessions": {
@@ -1494,8 +1494,8 @@
     "failedUpdateApiKeys": "Impossible de mettre à jour l'accès aux clés API.",
     "setPassword": "Définir le mot de passe",
     "setPasswordTitle": "Définir le mot de passe de cet utilisateur",
-    "newPasswordPlaceholder": "Nouveau mot de passe (min. 8)",
-    "minChars": "8 caractères minimum",
+    "newPasswordPlaceholder": "Nouveau mot de passe (min. {{min}})",
+    "minChars": "{{min}} caractères minimum",
     "failedSetPassword": "Échec de la définition du mot de passe",
     "deleteConfirm": "Supprimer ?",
     "you": "(vous)",
@@ -1504,7 +1504,7 @@
     "failedUpdateRole": "Échec de la mise à jour du rôle.",
     "failedUpdateExplicit": "Échec de la mise à jour du paramètre explicite.",
     "failedSetPasswordErr": "Échec de la définition du mot de passe.",
-    "passwordTooShort": "Le mot de passe doit contenir au moins 8 caractères.",
+    "passwordTooShort": "Le mot de passe doit contenir au moins {{min}} caractères.",
     "emailOptional": "Courriel (optionnel)",
     "emailPlaceholder": "utilisateur@exemple.com",
     "noEmail": "aucun courriel",
@@ -3588,7 +3588,7 @@
       "expiry": "Expire après",
       "password": "Mot de passe (facultatif)",
       "passwordPlaceholder": "Laisser vide pour aucun mot de passe",
-      "passwordTooShort": "Au moins 4 caractères.",
+      "passwordTooShort": "Au moins {{min}} caractères.",
       "passwordHint": "Les personnes qui ouvrent le lien doivent le saisir. Les outils qui chargent le fichier directement ne le peuvent pas : laissez-le vide pour les VTT et Discord.",
       "create": "Créer le lien"
     },

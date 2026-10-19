@@ -132,7 +132,7 @@
     "setupFailed": "Installationen misslyckades.",
     "serverUnreachable": "Kunde inte kontakta servern.",
     "passwordMismatch": "Lösenorden matchar inte.",
-    "passwordTooShort": "Lösenordet måste vara minst 8 tecken."
+    "passwordTooShort": "Lösenordet måste vara minst {{min}} tecken."
   },
   "library": {
     "title": "Din samling",
@@ -1157,7 +1157,7 @@
       "saving": "Sparar…",
       "passwordUpdated": "Lösenordet uppdaterat",
       "mismatch": "De nya lösenorden matchar inte.",
-      "tooShort": "Det nya lösenordet måste vara minst 8 tecken.",
+      "tooShort": "Det nya lösenordet måste vara minst {{min}} tecken.",
       "failed": "Det gick inte att byta lösenord."
     },
     "sessions": {
@@ -1494,8 +1494,8 @@
     "failedUpdateApiKeys": "Det gick inte att uppdatera åtkomsten till API-nycklar.",
     "setPassword": "Ange lösenord",
     "setPasswordTitle": "Ange lösenord för den här användaren",
-    "newPasswordPlaceholder": "Nytt lösenord (minst 8)",
-    "minChars": "Minst 8 tecken",
+    "newPasswordPlaceholder": "Nytt lösenord (minst {{min}})",
+    "minChars": "Minst {{min}} tecken",
     "failedSetPassword": "Det gick inte att ange lösenordet",
     "deleteConfirm": "Ta bort?",
     "you": "(du)",
@@ -1504,7 +1504,7 @@
     "failedUpdateRole": "Det gick inte att uppdatera rollen.",
     "failedUpdateExplicit": "Det gick inte att uppdatera den explicita inställningen.",
     "failedSetPasswordErr": "Det gick inte att ange lösenordet.",
-    "passwordTooShort": "Lösenordet måste vara minst 8 tecken.",
+    "passwordTooShort": "Lösenordet måste vara minst {{min}} tecken.",
     "emailOptional": "E-post (valfritt)",
     "emailPlaceholder": "anvandare@exempel.se",
     "noEmail": "ingen e-post",
@@ -3588,7 +3588,7 @@
       "expiry": "Går ut efter",
       "password": "Lösenord (valfritt)",
       "passwordPlaceholder": "Lämna tomt för inget lösenord",
-      "passwordTooShort": "Minst 4 tecken.",
+      "passwordTooShort": "Minst {{min}} tecken.",
       "passwordHint": "Den som öppnar länken måste ange det. Verktyg som laddar filen direkt kan inte det, så lämna det tomt för VTT:er och Discord.",
       "create": "Skapa länk"
     },

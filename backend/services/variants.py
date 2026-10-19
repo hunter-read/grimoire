@@ -115,21 +115,26 @@ def variants_of(db: Session, model: Any, parent_id: str) -> list[Any]:
     )
 
 
-def variant_counts(db: Session, model: Any, parent_ids: Sequence[str]) -> dict[str, int]:
+def variant_counts(
+    db: Session, model: Any, parent_ids: Sequence[str], user: Any = None
+) -> dict[str, int]:
     """``{parent_id: variant count}`` for a page of list rows, in one query.
 
     List serializers call this once per page rather than per row, which is what
-    keeps the badge from costing a query per book.
+    keeps the badge from costing a query per book. For books, pass ``user`` so
+    the count covers only the versions that user can open.
     """
     ids = [pid for pid in parent_ids if pid]
     if not ids:
         return {}
-    rows = (
-        db.query(model.variant_parent_id, func.count(model.id))
-        .filter(model.variant_parent_id.in_(ids))
-        .group_by(model.variant_parent_id)
-        .all()
+    query = db.query(model.variant_parent_id, func.count(model.id)).filter(
+        model.variant_parent_id.in_(ids)
     )
+    if user is not None:
+        from .access_control import visible_books
+
+        query = visible_books(db, query, user)
+    rows = query.group_by(model.variant_parent_id).all()
     return {parent_id: count for parent_id, count in rows}
 
 

@@ -860,7 +860,7 @@ class TestResolveUser:
             headers=admin_headers,
             json={
                 "username": "match_by_email_user",
-                "password": "password123",
+                "password": "password123-long",
                 "email": "match@example.com",
             },
         ).json()
@@ -1262,6 +1262,125 @@ class TestResolveUserEdges:
             assert user.oidc_subject == "byname-sub"
 
             db.delete(user)
+            db.commit()
+        finally:
+            db.close()
+
+    def _make(self, db, **fields):
+        from backend.models import User
+
+        user = User(hashed_password="x", role="player", **fields)
+        db.add(user)
+        db.commit()
+        return user
+
+    def test_email_match_only_considers_unlinked_accounts(self, client, admin_setup):
+        from backend.config import SessionLocal
+
+        db = SessionLocal()
+        try:
+            linked = self._make(
+                db, username="linked-elsewhere", email="linked@example.com", oidc_subject="first-sub"
+            )
+            with pytest.raises(_OIDCError, match="auto-register"):
+                _resolve_user(
+                    db,
+                    {"sub": "second-sub", "email": "linked@example.com"},
+                    self._eff(oidc_match_by="email"),
+                )
+            db.refresh(linked)
+            assert linked.oidc_subject == "first-sub"
+            db.delete(linked)
+            db.commit()
+        finally:
+            db.close()
+
+    def test_email_match_needs_a_confirmed_address(self, client, admin_setup):
+        from backend.config import SessionLocal
+
+        db = SessionLocal()
+        try:
+            owner = self._make(db, username="mail-unconfirmed", email="unconfirmed@example.com")
+            for flag in (False, "false"):
+                with pytest.raises(_OIDCError, match="auto-register"):
+                    _resolve_user(
+                        db,
+                        {"sub": "u-sub", "email": "unconfirmed@example.com", "email_verified": flag},
+                        self._eff(oidc_match_by="email"),
+                    )
+            user = _resolve_user(
+                db,
+                {"sub": "u-sub", "email": "unconfirmed@example.com", "email_verified": True},
+                self._eff(oidc_match_by="email"),
+            )
+            assert user.id == owner.id
+            db.delete(user)
+            db.commit()
+        finally:
+            db.close()
+
+    def test_linked_account_keeps_its_email_until_the_provider_confirms_one(
+        self, client, admin_setup
+    ):
+        from backend.config import SessionLocal
+
+        db = SessionLocal()
+        try:
+            linked = self._make(db, username="email-sync", email="old@example.com", oidc_subject="sync-sub")
+            _resolve_user(
+                db,
+                {"sub": "sync-sub", "email": "new@example.com", "email_verified": False},
+                self._eff(),
+            )
+            db.refresh(linked)
+            assert linked.email == "old@example.com"
+            _resolve_user(
+                db,
+                {"sub": "sync-sub", "email": "new@example.com", "email_verified": True},
+                self._eff(),
+            )
+            db.refresh(linked)
+            assert linked.email == "new@example.com"
+            db.delete(linked)
+            db.commit()
+        finally:
+            db.close()
+
+    def test_guest_accounts_are_never_matched(self, client, admin_setup):
+        from backend.config import SessionLocal
+
+        db = SessionLocal()
+        try:
+            guest = self._make(db, username="guest-mailbox", email="guest@example.com", is_guest=True)
+            guest.role = "guest"
+            db.commit()
+            with pytest.raises(_OIDCError, match="auto-register"):
+                _resolve_user(
+                    db,
+                    {"sub": "g-sub", "email": "guest@example.com"},
+                    self._eff(oidc_match_by="email"),
+                )
+            db.delete(guest)
+            db.commit()
+        finally:
+            db.close()
+
+    def test_username_match_uses_only_the_login_name(self, client, admin_setup):
+        from backend.config import SessionLocal
+
+        db = SessionLocal()
+        try:
+            local = self._make(db, username="localname")
+            for claims in (
+                {"sub": "n-sub", "name": "localname"},
+                {"sub": "n-sub", "nickname": "localname"},
+                {"sub": "n-sub", "email": "localname@example.com"},
+            ):
+                with pytest.raises(_OIDCError, match="auto-register"):
+                    _resolve_user(db, claims, self._eff(oidc_match_by="username"))
+            db.refresh(local)
+            assert local.oidc_subject is None
+            db.delete(local)
             db.commit()
         finally:
             db.close()

@@ -5,7 +5,7 @@ from typing import Any
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from ... import addons
+from ... import addons, api_keys
 from ...addons.authors import parse_author
 from ...addons.constants import DEFAULT_INDEX_URL, TRUSTED_INDEX_URLS, is_trusted_index_url
 from ...auth import CurrentUser, get_current_user, require_admin
@@ -15,6 +15,8 @@ import os
 import re
 
 logger = logging.getLogger("grimoire.addons")
+
+_SCRIPT_APPROVAL_SESSION_ONLY = "Approving an add-on's script needs a signed-in session"
 
 
 def list_addons(
@@ -207,10 +209,12 @@ def update_addon_settings(
 def install_addon(
     addon_id: str,
     data: AddonInstall,
-    _: CurrentUser = Depends(require_admin),  # noqa: ARG001
+    current_user: CurrentUser = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     """Install or update an add-on from the cached index."""
+    if data.approve_script:
+        api_keys.assert_session(current_user, _SCRIPT_APPROVAL_SESSION_ONLY)
     try:
         addons.install_addon(db, addon_id, approve_script=data.approve_script, index_url=data.index_url)
     except addons.AddonFetchError as exc:
@@ -223,10 +227,12 @@ def install_addon(
 def update_addon(
     addon_id: str,
     data: AddonUpdate,
-    _: CurrentUser = Depends(require_admin),  # noqa: ARG001
+    current_user: CurrentUser = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     """Enable/disable an add-on, or grant/revoke its script approval."""
+    if data.script_approved:
+        api_keys.assert_session(current_user, _SCRIPT_APPROVAL_SESSION_ONLY)
     try:
         if data.enabled is not None:
             addons.set_enabled(db, addon_id, data.enabled)

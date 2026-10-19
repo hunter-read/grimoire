@@ -133,14 +133,17 @@ def get_stats(
     # a sidebar reading "340 books" over a library showing 320 discloses both
     # that restricted books exist and exactly how many. An API key counts as its
     # owner, so an admin's key sees the full totals.
+    access_user = access_control.load_user(db, user)
+
     def _books(q):
-        return access_control.visible_books(db, q, access_control.load_user(db, user))
+        return access_control.visible_books(db, q, access_user)
 
     return {
         # Container folders are shelves, not systems, so they are excluded — but
         # the systems nested inside them do count (issues #261/#262). A one-page
-        # container carries both flags; its children carry neither.
-        "game_systems": db.query(GameSystem)
+        # container carries both flags; its children carry neither. Only the
+        # systems this user can see are counted, like the books.
+        "game_systems": access_control.visible_systems(db, db.query(GameSystem), access_user)
         .filter(GameSystem.is_system_agnostic != True)  # noqa: E712
         .filter(GameSystem.is_one_page != True)  # noqa: E712
         .filter(func.coalesce(GameSystem.container_kind, "") == "")

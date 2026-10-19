@@ -1,12 +1,30 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { auth as authApi, refreshAccessToken } from '../api'
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
+import { auth as authApi, refreshAccessToken, type Schema } from '../api'
+import { rememberAuthStatus } from '../hooks/usePasswordRules'
 
-// status: 'loading' | 'uninitialized' | 'unauthenticated' | 'authenticated'
-const AuthContext = createContext(null)
+export type AuthStatus = 'loading' | 'uninitialized' | 'unauthenticated' | 'authenticated'
 
-export function AuthProvider({ children }) {
-  const [status, setStatus] = useState('loading')
-  const [user, setUser] = useState(null)
+/** The signed-in user: from /auth/me, or the shorter block a login returns. */
+export type AuthUser = Schema<'AuthMeResponse'> | Schema<'LoginUser'>
+
+export interface AuthContextValue {
+  status: AuthStatus
+  user: AuthUser | null
+  login: (token: string, userData: AuthUser) => void
+  logout: () => void
+  refreshUser: () => Promise<void>
+}
+
+const AuthContext = createContext<AuthContextValue | null>(null)
+
+const fetchMe = (token: string): Promise<AuthUser | null> =>
+  fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
+    .then((r) => (r.ok ? (r.json() as Promise<AuthUser>) : null))
+    .catch(() => null)
+
+export function AuthProvider({ children }: { children?: ReactNode }) {
+  const [status, setStatus] = useState<AuthStatus>('loading')
+  const [user, setUser] = useState<AuthUser | null>(null)
 
   useEffect(() => {
     const token = localStorage.getItem('grimoire_token')
@@ -15,14 +33,9 @@ export function AuthProvider({ children }) {
     // short-lived (issue #157), so a returning user almost always arrives with
     // an expired one — that must resume the session from the refresh cookie
     // rather than bounce them to the login screen.
-    const resolveSession = async () => {
-      let active = token
-      if (active) {
-        const me = await fetch('/api/auth/me', {
-          headers: { Authorization: `Bearer ${active}` },
-        })
-          .then((r) => (r.ok ? r.json() : null))
-          .catch(() => null)
+    const resolveSession = async (): Promise<AuthUser | null> => {
+      if (token) {
+        const me = await fetchMe(token)
         if (me) return me
         // The stored token is no good. Drop it now rather than at the end of
         // this chain, so we never leave a rejected token sitting in storage if
@@ -32,17 +45,17 @@ export function AuthProvider({ children }) {
 
       // Either there was no token or it was rejected. A live refresh cookie
       // still resumes the session; anything else means genuinely logged out.
-      active = await refreshAccessToken()
-      if (!active) return null
-      return fetch('/api/auth/me', { headers: { Authorization: `Bearer ${active}` } })
-        .then((r) => (r.ok ? r.json() : null))
-        .catch(() => null)
+      const refreshed = await refreshAccessToken()
+      if (!refreshed) return null
+      return fetchMe(refreshed)
     }
 
     fetch('/api/auth/status')
-      .then((r) => r.json())
-      .then(({ initialized }) => {
-        if (!initialized) {
+      .then((r) => r.json() as Promise<Schema<'AuthStatusResponse'>>)
+      .then((authStatus) => {
+        // The same response carries the password minimums the forms show.
+        rememberAuthStatus(authStatus)
+        if (!authStatus.initialized) {
           setStatus('uninitialized')
           return
         }
@@ -67,7 +80,7 @@ export function AuthProvider({ children }) {
     return () => window.removeEventListener('grimoire:unauthorized', handleUnauthorized)
   }, [])
 
-  const login = useCallback((token, userData) => {
+  const login = useCallback((token: string, userData: AuthUser) => {
     localStorage.setItem('grimoire_token', token)
     sessionStorage.removeItem('grimoire:suppress_oidc_autolaunch')
     setUser(userData)
@@ -91,7 +104,7 @@ export function AuthProvider({ children }) {
     if (!token) return
     const userData = await fetch('/api/auth/me', {
       headers: { Authorization: `Bearer ${token}` },
-    }).then((r) => (r.ok ? r.json() : null))
+    }).then((r) => (r.ok ? (r.json() as Promise<AuthUser>) : null))
     if (userData) setUser(userData)
   }, [])
 
@@ -102,6 +115,6 @@ export function AuthProvider({ children }) {
   )
 }
 
-export function useAuth() {
+export function useAuth(): AuthContextValue | null {
   return useContext(AuthContext)
 }

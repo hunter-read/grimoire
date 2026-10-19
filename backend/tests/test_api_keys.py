@@ -182,10 +182,35 @@ class TestPermissionTable:
             ("/api/campaigns/calendar/subscription", "GET"),
             ("/api/campaigns/calendar/subscription", "POST"),
             ("/api/campaigns/calendar/subscription", "DELETE"),
+            ("/api/campaigns/{campaign_id}/guests", "GET"),
+            ("/api/campaigns/{campaign_id}/guests", "POST"),
+            ("/api/campaigns/{campaign_id}/guests/{member_id}/regenerate", "POST"),
+            ("/api/campaigns/{campaign_id}/guests/{member_id}/share-template", "GET"),
+            ("/api/settings/oidc-button-icon", "POST"),
+            ("/api/settings/oidc-button-icon", "DELETE"),
+            ("/api/addons/settings", "PATCH"),
         ],
     )
     def test_credential_routes_are_marked_excluded(self, path, method):
         assert _route(path, method).openapi_extra == api_keys.EXCLUDED
+
+    def test_every_route_handing_out_guest_codes_is_excluded(self):
+        """Walks the whole route table, so a new or moved route returning invite
+        codes is held to sessions too."""
+        from typing import get_args
+
+        from backend.routers.campaigns import _response_schemas as schemas
+
+        code_models = (schemas.GuestOut, schemas.GuestShareTemplateOut)
+        found = []
+        for route in _api_routes():
+            model = getattr(route, "response_model", None)
+            if model in code_models or any(arg in code_models for arg in get_args(model)):
+                found.append((route.path, sorted(route.methods)))
+                assert route.openapi_extra == api_keys.EXCLUDED, route.path
+                assert api_keys.route_permission(route) is None, route.path
+        # The four invite code routes today; fewer means the walk missed them.
+        assert len(found) >= 4, found
 
     @pytest.mark.parametrize(
         "path,method",
@@ -906,6 +931,145 @@ class TestKeyAuthentication:
 
 
 # ---------------------------------------------------------------------------
+# Sign-in and credential changes stay with signed-in sessions
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def admin_key(client, admin_headers):
+    key, _ = _create(client, admin_headers, {"*": "write"})
+    return _k(key)
+
+
+class TestSessionOnlyChanges:
+    def test_a_users_password_is_set_from_a_session_only(
+        self, client, admin_headers, admin_key
+    ):
+        user_id, _ = _user(client, admin_headers, "player", keys=False)
+        resp = client.patch(
+            f"/api/users/{user_id}", json={"password": "new-pass-for-key-test"}, headers=admin_key
+        )
+        assert resp.status_code == 403
+        assert "signed-in session" in resp.json()["detail"]
+        resp = client.patch(
+            f"/api/users/{user_id}", json={"password": "new-pass-for-key-test"}, headers=admin_headers
+        )
+        assert resp.status_code == 200, resp.text
+
+    def test_the_admin_role_is_granted_from_a_session_only(
+        self, client, admin_headers, admin_key
+    ):
+        user_id, _ = _user(client, admin_headers, "player", keys=False)
+        resp = client.patch(f"/api/users/{user_id}", json={"role": "admin"}, headers=admin_key)
+        assert resp.status_code == 403
+        # Other roles, and other fields, are still the key's to change.
+        resp = client.patch(
+            f"/api/users/{user_id}",
+            json={"role": "gm", "allow_explicit": False},
+            headers=admin_key,
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["role"] == "gm"
+
+    def test_a_users_email_is_changed_from_a_session_only(
+        self, client, admin_headers, admin_key
+    ):
+        user_id, _ = _user(client, admin_headers, "player", keys=False)
+        email = f"{uuid.uuid4().hex[:8]}@example.com"
+        resp = client.patch(f"/api/users/{user_id}", json={"email": email}, headers=admin_key)
+        assert resp.status_code == 403
+
+    def test_creating_users_with_a_key(self, client, admin_key):
+        def create(**body):
+            return client.post(
+                "/api/users",
+                json={"username": f"k-{uuid.uuid4().hex[:6]}", **body},
+                headers=admin_key,
+            )
+
+        assert create(password="new-pass-for-key-test").status_code == 403
+        assert create(role="admin").status_code == 403
+        resp = create(role="player")
+        assert resp.status_code == 201, resp.text
+
+    def test_converting_a_guest_with_a_password_needs_a_session(
+        self, client, admin_key
+    ):
+        from backend.models import User
+
+        db = SessionLocal()
+        guest = User(username=f"guest-{uuid.uuid4().hex[:6]}", role="guest", is_guest=True)
+        db.add(guest)
+        db.commit()
+        guest_id = guest.id
+        db.close()
+        resp = client.post(
+            f"/api/users/{guest_id}/convert",
+            json={"username": f"conv-{uuid.uuid4().hex[:6]}", "password": "new-pass-for-key-test"},
+            headers=admin_key,
+        )
+        assert resp.status_code == 403
+
+    def test_own_email_is_changed_from_a_session_only(self, client, player_headers):
+        key, _ = _create(client, player_headers, {"users": "write"})
+        resp = client.patch(
+            "/api/users/me/preferences",
+            json={"email": f"{uuid.uuid4().hex[:8]}@example.com"},
+            headers=_k(key),
+        )
+        assert resp.status_code == 403
+        # Everything else in preferences still works with a key.
+        resp = client.patch(
+            "/api/users/me/preferences", json={"display_name": "Keyed"}, headers=_k(key)
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["display_name"] == "Keyed"
+        client.patch("/api/users/me/preferences", json={"display_name": ""}, headers=player_headers)
+
+    @pytest.mark.parametrize(
+        "field,value",
+        [
+            ("oidc_issuer_url", "https://id.example.com"),
+            ("oidc_client_id", "grimoire"),
+            ("oidc_client_secret", "s3cret"),
+            ("oidc_match_by", "email"),
+            ("oidc_groups_claim", "groups"),
+            ("oidc_permissions_claim", "perms"),
+            ("oidc_auto_register", True),
+            ("oidc_enabled", True),
+            ("password_auth_enabled", True),
+            ("guest_access_enabled", True),
+            ("custom_login_message", "Hello"),
+        ],
+    )
+    def test_sign_in_settings_need_a_session(self, client, admin_key, field, value):
+        resp = client.patch("/api/settings", json={field: value}, headers=admin_key)
+        assert resp.status_code == 403, field
+        assert "signed-in session" in resp.json()["detail"]
+
+    def test_other_settings_still_work_with_a_key(self, client, admin_headers, admin_key):
+        before = client.get("/api/settings", headers=admin_headers).json()["hide_models"]
+        resp = client.patch("/api/settings", json={"hide_models": before}, headers=admin_key)
+        assert resp.status_code == 200, resp.text
+
+    def test_addon_sources_and_scripts_need_a_session(self, client, admin_key):
+        resp = client.patch("/api/addons/settings", json={"allow_scripts": True}, headers=admin_key)
+        assert resp.status_code == 403
+        resp = client.patch(
+            "/api/addons/no-such-addon", json={"script_approved": True}, headers=admin_key
+        )
+        assert resp.status_code == 403
+        assert "signed-in session" in resp.json()["detail"]
+        resp = client.post(
+            "/api/addons/no-such-addon/install", json={"approve_script": True}, headers=admin_key
+        )
+        assert resp.status_code == 403
+        # Enabling or disabling one is still the key's to do.
+        resp = client.patch("/api/addons/no-such-addon", json={"enabled": False}, headers=admin_key)
+        assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
 # Campaigns: a key sees what its owner sees
 # ---------------------------------------------------------------------------
 
@@ -957,3 +1121,30 @@ class TestKeyInCampaigns:
         )
         assert resp.status_code in (200, 201), resp.text
         assert resp.json()["owner_id"] == gm_id
+
+    def test_guest_codes_are_left_out_for_a_key(self, client, admin_headers, gm_headers):
+        cid = self._campaign(client, gm_headers)
+        client.patch("/api/settings", json={"guest_access_enabled": True}, headers=admin_headers)
+        try:
+            guest = client.post(
+                f"/api/campaigns/{cid}/guests", json={"nickname": "Alice"}, headers=gm_headers
+            )
+            assert guest.status_code == 201, guest.text
+            code = guest.json()["guest_code"]
+            key, _ = _create(client, gm_headers, {"campaigns": "write"})
+
+            def codes(resp):
+                assert resp.status_code == 200, resp.text
+                return {m.get("guest_code") for m in resp.json()["members"]} - {None}
+
+            assert codes(client.get(f"/api/campaigns/{cid}", headers=gm_headers)) == {code}
+            assert codes(client.get(f"/api/campaigns/{cid}", headers=_k(key))) == set()
+            renamed = client.patch(
+                f"/api/campaigns/{cid}", json={"name": "Renamed"}, headers=_k(key)
+            )
+            assert codes(renamed) == set()
+            assert client.get(f"/api/campaigns/{cid}/guests", headers=_k(key)).status_code == 403
+        finally:
+            client.patch(
+                "/api/settings", json={"guest_access_enabled": False}, headers=admin_headers
+            )

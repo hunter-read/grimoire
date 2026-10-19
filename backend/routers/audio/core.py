@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse, Response
 
 from ...config import get_db
 from ...models import Audio, AudioFolder
+from ...security import inert_svg_headers
 from ...models.base import utc_iso
 from ...services import bulk_service, tag_service, variants
 from ...services.browse.media import MediaBrowse, MediaBrowser
@@ -212,11 +213,15 @@ def serve_audio_artwork(
     cover = _find_folder_artwork(os.path.dirname(a.filepath))
     if cover and os.path.exists(cover):
         ext = Path(cover).suffix.lower().lstrip(".")
-        return FileResponse(cover, media_type=f"image/{ext}")
+        return FileResponse(
+            cover, media_type=f"image/{ext}", headers=inert_svg_headers(None, cover)
+        )
     embedded = _extract_embedded_art(a.filepath)
     if embedded:
         data, mime = embedded
-        return Response(content=data, media_type=mime or "image/jpeg")
+        return Response(
+            content=data, media_type=mime or "image/jpeg", headers=inert_svg_headers(mime)
+        )
     raise HTTPException(404)
 
 

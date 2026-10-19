@@ -25,6 +25,7 @@ from ...indexer.formats import (
 from ...indexer.outline import read_toc
 from ...indexer.thumbnails import archive_ext
 from ...models import Book
+from ...security import inert_svg_headers
 from ...services.content_cache import content_token, page_cache_prefix
 from ._helpers import (
     _assert_book_access,
@@ -128,7 +129,11 @@ def serve_book_page(
             raise HTTPException(404, "File not found on disk")
         ext = Path(filepath).suffix.lower().lstrip(".")
         media_type = f"image/{ext}" if ext not in ("jpg",) else "image/jpeg"
-        return FileResponse(filepath, media_type=media_type, headers=cache_headers)
+        return FileResponse(
+            filepath,
+            media_type=media_type,
+            headers={**cache_headers, **inert_svg_headers(media_type, filepath)},
+        )
 
     # A comic archive's page is an image member inside the archive; serve it
     # directly rather than rendering it (issue #180).

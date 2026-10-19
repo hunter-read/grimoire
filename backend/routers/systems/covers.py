@@ -23,6 +23,8 @@ from ...auth import CurrentUser, get_current_user, require_gm_or_admin
 from ...config import LIBRARY_PATH, SYSTEM_COVER_DIR, get_db, logger
 from ...file_cache import cached_file_response
 from ...models import GameSystem
+from ...security import inert_svg_headers
+from ._helpers import get_visible_system, load_browsable_system
 from ._schemas import SystemCoverSourceIn
 
 _IMAGE_TYPES = {
@@ -43,13 +45,6 @@ _MEDIA_TYPES = {
     ".tiff": "image/tiff",
     ".svg": "image/svg+xml",
 }
-
-
-def _get_system_or_404(db: Session, system_id: str) -> GameSystem:
-    system = db.query(GameSystem).filter_by(id=system_id).first()
-    if not system:
-        raise HTTPException(404, "System not found")
-    return system
 
 
 def resolve_cover_file(system: GameSystem) -> str | None:
@@ -84,17 +79,21 @@ def has_cover_file(system: GameSystem) -> bool:
 def serve_system_cover(
     system_id: str,
     request: Request,
-    _: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Serve the system's folder or uploaded cover image. 404 when it has neither."""
-    system = _get_system_or_404(db, system_id)
+    """Serve the system's folder or uploaded cover image. 404 when it has neither.
+
+    A system hidden from the caller answers like one that does not exist.
+    """
+    system = load_browsable_system(db, system_id, current_user)
     path = resolve_cover_file(system)
     if not path:
         raise HTTPException(404, "No cover image")
     ext = os.path.splitext(path)[1].lower()
+    media = _MEDIA_TYPES.get(ext, "application/octet-stream")
     return cached_file_response(
-        request, path, media_type=_MEDIA_TYPES.get(ext, "application/octet-stream")
+        request, path, media_type=media, headers=inert_svg_headers(media, path)
     )
 
 
@@ -123,7 +122,7 @@ def _remove_existing(stem: str) -> None:
 def upload_system_cover(
     system_id: str,
     file: UploadFile = File(...),
-    _: CurrentUser = Depends(require_gm_or_admin),
+    current_user: CurrentUser = Depends(require_gm_or_admin),
     db: Session = Depends(get_db),
 ):
     """Store an uploaded cover image for a system.
@@ -132,7 +131,7 @@ def upload_system_cover(
     which holds no books to derive a thumbnail from. A ``cover.*`` file in the
     system's library folder still wins over this.
     """
-    system = _get_system_or_404(db, system_id)
+    system = get_visible_system(db, system_id, current_user)
     if file.content_type not in _IMAGE_TYPES:
         raise HTTPException(400, f"Unsupported file type: {file.content_type}")
     data = file.file.read(_MAX_COVER_BYTES + 1)
@@ -173,7 +172,7 @@ def set_system_cover_from_source(
     """
     from ...services.image_source import load_source_image, source_ext, validate_image
 
-    system = _get_system_or_404(db, system_id)
+    system = get_visible_system(db, system_id, current_user)
     data = load_source_image(db, current_user, body.source_type, body.source_id)
     validate_image(data)
     filename = _store_system_cover(system, data, source_ext(data))
@@ -183,11 +182,11 @@ def set_system_cover_from_source(
 
 def delete_system_cover(
     system_id: str,
-    _: CurrentUser = Depends(require_gm_or_admin),
+    current_user: CurrentUser = Depends(require_gm_or_admin),
     db: Session = Depends(get_db),
 ):
     """Remove the uploaded cover. Folder art, being library-managed, is untouched."""
-    system = _get_system_or_404(db, system_id)
+    system = get_visible_system(db, system_id, current_user)
     _remove_existing(system.id)
     system.cover_image = ""
     db.commit()

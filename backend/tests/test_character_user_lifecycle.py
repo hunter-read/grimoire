@@ -16,7 +16,7 @@ def _player(client, admin_headers) -> str:
         "/api/users",
         json={
             "username": f"char_{uuid.uuid4().hex[:8]}",
-            "password": "testpass123",
+            "password": "testpass123-long",
             "role": "player",
         },
         headers=admin_headers,

@@ -38,6 +38,10 @@ def md5_hexdigest(data: bytes, *, usedforsecurity: bool = True) -> str:
 # keeps these access-controlled responses out of shared/proxy caches.
 UPLOAD_CACHE_CONTROL = "private, max-age=300, must-revalidate"
 
+# Per-response policy headers a 304 repeats, so they replace the app-wide
+# defaults the middleware would otherwise add to it.
+_REVALIDATED_HEADERS = frozenset({"content-security-policy", "x-frame-options"})
+
 
 def _validators(stat_result: os.stat_result) -> tuple[str, str]:
     """Return the (etag, last_modified) pair Starlette's FileResponse would emit."""
@@ -86,7 +90,9 @@ def cached_file_response(request: Request, path: str, **kwargs: Any) -> Response
 
     Accepts the same keyword arguments as ``FileResponse`` (``filename``,
     ``media_type``, …). Any caller-supplied ``headers`` are preserved and the
-    shared ``Cache-Control`` is added unless the caller already set one.
+    shared ``Cache-Control`` is added unless the caller already set one. A 304
+    repeats the caller's framing and content policy, since a browser refreshes
+    its cached copy's headers from it.
     """
     etag, last_modified = _validators(os.stat(path))
 
@@ -100,6 +106,7 @@ def cached_file_response(request: Request, path: str, **kwargs: Any) -> Response
                 "ETag": etag,
                 "Last-Modified": last_modified,
                 "Cache-Control": headers["Cache-Control"],
+                **{k: v for k, v in headers.items() if k.lower() in _REVALIDATED_HEADERS},
             },
         )
     return FileResponse(path, headers=headers, **kwargs)

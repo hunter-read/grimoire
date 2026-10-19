@@ -5,6 +5,8 @@
 import api, { client, postUrl, type Id, type BodyOf, type QueryOf } from './client'
 
 export const auth = {
+  // Public: whether first-run setup is done, and the password minimums.
+  status: () => client.get('/auth/status'),
   config: () => client.get('/auth/config'),
   guestLogin: (code: string) => client.post('/auth/guest-login', { body: { code } }),
   // Revokes the current session server-side and clears both auth cookies.

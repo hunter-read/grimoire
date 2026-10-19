@@ -584,3 +584,413 @@ class TestIndirectLeaks:
         _set_level(book.id, "gm")
         resp = client.get(f"/api/books/{book.id}/metadata-sources", headers=gm_headers)
         assert resp.status_code == 200
+
+
+def _set_system_level(system_id, level):
+    db = SessionLocal()
+    try:
+        db.query(GameSystem).filter_by(id=system_id).update({GameSystem.access_level: level})
+        db.commit()
+    finally:
+        db.close()
+
+
+def _system_level(system_id):
+    db = SessionLocal()
+    try:
+        return db.query(GameSystem).filter_by(id=system_id).first().access_level
+    finally:
+        db.close()
+
+
+def _book_row(book_id):
+    db = SessionLocal()
+    try:
+        return db.query(Book).filter_by(id=book_id).first()
+    finally:
+        db.close()
+
+
+class TestSystemLevelWrites:
+    def test_gm_bulk_edit_cannot_change_system_level(self, client, gm_headers):
+        system = make_game_system()
+        resp = client.post(
+            "/api/systems/bulk",
+            json={"items": [{"id": system.id, "access_level": "admin"}]},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["updated"] == []
+        assert body["errors"] == [
+            {"id": system.id, "detail": "Only admins can change access levels"}
+        ]
+        assert _system_level(system.id) == ""
+
+    def test_gm_bulk_edit_of_admin_only_system_reads_as_unknown(self, client, gm_headers):
+        system = make_game_system()
+        _set_system_level(system.id, "admin")
+        resp = client.post(
+            "/api/systems/bulk",
+            json={"items": [{"id": system.id, "access_level": ""}]},
+            headers=gm_headers,
+        )
+        assert resp.json()["errors"] == [{"id": system.id, "detail": "System not found"}]
+        assert _system_level(system.id) == "admin"
+
+    def test_admin_bulk_edit_sets_system_level_and_demotes_shares(
+        self, client, admin_headers, gm_id
+    ):
+        system = make_game_system()
+        book = make_book(system.id, access_level=None)
+        campaign = make_campaign(gm_id)
+        db = SessionLocal()
+        db.add(CampaignResource(
+            campaign_id=campaign.id, resource_type="book", resource_id=book.id,
+            visibility="public",
+        ))
+        db.commit()
+        db.close()
+
+        resp = client.post(
+            "/api/systems/bulk",
+            json={"items": [{"id": system.id, "access_level": "gm"}]},
+            headers=admin_headers,
+        )
+        assert resp.json() == {"updated": [system.id], "errors": []}
+        assert _system_level(system.id) == "gm"
+        db = SessionLocal()
+        share = db.query(CampaignResource).filter_by(resource_id=book.id).first()
+        assert share.visibility == "gm"
+        db.close()
+
+    def test_gm_cannot_edit_a_system_they_cannot_see(self, client, gm_headers, admin_headers):
+        system = make_game_system()
+        _set_system_level(system.id, "admin")
+        resp = client.patch(
+            f"/api/systems/{system.id}", json={"description": "x"}, headers=gm_headers
+        )
+        missing = client.patch(
+            f"/api/systems/{uuid.uuid4()}", json={"description": "x"}, headers=gm_headers
+        )
+        assert resp.status_code == missing.status_code == 404
+        assert resp.json() == missing.json()
+        assert client.get(
+            f"/api/systems/{system.id}/metadata-sources", headers=gm_headers
+        ).status_code == 404
+        assert client.patch(
+            f"/api/systems/{system.id}", json={"description": "x"}, headers=admin_headers
+        ).status_code == 200
+
+
+class TestBookEditsStayWithinAccess:
+    def test_gm_edit_of_hidden_book_is_404(self, client, gm_headers, admin_headers):
+        book = make_book(make_game_system().id)
+        _set_level(book.id, "admin")
+        resp = client.patch(f"/api/books/{book.id}", json={"title": "x"}, headers=gm_headers)
+        missing = client.patch(
+            f"/api/books/{uuid.uuid4()}", json={"title": "x"}, headers=gm_headers
+        )
+        assert resp.status_code == missing.status_code == 404
+        assert resp.json() == missing.json()
+        assert _book_row(book.id).title != "x"
+        assert client.post(f"/api/books/{book.id}/rescan", headers=gm_headers).status_code == 404
+        assert client.patch(
+            f"/api/books/{book.id}", json={"title": "Admin edit"}, headers=admin_headers
+        ).status_code == 200
+
+    def test_gm_bulk_edits_skip_hidden_books(self, client, gm_headers):
+        system = make_game_system()
+        hidden, shown = make_book(system.id), make_book(system.id)
+        _set_level(hidden.id, "admin")
+        resp = client.post(
+            "/api/books/bulk",
+            json={"items": [{"id": hidden.id, "title": "x"}, {"id": shown.id, "title": "y"}]},
+            headers=gm_headers,
+        )
+        assert resp.json() == {
+            "updated": [shown.id],
+            "errors": [{"id": hidden.id, "detail": "Book not found"}],
+        }
+        assert _book_row(hidden.id).title != "x"
+
+        resp = client.post(
+            "/api/books/bulk/tags",
+            json={"ids": [hidden.id, shown.id], "tags": ["gm-tagged"]},
+            headers=gm_headers,
+        )
+        body = resp.json()
+        assert body["updated"] == [shown.id]
+        assert body["errors"] == [{"id": hidden.id, "detail": "Book not found"}]
+
+    def test_gm_cannot_recategorise_into_a_wider_level(self, client, admin_headers, gm_headers):
+        client.patch(
+            "/api/settings",
+            json={"restricted_categories": {"adventure": "gm"}},
+            headers=admin_headers,
+        )
+        book = make_book(make_game_system().id, category="adventure", access_level=None)
+        resp = client.patch(
+            f"/api/books/{book.id}", json={"category": "supplement"}, headers=gm_headers
+        )
+        assert resp.status_code == 403
+        assert _book_row(book.id).category == "adventure"
+
+        resp = client.post(
+            "/api/books/bulk",
+            json={"items": [{"id": book.id, "category": "supplement"}]},
+            headers=gm_headers,
+        )
+        assert resp.json()["updated"] == []
+        assert _book_row(book.id).category == "adventure"
+
+    def test_gm_can_recategorise_within_the_same_level(self, client, admin_headers, gm_headers):
+        client.patch(
+            "/api/settings",
+            json={"restricted_categories": {"adventure": "gm"}},
+            headers=admin_headers,
+        )
+        book = make_book(make_game_system().id, category="supplement", access_level=None)
+        resp = client.patch(
+            f"/api/books/{book.id}", json={"category": "adventure"}, headers=gm_headers
+        )
+        assert resp.status_code == 200
+
+    def test_admin_can_recategorise_freely(self, client, admin_headers):
+        client.patch(
+            "/api/settings",
+            json={"restricted_categories": {"adventure": "gm"}},
+            headers=admin_headers,
+        )
+        book = make_book(make_game_system().id, category="adventure", access_level=None)
+        resp = client.patch(
+            f"/api/books/{book.id}", json={"category": "supplement"}, headers=admin_headers
+        )
+        assert resp.status_code == 200
+
+
+class TestListsShowOnlyVisible:
+    def test_resource_picker_lists_only_visible_books(
+        self, client, gm_headers, player_headers, admin_headers
+    ):
+        system = make_game_system(name=f"Hidden Line {uuid.uuid4().hex[:6]}")
+        shown = make_book(system.id, title="Picker Visible")
+        hidden = make_book(system.id, title="Picker Hidden")
+        _set_level(hidden.id, "gm")
+
+        def ids(headers, **params):
+            resp = client.get(
+                "/api/campaigns/resources/search",
+                params={"resource_type": "book", "system_id": system.id, **params},
+                headers=headers,
+            )
+            return [r["resource_id"] for r in resp.json()]
+
+        assert ids(player_headers) == [shown.id]
+        assert set(ids(admin_headers)) == {shown.id, hidden.id}
+        suggested = client.get(
+            f"/api/campaigns/resources/suggested/{system.id}", headers=player_headers
+        ).json()
+        assert [r["resource_id"] for r in suggested] == [shown.id]
+
+    def test_resource_picker_never_names_a_hidden_system(self, client, player_headers):
+        name = f"Secret Shelf {uuid.uuid4().hex[:6]}"
+        system = make_game_system(name=name)
+        book = make_book(system.id, access_level="")
+        _set_system_level(system.id, "gm")
+        rows = client.get(
+            "/api/campaigns/resources/search",
+            params={"resource_type": "book", "q": book.title},
+            headers=player_headers,
+        ).json()
+        row = next(r for r in rows if r["resource_id"] == book.id)
+        assert name not in row["subtitle"]
+        assert client.get(
+            f"/api/campaigns/resources/suggested/{system.id}", headers=player_headers
+        ).json() == []
+
+    def test_container_page_lists_only_visible_children(
+        self, client, player_headers, admin_headers
+    ):
+        container = make_game_system(container_kind="family")
+        open_child = make_game_system(parent_id=container.id)
+        hidden_child = make_game_system(parent_id=container.id)
+        _set_system_level(hidden_child.id, "gm")
+        make_book(open_child.id)
+        _set_level(make_book(open_child.id).id, "gm")
+
+        body = client.get(f"/api/systems/{container.id}", headers=player_headers).json()
+        assert [c["id"] for c in body["children"]] == [open_child.id]
+        assert body["children"][0]["book_count"] == 1
+
+        listed = client.get(
+            "/api/systems", params={"include_children": True}, headers=player_headers
+        ).json()
+        assert next(r for r in listed if r["id"] == container.id)["child_count"] == 1
+
+        admin = client.get(f"/api/systems/{container.id}", headers=admin_headers).json()
+        assert {c["id"] for c in admin["children"]} == {open_child.id, hidden_child.id}
+        row = next(c for c in admin["children"] if c["id"] == open_child.id)
+        assert row["book_count"] == 2
+
+    def test_version_list_omits_versions_the_viewer_cannot_open(
+        self, client, player_headers, admin_headers
+    ):
+        from backend.services import variants
+
+        system = make_game_system()
+        main = make_book(system.id)
+        shown, hidden = make_book(system.id), make_book(system.id)
+        db = SessionLocal()
+        variants.link(db, Book, main.id, shown.id, "printer-friendly", "")
+        variants.link(db, Book, main.id, hidden.id, "version", "")
+        db.commit()
+        db.close()
+        _set_level(hidden.id, "gm")
+
+        body = client.get(f"/api/books/{main.id}", headers=player_headers).json()
+        assert [v["id"] for v in body["variants"]] == [shown.id]
+        admin = client.get(f"/api/books/{main.id}", headers=admin_headers).json()
+        assert {v["id"] for v in admin["variants"]} == {shown.id, hidden.id}
+
+    def test_version_list_omits_a_main_version_the_viewer_cannot_open(
+        self, client, player_headers
+    ):
+        from backend.services import variants
+
+        system = make_game_system()
+        main = make_book(system.id, filename="main-version.pdf")
+        variant = make_book(system.id, access_level="")
+        db = SessionLocal()
+        variants.link(db, Book, main.id, variant.id, "printer-friendly", "")
+        db.commit()
+        db.close()
+        _set_level(main.id, "gm")
+
+        body = client.get(f"/api/books/{variant.id}", headers=player_headers).json()
+        assert body["variant_main_id"] is None
+        assert body["variant_parent_id"] is None
+        assert body["variant_main_filename"] == ""
+        assert body["variants"] == []
+
+    def test_systems_list_cover_comes_from_visible_books(
+        self, client, player_headers, admin_headers
+    ):
+        system = make_game_system()
+        hidden = make_book(system.id, title="A Hidden Cover", has_thumbnail=True)
+        shown = make_book(system.id, title="B Shown Cover", has_thumbnail=True)
+        _set_level(hidden.id, "gm")
+
+        def cover(headers):
+            rows = client.get("/api/systems", headers=headers).json()
+            return next(s for s in rows if s["id"] == system.id)["cover_book_id"]
+
+        assert cover(player_headers) == shown.id
+        assert cover(admin_headers) == hidden.id
+
+        db = SessionLocal()
+        db.query(GameSystem).filter_by(id=system.id).update(
+            {GameSystem.cover_book_id: hidden.id}
+        )
+        db.commit()
+        db.close()
+        assert cover(player_headers) == shown.id
+        assert cover(admin_headers) == hidden.id
+
+    def test_hidden_system_cover_and_folders_404(self, client, player_headers, admin_headers):
+        system = make_game_system()
+        _set_system_level(system.id, "gm")
+        assert client.get(
+            f"/api/systems/{system.id}/book-folders", headers=player_headers
+        ).status_code == 404
+        assert client.get(
+            f"/api/systems/{system.id}/cover", headers=player_headers
+        ).json() == {"detail": "System not found"}
+        assert client.get(
+            f"/api/systems/{system.id}/book-folders", headers=admin_headers
+        ).status_code == 200
+
+
+class TestTagsAndStatsCountOnlyVisible:
+    def test_tag_list_counts_only_visible_books(self, client, player_headers, admin_headers):
+        tag = f"spoiler{uuid.uuid4().hex[:6]}"
+        system = make_game_system()
+        hidden = make_book(system.id, tags=[tag])
+        _set_level(hidden.id, "gm")
+
+        def counts(headers, **params):
+            rows = client.get("/api/tags", params=params, headers=headers).json()["tags"]
+            return {t["internal"]: t["count"] for t in rows}
+
+        assert tag not in counts(player_headers)
+        assert tag not in counts(player_headers, in_use_by="book")
+        assert counts(admin_headers)[tag] == 1
+        assert counts(admin_headers, in_use_by="book")[tag] == 1
+
+        shown = make_book(system.id, tags=[tag])
+        assert counts(player_headers)[tag] == 1
+        assert counts(admin_headers)[tag] == 2
+        assert shown.id
+
+    def test_tag_list_counts_only_visible_systems(self, client, player_headers, admin_headers):
+        tag = f"shelf{uuid.uuid4().hex[:6]}"
+        system = make_game_system(tags=[tag])
+        _set_system_level(system.id, "gm")
+        rows = client.get("/api/tags", headers=player_headers).json()["tags"]
+        assert tag not in {t["internal"] for t in rows}
+        rows = client.get("/api/tags", headers=admin_headers).json()["tags"]
+        assert tag in {t["internal"] for t in rows}
+
+    def test_unused_tags_still_listed_for_players(self, client, admin_headers, player_headers):
+        tag = f"fresh{uuid.uuid4().hex[:6]}"
+        client.post("/api/tags", json={"value": tag}, headers=admin_headers)
+        rows = client.get("/api/tags", headers=player_headers).json()["tags"]
+        assert tag in {t["internal"] for t in rows}
+
+    def test_tag_folder_groups_skip_hidden_systems(self, client, player_headers, admin_headers):
+        from backend.models import BookFolder
+
+        tag = f"foldertag{uuid.uuid4().hex[:6]}"
+        system = make_game_system()
+        db = SessionLocal()
+        db.add(BookFolder(path=f"{system.id}/adventure/Deep", tags=[tag]))
+        db.commit()
+        db.close()
+        try:
+            _set_system_level(system.id, "gm")
+            body = client.get(f"/api/tags/{tag}/items", headers=player_headers)
+            assert body.status_code == 200
+            assert body.json()["folders"] == []
+            admin = client.get(f"/api/tags/{tag}/items", headers=admin_headers).json()
+            assert [f["key"] for f in admin["folders"]] == [f"{system.id}/adventure/Deep"]
+        finally:
+            db = SessionLocal()
+            db.query(BookFolder).filter_by(path=f"{system.id}/adventure/Deep").delete()
+            db.commit()
+            db.close()
+
+    def test_favourite_tag_counts_only_visible_books(self, client, player_headers):
+        tag = f"favtag{uuid.uuid4().hex[:6]}"
+        system = make_game_system()
+        make_book(system.id, tags=[tag])
+        _set_level(make_book(system.id, tags=[tag]).id, "gm")
+        client.post(
+            "/api/favorites", json={"item_type": "tag", "item_id": tag}, headers=player_headers
+        )
+        try:
+            items = client.get("/api/favorites", headers=player_headers).json()["items"]
+            row = next(f for f in items if f["item_type"] == "tag" and f["item_id"] == tag)
+            assert row["count"] == 1
+        finally:
+            client.delete(f"/api/favorites/tag/{tag}", headers=player_headers)
+
+    def test_stats_count_only_visible_systems(self, client, player_headers, admin_headers):
+        before = client.get("/api/stats", headers=player_headers).json()["game_systems"]
+        admin_before = client.get("/api/stats", headers=admin_headers).json()["game_systems"]
+        system = make_game_system()
+        _set_system_level(system.id, "gm")
+        assert client.get("/api/stats", headers=player_headers).json()["game_systems"] == before
+        assert (
+            client.get("/api/stats", headers=admin_headers).json()["game_systems"]
+            == admin_before + 1
+        )

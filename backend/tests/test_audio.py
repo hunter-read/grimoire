@@ -219,6 +219,17 @@ class TestServeAudioFile:
         assert resp.headers["content-type"].startswith("image/")
         assert len(resp.content) > 0
 
+    def test_svg_folder_artwork_is_served_as_an_inert_document(self, client, admin_headers):
+        tmp = tempfile.mkdtemp()
+        wav = os.path.join(tmp, "tone.wav")
+        _write_wav(wav)
+        with open(os.path.join(tmp, "cover.svg"), "wb") as f:
+            f.write(b'<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"/>')
+        a = make_audio(filename="tone.wav", filepath=wav, relative_path="audio/Ambient/tone.wav")
+        resp = client.get(f"/api/audio/{a.id}/artwork", headers=admin_headers)
+        assert resp.status_code == 200
+        assert "sandbox" in resp.headers["content-security-policy"]
+
     def test_artwork_404_when_none(self, client, admin_headers):
         # A row with no real file/folder cover and no embedded art.
         a = make_audio(filename="bare.mp3", filepath="/tmp/no-such-bare.mp3")

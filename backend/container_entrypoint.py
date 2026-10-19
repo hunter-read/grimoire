@@ -18,16 +18,22 @@ root process could do stops working:
   management keeps writing as the library's owner), falling back to the owner
   of the data volume, then to the image's ``grimoire`` user (1000:1000).
 
-``DATA_PATH`` (and the backup directory) are chowned to that user first: an
-upgraded install has root-owned files there. That is a walk of ``lstat`` calls
-that only changes what doesn't already match, so after the first start it
-costs little, and it also repairs files a ``docker exec`` as root left behind.
-The library is never chowned: those are the user's own files.
+``DATA_PATH`` (and a ``BACKUP_DIR`` given in the environment) are chowned to
+that user first: an upgraded install has root-owned files there. That is a walk
+of ``lstat`` calls that only changes what doesn't already match, so after the
+first start it costs little, and it also repairs files a ``docker exec`` as root
+left behind. The library is never chowned: those are the user's own files. A
+backup directory chosen in the app (stored in the database) is not chowned
+either - only checked, with a hint in the log if the user can't write to it -
+so start-up ownership changes follow only the container's own configuration.
 
 When the user was picked automatically and still can't read the library,
 write to a library root could write to, or write to the data volume (a network
 share that refuses ``chown``, say), it stays root and logs why and how to fix
 it, rather than failing to start. An explicit ``PUID`` is honoured regardless.
+Library entries that user owns itself, symlinks, and ``lost+found`` are not part
+of that check: the first it can fix itself, and the others say nothing about
+access to the library's files.
 
 Run as ``python -I backend/container_entrypoint.py``: standard library only,
 and it must not import the ``backend`` package, whose config creates
@@ -113,15 +119,19 @@ def detect_identity(paths: Iterable[str]) -> tuple[int, int]:
     return DEFAULT_UID, DEFAULT_GID
 
 
-def configured_backup_dir(env: Mapping[str, str], data_path: str) -> str | None:
-    """The backup directory, when it isn't the default ``DATA_PATH/backups``.
-
-    ``BACKUP_DIR`` pins it; otherwise an admin may have set one in the app,
-    which lives in the database. That is read read-only and any failure (no
-    database yet, an older schema) just means there is no custom directory.
-    """
+def configured_backup_dir(env: Mapping[str, str]) -> str | None:
+    """``BACKUP_DIR`` from the environment, when set."""
     if env.get("BACKUP_DIR"):
         return os.path.abspath(env["BACKUP_DIR"])
+    return None
+
+
+def app_backup_dir(data_path: str) -> str | None:
+    """A backup directory an admin chose in the app, which lives in the database.
+
+    Read read-only, and only to check it is writable; any failure (no database
+    yet, an older schema) just means there is no custom directory.
+    """
     db_path = os.path.join(data_path, "grimoire.db")
     if not os.path.isfile(db_path):
         return None
@@ -163,7 +173,10 @@ def fix_ownership(root: str, uid: int, gid: int, skip: str | None = None) -> lis
                 failed.append(path)
 
     fix(root)
-    for dirpath, dirnames, filenames in os.walk(root):
+    if os.path.islink(root):
+        # The link itself is changed; what it points at is left alone.
+        return failed
+    for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
         if skip:
             dirnames[:] = [d for d in dirnames if not _is_within(os.path.join(dirpath, d), skip)]
         for name in dirnames + filenames:
@@ -216,11 +229,14 @@ def describe(checks: list[Check]) -> str:
     return ", ".join(shown) + more
 
 
-def library_checks(library: str) -> list[Check]:
+def library_checks(library: str, uid: int | None = None) -> list[Check]:
     """Read access to the library and its top level, plus write when root had it.
 
     Write only matters when the library is writable at all: a ``:ro`` mount
     refuses root too, and then nothing Grimoire could do before is lost.
+
+    Skipped at the top level: symlinks and ``lost+found`` (neither holds library
+    files), and entries ``uid`` owns itself (it can change their permissions).
     """
     if not os.path.isdir(library):
         return []
@@ -230,6 +246,13 @@ def library_checks(library: str) -> list[Check]:
             for i, entry in enumerate(entries):
                 if i >= _MAX_LIBRARY_ENTRIES:
                     break
+                if entry.name == "lost+found" or entry.is_symlink():
+                    continue
+                try:
+                    if uid is not None and entry.stat(follow_symlinks=False).st_uid == uid:
+                        continue
+                except OSError:
+                    pass
                 checks.append((entry.path, _access_mode(entry.path, write=False)))
     except OSError:
         pass
@@ -280,7 +303,7 @@ def prepare(
         "Set PUID=0 to keep running as root and silence this."
     )
 
-    denied = probe(uid, gid, library_checks(library))
+    denied = probe(uid, gid, library_checks(library, uid))
     if denied:
         log(f"{who} can't {describe(denied)}.")
         if not explicit:
@@ -289,8 +312,13 @@ def prepare(
 
     os.makedirs(data, exist_ok=True)
     targets = [data]
-    backups = configured_backup_dir(env, data)
-    if backups and os.path.isdir(backups) and not _is_within(backups, data):
+    backups = configured_backup_dir(env)
+    if (
+        backups
+        and os.path.isdir(backups)
+        and not os.path.islink(backups)
+        and not _is_within(backups, data)
+    ):
         targets.append(backups)
     if os.path.isdir(HOME_DIR):
         targets.append(HOME_DIR)
@@ -308,6 +336,15 @@ def prepare(
         if not explicit:
             log(f"Staying root so nothing stops working. {fix_hint}")
             return False
+
+    chosen = None if backups else app_backup_dir(data)
+    if chosen and os.path.isdir(chosen) and not _is_within(chosen, data):
+        if probe(uid, gid, [(chosen, _access_mode(chosen, write=True))]):
+            log(
+                f"{who} can't write to the backup folder set in the app ({chosen}), so "
+                f"backups there will fail. Give {who} write access on the host, or set "
+                "BACKUP_DIR in the container's environment."
+            )
     return True
 
 

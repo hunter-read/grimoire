@@ -23,6 +23,7 @@ from ...config import get_db
 from ...models import User, WikiPage, WikiPageHidden, WikiPageLink, WikiPageShare
 from ._helpers import (
     assert_not_archived,
+    assert_not_locked,
     can_view,
     escape_player_pipes,
     extract_snippet,
@@ -267,7 +268,7 @@ def create_page(
     c = get_campaign_or_404(db, campaign_id)
     if not can_view(c, current_user, db):
         raise HTTPException(403, "Not a member of this campaign")
-    assert_not_archived(c)
+    assert_not_locked(c, db)
 
     # Every visibility is open to every member now: a player can keep a self-only
     # note or share one with named people exactly as the GM can (issue #232).

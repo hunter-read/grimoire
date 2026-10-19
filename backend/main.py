@@ -172,6 +172,9 @@ async def lifespan(app: FastAPI):
     from . import auth
 
     auth.SECRET_KEY  # noqa: B018
+    from . import passwords
+
+    passwords.warn_if_relaxed()
 
     # Clear duplicate-scan state left over from a previous run. A scan only ever
     # clears its own "running" flag from the finally block of the thread running

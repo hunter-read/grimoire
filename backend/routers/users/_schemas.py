@@ -4,6 +4,7 @@ from typing import Literal, Optional
 from pydantic import BaseModel, field_validator
 
 from ...auth import ROLES
+from ...passwords import check_account_password
 
 
 # Pragmatic email regex — matches the same shape browsers use for input[type=email].
@@ -48,9 +49,7 @@ class UserCreate(BaseModel):
     @field_validator("password")
     @classmethod
     def password_valid(cls, v):
-        if v is not None and len(v) < 8:
-            raise ValueError("Password must be at least 8 characters")
-        return v
+        return v if v is None else check_account_password(v)
 
     @field_validator("email")
     @classmethod
@@ -80,9 +79,7 @@ class UserUpdate(BaseModel):
     @field_validator("password")
     @classmethod
     def password_valid(cls, v):
-        if v is not None and len(v) < 8:
-            raise ValueError("Password must be at least 8 characters")
-        return v
+        return v if v is None else check_account_password(v)
 
     @field_validator("email")
     @classmethod
@@ -121,9 +118,7 @@ class GuestConvert(BaseModel):
     @field_validator("password")
     @classmethod
     def password_valid(cls, v):
-        if v is not None and v != "" and len(v) < 8:
-            raise ValueError("Password must be at least 8 characters")
-        return v
+        return v if v is None or v == "" else check_account_password(v)
 
 
 class GuestMerge(BaseModel):
@@ -162,9 +157,7 @@ class PasswordChange(BaseModel):
     @field_validator("new_password")
     @classmethod
     def password_valid(cls, v):
-        if len(v) < 8:
-            raise ValueError("Password must be at least 8 characters")
-        return v
+        return check_account_password(v)
 
 
 class PreferencesUpdate(BaseModel):

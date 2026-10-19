@@ -132,7 +132,7 @@
     "setupFailed": "Falha na configuração.",
     "serverUnreachable": "Não foi possível contatar o servidor.",
     "passwordMismatch": "As senhas não coincidem.",
-    "passwordTooShort": "A senha deve ter pelo menos 8 caracteres."
+    "passwordTooShort": "A senha deve ter pelo menos {{min}} caracteres."
   },
   "library": {
     "title": "Sua coleção",
@@ -1157,7 +1157,7 @@
       "saving": "Salvando…",
       "passwordUpdated": "Senha atualizada",
       "mismatch": "As novas senhas não coincidem.",
-      "tooShort": "A nova senha deve ter pelo menos 8 caracteres.",
+      "tooShort": "A nova senha deve ter pelo menos {{min}} caracteres.",
       "failed": "Falha ao alterar a senha."
     },
     "sessions": {
@@ -1494,8 +1494,8 @@
     "failedUpdateApiKeys": "Não foi possível atualizar o acesso às chaves de API.",
     "setPassword": "Definir senha",
     "setPasswordTitle": "Definir senha para este usuário",
-    "newPasswordPlaceholder": "Nova senha (mín. 8)",
-    "minChars": "Mín. 8 caracteres",
+    "newPasswordPlaceholder": "Nova senha (mín. {{min}})",
+    "minChars": "Mín. {{min}} caracteres",
     "failedSetPassword": "Falha ao definir a senha",
     "deleteConfirm": "Excluir?",
     "you": "(você)",
@@ -1504,7 +1504,7 @@
     "failedUpdateRole": "Falha ao atualizar a função.",
     "failedUpdateExplicit": "Falha ao atualizar a configuração de conteúdo explícito.",
     "failedSetPasswordErr": "Falha ao definir a senha.",
-    "passwordTooShort": "A senha deve ter pelo menos 8 caracteres.",
+    "passwordTooShort": "A senha deve ter pelo menos {{min}} caracteres.",
     "emailOptional": "E-mail (opcional)",
     "emailPlaceholder": "usuario@exemplo.com",
     "noEmail": "sem e-mail",
@@ -3588,7 +3588,7 @@
       "expiry": "Expira após",
       "password": "Senha (opcional)",
       "passwordPlaceholder": "Deixe vazio para não usar senha",
-      "passwordTooShort": "Pelo menos 4 caracteres.",
+      "passwordTooShort": "Pelo menos {{min}} caracteres.",
       "passwordHint": "Quem abrir o link precisa digitá-la. Ferramentas que carregam o arquivo diretamente não conseguem, então deixe vazio para VTTs e Discord.",
       "create": "Criar link"
     },

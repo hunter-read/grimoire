@@ -231,6 +231,22 @@ def _permissions_from_claim(claims: dict, perm_claim: str) -> Optional[dict]:
     return val
 
 
+def _email_verified(claims: dict) -> bool:
+    """Whether the provider vouches for the email claim, for account matching.
+
+    A provider that reports ``email_verified`` as false is saying the address
+    was never confirmed, so it can't identify an existing account. Providers
+    that omit the claim entirely (Entra ID, for one) are taken at their word,
+    as before.
+    """
+    if "email_verified" not in claims:
+        return True
+    value = claims.get("email_verified")
+    if isinstance(value, str):
+        return value.strip().lower() == "true"
+    return value is True
+
+
 def _resolve_user(db, claims: dict, eff: dict) -> User:
     """Find or create the local user from the validated OIDC claims.
 
@@ -241,8 +257,11 @@ def _resolve_user(db, claims: dict, eff: dict) -> User:
         raise _OIDCError("id_token missing sub claim")
 
     email = (claims.get("email") or "").strip().lower() or None
+    # Only the provider's login name is used to find an existing account; the
+    # looser display fields below are just for naming a newly registered one.
+    login_name = str(claims.get("preferred_username") or "").strip() or None
     preferred_username = (
-        claims.get("preferred_username")
+        login_name
         or claims.get("nickname")
         or claims.get("name")
         or (email.split("@")[0] if email else None)
@@ -251,11 +270,17 @@ def _resolve_user(db, claims: dict, eff: dict) -> User:
     # 1. Identity match: subject is the most stable identifier.
     user = db.query(User).filter_by(oidc_subject=sub).first()
 
-    # 2. Existing-user matching (admin-configured)
-    if user is None and eff["oidc_match_by"] == "email" and email:
-        user = db.query(User).filter_by(email=email).first()
-    if user is None and eff["oidc_match_by"] == "username" and preferred_username:
-        user = db.query(User).filter_by(username=preferred_username).first()
+    # 2. Existing-user matching (admin-configured). This links an account to
+    # the provider for the first time, so it only considers accounts that are
+    # not linked yet and are full accounts rather than campaign guests.
+    if user is None and eff["oidc_match_by"] in ("email", "username"):
+        unlinked = db.query(User).filter(
+            User.oidc_subject.is_(None), User.is_guest.is_not(True)
+        )
+        if eff["oidc_match_by"] == "email" and email and _email_verified(claims):
+            user = unlinked.filter(User.email == email).first()
+        elif eff["oidc_match_by"] == "username" and login_name:
+            user = unlinked.filter(User.username == login_name).first()
 
     # 3. Group-based role (returns None if no groups claim configured)
     role_from_groups = _role_from_groups(claims, eff["oidc_groups_claim"])
@@ -291,7 +316,7 @@ def _resolve_user(db, claims: dict, eff: dict) -> User:
         # Re-link the OIDC subject if this is the first time matching
         if not user.oidc_subject:
             user.oidc_subject = sub
-        if email and user.email != email:
+        if email and user.email != email and _email_verified(claims):
             # Only update email if it doesn't conflict
             existing = db.query(User).filter_by(email=email).first()
             if existing is None or existing.id == user.id:

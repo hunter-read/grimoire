@@ -283,7 +283,7 @@ def tag_books(args: TagBooksArgs, ctx: ToolContext) -> str:
     lines: list[str] = []
     if readable:
         done = bulk_add_book_tags(
-            data=BulkAddTags(ids=readable, tags=args.tags), _=ctx.user, db=ctx.db
+            data=BulkAddTags(ids=readable, tags=args.tags), current_user=ctx.user, db=ctx.db
         )
         for book_id in done["updated"]:
             lines.append(f"- {book_id}: now tagged {', '.join(done['tags'].get(book_id, []))}")

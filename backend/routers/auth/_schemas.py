@@ -3,6 +3,8 @@ from typing import Optional
 
 from pydantic import BaseModel, field_validator
 
+from ...passwords import check_account_password
+
 
 class LoginRequest(BaseModel):
     username: str
@@ -33,13 +35,15 @@ class SetupRequest(BaseModel):
     @field_validator("password")
     @classmethod
     def password_valid(cls, v):
-        if len(v) < 8:
-            raise ValueError("Password must be at least 8 characters")
-        return v
+        return check_account_password(v)
 
 
 class AuthStatusResponse(BaseModel):
     initialized: bool
+    # Minimum lengths for new passwords, so forms can say what they need
+    # before the server refuses (PASSWORD_MIN_LENGTH, SHARE_LINK_PASSWORD_MIN_LENGTH).
+    password_min_length: int
+    share_link_password_min_length: int
 
 
 class LoginUser(BaseModel):

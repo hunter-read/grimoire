@@ -4,7 +4,7 @@ import UsersTab from './UsersTab'
 
 vi.mock('../../api', () => ({
   default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
-  auth: { config: vi.fn() },
+  auth: { config: vi.fn(), status: vi.fn() },
   campaigns: { adminListByUser: vi.fn(() => Promise.resolve([])) },
   settings: { get: vi.fn(), patch: vi.fn() },
   shareLinks: { listForUser: vi.fn() },
@@ -46,6 +46,8 @@ beforeEach(() => {
   vi.resetAllMocks()
   api.get.mockResolvedValue(users)
   auth.config.mockResolvedValue({ password_auth_enabled: true })
+  // The password minimums: the defaults, as every test here starts from them.
+  auth.status.mockRejectedValue(new Error('not needed'))
   settingsApi.get.mockResolvedValue(shareDefaults)
 })
 
@@ -156,12 +158,12 @@ describe('UsersTab', () => {
     await screen.findByText('bob')
     fireEvent.click(screen.getByText('bob'))
     fireEvent.click(screen.getByText('Set Password'))
-    fireEvent.change(screen.getByLabelText('New password (min 8)'), {
-      target: { value: 'longenough1' },
+    fireEvent.change(screen.getByLabelText('New password (min 12)'), {
+      target: { value: 'longenough12' },
     })
     fireEvent.click(screen.getByText('Set Password'))
     await waitFor(() =>
-      expect(api.patch).toHaveBeenCalledWith('/users/user-2', { password: 'longenough1' })
+      expect(api.patch).toHaveBeenCalledWith('/users/user-2', { password: 'longenough12' })
     )
   })
 

@@ -1,16 +1,27 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import UserExpandedEditor from './UserExpandedEditor'
-import { campaigns, shareLinks } from '../../api'
+import { auth, campaigns, shareLinks } from '../../api'
+import { clearPasswordRulesCache } from '../../hooks/usePasswordRules'
 
 vi.mock('../../api', () => ({
   default: {},
+  auth: { status: vi.fn() },
   campaigns: { adminListByUser: vi.fn(() => Promise.resolve([])) },
   shareLinks: { listForUser: vi.fn(() => Promise.resolve([])) },
 }))
 
+const status = (passwordMin) => ({
+  initialized: true,
+  password_min_length: passwordMin,
+  share_link_password_min_length: 8,
+})
+
 beforeEach(() => {
   campaigns.adminListByUser.mockClear()
+  clearPasswordRulesCache()
+  auth.status.mockReset()
+  auth.status.mockResolvedValue(status(12))
 })
 
 const baseUser = {
@@ -44,7 +55,7 @@ describe('UserExpandedEditor', () => {
   it('reveals the password input after clicking Set Password', () => {
     setup()
     fireEvent.click(screen.getByText('Set Password'))
-    expect(screen.getByLabelText('New password (min 8)')).toBeInTheDocument()
+    expect(screen.getByLabelText('New password (min 12)')).toBeInTheDocument()
   })
 
   it('hides the password setter when password auth is disabled', () => {
@@ -129,11 +140,39 @@ describe('UserExpandedEditor', () => {
     const onPasswordReset = vi.fn().mockResolvedValue()
     setup({ onPasswordReset })
     fireEvent.click(screen.getByText('Set Password'))
-    fireEvent.change(screen.getByLabelText('New password (min 8)'), {
-      target: { value: 'longenough1' },
+    fireEvent.change(screen.getByLabelText('New password (min 12)'), {
+      target: { value: 'longenough12' },
     })
     fireEvent.click(screen.getByText('Set Password'))
-    await waitFor(() => expect(onPasswordReset).toHaveBeenCalledWith('u1', 'longenough1'))
+    await waitFor(() => expect(onPasswordReset).toHaveBeenCalledWith('u1', 'longenough12'))
+  })
+
+  it('refuses a new password shorter than 12 characters by default', () => {
+    const onPasswordReset = vi.fn()
+    setup({ onPasswordReset })
+    fireEvent.click(screen.getByText('Set Password'))
+    fireEvent.change(screen.getByLabelText('New password (min 12)'), {
+      target: { value: 'elevenchars' },
+    })
+    fireEvent.click(screen.getByText('Set Password'))
+    expect(screen.getByText('Min 12 characters')).toBeInTheDocument()
+    expect(onPasswordReset).not.toHaveBeenCalled()
+  })
+
+  it("uses the server's minimum when it has been changed", async () => {
+    auth.status.mockResolvedValue(status(16))
+    const onPasswordReset = vi.fn().mockResolvedValue()
+    setup({ onPasswordReset })
+    fireEvent.click(screen.getByText('Set Password'))
+    const input = await screen.findByLabelText('New password (min 16)')
+    fireEvent.change(input, { target: { value: 'fifteen-chars-x' } })
+    fireEvent.click(screen.getByText('Set Password'))
+    expect(screen.getByText('Min 16 characters')).toBeInTheDocument()
+    expect(onPasswordReset).not.toHaveBeenCalled()
+
+    fireEvent.change(input, { target: { value: 'sixteen-chars-xx' } })
+    fireEvent.click(screen.getByText('Set Password'))
+    await waitFor(() => expect(onPasswordReset).toHaveBeenCalledWith('u1', 'sixteen-chars-xx'))
   })
 
   it('changes the role through onRoleChange', () => {

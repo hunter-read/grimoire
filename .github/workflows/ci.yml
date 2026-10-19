@@ -14,6 +14,11 @@ concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Read-only by default; no job here writes to the repository. The coverage
+# badges are written to gists with the GIST_SECRET token, not GITHUB_TOKEN.
+permissions:
+  contents: read
+
 jobs:
   frontend-checks:
     name: Frontend lint + build
@@ -26,12 +31,12 @@ jobs:
       github.event_name != 'pull_request' ||
       github.event.pull_request.head.ref != 'dev'
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Full history so the TypeScript ratchet can diff against the PR base.
           fetch-depth: 0
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
           cache: npm
@@ -39,7 +44,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: frontend
-        run: npm install
+        run: npm ci
 
       - name: Check formatting
         working-directory: frontend
@@ -83,9 +88,9 @@ jobs:
       matrix:
         shard: [1, 2, 3]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
           cache: npm
@@ -93,13 +98,13 @@ jobs:
 
       - name: Install dependencies
         working-directory: frontend
-        run: npm install
+        run: npm ci
 
       - name: Run tests with coverage
         working-directory: frontend
         run: npx vitest run --coverage --shard=${{ matrix.shard }}/3 --reporter=dot --reporter=blob
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: vitest-blob-${{ matrix.shard }}
           path: frontend/.vitest/blob/
@@ -129,13 +134,13 @@ jobs:
           echo "lint + build: $CHECKS, tests: $TESTS"
           test "$CHECKS" = success && test "$TESTS" = success
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Full history so the per-changed-file coverage gate can diff against
           # the PR base branch.
           fetch-depth: 0
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
           cache: npm
@@ -143,9 +148,9 @@ jobs:
 
       - name: Install dependencies
         working-directory: frontend
-        run: npm install
+        run: npm ci
 
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: vitest-blob-*
           path: frontend/.vitest/blob
@@ -181,7 +186,7 @@ jobs:
 
       - name: Update frontend coverage badge
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: schneegans/dynamic-badges-action@v1.9.0
+        uses: schneegans/dynamic-badges-action@28b0fa8bdeb46170ac397105ece0c1fe58f68910 # v1.9.0
         with:
           auth: ${{ secrets.GIST_SECRET }}
           gistID: ${{ vars.FRONTEND_COVERAGE_GIST_ID }}
@@ -206,15 +211,15 @@ jobs:
       github.event_name != 'pull_request' ||
       github.event.pull_request.head.ref != 'dev'
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: backend/requirements.txt
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
           cache: npm
@@ -225,7 +230,7 @@ jobs:
 
       - name: Install frontend dependencies
         working-directory: frontend
-        run: npm install
+        run: npm ci
 
       - name: Check generated API types
         working-directory: frontend
@@ -242,7 +247,7 @@ jobs:
       github.event_name != 'pull_request' ||
       github.event.pull_request.head.ref != 'dev'
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Full history so the per-changed-file coverage gate can diff against
           # the PR base branch.
@@ -254,12 +259,12 @@ jobs:
       # they skip, and REQUIRE_COMMUNITY_ADDONS below turns those skips into a
       # failure, so a missing or renamed path can't hide them again.
       - name: Check out community add-ons
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: grimoire-codex/community-add-ons
           path: community-add-ons
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
           cache: pip
@@ -316,7 +321,7 @@ jobs:
 
       - name: Update backend coverage badge
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: schneegans/dynamic-badges-action@v1.9.0
+        uses: schneegans/dynamic-badges-action@28b0fa8bdeb46170ac397105ece0c1fe58f68910 # v1.9.0
         with:
           auth: ${{ secrets.GIST_SECRET }}
           gistID: ${{ vars.BACKEND_COVERAGE_GIST_ID }}
@@ -342,7 +347,7 @@ jobs:
     outputs:
       changed: ${{ steps.diff.outputs.changed }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
@@ -376,15 +381,15 @@ jobs:
       matrix:
         target: [slim, ocr]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: docker/setup-buildx-action@v4
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       # amd64 only, and loaded locally rather than pushed. The GitHub Actions
       # cache keeps the ffmpeg build and the Python wheels between runs, so a
       # typical PR rebuilds only the layers its change touches.
       - name: Build
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           target: ${{ matrix.target }}

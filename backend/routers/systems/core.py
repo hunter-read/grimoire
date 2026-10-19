@@ -11,7 +11,12 @@ from ...models import Book, BookFolder, GameSystem, User
 from ...services import access_control, bulk_service, tag_service, variants
 from .._bulk_schemas import BulkAddTags
 from ..books._helpers import _enforce_campaign_visibility, pop_access_level
-from ._helpers import resolve_cover_book_id
+from ._helpers import (
+    get_visible_system,
+    load_browsable_system,
+    resolve_cover_book_id,
+    visible_cover_id,
+)
 from ._schemas import BookFolderUpdate, GameSystemBulkUpdate, GameSystemUpdate
 from ._serializers import serialize_book, serialize_system_summary
 
@@ -69,11 +74,14 @@ def list_systems(
     }
 
     systems = access_control.visible_systems(db, db.query(GameSystem), user).all()
-    # Number of child systems per container, for the container's card.
+    # Number of child systems per container, for the container's card; only
+    # the children this user can see, matching the container page.
+    child_q: OrmQuery[Any] = db.query(GameSystem.parent_id, func.count(GameSystem.id)).filter(
+        GameSystem.parent_id.isnot(None)
+    )
     child_counts = {
         pid: count
-        for pid, count in db.query(GameSystem.parent_id, func.count(GameSystem.id))
-        .filter(GameSystem.parent_id.isnot(None))
+        for pid, count in access_control.visible_systems(db, child_q, user)
         .group_by(GameSystem.parent_id)
         .all()
     }
@@ -103,7 +111,7 @@ def list_systems(
         if license and not _has_value(s.license, license):
             continue
         book_count, total_pages = agg.get(s.id, (0, 0))
-        cover_book_id = resolve_cover_book_id(db, s)
+        cover_book_id = resolve_cover_book_id(db, s, user)
         result.append(
             serialize_system_summary(
                 s,
@@ -182,7 +190,7 @@ def get_system(
 
     # Container folders hold systems rather than (only) books — return those
     # children so the detail view can render them as systems (issues #261/#262).
-    children = _serialize_children(db, system, can_see_explicit)
+    children = _serialize_children(db, system, can_see_explicit, user)
     system_tags = tag_service.display_tags_for_resource(db, "system", system.id)
 
     if not include_books:
@@ -191,7 +199,7 @@ def get_system(
         count, pages = book_q.with_entities(
             func.count(Book.id), func.coalesce(func.sum(Book.page_count), 0)
         ).one()
-        cover_book_id = system.cover_book_id
+        cover_book_id = visible_cover_id(db, system.cover_book_id, user)
         if not cover_book_id and not system.container_kind:
             with_thumb = book_q.filter(Book.has_thumbnail == True)  # noqa: E712
             cover_book_id = (
@@ -215,7 +223,7 @@ def get_system(
 
     # Cover resolution ignores the sort/filter args (must be stable). Containers
     # never borrow a child's book as their cover — see resolve_cover_book_id.
-    cover_book_id = system.cover_book_id
+    cover_book_id = visible_cover_id(db, system.cover_book_id, user)
     if not cover_book_id and not system.container_kind:
         auto = next((b for b in books if b.category == "core" and b.has_thumbnail), None)
         if not auto:
@@ -236,7 +244,7 @@ def get_system(
     # One grouped query for the page, matching the /books list endpoint: without
     # this every row reports no other versions and the whole version UI (badge,
     # download picker, versions editor) stays hidden.
-    vcounts = variants.variant_counts(db, Book, [b.id for b in books])
+    vcounts = variants.variant_counts(db, Book, [b.id for b in books], user)
     summary = serialize_system_summary(
         system,
         book_count=len(books),
@@ -273,23 +281,26 @@ def _scope_path(db: Session, system: GameSystem, depth: int) -> Optional[str]:
 
 
 def _serialize_children(
-    db: Session, system: GameSystem, can_see_explicit: bool
+    db: Session, system: GameSystem, can_see_explicit: bool, user: Any
 ) -> list[dict]:
     """Serialize a container's child systems, newest-style summary rows.
 
     Returns an empty list for ordinary systems, so the field is always present
-    and the caller never has to branch on ``container_kind``.
+    and the caller never has to branch on ``container_kind``. Children, and the
+    books counted for them, are only those ``user`` can see.
     """
     if not system.container_kind:
         return []
-    child_q = db.query(GameSystem).filter(GameSystem.parent_id == system.id)
+    child_q = access_control.visible_systems(
+        db, db.query(GameSystem).filter(GameSystem.parent_id == system.id), user
+    )
     if not can_see_explicit:
         child_q = child_q.filter(GameSystem.is_explicit != True)  # noqa: E712
     children = child_q.all()
     if not children:
         return []
 
-    agg_q = db.query(
+    agg_q: OrmQuery[Any] = db.query(
         Book.game_system_id,
         func.count(Book.id),
         func.coalesce(func.sum(Book.page_count), 0),
@@ -299,6 +310,7 @@ def _serialize_children(
     )
     if not can_see_explicit:
         agg_q = agg_q.filter(Book.is_explicit != True)  # noqa: E712
+    agg_q = access_control.visible_books(db, agg_q, user)
     agg = {
         gsid: (count, pages)
         for gsid, count, pages in agg_q.group_by(Book.game_system_id).all()
@@ -312,7 +324,7 @@ def _serialize_children(
                 c,
                 book_count,
                 int(total_pages or 0),
-                resolve_cover_book_id(db, c),
+                resolve_cover_book_id(db, c, user),
                 tags=child_tags.get(c.id, []),
             )
         )
@@ -337,15 +349,14 @@ def _sort_books(books: list[Book], sort: str, order: str) -> list[Book]:
     return sorted(books, key=lambda b: (b.category, b.title.lower()))
 
 
-def _require_owned_folder_path(db: Session, system_id: str, path: str) -> None:
+def _require_owned_folder_path(db: Session, system_id: str, path: str, user: Any) -> None:
     """404 unless the system exists, 400 unless ``path`` addresses a folder in it.
 
     A ``BookFolder.path`` is ``{system_id}/{category}/{subfolder…}``, so a path
     that isn't prefixed with this system's id belongs to a different system (or
     to no system at all) and must not be writable through this route.
     """
-    if not db.query(GameSystem).filter_by(id=system_id).first():
-        raise HTTPException(404, "System not found")
+    get_visible_system(db, system_id, user)
     cleaned = (path or "").strip().replace("\\", "/")
     if not cleaned.startswith(f"{system_id}/") or len(cleaned.split("/")) < 3:
         raise HTTPException(
@@ -355,12 +366,10 @@ def _require_owned_folder_path(db: Session, system_id: str, path: str) -> None:
 
 def list_book_folders(
     system_id: str,
-    _: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    system = db.query(GameSystem).filter_by(id=system_id).first()
-    if not system:
-        raise HTTPException(404, "System not found")
+    load_browsable_system(db, system_id, current_user)
     folders = db.query(BookFolder).filter(BookFolder.path.like(f"{system_id}/%")).all()
     return {
         "folders": [
@@ -373,13 +382,13 @@ def list_book_folders(
 def update_book_folder(
     system_id: str,
     data: BookFolderUpdate,
-    _: CurrentUser = Depends(require_gm_or_admin),  # noqa: ARG001,
+    current_user: CurrentUser = Depends(require_gm_or_admin),
     db: Session = Depends(get_db),
 ):
     # ``data.path`` alone used to pick the row, so a path belonging to another
     # system (or to none) silently created a row the matching GET — which filters
     # on ``{system_id}/`` — could never return (issue #357).
-    _require_owned_folder_path(db, system_id, data.path)
+    _require_owned_folder_path(db, system_id, data.path, current_user)
     internals = tag_service.upsert_folder_tags(
         db, BookFolder, data.path, data.tags, category="book"
     )
@@ -390,7 +399,7 @@ def update_book_folder(
 def delete_book_folder(
     system_id: str,
     path: str,
-    _: CurrentUser = Depends(require_gm_or_admin),  # noqa: ARG001,
+    current_user: CurrentUser = Depends(require_gm_or_admin),
     db: Session = Depends(get_db),
 ):
     """Remove a book folder row outright (issue #357).
@@ -398,7 +407,7 @@ def delete_book_folder(
     Clearing a folder's tags leaves the row behind, so a row written under a
     mistaken path could previously be emptied but never removed.
     """
-    _require_owned_folder_path(db, system_id, path)
+    _require_owned_folder_path(db, system_id, path, current_user)
     folder = db.query(BookFolder).filter_by(path=path).first()
     if not folder:
         raise HTTPException(404, "Book folder not found")
@@ -413,9 +422,7 @@ def update_system(
     current_user: CurrentUser = Depends(require_gm_or_admin),
     db: Session = Depends(get_db),
 ):
-    system = db.query(GameSystem).filter_by(id=system_id).first()
-    if not system:
-        raise HTTPException(404, "System not found")
+    system = get_visible_system(db, system_id, current_user)
     # model_dump serializes nested Pydantic models (publishers, urls,
     # character_builder_urls) to plain dicts, which SQLAlchemy stores as JSON.
     payload = data.model_dump(exclude_none=True)
@@ -476,30 +483,51 @@ def _apply_rename(db: Session, system: GameSystem, payload: dict) -> None:
 
 def bulk_update_systems(
     data: GameSystemBulkUpdate,  # type: ignore[valid-type]
-    _: CurrentUser = Depends(require_gm_or_admin),
+    current_user: CurrentUser = Depends(require_gm_or_admin),
     db: Session = Depends(get_db),
 ):
     """Apply per-system edits for a whole selection in one transaction (issue #270).
 
-    A name clash fails only its own item (reported in ``errors``); the rest of the
-    batch still applies.
+    A name clash, or an access-level change from a non-admin, fails only its own
+    item (reported in ``errors``); the rest of the batch still applies.
     """
+
+    def _validate(db_: Session, system: GameSystem, payload: dict) -> None:
+        """The single-item rules, per item: admin-only access level, unique name."""
+        try:
+            has_access, level = pop_access_level(payload, current_user, allow_inherit=False)
+        except HTTPException as exc:
+            raise bulk_service.BulkItemError(str(exc.detail)) from exc
+        _apply_rename(db_, system, payload)
+        if has_access:
+            system.access_level = level
+            _enforce_system_campaign_visibility(db_, system)
+
+    access_user = access_control.load_user(db, current_user)
     return bulk_service.run_bulk_update(
         db,
         "system",
         list(data.items),  # type: ignore[attr-defined]
         payload_for=lambda item: item.model_dump(exclude_none=True, exclude={"id"}),
-        validate=_apply_rename,
+        validate=_validate,
+        # Edits reach only the systems the editor can see; the rest read as unknown ids.
+        scope=lambda q: access_control.visible_systems(db, q, access_user),
         not_found_detail="System not found",
     )
 
 
 def bulk_add_system_tags(
     data: BulkAddTags,
-    _: CurrentUser = Depends(require_gm_or_admin),
+    current_user: CurrentUser = Depends(require_gm_or_admin),
     db: Session = Depends(get_db),
 ):
     """Additively tag a whole selection of systems in one transaction."""
+    access_user = access_control.load_user(db, current_user)
     return bulk_service.run_bulk_add_tags(
-        db, "system", data.ids, data.tags, not_found_detail="System not found"
+        db,
+        "system",
+        data.ids,
+        data.tags,
+        scope=lambda q: access_control.visible_systems(db, q, access_user),
+        not_found_detail="System not found",
     )

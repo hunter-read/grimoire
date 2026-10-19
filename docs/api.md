@@ -160,8 +160,30 @@ with `x-api-key-access: read`: `POST /api/books/{id}/metadata-search`,
 the `auth` tag (sign-in, sessions, OIDC) and `api-keys` - a key can never create
 or widen keys - plus routes marked `x-api-key-access: none` because they change a
 credential or the account itself: `/api/users/me/password`, `DELETE /api/users/me`,
-`/api/users/me/opds*`, and `/api/campaigns/calendar/subscription`. OPDS and the
-calendar feeds keep their own per-user tokens.
+`/api/users/me/opds*`, `/api/campaigns/calendar/subscription`, the guest invite
+code routes (`POST`/`GET /api/campaigns/{id}/guests`,
+`/api/campaigns/{id}/guests/{member_id}/regenerate` and `/share-template`), the
+OIDC login-button icon (`/api/settings/oidc-button-icon`) and the add-on source
+settings (`PATCH /api/addons/settings`). OPDS and the calendar feeds keep their
+own per-user tokens.
+
+**Session-only fields.** Some routes a key can use take a few fields that only a
+signed-in session may set; sent with a key they are a `403` naming that, and
+the rest of the route works as usual:
+
+- `POST /api/users` and `PATCH /api/users/{id}`: `password`, the `admin` role,
+  and (on `PATCH`) a changed `email`. `POST /api/users/{id}/convert` likewise.
+- `PATCH /api/users/me/preferences`: a changed `email`.
+- `PATCH /api/settings`: `password_auth_enabled`, `guest_access_enabled`, the
+  login message, and every `oidc_*` field.
+- `POST /api/addons/{id}/install` with `approve_script: true`, and
+  `PATCH /api/addons/{id}` with `script_approved: true`.
+
+Campaign responses never carry a guest's `guest_code` to a key.
+
+**Share links with a key.** Creating a share link or changing one in any way
+also needs the key to hold Read on the item's own area - `books`,
+`maps`, `tokens`, `audio` or `models` - besides `share-links: Read and write`.
 
 **Responses.** An unknown or expired key gets `401`. A valid key on an excluded
 route, without the level the request needs, or whose owner may no longer hold
@@ -198,9 +220,9 @@ that one item. See [Share links](#share-links-1) below.
 
 ### Rate limiting
 
-The credential-checking endpoints - `/api/auth/login`, `/api/auth/setup`, and `/api/auth/guest-login` - are rate-limited per client IP (default `10/minute`, configurable via `AUTH_RATE_LIMIT`). Exceeding the limit returns `429 Too Many Requests` with `{"error": "Rate limit exceeded: ..."}`. Keying honors `X-Forwarded-For` behind a reverse proxy. See [Security hardening](security.md).
+The credential-checking endpoints - `/api/auth/login`, `/api/auth/setup`, and `/api/auth/guest-login` - are rate-limited per client IP (default `10/minute`, configurable via `AUTH_RATE_LIMIT`). Exceeding the limit returns `429 Too Many Requests` with `{"error": "Rate limit exceeded: ..."}`. Keying honors `X-Forwarded-For` from a trusted reverse proxy. Failed logins are also counted per account (`ACCOUNT_RATE_LIMIT`, default `20/hour`); past it, `/api/auth/login` returns `429` for that account until the window passes, except from a browser that has signed in to it before. See [Security hardening](security.md).
 
-Failed `X-API-Key` attempts (unknown or expired keys) count against the same per-IP limit, on every endpoint. Once an IP is over it, every key it presents - even a valid one - gets `429` until the window passes, so a guess can't be confirmed. Requests with a working key never count, so a dashboard can poll as often as it likes.
+Failed `X-API-Key` attempts (unknown or expired keys) count against the same per-IP limit, on every endpoint. Once an IP is over it, further failed attempts get `429` until the window passes. A working key is never refused and never counts, so a dashboard can poll as often as it likes, even from an address it shares with others.
 
 ### Calling the API from a browser (CORS)
 

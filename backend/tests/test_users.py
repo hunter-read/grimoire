@@ -209,7 +209,7 @@ class TestUpdateUser:
             "/api/users",
             json={
                 "username": username,
-                "password": "temppass123",
+                "password": "temppass123-long",
                 "role": "player",
             },
             headers=admin_headers,
@@ -256,11 +256,17 @@ class TestUpdateUser:
         db.commit()
         db.refresh(sole)
         sole_id = sole.id
+        sole_name = sole.username
         db.close()
 
+        from backend.auth import create_token
+
+        # The request comes from the sole admin itself: admin routes check the
+        # caller's current role, and every other admin is a GM for now.
+        sole_headers = {"Authorization": f"Bearer {create_token(sole_id, sole_name, 'admin')}"}
         try:
             resp = client.patch(
-                f"/api/users/{sole_id}", json={"role": "player"}, headers=admin_headers
+                f"/api/users/{sole_id}", json={"role": "player"}, headers=sole_headers
             )
             assert resp.status_code == 400, resp.text
             assert "last admin" in resp.json()["detail"].lower()
@@ -331,7 +337,7 @@ class TestDeleteUser:
         username = unique_user()
         create = client.post(
             "/api/users",
-            json={"username": username, "password": "testpass123", "role": "player"},
+            json={"username": username, "password": "testpass123-long", "role": "player"},
             headers=admin_headers,
         )
         assert create.status_code == 201
@@ -368,7 +374,7 @@ class TestDeleteUserReferences:
         username = unique_user()
         resp = client.post(
             "/api/users",
-            json={"username": username, "password": "refpass123", "role": "player"},
+            json={"username": username, "password": "refpass123-long", "role": "player"},
             headers=admin_headers,
         )
         assert resp.status_code == 201, resp.text
@@ -502,7 +508,7 @@ class TestDeleteUserReferences:
 
         user_id, username = self._make_user(client, admin_headers)
         token = client.post(
-            "/api/auth/login", json={"username": username, "password": "refpass123"}
+            "/api/auth/login", json={"username": username, "password": "refpass123-long"}
         ).json()["token"]
         cid = self._campaign(client, gm_headers)
 
@@ -532,3 +538,47 @@ class TestDeleteUserReferences:
             assert db.query(SavedFilter).filter_by(user_id=user_id).count() == 0
         finally:
             db.close()
+
+
+class TestRoleChangesApplyImmediately:
+    """Instance-management routes read the current role, not the one in the token."""
+
+    @staticmethod
+    def _second_admin(client, admin_headers, username):
+        created = client.post(
+            "/api/users",
+            json={"username": username, "password": "second-admin-pass", "role": "admin"},
+            headers=admin_headers,
+        )
+        assert created.status_code == 201, created.text
+        client.cookies.clear()
+        login = client.post(
+            "/api/auth/login", json={"username": username, "password": "second-admin-pass"}
+        )
+        client.cookies.clear()
+        return created.json()["id"], {"Authorization": f"Bearer {login.json()['token']}"}
+
+    def test_role_change_applies_to_admin_routes_immediately(self, client, admin_headers):
+        uid, headers = self._second_admin(client, admin_headers, "role-change-check")
+        try:
+            assert client.get("/api/users", headers=headers).status_code == 200
+            client.patch(f"/api/users/{uid}", json={"role": "player"}, headers=admin_headers)
+            # Refused either way: the role change also ends the user's sessions.
+            assert client.get("/api/users", headers=headers).status_code in (401, 403)
+        finally:
+            client.delete(f"/api/users/{uid}", headers=admin_headers)
+
+    def test_deleted_account_no_longer_reaches_admin_routes(self, client, admin_headers):
+        uid, headers = self._second_admin(client, admin_headers, "deleted-admin")
+        client.delete(f"/api/users/{uid}", headers=admin_headers)
+        assert client.get("/api/users", headers=headers).status_code == 401
+
+    def test_ended_session_no_longer_reaches_admin_routes(self, client, admin_headers):
+        uid, headers = self._second_admin(client, admin_headers, "signed-out-admin")
+        try:
+            sessions = client.get("/api/auth/sessions", headers=headers).json()
+            for s in sessions:
+                client.delete(f"/api/auth/sessions/{s['id']}", headers=headers)
+            assert client.get("/api/users", headers=headers).status_code == 401
+        finally:
+            client.delete(f"/api/users/{uid}", headers=admin_headers)

@@ -4,9 +4,11 @@ import GuestsSection from './GuestsSection'
 
 vi.mock('../../api', () => ({
   default: { get: vi.fn(), post: vi.fn(), delete: vi.fn() },
+  auth: { status: vi.fn() },
 }))
 
-import api from '../../api'
+import api, { auth } from '../../api'
+import { clearPasswordRulesCache } from '../../hooks/usePasswordRules'
 
 const guests = [
   {
@@ -39,9 +41,17 @@ const duplicateGuests = [
   },
 ]
 
+const status = (passwordMin) => ({
+  initialized: true,
+  password_min_length: passwordMin,
+  share_link_password_min_length: 8,
+})
+
 beforeEach(() => {
   vi.resetAllMocks()
+  clearPasswordRulesCache()
   api.get.mockResolvedValue(guests)
+  auth.status.mockResolvedValue(status(12))
 })
 
 const expand = async () => {
@@ -99,6 +109,38 @@ describe('GuestsSection', () => {
     await waitFor(() => expect(onConverted).toHaveBeenCalledWith(converted))
     // Row is removed once converted.
     expect(screen.queryByText('Ivy')).toBeNull()
+  })
+
+  it('asks for a password of at least 12 characters by default', async () => {
+    await expand()
+    fireEvent.click(screen.getByRole('button', { name: /convert/i }))
+    const input = screen.getByPlaceholderText('New password (min 12)')
+    expect(input).toHaveAttribute('minLength', '12')
+  })
+
+  it("asks for the server's minimum when it has been changed", async () => {
+    auth.status.mockResolvedValue(status(10))
+    await expand()
+    fireEvent.click(screen.getByRole('button', { name: /convert/i }))
+    const input = await screen.findByPlaceholderText('New password (min 10)')
+    expect(input).toHaveAttribute('minLength', '10')
+  })
+
+  it("shows the server's reason when it refuses a password as too common", async () => {
+    api.post.mockRejectedValue({
+      status: 422,
+      message: 'That password is too common - choose one that is harder to guess',
+    })
+    await expand()
+    fireEvent.click(screen.getByRole('button', { name: /convert/i }))
+    fireEvent.change(screen.getByPlaceholderText('Username'), { target: { value: 'ivy_perm' } })
+    fireEvent.change(screen.getByPlaceholderText(/new password/i), {
+      target: { value: 'password1234' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^convert$/i }))
+    expect(
+      await screen.findByText('That password is too common - choose one that is harder to guess')
+    ).toBeInTheDocument()
   })
 
   it('omits the password field when password auth is disabled', async () => {

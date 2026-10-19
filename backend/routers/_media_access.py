@@ -46,18 +46,21 @@ def guest_visible_variants(
     siblings: list[Any],
     can_read: Optional[Callable[[Any], bool]] = None,
 ) -> list[Any]:
-    """Trim a variant family to the members a guest may read (issue #519).
+    """Trim a variant family to the members the user may read (issue #519).
 
     A detail response lists the whole family for the version picker, and each
     entry carries a filename. A guest is only entitled to the variants shared
     into their campaign, so the rest are dropped rather than handing out names
     and ids of files they cannot open. The requested record itself always stays
-    (its own access was checked before this runs). Non-guests get the family
-    unchanged.
+    (its own access was checked before this runs).
 
-    `can_read` overrides the per-sibling check; books pass one that also applies
-    the access level. By default it is the campaign-share check.
+    `can_read` overrides the per-sibling check and applies to every role; books
+    pass one that also applies the access level, which holds for everyone. By
+    default it is the campaign-share check, and non-guests get the family
+    unchanged.
     """
+    if can_read is not None:
+        return [s for s in siblings if s.id == current_id or can_read(s)]
     if getattr(user, "role", None) != "guest":
         return siblings
     from .campaigns._helpers import user_can_access_resource
@@ -65,8 +68,7 @@ def guest_visible_variants(
     def shared(record: Any) -> bool:
         return user_can_access_resource(db, user.id, resource_type, record.id)
 
-    check = can_read or shared
-    return [s for s in siblings if s.id == current_id or check(s)]
+    return [s for s in siblings if s.id == current_id or shared(s)]
 
 
 def _allow_explicit(db, user_id: str) -> bool:

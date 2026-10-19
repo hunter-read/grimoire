@@ -39,7 +39,7 @@ from __future__ import annotations
 import json
 from typing import Any, Iterable, Optional
 
-from sqlalchemy import ColumnElement, and_, false, or_, true
+from sqlalchemy import ColumnElement, and_, event, false, or_, true
 from sqlalchemy.orm import Query, Session
 
 from ..models import AppSetting, Book, GameSystem, User, UserAccessGrant
@@ -318,14 +318,40 @@ def visible_books(db: Session, q: Query, user: Any) -> Query:
     resolve to it — via their own explicit level, via their system's level, or
     via their category's default — then add back anything a grant covers.
     """
+    clause = _book_filter(db, user)
+    return q if clause is None else q.filter(clause)
+
+
+# The filter is built from a few small lookups (category defaults, levelled
+# systems, grants). A list view can narrow many queries for the same user, so
+# the built clause is kept on the database session and dropped at its next
+# flush, when anything it was built from may have changed.
+_FILTER_CACHE_KEY = "grimoire.access_control.book_filter"
+
+
+@event.listens_for(Session, "after_flush")
+def _forget_book_filters(session: Session, _flush_context: Any) -> None:
+    session.info.pop(_FILTER_CACHE_KEY, None)
+
+
+def _book_filter(db: Session, user: Any) -> Optional[ColumnElement[bool]]:
+    """The WHERE clause :func:`visible_books` applies for ``user``, or None for no filter."""
+    key = (getattr(user, "id", None), getattr(user, "role", None))
+    cache = db.info.setdefault(_FILTER_CACHE_KEY, {})
+    if key not in cache:
+        cache[key] = _build_book_filter(db, user)
+    return cache[key]
+
+
+def _build_book_filter(db: Session, user: Any) -> Optional[ColumnElement[bool]]:
     ceiling = role_ceiling(getattr(user, "role", None))
     if ceiling == LEVEL_ADMIN:
-        return q  # admins see everything; no filter, no joins
+        return None  # admins see everything; no filter, no joins
 
     visible = _visible_levels(user)
     blocked = [level for level in ASSIGNABLE_LEVELS if level not in visible]
     if not blocked:
-        return q
+        return None
 
     defaults = category_defaults(db)
     blocked_categories = [c for c, level in defaults.items() if level in blocked]
@@ -408,9 +434,9 @@ def visible_books(db: Session, q: Query, user: Any) -> Query:
                     ~Book.id.in_(list(book_grants)) if book_grants else true(),
                 )
             )
-        return q.filter(or_(~hidden, or_(*exempt)))
+        return or_(~hidden, or_(*exempt))
 
-    return q.filter(~hidden)
+    return ~hidden
 
 
 def visible_book_ids(db: Session, user: Any) -> list[str]:

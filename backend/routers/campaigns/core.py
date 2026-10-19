@@ -21,11 +21,12 @@ from ...models import (
 )
 from ._helpers import (
     assert_can_manage,
-    build_members,
     can_see_resource,
     can_view,
+    delete_guest_user,
     get_campaign_or_404,
     is_gm_or_admin,
+    members_for,
     serialize_campaign,
     user_has_campaign_access,
 )
@@ -229,14 +230,8 @@ def get_campaign(
     )
     db.commit()
 
-    members = build_members(c, db)
+    members = members_for(c, current_user, db)
     is_owner = c.owner_id == current_user.id
-    if not is_owner:
-        # A guest's code is their login: only the GM who hands codes out may see
-        # them, never another member or guest (issue #519).
-        for m in members:
-            if m.get("guest_code"):
-                m["guest_code"] = None
 
     # Only expose resources this member is allowed to see. Leaking gm-only or
     # unshared-private rows here would hand out resource_ids that become
@@ -297,7 +292,7 @@ def update_campaign(
     db.refresh(c)
     # Return the full member list so the client's merge doesn't blank out
     # the roster after an edit.
-    return serialize_campaign(c, build_members(c, db), db)
+    return serialize_campaign(c, members_for(c, current_user, db), db)
 
 
 def convert_campaign_to_group(
@@ -329,7 +324,7 @@ def convert_campaign_to_group(
         c.gm_title = data.gm_title.strip()
     db.commit()
     db.refresh(c)
-    return serialize_campaign(c, build_members(c, db), db)
+    return serialize_campaign(c, members_for(c, current_user, db), db)
 
 
 def set_campaign_archived(
@@ -358,7 +353,7 @@ def set_campaign_archived(
     c.archived_at = datetime.datetime.utcnow() if data.archived else None
     db.commit()
     db.refresh(c)
-    return serialize_campaign(c, build_members(c, db), db)
+    return serialize_campaign(c, members_for(c, current_user, db), db)
 
 
 def delete_campaign(
@@ -375,7 +370,18 @@ def delete_campaign(
         raise HTTPException(
             403, "Campaign is locked: the GM's campaign access has been disabled"
         )
+    # Guest accounts exist only for this campaign, so they go with it, along
+    # with their sessions, exactly as when a single guest is removed.
+    guest_ids = [
+        uid
+        for (uid,) in db.query(CampaignMember.user_id)
+        .filter_by(campaign_id=c.id, is_guest=True)
+        .all()
+    ]
     db.delete(c)
+    db.flush()
+    for uid in guest_ids:
+        delete_guest_user(db, uid)
     db.commit()
 
 

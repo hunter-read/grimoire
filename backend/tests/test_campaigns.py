@@ -1371,6 +1371,23 @@ class TestCharacterUploads:
         )
         assert dl.status_code == 200
         assert b"%PDF" in dl.content
+        assert dl.headers["content-type"] == "application/pdf"
+
+    def test_sheet_is_labelled_by_its_stored_format_not_its_original_name(
+        self, client, player_headers, member
+    ):
+        c, member_id = member
+        resp = client.post(
+            f"/api/campaigns/{c['id']}/members/{member_id}/sheet",
+            files={"file": ("hero.html", b"%PDF-1.4 fake", "application/pdf")},
+            headers=player_headers,
+        )
+        assert resp.status_code == 200, resp.text
+        dl = client.get(
+            f"/api/campaigns/{c['id']}/members/{member_id}/sheet", headers=player_headers
+        )
+        assert dl.status_code == 200
+        assert dl.headers["content-type"] == "application/pdf"
 
     def test_sheet_rejects_unsupported_type(self, client, player_headers, member):
         c, member_id = member
@@ -2231,6 +2248,101 @@ class TestCampaignFileUploads:
         )
         assert resp.status_code == 403
 
+    def _upload_and_fetch(self, client, gm_headers, campaign, name, body, reported_type):
+        res = client.post(
+            f"/api/campaigns/{campaign['id']}/files",
+            files={"file": (name, body, reported_type)},
+            headers=gm_headers,
+        )
+        assert res.status_code == 201, res.text
+        dl = client.get(
+            f"/api/campaigns/{campaign['id']}/files/{res.json()['resource_id']}",
+            headers=gm_headers,
+        )
+        assert dl.status_code == 200
+        return res.json(), dl
+
+    @pytest.mark.parametrize(
+        "name, reported_type, served_type",
+        [
+            ("handout.pdf", "application/pdf", "application/pdf"),
+            ("notes.txt", "text/plain", "text/plain"),
+            ("page.txt", "text/html", "text/plain"),
+            ("lore.md", "application/octet-stream", "text/markdown"),
+            ("loot.csv", "text/csv", "text/csv"),
+            ("theme.ogg", "audio/ogg", "audio/ogg"),
+            ("intro.mp4", "video/mp4", "video/mp4"),
+            ("bundle.zip", "application/zip", "application/zip"),
+            ("scene.json", "application/json", "application/json"),
+            ("map.uvtt", "application/octet-stream", "application/octet-stream"),
+        ],
+    )
+    def test_uploads_are_labelled_by_their_extension(
+        self, client, gm_headers, campaign, name, reported_type, served_type
+    ):
+        _res, dl = self._upload_and_fetch(
+            client, gm_headers, campaign, name, b"payload", reported_type
+        )
+        assert dl.headers["content-type"].split(";")[0] == served_type
+
+    @pytest.mark.parametrize(
+        "name, reported_type",
+        [
+            ("page.html", "text/html"),
+            ("art.svg", "image/svg+xml"),
+            ("feed.xml", "application/xml"),
+            ("app.js", "text/javascript"),
+            ("art.png", "image/svg+xml"),
+            ("notes.txt.gz", "text/plain"),
+            ("no-extension", "text/html"),
+        ],
+    )
+    def test_types_outside_the_served_set_download_as_octet_stream(
+        self, client, gm_headers, campaign, name, reported_type
+    ):
+        body = _png_bytes() if name.endswith(".png") else b"<p>payload</p>"
+        res, dl = self._upload_and_fetch(client, gm_headers, campaign, name, body, reported_type)
+        served = dl.headers["content-type"].split(";")[0]
+        assert served == ("image/png" if name.endswith(".png") else "application/octet-stream")
+        assert res["is_image"] is name.endswith(".png")
+
+    def test_campaign_files_are_served_as_inert_documents(self, client, gm_headers, campaign):
+        _res, dl = self._upload_and_fetch(
+            client, gm_headers, campaign, "h.txt", b"hello", "text/plain"
+        )
+        csp = dl.headers["content-security-policy"]
+        assert "sandbox" in csp
+        assert "default-src 'none'" in csp
+        assert dl.headers["x-content-type-options"] == "nosniff"
+        again = client.get(
+            dl.request.url.path, headers={**gm_headers, "If-None-Match": dl.headers["etag"]}
+        )
+        assert again.status_code == 304
+        assert "sandbox" in again.headers["content-security-policy"]
+
+    def test_files_stored_with_a_reported_type_are_served_by_the_same_rules(
+        self, client, gm_headers, campaign
+    ):
+        from backend.models import CampaignFile
+
+        res, _dl = self._upload_and_fetch(
+            client, gm_headers, campaign, "old.txt", b"<p>hi</p>", "text/plain"
+        )
+        from backend.config import SessionLocal
+
+        db = SessionLocal()
+        try:
+            cf = db.query(CampaignFile).filter_by(id=res["resource_id"]).first()
+            cf.mime_type = "text/html"
+            db.commit()
+        finally:
+            db.close()
+        dl = client.get(
+            f"/api/campaigns/{campaign['id']}/files/{res['resource_id']}", headers=gm_headers
+        )
+        assert dl.status_code == 200
+        assert dl.headers["content-type"].split(";")[0] == "application/octet-stream"
+
     def test_uploaded_image_file_is_flagged(self, client, gm_headers, campaign):
         resp = client.post(
             f"/api/campaigns/{campaign['id']}/files",
@@ -2341,7 +2453,7 @@ class TestCharacterSheetUrl:
 def _make_user(client, admin_headers, role="player"):
     """Create a fresh user via the admin API and log in. Returns (id, headers)."""
     username = f"capacc-{uid()}"
-    password = "password12345"
+    password = "campaign-member-pass"
     resp = client.post(
         "/api/users",
         json={"username": username, "password": password, "role": role},

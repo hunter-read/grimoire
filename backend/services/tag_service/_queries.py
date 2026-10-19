@@ -14,9 +14,9 @@ from typing import Any
 from sqlalchemy import exists, func
 from sqlalchemy.orm import Session
 
-from .. import variants
+from .. import access_control, variants
 from ...models.collections import COLLECTIONS
-from ...models import GameSystem, ResourceTag, Tag
+from ...models import Book, GameSystem, ResourceTag, Tag
 from ._catalog import normalize_internal, tag_dict
 
 
@@ -34,7 +34,18 @@ def _taggable_types() -> list[str]:
     return [*COLLECTIONS, "system"]
 
 
-def live_links(db: Session, resource_type: str) -> Any:
+def _visible_ids(db: Session, resource_type: str, user: Any) -> Any:
+    """A select of the ``resource_type`` ids ``user`` may see; None when nothing is hidden."""
+    if user is None or access_control.sees_everything(user):
+        return None
+    if resource_type == "book":
+        return access_control.visible_books(db, db.query(Book.id), user).statement
+    if resource_type == "system":
+        return access_control.visible_systems(db, db.query(GameSystem.id), user).statement
+    return None
+
+
+def live_links(db: Session, resource_type: str, user: Any = None) -> Any:
     """A query over ``resource_type``'s links whose resource is live and shows.
 
     Selects whole rows; callers narrow it with ``with_entities`` (the tag ids,
@@ -48,6 +59,8 @@ def live_links(db: Session, resource_type: str) -> Any:
     187k-token table; the correlated form walks the links and checks each
     against the narrow ``(id, variant_parent_id)`` index instead - about
     fifteen times faster. ``None`` for a type with no table.
+
+    With ``user``, only links to books and systems that user can see count.
     """
     model, has_variants = _resource_model(resource_type)
     if model is None:
@@ -55,7 +68,11 @@ def live_links(db: Session, resource_type: str) -> Any:
     live = exists().where(model.id == ResourceTag.resource_id)
     if has_variants:
         live = live.where(variants.parent_filter(model))
-    return db.query(ResourceTag).filter(ResourceTag.resource_type == resource_type, live)
+    q = db.query(ResourceTag).filter(ResourceTag.resource_type == resource_type, live)
+    visible = _visible_ids(db, resource_type, user)
+    if visible is not None:
+        q = q.filter(ResourceTag.resource_id.in_(visible))
+    return q
 
 
 def live_resource_ids(
@@ -115,7 +132,7 @@ def resources_for_tag(
 
 
 def live_link_counts(
-    db: Session, resource_type: Optional[str] = None
+    db: Session, resource_type: Optional[str] = None, *, user: Any = None
 ) -> dict[str, int]:
     """``{tag_id: live link count}`` — links whose resource still exists and shows.
 
@@ -130,10 +147,12 @@ def live_link_counts(
     link and every resource id into Python and intersect them, which on a
     library of a few hundred thousand files cost seconds per tag listing
     (issue #221).
+
+    With ``user``, counts only what that user can see.
     """
     counts: dict[str, int] = {}
     for rtype in [resource_type] if resource_type else _taggable_types():
-        q = live_links(db, rtype)
+        q = live_links(db, rtype, user)
         if q is None:
             continue
         rows = q.with_entities(ResourceTag.tag_id, func.count()).group_by(ResourceTag.tag_id)
@@ -142,7 +161,9 @@ def live_link_counts(
     return counts
 
 
-def tags_in_use(db: Session, resource_type: Optional[str] = None) -> list[dict]:
+def tags_in_use(
+    db: Session, resource_type: Optional[str] = None, *, user: Any = None
+) -> list[dict]:
     """Tags that are attached to at least one resource, with a usage count.
 
     Scoped to ``resource_type`` when given (issue #235.3: only show tags used on
@@ -151,8 +172,9 @@ def tags_in_use(db: Session, resource_type: Optional[str] = None) -> list[dict]:
     "In use" means carried by a resource that still exists and is not a hidden
     variant child, so a tag whose every carrier has been deleted drops out of the
     listing entirely rather than lingering with a count nothing can explain.
+    With ``user``, so does a tag carried only by things that user cannot see.
     """
-    counts = live_link_counts(db, resource_type)
+    counts = live_link_counts(db, resource_type, user=user)
     if not counts:
         return []
     tags = db.query(Tag).filter(Tag.id.in_(list(counts.keys()))).all()

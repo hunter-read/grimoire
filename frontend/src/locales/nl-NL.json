@@ -132,7 +132,7 @@
     "setupFailed": "Configuratie mislukt.",
     "serverUnreachable": "Kan de server niet bereiken.",
     "passwordMismatch": "Wachtwoorden komen niet overeen.",
-    "passwordTooShort": "Wachtwoord moet ten minste 8 tekens bevatten."
+    "passwordTooShort": "Wachtwoord moet ten minste {{min}} tekens bevatten."
   },
   "library": {
     "title": "Je collectie",
@@ -1157,7 +1157,7 @@
       "saving": "Opslaan…",
       "passwordUpdated": "Wachtwoord bijgewerkt",
       "mismatch": "Nieuwe wachtwoorden komen niet overeen.",
-      "tooShort": "Nieuw wachtwoord moet ten minste 8 tekens bevatten.",
+      "tooShort": "Nieuw wachtwoord moet ten minste {{min}} tekens bevatten.",
       "failed": "Wijzigen van wachtwoord mislukt."
     },
     "sessions": {
@@ -1494,8 +1494,8 @@
     "failedUpdateApiKeys": "Kan de toegang tot API-sleutels niet bijwerken.",
     "setPassword": "Wachtwoord instellen",
     "setPasswordTitle": "Wachtwoord voor deze gebruiker instellen",
-    "newPasswordPlaceholder": "Nieuw wachtwoord (min. 8)",
-    "minChars": "Min. 8 tekens",
+    "newPasswordPlaceholder": "Nieuw wachtwoord (min. {{min}})",
+    "minChars": "Min. {{min}} tekens",
     "failedSetPassword": "Instellen van wachtwoord mislukt",
     "deleteConfirm": "Verwijderen?",
     "you": "(jij)",
@@ -1504,7 +1504,7 @@
     "failedUpdateRole": "Bijwerken van rol mislukt.",
     "failedUpdateExplicit": "Bijwerken van instelling voor expliciete inhoud mislukt.",
     "failedSetPasswordErr": "Instellen van wachtwoord mislukt.",
-    "passwordTooShort": "Wachtwoord moet ten minste 8 tekens bevatten.",
+    "passwordTooShort": "Wachtwoord moet ten minste {{min}} tekens bevatten.",
     "emailOptional": "E-mail (optioneel)",
     "emailPlaceholder": "gebruiker@voorbeeld.com",
     "noEmail": "geen e-mail",
@@ -3588,7 +3588,7 @@
       "expiry": "Verloopt na",
       "password": "Wachtwoord (optioneel)",
       "passwordPlaceholder": "Leeg laten voor geen wachtwoord",
-      "passwordTooShort": "Minstens 4 tekens.",
+      "passwordTooShort": "Minstens {{min}} tekens.",
       "passwordHint": "Wie de link opent, moet het invoeren. Programma's die het bestand rechtstreeks laden kunnen dat niet, dus laat het leeg voor VTT's en Discord.",
       "create": "Link maken"
     },

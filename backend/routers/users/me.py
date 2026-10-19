@@ -4,7 +4,7 @@ import secrets
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from ... import token_vault
+from ... import api_keys, token_vault
 from ...config import OPDS_ENABLED, BASE_URL, get_db
 from ...models import User
 from ...auth import get_current_user, CurrentUser, hash_password, verify_password
@@ -13,6 +13,24 @@ from ..campaigns._helpers import purge_user_data
 from ._schemas import PasswordChange, PreferencesUpdate
 
 router = APIRouter()
+
+
+def _assert_email_self_service(db: Session, user: User) -> None:
+    """Refuse a self-service email change where the address identifies the account.
+
+    When single sign-on matches accounts by email, the address is how a first
+    SSO login finds its account, so only an admin (or the provider) sets it.
+    Campaign guests have no use for an email at all.
+    """
+    from ..settings._helpers import _get_raw, oidc_effective
+
+    if user.is_guest or user.role == "guest":
+        raise HTTPException(403, "Guest accounts can't set an email address")
+    if oidc_effective(_get_raw(db)).get("oidc_match_by") == "email":
+        raise HTTPException(
+            403,
+            "Your email address is used to sign you in, so only an admin can change it",
+        )
 
 
 def update_own_preferences(
@@ -27,9 +45,12 @@ def update_own_preferences(
         user.allow_explicit = data.allow_explicit
     if data.display_name is not None:
         user.display_name = data.display_name.strip() or None
-    if data.email is not None:
+    if data.email is not None and (data.email or None) != user.email:
+        # The address single sign-on can match accounts on.
+        api_keys.assert_session(current_user)
+        _assert_email_self_service(db, user)
         new_email = data.email or None  # "" → clear
-        if new_email and new_email != user.email:
+        if new_email:
             conflict = db.query(User).filter_by(email=new_email).first()
             if conflict and conflict.id != user.id:
                 raise HTTPException(400, "Email already in use")

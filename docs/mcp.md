@@ -62,12 +62,16 @@ The assistant decides when to call these.
 | `get_campaign`       | Campaigns: Read     | A campaign's description, players, and an outline of its wiki, including dated session notes                    |
 | `read_wiki_page`     | Campaigns: Read     | One wiki page                                                                                                   |
 | `search_campaign_wiki` | Campaigns: Read   | The wiki pages that mention a name or phrase                                                                    |
-| `create_wiki_page`   | Campaigns: Write    | Adds a new wiki page, private to you unless you ask for it to be shared. Never changes existing pages           |
+| `create_wiki_page`   | Campaigns: Write    | Adds a new wiki page, private to you. Never changes existing pages                                              |
 | `add_bookmark`       | Personal: Write     | Bookmarks a page in your own bookmark list                                                                      |
 | `tag_books`          | Books: Write, GM+   | Adds tags to books; existing tags are kept                                                                      |
 
 The write tools only ever add things. Claude Code asks you before it runs any MCP tool, unless
 you have allowed that tool.
+
+A page an assistant writes is always private to you, and so is any page its `[[links]]` create.
+To show it to your table, open it in the campaign wiki and change who can see it there. A campaign
+that is archived, or whose GM has campaign access turned off, takes no new pages.
 
 ### Resources
 

@@ -13,7 +13,8 @@ class ShareLinkCreate(BaseModel):
     # Days until the link stops working; omitted or null for never.
     expires_in_days: Optional[int] = Field(None, ge=1, le=3650)
     # Optional password the share page asks for before showing anything.
-    password: Optional[str] = Field(None, min_length=4, max_length=200)
+    # Length and other rules: backend/passwords.py (SHARE_LINK_PASSWORD_MIN_LENGTH).
+    password: Optional[str] = Field(None, max_length=200)
     # Serve a derived form of the item instead (issue #551). "otfbm": a map
     # resized for an OTFBM background, at `cell` pixels per cell (20-100;
     # omitted for the suggested size).

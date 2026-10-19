@@ -12,7 +12,7 @@ from sqlalchemy import text
 
 from ...auth import CurrentUser, get_current_user, require_gm_or_admin
 from ...config import _PAGE_CACHE_HEADERS, THUMB_DIR, get_db
-from ...security import SAME_ORIGIN_FRAME_HEADERS
+from ...security import SAME_ORIGIN_FRAME_HEADERS, inert_svg_headers
 
 from ...file_cache import etag_matches
 from ...indexer import slugify
@@ -26,11 +26,14 @@ from ...services.content_cache import content_token
 from .._bulk_schemas import BulkAddTags
 from .._media_access import guest_visible_variants
 from ._helpers import (
+    LEVEL_KEPT_DETAIL,
     _allow_explicit,
     _assert_book_access,
     _can_read_book,
     _enforce_campaign_visibility,
     _invalidate_book_cache,
+    get_visible_book,
+    keeps_access_level,
     pop_access_level,
 )
 from ._schemas import BookBulkUpdate, BookUpdate
@@ -106,7 +109,7 @@ def list_books(
     books = q.offset(offset).limit(limit).all()
     # One grouped query for the whole page rather than one per row, so the
     # "has other versions" badge costs nothing per book.
-    vcounts = variants.variant_counts(db, Book, [b.id for b in books])
+    vcounts = variants.variant_counts(db, Book, [b.id for b in books], current_user)
     # Resolved once for the page with the shared category map and system rows,
     # so the badge costs no extra query per book.
     effective_levels = access_control.effective_levels(db, books)
@@ -181,6 +184,13 @@ def get_book(
         siblings,
         can_read=lambda s: _can_read_book(db, s, current_user),
     )
+    # The main version is named only to someone who could open it. Without it,
+    # this book heads its own family, so it is not listed again as a sibling.
+    main_readable = variant_parent.id == book.id or _can_read_book(
+        db, variant_parent, current_user
+    )
+    if not main_readable:
+        siblings = [s for s in siblings if s.id != book.id]
     return {
         "id": book.id,
         "title": book.title,
@@ -223,11 +233,11 @@ def get_book(
         # The whole variant family, resolved from whichever end was requested, so
         # the reader's version picker renders without a second round trip. A book
         # with no variants gets its own single-entry family.
-        "variant_parent_id": book.variant_parent_id,
+        "variant_parent_id": book.variant_parent_id if main_readable else None,
         "variant_kind": book.variant_kind or "",
         "variant_label": book.variant_label or "",
-        "variant_main_id": variant_parent.id,
-        **variants.main_fields(variant_parent),
+        "variant_main_id": variant_parent.id if main_readable else None,
+        **(variants.main_fields(variant_parent) if main_readable else {}),
         "variants": [variants.serialize_variant(v) for v in siblings],
         "game_system": {"id": system.id, "name": system.name, "slug": system.slug}
         if system
@@ -241,14 +251,14 @@ def update_book(
     current_user: CurrentUser = Depends(require_gm_or_admin),
     db: Session = Depends(get_db),
 ):
-    book = db.query(Book).filter_by(id=book_id).first()
-    if not book:
-        raise HTTPException(404, "Book not found")
+    book = get_visible_book(db, book_id, current_user)
     previous_category = book.category
     payload = data.model_dump(exclude_none=True)
     # Pulled out before apply_updates, which would otherwise setattr it blind —
     # skipping the admin check and the inherit-sentinel translation.
     has_access, access_level = pop_access_level(payload, current_user)
+    if not keeps_access_level(db, book, payload, current_user):
+        raise HTTPException(403, LEVEL_KEPT_DETAIL)
     # Tags live in the shared-tag tables, not a column on the book (issue #235);
     # apply_updates routes them through the tag service for us.
     bulk_service.apply_updates(db, "book", book, payload)
@@ -293,16 +303,21 @@ def bulk_update_books(
         caller, not about one book, so failing the batch is the honest response.
         """
         has_access, level = pop_access_level(payload, current_user)
+        if not keeps_access_level(db_, obj, payload, current_user):
+            raise bulk_service.BulkItemError(LEVEL_KEPT_DETAIL)
         if has_access:
             obj.access_level = level
             _enforce_campaign_visibility(db_, obj)
 
+    access_user = access_control.load_user(db, current_user)
     result = bulk_service.run_bulk_update(
         db,
         "book",
         items,
         payload_for=lambda item: item.model_dump(exclude_none=True, exclude={"id"}),
         validate=_apply_access,
+        # Edits reach only the books the editor can see; the rest read as unknown ids.
+        scope=lambda q: access_control.visible_books(db, q, access_user),
         not_found_detail="Book not found",
     )
     _relocate_recategorised(db, result["updated"], before)
@@ -330,12 +345,18 @@ def _relocate_recategorised(
 
 def bulk_add_book_tags(
     data: BulkAddTags,
-    _: CurrentUser = Depends(require_gm_or_admin),
+    current_user: CurrentUser = Depends(require_gm_or_admin),
     db: Session = Depends(get_db),
 ):
     """Additively tag a whole selection of books in one transaction."""
+    access_user = access_control.load_user(db, current_user)
     result = bulk_service.run_bulk_add_tags(
-        db, "book", data.ids, data.tags, not_found_detail="Book not found"
+        db,
+        "book",
+        data.ids,
+        data.tags,
+        scope=lambda q: access_control.visible_books(db, q, access_user),
+        not_found_detail="Book not found",
     )
     _refresh_sidecars(db, result["updated"])
     return result
@@ -351,7 +372,7 @@ def reindex_book(
         description="Optional OCR resolution override (DPI, 72–600) for this book. "
         "Omit to use the global OCR_DPI default.",
     ),
-    _: CurrentUser = Depends(require_gm_or_admin),
+    current_user: CurrentUser = Depends(require_gm_or_admin),
     db: Session = Depends(get_db),
 ):
     """Re-run OCR on a single scanned book, optionally at a higher DPI.
@@ -366,9 +387,7 @@ def reindex_book(
     """
     from ..library._helpers import trigger_ocr_queue
 
-    book = db.query(Book).filter_by(id=book_id).first()
-    if not book:
-        raise HTTPException(404, "Book not found")
+    book = get_visible_book(db, book_id, current_user)
     if book.mime_type != "application/pdf":
         raise HTTPException(400, "Only PDF books can be OCR'd")
     if not os.path.exists(book.filepath):
@@ -400,7 +419,7 @@ def reindex_book(
 def rescan_book(
     book_id: str,
     background_tasks: BackgroundTasks,
-    _: CurrentUser = Depends(require_gm_or_admin),
+    current_user: CurrentUser = Depends(require_gm_or_admin),
     db: Session = Depends(get_db),
 ):
     """Re-read a single book from disk and rebuild its search index.
@@ -417,9 +436,7 @@ def rescan_book(
     """
     from ..library._helpers import rescan_single_book
 
-    book = db.query(Book).filter_by(id=book_id).first()
-    if not book:
-        raise HTTPException(404, "Book not found")
+    book = get_visible_book(db, book_id, current_user)
     # Any indexable format can be re-read, not just PDF (issues #200/#373).
     if not can_index(book.mime_type):
         raise HTTPException(400, "This book's format cannot be re-indexed")
@@ -454,6 +471,7 @@ def serve_book_file(
             # Override the global frame-ancestors 'none' so Firefox doesn't
             # block the frame, while keeping cross-origin framing denied.
             **SAME_ORIGIN_FRAME_HEADERS,
+            **inert_svg_headers(book.mime_type, book.filepath, same_origin_frame=True),
         },
     )
 

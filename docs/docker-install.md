@@ -167,18 +167,18 @@ not have to set it - if you leave it out, Grimoire generates a random one the fi
 time it starts and saves it in your data folder, so you stay logged in across
 restarts.
 
-If you would rather set it yourself, use any long, random string - mash your keyboard
-or use a password generator:
+If you would rather set it yourself, generate a random value of at least 32 characters,
+for example with `openssl rand -hex 32` or a password generator, and paste it in:
 
 ```yaml
-- SECRET_KEY=zx7k2mQpR9nLwT4vBcYeHs3JuAoDfGiN
+- SECRET_KEY=<paste the generated value here>
 ```
 
-Do **not** use a placeholder like `change-me` or the example string above. Grimoire
-refuses to start on values published in its own docs, because a known signing key
-would let anyone forge an admin login on your instance. See
-[the FAQ](faq.md#grimoire-wont-start-and-the-log-mentions-secret_key) if you hit that
-error.
+Never copy a value from documentation or a forum post, and do not use a placeholder
+like `change-me`. A known signing key would let anyone sign in as any user on your
+instance, so Grimoire refuses to start on values that have appeared in its own docs.
+See [the FAQ](faq.md#grimoire-wont-start-and-the-log-mentions-secret_key) if you hit
+that error.
 
 Save the file when you are done.
 
@@ -283,15 +283,19 @@ By default it runs as **whoever owns your library folder**, so files Grimoire cr
 library folder belongs to root, it uses the owner of your data folder instead, and if that
 belongs to root too, it uses the built-in `grimoire` user (uid and gid `1000`).
 
-On each start it also makes sure everything in your data folder belongs to that user. After
-updating from a version that ran as root, the first start hands the old root-owned files
-over, which can take a moment with a large thumbnail cache. Your library is never changed.
+On each start it also makes sure everything in your data folder (and a `BACKUP_DIR` set in
+the container's environment) belongs to that user. After updating from a version that ran as
+root, the first start hands the old root-owned files over, which can take a moment with a
+large thumbnail cache. Your library is never changed. A backup folder chosen in Settings
+rather than with `BACKUP_DIR` is left as it is; if that user can't write to it, the log says
+so, and you can give it access on the host or set `BACKUP_DIR` instead.
 
 Your setup keeps working as it did, whatever it is. If the chosen user could not read your
 library, could not write to a library that root could write to (one mounted without `:ro`),
 or could not write to your data folder (for example a network share that refuses to change
 file owners), Grimoire stays root and says so in the log (`docker compose logs grimoire`),
-along with how to fix it.
+along with how to fix it. Symlinks, `lost+found`, and entries that user owns itself at the
+top of the library don't count towards that check.
 
 ### Choosing the user: `PUID` and `PGID`
 

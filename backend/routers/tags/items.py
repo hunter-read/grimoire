@@ -91,7 +91,9 @@ def _page(q: Any, vis: _Visibility, resource_type: str, limit: int, offset: int)
         .limit(limit)
     ]
     refs = [{"resource_type": resource_type, "resource_id": rid} for rid in ids]
-    return enrich_tagged_items(vis.db, refs, see_explicit=vis.see_explicit)
+    return enrich_tagged_items(
+        vis.db, refs, see_explicit=vis.see_explicit, access_user=vis.access_user
+    )
 
 
 def tag_items(
@@ -150,10 +152,16 @@ def tag_items(
         want -= min(want, n - skip)
         skip = 0
 
-    resolver = tag_service.FolderResolver(db)
+    resolver = tag_service.FolderResolver(db, vis.access_user)
+    limited = not access_control.sees_everything(vis.access_user)
     groups = []
     for folder in folders:
         if resource_type and folder.resource_type != resource_type:
+            continue
+        # A book folder is only shown to someone who can see its system and at
+        # least one book in it.
+        book_limited = limited and folder.resource_type == "book"
+        if book_limited and not resolver.system_visible(folder.path.split("/", 1)[0]):
             continue
         scope = resolver.scope(folder.resource_type, folder.path)
         count = 0
@@ -161,6 +169,8 @@ def tag_items(
             model, criteria = scope
             q = vis.apply(db.query(model).filter(*criteria), folder.resource_type)
             count = q.order_by(None).count()
+        if book_limited and not count:
+            continue
         groups.append(
             {
                 "resource_type": folder.resource_type,

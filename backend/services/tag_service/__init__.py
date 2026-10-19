@@ -27,6 +27,7 @@ from __future__ import annotations
 from ._admin import (
     prune_orphan_tags,
     rename_tag,
+    tag_totals,
     tags_meta_for_internals,
 )
 from ._catalog import (
@@ -107,6 +108,7 @@ __all__ = [
     "tag_dict",
     "tags_for_resource",
     "tags_for_resources",
+    "tag_totals",
     "tags_in_use",
     "tagged_folders",
     "tags_meta_for_internals",

@@ -75,13 +75,20 @@ def safe_join(relative: str, *, must_exist: bool = False) -> Path:
     candidate = root / cleaned
     resolved_root = root.resolve()
     resolved = candidate.resolve()
-    if resolved != resolved_root and not resolved.is_relative_to(resolved_root):
+    # Interior "." / ".." are normalised away so the result is a clean path that
+    # still matches stored filepaths. A ".." after a symlinked folder collapses
+    # differently on paper than on disk, so the lexical form is only accepted
+    # when it sits under the configured root and names the resolved location.
+    lexical = Path(os.path.normpath(str(candidate)))
+    if (
+        (resolved != resolved_root and not resolved.is_relative_to(resolved_root))
+        or not lexical.is_relative_to(os.path.normpath(str(root)))
+        or lexical.resolve() != resolved
+    ):
         raise LibraryFSError("Path escapes the library root", code="forbidden")
     if must_exist and not candidate.exists():
         raise LibraryFSError(f"Path does not exist: {cleaned}", code="not_found")
-    # Normalise away any interior "." / ".." now that containment is proven, so
-    # the result is a clean path that still matches stored filepaths.
-    return Path(os.path.normpath(str(candidate)))
+    return lexical
 
 
 def to_relative(path: Path) -> str:

@@ -329,3 +329,20 @@ class TestTagCreationIsRaceSafe:
         finally:
             db_a.close()
             db_b.close()
+
+
+class TestApplyUpdatesFields:
+    def test_access_level_must_be_applied_by_the_caller(self):
+        import pytest
+
+        from backend.models import Book
+        from backend.services import bulk_service
+
+        book = make_book(make_game_system().id)
+        db = SessionLocal()
+        try:
+            row = db.query(Book).filter_by(id=book.id).first()
+            with pytest.raises(ValueError):
+                bulk_service.apply_updates(db, "book", row, {"access_level": ""})
+        finally:
+            db.close()

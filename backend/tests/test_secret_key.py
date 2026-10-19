@@ -45,6 +45,30 @@ class TestExplicitKey:
         assert "openssl rand -hex 32" in str(exc.value)
 
 
+    def test_short_key_starts_with_a_warning(self, tmp_path, caplog):
+        with caplog.at_level("WARNING", logger="grimoire.auth"):
+            assert resolve_secret_key("short-key", str(tmp_path)) == "short-key"
+        assert "openssl rand -hex 32" in caplog.text
+
+    def test_long_key_starts_quietly(self, tmp_path, caplog):
+        with caplog.at_level("WARNING", logger="grimoire.auth"):
+            resolve_secret_key("k" * 64, str(tmp_path))
+        assert caplog.text == ""
+
+
+def test_every_key_value_in_the_docs_is_refused():
+    """A SECRET_KEY written out in the repo's docs or compose files never starts a server."""
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+    files = [*root.glob("docs/**/*.md"), *root.glob("docs/**/*.yml"), *root.glob("*.yml"), root / "README.md"]
+    pattern = re.compile(r"SECRET_KEY\s*[=:]\s*['\"]?([A-Za-z0-9_\-]{8,})")
+    for path in files:
+        for match in pattern.finditer(path.read_text(encoding="utf-8")):
+            assert match.group(1) in REJECTED_SECRET_KEYS, f"{path.name}: {match.group(1)}"
+
+
 class TestGeneratedKey:
     def test_generates_when_unset(self, tmp_path):
         key = resolve_secret_key(None, str(tmp_path))

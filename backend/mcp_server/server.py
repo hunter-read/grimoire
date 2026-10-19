@@ -65,6 +65,7 @@ def _run_in_context(principal: Any, work: Callable[[ToolContext], dict[str, Any]
                 username=principal.username,
                 role=principal.role,
                 api_key_id=principal.id,
+                key_permissions=principal.permissions,
             ),
             permissions=principal.permissions,
             db=db,

@@ -604,6 +604,26 @@ class TestServeBookFile:
         finally:
             os.unlink(fpath)
 
+    def test_svg_book_is_served_as_an_inert_document(self, client, admin_headers, sys):
+        book, fpath = self._make_file_book(
+            sys.id, ".svg", "image/svg", b'<svg xmlns="http://www.w3.org/2000/svg"/>'
+        )
+        try:
+            resp = client.get(f"/api/books/{book.id}/file", headers=admin_headers)
+            assert resp.status_code == 200
+            csp = resp.headers["Content-Security-Policy"]
+            assert "sandbox" in csp
+            assert "default-src 'none'" in csp
+            # Still frameable by the reader, and nowhere else.
+            assert "frame-ancestors 'self'" in csp
+            assert resp.headers["X-Frame-Options"] == "SAMEORIGIN"
+
+            page = client.get(f"/api/books/{book.id}/page/1", headers=admin_headers)
+            assert page.status_code == 200
+            assert "sandbox" in page.headers["Content-Security-Policy"]
+        finally:
+            os.unlink(fpath)
+
     def test_archive_file_served(self, client, admin_headers, sys):
         book, fpath = self._make_file_book(
             sys.id, ".zip", "application/zip", b"PK\x03\x04payload"

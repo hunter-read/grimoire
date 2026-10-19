@@ -542,14 +542,59 @@ class TestCreateWikiPage:
         page_id = text.rsplit("page_id: ", 1)[1].rstrip("].")
         assert self._visibility(page_id) == "gm"
 
-    def test_shared_when_asked(self, mcp_client, admin_key, campaign):
+    def test_always_private_to_the_user(self, mcp_client, admin_key, campaign):
+        """An older client still sending a visibility gets a private page all the same."""
         text = call_text(
             mcp_client,
             admin_key,
             "create_wiki_page",
             {"campaign_id": campaign["campaign"].id, "title": "Recap", "visibility": "shared"},
         )
-        assert self._visibility(text.rsplit("page_id: ", 1)[1].rstrip("].")) == "group"
+        assert self._visibility(text.rsplit("page_id: ", 1)[1].rstrip("].")) == "gm"
+
+    def test_the_tool_offers_no_visibility(self, mcp_client, admin_key):
+        tools = result_of(mcp_client, admin_key, "tools/list")["tools"]
+        schema = next(t for t in tools if t["name"] == "create_wiki_page")["inputSchema"]
+        assert "visibility" not in schema["properties"]
+
+    def test_pages_its_links_create_are_private_too(
+        self, mcp_client, client, admin_key, campaign, player_headers
+    ):
+        cid = campaign["campaign"].id
+        title = f"Hidden Vault {uuid.uuid4().hex[:6]}"
+        call_text(
+            mcp_client,
+            admin_key,
+            "create_wiki_page",
+            {"campaign_id": cid, "title": "Prep", "body": f"See [[{title}]]."},
+        )
+        db = SessionLocal()
+        try:
+            stub = db.query(WikiPage).filter_by(campaign_id=cid, title=title).one()
+            assert stub.visibility == "gm"
+        finally:
+            db.close()
+        seen = client.get(f"/api/campaigns/{cid}/wiki", headers=player_headers).json()
+        assert title not in {p["title"] for p in seen}
+
+    def test_not_while_the_gms_campaign_access_is_off(
+        self, mcp_client, client, admin_headers, player_id, player_headers, player_key
+    ):
+        gm = _fresh_user(client, admin_headers)
+        c = make_campaign(gm["id"], name=f"Locked {uuid.uuid4().hex[:4]}", is_gm_campaign=True)
+        _join(c.id, player_id)
+        resp = client.patch(
+            f"/api/users/{gm['id']}", json={"campaign_access": False}, headers=admin_headers
+        )
+        assert resp.status_code == 200, resp.text
+        for key in (gm["key"], player_key):
+            msg = call_error(
+                mcp_client, key, "create_wiki_page", {"campaign_id": c.id, "title": "Hi"}
+            )
+            assert msg == "Campaign is locked: the GM's campaign access has been disabled"
+        # The app refuses it the same way.
+        resp = client.post(f"/api/campaigns/{c.id}/wiki", json={"title": "Hi"}, headers=player_headers)
+        assert resp.status_code == 403
 
     def test_outsiders_cannot_write(self, mcp_client, client, admin_headers, campaign):
         user = _fresh_user(client, admin_headers)

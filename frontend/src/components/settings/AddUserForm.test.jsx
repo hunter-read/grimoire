@@ -3,15 +3,25 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AddUserForm from './AddUserForm'
 import { UISettingsProvider } from '../../context/UISettingsContext'
-import api from '../../api'
+import api, { auth } from '../../api'
+import { clearPasswordRulesCache } from '../../hooks/usePasswordRules'
 
 vi.mock('../../api', () => ({
   default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
+  auth: { status: vi.fn() },
 }))
+
+const status = (passwordMin) => ({
+  initialized: true,
+  password_min_length: passwordMin,
+  share_link_password_min_length: 8,
+})
 
 describe('AddUserForm', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    clearPasswordRulesCache()
+    auth.status.mockResolvedValue(status(12))
   })
 
   it('renders username, password, and role fields', () => {
@@ -33,13 +43,48 @@ describe('AddUserForm', () => {
     expect(onCancel).toHaveBeenCalled()
   })
 
-  it('shows validation error when password is shorter than 8 characters', async () => {
+  it('requires 12 characters by default', async () => {
     render(<AddUserForm onAdd={vi.fn()} onCancel={vi.fn()} />)
     await userEvent.type(screen.getByLabelText('Username'), 'alice')
+    await userEvent.type(screen.getByLabelText('Password'), 'elevenchars')
+    fireEvent.click(screen.getByText('Create User'))
+    expect(await screen.findByText('Password must be at least 12 characters.')).toBeInTheDocument()
+    expect(api.post).not.toHaveBeenCalled()
+  })
+
+  it("uses the server's minimum when it has been changed", async () => {
+    auth.status.mockResolvedValue(status(8))
+    api.post.mockResolvedValue({ id: '5', username: 'erin', role: 'player' })
+    render(<AddUserForm onAdd={vi.fn()} onCancel={vi.fn()} />)
+    await waitFor(() => expect(auth.status).toHaveBeenCalled())
+    await userEvent.type(screen.getByLabelText('Username'), 'erin')
     await userEvent.type(screen.getByLabelText('Password'), 'short')
     fireEvent.click(screen.getByText('Create User'))
     expect(await screen.findByText('Password must be at least 8 characters.')).toBeInTheDocument()
     expect(api.post).not.toHaveBeenCalled()
+
+    // Eight characters is enough on this server.
+    await userEvent.type(screen.getByLabelText('Password'), 'pwd')
+    fireEvent.click(screen.getByText('Create User'))
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith(
+        '/users',
+        expect.objectContaining({ password: 'shortpwd' })
+      )
+    )
+  })
+
+  it("shows the server's reason when it refuses a password as too common", async () => {
+    api.post.mockRejectedValueOnce(
+      new Error('That password is too common - choose one that is harder to guess')
+    )
+    render(<AddUserForm onAdd={vi.fn()} onCancel={vi.fn()} />)
+    await userEvent.type(screen.getByLabelText('Username'), 'alice')
+    await userEvent.type(screen.getByLabelText('Password'), 'password1234')
+    fireEvent.click(screen.getByText('Create User'))
+    expect(
+      await screen.findByText('That password is too common - choose one that is harder to guess')
+    ).toBeInTheDocument()
   })
 
   it('submits the form and calls onAdd on success', async () => {

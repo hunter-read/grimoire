@@ -13,15 +13,15 @@ env:
   GHCR_IMAGE: ghcr.io/${{ github.repository }}
 
 jobs:
-  release:
+  images:
     name: Build and publish
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
       packages: write   # push to GHCR
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
@@ -50,27 +50,29 @@ jobs:
           fi
 
       - name: Log in to DockerHub
-        uses: docker/login-action@v4
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Log in to GHCR
-        uses: docker/login-action@v4
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
+      # Release images are built from scratch each time, without the Actions
+      # build cache that CI and nightly share between runs.
       # Default image: bundles Tesseract OCR (see Dockerfile `ocr` target).
       - name: Build and push (OCR)
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           target: ocr
@@ -91,12 +93,10 @@ jobs:
             ${{ env.GHCR_IMAGE }}:${{ steps.ver.outputs.major }}
             ${{ env.GHCR_IMAGE }}:${{ steps.ver.outputs.minor }}
             ${{ env.GHCR_IMAGE }}:${{ steps.ver.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       # Slim variant: no OCR engine, smaller image (see Dockerfile `slim` target).
       - name: Build and push (slim, no OCR)
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           target: slim
@@ -117,11 +117,25 @@ jobs:
             ${{ env.GHCR_IMAGE }}:${{ steps.ver.outputs.major }}-slim
             ${{ env.GHCR_IMAGE }}:${{ steps.ver.outputs.minor }}-slim
             ${{ env.GHCR_IMAGE }}:${{ steps.ver.outputs.version }}-slim
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
+      - name: Log out of registries
+        if: always()
+        run: |
+          docker logout
+          docker logout ghcr.io
+
+  # Runs once both images are published, as its own job so it holds only the
+  # permission it needs to create the release.
+  github-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: images
+    permissions:
+      contents: write
+
+    steps:
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}

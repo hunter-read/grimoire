@@ -148,7 +148,24 @@ class TestTypes:
     def test_token(self, client, gm_headers, tmp_path):
         t = make_token(filename="Goblin.jpg", filepath=png(tmp_path / "Goblin.jpg"))
         link = create(client, gm_headers, "token", t.id).json()
-        assert _fetch(client, link).headers["content-type"] == "image/jpeg"
+        r = _fetch(client, link)
+        assert r.headers["content-type"] == "image/jpeg"
+        assert "sandbox" not in r.headers["content-security-policy"]
+
+    def test_svg_is_served_as_an_inert_document(self, client, gm_headers, tmp_path):
+        path = tmp_path / "Rune.svg"
+        path.write_bytes(b'<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"/>')
+        for kind, record in (
+            ("token", make_token(filename="Rune.svg", filepath=str(path))),
+            ("map", make_map(filename="Rune.svg", filepath=str(path))),
+        ):
+            link = create(client, gm_headers, kind, record.id).json()
+            r = _fetch(client, link)
+            assert r.status_code == 200
+            assert r.headers["content-type"].startswith("image/svg+xml")
+            assert "sandbox" in r.headers["content-security-policy"]
+            # Cross-origin readers can still load it as an image.
+            assert r.headers["access-control-allow-origin"] == "*"
 
     def test_audio_supports_ranges_without_counting_seeks(self, client, gm_headers, tmp_path):
         path = tmp_path / "Theme.mp3"
@@ -336,6 +353,24 @@ class TestThrottle:
             client.post(f"/api/share/{token_of(locked)}/unlock", json={"password": "wrong"})
         r = client.post(f"/api/share/{token_of(locked)}/unlock", json={"password": "right one"})
         assert r.status_code == 429
+
+    def test_wrong_passwords_are_counted_per_link_across_addresses(
+        self, client, gm_headers, limited, shared_map
+    ):
+        locked = create(client, gm_headers, "map", shared_map.id, password="right one").json()
+        url = f"/api/share/{token_of(locked)}/unlock"
+        for i in range(20):
+            client.post(url, json={"password": "wrong"}, headers={"X-Forwarded-For": f"203.0.113.{i}"})
+        r = client.post(url, json={"password": "right one"}, headers={"X-Forwarded-For": "198.51.100.9"})
+        assert r.status_code == 429
+        # Other links keep their own count.
+        other = create(client, gm_headers, "map", shared_map.id, password="right one").json()
+        r = client.post(
+            f"/api/share/{token_of(other)}/unlock",
+            json={"password": "right one"},
+            headers={"X-Forwarded-For": "198.51.100.9"},
+        )
+        assert r.status_code == 200
 
 
 class TestOtfbmVariant:

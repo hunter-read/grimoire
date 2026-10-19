@@ -1,6 +1,7 @@
 """Add-ons package — registers all add-on management routes on a single router."""
 from fastapi import APIRouter
 
+from ... import api_keys
 from ._schemas import (
     AddonListResponse,
     AddonSettingsResponse,
@@ -71,6 +72,8 @@ router.add_api_route(
     summary="Update add-on settings",
     description="Sets the index URL and the global 'allow add-on scripts' switch. Admin only.",
     response_model=AddonSettingsResponse,
+    # Decides where add-ons come from and whether they run code: session only.
+    openapi_extra=api_keys.EXCLUDED,
 )
 router.add_api_route(
     "/{addon_id}/install",

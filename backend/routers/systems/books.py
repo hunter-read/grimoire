@@ -38,6 +38,7 @@ from ...services.browse.tag_query import FILTER_ANY, FILTER_NONE, TagMatcher
 from ...services.search_query import parse_query
 from .._browse import parse_tags_param
 from ..search._books import _apply_field_filters, _free_text_clause
+from ._helpers import load_browsable_system
 from ._serializers import _category_depth, serialize_book
 
 BOOK_SORTS = frozenset({"title", "year", "page_count", "size", "product_code", "added_at"})
@@ -384,16 +385,7 @@ class ShelfBrowser:
 
 def _load_system(db: Session, system_id: str, current_user: CurrentUser) -> GameSystem:
     """The system, or 404 when it is missing or hidden from this user."""
-    system = db.query(GameSystem).filter_by(id=system_id).first()
-    if not system:
-        raise HTTPException(404, "System not found")
-    user = db.query(User).filter_by(id=current_user.id).first()
-    see_explicit = bool(user.allow_explicit) if user and user.allow_explicit is not None else True
-    if system.is_explicit and not see_explicit:
-        raise HTTPException(404, "System not found")
-    if not access_control.can_access_system(db, user, system):
-        raise HTTPException(404, "System not found")
-    return system
+    return load_browsable_system(db, system_id, current_user)
 
 
 def list_system_books(
@@ -409,7 +401,7 @@ def list_system_books(
     total, books = ShelfBrowser(db, system, current_user).page(params, limit, offset)
     ids = [b.id for b in books]
     book_tags = tag_service.display_tags_for_resources(db, "book", ids)
-    vcounts = variants.variant_counts(db, Book, ids)
+    vcounts = variants.variant_counts(db, Book, ids, current_user)
     return {
         "total": total,
         "books": [

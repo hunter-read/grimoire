@@ -132,7 +132,7 @@
     "setupFailed": "Configurazione non riuscita.",
     "serverUnreachable": "Impossibile raggiungere il server.",
     "passwordMismatch": "Le password non coincidono.",
-    "passwordTooShort": "La password deve contenere almeno 8 caratteri."
+    "passwordTooShort": "La password deve contenere almeno {{min}} caratteri."
   },
   "library": {
     "title": "La tua collezione",
@@ -1157,7 +1157,7 @@
       "saving": "Salvataggio…",
       "passwordUpdated": "Password aggiornata",
       "mismatch": "Le nuove password non coincidono.",
-      "tooShort": "La nuova password deve contenere almeno 8 caratteri.",
+      "tooShort": "La nuova password deve contenere almeno {{min}} caratteri.",
       "failed": "Modifica della password non riuscita."
     },
     "sessions": {
@@ -1494,8 +1494,8 @@
     "failedUpdateApiKeys": "Impossibile aggiornare l'accesso alle chiavi API.",
     "setPassword": "Imposta password",
     "setPasswordTitle": "Imposta la password per questo utente",
-    "newPasswordPlaceholder": "Nuova password (min 8)",
-    "minChars": "Minimo 8 caratteri",
+    "newPasswordPlaceholder": "Nuova password (min {{min}})",
+    "minChars": "Minimo {{min}} caratteri",
     "failedSetPassword": "Impossibile impostare la password",
     "deleteConfirm": "Eliminare?",
     "you": "(tu)",
@@ -1504,7 +1504,7 @@
     "failedUpdateRole": "Aggiornamento del ruolo non riuscito.",
     "failedUpdateExplicit": "Aggiornamento dell'impostazione contenuti espliciti non riuscito.",
     "failedSetPasswordErr": "Impossibile impostare la password.",
-    "passwordTooShort": "La password deve contenere almeno 8 caratteri.",
+    "passwordTooShort": "La password deve contenere almeno {{min}} caratteri.",
     "emailOptional": "Email (facoltativa)",
     "emailPlaceholder": "utente@esempio.com",
     "noEmail": "nessuna email",
@@ -3588,7 +3588,7 @@
       "expiry": "Scade dopo",
       "password": "Password (facoltativa)",
       "passwordPlaceholder": "Lascia vuoto per nessuna password",
-      "passwordTooShort": "Almeno 4 caratteri.",
+      "passwordTooShort": "Almeno {{min}} caratteri.",
       "passwordHint": "Chi apre il link deve inserirla. Gli strumenti che caricano direttamente il file non possono, quindi lasciala vuota per VTT e Discord.",
       "create": "Crea link"
     },

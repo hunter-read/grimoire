@@ -48,7 +48,7 @@ def list_favorites(user: CurrentUser = Depends(get_current_user), db: Session = 
             db, db.query(GameSystem).filter(GameSystem.id.in_(system_ids)), access_user
         )
     }
-    tag_meta = tag_service.tags_meta_for_internals(db, tag_internals)
+    tag_meta = tag_service.tags_meta_for_internals(db, tag_internals, user=access_user)
 
     if user.role == "guest":
         # A guest's favourites resolve only to what is shared into their
@@ -153,7 +153,7 @@ def list_favorites(user: CurrentUser = Depends(get_current_user), db: Session = 
                     "item_id": s.id,
                     "name": s.name,
                     "publishers": s.publishers or [],
-                    "cover_book_id": resolve_cover_book_id(db, s),
+                    "cover_book_id": resolve_cover_book_id(db, s, access_user),
                     # Container folders (issues #261, #262) own no books, so
                     # `cover_book_id` is always null for them and folder art /
                     # an upload served by GET /systems/{id}/cover is their only

@@ -1,12 +1,20 @@
-import { useState } from 'react'
+import { useState, type CSSProperties, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCheck, LuX } from 'react-icons/lu'
-import api from '../../api'
+import api, { type BodyOf, type Schema } from '../../api'
 import { useUISettings } from '../../context/UISettingsContext'
+import usePasswordRules from '../../hooks/usePasswordRules'
 
-export default function AddUserForm({ onAdd, onCancel, passwordAuthEnabled = true }) {
+interface Props {
+  onAdd: (user: Schema<'UserOut'>) => void
+  onCancel: () => void
+  passwordAuthEnabled?: boolean
+}
+
+export default function AddUserForm({ onAdd, onCancel, passwordAuthEnabled = true }: Props) {
   const { t } = useTranslation()
   const { api_keys_enabled: keysEnabled } = useUISettings()
+  const { passwordMinLength } = usePasswordRules()
   const [form, setForm] = useState({
     username: '',
     email: '',
@@ -20,16 +28,16 @@ export default function AddUserForm({ onAdd, onCancel, passwordAuthEnabled = tru
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError('')
-    if (passwordAuthEnabled && form.password.length < 8) {
-      setError(t('users.passwordTooShort'))
+    if (passwordAuthEnabled && form.password.length < passwordMinLength) {
+      setError(t('users.passwordTooShort', { min: passwordMinLength }))
       return
     }
     setLoading(true)
     try {
-      const payload = {
+      const payload: BodyOf<'/users', 'post'> = {
         username: form.username,
         role: form.role,
         allow_explicit: form.allow_explicit,
@@ -41,7 +49,7 @@ export default function AddUserForm({ onAdd, onCancel, passwordAuthEnabled = tru
       const user = await api.post('/users', payload)
       onAdd(user)
     } catch (err) {
-      setError(err.message || t('users.failedCreateUser'))
+      setError((err as Error)?.message || t('users.failedCreateUser'))
     } finally {
       setLoading(false)
     }
@@ -210,9 +218,14 @@ export default function AddUserForm({ onAdd, onCancel, passwordAuthEnabled = tru
   )
 }
 
-const labelStyle = { display: 'block', fontSize: 14, color: 'var(--text-muted)', marginBottom: 4 }
+const labelStyle: CSSProperties = {
+  display: 'block',
+  fontSize: 14,
+  color: 'var(--text-muted)',
+  marginBottom: 4,
+}
 
-const permLabelStyle = {
+const permLabelStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 6,
@@ -221,7 +234,7 @@ const permLabelStyle = {
   cursor: 'pointer',
 }
 
-const primaryBtnStyle = {
+const primaryBtnStyle: CSSProperties = {
   padding: '8px 16px',
   borderRadius: 6,
   fontSize: 13,
@@ -232,7 +245,7 @@ const primaryBtnStyle = {
   cursor: 'pointer',
 }
 
-const ghostBtnStyle = {
+const ghostBtnStyle: CSSProperties = {
   padding: '6px 12px',
   borderRadius: 6,
   fontSize: 13,

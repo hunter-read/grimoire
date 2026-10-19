@@ -13,7 +13,7 @@ class TestAdminEmail:
             headers=admin_headers,
             json={
                 "username": "email_user_a",
-                "password": "password123",
+                "password": "password123-long",
                 "email": "Foo@Example.COM",
             },
         )
@@ -35,7 +35,7 @@ class TestAdminEmail:
         resp = client.post(
             "/api/users",
             headers=admin_headers,
-            json={"username": "email_user_b", "password": "password123"},
+            json={"username": "email_user_b", "password": "password123-long"},
         )
         assert resp.status_code == 201
         body = resp.json()
@@ -46,7 +46,7 @@ class TestAdminEmail:
         resp = client.post(
             "/api/users",
             headers=admin_headers,
-            json={"username": "email_user_c", "password": "password123", "email": "not-an-email"},
+            json={"username": "email_user_c", "password": "password123-long", "email": "not-an-email"},
         )
         assert resp.status_code == 422
 
@@ -56,7 +56,7 @@ class TestAdminEmail:
             headers=admin_headers,
             json={
                 "username": "email_user_d",
-                "password": "password123",
+                "password": "password123-long",
                 "email": "dupe@example.com",
             },
         )
@@ -68,7 +68,7 @@ class TestAdminEmail:
             headers=admin_headers,
             json={
                 "username": "email_user_e",
-                "password": "password123",
+                "password": "password123-long",
                 "email": "DUPE@example.com",  # case-insensitive collision
             },
         )
@@ -81,7 +81,7 @@ class TestAdminEmail:
         a = client.post(
             "/api/users",
             headers=admin_headers,
-            json={"username": "email_user_f", "password": "password123"},
+            json={"username": "email_user_f", "password": "password123-long"},
         )
         uid = a.json()["id"]
 
@@ -154,3 +154,51 @@ class TestSelfEmail:
             headers=admin_headers,
             json={"email": ""},
         )
+
+
+class TestSelfEmailRestrictions:
+    def test_email_is_admin_managed_while_sso_matches_by_email(
+        self, client, admin_headers, gm_headers, gm_id
+    ):
+        client.patch("/api/settings", headers=admin_headers, json={"oidc_match_by": "email"})
+        try:
+            resp = client.patch(
+                "/api/users/me/preferences", headers=gm_headers, json={"email": "gm@example.com"}
+            )
+            assert resp.status_code == 403
+            # Other preferences still save, and resending the current email is fine.
+            resp = client.patch(
+                "/api/users/me/preferences", headers=gm_headers, json={"display_name": "GM"}
+            )
+            assert resp.status_code == 200
+            # An admin can still set it.
+            resp = client.patch(
+                f"/api/users/{gm_id}", headers=admin_headers, json={"email": "gm@example.com"}
+            )
+            assert resp.status_code == 200
+        finally:
+            client.patch("/api/settings", headers=admin_headers, json={"oidc_match_by": "none"})
+            client.patch(f"/api/users/{gm_id}", headers=admin_headers, json={"email": ""})
+            client.patch("/api/users/me/preferences", headers=gm_headers, json={"display_name": ""})
+
+    def test_guest_accounts_cannot_set_an_email(self, client):
+        from backend.auth import create_token
+        from backend.config import SessionLocal
+        from backend.models import User
+
+        db = SessionLocal()
+        guest = User(username="guest_email_check", role="guest", is_guest=True, hashed_password=None)
+        db.add(guest)
+        db.commit()
+        token = create_token(guest.id, guest.username, "guest")
+        try:
+            resp = client.patch(
+                "/api/users/me/preferences",
+                headers={"Authorization": f"Bearer {token}"},
+                json={"email": "guest@example.com"},
+            )
+            assert resp.status_code == 403
+        finally:
+            db.delete(guest)
+            db.commit()
+            db.close()

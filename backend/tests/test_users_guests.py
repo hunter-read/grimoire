@@ -306,10 +306,15 @@ class TestDeleteGuest:
     def test_can_delete_guest_with_no_campaign_or_inviter(
         self, client, admin_headers, gm_headers, guest
     ):
-        """An orphaned guest — its campaign deleted out from under it — is still
-        removable. It lists with null campaign/inviter and previously had no
-        action that could clear it."""
-        client.delete(f"/api/campaigns/{guest['campaign_id']}", headers=gm_headers)
+        """An orphaned guest (no campaign or inviter) is still removable. It lists
+        with null campaign/inviter and previously had no action that could clear it."""
+        from backend.config import SessionLocal
+        from backend.models import Campaign
+
+        db = SessionLocal()
+        db.delete(db.query(Campaign).filter_by(id=guest["campaign_id"]).one())
+        db.commit()
+        db.close()
 
         rows = client.get("/api/users/guests", headers=admin_headers).json()
         orphan = next(g for g in rows if g["id"] == guest["user_id"])

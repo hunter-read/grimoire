@@ -6,9 +6,11 @@ folder JSON columns that reference a tag by its internal key.
 """
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 from sqlalchemy.orm import Session
+
+from .. import access_control
 
 from ...models import SHARED_CATEGORY, BookFolder, ResourceTag, Tag
 from ._catalog import (
@@ -22,12 +24,33 @@ from ._folders import _FOLDER_SOURCES, folder_types_for_tag
 from ._queries import live_link_counts
 
 
-def tags_meta_for_internals(db: Session, internals: list[str]) -> dict[str, dict]:
+def tag_totals(db: Session) -> dict[str, int]:
+    """``{internal: items covered}`` over the whole library, shared links plus folders.
+
+    What a tag covers before any viewer's access is applied, so a listing can
+    tell a tag nobody has used from one used only on things its viewer cannot
+    see; the second is left out of that viewer's lists.
+    """
+    names = {t.id: t.internal for t in db.query(Tag.id, Tag.internal).all()}
+    totals: dict[str, int] = {}
+    for tag_id, n in live_link_counts(db).items():
+        if tag_id in names:
+            totals[names[tag_id]] = totals.get(names[tag_id], 0) + n
+    for internal, info in folder_tag_counts(db).items():
+        totals[internal] = totals.get(internal, 0) + info["count"]
+    return totals
+
+
+def tags_meta_for_internals(
+    db: Session, internals: list[str], *, user: Any = None
+) -> dict[str, dict]:
     """Resolve tag internal keys to ``{internal, display, count}`` metadata.
 
     Used to enrich favorited tags. ``count`` is the number of distinct items the
     tag covers (shared links + folder-derived), matching the tags-view total.
     A favorited tag that no longer exists anywhere is omitted from the result.
+    With ``user``, only what that user can see is counted, and a tag carried
+    only by things they cannot see is omitted too.
     """
     keys = {normalize_internal(i) for i in internals if normalize_internal(i)}
     if not keys:
@@ -43,14 +66,16 @@ def tags_meta_for_internals(db: Session, internals: list[str]) -> dict[str, dict
         # The same live-resource resolution the tags view counts with, so a
         # favorited tag does not report a total the tags page disagrees with
         # (issue #445).
-        by_tag_id = live_link_counts(db)
+        by_tag_id = live_link_counts(db, user=user)
         for internal, meta in shared.items():
             count = by_tag_id.get(meta["id"], 0)
             if count:
                 link_counts[internal] = count
 
     # Folder-derived coverage for the same keys.
-    folder = folder_tag_counts(db)
+    folder = folder_tag_counts(db, user=user)
+    limited = user is not None and not access_control.sees_everything(user)
+    totals = tag_totals(db) if limited else {}
 
     out: dict[str, dict] = {}
     for key in keys:
@@ -61,7 +86,7 @@ def tags_meta_for_internals(db: Session, internals: list[str]) -> dict[str, dict
         if key in folder:
             display = display or folder[key]["display"]
             count += folder[key]["count"]  # upper bound; folder ∪ shared rarely overlap
-        if display is not None:
+        if display is not None and (count or not totals.get(key)):
             out[key] = {"internal": key, "display": display, "count": count}
     return out
 

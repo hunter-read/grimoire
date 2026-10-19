@@ -1,4 +1,6 @@
 """Enrichment helpers for the tags API: turn (type, id) refs into display items."""
+from typing import Any
+
 from sqlalchemy.orm import Session
 
 from ...models import Audio, Book, GameSystem, GenericMap, Model3D, Token, User
@@ -11,7 +13,7 @@ def can_see_explicit(db: Session, user_id: str) -> bool:
 
 
 def enrich_tagged_items(
-    db: Session, refs: list[dict], *, see_explicit: bool
+    db: Session, refs: list[dict], *, see_explicit: bool, access_user: Any
 ) -> list[dict]:
     """Enrich ``[{resource_type, resource_id}]`` refs into display items.
 
@@ -115,7 +117,7 @@ def enrich_tagged_items(
                     "item_id": s.id,
                     "name": s.name,
                     "publishers": s.publishers or [],
-                    "cover_book_id": resolve_cover_book_id(db, s),
+                    "cover_book_id": resolve_cover_book_id(db, s, access_user),
                 }
             )
     return items

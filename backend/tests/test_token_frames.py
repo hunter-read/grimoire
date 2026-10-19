@@ -167,6 +167,7 @@ def test_serves_svg_with_its_own_media_type(client, admin_headers, frame_library
     resp = client.get(f"/api/token-frames/{svg['id']}/file", headers=admin_headers)
     assert resp.status_code == 200
     assert resp.headers["content-type"].startswith("image/svg+xml")
+    assert "sandbox" in resp.headers["content-security-policy"]
 
 
 def test_conditional_request_returns_304(client, admin_headers, frame_library):

@@ -1,13 +1,20 @@
-import { useState } from 'react'
+import { useState, type CSSProperties, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { Schema } from '../api'
+import usePasswordRules from '../hooks/usePasswordRules'
 
-export default function SetupView({ onSetup }) {
+interface Props {
+  onSetup: (token: string, user: Schema<'LoginUser'>) => void
+}
+
+export default function SetupView({ onSetup }: Props) {
   const { t } = useTranslation()
+  const { passwordMinLength } = usePasswordRules()
   const [form, setForm] = useState({ username: '', password: '', confirm: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError('')
 
@@ -15,8 +22,8 @@ export default function SetupView({ onSetup }) {
       setError(t('setup.passwordMismatch'))
       return
     }
-    if (form.password.length < 8) {
-      setError(t('setup.passwordTooShort'))
+    if (form.password.length < passwordMinLength) {
+      setError(t('setup.passwordTooShort', { min: passwordMinLength }))
       return
     }
 
@@ -29,10 +36,12 @@ export default function SetupView({ onSetup }) {
       })
       const data = await res.json()
       if (!res.ok) {
-        setError(data.detail || t('setup.setupFailed'))
+        // The server's reason, e.g. a password it refuses as too common.
+        setError(errorMessage(data) || t('setup.setupFailed'))
         return
       }
-      onSetup(data.token, data.user)
+      const login = data as Schema<'LoginResponse'>
+      onSetup(login.token, login.user)
     } catch {
       setError(t('setup.serverUnreachable'))
     } finally {
@@ -156,7 +165,18 @@ export default function SetupView({ onSetup }) {
   )
 }
 
-const labelStyle = {
+// FastAPI's `detail`: a string from the route, or a list of validation errors.
+function errorMessage(body: unknown): string {
+  const detail = (body as { detail?: unknown } | null)?.detail
+  if (typeof detail === 'string') return detail
+  if (!Array.isArray(detail)) return ''
+  return detail
+    .map((e: { msg?: unknown } | null) => String(e?.msg || '').replace(/^Value error,\s*/, ''))
+    .filter(Boolean)
+    .join('; ')
+}
+
+const labelStyle: CSSProperties = {
   display: 'block',
   fontSize: 15,
   color: 'var(--text-muted)',
@@ -164,7 +184,7 @@ const labelStyle = {
   letterSpacing: '0.03em',
 }
 
-const submitBtnStyle = (loading) => ({
+const submitBtnStyle = (loading: boolean): CSSProperties => ({
   width: '100%',
   padding: '12px',
   borderRadius: 8,

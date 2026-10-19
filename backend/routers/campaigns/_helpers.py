@@ -321,6 +321,16 @@ def assert_not_archived(campaign: Campaign) -> None:
         raise HTTPException(409, "Campaign is archived: unarchive it to make changes")
 
 
+def assert_not_locked(campaign: Campaign, db) -> None:
+    """Refuse writes to a campaign that is read-only for everyone: its owner's
+    campaign access is disabled, or it is archived (the ``locked`` flag)."""
+    if not user_has_campaign_access(db, campaign.owner_id):
+        raise HTTPException(
+            403, "Campaign is locked: the GM's campaign access has been disabled"
+        )
+    assert_not_archived(campaign)
+
+
 def assert_can_manage(campaign: Campaign, user: CurrentUser, db):
     """Only the owner can manage a campaign, and only while their campaign access
     is enabled. A disabled owner locks the campaign read-only for everyone.
@@ -330,11 +340,7 @@ def assert_can_manage(campaign: Campaign, user: CurrentUser, db):
     """
     if campaign.owner_id != user.id:
         raise HTTPException(403, "Not authorised to manage this campaign")
-    if not user_has_campaign_access(db, campaign.owner_id):
-        raise HTTPException(
-            403, "Campaign is locked: the GM's campaign access has been disabled"
-        )
-    assert_not_archived(campaign)
+    assert_not_locked(campaign, db)
 
 
 def is_member(db, campaign_id: str, user_id: str) -> bool:
@@ -481,6 +487,21 @@ def build_members(c: Campaign, db) -> list:
         }
         for m in rows
     ]
+    return members
+
+
+def members_for(c: Campaign, user: CurrentUser, db) -> list:
+    """``build_members`` as ``user`` may see it.
+
+    A guest's code is their login: only the GM who hands codes out sees them,
+    from a signed-in session - never another member or guest (issue #519), and
+    never through an API key.
+    """
+    members = build_members(c, db)
+    if c.owner_id != user.id or user.is_api_key:
+        for m in members:
+            if m.get("guest_code"):
+                m["guest_code"] = None
     return members
 
 

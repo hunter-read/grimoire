@@ -7142,6 +7142,10 @@ export interface components {
         AuthStatusResponse: {
             /** Initialized */
             initialized: boolean;
+            /** Password Min Length */
+            password_min_length: number;
+            /** Share Link Password Min Length */
+            share_link_password_min_length: number;
         };
         /**
          * AvailabilityCell

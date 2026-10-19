@@ -169,6 +169,34 @@ class TestFolderCoverPrecedence:
         finally:
             covers.LIBRARY_PATH = original
 
+    def test_svg_folder_cover_is_served_as_an_inert_document(
+        self, client, admin_headers, system, tmp_path
+    ):
+        import backend.routers.systems.covers as covers
+
+        rel = f"books/{system.slug}/cover.svg"
+        target = tmp_path / rel
+        target.parent.mkdir(parents=True)
+        target.write_bytes(b'<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"/>')
+        _set_folder_cover(system.id, rel)
+
+        original = covers.LIBRARY_PATH
+        covers.LIBRARY_PATH = str(tmp_path)
+        try:
+            resp = client.get(f"/api/systems/{system.id}/cover", headers=admin_headers)
+            assert resp.status_code == 200
+            assert resp.headers["content-type"].startswith("image/svg+xml")
+            assert "sandbox" in resp.headers["content-security-policy"]
+            # A revalidation keeps the same policy.
+            again = client.get(
+                f"/api/systems/{system.id}/cover",
+                headers={**admin_headers, "If-None-Match": resp.headers["etag"]},
+            )
+            assert again.status_code == 304
+            assert "sandbox" in again.headers["content-security-policy"]
+        finally:
+            covers.LIBRARY_PATH = original
+
     def test_folder_cover_path_escaping_the_library_is_refused(
         self, client, admin_headers, system, tmp_path
     ):

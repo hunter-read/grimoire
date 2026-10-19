@@ -33,6 +33,7 @@ from ...filenames import is_undecodable
 from ...indexer import resolve_collection_dir
 from ...indexer.constants import FRAMES_MARKER as _FRAMES_MARKER
 from ...models import Token
+from ...security import INERT_DOCUMENT_HEADERS
 from ...services.library_fs.constants import LibraryFSError
 from ...services.library_fs.paths import library_root, safe_join, to_relative
 
@@ -380,6 +381,6 @@ def frame_response_headers(path: Path) -> dict[str, Any]:
     ``SAME_ORIGIN_FRAME_HEADERS`` relies on.
     """
     return {
-        "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+        **INERT_DOCUMENT_HEADERS,
         "Content-Disposition": f'inline; filename="{path.name}"',
     }

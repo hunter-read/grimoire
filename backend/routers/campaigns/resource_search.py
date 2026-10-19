@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from ...auth import CurrentUser, get_current_user
 from ...config import get_db
 from ...models import Audio, Book, GameSystem, GenericMap, Token
-from ...services import variants
+from ...services import access_control, variants
 
 # Hard ceiling on how many rows one search may return per resource type. The
 # picker browses a whole collection as a folder tree, so this has to be large
@@ -110,12 +110,21 @@ def search_resources_global(
     like = f"%{_escape_like(q)}%" if q else None
 
     if not resource_type or resource_type == "book":
+        access_user = access_control.load_user(db, current_user)
         # Map system id → name in one pass so each book's tree path can lead
-        # with its system without a per-book relationship lookup.
-        system_names = {s.id: s.name for s in db.query(GameSystem.id, GameSystem.name).all()}
+        # with its system without a per-book relationship lookup. Only systems
+        # the user can see, so a subtitle never names one they cannot.
+        system_names = {
+            s.id: s.name
+            for s in access_control.visible_systems(
+                db, db.query(GameSystem.id, GameSystem.name), access_user
+            ).all()
+        }
         # You link the main entry, not one of its variants: a picker listing the
         # same book five times is noise, and the variants travel with the parent.
-        query = variants.parents_only(db.query(Book), Book)
+        query = access_control.visible_books(
+            db, variants.parents_only(db.query(Book), Book), access_user
+        )
         if system_id:
             query = query.filter(Book.game_system_id.in_(_system_id_filter(db, system_id)))
         if like is not None:
@@ -256,11 +265,15 @@ def suggested_resources(
     """
     if current_user.role == "guest":
         raise HTTPException(403, "Guests cannot browse the library")
-    books = (
-        variants.parents_only(db.query(Book).filter_by(game_system_id=system_id), Book)
-        .order_by(Book.title)
-        .all()
-    )
+    access_user = access_control.load_user(db, current_user)
+    system = db.query(GameSystem).filter_by(id=system_id).first()
+    if system is None or not access_control.can_access_system(db, access_user, system):
+        return []
+    books = access_control.visible_books(
+        db,
+        variants.parents_only(db.query(Book).filter_by(game_system_id=system_id), Book),
+        access_user,
+    ).order_by(Book.title).all()
     out = [
         {
             "resource_type": "book",

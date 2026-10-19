@@ -1,17 +1,24 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import usePasswordRules from '../../hooks/usePasswordRules'
 import { ghostBtnStyle, saveBtnStyle } from './settingsButtons'
 
+interface Props {
+  onSave: (password: string) => Promise<unknown>
+  onCancel: () => void
+}
+
 /** Inline password setter used in the admin user row. */
-export default function SetPasswordInline({ onSave, onCancel }) {
+export default function SetPasswordInline({ onSave, onCancel }: Props) {
   const { t } = useTranslation()
+  const { passwordMinLength } = usePasswordRules()
   const [value, setValue] = useState('')
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
 
   const handleSave = async () => {
-    if (value.length < 8) {
-      setErr(t('users.minChars'))
+    if (value.length < passwordMinLength) {
+      setErr(t('users.minChars', { min: passwordMinLength }))
       return
     }
     setSaving(true)
@@ -19,6 +26,7 @@ export default function SetPasswordInline({ onSave, onCancel }) {
       await onSave(value)
       onCancel()
     } catch {
+      // The caller (UsersTab) shows the server's reason in its error banner.
       setErr(t('users.failedSetPassword'))
     } finally {
       setSaving(false)
@@ -30,7 +38,7 @@ export default function SetPasswordInline({ onSave, onCancel }) {
       <input
         type="password"
         id="set-password-inline"
-        aria-label={t('users.newPasswordPlaceholder')}
+        aria-label={t('users.newPasswordPlaceholder', { min: passwordMinLength })}
         value={value}
         onChange={(e) => {
           setValue(e.target.value)
@@ -40,7 +48,7 @@ export default function SetPasswordInline({ onSave, onCancel }) {
           if (e.key === 'Enter') handleSave()
           if (e.key === 'Escape') onCancel()
         }}
-        placeholder={t('users.newPasswordPlaceholder')}
+        placeholder={t('users.newPasswordPlaceholder', { min: passwordMinLength })}
         autoFocus
         style={{
           background: 'var(--bg-input)',

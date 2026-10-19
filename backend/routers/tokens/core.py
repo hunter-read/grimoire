@@ -18,6 +18,7 @@ from ..token_frames._helpers import frame_folder_paths
 from ...services.browse.media import MediaBrowse, MediaBrowser
 from ...services.content_cache import content_token
 from ...file_cache import etag_matches
+from ...security import inert_svg_headers
 from ...auth import require_gm_or_admin, get_current_user, CurrentUser
 from ...indexer import archive_ext, archive_mime, slugify
 from .._browse import media_browse_params
@@ -179,7 +180,12 @@ def serve_token_file(
     else:
         ext = Path(t.filepath).suffix.lower()
         media = f"image/{ext[1:]}"
-    return FileResponse(t.filepath, media_type=media, filename=t.filename)
+    return FileResponse(
+        t.filepath,
+        media_type=media,
+        filename=t.filename,
+        headers=inert_svg_headers(media, t.filepath),
+    )
 
 
 def serve_token_thumbnail(

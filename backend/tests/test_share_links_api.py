@@ -32,13 +32,19 @@ class TestCreate:
 
     def test_expiry_and_password(self, client, gm_headers, shared_map):
         link = create(
-            client, gm_headers, "map", shared_map.id, expires_in_days=7, password="hunter2"
+            client, gm_headers, "map", shared_map.id, expires_in_days=7, password="lantern harbor"
         ).json()
         assert link["expires_at"] is not None
         assert link["has_password"] is True
 
     def test_short_password_rejected(self, client, gm_headers, shared_map):
         assert create(client, gm_headers, "map", shared_map.id, password="abc").status_code == 422
+        assert create(client, gm_headers, "map", shared_map.id, password="7chars!").status_code == 422
+
+    def test_common_password_rejected(self, client, gm_headers, shared_map):
+        r = create(client, gm_headers, "map", shared_map.id, password="password1")
+        assert r.status_code == 422
+        assert "common" in r.text
 
     def test_player_refused_by_default(self, client, player_headers, shared_map):
         r = create(client, player_headers, "map", shared_map.id)
@@ -110,7 +116,7 @@ class TestManage:
         link = create(client, gm_headers, "map", shared_map.id, expires_in_days=1).json()
         r = client.patch(
             f"/api/share-links/{link['id']}",
-            json={"label": " Renamed ", "expires_in_days": None, "password": "s3cret!"},
+            json={"label": " Renamed ", "expires_in_days": None, "password": "lantern harbor"},
             headers=gm_headers,
         )
         body = r.json()
@@ -130,7 +136,7 @@ class TestManage:
     def test_update_leaves_unsent_fields(self, client, gm_headers, shared_map):
         link = create(client, gm_headers, "map", shared_map.id, label="Keep", expires_in_days=3).json()
         body = client.patch(
-            f"/api/share-links/{link['id']}", json={"password": "abcd"}, headers=gm_headers
+            f"/api/share-links/{link['id']}", json={"password": "lantern harbor"}, headers=gm_headers
         ).json()
         assert body["label"] == "Keep"
         assert body["expires_at"] == link["expires_at"]
@@ -193,7 +199,7 @@ class TestAdmin:
     def test_deleting_a_user_deletes_their_links(self, client, admin_headers, tmp_path):
         r = client.post(
             "/api/users",
-            json={"username": "sharer-to-delete", "password": "password123", "role": "gm"},
+            json={"username": "sharer-to-delete", "password": "password123-long", "role": "gm"},
             headers=admin_headers,
         )
         uid = r.json()["id"]
@@ -260,7 +266,7 @@ class TestPermissionSurfaces:
             "/api/users",
             json={
                 "username": "sharing-player",
-                "password": "password123",
+                "password": "password123-long",
                 "role": "player",
                 "share_links": "allow",
             },
@@ -345,8 +351,62 @@ class TestTokenAtRest:
     def test_the_unlock_cookie_is_scoped_to_the_real_token(
         self, client, gm_headers, shared_map
     ):
-        link = create(client, gm_headers, "map", shared_map.id, password="hunter22").json()
+        link = create(client, gm_headers, "map", shared_map.id, password="lantern harbor").json()
         token = link["url"].rsplit("/", 1)[1]
-        r = client.post(f"/api/share/{token}/unlock", json={"password": "hunter22"})
+        r = client.post(f"/api/share/{token}/unlock", json={"password": "lantern harbor"})
         assert r.status_code == 200
         assert f"Path=/api/share/{token}" in r.headers["set-cookie"]
+
+
+def _key(client, headers, permissions):
+    resp = client.post(
+        "/api/api-keys", json={"name": "share-key", "permissions": permissions}, headers=headers
+    )
+    assert resp.status_code == 201, resp.text
+    return {"X-API-Key": resp.json()["key"]}
+
+
+class TestWithAnApiKey:
+    """A key shares only items in the areas it was granted, as well as share-links."""
+
+    def test_needs_read_on_the_items_area(self, client, admin_headers, shared_map):
+        links_only = _key(client, admin_headers, {"share-links": "write"})
+        resp = create(client, links_only, "map", shared_map.id)
+        assert resp.status_code == 403
+        assert "'maps'" in resp.json()["detail"]
+
+        with_maps = _key(client, admin_headers, {"share-links": "write", "maps": "read"})
+        assert create(client, with_maps, "map", shared_map.id).status_code == 200
+
+    def test_another_areas_grant_is_not_enough(self, client, admin_headers, shared_map):
+        books = _key(client, admin_headers, {"share-links": "write", "books": "write"})
+        assert create(client, books, "map", shared_map.id).status_code == 403
+
+    def test_all_permissions_cover_every_area(self, client, admin_headers, shared_map):
+        key = _key(client, admin_headers, {"*": "read", "share-links": "write"})
+        assert create(client, key, "map", shared_map.id).status_code == 200
+
+    def test_listing_shows_only_the_keys_areas(self, client, admin_headers, shared_map):
+        link = create(client, admin_headers, "map", shared_map.id).json()
+        links_only = _key(client, admin_headers, {"share-links": "read"})
+        with_maps = _key(client, admin_headers, {"share-links": "read", "maps": "read"})
+        for path in ("/api/share-links", "/api/share-links/all"):
+            listed = [item["id"] for item in client.get(path, headers=links_only).json()]
+            assert link["id"] not in listed
+            listed = [item["id"] for item in client.get(path, headers=with_maps).json()]
+            assert link["id"] in listed
+
+    def test_changing_a_link_needs_the_area_too(self, client, admin_headers, shared_map):
+        link = create(client, admin_headers, "map", shared_map.id, password="lantern harbor").json()
+        links_only = _key(client, admin_headers, {"share-links": "write"})
+        path = f"/api/share-links/{link['id']}"
+        assert client.patch(path, json={"password": None}, headers=links_only).status_code == 403
+        # Taking a link down is always allowed.
+        assert client.post(f"{path}/revoke", headers=links_only).status_code == 200
+
+        other = create(client, admin_headers, "map", shared_map.id).json()
+        with_maps = _key(client, admin_headers, {"share-links": "write", "maps": "read"})
+        resp = client.patch(
+            f"/api/share-links/{other['id']}", json={"label": "Tavern"}, headers=with_maps
+        )
+        assert resp.status_code == 200, resp.text

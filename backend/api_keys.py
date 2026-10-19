@@ -14,7 +14,10 @@ the matched route:
   and Write. A ``POST`` that only takes a body and changes nothing is marked
   :data:`READ_ONLY` on the route and counts as Read.
 * Single routes inside a mapped tag that change credentials (password, account
-  deletion, OPDS and calendar tokens) are marked :data:`EXCLUDED` on the route.
+  deletion, OPDS and calendar tokens, guest invite codes, sign-in settings) are
+  marked :data:`EXCLUDED` on the route. Where such a field shares a route with
+  ordinary ones (a user's password, the OIDC settings), the handler refuses it
+  for a key with :func:`assert_session`.
 * :data:`ALL_PERMISSIONS` (``"*"``) in a key's permissions sets a floor for
   every permission at once, including ones added in later versions.
 
@@ -38,7 +41,7 @@ import hashlib
 import hmac
 import secrets
 from dataclasses import dataclass, field
-from typing import Any, Iterable, NamedTuple, Optional
+from typing import Any, Iterable, NamedTuple, NoReturn, Optional
 
 from fastapi import HTTPException, Request
 
@@ -213,6 +216,20 @@ def has_level(permissions: Optional[dict[str, str]], permission: str, needed: st
     return _RANK.get(granted_level(permissions, permission), 0) >= _RANK[needed]
 
 
+SESSION_ONLY = "This change needs a signed-in session, not an API key"
+
+
+def assert_session(user: Any, detail: str = SESSION_ONLY) -> None:
+    """Refuse a key-authenticated ``user`` (a ``CurrentUser``) with 403.
+
+    For the few changes inside a key-reachable route that only a signed-in
+    session may make: passwords, sign-in addresses, the admin role, sign-in
+    settings.
+    """
+    if getattr(user, "is_api_key", False):
+        raise HTTPException(403, detail)
+
+
 def route_permission(route: Any) -> Optional[str]:
     """The permission a route falls under, or None when keys may not use it."""
     tags = list(getattr(route, "tags", None) or [])
@@ -364,6 +381,17 @@ def user_keys_allowed(user: Any) -> bool:
     return bool(getattr(user, "api_keys_enabled", False))
 
 
+def _refuse(request: Request, detail: str) -> NoReturn:
+    """Refuse a key that doesn't work: 429 once this client is over its
+    failed-key allowance, otherwise 401 and the failure is counted."""
+    from .security import api_key_attempts_blocked, record_api_key_failure
+
+    if api_key_attempts_blocked(request):
+        raise HTTPException(429, "Too many invalid API key attempts - try again later")
+    record_api_key_failure(request)
+    raise HTTPException(401, detail)
+
+
 def authenticate(presented: str, request: Request, *, check_route: bool = True) -> KeyPrincipal:
     """Resolve ``presented`` to a key and check it may call the matched route.
 
@@ -381,12 +409,9 @@ def authenticate(presented: str, request: Request, *, check_route: bool = True) 
     """
     from .config import SessionLocal
     from .models import ApiKey, User
-    from .security import api_key_attempts_blocked, record_api_key_failure
 
     if not keys_enabled():
         raise HTTPException(403, "API keys are disabled on this server")
-    if api_key_attempts_blocked(request):
-        raise HTTPException(429, "Too many invalid API key attempts - try again later")
 
     from .route_table import request_route
 
@@ -400,18 +425,15 @@ def authenticate(presented: str, request: Request, *, check_route: bool = True) 
     try:
         row = db.query(ApiKey).filter_by(key_hash=presented_hash).first()
         if row is None or not hmac.compare_digest(row.key_hash, presented_hash):
-            record_api_key_failure(request)
-            raise HTTPException(401, "Invalid API key")
+            _refuse(request, "Invalid API key")
         if is_expired(row.expires_at, now):
-            record_api_key_failure(request)
-            raise HTTPException(401, "API key has expired")
+            _refuse(request, "API key has expired")
 
         # The owner's current role, not the one they had when the key was made: a
         # demoted user's keys lose what the demotion took away.
         owner = db.query(User).filter_by(id=row.user_id).first()
         if owner is None:
-            record_api_key_failure(request)
-            raise HTTPException(401, "Invalid API key")
+            _refuse(request, "Invalid API key")
         if not user_keys_allowed(owner):
             raise HTTPException(403, "API keys are not enabled for your account")
 

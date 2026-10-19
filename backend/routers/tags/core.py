@@ -4,7 +4,7 @@ The tags page and cross-resource tag features read from the shared-tag tables vi
 ``tag_service``. Listing is readable by any authenticated user; mutations require
 gm/admin. The per-tag item views live in :mod:`.items`.
 """
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -12,11 +12,13 @@ from sqlalchemy.orm import Session
 from ...auth import CurrentUser, get_current_user, require_gm_or_admin
 from ...config import get_db
 from ...models import RESOURCE_TYPES, Favorite, ResourceTag, Tag
-from ...services import tag_service
+from ...services import access_control, tag_service
 from ._schemas import TagCreate, TagDisplayUpdate, TagMerge
 
 
-def _merge_folder_tags(db: Session, shared: list[dict], in_use_by: Optional[str]) -> list[dict]:
+def _merge_folder_tags(
+    db: Session, shared: list[dict], in_use_by: Optional[str], viewer: Any = None
+) -> list[dict]:
     """Fold folder-derived tags into a shared-tag listing, keyed by internal.
 
     A tag present in both keeps its shared display and sums the two counts
@@ -25,12 +27,13 @@ def _merge_folder_tags(db: Session, shared: list[dict], in_use_by: Optional[str]
     is its *effective* category: the stored ``Tag.category`` reconciled with the
     resource types of any folders carrying it, so e.g. a tag on a book (direct)
     and a map folder resolves to ``shared``. Result is sorted by display,
-    case-insensitively.
+    case-insensitively. With ``viewer``, folder counts cover only what that
+    user can see.
     """
     # Resolve folder tags across all types (unscoped), so a tag's effective
     # category reflects every type it appears on even when the listing itself is
     # scoped to one page.
-    folder = tag_service.folder_tag_counts(db)
+    folder = tag_service.folder_tag_counts(db, user=viewer)
     folder_types: dict[str, set[str]] = {
         internal: info["types"] for internal, info in folder.items()
     }
@@ -85,13 +88,17 @@ def list_tags(
     if in_use_by is not None and in_use_by not in RESOURCE_TYPES:
         raise HTTPException(400, f"in_use_by must be one of: {', '.join(sorted(RESOURCE_TYPES))}")
 
+    # Counts cover only the books and systems this user can see (issue #258).
+    access_user = access_control.load_user(db, user)
+    viewer = None if access_control.sees_everything(access_user) else access_user
+
     if in_use_by is not None:
-        shared = tag_service.tags_in_use(db, in_use_by)
+        shared = tag_service.tags_in_use(db, in_use_by, user=viewer)
     else:
         # All shared tags (used or not), with usage counts. The counts come from
         # the same live-resource resolution ``/items`` uses, so a tag whose
         # carriers are gone reads 0 here rather than counting dead links.
-        counts = tag_service.live_link_counts(db)
+        counts = tag_service.live_link_counts(db, user=viewer)
         shared = [
             {
                 "internal": t.internal,
@@ -102,7 +109,12 @@ def list_tags(
             for t in db.query(Tag).all()
         ]
 
-    merged = _merge_folder_tags(db, shared, in_use_by)
+    merged = _merge_folder_tags(db, shared, in_use_by, viewer)
+    if viewer is not None:
+        # A tag used only on things this user cannot see is left out; one that
+        # nobody has used yet stays, as it does for everyone.
+        totals = tag_service.tag_totals(db)
+        merged = [t for t in merged if t["count"] or not totals.get(t["internal"])]
     fav = {
         r.item_id
         for r in db.query(Favorite).filter_by(user_id=user.id, item_type="tag").all()

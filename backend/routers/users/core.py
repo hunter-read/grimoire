@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
+from ... import api_keys
 from ...config import get_db
 from ...models import User, Campaign, CampaignMember, UserAccessGrant
 from ...auth import require_admin, CurrentUser, hash_password
@@ -98,11 +99,18 @@ def list_guests(_: CurrentUser = Depends(require_admin), db: Session = Depends(g
     return result
 
 
+def _assert_session_for_credentials(current_user: CurrentUser, password, role) -> None:
+    """Passwords and the admin role are only set from a signed-in session."""
+    if password or role == "admin":
+        api_keys.assert_session(current_user)
+
+
 def create_user(
     data: UserCreate,
-    _: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
+    _assert_session_for_credentials(current_user, data.password, data.role)
     if db.query(User).filter_by(username=data.username.strip()).first():
         raise HTTPException(400, "Username already exists")
     if data.email and db.query(User).filter_by(email=data.email).first():
@@ -141,12 +149,18 @@ def create_user(
 def update_user(
     user_id: str,
     data: UserUpdate,
-    _: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     user = db.query(User).filter_by(id=user_id).first()
     if not user:
         raise HTTPException(404, "User not found")
+    _assert_session_for_credentials(
+        current_user, data.password, data.role if data.role != user.role else None
+    )
+    # The address OIDC can match sign-ins on.
+    if data.email is not None and (data.email or None) != user.email:
+        api_keys.assert_session(current_user)
 
     if data.role and data.role != "admin" and user.role == "admin":
         admin_count = db.query(User).filter_by(role="admin").count()
@@ -206,7 +220,7 @@ def update_user(
 
 
 def convert_guest(
-    user_id: str, data: GuestConvert, _: CurrentUser = Depends(require_admin),
+    user_id: str, data: GuestConvert, current_user: CurrentUser = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     """Promote a guest account to a permanent user.
@@ -222,6 +236,7 @@ def convert_guest(
         raise HTTPException(404, "User not found")
     if not user.is_guest:
         raise HTTPException(400, "User is not a guest")
+    _assert_session_for_credentials(current_user, data.password, data.role)
 
     new_username = data.username.strip()
     existing = db.query(User).filter_by(username=new_username).first()

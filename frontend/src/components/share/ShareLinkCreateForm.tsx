@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, type CSSProperties, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { shareLinks } from '../../api'
+import { shareLinks, type Schema } from '../../api'
+import usePasswordRules from '../../hooks/usePasswordRules'
 import { EXPIRY_OPTIONS } from './shareLinkUtils'
 
-const inputStyle = {
+const inputStyle: CSSProperties = {
   width: '100%',
   boxSizing: 'border-box',
   padding: '6px 10px',
@@ -13,20 +14,32 @@ const inputStyle = {
   borderRadius: 6,
   color: 'var(--text)',
 }
-const labelStyle = { fontSize: 12, fontWeight: 500, display: 'block', marginBottom: 4 }
+const labelStyle: CSSProperties = {
+  fontSize: 12,
+  fontWeight: 500,
+  display: 'block',
+  marginBottom: 4,
+}
+
+interface Props {
+  resourceType: Schema<'ShareLinkCreate'>['resource_type']
+  resourceId: string
+  onCreated: (link: Schema<'ShareLinkOut'>) => void
+}
 
 /** Creates a share link for one item: an optional label, expiry and password. */
-export default function ShareLinkCreateForm({ resourceType, resourceId, onCreated }) {
+export default function ShareLinkCreateForm({ resourceType, resourceId, onCreated }: Props) {
   const { t } = useTranslation()
+  const { shareLinkPasswordMinLength } = usePasswordRules()
   const [label, setLabel] = useState('')
   const [expiry, setExpiry] = useState('7')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
-  const tooShort = password.length > 0 && password.length < 4
+  const tooShort = password.length > 0 && password.length < shareLinkPasswordMinLength
 
-  const submit = async (e) => {
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (tooShort) return
     setBusy(true)
@@ -43,7 +56,7 @@ export default function ShareLinkCreateForm({ resourceType, resourceId, onCreate
       setPassword('')
       onCreated(link)
     } catch (err) {
-      setError(err.message || t('share.createFailed'))
+      setError((err as Error | undefined)?.message || t('share.createFailed'))
     } finally {
       setBusy(false)
     }
@@ -92,7 +105,9 @@ export default function ShareLinkCreateForm({ resourceType, resourceId, onCreate
           style={inputStyle}
         />
         <span style={{ fontSize: 12, color: tooShort ? 'var(--warning)' : 'var(--text-muted)' }}>
-          {tooShort ? t('share.form.passwordTooShort') : t('share.form.passwordHint')}
+          {tooShort
+            ? t('share.form.passwordTooShort', { min: shareLinkPasswordMinLength })
+            : t('share.form.passwordHint')}
         </span>
       </label>
       {error && (

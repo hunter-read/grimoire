@@ -314,7 +314,7 @@ class TestExplicitFiltering:
             "/api/users",
             json={
                 "username": f"nsfwplayer{uid}",
-                "password": "nsfwpass123",
+                "password": "nsfwpass123-long",
                 "role": "player",
             },
             headers=admin_headers,
@@ -324,7 +324,7 @@ class TestExplicitFiltering:
         client.patch(f"/api/users/{user_id}", json={"allow_explicit": False}, headers=admin_headers)
         username = resp.json()["username"]
         login = client.post(
-            "/api/auth/login", json={"username": username, "password": "nsfwpass123"}
+            "/api/auth/login", json={"username": username, "password": "nsfwpass123-long"}
         )
         return {"Authorization": f"Bearer {login.json()['token']}"}
 

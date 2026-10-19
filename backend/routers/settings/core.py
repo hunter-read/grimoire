@@ -4,7 +4,7 @@ import json
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from ... import config
+from ... import api_keys, config
 from ...config import (
     get_db,
     ALLOW_PASSWORD_AUTHENTICATION_ENV,
@@ -34,6 +34,16 @@ from ._schemas import SettingsPatch
 
 router = APIRouter()
 
+# Sign-in settings - every OIDC field, password and guest sign-in, and the
+# login page's message - are set from a signed-in session only, never a key.
+_SIGN_IN_FIELDS = (
+    "password_auth_enabled",
+    "guest_access_enabled",
+    "custom_login_message_enabled",
+    "custom_login_message",
+    *(name for name in SettingsPatch.model_fields if name.startswith("oidc_")),
+)
+
 
 def get_settings(_: CurrentUser = Depends(require_admin), db: Session = Depends(get_db)):
     raw = _get_raw(db)
@@ -42,10 +52,13 @@ def get_settings(_: CurrentUser = Depends(require_admin), db: Session = Depends(
 
 def update_settings(
     data: SettingsPatch,
-    _: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     from ... import scheduler  # local import avoids circular dependency
+
+    if any(getattr(data, key) is not None for key in _SIGN_IN_FIELDS):
+        api_keys.assert_session(current_user, "Sign-in settings need a signed-in session")
 
     if (
         data.rescan_schedule_interval is not None

@@ -111,6 +111,54 @@ class TestSafeJoin:
         result = fs.safe_join(f"books\\System-{library_tree}\\core")
         assert result.name == "core"
 
+    def test_interior_parent_segment_collapses_to_sibling(self, library_tree):
+        result = fs.safe_join(f"books/System-{library_tree}/core/../adventures")
+        assert result == fs.library_root() / f"books/System-{library_tree}/adventures"
+
+    def test_missing_destination_is_returned_for_creation(self, library_tree):
+        result = fs.safe_join(f"books/System-{library_tree}/core/new/../fresh.pdf")
+        assert result == fs.library_root() / f"books/System-{library_tree}/core/fresh.pdf"
+
+    def test_linked_folder_keeps_its_library_spelling(self, library_tree):
+        base = f"books/System-{library_tree}"
+        os.makedirs(os.path.join(LIB, base, "core/inner/deeper"))
+        os.symlink(os.path.join(LIB, base, "core/inner/deeper"), os.path.join(LIB, base, "hop"))
+        result = fs.safe_join(f"{base}/hop/x.pdf")
+        assert result == fs.library_root() / base / "hop" / "x.pdf"
+
+    def test_parent_segments_after_a_linked_folder_must_agree_with_disk(self, library_tree):
+        """``..`` after a linked folder is refused when it would name two places.
+
+        On disk the ``..`` steps out of the link's *target*; written down it
+        steps out of the link. The returned path is only ever the location the
+        containment check approved.
+        """
+        base = f"books/System-{library_tree}"
+        os.makedirs(os.path.join(LIB, base, "core/inner/deeper"))
+        os.symlink(os.path.join(LIB, base, "core/inner/deeper"), os.path.join(LIB, base, "hop"))
+        for rel in (f"{base}/hop/../../../../x", f"{base}/hop/../x"):
+            with pytest.raises(fs.LibraryFSError) as exc:
+                fs.safe_join(rel)
+            assert exc.value.code == "forbidden"
+
+    def test_linked_folder_with_parent_segments_is_not_created(self, library_tree):
+        base = f"books/System-{library_tree}"
+        os.makedirs(os.path.join(LIB, base, "core/inner/deeper"))
+        os.symlink(os.path.join(LIB, base, "core/inner/deeper"), os.path.join(LIB, base, "hop"))
+        with pytest.raises(fs.LibraryFSError):
+            fs.create_folder(f"{base}/hop/../../../..", f"made-{library_tree}")
+        assert not os.path.exists(os.path.join(os.path.dirname(LIB), f"made-{library_tree}"))
+        assert not os.path.exists(os.path.join(LIB, "books", f"made-{library_tree}"))
+
+    def test_linked_library_root_keeps_its_configured_spelling(self, monkeypatch, tmp_path):
+        real = tmp_path / "real"
+        (real / "books" / "System").mkdir(parents=True)
+        linked = tmp_path / "linked"
+        linked.symlink_to(real)
+        monkeypatch.setattr("backend.services.library_fs.paths.LIBRARY_PATH", str(linked))
+        assert fs.safe_join("books/System") == linked / "books" / "System"
+        assert fs.safe_join("books/System/../System/new.pdf") == linked / "books/System/new.pdf"
+
 
 class TestCollectionOf:
     def test_identifies_books(self, library_tree):

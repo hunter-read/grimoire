@@ -132,7 +132,7 @@
     "setupFailed": "Falha na configuração.",
     "serverUnreachable": "Não foi possível contactar o servidor.",
     "passwordMismatch": "As palavras-passe não coincidem.",
-    "passwordTooShort": "A palavra-passe deve ter pelo menos 8 caracteres."
+    "passwordTooShort": "A palavra-passe deve ter pelo menos {{min}} caracteres."
   },
   "library": {
     "title": "A sua coleção",
@@ -1157,7 +1157,7 @@
       "saving": "A guardar…",
       "passwordUpdated": "Palavra-passe atualizada",
       "mismatch": "As novas palavras-passe não coincidem.",
-      "tooShort": "A nova palavra-passe deve ter pelo menos 8 caracteres.",
+      "tooShort": "A nova palavra-passe deve ter pelo menos {{min}} caracteres.",
       "failed": "Falha ao alterar a palavra-passe."
     },
     "sessions": {
@@ -1494,8 +1494,8 @@
     "failedUpdateApiKeys": "Não foi possível atualizar o acesso às chaves de API.",
     "setPassword": "Definir palavra-passe",
     "setPasswordTitle": "Definir palavra-passe para este utilizador",
-    "newPasswordPlaceholder": "Nova palavra-passe (mín. 8)",
-    "minChars": "Mín. 8 caracteres",
+    "newPasswordPlaceholder": "Nova palavra-passe (mín. {{min}})",
+    "minChars": "Mín. {{min}} caracteres",
     "failedSetPassword": "Falha ao definir a palavra-passe",
     "deleteConfirm": "Eliminar?",
     "you": "(você)",
@@ -1504,7 +1504,7 @@
     "failedUpdateRole": "Falha ao atualizar a função.",
     "failedUpdateExplicit": "Falha ao atualizar a definição de conteúdo explícito.",
     "failedSetPasswordErr": "Falha ao definir a palavra-passe.",
-    "passwordTooShort": "A palavra-passe deve ter pelo menos 8 caracteres.",
+    "passwordTooShort": "A palavra-passe deve ter pelo menos {{min}} caracteres.",
     "emailOptional": "E-mail (opcional)",
     "emailPlaceholder": "utilizador@exemplo.com",
     "noEmail": "sem e-mail",
@@ -3588,7 +3588,7 @@
       "expiry": "Expira após",
       "password": "Palavra-passe (opcional)",
       "passwordPlaceholder": "Deixe vazio para não usar palavra-passe",
-      "passwordTooShort": "Pelo menos 4 caracteres.",
+      "passwordTooShort": "Pelo menos {{min}} caracteres.",
       "passwordHint": "Quem abrir a ligação tem de a introduzir. Ferramentas que carregam o ficheiro diretamente não conseguem, por isso deixe-a vazia para VTT e Discord.",
       "create": "Criar ligação"
     },

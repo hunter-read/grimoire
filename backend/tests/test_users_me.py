@@ -7,7 +7,7 @@ account so it never disturbs the session-scoped admin/gm/player fixtures.
 import uuid
 
 
-def _make_user(client, admin_headers, role="player", password="password123", **extra):
+def _make_user(client, admin_headers, role="player", password="password123-long", **extra):
     """Create a fresh account and return (user dict, auth headers)."""
     username = f"me_{uuid.uuid4().hex[:8]}"
     resp = client.post(
