@@ -1,5 +1,5 @@
 pytest>=9.0
 pytest-cov>=7.1.0
-ruff>=0.16
+ruff>=0.17.1
 mypy>=2.0
 pytest-xdist>=3.8
