@@ -168,10 +168,6 @@ to build and run on the same runtimes `ci.yml` tests with, so a runtime move is 
 changing the `Dockerfile` and `ci.yml` in the same PR. Patch and digest bumps of those images,
 and bumps of the other base images, still come through.
 
-The pip updates skip bcrypt major versions. passlib 1.7.4, which `backend/auth.py` hashes
-passwords with, is unmaintained and breaks on bcrypt 5 (its start-up probe hashes a password
-longer than 72 bytes, which bcrypt 5 rejects), so bcrypt stays on 4.x until passlib is gone.
-
 Each PR runs the normal CI, including the per-changed-file coverage gate, so a green grouped
 bump is usually safe to merge as is.
 

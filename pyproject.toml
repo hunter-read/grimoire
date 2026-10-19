@@ -32,6 +32,7 @@ exclude = '(backend/tests/|backend/migrations/)'
 module = [
     "backend.config",
     "backend.auth",
+    "backend.password_hash",
     "backend.codex",
     "backend.container_entrypoint",
     "backend.codex.*",

@@ -118,10 +118,10 @@ Drop a `users.json` file into your data directory before first start and Grimoir
 
 ### Generating a pre-hashed password
 
-Pre-hashing lets you avoid storing plaintext passwords in the JSON file. Grimoire uses passlib's `bcrypt_sha256` scheme:
+Pre-hashing lets you avoid storing plaintext passwords in the JSON file. Grimoire uses the `bcrypt_sha256` scheme (the same format passlib writes, so a hash from passlib works too). To make one with a running Grimoire container:
 
 ```bash
-python3 -c "from passlib.hash import bcrypt_sha256; print(bcrypt_sha256.hash('yourpassword'))"
+docker exec <container_name> python3 -c "from backend.password_hash import hash_password; print(hash_password('yourpassword'))"
 ```
 
 Copy the output (starts with `$bcrypt-sha256$`) into the `password` field.

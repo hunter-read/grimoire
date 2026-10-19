@@ -67,6 +67,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - For contributors: the development compose file tags its build `grimoire:dev`, so it no longer replaces a pulled image, and an image built from a working tree leaves out local databases, keys and seed files. A container started with `PGID=0` logs a warning
 - For contributors: routes serve files through one helper that always applies the content policy, and tests now check that routers reading books or systems apply the access rules and that deleting a user handles every table that refers to one
 - With an OIDC permissions claim configured, a newly registered account whose claim has no `viewNSFW` now starts with explicit content off and locked, instead of allowed. Send `"viewNSFW": true` to grant it. Existing accounts keep their current setting when the key is missing
+- Passwords are hashed with bcrypt directly instead of through the unmaintained passlib library, in the same format, so every existing password and share-link password keeps working. The FAQ's password-reset command and the command for pre-hashing a password in a users file have changed to match
 
 ### Fixed
 

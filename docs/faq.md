@@ -72,9 +72,9 @@ If you're locked out of your account, you can reset the password directly in the
 
 ```bash
 docker exec <container_name> python3 -c "
-from passlib.context import CryptContext
+from backend.password_hash import hash_password
 import sqlite3
-pwd = CryptContext(schemes=['bcrypt_sha256']).hash('<your_new_password>')
+pwd = hash_password('<your_new_password>')
 db = sqlite3.connect('/app/data/grimoire.db')
 db.execute(\"UPDATE users SET hashed_password = ? WHERE username = ?\", (pwd, '<your_username>'))
 db.commit()

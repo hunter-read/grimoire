@@ -105,8 +105,9 @@ def auth_login(
     scope, key = (LOGIN_DEVICE_SCOPE, device) if device else (LOGIN_ACCOUNT_SCOPE, typed)
     if account_attempts_blocked(scope, key):
         raise HTTPException(429, "Too many failed sign-in attempts - try again later")
-    # Verify even when no such user exists (passlib runs a dummy hash for a None
-    # hash), so an unknown username takes as long to refuse as a wrong password.
+    # Verify even when no such user exists (verify_password runs a dummy hash
+    # for a None hash), so an unknown username takes as long to refuse as a
+    # wrong password.
     password_ok = verify_password(data.password, user.hashed_password if user else None)
     if not user or not password_ok:
         record_account_failure(scope, key)

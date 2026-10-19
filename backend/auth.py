@@ -11,7 +11,8 @@ from typing import Any, Optional
 import jwt
 from fastapi import Cookie, Depends, Header, HTTPException, Request, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from passlib.context import CryptContext
+
+from .password_hash import hash_password, verify_password  # noqa: F401 - re-exported
 
 logger = logging.getLogger("grimoire.auth")
 
@@ -185,24 +186,9 @@ def cookie_secure(request: Optional[Request] = None) -> bool:
 
     return request_is_https(request)
 
-# bcrypt_sha256 pre-hashes with SHA-256 so passwords >72 chars are handled correctly
-pwd_context = CryptContext(
-    schemes=["bcrypt_sha256"],
-    deprecated="auto",
-)
-
 bearer_scheme = HTTPBearer(auto_error=False)
 
 ROLES = ("admin", "gm", "player", "guest")
-
-
-def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
-
-
-def verify_password(plain: str, hashed: Optional[str]) -> bool:
-    """False for a user with no password (OIDC-only, guest): passlib treats a None hash as a miss."""
-    return pwd_context.verify(plain, hashed)
 
 
 # The ``typ`` claim of a session access token.
