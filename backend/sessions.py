@@ -194,6 +194,9 @@ def revoke_user_sessions(
     This is the kill switch behind "log out everywhere", and behind the
     account changes that must not leave old sessions usable — a role change, a
     password reset, or an account being disabled or deleted.
+
+    Does not commit: the caller commits it together with the change that
+    called for it, so neither can land without the other.
     """
     query = db.query(AuthSession).filter(
         AuthSession.user_id == str(user_id),
@@ -207,8 +210,6 @@ def revoke_user_sessions(
     for session in sessions:
         session.revoked_at = now
         session.previous_token_hash = None
-    if sessions:
-        db.commit()
     return len(sessions)
 
 
@@ -217,14 +218,15 @@ def delete_user_sessions(db: Session, user_id: str) -> int:
 
     Used when the user row itself is being deleted, where revoking is not
     enough: the rows carry a foreign key to ``users.id`` and must go with it.
+
+    Does not commit: it runs partway through deleting or merging a user, which
+    must land or roll back as one.
     """
     deleted = (
         db.query(AuthSession)
         .filter(AuthSession.user_id == str(user_id))
         .delete(synchronize_session=False)
     )
-    if deleted:
-        db.commit()
     return int(deleted)
 
 

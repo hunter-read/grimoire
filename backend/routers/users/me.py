@@ -83,11 +83,11 @@ def change_own_password(
     if not verify_password(data.current_password, user.hashed_password):
         raise HTTPException(400, "Current password is incorrect")
     user.hashed_password = hash_password(data.new_password)
-    db.commit()
     # Changing your password is the standard way to boot out someone who has
     # your old one, so every *other* session ends. The current one is kept so
     # the user isn't logged out of the device they just did this on.
     revoked = revoke_user_sessions(db, user.id, except_session_id=current_user.session_id)
+    db.commit()
     return {"status": "ok", "sessions_revoked": revoked}
 
 

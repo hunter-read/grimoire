@@ -70,6 +70,12 @@ _USER_SCOPED_UNIQUE = (
     ("user_themes", "theme_id"),
     ("user_importers", "importer_id"),
     ("audio_sets", "kind, name"),
+    # One favourite per item, one saved filter per view and name, one
+    # availability answer per session date, one note per session.
+    ("favorites", "item_type, item_id"),
+    ("saved_filters", "scope, name"),
+    ("session_availability", "campaign_id, session_date"),
+    ("player_session_notes", "session_id"),
 )
 
 
@@ -93,6 +99,16 @@ def reassign_user_data(db, source_id: str, target_id: str) -> int:
             ),
             {"src": source_id, "tgt": target_id},
         )
+    # Each view has at most one default filter. Nothing in the schema enforces
+    # that, so a moved default would quietly give the target two.
+    db.execute(
+        text(
+            "UPDATE saved_filters SET is_default = 0 WHERE user_id = :src AND is_default "
+            "AND scope IN (SELECT scope FROM saved_filters "
+            "WHERE user_id = :tgt AND is_default)"
+        ),
+        {"src": source_id, "tgt": target_id},
+    )
 
     moved = db.execute(
         text("SELECT COUNT(*) FROM campaign_members WHERE user_id = :src"),

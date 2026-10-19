@@ -173,6 +173,38 @@ def test_no_stale_entries():
     assert not sorted(deleted - _user_foreign_keys())
 
 
+def _user_unique_scopes(table) -> set[frozenset[str]]:
+    """The columns each user_id-bearing unique constraint or index on ``table``
+    scopes alongside user_id."""
+    from sqlalchemy import UniqueConstraint
+
+    column_sets = [
+        {c.name for c in constraint.columns}
+        for constraint in table.constraints
+        if isinstance(constraint, UniqueConstraint)
+    ] + [{c.name for c in index.columns} for index in table.indexes if index.unique]
+    return {frozenset(cols - {"user_id"}) for cols in column_sets if "user_id" in cols}
+
+
+def test_guest_merge_knows_every_per_user_unique_constraint():
+    """Merging moves rows with a blanket UPDATE of user_id, so a unique
+    constraint it doesn't drop collisions for first fails the whole merge
+    whenever both accounts hold the same row."""
+    from backend.routers.campaigns import _helpers as h
+
+    listed = {
+        (table, frozenset(c.strip() for c in scope.split(",")))
+        for table, scope in h._USER_SCOPED_UNIQUE
+    }
+    required = {
+        (name, scope)
+        for name in h._USER_SCOPED_TABLES
+        for scope in _user_unique_scopes(Base.metadata.tables[name])
+    }
+    assert not sorted(required - listed), "add these to _USER_SCOPED_UNIQUE"
+    assert not sorted(listed - required), "stale _USER_SCOPED_UNIQUE entries"
+
+
 def test_deleting_a_user_with_rows_everywhere(client, admin_headers):
     """End to end: one row in every user-referencing table, then delete."""
     import uuid

@@ -211,9 +211,9 @@ def update_user(
                 raise HTTPException(400, "Email already in use")
         user.email = new_email
 
-    db.commit()
     if revoke_reason:
         revoke_user_sessions(db, user.id)
+    db.commit()
     return {
         "id": user.id,
         "username": user.username,
@@ -268,10 +268,10 @@ def convert_guest(
         member.is_guest = False
         member.guest_code = None
 
-    db.commit()
     # The account's role and credentials both changed — end the guest sessions
     # so the next request re-authenticates as the promoted user.
     revoke_user_sessions(db, user.id)
+    db.commit()
     db.refresh(user)
     return {
         "id": user.id,

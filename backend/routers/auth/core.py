@@ -287,6 +287,7 @@ def revoke_other_sessions(
     revoked and the caller is logged out along with everyone else.
     """
     revoked = revoke_user_sessions(db, user.id, except_session_id=user.session_id)
+    db.commit()
     if not user.session_id:
         clear_auth_cookie(response, request)
         clear_refresh_cookie(response, request)

@@ -222,6 +222,79 @@ class TestMergeGuests:
             == 200
         )
 
+    def test_merge_keeps_target_rows_where_both_accounts_have_one(
+        self, client, admin_headers, guest_pair
+    ):
+        """Both guests favourited the same book, saved a filter under the same
+        name, answered the same session date and wrote a note on the same
+        session. The merge must not trip the unique constraints: the target's
+        row wins and the source's duplicate goes."""
+        from backend.config import SessionLocal
+        from backend.models import (
+            Favorite,
+            PlayerSessionNote,
+            SavedFilter,
+            SessionAvailability,
+            SessionNote,
+        )
+
+        keep, absorb = guest_pair
+        campaign_id = keep["campaign_id"]
+        db = SessionLocal()
+        try:
+            session = SessionNote(campaign_id=campaign_id, session_date="2026-10-24")
+            db.add(session)
+            db.flush()
+            for user_id, label in ((keep["user_id"], "keep"), (absorb["user_id"], "absorb")):
+                db.add(Favorite(user_id=user_id, item_type="book", item_id="book-1"))
+                db.add(
+                    SavedFilter(
+                        user_id=user_id, scope="books", name="Mine",
+                        state={"by": label}, is_default=True,
+                    )
+                )
+                db.add(
+                    SessionAvailability(
+                        campaign_id=campaign_id, user_id=user_id,
+                        session_date="2026-10-24", status=label,
+                    )
+                )
+                db.add(PlayerSessionNote(session_id=session.id, user_id=user_id, content=label))
+            # A second default in the same view, under another name: it moves
+            # across, but must not leave the target with two defaults.
+            db.add(
+                SavedFilter(
+                    user_id=absorb["user_id"], scope="books", name="Other", is_default=True
+                )
+            )
+            db.commit()
+        finally:
+            db.close()
+
+        resp = client.post(
+            f"/api/users/{keep['user_id']}/merge",
+            json={"source_ids": [absorb["user_id"]]},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200, resp.text
+
+        db = SessionLocal()
+        try:
+            mine = {"user_id": keep["user_id"]}
+            assert db.query(Favorite).filter_by(**mine).count() == 1
+            filters = {f.name: f for f in db.query(SavedFilter).filter_by(**mine)}
+            assert set(filters) == {"Mine", "Other"}
+            assert filters["Mine"].state == {"by": "keep"}
+            assert [n for n, f in filters.items() if f.is_default] == ["Mine"]
+            assert [a.status for a in db.query(SessionAvailability).filter_by(**mine)] == [
+                "keep"
+            ]
+            assert [n.content for n in db.query(PlayerSessionNote).filter_by(**mine)] == [
+                "keep"
+            ]
+        finally:
+            db.close()
+
     def test_cannot_merge_account_into_itself(self, client, admin_headers, guest_pair):
         keep, _ = guest_pair
         resp = client.post(

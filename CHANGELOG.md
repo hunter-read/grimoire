@@ -72,6 +72,8 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 - OPDS book covers didn't load in e-readers; they are now served under the feed's own token
 - Deleting a user, or merging a guest into an account, could fail when they had saved audio sets, installed themes or character importers, hidden wiki pages, or had made a wiki template
+- Merging a guest into an account failed when both had favourited the same item, saved a filter under the same name, answered availability for the same session date or written a note on the same session. The account you merge into now keeps its own copy, and keeps its default filter if both had one for the same view
+- Deleting a user or a campaign, removing a guest, or merging guests could be left half done if it failed partway: the user's sign-ins were already ended, a campaign was deleted without its guests, or the first accounts of a merge were folded in and the rest were not. Each now completes or changes nothing. Ending sign-ins after a password or role change, or a new guest code, also now saves together with that change
 - Signing in with single sign-on fetched the provider's discovery document on every sign-in when only the issuer was configured; it is now kept for an hour
 - With `VALKEY_URL` pointing at a cache that can't be reached, Grimoire could take about two minutes to start before falling back to the disk cache. It now gives up after a couple of seconds
 - Two people reading the same book at once no longer render its pages in the same PDF document simultaneously, which the PDF library does not support and which could crash the server. Opening a large PDF or EPUB also no longer holds up page loads for other books

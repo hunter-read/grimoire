@@ -399,6 +399,18 @@ class TestSessionHelpers:
         assert revoke_user_sessions(db, session_user["id"]) >= 2
         assert revoke_user_sessions(db, session_user["id"]) == 0
 
+    def test_ending_a_users_sessions_leaves_the_commit_to_the_caller(self, db, session_user):
+        """Both run partway through a larger change, so a rollback after them
+        must take them back too."""
+        from backend.sessions import delete_user_sessions
+
+        session, _ = create_session(db, session_user["id"])
+        for end in (revoke_user_sessions, delete_user_sessions):
+            assert end(db, session_user["id"]) >= 1
+            db.rollback()
+            db.refresh(session)
+            assert session.revoked_at is None
+
     def test_purge_removes_long_dead_sessions(self, db, session_user):
         session, _ = create_session(db, session_user["id"])
         session.expires_at = datetime.datetime.utcnow() - datetime.timedelta(days=30)
