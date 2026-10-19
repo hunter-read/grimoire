@@ -320,6 +320,7 @@ def _resolve_user(db, claims: dict, eff: dict) -> User:
         # Per spec: missing claim → access denied
         raise _OIDCError("permissions claim missing from OIDC response")
 
+    created = user is None
     if user is None:
         if not eff["oidc_auto_register"]:
             raise _OIDCError("no matching user and auto-register is disabled")
@@ -361,9 +362,11 @@ def _resolve_user(db, claims: dict, eff: dict) -> User:
 
     # Permissions claim → per-field user state
     if perms is not None:
-        if "viewNSFW" in perms:
-            # The provider decides, so the user can't override a "no".
-            user.allow_explicit = bool(perms["viewNSFW"])
+        if "viewNSFW" in perms or created:
+            # The provider decides, so the user can't override a "no". A new
+            # account whose claim leaves viewNSFW out gets a "no" too, so
+            # explicit content stays opt-in; an existing one keeps its value.
+            user.allow_explicit = bool(perms.get("viewNSFW", False))
             user.explicit_locked = not user.allow_explicit
         if "campaignAccess" in perms:
             user.campaign_access = bool(perms["campaignAccess"])

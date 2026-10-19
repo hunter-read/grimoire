@@ -1043,6 +1043,67 @@ class TestResolveUser:
         finally:
             db.close()
 
+    def test_permissions_claim_without_view_nsfw_denies_explicit(self, client, admin_setup):
+        from backend.config import SessionLocal
+        db = SessionLocal()
+        try:
+            # A new account whose claim leaves viewNSFW out starts locked off.
+            user = _resolve_user(
+                db,
+                {
+                    "sub": "perm-no-nsfw-sub",
+                    "preferred_username": "perm_no_nsfw",
+                    "perms": {"apiKeys": True},
+                },
+                self._eff(oidc_permissions_claim="perms", oidc_auto_register=True),
+            )
+            assert user.allow_explicit is False
+            assert user.explicit_locked is True
+            # An explicit grant unlocks it...
+            user = _resolve_user(
+                db,
+                {
+                    "sub": "perm-no-nsfw-sub",
+                    "preferred_username": "perm_no_nsfw",
+                    "perms": {"viewNSFW": True},
+                },
+                self._eff(oidc_permissions_claim="perms"),
+            )
+            assert user.allow_explicit is True
+            assert user.explicit_locked is False
+            # ...and an existing account keeps it when a later claim drops the key.
+            user = _resolve_user(
+                db,
+                {
+                    "sub": "perm-no-nsfw-sub",
+                    "preferred_username": "perm_no_nsfw",
+                    "perms": {},
+                },
+                self._eff(oidc_permissions_claim="perms"),
+            )
+            assert user.allow_explicit is True
+            assert user.explicit_locked is False
+            db.delete(user)
+            db.commit()
+        finally:
+            db.close()
+
+    def test_no_permissions_claim_configured_leaves_explicit_alone(self, client, admin_setup):
+        from backend.config import SessionLocal
+        db = SessionLocal()
+        try:
+            user = _resolve_user(
+                db,
+                {"sub": "perm-unset-sub", "preferred_username": "perm_unset"},
+                self._eff(oidc_auto_register=True),
+            )
+            assert user.allow_explicit is True
+            assert not user.explicit_locked
+            db.delete(user)
+            db.commit()
+        finally:
+            db.close()
+
     def test_permissions_claim_applies_campaign_access(self, client, admin_setup):
         from backend.config import SessionLocal
         db = SessionLocal()
