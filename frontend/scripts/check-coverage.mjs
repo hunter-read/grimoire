@@ -46,7 +46,7 @@ function repoRoot() {
 
 // Pick the first base ref that git can resolve.
 function resolveBase(root) {
-  const candidates = [process.env.BASE_REF, 'origin/dev', 'dev'].filter(Boolean)
+  const candidates = [process.env.BASE_REF, 'origin/main', 'main'].filter(Boolean)
   for (const ref of candidates) {
     try {
       git(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], root)

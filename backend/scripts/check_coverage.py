@@ -13,7 +13,7 @@ Reads coverage.json (coverage.py's JSON report) from the repo root — run
 ``pytest --cov=backend --cov-report=json`` first.
 
 Base ref for the diff comes from $BASE_REF (CI sets this), falling back to
-origin/dev, then dev. Override the threshold with $MIN_COVERAGE.
+origin/main, then main. Override the threshold with $MIN_COVERAGE.
 """
 import json
 import os
@@ -44,7 +44,7 @@ def repo_root():
 
 
 def resolve_base(root):
-    candidates = [c for c in (os.environ.get("BASE_REF"), "origin/dev", "dev") if c]
+    candidates = [c for c in (os.environ.get("BASE_REF"), "origin/main", "main") if c]
     for ref in candidates:
         try:
             git(["rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"], cwd=root)

@@ -7,8 +7,10 @@ same tags, to the GitHub Container Registry at `ghcr.io/hunter-read/grimoire`. D
 logs in with the `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN` secrets; GHCR uses the workflow's
 own `GITHUB_TOKEN` (the publishing jobs request `packages: write`), so it needs no secret.
 
-The branch model is: feature branches → `dev` (integration) → `main` (stable). Releases are
-cut by pushing a version tag.
+The branch model is: feature branches off `main`, merged back into `main` by pull request.
+`main` is what `:nightly` is built from, and releases are cut from it by pushing a version
+tag. (The workflows still name a `dev` branch from an older integration-branch model - see
+[below](#note-the-legacy-dev-branch) - but nothing targets it any more.)
 
 ---
 
@@ -117,12 +119,17 @@ render in the [README](../README.md) badge row.
 4. In the [README](../README.md), replace the `BACKEND_COVERAGE_GIST_ID` /
    `FRONTEND_COVERAGE_GIST_ID` placeholders in the two coverage-badge URLs with the gist ID.
 
-### Note: the `dev → main` PR runs once, not twice
+### Note: the legacy `dev` branch
 
-A direct push to `dev` while the `dev → main` pull request is open would normally make CI run
-twice for the same commit - once for the `push` event and once for the `pull_request` event.
-To avoid that (and the duplicate downstream **Edge** build it caused), both CI jobs are
-guarded to skip the `pull_request` run when the PR's head branch is `dev`:
+Grimoire used to integrate feature branches on `dev` and merge `dev → main` for releases. That
+flow is retired - PRs go straight to `main`, and the coverage and TypeScript gates fall back to
+`origin/main`, then `main`, when `$BASE_REF` is unset - but `ci.yml` still triggers on pushes
+to `dev`, and CodeQL on PRs targeting it.
+
+The jobs also keep a guard from that time. A direct push to `dev` while the `dev → main` pull
+request was open would make CI run twice for the same commit - once for the `push` event and
+once for the `pull_request` event - so each CI job skips the `pull_request` run when the PR's
+head branch is `dev`:
 
 ```yaml
 if: >-

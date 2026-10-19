@@ -12,7 +12,7 @@
  *
  * Mirrors the backend's mypy `disallow_untyped_defs` overrides. Like
  * check-coverage.mjs, the base ref comes from $BASE_REF (CI sets it), falling
- * back to origin/dev, then dev, and the check covers committed, uncommitted and
+ * back to origin/main, then main, and the check covers committed, uncommitted and
  * untracked changes.
  */
 import { execFileSync } from 'node:child_process'
@@ -32,7 +32,7 @@ function gitLines(args, cwd) {
 }
 
 function resolveBase(root) {
-  const candidates = [process.env.BASE_REF, 'origin/dev', 'dev'].filter(Boolean)
+  const candidates = [process.env.BASE_REF, 'origin/main', 'main'].filter(Boolean)
   for (const ref of candidates) {
     try {
       git(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], root)
