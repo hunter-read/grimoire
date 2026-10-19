@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { getAccessToken, setAccessToken } from './api/accessToken'
 import api, {
   dispositionFilename,
   mediaUrl,
@@ -53,6 +54,7 @@ const stub = <T>(value: object = {}): T => value as T
 describe('api', () => {
   beforeEach(() => {
     localStorage.clear()
+    setAccessToken(null)
     vi.restoreAllMocks()
   })
 
@@ -62,7 +64,7 @@ describe('api', () => {
 
   describe('api.get', () => {
     it('sends a GET to /api<url> with auth header when token exists', async () => {
-      localStorage.setItem('grimoire_token', 'test-token')
+      setAccessToken('test-token')
       globalThis.fetch = mockFetch(200, { ok: true })
 
       await api.get('/systems')
@@ -252,7 +254,7 @@ describe('api', () => {
     // Media auth now rides the HttpOnly session cookie, so the JWT must never
     // appear in the URL — even when one is stored (issue #156).
     it('never puts the token in the URL, even when logged in', () => {
-      localStorage.setItem('grimoire_token', 'my-token')
+      setAccessToken('my-token')
       const url = mediaUrl('/books/1/thumbnail')
       expect(url).toBe('/api/books/1/thumbnail')
       expect(url).not.toContain('my-token')
@@ -264,7 +266,7 @@ describe('api', () => {
     })
 
     it('includes extra params but no token', () => {
-      localStorage.setItem('grimoire_token', 'tok')
+      setAccessToken('tok')
       const url = mediaUrl('/books/1/page/3', { scale: '2' })
       const params = new URLSearchParams(url.split('?')[1])
       expect(params.get('scale')).toBe('2')
@@ -688,7 +690,7 @@ describe('api', () => {
     })
 
     it('refreshes and retries once when a request 401s', async () => {
-      localStorage.setItem('grimoire_token', 'stale')
+      setAccessToken('stale')
       globalThis.fetch = vi
         .fn()
         .mockResolvedValueOnce(res(401))
@@ -699,11 +701,11 @@ describe('api', () => {
 
       const urls = fetchCalls().map(([u]) => u)
       expect(urls).toEqual(['/api/systems', '/api/auth/refresh', '/api/systems'])
-      expect(localStorage.getItem('grimoire_token')).toBe('fresh')
+      expect(getAccessToken()).toBe('fresh')
     })
 
     it('sends the refreshed token on the retry', async () => {
-      localStorage.setItem('grimoire_token', 'stale')
+      setAccessToken('stale')
       globalThis.fetch = vi
         .fn()
         .mockResolvedValueOnce(res(401))
@@ -717,7 +719,7 @@ describe('api', () => {
     })
 
     it('gives up and reports 401 when the refresh fails', async () => {
-      localStorage.setItem('grimoire_token', 'stale')
+      setAccessToken('stale')
       globalThis.fetch = vi.fn().mockResolvedValueOnce(res(401)).mockResolvedValueOnce(res(401))
 
       await expect(api.get('/systems')).rejects.toMatchObject({ status: 401 })
@@ -733,7 +735,7 @@ describe('api', () => {
 
     it('does not refresh on a failed login', async () => {
       // A 401 from /auth/login means bad credentials, not a stale token.
-      localStorage.setItem('grimoire_token', 'stale')
+      setAccessToken('stale')
       globalThis.fetch = vi.fn().mockResolvedValue(res(401))
 
       await expect(api.post('/auth/login', { username: 'a', password: 'b' })).rejects.toMatchObject(
@@ -745,12 +747,10 @@ describe('api', () => {
     it('shares one refresh across concurrent 401s', async () => {
       // Refresh tokens rotate on use, so parallel refreshes would invalidate
       // each other and log the user out.
-      localStorage.setItem('grimoire_token', 'stale')
+      setAccessToken('stale')
       globalThis.fetch = vi.fn().mockImplementation((url) => {
         if (url === '/api/auth/refresh') return Promise.resolve(res(200, { token: 'fresh' }))
-        return Promise.resolve(
-          localStorage.getItem('grimoire_token') === 'fresh' ? res(200, { ok: true }) : res(401)
-        )
+        return Promise.resolve(getAccessToken() === 'fresh' ? res(200, { ok: true }) : res(401))
       })
 
       await Promise.all([api.get('/a'), api.get('/b'), api.get('/c')])
@@ -761,7 +761,7 @@ describe('api', () => {
 
     it('rebuilds the form body when retrying an upload', async () => {
       // FormData is a one-shot stream, so the retry needs its own instance.
-      localStorage.setItem('grimoire_token', 'stale')
+      setAccessToken('stale')
       globalThis.fetch = vi
         .fn()
         .mockResolvedValueOnce(res(401))
@@ -777,7 +777,7 @@ describe('api', () => {
     })
 
     it('rebuilds the form body when retrying a folder upload', async () => {
-      localStorage.setItem('grimoire_token', 'stale')
+      setAccessToken('stale')
       globalThis.fetch = vi
         .fn()
         .mockResolvedValueOnce(res(401))
@@ -830,6 +830,7 @@ describe('api', () => {
 describe('duplicates', () => {
   beforeEach(() => {
     localStorage.clear()
+    setAccessToken(null)
     vi.restoreAllMocks()
   })
 
@@ -990,6 +991,7 @@ describe('bookPageUrl and tokenFrames', () => {
 describe('files, sidecars, and backups helpers', () => {
   beforeEach(() => {
     localStorage.clear()
+    setAccessToken(null)
     vi.restoreAllMocks()
     globalThis.fetch = mockFetch(200, {})
   })
@@ -1058,6 +1060,7 @@ describe('files, sidecars, and backups helpers', () => {
 describe('character, content, and ruleset helpers', () => {
   beforeEach(() => {
     localStorage.clear()
+    setAccessToken(null)
     vi.restoreAllMocks()
     globalThis.fetch = mockFetch(200, {})
   })

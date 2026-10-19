@@ -41,6 +41,10 @@ def update_own_preferences(
     user = db.query(User).filter_by(id=current_user.id).first()
     if not user:
         raise HTTPException(404, "User not found")
+    if data.allow_explicit is not None and data.allow_explicit != user.allow_explicit:
+        # A content preference a person sets for themselves, not an
+        # integration's to change.
+        api_keys.assert_session(current_user)
     if data.allow_explicit is not None:
         if data.allow_explicit and user.explicit_locked:
             raise HTTPException(

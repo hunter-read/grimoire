@@ -10,8 +10,9 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
-from fastapi.responses import FileResponse, Response, StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 
+from .._user_files import serve_user_file
 from ...http_headers import content_disposition
 from ...config import (
     _MEDIA_FILE_CACHE_HEADERS,
@@ -28,7 +29,6 @@ from ...services import bulk_service, tag_service, variants
 from ...services.browse.media import MediaBrowse, MediaBrowser
 from ...services.content_cache import content_token
 from ...file_cache import etag_matches
-from ...security import inert_svg_headers
 from ...auth import require_gm_or_admin, get_current_user, CurrentUser
 from ...indexer import MAP_OPAQUE_EXTS, archive_ext, archive_mime, is_vtt_data, slugify
 from .._browse import media_browse_params
@@ -206,11 +206,11 @@ def serve_map_file(
     # attachment hint the browser named it from the URL and the JSON type,
     # saving "tavern.uvtt" as "file.json".
     inline = media.startswith("video/")
-    return FileResponse(
+    return serve_user_file(
         m.filepath,
-        media_type=media,
+        media,
         filename=None if inline else m.filename,
-        headers={**_MEDIA_FILE_CACHE_HEADERS, **inert_svg_headers(media, m.filepath)},
+        headers=_MEDIA_FILE_CACHE_HEADERS,
     )
 
 
@@ -266,11 +266,7 @@ def serve_map_page(
                 # A format Pillow cannot decode still has a usable original.
                 logger.warning(f"Map preview render failed, serving original: {filepath}")
         media = _map_media_type(filepath)
-        return FileResponse(
-            filepath,
-            media_type=media,
-            headers={**_PAGE_CACHE_HEADERS, **inert_svg_headers(media, filepath)},
-        )
+        return serve_user_file(filepath, media, headers=_PAGE_CACHE_HEADERS)
 
     try:
         img_bytes = render_map_pdf_page(filepath, page_num, width)
@@ -620,12 +616,12 @@ def serve_map_thumbnail(
     fhash = hashlib.md5(m.filepath.encode()).hexdigest()[:8]
     thumb_path = os.path.join(THUMB_DIR, "maps", f"{slug}_{fhash}.webp")
     if os.path.exists(thumb_path):
-        return FileResponse(thumb_path, media_type="image/webp", headers=headers)
+        return serve_user_file(thumb_path, "image/webp", headers=headers)
     # See the token route: a file renamed since it was indexed has its thumbnail
     # under the old filename stem, and the path hash is what still finds it.
     matches = glob.glob(os.path.join(THUMB_DIR, "maps", f"*_{fhash}.webp"))
     if matches:
-        return FileResponse(matches[0], media_type="image/webp", headers=headers)
+        return serve_user_file(matches[0], "image/webp", headers=headers)
     _clear_stale_thumbnail_flag(db, m)
     raise HTTPException(404)
 

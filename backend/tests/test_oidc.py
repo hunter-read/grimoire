@@ -14,6 +14,16 @@ from backend.routers.oidc import (
 from backend.routers.oidc._helpers import _safe_return_to
 
 
+@pytest.fixture(autouse=True)
+def _fresh_discovery_cache():
+    """Each test sees discovery fetch afresh; the cache is tested on its own."""
+    from backend.routers.oidc import _helpers
+
+    _helpers._discovery_cache.clear()
+    yield
+    _helpers._discovery_cache.clear()
+
+
 # ---------------------------------------------------------------------------
 # Settings GET/PATCH
 # ---------------------------------------------------------------------------
@@ -1200,6 +1210,29 @@ class TestValidateIdToken:
         kwargs.update(overrides)
         return _helpers._validate_id_token("tok", **kwargs)
 
+    @pytest.mark.parametrize(
+        "extra",
+        [
+            {"aud": ["client", "other"]},  # several audiences, no azp
+            {"aud": ["client", "other"], "azp": "other"},
+            {"aud": "client", "azp": "other"},  # azp present but not us
+        ],
+    )
+    def test_azp_must_name_this_client(self, extra):
+        claims = FakeClaims({"sub": "s", "nonce": "n", **extra})
+        get_jwks, decode = self._patch(lambda *a, **k: claims)
+        with get_jwks, decode, pytest.raises(_OIDCError, match="azp"):
+            self._validate()
+
+    @pytest.mark.parametrize(
+        "extra", [{"aud": ["client", "other"], "azp": "client"}, {"aud": "client"}]
+    )
+    def test_azp_accepted(self, extra):
+        claims = FakeClaims({"sub": "s", "nonce": "n", **extra})
+        get_jwks, decode = self._patch(lambda *a, **k: claims)
+        with get_jwks, decode:
+            assert self._validate()["sub"] == "s"
+
     def test_returns_claims_on_success(self):
         claims = FakeClaims({"sub": "s", "nonce": "n", "email": "a@b.c"})
         get_jwks, decode = self._patch(lambda *a, **k: claims)
@@ -1579,3 +1612,49 @@ class TestResolveUserEdges:
             db.commit()
         finally:
             db.close()
+
+
+
+class TestOidcLoginHardening:
+    def test_discovery_is_cached(self):
+        from backend.routers.oidc import _helpers
+
+        resp = httpx.Response(
+            200, json={"issuer": "https://cached.idp"},
+            request=httpx.Request("GET", "https://cached.idp/.well-known/openid-configuration"),
+        )
+        with patch.object(_helpers.httpx, "get", return_value=resp) as get:
+            for _ in range(3):
+                assert _helpers._discover_issuer("https://cached.idp") == "https://cached.idp"
+        assert get.call_count == 1
+
+    def test_failed_discovery_is_not_cached(self):
+        from backend.routers.oidc import _helpers
+
+        with patch.object(_helpers.httpx, "get", side_effect=httpx.ConnectError("down")) as get:
+            _helpers._discovery_doc("https://down.idp")
+            _helpers._discovery_doc("https://down.idp")
+        assert get.call_count == 2
+
+    def test_memory_state_store_is_capped(self, monkeypatch):
+        from backend.routers.oidc import _state
+
+        monkeypatch.setattr(_state, "_STATE_MAX", 3)
+        store = _state.MemoryStateStore()
+        for i in range(5):
+            store.put(f"s{i}", {"n": i})
+        assert len(store._d) == 3
+        assert store.pop("s0") is None and store.pop("s1") is None
+        assert store.pop("s4")["n"] == 4
+
+    def test_login_start_is_rate_limited(self, client, monkeypatch):
+        from backend import security
+
+        monkeypatch.setattr(security.limiter, "enabled", True)
+        security.limiter.reset()
+        try:
+            codes = [client.get("/api/auth/openid/login", follow_redirects=False).status_code
+                     for _ in range(35)]
+        finally:
+            security.limiter.reset()
+        assert 429 in codes

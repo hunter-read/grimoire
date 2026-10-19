@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { getAccessToken, setAccessToken } from '../api/accessToken'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import useUploadQueue from './useUploadQueue'
 
@@ -54,12 +55,13 @@ const mkFile = (name, size = 10) => {
 beforeEach(() => {
   sockets.length = 0
   vi.stubGlobal('XMLHttpRequest', FakeXHR)
-  localStorage.setItem('grimoire_token', 'tok')
+  setAccessToken('tok')
 })
 
 afterEach(() => {
   vi.unstubAllGlobals()
   localStorage.clear()
+  setAccessToken(null)
 })
 
 describe('useUploadQueue', () => {

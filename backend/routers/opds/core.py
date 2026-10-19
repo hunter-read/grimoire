@@ -14,6 +14,7 @@ from fastapi import Depends, HTTPException
 from fastapi.responses import Response, FileResponse
 from sqlalchemy.orm import Session
 
+from .._user_files import serve_user_file
 from ... import token_vault
 from ...config import get_db
 from ...models import Book, User
@@ -64,10 +65,12 @@ def _book_to_entry(book: Book, token: str, base_url: str, tags: list[str]) -> st
 
     cover_link = ""
     if book.has_thumbnail:
-        thumb_url = f"{base_url}/api/books/{book.id}/thumbnail?token={token}"
+        # Served by the OPDS router under the feed token: the app's own
+        # thumbnail route takes a session, which an e-reader doesn't have.
+        thumb_url = f"{base_url}/opds/{token}/cover/{book.id}"
         cover_link = (
-            f'<link rel="http://opds-spec.org/image" href="{escape(thumb_url)}" type="image/jpeg"/>'
-            f'<link rel="http://opds-spec.org/image/thumbnail" href="{escape(thumb_url)}" type="image/jpeg"/>'
+            f'<link rel="http://opds-spec.org/image" href="{escape(thumb_url)}" type="image/webp"/>'
+            f'<link rel="http://opds-spec.org/image/thumbnail" href="{escape(thumb_url)}" type="image/webp"/>'
         )
 
     # quoteattr picks the quote character and escapes the other, so a tag holding
@@ -211,11 +214,33 @@ def download_book(token: str, book_id: str, db: Session = Depends(get_db)) -> Fi
         raise HTTPException(403, "Forbidden")
     if not os.path.isfile(book.filepath):
         raise HTTPException(404, "File not found on disk")
-    return FileResponse(
-        book.filepath,
-        media_type=book.mime_type or "application/pdf",
-        filename=book.filename,
+    return serve_user_file(
+        book.filepath, book.mime_type or "application/pdf", filename=book.filename
     )
+
+
+def book_cover(token: str, book_id: str, db: Session = Depends(get_db)) -> FileResponse:
+    """A book's cover thumbnail via OPDS token, for the feed's image links."""
+    from ..books.core import book_thumbnail_path
+
+    user = _resolve_user(db, token)
+    book = _readable_book(db, user, book_id)
+    path = book_thumbnail_path(book)
+    if not path:
+        raise HTTPException(404, "No thumbnail available")
+    return serve_user_file(path, "image/webp")
+
+
+def _readable_book(db, user: User, book_id: str) -> Book:
+    """The book, if ``user`` may read it through OPDS; 404 otherwise."""
+    book = db.query(Book).filter_by(id=book_id).first()
+    if not book or book.is_missing or not access_control.can_access_book(db, user, book):
+        # 404, matching the web UI: a restricted book stays indistinguishable
+        # from one that does not exist.
+        raise HTTPException(404, "Book not found")
+    if book.is_explicit and not (user.allow_explicit if user.allow_explicit is not None else True):
+        raise HTTPException(404, "Book not found")
+    return book
 
 
 def _base_url() -> str:

@@ -48,13 +48,61 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             delattr(app.state, _MANAGER_STATE)
 
 
-def check_origin(request: Request) -> None:
-    """Refuse browser requests from other sites (DNS rebinding), as the spec asks.
+# Reachable on loopback under any port, which is how an assistant on the same
+# machine connects.
+_LOOPBACK_HOSTS = ("localhost", "127.0.0.1", "[::1]")
 
-    MCP clients that aren't browsers send no Origin at all.
+
+def allowed_hosts() -> list[str]:
+    """Host patterns /mcp answers under: ``host``, ``host:port`` or ``host:*``.
+
+    Loopback, BASE_URL's host and ``MCP_ALLOWED_HOSTS``. A bare host also
+    allows it on any port. The same list feeds the SDK's own check
+    (``mcp_server.server.build_session_manager``).
     """
+    from ... import config
+
+    names = [*_LOOPBACK_HOSTS, *config.MCP_ALLOWED_HOSTS]
+    base = urlsplit(config.BASE_URL).netloc.lower()
+    if base:
+        names.append(base)
+    patterns: list[str] = []
+    for name in names:
+        patterns.append(name)
+        # "[::1]" and "host" have no port; "host:9481" and "host:*" do.
+        if not name.rsplit("]", 1)[-1].count(":"):
+            patterns.append(f"{name}:*")
+    return list(dict.fromkeys(patterns))
+
+
+def host_allowed(host: Optional[str], patterns: Optional[list[str]] = None) -> bool:
+    if not host:
+        return False
+    host = host.lower()
+    for pattern in patterns if patterns is not None else allowed_hosts():
+        if host == pattern or (pattern.endswith(":*") and host.startswith(pattern[:-1])):
+            return True
+    return False
+
+
+def check_origin(request: Request) -> None:
+    """Refuse requests a DNS-rebinding page could make, as the spec asks.
+
+    The ``Host`` must be one Grimoire is actually served under: a rebinding
+    page controls the host name its requests carry, so comparing ``Origin``
+    with ``Host`` alone would always agree. Browsers also send ``Origin``,
+    which must name an allowed host too; MCP clients that aren't browsers send
+    none.
+    """
+    patterns = allowed_hosts()
+    if not host_allowed(request.headers.get("host"), patterns):
+        raise HTTPException(
+            403,
+            "This host name isn't allowed for MCP - set BASE_URL to the address "
+            "you use, or add it to MCP_ALLOWED_HOSTS",
+        )
     origin = request.headers.get("origin")
-    if origin and urlsplit(origin).netloc != request.headers.get("host"):
+    if origin and not host_allowed(urlsplit(origin).netloc, patterns):
         raise HTTPException(403, "Cross-origin MCP requests are not allowed")
 
 

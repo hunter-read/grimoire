@@ -4,9 +4,10 @@ import os
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
+from .._user_files import serve_user_file
 from ...auth import CurrentUser, get_current_user, require_gm_or_admin
 from ...config import _THUMBNAIL_CACHE_HEADERS, THUMB_DIR, get_db
 from ...file_cache import etag_matches
@@ -176,7 +177,7 @@ def serve_model_file(
         raise HTTPException(404, "File not found on disk")
     arc_ext = archive_ext(m.filename)
     media = archive_mime(arc_ext) if arc_ext else model_mime(m.filepath)
-    return FileResponse(m.filepath, media_type=media, filename=m.filename)
+    return serve_user_file(m.filepath, media, filename=m.filename)
 
 
 def serve_model_thumbnail(
@@ -200,7 +201,7 @@ def serve_model_thumbnail(
     fhash = hashlib.md5(m.filepath.encode()).hexdigest()[:8]
     thumb_path = os.path.join(THUMB_DIR, "models", f"{slug}_{fhash}.webp")
     if os.path.exists(thumb_path):
-        return FileResponse(thumb_path, media_type="image/webp", headers=headers)
+        return serve_user_file(thumb_path, "image/webp", headers=headers)
     raise HTTPException(404)
 
 

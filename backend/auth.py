@@ -9,7 +9,7 @@ import threading
 from typing import Any, Optional
 
 import jwt
-from fastapi import Cookie, Depends, Header, HTTPException, Query, Request, Response
+from fastapi import Cookie, Depends, Header, HTTPException, Request, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from passlib.context import CryptContext
 
@@ -205,6 +205,10 @@ def verify_password(plain: str, hashed: Optional[str]) -> bool:
     return pwd_context.verify(plain, hashed)
 
 
+# The ``typ`` claim of a session access token.
+ACCESS_TOKEN_TYPE = "access"
+
+
 def create_token(
     user_id: str,
     username: str,
@@ -228,6 +232,9 @@ def create_token(
     minutes = ACCESS_TOKEN_EXPIRE_MINUTES if expires_minutes is None else expires_minutes
     now = datetime.datetime.now(datetime.timezone.utc)
     payload = {
+        # Names what the token is for, so a token minted for something else
+        # under the same key can never pass as a session (see get_current_user).
+        "typ": ACCESS_TOKEN_TYPE,
         "sub": str(user_id),
         "username": username,
         "role": role,
@@ -340,8 +347,8 @@ class CurrentUser:
         return self.api_key_id is not None
 
 
-# Methods on which the session cookie or ?token= may stand in for the
-# Authorization header (see get_current_user).
+# Methods on which the session cookie may stand in for the Authorization
+# header (see get_current_user).
 _AMBIENT_AUTH_METHODS = frozenset({"GET", "HEAD"})
 
 
@@ -349,7 +356,6 @@ def get_current_user(
     request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
     cookie_token: Optional[str] = Cookie(None, alias=AUTH_COOKIE_NAME),
-    token: Optional[str] = Query(None),
     x_api_key: Optional[str] = Header(
         None,
         alias="X-API-Key",
@@ -373,30 +379,22 @@ def get_current_user(
             key_permissions=key.permissions,
         )
 
-    # Header (normal API calls) → cookie (image/download GETs) → ?token= query
-    # param. The query param is a deprecated fallback kept only so pre-existing
-    # links/clients keep working; new clients should never put the JWT in a URL.
+    # Header (normal API calls) → cookie (image/download GETs). A token in the
+    # URL (the old ?token= parameter) is not accepted: it leaks into proxy logs,
+    # Referer headers and history.
     #
-    # The cookie and the query param only count for reads. A browser attaches
-    # the cookie by itself, and SameSite=Lax still lets a page on a sibling
-    # subdomain (same *site*) send a cookie-bearing POST, so accepting it on a
-    # write would make every write route a CSRF target. The SPA always sends
-    # the Authorization header, which no other page can add for it.
-    ambient = cookie_token or token
-    if request.method not in _AMBIENT_AUTH_METHODS:
-        ambient = None
+    # The cookie only counts for reads. A browser attaches it by itself, and
+    # SameSite=Lax still lets a page on a sibling subdomain (same *site*) send
+    # a cookie-bearing POST, so accepting it on a write would make every write
+    # route a CSRF target. The SPA always sends the Authorization header, which
+    # no other page can add for it.
+    ambient = cookie_token if request.method in _AMBIENT_AUTH_METHODS else None
     raw = (credentials.credentials if credentials else None) or ambient
     if not raw:
         raise HTTPException(401, "Not authenticated")
 
     try:
         payload = decode_token(raw)
-        user = CurrentUser(
-            id=payload["sub"],
-            username=payload["username"],
-            role=payload["role"],
-            session_id=payload.get("sid"),
-        )
     except jwt.ExpiredSignatureError:
         # The client is expected to answer this by calling /api/auth/refresh and
         # retrying, so it must stay distinguishable from other 401s.
@@ -407,6 +405,16 @@ def get_current_user(
         )
     except jwt.InvalidTokenError:
         raise HTTPException(401, "Invalid token")
+    # A token minted before ``typ`` existed has none; those expire within one
+    # access-token lifetime of upgrading, so a missing claim is accepted until
+    # the next release. Anything else must say it is an access token.
+    typ = payload.get("typ")
+    sub, username, role = payload.get("sub"), payload.get("username"), payload.get("role")
+    if (typ is not None and typ != ACCESS_TOKEN_TYPE) or not (sub and username and role):
+        raise HTTPException(401, "Invalid token")
+    user = CurrentUser(
+        id=str(sub), username=username, role=role, session_id=payload.get("sid")
+    )
     # GM and admin tokens are checked against the account as it is now (see
     # _refresh_role); player and guest tokens are trusted until they expire.
     if user.role in ("admin", "gm"):

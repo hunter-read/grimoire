@@ -3,11 +3,13 @@ import base64
 import hashlib
 import logging
 import secrets
+import time
 import warnings
 from typing import Optional
 from urllib.parse import urlsplit
 
 import httpx
+from sqlalchemy import func
 
 with warnings.catch_warnings():
     # Authlib 1.x exposes JOSE under authlib.jose. They've started warning that
@@ -18,6 +20,7 @@ with warnings.catch_warnings():
     from authlib.jose.errors import JoseError  # noqa: E402
 
 from ...models import User
+from ...usernames import username_taken
 from ._state import _jwks_cache, _state_store  # noqa: F401  (re-exported)
 
 
@@ -57,6 +60,13 @@ def _safe_return_to(value: Optional[str]) -> str:
     return value
 
 
+# Discovery documents fetched recently, by URL: (fetched at, document). Without
+# it, every sign-in on an instance with only the issuer configured fetched the
+# document again, once per endpoint looked up. Failures are not cached.
+_DISCOVERY_TTL = 3600  # seconds
+_discovery_cache: dict[str, tuple[float, dict]] = {}
+
+
 def _discovery_doc(issuer: str) -> dict:
     """Fetch and return the OpenID Connect discovery document, or {} on failure."""
     if not issuer:
@@ -66,10 +76,16 @@ def _discovery_doc(issuer: str) -> dict:
         url = issuer
     else:
         url = f"{issuer.rstrip('/')}/.well-known/openid-configuration"
+    cached = _discovery_cache.get(url)
+    if cached and time.monotonic() - cached[0] < _DISCOVERY_TTL:
+        return cached[1]
     try:
         resp = httpx.get(url, timeout=5.0, follow_redirects=True)
         if resp.status_code == 200:
-            return resp.json() or {}
+            doc = resp.json() or {}
+            if isinstance(doc, dict) and doc:
+                _discovery_cache[url] = (time.monotonic(), doc)
+            return doc
     except httpx.HTTPError as e:
         # Discovery is best-effort (caller falls back to configured endpoints),
         # but log so a misconfigured/unreachable issuer is diagnosable.
@@ -165,6 +181,15 @@ def _validate_id_token(
 
     if claims.get("nonce") != expected_nonce:
         raise _OIDCError("id_token nonce mismatch")
+
+    # OIDC Core §3.1.3.7: a token for several audiences must name us as the
+    # party it was issued to, and an azp that is present must be us.
+    aud = claims.get("aud")
+    azp = claims.get("azp")
+    if (isinstance(aud, list) and len(aud) > 1 and azp is None) or (
+        azp is not None and azp != client_id
+    ):
+        raise _OIDCError("id_token azp does not name this client")
 
     return dict(claims)
 
@@ -281,7 +306,7 @@ def _resolve_user(db, claims: dict, eff: dict) -> User:
         if eff["oidc_match_by"] == "email" and email and _email_verified(claims):
             user = unlinked.filter(User.email == email).first()
         elif eff["oidc_match_by"] == "username" and login_name:
-            user = unlinked.filter(User.username == login_name).first()
+            user = unlinked.filter(func.lower(User.username) == login_name.lower()).first()
 
     # 3. Group-based role (returns None if no groups claim configured)
     role_from_groups = _role_from_groups(claims, eff["oidc_groups_claim"])
@@ -300,7 +325,7 @@ def _resolve_user(db, claims: dict, eff: dict) -> User:
             raise _OIDCError("no matching user and auto-register is disabled")
         # Username collision avoidance
         username = preferred_username or f"oidc-{sub[:8]}"
-        if db.query(User).filter_by(username=username).first():
+        if username_taken(db, username):
             username = f"{username}-{sub[:6]}"
         # Email collision avoidance: drop the email rather than fail registration
         if email and db.query(User).filter_by(email=email).first():

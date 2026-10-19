@@ -66,9 +66,26 @@ def _version_from_file() -> str:
 VERSION: str
 COMMIT_HASH = os.environ.get("COMMIT_HASH", "")
 OPDS_ENABLED = os.environ.get("OPDS_ENABLED", "false").lower() == "true"
+# Who may open the interactive API docs (/api/docs, /api/redoc) and the schema
+# behind them (/api/openapi.json): "signed-in" (the default; a browser's
+# session cookie is enough), "public", or "off". Type generation is unaffected:
+# backend/scripts/export_openapi.py builds the schema from the app itself.
+_API_DOCS_MODES = ("signed-in", "public", "off")
+API_DOCS = os.environ.get("API_DOCS", "signed-in").strip().lower()
+if API_DOCS not in _API_DOCS_MODES:
+    _defer_warning(
+        f"API_DOCS={API_DOCS!r} is not one of {', '.join(_API_DOCS_MODES)}; using signed-in."
+    )
+    API_DOCS = "signed-in"
 # The MCP server at /mcp, for AI assistants (Claude Code, ...). Off by default;
 # when on, it authenticates with API keys, so API_KEYS_ENABLED must be on too.
 MCP_ENABLED = os.environ.get("MCP_ENABLED", "false").lower() == "true"
+# Extra host names (comma-separated, optionally with :port or :*) that MCP
+# clients may reach /mcp under, besides loopback and BASE_URL's host. The
+# Host header is checked against them, against DNS rebinding.
+MCP_ALLOWED_HOSTS = [
+    h.strip().lower() for h in os.environ.get("MCP_ALLOWED_HOSTS", "").split(",") if h.strip()
+]
 # Public base URL of this instance (e.g. "https://grimoire.example.com").
 # Used to build absolute links in OPDS feeds and anywhere a fully-qualified URL is needed.
 BASE_URL = os.environ.get("BASE_URL", "http://localhost:9481").rstrip("/")

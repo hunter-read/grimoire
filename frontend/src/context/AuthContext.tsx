@@ -1,5 +1,11 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
-import { auth as authApi, refreshAccessToken, type Schema } from '../api'
+import {
+  auth as authApi,
+  getAccessToken,
+  refreshAccessToken,
+  setAccessToken,
+  type Schema,
+} from '../api'
 import { rememberAuthStatus } from '../hooks/usePasswordRules'
 
 export type AuthStatus = 'loading' | 'uninitialized' | 'unauthenticated' | 'authenticated'
@@ -27,7 +33,9 @@ export function AuthProvider({ children }: { children?: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
 
   useEffect(() => {
-    const token = localStorage.getItem('grimoire_token')
+    // Normally null: the token lives in memory only, so a fresh page load
+    // resumes the session from the refresh cookie below.
+    const token = getAccessToken()
 
     // Validate the stored token, falling back to a refresh. Access tokens are
     // short-lived (issue #157), so a returning user almost always arrives with
@@ -40,7 +48,7 @@ export function AuthProvider({ children }: { children?: ReactNode }) {
         // The stored token is no good. Drop it now rather than at the end of
         // this chain, so we never leave a rejected token sitting in storage if
         // the refresh below fails or throws.
-        localStorage.removeItem('grimoire_token')
+        setAccessToken(null)
       }
 
       // Either there was no token or it was rejected. A live refresh cookie
@@ -64,7 +72,7 @@ export function AuthProvider({ children }: { children?: ReactNode }) {
             setUser(userData)
             setStatus('authenticated')
           } else {
-            localStorage.removeItem('grimoire_token')
+            setAccessToken(null)
             setStatus('unauthenticated')
           }
         })
@@ -72,7 +80,7 @@ export function AuthProvider({ children }: { children?: ReactNode }) {
       .catch(() => setStatus('unauthenticated'))
 
     const handleUnauthorized = () => {
-      localStorage.removeItem('grimoire_token')
+      setAccessToken(null)
       setUser(null)
       setStatus('unauthenticated')
     }
@@ -81,7 +89,7 @@ export function AuthProvider({ children }: { children?: ReactNode }) {
   }, [])
 
   const login = useCallback((token: string, userData: AuthUser) => {
-    localStorage.setItem('grimoire_token', token)
+    setAccessToken(token)
     sessionStorage.removeItem('grimoire:suppress_oidc_autolaunch')
     setUser(userData)
     setStatus('authenticated')
@@ -91,7 +99,7 @@ export function AuthProvider({ children }: { children?: ReactNode }) {
     // Clear the server-side session cookie so media/download GETs can no longer
     // authenticate. Best-effort — local state is cleared regardless.
     authApi.logout().catch(() => {})
-    localStorage.removeItem('grimoire_token')
+    setAccessToken(null)
     // One-shot: prevents the OIDC auto-launch from immediately redirecting
     // the user back to the IdP after they explicitly logged out.
     sessionStorage.setItem('grimoire:suppress_oidc_autolaunch', '1')
@@ -100,7 +108,9 @@ export function AuthProvider({ children }: { children?: ReactNode }) {
   }, [])
 
   const refreshUser = useCallback(async () => {
-    const token = localStorage.getItem('grimoire_token')
+    // Normally null: the token lives in memory only, so a fresh page load
+    // resumes the session from the refresh cookie below.
+    const token = getAccessToken()
     if (!token) return
     const userData = await fetch('/api/auth/me', {
       headers: { Authorization: `Bearer ${token}` },

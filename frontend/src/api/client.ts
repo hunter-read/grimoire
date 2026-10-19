@@ -11,6 +11,7 @@ import type {
   UrlResult,
 } from './types'
 import type { components } from './schema'
+import { getAccessToken, setAccessToken } from './accessToken'
 
 /** A schema model by name, e.g. `Schema<'CampaignOut'>`. */
 export type Schema<N extends keyof components['schemas']> = components['schemas'][N]
@@ -24,7 +25,7 @@ export interface ApiError extends Error {
   body?: unknown
 }
 
-const getToken = (): string | null => localStorage.getItem('grimoire_token')
+const getToken = getAccessToken
 
 function authHeaders(includeContentType = false): Record<string, string> {
   const token = getToken()
@@ -53,23 +54,34 @@ let refreshPromise: Promise<string | null> | null = null
 // credentials rather than a stale token.
 const NO_REFRESH_PATHS = ['/auth/refresh', '/auth/login', '/auth/guest-login', '/auth/setup']
 
+// Other tabs raise the same problem as concurrent 401s, since each holds its
+// own token: two tabs refreshing at once would present the same refresh cookie twice, and the
+// second use reads as a replay that ends the session. The Web Locks API
+// serialises them, so a waiting tab refreshes with the cookie the first one
+// just received. Where it is missing (old browsers, tests) refreshes just run.
+function withRefreshLock<T>(fn: () => Promise<T>): Promise<T> {
+  const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined
+  return locks ? (locks.request('grimoire-token-refresh', fn) as Promise<T>) : fn()
+}
+
 export function refreshAccessToken(): Promise<string | null> {
   if (!refreshPromise) {
-    refreshPromise = fetch('/api/auth/refresh', {
-      method: 'POST',
-      // The refresh cookie is HttpOnly and path-scoped; it rides along here.
-      credentials: 'same-origin',
+    refreshPromise = withRefreshLock(() =>
+      fetch('/api/auth/refresh', {
+        method: 'POST',
+        // The refresh cookie is HttpOnly and path-scoped; it rides along here.
+        credentials: 'same-origin',
+      })
+        .then((res) => (res.ok ? (res.json() as Promise<Schema<'LoginResponse'> | null>) : null))
+        .then((body) => {
+          if (!body?.token) return null
+          setAccessToken(body.token)
+          return body.token
+        })
+        .catch(() => null)
+    ).finally(() => {
+      refreshPromise = null
     })
-      .then((res) => (res.ok ? (res.json() as Promise<Schema<'LoginResponse'> | null>) : null))
-      .then((body) => {
-        if (!body?.token) return null
-        localStorage.setItem('grimoire_token', body.token)
-        return body.token
-      })
-      .catch(() => null)
-      .finally(() => {
-        refreshPromise = null
-      })
   }
   return refreshPromise
 }

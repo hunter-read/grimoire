@@ -26,6 +26,10 @@ logger = logging.getLogger("grimoire.oidc")
 # The authorization flow is short-lived; 10 minutes is generous for a user
 # completing a login at the IdP.
 _STATE_TTL = 600  # seconds
+# Every visit to /openid/login stores a state entry before the user has proved
+# anything, so the in-memory store keeps at most this many and drops the
+# oldest past it. Far more sign-ins than one instance has in flight at once.
+_STATE_MAX = 5000
 # Matches the previous in-process JWKS cache window.
 _JWKS_TTL = 600  # seconds
 
@@ -64,6 +68,9 @@ class MemoryStateStore:
         payload["_ts"] = time.time()
         self._d[state] = payload
         self._gc()
+        # Insertion order is age order, so the first keys are the oldest.
+        while len(self._d) > _STATE_MAX:
+            self._d.pop(next(iter(self._d)))
 
     def pop(self, state: str) -> Optional[dict]:
         self._gc()

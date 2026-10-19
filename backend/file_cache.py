@@ -89,15 +89,21 @@ def cached_file_response(request: Request, path: str, **kwargs: Any) -> Response
     """Serve ``path`` with cache validators, returning 304 when the client is fresh.
 
     Accepts the same keyword arguments as ``FileResponse`` (``filename``,
-    ``media_type``, …). Any caller-supplied ``headers`` are preserved and the
-    shared ``Cache-Control`` is added unless the caller already set one. A 304
+    ``media_type``, …). Any caller-supplied ``headers`` are preserved, the
+    shared ``Cache-Control`` is added unless the caller already set one, and an
+    SVG always gets the inert-document headers. A 304
     repeats the caller's framing and content policy, since a browser refreshes
     its cached copy's headers from it.
     """
+    from .security import inert_svg_headers
+
     etag, last_modified = _validators(os.stat(path))
 
     headers = dict(kwargs.pop("headers", None) or {})
     headers.setdefault("Cache-Control", UPLOAD_CACHE_CONTROL)
+    # Applied here rather than left to each caller, as serve_user_file does,
+    # so an uploaded SVG is always inert whichever route serves it.
+    headers.update(inert_svg_headers(kwargs.get("media_type"), path))
 
     if _not_modified(request, etag, last_modified):
         return Response(

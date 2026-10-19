@@ -23,6 +23,7 @@ from ...auth import (
     set_auth_cookie,
     set_refresh_cookie,
 )
+from ...security import limiter
 from ...sessions import create_session
 from ...config import get_db
 from ..settings._helpers import (
@@ -45,6 +46,12 @@ from ._helpers import (
     logger,
 )
 from ._schemas import DiscoverRequest
+
+
+# Starting a sign-in stores state server-side before anything is checked, so
+# it is rate limited per address. Generous: auto-launch and a retry or two are
+# a handful of calls.
+OIDC_LOGIN_RATE_LIMIT = "30/minute"
 
 
 def discover(data: DiscoverRequest, _: CurrentUser = Depends(require_admin)):
@@ -80,7 +87,9 @@ def discover(data: DiscoverRequest, _: CurrentUser = Depends(require_admin)):
     }
 
 
+@limiter.limit(OIDC_LOGIN_RATE_LIMIT)
 def oidc_login(
+    request: Request,
     return_to: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):

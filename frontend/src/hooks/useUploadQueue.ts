@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
+import { getAccessToken } from '../api'
 
 // How many uploads run at once. Enough to keep a fast link busy without opening
 // so many sockets that a large import starves the rest of the app — and each one
@@ -7,6 +8,30 @@ import { useCallback, useRef, useState } from 'react'
 const CONCURRENCY = 3
 
 let nextId = 0
+
+export type UploadStatus = 'queued' | 'uploading' | 'done' | 'error' | 'cancelled'
+
+export interface UploadItem {
+  id: string
+  file: File
+  name: string
+  size: number
+  relativeDir: string
+  destination: string
+  status: UploadStatus
+  progress: number
+  error: string | null
+  landedAs?: string
+}
+
+export interface UploadEntry {
+  file: File
+  relativeDir?: string
+}
+
+interface UploadQueueOptions {
+  onFileDone?: () => void
+}
 
 /**
  * A queue of file uploads with per-file status, progress, and retry.
@@ -20,20 +45,20 @@ let nextId = 0
  * progress — `fetch` has no equivalent for request bodies in any shipping
  * browser, and a multi-hundred-megabyte book with no progress bar looks hung.
  */
-export function useUploadQueue({ onFileDone } = {}) {
-  const [items, setItems] = useState([])
-  const active = useRef(new Map()) // id -> XMLHttpRequest
-  const queue = useRef([])
+export function useUploadQueue({ onFileDone }: UploadQueueOptions = {}) {
+  const [items, setItems] = useState<UploadItem[]>([])
+  const active = useRef(new Map<string, XMLHttpRequest>())
+  const queue = useRef<UploadItem[]>([])
   const running = useRef(0)
   const doneCb = useRef(onFileDone)
   doneCb.current = onFileDone
 
-  const patch = useCallback((id, changes) => {
+  const patch = useCallback((id: string, changes: Partial<UploadItem>) => {
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...changes } : it)))
   }, [])
 
   const send = useCallback(
-    (item) => {
+    (item: UploadItem) => {
       const xhr = new XMLHttpRequest()
       active.current.set(item.id, xhr)
       patch(item.id, { status: 'uploading', progress: 0, error: null })
@@ -90,7 +115,7 @@ export function useUploadQueue({ onFileDone } = {}) {
       }
 
       xhr.open('POST', '/api/files/upload')
-      const token = localStorage.getItem('grimoire_token')
+      const token = getAccessToken()
       if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
       xhr.send(form)
     },
@@ -102,7 +127,7 @@ export function useUploadQueue({ onFileDone } = {}) {
   // Start as many queued uploads as the concurrency budget allows.
   const pump = useCallback(() => {
     while (running.current < CONCURRENCY && queue.current.length) {
-      const item = queue.current.shift()
+      const item = queue.current.shift() as UploadItem
       running.current += 1
       send(item)
     }
@@ -116,8 +141,8 @@ export function useUploadQueue({ onFileDone } = {}) {
    * file selection.
    */
   const enqueue = useCallback(
-    (entries, destination) => {
-      const added = entries.map(({ file, relativeDir }) => ({
+    (entries: UploadEntry[], destination: string) => {
+      const added = entries.map(({ file, relativeDir }): UploadItem => ({
         id: `u${nextId++}`,
         file,
         name: file.name,
@@ -138,12 +163,12 @@ export function useUploadQueue({ onFileDone } = {}) {
 
   /** Re-queue the failed items, keeping their place in the list. */
   const retry = useCallback(
-    (ids) => {
+    (ids: string[]) => {
       setItems((prev) => {
         const targets = prev.filter(
           (it) => ids.includes(it.id) && (it.status === 'error' || it.status === 'cancelled')
         )
-        queue.current.push(...targets.map((it) => ({ ...it, status: 'queued' })))
+        queue.current.push(...targets.map((it) => ({ ...it, status: 'queued' as const })))
         return prev.map((it) =>
           targets.some((t) => t.id === it.id)
             ? { ...it, status: 'queued', progress: 0, error: null }
@@ -159,7 +184,7 @@ export function useUploadQueue({ onFileDone } = {}) {
   const retryFailed = useCallback(() => {
     setItems((prev) => {
       const failed = prev.filter((it) => it.status === 'error' || it.status === 'cancelled')
-      queue.current.push(...failed.map((it) => ({ ...it, status: 'queued' })))
+      queue.current.push(...failed.map((it) => ({ ...it, status: 'queued' as const })))
       setTimeout(pump, 0)
       return prev.map((it) =>
         it.status === 'error' || it.status === 'cancelled'
@@ -169,7 +194,7 @@ export function useUploadQueue({ onFileDone } = {}) {
     })
   }, [pump])
 
-  const cancel = useCallback((id) => {
+  const cancel = useCallback((id: string) => {
     const xhr = active.current.get(id)
     if (xhr) {
       xhr.abort()
@@ -199,7 +224,7 @@ export function useUploadQueue({ onFileDone } = {}) {
     setItems((prev) => prev.filter((it) => it.status !== 'done'))
   }, [])
 
-  const counts = items.reduce(
+  const counts = items.reduce<Record<UploadStatus, number>>(
     (acc, it) => {
       acc[it.status] = (acc[it.status] || 0) + 1
       return acc

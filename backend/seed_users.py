@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from . import passwords
 from .models import User
 from .auth import hash_password
+from .usernames import username_taken
 
 log = logging.getLogger("grimoire.seed")
 
@@ -89,7 +90,7 @@ def seed_users(db: Session, data_path: str) -> None:
             skipped += 1
             continue
 
-        if db.query(User).filter_by(username=username).first():
+        if username_taken(db, username):
             log.info(f"User '{username}' already exists - skipping")
             skipped += 1
             continue

@@ -4,8 +4,9 @@ from pathlib import Path
 
 from fastapi import Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import Response
 
+from .._user_files import serve_user_file
 from ...config import get_db
 from ...models import Audio, AudioFolder
 from ...security import inert_svg_headers
@@ -190,7 +191,7 @@ def serve_audio_file(
         ext = Path(a.filepath).suffix.lower()
         media = _AUDIO_MIME.get(ext, "application/octet-stream")
     # FileResponse honours HTTP Range requests, so browsers can seek/stream.
-    return FileResponse(a.filepath, media_type=media, filename=a.filename)
+    return serve_user_file(a.filepath, media, filename=a.filename)
 
 
 def serve_audio_artwork(
@@ -209,13 +210,11 @@ def serve_audio_artwork(
     chosen = resolve_cover_file(a)
     if chosen:
         ext = Path(chosen).suffix.lower().lstrip(".")
-        return FileResponse(chosen, media_type=f"image/{'jpeg' if ext == 'jpg' else ext}")
+        return serve_user_file(chosen, f"image/{'jpeg' if ext == 'jpg' else ext}")
     cover = _find_folder_artwork(os.path.dirname(a.filepath))
     if cover and os.path.exists(cover):
         ext = Path(cover).suffix.lower().lstrip(".")
-        return FileResponse(
-            cover, media_type=f"image/{ext}", headers=inert_svg_headers(None, cover)
-        )
+        return serve_user_file(cover, f"image/{ext}")
     embedded = _extract_embedded_art(a.filepath)
     if embedded:
         data, mime = embedded

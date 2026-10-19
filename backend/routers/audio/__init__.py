@@ -105,7 +105,7 @@ router.add_api_route(
     serve_audio_file,
     methods=["GET"],
     summary="Stream/download audio file",
-    description="Streams the original audio file (supports HTTP range requests). Accepts `?token=`.",
+    description="Streams the original audio file (supports HTTP range requests).",
 )
 router.add_api_route(
     "/audio/{audio_id}/artwork",

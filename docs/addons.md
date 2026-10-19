@@ -263,7 +263,7 @@ No new tables, no migration.
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `addons.index_url` | the community repo's `index.json` | Where **Refresh** fetches from |
+| `addons.index_url` | the community repo's `index.json` | Where **Refresh** fetches from. Must be `https://`, except on `localhost` or a private network address: the index carries each download's checksum, which proves nothing if the index itself travelled over plain HTTP |
 | `addons.allow_scripts` | `false` | Global switch for executing add-on scripts |
 | `addons.installed` | `{}` | Per-add-on state (version, digests, approval, enabled) |
 | `addons.index_cache` | `{}` | Last fetched index |

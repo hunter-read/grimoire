@@ -219,9 +219,10 @@ Two things fall out of storing the hash:
 - **Roles**: `admin` (full access incl. user management), `gm` (edit metadata, rescan,
   manage content), `player` (read-only), plus `guest` - a campaign-scoped, code-only
   account with no library access.
-- `get_current_user` accepts the token from either the `Authorization: Bearer` header **or**
-  a `?token=` query param, so browser-embedded images and downloads authenticate without a
-  header. Role guards (`require_admin`, `require_gm_or_admin`, `require_not_guest`) layer on
+- `get_current_user` accepts the token from the `Authorization: Bearer` header, or on
+  `GET`/`HEAD` from the HttpOnly `grimoire_session` cookie, so browser-embedded images and
+  downloads authenticate without a header. It requires `typ: "access"` (or no `typ`, for
+  tokens minted before the claim) and every identity claim. Role guards (`require_admin`, `require_gm_or_admin`, `require_not_guest`) layer on
   top per-route.
 - An `X-API-Key` header takes precedence over any session. `get_current_user` hands it to
   [`api_keys.authenticate`](../backend/api_keys.py), which finds the key by hash, then maps

@@ -8,6 +8,7 @@ from ...config import get_db
 from ...models import User, Campaign, CampaignMember, UserAccessGrant
 from ...auth import require_admin, CurrentUser, hash_password
 from ...sessions import delete_user_sessions, revoke_user_sessions
+from ...usernames import username_taken
 from ..campaigns._helpers import purge_user_data, reassign_user_data
 from ..settings._helpers import _get_raw, password_auth_effective
 from ...services import share_links as share_policy
@@ -112,7 +113,7 @@ def create_user(
     db: Session = Depends(get_db),
 ):
     _assert_session_for_credentials(current_user, data.password, data.role)
-    if db.query(User).filter_by(username=data.username.strip()).first():
+    if username_taken(db, data.username):
         raise HTTPException(400, "Username already exists")
     if data.email and db.query(User).filter_by(email=data.email).first():
         raise HTTPException(400, "Email already in use")
@@ -248,8 +249,7 @@ def convert_guest(
     _assert_session_for_credentials(current_user, data.password, data.role)
 
     new_username = data.username.strip()
-    existing = db.query(User).filter_by(username=new_username).first()
-    if existing and existing.id != user.id:
+    if username_taken(db, new_username, exclude_id=user.id):
         raise HTTPException(400, "Username already exists")
 
     password_enabled = password_auth_effective(_get_raw(db))

@@ -160,7 +160,9 @@ TAG_PERMISSIONS: dict[str, str] = {
 # able to mint or widen keys.
 # "share" is the public share-link route (issue #541): it takes no login of any
 # kind - the token in the path is the credential - so a key has nothing to add.
-EXCLUDED_TAGS = frozenset({"auth", "api-keys", "share"})
+# "api-docs" is the signed-in API documentation (API_DOCS=signed-in): a page
+# for a person in a browser, and API_DOCS=public serves it to anyone instead.
+EXCLUDED_TAGS = frozenset({"auth", "api-keys", "share", "api-docs"})
 
 # Roles, weakest first.
 ROLE_RANK = {"guest": 0, "player": 1, "gm": 2, "admin": 3}

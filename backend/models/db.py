@@ -560,6 +560,14 @@ def _post_migration_setup(engine: Engine) -> None:
         # Normalize all stored tags to lowercase, deduplicating within each row.
         _normalize_tags_in_db(conn)
 
+        # The case-insensitive username index, for a database whose duplicate
+        # usernames kept migration 0050 from creating it and have since been
+        # renamed. A no-op once it exists.
+        from ..usernames import ensure_unique_index
+
+        ensure_unique_index(conn)
+        conn.commit()
+
         # Move schedule times from a UTC clock to the local clock they were
         # picked in, repairing the lost day rollover. Marker-guarded, so
         # repeating it is a no-op.

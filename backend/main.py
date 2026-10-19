@@ -14,7 +14,7 @@ from slowapi import _rate_limit_exceeded_handler
 
 from . import backup_scheduler, scheduler, session_creator, session_purger
 from ._health_schemas import HealthResponse
-from .auth import get_current_user
+from .auth import get_current_user, require_not_guest
 from .security import (
     RateLimitExceeded,
     SecurityHeadersMiddleware,
@@ -22,6 +22,7 @@ from .security import (
     limiter,
 )
 from .config import (
+    API_DOCS,
     CORS_ALLOWED_ORIGINS,
     DATA_PATH,
     API_KEYS_ENABLED,
@@ -81,8 +82,9 @@ from .seed_users import seed_users
 _DESCRIPTION = """
 **Grimoire** is a self-hosted TTRPG library manager. All endpoints except
 `/api/auth/status`, `/api/auth/setup`, and `/api/auth/login` require a valid
-JWT passed as `Authorization: Bearer <token>`, or as a `?token=` query
-parameter (required for browser-embedded images and file downloads).
+JWT passed as `Authorization: Bearer <token>`, or an `X-API-Key`. Browser
+`GET`s for embedded images and downloads authenticate with the HttpOnly
+`grimoire_session` cookie set at sign-in.
 
 Roles:
 - **admin** - full access including user management
@@ -303,11 +305,34 @@ app = FastAPI(
     version=VERSION,
     description=_DESCRIPTION,
     openapi_tags=_TAGS,
-    docs_url="/api/docs",
-    redoc_url="/api/redoc",
-    openapi_url="/api/openapi.json",
+    # Served by FastAPI itself only when API_DOCS=public; signed-in mode adds
+    # the same three routes behind a session below, and "off" leaves them out.
+    docs_url="/api/docs" if API_DOCS == "public" else None,
+    redoc_url="/api/redoc" if API_DOCS == "public" else None,
+    openapi_url="/api/openapi.json" if API_DOCS == "public" else None,
     lifespan=lifespan,
 )
+
+if API_DOCS == "signed-in":
+    from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
+
+    _docs = APIRouter(
+        tags=["api-docs"], dependencies=[Depends(require_not_guest)], include_in_schema=False
+    )
+
+    @_docs.get("/api/openapi.json")
+    def _openapi_schema() -> JSONResponse:
+        return JSONResponse(app.openapi())
+
+    @_docs.get("/api/docs")
+    def _swagger_ui():
+        return get_swagger_ui_html(openapi_url="/api/openapi.json", title=f"{app.title} - API")
+
+    @_docs.get("/api/redoc")
+    def _redoc():
+        return get_redoc_html(openapi_url="/api/openapi.json", title=f"{app.title} - API")
+
+    app.include_router(_docs)
 
 # Rate limiting on auth endpoints (see backend/security.py) and security
 # headers on every response.

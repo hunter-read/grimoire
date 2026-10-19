@@ -23,9 +23,15 @@ _USER_SCOPED_TABLES = (
     "saved_filters",
     "wiki_page_shares",
     "campaign_resource_shares",
+    # Wiki pages a member hid from their own sidebar.
+    "wiki_page_hidden",
     # The character builder: a user's characters and the sheets they installed.
     "characters",
     "character_schemas",
+    # Personal settings: saved audio sets, installed themes and importers.
+    "audio_sets",
+    "user_themes",
+    "user_importers",
 )
 
 # Rows deleted with their user but never *moved* to another one. Access grants
@@ -45,18 +51,25 @@ _USER_ATTRIBUTION_COLUMNS = (
     # A campaign or server ruleset serves a table, not its author. A personal
     # one is owned through `owner_id` instead, handled below.
     ("rulesets", "created_by_id"),
+    # A wiki template serves whoever uses it, not only who made it.
+    ("wiki_templates", "created_by_id"),
 )
 
 
 # Per-user rows that are unique within a scope, so moving them between users can
 # collide with a row the target already owns. Each entry is the table and the
-# column that scopes the uniqueness alongside user_id.
+# column(s) that scope the uniqueness alongside user_id.
 _USER_SCOPED_UNIQUE = (
     ("campaign_members", "campaign_id"),
     ("wiki_page_shares", "page_id"),
+    ("wiki_page_hidden", "page_id"),
     ("campaign_resource_shares", "resource_id"),
     # One installed copy of each sheet per user; the target's copy wins.
     ("character_schemas", "schema_id"),
+    # Likewise one copy of each theme or importer, and one set per kind and name.
+    ("user_themes", "theme_id"),
+    ("user_importers", "importer_id"),
+    ("audio_sets", "kind, name"),
 )
 
 
@@ -75,7 +88,7 @@ def reassign_user_data(db, source_id: str, target_id: str) -> int:
         # Drop the source rows that would collide with an existing target row.
         db.execute(
             text(
-                f"DELETE FROM {table} WHERE user_id = :src AND {scope} IN "
+                f"DELETE FROM {table} WHERE user_id = :src AND ({scope}) IN "
                 f"(SELECT {scope} FROM {table} WHERE user_id = :tgt)"
             ),
             {"src": source_id, "tgt": target_id},

@@ -3,6 +3,8 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from ...addons.urls import index_url_problem
+
 
 class ChangelogEntry(BaseModel):
     version: str
@@ -41,8 +43,9 @@ class AddonSettingsUpdate(BaseModel):
             if not isinstance(url, str):
                 continue
             url = url.strip()
-            if url and not url.startswith(("http://", "https://")):
-                raise ValueError(f"index URL '{url}' must be an http(s) URL")
+            problem = index_url_problem(url) if url else None
+            if problem:
+                raise ValueError(problem)
         return v
 
 

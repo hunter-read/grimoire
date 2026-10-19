@@ -551,7 +551,7 @@ export interface paths {
         };
         /**
          * Stream/download audio file
-         * @description Streams the original audio file (supports HTTP range requests). Accepts `?token=`.
+         * @description Streams the original audio file (supports HTTP range requests).
          */
         get: operations["serve_audio_file_api_audio__audio_id__file_get"];
         put?: never;
@@ -4435,7 +4435,7 @@ export interface paths {
         };
         /**
          * Download map file
-         * @description Streams the original map image or PDF. Accepts `?token=` for browser-embedded images.
+         * @description Streams the original map image or PDF.
          */
         get: operations["serve_map_file_api_maps__map_id__file_get"];
         put?: never;
@@ -4495,7 +4495,7 @@ export interface paths {
         };
         /**
          * Render a map page
-         * @description Renders a single page of a PDF map to WebP (`?width=` sets the target pixel width, default 1600, max 3000). Image maps are streamed as-is and only accept page 1. Accepts `?token=` for browser-embedded images.
+         * @description Renders a single page of a PDF map to WebP (`?width=` sets the target pixel width, default 1600, max 3000). Image maps are streamed as-is and only accept page 1.
          */
         get: operations["serve_map_page_api_maps__map_id__page__page_num__get"];
         put?: never;
@@ -15738,9 +15738,7 @@ export type $defs = Record<string, never>;
 export interface operations {
     get_about_api_about_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -15774,9 +15772,7 @@ export interface operations {
     };
     list_addons_api_addons_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -15810,9 +15806,7 @@ export interface operations {
     };
     refresh_index_api_addons_refresh_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -15846,9 +15840,7 @@ export interface operations {
     };
     update_addon_settings_api_addons_settings_patch: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -15886,9 +15878,7 @@ export interface operations {
     };
     update_all_addons_api_addons_update_all_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -15924,7 +15914,6 @@ export interface operations {
         parameters: {
             query?: {
                 url?: string;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -15959,9 +15948,7 @@ export interface operations {
     };
     uninstall_addon_api_addons__addon_id__delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -15997,9 +15984,7 @@ export interface operations {
     };
     update_addon_api_addons__addon_id__patch: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -16039,9 +16024,7 @@ export interface operations {
     };
     install_addon_api_addons__addon_id__install_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -16084,7 +16067,6 @@ export interface operations {
             query?: {
                 /** @description Admins only: every user's keys, not just your own */
                 all?: boolean;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -16119,9 +16101,7 @@ export interface operations {
     };
     create_api_key_api_api_keys_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -16159,9 +16139,7 @@ export interface operations {
     };
     list_permissions_api_api_keys_permissions_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -16195,9 +16173,7 @@ export interface operations {
     };
     delete_api_key_api_api_keys__key_id__delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -16231,9 +16207,7 @@ export interface operations {
     };
     update_api_key_api_api_keys__key_id__patch: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -16273,9 +16247,7 @@ export interface operations {
     };
     regenerate_api_key_api_api_keys__key_id__regenerate_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -16314,7 +16286,6 @@ export interface operations {
             query?: {
                 limit?: number;
                 offset?: number;
-                token?: string | null;
                 /** @description Search text. Matches the name, folder path, and tags; accepts the search page's `field:value` prefixes (`tag:`, `title:`, `filename:`, `artist:`, `album:`). */
                 q?: string;
                 /** @description Tag filter as JSON: a list of `{mode: include|exclude, tags: [...]}` groups (tags OR'd within a group, groups AND'd), or a flat list of tags that must all match. Folder tags count for everything beneath the folder. `__grim:none__`/`__grim:any__` match items with no tags / any tag. */
@@ -16362,9 +16333,7 @@ export interface operations {
     };
     list_audio_folders_api_audio_folders_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -16398,9 +16367,7 @@ export interface operations {
     };
     update_audio_folder_api_audio_folders_patch: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -16438,9 +16405,7 @@ export interface operations {
     };
     bulk_update_audio_folders_api_audio_folders_bulk_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -16480,7 +16445,6 @@ export interface operations {
         parameters: {
             query?: {
                 kind?: string | null;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -16515,9 +16479,7 @@ export interface operations {
     };
     create_audio_set_api_audio_sets_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -16555,9 +16517,7 @@ export interface operations {
     };
     get_audio_set_api_audio_sets__set_id__get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -16593,9 +16553,7 @@ export interface operations {
     };
     delete_audio_set_api_audio_sets__set_id__delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -16631,9 +16589,7 @@ export interface operations {
     };
     update_audio_set_api_audio_sets__set_id__patch: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -16673,9 +16629,7 @@ export interface operations {
     };
     bulk_update_audio_api_audio_bulk_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -16713,9 +16667,7 @@ export interface operations {
     };
     bulk_add_audio_tags_api_audio_bulk_tags_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -16754,7 +16706,6 @@ export interface operations {
     list_audio_groups_api_audio_groups_get: {
         parameters: {
             query?: {
-                token?: string | null;
                 /** @description Search text. Matches the name, folder path, and tags; accepts the search page's `field:value` prefixes (`tag:`, `title:`, `filename:`, `artist:`, `album:`). */
                 q?: string;
                 /** @description Tag filter as JSON: a list of `{mode: include|exclude, tags: [...]}` groups (tags OR'd within a group, groups AND'd), or a flat list of tags that must all match. Folder tags count for everything beneath the folder. `__grim:none__`/`__grim:any__` match items with no tags / any tag. */
@@ -16802,9 +16753,7 @@ export interface operations {
     };
     get_audio_api_audio__audio_id__get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -16840,9 +16789,7 @@ export interface operations {
     };
     update_audio_api_audio__audio_id__patch: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -16882,9 +16829,7 @@ export interface operations {
     };
     serve_audio_artwork_api_audio__audio_id__artwork_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -16920,9 +16865,7 @@ export interface operations {
     };
     get_audio_chapters_api_audio__audio_id__chapters_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -16958,9 +16901,7 @@ export interface operations {
     };
     serve_audio_cover_api_audio__audio_id__cover_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -16996,9 +16937,7 @@ export interface operations {
     };
     upload_audio_cover_api_audio__audio_id__cover_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -17038,9 +16977,7 @@ export interface operations {
     };
     delete_audio_cover_api_audio__audio_id__cover_delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -17076,9 +17013,7 @@ export interface operations {
     };
     set_audio_cover_from_source_api_audio__audio_id__cover_from_source_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -17118,9 +17053,7 @@ export interface operations {
     };
     serve_audio_file_api_audio__audio_id__file_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -17273,9 +17206,7 @@ export interface operations {
     };
     auth_me_api_auth_me_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -17372,9 +17303,7 @@ export interface operations {
     };
     discover_api_auth_openid_discover_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -17474,9 +17403,7 @@ export interface operations {
     };
     list_sessions_api_auth_sessions_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -17510,9 +17437,7 @@ export interface operations {
     };
     revoke_other_sessions_api_auth_sessions_others_delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -17546,9 +17471,7 @@ export interface operations {
     };
     revoke_one_session_api_auth_sessions__session_id__delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -17637,9 +17560,7 @@ export interface operations {
     };
     list_backups_api_backups_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -17673,9 +17594,7 @@ export interface operations {
     };
     create_backup_api_backups_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -17709,9 +17628,7 @@ export interface operations {
     };
     get_backup_settings_api_backups_settings_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -17745,9 +17662,7 @@ export interface operations {
     };
     update_backup_settings_api_backups_settings_put: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -17785,9 +17700,7 @@ export interface operations {
     };
     delete_backup_api_backups__backup_id__delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -17821,9 +17734,7 @@ export interface operations {
     };
     download_backup_api_backups__backup_id__download_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -17861,7 +17772,6 @@ export interface operations {
         parameters: {
             query: {
                 book_id: string;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -17896,9 +17806,7 @@ export interface operations {
     };
     create_bookmark_api_bookmarks_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -17936,9 +17844,7 @@ export interface operations {
     };
     delete_bookmark_api_bookmarks__bookmark_id__delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -17974,9 +17880,7 @@ export interface operations {
     };
     update_bookmark_api_bookmarks__bookmark_id__patch: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -18024,7 +17928,6 @@ export interface operations {
                 sort?: "title" | "added_at";
                 order?: ("asc" | "desc") | null;
                 added_since?: string | null;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -18059,9 +17962,7 @@ export interface operations {
     };
     bulk_update_books_api_books_bulk_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -18099,9 +18000,7 @@ export interface operations {
     };
     bulk_add_book_tags_api_books_bulk_tags_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -18139,9 +18038,7 @@ export interface operations {
     };
     get_book_api_books__book_id__get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -18177,9 +18074,7 @@ export interface operations {
     };
     update_book_api_books__book_id__patch: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -18219,9 +18114,7 @@ export interface operations {
     };
     export_book_api_books__book_id__export_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -18261,9 +18154,7 @@ export interface operations {
     };
     save_book_export_api_books__book_id__export_save_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -18303,9 +18194,7 @@ export interface operations {
     };
     serve_book_file_api_books__book_id__file_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -18341,9 +18230,7 @@ export interface operations {
     };
     fetch_metadata_api_books__book_id__metadata_fetch_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -18383,9 +18270,7 @@ export interface operations {
     };
     search_metadata_api_books__book_id__metadata_search_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -18425,9 +18310,7 @@ export interface operations {
     };
     list_metadata_sources_api_books__book_id__metadata_sources_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -18465,7 +18348,6 @@ export interface operations {
         parameters: {
             query?: {
                 width?: number;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -18503,9 +18385,7 @@ export interface operations {
     };
     detect_book_page_shapes_api_books__book_id__page__page_num__shapes_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -18542,9 +18422,7 @@ export interface operations {
     };
     get_book_page_size_api_books__book_id__page__page_num__size_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -18581,9 +18459,7 @@ export interface operations {
     };
     get_page_text_api_books__book_id__page__page_num__text_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -18624,7 +18500,6 @@ export interface operations {
                 width: number;
                 col: number;
                 row: number;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -18662,9 +18537,7 @@ export interface operations {
     };
     get_page_words_api_books__book_id__page__page_num__words_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -18704,7 +18577,6 @@ export interface operations {
             query?: {
                 /** @description Optional OCR resolution override (DPI, 72–600) for this book. Omit to use the global OCR_DPI default. */
                 ocr_dpi?: number | null;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -18741,9 +18613,7 @@ export interface operations {
     };
     rescan_book_api_books__book_id__rescan_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -18779,9 +18649,7 @@ export interface operations {
     };
     serve_book_thumbnail_api_books__book_id__thumbnail_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -18817,9 +18685,7 @@ export interface operations {
     };
     get_book_toc_api_books__book_id__toc_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -18857,7 +18723,6 @@ export interface operations {
         parameters: {
             query?: {
                 include_archived?: boolean;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -18892,9 +18757,7 @@ export interface operations {
     };
     create_campaign_api_campaigns_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -18932,9 +18795,7 @@ export interface operations {
     };
     admin_list_user_campaigns_api_campaigns_admin_by_user__user_id__get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -18972,7 +18833,6 @@ export interface operations {
         parameters: {
             query?: {
                 campaign_id?: string | null;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -19009,7 +18869,6 @@ export interface operations {
         parameters: {
             query?: {
                 campaign_id?: string | null;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -19044,9 +18903,7 @@ export interface operations {
     };
     revoke_calendar_token_api_campaigns_calendar_subscription_delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -19142,9 +18999,7 @@ export interface operations {
     };
     list_invites_api_campaigns_invites_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -19183,7 +19038,6 @@ export interface operations {
                 resource_type?: string | null;
                 system_id?: string | null;
                 limit?: number;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -19218,9 +19072,7 @@ export interface operations {
     };
     suggested_resources_api_campaigns_resources_suggested__system_id__get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -19256,9 +19108,7 @@ export interface operations {
     };
     get_campaign_api_campaigns__campaign_id__get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -19294,9 +19144,7 @@ export interface operations {
     };
     delete_campaign_api_campaigns__campaign_id__delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -19330,9 +19178,7 @@ export interface operations {
     };
     update_campaign_api_campaigns__campaign_id__patch: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -19372,9 +19218,7 @@ export interface operations {
     };
     set_campaign_archived_api_campaigns__campaign_id__archive_put: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -19414,9 +19258,7 @@ export interface operations {
     };
     get_availability_api_campaigns__campaign_id__availability_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -19452,9 +19294,7 @@ export interface operations {
     };
     set_availability_api_campaigns__campaign_id__availability__session_date__put: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -19495,9 +19335,7 @@ export interface operations {
     };
     cancel_session_date_api_campaigns__campaign_id__availability__session_date__cancel_put: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -19536,7 +19374,6 @@ export interface operations {
         parameters: {
             query?: {
                 size?: string;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -19573,9 +19410,7 @@ export interface operations {
     };
     upload_banner_api_campaigns__campaign_id__banner_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -19615,9 +19450,7 @@ export interface operations {
     };
     delete_banner_api_campaigns__campaign_id__banner_delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -19651,9 +19484,7 @@ export interface operations {
     };
     set_banner_focus_api_campaigns__campaign_id__banner_focus_put: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -19693,9 +19524,7 @@ export interface operations {
     };
     set_banner_from_source_api_campaigns__campaign_id__banner_from_source_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -19735,9 +19564,7 @@ export interface operations {
     };
     download_campaign_calendar_api_campaigns__campaign_id__calendar_ics_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -19773,7 +19600,6 @@ export interface operations {
         parameters: {
             query?: {
                 kind?: string;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -19810,9 +19636,7 @@ export interface operations {
     };
     create_category_api_campaigns__campaign_id__categories_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -19852,9 +19676,7 @@ export interface operations {
     };
     reorder_categories_api_campaigns__campaign_id__categories_reorder_put: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -19896,7 +19718,6 @@ export interface operations {
         parameters: {
             query?: {
                 mode?: string;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -19932,9 +19753,7 @@ export interface operations {
     };
     update_category_api_campaigns__campaign_id__categories__category_id__patch: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -19975,9 +19794,7 @@ export interface operations {
     };
     convert_campaign_to_group_api_campaigns__campaign_id__convert_to_group_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -20017,9 +19834,7 @@ export interface operations {
     };
     eligible_members_api_campaigns__campaign_id__eligible_members_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -20055,9 +19870,7 @@ export interface operations {
     };
     upload_campaign_file_api_campaigns__campaign_id__files_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -20097,9 +19910,7 @@ export interface operations {
     };
     get_campaign_file_api_campaigns__campaign_id__files__file_id__get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -20136,9 +19947,7 @@ export interface operations {
     };
     list_guests_api_campaigns__campaign_id__guests_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -20174,9 +19983,7 @@ export interface operations {
     };
     create_guest_api_campaigns__campaign_id__guests_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -20216,9 +20023,7 @@ export interface operations {
     };
     remove_guest_api_campaigns__campaign_id__guests__member_id__delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -20253,9 +20058,7 @@ export interface operations {
     };
     regenerate_guest_code_api_campaigns__campaign_id__guests__member_id__regenerate_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -20292,9 +20095,7 @@ export interface operations {
     };
     guest_share_template_api_campaigns__campaign_id__guests__member_id__share_template_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -20331,9 +20132,7 @@ export interface operations {
     };
     upload_campaign_image_api_campaigns__campaign_id__images_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -20373,9 +20172,7 @@ export interface operations {
     };
     invite_member_api_campaigns__campaign_id__invite_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -20415,9 +20212,7 @@ export interface operations {
     };
     get_member_art_api_campaigns__campaign_id__members__member_id__art_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -20454,9 +20249,7 @@ export interface operations {
     };
     upload_member_art_api_campaigns__campaign_id__members__member_id__art_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -20497,9 +20290,7 @@ export interface operations {
     };
     delete_member_art_api_campaigns__campaign_id__members__member_id__art_delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -20534,9 +20325,7 @@ export interface operations {
     };
     get_member_sheet_api_campaigns__campaign_id__members__member_id__sheet_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -20573,9 +20362,7 @@ export interface operations {
     };
     upload_member_sheet_api_campaigns__campaign_id__members__member_id__sheet_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -20616,9 +20403,7 @@ export interface operations {
     };
     delete_member_sheet_api_campaigns__campaign_id__members__member_id__sheet_delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -20653,9 +20438,7 @@ export interface operations {
     };
     duplicate_member_sheet_api_campaigns__campaign_id__members__member_id__sheet_duplicate_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -20696,9 +20479,7 @@ export interface operations {
     };
     get_member_token_api_campaigns__campaign_id__members__member_id__token_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -20735,9 +20516,7 @@ export interface operations {
     };
     upload_member_token_api_campaigns__campaign_id__members__member_id__token_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -20778,9 +20557,7 @@ export interface operations {
     };
     delete_member_token_api_campaigns__campaign_id__members__member_id__token_delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -20815,9 +20592,7 @@ export interface operations {
     };
     remove_member_api_campaigns__campaign_id__members__user_id__delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -20852,9 +20627,7 @@ export interface operations {
     };
     update_member_status_api_campaigns__campaign_id__members__user_id__patch: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -20895,9 +20668,7 @@ export interface operations {
     };
     set_resource_group_order_api_campaigns__campaign_id__resource_group_order_put: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -20937,9 +20708,7 @@ export interface operations {
     };
     list_resources_api_campaigns__campaign_id__resources_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -20975,9 +20744,7 @@ export interface operations {
     };
     add_resource_api_campaigns__campaign_id__resources_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -21017,9 +20784,7 @@ export interface operations {
     };
     bulk_add_resources_api_campaigns__campaign_id__resources_bulk_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -21059,9 +20824,7 @@ export interface operations {
     };
     reorder_resources_api_campaigns__campaign_id__resources_reorder_put: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -21101,9 +20864,7 @@ export interface operations {
     };
     remove_resource_api_campaigns__campaign_id__resources__resource_id__delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -21138,9 +20899,7 @@ export interface operations {
     };
     update_resource_api_campaigns__campaign_id__resources__resource_id__patch: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -21181,9 +20940,7 @@ export interface operations {
     };
     get_schedule_api_campaigns__campaign_id__schedule_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -21219,9 +20976,7 @@ export interface operations {
     };
     upsert_schedule_api_campaigns__campaign_id__schedule_put: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -21261,9 +21016,7 @@ export interface operations {
     };
     delete_schedule_api_campaigns__campaign_id__schedule_delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -21297,9 +21050,7 @@ export interface operations {
     };
     list_sessions_api_campaigns__campaign_id__sessions_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -21335,9 +21086,7 @@ export interface operations {
     };
     create_session_api_campaigns__campaign_id__sessions_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -21379,7 +21128,6 @@ export interface operations {
         parameters: {
             query: {
                 q: string;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -21416,9 +21164,7 @@ export interface operations {
     };
     get_session_api_campaigns__campaign_id__sessions__session_id__get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -21455,9 +21201,7 @@ export interface operations {
     };
     delete_session_api_campaigns__campaign_id__sessions__session_id__delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -21492,9 +21236,7 @@ export interface operations {
     };
     update_session_api_campaigns__campaign_id__sessions__session_id__patch: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -21535,9 +21277,7 @@ export interface operations {
     };
     upsert_gm_note_api_campaigns__campaign_id__sessions__session_id__notes_gm_put: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -21578,9 +21318,7 @@ export interface operations {
     };
     upsert_player_note_api_campaigns__campaign_id__sessions__session_id__notes_player_put: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -21621,9 +21359,7 @@ export interface operations {
     };
     list_sheet_sources_api_campaigns__campaign_id__sheet_sources_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -21664,7 +21400,6 @@ export interface operations {
                 mine?: boolean;
                 /** @description Include pages this user hid */
                 include_hidden?: boolean;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -21701,9 +21436,7 @@ export interface operations {
     };
     create_page_api_campaigns__campaign_id__wiki_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -21745,7 +21478,6 @@ export interface operations {
         parameters: {
             query?: {
                 format?: string;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -21782,9 +21514,7 @@ export interface operations {
     };
     import_wiki_api_campaigns__campaign_id__wiki_import_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -21824,9 +21554,7 @@ export interface operations {
     };
     reorder_pages_api_campaigns__campaign_id__wiki_reorder_put: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -21868,7 +21596,6 @@ export interface operations {
         parameters: {
             query: {
                 q: string;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -21905,9 +21632,7 @@ export interface operations {
     };
     list_wiki_templates_api_campaigns__campaign_id__wiki_templates_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -21943,9 +21668,7 @@ export interface operations {
     };
     create_wiki_template_api_campaigns__campaign_id__wiki_templates_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -21987,7 +21710,6 @@ export interface operations {
         parameters: {
             query?: {
                 refresh?: boolean;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -22026,7 +21748,6 @@ export interface operations {
         parameters: {
             query?: {
                 index_url?: string | null;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -22064,9 +21785,7 @@ export interface operations {
     };
     upload_wiki_template_api_campaigns__campaign_id__wiki_templates_upload_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -22106,9 +21825,7 @@ export interface operations {
     };
     get_wiki_template_api_campaigns__campaign_id__wiki_templates__template_id__get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -22145,9 +21862,7 @@ export interface operations {
     };
     delete_wiki_template_api_campaigns__campaign_id__wiki_templates__template_id__delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -22182,9 +21897,7 @@ export interface operations {
     };
     update_wiki_template_api_campaigns__campaign_id__wiki_templates__template_id__patch: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -22225,9 +21938,7 @@ export interface operations {
     };
     export_wiki_template_api_campaigns__campaign_id__wiki_templates__template_id__export_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -22264,9 +21975,7 @@ export interface operations {
     };
     use_wiki_template_api_campaigns__campaign_id__wiki_templates__template_id__use_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -22303,9 +22012,7 @@ export interface operations {
     };
     page_titles_api_campaigns__campaign_id__wiki_titles_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -22341,9 +22048,7 @@ export interface operations {
     };
     get_page_api_campaigns__campaign_id__wiki__page_id__get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -22380,9 +22085,7 @@ export interface operations {
     };
     delete_page_api_campaigns__campaign_id__wiki__page_id__delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -22417,9 +22120,7 @@ export interface operations {
     };
     update_page_api_campaigns__campaign_id__wiki__page_id__patch: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -22460,9 +22161,7 @@ export interface operations {
     };
     hide_page_api_campaigns__campaign_id__wiki__page_id__hide_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -22499,9 +22198,7 @@ export interface operations {
     };
     unhide_page_api_campaigns__campaign_id__wiki__page_id__hide_delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -22538,9 +22235,7 @@ export interface operations {
     };
     cancel_scan_api_cancel_scan_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -22574,9 +22269,7 @@ export interface operations {
     };
     get_changelog_api_changelog_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -22613,7 +22306,6 @@ export interface operations {
             query?: {
                 schema_ref?: string | null;
                 campaign_id?: string | null;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -22648,9 +22340,7 @@ export interface operations {
     };
     create_character_api_characters_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -22688,9 +22378,7 @@ export interface operations {
     };
     import_character_api_characters_import_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -22728,9 +22416,7 @@ export interface operations {
     };
     import_external_api_characters_import_external_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -22768,9 +22454,7 @@ export interface operations {
     };
     list_importers_api_characters_importers_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -22804,9 +22488,7 @@ export interface operations {
     };
     uninstall_user_importer_api_characters_importers__importer_id__delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -22842,9 +22524,7 @@ export interface operations {
     };
     install_user_importer_api_characters_importers__importer_id__install_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -22880,9 +22560,7 @@ export interface operations {
     };
     list_schemas_api_characters_schemas_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -22916,9 +22594,7 @@ export interface operations {
     };
     import_schema_api_characters_schemas_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -22956,9 +22632,7 @@ export interface operations {
     };
     browse_sheets_api_characters_schemas_browse_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -22992,9 +22666,7 @@ export interface operations {
     };
     install_sheet_api_characters_schemas_install__sheet_id__post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -23030,9 +22702,7 @@ export interface operations {
     };
     get_schema_api_characters_schemas__schema_id__get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -23068,9 +22738,7 @@ export interface operations {
     };
     delete_schema_api_characters_schemas__schema_id__delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -23106,9 +22774,7 @@ export interface operations {
     };
     get_character_api_characters__character_id__get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -23144,9 +22810,7 @@ export interface operations {
     };
     update_character_api_characters__character_id__put: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -23186,9 +22850,7 @@ export interface operations {
     };
     delete_character_api_characters__character_id__delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -23224,9 +22886,7 @@ export interface operations {
     };
     export_character_api_characters__character_id__export_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -23262,9 +22922,7 @@ export interface operations {
     };
     get_portrait_api_characters__character_id__portrait_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -23300,9 +22958,7 @@ export interface operations {
     };
     upload_portrait_api_characters__character_id__portrait_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -23342,9 +22998,7 @@ export interface operations {
     };
     delete_portrait_api_characters__character_id__portrait_delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -23380,9 +23034,7 @@ export interface operations {
     };
     unlink_book_api_codex_books__book_id__link_delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -23418,9 +23070,7 @@ export interface operations {
     };
     submit_book_api_codex_books__book_id__submit_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -23460,9 +23110,7 @@ export interface operations {
     };
     get_settings_api_codex_settings_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -23496,9 +23144,7 @@ export interface operations {
     };
     update_settings_api_codex_settings_put: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -23536,9 +23182,7 @@ export interface operations {
     };
     get_status_api_codex_status_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -23572,9 +23216,7 @@ export interface operations {
     };
     unlink_system_api_codex_systems__system_id__link_delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -23610,9 +23252,7 @@ export interface operations {
     };
     submit_system_api_codex_systems__system_id__submit_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -23652,9 +23292,7 @@ export interface operations {
     };
     test_connection_api_codex_test_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -23690,7 +23328,6 @@ export interface operations {
         parameters: {
             query?: {
                 schema_id?: string | null;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -23725,9 +23362,7 @@ export interface operations {
     };
     reload_packs_api_content_packs_reload_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -23764,7 +23399,6 @@ export interface operations {
             query?: {
                 /** @description Comma-separated entry ids */
                 ids?: string;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -23801,9 +23435,7 @@ export interface operations {
     };
     list_content_types_api_content__schema_id__types_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -23845,7 +23477,6 @@ export interface operations {
                 page?: number;
                 page_size?: number;
                 include_rulesets?: boolean;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -23885,7 +23516,6 @@ export interface operations {
         parameters: {
             query?: {
                 source?: string | null;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -23924,9 +23554,7 @@ export interface operations {
     };
     list_dice_materials_api_dice_materials_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -23960,9 +23588,7 @@ export interface operations {
     };
     create_dice_material_api_dice_materials_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -24002,7 +23628,6 @@ export interface operations {
         parameters: {
             query?: {
                 force?: boolean;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -24054,7 +23679,6 @@ export interface operations {
                 resource_type?: string | null;
                 /** @description Folder path (book_folder / map_folder / token_folder / audio_folder / model_folder / library_folder — the latter is library-root-relative) */
                 folder?: string | null;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -24089,9 +23713,7 @@ export interface operations {
     };
     cancel_scan_api_duplicates_cancel_scan_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -24128,7 +23750,6 @@ export interface operations {
             query: {
                 resource_type: string;
                 ids: string[];
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -24163,9 +23784,7 @@ export interface operations {
     };
     describe_variant_api_duplicates_describe_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -24203,9 +23822,7 @@ export interface operations {
     };
     dismiss_group_api_duplicates_dismiss_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -24245,7 +23862,6 @@ export interface operations {
         parameters: {
             query?: {
                 resource_type?: string | null;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -24280,9 +23896,7 @@ export interface operations {
     };
     undismiss_group_api_duplicates_dismissals__dismissal_id__delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -24323,7 +23937,6 @@ export interface operations {
                 min_confidence?: number;
                 limit?: number;
                 offset?: number;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -24358,9 +23971,7 @@ export interface operations {
     };
     delete_item_api_duplicates_items__resource_type___item_id__delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -24401,9 +24012,7 @@ export interface operations {
     };
     link_variants_api_duplicates_link_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -24441,9 +24050,7 @@ export interface operations {
     };
     merge_metadata_api_duplicates_merge_metadata_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -24481,9 +24088,7 @@ export interface operations {
     };
     promote_variant_api_duplicates_promote_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -24521,9 +24126,7 @@ export interface operations {
     };
     start_scan_api_duplicates_scan_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -24561,9 +24164,7 @@ export interface operations {
     };
     get_scan_status_api_duplicates_scan_status_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -24597,9 +24198,7 @@ export interface operations {
     };
     unlink_variants_api_duplicates_unlink_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -24637,9 +24236,7 @@ export interface operations {
     };
     list_favorites_api_favorites_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -24673,9 +24270,7 @@ export interface operations {
     };
     add_favorite_api_favorites_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -24713,9 +24308,7 @@ export interface operations {
     };
     remove_favorite_api_favorites__item_type___item_id__delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -24753,7 +24346,6 @@ export interface operations {
             query?: {
                 path?: string;
                 limit?: number;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -24788,9 +24380,7 @@ export interface operations {
     };
     delete_entry_api_files_delete_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -24828,9 +24418,7 @@ export interface operations {
     };
     create_folder_api_files_folder_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -24868,9 +24456,7 @@ export interface operations {
     };
     delete_folder_api_files_folder_delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -24910,7 +24496,6 @@ export interface operations {
         parameters: {
             query: {
                 path: string;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -24945,9 +24530,7 @@ export interface operations {
     };
     update_markers_api_files_folder_markers_put: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -24985,9 +24568,7 @@ export interface operations {
     };
     scaffold_categories_api_files_folder_scaffold_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -25025,9 +24606,7 @@ export interface operations {
     };
     move_files_api_files_move_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -25065,9 +24644,7 @@ export interface operations {
     };
     rename_file_api_files_rename_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -25105,9 +24682,7 @@ export interface operations {
     };
     upload_file_api_files_upload_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -25145,9 +24720,7 @@ export interface operations {
     };
     list_genres_api_genres_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -25181,9 +24754,7 @@ export interface operations {
     };
     create_genre_api_genres_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -25223,7 +24794,6 @@ export interface operations {
         parameters: {
             query?: {
                 force?: boolean;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -25289,9 +24859,7 @@ export interface operations {
     };
     get_latest_release_api_latest_release_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -25325,9 +24893,7 @@ export interface operations {
     };
     list_licenses_api_licenses_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -25361,9 +24927,7 @@ export interface operations {
     };
     create_license_api_licenses_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -25403,7 +24967,6 @@ export interface operations {
         parameters: {
             query?: {
                 force?: boolean;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -25449,7 +25012,6 @@ export interface operations {
                 offset?: number;
                 /** @description Return only entries with seq > this value (live-poll cursor) */
                 after_seq?: number | null;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -25484,9 +25046,7 @@ export interface operations {
     };
     cleanup_missing_api_maintenance_cleanup_missing_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -25520,9 +25080,7 @@ export interface operations {
     };
     export_sidecars_api_maintenance_sidecars_export_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -25556,9 +25114,7 @@ export interface operations {
     };
     get_sidecar_settings_api_maintenance_sidecars_settings_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -25592,9 +25148,7 @@ export interface operations {
     };
     update_sidecar_settings_api_maintenance_sidecars_settings_put: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -25632,9 +25186,7 @@ export interface operations {
     };
     list_map_folders_api_map_folders_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -25668,9 +25220,7 @@ export interface operations {
     };
     update_map_folder_api_map_folders_patch: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -25708,9 +25258,7 @@ export interface operations {
     };
     bulk_update_map_folders_api_map_folders_bulk_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -25752,7 +25300,6 @@ export interface operations {
                 map_type?: string | null;
                 limit?: number;
                 offset?: number;
-                token?: string | null;
                 /** @description Search text. Matches the name, folder path, and tags; accepts the search page's `field:value` prefixes (`tag:`, `title:`, `filename:`, `artist:`, `album:`). */
                 q?: string;
                 /** @description Tag filter as JSON: a list of `{mode: include|exclude, tags: [...]}` groups (tags OR'd within a group, groups AND'd), or a flat list of tags that must all match. Folder tags count for everything beneath the folder. `__grim:none__`/`__grim:any__` match items with no tags / any tag. */
@@ -25800,9 +25347,7 @@ export interface operations {
     };
     bulk_update_maps_api_maps_bulk_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -25840,9 +25385,7 @@ export interface operations {
     };
     bulk_add_map_tags_api_maps_bulk_tags_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -25882,7 +25425,6 @@ export interface operations {
         parameters: {
             query?: {
                 map_type?: string | null;
-                token?: string | null;
                 /** @description Search text. Matches the name, folder path, and tags; accepts the search page's `field:value` prefixes (`tag:`, `title:`, `filename:`, `artist:`, `album:`). */
                 q?: string;
                 /** @description Tag filter as JSON: a list of `{mode: include|exclude, tags: [...]}` groups (tags OR'd within a group, groups AND'd), or a flat list of tags that must all match. Folder tags count for everything beneath the folder. `__grim:none__`/`__grim:any__` match items with no tags / any tag. */
@@ -25930,9 +25472,7 @@ export interface operations {
     };
     get_map_api_maps__map_id__get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -25968,9 +25508,7 @@ export interface operations {
     };
     update_map_api_maps__map_id__patch: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -26010,9 +25548,7 @@ export interface operations {
     };
     export_map_pages_api_maps__map_id__export_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -26052,9 +25588,7 @@ export interface operations {
     };
     export_map_uvtt_api_maps__map_id__export_uvtt_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -26090,9 +25624,7 @@ export interface operations {
     };
     save_map_export_api_maps__map_id__export_save_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -26132,9 +25664,7 @@ export interface operations {
     };
     serve_map_file_api_maps__map_id__file_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -26172,7 +25702,6 @@ export interface operations {
         parameters: {
             query?: {
                 cell?: number | null;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -26211,7 +25740,6 @@ export interface operations {
         parameters: {
             query?: {
                 cell?: number | null;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -26250,7 +25778,6 @@ export interface operations {
         parameters: {
             query?: {
                 width?: number;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -26288,9 +25815,7 @@ export interface operations {
     };
     detect_map_page_shapes_api_maps__map_id__page__page_num__shapes_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -26327,9 +25852,7 @@ export interface operations {
     };
     get_map_page_size_api_maps__map_id__page__page_num__size_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -26366,9 +25889,7 @@ export interface operations {
     };
     serve_map_thumbnail_api_maps__map_id__thumbnail_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -26404,9 +25925,7 @@ export interface operations {
     };
     get_map_authoring_api_maps__map_id__vtt_authoring_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -26442,9 +25961,7 @@ export interface operations {
     };
     update_map_authoring_api_maps__map_id__vtt_authoring_put: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -26484,9 +26001,7 @@ export interface operations {
     };
     get_map_vtt_data_api_maps__map_id__vtt_data_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -26522,9 +26037,7 @@ export interface operations {
     };
     serve_map_vtt_image_api_maps__map_id__vtt_image_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -26560,9 +26073,7 @@ export interface operations {
     };
     list_model_folders_api_model_folders_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -26596,9 +26107,7 @@ export interface operations {
     };
     update_model_folder_api_model_folders_patch: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -26636,9 +26145,7 @@ export interface operations {
     };
     bulk_update_model_folders_api_model_folders_bulk_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -26679,7 +26186,6 @@ export interface operations {
             query?: {
                 limit?: number;
                 offset?: number;
-                token?: string | null;
                 /** @description Search text. Matches the name, folder path, and tags; accepts the search page's `field:value` prefixes (`tag:`, `title:`, `filename:`, `artist:`, `album:`). */
                 q?: string;
                 /** @description Tag filter as JSON: a list of `{mode: include|exclude, tags: [...]}` groups (tags OR'd within a group, groups AND'd), or a flat list of tags that must all match. Folder tags count for everything beneath the folder. `__grim:none__`/`__grim:any__` match items with no tags / any tag. */
@@ -26727,9 +26233,7 @@ export interface operations {
     };
     bulk_update_models_api_models_bulk_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -26767,9 +26271,7 @@ export interface operations {
     };
     bulk_add_model_tags_api_models_bulk_tags_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -26808,7 +26310,6 @@ export interface operations {
     list_model_groups_api_models_groups_get: {
         parameters: {
             query?: {
-                token?: string | null;
                 /** @description Search text. Matches the name, folder path, and tags; accepts the search page's `field:value` prefixes (`tag:`, `title:`, `filename:`, `artist:`, `album:`). */
                 q?: string;
                 /** @description Tag filter as JSON: a list of `{mode: include|exclude, tags: [...]}` groups (tags OR'd within a group, groups AND'd), or a flat list of tags that must all match. Folder tags count for everything beneath the folder. `__grim:none__`/`__grim:any__` match items with no tags / any tag. */
@@ -26856,9 +26357,7 @@ export interface operations {
     };
     get_model_api_models__model_id__get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -26894,9 +26393,7 @@ export interface operations {
     };
     update_model_api_models__model_id__patch: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -26936,9 +26433,7 @@ export interface operations {
     };
     serve_model_file_api_models__model_id__file_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -26974,9 +26469,7 @@ export interface operations {
     };
     serve_model_thumbnail_api_models__model_id__thumbnail_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -27012,9 +26505,7 @@ export interface operations {
     };
     list_parent_systems_api_parent_systems_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -27048,9 +26539,7 @@ export interface operations {
     };
     create_parent_system_api_parent_systems_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -27090,7 +26579,6 @@ export interface operations {
         parameters: {
             query?: {
                 force?: boolean;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -27127,9 +26615,7 @@ export interface operations {
     };
     rescan_library_api_rescan_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -27170,7 +26656,6 @@ export interface operations {
             query?: {
                 schema_id?: string | null;
                 campaign_id?: string | null;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -27205,9 +26690,7 @@ export interface operations {
     };
     create_ruleset_api_rulesets_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -27247,7 +26730,6 @@ export interface operations {
         parameters: {
             query?: {
                 schema_id?: string | null;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -27282,9 +26764,7 @@ export interface operations {
     };
     browse_packs_api_rulesets_packs_browse_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -27318,9 +26798,7 @@ export interface operations {
     };
     install_pack_api_rulesets_packs_install__pack_id__post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -27356,9 +26834,7 @@ export interface operations {
     };
     uninstall_pack_api_rulesets_packs__pack_id__delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -27394,9 +26870,7 @@ export interface operations {
     };
     get_ruleset_api_rulesets__ruleset_id__get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -27432,9 +26906,7 @@ export interface operations {
     };
     update_ruleset_api_rulesets__ruleset_id__put: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -27474,9 +26946,7 @@ export interface operations {
     };
     delete_ruleset_api_rulesets__ruleset_id__delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -27514,7 +26984,6 @@ export interface operations {
         parameters: {
             query?: {
                 content_type?: string | null;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -27551,9 +27020,7 @@ export interface operations {
     };
     create_entry_api_rulesets__ruleset_id__entries_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -27593,9 +27060,7 @@ export interface operations {
     };
     get_entry_api_rulesets__ruleset_id__entries__entry_row_id__get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -27632,9 +27097,7 @@ export interface operations {
     };
     update_entry_api_rulesets__ruleset_id__entries__entry_row_id__put: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -27675,9 +27138,7 @@ export interface operations {
     };
     delete_entry_api_rulesets__ruleset_id__entries__entry_row_id__delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -27714,9 +27175,7 @@ export interface operations {
     };
     export_ruleset_api_rulesets__ruleset_id__export_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -27752,9 +27211,7 @@ export interface operations {
     };
     fork_entry_api_rulesets__ruleset_id__fork_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -27794,9 +27251,7 @@ export interface operations {
     };
     import_into_ruleset_api_rulesets__ruleset_id__import_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -27838,7 +27293,6 @@ export interface operations {
         parameters: {
             query?: {
                 scope?: string | null;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -27873,9 +27327,7 @@ export interface operations {
     };
     create_saved_filter_api_saved_filters_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -27913,9 +27365,7 @@ export interface operations {
     };
     delete_saved_filter_api_saved_filters__filter_id__delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -27951,9 +27401,7 @@ export interface operations {
     };
     update_saved_filter_api_saved_filters__filter_id__patch: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -27993,9 +27441,7 @@ export interface operations {
     };
     get_scan_status_api_scan_status_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -28034,7 +27480,6 @@ export interface operations {
                 limit?: number;
                 book_id?: string | null;
                 system_id?: string | null;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -28069,9 +27514,7 @@ export interface operations {
     };
     search_fields_api_search_fields_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -28105,9 +27548,7 @@ export interface operations {
     };
     get_settings_api_settings_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -28141,9 +27582,7 @@ export interface operations {
     };
     update_settings_api_settings_patch: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -28181,9 +27620,7 @@ export interface operations {
     };
     upload_oidc_button_icon_api_settings_oidc_button_icon_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -28221,9 +27658,7 @@ export interface operations {
     };
     delete_oidc_button_icon_api_settings_oidc_button_icon_delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -28257,9 +27692,7 @@ export interface operations {
     };
     get_ui_settings_api_settings_ui_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -28297,7 +27730,6 @@ export interface operations {
                 resource_type?: string | null;
                 resource_id?: string | null;
                 variant?: string | null;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -28332,9 +27764,7 @@ export interface operations {
     };
     create_share_link_api_share_links_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -28372,9 +27802,7 @@ export interface operations {
     };
     list_all_share_links_api_share_links_all_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -28408,9 +27836,7 @@ export interface operations {
     };
     get_share_permission_api_share_links_permission_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -28444,9 +27870,7 @@ export interface operations {
     };
     list_user_share_links_api_share_links_users__user_id__get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -28482,9 +27906,7 @@ export interface operations {
     };
     delete_share_link_api_share_links__link_id__delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -28520,9 +27942,7 @@ export interface operations {
     };
     update_share_link_api_share_links__link_id__patch: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -28562,9 +27982,7 @@ export interface operations {
     };
     revoke_share_link_api_share_links__link_id__revoke_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -28742,9 +28160,7 @@ export interface operations {
     };
     get_stats_api_stats_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -28778,9 +28194,7 @@ export interface operations {
     };
     list_system_families_api_system_families_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -28814,9 +28228,7 @@ export interface operations {
     };
     create_system_family_api_system_families_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -28856,7 +28268,6 @@ export interface operations {
         parameters: {
             query?: {
                 force?: boolean;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -28904,7 +28315,6 @@ export interface operations {
                 explicit?: boolean | null;
                 parent_id?: string | null;
                 include_children?: boolean;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -28939,9 +28349,7 @@ export interface operations {
     };
     bulk_update_systems_api_systems_bulk_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -28979,9 +28387,7 @@ export interface operations {
     };
     bulk_add_system_tags_api_systems_bulk_tags_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -29027,7 +28433,6 @@ export interface operations {
                 category?: string | null;
                 /** @description Include every book in the response. The detail view passes false and pages the shelf through `/books` and `/book-groups` instead (issue #221). */
                 include_books?: boolean;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -29064,9 +28469,7 @@ export interface operations {
     };
     update_system_api_systems__system_id__patch: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -29106,9 +28509,7 @@ export interface operations {
     };
     list_system_book_facets_api_systems__system_id__book_facets_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -29144,9 +28545,7 @@ export interface operations {
     };
     list_book_folders_api_systems__system_id__book_folders_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -29184,7 +28583,6 @@ export interface operations {
         parameters: {
             query: {
                 path: string;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -29221,9 +28619,7 @@ export interface operations {
     };
     update_book_folder_api_systems__system_id__book_folders_patch: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -29264,7 +28660,6 @@ export interface operations {
     list_system_book_groups_api_systems__system_id__book_groups_get: {
         parameters: {
             query?: {
-                token?: string | null;
                 /** @description Search text: title, filename or product code, plus the search page's `field:value` prefixes (`author:`, `year:`, `tag:`, `code:`, `publisher:`...). */
                 q?: string;
                 /** @description Tag filter as JSON: `{mode, tags}` groups or a flat list (see the media list endpoints). Matches the book's own tags. */
@@ -29324,7 +28719,6 @@ export interface operations {
             query?: {
                 limit?: number;
                 offset?: number;
-                token?: string | null;
                 /** @description Search text: title, filename or product code, plus the search page's `field:value` prefixes (`author:`, `year:`, `tag:`, `code:`, `publisher:`...). */
                 q?: string;
                 /** @description Tag filter as JSON: `{mode, tags}` groups or a flat list (see the media list endpoints). Matches the book's own tags. */
@@ -29381,9 +28775,7 @@ export interface operations {
     };
     serve_system_cover_api_systems__system_id__cover_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -29419,9 +28811,7 @@ export interface operations {
     };
     upload_system_cover_api_systems__system_id__cover_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -29461,9 +28851,7 @@ export interface operations {
     };
     delete_system_cover_api_systems__system_id__cover_delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -29499,9 +28887,7 @@ export interface operations {
     };
     set_system_cover_from_source_api_systems__system_id__cover_from_source_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -29541,9 +28927,7 @@ export interface operations {
     };
     fetch_metadata_api_systems__system_id__metadata_fetch_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -29583,9 +28967,7 @@ export interface operations {
     };
     search_metadata_api_systems__system_id__metadata_search_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -29625,9 +29007,7 @@ export interface operations {
     };
     list_metadata_sources_api_systems__system_id__metadata_sources_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -29666,7 +29046,6 @@ export interface operations {
             query?: {
                 /** @description Restrict to tags used on this resource type (system|book|map|token|audio); each result carries a usage count. Omit for all tags. */
                 in_use_by?: string | null;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -29701,9 +29080,7 @@ export interface operations {
     };
     create_tag_api_tags_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -29741,9 +29118,7 @@ export interface operations {
     };
     delete_tag_api_tags__internal__delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -29777,9 +29152,7 @@ export interface operations {
     };
     update_tag_display_api_tags__internal__patch: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -29826,7 +29199,6 @@ export interface operations {
                 folder: string;
                 limit?: number;
                 offset?: number;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -29869,7 +29241,6 @@ export interface operations {
                 /** @description Directly-tagged items to return; 0 for just the counts and folders. */
                 limit?: number;
                 offset?: number;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -29906,9 +29277,7 @@ export interface operations {
     };
     merge_tag_api_tags__internal__merge_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -29950,7 +29319,6 @@ export interface operations {
         parameters: {
             query?: {
                 app_mode?: string | null;
-                token?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -29985,9 +29353,7 @@ export interface operations {
     };
     import_theme_api_themes_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -30025,9 +29391,7 @@ export interface operations {
     };
     browse_themes_api_themes_browse_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -30061,9 +29425,7 @@ export interface operations {
     };
     install_theme_api_themes_install__theme_id__post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -30099,9 +29461,7 @@ export interface operations {
     };
     select_theme_api_themes_selection_put: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -30139,9 +29499,7 @@ export interface operations {
     };
     set_theme_source_api_themes_source_put: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -30179,9 +29537,7 @@ export interface operations {
     };
     delete_theme_api_themes__theme_id__delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -30217,9 +29573,7 @@ export interface operations {
     };
     list_token_folders_api_token_folders_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -30253,9 +29607,7 @@ export interface operations {
     };
     update_token_folder_api_token_folders_patch: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -30293,9 +29645,7 @@ export interface operations {
     };
     bulk_update_token_folders_api_token_folders_bulk_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -30333,9 +29683,7 @@ export interface operations {
     };
     list_token_frames_api_token_frames_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -30369,9 +29717,7 @@ export interface operations {
     };
     serve_token_frame_api_token_frames__frame_id__file_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -30410,7 +29756,6 @@ export interface operations {
             query?: {
                 limit?: number;
                 offset?: number;
-                token?: string | null;
                 /** @description Search text. Matches the name, folder path, and tags; accepts the search page's `field:value` prefixes (`tag:`, `title:`, `filename:`, `artist:`, `album:`). */
                 q?: string;
                 /** @description Tag filter as JSON: a list of `{mode: include|exclude, tags: [...]}` groups (tags OR'd within a group, groups AND'd), or a flat list of tags that must all match. Folder tags count for everything beneath the folder. `__grim:none__`/`__grim:any__` match items with no tags / any tag. */
@@ -30458,9 +29803,7 @@ export interface operations {
     };
     bulk_update_tokens_api_tokens_bulk_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -30498,9 +29841,7 @@ export interface operations {
     };
     bulk_add_token_tags_api_tokens_bulk_tags_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -30539,7 +29880,6 @@ export interface operations {
     list_token_groups_api_tokens_groups_get: {
         parameters: {
             query?: {
-                token?: string | null;
                 /** @description Search text. Matches the name, folder path, and tags; accepts the search page's `field:value` prefixes (`tag:`, `title:`, `filename:`, `artist:`, `album:`). */
                 q?: string;
                 /** @description Tag filter as JSON: a list of `{mode: include|exclude, tags: [...]}` groups (tags OR'd within a group, groups AND'd), or a flat list of tags that must all match. Folder tags count for everything beneath the folder. `__grim:none__`/`__grim:any__` match items with no tags / any tag. */
@@ -30587,9 +29927,7 @@ export interface operations {
     };
     get_token_api_tokens__token_id__get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -30625,9 +29963,7 @@ export interface operations {
     };
     update_token_api_tokens__token_id__patch: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -30667,9 +30003,7 @@ export interface operations {
     };
     serve_token_file_api_tokens__token_id__file_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -30705,9 +30039,7 @@ export interface operations {
     };
     serve_token_thumbnail_api_tokens__token_id__thumbnail_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -30743,9 +30075,7 @@ export interface operations {
     };
     list_users_api_users_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -30779,9 +30109,7 @@ export interface operations {
     };
     create_user_api_users_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -30819,9 +30147,7 @@ export interface operations {
     };
     list_guests_api_users_guests_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -30855,9 +30181,7 @@ export interface operations {
     };
     delete_own_account_api_users_me_delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -30889,9 +30213,7 @@ export interface operations {
     };
     get_opds_status_api_users_me_opds_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -30925,9 +30247,7 @@ export interface operations {
     };
     revoke_opds_token_api_users_me_opds_delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -30961,9 +30281,7 @@ export interface operations {
     };
     generate_opds_token_api_users_me_opds_generate_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -30997,9 +30315,7 @@ export interface operations {
     };
     change_own_password_api_users_me_password_patch: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -31037,9 +30353,7 @@ export interface operations {
     };
     update_own_preferences_api_users_me_preferences_patch: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -31077,9 +30391,7 @@ export interface operations {
     };
     delete_user_api_users__user_id__delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -31113,9 +30425,7 @@ export interface operations {
     };
     update_user_api_users__user_id__patch: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -31155,9 +30465,7 @@ export interface operations {
     };
     list_access_grants_api_users__user_id__access_grants_get: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -31193,9 +30501,7 @@ export interface operations {
     };
     create_access_grant_api_users__user_id__access_grants_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -31235,9 +30541,7 @@ export interface operations {
     };
     delete_access_grant_api_users__user_id__access_grants__grant_id__delete: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -31272,9 +30576,7 @@ export interface operations {
     };
     convert_guest_api_users__user_id__convert_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;
@@ -31314,9 +30616,7 @@ export interface operations {
     };
     merge_guests_api_users__user_id__merge_post: {
         parameters: {
-            query?: {
-                token?: string | null;
-            };
+            query?: never;
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
                 "X-API-Key"?: string | null;

@@ -109,6 +109,12 @@ Grimoire answers each `POST` with one JSON body and keeps no session, so it work
 reverse proxy that passes `POST` requests through. `GET` and `DELETE` on `/mcp` (a
 server-to-client stream and session teardown, both optional in the spec) return `405`.
 
+`/mcp` only answers under host names Grimoire is actually served at, which protects it from
+DNS rebinding (a web page pointing its own domain at your server): `localhost`, `127.0.0.1`
+and `[::1]` on any port, the host in `BASE_URL`, and any listed in `MCP_ALLOWED_HOSTS`
+(comma-separated, e.g. `nas.lan,192.168.1.20:9481`; a bare name allows any port). A browser's
+`Origin`, when one is sent, must name one of them too.
+
 The protocol is handled by the official [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk), so Grimoire speaks whatever revisions it supports: currently `2025-11-25`, `2025-06-18`, `2025-03-26` and `2024-11-05`.
 
 ## Troubleshooting
@@ -121,6 +127,9 @@ The protocol is handled by the official [MCP Python SDK](https://github.com/mode
   you in Settings → Users.
 - **The assistant is missing a tool** - the key lacks the permission it needs (see the tables
   above), or, for `tag_books`, your account is a player.
+- **`403` "This host name isn't allowed for MCP"** - the assistant reaches Grimoire at an
+  address that isn't loopback or `BASE_URL`'s host, such as a LAN IP. Set `BASE_URL` to it, or
+  add it to `MCP_ALLOWED_HOSTS`.
 - **`/mcp` returns the Grimoire web page, or `405` for `POST`** - `MCP_ENABLED` is not set.
 - **`406 Not Acceptable`** - the client's `Accept` header excludes `application/json`. MCP clients send `application/json, text/event-stream`; a script calling `/mcp` directly should send that, or `*/*`.
 

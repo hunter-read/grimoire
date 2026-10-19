@@ -12,8 +12,9 @@ from contextlib import contextmanager
 from typing import Callable, Iterator
 
 from fastapi import HTTPException
-from fastapi.responses import FileResponse, Response, StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 
+from .._user_files import serve_user_file
 from ...config import valkey_client, logger, valkey_cache_set
 from ...render.ops import PageOutOfRange, RenderError, TileOutOfRange
 
@@ -57,7 +58,7 @@ def serve_cached_render(
                     valkey_cache_set(valkey_key, f.read())
             except OSError as e:
                 logger.warning(f"Page cache read error: {e}")
-        return FileResponse(cache_path, media_type="image/webp", headers=headers)
+        return serve_user_file(cache_path, "image/webp", headers=headers)
 
     img_bytes = render()
     # Fall back to the disk cache when Valkey is absent or the write failed, so

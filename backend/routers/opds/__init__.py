@@ -2,7 +2,7 @@
 from fastapi import APIRouter
 from fastapi.responses import Response
 
-from .core import catalog, catalog_all, book_entry, download_book
+from .core import catalog, catalog_all, book_cover, book_entry, download_book
 
 router = APIRouter(prefix="/opds", tags=["opds"])
 
@@ -36,4 +36,10 @@ router.add_api_route(
     download_book,
     methods=["GET"],
     summary="Download a book via OPDS token",
+)
+router.add_api_route(
+    "/{token}/cover/{book_id}",
+    book_cover,
+    methods=["GET"],
+    summary="A book's cover via OPDS token",
 )

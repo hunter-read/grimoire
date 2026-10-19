@@ -15,7 +15,7 @@ import jwt
 from fastapi import Request
 from sqlalchemy.orm import Session
 
-from ... import auth, token_vault
+from ... import token_vault
 from ...auth import ALGORITHM, cookie_secure
 from ...config import BASE_URL
 from ...models import ShareLink, User
@@ -99,7 +99,7 @@ def unlock_token(link: ShareLink) -> str:
             "iat": now,
             "exp": now + datetime.timedelta(hours=UNLOCK_HOURS),
         },
-        auth.SECRET_KEY,
+        token_vault.unlock_signing_key(),
         algorithm=ALGORITHM,
     )
 
@@ -111,7 +111,7 @@ def is_unlocked(link: ShareLink, cookie: Optional[str]) -> bool:
     if not cookie:
         return False
     try:
-        claims = jwt.decode(cookie, auth.SECRET_KEY, algorithms=[ALGORITHM])
+        claims = jwt.decode(cookie, token_vault.unlock_signing_key(), algorithms=[ALGORITHM])
     except jwt.InvalidTokenError:
         return False
     return (

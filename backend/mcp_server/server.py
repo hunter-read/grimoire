@@ -159,8 +159,20 @@ def build_server() -> Server:
 def build_session_manager() -> StreamableHTTPSessionManager:
     """The SDK's Streamable HTTP transport: stateless, one JSON body per POST.
 
-    DNS-rebinding protection is the Origin check in routers/mcp, which works
-    whatever host name Grimoire is served under; the SDK's own needs a fixed
-    allow-list of hosts, so it is left off here.
+    DNS-rebinding protection is on twice over: the router's ``check_origin``
+    and the SDK's own check, both from the same host allow-list, so neither
+    layer depends on the other staying in place.
     """
-    return StreamableHTTPSessionManager(build_server(), json_response=True, stateless=True)
+    from mcp.server.transport_security import TransportSecuritySettings
+
+    from ..routers.mcp.core import allowed_hosts
+
+    hosts = allowed_hosts()
+    security = TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=hosts,
+        allowed_origins=[f"{scheme}://{host}" for host in hosts for scheme in ("http", "https")],
+    )
+    return StreamableHTTPSessionManager(
+        build_server(), json_response=True, stateless=True, security_settings=security
+    )

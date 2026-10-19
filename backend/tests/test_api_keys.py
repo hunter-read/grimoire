@@ -126,7 +126,8 @@ class TestPermissionTable:
     def test_only_security_tags_are_excluded(self):
         # "share" is the public share-link route (issue #541), which takes no
         # login at all; the management API ("share-links") stays mapped.
-        assert api_keys.EXCLUDED_TAGS == {"auth", "api-keys", "share"}
+        # "api-docs" is the signed-in API documentation, a page for a browser.
+        assert api_keys.EXCLUDED_TAGS == {"auth", "api-keys", "share", "api-docs"}
         assert "share-links" in api_keys.TAG_PERMISSIONS
 
     def test_every_permission_covers_a_real_route(self):
@@ -1025,6 +1026,21 @@ class TestSessionOnlyChanges:
         assert resp.status_code == 200, resp.text
         assert resp.json()["display_name"] == "Keyed"
         client.patch("/api/users/me/preferences", json={"display_name": ""}, headers=player_headers)
+
+    def test_own_explicit_content_setting_is_changed_from_a_session_only(
+        self, client, player_headers
+    ):
+        key = _create(client, player_headers, {"users": "write"})[0]
+        current = client.get("/api/auth/me", headers=player_headers).json()["allow_explicit"]
+        resp = client.patch(
+            "/api/users/me/preferences", json={"allow_explicit": not current}, headers=_k(key)
+        )
+        assert resp.status_code == 403
+        assert client.get("/api/auth/me", headers=player_headers).json()["allow_explicit"] == current
+        # Sending the value it already has is not a change, so it isn't refused.
+        assert client.patch(
+            "/api/users/me/preferences", json={"allow_explicit": current}, headers=_k(key)
+        ).status_code == 200
 
     @pytest.mark.parametrize(
         "field,value",

@@ -295,6 +295,41 @@ class TestOPDSFeeds:
         resp = opds_client.get("/opds/not-a-real-token")
         assert resp.status_code == 404
 
+    def test_cover_link_uses_the_feed_token(self, opds_client, sample_book):
+        from backend.config import SessionLocal
+        from backend.models import Book
+
+        db = SessionLocal()
+        try:
+            db.query(Book).filter_by(id=sample_book).update({"has_thumbnail": True})
+            db.commit()
+        finally:
+            db.close()
+        resp = opds_client.get(f"/opds/{self._token}/entry/{sample_book}")
+        assert f"/opds/{self._token}/cover/{sample_book}" in resp.text
+        assert "?token=" not in resp.text
+        assert 'type="image/webp"' in resp.text
+
+    def test_cover_is_served_with_the_feed_token(
+        self, opds_client, sample_book, tmp_path, monkeypatch
+    ):
+        from backend.routers.books import core as books_core
+
+        thumb = tmp_path / "cover.webp"
+        thumb.write_bytes(b"RIFF\x00\x00\x00\x00WEBPVP8 ")
+        monkeypatch.setattr(books_core, "book_thumbnail_path", lambda book: str(thumb))
+        resp = opds_client.get(f"/opds/{self._token}/cover/{sample_book}")
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "image/webp"
+
+    def test_cover_missing_or_unknown_is_404(self, opds_client, sample_book, monkeypatch):
+        from backend.routers.books import core as books_core
+
+        monkeypatch.setattr(books_core, "book_thumbnail_path", lambda book: None)
+        assert opds_client.get(f"/opds/{self._token}/cover/{sample_book}").status_code == 404
+        assert opds_client.get(f"/opds/{self._token}/cover/nope").status_code == 404
+        assert opds_client.get(f"/opds/bad-token/cover/{sample_book}").status_code == 404
+
     def test_revoked_token_denied(self, opds_client, opds_admin_headers):
         token = _generate_token(opds_client, opds_admin_headers)
         # Revoke it
@@ -450,18 +485,19 @@ class TestOpenApiSchema:
     empty) for every instance running with OPDS_ENABLED=true.
     """
 
-    def test_openapi_schema_generates_with_opds_enabled(self, opds_client):
-        resp = opds_client.get("/api/openapi.json")
+    def test_openapi_schema_generates_with_opds_enabled(self, opds_client, opds_admin_headers):
+        resp = opds_client.get("/api/openapi.json", headers=opds_admin_headers)
         assert resp.status_code == 200, resp.text
         assert resp.json()["paths"]
 
-    def test_opds_routes_are_documented(self, opds_client):
-        paths = opds_client.get("/api/openapi.json").json()["paths"]
+    def test_opds_routes_are_documented(self, opds_client, opds_admin_headers):
+        paths = opds_client.get("/api/openapi.json", headers=opds_admin_headers).json()["paths"]
         for path in (
             "/opds/{token}",
             "/opds/{token}/all",
             "/opds/{token}/entry/{book_id}",
             "/opds/{token}/download/{book_id}",
+            "/opds/{token}/cover/{book_id}",
         ):
             assert path in paths, f"{path} missing from OpenAPI schema"
 

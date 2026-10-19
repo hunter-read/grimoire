@@ -8,9 +8,9 @@ import datetime
 from typing import Optional
 
 from fastapi import Cookie, Depends, HTTPException, Query, Request, Response
-from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
+from .._user_files import serve_user_file
 from ...http_headers import content_disposition
 from ... import token_vault
 from ...auth import verify_password
@@ -165,5 +165,5 @@ def share_content(
     )
     headers.update(inert_svg_headers(shared.media_type, shared.path or ""))
     if shared.path is not None:
-        return FileResponse(shared.path, media_type=shared.media_type, headers=headers)
+        return serve_user_file(shared.path, shared.media_type, headers=headers)
     return Response(content=shared.content or b"", media_type=shared.media_type, headers=headers)

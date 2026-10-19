@@ -34,6 +34,7 @@ https://grimoire.example.com/opds/{token}          ← navigation root
 https://grimoire.example.com/opds/{token}/all       ← all books
 https://grimoire.example.com/opds/{token}/entry/{id}  ← single book
 https://grimoire.example.com/opds/{token}/download/{id}  ← file download
+https://grimoire.example.com/opds/{token}/cover/{id}     ← cover thumbnail (WebP)
 ```
 
 ## Content filtering

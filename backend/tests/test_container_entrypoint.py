@@ -339,6 +339,16 @@ def test_choose_user_puid_zero_keeps_root(detected):
     assert ep.choose_user({"PUID": "0"}, "/l", "/d") is None
 
 
+def test_choose_user_pgid_zero_is_warned_about(detected, capsys):
+    assert ep.choose_user({"PUID": "99", "PGID": "0"}, "/l", "/d") == (99, 0, True)
+    assert "PGID=0" in capsys.readouterr().err
+
+
+def test_choose_user_ordinary_group_is_not_warned_about(detected, capsys):
+    ep.choose_user({"PUID": "99", "PGID": "100"}, "/l", "/d")
+    assert "PGID=0" not in capsys.readouterr().err
+
+
 # --- prepare ----------------------------------------------------------------
 
 

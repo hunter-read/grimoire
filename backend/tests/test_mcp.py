@@ -438,3 +438,38 @@ def test_the_sdk_client_connects_over_http(search_key, indexed_book):
     assert "search_library" in {t.name for t in listed.tools}
     assert found.isError is False
     assert WORD in found.content[0].text
+
+
+class TestHostAllowList:
+    """A DNS-rebinding page controls the Host its requests carry, so Host itself
+    is checked, not only that Origin agrees with it."""
+
+    def test_rebound_host_is_refused(self, mcp_client, search_key):
+        resp = _rpc(
+            mcp_client, search_key, "ping",
+            headers={"Host": "evil.example", "Origin": "http://evil.example"},
+        )
+        assert resp.status_code == 403
+        assert "MCP_ALLOWED_HOSTS" in resp.json()["detail"]
+
+    def test_patterns(self, monkeypatch):
+        from backend import config
+        from backend.routers.mcp.core import allowed_hosts, host_allowed
+
+        monkeypatch.setattr(config, "BASE_URL", "https://grimoire.example.com")
+        monkeypatch.setattr(config, "MCP_ALLOWED_HOSTS", ["nas.lan:9481", "10.0.0.5"])
+        patterns = allowed_hosts()
+        for ok in ("localhost:9481", "127.0.0.1:1", "[::1]:9481", "grimoire.example.com",
+                   "nas.lan:9481", "10.0.0.5", "10.0.0.5:9481"):
+            assert host_allowed(ok, patterns), ok
+        for bad in ("evil.example", "nas.lan:80", "grimoire.example.com.evil.example",
+                    "localhost.evil.example", "", None):
+            assert not host_allowed(bad, patterns), bad
+
+    def test_the_sdk_check_is_on_with_the_same_list(self):
+        from backend.mcp_server.server import build_session_manager
+        from backend.routers.mcp.core import allowed_hosts
+
+        settings = build_session_manager().security_settings
+        assert settings.enable_dns_rebinding_protection is True
+        assert settings.allowed_hosts == allowed_hosts()

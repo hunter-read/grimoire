@@ -8,8 +8,9 @@ from PIL import Image as PILImage  # type: ignore[import-untyped]
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import Response
 
+from .._user_files import serve_user_file
 from ...config import _THUMBNAIL_CACHE_HEADERS, THUMB_DIR, get_db
 from ...models import Token, TokenFolder
 from ...models.base import utc_iso
@@ -18,7 +19,6 @@ from ..token_frames._helpers import frame_folder_paths
 from ...services.browse.media import MediaBrowse, MediaBrowser
 from ...services.content_cache import content_token
 from ...file_cache import etag_matches
-from ...security import inert_svg_headers
 from ...auth import require_gm_or_admin, get_current_user, CurrentUser
 from ...indexer import archive_ext, archive_mime, slugify
 from .._browse import media_browse_params
@@ -180,12 +180,7 @@ def serve_token_file(
     else:
         ext = Path(t.filepath).suffix.lower()
         media = f"image/{ext[1:]}"
-    return FileResponse(
-        t.filepath,
-        media_type=media,
-        filename=t.filename,
-        headers=inert_svg_headers(media, t.filepath),
-    )
+    return serve_user_file(t.filepath, media, filename=t.filename)
 
 
 def serve_token_thumbnail(
@@ -209,7 +204,7 @@ def serve_token_thumbnail(
     fhash = hashlib.md5(t.filepath.encode()).hexdigest()[:8]
     thumb_path = os.path.join(THUMB_DIR, "tokens", f"{slug}_{fhash}.webp")
     if os.path.exists(thumb_path):
-        return FileResponse(thumb_path, media_type="image/webp", headers=headers)
+        return serve_user_file(thumb_path, "image/webp", headers=headers)
     # The slug half of the name is the filename as it was at index time, so a
     # file renamed since then has its thumbnail on disk under the old stem. The
     # path hash still identifies it, so fall back to that rather than reporting
@@ -217,7 +212,7 @@ def serve_token_thumbnail(
     # cover route, issue #421).
     matches = glob.glob(os.path.join(THUMB_DIR, "tokens", f"*_{fhash}.webp"))
     if matches:
-        return FileResponse(matches[0], media_type="image/webp", headers=headers)
+        return serve_user_file(matches[0], "image/webp", headers=headers)
     _clear_stale_thumbnail_flag(db, t)
     raise HTTPException(404)
 

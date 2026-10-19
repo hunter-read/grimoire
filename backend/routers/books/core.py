@@ -7,13 +7,14 @@ from typing import Literal, Optional
 
 from fastapi import BackgroundTasks, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import Response
 from sqlalchemy import text
 
+from .._user_files import serve_user_file
 from ...http_headers import content_disposition
 from ...auth import CurrentUser, get_current_user, require_gm_or_admin
 from ...config import _PAGE_CACHE_HEADERS, THUMB_DIR, get_db
-from ...security import SAME_ORIGIN_FRAME_HEADERS, inert_svg_headers
+from ...security import SAME_ORIGIN_FRAME_HEADERS
 
 from ...file_cache import etag_matches
 from ...indexer import slugify
@@ -464,9 +465,9 @@ def serve_book_file(
             book.is_missing = True
             db.commit()
         raise HTTPException(404, "File not found on disk")
-    return FileResponse(
+    return serve_user_file(
         book.filepath,
-        media_type=book.mime_type,
+        book.mime_type,
         headers={
             "Accept-Ranges": "bytes",
             "Content-Disposition": content_disposition(book.filename, "inline"),
@@ -474,8 +475,8 @@ def serve_book_file(
             # Override the global frame-ancestors 'none' so Firefox doesn't
             # block the frame, while keeping cross-origin framing denied.
             **SAME_ORIGIN_FRAME_HEADERS,
-            **inert_svg_headers(book.mime_type, book.filepath, same_origin_frame=True),
         },
+        same_origin_frame=True,
     )
 
 
@@ -495,8 +496,6 @@ def serve_book_thumbnail(
     # endpoint is hit once per visible cover, so reconstruct the expected
     # filename and serve it directly. Fall back to the glob only when the
     # title has drifted from what it was at index time (renamed book).
-    fhash = hashlib.md5(book.filepath.encode()).hexdigest()[:8]
-    thumb_dir = os.path.join(THUMB_DIR, "books")
     # The thumbnail *filename* stays path-derived (that is what the indexer
     # writes), so it alone cannot tell a replaced cover from the original. The
     # ETag carries the content token instead, which is what lets a client holding
@@ -505,10 +504,18 @@ def serve_book_thumbnail(
     if etag_matches(request, etag):
         return Response(status_code=304, headers={"ETag": etag, **_PAGE_CACHE_HEADERS})
     headers = {**_PAGE_CACHE_HEADERS, "ETag": etag}
+    path = book_thumbnail_path(book)
+    if path:
+        return serve_user_file(path, "image/webp", headers=headers)
+    raise HTTPException(404, "No thumbnail available")
+
+
+def book_thumbnail_path(book: Book) -> Optional[str]:
+    """The book's cover thumbnail on disk, or None. Shared with the OPDS cover route."""
+    fhash = hashlib.md5(book.filepath.encode()).hexdigest()[:8]
+    thumb_dir = os.path.join(THUMB_DIR, "books")
     expected = os.path.join(thumb_dir, f"{slugify(book.title)}_{fhash}.webp")
     if os.path.isfile(expected):
-        return FileResponse(expected, media_type="image/webp", headers=headers)
+        return expected
     matches = glob.glob(os.path.join(thumb_dir, f"*_{fhash}.webp"))
-    if matches:
-        return FileResponse(matches[0], media_type="image/webp", headers=headers)
-    raise HTTPException(404, "No thumbnail available")
+    return matches[0] if matches else None

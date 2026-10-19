@@ -63,6 +63,26 @@ def run(script_path: str, request_json: str) -> dict:
     return result
 
 
+# Grimoire's own credentials, by name. The worker inherits the server's
+# environment (multiprocessing offers no env= to start it with another), and
+# the third-party script it runs needs none of them. Not a sandbox - the
+# script can still read DATA_PATH - but nothing is handed to it for free.
+_SECRET_NAME = ("SECRET", "TOKEN", "PASSWORD", "PASSWD", "API_KEY", "PRIVATE_KEY")
+_SECRET_VARS = ("VALKEY_URL", "DATABASE_URL")  # URLs that carry a password
+
+
+def scrub_environment(environ=os.environ) -> list[str]:
+    """Remove credentials from ``environ``; returns the names removed."""
+    removed = [
+        name
+        for name in list(environ)
+        if name in _SECRET_VARS or any(part in name.upper() for part in _SECRET_NAME)
+    ]
+    for name in removed:
+        environ.pop(name, None)
+    return removed
+
+
 def main(script_path: str, request_json: str, result_path: str) -> None:
     """Child-process entry point.  Always writes a result file unless it dies.
 
@@ -71,6 +91,7 @@ def main(script_path: str, request_json: str, result_path: str) -> None:
     which the parent reads as a crash. Distinguishing "the script raised" from
     "the process died" gives the operator a far more useful message.
     """
+    scrub_environment()
     try:
         result = run(script_path, request_json)
     except BaseException as exc:  # noqa: BLE001 - report, never crash silently

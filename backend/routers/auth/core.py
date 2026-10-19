@@ -74,6 +74,12 @@ def auth_setup(
         role="admin",
     )
     db.add(user)
+    db.flush()
+    # Counted again inside the same transaction: two setup requests racing
+    # past the first check would otherwise both create an admin.
+    if db.query(User).count() > 1:
+        db.rollback()
+        raise HTTPException(400, "Server is already initialized")
     db.commit()
     db.refresh(user)
     return issue_login(db, user, response, request)

@@ -38,6 +38,7 @@ from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 _LOOKUP_LABEL = b"grimoire/bearer-token/lookup/v1"
 _SEAL_LABEL = b"grimoire/bearer-token/seal/v1"
 _SECRET_LABEL = b"grimoire/stored-secret/seal/v1"
+_UNLOCK_SIGNING_LABEL = b"grimoire/share-unlock/sign/v1"
 
 
 def _derive(secret: str, label: bytes) -> bytes:
@@ -102,3 +103,17 @@ def unseal_secret(sealed: Optional[str]) -> Optional[str]:
         return _secret_cipher(_secret()).decrypt(sealed.encode("ascii")).decode("utf-8")
     except (InvalidToken, ValueError):
         return None
+
+
+@lru_cache(maxsize=4)
+def _unlock_key(secret: str) -> bytes:
+    return _derive(secret, _UNLOCK_SIGNING_LABEL)
+
+
+def unlock_signing_key() -> bytes:
+    """The key share-link unlock cookies are signed with.
+
+    Derived from SECRET_KEY rather than being SECRET_KEY itself, so an unlock
+    token can never verify as a session token or the other way round.
+    """
+    return _unlock_key(_secret())

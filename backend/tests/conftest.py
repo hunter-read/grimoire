@@ -15,6 +15,8 @@ _LIB_DIR = os.path.join(_DATA_DIR, "library")
 os.makedirs(_LIB_DIR, exist_ok=True)
 os.environ["DATA_PATH"] = _DATA_DIR
 os.environ["LIBRARY_PATH"] = _LIB_DIR
+# TestClient's Host header, so the MCP host allow-list admits test requests.
+os.environ.setdefault("MCP_ALLOWED_HOSTS", "testserver")
 # The TestClient connects as "testclient"; treat it as a reverse proxy so tests
 # can give each simulated client its own X-Forwarded-For address.
 os.environ.setdefault(

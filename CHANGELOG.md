@@ -14,7 +14,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - The reader zooms up to 800%, from 200%. Past about 200% Grimoire renders just the part of the page you are looking at in full detail and lays it over the page, so small print stays sharp without rendering a huge image of the whole page
 - Zoom now stays when you turn the page, landing at the top of the next page in the same column. A new book, switching between Page and Spread, or reset returns to 100%
 - When linking resources to a campaign, tick a folder to select everything in it, subfolders included. A partly selected folder shows a dash, and ticking it again clears it
-- Password rules: new account passwords need at least 12 characters and new share-link passwords at least 8, and commonly used passwords are refused (checked against a list that ships with Grimoire, nothing leaves your server). Set `PASSWORD_MIN_LENGTH` and `SHARE_LINK_PASSWORD_MIN_LENGTH` to change the minimums. Passwords you already have keep working
+- Password rules: new account passwords need at least 12 characters and new share-link passwords at least 8, and commonly used passwords are refused (checked against a list that ships with Grimoire, nothing leaves your server). Set `PASSWORD_MIN_LENGTH` and `SHARE_LINK_PASSWORD_MIN_LENGTH` to change the minimums. Passwords you already have keep working. Scripts that create users through the API are held to the same rules
 - Failed sign-ins are also counted per account, and wrong share-link passwords per link, whatever address they come from (`ACCOUNT_RATE_LIMIT`, default `20/hour`). A browser you have signed in from before keeps its own count
 - `TRUSTED_PROXIES` lists the reverse proxies whose `X-Forwarded-For` Grimoire reads. The default covers proxies and tunnels on the same host, Docker network or LAN, so most installs need no change. If a proxy reaches Grimoire from a public address - a VPS, or Cloudflare's proxy without Cloudflare Tunnel - add its addresses; see the security docs
 - Book pages are now rendered in a separate process, so a damaged PDF that crashes the PDF library fails that one page instead of stopping Grimoire. The same goes for a book's table of contents and for exporting pages and cut-outs. `RENDER_WORKERS` sets how many render processes run (default `1`); more render different books in parallel on multi-core hosts, and `0` keeps rendering inside Grimoire. Render processes stop when nobody is reading. See the performance docs
@@ -35,7 +35,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - `X-Forwarded-For` is read only from a trusted proxy, right to left, so each client behind your proxy gets its own address in rate limiting and Active Sessions. A working API key is never refused because its address is over the failed-key limit
 - Requests from GM and admin accounts check the account's current role every time, so a role change, a deleted account or signing a device out applies straight away. A guest's session ends once guest access is turned off or the guest is removed, and deleting a campaign removes its guest accounts
 - Single sign-on's **Match Existing Users By** now links only accounts that aren't linked to a provider yet, and while it matches by email only an admin can change a user's email. See the OIDC docs for the details
-- Grimoire refuses to start with a `SECRET_KEY` copied from its docs, and logs a warning for one shorter than 32 characters. The install guide no longer shows an example key
+- **Check your `SECRET_KEY` before upgrading.** Grimoire refuses to start with a `SECRET_KEY` copied from its old install guide or development compose file, and logs a warning for one shorter than 32 characters. If yours was copied, replace it with the output of `openssl rand -hex 32`, or remove it so Grimoire generates and keeps its own. Changing the key signs everyone out and ends existing OPDS and calendar feed URLs and share links, which then need making again. The install guide no longer shows an example key
 - At start-up the container only changes the owner of the data folder and a `BACKUP_DIR` set in its environment; a backup folder chosen in Settings is checked and reported in the log instead
 - For contributors: GitHub Actions are pinned to commit SHAs, and the release workflow publishes the GitHub release from its own job
 - Campaign wiki pages an assistant writes are always private to you, as are any pages its links create; share them from the wiki when you want your table to see them. The `create_wiki_page` tool no longer takes a `visibility` argument. New wiki pages can't be added to a campaign while its GM's campaign access is turned off, in the app or by an assistant
@@ -55,9 +55,22 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - A wiki imported as a `.zip` is held to the import limits once unpacked (25 MB and 2000 files), not only as uploaded
 - Single sign-on reads the provider's userinfo only when it describes the same user as the ID token, and takes an email address and whether it is verified from the same one of the two
 - Calibre `.opf` sidecars are read with a parser that refuses entity declarations
+- Access tokens are no longer accepted in the page address (`?token=`); the app had stopped using it, and images and downloads authenticate with the session cookie. The app now keeps its access token in memory rather than browser storage, and tabs take turns refreshing it
+- The interactive API docs and the OpenAPI schema need a signed-in account by default. `API_DOCS=public` serves them to anyone, as before, and `API_DOCS=off` turns them off
+- The MCP endpoint only answers under loopback, the host in `BASE_URL`, and hosts listed in the new `MCP_ALLOWED_HOSTS`. If an assistant connects to Grimoire at another address, such as a LAN IP, set `BASE_URL` or add it there
+- Usernames are unique regardless of case, matching how sign-in already compared them. If two existing accounts differ only in case, the log names them; rename one
+- Add-on index URLs must use `https://`, except on `localhost` or a private network address
+- Add-on scripts no longer see Grimoire's credentials in their environment
+- Changing your own explicit-content setting needs a signed-in session rather than an API key
+- Pinned the remaining floating Python dependencies, and updated the bundled FFmpeg to 7.0.3
+- For contributors: the development compose file tags its build `grimoire:dev`, so it no longer replaces a pulled image, and an image built from a working tree leaves out local databases, keys and seed files. A container started with `PGID=0` logs a warning
+- For contributors: routes serve files through one helper that always applies the content policy, and tests now check that routers reading books or systems apply the access rules and that deleting a user handles every table that refers to one
 
 ### Fixed
 
+- OPDS book covers didn't load in e-readers; they are now served under the feed's own token
+- Deleting a user, or merging a guest into an account, could fail when they had saved audio sets, installed themes or character importers, hidden wiki pages, or had made a wiki template
+- Signing in with single sign-on fetched the provider's discovery document on every sign-in when only the issuer was configured; it is now kept for an hour
 - With `VALKEY_URL` pointing at a cache that can't be reached, Grimoire could take about two minutes to start before falling back to the disk cache. It now gives up after a couple of seconds
 - Two people reading the same book at once no longer render its pages in the same PDF document simultaneously, which the PDF library does not support and which could crash the server. Opening a large PDF or EPUB also no longer holds up page loads for other books
 - Exporting a spread as one joined image could leave a faint light line down the middle at some page sizes and resolutions

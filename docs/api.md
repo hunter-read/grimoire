@@ -23,6 +23,9 @@ that omits its `response_model=` fails the suite.
 
 ## Authentication
 
+The interactive docs (`/api/docs`, `/api/redoc`) and `/api/openapi.json` need a signed-in session by default; set [`API_DOCS`](configuration.md) to `public` or `off` to change that.
+
+
 All endpoints except `/api/health`, `/api/auth/status`, `/api/auth/setup`, `/api/auth/login`, `/api/auth/guest-login`, `/api/auth/logout`, `/api/auth/refresh`, and `/api/auth/config` require a JWT - or, for external integrations, an [API key](#api-keys).
 
 **Header** (preferred for API clients):
@@ -34,15 +37,15 @@ Authorization: Bearer <token>
 
 On a successful `/api/auth/login`, `/api/auth/setup`, `/api/auth/guest-login`, or OIDC callback, the server also sets an `HttpOnly`, `SameSite=Lax` cookie named `grimoire_session` carrying the JWT (marked `Secure` when `BASE_URL` is `https://`, or when the request arrived over HTTPS - directly, or as `X-Forwarded-Proto: https` from a [trusted proxy](security.md)). `<img>` and download requests - which can't set an `Authorization` header - authenticate via this cookie, so the token never appears in the URL. `POST /api/auth/logout` clears it.
 
-The cookie (and the `?token=` parameter below) authenticate **`GET` and `HEAD` requests only**. A browser attaches the cookie by itself, and `SameSite=Lax` still lets a page on a sibling subdomain send one with a `POST`, so a request that changes anything must carry the `Authorization` header (or an `X-API-Key`); with only the cookie it gets a `401`.
+The cookie authenticates **`GET` and `HEAD` requests only**. A browser attaches the cookie by itself, and `SameSite=Lax` still lets a page on a sibling subdomain send one with a `POST`, so a request that changes anything must carry the `Authorization` header (or an `X-API-Key`); with only the cookie it gets a `401`.
 
-**Query parameter** (deprecated):
-```
-?token=<token>
-```
-Still accepted so pre-existing links keep working, but the JWT in a URL leaks into proxy/access logs, `Referer` headers, and browser history (see [#156](https://github.com/hunter-read/grimoire/issues/156)). The frontend no longer generates `?token=` URLs - use the cookie instead. This fallback may be removed in a future release.
+A JWT in the URL (`?token=`) is **not accepted**: it leaked into proxy and access logs, `Referer` headers and browser history ([#156](https://github.com/hunter-read/grimoire/issues/156)). Use the header, or the cookie for browser `GET`s.
 
-The auth precedence for any request is: `X-API-Key` → `Authorization` header → `grimoire_session` cookie → `?token=` query param, the last two on `GET`/`HEAD` only.
+The auth precedence for any request is: `X-API-Key` → `Authorization` header → `grimoire_session` cookie, the last on `GET`/`HEAD` only.
+
+Access tokens carry `"typ": "access"`, and a JWT whose `typ` is anything else - or that is missing `sub`, `username` or `role` - is a `401`. Tokens issued before the claim existed are still accepted until they expire.
+
+The web app keeps its access token in memory only, never in `localStorage`; after a reload it gets a new one from the refresh cookie. Tabs serialise their refreshes with the Web Locks API, so two tabs refreshing at once don't present the same refresh token twice.
 
 ### Token lifetimes and revocation
 
@@ -175,7 +178,7 @@ the rest of the route works as usual:
 
 - `POST /api/users` and `PATCH /api/users/{id}`: `password`, the `admin` role,
   and (on `PATCH`) a changed `email`. `POST /api/users/{id}/convert` likewise.
-- `PATCH /api/users/me/preferences`: a changed `email`.
+- `PATCH /api/users/me/preferences`: a changed `email` or `allow_explicit`.
 
 **Routes a key cannot use at all** beyond the excluded tags: `GET /api/share-links/all`
 and `GET /api/share-links/users/{user_id}`. They list every user's live share
@@ -281,7 +284,7 @@ environment:
 |----------|--------|------|-------------|
 | `/api/auth/status` | GET | - | Returns `{"initialized": bool}` - used by the frontend to decide whether to show first-run setup |
 | `/api/auth/config` | GET | - | Public auth configuration for the login screen: `{password_auth_enabled, guest_access_enabled, custom_login_message_enabled, custom_login_message, oidc_enabled, oidc_button_text, oidc_button_bg_color, oidc_button_text_color, oidc_button_border_color, oidc_button_radius, oidc_button_icon_url, oidc_auto_launch}`. The custom message is only returned when its toggle is on. OIDC fields are only true/non-empty when the IdP is fully configured. The `oidc_button_*` appearance fields are validated hex colors or `""` (theme default), `oidc_button_radius` is px or `null`, and `oidc_button_icon_url` is a relative URL or `""` - see [Style the sign-in button](oidc.md#style-the-sign-in-button). |
-| `/api/auth/setup` | POST | - | First-run admin account creation. Body: `{username, password}`. Returns `{token, user}` and sets the `grimoire_session` cookie. Fails with 400 if any users exist. |
+| `/api/auth/setup` | POST | - | First-run admin account creation. Body: `{username, password}`. Returns `{token, user}` and sets the `grimoire_session` cookie. Fails with 400 if any users exist. Two setups racing each other can't both create an admin: the second is refused. |
 | `/api/auth/login` | POST | - | Authenticate. Body: `{username, password}`. Returns `{token, user}` (`user` includes `display_name`) and sets the `grimoire_session` cookie. Returns 403 if password authentication is disabled. |
 | `/api/auth/guest-login` | POST | - | Exchange a campaign guest invite code for a JWT. Body: `{code}`. Returns `{token, user, campaign_id}` and sets the `grimoire_session` cookie - `user.display_name` is the GM-set guest nickname. Returns 403 if guest access is disabled, 401 for an unknown/expired code. |
 | `/api/auth/logout` | POST | - | Revokes the current session (identified by the `grimoire_refresh` cookie) and clears both auth cookies. Requires no auth so a client with an expired access token can still log out. The refresh token dies immediately; the current access token remains valid until it expires. |
@@ -290,7 +293,7 @@ environment:
 | `/api/auth/sessions` | GET | any | The caller's own live sessions, newest first: `[{id, origin, user_agent, ip_address, created_at, last_used_at, expires_at, current}]`. `origin` is `password`, `guest`, or `oidc`; `current` marks the session backing this request. |
 | `/api/auth/sessions/others` | DELETE | any | Logs out everywhere else - revokes all of the caller's sessions except the current one. Returns `{ok, revoked, kept_current}`. |
 | `/api/auth/sessions/{session_id}` | DELETE | any | Revokes a single session belonging to the caller. Returns 404 for an unknown session or one owned by another user. |
-| `/api/auth/openid/login` | GET | - | Start an OIDC login. Redirects to the IdP. Optional `?return_to=/path` to redirect after callback - it must be a same-origin path, and anything else (another host, `//host`, backslashes, control characters) falls back to `/`. Returns 503 if OIDC isn't configured. |
+| `/api/auth/openid/login` | GET | - | Start an OIDC login. Redirects to the IdP. Optional `?return_to=/path` to redirect after callback - it must be a same-origin path, and anything else (another host, `//host`, backslashes, control characters) falls back to `/`. Returns 503 if OIDC isn't configured. Rate limited to 30 a minute per address, since each call stores sign-in state before anything is checked. |
 | `/api/auth/openid/callback` | GET | - | OIDC callback. Checks and spends the `state` first - before anything else, an IdP error included - then validates the code, finds/creates the local user, opens a revocable session (`origin: "oidc"`), sets the `grimoire_session` and `grimoire_refresh` cookies, and redirects to the `return_to` path. **No token travels in the URL**: the SPA picks up the session from the refresh cookie, as it does for a returning user. Failures redirect to `/login?oidc_error=<message>` (URL-encoded); an IdP error is shown as a fixed message for its OAuth error code, never the IdP's `error_description`. Userinfo claims are used only when their `sub` matches the ID token's, and `email`/`email_verified` always come together from one of the two. |
 | `/api/auth/openid/button-icon` | GET | - | The admin-configured icon for the OIDC button, always a server-normalized PNG (≤192 px). 404 when no icon is set. Served with `X-Content-Type-Options: nosniff` and `Content-Security-Policy: default-src 'none'; sandbox`. Use the URL from `/api/auth/config`: when its `v` query parameter matches the current icon the response is cacheable forever; otherwise it is `no-cache` with an `ETag`. |
 | `/api/auth/openid/discover` | POST | admin | Server-side discovery fetch. Body: `{issuer_url}`. Returns the relevant endpoints from `.well-known/openid-configuration`. |
@@ -300,7 +303,7 @@ environment:
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
 | `/api/users` | GET | admin | List all users (each entry includes `email`, `allow_explicit`, `campaign_access`, `api_keys_enabled`, `share_links`/`share_links_allowed`/`share_links_source` (see below), `campaign_count` (number of campaigns the user owns), and `oidc_linked`) |
-| `/api/users` | POST | admin | Create a user. Body: `{username, password?, role?, email?, allow_explicit?, campaign_access?, api_keys_enabled?, share_links?}` (role defaults to `player`; email is optional and unique case-insensitively; `password` may be omitted to create an OIDC-only account when password auth is disabled, otherwise it must be ≥8 chars). Returns the created user with `allow_explicit`, `campaign_access`, `campaign_count`, and `oidc_linked`. |
+| `/api/users` | POST | admin | Create a user. Body: `{username, password?, role?, email?, allow_explicit?, campaign_access?, api_keys_enabled?, share_links?}` (role defaults to `player`; email is optional and unique case-insensitively; `password` may be omitted to create an OIDC-only account when password auth is disabled, otherwise it must be ≥8 chars). Returns the created user with `allow_explicit`, `campaign_access`, `campaign_count`, and `oidc_linked`. Usernames are unique regardless of case (`Admin` and `admin` are the same name), as sign-in already compared them. |
 | `/api/users/guests` | GET | admin | List every per-campaign guest account. Each entry: `{id, display_name, created_at, campaign_id, campaign_name, invited_by}` (`invited_by` is the campaign owner's display name/username). Guests never appear in `GET /api/users`. |
 | `/api/users/:id` | PATCH | admin | Update `role`, `password`, `allow_explicit`, `campaign_access`, `api_keys_enabled`, `share_links`, or `email` (use `""` to clear the email). `share_links` is the user's [share link](#share-links-1) override: `"role"` follows the role default, `"allow"`/`"deny"` grant or refuse it whatever the role. Responses report it alongside `share_links_allowed` (the effective answer) and `share_links_source` (`role`, `user` or `disabled`), so a GM with no override reads as allowed by role. `api_keys_enabled` lets a non-admin hold [API keys](#api-keys) (admins always may); OIDC's `apiKeys` permissions claim overrides it on next login. `campaign_access: false` blocks the user from creating/joining/managing campaigns without deleting existing ones; OIDC's `campaignAccess` permissions claim overrides it on next login. Changing a GM's role **drops their access grants** - see [Access levels](#access-levels-issue-258). |
 | `/api/users/:id/convert` | POST | admin | Convert a guest account to a permanent user. Body: `{username, password?, role?}` (role defaults to `player`, cannot be `guest`). `password` is required only when password auth is enabled; ≥8 chars. Keeps the guest's campaign membership and character, clears its invite code, and returns the promoted user. 400 if the target isn't a guest or the username is taken. |
@@ -1458,7 +1461,7 @@ give (a book with no cover thumbnail, a track with no artwork), returns 404.
 
 #### Banner, character art & sheets
 
-Files are stored on disk under `DATA_PATH/campaign_uploads/`. Banners are keyed by campaign id; character art and sheets are keyed by the **CampaignMember id** (`member.id` from the campaign-detail response), so a player in multiple campaigns gets a distinct file per membership. Image uploads (banner, art) accept PNG/JPEG/WebP/GIF up to 5 MB; sheets additionally accept PDF up to 15 MB. Serving endpoints authenticate via the `grimoire_session` cookie for use in `<img>`/download URLs (the deprecated `?token=` query param is still accepted - see [Authentication](#authentication)).
+Files are stored on disk under `DATA_PATH/campaign_uploads/`. Banners are keyed by campaign id; character art and sheets are keyed by the **CampaignMember id** (`member.id` from the campaign-detail response), so a player in multiple campaigns gets a distinct file per membership. Image uploads (banner, art) accept PNG/JPEG/WebP/GIF up to 5 MB; sheets additionally accept PDF up to 15 MB. Serving endpoints authenticate via the `grimoire_session` cookie for use in `<img>`/download URLs (see [Authentication](#authentication)).
 
 The GET (serving) endpoints for banners, art, sheets, and campaign files (`/files/:file_id`) set `Cache-Control: private, max-age=300, must-revalidate` along with `ETag`/`Last-Modified` validators derived from the file's mtime + size. A conditional request (`If-None-Match`/`If-Modified-Since`) with a matching validator returns `304 Not Modified`; re-uploading a file changes its validator so clients refetch.
 
@@ -1948,7 +1951,7 @@ repo. See [`docs/addons.md`](addons.md) for the full picture.
 | `/api/addons` | GET | admin | Installed add-ons, everything in the cached index, and add-on settings |
 | `/api/addons/refresh` | POST | admin | Re-fetch the community index. Returns `{status, count}` |
 | `/api/addons/update-all` | POST | admin | Refresh the index, then update every installed add-on with a newer version. Returns `{status, updated: [{id, from, to}], failed: [{id, error}]}` |
-| `/api/addons/settings` | PATCH | admin | Set `index_url` and/or `allow_scripts` |
+| `/api/addons/settings` | PATCH | admin | Set `index_url` and/or `allow_scripts`. An index URL must be `https://`, or `http://` on `localhost` or a private network address; anything else is a `422` |
 | `/api/addons/:id/install` | POST | admin | Install or update from the index. Body `{approve_script: bool}` |
 | `/api/addons/:id` | PATCH | admin | Set `enabled` and/or `script_approved` |
 | `/api/addons/:id` | DELETE | admin | Uninstall and forget its state |

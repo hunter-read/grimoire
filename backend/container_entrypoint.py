@@ -290,6 +290,11 @@ def choose_user(env: Mapping[str, str], library: str, data: str) -> tuple[int, i
     if uid == 0:
         log("PUID=0 - running as root.")
         return None
+    if gid == 0:
+        # Not root, but group root: everything group-readable by root (most of
+        # the image) is readable by Grimoire, and what it writes is root's group.
+        log("PGID=0 - running with the root group. Set PGID to your own group "
+            "unless you mean to.")
     return uid, gid, True
 
 

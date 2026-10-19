@@ -15,6 +15,7 @@ import httpx
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
+from .urls import index_url_problem
 from .. import config
 from .constants import (
     HTTP_MAX_BYTES,
@@ -88,9 +89,9 @@ def refresh_index(db: Session, url: Optional[str] = None) -> dict:
     generated = ""
 
     for index_url in index_urls:
-        if not index_url.startswith(("http://", "https://")):
-            # Skip invalid non-HTTP(S) URLs and record the configuration error
-            raise AddonError("index URL must be an http(s) URL")
+        problem = index_url_problem(index_url)
+        if problem:
+            raise AddonError(problem)
 
         # If the URL explicitly points to a theme or note template index, do not fetch add-ons from it
         if index_url.endswith("themes/index.json") or index_url.endswith("templates/index.json"):

@@ -56,8 +56,8 @@ FROM debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595
 # (https://ffmpeg.org/ffmpeg-devel.asc, fingerprint
 # FCF9 86EA 15E6 E293 A564 4F10 B432 2F04 D676 58D8):
 #   gpg --verify ffmpeg-X.tar.xz.asc ffmpeg-X.tar.xz && sha256sum ffmpeg-X.tar.xz
-ARG FFMPEG_VERSION=7.0.2
-ARG FFMPEG_SHA256=8646515b638a3ad303e23af6a3587734447cb8fc0a0c064ecdb8e95c4fd8b389
+ARG FFMPEG_VERSION=7.0.3
+ARG FFMPEG_SHA256=bbb18f3cc5c1c34b21cf176c0168c4d9aa97697542a97f60d491a58a814dea65
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \

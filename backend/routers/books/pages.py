@@ -4,10 +4,11 @@ from pathlib import Path
 
 from fastapi import Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import Response
 from sqlalchemy import text as sql_text
 
 
+from .._user_files import serve_user_file
 from ...auth import CurrentUser, get_current_user
 from ...config import _PAGE_CACHE_HEADERS, PAGE_CACHE_DIR, get_db
 from ...file_cache import etag_matches
@@ -20,7 +21,6 @@ from ...indexer.formats import (
 )
 from ...indexer.thumbnails import archive_ext
 from ...models import Book
-from ...security import inert_svg_headers
 from ...services.content_cache import content_token, page_cache_prefix
 from ...render import pool as render_pool
 from ._helpers import _assert_book_access, _cached_book_info
@@ -120,11 +120,7 @@ def serve_book_page(
             raise HTTPException(404, "File not found on disk")
         ext = Path(filepath).suffix.lower().lstrip(".")
         media_type = f"image/{ext}" if ext not in ("jpg",) else "image/jpeg"
-        return FileResponse(
-            filepath,
-            media_type=media_type,
-            headers={**cache_headers, **inert_svg_headers(media_type, filepath)},
-        )
+        return serve_user_file(filepath, media_type, headers=cache_headers)
 
     # A comic archive's page is an image member inside the archive; serve it
     # directly rather than rendering it (issue #180).

@@ -103,14 +103,14 @@ router.add_api_route(
     serve_map_file,
     methods=["GET"],
     summary="Download map file",
-    description="Streams the original map image or PDF. Accepts `?token=` for browser-embedded images.",
+    description="Streams the original map image or PDF.",
 )
 router.add_api_route(
     "/maps/{map_id}/page/{page_num}",
     serve_map_page,
     methods=["GET"],
     summary="Render a map page",
-    description="Renders a single page of a PDF map to WebP (`?width=` sets the target pixel width, default 1600, max 3000). Image maps are streamed as-is and only accept page 1. Accepts `?token=` for browser-embedded images.",
+    description="Renders a single page of a PDF map to WebP (`?width=` sets the target pixel width, default 1600, max 3000). Image maps are streamed as-is and only accept page 1.",
 )
 # Page export for PDF maps (issue #207) - the same export the book reader has.
 router.add_api_route(

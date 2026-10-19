@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { getAccessToken, setAccessToken } from '../api/accessToken'
 import { render, screen, waitFor, act } from '@testing-library/react'
 import { AuthProvider, useAuth } from './AuthContext'
 
@@ -25,6 +26,7 @@ function renderAuth() {
 describe('AuthContext', () => {
   beforeEach(() => {
     localStorage.clear()
+    setAccessToken(null)
     vi.restoreAllMocks()
   })
 
@@ -53,7 +55,7 @@ describe('AuthContext', () => {
   })
 
   it('transitions to authenticated when stored token validates successfully', async () => {
-    localStorage.setItem('grimoire_token', 'valid-token')
+    setAccessToken('valid-token')
     global.fetch = vi
       .fn()
       .mockResolvedValueOnce({
@@ -72,7 +74,7 @@ describe('AuthContext', () => {
   })
 
   it('removes invalid token and goes to unauthenticated', async () => {
-    localStorage.setItem('grimoire_token', 'bad-token')
+    setAccessToken('bad-token')
     global.fetch = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ initialized: true }) })
@@ -81,11 +83,11 @@ describe('AuthContext', () => {
     renderAuth()
 
     await waitFor(() => expect(screen.getByTestId('status').textContent).toBe('unauthenticated'))
-    expect(localStorage.getItem('grimoire_token')).toBeNull()
+    expect(getAccessToken()).toBeNull()
   })
 
   it('transitions to unauthenticated on grimoire:unauthorized event', async () => {
-    localStorage.setItem('grimoire_token', 'tok')
+    setAccessToken('tok')
     global.fetch = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ initialized: true }) })
@@ -101,7 +103,7 @@ describe('AuthContext', () => {
 
     expect(screen.getByTestId('status').textContent).toBe('unauthenticated')
     expect(screen.getByTestId('user').textContent).toBe('none')
-    expect(localStorage.getItem('grimoire_token')).toBeNull()
+    expect(getAccessToken()).toBeNull()
   })
 
   it('login() stores token and sets authenticated state', async () => {
@@ -116,11 +118,11 @@ describe('AuthContext', () => {
 
     expect(screen.getByTestId('status').textContent).toBe('authenticated')
     expect(screen.getByTestId('user').textContent).toBe('alice')
-    expect(localStorage.getItem('grimoire_token')).toBe('tok')
+    expect(getAccessToken()).toBe('tok')
   })
 
   it('logout() clears token and sets unauthenticated state', async () => {
-    localStorage.setItem('grimoire_token', 'tok')
+    setAccessToken('tok')
     global.fetch = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ initialized: true }) })
@@ -137,7 +139,7 @@ describe('AuthContext', () => {
     act(() => screen.getByText('Logout').click())
 
     expect(screen.getByTestId('status').textContent).toBe('unauthenticated')
-    expect(localStorage.getItem('grimoire_token')).toBeNull()
+    expect(getAccessToken()).toBeNull()
     // The server-side cookie clear was requested.
     expect(global.fetch).toHaveBeenCalledWith(
       '/api/auth/logout',

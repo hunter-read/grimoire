@@ -136,14 +136,12 @@ class TestAuthMe:
         assert resp.status_code == 200
         assert resp.json()["role"] == "player"
 
-    def test_token_as_query_param(self, client, admin_token):
-        # ?token= is a deprecated fallback (issue #156) — still accepted so old
-        # links don't break, but the frontend no longer generates it. Clear the
-        # cookie jar so this exercises the query-param path specifically.
+    def test_token_as_query_param_is_refused(self, client, admin_token):
+        # The old ?token= fallback (issue #156) is gone: a JWT in a URL leaks
+        # into logs and history. Clear the cookie jar so only the param is sent.
         client.cookies.clear()
         resp = client.get(f"/api/auth/me?token={admin_token}")
-        assert resp.status_code == 200
-        assert resp.json()["username"] == "admin"
+        assert resp.status_code == 401
 
 
 def _cookie_header(resp):
@@ -253,3 +251,54 @@ def test_login_unknown_user_still_runs_password_check(client, monkeypatch):
     )
     assert resp.status_code == 401
     assert calls == [None]
+
+
+
+class TestTokenType:
+    """Only a session access token is a session: other JWTs under the same key,
+    or ones missing their claims, are a 401 rather than a 500 or a sign-in."""
+
+    def _jwt(self, claims):
+        import datetime
+
+        import jwt
+
+        from backend import auth
+
+        now = datetime.datetime.now(datetime.timezone.utc)
+        payload = {"iat": now, "exp": now + datetime.timedelta(minutes=5), **claims}
+        return jwt.encode(payload, auth._secret_key(), algorithm=auth.ALGORITHM)
+
+    def _me(self, client, token):
+        client.cookies.clear()
+        return client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
+
+    def test_new_tokens_carry_the_access_type(self, admin_token):
+        from backend.auth import ACCESS_TOKEN_TYPE, decode_token
+
+        assert decode_token(admin_token)["typ"] == ACCESS_TOKEN_TYPE
+
+    def test_other_type_is_refused(self, client, admin_id):
+        token = self._jwt({"typ": "share-unlock", "sub": admin_id, "username": "admin",
+                           "role": "admin"})
+        assert self._me(client, token).status_code == 401
+
+    def test_missing_claims_are_a_401_not_a_500(self, client):
+        assert self._me(client, self._jwt({"typ": "access", "sub": "x"})).status_code == 401
+        assert self._me(client, self._jwt({"sl": "link", "pw": "f"})).status_code == 401
+
+    def test_token_from_before_the_type_claim_still_works(self, client, admin_id):
+        token = self._jwt({"sub": admin_id, "username": "admin", "role": "admin"})
+        assert self._me(client, token).status_code == 200
+
+    def test_share_unlock_token_is_not_signed_with_the_session_key(self):
+        import jwt
+        import pytest
+
+        from backend import auth
+        from backend.models import ShareLink
+        from backend.routers.share._links import unlock_token
+
+        token = unlock_token(ShareLink(id="l1", password_hash="h"))
+        with pytest.raises(jwt.InvalidSignatureError):
+            jwt.decode(token, auth._secret_key(), algorithms=[auth.ALGORITHM])

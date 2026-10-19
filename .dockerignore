@@ -4,6 +4,15 @@
 .gitignore
 library/
 data/
+# Runtime data and credentials, wherever they sit in a working tree, so an
+# image built from a dev checkout never carries a database, key or seed file.
+**/data/
+**/*.db
+**/*.db-*
+**/secret_key
+**/.env
+**/users.json
+**/users.json.*
 **/*.md
 # …except the changelog, which the About dialog reads at runtime.
 !CHANGELOG.md

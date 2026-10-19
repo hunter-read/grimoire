@@ -4,7 +4,8 @@ services:
   grimoire:
     build:
       context: .
-    image: hunterreadca/grimoire
+    # A local tag, so a dev build never replaces a pulled hunterreadca/grimoire.
+    image: grimoire:dev
     container_name: grimoire
     restart: unless-stopped
     ports:
