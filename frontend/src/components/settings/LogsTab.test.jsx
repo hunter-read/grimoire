@@ -13,6 +13,17 @@ vi.mock('./LogRow', () => ({
 // Capture the IntersectionObserver callback so tests can drive "scrolled to the
 // top" without a real layout engine.
 let observerCallback = null
+
+// Scroll to the top until the older page is actually requested. The component
+// reads its entry counts from refs that an effect fills after each render, and
+// that effect is scheduled apart from the test's own waits - so a single
+// intersection fired straight after the first page renders can find nothing
+// older to load, and the test would pass without ever loading it.
+const scrollToTopUntilRequested = (url) =>
+  waitFor(() => {
+    observerCallback([{ isIntersecting: true }])
+    expect(api.get).toHaveBeenCalledWith(url)
+  })
 class MockIntersectionObserver {
   constructor(cb) {
     observerCallback = cb
@@ -37,6 +48,9 @@ const page = (entries, over = {}) => ({
 
 beforeEach(() => {
   vi.clearAllMocks()
+  // clearAllMocks keeps queued `mockResolvedValueOnce` values, so one a test
+  // never consumed would answer the next test's first fetch instead.
+  api.get.mockReset()
   observerCallback = null
   globalThis.IntersectionObserver = MockIntersectionObserver
 })
@@ -188,11 +202,7 @@ describe('LogsTab', () => {
     expect(screen.getByText('logs.olderEntries')).toBeInTheDocument()
 
     api.get.mockResolvedValueOnce(page([entry('older')], { total: 3, max_seq: 1 }))
-    await act(async () => {
-      observerCallback([{ isIntersecting: true }])
-    })
-
-    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/logs?level=info&limit=2&offset=1'))
+    await scrollToTopUntilRequested('/logs?level=info&limit=2&offset=1')
     expect(await screen.findByText('older')).toBeInTheDocument()
   })
 
@@ -227,9 +237,7 @@ describe('LogsTab', () => {
     await screen.findByText('recent')
 
     api.get.mockRejectedValueOnce(new Error('older boom'))
-    await act(async () => {
-      observerCallback([{ isIntersecting: true }])
-    })
+    await scrollToTopUntilRequested('/logs?level=info&limit=4&offset=1')
     await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument())
     expect(screen.getByText('recent')).toBeInTheDocument()
   })
