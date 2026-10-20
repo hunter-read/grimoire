@@ -143,6 +143,46 @@ class TestCrashIsolation:
         assert not hung.proc.is_alive()
         assert pool.page_text(pdf, 3) == "third page"
 
+    def test_a_dead_worker_is_reaped_one_thread_at_a_time(self, workers, pdf):
+        """Concurrent waits on one child race in waitpid, and the loser saw it alive.
+
+        The killer and the reader both wait on a killed worker. The thread that
+        loses the waitpid race gets ECHILD, which multiprocessing turns into "no
+        exit code yet", so ``is_alive()`` reported a dead worker as running. The
+        stand-in join holds each wait open long enough that, unserialised, the
+        threads would overlap every time.
+        """
+        workers(1)
+        pool.page_text(pdf, 1)
+        current = _worker_of(pdf)
+        real_join = current.proc.join
+        guard = threading.Lock()
+        inside = []
+        most = []
+
+        def slow_join(timeout=None):
+            with guard:
+                inside.append(1)
+                most.append(len(inside))
+            try:
+                time.sleep(0.05)
+                real_join(timeout)
+            finally:
+                with guard:
+                    inside.pop()
+
+        current.proc.join = slow_join
+        os.kill(current.proc.pid, signal.SIGKILL)
+
+        def wait_then_check(_):
+            current._join(10)
+            return current.proc.is_alive()
+
+        with ThreadPoolExecutor(4) as ex:
+            alive = list(ex.map(wait_then_check, range(4)))
+        assert max(most) == 1
+        assert alive == [False] * 4
+
     def test_a_worker_gone_before_the_send_is_retried_on_a_fresh_one(self, workers, pdf):
         workers(1)
         pool.page_text(pdf, 1)

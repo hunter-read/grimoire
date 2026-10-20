@@ -90,6 +90,8 @@ class _Worker:
         self.stopping = False
         self.last_used = time.monotonic()
         self._ids = itertools.count()
+        # Serialises waiting for the process to exit; see ``_join``.
+        self._reap_lock = threading.Lock()
         self.reader = threading.Thread(
             target=self._read, name=f"grimoire-render-{slot}-reader", daemon=True
         )
@@ -154,7 +156,7 @@ class _Worker:
                 if not future.done():
                     future.set_exception(error)
             return
-        self.proc.join(_STOP_GRACE)
+        self._join(_STOP_GRACE)
         code = self.proc.exitcode
         if code is not None and code < 0:
             reason = f"killed by signal {-code}"
@@ -168,6 +170,20 @@ class _Worker:
             if not future.done():
                 future.set_exception(error)
 
+    def _join(self, timeout: float) -> None:
+        """Wait up to ``timeout`` for the process to exit, one thread at a time.
+
+        A killed worker is waited on from two threads at once: whoever killed
+        it, and the reader, which sees the pipe close and fails what was
+        pending. Both end in ``waitpid``, and only one of them gets the exit
+        status - multiprocessing swallows the other's ECHILD and records no
+        exit code, so until the first thread stores its result ``is_alive()``
+        reports a dead process as running. Taking turns means the second
+        thread finds the exit code already stored.
+        """
+        with self._reap_lock:
+            self.proc.join(timeout)
+
     def stop(self) -> None:
         """Close the pipe and wait for the process to exit, killing it if it won't."""
         with self.lock:
@@ -177,7 +193,7 @@ class _Worker:
             self.conn.close()
         except OSError:
             pass
-        self.proc.join(_STOP_GRACE)
+        self._join(_STOP_GRACE)
         if self.proc.is_alive():
             self.kill()
 
@@ -186,7 +202,7 @@ class _Worker:
         with self.lock:
             self.alive = False
         self.proc.kill()
-        self.proc.join(_STOP_GRACE)
+        self._join(_STOP_GRACE)
 
 
 class _Pool:
