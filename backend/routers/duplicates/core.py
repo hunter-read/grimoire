@@ -14,6 +14,7 @@ from ...auth import CurrentUser, require_admin
 from ...config import get_db, logger
 from ...services import tag_service, variants
 from ...services.duplicates import scoring
+from ...services.filename_rules import variant_rules
 from ...services.library_fs.constants import LibraryFSError
 from ...services.library_fs.deletes import delete_record
 from ...services.library_fs.references import reference_counts
@@ -320,13 +321,14 @@ def compare_items(
 
     records = [get_or_404(db, model, item_id) for item_id in ids]
 
+    rules = variant_rules.load_rules(db) if len(records) == 2 else []
     items = []
     for index, record in enumerate(records):
         parent, siblings = variants.family_for(db, model, record)
         suggested_kind, suggested_label = "", ""
         if len(records) == 2:
             suggested_kind, suggested_label = scoring.suggest_kind(
-                record, records[1 - index], resource_type
+                record, records[1 - index], resource_type, rules
             )
         created = getattr(record, "created_at", None)
         # Only when the record is a variant of something else. `family_for`

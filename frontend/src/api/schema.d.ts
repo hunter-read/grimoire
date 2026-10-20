@@ -4881,6 +4881,118 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/naming/apply-titles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set books' titles from their filenames
+         * @description Uses the folder's saved pattern. Overwrites each selected book's title and fills publisher, version, year, ISBN, product code and authors only where the book has none.
+         */
+        post: operations["apply_titles_api_naming_apply_titles_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/naming/folders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List folder naming patterns
+         * @description Every folder with a naming pattern, and the fields a pattern may use.
+         */
+        get: operations["list_folder_rules_api_naming_folders_get"];
+        /**
+         * Set a folder's naming pattern
+         * @description Creates or replaces the pattern for a folder under `books/`. New books beneath the folder read their title (and publisher, version, year, ...) from their filename with it; the nearest folder with a pattern wins.
+         */
+        put: operations["save_folder_rule_api_naming_folders_put"];
+        post?: never;
+        /**
+         * Remove a folder's naming pattern
+         * @description Remove a folder's naming pattern. Titles and filenames already set stay.
+         */
+        delete: operations["delete_folder_rule_api_naming_folders_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/naming/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview a naming pattern against the books it governs
+         * @description Changes nothing. Send `pattern` to preview one that has not been saved; omit it to preview the folder's saved pattern.
+         */
+        post: operations["preview_folder_rule_api_naming_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/naming/rename": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rename books' files onto the folder's naming pattern
+         * @description Uses the folder's saved pattern, which must not contain `{*}`. Each file is renamed and committed on its own, keeping its record, tags and sidecars; ones that cannot be renamed are listed in `skipped`.
+         */
+        post: operations["apply_renames_api_naming_rename_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/naming/variant-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the library's variant filename rules
+         * @description The library's own variant markers, in the order they are checked.
+         */
+        get: operations["get_variant_rules_api_naming_variant_rules_get"];
+        /**
+         * Replace the library's variant filename rules
+         * @description Rules are checked in order, before the built-in markers, whenever a variant kind is suggested from filenames.
+         */
+        put: operations["save_variant_rules_api_naming_variant_rules_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/parent-systems": {
         parameters: {
             query?: never;
@@ -6844,6 +6956,20 @@ export interface components {
             api_key: components["schemas"]["ApiKeyOut"];
             /** Key */
             key: string;
+        };
+        /** ApplyRequest */
+        ApplyRequest: {
+            /** Ids */
+            ids: string[];
+            /** Path */
+            path: string;
+        };
+        /** ApplyTitlesResponse */
+        ApplyTitlesResponse: {
+            /** Skipped */
+            skipped: components["schemas"]["SkippedItem"][];
+            /** Updated */
+            updated: string[];
         };
         /**
          * AudioBulkItem
@@ -10065,6 +10191,35 @@ export interface components {
             /** Path */
             path: string;
         };
+        /** FolderRuleIn */
+        FolderRuleIn: {
+            /** Path */
+            path: string;
+            /** Pattern */
+            pattern: string;
+        };
+        /** FolderRuleOut */
+        FolderRuleOut: {
+            /** Error */
+            error?: string | null;
+            /** Exists */
+            exists: boolean;
+            /** Path */
+            path: string;
+            /** Pattern */
+            pattern: string;
+            /** Renderable */
+            renderable: boolean;
+        };
+        /** FolderRulesResponse */
+        FolderRulesResponse: {
+            /** Fields */
+            fields: string[];
+            /** Read Fields */
+            read_fields: string[];
+            /** Rules */
+            rules: components["schemas"]["FolderRuleOut"][];
+        };
         /** FolderTagsEntry */
         FolderTagsEntry: {
             /** Path */
@@ -11828,6 +11983,18 @@ export interface components {
                 [key: string]: unknown;
             }[];
         };
+        /** NamingRenameResponse */
+        NamingRenameResponse: {
+            /** Renamed */
+            renamed: components["schemas"]["RenamedItem"][];
+            /** Skipped */
+            skipped: components["schemas"]["SkippedItem"][];
+        };
+        /** NamingStatusResponse */
+        NamingStatusResponse: {
+            /** Status */
+            status: string;
+        };
         /** OpdsStatusResponse */
         OpdsStatusResponse: {
             /** Feed Url */
@@ -12091,6 +12258,77 @@ export interface components {
             /** Email */
             email?: string | null;
         };
+        /** PreviewRequest */
+        PreviewRequest: {
+            /** Path */
+            path: string;
+            /** Pattern */
+            pattern?: string | null;
+        };
+        /** PreviewResponse */
+        PreviewResponse: {
+            /** Path */
+            path: string;
+            /** Pattern */
+            pattern: string;
+            /** Renderable */
+            renderable: boolean;
+            /** Rows */
+            rows: components["schemas"]["PreviewRow"][];
+            /** Total */
+            total: number;
+            /** Truncated */
+            truncated: boolean;
+            /** Writable */
+            writable: boolean;
+        };
+        /** PreviewRow */
+        PreviewRow: {
+            /** Filename */
+            filename: string;
+            /** Id */
+            id: string;
+            /**
+             * Long Path
+             * @default false
+             */
+            long_path?: boolean;
+            /**
+             * Missing
+             * @default []
+             */
+            missing?: string[];
+            /**
+             * Path Length
+             * @default 0
+             */
+            path_length?: number;
+            /** Proposed */
+            proposed?: string | null;
+            /** Read */
+            read?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Reads Back
+             * @default true
+             */
+            reads_back?: boolean;
+            /** Relative Path */
+            relative_path?: string | null;
+            /**
+             * Rename Status
+             * @enum {string}
+             */
+            rename_status: "ok" | "same" | "missing" | "too_long" | "conflict" | "unavailable";
+            /** Title */
+            title?: string | null;
+            /**
+             * Title Status
+             * @enum {string}
+             */
+            title_status: "change" | "same" | "no_match";
+        };
         /**
          * PromoteRequest
          * @description Hand an existing family a different main version.
@@ -12193,6 +12431,15 @@ export interface components {
             from: string;
             /** Records */
             records: number;
+            /** To */
+            to: string;
+        };
+        /** RenamedItem */
+        RenamedItem: {
+            /** From */
+            from: string;
+            /** Id */
+            id: string;
             /** To */
             to: string;
         };
@@ -13880,6 +14127,15 @@ export interface components {
              */
             overwrite_foreign?: boolean;
         };
+        /** SkippedItem */
+        SkippedItem: {
+            /** Detail */
+            detail?: string | null;
+            /** Id */
+            id: string;
+            /** Reason */
+            reason: string;
+        };
         /**
          * SourceCredentialInfo
          * @description What the UI may know about a source's token - never the token itself.
@@ -15026,6 +15282,35 @@ export interface components {
              * @default 0
              */
             variant_count?: number;
+        };
+        /** VariantRule */
+        VariantRule: {
+            /** Collection */
+            collection?: string | null;
+            /** Kind */
+            kind?: string | null;
+            /**
+             * Label
+             * @default
+             */
+            label?: string;
+            /**
+             * Match
+             * @enum {string}
+             */
+            match: "token" | "prefix" | "suffix";
+            /** Value */
+            value: string;
+        };
+        /** VariantRulesIn */
+        VariantRulesIn: {
+            /** Rules */
+            rules: components["schemas"]["VariantRule"][];
+        };
+        /** VariantRulesResponse */
+        VariantRulesResponse: {
+            /** Rules */
+            rules: components["schemas"]["VariantRule"][];
         };
         /** VerifyIndexResponse */
         VerifyIndexResponse: {
@@ -26876,6 +27161,300 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    apply_titles_api_naming_apply_titles_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApplyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplyTitlesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_folder_rules_api_naming_folders_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderRulesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_folder_rule_api_naming_folders_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FolderRuleIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderRuleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_folder_rule_api_naming_folders_delete: {
+        parameters: {
+            query: {
+                path: string;
+            };
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NamingStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_folder_rule_api_naming_preview_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    apply_renames_api_naming_rename_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApplyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NamingRenameResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_variant_rules_api_naming_variant_rules_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VariantRulesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_variant_rules_api_naming_variant_rules_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VariantRulesIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VariantRulesResponse"];
                 };
             };
             /** @description Validation Error */

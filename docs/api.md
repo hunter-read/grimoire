@@ -3178,6 +3178,88 @@ holding `Modules` will not gain `Adventures`. `existing` reports the incumbent
 folder's real name, so running it on a partly-organised system fills only the
 genuine gaps.
 
+### Filename rules *(admin only)*
+
+What a library's own naming conventions mean to Grimoire (issues #521, #522,
+#569). See [Filename rules](filename-rules.md) for the pattern syntax. Folder
+patterns sit under the `files` API-key permission, variant rules under
+`duplicates`.
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/naming/folders` | GET | Every folder with a naming pattern, and the fields a pattern may use |
+| `/api/naming/folders` | PUT | Set a folder's naming pattern, replacing any it had |
+| `/api/naming/folders` | DELETE | Remove a folder's naming pattern. `?path=` |
+| `/api/naming/preview` | POST | What a pattern would do to the books it governs. Changes nothing |
+| `/api/naming/apply-titles` | POST | Set the selected books' titles from their filenames |
+| `/api/naming/rename` | POST | Rename the selected books' files onto the folder's pattern |
+| `/api/naming/variant-rules` | GET | The library's own variant filename rules, in the order they are checked |
+| `/api/naming/variant-rules` | PUT | Replace the whole list of variant filename rules |
+
+**`GET /api/naming/folders`** - Returns `{rules[], fields[], read_fields[]}`. Each
+rule is `{path, pattern, exists, renderable, error}`: `exists` is false when the
+folder is gone from disk, `renderable` is false when the pattern holds `{*}` (it
+can read filenames but not write them), and `error` is set when a stored pattern
+no longer parses - the scanner skips such a rule. `fields` lists every
+placeholder; `read_fields` the ones reading a filename can set on a book (`title`,
+`publisher`, `authors`, `year`, `version`, `isbn`, `product_code`).
+
+**`PUT /api/naming/folders`** - `{path, pattern}`. `path` is library-relative and
+must be `books` or a folder under it that exists (`400` outside `books/`, `404`
+for a missing folder). The pattern must contain `{title}`; a pattern that does not
+parse is `400` with a message naming the problem. Returns the saved rule. A rule
+covers every book beneath its folder; the nearest folder with a rule wins. New
+books read their title, and any blank `publisher`, `authors`, `year`, `version`,
+`isbn` or `product_code`, from their filename with it when they are first
+indexed - a sidecar `.opf` still wins. Renaming, moving or deleting the folder in
+the file manager carries or drops its rule.
+
+**`POST /api/naming/preview`** - `{path, pattern?}`. Previews `pattern` when given
+(so an editor can show an unsaved pattern's effect), otherwise the folder's saved
+one. Returns `{path, pattern, renderable, writable, total, truncated, rows[]}`,
+with at most 1000 rows. Each row is `{id, filename, relative_path, title, read,
+title_status, proposed, rename_status, missing[], path_length, long_path,
+reads_back}`:
+
+- `read` - the fields the pattern reads from the filename, or null when the name
+  does not fit
+- `title_status` - `change`, `same`, or `no_match`
+- `proposed` - the filename the pattern writes from the book's metadata
+- `rename_status` - `ok`, `same` (already named so), `missing` (a required field
+  is empty - see `missing`), `too_long` (over 255 bytes), `conflict` (the name is
+  taken on disk, or by an earlier row in the same preview), or `unavailable` (the
+  pattern holds `{*}`)
+- `long_path` - the full path would exceed 259 characters, the Windows limit; a
+  warning only
+- `reads_back` - false when the proposed name would not read back to the same
+  title, usually because the title holds the pattern's own separator
+
+**`POST /api/naming/apply-titles`** - `{path, ids[]}` (at most 1000). Uses the
+folder's *saved* pattern. Overwrites each selected book's title with the one its
+filename carries, and fills the other read fields only where the book has none.
+Returns `{updated[], skipped: [{id, reason}]}`, where `reason` is `no_match` or
+`same`. Books outside the rule's reach (under a nearer rule, or elsewhere) are
+ignored.
+
+**`POST /api/naming/rename`** - `{path, ids[]}` (at most 1000). Uses the folder's
+saved pattern, which must not contain `{*}` (`400`). Each file is renamed through
+the same relink as `/api/files/rename` and committed on its own, so the record
+keeps its id, tags, progress and sidecars, and one failure does not undo the
+rest. Destinations are recomputed server-side - the client never names them.
+Returns `{renamed: [{id, from, to}], skipped: [{id, reason, detail}]}`, where
+`reason` is a `rename_status` from the preview or a file-manager error code
+(`read_only`, `conflict`, `io_error`, ...).
+
+**`PUT /api/naming/variant-rules`** - `{rules[]}`, each `{match, value, kind,
+label, collection}`. `match` is `token` (a whole word, or a run of words, split
+the way grid markers are), `prefix` or `suffix` of the filename stem, ignoring
+case. A rule needs a `kind`, a `label`, or both; `kind` must be one the
+`collection` accepts (any collection's kinds when `collection` is null). At most
+200 rules. Rules are checked in order, before the built-in markers, wherever a
+variant kind is suggested - the duplicate scan and `GET /api/duplicates/compare`.
+A rule counts only when it matches one copy's filename and not the other's.
+Returns the saved list; `400` names the first invalid rule.
+
 ### Downloads
 
 | Endpoint | Method | Auth | Description |

@@ -20,6 +20,7 @@ from sqlalchemy.exc import IntegrityError
 
 from backend import indexer  # package namespace, for patch-sensitive calls
 from . import comics, text_documents
+from ..services.filename_rules.folders import read_filename
 from ._context import _ScanContext, _title_from_filename
 from ._subprocess import _run_with_timeout
 from .categories import agnostic_category, guess_category
@@ -224,6 +225,10 @@ def _register_book(
         system_category_off, is_special_collection, relative_path, system_depth
     )
     title = _title_from_filename(filename)
+    # What the folder's naming pattern reads out of the filename, if it has one
+    # and the name fits it. A sidecar's metadata still wins: it was written
+    # about this file on purpose, while a pattern is a rule about many.
+    named = read_filename(ctx.naming_rules(), relative_path, filename)
 
     signature = file_signature(filepath)
     if signature is None:
@@ -243,7 +248,7 @@ def _register_book(
 
     book = Book(
         game_system_id=system.id,
-        title=opf_meta.get("title", title),
+        title=opf_meta.get("title") or named.get("title") or title,
         filename=filename,
         filepath=filepath,
         relative_path=relative_path,
@@ -262,12 +267,13 @@ def _register_book(
             if arc_ext
             else f"image/{ext[1:]}"
         ),
-        authors=opf_meta.get("authors"),
+        authors=opf_meta.get("authors") or named.get("authors"),
         description=opf_meta.get("description"),
-        publisher=opf_meta.get("publisher"),
-        year=opf_meta.get("year"),
-        isbn=opf_meta.get("isbn", ""),
-        product_code=opf_meta.get("product_code", ""),
+        publisher=opf_meta.get("publisher") or named.get("publisher"),
+        year=opf_meta.get("year") or named.get("year"),
+        isbn=opf_meta.get("isbn") or named.get("isbn", ""),
+        product_code=opf_meta.get("product_code") or named.get("product_code", ""),
+        version=named.get("version", ""),
         added_at=added_at_for_insert(ctx.date_inserts),
     )
 
@@ -285,7 +291,7 @@ def _register_book(
             tag_service.set_resource_tags(session, "book", book.id, opf_tags)
             session.commit()
         stats["new_books"] += 1
-        logger.info(f"Added book: {title} ({category}) in {system_name}")
+        logger.info(f"Added book: {book.title} ({category}) in {system_name}")
     except TimeoutError as e:
         logger.error(f"DB hang: {e} - rolling back '{filename}'")
         session.rollback()

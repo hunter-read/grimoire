@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from ..filenames import is_undecodable, warn_skipped
 from ..library_ignore import IgnoreMatcher
+from ..services.filename_rules.folders import RuleSet, rule_set
 from .categories import slugify
 from .metadata import is_exported_cover_name
 from .thumbnails import archive_ext
@@ -139,6 +140,14 @@ class _ScanContext:
     # a fresh install does not badge its whole library as new (issue #199).
     # See ``added_dates``.
     date_inserts: bool = True
+    # Folder naming patterns (issue #521), loaded on first use: most libraries
+    # have none, and a scan that inserts no books never needs them.
+    _naming: Optional[RuleSet] = field(default=None, init=False, repr=False)
+
+    def naming_rules(self) -> RuleSet:
+        if self._naming is None:
+            self._naming = rule_set(self.session)
+        return self._naming
 
     def stop_requested(self) -> bool:
         return bool(self.should_stop and self.should_stop())

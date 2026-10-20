@@ -61,6 +61,7 @@ from .routers import (
     maps as maps_router,
     mcp as mcp_router,
     models as models_router,
+    naming as naming_router,
     oidc as oidc_router,
     opds as opds_router,
     saved_filters as saved_filters_router,
@@ -450,6 +451,7 @@ api.include_router(duplicates_router.router)
 api.include_router(maintenance_router.router)
 api.include_router(backups_router.router)
 api.include_router(files_router.router)
+api.include_router(naming_router.router)
 api.include_router(logs_router.router)
 app.include_router(api)
 

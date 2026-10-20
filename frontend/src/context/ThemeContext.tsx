@@ -1,11 +1,10 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import api from '../api'
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
+import api, { type Schema } from '../api'
 import {
   DEFAULT_MODE,
   DEFAULT_APP_MODE,
   applyAppMode,
   applyTokens,
-  getAppMode,
   getStoredVariants,
   getThemeMode,
   resolveMode,
@@ -15,7 +14,25 @@ import {
   variantFor,
 } from '../utils/theme'
 
-const ThemeContext = createContext(null)
+type InstalledTheme = Schema<'InstalledTheme'>
+type BuiltInTheme = Schema<'BuiltInTheme'>
+
+export interface ThemeContextValue {
+  mode: string
+  appMode: string
+  themeId: string
+  installed: InstalledTheme[]
+  builtIn: BuiltInTheme[]
+  loaded: boolean
+  setMode: (next: string) => void
+  selectTheme: (id: string) => void
+  switchAppMode: (next: string) => void
+  reload: (nextAppMode?: string) => void
+  defaultMode: string
+  defaultAppMode: string
+}
+
+const ThemeContext = createContext<ThemeContextValue | null>(null)
 
 /**
  * The user's appearance across two axes: colour mode (light/dark/system) and
@@ -29,13 +46,19 @@ const ThemeContext = createContext(null)
  * A built-in theme (Codex, or an app mode's own default) has no tokens: its
  * colours are stylesheet rules keyed off `data-app-mode`. Selecting one clears
  * any custom tokens and switches that attribute instead.
+ *
+ * The provider mounts once per sign-in, and every sign-in starts in the
+ * default app mode. The app mode belongs to the account, and nothing on the
+ * account selects another one yet, so the value in localStorage — written by
+ * whoever last used this browser, possibly on a build with a mode switch — must
+ * not decide it. Otherwise a brand-new account can open in Codex.
  */
-export function ThemeProvider({ children }) {
-  const [appMode, setAppModeState] = useState(getAppMode)
-  const [mode, setModeState] = useState(() => getThemeMode(getAppMode()))
+export function ThemeProvider({ children }: { children?: ReactNode }) {
+  const [appMode, setAppModeState] = useState<string>(DEFAULT_APP_MODE)
+  const [mode, setModeState] = useState<string>(() => getThemeMode(DEFAULT_APP_MODE))
   const [themeId, setThemeId] = useState('')
-  const [installed, setInstalled] = useState([])
-  const [builtIn, setBuiltIn] = useState([])
+  const [installed, setInstalled] = useState<InstalledTheme[]>([])
+  const [builtIn, setBuiltIn] = useState<BuiltInTheme[]>([])
   const [loaded, setLoaded] = useState(false)
 
   /**
@@ -44,31 +67,42 @@ export function ThemeProvider({ children }) {
    * uninstalled elsewhere, so fall back to the app mode's own default rather
    * than leaving stale colours applied.
    */
-  const applySelection = useCallback((list, builtInList, id, activeAppMode, colourMode) => {
-    const custom = list.find((t) => t.id === id)
-    if (custom) {
-      applyAppMode(custom.app_mode || activeAppMode)
-      // A theme may ship both palettes; apply the one matching the mode we
-      // actually resolved to, so System follows the OS within one theme.
-      const variants = custom.variants || { [custom.mode || 'dark']: custom.tokens }
-      persistVariants(variants, activeAppMode)
-      applyTokens(variantFor(variants, resolveMode(colourMode)))
-      return
-    }
+  const applySelection = useCallback(
+    (
+      list: InstalledTheme[],
+      builtInList: BuiltInTheme[],
+      id: string,
+      activeAppMode: string,
+      colourMode: string
+    ) => {
+      const custom = list.find((t) => t.id === id)
+      if (custom) {
+        applyAppMode(custom.app_mode || activeAppMode)
+        // A theme may ship both palettes; apply the one matching the mode we
+        // actually resolved to, so System follows the OS within one theme.
+        const variants = custom.variants || { [custom.mode || 'dark']: custom.tokens }
+        persistVariants(variants, activeAppMode)
+        applyTokens(variantFor(variants, resolveMode(colourMode)))
+        return
+      }
 
-    // An empty id is "this app mode's own palette", so it must not drag the
-    // mode back to whatever the built-in list happens to declare first — only a
-    // named built-in (Codex picked from inside Grimoire) switches modes.
-    const bundled = id ? builtInList.find((t) => t.id === id) : null
-    applyAppMode(bundled?.app_mode || activeAppMode)
-    applyTokens({})
-    persistVariants({}, activeAppMode)
-  }, [])
+      // An empty id is "this app mode's own palette", so it must not drag the
+      // mode back to whatever the built-in list happens to declare first — only a
+      // named built-in (Codex picked from inside Grimoire) switches modes.
+      const bundled = id ? builtInList.find((t) => t.id === id) : null
+      applyAppMode(bundled?.app_mode || activeAppMode)
+      applyTokens({})
+      persistVariants({}, activeAppMode)
+    },
+    []
+  )
 
   const reload = useCallback(
-    async (nextAppMode = appMode) => {
+    async (nextAppMode: string = appMode) => {
       try {
-        const data = await api.get(`/themes?app_mode=${encodeURIComponent(nextAppMode)}`)
+        const data = (await api.get(
+          `/themes?app_mode=${encodeURIComponent(nextAppMode)}`
+        )) as Partial<Schema<'ThemeListResponse'>>
         const list = data.installed || []
         const bundled = data.built_in || []
         const colourMode = data.mode || getThemeMode(nextAppMode)
@@ -97,15 +131,15 @@ export function ThemeProvider({ children }) {
   }, [])
 
   // Re-apply on mount so a stored theme survives a hard reload even before the
-  // server responds.
+  // server responds. Persisting the app mode also corrects a stale one, so the
+  // next page load paints the right palette before anyone signs in.
   useEffect(() => {
-    const active = getAppMode()
-    applyAppMode(active)
+    const active = persistAppMode(DEFAULT_APP_MODE)
     applyTokens(variantFor(getStoredVariants(active), resolveMode(getThemeMode(active))))
   }, [])
 
   const setMode = useCallback(
-    async (next) => {
+    async (next: string) => {
       setModeState(persistMode(next, appMode))
       // The active theme may have a palette for each mode, so switching light
       // to dark has to re-pick the variant, not just the built-in palette.
@@ -121,7 +155,7 @@ export function ThemeProvider({ children }) {
   )
 
   const selectTheme = useCallback(
-    async (id) => {
+    async (id: string) => {
       setThemeId(id)
       applySelection(installed, builtIn, id, appMode, mode)
       try {
@@ -138,7 +172,7 @@ export function ThemeProvider({ children }) {
    * carrying the current one across — the point of per-mode themes.
    */
   const switchAppMode = useCallback(
-    async (next) => {
+    async (next: string) => {
       const applied = persistAppMode(next)
       setAppModeState(applied)
       setModeState(getThemeMode(applied))
@@ -147,7 +181,7 @@ export function ThemeProvider({ children }) {
     [reload]
   )
 
-  const value = {
+  const value: ThemeContextValue = {
     mode,
     appMode,
     themeId,
@@ -165,7 +199,7 @@ export function ThemeProvider({ children }) {
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
 }
 
-export function useTheme() {
+export function useTheme(): ThemeContextValue {
   return (
     useContext(ThemeContext) || {
       mode: DEFAULT_MODE,

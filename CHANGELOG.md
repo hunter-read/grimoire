@@ -23,6 +23,8 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Click a character's art to see it large. On your own character you can choose its framing there - click or drag to pick the part that stays in view, and zoom in - and the header, the Characters list and the sheet all keep that part showing, so tall art no longer loses its head
 - Character exports carry the character's art, its framing and any other pictures on the sheet, and importing restores them
 - Players can let their campaign's GM edit their character. Tick **Let the GM edit** in the sheet's header and the GM can change the sheet's values, the character's name and its pictures, whatever sheet it is built on. It is off by default, other players at the table still only read the sheet, and moving the character to another campaign turns it off again
+- Folder naming patterns, under Settings → Metadata: describe how the books in a folder are named - `{system} - [{publisher}] - {*} - {title}< (v{version}, {year})>`, say - and new books there take their title, publisher, version and year from the filename instead of showing the whole name. A preview lets you re-title the books already there, and a pattern without `{*}` can also rename files to match, or move a folder onto a new naming scheme. Renamed books keep their tags, progress and sidecars, and nothing is renamed unless you choose to. See the filename rules docs
+- Variant filename rules, under Settings → Metadata: teach duplicate detection your own markers - `GL_` for gridless, `-pf` for printer friendly, `night` for a label - and it pre-fills them ahead of the built-in ones
 
 ### Changed
 
@@ -76,6 +78,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Fixed
 
+- Renaming a file to change only its capitalisation (`crystallica.pdf` to `Crystallica.pdf`) was refused as "already exists" on macOS and Windows
 - Search results in the reader's search sidebar showed apostrophes, quotes and ampersands as `&#x27;`, `&quot;` and `&amp;`
 - OPDS book covers didn't load in e-readers; they are now served under the feed's own token
 - Deleting a user, or merging a guest into an account, could fail when they had saved audio sets, installed themes or character importers, hidden wiki pages, or had made a wiki template

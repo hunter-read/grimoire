@@ -139,6 +139,27 @@ const RECORDS = {
  * rather than the URL so that names containing `#`, `?`, or `%` survive the
  * round trip intact.
  */
+/**
+ * Filename rules (issues #521, #522, #569): a books folder's naming pattern,
+ * which reads titles out of filenames and can rename files onto itself, and the
+ * library's own variant markers for duplicate review.
+ */
+export const naming = {
+  folders: () => client.get('/naming/folders'),
+  saveFolder: (path: string, pattern: string) =>
+    client.put('/naming/folders', { body: { path, pattern } }),
+  deleteFolder: (path: string) => client.delete('/naming/folders', { query: { path } }),
+  // `pattern` previews an unsaved pattern; omit it for the folder's saved one.
+  preview: (path: string, pattern?: string) =>
+    client.post('/naming/preview', { body: { path, pattern: pattern ?? null } }),
+  applyTitles: (path: string, ids: string[]) =>
+    client.post('/naming/apply-titles', { body: { path, ids } }),
+  rename: (path: string, ids: string[]) => client.post('/naming/rename', { body: { path, ids } }),
+  variantRules: () => client.get('/naming/variant-rules'),
+  saveVariantRules: (rules: BodyOf<'/naming/variant-rules', 'put'>['rules']) =>
+    client.put('/naming/variant-rules', { body: { rules } }),
+}
+
 export const files = {
   browse: (path = '') => client.get('/files/browse', { query: { path: path || undefined } }),
   // `onConflict` is 'skip' (report the collision, leave the file) or 'rename'

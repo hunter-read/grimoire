@@ -205,6 +205,25 @@ describe('app modes', () => {
     expect(screen.getByTestId('app-mode')).toHaveTextContent('grimoire')
   })
 
+  // The app mode is the account's, not the browser's: a value left behind by an
+  // earlier session (or a build with the mode switch) once opened a brand-new
+  // account in Codex.
+  it('starts every sign-in in grimoire, whatever the browser last stored', async () => {
+    localStorage.setItem('grimoire:app-mode', 'codex')
+    document.documentElement.setAttribute('data-app-mode', 'codex')
+    api.get.mockResolvedValue({ installed: [], built_in: BUILT_IN, mode: 'dark', theme_id: '' })
+    render(
+      <ThemeProvider>
+        <AppModeProbe />
+      </ThemeProvider>
+    )
+
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/themes?app_mode=grimoire'))
+    expect(screen.getByTestId('app-mode')).toHaveTextContent('grimoire')
+    expect(document.documentElement.getAttribute('data-app-mode')).toBe('grimoire')
+    expect(localStorage.getItem('grimoire:app-mode')).toBe('grimoire')
+  })
+
   it('asks the server for the requested app mode', async () => {
     api.get.mockResolvedValue({ installed: [], built_in: BUILT_IN, mode: 'dark', theme_id: '' })
     render(

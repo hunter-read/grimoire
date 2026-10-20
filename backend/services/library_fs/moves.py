@@ -23,6 +23,7 @@ from ...config import THUMB_DIR, logger
 from ...services import library_fs  # package namespace, for patch-sensitive calls
 from ...indexer.categories import slugify
 from ...models.library import Book
+from ..filename_rules.folders import relink_rules
 from .constants import COLLECTIONS, FOLDER_MODELS, _THUMB_SECTIONS, LibraryFSError
 from .paths import (
     assert_writable,
@@ -580,6 +581,10 @@ def _relink_folders(db: Session, src: Path, dest: Path) -> int:
     recorded); its tags absorb the source's rather than colliding on the unique
     path, and the now-redundant source row is dropped.
     """
+    # Naming patterns are keyed by disk path too, books included, so they travel
+    # with the folder whatever its collection.
+    relink_rules(db, to_relative(src), to_relative(dest))
+
     section, src_rel = _folder_rel(src)
     _, dest_rel = _folder_rel(dest)
     folder_model = FOLDER_MODELS.get(section)
@@ -647,7 +652,11 @@ def rename_path(db: Session, target: str, new_name: str) -> dict:
     dest = src.parent / clean
     if dest == src:
         return {"from": to_relative(src), "to": to_relative(src), "records": 0}
-    if dest.exists():
+    # A case-only rename (``crystallica.pdf`` → ``Crystallica.pdf``) on a
+    # case-insensitive filesystem finds the source itself at the destination.
+    # That is not a clash, and it is exactly what renaming onto a naming
+    # pattern produces.
+    if dest.exists() and not os.path.samefile(src, dest):
         raise LibraryFSError(f"'{clean}' already exists", code="conflict")
 
     # Both captured before the rename: afterwards ``src`` is gone, and treating a

@@ -227,7 +227,7 @@ The pairs shown are the comparisons that actually matched, not every combination
   | Audio | Remix, slowed, sped up |
   | 3D Models | Presupported, unsupported, split, merged |
 
-  **Universal VTT** is a `.dd2vtt`/`.uvtt` export carrying walls and lights, and **video**/**image** are the animated and still cuts of the same map - a pair in the same way gridded and gridless are. **Presupported**/**unsupported** is the same idea for a resin miniature, and **split**/**merged** covers a mini cut into printable parts versus the same mini as one piece. The scan pre-fills its best guess from the filenames and extensions, and it only ever guesses something the collection actually offers.
+  **Universal VTT** is a `.dd2vtt`/`.uvtt` export carrying walls and lights, and **video**/**image** are the animated and still cuts of the same map - a pair in the same way gridded and gridless are. **Presupported**/**unsupported** is the same idea for a resin miniature, and **split**/**merged** covers a mini cut into printable parts versus the same mini as one piece. The scan pre-fills its best guess from the filenames and extensions, and it only ever guesses something the collection actually offers. If your files use their own markers - `GL_` for gridless, `-pf` for printer friendly - add them as [variant filename rules](filename-rules.md#variant-filename-rules) and the guess uses them first.
 
 - **Delete a copy** - asks for confirmation in a dialog, and removes the file from disk by default. That default is the opposite of elsewhere in Grimoire, deliberately: you have just decided this copy is redundant, and leaving the bytes in the library folder means the next scan proposes the same pair all over again. Untick the box to drop only the library record.
 - **Not duplicates** - dismisses that pair. It disappears from the list straight away rather than lingering until the next scan, and it stays gone: the rejection is remembered per pair and survives every future rescan, including when a third copy of the same book turns up later and would otherwise drag the rejected pair back into a cluster with it. Dismissals are not final, though - **Show dismissed** at the foot of the duplicates page lists everything you have rejected, with a **Restore** button on each. Restoring one lets it be proposed again by the next scan (the list on screen was built while the dismissal still applied, so it does not reappear until you rescan).
@@ -339,4 +339,5 @@ Point Calibre-Web at `/library/books` as its library path on first setup.
 
 - [Library structure](library-structure.md) - the folder conventions the scanner reads
 - [Metadata sidecars](sidecars.md) - reading `.opf` in, and writing metadata back out
+- [Filename rules](filename-rules.md) - titles from structured filenames, and renaming files to a scheme
 - [Configuration](configuration.md#read-only-or-writable) - read-only vs writable mounts

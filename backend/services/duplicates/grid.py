@@ -24,7 +24,8 @@ _NEGATIVE = ("nogrid", "no-grid", "gridless", "ungridded", "gridfree")
 _POSITIVE = ("grid", "gridded", "gridded", "withgrid")
 
 
-def _tokens(stem: str) -> list[str]:
+def name_tokens(stem: str) -> list[str]:
+    """A name split into lowercase tokens on every separator a map pack uses."""
     return [t for t in _SPLIT.split(stem.lower()) if t]
 
 
@@ -35,7 +36,7 @@ def grid_marker(filename: str) -> Optional[bool]:
     separators vary between packs.
     """
     stem = filename.rsplit(".", 1)[0]
-    tokens = _tokens(stem)
+    tokens = name_tokens(stem)
     joined = "".join(tokens)
 
     for marker in _NEGATIVE:
@@ -59,7 +60,7 @@ def strip_grid_tokens(filename: str) -> str:
     which is what makes them recognisable as the same map.
     """
     stem = filename.rsplit(".", 1)[0]
-    tokens = _tokens(stem)
+    tokens = name_tokens(stem)
     out: list[str] = []
     skip_next = False
     for i, token in enumerate(tokens):

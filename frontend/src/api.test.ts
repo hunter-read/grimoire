@@ -8,6 +8,7 @@ import api, {
   imageSources,
   tokenFrames,
   files,
+  naming,
   sidecars,
   backups,
   auth,
@@ -1021,6 +1022,31 @@ describe('files, sidecars, and backups helpers', () => {
     expect(url()).toBe('/api/files/folder/scaffold')
     await files.record('book', '123')
     expect(url()).toBe('/api/books/123')
+  })
+
+  it('covers naming helper methods', async () => {
+    const sent = () => {
+      const [path, init] = fetchCalls()[fetchCalls().length - 1]
+      return [init.method ?? 'GET', path, init.body ? JSON.parse(init.body) : undefined]
+    }
+    await naming.folders()
+    expect(sent()).toEqual(['GET', '/api/naming/folders', undefined])
+    await naming.saveFolder('books/A', '{title}')
+    expect(sent()).toEqual(['PUT', '/api/naming/folders', { path: 'books/A', pattern: '{title}' }])
+    await naming.deleteFolder('books/A')
+    expect(sent()).toEqual(['DELETE', '/api/naming/folders?path=books%2FA', undefined])
+    await naming.preview('books/A')
+    expect(sent()).toEqual(['POST', '/api/naming/preview', { path: 'books/A', pattern: null }])
+    await naming.preview('books/A', '{title}')
+    expect(sent()[2]).toEqual({ path: 'books/A', pattern: '{title}' })
+    await naming.applyTitles('books/A', ['1'])
+    expect(sent()).toEqual(['POST', '/api/naming/apply-titles', { path: 'books/A', ids: ['1'] }])
+    await naming.rename('books/A', ['1'])
+    expect(sent()).toEqual(['POST', '/api/naming/rename', { path: 'books/A', ids: ['1'] }])
+    await naming.variantRules()
+    expect(sent()).toEqual(['GET', '/api/naming/variant-rules', undefined])
+    await naming.saveVariantRules([])
+    expect(sent()).toEqual(['PUT', '/api/naming/variant-rules', { rules: [] }])
   })
 
   it('covers sidecars and backups helpers', async () => {

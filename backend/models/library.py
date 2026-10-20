@@ -275,6 +275,30 @@ class BookFolder(Base):
     tags: Mapped[Optional[list[Any]]] = mapped_column(JSON, default=list)
 
 
+class FolderNamingRule(Base):
+    """A filename pattern for the books under one library folder (issues #521/#522).
+
+    ``path`` is the folder's library-relative path on disk (``books/D&D 5e``),
+    not a ``BookFolder``-style logical path: the pattern describes how files in
+    that folder are *named*, which is a fact about the disk. It applies to every
+    book beneath the folder, and the nearest folder with a rule wins. A rename or
+    move through the file manager carries the row along - see
+    ``library_fs._relink_folders``.
+
+    Stored in the database rather than as a file in the folder so it works on a
+    read-only library, which is exactly the library whose filenames cannot be
+    tidied any other way.
+    """
+
+    __tablename__ = "folder_naming_rules"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    path: Mapped[str] = mapped_column(String(1000), nullable=False, unique=True)
+    pattern: Mapped[str] = mapped_column(String(500), nullable=False)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
+    updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)
+
+
 class Genre(Base):
     """A curated genre value, optionally nested under a parent (tiered).
 

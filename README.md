@@ -328,6 +328,7 @@ kept in the repo so it versions with the release you are running:
 | [Searching your library](docs/search.md)      | Field searches (`title:`, `tag:`, `year:`) and how ranking works                |
 | [File management](docs/file-management.md)    | The in-app file manager, duplicates and versions, and adding files from outside |
 | [Metadata sidecars](docs/sidecars.md)         | Reading `.opf` in, and writing metadata back out to your library                |
+| [Filename rules](docs/filename-rules.md)      | Reading titles from structured filenames, renaming files to a scheme            |
 | [Campaigns](docs/campaigns.md)                | Characters, resources, the notes wiki, scheduling, and calendar export          |
 | [Wiki note templates](docs/wiki-templates.md) | Starting a campaign page from a template                                        |
 | [Token editor](docs/token-editor.md)          | Turning any picture into a VTT-ready token                                      |

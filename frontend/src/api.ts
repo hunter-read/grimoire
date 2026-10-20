@@ -31,7 +31,7 @@ export type {
 } from './api/client'
 export { campaigns } from './api/campaigns'
 export { apiKeys, auth, opds, settings, shareLinks } from './api/account'
-export { bulk, files, imageSources, tags, tokenFrames } from './api/library'
+export { bulk, files, imageSources, naming, tags, tokenFrames } from './api/library'
 export type { BulkType, FolderTagType } from './api/library'
 export { addons, backups, duplicates, sidecars } from './api/maintenance'
 export type { DuplicateType } from './api/maintenance'

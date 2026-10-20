@@ -11,6 +11,8 @@ vi.mock('./SystemFamilyManagerSection', () => ({ default: () => <div>family-mana
 vi.mock('./ParentSystemManagerSection', () => ({ default: () => <div>parent-manager</div> }))
 vi.mock('./LicenseManagerSection', () => ({ default: () => <div>license-manager</div> }))
 vi.mock('./DiceMaterialManagerSection', () => ({ default: () => <div>dice-manager</div> }))
+vi.mock('./FolderNamingSection', () => ({ default: () => <div>folder-naming</div> }))
+vi.mock('./VariantRulesSection', () => ({ default: () => <div>variant-rules</div> }))
 
 describe('MetadataTab', () => {
   it('renders every metadata manager (all sections open by default)', () => {
@@ -20,6 +22,8 @@ describe('MetadataTab', () => {
     expect(screen.getByText('parent-manager')).toBeInTheDocument()
     expect(screen.getByText('license-manager')).toBeInTheDocument()
     expect(screen.getByText('dice-manager')).toBeInTheDocument()
+    expect(screen.getByText('folder-naming')).toBeInTheDocument()
+    expect(screen.getByText('variant-rules')).toBeInTheDocument()
   })
 
   it('does not host the add-ons manager (it has its own tab)', () => {

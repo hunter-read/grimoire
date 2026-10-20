@@ -5,8 +5,13 @@ import SystemFamilyManagerSection from './SystemFamilyManagerSection'
 import ParentSystemManagerSection from './ParentSystemManagerSection'
 import LicenseManagerSection from './LicenseManagerSection'
 import DiceMaterialManagerSection from './DiceMaterialManagerSection'
+import FolderNamingSection from './FolderNamingSection'
+import VariantRulesSection from './VariantRulesSection'
 
-/** Admin settings tab: manage the metadata lookup lists, each collapsible. */
+/**
+ * Admin settings tab: the metadata lookup lists, and the filename rules that
+ * read metadata out of filenames (and write filenames back), each collapsible.
+ */
 export default function MetadataTab() {
   const { t } = useTranslation()
   return (
@@ -49,6 +54,22 @@ export default function MetadataTab() {
         storageKey="grimoire:settings:metadata:dice-materials"
       >
         <DiceMaterialManagerSection />
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title={t('filenameRules.folderTitle')}
+        description={t('filenameRules.folderDesc')}
+        storageKey="grimoire:settings:metadata:folder-naming"
+      >
+        <FolderNamingSection />
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title={t('filenameRules.variantTitle')}
+        description={t('filenameRules.variantDesc')}
+        storageKey="grimoire:settings:metadata:variant-rules"
+      >
+        <VariantRulesSection />
       </CollapsibleSection>
     </div>
   )

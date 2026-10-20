@@ -6,10 +6,11 @@ the form the user is about to confirm - issue #304 is explicit that resolution i
 never automatic.
 """
 import re
-from typing import Any, Optional
+from typing import Any, Iterable, Optional
 
 from ...indexer.constants import IMAGE_EXTS, MAP_VIDEO_EXTS, VTT_DATA_EXTS
 from ...models.variants import kinds_for
+from ..filename_rules import variant_rules
 
 # Filename tokens that name a variant kind. Ordered most-specific first, since
 # "printer friendly single page" should read as printer-friendly rather than
@@ -87,7 +88,9 @@ def version_token(name: str) -> Optional[str]:
     return match.group(1) or match.group(2)
 
 
-def suggest_kind(record: Any, other: Any, resource_type: str = "") -> tuple[str, str]:
+def suggest_kind(
+    record: Any, other: Any, resource_type: str = "", rules: Iterable[dict] = ()
+) -> tuple[str, str]:
     """Guess ``(kind, label)`` for ``record`` when paired against ``other``.
 
     Compared against the other member rather than read in isolation, because the
@@ -97,7 +100,25 @@ def suggest_kind(record: Any, other: Any, resource_type: str = "") -> tuple[str,
     ``resource_type`` keeps the guess inside what that collection accepts — an
     audio file named "print.mp3" must not be pre-filled as printer-friendly,
     because the form it pre-fills would then refuse to submit.
+
+    ``rules`` are the library's own filename rules (issue #569), loaded once by
+    the caller with ``variant_rules.load_rules``. They go first, so a library's
+    convention beats the built-in guess. A rule's kind replaces the built-in one
+    (and the label that came with it, which described that other kind); a rule's
+    label replaces the built-in label. A rule supplying only a label therefore
+    still gets a kind from the built-in markers.
     """
+    rule_kind, rule_label = variant_rules.suggest(
+        rules, record.filename, other.filename, resource_type
+    )
+    kind, label = _builtin_kind(record, other, resource_type)
+    if rule_kind and rule_kind != kind:
+        kind, label = rule_kind, ""
+    return kind, rule_label or label
+
+
+def _builtin_kind(record: Any, other: Any, resource_type: str) -> tuple[str, str]:
+    """The guess from the built-in markers alone."""
     allowed = kinds_for(resource_type)
     name = f"{record.filename} {getattr(record, 'title', '') or ''}".lower()
     other_name = f"{other.filename} {getattr(other, 'title', '') or ''}".lower()

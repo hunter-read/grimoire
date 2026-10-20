@@ -18,6 +18,7 @@ from ...config import logger
 from ...indexer.constants import CONTAINER_MARKERS, NSFW_MARKER
 from ...models.campaigns import Campaign
 from ...models.library import Book, GameSystem
+from ..filename_rules.folders import purge_rules
 from . import folders
 from .constants import FOLDER_MODELS, _THUMB_SECTIONS, LibraryFSError
 from .moves import _folder_rel, _records_under, _section_for_model, _thumb_files_for
@@ -221,6 +222,8 @@ def _purge_folders(db: Session, target: Path) -> int:
     (issue #445). Book folders are keyed by ``{system_id}/{category}/…`` rather
     than a disk path and are collected by the orphan sweep instead.
     """
+    purge_rules(db, to_relative(target))
+
     section, rel = _folder_rel(target)
     folder_model = FOLDER_MODELS.get(section)
     if folder_model is None or not rel:

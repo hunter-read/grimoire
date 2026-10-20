@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session
 from ...config import SessionLocal, valkey_client, valkey_errors
 from ...models.collections import models_by_singular
 from ...models.duplicates import DuplicateGroup
+from ..filename_rules import variant_rules
 from . import dismissals, scoring, signals
 from .grid import is_grid_pair
 from .grouping import Edge, build_groups
@@ -289,6 +290,9 @@ def detect_edges(
 def _persist(db: Session, scan_id: str, resource_type: str, groups: list, by_id: dict) -> int:
     """Write this run's groups. Prior runs are cleared by the caller, at the end."""
     written = 0
+    # Loaded once per collection rather than per pair: every group in the run
+    # reads the same list.
+    rules = variant_rules.load_rules(db)
     for group in groups:
         members = [by_id[i] for i in group.member_ids if i in by_id]
         if len(members) < 2:
@@ -296,7 +300,7 @@ def _persist(db: Session, scan_id: str, resource_type: str, groups: list, by_id:
         kinds = {}
         for record in members:
             other = next(m for m in members if m.id != record.id)
-            kind, label = scoring.suggest_kind(record, other, resource_type)
+            kind, label = scoring.suggest_kind(record, other, resource_type, rules)
             kinds[record.id] = {"kind": kind, "label": label}
         db.add(
             DuplicateGroup(
