@@ -1,12 +1,15 @@
 """Shared helpers for the character endpoints: access, export, import."""
+import os
 from typing import Any, Iterable, Optional
 
 from fastapi import HTTPException
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from ...config import CHARACTER_PORTRAIT_DIR
 from ...models import Campaign, CampaignMember, Character, ContentEntry, Ruleset, RulesetEntry
 from ...services import characters as svc
+from ...services.characters import images as char_images
 from ...services.characters import rulesets as rs
 
 #: The file format a character exports as.
@@ -93,7 +96,9 @@ def export_character(
     a floor rather than a ceiling.
 
     The schema travels too, for the same reason: a sheet is unreadable without
-    the document that describes it.
+    the document that describes it. So do the pictures - the portrait and every
+    image field's - as data URLs, since a link back to this server would not
+    open anywhere else.
     """
     data = character.data if isinstance(character.data, dict) else {}
     entry_ids = referenced_ids(document, data)
@@ -138,6 +143,15 @@ def export_character(
         "schema": schema_document or {},
         "data": data,
         "entries": embedded,
+        "portrait": (
+            char_images.encode_data_url(
+                os.path.join(CHARACTER_PORTRAIT_DIR, character.portrait_path)
+            )
+            if character.portrait_path
+            else None
+        ),
+        "portrait_crop": character.portrait_crop if character.portrait_path else None,
+        "images": char_images.export_images(character),
     }
 
 

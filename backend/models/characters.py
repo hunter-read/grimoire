@@ -118,9 +118,14 @@ class Character(Base):
     # room. Nothing limits a player to one character per campaign.
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active", server_default="active")
 
-    # Filename under DATA_PATH/uploads/characters/, not a path: the directory is
-    # ours to choose and storing one would make moving it a migration.
+    # Filename under DATA_PATH/character_portraits/, not a path: the directory
+    # is ours to choose and storing one would make moving it a migration.
     portrait_path: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    # Which part of the portrait a frame shows: ``{"x", "y", "zoom"}``, the
+    # focus point as percentages of the image and a magnification from 1. A
+    # frame of any shape keeps that point in view, so tall art can be framed on
+    # the face rather than cut off at the neck. Null means centred, unzoomed.
+    portrait_crop: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, nullable=True)
 
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
     updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)

@@ -77,6 +77,7 @@ DIRECTIVE_TAGS: frozenset = frozenset(
         "g-option",     # one checkbox bound to one option of a multiselect
         "g-tier",       # one value's rung on a ladder of multiselects
         "g-pips",       # a count drawn as boxes, ticked off as it is used
+        "g-portrait",   # the character's portrait, framed as the player chose
     }
 )
 
@@ -117,6 +118,9 @@ _TAG_ATTRS: dict[str, frozenset] = {
     # `count` is a number or a field/computed name; `value` the number field
     # holding how many are used.
     "g-pips": frozenset({"count", "value", "label"}),
+    # The portrait is the character's, not a field's, so it takes no name. Its
+    # size is the sheet's to set, through the `gc-portrait` class.
+    "g-portrait": frozenset({"visible_if"}),
 }
 
 #: Tags dropped with their contents rather than unwrapped. Keeping a <script>'s

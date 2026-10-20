@@ -2,6 +2,14 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import LayoutRenderer from './LayoutRenderer'
+import { CharacterMediaContext } from './characterMedia'
+
+vi.mock('../../api', () => ({
+  characters: {
+    portraitUrl: (id, v) => `/api/characters/${id}/portrait?v=${v}`,
+    imageUrl: (id, field, v) => `/api/characters/${id}/images/${field}?v=${v}`,
+  },
+}))
 
 // The AST these tests feed in is what the server produces from `layout_html`
 // (backend/services/characters/layout_html.py). The tests at the bottom matter
@@ -600,5 +608,52 @@ describe('LayoutRenderer — boxes to tick off', () => {
   it('shows a dash when there are none', () => {
     renderLayout(pips('0'), { document: doc, data: {}, onChange: vi.fn() })
     expect(screen.getByText('—')).toBeInTheDocument()
+  })
+
+  describe('pictures', () => {
+    const media = {
+      character: { id: 'c1', name: 'Vex', portrait_path: 'c1.png', portrait_version: 2 },
+      readOnly: false,
+      onPortraitChanged: vi.fn(),
+      onImageChanged: vi.fn(),
+      onError: vi.fn(),
+      openPortrait: vi.fn(),
+    }
+    const withMedia = (ast, data = {}) =>
+      render(
+        <CharacterMediaContext.Provider value={media}>
+          <LayoutRenderer
+            ast={ast}
+            document={{ fields: { arms: { type: 'image', label: 'Arms' } } }}
+            data={data}
+          />
+        </CharacterMediaContext.Provider>
+      )
+
+    it('places the portrait where <g-portrait> says', () => {
+      const { container } = withMedia([
+        { tag: 'aside', children: [{ tag: 'g-portrait', attrs: { class: 'tall' } }] },
+      ])
+      expect(container.querySelector('aside figure.gc-portrait.tall')).toBeInTheDocument()
+      expect(screen.getByAltText('Portrait of Vex')).toHaveAttribute(
+        'src',
+        '/api/characters/c1/portrait?v=2'
+      )
+    })
+
+    it('hides the portrait behind a false visible_if', () => {
+      const { container } = withMedia([{ tag: 'g-portrait', attrs: { visible_if: 'false' } }])
+      expect(container.querySelector('.gc-portrait')).not.toBeInTheDocument()
+    })
+
+    it('draws an image field through <g-field>', () => {
+      withMedia([{ tag: 'g-field', attrs: { name: 'arms' } }], {
+        arms: 'arms-0123456789abcdef.png',
+      })
+      expect(screen.getByRole('img', { name: 'Arms' })).toHaveAttribute(
+        'src',
+        '/api/characters/c1/images/arms?v=arms-0123456789abcdef.png'
+      )
+    })
   })
 })

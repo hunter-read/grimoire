@@ -12,6 +12,8 @@ from ...config import (
     AUDIO_COVER_DIR,
     BRANDING_DIR,
     CAMPAIGN_UPLOAD_DIR,
+    CHARACTER_IMAGE_DIR,
+    CHARACTER_PORTRAIT_DIR,
     DB_PATH,
     SYSTEM_COVER_DIR,
     VERSION,
@@ -29,6 +31,8 @@ DB_ARCHIVE_NAME = "grimoire.db"
 # page cache alone can run to many GB.
 ASSET_DIRS: tuple[tuple[str, str], ...] = (
     (CAMPAIGN_UPLOAD_DIR, "campaign_uploads"),
+    (CHARACTER_PORTRAIT_DIR, "character_portraits"),
+    (CHARACTER_IMAGE_DIR, "character_images"),
     (SYSTEM_COVER_DIR, "system_covers"),
     (AUDIO_COVER_DIR, "audio_covers"),
     (BRANDING_DIR, "branding"),

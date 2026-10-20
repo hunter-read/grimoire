@@ -10,6 +10,7 @@ from ._schemas import (
     ImportedCharacter,
     ImporterListResponse,
     UserImporterInstalled,
+    ImageFieldResponse,
     PortraitResponse,
     SchemaDeletedResponse,
     SchemaDetail,
@@ -21,6 +22,7 @@ from .importers import (
     list_importers,
     uninstall_user_importer,
 )
+from .images import delete_image, get_image, upload_image
 from .portraits import delete_portrait, get_portrait, upload_portrait
 from .core import (
     browse_sheets,
@@ -174,6 +176,26 @@ router.add_api_route(
     delete_portrait,
     methods=["DELETE"],
     summary="Remove a character's portrait",
+    response_model=CharacterDeletedResponse,
+)
+router.add_api_route(
+    "/{character_id}/images/{field}",
+    upload_image,
+    methods=["POST"],
+    summary="Set the picture an image field holds",
+    response_model=ImageFieldResponse,
+)
+router.add_api_route(
+    "/{character_id}/images/{field}",
+    get_image,
+    methods=["GET"],
+    summary="An image field's picture",
+)
+router.add_api_route(
+    "/{character_id}/images/{field}",
+    delete_image,
+    methods=["DELETE"],
+    summary="Remove an image field's picture",
     response_model=CharacterDeletedResponse,
 )
 router.add_api_route(

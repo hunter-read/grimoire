@@ -22,25 +22,28 @@ from ...services.characters.importing import MAX_PORTRAIT_BYTES, PORTRAIT_TYPES
 from ._helpers import readable_character_or_404
 
 
-def _owned_or_404(db: Session, character_id: str, user_id: str) -> Character:
+def owned_or_404(db: Session, character_id: str, user_id: str) -> Character:
     row = db.query(Character).filter_by(id=character_id, user_id=user_id).first()
     if not row:
         raise HTTPException(status_code=404, detail="Character not found")
     return row
 
 
-def _read_image(upload: UploadFile) -> tuple[bytes, str]:
-    """The upload's bytes and the portrait extension for its content type."""
+def read_image(upload: UploadFile, what: str = "A portrait") -> tuple[bytes, str]:
+    """The upload's bytes and the extension for its content type.
+
+    Shared with a sheet's image fields, which follow the portrait's rules.
+    """
     if upload.content_type is None or upload.content_type not in PORTRAIT_TYPES:
         allowed = ", ".join(sorted(PORTRAIT_TYPES))
         raise HTTPException(
-            status_code=400, detail=f"A portrait must be one of: {allowed}"
+            status_code=400, detail=f"{what} must be one of: {allowed}"
         )
     data = upload.file.read(MAX_PORTRAIT_BYTES + 1)
     if len(data) > MAX_PORTRAIT_BYTES:
         raise HTTPException(
             status_code=413,
-            detail=f"A portrait may be at most {MAX_PORTRAIT_BYTES // (1024 * 1024)} MB",
+            detail=f"{what} may be at most {MAX_PORTRAIT_BYTES // (1024 * 1024)} MB",
         )
     if not data:
         raise HTTPException(status_code=400, detail="That file is empty")
@@ -56,7 +59,7 @@ def _read_image(upload: UploadFile) -> tuple[bytes, str]:
     return data, PORTRAIT_TYPES[upload.content_type]
 
 
-def _remove_existing(character_id: str) -> None:
+def remove_portrait_files(character_id: str) -> None:
     for extension in set(PORTRAIT_TYPES.values()):
         candidate = os.path.join(CHARACTER_PORTRAIT_DIR, f"{character_id}{extension}")
         if os.path.isfile(candidate):
@@ -70,8 +73,8 @@ def upload_portrait(
     db: Session = Depends(get_db),
 ):
     """Set a character's portrait. Only the character's owner may."""
-    character = _owned_or_404(db, character_id, current_user.id)
-    data, ext = _read_image(file)
+    character = owned_or_404(db, character_id, current_user.id)
+    data, ext = read_image(file)
     filename = store_portrait(character, data, ext)
     db.commit()
     # The version the character's own payload reports, so the client can show
@@ -85,8 +88,11 @@ def store_portrait(character: Character, data: bytes, extension: str) -> str:
 
     The caller commits. Replacing drops the old file first: a character has
     one portrait, and leaving the previous extension behind would orphan it.
+    The framing goes too: a focus point chosen for one picture means nothing
+    on the next.
     """
-    _remove_existing(character.id)
+    remove_portrait_files(character.id)
+    character.portrait_crop = None
     filename = f"{character.id}{extension}"
     with open(os.path.join(CHARACTER_PORTRAIT_DIR, filename), "wb") as handle:
         handle.write(data)
@@ -116,8 +122,9 @@ def delete_portrait(
     db: Session = Depends(get_db),
 ):
     """Remove a character's portrait."""
-    character = _owned_or_404(db, character_id, current_user.id)
-    _remove_existing(character_id)
+    character = owned_or_404(db, character_id, current_user.id)
+    remove_portrait_files(character_id)
     character.portrait_path = None
+    character.portrait_crop = None
     db.commit()
     return {"deleted": True, "id": character_id}

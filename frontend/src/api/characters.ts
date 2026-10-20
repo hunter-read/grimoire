@@ -82,6 +82,26 @@ export const characters = {
     ),
   deletePortrait: (id: Id) =>
     client.delete('/characters/{character_id}/portrait', { path: { character_id: id } }),
+  // A sheet's `image` fields. The stored value is the file's name, which
+  // changes with every upload, so it is also the URL's cache-buster.
+  imageUrl: (id: Id, field: string, value?: string | null) =>
+    mediaUrl(
+      getUrl('/characters/{character_id}/images/{field}', {
+        path: { character_id: id, field },
+      }),
+      cacheBust(value)
+    ),
+  uploadImage: (id: Id, field: string, file: Blob) =>
+    api.upload(
+      postUrl('/characters/{character_id}/images/{field}', {
+        path: { character_id: id, field },
+      }),
+      file
+    ) as Promise<ResponseOf<'/characters/{character_id}/images/{field}', 'post'>>,
+  deleteImage: (id: Id, field: string) =>
+    client.delete('/characters/{character_id}/images/{field}', {
+      path: { character_id: id, field },
+    }),
 }
 
 /**

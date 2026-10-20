@@ -11,6 +11,8 @@ const mockNavigate = vi.fn()
 
 const mockExport = vi.fn()
 const mockUploadPortrait = vi.fn()
+const mockUploadImage = vi.fn()
+const mockDeleteImage = vi.fn()
 
 const mockCampaigns = vi.fn()
 
@@ -23,6 +25,9 @@ vi.mock('../api', () => ({
     export: (...a) => mockExport(...a),
     uploadPortrait: (...a) => mockUploadPortrait(...a),
     portraitUrl: (id, v) => `/api/characters/${id}/portrait${v ? `?v=${v}` : ''}`,
+    uploadImage: (...a) => mockUploadImage(...a),
+    deleteImage: (...a) => mockDeleteImage(...a),
+    imageUrl: (id, field, v) => `/api/characters/${id}/images/${field}?v=${v}`,
   },
 }))
 
@@ -178,6 +183,52 @@ describe('CharacterDetailView', () => {
         new File(['x'], 'p.png', { type: 'image/png' })
       )
       expect(await screen.findByRole('alert')).toHaveTextContent('too big')
+    })
+
+    it('opens the art large from the header, and saves its framing', async () => {
+      mockGet.mockResolvedValue({ ...CHARACTER, portrait_path: 'c1.png', portrait_version: 3 })
+      mockUpdate.mockResolvedValue({ ...CHARACTER, portrait_crop: { x: 50, y: 48, zoom: 1 } })
+      renderView()
+      await screen.findByLabelText('Strength')
+      await userEvent.click(
+        within(screen.getByRole('banner')).getByRole('button', { name: 'View art' })
+      )
+      const dialog = await screen.findByRole('dialog', { name: 'Art for Vex' })
+      within(dialog)
+        .getByRole('group', { name: /Focus point/ })
+        .dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }))
+      await userEvent.click(await within(dialog).findByRole('button', { name: 'Save framing' }))
+      expect(mockUpdate).toHaveBeenCalledWith('c1', { portrait_crop: { x: 50, y: 48, zoom: 1 } })
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      const thumbnail = within(screen.getByRole('banner')).getByAltText('Portrait of Vex')
+      expect(thumbnail.style.objectPosition).toBe('50% 48%')
+    })
+
+    it('shows an image field the moment it is uploaded, with nothing to save', async () => {
+      vi.spyOn(window, 'confirm').mockReturnValue(true)
+      mockGetSchema.mockResolvedValue({
+        document: {
+          ...DOCUMENT,
+          fields: { ...DOCUMENT.fields, arms: { type: 'image', label: 'Arms' } },
+          layout: [{ title: 'Basics', fields: ['strength', 'arms'] }],
+        },
+      })
+      mockUploadImage.mockResolvedValue({ field: 'arms', value: 'arms-0123456789abcdef.png' })
+      mockDeleteImage.mockResolvedValue({})
+      renderView()
+      await userEvent.upload(
+        await screen.findByLabelText('Choose a picture for Arms'),
+        new File(['x'], 'a.png', { type: 'image/png' })
+      )
+      expect(await screen.findByRole('img', { name: 'Arms' })).toHaveAttribute(
+        'src',
+        '/api/characters/c1/images/arms?v=arms-0123456789abcdef.png'
+      )
+      await userEvent.click(screen.getByRole('button', { name: 'Remove Arms' }))
+      await waitFor(() =>
+        expect(screen.queryByRole('img', { name: 'Arms' })).not.toBeInTheDocument()
+      )
+      expect(mockUpdate).not.toHaveBeenCalled()
     })
 
     it('shows a party member\u2019s character read-only', async () => {

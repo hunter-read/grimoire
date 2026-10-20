@@ -18,12 +18,14 @@ A backup is a single timestamped `.zip`:
 
 ```
 grimoire-backup-20260821T140355Z.zip
-├── details.json        manifest: app version, timestamp, what is inside
-├── grimoire.db         the SQLite database
-├── campaign_uploads/   banners, character art, sheets, campaign files
-├── system_covers/      custom game-system cover images
-├── audio_covers/       custom audio cover art
-└── branding/          the uploaded OIDC sign-in button icon
+├── details.json          manifest: app version, timestamp, what is inside
+├── grimoire.db           the SQLite database
+├── campaign_uploads/     banners, character art, sheets, campaign files
+├── character_portraits/  character-builder portraits
+├── character_images/     pictures in character sheets' image fields
+├── system_covers/        custom game-system cover images
+├── audio_covers/         custom audio cover art
+└── branding/             the uploaded OIDC sign-in button icon
 ```
 
 Your library - the PDFs, maps, tokens, audio, and models themselves - is **not** in here,
@@ -81,6 +83,8 @@ Rename rather than delete, so the current state is recoverable if the restore go
 cd /path/to/your/data          # the host side of your /app/data volume
 mv grimoire.db grimoire.db.before-restore
 mv campaign_uploads campaign_uploads.before-restore   # if present
+mv character_portraits character_portraits.before-restore  # if present
+mv character_images character_images.before-restore        # if present
 mv system_covers   system_covers.before-restore       # if present
 mv audio_covers    audio_covers.before-restore        # if present
 mv branding        branding.before-restore            # if present
@@ -98,6 +102,8 @@ rm -f grimoire.db-wal grimoire.db-shm
 ```bash
 cp /tmp/grimoire-restore/grimoire.db .
 cp -r /tmp/grimoire-restore/campaign_uploads . 2>/dev/null || true
+cp -r /tmp/grimoire-restore/character_portraits . 2>/dev/null || true
+cp -r /tmp/grimoire-restore/character_images . 2>/dev/null || true
 cp -r /tmp/grimoire-restore/system_covers   . 2>/dev/null || true
 cp -r /tmp/grimoire-restore/audio_covers    . 2>/dev/null || true
 cp -r /tmp/grimoire-restore/branding        . 2>/dev/null || true
@@ -107,7 +113,8 @@ Make sure the files are owned by whoever the container runs as. If you run Grimo
 non-root user, `chown` them to match the rest of the data directory:
 
 ```bash
-chown -R --reference=. grimoire.db campaign_uploads system_covers audio_covers branding
+chown -R --reference=. grimoire.db campaign_uploads character_portraits character_images \
+  system_covers audio_covers branding
 ```
 
 ## 6. Start up and rescan

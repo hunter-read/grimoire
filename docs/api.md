@@ -2078,7 +2078,7 @@ campaign, which is exactly who wants a character sheet.
 | `/api/characters` | GET | user | The user's characters plus their parties', newest first. `?schema_ref=` filters by schema, `?campaign_id=` by campaign |
 | `/api/characters` | POST | user | Create a character. Body is `{schema_ref, name?, data?, campaign_id?}`. 400 if that schema is not installed, 403 if the campaign is not one you own or have joined |
 | `/api/characters/:id` | GET | user | One character with its `data` and freshly evaluated `computed` |
-| `/api/characters/:id` | PUT | user | Update `name`, `data`, `unset`, `campaign_id` and/or `status`. `data` is a **partial patch** - only the fields it names are touched. See below for the reserved keys |
+| `/api/characters/:id` | PUT | user | Update `name`, `data`, `unset`, `campaign_id`, `status` and/or `portrait_crop`. `data` is a **partial patch** - only the fields it names are touched. See below for the reserved keys |
 | `/api/characters/:id` | DELETE | user | Delete a character |
 | `/api/characters/import` | POST | user | Rebuild a character from an exported file |
 | `/api/characters/importers` | GET | user | `{importers, available, downloads_enabled}`. `importers` are the ones you can run - the server's and your own - each with `scope` (`server`/`user`), the `sheet` it builds on, `sheet_installed`, `extensions`, `accepts_files`, `accepts_url`, the `inputs` it asks for (`{key, label, help, secret, required, when}`), and `available_version` when your own copy has an update. `available` are catalogue importers you lack, each with `install_as`: `user` (install it yourself), `server` (an admin installs it for everyone via `POST /api/addons/:id/install`), `settings` (an admin installs it from Settings, where a script's consent is asked) or `admin` (ask one). An empty add-on index is refreshed once from the configured sources |
@@ -2089,6 +2089,9 @@ campaign, which is exactly who wants a character sheet.
 | `/api/characters/:id/portrait` | POST | user | Set a portrait (PNG/JPEG/WebP/GIF, 5 MB) |
 | `/api/characters/:id/portrait` | GET | user | The portrait image |
 | `/api/characters/:id/portrait` | DELETE | user | Remove the portrait |
+| `/api/characters/:id/images/:field` | POST | user | Set the picture an `image` field holds (multipart `file`; PNG/JPEG/WebP/GIF, 5 MB). Owner only; 404 unless the sheet declares `field` as an image. Returns `{field, value}` |
+| `/api/characters/:id/images/:field` | GET | user | An image field's picture, to anyone who can read the character |
+| `/api/characters/:id/images/:field` | DELETE | user | Remove an image field's picture, file and value. Also clears one a sheet update left behind |
 
 **Installing a pasted sheet** takes the sheet either already parsed, as
 `document`, or as text:
@@ -2133,8 +2136,8 @@ rather than stored as sent:
 
 **Character fields:** `id`, `name`, `schema_ref`, `schema_name`, `system`,
 `schema_missing`, `campaign_id`, `campaign_name`, `status`, `portrait_path`,
-`portrait_version`, `owned`, `created_at`, `updated_at`, and on detail `data`,
-`computed`, `validators`, and `entries`.
+`portrait_version`, `portrait_crop`, `owned`, `created_at`, `updated_at`, and on
+detail `data`, `computed`, `validators`, and `entries`.
 
 `status` is `active` (the default), `retired` or `dead`. A player may have any
 number of characters in one campaign; when one falls they mark it rather than
@@ -2145,6 +2148,26 @@ campaign's name, or `null` without one.
 one), and the portrait upload returns it too. Pass it as `?v=` on the portrait's
 URL: the image is cached for five minutes, so the same URL would keep serving
 the old art after a replacement.
+
+`portrait_crop` is the player's framing of the portrait: `{x, y, zoom}`, the
+focus point as percentages across and down the image (0-100) and a zoom from 1
+to 4. Clients draw the portrait with `object-fit: cover`, `object-position` at
+the focus point and a scale about it, so every frame - whatever its shape -
+keeps that point in view. `null` is centred and unzoomed; sending the defaults
+(`{}`) clears it, and uploading or removing the portrait resets it.
+
+**Image fields.** A field declared `"type": "image"` stores the uploaded file's
+name in `data` (`coat_of_arms-<16 hex>.png`), never the picture. Only the image
+routes write it: a value sent in `data` on create, update or import is dropped,
+and `unset` leaves it alone. The name changes with every upload, so put it in
+the picture's URL as `?v=` to bust the cache, as with `portrait_version`. A
+character's pictures are deleted with it (and with its owner's account), and installing a new version of a
+sheet deletes any whose field is gone or is no longer an image.
+
+**Exports** carry the pictures as `data:` URLs - `portrait`, `portrait_crop`,
+and `images` (`{field: data URL}`) - and an import stores each one through the
+same checks as an upload, for the fields the sheet declares as images. A
+character importer fills an image field the same way, with a `data:` URL.
 
 #### Campaign scoping
 

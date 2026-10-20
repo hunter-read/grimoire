@@ -97,6 +97,8 @@ THUMB_DIR = os.path.join(DATA_PATH, "thumbnails")
 PAGE_CACHE_DIR = os.path.join(DATA_PATH, "page_cache")
 CAMPAIGN_UPLOAD_DIR = os.path.join(DATA_PATH, "campaign_uploads")
 CHARACTER_PORTRAIT_DIR = os.path.join(DATA_PATH, "character_portraits")
+# Pictures a sheet's `image` fields hold, one subdirectory per character.
+CHARACTER_IMAGE_DIR = os.path.join(DATA_PATH, "character_images")
 SYSTEM_COVER_DIR = os.path.join(DATA_PATH, "system_covers")
 AUDIO_COVER_DIR = os.path.join(DATA_PATH, "audio_covers")
 # Admin-uploaded login-page assets (the OIDC button icon, issue #377).
@@ -754,6 +756,7 @@ _DATA_DIRS = (
     os.path.join(CAMPAIGN_UPLOAD_DIR, "sheets"),
     os.path.join(CAMPAIGN_UPLOAD_DIR, "files"),
     CHARACTER_PORTRAIT_DIR,
+    CHARACTER_IMAGE_DIR,
     SYSTEM_COVER_DIR,
     AUDIO_COVER_DIR,
     BRANDING_DIR,

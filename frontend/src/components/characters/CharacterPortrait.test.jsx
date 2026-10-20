@@ -49,7 +49,11 @@ describe('CharacterPortrait', () => {
     const file = png()
     await userEvent.upload(screen.getByLabelText('Add art', { selector: 'input' }), file)
     await waitFor(() =>
-      expect(onChanged).toHaveBeenCalledWith({ portrait_path: 'c1.png', portrait_version: 9 })
+      expect(onChanged).toHaveBeenCalledWith({
+        portrait_path: 'c1.png',
+        portrait_version: 9,
+        portrait_crop: null,
+      })
     )
     expect(mockUpload).toHaveBeenCalledWith('c1', file)
   })
@@ -86,7 +90,11 @@ describe('CharacterPortrait', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Remove art' }))
     expect(mockDelete).toHaveBeenCalledWith('c1')
     await waitFor(() =>
-      expect(onChanged).toHaveBeenCalledWith({ portrait_path: null, portrait_version: null })
+      expect(onChanged).toHaveBeenCalledWith({
+        portrait_path: null,
+        portrait_version: null,
+        portrait_crop: null,
+      })
     )
   })
 
@@ -112,6 +120,29 @@ describe('CharacterPortrait', () => {
     renderPortrait({ character: WITH_ART, readOnly: true })
     expect(screen.getByAltText('Portrait of Vex')).toBeInTheDocument()
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  it('opens the art large from the thumbnail when it can', async () => {
+    const onOpen = vi.fn()
+    renderPortrait({ character: WITH_ART, onOpen })
+    await userEvent.click(screen.getByRole('button', { name: 'View art' }))
+    expect(onOpen).toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Remove art' })).toBeInTheDocument()
+  })
+
+  it('lets a party member open the art large too', async () => {
+    const onOpen = vi.fn()
+    renderPortrait({ character: WITH_ART, readOnly: true, onOpen })
+    await userEvent.click(screen.getByRole('button', { name: 'View art' }))
+    expect(onOpen).toHaveBeenCalled()
+    expect(screen.queryByRole('button', { name: 'Remove art' })).not.toBeInTheDocument()
+  })
+
+  it('frames the thumbnail as the player chose', () => {
+    renderPortrait({ character: { ...WITH_ART, portrait_crop: { x: 30, y: 0, zoom: 2 } } })
+    const image = screen.getByAltText('Portrait of Vex')
+    expect(image.style.objectPosition).toBe('30% 0%')
+    expect(image.style.transform).toBe('scale(2)')
   })
 
   it('shows nothing read-only when there is no art', () => {

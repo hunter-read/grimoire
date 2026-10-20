@@ -193,4 +193,31 @@ describe('FieldRenderer — derived values', () => {
     expect(screen.queryByRole('img', { name: /Set from your choices/ })).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Use the automatic value')).not.toBeInTheDocument()
   })
+
+  describe('image fields', () => {
+    it('draws an image field, unavailable outside a character', () => {
+      render(
+        <FieldRenderer
+          name="arms"
+          definition={{ type: 'image', label: 'Arms' }}
+          value="arms-0123456789abcdef.png"
+          onChange={vi.fn()}
+        />
+      )
+      expect(screen.getByRole('group', { name: 'Arms' })).toBeInTheDocument()
+      expect(screen.getByText('No image')).toBeInTheDocument()
+    })
+  })
+
+  it('shows a value that is not text or a number as empty in a control', () => {
+    render(
+      <FieldRenderer
+        name="hero"
+        definition={{ type: 'text', label: 'Hero' }}
+        value={{ odd: true }}
+        onChange={vi.fn()}
+      />
+    )
+    expect(screen.getByLabelText('Hero')).toHaveValue('')
+  })
 })

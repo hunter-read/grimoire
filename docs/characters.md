@@ -95,9 +95,19 @@ Edits save as you type, so there is no Save button to forget.
   prepared than your maximum allows, say. They never block saving: a sheet
   mid-edit is routinely invalid, and losing your work over a state you are on
   your way out of would be worse than the warning.
-- **Art** sits in the sheet's header: click the thumbnail to add or change it,
+- **Art** sits in the sheet's header: click the empty thumbnail to add some,
   and the small cross beside it to remove it. The art shows on the character's
-  card in the Characters list too.
+  card in the Characters list too, and some sheets draw it large on one of their
+  pages - the D&D 5e sheet puts it on Spells & Details.
+- **Click the art to see it properly.** It opens large, and on your own
+  character this is where you replace it and choose its **framing**: click or
+  drag on the picture to pick the part that stays in view, and zoom in on it.
+  Every frame keeps that point showing - the square header, the list's card and
+  the sheet - so a full-length portrait can show its face rather than its belt.
+  A party member sees the art large but cannot change it.
+- **Some sheets hold other pictures** - a knight's coat of arms, a ship. Add,
+  replace or remove one where the sheet shows it; it saves on upload. Pictures
+  follow the art's rules: PNG, JPEG, WebP or GIF, up to 5 MB.
 - **Picked entries open.** Click a feat or a spell on the sheet to read the
   whole entry.
 - **Sheets can have pages.** The D&D 5e sheet follows the printed one: the
@@ -269,7 +279,8 @@ was built from.
 Importing prefers what the receiving server already has and falls back to what
 is in the file, so a shared character picks up local corrections rather than
 freezing what the sender happened to have. The character's status comes with
-it; its campaign does not, since that belongs to the server it came from.
+it, and so do its art (with its framing) and any other pictures on the sheet;
+its campaign does not, since that belongs to the server it came from.
 
 Anything the file carries that your server lacks - a homebrew spell, say - is
 added to a new **personal** ruleset named after the import, so the sheet reads

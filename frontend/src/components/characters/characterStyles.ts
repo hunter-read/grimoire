@@ -1,3 +1,5 @@
+import type { CSSProperties } from 'react'
+
 // Shared styles for the character builder, following the same vocabulary as
 // `campaigns/sheetEditorStyles.js` — gold for the primary action, a bordered
 // ghost for everything else, and the app's own tokens throughout.
@@ -7,7 +9,7 @@
 // Only tokens defined in `index.css` are used here, so a theme that overrides
 // `--gold` or `--bg-card` reaches this feature too.
 
-export const goldBtn = {
+export const goldBtn: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 6,
@@ -22,7 +24,7 @@ export const goldBtn = {
   whiteSpace: 'nowrap',
 }
 
-export const ghostBtn = {
+export const ghostBtn: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 6,
@@ -41,7 +43,7 @@ export const ghostBtn = {
 // useful if the button can be read. Fading it with opacity took its text below
 // a readable contrast, so it keeps full-strength muted text and says
 // "unavailable" with a recessed background and a dashed edge instead.
-export const disabledBtn = {
+export const disabledBtn: CSSProperties = {
   ...ghostBtn,
   background: 'var(--bg-deep)',
   borderStyle: 'dashed',
@@ -51,7 +53,7 @@ export const disabledBtn = {
 
 // An icon-only affordance (delete, remove) — no chrome until hovered, so a row
 // of them does not compete with the content beside it.
-export const iconBtn = {
+export const iconBtn: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -63,7 +65,7 @@ export const iconBtn = {
   cursor: 'pointer',
 }
 
-export const fieldInput = {
+export const fieldInput: CSSProperties = {
   width: '100%',
   padding: '7px 9px',
   borderRadius: 6,
@@ -73,7 +75,7 @@ export const fieldInput = {
   fontSize: 13,
 }
 
-export const fieldLabel = {
+export const fieldLabel: CSSProperties = {
   display: 'block',
   fontSize: 11,
   textTransform: 'uppercase',
@@ -82,14 +84,14 @@ export const fieldLabel = {
   marginBottom: 4,
 }
 
-export const card = {
+export const card: CSSProperties = {
   background: 'var(--bg-card)',
   border: '1px solid var(--border)',
   borderRadius: 10,
   padding: 16,
 }
 
-export const sectionHeading = {
+export const sectionHeading: CSSProperties = {
   margin: '0 0 12px',
   fontSize: 13,
   textTransform: 'uppercase',
@@ -101,7 +103,7 @@ export const sectionHeading = {
 
 // A section's title and its actions on one line, over one rule - the content
 // tab's "Content packs" and "Rulesets" headings.
-export const sectionBar = {
+export const sectionBar: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 10,
@@ -111,7 +113,7 @@ export const sectionBar = {
   borderBottom: '1px solid var(--border)',
 }
 
-export const sectionTitle = {
+export const sectionTitle: CSSProperties = {
   flex: 1,
   margin: 0,
   fontSize: 13,
@@ -125,7 +127,7 @@ export const sectionTitle = {
 // One modal with two tabs, so "manage the content my characters draw on" is a
 // single place rather than four buttons that each do a slice of it.
 
-export const scrim = {
+export const scrim: CSSProperties = {
   position: 'fixed',
   inset: 0,
   background: 'var(--scrim-strong)',
@@ -136,7 +138,7 @@ export const scrim = {
   padding: 16,
 }
 
-export const modalPanel = {
+export const modalPanel: CSSProperties = {
   background: 'var(--bg-panel)',
   border: '1px solid var(--border)',
   borderRadius: 16,
@@ -147,20 +149,20 @@ export const modalPanel = {
   flexDirection: 'column',
 }
 
-export const modalHeader = {
+export const modalHeader: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 12,
   padding: '16px 20px 0',
 }
 
-export const modalBody = {
+export const modalBody: CSSProperties = {
   flex: 1,
   overflowY: 'auto',
   padding: '16px 20px 20px',
 }
 
-export const tabList = {
+export const tabList: CSSProperties = {
   display: 'flex',
   gap: 4,
   padding: '12px 20px 0',
@@ -169,7 +171,7 @@ export const tabList = {
 
 // An underlined active tab rather than a filled one: the panel below is already
 // a card, and two filled surfaces butting together reads as one shape.
-export const tabBtn = (active) => ({
+export const tabBtn = (active: boolean): CSSProperties => ({
   display: 'inline-flex',
   alignItems: 'center',
   gap: 6,
@@ -184,7 +186,7 @@ export const tabBtn = (active) => ({
   marginBottom: -1,
 })
 
-export const codeArea = {
+export const codeArea: CSSProperties = {
   width: '100%',
   padding: '8px 10px',
   borderRadius: 6,
@@ -196,7 +198,7 @@ export const codeArea = {
   resize: 'vertical',
 }
 
-export const helpText = {
+export const helpText: CSSProperties = {
   margin: '4px 0 0',
   fontSize: 12,
   lineHeight: 1.45,
@@ -205,7 +207,7 @@ export const helpText = {
 
 // A list with nothing in it yet: the same size and colour as the help text
 // around it, in a dashed panel so it reads as a place things will go.
-export const emptyState = {
+export const emptyState: CSSProperties = {
   margin: 0,
   padding: '18px 16px',
   border: '1px dashed var(--border)',

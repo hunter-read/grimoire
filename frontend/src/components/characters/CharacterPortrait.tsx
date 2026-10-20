@@ -1,59 +1,50 @@
-import { useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuImagePlus, LuX } from 'react-icons/lu'
 import { characters as charactersApi } from '../../api'
+import type { PortraitCharacter, PortraitPatch } from './characterMedia'
+import { framedImageStyle } from './portraitCrop'
+import usePortraitUpload, { IMAGE_ACCEPT } from './usePortraitUpload'
 
 const SIZE = 64
 
+interface Props {
+  character: PortraitCharacter
+  readOnly?: boolean
+  onChanged: (patch: PortraitPatch) => void
+  onError: (message: string) => void
+  /** Opens the large view of the art. Without it the art is not clickable. */
+  onOpen?: () => void
+}
+
 /**
- * A character's art, in the sheet's header: a thumbnail that is also the
- * button to change it, with a small button beside it to remove it.
+ * A character's art, in the sheet's header: a thumbnail that opens the art
+ * large - where the owner frames, replaces or removes it - with a small button
+ * beside it to remove it.
  *
  * It lives in the header rather than above the sheet, so adding art never
  * pushes the sheet down the page. Without art the thumbnail is an "add art"
- * prompt. A party member's character shows its art but offers neither button.
+ * prompt that goes straight to the file picker. A party member's character
+ * shows its art, which opens large, but offers no way to change it.
  */
-export default function CharacterPortrait({ character, readOnly, onChanged, onError }) {
+export default function CharacterPortrait({
+  character,
+  readOnly,
+  onChanged,
+  onError,
+  onOpen,
+}: Props) {
   const { t } = useTranslation()
-  const inputRef = useRef(null)
-  const [busy, setBusy] = useState(false)
+  const { inputRef, busy, upload, remove, choose } = usePortraitUpload({
+    character,
+    onChanged,
+    onError,
+  })
   const name = character.name || t('characters.untitled')
   const hasArt = Boolean(character.portrait_path)
   const src = hasArt ? charactersApi.portraitUrl(character.id, character.portrait_version) : null
 
-  const upload = async (file) => {
-    if (!file) return
-    setBusy(true)
-    try {
-      const result = await charactersApi.uploadPortrait(character.id, file)
-      onChanged({
-        portrait_path: result.portrait_path,
-        // A version the browser has never cached, even if the server sent none.
-        portrait_version: result.portrait_version || Date.now(),
-      })
-    } catch (e) {
-      onError(e.message)
-    } finally {
-      setBusy(false)
-      // Cleared, so picking the same file again still uploads it.
-      if (inputRef.current) inputRef.current.value = ''
-    }
-  }
-
-  const remove = async () => {
-    if (!window.confirm(t('characters.confirmRemovePortrait', { name }))) return
-    setBusy(true)
-    try {
-      await charactersApi.deletePortrait(character.id)
-      onChanged({ portrait_path: null, portrait_version: null })
-    } catch (e) {
-      onError(e.message)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const frame = {
+  const frame: CSSProperties = {
     width: SIZE,
     height: SIZE,
     flexShrink: 0,
@@ -70,25 +61,45 @@ export default function CharacterPortrait({ character, readOnly, onChanged, onEr
     <img
       src={src}
       alt={t('characters.portraitOf', { name })}
-      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+      style={framedImageStyle(character.portrait_crop)}
     />
   ) : null
 
   if (readOnly) {
-    return src ? <div style={frame}>{image}</div> : null
+    if (!src) return null
+    if (!onOpen) return <div style={frame}>{image}</div>
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={t('characters.viewPortrait')}
+        title={t('characters.viewPortrait')}
+        style={{ ...frame, cursor: 'zoom-in' }}
+      >
+        {image}
+      </button>
+    )
   }
+
+  // With art, the thumbnail opens it large; the dialog is where it is changed.
+  const opens = hasArt && Boolean(onOpen)
+  const label = opens
+    ? t('characters.viewPortrait')
+    : hasArt
+      ? t('characters.changePortrait')
+      : t('characters.addPortrait')
 
   return (
     <div style={{ position: 'relative', flexShrink: 0 }}>
       <button
         type="button"
-        onClick={() => inputRef.current?.click()}
+        onClick={opens ? onOpen : choose}
         disabled={busy}
-        aria-label={hasArt ? t('characters.changePortrait') : t('characters.addPortrait')}
-        title={hasArt ? t('characters.changePortrait') : t('characters.addPortrait')}
+        aria-label={label}
+        title={label}
         style={{
           ...frame,
-          cursor: busy ? 'progress' : 'pointer',
+          cursor: busy ? 'progress' : opens ? 'zoom-in' : 'pointer',
           borderStyle: hasArt ? 'solid' : 'dashed',
           color: 'var(--text-muted)',
         }}
@@ -125,7 +136,7 @@ export default function CharacterPortrait({ character, readOnly, onChanged, onEr
       <input
         ref={inputRef}
         type="file"
-        accept="image/png,image/jpeg,image/webp,image/gif"
+        accept={IMAGE_ACCEPT}
         aria-label={hasArt ? t('characters.changePortrait') : t('characters.addPortrait')}
         tabIndex={-1}
         onChange={(event) => upload(event.target.files?.[0])}

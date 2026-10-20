@@ -15,6 +15,7 @@ import os
 from typing import Any, Optional
 
 from fastapi import Depends, HTTPException
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, get_current_user
@@ -23,11 +24,15 @@ from ...models import Character, CharacterSchema, ContentEntry, Ruleset, Ruleset
 from ...services.characters import rulesets as rs
 from ...services import characters as svc
 from ...services.characters import catalogue
+from ...services.characters import images as char_images
+from ...services.characters import importing
 from . import _helpers as helpers
+from .portraits import store_portrait
 from ._schemas import (
     CharacterCreate,
     CharacterImport,
     CharacterUpdate,
+    PortraitCrop,
     SchemaImport,
 )
 
@@ -208,6 +213,12 @@ def _store_schema(
     db.commit()
     db.refresh(row)
 
+    # A field that was an image and no longer is would keep its picture on
+    # disk for good; the sheet changing is the moment to let it go.
+    for character in db.query(Character).filter_by(user_id=user_id, schema_ref=schema_id).all():
+        char_images.prune_images(character, validated)
+    db.commit()
+
     payload = _serialize_schema(row)
     payload["document"] = validated
     return payload
@@ -304,6 +315,16 @@ def _portrait_version(portrait_path: Optional[str]) -> Optional[int]:
         return None
 
 
+def _portrait_crop(value: Any) -> Optional[dict]:
+    """A stored crop, re-checked on the way out; anything malformed is none."""
+    if not isinstance(value, dict):
+        return None
+    try:
+        return PortraitCrop.model_validate(value).model_dump()
+    except ValidationError:
+        return None
+
+
 def _serialize_character(
     row: Character,
     schema: Optional[CharacterSchema],
@@ -330,6 +351,7 @@ def _serialize_character(
         # portrait's URL: the image is cached for minutes, and the same URL
         # would keep showing the old art after a replacement.
         "portrait_version": _portrait_version(row.portrait_path),
+        "portrait_crop": _portrait_crop(row.portrait_crop),
         # False when reading a party member's sheet: readable, not editable.
         "owned": viewer_id is None or row.user_id == viewer_id,
         "created_at": row.created_at.isoformat() if row.created_at else None,
@@ -497,11 +519,20 @@ def update_character(
             )
         row.status = data.status
 
+    if data.portrait_crop is not None:
+        crop = data.portrait_crop.model_dump()
+        # Centred and unzoomed is the default, so it is stored as no crop.
+        row.portrait_crop = None if crop == PortraitCrop().model_dump() else crop
+
     merged: Optional[dict] = None
     if data.data is not None or data.unset:
         merged = dict(row.data if isinstance(row.data, dict) else {})
+        # An image's value goes with its file, through the image routes; a
+        # reset here would strand the file.
+        pictures = char_images.image_fields(document)
         for name in data.unset:
-            merged.pop(name, None)
+            if name not in pictures:
+                merged.pop(name, None)
         merged.update(_coerce_all(document, data.data or {}))
 
     # The character's name and its sheet's name field are one value: editing
@@ -536,6 +567,8 @@ def delete_character(
         raise HTTPException(status_code=404, detail="Character not found")
     db.delete(row)
     db.commit()
+    # After the commit, so a failed delete never loses the pictures.
+    char_images.remove_character_files(character_id)
     return {"deleted": True, "id": character_id}
 
 
@@ -555,10 +588,13 @@ def _coerce_all(document: dict, submitted: dict) -> dict:
     """
     fields = document.get("fields") or {}
     content_types = document.get("content_types") or {}
+    # An image field's value names a stored file, so only the image routes
+    # write it: a value sent here could name a file the character never had.
+    pictures = char_images.image_fields(document)
     cleaned = {
         name: svc.coerce_value(fields[name], value, content_types)
         for name, value in submitted.items()
-        if name in fields
+        if name in fields and name not in pictures
     }
     if GRANTED_KEY in submitted:
         cleaned[GRANTED_KEY] = _coerce_granted(fields, submitted[GRANTED_KEY])
@@ -706,6 +742,14 @@ def import_character(
         status=helpers.character_status(payload.get("status")),
     )
     db.add(row)
+    db.flush()
+    # The pictures travel as data URLs and go through the same checks as an
+    # upload: a real image, of an allowed type, within the size cap.
+    portrait = importing.decode_portrait(payload.get("portrait"))
+    if portrait:
+        store_portrait(row, *portrait)
+        row.portrait_crop = _portrait_crop(payload.get("portrait_crop"))
+    char_images.import_images(row, document, payload.get("images"))
     db.commit()
     db.refresh(row)
     return _serialize_character(row, schema, detail=True, db=db, viewer_id=current_user.id)

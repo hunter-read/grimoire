@@ -18,6 +18,9 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Failed sign-ins are also counted per account, and wrong share-link passwords per link, whatever address they come from (`ACCOUNT_RATE_LIMIT`, default `20/hour`). A browser you have signed in from before keeps its own count
 - `TRUSTED_PROXIES` lists the reverse proxies whose `X-Forwarded-For` Grimoire reads. The default covers proxies and tunnels on the same host, Docker network or LAN, so most installs need no change. If a proxy reaches Grimoire from a public address - a VPS, or Cloudflare's proxy without Cloudflare Tunnel - add its addresses; see the security docs
 - Book pages are now rendered in a separate process, so a damaged PDF that crashes the PDF library fails that one page instead of stopping Grimoire. The same goes for a book's table of contents and for exporting pages and cut-outs. `RENDER_WORKERS` sets how many render processes run (default `1`); more render different books in parallel on multi-core hosts, and `0` keeps rendering inside Grimoire. Render processes stop when nobody is reading. See the performance docs
+- Character sheets can hold pictures besides the portrait - a knight's coat of arms, a ship. A sheet declares an `image` field and places it like any other; you add, replace or remove the picture right on the sheet. Sheets can also place the character's art itself with `<g-portrait>`, and the D&D 5e (2024) sheet now shows it large on its Spells & Details page
+- Click a character's art to see it large. On your own character you can choose its framing there - click or drag to pick the part that stays in view, and zoom in - and the header, the Characters list and the sheet all keep that part showing, so tall art no longer loses its head
+- Character exports carry the character's art, its framing and any other pictures on the sheet, and importing restores them
 
 ### Changed
 
@@ -92,6 +95,8 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Bookmarking a book that doesn't exist returned a server error; it now answers "not found", as does bookmarking a book you can't open
 - The custom login message is cleaned with a real HTML parser, so a quote inside a link can no longer change the link's other attributes, and the settings editor cleans a stored message again before showing it
 - Signing in with a username that doesn't exist takes as long as a wrong password
+- Backups now include character portraits, which they had left out
+- Deleting a character, or an account with characters, now deletes their art too, rather than leaving the files behind
 
 ### Security
 

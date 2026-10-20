@@ -136,6 +136,8 @@ GUEST_REACHABLE = {
     "/api/characters/{character_id}": "DELETE GET PUT",
     "/api/characters/{character_id}/export": "GET",
     "/api/characters/{character_id}/portrait": "DELETE GET POST",
+    # A sheet's image fields: owner-only writes, readable like the sheet.
+    "/api/characters/{character_id}/images/{field}": "DELETE GET POST",
     "/api/content/packs": "GET",
     "/api/content/{schema_id}/resolve": "GET",
     "/api/content/{schema_id}/types": "GET",

@@ -35,6 +35,8 @@ __all__ = [
     "visible_fields",
     "MAX_ROWS",
     "SCHEMA_VERSION",
+    "IMAGE_VALUE_RE",
+    "image_fields",
 ]
 
 
@@ -63,6 +65,10 @@ FIELD_TYPES: frozenset = frozenset(
         # Both store the entry's id, never a copy of it, so an erratum reaches
         # every character built on it.
         "content_ref", "content_list",
+        # A picture the player uploads - a coat of arms, a ship's silhouette.
+        # The value is the stored file's name; the bytes live on disk beside
+        # the portrait, never in the sheet's JSON.
+        "image",
     }
 )
 
@@ -73,6 +79,11 @@ _CONTENT_TYPES_FIELDS: frozenset = frozenset({"content_ref", "content_list"})
 COLUMN_TYPES: frozenset = frozenset(
     {"text", "number", "checkbox", "select", "textarea"}
 )
+
+#: An image field's stored value: the field's name, a random token that changes
+#: with every upload (so it doubles as the cache-buster), and the extension.
+#: Field names never contain a hyphen, so the name is unambiguous.
+IMAGE_VALUE_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*-[0-9a-f]{16}\.(?:png|jpg|webp|gif)$")
 
 #: Types that need `options`.
 _OPTION_TYPES: frozenset = frozenset({"select", "multiselect"})
@@ -155,15 +166,21 @@ def _validate_field(name: str, definition: Any) -> None:
             f"Field name {name!r} must start with a letter and contain only "
             "letters, digits, and underscores"
         )
-    _validate_definition(f"Field {name!r}", name, definition)
+    _validate_definition(f"Field {name!r}", name, definition, allow_image=True)
 
 
-def _validate_definition(what: str, name: str, definition: Any) -> None:
+def _validate_definition(
+    what: str, name: str, definition: Any, *, allow_image: bool = False
+) -> None:
     """Validate a field definition, given a caller-chosen description of it.
 
     Split from `_validate_field` so a nested definition — a `per_entry_fields`
     entry — is checked the same way without having to pass a synthetic name
     through the identifier rule.
+
+    ``allow_image`` is only set for a character's own top-level fields. An image
+    is a file stored against one character, so a catalog entry's property or a
+    per-entry note has nowhere for its bytes to live.
     """
     definition = _require_dict(definition, what)
 
@@ -173,6 +190,17 @@ def _validate_definition(what: str, name: str, definition: Any) -> None:
         raise SchemaError(
             f"{what} has unknown type {field_type!r} (expected one of: {allowed})"
         )
+
+    if field_type == "image":
+        if not allow_image:
+            raise SchemaError(
+                f"{what} is an image, which only a character's own fields can be"
+            )
+        # The value is a file the player uploads; there is nothing a default
+        # could name.
+        for key in ("default", "default_from"):
+            if key in definition:
+                raise SchemaError(f"{what} is an image and cannot have a {key!r}")
 
     if field_type in _OPTION_TYPES:
         _validate_options(what, definition)
@@ -352,7 +380,24 @@ def _validate_computed(name: str, definition: Any) -> tuple:
         raise SchemaError(f"Computed {name!r} has an invalid formula: {exc}") from exc
 
 
-def _validate_condition(source: Any, what: str, known: set[str]) -> None:
+def _reject_images(names: set[str], images: set[str], what: str) -> None:
+    """Refuse an expression that reads an image field.
+
+    An image's value is a stored file name, which no formula can do anything
+    meaningful with - and a rule that quietly depended on it would change
+    whenever the picture was replaced.
+    """
+    used = names & images
+    if used:
+        raise SchemaError(
+            f"{what} reads the image {'fields' if len(used) > 1 else 'field'} "
+            f"{', '.join(sorted(used))}; an image has no value a formula can use"
+        )
+
+
+def _validate_condition(
+    source: Any, what: str, known: set[str], images: frozenset = frozenset()
+) -> None:
     """Check a `visible_if` / validator expression parses and names real fields.
 
     Absent is fine — that means "always". Present but unparseable is not: a
@@ -368,21 +413,25 @@ def _validate_condition(source: Any, what: str, known: set[str]) -> None:
     except EVALUATION_ERRORS as exc:
         raise SchemaError(f"{what} is not a valid expression: {exc}") from exc
 
-    unknown = referenced_names(ast) - known
+    names = referenced_names(ast)
+    unknown = names - known
     if unknown:
         raise SchemaError(
             f"{what} references unknown "
             f"{'names' if len(unknown) > 1 else 'name'}: {', '.join(sorted(unknown))}"
         )
+    _reject_images(names, set(images), what)
 
 
-def _validate_validator(index: int, validator: Any, known: set[str]) -> None:
+def _validate_validator(
+    index: int, validator: Any, known: set[str], images: frozenset = frozenset()
+) -> None:
     validator = _require_dict(validator, f"Validator {index}")
 
     rule = validator.get("rule")
     if not isinstance(rule, str) or not rule.strip():
         raise SchemaError(f"Validator {index} needs a non-empty 'rule'")
-    _validate_condition(rule, f"Validator {index} rule", known)
+    _validate_condition(rule, f"Validator {index} rule", known, images)
 
     message = validator.get("message")
     if not isinstance(message, str) or not message.strip():
@@ -398,7 +447,7 @@ def _validate_validator(index: int, validator: Any, known: set[str]) -> None:
         )
 
 
-def _validate_layout(layout: Any, known: set[str]) -> None:
+def _validate_layout(layout: Any, known: set[str], images: frozenset = frozenset()) -> None:
     """Check the JSON layout tree names only fields that exist."""
     if not isinstance(layout, list):
         raise SchemaError("'layout' must be a list of sections")
@@ -406,7 +455,7 @@ def _validate_layout(layout: Any, known: set[str]) -> None:
     for index, section in enumerate(layout):
         section = _require_dict(section, f"Layout section {index}")
         _validate_condition(
-            section.get("visible_if"), f"Layout section {index} visible_if", known
+            section.get("visible_if"), f"Layout section {index} visible_if", known, images
         )
         rows = section.get("fields", section.get("rows", []))
         if not isinstance(rows, list):
@@ -516,23 +565,26 @@ def validate_schema(document: Any, *, scope: str = "gc-sheet") -> dict:
         )
 
     known = set(fields) | set(computed)
+    images = frozenset(image_fields(document))
     asts: dict[str, tuple] = {}
     for computed_name, definition in computed.items():
         ast = _validate_computed(computed_name, definition)
         asts[computed_name] = ast
-        unknown = referenced_names(ast) - known
+        names = referenced_names(ast)
+        unknown = names - known
         if unknown:
             raise SchemaError(
                 f"Computed {computed_name!r} references unknown "
                 f"{'names' if len(unknown) > 1 else 'name'}: {', '.join(sorted(unknown))}"
             )
+        _reject_images(names, set(images), f"Computed {computed_name!r}")
 
     # `visible_if` on a field, and on a layout section, is checked with the same
     # rules as a formula: it is the same expression language. So is
     # `default_from`, which derives a field's starting value from the others.
     for field_name, definition in fields.items():
         _validate_condition(
-            definition.get("visible_if"), f"Field {field_name!r} visible_if", known
+            definition.get("visible_if"), f"Field {field_name!r} visible_if", known, images
         )
         if isinstance(definition, dict) and definition.get("default_from"):
             # Fields only, not computed values: a default is worked out while
@@ -543,6 +595,7 @@ def validate_schema(document: Any, *, scope: str = "gc-sheet") -> dict:
                     definition["default_from"],
                     f"Field {field_name!r} default_from",
                     set(fields),
+                    images,
                 )
             except SchemaError as exc:
                 if any(name in str(exc) for name in computed):
@@ -590,10 +643,10 @@ def validate_schema(document: Any, *, scope: str = "gc-sheet") -> dict:
     if len(validators) > MAX_VALIDATORS:
         raise SchemaError(f"Schema has more than {MAX_VALIDATORS} validators")
     for index, validator in enumerate(validators):
-        _validate_validator(index, validator, known)
+        _validate_validator(index, validator, known, images)
 
     if "layout" in document:
-        _validate_layout(document["layout"], known)
+        _validate_layout(document["layout"], known, images)
 
     normalised = dict(document)
 
@@ -688,6 +741,11 @@ def coerce_value(
             return []
         refs = [_coerce_ref(definition, item, content_types) for item in value[:MAX_ROWS]]
         return [ref for ref in refs if ref]
+
+    if field_type == "image":
+        # Only ever a name this server wrote; anything else - a path, a URL -
+        # reads as no image rather than something to go looking for.
+        return value if isinstance(value, str) and IMAGE_VALUE_RE.match(value) else ""
 
     return "" if value is None else str(value)
 
@@ -817,7 +875,20 @@ _EMPTY_BY_TYPE: dict[str, Any] = {
     "checkbox": False,
     "multiselect": [],
     "list": [],
+    "image": "",
 }
+
+
+def image_fields(document: Any) -> set[str]:
+    """The names of a schema's `image` fields."""
+    fields = (document or {}).get("fields") if isinstance(document, dict) else None
+    if not isinstance(fields, dict):
+        return set()
+    return {
+        name
+        for name, definition in fields.items()
+        if isinstance(definition, dict) and definition.get("type") == "image"
+    }
 
 
 def _build_context(document: dict, data: dict, entries: Optional[dict] = None) -> dict:

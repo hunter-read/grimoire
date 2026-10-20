@@ -31,6 +31,8 @@ UNTYPED_BY_DESIGN = {
     "/api/campaigns/{campaign_id}/banner",
     # Serves the portrait image itself, like the campaign art route.
     "/api/characters/{character_id}/portrait",
+    # Serves an image field's picture, like the portrait.
+    "/api/characters/{character_id}/images/{field}",
     "/api/campaigns/{campaign_id}/files/{file_id}",
     "/api/campaigns/{campaign_id}/members/{member_id}/art",
     "/api/campaigns/{campaign_id}/members/{member_id}/token",

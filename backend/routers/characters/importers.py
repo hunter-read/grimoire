@@ -36,6 +36,7 @@ from ...auth import CurrentUser, get_current_user
 from ...config import get_db
 from ...models import Character, CharacterSchema
 from ...services.characters import catalogue, importing
+from ...services.characters import images as char_images
 from . import _helpers as helpers
 from . import core
 from ._schemas import ExternalCharacterImport
@@ -426,6 +427,17 @@ def import_external(
     portrait = importing.decode_portrait(mapped.get("portrait"))
     if portrait:
         store_portrait(row, *portrait)
+    # An importer fills an image field the way it fills the portrait: with a
+    # data URL, which build_data leaves out because only an upload may set one.
+    char_images.import_images(
+        row,
+        sheet,
+        {
+            name: values[0]
+            for name, values in (mapped.get("fields") or {}).items()
+            if isinstance(values, list) and values
+        },
+    )
     db.commit()
     db.refresh(row)
 

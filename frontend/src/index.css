@@ -581,3 +581,75 @@ a:focus-visible {
 .wiki-markdown li > p {
   margin: 0;
 }
+
+/* Character sheets: the portrait a layout places with <g-portrait>, and an
+   `image` field's picture. Single-class selectors on purpose - a sheet's own
+   stylesheet is scoped under .gc-sheet, so it outranks these and sets the
+   size the printed sheet's box has. */
+.gc-portrait {
+  margin: 0;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-deep);
+}
+.gc-portrait-open,
+.gc-portrait-add,
+.gc-image-add {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.gc-portrait-open {
+  cursor: zoom-in;
+  overflow: hidden;
+}
+.gc-portrait-empty {
+  border-style: dashed;
+}
+.gc-image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 120px;
+  aspect-ratio: 1 / 1;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-deep);
+  overflow: hidden;
+}
+.gc-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.gc-image-empty {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+@media print {
+  /* A picture prints; the buttons around it do not. */
+  .gc-image-field button,
+  .gc-portrait-empty {
+    display: none;
+  }
+  .gc-portrait,
+  .gc-image {
+    break-inside: avoid;
+  }
+}

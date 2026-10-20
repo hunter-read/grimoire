@@ -9,12 +9,14 @@ Each backup is a single timestamped `.zip`:
 
 ```
 grimoire-backup-20260821T140355Z.zip
-├── details.json        manifest: app version, timestamp, what is inside
-├── grimoire.db         the SQLite database
-├── campaign_uploads/   banners, character art, sheets, campaign files
-├── system_covers/      custom game-system cover images
-├── audio_covers/       custom audio cover art
-└── branding/          the uploaded OIDC sign-in button icon
+├── details.json          manifest: app version, timestamp, what is inside
+├── grimoire.db           the SQLite database
+├── campaign_uploads/     banners, character art, sheets, campaign files
+├── character_portraits/  character-builder portraits
+├── character_images/     pictures in character sheets' image fields
+├── system_covers/        custom game-system cover images
+├── audio_covers/         custom audio cover art
+└── branding/             the uploaded OIDC sign-in button icon
 ```
 
 The database is copied with SQLite's `VACUUM INTO` rather than a file copy, so the

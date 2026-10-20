@@ -5,9 +5,10 @@ SQLite runs with foreign_keys=ON, so deleting a user who has any of them fails
 unless ``purge_user_data`` clears them first; and merging a guest into another
 account has to carry them across or the player loses their characters.
 """
+import os
 import uuid
 
-from backend.config import SessionLocal
+from backend.config import CHARACTER_IMAGE_DIR, CHARACTER_PORTRAIT_DIR, SessionLocal
 from backend.models import Character, CharacterSchema, Ruleset, RulesetEntry, User
 
 
@@ -59,6 +60,18 @@ def _give_builder_rows(user_id: str, *, schema_id: str = "lifecycle-sheet") -> d
         db.close()
 
 
+def _give_pictures(character_id: str) -> tuple[str, str]:
+    """A portrait and an image-field picture on disk for a character."""
+    portrait = os.path.join(CHARACTER_PORTRAIT_DIR, f"{character_id}.png")
+    folder = os.path.join(CHARACTER_IMAGE_DIR, character_id)
+    os.makedirs(folder, exist_ok=True)
+    picture = os.path.join(folder, "arms-0123456789abcdef.png")
+    for path in (portrait, picture):
+        with open(path, "wb") as handle:
+            handle.write(b"x")
+    return portrait, picture
+
+
 class TestDeletingAUser:
     def test_takes_their_characters_sheets_and_personal_rulesets(
         self, client, admin_headers
@@ -75,6 +88,38 @@ class TestDeletingAUser:
             assert db.query(CharacterSchema).filter_by(user_id=user_id).count() == 0
             assert db.query(Ruleset).filter_by(id=rows["ruleset"]).first() is None
             assert db.query(RulesetEntry).filter_by(ruleset_id=rows["ruleset"]).count() == 0
+        finally:
+            db.close()
+
+    def test_takes_their_characters_pictures_once_it_commits(self, client, admin_headers):
+        user_id = _player(client, admin_headers)
+        character_id = _give_builder_rows(user_id)["character"]
+        portrait, picture = _give_pictures(character_id)
+
+        resp = client.delete(f"/api/users/{user_id}", headers=admin_headers)
+        assert resp.status_code == 204, resp.text
+        assert not os.path.exists(portrait)
+        assert not os.path.exists(picture)
+
+    def test_a_delete_that_rolls_back_keeps_the_pictures(self, client, admin_headers):
+        from backend.routers.campaigns._helpers import purge_user_data
+
+        user_id = _player(client, admin_headers)
+        character_id = _give_builder_rows(user_id)["character"]
+        portrait, picture = _give_pictures(character_id)
+
+        db = SessionLocal()
+        try:
+            purge_user_data(db, user_id)
+            db.rollback()
+            # A later commit on the same session must not act on the old purge.
+            db.commit()
+        finally:
+            db.close()
+        assert os.path.exists(portrait) and os.path.exists(picture)
+        db = SessionLocal()
+        try:
+            assert db.query(Character).filter_by(id=character_id).first() is not None
         finally:
             db.close()
 
@@ -131,6 +176,7 @@ class TestMergingAGuest:
         # Both accounts installed the same sheet; the target's copy wins.
         _give_builder_rows(keep)
         rows = _give_builder_rows(absorb)
+        pictures = _give_pictures(rows["character"])
 
         resp = client.post(
             f"/api/users/{keep}/merge",
@@ -148,3 +194,5 @@ class TestMergingAGuest:
             assert db.query(CharacterSchema).filter_by(user_id=absorb).count() == 0
         finally:
             db.close()
+        # The character moved rather than died, so its pictures stay.
+        assert all(os.path.exists(path) for path in pictures)

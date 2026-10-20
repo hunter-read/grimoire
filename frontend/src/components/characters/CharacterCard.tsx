@@ -1,10 +1,22 @@
 import { useState } from 'react'
+import type { ComponentType, ImgHTMLAttributes } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuTrash2, LuTriangleAlert, LuUsers } from 'react-icons/lu'
 import { characters as charactersApi } from '../../api'
-import CardLink from '../CardLink'
-import LazyImg from '../LazyImg'
+import type { Schema } from '../../api'
+import CardLinkJs from '../CardLink'
+import LazyImgJs from '../LazyImg'
 import { isActive, statusLabel } from './characterStatus'
+import { framedImageStyle } from './portraitCrop'
+
+// Still JavaScript, so TypeScript would read every prop as required.
+const CardLink = CardLinkJs as ComponentType<{ to: string; label: string }>
+const LazyImg = LazyImgJs as ComponentType<ImgHTMLAttributes<HTMLImageElement>>
+
+interface Props {
+  character: Schema<'CharacterSummary'>
+  onDelete: (character: Schema<'CharacterSummary'>) => void
+}
 
 /**
  * One character in the list: their art, if they have any, above their name and
@@ -15,7 +27,7 @@ import { isActive, statusLabel } from './characterStatus'
  * the character's initials, which tells characters apart better than a row of
  * identical placeholder icons.
  */
-export default function CharacterCard({ character, onDelete }) {
+export default function CharacterCard({ character, onDelete }: Props) {
   const { t } = useTranslation()
   const [hovered, setHovered] = useState(false)
   const name = character.name || t('characters.untitled')
@@ -23,7 +35,7 @@ export default function CharacterCard({ character, onDelete }) {
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
-    .map((word) => word[0]?.toUpperCase())
+    .map((word: string) => word[0]?.toUpperCase())
     .join('')
   const owned = character.owned !== false
   // A retired or fallen character stays in the list beside whoever replaced
@@ -57,6 +69,8 @@ export default function CharacterCard({ character, onDelete }) {
           alignItems: 'center',
           justifyContent: 'center',
           pointerEvents: 'none',
+          // A zoomed portrait is scaled past its frame; keep it in the panel.
+          overflow: 'hidden',
           filter: inactive ? 'grayscale(1)' : 'none',
           opacity: inactive ? 0.6 : 1,
         }}
@@ -65,7 +79,9 @@ export default function CharacterCard({ character, onDelete }) {
           <LazyImg
             src={charactersApi.portraitUrl(character.id, character.portrait_version)}
             alt=""
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            // Framed as the player chose, so tall art keeps its face in the
+            // square rather than being cut at the middle.
+            style={framedImageStyle(character.portrait_crop)}
           />
         ) : (
           <span

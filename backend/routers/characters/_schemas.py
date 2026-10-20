@@ -119,6 +119,20 @@ class SchemaDeletedResponse(BaseModel):
     schema_id: str
 
 
+class PortraitCrop(BaseModel):
+    """Which part of a portrait a frame shows.
+
+    ``x`` and ``y`` are the focus point, as percentages across and down the
+    image; ``zoom`` magnifies about it. A frame of any shape keeps the focus
+    point in view, so one choice serves the square header, the list's card and
+    a tall panel on the sheet alike.
+    """
+
+    x: float = Field(default=50, ge=0, le=100)
+    y: float = Field(default=50, ge=0, le=100)
+    zoom: float = Field(default=1, ge=1, le=4)
+
+
 class CharacterSummary(BaseModel):
     """One character, without its data — enough for the list view."""
 
@@ -140,6 +154,8 @@ class CharacterSummary(BaseModel):
     portrait_path: Optional[str] = None
     # Changes with the image, for cache-busting the portrait's URL.
     portrait_version: Optional[int] = None
+    # The player's framing of the portrait; null is centred and unzoomed.
+    portrait_crop: Optional[PortraitCrop] = None
     # False when the caller is reading a party member's sheet rather than
     # their own.
     owned: bool = True
@@ -192,6 +208,8 @@ class CharacterUpdate(BaseModel):
     # "" clears the campaign; a real id must be one the owner owns or has joined.
     campaign_id: Optional[str] = None
     status: Optional[str] = None
+    # Reframes the portrait. Sending the defaults (centred, unzoomed) clears it.
+    portrait_crop: Optional[PortraitCrop] = None
 
 
 class CharacterExport(BaseModel):
@@ -209,6 +227,11 @@ class CharacterExport(BaseModel):
     character_schema: dict[str, Any] = Field(default_factory=dict, alias="schema")
     data: dict[str, Any] = Field(default_factory=dict)
     entries: dict[str, Any] = Field(default_factory=dict)
+    # Pictures, as `data:` URLs, so the file carries them: the portrait, its
+    # framing, and each image field's picture keyed by field name.
+    portrait: Optional[str] = None
+    portrait_crop: Optional[PortraitCrop] = None
+    images: dict[str, str] = Field(default_factory=dict)
 
     model_config = {"populate_by_name": True}
 
@@ -223,6 +246,13 @@ class CharacterImport(BaseModel):
 class PortraitResponse(BaseModel):
     portrait_path: str
     portrait_version: Optional[int] = None
+
+
+class ImageFieldResponse(BaseModel):
+    field: str
+    # The stored file's name. It changes with every upload, so it doubles as
+    # the image URL's cache-buster.
+    value: str
 
 
 class CharacterDeletedResponse(BaseModel):

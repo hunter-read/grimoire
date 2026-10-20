@@ -1,4 +1,5 @@
 import { useId, useRef } from 'react'
+import type { ReactNode, RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX } from 'react-icons/lu'
 import useDialogFocus from '../../hooks/useDialogFocus'
@@ -12,6 +13,17 @@ import { scrim, modalPanel, modalHeader, modalBody, iconBtn } from './characterS
  * `children` is the body, which scrolls; `footer` stays pinned below it, the
  * place for a dialog's actions. `tabs` sits between the title and the body.
  */
+interface Props {
+  title: ReactNode
+  description?: ReactNode
+  onClose?: () => void
+  children?: ReactNode
+  footer?: ReactNode
+  tabs?: ReactNode
+  maxWidth?: number
+  initialFocusRef?: RefObject<HTMLElement | null>
+}
+
 export default function CharacterDialog({
   title,
   description,
@@ -21,11 +33,11 @@ export default function CharacterDialog({
   tabs,
   maxWidth = 860,
   initialFocusRef,
-}) {
+}: Props) {
   const { t } = useTranslation()
   const titleId = useId()
   const descriptionId = useId()
-  const panelRef = useRef(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   useDialogFocus(panelRef, { onClose, initialFocusRef })
 
   return (

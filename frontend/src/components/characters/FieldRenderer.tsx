@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuRotateCcw, LuLink } from 'react-icons/lu'
 import { fieldInput, fieldLabel, iconBtn } from './characterStyles'
@@ -8,6 +9,43 @@ import ListField from './ListField'
 import MultiSelectField from './MultiSelectField'
 import ContentRefField from './ContentRefField'
 import ContentListField from './ContentListField'
+import ImageField from './ImageField'
+
+type Option = string | number | { value: string | number; label?: string }
+
+/** A field definition from a schema - the keys this renderer reads. */
+export interface FieldDefinition {
+  type?: string
+  label?: string
+  min?: number
+  max?: number
+  rows?: number
+  placeholder?: string
+  options?: Option[]
+  content_type?: string
+  // A definition carries more than this renderer reads - columns, on_pick,
+  // per-entry fields - which the delegated renderers use.
+  [key: string]: unknown
+}
+
+interface Props {
+  name: string
+  definition?: FieldDefinition
+  value?: unknown
+  // `meta` rides along from a content picker - the picked entry itself.
+  onChange?: (value: unknown, meta?: unknown) => void
+  readOnly?: boolean
+  hideLabel?: boolean
+  autoFocus?: boolean
+  entries?: Record<string, unknown>
+  schemaId?: string
+  contentTypes?: Record<string, unknown>
+  derived?: boolean
+  onReset?: () => void
+  onOverride?: (value: unknown) => void
+  overridden?: boolean
+  variant?: string
+}
 
 /**
  * Renders one field from its schema definition and value.
@@ -46,11 +84,12 @@ export default function FieldRenderer({
   overridden = false,
   // `compact` draws a number without its spinner, for tight boxes.
   variant,
-}) {
+}: Props) {
   const { t } = useTranslation()
   const inputId = useId()
   const type = definition.type || 'text'
   const label = definition.label || name
+  const contentType = String(definition.content_type || '')
 
   // These two render their own label and structure, so they are delegated to
   // whole rather than wrapped in the scalar field chrome below.
@@ -86,7 +125,7 @@ export default function FieldRenderer({
         value={value}
         entries={entries}
         schemaId={schemaId}
-        typeDefinition={contentTypes[definition.content_type] || {}}
+        typeDefinition={contentTypes[contentType] || {}}
         onChange={onChange}
         readOnly={readOnly}
         hideLabel={hideLabel}
@@ -101,8 +140,22 @@ export default function FieldRenderer({
         value={value}
         entries={entries}
         schemaId={schemaId}
-        typeDefinition={contentTypes[definition.content_type] || {}}
+        typeDefinition={contentTypes[contentType] || {}}
         onChange={onChange}
+        readOnly={readOnly}
+        hideLabel={hideLabel}
+      />
+    )
+  }
+
+  if (type === 'image') {
+    // Uploads against the character rather than through `onChange`: its value
+    // names a file only the server writes.
+    return (
+      <ImageField
+        name={name}
+        label={label}
+        value={value}
         readOnly={readOnly}
         hideLabel={hideLabel}
       />
@@ -202,7 +255,30 @@ export default function FieldRenderer({
   )
 }
 
-function renderControl({ inputId, type, definition, value, onChange, autoFocus, label, variant }) {
+interface ControlArgs {
+  inputId: string
+  type: string
+  definition: FieldDefinition
+  value: unknown
+  onChange?: (value: unknown) => void
+  autoFocus: boolean
+  label: string
+  variant?: string
+}
+
+function renderControl({
+  inputId,
+  type,
+  definition,
+  value,
+  onChange,
+  autoFocus,
+  label,
+  variant,
+}: ControlArgs): ReactNode {
+  // A control shows what it was given; anything that is not text or a number
+  // shows as empty rather than "[object Object]".
+  const shown = typeof value === 'string' || typeof value === 'number' ? value : ''
   const commonStyle = fieldInput
 
   switch (type) {
@@ -224,7 +300,7 @@ function renderControl({ inputId, type, definition, value, onChange, autoFocus, 
         <input
           id={inputId}
           type="number"
-          value={value ?? ''}
+          value={shown}
           min={definition.min}
           max={definition.max}
           autoFocus={autoFocus}
@@ -250,7 +326,7 @@ function renderControl({ inputId, type, definition, value, onChange, autoFocus, 
       return (
         <textarea
           id={inputId}
-          value={value ?? ''}
+          value={shown}
           rows={definition.rows || 4}
           placeholder={definition.placeholder || ''}
           autoFocus={autoFocus}
@@ -263,14 +339,14 @@ function renderControl({ inputId, type, definition, value, onChange, autoFocus, 
       return (
         <select
           id={inputId}
-          value={value ?? ''}
+          value={shown}
           autoFocus={autoFocus}
           onChange={(e) => onChange?.(e.target.value)}
           style={commonStyle}
         >
           <option value="">—</option>
           {(definition.options || []).map((option) => {
-            const optionValue = typeof option === 'object' ? option.value : option
+            const optionValue = optionValueOf(option)
             const optionLabel = typeof option === 'object' ? option.label || option.value : option
             return (
               <option key={optionValue} value={optionValue}>
@@ -286,7 +362,7 @@ function renderControl({ inputId, type, definition, value, onChange, autoFocus, 
         <input
           id={inputId}
           type="text"
-          value={value ?? ''}
+          value={shown}
           placeholder={definition.placeholder || ''}
           autoFocus={autoFocus}
           onChange={(e) => onChange?.(e.target.value)}
@@ -299,13 +375,15 @@ function renderControl({ inputId, type, definition, value, onChange, autoFocus, 
 // Read-only display. A checkbox reads as a tick rather than "true", and a select
 // shows its option's label rather than the stored value — the value is an
 // identifier, and showing it would leak a detail the player never chose.
-function formatDisplay(type, value, definition) {
+function optionValueOf(option: Option) {
+  return typeof option === 'object' ? option.value : option
+}
+
+function formatDisplay(type: string, value: unknown, definition: FieldDefinition) {
   if (type === 'checkbox') return value ? '✓' : '—'
   if (type === 'select') {
-    const match = (definition.options || []).find((option) =>
-      typeof option === 'object' ? option.value === value : option === value
-    )
-    if (match) return typeof match === 'object' ? match.label || match.value : match
+    const match = (definition.options || []).find((option) => optionValueOf(option) === value)
+    if (match !== undefined) return typeof match === 'object' ? match.label || match.value : match
   }
   if (value === null || value === undefined || value === '') return '—'
   return String(value)

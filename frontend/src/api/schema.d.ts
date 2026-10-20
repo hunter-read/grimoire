@@ -3095,6 +3095,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/characters/{character_id}/images/{field}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * An image field's picture
+         * @description Serve an image field's picture to anyone who may read the character.
+         *
+         *     Read from the stored value alone, not the reader's copy of the sheet: a
+         *     party member may have a different version installed, or none.
+         */
+        get: operations["get_image_api_characters__character_id__images__field__get"];
+        put?: never;
+        /**
+         * Set the picture an image field holds
+         * @description Set an image field's picture. Only the character's owner may.
+         */
+        post: operations["upload_image_api_characters__character_id__images__field__post"];
+        /**
+         * Remove an image field's picture
+         * @description Remove an image field's picture.
+         *
+         *     Allowed for a field the sheet no longer declares, as long as what it holds
+         *     is a picture: the player should be able to clear one the sheet left behind.
+         */
+        delete: operations["delete_image_api_characters__character_id__images__field__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/characters/{character_id}/portrait": {
         parameters: {
             query?: never;
@@ -7506,6 +7540,11 @@ export interface components {
              */
             relative_dir?: string;
         };
+        /** Body_upload_image_api_characters__character_id__images__field__post */
+        Body_upload_image_api_characters__character_id__images__field__post: {
+            /** File */
+            file: string;
+        };
         /** Body_upload_member_art_api_campaigns__campaign_id__members__member_id__art_post */
         Body_upload_member_art_api_campaigns__campaign_id__members__member_id__art_post: {
             /** File */
@@ -8883,6 +8922,7 @@ export interface components {
              * @default true
              */
             owned?: boolean;
+            portrait_crop?: components["schemas"]["PortraitCrop"] | null;
             /** Portrait Path */
             portrait_path?: string | null;
             /** Portrait Version */
@@ -8936,11 +8976,18 @@ export interface components {
             entries?: {
                 [key: string]: unknown;
             };
+            /** Images */
+            images?: {
+                [key: string]: string;
+            };
             /**
              * Name
              * @default
              */
             name?: string;
+            /** Portrait */
+            portrait?: string | null;
+            portrait_crop?: components["schemas"]["PortraitCrop"] | null;
             /** Schema */
             schema?: {
                 [key: string]: unknown;
@@ -8993,6 +9040,7 @@ export interface components {
              * @default true
              */
             owned?: boolean;
+            portrait_crop?: components["schemas"]["PortraitCrop"] | null;
             /** Portrait Path */
             portrait_path?: string | null;
             /** Portrait Version */
@@ -9032,6 +9080,7 @@ export interface components {
             } | null;
             /** Name */
             name?: string | null;
+            portrait_crop?: components["schemas"]["PortraitCrop"] | null;
             /** Status */
             status?: string | null;
             /** Unset */
@@ -10393,6 +10442,13 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** ImageFieldResponse */
+        ImageFieldResponse: {
+            /** Field */
+            field: string;
+            /** Value */
+            value: string;
+        };
         /**
          * ImportRequest
          * @description Add entries to a ruleset, from a pack document or an installed pack.
@@ -10487,6 +10543,7 @@ export interface components {
              * @default true
              */
             owned?: boolean;
+            portrait_crop?: components["schemas"]["PortraitCrop"] | null;
             /** Portrait Path */
             portrait_path?: string | null;
             /** Portrait Version */
@@ -11894,6 +11951,32 @@ export interface components {
             user_id: string;
             /** Username */
             username: string;
+        };
+        /**
+         * PortraitCrop
+         * @description Which part of a portrait a frame shows.
+         *
+         *     ``x`` and ``y`` are the focus point, as percentages across and down the
+         *     image; ``zoom`` magnifies about it. A frame of any shape keeps the focus
+         *     point in view, so one choice serves the square header, the list's card and
+         *     a tall panel on the sheet alike.
+         */
+        PortraitCrop: {
+            /**
+             * X
+             * @default 50
+             */
+            x?: number;
+            /**
+             * Y
+             * @default 50
+             */
+            y?: number;
+            /**
+             * Zoom
+             * @default 1
+             */
+            zoom?: number;
         };
         /** PortraitResponse */
         PortraitResponse: {
@@ -22907,6 +22990,121 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CharacterExport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_image_api_characters__character_id__images__field__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                character_id: string;
+                field: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_image_api_characters__character_id__images__field__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                character_id: string;
+                field: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_image_api_characters__character_id__images__field__post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImageFieldResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_image_api_characters__character_id__images__field__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                character_id: string;
+                field: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CharacterDeletedResponse"];
                 };
             };
             /** @description Validation Error */

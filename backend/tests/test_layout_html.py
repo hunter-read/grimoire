@@ -61,14 +61,14 @@ class TestBrowserAllowlistMatches:
 
     RENDERER = os.path.join(
         os.path.dirname(__file__), "..", "..", "frontend", "src",
-        "components", "characters", "LayoutRenderer.jsx",
+        "components", "characters", "LayoutRenderer.tsx",
     )
 
     def _js_set(self, name: str) -> set[str]:
         with open(self.RENDERER, encoding="utf-8") as handle:
             source = handle.read()
         match = re.search(rf"const {name} = new Set\(\[(.*?)\]\)", source, re.S)
-        assert match, f"{name} not found in LayoutRenderer.jsx"
+        assert match, f"{name} not found in LayoutRenderer.tsx"
         # Strip comments before collecting the quoted tag names.
         body = re.sub(r"//[^\n]*", "", match.group(1))
         return set(re.findall(r"'([a-z0-9-]+)'", body))

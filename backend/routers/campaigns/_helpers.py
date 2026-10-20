@@ -7,7 +7,8 @@ from typing import Optional, List
 from fastapi import HTTPException
 from sqlalchemy import text
 
-from ...models import Campaign, CampaignMember, Ruleset, User
+from ...models import Campaign, CampaignMember, Character, Ruleset, User
+from ...services.characters.images import remove_files_after_commit
 from ...auth import CurrentUser
 from ...sessions import delete_user_sessions
 
@@ -143,7 +144,11 @@ def purge_user_data(db, user_id: str) -> None:
     attribution on content that survives them. Every FK referencing ``users.id``
     must be handled here or the subsequent ``DELETE FROM users`` fails against
     SQLite's foreign_keys=ON. Does not delete the User itself, and does not commit.
+    Their characters' portraits and pictures are removed once the caller commits.
     """
+    remove_files_after_commit(
+        db, [row[0] for row in db.query(Character.id).filter_by(user_id=user_id).all()]
+    )
     for campaign in db.query(Campaign).filter_by(owner_id=user_id).all():
         db.delete(campaign)
     # Personal rulesets reach nobody else, so they go with their owner (and
