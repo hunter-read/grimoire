@@ -45,7 +45,9 @@ describe('ShareView', () => {
     )
     expect(screen.getByText(/sharePage.open/).closest('a')).toHaveAttribute('target', '_blank')
     expect(fetch).toHaveBeenCalledWith('/api/share/tok/meta', expect.anything())
-    expect(document.title).toBe('Old Tavern - Grimoire')
+    // The title is set in an effect after the name renders, so it is waited
+    // for on its own rather than assumed to have landed with the name.
+    await waitFor(() => expect(document.title).toBe('Old Tavern - Grimoire'))
   })
 
   it('plays audio', async () => {
