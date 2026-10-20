@@ -74,6 +74,13 @@ vi.mock('../components/campaigns/MemberRow', () => ({
     </div>
   ),
 }))
+vi.mock('../components/campaigns/CampaignCharacters', () => ({
+  default: ({ campaignId, ownerId, canAdd }) => (
+    <div data-testid="campaign-characters" data-can-add={String(canAdd)}>
+      {campaignId}:{ownerId}
+    </div>
+  ),
+}))
 vi.mock('../components/campaigns/InvitePanel', () => ({
   default: () => <div data-testid="invite-panel" />,
 }))
@@ -562,5 +569,37 @@ describe('CampaignDetailView leaving a campaign', () => {
     renderView()
     await screen.findByText('Lost Mines')
     expect(screen.queryByRole('button', { name: /leave campaign/i })).not.toBeInTheDocument()
+  })
+})
+
+describe('CampaignDetailView characters', () => {
+  const charactersCard = async () => screen.findByTestId('campaign-characters')
+
+  it('shows the campaign characters to the GM, who may add their own', async () => {
+    mockLoad()
+    renderView()
+    const card = await charactersCard()
+    expect(card).toHaveTextContent('c1:owner1')
+    expect(card.dataset.canAdd).toBe('true')
+  })
+
+  it('lets an accepted player add a character', async () => {
+    mockUser = { id: 'p1', role: 'player', campaign_access: true }
+    mockLoad()
+    renderView()
+    expect((await charactersCard()).dataset.canAdd).toBe('true')
+  })
+
+  it('does not let an admin who is not at the table add one', async () => {
+    mockUser = { id: 'admin1', role: 'admin', campaign_access: true }
+    mockLoad()
+    renderView()
+    expect((await charactersCard()).dataset.canAdd).toBe('false')
+  })
+
+  it('does not let anyone add one while the campaign is archived', async () => {
+    mockLoad({ campaign: makeCampaign({ is_archived: true }) })
+    renderView()
+    expect((await charactersCard()).dataset.canAdd).toBe('false')
   })
 })

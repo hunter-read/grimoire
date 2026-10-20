@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
+import type { ComponentType, CSSProperties } from 'react'
+import type { TFunction } from 'i18next'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -9,21 +11,21 @@ import {
   LuUserCheck,
   LuCalendar,
   LuLink,
-  LuImagePlus,
   LuLock,
   LuLogOut,
 } from 'react-icons/lu'
 import api, { campaigns } from '../api'
+import type { ResponseOf } from '../api'
 import { useAuth } from '../context/AuthContext'
 import { useUISettings } from '../context/UISettingsContext'
 import Spinner from '../components/Spinner'
 import CampaignEditor from '../components/campaigns/CampaignEditor'
 import CampaignActionsMenu from '../components/campaigns/CampaignActionsMenu'
-import WikiView from '../components/campaigns/WikiView'
 import WikiMarkdown from '../components/campaigns/WikiMarkdown'
 import AvailabilityChart from '../components/campaigns/AvailabilityChart'
-import CalendarMenu from '../components/campaigns/CalendarMenu'
+import CalendarMenuJs from '../components/campaigns/CalendarMenu'
 import ResourcesPanel from '../components/campaigns/ResourcesPanel'
+import CampaignCharacters from '../components/campaigns/CampaignCharacters'
 import BannerHero from '../components/campaigns/BannerHero'
 import MemberRow from '../components/campaigns/MemberRow'
 import InvitePanel from '../components/campaigns/InvitePanel'
@@ -32,7 +34,25 @@ import AnchoredPopover from '../components/campaigns/AnchoredPopover'
 import { formatScheduleTime, USER_TZ } from '../components/campaigns/_scheduleShared'
 import useIsMobile from '../hooks/useIsMobile'
 
-const CARD = {
+// Still JavaScript, so TypeScript would read its optional `style` as required.
+const CalendarMenu = CalendarMenuJs as ComponentType<{ campaign: Campaign }>
+
+type Campaign = ResponseOf<'/campaigns/{campaign_id}', 'get'>
+type Member = Campaign['members'][number]
+type ScheduleState = ResponseOf<'/campaigns/{campaign_id}/schedule', 'get'>
+type Availability = ResponseOf<'/campaigns/{campaign_id}/availability', 'get'>
+
+// The schedule definition is stored as free-form JSON; these are the parts the
+// one-line summary reads.
+interface ScheduleDefinition {
+  frequency?: string
+  days?: number[]
+  custom_dates?: string[]
+  monthly_week?: number | string
+  time_local?: string
+}
+
+const CARD: CSSProperties = {
   background: 'var(--bg-card)',
   border: '1px solid var(--border)',
   borderRadius: 12,
@@ -42,14 +62,14 @@ const CARD = {
 // A fixed-height card whose body scrolls — used so Players and Schedule line up
 // at the same height regardless of how many players there are (room for ~4–5,
 // scroll past that up to the 8-player cap).
-const SCROLL_CARD = {
+const SCROLL_CARD: CSSProperties = {
   ...CARD,
   height: 420,
   display: 'flex',
   flexDirection: 'column',
 }
 
-const GROUP_LABEL = {
+const GROUP_LABEL: CSSProperties = {
   fontSize: 11,
   textTransform: 'uppercase',
   letterSpacing: '0.06em',
@@ -58,7 +78,7 @@ const GROUP_LABEL = {
   margin: '4px 0 6px',
 }
 
-const SECTION_HEADING = {
+const SECTION_HEADING: CSSProperties = {
   fontSize: 15,
   fontWeight: 600,
   display: 'flex',
@@ -66,7 +86,7 @@ const SECTION_HEADING = {
   gap: 8,
 }
 
-const ROSTER_BTN = {
+const ROSTER_BTN: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 5,
@@ -80,9 +100,9 @@ const ROSTER_BTN = {
 }
 
 // Compact one-line schedule summary (e.g. "Weekly — Fri · 7:00 PM") for the meta row.
-function scheduleSummary(def, t) {
+function scheduleSummary(def: ScheduleDefinition | null | undefined, t: TFunction) {
   if (!def) return null
-  const FREQ = {
+  const FREQ: Record<string, string> = {
     weekly: t('schedule.frequency.weekly'),
     biweekly: t('schedule.frequency.biweekly'),
     monthly: t('schedule.frequency.monthly'),
@@ -97,12 +117,12 @@ function scheduleSummary(def, t) {
     t('schedule.days.saturday'),
     t('schedule.days.sunday'),
   ]
-  const freq = FREQ[def.frequency] ?? def.frequency
+  const freq = FREQ[def.frequency ?? ''] ?? def.frequency
   let pattern = ''
   if (def.frequency === 'custom') {
     pattern = t('campaignDetail.overview.customDates', { count: def.custom_dates?.length ?? 0 })
   } else if (def.frequency === 'monthly') {
-    const WEEKS = {
+    const WEEKS: Record<string, string> = {
       1: t('schedule.weeks.1st'),
       2: t('schedule.weeks.2nd'),
       3: t('schedule.weeks.3rd'),
@@ -111,7 +131,7 @@ function scheduleSummary(def, t) {
     }
     pattern = t('schedule.monthlyPattern', {
       week: WEEKS[String(def.monthly_week)] ?? '',
-      day: DAY_NAMES[def.days?.[0]] ?? '',
+      day: DAY_NAMES[def.days?.[0] ?? -1] ?? '',
     })
   } else {
     pattern = (def.days ?? []).map((d) => DAY_NAMES[d]).join(' & ')
@@ -124,30 +144,32 @@ function scheduleSummary(def, t) {
 
 export default function CampaignDetailView() {
   const { t } = useTranslation()
-  const { campaignId } = useParams()
+  const { campaignId = '' } = useParams()
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const user = useAuth()?.user
+  // Only /auth/me carries it; the shorter login block leaves it out.
+  const campaignAccess = user && 'campaign_access' in user ? user.campaign_access : undefined
   const isMobile = useIsMobile()
   const { guest_access_enabled } = useUISettings()
-  const [campaign, setCampaign] = useState(null)
-  const [systems, setSystems] = useState([])
-  const [schedule, setSchedule] = useState(null)
+  const [campaign, setCampaign] = useState<Campaign | null>(null)
+  const [systems, setSystems] = useState<{ id: string; name: string }[]>([])
+  const [schedule, setSchedule] = useState<ScheduleState | null>(null)
   const [showEditor, setShowEditor] = useState(false)
   const [showInvite, setShowInvite] = useState(false)
   const [showGuests, setShowGuests] = useState(false)
   // Anchors for the invite/guest popovers.
-  const inviteBtnRef = useRef(null)
-  const guestBtnRef = useRef(null)
-  const [error, setError] = useState(null)
+  const inviteBtnRef = useRef<HTMLButtonElement>(null)
+  const guestBtnRef = useRef<HTMLButtonElement>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const load = () => {
     campaigns
       .get(campaignId)
       .then(setCampaign)
-      .catch((e) => setError(e.message))
+      .catch((e: Error) => setError(e.message))
   }
 
-  const [availability, setAvailability] = useState(null)
+  const [availability, setAvailability] = useState<Availability | null>(null)
 
   const loadSchedule = () => {
     campaigns
@@ -177,11 +199,11 @@ export default function CampaignDetailView() {
     // so depending on them would refetch in a loop.
   }, [campaignId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleSetAvailability = async (date, status) => {
+  const handleSetAvailability = async (date: string, status: string) => {
     await campaigns.setAvailability(campaignId, date, { status })
     loadAvailability()
   }
-  const handleCancelDate = async (date) => {
+  const handleCancelDate = async (date: string) => {
     await campaigns.cancelDate(campaignId, date)
     loadAvailability()
   }
@@ -224,7 +246,7 @@ export default function CampaignDetailView() {
   // management when their own access is disabled. Backend enforces this; the UI
   // only reflects it. Archiving is checked first so the notice names the cause
   // the owner can actually act on.
-  const selfDisabled = user?.campaign_access === false
+  const selfDisabled = campaignAccess === false
   const isArchived = !!campaign.is_archived
   const canManage = isOwner && !campaign.locked && !selfDisabled
   const readOnlyNotice = isArchived
@@ -242,8 +264,18 @@ export default function CampaignDetailView() {
 
   // Leaving is always the member's own call — archiving must not trap anyone in
   // a campaign — so this ignores `locked` too. Owners leave by deleting instead.
-  const canLeave =
-    !isOwner && campaign.members?.some((m) => m.user_id === user?.id && m.status === 'accepted')
+  const isAcceptedMember = campaign.members?.some(
+    (m: Member) => m.user_id === user?.id && m.status === 'accepted' && !m.is_owner
+  )
+  const canLeave = !isOwner && isAcceptedMember
+
+  // Bringing a character to the table is for the people at it - the owner and
+  // accepted players, not an admin looking in - and not while it is read-only.
+  const canAddCharacter =
+    (campaign.owner_id === user?.id || isAcceptedMember) &&
+    !campaign.locked &&
+    !isArchived &&
+    !selfDisabled
 
   const deleteCampaign = async () => {
     if (!confirm(t('campaignDetail.deleteConfirm', { name: campaign.name }))) return
@@ -263,25 +295,25 @@ export default function CampaignDetailView() {
     load()
   }
 
-  const handleUpdateMember = async (userId, status) => {
+  const handleUpdateMember = async (userId: string, status: string) => {
     await campaigns.updateMember(campaignId, userId, status)
     load()
   }
 
-  const handleRemoveMember = async (userId) => {
+  const handleRemoveMember = async (userId: string) => {
     if (!confirm(t('common.delete') + '?')) return
     await campaigns.removeMember(campaignId, userId)
     load()
   }
 
-  const handleSetCharacterName = async (userId, character_name) => {
+  const handleSetCharacterName = async (userId: string, character_name: string) => {
     await campaigns.setCharacterName(campaignId, userId, character_name)
     load()
   }
 
   const leaveCampaign = async () => {
     if (!confirm(t('campaignDetail.leaveConfirm', { name: campaign.name }))) return
-    await campaigns.removeMember(campaignId, user.id)
+    await campaigns.removeMember(campaignId, user?.id ?? '')
     navigate('/campaigns')
   }
 
@@ -440,7 +472,7 @@ export default function CampaignDetailView() {
                 <span>
                   {t('campaignDetail.tabs.schedule')}:{' '}
                   <span style={{ color: 'var(--text-dim)' }}>
-                    {scheduleSummary(schedule.definition, t)}
+                    {scheduleSummary(schedule.definition as ScheduleDefinition, t)}
                   </span>
                 </span>
               )}
@@ -515,9 +547,10 @@ export default function CampaignDetailView() {
         {/* Players (GM listed separately above the player list) */}
         {isGmCampaign &&
           (() => {
-            const gmMember = campaign.members?.find((m) => m.is_owner)
-            const playerMembers = campaign.members?.filter((m) => !m.is_owner && !m.is_guest) ?? []
-            const guestMembers = campaign.members?.filter((m) => m.is_guest) ?? []
+            const gmMember = campaign.members?.find((m: Member) => m.is_owner)
+            const playerMembers =
+              campaign.members?.filter((m: Member) => !m.is_owner && !m.is_guest) ?? []
+            const guestMembers = campaign.members?.filter((m: Member) => m.is_guest) ?? []
             return (
               <div style={SCROLL_CARD}>
                 <div
@@ -689,6 +722,15 @@ export default function CampaignDetailView() {
         )}
       </div>
 
+      {/* Characters — every sheet played in the campaign, under its player. */}
+      <CampaignCharacters
+        campaignId={campaign.id}
+        ownerId={campaign.owner_id}
+        viewerId={user?.id}
+        canAdd={canAddCharacter}
+        style={{ ...CARD, marginBottom: 20 }}
+      />
+
       {/* Resources — full width below the two-column row. ResourcesPanel renders
           its own single title + action buttons. */}
       <div style={CARD}>
@@ -700,8 +742,8 @@ export default function CampaignDetailView() {
           campaign={campaign}
           isGmOrAdmin={user?.role === 'admin' || user?.role === 'gm'}
           onClose={() => setShowEditor(false)}
-          onSaved={(updated) => {
-            setCampaign((prev) => ({ ...prev, ...updated }))
+          onSaved={(updated: Partial<Campaign>) => {
+            setCampaign((prev) => (prev ? { ...prev, ...updated } : prev))
             setShowEditor(false)
           }}
           onDelete={deleteCampaign}

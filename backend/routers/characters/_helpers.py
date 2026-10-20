@@ -7,7 +7,15 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from ...config import CHARACTER_PORTRAIT_DIR
-from ...models import Campaign, CampaignMember, Character, ContentEntry, Ruleset, RulesetEntry
+from ...models import (
+    Campaign,
+    CampaignMember,
+    Character,
+    ContentEntry,
+    Ruleset,
+    RulesetEntry,
+    User,
+)
 from ...services import characters as svc
 from ...services.characters import images as char_images
 from ...services.characters import rulesets as rs
@@ -128,6 +136,20 @@ def campaign_labels(db: Session, campaign_ids: Iterable[Any]) -> dict[str, Campa
         .all()
     )
     return {row[0]: CampaignLabel(row[1], row[2]) for row in rows}
+
+
+def owner_names(db: Session, user_ids: Iterable[Any]) -> dict[str, str]:
+    """User id → the name to show for a character's player.
+
+    A campaign groups its characters under the people who play them, and a
+    player who has since left the table is no longer in its member list - so
+    the name travels with the character rather than being looked up there.
+    """
+    wanted = {uid for uid in user_ids if uid}
+    if not wanted:
+        return {}
+    rows = db.query(User.id, User.display_name, User.username).filter(User.id.in_(wanted)).all()
+    return {row[0]: row[1] or row[2] for row in rows}
 
 
 # --- export / import -----------------------------------------------------

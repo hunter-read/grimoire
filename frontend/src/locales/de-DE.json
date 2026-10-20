@@ -3383,6 +3383,17 @@
     "bulletList": "Aufzählung",
     "numberedList": "Nummerierte Liste"
   },
+  "campaignCharacters": {
+    "title": "Charaktere",
+    "add": "Charakter hinzufügen",
+    "addTitle": "Einen deiner Charaktere mitbringen",
+    "noneToAdd": "Alle deine Charaktere sind schon hier, oder du hast noch keine.",
+    "goToCharacters": "Zu den Charakteren",
+    "empty": "Noch keine Charaktere in dieser Kampagne.",
+    "noActive": "Kein aktiver Charakter",
+    "pastCharacters_one": "{{count}} früherer Charakter",
+    "pastCharacters_other": "{{count}} frühere Charaktere"
+  },
   "characters": {
     "title": "Charaktere",
     "derived": "Abgeleitet",

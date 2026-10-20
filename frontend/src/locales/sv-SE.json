@@ -3383,6 +3383,17 @@
     "bulletList": "Punktlista",
     "numberedList": "Numrerad lista"
   },
+  "campaignCharacters": {
+    "title": "Rollpersoner",
+    "add": "Lägg till rollperson",
+    "addTitle": "Ta med en av dina rollpersoner",
+    "noneToAdd": "Alla dina rollpersoner är redan här, eller så har du inga än.",
+    "goToCharacters": "Gå till rollpersoner",
+    "empty": "Inga rollpersoner i den här kampanjen än.",
+    "noActive": "Ingen aktiv rollperson",
+    "pastCharacters_one": "{{count}} tidigare rollperson",
+    "pastCharacters_other": "{{count}} tidigare rollpersoner"
+  },
   "characters": {
     "title": "Rollpersoner",
     "derived": "Härlett",

@@ -2138,12 +2138,14 @@ rather than stored as sent:
 `character_count`, and on detail `document`.
 
 **Character fields:** `id`, `name`, `schema_ref`, `schema_name`, `system`,
-`schema_missing`, `campaign_id`, `campaign_name`, `campaign_has_gm`,
+`schema_missing`, `user_id`, `owner_name`, `campaign_id`, `campaign_name`, `campaign_has_gm`,
 `gm_can_edit`, `status`, `portrait_path`, `portrait_version`, `portrait_crop`,
 `owned`, `editable`, `created_at`, `updated_at`, and on detail `data`,
 `computed`, `validators`, and `entries`.
 
-`owned` is whether the caller is the character's player; `editable` is whether
+`user_id` is the character's player and `owner_name` their display name (or
+username), so a campaign page can group its characters by player - including a
+player who has since left the table. `owned` is whether the caller is the character's player; `editable` is whether
 they may edit it. A campaign's owner and accepted members can read a character
 placed in it, and only its player edits it - unless the player sets
 `gm_can_edit`, which lets the campaign's owner (its GM) edit the sheet too: its

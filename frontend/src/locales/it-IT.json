@@ -3383,6 +3383,17 @@
     "bulletList": "Elenco puntato",
     "numberedList": "Elenco numerato"
   },
+  "campaignCharacters": {
+    "title": "Personaggi",
+    "add": "Aggiungi personaggio",
+    "addTitle": "Porta uno dei tuoi personaggi",
+    "noneToAdd": "Tutti i tuoi personaggi sono già qui, oppure non ne hai ancora.",
+    "goToCharacters": "Vai ai personaggi",
+    "empty": "Ancora nessun personaggio in questa campagna.",
+    "noActive": "Nessun personaggio attivo",
+    "pastCharacters_one": "{{count}} personaggio precedente",
+    "pastCharacters_other": "{{count}} personaggi precedenti"
+  },
   "characters": {
     "title": "Personaggi",
     "derived": "Derivato",

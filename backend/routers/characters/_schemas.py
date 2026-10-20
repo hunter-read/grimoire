@@ -144,6 +144,10 @@ class CharacterSummary(BaseModel):
     # False when the schema this character was built on is not installed. The
     # character still opens; it renders read-only from stored data.
     schema_missing: bool = False
+    # The player who owns the character, and the name to show for them - what
+    # a campaign groups its characters under.
+    user_id: str = ""
+    owner_name: str = ""
     # The campaign this character is played in, if any. Setting it lets the
     # party read the sheet; editing stays with the owner.
     campaign_id: Optional[str] = None

@@ -3383,6 +3383,17 @@
     "bulletList": "Opsommingslijst",
     "numberedList": "Genummerde lijst"
   },
+  "campaignCharacters": {
+    "title": "Personages",
+    "add": "Personage toevoegen",
+    "addTitle": "Breng een van je personages mee",
+    "noneToAdd": "Al je personages zijn hier al, of je hebt er nog geen.",
+    "goToCharacters": "Naar personages",
+    "empty": "Nog geen personages in deze campagne.",
+    "noActive": "Geen actief personage",
+    "pastCharacters_one": "{{count}} vorig personage",
+    "pastCharacters_other": "{{count}} vorige personages"
+  },
   "characters": {
     "title": "Personages",
     "derived": "Afgeleid",

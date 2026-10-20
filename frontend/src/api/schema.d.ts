@@ -9096,6 +9096,11 @@ export interface components {
              * @default true
              */
             owned?: boolean;
+            /**
+             * Owner Name
+             * @default
+             */
+            owner_name?: string;
             portrait_crop?: components["schemas"]["PortraitCrop"] | null;
             /** Portrait Path */
             portrait_path?: string | null;
@@ -9125,6 +9130,11 @@ export interface components {
             system?: string;
             /** Updated At */
             updated_at?: string | null;
+            /**
+             * User Id
+             * @default
+             */
+            user_id?: string;
             /** Validators */
             validators?: components["schemas"]["ValidatorResult"][];
         };
@@ -9229,6 +9239,11 @@ export interface components {
              * @default true
              */
             owned?: boolean;
+            /**
+             * Owner Name
+             * @default
+             */
+            owner_name?: string;
             portrait_crop?: components["schemas"]["PortraitCrop"] | null;
             /** Portrait Path */
             portrait_path?: string | null;
@@ -9258,6 +9273,11 @@ export interface components {
             system?: string;
             /** Updated At */
             updated_at?: string | null;
+            /**
+             * User Id
+             * @default
+             */
+            user_id?: string;
         };
         /** CharacterUpdate */
         CharacterUpdate: {
@@ -10778,6 +10798,11 @@ export interface components {
              * @default true
              */
             owned?: boolean;
+            /**
+             * Owner Name
+             * @default
+             */
+            owner_name?: string;
             portrait_crop?: components["schemas"]["PortraitCrop"] | null;
             /** Portrait Path */
             portrait_path?: string | null;
@@ -10809,6 +10834,11 @@ export interface components {
             unmatched?: string[];
             /** Updated At */
             updated_at?: string | null;
+            /**
+             * User Id
+             * @default
+             */
+            user_id?: string;
             /** Validators */
             validators?: components["schemas"]["ValidatorResult"][];
         };

@@ -333,9 +333,12 @@ def _serialize_character(
     db: Optional[Session] = None,
     viewer_id: Optional[str] = None,
     campaigns: Optional[dict[str, helpers.CampaignLabel]] = None,
+    owners: Optional[dict[str, str]] = None,
 ) -> dict:
     if campaigns is None:
         campaigns = helpers.campaign_labels(db, [row.campaign_id]) if db else {}
+    if owners is None:
+        owners = helpers.owner_names(db, [row.user_id]) if db else {}
     campaign = campaigns.get(row.campaign_id or "")
     owned = viewer_id is None or row.user_id == viewer_id
     payload: dict[str, Any] = {
@@ -345,6 +348,9 @@ def _serialize_character(
         "schema_name": schema.name if schema else "",
         "system": (schema.system or "") if schema else "",
         "schema_missing": schema is None,
+        # Who plays it, so a campaign can group its characters by player.
+        "user_id": row.user_id,
+        "owner_name": owners.get(row.user_id, ""),
         "campaign_id": row.campaign_id,
         "campaign_name": campaign.name if campaign else None,
         # Whether the campaign has a GM other than the player - the only case
@@ -412,6 +418,7 @@ def list_characters(
         for row in db.query(CharacterSchema).filter_by(user_id=current_user.id).all()
     }
     labels = helpers.campaign_labels(db, (row.campaign_id for row in rows))
+    owners = helpers.owner_names(db, (row.user_id for row in rows))
     return {
         "characters": [
             _serialize_character(
@@ -419,6 +426,7 @@ def list_characters(
                 schemas.get(row.schema_ref),
                 viewer_id=current_user.id,
                 campaigns=labels,
+                owners=owners,
             )
             for row in rows
         ]

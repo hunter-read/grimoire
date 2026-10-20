@@ -3383,6 +3383,17 @@
     "bulletList": "Lista com marcadores",
     "numberedList": "Lista numerada"
   },
+  "campaignCharacters": {
+    "title": "Personagens",
+    "add": "Adicionar personagem",
+    "addTitle": "Traga um dos seus personagens",
+    "noneToAdd": "Todos os seus personagens já estão aqui, ou você ainda não tem nenhum.",
+    "goToCharacters": "Ir para Personagens",
+    "empty": "Ainda não há personagens nesta campanha.",
+    "noActive": "Nenhum personagem ativo",
+    "pastCharacters_one": "{{count}} personagem anterior",
+    "pastCharacters_other": "{{count}} personagens anteriores"
+  },
   "characters": {
     "title": "Personagens",
     "derived": "Derivado",

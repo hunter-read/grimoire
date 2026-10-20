@@ -3383,6 +3383,17 @@
     "bulletList": "Liste à puces",
     "numberedList": "Liste numérotée"
   },
+  "campaignCharacters": {
+    "title": "Personnages",
+    "add": "Ajouter un personnage",
+    "addTitle": "Amener l'un de vos personnages",
+    "noneToAdd": "Tous vos personnages sont déjà ici, ou vous n'en avez pas encore.",
+    "goToCharacters": "Aller aux personnages",
+    "empty": "Aucun personnage dans cette campagne pour l'instant.",
+    "noActive": "Aucun personnage actif",
+    "pastCharacters_one": "{{count}} ancien personnage",
+    "pastCharacters_other": "{{count}} anciens personnages"
+  },
   "characters": {
     "title": "Personnages",
     "derived": "Dérivé",

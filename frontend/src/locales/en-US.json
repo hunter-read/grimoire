@@ -3383,6 +3383,17 @@
     "bulletList": "Bulleted list",
     "numberedList": "Numbered list"
   },
+  "campaignCharacters": {
+    "title": "Characters",
+    "add": "Add character",
+    "addTitle": "Bring one of your characters",
+    "noneToAdd": "All of your characters are already here, or you have none yet.",
+    "goToCharacters": "Go to Characters",
+    "empty": "No characters in this campaign yet.",
+    "noActive": "No active character",
+    "pastCharacters_one": "{{count}} past character",
+    "pastCharacters_other": "{{count}} past characters"
+  },
   "characters": {
     "title": "Characters",
     "derived": "Derived",
