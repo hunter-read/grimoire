@@ -3049,7 +3049,8 @@ export interface paths {
          * Get a character with computed values
          * @description One character, with its values and freshly computed derived values.
          *
-         *     A campaign member may read a party member's sheet; only the owner edits it.
+         *     A campaign member may read a party member's sheet; only the owner edits
+         *     it, unless they have let the campaign's GM edit it too.
          */
         get: operations["get_character_api_characters__character_id__get"];
         /**
@@ -3058,6 +3059,10 @@ export interface paths {
          *
          *     ``data`` is a partial patch: only the fields it names are touched, so two
          *     tabs editing different parts of a sheet do not clobber each other.
+         *
+         *     A GM the player let in edits the sheet - its name, values and portrait
+         *     framing - but where the character is played, its status and who may edit
+         *     it stay the player's.
          */
         put: operations["update_character_api_characters__character_id__put"];
         post?: never;
@@ -3113,7 +3118,7 @@ export interface paths {
         put?: never;
         /**
          * Set the picture an image field holds
-         * @description Set an image field's picture. Only the character's owner may.
+         * @description Set an image field's picture. Only someone who may edit the character may.
          */
         post: operations["upload_image_api_characters__character_id__images__field__post"];
         /**
@@ -3144,7 +3149,7 @@ export interface paths {
         put?: never;
         /**
          * Set a character's portrait
-         * @description Set a character's portrait. Only the character's owner may.
+         * @description Set a character's portrait. Only someone who may edit the character may.
          */
         post: operations["upload_portrait_api_characters__character_id__portrait_post"];
         /**
@@ -8895,6 +8900,11 @@ export interface components {
          * @description A character with its values, derived values, and any validator results.
          */
         CharacterDetail: {
+            /**
+             * Campaign Has Gm
+             * @default false
+             */
+            campaign_has_gm?: boolean;
             /** Campaign Id */
             campaign_id?: string | null;
             /** Campaign Name */
@@ -8909,10 +8919,20 @@ export interface components {
             data?: {
                 [key: string]: unknown;
             };
+            /**
+             * Editable
+             * @default true
+             */
+            editable?: boolean;
             /** Entries */
             entries?: {
                 [key: string]: unknown;
             };
+            /**
+             * Gm Can Edit
+             * @default false
+             */
+            gm_can_edit?: boolean;
             /** Id */
             id: string;
             /** Name */
@@ -9025,12 +9045,27 @@ export interface components {
          * @description One character, without its data — enough for the list view.
          */
         CharacterSummary: {
+            /**
+             * Campaign Has Gm
+             * @default false
+             */
+            campaign_has_gm?: boolean;
             /** Campaign Id */
             campaign_id?: string | null;
             /** Campaign Name */
             campaign_name?: string | null;
             /** Created At */
             created_at?: string | null;
+            /**
+             * Editable
+             * @default true
+             */
+            editable?: boolean;
+            /**
+             * Gm Can Edit
+             * @default false
+             */
+            gm_can_edit?: boolean;
             /** Id */
             id: string;
             /** Name */
@@ -9078,6 +9113,8 @@ export interface components {
             data?: {
                 [key: string]: unknown;
             } | null;
+            /** Gm Can Edit */
+            gm_can_edit?: boolean | null;
             /** Name */
             name?: string | null;
             portrait_crop?: components["schemas"]["PortraitCrop"] | null;
@@ -10506,6 +10543,11 @@ export interface components {
          * @description The new character, and what the import could not match.
          */
         ImportedCharacter: {
+            /**
+             * Campaign Has Gm
+             * @default false
+             */
+            campaign_has_gm?: boolean;
             /** Campaign Id */
             campaign_id?: string | null;
             /** Campaign Name */
@@ -10520,10 +10562,20 @@ export interface components {
             data?: {
                 [key: string]: unknown;
             };
+            /**
+             * Editable
+             * @default true
+             */
+            editable?: boolean;
             /** Entries */
             entries?: {
                 [key: string]: unknown;
             };
+            /**
+             * Gm Can Edit
+             * @default false
+             */
+            gm_can_edit?: boolean;
             /** Id */
             id: string;
             /**

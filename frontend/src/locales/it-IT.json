@@ -3441,7 +3441,10 @@
     "confirmRemoveImage": "Rimuovere l'immagine in {{label}}?",
     "noImage": "Nessuna immagine",
     "backToList": "Torna ai personaggi",
-    "readOnlyParty": "Personaggio di un membro del gruppo - sola lettura"
+    "readOnlyParty": "Personaggio di un membro del gruppo - sola lettura",
+    "gmEditing": "Personaggio di un giocatore - puoi modificarlo come GM",
+    "gmCanEdit": "Consenti al GM di modificare",
+    "gmCanEditHelp": "Consente anche al GM di questa campagna di modificare la scheda. Gli altri giocatori possono comunque solo leggerla. Si disattiva se il personaggio passa a un'altra campagna."
   },
   "contentPacks": {
     "title": "Pacchetti di contenuti",

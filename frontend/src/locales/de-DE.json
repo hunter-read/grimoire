@@ -3441,7 +3441,10 @@
     "confirmRemoveImage": "Das Bild in {{label}} entfernen?",
     "noImage": "Kein Bild",
     "backToList": "Zurück zu den Charakteren",
-    "readOnlyParty": "Charakter eines Gruppenmitglieds - nur lesen"
+    "readOnlyParty": "Charakter eines Gruppenmitglieds - nur lesen",
+    "gmEditing": "Charakter eines Spielers - als DM bearbeitbar",
+    "gmCanEdit": "DM darf bearbeiten",
+    "gmCanEditHelp": "Erlaubt dem Spielleiter dieser Kampagne, den Bogen ebenfalls zu bearbeiten. Andere Spieler können ihn weiterhin nur lesen. Wird ausgeschaltet, wenn der Charakter in eine andere Kampagne wechselt."
   },
   "contentPacks": {
     "title": "Inhaltspakete",

@@ -3441,7 +3441,10 @@
     "confirmRemoveImage": "Retirer l'image de {{label}} ?",
     "noImage": "Aucune image",
     "backToList": "Retour aux personnages",
-    "readOnlyParty": "Personnage d'un membre du groupe - lecture seule"
+    "readOnlyParty": "Personnage d'un membre du groupe - lecture seule",
+    "gmEditing": "Personnage d'un joueur - modifiable en tant que MJ",
+    "gmCanEdit": "Autoriser le MJ à modifier",
+    "gmCanEditHelp": "Permet au MJ de cette campagne de modifier aussi la fiche. Les autres joueurs peuvent toujours seulement la lire. Se désactive si le personnage change de campagne."
   },
   "contentPacks": {
     "title": "Packs de contenu",

@@ -3441,7 +3441,10 @@
     "confirmRemoveImage": "Ta bort bilden i {{label}}?",
     "noImage": "Ingen bild",
     "backToList": "Tillbaka till rollpersoner",
-    "readOnlyParty": "En gruppmedlems rollperson - skrivskyddad"
+    "readOnlyParty": "En gruppmedlems rollperson - skrivskyddad",
+    "gmEditing": "En spelares rollperson - du kan redigera den som spelledare",
+    "gmCanEdit": "Låt spelledaren redigera",
+    "gmCanEditHelp": "Låter kampanjens spelledare också redigera formuläret. Andra spelare kan fortfarande bara läsa det. Stängs av om rollpersonen flyttas till en annan kampanj."
   },
   "rulesets": {
     "title": "Regeluppsättningar",

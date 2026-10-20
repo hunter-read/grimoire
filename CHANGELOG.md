@@ -21,6 +21,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Character sheets can hold pictures besides the portrait - a knight's coat of arms, a ship. A sheet declares an `image` field and places it like any other; you add, replace or remove the picture right on the sheet. Sheets can also place the character's art itself with `<g-portrait>`, and the D&D 5e (2024) sheet now shows it large on its Spells & Details page
 - Click a character's art to see it large. On your own character you can choose its framing there - click or drag to pick the part that stays in view, and zoom in - and the header, the Characters list and the sheet all keep that part showing, so tall art no longer loses its head
 - Character exports carry the character's art, its framing and any other pictures on the sheet, and importing restores them
+- Players can let their campaign's GM edit their character. Tick **Let the GM edit** in the sheet's header and the GM can change the sheet's values, the character's name and its pictures, whatever sheet it is built on. It is off by default, other players at the table still only read the sheet, and moving the character to another campaign turns it off again
 
 ### Changed
 

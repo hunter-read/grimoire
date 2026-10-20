@@ -104,7 +104,8 @@ Edits save as you type, so there is no Save button to forget.
   drag on the picture to pick the part that stays in view, and zoom in on it.
   Every frame keeps that point showing - the square header, the list's card and
   the sheet - so a full-length portrait can show its face rather than its belt.
-  A party member sees the art large but cannot change it.
+  A party member sees the art large but cannot change it, unless you have let
+  the campaign's GM edit your sheet (see [Letting the GM edit](#letting-the-gm-edit)).
 - **Some sheets hold other pictures** - a knight's coat of arms, a ship. Add,
   replace or remove one where the sheet shows it; it saves on upload. Pictures
   follow the art's rules: PNG, JPEG, WebP or GIF, up to 5 MB.
@@ -248,7 +249,8 @@ the character is intact if the entry comes back.
 
 Setting a character's campaign puts it on that table, and everyone in the
 campaign can read the sheet - which is the point, since a GM should be able to
-see what the party is playing. Editing stays with the player who wrote it.
+see what the party is playing. Editing stays with the player who wrote it,
+unless they let the GM in (see [Letting the GM edit](#letting-the-gm-edit)).
 
 You can put a character in any campaign you are at the table for:
 
@@ -260,6 +262,23 @@ You can put a character in any campaign you are at the table for:
 Pick the campaign when you create the character, or change it later from the
 dropdown under the character's name in the sheet's header. Choosing **No
 campaign** takes the character off the table, and the sheet is private again.
+
+### Letting the GM edit
+
+Tick **Let the GM edit** in the sheet's header and the campaign's GM can edit
+your character too - fix a typo, take off hit points, add the loot they handed
+out. It is off for every new character, and it works the same whatever sheet the
+character is built on.
+
+- The GM edits the sheet itself: its values, the character's name, its art and
+  the pictures on it. Where the character is played, its status, and this
+  setting stay yours, and only you can delete the character.
+- Only the GM who runs the campaign gets in. The other players at the table
+  still just read the sheet.
+- Moving the character to another campaign turns it off, so a new GM has to be
+  let in again.
+- It is only offered when the campaign has a GM besides you - not for a
+  character in no campaign or in your own personal campaign.
 
 ### More than one character in a campaign
 

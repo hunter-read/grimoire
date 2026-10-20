@@ -2078,20 +2078,20 @@ campaign, which is exactly who wants a character sheet.
 | `/api/characters` | GET | user | The user's characters plus their parties', newest first. `?schema_ref=` filters by schema, `?campaign_id=` by campaign |
 | `/api/characters` | POST | user | Create a character. Body is `{schema_ref, name?, data?, campaign_id?}`. 400 if that schema is not installed, 403 if the campaign is not one you own or have joined |
 | `/api/characters/:id` | GET | user | One character with its `data` and freshly evaluated `computed` |
-| `/api/characters/:id` | PUT | user | Update `name`, `data`, `unset`, `campaign_id`, `status` and/or `portrait_crop`. `data` is a **partial patch** - only the fields it names are touched. See below for the reserved keys |
-| `/api/characters/:id` | DELETE | user | Delete a character |
+| `/api/characters/:id` | PUT | user | Update `name`, `data`, `unset`, `campaign_id`, `status`, `portrait_crop` and/or `gm_can_edit`. `data` is a **partial patch** - only the fields it names are touched. See below for the reserved keys. The owner, or the campaign's GM when `gm_can_edit` is on; a GM sending `campaign_id`, `status` or `gm_can_edit` gets 403, anyone else 404 |
+| `/api/characters/:id` | DELETE | user | Delete a character. Owner only |
 | `/api/characters/import` | POST | user | Rebuild a character from an exported file |
 | `/api/characters/importers` | GET | user | `{importers, available, downloads_enabled}`. `importers` are the ones you can run - the server's and your own - each with `scope` (`server`/`user`), the `sheet` it builds on, `sheet_installed`, `extensions`, `accepts_files`, `accepts_url`, the `inputs` it asks for (`{key, label, help, secret, required, when}`), and `available_version` when your own copy has an update. `available` are catalogue importers you lack, each with `install_as`: `user` (install it yourself), `server` (an admin installs it for everyone via `POST /api/addons/:id/install`), `settings` (an admin installs it from Settings, where a script's consent is asked) or `admin` (ask one). An empty add-on index is refreshed once from the configured sources |
 | `/api/characters/importers/:id/install` | POST | user | Install a catalogue importer into your own account, or update your copy. Only one that reads files with YAML - the downloaded manifest is checked, whatever the index says; 400 otherwise, 403 when installs are switched off |
 | `/api/characters/importers/:id` | DELETE | user | Remove an importer you installed. Characters imported with it are kept |
 | `/api/characters/import/external` | POST | user | Build a character from another tool's export. Body: `{text, filename}` for a file or `{url}` for a link, plus optional `importer_id`, `campaign_id` and `inputs` (`{key: value}` answers to the importer's declared inputs - passed to its script for this import only, never stored; undeclared keys are dropped). The importer is chosen from the file's extension and contents (or the link) unless `importer_id` names one; 409 when several claim it. The importer's sheet is installed from the catalogue if missing. Returns the character plus `importer_id`, `importer_name`, and `unmatched` - names kept as custom entries because no installed content matched. When an input is missing - a required one, or one the script asks for, such as a key for a private character - the answer is 400 with `detail: {message, importer_id, needs_input: [keys]}`; send the import again with `importer_id` and `inputs` |
 | `/api/characters/:id/export` | GET | user | Export a character as a self-contained file |
-| `/api/characters/:id/portrait` | POST | user | Set a portrait (PNG/JPEG/WebP/GIF, 5 MB) |
+| `/api/characters/:id/portrait` | POST | user | Set a portrait (PNG/JPEG/WebP/GIF, 5 MB). The owner, or the campaign's GM when `gm_can_edit` is on |
 | `/api/characters/:id/portrait` | GET | user | The portrait image |
-| `/api/characters/:id/portrait` | DELETE | user | Remove the portrait |
-| `/api/characters/:id/images/:field` | POST | user | Set the picture an `image` field holds (multipart `file`; PNG/JPEG/WebP/GIF, 5 MB). Owner only; 404 unless the sheet declares `field` as an image. Returns `{field, value}` |
+| `/api/characters/:id/portrait` | DELETE | user | Remove the portrait. The owner, or the campaign's GM when `gm_can_edit` is on |
+| `/api/characters/:id/images/:field` | POST | user | Set the picture an `image` field holds (multipart `file`; PNG/JPEG/WebP/GIF, 5 MB). The owner, or the campaign's GM when `gm_can_edit` is on; 404 unless the sheet declares `field` as an image. Returns `{field, value}` |
 | `/api/characters/:id/images/:field` | GET | user | An image field's picture, to anyone who can read the character |
-| `/api/characters/:id/images/:field` | DELETE | user | Remove an image field's picture, file and value. Also clears one a sheet update left behind |
+| `/api/characters/:id/images/:field` | DELETE | user | Remove an image field's picture, file and value. Also clears one a sheet update left behind. Same access as setting one |
 
 **Installing a pasted sheet** takes the sheet either already parsed, as
 `document`, or as text:
@@ -2135,9 +2135,22 @@ rather than stored as sent:
 `character_count`, and on detail `document`.
 
 **Character fields:** `id`, `name`, `schema_ref`, `schema_name`, `system`,
-`schema_missing`, `campaign_id`, `campaign_name`, `status`, `portrait_path`,
-`portrait_version`, `portrait_crop`, `owned`, `created_at`, `updated_at`, and on
-detail `data`, `computed`, `validators`, and `entries`.
+`schema_missing`, `campaign_id`, `campaign_name`, `campaign_has_gm`,
+`gm_can_edit`, `status`, `portrait_path`, `portrait_version`, `portrait_crop`,
+`owned`, `editable`, `created_at`, `updated_at`, and on detail `data`,
+`computed`, `validators`, and `entries`.
+
+`owned` is whether the caller is the character's player; `editable` is whether
+they may edit it. A campaign's owner and accepted members can read a character
+placed in it, and only its player edits it - unless the player sets
+`gm_can_edit`, which lets the campaign's owner (its GM) edit the sheet too: its
+`name`, `data`, `unset`, `portrait_crop`, portrait and image fields. Other
+players at the table still only read it, and `campaign_id`, `status`,
+`gm_can_edit` and deleting stay the player's. `gm_can_edit` is `false` for a new
+character and is reset to `false` whenever `campaign_id` changes (unless the same
+request sets it). `campaign_has_gm` is true when the character's campaign is
+owned by someone other than its player - the only case where `gm_can_edit` means
+anything. A GM's edits are checked against the player's copy of the sheet.
 
 `status` is `active` (the default), `retired` or `dead`. A player may have any
 number of characters in one campaign; when one falls they mark it rather than

@@ -1,6 +1,6 @@
 """Shared helpers for the character endpoints: access, export, import."""
 import os
-from typing import Any, Iterable, Optional
+from typing import Any, Iterable, NamedTuple, Optional
 
 from fastapi import HTTPException
 from sqlalchemy import or_
@@ -54,6 +54,41 @@ def readable_character_or_404(db: Session, character_id: str, user_id: str) -> C
     return row
 
 
+def gm_may_edit(character: Character, campaign_owner_id: Optional[str], user_id: str) -> bool:
+    """Whether ``user_id`` edits this sheet as its campaign's GM.
+
+    Only when the player has switched ``gm_can_edit`` on, and only for the
+    campaign's owner - the other players at the table still just read it. The
+    owner of their own personal campaign is the player, who edits anyway.
+    """
+    return bool(
+        character.gm_can_edit
+        and character.campaign_id
+        and campaign_owner_id
+        and campaign_owner_id == user_id
+    )
+
+
+def editable_character_or_404(db: Session, character_id: str, user_id: str) -> Character:
+    """The character, if this user may edit it: its owner, or a GM let in.
+
+    Anyone else gets the same 404 as a character that does not exist, which is
+    what a party member trying to write has always got.
+    """
+    row = db.query(Character).filter_by(id=character_id).first()
+    if row and row.user_id != user_id:
+        owner_id = (
+            db.query(Campaign.owner_id).filter_by(id=row.campaign_id).scalar()
+            if row.campaign_id
+            else None
+        )
+        if not gm_may_edit(row, owner_id, user_id):
+            row = None
+    if not row:
+        raise HTTPException(status_code=404, detail="Character not found")
+    return row
+
+
 def assert_in_campaign(db: Session, user_id: str, campaign_id: Optional[str]) -> None:
     """A character may only be placed in a campaign its owner is at the table
     for — one they own (a GM campaign or a personal one) or have joined."""
@@ -71,13 +106,28 @@ def assert_in_campaign(db: Session, user_id: str, campaign_id: Optional[str]) ->
         raise HTTPException(status_code=403, detail="You are not in that campaign")
 
 
-def campaign_names(db: Session, campaign_ids: Iterable[Any]) -> dict[str, str]:
-    """Campaign id → name, for labelling characters without a query each."""
+class CampaignLabel(NamedTuple):
+    """What a character's payload needs to know about its campaign."""
+
+    name: str
+    owner_id: str
+
+
+def campaign_labels(db: Session, campaign_ids: Iterable[Any]) -> dict[str, CampaignLabel]:
+    """Campaign id → name and owner, for labelling characters without a query each.
+
+    The owner is the campaign's GM: it decides whether a sheet is the viewer's
+    to edit, and whether there is a GM to offer edit access to at all.
+    """
     wanted = {cid for cid in campaign_ids if cid}
     if not wanted:
         return {}
-    rows = db.query(Campaign.id, Campaign.name).filter(Campaign.id.in_(wanted)).all()
-    return {row[0]: row[1] for row in rows}
+    rows = (
+        db.query(Campaign.id, Campaign.name, Campaign.owner_id)
+        .filter(Campaign.id.in_(wanted))
+        .all()
+    )
+    return {row[0]: CampaignLabel(row[1], row[2]) for row in rows}
 
 
 # --- export / import -----------------------------------------------------

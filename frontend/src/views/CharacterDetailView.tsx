@@ -9,6 +9,7 @@ import {
   LuDownload,
   LuListTree,
   LuEye,
+  LuPencil,
 } from 'react-icons/lu'
 import { characters as charactersApi, content as contentApi } from '../api'
 import type { Schema } from '../api'
@@ -24,6 +25,7 @@ import PortraitDialog from '../components/characters/PortraitDialog'
 import { CharacterMediaContext } from '../components/characters/characterMedia'
 import type { CharacterMedia, PortraitPatch } from '../components/characters/characterMedia'
 import CharacterPlacement from '../components/characters/CharacterPlacement'
+import GmEditAccess from '../components/characters/GmEditAccess'
 import { iconBtn, ghostBtn, card } from '../components/characters/characterStyles'
 import type { SheetDocument } from '../components/characters/LayoutRenderer'
 
@@ -277,8 +279,10 @@ export default function CharacterDetailView() {
     []
   )
 
-  // `owned` is false only for a sheet shared through a campaign.
-  const readOnly = character?.owned === false
+  // `owned` is false only for a sheet shared through a campaign; such a sheet
+  // is still `editable` by the campaign's GM when its player lets them in.
+  const owned = character?.owned !== false
+  const readOnly = !(character?.editable ?? owned)
   const media = useMemo<CharacterMedia | null>(
     () =>
       character
@@ -293,6 +297,22 @@ export default function CharacterDetailView() {
         : null,
     [character, readOnly, onPortraitChanged, onImageChanged]
   )
+
+  // Placement and edit access change only these; the sheet's values stay as
+  // they are on screen, where an edit may still be waiting to save.
+  const onPlacementChanged = (updated: Character) =>
+    setCharacter((prev) =>
+      prev
+        ? {
+            ...prev,
+            campaign_id: updated.campaign_id,
+            campaign_name: updated.campaign_name,
+            campaign_has_gm: updated.campaign_has_gm,
+            status: updated.status,
+            gm_can_edit: updated.gm_can_edit,
+          }
+        : prev
+    )
 
   const confirmChoice = (picked: unknown[]) => {
     const [choice, ...rest] = choices
@@ -408,24 +428,24 @@ export default function CharacterDetailView() {
               <span>{sheetName}</span>
               <CharacterPlacement
                 character={character}
-                readOnly={readOnly}
-                onChanged={(updated: Character) =>
-                  setCharacter((prev) =>
-                    prev
-                      ? {
-                          ...prev,
-                          campaign_id: updated.campaign_id,
-                          campaign_name: updated.campaign_name,
-                          status: updated.status,
-                        }
-                      : prev
-                  )
-                }
+                // Where the character is played stays the player's, even when
+                // they have let the GM edit the sheet itself.
+                readOnly={!owned}
+                onChanged={onPlacementChanged}
+                onError={setError}
+              />
+              <GmEditAccess
+                character={character}
+                onChanged={onPlacementChanged}
                 onError={setError}
               />
               {readOnly ? (
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   · <LuEye size={13} aria-hidden="true" /> {t('characters.readOnlyParty')}
+                </span>
+              ) : !owned ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  · <LuPencil size={13} aria-hidden="true" /> {t('characters.gmEditing')}
                 </span>
               ) : null}
             </div>

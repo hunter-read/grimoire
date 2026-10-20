@@ -332,10 +332,12 @@ def _serialize_character(
     detail: bool = False,
     db: Optional[Session] = None,
     viewer_id: Optional[str] = None,
-    campaign_names: Optional[dict[str, str]] = None,
+    campaigns: Optional[dict[str, helpers.CampaignLabel]] = None,
 ) -> dict:
-    if campaign_names is None:
-        campaign_names = helpers.campaign_names(db, [row.campaign_id]) if db else {}
+    if campaigns is None:
+        campaigns = helpers.campaign_labels(db, [row.campaign_id]) if db else {}
+    campaign = campaigns.get(row.campaign_id or "")
+    owned = viewer_id is None or row.user_id == viewer_id
     payload: dict[str, Any] = {
         "id": row.id,
         "name": row.name or "",
@@ -344,7 +346,11 @@ def _serialize_character(
         "system": (schema.system or "") if schema else "",
         "schema_missing": schema is None,
         "campaign_id": row.campaign_id,
-        "campaign_name": campaign_names.get(row.campaign_id or ""),
+        "campaign_name": campaign.name if campaign else None,
+        # Whether the campaign has a GM other than the player - the only case
+        # where letting the GM edit means anything.
+        "campaign_has_gm": bool(campaign and campaign.owner_id != row.user_id),
+        "gm_can_edit": bool(row.gm_can_edit),
         "status": helpers.character_status(row.status),
         "portrait_path": row.portrait_path,
         # Changes whenever the image does, so the client can put it in the
@@ -352,8 +358,12 @@ def _serialize_character(
         # would keep showing the old art after a replacement.
         "portrait_version": _portrait_version(row.portrait_path),
         "portrait_crop": _portrait_crop(row.portrait_crop),
-        # False when reading a party member's sheet: readable, not editable.
-        "owned": viewer_id is None or row.user_id == viewer_id,
+        # False when reading a party member's sheet.
+        "owned": owned,
+        # Whether the viewer may edit it: their own, or one whose player let
+        # the campaign's GM in and the viewer is that GM.
+        "editable": owned
+        or helpers.gm_may_edit(row, campaign.owner_id if campaign else None, viewer_id or ""),
         "created_at": row.created_at.isoformat() if row.created_at else None,
         "updated_at": row.updated_at.isoformat() if row.updated_at else None,
     }
@@ -401,14 +411,14 @@ def list_characters(
         row.schema_id: row
         for row in db.query(CharacterSchema).filter_by(user_id=current_user.id).all()
     }
-    names = helpers.campaign_names(db, (row.campaign_id for row in rows))
+    labels = helpers.campaign_labels(db, (row.campaign_id for row in rows))
     return {
         "characters": [
             _serialize_character(
                 row,
                 schemas.get(row.schema_ref),
                 viewer_id=current_user.id,
-                campaign_names=names,
+                campaigns=labels,
             )
             for row in rows
         ]
@@ -422,7 +432,8 @@ def get_character(
 ):
     """One character, with its values and freshly computed derived values.
 
-    A campaign member may read a party member's sheet; only the owner edits it.
+    A campaign member may read a party member's sheet; only the owner edits
+    it, unless they have let the campaign's GM edit it too.
     """
     row = helpers.readable_character_or_404(db, character_id, current_user.id)
     # The schema is looked up against the *reader*, who may not have the same
@@ -494,12 +505,23 @@ def update_character(
 
     ``data`` is a partial patch: only the fields it names are touched, so two
     tabs editing different parts of a sheet do not clobber each other.
-    """
-    row = db.query(Character).filter_by(id=character_id, user_id=current_user.id).first()
-    if not row:
-        raise HTTPException(status_code=404, detail="Character not found")
 
-    schema = _schema_for(db, current_user.id, row.schema_ref)
+    A GM the player let in edits the sheet - its name, values and portrait
+    framing - but where the character is played, its status and who may edit
+    it stay the player's.
+    """
+    row = helpers.editable_character_or_404(db, character_id, current_user.id)
+    owner = row.user_id == current_user.id
+    if not owner and (
+        data.campaign_id is not None or data.status is not None or data.gm_can_edit is not None
+    ):
+        raise HTTPException(
+            status_code=403, detail="Only the character's player can change that"
+        )
+
+    # Values are checked against the owner's copy of the sheet, not the GM's:
+    # the character is built on theirs.
+    schema = _schema_for(db, row.user_id, row.schema_ref)
     document = _validated_document(schema) if schema else {"fields": {}}
     name_field = _name_field(document)
     if data.name is not None:
@@ -509,7 +531,14 @@ def update_character(
         # An empty string clears it; a real id must be a campaign they are in.
         campaign_id = data.campaign_id or None
         helpers.assert_in_campaign(db, current_user.id, campaign_id)
+        if campaign_id != row.campaign_id:
+            # Edit access was given to one GM; a new table's GM has to be let
+            # in again.
+            row.gm_can_edit = False
         row.campaign_id = campaign_id
+
+    if data.gm_can_edit is not None:
+        row.gm_can_edit = data.gm_can_edit
 
     if data.status is not None:
         if data.status not in helpers.CHARACTER_STATUSES:
@@ -553,7 +582,9 @@ def update_character(
 
     db.commit()
     db.refresh(row)
-    return _serialize_character(row, schema, detail=True, db=db, viewer_id=current_user.id)
+    # Rendered against the viewer's copy, the same as reading it.
+    view_schema = schema if owner else _schema_for(db, current_user.id, row.schema_ref)
+    return _serialize_character(row, view_schema, detail=True, db=db, viewer_id=current_user.id)
 
 
 def delete_character(

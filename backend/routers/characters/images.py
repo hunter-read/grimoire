@@ -18,8 +18,8 @@ from ...models import Character
 from ...services.characters import images
 from ...services.characters.schema import IMAGE_VALUE_RE, image_fields
 from . import core
-from ._helpers import readable_character_or_404
-from .portraits import owned_or_404, read_image
+from ._helpers import editable_character_or_404, readable_character_or_404
+from .portraits import read_image
 
 _FIELD_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -39,8 +39,8 @@ def upload_image(
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Set an image field's picture. Only the character's owner may."""
-    character = owned_or_404(db, character_id, current_user.id)
+    """Set an image field's picture. Only someone who may edit the character may."""
+    character = editable_character_or_404(db, character_id, current_user.id)
     _require_image_field(db, character, field)
     data, extension = read_image(file, "An image")
     filename = images.store_field_image(character, field, data, extension)
@@ -79,7 +79,7 @@ def delete_image(
     Allowed for a field the sheet no longer declares, as long as what it holds
     is a picture: the player should be able to clear one the sheet left behind.
     """
-    character = owned_or_404(db, character_id, current_user.id)
+    character = editable_character_or_404(db, character_id, current_user.id)
     data = character.data if isinstance(character.data, dict) else {}
     value = data.get(field)
     left_behind = isinstance(value, str) and IMAGE_VALUE_RE.match(value) and value.startswith(

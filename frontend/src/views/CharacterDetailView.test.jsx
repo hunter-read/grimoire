@@ -239,6 +239,47 @@ describe('CharacterDetailView', () => {
       expect(screen.queryByLabelText('Add art', { selector: 'input' })).not.toBeInTheDocument()
     })
 
+    it('lets the GM edit a sheet its player opened to them', async () => {
+      mockGet.mockResolvedValue({
+        ...CHARACTER,
+        owned: false,
+        editable: true,
+        campaign_id: 'camp1',
+        campaign_name: 'The Table',
+        campaign_has_gm: true,
+        gm_can_edit: true,
+      })
+      renderView()
+      expect(await screen.findByLabelText('Strength')).not.toHaveAttribute('readonly')
+      expect(screen.getByLabelText('Name')).toHaveValue('Vex')
+      expect(screen.getByText(/edit it as GM/i)).toBeInTheDocument()
+      expect(screen.queryByText(/read only/i)).not.toBeInTheDocument()
+      // Where the character plays, and who may edit it, stay the player's.
+      expect(screen.getByText('· The Table')).toBeInTheDocument()
+      expect(screen.queryByLabelText('Campaign')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('Let the GM edit')).not.toBeInTheDocument()
+    })
+
+    it('lets the player open their sheet to the GM', async () => {
+      const placed = {
+        ...CHARACTER,
+        owned: true,
+        editable: true,
+        campaign_id: 'camp1',
+        campaign_name: 'My Notes',
+        campaign_has_gm: true,
+        gm_can_edit: false,
+      }
+      mockGet.mockResolvedValue(placed)
+      mockUpdate.mockImplementation((id, body) => Promise.resolve({ ...placed, ...body }))
+      renderView()
+      const toggle = await screen.findByLabelText('Let the GM edit')
+      expect(toggle).not.toBeChecked()
+      await userEvent.click(toggle)
+      await waitFor(() => expect(mockUpdate).toHaveBeenCalledWith('c1', { gm_can_edit: true }))
+      await waitFor(() => expect(screen.getByLabelText('Let the GM edit')).toBeChecked())
+    })
+
     it('says the sheet the character is built on', async () => {
       renderView()
       await screen.findByLabelText('Strength')

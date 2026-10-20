@@ -156,9 +156,18 @@ class CharacterSummary(BaseModel):
     portrait_version: Optional[int] = None
     # The player's framing of the portrait; null is centred and unzoomed.
     portrait_crop: Optional[PortraitCrop] = None
+    # Whether the campaign has a GM other than the player, so letting the GM
+    # edit means something.
+    campaign_has_gm: bool = False
+    # The player's opt-in for the campaign's GM to edit the sheet. Off by
+    # default, and cleared when the character moves to another campaign.
+    gm_can_edit: bool = False
     # False when the caller is reading a party member's sheet rather than
     # their own.
     owned: bool = True
+    # Whether the caller may edit it: true for its owner, and for the
+    # campaign's GM when `gm_can_edit` is on.
+    editable: bool = True
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
@@ -210,6 +219,9 @@ class CharacterUpdate(BaseModel):
     status: Optional[str] = None
     # Reframes the portrait. Sending the defaults (centred, unzoomed) clears it.
     portrait_crop: Optional[PortraitCrop] = None
+    # Lets the campaign's GM edit the sheet. The owner's to set; a GM sending
+    # it, a campaign or a status is refused.
+    gm_can_edit: Optional[bool] = None
 
 
 class CharacterExport(BaseModel):

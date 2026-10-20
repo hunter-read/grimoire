@@ -3441,7 +3441,10 @@
     "confirmRemoveImage": "¿Quitar la imagen de {{label}}?",
     "noImage": "Sin imagen",
     "backToList": "Volver a los personajes",
-    "readOnlyParty": "Personaje de un miembro del grupo - solo lectura"
+    "readOnlyParty": "Personaje de un miembro del grupo - solo lectura",
+    "gmEditing": "Personaje de un jugador - puedes editarlo como DJ",
+    "gmCanEdit": "Permitir que el DJ edite",
+    "gmCanEditHelp": "Permite que el DJ de esta campaña también edite la hoja. Los demás jugadores solo pueden leerla. Se desactiva si el personaje pasa a otra campaña."
   },
   "contentPacks": {
     "title": "Paquetes de contenido",

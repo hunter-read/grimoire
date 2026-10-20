@@ -22,6 +22,7 @@ import datetime
 from typing import Any, Optional
 
 from sqlalchemy import (
+    Boolean,
     DateTime,
     ForeignKey,
     JSON,
@@ -88,7 +89,8 @@ class Character(Base):
 
     ``campaign_id`` scopes a character to a table. A campaign member may read
     another member's sheet but never edit it — the sheet belongs to the player
-    who wrote it, the same rule a campaign ruleset follows.
+    who wrote it, the same rule a campaign ruleset follows. The one exception is
+    ``gm_can_edit``: a player may let their campaign's GM edit the sheet too.
 
     ``schema_ref`` stores the schema's ``schema_id`` string rather than a
     foreign key to ``character_schemas.id``. A character must survive its schema
@@ -117,6 +119,12 @@ class Character(Base):
     # campaign; the old sheet stays, marked, rather than being deleted to make
     # room. Nothing limits a player to one character per campaign.
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active", server_default="active")
+
+    # Whether the GM of the character's campaign may edit the sheet as well as
+    # read it - to fix a typo, apply damage, hand out loot. Off by default, and
+    # only the owner flips it. Moving the character to another campaign turns
+    # it off again, so a sheet is never handed to a GM the player did not pick.
+    gm_can_edit: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
 
     # Filename under DATA_PATH/character_portraits/, not a path: the directory
     # is ours to choose and storing one would make moving it a migration.

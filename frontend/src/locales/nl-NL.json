@@ -3441,7 +3441,10 @@
     "confirmRemoveImage": "De afbeelding in {{label}} verwijderen?",
     "noImage": "Geen afbeelding",
     "backToList": "Terug naar personages",
-    "readOnlyParty": "Personage van een groepslid - alleen lezen"
+    "readOnlyParty": "Personage van een groepslid - alleen lezen",
+    "gmEditing": "Personage van een speler - je kunt het als GM bewerken",
+    "gmCanEdit": "GM mag bewerken",
+    "gmCanEditHelp": "Laat de GM van deze campagne het blad ook bewerken. Andere spelers kunnen het nog steeds alleen lezen. Gaat uit als het personage naar een andere campagne gaat."
   },
   "contentPacks": {
     "title": "Inhoudspakketten",

@@ -3441,7 +3441,10 @@
     "confirmRemoveImage": "Remover a imagem de {{label}}?",
     "noImage": "Sem imagem",
     "backToList": "Voltar às personagens",
-    "readOnlyParty": "Personagem de um membro do grupo - só de leitura"
+    "readOnlyParty": "Personagem de um membro do grupo - só de leitura",
+    "gmEditing": "Personagem de um jogador - podes editá-la como GM",
+    "gmCanEdit": "Permitir que o GM edite",
+    "gmCanEditHelp": "Permite que o GM desta campanha também edite a ficha. Os outros jogadores continuam só a poder lê-la. Desliga-se se a personagem mudar de campanha."
   },
   "contentPacks": {
     "title": "Pacotes de conteúdo",

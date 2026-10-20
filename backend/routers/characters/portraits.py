@@ -19,14 +19,7 @@ from ...models import Character
 # The image types a portrait may be, mirroring campaign character art. Shared
 # with importing, which accepts a portrait embedded in another tool's export.
 from ...services.characters.importing import MAX_PORTRAIT_BYTES, PORTRAIT_TYPES
-from ._helpers import readable_character_or_404
-
-
-def owned_or_404(db: Session, character_id: str, user_id: str) -> Character:
-    row = db.query(Character).filter_by(id=character_id, user_id=user_id).first()
-    if not row:
-        raise HTTPException(status_code=404, detail="Character not found")
-    return row
+from ._helpers import editable_character_or_404, readable_character_or_404
 
 
 def read_image(upload: UploadFile, what: str = "A portrait") -> tuple[bytes, str]:
@@ -72,8 +65,8 @@ def upload_portrait(
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Set a character's portrait. Only the character's owner may."""
-    character = owned_or_404(db, character_id, current_user.id)
+    """Set a character's portrait. Only someone who may edit the character may."""
+    character = editable_character_or_404(db, character_id, current_user.id)
     data, ext = read_image(file)
     filename = store_portrait(character, data, ext)
     db.commit()
@@ -122,7 +115,7 @@ def delete_portrait(
     db: Session = Depends(get_db),
 ):
     """Remove a character's portrait."""
-    character = owned_or_404(db, character_id, current_user.id)
+    character = editable_character_or_404(db, character_id, current_user.id)
     remove_portrait_files(character_id)
     character.portrait_path = None
     character.portrait_crop = None

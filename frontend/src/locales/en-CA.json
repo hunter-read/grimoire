@@ -3441,7 +3441,10 @@
     "confirmRemoveImage": "Remove the picture in {{label}}?",
     "noImage": "No image",
     "backToList": "Back to characters",
-    "readOnlyParty": "A party member's character - read only"
+    "readOnlyParty": "A party member's character - read only",
+    "gmEditing": "A player's character - you can edit it as GM",
+    "gmCanEdit": "Let the GM edit",
+    "gmCanEditHelp": "Lets this campaign's GM edit the sheet too. Other players can still only read it. Turns off if the character moves to another campaign."
   },
   "contentPacks": {
     "title": "Content packs",
