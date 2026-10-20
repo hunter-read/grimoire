@@ -21,6 +21,8 @@ SETTING_INDEX_URL = "addons.index_url"
 SETTING_ALLOW_SCRIPTS = "addons.allow_scripts"
 SETTING_INSTALLED = "addons.installed"
 SETTING_INDEX_CACHE = "addons.index_cache"
+# Sealed access tokens for private index sources, keyed by index URL.
+SETTING_INDEX_CREDENTIALS = "addons.index_credentials"
 
 DEFAULT_INDEX_URL = (
     "https://raw.githubusercontent.com/grimoire-codex/community-add-ons/main/index.json"

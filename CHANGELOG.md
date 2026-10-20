@@ -10,6 +10,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Added
 
+- Add-on sources can be private repositories. Give a source an access token under Settings → Add-ons (the key beside it) and its add-ons, character sheets, content packs, themes and note templates browse, install and update like a public catalogue's. The token is sent only to files inside that source, never to other sites, and is stored encrypted and never shown again. `ADDON_INDEX_CREDENTIALS` pins tokens on the server. See the add-ons docs for GitHub and Gitea setups
 - **Join pages** in spread view draws the two pages as one image, with no gap, inner corners or shadow between them, so a map or illustration printed across a spread reads as one picture. It is under Spread in the reader's menu and a button in the PDF map viewer, and is remembered per book and per map
 - The reader zooms up to 800%, from 200%. Past about 200% Grimoire renders just the part of the page you are looking at in full detail and lays it over the page, so small print stays sharp without rendering a huge image of the whole page
 - Zoom now stays when you turn the page, landing at the top of the next page in the same column. A new book, switching between Page and Spread, or reset returns to 100%

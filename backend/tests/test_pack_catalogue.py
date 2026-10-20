@@ -90,7 +90,7 @@ def served(monkeypatch, tmp_path):
         pc, "get_index_urls", lambda db: [f"{REPO}/main/index.json"]
     )
 
-    def _download(url, max_bytes, *, what):
+    def _download(url, max_bytes, *, what, credentials=None):
         for suffix, body in BODIES.items():
             if url.endswith(suffix):
                 return body
@@ -275,7 +275,7 @@ class TestInstallSafety:
         files = [dict(f) for f in _files()]
         files[1]["sha256"] = "0" * 64
 
-        def _download(url, max_bytes, *, what):
+        def _download(url, max_bytes, *, what, credentials=None):
             return BODIES["content-packs/test-srd/spell.json"]
 
         monkeypatch.setattr(pc, "_download", _download)

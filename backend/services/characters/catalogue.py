@@ -23,12 +23,13 @@ from sqlalchemy.orm import Session
 
 from ... import config
 from ...addons.authors import parse_author
+from ...addons import credentials as source_credentials
 from ...addons.constants import (
     HTTP_MAX_BYTES,
-    HTTP_MAX_REDIRECTS,
     external_installs_enabled,
 )
-from ...addons.fetch import AddonFetchError, fetch_document
+from ...addons.credentials import SourceCredentials
+from ...addons.fetch import AddonFetchError, fetch_document, open_client
 from .schema import SchemaError, validate_schema
 
 logger = logging.getLogger("grimoire.characters.catalogue")
@@ -206,9 +207,10 @@ def fetch_catalogue(db: Session, installed_ids: Optional[set] = None) -> dict[st
     seen: set = set()
     resolved: list[str] = []
     urls = get_index_urls(db)
+    creds = source_credentials.load(db)
 
     for configured in urls:
-        index_url, document, failures = _read_source(configured)
+        index_url, document, failures = _read_source(configured, creds)
         if document is None:
             # A source that could not be *reached* is reported straight away:
             # with several configured, a silently missing one looks like a
@@ -254,7 +256,7 @@ def fetch_catalogue(db: Session, installed_ids: Optional[set] = None) -> dict[st
 
 
 def _read_source(
-    configured: str,
+    configured: str, credentials: Optional[SourceCredentials] = None
 ) -> tuple[str, Optional[dict[str, Any]], list[dict[str, str]]]:
     """Read one configured source, returning the URL that actually held sheets.
 
@@ -273,6 +275,7 @@ def _read_source(
                 cache_ttl=CATALOGUE_CACHE_TTL,
                 timeout=FETCH_TIMEOUT,
                 user_agent=f"Grimoire/{config.VERSION}",
+                credentials=credentials,
             )
         except AddonFetchError as exc:
             logger.debug("Could not read a sheet catalogue at %s: %s", index_url, exc)
@@ -410,22 +413,24 @@ def verify_digest(body: bytes, expected: str, *, what: str = "sheet") -> None:
         )
 
 
-def _download(url: str, max_bytes: int, *, what: str) -> bytes:
+def _download(
+    url: str,
+    max_bytes: int,
+    *,
+    what: str,
+    credentials: Optional[SourceCredentials] = None,
+) -> bytes:
     """Fetch one file, bounded and with its own client.
 
     Not routed through ``fetch_document``: that caches and does not verify a
     digest, and every file here is fetched once, at install time, and checked
-    against the catalogue that offered it.
+    against the catalogue that offered it. ``credentials`` carries a private
+    source's token, so its files download with the same access as its index.
     """
     import httpx
 
     try:
-        with httpx.Client(
-            timeout=FETCH_TIMEOUT,
-            follow_redirects=True,
-            max_redirects=HTTP_MAX_REDIRECTS,
-            headers={"User-Agent": f"Grimoire/{config.VERSION}"},
-        ) as client:
+        with open_client(timeout=FETCH_TIMEOUT, credentials=credentials) as client:
             response = client.get(url)
             if response.status_code != 200:
                 raise CatalogueError(
@@ -452,8 +457,9 @@ def fetch_sheet(db: Session, entry: dict[str, Any]) -> dict[str, Any]:
     _assert_downloads_enabled()
 
     index_url = entry.get("index_url") or _default_index_url()
+    creds = source_credentials.load(db)
     url = _resolve_sheet_url(index_url, str(entry.get("path") or ""))
-    body = _download(url, MAX_SHEET_BYTES, what="sheet")
+    body = _download(url, MAX_SHEET_BYTES, what="sheet", credentials=creds)
     verify_digest(body, str(entry.get("sha256") or ""))
 
     try:
@@ -472,10 +478,10 @@ def fetch_sheet(db: Session, entry: dict[str, Any]) -> dict[str, Any]:
     document.pop("layout_file", None)
     document.pop("styles_file", None)
 
-    layout = _fetch_sidecar(index_url, entry, "layout", MAX_LAYOUT_BYTES)
+    layout = _fetch_sidecar(index_url, entry, "layout", MAX_LAYOUT_BYTES, creds)
     if layout is not None:
         document["layout_html"] = layout
-    styles = _fetch_sidecar(index_url, entry, "styles", MAX_STYLES_BYTES)
+    styles = _fetch_sidecar(index_url, entry, "styles", MAX_STYLES_BYTES, creds)
     if styles is not None:
         document["styles"] = styles
 
@@ -488,7 +494,11 @@ def fetch_sheet(db: Session, entry: dict[str, Any]) -> dict[str, Any]:
 
 
 def _fetch_sidecar(
-    index_url: str, entry: dict[str, Any], kind: str, max_bytes: int
+    index_url: str,
+    entry: dict[str, Any],
+    kind: str,
+    max_bytes: int,
+    credentials: Optional[SourceCredentials] = None,
 ) -> Optional[str]:
     """Download a sheet's layout or stylesheet from its own file.
 
@@ -502,6 +512,6 @@ def _fetch_sidecar(
         return None
 
     url = _resolve_sheet_url(index_url, path)
-    body = _download(url, max_bytes, what=kind)
+    body = _download(url, max_bytes, what=kind, credentials=credentials)
     verify_digest(body, str(entry.get(f"{kind}_sha256") or ""))
     return body.decode("utf-8", "replace")

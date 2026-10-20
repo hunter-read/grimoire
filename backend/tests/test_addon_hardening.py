@@ -47,7 +47,7 @@ def test_refresh_refuses_a_plain_http_index_without_fetching(monkeypatch):
 
     monkeypatch.setattr(install, "_assert_external_installs_enabled", lambda: None)
 
-    def no_fetch(url):
+    def no_fetch(url, credentials=None):
         raise AssertionError(f"fetched {url}")
 
     monkeypatch.setattr(install, "_fetch_text", no_fetch)

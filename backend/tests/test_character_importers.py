@@ -1056,7 +1056,7 @@ def index(monkeypatch):
         db.close()
         return entry
 
-    def fetch_text(url):
+    def fetch_text(url, credentials=None):
         if url not in files:
             raise addon_install.AddonFetchError("source returned HTTP 404")
         return files[url]
@@ -1263,7 +1263,7 @@ class TestUserInstallApi:
     def test_a_source_that_cannot_be_reached(self, client, player_headers, index, monkeypatch):
         index(MANIFEST)
 
-        def down(url):
+        def down(url, credentials=None):
             raise addon_install.AddonFetchError("could not reach source")
 
         monkeypatch.setattr(addon_install, "_fetch_text", down)

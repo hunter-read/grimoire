@@ -67,7 +67,9 @@ unsaved-changes prompt, and they are passed to `onSaved` however the modal
 closes.
 
 To run a private or in-development add-on, drop its directory into
-`DATA_PATH/add-ons/<id>/` and restart - no index required.
+`DATA_PATH/add-ons/<id>/` and restart - no index required. To share private
+add-ons, sheets or content packs with a whole table, use a
+[private source](#private-sources) instead.
 
 ## Keeping them current
 
@@ -97,6 +99,72 @@ this build cannot load - leaves the installed version in place and working.
 
 An add-on you placed by hand has no index entry, so it never reports an update -
 update it the way you installed it.
+
+## Private sources
+
+A source can be a private repository - licensed or non-SRD content packs for one
+table, say. Give it an access token and Grimoire browses, installs and updates
+from it like any public catalogue, update badges and **Update all** included.
+
+1. Add the source's index URL under **Settings → Add-ons → Add-on Sources**.
+2. Click the key beside it, paste the token, and **Save token**. The source is
+   marked **Private**.
+
+The token covers everything that source serves: its add-on index and the
+manifests and scripts it lists, and the sheet, content-pack, theme and note
+template catalogues derived from it, with their files.
+
+**Where the token goes.** Only to URLs *inside that source*: the same scheme,
+host and port, under the source's directory. That directory is the one holding
+the index, or its parent when the index sits in `themes/`, `templates/`,
+`character-sheets/` or `content-packs/`. So a private repo on
+`raw.githubusercontent.com` does not hand its token to the public community
+repo on the same host. The check runs again on every redirect, and a redirect
+that leaves the source drops the token. A scraper's requests to the site it
+reads never carry one.
+
+**How it is sent.** As `Authorization: Bearer <token>` by default. A token that
+already names its scheme (`token abc123`, `Basic ...`) is sent as typed, and
+another header name - GitLab's `PRIVATE-TOKEN`, say - carries the bare token.
+
+**How it is kept.** Encrypted under `SECRET_KEY`, like the OIDC client secret,
+so a database backup alone does not carry it. The API never returns it: the
+dialog can replace or remove a token, not show it. Changing `SECRET_KEY` makes a
+stored token unreadable; the source is then marked **Token needs entering
+again**. Removing a source deletes its token. Saving or removing a token clears
+the cached responses, so a catalogue fetched with the old token (or without
+one) is fetched again.
+
+**Pinning it on the server.** `ADDON_INDEX_CREDENTIALS` holds a JSON object
+mapping an index URL to a token, or to `{"token": ..., "header": ...}`. A pinned
+token wins over one saved in the app, and the dialog shows it read-only:
+
+```bash
+ADDON_INDEX_CREDENTIALS='{"https://raw.githubusercontent.com/our-table/packs/main/index.json": "github_pat_..."}'
+```
+
+### GitHub
+
+Use the repository's raw URL, for example
+`https://raw.githubusercontent.com/our-table/packs/main/index.json`, with a
+[fine-grained personal access token](https://github.com/settings/personal-access-tokens/new):
+under **Repository access** choose **Only select repositories** and pick the
+one repository, and under **Repository permissions** give **Contents** read-only
+access. Nothing else is needed. Fine-grained tokens usually expire, so note
+when yours does and replace it before then.
+
+### Gitea and Forgejo
+
+Point at the API's raw endpoint, which serves the repository's default branch:
+`https://git.example.org/api/v1/repos/our-table/packs/raw/index.json`. Create
+a token under **Settings → Applications** with read access to repositories, and
+paste it as is - Gitea accepts the default `Bearer` header.
+
+### Other hosts
+
+Any host that serves the repository's files at stable URLs, relative to the
+index, works. If it wants the token under another header, set **Header** in the
+dialog to that name.
 
 ## Included sources
 
@@ -267,6 +335,7 @@ No new tables, no migration.
 | `addons.allow_scripts` | `false` | Global switch for executing add-on scripts |
 | `addons.installed` | `{}` | Per-add-on state (version, digests, approval, enabled) |
 | `addons.index_cache` | `{}` | Last fetched index |
+| `addons.index_credentials` | `{}` | [Private sources'](#private-sources) tokens, keyed by index URL: the header name plus the token sealed under `SECRET_KEY` |
 
 These are read and written directly rather than through `/api/settings`, which
 enumerates its fields explicitly.

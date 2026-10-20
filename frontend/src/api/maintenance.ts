@@ -133,4 +133,10 @@ export const sidecars = {
 export const addons = {
   verifyIndex: (url?: string | null) =>
     client.get('/addons/verify-index', { query: { url: url || '' } }),
+  // A private source's access token (issue #642). The server never sends a
+  // token back - only which header each source uses.
+  setSourceCredential: (data: BodyOf<'/addons/sources/credential', 'put'>) =>
+    client.put('/addons/sources/credential', { body: data }),
+  clearSourceCredential: (url: string) =>
+    client.delete('/addons/sources/credential', { query: { url } }),
 }

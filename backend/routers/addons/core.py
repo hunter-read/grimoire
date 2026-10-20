@@ -6,11 +6,12 @@ from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ... import addons, api_keys
+from ...addons import credentials as source_credentials
 from ...addons.authors import parse_author
 from ...addons.constants import DEFAULT_INDEX_URL, TRUSTED_INDEX_URLS, is_trusted_index_url
 from ...auth import CurrentUser, get_current_user, require_admin
 from ...config import get_db
-from ._schemas import AddonInstall, AddonSettingsUpdate, AddonUpdate
+from ._schemas import AddonInstall, AddonSettingsUpdate, AddonUpdate, SourceCredentialSet
 import os
 import re
 
@@ -123,6 +124,7 @@ def list_addons(
         "default_index_url": DEFAULT_INDEX_URL,
         "trusted_index_urls": TRUSTED_INDEX_URLS,
         "source_contents": addons.get_source_contents(db, index_urls),
+        "source_credentials": source_credentials.describe(db, index_urls),
         "allow_scripts": addons.scripts_allowed(db),
         "index_generated": addons.get_cached_index(db).get("generated", ""),
     }
@@ -194,16 +196,50 @@ def update_addon_settings(
     if data.allow_scripts is not None:
         addons.set_scripts_allowed(db, data.allow_scripts)
 
+    index_urls = _configured_urls(db)
+    # A removed source must not leave its access token behind.
+    source_credentials.prune(db, index_urls)
     db.commit()
-
-    index_urls_str = addons.get_index_url(db).strip()
-    index_urls = [u.strip() for u in index_urls_str.split(",") if u.strip()]
 
     return {
         "index_url": index_urls[0] if index_urls else DEFAULT_INDEX_URL,
         "index_urls": index_urls,
         "allow_scripts": addons.scripts_allowed(db),
     }
+
+
+def _configured_urls(db: Session) -> list[str]:
+    return [u.strip() for u in addons.get_index_url(db).split(",") if u.strip()]
+
+
+def set_source_credential(
+    data: SourceCredentialSet,
+    _: CurrentUser = Depends(require_admin),  # noqa: ARG001
+    db: Session = Depends(get_db),
+):
+    """Store the access token for one configured private index source."""
+    urls = _configured_urls(db)
+    try:
+        source_credentials.set_credential(db, data.url, data.token, data.header, urls)
+    except addons.AddonError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    db.commit()
+    return {"source_credentials": source_credentials.describe(db, urls)}
+
+
+def clear_source_credential(
+    url: str,
+    _: CurrentUser = Depends(require_admin),  # noqa: ARG001
+    db: Session = Depends(get_db),
+):
+    """Forget the stored access token for one configured index source."""
+    urls = _configured_urls(db)
+    try:
+        source_credentials.clear_credential(db, url, urls)
+    except addons.AddonError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    db.commit()
+    return {"source_credentials": source_credentials.describe(db, urls)}
 
 
 def install_addon(

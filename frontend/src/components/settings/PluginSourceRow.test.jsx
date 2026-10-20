@@ -1,10 +1,15 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import PluginSourceRow from './PluginSourceRow'
+import { addons } from '../../api'
+
+vi.mock('../../api', () => ({
+  addons: { setSourceCredential: vi.fn(), clearSourceCredential: vi.fn() },
+}))
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k, fallback) => fallback || k,
+    t: (k, fallback) => (typeof fallback === 'string' ? fallback : k),
   }),
 }))
 
@@ -57,6 +62,67 @@ describe('PluginSourceRow', () => {
       />
     )
     expect(screen.getByText('something-new')).toBeInTheDocument()
+  })
+
+  it('marks a source that has an access token as private', () => {
+    render(
+      <PluginSourceRow
+        url={url}
+        index={0}
+        data={{
+          ...data,
+          source_credentials: {
+            [url]: { header: 'Authorization', env_locked: false, unreadable: false },
+          },
+        }}
+        busy={false}
+        onRemove={vi.fn()}
+      />
+    )
+    expect(screen.getByText('addons.privateSource')).toBeInTheDocument()
+  })
+
+  it('says when a saved token can no longer be read', () => {
+    render(
+      <PluginSourceRow
+        url={url}
+        index={0}
+        data={{
+          ...data,
+          source_credentials: {
+            [url]: { header: 'Authorization', env_locked: false, unreadable: true },
+          },
+        }}
+        busy={false}
+        onRemove={vi.fn()}
+      />
+    )
+    expect(screen.getByText('addons.tokenNeedsReentry')).toBeInTheDocument()
+  })
+
+  it('shows the private badge once a token is saved, without a reload', async () => {
+    addons.setSourceCredential.mockResolvedValue({
+      source_credentials: {
+        [url]: { header: 'Authorization', env_locked: false, unreadable: false },
+      },
+    })
+    render(<PluginSourceRow url={url} index={0} data={data} busy={false} onRemove={vi.fn()} />)
+    expect(screen.queryByText('addons.privateSource')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'addons.tokenButton' }))
+    fireEvent.change(screen.getByLabelText('addons.tokenLabel'), { target: { value: 'tok' } })
+    fireEvent.click(screen.getByRole('button', { name: 'addons.tokenSave' }))
+
+    expect(await screen.findByText('addons.privateSource')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('closes the token dialog on cancel', () => {
+    render(<PluginSourceRow url={url} index={0} data={data} busy={false} onRemove={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'addons.tokenButton' }))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('triggers onRemove callback with item index when remove button is clicked', () => {

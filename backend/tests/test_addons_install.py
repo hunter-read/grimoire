@@ -74,7 +74,7 @@ def files(monkeypatch):
 
     base_prefix = constants.DEFAULT_INDEX_URL.rsplit('/', 1)[0]
 
-    def fake_fetch_text(url):
+    def fake_fetch_text(url, credentials=None):
         if url not in store:
             alt_url = url.replace(base_prefix, "https://example.com")
             if alt_url in store:

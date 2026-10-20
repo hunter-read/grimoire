@@ -50,6 +50,32 @@ class AddonSettingsUpdate(BaseModel):
 
 
 
+class SourceCredentialSet(BaseModel):
+    """An access token for one configured index source (issue #642).
+
+    ``header`` defaults to ``Authorization``, sent as ``Bearer <token>``; any
+    other header name (GitLab's ``PRIVATE-TOKEN``) carries the token as is.
+    """
+
+    url: str
+    token: str = Field(max_length=4096)
+    header: Optional[str] = Field(default=None, max_length=64)
+
+
+class SourceCredentialInfo(BaseModel):
+    """What the UI may know about a source's token - never the token itself."""
+
+    header: str
+    # Set by ADDON_INDEX_CREDENTIALS, so it cannot be changed or removed here.
+    env_locked: bool
+    # Stored, but SECRET_KEY has changed since, so it must be entered again.
+    unreadable: bool
+
+
+class SourceCredentialsResponse(BaseModel):
+    source_credentials: dict[str, SourceCredentialInfo] = Field(default_factory=dict)
+
+
 class InstalledAddon(BaseModel):
     """One installed add-on, as built by `addons.registry.describe`.
 
@@ -125,6 +151,8 @@ class AddonListResponse(BaseModel):
     default_index_url: str
     trusted_index_urls: list[str] = Field(default_factory=list)
     source_contents: dict[str, list[str]] = Field(default_factory=dict)
+    # Keyed by configured index URL; a source without a token is absent.
+    source_credentials: dict[str, SourceCredentialInfo] = Field(default_factory=dict)
     allow_scripts: bool
     # From the cached index blob, which may predate the `generated` key.
     index_generated: Optional[str] = None

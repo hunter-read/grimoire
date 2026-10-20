@@ -26,10 +26,10 @@ from ..addons.constants import (
     DEFAULT_CACHE_TTL as CATALOGUE_CACHE_TTL,
     DEFAULT_INDEX_URL as DEFAULT_ADDON_INDEX_URL,
     HTTP_MAX_BYTES,
-    HTTP_MAX_REDIRECTS,
     external_installs_enabled,
 )
-from ..addons.fetch import AddonFetchError, fetch_document
+from ..addons import credentials as source_credentials
+from ..addons.fetch import AddonFetchError, fetch_document, open_client
 
 logger = logging.getLogger("grimoire.wiki_templates")
 
@@ -113,6 +113,7 @@ def fetch_catalogue(db: Session, force: bool = False) -> dict:
     """Fetch and merge community note template indexes from configured sources."""
     _assert_downloads_enabled()
     urls = get_index_urls(db)
+    creds = source_credentials.load(db)
 
     all_templates: list[dict] = []
     all_folders: list[dict] = []
@@ -133,6 +134,7 @@ def fetch_catalogue(db: Session, force: bool = False) -> dict:
                 cache_ttl=CATALOGUE_CACHE_TTL,
                 force=force,
                 timeout=FETCH_TIMEOUT,
+                credentials=creds,
             )
             if not isinstance(doc, dict):
                 invalid_format = True
@@ -168,6 +170,7 @@ def fetch_catalogue(db: Session, force: bool = False) -> dict:
                     cache_ttl=CATALOGUE_CACHE_TTL,
                     force=force,
                     timeout=FETCH_TIMEOUT,
+                    credentials=creds,
                 )
                 if not isinstance(derived_doc, dict):
                     invalid_format = True
@@ -330,14 +333,9 @@ def fetch_body(db: Session, entry: dict) -> str:
 
     index_url = entry.get("index_url") or get_index_url(db)
     url = _resolve_body_url(index_url, entry)
-    headers = {"User-Agent": f"Grimoire/{config.VERSION}"}
+    creds = source_credentials.load(db)
     try:
-        with httpx.Client(
-            timeout=FETCH_TIMEOUT,
-            follow_redirects=True,
-            max_redirects=HTTP_MAX_REDIRECTS,
-            headers=headers,
-        ) as client:
+        with open_client(timeout=FETCH_TIMEOUT, credentials=creds) as client:
             response = client.get(url)
             if response.status_code != 200:
                 raise TemplateCatalogueError(

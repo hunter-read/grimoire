@@ -514,6 +514,12 @@ BACKUP_RETENTION_GB_ENV: Optional[int] = _int_env("BACKUP_RETENTION_GB")
 # Replaces WIKI_TEMPLATES_DOWNLOAD_DISABLED, which covered templates alone.
 DISABLE_EXTERNAL_ADD_ON_INSTALL: bool = _bool_env("DISABLE_EXTERNAL_ADD_ON_INSTALL") or False
 
+# Access tokens for private add-on index sources (issue #642): a JSON object
+# mapping an index URL to a token, or to {"token": "...", "header": "..."}.
+# A pinned source's token cannot be changed in Settings > Add-ons. Read at call
+# time by ``addons.credentials``; see docs/addons.md.
+ADDON_INDEX_CREDENTIALS: str = os.environ.get("ADDON_INDEX_CREDENTIALS", "")
+
 # Where the template browser fetches its catalogue from. An operator can point
 # this at a fork or a private mirror; the UI keeps the default and hides the
 # override behind a toggle, so the common case is one click.

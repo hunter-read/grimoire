@@ -386,6 +386,11 @@ more than one is configured, and installing one picks that source's copy even
 if another offers a sheet by the same name. A source that cannot be reached is
 called out rather than quietly leaving its sheets out of the list.
 
+A source can be a **private repository**, for licensed or non-SRD sheets and
+content packs that should stay within one table. Give it an access token under
+**Settings → Add-ons** and its sheets and packs install and update like any
+other - see [Private sources](addons.md#private-sources).
+
 ## Installing content packs (admin)
 
 Packs are server-wide, so installing one needs an admin. The usual way is

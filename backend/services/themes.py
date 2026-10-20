@@ -26,11 +26,11 @@ from sqlalchemy.orm import Session
 from .. import config
 from ..addons.constants import (
     HTTP_MAX_BYTES,
-    HTTP_MAX_REDIRECTS,
     external_installs_enabled,
 )
 from ..addons.authors import parse_author
-from ..addons.fetch import AddonFetchError, fetch_document
+from ..addons import credentials as source_credentials
+from ..addons.fetch import AddonFetchError, fetch_document, open_client
 
 logger = logging.getLogger("grimoire.themes")
 
@@ -331,6 +331,7 @@ def fetch_catalogue(db: Session) -> dict[str, Any]:
     """Fetch and cache community theme indexes from all configured sources with schema detection."""
     _assert_downloads_enabled()
     urls = get_index_urls(db)
+    creds = source_credentials.load(db)
 
     all_themes: list[dict[str, Any]] = []
 
@@ -347,6 +348,7 @@ def fetch_catalogue(db: Session) -> dict[str, Any]:
                 cache_ttl=CATALOGUE_CACHE_TTL,
                 timeout=FETCH_TIMEOUT,
                 user_agent=f"Grimoire/{config.VERSION}",
+                credentials=creds,
             )
         except AddonFetchError as exc:
             logger.debug("Could not fetch source %s directly: %s", url, exc)
@@ -375,6 +377,7 @@ def fetch_catalogue(db: Session) -> dict[str, Any]:
                     cache_ttl=CATALOGUE_CACHE_TTL,
                     timeout=FETCH_TIMEOUT,
                     user_agent=f"Grimoire/{config.VERSION}",
+                    credentials=creds,
                 )
                 if isinstance(derived_doc, dict) and isinstance(derived_doc.get("themes"), list):
                     for t in derived_doc["themes"]:
@@ -535,14 +538,9 @@ def fetch_theme(db: Session, entry: dict[str, Any]) -> dict[str, Any]:
 
     index_url = entry.get("index_url") or get_index_url(db)
     url = _resolve_theme_url(index_url, entry.get("path", ""))
-    headers = {"User-Agent": f"Grimoire/{config.VERSION}"}
+    creds = source_credentials.load(db)
     try:
-        with httpx.Client(
-            timeout=FETCH_TIMEOUT,
-            follow_redirects=True,
-            max_redirects=HTTP_MAX_REDIRECTS,
-            headers=headers,
-        ) as client:
+        with open_client(timeout=FETCH_TIMEOUT, credentials=creds) as client:
             response = client.get(url)
             if response.status_code != 200:
                 raise ThemeError(f"The theme download returned HTTP {response.status_code}")

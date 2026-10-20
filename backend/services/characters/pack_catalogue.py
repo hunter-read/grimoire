@@ -21,7 +21,9 @@ from typing import Any, Optional
 from sqlalchemy.orm import Session
 
 from ... import config
+from ...addons import credentials as source_credentials
 from ...addons.constants import external_installs_enabled
+from ...addons.credentials import SourceCredentials
 from ...addons.fetch import AddonFetchError, fetch_document
 from .catalogue import (
     CatalogueError,
@@ -138,8 +140,9 @@ def fetch_pack_catalogue(
     resolved: list[str] = []
     seen: set = set()
 
+    creds = source_credentials.load(db)
     for configured in get_index_urls(db):
-        index_url, document, failures = _read_source(configured)
+        index_url, document, failures = _read_source(configured, creds)
         if document is None:
             reachable = [f for f in failures if "no content packs" not in f["error"]]
             errors.extend(reachable)
@@ -169,7 +172,7 @@ def fetch_pack_catalogue(
 
 
 def _read_source(
-    configured: str,
+    configured: str, credentials: Optional[SourceCredentials] = None
 ) -> tuple[str, Optional[dict[str, Any]], list[dict[str, str]]]:
     """Read one source, returning the URL that actually held packs."""
     failures: list[dict[str, str]] = []
@@ -182,6 +185,7 @@ def _read_source(
                 cache_ttl=CATALOGUE_CACHE_TTL,
                 timeout=FETCH_TIMEOUT,
                 user_agent=f"Grimoire/{config.VERSION}",
+                credentials=credentials,
             )
         except AddonFetchError as exc:
             logger.debug("Could not read a pack catalogue at %s: %s", index_url, exc)
@@ -274,6 +278,7 @@ def install_pack(db: Session, entry: dict[str, Any]) -> str:
 
     downloaded: dict[str, bytes] = {}
     total = 0
+    creds = source_credentials.load(db)
     for row in files:
         name = str(row.get("name") or "")
         # A pack is one flat directory of JSON files. The name is used as a
@@ -291,7 +296,9 @@ def install_pack(db: Session, entry: dict[str, Any]) -> str:
         # than letting a 500 escape.
         try:
             url = _resolve_sheet_url(index_url, str(row.get("path") or ""))
-            body = _download(url, MAX_PACK_FILE_BYTES, what=f"pack file {name}")
+            body = _download(
+                url, MAX_PACK_FILE_BYTES, what=f"pack file {name}", credentials=creds
+            )
             verify_digest(body, str(row.get("sha256") or ""), what="content pack file")
         except CatalogueError as exc:
             raise PackCatalogueError(str(exc)) from exc

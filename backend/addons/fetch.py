@@ -10,7 +10,7 @@ import json
 import logging
 import os
 import time
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import httpx
 
@@ -22,6 +22,9 @@ from .constants import (
     HTTP_MAX_REDIRECTS,
     HTTP_TIMEOUT,
 )
+
+if TYPE_CHECKING:
+    from .credentials import SourceCredentials
 
 logger = logging.getLogger("grimoire.addons")
 
@@ -89,19 +92,41 @@ def _user_agent(template: str) -> str:
     return template.replace("{version}", config.VERSION)
 
 
-def fetch_json(url: str, user_agent: str = "", timeout: int = HTTP_TIMEOUT) -> Any:
+def open_client(
+    *,
+    timeout: float = HTTP_TIMEOUT,
+    headers: Optional[dict[str, str]] = None,
+    credentials: Optional["SourceCredentials"] = None,
+) -> httpx.Client:
+    """An httpx client with the shared redirect limits, for catalogue downloads.
+
+    ``credentials`` attaches a private source's token to each request that falls
+    inside that source - re-checked on every redirect hop, so a redirect out of
+    the source never carries it (see ``credentials.SourceCredentials.apply``).
+    """
+    hooks = {"request": [credentials.apply]} if credentials else {}
+    return httpx.Client(
+        timeout=timeout,
+        follow_redirects=True,
+        max_redirects=HTTP_MAX_REDIRECTS,
+        headers=headers or {"User-Agent": f"Grimoire/{config.VERSION}"},
+        event_hooks=hooks,
+    )
+
+
+def fetch_json(
+    url: str,
+    user_agent: str = "",
+    timeout: int = HTTP_TIMEOUT,
+    credentials: Optional["SourceCredentials"] = None,
+) -> Any:
     """GET ``url`` and parse JSON, enforcing the shared network limits.
 
     Raises ``AddonFetchError`` with a user-facing message on any failure.
     """
     headers = {"User-Agent": _user_agent(user_agent), "Accept": "application/json"}
     try:
-        with httpx.Client(
-            timeout=timeout,
-            follow_redirects=True,
-            max_redirects=HTTP_MAX_REDIRECTS,
-            headers=headers,
-        ) as client:
+        with open_client(timeout=timeout, headers=headers, credentials=credentials) as client:
             with client.stream("GET", url) as response:
                 if response.status_code != 200:
                     raise AddonFetchError(
@@ -150,11 +175,13 @@ def fetch_document(
     cache_ttl: int = DEFAULT_CACHE_TTL,
     force: bool = False,
     timeout: int = HTTP_TIMEOUT,
+    credentials: Optional["SourceCredentials"] = None,
 ) -> Any:
     """Fetch ``url``, serving from the disk cache while it is fresh.
 
     ``timeout`` lets a caller fetching a small file fail faster than the
-    catalogue-sized default.
+    catalogue-sized default. ``credentials`` is for catalogue sources only -
+    a scraper's requests to its target site never pass it.
     """
     if not force:
         cached = read_cache(url, cache_ttl)
@@ -164,7 +191,7 @@ def fetch_document(
             return cached
 
     logger.debug("Add-on fetching %s", url)
-    document = fetch_json(url, user_agent=user_agent, timeout=timeout)
+    document = fetch_json(url, user_agent=user_agent, timeout=timeout, credentials=credentials)
     if cache_ttl > 0:
         write_cache(url, document)
     return document

@@ -1154,6 +1154,10 @@ class TestMultiSourceCatalogue:
             "https://source2.com/theme-doc/index.json",
             "https://source3.com/templates/index.json",
         ])
+        # No database here, so no stored source tokens to load either.
+        monkeypatch.setattr(
+            catalogue.source_credentials, "load", lambda db: catalogue.source_credentials.SourceCredentials()
+        )
 
         res = catalogue.fetch_catalogue(None)
         assert "https://source1.com/themes/index.json" not in fetched_urls

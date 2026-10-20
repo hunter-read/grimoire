@@ -15,16 +15,17 @@ import httpx
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
+from . import credentials as source_credentials
 from .urls import index_url_problem
 from .. import config
 from .constants import (
     HTTP_MAX_BYTES,
-    HTTP_MAX_REDIRECTS,
     HTTP_TIMEOUT,
     external_installs_enabled,
     is_trusted_index_url,
 )
-from .fetch import AddonFetchError, fetch_json
+from .credentials import SourceCredentials
+from .fetch import AddonFetchError, fetch_json, open_client
 from .manifest import AddonIndex, IndexEntry
 from .registry import (
     AddonError,
@@ -52,16 +53,14 @@ def _assert_external_installs_enabled() -> None:
         raise AddonError("Installing add-ons from a community repository is disabled")
 
 
-def _fetch_text(url: str) -> bytes:
-    """GET a text file (manifest or script) under the shared network limits."""
-    headers = {"User-Agent": f"Grimoire/{config.VERSION}"}
+def _fetch_text(url: str, credentials: Optional[SourceCredentials] = None) -> bytes:
+    """GET a text file (manifest or script) under the shared network limits.
+
+    ``credentials`` carries a private source's token, so the files an
+    authenticated index lists can be downloaded with it too.
+    """
     try:
-        with httpx.Client(
-            timeout=HTTP_TIMEOUT,
-            follow_redirects=True,
-            max_redirects=HTTP_MAX_REDIRECTS,
-            headers=headers,
-        ) as client:
+        with open_client(timeout=HTTP_TIMEOUT, credentials=credentials) as client:
             response = client.get(url)
             if response.status_code != 200:
                 raise AddonFetchError(f"download returned HTTP {response.status_code}")
@@ -84,22 +83,26 @@ def refresh_index(db: Session, url: Optional[str] = None) -> dict:
     if not index_urls:
         raise AddonError("no index URLs configured")
 
-    all_addons = []
-    errors = []
-    generated = ""
-
+    # Every URL is checked before any is fetched, so a bad one refuses the whole
+    # refresh without reaching out to the good ones first.
     for index_url in index_urls:
         problem = index_url_problem(index_url)
         if problem:
             raise AddonError(problem)
 
+    all_addons = []
+    errors = []
+    generated = ""
+    creds = source_credentials.load(db)
+
+    for index_url in index_urls:
         # If the URL explicitly points to a theme or note template index, do not fetch add-ons from it
         if index_url.endswith("themes/index.json") or index_url.endswith("templates/index.json"):
             logger.debug("Skipping add-on index fetch for non-addon index URL %s", index_url)
             continue
 
         try:
-            raw = fetch_json(index_url, user_agent=f"Grimoire/{config.VERSION}")
+            raw = fetch_json(index_url, user_agent=f"Grimoire/{config.VERSION}", credentials=creds)
             if isinstance(raw, dict) and ("themes" in raw or "templates" in raw or "folders" in raw) and "addons" not in raw and "plugins" not in raw:
                 logger.debug("Skipping add-on index fetch for explicit theme/template index %s", index_url)
                 continue
@@ -278,8 +281,9 @@ def install(db: Session, addon_id: str, approve_script: bool = False, index_url:
             f"Installing script-backed add-on '{addon_id}' from an unverified source repository requires explicit script approval consent"
         )
 
+    creds = source_credentials.load(db)
     manifest_url = urljoin(manifest_index_url, entry.path)
-    manifest_body = _fetch_text(manifest_url)
+    manifest_body = _fetch_text(manifest_url, creds)
     _verify(manifest_body, entry.sha256, "add-on manifest")
 
     target_dir = addon_dir(addon_id)
@@ -304,7 +308,8 @@ def install(db: Session, addon_id: str, approve_script: bool = False, index_url:
             # Read the staged manifest to learn the script filename rather than
             # trusting the index's word for it.
             script_name = _script_entry_name(staging, addon_id)
-            script_body = _fetch_text(urljoin(manifest_index_url, f"{os.path.dirname(entry.path)}/{script_name}"))
+            script_url = urljoin(manifest_index_url, f"{os.path.dirname(entry.path)}/{script_name}")
+            script_body = _fetch_text(script_url, creds)
             _verify(script_body, entry.script_sha256, "add-on script")
             with open(os.path.join(staging, script_name), "wb") as fh:
                 fh.write(script_body)

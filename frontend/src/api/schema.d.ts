@@ -87,6 +87,30 @@ export interface paths {
         patch: operations["update_addon_settings_api_addons_settings_patch"];
         trace?: never;
     };
+    "/api/addons/sources/credential": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set a private source's access token
+         * @description Stores an access token for one configured index source, sealed under SECRET_KEY. It is sent only to URLs inside that source, as `Authorization: Bearer <token>` or under the given header. The token is never returned. Admin only.
+         */
+        put: operations["set_source_credential_api_addons_sources_credential_put"];
+        post?: never;
+        /**
+         * Remove a private source's access token
+         * @description Forgets the stored access token for one configured index source. Admin only.
+         */
+        delete: operations["clear_source_credential_api_addons_sources_credential_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/addons/update-all": {
         parameters: {
             query?: never;
@@ -6637,6 +6661,10 @@ export interface components {
             /** Source Contents */
             source_contents?: {
                 [key: string]: string[];
+            };
+            /** Source Credentials */
+            source_credentials?: {
+                [key: string]: components["schemas"]["SourceCredentialInfo"];
             };
             /** Trusted Index Urls */
             trusted_index_urls?: string[];
@@ -13718,6 +13746,40 @@ export interface components {
             overwrite_foreign?: boolean;
         };
         /**
+         * SourceCredentialInfo
+         * @description What the UI may know about a source's token - never the token itself.
+         */
+        SourceCredentialInfo: {
+            /** Env Locked */
+            env_locked: boolean;
+            /** Header */
+            header: string;
+            /** Unreadable */
+            unreadable: boolean;
+        };
+        /**
+         * SourceCredentialSet
+         * @description An access token for one configured index source (issue #642).
+         *
+         *     ``header`` defaults to ``Authorization``, sent as ``Bearer <token>``; any
+         *     other header name (GitLab's ``PRIVATE-TOKEN``) carries the token as is.
+         */
+        SourceCredentialSet: {
+            /** Header */
+            header?: string | null;
+            /** Token */
+            token: string;
+            /** Url */
+            url: string;
+        };
+        /** SourceCredentialsResponse */
+        SourceCredentialsResponse: {
+            /** Source Credentials */
+            source_credentials?: {
+                [key: string]: components["schemas"]["SourceCredentialInfo"];
+            };
+        };
+        /**
          * StatsResponse
          * @description Library counts for the dashboard and external integrations.
          */
@@ -15863,6 +15925,80 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AddonSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_source_credential_api_addons_sources_credential_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceCredentialSet"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceCredentialsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clear_source_credential_api_addons_sources_credential_delete: {
+        parameters: {
+            query: {
+                url: string;
+            };
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceCredentialsResponse"];
                 };
             };
             /** @description Validation Error */

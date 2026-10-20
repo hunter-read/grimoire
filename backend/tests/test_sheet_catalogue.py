@@ -25,6 +25,13 @@ SHEET = {
 }
 
 
+
+def _no_credentials(monkeypatch):
+    """These tests install with no database; there are no source tokens to load."""
+    from backend.addons import credentials
+
+    monkeypatch.setattr(credentials, "load", lambda db: credentials.SourceCredentials())
+
 class TestUrlDerivation:
     @pytest.mark.parametrize(
         "configured,expected",
@@ -508,6 +515,7 @@ class TestFetchingASheet:
             return real_client(transport=transport, **kwargs)
 
         monkeypatch.setattr(httpx, "Client", _client)
+        _no_credentials(monkeypatch)
 
     def test_downloads_verifies_and_validates(self, monkeypatch):
         body = json.dumps(SHEET).encode()
@@ -602,6 +610,7 @@ class TestSidecarFiles:
             "Client",
             lambda **kwargs: real_client(transport=transport, **kwargs),
         )
+        _no_credentials(monkeypatch)
 
     def _entry(self, **overrides):
         entry = {

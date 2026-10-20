@@ -7,14 +7,17 @@ from ._schemas import (
     AddonSettingsResponse,
     InstalledAddon,
     RefreshIndexResponse,
+    SourceCredentialsResponse,
     StatusResponse,
     UpdateAllResponse,
     VerifyIndexResponse,
 )
 from .core import (
+    clear_source_credential,
     install_addon,
     list_addons,
     refresh_index,
+    set_source_credential,
     uninstall_addon,
     update_addon,
     update_addon_settings,
@@ -73,6 +76,30 @@ router.add_api_route(
     description="Sets the index URL and the global 'allow add-on scripts' switch. Admin only.",
     response_model=AddonSettingsResponse,
     # Decides where add-ons come from and whether they run code: session only.
+    openapi_extra=api_keys.EXCLUDED,
+)
+router.add_api_route(
+    "/sources/credential",
+    set_source_credential,
+    methods=["PUT"],
+    summary="Set a private source's access token",
+    description=(
+        "Stores an access token for one configured index source, sealed under "
+        "SECRET_KEY. It is sent only to URLs inside that source, as "
+        "`Authorization: Bearer <token>` or under the given header. The token is "
+        "never returned. Admin only."
+    ),
+    response_model=SourceCredentialsResponse,
+    # A credential for wherever add-ons come from: session only.
+    openapi_extra=api_keys.EXCLUDED,
+)
+router.add_api_route(
+    "/sources/credential",
+    clear_source_credential,
+    methods=["DELETE"],
+    summary="Remove a private source's access token",
+    description="Forgets the stored access token for one configured index source. Admin only.",
+    response_model=SourceCredentialsResponse,
     openapi_extra=api_keys.EXCLUDED,
 )
 router.add_api_route(

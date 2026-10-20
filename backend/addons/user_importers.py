@@ -21,6 +21,7 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from ..models import UserImporter
+from . import credentials as source_credentials
 from . import install as server_install
 from .constants import external_installs_enabled
 from .manifest import AddonManifest, IndexEntry
@@ -78,7 +79,7 @@ def install_for_user(
         )
 
     source = entry.index_url or server_install.get_cached_index(db).get("_url") or ""
-    body = server_install._fetch_text(urljoin(source, entry.path))
+    body = server_install._fetch_text(urljoin(source, entry.path), source_credentials.load(db))
     server_install._verify(body, entry.sha256, "importer manifest")
     try:
         raw = yaml.safe_load(body)

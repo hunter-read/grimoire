@@ -168,8 +168,9 @@ credential or the account itself: `/api/users/me/password`, `DELETE /api/users/m
 `/api/users/me/opds*`, `/api/campaigns/calendar/subscription`, the guest invite
 code routes (`POST`/`GET /api/campaigns/{id}/guests`,
 `/api/campaigns/{id}/guests/{member_id}/regenerate` and `/share-template`), the
-OIDC login-button icon (`/api/settings/oidc-button-icon`) and the add-on source
-settings (`PATCH /api/addons/settings`). OPDS and the calendar feeds keep their
+OIDC login-button icon (`/api/settings/oidc-button-icon`), the add-on source
+settings (`PATCH /api/addons/settings`) and private source tokens
+(`/api/addons/sources/credential`). OPDS and the calendar feeds keep their
 own per-user tokens.
 
 **Session-only fields.** Some routes a key can use take a few fields that only a
@@ -1948,10 +1949,12 @@ repo. See [`docs/addons.md`](addons.md) for the full picture.
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/addons` | GET | admin | Installed add-ons, everything in the cached index, and add-on settings |
+| `/api/addons` | GET | admin | Installed add-ons, everything in the cached index, and add-on settings. `source_credentials` maps each configured index URL that has an access token to `{header, env_locked, unreadable}` - never the token |
 | `/api/addons/refresh` | POST | admin | Re-fetch the community index. Returns `{status, count}` |
 | `/api/addons/update-all` | POST | admin | Refresh the index, then update every installed add-on with a newer version. Returns `{status, updated: [{id, from, to}], failed: [{id, error}]}` |
 | `/api/addons/settings` | PATCH | admin | Set `index_url` and/or `allow_scripts`. An index URL must be `https://`, or `http://` on `localhost` or a private network address; anything else is a `422` |
+| `/api/addons/sources/credential` | PUT | admin | Store a [private source's](addons.md#private-sources) access token. Body `{url, token, header?}`; `url` must be a configured index URL, and `header` defaults to `Authorization` (sent as `Bearer <token>`). `400` for an unconfigured URL, one pinned by `ADDON_INDEX_CREDENTIALS`, or an unusable token or header. Returns `{source_credentials}`. Session only |
+| `/api/addons/sources/credential?url=` | DELETE | admin | Forget a source's stored token. Returns `{source_credentials}`. Session only |
 | `/api/addons/:id/install` | POST | admin | Install or update from the index. Body `{approve_script: bool}` |
 | `/api/addons/:id` | PATCH | admin | Set `enabled` and/or `script_approved` |
 | `/api/addons/:id` | DELETE | admin | Uninstall and forget its state |
