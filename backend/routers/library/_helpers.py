@@ -1,7 +1,9 @@
 """Background indexer and rescan helpers for the library."""
+import fcntl
 import json
 import os
 import threading
+import time
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -74,20 +76,40 @@ _DEFAULT_STATUS: dict = {
     "kind": None,
 }
 
+# Without Valkey the stop flag is a file under DATA_PATH, which every worker
+# can see (issue #651). An in-process flag alone only reached the worker that
+# took the POST, and with WORKERS > 1 that is often not the one holding
+# .scan.lock and running the startup scan, so Stop never landed. Ignored once
+# older than the Valkey key's expiry, so a flag a crash left behind cannot stop
+# a later run that never clears it.
+_STOP_FILENAME = ".scan.stop"
+_STOP_TTL_SECONDS = 3600
+
 # In-process fallback when Valkey is unavailable (single-worker or no cache)
 _scan_status: dict = dict(_DEFAULT_STATUS)
 _stop_requested: bool = False
 _heartbeat: Optional[str] = None
 
 
+def _stop_file() -> str:
+    return os.path.join(config.DATA_PATH, _STOP_FILENAME)
+
+
 def request_stop() -> None:
     global _stop_requested
-    _stop_requested = True
     if (client := valkey_client()) is not None:
         try:
-            client.set(_STOP_KEY, "1", ex=3600)
+            client.set(_STOP_KEY, "1", ex=_STOP_TTL_SECONDS)
         except valkey_errors() as e:
-            logger.warning("Valkey set(stop) failed, using in-process flag: %s", e)
+            logger.warning("Valkey set(stop) failed, using the stop file: %s", e)
+    try:
+        with open(_stop_file(), "w"):
+            pass
+    except OSError as e:
+        # Last resort, and only then: a flag in this process would outlive
+        # another worker's clear_stop() and stop that worker's next run early.
+        logger.warning("Couldn't write the scan stop file, using in-process flag: %s", e)
+        _stop_requested = True
 
 
 def clear_stop() -> None:
@@ -97,7 +119,40 @@ def clear_stop() -> None:
         try:
             client.delete(_STOP_KEY)
         except valkey_errors() as e:
-            logger.warning("Valkey delete(stop) failed, using in-process flag: %s", e)
+            logger.warning("Valkey delete(stop) failed, using the stop file: %s", e)
+    try:
+        os.remove(_stop_file())
+    except FileNotFoundError:
+        pass
+    except OSError as e:
+        logger.warning("Couldn't remove the scan stop file: %s", e)
+
+
+def _stop_file_set() -> bool:
+    try:
+        age = time.time() - os.stat(_stop_file()).st_mtime
+    except OSError:
+        return False
+    return age < _STOP_TTL_SECONDS
+
+
+def startup_scan_running() -> bool:
+    """Whether some worker still holds ``.scan.lock`` for its startup scan.
+
+    Without Valkey the scan status is per-process, so a worker that is not
+    running the startup scan reports nothing running and would turn a Stop away
+    (issue #651). The lock is shared across processes, so it can tell.
+    """
+    try:
+        with open(os.path.join(config.DATA_PATH, ".scan.lock"), "a") as lock:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError:
+                return True
+            fcntl.flock(lock, fcntl.LOCK_UN)
+            return False
+    except OSError:
+        return False
 
 
 def is_stop_requested() -> bool:
@@ -105,8 +160,8 @@ def is_stop_requested() -> bool:
         try:
             return bool(client.exists(_STOP_KEY))
         except valkey_errors() as e:
-            logger.warning("Valkey exists(stop) failed, using in-process flag: %s", e)
-    return _stop_requested
+            logger.warning("Valkey exists(stop) failed, using the stop file: %s", e)
+    return _stop_requested or _stop_file_set()
 
 
 def _now() -> str:
@@ -275,6 +330,18 @@ def _ocr_one_book(book_id: str) -> str:
         release_book(book_id)
 
 
+def _ocr_unless_stopped(book_id: str) -> str:
+    """``_ocr_one_book``, or "not started" once a stop has been requested.
+
+    For the concurrent drain (issue #651): ``pool.map`` hands every pending book
+    to the pool up front, so without this a stop only ended the books already in
+    flight and every queued one still started after it.
+    """
+    if is_stop_requested():
+        return "not started"
+    return _ocr_one_book(book_id)
+
+
 def run_ocr_queue() -> int:
     """Drain the deferred-OCR queue (books with ocr_pending=1).
 
@@ -334,8 +401,14 @@ def run_ocr_queue() -> int:
         else:
             from concurrent.futures import ThreadPoolExecutor
 
+            stopped = False
             with ThreadPoolExecutor(max_workers=concurrency) as pool:
-                for result in pool.map(_ocr_one_book, pending_ids):
+                for result in pool.map(_ocr_unless_stopped, pending_ids):
+                    if result == "not started":
+                        if not stopped:
+                            logger.info("Stopping - leaving the rest for next time.")
+                            stopped = True
+                        continue
                     if result == "done":
                         completed += 1
                     _set_status({"ocr_done": _get_status()["ocr_done"] + 1})

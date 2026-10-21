@@ -327,7 +327,7 @@ environment:
 | `/api/latest-release` | GET | any (JWT) | Latest published release for the update-available check: `{latest_version}` (or `null`). Proxies GitHub's releases API server-side (cached ~1h) so the browser makes a same-origin request that request blockers won't block. Returns `null` when `DISABLE_VERSION_CHECKING` is set or GitHub is unreachable. |
 | `/api/scan-status` | GET | admin | Current scan state. `phase` is `scanning` (file walk), `indexing` (text-layer extraction), or `ocr` (deferred OCR of scanned/image-only PDFs). During the `ocr` phase, `total_ocr`/`ocr_done`/`ocr_current` report the OCR queue's progress. `kind` is `reindex` while the running job is the per-book re-index queue - books replaced by upload and single-book rescans - which accepts further replace uploads and rescans; it is `null` for every other job. `heartbeat` is the last time the running scan showed signs of life (ISO 8601, UTC) - it advances at least every 30 seconds while the scan is alive and stops when its process dies |
 | `/api/rescan` | POST | admin | Trigger a background rescan and reindex (optionally scoped, with a metadata-refresh mode). A scan left stuck by a dead process does not block it |
-| `/api/cancel-scan` | POST | admin | Request a graceful stop of the running scan or indexing job, or clear one whose process died (`cleared_stale`) |
+| `/api/cancel-scan` | POST | admin | Request a graceful stop of the running scan or indexing job (`stop_requested`), or clear one whose process died (`cleared_stale`). `not_running` when there was nothing to stop. Without Valkey, a startup scan running on another worker counts as running |
 
 **Stats response:**
 ```json

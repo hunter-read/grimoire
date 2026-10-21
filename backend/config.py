@@ -124,6 +124,17 @@ VALKEY_URL = os.environ.get("VALKEY_URL", "")
 OCR_ENABLED = os.environ.get("OCR_ENABLED", "true").lower() == "true"
 OCR_LANGUAGES = os.environ.get("OCR_LANGUAGES", "eng").strip() or "eng"
 
+# Set false to skip the library scan that otherwise runs on every start (issue
+# #651). A scan already skips unchanged files, but on a very large library even
+# checking each one takes a while, and restarts for an image update or an env
+# change rarely mean new files. New files then wait for a manual or scheduled
+# rescan, and so do queued OCR and model previews.
+def _read_startup_scan() -> bool:
+    return os.environ.get("STARTUP_SCAN", "true").strip().lower() != "false"
+
+
+STARTUP_SCAN = _read_startup_scan()
+
 # Set true to disable the "update available" check that proxies GitHub's
 # releases API. When disabled, /api/latest-release always returns null and no
 # outbound request to GitHub is ever made.

@@ -15,6 +15,7 @@ from ...config import (
     DISABLE_VERSION_CHECKING,
     get_db,
     logger,
+    valkey_client,
 )
 from ...models import Model3D, GameSystem, Book, GenericMap, Token, Audio
 from ...auth import require_admin, require_not_guest, get_current_user, CurrentUser
@@ -99,6 +100,11 @@ def cancel_scan(_: CurrentUser = Depends(require_admin)):
     """
     status = _helpers._get_status()
     if not status["running"]:
+        # Without Valkey each worker has its own status, and the startup scan
+        # may be running on another one (issue #651).
+        if valkey_client() is None and _helpers.startup_scan_running():
+            _helpers.request_stop()
+            return {"status": "stop_requested"}
         return {"status": "not_running"}
     if _helpers.is_stale(status):
         _helpers.force_clear()

@@ -12,7 +12,7 @@ from sqlalchemy import text
 
 from slowapi import _rate_limit_exceeded_handler
 
-from . import backup_scheduler, scheduler, session_creator, session_purger
+from . import backup_scheduler, config, scheduler, session_creator, session_purger
 from ._health_schemas import HealthResponse
 from .auth import get_current_user, require_not_guest
 from .security import (
@@ -165,6 +165,50 @@ _TAGS = [
 ]
 
 
+def startup_scan() -> None:
+    """The library work the worker holding ``.scan.lock`` does as it starts.
+
+    Runs on a background thread. ``STARTUP_SCAN=false`` skips the scan itself
+    (issue #651); the rest still runs, since it is quick and nothing else does it.
+    """
+    from .routers.library._helpers import clear_stop, _set_status, _DEFAULT_STATUS
+
+    # Clear any stale scan state left in Valkey from a previous crashed/frozen run.
+    clear_stop()
+    _set_status({**_DEFAULT_STATUS})
+
+    # If OCR is available, re-queue any books previously skipped as
+    # image-only so the next scan runs them through OCR.
+    from . import ocr
+
+    db = SessionLocal()
+    try:
+        ocr.requeue_image_only_books(db)
+    except Exception as e:
+        logger.error(f"Couldn't queue scanned books for text recognition: {e}")
+    finally:
+        db.close()
+
+    if config.STARTUP_SCAN:
+        logger.info("Scanning your library…")
+        logger.debug(f"Library path: {LIBRARY_PATH}")
+        run_rescan_sync()
+    else:
+        logger.info("Skipping the startup library scan (STARTUP_SCAN=false).")
+
+    # Character content packs are server-wide and read from disk, so
+    # they are refreshed alongside the library rather than on demand.
+    from .services.characters import packs as character_packs
+
+    db = SessionLocal()
+    try:
+        character_packs.sync_packs(db)
+    except Exception as e:
+        logger.error(f"Couldn't load character content packs: {e}")
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Importing the app does no I/O (issue #585): this is where it starts. Data
@@ -225,38 +269,8 @@ async def lifespan(app: FastAPI):
     sweep_page_cache()
 
     def do_scan():
-        from .routers.library._helpers import clear_stop, _set_status, _DEFAULT_STATUS
-        # Clear any stale scan state left in Valkey from a previous crashed/frozen run.
-        clear_stop()
-        _set_status({**_DEFAULT_STATUS})
         try:
-            # If OCR is available, re-queue any books previously skipped as
-            # image-only so this scan runs them through OCR.
-            from . import ocr
-
-            db = SessionLocal()
-            try:
-                ocr.requeue_image_only_books(db)
-            except Exception as e:
-                logger.error(f"Couldn't queue scanned books for text recognition: {e}")
-            finally:
-                db.close()
-
-            logger.info("Scanning your library…")
-            logger.debug(f"Library path: {LIBRARY_PATH}")
-            run_rescan_sync()
-
-            # Character content packs are server-wide and read from disk, so
-            # they are refreshed alongside the library rather than on demand.
-            from .services.characters import packs as character_packs
-
-            db = SessionLocal()
-            try:
-                character_packs.sync_packs(db)
-            except Exception as e:
-                logger.error(f"Couldn't load character content packs: {e}")
-            finally:
-                db.close()
+            startup_scan()
         finally:
             fcntl.flock(lock_file, fcntl.LOCK_UN)
             lock_file.close()

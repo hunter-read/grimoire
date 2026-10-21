@@ -27,6 +27,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - A campaign's page lists the characters played in it, grouped under each player, with the GM's own first - so a GM can keep NPCs, or a solo game's party, with the campaign. Each player's current character shows; their retired and fallen ones fold away behind a "past characters" toggle. **Add character** brings one of your own characters to the table from there
 - Variant filename rules, under Settings → Metadata: teach duplicate detection your own markers - `GL_` for gridless, `-pf` for printer friendly, `night` for a label - and it pre-fills them ahead of the built-in ones
 - The reader shows the book's game system before its title, as a link to that system's page. A book opened from a link shared elsewhere, with nothing to go back to, is now one click from the rest of its system
+- `STARTUP_SCAN=false` skips the library scan Grimoire runs every time it starts, for very large libraries where a restart for an image update or a setting change shouldn't mean a long scan. New files are then found by a manual or scheduled rescan. See the configuration docs
 
 ### Changed
 
@@ -81,6 +82,8 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Fixed
 
+- **Stop** now stops the startup library scan when Grimoire runs more than one worker without Valkey. The request could reach a worker other than the one scanning, which ignored it and kept rescans of a single folder refused until the scan finished
+- With `OCR_CONCURRENCY` above `1`, **Stop** now ends text recognition after the books already in progress, rather than starting every queued book after it
 - Renaming a file to change only its capitalisation (`crystallica.pdf` to `Crystallica.pdf`) was refused as "already exists" on macOS and Windows
 - Search results in the reader's search sidebar showed apostrophes, quotes and ampersands as `&#x27;`, `&quot;` and `&amp;`
 - OPDS book covers didn't load in e-readers; they are now served under the feed's own token

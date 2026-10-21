@@ -92,7 +92,7 @@ Raise it to `2` when all of these hold:
 - Page turns feel slow when they do, and `docker stats` shows Grimoire at about 100% CPU (one full core) while other cores sit idle.
 - The host has 4 or more CPU cores and ~200 MB of RAM to spare.
 
-More workers than CPU cores never helps. With more than one worker, set `VALKEY_URL` too: otherwise each worker keeps its own page cache, sign-in rate limits and scan progress, and the scan status can look stuck while the other worker runs the scan. Grimoire does not scale workers on its own - a new worker takes seconds and 125-190 MB to start, so it would arrive after a burst had passed.
+More workers than CPU cores never helps. With more than one worker, set `VALKEY_URL` too: otherwise each worker keeps its own page cache, sign-in rate limits and scan progress, and the scan status can look stuck while the other worker runs the scan. **Stop** still reaches the startup scan whichever worker runs it, but a rescan started from the app can be stopped only through the worker running it. Grimoire does not scale workers on its own - a new worker takes seconds and 125-190 MB to start, so it would arrive after a burst had passed.
 
 ## Caching
 

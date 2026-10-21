@@ -141,6 +141,21 @@ A running scan now records a heartbeat every 30 seconds. Once that heartbeat has
 
 ---
 
+## Every restart starts a long library scan
+
+Grimoire scans the library each time it starts, so files added while it was down show up. The scan only re-reads files whose size or modification time changed, so on most libraries it finishes quickly. Two things can still make it long:
+
+- **A very large library**, or one on a slow network share, where even checking every file takes a while.
+- **Queued work from earlier.** The startup scan also works through text recognition (OCR) of scanned books and previews of large models that an earlier scan left queued, and OCR of a big scanned collection can take hours.
+
+Press **Stop** under Settings → Maintenance to end it. The scan stops at the next file or page, and queued OCR picks up where it left off on the next scan. Once it has stopped you can rescan a single folder.
+
+If restarts are mostly for image updates or setting changes, set `STARTUP_SCAN=false` (see [Configuration](configuration.md)). Grimoire then starts without scanning, and new files wait for a manual rescan or one set under Settings → Maintenance → Scheduled Rescan.
+
+With more than one worker (`WORKERS=2`), set `VALKEY_URL` as well. **Stop** reaches the startup scan whichever worker runs it, but without Valkey each worker keeps its own scan progress, so the progress shown can jump between the two - see [Workers](performance.md#workers).
+
+---
+
 ## A folder is skipped by the scan, and the file manager shows `�` in its name
 
 The folder's (or file's) name on disk is not valid UTF-8. This usually happens when the name was created on Windows in a legacy code page and copied to a share that stores names as raw bytes. For example, Windows-1252 writes the `Ö` in "MÖRK BORG" as the single byte `0xD6`, which on its own is not UTF-8. Copying through a Windows NFS mount is a common source.
