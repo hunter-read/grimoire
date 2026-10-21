@@ -325,7 +325,7 @@ environment:
 | `/api/about` | GET | any | Build info for the About dialog: `{version, commit_hash, python_version}`. Deliberately **not** exposed on `/api/stats`, so a `stats`-only key can't read these details. |
 | `/api/changelog` | GET | any (JWT) | Parsed `CHANGELOG.md` for the About dialog: `{releases: [{version, date, summary, sections: [{title, entries}]}]}`, newest release first. `date` and `summary` are `null` when the release heading carries neither (an `Unreleased` section has no date). `releases` is empty when the image ships without a changelog, which the dialog renders as no changelog section rather than an error. Parsed once and cached for the process lifetime - the file cannot change under a running container. |
 | `/api/latest-release` | GET | any (JWT) | Latest published release for the update-available check: `{latest_version}` (or `null`). Proxies GitHub's releases API server-side (cached ~1h) so the browser makes a same-origin request that request blockers won't block. Returns `null` when `DISABLE_VERSION_CHECKING` is set or GitHub is unreachable. |
-| `/api/scan-status` | GET | admin | Current scan state. `phase` is `scanning` (file walk), `indexing` (text-layer extraction), or `ocr` (deferred OCR of scanned/image-only PDFs). During the `ocr` phase, `total_ocr`/`ocr_done`/`ocr_current` report the OCR queue's progress. `heartbeat` is the last time the running scan showed signs of life (ISO 8601, UTC) - it advances at least every 30 seconds while the scan is alive and stops when its process dies |
+| `/api/scan-status` | GET | admin | Current scan state. `phase` is `scanning` (file walk), `indexing` (text-layer extraction), or `ocr` (deferred OCR of scanned/image-only PDFs). During the `ocr` phase, `total_ocr`/`ocr_done`/`ocr_current` report the OCR queue's progress. `kind` is `reindex` while the running job is the per-book re-index queue - books replaced by upload and single-book rescans - which accepts further replace uploads and rescans; it is `null` for every other job. `heartbeat` is the last time the running scan showed signs of life (ISO 8601, UTC) - it advances at least every 30 seconds while the scan is alive and stops when its process dies |
 | `/api/rescan` | POST | admin | Trigger a background rescan and reindex (optionally scoped, with a metadata-refresh mode). A scan left stuck by a dead process does not block it |
 | `/api/cancel-scan` | POST | admin | Request a graceful stop of the running scan or indexing job, or clear one whose process died (`cleared_stale`) |
 
@@ -575,7 +575,7 @@ does not support pasting, and a request with neither `identity` nor `paste`.
 | `/api/books/bulk` | POST | gm/admin | Bulk update. Body: `{items: [{id, ...PATCH fields}]}` |
 | `/api/books/bulk/tags` | POST | gm/admin | Bulk **add** tags. Body: `{ids, tags}` |
 | `/api/books/:id/reindex` | POST | gm/admin | Re-run OCR on a scanned book. Optional query `ocr_dpi` (72–600) re-reads this book at a higher resolution than the global `OCR_DPI`; omit for the default. Clears the book's search index and re-queues it (OCR runs in the background - poll `/api/scan-status`). 400 if the book has an embedded text layer (nothing to OCR). Returns `{status: "reindex_queued", ocr_dpi}`. |
-| `/api/books/:id/rescan` | POST | gm/admin | Re-read a single book from disk and rebuild its search index, for a file edited externally. Unlike `/reindex` this works for any indexable format (PDF, EPUB, DjVu, `.txt`/`.md`/`.rtf`): a text-layer book is re-extracted and its FTS rows rebuilt; an image-only PDF is re-queued for OCR. Refreshes page count and cover thumbnail if the file changed, and drops everything cached from the previous contents (page renders, open document handle, search rows). Runs in the background (poll `/api/scan-status`); no-ops if a library scan is already running. 400 for formats that cannot be indexed (archives, images), 404 if the file is missing on disk. Returns `{status: "rescan_queued"}`. |
+| `/api/books/:id/rescan` | POST | gm/admin | Re-read a single book from disk and rebuild its search index, for a file edited externally. Unlike `/reindex` this works for any indexable format (PDF, EPUB, DjVu, `.txt`/`.md`/`.rtf`): a text-layer book is re-extracted and its FTS rows rebuilt; an image-only PDF is re-queued for OCR. Refreshes page count and cover thumbnail if the file changed, and drops everything cached from the previous contents (page renders, open document handle, search rows). Runs in the background on the same queue as replace uploads (poll `/api/scan-status`, `kind: "reindex"`): a rescan sent while that queue is running joins it. No-ops if a library scan or OCR run is already in progress. 400 for formats that cannot be indexed (archives, images), 404 if the file is missing on disk. Returns `{status: "rescan_queued"}`. |
 | `/api/books/:id/file` | GET | any | Download/stream the file |
 | `/api/books/:id/thumbnail` | GET | any | WebP cover thumbnail. Sends an `ETag` derived from the file's content hash and honours `If-None-Match` (`304`), so a replaced cover is picked up despite the `immutable` cache policy. |
 | `/api/books/:id/toc` | GET | any | Table of contents as `{title, page, level, children}[]`. Available for PDF, EPUB, and DjVu; other formats 404. `page` is 1-based, or `-1` for an entry whose destination can't be resolved - a broken PDF bookmark costs only its own link, not the whole TOC, and one pointing just past the last page resolves to the last page |
@@ -3141,9 +3141,14 @@ for a corrected file: a better scan, a re-OCRed text layer, an errata printing.
   file, a name with nothing there, a map or token - is refused with `409`, so a
   mistyped name never adds a second copy instead. A `relative_dir` that does not
   exist is a `404`.
-- Refused with `409` while a library scan, re-index, or OCR run is in progress.
-  The OCR worker resumes from a page checkpoint, and changing the file under it
-  would mix the two files' text.
+- Refused with `409` while a library scan or an OCR run
+  (`POST /api/books/:id/reindex`) is in progress, and while the background
+  re-index queue is working on this same book. The OCR worker resumes from a
+  page checkpoint, and changing the file under it would mix the two files' text.
+  The queue working on *other* books - earlier replaces, or single-book rescans
+  (`POST /api/books/:id/rescan`) - does not block a replace, so a batch of
+  replaces can be sent back to back: `GET /api/scan-status` reports
+  `kind: "reindex"` while it runs.
 - The new bytes are written under a temporary name and swapped in with one
   rename, so a failed or aborted upload leaves the original file intact.
 - Everything read from the old file is rebuilt, because the new one may differ by
@@ -3152,11 +3157,19 @@ for a corrected file: a better scan, a re-OCRed text layer, an errata printing.
   renders are dropped. Page URLs carry the content hash, so clients stop using
   the old renders. A missing book is marked present again.
 - For a format with searchable text (PDF, EPUB, DjVu, `.txt`/`.md`/`.rtf`), the
-  old search rows and the OCR checkpoint are cleared and the text is re-read in
-  the background, as `POST /api/books/:id/rescan` does: from the text layer if
-  the new file has one, or queued for OCR if it is image-only. Progress shows on
-  `GET /api/scan-status`. If that background run cannot start, the next scan
-  indexes the book. The book's `ocr_dpi` override is kept.
+  old search rows and the OCR checkpoint are cleared and the book is queued for
+  a background re-index: its text is re-read from the text layer if the new file
+  has one, or it is queued for OCR if it is image-only. One background run works
+  through the queue, including books replaced while it runs, and shows its
+  progress on `GET /api/scan-status` (`kind: "reindex"`; `to_index` grows as
+  replaces arrive). If that run cannot start, the next scan indexes the book.
+  The book's `ocr_dpi` override is kept.
+- **Batch replaces.** Each replace starts or joins that background re-index, so
+  a script replacing many books just sends them one after another. It only has
+  to wait on a `409`: a library scan or other job (poll `GET /api/scan-status`
+  until `running` is `false`), or the re-index reading that very book (retry it
+  after the others). To know when every replaced book is searchable, poll
+  `GET /api/scan-status` after the last upload until `running` is `false`.
 - Nothing you wrote is touched: title, description, authors, tags, and the rest
   of the metadata stay as they are, and sidecar `.opf` metadata is not
   re-applied. Bookmarks keep their page numbers, so a bookmark can point at a

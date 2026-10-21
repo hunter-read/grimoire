@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from backend import config
-from backend.routers.library import _helpers
+from backend.routers.library import _helpers, _reindex_queue
 from backend.tests.conftest import live_scan_status
 
 
@@ -226,7 +226,7 @@ class TestScanOwners:
 
     def test_single_book_rescan_defers_to_a_live_scan(self, ticker):
         _helpers._set_status({"running": True, "phase": "scanning"})
-        with patch.object(_helpers, "reindex_single_book") as reindex:
+        with patch.object(_reindex_queue, "reindex_single_book") as reindex:
             _helpers.rescan_single_book("any")
         reindex.assert_not_called()
         assert not ticker.is_set()

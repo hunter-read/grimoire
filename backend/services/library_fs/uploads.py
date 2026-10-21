@@ -8,7 +8,7 @@ half-written file where the scanner would index it.
 """
 import os
 from pathlib import Path
-from typing import AbstractSet, Any, Optional
+from typing import AbstractSet, Any, Callable, Optional
 
 from sqlalchemy.orm import Session
 
@@ -131,6 +131,7 @@ def replace_upload(
     *,
     relative_dir: str = "",
     max_bytes: Optional[int] = None,
+    before_write: Optional[Callable[[str], None]] = None,
 ) -> dict:
     """Overwrite an indexed book's file with an upload, keeping its record (#497).
 
@@ -144,7 +145,9 @@ def replace_upload(
 
     Only the file is written here. Re-reading it (hash, pages, cover, search
     text) is the caller's job, because the caller owns the scan-status guard and
-    the background queue the text indexing runs on.
+    the background queue the text indexing runs on. ``before_write`` is called
+    with the book's id once it is known and before a byte is written, so the
+    caller can claim the book (issue #657); it refuses the upload by raising.
 
     The new bytes land under a temporary name and replace the old file in one
     rename, so an interrupted upload leaves the original intact.
@@ -164,6 +167,8 @@ def replace_upload(
             f"There is no indexed book named '{name}' there to replace", code="conflict"
         )
     assert_writable(dest_dir)
+    if before_write is not None:
+        before_write(book.id)
     written = _stream_into(target, stream, max_bytes)
     logger.info("Replaced %s with an upload (%d bytes)", to_relative(target), written)
     return {

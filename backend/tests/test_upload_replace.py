@@ -19,13 +19,31 @@ from sqlalchemy import text
 from backend.config import LIBRARY_PATH, SessionLocal
 from backend.indexer import refresh_book_file, reset_book_index
 from backend.models import Book, Bookmark
+from backend.routers.library import _claims, _reindex_queue
 from backend.routers.library import _helpers as library_helpers
 from backend.services import library_fs as fs
 from backend.services import tag_service
 
-from .conftest import make_book, make_game_system
+from .conftest import live_scan_status, make_book, make_game_system
 
 LIB = LIBRARY_PATH
+
+
+@pytest.fixture(autouse=True)
+def _idle_background():
+    """No job running, nothing queued or claimed, before and after each test."""
+
+    def reset():
+        library_helpers.clear_stop()
+        # Cleared, not just reset: a live status carries a heartbeat key too.
+        library_helpers._scan_status.clear()
+        library_helpers._set_status({**library_helpers._DEFAULT_STATUS})
+        _reindex_queue._queue.clear()
+        _claims._claims.clear()
+
+    reset()
+    yield
+    reset()
 
 
 @pytest.fixture
@@ -224,14 +242,16 @@ class TestReplaceEndpoint:
         db.commit()
         db.close()
 
-        with patch.object(library_helpers, "rescan_single_book") as rescan:
+        with patch.object(_reindex_queue, "drain_reindex_queue") as drain:
             resp = _replace(client, admin_headers, rel, "core.pdf", _pdf("revised"))
 
         assert resp.status_code == 200, resp.text
         body = resp.json()
         assert body["record_id"] == book.id
         assert body["replaced"] is True
-        rescan.assert_called_once_with(book.id, refresh_file=False)
+        drain.assert_called_once_with()
+        assert _reindex_queue._pop_queued() == book.id
+        assert _claims._claims == set()
 
         db = SessionLocal()
         try:
@@ -297,7 +317,7 @@ class TestReplaceEndpoint:
             index_failed=True,
             index_error="timed out",
         )
-        with patch.object(library_helpers, "rescan_single_book"):
+        with patch.object(_reindex_queue, "drain_reindex_queue"):
             resp = _replace(client, admin_headers, rel, "scan.pdf", _pdf("one"))
         assert resp.status_code == 200, resp.text
         db = SessionLocal()
@@ -313,7 +333,7 @@ class TestReplaceEndpoint:
         rel, system = shelf
         book = _shelve(rel, system.id, "lost.pdf", b"gone", is_missing=True)
         os.unlink(book.filepath)
-        with patch.object(library_helpers, "rescan_single_book"):
+        with patch.object(_reindex_queue, "drain_reindex_queue"):
             resp = _replace(client, admin_headers, rel, "lost.pdf", _pdf("found"))
         assert resp.status_code == 200, resp.text
         db = SessionLocal()
@@ -330,7 +350,7 @@ class TestReplaceEndpoint:
         book = _shelve(
             rel, system.id, "cover.png", b"old", mime_type="image/png", page_count=1
         )
-        with patch.object(library_helpers, "rescan_single_book") as rescan, patch(
+        with patch.object(_reindex_queue, "drain_reindex_queue") as rescan, patch(
             "backend.indexer.generate_thumbnail", return_value=True
         ):
             resp = _replace(client, admin_headers, rel, "cover.png", b"\x89PNG new image")
@@ -352,7 +372,7 @@ class TestReplaceEndpoint:
         book = _shelve(rel, system.id, "core.pdf", b"old", file_size=3)
         with patch(
             "backend.routers.files.core.refresh_book_file", side_effect=RuntimeError("boom")
-        ), patch.object(library_helpers, "rescan_single_book") as rescan:
+        ), patch.object(_reindex_queue, "drain_reindex_queue") as rescan:
             resp = _replace(client, admin_headers, rel, "core.pdf", _pdf("new"))
         assert resp.status_code == 200, resp.text
         assert resp.json()["replaced"] is True
@@ -372,6 +392,79 @@ class TestReplaceEndpoint:
         assert resp.status_code == 409
         with open(os.path.join(LIB, rel, "core.pdf"), "rb") as f:
             assert f.read() == b"original"
+
+    def test_refused_while_a_single_book_re_index_runs(self, client, admin_headers, shelf):
+        """Only the replace re-index accepts replaces; the manual one does not."""
+        rel, system = shelf
+        _shelve(rel, system.id, "core.pdf", b"original")
+        library_helpers._set_status(live_scan_status(phase="indexing"))
+        resp = _replace(client, admin_headers, rel, "core.pdf", b"new")
+        assert resp.status_code == 409
+        assert "scan or OCR run" in resp.json()["detail"]
+
+    def test_accepted_while_the_replace_re_index_works_on_another_book(
+        self, client, admin_headers, shelf
+    ):
+        """The batch case of issue #657: the previous replace's re-index is running."""
+        rel, system = shelf
+        busy = _shelve(rel, system.id, "first.pdf", _pdf("first"))
+        book = _shelve(rel, system.id, "second.pdf", _pdf("second"))
+        library_helpers._set_status(
+            live_scan_status(phase="indexing", kind=_reindex_queue.REINDEX_KIND)
+        )
+        _claims.claim_book(busy.id)
+        with patch.object(_reindex_queue, "drain_reindex_queue") as drain:
+            resp = _replace(client, admin_headers, rel, "second.pdf", _pdf("revised"))
+        assert resp.status_code == 200, resp.text
+        assert drain.called
+        assert _reindex_queue._pop_queued() == book.id
+        # The running drain's claim is its own; only the replace's was released.
+        assert _claims._claims == {busy.id}
+
+    def test_refused_while_the_replace_re_index_works_on_this_book(
+        self, client, admin_headers, shelf
+    ):
+        rel, system = shelf
+        book = _shelve(rel, system.id, "core.pdf", b"original")
+        library_helpers._set_status(
+            live_scan_status(phase="ocr", kind=_reindex_queue.REINDEX_KIND)
+        )
+        _claims.claim_book(book.id)
+        resp = _replace(client, admin_headers, rel, "core.pdf", b"new")
+        assert resp.status_code == 409
+        assert "being re-indexed" in resp.json()["detail"]
+        with open(os.path.join(LIB, rel, "core.pdf"), "rb") as f:
+            assert f.read() == b"original"
+        assert _reindex_queue.queued_count() == 0
+
+    def test_a_claim_left_by_a_dead_job_does_not_block(
+        self, client, admin_headers, shelf
+    ):
+        rel, system = shelf
+        book = _shelve(rel, system.id, "core.pdf", b"original")
+        _claims.claim_book(book.id)
+        with patch.object(_reindex_queue, "drain_reindex_queue"):
+            resp = _replace(client, admin_headers, rel, "core.pdf", _pdf("new"))
+        assert resp.status_code == 200, resp.text
+        assert _claims._claims == set()
+
+    def test_a_batch_of_replaces_is_all_accepted_and_indexed(
+        self, client, admin_headers, shelf
+    ):
+        """Back to back, with the real background drain between them."""
+        rel, system = shelf
+        names = [f"book{i}.pdf" for i in range(4)]
+        books = [_shelve(rel, system.id, n, _pdf("draft")) for n in names]
+        with patch.object(library_helpers, "run_ocr_queue"):
+            codes = [
+                _replace(client, admin_headers, rel, n, _pdf(f"errata{i}")).status_code
+                for i, n in enumerate(names)
+            ]
+        assert codes == [200] * 4
+        for i, b in enumerate(books):
+            assert _search_hits(f"errata{i}") == [b.id]
+        assert _reindex_queue.queued_count() == 0
+        assert library_helpers._get_status()["running"] is False
 
     def test_unindexed_path_is_a_409(self, client, admin_headers, shelf):
         rel, _ = shelf
@@ -475,14 +568,3 @@ class TestRefreshBookFile:
             db.close()
         assert _search_hits("quillwort") == []
 
-
-class TestRescanSingleBookTextOnly:
-    def test_indexes_without_re_reading_the_file(self, shelf):
-        rel, system = shelf
-        book = _shelve(rel, system.id, "core.pdf", b"x")
-        with patch.object(library_helpers, "reindex_single_book") as reread, patch.object(
-            library_helpers, "index_book_text"
-        ) as index, patch.object(library_helpers, "run_ocr_queue"):
-            library_helpers.rescan_single_book(book.id, refresh_file=False)
-        assert not reread.called
-        assert index.call_args.args[0].id == book.id

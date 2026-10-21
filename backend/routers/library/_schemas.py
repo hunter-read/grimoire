@@ -55,6 +55,9 @@ class ScanStatusResponse(BaseModel):
     thumbs_current: Optional[str] = None
     # Filename currently being OCR'd; None unless a book is in flight.
     ocr_current: Optional[str] = None
+    # "reindex" while the running job is the queue re-indexing replaced books
+    # (issue #657); replace uploads are accepted during it. None for any other job.
+    kind: Optional[str] = None
     # Last time the running scan showed signs of life (ISO 8601, UTC). Stops
     # advancing when the process behind the scan dies (issue #524).
     heartbeat: Optional[str] = None

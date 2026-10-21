@@ -439,11 +439,11 @@ class TestRescanSingleBookHelper:
 
     def test_rebuilds_index_via_reindex_single_book(self, sys):
         from unittest.mock import patch as _patch
-        from backend.routers.library import _helpers
+        from backend.routers.library import _helpers, _reindex_queue
 
         book, fpath = self._make_pdf_book(sys.id)
         try:
-            with _patch.object(_helpers, "reindex_single_book") as reidx, _patch.object(
+            with _patch.object(_reindex_queue, "reindex_single_book") as reidx, _patch.object(
                 _helpers, "run_ocr_queue"
             ) as drain:
                 _helpers.rescan_single_book(book.id)
@@ -458,13 +458,13 @@ class TestRescanSingleBookHelper:
 
     def test_skips_when_scan_running(self, sys):
         from unittest.mock import patch as _patch
-        from backend.routers.library import _helpers
+        from backend.routers.library import _helpers, _reindex_queue
 
         book, fpath = self._make_pdf_book(sys.id)
         try:
             _helpers._set_status({"running": True})
             try:
-                with _patch.object(_helpers, "reindex_single_book") as reidx:
+                with _patch.object(_reindex_queue, "reindex_single_book") as reidx:
                     _helpers.rescan_single_book(book.id)
                 assert not reidx.called  # left for the running scan
             finally:
@@ -474,9 +474,9 @@ class TestRescanSingleBookHelper:
 
     def test_missing_book_no_crash(self):
         from unittest.mock import patch as _patch
-        from backend.routers.library import _helpers
+        from backend.routers.library import _helpers, _reindex_queue
 
-        with _patch.object(_helpers, "reindex_single_book") as reidx, _patch.object(
+        with _patch.object(_reindex_queue, "reindex_single_book") as reidx, _patch.object(
             _helpers, "run_ocr_queue"
         ):
             _helpers.rescan_single_book("does-not-exist")

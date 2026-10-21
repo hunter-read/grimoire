@@ -1369,7 +1369,8 @@ export interface paths {
          *     rebuilt; an image-only PDF is re-queued for OCR. The page count and cover
          *     thumbnail are refreshed if the file changed.
          *
-         *     The work runs in the background; poll ``GET /api/scan-status`` for progress.
+         *     The work runs in the background on the per-book re-index queue shared with
+         *     replace uploads (issue #657); poll ``GET /api/scan-status`` for progress.
          *     No-ops (leaving the request for the running scan) if a library scan is
          *     already in progress.
          */
@@ -13068,6 +13069,8 @@ export interface components {
             heartbeat?: string | null;
             /** Indexed */
             indexed?: number | null;
+            /** Kind */
+            kind?: string | null;
             /** New Audio */
             new_audio?: number | null;
             /** New Books */

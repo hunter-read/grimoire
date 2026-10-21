@@ -503,54 +503,80 @@ def _replace_book(
     user wrote is touched — title, tags, description and the rest of the
     metadata stay as they are, and bookmarks and favorites stay on the same id.
 
-    Refused while a scan, re-index or OCR run is going. The OCR worker resumes
-    from a page checkpoint on its own copy of the row; swapping the file under
-    it would splice the new file's pages onto the old file's text and then write
-    the stale checkpoint back over the reset.
-
     The cheap re-read happens here, before responding, so the content hash
     changes (and with it every page URL) before anyone can load a page of the
     new file under the old file's cache key. Search text and OCR can take far
-    longer and run in the background, with progress on ``GET /api/scan-status``.
-    """
-    from ..library._helpers import rescan_single_book, scan_in_progress
+    longer: the book is queued for the background re-index (``_reindex_queue``),
+    with progress on ``GET /api/scan-status``.
 
-    if scan_in_progress():
+    Refused while a library scan or a standalone OCR run is going, and while the
+    re-index queue is busy with this same book. The OCR worker resumes from a
+    page checkpoint on its own copy of the row; swapping the file under it would
+    splice the new file's pages onto the old file's text and then write the
+    stale checkpoint back over the reset. The re-index queue working on *other*
+    books - earlier replaces, or single-book rescans - does not block it (issue
+    #657), so a batch of replaces runs back to back while their text is read in
+    the background.
+    """
+    from ..library import _claims, _reindex_queue
+    from ..library._helpers import scan_in_progress
+
+    live = scan_in_progress()
+    if live and not _reindex_queue.reindex_running():
         raise HTTPException(
             status_code=409,
             detail="A library scan or OCR run is in progress - replace the file once it finishes",
         )
 
-    result = fs.replace_upload(
-        db,
-        destination,
-        file.filename or "",
-        file.file,
-        relative_dir=relative_dir,
-        max_bytes=MAX_UPLOAD_BYTES,
-    )
-    book = db.get(Book, result["record_id"])
-    if book is None:  # pragma: no cover - deleted between the write and here
-        return result
-    try:
-        book.is_missing = False
-        book.scan_failed = False
-        refresh_book_file(book, DATA_PATH, db)
-        if can_index(book.mime_type):
-            # Commits the refresh above along with the reset.
-            reset_book_index(book, db)
-            background_tasks.add_task(rescan_single_book, book.id, refresh_file=False)
-        else:
-            db.commit()
-    except Exception as e:
-        # The new file is already in place. A later scan sees its new size and
-        # mtime and rebuilds the book the way it does any file replaced on disk.
-        db.rollback()
-        logger.error("Could not re-read replaced book %s: %s", result["path"], e)
-    finally:
-        # The cached (path, hash) lookup may have been refilled with the old hash
-        # by a request that landed during the re-read.
-        from ..books._helpers import _invalidate_book_cache
+    claimed: list[str] = []
 
-        _invalidate_book_cache()
-    return result
+    def claim(book_id: str) -> None:
+        # With no job running, a claim still held was left by one that died.
+        if not _claims.claim_book(book_id, force=not live):
+            raise HTTPException(
+                status_code=409,
+                detail="This book is being re-indexed - replace the file once it finishes",
+            )
+        claimed.append(book_id)
+
+    try:
+        result = fs.replace_upload(
+            db,
+            destination,
+            file.filename or "",
+            file.file,
+            relative_dir=relative_dir,
+            max_bytes=MAX_UPLOAD_BYTES,
+            before_write=claim,
+        )
+        book = db.get(Book, result["record_id"])
+        if book is None:  # pragma: no cover - deleted between the write and here
+            return result
+        try:
+            book.is_missing = False
+            book.scan_failed = False
+            refresh_book_file(book, DATA_PATH, db)
+            if can_index(book.mime_type):
+                # Commits the refresh above along with the reset. Queued before the
+                # claim is released, so a drain that skipped the book while it was
+                # claimed finds it again.
+                reset_book_index(book, db)
+                _reindex_queue.queue_reindex(book.id)
+                background_tasks.add_task(_reindex_queue.drain_reindex_queue)
+            else:
+                db.commit()
+        except Exception as e:
+            # The new file is already in place. A later scan sees its new size and
+            # mtime and rebuilds the book the way it does any file replaced on disk.
+            db.rollback()
+            logger.error("Could not re-read replaced book %s: %s", result["path"], e)
+        finally:
+            # The cached (path, hash) lookup may have been refilled with the old hash
+            # by a request that landed during the re-read.
+            from ..books._helpers import _invalidate_book_cache
+
+            _invalidate_book_cache()
+        return result
+    finally:
+        for book_id in claimed:
+            _claims.release_book(book_id)
