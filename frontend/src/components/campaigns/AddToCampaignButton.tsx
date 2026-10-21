@@ -1,19 +1,31 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuScroll, LuCheck, LuChevronDown, LuPlus } from 'react-icons/lu'
-import { campaigns } from '../../api'
+import { campaigns, type ApiError } from '../../api'
 import { useAuth } from '../../context/AuthContext'
 import { useUISettings } from '../../context/UISettingsContext'
 
-export default function AddToCampaignButton({ resourceType, resourceId, style }) {
+type Campaign = Awaited<ReturnType<typeof campaigns.list>>[number]
+
+interface AddToCampaignButtonProps {
+  resourceType: string
+  resourceId: string
+  style?: CSSProperties
+}
+
+export default function AddToCampaignButton({
+  resourceType,
+  resourceId,
+  style,
+}: AddToCampaignButtonProps) {
   const { t } = useTranslation()
-  const { user } = useAuth()
+  const user = useAuth()?.user
   const { hide_campaigns } = useUISettings()
   const [open, setOpen] = useState(false)
-  const [list, setList] = useState(null)
-  const [added, setAdded] = useState(new Set())
+  const [list, setList] = useState<Campaign[] | null>(null)
+  const [added, setAdded] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(false)
-  const btnRef = useRef(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 })
 
   // Load campaigns and figure out which already contain this resource
@@ -28,7 +40,7 @@ export default function AddToCampaignButton({ resourceType, resourceId, style })
         setList(owned)
 
         // For each campaign, check resources to see if this is already linked
-        const alreadyAdded = new Set()
+        const alreadyAdded = new Set<string>()
         await Promise.all(
           owned.map((c) =>
             campaigns
@@ -56,20 +68,20 @@ export default function AddToCampaignButton({ resourceType, resourceId, style })
     setOpen(true)
   }
 
-  const handleAdd = async (campaignId) => {
+  const handleAdd = async (campaignId: string) => {
     if (added.has(campaignId)) return
     try {
       await campaigns.addResource(campaignId, {
         resource_type: resourceType,
         resource_id: resourceId,
-        shared: false,
+        visibility: 'gm',
       })
       setAdded((prev) => new Set([...prev, campaignId]))
     } catch (err) {
-      if (err.status === 409) {
+      if ((err as ApiError).status === 409) {
         setAdded((prev) => new Set([...prev, campaignId]))
       } else {
-        alert(err.message)
+        alert((err as ApiError).message)
       }
     }
   }

@@ -2,9 +2,11 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuArrowLeft, LuDownload, LuHeart } from 'react-icons/lu'
 import { mediaUrl } from '../../api'
+import type { Schema } from '../../api'
 import { useFavorites } from '../../context/FavoritesContext'
 import AddToCampaignButton from '../campaigns/AddToCampaignButton'
 import ShareLinkButton from '../share/ShareLinkButton'
+import BookSystemCrumb from './BookSystemCrumb'
 
 const btnStyle = {
   background: 'var(--bg-card)',
@@ -18,7 +20,13 @@ const btnStyle = {
 }
 
 /** Viewer for single-image "books" (e.g. a one-page handout) — no paging. */
-export default function ImageBookViewer({ book, bookId, backPath }) {
+interface ImageBookViewerProps {
+  book: Schema<'BookDetail'>
+  bookId: string
+  backPath?: string | null
+}
+
+export default function ImageBookViewer({ book, bookId, backPath }: ImageBookViewerProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { isFavorite, toggleFavorite } = useFavorites()
@@ -56,12 +64,14 @@ export default function ImageBookViewer({ book, bookId, backPath }) {
           <LuArrowLeft size={15} /> {t('reader.back')}
         </button>
         <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
+        <BookSystemCrumb system={book.game_system} />
         <span
           style={{
             fontSize: 16,
             fontWeight: 500,
             color: 'var(--text)',
             flex: 1,
+            minWidth: 0,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',

@@ -1,16 +1,24 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import api from '../api'
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
+import api, { type Schema } from '../api'
 
-const FavoritesContext = createContext(null)
+type FavoriteItem = Schema<'FavoritesResponse'>['items'][number]
 
-export function FavoritesProvider({ children }) {
-  const [favorites, setFavorites] = useState(new Set()) // Set of "type:id" keys
-  const [items, setItems] = useState([]) // enriched items for FavoritesView
+interface FavoritesContextValue {
+  isFavorite: (type: string, id: string) => boolean
+  toggleFavorite: (type: string, id: string) => Promise<void>
+  items: FavoriteItem[]
+}
+
+const FavoritesContext = createContext<FavoritesContextValue | null>(null)
+
+export function FavoritesProvider({ children }: { children: ReactNode }) {
+  const [favorites, setFavorites] = useState<Set<string>>(new Set()) // Set of "type:id" keys
+  const [items, setItems] = useState<FavoriteItem[]>([]) // enriched items for FavoritesView
 
   const reload = useCallback(() => {
     api
       .get('/favorites')
-      .then((data) => {
+      .then((data: Schema<'FavoritesResponse'>) => {
         setFavorites(new Set(data.favorites.map((f) => `${f.item_type}:${f.item_id}`)))
         setItems(data.items || [])
       })
@@ -26,10 +34,13 @@ export function FavoritesProvider({ children }) {
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [reload])
 
-  const isFavorite = useCallback((type, id) => favorites.has(`${type}:${id}`), [favorites])
+  const isFavorite = useCallback(
+    (type: string, id: string) => favorites.has(`${type}:${id}`),
+    [favorites]
+  )
 
   const toggleFavorite = useCallback(
-    async (type, id) => {
+    async (type: string, id: string) => {
       const key = `${type}:${id}`
       if (favorites.has(key)) {
         await api.delete(`/favorites/${type}/${id}`)
@@ -55,4 +66,6 @@ export function FavoritesProvider({ children }) {
   )
 }
 
-export const useFavorites = () => useContext(FavoritesContext)
+// Read outside a provider only by tests that mock this hook, so a missing
+// provider is a programming error rather than a state to handle.
+export const useFavorites = () => useContext(FavoritesContext) as FavoritesContextValue

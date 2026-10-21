@@ -72,6 +72,21 @@ describe('ReaderToolbar — navigation', () => {
     expect(screen.getByText('Test Book')).toBeInTheDocument()
   })
 
+  it('links the system ahead of the title', () => {
+    renderToolbar({
+      book: { ...BOOK_PDF, game_system: { id: 'sys-1', name: 'Mothership', slug: 'mothership' } },
+    })
+    expect(screen.getByRole('link', { name: 'Mothership' })).toHaveAttribute(
+      'href',
+      '/library/system/sys-1'
+    )
+  })
+
+  it('shows no system link for a book in no system', () => {
+    renderToolbar()
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+  })
+
   it('calls onBack when back button is clicked', async () => {
     const onBack = vi.fn()
     renderToolbar({ onBack })

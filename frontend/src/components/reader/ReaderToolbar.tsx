@@ -11,6 +11,9 @@ import {
   LuPlus,
   LuRotateCcw,
 } from 'react-icons/lu'
+import type { IconType } from 'react-icons'
+import type { Schema } from '../../api'
+import BookSystemCrumb from './BookSystemCrumb'
 import ReaderMoreMenu from './ReaderMoreMenu'
 
 const btnStyle = {
@@ -25,7 +28,7 @@ const btnStyle = {
 }
 
 /** One button in the zoom cluster. Dimmed and inert at the clamp bounds. */
-const zoomBtnStyle = (disabled, divider) => ({
+const zoomBtnStyle = (disabled: boolean, divider: boolean) => ({
   background: 'var(--bg-card)',
   color: disabled ? 'var(--text-muted)' : 'var(--text-dim)',
   border: 'none',
@@ -36,6 +39,47 @@ const zoomBtnStyle = (disabled, divider) => ({
   display: 'flex',
   alignItems: 'center',
 })
+
+type ReaderMode = 'page' | 'spread' | 'pdf'
+type PanelKey = 'toc' | 'bookmarks' | 'search'
+
+interface ReaderToolbarProps {
+  book: Schema<'BookDetail'>
+  bookId: string
+  mode: ReaderMode
+  onModeChange: (mode: ReaderMode) => void
+  spreadOffset: number
+  onSpreadOffsetChange: (offset: number) => void
+  joinSpread: boolean
+  onJoinSpreadChange: (join: boolean) => void
+  currentPage: number
+  totalPages: number
+  step: number
+  hasRight: boolean
+  rightPage: number
+  pageInput: string
+  onPageInputChange: (value: string) => void
+  onPageInputCommit: (page: number) => void
+  panel: string | null
+  onTogglePanel: (panel: PanelKey) => void
+  isMobilePhone: boolean
+  showShortcuts: boolean
+  onToggleShortcuts: () => void
+  onBack: () => void
+  isFavorite: boolean
+  onToggleFavorite: () => void
+  onBookmarkPage: () => void
+  onShowDetails: () => void
+  onExport?: () => void
+  onFileChanged: (change: { action: string }) => void
+  zoom?: number
+  canZoomIn?: boolean
+  canZoomOut?: boolean
+  isZoomed?: boolean
+  onZoomIn?: () => void
+  onZoomOut?: () => void
+  onResetZoom?: () => void
+}
 
 export default function ReaderToolbar({
   book,
@@ -73,16 +117,16 @@ export default function ReaderToolbar({
   onZoomIn,
   onZoomOut,
   onResetZoom,
-}) {
+}: ReaderToolbarProps) {
   const { t } = useTranslation()
 
-  const panels = [
+  const panels: { key: PanelKey; Icon: IconType; label: string }[] = [
     book.mime_type === 'application/pdf' && mode !== 'pdf'
       ? { key: 'toc', Icon: LuList, label: t('reader.contents') }
       : null,
     mode !== 'pdf' ? { key: 'bookmarks', Icon: LuBookmark, label: t('reader.bookmarks') } : null,
     book.indexed ? { key: 'search', Icon: LuSearch, label: t('common.search') } : null,
-  ].filter(Boolean)
+  ].filter((p): p is { key: PanelKey; Icon: IconType; label: string } => p !== null)
 
   // The kebab sits beside the title on a phone and at the end of the controls
   // on a desktop, so it is built once here and placed by whichever row wants it.
@@ -152,6 +196,8 @@ export default function ReaderToolbar({
 
           <div style={{ width: 1, height: 20, background: 'var(--border)', flexShrink: 0 }} />
 
+          <BookSystemCrumb system={book.game_system} />
+
           {/* minWidth: 0 is what lets the ellipsis actually happen — without
               it the span holds its full text width and shoves the controls on
               the right off the row. */}
@@ -200,7 +246,9 @@ export default function ReaderToolbar({
               type="text"
               value={pageInput}
               onChange={(e) => onPageInputChange(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && onPageInputCommit(parseInt(pageInput) || 1)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') onPageInputCommit(parseInt(pageInput) || 1)
+              }}
               onBlur={() => onPageInputCommit(parseInt(pageInput) || 1)}
               aria-label={t('reader.currentPageNumber')}
               style={{ width: 50, textAlign: 'center', padding: '4px 6px', fontSize: 15 }}

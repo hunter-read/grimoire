@@ -113,7 +113,7 @@ describe('AddToCampaignButton', () => {
       expect(campaigns.addResource).toHaveBeenCalledWith(10, {
         resource_type: 'book',
         resource_id: 5,
-        shared: false,
+        visibility: 'gm',
       })
     )
     expect(await screen.findByText('resources.added')).toBeInTheDocument()

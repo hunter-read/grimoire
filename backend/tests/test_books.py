@@ -99,6 +99,28 @@ class TestGetBook:
         assert isinstance(body["is_missing"], bool)
         assert body["is_missing"] is False
 
+    def test_get_book_includes_game_system(self, client, admin_headers, book, system):
+        resp = client.get(f"/api/books/{book.id}", headers=admin_headers)
+        assert resp.status_code == 200
+        assert resp.json()["game_system"] == {
+            "id": system.id,
+            "name": system.name,
+            "slug": system.slug,
+            "is_system_agnostic": False,
+            "is_one_page": False,
+        }
+
+    def test_get_book_flags_a_special_collection(self, client, admin_headers):
+        # The reader's breadcrumb prettifies a collection's raw folder name
+        # from these flags (issue #641).
+        collection = make_game_system(name="one-page-rpgs", is_one_page=True)
+        one_pager = make_book(system_id=collection.id)
+        resp = client.get(f"/api/books/{one_pager.id}", headers=admin_headers)
+        assert resp.status_code == 200
+        ref = resp.json()["game_system"]
+        assert ref["is_one_page"] is True
+        assert ref["is_system_agnostic"] is False
+
     def test_get_nonexistent_book(self, client, admin_headers):
         resp = client.get("/api/books/does-not-exist", headers=admin_headers)
         assert resp.status_code == 404

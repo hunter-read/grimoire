@@ -26,6 +26,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Folder naming patterns, under Settings → Metadata: describe how the books in a folder are named - `{system} - [{publisher}] - {*} - {title}< (v{version}, {year})>`, say - and new books there take their title, publisher, version and year from the filename instead of showing the whole name. A preview lets you re-title the books already there, and a pattern without `{*}` can also rename files to match, or move a folder onto a new naming scheme. Renamed books keep their tags, progress and sidecars, and nothing is renamed unless you choose to. See the filename rules docs
 - A campaign's page lists the characters played in it, grouped under each player, with the GM's own first - so a GM can keep NPCs, or a solo game's party, with the campaign. Each player's current character shows; their retired and fallen ones fold away behind a "past characters" toggle. **Add character** brings one of your own characters to the table from there
 - Variant filename rules, under Settings → Metadata: teach duplicate detection your own markers - `GL_` for gridless, `-pf` for printer friendly, `night` for a label - and it pre-fills them ahead of the built-in ones
+- The reader shows the book's game system before its title, as a link to that system's page. A book opened from a link shared elsewhere, with nothing to go back to, is now one click from the rest of its system
 
 ### Changed
 

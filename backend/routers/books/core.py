@@ -243,7 +243,13 @@ def get_book(
         "variant_main_id": variant_parent.id if main_readable else None,
         **(variants.main_fields(variant_parent) if main_readable else {}),
         "variants": [variants.serialize_variant(v) for v in siblings],
-        "game_system": {"id": system.id, "name": system.name, "slug": system.slug}
+        "game_system": {
+            "id": system.id,
+            "name": system.name,
+            "slug": system.slug,
+            "is_system_agnostic": bool(system.is_system_agnostic),
+            "is_one_page": bool(system.is_one_page),
+        }
         if system
         else None,
     }

@@ -185,6 +185,10 @@ class BookSystemRef(BaseModel):
     id: str
     name: str
     slug: str
+    # Special collections keep raw folder names, so the reader's breadcrumb
+    # needs these to prettify them the way the library does (issue #641).
+    is_system_agnostic: bool = False
+    is_one_page: bool = False
 
 
 class BookDetail(BaseModel):

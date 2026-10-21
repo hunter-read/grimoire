@@ -48,6 +48,19 @@ describe('ImageBookViewer', () => {
     expect(mediaUrl).toHaveBeenCalledWith('/books/7/file')
   })
 
+  it('links the system ahead of the title', () => {
+    setup({
+      book: {
+        title: 'Map of Barovia',
+        game_system: { id: 'sys-1', name: 'Curse of Strahd', slug: 'cos' },
+      },
+    })
+    expect(screen.getByRole('link', { name: 'Curse of Strahd' })).toHaveAttribute(
+      'href',
+      '/library/system/sys-1'
+    )
+  })
+
   it('offers a download link for the underlying file', () => {
     setup()
     const link = screen.getByTitle('reader.downloadFile')

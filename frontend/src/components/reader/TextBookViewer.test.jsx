@@ -53,6 +53,15 @@ describe('TextBookViewer', () => {
     expect(api.get).toHaveBeenCalledWith('/books/b1/page/1/text')
   })
 
+  it('links the system ahead of the title', async () => {
+    setup({ book: { game_system: { id: 'sys-1', name: 'Homebrew', slug: 'homebrew' } } })
+    expect(screen.getByRole('link', { name: 'Homebrew' })).toHaveAttribute(
+      'href',
+      '/library/system/sys-1'
+    )
+    await waitFor(() => expect(screen.getByText('Page one text')).toBeInTheDocument())
+  })
+
   it('shows a spinner until the text arrives', async () => {
     let resolve
     api.get.mockReturnValue(new Promise((r) => (resolve = r)))

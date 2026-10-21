@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuArrowLeft, LuDownload, LuHeart } from 'react-icons/lu'
 import api, { mediaUrl } from '../../api'
+import type { Schema } from '../../api'
 import { useFavorites } from '../../context/FavoritesContext'
 import Spinner from '../Spinner'
 import ShareLinkButton from '../share/ShareLinkButton'
+import BookSystemCrumb from './BookSystemCrumb'
 
 const btnStyle = {
   background: 'var(--bg-card)',
@@ -26,15 +28,21 @@ const btnStyle = {
  * Pagination matches what the indexer wrote into the search index, so a search
  * result pointing at page 3 lands on the same page shown here.
  */
-export default function TextBookViewer({ book, bookId, backPath }) {
+interface TextBookViewerProps {
+  book: Schema<'BookDetail'>
+  bookId: string
+  backPath?: string | null
+}
+
+export default function TextBookViewer({ book, bookId, backPath }: TextBookViewerProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { isFavorite, toggleFavorite } = useFavorites()
   const totalPages = book?.page_count || 1
   const [page, setPage] = useState(1)
-  const [text, setText] = useState(null)
+  const [text, setText] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
-  const contentRef = useRef(null)
+  const contentRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -44,7 +52,7 @@ export default function TextBookViewer({ book, bookId, backPath }) {
       .get(`/books/${bookId}/page/${page}/text`)
       .then((data) => {
         if (cancelled) return
-        setText(data.text || '')
+        setText((data as Schema<'PageTextResponse'>).text || '')
       })
       .catch(() => {
         if (!cancelled) setFailed(true)
@@ -63,8 +71,8 @@ export default function TextBookViewer({ book, bookId, backPath }) {
   }, [page])
 
   useEffect(() => {
-    const onKey = (e) => {
-      if (e.target.matches('input, textarea')) return
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.target as Element).matches('input, textarea')) return
       if (e.key === 'ArrowRight') setPage((p) => Math.min(p + 1, totalPages))
       if (e.key === 'ArrowLeft') setPage((p) => Math.max(p - 1, 1))
     }
@@ -106,6 +114,7 @@ export default function TextBookViewer({ book, bookId, backPath }) {
         >
           <LuArrowLeft size={16} aria-hidden="true" /> {t('reader.back')}
         </button>
+        <BookSystemCrumb system={book.game_system} />
         <span style={{ fontWeight: 600, flex: 1, minWidth: 0 }}>{book.title}</span>
         {totalPages > 1 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

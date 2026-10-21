@@ -570,7 +570,7 @@ does not support pasting, and a request with neither `identity` nor `paste`.
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
 | `/api/books` | GET | any | Paginated book list. Query: `system_id`, `category`, `limit` (max 500, default 100), `offset`, `sort` (`title` - the default - or `added_at`), `order` (`asc`/`desc`; defaults to A-Z for `title` and newest first for `added_at`), `added_since` (ISO-8601; see below) |
-| `/api/books/:id` | GET | any | Book detail with game system |
+| `/api/books/:id` | GET | any | Book detail with game system. `game_system` is `{id, name, slug, is_system_agnostic, is_one_page}` (null for a book in no system); the two flags let the reader's breadcrumb prettify a special collection's folder name |
 | `/api/books/:id` | PATCH | gm/admin | Update: `title`, `category`, `description`, `authors`, `artists`, `genres`, `publisher`, `publisher_url` (legacy), `urls`, `isbn`, `product_code`, `version`, `language`, `license`, `year`, `month` (1–12), `day` (1–31), `tags`, `is_explicit`, `codex_id`, `access_level` (**admin only**). `license` overrides the system license for this book (blank inherits it). Changing `category` also **moves the file** - see below. `file_size`/`page_count`/`mime_type` are read-only. Sending `access_level` as a non-admin returns 403 - see [Access levels](#access-levels-issue-258). |
 | `/api/books/bulk` | POST | gm/admin | Bulk update. Body: `{items: [{id, ...PATCH fields}]}` |
 | `/api/books/bulk/tags` | POST | gm/admin | Bulk **add** tags. Body: `{ids, tags}` |

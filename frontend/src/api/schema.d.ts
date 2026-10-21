@@ -8082,6 +8082,16 @@ export interface components {
         BookSystemRef: {
             /** Id */
             id: string;
+            /**
+             * Is One Page
+             * @default false
+             */
+            is_one_page?: boolean;
+            /**
+             * Is System Agnostic
+             * @default false
+             */
+            is_system_agnostic?: boolean;
             /** Name */
             name: string;
             /** Slug */
