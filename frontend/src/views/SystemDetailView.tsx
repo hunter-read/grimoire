@@ -1,4 +1,13 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  type ComponentType,
+  type CSSProperties,
+  type Dispatch,
+  type SetStateAction,
+} from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import useSessionState from '../hooks/useSessionState'
 import useCollapsedSet from '../hooks/useCollapsedSet'
@@ -6,16 +15,17 @@ import useSystemSearch from '../hooks/useSystemSearch'
 import useRestoredView from '../hooks/useRestoredView'
 import { useTranslation } from 'react-i18next'
 import { LuArrowLeft, LuPencil, LuFolderOpen, LuSearch, LuX, LuDownload } from 'react-icons/lu'
-import api, { bulk as bulkApi } from '../api'
+import api, { bulk as bulkApi, type Schema } from '../api'
 import DownloadArchiveModal from '../components/DownloadArchiveModal'
 import BulkActionBar from '../components/BulkActionBar'
+import useBulkMerge from '../hooks/useBulkMerge'
 import AddToCampaignModal from '../components/AddToCampaignModal'
-import BulkEditModal from '../components/BulkEditModal'
+import BulkEditModalJs from '../components/BulkEditModal'
 import useBulkSelection from '../hooks/useBulkSelection'
 
 import { useAuth } from '../context/AuthContext'
 import Spinner from '../components/Spinner'
-import Tag from '../components/Tag'
+import TagJs from '../components/Tag'
 import SystemEditor from '../components/system/SystemEditor'
 import SystemLinks from '../components/system/SystemLinks'
 import SystemDescription from '../components/system/SystemDescription'
@@ -26,53 +36,116 @@ import CategoryBookItem from '../components/system/CategoryBookItem'
 import CategoryGroupToggle from '../components/system/CategoryGroupToggle'
 import { nodeKey, orderedNodeEntries } from '../components/system/shelfTree'
 import LoadMoreSentinel from '../components/LoadMoreSentinel'
-import useShelf, { FLAT } from '../hooks/useShelf'
+import useShelf from '../hooks/useShelf'
 import { bookFilterParams, withQuery } from '../utils/browseParams'
 import { getFolderPlacement } from '../hooks/useUserPrefs'
-import BulkToggleButton from '../components/BulkToggleButton'
+import BulkToggleButtonJs from '../components/BulkToggleButton'
 import CollapseExpandButtons from '../components/CollapseExpandButtons'
-import ToolbarButton from '../components/ToolbarButton'
-import RescanButton from '../components/RescanButton'
-import FavoriteButton from '../components/FavoriteButton'
+import ToolbarButtonJs from '../components/ToolbarButton'
+import RescanButtonJs from '../components/RescanButton'
+import FavoriteButtonJs from '../components/FavoriteButton'
 import ViewModeToggle from '../components/ViewModeToggle'
 import useViewMode from '../hooks/useViewMode'
-import SortFilterBar from '../components/library/SortFilterBar'
-import { queryTags } from '../components/library/tagQuery'
+import SortFilterBarJs from '../components/library/SortFilterBar'
 import useSavedFilters from '../hooks/useSavedFilters'
 import { CATEGORY_ORDER } from '../constants'
 import { defaultCollapsedFromCounts } from '../utils/autoCollapse'
 import { systemDisplayName } from '../utils/systemDisplayName'
 import { parentSystemLabel } from '../utils/parentSystemLabel'
 import useTagLabels, { titleCaseTag } from '../hooks/useTagLabels'
-import useLibraryChanged from '../hooks/useLibraryChanged'
 import { RECENTLY_ADDED_DAYS } from '../utils/recentlyAdded'
 
-const DEFAULT_BOOK_FILTER = { sort: 'title', order: 'asc', filters: {} }
+// Still-JavaScript components whose props TypeScript would infer from their
+// defaults, turning every optional prop into a required one.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Loose = ComponentType<Record<string, any>>
+const Tag = TagJs as Loose
+const BulkToggleButton = BulkToggleButtonJs as Loose
+const ToolbarButton = ToolbarButtonJs as Loose
+const FavoriteButton = FavoriteButtonJs as Loose
+const SortFilterBar = SortFilterBarJs as Loose
+const RescanButton = RescanButtonJs as Loose
+const BulkEditModal = BulkEditModalJs as Loose
+
+type System = Schema<'SystemDetail'>
+type Book = Schema<'BookOut'>
+
+interface BookFilter {
+  sort: string
+  order: string
+  filters: { tags?: unknown; favorites?: boolean; [key: string]: unknown }
+}
+
+/** A category or subfolder of the shelf, as shelfTree's buildShelf builds it. */
+interface ShelfNode {
+  category: string
+  path: string
+  count: number
+  direct: number
+  folders: Record<string, ShelfNode>
+}
+
+/** What useShelf (still JavaScript) returns. */
+interface ShelfData {
+  system: System | null
+  setSystem: Dispatch<SetStateAction<System | null>>
+  facets: {
+    categories: string[]
+    genres: string[]
+    product_code_prefixes: string[]
+    tags: string[]
+  }
+  shelf: Record<string, ShelfNode>
+  pages: { get: (key: string) => { items: Book[]; hasMore: boolean } | undefined }
+  loadNode: (...args: unknown[]) => void
+  loadedBooks: Book[]
+  updateBooks: (fn: (book: Book) => Book) => void
+  reload: () => void
+  flatBooks: Book[]
+  flatHasMore: boolean
+  flatLoading: boolean
+  loadMoreFlat: () => void
+  matchCount: number
+}
+
+type SetState<T> = Dispatch<SetStateAction<T>>
+
+const DEFAULT_BOOK_FILTER: BookFilter = { sort: 'title', order: 'asc', filters: {} }
+
+const foldersToTags = (r: unknown) => {
+  const map: Record<string, string[]> = {}
+  for (const f of (r as { folders?: { path: string; tags?: string[] }[] })?.folders || [])
+    map[f.path] = f.tags || []
+  return map
+}
 
 export default function SystemDetailView() {
   const { t } = useTranslation()
   const { systemId } = useParams()
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const user = useAuth()?.user
   const isEditor = user?.role === 'admin' || user?.role === 'gm'
   // Returning from the reader restores the search/sort/filter you left behind;
   // navigating here fresh always starts clean.
   const restoreView = useRestoredView()
   const [editing, setEditing] = useState(false)
-  const [editingBookId, setEditingBookId] = useState(null)
+  const [editingBookId, setEditingBookId] = useState<string | null>(null)
   // Book subcategory folder tags, keyed by BookFolder path
   // ("{systemId}/{category}/{subfolder…}"). Loaded once per system; edited
   // inline on each folder group header (issue #235 follow-up).
-  const [bookFolderTags, setBookFolderTags] = useState({})
-  const [editingFolderKey, setEditingFolderKey] = useState(null)
+  const [bookFolderTags, setBookFolderTags] = useState<Record<string, string[]>>({})
+  const [editingFolderKey, setEditingFolderKey] = useState<string | null>(null)
   const [collapsedSubfolders, setCollapsedSubfolders] = useSessionState(
     `grimoire:system:${systemId}:subfolders`,
     new Set()
-  )
+  ) as [Set<string>, SetState<Set<string>>]
   // Whether books are split into category sections (default) or shown as one
   // flat sorted list. Persisted per system for the session. Sort/filter state
   // is independent of this toggle.
-  const [grouped, setGrouped] = useSessionState(`grimoire:system:${systemId}:grouped`, true)
+  const [grouped, setGrouped] = useSessionState(`grimoire:system:${systemId}:grouped`, true) as [
+    boolean,
+    SetState<boolean>,
+  ]
   // Books sort/filter now flow through the shared SortFilterBar state, with
   // server-backed saved presets (scope "books"). Favourites/tags/explicit/genre
   // all live in filters; the category grouping below is preserved.
@@ -83,13 +156,17 @@ export default function SystemDetailView() {
     `grimoire:system:${systemId}:book-filter`,
     DEFAULT_BOOK_FILTER,
     { restore: restoreView }
-  )
+  ) as [BookFilter, SetState<BookFilter>]
   const [defaultApplied, setDefaultApplied] = useState(restoreView)
 
   // The summary, filter options, category/subfolder tree and the books
   // themselves all come from the server, the books a page at a time
   // (issue #221) - a system can hold tens of thousands of them.
-  const shelfData = useShelf(systemId, { grouped, bookFilter, ready: defaultApplied })
+  const shelfData = useShelf(systemId, {
+    grouped,
+    bookFilter,
+    ready: defaultApplied,
+  }) as unknown as ShelfData
   const { system, setSystem, facets, shelf, pages, loadNode, loadedBooks, updateBooks } = shelfData
 
   // A long system starts with its categories collapsed (a small core stays
@@ -102,7 +179,7 @@ export default function SystemDetailView() {
   const [collapsedCats, setCollapsedCats] = useCollapsedSet(
     `grimoire:system:${systemId}:collapsed`,
     defaultCollapsedFromCounts(categoryCounts)
-  )
+  ) as [Set<string>, SetState<Set<string>>]
   // Two independent view modes: the book list below uses the "book" preference,
   // while a container system's child-system grid uses the "system" one — the same
   // setting the main library grid uses (issue #296). Sharing one mode made
@@ -112,12 +189,21 @@ export default function SystemDetailView() {
   const { searchQuery, searchResults, searching, handleSearchInput, clearSearch } = useSystemSearch(
     systemId,
     restoreView
-  )
-  const [downloadModal, setDownloadModal] = useState(null)
+  ) as {
+    searchQuery: string
+    searchResults: { query?: string } | null
+    searching: boolean
+    handleSearchInput: (e: React.ChangeEvent<HTMLInputElement>) => void
+    clearSearch: () => void
+  }
+  const [downloadModal, setDownloadModal] = useState<{
+    title: string
+    params: Record<string, unknown>
+  } | null>(null)
   // Books whose title or metadata match the in-system search, shown above the
   // page hits. Asked of the server with the shelf's filters, so they honour the
   // same tag/favourite filters as the grid.
-  const [matchedBooks, setMatchedBooks] = useState([])
+  const [matchedBooks, setMatchedBooks] = useState<Book[]>([])
 
   // Bulk multiselect (books only)
   const bulk = useBulkSelection()
@@ -126,17 +212,13 @@ export default function SystemDetailView() {
   const [showAddToCampaign, setShowAddToCampaign] = useState(false)
   const [showBulkEdit, setShowBulkEdit] = useState(false)
   // Shared-tag display labels for book tags (filter values match on internal key).
-  const bookTagLabels = useTagLabels('book')
+  const bookTagLabels = useTagLabels('book') as Record<string, string>
 
   // Load book subcategory folder tags for this system.
   useEffect(() => {
     api
       .get(`/systems/${systemId}/book-folders`)
-      .then((r) => {
-        const map = {}
-        for (const f of r.folders || []) map[f.path] = f.tags || []
-        setBookFolderTags(map)
-      })
+      .then((r) => setBookFolderTags(foldersToTags(r)))
       .catch(() => setBookFolderTags({}))
   }, [systemId])
 
@@ -153,7 +235,7 @@ export default function SystemDetailView() {
     }
     api
       .get(withQuery(`/systems/${systemId}/books`, params))
-      .then((r) => !cancelled && setMatchedBooks(r.books || []))
+      .then((r) => !cancelled && setMatchedBooks((r as { books?: Book[] })?.books || []))
       .catch(() => !cancelled && setMatchedBooks([]))
     return () => {
       cancelled = true
@@ -167,7 +249,14 @@ export default function SystemDetailView() {
     save: saveBookPreset,
     setDefault: setBookPresetDefault,
     remove: removeBookPreset,
-  } = useSavedFilters('books')
+  } = useSavedFilters('books') as {
+    saved: unknown[]
+    loaded: boolean
+    defaultFilter: { state?: BookFilter } | null
+    save: (name: string, state: BookFilter, opts?: unknown) => void
+    setDefault: (...args: unknown[]) => void
+    remove: (...args: unknown[]) => void
+  }
 
   // Apply the user's default books preset once on load.
   useEffect(() => {
@@ -186,11 +275,21 @@ export default function SystemDetailView() {
   // cannot be a local patch.
   const { reload } = shelfData
   const handleVariantsChanged = useCallback(
-    (newMainId) => {
+    (newMainId?: string) => {
       reload()
       if (newMainId) setEditingBookId(newMainId)
     },
     [reload]
+  )
+
+  // Merge (issue #589). A merge can fold a book into one in another category,
+  // so the shelf is reloaded rather than patched.
+  const merge = useBulkMerge(
+    [...selectedBookIds].map((id) => ({ type: 'book', id: id as string })),
+    () => {
+      bulk.clear()
+      reload()
+    }
   )
 
   if (!system)
@@ -233,8 +332,10 @@ export default function SystemDetailView() {
         canEdit={isEditor}
         backLabel={backTarget.label}
         onBack={() => navigate(backTarget.to, { state: { restoreView: true } })}
-        onCoverChange={(cover) => setSystem((s) => ({ ...s, ...cover }))}
-        onChildrenChange={(update) => setSystem((s) => ({ ...s, children: update(s.children) }))}
+        onCoverChange={(cover: Partial<System>) => setSystem((s) => (s ? { ...s, ...cover } : s))}
+        onChildrenChange={(update: (children: System['children']) => System['children']) =>
+          setSystem((s) => (s ? { ...s, children: update(s.children) } : s))
+        }
       />
     )
   }
@@ -251,14 +352,12 @@ export default function SystemDetailView() {
   const existingCategories = facets.categories
 
   const bookFilters = bookFilter.filters || {}
-  // Derived helpers kept for the card tag-chip toggles and empty-state copy.
-  // Only the concrete tags named anywhere in the grouped expression — the
-  // group structure and the presence sentinels aren't chips.
-  const selectedTags = new Set(queryTags(bookFilters.tags).map((tg) => tg.toLowerCase()))
+  // For the empty-state copy.
   const favOnly = bookFilters.favorites === true
 
-  const updateBookFilter = (next) => setBookFilter(next)
-  const handleSaveBookPreset = (name, opts) => saveBookPreset(name, bookFilter, opts)
+  const updateBookFilter = (next: BookFilter) => setBookFilter(next)
+  const handleSaveBookPreset = (name: string, opts?: unknown) =>
+    saveBookPreset(name, bookFilter, opts)
 
   // How folders are ordered against the books beside them: the active sort plus
   // the user's folder-placement preference (issue #448).
@@ -281,25 +380,30 @@ export default function SystemDetailView() {
   // Loaded books in on-screen order, for shift-range selection: grouped → by
   // category, walking each node as it is drawn; flat → the single sorted list.
   // Only books that have loaded can fall inside a range.
-  const nodeBooks = (node) => {
+  const nodeBooks = (node: ShelfNode): Book[] => {
     const list = pages.get(nodeKey(node.category, node.path))
     const books = list ? list.items : []
     const hasMore = node.direct > 0 && (!list || list.hasMore)
-    return orderedNodeEntries(node, books, { ...folderOrder, hasMore }).flatMap((entry) =>
-      entry.type === 'book' ? [entry.book] : nodeBooks(entry.node)
+    const entries = orderedNodeEntries(node, books, { ...folderOrder, hasMore }) as {
+      type: string
+      book?: Book
+      node?: ShelfNode
+    }[]
+    return entries.flatMap((entry) =>
+      entry.type === 'book' ? [entry.book as Book] : nodeBooks(entry.node as ShelfNode)
     )
   }
   const orderedBookIds = grouped
     ? orderedCatKeys.flatMap((cat) => nodeBooks(shelf[cat]).map((b) => b.id))
     : shelfData.flatBooks.map((b) => b.id)
-  const toggleBookSelect = (id, mods = {}) =>
+  const toggleBookSelect = (id: string, mods: { shift?: boolean; meta?: boolean } = {}) =>
     bulk.toggleItem(id, { ...mods, orderedIds: orderedBookIds })
 
   const selectedBookObjects = () => loadedBooks.filter((b) => selectedBookIds.has(b.id))
 
   // One request for the whole selection: the old per-book PATCH fan-out raced on
   // tag creation server-side and returned intermittent 500s (issue #270).
-  const applyBulkTags = async (newTags) => {
+  const applyBulkTags = async (newTags: string[]) => {
     if (!newTags.length || totalSelected === 0 || bulkApplying) return
     setBulkApplying(true)
     try {
@@ -316,41 +420,42 @@ export default function SystemDetailView() {
 
   // An edit can move a book to another category or reorder it; the shelf is
   // grouped and sorted by the server, so those are reloaded rather than patched.
-  const movesBook = (before, after) =>
+  const movesBook = (before: Book | undefined, after: Partial<Book>) =>
     !!before &&
     Object.keys(after).some(
       (k) =>
         ['category', 'title', 'year', 'page_count', 'product_code'].includes(k) &&
-        after[k] !== before[k]
+        after[k as keyof Book] !== before[k as keyof Book]
     )
 
-  const applyBookEdits = (edited) => {
+  const applyBookEdits = (edited: Record<string, Partial<Book>>) => {
     const moved = loadedBooks.some((b) => edited[b.id] && movesBook(b, edited[b.id]))
     if (moved) reload()
     else updateBooks((b) => (edited[b.id] ? { ...b, ...edited[b.id] } : b))
   }
 
   // Shared handlers passed down to the category sections.
-  const saveBook = (bookId, updated) => applyBookEdits({ [bookId]: updated })
+  const saveBook = (bookId: string, updated: Partial<Book>) => applyBookEdits({ [bookId]: updated })
 
   // Persist a book folder's tags and reflect them locally. ``path`` is the full
   // BookFolder path ("{systemId}/{category}/{subfolder…}").
-  const saveBookFolderTags = (path, tags) => {
+  const saveBookFolderTags = (path: string, tags: string[]) => {
     setBookFolderTags((prev) => ({ ...prev, [path]: tags }))
     setEditingFolderKey(null)
-    api.patch(`/systems/${systemId}/book-folders`, { path, tags }).catch(() =>
-      api.get(`/systems/${systemId}/book-folders`).then((r) => {
-        const map = {}
-        for (const f of r.folders || []) map[f.path] = f.tags || []
-        setBookFolderTags(map)
-      })
-    )
+    api
+      .patch(`/systems/${systemId}/book-folders`, { path, tags })
+      .catch(() =>
+        api
+          .get(`/systems/${systemId}/book-folders`)
+          .then((r) => setBookFolderTags(foldersToTags(r)))
+      )
   }
 
-  const toggleSubfolder = (key) =>
+  const toggleSubfolder = (key: string) =>
     setCollapsedSubfolders((prev) => {
       const next = new Set(prev)
-      next.has(key) ? next.delete(key) : next.add(key)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
       return next
     })
 
@@ -381,7 +486,7 @@ export default function SystemDetailView() {
   const list = viewMode === 'list'
 
   // Container for a list of books in the current view mode.
-  const booksContainerStyle = list
+  const booksContainerStyle: CSSProperties = list
     ? { display: 'flex', flexDirection: 'column', gap: 8 }
     : {
         display: 'grid',
@@ -438,7 +543,7 @@ export default function SystemDetailView() {
               {system.publishers?.length > 0 && (
                 <div style={{ fontSize: 16, color: 'var(--text-dim)', marginBottom: 8 }}>
                   {t('systemDetail.publishedBy')}{' '}
-                  {system.publishers.map((p, i) => (
+                  {system.publishers.map((p, i: number) => (
                     <span key={i}>
                       {i > 0 && ', '}
                       {p.url ? (
@@ -676,15 +781,19 @@ export default function SystemDetailView() {
         {editing && canEditSystemMeta && (
           <SystemEditor
             system={system}
-            onSave={(updated) => {
+            onSave={(updated: Partial<System>) => {
               setSystem({ ...system, ...updated })
               setEditing(false)
             }}
             // Cover uploads apply immediately, so reflect them without closing
             // the editor or discarding unsaved metadata edits.
-            onCoverChange={(cover) => setSystem((s) => ({ ...s, ...cover }))}
+            onCoverChange={(cover: Partial<System>) =>
+              setSystem((s) => (s ? { ...s, ...cover } : s))
+            }
             // Linking or unlinking Grimoire Codex DB is saved at once, like a cover.
-            onCodexLinkChange={(codexId) => setSystem((s) => ({ ...s, codex_id: codexId }))}
+            onCodexLinkChange={(codexId: string | null) =>
+              setSystem((s) => (s ? { ...s, codex_id: codexId } : s))
+            }
           />
         )}
 
@@ -771,7 +880,8 @@ export default function SystemDetailView() {
               onToggleCat={() =>
                 setCollapsedCats((prev) => {
                   const next = new Set(prev)
-                  next.has(cat) ? next.delete(cat) : next.add(cat)
+                  if (next.has(cat)) next.delete(cat)
+                  else next.add(cat)
                   return next
                 })
               }
@@ -864,9 +974,11 @@ export default function SystemDetailView() {
           onApplyTags={applyBulkTags}
           onAddToCampaign={() => setShowAddToCampaign(true)}
           onBulkEdit={() => setShowBulkEdit(true)}
+          {...merge.barProps}
           onDone={bulk.exit}
         />
       )}
+      {merge.dialog}
 
       {showAddToCampaign && (
         <AddToCampaignModal
@@ -883,7 +995,7 @@ export default function SystemDetailView() {
           existingCategories={existingCategories}
           systemGenres={system.genres || []}
           onClose={() => setShowBulkEdit(false)}
-          onSaved={(edited) => {
+          onSaved={(edited: Record<string, Partial<Book>>) => {
             applyBookEdits(edited)
             setShowBulkEdit(false)
           }}

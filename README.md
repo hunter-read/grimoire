@@ -36,7 +36,7 @@ never writes to it.
 - **Shared tags** - One tag catalog across every resource type, with a Tags page to rename, merge, delete, and browse by tag, and per-tag downloads.
 - **Metadata editor** - Rich metadata for systems and books, drawn from curated lists you manage in **Settings → Metadata**. Parent systems group related lines ("Cyberpunk" + "Red" → "Cyberpunk Red").
 - **Bulk actions** - Multi-select books, maps, tokens, audio, and models, then bulk tag, add to a campaign, or edit metadata via a carousel.
-- **Duplicate detection** - An admin scan finds byte-identical files, near-identical titles, overlapping page text, and gridded/gridless map pairs. Nothing is ever deleted automatically; you review each pair side by side.
+- **Duplicate detection** - An admin scan finds byte-identical files, near-identical titles, overlapping page text, and gridded/gridless map pairs. Nothing is ever deleted automatically; you review each group side by side and merge copies without losing bookmarks, favourites or campaign links.
 
 ### Reading
 

@@ -418,6 +418,8 @@ class TestCompare:
         # More pages wins the advisory pick.
         assert body["suggested_parent_id"] == a.id
         assert "favorites" in body["items"][0]["reference_counts"]
+        # The copy-metadata picker's fields survive the response model.
+        assert "title" in body["mergeable_fields"] and "filepath" not in body["mergeable_fields"]
 
     def test_rejects_too_few_or_too_many(self, client, admin_headers, system):
         ids = [make_book(system_id=system.id).id for _ in range(5)]

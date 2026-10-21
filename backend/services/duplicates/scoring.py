@@ -180,6 +180,44 @@ def suggest_parent(records: list) -> Optional[str]:
     return max(records, key=rank).id
 
 
+def has_value(value: Any) -> bool:
+    """Whether a metadata field counts as set: not None, blank, or an empty list."""
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return value.strip() != ""
+    if isinstance(value, (list, dict)):
+        return len(value) > 0
+    return True
+
+
+def suggest_keeper(records: list, fields: Iterable[str] = ()) -> Optional[str]:
+    """Which copy a merge should keep (issue #589).
+
+    Unlike :func:`suggest_parent` this never weighs what points at a copy:
+    bookmarks, favorites and campaign links move to the keeper in a merge, so
+    the choice is purely about the file. A copy whose file is present beats a
+    missing one, then most pages, then the larger file; ``fields`` (the
+    collection's mergeable metadata) breaks a tie between equal files in favour
+    of the more complete record, and the oldest row breaks what is left.
+    """
+    if not records:
+        return None
+    fields = [f for f in fields if f != "tags"]
+
+    def rank(record: Any) -> tuple:
+        created = getattr(record, "created_at", None)
+        return (
+            0 if getattr(record, "is_missing", False) else 1,
+            getattr(record, "page_count", 0) or 0,
+            record.file_size or 0,
+            sum(1 for f in fields if has_value(getattr(record, f, None))),
+            -(created.timestamp() if created else 0),
+        )
+
+    return max(records, key=rank).id
+
+
 def describe(reasons: list) -> str:
     """A short human phrase for why a group was flagged."""
     if "hash" in reasons:

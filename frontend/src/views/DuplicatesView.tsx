@@ -1,15 +1,35 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
-import { LuArrowLeft, LuEyeOff, LuSearch, LuSquare, LuTriangleAlert } from 'react-icons/lu'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import {
+  LuArrowLeft,
+  LuArrowRight,
+  LuCombine,
+  LuEyeOff,
+  LuSearch,
+  LuSquare,
+  LuTriangleAlert,
+} from 'react-icons/lu'
 
-import { duplicates as dupesApi } from '../api'
+import { duplicates as dupesApi, type DuplicateType, type Schema } from '../api'
 import { useAuth } from '../context/AuthContext'
 import Spinner from '../components/Spinner'
-import DuplicatePairRow from '../components/settings/DuplicatePairRow'
+import DuplicateGroupRow from '../components/settings/DuplicateGroupRow'
 import DismissedPairRow from '../components/settings/DismissedPairRow'
-import { groupsToPairs } from '../utils/duplicatePairs'
+import MergeDialog from '../components/duplicates/MergeDialog'
+import MergeExactDialog from '../components/duplicates/MergeExactDialog'
+import {
+  filterGroups,
+  isExactGroup,
+  pickKeeper,
+  type DuplicateGroup,
+  type MatchStrength,
+} from '../utils/duplicateGroups'
 import useIsMobile from '../hooks/useIsMobile'
+
+type ScanStatus = Schema<'ScanStatus'>
+type Dismissal = Schema<'DismissalOut'>
+type Accuracy = NonNullable<Schema<'ScanRequest'>['accuracy']>
 
 // Poll fast while a scan is running, slowly when idle — the same adaptive
 // cadence useScanStatus uses for the library scan.
@@ -19,8 +39,10 @@ const POLL_IDLE = 30000
 // The four collections detection can compare, in the order the rest of the app
 // lists them. A map is never a duplicate of a book, so the scan runs each of
 // these separately and skipping one is pure time saved.
-const RESOURCE_TYPES = ['book', 'map', 'token', 'audio']
-const ACCURACY_LEVELS = ['exact', 'high', 'medium', 'low']
+const RESOURCE_TYPES: DuplicateType[] = ['book', 'map', 'token', 'audio']
+const ACCURACY_LEVELS: Accuracy[] = ['exact', 'high', 'medium', 'low']
+// How sure a group is, strongest first - the list's second filter.
+const MATCH_LEVELS: MatchStrength[] = ['exact', 'text', 'metadata']
 
 /**
  * Full-page duplicate detection, outside the settings tabs.
@@ -34,15 +56,22 @@ const ACCURACY_LEVELS = ['exact', 'high', 'medium', 'low']
 export default function DuplicatesView() {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const { user } = useAuth()
-  const isAdmin = user?.role === 'admin'
+  const isAdmin = useAuth()?.user?.role === 'admin'
   const isMobile = useIsMobile()
-  const [status, setStatus] = useState({ running: false })
-  const [groups, setGroups] = useState(null)
-  const [error, setError] = useState(null)
+  const [status, setStatus] = useState<ScanStatus>({ running: false })
+  const [groups, setGroups] = useState<DuplicateGroup[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  // The list's filters live in the URL, so the review queue walks exactly the
+  // groups the list was showing, and Back returns to the same view.
+  const [params, setParams] = useSearchParams()
+  const filterType = params.get('type') || ''
+  const filterMatch = (params.get('match') || '') as MatchStrength | ''
+  const [quickMerge, setQuickMerge] = useState<DuplicateGroup | null>(null)
+  const [exactOpen, setExactOpen] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
   // The last error reported by the scan status, so a successful group load
   // can clear a stale load failure without discarding a real scan failure.
-  const scanErrorRef = useRef(null)
+  const scanErrorRef = useRef<string | null>(null)
   // Set when Stop clears a scan the backend judged dead. Without Valkey the
   // status is per-process, so the very next poll may land on the *other* worker
   // - whose own dict still says running - and put the spinner straight back.
@@ -54,16 +83,16 @@ export default function DuplicatesView() {
   // certain. Looser levels take longer and return matches that need judging.
   // 'high' is the default: it catches the renamed-copy case that 'exact' misses
   // while still keeping false positives rare enough to review quickly.
-  const [accuracy, setAccuracy] = useState('high')
+  const [accuracy, setAccuracy] = useState<Accuracy>('high')
   // Which collections to scan. Empty means all four - the API already treats an
   // empty list that way, so no translation is needed when nothing is ticked.
-  const [resourceTypes, setResourceTypes] = useState([])
+  const [resourceTypes, setResourceTypes] = useState<DuplicateType[]>([])
   // Dismissals are hidden by default: they are the answers the user has already
   // given, and the page is for the questions still open. Behind a toggle they
   // stay auditable without competing with the live list.
   const [showDismissed, setShowDismissed] = useState(false)
-  const [dismissals, setDismissals] = useState(null)
-  const [restoringId, setRestoringId] = useState(null)
+  const [dismissals, setDismissals] = useState<Dismissal[] | null>(null)
+  const [restoringId, setRestoringId] = useState<string | null>(null)
 
   const loadGroups = useCallback(() => {
     // Deliberately dependency-free apart from the role gate: including `t`
@@ -78,7 +107,7 @@ export default function DuplicatesView() {
         // successful list request is no reason to drop it.
         setError((prev) => (prev === scanErrorRef.current ? prev : null))
       })
-      .catch((e) => {
+      .catch((e: Error) => {
         // Surfaced rather than swallowed: an empty list and a failed request
         // look identical on screen, and reading "no duplicates found" when the
         // query actually errored is what makes this class of bug invisible.
@@ -131,7 +160,7 @@ export default function DuplicatesView() {
     return dupesApi
       .dismissals()
       .then((data) => setDismissals(data.dismissals || []))
-      .catch((e) => {
+      .catch((e: Error) => {
         // Same reasoning as the group load: an empty list and a failed request
         // are indistinguishable on screen, and "nothing dismissed" is exactly
         // the wrong thing to tell someone looking for a dismissal they made.
@@ -147,7 +176,7 @@ export default function DuplicatesView() {
     if (showDismissed) loadDismissals()
   }, [showDismissed, loadDismissals])
 
-  const restore = async (dismissal) => {
+  const restore = async (dismissal: Dismissal) => {
     setRestoringId(dismissal.id)
     try {
       await dupesApi.undismiss(dismissal.id)
@@ -157,13 +186,13 @@ export default function DuplicatesView() {
       // with this one still in force - only a rescan can surface it again, and
       // pretending otherwise would show a pair no action could resolve.
     } catch (e) {
-      setError(e.message || t('maintenance.dupes.actionFailed'))
+      setError((e as Error).message || t('maintenance.dupes.actionFailed'))
     } finally {
       setRestoringId(null)
     }
   }
 
-  const toggleResourceType = (type) =>
+  const toggleResourceType = (type: DuplicateType) =>
     setResourceTypes((prev) =>
       prev.includes(type) ? prev.filter((r) => r !== type) : [...prev, type]
     )
@@ -179,7 +208,7 @@ export default function DuplicatesView() {
       await dupesApi.startScan(resourceTypes, accuracy)
       setStatus((s) => ({ ...s, running: true, phase: 'hashing' }))
     } catch (e) {
-      setError(e.message || t('maintenance.dupes.scanFailed'))
+      setError((e as Error).message || t('maintenance.dupes.scanFailed'))
     } finally {
       setStarting(false)
     }
@@ -200,28 +229,53 @@ export default function DuplicatesView() {
         loadGroups()
       }
     } catch (e) {
-      setError(e.message || t('maintenance.dupes.cancelFailed'))
+      setError((e as Error).message || t('maintenance.dupes.cancelFailed'))
     } finally {
       setStopping(false)
     }
   }
 
   const progress =
-    status.total > 0 ? Math.min(100, Math.round((status.scanned / status.total) * 100)) : null
+    status.total && status.total > 0
+      ? Math.min(100, Math.round(((status.scanned || 0) / status.total) * 100))
+      : null
 
-  // Groups are how detection stores its findings; pairs are how a person
-  // reviews them. See `utils/duplicatePairs` for why the split happens here
-  // rather than server-side.
-  const pairs = useMemo(() => groupsToPairs(groups), [groups])
-
-  const openCompare = useCallback(
-    (pair) =>
-      navigate(
-        `/settings/duplicates/compare/${pair.resourceType}` +
-          `?left=${encodeURIComponent(pair.parent.id)}&right=${encodeURIComponent(pair.child.id)}`
-      ),
-    [navigate]
+  // A group is the unit of review now that a merge moves everything that
+  // pointed at a copy (issue #589): one decision settles all of its copies.
+  const shown = useMemo(
+    () => filterGroups(groups, { type: filterType, match: filterMatch }),
+    [groups, filterType, filterMatch]
   )
+  const exactGroups = useMemo(() => shown.filter(isExactGroup), [shown])
+  const typesPresent = useMemo(
+    () => [...new Set((groups || []).map((g) => g.resource_type))],
+    [groups]
+  )
+
+  const setFilter = (key: 'type' | 'match', value: string) =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (value) next.set(key, value)
+        else next.delete(key)
+        return next
+      },
+      { replace: true }
+    )
+
+  // Into the review queue at `group`, carrying the filters so it walks the
+  // same list.
+  const openReview = useCallback(
+    (group: DuplicateGroup) => {
+      const qs = new URLSearchParams({ group: group.id })
+      if (filterType) qs.set('type', filterType)
+      if (filterMatch) qs.set('match', filterMatch)
+      navigate(`/settings/duplicates/compare/${group.resource_type}?${qs}`)
+    },
+    [navigate, filterType, filterMatch]
+  )
+
+  const dropGroup = (id: string) => setGroups((prev) => (prev || []).filter((g) => g.id !== id))
 
   if (!isAdmin) {
     return (
@@ -276,7 +330,7 @@ export default function DuplicatesView() {
               <select
                 id="dupes-accuracy"
                 value={accuracy}
-                onChange={(e) => setAccuracy(e.target.value)}
+                onChange={(e) => setAccuracy(e.target.value as Accuracy)}
                 disabled={status.running || starting}
                 style={{
                   background: 'var(--bg-deep)',
@@ -422,19 +476,112 @@ export default function DuplicatesView() {
         </div>
       )}
 
-      {groups !== null && !status.running && (
-        <div style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 12 }}>
-          {pairs.length > 0
-            ? t('maintenance.dupes.pairsFound', { count: pairs.length })
-            : status.finished_at
-              ? t('maintenance.dupes.noResults')
-              : t('maintenance.dupes.notScanned')}
+      {notice && (
+        <div role="status" style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 12 }}>
+          {notice}
         </div>
       )}
 
-      {pairs.map((pair) => (
-        <DuplicatePairRow key={pair.pairKey} pair={pair} onCompare={openCompare} />
+      {groups !== null && groups.length > 0 && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            flexWrap: 'wrap',
+            marginBottom: 14,
+          }}
+        >
+          <select
+            aria-label={t('maintenance.dupes.filterType')}
+            value={filterType}
+            onChange={(e) => setFilter('type', e.target.value)}
+            style={selectStyle}
+          >
+            <option value="">{t('maintenance.dupes.allTypes')}</option>
+            {typesPresent.map((type) => (
+              <option key={type} value={type}>
+                {t(`maintenance.dupes.collection.${type}`, { defaultValue: type })}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label={t('maintenance.dupes.filterMatch')}
+            value={filterMatch}
+            onChange={(e) => setFilter('match', e.target.value)}
+            style={selectStyle}
+          >
+            <option value="">{t('maintenance.dupes.allMatches')}</option>
+            {MATCH_LEVELS.map((level) => (
+              <option key={level} value={level}>
+                {t(`maintenance.dupes.match.${level}`)}
+              </option>
+            ))}
+          </select>
+          <span style={{ flex: 1 }} />
+          {exactGroups.length > 0 && !status.running && (
+            <button type="button" onClick={() => setExactOpen(true)} style={ghostBtn}>
+              <LuCombine size={13} aria-hidden="true" />{' '}
+              {t('maintenance.dupes.mergeExact.button', { count: exactGroups.length })}
+            </button>
+          )}
+          {shown.length > 0 && !status.running && (
+            <button
+              type="button"
+              onClick={() => openReview(shown[0])}
+              style={{ ...ghostBtn, color: 'var(--text)' }}
+            >
+              {t('maintenance.dupes.review.start')} <LuArrowRight size={13} aria-hidden="true" />
+            </button>
+          )}
+        </div>
+      )}
+
+      {groups !== null && !status.running && (
+        <div style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 12 }}>
+          {shown.length > 0
+            ? t('maintenance.dupes.groupsFound', { count: shown.length })
+            : groups.length > 0
+              ? t('maintenance.dupes.noneMatchFilters')
+              : status.finished_at
+                ? t('maintenance.dupes.noResults')
+                : t('maintenance.dupes.notScanned')}
+        </div>
+      )}
+
+      {shown.map((group) => (
+        <DuplicateGroupRow
+          key={group.id}
+          group={group}
+          onReview={openReview}
+          onMerge={setQuickMerge}
+        />
       ))}
+
+      {quickMerge && (
+        <MergeDialog
+          resourceType={quickMerge.resource_type as DuplicateType}
+          ids={(quickMerge.members || []).map((m) => m.id)}
+          keepId={pickKeeper(quickMerge)?.id}
+          onClose={() => setQuickMerge(null)}
+          onDone={() => {
+            dropGroup(quickMerge.id)
+            setQuickMerge(null)
+          }}
+        />
+      )}
+
+      {exactOpen && (
+        <MergeExactDialog
+          groups={exactGroups}
+          onClose={() => setExactOpen(false)}
+          onDone={({ merged, failed }) => {
+            setExactOpen(false)
+            setNotice(t('maintenance.dupes.mergeExact.done', { count: merged, failed }))
+            loadGroups()
+          }}
+        />
+      )}
 
       <div style={{ marginTop: 24, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
         <button
@@ -488,27 +635,36 @@ export default function DuplicatesView() {
 // The two option rows share a label column so the controls line up. On a phone
 // that gutter is most of the width, so the label stacks above its control
 // instead.
-const rowStyle = (isMobile) => ({
+const rowStyle = (isMobile: boolean): CSSProperties => ({
   display: 'grid',
   gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'minmax(0, 120px) minmax(0, 1fr)',
   gap: isMobile ? 4 : 12,
   alignItems: 'start',
 })
 
-const labelStyle = (isMobile) => ({
+const labelStyle = (isMobile: boolean): CSSProperties => ({
   fontSize: 13,
   color: 'var(--text-dim)',
   paddingTop: isMobile ? 0 : 8,
 })
 
-const hintStyle = {
+const hintStyle: CSSProperties = {
   fontSize: 12,
   color: 'var(--text-muted)',
   marginTop: 6,
   lineHeight: 1.5,
 }
 
-const ghostBtn = {
+const selectStyle: CSSProperties = {
+  background: 'var(--bg-deep)',
+  border: '1px solid var(--border)',
+  color: 'var(--text)',
+  borderRadius: 6,
+  padding: '7px 10px',
+  fontSize: 13,
+}
+
+const ghostBtn: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 6,

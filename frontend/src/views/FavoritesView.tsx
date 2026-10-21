@@ -1,7 +1,14 @@
+import type { ComponentType, ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuHeart } from 'react-icons/lu'
 import { useFavorites } from '../context/FavoritesContext'
-import FavoritesSection from '../components/favorites/FavoritesSection'
+import FavoritesSectionJs from '../components/favorites/FavoritesSection'
+import BulkActionBar from '../components/BulkActionBar'
+import BulkToggleButton from '../components/BulkToggleButton'
+import SelectableCard from '../components/SelectableCard'
+import { useAuth } from '../context/AuthContext'
+import useBulkMerge from '../hooks/useBulkMerge'
+import useMixedSelection from '../hooks/useMixedSelection'
 import BookFavorite from '../components/favorites/BookFavorite'
 import MapFavorite from '../components/favorites/MapFavorite'
 import TokenFavorite from '../components/favorites/TokenFavorite'
@@ -11,9 +18,50 @@ import SystemFavorite from '../components/favorites/SystemFavorite'
 import Tag from '../components/Tag'
 import { shouldAutoCollapse } from '../utils/autoCollapse'
 
+// FavoritesSection is still JavaScript; its props are inferred loosely.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const FavoritesSection = FavoritesSectionJs as ComponentType<Record<string, any>>
+
+type FavoriteItem = NonNullable<ReturnType<typeof useFavorites>>['items'][number]
+
+const nameOf = (item: FavoriteItem): string => {
+  const named = item as { title?: string | null; filename?: string | null }
+  return named.title || named.filename || item.item_id
+}
+
+// Library items a merge can act on; systems and tags are not.
+const SELECTABLE = new Set(['book', 'map', 'token', 'audio', 'model'])
+
 export default function FavoritesView() {
   const { t } = useTranslation()
-  const { items } = useFavorites()
+  const favorites = useFavorites()
+  const items = favorites?.items ?? []
+  const isAdmin = useAuth()?.user?.role === 'admin'
+  // Select mode exists for Merge (issue #589), which is admin-only - so do
+  // duplicates noticed while browsing favorites have a way to be resolved.
+  const selection = useMixedSelection(
+    items
+      .filter((i) => SELECTABLE.has(i.item_type))
+      .map((i) => ({ type: i.item_type, id: i.item_id }))
+  )
+  const { bulk } = selection
+  const merge = useBulkMerge(selection.selected, (outcome) => {
+    selection.forget(outcome.removedIds)
+    favorites?.reload()
+  })
+
+  // Wraps a section's card so it can be selected in bulk mode.
+  const selectable = (item: FavoriteItem, card: ReactNode) => (
+    <SelectableCard
+      key={item.item_id}
+      active={bulk.bulkMode}
+      selected={selection.isSelected(item.item_type, item.item_id)}
+      label={nameOf(item)}
+      onToggle={(mods) => selection.toggle(item.item_type, item.item_id, mods)}
+    >
+      {card}
+    </SelectableCard>
+  )
 
   const systems = items.filter((i) => i.item_type === 'system')
   const books = items.filter((i) => i.item_type === 'book')
@@ -56,6 +104,13 @@ export default function FavoritesView() {
         }}
       >
         <LuHeart size={20} fill="var(--gold)" color="var(--gold)" /> {t('favorites.title')}
+        {isAdmin && (
+          <BulkToggleButton
+            active={bulk.bulkMode}
+            onToggle={bulk.bulkMode ? bulk.exit : bulk.enter}
+            style={{ marginLeft: 'auto' }}
+          />
+        )}
       </h2>
 
       {tags.length > 0 && (
@@ -74,7 +129,7 @@ export default function FavoritesView() {
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
             {tags.map((tg) => (
-              <Tag key={tg.item_id} label={tg.display || tg.internal} />
+              <Tag key={tg.item_id} label={String(tg.display || tg.internal)} color={undefined} />
             ))}
           </div>
         </section>
@@ -86,7 +141,9 @@ export default function FavoritesView() {
           type="system"
           title={t('favorites.systems', { count: systems.length })}
           items={systems}
-          renderItem={(item, grid) => <SystemFavorite key={item.item_id} item={item} grid={grid} />}
+          renderItem={(item: FavoriteItem, grid: boolean) => (
+            <SystemFavorite key={item.item_id} item={item} grid={grid} />
+          )}
         />
       )}
 
@@ -96,7 +153,9 @@ export default function FavoritesView() {
           type="book"
           title={t('favorites.books', { count: books.length })}
           items={books}
-          renderItem={(item, grid) => <BookFavorite key={item.item_id} item={item} grid={grid} />}
+          renderItem={(item: FavoriteItem, grid: boolean) =>
+            selectable(item, <BookFavorite item={item} grid={grid} />)
+          }
         />
       )}
 
@@ -106,7 +165,9 @@ export default function FavoritesView() {
           type="map"
           title={t('favorites.maps', { count: maps.length })}
           items={maps}
-          renderItem={(item, grid) => <MapFavorite key={item.item_id} item={item} grid={grid} />}
+          renderItem={(item: FavoriteItem, grid: boolean) =>
+            selectable(item, <MapFavorite item={item} grid={grid} />)
+          }
         />
       )}
 
@@ -116,7 +177,9 @@ export default function FavoritesView() {
           type="token"
           title={t('favorites.tokens', { count: tokens.length })}
           items={tokens}
-          renderItem={(item, grid) => <TokenFavorite key={item.item_id} item={item} grid={grid} />}
+          renderItem={(item: FavoriteItem, grid: boolean) =>
+            selectable(item, <TokenFavorite item={item} grid={grid} />)
+          }
         />
       )}
 
@@ -126,7 +189,9 @@ export default function FavoritesView() {
           type="audio"
           title={t('favorites.audio', { count: audio.length })}
           items={audio}
-          renderItem={(item, grid) => <AudioFavorite key={item.item_id} item={item} grid={grid} />}
+          renderItem={(item: FavoriteItem, grid: boolean) =>
+            selectable(item, <AudioFavorite item={item} grid={grid} />)
+          }
         />
       )}
 
@@ -136,9 +201,14 @@ export default function FavoritesView() {
           type="models"
           title={t('favorites.models', { count: models.length })}
           items={models}
-          renderItem={(item, grid) => <ModelFavorite key={item.item_id} item={item} grid={grid} />}
+          renderItem={(item: FavoriteItem, grid: boolean) =>
+            selectable(item, <ModelFavorite item={item} grid={grid} />)
+          }
         />
       )}
+
+      {bulk.bulkMode && <BulkActionBar count={bulk.count} {...merge.barProps} onDone={bulk.exit} />}
+      {merge.dialog}
     </div>
   )
 }

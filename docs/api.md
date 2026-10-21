@@ -2699,11 +2699,13 @@ about them (issues #304, #306).
 | `/api/duplicates/scan` | POST | Start a scan. Body: `resource_types` (empty = every collection), `accuracy`. `{status: "already_running"}` if one is genuinely in progress; a scan left stuck by a killed process is discarded rather than blocking this |
 | `/api/duplicates/cancel-scan` | POST | Stop a running scan. `{status: "stop_requested"}` for a live one, `"cleared_stale"` when it cleared a scan that was no longer really running, `"not_running"` when there was nothing to stop |
 | `/api/duplicates/groups` | GET | Candidate groups from the last completed scan. Query: `resource_type`, `min_confidence`, `limit` (max 200), `offset`. `total` counts the open groups walked to fill the page, not the whole table - a short page means the end |
-| `/api/duplicates/compare` | GET | Side-by-side data for 2–4 items. Query: `resource_type`, repeated `ids` |
+| `/api/duplicates/compare` | GET | Side-by-side data for 2–4 items. Query: `resource_type`, repeated `ids`. `mergeable_fields` lists what `merge-metadata` may copy |
 | `/api/duplicates/link` | POST | File items under a parent as its variants. Optional `parent_kind`/`parent_label` name the parent too |
 | `/api/duplicates/describe` | POST | Set the `kind` and `label` one version shows in the picker - a variant or the main version. Body: `resource_type`, `id`, `kind`, `label` |
 | `/api/duplicates/promote` | POST | Make a different copy the main version of an existing family |
 | `/api/duplicates/unlink` | POST | Promote variants back to standalone entries |
+| `/api/duplicates/merge` | POST | Merge copies into one: metadata, every reference and variant family move to `keep_id`, then the others are deleted. `dry_run` reports exactly that without changing anything - see [Merging](#merging) |
+| `/api/duplicates/merge-batch` | POST | Several merges behind one confirmation, each committed on its own. Body: `merges: [{resource_type, keep_id, merge_ids}]` (max 200), plus `fields`, `delete_files`, `dry_run` for all of them. Returns `{results: [{keep_id, ok, detail, result}], merged, failed}` - a refused merge is reported and the rest still run |
 | `/api/duplicates/merge-metadata` | POST | Copy chosen metadata fields between two records |
 | `/api/duplicates/items/:type/:id` | DELETE | Delete one record, optionally its file |
 | `/api/duplicates/dismiss` | POST | Record that a group is *not* duplicates |
@@ -2764,11 +2766,65 @@ unaffected: the same bytes are the same file wherever they are filed.
 **Group edges.** A group's `edges` list the pairwise matches it was built from
 (`{a, b, reason, score}`). Clustering is transitive, so a group is *not* a set of
 mutual duplicates: if D resembles A, B, and C while the only real duplicate is
-A–B, all four land in one group. Reviewing that as "D versus everything" would
-invent pairs that never matched and hide the pair that did, so clients should
-render the edges rather than the member cross-product. Dismissing a pair removes
+A–B, all four land in one group. A client merging a whole group should let the
+user leave a member out rather than assume every member belongs. Dismissing a pair removes
 the matching edge from the live results — and with it the transitive path that
 would otherwise put the rejected pair back on screen.
+
+#### Merging
+
+`POST /duplicates/merge` folds copies into one in a single transaction (issue
+#589):
+
+```json
+{
+  "resource_type": "book",
+  "keep_id": "…",
+  "merge_ids": ["…", "…"],
+  "fields": "fill-empty",
+  "delete_files": false,
+  "dry_run": false
+}
+```
+
+- **`fields`** - `"fill-empty"` (default) copies a value onto the keeper only
+  where it is blank, taking the first merged copy that has one; `"none"` copies
+  nothing; a list of field names copies those, overwriting, with the same
+  whitelist `merge-metadata` uses. Tags are unioned either way: their links are
+  references and move with the rest.
+- **References move to `keep_id`** instead of being purged as a plain delete
+  does: bookmarks, favorites, tag links, campaign resources (keeping their
+  shares), share links, book-scoped access grants, soundboard and playlist
+  entries, a system's `cover_book_id`, and `[[type:ID]]` embeds in campaign
+  descriptions, wiki pages and templates, and session notes. Where the keeper
+  already has the same row it is deduplicated: one favorite per user, one tag
+  link per tag, one campaign resource per campaign (the keeper's row wins and
+  gains the union of both rows' shares), one access grant per user (the wider
+  level wins), one soundboard entry per set. Bookmarks are deduplicated only
+  when identical in every field.
+- **Variant families** re-home: a merged copy's variants are filed under the
+  keeper, and a keeper that was a variant of a merged copy becomes the main
+  version (`keeper_promoted`). Refused with 409 when the keeper is itself a
+  variant of some other item and the merged copies have variants, since that
+  would stack a third level.
+- **Files** are deleted only with `delete_files`. On a read-only mount that is
+  refused with 409 before anything changes. A file that still fails to delete
+  is reported in its `files` entry; the merge itself stands.
+- **`dry_run`** runs the same code and rolls back, so it reports exactly what
+  the merge would do: `fields` that would change (`{field, from_id, value}`),
+  `tags_added`, `references` per kind as `{moved, deduplicated}`,
+  `variants_reparented`, the `files` that would be deleted, and `warnings` -
+  `page_mismatch` when bookmarks move onto a copy with a different page count
+  (with how many point past its last page), `keep_missing` when the keeper's
+  file is missing, `read_only` when the files cannot be deleted. A dry run may
+  omit `keep_id`: `suggested_keep_id` is then used and the rest of `merge_ids`
+  merged into it. A real merge must name its keeper.
+
+Every response carries `items` (the keeper first, then the merged copies, as
+they stood before the merge) and `suggested_keep_id`: present on disk, then
+most pages, then largest file, then the more complete metadata, then the oldest
+row. References are not weighed - they move with the merge. At most 20 copies
+merge at once.
 
 **Variants** are how #306 collapses versions. `POST /duplicates/link` points one
 record at another via `variant_parent_id`, with a `kind` and a free-text `label`

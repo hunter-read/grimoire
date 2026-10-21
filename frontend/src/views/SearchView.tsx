@@ -7,6 +7,7 @@ import {
   type ChangeEvent,
   type ComponentType,
   type CSSProperties,
+  type ReactNode,
   type RefObject,
 } from 'react'
 import { useSearchParams } from 'react-router-dom'
@@ -24,6 +25,12 @@ import {
 } from 'react-icons/lu'
 import api, { type Schema } from '../api'
 import Spinner from '../components/Spinner'
+import BulkActionBar from '../components/BulkActionBar'
+import BulkToggleButton from '../components/BulkToggleButton'
+import SelectableCard from '../components/SelectableCard'
+import { useAuth } from '../context/AuthContext'
+import useBulkMerge from '../hooks/useBulkMerge'
+import useMixedSelection from '../hooks/useMixedSelection'
 import BookGroup, { type SearchBookGroup } from '../components/search/BookGroup'
 import BookMatchCardJs from '../components/search/BookMatchCard'
 import ResultCardJs from '../components/search/ResultCard'
@@ -72,6 +79,26 @@ export default function SearchView() {
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const inputRef = useRef<HTMLInputElement>(null)
   const helpButtonRef = useRef<HTMLButtonElement>(null)
+  // Select mode exists for Merge (issue #589), which is admin-only: two copies
+  // of a book often turn up side by side in the same search.
+  const isAdmin = useAuth()?.user?.role === 'admin'
+  const selection = useMixedSelection()
+  const { bulk } = selection
+  const merge = useBulkMerge(selection.selected, (outcome) => {
+    selection.forget(outcome.removedIds)
+    doSearch(query)
+  })
+  const selectable = (type: string, id: string, label: string, card: ReactNode) => (
+    <SelectableCard
+      key={`${type}-${id}`}
+      active={bulk.bulkMode}
+      selected={selection.isSelected(type, id)}
+      label={label}
+      onToggle={(mods) => selection.toggle(type, id, mods)}
+    >
+      {card}
+    </SelectableCard>
+  )
 
   const doSearch = useCallback((q: string) => {
     if (q.length < 2) {
@@ -304,6 +331,14 @@ export default function SearchView() {
                   {t('search.results', { count: totalFiltered, query: results.query })}
                 </span>
 
+                {isAdmin && totalFiltered > 0 && (
+                  <BulkToggleButton
+                    active={bulk.bulkMode}
+                    onToggle={bulk.bulkMode ? bulk.exit : bulk.enter}
+                    style={undefined}
+                  />
+                )}
+
                 {availableSystems.length > 1 && (
                   <select
                     id="search-system-filter"
@@ -350,17 +385,27 @@ export default function SearchView() {
                   </button>
                   {!shownCollapsed.books && (
                     <>
-                      {bookMatches.map((book) => (
-                        <BookMatchCard key={`match-${book.id}`} book={book} />
-                      ))}
-                      {groupedBooks.map((group) => (
-                        <BookGroup
-                          key={group.id}
-                          group={group}
-                          collapsed={shownCollapsed}
-                          onToggle={toggleSection}
-                        />
-                      ))}
+                      {bookMatches.map((book) =>
+                        selectable(
+                          'book',
+                          book.id,
+                          book.title,
+                          <BookMatchCard key={`match-${book.id}`} book={book} />
+                        )
+                      )}
+                      {groupedBooks.map((group) =>
+                        selectable(
+                          'book',
+                          group.id,
+                          group.title,
+                          <BookGroup
+                            key={group.id}
+                            group={group}
+                            collapsed={shownCollapsed}
+                            onToggle={toggleSection}
+                          />
+                        )
+                      )}
                     </>
                   )}
                 </div>
@@ -386,18 +431,23 @@ export default function SearchView() {
                       </span>
                     </button>
                     {!shownCollapsed[key] &&
-                      items.map((item) => (
-                        <ResultCard
-                          key={item.id}
-                          to={`/${path}/${item.id}`}
-                          title={resultTitle(item)}
-                          subtitle={item.relative_path}
-                          tags={item.tags}
-                          type={type}
-                          id={item.id}
-                          hasThumbnail={item.has_thumbnail}
-                        />
-                      ))}
+                      items.map((item) =>
+                        selectable(
+                          type,
+                          item.id,
+                          resultTitle(item),
+                          <ResultCard
+                            key={item.id}
+                            to={`/${path}/${item.id}`}
+                            title={resultTitle(item)}
+                            subtitle={item.relative_path}
+                            tags={item.tags}
+                            type={type}
+                            id={item.id}
+                            hasThumbnail={item.has_thumbnail}
+                          />
+                        )
+                      )}
                   </div>
                 ) : null
               )}
@@ -420,6 +470,9 @@ export default function SearchView() {
           <p style={{ fontSize: 15, marginTop: 8 }}>{t('search.emptyHint2')}</p>
         </div>
       )}
+
+      {bulk.bulkMode && <BulkActionBar count={bulk.count} {...merge.barProps} onDone={bulk.exit} />}
+      {merge.dialog}
     </div>
   )
 }

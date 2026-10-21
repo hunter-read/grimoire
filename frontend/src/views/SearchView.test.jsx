@@ -27,6 +27,20 @@ vi.mock('../components/reader/pagePrefetch', () => ({
   prefetchNow: (...args) => prefetchNow(...args),
 }))
 
+// Signed out unless a test sets a role: select mode is admin-only.
+let role = null
+vi.mock('../context/AuthContext', () => ({
+  useAuth: () => (role ? { user: { role } } : null),
+}))
+
+vi.mock('../components/duplicates/MergeDialog', () => ({
+  default: ({ resourceType, ids, onDone }) => (
+    <button onClick={() => onDone({ action: 'merged', keepId: ids[0], removedIds: ids.slice(1) })}>
+      {`merge ${resourceType} ${ids.join(',')}`}
+    </button>
+  ),
+}))
+
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal()
   return { ...actual, useNavigate: () => vi.fn() }
@@ -85,7 +99,43 @@ function renderView() {
 }
 
 describe('SearchView', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    role = null
+  })
+
+  it('lets an admin merge two copies found by one search, then searches again', async () => {
+    role = 'admin'
+    api.get.mockResolvedValue(
+      makeResponse(
+        [makeBookResult({ id: 'b2', title: 'Dungeon Guide (1)' })],
+        [],
+        [],
+        [],
+        [makeBookMatch({ id: 'b1', title: 'Dungeon Guide' })]
+      )
+    )
+    renderView()
+    await userEvent.type(screen.getByRole('textbox'), 'fi')
+    await userEvent.click(await screen.findByRole('button', { name: 'Select' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Select Dungeon Guide' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Select Dungeon Guide (1)' }))
+    await userEvent.click(screen.getByRole('button', { name: /Merge/ }))
+
+    api.get.mockClear()
+    await userEvent.click(screen.getByRole('button', { name: 'merge book b1,b2' }))
+    // The merged copy is gone server-side, so the results are fetched again.
+    await waitFor(() => expect(api.get).toHaveBeenCalled())
+  })
+
+  it('offers no select mode to anyone but an admin', async () => {
+    role = 'gm'
+    api.get.mockResolvedValue(makeResponse([makeBookResult()]))
+    renderView()
+    await userEvent.type(screen.getByRole('textbox'), 'fi')
+    await screen.findByText('Test Book')
+    expect(screen.queryByRole('button', { name: 'Select' })).not.toBeInTheDocument()
+  })
 
   it('shows empty hint when no query has been entered', () => {
     renderView()

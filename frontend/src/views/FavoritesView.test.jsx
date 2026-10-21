@@ -7,11 +7,29 @@ import * as FavCtx from '../context/FavoritesContext'
 vi.mock('../context/FavoritesContext', () => ({ useFavorites: vi.fn() }))
 vi.mock('../api', () => ({ mediaUrl: (p) => `http://localhost${p}` }))
 
+// Signed out (no provider) unless a test sets a role: select mode is admin-only.
+let role = null
+vi.mock('../context/AuthContext', () => ({
+  useAuth: () => (role ? { user: { role } } : null),
+}))
+
+// The merge dialog has its own tests; here only the hand-off matters.
+vi.mock('../components/duplicates/MergeDialog', () => ({
+  default: ({ resourceType, ids, onDone }) => (
+    <button onClick={() => onDone({ action: 'merged', keepId: ids[0], removedIds: ids.slice(1) })}>
+      {`merge ${resourceType} ${ids.join(',')}`}
+    </button>
+  ),
+}))
+
+const reload = vi.fn()
+
 function renderWith(items) {
   FavCtx.useFavorites.mockReturnValue({
     items,
     isFavorite: () => true,
     toggleFavorite: vi.fn(),
+    reload,
   })
   return render(
     <MemoryRouter>
@@ -40,6 +58,33 @@ describe('FavoritesView', () => {
   beforeEach(() => {
     localStorage.clear()
     vi.clearAllMocks()
+    role = null
+  })
+
+  it('offers select mode to admins only', () => {
+    renderWith([aBook])
+    expect(screen.queryByRole('button', { name: 'Select' })).not.toBeInTheDocument()
+  })
+
+  it('merges two selected copies of a favorite book, then reloads', () => {
+    role = 'admin'
+    const copy = { ...aBook, item_id: 'b2', title: 'Core Rules (1)' }
+    renderWith([aBook, copy, aMap])
+    fireEvent.click(screen.getByRole('button', { name: 'Select' }))
+
+    const merge = screen.getByRole('button', { name: /Merge/ })
+    fireEvent.click(screen.getByRole('button', { name: 'Select Core Rules' }))
+    expect(merge).toBeDisabled()
+    // A map and a book are never copies of each other.
+    fireEvent.click(screen.getByRole('button', { name: 'Select Dungeon.png' }))
+    expect(merge).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Select Dungeon.png' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Select Core Rules (1)' }))
+    expect(merge).toBeEnabled()
+
+    fireEvent.click(merge)
+    fireEvent.click(screen.getByRole('button', { name: 'merge book b1,b2' }))
+    expect(reload).toHaveBeenCalled()
   })
 
   it('shows the empty state when there are no favorites', () => {

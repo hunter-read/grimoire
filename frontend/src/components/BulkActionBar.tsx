@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuTag, LuLibrary, LuPencil, LuGrid2X2Plus } from 'react-icons/lu'
+import { LuTag, LuLibrary, LuPencil, LuGrid2X2Plus, LuCombine } from 'react-icons/lu'
 
 /**
  * Sticky bottom action bar shown while a library view is in bulk-select mode.
@@ -8,19 +8,40 @@ import { LuTag, LuLibrary, LuPencil, LuGrid2X2Plus } from 'react-icons/lu'
  * Renders the selection count, an inline "tag" input (when `onApplyTags` is
  * given), buttons for the other bulk actions, and a Done button. The view owns
  * the action handlers and any modals they open.
+ *
+ * `onMerge` adds Merge (issue #589). It is shown whenever the view can merge
+ * and enabled by `canMerge` - two or more items of one type - so the button
+ * stays put while the selection grows rather than appearing at the second
+ * click; `mergeHint` says why it is disabled.
  */
+interface Props {
+  count: number
+  onApplyTags?: (tags: string[]) => unknown
+  onAddToCampaign?: () => void
+  onBulkEdit?: () => void
+  onAddToSoundboard?: () => void
+  onMerge?: () => void
+  canMerge?: boolean
+  mergeHint?: string
+  onDone: () => void
+  applying?: boolean
+}
+
 export default function BulkActionBar({
   count,
   onApplyTags,
   onAddToCampaign,
   onBulkEdit,
   onAddToSoundboard,
+  onMerge,
+  canMerge = false,
+  mergeHint,
   onDone,
   applying = false,
-}) {
+}: Props) {
   const { t } = useTranslation()
   const [tagInput, setTagInput] = useState('')
-  const inputRef = useRef(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (onApplyTags) setTimeout(() => inputRef.current?.focus(), 50)
@@ -33,7 +54,7 @@ export default function BulkActionBar({
       .split(',')
       .map((tag) => tag.trim().toLowerCase())
       .filter(Boolean)
-    if (!tags.length || disabled || applying) return
+    if (!tags.length || disabled || applying || !onApplyTags) return
     await onApplyTags(tags)
     setTagInput('')
     inputRef.current?.focus()
@@ -120,6 +141,17 @@ export default function BulkActionBar({
               {t('soundboard.addSelected')}
             </button>
           )}
+          {onMerge && (
+            <button
+              onClick={onMerge}
+              disabled={!canMerge}
+              title={canMerge ? undefined : mergeHint}
+              style={{ ...toolBtn, opacity: canMerge ? 1 : 0.5 }}
+            >
+              <LuCombine size={13} />
+              {t('merge.action')}
+            </button>
+          )}
           {onBulkEdit && (
             <button
               onClick={onBulkEdit}
@@ -139,7 +171,7 @@ export default function BulkActionBar({
   )
 }
 
-const toolBtn = {
+const toolBtn: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 6,
@@ -151,7 +183,7 @@ const toolBtn = {
   border: '1px solid var(--border)',
   cursor: 'pointer',
 }
-const goldBtn = {
+const goldBtn: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 6,

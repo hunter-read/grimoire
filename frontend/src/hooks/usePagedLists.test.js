@@ -91,6 +91,18 @@ describe('usePagedLists', () => {
     expect(result.current.get('a').items.every((r) => r.seen)).toBe(true)
   })
 
+  it('drops removed items and shrinks the total to match', async () => {
+    const { fetchPage } = endpoint(ROWS)
+    const { result } = renderHook(() => usePagedLists(fetchPage, 'k', { pageSize: 2 }))
+    act(() => result.current.ensure('a'))
+    await waitFor(() => expect(result.current.get('a').items).toHaveLength(2))
+    act(() => result.current.removeItems((r) => r.id === 'r0'))
+    expect(result.current.get('a').items.map((r) => r.id)).toEqual(['r1'])
+    // Four rows remain on the server, so the list still has more to load.
+    expect(result.current.get('a').total).toBe(4)
+    expect(result.current.get('a').hasMore).toBe(true)
+  })
+
   it('asks for a smaller first page, then full pages', async () => {
     const { fetchPage, calls } = endpoint(Array.from({ length: 300 }, (_, i) => ({ id: i })))
     const { result } = renderHook(() => usePagedLists(fetchPage, 'k'))

@@ -12,7 +12,20 @@ export const PAGE_SIZE = 200
 // pages, fetched one at a time as the user scrolls, use the full size.
 export const FIRST_PAGE_SIZE = 60
 
-const EMPTY_LIST = { items: [], total: null, loading: false, error: null }
+export interface PagedList<T> {
+  items: T[]
+  total: number | null
+  loading: boolean
+  error: unknown
+}
+
+export type FetchPage<T> = (
+  key: string,
+  offset: number,
+  limit: number
+) => Promise<{ total: number | null; rows: T[] }> | { total: number | null; rows: T[] }
+
+const EMPTY_LIST: PagedList<never> = { items: [], total: null, loading: false, error: null }
 
 /**
  * Several server-paged lists, keyed - one per open folder, or a single one for
@@ -33,16 +46,21 @@ const EMPTY_LIST = { items: [], total: null, loading: false, error: null }
  *   ensure(key)     - load the first page, if this list has not started
  *   loadMore(key)   - load the next page, if there is one and none is loading
  *   mapItems(fn)    - rewrite loaded items in place (after a local edit)
+ *   removeItems(fn) - drop loaded items matching `fn` (after a local delete),
+ *                     shrinking each list's total to match
  *   lists           - every started list, by key
  */
-export default function usePagedLists(
-  fetchPage,
-  resetKey,
-  { pageSize = PAGE_SIZE, firstPageSize = Math.min(FIRST_PAGE_SIZE, pageSize) } = {}
+export default function usePagedLists<T>(
+  fetchPage: FetchPage<T>,
+  resetKey: unknown,
+  {
+    pageSize = PAGE_SIZE,
+    firstPageSize = Math.min(FIRST_PAGE_SIZE, pageSize),
+  }: { pageSize?: number; firstPageSize?: number } = {}
 ) {
-  const [lists, setLists] = useState({})
+  const [lists, setLists] = useState<Record<string, PagedList<T>>>({})
   const generation = useRef(0)
-  const inFlight = useRef(new Set())
+  const inFlight = useRef(new Set<string>())
   // Read by the callbacks so they stay stable across renders.
   const current = useRef(lists)
   current.current = lists
@@ -57,7 +75,7 @@ export default function usePagedLists(
   }, [resetKey])
 
   const load = useCallback(
-    (key) => {
+    (key: string) => {
       const gen = generation.current
       const flightKey = `${gen}\u0000${key}`
       if (inFlight.current.has(flightKey)) return
@@ -95,14 +113,14 @@ export default function usePagedLists(
   )
 
   const ensure = useCallback(
-    (key) => {
+    (key: string) => {
       if (!current.current[key]) load(key)
     },
     [load]
   )
 
   const loadMore = useCallback(
-    (key) => {
+    (key: string) => {
       const list = current.current[key]
       if (!list || list.loading || list.error) return
       load(key)
@@ -110,17 +128,36 @@ export default function usePagedLists(
     [load]
   )
 
-  const mapItems = useCallback((fn) => {
+  const mapItems = useCallback((fn: (item: T) => T) => {
     setLists((prev) => {
-      const next = {}
+      const next: Record<string, PagedList<T>> = {}
       for (const [key, list] of Object.entries(prev))
         next[key] = { ...list, items: list.items.map(fn) }
       return next
     })
   }, [])
 
+  // The server no longer has these rows, so the totals shrink with them: a
+  // total left as it was would read as "more to load" and fetch a page that
+  // starts one row past where it should.
+  const removeItems = useCallback((fn: (item: T) => boolean) => {
+    setLists((prev) => {
+      const next: Record<string, PagedList<T>> = {}
+      for (const [key, list] of Object.entries(prev)) {
+        const items = list.items.filter((item) => !fn(item))
+        const removed = list.items.length - items.length
+        next[key] = {
+          ...list,
+          items,
+          total: list.total === null ? null : Math.max(0, list.total - removed),
+        }
+      }
+      return next
+    })
+  }, [])
+
   const get = useCallback(
-    (key) => {
+    (key: string) => {
       const list = lists[key]
       if (!list) return undefined
       return { ...list, hasMore: list.total === null || list.items.length < list.total }
@@ -129,7 +166,7 @@ export default function usePagedLists(
   )
 
   return useMemo(
-    () => ({ lists, get, ensure, loadMore, mapItems }),
-    [lists, get, ensure, loadMore, mapItems]
+    () => ({ lists, get, ensure, loadMore, mapItems, removeItems }),
+    [lists, get, ensure, loadMore, mapItems, removeItems]
   )
 }

@@ -15,7 +15,9 @@ from ._schemas import (
     DismissalOut,
     GroupListResponse,
     LinkResult,
+    MergeBatchResult,
     MergeMetadataResult,
+    MergeResult,
     ScanStatus,
     ScanTriggerResult,
     PromoteResult,
@@ -30,6 +32,7 @@ from .core import (
     promote_variant,
     unlink_variants,
 )
+from .merging import merge_batch, merge_items
 from .detection import (
     cancel_scan,
     dismiss_group,
@@ -69,6 +72,20 @@ router.add_api_route(
     methods=["POST"],
     summary="Promote variants back to standalone entries",
     response_model=UnlinkResult,
+)
+router.add_api_route(
+    "/merge",
+    merge_items,
+    methods=["POST"],
+    summary="Merge copies into one, moving everything that points at them",
+    response_model=MergeResult,
+)
+router.add_api_route(
+    "/merge-batch",
+    merge_batch,
+    methods=["POST"],
+    summary="Run several merges behind one confirmation",
+    response_model=MergeBatchResult,
 )
 router.add_api_route(
     "/merge-metadata",

@@ -333,6 +333,14 @@ export default function useMediaGallery(config: GalleryConfig) {
   const applyEdits = (edited: Record<string, Partial<GalleryItem>>) =>
     pages.mapItems((i: GalleryItem) => (edited[i.id] ? { ...i, ...edited[i.id] } : i))
 
+  // Drop items the server has deleted - the copies a merge folded into another
+  // (issue #589) - from the loaded pages and from the selection.
+  const removeItems = (ids: Iterable<string>) => {
+    const gone = new Set(ids)
+    pages.removeItems((i: GalleryItem) => gone.has(i.id))
+    bulk.setSelectedIds((prev: Set<string>) => new Set([...prev].filter((id) => !gone.has(id))))
+  }
+
   // Every item of one folder, for actions that need them all at once (queuing
   // a folder of audio). Fetched in full pages with the gallery's filters and
   // order, independent of how much of the folder is on screen.
@@ -507,6 +515,7 @@ export default function useMediaGallery(config: GalleryConfig) {
     applyBulkTags,
     selectedObjects,
     applyEdits,
+    removeItems,
     toggleSelect,
   }
 }

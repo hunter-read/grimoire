@@ -3730,6 +3730,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/duplicates/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Merge copies into one, moving everything that points at them
+         * @description Merge copies into one, or with ``dry_run`` report exactly what that would do.
+         */
+        post: operations["merge_items_api_duplicates_merge_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/duplicates/merge-batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run several merges behind one confirmation
+         * @description Run several merges, each committed (or rolled back) on its own.
+         *
+         *     Skip-and-continue: a group whose merge is refused is reported and the rest
+         *     still go through. Duplicate groups never share members, so the dry-run
+         *     reports of a batch add up to exactly what the real batch does.
+         */
+        post: operations["merge_batch_api_duplicates_merge_batch_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/duplicates/merge-metadata": {
         parameters: {
             query?: never;
@@ -9483,6 +9527,11 @@ export interface components {
             /** Items */
             items: components["schemas"]["CompareItem"][];
             /**
+             * Mergeable Fields
+             * @default []
+             */
+            mergeable_fields?: string[];
+            /**
              * Page Count Min
              * @default 0
              */
@@ -11682,6 +11731,150 @@ export interface components {
             /** Character Token Path */
             character_token_path: string;
         };
+        /** MergeBatchEntry */
+        MergeBatchEntry: {
+            /** Keep Id */
+            keep_id: string;
+            /** Merge Ids */
+            merge_ids: string[];
+            /**
+             * Resource Type
+             * @enum {string}
+             */
+            resource_type: "book" | "map" | "token" | "audio" | "model";
+        };
+        /** MergeBatchOutcome */
+        MergeBatchOutcome: {
+            /**
+             * Detail
+             * @default
+             */
+            detail?: string;
+            /** Keep Id */
+            keep_id: string;
+            /** Ok */
+            ok: boolean;
+            result?: components["schemas"]["MergeResult"] | null;
+        };
+        /**
+         * MergeBatchRequest
+         * @description Several independent merges behind one confirmation.
+         *
+         *     Each merge commits on its own, mirroring the bulk-update contract: one
+         *     group that cannot merge should not cost the user the others.
+         */
+        MergeBatchRequest: {
+            /**
+             * Delete Files
+             * @default false
+             */
+            delete_files?: boolean;
+            /**
+             * Dry Run
+             * @default false
+             */
+            dry_run?: boolean;
+            /**
+             * Fields
+             * @default fill-empty
+             */
+            fields?: ("fill-empty" | "none") | string[];
+            /** Merges */
+            merges: components["schemas"]["MergeBatchEntry"][];
+        };
+        /** MergeBatchResult */
+        MergeBatchResult: {
+            /**
+             * Failed
+             * @default 0
+             */
+            failed?: number;
+            /**
+             * Merged
+             * @default 0
+             */
+            merged?: number;
+            /**
+             * Results
+             * @default []
+             */
+            results?: components["schemas"]["MergeBatchOutcome"][];
+        };
+        /** MergeFieldChange */
+        MergeFieldChange: {
+            /** Field */
+            field: string;
+            /** From Id */
+            from_id: string;
+            /** Value */
+            value?: unknown;
+        };
+        /** MergeFile */
+        MergeFile: {
+            /**
+             * Delete
+             * @default false
+             */
+            delete?: boolean;
+            /** Error */
+            error?: string | null;
+            /**
+             * File Deleted
+             * @default false
+             */
+            file_deleted?: boolean;
+            /** Id */
+            id: string;
+            /** Path */
+            path: string;
+        };
+        /**
+         * MergeItem
+         * @description One copy involved in a merge, as it stood before anything moved.
+         */
+        MergeItem: {
+            /** Created At */
+            created_at?: string | null;
+            /**
+             * File Size
+             * @default 0
+             */
+            file_size?: number;
+            /** Filename */
+            filename: string;
+            /**
+             * Has Thumbnail
+             * @default false
+             */
+            has_thumbnail?: boolean;
+            /** Id */
+            id: string;
+            /**
+             * Is Missing
+             * @default false
+             */
+            is_missing?: boolean;
+            /** Page Count */
+            page_count?: number | null;
+            /**
+             * Reference Counts
+             * @default {}
+             */
+            reference_counts?: {
+                [key: string]: number;
+            };
+            /** Relative Path */
+            relative_path: string;
+            /** Title */
+            title?: string | null;
+            /**
+             * Variant Count
+             * @default 0
+             */
+            variant_count?: number;
+            /** Variant Parent Id */
+            variant_parent_id?: string | null;
+        };
         /** MergeMetadataRequest */
         MergeMetadataRequest: {
             /** Fields */
@@ -11707,6 +11900,123 @@ export interface components {
             skipped: string[];
             /** Updated */
             updated: string[];
+        };
+        /**
+         * MergeRequest
+         * @description Merge copies into one (issue #589).
+         *
+         *     ``keep_id`` may be omitted on a dry run only: the suggested keeper is then
+         *     chosen from ``merge_ids``, so a dialog opens on the recommendation in one
+         *     request. A real merge always names the copy it keeps.
+         */
+        MergeRequest: {
+            /**
+             * Delete Files
+             * @default false
+             */
+            delete_files?: boolean;
+            /**
+             * Dry Run
+             * @default false
+             */
+            dry_run?: boolean;
+            /**
+             * Fields
+             * @default fill-empty
+             */
+            fields?: ("fill-empty" | "none") | string[];
+            /** Keep Id */
+            keep_id?: string | null;
+            /** Merge Ids */
+            merge_ids: string[];
+            /**
+             * Resource Type
+             * @enum {string}
+             */
+            resource_type: "book" | "map" | "token" | "audio" | "model";
+        };
+        /** MergeResult */
+        MergeResult: {
+            /**
+             * Dry Run
+             * @default false
+             */
+            dry_run?: boolean;
+            /**
+             * Fields
+             * @default []
+             */
+            fields?: components["schemas"]["MergeFieldChange"][];
+            /**
+             * Files
+             * @default []
+             */
+            files?: components["schemas"]["MergeFile"][];
+            /**
+             * Items
+             * @default []
+             */
+            items?: components["schemas"]["MergeItem"][];
+            /** Keep Id */
+            keep_id: string;
+            /**
+             * Keeper Promoted
+             * @default false
+             */
+            keeper_promoted?: boolean;
+            /** Merge Ids */
+            merge_ids: string[];
+            /**
+             * References
+             * @default {}
+             */
+            references?: {
+                [key: string]: components["schemas"]["ReferenceTally"];
+            };
+            /**
+             * Resource Type
+             * @enum {string}
+             */
+            resource_type: "book" | "map" | "token" | "audio" | "model";
+            /** Suggested Keep Id */
+            suggested_keep_id?: string | null;
+            /**
+             * Tags Added
+             * @default []
+             */
+            tags_added?: string[];
+            /**
+             * Variants Reparented
+             * @default 0
+             */
+            variants_reparented?: number;
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings?: components["schemas"]["MergeWarning"][];
+        };
+        /**
+         * MergeWarning
+         * @description Something the user should know before confirming.
+         *
+         *     ``page_mismatch``: bookmarks moving onto a copy with a different page count,
+         *     which may no longer land on the same content. ``keep_missing``: the kept
+         *     copy's file is missing. ``read_only``: the files cannot be deleted.
+         */
+        MergeWarning: {
+            /** Code */
+            code: string;
+            /** Count */
+            count?: number | null;
+            /** Id */
+            id?: string | null;
+            /** Keep Pages */
+            keep_pages?: number | null;
+            /** Out Of Range */
+            out_of_range?: number | null;
+            /** Pages */
+            pages?: number | null;
         };
         /**
          * MetadataCandidate
@@ -12446,6 +12756,22 @@ export interface components {
              * @default
              */
             url?: string;
+        };
+        /**
+         * ReferenceTally
+         * @description Rows moved to the keeper, and rows dropped because it already had them.
+         */
+        ReferenceTally: {
+            /**
+             * Deduplicated
+             * @default 0
+             */
+            deduplicated?: number;
+            /**
+             * Moved
+             * @default 0
+             */
+            moved?: number;
         };
         /** RefreshIndexResponse */
         RefreshIndexResponse: {
@@ -24768,6 +25094,82 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LinkResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    merge_items_api_duplicates_merge_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MergeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MergeResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    merge_batch_api_duplicates_merge_batch_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MergeBatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MergeBatchResult"];
                 };
             };
             /** @description Validation Error */

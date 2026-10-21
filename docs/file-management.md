@@ -207,15 +207,21 @@ It uses several signals, and each match tells you which one fired and how confid
 
 **Nothing is ever deleted automatically, and there is no setting that changes that.** These are irreplaceable purchased files, and a false positive is unrecoverable. The scan only ever surfaces candidates.
 
-**Reviewing in pairs.** Results are listed two copies at a time, not as one card per cluster. Five look-alikes on a single card is more than anyone can judge at once, and a single verdict over five files cannot say "these four match but that fifth is a different book". Each pair carries its own verdict, so rejecting one leaves the rest standing.
+**Reviewing a group.** Results are listed one row per group of look-alikes, every copy named in full - the difference between two copies is usually a suffix like `(1)` or `-printable` - with the copy a merge would keep marked. Filter the list by collection and by how sure the match is: **Identical files** (every copy byte-for-byte the same), **Overlapping text**, or **Similar names**. Clearing the certain ones first leaves your attention for the rest.
 
-The pairs shown are the comparisons that actually matched, not every combination. That matters when one file resembles several others: if D looks like A, B, and C while the real duplicate is A and B, all four end up in one cluster - but you are shown A-B and D-C, rather than D measured against everything in turn.
+**Review** (or **Start review** to begin at the top) opens the group with every copy side by side at full size: pages, sizes, counts, and a field-by-field diff with the differences sorted to the top. For books the **‹ ›** buttons flip every copy at once, bounded by the shortest - page 40 next to page 40 is what reveals a reprint's shifted pagination. A group of more than four copies shows the copy you are keeping beside the others three at a time.
 
-**Comparing them.** **Compare** opens the two copies side by side at full size: pages, sizes, counts, and a field-by-field diff with the differences sorted to the top. For books the **‹ ›** buttons between the two pages flip both at once, bounded by the shorter of the two - page 40 next to page 40 is what reveals a reprint's shifted pagination. Alongside sits the part that usually decides it: how much of *your* work is attached to each copy - bookmarks, favourites, tags, and campaign links. Then you can:
+Pick the copy to keep with its radio button, and untick **Include** on any copy that turns out not to belong - grouping is transitive, so a file that merely resembles one copy can be pulled in with the rest. Then:
 
-- **Copy metadata** - move individual fields from the copy you are discarding onto the one you are keeping, before it goes. Keeping the better *file* should not mean keeping the worse *record*: a pristine scan often arrives with nothing but a filename while the copy you are about to delete has the title, publisher, and tags you curated. Only fields that actually differ are offered, and you tick them individually rather than copying wholesale.
+- **Merge** - folds the other copies into the one you keep, in one step. Blank fields on the kept copy are filled in from the others; tags are combined; and everything that pointed at the other copies moves to it - bookmarks, favourites, campaign links with the players they were shared with, share links, per-book access grants, soundboard and playlist entries, a system's cover, and `[[book:…]]`-style embeds in campaign notes. Anything the kept copy already had is merged rather than doubled: one favourite per person, one link per campaign. If the other copies have versions of their own, those move under the kept copy too. The other files stay on disk unless you tick **Also delete the other files from disk** (on a read-only library they cannot be deleted).
 
-- **Link as versions** - collapse the two into one library entry. A radio button on each copy picks the main version, and a dropdown says what the other one *is* - plus an optional free-text label like `v1.0.1`. The variant stops appearing separately in browsing, search, and counts.
+  What the merge will do is always on screen above the button, worked out by actually running it and throwing the result away, so it is exactly what happens when you confirm. It also warns you about bookmarks moving onto a copy with a different page count - a different printing - since page 40 may no longer be the same page.
+
+  Because nothing is lost in a merge, the copy to keep is chosen for the *file*: one that is present on disk, then the one with more pages, then the larger file. Which copy carries your bookmarks no longer matters.
+
+- **Copy metadata** - when the kept copy has a value you want *replaced* rather than filled in (the bad scan's wrong title, say), tick the fields to copy from another copy before merging. Only fields that differ are offered.
+
+- **Link as versions** - for copies that are genuinely different editions rather than the same file twice: keeps every copy and collapses them into one library entry. Under each other copy a dropdown says what it *is*, plus an optional free-text label like `v1.0.1`; **Main version is** names the kept copy. The versions stop appearing separately in browsing, search, and counts.
 
   The dropdown only offers the kinds that make sense for what you are reviewing, since most of them describe one kind of file: a gridless token or a form-fillable audio track is not a real distinction. Every collection offers **version** and **other**; on top of that:
 
@@ -229,10 +235,25 @@ The pairs shown are the comparisons that actually matched, not every combination
 
   **Universal VTT** is a `.dd2vtt`/`.uvtt` export carrying walls and lights, and **video**/**image** are the animated and still cuts of the same map - a pair in the same way gridded and gridless are. **Presupported**/**unsupported** is the same idea for a resin miniature, and **split**/**merged** covers a mini cut into printable parts versus the same mini as one piece. The scan pre-fills its best guess from the filenames and extensions, and it only ever guesses something the collection actually offers. If your files use their own markers - `GL_` for gridless, `-pf` for printer friendly - add them as [variant filename rules](filename-rules.md#variant-filename-rules) and the guess uses them first.
 
-- **Delete a copy** - asks for confirmation in a dialog, and removes the file from disk by default. That default is the opposite of elsewhere in Grimoire, deliberately: you have just decided this copy is redundant, and leaving the bytes in the library folder means the next scan proposes the same pair all over again. Untick the box to drop only the library record.
-- **Not duplicates** - dismisses that pair. It disappears from the list straight away rather than lingering until the next scan, and it stays gone: the rejection is remembered per pair and survives every future rescan, including when a third copy of the same book turns up later and would otherwise drag the rejected pair back into a cluster with it. Dismissals are not final, though - **Show dismissed** at the foot of the duplicates page lists everything you have rejected, with a **Restore** button on each. Restoring one lets it be proposed again by the next scan (the list on screen was built while the dismissal still applied, so it does not reappear until you rescan).
+- **Not duplicates** - dismisses the group. It disappears from the list straight away rather than lingering until the next scan, and it stays gone: the rejection is remembered per pair and survives every future rescan, including when a third copy of the same book turns up later and would otherwise drag the rejected pair back into a cluster with it. Dismissals are not final, though - **Show dismissed** at the foot of the duplicates page lists everything you have rejected, with a **Restore** button on each. Restoring one lets it be proposed again by the next scan (the list on screen was built while the dismissal still applied, so it does not reappear until you rescan).
 
-**Changing your mind about the main version.** Say you file the printable cut under the form-fillable one, then meet a lined edition you consider the real original. Choosing the lined copy as the main version moves the *whole family* across in one step - the form-fillable becomes a variant of it, and anything already filed under the form-fillable re-homes onto the new main version rather than being stranded. The page says how many versions will move before you commit.
+**Working through the list.** Each decision moves straight on to the next group rather than back to the list, with a "12 of 87" counter and **Back** and **Skip** buttons; skipped groups come round again at the end. Everything is on the keyboard:
+
+| Key | Does |
+| --- | --- |
+| `1`-`4` | Keep that copy |
+| `M` | Merge |
+| `L` | Link as versions |
+| `D` | Not duplicates |
+| `S` or `→` | Skip to the next group |
+| `←` | Back to the previous group |
+| `?` | Show or hide the shortcuts |
+
+**The obvious ones.** **Merge** on a row merges that group into its marked copy without opening it - the same summary of what will move is shown first. **Merge all exact matches** does that for every group whose files are byte-identical, behind one confirmation.
+
+**Merging from anywhere.** Duplicates are often noticed while browsing rather than on this page. Admins can select two or more copies of the same item in any list that has **Select** - a system's books, maps, tokens, audio, 3D models, favourites, a tag's page, or search results - and choose **Merge…** in the bar at the bottom. The same dialog opens on the suggested copy to keep, with the summary and the option to link them as versions instead.
+
+**Changing your mind about the main version.** Say you file the printable cut under the form-fillable one, then meet a lined edition you consider the real original. Choosing the lined copy as the main version moves the *whole family* across in one step - the form-fillable becomes a variant of it, and anything already filed under the form-fillable re-homes onto the new main version rather than being stranded.
 
 **When the copy you are demoting is already filed under something else.** Versions are only ever one level deep, so a copy that is already a variant of a third book cannot be filed under a fourth as well. Rather than just refusing, the page names the group that copy belongs to and offers two ways forward: **Move that group here** promotes in one step - the other group's main version, and everything under it including the copy on screen, moves under the copy you are keeping - or **Compare with the main version first** reopens the comparison against that main version, so you can look at the two files that the move actually concerns before committing to it.
 

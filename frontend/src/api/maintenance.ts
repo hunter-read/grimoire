@@ -97,6 +97,14 @@ export const duplicates = {
     }),
   mergeMetadata: (payload: BodyOf<'/duplicates/merge-metadata', 'post'>) =>
     client.post('/duplicates/merge-metadata', { body: payload }),
+  // One-step merge (issue #589): metadata, every reference, and variant
+  // families move to `keep_id`, then the other copies are deleted. `dry_run`
+  // reports exactly that without changing anything; a dry run may leave
+  // `keep_id` out to have the server pick the suggested keeper.
+  merge: (payload: BodyOf<'/duplicates/merge', 'post'>) =>
+    client.post('/duplicates/merge', { body: payload }),
+  mergeBatch: (payload: BodyOf<'/duplicates/merge-batch', 'post'>) =>
+    client.post('/duplicates/merge-batch', { body: payload }),
   deleteItem: (
     resourceType: DuplicateType,
     itemId: string,

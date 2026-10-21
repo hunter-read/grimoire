@@ -1,6 +1,13 @@
+import { useState, type ComponentType, type CSSProperties, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuPencil, LuTrash2, LuCheck, LuX, LuHeart, LuDownload } from 'react-icons/lu'
-import TagTypeSection from './TagTypeSection'
+import TagTypeSectionJs from './TagTypeSection'
+import BulkActionBar from '../BulkActionBar'
+import BulkToggleButton from '../BulkToggleButton'
+import SelectableCard from '../SelectableCard'
+import { useAuth } from '../../context/AuthContext'
+import useBulkMerge from '../../hooks/useBulkMerge'
+import useMixedSelection from '../../hooks/useMixedSelection'
 import { canDownloadTagType } from './tagDownload'
 import { shouldAutoCollapse } from '../../utils/autoCollapse'
 import BookFavorite from '../favorites/BookFavorite'
@@ -10,7 +17,47 @@ import AudioFavorite from '../favorites/AudioFavorite'
 import ModelFavorite from '../favorites/ModelFavorite'
 import SystemFavorite from '../favorites/SystemFavorite'
 
-const CARD_FOR_TYPE = {
+// TagTypeSection is still JavaScript; its props are inferred loosely.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const TagTypeSection = TagTypeSectionJs as ComponentType<Record<string, any>>
+
+/** One tagged item as the tag's paged lists return it. */
+interface TagItem {
+  item_id: string
+  title?: string | null
+  filename?: string | null
+  [field: string]: unknown
+}
+
+interface TagFolder {
+  resource_type: string
+  count: number
+  [field: string]: unknown
+}
+
+interface Props {
+  detail: {
+    display: string
+    internal: string
+    category?: string | null
+    counts?: Record<string, number>
+    folders?: TagFolder[]
+  }
+  isEditor: boolean
+  renaming: boolean
+  renameValue: string
+  setRenameValue: (value: string) => void
+  setRenaming: (value: boolean) => void
+  saveRename: () => void
+  deleteTag: () => void
+  favorited: boolean
+  onToggleFavorite: () => void
+  pages: unknown
+  onLoad: (...args: unknown[]) => void
+  onDownload?: (request: { title: string; params: Record<string, unknown> }) => void
+}
+
+const CARD_FOR_TYPE: Record<string, ComponentType<{ item: TagItem; grid: boolean }>> = {
   system: SystemFavorite,
   book: BookFavorite,
   map: MapFavorite,
@@ -25,7 +72,7 @@ const TYPE_ORDER = ['system', 'book', 'map', 'token', 'audio', 'model']
 // `tags.${type}s`. That naive plural produced `tags.audios` and `tags.models`,
 // neither of which exists in any locale, so those two headings silently rendered
 // their own key (issue #445). A lookup fails loudly in review instead.
-const TITLE_KEY_FOR_TYPE = {
+const TITLE_KEY_FOR_TYPE: Record<string, string> = {
   system: 'tags.systems',
   book: 'tags.books',
   map: 'tags.maps',
@@ -59,13 +106,43 @@ export default function TagDetail({
   pages,
   onLoad,
   onDownload,
-}) {
+}: Props) {
   const { t } = useTranslation()
+  const isAdmin = useAuth()?.user?.role === 'admin'
+  // Select mode exists for Merge (issue #589), which is admin-only. The items
+  // page in through TagsView, so merged copies are hidden here until the tag
+  // is next loaded rather than re-fetched.
+  const selection = useMixedSelection()
+  const { bulk } = selection
+  const [merged, setMerged] = useState<Set<string>>(() => new Set())
+  const merge = useBulkMerge(selection.selected, (outcome) => {
+    selection.forget(outcome.removedIds)
+    setMerged((prev) => new Set([...prev, ...outcome.removedIds]))
+  })
+
+  const renderCard = (type: string, item: TagItem, grid: boolean): ReactNode => {
+    if (merged.has(item.item_id)) return null
+    const Card = CARD_FOR_TYPE[type]
+    const card = <Card key={item.item_id} item={item} grid={grid} />
+    // Systems are not library items a merge can act on.
+    if (type === 'system') return card
+    return (
+      <SelectableCard
+        key={item.item_id}
+        active={bulk.bulkMode}
+        selected={selection.isSelected(type, item.item_id)}
+        label={item.title || item.filename || item.item_id}
+        onToggle={(mods) => selection.toggle(type, item.item_id, mods)}
+      >
+        {card}
+      </SelectableCard>
+    )
+  }
   // Counts come with the summary; the items themselves page in per section
   // (issue #221).
   const counts = detail.counts || {}
   const folders = detail.folders || []
-  const directCount = Object.values(counts).reduce((n, c) => n + c, 0)
+  const directCount = Object.values(counts).reduce((n: number, c: number) => n + c, 0)
   const folderCount = folders.reduce((n, g) => n + g.count, 0)
   const total = directCount + folderCount
   const sectionCount = TYPE_ORDER.filter(
@@ -213,6 +290,15 @@ export default function TagDetail({
                 </button>
               </>
             )}
+            {isAdmin && total > 0 && (
+              <BulkToggleButton
+                active={bulk.bulkMode}
+                onToggle={bulk.bulkMode ? bulk.exit : bulk.enter}
+                style={
+                  (onDownload && hasDownloadable) || isEditor ? undefined : { marginLeft: 'auto' }
+                }
+              />
+            )}
           </>
         )}
       </div>
@@ -229,7 +315,6 @@ export default function TagDetail({
           const count = counts[type] || 0
           const typeFolders = folders.filter((g) => g.resource_type === type)
           if (count === 0 && typeFolders.length === 0) return null
-          const Card = CARD_FOR_TYPE[type]
           return (
             <TagTypeSection
               key={type}
@@ -239,7 +324,7 @@ export default function TagDetail({
               folders={typeFolders}
               pages={pages}
               onLoad={onLoad}
-              renderItem={(item, grid) => <Card key={item.item_id} item={item} grid={grid} />}
+              renderItem={(item: TagItem, grid: boolean) => renderCard(type, item, grid)}
               tag={detail.internal}
               onDownload={onDownload}
               defaultCollapsed={autoCollapse}
@@ -247,11 +332,14 @@ export default function TagDetail({
           )
         })
       )}
+
+      {bulk.bulkMode && <BulkActionBar count={bulk.count} {...merge.barProps} onDone={bulk.exit} />}
+      {merge.dialog}
     </>
   )
 }
 
-const iconBtn = {
+const iconBtn: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',

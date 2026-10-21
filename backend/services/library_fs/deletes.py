@@ -143,6 +143,65 @@ def delete_record(db: Session, model: Any, record: Any, *, delete_file: bool = T
     return {"id": record.id, "path": filepath, "file_deleted": removed_file}
 
 
+def assert_records_deletable(records: list[Any]) -> None:
+    """Refuse up front when any of ``records``' files sits on a read-only mount.
+
+    Checked before anything is deleted so a multi-record delete either removes
+    every file it was asked to or none of them. A file that is already gone
+    needs no write access and passes.
+    """
+    for record in records:
+        target = Path(record.filepath)
+        if target.exists():
+            assert_writable(target)
+
+
+def delete_records(
+    db: Session, model: Any, records: list[Any], *, delete_files: bool
+) -> list[dict]:
+    """Delete several rows, and optionally their files, inside the caller's transaction.
+
+    :func:`delete_record` commits per record, which is right for one dropped
+    duplicate but wrong for a merge: three copies merged into one must not end
+    with the first deleted and the third still there. This flushes the row
+    deletions and leaves the commit to the caller.
+
+    Call :func:`assert_records_deletable` first when ``delete_files`` is set. A
+    file that still fails to delete after that check (a permissions change
+    mid-merge) is reported in its result rather than raised: by then earlier
+    files may already be gone, and keeping their rows would point the library at
+    files that no longer exist.
+    """
+    for record in records:
+        purge_references(db, model, record.id)
+        db.delete(record)
+    db.flush()
+
+    results: list[dict] = []
+    for record in records:
+        target = Path(record.filepath)
+        removed, error = False, None
+        if delete_files:
+            companions = sidecars_for(target)
+            try:
+                target.unlink()
+                removed = True
+            except OSError as e:
+                if getattr(e, "errno", None) != 2:  # ENOENT - already gone
+                    error = f"Could not delete: {e}"
+                    logger.warning("Could not delete %s: %s", target, e)
+            for sidecar in companions:
+                try:
+                    sidecar.unlink()
+                except OSError as e:
+                    logger.warning("Could not delete sidecar %s: %s", sidecar, e)
+        _purge_derived(db, model, record)
+        results.append(
+            {"id": record.id, "path": record.filepath, "file_deleted": removed, "error": error}
+        )
+    return results
+
+
 def delete_path(db: Session, path: str, *, confirm_name: Optional[str] = None) -> dict:
     """Delete a file, or a folder and everything under it, from the library.
 

@@ -5,7 +5,9 @@ import userEvent from '@testing-library/user-event'
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (k, o) => {
-      if (k === 'maintenance.dupes.pairsFound') return `${o.count} pairs found`
+      if (k === 'maintenance.dupes.groupsFound') return `${o.count} groups found`
+      if (k === 'maintenance.dupes.mergeExact.button') return `merge exact ${o.count}`
+      if (k === 'maintenance.dupes.mergeExact.done') return `merged ${o.count}, skipped ${o.failed}`
       return k
     },
   }),
@@ -19,7 +21,33 @@ const dismissalsFn = vi.fn()
 const undismiss = vi.fn()
 
 const navigate = vi.fn()
-vi.mock('react-router-dom', () => ({ useNavigate: () => navigate }))
+// The list's filters live in the URL. Set before render to start filtered.
+let searchParams = new URLSearchParams()
+const setSearchParams = vi.fn()
+vi.mock('react-router-dom', () => ({
+  useNavigate: () => navigate,
+  useSearchParams: () => [searchParams, setSearchParams],
+}))
+
+// The dialogs have their own tests; here only the wiring to them matters.
+vi.mock('../components/duplicates/MergeDialog', () => ({
+  default: ({ ids, keepId, onDone }) => (
+    <div>
+      merge dialog {ids.join(',')} keeping {keepId}
+      <button onClick={() => onDone({ action: 'merged', keepId, removedIds: [] })}>
+        finish merge
+      </button>
+    </div>
+  ),
+}))
+vi.mock('../components/duplicates/MergeExactDialog', () => ({
+  default: ({ groups: exact, onDone }) => (
+    <div>
+      exact dialog {exact.map((g) => g.id).join(',')}
+      <button onClick={() => onDone({ merged: exact.length, failed: 0 })}>finish exact</button>
+    </div>
+  ),
+}))
 
 // Admin by default: the page is admin-only, and every behaviour test below is
 // about what an admin sees. The non-admin case is asserted explicitly.
@@ -49,6 +77,7 @@ describe('DuplicatesView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     role = 'admin'
+    searchParams = new URLSearchParams()
     scanStatus.mockResolvedValue(IDLE)
     groups.mockResolvedValue({ groups: [] })
     startScan.mockResolvedValue({ status: 'scan_started' })
@@ -169,31 +198,128 @@ describe('DuplicatesView', () => {
     file_size: 10,
   })
 
-  it('lists a two-member group as a single pair', async () => {
-    groups.mockResolvedValue({ groups: [group([member('b1'), member('b2')])] })
-    render(<DuplicatesView />)
-    await waitFor(() => expect(screen.getByText('1 pairs found')).toBeInTheDocument())
-    expect(screen.getByText('identical files')).toBeInTheDocument()
-  })
-
-  it('breaks a five-member group into four parent-vs-child pairs', async () => {
-    // The point of the pair split: five copies on one card is more than a
-    // person can judge at once, and one verdict cannot separate the odd one out.
+  it('lists a group as one row with every copy, marking the keeper', async () => {
     groups.mockResolvedValue({
-      groups: [group(['b1', 'b2', 'b3', 'b4', 'b5'].map(member))],
+      groups: [group([member('b1'), { ...member('b2'), page_count: 300 }, member('b3')])],
     })
     render(<DuplicatesView />)
-    await waitFor(() => expect(screen.getByText('4 pairs found')).toBeInTheDocument())
-    expect(screen.getAllByRole('button', { name: /maintenance.dupes.compare/ })).toHaveLength(4)
+    await waitFor(() => expect(screen.getByText('1 groups found')).toBeInTheDocument())
+    // One row for the whole group: a merge settles every copy at once.
+    expect(screen.getAllByRole('button', { name: /maintenance.dupes.review.open/ })).toHaveLength(1)
+    for (const id of ['b1', 'b2', 'b3']) expect(screen.getByText(`${id}.pdf`)).toBeInTheDocument()
+    // The most pages wins, whatever the scan suggested.
+    const kept = screen.getByText('maintenance.dupes.review.keeps')
+    expect(kept.closest('li')).toHaveTextContent('b2.pdf')
   })
 
-  it('opens the compare page for the pair that was clicked', async () => {
+  it('opens the review queue at the group that was clicked', async () => {
     groups.mockResolvedValue({ groups: [group([member('b1'), member('b2')])] })
     render(<DuplicatesView />)
-    await waitFor(() => expect(screen.getByText('1 pairs found')).toBeInTheDocument())
+    await userEvent.click(
+      await screen.findByRole('button', { name: /maintenance.dupes.review.open/ })
+    )
+    expect(navigate).toHaveBeenCalledWith('/settings/duplicates/compare/book?group=g1')
+  })
 
-    await userEvent.click(screen.getByRole('button', { name: /maintenance.dupes.compare/ }))
-    expect(navigate).toHaveBeenCalledWith('/settings/duplicates/compare/book?left=b1&right=b2')
+  it('starts the review at the first listed group, carrying the filters', async () => {
+    searchParams = new URLSearchParams('type=book&match=exact')
+    groups.mockResolvedValue({
+      groups: [
+        group([
+          { ...member('b1'), content_hash: 'h' },
+          { ...member('b2'), content_hash: 'h' },
+        ]),
+      ],
+    })
+    render(<DuplicatesView />)
+    await userEvent.click(
+      await screen.findByRole('button', { name: /maintenance.dupes.review.start/ })
+    )
+    expect(navigate).toHaveBeenCalledWith(
+      '/settings/duplicates/compare/book?group=g1&type=book&match=exact'
+    )
+  })
+
+  it('shows only the groups matching the URL filters', async () => {
+    searchParams = new URLSearchParams('match=exact')
+    groups.mockResolvedValue({
+      groups: [
+        group([
+          { ...member('b1'), content_hash: 'h' },
+          { ...member('b2'), content_hash: 'h' },
+        ]),
+        group([member('b3'), member('b4')], { id: 'g2', reasons: ['metadata'] }),
+      ],
+    })
+    render(<DuplicatesView />)
+    await waitFor(() => expect(screen.getByText('1 groups found')).toBeInTheDocument())
+    expect(screen.queryByText('b3.pdf')).not.toBeInTheDocument()
+  })
+
+  it('says so when no group matches the filters', async () => {
+    searchParams = new URLSearchParams('type=map')
+    groups.mockResolvedValue({ groups: [group([member('b1'), member('b2')])] })
+    render(<DuplicatesView />)
+    await waitFor(() =>
+      expect(screen.getByText('maintenance.dupes.noneMatchFilters')).toBeInTheDocument()
+    )
+  })
+
+  it('writes a changed filter into the URL', async () => {
+    searchParams = new URLSearchParams('type=book')
+    groups.mockResolvedValue({ groups: [group([member('b1'), member('b2')])] })
+    render(<DuplicatesView />)
+    await userEvent.selectOptions(
+      await screen.findByRole('combobox', { name: 'maintenance.dupes.filterMatch' }),
+      'text'
+    )
+    const update = setSearchParams.mock.calls.at(-1)[0]
+    expect(update(searchParams).toString()).toBe('type=book&match=text')
+    // Back to "all" drops the key rather than leaving `match=`.
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: 'maintenance.dupes.filterType' }),
+      ''
+    )
+    expect(setSearchParams.mock.calls.at(-1)[0](searchParams).toString()).toBe('')
+  })
+
+  it('quick-merges a row into its keeper and drops it from the list', async () => {
+    groups.mockResolvedValue({
+      groups: [group([member('b1'), { ...member('b2'), file_size: 99 }])],
+    })
+    render(<DuplicatesView />)
+    await userEvent.click(await screen.findByRole('button', { name: /merge.action/ }))
+    expect(screen.getByText('merge dialog b1,b2 keeping b2')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'finish merge' }))
+    await waitFor(() => expect(screen.queryByText('b1.pdf')).not.toBeInTheDocument())
+  })
+
+  it('merges every exact group behind one dialog, then reloads', async () => {
+    const exact = (id, a, b) =>
+      group(
+        [
+          { ...member(a), content_hash: id },
+          { ...member(b), content_hash: id },
+        ],
+        { id }
+      )
+    groups.mockResolvedValue({
+      groups: [
+        exact('e1', 'b1', 'b2'),
+        exact('e2', 'b3', 'b4'),
+        // Linked by hash for one pair only: not every file is identical.
+        group([{ ...member('b5'), content_hash: 'x' }, member('b6')], { id: 'g3' }),
+      ],
+    })
+    render(<DuplicatesView />)
+    await userEvent.click(await screen.findByRole('button', { name: 'merge exact 2' }))
+    expect(screen.getByText('exact dialog e1,e2')).toBeInTheDocument()
+
+    groups.mockClear()
+    await userEvent.click(screen.getByRole('button', { name: 'finish exact' }))
+    expect(await screen.findByText('merged 2, skipped 0')).toBeInTheDocument()
+    expect(groups).toHaveBeenCalled()
   })
 
   it('refuses non-admins', async () => {
@@ -215,6 +341,7 @@ describe('DuplicatesView error reporting', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     role = 'admin'
+    searchParams = new URLSearchParams()
     scanStatus.mockResolvedValue(IDLE)
     groups.mockResolvedValue({ groups: [] })
     startScan.mockResolvedValue({ status: 'scan_started' })
@@ -261,6 +388,7 @@ describe('DuplicatesView dismissed pairs', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     role = 'admin'
+    searchParams = new URLSearchParams()
     scanStatus.mockResolvedValue(IDLE)
     groups.mockResolvedValue({ groups: [] })
     dismissalsFn.mockResolvedValue({ dismissals: [] })

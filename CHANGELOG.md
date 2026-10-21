@@ -10,6 +10,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Added
 
+- **Merge duplicates in one step.** Merging folds copies into the one you keep: blank fields are filled in, tags combined, and every bookmark, favourite, campaign link (with the players it was shared with), share link, access grant, soundboard entry and note embed moves across instead of being deleted with the other copy. What it will do is shown before you confirm, and the other files stay on disk unless you choose to delete them. Admins can merge two or more copies selected in any list - a system's books, maps, tokens, audio, 3D models, favourites, a tag's page or search results - and the duplicates page now reviews a whole group at once, moves straight on to the next group after each decision with Back and Skip, works from the keyboard (`1`-`4`, `M`, `L`, `D`, `S`, `?`), merges a row without opening it, and merges every byte-identical group behind one confirmation. The list can be filtered by collection and by how sure the match is. See the file management docs
 - The users list shows when each person was **last active**, fading as it ages so the ones who have drifted away stand out; expand a user for when they last signed in. Log lines now carry the user whose request produced them, sign-ins are logged, and Settings → Logs can be narrowed to one user from a picker, a name on a log line, or **View in logs** on the user. See the users and permissions docs
 
 - Add-on sources can be private repositories. Give a source an access token under Settings → Add-ons (the key beside it) and its add-ons, character sheets, content packs, themes and note templates browse, install and update like a public catalogue's. The token is sent only to files inside that source, never to other sites, and is stored encrypted and never shown again. `ADDON_INDEX_CREDENTIALS` pins tokens on the server. See the add-ons docs for GitHub and Gitea setups
@@ -85,6 +86,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Fixed
 
+- **Copy metadata** on the duplicate comparison page never appeared, because the list of fields it may copy was dropped from the server's response
 - **Stop** now stops the startup library scan when Grimoire runs more than one worker without Valkey. The request could reach a worker other than the one scanning, which ignored it and kept rescans of a single folder refused until the scan finished
 - With `OCR_CONCURRENCY` above `1`, **Stop** now ends text recognition after the books already in progress, rather than starting every queued book after it
 - Renaming a file to change only its capitalisation (`crystallica.pdf` to `Crystallica.pdf`) was refused as "already exists" on macOS and Windows

@@ -27,7 +27,7 @@ from .job import (
     run_detection_sync,
     set_status,
 )
-from .scoring import describe, suggest_kind, suggest_parent, version_token
+from .scoring import describe, suggest_keeper, suggest_kind, suggest_parent, version_token
 
 __all__ = [
     # detection
@@ -57,6 +57,7 @@ __all__ = [
     # scoring / heuristics
     "suggest_kind",
     "suggest_parent",
+    "suggest_keeper",
     "version_token",
     "describe",
     "grid_marker",

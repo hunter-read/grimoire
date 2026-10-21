@@ -1,5 +1,5 @@
 """Request and response models for duplicate resolution."""
-from typing import Literal, Optional
+from typing import Any, Literal, Optional, Union
 
 from pydantic import BaseModel, Field
 
@@ -177,6 +177,9 @@ class CompareResult(BaseModel):
     resource_type: ResourceType
     items: list[CompareItem]
     differences: list[CompareDifference]
+    # What the copy-metadata picker may offer. Declared here so the response
+    # model does not strip it: left out, the panel never had fields to show.
+    mergeable_fields: list[str] = []
     # How far a synced page-flip can go before one side runs out.
     page_count_min: int = 0
     suggested_parent_id: Optional[str] = None
@@ -292,3 +295,126 @@ class DismissalOut(BaseModel):
 
 class DismissalListResponse(BaseModel):
     dismissals: list[DismissalOut] = []
+
+
+class MergeRequest(BaseModel):
+    """Merge copies into one (issue #589).
+
+    ``keep_id`` may be omitted on a dry run only: the suggested keeper is then
+    chosen from ``merge_ids``, so a dialog opens on the recommendation in one
+    request. A real merge always names the copy it keeps.
+    """
+
+    resource_type: ResourceType
+    keep_id: Optional[str] = None
+    merge_ids: list[str] = Field(..., min_length=1, max_length=20)
+    # "fill-empty" copies a value only where the keeper is blank; "none" copies
+    # nothing; a list copies those fields, overwriting, as merge-metadata does.
+    # Tags are unioned regardless: their links move with the other references.
+    fields: Union[Literal["fill-empty", "none"], list[str]] = "fill-empty"
+    delete_files: bool = False
+    dry_run: bool = False
+
+
+class MergeItem(BaseModel):
+    """One copy involved in a merge, as it stood before anything moved."""
+
+    id: str
+    title: Optional[str] = None
+    filename: str
+    relative_path: str
+    file_size: int = 0
+    page_count: Optional[int] = None
+    is_missing: bool = False
+    has_thumbnail: bool = False
+    created_at: Optional[str] = None
+    variant_parent_id: Optional[str] = None
+    variant_count: int = 0
+    reference_counts: dict[str, int] = {}
+
+
+class MergeFieldChange(BaseModel):
+    field: str
+    from_id: str
+    value: Any = None
+
+
+class ReferenceTally(BaseModel):
+    """Rows moved to the keeper, and rows dropped because it already had them."""
+
+    moved: int = 0
+    deduplicated: int = 0
+
+
+class MergeFile(BaseModel):
+    id: str
+    path: str
+    # Whether the merge deletes (or, on a dry run, would delete) this file.
+    delete: bool = False
+    file_deleted: bool = False
+    error: Optional[str] = None
+
+
+class MergeWarning(BaseModel):
+    """Something the user should know before confirming.
+
+    ``page_mismatch``: bookmarks moving onto a copy with a different page count,
+    which may no longer land on the same content. ``keep_missing``: the kept
+    copy's file is missing. ``read_only``: the files cannot be deleted.
+    """
+
+    code: str
+    id: Optional[str] = None
+    count: Optional[int] = None
+    pages: Optional[int] = None
+    keep_pages: Optional[int] = None
+    out_of_range: Optional[int] = None
+
+
+class MergeResult(BaseModel):
+    resource_type: ResourceType
+    keep_id: str
+    merge_ids: list[str]
+    suggested_keep_id: Optional[str] = None
+    dry_run: bool = False
+    # The keeper first, then the merged copies in request order.
+    items: list[MergeItem] = []
+    fields: list[MergeFieldChange] = []
+    tags_added: list[str] = []
+    references: dict[str, ReferenceTally] = {}
+    variants_reparented: int = 0
+    keeper_promoted: bool = False
+    files: list[MergeFile] = []
+    warnings: list[MergeWarning] = []
+
+
+class MergeBatchEntry(BaseModel):
+    resource_type: ResourceType
+    keep_id: str
+    merge_ids: list[str] = Field(..., min_length=1, max_length=20)
+
+
+class MergeBatchRequest(BaseModel):
+    """Several independent merges behind one confirmation.
+
+    Each merge commits on its own, mirroring the bulk-update contract: one
+    group that cannot merge should not cost the user the others.
+    """
+
+    merges: list[MergeBatchEntry] = Field(..., min_length=1, max_length=200)
+    fields: Union[Literal["fill-empty", "none"], list[str]] = "fill-empty"
+    delete_files: bool = False
+    dry_run: bool = False
+
+
+class MergeBatchOutcome(BaseModel):
+    keep_id: str
+    ok: bool
+    detail: str = ""
+    result: Optional[MergeResult] = None
+
+
+class MergeBatchResult(BaseModel):
+    results: list[MergeBatchOutcome] = []
+    merged: int = 0
+    failed: int = 0

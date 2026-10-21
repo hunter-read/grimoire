@@ -7,6 +7,8 @@ interface FavoritesContextValue {
   isFavorite: (type: string, id: string) => boolean
   toggleFavorite: (type: string, id: string) => Promise<void>
   items: FavoriteItem[]
+  /** Re-fetch, after a change made elsewhere - a merge moving favorites (issue #589). */
+  reload: () => void
 }
 
 const FavoritesContext = createContext<FavoritesContextValue | null>(null)
@@ -60,7 +62,7 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
   )
 
   return (
-    <FavoritesContext.Provider value={{ isFavorite, toggleFavorite, items }}>
+    <FavoritesContext.Provider value={{ isFavorite, toggleFavorite, items, reload }}>
       {children}
     </FavoritesContext.Provider>
   )

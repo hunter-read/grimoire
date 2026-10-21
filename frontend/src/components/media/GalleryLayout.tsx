@@ -1,6 +1,8 @@
+import type { ComponentType, ReactNode } from 'react'
+import type { IconType } from 'react-icons'
 import { useTranslation } from 'react-i18next'
 import GalleryToolbar from './GalleryToolbar'
-import MediaFolderGroup from './MediaFolderGroup'
+import MediaFolderGroupJs from './MediaFolderGroup'
 import MediaCard from './MediaCard'
 import VirtualGrid from './VirtualGrid'
 import BulkActionBar from '../BulkActionBar'
@@ -8,10 +10,47 @@ import LoadMoreSentinel from '../LoadMoreSentinel'
 import Spinner from '../Spinner'
 import BulkToggleButton from '../BulkToggleButton'
 import ViewModeToggle from '../ViewModeToggle'
-import SortFilterBar from '../library/SortFilterBar'
+import SortFilterBarJs from '../library/SortFilterBar'
 import SearchInput from '../library/SearchInput'
 import { titleCaseTag } from '../../hooks/useTagLabels'
+import useBulkMerge from '../../hooks/useBulkMerge'
+import type useMediaGallery from '../../hooks/useMediaGallery'
+import type { GalleryConfig, GalleryItem } from '../../hooks/useMediaGallery'
 import { RECENTLY_ADDED_DAYS } from '../../utils/recentlyAdded'
+
+// MediaFolderGroup is still JavaScript, and infers its callbacks' arity from
+// their defaults.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const MediaFolderGroup = MediaFolderGroupJs as ComponentType<Record<string, any>>
+
+// SortFilterBar is still JavaScript; its filter lists default to `[]`, which
+// TypeScript would otherwise read as lists that can hold nothing.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const SortFilterBar = SortFilterBarJs as ComponentType<Record<string, any>>
+
+/** The mediaConfig.js entry, with the fields the page layout reads. */
+interface LayoutConfig extends GalleryConfig {
+  i18n: string
+  icon: IconType
+  emptyKey: string
+  emptyFilterKey: string
+  sortOptions?: string[]
+  gridMin: Record<string, string>
+  gridGap: number
+}
+
+interface Props {
+  config: LayoutConfig
+  gallery: ReturnType<typeof useMediaGallery>
+  isPlayer: boolean
+  title: ReactNode
+  subtitle: ReactNode
+  onDownload?: (...args: unknown[]) => void
+  onAddToCampaign?: () => void
+  onBulkEdit?: () => void
+  onAddToSoundboard?: () => void
+  headerActions?: ReactNode
+}
 
 /**
  * Page layout shared by the media gallery views (maps, tokens). Renders the
@@ -33,15 +72,21 @@ export default function GalleryLayout({
   onBulkEdit,
   onAddToSoundboard,
   headerActions,
-}) {
+}: Props) {
   const { t } = useTranslation()
   const { i18n, icon: Icon, emptyKey, emptyFilterKey } = config
   const { bulkMode } = gallery.bulk
+  // Merge (issue #589): every selected item here is one collection, so the
+  // only rules left are the count and the admin check inside the hook.
+  const merge = useBulkMerge(
+    [...gallery.selectedIds].map((id) => ({ type: config.type, id: id as string })),
+    (outcome) => gallery.removeItems(outcome.removedIds)
+  )
 
   // Every gallery can sort by date added (issue #199), newest first on pick.
   // Snake-case keys map to camel-case labels: `added_at` -> `sortAddedAt`.
   const sortOptions = [...(config.sortOptions || ['name', 'size']), 'added_at'].map((key) => {
-    const camel = key.replace(/_(\w)/g, (_, c) => c.toUpperCase())
+    const camel = key.replace(/_(\w)/g, (_: string, c: string) => c.toUpperCase())
     return {
       value: key,
       label: t(`sortFilter.sort${camel.charAt(0).toUpperCase()}${camel.slice(1)}`),
@@ -51,12 +96,13 @@ export default function GalleryLayout({
   // Tag filter options: values are the internal (lowercased) keys the gallery
   // matches on; labels use the shared-tag display casing when available, falling
   // back to Title Case for folder-only tags not in the shared-tag tables (#235).
-  const tagLabels = gallery.tagLabels || {}
-  const tagOptions = gallery.allTags.map((tg) => ({
+  const tagLabels: Record<string, string> = gallery.tagLabels || {}
+  const tagOptions = gallery.allTags.map((tg: string) => ({
     value: tg,
     label: tagLabels[tg] || titleCaseTag(tg),
   }))
-  const handleSavePreset = (name, opts) => gallery.savedFilters.save(name, gallery.sortFilter, opts)
+  const handleSavePreset = (name: string, opts?: { asDefault?: boolean }) =>
+    gallery.savedFilters.save(name, gallery.sortFilter, opts)
 
   return (
     <div
@@ -114,6 +160,8 @@ export default function GalleryLayout({
                 value={gallery.filter}
                 onChange={gallery.setFilter}
                 placeholder={t(`${i18n}.filterPlaceholder`)}
+                ariaLabel={undefined}
+                style={undefined}
               />
             )}
             <GalleryToolbar config={config} gallery={gallery} leading={headerActions} />
@@ -156,9 +204,14 @@ export default function GalleryLayout({
                 <BulkToggleButton
                   active={bulkMode}
                   onToggle={bulkMode ? gallery.bulk.exit : gallery.bulk.enter}
+                  style={undefined}
                 />
               )}
-              <ViewModeToggle mode={gallery.viewMode} onCycle={gallery.cycleViewMode} />
+              <ViewModeToggle
+                mode={gallery.viewMode}
+                onCycle={gallery.cycleViewMode}
+                style={undefined}
+              />
             </>
           }
         />
@@ -204,14 +257,16 @@ export default function GalleryLayout({
                   minColumn={parseInt(config.gridMin[gallery.cardSize], 10)}
                   gap={gallery.list ? 8 : config.gridGap}
                   list={gallery.list}
-                  renderItem={(item) => (
+                  renderItem={(item: GalleryItem) => (
                     <MediaCard
                       key={item.id}
                       config={config}
                       item={item}
                       bulkMode={bulkMode}
                       selected={gallery.selectedIds?.has(item.id)}
-                      onToggle={(mods) => gallery.toggleSelect(item.id, mods)}
+                      onToggle={(mods: { shift?: boolean; meta?: boolean }) =>
+                        gallery.toggleSelect(item.id, mods)
+                      }
                       list={gallery.list}
                     />
                   )}
@@ -252,9 +307,11 @@ export default function GalleryLayout({
           onAddToCampaign={onAddToCampaign}
           onBulkEdit={onBulkEdit}
           onAddToSoundboard={onAddToSoundboard}
+          {...merge.barProps}
           onDone={gallery.bulk.exit}
         />
       )}
+      {merge.dialog}
     </div>
   )
 }
