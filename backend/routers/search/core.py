@@ -9,6 +9,7 @@ from ...auth import CurrentUser, get_current_user
 from ...config import get_db
 from ...models import Book, GameSystem
 from ...services import access_control
+from ...services.content_cache import content_token
 from ._books import search_book_metadata
 from ...services.search_query import FIELD_ALIASES, parse_query
 from ..books._helpers import _allow_explicit
@@ -136,6 +137,9 @@ def search_library(
                     "game_system": system.name if system else "",
                     "game_system_id": book.game_system_id or "",
                     "category": book.category,
+                    "content_token": content_token(book.content_hash, book.filepath),
+                    "mime_type": book.mime_type,
+                    "page_count": book.page_count,
                 }
         if bid in book_cache:
             enriched.append(

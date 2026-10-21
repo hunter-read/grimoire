@@ -1,5 +1,15 @@
-import { useState, useCallback, useRef, useMemo, useEffect } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import {
+  useState,
+  useCallback,
+  useRef,
+  useMemo,
+  useEffect,
+  type ChangeEvent,
+  type ComponentType,
+  type CSSProperties,
+  type RefObject,
+} from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   LuSearch,
@@ -12,31 +22,58 @@ import {
   LuChevronRight,
   LuInfo,
 } from 'react-icons/lu'
-import api from '../api'
+import api, { type Schema } from '../api'
 import Spinner from '../components/Spinner'
-import BookGroup from '../components/search/BookGroup'
-import BookMatchCard from '../components/search/BookMatchCard'
-import ResultCard from '../components/search/ResultCard'
-import SearchHelp from '../components/search/SearchHelp'
+import BookGroup, { type SearchBookGroup } from '../components/search/BookGroup'
+import BookMatchCardJs from '../components/search/BookMatchCard'
+import ResultCardJs from '../components/search/ResultCard'
+import SearchHelpJs from '../components/search/SearchHelp'
 import { shouldAutoCollapse } from '../utils/autoCollapse'
-import { sectionHeadStyle, controlStyle } from '../components/search/searchStyles'
+import {
+  sectionHeadStyle as sectionHeadStyleJs,
+  controlStyle as controlStyleJs,
+} from '../components/search/searchStyles'
+
+// Still JavaScript, so TypeScript would read every destructured prop as required.
+const BookMatchCard = BookMatchCardJs as ComponentType<{ book: Schema<'SearchBookMatch'> }>
+const ResultCard = ResultCardJs as ComponentType<{
+  to: string
+  title: string
+  subtitle: string
+  tags: string[]
+  type: string
+  id: string
+  hasThumbnail?: boolean
+}>
+const SearchHelp = SearchHelpJs as ComponentType<{
+  onClose: () => void
+  onInsert: (example: string) => void
+  triggerRef: RefObject<HTMLButtonElement | null>
+}>
+const sectionHeadStyle = sectionHeadStyleJs as CSSProperties
+const controlStyle = controlStyleJs as CSSProperties
+
+type SearchResults = Schema<'SearchResponse'>
+
+// Audio carries an embedded track title; the rest are named by their filename.
+const resultTitle = (item: { title?: string | null; filename: string }) =>
+  item.title || item.filename
 
 export default function SearchView() {
   const { t } = useTranslation()
-  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [query, setQuery] = useState(() => searchParams.get('q') ?? '')
-  const [results, setResults] = useState(null)
+  const [results, setResults] = useState<SearchResults | null>(null)
   const [searching, setSearching] = useState(false)
-  const [collapsed, setCollapsed] = useState({})
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   const [systemFilter, setSystemFilter] = useState('')
   const [sortBy, setSortBy] = useState('relevance')
   const [helpOpen, setHelpOpen] = useState(false)
-  const timerRef = useRef(null)
-  const inputRef = useRef(null)
-  const helpButtonRef = useRef(null)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const helpButtonRef = useRef<HTMLButtonElement>(null)
 
-  const doSearch = useCallback((q) => {
+  const doSearch = useCallback((q: string) => {
     if (q.length < 2) {
       setResults(null)
       return
@@ -58,18 +95,18 @@ export default function SearchView() {
     if (initial && initial.length >= 2) doSearch(initial)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const runQuery = (v) => {
+  const runQuery = (v: string) => {
     setQuery(v)
     setSearchParams(v ? { q: v } : {}, { replace: true })
     clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => doSearch(v), 350)
   }
 
-  const handleInput = (e) => runQuery(e.target.value)
+  const handleInput = (e: ChangeEvent<HTMLInputElement>) => runQuery(e.target.value)
 
   // Clicking an example in the help popover puts it in the box and runs it —
   // the syntax is learned by seeing its results, not by being told about it.
-  const insertExample = (example) => {
+  const insertExample = (example: string) => {
     runQuery(example)
     setHelpOpen(false)
     inputRef.current?.focus()
@@ -78,7 +115,7 @@ export default function SearchView() {
   // Collect distinct game systems from book results for the filter dropdown
   const availableSystems = useMemo(() => {
     if (!results?.results?.length) return []
-    const seen = new Map()
+    const seen = new Map<string, string>()
     for (const r of results.results) {
       if (r.game_system_id && !seen.has(r.game_system_id)) {
         seen.set(r.game_system_id, r.game_system)
@@ -90,24 +127,34 @@ export default function SearchView() {
   }, [results])
 
   // Filter + sort + group book results client-side
-  const groupedBooks = useMemo(() => {
+  const groupedBooks = useMemo((): SearchBookGroup[] => {
     if (!results?.results) return []
 
-    let books = systemFilter
+    const books = systemFilter
       ? results.results.filter((r) => r.game_system_id === systemFilter)
       : results.results
 
-    // Group pages by book
-    const byBook = new Map()
+    // Group pages by book. The group keeps what a hit's page prefetch needs
+    // (issue #640), which is the same for every hit in the book.
+    const byBook = new Map<string, SearchBookGroup>()
     for (const r of books) {
-      const key = r.id
-      if (!byBook.has(key)) {
-        byBook.set(key, { id: r.id, title: r.title, game_system: r.game_system, pages: [] })
+      let group = byBook.get(r.id)
+      if (!group) {
+        group = {
+          id: r.id,
+          title: r.title,
+          game_system: r.game_system,
+          content_token: r.content_token,
+          mime_type: r.mime_type,
+          page_count: r.page_count,
+          pages: [],
+        }
+        byBook.set(r.id, group)
       }
-      byBook.get(key).pages.push({ page_number: r.page_number, snippet: r.snippet })
+      group.pages.push({ page_number: r.page_number, snippet: r.snippet })
     }
 
-    let groups = [...byBook.values()]
+    const groups = [...byBook.values()]
 
     if (sortBy === 'title') {
       groups.sort((a, b) => a.title.localeCompare(b.title))
@@ -143,15 +190,16 @@ export default function SearchView() {
   ].filter((n) => n > 0)
   const resultCount =
     matchedBookCount + pageHitCount + sectionCounts.slice(1).reduce((n, c) => n + c, 0)
-  const autoCollapsed = {}
+  const autoCollapsed: Record<string, boolean> = {}
   if (shouldAutoCollapse(resultCount, sectionCounts.length)) {
     for (const key of ['books', 'maps', 'tokens', 'audio', 'models']) autoCollapsed[key] = true
   }
   if (shouldAutoCollapse(pageHitCount, groupedBooks.length)) {
     for (const g of groupedBooks) autoCollapsed[`book-${g.id}`] = true
   }
-  const shownCollapsed = { ...autoCollapsed, ...collapsed }
-  const toggleSection = (key) => setCollapsed((prev) => ({ ...prev, [key]: !shownCollapsed[key] }))
+  const shownCollapsed: Record<string, boolean> = { ...autoCollapsed, ...collapsed }
+  const toggleSection = (key: string) =>
+    setCollapsed((prev) => ({ ...prev, [key]: !shownCollapsed[key] }))
 
   return (
     <div
@@ -342,9 +390,7 @@ export default function SearchView() {
                         <ResultCard
                           key={item.id}
                           to={`/${path}/${item.id}`}
-                          // Audio carries an embedded track title; the rest are
-                          // named by their filename.
-                          title={item.title || item.filename}
+                          title={resultTitle(item)}
                           subtitle={item.relative_path}
                           tags={item.tags}
                           type={type}

@@ -24,7 +24,7 @@ const renderHit = (props) =>
 
 describe('PageHit', () => {
   it('renders the page number and snippet markup', () => {
-    renderHit({ bookId: 'b7', page })
+    renderHit({ book: { id: 'b7' }, page })
 
     expect(screen.getByText('p. 12')).toBeInTheDocument()
     expect(screen.getByText('lich')).toBeInTheDocument()
@@ -34,7 +34,7 @@ describe('PageHit', () => {
   // onOpen spy. Plain click navigates in-place via the router; middle click and
   // ctrl/cmd-click open a new tab natively.
   it('renders a link to the reader at the given page', () => {
-    renderHit({ bookId: 'b7', page })
+    renderHit({ book: { id: 'b7' }, page })
 
     const link = screen.getByRole('link', { name: 'p. 12' })
     expect(link.getAttribute('href')).toBe('/library/book/b7?page=12')
@@ -42,7 +42,7 @@ describe('PageHit', () => {
 
   // Middle-click opens a new tab natively — no JS needed, just verify the href.
   it('is a real anchor so middle click opens the reader in a new tab natively', () => {
-    renderHit({ bookId: 'b7', page })
+    renderHit({ book: { id: 'b7' }, page })
 
     const link = screen.getByRole('link', { name: 'p. 12' })
     expect(link.tagName).toBe('A')
@@ -64,7 +64,7 @@ describe('PageHit', () => {
             change query
           </button>
           <span data-testid="state-from">{location.state?.from ?? 'none'}</span>
-          <PageHit bookId="b7" page={page} />
+          <PageHit book={{ id: 'b7' }} page={page} />
         </>
       )
     }

@@ -17,6 +17,13 @@ class SearchHit(BaseModel):
     page_number: int
     # HTML fragment: escaped page text with <mark> highlights.
     snippet: str
+    # What the client needs to warm the page image the reader will ask for when
+    # the hit is opened (issue #640): the reader's page URLs carry the content
+    # token, a text document has no page image, and a spread's right page must
+    # exist.
+    content_token: str
+    mime_type: Optional[str] = None
+    page_count: Optional[int] = None
 
 
 class SearchBookMatch(BaseModel):

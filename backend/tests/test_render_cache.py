@@ -1,6 +1,7 @@
 """The Valkey-then-disk render cache shared by page and tile renders."""
 import asyncio
 import os
+import threading
 from unittest.mock import MagicMock
 
 import pytest
@@ -104,3 +105,86 @@ class TestWithValkey:
         monkeypatch.setattr(_render_cache, "valkey_cache_set", lambda *_a: True)
         assert _body(_serve(cache_path, lambda: b"fresh")) == b"fresh"
         assert not os.path.exists(cache_path)
+
+
+class TestSingleFlight:
+    """A miss renders once, however many requests arrive for it (issue #640)."""
+
+    @pytest.fixture(autouse=True)
+    def no_valkey(self, monkeypatch):
+        monkeypatch.setattr(config, "_valkey", None)
+        monkeypatch.setattr(_render_cache, "valkey_cache_set", lambda *_a: False)
+
+    def test_concurrent_misses_share_one_render(self, cache_path):
+        started = threading.Event()
+        release = threading.Event()
+        calls = []
+
+        def render():
+            calls.append(1)
+            started.set()
+            assert release.wait(5)
+            return b"fresh"
+
+        bodies = []
+
+        def request():
+            bodies.append(_body(_serve(cache_path, render)))
+
+        first = threading.Thread(target=request)
+        first.start()
+        assert started.wait(5)
+        # The second request arrives while the first is still rendering, the way
+        # a click lands on a page the prefetch already asked for.
+        second = threading.Thread(target=request)
+        second.start()
+        release.set()
+        first.join(5)
+        second.join(5)
+        assert len(calls) == 1
+        assert bodies == [b"fresh", b"fresh"]
+        assert _render_cache._inflight == {}
+
+    def test_different_keys_render_independently(self, tmp_path):
+        rendered = []
+        for key in ("page:a", "page:b"):
+            _render_cache.serve_cached_render(
+                key, str(tmp_path / f"{key}.webp"), {}, lambda k=key: rendered.append(k) or b"x"
+            )
+        assert rendered == ["page:a", "page:b"]
+
+    def test_a_failed_render_releases_the_key(self, cache_path):
+        def boom():
+            raise RuntimeError("worker died")
+
+        with pytest.raises(RuntimeError):
+            _serve(cache_path, boom)
+        assert _render_cache._inflight == {}
+        # The next request tries again rather than waiting on a dead render.
+        assert _body(_serve(cache_path, lambda: b"retry")) == b"retry"
+
+
+class TestDiskWrite:
+    def test_leaves_no_temp_file_behind(self, tmp_path):
+        path = str(tmp_path / "page.webp")
+        _render_cache._write_disk_cache(path, b"data")
+        assert os.listdir(tmp_path) == ["page.webp"]
+        with open(path, "rb") as f:
+            assert f.read() == b"data"
+
+    def test_a_failed_write_removes_its_temp_file(self, tmp_path, monkeypatch):
+        path = str(tmp_path / "page.webp")
+
+        def no_replace(*_a):
+            raise OSError("disk full")
+
+        monkeypatch.setattr(_render_cache.os, "replace", no_replace)
+        with pytest.raises(OSError):
+            _render_cache._write_disk_cache(path, b"data")
+        assert os.listdir(tmp_path) == []
+
+    def test_a_temp_file_that_cannot_be_removed_still_raises(self, tmp_path, monkeypatch):
+        path = str(tmp_path / "missing-dir" / "page.webp")
+        # The open itself fails, so there is no temp file to remove either.
+        with pytest.raises(OSError):
+            _render_cache._write_disk_cache(path, b"data")

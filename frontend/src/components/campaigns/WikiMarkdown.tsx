@@ -51,6 +51,23 @@ export function wikiUrlTransform(url: string): string {
 }
 const LINK_RE = /\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/g
 
+// Book-page embeds whose page is loaded while the note is open (issue #640).
+// The rest still load on hover. A cap, because each is a render on the server
+// and a reference note can link far more pages than anyone opens at once.
+export const MAX_PREFETCHED_EMBEDS = 8
+
+// The first MAX_PREFETCHED_EMBEDS distinct [[book:ID:PAGE]] targets, in the
+// order the note mentions them - the top of a note is what is read first.
+export function prefetchedBookEmbeds(body: string | null | undefined): Set<string> {
+  const out = new Set<string>()
+  for (const m of (body || '').matchAll(LINK_RE)) {
+    if (out.size >= MAX_PREFETCHED_EMBEDS) break
+    const target = m[1].trim()
+    if (/^book:[^:]+:\d+$/.test(target)) out.add(target)
+  }
+  return out
+}
+
 // ||GM-only text||. Only the owner ever receives a body still containing these
 // (the backend strips them entirely for everyone else — no text, no marker), so
 // rendering them tinted just helps the owner see what players won't. The match
@@ -167,6 +184,11 @@ export default function WikiMarkdown({
 }: WikiMarkdownProps) {
   const { t } = useTranslation()
   const segments = useMemo(() => splitSecrets(body), [body])
+  // Keyed on its contents, not on `body`: `components` depends on it, and a new
+  // `components` remounts every link and embed - on each keystroke while the
+  // body is being edited, refetching every embedded book.
+  const prefetchedKey = [...prefetchedBookEmbeds(body)].join('\n')
+  const prefetched = useMemo(() => new Set(prefetchedKey.split('\n')), [prefetchedKey])
 
   // Scroll to a heading inside the body currently on screen. Headings are given
   // ids by the `h1..h6` renderers below, keyed on the normalized heading text.
@@ -284,9 +306,8 @@ export default function WikiMarkdown({
           )
         }
         if (href?.startsWith(EMBED_SCHEME)) {
-          return (
-            <EmbedCard spec={safeDecode(href.slice(EMBED_SCHEME.length))} campaignId={campaignId} />
-          )
+          const spec = safeDecode(href.slice(EMBED_SCHEME.length))
+          return <EmbedCard spec={spec} campaignId={campaignId} prefetch={prefetched.has(spec)} />
         }
         // Ordinary external/internal links.
         const external = href && /^https?:\/\//.test(href)
@@ -376,7 +397,7 @@ export default function WikiMarkdown({
         )
       },
     }),
-    [pages, openLink, t, campaignId]
+    [pages, openLink, t, campaignId, prefetched]
   )
 
   if (!body?.trim()) {

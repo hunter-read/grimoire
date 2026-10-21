@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import EmbedCard from './EmbedCard'
@@ -9,6 +9,15 @@ vi.mock('../../api', () => ({
   client: { get: (...args) => get(...args) },
   campaigns: { fileUrl: (cid, id) => `http://localhost/campaigns/${cid}/files/${id}` },
   mediaUrl: (path) => `http://localhost${path}`,
+}))
+
+const openingPageUrls = vi.fn((book, page) => [`/pages/${book.id}/${page ?? 'saved'}`])
+const prefetchInBackground = vi.fn()
+const prefetchNow = vi.fn()
+vi.mock('../reader/pagePrefetch', () => ({
+  openingPageUrls: (...args) => openingPageUrls(...args),
+  prefetchInBackground: (...args) => prefetchInBackground(...args),
+  prefetchNow: (...args) => prefetchNow(...args),
 }))
 
 const playQueue = vi.fn()
@@ -35,6 +44,9 @@ describe('EmbedCard', () => {
   beforeEach(() => {
     get.mockReset()
     get.mockResolvedValue({ title: "Player's Handbook" })
+    openingPageUrls.mockClear()
+    prefetchInBackground.mockReset()
+    prefetchNow.mockReset()
   })
 
   it('renders a play control for audio embeds', () => {
@@ -117,4 +129,73 @@ describe('EmbedCard', () => {
       expect(get).not.toHaveBeenCalled()
     }
   )
+
+  // Issue #640: a book-page link warms its page while the note is open.
+  describe('page prefetch', () => {
+    const BOOK = { id: 'b1', title: "Player's Handbook", content_token: 'tok' }
+
+    beforeEach(() => {
+      get.mockResolvedValue(BOOK)
+    })
+
+    it('warms the linked page in the background once the book has loaded', async () => {
+      renderEmbed({ spec: 'book:b1:42', campaignId: 'c1', prefetch: true })
+      await waitFor(() => expect(prefetchInBackground).toHaveBeenCalledWith(['/pages/b1/42']))
+      expect(openingPageUrls).toHaveBeenCalledWith(BOOK, 42)
+    })
+
+    it('drops the queued page when the note is closed', async () => {
+      const cancel = vi.fn()
+      prefetchInBackground.mockReturnValue(cancel)
+      const { unmount } = renderEmbed({ spec: 'book:b1:42', campaignId: 'c1', prefetch: true })
+      await waitFor(() => expect(prefetchInBackground).toHaveBeenCalled())
+      unmount()
+      expect(cancel).toHaveBeenCalled()
+    })
+
+    it('leaves it to the note to choose which embeds prefetch', async () => {
+      renderEmbed({ spec: 'book:b1:42', campaignId: 'c1' })
+      await screen.findByText("Player's Handbook - p. 42")
+      expect(prefetchInBackground).not.toHaveBeenCalled()
+    })
+
+    it('does not prefetch a book link without a page', async () => {
+      renderEmbed({ spec: 'book:b1', campaignId: 'c1', prefetch: true })
+      await screen.findByText("Player's Handbook")
+      expect(prefetchInBackground).not.toHaveBeenCalled()
+    })
+
+    it('prefetches nothing for a book the viewer cannot open', async () => {
+      get.mockRejectedValue(new Error('404'))
+      renderEmbed({ spec: 'book:gone:42', campaignId: 'c1', prefetch: true })
+      await screen.findByText('Book - p. 42')
+      expect(prefetchInBackground).not.toHaveBeenCalled()
+    })
+
+    it('loads the page as soon as the link is pressed', async () => {
+      renderEmbed({ spec: 'book:b1:42', campaignId: 'c1' })
+      fireEvent.pointerDown(await screen.findByRole('link'), { pointerType: 'mouse' })
+      expect(prefetchNow).toHaveBeenCalledWith(['/pages/b1/42'])
+    })
+
+    it('loads where the reader left off for a link without a page', async () => {
+      renderEmbed({ spec: 'book:b1', campaignId: 'c1' })
+      await screen.findByText("Player's Handbook")
+      fireEvent.pointerDown(screen.getByRole('link'), { pointerType: 'mouse' })
+      expect(prefetchNow).toHaveBeenCalledWith(['/pages/b1/saved'])
+    })
+
+    it('has nothing to load before the book has', () => {
+      get.mockReturnValue(new Promise(() => {}))
+      renderEmbed({ spec: 'book:b1:42', campaignId: 'c1' })
+      fireEvent.pointerDown(screen.getByRole('link'), { pointerType: 'mouse' })
+      expect(prefetchNow).toHaveBeenCalledWith([])
+    })
+
+    it('does not prefetch for other embeds', () => {
+      renderEmbed({ spec: 'map:m1', campaignId: 'c1', prefetch: true })
+      fireEvent.pointerDown(screen.getByRole('link'), { pointerType: 'mouse' })
+      expect(prefetchNow).not.toHaveBeenCalled()
+    })
+  })
 })

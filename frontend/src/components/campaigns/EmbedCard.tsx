@@ -12,6 +12,12 @@ import type { IconType } from 'react-icons'
 import { campaigns, client } from '../../api'
 import AudioPlayer from '../audio/AudioPlayer'
 import LazyImgJs from '../LazyImg'
+import useHoverPrefetch from '../../hooks/useHoverPrefetch'
+import {
+  openingPageUrls,
+  prefetchInBackground,
+  type PrefetchableBook,
+} from '../reader/pagePrefetch'
 
 // Still JavaScript, so TypeScript would read every destructured prop as required.
 const LazyImg = LazyImgJs as ComponentType<ImgHTMLAttributes<HTMLImageElement>>
@@ -42,37 +48,52 @@ const embedCardStyle: CSSProperties = {
  * wiki embed as an inline image, an inline audio player, or a link/download card.
  * Linkable embeds are real links, so middle click / ctrl-click opens them in a
  * new tab (issue #313).
+ *
+ * A book embed starts loading the page it opens on as soon as the pointer
+ * rests on it. With `prefetch`, a `book:ID:PAGE` embed loads it in the
+ * background while the note is on screen instead (issue #640) - the caller
+ * decides which embeds get that, so a note full of links can't queue them all.
  */
 interface EmbedCardProps {
   spec: string
   campaignId?: string
+  prefetch?: boolean
 }
 
-export default function EmbedCard({ spec, campaignId }: EmbedCardProps) {
+export default function EmbedCard({ spec, campaignId, prefetch = false }: EmbedCardProps) {
   const { t } = useTranslation()
   const [type, rawId = '', rawPage] = spec.split(':')
   const valid = ID_RE.test(rawId) && (rawPage === undefined || PAGE_RE.test(rawPage))
   const id = valid ? rawId : ''
   const page = valid ? rawPage : undefined
 
-  // A book embed names the book, so its title is fetched here. It stays null if
-  // the book can't be resolved (deleted or unreadable), and the card falls back
-  // to the generic "Book" label. Rules-of-hooks keeps this above the early
-  // returns below, hence the type guard rather than a conditional hook.
-  const [bookTitle, setBookTitle] = useState<string | null>(null)
+  // A book embed names the book, so it is fetched here for its title - and for
+  // what a prefetch needs. It stays null if the book can't be resolved (deleted
+  // or unreadable), so the card falls back to the generic "Book" label and
+  // nothing is prefetched for a book the viewer can't open. Rules-of-hooks keeps
+  // these above the early returns below, hence the type guards rather than
+  // conditional hooks.
+  const [book, setBook] = useState<(PrefetchableBook & { title?: string | null }) | null>(null)
   useEffect(() => {
     if (type !== 'book' || !id) return
     let active = true
     client
       .get('/books/{book_id}', { path: { book_id: id } })
       .then((b) => {
-        if (active) setBookTitle(b.title || null)
+        if (active) setBook(b)
       })
       .catch(() => {})
     return () => {
       active = false
     }
   }, [type, id])
+
+  const pageNum = page ? Number(page) : null
+  useEffect(() => {
+    if (!prefetch || !book || !pageNum) return
+    return prefetchInBackground(openingPageUrls(book, pageNum))
+  }, [prefetch, book, pageNum])
+  const hoverPrefetch = useHoverPrefetch(() => (book ? openingPageUrls(book, pageNum) : []))
 
   if (!valid) return null
 
@@ -148,10 +169,10 @@ export default function EmbedCard({ spec, campaignId }: EmbedCardProps) {
   const to = type === 'book' && page ? `${meta.to}?page=${page}` : meta.to
   // A resolved title replaces the generic type label; the page suffix is added
   // on top of whichever of the two we ended up with.
-  const name = type === 'book' && bookTitle ? bookTitle : t(`wiki.embed_${type}`)
+  const name = type === 'book' && book?.title ? book.title : t(`wiki.embed_${type}`)
   const label = type === 'book' && page ? t('wiki.embedBookPage', { title: name, page }) : name
   return (
-    <Link to={to} style={embedCardStyle}>
+    <Link to={to} style={embedCardStyle} {...(type === 'book' ? hoverPrefetch : null)}>
       <Icon size={15} color={color} />
       {label}
     </Link>

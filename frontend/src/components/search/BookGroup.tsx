@@ -1,10 +1,25 @@
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuChevronDown, LuChevronRight } from 'react-icons/lu'
 import PageHit from './PageHit'
+import type { PrefetchableBook } from '../reader/pagePrefetch'
 import { cardStyle } from './searchStyles'
 
+/** A book's page hits, gathered from the flat search results. */
+export interface SearchBookGroup extends PrefetchableBook {
+  title: string
+  game_system: string
+  pages: { page_number: number; snippet: string }[]
+}
+
+interface BookGroupProps {
+  group: SearchBookGroup
+  collapsed: Record<string, boolean | undefined>
+  onToggle: (key: string) => void
+}
+
 /** A collapsible book result group in the search view: book header + page hits. */
-export default function BookGroup({ group, collapsed, onToggle }) {
+export default function BookGroup({ group, collapsed, onToggle }: BookGroupProps) {
   const { t } = useTranslation()
   const key = `book-${group.id}`
   const isCollapsed = collapsed[key]
@@ -20,7 +35,7 @@ export default function BookGroup({ group, collapsed, onToggle }) {
             : t('search.collapseBook', { title: group.title })
         }
         style={{
-          ...cardStyle,
+          ...(cardStyle as CSSProperties),
           display: 'flex',
           alignItems: 'center',
           gap: 10,
@@ -53,7 +68,7 @@ export default function BookGroup({ group, collapsed, onToggle }) {
       {!isCollapsed && (
         <div style={{ marginLeft: 16, marginTop: 4, marginBottom: 4 }}>
           {group.pages.map((p, i) => (
-            <PageHit key={i} bookId={group.id} page={p} />
+            <PageHit key={i} book={group} page={p} />
           ))}
         </div>
       )}

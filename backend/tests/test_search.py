@@ -60,6 +60,19 @@ class TestSearch:
         assert "category" in result
         assert "game_system_id" in result
 
+    def test_search_hit_carries_what_a_page_prefetch_needs(
+        self, client, admin_headers, indexed_book
+    ):
+        # The client warms the reader's page image for a hit (issue #640), and
+        # must ask for the reader's exact URL: the same content token, and no
+        # page image at all for a text document or past the last page.
+        detail = client.get(f"/api/books/{indexed_book.id}", headers=admin_headers).json()
+        resp = client.get("/api/search?q=fireball", headers=admin_headers)
+        result = next(r for r in resp.json()["results"] if r["id"] == indexed_book.id)
+        assert result["content_token"] == detail["content_token"]
+        assert result["mime_type"] == detail["mime_type"]
+        assert result["page_count"] == detail["page_count"]
+
     def test_search_scoped_to_book(self, client, admin_headers, indexed_book):
         resp = client.get(
             f"/api/search?q=fireball&book_id={indexed_book.id}",

@@ -579,7 +579,7 @@ does not support pasting, and a request with neither `identity` nor `paste`.
 | `/api/books/:id/file` | GET | any | Download/stream the file |
 | `/api/books/:id/thumbnail` | GET | any | WebP cover thumbnail. Sends an `ETag` derived from the file's content hash and honours `If-None-Match` (`304`), so a replaced cover is picked up despite the `immutable` cache policy. |
 | `/api/books/:id/toc` | GET | any | Table of contents as `{title, page, level, children}[]`. Available for PDF, EPUB, and DjVu; other formats 404. `page` is 1-based, or `-1` for an entry whose destination can't be resolved - a broken PDF bookmark costs only its own link, not the whole TOC, and one pointing just past the last page resolves to the last page |
-| `/api/books/:id/page/:num` | GET | any | Render a document page (PDF/EPUB/DjVu) as WebP. Comic archives (`.cbz`/`.cbr`/`.cb7`/`.cbt`) return the stored page image from inside the archive as-is; single-image books return the file and accept only page 1; text books 404 (no rendered page). Query: `width` (default 1200, max 3000), `v` (the book's `content_token`, cache-busting; ignored server-side). Cached under a content-addressed key, so replacing the file supersedes earlier renders. Sends an `ETag` and honours `If-None-Match` (`304`). |
+| `/api/books/:id/page/:num` | GET | any | Render a document page (PDF/EPUB/DjVu) as WebP. Comic archives (`.cbz`/`.cbr`/`.cb7`/`.cbt`) return the stored page image from inside the archive as-is; single-image books return the file and accept only page 1; text books 404 (no rendered page). Query: `width` (default 1200, max 3000), `v` (the book's `content_token`, cache-busting; ignored server-side). Cached under a content-addressed key, so replacing the file supersedes earlier renders; a request for a page that is already rendering waits for that render instead of starting another. Sends an `ETag` and honours `If-None-Match` (`304`). |
 | `/api/books/:id/page/:num/tile` | GET | any | One zoom tile of a rendered page (PDF/EPUB/DjVu) as WebP: a square of at most 1024px from the page as if rendered `width` pixels wide, for sharp zoom past the 3000px whole-page cap. Query: `width` (required, a multiple of 256, 256-16384), `col` and `row` (required, tiles counted from the top left; a tile outside the page is 400), `v` (as for the page). Edge tiles are cut to the page. Other formats 404. Cached and revalidated like the page itself |
 | `/api/books/:id/page/:num/text` | GET | any | Plain text of a page (from FTS index or live extraction). Serves any indexable format - PDF, EPUB, DjVu, and `.txt`/`.md`/`.rtf` |
 | `/api/books/:id/page/:num/words` | GET | any | Word bounding boxes `{x0, y0, x1, y1, text}` for text overlay. Only rendered documents have page geometry; comics and text books return an empty overlay |
@@ -1317,7 +1317,7 @@ Bookmarks are per-user - users cannot see or modify each other's bookmarks.
 {
   "query": "fireball",
   "total": 42,
-  "results": [{"id": "uuid", "title": "...", "game_system": "...", "page_number": 42, "snippet": "...", "category": "core"}],
+  "results": [{"id": "uuid", "title": "...", "game_system": "...", "page_number": 42, "snippet": "...", "category": "core", "content_token": "a1b2c3d4", "mime_type": "application/pdf", "page_count": 280}],
   "book_matches": [{"id": "uuid", "title": "...", "game_system": "...", "game_system_id": "uuid", "category": "core", "authors": [...], "publisher": "...", "year": 2022, "page_count": 280, "has_thumbnail": true, "tags": [...]}],
   "maps":    [{"id": "uuid", "filename": "...", "relative_path": "...", "has_thumbnail": true, "tags": [...]}],
   "tokens":  [{"id": "uuid", "filename": "...", "relative_path": "...", "has_thumbnail": true, "tags": [...]}],
@@ -1327,6 +1327,8 @@ Bookmarks are per-user - users cannot see or modify each other's bookmarks.
 ```
 
 `maps` and `tokens` are empty when `book_id` or `system_id` is scoped.
+
+Each page hit in `results` carries its book's `content_token`, `mime_type` and `page_count`, the same values as `GET /api/books/{id}`. The search view uses them to start loading the page image the reader will ask for while a hit is hovered, at the reader's exact URL (`?width=...&v=<content_token>`), and to skip that for text documents, which have no page images.
 
 `results` holds **page** hits (one entry per matching page). `book_matches` holds
 **books** matched on their own metadata — title, author, publisher, system,

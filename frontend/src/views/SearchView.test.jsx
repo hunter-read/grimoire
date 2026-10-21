@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import SearchView from './SearchView'
@@ -18,6 +18,13 @@ vi.mock('../api', () => ({
         audio: `/api/audio/${id}/artwork`,
       })[type] ?? null,
   },
+}))
+
+const openingPageUrls = vi.fn(() => ['/warm'])
+const prefetchNow = vi.fn()
+vi.mock('../components/reader/pagePrefetch', () => ({
+  openingPageUrls: (...args) => openingPageUrls(...args),
+  prefetchNow: (...args) => prefetchNow(...args),
 }))
 
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -100,6 +107,37 @@ describe('SearchView', () => {
     expect(screen.getByText('Dungeon Guide')).toBeInTheDocument()
     // Two distinct book group headers, not three separate cards
     expect(screen.getAllByText(/player handbook/i)).toHaveLength(1)
+  })
+
+  // Issue #640: a page hit warms the reader's page image when it is about to
+  // be opened, which takes the book's content token and format from the hit.
+  it('warms a page hit with its book’s token and format', async () => {
+    api.get.mockResolvedValue(
+      makeResponse([
+        makeBookResult({
+          id: 'b1',
+          title: 'Player Handbook',
+          page_number: 22,
+          content_token: 'tok',
+          mime_type: 'application/pdf',
+          page_count: 300,
+        }),
+      ])
+    )
+    renderView()
+    await userEvent.type(screen.getByRole('textbox'), 'fi')
+    const hit = await screen.findByRole('link', { name: /22/ })
+    fireEvent.pointerDown(hit, { pointerType: 'mouse' })
+    expect(openingPageUrls).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'b1',
+        content_token: 'tok',
+        mime_type: 'application/pdf',
+        page_count: 300,
+      }),
+      22
+    )
+    expect(prefetchNow).toHaveBeenCalledWith(['/warm'])
   })
 
   it('shows page count badge on each book group', async () => {

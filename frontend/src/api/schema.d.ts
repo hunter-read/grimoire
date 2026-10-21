@@ -13410,12 +13410,18 @@ export interface components {
         SearchHit: {
             /** Category */
             category?: string | null;
+            /** Content Token */
+            content_token: string;
             /** Game System */
             game_system: string;
             /** Game System Id */
             game_system_id: string;
             /** Id */
             id: string;
+            /** Mime Type */
+            mime_type?: string | null;
+            /** Page Count */
+            page_count?: number | null;
             /** Page Number */
             page_number: number;
             /** Snippet */
