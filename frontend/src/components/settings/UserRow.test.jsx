@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { useState } from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import UserRow from './UserRow'
 
 vi.mock('../../api', () => ({
@@ -38,7 +39,7 @@ function renderRow(props = {}) {
       </table>
     )
   }
-  return render(<Harness />)
+  return render(<Harness />, { wrapper: MemoryRouter })
 }
 
 describe('UserRow', () => {

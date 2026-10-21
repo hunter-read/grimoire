@@ -1,32 +1,52 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useSearchParams } from 'react-router-dom'
 import { LuPause, LuPlay, LuSearch, LuArrowDown } from 'react-icons/lu'
 import api from '../../api'
+import type { Schema } from '../../api'
 import LogRow from './LogRow'
+import LogUserFilter from './LogUserFilter'
+import { ghostBtnStyle } from './settingsButtons'
+
+type LogEntry = Schema<'LogEntry'>
+type LogsResponse = Schema<'LogsResponse'>
 
 const LEVELS = ['debug', 'info', 'warning', 'error', 'critical']
 
 const INITIAL_LIMIT = 1000
 
-function isAtBottom(el, threshold = 40) {
+function isAtBottom(el: HTMLElement, threshold = 40) {
   return el.scrollHeight - el.scrollTop - el.clientHeight <= threshold
+}
+
+// One /logs request. `user` narrows it to that user's lines (issue #576).
+function fetchLogs(params: Record<string, string | number>, user: string) {
+  const query = new URLSearchParams(
+    Object.entries({ ...params, ...(user ? { user } : {}) }).map(([k, v]) => [k, String(v)])
+  )
+  return api.get(`/logs?${query}`) as Promise<LogsResponse>
 }
 
 export default function LogsTab() {
   const { t } = useTranslation()
   const [level, setLevel] = useState('info')
   const [search, setSearch] = useState('')
-  const [entries, setEntries] = useState([])
+  const [entries, setEntries] = useState<LogEntry[]>([])
   const [total, setTotal] = useState(0)
   const [live, setLive] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [pinned, setPinned] = useState(true)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
+  // The user filter lives in the URL, so a user's row can link straight here.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const user = searchParams.get('user') ?? ''
+  const [users, setUsers] = useState<string[]>([])
 
-  const containerRef = useRef(null)
-  const sentinelRef = useRef(null)
-  const scrollAnchorRef = useRef(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const sentinelRef = useRef<HTMLDivElement>(null)
+  const scrollAnchorRef = useRef<number | null>(null)
   const levelRef = useRef(level)
+  const userRef = useRef(user)
   const lastSeqRef = useRef(0) // max_seq from last successful fetch; poll cursor
   const liveRef = useRef(live)
 
@@ -36,6 +56,23 @@ export default function LogsTab() {
   useEffect(() => {
     liveRef.current = live
   }, [live])
+  useEffect(() => {
+    userRef.current = user
+  }, [user])
+
+  const setUser = useCallback(
+    (next: string) =>
+      setSearchParams(
+        (prev) => {
+          const params = new URLSearchParams(prev)
+          if (next) params.set('user', next)
+          else params.delete('user')
+          return params
+        },
+        { replace: true }
+      ),
+    [setSearchParams]
+  )
 
   const scrollToBottom = useCallback(() => {
     const el = containerRef.current
@@ -62,22 +99,22 @@ export default function LogsTab() {
     setPinned(true)
     setError(null)
 
-    api
-      .get(`/logs?level=${level}&limit=${INITIAL_LIMIT}&offset=0`)
+    fetchLogs({ level, limit: INITIAL_LIMIT, offset: 0 }, user)
       .then((data) => {
         if (cancelled) return
         setEntries(data.entries)
         setTotal(data.total)
+        setUsers(data.users ?? [])
         lastSeqRef.current = data.max_seq ?? 0
       })
-      .catch((e) => {
-        if (!cancelled) setError(e.message ?? 'Failed to load logs')
+      .catch((e: unknown) => {
+        if (!cancelled) setError((e as Error)?.message ?? 'Failed to load logs')
       })
 
     return () => {
       cancelled = true
     }
-  }, [level])
+  }, [level, user])
 
   useEffect(() => {
     const id = setInterval(async () => {
@@ -85,14 +122,18 @@ export default function LogsTab() {
       const seq = lastSeqRef.current
       if (seq === 0) return
       try {
-        const data = await api.get(
-          `/logs?level=${levelRef.current}&limit=${INITIAL_LIMIT}&after_seq=${seq}`
+        const data = await fetchLogs(
+          { level: levelRef.current, limit: INITIAL_LIMIT, after_seq: seq },
+          userRef.current
         )
         if (!data.entries.length) return
         setEntries((prev) => [...prev, ...data.entries])
         setTotal(data.total)
+        setUsers(data.users ?? [])
         lastSeqRef.current = data.max_seq
-      } catch (_) {}
+      } catch {
+        // A missed poll is retried on the next tick.
+      }
     }, 1000)
 
     return () => clearInterval(id)
@@ -120,12 +161,15 @@ export default function LogsTab() {
 
     try {
       const pageSize = Math.min(500, olderCount)
-      const data = await api.get(
-        `/logs?level=${levelRef.current}&limit=${pageSize}&offset=${currentLen}`
+      const data = await fetchLogs(
+        { level: levelRef.current, limit: pageSize, offset: currentLen },
+        userRef.current
       )
       setEntries((prev) => [...data.entries, ...prev])
       setTotal(data.total)
-    } catch (_) {}
+    } catch {
+      // Scrolling up again retries the page.
+    }
     setLoadingMore(false)
   }, [loadingMore])
 
@@ -227,6 +271,8 @@ export default function LogsTab() {
           )}
           <span>{live ? t('logs.liveButton') : t('logs.pausedButton')}</span>
         </button>
+
+        <LogUserFilter value={user} users={users} onChange={setUser} />
 
         <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
           <LuSearch
@@ -337,6 +383,20 @@ export default function LogsTab() {
             >
               {search ? (
                 t('logs.noEntriesMatch', { query: search })
+              ) : user ? (
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 12,
+                  }}
+                >
+                  <span>{t('logs.noEntriesUser', { user, level })}</span>
+                  <button type="button" onClick={() => setUser('')} style={ghostBtnStyle}>
+                    {t('logs.showAllUsers')}
+                  </button>
+                </div>
               ) : (
                 <span>{t('logs.noEntriesLevel', { level })}</span>
               )}
@@ -344,7 +404,12 @@ export default function LogsTab() {
           ) : (
             <div role="rowgroup">
               {filtered.map((e, i) => (
-                <LogRow key={`${e.timestamp}-${i}`} entry={e} searchQuery={search} />
+                <LogRow
+                  key={`${e.timestamp}-${i}`}
+                  entry={e}
+                  searchQuery={search}
+                  onUserClick={user ? undefined : setUser}
+                />
               ))}
             </div>
           )}

@@ -1,4 +1,6 @@
 """Pydantic schemas for the logs API."""
+from typing import Optional
+
 from pydantic import BaseModel
 
 
@@ -10,6 +12,8 @@ class LogEntry(BaseModel):
     level: str
     logger: str
     message: str
+    # Who made the request that emitted the line; None when no one did.
+    user: Optional[str] = None
 
 
 class LogsResponse(BaseModel):
@@ -20,3 +24,7 @@ class LogsResponse(BaseModel):
     level: str
     limit: int
     offset: int
+    # The `user` filter applied, if any.
+    user: Optional[str] = None
+    # Every username with a line in the buffer, for the viewer's user picker.
+    users: list[str] = []

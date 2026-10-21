@@ -1276,3 +1276,54 @@ class TestExplicitLocked:
         assert rows["off"] == 1
         assert rows["on"] == 0 and rows["unset"] == 0
         assert _stamped_revision(path) == _alembic_head(path)
+
+
+class TestUserLastActivity:
+    """0054 fills last_login_at/last_active_at from the sessions already there."""
+
+    def test_backfilled_from_sessions(self):
+        path = _fresh_db()
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            command.downgrade(_alembic_config(conn), "7c2f9e4a1b58")
+        with engine.begin() as conn:
+            for uid in ("seen", "never"):
+                conn.execute(
+                    text(
+                        "INSERT INTO users (id, username, role, created_at) "
+                        "VALUES (:id, :id, 'player', '2026-01-01 00:00:00')"
+                    ),
+                    {"id": uid},
+                )
+            sessions = (
+                ("s1", "2026-03-01 10:00:00", "2026-03-05 09:00:00"),
+                ("s2", "2026-04-01 10:00:00", None),
+            )
+            for sid, created, used in sessions:
+                conn.execute(
+                    text(
+                        "INSERT INTO auth_sessions (id, user_id, refresh_token_hash, "
+                        "created_at, last_used_at, expires_at) "
+                        "VALUES (:id, 'seen', :id, :c, :u, '2027-01-01 00:00:00')"
+                    ),
+                    {"id": sid, "c": created, "u": used},
+                )
+        engine.dispose()
+        init_db(path)
+        engine = create_engine(f"sqlite:///{path}")
+        try:
+            with engine.connect() as conn:
+                rows = {
+                    r[0]: (r[1], r[2])
+                    for r in conn.execute(
+                        text("SELECT id, last_login_at, last_active_at FROM users")
+                    ).all()
+                }
+        finally:
+            engine.dispose()
+        # Newest session opened 1 April; the latest activity is that same
+        # session's open, since its last_used_at was never set.
+        assert rows["seen"][0].startswith("2026-04-01 10:00:00")
+        assert rows["seen"][1].startswith("2026-04-01 10:00:00")
+        assert rows["never"] == (None, None)
+        assert _stamped_revision(path) == _alembic_head(path)

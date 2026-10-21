@@ -1,13 +1,21 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import LogsTab from './LogsTab'
 import api from '../../api'
 
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }))
 vi.mock('../../api', () => ({ default: { get: vi.fn() } }))
 vi.mock('./LogRow', () => ({
-  default: ({ entry }) => <div data-testid="log-row">{entry.message}</div>,
+  default: ({ entry, onUserClick }) => (
+    <div data-testid="log-row">
+      {entry.message}
+      {entry.user && onUserClick && (
+        <button onClick={() => onUserClick(entry.user)}>{`chip:${entry.user}`}</button>
+      )}
+    </div>
+  ),
 }))
 
 // Capture the IntersectionObserver callback so tests can drive "scrolled to the
@@ -62,7 +70,7 @@ afterEach(() => {
 describe('LogsTab', () => {
   it('loads and renders the initial page of entries', async () => {
     api.get.mockResolvedValue(page([entry('server started'), entry('ready')]))
-    render(<LogsTab />)
+    render(<LogsTab />, { wrapper: MemoryRouter })
     expect(await screen.findByText('server started')).toBeInTheDocument()
     expect(screen.getByText('ready')).toBeInTheDocument()
     expect(api.get).toHaveBeenCalledWith('/logs?level=info&limit=1000&offset=0')
@@ -70,25 +78,25 @@ describe('LogsTab', () => {
 
   it('shows the empty state when there are no entries for the level', async () => {
     api.get.mockResolvedValue(page([]))
-    render(<LogsTab />)
+    render(<LogsTab />, { wrapper: MemoryRouter })
     expect(await screen.findByText('logs.noEntriesLevel')).toBeInTheDocument()
   })
 
   it('shows an error when the initial load fails', async () => {
     api.get.mockRejectedValue(new Error('logs unavailable'))
-    render(<LogsTab />)
+    render(<LogsTab />, { wrapper: MemoryRouter })
     expect(await screen.findByRole('alert')).toHaveTextContent('logs unavailable')
   })
 
   it('falls back to a default message when the error has none', async () => {
     api.get.mockRejectedValue({})
-    render(<LogsTab />)
+    render(<LogsTab />, { wrapper: MemoryRouter })
     expect(await screen.findByRole('alert')).toHaveTextContent('Failed to load logs')
   })
 
   it('refetches when the level changes', async () => {
     api.get.mockResolvedValue(page([entry('boom', 'error')]))
-    render(<LogsTab />)
+    render(<LogsTab />, { wrapper: MemoryRouter })
     await screen.findByText('boom')
 
     await userEvent.click(screen.getByText('debug'))
@@ -97,9 +105,47 @@ describe('LogsTab', () => {
     )
   })
 
+  describe('user filter', () => {
+    const at =
+      (url) =>
+      ({ children }) => <MemoryRouter initialEntries={[url]}>{children}</MemoryRouter>
+
+    it('narrows to the user named in the URL and hides the per-line chips', async () => {
+      api.get.mockResolvedValue(
+        page([{ ...entry('signed in'), user: 'alice' }], { users: ['alice'] })
+      )
+      render(<LogsTab />, { wrapper: at('/settings/logs?user=alice') })
+      await screen.findByText('signed in')
+      expect(api.get).toHaveBeenCalledWith('/logs?level=info&limit=1000&offset=0&user=alice')
+      expect(screen.queryByText('chip:alice')).not.toBeInTheDocument()
+      expect(screen.getByLabelText('logs.userFilterAriaLabel')).toHaveValue('alice')
+    })
+
+    it("narrows to a line's user from its chip", async () => {
+      api.get.mockResolvedValue(page([{ ...entry('opened map'), user: 'bob' }], { users: ['bob'] }))
+      render(<LogsTab />, { wrapper: MemoryRouter })
+      await userEvent.click(await screen.findByText('chip:bob'))
+      await waitFor(() =>
+        expect(api.get).toHaveBeenCalledWith('/logs?level=info&limit=1000&offset=0&user=bob')
+      )
+      expect(screen.getByLabelText('logs.userFilterAriaLabel')).toHaveValue('bob')
+    })
+
+    it('offers a way back to everyone when the user has no lines', async () => {
+      api.get.mockResolvedValue(page([], { users: [] }))
+      render(<LogsTab />, { wrapper: at('/settings/logs?user=carol') })
+      await screen.findByText('logs.noEntriesUser')
+      await userEvent.click(screen.getByText('logs.showAllUsers'))
+      await waitFor(() =>
+        expect(api.get).toHaveBeenLastCalledWith('/logs?level=info&limit=1000&offset=0')
+      )
+      expect(screen.getByLabelText('logs.userFilterAriaLabel')).toHaveValue('')
+    })
+  })
+
   it('marks the active level button as pressed', async () => {
     api.get.mockResolvedValue(page([]))
-    render(<LogsTab />)
+    render(<LogsTab />, { wrapper: MemoryRouter })
     await screen.findByText('logs.noEntriesLevel')
     const [debugBtn] = screen.getAllByLabelText('logs.showLevelAbove')
     expect(debugBtn).toHaveAttribute('aria-pressed', 'false')
@@ -109,7 +155,7 @@ describe('LogsTab', () => {
 
   it('filters entries by the search box', async () => {
     api.get.mockResolvedValue(page([entry('alpha event'), entry('beta event')]))
-    render(<LogsTab />)
+    render(<LogsTab />, { wrapper: MemoryRouter })
     await screen.findByText('alpha event')
 
     await userEvent.type(screen.getByLabelText('logs.searchAriaLabel'), 'alpha')
@@ -119,7 +165,7 @@ describe('LogsTab', () => {
 
   it('shows the no-match empty state when the search excludes everything', async () => {
     api.get.mockResolvedValue(page([entry('alpha event')]))
-    render(<LogsTab />)
+    render(<LogsTab />, { wrapper: MemoryRouter })
     await screen.findByText('alpha event')
 
     await userEvent.type(screen.getByLabelText('logs.searchAriaLabel'), 'zzz')
@@ -128,7 +174,7 @@ describe('LogsTab', () => {
 
   it('toggles live tailing off and on', async () => {
     api.get.mockResolvedValue(page([]))
-    render(<LogsTab />)
+    render(<LogsTab />, { wrapper: MemoryRouter })
     await screen.findByText('logs.noEntriesLevel')
 
     const liveBtn = screen.getByLabelText('logs.pauseAriaLabel')
@@ -143,7 +189,7 @@ describe('LogsTab', () => {
   it('appends new entries from the live poll', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     api.get.mockResolvedValueOnce(page([entry('first')]))
-    render(<LogsTab />)
+    render(<LogsTab />, { wrapper: MemoryRouter })
     await screen.findByText('first')
 
     api.get.mockResolvedValueOnce(page([entry('second')], { total: 2, max_seq: 2 }))
@@ -157,7 +203,7 @@ describe('LogsTab', () => {
   it('ignores an empty live poll response', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     api.get.mockResolvedValueOnce(page([entry('only')]))
-    render(<LogsTab />)
+    render(<LogsTab />, { wrapper: MemoryRouter })
     await screen.findByText('only')
 
     api.get.mockResolvedValueOnce(page([], { total: 1, max_seq: 1 }))
@@ -170,7 +216,7 @@ describe('LogsTab', () => {
   it('swallows live poll failures without showing an error', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     api.get.mockResolvedValueOnce(page([entry('only')]))
-    render(<LogsTab />)
+    render(<LogsTab />, { wrapper: MemoryRouter })
     await screen.findByText('only')
 
     api.get.mockRejectedValueOnce(new Error('transient'))
@@ -184,7 +230,7 @@ describe('LogsTab', () => {
   it('does not poll while paused', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     api.get.mockResolvedValue(page([entry('only')]))
-    render(<LogsTab />)
+    render(<LogsTab />, { wrapper: MemoryRouter })
     await screen.findByText('only')
     await userEvent.click(screen.getByLabelText('logs.pauseAriaLabel'))
 
@@ -197,7 +243,7 @@ describe('LogsTab', () => {
 
   it('shows the older-entries banner and loads older pages when the sentinel intersects', async () => {
     api.get.mockResolvedValueOnce(page([entry('recent')], { total: 3, max_seq: 1 }))
-    render(<LogsTab />)
+    render(<LogsTab />, { wrapper: MemoryRouter })
     await screen.findByText('recent')
     expect(screen.getByText('logs.olderEntries')).toBeInTheDocument()
 
@@ -208,7 +254,7 @@ describe('LogsTab', () => {
 
   it('does not load older entries when everything is already loaded', async () => {
     api.get.mockResolvedValue(page([entry('all of it')]))
-    render(<LogsTab />)
+    render(<LogsTab />, { wrapper: MemoryRouter })
     await screen.findByText('all of it')
     expect(screen.queryByText('logs.olderEntries')).not.toBeInTheDocument()
 
@@ -221,7 +267,7 @@ describe('LogsTab', () => {
 
   it('ignores a non-intersecting sentinel callback', async () => {
     api.get.mockResolvedValueOnce(page([entry('recent')], { total: 5, max_seq: 1 }))
-    render(<LogsTab />)
+    render(<LogsTab />, { wrapper: MemoryRouter })
     await screen.findByText('recent')
 
     const callsBefore = api.get.mock.calls.length
@@ -233,7 +279,7 @@ describe('LogsTab', () => {
 
   it('swallows a failure while loading older entries', async () => {
     api.get.mockResolvedValueOnce(page([entry('recent')], { total: 5, max_seq: 1 }))
-    render(<LogsTab />)
+    render(<LogsTab />, { wrapper: MemoryRouter })
     await screen.findByText('recent')
 
     api.get.mockRejectedValueOnce(new Error('older boom'))
@@ -244,7 +290,7 @@ describe('LogsTab', () => {
 
   it('unpins on scroll away from the bottom and re-pins via the jump button', async () => {
     api.get.mockResolvedValue(page([entry('line')]))
-    render(<LogsTab />)
+    render(<LogsTab />, { wrapper: MemoryRouter })
     await screen.findByText('line')
 
     const log = screen.getByRole('log')

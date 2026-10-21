@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuPlus, LuX } from 'react-icons/lu'
 import api, { auth } from '../../api'
+import type { Schema } from '../../api'
 import Spinner from '../Spinner'
 import { useAuth } from '../../context/AuthContext'
 import { useUISettings } from '../../context/UISettingsContext'
@@ -10,16 +12,20 @@ import AddUserForm from './AddUserForm'
 import GuestsSection from './GuestsSection'
 import ShareLinkRolesSection from './ShareLinkRolesSection'
 
-const COLUMN_COUNT = 5
+const COLUMN_COUNT = 6
+
+type User = Schema<'UserOut'>
+
+const message = (err: unknown) => (err as Error)?.message
 
 export default function UsersTab() {
   const { t } = useTranslation()
-  const { user: currentUser } = useAuth()
+  const currentUser = useAuth()?.user
   const { api_keys_enabled: keysEnabled, share_links_enabled: shareEnabled } = useUISettings()
-  const [users, setUsers] = useState(null)
+  const [users, setUsers] = useState<User[] | null>(null)
   const [passwordAuthEnabled, setPasswordAuthEnabled] = useState(true)
   const [showAddForm, setShowAddForm] = useState(false)
-  const [expandedId, setExpandedId] = useState(null)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -32,88 +38,94 @@ export default function UsersTab() {
 
   // Merge a PATCH response into the existing row without dropping derived
   // fields the update endpoint doesn't echo back (e.g. campaign_count).
-  const mergeUser = (updated) =>
-    setUsers((prev) => prev.map((u) => (u.id === updated.id ? { ...u, ...updated } : u)))
+  const mergeUser = (response: unknown) => {
+    const updated = response as Partial<User> & { id: string }
+    setUsers((prev) => (prev ?? []).map((u) => (u.id === updated.id ? { ...u, ...updated } : u)))
+  }
 
-  const handleRoleChange = async (userId, newRole) => {
+  const handleRoleChange = async (userId: string, newRole: string) => {
     try {
       mergeUser(await api.patch(`/users/${userId}`, { role: newRole }))
     } catch (err) {
-      setError(err.message || t('users.failedUpdateRole'))
+      setError(message(err) || t('users.failedUpdateRole'))
     }
   }
 
-  const handleExplicitChange = async (userId, allowed) => {
+  const handleExplicitChange = async (userId: string, allowed: boolean) => {
     try {
       mergeUser(await api.patch(`/users/${userId}`, { allow_explicit: allowed }))
     } catch (err) {
-      setError(err.message || t('users.failedUpdateExplicit'))
+      setError(message(err) || t('users.failedUpdateExplicit'))
     }
   }
 
-  const handleCampaignAccessChange = async (userId, allowed) => {
+  const handleCampaignAccessChange = async (userId: string, allowed: boolean) => {
     try {
       mergeUser(await api.patch(`/users/${userId}`, { campaign_access: allowed }))
     } catch (err) {
-      setError(err.message || t('users.failedUpdateCampaignAccess'))
+      setError(message(err) || t('users.failedUpdateCampaignAccess'))
     }
   }
 
-  const handleApiKeysChange = async (userId, allowed) => {
+  const handleApiKeysChange = async (userId: string, allowed: boolean) => {
     try {
       mergeUser(await api.patch(`/users/${userId}`, { api_keys_enabled: allowed }))
     } catch (err) {
-      setError(err.message || t('users.failedUpdateApiKeys'))
+      setError(message(err) || t('users.failedUpdateApiKeys'))
     }
   }
 
-  const handleShareLinksChange = async (userId, override) => {
+  const handleShareLinksChange = async (userId: string, override: string) => {
     try {
       mergeUser(await api.patch(`/users/${userId}`, { share_links: override }))
     } catch (err) {
-      setError(err.message || t('users.shareLinks.failedUpdate'))
+      setError(message(err) || t('users.shareLinks.failedUpdate'))
     }
   }
 
-  const handlePasswordReset = async (userId, newPassword) => {
+  const handlePasswordReset = async (userId: string, newPassword: string) => {
     try {
       await api.patch(`/users/${userId}`, { password: newPassword })
     } catch (err) {
-      setError(err.message || t('users.failedSetPassword'))
+      setError(message(err) || t('users.failedSetPassword'))
       throw err
     }
   }
 
-  const handleEmailChange = async (userId, newEmail) => {
+  const handleEmailChange = async (userId: string, newEmail: string) => {
     try {
       mergeUser(await api.patch(`/users/${userId}`, { email: newEmail }))
     } catch (err) {
-      setError(err.message || t('users.failedSetEmail'))
+      setError(message(err) || t('users.failedSetEmail'))
       throw err
     }
   }
 
-  const handleDelete = async (userId) => {
+  const handleDelete = async (userId: string) => {
     try {
       await api.delete(`/users/${userId}`)
-      setUsers((prev) => prev.filter((u) => u.id !== userId))
+      setUsers((prev) => (prev ?? []).filter((u) => u.id !== userId))
       if (expandedId === userId) setExpandedId(null)
     } catch (err) {
-      setError(err.message || t('users.failedDeleteUser'))
+      setError(message(err) || t('users.failedDeleteUser'))
     }
   }
 
-  const handleAdd = (newUser) => {
+  const handleAdd = (newUser: User) => {
     setUsers((prev) => [
-      ...prev,
-      { campaign_count: 0, created_at: new Date().toISOString(), ...newUser },
+      ...(prev ?? []),
+      {
+        ...newUser,
+        campaign_count: newUser.campaign_count ?? 0,
+        created_at: newUser.created_at ?? new Date().toISOString(),
+      },
     ])
     setShowAddForm(false)
   }
 
   // A converted guest becomes a permanent user, so surface it in the main list.
-  const handleGuestConverted = (newUser) => {
-    if (newUser) setUsers((prev) => [...prev, newUser])
+  const handleGuestConverted = (newUser?: User | null) => {
+    if (newUser) setUsers((prev) => [...(prev ?? []), newUser])
   }
 
   if (!users)
@@ -213,6 +225,7 @@ export default function UsersTab() {
               <th style={headStyle}>{t('users.username')}</th>
               <th style={headStyle}>{t('users.role')}</th>
               <th style={headStyle}>{t('users.permissions')}</th>
+              <th style={headStyle}>{t('users.activity.column')}</th>
               <th style={{ ...headStyle, textAlign: 'right' }}>{t('users.campaignAccess')}</th>
             </tr>
           </thead>
@@ -221,8 +234,8 @@ export default function UsersTab() {
               <UserRow
                 key={u.id}
                 user={u}
-                currentUserId={currentUser.id}
-                currentUserRole={currentUser.role}
+                currentUserId={currentUser?.id ?? ''}
+                currentUserRole={currentUser?.role ?? ''}
                 passwordAuthEnabled={passwordAuthEnabled}
                 expanded={expandedId === u.id}
                 onToggleExpand={() => setExpandedId((id) => (id === u.id ? null : u.id))}
@@ -254,7 +267,7 @@ export default function UsersTab() {
   )
 }
 
-const headStyle = {
+const headStyle: CSSProperties = {
   textAlign: 'left',
   padding: '10px 14px',
   fontSize: 11,
@@ -267,7 +280,7 @@ const headStyle = {
   whiteSpace: 'nowrap',
 }
 
-const primaryBtnStyle = {
+const primaryBtnStyle: CSSProperties = {
   padding: '8px 16px',
   borderRadius: 6,
   fontSize: 13,

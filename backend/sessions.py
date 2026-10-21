@@ -31,6 +31,7 @@ from typing import Optional, Tuple
 from sqlalchemy.orm import Session
 
 from .models import AuthSession
+from .services.user_activity import record_activity, record_login
 
 logger = logging.getLogger("grimoire.sessions")
 
@@ -116,6 +117,7 @@ def create_session(
         expires_at=_utcnow() + datetime.timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
     )
     db.add(session)
+    record_login(db, str(user_id))
     db.commit()
     db.refresh(session)
     return session, token
@@ -163,6 +165,8 @@ def rotate_session(db: Session, session: AuthSession) -> str:
     session.refresh_token_hash = hash_refresh_token(token)
     session.last_used_at = _utcnow()
     session.expires_at = _utcnow() + datetime.timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    # A refresh is the one moment a signed-in browser is seen by the server.
+    record_activity(db, session.user_id)
     db.commit()
     return token
 

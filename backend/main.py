@@ -15,6 +15,7 @@ from slowapi import _rate_limit_exceeded_handler
 from . import backup_scheduler, config, scheduler, session_creator, session_purger
 from ._health_schemas import HealthResponse
 from .auth import get_current_user, require_not_guest
+from .log_context import LogUserMiddleware
 from .security import (
     RateLimitExceeded,
     SecurityHeadersMiddleware,
@@ -356,6 +357,9 @@ app.state.limiter = limiter
 # Exception; Starlette only ever passes it that exception type.
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 app.add_middleware(SecurityHeadersMiddleware)
+# Attributes each request's log lines to the user it authenticates as, for the
+# log viewer's user filter (issue #576).
+app.add_middleware(LogUserMiddleware)
 # Optional CORS allowlist for browser-based integrations (issue #502). Added
 # last so it wraps everything above: preflights are answered before auth runs,
 # and error responses (401/403/429) carry the headers too.

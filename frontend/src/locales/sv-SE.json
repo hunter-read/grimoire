@@ -1546,6 +1546,16 @@
       "adminAlways": "Administratörer kan alltid skapa delningslänkar",
       "rolesFailed": "Det gick inte att uppdatera standardinställningarna för delningslänkar.",
       "failedUpdate": "Det gick inte att ändra behörigheten för delningslänkar."
+    },
+    "activity": {
+      "column": "Senast aktiv",
+      "label": "Aktivitet",
+      "never": "Aldrig",
+      "signedIn": "Inloggad",
+      "active": "Aktiv",
+      "lastActiveAt": "Senast aktiv {{when}}",
+      "lastLoginAt": "Senast inloggad {{when}}",
+      "viewLogs": "Visa i loggen"
     }
   },
   "maintenance": {
@@ -1804,7 +1814,12 @@
     "noEntriesLevel": "Inga loggposter på nivån {{level}} eller högre.",
     "jumpToLatest": "Hoppa till senaste",
     "loadingOlderAriaLabel": "Läser in äldre loggposter",
-    "olderCountAriaLabel": "{{count}} äldre poster ännu inte inlästa"
+    "olderCountAriaLabel": "{{count}} äldre poster ännu inte inlästa",
+    "userFilterAriaLabel": "Filtrera loggposter efter användare",
+    "allUsers": "Alla användare",
+    "noEntriesUser": "Inga loggposter från {{user}} på nivån {{level}} eller högre.",
+    "showAllUsers": "Visa alla användare",
+    "filterToUser": "Visa bara poster från {{user}}"
   },
   "campaigns": {
     "title": "Kampanjer",

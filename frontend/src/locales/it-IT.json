@@ -1546,6 +1546,16 @@
       "adminAlways": "Gli admin possono sempre creare link di condivisione",
       "rolesFailed": "Impossibile aggiornare le impostazioni predefinite dei link.",
       "failedUpdate": "Impossibile modificare il permesso per i link di condivisione."
+    },
+    "activity": {
+      "column": "Ultima attività",
+      "label": "Attività",
+      "never": "Mai",
+      "signedIn": "Accesso",
+      "active": "Attività",
+      "lastActiveAt": "Ultima attività: {{when}}",
+      "lastLoginAt": "Ultimo accesso: {{when}}",
+      "viewLogs": "Vedi nei log"
     }
   },
   "maintenance": {
@@ -1804,7 +1814,12 @@
     "noEntriesLevel": "Nessuna voce di log di livello {{level}} o superiore.",
     "jumpToLatest": "Vai alle più recenti",
     "loadingOlderAriaLabel": "Caricamento voci di log precedenti",
-    "olderCountAriaLabel": "{{count}} voci precedenti non ancora caricate"
+    "olderCountAriaLabel": "{{count}} voci precedenti non ancora caricate",
+    "userFilterAriaLabel": "Filtra le voci del log per utente",
+    "allUsers": "Tutti gli utenti",
+    "noEntriesUser": "Nessuna voce di log di {{user}} di livello {{level}} o superiore.",
+    "showAllUsers": "Mostra tutti gli utenti",
+    "filterToUser": "Mostra solo le voci di {{user}}"
   },
   "campaigns": {
     "title": "Campagne",

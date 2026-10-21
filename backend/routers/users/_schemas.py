@@ -205,6 +205,10 @@ class UserOut(BaseModel):
     # `created_at` is `default=...` rather than NOT NULL, and `create_user` omits
     # the key entirely.
     created_at: Optional[str] = None
+    # When the account last signed in / was last seen (issue #576); only the
+    # admin list sends them, and None means never.
+    last_login_at: Optional[str] = None
+    last_active_at: Optional[str] = None
 
 
 class UserUpdateResponse(BaseModel):

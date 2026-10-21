@@ -411,6 +411,7 @@ def authenticate(presented: str, request: Request, *, check_route: bool = True) 
     """
     from .config import SessionLocal
     from .models import ApiKey, User
+    from .services.user_activity import record_activity
 
     if not keys_enabled():
         raise HTTPException(403, "API keys are disabled on this server")
@@ -455,6 +456,8 @@ def authenticate(presented: str, request: Request, *, check_route: bool = True) 
         last = as_utc(row.last_used_at)
         if last is None or now - last >= LAST_USED_THROTTLE:
             row.last_used_at = now
+            # The owner's own activity (issue #576) rides the same write.
+            record_activity(db, owner.id, now.replace(tzinfo=None))
             db.commit()
         return KeyPrincipal(
             id=row.id,

@@ -1,6 +1,8 @@
 import { useState } from 'react'
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuTrash2, LuScroll, LuShare2 } from 'react-icons/lu'
+import type { Schema } from '../../api'
 import SetEmailInline from './SetEmailInline'
 import SetPasswordInline from './SetPasswordInline'
 import UserCampaignsList from './UserCampaignsList'
@@ -10,7 +12,29 @@ import PermissionToggle from './PermissionToggle'
 import ShareLinksPermissionSelect from './ShareLinksPermissionSelect'
 import UserEditorDisclosure from './UserEditorDisclosure'
 import UserShareLinksList from './UserShareLinksList'
+import UserActivityField from './UserActivityField'
 import { ghostBtnStyle } from './settingsButtons'
+
+/** The account changes the users table hands down to each row's editor. */
+export interface UserEditorHandlers {
+  onRoleChange: (userId: string, role: string) => unknown
+  onExplicitChange: (userId: string, allowed: boolean) => unknown
+  onCampaignAccessChange: (userId: string, allowed: boolean) => unknown
+  onApiKeysChange: (userId: string, allowed: boolean) => unknown
+  onShareLinksChange: (userId: string, override: string) => unknown
+  onPasswordReset: (userId: string, password: string) => Promise<unknown>
+  onEmailChange: (userId: string, email: string) => unknown
+  onDelete: (userId: string) => unknown
+}
+
+interface Props extends UserEditorHandlers {
+  user: Schema<'UserOut'>
+  isSelf: boolean
+  currentUserRole: string
+  passwordAuthEnabled: boolean
+  apiKeysEnabled?: boolean
+  shareLinksEnabled?: boolean
+}
 
 export default function UserExpandedEditor({
   user,
@@ -27,7 +51,7 @@ export default function UserExpandedEditor({
   onPasswordReset,
   onEmailChange,
   onDelete,
-}) {
+}: Props) {
   const { t } = useTranslation()
   const [settingPassword, setSettingPassword] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -57,7 +81,7 @@ export default function UserExpandedEditor({
         <EditorField label={t('users.emailLabel')}>
           <SetEmailInline
             initial={user.email}
-            onSave={(email) => onEmailChange(user.id, email)}
+            onSave={(email: string) => onEmailChange(user.id, email)}
             onCancel={() => {}}
             persistent
           />
@@ -68,7 +92,7 @@ export default function UserExpandedEditor({
           <select
             id={`role-${user.id}`}
             aria-label={t('users.role')}
-            value={user.role}
+            value={user.role ?? 'player'}
             onChange={(e) => onRoleChange(user.id, e.target.value)}
             disabled={isSelf}
             title={isSelf ? t('users.cannotChangeSelfRole') : t('users.role')}
@@ -99,6 +123,7 @@ export default function UserExpandedEditor({
               title={t('users.campaignAccessTitle')}
               checked={user.campaign_access ?? true}
               accent="var(--gold)"
+              disabled={false}
               onChange={() => onCampaignAccessChange(user.id, !(user.campaign_access ?? true))}
             />
             {apiKeysEnabled && (
@@ -131,6 +156,13 @@ export default function UserExpandedEditor({
             />
           </div>
         </EditorField>
+
+        {/* Activity (issue #576) */}
+        <UserActivityField
+          username={user.username}
+          lastActiveAt={user.last_active_at}
+          lastLoginAt={user.last_login_at}
+        />
 
         {/* Password */}
         {passwordAuthEnabled && !isSelf && (
@@ -221,7 +253,7 @@ export default function UserExpandedEditor({
   )
 }
 
-const dangerBtnStyle = {
+const dangerBtnStyle: CSSProperties = {
   padding: '6px 12px',
   borderRadius: 6,
   fontSize: 13,

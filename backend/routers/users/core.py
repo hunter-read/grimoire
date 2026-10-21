@@ -57,6 +57,8 @@ def list_users(_: CurrentUser = Depends(require_admin), db: Session = Depends(ge
             "campaign_count": owned_counts.get(u.id, 0),
             "oidc_linked": bool(u.oidc_subject),
             "created_at": u.created_at.isoformat() if u.created_at else None,
+            "last_login_at": u.last_login_at.isoformat() if u.last_login_at else None,
+            "last_active_at": u.last_active_at.isoformat() if u.last_active_at else None,
         }
         for u in users
     ]

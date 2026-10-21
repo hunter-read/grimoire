@@ -76,6 +76,27 @@ are demoted to GM-only for you.
 
 ---
 
+## Seeing who has been active
+
+The users list under **Settings → Users** has a **Last active** column - "12 minutes
+ago", "2 months ago", or "Never" for an account that has not signed in. It fades as it
+ages, so people who have drifted away stand out. Hover it for the exact times, or
+expand the user for when they last signed in and were last active.
+
+Activity is recorded when someone signs in, each time their session refreshes, and
+whenever one of their API keys is used - at most every 5 minutes. A signed-in browser
+refreshes every `ACCESS_TOKEN_EXPIRE_MINUTES` (30 by default), so "last active" can trail
+what someone is actually doing by up to that long.
+
+**View in logs** on an expanded user opens **Settings → Logs** narrowed to the lines
+their requests produced, starting with each sign-in. The user picker in the Logs
+toolbar does the same for anyone, and the name shown on a log line narrows to that
+person when clicked. Lines from the server itself - start-up, library scans, scheduled
+jobs - belong to no user. The log is kept in memory, so it starts over when Grimoire
+restarts.
+
+---
+
 ## Pre-seeding users
 
 Drop a `users.json` file into your data directory before first start and Grimoire will create those accounts automatically. Afterwards the file is replaced by `users.json.imported`, a record of what was imported with every password replaced by its hash (so no plaintext password is left on disk), and is never processed again.

@@ -1546,6 +1546,16 @@
       "adminAlways": "Admins kunnen altijd deellinks maken",
       "rolesFailed": "De standaardinstellingen voor deellinks konden niet worden bijgewerkt.",
       "failedUpdate": "De deellink-toestemming kon niet worden gewijzigd."
+    },
+    "activity": {
+      "column": "Laatst actief",
+      "label": "Activiteit",
+      "never": "Nooit",
+      "signedIn": "Aangemeld",
+      "active": "Actief",
+      "lastActiveAt": "Laatst actief: {{when}}",
+      "lastLoginAt": "Laatst aangemeld: {{when}}",
+      "viewLogs": "Bekijken in logboek"
     }
   },
   "maintenance": {
@@ -1804,7 +1814,12 @@
     "noEntriesLevel": "Geen logboekvermeldingen op niveau {{level}} of hoger.",
     "jumpToLatest": "Naar nieuwste springen",
     "loadingOlderAriaLabel": "Oudere logboekvermeldingen laden",
-    "olderCountAriaLabel": "{{count}} oudere vermeldingen nog niet geladen"
+    "olderCountAriaLabel": "{{count}} oudere vermeldingen nog niet geladen",
+    "userFilterAriaLabel": "Logboekvermeldingen filteren op gebruiker",
+    "allUsers": "Alle gebruikers",
+    "noEntriesUser": "Geen logboekvermeldingen van {{user}} op niveau {{level}} of hoger.",
+    "showAllUsers": "Alle gebruikers tonen",
+    "filterToUser": "Alleen vermeldingen van {{user}} tonen"
   },
   "campaigns": {
     "title": "Campagnes",

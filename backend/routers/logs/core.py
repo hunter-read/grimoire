@@ -34,6 +34,11 @@ def get_logs(
     after_seq: Optional[int] = Query(
         default=None, ge=0, description="Return only entries with seq > this value (live-poll cursor)"
     ),
+    user: Optional[str] = Query(
+        default=None,
+        max_length=100,
+        description="Return only lines from requests made by this username",
+    ),
     _: CurrentUser = Depends(require_admin),
 ):
     min_level = _LEVEL_MAP.get(level.lower(), logging.INFO)
@@ -42,8 +47,9 @@ def get_logs(
         limit=limit,
         offset=offset,
         after_seq=after_seq if after_seq is not None else 0,
+        user=user or None,
     )
-    total = _memory_handler.get_total(min_level=min_level)
+    total = _memory_handler.get_total(min_level=min_level, user=user or None)
     return {
         "entries":  entries,
         "total":    total,
@@ -51,4 +57,6 @@ def get_logs(
         "level":    level,
         "limit":    limit,
         "offset":   offset,
+        "user":     user or None,
+        "users":    _memory_handler.get_users(),
     }

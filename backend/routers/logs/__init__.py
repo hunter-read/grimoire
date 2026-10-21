@@ -20,6 +20,9 @@ router.add_api_route(
         "to DEBUG-level logs regardless of that setting. For live polling, pass "
         "`after_seq` set to the `max_seq` value from the previous response - "
         "only entries with a higher sequence number are returned, making "
-        "polling exact regardless of how fast entries arrive. **Admin only.**"
+        "polling exact regardless of how fast entries arrive. Each entry names "
+        "the `user` whose request emitted it (null for server-side lines); pass "
+        "`user` to keep only one user's lines, and `users` in the response lists "
+        "every username in the buffer. **Admin only.**"
     ),
 )

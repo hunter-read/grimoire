@@ -1546,6 +1546,16 @@
       "adminAlways": "Admins können immer Freigabelinks erstellen",
       "rolesFailed": "Die Standardwerte für Freigabelinks konnten nicht gespeichert werden.",
       "failedUpdate": "Die Berechtigung für Freigabelinks konnte nicht geändert werden."
+    },
+    "activity": {
+      "column": "Zuletzt aktiv",
+      "label": "Aktivität",
+      "never": "Nie",
+      "signedIn": "Angemeldet",
+      "active": "Aktiv",
+      "lastActiveAt": "Zuletzt aktiv: {{when}}",
+      "lastLoginAt": "Zuletzt angemeldet: {{when}}",
+      "viewLogs": "Im Protokoll ansehen"
     }
   },
   "maintenance": {
@@ -1804,7 +1814,12 @@
     "noEntriesLevel": "Keine Protokolleinträge auf Level {{level}} oder höher.",
     "jumpToLatest": "Zum neuesten springen",
     "loadingOlderAriaLabel": "Ältere Protokolleinträge werden geladen",
-    "olderCountAriaLabel": "{{count}} ältere Einträge noch nicht geladen"
+    "olderCountAriaLabel": "{{count}} ältere Einträge noch nicht geladen",
+    "userFilterAriaLabel": "Protokolleinträge nach Benutzer filtern",
+    "allUsers": "Alle Benutzer",
+    "noEntriesUser": "Keine Protokolleinträge von {{user}} auf Level {{level}} oder höher.",
+    "showAllUsers": "Alle Benutzer anzeigen",
+    "filterToUser": "Nur Einträge von {{user}} anzeigen"
   },
   "campaigns": {
     "title": "Kampagnen",

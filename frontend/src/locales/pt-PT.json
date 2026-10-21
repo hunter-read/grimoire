@@ -1546,6 +1546,16 @@
       "adminAlways": "Os admins podem sempre criar ligações de partilha",
       "rolesFailed": "Não foi possível atualizar as predefinições das ligações.",
       "failedUpdate": "Não foi possível alterar a permissão de ligações de partilha."
+    },
+    "activity": {
+      "column": "Última atividade",
+      "label": "Atividade",
+      "never": "Nunca",
+      "signedIn": "Início de sessão",
+      "active": "Atividade",
+      "lastActiveAt": "Última atividade: {{when}}",
+      "lastLoginAt": "Último início de sessão: {{when}}",
+      "viewLogs": "Ver nos registos"
     }
   },
   "maintenance": {
@@ -1804,7 +1814,12 @@
     "noEntriesLevel": "Sem entradas de registo no nível {{level}} ou superior.",
     "jumpToLatest": "Ir para a mais recente",
     "loadingOlderAriaLabel": "A carregar entradas de registo mais antigas",
-    "olderCountAriaLabel": "{{count}} entradas mais antigas ainda não carregadas"
+    "olderCountAriaLabel": "{{count}} entradas mais antigas ainda não carregadas",
+    "userFilterAriaLabel": "Filtrar entradas do registo por utilizador",
+    "allUsers": "Todos os utilizadores",
+    "noEntriesUser": "Sem entradas de {{user}} no nível {{level}} ou superior.",
+    "showAllUsers": "Mostrar todos os utilizadores",
+    "filterToUser": "Mostrar apenas as entradas de {{user}}"
   },
   "campaigns": {
     "title": "Campanhas",

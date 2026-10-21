@@ -295,7 +295,7 @@ class TestMemoryHandler:
         entries, max_seq = _memory_handler.get_entries(min_level=logging.INFO, limit=10)
         assert len(entries) > 0
         e = entries[-1]
-        assert set(e.keys()) == {"seq", "timestamp", "level", "logger", "message"}
+        assert set(e.keys()) == {"seq", "timestamp", "level", "logger", "message", "user"}
         assert isinstance(e["seq"], int)
         assert e["seq"] > 0
         assert isinstance(max_seq, int)

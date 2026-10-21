@@ -12,6 +12,7 @@ import jwt
 from fastapi import Cookie, Depends, Header, HTTPException, Request, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
+from .log_context import set_log_user
 from .password_hash import hash_password, verify_password  # noqa: F401 - re-exported
 
 logger = logging.getLogger("grimoire.auth")
@@ -355,6 +356,7 @@ def get_current_user(
         from .api_keys import authenticate
 
         key = authenticate(x_api_key, request)
+        set_log_user(key.username)
         # The key acts as its owner, so their role guards and handlers apply as
         # for their own session; the permission check above only narrows that.
         return CurrentUser(
@@ -405,6 +407,7 @@ def get_current_user(
     # _refresh_role); player and guest tokens are trusted until they expire.
     if user.role in ("admin", "gm"):
         _refresh_role(user)
+    set_log_user(user.username)
     return user
 
 

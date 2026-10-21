@@ -78,6 +78,13 @@ class User(Base):
     # nothing has to be migrated or read two ways.
     theme_by_mode: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, default=dict)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
+    # Shown on the admin users list (issue #576). `last_login_at` is set when a
+    # session opens; `last_active_at` also moves on every token refresh and on
+    # API-key use, throttled - see backend/services/user_activity.py. Access
+    # tokens are checked without touching the database, so "active" is only as
+    # fine-grained as ACCESS_TOKEN_EXPIRE_MINUTES. NULL means never.
+    last_login_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True)
+    last_active_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True)
 
 
 class AuthSession(Base):

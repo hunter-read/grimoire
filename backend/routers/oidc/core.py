@@ -25,6 +25,7 @@ from ...auth import (
 )
 from ...security import limiter
 from ...sessions import create_session
+from ...services.user_activity import note_sign_in
 from ...config import get_db
 from ..settings._helpers import (
     _get_raw,
@@ -291,6 +292,7 @@ def oidc_callback(
         origin="oidc",
         user_agent=request.headers.get("User-Agent") if request else None,
     )
+    note_sign_in(user.username, "oidc")
     token = create_token(user.id, user.username, user.role, session_id=session.id)
     # No token rides on the redirect: a token in the URL lands in browser
     # history, and the login page used to accept one from any link. The SPA

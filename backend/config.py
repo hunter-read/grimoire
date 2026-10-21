@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any, Callable, Iterator, Optional
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .filenames import display_name
+from .log_context import current_log_user
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import Engine
@@ -656,14 +657,25 @@ _seq_counter = 0
 
 class _LogEntry:
     """Lightweight log record stored in the ring buffer."""
-    __slots__ = ("seq", "timestamp", "level", "logger", "message")
+    __slots__ = ("seq", "timestamp", "level", "logger", "message", "user")
 
-    def __init__(self, seq: int, timestamp: str, level: str, logger_name: str, message: str):
+    def __init__(
+        self,
+        seq: int,
+        timestamp: str,
+        level: str,
+        logger_name: str,
+        message: str,
+        user: Optional[str] = None,
+    ):
         self.seq       = seq
         self.timestamp = timestamp
         self.level     = level
         self.logger    = logger_name
         self.message   = message
+        # The username of the request that emitted the line, or None for lines
+        # from no request or before authentication (see backend/log_context.py).
+        self.user      = user
 
     def to_dict(self) -> dict:
         return {
@@ -672,6 +684,7 @@ class _LogEntry:
             "level":     self.level,
             "logger":    self.logger,
             "message":   self.message,
+            "user":      self.user,
         }
 
 
@@ -704,6 +717,7 @@ class _MemoryLogHandler(logging.Handler):
                     # message through any logger; kept raw, it would make every
                     # /api/logs response fail to serialise until it aged out.
                     message=display_name(self.format(record)),
+                    user=current_log_user(),
                 )
                 self._buf.append(entry)
         except Exception:
@@ -715,6 +729,7 @@ class _MemoryLogHandler(logging.Handler):
         limit: int = 500,
         offset: int = 0,
         after_seq: int = 0,
+        user: Optional[str] = None,
     ) -> tuple[list[dict], int]:
         """Return entries in oldest-to-newest order and the current max seq.
 
@@ -725,10 +740,12 @@ class _MemoryLogHandler(logging.Handler):
         from the newest end: offset=0 → most-recent `limit` entries,
         offset=limit → next-older page, etc.
 
+        `user`, when given, keeps only lines attributed to that username.
+
         Returns (entries_list, max_seq_in_buffer).
         """
         with self._lock:
-            all_entries = [e for e in self._buf if logging.getLevelName(e.level) >= min_level]  # type: ignore[arg-type]
+            all_entries = self._matching(min_level, user)
             max_seq = self._buf[-1].seq if self._buf else 0
 
         if after_seq > 0:
@@ -740,9 +757,24 @@ class _MemoryLogHandler(logging.Handler):
         start = max(0, end - limit)
         return [e.to_dict() for e in all_entries[start:end]], max_seq
 
-    def get_total(self, min_level: int = logging.DEBUG) -> int:
+    def get_total(self, min_level: int = logging.DEBUG, user: Optional[str] = None) -> int:
         with self._lock:
-            return sum(1 for e in self._buf if logging.getLevelName(e.level) >= min_level)  # type: ignore[arg-type]
+            return len(self._matching(min_level, user))
+
+    def get_users(self) -> list[str]:
+        """Every username with at least one line in the buffer, sorted."""
+        with self._lock:
+            names = {e.user for e in self._buf if e.user}
+        return sorted(names, key=str.lower)
+
+    def _matching(self, min_level: int, user: Optional[str]) -> list[_LogEntry]:
+        """Buffered entries at or above ``min_level`` (and from ``user``). Call under the lock."""
+        return [
+            e
+            for e in self._buf
+            if logging.getLevelName(e.level) >= min_level  # type: ignore[operator]
+            and (user is None or e.user == user)
+        ]
 
     def clear(self) -> None:
         with self._lock:

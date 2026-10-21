@@ -1546,6 +1546,16 @@
       "adminAlways": "Los admins siempre pueden crear enlaces para compartir",
       "rolesFailed": "No se pudieron actualizar los valores por defecto de los enlaces.",
       "failedUpdate": "No se pudo cambiar el permiso de enlaces para compartir."
+    },
+    "activity": {
+      "column": "Última actividad",
+      "label": "Actividad",
+      "never": "Nunca",
+      "signedIn": "Inicio de sesión",
+      "active": "Actividad",
+      "lastActiveAt": "Última actividad: {{when}}",
+      "lastLoginAt": "Último inicio de sesión: {{when}}",
+      "viewLogs": "Ver en los registros"
     }
   },
   "maintenance": {
@@ -1804,7 +1814,12 @@
     "noEntriesLevel": "No hay entradas de registro en el nivel {{level}} o superior.",
     "jumpToLatest": "Ir a la más reciente",
     "loadingOlderAriaLabel": "Cargando entradas de registro más antiguas",
-    "olderCountAriaLabel": "{{count}} entradas más antiguas aún no cargadas"
+    "olderCountAriaLabel": "{{count}} entradas más antiguas aún no cargadas",
+    "userFilterAriaLabel": "Filtrar entradas del registro por usuario",
+    "allUsers": "Todos los usuarios",
+    "noEntriesUser": "No hay entradas de {{user}} en el nivel {{level}} o superior.",
+    "showAllUsers": "Mostrar todos los usuarios",
+    "filterToUser": "Mostrar solo las entradas de {{user}}"
   },
   "campaigns": {
     "title": "Campañas",

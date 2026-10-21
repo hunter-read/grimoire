@@ -1546,6 +1546,16 @@
       "adminAlways": "Les admins peuvent toujours créer des liens de partage",
       "rolesFailed": "Impossible de mettre à jour les valeurs par défaut des liens de partage.",
       "failedUpdate": "Impossible de modifier l'autorisation des liens de partage."
+    },
+    "activity": {
+      "column": "Dernière activité",
+      "label": "Activité",
+      "never": "Jamais",
+      "signedIn": "Connexion",
+      "active": "Activité",
+      "lastActiveAt": "Dernière activité : {{when}}",
+      "lastLoginAt": "Dernière connexion : {{when}}",
+      "viewLogs": "Voir dans les journaux"
     }
   },
   "maintenance": {
@@ -1804,7 +1814,12 @@
     "noEntriesLevel": "Aucune entrée de journal au niveau {{level}} ou au-dessus.",
     "jumpToLatest": "Aller au plus récent",
     "loadingOlderAriaLabel": "Chargement des entrées de journal plus anciennes",
-    "olderCountAriaLabel": "{{count}} entrées plus anciennes non encore chargées"
+    "olderCountAriaLabel": "{{count}} entrées plus anciennes non encore chargées",
+    "userFilterAriaLabel": "Filtrer les entrées du journal par utilisateur",
+    "allUsers": "Tous les utilisateurs",
+    "noEntriesUser": "Aucune entrée de journal de {{user}} au niveau {{level}} ou au-dessus.",
+    "showAllUsers": "Afficher tous les utilisateurs",
+    "filterToUser": "Afficher uniquement les entrées de {{user}}"
   },
   "campaigns": {
     "title": "Campagnes",

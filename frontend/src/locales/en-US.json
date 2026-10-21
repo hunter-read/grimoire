@@ -1546,6 +1546,16 @@
       "adminAlways": "Admins can always create share links",
       "rolesFailed": "Couldn't update the share link defaults.",
       "failedUpdate": "Couldn't update the share link permission."
+    },
+    "activity": {
+      "column": "Last active",
+      "label": "Activity",
+      "never": "Never",
+      "signedIn": "Signed in",
+      "active": "Active",
+      "lastActiveAt": "Last active {{when}}",
+      "lastLoginAt": "Last signed in {{when}}",
+      "viewLogs": "View in logs"
     }
   },
   "maintenance": {
@@ -1804,7 +1814,12 @@
     "noEntriesLevel": "No log entries at {{level}} level or above.",
     "jumpToLatest": "Jump to latest",
     "loadingOlderAriaLabel": "Loading older log entries",
-    "olderCountAriaLabel": "{{count}} older entries not yet loaded"
+    "olderCountAriaLabel": "{{count}} older entries not yet loaded",
+    "userFilterAriaLabel": "Filter log entries by user",
+    "allUsers": "All users",
+    "noEntriesUser": "No log entries from {{user}} at {{level}} level or above.",
+    "showAllUsers": "Show all users",
+    "filterToUser": "Show only {{user}}'s entries"
   },
   "campaigns": {
     "title": "Campaigns",

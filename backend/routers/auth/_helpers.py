@@ -9,6 +9,7 @@ from ...services import share_links as share_policy
 from ...auth import create_token, set_auth_cookie, set_refresh_cookie
 from ...models import User
 from ...sessions import create_session
+from ...services.user_activity import note_sign_in
 
 
 def client_user_agent(request: Optional[Request]) -> Optional[str]:
@@ -51,6 +52,7 @@ def issue_login(
         user_agent=client_user_agent(request),
         ip_address=client_ip(request),
     )
+    note_sign_in(user.username, origin)
     token = create_token(user.id, user.username, user.role, session_id=session.id)
     set_auth_cookie(response, token, request)
     set_refresh_cookie(response, refresh_token, request)

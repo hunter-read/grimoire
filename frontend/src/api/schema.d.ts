@@ -4205,7 +4205,7 @@ export interface paths {
         };
         /**
          * Application logs
-         * @description Returns recent application log entries from the in-memory ring buffer (up to 20 000 entries). The `level` filter follows standard log hierarchy: `debug` returns all levels, `info` returns info/warning/error/critical, etc. Console output is controlled by the `LOG_LEVEL` environment variable, but this endpoint always has access to DEBUG-level logs regardless of that setting. For live polling, pass `after_seq` set to the `max_seq` value from the previous response - only entries with a higher sequence number are returned, making polling exact regardless of how fast entries arrive. **Admin only.**
+         * @description Returns recent application log entries from the in-memory ring buffer (up to 20 000 entries). The `level` filter follows standard log hierarchy: `debug` returns all levels, `info` returns info/warning/error/critical, etc. Console output is controlled by the `LOG_LEVEL` environment variable, but this endpoint always has access to DEBUG-level logs regardless of that setting. For live polling, pass `after_seq` set to the `max_seq` value from the previous response - only entries with a higher sequence number are returned, making polling exact regardless of how fast entries arrive. Each entry names the `user` whose request emitted it (null for server-side lines); pass `user` to keep only one user's lines, and `users` in the response lists every username in the buffer. **Admin only.**
          */
         get: operations["get_logs_api_logs_get"];
         put?: never;
@@ -11316,6 +11316,8 @@ export interface components {
             seq: number;
             /** Timestamp */
             timestamp: string;
+            /** User */
+            user?: string | null;
         };
         /** LoginRequest */
         LoginRequest: {
@@ -11374,6 +11376,13 @@ export interface components {
             offset: number;
             /** Total */
             total: number;
+            /** User */
+            user?: string | null;
+            /**
+             * Users
+             * @default []
+             */
+            users?: string[];
         };
         /** LookupDeleteResponse */
         LookupDeleteResponse: {
@@ -15170,6 +15179,10 @@ export interface components {
             explicit_locked?: boolean;
             /** Id */
             id: string;
+            /** Last Active At */
+            last_active_at?: string | null;
+            /** Last Login At */
+            last_login_at?: string | null;
             /** Oidc Linked */
             oidc_linked: boolean;
             /** Role */
@@ -25732,6 +25745,8 @@ export interface operations {
                 offset?: number;
                 /** @description Return only entries with seq > this value (live-poll cursor) */
                 after_seq?: number | null;
+                /** @description Return only lines from requests made by this username */
+                user?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */

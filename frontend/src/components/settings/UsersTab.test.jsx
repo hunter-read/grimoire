@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import UsersTab from './UsersTab'
 
 vi.mock('../../api', () => ({
@@ -53,7 +54,7 @@ beforeEach(() => {
 
 describe('UsersTab', () => {
   it('renders a table row per user with the campaign count', async () => {
-    render(<UsersTab />)
+    render(<UsersTab />, { wrapper: MemoryRouter })
     expect(await screen.findByText('admin')).toBeInTheDocument()
     expect(screen.getByText('bob')).toBeInTheDocument()
     expect(screen.getByText('bob@x.com')).toBeInTheDocument()
@@ -61,7 +62,7 @@ describe('UsersTab', () => {
   })
 
   it('toggles the add-user form', async () => {
-    render(<UsersTab />)
+    render(<UsersTab />, { wrapper: MemoryRouter })
     await screen.findByText('admin')
     fireEvent.click(screen.getByText('Add User'))
     expect(screen.getByLabelText('Username')).toBeInTheDocument()
@@ -69,7 +70,7 @@ describe('UsersTab', () => {
 
   it('expands a row and patches the role from the editor', async () => {
     api.patch.mockResolvedValue({ id: 'user-2', role: 'gm' })
-    render(<UsersTab />)
+    render(<UsersTab />, { wrapper: MemoryRouter })
     await screen.findByText('bob')
     fireEvent.click(screen.getByText('bob'))
     fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'gm' } })
@@ -78,7 +79,7 @@ describe('UsersTab', () => {
 
   it('deletes a user and removes the row', async () => {
     api.delete.mockResolvedValue({})
-    render(<UsersTab />)
+    render(<UsersTab />, { wrapper: MemoryRouter })
     await screen.findByText('bob')
     fireEvent.click(screen.getByText('bob'))
     fireEvent.click(screen.getByLabelText('Delete user bob'))
@@ -89,7 +90,7 @@ describe('UsersTab', () => {
 
   it('shows an error when a patch fails', async () => {
     api.patch.mockRejectedValue(new Error('nope'))
-    render(<UsersTab />)
+    render(<UsersTab />, { wrapper: MemoryRouter })
     await screen.findByText('bob')
     fireEvent.click(screen.getByText('bob'))
     fireEvent.click(screen.getByLabelText('Campaigns'))
@@ -98,7 +99,7 @@ describe('UsersTab', () => {
 
   it('hides the password setter when password auth is disabled', async () => {
     auth.config.mockResolvedValue({ password_auth_enabled: false })
-    render(<UsersTab />)
+    render(<UsersTab />, { wrapper: MemoryRouter })
     await screen.findByText('bob')
     fireEvent.click(screen.getByText('bob'))
     await waitFor(() => expect(screen.queryByText('Set Password')).not.toBeInTheDocument())
@@ -106,7 +107,7 @@ describe('UsersTab', () => {
 
   it('toggles explicit content for a user', async () => {
     api.patch.mockResolvedValue({ id: 'user-2', allow_explicit: true })
-    render(<UsersTab />)
+    render(<UsersTab />, { wrapper: MemoryRouter })
     await screen.findByText('bob')
     fireEvent.click(screen.getByText('bob'))
     fireEvent.click(screen.getByLabelText('Explicit'))
@@ -117,7 +118,7 @@ describe('UsersTab', () => {
 
   it('grants API keys to a user and shows the badge', async () => {
     api.patch.mockResolvedValue({ id: 'user-2', api_keys_enabled: true })
-    render(<UsersTab />)
+    render(<UsersTab />, { wrapper: MemoryRouter })
     await screen.findByText('bob')
     // The admin row carries the badge already; bob's does not until granted.
     expect(screen.getAllByText('API keys')).toHaveLength(1)
@@ -131,7 +132,7 @@ describe('UsersTab', () => {
 
   it('shows an error when granting API keys fails', async () => {
     api.patch.mockRejectedValue(new Error('nope'))
-    render(<UsersTab />)
+    render(<UsersTab />, { wrapper: MemoryRouter })
     await screen.findByText('bob')
     fireEvent.click(screen.getByText('bob'))
     fireEvent.click(screen.getByLabelText('API keys'))
@@ -140,7 +141,7 @@ describe('UsersTab', () => {
 
   it('saves an edited email', async () => {
     api.patch.mockResolvedValue({ id: 'user-2', email: 'new@x.com' })
-    render(<UsersTab />)
+    render(<UsersTab />, { wrapper: MemoryRouter })
     await screen.findByText('bob')
     fireEvent.click(screen.getByText('bob'))
     fireEvent.change(screen.getByLabelText('user@example.com'), {
@@ -154,7 +155,7 @@ describe('UsersTab', () => {
 
   it('resets a password', async () => {
     api.patch.mockResolvedValue({})
-    render(<UsersTab />)
+    render(<UsersTab />, { wrapper: MemoryRouter })
     await screen.findByText('bob')
     fireEvent.click(screen.getByText('bob'))
     fireEvent.click(screen.getByText('Set Password'))
@@ -169,7 +170,7 @@ describe('UsersTab', () => {
 
   it('adds a new user to the table', async () => {
     api.post.mockResolvedValue({ id: 'user-3', username: 'carol', role: 'gm', campaign_count: 0 })
-    render(<UsersTab />)
+    render(<UsersTab />, { wrapper: MemoryRouter })
     await screen.findByText('admin')
     fireEvent.click(screen.getByText('Add User'))
     fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'carol' } })
@@ -182,7 +183,7 @@ describe('UsersTab', () => {
   describe('share links', () => {
     it('lets an admin grant the player role and re-reads the users', async () => {
       settingsApi.patch.mockResolvedValue({ ...shareDefaults, share_links_role_player: true })
-      render(<UsersTab />)
+      render(<UsersTab />, { wrapper: MemoryRouter })
       const player = await screen.findByLabelText('Player')
       expect(player).not.toBeChecked()
       expect(screen.getByLabelText('Admin')).toBeDisabled()
@@ -197,20 +198,20 @@ describe('UsersTab', () => {
 
     it('reports a failed role change', async () => {
       settingsApi.patch.mockRejectedValue(new Error('denied'))
-      render(<UsersTab />)
+      render(<UsersTab />, { wrapper: MemoryRouter })
       fireEvent.click(await screen.findByLabelText('GM'))
       expect(await screen.findByText('denied')).toBeInTheDocument()
     })
 
     it('says so when share links are off for the instance', async () => {
       settingsApi.get.mockResolvedValue({ ...shareDefaults, share_links_enabled: false })
-      render(<UsersTab />)
+      render(<UsersTab />, { wrapper: MemoryRouter })
       expect(await screen.findByText(/SHARE_LINKS_ENABLED=false/)).toBeInTheDocument()
     })
 
     it("patches a user's override from the editor", async () => {
       api.patch.mockResolvedValue({ id: 'user-2', share_links: 'allow', share_links_allowed: true })
-      render(<UsersTab />)
+      render(<UsersTab />, { wrapper: MemoryRouter })
       fireEvent.click(await screen.findByText('bob'))
       fireEvent.change(screen.getByLabelText('Share links'), { target: { value: 'allow' } })
       await waitFor(() =>
@@ -220,7 +221,7 @@ describe('UsersTab', () => {
 
     it('shows an error when the override fails', async () => {
       api.patch.mockRejectedValue(new Error('no way'))
-      render(<UsersTab />)
+      render(<UsersTab />, { wrapper: MemoryRouter })
       fireEvent.click(await screen.findByText('bob'))
       fireEvent.change(screen.getByLabelText('Share links'), { target: { value: 'deny' } })
       expect(await screen.findByText('no way')).toBeInTheDocument()
@@ -229,7 +230,7 @@ describe('UsersTab', () => {
 
   it('dismisses the error banner', async () => {
     api.patch.mockRejectedValue(new Error('boom'))
-    render(<UsersTab />)
+    render(<UsersTab />, { wrapper: MemoryRouter })
     await screen.findByText('bob')
     fireEvent.click(screen.getByText('bob'))
     fireEvent.click(screen.getByLabelText('Campaigns'))

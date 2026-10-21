@@ -21,6 +21,7 @@ from ...auth import (
     verify_password,
 )
 from ...config import get_db
+from ...log_context import set_log_user
 from ...models import AuthSession, CampaignMember, User
 from ...security import (
     AUTH_RATE_LIMIT,
@@ -217,6 +218,7 @@ def auth_refresh(
         clear_auth_cookie(response, request)
         raise HTTPException(401, "Guest access has ended")
 
+    set_log_user(user.username)
     new_refresh = rotate_session(db, session)
     token = create_token(user.id, user.username, user.role, session_id=session.id)
     set_auth_cookie(response, token, request)

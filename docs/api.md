@@ -303,7 +303,7 @@ environment:
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/users` | GET | admin | List all users (each entry includes `email`, `allow_explicit`, `campaign_access`, `api_keys_enabled`, `share_links`/`share_links_allowed`/`share_links_source` (see below), `campaign_count` (number of campaigns the user owns), and `oidc_linked`) |
+| `/api/users` | GET | admin | List all users (each entry includes `email`, `allow_explicit`, `campaign_access`, `api_keys_enabled`, `share_links`/`share_links_allowed`/`share_links_source` (see below), `campaign_count` (number of campaigns the user owns), `oidc_linked`, and `last_login_at`/`last_active_at` - when the account last signed in and was last seen, UTC, `null` for never. Activity is recorded on sign-in, on each token refresh and on API-key use, at most every 5 minutes, so it is only as precise as `ACCESS_TOKEN_EXPIRE_MINUTES`) |
 | `/api/users` | POST | admin | Create a user. Body: `{username, password?, role?, email?, allow_explicit?, campaign_access?, api_keys_enabled?, share_links?}` (role defaults to `player`; email is optional and unique case-insensitively; `password` may be omitted to create an OIDC-only account when password auth is disabled, otherwise it must be ≥8 chars). Returns the created user with `allow_explicit`, `campaign_access`, `campaign_count`, and `oidc_linked`. Usernames are unique regardless of case (`Admin` and `admin` are the same name), as sign-in already compared them. |
 | `/api/users/guests` | GET | admin | List every per-campaign guest account. Each entry: `{id, display_name, created_at, campaign_id, campaign_name, invited_by}` (`invited_by` is the campaign owner's display name/username). Guests never appear in `GET /api/users`. |
 | `/api/users/:id` | PATCH | admin | Update `role`, `password`, `allow_explicit`, `campaign_access`, `api_keys_enabled`, `share_links`, or `email` (use `""` to clear the email). `share_links` is the user's [share link](#share-links-1) override: `"role"` follows the role default, `"allow"`/`"deny"` grant or refuse it whatever the role. Responses report it alongside `share_links_allowed` (the effective answer) and `share_links_source` (`role`, `user` or `disabled`), so a GM with no override reads as allowed by role. `api_keys_enabled` lets a non-admin hold [API keys](#api-keys) (admins always may); OIDC's `apiKeys` permissions claim overrides it on next login. `campaign_access: false` blocks the user from creating/joining/managing campaigns without deleting existing ones; OIDC's `campaignAccess` permissions claim overrides it on next login. Changing a GM's role **drops their access grants** - see [Access levels](#access-levels-issue-258). |
@@ -3359,6 +3359,7 @@ scope resolves to no files.
 | `limit` | `200` | Max entries to return (1–20000) |
 | `offset` | `0` | Skip this many of the most-recent matching entries (historical pagination, ignored when `after_seq` is set) |
 | `after_seq` | - | Return only entries with `seq` greater than this value. Use the `max_seq` from the previous response as a cursor for live polling. Exact even when hundreds of entries arrive between polls. |
+| `user` | - | Return only lines emitted by this user's requests (exact username). `total` counts the filtered lines. |
 
 **Response:**
 ```json
@@ -3368,17 +3369,24 @@ scope resolves to no files.
       "seq": 142,
       "timestamp": "2026-04-10T12:34:56.789Z",
       "level": "INFO",
-      "logger": "grimoire",
-      "message": "File scan start"
+      "logger": "grimoire.activity",
+      "message": "Signed in (password)",
+      "user": "alice"
     }
   ],
   "total": 42,
   "max_seq": 142,
   "level": "info",
   "limit": 200,
-  "offset": 0
+  "offset": 0,
+  "user": null,
+  "users": ["alice", "bob"]
 }
 ```
+
+Each entry's `user` is the username whose request emitted the line - `null` for lines
+from startup, the library scanner, background jobs, or a request that had not yet
+authenticated. `users` lists every username with a line in the buffer, for a user picker.
 
 > **Note:** Console/Docker log verbosity is controlled by the `LOG_LEVEL` environment variable (default `info`). The `/api/logs` endpoint always has access to `DEBUG`-level entries regardless of `LOG_LEVEL`, because the in-memory buffer captures all levels. The buffer holds up to 20 000 entries.
 

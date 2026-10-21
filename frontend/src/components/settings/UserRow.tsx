@@ -1,9 +1,23 @@
-import { useState } from 'react'
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuChevronRight, LuScroll } from 'react-icons/lu'
+import type { Schema } from '../../api'
 import RoleBadge from './RoleBadge'
 import UserPermissionBadges from './UserPermissionBadges'
-import UserExpandedEditor from './UserExpandedEditor'
+import UserExpandedEditor, { type UserEditorHandlers } from './UserExpandedEditor'
+import UserLastActive from './UserLastActive'
+
+interface Props extends UserEditorHandlers {
+  user: Schema<'UserOut'>
+  currentUserId: string
+  currentUserRole: string
+  passwordAuthEnabled: boolean
+  expanded: boolean
+  onToggleExpand: () => void
+  apiKeysEnabled?: boolean
+  shareLinksEnabled?: boolean
+  columnCount: number
+}
 
 export default function UserRow({
   user,
@@ -23,7 +37,7 @@ export default function UserRow({
   onEmailChange,
   onDelete,
   columnCount,
-}) {
+}: Props) {
   const { t } = useTranslation()
   const isSelf = user.id === currentUserId
   const count = user.campaign_count ?? 0
@@ -104,6 +118,10 @@ export default function UserRow({
           />
         </td>
 
+        <td style={{ ...cellStyle, whiteSpace: 'nowrap' }}>
+          <UserLastActive lastActiveAt={user.last_active_at} lastLoginAt={user.last_login_at} />
+        </td>
+
         <td style={{ ...cellStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>
           <span
             style={{
@@ -150,12 +168,12 @@ export default function UserRow({
   )
 }
 
-const cellStyle = {
+const cellStyle: CSSProperties = {
   padding: '12px 14px',
   verticalAlign: 'middle',
 }
 
-const oidcBadgeStyle = {
+const oidcBadgeStyle: CSSProperties = {
   fontSize: 10,
   fontWeight: 600,
   letterSpacing: '0.06em',

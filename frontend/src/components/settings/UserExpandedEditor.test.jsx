@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import UserExpandedEditor from './UserExpandedEditor'
 import { auth, campaigns, shareLinks } from '../../api'
 import { clearPasswordRulesCache } from '../../hooks/usePasswordRules'
@@ -47,7 +48,7 @@ function setup(overrides = {}) {
     onDelete: vi.fn(),
     ...overrides,
   }
-  render(<UserExpandedEditor {...props} />)
+  render(<UserExpandedEditor {...props} />, { wrapper: MemoryRouter })
   return props
 }
 
