@@ -283,6 +283,7 @@ def _register_system_row(
             stats["errors"] += 1
             return None
         stats["new_systems"] += 1
+        ctx.created_system_ids.add(system.id)
         logger.info(f"Found a new game system: {name}" + (" (mature)" if folder.is_nsfw else ""))
     else:
         if folder.is_nsfw and not system.is_explicit:

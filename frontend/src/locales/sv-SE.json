@@ -1606,9 +1606,35 @@
       "updated_other": "{{count}} uppdaterade",
       "models": "{{count}} ny/nya modell(er)"
     },
+    "watch": {
+      "title": "Bevaka ändringar",
+      "description": "Skannar om av sig själv några sekunder efter att filer lagts till, döpts om, flyttats eller tagits bort i biblioteksmappen. Ligger ändringen i en enda mapp skannas bara den mappen om.",
+      "enabled": "Bevaka biblioteksmappen efter ändringar",
+      "modeLabel": "Hur ändringar upptäcks",
+      "modes": {
+        "auto": "Automatiskt",
+        "events": "Filsystemhändelser",
+        "poll": "Kontrollera regelbundet"
+      },
+      "modeHelp": {
+        "auto": "Använder filsystemhändelser och kontrollerar i stället regelbundet när biblioteket ligger på en nätverksresurs (NFS, SMB eller en FUSE-montering).",
+        "events": "Omedelbart och lätt, men ser bara ändringar som görs på den här datorn. Ändringar från en annan dator på en nätverksresurs missas.",
+        "poll": "Går igenom hela biblioteket var {{seconds}}:e sekund. Fungerar på alla resurser; ställ in LIBRARY_WATCH_POLL_INTERVAL för att kontrollera ett stort bibliotek mer sällan."
+      },
+      "state": {
+        "watching": "Bevakar ändringar.",
+        "polling": "Kontrollerar ändringar var {{seconds}}:e sekund.",
+        "off": "Ingen bevakning. Nya filer dyker upp efter en manuell eller schemalagd skanning.",
+        "unavailable": "Kan inte bevaka biblioteket: {{detail}}"
+      },
+      "envLocked": "Satt av {{name}}",
+      "save": "Spara",
+      "saving": "Sparar…",
+      "saved": "Sparat"
+    },
     "scheduledRescan": {
       "title": "Schemalagd omskanning",
-      "description": "Skanna om biblioteket automatiskt enligt ett schema.",
+      "description": "Skannar om hela biblioteket vid en fast tid. Med Bevaka ändringar på är detta valfritt - användbart på en långsammare server, eller för att hålla skanningar borta från de timmar då er grupp spelar.",
       "off": "Av",
       "hourly": "Varje timme",
       "daily": "Varje dag",

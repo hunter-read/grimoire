@@ -1606,9 +1606,35 @@
       "updated_other": "{{count}} updated",
       "models": "{{count}} new model(s)"
     },
+    "watch": {
+      "title": "Auf Änderungen achten",
+      "description": "Scannt die Bibliothek von selbst neu, wenige Sekunden nachdem Dateien im Bibliotheksordner hinzugefügt, umbenannt, verschoben oder gelöscht wurden. Betrifft die Änderung nur einen Ordner, wird nur dieser neu gescannt.",
+      "enabled": "Bibliotheksordner auf Änderungen überwachen",
+      "modeLabel": "Wie Änderungen erkannt werden",
+      "modes": {
+        "auto": "Automatisch",
+        "events": "Dateisystem-Ereignisse",
+        "poll": "Regelmäßig prüfen"
+      },
+      "modeHelp": {
+        "auto": "Nutzt Dateisystem-Ereignisse und prüft stattdessen regelmäßig, wenn die Bibliothek auf einer Netzwerkfreigabe liegt (NFS, SMB oder ein FUSE-Mount).",
+        "events": "Sofort und sparsam, erfährt aber nur von Änderungen auf diesem Rechner. Änderungen, die ein anderer Computer an einer Netzwerkfreigabe vornimmt, werden verpasst.",
+        "poll": "Durchsucht die ganze Bibliothek alle {{seconds}} Sekunden. Funktioniert mit jeder Freigabe; setze LIBRARY_WATCH_POLL_INTERVAL, um eine große Bibliothek seltener zu prüfen."
+      },
+      "state": {
+        "watching": "Achtet auf Änderungen.",
+        "polling": "Prüft alle {{seconds}} Sekunden auf Änderungen.",
+        "off": "Keine Überwachung. Neue Dateien erscheinen nach einem manuellen oder geplanten Scan.",
+        "unavailable": "Die Bibliothek kann nicht überwacht werden: {{detail}}"
+      },
+      "envLocked": "Festgelegt durch {{name}}",
+      "save": "Speichern",
+      "saving": "Speichern…",
+      "saved": "Gespeichert"
+    },
     "scheduledRescan": {
       "title": "Geplanter Rescan",
-      "description": "Bibliothek automatisch nach einem Zeitplan neu scannen, um neue Dateien ohne manuellen Eingriff aufzunehmen.",
+      "description": "Scannt die ganze Bibliothek zu einer festen Zeit neu. Ist „Auf Änderungen achten“ an, ist das optional - nützlich auf einem langsameren Server oder um Scans aus den Stunden herauszuhalten, in denen eure Runde spielt.",
       "off": "Aus",
       "hourly": "Stündlich",
       "daily": "Täglich",

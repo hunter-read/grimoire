@@ -40,7 +40,7 @@ from .paths import (
     safe_join,
     to_relative,
 )
-from .placement import _system_folder_name
+from .placement import _container_child_slug, _system_depth_for, _system_folder_name
 
 def create_folder(
     parent: str,
@@ -137,13 +137,25 @@ def system_for_folder(db: Session, path: Path) -> Optional[Any]:
 
     Matched on the same derived name/slug the scanner uses, so the folder and the
     row agree even when the folder name carries ``(nsfw)``, a container suffix, or
-    a sort prefix. Only direct children of ``books/`` are systems; anything deeper
-    is a category folder.
+    a sort prefix. A direct child of ``books/`` is a system, and so is a child of
+    a container folder, slugged under its container the way the scanner slugs
+    it (issue #670); anything else is a category folder.
     """
     rel = to_relative(path)
     parts = rel.split("/")
-    if len(parts) != 2 or parts[0].lower() != "books":
+    if len(parts) < 2 or parts[0].lower() != "books":
         return None
+    if len(parts) > 2:
+        # Inside containers, the system folder is the one just past the last
+        # container. Anything deeper (or a plain system's category) is not one.
+        depth = _system_depth_for(db, parts)
+        if depth != len(parts):
+            return None
+        return (
+            db.query(GameSystem)
+            .filter(GameSystem.slug == _container_child_slug(parts, depth))
+            .first()
+        )
     name = _system_folder_name(parts[1])
     return (
         db.query(GameSystem).filter(GameSystem.name == name).first()

@@ -79,6 +79,7 @@ from .hashing import (  # noqa: F401  (re-exported: patched as backend.indexer.s
 )
 from .media import _enrich_model, _scan_audio, _scan_media  # noqa: F401
 from .metadata import resolve_collection_dir, resolve_scope
+from .moves import reconciled_at
 from .reconcile import (  # noqa: F401  (re-exported for patch compatibility)
     _detect_moves,
     _export_sidecars_for_new_books,
@@ -229,6 +230,7 @@ def scan_library(
         stats=stats,
         totals=totals,
         date_inserts=first_import_done(session),
+        reconciled_at=reconciled_at(session),
     )
 
     ctx.emit_progress()

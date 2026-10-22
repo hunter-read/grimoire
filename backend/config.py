@@ -558,6 +558,37 @@ DISABLE_FOLDER_CATEGORY_INFERENCE_ENV: Optional[bool] = _bool_env(
 )
 
 
+# Watching the library for changes (issue #670). Each pins its setting and
+# locks it in the admin UI when set; unset leaves the DB setting in charge.
+#   LIBRARY_WATCH       true/false - rescan by itself when files change.
+#   LIBRARY_WATCH_MODE  auto | events | poll - how changes are noticed. "auto"
+#                       polls on network shares (NFS, SMB, FUSE), where the
+#                       kernel never hears about changes made from another
+#                       machine, and uses filesystem events everywhere else.
+LIBRARY_WATCH_ENV: Optional[bool] = _bool_env("LIBRARY_WATCH")
+LIBRARY_WATCH_MODES = ("auto", "events", "poll")
+_LIBRARY_WATCH_MODE_RAW = (os.environ.get("LIBRARY_WATCH_MODE") or "").strip().lower()
+LIBRARY_WATCH_MODE_ENV: Optional[str] = (
+    _LIBRARY_WATCH_MODE_RAW if _LIBRARY_WATCH_MODE_RAW in LIBRARY_WATCH_MODES else None
+)
+
+
+def _seconds_env(name: str, default: int, minimum: int) -> int:
+    raw = (os.environ.get(name) or "").strip()
+    try:
+        return max(minimum, int(raw)) if raw else default
+    except ValueError:
+        return default
+
+
+# How long the library has to stay quiet before a detected change is scanned,
+# so a folder still being copied is scanned once, when it is finished.
+LIBRARY_WATCH_DELAY: int = _seconds_env("LIBRARY_WATCH_DELAY", 10, 1)
+# In poll mode, how often the library is checked. Each check lists every folder
+# and stats every file, so a large library on a slow share wants this longer.
+LIBRARY_WATCH_POLL_INTERVAL: int = _seconds_env("LIBRARY_WATCH_POLL_INTERVAL", 120, 5)
+
+
 # OIDC env-var pins. When set, each individual field is locked and the UI
 # renders it read-only. Each env var is independent — pinning the issuer URL
 # does not require pinning the client secret, etc.

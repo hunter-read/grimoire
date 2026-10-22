@@ -1606,9 +1606,35 @@
       "updated_other": "{{count}} atualizados",
       "models": "{{count}} new model(s)"
     },
+    "watch": {
+      "title": "Acompanhar alterações",
+      "description": "Volta a analisar por si só alguns segundos depois de serem adicionados, renomeados, movidos ou eliminados ficheiros na pasta da biblioteca. Quando a alteração está numa só pasta, só essa é analisada.",
+      "enabled": "Acompanhar alterações na pasta da biblioteca",
+      "modeLabel": "Como as alterações são detetadas",
+      "modes": {
+        "auto": "Automático",
+        "events": "Eventos do sistema de ficheiros",
+        "poll": "Verificar regularmente"
+      },
+      "modeHelp": {
+        "auto": "Usa eventos do sistema de ficheiros e, quando a biblioteca está numa partilha de rede (NFS, SMB ou montagem FUSE), verifica regularmente.",
+        "events": "Instantâneo e leve, mas só deteta alterações feitas nesta máquina. Alterações feitas noutro computador numa partilha de rede escapam.",
+        "poll": "Percorre a biblioteca inteira a cada {{seconds}} segundos. Funciona em qualquer partilha; defina LIBRARY_WATCH_POLL_INTERVAL para verificar uma biblioteca grande com menos frequência."
+      },
+      "state": {
+        "watching": "A acompanhar alterações.",
+        "polling": "A verificar alterações a cada {{seconds}} segundos.",
+        "off": "Sem acompanhamento. Os ficheiros novos aparecem após uma análise manual ou agendada.",
+        "unavailable": "Não é possível acompanhar a biblioteca: {{detail}}"
+      },
+      "envLocked": "Definido por {{name}}",
+      "save": "Guardar",
+      "saving": "A guardar…",
+      "saved": "Guardado"
+    },
     "scheduledRescan": {
       "title": "Análise agendada",
-      "description": "Voltar a analisar automaticamente a biblioteca de forma agendada para detetar novos ficheiros sem intervenção manual.",
+      "description": "Volta a analisar toda a biblioteca a uma hora fixa. Com Acompanhar alterações ligado, isto é opcional - útil num servidor mais lento ou para manter as análises fora das horas em que a sua mesa joga.",
       "off": "Desligado",
       "hourly": "A cada hora",
       "daily": "Todos os dias",

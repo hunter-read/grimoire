@@ -760,7 +760,10 @@ class TestMissingFiles:
         books_dir = lib / "books" / "ReturnSystem"
         books_dir.mkdir(parents=True)
         pdf = books_dir / "returning.pdf"
-        pdf.write_bytes(b"%PDF-1.4")
+        # Unique bytes: a row created since the last full scan may be the new
+        # half of a move (issue #670), and the shared test database holds missing
+        # rows from other tests' libraries with the generic "%PDF-1.4" bytes.
+        pdf.write_bytes(b"%PDF-1.4\n%returning-" + uuid.uuid4().hex.encode())
 
         db = SessionLocal()
         try:

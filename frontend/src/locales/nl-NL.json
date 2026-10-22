@@ -1606,9 +1606,35 @@
       "updated_other": "{{count}} bijgewerkt",
       "models": "{{count}} new model(s)"
     },
+    "watch": {
+      "title": "Wijzigingen volgen",
+      "description": "Scant vanzelf opnieuw, enkele seconden nadat bestanden in de bibliotheekmap zijn toegevoegd, hernoemd, verplaatst of verwijderd. Zit de wijziging in één map, dan wordt alleen die map opnieuw gescand.",
+      "enabled": "De bibliotheekmap volgen op wijzigingen",
+      "modeLabel": "Hoe wijzigingen worden opgemerkt",
+      "modes": {
+        "auto": "Automatisch",
+        "events": "Bestandssysteemgebeurtenissen",
+        "poll": "Regelmatig controleren"
+      },
+      "modeHelp": {
+        "auto": "Gebruikt bestandssysteemgebeurtenissen en controleert in plaats daarvan regelmatig als de bibliotheek op een netwerkshare staat (NFS, SMB of een FUSE-mount).",
+        "events": "Direct en licht, maar ziet alleen wijzigingen op deze machine. Wijzigingen vanaf een andere computer op een netwerkshare worden gemist.",
+        "poll": "Doorloopt de hele bibliotheek elke {{seconds}} seconden. Werkt op elke share; stel LIBRARY_WATCH_POLL_INTERVAL in om een grote bibliotheek minder vaak te controleren."
+      },
+      "state": {
+        "watching": "Volgt wijzigingen.",
+        "polling": "Controleert elke {{seconds}} seconden op wijzigingen.",
+        "off": "Niet aan het volgen. Nieuwe bestanden verschijnen na een handmatige of geplande scan.",
+        "unavailable": "Kan de bibliotheek niet volgen: {{detail}}"
+      },
+      "envLocked": "Ingesteld door {{name}}",
+      "save": "Opslaan",
+      "saving": "Opslaan…",
+      "saved": "Opgeslagen"
+    },
     "scheduledRescan": {
       "title": "Geplande scan",
-      "description": "Scan de bibliotheek automatisch volgens een schema om nieuwe bestanden op te halen zonder handmatige tussenkomst.",
+      "description": "Scant de hele bibliotheek op een vast tijdstip opnieuw. Met Wijzigingen volgen aan is dit optioneel - handig op een tragere server, of om scans buiten de uren te houden waarin je groep speelt.",
       "off": "Uit",
       "hourly": "Elk uur",
       "daily": "Elke dag",

@@ -114,6 +114,14 @@ beforeEach(() => {
   })
 })
 
+describe('MaintenanceTab — WatchLibrarySection', () => {
+  it('sits beside the scheduled rescan', async () => {
+    render(<MaintenanceTab />)
+    expect(await screen.findByText('Watch for Changes')).toBeInTheDocument()
+    expect(screen.getByText('Scheduled Rescan')).toBeInTheDocument()
+  })
+})
+
 describe('MaintenanceTab — RescanSection', () => {
   it('renders the Rescan Library button when idle', () => {
     render(<MaintenanceTab />)

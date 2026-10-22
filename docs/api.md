@@ -1748,6 +1748,16 @@ The settings response no longer carries a `stats_api_key`, and `PATCH` ignores
 one: API keys moved to [`/api/api-keys`](#api-keys-1), where the key
 itself is never readable back.
 
+`GET /api/settings` and `PATCH /api/settings` also carry the library watcher
+(see [Watching for changes](file-management.md#watching-for-changes)):
+`library_watch_enabled` (bool, default `true`) and `library_watch_mode` (`auto`,
+`events`, or `poll`) are settable, and answer `400` while `LIBRARY_WATCH` or
+`LIBRARY_WATCH_MODE` pins them; `library_watch_env_locked` and
+`library_watch_mode_env_locked` say which are pinned. `library_watch_state` is what the
+watcher last reported - `{"state": "watching" | "polling" | "off" | "unavailable",
+"detail": "<why it is unavailable>"}` - and `library_watch_poll_interval` is the poll
+period in seconds. A change applies within a few seconds, with no restart.
+
 `GET /api/settings/ui` also returns `library_writable`: whether the library root
 can be written to at all. It is not a stored setting - it is probed at request
 time - and it gates the move / rename / delete affordances in views outside the

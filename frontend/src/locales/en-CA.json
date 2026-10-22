@@ -1606,9 +1606,35 @@
       "updated_other": "{{count}} updated",
       "models": "{{count}} new model(s)"
     },
+    "watch": {
+      "title": "Watch for Changes",
+      "description": "Rescan by itself a few seconds after files are added, renamed, moved or deleted in the library folder. When the change is inside one folder, only that folder is rescanned.",
+      "enabled": "Watch the library folder for changes",
+      "modeLabel": "How changes are noticed",
+      "modes": {
+        "auto": "Automatic",
+        "events": "File system events",
+        "poll": "Check regularly"
+      },
+      "modeHelp": {
+        "auto": "Uses file system events, and checks regularly instead when the library is on a network share (NFS, SMB or a FUSE mount).",
+        "events": "Instant and light, but only hears about changes made on this machine. Changes made from another computer to a network share are missed.",
+        "poll": "Looks through the whole library every {{seconds}} seconds. Works on any share; set LIBRARY_WATCH_POLL_INTERVAL to check less often on a large library."
+      },
+      "state": {
+        "watching": "Watching for changes.",
+        "polling": "Checking for changes every {{seconds}} seconds.",
+        "off": "Not watching. New files appear after a manual or scheduled rescan.",
+        "unavailable": "Can't watch the library: {{detail}}"
+      },
+      "envLocked": "Set by {{name}}",
+      "save": "Save",
+      "saving": "Saving…",
+      "saved": "Saved"
+    },
     "scheduledRescan": {
       "title": "Scheduled Rescan",
-      "description": "Automatically rescan the library on a schedule to pick up new files without manual intervention.",
+      "description": "Rescan the whole library at a set time. With Watch for Changes on this is optional - useful on a slower server, or to keep scanning out of the hours your table plays.",
       "off": "Off",
       "hourly": "Every hour",
       "daily": "Every day",

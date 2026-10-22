@@ -2,336 +2,34 @@
 
 Everything here runs after the collection phases, when the scan knows the full
 set of paths that exist on disk. That ordering is what makes move detection
-possible: a row whose file is gone and a row inserted by this same scan with
-matching content are the two halves of one move, and only a completed walk can
-pair them (issue #284). ``ctx.inserted_ids`` is the guard — a *pre-existing*
-row is a file that did not move, however well its bytes match.
+possible: a row whose file is gone and a row inserted with matching content are
+the two halves of one move, and only a completed walk can pair them (issue
+#284). Move detection lives in ``moves`` and system pruning in
+``system_prune``; both are re-exported here.
 
 ``_prune_vanished_systems`` is deliberately gated by its caller on a full books
 walk, since ``seen_system_ids`` is only populated by that walk.
 """
+import datetime
 import logging
 import os
 from typing import Any
 
-from ._context import _ScanContext, _title_from_filename
+from ._context import _ScanContext
 from ._subprocess import _run_with_timeout
 from .constants import _DB_TIMEOUT
+from .moves import (  # noqa: F401  (re-exported for patch compatibility)
+    _detect_moves,
+    _remove_stale_thumbnail,
+    _rename_thumbnail_to_title,
+    mark_reconciled,
+)
+from .system_prune import _prune_vanished_systems  # noqa: F401  (re-exported)
 from ..metadata import export as sidecar_export
 from ..metadata import settings as sidecar_settings
-from ..models import Audio, Book, GameSystem, GenericMap, Model3D, Token
+from ..models import Audio, Book, GenericMap, Model3D, Token
 
 logger = logging.getLogger("grimoire.indexer")
-
-
-# Which thumbnail subdirectory each model's covers live in. Audio is absent on
-# purpose: it carries ``has_artwork``/``cover_image`` sourced from embedded tags
-# or folder artwork, not a path-keyed file this module could orphan.
-_THUMB_SECTIONS: dict[Any, str] = {
-    GenericMap: "maps",
-    Token: "tokens",
-    Model3D: "models",
-}
-
-
-def _remove_stale_thumbnail(ctx: _ScanContext, model: Any, old: Any) -> None:
-    """Delete the thumbnail a moved map/token left behind at its old path.
-
-    Thumbnail filenames embed a hash of the *filepath*, so a move leaves the old
-    file unreferenced: the walk has already written a fresh one under the new
-    path's name, and nothing will ever serve or clean up the old one.
-
-    Named from ``_title_from_filename(old.filename)`` rather than a stored title,
-    because that is what :func:`_scan_media` used when it wrote the file — maps
-    and tokens have no ``title`` column.
-
-    Best-effort: a thumbnail that cannot be removed is wasted disk, never a
-    reason to fail the scan.
-    """
-    section = _THUMB_SECTIONS.get(model)
-    if section is None or not getattr(old, "has_thumbnail", False):
-        return
-    stale = ctx.thumb_path(section, _title_from_filename(old.filename), old.filepath)
-    try:
-        os.remove(stale)
-    except FileNotFoundError:
-        pass
-    except OSError as e:
-        logger.debug("Could not remove stale thumbnail %s: %s", stale, e)
-
-
-def _rename_thumbnail_to_title(
-    ctx: _ScanContext, rendered_title: str, kept_title: str, filepath: str
-) -> None:
-    """Rename a move's fresh cover from the rendered title to the kept one.
-
-    Thumbnails are stored as ``<slugified title>_<hash of filepath>.webp``. After
-    a move the surviving row keeps its own title — which may have been edited in
-    the UI — while the file on disk was named from the title the walk derived
-    from the filename. The serving endpoint falls back to a glob on the hash, so
-    this is a tidiness fix rather than a correctness one; doing it keeps the fast
-    exact-name path working instead of pushing every moved book onto the glob.
-
-    Best-effort by design: a failure here leaves a servable thumbnail in place,
-    so it must never interrupt the scan.
-    """
-    src = ctx.thumb_path("books", rendered_title, filepath)
-    dest = ctx.thumb_path("books", kept_title, filepath)
-    if src == dest:
-        return
-    try:
-        if os.path.isfile(src):
-            os.replace(src, dest)
-    except OSError as e:
-        logger.debug("Could not rename thumbnail %s -> %s: %s", src, dest, e)
-
-
-def _detect_moves(ctx: _ScanContext, model: Any, gone: list, present: list) -> int:
-    """Re-point rows whose file moved instead of leaving them missing (issue #284).
-
-    Without this a move reads as a delete plus an insert: the old row is flagged
-    ``is_missing`` and a brand-new row appears at the new path, silently dropping
-    the tags, favorites, bookmarks, and read progress attached to the old row's id.
-    Matching on content hash recovers the connection — same bytes, new location.
-
-    The surviving row also inherits the destination row's thumbnail state, since
-    the walk has already rendered a cover at the new path (issue #394).
-
-    ``gone`` are rows whose file no longer exists; ``present`` are rows whose file
-    does. A move is accepted only when exactly one gone row and exactly one
-    *newly inserted* row share a ``(content_hash, file_size)`` key. Anything
-    ambiguous is left alone: TTRPG libraries routinely hold the same PDF under two
-    systems, and pairing duplicates off by guesswork would attach one book's tags
-    and reading progress to another.
-    """
-    session = ctx.session
-    by_hash: dict[tuple, list] = {}
-    for record in gone:
-        if record.content_hash:
-            by_hash.setdefault((record.content_hash, record.file_size), []).append(record)
-    if not by_hash:
-        return 0
-
-    # Only rows this scan just inserted can be a move destination. A row that
-    # already existed is a file sitting where it has always sat: if it happens to
-    # share its bytes with something deleted elsewhere (identical duplicates are
-    # common), claiming it as the move target would rewrite and then delete a book
-    # that never moved.
-    candidates: dict[tuple, list] = {}
-    for record in present:
-        if record.id not in ctx.inserted_ids:
-            continue
-        key = (record.content_hash, record.file_size)
-        if key in by_hash:
-            candidates.setdefault(key, []).append(record)
-
-    moved = 0
-    for key, old_rows in by_hash.items():
-        new_rows = candidates.get(key, [])
-        if len(old_rows) != 1 or len(new_rows) != 1:
-            if new_rows:
-                logger.info(
-                    "Ambiguous move for hash %s (%d gone, %d found) - leaving as-is",
-                    key[0][:12],
-                    len(old_rows),
-                    len(new_rows),
-                )
-            continue
-        old, new = old_rows[0], new_rows[0]
-
-        # The old row's caches are keyed by its former path; the file's bytes now
-        # live somewhere else, so those entries are unreachable garbage. Its search
-        # rows are not: they are keyed by the id the old row keeps, and a move is
-        # only matched on identical bytes, so the text is still right. Passing no
-        # ``db`` keeps them - dropping them while the row stayed ``indexed`` left
-        # the book unsearchable for good (issue #503).
-        if model is Book:
-            from ..services.content_cache import invalidate_book_content
-
-            thumb = ctx.thumb_path("books", old.title, old.filepath) if old.has_thumbnail else None
-            invalidate_book_content(old.id, old.filepath, thumb_path=thumb)
-        else:
-            # Maps and tokens have no page renders or search rows to drop, but
-            # their thumbnail is path-keyed just like a book's, so the file at the
-            # old path is dead weight the moment the row moves. Only books went
-            # through the invalidation above, which left one orphaned WebP per
-            # moved map or token accumulating forever (issue #394).
-            _remove_stale_thumbnail(ctx, model, old)
-
-        logger.info(f"Detected move: '{old.filepath}' -> '{new.filepath}'")
-        # Carry the new location onto the *old* row so its id — and everything
-        # referencing it — survives. ``filepath`` is UNIQUE, so the duplicate the
-        # walk inserted has to be deleted and flushed *before* the old row can
-        # take its path, or the UPDATE trips the constraint.
-        new_filepath, new_filename = new.filepath, new.filename
-        new_relative, new_system = new.relative_path, getattr(new, "game_system_id", None)
-        new_category = getattr(new, "category", None)
-        # The walk already rendered a cover for the file at its new path, onto
-        # the row about to be discarded. Thumbnail filenames are path-derived, so
-        # that render is the *live* one and the old row's was the stale file just
-        # deleted above; inheriting the flag hands the survivor the cover that
-        # actually exists. Leaving it False stranded a perfectly good WebP on
-        # disk that nothing would ever serve or clean up, and the book showed a
-        # blank cover until a full "Rescan and Re-index" (issue #394).
-        new_has_thumbnail = getattr(new, "has_thumbnail", False)
-        new_title = getattr(new, "title", None)
-        session.delete(new)
-        session.flush()
-
-        old.filepath = new_filepath
-        old.filename = new_filename
-        old.relative_path = new_relative
-        old.is_missing = False
-        if model is Book:
-            old.game_system_id = new_system
-            old.category = new_category
-            old.has_thumbnail = bool(new_has_thumbnail)
-            # The cover was written as ``slugify(<new row's title>)_<hash>.webp``.
-            # A survivor whose title was customised in the UI keeps that title, so
-            # rename the file to match rather than relying on the serving glob.
-            if new_has_thumbnail and new_title and new_title != old.title:
-                _rename_thumbnail_to_title(ctx, new_title, old.title, new_filepath)
-        moved += 1
-
-    if moved:
-        try:
-            _run_with_timeout(session.commit, _DB_TIMEOUT, "commit detected moves")
-        except (TimeoutError, Exception) as e:
-            logger.error(f"DB error saving detected moves: {e}")
-            session.rollback()
-            return 0
-    return moved
-
-
-def _prune_vanished_systems(ctx: _ScanContext) -> int:
-    """Delete system rows whose folder is gone or newly ``.grimoireignore``-excluded.
-
-    Files get an ``is_missing`` sweep (see :func:`_reconcile_missing`), but system
-    rows had no equivalent, so a folder that stopped being scanned left its
-    ``GameSystem`` behind forever — visible in the library with no way to remove
-    it. The reported case is a Synology ``@eaDir`` folder registered before its
-    ``.grimoireignore`` rule was added: the rule correctly hides the *books*, but
-    the system row it had already created survived every rescan (issue #354).
-
-    Deliberately conservative — a row is only dropped when **all** of:
-
-    * this scan never walked to it (so no folder maps to it any more),
-    * it owns no content of any kind, including through child systems, and
-    * a user has not adapted it (renamed it, or given it a description, cover,
-      or other metadata), since that signals a row worth keeping even when the
-      shelf is momentarily empty.
-
-    Scoped rescans prune nothing: they only walk one subtree, so every system
-    outside it would look unseen.
-
-    Only systems belonging to **this** library are considered. A database can
-    outlive the library path pointed at it (someone re-points ``LIBRARY_PATH``,
-    or several libraries share one database, as the test suite does), and
-    "unseen by this scan" would otherwise mean "delete everything the other
-    library owns".  A row is in scope only when its books sit under this
-    library root, or it was created by this very scan.
-    """
-    if ctx.scope_dir is not None:
-        return 0
-
-    session = ctx.session
-    try:
-        systems = _run_with_timeout(
-            lambda: session.query(GameSystem).all(), _DB_TIMEOUT, "query systems for pruning"
-        )
-    except TimeoutError as e:
-        logger.error(f"DB hang: {e} - skipping system pruning")
-        return 0
-
-    unseen = [s for s in systems if s.id not in ctx.seen_system_ids]
-    if not unseen:
-        return 0
-
-    # Which systems does this library account for? Anchored on absolute book
-    # paths, since that is the only link from a system row back to a directory.
-    root = os.path.join(os.path.abspath(ctx.library_path), "")
-    in_this_library: set = set()
-    for system_id, filepath in session.query(Book.game_system_id, Book.filepath).filter(
-        Book.game_system_id.isnot(None)
-    ):
-        if filepath and os.path.abspath(filepath).startswith(root):
-            in_this_library.add(system_id)
-
-    # A *container* owns no books of its own — its children do — so the book-path
-    # anchor above can never place one in this library, and it was skipped as
-    # "some other library's row" on every rescan. Deleting a container folder
-    # therefore pruned its children and stranded the container itself: an empty
-    # shelf in the special-collections strip that no rescan, and no amount of
-    # deleting the folder from the file manager, could clear (the reported case).
-    #
-    # A row this scan actually walked to is self-evidently this library's, which
-    # covers the container that still exists. The container whose folder has just
-    # vanished is caught by the parent chain below instead: its children were in
-    # this library, so it is too.
-    in_this_library |= ctx.seen_system_ids & {s.id for s in systems}
-    # Ownership flows *up*: a container belongs to this library when any of its
-    # descendants does. Walk child→parent so a chain deeper than one level
-    # resolves in full, and so a container is still claimed on the very scan
-    # that prunes its children (nothing is deleted until the loop below).
-    by_id = {s.id: s for s in systems}
-    pending = [s for s in systems if s.id in in_this_library]
-    while pending:
-        node = pending.pop()
-        parent = by_id.get(node.parent_id) if node.parent_id else None
-        if parent is not None and parent.id not in in_this_library:
-            in_this_library.add(parent.id)
-            pending.append(parent)
-
-    # Books are the only collection tied to a system — maps, tokens, and audio
-    # are deliberately system-agnostic — so one distinct query covers ownership.
-    #
-    # Only books still *present* count. A row flagged ``is_missing`` is exactly
-    # what the vanished/ignored folder leaves behind, so counting those would
-    # make every such system permanently unprunable — the bug being fixed.
-    owning = {
-        row[0]
-        for row in session.query(Book.game_system_id)
-        .filter(Book.game_system_id.isnot(None), Book.is_missing.isnot(True))
-        .distinct()
-        .all()
-    }
-    # A container whose children survive must survive too, or the children are
-    # orphaned. Parentage is one level in practice but resolved transitively.
-    keep_parents: set = set()
-    for system in systems:
-        if system.id in owning or system.id in ctx.seen_system_ids:
-            node = system
-            while node.parent_id:
-                keep_parents.add(node.parent_id)
-                node = by_id.get(node.parent_id)
-                if node is None:
-                    break
-
-    removed = 0
-    for system in unseen:
-        # Not this library's row to delete — see the docstring.
-        if system.id not in in_this_library:
-            continue
-        if system.id in owning or system.id in keep_parents:
-            continue
-        if system.name_is_custom or system.description or system.cover_image:
-            logger.info(
-                f"System '{system.name}' has no folder any more but carries user "
-                "metadata - leaving it in place"
-            )
-            continue
-        logger.info(f"Removing system '{system.name}': its folder is gone or now ignored")
-        session.delete(system)
-        removed += 1
-
-    if removed:
-        try:
-            _run_with_timeout(session.commit, _DB_TIMEOUT, "commit system pruning")
-        except (TimeoutError, Exception) as e:
-            logger.error(f"DB error pruning systems: {e}")
-            session.rollback()
-            return 0
-    return removed
 
 
 def _reconcile_missing(
@@ -354,6 +52,9 @@ def _reconcile_missing(
     session = ctx.session
     ignore = ctx.ignore
     scope_dir = ctx.scope_dir
+    # Taken before any row is read, so a row inserted while the sweep runs (an
+    # upload) is still treated as unreconciled by the next one.
+    started = datetime.datetime.now(datetime.timezone.utc)
 
     def _scoped(query: Any, model: Any) -> Any:
         if scope_dir is not None:
@@ -415,6 +116,10 @@ def _reconcile_missing(
         )
     try:
         _run_with_timeout(session.commit, _DB_TIMEOUT, "commit missing flags")
+        # Only a sweep of every collection reconciles every row; a scoped one
+        # leaves rows elsewhere still waiting for move detection.
+        if scope_dir is None and all(enabled for _k, _m, enabled, _l in collections):
+            mark_reconciled(session, started)
     except (TimeoutError, Exception) as e:
         logger.error(f"DB hang saving missing flags: {e}")
         session.rollback()

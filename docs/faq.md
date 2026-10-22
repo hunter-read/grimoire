@@ -150,7 +150,7 @@ Grimoire scans the library each time it starts, so files added while it was down
 
 Press **Stop** under Settings → Maintenance to end it. The scan stops at the next file or page, and queued OCR picks up where it left off on the next scan. Once it has stopped you can rescan a single folder.
 
-If restarts are mostly for image updates or setting changes, set `STARTUP_SCAN=false` (see [Configuration](configuration.md)). Grimoire then starts without scanning, and new files wait for a manual rescan or one set under Settings → Maintenance → Scheduled Rescan.
+If restarts are mostly for image updates or setting changes, set `STARTUP_SCAN=false` (see [Configuration](configuration.md)). Grimoire then starts without scanning. New files still appear as they arrive while the library is [watched for changes](file-management.md#watching-for-changes); without that they wait for a manual rescan or one set under Settings → Maintenance → Scheduled Rescan.
 
 With more than one worker (`WORKERS=2`), set `VALKEY_URL` as well. **Stop** reaches the startup scan whichever worker runs it, but without Valkey each worker keeps its own scan progress, so the progress shown can jump between the two - see [Workers](performance.md#workers).
 

@@ -10,6 +10,7 @@ from ...config import (
     OIDC_ENV,
     BASE_URL,
 )
+from ...library_watch import settings as library_watch_settings
 from ...models import AppSetting
 from ...services.oidc_button import current_icon, normalize_color, normalize_radius
 from ._login_message import sanitize_login_message  # noqa: F401  (re-exported)
@@ -26,6 +27,9 @@ _DEFAULTS = {
     "rescan_schedule_minute": "0",
     "rescan_schedule_weekday": "0",  # 0=Mon … 6=Sun
     "cleanup_on_rescan": "false",
+    # Rescan by itself when the library changes (issue #670); see library_watch.
+    "library_watch_enabled": "true",
+    "library_watch_mode": "auto",
     "hide_maps": "false",
     "hide_tokens": "false",
     "hide_audio": "false",
@@ -157,6 +161,7 @@ def _to_typed(raw: dict) -> dict:
         "rescan_schedule_minute": int(raw.get("rescan_schedule_minute", "0")),
         "rescan_schedule_weekday": int(raw.get("rescan_schedule_weekday", "0")),
         "cleanup_on_rescan": raw.get("cleanup_on_rescan", "false") == "true",
+        **library_watch_settings.to_typed(raw),
         "hide_maps": raw["hide_maps"] == "true",
         "hide_tokens": raw["hide_tokens"] == "true",
         "hide_audio": raw["hide_audio"] == "true",

@@ -42,6 +42,8 @@ module = [
     "backend.filenames",
     "backend.ocr",
     "backend.scheduler",
+    "backend.library_watch",
+    "backend.library_watch.*",
     "backend.pdf_worker",
     "backend.indexer",
     "backend.indexer.*",

@@ -12,7 +12,7 @@ from sqlalchemy import text
 
 from slowapi import _rate_limit_exceeded_handler
 
-from . import backup_scheduler, config, scheduler, session_creator, session_purger
+from . import backup_scheduler, config, library_watch, scheduler, session_creator, session_purger
 from ._health_schemas import HealthResponse
 from .auth import get_current_user, require_not_guest
 from .log_context import LogUserMiddleware
@@ -305,6 +305,9 @@ async def lifespan(app: FastAPI):
             backup_scheduler.apply(db)
         finally:
             db.close()
+        # Rescan by itself when the library changes (issue #670). Here, in the
+        # worker that holds the scan lock, so a multi-worker server watches once.
+        library_watch.start(LIBRARY_PATH)
         session_creator.start()
         # Trims dead auth_sessions rows so the table stays bounded (issue #157).
         # Self-limits to one worker via its own lock.
@@ -313,6 +316,7 @@ async def lifespan(app: FastAPI):
     yield
 
     session_purger.stop()
+    library_watch.stop()
     render_pool.shutdown()
 
 

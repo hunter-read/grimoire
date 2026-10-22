@@ -269,11 +269,19 @@ Versions are only ever one level deep: a version cannot itself have versions. De
 
 Two things worth knowing. Bulk downloads and the OPDS feed deliberately include every version, because an archive or a catalogue should be complete. And text that exists *only* in a hidden version - errata added in a v1.0.1 - will not turn up in global search; searching inside that specific version still works.
 
-## Systems whose folder disappears
+## Renamed and deleted folders
 
-When a system's folder is deleted - or newly excluded by a [`.grimoireignore`](library-structure.md#ignoring-files-with-grimoireignore) rule - the system itself is now removed on the next rescan, instead of lingering in the library with nothing behind it. This is what cleans up a stray `@eaDir` entry after you add a rule for it on a Synology NAS.
+**Renaming a folder** on disk is recognised on the next full rescan. Books are matched by content, so each keeps its tags, favorites, bookmarks, and reading progress at its new path. Renaming a *system's* folder keeps the system too: `Sword World 1` renamed to `Sword World 1.0` is the same system under its new name, with its description, cover, tags, campaigns, and access grants - not a second, empty one beside it. A container renamed along with the systems on it keeps both. A name you gave the system yourself in Grimoire stays.
 
-Removal is deliberately cautious. A system is kept if it still holds any book that is present on disk, if it is the parent of a system that does, or if you have adapted it yourself by renaming it or giving it a description or cover. Scoped rescans (a single folder) never remove systems, since they only look at one corner of the library.
+Files with identical contents (two copies of the same PDF in one folder, say) are told apart by filename, so a renamed folder of copies is recognised too. Copies whose names also changed cannot be told apart, so those are left alone: the old entries show as missing and the new ones arrive fresh, rather than one book's progress being guessed onto another.
+
+A rename that a scan only half saw - stopped, or cut off by a restart - is still recognised by the next full scan.
+
+**Deleting a system's folder** removes the system on the next full rescan, instead of leaving it in the library with nothing behind it. The same goes for a folder newly excluded by a [`.grimoireignore`](library-structure.md#ignoring-files-with-grimoireignore) rule, which is what cleans up a stray `@eaDir` entry after you add a rule for it on a Synology NAS. Deleting a system's folder from Grimoire's own file manager removes the system straight away - even one you renamed or described, since typing the folder's name to confirm it is that decision.
+
+Removal is deliberately cautious. A system is kept if it still holds any book that is present on disk, if it is the parent of a system that does, if a campaign is played in it, or if you have adapted it yourself by renaming it or giving it a description or cover. Scoped rescans (a single folder) never remove systems, since they only look at one corner of the library.
+
+**Deleting files** inside a system that is still there marks them missing on the next scan rather than forgetting them, since a share that was briefly unmounted looks the same as a deletion. **Settings → Maintenance → Database Cleanup** removes missing entries for good, and also clears any empty system an older version left behind.
 
 ## Interrupted scans
 
@@ -289,10 +297,43 @@ Nothing stops you adding or reorganizing files by other means - your OS file man
 `scp`, a network share, or a companion container. This is also how you work if you keep
 the library mounted read-only.
 
-After adding files with an external tool, trigger a **Rescan** in Grimoire (sidebar or
-**Settings → Maintenance**) to index the new content. Changes made in the built-in file
-manager apply immediately and need no rescan. To automate it, configure a scheduled rescan
-in **Settings → Maintenance → Scheduled Rescan**.
+While the library is [watched for changes](#watching-for-changes) (the default), files
+added, renamed, moved, or deleted with an external tool show up in Grimoire by themselves a
+few seconds later. Otherwise trigger a **Rescan** (sidebar or **Settings → Maintenance**),
+or configure one in **Settings → Maintenance → Scheduled Rescan**. Changes made in the
+built-in file manager apply immediately either way.
+
+### Watching for changes
+
+**Settings → Maintenance → Watch for Changes** rescans by itself whenever something changes
+in the library folder. It waits until the folder has been quiet for a few seconds, so a
+large copy is scanned once, when it has finished. A change inside one system or folder
+rescans only that folder; a change that spans folders, or adds, renames, or removes a
+system folder, rescans the whole library (only a full scan can recognise a renamed system).
+It never runs alongside another scan - it waits for the running one, then scans what is
+left. Turning watching back on starts with one full scan, to catch up on anything
+that changed while it was off. NAS thumbnail folders, `.DS_Store`, half-downloaded `.part` files, and the sidecars
+Grimoire writes itself are ignored.
+
+How changes are noticed:
+
+- **Automatic** (the default) - file system events, except on a network share (NFS,
+  SMB/CIFS, FUSE mounts such as rclone or mergerfs), where it checks regularly instead.
+- **File system events** - instant and light, but the kernel only reports changes made on
+  the machine Grimoire runs on. A change made from another computer straight to the share
+  is never reported.
+- **Check regularly** - looks through the whole library every two minutes
+  (`LIBRARY_WATCH_POLL_INTERVAL`). Works on any share, at the cost of reading every
+  folder each time.
+
+The section shows what the watcher is doing, and why if it cannot watch - most often a
+host's limit on watched folders (`fs.inotify.max_user_watches`), which you can raise or
+avoid by checking regularly. `LIBRARY_WATCH` and `LIBRARY_WATCH_MODE` pin both settings
+(see [Configuration](configuration.md)).
+
+A scheduled rescan is still there for servers that would rather scan at a set hour: a slow
+NAS, or a table that plays in the evening and would rather not share the server with a
+scan. Turn watching off and set a schedule for that.
 
 ### Calibre
 

@@ -10,6 +10,8 @@ class SettingsPatch(BaseModel):
     rescan_schedule_minute: Optional[int] = None
     rescan_schedule_weekday: Optional[int] = None
     cleanup_on_rescan: Optional[bool] = None
+    library_watch_enabled: Optional[bool] = None
+    library_watch_mode: Optional[str] = None
     hide_maps: Optional[bool] = None
     hide_tokens: Optional[bool] = None
     hide_audio: Optional[bool] = None
@@ -69,6 +71,11 @@ class SettingsPatch(BaseModel):
     oidc_auto_register: Optional[bool] = None
 
 
+
+class LibraryWatchState(BaseModel):
+    state: str
+    detail: str
+
 class SettingsResponse(BaseModel):
     """The full admin settings payload, as built by `_helpers._to_typed`.
 
@@ -85,6 +92,15 @@ class SettingsResponse(BaseModel):
     rescan_schedule_minute: int
     rescan_schedule_weekday: int
     cleanup_on_rescan: bool
+    # Watching the library for changes (issue #670). ``library_watch_state`` is
+    # what the watcher last reported: {"state": watching|polling|off|unavailable,
+    # "detail": why it is unavailable}.
+    library_watch_enabled: bool
+    library_watch_env_locked: bool
+    library_watch_mode: str
+    library_watch_mode_env_locked: bool
+    library_watch_state: LibraryWatchState
+    library_watch_poll_interval: int
     hide_maps: bool
     hide_tokens: bool
     hide_audio: bool

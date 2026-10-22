@@ -11226,6 +11226,13 @@ export interface components {
              */
             rows?: number;
         };
+        /** LibraryWatchState */
+        LibraryWatchState: {
+            /** Detail */
+            detail: string;
+            /** State */
+            state: string;
+        };
         /** LicenseCreate */
         LicenseCreate: {
             /** Name */
@@ -13998,6 +14005,10 @@ export interface components {
             hide_models?: boolean | null;
             /** Hide Tokens */
             hide_tokens?: boolean | null;
+            /** Library Watch Enabled */
+            library_watch_enabled?: boolean | null;
+            /** Library Watch Mode */
+            library_watch_mode?: string | null;
             /** Oidc Authorization Endpoint */
             oidc_authorization_endpoint?: string | null;
             /** Oidc Auto Launch */
@@ -14114,6 +14125,17 @@ export interface components {
             hide_models: boolean;
             /** Hide Tokens */
             hide_tokens: boolean;
+            /** Library Watch Enabled */
+            library_watch_enabled: boolean;
+            /** Library Watch Env Locked */
+            library_watch_env_locked: boolean;
+            /** Library Watch Mode */
+            library_watch_mode: string;
+            /** Library Watch Mode Env Locked */
+            library_watch_mode_env_locked: boolean;
+            /** Library Watch Poll Interval */
+            library_watch_poll_interval: number;
+            library_watch_state: components["schemas"]["LibraryWatchState"];
             /** Oidc Authorization Endpoint */
             oidc_authorization_endpoint: string;
             /** Oidc Authorization Endpoint Env Locked */

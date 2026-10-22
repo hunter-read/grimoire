@@ -1606,9 +1606,35 @@
       "updated_other": "{{count}} aggiornati",
       "models": "{{count}} nuovi modelli"
     },
+    "watch": {
+      "title": "Rileva le modifiche",
+      "description": "Riscansiona da sola pochi secondi dopo che dei file vengono aggiunti, rinominati, spostati o eliminati nella cartella della libreria. Se la modifica riguarda una sola cartella, viene riscansionata solo quella.",
+      "enabled": "Controlla le modifiche nella cartella della libreria",
+      "modeLabel": "Come vengono rilevate le modifiche",
+      "modes": {
+        "auto": "Automatico",
+        "events": "Eventi del file system",
+        "poll": "Controlla regolarmente"
+      },
+      "modeHelp": {
+        "auto": "Usa gli eventi del file system e controlla invece regolarmente quando la libreria è su una condivisione di rete (NFS, SMB o un mount FUSE).",
+        "events": "Immediato e leggero, ma vede solo le modifiche fatte su questa macchina. Quelle fatte da un altro computer su una condivisione di rete vengono perse.",
+        "poll": "Esamina l'intera libreria ogni {{seconds}} secondi. Funziona con qualsiasi condivisione; imposta LIBRARY_WATCH_POLL_INTERVAL per controllare meno spesso una libreria grande."
+      },
+      "state": {
+        "watching": "In ascolto delle modifiche.",
+        "polling": "Controllo delle modifiche ogni {{seconds}} secondi.",
+        "off": "Nessun controllo. I nuovi file compaiono dopo una scansione manuale o pianificata.",
+        "unavailable": "Impossibile controllare la libreria: {{detail}}"
+      },
+      "envLocked": "Impostato da {{name}}",
+      "save": "Salva",
+      "saving": "Salvataggio…",
+      "saved": "Salvato"
+    },
     "scheduledRescan": {
       "title": "Riscansione pianificata",
-      "description": "Riscansiona automaticamente la libreria secondo una pianificazione, per rilevare nuovi file senza intervento manuale.",
+      "description": "Riscansiona l'intera libreria a un orario fisso. Con Rileva le modifiche attivo è facoltativo - utile su un server più lento, o per tenere le scansioni fuori dalle ore in cui gioca il tuo tavolo.",
       "off": "Disattivata",
       "hourly": "Ogni ora",
       "daily": "Ogni giorno",

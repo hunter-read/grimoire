@@ -12,6 +12,7 @@ The walk filters live here for the same reason: ``_prune_dirs`` and
 ``_keep_entry`` are the two places ``.grimoireignore`` is honoured, and all
 four phases need them.
 """
+import datetime
 import hashlib
 import os
 from dataclasses import dataclass, field
@@ -136,10 +137,20 @@ class _ScanContext:
     # A row absent from this set has no folder behind it any more — see
     # ``_prune_vanished_systems``.
     seen_system_ids: set = field(default_factory=set)
+    # Ids of every GameSystem this scan created. A system whose books all moved
+    # into one of these was renamed rather than deleted (issue #670).
+    created_system_ids: set = field(default_factory=set)
+    # For each system that lost a book to a detected move, the systems those
+    # books moved into. Pairs a renamed folder's old row with its new one, and
+    # marks a system emptied by moves as this library's to prune.
+    vacated_systems: dict = field(default_factory=dict)
     # False during the library's first import, whose items are left undated so
     # a fresh install does not badge its whole library as new (issue #199).
     # See ``added_dates``.
     date_inserts: bool = True
+    # When the last complete missing-file sweep began (naive UTC), or None.
+    # Rows created after it may still be the new half of a move - see ``moves``.
+    reconciled_at: Optional[datetime.datetime] = None
     # Folder naming patterns (issue #521), loaded on first use: most libraries
     # have none, and a scan that inserts no books never needs them.
     _naming: Optional[RuleSet] = field(default=None, init=False, repr=False)

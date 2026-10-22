@@ -1606,9 +1606,35 @@
       "updated_other": "{{count}} updated",
       "models": "{{count}} new model(s)"
     },
+    "watch": {
+      "title": "Surveiller les changements",
+      "description": "Réanalyse d'elle-même quelques secondes après l'ajout, le renommage, le déplacement ou la suppression de fichiers dans le dossier de la bibliothèque. Si le changement concerne un seul dossier, seul ce dossier est réanalysé.",
+      "enabled": "Surveiller les changements dans le dossier de la bibliothèque",
+      "modeLabel": "Comment les changements sont détectés",
+      "modes": {
+        "auto": "Automatique",
+        "events": "Événements du système de fichiers",
+        "poll": "Vérifier régulièrement"
+      },
+      "modeHelp": {
+        "auto": "Utilise les événements du système de fichiers et vérifie plutôt régulièrement quand la bibliothèque est sur un partage réseau (NFS, SMB ou un montage FUSE).",
+        "events": "Instantané et léger, mais ne voit que les changements faits sur cette machine. Ceux faits depuis un autre ordinateur sur un partage réseau sont manqués.",
+        "poll": "Parcourt toute la bibliothèque toutes les {{seconds}} secondes. Fonctionne sur tout partage ; définissez LIBRARY_WATCH_POLL_INTERVAL pour vérifier moins souvent une grande bibliothèque."
+      },
+      "state": {
+        "watching": "Surveillance des changements en cours.",
+        "polling": "Vérification des changements toutes les {{seconds}} secondes.",
+        "off": "Pas de surveillance. Les nouveaux fichiers apparaissent après une réanalyse manuelle ou planifiée.",
+        "unavailable": "Impossible de surveiller la bibliothèque : {{detail}}"
+      },
+      "envLocked": "Défini par {{name}}",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "saved": "Enregistré"
+    },
     "scheduledRescan": {
       "title": "Réanalyse planifiée",
-      "description": "Réanalysez automatiquement la bibliothèque selon un calendrier pour détecter les nouveaux fichiers sans intervention manuelle.",
+      "description": "Réanalyse toute la bibliothèque à une heure fixe. Avec la surveillance des changements activée, c'est facultatif - utile sur un serveur plus lent, ou pour éviter les analyses pendant les heures où votre table joue.",
       "off": "Désactivé",
       "hourly": "Toutes les heures",
       "daily": "Chaque jour",

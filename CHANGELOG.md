@@ -10,6 +10,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Added
 
+- **Grimoire watches the library for changes.** Add, rename, move or delete files on disk and they show up a few seconds later with no rescan, and a change inside one folder only rescans that folder. On a network share (NFS, SMB, FUSE) it checks regularly instead, since the share never reports changes made from another computer. It is on by default and set under Settings → Maintenance → Watch for Changes, which also shows what it is doing; `LIBRARY_WATCH` and `LIBRARY_WATCH_MODE` pin it, and `LIBRARY_WATCH_DELAY` and `LIBRARY_WATCH_POLL_INTERVAL` tune it. The scheduled rescan stays for servers that would rather scan at a quiet hour. See the file management docs
 - **Merge duplicates in one step.** Merging folds copies into the one you keep: blank fields are filled in, tags combined, and every bookmark, favourite, campaign link (with the players it was shared with), share link, access grant, soundboard entry and note embed moves across instead of being deleted with the other copy. What it will do is shown before you confirm, and the other files stay on disk unless you choose to delete them. Admins can merge two or more copies selected in any list - a system's books, maps, tokens, audio, 3D models, favourites, a tag's page or search results - and the duplicates page now reviews a whole group at once, moves straight on to the next group after each decision with Back and Skip, works from the keyboard (`1`-`4`, `M`, `L`, `D`, `S`, `?`), merges a row without opening it, and merges every byte-identical group behind one confirmation. The list can be filtered by collection and by how sure the match is. See the file management docs
 - The users list shows when each person was **last active**, fading as it ages so the ones who have drifted away stand out; expand a user for when they last signed in. Log lines now carry the user whose request produced them, sign-ins are logged, and Settings → Logs can be narrowed to one user from a picker, a name on a log line, or **View in logs** on the user. See the users and permissions docs
 
@@ -86,6 +87,11 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Fixed
 
+- Renaming a system's folder no longer leaves the old system behind as an empty "0 books" shelf. The system keeps its description, cover, tags, campaigns and access under the new name, and the same holds for a system inside a collection and for a renamed collection
+- Renaming a folder that holds two copies of the same file no longer shows every file twice, the old ones missing. Copies are told apart by filename
+- A folder renamed while a scan was stopped or the server restarted is recognised as a rename by the next scan, rather than leaving the old books missing beside new copies
+- Deleting a system's folder now removes the system on the next rescan even when its books had bookmarks, and one system kept by a campaign no longer stops the others from being removed
+- Deleting a system's folder in the file manager removes the system straight away, instead of leaving an empty shelf behind, and removing a system inside a collection from the database now works too
 - **Copy metadata** on the duplicate comparison page never appeared, because the list of fields it may copy was dropped from the server's response
 - **Stop** now stops the startup library scan when Grimoire runs more than one worker without Valkey. The request could reach a worker other than the one scanning, which ignored it and kept rescans of a single folder refused until the scan finished
 - With `OCR_CONCURRENCY` above `1`, **Stop** now ends text recognition after the books already in progress, rather than starting every queued book after it

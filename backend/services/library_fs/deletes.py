@@ -310,6 +310,10 @@ def _delete_folder_tree(db: Session, target: Path) -> dict:
     purgeable = [(model, record) for model, record, _ in affected]
     records = _delete_records(db, affected, purge=False)
     _purge_folders(db, target)
+    # A system folder takes its system with it. Left behind, the row showed as an
+    # empty "0 books" shelf that no rescan cleared (issue #670). Before the
+    # rmtree, so a failed delete rolls the row back along with the books.
+    records += _unindex_system_row(db, target, keep_adapted=False)
 
     try:
         shutil.rmtree(target)
@@ -387,7 +391,7 @@ def delete_empty_folder(path: str) -> dict:
     return {"path": to_relative(target)}
 
 
-def _unindex_system_row(db: Session, target: Path) -> int:
+def _unindex_system_row(db: Session, target: Path, *, keep_adapted: bool = True) -> int:
     """Drop the ``GameSystem`` a books folder represents, once nothing is left in it.
 
     ``_records_under`` only knows about path-keyed *file* rows, so unindexing a
@@ -397,10 +401,11 @@ def _unindex_system_row(db: Session, target: Path) -> int:
     shelf the user was trying to remove, which is the reported bug.
 
     Conservative in the same spirit as the scanner's prune: the row goes only
-    when it has no books and no child systems left, and never when the user has
-    adapted it (a rename, description, or cover means the row is worth keeping
-    even with an empty shelf). Anything still holding content is left alone, so
-    this can only ever remove a shelf that is already empty.
+    when it has no books and no child systems left. ``keep_adapted`` also keeps
+    a row the user has adapted (a rename, description, or cover), which is right
+    for unindexing - the folder is still there, and a rescan brings the shelf
+    back - but not for deleting the folder itself, where keeping it is exactly
+    the empty "0 books" shelf the user just asked to be rid of (issue #670).
     """
     system = folders.system_for_folder(db, target)
     if system is None:
@@ -409,7 +414,7 @@ def _unindex_system_row(db: Session, target: Path) -> int:
         return 0
     if db.query(GameSystem).filter_by(parent_id=system.id).count():
         return 0
-    if system.name_is_custom or system.description or system.cover_image:
+    if keep_adapted and (system.name_is_custom or system.description or system.cover_image):
         logger.info(
             "Unindex: keeping system '%s' - it carries user metadata", system.name
         )

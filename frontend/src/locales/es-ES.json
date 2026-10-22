@@ -1606,9 +1606,35 @@
       "updated_other": "{{count}} actualizados",
       "models": "{{count}} new model(s)"
     },
+    "watch": {
+      "title": "Vigilar cambios",
+      "description": "Reescanea por sí sola unos segundos después de que se añadan, renombren, muevan o eliminen archivos en la carpeta de la biblioteca. Si el cambio está dentro de una carpeta, solo se reescanea esa carpeta.",
+      "enabled": "Vigilar los cambios en la carpeta de la biblioteca",
+      "modeLabel": "Cómo se detectan los cambios",
+      "modes": {
+        "auto": "Automático",
+        "events": "Eventos del sistema de archivos",
+        "poll": "Comprobar con regularidad"
+      },
+      "modeHelp": {
+        "auto": "Usa eventos del sistema de archivos y, si la biblioteca está en un recurso de red (NFS, SMB o un montaje FUSE), comprueba con regularidad.",
+        "events": "Instantáneo y ligero, pero solo detecta los cambios hechos en esta máquina. Los cambios hechos desde otro ordenador en un recurso de red se pierden.",
+        "poll": "Recorre toda la biblioteca cada {{seconds}} segundos. Funciona con cualquier recurso; define LIBRARY_WATCH_POLL_INTERVAL para comprobar menos a menudo una biblioteca grande."
+      },
+      "state": {
+        "watching": "Vigilando cambios.",
+        "polling": "Comprobando cambios cada {{seconds}} segundos.",
+        "off": "Sin vigilancia. Los archivos nuevos aparecen tras un reescaneo manual o programado.",
+        "unavailable": "No se puede vigilar la biblioteca: {{detail}}"
+      },
+      "envLocked": "Definido por {{name}}",
+      "save": "Guardar",
+      "saving": "Guardando…",
+      "saved": "Guardado"
+    },
     "scheduledRescan": {
       "title": "Reescaneo programado",
-      "description": "Reescanea automáticamente la biblioteca según una programación para detectar archivos nuevos sin intervención manual.",
+      "description": "Reescanea toda la biblioteca a una hora fija. Con Vigilar cambios activado es opcional - útil en un servidor más lento o para no escanear en las horas en que juega tu mesa.",
       "off": "Desactivado",
       "hourly": "Cada hora",
       "daily": "Cada día",

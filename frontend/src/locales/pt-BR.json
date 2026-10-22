@@ -1606,9 +1606,35 @@
       "updated_other": "{{count}} atualizados",
       "models": "{{count}} new model(s)"
     },
+    "watch": {
+      "title": "Acompanhar alterações",
+      "description": "Reescaneia sozinho alguns segundos depois que arquivos são adicionados, renomeados, movidos ou excluídos na pasta da biblioteca. Quando a alteração está em uma só pasta, só ela é reescaneada.",
+      "enabled": "Acompanhar alterações na pasta da biblioteca",
+      "modeLabel": "Como as alterações são percebidas",
+      "modes": {
+        "auto": "Automático",
+        "events": "Eventos do sistema de arquivos",
+        "poll": "Verificar regularmente"
+      },
+      "modeHelp": {
+        "auto": "Usa eventos do sistema de arquivos e, quando a biblioteca está em um compartilhamento de rede (NFS, SMB ou montagem FUSE), verifica regularmente.",
+        "events": "Instantâneo e leve, mas só percebe alterações feitas nesta máquina. Alterações feitas de outro computador em um compartilhamento de rede passam despercebidas.",
+        "poll": "Percorre a biblioteca inteira a cada {{seconds}} segundos. Funciona em qualquer compartilhamento; defina LIBRARY_WATCH_POLL_INTERVAL para verificar uma biblioteca grande com menos frequência."
+      },
+      "state": {
+        "watching": "Acompanhando alterações.",
+        "polling": "Verificando alterações a cada {{seconds}} segundos.",
+        "off": "Sem acompanhamento. Arquivos novos aparecem após um reescaneamento manual ou agendado.",
+        "unavailable": "Não é possível acompanhar a biblioteca: {{detail}}"
+      },
+      "envLocked": "Definido por {{name}}",
+      "save": "Salvar",
+      "saving": "Salvando…",
+      "saved": "Salvo"
+    },
     "scheduledRescan": {
       "title": "Reescaneamento agendado",
-      "description": "Reescanear automaticamente a biblioteca em um agendamento para detectar novos arquivos sem intervenção manual.",
+      "description": "Reescaneia a biblioteca inteira em um horário fixo. Com Acompanhar alterações ligado, isto é opcional - útil em um servidor mais lento ou para manter os escaneamentos fora do horário em que sua mesa joga.",
       "off": "Desligado",
       "hourly": "A cada hora",
       "daily": "Todos os dias",

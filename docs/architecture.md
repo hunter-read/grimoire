@@ -40,6 +40,7 @@ backend on port 9481.
 | [`backend/render/`](../backend/render/) | Page rendering: `pool.py` (the API the page, tile, map and MCP routes call, and the pool of render worker processes behind it), `worker.py` (a worker's entry point), `ops.py` (the MuPDF work itself, shared with the in-process path), `documents.py` (`open_document` and the EPUB layout, re-exported by `indexer.formats`), `outline.py` (the table-of-contents reader, re-exported by `indexer.outline`) and `memory.py` (the store-shrink + `malloc_trim` reclaim). See [Page rendering](#page-rendering) below. |
 | [`backend/addon_worker.py`](../backend/addon_worker.py) | Standalone entry point for the spawned add-on script process. Like `pdf_worker`, imports nothing from `backend` - a child running third-party code must not reach the DB or our internals. |
 | [`backend/routers/`](../backend/routers/) | One package per feature area (see the router shape below). |
+| [`backend/library_watch/`](../backend/library_watch/) | Watching the library for changes: `changes.py` decides which filesystem events matter and whether a scoped or full scan covers them, `settings.py` resolves the env pins and detects network shares, `watcher.py` runs the `watchdog` observer, the quiet-period queue, and the supervisor that follows the settings. Started from `lifespan` in the worker that holds the scan lock. |
 | [`backend/scheduler.py`](../backend/scheduler.py), [`backend/session_creator.py`](../backend/session_creator.py) | Campaign session scheduling - apply recurrence on startup and auto-create upcoming sessions. |
 | [`backend/sessions.py`](../backend/sessions.py) | Login-session lifecycle behind refresh tokens: issue, rotate, revoke. Access tokens stay stateless; this is what makes a session revocable. |
 | [`backend/session_purger.py`](../backend/session_purger.py) | Daily background thread deleting long-dead `auth_sessions` rows. Claims a file lock so only one worker runs it. |
@@ -326,6 +327,9 @@ process on startup:
    notes and flat note-categories into the current nested-page model.
 5. **Scheduler** - apply campaign session recurrence and start the session creator (skipped
    under pytest).
+6. **Library watcher** - in the lock-holding worker only, start the supervisor that keeps a
+   `library_watch` watcher running to match the settings (also skipped under pytest), so a
+   multi-worker server watches the library once.
 
 ### Crash-isolated PDF indexing
 

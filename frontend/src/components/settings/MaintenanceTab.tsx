@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import FileManagerSection from './FileManagerSection'
 import RescanSection from './RescanSection'
 import ScheduledRescanSection from './ScheduledRescanSection'
+import WatchLibrarySection from './WatchLibrarySection'
 import SidecarExportSection from './SidecarExportSection'
 import DatabaseCleanupSection from './DatabaseCleanupSection'
 import DuplicatesSection from './DuplicatesSection'
@@ -32,6 +33,8 @@ export default function MaintenanceTab() {
           <RescanSection />
           <SectionDivider />
           <DatabaseCleanupSection />
+          <SectionDivider />
+          <WatchLibrarySection />
           <SectionDivider />
           <ScheduledRescanSection />
         </div>

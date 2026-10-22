@@ -56,7 +56,7 @@ def update_settings(
     current_user: CurrentUser = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    from ... import scheduler  # local import avoids circular dependency
+    from ... import library_watch, scheduler  # local import avoids circular dependency
 
     if any(getattr(data, key) is not None for key in _SIGN_IN_FIELDS):
         api_keys.assert_session(current_user, "Sign-in settings need a signed-in session")
@@ -79,6 +79,22 @@ def update_settings(
         _set(db, "rescan_schedule_weekday", str(max(0, min(6, data.rescan_schedule_weekday))))
     if data.cleanup_on_rescan is not None:
         _set(db, "cleanup_on_rescan", "true" if data.cleanup_on_rescan else "false")
+    if data.library_watch_enabled is not None:
+        if config.LIBRARY_WATCH_ENV is not None:
+            raise HTTPException(
+                400, "Watching the library is locked by the LIBRARY_WATCH environment variable"
+            )
+        _set(db, "library_watch_enabled", "true" if data.library_watch_enabled else "false")
+    if data.library_watch_mode is not None:
+        if config.LIBRARY_WATCH_MODE_ENV is not None:
+            raise HTTPException(
+                400, "The watch mode is locked by the LIBRARY_WATCH_MODE environment variable"
+            )
+        if data.library_watch_mode not in config.LIBRARY_WATCH_MODES:
+            raise HTTPException(
+                400, f"watch mode must be one of: {', '.join(config.LIBRARY_WATCH_MODES)}"
+            )
+        _set(db, "library_watch_mode", data.library_watch_mode)
     if data.hide_maps is not None:
         _set(db, "hide_maps", "true" if data.hide_maps else "false")
     if data.hide_tokens is not None:
@@ -225,6 +241,7 @@ def update_settings(
 
     # Apply immediately so the change takes effect without a restart
     scheduler.apply(db)
+    library_watch.poke()
 
     return _to_typed(_get_raw(db))
 
