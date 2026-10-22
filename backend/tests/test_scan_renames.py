@@ -90,14 +90,14 @@ def _stop_after(n: int):
     return should_stop
 
 
-def _uid() -> str:
+def _stamp() -> str:
     return uuid.uuid4().hex[:8]
 
 
 class TestRenamedSystemFolder:
     def test_rename_keeps_the_system_and_leaves_no_empty_shelf(self):
         tmp, lib = _mk_lib()
-        name = f"Alpha {_uid()}"
+        name = f"Alpha {_stamp()}"
         _file(lib / "books" / name / "core", "a.pdf")
         _scan(lib, tmp)
         before = _system(name=name)
@@ -117,7 +117,7 @@ class TestRenamedSystemFolder:
 
     def test_rename_keeps_metadata_tags_and_campaigns(self, admin_id):
         tmp, lib = _mk_lib()
-        name = f"Curated {_uid()}"
+        name = f"Curated {_stamp()}"
         _file(lib / "books" / name / "core", "a.pdf")
         _scan(lib, tmp)
         system = _system(name=name)
@@ -151,11 +151,11 @@ class TestRenamedSystemFolder:
 
     def test_a_custom_name_survives_the_rename(self):
         tmp, lib = _mk_lib()
-        folder = f"Folder {_uid()}"
+        folder = f"Folder {_stamp()}"
         _file(lib / "books" / folder / "core", "a.pdf")
         _scan(lib, tmp)
         system = _system(name=folder)
-        custom = f"My Name {_uid()}"
+        custom = f"My Name {_stamp()}"
         _update_system(system.id, name=custom, name_is_custom=True)
 
         (lib / "books" / folder).rename(lib / "books" / f"{folder} moved")
@@ -168,7 +168,7 @@ class TestRenamedSystemFolder:
     def test_renamed_system_inside_a_container(self):
         """The reported case: ``Sword World 1`` renamed to ``Sword World 1.0``."""
         tmp, lib = _mk_lib()
-        shelf = f"Sword World {_uid()} (system-family)"
+        shelf = f"Sword World {_stamp()} (system-family)"
         _file(lib / "books" / shelf / "Sword World 1" / "core", "a.pdf")
         _file(lib / "books" / shelf / "Sword World 1" / "core", "b.pdf")
         _file(lib / "books" / shelf / "Sword World 2.5" / "core", "c.pdf")
@@ -194,30 +194,30 @@ class TestRenamedSystemFolder:
 
     def test_renamed_container_keeps_the_shelf_and_its_systems(self):
         tmp, lib = _mk_lib()
-        uid = _uid()
-        _file(lib / "books" / f"Shelf {uid} (publisher)" / "Game" / "core", "a.pdf")
+        stamp = _stamp()
+        _file(lib / "books" / f"Shelf {stamp} (publisher)" / "Game" / "core", "a.pdf")
         _scan(lib, tmp)
-        container = _system(name=f"Shelf {uid}")
+        container = _system(name=f"Shelf {stamp}")
         _update_system(container.id, description="Our shelf")
         child = _system(parent_id=container.id)
 
-        (lib / "books" / f"Shelf {uid} (publisher)").rename(
-            lib / "books" / f"Shelf {uid} Press (publisher)"
+        (lib / "books" / f"Shelf {stamp} (publisher)").rename(
+            lib / "books" / f"Shelf {stamp} Press (publisher)"
         )
         _scan(lib, tmp)
 
         after = _system(id=container.id)
-        assert after is not None and after.name == f"Shelf {uid} Press"
+        assert after is not None and after.name == f"Shelf {stamp} Press"
         assert after.description == "Our shelf"
         kept_child = _system(id=child.id)
         assert kept_child is not None and kept_child.parent_id == container.id
         assert kept_child.name == "Game", "the clash suffix from the walk must not stick"
-        assert _system(name=f"Shelf {uid}") is None
+        assert _system(name=f"Shelf {stamp}") is None
 
     def test_a_folder_split_in_two_is_not_a_rename(self):
         """Books going to two new systems pair with neither; the old row is pruned."""
         tmp, lib = _mk_lib()
-        name = f"Split {_uid()}"
+        name = f"Split {_stamp()}"
         _file(lib / "books" / name / "core", "a.pdf")
         _file(lib / "books" / name / "core", "b.pdf")
         _scan(lib, tmp)
@@ -240,27 +240,27 @@ class TestRenamedSystemFolder:
 
     def test_moving_everything_into_an_existing_system_prunes_the_old_one(self):
         tmp, lib = _mk_lib()
-        uid = _uid()
-        _file(lib / "books" / f"Old {uid}" / "core", "a.pdf")
-        _file(lib / "books" / f"Kept {uid}" / "core", "b.pdf")
+        stamp = _stamp()
+        _file(lib / "books" / f"Old {stamp}" / "core", "a.pdf")
+        _file(lib / "books" / f"Kept {stamp}" / "core", "b.pdf")
         _scan(lib, tmp)
-        kept = _system(name=f"Kept {uid}")
+        kept = _system(name=f"Kept {stamp}")
 
-        (lib / "books" / f"Old {uid}" / "core" / "a.pdf").rename(
-            lib / "books" / f"Kept {uid}" / "core" / "a.pdf"
+        (lib / "books" / f"Old {stamp}" / "core" / "a.pdf").rename(
+            lib / "books" / f"Kept {stamp}" / "core" / "a.pdf"
         )
-        shutil.rmtree(lib / "books" / f"Old {uid}")
+        shutil.rmtree(lib / "books" / f"Old {stamp}")
         _scan(lib, tmp)
 
-        assert _system(name=f"Old {uid}") is None
-        assert _system(id=kept.id).name == f"Kept {uid}"
+        assert _system(name=f"Old {stamp}") is None
+        assert _system(id=kept.id).name == f"Kept {stamp}"
         assert {b.game_system_id for b in _books(lib).values()} == {kept.id}
 
 
 class TestRenamedCategoryFolder:
     def test_category_rename_moves_the_books(self):
         tmp, lib = _mk_lib()
-        name = f"Cats {_uid()}"
+        name = f"Cats {_stamp()}"
         _file(lib / "books" / name / "core", "a.pdf")
         _scan(lib, tmp)
         book_id = _books(lib)[f"books/{name}/core/a.pdf"].id
@@ -280,7 +280,7 @@ class TestIdenticalCopies:
     def test_renamed_folder_of_identical_copies_pairs_them_by_name(self):
         """Same bytes twice used to be ambiguous: both came back missing *and* new."""
         tmp, lib = _mk_lib()
-        name = f"Dups {_uid()}"
+        name = f"Dups {_stamp()}"
         body = b"grimoire-670-same-" + uuid.uuid4().hex.encode()
         _file(lib / "books" / name / "core", "a.pdf", body)
         _file(lib / "books" / name / "core", "a copy.pdf", body)
@@ -300,7 +300,7 @@ class TestIdenticalCopies:
     def test_copies_renamed_as_well_stay_ambiguous(self):
         """Without a name to go on, nothing is guessed: old rows read as missing."""
         tmp, lib = _mk_lib()
-        name = f"Guess {_uid()}"
+        name = f"Guess {_stamp()}"
         body = b"grimoire-670-same-" + uuid.uuid4().hex.encode()
         _file(lib / "books" / name / "core", "a.pdf", body)
         _file(lib / "books" / name / "core", "b.pdf", body)
@@ -322,7 +322,7 @@ class TestIdenticalCopies:
 class TestInterruptedScan:
     def test_a_rename_seen_by_a_stopped_scan_is_still_a_move(self):
         tmp, lib = _mk_lib()
-        name = f"Cut {_uid()}"
+        name = f"Cut {_stamp()}"
         _file(lib / "books" / name / "core", "a.pdf")
         _file(lib / "books" / name / "core", "b.pdf")
         _scan(lib, tmp)
@@ -343,7 +343,7 @@ class TestInterruptedScan:
     def test_rows_reconciled_by_a_complete_scan_are_not_move_targets(self):
         """A file that has sat in place since the last full scan never moved."""
         tmp, lib = _mk_lib()
-        name = f"Stay {_uid()}"
+        name = f"Stay {_stamp()}"
         body = b"grimoire-670-twin-" + uuid.uuid4().hex.encode()
         _file(lib / "books" / name / "core", "a.pdf", body)
         _file(lib / "books" / name / "extras", "twin.pdf", body)
@@ -363,7 +363,7 @@ class TestDeletedFolderOnDisk:
     def test_deleted_folder_with_bookmarks_is_pruned(self, admin_id):
         """A bookmarked missing book used to fail the whole prune on its foreign key."""
         tmp, lib = _mk_lib()
-        name = f"Marked {_uid()}"
+        name = f"Marked {_stamp()}"
         _file(lib / "books" / name / "core", "a.pdf")
         _scan(lib, tmp)
         system = _system(name=name)
@@ -389,12 +389,12 @@ class TestDeletedFolderOnDisk:
 
     def test_one_system_kept_by_a_campaign_does_not_block_the_others(self, admin_id):
         tmp, lib = _mk_lib()
-        uid = _uid()
-        _file(lib / "books" / f"Played {uid}" / "core", "a.pdf")
-        _file(lib / "books" / f"Unplayed {uid}" / "core", "b.pdf")
+        stamp = _stamp()
+        _file(lib / "books" / f"Played {stamp}" / "core", "a.pdf")
+        _file(lib / "books" / f"Unplayed {stamp}" / "core", "b.pdf")
         _scan(lib, tmp)
-        played = _system(name=f"Played {uid}")
-        unplayed = _system(name=f"Unplayed {uid}")
+        played = _system(name=f"Played {stamp}")
+        unplayed = _system(name=f"Unplayed {stamp}")
         db = SessionLocal()
         try:
             db.add(Campaign(name="Still running", owner_id=admin_id, system_id=played.id))
@@ -402,8 +402,8 @@ class TestDeletedFolderOnDisk:
         finally:
             db.close()
 
-        shutil.rmtree(lib / "books" / f"Played {uid}")
-        shutil.rmtree(lib / "books" / f"Unplayed {uid}")
+        shutil.rmtree(lib / "books" / f"Played {stamp}")
+        shutil.rmtree(lib / "books" / f"Unplayed {stamp}")
         _scan(lib, tmp)
 
         assert _system(id=played.id) is not None
@@ -411,7 +411,7 @@ class TestDeletedFolderOnDisk:
 
     def test_deleted_category_folder_flags_its_books_missing(self):
         tmp, lib = _mk_lib()
-        name = f"Partial {_uid()}"
+        name = f"Partial {_stamp()}"
         _file(lib / "books" / name / "core", "a.pdf")
         _file(lib / "books" / name / "extras", "b.pdf")
         _scan(lib, tmp)
@@ -427,33 +427,33 @@ class TestDeletedFolderOnDisk:
 
     def test_scoped_scan_prunes_nothing(self):
         tmp, lib = _mk_lib()
-        uid = _uid()
-        _file(lib / "books" / f"Here {uid}" / "core", "a.pdf")
-        _file(lib / "books" / f"Gone {uid}" / "core", "b.pdf")
+        stamp = _stamp()
+        _file(lib / "books" / f"Here {stamp}" / "core", "a.pdf")
+        _file(lib / "books" / f"Gone {stamp}" / "core", "b.pdf")
         _scan(lib, tmp)
 
-        shutil.rmtree(lib / "books" / f"Gone {uid}")
-        stats = _scan(lib, tmp, scope_path=f"books/Here {uid}")
+        shutil.rmtree(lib / "books" / f"Gone {stamp}")
+        stats = _scan(lib, tmp, scope_path=f"books/Here {stamp}")
 
         assert stats["removed_systems"] == 0
-        assert _system(name=f"Gone {uid}") is not None
+        assert _system(name=f"Gone {stamp}") is not None
 
 
 class TestDeletedInTheApp:
     """``POST /api/files/delete``, against the shared test library."""
 
-    def _system_folder(self, uid: str) -> tuple[str, GameSystem]:
-        rel = f"books/AppSys-{uid}"
+    def _system_folder(self, stamp: str) -> tuple[str, GameSystem]:
+        rel = f"books/AppSys-{stamp}"
         _file(Path(LIBRARY_PATH) / rel / "core", "a.pdf")
         db = SessionLocal()
         try:
             scan_library(LIBRARY_PATH, tempfile.mkdtemp(), db, scope_path=rel)
         finally:
             db.close()
-        return rel, _system(name=f"AppSys-{uid}")
+        return rel, _system(name=f"AppSys-{stamp}")
 
     def test_deleting_a_system_folder_removes_the_system(self, client, admin_headers):
-        rel, system = self._system_folder(_uid())
+        rel, system = self._system_folder(_stamp())
         try:
             resp = client.post(
                 "/api/files/delete",
@@ -468,7 +468,7 @@ class TestDeletedInTheApp:
 
     def test_deleting_a_described_system_folder_still_removes_it(self, client, admin_headers):
         """Typing the folder's name to delete it is consent enough to lose its metadata."""
-        rel, system = self._system_folder(_uid())
+        rel, system = self._system_folder(_stamp())
         _update_system(system.id, description="Gone on purpose")
         try:
             resp = client.post(
@@ -483,7 +483,7 @@ class TestDeletedInTheApp:
 
     def test_unindexing_a_described_system_folder_keeps_it(self, client, admin_headers):
         """The folder is still there, so a rescan would bring the shelf straight back."""
-        rel, system = self._system_folder(_uid())
+        rel, system = self._system_folder(_stamp())
         _update_system(system.id, description="Still on disk")
         try:
             resp = client.post("/api/files/delete", headers=admin_headers, json={"path": rel})
@@ -493,7 +493,7 @@ class TestDeletedInTheApp:
             shutil.rmtree(os.path.join(LIBRARY_PATH, rel), ignore_errors=True)
 
     def test_deleting_a_category_folder_keeps_the_system(self, client, admin_headers):
-        rel, system = self._system_folder(_uid())
+        rel, system = self._system_folder(_stamp())
         try:
             _file(Path(LIBRARY_PATH) / rel / "extras", "keep.bin")
             resp = client.post(
@@ -507,7 +507,7 @@ class TestDeletedInTheApp:
             shutil.rmtree(os.path.join(LIBRARY_PATH, rel), ignore_errors=True)
 
     def test_unindexing_a_system_folder_removes_the_system(self, client, admin_headers):
-        rel, system = self._system_folder(_uid())
+        rel, system = self._system_folder(_stamp())
         try:
             resp = client.post(
                 "/api/files/delete", headers=admin_headers, json={"path": rel}
@@ -522,15 +522,15 @@ class TestDeletedInTheApp:
         self, client, admin_headers
     ):
         """The shelf's folder is still there, so its row (and metadata) stays."""
-        uid = _uid()
-        shelf = f"books/AppShelf-{uid} (publisher)"
+        stamp = _stamp()
+        shelf = f"books/AppShelf-{stamp} (publisher)"
         _file(Path(LIBRARY_PATH) / shelf / "Only Game" / "core", "a.pdf")
         db = SessionLocal()
         try:
             scan_library(LIBRARY_PATH, tempfile.mkdtemp(), db, scope_path=shelf)
         finally:
             db.close()
-        container = _system(name=f"AppShelf-{uid}")
+        container = _system(name=f"AppShelf-{stamp}")
         child = _system(parent_id=container.id)
         try:
             resp = client.post(
@@ -549,8 +549,8 @@ class TestDeletedInTheApp:
             shutil.rmtree(os.path.join(LIBRARY_PATH, shelf), ignore_errors=True)
 
     def test_a_shelf_with_other_systems_survives(self, client, admin_headers):
-        uid = _uid()
-        shelf = f"books/AppShelf2-{uid} (publisher)"
+        stamp = _stamp()
+        shelf = f"books/AppShelf2-{stamp} (publisher)"
         _file(Path(LIBRARY_PATH) / shelf / "Game A" / "core", "a.pdf")
         _file(Path(LIBRARY_PATH) / shelf / "Game B" / "core", "b.pdf")
         db = SessionLocal()
@@ -558,7 +558,7 @@ class TestDeletedInTheApp:
             scan_library(LIBRARY_PATH, tempfile.mkdtemp(), db, scope_path=shelf)
         finally:
             db.close()
-        container = _system(name=f"AppShelf2-{uid}")
+        container = _system(name=f"AppShelf2-{stamp}")
         try:
             resp = client.post(
                 "/api/files/delete",
@@ -574,13 +574,13 @@ class TestDeletedInTheApp:
 
 class TestSystemForFolder:
     def test_resolves_a_system_inside_a_container(self):
-        uid = _uid()
-        shelf = f"books/Resolve-{uid} (system-family)"
+        stamp = _stamp()
+        shelf = f"books/Resolve-{stamp} (system-family)"
         _file(Path(LIBRARY_PATH) / shelf / "Inner" / "core", "a.pdf")
         db = SessionLocal()
         try:
             scan_library(LIBRARY_PATH, tempfile.mkdtemp(), db, scope_path=shelf)
-            container = db.query(GameSystem).filter_by(name=f"Resolve-{uid}").first()
+            container = db.query(GameSystem).filter_by(name=f"Resolve-{stamp}").first()
             found = fs.system_for_folder(db, fs.safe_join(f"{shelf}/Inner"))
             assert found is not None and found.parent_id == container.id
             assert fs.system_for_folder(db, fs.safe_join(f"{shelf}/Inner/core")) is None
@@ -594,7 +594,7 @@ class TestPruneEdges:
 
     def test_a_vanished_system_with_a_description_is_kept(self):
         tmp, lib = _mk_lib()
-        name = f"Loved {_uid()}"
+        name = f"Loved {_stamp()}"
         _file(lib / "books" / name / "core", "a.pdf")
         _scan(lib, tmp)
         system = _system(name=name)
@@ -607,63 +607,63 @@ class TestPruneEdges:
 
     def test_two_folders_merged_into_a_new_one_adopt_neither(self):
         tmp, lib = _mk_lib()
-        uid = _uid()
-        _file(lib / "books" / f"Left {uid}" / "core", "a.pdf")
-        _file(lib / "books" / f"Right {uid}" / "core", "b.pdf")
+        stamp = _stamp()
+        _file(lib / "books" / f"Left {stamp}" / "core", "a.pdf")
+        _file(lib / "books" / f"Right {stamp}" / "core", "b.pdf")
         _scan(lib, tmp)
-        left, right = _system(name=f"Left {uid}"), _system(name=f"Right {uid}")
+        left, right = _system(name=f"Left {stamp}"), _system(name=f"Right {stamp}")
 
-        merged = lib / "books" / f"Both {uid}" / "core"
+        merged = lib / "books" / f"Both {stamp}" / "core"
         merged.mkdir(parents=True)
-        (lib / "books" / f"Left {uid}" / "core" / "a.pdf").rename(merged / "a.pdf")
-        (lib / "books" / f"Right {uid}" / "core" / "b.pdf").rename(merged / "b.pdf")
-        shutil.rmtree(lib / "books" / f"Left {uid}")
-        shutil.rmtree(lib / "books" / f"Right {uid}")
+        (lib / "books" / f"Left {stamp}" / "core" / "a.pdf").rename(merged / "a.pdf")
+        (lib / "books" / f"Right {stamp}" / "core" / "b.pdf").rename(merged / "b.pdf")
+        shutil.rmtree(lib / "books" / f"Left {stamp}")
+        shutil.rmtree(lib / "books" / f"Right {stamp}")
         _scan(lib, tmp)
 
         assert _system(id=left.id) is None and _system(id=right.id) is None
-        both = _system(name=f"Both {uid}")
+        both = _system(name=f"Both {stamp}")
         assert {b.game_system_id for b in _books(lib).values()} == {both.id}
 
     def test_books_moved_out_of_a_folder_that_stays(self):
         """The old system is still walked to, so it is neither adopted nor pruned."""
         tmp, lib = _mk_lib()
-        uid = _uid()
-        _file(lib / "books" / f"Stays {uid}" / "core", "a.pdf")
+        stamp = _stamp()
+        _file(lib / "books" / f"Stays {stamp}" / "core", "a.pdf")
         _scan(lib, tmp)
-        stays = _system(name=f"Stays {uid}")
+        stays = _system(name=f"Stays {stamp}")
 
-        (lib / "books" / f"Fresh {uid}" / "core").mkdir(parents=True)
-        (lib / "books" / f"Stays {uid}" / "core" / "a.pdf").rename(
-            lib / "books" / f"Fresh {uid}" / "core" / "a.pdf"
+        (lib / "books" / f"Fresh {stamp}" / "core").mkdir(parents=True)
+        (lib / "books" / f"Stays {stamp}" / "core" / "a.pdf").rename(
+            lib / "books" / f"Fresh {stamp}" / "core" / "a.pdf"
         )
         _scan(lib, tmp)
 
-        assert _system(id=stays.id).name == f"Stays {uid}"
-        assert _system(name=f"Fresh {uid}") is not None
+        assert _system(id=stays.id).name == f"Stays {stamp}"
+        assert _system(name=f"Fresh {stamp}") is not None
 
     def test_adoption_fills_fields_the_old_row_lacks(self):
         tmp, lib = _mk_lib()
-        uid = _uid()
-        shelf = f"Fam {uid} (system-family)"
+        stamp = _stamp()
+        shelf = f"Fam {stamp} (system-family)"
         _file(lib / "books" / shelf / "Game" / "core", "a.pdf")
         _scan(lib, tmp)
-        child = _system(parent_id=_system(name=f"Fam {uid}").id)
+        child = _system(parent_id=_system(name=f"Fam {stamp}").id)
         _update_system(child.id, system_family="")
 
         (lib / "books" / shelf / "Game").rename(lib / "books" / shelf / "Game 2")
         _scan(lib, tmp)
 
-        assert _system(id=child.id).system_family == f"Fam {uid}"
+        assert _system(id=child.id).system_family == f"Fam {stamp}"
 
     def test_a_deleted_container_goes_with_its_systems(self):
         tmp, lib = _mk_lib()
-        uid = _uid()
-        _file(lib / "books" / f"Gone Shelf {uid} (publisher)" / "Game" / "core", "a.pdf")
+        stamp = _stamp()
+        _file(lib / "books" / f"Gone Shelf {stamp} (publisher)" / "Game" / "core", "a.pdf")
         _scan(lib, tmp)
-        container = _system(name=f"Gone Shelf {uid}")
+        container = _system(name=f"Gone Shelf {stamp}")
 
-        shutil.rmtree(lib / "books" / f"Gone Shelf {uid} (publisher)")
+        shutil.rmtree(lib / "books" / f"Gone Shelf {stamp} (publisher)")
         stats = _scan(lib, tmp)
 
         assert _system(id=container.id) is None
@@ -677,7 +677,7 @@ class TestPruneEdges:
 
         monkeypatch.setattr(system_prune, "_adopt_rename", boom)
         tmp, lib = _mk_lib()
-        name = f"Fails {_uid()}"
+        name = f"Fails {_stamp()}"
         _file(lib / "books" / name / "core", "a.pdf")
         _scan(lib, tmp)
         old = _system(name=name)
@@ -695,7 +695,7 @@ class TestPruneEdges:
             raise RuntimeError("locked")
 
         tmp, lib = _mk_lib()
-        name = f"Stuck {_uid()}"
+        name = f"Stuck {_stamp()}"
         _file(lib / "books" / name / "core", "a.pdf")
         _scan(lib, tmp)
         system = _system(name=name)
@@ -727,25 +727,25 @@ class TestPruneEdges:
 
         monkeypatch.setattr(system_prune, "_run_with_timeout", flaky)
         tmp, lib = _mk_lib()
-        uid = _uid()
-        _file(lib / "books" / f"Rn {uid}" / "core", "a.pdf")
-        _file(lib / "books" / f"Del {uid}" / "core", "b.pdf")
+        stamp = _stamp()
+        _file(lib / "books" / f"Rn {stamp}" / "core", "a.pdf")
+        _file(lib / "books" / f"Del {stamp}" / "core", "b.pdf")
         _scan(lib, tmp)
-        renamed, deleted = _system(name=f"Rn {uid}"), _system(name=f"Del {uid}")
+        renamed, deleted = _system(name=f"Rn {stamp}"), _system(name=f"Del {stamp}")
 
         failing.update({"commit renamed systems", "commit system pruning"})
-        (lib / "books" / f"Rn {uid}").rename(lib / "books" / f"Rn {uid} 2")
-        shutil.rmtree(lib / "books" / f"Del {uid}")
+        (lib / "books" / f"Rn {stamp}").rename(lib / "books" / f"Rn {stamp} 2")
+        shutil.rmtree(lib / "books" / f"Del {stamp}")
         stats = _scan(lib, tmp)
         assert stats["removed_systems"] == 0
         assert stats["moved_books"] == 1
 
         failing.clear()
         failing.add("query systems for pruning")
-        _file(lib / "books" / f"Del2 {uid}" / "core", "c.pdf")
+        _file(lib / "books" / f"Del2 {stamp}" / "core", "c.pdf")
         _scan(lib, tmp)
-        kept = _system(name=f"Del2 {uid}")
-        shutil.rmtree(lib / "books" / f"Del2 {uid}")
+        kept = _system(name=f"Del2 {stamp}")
+        shutil.rmtree(lib / "books" / f"Del2 {stamp}")
         assert _scan(lib, tmp)["removed_systems"] == 0
         assert _system(id=kept.id) is not None, "a hung query must skip pruning"
         assert renamed.id and deleted.id
