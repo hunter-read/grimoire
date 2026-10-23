@@ -1,6 +1,7 @@
 """Tests for the admin-styleable OIDC login button (issue #377)."""
 import io
 import logging
+import os
 from unittest.mock import patch
 
 import pytest
@@ -244,13 +245,27 @@ class TestIconStorage:
         assert version == svc.icon_version(png)
 
     def test_env_icon_is_cached_until_file_changes(self, branding_dir, tmp_path):
+        # The cache key is (path, st_mtime_ns, st_size). Two rewrites inside one
+        # clock tick share an mtime - on Linux that is the common case, not a
+        # rare one - so the replacement has to differ in size for the key to
+        # move at all, and _png((10, 10)) and _png((12, 12)) both encode to
+        # exactly 81 bytes. Make the second icon plainly bigger, and push the
+        # mtime along as a real replacement minutes later would (issue #675).
         pinned = tmp_path / "pinned.png"
         pinned.write_bytes(_png((10, 10)))
+        # Noise rather than another flat colour: every small solid PNG these
+        # helpers make encodes to the same 81 bytes, whatever its dimensions.
+        buf = io.BytesIO()
+        Image.frombytes("RGBA", (12, 12), os.urandom(12 * 12 * 4)).save(buf, format="PNG")
+        replacement = buf.getvalue()
+        assert len(replacement) != pinned.stat().st_size
         with patch.object(svc, "normalize_icon", wraps=svc.normalize_icon) as spy:
             first = svc.current_icon("", str(pinned))
             second = svc.current_icon("", str(pinned))
             assert first == second and spy.call_count == 1
-            pinned.write_bytes(_png((12, 12)))
+            was = pinned.stat().st_mtime_ns
+            pinned.write_bytes(replacement)
+            os.utime(pinned, ns=(was + 1_000_000, was + 1_000_000))
             third = svc.current_icon("", str(pinned))
         assert spy.call_count == 2
         assert _open(third[0]).size == (12, 12)

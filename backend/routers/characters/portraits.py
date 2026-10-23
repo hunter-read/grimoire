@@ -56,6 +56,31 @@ def remove_portrait_files(character_id: str) -> None:
             os.remove(candidate)
 
 
+def _newest_portrait_mtime_ns(character_id: str) -> int:
+    """The mtime of the portrait this upload replaces, or 0 if there is none."""
+    mtimes = []
+    for extension in set(PORTRAIT_TYPES.values()):
+        candidate = os.path.join(CHARACTER_PORTRAIT_DIR, f"{character_id}{extension}")
+        try:
+            mtimes.append(os.stat(candidate).st_mtime_ns)
+        except OSError:
+            continue
+    return max(mtimes, default=0)
+
+
+def _keep_mtime_moving(path: str, previous_ns: int) -> None:
+    """Make ``path``'s mtime strictly later than the portrait it replaced.
+
+    ``portrait_version`` is the file's ``st_mtime_ns`` (``core._portrait_version``)
+    and the client puts it in the image URL so a replacement is not served from
+    cache. Linux stamps files from a coarse clock, so two uploads landing in the
+    same tick would otherwise share a version and the browser would go on showing
+    the old picture (issue #675).
+    """
+    if previous_ns and os.stat(path).st_mtime_ns <= previous_ns:
+        os.utime(path, ns=(previous_ns + 1, previous_ns + 1))
+
+
 def upload_portrait(
     character_id: str,
     file: UploadFile = File(...),
@@ -81,11 +106,14 @@ def store_portrait(character: Character, data: bytes, extension: str) -> str:
     The framing goes too: a focus point chosen for one picture means nothing
     on the next.
     """
+    previous_ns = _newest_portrait_mtime_ns(character.id)
     remove_portrait_files(character.id)
     character.portrait_crop = None
     filename = f"{character.id}{extension}"
-    with open(os.path.join(CHARACTER_PORTRAIT_DIR, filename), "wb") as handle:
+    path = os.path.join(CHARACTER_PORTRAIT_DIR, filename)
+    with open(path, "wb") as handle:
         handle.write(data)
+    _keep_mtime_moving(path, previous_ns)
     character.portrait_path = filename
     return filename
 

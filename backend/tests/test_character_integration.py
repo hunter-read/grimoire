@@ -421,6 +421,29 @@ class TestPortraits:
         detail = client.get(f"/api/characters/{created['id']}", headers=admin_headers).json()
         assert detail["portrait_version"] is None
 
+    def test_rapid_replacements_each_get_a_later_version(
+        self, client, admin_headers, both_schemas
+    ):
+        """Issue #675: the version is the file's mtime, and Linux stamps files
+        from a coarse clock, so several uploads can land in one tick. Each must
+        still come back later than the last or the client keeps the cached
+        image."""
+        created = client.post(
+            "/api/characters",
+            json={"schema_ref": "p5-demo", "name": "Rapid"},
+            headers=admin_headers,
+        ).json()
+        url = f"/api/characters/{created['id']}/portrait"
+        versions = [
+            client.post(url, files={"file": (f"{n}.png", _png(), "image/png")},
+                        headers=admin_headers).json()["portrait_version"]
+            for n in range(5)
+        ]
+        assert versions == sorted(versions) and len(set(versions)) == 5
+        # What the character itself reports must match the file on disk.
+        detail = client.get(f"/api/characters/{created['id']}", headers=admin_headers).json()
+        assert detail["portrait_version"] == versions[-1]
+
     def test_rejects_a_file_that_is_not_an_image(self, client, admin_headers, both_schemas):
         created = client.post(
             "/api/characters",
