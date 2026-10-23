@@ -796,7 +796,9 @@ export default function SystemDetailView() {
                   onExpandAll={expandAll}
                   collapseDisabled={!!searchResults || !grouped || allCollapsed}
                   expandDisabled={
-                    !!searchResults || !grouped || (!collapsedCats.size && !collapsedSubfolders.size)
+                    !!searchResults ||
+                    !grouped ||
+                    (!collapsedCats.size && !collapsedSubfolders.size)
                   }
                 />
               </div>
