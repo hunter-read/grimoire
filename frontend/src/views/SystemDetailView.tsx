@@ -180,6 +180,23 @@ export default function SystemDetailView() {
     `grimoire:system:${systemId}:collapsed`,
     defaultCollapsedFromCounts(categoryCounts)
   ) as [Set<string>, SetState<Set<string>>]
+  // Every subfolder below every category, keyed as BookFolderGroup keys them.
+  // Collapse/expand all used to set the category state alone, leaving the
+  // subfolders however the user last left them; the media galleries' allKeys
+  // (useMediaGallery.ts) has always covered both. buildShelf builds the whole
+  // folder tree up front — only the books under a node load lazily — so this
+  // is complete without asking the server for anything.
+  const allFolderKeys = useMemo(() => {
+    const keys = new Set<string>()
+    const walk = (node: ShelfNode) => {
+      for (const child of Object.values(node.folders)) {
+        keys.add(`${child.category}::${child.path}`)
+        walk(child)
+      }
+    }
+    Object.values(shelf).forEach(walk)
+    return keys
+  }, [shelf])
   // Two independent view modes: the book list below uses the "book" preference,
   // while a container system's child-system grid uses the "system" one — the same
   // setting the main library grid uses (issue #296). Sharing one mode made
@@ -368,8 +385,18 @@ export default function SystemDetailView() {
   }
 
   const allCatKeys = Object.keys(shelf)
-  const collapseAll = () => setCollapsedCats(new Set(allCatKeys))
-  const expandAll = () => setCollapsedCats(new Set())
+  // Nothing left to collapse only when the subfolders are down too.
+  const allCollapsed =
+    collapsedCats.size === allCatKeys.length &&
+    [...allFolderKeys].every((k) => collapsedSubfolders.has(k))
+  const collapseAll = () => {
+    setCollapsedCats(new Set(allCatKeys))
+    setCollapsedSubfolders(new Set(allFolderKeys))
+  }
+  const expandAll = () => {
+    setCollapsedCats(new Set())
+    setCollapsedSubfolders(new Set())
+  }
 
   // Category render order (built-ins first, then any custom categories).
   const orderedCatKeys = [
@@ -767,10 +794,10 @@ export default function SystemDetailView() {
                 <CollapseExpandButtons
                   onCollapseAll={collapseAll}
                   onExpandAll={expandAll}
-                  collapseDisabled={
-                    !!searchResults || !grouped || collapsedCats.size === allCatKeys.length
+                  collapseDisabled={!!searchResults || !grouped || allCollapsed}
+                  expandDisabled={
+                    !!searchResults || !grouped || (!collapsedCats.size && !collapsedSubfolders.size)
                   }
-                  expandDisabled={!!searchResults || !grouped || collapsedCats.size === 0}
                 />
               </div>
             </div>

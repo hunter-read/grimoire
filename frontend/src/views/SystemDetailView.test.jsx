@@ -1189,6 +1189,37 @@ describe('SystemDetailView — collapse and expand all categories', () => {
     expect(screen.getByText('PHB')).toBeInTheDocument()
     expect(screen.getByText('Strahd')).toBeInTheDocument()
   })
+
+  // Issue: both buttons used to set the category state alone, so a subfolder
+  // left open stayed open under a collapsed category and was there again the
+  // moment the category reopened.
+  it('reaches the subfolders too, in both directions', async () => {
+    serveSystem(
+      makeSystem([
+        makeBook({
+          title: 'Bestiary',
+          category: 'core',
+          relative_path: 'books/TestSystem/core/monsters/bestiary.pdf',
+        }),
+      ])
+    )
+    renderView()
+    await waitFor(() => expect(screen.getByText('Bestiary')).toBeInTheDocument())
+
+    await userEvent.click(screen.getByRole('button', { name: /collapse all/i }))
+    expect(JSON.parse(sessionStorage.getItem('grimoire:system:system-1:subfolders'))).toEqual([
+      'core::monsters',
+    ])
+
+    // Reopening the category must not bring the subfolder back open with it.
+    await userEvent.click(screen.getByRole('button', { name: /core rulebooks/i }))
+    expect(screen.getByRole('button', { name: /monsters/i })).toBeInTheDocument()
+    expect(screen.queryByText('Bestiary')).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: /expand all/i }))
+    expect(screen.getByText('Bestiary')).toBeInTheDocument()
+    expect(JSON.parse(sessionStorage.getItem('grimoire:system:system-1:subfolders'))).toEqual([])
+  })
 })
 
 describe('SystemDetailView — category depth for a system inside a container', () => {
