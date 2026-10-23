@@ -13,6 +13,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Sending a book or system to Grimoire Codex DB compares it with Grimoire Codex DB first and ticks the fields that differ, showing both values, so a correction is one click
 - The cover can be sent along: a book's first page, rendered sharper than its library thumbnail, or a system's cover art. It is ticked when Grimoire Codex DB has none
 - Pick the scraper a record's data came from as its source. Grimoire fills in the record's page on that site and credits the description and tags to it on Grimoire Codex DB
+- A v2 OPDS feed lists each game system as its own category, next to All Books. Choose v1 or v2 from the Feed version dropdown under Settings → Account → OPDS Feed; the original v1 URL keeps working unchanged for apps already using it
 
 ### Fixed
 

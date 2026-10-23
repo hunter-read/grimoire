@@ -5,6 +5,12 @@ The token is generated on-demand and can be revoked (regenerated) at any time.
 
 Routes are registered without auth middleware — the token IS the credential.
 OPDS_ENABLED must be true (env var) for this router to be registered at all.
+
+Two versions of the feed are served side by side. v1 (``/opds/{token}``) is the
+original single "All Books" catalog and is kept exactly as it was, so a reader
+already pointed at it keeps working. v2 (``/opds/v2/{token}``) adds one
+sub-feed per game system (issue #673). Each feed's links stay inside its own
+version, so a client never wanders from one into the other.
 """
 import datetime
 import os
@@ -12,12 +18,13 @@ from xml.sax.saxutils import escape, quoteattr
 
 from fastapi import Depends, HTTPException
 from fastapi.responses import Response, FileResponse
-from sqlalchemy.orm import Session
+from sqlalchemy import func
+from sqlalchemy.orm import Query, Session
 
 from .._user_files import serve_user_file
 from ... import token_vault
 from ...config import get_db
-from ...models import Book, User
+from ...models import Book, GameSystem, User
 from ...services import access_control, tag_service
 
 
@@ -48,8 +55,16 @@ def _resolve_user(db, token: str) -> User:
     return user
 
 
-def _book_to_entry(book: Book, token: str, base_url: str, tags: list[str]) -> str:
-    """Render a single Book as an OPDS Atom <entry>."""
+def _v1_root(token: str) -> str:
+    return f"{_base_url()}/opds/{token}"
+
+
+def _v2_root(token: str) -> str:
+    return f"{_base_url()}/opds/v2/{token}"
+
+
+def _book_to_entry(book: Book, root: str, tags: list[str]) -> str:
+    """Render a single Book as an OPDS Atom <entry>, linking under feed ``root``."""
     title = escape(book.title or "Untitled")
     authors = book.authors or []
     author_xml = "".join(
@@ -59,15 +74,15 @@ def _book_to_entry(book: Book, token: str, base_url: str, tags: list[str]) -> st
     updated = (book.updated_at or book.created_at or datetime.datetime.utcnow()).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
     )
-    entry_url = f"{base_url}/opds/{token}/entry/{book.id}"
-    download_url = f"{base_url}/opds/{token}/download/{book.id}"
+    entry_url = f"{root}/entry/{book.id}"
+    download_url = f"{root}/download/{book.id}"
     mime = quoteattr(book.mime_type or "application/pdf")
 
     cover_link = ""
     if book.has_thumbnail:
         # Served by the OPDS router under the feed token: the app's own
         # thumbnail route takes a session, which an e-reader doesn't have.
-        thumb_url = f"{base_url}/opds/{token}/cover/{book.id}"
+        thumb_url = f"{root}/cover/{book.id}"
         cover_link = (
             f'<link rel="http://opds-spec.org/image" href="{escape(thumb_url)}" type="image/webp"/>'
             f'<link rel="http://opds-spec.org/image/thumbnail" href="{escape(thumb_url)}" type="image/webp"/>'
@@ -106,71 +121,52 @@ def _feed_wrapper(title: str, feed_id: str, updated: str, links: str, entries: s
     )
 
 
-def catalog(token: str, request_url: str = "", db: Session = Depends(get_db)) -> Response:
-    """Root navigation feed — lists available sub-feeds."""
-    # Validates the token (raises on an invalid/expired one) before we build
-    # the feed; the resolved user itself isn't needed for the root catalog.
-    _resolve_user(db, token)
-    # Derive base URL from the request — FastAPI passes Request via DI,
-    # but we keep this free-function friendly by computing it from config.
-    base_url = _base_url()
-    updated = _now_iso()
-    feed_url = f"{base_url}/opds/{token}"
-
-    links = (
-        f'<link rel="self" href="{escape(feed_url)}" type="{_CONTENT_TYPE}"/>'
-        f'<link rel="start" href="{escape(feed_url)}" type="{_CONTENT_TYPE}"/>'
-    )
-
-    all_url = f"{base_url}/opds/{token}/all"
-    entries = (
-        f"<entry>"
-        f"<id>urn:grimoire:opds:all</id>"
-        f"<title>All Books</title>"
-        f"<updated>{updated}</updated>"
-        f"<content type='text'>Browse the complete library</content>"
-        f'<link rel="subsection" href="{escape(all_url)}" type="{_ACQUISITION_TYPE}"/>'
-        f"</entry>"
-    )
-
-    body = _feed_wrapper("Grimoire Library", feed_url, updated, links, entries)
-    return Response(content=body, media_type=_CONTENT_TYPE)
+def _allows_explicit(user: User) -> bool:
+    return user.allow_explicit if user.allow_explicit is not None else True
 
 
-def catalog_all(token: str, db: Session = Depends(get_db)) -> Response:
-    """Acquisition feed — all books the user is allowed to see."""
-    user = _resolve_user(db, token)
-    base_url = _base_url()
-    updated = _now_iso()
-    feed_url = f"{base_url}/opds/{token}/all"
-    root_url = f"{base_url}/opds/{token}"
-
+def _visible_books(db: Session, user: User) -> Query:
+    """Every book ``user`` may see through OPDS, as an unordered query."""
     # Variants are included on purpose. A catalogue an e-reader syncs from
     # should list every file the user owns; silently omitting the
     # printer-friendly edition would read as a missing book.
-    q = db.query(Book).filter(Book.is_missing != True)
-    if not (user.allow_explicit if user.allow_explicit is not None else True):
-        q = q.filter(Book.is_explicit != True)
+    q = db.query(Book).filter(Book.is_missing != True)  # noqa: E712
+    if not _allows_explicit(user):
+        q = q.filter(Book.is_explicit != True)  # noqa: E712
     # The OPDS token authenticates the user, so their access level applies here
     # exactly as it does in the web UI (issue #258) — an e-reader must not be a
     # way around a restriction.
-    q = access_control.visible_books(db, q, user)
-    books = q.order_by(Book.title).all()
+    return access_control.visible_books(db, q, user)
 
-    links = (
-        f'<link rel="self" href="{escape(feed_url)}" type="{_ACQUISITION_TYPE}"/>'
-        f'<link rel="start" href="{escape(root_url)}" type="{_CONTENT_TYPE}"/>'
-        f'<link rel="up" href="{escape(root_url)}" type="{_CONTENT_TYPE}"/>'
+
+def _nav_entry(entry_id: str, title: str, updated: str, content: str, href: str) -> str:
+    """A navigation-feed <entry> pointing at the acquisition feed ``href``."""
+    return (
+        f"<entry>"
+        f"<id>{escape(entry_id)}</id>"
+        f"<title>{escape(title)}</title>"
+        f"<updated>{updated}</updated>"
+        f"<content type='text'>{escape(content)}</content>"
+        f'<link rel="subsection" href="{escape(href)}" type="{_ACQUISITION_TYPE}"/>'
+        f"</entry>"
     )
 
+
+def _books_feed(db: Session, title: str, feed_url: str, root: str, books: list[Book]) -> Response:
+    """An acquisition feed of ``books`` whose links stay under feed ``root``."""
+    links = (
+        f'<link rel="self" href="{escape(feed_url)}" type="{_ACQUISITION_TYPE}"/>'
+        f'<link rel="start" href="{escape(root)}" type="{_CONTENT_TYPE}"/>'
+        f'<link rel="up" href="{escape(root)}" type="{_CONTENT_TYPE}"/>'
+    )
     book_tags = tag_service.display_tags_for_resources(db, "book", [b.id for b in books])
-    entries = "".join(_book_to_entry(b, token, base_url, book_tags.get(b.id, [])) for b in books)
-    body = _feed_wrapper("All Books", feed_url, updated, links, entries)
+    entries = "".join(_book_to_entry(b, root, book_tags.get(b.id, [])) for b in books)
+    body = _feed_wrapper(title, feed_url, _now_iso(), links, entries)
     return Response(content=body, media_type=_ACQUISITION_TYPE)
 
 
-def book_entry(token: str, book_id: str, db: Session = Depends(get_db)) -> Response:
-    """Single-entry acquisition feed for a specific book."""
+def _entry_feed(db: Session, token: str, book_id: str, root: str) -> Response:
+    """Single-entry acquisition feed for one book, linking under feed ``root``."""
     user = _resolve_user(db, token)
     book = db.query(Book).filter_by(id=book_id).first()
     if not book or book.is_missing:
@@ -179,25 +175,179 @@ def book_entry(token: str, book_id: str, db: Session = Depends(get_db)) -> Respo
         # 404, matching the web UI: a restricted book stays indistinguishable
         # from one that does not exist.
         raise HTTPException(404, "Book not found")
-    if book.is_explicit and not (user.allow_explicit if user.allow_explicit is not None else True):
+    if book.is_explicit and not _allows_explicit(user):
         raise HTTPException(403, "Forbidden")
 
-    base_url = _base_url()
-    updated = _now_iso()
-    feed_url = f"{base_url}/opds/{token}/entry/{book_id}"
-    root_url = f"{base_url}/opds/{token}"
-
+    feed_url = f"{root}/entry/{book_id}"
     links = (
         f'<link rel="self" href="{escape(feed_url)}" type="{_ACQUISITION_TYPE}"/>'
-        f'<link rel="start" href="{escape(root_url)}" type="{_CONTENT_TYPE}"/>'
-        f'<link rel="up" href="{escape(root_url)}/all" type="{_ACQUISITION_TYPE}"/>'
+        f'<link rel="start" href="{escape(root)}" type="{_CONTENT_TYPE}"/>'
+        f'<link rel="up" href="{escape(root)}/all" type="{_ACQUISITION_TYPE}"/>'
     )
 
-    entry = _book_to_entry(
-        book, token, base_url, tag_service.display_tags_for_resource(db, "book", book.id)
-    )
-    body = _feed_wrapper(book.title or "Book", feed_url, updated, links, entry)
+    entry = _book_to_entry(book, root, tag_service.display_tags_for_resource(db, "book", book.id))
+    body = _feed_wrapper(book.title or "Book", feed_url, _now_iso(), links, entry)
     return Response(content=body, media_type=_ACQUISITION_TYPE)
+
+
+def _root_feed(root: str, entries: str, updated: str) -> Response:
+    links = (
+        f'<link rel="self" href="{escape(root)}" type="{_CONTENT_TYPE}"/>'
+        f'<link rel="start" href="{escape(root)}" type="{_CONTENT_TYPE}"/>'
+    )
+    body = _feed_wrapper("Grimoire Library", root, updated, links, entries)
+    return Response(content=body, media_type=_CONTENT_TYPE)
+
+
+# ---------------------------------------------------------------------------
+# v1 — the original catalog. Its URLs and output are frozen: readers already
+# subscribed to it must see exactly what they always have.
+# ---------------------------------------------------------------------------
+
+
+def catalog(token: str, request_url: str = "", db: Session = Depends(get_db)) -> Response:
+    """Root navigation feed — lists available sub-feeds."""
+    # Validates the token (raises on an invalid/expired one) before we build
+    # the feed; the resolved user itself isn't needed for the root catalog.
+    _resolve_user(db, token)
+    root = _v1_root(token)
+    updated = _now_iso()
+    entries = _nav_entry(
+        "urn:grimoire:opds:all", "All Books", updated, "Browse the complete library", f"{root}/all"
+    )
+    return _root_feed(root, entries, updated)
+
+
+def catalog_all(token: str, db: Session = Depends(get_db)) -> Response:
+    """Acquisition feed — all books the user is allowed to see."""
+    user = _resolve_user(db, token)
+    root = _v1_root(token)
+    books = _visible_books(db, user).order_by(Book.title).all()
+    return _books_feed(db, "All Books", f"{root}/all", root, books)
+
+
+def book_entry(token: str, book_id: str, db: Session = Depends(get_db)) -> Response:
+    """Single-entry acquisition feed for a specific book."""
+    return _entry_feed(db, token, book_id, _v1_root(token))
+
+
+# ---------------------------------------------------------------------------
+# v2 — the catalog browsable by game system (issue #673).
+# ---------------------------------------------------------------------------
+
+
+def _book_count(n: int) -> str:
+    return "1 book" if n == 1 else f"{n} books"
+
+
+def _visible_systems(db: Session, user: User) -> Query:
+    """The game systems ``user`` may browse, hiding explicit ones as the web UI does."""
+    q = access_control.visible_systems(db, db.query(GameSystem), user)
+    if not _allows_explicit(user):
+        q = q.filter(GameSystem.is_explicit != True)  # noqa: E712
+    return q
+
+
+def catalog_v2(token: str, db: Session = Depends(get_db)) -> Response:
+    """Root navigation feed: All Books, then one sub-feed per game system."""
+    user = _resolve_user(db, token)
+    root = _v2_root(token)
+    updated = _now_iso()
+
+    # Counted from the books the user can actually open, so a system with
+    # nothing visible in it is left out rather than shown empty.
+    counts = dict(
+        _visible_books(db, user)
+        .with_entities(Book.game_system_id, func.count(Book.id))
+        .group_by(Book.game_system_id)
+        .all()
+    )
+    systems = (
+        _visible_systems(db, user)
+        .filter(GameSystem.id.in_([sid for sid in counts if sid]))
+        .order_by(func.lower(GameSystem.name))
+        .all()
+    )
+
+    entries = [
+        _nav_entry(
+            "urn:grimoire:opds:all",
+            "All Books",
+            updated,
+            "Browse the complete library",
+            f"{root}/all",
+        )
+    ]
+    entries += [
+        _nav_entry(
+            f"urn:grimoire:opds:system:{s.id}",
+            s.name,
+            updated,
+            _book_count(counts[s.id]),
+            f"{root}/system/{s.id}",
+        )
+        for s in systems
+    ]
+    if counts.get(None):
+        entries.append(
+            _nav_entry(
+                "urn:grimoire:opds:other",
+                "Other Books",
+                updated,
+                f"{_book_count(counts[None])} without a game system",
+                f"{root}/other",
+            )
+        )
+    return _root_feed(root, "".join(entries), updated)
+
+
+def catalog_all_v2(token: str, db: Session = Depends(get_db)) -> Response:
+    """Acquisition feed — all books the user is allowed to see."""
+    user = _resolve_user(db, token)
+    root = _v2_root(token)
+    books = _visible_books(db, user).order_by(Book.title).all()
+    return _books_feed(db, "All Books", f"{root}/all", root, books)
+
+
+def catalog_system_v2(token: str, system_id: str, db: Session = Depends(get_db)) -> Response:
+    """Acquisition feed — one game system's books."""
+    user = _resolve_user(db, token)
+    system = _visible_systems(db, user).filter(GameSystem.id == system_id).first()
+    if not system:
+        # 404 for a restricted or explicit system too, so it stays
+        # indistinguishable from one that does not exist.
+        raise HTTPException(404, "Game system not found")
+    root = _v2_root(token)
+    books = (
+        _visible_books(db, user)
+        .filter(Book.game_system_id == system.id)
+        .order_by(Book.title)
+        .all()
+    )
+    return _books_feed(db, system.name, f"{root}/system/{system.id}", root, books)
+
+
+def catalog_other_v2(token: str, db: Session = Depends(get_db)) -> Response:
+    """Acquisition feed — books that belong to no game system."""
+    user = _resolve_user(db, token)
+    root = _v2_root(token)
+    books = (
+        _visible_books(db, user)
+        .filter(Book.game_system_id.is_(None))
+        .order_by(Book.title)
+        .all()
+    )
+    return _books_feed(db, "Other Books", f"{root}/other", root, books)
+
+
+def book_entry_v2(token: str, book_id: str, db: Session = Depends(get_db)) -> Response:
+    """Single-entry acquisition feed for a specific book."""
+    return _entry_feed(db, token, book_id, _v2_root(token))
+
+
+# ---------------------------------------------------------------------------
+# Files — the same in both versions, served under either root.
+# ---------------------------------------------------------------------------
 
 
 def download_book(token: str, book_id: str, db: Session = Depends(get_db)) -> FileResponse:

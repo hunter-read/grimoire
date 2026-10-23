@@ -1240,7 +1240,16 @@
       "regenerate": "URL opnieuw genereren",
       "disable": "Uitschakelen",
       "confirmRevoke": "Het uitschakelen van OPDS trekt je feed-URL onmiddellijk in. Apps die deze gebruiken, verliezen de toegang. Doorgaan?",
-      "confirmDisable": "Ja, uitschakelen"
+      "confirmDisable": "Ja, uitschakelen",
+      "version": "Feedversie",
+      "versions": {
+        "v2": "v2 - Gesorteerd op spelsysteem",
+        "v1": "v1 - Alle boeken (origineel)"
+      },
+      "versionHints": {
+        "v2": "Blader door je bibliotheek per spelsysteem, met daarnaast een feed met alle boeken.",
+        "v1": "De oorspronkelijke feed met alle boeken. Blijft bestaan zodat apps die je al hebt gekoppeld blijven werken."
+      }
     },
     "groups": {
       "profile": "Profiel",

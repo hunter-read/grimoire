@@ -1240,7 +1240,16 @@
       "regenerate": "URL neu generieren",
       "disable": "Deaktivieren",
       "confirmRevoke": "Das Deaktivieren von OPDS widerruft sofort deine Feed-URL. Apps, die sie verwenden, verlieren den Zugriff. Fortfahren?",
-      "confirmDisable": "Ja, deaktivieren"
+      "confirmDisable": "Ja, deaktivieren",
+      "version": "Feed-Version",
+      "versions": {
+        "v2": "v2 - Nach Spielsystem sortiert",
+        "v1": "v1 - Alle Bücher (ursprünglich)"
+      },
+      "versionHints": {
+        "v2": "Durchsuche deine Bibliothek nach Spielsystem, zusätzlich mit einem Feed aller Bücher.",
+        "v1": "Der ursprüngliche Feed mit allen Büchern. Bleibt erhalten, damit bereits verbundene Apps weiter funktionieren."
+      }
     },
     "groups": {
       "profile": "Profil",

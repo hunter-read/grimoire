@@ -1240,7 +1240,16 @@
       "regenerate": "Regenerate URL",
       "disable": "Disable",
       "confirmRevoke": "Disabling OPDS will immediately revoke your feed URL. Any apps using it will lose access. Continue?",
-      "confirmDisable": "Yes, disable"
+      "confirmDisable": "Yes, disable",
+      "version": "Feed version",
+      "versions": {
+        "v2": "v2 - Sorted by game system",
+        "v1": "v1 - All books (original)"
+      },
+      "versionHints": {
+        "v2": "Browse your library by game system, with an All Books feed as well.",
+        "v1": "The original single All Books feed. Kept so apps you have already connected keep working."
+      }
     },
     "groups": {
       "profile": "Profile",

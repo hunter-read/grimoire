@@ -187,6 +187,20 @@ class TestOPDSTokenManagement:
         assert body["has_token"] is True
         assert body["feed_url"] is not None
 
+    def test_status_lists_every_feed_version(self, opds_client, opds_admin_headers):
+        token = _generate_token(opds_client, opds_admin_headers)
+        body = opds_client.get("/api/users/me/opds", headers=opds_admin_headers).json()
+        assert body["feed_urls"] == [
+            {"version": "v2", "url": f"http://testserver/opds/v2/{token}"},
+            {"version": "v1", "url": f"http://testserver/opds/{token}"},
+        ]
+        # feed_url stays the v1 URL, so a client reading it is unaffected.
+        assert body["feed_url"] == f"http://testserver/opds/{token}"
+
+    def test_generate_returns_every_feed_version(self, opds_client, opds_admin_headers):
+        body = opds_client.post("/api/users/me/opds/generate", headers=opds_admin_headers).json()
+        assert [f["version"] for f in body["feed_urls"]] == ["v2", "v1"]
+
     def test_regenerate_changes_token(self, opds_client, opds_admin_headers):
         first = _generate_token(opds_client, opds_admin_headers)
         second = _generate_token(opds_client, opds_admin_headers)
@@ -199,6 +213,7 @@ class TestOPDSTokenManagement:
         body = resp.json()
         assert body["has_token"] is False
         assert body["feed_url"] is None
+        assert body["feed_urls"] is None
 
     def test_status_after_revoke(self, opds_client, opds_admin_headers):
         # Ensure revoke is durable
@@ -469,6 +484,7 @@ class TestOPDSGuestDenied:
 
         assert opds_client.get("/opds/planted-guest-opds-token").status_code == 404
         assert opds_client.get("/opds/planted-guest-opds-token/all").status_code == 404
+        assert opds_client.get("/opds/v2/planted-guest-opds-token").status_code == 404
         assert (
             opds_client.get(
                 f"/opds/planted-guest-opds-token/download/{sample_book}"
@@ -498,6 +514,13 @@ class TestOpenApiSchema:
             "/opds/{token}/entry/{book_id}",
             "/opds/{token}/download/{book_id}",
             "/opds/{token}/cover/{book_id}",
+            "/opds/v2/{token}",
+            "/opds/v2/{token}/all",
+            "/opds/v2/{token}/system/{system_id}",
+            "/opds/v2/{token}/other",
+            "/opds/v2/{token}/entry/{book_id}",
+            "/opds/v2/{token}/download/{book_id}",
+            "/opds/v2/{token}/cover/{book_id}",
         ):
             assert path in paths, f"{path} missing from OpenAPI schema"
 
@@ -568,7 +591,7 @@ class TestEntryQuoting:
         from backend.routers.opds.core import _book_to_entry
 
         book = Book(id="b1", title="T", mime_type=mime, has_thumbnail=False)
-        xml = _book_to_entry(book, "tok", "http://x", tags)
+        xml = _book_to_entry(book, "http://x/opds/tok", tags)
         return ET.fromstring(xml.replace("<entry>", '<entry xmlns="http://www.w3.org/2005/Atom">', 1))
 
     def test_tag_with_both_quote_kinds(self):
@@ -580,3 +603,210 @@ class TestEntryQuoting:
         root = self._entry([], mime='a"b')
         links = list(root.iter("{http://www.w3.org/2005/Atom}link"))
         assert links[-1].get("type") == 'a"b'
+
+
+# ===========================================================================
+# v2 — the catalog browsable by game system (issue #673)
+# ===========================================================================
+
+
+def _make_system(db, slug, name, **kw):
+    system = GameSystem(name=name, slug=slug, **kw)
+    db.add(system)
+    db.flush()
+    return system
+
+
+def _make_book(db, title, system=None, **kw):
+    book = Book(
+        title=title,
+        filename=f"{title}.pdf",
+        filepath=f"/tmp/{title}.pdf",
+        relative_path=f"{title}.pdf",
+        game_system_id=system.id if system else None,
+        category="core",
+        mime_type="application/pdf",
+        is_missing=False,
+        **kw,
+    )
+    db.add(book)
+    db.flush()
+    return book
+
+
+@pytest.fixture(scope="module")
+def v2_library():
+    """Systems covering each case the v2 root has to sort out."""
+    db = SessionLocal()
+    zeta = _make_system(db, "v2-zeta", "Zeta Quest")
+    alpha = _make_system(db, "v2-alpha", "alpha Saga")  # lower-case: sort ignores case
+    empty = _make_system(db, "v2-empty", "V2 Empty System")
+    spicy = _make_system(db, "v2-spicy", "V2 Spicy System", is_explicit=True)
+    locked = _make_system(db, "v2-locked", "V2 Locked System", access_level="gm")
+    ids = {
+        "zeta": zeta.id,
+        "alpha": alpha.id,
+        "empty": empty.id,
+        "spicy": spicy.id,
+        "locked": locked.id,
+        "zeta_book": _make_book(db, "V2 Zeta Core", zeta).id,
+        "zeta_book_2": _make_book(db, "V2 Zeta Bestiary", zeta).id,
+        "alpha_book": _make_book(db, "V2 Alpha Core", alpha).id,
+        "spicy_book": _make_book(db, "V2 Spicy Core", spicy).id,
+        "locked_book": _make_book(db, "V2 Locked Core", locked).id,
+        "loose_book": _make_book(db, "V2 Loose Pamphlet").id,
+    }
+    db.commit()
+    db.close()
+
+    yield ids
+
+    db = SessionLocal()
+    db.query(Book).filter(Book.title.like("V2 %")).delete(synchronize_session=False)
+    db.query(GameSystem).filter(GameSystem.slug.like("v2-%")).delete(synchronize_session=False)
+    db.commit()
+    db.close()
+
+
+def _set_player_explicit(allow):
+    db = SessionLocal()
+    db.query(User).filter_by(username="opds_player").update({"allow_explicit": allow})
+    db.commit()
+    db.close()
+
+
+def _nav_titles(xml_text):
+    import xml.etree.ElementTree as ET
+
+    ns = {"a": "http://www.w3.org/2005/Atom"}
+    root = ET.fromstring(xml_text)
+    return [e.find("a:title", ns).text for e in root.findall("a:entry", ns)]
+
+
+class TestOPDSv2:
+    @pytest.fixture(autouse=True)
+    def token(self, opds_client, opds_admin_headers):
+        self._token = _generate_token(opds_client, opds_admin_headers)
+        self._root = f"http://testserver/opds/v2/{self._token}"
+
+    def test_root_is_a_navigation_feed(self, opds_client, v2_library):
+        resp = opds_client.get(f"/opds/v2/{self._token}")
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith(
+            "application/atom+xml;profile=opds-catalog;kind=navigation"
+        )
+        assert f'<link rel="self" href="{self._root}"' in resp.text
+
+    def test_root_lists_all_books_then_each_system(self, opds_client, v2_library):
+        titles = _nav_titles(opds_client.get(f"/opds/v2/{self._token}").text)
+        assert titles[0] == "All Books"
+        assert titles.index("alpha Saga") < titles.index("Zeta Quest")
+        assert titles[-1] == "Other Books"
+
+    def test_root_links_each_system_feed_with_its_count(self, opds_client, v2_library):
+        text = opds_client.get(f"/opds/v2/{self._token}").text
+        assert f'href="{self._root}/system/{v2_library["zeta"]}"' in text
+        assert "<content type='text'>2 books</content>" in text
+        assert "<content type='text'>1 book</content>" in text
+
+    def test_root_leaves_out_a_system_with_no_books(self, opds_client, v2_library):
+        titles = _nav_titles(opds_client.get(f"/opds/v2/{self._token}").text)
+        assert "V2 Empty System" not in titles
+
+    def test_system_feed_holds_only_that_systems_books(self, opds_client, v2_library):
+        resp = opds_client.get(f"/opds/v2/{self._token}/system/{v2_library['zeta']}")
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith(
+            "application/atom+xml;profile=opds-catalog;kind=acquisition"
+        )
+        assert "<title>Zeta Quest</title>" in resp.text
+        assert v2_library["zeta_book"] in resp.text
+        assert v2_library["zeta_book_2"] in resp.text
+        assert v2_library["alpha_book"] not in resp.text
+        assert f'<link rel="up" href="{self._root}"' in resp.text
+
+    def test_system_feed_links_stay_in_v2(self, opds_client, v2_library):
+        text = opds_client.get(f"/opds/v2/{self._token}/system/{v2_library['zeta']}").text
+        book = v2_library["zeta_book"]
+        assert f"{self._root}/entry/{book}" in text
+        assert f"{self._root}/download/{book}" in text
+        assert f"/opds/{self._token}/" not in text
+
+    def test_unknown_system_is_404(self, opds_client):
+        assert opds_client.get(f"/opds/v2/{self._token}/system/nope").status_code == 404
+
+    def test_other_feed_holds_books_without_a_system(self, opds_client, v2_library):
+        resp = opds_client.get(f"/opds/v2/{self._token}/other")
+        assert resp.status_code == 200
+        assert v2_library["loose_book"] in resp.text
+        assert v2_library["zeta_book"] not in resp.text
+
+    def test_all_feed_lists_every_book_under_v2(self, opds_client, v2_library):
+        text = opds_client.get(f"/opds/v2/{self._token}/all").text
+        for key in ("zeta_book", "alpha_book", "loose_book"):
+            assert v2_library[key] in text
+        assert f"{self._root}/entry/{v2_library['alpha_book']}" in text
+
+    def test_entry_download_and_cover(self, opds_client, sample_book, monkeypatch, tmp_path):
+        from backend.routers.books import core as books_core
+
+        entry = opds_client.get(f"/opds/v2/{self._token}/entry/{sample_book}")
+        assert entry.status_code == 200
+        assert f'<link rel="up" href="{self._root}/all"' in entry.text
+        assert f"{self._root}/download/{sample_book}" in entry.text
+
+        download = opds_client.get(f"/opds/v2/{self._token}/download/{sample_book}")
+        assert download.status_code == 200
+
+        thumb = tmp_path / "cover.webp"
+        thumb.write_bytes(b"RIFF\x00\x00\x00\x00WEBPVP8 ")
+        monkeypatch.setattr(books_core, "book_thumbnail_path", lambda book: str(thumb))
+        cover = opds_client.get(f"/opds/v2/{self._token}/cover/{sample_book}")
+        assert cover.status_code == 200
+
+    def test_invalid_token_is_404_everywhere(self, opds_client, v2_library):
+        for path in ("", "/all", "/other", f"/system/{v2_library['zeta']}"):
+            assert opds_client.get(f"/opds/v2/not-a-real-token{path}").status_code == 404
+
+    def test_v1_is_unchanged(self, opds_client, v2_library):
+        root = opds_client.get(f"/opds/{self._token}").text
+        assert _nav_titles(root) == ["All Books"]
+        text = opds_client.get(f"/opds/{self._token}/all").text
+        assert f"http://testserver/opds/{self._token}/entry/{v2_library['zeta_book']}" in text
+        assert "/opds/v2/" not in text
+
+    def test_admin_sees_restricted_and_explicit_systems(self, opds_client, v2_library):
+        titles = _nav_titles(opds_client.get(f"/opds/v2/{self._token}").text)
+        assert "V2 Locked System" in titles
+        assert "V2 Spicy System" in titles
+
+
+class TestOPDSv2Restrictions:
+    def test_restricted_system_is_hidden_from_a_player(
+        self, opds_client, opds_player_headers, v2_library
+    ):
+        _set_player_explicit(True)
+        token = _generate_token(opds_client, opds_player_headers)
+        titles = _nav_titles(opds_client.get(f"/opds/v2/{token}").text)
+        assert "V2 Locked System" not in titles
+        resp = opds_client.get(f"/opds/v2/{token}/system/{v2_library['locked']}")
+        assert resp.status_code == 404
+
+    def test_explicit_system_is_hidden_when_the_user_denies_explicit(
+        self, opds_client, opds_player_headers, v2_library
+    ):
+        _set_player_explicit(False)
+        token = _generate_token(opds_client, opds_player_headers)
+        titles = _nav_titles(opds_client.get(f"/opds/v2/{token}").text)
+        assert "V2 Spicy System" not in titles
+        assert "Zeta Quest" in titles
+        resp = opds_client.get(f"/opds/v2/{token}/system/{v2_library['spicy']}")
+        assert resp.status_code == 404
+
+    def test_explicit_system_is_shown_when_the_user_allows_explicit(
+        self, opds_client, opds_player_headers, v2_library
+    ):
+        _set_player_explicit(True)
+        token = _generate_token(opds_client, opds_player_headers)
+        titles = _nav_titles(opds_client.get(f"/opds/v2/{token}").text)
+        assert "V2 Spicy System" in titles

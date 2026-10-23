@@ -316,6 +316,28 @@ environment:
 | `/api/users/me/preferences` | PATCH | any | Update own `display_name`, `allow_explicit`, or `email` (use `""` to clear). Turning `allow_explicit` on is `403` while `explicit_locked` is set (see `/api/auth/me`); turning it off is always allowed. An admin setting `allow_explicit: false` on a user locks it, and `true` unlocks it. |
 | `/api/users/me/password` | PATCH | any | Change own password. Body: `{current_password, new_password}` |
 | `/api/users/me` | DELETE | any | Delete own account (admin accounts cannot self-delete) |
+| `/api/users/me/opds` | GET | any | Own [OPDS](opds.md) feed status: `{opds_enabled, has_token, feed_url, feed_urls}`. `feed_url` is always the v1 URL, as it always has been. `feed_urls` lists every feed version, newest first: `[{version: "v2", url}, {version: "v1", url}]`. Both URLs are `null` without a token. Guests, and every user while `OPDS_ENABLED` is off, get `{opds_enabled: false}`. |
+| `/api/users/me/opds/generate` | POST | any | Generate (or regenerate) own OPDS token and return the same shape as the status. The previous token stops working immediately, for every feed version. `403` for guests or when OPDS is disabled. |
+| `/api/users/me/opds` | DELETE | any | Revoke own OPDS token. Every feed version's URL stops working. |
+
+### OPDS feeds
+
+Served outside `/api` when `OPDS_ENABLED` is on, and authenticated by the token in the path rather than a header. An unknown or revoked token returns `404`. See [OPDS catalog](opds.md) for what each version contains.
+
+| Endpoint | Version | Description |
+|----------|---------|-------------|
+| `/opds/v2/:token` | v2 | Navigation root: All Books, one entry per game system (with its book count), then Other Books when some books have no system |
+| `/opds/v2/:token/all` | v2 | Every book the user may see |
+| `/opds/v2/:token/system/:system_id` | v2 | One game system's books. `404` for a system the user may not see, including an explicit one when their explicit setting is off |
+| `/opds/v2/:token/other` | v2 | Books with no game system |
+| `/opds/v2/:token/entry/:book_id` | v2 | Single-book entry |
+| `/opds/v2/:token/download/:book_id`, `/opds/v2/:token/cover/:book_id` | v2 | File download and WebP cover |
+| `/opds/:token` | v1 | Navigation root with the one All Books entry |
+| `/opds/:token/all` | v1 | Every book the user may see |
+| `/opds/:token/entry/:book_id` | v1 | Single-book entry |
+| `/opds/:token/download/:book_id`, `/opds/:token/cover/:book_id` | v1 | File download and WebP cover |
+
+Each version's links stay inside that version, so a reader subscribed to v1 sees exactly what it always has.
 
 ### Library
 

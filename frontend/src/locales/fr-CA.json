@@ -1240,7 +1240,16 @@
       "regenerate": "Régénérer l'URL",
       "disable": "Désactiver",
       "confirmRevoke": "La désactivation du flux OPDS révoquera immédiatement votre URL. Toutes les applications qui l'utilisent perdront l'accès. Continuer ?",
-      "confirmDisable": "Oui, désactiver"
+      "confirmDisable": "Oui, désactiver",
+      "version": "Version du flux",
+      "versions": {
+        "v2": "v2 - Trié par système de jeu",
+        "v1": "v1 - Tous les livres (d'origine)"
+      },
+      "versionHints": {
+        "v2": "Parcourez votre bibliothèque par système de jeu, avec aussi un flux de tous les livres.",
+        "v1": "Le flux d'origine regroupant tous les livres. Conservé pour que les applications déjà connectées continuent de fonctionner."
+      }
     },
     "groups": {
       "profile": "Profil",

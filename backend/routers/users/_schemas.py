@@ -256,13 +256,21 @@ class PasswordChangeResponse(BaseModel):
     sessions_revoked: int
 
 
+class OpdsFeedUrl(BaseModel):
+    version: str  # "v1" | "v2"
+    url: str
+
+
 class OpdsStatusResponse(BaseModel):
     opds_enabled: bool
     # Omitted entirely when OPDS is disabled or the caller is a guest — that
-    # branch returns only `opds_enabled`/`feed_url`.
+    # branch returns only `opds_enabled`/`feed_url`/`feed_urls`.
     has_token: Optional[bool] = None
-    # Null when no token has been generated yet.
+    # Null when no token has been generated yet. Always the v1 URL, so a client
+    # reading this field keeps getting the feed it always has.
     feed_url: Optional[str] = None
+    # Every feed version's URL, newest first (issue #673). Null without a token.
+    feed_urls: Optional[list[OpdsFeedUrl]] = None
 
 
 class AccessGrantCreate(BaseModel):

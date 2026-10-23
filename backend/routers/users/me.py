@@ -1,5 +1,6 @@
 """Self-service user endpoints (preferences, password, account deletion)."""
 import secrets
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -106,6 +107,20 @@ def delete_own_account(
     db.commit()
 
 
+def _opds_feed_urls(token: Optional[str]) -> Optional[list[dict[str, str]]]:
+    """Each feed version's URL for ``token``, newest first; None without a token.
+
+    v1 stays on offer so a reader already subscribed to it keeps a working URL
+    (issue #673); ``feed_url`` keeps returning it for the same reason.
+    """
+    if not token:
+        return None
+    return [
+        {"version": "v2", "url": f"{BASE_URL}/opds/v2/{token}"},
+        {"version": "v1", "url": f"{BASE_URL}/opds/{token}"},
+    ]
+
+
 def get_opds_status(
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -114,7 +129,7 @@ def get_opds_status(
     # OPDS is a full-library-browse feature; guests are campaign-scoped and get no
     # library feed. Report it as unavailable to them.
     if not OPDS_ENABLED or current_user.role == "guest":
-        return {"opds_enabled": False, "feed_url": None}
+        return {"opds_enabled": False, "feed_url": None, "feed_urls": None}
     user = db.query(User).filter_by(id=current_user.id).first()
     if not user:
         raise HTTPException(404, "User not found")
@@ -122,7 +137,12 @@ def get_opds_status(
     # no longer match a feed request either, so the user is offered a new one.
     token = token_vault.unseal(user.opds_token_sealed)
     feed_url = f"{BASE_URL}/opds/{token}" if token else None
-    return {"opds_enabled": True, "has_token": bool(token), "feed_url": feed_url}
+    return {
+        "opds_enabled": True,
+        "has_token": bool(token),
+        "feed_url": feed_url,
+        "feed_urls": _opds_feed_urls(token),
+    }
 
 
 def generate_opds_token(
@@ -143,7 +163,12 @@ def generate_opds_token(
     user.opds_token_sealed = token_vault.seal(token)
     db.commit()
     feed_url = f"{BASE_URL}/opds/{token}"
-    return {"opds_enabled": True, "has_token": True, "feed_url": feed_url}
+    return {
+        "opds_enabled": True,
+        "has_token": True,
+        "feed_url": feed_url,
+        "feed_urls": _opds_feed_urls(token),
+    }
 
 
 def revoke_opds_token(
@@ -159,4 +184,4 @@ def revoke_opds_token(
     user.opds_token_hash = None
     user.opds_token_sealed = None
     db.commit()
-    return {"opds_enabled": True, "has_token": False, "feed_url": None}
+    return {"opds_enabled": True, "has_token": False, "feed_url": None, "feed_urls": None}

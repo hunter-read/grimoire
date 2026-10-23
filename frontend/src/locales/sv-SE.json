@@ -1240,7 +1240,16 @@
       "regenerate": "Generera om URL",
       "disable": "Inaktivera",
       "confirmRevoke": "Om du inaktiverar OPDS återkallas din flödes-URL omedelbart. Appar som använder den förlorar åtkomst. Fortsätta?",
-      "confirmDisable": "Ja, inaktivera"
+      "confirmDisable": "Ja, inaktivera",
+      "version": "Flödesversion",
+      "versions": {
+        "v2": "v2 - Sorterat efter spelsystem",
+        "v1": "v1 - Alla böcker (ursprunglig)"
+      },
+      "versionHints": {
+        "v2": "Bläddra i ditt bibliotek efter spelsystem, med ett flöde för alla böcker också.",
+        "v1": "Det ursprungliga flödet med alla böcker. Finns kvar så att appar du redan har anslutit fortsätter att fungera."
+      }
     },
     "groups": {
       "profile": "Profil",

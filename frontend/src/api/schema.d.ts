@@ -12531,10 +12531,19 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** OpdsFeedUrl */
+        OpdsFeedUrl: {
+            /** Url */
+            url: string;
+            /** Version */
+            version: string;
+        };
         /** OpdsStatusResponse */
         OpdsStatusResponse: {
             /** Feed Url */
             feed_url?: string | null;
+            /** Feed Urls */
+            feed_urls?: components["schemas"]["OpdsFeedUrl"][] | null;
             /** Has Token */
             has_token?: boolean | null;
             /** Opds Enabled */

@@ -1,16 +1,24 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCircleCheck, LuCopy } from 'react-icons/lu'
-import { opds } from '../../api'
+import { opds, type Schema } from '../../api'
 import Spinner from '../Spinner'
-import { useUISettings } from '../../context/UISettingsContext'
+
+type Status = Schema<'OpdsStatusResponse'>
 
 export default function OPDSSection() {
   const { t } = useTranslation()
-  const [status, setStatus] = useState(null) // null = loading
+  const [status, setStatus] = useState<Status | null>(null) // null = loading
   const [working, setWorking] = useState(false)
   const [copied, setCopied] = useState(false)
   const [confirming, setConfirming] = useState(false)
+  // Which feed version's URL is shown. The newest is the default; v1 stays on
+  // offer for readers already subscribed to it (issue #673).
+  const [version, setVersion] = useState<string | null>(null)
+
+  const feeds = status?.feed_urls ?? []
+  const selected = feeds.find((f) => f.version === version) ?? feeds[0]
+  const feedUrl = selected?.url ?? status?.feed_url ?? ''
 
   useEffect(() => {
     opds
@@ -42,8 +50,8 @@ export default function OPDSSection() {
   }
 
   const handleCopy = () => {
-    if (status?.feed_url) {
-      navigator.clipboard.writeText(status.feed_url)
+    if (feedUrl) {
+      navigator.clipboard.writeText(feedUrl)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     }
@@ -89,6 +97,46 @@ export default function OPDSSection() {
           </button>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {feeds.length > 1 && (
+              <div>
+                <label
+                  htmlFor="opds-feed-version"
+                  style={{
+                    display: 'block',
+                    fontSize: 13,
+                    color: 'var(--text-dim)',
+                    marginBottom: 5,
+                  }}
+                >
+                  {t('userSettings.opds.version')}
+                </label>
+                <select
+                  id="opds-feed-version"
+                  value={selected?.version}
+                  onChange={(e) => setVersion(e.target.value)}
+                  style={{
+                    background: 'var(--bg-input)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--text)',
+                    borderRadius: 6,
+                    padding: '6px 10px',
+                    fontSize: 13,
+                  }}
+                >
+                  {feeds.map((f) => (
+                    <option key={f.version} value={f.version}>
+                      {t(`userSettings.opds.versions.${f.version}`, { defaultValue: f.version })}
+                    </option>
+                  ))}
+                </select>
+                <p
+                  style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 6, lineHeight: 1.5 }}
+                >
+                  {t(`userSettings.opds.versionHints.${selected?.version}`, { defaultValue: '' })}
+                </p>
+              </div>
+            )}
+
             {/* Feed URL display */}
             <div>
               <label
@@ -106,7 +154,7 @@ export default function OPDSSection() {
                 <input
                   id="opds-feed-url"
                   readOnly
-                  value={status.feed_url || ''}
+                  value={feedUrl}
                   style={{
                     flex: 1,
                     minWidth: 200,
@@ -115,7 +163,7 @@ export default function OPDSSection() {
                     boxSizing: 'border-box',
                     color: 'var(--text-dim)',
                   }}
-                  onFocus={(e) => e.target.select()}
+                  onFocus={(e) => e.currentTarget.select()}
                 />
                 <button
                   onClick={handleCopy}
