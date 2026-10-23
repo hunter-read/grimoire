@@ -14,6 +14,7 @@ import tempfile
 import zipfile
 from pathlib import Path
 
+import pytest
 from PIL import Image
 from sqlalchemy import text as sql_text
 
@@ -377,6 +378,64 @@ class TestComicPaging:
         out = os.path.join(self.tmp, "t.webp")
         assert generate_thumbnail(path, out) is True
         assert os.path.exists(out)
+
+
+class TestComicInfo:
+    """``read_comic_info``: the ComicRack metadata file, from any comic archive."""
+
+    def setup_method(self):
+        self.tmp = tempfile.mkdtemp()
+
+    def _cbz(self, members: dict) -> str:
+        path = os.path.join(self.tmp, "c.cbz")
+        with zipfile.ZipFile(path, "w") as z:
+            z.writestr("page01.png", _png_bytes())
+            for name, data in members.items():
+                z.writestr(name, data)
+        return path
+
+    def test_the_root_copy_wins_over_a_nested_one(self):
+        path = self._cbz(
+            {
+                "extras/ComicInfo.xml": b"<nested/>",
+                "__MACOSX/ComicInfo.xml": b"<fork/>",
+                "comicinfo.XML": b"<root/>",
+            }
+        )
+        assert comics.read_comic_info(path, ".cbz") == b"<root/>"
+
+    def test_none_when_absent_or_unreadable(self):
+        assert comics.read_comic_info(self._cbz({}), ".cbz") is None
+        bad = os.path.join(self.tmp, "bad.cbz")
+        Path(bad).write_bytes(b"not a zip")
+        assert comics.read_comic_info(bad, ".cbz") is None
+        assert comics.read_comic_info(bad, ".unknown") is None
+
+    def test_an_oversized_file_is_refused(self, monkeypatch):
+        path = self._cbz({"ComicInfo.xml": b"<ComicInfo>" + b" " * 100 + b"</ComicInfo>"})
+        monkeypatch.setattr(comics, "_COMIC_INFO_SIZE_CAP", 50)
+        assert comics.read_comic_info(path, ".cbz") is None
+
+    def test_read_from_a_tar_comic(self):
+        path = os.path.join(self.tmp, "c.cbt")
+        with tarfile.open(path, "w") as tf:
+            data = b"<ComicInfo/>"
+            info = tarfile.TarInfo("ComicInfo.xml")
+            info.size = len(data)
+            tf.addfile(info, io.BytesIO(data))
+        assert comics.read_comic_info(path, ".cbt") == b"<ComicInfo/>"
+
+    def test_read_from_a_7z_comic(self):
+        py7zr = pytest.importorskip("py7zr")
+        path = os.path.join(self.tmp, "c.cb7")
+        with py7zr.SevenZipFile(path, "w") as zf:
+            zf.writestr(b"<ComicInfo/>", "ComicInfo.xml")
+        assert comics.read_comic_info(path, ".cb7") == b"<ComicInfo/>"
+
+    def test_a_bogus_rar_comic_has_none(self):
+        path = os.path.join(self.tmp, "c.cbr")
+        Path(path).write_bytes(b"Rar!\x1a\x07\x00 not really")
+        assert comics.read_comic_info(path, ".cbr") is None
 
 
 # ---------------------------------------------------------------------------

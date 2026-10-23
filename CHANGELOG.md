@@ -14,6 +14,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - The cover can be sent along: a book's first page, rendered sharper than its library thumbnail, or a system's cover art. It is ticked when Grimoire Codex DB has none
 - Pick the scraper a record's data came from as its source. Grimoire fills in the record's page on that site and credits the description and tags to it on Grimoire Codex DB
 - A v2 OPDS feed lists each game system as its own category, next to All Books. Choose v1 or v2 from the Feed version dropdown under Settings → Account → OPDS Feed; the original v1 URL keeps working unchanged for apps already using it
+- Fetch metadata can read a book's own file: **File metadata** offers the title, authors, description, tags, language, date and ISBN written into a PDF, an EPUB, or a comic's `ComicInfo.xml`, with no add-on or internet connection needed
 
 ### Fixed
 

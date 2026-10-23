@@ -63,6 +63,7 @@ class TestRenderingInWorkers:
         words = pool.page_words(pdf, 3)
         assert [w["text"] for w in words["words"]] == ["third", "page"]
         assert pool.document_info(pdf) == {"page_count": 3, "width": 595.0, "height": 842.0}
+        assert pool.document_metadata(pdf)["language"] == ""
         # The work happened in a worker, not here.
         assert _worker_of(pdf).proc.pid != os.getpid()
 
@@ -305,6 +306,7 @@ class TestInProcess:
         assert pool.page_text(pdf, 1) == "first page"
         assert len(pool.page_words(pdf, 1)["words"]) == 2
         assert pool.document_info(pdf)["page_count"] == 3
+        assert pool.document_metadata(pdf)["format"].startswith("PDF")
         with pytest.raises(ops.PageOutOfRange):
             pool.page_text(pdf, 9)
         pool.evict(pdf)
@@ -344,6 +346,7 @@ class TestWorkerProcess:
         assert served("text", pdf, 1) == (True, "first page")
         assert served("words", pdf, 1)[1]["width"] == 595.0
         assert served("info", pdf)[1]["page_count"] == 3
+        assert served("metadata", pdf)[1]["language"] == ""
         # Two counted page renders reach the interval of 2; tiles don't count.
         served("page", pdf, 2, 300, 85, 0, True)
         assert reclaims == [1]

@@ -6,8 +6,12 @@ identical, so they live here rather than being duplicated per router.
 
 Sources are the installed community add-ons plus Grimoire Codex DB, which is built
 in (issue #35) under the reserved id ``codex.SOURCE_ID`` and listed first while
-``GRIMOIRE_CODEX_DB_API_TOKEN`` is set.
+``GRIMOIRE_CODEX_DB_API_TOKEN`` is set. Books also get "File metadata"
+(``FILE_SOURCE_ID``), which reads what the PDF, EPUB or comic archive carries
+inside itself and is listed last, so it never displaces the source a dialog
+opens on.
 """
+import os
 from typing import Any, Optional, Union
 
 from fastapi import HTTPException
@@ -16,9 +20,15 @@ from sqlalchemy.orm import Session
 
 from .. import addons, codex
 from ..codex import lookup as codex_lookup
+from ..metadata import embedded
+from ..render.ops import RenderError
 from ..models import Book, GameSystem
 from ..services import tag_service
 from ._codex_schemas import codex_id_validator
+
+FILE_SOURCE_ID = "file-metadata"
+# The file is the only "candidate", so it needs no real identity.
+_FILE_IDENTITY = "file"
 
 
 class MetadataSource(BaseModel):
@@ -90,8 +100,38 @@ def list_sources(db: Session, target: str) -> dict:
                 ),
             }
             for manifest in addons.enabled_for_target(db, target)
-        ]
+        ] + ([_file_source()] if target == "book" else [])
     }
+
+
+def _file_source() -> dict:
+    """The entry ``list_sources`` shows for a book's embedded metadata."""
+    return {
+        "id": FILE_SOURCE_ID,
+        "name": "File metadata",
+        "description": "The title, authors and other details written into the PDF, EPUB or comic itself.",
+        "homepage": None,
+        "attribution": None,
+        "supports_paste": False,
+    }
+
+
+def _read_file(resource: Optional[Union[GameSystem, Book]]) -> tuple[Book, dict[str, Any]]:
+    """The book and its embedded fields, with every way of failing turned into a 400.
+
+    A broken or missing file is the library's problem, not a remote source's,
+    so none of these is a 502.
+    """
+    if not isinstance(resource, Book):
+        raise HTTPException(400, "File metadata is only available for books")
+    try:
+        return resource, embedded.read(resource.filepath)
+    except ValueError as exc:
+        raise HTTPException(400, f"This book's file has no metadata to read: {exc}") from exc
+    except (OSError, RuntimeError, RenderError) as exc:
+        # RuntimeError is MuPDF's own missing/damaged-file errors, raised
+        # directly when pages are rendered in this process (RENDER_WORKERS=0).
+        raise HTTPException(400, f"Could not read this book's file: {exc}") from exc
 
 
 def _translate(exc: Exception) -> HTTPException:
@@ -130,6 +170,19 @@ def search(
     everything known about it rather than on the query text alone.
     """
     effective = query.strip() or fallback
+    if source_id == FILE_SOURCE_ID:
+        book, fields = _read_file(resource)
+        # One candidate - the file itself - or none when it carries nothing.
+        kind = os.path.splitext(book.filepath)[1].lstrip(".").upper()
+        results = [
+            {
+                "identity": _FILE_IDENTITY,
+                "label": f"{fields.get('title') or book.title} ({kind} metadata)",
+                "score": 1.0,
+                "url": "",
+            }
+        ] if fields else []
+        return {"query": effective, "results": results}
     if source_id == codex.SOURCE_ID:
         try:
             results = codex_lookup.search(db, codex.load(db), target, query, resource)
@@ -167,7 +220,13 @@ def fetch(
     Writes nothing — the caller's client applies its selection through the
     resource's own PATCH endpoint.
     """
-    if source_id == codex.SOURCE_ID:
+    result: dict[str, Any]
+    if source_id == FILE_SOURCE_ID:
+        if paste.strip():
+            raise HTTPException(400, "this source does not support pasting a link or ID")
+        result = {"url": "", "attribution": "", "fields": _read_file(resource)[1]}
+        identity = _FILE_IDENTITY
+    elif source_id == codex.SOURCE_ID:
         target = "book" if resource_type == "book" else "game-system"
         try:
             if paste.strip():

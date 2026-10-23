@@ -1,7 +1,7 @@
 """Rendering pages in a pool of worker processes (issue #615).
 
 The public API is the module-level functions: ``render_page``, ``render_tile``,
-``page_text``, ``page_words``, ``document_info``, ``document_toc``,
+``page_text``, ``page_words``, ``document_info``, ``document_metadata``, ``document_toc``,
 ``export_page_size``, ``detect_shapes``, ``export`` and ``evict``. With
 ``RENDER_WORKERS`` at 1 or more they run in worker processes
 (``backend.render.worker``); at 0 they run in this process through the
@@ -423,6 +423,17 @@ def document_info(filepath: str) -> dict[str, Any]:
 
     with open_pdf(filepath) as doc:
         return ops.document_info(doc)
+
+
+def document_metadata(filepath: str) -> dict[str, str]:
+    """The file's embedded info dictionary (``ops.document_metadata``)."""
+    pool = _get_pool()
+    if pool is not None:
+        return pool.call("metadata", filepath)
+    from ..routers.books._helpers import open_pdf
+
+    with open_pdf(filepath) as doc:
+        return ops.document_metadata(doc)
 
 
 def document_toc(filepath: str) -> list[list[Any]]:

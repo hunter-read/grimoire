@@ -17,6 +17,24 @@ be fixed by a community PR, not a Grimoire release.
 built in and needs no install. Once `GRIMOIRE_CODEX_DB_API_TOKEN` is set, it appears first in
 **Fetch metadata** alongside any add-ons you install.
 
+Books also get **File metadata**, built in too: it reads what the file carries
+inside itself. It needs no network and is listed last, after any add-ons.
+
+- **PDF** - title, author, subject (as the description), keywords (as tags),
+  creation date and language. The ISBN comes from a custom `ISBN` info key, the
+  XMP packet (`prism:isbn`, or a `dc:identifier` written as `urn:isbn:…`), or an
+  "ISBN …" typed into the subject or keywords.
+- **EPUB** - the book's own OPF package: title, authors, description, publisher,
+  ISBN, subjects, language and date.
+- **Comics** (CBZ, CBR, CB7, CBT) - `ComicInfo.xml`: title (or "Series #Number"
+  when there is none), writer, artists, summary, publisher, genres, tags, web
+  links, language, date, and an ISBN from `GTIN`.
+
+Exporter noise such as a "Microsoft Word - draft.docx" title or an
+"Administrator" author is skipped rather than offered, and every ISBN must pass
+its check digit. Like every source it only proposes: you review the diff before
+anything is applied. Text files have nothing it can read.
+
 ## Using them
 
 **Settings → Add-ons** (admin only). Add-ons are grouped by what they do, under

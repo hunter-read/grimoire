@@ -25,6 +25,10 @@ TILE_SIZE = 1024
 MIN_RENDER_WIDTH = 16
 MAX_RENDER_WIDTH = 16384
 
+# An XMP packet is a few kilobytes of RDF; one past this carries embedded
+# thumbnails or worse, and is not worth sending back from a worker.
+MAX_XMP_CHARS = 1024 * 1024
+
 
 class PageOutOfRange(Exception):
     """The requested page is not in the document."""
@@ -163,3 +167,49 @@ def document_info(doc: fitz.Document) -> dict[str, Any]:
         rect = doc[0].rect
         info["width"], info["height"] = rect.width, rect.height
     return info
+
+
+def document_metadata(doc: fitz.Document) -> dict[str, str]:
+    """The document's own info dictionary, plus ``language``, ``isbn`` and ``xmp``.
+
+    ``language`` is the catalog's ``/Lang``, ``isbn`` a custom info-dictionary
+    key whose name mentions ISBN (MuPDF's ``metadata`` only has the standard
+    ones), and ``xmp`` the XMP packet - empty when it is implausibly large.
+
+    Raw strings only, exactly as the file carries them: deciding which of them
+    are worth offering as book fields is ``metadata.embedded``'s job, not MuPDF's.
+    """
+    info = {k: v for k, v in (doc.metadata or {}).items() if isinstance(v, str)}
+    info["language"] = info["isbn"] = info["xmp"] = ""
+    if not doc.is_pdf:
+        return info
+    try:
+        kind, value = doc.xref_get_key(doc.pdf_catalog(), "Lang")
+        if kind == "string":
+            info["language"] = value
+    except (RuntimeError, ValueError):
+        pass  # a damaged catalog just has no language to offer
+    info["isbn"] = _custom_isbn(doc)
+    try:
+        xmp = doc.get_xml_metadata() or ""
+    except (RuntimeError, ValueError):
+        xmp = ""  # an unreadable metadata stream is the same as none
+    info["xmp"] = xmp if len(xmp) <= MAX_XMP_CHARS else ""
+    return info
+
+
+def _custom_isbn(doc: fitz.Document) -> str:
+    """The value of the first ``/Info`` key whose name mentions ISBN, or ""."""
+    try:
+        kind, ref = doc.xref_get_key(-1, "Info")
+        if kind != "xref":
+            return ""
+        xref = int(ref.split()[0])
+        for key in doc.xref_get_keys(xref):
+            if "isbn" in key.lower():
+                kind, value = doc.xref_get_key(xref, key)
+                if kind == "string":
+                    return value
+    except (RuntimeError, ValueError, IndexError):
+        pass  # a damaged trailer or info dictionary has no ISBN to offer
+    return ""

@@ -321,3 +321,5 @@ _TEXT_FILE_SIZE_CAP = 32 * 1024 * 1024
 # #180). Comic pages are ordinary scans; anything past this is a
 # decompression-bomb attempt rather than a page.
 _COMIC_PAGE_SIZE_CAP = 128 * 1024 * 1024
+# ComicInfo.xml is a few kilobytes of XML; one this large is not a real one.
+_COMIC_INFO_SIZE_CAP = 1024 * 1024

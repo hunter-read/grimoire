@@ -118,6 +118,9 @@ def handle(docs: Documents, op: str, args: tuple) -> tuple[Any, bool]:
     if op == "info":
         (filepath,) = args
         return ops.document_info(docs.get(filepath)), False
+    if op == "metadata":
+        (filepath,) = args
+        return ops.document_metadata(docs.get(filepath)), False
     if op == "toc":
         (filepath,) = args
         return read_toc(docs.get(filepath)), False

@@ -270,8 +270,15 @@ def parse_opf_metadata(opf_path: str) -> dict:
     except Exception as e:
         logger.warning(f"Could not parse OPF file '{opf_path}': {e}")
         return {}
+    return opf_fields(tree.getroot())
 
-    root = tree.getroot()
+
+def opf_fields(root: ElementTree.Element) -> dict:
+    """The book fields of an already-parsed OPF package (see ``parse_opf_metadata``).
+
+    Split out so the OPF inside an EPUB, which never exists as a file of its
+    own, is read by the same rules as a sidecar.
+    """
     meta: dict[str, Any] = {}
 
     def _find_text(tag: str) -> str:

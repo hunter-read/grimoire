@@ -130,7 +130,8 @@ def book():
 class TestMetadataSources:
     def test_lists_book_sources(self, client, gm_headers, book, installed):
         body = client.get(f"/api/books/{book.id}/metadata-sources", headers=gm_headers).json()
-        assert [s["id"] for s in body["sources"]] == ["drivethrurpg"]
+        # The built-in file reader is always offered for books, after the add-ons.
+        assert [s["id"] for s in body["sources"]] == ["drivethrurpg", "file-metadata"]
 
     def test_a_system_scraper_is_not_offered_for_books(
         self, client, gm_headers, book, addons_dir
@@ -152,7 +153,7 @@ class TestMetadataSources:
             )
         )
         body = client.get(f"/api/books/{book.id}/metadata-sources", headers=gm_headers).json()
-        assert body["sources"] == []
+        assert [s["id"] for s in body["sources"]] == ["file-metadata"]
 
     def test_requires_gm_or_admin(self, client, player_headers, book, installed):
         response = client.get(

@@ -670,13 +670,21 @@ its existing shares.
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/books/:id/metadata-sources` | GET | gm/admin | Grimoire Codex DB (when enabled) and installed, enabled add-ons that can supply book metadata |
+| `/api/books/:id/metadata-sources` | GET | gm/admin | Grimoire Codex DB (when enabled), installed, enabled add-ons that can supply book metadata, then the built-in `file-metadata` source |
 | `/api/books/:id/metadata-search` | POST | gm/admin | Ranked candidates. Body `{source_id, query?}` - a blank `query` defaults to the book's title |
 | `/api/books/:id/metadata-fetch` | POST | gm/admin | One candidate's fields, diffed against the book. Body `{source_id, identity?, query?, paste?}` |
 
 Identical in shape and semantics to the game-system endpoints above (same
 `status` values, same ordering, same read-only guarantee); only the target
 differs. Applying goes through `PATCH /api/books/:id`.
+
+`file-metadata` reads the book's own PDF info dictionary and XMP packet, EPUB
+OPF package, or comic archive `ComicInfo.xml`. Its search returns the file
+itself as the one candidate (`identity: "file"`, `url: ""`), or no results when
+the file carries nothing usable; it does not support `paste`. A format it
+cannot read (anything but PDF, EPUB, CBZ, CBR, CB7 and CBT), a missing file, or
+a damaged one is a `400`. A system's `metadata-search` refuses it with
+a `400`.
 
 Book scrapers may map: `title`, `description`, `authors`, `artists`,
 `publisher`, `publisher_url`, `urls`, `genres`, `isbn`, `product_code`,
