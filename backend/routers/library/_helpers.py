@@ -361,24 +361,26 @@ def run_ocr_queue() -> int:
         logger.debug("OCR queue: OCR disabled (OCR_CONCURRENCY=0), skipping.")
         return 0
 
-    db = SessionLocal()
-    try:
-        pending_ids = [
-            b.id
-            for b in db.query(Book)
-            # OCR remains PDF-only: it rasterises pages of scanned PDFs.
-            .filter_by(ocr_pending=True, mime_type="application/pdf")
-            .order_by(Book.ocr_pages_done.desc())  # finish nearly-done books first
-            .all()
-        ]
-    finally:
-        db.close()
+    def _pending() -> list[str]:
+        db = SessionLocal()
+        try:
+            return [
+                b.id
+                for b in db.query(Book)
+                # OCR remains PDF-only: it rasterises pages of scanned PDFs.
+                .filter_by(ocr_pending=True, mime_type="application/pdf")
+                .order_by(Book.ocr_pages_done.desc())  # finish nearly-done books first
+                .all()
+            ]
+        finally:
+            db.close()
 
+    pending_ids = _pending()
     if not pending_ids:
         # Logged rather than returning in silence. An empty queue and a queue
         # that is never called look identical from the outside, and telling them
-        # apart is the whole diagnosis when a model has no preview.
-        logger.debug("Model preview queue: nothing pending.")
+        # apart is the whole diagnosis when a book has no text.
+        logger.debug("OCR queue: nothing pending.")
         return 0
 
     _set_status(
@@ -387,32 +389,61 @@ def run_ocr_queue() -> int:
     logger.info(
         f"Reading text from {len(pending_ids)} scanned book(s) - this can take a while."
     )
-    logger.debug(f"OCR queue: {len(pending_ids)} book(s) to OCR (concurrency={concurrency})")
     completed = 0
+    attempted: set[str] = set()
     try:
-        if concurrency <= 1:
-            for book_id in pending_ids:
-                if is_stop_requested():
-                    logger.info("Stopping - leaving the rest for next time.")
-                    break
-                if _ocr_one_book(book_id) == "done":
-                    completed += 1
-                _set_status({"ocr_done": _get_status()["ocr_done"] + 1})
-        else:
-            from concurrent.futures import ThreadPoolExecutor
-
-            stopped = False
-            with ThreadPoolExecutor(max_workers=concurrency) as pool:
-                for result in pool.map(_ocr_unless_stopped, pending_ids):
-                    if result == "not started":
-                        if not stopped:
-                            logger.info("Stopping - leaving the rest for next time.")
-                            stopped = True
-                        continue
-                    if result == "done":
+        # Re-check the queue between passes. A book queued while this drain is
+        # running is invisible to the snapshot it started from, and
+        # trigger_ocr_queue declines to start a second drain while this one
+        # holds the phase - so without this the newly-queued book waits for a
+        # restart or the next library scan (issue #688).
+        #
+        # `attempted` is what makes it terminate: a book left pending on purpose
+        # - a stop part-way through, or one that fails and stays queued for the
+        # next run - is not retried here in a loop.
+        while True:
+            batch = [b for b in pending_ids if b not in attempted]
+            if not batch:
+                break
+            attempted.update(batch)
+            logger.debug(f"OCR queue: {len(batch)} book(s) to OCR (concurrency={concurrency})")
+            if concurrency <= 1:
+                stopped = False
+                for book_id in batch:
+                    if is_stop_requested():
+                        logger.info("Stopping - leaving the rest for next time.")
+                        stopped = True
+                        break
+                    if _ocr_one_book(book_id) == "done":
                         completed += 1
                     _set_status({"ocr_done": _get_status()["ocr_done"] + 1})
-        logger.info(f"Finished reading text from {completed} of {len(pending_ids)} scanned book(s).")
+                if stopped:
+                    break
+            else:
+                from concurrent.futures import ThreadPoolExecutor
+
+                stopped = False
+                with ThreadPoolExecutor(max_workers=concurrency) as pool:
+                    for result in pool.map(_ocr_unless_stopped, batch):
+                        if result == "not started":
+                            if not stopped:
+                                logger.info("Stopping - leaving the rest for next time.")
+                                stopped = True
+                            continue
+                        if result == "done":
+                            completed += 1
+                        _set_status({"ocr_done": _get_status()["ocr_done"] + 1})
+                if stopped:
+                    break
+            pending_ids = _pending()
+            newly = [b for b in pending_ids if b not in attempted]
+            if newly:
+                logger.info(
+                    f"{len(newly)} more scanned book(s) were queued while this ran - "
+                    f"reading those too."
+                )
+                _set_status({"total_ocr": len(attempted) + len(newly)})
+        logger.info(f"Finished reading text from {completed} of {len(attempted)} scanned book(s).")
     finally:
         _set_status({"ocr_current": None})
     return completed
@@ -558,9 +589,11 @@ def trigger_ocr_queue():
     """Drain the OCR queue now (on-demand, e.g. after a per-book re-OCR request).
 
     Unlike the startup scan this has no delay of its own. It no-ops if a
-    scan/OCR run is already in progress — the newly-queued book is picked up by that run (or
-    the next one), since the queue lives in the DB. Clears the running/phase flags
-    on completion when this call owns the OCR phase.
+    scan/OCR run is already in progress: the queue lives in the DB, and a drain
+    re-checks it before finishing, so the book this call queued is picked up by
+    the run already going (issue #688 - it used to be dropped, because that run
+    had already taken its snapshot). Clears the running/phase flags on
+    completion when this call owns the OCR phase.
     """
     if scan_in_progress():
         return
