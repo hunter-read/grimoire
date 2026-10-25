@@ -22,7 +22,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend import indexer  # package namespace, for patch-sensitive calls
-from .. import ocr
+from .. import config, ocr
 from ..models import Book
 from . import text_documents
 from ._subprocess import (
@@ -99,24 +99,46 @@ def index_book_text(
             session.rollback()
         return False
 
-    if not pages:
-        if ocr.ocr_available():
-            # Scanned/image-only PDF: hand it to the deferred-OCR queue instead
-            # of OCRing inline. Left not-indexed with ocr_pending set so the OCR
-            # worker (and startup recovery) picks it up; index_failed cleared so
-            # it isn't mistaken for a hard failure.
+    # A scan can still yield a few pages of text - a web enhancement bundled into
+    # the back, a digitally-set cover or appendix - and taking that as "this book
+    # has a text layer" left the rest of it unsearchable for good (issue #685).
+    # Judge by how much of the book the text covers, not by whether any exists.
+    # extract_text_isolated leaves image-only pages out, so len(pages) is the
+    # number that produced text.
+    total_pages = book.page_count or 0
+    covered = len(pages) / total_pages if total_pages else 1.0
+    too_thin = bool(pages) and total_pages > 0 and covered < config.OCR_MIN_TEXT_COVERAGE
+
+    if (not pages or too_thin) and ocr.ocr_available():
+        # Scanned/image-only PDF: hand it to the deferred-OCR queue instead
+        # of OCRing inline. Left not-indexed with ocr_pending set so the OCR
+        # worker (and startup recovery) picks it up; index_failed cleared so
+        # it isn't mistaken for a hard failure.
+        #
+        # The pages found here are dropped rather than kept: the OCR pass
+        # re-reads the whole book and keeps a page's embedded text wherever it
+        # exists (see extract_text_from_pdf), so they come back unchanged.
+        if too_thin:
+            logger.info(
+                f"'{book.title or book.filename}' has text on only {len(pages)} of "
+                f"{total_pages} page(s) - treating it as a scan and queuing it to "
+                f"read the rest later."
+            )
+        else:
             logger.info(
                 f"'{book.title or book.filename}' is a scanned book with no text - "
                 f"queued to read text from later."
             )
-            book.ocr_pending = True
-            book.ocr_pages_done = 0
-            book.ocr_pages_skipped = 0
-            book.indexed = False
-            book.index_failed = False
-            book.index_error = ""
-            _commit(session, f"queue ocr '{book.filepath}'")
-            return False
+        book.ocr_pending = True
+        book.ocr_pages_done = 0
+        book.ocr_pages_skipped = 0
+        book.indexed = False
+        book.index_failed = False
+        book.index_error = ""
+        _commit(session, f"queue ocr '{book.filepath}'")
+        return False
+
+    if not pages:
         # OCR unavailable (slim image): keep the pre-OCR behaviour — mark
         # image-only and indexed so it isn't retried every scan.
         logger.info(

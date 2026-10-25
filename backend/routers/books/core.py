@@ -13,6 +13,7 @@ from sqlalchemy import text
 from .._user_files import serve_user_file
 from ...http_headers import content_disposition
 from ...auth import CurrentUser, get_current_user, require_gm_or_admin
+from ... import config
 from ...config import _PAGE_CACHE_HEADERS, THUMB_DIR, get_db
 from ...security import SAME_ORIGIN_FRAME_HEADERS
 
@@ -402,13 +403,22 @@ def reindex_book(
         raise HTTPException(400, "Only PDF books can be OCR'd")
     if not os.path.exists(book.filepath):
         raise HTTPException(404, "File not found on disk")
-    # Re-OCR only makes sense for image-only books (no embedded text layer).
-    # A book indexed from its own text layer (index_error == "") would gain
-    # nothing and OCRing it would duplicate content.
+    # Re-OCR only makes sense for books that are mostly image. A book indexed
+    # from its own text layer would gain nothing and OCRing it would duplicate
+    # content - but "has a text layer" is a matter of degree: a scan with a web
+    # enhancement bundled into the back reads as a text book while almost none
+    # of it is searchable, and refusing it here left no way to fix it at all
+    # (issue #685). Judge it the same way the indexer does.
     if book.index_error not in ("ocr", "image-only"):
-        raise HTTPException(
-            400, "This book has an embedded text layer; OCR does not apply to it."
-        )
+        indexed_pages = db.execute(
+            text("SELECT COUNT(*) FROM book_search WHERE book_id = :bid"), {"bid": book.id}
+        ).scalar() or 0
+        total_pages = book.page_count or 0
+        covered = indexed_pages / total_pages if total_pages else 1.0
+        if covered >= config.OCR_MIN_TEXT_COVERAGE:
+            raise HTTPException(
+                400, "This book has an embedded text layer; OCR does not apply to it."
+            )
 
     # Drop the old search rows so the re-OCR starts from a clean index.
     db.execute(text("DELETE FROM book_search WHERE book_id = :bid"), {"bid": book.id})

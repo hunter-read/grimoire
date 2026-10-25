@@ -1023,12 +1023,13 @@ class TestReindexSingleBook:
         db = SessionLocal()
         try:
             book = db.query(Book).filter_by(id=book.id).first()
+            fresh = [{"page": n, "content": "fresh text"} for n in range(1, 6)]
             with patch.object(indexer, "_book_page_count", return_value=5), patch.object(
                 indexer, "generate_thumbnail", return_value=True
             ), patch.object(
                 indexer,
                 "extract_text_isolated",
-                return_value=([{"page": 1, "content": "fresh text"}], False),
+                return_value=(fresh, False),
             ):
                 indexer.reindex_single_book(book, "/tmp", db)
             db.refresh(book)
@@ -1038,8 +1039,8 @@ class TestReindexSingleBook:
             assert book.index_error == ""  # native text layer
         finally:
             db.close()
-        # only the fresh row remains; the stale one was deleted
-        assert self._search_count(book.id) == 1
+        # only the fresh rows remain; the stale one was deleted
+        assert self._search_count(book.id) == 5
 
     def _reindex_text_book(self, book_id: str) -> Book:
         db = SessionLocal()
@@ -1105,6 +1106,70 @@ class TestReindexSingleBook:
             db.close()
         assert self._search_count(book.id) == 0  # stale rows cleared
 
+    def test_thin_text_layer_requeued_for_ocr(self):
+        """Issue #685: a scan carrying a few text pages - a bundled web
+        enhancement, a digitally-set cover - is still a scan. Taking it for a
+        text book left the rest of it permanently unsearchable."""
+        book = self._seed_book()
+        db = SessionLocal()
+        try:
+            book = db.query(Book).filter_by(id=book.id).first()
+            thin = [{"page": 9, "content": "web enhancement text"}]
+            with patch.object(indexer, "_book_page_count", return_value=10), patch.object(
+                indexer, "generate_thumbnail", return_value=False
+            ), patch.object(
+                indexer, "extract_text_isolated", return_value=(thin, False)
+            ), patch.object(indexer.ocr, "ocr_available", return_value=True):
+                indexer.reindex_single_book(book, "/tmp", db)
+            db.refresh(book)
+            assert book.ocr_pending is True
+            assert book.indexed is False
+        finally:
+            db.close()
+
+    def test_text_covering_most_of_the_book_is_not_requeued(self):
+        """The common case must not change: a real text layer is indexed as it
+        was, never handed to OCR."""
+        book = self._seed_book()
+        db = SessionLocal()
+        try:
+            book = db.query(Book).filter_by(id=book.id).first()
+            full = [{"page": n, "content": f"page {n}"} for n in range(1, 10)]
+            with patch.object(indexer, "_book_page_count", return_value=10), patch.object(
+                indexer, "generate_thumbnail", return_value=False
+            ), patch.object(
+                indexer, "extract_text_isolated", return_value=(full, False)
+            ), patch.object(indexer.ocr, "ocr_available", return_value=True):
+                indexer.reindex_single_book(book, "/tmp", db)
+            db.refresh(book)
+            assert book.ocr_pending is False
+            assert book.indexed is True
+        finally:
+            db.close()
+        assert self._search_count(book.id) == 9
+
+    def test_zero_coverage_setting_keeps_the_old_behaviour(self):
+        """OCR_MIN_TEXT_COVERAGE=0 is the off switch: only a book with no text
+        at all goes to OCR, exactly as before issue #685."""
+        book = self._seed_book()
+        db = SessionLocal()
+        try:
+            book = db.query(Book).filter_by(id=book.id).first()
+            thin = [{"page": 9, "content": "web enhancement text"}]
+            with patch.object(indexer, "_book_page_count", return_value=10), patch.object(
+                indexer, "generate_thumbnail", return_value=False
+            ), patch.object(
+                indexer, "extract_text_isolated", return_value=(thin, False)
+            ), patch.object(indexer.ocr, "ocr_available", return_value=True), patch.object(
+                config, "OCR_MIN_TEXT_COVERAGE", 0.0
+            ):
+                indexer.reindex_single_book(book, "/tmp", db)
+            db.refresh(book)
+            assert book.ocr_pending is False
+            assert book.indexed is True
+        finally:
+            db.close()
+
     def test_non_pdf_is_noop(self):
         book = self._seed_book(mime_type="image/png")
         db = SessionLocal()
@@ -1124,12 +1189,14 @@ class TestReindexSingleBook:
         db = SessionLocal()
         try:
             book = db.query(Book).filter_by(id=book.id).first()
+            # Three pages of text for the seeded three-page book: this test is
+            # about the page-count read error, and a one-page extraction would
+            # now read as a thin scan and go to OCR instead (issue #685).
+            ok = [{"page": n, "content": "ok"} for n in range(1, 4)]
             with patch.object(
                 indexer, "_book_page_count", side_effect=RuntimeError("bad pdf")
             ), patch.object(indexer, "generate_thumbnail", return_value=False), patch.object(
-                indexer,
-                "extract_text_isolated",
-                return_value=([{"page": 1, "content": "ok"}], False),
+                indexer, "extract_text_isolated", return_value=(ok, False)
             ):
                 indexer.reindex_single_book(book, "/tmp", db)
             db.refresh(book)

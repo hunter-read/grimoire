@@ -207,8 +207,13 @@ class TestUpdateBook:
 class TestReindexBook:
     """POST /api/books/{id}/reindex — per-book re-OCR with optional DPI override."""
 
-    def _make_ocr_book(self, system_id, index_error="ocr"):
-        """A real on-disk PDF book flagged as OCR-sourced, with a search row."""
+    def _make_ocr_book(self, system_id, index_error="ocr", search_pages=1):
+        """A real on-disk PDF book flagged as OCR-sourced, with search rows.
+
+        ``search_pages`` is how many of its 3 pages carry indexed text. Re-OCR
+        judges a natively-indexed book by that coverage (issue #685), so a book
+        standing in for "already has a proper text layer" needs all three.
+        """
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
             f.write(b"%PDF-1.4\n%stub\n")
             fpath = f.name
@@ -228,13 +233,14 @@ class TestReindexBook:
 
         db = SessionLocal()
         try:
-            db.execute(
-                _text(
-                    "INSERT INTO book_search (book_id, page_number, content) "
-                    "VALUES (:b, 1, 'old text')"
-                ),
-                {"b": book.id},
-            )
+            for page in range(1, search_pages + 1):
+                db.execute(
+                    _text(
+                        "INSERT INTO book_search (book_id, page_number, content) "
+                        "VALUES (:b, :p, 'old text')"
+                    ),
+                    {"b": book.id, "p": page},
+                )
             db.commit()
         finally:
             db.close()
@@ -329,11 +335,25 @@ class TestReindexBook:
             os.unlink(fpath)
 
     def test_text_layer_book_rejected(self, client, admin_headers, sys):
-        # A natively-indexed book (index_error == "") has no OCR to redo.
-        book, fpath = self._make_ocr_book(sys.id, index_error="")
+        # A natively-indexed book (index_error == "") whose text covers the whole
+        # book has no OCR to redo.
+        book, fpath = self._make_ocr_book(sys.id, index_error="", search_pages=3)
         try:
             resp = client.post(f"/api/books/{book.id}/reindex", headers=admin_headers)
             assert resp.status_code == 400
+        finally:
+            os.unlink(fpath)
+
+    def test_thin_text_layer_book_accepted(self, client, admin_headers, sys):
+        """Issue #685: a scan carrying a little text reads as a text book, and
+        refusing it here left no way to make the rest of it searchable."""
+        from unittest.mock import patch as _patch
+
+        book, fpath = self._make_ocr_book(sys.id, index_error="", search_pages=1)
+        try:
+            with _patch("backend.routers.library._helpers.trigger_ocr_queue"):
+                resp = client.post(f"/api/books/{book.id}/reindex", headers=admin_headers)
+            assert resp.status_code == 200
         finally:
             os.unlink(fpath)
 

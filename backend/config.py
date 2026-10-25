@@ -224,6 +224,27 @@ def _read_ocr_dpi() -> float:
 OCR_DPI = _read_ocr_dpi()
 
 
+# How much of a book its own text layer must cover before Grimoire believes the
+# book really has one (issue #685).
+#
+# A scan sometimes carries a few text-bearing pages - a web enhancement bundled
+# into the back, a digitally-set cover or appendix - and those were enough to
+# make the indexer treat the whole book as text and never OCR it, leaving the
+# other 95% unsearchable with no way to ask for it.
+#
+# 0 restores the old behaviour exactly (only a book with no text at all is
+# OCR'd); 1 sends anything short of complete coverage to OCR.
+def _read_ocr_min_text_coverage() -> float:
+    try:
+        value = float(os.environ.get("OCR_MIN_TEXT_COVERAGE", "0.5"))
+    except ValueError:
+        return 0.5
+    return min(1.0, max(0.0, value))
+
+
+OCR_MIN_TEXT_COVERAGE = _read_ocr_min_text_coverage()
+
+
 #   MAX_IMAGE_PIXELS — ceiling for how large an image may be before Pillow
 #             refuses to decode it as a possible decompression bomb. Pillow
 #             warns above this and raises above twice it; its own default
