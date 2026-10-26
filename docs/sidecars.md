@@ -159,7 +159,7 @@ only the sidecar refresh is skipped.
 Sidecars and exported covers are created with the process umask applied, so they
 land at `0666 & ~umask` - `rw-r--r--` under the usual `022`, the same mode a
 plain upload into the library gets. The mode is computed once at startup in
-`backend/config.py` as `LIBRARY_FILE_MODE`, and setting `UMASK` on the container
+`backend/config/env.py` as `LIBRARY_FILE_MODE`, and setting `UMASK` on the container
 changes it.
 
 This is deliberate rather than incidental. `tempfile.mkstemp`, which the atomic

@@ -21,35 +21,19 @@ import logging
 import os
 from functools import lru_cache
 
-logger = logging.getLogger("grimoire.passwords")
+# Read in backend/config/env.py. Imported by name so tests can patch them here.
+from .config import (
+    DEFAULT_PASSWORD_MIN_LENGTH,
+    DEFAULT_SHARE_LINK_PASSWORD_MIN_LENGTH,
+    PASSWORD_MIN_LENGTH,
+    SHARE_LINK_PASSWORD_MIN_LENGTH,
+)
 
-DEFAULT_PASSWORD_MIN_LENGTH = 12
-DEFAULT_SHARE_LINK_PASSWORD_MIN_LENGTH = 8
+logger = logging.getLogger("grimoire.passwords")
 
 _COMMON_PASSWORDS_PATH = os.path.join(
     os.path.dirname(__file__), "resources", "common-passwords.txt.gz"
 )
-
-
-def _min_length_env(name: str, default: int) -> int:
-    raw = os.environ.get(name)
-    if raw is None or not raw.strip():
-        return default
-    try:
-        return max(1, int(raw.strip()))
-    except ValueError:
-        logger.warning(
-            "A minimum-length setting for passwords is not a whole number - using "
-            "its default."
-        )
-        return default
-
-
-PASSWORD_MIN_LENGTH = _min_length_env("PASSWORD_MIN_LENGTH", DEFAULT_PASSWORD_MIN_LENGTH)
-SHARE_LINK_PASSWORD_MIN_LENGTH = _min_length_env(
-    "SHARE_LINK_PASSWORD_MIN_LENGTH", DEFAULT_SHARE_LINK_PASSWORD_MIN_LENGTH
-)
-
 
 @lru_cache(maxsize=1)
 def _common_passwords() -> frozenset[str]:

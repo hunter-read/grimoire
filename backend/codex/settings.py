@@ -14,13 +14,13 @@ Lookup only ever runs when someone asks for it (fetching metadata, sending a
 record). Nothing is sent in the background. File hashes are the one signal that can say "this library holds
 this exact file", so sending them is opt-in.
 """
-import os
 from dataclasses import dataclass
 from typing import Optional
 from urllib.parse import urlsplit
 
 from sqlalchemy.orm import Session
 
+from .. import config
 from ..models import AppSetting
 
 DEFAULT_URL = "https://db.grimoirecodex.org"
@@ -75,13 +75,14 @@ def normalize_url(value: str) -> str:
 
 
 def _env(key: str) -> Optional[str]:
-    raw = os.environ.get(ENV_VARS[key])
+    """The value pinning setting ``key`` (read from ``ENV_VARS[key]``), or None."""
+    raw = config.CODEX_DB_ENV[key]
     return raw.strip() if raw is not None else None
 
 
 def token() -> str:
     """The API token from ``GRIMOIRE_CODEX_DB_API_TOKEN``, or "" when it is unset or blank."""
-    return os.environ.get(TOKEN_ENV_VAR, "").strip()
+    return config.CODEX_DB_API_TOKEN
 
 
 def load(db: Session) -> CodexSettings:

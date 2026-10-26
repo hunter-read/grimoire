@@ -1,39 +1,20 @@
 """App settings endpoints."""
-import json
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ... import api_keys, config
-from ...config import (
-    get_db,
-    ALLOW_PASSWORD_AUTHENTICATION_ENV,
-    DISABLE_FOLDER_CATEGORY_INFERENCE_ENV,
-    GUEST_ACCESS_ENABLED_ENV,
-    OIDC_ENV,
-)
+from ...config import get_db
 from ...auth import require_admin, get_current_user, CurrentUser
-from ...services import access_control
-from ...services import share_links as share_policy
 from ...services.library_fs import library_writable
-from ...services.oidc_button import MAX_RADIUS_PX, normalize_color, normalize_radius
 from ._helpers import (
     _get_raw,
-    _set,
     _to_typed,
-    _VALID_INTERVALS,
-    _VALID_MATCH_BY,
-    _VALID_SIGNING_ALGS,
-    _OIDC_STRING_FIELDS,
-    _OIDC_BOOL_FIELDS,
-    _OIDC_BUTTON_COLOR_FIELDS,
     guest_access_effective,
     oidc_is_configured,
     password_auth_effective,
-    sanitize_login_message,
-    seal_client_secret,
 )
 from ._schemas import SettingsPatch
+from ._update import apply_patch
 
 router = APIRouter()
 
@@ -82,181 +63,10 @@ def update_settings(
     # it is already impossible - that would stop an admin repairing it in steps.
     could_sign_in = touches_sign_in and _sign_in_possible(_get_raw(db))
 
-    if (
-        data.rescan_schedule_interval is not None
-        and data.rescan_schedule_interval not in _VALID_INTERVALS
-    ):
-        raise HTTPException(400, f"interval must be one of: {', '.join(_VALID_INTERVALS)}")
-
-    if data.rescan_schedule_enabled is not None:
-        _set(db, "rescan_schedule_enabled", "true" if data.rescan_schedule_enabled else "false")
-    if data.rescan_schedule_interval is not None:
-        _set(db, "rescan_schedule_interval", data.rescan_schedule_interval)
-    if data.rescan_schedule_hour is not None:
-        _set(db, "rescan_schedule_hour", str(max(0, min(23, data.rescan_schedule_hour))))
-    if data.rescan_schedule_minute is not None:
-        _set(db, "rescan_schedule_minute", str(max(0, min(59, data.rescan_schedule_minute))))
-    if data.rescan_schedule_weekday is not None:
-        _set(db, "rescan_schedule_weekday", str(max(0, min(6, data.rescan_schedule_weekday))))
-    if data.cleanup_on_rescan is not None:
-        _set(db, "cleanup_on_rescan", "true" if data.cleanup_on_rescan else "false")
-    if data.library_watch_enabled is not None:
-        if config.LIBRARY_WATCH_ENV is not None:
-            raise HTTPException(
-                400, "Watching the library is locked by the LIBRARY_WATCH environment variable"
-            )
-        _set(db, "library_watch_enabled", "true" if data.library_watch_enabled else "false")
-    if data.library_watch_mode is not None:
-        if config.LIBRARY_WATCH_MODE_ENV is not None:
-            raise HTTPException(
-                400, "The watch mode is locked by the LIBRARY_WATCH_MODE environment variable"
-            )
-        if data.library_watch_mode not in config.LIBRARY_WATCH_MODES:
-            raise HTTPException(
-                400, f"watch mode must be one of: {', '.join(config.LIBRARY_WATCH_MODES)}"
-            )
-        _set(db, "library_watch_mode", data.library_watch_mode)
-    if data.hide_maps is not None:
-        _set(db, "hide_maps", "true" if data.hide_maps else "false")
-    if data.hide_tokens is not None:
-        _set(db, "hide_tokens", "true" if data.hide_tokens else "false")
-    if data.hide_audio is not None:
-        _set(db, "hide_audio", "true" if data.hide_audio else "false")
-    if data.hide_models is not None:
-        _set(db, "hide_models", "true" if data.hide_models else "false")
-    if data.hide_campaigns is not None:
-        _set(db, "hide_campaigns", "true" if data.hide_campaigns else "false")
-    if data.restricted_categories is not None:
-        # Validated rather than stored as sent: an admin who mistypes a level or
-        # tries to restrict a category that may not be restricted (core,
-        # character sheets) should be told, not silently ignored.
-        try:
-            cleaned = access_control.validate_category_defaults(data.restricted_categories)
-        except access_control.AccessError as exc:
-            raise HTTPException(400, str(exc)) from exc
-        _set(db, "restricted_categories", json.dumps(cleaned))
-    for key in (
-        "show_stat_systems",
-        "show_stat_books",
-        "show_stat_pages",
-        "show_stat_maps",
-        "show_stat_tokens",
-        "show_stat_audio",
-        "show_stat_models",
-        "show_stat_size",
-        "show_stat_library_size",
-    ):
-        val = getattr(data, key)
-        if val is not None:
-            _set(db, key, "true" if val else "false")
-    if data.campaign_uploads_disabled is not None:
-        _set(db, "campaign_uploads_disabled", "true" if data.campaign_uploads_disabled else "false")
-    if data.campaign_upload_max_file_mb is not None:
-        _set(db, "campaign_upload_max_file_mb", str(max(0, data.campaign_upload_max_file_mb)))
-    if data.campaign_upload_max_total_mb is not None:
-        _set(db, "campaign_upload_max_total_mb", str(max(0, data.campaign_upload_max_total_mb)))
-    if data.password_auth_enabled is not None:
-        if ALLOW_PASSWORD_AUTHENTICATION_ENV is not None:
-            raise HTTPException(
-                400,
-                "Password authentication is locked by the ALLOW_PASSWORD_AUTHENTICATION environment variable",
-            )
-        _set(db, "password_auth_enabled", "true" if data.password_auth_enabled else "false")
-    if data.guest_access_enabled is not None:
-        if GUEST_ACCESS_ENABLED_ENV is not None:
-            raise HTTPException(
-                400,
-                "Guest access is locked by the GUEST_ACCESS_ENABLED environment variable",
-            )
-        _set(db, "guest_access_enabled", "true" if data.guest_access_enabled else "false")
-    for role in ("gm", "player"):
-        allowed = getattr(data, f"share_links_role_{role}")
-        if allowed is not None:
-            share_policy.set_role_default(db, role, allowed)
-    if data.disable_folder_category_inference is not None:
-        if DISABLE_FOLDER_CATEGORY_INFERENCE_ENV is not None:
-            raise HTTPException(
-                400,
-                "Folder category inference is locked by the "
-                "DISABLE_FOLDER_CATEGORY_INFERENCE environment variable",
-            )
-        _set(
-            db,
-            "disable_folder_category_inference",
-            "true" if data.disable_folder_category_inference else "false",
-        )
-    if data.custom_login_message_enabled is not None:
-        _set(
-            db,
-            "custom_login_message_enabled",
-            "true" if data.custom_login_message_enabled else "false",
-        )
-    if data.custom_login_message is not None:
-        _set(db, "custom_login_message", sanitize_login_message(data.custom_login_message))
-
-    # OIDC fields ---------------------------------------------------------
-    # Validate match_by + signing_alg up front so we don't half-write.
-    if data.oidc_match_by is not None and data.oidc_match_by not in _VALID_MATCH_BY:
-        raise HTTPException(
-            400, f"oidc_match_by must be one of: {', '.join(_VALID_MATCH_BY)}"
-        )
-    if data.oidc_signing_alg is not None and data.oidc_signing_alg not in _VALID_SIGNING_ALGS:
-        raise HTTPException(
-            400, f"oidc_signing_alg must be one of: {', '.join(_VALID_SIGNING_ALGS)}"
-        )
-    # Button appearance is rendered into the public login page's styles, so it is
-    # held to strict hex colors / a bounded integer and stored canonicalized.
-    for key in _OIDC_BUTTON_COLOR_FIELDS:
-        val = getattr(data, key)
-        if val is None:
-            continue
-        canonical = normalize_color(val)
-        if canonical is None:
-            raise HTTPException(400, f"{key} must be a hex color like #1a2b3c, or empty")
-        setattr(data, key, canonical)
-    if data.oidc_button_radius is not None:
-        radius = normalize_radius(data.oidc_button_radius)
-        if radius is None:
-            raise HTTPException(
-                400, f"oidc_button_radius must be an integer from 0 to {MAX_RADIUS_PX}, or empty"
-            )
-        data.oidc_button_radius = radius
-
-    # Bool fields
-    for key in _OIDC_BOOL_FIELDS:
-        val = getattr(data, key)
-        if val is None:
-            continue
-        if OIDC_ENV.get(key) is not None:
-            raise HTTPException(
-                400, f"{key} is locked by an environment variable"
-            )
-        _set(db, key, "true" if val else "false")
-
-    # Plain-string fields
-    for key in _OIDC_STRING_FIELDS:
-        val = getattr(data, key)
-        if val is None:
-            continue
-        if OIDC_ENV.get(key) is not None:
-            raise HTTPException(
-                400, f"{key} is locked by an environment variable"
-            )
-        _set(db, key, val.strip())
-
-    # Client secret — special handling:
-    #   None or "" → no change (so a form re-submit doesn't clobber)
-    #   "__CLEAR__" → wipe the stored secret
-    #   anything else → stored sealed (see oidc_effective_client_secret)
-    if data.oidc_client_secret is not None and data.oidc_client_secret != "":
-        if OIDC_ENV.get("oidc_client_secret") is not None:
-            raise HTTPException(
-                400, "oidc_client_secret is locked by an environment variable"
-            )
-        if data.oidc_client_secret == "__CLEAR__":
-            _set(db, "oidc_client_secret", "")
-        else:
-            _set(db, "oidc_client_secret", seal_client_secret(data.oidc_client_secret))
+    apply_patch(
+        db,
+        {key: getattr(data, key) for key in SettingsPatch.model_fields if getattr(data, key) is not None},
+    )
 
     # Judged on the settings as this patch leaves them (the query autoflushes the
     # writes above), so a patch that sets up OIDC and turns passwords off in one

@@ -10,7 +10,7 @@ Each store therefore has two implementations behind a small interface — one
 backed by Valkey (shared across replicas/workers) and an in-memory fallback
 that preserves the previous behavior for Valkey-less installs. The factories at
 the bottom pick a backend based on Valkey availability, mirroring how the page
-image cache degrades to disk in ``config.py``.
+image cache degrades to disk in ``config/valkey.py``.
 """
 import json
 import logging

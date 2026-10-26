@@ -47,15 +47,13 @@ def opds_client():
 
 
 @pytest.fixture(scope="module")
-def opds_admin_headers(opds_client):
-    """Bootstrap admin account and return auth headers."""
-    # Try setup first; if already initialised (e.g. shared DB), fall back to login.
-    resp = opds_client.post(
-        "/api/auth/setup",
-        json={"username": "admin", "password": "adminpass123"},
-    )
-    if resp.status_code not in (200, 400):
-        pytest.fail(f"Unexpected setup response: {resp.text}")
+def opds_admin_headers(opds_client, admin_setup):
+    """Sign in as the session's admin, created by conftest's ``admin_setup``.
+
+    Never through /api/auth/setup here: when this module is the first in a
+    worker, setting up from here would leave every later test's ``admin_setup``
+    finding the server already initialised.
+    """
     resp = opds_client.post(
         "/api/auth/login",
         json={"username": "admin", "password": "adminpass123"},

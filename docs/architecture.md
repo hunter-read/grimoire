@@ -28,7 +28,7 @@ backend on port 9481.
 | Path | Responsibility |
 | --- | --- |
 | [`backend/main.py`](../backend/main.py) | FastAPI app construction, router registration, the `lifespan` startup hook (library scan, user seeding, wiki migrations, scheduler), and the SPA catch-all `serve_frontend`. |
-| [`backend/config.py`](../backend/config.py) | Settings parsed from the environment, `DATA_PATH`/`LIBRARY_PATH` and cache dirs, logging setup (incl. the in-memory ring buffer for `/api/logs`), and `startup()`, which creates the data dirs, opens and migrates the database (`engine`, `SessionLocal`, the `get_db` dependency) and connects the optional Valkey client (`valkey_client()`). Importing it does no file, database or network I/O - see [Startup and migrations](#startup-and-migrations). |
+| [`backend/config/`](../backend/config/__init__.py) | Configuration, split by concern: `env.py` reads every environment variable the backend uses, typed, with its default (the one place `os.environ` is read); `paths.py` the data dirs under `DATA_PATH`; `defaults.py` fixed settings such as cache headers; `logs.py` logging setup (incl. the in-memory ring buffer for `/api/logs`); `db.py` the `engine`, `SessionLocal` and the `get_db` dependency; `valkey.py` the optional Valkey client (`valkey_client()`). `backend.config` is a facade over them - `config.X` reads, and assigning it writes, the module that defines `X` - and holds `startup()`, which creates the data dirs, opens and migrates the database and connects Valkey. Importing it does no file, database or network I/O - see [Startup and migrations](#startup-and-migrations). |
 | [`backend/models/`](../backend/models/) | ORM models split by domain (`library.py`, `media.py`, `users.py`, `campaigns.py`, `settings.py`); `db.py` holds `init_db`, runtime migrations, and FTS5 setup. See [`docs/data-model.md`](data-model.md). |
 | [`backend/auth.py`](../backend/auth.py) | JWT creation/validation, the `get_current_user` dependency, and the role-guard dependencies (`require_admin`, `require_gm_or_admin`, `require_not_guest`). |
 | [`backend/password_hash.py`](../backend/password_hash.py) | Password hashing and verification in passlib's `bcrypt_sha256` format, on `bcrypt` directly; `backend/auth.py` re-exports `hash_password`/`verify_password`. |
@@ -135,7 +135,7 @@ current. Rows that predate content hashing fall back to a digest of the path, pr
 old behaviour until the next scan backfills them.
 
 All three paths send `Cache-Control: max-age=31536000, immutable`
-(`_PAGE_CACHE_HEADERS` in [`config.py`](../backend/config.py)) plus an `ETag` carrying the
+(`_PAGE_CACHE_HEADERS` in [`config/defaults.py`](../backend/config/defaults.py)) plus an `ETag` carrying the
 same token, so browsers cache aggressively but can still revalidate a replaced file (the
 `immutable` policy alone would pin a stale page for a year). Because image/download URLs are
 used in `<img>`/download contexts that can't set an `Authorization` header, they authenticate
@@ -250,7 +250,7 @@ initial admin. All three are public routes - see
 Implemented in [`routers/oidc/`](../backend/routers/oidc/) against any standards-compliant
 IdP (Keycloak, Authentik, Authelia, Auth0, Okta, …). The IdP is configured at runtime via
 **Settings → Sign-in**; each field can be pinned/locked by an environment variable
-(`OIDC_*`, see the `OIDC_ENV` map in [`config.py`](../backend/config.py)).
+(`OIDC_*`, see the `OIDC_ENV` map in [`config/env.py`](../backend/config/env.py)).
 
 ```mermaid
 sequenceDiagram

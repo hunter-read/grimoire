@@ -692,7 +692,11 @@ class TestSettingsBroadPatch:
         # These are app-wide (uploads off, maps and campaigns hidden), so put
         # them back afterwards: any test that runs later would otherwise inherit
         # them, which under pytest-xdist means whichever file shares a worker.
-        before = client.get("/api/settings", headers=admin_headers).json()
+        # Some (campaign uploads) are reported only by /ui.
+        before = {
+            **client.get("/api/settings/ui", headers=admin_headers).json(),
+            **client.get("/api/settings", headers=admin_headers).json(),
+        }
         resp = client.patch("/api/settings", json=changes, headers=admin_headers)
         try:
             assert resp.status_code == 200
@@ -803,10 +807,8 @@ class TestDisableFolderCategoryInference:
         )
 
     def test_env_lock_blocks_patch_and_reports_locked(self, client, admin_headers, monkeypatch):
-        import backend.routers.settings.core as core
         import backend.routers.settings._helpers as helpers
 
-        monkeypatch.setattr(core, "DISABLE_FOLDER_CATEGORY_INFERENCE_ENV", True)
         monkeypatch.setattr(helpers, "DISABLE_FOLDER_CATEGORY_INFERENCE_ENV", True)
 
         resp = client.patch(

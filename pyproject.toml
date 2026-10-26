@@ -6,13 +6,20 @@ line-length = 100
 [tool.ruff.lint]
 # Seeded ruleset that fits the existing PEP 8 code:
 #   E/W  pycodestyle    F  pyflakes (unused imports/vars, undefined names)
-select = ["E", "W", "F"]
+#   C901 mccabe complexity, capped below
+select = ["E", "W", "F", "C901"]
 ignore = [
     "E501",   # line length is enforced by `ruff format`, not the linter
     # SQLAlchemy filter expressions require `== True` / `!= True`; the Pythonic
     # `not column` rewrite ruff suggests changes the generated SQL and is wrong.
     "E712",
 ]
+
+[tool.ruff.lint.mccabe]
+# A ceiling at today's most complex function (services/characters/schema.py
+# validate_schema), so nothing new grows past it (issue #714). Ratchet it down
+# as the functions above 20 are broken up; never raise it.
+max-complexity = 33
 
 [tool.mypy]
 # Static type checking for the backend. Introduced gradually (see issue #164):
@@ -31,6 +38,7 @@ exclude = '(backend/tests/|backend/migrations/)'
 [[tool.mypy.overrides]]
 module = [
     "backend.config",
+    "backend.config.*",
     "backend.auth",
     "backend.password_hash",
     "backend.codex",

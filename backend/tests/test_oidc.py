@@ -92,12 +92,10 @@ class TestOIDCSettings:
         assert resp.json()["oidc_gm_group"] == "gm"
 
     def test_role_group_names_can_be_pinned_by_env(self, client, admin_headers, monkeypatch):
-        import backend.routers.settings.core as core
         import backend.routers.settings._helpers as helpers
 
-        env = dict(core.OIDC_ENV)
+        env = dict(helpers.OIDC_ENV)
         env["oidc_admin_group"] = "sso-admins"
-        monkeypatch.setattr(core, "OIDC_ENV", env)
         monkeypatch.setattr(helpers, "OIDC_ENV", env)
         resp = client.patch(
             "/api/settings", headers=admin_headers, json={"oidc_admin_group": "other"}
@@ -214,12 +212,10 @@ class TestOIDCSettings:
         )
 
     def test_env_lock_blocks_individual_fields(self, client, admin_headers, monkeypatch):
-        import backend.routers.settings.core as core
         import backend.routers.settings._helpers as helpers
         # Pin only the issuer URL via env
-        env = dict(core.OIDC_ENV)
+        env = dict(helpers.OIDC_ENV)
         env["oidc_issuer_url"] = "https://locked.example.com"
-        monkeypatch.setattr(core, "OIDC_ENV", env)
         monkeypatch.setattr(helpers, "OIDC_ENV", env)
 
         resp = client.patch(

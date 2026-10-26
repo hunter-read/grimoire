@@ -98,10 +98,10 @@ class TestStartup:
             next(gen)
 
     def test_version_is_resolved_on_first_use(self, monkeypatch):
-        monkeypatch.delitem(config.__dict__, "VERSION", raising=False)
+        monkeypatch.delitem(config.env.__dict__, "VERSION", raising=False)
         monkeypatch.setenv("APP_VERSION", "9.8.7")
         assert config.VERSION == "9.8.7"
-        assert config.__dict__["VERSION"] == "9.8.7"
+        assert config.env.__dict__["VERSION"] == "9.8.7"
 
     def test_unknown_attributes_still_raise(self):
         with pytest.raises(AttributeError):

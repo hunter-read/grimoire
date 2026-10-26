@@ -8,7 +8,6 @@ import pytest
 from backend.config import SessionLocal
 from backend.models import AppSetting
 from backend.routers.settings import _helpers as settings_helpers
-from backend.routers.settings import core as settings_core
 from backend.tests.conftest import OIDC_CONFIGURED
 
 SETTINGS = "/api/settings"
@@ -50,7 +49,6 @@ def _settings(client, headers):
 
 
 def _lock_password_env(monkeypatch, value: bool):
-    monkeypatch.setattr(settings_core, "ALLOW_PASSWORD_AUTHENTICATION_ENV", value)
     monkeypatch.setattr(settings_helpers, "ALLOW_PASSWORD_AUTHENTICATION_ENV", value)
 
 

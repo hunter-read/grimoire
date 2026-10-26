@@ -39,11 +39,10 @@ def oidc_env(monkeypatch):
     """A mutable copy of OIDC_ENV patched into every module that reads it."""
     import backend.routers.oidc.button_icon as icon_router
     import backend.routers.settings._helpers as helpers
-    import backend.routers.settings.core as core
     import backend.routers.settings.oidc_button as settings_icon
 
-    env = dict(core.OIDC_ENV)
-    for mod in (core, helpers, settings_icon, icon_router):
+    env = dict(helpers.OIDC_ENV)
+    for mod in (helpers, settings_icon, icon_router):
         monkeypatch.setattr(mod, "OIDC_ENV", env)
     return env
 

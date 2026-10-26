@@ -4,7 +4,7 @@ Implements the authorization-code + PKCE flow against any standards-compliant
 IdP (Keycloak, Authentik, Authelia, Auth0, Okta, etc.).
 
 The IdP is configured at runtime via Settings → Authentication. Each individual
-field can be locked by an environment variable; see backend/config.py.
+field can be locked by an environment variable; see backend/config/env.py.
 """
 import hmac
 import json

@@ -14,6 +14,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from .. import token_vault
 from .base import Base, _utcnow, _uuid
 
 
@@ -40,11 +41,6 @@ class Campaign(Base):
     # A banner picked from a library asset is rarely 2:1, so this is what keeps
     # the interesting part of a tall image in frame (issue #286).
     banner_focus_y: Mapped[Optional[int]] = mapped_column(Integer, default=50)
-
-    # Whether this campaign accepts guest invite codes. Gated globally by the
-    # app-level guest_access_enabled setting; this flips true the first time the
-    # owner creates a guest for the campaign.
-    guest_invites_enabled: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
 
     # Archived campaigns are hidden from every member's campaign list unless the
     # list is explicitly asked to include them, and are read-only for everyone
@@ -116,10 +112,13 @@ class CampaignMember(Base):
     status: Mapped[Optional[str]] = mapped_column(String(20), default="invited")
     character_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
-    # Guest membership: a member backed by a guest User. guest_code is the unique
-    # 10-char alphanumeric code that mints a token for this guest.
+    # Guest membership: a member backed by a guest User, which signs in with a
+    # unique 10-char alphanumeric code. The code is stored like the OPDS token:
+    # `_hash` is what sign-ins are matched on and `_sealed` the code encrypted
+    # so the GM can share it again. Read and set it through `guest_code`.
     is_guest: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
-    guest_code: Mapped[Optional[str]] = mapped_column(String(10), nullable=True, index=True)
+    guest_code_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, unique=True, index=True)
+    guest_code_sealed: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # Relative filenames under DATA_PATH/campaign_uploads/{art,tokens,sheets}/
     character_art_path: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
@@ -132,6 +131,16 @@ class CampaignMember(Base):
     character_sheet_filename: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # original upload name
     # Alternatively, a link to an external sheet (e.g. D&D Beyond or a hosted PDF).
     character_sheet_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
+
+    @property
+    def guest_code(self) -> Optional[str]:
+        """The guest's sign-in code, or None (also when SECRET_KEY has changed)."""
+        return token_vault.unseal(self.guest_code_sealed)
+
+    @guest_code.setter
+    def guest_code(self, code: Optional[str]) -> None:
+        self.guest_code_hash = token_vault.lookup_hash(code) if code else None
+        self.guest_code_sealed = token_vault.seal(code) if code else None
 
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
 

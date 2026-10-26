@@ -9,6 +9,7 @@ from typing import Optional, List
 from fastapi import HTTPException
 from sqlalchemy import text
 
+from ... import token_vault
 from ...models import Campaign, CampaignMember, Character, GameSystem, Ruleset, User
 from ...services.characters.images import remove_files_after_commit
 from ...auth import CurrentUser
@@ -182,7 +183,7 @@ def purge_user_data(db, user_id: str) -> None:
     # this campaign's owner knew. A guest left with no campaign is kept, as
     # before, for an admin to remove from the guest list.
     owned_guests = (
-        db.query(CampaignMember.user_id, CampaignMember.guest_code)
+        db.query(CampaignMember)
         .filter(
             CampaignMember.campaign_id.in_([c.id for c in owned]),
             CampaignMember.is_guest.is_(True),
@@ -192,6 +193,7 @@ def purge_user_data(db, user_id: str) -> None:
         if owned
         else []
     )
+    owned_guests = [(m.user_id, m.guest_code) for m in owned_guests]
     detach_campaign_characters(db, [c.id for c in owned])
     for campaign in owned:
         db.delete(campaign)
@@ -237,11 +239,20 @@ _CODE_ALPHABET = string.ascii_uppercase + string.digits
 _CODE_LENGTH = 10
 
 
+def guest_member_by_code(db, code: str) -> Optional[CampaignMember]:
+    """The guest membership ``code`` signs in to, matched on its lookup hash."""
+    return (
+        db.query(CampaignMember)
+        .filter_by(guest_code_hash=token_vault.lookup_hash(code))
+        .first()
+    )
+
+
 def generate_guest_code(db) -> str:
     """Return a unique 10-char A–Z0–9 code, retrying on the rare collision."""
     for _ in range(20):
         code = "".join(secrets.choice(_CODE_ALPHABET) for _ in range(_CODE_LENGTH))
-        if not db.query(CampaignMember).filter_by(guest_code=code).first():
+        if not guest_member_by_code(db, code):
             return code
     raise HTTPException(500, "Could not allocate a unique guest code")
 

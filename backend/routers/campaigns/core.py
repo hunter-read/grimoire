@@ -381,9 +381,10 @@ def delete_campaign(
     # A guest invited only here goes with the campaign, along with its sessions,
     # exactly as when a single guest is removed; one merged into other campaigns
     # keeps those.
-    guests = db.query(CampaignMember.user_id, CampaignMember.guest_code).filter_by(
-        campaign_id=c.id, is_guest=True
-    ).all()
+    guests = [
+        (m.user_id, m.guest_code)
+        for m in db.query(CampaignMember).filter_by(campaign_id=c.id, is_guest=True).all()
+    ]
     detach_campaign_characters(db, [c.id])
     db.delete(c)
     db.flush()

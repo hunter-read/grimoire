@@ -1618,3 +1618,92 @@ class TestBookTextPagesMigration:
             command.downgrade(_alembic_config(conn), "2369ce04d145")
         columns = {c["name"] for c in inspect(create_engine(f"sqlite:///{path}")).get_columns("books")}
         assert "text_pages" not in columns
+
+
+class TestGuestCodesAtRest:
+    """0057 hashes and seals guest invite codes and drops guest_invites_enabled."""
+
+    CODE = "LEGACYCODE"
+
+    def _db_with_plaintext_code(self):
+        path = _fresh_db()
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            command.downgrade(_alembic_config(conn), "5d1e8a3c7b20")
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "INSERT INTO users (id, username, role, created_at, is_guest) "
+                    "VALUES ('g1', 'guest_1', 'guest', '2026-01-01 00:00:00', 1)"
+                )
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO campaigns (id, name, owner_id, guest_invites_enabled) "
+                    "VALUES ('c1', 'Camp', 'g1', 1)"
+                )
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO campaign_members (id, campaign_id, user_id, status, is_guest, "
+                    "guest_code) VALUES ('m1', 'c1', 'g1', 'accepted', 1, :c)"
+                ),
+                {"c": self.CODE},
+            )
+        engine.dispose()
+        return path
+
+    def _columns(self, path, table):
+        engine = create_engine(f"sqlite:///{path}")
+        try:
+            return {c["name"] for c in inspect(engine).get_columns(table)}
+        finally:
+            engine.dispose()
+
+    def test_an_existing_code_keeps_working_by_its_hash(self):
+        from backend import token_vault
+
+        path = self._db_with_plaintext_code()
+        init_db(path)
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            code_hash, sealed = conn.execute(
+                text("SELECT guest_code_hash, guest_code_sealed FROM campaign_members")
+            ).one()
+        engine.dispose()
+        assert code_hash == token_vault.lookup_hash(self.CODE)
+        assert token_vault.unseal(sealed) == self.CODE
+        assert "guest_code" not in self._columns(path, "campaign_members")
+        assert "guest_invites_enabled" not in self._columns(path, "campaigns")
+        assert _stamped_revision(path) == _alembic_head(path)
+
+    def test_no_plaintext_code_survives_in_the_file(self):
+        path = self._db_with_plaintext_code()
+        init_db(path)
+        create_engine(f"sqlite:///{path}").dispose()
+        raw = b""
+        for suffix in ("", "-wal", "-journal"):
+            if os.path.exists(path + suffix):
+                with open(path + suffix, "rb") as f:
+                    raw += f.read()
+        assert self.CODE.encode() not in raw
+
+    def test_downgrade_restores_the_plaintext_code(self):
+        path = self._db_with_plaintext_code()
+        init_db(path)
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            command.downgrade(_alembic_config(conn), "5d1e8a3c7b20")
+        with engine.connect() as conn:
+            assert conn.execute(text("SELECT guest_code FROM campaign_members")).scalar() == (
+                self.CODE
+            )
+            assert conn.execute(text("SELECT guest_invites_enabled FROM campaigns")).scalar() == 1
+        engine.dispose()
+        assert "guest_code_hash" not in self._columns(path, "campaign_members")
+
+    def test_rerunning_is_a_no_op(self):
+        path = self._db_with_plaintext_code()
+        init_db(path)
+        init_db(path)
+        assert "guest_code_hash" in self._columns(path, "campaign_members")
