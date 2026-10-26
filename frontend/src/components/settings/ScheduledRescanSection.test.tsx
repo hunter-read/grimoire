@@ -147,7 +147,8 @@ describe('ScheduledRescanSection', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /saveSchedule/ }))
     await screen.findByText('maintenance.scheduledRescan.saved')
-    expect(dirty()).toBe(false)
+    // The flag reaches the context from an effect, a render after the message.
+    await waitFor(() => expect(dirty()).toBe(false))
 
     unmount()
     expect(set).toHaveBeenLastCalledWith('scheduled-rescan', false)
