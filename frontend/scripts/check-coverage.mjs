@@ -2,9 +2,9 @@
 /**
  * Per-changed-file coverage gate.
  *
- * Fails if any changed frontend source file (src/**.{js,jsx,ts,tsx}, excluding
- * tests and type declarations)
- * has line coverage below MIN_PCT. This enforces the "each change brings
+ * Fails if any changed frontend source file the coverage report measures (the
+ * shared include/exclude globs in scripts/coverage-files.mjs, which
+ * vite.config.js uses too) has line coverage below MIN_PCT. This enforces the "each change brings
  * coverage up" goal without imposing a hard global threshold in vite.config.js.
  *
  * Strict by design: a changed source file that is absent from the coverage
@@ -19,11 +19,19 @@
  */
 import { execFileSync } from 'node:child_process'
 import { readFileSync, existsSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { relative, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import picomatch from 'picomatch'
 import ts from 'typescript'
+import { COVERAGE_EXCLUDE, COVERAGE_INCLUDE } from './coverage-files.mjs'
 
 const MIN_PCT = Number(process.env.MIN_COVERAGE || 80)
 const SUMMARY_PATH = resolve(process.cwd(), 'coverage/coverage-summary.json')
+const FRONTEND_DIR = resolve(import.meta.dirname, '..')
+
+// Matched the way vitest matches its coverage globs, against paths relative to
+// frontend/ (the vitest root), so the gate and the report agree on every file.
+const isMeasured = picomatch(COVERAGE_INCLUDE, { dot: true, ignore: COVERAGE_EXCLUDE })
 
 // Run git with args passed as an array (no shell), so values derived from
 // untrusted input (e.g. a PR branch name in BASE_REF) can never be interpreted
@@ -58,36 +66,33 @@ function resolveBase(root) {
   return null
 }
 
-// Source files (under frontend/src) changed vs the base, excluding test files.
-// Unions three changesets so it works both in CI and locally before committing:
+// Source files (under frontend/src) changed vs the base that the coverage
+// report measures. Unions three changesets so it works both in CI and locally
+// before committing:
 //   1. committed changes the branch introduces (base...HEAD, PR semantics),
 //   2. uncommitted tracked changes (git diff HEAD),
 //   3. untracked new files.
-// Returns absolute paths so they match the coverage-summary keys.
 function changedSourceFiles(base, root) {
-  const files = new Set([
+  const files = [
     ...gitLines(
       ['diff', '--name-only', '--diff-filter=ACMR', `${base}...HEAD`, '--', 'frontend/src'],
       root
     ),
     ...gitLines(['diff', '--name-only', '--diff-filter=ACMR', 'HEAD', '--', 'frontend/src'], root),
     ...gitLines(['ls-files', '--others', '--exclude-standard', '--', 'frontend/src'], root),
-  ])
+  ]
+  return measuredFiles(files, root)
+}
+
+// The repo-relative paths (as git prints them) that the coverage report
+// measures, as absolute paths so they match the coverage-summary keys. Files
+// the report leaves out on purpose (tests, the entry point, third-party setup
+// glue, config) would otherwise be flagged as 0%.
+export function measuredFiles(paths, root) {
   return (
-    [...files]
-      .map((p) => p.trim())
-      .filter(Boolean)
-      .filter((p) => /\.(js|jsx|ts|tsx)$/.test(p))
-      .filter((p) => !/\.d\.ts$/.test(p))
-      .filter((p) => !/\.test\.(js|jsx|ts|tsx)$/.test(p))
-      .filter((p) => !p.startsWith('frontend/src/test/'))
-      // Mirror the coverage `exclude` globs in vite.config.js so files that are
-      // intentionally not instrumented (entry point, third-party setup glue,
-      // config) aren't flagged as 0%.
-      .filter((p) => p !== 'frontend/src/main.jsx')
-      .filter((p) => !p.startsWith('frontend/src/lib/'))
-      .filter((p) => !/\.config\.(js|jsx|ts|tsx)$/.test(p))
+    [...new Set(paths.map((p) => p.trim()).filter(Boolean))]
       .map((p) => resolve(root, p))
+      .filter((p) => isMeasured(relative(FRONTEND_DIR, p)))
       // A file the branch added and then deleted is still "changed" against the
       // base, but there is nothing left to cover. `--diff-filter` cannot express
       // this: the add is in base...HEAD while the delete is only in the working
@@ -119,6 +124,27 @@ function hasNoRuntimeCode(file) {
   )
 }
 
+// Sorts the changed files into failures (below minPct, or absent from the
+// report = untested = 0%), passes, and files skipped for having no runtime code.
+export function checkFiles(files, summary, root, minPct = MIN_PCT) {
+  const failures = []
+  const passes = []
+  const skipped = []
+  for (const file of files) {
+    const entry = summary[file]
+    if (entry === undefined && hasNoRuntimeCode(file)) {
+      skipped.push(file.replace(`${root}/`, ''))
+      continue
+    }
+    const pct = entry?.lines?.pct
+    const value = typeof pct === 'number' ? pct : 0
+    const rel = file.replace(`${root}/`, '')
+    if (value < minPct) failures.push({ rel, pct: value, untested: entry === undefined })
+    else passes.push({ rel, pct: value })
+  }
+  return { failures, passes, skipped }
+}
+
 function main() {
   const root = repoRoot()
   const base = resolveBase(root)
@@ -138,23 +164,7 @@ function main() {
     process.exit(1)
   }
   const summary = JSON.parse(readFileSync(SUMMARY_PATH, 'utf8'))
-
-  const failures = []
-  const passes = []
-  const skipped = []
-  for (const file of changed) {
-    const entry = summary[file]
-    if (entry === undefined && hasNoRuntimeCode(file)) {
-      skipped.push(file.replace(`${root}/`, ''))
-      continue
-    }
-    const pct = entry?.lines?.pct
-    // Absent from the report = untested = 0% (strict).
-    const value = typeof pct === 'number' ? pct : 0
-    const rel = file.replace(`${root}/`, '')
-    if (value < MIN_PCT) failures.push({ rel, pct: value, untested: entry === undefined })
-    else passes.push({ rel, pct: value })
-  }
+  const { failures, passes, skipped } = checkFiles(changed, summary, root)
 
   for (const rel of skipped) console.log(`-  no runtime code  ${rel}`)
   for (const p of passes) console.log(`✓ ${p.pct.toFixed(2)}%  ${p.rel}`)
@@ -172,4 +182,5 @@ function main() {
   console.log(`\n✓ check-coverage: all ${passes.length} changed file(s) ≥ ${MIN_PCT}%.`)
 }
 
-main()
+// Run only when invoked as a script, so the test can import the helpers.
+if (process.argv[1] === fileURLToPath(import.meta.url)) main()

@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import { createRequire } from 'module'
 import { cpSync } from 'fs'
 import { dirname, join } from 'path'
+import { COVERAGE_EXCLUDE, COVERAGE_INCLUDE } from './scripts/coverage-files.mjs'
 
 const require = createRequire(import.meta.url)
 const reactVersion = require('react/package.json').version
@@ -49,22 +50,10 @@ export default defineConfig({
       // design — the per-changed-file gate lives in the CI script instead.
       reporter: ['text', 'html', 'json-summary'],
       reportsDirectory: './coverage',
-      include: ['src/**/*.{js,jsx,ts,tsx}'],
-      exclude: [
-        'src/**/*.test.{js,jsx,ts,tsx}',
-        // Type declarations (the generated API schema among them) hold no code.
-        'src/**/*.d.ts',
-        'src/test/**',
-        'src/main.jsx',
-        // Third-party setup glue (pdf.js worker wiring, the three.js bundle
-        // entry) that is mocked in tests and carries no logic of its own to
-        // exercise. Named individually rather than excluding all of `src/lib/`:
-        // the rest of that directory is real logic with its own tests, and a
-        // blanket exclusion silently left it ungated.
-        'src/lib/pdfjs.js',
-        'src/lib/three.js',
-        'src/**/*.config.{js,jsx,ts,tsx}',
-      ],
+      // Shared with scripts/check-coverage.mjs so the gate skips exactly the
+      // files the report leaves out.
+      include: COVERAGE_INCLUDE,
+      exclude: COVERAGE_EXCLUDE,
     },
   },
 })
