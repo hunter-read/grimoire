@@ -137,11 +137,15 @@ class TestCrashIsolation:
         pool.page_text(pdf, 1)
         hung = _worker_of(pdf)
         os.kill(hung.proc.pid, signal.SIGSTOP)
+        normal = pool.REQUEST_TIMEOUT
         monkeypatch.setattr(pool, "REQUEST_TIMEOUT", 0.5)
         with pytest.raises(ops.RenderTimeoutError):
             pool.page_text(pdf, 1)
         hung.proc.join(10)
         assert not hung.proc.is_alive()
+        # The replacement's first answer includes starting it, which can take
+        # longer than 0.5s on a loaded runner.
+        monkeypatch.setattr(pool, "REQUEST_TIMEOUT", normal)
         assert pool.page_text(pdf, 3) == "third page"
 
     def test_a_dead_worker_is_reaped_one_thread_at_a_time(self, workers, pdf):

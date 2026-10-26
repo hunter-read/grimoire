@@ -10,6 +10,7 @@ import io
 import os
 import tarfile
 import tempfile
+import threading
 import zipfile
 from pathlib import Path
 
@@ -24,6 +25,7 @@ from backend.indexer import (
     generate_thumbnail,
     scan_library,
 )
+from backend.indexer import thumbnails
 from backend.indexer.thumbnails import _extract_7z_member
 from backend.models import Book
 
@@ -251,11 +253,18 @@ class TestGenerateThumbnail:
         out = os.path.join(self.tmp, "y.webp")
         assert generate_thumbnail(src, out) is False
 
-    def test_stop_request_aborts(self):
-        src = os.path.join(self.tmp, "art.png")
-        Image.new("RGB", (50, 50)).save(src, "PNG")
+    def test_stop_request_aborts(self, monkeypatch):
+        # Held open until the stop is seen: a real 50x50 render could finish
+        # before the wait loop first checks, and then there is nothing to abort.
+        release = threading.Event()
+        monkeypatch.setattr(
+            thumbnails, "_generate_thumbnail_task", lambda *a: release.wait(10)
+        )
         out = os.path.join(self.tmp, "z.webp")
-        assert generate_thumbnail(src, out, should_stop=lambda: True) is False
+        try:
+            assert generate_thumbnail("art.png", out, should_stop=lambda: True) is False
+        finally:
+            release.set()
 
 
 # ---------------------------------------------------------------------------
