@@ -20,6 +20,7 @@ releases; that flow is retired and the workflows no longer refer to it.)
 |---|---|---|---|
 | **CI** | [`ci.yml`](../.github/workflows/ci.yml) | Push to `main`, and pull requests | Lint + test + coverage validation, and a smoke test of both image targets (nothing published) |
 | **CodeQL** | [`codeql.yml`](../.github/workflows/codeql.yml) | Push to `main`, PRs to `main`, weekly cron | Security analysis (Python + JS/TS) |
+| **Test order** | [`test-order.yml`](../.github/workflows/test-order.yml) | Daily at 06:00 UTC (or manually), off `main` | Backend suite run serially and on two workers (nothing published) |
 | **Nightly** | [`nightly.yml`](../.github/workflows/nightly.yml) | Daily at 07:00 UTC (or manually), off `main` | `:nightly` multi-arch Docker image |
 | **Release** | [`release.yml`](../.github/workflows/release.yml) | Push a `vX.Y.Z` tag | Versioned + `:latest` images (OCR & slim) + GitHub Release |
 
@@ -186,6 +187,21 @@ sit. Lift the ignore if a later release makes the layout packages optional again
 
 Each PR runs the normal CI, including the per-changed-file coverage gate, so a green grouped
 bump is usually safe to merge as is.
+
+---
+
+## Test order (`test-order.yml`)
+
+Runs the backend suite on `main` serially and on two workers, every day at 06:00 UTC or on
+demand. The backend tests share one database and one library folder, so a test can pass
+only because of the tests that run before it. CI's four-worker split (`conftest.py` gives
+each worker a contiguous run of files) fixes those predecessors, which can hide such a test
+until a new file shifts the split and it fails on an unrelated PR. A serial run gives every
+file all its predecessors, and two workers start the second half without its own.
+
+It is not a required check. A failure means an order-dependent test to fix: reproduce it
+with the same split locally (`pytest backend/tests/ -n 2 --dist loadgroup`, or serially).
+The community add-on contract tests skip here, since CI already runs them on every PR.
 
 ---
 

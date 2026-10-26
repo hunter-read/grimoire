@@ -683,9 +683,26 @@ class _TZFormatter(logging.Formatter):
 
 
 _LOG_FORMAT = "%(asctime)s [%(name)s] %(levelname)s: %(message)s"
+
+
+def _is_ours(handler: logging.Handler, role: str) -> bool:
+    """Whether this module attached ``handler`` to root in the given role.
+
+    Tagged rather than matched by class, because a reload of this module (the
+    tests reload it to re-read the environment) redefines its classes.
+    """
+    return getattr(handler, "_grimoire_role", None) == role
+
+
+# basicConfig adds a console handler only when root has none, which is also why
+# a reload adds no second one. Only that handler is formatted and levelled here:
+# a host that configured root itself keeps its own, and so does this module's
+# ring buffer below, whose lines must stay the bare message.
+_root_before = list(logging.root.handlers)
 logging.basicConfig(level=logging.DEBUG, format=_LOG_FORMAT)
 for _h in logging.root.handlers:
-    _h.setFormatter(_TZFormatter(_LOG_FORMAT))
+    if _h not in _root_before:
+        setattr(_h, "_grimoire_role", "console")
 
 for _noisy in (
     "uvicorn",
@@ -701,14 +718,14 @@ for _noisy in (
     logging.getLogger(_noisy).setLevel(logging.WARNING)
 
 for _h in logging.root.handlers:
-    _h.setLevel(_CONSOLE_LEVEL)
+    if _is_ours(_h, "console"):
+        _h.setFormatter(_TZFormatter(_LOG_FORMAT))
+        _h.setLevel(_CONSOLE_LEVEL)
 
 logger = logging.getLogger("grimoire")
 logger.setLevel(logging.DEBUG)
 
 _LOG_BUFFER_MAX = 20000
-
-_seq_counter = 0
 
 
 class _LogEntry:
@@ -751,9 +768,9 @@ class _MemoryLogHandler(logging.Handler):
         super().__init__(level=logging.DEBUG)
         self._buf: collections.deque[_LogEntry] = collections.deque(maxlen=maxlen)
         self._lock = threading.Lock()
+        self._seq = 0
 
     def emit(self, record: logging.LogRecord) -> None:
-        global _seq_counter
         try:
             # Rendered in LOG_TIMEZONE. Keep the fixed-width
             # YYYY-MM-DDTHH:MM:SS.mmm layout the log viewer slices by offset,
@@ -763,9 +780,9 @@ class _MemoryLogHandler(logging.Handler):
             offset = local.strftime("%z")
             ts += "Z" if offset in ("", "+0000") else f"{offset[:3]}:{offset[3:]}"
             with self._lock:
-                _seq_counter += 1
+                self._seq += 1
                 entry = _LogEntry(
-                    seq=_seq_counter,
+                    seq=self._seq,
                     timestamp=ts,
                     level=record.levelname,
                     logger_name=record.name,
@@ -837,10 +854,23 @@ class _MemoryLogHandler(logging.Handler):
             self._buf.clear()
 
 
-_memory_handler = _MemoryLogHandler()
-_memory_handler.setFormatter(logging.Formatter("%(message)s"))
+def _attach_memory_handler() -> _MemoryLogHandler:
+    """The ring buffer on root, attaching it on first import.
 
-logging.root.addHandler(_memory_handler)
+    A reload hands back the one already attached: the logs API imported it by
+    name, so a second buffer would collect lines that API never shows.
+    """
+    for handler in logging.root.handlers:
+        if _is_ours(handler, "memory"):
+            return handler  # type: ignore[return-value]  # the class from before a reload
+    handler = _MemoryLogHandler()
+    setattr(handler, "_grimoire_role", "memory")
+    logging.root.addHandler(handler)
+    return handler
+
+
+_memory_handler = _attach_memory_handler()
+_memory_handler.setFormatter(logging.Formatter("%(message)s"))
 
 # ---------------------------------------------------------------------------
 # Start-up: everything below does I/O, so none of it runs at import.

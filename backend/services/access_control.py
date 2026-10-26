@@ -380,11 +380,20 @@ def _build_book_filter(db: Session, user: Any) -> Optional[ColumnElement[bool]]:
     # ``and_``/``or_`` is not a SQL expression, and an empty ``IN ()`` is not
     # portable, so each optional clause is spelled out as an explicit constant
     # when its id list is empty.
+    #
+    # A book with no system has a NULL game_system_id, and ``NULL IN (...)`` is
+    # NULL - which would leave ``hidden`` NULL and drop the book from every list
+    # as soon as any system is restricted. Hence the IS NOT NULL guards.
+    has_system = Book.game_system_id.isnot(None)
     in_restricted_system = (
-        Book.game_system_id.in_(restricted_system_ids) if restricted_system_ids else false()
+        and_(has_system, Book.game_system_id.in_(restricted_system_ids))
+        if restricted_system_ids
+        else false()
     )
     in_levelled_system = (
-        Book.game_system_id.in_(levelled_system_ids) if levelled_system_ids else false()
+        and_(has_system, Book.game_system_id.in_(levelled_system_ids))
+        if levelled_system_ids
+        else false()
     )
     in_blocked_category = (
         Book.category.in_(blocked_categories) if blocked_categories else false()

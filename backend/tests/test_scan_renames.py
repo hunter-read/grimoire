@@ -69,6 +69,14 @@ def _system(**filters) -> GameSystem | None:
         db.close()
 
 
+def _systems(**filters) -> list[GameSystem]:
+    db = SessionLocal()
+    try:
+        return db.query(GameSystem).filter_by(**filters).all()
+    finally:
+        db.close()
+
+
 def _update_system(system_id: str, **values) -> None:
     db = SessionLocal()
     try:
@@ -556,6 +564,9 @@ class TestDeletedInTheApp:
         db = SessionLocal()
         try:
             scan_library(LIBRARY_PATH, tempfile.mkdtemp(), db, scope_path=shelf)
+            # Found by folder, not name: another test may already own a system
+            # called "Game B", and the scanner then de-duplicates this one's name.
+            game_b = fs.system_for_folder(db, fs.safe_join(f"{shelf}/Game B"))
         finally:
             db.close()
         container = _system(name=f"AppShelf2-{stamp}")
@@ -567,7 +578,7 @@ class TestDeletedInTheApp:
             )
             assert resp.status_code == 200, resp.text
             assert _system(id=container.id) is not None
-            assert _system(parent_id=container.id).name.endswith("Game B")
+            assert [s.id for s in _systems(parent_id=container.id)] == [game_b.id]
         finally:
             shutil.rmtree(os.path.join(LIBRARY_PATH, shelf), ignore_errors=True)
 

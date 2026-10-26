@@ -433,12 +433,14 @@ class TestVisibleBooksFilter:
 
         levels = [None, LEVEL_OPEN, LEVEL_GM, LEVEL_ADMIN]
         made = []
-        for sys_level in (LEVEL_OPEN, LEVEL_GM, LEVEL_ADMIN):
-            system = make_game_system(access_level=sys_level)
+        # None: a book with no system row at all, beside restricted systems -
+        # the case where a NULL game_system_id meets the system IN lists.
+        for sys_level in (None, LEVEL_OPEN, LEVEL_GM, LEVEL_ADMIN):
+            system_id = make_game_system(access_level=sys_level).id if sys_level else None
             for book_level in levels:
                 for category in ("core", "adventure", "handout"):
                     made.append(
-                        make_book(system.id, access_level=book_level, category=category)
+                        make_book(system_id, access_level=book_level, category=category)
                     )
 
         made_ids = {b.id for b in made}
