@@ -4,7 +4,7 @@ uvicorn[standard]==0.54.0
 sqlalchemy==2.1.6
 alembic==1.20.1
 aiosqlite==0.22.1
-pymupdf==1.28.2
+pymupdf==2.0
 python-multipart==0.0.32
 watchdog==6.0.0
 httpx==0.28.1
