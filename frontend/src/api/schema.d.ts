@@ -7914,6 +7914,8 @@ export interface components {
             artists: string[];
             /** Authors */
             authors: string[];
+            /** Can Reocr */
+            can_reocr: boolean;
             /** Category */
             category?: string | null;
             /** Codex Id */
@@ -8048,6 +8050,8 @@ export interface components {
         BookListItem: {
             /** Added At */
             added_at?: string | null;
+            /** Can Reocr */
+            can_reocr: boolean;
             /** Category */
             category?: string | null;
             /** File Size */
@@ -8103,6 +8107,8 @@ export interface components {
             artists: string[];
             /** Authors */
             authors: string[];
+            /** Can Reocr */
+            can_reocr: boolean;
             /** Category */
             category?: string | null;
             /** Codex Id */

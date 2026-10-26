@@ -164,6 +164,8 @@ class BookListItem(BaseModel):
     index_failed: Optional[bool] = None
     # Derived comparison, so always a concrete bool.
     ocr_indexed: bool
+    # Re-OCR has something to add: see indexer.text_index.reocr_applies.
+    can_reocr: bool
     is_explicit: bool
     is_missing: bool
     # How many other versions collapse into this entry; 0 for most books. Drives
@@ -227,6 +229,8 @@ class BookDetail(BaseModel):
     indexed: Optional[bool] = None
     index_failed: Optional[bool] = None
     ocr_indexed: bool
+    # Re-OCR has something to add: see indexer.text_index.reocr_applies.
+    can_reocr: bool
     ocr_pending: bool
     # Pages OCR gave up on (exceeded OCR_PAGE_TIMEOUT); 0 for a clean read.
     ocr_pages_skipped: int = 0

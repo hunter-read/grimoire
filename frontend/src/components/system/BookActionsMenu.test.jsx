@@ -72,6 +72,7 @@ function makeBook(overrides = {}) {
     index_error: '',
     indexed: true,
     index_failed: false,
+    can_reocr: false,
     ...overrides,
   }
 }
@@ -307,8 +308,8 @@ describe('BookActionsMenu', () => {
   })
 
   it('shows re-scan (not re-OCR) for an index-failed OCR book and posts to /rescan', async () => {
-    // A failed OCR book keeps an error message in index_error, but index_failed
-    // takes precedence: it must recover through the full re-scan flow.
+    // A failed OCR book keeps an error message in index_error, but the server
+    // reports can_reocr: false for it: it must recover through the full re-scan flow.
     renderMenu({ id: 'b8', indexed: false, index_failed: true, index_error: 'ocr open failed: x' })
     fireEvent.click(screen.getByLabelText('bookActions.menu'))
     expect(screen.queryByRole('menuitem', { name: 'bookActions.reocr' })).not.toBeInTheDocument()
@@ -326,16 +327,17 @@ describe('BookActionsMenu', () => {
   })
 
   // --- image-only / OCR PDF: re-OCR with DPI ---
+  // The server decides (`can_reocr`); the menu never re-derives it from index_error.
 
   it('shows a re-OCR item (not re-scan) for OCR books', () => {
-    renderMenu({ index_error: 'ocr' })
+    renderMenu({ index_error: 'ocr', can_reocr: true })
     fireEvent.click(screen.getByLabelText('bookActions.menu'))
     expect(screen.getByRole('menuitem', { name: 'bookActions.reocr' })).toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: 'bookActions.rescan' })).not.toBeInTheDocument()
   })
 
   it('re-OCR reveals a DPI field and posts to /reindex', async () => {
-    renderMenu({ id: 'b4', index_error: 'image-only' })
+    renderMenu({ id: 'b4', index_error: 'image-only', can_reocr: true })
     fireEvent.click(screen.getByLabelText('bookActions.menu'))
     fireEvent.click(screen.getByRole('menuitem', { name: 'bookActions.reocr' }))
     fireEvent.click(screen.getByText('reocr.run'))
@@ -343,7 +345,7 @@ describe('BookActionsMenu', () => {
   })
 
   it('re-OCR posts the entered DPI as a query param', async () => {
-    renderMenu({ id: 'b5', index_error: 'ocr' })
+    renderMenu({ id: 'b5', index_error: 'ocr', can_reocr: true })
     fireEvent.click(screen.getByLabelText('bookActions.menu'))
     fireEvent.click(screen.getByRole('menuitem', { name: 'bookActions.reocr' }))
     fireEvent.change(screen.getByLabelText('reocr.dpiLabel'), { target: { value: '300' } })
@@ -352,10 +354,35 @@ describe('BookActionsMenu', () => {
   })
 
   it('seeds the DPI field from an existing per-book override', () => {
-    renderMenu({ index_error: 'ocr', ocr_dpi: 250 })
+    renderMenu({ index_error: 'ocr', can_reocr: true, ocr_dpi: 250 })
     fireEvent.click(screen.getByLabelText('bookActions.menu'))
     fireEvent.click(screen.getByRole('menuitem', { name: 'bookActions.reocr' }))
     expect(screen.getByLabelText('reocr.dpiLabel')).toHaveValue(250)
+  })
+
+  it('shows re-OCR for a thin-text scan the server marks can_reocr', () => {
+    // A scan with a few text pages has its own text layer (index_error ''),
+    // but too little of it for the book to be searchable: Re-OCR still applies.
+    renderMenu({ index_error: '', can_reocr: true })
+    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    expect(screen.getByRole('menuitem', { name: 'bookActions.reocr' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'bookActions.rescan' })).not.toBeInTheDocument()
+  })
+
+  it('hides re-OCR when the server says it does not apply, whatever index_error says', () => {
+    renderMenu({ index_error: 'ocr', can_reocr: false })
+    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    expect(screen.queryByRole('menuitem', { name: 'bookActions.reocr' })).not.toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'bookActions.rescan' })).toBeInTheDocument()
+  })
+
+  it('shows the re-OCR error when the reindex request fails', async () => {
+    mockPost.mockRejectedValueOnce(new Error('boom'))
+    renderMenu({ id: 'b6', can_reocr: true })
+    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'bookActions.reocr' }))
+    fireEvent.click(screen.getByText('reocr.run'))
+    expect(await screen.findByText('reocr.error')).toBeInTheDocument()
   })
 
   // --- permissions / type gating ---

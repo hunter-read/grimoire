@@ -159,7 +159,9 @@ from .text_index import (  # noqa: E402,F401
     index_book_text,
     refresh_book_file,
     reindex_single_book,
+    reocr_applies,
     reset_book_index,
+    text_too_thin,
 )
 
 # --- Library scan --------------------------------------------------------------

@@ -74,6 +74,11 @@ _DEFAULT_STATUS: dict = {
     # "reindex" while the run is the replace-upload re-index queue's drain
     # (issue #657), which accepts further replace uploads; None for every other run.
     "kind": None,
+    # A Re-OCR asked for a drain while another job held the run. Internal: the
+    # running drain, or whoever finishes the run, reads the queue again for it
+    # (see trigger_ocr_queue). Kept in the shared status so it reaches the
+    # worker that holds the run when there are several.
+    "ocr_requested": False,
 }
 
 # Without Valkey the stop flag is a file under DATA_PATH, which every worker
@@ -436,6 +441,10 @@ def run_ocr_queue() -> int:
                 if stopped:
                     break
             pending_ids = _pending()
+            if _take_ocr_request():
+                # Someone asked for these since: a book re-queued after this run
+                # read it is read again, rather than waiting for the next run.
+                attempted.difference_update(pending_ids)
             newly = [b for b in pending_ids if b not in attempted]
             if newly:
                 logger.info(
@@ -585,25 +594,51 @@ def run_model_thumbnail_queue() -> int:
     return completed
 
 
+def _take_ocr_request() -> bool:
+    """Whether a drain was asked for while another job held the run; clears the ask."""
+    if not _get_status().get("ocr_requested"):
+        return False
+    _set_status({"ocr_requested": False})
+    return True
+
+
+def follow_up_ocr_request() -> None:
+    """Drain the OCR queue if a Re-OCR asked for it while the finished run held it.
+
+    Called by every job that clears the running flag once it has. A request that
+    arrived after that job's own drain last read the queue would otherwise wait
+    for the next scan.
+    """
+    if _get_status().get("ocr_requested") and not scan_in_progress():
+        trigger_ocr_queue()
+
+
 def trigger_ocr_queue():
     """Drain the OCR queue now (on-demand, e.g. after a per-book re-OCR request).
 
-    Unlike the startup scan this has no delay of its own. It no-ops if a
-    scan/OCR run is already in progress: the queue lives in the DB, and a drain
-    re-checks it before finishing, so the book this call queued is picked up by
-    the run already going (issue #688 - it used to be dropped, because that run
-    had already taken its snapshot). Clears the running/phase flags on
-    completion when this call owns the OCR phase.
+    Unlike the startup scan this has no delay of its own. While another job
+    holds the run it leaves a request in the status instead (issue #688): a
+    drain in progress reads the queue again for it before finishing, and a job
+    finishing calls follow_up_ocr_request. The run is checked again after the
+    request is left, so a job that finished in between is not missed. Clears the
+    running/phase flags on completion when this call owns the OCR phase, and
+    goes round again if a request arrived after its drain last read the queue.
     """
-    if scan_in_progress():
-        return
-    heartbeat = _start_heartbeat()
-    try:
-        run_ocr_queue()
-    finally:
-        if _get_status()["phase"] == "ocr":
-            _set_status({"running": False, "phase": None})
-        heartbeat.set()
+    while True:
+        if scan_in_progress():
+            _set_status({"ocr_requested": True})
+            if scan_in_progress():
+                return
+        _set_status({"ocr_requested": False})
+        heartbeat = _start_heartbeat()
+        try:
+            run_ocr_queue()
+        finally:
+            if _get_status()["phase"] == "ocr":
+                _set_status({"running": False, "phase": None})
+            heartbeat.set()
+        if not _get_status().get("ocr_requested"):
+            return
 
 
 def rescan_single_book(book_id: str) -> None:
@@ -796,3 +831,4 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
         sweep_page_cache()
         _set_status({"running": False, "phase": None})
         heartbeat.set()
+    follow_up_ocr_request()

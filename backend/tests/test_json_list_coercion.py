@@ -84,6 +84,7 @@ def _book_payload(**overrides):
         "language": "",
         "license": "",
         "ocr_indexed": False,
+        "can_reocr": False,
         "ocr_pending": False,
         "tags": [],
         "is_explicit": False,

@@ -175,6 +175,15 @@ to build and run on the same runtimes `ci.yml` tests with, so a runtime move is 
 changing the `Dockerfile` and `ci.yml` in the same PR. Patch and digest bumps of those images,
 and bumps of the other base images, still come through.
 
+PyMuPDF is held on 1.x. Version 2 makes onnxruntime, numpy, networkx and its layout packages
+hard dependencies and loads the layout model on every `import fitz`, which adds about 120 MB
+to every process that opens a PDF (the server and each render worker) and about 135 MB to the
+image. 1.x minor and patch releases still come through. **Watch its security advisories by
+hand:** a PyMuPDF or MuPDF advisory still raises a Dependabot alert, but a fix released only
+on 2.x gets no PR, because the ignore applies to security updates too. Check the alert and
+decide whether to take 2.x then (and how to keep the layout model out), rather than letting it
+sit. Lift the ignore if a later release makes the layout packages optional again.
+
 Each PR runs the normal CI, including the per-changed-file coverage gate, so a green grouped
 bump is usually safe to merge as is.
 

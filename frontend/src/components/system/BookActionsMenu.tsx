@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
+import type { CSSProperties, MouseEvent as ReactMouseEvent, RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -17,6 +18,7 @@ import {
   LuShare2,
 } from 'react-icons/lu'
 import api, { mediaUrl } from '../../api'
+import type { Schema } from '../../api'
 import { useUISettings } from '../../context/UISettingsContext'
 import { useFavorites } from '../../context/FavoritesContext'
 import { getBookPrefs, saveBookPrefs } from '../../hooks/useBookPrefs'
@@ -53,8 +55,9 @@ const MENU_WIDTH = 220
  * It is hidden when the user has campaigns hidden in their UI settings.
  *
  * The re-index item adapts to the book:
- *   - successfully OCR / image-only PDF → "Re-OCR…" which reveals an inline DPI
- *     field, then POSTs /books/:id/reindex (optionally ?ocr_dpi=N).
+ *   - a book the server marks `can_reocr` (OCR-read, image-only, or a scan whose
+ *     text layer covers too little of it) → "Re-OCR…" which reveals an inline
+ *     DPI field, then POSTs /books/:id/reindex (optionally ?ocr_dpi=N).
  *   - text-layer PDF, or any index-failed PDF → "Re-scan & re-index" which POSTs
  *     /books/:id/rescan to re-read the file and rebuild its index. For a failed
  *     book this recovers it through the full scan → index → OCR flow.
@@ -82,6 +85,22 @@ const MENU_WIDTH = 220
  * Shift+right-click is left alone, so the browser's own menu — open in new tab,
  * copy link — is still one modifier away.
  */
+interface Props {
+  /** A system-page book row (`BookOut`); the server decides `can_reocr`. */
+  book: Schema<'BookOut'>
+  /** Opens the metadata editor; passed only for gm/admin, and gates re-index. */
+  onEdit?: (() => void) | null
+  onDetails?: (() => void) | null
+  /** Highlights the kebab while this book's editor is open. */
+  editing?: boolean
+  /** Called after a move, rename, or delete of the book's file. */
+  onFileChanged?: (change: unknown) => void
+  /** The row or card element whose right-click opens this menu. */
+  contextTarget?: RefObject<HTMLElement | null>
+}
+
+type RunState = 'idle' | 'working' | 'done' | 'error'
+
 export default function BookActionsMenu({
   book,
   onEdit,
@@ -89,7 +108,7 @@ export default function BookActionsMenu({
   editing,
   onFileChanged,
   contextTarget,
-}) {
+}: Props) {
   const { t } = useTranslation()
   const { hide_campaigns } = useUISettings()
   const { isFavorite, toggleFavorite } = useFavorites()
@@ -100,22 +119,25 @@ export default function BookActionsMenu({
   const canShare = useCanShare()
   const [showDpi, setShowDpi] = useState(false)
   const [dpi, setDpi] = useState(book.ocr_dpi ? String(book.ocr_dpi) : '')
-  const [state, setState] = useState('idle') // idle | working | done | error
+  const [state, setState] = useState<RunState>('idle')
   // Read once per open so the item doesn't vanish mid-interaction; `reset`
   // keeps it visible (as a confirmation) after the page is cleared.
   const [progressReset, setProgressReset] = useState(false)
   // Where a right-click opened the menu; null when it hangs off the kebab.
-  const [at, setAt] = useState(null)
+  const [at, setAt] = useState<ReturnType<typeof pointFromEvent>>(null)
   const hasProgress = open && (!!getBookPrefs(book.id).page || progressReset)
-  const {
-    triggerRef,
-    panelRef: menuRef,
-    style: menuStyle,
-    place,
-  } = useAnchoredMenu(open, {
+  // useAnchoredMenu is still JavaScript, and its JSDoc types the refs and style
+  // loosely (`object`), so they are narrowed here to what this menu renders.
+  // `at ?? undefined` only satisfies that JSDoc's `object | undefined`: the hook
+  // defaults a missing point to null, so it means the same thing as null.
+  const anchored = useAnchoredMenu(open, {
     width: MENU_WIDTH,
-    at,
+    at: at ?? undefined,
   })
+  const triggerRef = anchored.triggerRef as RefObject<HTMLButtonElement | null>
+  const menuRef = anchored.panelRef as RefObject<HTMLDivElement | null>
+  const menuStyle = anchored.style as CSSProperties
+  const { place } = anchored
   const fileActions = useFileActions({ onChanged: onFileChanged })
   // A book only has file actions once we know where its file lives; rows served
   // by an older payload without `relative_path` simply do not offer them.
@@ -126,11 +148,12 @@ export default function BookActionsMenu({
   const showRemove = fileActions.canRemove && knowsFile
 
   const isPdf = book.mime_type === 'application/pdf'
-  // A book that finished indexing via OCR / as image-only. A hard index failure
-  // resets index_error to the error message, so index_failed takes precedence:
-  // failed books always go through the full re-scan → index → OCR flow below.
-  const isOcrBook =
-    !book.index_failed && (book.index_error === 'ocr' || book.index_error === 'image-only')
+  // Whether Re-OCR applies is the server's call (`can_reocr`), the same rule the
+  // reindex endpoint enforces: an OCR-read or image-only PDF, or one whose own
+  // text layer covers too little of the book (a scan with a few text pages). It
+  // is false for an index-failed book, which goes through the full re-scan →
+  // index → OCR flow below instead.
+  const isOcrBook = Boolean(book.can_reocr)
   // Re-index items only make sense once a book has actually been processed —
   // successfully indexed, or index-failed (which the re-scan can recover from).
   // A never-scanned / still-pending book has nothing to re-do yet.
@@ -151,7 +174,7 @@ export default function BookActionsMenu({
   useEffect(() => {
     const el = contextTarget?.current
     if (!el) return
-    const onContext = (e) => {
+    const onContext = (e: MouseEvent) => {
       if (e.shiftKey) return
       e.preventDefault()
       setShowDpi(false)
@@ -166,8 +189,9 @@ export default function BookActionsMenu({
 
   useEffect(() => {
     if (!open) return
-    const onDoc = (e) => {
-      if (triggerRef.current?.contains(e.target) || menuRef.current?.contains(e.target)) return
+    const onDoc = (e: MouseEvent) => {
+      const target = e.target as Node | null
+      if (triggerRef.current?.contains(target) || menuRef.current?.contains(target)) return
       setOpen(false)
     }
     document.addEventListener('mousedown', onDoc)
@@ -180,7 +204,7 @@ export default function BookActionsMenu({
     setState('idle')
   }
 
-  const runReocr = (e) => {
+  const runReocr = (e: ReactMouseEvent) => {
     e.stopPropagation()
     setState('working')
     const value = dpi.trim() ? parseInt(dpi, 10) : null
@@ -194,7 +218,7 @@ export default function BookActionsMenu({
       .catch(() => setState('error'))
   }
 
-  const runRescan = (e) => {
+  const runRescan = (e: ReactMouseEvent) => {
     e.stopPropagation()
     setState('working')
     api
@@ -206,7 +230,7 @@ export default function BookActionsMenu({
       .catch(() => setState('error'))
   }
 
-  const itemStyle = {
+  const itemStyle: CSSProperties = {
     display: 'flex',
     alignItems: 'center',
     gap: 10,
@@ -282,7 +306,7 @@ export default function BookActionsMenu({
                 {t('bookActions.details')}
               </button>
             )}
-            {book.variant_count > 0 && (
+            {(book.variant_count ?? 0) > 0 && (
               <VariantMenuItems book={book} itemStyle={itemStyle} onPick={close} />
             )}
             {onEdit && (
@@ -349,7 +373,7 @@ export default function BookActionsMenu({
               </button>
             )}
 
-            {book.variant_count > 0 ? (
+            {(book.variant_count ?? 0) > 0 ? (
               <DownloadVariantItems book={book} itemStyle={itemStyle} onPick={close} />
             ) : (
               <a

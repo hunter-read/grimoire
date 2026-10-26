@@ -1560,3 +1560,61 @@ class TestSchemaAlignment:
             [fk for fk in self._fks(path, "characters") if fk["referred_table"] == "campaigns"]
         ) == 1
         self._check(path)
+
+
+class TestBookTextPagesMigration:
+    """0056 backfills books.text_pages from the search index in one pass."""
+
+    def test_backfills_books_indexed_from_their_own_text(self):
+        path = os.path.join(tempfile.mkdtemp(), "text_pages.db")
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            command.upgrade(_alembic_config(conn), "2369ce04d145")
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "CREATE VIRTUAL TABLE book_search USING fts5("
+                    "book_id UNINDEXED, page_number UNINDEXED, content)"
+                )
+            )
+            books = [
+                # id, indexed, index_error, mime, search rows
+                ("native", 1, "", "application/pdf", 3),
+                ("empty", 1, "", "application/pdf", 0),
+                ("ocrd", 1, "ocr", "application/pdf", 5),
+                ("pending", 0, "", "application/pdf", 0),
+                ("epub", 1, "", "application/epub+zip", 2),
+            ]
+            for book_id, indexed, error, mime, rows in books:
+                conn.execute(
+                    text(
+                        "INSERT INTO books (id, title, filename, filepath, relative_path, "
+                        "indexed, index_error, mime_type) "
+                        "VALUES (:id, :id, :id, :id, :id, :indexed, :error, :mime)"
+                    ),
+                    {"id": book_id, "indexed": indexed, "error": error, "mime": mime},
+                )
+                for page in range(1, rows + 1):
+                    conn.execute(
+                        text("INSERT INTO book_search VALUES (:id, :p, 'words')"),
+                        {"id": book_id, "p": page},
+                    )
+        with engine.connect() as conn:
+            command.upgrade(_alembic_config(conn), "head")
+        with engine.connect() as conn:
+            got = dict(conn.execute(text("SELECT id, text_pages FROM books")).fetchall())
+        assert got == {"native": 3, "empty": 0, "ocrd": None, "pending": None, "epub": None}
+
+    def test_a_db_without_a_search_index_just_gains_the_column(self):
+        path = os.path.join(tempfile.mkdtemp(), "no_fts.db")
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            command.upgrade(_alembic_config(conn), "2369ce04d145")
+        with engine.connect() as conn:
+            command.upgrade(_alembic_config(conn), "head")
+        columns = {c["name"] for c in inspect(engine).get_columns("books")}
+        assert "text_pages" in columns
+        with engine.connect() as conn:
+            command.downgrade(_alembic_config(conn), "2369ce04d145")
+        columns = {c["name"] for c in inspect(create_engine(f"sqlite:///{path}")).get_columns("books")}
+        assert "text_pages" not in columns

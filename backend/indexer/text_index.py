@@ -38,6 +38,33 @@ from .hashing import apply_signature, file_signature, hash_file_signature
 logger = logging.getLogger("grimoire.indexer")
 
 
+def text_too_thin(text_pages: int, page_count: int) -> bool:
+    """Whether a text layer covering ``text_pages`` of ``page_count`` is too thin
+    to count as one (issue #685) - a scan carrying a few text pages, say.
+
+    No text at all is not "thin": that is an image-only book, judged on its own.
+    """
+    if text_pages <= 0 or page_count <= 0:
+        return False
+    return text_pages / page_count < config.OCR_MIN_TEXT_COVERAGE
+
+
+def reocr_applies(book: Book) -> bool:
+    """Whether Re-OCR has anything to add for ``book``.
+
+    The one rule for the Re-OCR endpoint and the UI that offers it: a PDF read
+    by OCR, an image-only PDF, or a PDF whose own text layer covers too little
+    of it. A book that failed to index, or whose text layer covers it, is not.
+    """
+    if book.mime_type != "application/pdf" or book.index_failed:
+        return False
+    if book.index_error in ("ocr", "image-only"):
+        return True
+    if book.indexed and not book.index_error and book.text_pages is not None:
+        return book.text_pages == 0 or text_too_thin(book.text_pages, book.page_count or 0)
+    return False
+
+
 def index_book_text(
     book: Book,
     data_path: str,
@@ -106,8 +133,8 @@ def index_book_text(
     # extract_text_isolated leaves image-only pages out, so len(pages) is the
     # number that produced text.
     total_pages = book.page_count or 0
-    covered = len(pages) / total_pages if total_pages else 1.0
-    too_thin = bool(pages) and total_pages > 0 and covered < config.OCR_MIN_TEXT_COVERAGE
+    too_thin = text_too_thin(len(pages), total_pages)
+    book.text_pages = len(pages)
 
     if (not pages or too_thin) and ocr.ocr_available():
         # Scanned/image-only PDF: hand it to the deferred-OCR queue instead

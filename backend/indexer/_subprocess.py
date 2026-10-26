@@ -370,6 +370,16 @@ def ocr_book(
         _commit(session, f"ocr open-failed '{book.filepath}'")
         return "error"
 
+    # A thin text layer may be artwork rather than a scan: sample it first.
+    from . import ocr_probe
+
+    if ocr_probe.should_sample(book):
+        verdict = ocr_probe.probe(book, session, page_count, should_stop)
+        if verdict == "stopped":
+            return "stopped"
+        if verdict == "artwork":
+            return "done"
+
     start = book.ocr_pages_done or 0
     # Resuming keeps the skips already recorded, so the count is for the whole
     # book across restarts rather than just this pass.

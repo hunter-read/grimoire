@@ -1124,6 +1124,8 @@ class TestReindexSingleBook:
             db.refresh(book)
             assert book.ocr_pending is True
             assert book.indexed is False
+            # Recorded, so the OCR worker knows to sample it for artwork first.
+            assert book.text_pages == 1
         finally:
             db.close()
 
@@ -1144,6 +1146,7 @@ class TestReindexSingleBook:
             db.refresh(book)
             assert book.ocr_pending is False
             assert book.indexed is True
+            assert book.text_pages == 9
         finally:
             db.close()
         assert self._search_count(book.id) == 9
