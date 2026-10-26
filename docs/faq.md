@@ -67,6 +67,80 @@ settings are untouched.
 
 ---
 
+## Since updating, renaming or moving a file says the library is read-only
+
+Your library isn't read-only, and you don't need to add `:rw` to the mount. Since 1.9.1
+Grimoire no longer runs as root inside the container - it switches to an ordinary user
+before it starts (see [Which user Grimoire runs as](docker-install.md#which-user-grimoire-runs-as)).
+Older versions said "mounted read-only" whenever a write was refused, so a folder that user
+simply doesn't have permission to write to was reported the same way. Newer versions say
+which it is, and name the folder and the user.
+
+First, see which user Grimoire picked:
+
+```bash
+docker compose logs grimoire | grep grimoire-entrypoint
+```
+
+A line like `Running as uid 1000, gid 1000.` names it. Then compare with who owns your files,
+on the host:
+
+```bash
+ls -ln /path/to/your/library
+```
+
+The third and fourth columns are the owner's uid and gid. Any of these fixes it:
+
+**Option 1 - run as the owner of your files (recommended).** Set `PUID` and `PGID` to those
+numbers and recreate the container (`docker compose up -d`):
+
+```yaml
+    environment:
+      - PUID=1000   # the uid from ls -ln
+      - PGID=1000   # the gid from ls -ln
+```
+
+On Unraid this is usually `PUID=99` and `PGID=100`. On Synology and UGreen it's often the
+uid of your own NAS account, which `id` prints when run over SSH.
+
+**Option 2 - give that user access on the host.** If you'd rather keep the user Grimoire
+picked, make your library belong to it:
+
+```bash
+sudo chown -R 1000:1000 /path/to/your/library
+```
+
+On a NAS share that uses its own permissions (ACLs), grant that user read/write on the
+shared folder in the NAS's control panel instead.
+
+**Option 3 - run as root, as before.** `PUID=0` keeps Grimoire running as root. It works
+everywhere, but gives up the protection running as an ordinary user adds.
+
+A library that really is mounted `:ro` still says "mounted read-only". Remove the `:ro` from
+the volume line if you want to manage files from Grimoire.
+
+---
+
+## Since updating, Grimoire won't start: `Permission denied: '/data/thumbnails'`
+
+The log shows `grimoire-entrypoint: Running as uid 1000, gid 1000.` and then a
+`PermissionError` on a folder under `/data`, after which the container restarts in a loop.
+Grimoire switched to an ordinary user because a permission check said it could write to the
+data folder, but the filesystem refused the actual write. Some NAS filesystems and network
+shares enforce permissions the check can't see. Newer versions test the data folder with a
+real write and stay root if it fails, so updating fixes the loop on its own.
+
+To have Grimoire run as an ordinary user anyway (or to fix it on an older version), use the
+same fixes as above, applied to your data folder:
+
+- **Set `PUID`/`PGID`** to the owner of the host folder mounted at `/data` (`ls -ln` on its
+  parent folder shows it).
+- **Or give that user the folder:** `sudo chown -R 1000:1000 /path/to/grimoire/data`, or grant
+  it read/write in the NAS's control panel for an ACL-managed share.
+- **Or set `PUID=0`** to run as root, as before.
+
+---
+
 ## I forgot my admin password. How do I reset it?
 
 If you're locked out of your account, you can reset the password directly in the database by running a one-liner inside the running container:

@@ -232,11 +232,46 @@ def assert_writable(path: Path) -> None:
     """
     probe = path if path.is_dir() else path.parent
     if not os.access(probe, os.W_OK | os.X_OK):
-        raise LibraryFSError(
+        raise not_writable(probe)
+
+
+def _on_read_only_mount(path: Path) -> bool:
+    statvfs = getattr(os, "statvfs", None)  # absent on Windows
+    if statvfs is None:
+        return False
+    try:
+        return bool(statvfs(path).f_flag & os.ST_RDONLY)
+    except OSError:
+        return False
+
+
+def not_writable(path: Path) -> LibraryFSError:
+    """The error for a library folder Grimoire can't write to, naming the cause.
+
+    Both share the ``read_only`` code (callers only need "can't write here"), but
+    the fixes differ: a read-only mount needs remounting, while a folder the
+    container's user lacks permission on - common since the image stopped
+    running as root - needs that user given access, or ``PUID``/``PGID`` set.
+    """
+    if _on_read_only_mount(path):
+        return LibraryFSError(
             "The library is mounted read-only, so it cannot be modified. "
             "Remount it read-write to manage files from Grimoire.",
             code="read_only",
         )
+    try:
+        relative = to_relative(path)
+        where = f"'{relative}'" if relative not in ("", ".") else "the library folder"
+    except ValueError:
+        where = "this folder"
+    getuid = getattr(os, "getuid", None)
+    who = f"the user it runs as (uid {getuid()})" if getuid else "the user it runs as"
+    return LibraryFSError(
+        f"Grimoire doesn't have permission to write to {where}: {who} can't write "
+        "there. Give that user write access on the host, or set PUID and PGID to "
+        "the owner of your library files.",
+        code="read_only",
+    )
 
 
 # ---------------------------------------------------------------------------

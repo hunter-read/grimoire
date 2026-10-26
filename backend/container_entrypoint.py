@@ -28,12 +28,13 @@ either - only checked, with a hint in the log if the user can't write to it -
 so start-up ownership changes follow only the container's own configuration.
 
 When the user was picked automatically and still can't read the library,
-write to a library root could write to, or write to the data volume (a network
-share that refuses ``chown``, say), it stays root and logs why and how to fix
-it, rather than failing to start. An explicit ``PUID`` is honoured regardless.
-Library entries that user owns itself, symlinks, and ``lost+found`` are not part
-of that check: the first it can fix itself, and the others say nothing about
-access to the library's files.
+write to library folders root could write to, or write to the data volume (a
+network share that refuses ``chown``, say), it stays root and logs why and how
+to fix it, rather than failing to start. An explicit ``PUID`` is honoured
+regardless. Library entries that user owns itself, symlinks, and ``lost+found``
+are not part of that check: the first it can fix itself, and the others say
+nothing about access to the library's files. The data volume is checked with a
+real write, since some NAS filesystems refuse writes ``os.access`` allows.
 
 Run as ``python -I backend/container_entrypoint.py``: standard library only,
 and it must not import the ``backend`` package, whose config creates
@@ -57,6 +58,10 @@ _INITIAL_UID_MAP = ["0", "0", "4294967295"]
 _MAX_FAILED_CHOWNS = 200
 # How many entries at the top of the library are checked for readability.
 _MAX_LIBRARY_ENTRIES = 200
+# How many library folders, top levels first, are checked for writability.
+_MAX_LIBRARY_DIRS = 500
+# What a real write test creates, and removes straight away.
+_WRITE_TEST_NAME = ".grimoire-write-test"
 
 Check = tuple[str, int]
 
@@ -190,12 +195,44 @@ def _access_mode(path: str, write: bool) -> int:
     return mode | os.X_OK if is_dir else mode
 
 
-def probe(uid: int, gid: int, checks: list[Check]) -> list[Check]:
+def _really_writable(path: str) -> bool:
+    """Write to ``path`` for real: create and remove a file in a folder, or open a file.
+
+    ``os.access`` only knows what the local kernel knows. Some NAS filesystems
+    and network shares enforce their own permissions on top, so it can say yes
+    to a folder that then refuses ``mkdir`` (issue #690). Only used where
+    Grimoire owns what it touches: the data volume and backup folders, never the
+    library, where even a create-and-delete would change the folder's mtime.
+    """
+    try:
+        if os.path.isdir(path):
+            test = os.path.join(path, f"{_WRITE_TEST_NAME}-{os.getpid()}")
+            os.close(os.open(test, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
+            os.unlink(test)
+        elif os.path.isfile(path):
+            # Neither truncates nor appends; O_NONBLOCK in case it is a FIFO after all.
+            os.close(os.open(path, os.O_WRONLY | os.O_NONBLOCK))
+        else:
+            return os.access(path, os.W_OK)
+    except OSError:
+        return False
+    return True
+
+
+def _allowed(path: str, mode: int, real_writes: bool) -> bool:
+    if real_writes and mode & os.W_OK:
+        return os.access(path, mode) and _really_writable(path)
+    return os.access(path, mode)
+
+
+def probe(uid: int, gid: int, checks: list[Check], real_writes: bool = False) -> list[Check]:
     """The ``checks`` (path, access mode) that would fail for ``uid:gid``.
 
     Asked of a forked child that has actually switched user, so the kernel
-    answers: ACLs, read-only mounts and NFS root-squash are all accounted for,
-    which reasoning about mode bits from here would miss.
+    answers: POSIX ACLs, read-only mounts and NFS root-squash are all accounted
+    for, which reasoning about mode bits from here would miss. ``real_writes``
+    also tries each write (see :func:`_really_writable`), for the filesystems
+    whose permissions even the kernel's answer misses.
     """
     if not checks:
         return []
@@ -209,7 +246,11 @@ def probe(uid: int, gid: int, checks: list[Check]) -> list[Check]:
                 os.setgid(gid)
                 os.setuid(uid)
             # Indices, not paths: a file name may contain a newline.
-            failing = [str(i) for i, (path, mode) in enumerate(checks) if not os.access(path, mode)]
+            failing = [
+                str(i)
+                for i, (path, mode) in enumerate(checks)
+                if not _allowed(path, mode, real_writes)
+            ]
             os.write(write_fd, " ".join(failing).encode())
             os._exit(0)
         except BaseException:
@@ -229,14 +270,45 @@ def describe(checks: list[Check]) -> str:
     return ", ".join(shown) + more
 
 
+def _library_dirs(library: str) -> list[str]:
+    """Up to ``_MAX_LIBRARY_DIRS`` folders under ``library``, shallowest first.
+
+    Breadth-first, so a big library is checked across its systems and
+    categories rather than all the way down the first one. Symlinks and
+    ``lost+found`` are left out, as at the top level.
+    """
+    found: list[str] = []
+    queue = [library]
+    while queue and len(found) < _MAX_LIBRARY_DIRS:
+        current = queue.pop(0)
+        try:
+            with os.scandir(current) as entries:
+                subdirs = sorted(
+                    entry.path
+                    for entry in entries
+                    if entry.name != "lost+found"
+                    and not entry.is_symlink()
+                    and entry.is_dir(follow_symlinks=False)
+                )
+        except OSError:
+            continue
+        room = _MAX_LIBRARY_DIRS - len(found)
+        found += subdirs[:room]
+        queue += subdirs[:room]
+    return found
+
+
 def library_checks(library: str, uid: int | None = None) -> list[Check]:
-    """Read access to the library and its top level, plus write when root had it.
+    """Read access to the library and its top level, plus write where root had it.
 
-    Write only matters when the library is writable at all: a ``:ro`` mount
-    refuses root too, and then nothing Grimoire could do before is lost.
+    Write only matters where the library is writable at all: a ``:ro`` mount
+    refuses root too, and then nothing Grimoire could do before is lost. It is
+    checked on the root and on folders below it (bounded, shallowest first),
+    since renaming or moving a book needs write access to the folder it is in -
+    a writable root over subfolders root still owns would otherwise pass.
 
-    Skipped at the top level: symlinks and ``lost+found`` (neither holds library
-    files), and entries ``uid`` owns itself (it can change their permissions).
+    Skipped: symlinks and ``lost+found`` (neither holds library files), and
+    entries ``uid`` owns itself (it can change their permissions).
     """
     if not os.path.isdir(library):
         return []
@@ -258,6 +330,14 @@ def library_checks(library: str, uid: int | None = None) -> list[Check]:
         pass
     if os.access(library, os.W_OK):
         checks.append((library, _access_mode(library, write=True)))
+        for folder in _library_dirs(library):
+            try:
+                if uid is not None and os.stat(folder, follow_symlinks=False).st_uid == uid:
+                    continue
+            except OSError:
+                continue
+            if os.access(folder, os.W_OK):
+                checks.append((folder, _access_mode(folder, write=True)))
     return checks
 
 
@@ -335,7 +415,7 @@ def prepare(
         failed += fix_ownership(target, uid, gid, skip=skip)
     checks = [(t, _access_mode(t, write=True)) for t in targets if t != HOME_DIR]
     checks += [(p, _access_mode(p, write=True)) for p in failed if not os.path.islink(p)]
-    denied = probe(uid, gid, checks)
+    denied = probe(uid, gid, checks, real_writes=True)
     if denied:
         log(f"{who} can't {describe(denied)}.")
         if not explicit:
@@ -344,7 +424,7 @@ def prepare(
 
     chosen = None if backups else app_backup_dir(data)
     if chosen and os.path.isdir(chosen) and not _is_within(chosen, data):
-        if probe(uid, gid, [(chosen, _access_mode(chosen, write=True))]):
+        if probe(uid, gid, [(chosen, _access_mode(chosen, write=True))], real_writes=True):
             log(
                 f"{who} can't write to the backup folder set in the app ({chosen}), so "
                 f"backups there will fail. Give {who} write access on the host, or set "

@@ -11,6 +11,7 @@ and database never disagree.
 Sidecars travel with their content file, and derived state keyed by the old
 path (thumbnails, cached content) is re-homed rather than regenerated.
 """
+import errno
 import os
 import shutil
 from dataclasses import dataclass, field
@@ -29,11 +30,17 @@ from .paths import (
     assert_writable,
     collection_of,
     library_root,
+    not_writable,
     safe_join,
     sidecars_for,
     to_relative,
 )
 from .placement import category_folder_for, resolve_book_placement
+
+# A rename the filesystem refused for want of write access: a read-only mount,
+# or (when the up-front ``os.access`` check was fooled, as by some NAS ACLs) a
+# permission the container's user doesn't have.
+_CANNOT_WRITE = (errno.EROFS, errno.EACCES, errno.EPERM)
 
 def relocate_book_for_category(db: Session, book: Any, category: str) -> Optional[str]:
     """Move a book into the folder matching its new category, best-effort.
@@ -485,11 +492,8 @@ def _move_one(
     except OSError as e:
         if getattr(e, "errno", None) == 18:  # EXDEV — different filesystems
             shutil.move(str(src), str(dest))
-        elif getattr(e, "errno", None) == 30:  # EROFS
-            raise LibraryFSError(
-                "The library is mounted read-only, so it cannot be modified.",
-                code="read_only",
-            ) from e
+        elif getattr(e, "errno", None) in _CANNOT_WRITE:
+            raise not_writable(src.parent) from e
         else:
             raise
 
@@ -666,11 +670,8 @@ def rename_path(db: Session, target: str, new_name: str) -> dict:
     try:
         os.replace(src, dest)
     except OSError as e:
-        if getattr(e, "errno", None) == 30:
-            raise LibraryFSError(
-                "The library is mounted read-only, so it cannot be modified.",
-                code="read_only",
-            ) from e
+        if getattr(e, "errno", None) in _CANNOT_WRITE:
+            raise not_writable(src.parent) from e
         raise LibraryFSError(f"Could not rename: {e}", code="io_error") from e
 
     # Re-stem the sidecars onto the new name, or the pair breaks: the scanner
