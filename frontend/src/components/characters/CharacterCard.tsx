@@ -13,6 +13,8 @@ import { framedImageStyle } from './portraitCrop'
 interface Props {
   character: Schema<'CharacterSummary'>
   onDelete: (character: Schema<'CharacterSummary'>) => void
+  /** Show the sheet's version beside its name, for the list sorted by sheet. */
+  showVersion?: boolean
 }
 
 /**
@@ -24,7 +26,7 @@ interface Props {
  * the character's initials, which tells characters apart better than a row of
  * identical placeholder icons.
  */
-export default function CharacterCard({ character, onDelete }: Props) {
+export default function CharacterCard({ character, onDelete, showVersion = false }: Props) {
   const { t } = useTranslation()
   const [hovered, setHovered] = useState(false)
   const name = character.name || t('characters.untitled')
@@ -120,6 +122,11 @@ export default function CharacterCard({ character, onDelete }: Props) {
                 <LuTriangleAlert size={13} aria-hidden="true" />
                 {t('characters.schemaMissing', { schema: character.schema_ref })}
               </span>
+            ) : showVersion && character.schema_version ? (
+              t('characters.sheetVersion', {
+                sheet: character.schema_name || character.schema_ref,
+                version: character.schema_version,
+              })
             ) : (
               character.schema_name || character.schema_ref
             )}

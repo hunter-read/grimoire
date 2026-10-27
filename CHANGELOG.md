@@ -12,6 +12,8 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 - Character sheets can ship a second layout for phones, with its own stylesheet. On a phone-sized screen the sheet switches to it, and back again when you rotate to a wider view. Paste one in the new Mobile layout and Mobile styles boxes, or install a catalogue sheet that includes one
 - `OCR_MIN_TEXT_COVERAGE` sets how much of a PDF its own text must cover before it counts as a text book (default `0.5`); `0` only reads books with no text at all with OCR, as before
+- `OCR_MIN_PAGE_CHARS` sets how many characters a page must carry to count as a page of text (default `100`), so a running header on its own no longer passes for a text layer; `0` counts any text at all, as before
+- The Characters page can be sorted by name, system or sheet version as well as by when each character was last updated, and remembers your choice. Sorted by system, each system gets its own heading; sorted by sheet, each card shows its sheet's version
 
 ### Changed
 
@@ -20,6 +22,8 @@ Release candidates are omitted; their contents are rolled into the stable releas
 ### Fixed
 
 - A scanned book carrying a few pages of real text, such as a digitally-set cover or a bundled web enhancement, is read with OCR instead of being left mostly unsearchable
+- A scan with its chapter title stamped on every page is read with OCR, instead of being left searchable only by its headers
+- Reading a book with OCR keeps the pages that already had their own text in search, instead of dropping them
 - A book that is mostly full-page art, such as a map pack, isn't read with OCR just because its pictures carry no text: a few of its pages are sampled first, and it keeps its own text if they read like artwork
 - Re-OCR appears in the actions menu of a scanned book with only a few pages of text, so books already in the library can be read in full
 - A book asked to be re-read with OCR while another book is being read is no longer left waiting until a restart or the next scan

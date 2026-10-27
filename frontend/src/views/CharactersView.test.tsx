@@ -49,6 +49,7 @@ const renderView = () =>
 
 beforeEach(() => {
   vi.clearAllMocks()
+  localStorage.clear()
   mockList.mockResolvedValue({ characters: [CHARACTER] })
   mockListSchemas.mockResolvedValue({ schemas: [SCHEMA] })
   mockCampaigns.mockResolvedValue([{ id: 'camp1', name: 'Curse of Strahd' }])
@@ -77,6 +78,77 @@ describe('CharactersView', () => {
     ])
     expect(within(cards[0]).getByText('Strahd')).toBeInTheDocument()
     expect(within(cards[1]).getByText('Strahd · Dead')).toBeInTheDocument()
+  })
+
+  describe('sorting (issue #686)', () => {
+    const PARTY = [
+      { ...CHARACTER, id: 'c1', name: 'Vex', system: 'D&D 5e', schema_version: '1.2.0' },
+      { ...CHARACTER, id: 'c2', name: 'Ash', system: 'Pathfinder', schema_version: '1.0.0' },
+      { ...CHARACTER, id: 'c3', name: 'Bram', system: 'D&D 5e', schema_version: '1.0.0' },
+    ]
+    const cardNames = (list: HTMLElement) =>
+      within(list)
+        .getAllByRole('listitem')
+        .map((card) => within(card).getByText(/^(Vex|Ash|Bram)$/).textContent)
+
+    beforeEach(() => mockList.mockResolvedValue({ characters: PARTY }))
+
+    it('keeps the most recently updated order until another sort is picked', async () => {
+      renderView()
+      await screen.findByText('Vex')
+      const list = screen.getByRole('list', { name: 'Characters' })
+      expect(cardNames(list)).toEqual(['Vex', 'Ash', 'Bram'])
+
+      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Sort' }), 'name')
+      expect(cardNames(screen.getByRole('list', { name: 'Characters' }))).toEqual([
+        'Ash',
+        'Bram',
+        'Vex',
+      ])
+    })
+
+    it('remembers the sort for the next visit', async () => {
+      const { unmount } = renderView()
+      await screen.findByText('Vex')
+      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Sort' }), 'name-desc')
+      unmount()
+
+      renderView()
+      await screen.findByText('Vex')
+      expect(screen.getByRole('combobox', { name: 'Sort' })).toHaveValue('name-desc')
+      expect(cardNames(screen.getByRole('list', { name: 'Characters' }))).toEqual([
+        'Vex',
+        'Bram',
+        'Ash',
+      ])
+    })
+
+    it('groups characters under a heading per system', async () => {
+      localStorage.setItem('grimoire:user-prefs', JSON.stringify({ characterSort: 'system' }))
+      renderView()
+      expect(await screen.findByRole('heading', { name: 'Pathfinder' })).toBeInTheDocument()
+      expect(cardNames(screen.getByRole('list', { name: 'D&D 5e' }))).toEqual(['Bram', 'Vex'])
+      expect(cardNames(screen.getByRole('list', { name: 'Pathfinder' }))).toEqual(['Ash'])
+    })
+
+    it('shows each sheet version when sorted by sheet', async () => {
+      localStorage.setItem('grimoire:user-prefs', JSON.stringify({ characterSort: 'sheet' }))
+      renderView()
+      await screen.findByText('Vex')
+      expect(cardNames(screen.getByRole('list', { name: 'Characters' }))).toEqual([
+        'Vex',
+        'Ash',
+        'Bram',
+      ])
+      expect(screen.getByText('D&D 5e · v1.2.0')).toBeInTheDocument()
+    })
+
+    it('offers no sort for a single character', async () => {
+      mockList.mockResolvedValue({ characters: [CHARACTER] })
+      renderView()
+      await screen.findByText('Vex')
+      expect(screen.queryByRole('combobox', { name: 'Sort' })).not.toBeInTheDocument()
+    })
   })
 
   it('shows an empty state when there are no characters', async () => {

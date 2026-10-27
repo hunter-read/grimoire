@@ -2213,7 +2213,7 @@ rather than stored as sent:
 `version`, `source_id`, `source_url`, `source_version`, `is_community`,
 `character_count`, and on detail `document`.
 
-**Character fields:** `id`, `name`, `schema_ref`, `schema_name`, `system`,
+**Character fields:** `id`, `name`, `schema_ref`, `schema_name`, `schema_version`, `system`,
 `schema_missing`, `user_id`, `owner_name`, `campaign_id`, `campaign_name`, `campaign_has_gm`,
 `gm_can_edit`, `status`, `portrait_path`, `portrait_version`, `portrait_crop`,
 `owned`, `editable`, `created_at`, `updated_at`, and on detail `data`,

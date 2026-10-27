@@ -150,6 +150,8 @@ class CharacterSummary(BaseModel):
     name: str
     schema_ref: str
     schema_name: str = ""
+    # The installed sheet's version; empty when the sheet is missing.
+    schema_version: str = ""
     system: str = ""
     # False when the schema this character was built on is not installed. The
     # character still opens; it renders read-only from stored data.

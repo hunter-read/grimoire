@@ -9266,6 +9266,11 @@ export interface components {
             /** Schema Ref */
             schema_ref: string;
             /**
+             * Schema Version
+             * @default
+             */
+            schema_version?: string;
+            /**
              * Status
              * @default active
              */
@@ -9408,6 +9413,11 @@ export interface components {
             schema_name?: string;
             /** Schema Ref */
             schema_ref: string;
+            /**
+             * Schema Version
+             * @default
+             */
+            schema_version?: string;
             /**
              * Status
              * @default active
@@ -11134,6 +11144,11 @@ export interface components {
             schema_name?: string;
             /** Schema Ref */
             schema_ref: string;
+            /**
+             * Schema Version
+             * @default
+             */
+            schema_version?: string;
             /**
              * Status
              * @default active

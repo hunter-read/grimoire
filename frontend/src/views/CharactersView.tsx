@@ -1,14 +1,22 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo, type CSSProperties } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { LuUsers, LuPlus, LuFileUp, LuSettings } from 'react-icons/lu'
+import { LuUsers, LuPlus, LuFileUp, LuSettings, LuArrowDownUp } from 'react-icons/lu'
 import { characters as charactersApi, type BodyOf, type Schema } from '../api'
 import Spinner from '../components/Spinner'
 import SheetManager from '../components/characters/SheetManager'
 import NewCharacterDialog from '../components/characters/NewCharacterDialog'
 import CharacterImportDialog from '../components/characters/CharacterImportDialog'
 import CharacterCard from '../components/characters/CharacterCard'
-import { isActive } from '../components/characters/characterStatus'
+import {
+  CHARACTER_SORTS,
+  CHARACTER_SORT_LABELS,
+  getCharacterSort,
+  groupBySystem,
+  saveCharacterSort,
+  sortCharacters,
+  type CharacterSort,
+} from '../components/characters/characterSort'
 import { goldBtn, ghostBtn, disabledBtn } from '../components/characters/characterStyles'
 
 /**
@@ -21,6 +29,15 @@ import { goldBtn, ghostBtn, disabledBtn } from '../components/characters/charact
  */
 type CharacterSummary = Schema<'CharacterSummary'>
 type SheetSchema = Schema<'SchemaListResponse'>['schemas'][number]
+
+const gridStyle: CSSProperties = {
+  listStyle: 'none',
+  padding: 0,
+  margin: 0,
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))',
+  gap: 16,
+}
 
 export default function CharactersView() {
   const { t } = useTranslation()
@@ -37,6 +54,13 @@ export default function CharactersView() {
   const [creating, setCreating] = useState(false)
   const [importing, setImporting] = useState(false)
   const [managing, setManaging] = useState(Boolean(manageParam))
+  const [sort, setSort] = useState<CharacterSort>(() => getCharacterSort())
+  const sorted = useMemo(() => sortCharacters(characters, sort), [characters, sort])
+
+  const changeSort = (next: CharacterSort) => {
+    setSort(next)
+    saveCharacterSort(next)
+  }
 
   const load = useCallback(async () => {
     try {
@@ -44,10 +68,9 @@ export default function CharactersView() {
         charactersApi.list(),
         charactersApi.listSchemas(),
       ])
-      // Characters still being played lead; retired and fallen ones follow,
-      // each group keeping the server's most-recently-edited order.
-      const all = list.characters || []
-      setCharacters([...all.filter(isActive), ...all.filter((c) => !isActive(c))])
+      // Kept in the server's most-recently-edited order; sortCharacters
+      // works from it and falls back on it for ties.
+      setCharacters(list.characters || [])
       setSchemas(schemaList.schemas || [])
       setError('')
     } catch (e) {
@@ -175,21 +198,82 @@ export default function CharactersView() {
           </button>
         </div>
       ) : (
-        <ul
-          aria-label={t('characters.title')}
-          style={{
-            listStyle: 'none',
-            padding: 0,
-            margin: 0,
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))',
-            gap: 16,
-          }}
-        >
-          {characters.map((character) => (
-            <CharacterCard key={character.id} character={character} onDelete={remove} />
-          ))}
-        </ul>
+        <>
+          {characters.length > 1 ? (
+            <label
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                marginBottom: 16,
+                fontSize: 11,
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+                color: 'var(--text-muted)',
+                fontWeight: 600,
+              }}
+            >
+              <LuArrowDownUp size={12} aria-hidden="true" />
+              {t('sortFilter.sort')}
+              <select
+                value={sort}
+                onChange={(e) => changeSort(e.target.value as CharacterSort)}
+                style={{
+                  fontSize: 13,
+                  padding: '5px 8px',
+                  borderRadius: 6,
+                  background: 'var(--bg-input)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text)',
+                  textTransform: 'none',
+                  letterSpacing: 'normal',
+                  fontWeight: 400,
+                }}
+              >
+                {CHARACTER_SORTS.map((option) => (
+                  <option key={option} value={option}>
+                    {t(CHARACTER_SORT_LABELS[option])}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          {sort === 'system' ? (
+            groupBySystem(sorted).map(({ system, characters: group }) => {
+              const heading = system || t('characters.noSystem')
+              return (
+                <section key={system} style={{ marginBottom: 28 }}>
+                  <h2
+                    style={{
+                      margin: '0 0 12px',
+                      fontSize: 15,
+                      fontWeight: 600,
+                      color: 'var(--text-dim)',
+                    }}
+                  >
+                    {heading}
+                  </h2>
+                  <ul aria-label={heading} style={gridStyle}>
+                    {group.map((character) => (
+                      <CharacterCard key={character.id} character={character} onDelete={remove} />
+                    ))}
+                  </ul>
+                </section>
+              )
+            })
+          ) : (
+            <ul aria-label={t('characters.title')} style={gridStyle}>
+              {sorted.map((character) => (
+                <CharacterCard
+                  key={character.id}
+                  character={character}
+                  onDelete={remove}
+                  showVersion={sort === 'sheet'}
+                />
+              ))}
+            </ul>
+          )}
+        </>
       )}
 
       {creating ? (

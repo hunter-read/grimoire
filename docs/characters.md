@@ -188,6 +188,21 @@ Four rules keep it that way, for anyone writing a sheet or asking for a feature:
    general data that two or more games could use as it stands.
 4. **Every sheet works with no content installed.**
 
+### Sorting your characters
+
+The Characters page lists the characters you edited most recently first. Once
+you have more than one, the **Sort** menu above them offers:
+
+- **Name (A–Z)** or **Name (Z–A)**.
+- **System**, which puts each game system's characters under their own heading.
+- **Sheet and version**, which groups characters by the sheet they are built
+  on, newest version first, and shows the version on each card. That is the
+  quick way to see which characters are still on an older version of a sheet.
+
+Characters still being played come first in every order, and retired or dead
+ones after them. Sorted by system, that applies within each system. The page
+remembers your choice in this browser.
+
 ## The content catalog
 
 A system can ship a **content pack** - spells, classes, feats, kits. Fields that

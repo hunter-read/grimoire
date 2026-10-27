@@ -221,6 +221,17 @@ class TestCharacterEndpoints:
         names = [c["name"] for c in resp.json()["characters"]]
         assert "Listed" in names
 
+    def test_list_carries_the_sheet_version(self, client, admin_headers, installed_schema):
+        """The Characters page sorts by sheet and version (issue #686)."""
+        client.post(
+            "/api/characters",
+            json={"schema_ref": "test-rpg", "name": "Versioned"},
+            headers=admin_headers,
+        )
+        resp = client.get("/api/characters?schema_ref=test-rpg", headers=admin_headers)
+        listed = next(c for c in resp.json()["characters"] if c["name"] == "Versioned")
+        assert listed["schema_version"] == "1.0.0"
+
     def test_delete(self, client, admin_headers, installed_schema):
         created = client.post(
             "/api/characters",
@@ -262,6 +273,7 @@ class TestCharacterEndpoints:
         assert resp.status_code == 200
         body = resp.json()
         assert body["schema_missing"] is True
+        assert body["schema_version"] == ""
         assert body["data"]["strength"] == 14
         assert body["computed"] == {}
 

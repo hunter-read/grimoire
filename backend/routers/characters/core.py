@@ -350,6 +350,9 @@ def _serialize_character(
         "name": row.name or "",
         "schema_ref": row.schema_ref,
         "schema_name": schema.name if schema else "",
+        # The installed sheet's own version, so the list can sort characters by
+        # sheet and see which are on an older one.
+        "schema_version": (schema.version or "") if schema else "",
         "system": (schema.system or "") if schema else "",
         "schema_missing": schema is None,
         # Who plays it, so a campaign can group its characters by player.
