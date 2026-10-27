@@ -95,11 +95,22 @@ def ocr_page(filepath: str, page_index: int, languages: str, dpi: int | None = N
     Used by the deferred-OCR worker's isolated subprocess so a native crash or
     hang while OCRing one page can't take down the server or the whole book —
     the parent checkpoints progress and resumes at the next page.  Returns "" on
-    any failure (page has a text layer of its own, render error, OCR error).
+    failure (render error, OCR error) or for a page holding nothing at all.
 
-    A page whose text is only a running header is OCR'd rather than left alone,
-    and its own text is returned when OCR reads less, so the caller always has
-    the better of the two to index.
+    Returns the text to index for the page, which is the better of the page's
+    own text and what OCR reads from it:
+
+    * a page with a text layer of its own is handed straight back, unread. It
+      is not OCR'd — there is nothing to gain and it would cost a render.
+    * a page whose text is only a running header, or which has none, is OCR'd,
+      and its own text is returned anyway when OCR manages less.
+
+    So a page can never come out of a pass holding less than it went in with.
+    The caller indexes whatever comes back and indexes nothing for "", and every
+    path that queues a book starts it with no search rows — ``index_book_text``
+    drops the pages it extracted, ``requeue_image_only_books`` and Re-OCR clear
+    them — so returning a page's own text here is what puts it in the index at
+    all, and cannot duplicate anything already there.
 
     ``dpi`` overrides the resolution the page is rasterized at; None uses the
     global ``OCR_DPI`` default. Used by the per-book re-OCR flow to re-read a
@@ -109,15 +120,9 @@ def ocr_page(filepath: str, page_index: int, languages: str, dpi: int | None = N
     try:
         page = doc[page_index]
         embedded = page.get_text().strip()
-        # A page with a text layer of its own was handled in the fast phase;
-        # OCRing it again would duplicate content in the index.
         if not text_is_thin(embedded):
-            return ""
+            return embedded
         ocr_text = _ocr_page(page, languages, dpi=dpi)
-        # The caller inserts whatever comes back and inserts nothing for "", so
-        # returning the embedded text is what stops a re-OCR - which clears the
-        # book's rows first - from emptying the index of a book whose every
-        # page carries a header and nothing OCR can read.
         return ocr_text if len(ocr_text) > len(embedded) else embedded
     finally:
         doc.close()

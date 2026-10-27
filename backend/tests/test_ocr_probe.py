@@ -45,6 +45,78 @@ def _thin_book(page_count: int = 10, text_pages: int = 2, pages_done: int = 0) -
     return bid
 
 
+def _real_pdf_book(tmp_path, first_page_text: str, blank_pages: int = 9) -> str:
+    """A book backed by a real PDF: one page of text, the rest image-only.
+
+    Needed where the point is what ``ocr_page`` decides about a page, which a
+    stubbed page reader cannot show.
+    """
+    import fitz
+
+    uid = str(uuid.uuid4())[:8]
+    path = tmp_path / f"mixed-{uid}.pdf"
+    doc = fitz.open()
+    page = doc.new_page()
+    y = 72.0
+    for line in first_page_text.split("\n"):
+        page.insert_text((72, y), line)
+        y += 14
+    for _ in range(blank_pages):
+        doc.new_page()
+    doc.save(str(path))
+    doc.close()
+
+    db = SessionLocal()
+    book = Book(
+        title=f"Mixed-{uid}",
+        filename=path.name,
+        filepath=str(path),
+        relative_path=path.name,
+        mime_type="application/pdf",
+        page_count=1 + blank_pages,
+        indexed=False,
+        index_failed=False,
+        ocr_pending=True,
+        ocr_pages_done=0,
+        text_pages=1,
+    )
+    db.add(book)
+    db.commit()
+    bid = book.id
+    db.close()
+    return bid
+
+
+def _driving_the_real_page_reader(recognised: str):
+    """Run the real ``pdf_worker.ocr_page`` per page, with only tesseract stubbed.
+
+    Keeps the decision under test - does this page get OCR'd, and what comes
+    back - while needing neither a subprocess nor tesseract.
+    """
+    from backend import pdf_worker
+
+    seen: list[int] = []
+
+    def wrapper(filepath, index, should_stop=None, dpi=None):
+        seen.append(index)
+        with patch.object(pdf_worker, "_ocr_page", return_value=recognised):
+            return pdf_worker.ocr_page(filepath, index, "eng", dpi=dpi)
+
+    return wrapper, seen
+
+
+def _search_content(book_id: str) -> dict[int, str]:
+    db = SessionLocal()
+    try:
+        rows = db.execute(
+            text("SELECT page_number, content FROM book_search WHERE book_id = :b"),
+            {"b": book_id},
+        ).fetchall()
+        return {r[0]: r[1] for r in rows}
+    finally:
+        db.close()
+
+
 def _search_pages(book_id: str) -> list[int]:
     db = SessionLocal()
     try:
@@ -76,9 +148,12 @@ def _ocr_returning(content):
 
 
 class TestHelpers:
-    def test_only_a_fresh_pass_over_a_thin_book_is_sampled(self):
+    def test_only_a_fresh_queued_pass_is_sampled(self):
         assert ocr_probe.should_sample(SimpleNamespace(ocr_pages_done=0, text_pages=3))
-        assert not ocr_probe.should_sample(SimpleNamespace(ocr_pages_done=0, text_pages=0))
+        # 0 text pages no longer skips the sample: a book whose every page
+        # carries only a header counts 0 and may still be artwork. probe()
+        # tells it from a book with no text at all by reading it.
+        assert ocr_probe.should_sample(SimpleNamespace(ocr_pages_done=0, text_pages=0))
         # A manual Re-OCR clears text_pages: the whole book was asked for.
         assert not ocr_probe.should_sample(SimpleNamespace(ocr_pages_done=0, text_pages=None))
         # Resuming: the sample already said "scan".
@@ -237,6 +312,68 @@ class TestOcrBookSamples:
             assert book.ocr_pending is True
         finally:
             db.close()
+
+    def test_a_queued_book_keeps_its_full_text_pages(self, tmp_path):
+        """Queuing a book drops the pages it extracted, so the OCR pass is the
+        only thing that can put a page with a text layer of its own back into
+        search. Returning "" for those pages lost them outright."""
+        page_one = "\n".join(["The corridor turns north and the air grows cold."] * 6)
+        bid = _real_pdf_book(tmp_path, page_one)
+        ocr, seen = _driving_the_real_page_reader(SCANNED_PAGE)
+        db = SessionLocal()
+        try:
+            book = db.get(Book, bid)
+            with patch.object(indexer, "_book_page_count", return_value=10), patch.object(
+                indexer, "extract_text_isolated",
+                return_value=([{"page": 1, "content": page_one}], False),
+            ), patch.object(indexer, "ocr_book_page_isolated_wrapper", side_effect=ocr):
+                assert indexer.ocr_book(book, db) == "done"
+        finally:
+            db.close()
+
+        content = _search_content(bid)
+        assert sorted(content) == list(range(1, 11))  # nothing dropped
+        # Page 1 keeps its own text and was never handed to OCR.
+        assert "The corridor turns north" in content[1]
+        assert content[1] != SCANNED_PAGE
+        # The image-only pages were read by OCR as usual.
+        assert content[2] == SCANNED_PAGE
+
+    def test_a_book_of_header_only_pages_is_still_sampled(self, tmp_path):
+        """Such a book records text_pages=0, which used to mean "no text at
+        all" and skipped the artwork check - so a map pack with a title on
+        every page would be read in full for nothing."""
+        bid = _thin_book(text_pages=0)
+        ocr, seen = _ocr_returning(MAP_LABELS)
+        db = SessionLocal()
+        try:
+            book = db.get(Book, bid)
+            with patch.object(indexer, "_book_page_count", return_value=10), patch.object(
+                indexer, "extract_text_isolated", return_value=_HEADERS
+            ), patch.object(indexer, "ocr_book_page_isolated_wrapper", side_effect=ocr):
+                assert indexer.ocr_book(book, db) == "done"
+            db.refresh(book)
+            assert book.index_error == ""  # judged artwork, kept its own text
+        finally:
+            db.close()
+        assert len(seen) == 3  # sampled only, not read in full
+        assert _search_pages(bid) == list(range(1, 11))
+
+    def test_a_book_with_no_text_at_all_is_not_sampled(self):
+        """The other side of that gate: nothing to sample means nothing to
+        learn, so an image-only book goes straight to OCR as it always did."""
+        bid = _thin_book(text_pages=0)
+        ocr, seen = _ocr_returning(SCANNED_PAGE)
+        db = SessionLocal()
+        try:
+            book = db.get(Book, bid)
+            with patch.object(indexer, "_book_page_count", return_value=10), patch.object(
+                indexer, "extract_text_isolated", return_value=([], False)
+            ), patch.object(indexer, "ocr_book_page_isolated_wrapper", side_effect=ocr):
+                assert indexer.ocr_book(book, db) == "done"
+        finally:
+            db.close()
+        assert seen == list(range(10))  # no sample pages taken on top
 
     def test_a_manual_re_ocr_is_not_sampled(self):
         bid = _thin_book(text_pages=None)

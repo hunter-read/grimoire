@@ -197,15 +197,20 @@ BODY = ["The corridor turns north and the air grows cold."] * 6
 HEADER = "Chapter Five: The Fortress"
 
 
-def test_ocr_page_skips_text_layer_pages(tmp_path):
-    """ocr_page returns "" for a page that already has a text layer (no dup)."""
+def test_ocr_page_hands_back_a_text_layer_unread(tmp_path):
+    """A page with a text layer of its own is returned, not OCR'd and not lost.
+
+    Every path that queues a book starts it with no search rows, so returning
+    "" here dropped the page's text from the index altogether. Returning it
+    cannot duplicate anything, because there is nothing there to duplicate.
+    """
     pdf = tmp_path / "text.pdf"
     _make_long_text_pdf(pdf, [BODY])
 
     with patch.object(pdf_worker, "_ocr_page", return_value="unexpected") as m:
         out = pdf_worker.ocr_page(str(pdf), 0, "eng")
-    assert out == ""
-    assert not m.called
+    assert out.startswith("The corridor turns north")
+    assert not m.called  # no render, no tesseract: nothing to gain
 
 
 def test_text_is_thin_follows_the_setting(monkeypatch):
