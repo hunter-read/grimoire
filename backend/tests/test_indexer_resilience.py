@@ -1027,7 +1027,7 @@ class TestReindexSingleBook:
         db = SessionLocal()
         try:
             book = db.query(Book).filter_by(id=book.id).first()
-            fresh = [{"page": n, "content": "fresh text"} for n in range(1, 6)]
+            fresh = [{"page": n, "content": f"fresh text. {_PAGE_OF_TEXT}"} for n in range(1, 6)]
             with patch.object(indexer, "_book_page_count", return_value=5), patch.object(
                 indexer, "generate_thumbnail", return_value=True
             ), patch.object(
@@ -1241,9 +1241,10 @@ class TestReindexSingleBook:
         try:
             book = db.query(Book).filter_by(id=book.id).first()
             # Three pages of text for the seeded three-page book: this test is
-            # about the page-count read error, and a one-page extraction would
-            # now read as a thin scan and go to OCR instead (issue #685).
-            ok = [{"page": n, "content": "ok"} for n in range(1, 4)]
+            # about the page-count read error, and a one-page extraction - or
+            # one carrying no more than a header - would now read as a thin
+            # scan and go to OCR instead (issue #685).
+            ok = [{"page": n, "content": _PAGE_OF_TEXT} for n in range(1, 4)]
             with patch.object(
                 indexer, "_book_page_count", side_effect=RuntimeError("bad pdf")
             ), patch.object(indexer, "generate_thumbnail", return_value=False), patch.object(

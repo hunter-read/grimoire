@@ -57,10 +57,18 @@ def shelf():
     shutil.rmtree(os.path.join(LIB, f"books/Replace-{stamp}"), ignore_errors=True)
 
 
+# Padding so each page reads as a page of text rather than a running header:
+# a page under OCR_MIN_PAGE_CHARS is treated as a scan and queued for OCR.
+_FILLER = "The corridor turns north and the air grows cold."
+
+
 def _pdf(*pages: str) -> bytes:
     doc = fitz.open()
     for body in pages:
-        doc.new_page().insert_text((72, 72), body)
+        page = doc.new_page()
+        page.insert_text((72, 72), body)
+        for n in range(6):
+            page.insert_text((72, 100 + n * 14), _FILLER)
     data = doc.tobytes()
     doc.close()
     return data
