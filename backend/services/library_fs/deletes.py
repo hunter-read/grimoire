@@ -9,6 +9,7 @@ as confirmation.
 """
 import os
 import shutil
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
@@ -34,6 +35,30 @@ from .paths import (
 from .references import purge_references, purge_system_references
 
 
+def _thumbnails_of(model: Any, record: Any) -> list[Path]:
+    """Every cached thumbnail file belonging to ``record``.
+
+    Every thumbnail matching the path hash, not just the one the current title
+    composes (issue #421). A book whose title was edited after indexing still has
+    its cover under the old slug, and the composed name would miss it - silently,
+    since the ENOENT that follows is the same errno as an already-deleted file.
+    The row is about to go, so anything left behind is unreachable for good.
+    """
+    section = _THUMB_SECTIONS.get(_section_for_model(model))
+    if not (section and getattr(record, "has_thumbnail", False)):
+        return []
+    return _thumb_files_for(record, section, record.filepath, every=True)
+
+
+def _unlink_thumbnails(thumbs: list[Path]) -> None:
+    for thumb in thumbs:
+        try:
+            thumb.unlink()
+        except OSError as e:
+            if getattr(e, "errno", None) != 2:  # ENOENT - already gone
+                logger.warning("Could not delete thumbnail %s: %s", thumb, e)
+
+
 def _purge_derived(db: Session, model: Any, record: Any) -> None:
     """Drop everything derived from a record whose file is being deleted.
 
@@ -42,21 +67,7 @@ def _purge_derived(db: Session, model: Any, record: Any) -> None:
     row that named them is about to go, so leaving either behind would strand
     files under DATA_PATH that no code path can ever find again.
     """
-    section = _THUMB_SECTIONS.get(_section_for_model(model))
-    if section and getattr(record, "has_thumbnail", False):
-        # Every thumbnail matching the path hash, not just the one the current
-        # title composes (issue #421). A book whose title was edited after
-        # indexing still has its cover under the old slug, and the composed name
-        # would miss it — silently, since the ENOENT that follows is the same
-        # errno as an already-deleted file. The row is about to go, so anything
-        # left behind is unreachable for good: exactly the stranding this
-        # function exists to prevent.
-        for thumb in _thumb_files_for(record, section, record.filepath, every=True):
-            try:
-                thumb.unlink()
-            except OSError as e:
-                if getattr(e, "errno", None) != 2:  # ENOENT - already gone
-                    logger.warning("Could not delete thumbnail %s: %s", thumb, e)
+    _unlink_thumbnails(_thumbnails_of(model, record))
 
     if model is Book:
         from ..content_cache import invalidate_book_content
@@ -156,32 +167,73 @@ def assert_records_deletable(records: list[Any]) -> None:
             assert_writable(target)
 
 
+@dataclass
+class StagedDelete:
+    """A row :func:`delete_records` removed, whose file has not followed it yet.
+
+    Holds plain values rather than the record: once the deletion commits, the
+    row is gone and the ORM object is detached, so nothing here may need a
+    session to read.
+    """
+
+    model: Any
+    id: str
+    filepath: str
+    delete_file: bool
+    thumbnails: list[Path] = field(default_factory=list)
+
+
 def delete_records(
     db: Session, model: Any, records: list[Any], *, delete_files: bool
-) -> list[dict]:
-    """Delete several rows, and optionally their files, inside the caller's transaction.
+) -> list[StagedDelete]:
+    """Delete several rows inside the caller's transaction, leaving their files.
 
     :func:`delete_record` commits per record, which is right for one dropped
     duplicate but wrong for a merge: three copies merged into one must not end
     with the first deleted and the third still there. This flushes the row
     deletions and leaves the commit to the caller.
 
-    Call :func:`assert_records_deletable` first when ``delete_files`` is set. A
-    file that still fails to delete after that check (a permissions change
-    mid-merge) is reported in its result rather than raised: by then earlier
-    files may already be gone, and keeping their rows would point the library at
-    files that no longer exist.
+    Nothing on disk is touched here (issue #703). A commit can still fail after
+    the flush - the database busy past its timeout, a full disk - and the
+    rollback brings the rows back but cannot bring back a file. So the caller
+    commits first and then hands the result to :func:`finish_deletes`. A file
+    that fails to go after a successful commit is an orphan the next scan picks
+    up again, which is a far better failure than a row pointing at nothing.
+
+    Call :func:`assert_records_deletable` first when ``delete_files`` is set.
     """
+    staged: list[StagedDelete] = []
     for record in records:
+        staged.append(
+            StagedDelete(
+                model=model,
+                id=record.id,
+                filepath=record.filepath,
+                delete_file=delete_files,
+                thumbnails=_thumbnails_of(model, record),
+            )
+        )
         purge_references(db, model, record.id)
         db.delete(record)
     db.flush()
+    return staged
+
+
+def finish_deletes(staged: list[StagedDelete]) -> list[dict]:
+    """Delete the files, sidecars and derived artifacts of committed row deletes.
+
+    Never raises: the rows are already gone, so a file that will not delete (a
+    permissions change mid-merge) is reported in its result instead. Search rows
+    went with the references inside the transaction, which is why the content
+    cache is invalidated here without a session.
+    """
+    from ..content_cache import invalidate_book_content
 
     results: list[dict] = []
-    for record in records:
-        target = Path(record.filepath)
+    for item in staged:
         removed, error = False, None
-        if delete_files:
+        if item.delete_file:
+            target = Path(item.filepath)
             companions = sidecars_for(target)
             try:
                 target.unlink()
@@ -195,9 +247,11 @@ def delete_records(
                     sidecar.unlink()
                 except OSError as e:
                     logger.warning("Could not delete sidecar %s: %s", sidecar, e)
-        _purge_derived(db, model, record)
+        _unlink_thumbnails(item.thumbnails)
+        if item.model is Book:
+            invalidate_book_content(item.id, item.filepath)
         results.append(
-            {"id": record.id, "path": record.filepath, "file_deleted": removed, "error": error}
+            {"id": item.id, "path": item.filepath, "file_deleted": removed, "error": error}
         )
     return results
 

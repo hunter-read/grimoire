@@ -25,6 +25,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - A book asked to be re-read with OCR while another book is being read is no longer left waiting until a restart or the next scan
 - Books that belong to no game system no longer vanish from players' and GMs' book lists, search and OPDS feeds once any system is restricted to GMs or admins
 - Clicking quickly from one campaign note to another no longer leaves the first note on screen under the second's name, where editing it changed the wrong note
+- Merging duplicates with "delete files" on no longer deletes the merged copies' files if saving the merge fails, which used to leave them listed in the library with nothing on disk
 
 - Renaming, moving or uploading into a library folder Grimoire doesn't have permission to write to no longer says the library is mounted read-only. It names the folder and the user Grimoire runs as, and points to `PUID`/`PGID`; a library that really is mounted read-only still says so
 - Grimoire stays root at start-up when the user it would switch to can't write to folders inside the library, not just the library folder itself, so moving and renaming keep working after updating from a version that ran as root

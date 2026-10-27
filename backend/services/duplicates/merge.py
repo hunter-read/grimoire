@@ -23,7 +23,7 @@ from ...models.collections import COLLECTIONS
 from ...models.users import Bookmark
 from .. import tag_service, variants
 from ..library_fs.constants import LibraryFSError
-from ..library_fs.deletes import assert_records_deletable, delete_records
+from ..library_fs.deletes import assert_records_deletable, delete_records, finish_deletes
 from ..library_fs.references import reference_counts
 from ..library_fs.rehome import REFERENCE_KINDS, rehome_references
 from .scoring import has_value, suggest_keeper
@@ -294,14 +294,15 @@ def merge(
             db.rollback()
             return report
 
-        outcomes = {
-            r["id"]: r for r in delete_records(db, model, merged, delete_files=delete_files)
-        }
+        staged = delete_records(db, model, merged, delete_files=delete_files)
         db.commit()
     except Exception:
         db.rollback()
         raise
 
+    # Only once the commit has landed: a rollback can restore the rows but not
+    # a file, so deleting first could leave entries pointing at nothing.
+    outcomes = {r["id"]: r for r in finish_deletes(staged)}
     for entry in files:
         outcome = outcomes.get(entry["id"], {})
         entry["file_deleted"] = bool(outcome.get("file_deleted"))

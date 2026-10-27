@@ -10,6 +10,7 @@ import os
 import uuid
 
 import pytest
+from sqlalchemy.exc import OperationalError
 
 from backend.config import SessionLocal
 from backend.models import Book, CampaignResource, Favorite, GameSystem, ResourceTag
@@ -18,7 +19,9 @@ from backend.models.audio_sets import AudioSet
 from backend.models.campaigns import CampaignResourceShare, WikiPage
 from backend.models.share_links import ShareLink
 from backend.models.users import Bookmark
+from backend.services import library_fs as fs
 from backend.services.duplicates import suggest_keeper
+from backend.services.duplicates.merge import merge
 from backend.tests.conftest import (
     make_audio,
     make_book,
@@ -472,6 +475,49 @@ class TestFilesAndDryRun:
         assert "Permission denied" in body["files"][0]["error"]
         # The row still goes: the merge itself succeeded.
         assert not _exists(Book, drop.id)
+
+    @staticmethod
+    def _with_leftovers(system, name):
+        """A copy on disk with a sidecar and a cached thumbnail beside it."""
+        path = _on_disk(name)
+        sidecar = path[: -len(".pdf")] + ".opf"
+        with open(sidecar, "w") as f:
+            f.write("<package/>")
+        title = f"Leftovers {uuid.uuid4().hex[:6]}"
+        book = make_book(
+            system_id=system.id, filepath=path, filename=name, title=title, has_thumbnail=True
+        )
+        thumb = fs._thumb_file("books", title, path)
+        thumb.parent.mkdir(parents=True, exist_ok=True)
+        thumb.write_bytes(b"thumb")
+        return book, [path, sidecar, str(thumb)]
+
+    def test_deleting_takes_sidecars_and_thumbnails_too(self, client, admin_headers, system):
+        keep = make_book(system_id=system.id)
+        drop, leftovers = self._with_leftovers(system, "full-drop.pdf")
+        body = _merge(client, admin_headers, keep.id, [drop.id], delete_files=True).json()
+        assert body["files"][0]["file_deleted"] is True
+        assert [p for p in leftovers if os.path.exists(p)] == []
+
+    def test_a_failed_commit_keeps_every_file(self, system, monkeypatch):
+        """Issue #703: a rollback restores rows, never files, so none may go first."""
+        keep = make_book(system_id=system.id)
+        drops = [self._with_leftovers(system, f"commit-{i}.pdf") for i in range(2)]
+        db = SessionLocal()
+
+        def fail():
+            raise OperationalError("COMMIT", {}, Exception("database is locked"))
+
+        monkeypatch.setattr(db, "commit", fail)
+        try:
+            with pytest.raises(OperationalError):
+                merge(db, "book", keep.id, [b.id for b, _ in drops], delete_files=True)
+        finally:
+            db.close()
+
+        for book, leftovers in drops:
+            assert _exists(Book, book.id)
+            assert [p for p in leftovers if not os.path.exists(p)] == []
 
 
 class TestValidation:
