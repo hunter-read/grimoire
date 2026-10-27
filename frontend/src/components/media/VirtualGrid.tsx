@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import VirtualGridRows from './VirtualGridRows'
+import type { VirtualGridProps } from './VirtualGridRows'
 import scrollParent from '../../utils/scrollParent'
 
 /**
@@ -33,10 +34,10 @@ import scrollParent from '../../utils/scrollParent'
  *   gap        — gutter between rows and columns, in px
  *   list       — one item per row (no tiling); `minColumn` is then unused
  */
-export default function VirtualGrid(props) {
-  const containerRef = useRef(null)
+export default function VirtualGrid<T>(props: VirtualGridProps<T>) {
+  const containerRef = useRef<HTMLDivElement>(null)
   // Wrapped so "resolved to nothing" is distinguishable from "not resolved yet".
-  const [resolved, setResolved] = useState(null)
+  const [resolved, setResolved] = useState<{ el: HTMLElement | null } | null>(null)
 
   // Read from the mounted DOM, not passed in, so a caller cannot wire it up
   // wrongly. On mount only: the app's scroll container does not change under a

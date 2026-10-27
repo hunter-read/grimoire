@@ -6,7 +6,9 @@
  * objects to match how the rest of the map components are styled.
  */
 
-export const inputStyle = {
+import type { CSSProperties } from 'react'
+
+export const inputStyle: CSSProperties = {
   padding: '4px 7px',
   fontSize: 13,
   borderRadius: 4,
@@ -15,7 +17,7 @@ export const inputStyle = {
   color: 'var(--text)',
 }
 
-export const btnStyle = {
+export const btnStyle: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 5,
@@ -28,16 +30,16 @@ export const btnStyle = {
   cursor: 'pointer',
 }
 
-export const iconBtnStyle = { ...btnStyle, padding: '4px 7px' }
+export const iconBtnStyle: CSSProperties = { ...btnStyle, padding: '4px 7px' }
 
-export const labelStyle = {
+export const labelStyle: CSSProperties = {
   fontSize: 10,
   color: 'var(--text-muted)',
   textTransform: 'uppercase',
   letterSpacing: '0.05em',
 }
 
-export const sectionTitleStyle = {
+export const sectionTitleStyle: CSSProperties = {
   fontSize: 12,
   color: 'var(--text-muted)',
   textTransform: 'uppercase',

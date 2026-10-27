@@ -3,6 +3,18 @@ import { LuTag } from 'react-icons/lu'
 import { useTranslation } from 'react-i18next'
 import InlineTagEditor from '../maps/InlineTagEditor'
 
+export interface FolderTagRowProps {
+  tags: string[]
+  editing: boolean
+  canTag: boolean
+  i18n: string
+  resourceType?: string | null
+  fullLabels?: boolean
+  onEdit?: () => void
+  onSave: (tags: string[]) => void
+  onCancel: () => void
+}
+
 const tagPillStyle = {
   fontSize: 12,
   padding: '2px 8px',
@@ -32,7 +44,7 @@ export default function FolderTagRow({
   onEdit,
   onSave,
   onCancel,
-}) {
+}: FolderTagRowProps) {
   const { t } = useTranslation()
   if (editing) {
     return (

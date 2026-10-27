@@ -38,10 +38,10 @@ const SAGE = {
 }
 
 // The catalog has the feat, as a feat.
-const lookupFound = vi.fn(async (ids) =>
+const lookupFound = vi.fn(async (ids: string[]) =>
   Object.fromEntries(ids.map((id) => [id, { content_type: 'feat', source: 'srd', missing: false }]))
 )
-const lookupMissing = vi.fn(async (ids) =>
+const lookupMissing = vi.fn(async (ids: string[]) =>
   Object.fromEntries(ids.map((id) => [id, { missing: true }]))
 )
 
@@ -100,7 +100,7 @@ describe('planPick — grants', () => {
         throw new Error('offline')
       },
     })
-    expect(patch.feats[0]._inline).toBe(true)
+    expect((patch.feats as { _inline?: boolean }[])[0]._inline).toBe(true)
   })
 
   it('does not grant a reference to an entry of another type', async () => {
@@ -157,7 +157,9 @@ describe('planPick — grants', () => {
       entry: ACOLYTE,
     })
     expect(patch.skills).toEqual(['Insight', 'Religion'])
-    expect(patch[GRANTED_KEY].background.skills).toEqual(['Religion'])
+    expect(
+      (patch[GRANTED_KEY] as Record<string, Record<string, string[]>>).background.skills
+    ).toEqual(['Religion'])
   })
 
   it('does nothing for a field with no rules', async () => {

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   LuBookOpen,
@@ -10,6 +11,7 @@ import {
   LuPanelLeft,
   LuScissors,
 } from 'react-icons/lu'
+import type { IconType } from 'react-icons'
 import { mediaUrl } from '../../api'
 import useReaderGestures from '../../hooks/useReaderGestures'
 import { getUserPrefs } from '../../hooks/useUserPrefs'
@@ -21,13 +23,23 @@ import CutoutStage from '../reader/export/CutoutStage'
 import ExportSidebar from '../reader/export/ExportSidebar'
 import usePageExport from '../reader/export/usePageExport'
 
-const MODES = [
+type ViewMode = 'page' | 'spread' | 'pdf'
+
+export interface MapPdfViewerProps {
+  mapId: string
+  filename: string
+  relativePath?: string
+  totalPages: number
+  isMobilePhone?: boolean
+}
+
+const MODES: { key: ViewMode; Icon: IconType }[] = [
   { key: 'page', Icon: LuFileText },
   { key: 'spread', Icon: LuColumns2 },
   { key: 'pdf', Icon: LuFile },
 ]
 
-const toolbarBtn = (active) => ({
+const toolbarBtn = (active: boolean): CSSProperties => ({
   background: active ? 'var(--bg-card-hover)' : 'var(--bg-card)',
   color: active ? 'var(--gold)' : 'var(--text-dim)',
   border: 'none',
@@ -39,7 +51,7 @@ const toolbarBtn = (active) => ({
   gap: 5,
 })
 
-const stepBtn = {
+const stepBtn: CSSProperties = {
   background: 'var(--bg-card)',
   border: '1px solid var(--border)',
   color: 'var(--text)',
@@ -60,22 +72,29 @@ const stepBtn = {
  * Export (issue #207) is the reader's: the same panel and cut-out stage, pointed
  * at the map endpoints.
  */
-export default function MapPdfViewer({ mapId, filename, relativePath, totalPages, isMobilePhone }) {
+export default function MapPdfViewer({
+  mapId,
+  filename,
+  relativePath,
+  totalPages,
+  isMobilePhone,
+}: MapPdfViewerProps) {
   const { t } = useTranslation()
 
   const _prefs = getBookPrefs(`map:${mapId}`)
   const _userPrefs = getUserPrefs()
-  const _globalMode = ['page', 'spread', 'pdf'].includes(_userPrefs.readerMode)
+  const _globalMode = ['page', 'spread', 'pdf'].includes(_userPrefs.readerMode as string)
     ? _userPrefs.readerMode
     : null
   const initialMode = isMobilePhone
     ? 'page'
-    : (_globalMode ?? (['page', 'spread', 'pdf'].includes(_prefs.mode) ? _prefs.mode : 'page'))
+    : (_globalMode ??
+      (['page', 'spread', 'pdf'].includes(_prefs.mode as string) ? _prefs.mode : 'page'))
   const initialSpreadOffset = _prefs.spreadOffset ?? 0
   // A battle map drawn across two pages reads best joined (issue #588).
   const initialJoinSpread = _prefs.joinSpread === true
 
-  const [mode, setMode] = useState(initialMode)
+  const [mode, setMode] = useState<ViewMode>(initialMode as ViewMode)
   const [spreadOffset, setSpreadOffset] = useState(initialSpreadOffset)
   const [joinSpread, setJoinSpread] = useState(initialJoinSpread)
   const [currentPage, setCurrentPage] = useState(1)
@@ -84,18 +103,18 @@ export default function MapPdfViewer({ mapId, filename, relativePath, totalPages
   const [pan, setPan] = useState({ x: 0, y: 0 })
 
   const directionRef = useRef(1)
-  const axisRef = useRef('x')
+  const axisRef = useRef<'x' | 'y'>('x')
   const currentPageRef = useRef(1)
-  const contentRef = useRef(null)
-  const preloadCacheRef = useRef({})
+  const contentRef = useRef<HTMLDivElement>(null)
+  const preloadCacheRef = useRef<Record<string, HTMLImageElement>>({})
 
   const pageUrl = useCallback(
-    (p, width) => mediaUrl(`/maps/${mapId}/page/${p}`, { width }),
+    (p: number, width?: number) => mediaUrl(`/maps/${mapId}/page/${p}`, { width }),
     [mapId]
   )
 
   const goToPage = useCallback(
-    (p, currentMode, axis = 'x') => {
+    (p: number, currentMode?: string, axis: 'x' | 'y' = 'x') => {
       if (totalPages === 0) return
       let page = Math.max(1, Math.min(p, totalPages))
       if ((currentMode ?? mode) === 'spread') {
@@ -146,8 +165,9 @@ export default function MapPdfViewer({ mapId, filename, relativePath, totalPages
   const step = mode === 'spread' ? 2 : 1
 
   useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
       if (mode === 'pdf') return
       if (e.key === 'ArrowLeft') {
         e.preventDefault()
@@ -171,6 +191,9 @@ export default function MapPdfViewer({ mapId, filename, relativePath, totalPages
   }, [mode, currentPage, step, goToPage])
 
   const wheelNav = getUserPrefs().wheelNav !== false
+  // Known mismatch, left as it is: the hook's options are now zoomRef, panRef,
+  // setZoomDirect, zoomAt and wheelAction, and this caller still passes the
+  // older setZoom/wheelNav. The cast keeps the call exactly as it runs today.
   const { handleTouchStart, handleTouchMove, handleTouchEnd } = useReaderGestures({
     mode,
     currentPage,
@@ -181,7 +204,7 @@ export default function MapPdfViewer({ mapId, filename, relativePath, totalPages
     goToPage,
     contentRef,
     wheelNav,
-  })
+  } as unknown as Parameters<typeof useReaderGestures>[0])
 
   const rightPage = currentPage + 1
   const hasRight =
@@ -206,9 +229,9 @@ export default function MapPdfViewer({ mapId, filename, relativePath, totalPages
     setExportOpen(true)
   }
 
-  const getAlt = (p) => `${t('reader.page')} ${p} — ${filename}`
+  const getAlt = (p: number) => `${t('reader.page')} ${p} — ${filename}`
 
-  const changeMode = (key) => {
+  const changeMode = (key: ViewMode) => {
     setMode(key)
     saveBookPrefs(`map:${mapId}`, { mode: key })
   }
@@ -415,7 +438,7 @@ export default function MapPdfViewer({ mapId, filename, relativePath, totalPages
             spreadOffset={spreadOffset}
             pageUrl={pageUrl}
             sourcePath={relativePath}
-            onShowPage={(page) => goToPage(page)}
+            onShowPage={(page: number) => goToPage(page)}
             onClose={() => setExportOpen(false)}
           />
         )}

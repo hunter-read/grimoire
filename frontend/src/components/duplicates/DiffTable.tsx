@@ -1,5 +1,11 @@
 import { useTranslation } from 'react-i18next'
 
+import type { Schema } from '../../api'
+
+export interface DiffTableProps {
+  differences: Schema<'CompareDifference'>[]
+}
+
 /**
  * Field-by-field diff, differing rows first.
  *
@@ -7,7 +13,7 @@ import { useTranslation } from 'react-i18next'
  * scanning this table wants "what is not the same about these two" without
  * reading past a dozen identical rows to find it.
  */
-export default function DiffTable({ differences }) {
+export default function DiffTable({ differences }: DiffTableProps) {
   const { t } = useTranslation()
   const rows = [...differences].sort((a, b) => Number(a.same) - Number(b.same))
   if (rows.length === 0) return null

@@ -16,8 +16,30 @@
  * same reason the export has always refused them.
  */
 
+/**
+ * The fields these checks read. Structural rather than a schema model, because
+ * callers hand in a map detail, a list row or a variant entry alike.
+ */
+export interface EditableMap {
+  id: string
+  filename?: string | null
+  kind?: string | null
+  is_pdf?: boolean | null
+  is_archive?: boolean | null
+  media_kind?: string | null
+  variants?: EditableMap[] | null
+}
+
+/** Something the editor can open: the map itself, or its linked `.uvtt`. */
+export interface EditTarget {
+  id: string
+  kind: 'image' | 'vtt'
+  filename?: string | null
+}
+
 /** True when this map's filename is a Universal VTT envelope. */
-export const isVttFile = (item) => /\.(uvtt|dd2vtt)$/i.test(item?.filename || '')
+export const isVttFile = (item: { filename?: string | null } | null | undefined): boolean =>
+  /\.(uvtt|dd2vtt)$/i.test(item?.filename || '')
 
 /**
  * The `.uvtt` linked to a map, if any.
@@ -27,9 +49,9 @@ export const isVttFile = (item) => /\.(uvtt|dd2vtt)$/i.test(item?.filename || ''
  * `kind` is the signal when the link was categorised; a link made without one
  * falls back to the sibling's extension. Mirrors the server's own check.
  */
-export const linkedVtt = (map) =>
+export const linkedVtt = (map: EditableMap | null | undefined): EditableMap | null =>
   (map?.variants || []).find(
-    (v) => v.id !== map.id && (v.kind === 'universal-vtt' || isVttFile(v))
+    (v) => v.id !== map!.id && (v.kind === 'universal-vtt' || isVttFile(v))
   ) || null
 
 /**
@@ -39,7 +61,7 @@ export const linkedVtt = (map) =>
  * what decides the label the caller shows. An empty list means the map has
  * nothing to edit and no button should appear at all.
  */
-export function editTargets(map) {
+export function editTargets(map: EditableMap | null | undefined): EditTarget[] {
   if (!map) return []
   // Anything without a single still raster is out: a PDF has pages, a video has
   // frames, an archive has no image at all.
@@ -52,7 +74,7 @@ export function editTargets(map) {
   }
 
   const linked = linkedVtt(map)
-  const targets = [{ id: map.id, kind: 'image', filename: map.filename }]
+  const targets: EditTarget[] = [{ id: map.id, kind: 'image', filename: map.filename }]
   if (linked) targets.push({ id: linked.id, kind: 'vtt', filename: linked.filename })
   return targets
 }
@@ -65,10 +87,11 @@ export function editTargets(map) {
  * walls and lights and a generated one would carry none of them. The `.uvtt`
  * itself exports fine — it is the half holding the geometry.
  */
-export const canExportUvtt = (map) => {
+export const canExportUvtt = (map: EditableMap | null | undefined): boolean => {
   const targets = editTargets(map)
   if (targets.length === 0) return false
-  if (isVttFile(map) || map.media_kind === 'vtt') return true
+  // A map with targets is never null.
+  if (isVttFile(map) || map!.media_kind === 'vtt') return true
   return !linkedVtt(map)
 }
 
@@ -79,4 +102,5 @@ export const canExportUvtt = (map) => {
  * raster linked to a `.uvtt` is not excluded the way the `.uvtt` export is:
  * OTFBM has no walls or lights, so the linked file has nothing ours would lack.
  */
-export const canExportOtfbm = (map) => editTargets(map).length > 0
+export const canExportOtfbm = (map: EditableMap | null | undefined): boolean =>
+  editTargets(map).length > 0

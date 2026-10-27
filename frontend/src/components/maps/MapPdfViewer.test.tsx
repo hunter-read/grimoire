@@ -7,7 +7,7 @@ import { saveBookPrefs } from '../../hooks/useBookPrefs'
 vi.mock('../../api', () => ({
   // Page sizes for the export panel's cut-out stage.
   default: { get: vi.fn(() => Promise.resolve({ width: 600, height: 800 })) },
-  mediaUrl: (p, params) => {
+  mediaUrl: (p: string, params?: Record<string, string>) => {
     const qs = params ? new URLSearchParams(params).toString() : ''
     return `/api${p}${qs ? `?${qs}` : ''}`
   },
@@ -32,12 +32,28 @@ vi.mock('../../hooks/useBookPrefs', () => ({
 
 // Render the page components as their requested URL so assertions can inspect it.
 vi.mock('../reader/SinglePage', () => ({
-  default: ({ currentPage, pageUrl }) => (
-    <div data-testid="single-page">{pageUrl(currentPage, 1600)}</div>
-  ),
+  default: ({
+    currentPage,
+    pageUrl,
+  }: {
+    currentPage: number
+    pageUrl: (p: number, w: number) => string
+  }) => <div data-testid="single-page">{pageUrl(currentPage, 1600)}</div>,
 }))
 vi.mock('../reader/SpreadPage', () => ({
-  default: ({ currentPage, rightPage, hasRight, pageUrl, joined }) => (
+  default: ({
+    currentPage,
+    rightPage,
+    hasRight,
+    pageUrl,
+    joined,
+  }: {
+    currentPage: number
+    rightPage: number
+    hasRight: boolean
+    pageUrl: (p: number, w: number) => string
+    joined?: boolean
+  }) => (
     <div data-testid="spread-page" data-joined={joined ? 'yes' : 'no'}>
       {pageUrl(currentPage, 1000)}
       {hasRight ? `|${pageUrl(rightPage, 1000)}` : ''}
@@ -139,7 +155,7 @@ describe('MapPdfViewer', () => {
     await userEvent.click(screen.getByRole('button', { name: /^pdf$/i }))
     const frame = document.querySelector('iframe')
     expect(frame).toBeInTheDocument()
-    expect(frame.getAttribute('src')).toBe('/api/maps/m1/file#page=1')
+    expect(frame!.getAttribute('src')).toBe('/api/maps/m1/file#page=1')
   })
 
   it('hides the mode toggle on mobile phones', () => {

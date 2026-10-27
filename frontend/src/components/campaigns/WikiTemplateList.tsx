@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { LuFilePlus, LuDownload, LuTrash2, LuPencil } from 'react-icons/lu'
+import type { Schema } from '../../api'
 import Spinner from '../Spinner'
 import {
   groupHeading,
@@ -13,7 +14,25 @@ import {
 
 // The campaign's own templates — the list a GM starts pages from. Grouped by
 // category so a long list stays scannable.
-export default function WikiTemplateList({ templates, busyId, onUse, onDelete, onExport, onEdit }) {
+type Template = Schema<'WikiTemplateSummaryOut'>
+
+interface WikiTemplateListProps {
+  templates: Template[] | null
+  busyId: string | null
+  onUse: (id: string) => void
+  onDelete: (tpl: Template) => void
+  onExport: (tpl: Template) => void
+  onEdit: (tpl: Template) => void
+}
+
+export default function WikiTemplateList({
+  templates,
+  busyId,
+  onUse,
+  onDelete,
+  onExport,
+  onEdit,
+}: WikiTemplateListProps) {
   const { t } = useTranslation()
 
   if (templates === null) {
@@ -27,11 +46,11 @@ export default function WikiTemplateList({ templates, busyId, onUse, onDelete, o
     return <p style={emptyText}>{t('wiki.templatesNone')}</p>
   }
 
-  const groups = new Map()
+  const groups = new Map<string, Template[]>()
   for (const tpl of templates) {
     const key = tpl.category || 'General'
     if (!groups.has(key)) groups.set(key, [])
-    groups.get(key).push(tpl)
+    groups.get(key)!.push(tpl)
   }
 
   return (

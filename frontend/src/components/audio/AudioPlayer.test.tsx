@@ -87,7 +87,7 @@ describe('AudioPlayer (controller)', () => {
   })
 
   describe('progress ring', () => {
-    const ring = (container) => container.firstChild
+    const ring = (container: HTMLElement) => container.firstChild as HTMLElement
 
     it('draws no ring for a track that is not current', () => {
       currentTimeReturn = 30

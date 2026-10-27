@@ -5,6 +5,7 @@ import { LuArrowLeft, LuInfo, LuChevronDown } from 'react-icons/lu'
 import { useAuth } from '../../context/AuthContext'
 import useIsMobile from '../../hooks/useIsMobile'
 import api from '../../api'
+import type { Schema } from '../../api'
 import useSiblingNavigation from '../../hooks/useSiblingNavigation'
 import useArrowKeyNavigation from '../../hooks/useArrowKeyNavigation'
 import Spinner from '../Spinner'
@@ -21,6 +22,8 @@ import SiblingPosition from '../media/SiblingPosition'
 import { isArchiveMedia } from '../../constants'
 import ModelViewerPane from './ModelViewerPane'
 
+type ModelDetail = Schema<'Model3DDetailResponse'>
+
 export default function ModelDetailView() {
   const { modelId } = useParams()
   const navigate = useNavigate()
@@ -32,15 +35,15 @@ export default function ModelDetailView() {
   // had rather than re-applying their saved default over them.
   const goBack = () => navigate(backPathRef.current || '/models', { state: { restoreView: true } })
   const { t } = useTranslation()
-  const { user } = useAuth()
+  const { user } = useAuth()!
   const isMobilePhone = useIsMobile(640)
   const canEdit = user?.role === 'admin' || user?.role === 'gm'
-  const [model, setModel] = useState(null)
+  const [model, setModel] = useState<ModelDetail | null>(null)
   const [editingModelTags, setEditingModelTags] = useState(false)
   const [editingFolderTags, setEditingFolderTags] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
 
-  const modelDetailPath = useCallback((id) => `/models/${id}`, [])
+  const modelDetailPath = useCallback((id: string) => `/models/${id}`, [])
   const {
     siblings,
     index: siblingIdx,
@@ -62,7 +65,7 @@ export default function ModelDetailView() {
   useArrowKeyNavigation(onNext, onPrev)
 
   useEffect(() => {
-    api.get(`/models/${modelId}`).then(setModel)
+    ;(api.get(`/models/${modelId}`) as Promise<ModelDetail>).then(setModel)
   }, [modelId])
 
   if (!model)
@@ -81,13 +84,13 @@ export default function ModelDetailView() {
   const currentFolderTags = model.folder_tags ?? []
   const isArchive = isArchiveMedia(model)
 
-  const saveModelTags = async (tags) => {
+  const saveModelTags = async (tags: string[]) => {
     await api.patch(`/models/${modelId}`, { tags })
     setModel({ ...model, tags })
     setEditingModelTags(false)
   }
 
-  const saveFolderTags = async (tags) => {
+  const saveFolderTags = async (tags: string[]) => {
     await api.patch('/model-folders', { path: model.folder_path, tags })
     setModel({ ...model, folder_tags: tags })
     setEditingFolderTags(false)
@@ -198,14 +201,14 @@ export default function ModelDetailView() {
         )}
         <VariantPicker
           item={model}
-          detailPath={(id) => `/models/${id}`}
+          detailPath={(id: string) => `/models/${id}`}
           resourceType="model"
           compact
         />
-        <DownloadVersionButton type="models" id={modelId} item={model} compact={isMobilePhone} />
+        <DownloadVersionButton type="models" id={modelId!} item={model} compact={isMobilePhone} />
         {/* Favourite, campaigns and share links live in the overflow menu, as in
             the book reader, so the toolbar keeps room for the title. */}
-        <DetailMoreMenu resourceType="model" resourceId={modelId} title={model.filename} />
+        <DetailMoreMenu resourceType="model" resourceId={modelId!} title={model.filename} />
       </div>
 
       {/* Body */}
@@ -287,11 +290,11 @@ export default function ModelDetailView() {
           )}
 
           {folder && <MetaRow label={t('models.detail.location')} value={folder} />}
-          <MetaRow label={t('models.detail.fileSize')} value={formatSize(model.file_size)} />
-          {model.triangle_count > 0 && (
+          <MetaRow label={t('models.detail.fileSize')} value={formatSize(model.file_size!)} />
+          {(model.triangle_count ?? 0) > 0 && (
             <MetaRow
               label={t('models.detail.triangles')}
-              value={model.triangle_count.toLocaleString()}
+              value={model.triangle_count!.toLocaleString()}
             />
           )}
           <MetaRow

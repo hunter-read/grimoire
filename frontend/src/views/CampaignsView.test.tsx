@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import CampaignsView from './CampaignsView'
@@ -10,14 +10,23 @@ vi.mock('../api', () => ({
   },
 }))
 
-let mockUser = { id: 'user1', role: 'player' }
+let mockUser: { id: string; role: string; campaign_access?: boolean } = {
+  id: 'user1',
+  role: 'player',
+}
 vi.mock('../context/AuthContext', () => ({
   useAuth: () => ({ user: mockUser }),
 }))
 
 // Stub the editor so we can assert it opens without pulling in its full tree.
 vi.mock('../components/campaigns/CampaignEditor', () => ({
-  default: ({ onClose, onSaved }) => (
+  default: ({
+    onClose,
+    onSaved,
+  }: {
+    onClose: () => void
+    onSaved: (campaign: { id: string }) => void
+  }) => (
     <div>
       <div>campaign-editor</div>
       <button onClick={onClose}>editor-close</button>
@@ -27,6 +36,7 @@ vi.mock('../components/campaigns/CampaignEditor', () => ({
 }))
 
 import { campaigns } from '../api'
+const mockCampaigns = campaigns as unknown as Record<keyof typeof campaigns, Mock>
 
 // Campaign owned by the current user
 const ownedGmCampaign = {
@@ -71,27 +81,27 @@ describe('CampaignsView', () => {
   })
 
   it('shows GM campaign name when user is the campaign owner', async () => {
-    campaigns.list.mockResolvedValue([ownedGmCampaign])
+    mockCampaigns.list.mockResolvedValue([ownedGmCampaign])
     renderView()
     await waitFor(() => expect(screen.getByText('Lost Mines')).toBeTruthy())
   })
 
   it('shows the GM title for owned campaigns', async () => {
-    campaigns.list.mockResolvedValue([ownedGmCampaign])
+    mockCampaigns.list.mockResolvedValue([ownedGmCampaign])
     renderView()
     await waitFor(() => screen.getByText('Lost Mines'))
     expect(screen.getByText('Dungeon Master')).toBeTruthy()
   })
 
   it('shows joined campaign under Joined Campaigns section', async () => {
-    campaigns.list.mockResolvedValue([joinedGmCampaign])
+    mockCampaigns.list.mockResolvedValue([joinedGmCampaign])
     renderView()
     await waitFor(() => screen.getByText('Dragon Heist'))
     expect(screen.getByText('Joined Campaigns')).toBeTruthy()
   })
 
   it('shows owner display name for joined campaigns', async () => {
-    campaigns.list.mockResolvedValue([joinedGmCampaign])
+    mockCampaigns.list.mockResolvedValue([joinedGmCampaign])
     renderView()
     await waitFor(() => screen.getByText('Dragon Heist'))
     expect(screen.getByText(/GM: Bob/)).toBeTruthy()
@@ -104,7 +114,7 @@ describe('CampaignsView', () => {
       name: 'Curse of Strahd',
       invitation_status: 'invited',
     }
-    campaigns.list.mockResolvedValue([invite])
+    mockCampaigns.list.mockResolvedValue([invite])
     renderView()
     await waitFor(() => screen.getByText('Curse of Strahd'))
     expect(screen.getByText('Invitations')).toBeTruthy()
@@ -119,8 +129,8 @@ describe('CampaignsView', () => {
       name: 'Curse of Strahd',
       invitation_status: 'invited',
     }
-    campaigns.list.mockResolvedValueOnce([invite]).mockResolvedValueOnce([])
-    campaigns.updateMember.mockResolvedValue({})
+    mockCampaigns.list.mockResolvedValueOnce([invite]).mockResolvedValueOnce([])
+    mockCampaigns.updateMember.mockResolvedValue({})
     renderView()
     await waitFor(() => screen.getByText('Accept'))
     fireEvent.click(screen.getByText('Accept'))
@@ -130,7 +140,7 @@ describe('CampaignsView', () => {
   })
 
   it('shows empty state when there are no campaigns', async () => {
-    campaigns.list.mockResolvedValue([])
+    mockCampaigns.list.mockResolvedValue([])
     renderView()
     await waitFor(() => expect(screen.getByText('No campaigns yet')).toBeTruthy())
   })
@@ -148,7 +158,7 @@ describe('CampaignsView', () => {
       invitation_status: null,
       parent_campaign_id: null,
     }
-    campaigns.list.mockResolvedValue([ownedGmCampaign, personal])
+    mockCampaigns.list.mockResolvedValue([ownedGmCampaign, personal])
     renderView()
     await waitFor(() => screen.getByText('Lost Mines'))
     expect(screen.getByText('GM Campaigns')).toBeTruthy()
@@ -163,8 +173,8 @@ describe('CampaignsView', () => {
       description: 'A gothic horror campaign',
       invitation_status: 'invited',
     }
-    campaigns.list.mockResolvedValueOnce([invite]).mockResolvedValueOnce([])
-    campaigns.updateMember.mockResolvedValue({})
+    mockCampaigns.list.mockResolvedValueOnce([invite]).mockResolvedValueOnce([])
+    mockCampaigns.updateMember.mockResolvedValue({})
     renderView()
     await waitFor(() => screen.getByText('Decline'))
     // The invite row renders its description too.
@@ -176,13 +186,13 @@ describe('CampaignsView', () => {
   })
 
   it('shows an error message when the list request fails', async () => {
-    campaigns.list.mockRejectedValue(new Error('boom'))
+    mockCampaigns.list.mockRejectedValue(new Error('boom'))
     renderView()
     await waitFor(() => expect(screen.getByText('boom')).toBeTruthy())
   })
 
   it('opens the editor from the new-campaign button and closes it', async () => {
-    campaigns.list.mockResolvedValue([])
+    mockCampaigns.list.mockResolvedValue([])
     renderView()
     await waitFor(() => screen.getByText('No campaigns yet'))
     fireEvent.click(screen.getByText(/new campaign/i))
@@ -192,7 +202,7 @@ describe('CampaignsView', () => {
   })
 
   it('navigates to the new campaign after the editor saves', async () => {
-    campaigns.list.mockResolvedValue([])
+    mockCampaigns.list.mockResolvedValue([])
     renderView()
     await waitFor(() => screen.getByText('No campaigns yet'))
     fireEvent.click(screen.getByText(/new campaign/i))
@@ -202,7 +212,7 @@ describe('CampaignsView', () => {
 
   it('hides the create button and shows a hint when access is disabled', async () => {
     mockUser = { id: 'user1', role: 'player', campaign_access: false }
-    campaigns.list.mockResolvedValue([])
+    mockCampaigns.list.mockResolvedValue([])
     renderView()
     await waitFor(() => screen.getByText('No campaigns yet'))
     expect(screen.queryByText(/new campaign/i)).toBeNull()
@@ -220,14 +230,14 @@ describe('CampaignsView', () => {
     }
 
     it('requests active campaigns only by default', async () => {
-      campaigns.list.mockResolvedValue([ownedGmCampaign])
+      mockCampaigns.list.mockResolvedValue([ownedGmCampaign])
       renderView()
       await waitFor(() => screen.getByText('Lost Mines'))
       expect(campaigns.list).toHaveBeenCalledWith(false)
     })
 
     it('refetches with archived included when the toggle is pressed', async () => {
-      campaigns.list.mockResolvedValue([ownedGmCampaign])
+      mockCampaigns.list.mockResolvedValue([ownedGmCampaign])
       renderView()
       await waitFor(() => screen.getByText('Lost Mines'))
       fireEvent.click(screen.getByRole('button', { name: /archived/i }))
@@ -235,7 +245,7 @@ describe('CampaignsView', () => {
     })
 
     it('reflects the toggle state with aria-pressed', async () => {
-      campaigns.list.mockResolvedValue([ownedGmCampaign])
+      mockCampaigns.list.mockResolvedValue([ownedGmCampaign])
       renderView()
       await waitFor(() => screen.getByText('Lost Mines'))
       const toggle = screen.getByRole('button', { name: /archived/i })
@@ -245,7 +255,7 @@ describe('CampaignsView', () => {
     })
 
     it('lists archived campaigns in their own section once toggled on', async () => {
-      campaigns.list.mockResolvedValue([ownedGmCampaign, archivedCampaign])
+      mockCampaigns.list.mockResolvedValue([ownedGmCampaign, archivedCampaign])
       renderView()
       await waitFor(() => screen.getByText('Lost Mines'))
       fireEvent.click(screen.getByRole('button', { name: /archived/i }))
@@ -255,7 +265,7 @@ describe('CampaignsView', () => {
 
     it('keeps archived campaigns out of the active sections', async () => {
       // Both are owned GM campaigns; only the active one belongs under that heading.
-      campaigns.list.mockResolvedValue([ownedGmCampaign, archivedCampaign])
+      mockCampaigns.list.mockResolvedValue([ownedGmCampaign, archivedCampaign])
       renderView()
       await waitFor(() => screen.getByText('Lost Mines'))
       fireEvent.click(screen.getByRole('button', { name: /archived/i }))
@@ -263,12 +273,12 @@ describe('CampaignsView', () => {
       const gmHeading = screen.getByText('GM Campaigns')
       const archivedHeading = screen.getByText('Archived Campaigns')
       // The archived card sits under the archived heading, not the GM one.
-      expect(gmHeading.parentElement.textContent).not.toContain('Finished Game')
-      expect(archivedHeading.parentElement.textContent).toContain('Finished Game')
+      expect(gmHeading.parentElement!.textContent).not.toContain('Finished Game')
+      expect(archivedHeading.parentElement!.textContent).toContain('Finished Game')
     })
 
     it('does not render the archived section when the toggle is off', async () => {
-      campaigns.list.mockResolvedValue([ownedGmCampaign])
+      mockCampaigns.list.mockResolvedValue([ownedGmCampaign])
       renderView()
       await waitFor(() => screen.getByText('Lost Mines'))
       expect(screen.queryByText('Archived Campaigns')).toBeNull()

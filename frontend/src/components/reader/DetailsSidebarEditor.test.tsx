@@ -2,12 +2,20 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import DetailsSidebarEditor from './DetailsSidebarEditor'
+import type { DetailsSidebarEditorProps } from './DetailsSidebarEditor'
+import type { Schema } from '../../api'
 import { clearMetadataSourcesCache } from '../system/useMetadataSources'
 
 // The real dialog is covered by its own tests; this stand-in applies a fixed
 // result so the editor's handling of applied fields can be checked here.
 vi.mock('../system/MetadataFetchDialog', () => ({
-  default: ({ onApply, onClose }) => (
+  default: ({
+    onApply,
+    onClose,
+  }: {
+    onApply: (fields: Record<string, unknown>) => void
+    onClose: () => void
+  }) => (
     <div role="dialog">
       <button
         onClick={() => {
@@ -27,22 +35,24 @@ vi.mock('../system/MetadataFetchDialog', () => ({
   ),
 }))
 
-const mockPatch = vi.fn(() => Promise.resolve({}))
-const mockGet = vi.fn((path) =>
+const mockPatch = vi.fn<(path: string, body?: Record<string, unknown>) => Promise<unknown>>(() =>
+  Promise.resolve({})
+)
+const mockGet = vi.fn((path: string): Promise<unknown> =>
   Promise.resolve(path.includes('genres') ? { genres: [] } : { families: [] })
 )
 vi.mock('../../api', () => ({
   default: {
-    patch: (...args) => mockPatch(...args),
+    patch: (...args: Parameters<typeof mockPatch>) => mockPatch(...args),
     // useLookups loads the genre tree and licence list on mount.
-    get: (...args) => mockGet(...args),
+    get: (...args: Parameters<typeof mockGet>) => mockGet(...args),
     post: () => Promise.resolve({}),
   },
   // TagPicker loads the tag catalog.
   tags: { list: () => Promise.resolve({ tags: [] }) },
 }))
 
-function makeBook(overrides = {}) {
+function makeBook(overrides: Record<string, unknown> = {}) {
   return {
     id: 'book-1',
     title: "Player's Handbook",
@@ -57,10 +67,12 @@ function makeBook(overrides = {}) {
     tags: [],
     urls: [],
     ...overrides,
-  }
+  } as unknown as Schema<'BookDetail'>
 }
 
-function renderEditor(props = {}) {
+function renderEditor(
+  props: Partial<Omit<DetailsSidebarEditorProps, 'book'>> & { book?: Record<string, unknown> } = {}
+) {
   const onSaved = props.onSaved || vi.fn()
   const onCancel = props.onCancel || vi.fn()
   const onApplied = props.onApplied || vi.fn()
@@ -85,7 +97,7 @@ describe('DetailsSidebarEditor', () => {
     mockPatch.mockReset()
     mockPatch.mockResolvedValue({})
     mockGet.mockReset()
-    mockGet.mockImplementation((path) =>
+    mockGet.mockImplementation((path: string) =>
       Promise.resolve(path.includes('genres') ? { genres: [] } : { families: [] })
     )
   })
@@ -107,7 +119,7 @@ describe('DetailsSidebarEditor', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
     await waitFor(() => expect(mockPatch).toHaveBeenCalledOnce())
-    const [path, payload] = mockPatch.mock.calls[0]
+    const [path, payload] = mockPatch.mock.calls[0] as [string, Record<string, unknown>]
     expect(path).toBe('/books/book-1')
     expect(payload.title).toBe('Revised PHB')
     // Comma-separated text fields are split back into arrays for the API.
@@ -126,7 +138,7 @@ describe('DetailsSidebarEditor', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
     await waitFor(() => expect(mockPatch).toHaveBeenCalledOnce())
-    expect(mockPatch.mock.calls[0][1].artists).toEqual(['Ana Lopez', 'Bo Chen'])
+    expect(mockPatch.mock.calls[0][1]!.artists).toEqual(['Ana Lopez', 'Bo Chen'])
   })
 
   it('sends a null year when the field is cleared', async () => {
@@ -135,7 +147,7 @@ describe('DetailsSidebarEditor', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
     await waitFor(() => expect(mockPatch).toHaveBeenCalledOnce())
-    expect(mockPatch.mock.calls[0][1].year).toBeNull()
+    expect(mockPatch.mock.calls[0][1]!.year).toBeNull()
   })
 
   it('toggles the explicit flag', async () => {
@@ -144,7 +156,7 @@ describe('DetailsSidebarEditor', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
     await waitFor(() => expect(mockPatch).toHaveBeenCalledOnce())
-    expect(mockPatch.mock.calls[0][1].is_explicit).toBe(true)
+    expect(mockPatch.mock.calls[0][1]!.is_explicit).toBe(true)
   })
 
   it('surfaces a failed save and does not report it as saved', async () => {
@@ -172,7 +184,7 @@ describe('DetailsSidebarEditor', () => {
   })
 
   it('fills the form from a fetched source and reports what was applied', async () => {
-    mockGet.mockImplementation((path) => {
+    mockGet.mockImplementation((path: string) => {
       if (path.endsWith('/metadata-sources'))
         return Promise.resolve({ sources: [{ id: 'grimoire-codex', name: 'Grimoire Codex DB' }] })
       return Promise.resolve(path.includes('genres') ? { genres: [] } : { families: [] })
@@ -191,7 +203,7 @@ describe('DetailsSidebarEditor', () => {
     // A later Save carries the fetched tags; the link stays out of the payload.
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(mockPatch).toHaveBeenCalled())
-    const [, payload] = mockPatch.mock.calls[0]
+    const [, payload] = mockPatch.mock.calls[0] as [string, Record<string, unknown>]
     expect(payload.tags).toEqual(['osr'])
     expect(payload).not.toHaveProperty('codex_id')
   })

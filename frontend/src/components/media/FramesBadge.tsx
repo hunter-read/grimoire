@@ -6,7 +6,7 @@
  * a folder full of rings and borders is otherwise indistinguishable from a
  * folder of character art until you open the editor.
  */
-export default function FramesBadge({ label }) {
+export default function FramesBadge({ label }: { label: string }) {
   return (
     <span
       style={{

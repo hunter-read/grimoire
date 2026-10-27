@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { render, screen, waitFor, act } from '@testing-library/react'
 import { FavoritesProvider, useFavorites } from './FavoritesContext'
 import api from '../api'
@@ -7,7 +7,11 @@ vi.mock('../api', () => ({
   default: { get: vi.fn(), post: vi.fn(), delete: vi.fn(), patch: vi.fn() },
 }))
 
-function FavDisplay({ type, id }) {
+const mockGet = vi.mocked(api.get) as unknown as Mock
+const mockPost = vi.mocked(api.post) as unknown as Mock
+const mockDelete = vi.mocked(api.delete) as unknown as Mock
+
+function FavDisplay({ type, id }: { type: string; id: string }) {
   const { isFavorite, toggleFavorite, items } = useFavorites()
   return (
     <div>
@@ -32,7 +36,7 @@ describe('FavoritesContext', () => {
   })
 
   it('loads favorites on mount', async () => {
-    api.get.mockResolvedValue({
+    mockGet.mockResolvedValue({
       favorites: [{ item_type: 'book', item_id: 'b1' }],
       items: [{ item_type: 'book', item_id: 'b1', title: 'PHB' }],
     })
@@ -44,7 +48,7 @@ describe('FavoritesContext', () => {
   })
 
   it('isFavorite returns false for items not in the list', async () => {
-    api.get.mockResolvedValue({ favorites: [], items: [] })
+    mockGet.mockResolvedValue({ favorites: [], items: [] })
 
     renderFavorites('book', 'unknown')
 
@@ -54,11 +58,11 @@ describe('FavoritesContext', () => {
 
   it('toggleFavorite calls POST and adds to local state when not yet favorited', async () => {
     // First call: initial load. Second call: reload after add.
-    api.get.mockResolvedValueOnce({ favorites: [], items: [] }).mockResolvedValueOnce({
+    mockGet.mockResolvedValueOnce({ favorites: [], items: [] }).mockResolvedValueOnce({
       favorites: [{ item_type: 'book', item_id: 'b2' }],
       items: [],
     })
-    api.post.mockResolvedValue({ item_type: 'book', item_id: 'b2' })
+    mockPost.mockResolvedValue({ item_type: 'book', item_id: 'b2' })
 
     renderFavorites('book', 'b2')
     await waitFor(() => expect(api.get).toHaveBeenCalled())
@@ -70,11 +74,11 @@ describe('FavoritesContext', () => {
   })
 
   it('toggleFavorite calls DELETE and removes from local state when already favorited', async () => {
-    api.get.mockResolvedValue({
+    mockGet.mockResolvedValue({
       favorites: [{ item_type: 'book', item_id: 'b3' }],
       items: [{ item_type: 'book', item_id: 'b3', title: 'DMG' }],
     })
-    api.delete.mockResolvedValue(null)
+    mockDelete.mockResolvedValue(null)
 
     renderFavorites('book', 'b3')
     await waitFor(() => expect(screen.getByTestId('is-fav').textContent).toBe('yes'))
@@ -86,11 +90,11 @@ describe('FavoritesContext', () => {
   })
 
   it('removes the item from the items list when unfavorited', async () => {
-    api.get.mockResolvedValue({
+    mockGet.mockResolvedValue({
       favorites: [{ item_type: 'map', item_id: 'm1' }],
       items: [{ item_type: 'map', item_id: 'm1', filename: 'dungeon.png' }],
     })
-    api.delete.mockResolvedValue(null)
+    mockDelete.mockResolvedValue(null)
 
     renderFavorites('map', 'm1')
     await waitFor(() => expect(screen.getByTestId('count').textContent).toBe('1'))

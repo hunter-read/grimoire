@@ -1,26 +1,35 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuList, LuX, LuChevronDown } from 'react-icons/lu'
+import { LuList, LuX } from 'react-icons/lu'
 import api from '../../api'
 import Spinner from '../Spinner'
 import TocEntry from './TocEntry'
+import type { TocNode } from './TocEntry'
+import type { Schema } from '../../api'
 import ReaderSidebarShell from './ReaderSidebarShell'
 import { shouldAutoCollapse } from '../../utils/autoCollapse'
 
-function countEntries(nodes) {
-  return nodes.reduce((n, node) => n + 1 + countEntries(node.children || []), 0)
+interface Props {
+  bookId: string
+  currentPage: number
+  onGoToPage: (page: number) => void
+  onClose: () => void
 }
 
-export default function TocSidebar({ bookId, currentPage, onGoToPage, onClose }) {
+function countEntries(nodes: TocNode[]): number {
+  return nodes.reduce((n: number, node) => n + 1 + countEntries(node.children || []), 0)
+}
+
+export default function TocSidebar({ bookId, currentPage, onGoToPage, onClose }: Props) {
   const { t } = useTranslation()
-  const [toc, setToc] = useState(null)
+  const [toc, setToc] = useState<TocNode[] | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     api
       .get(`/books/${bookId}/toc`)
       .then((r) => {
-        setToc(r.toc)
+        setToc((r as Schema<'TocResponse'>).toc)
         setLoading(false)
       })
       .catch(() => {

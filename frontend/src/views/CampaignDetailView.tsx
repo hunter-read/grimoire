@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import type { ComponentType, CSSProperties } from 'react'
+import type { CSSProperties } from 'react'
 import type { TFunction } from 'i18next'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -23,7 +23,7 @@ import CampaignEditor from '../components/campaigns/CampaignEditor'
 import CampaignActionsMenu from '../components/campaigns/CampaignActionsMenu'
 import WikiMarkdown from '../components/campaigns/WikiMarkdown'
 import AvailabilityChart from '../components/campaigns/AvailabilityChart'
-import CalendarMenuJs from '../components/campaigns/CalendarMenu'
+import CalendarMenu from '../components/campaigns/CalendarMenu'
 import ResourcesPanel from '../components/campaigns/ResourcesPanel'
 import CampaignCharacters from '../components/campaigns/CampaignCharacters'
 import BannerHero from '../components/campaigns/BannerHero'
@@ -33,9 +33,6 @@ import GuestPanel from '../components/campaigns/GuestPanel'
 import AnchoredPopover from '../components/campaigns/AnchoredPopover'
 import { formatScheduleTime, USER_TZ } from '../components/campaigns/_scheduleShared'
 import useIsMobile from '../hooks/useIsMobile'
-
-// Still JavaScript, so TypeScript would read its optional `style` as required.
-const CalendarMenu = CalendarMenuJs as ComponentType<{ campaign: Campaign }>
 
 type Campaign = ResponseOf<'/campaigns/{campaign_id}', 'get'>
 type Member = Campaign['members'][number]

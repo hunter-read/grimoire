@@ -5,6 +5,15 @@ import Field from './Field'
 import Toggle from './Toggle'
 import { DEFAULT_PREVIEW } from './tools'
 import { btnStyle, inputStyle } from './ui'
+import type { PreviewSettings, PreviewState } from './types'
+
+/** What the panel reads: the settings, whether the preview is on, and (passed through) the token. */
+type PanelState = PreviewSettings & Partial<Pick<PreviewState, 'enabled' | 'token'>>
+
+export interface PreviewPanelProps {
+  preview?: PanelState | null
+  onChange?: (next: Partial<PreviewState>) => void
+}
 
 /**
  * The player-view preview: what someone standing on the map would actually see.
@@ -30,13 +39,16 @@ import { btnStyle, inputStyle } from './ui'
  * what stops you seeing is walls and darkness, and darkvision is the only one
  * of the three that genuinely has a distance.
  */
-export default function PreviewPanel({ preview, onChange }) {
+export default function PreviewPanel({ preview, onChange }: PreviewPanelProps) {
   const { t } = useTranslation()
   // Defaulted rather than required: the panel is one optional part of a large
   // sidebar, and a caller that has no preview state yet should get the control
   // in its off position rather than a crash.
-  const state = preview || { enabled: false, ...DEFAULT_PREVIEW }
-  const set = (patch) => onChange?.({ ...state, ...patch })
+  const state: PanelState = preview || {
+    enabled: false,
+    ...DEFAULT_PREVIEW,
+  }
+  const set = (patch: Partial<PreviewState>) => onChange?.({ ...state, ...patch })
   const visionOn = state.vision !== false
   return (
     <div data-testid="preview-panel">

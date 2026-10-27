@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import api from '../../api'
+import type { Schema } from '../../api'
 
 /**
  * Load the metadata lookup lists once for editor dropdowns: genres (tree),
@@ -8,11 +9,11 @@ import api from '../../api'
  * degrade to empty lists (custom free-text entry still works).
  */
 export default function useLookups() {
-  const [genres, setGenres] = useState([])
-  const [families, setFamilies] = useState([])
-  const [parentSystems, setParentSystems] = useState([])
-  const [licenses, setLicenses] = useState([])
-  const [diceMaterials, setDiceMaterials] = useState([])
+  const [genres, setGenres] = useState<Schema<'GenreOut'>[]>([])
+  const [families, setFamilies] = useState<Schema<'LookupOut'>[]>([])
+  const [parentSystems, setParentSystems] = useState<Schema<'LookupOut'>[]>([])
+  const [licenses, setLicenses] = useState<Schema<'LookupOut'>[]>([])
+  const [diceMaterials, setDiceMaterials] = useState<Schema<'DiceMaterialOut'>[]>([])
 
   const load = () => {
     api

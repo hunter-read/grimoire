@@ -1,8 +1,14 @@
 import { useTranslation } from 'react-i18next'
+import type { MouseEventHandler } from 'react'
 import { LuHeart } from 'react-icons/lu'
 
+export interface FavToggleProps {
+  active: boolean
+  onClick: MouseEventHandler<HTMLButtonElement>
+}
+
 /** "Favorites only" toggle button for the library header. */
-export default function FavToggle({ active, onClick }) {
+export default function FavToggle({ active, onClick }: FavToggleProps) {
   const { t } = useTranslation()
   return (
     <button

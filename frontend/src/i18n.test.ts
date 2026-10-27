@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 
 // We test the language-detection behaviour indirectly via i18n.language,
 // but to do that we need to reload the module with different env state.
@@ -79,8 +79,11 @@ describe('i18n — locales load on demand', () => {
 // These tests replicate the detectLanguage() logic directly so we can
 // exercise every branch without reloading the module.
 
-function makeDetect(availableLocales) {
-  return function detectLanguage(localStorageValue, navigatorLanguages) {
+function makeDetect(availableLocales: string[]) {
+  return function detectLanguage(
+    localStorageValue: string | null | undefined,
+    navigatorLanguages: readonly string[] | null | undefined
+  ) {
     if (localStorageValue) return localStorageValue
 
     for (const lang of navigatorLanguages ?? []) {
@@ -147,13 +150,17 @@ describe('detectLanguage — priority', () => {
 // Locale parity — every locale must mirror en-US exactly
 // ---------------------------------------------------------------------------
 
-const localeModules = import.meta.glob('./locales/*.json', { eager: true })
+type LocaleJson = Record<string, unknown>
 
-function flatten(obj, prefix = '') {
-  const out = {}
+const localeModules = import.meta.glob<LocaleJson | { default: LocaleJson }>('./locales/*.json', {
+  eager: true,
+})
+
+function flatten(obj: LocaleJson, prefix = ''): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(obj)) {
     if (value && typeof value === 'object' && !Array.isArray(value)) {
-      Object.assign(out, flatten(value, `${prefix}${key}.`))
+      Object.assign(out, flatten(value as LocaleJson, `${prefix}${key}.`))
     } else {
       out[`${prefix}${key}`] = value
     }
@@ -161,22 +168,22 @@ function flatten(obj, prefix = '') {
   return out
 }
 
-function placeholders(str) {
+function placeholders(str: unknown): string[] {
   if (typeof str !== 'string') return []
   return [...str.matchAll(/{{\s*(\w+)\s*}}/g)].map((m) => m[1]).sort()
 }
 
-function loadLocale(code) {
+function loadLocale(code: string) {
   const path = `./locales/${code}.json`
   const mod = localeModules[path]
-  return flatten(mod.default ?? mod)
+  return flatten(((mod as { default?: LocaleJson }).default ?? mod) as LocaleJson)
 }
 
 describe('locale parity with en-US', () => {
   const base = loadLocale('en-US')
   const baseKeys = Object.keys(base)
   const others = Object.keys(localeModules)
-    .map((p) => p.match(/\/([a-zA-Z-]+)\.json$/)[1])
+    .map((p) => p.match(/\/([a-zA-Z-]+)\.json$/)![1])
     .filter((c) => c !== 'en-US')
 
   it('discovers more than just en-US', () => {

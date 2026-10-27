@@ -25,6 +25,26 @@ export type FetchPage<T> = (
   limit: number
 ) => Promise<{ total: number | null; rows: T[] }> | { total: number | null; rows: T[] }
 
+/** A list as `get(key)` returns it. */
+export interface PagedListView<T> extends PagedList<T> {
+  hasMore: boolean
+}
+
+export interface PagedLists<T> {
+  /** Every started list, by key. */
+  lists: Record<string, PagedList<T>>
+  /** The list, or undefined before it is first requested. */
+  get: (key: string) => PagedListView<T> | undefined
+  /** Load the first page, if this list has not started. */
+  ensure: (key: string) => void
+  /** Load the next page, if there is one and none is loading. */
+  loadMore: (key: string) => void
+  /** Rewrite loaded items in place (after a local edit). */
+  mapItems: (fn: (item: T) => T) => void
+  /** Drop loaded items matching `fn`, shrinking each list's total to match. */
+  removeItems: (fn: (item: T) => boolean) => void
+}
+
 const EMPTY_LIST: PagedList<never> = { items: [], total: null, loading: false, error: null }
 
 /**
@@ -57,7 +77,7 @@ export default function usePagedLists<T>(
     pageSize = PAGE_SIZE,
     firstPageSize = Math.min(FIRST_PAGE_SIZE, pageSize),
   }: { pageSize?: number; firstPageSize?: number } = {}
-) {
+): PagedLists<T> {
   const [lists, setLists] = useState<Record<string, PagedList<T>>>({})
   const generation = useRef(0)
   const inFlight = useRef(new Set<string>())

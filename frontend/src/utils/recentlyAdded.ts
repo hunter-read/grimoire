@@ -8,7 +8,7 @@ const DAY_MS = 24 * 60 * 60 * 1000
  * Milliseconds since the epoch for an `added_at` value, or null when the book
  * has none (added before dates were tracked) or it does not parse.
  */
-export function addedAtTime(addedAt) {
+export function addedAtTime(addedAt: string | null | undefined): number | null {
   if (!addedAt) return null
   const ts = Date.parse(addedAt)
   return Number.isNaN(ts) ? null : ts
@@ -18,7 +18,10 @@ export function addedAtTime(addedAt) {
  * Whether an item added at `addedAt` falls inside the recent window. One with
  * no recorded date is never recent - it predates tracking, so it is old.
  */
-export function isRecentlyAdded(addedAt, now = Date.now()) {
+export function isRecentlyAdded(
+  addedAt: string | null | undefined,
+  now: number = Date.now()
+): boolean {
   const ts = addedAtTime(addedAt)
   return ts !== null && now - ts < RECENTLY_ADDED_DAYS * DAY_MS
 }
@@ -29,7 +32,11 @@ export function isRecentlyAdded(addedAt, now = Date.now()) {
  * flipping them to the top of an "oldest first" list would bury real dates
  * under every legacy item. Ties return 0 so the caller can break them.
  */
-export function compareAddedAt(a, b, dir = 1) {
+export function compareAddedAt(
+  a: { added_at?: string | null } | null | undefined,
+  b: { added_at?: string | null } | null | undefined,
+  dir: number = 1
+): number {
   const ta = addedAtTime(a?.added_at)
   const tb = addedAtTime(b?.added_at)
   if (ta === null || tb === null) {

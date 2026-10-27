@@ -4,7 +4,7 @@
  * null. A manifest is someone else's text, so `javascript:` and friends never
  * become links.
  */
-export function safeLink(value) {
+export function safeLink(value: unknown): string | null {
   const text = typeof value === 'string' ? value.trim() : ''
   if (!text) return null
   try {

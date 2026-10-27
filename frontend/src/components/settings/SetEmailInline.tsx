@@ -2,12 +2,19 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ghostBtnStyle, saveBtnStyle } from './settingsButtons'
 
+interface Props {
+  initial?: string | null
+  onSave: (email: string) => unknown
+  onCancel: () => void
+  persistent?: boolean
+}
+
 /**
  * Inline email editor used in the admin user editor.
  * When `persistent` is set the field stays open after saving (it lives in an
  * always-visible panel) and shows a brief "saved" hint instead of closing.
  */
-export default function SetEmailInline({ initial, onSave, onCancel, persistent = false }) {
+export default function SetEmailInline({ initial, onSave, onCancel, persistent = false }: Props) {
   const { t } = useTranslation()
   const [value, setValue] = useState(initial || '')
   const [saving, setSaving] = useState(false)
@@ -26,7 +33,7 @@ export default function SetEmailInline({ initial, onSave, onCancel, persistent =
         onCancel()
       }
     } catch (e) {
-      setErr(e?.message || t('users.failedSetEmail'))
+      setErr((e as Error | null)?.message || t('users.failedSetEmail'))
     } finally {
       setSaving(false)
     }

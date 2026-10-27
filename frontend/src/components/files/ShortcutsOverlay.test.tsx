@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ShortcutsOverlay from './ShortcutsOverlay'
 
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }))
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }))
 
 beforeEach(() => vi.clearAllMocks())
 

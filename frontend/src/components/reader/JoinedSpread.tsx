@@ -1,5 +1,18 @@
 import { useState } from 'react'
+import type { SyntheticEvent } from 'react'
 import TextOverlay from './TextOverlay'
+import type { PageUrl, RenderTiles, WordsCacheRef } from './pageRender'
+
+interface Props {
+  pages: number[]
+  urlFor: PageUrl
+  renderWidth: number
+  getAlt: (page: number) => string
+  wordsCacheRef?: WordsCacheRef
+  activeSearchQuery?: string | null
+  activeHighlight?: string | null
+  renderTiles?: RenderTiles
+}
 
 const SHADOW = '0 4px 20px var(--shadow)'
 
@@ -30,18 +43,18 @@ export default function JoinedSpread({
   activeSearchQuery,
   activeHighlight,
   renderTiles,
-}) {
-  const [loaded, setLoaded] = useState({})
+}: Props) {
+  const [loaded, setLoaded] = useState<Record<number, { width: number; height: number }>>({})
   const aspects = pages.map((p) => {
     const wd = wordsCacheRef?.current[p]
-    if (wd?.width > 0 && wd?.height > 0) return wd.width / wd.height
+    if ((wd?.width ?? 0) > 0 && (wd?.height ?? 0) > 0) return wd!.width / wd!.height
     const size = loaded[p]
     return size ? size.width / size.height : null
   })
   const fitted = aspects.every(Boolean)
-  const total = fitted ? aspects.reduce((sum, a) => sum + a, 0) : null
+  const total = fitted ? aspects.reduce((sum: number, a) => sum + a!, 0) : null
 
-  const remember = (p) => (e) => {
+  const remember = (p: number) => (e: SyntheticEvent<HTMLImageElement>) => {
     const { naturalWidth: width, naturalHeight: height } = e.currentTarget
     if (width > 0 && height > 0) setLoaded((prev) => ({ ...prev, [p]: { width, height } }))
   }
@@ -51,7 +64,7 @@ export default function JoinedSpread({
       data-joined-spread
       // The pair's combined aspect ratio, once known (also read by tests: jsdom
       // drops the aspect-ratio and min() styles it does not understand).
-      data-aspect={fitted ? total.toFixed(4) : undefined}
+      data-aspect={fitted ? total!.toFixed(4) : undefined}
       style={{
         display: 'flex',
         lineHeight: 0,
@@ -77,7 +90,7 @@ export default function JoinedSpread({
               position: 'relative',
               minWidth: 0,
               ...(fitted
-                ? { flexGrow: aspects[i], flexShrink: 1, flexBasis: 0, height: '100%' }
+                ? { flexGrow: aspects[i]!, flexShrink: 1, flexBasis: 0, height: '100%' }
                 : { maxWidth: '50%' }),
             }}
           >

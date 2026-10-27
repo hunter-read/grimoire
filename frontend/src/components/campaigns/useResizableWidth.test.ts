@@ -1,21 +1,24 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
+import type { KeyboardEvent, PointerEvent } from 'react'
 import useResizableWidth from './useResizableWidth'
+
+type Hook = { current: ReturnType<typeof useResizableWidth> }
 
 // A pointer event carrying only the fields the hook reads, plus spies for the
 // capture calls jsdom doesn't implement.
-function pointerEvent(clientX, { button = 0 } = {}) {
+function pointerEvent(clientX: number, { button = 0 } = {}) {
   return {
     clientX,
     button,
     pointerId: 1,
     preventDefault: vi.fn(),
     currentTarget: { setPointerCapture: vi.fn(), releasePointerCapture: vi.fn() },
-  }
+  } as unknown as PointerEvent<HTMLElement>
 }
 
 // Drive a full drag: press at `from`, move to `to`, release.
-function drag(result, from, to) {
+function drag(result: Hook, from: number, to: number) {
   const down = pointerEvent(from)
   act(() => result.current.handleProps.onPointerDown(down))
   act(() => result.current.handleProps.onPointerMove(pointerEvent(to)))
@@ -103,8 +106,8 @@ describe('useResizableWidth', () => {
 
   it('resizes with the arrow keys so the divider works without a mouse', () => {
     const { result } = renderHook(() => useResizableWidth('k', { initial: 240, step: 16 }))
-    const press = (key) => {
-      const e = { key, preventDefault: vi.fn() }
+    const press = (key: string) => {
+      const e = { key, preventDefault: vi.fn() } as unknown as KeyboardEvent<HTMLElement>
       act(() => result.current.handleProps.onKeyDown(e))
       return e
     }
@@ -117,7 +120,7 @@ describe('useResizableWidth', () => {
 
   it('leaves other keys alone', () => {
     const { result } = renderHook(() => useResizableWidth('k', { initial: 240 }))
-    const e = { key: 'Enter', preventDefault: vi.fn() }
+    const e = { key: 'Enter', preventDefault: vi.fn() } as unknown as KeyboardEvent<HTMLElement>
     act(() => result.current.handleProps.onKeyDown(e))
     expect(e.preventDefault).not.toHaveBeenCalled()
     expect(result.current.width).toBe(240)

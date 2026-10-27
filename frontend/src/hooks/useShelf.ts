@@ -1,13 +1,61 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import api from '../api'
-import usePagedLists from './usePagedLists'
-import { bookFilterParams, browseKey, withQuery } from '../utils/browseParams'
-import { buildShelf, splitNodeKey } from '../components/system/shelfTree'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from 'react'
+import api, { type Schema } from '../api'
+import usePagedLists, { type PagedLists } from './usePagedLists'
+import { bookFilterParams, browseKey, withQuery, type BrowseFilters } from '../utils/browseParams'
+import { buildShelf, splitNodeKey, type ShelfNode } from '../components/system/shelfTree'
+
+export type ShelfSystem = Schema<'SystemDetail'>
+export type ShelfBook = Schema<'BookOut'>
+export type ShelfFacets = Schema<'ShelfFacetsResponse'>
+export type ShelfGroups = Schema<'ShelfGroupsResponse'>
+
+export interface Shelf {
+  system: ShelfSystem | null
+  setSystem: Dispatch<SetStateAction<ShelfSystem | null>>
+  facets: ShelfFacets
+  groups: ShelfGroups | null
+  /** The category/subfolder tree, keyed by category. */
+  shelf: Record<string, ShelfNode>
+  pages: PagedLists<ShelfBook>
+  /** Open a node's list, or page it further if already open. */
+  loadNode: (key: string) => void
+  /** Every book loaded so far, de-duplicated. */
+  loadedBooks: ShelfBook[]
+  updateBooks: (fn: (book: ShelfBook) => ShelfBook) => void
+  reload: () => void
+  flatBooks: ShelfBook[]
+  flatHasMore: boolean
+  flatLoading: boolean
+  loadMoreFlat: () => void
+  /** Matching books, or null until known. */
+  matchCount: number | null
+}
+
+export interface ShelfOptions {
+  grouped: boolean
+  /** The shelf's SortFilterBar state. */
+  bookFilter: { sort?: string; order?: string; filters?: BrowseFilters }
+  /** Hold back every book fetch until true (default true). */
+  ready?: boolean
+}
 
 // The list key for the ungrouped shelf; folder lists use shelfTree's nodeKey.
 export const FLAT = '\u0000flat'
 
-const EMPTY_FACETS = { categories: [], genres: [], product_code_prefixes: [], tags: [] }
+const EMPTY_FACETS: ShelfFacets = {
+  categories: [],
+  genres: [],
+  product_code_prefixes: [],
+  tags: [],
+}
 
 /**
  * Everything SystemDetailView shows about a system's books, fetched from the
@@ -29,10 +77,13 @@ const EMPTY_FACETS = { categories: [], genres: [], product_code_prefixes: [], ta
  * view holds it back until the user's default filter preset has been applied,
  * rather than loading the unfiltered shelf only to replace it.
  */
-export default function useShelf(systemId, { grouped, bookFilter, ready = true }) {
-  const [system, setSystem] = useState(null)
-  const [facets, setFacets] = useState(EMPTY_FACETS)
-  const [groups, setGroups] = useState(null)
+export default function useShelf(
+  systemId: string | undefined,
+  { grouped, bookFilter, ready = true }: ShelfOptions
+): Shelf {
+  const [system, setSystem] = useState<ShelfSystem | null>(null)
+  const [facets, setFacets] = useState<ShelfFacets>(EMPTY_FACETS)
+  const [groups, setGroups] = useState<ShelfGroups | null>(null)
   const [version, setVersion] = useState(0)
 
   const filters = bookFilter.filters || {}
@@ -46,7 +97,7 @@ export default function useShelf(systemId, { grouped, bookFilter, ready = true }
     () =>
       api
         .get(withQuery(`/systems/${systemId}`, { include_books: 'false' }))
-        .then((s) => setSystem(s)),
+        .then((s) => setSystem(s as ShelfSystem)),
     [systemId]
   )
 
@@ -58,7 +109,7 @@ export default function useShelf(systemId, { grouped, bookFilter, ready = true }
     let cancelled = false
     api
       .get(`/systems/${systemId}/book-facets`)
-      .then((f) => !cancelled && setFacets({ ...EMPTY_FACETS, ...f }))
+      .then((f) => !cancelled && setFacets({ ...EMPTY_FACETS, ...(f as Partial<ShelfFacets>) }))
       .catch(() => !cancelled && setFacets(EMPTY_FACETS))
     return () => {
       cancelled = true
@@ -73,9 +124,10 @@ export default function useShelf(systemId, { grouped, bookFilter, ready = true }
     const params = { ...bookFilterParams(filtersRef.current), sort, order }
     api
       .get(withQuery(`/systems/${systemId}/book-groups`, params))
-      .then(
-        (body) => !cancelled && setGroups({ total: body?.total ?? 0, groups: body?.groups || [] })
-      )
+      .then((raw) => {
+        const body = raw as Partial<ShelfGroups> | null | undefined
+        return !cancelled && setGroups({ total: body?.total ?? 0, groups: body?.groups || [] })
+      })
       .catch(() => !cancelled && setGroups({ total: 0, groups: [] }))
     return () => {
       cancelled = true
@@ -83,16 +135,23 @@ export default function useShelf(systemId, { grouped, bookFilter, ready = true }
   }, [systemId, grouped, filterKey, sort, order, version, ready])
 
   const fetchPage = useCallback(
-    (key, offset, limit) => {
-      const params = { ...bookFilterParams(filtersRef.current), sort, order, limit, offset }
+    (key: string, offset: number, limit: number) => {
+      const params: Record<string, unknown> = {
+        ...bookFilterParams(filtersRef.current),
+        sort,
+        order,
+        limit,
+        offset,
+      }
       if (key !== FLAT) {
         const [category, folder] = splitNodeKey(key)
         params.category = category
         params.folder = folder
       }
-      return api
-        .get(withQuery(`/systems/${systemId}/books`, params))
-        .then((page) => ({ total: page?.total ?? 0, rows: page?.books || [] }))
+      return api.get(withQuery(`/systems/${systemId}/books`, params)).then((raw) => {
+        const page = raw as Partial<Schema<'SystemBooksPage'>> | null | undefined
+        return { total: page?.total ?? 0, rows: page?.books || [] }
+      })
     },
     [systemId, sort, order]
   )
@@ -100,7 +159,7 @@ export default function useShelf(systemId, { grouped, bookFilter, ready = true }
   const { ensure, loadMore, get: getList } = pages
 
   const loadNode = useCallback(
-    (key) => (getList(key) ? loadMore(key) : ensure(key)),
+    (key: string) => (getList(key) ? loadMore(key) : ensure(key)),
     [getList, loadMore, ensure]
   )
 
@@ -112,7 +171,7 @@ export default function useShelf(systemId, { grouped, bookFilter, ready = true }
 
   // Every book loaded so far, de-duplicated - what selection and edits act on.
   const loadedBooks = useMemo(() => {
-    const seen = new Map()
+    const seen = new Map<string, ShelfBook>()
     for (const list of Object.values(pages.lists)) {
       for (const book of list.items) if (!seen.has(book.id)) seen.set(book.id, book)
     }

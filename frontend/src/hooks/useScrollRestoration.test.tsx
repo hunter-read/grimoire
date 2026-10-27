@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import type { ReactNode } from 'react'
 import { render, act } from '@testing-library/react'
 import { renderHook } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
@@ -6,15 +7,15 @@ import useScrollRestoration from './useScrollRestoration'
 
 // Wrap the hook in a MemoryRouter so useLocation works.
 function makeWrapper(initialPath = '/') {
-  return function Wrapper({ children }) {
+  return function Wrapper({ children }: { children: ReactNode }) {
     return <MemoryRouter initialEntries={[initialPath]}>{children}</MemoryRouter>
   }
 }
 
 // A component that attaches the hook's ref to a real div so we can test
 // DOM-dependent behaviour (save on unmount, restore on mount).
-function ScrollComponent({ onRef } = {}) {
-  const ref = useScrollRestoration()
+function ScrollComponent({ onRef }: { onRef?: (el: HTMLDivElement | null) => void } = {}) {
+  const ref = useScrollRestoration<HTMLDivElement>()
   return (
     <div
       ref={(el) => {
@@ -31,7 +32,7 @@ describe('useScrollRestoration', () => {
     sessionStorage.clear()
     vi.clearAllMocks()
     // requestAnimationFrame is not available in jsdom — stub it to run synchronously.
-    vi.stubGlobal('requestAnimationFrame', (cb) => {
+    vi.stubGlobal('requestAnimationFrame', (cb: () => void) => {
       cb()
       return 0
     })
@@ -61,7 +62,7 @@ describe('useScrollRestoration', () => {
   })
 
   it('saves scrollTop to sessionStorage on unmount', () => {
-    let divEl = null
+    let divEl = null as HTMLDivElement | null
     const { unmount } = render(
       <MemoryRouter initialEntries={['/library']}>
         <ScrollComponent
@@ -84,7 +85,7 @@ describe('useScrollRestoration', () => {
   it('restores scrollTop from sessionStorage after mounting with a saved position', () => {
     sessionStorage.setItem('grimoire:scroll:/library', '400')
 
-    let divEl = null
+    let divEl = null as HTMLDivElement | null
     render(
       <MemoryRouter initialEntries={['/library']}>
         <ScrollComponent
@@ -100,7 +101,7 @@ describe('useScrollRestoration', () => {
   })
 
   it('leaves scrollTop unchanged when no saved position exists', () => {
-    let divEl = null
+    let divEl = null as HTMLDivElement | null
     render(
       <MemoryRouter initialEntries={['/library']}>
         <ScrollComponent
@@ -119,19 +120,19 @@ describe('useScrollRestoration', () => {
   // clamping accessor that mimics a real element: writes above the current
   // content height are pinned, exactly the situation that made restoration fail
   // while a view was still loading its data (issue #257).
-  function makeClamped(el, initialMaxScroll) {
+  function makeClamped(el: HTMLElement, initialMaxScroll: number) {
     let value = 0
     let maxScroll = initialMaxScroll
     Object.defineProperty(el, 'scrollTop', {
       configurable: true,
       get: () => value,
-      set: (v) => {
+      set: (v: number) => {
         value = Math.min(v, maxScroll)
       },
     })
     return {
       // Simulates the view's data arriving and the content growing taller.
-      grow: (next) => {
+      grow: (next: number) => {
         maxScroll = next
       },
     }
@@ -141,11 +142,11 @@ describe('useScrollRestoration', () => {
     sessionStorage.setItem('grimoire:scroll:/library', '400')
 
     // Drive rAF manually so we control when each restore attempt runs.
-    const callbacks = []
-    vi.stubGlobal('requestAnimationFrame', (cb) => callbacks.push(cb))
+    const callbacks: (() => void)[] = []
+    vi.stubGlobal('requestAnimationFrame', (cb: () => void) => callbacks.push(cb))
 
-    let divEl = null
-    let content = null
+    let divEl = null as HTMLDivElement | null
+    let content = null as ReturnType<typeof makeClamped> | null
     render(
       <MemoryRouter initialEntries={['/library']}>
         <ScrollComponent
@@ -164,17 +165,17 @@ describe('useScrollRestoration', () => {
 
     // First frame: the view is still empty, so the write clamps to 0.
     flush()
-    expect(divEl.scrollTop).toBe(0)
+    expect(divEl!.scrollTop).toBe(0)
 
     // Still loading — the hook keeps a retry queued rather than giving up.
     flush()
-    expect(divEl.scrollTop).toBe(0)
+    expect(divEl!.scrollTop).toBe(0)
     expect(callbacks.length).toBeGreaterThan(0)
 
     // Data arrives and the grid renders: the next retry lands the position.
-    content.grow(1000)
+    content!.grow(1000)
     flush()
-    expect(divEl.scrollTop).toBe(400)
+    expect(divEl!.scrollTop).toBe(400)
 
     // Target reached, so the loop stops queueing further frames.
     expect(callbacks).toHaveLength(0)
@@ -183,11 +184,11 @@ describe('useScrollRestoration', () => {
   it('stops retrying once the user scrolls the container themselves', () => {
     sessionStorage.setItem('grimoire:scroll:/library', '400')
 
-    const callbacks = []
-    vi.stubGlobal('requestAnimationFrame', (cb) => callbacks.push(cb))
+    const callbacks: (() => void)[] = []
+    vi.stubGlobal('requestAnimationFrame', (cb: () => void) => callbacks.push(cb))
 
-    let divEl = null
-    let content = null
+    let divEl = null as HTMLDivElement | null
+    let content = null as ReturnType<typeof makeClamped> | null
     render(
       <MemoryRouter initialEntries={['/library']}>
         <ScrollComponent
@@ -205,29 +206,29 @@ describe('useScrollRestoration', () => {
     }
 
     flush()
-    expect(divEl.scrollTop).toBe(0)
+    expect(divEl!.scrollTop).toBe(0)
 
     // The user scrolls while the view is still loading — they've taken over.
     act(() => {
-      divEl.dispatchEvent(new Event('wheel'))
+      divEl!.dispatchEvent(new Event('wheel'))
     })
 
     // Even once the content grows, the saved offset is no longer forced on them.
-    content.grow(1000)
+    content!.grow(1000)
     flush()
-    expect(divEl.scrollTop).toBe(0)
+    expect(divEl!.scrollTop).toBe(0)
     expect(callbacks).toHaveLength(0)
   })
 
   it('gives up after the timeout when the view never grows tall enough', () => {
     sessionStorage.setItem('grimoire:scroll:/library', '400')
 
-    const callbacks = []
-    vi.stubGlobal('requestAnimationFrame', (cb) => callbacks.push(cb))
+    const callbacks: (() => void)[] = []
+    vi.stubGlobal('requestAnimationFrame', (cb: () => void) => callbacks.push(cb))
     const nowSpy = vi.spyOn(Date, 'now')
     nowSpy.mockReturnValue(0)
 
-    let content = null
+    let content = null as ReturnType<typeof makeClamped> | null
     render(
       <MemoryRouter initialEntries={['/library']}>
         <ScrollComponent
@@ -258,8 +259,8 @@ describe('useScrollRestoration', () => {
   it('does not attempt restoration for a saved position of zero', () => {
     sessionStorage.setItem('grimoire:scroll:/library', '0')
 
-    const callbacks = []
-    vi.stubGlobal('requestAnimationFrame', (cb) => callbacks.push(cb))
+    const callbacks: (() => void)[] = []
+    vi.stubGlobal('requestAnimationFrame', (cb: () => void) => callbacks.push(cb))
 
     render(
       <MemoryRouter initialEntries={['/library']}>

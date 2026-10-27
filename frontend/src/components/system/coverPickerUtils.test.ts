@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import { sortForCoverPicker } from './coverPickerUtils'
 
-const book = (id, category, title = id, has_thumbnail = true) => ({
+const book = (
+  id: string,
+  category: string | null | undefined,
+  title = id,
+  has_thumbnail = true
+) => ({
   id,
   category,
   title,

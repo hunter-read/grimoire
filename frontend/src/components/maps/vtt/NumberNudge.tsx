@@ -1,5 +1,13 @@
 import { iconBtnStyle, inputStyle } from './ui'
 
+export interface NumberNudgeProps {
+  value: number | string
+  onChange: (value: number) => void
+  step?: number
+  label: string
+  width?: number | string
+}
+
 /**
  * A number input flanked by decrement/increment buttons.
  *
@@ -7,8 +15,14 @@ import { iconBtnStyle, inputStyle } from './ui'
  * means nudging the offset a pixel at a time while watching the overlay move,
  * and doing that by retyping a number for each step is unusable.
  */
-export default function NumberNudge({ value, onChange, step = 1, label, width = 78 }) {
-  const nudge = (delta) => onChange(Math.round((Number(value) + delta) * 10000) / 10000)
+export default function NumberNudge({
+  value,
+  onChange,
+  step = 1,
+  label,
+  width = 78,
+}: NumberNudgeProps) {
+  const nudge = (delta: number) => onChange(Math.round((Number(value) + delta) * 10000) / 10000)
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
       <button

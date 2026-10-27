@@ -1,15 +1,15 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import ShareView from './ShareView'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k, o) => (o ? `${k}:${JSON.stringify(o)}` : k),
+    t: (k: string, o?: Record<string, unknown>) => (o ? `${k}:${JSON.stringify(o)}` : k),
     i18n: { language: 'en-US' },
   }),
 }))
 
-const ready = (over = {}) => ({
+const ready = (over: Record<string, unknown> = {}) => ({
   password_required: false,
   unlocked: true,
   resource_type: 'map',
@@ -25,16 +25,16 @@ const ready = (over = {}) => ({
   ...over,
 })
 
-const respond = (status, body) =>
+const respond = (status: number, body: unknown) =>
   Promise.resolve({ ok: status < 400, status, json: () => Promise.resolve(body) })
 
 beforeEach(() => {
-  global.fetch = vi.fn()
+  globalThis.fetch = vi.fn()
 })
 
 describe('ShareView', () => {
   it('shows an image with download and open buttons', async () => {
-    fetch.mockReturnValue(respond(200, ready()))
+    ;(fetch as unknown as Mock).mockReturnValue(respond(200, ready()))
     render(<ShareView token="tok" />)
     expect(await screen.findByText('Old Tavern')).toBeInTheDocument()
     expect(screen.getByText('Session 4')).toBeInTheDocument()
@@ -51,7 +51,9 @@ describe('ShareView', () => {
   })
 
   it('plays audio', async () => {
-    fetch.mockReturnValue(respond(200, ready({ media_kind: 'audio', expires_at: null })))
+    ;(fetch as unknown as Mock).mockReturnValue(
+      respond(200, ready({ media_kind: 'audio', expires_at: null }))
+    )
     const { container } = render(<ShareView token="tok" />)
     await screen.findByText('Old Tavern')
     expect(container.querySelector('audio')).toHaveAttribute('src', ready().file_url)
@@ -59,33 +61,35 @@ describe('ShareView', () => {
   })
 
   it('plays video', async () => {
-    fetch.mockReturnValue(respond(200, ready({ media_kind: 'video' })))
+    ;(fetch as unknown as Mock).mockReturnValue(respond(200, ready({ media_kind: 'video' })))
     const { container } = render(<ShareView token="tok" />)
     await screen.findByText('Old Tavern')
     expect(container.querySelector('video')).toBeInTheDocument()
   })
 
   it('shows a file card for anything else', async () => {
-    fetch.mockReturnValue(respond(200, ready({ media_kind: 'model', file_size: null, label: '' })))
+    ;(fetch as unknown as Mock).mockReturnValue(
+      respond(200, ready({ media_kind: 'model', file_size: null, label: '' }))
+    )
     render(<ShareView token="tok" />)
     expect(await screen.findByText('old-tavern.png')).toBeInTheDocument()
   })
 
   it('says a dead link does not work, without saying why', async () => {
-    fetch.mockReturnValue(respond(404, { detail: 'Not found' }))
+    ;(fetch as unknown as Mock).mockReturnValue(respond(404, { detail: 'Not found' }))
     render(<ShareView token="tok" />)
     expect(await screen.findByText('sharePage.missingTitle')).toBeInTheDocument()
     expect(screen.getByText('sharePage.missingBody')).toBeInTheDocument()
   })
 
   it('says when it is being throttled', async () => {
-    fetch.mockReturnValue(respond(429, {}))
+    ;(fetch as unknown as Mock).mockReturnValue(respond(429, {}))
     render(<ShareView token="tok" />)
     expect(await screen.findByText('sharePage.throttled')).toBeInTheDocument()
   })
 
   it('asks for the password, then shows the item', async () => {
-    fetch
+    ;(fetch as unknown as Mock)
       .mockReturnValueOnce(respond(200, { password_required: true, unlocked: false }))
       .mockReturnValueOnce(respond(403, { detail: 'Wrong password' }))
       .mockReturnValueOnce(respond(200, { unlocked: true }))
@@ -111,7 +115,7 @@ describe('ShareView', () => {
   })
 
   it('reports a throttled unlock', async () => {
-    fetch
+    ;(fetch as unknown as Mock)
       .mockReturnValueOnce(respond(200, { password_required: true, unlocked: false }))
       .mockReturnValueOnce(respond(429, {}))
     render(<ShareView token="tok" />)

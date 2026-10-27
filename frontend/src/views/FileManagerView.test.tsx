@@ -1,12 +1,17 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { render, screen, waitFor, within, fireEvent, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import FileManagerView from './FileManagerView'
 import { files as filesApi } from '../api'
 import { useAuth } from '../context/AuthContext'
 
+type Fixture = Record<string, unknown>
+
+const mockFiles = filesApi as unknown as Record<keyof typeof filesApi, Mock>
+const mockUseAuth = vi.mocked(useAuth) as unknown as Mock
+
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k, o) => (o ? `${k}:${JSON.stringify(o)}` : k) }),
+  useTranslation: () => ({ t: (k: string, o?: object) => (o ? `${k}:${JSON.stringify(o)}` : k) }),
 }))
 vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn() }))
 vi.mock('../context/AuthContext', () => ({ useAuth: vi.fn() }))
@@ -17,8 +22,8 @@ vi.mock('../api', () => ({
     get: vi.fn(() => Promise.resolve({ running: false })),
     post: vi.fn(() => Promise.resolve({})),
   },
-  mediaUrl: (path) => `/api${path}`,
-  bookPageUrl: (id, page) => `/api/books/${id}/page/${page}`,
+  mediaUrl: (path: string) => `/api${path}`,
+  bookPageUrl: (id: string, page: number) => `/api/books/${id}/page/${page}`,
   files: {
     browse: vi.fn(),
     move: vi.fn(),
@@ -33,7 +38,7 @@ vi.mock('../api', () => ({
   },
 }))
 const uploadQueue = {
-  items: [],
+  items: [] as Fixture[],
   counts: { queued: 0, uploading: 0, done: 0, error: 0, cancelled: 0 },
   inFlight: 0,
   enqueue: vi.fn(),
@@ -48,7 +53,15 @@ vi.mock('../hooks/useUploadQueue', () => ({ default: () => uploadQueue }))
 // folder it hands the picker. The picker's own tests cover the format choice
 // and the URL it builds from those params.
 vi.mock('../components/DownloadArchiveModal', () => ({
-  default: ({ title, params, onClose }) => (
+  default: ({
+    title,
+    params,
+    onClose,
+  }: {
+    title: string
+    params: unknown
+    onClose: () => void
+  }) => (
     <div data-testid="download-modal">
       <span data-testid="download-title">{title}</span>
       <span data-testid="download-params">{JSON.stringify(params)}</span>
@@ -57,7 +70,13 @@ vi.mock('../components/DownloadArchiveModal', () => ({
   ),
 }))
 vi.mock('../components/BulkEditModal', () => ({
-  default: ({ items, onSaved }) => (
+  default: ({
+    items,
+    onSaved,
+  }: {
+    items: { title?: string }[]
+    onSaved: (edited: Record<string, unknown>) => void
+  }) => (
     <div data-testid="metadata-modal">
       <span data-testid="metadata-title">{items[0]?.title}</span>
       <button onClick={() => onSaved({})}>save-metadata</button>
@@ -71,7 +90,7 @@ vi.mock('../components/BulkEditModal', () => ({
 // Rows here stand in for `books/` children, which is where a container kind is
 // actually read — so the capability flag defaults on, and a case about a folder
 // that cannot take one overrides it.
-const folder = (name, parent = 'books', extra = {}) => ({
+const folder = (name: string, parent = 'books', extra: Fixture = {}) => ({
   name,
   path: `${parent}/${name}`,
   is_dir: true,
@@ -83,7 +102,7 @@ const folder = (name, parent = 'books', extra = {}) => ({
   ...extra,
 })
 
-const file = (name, parent = 'books', extra = {}) => ({
+const file = (name: string, parent = 'books', extra: Fixture = {}) => ({
   name,
   path: `${parent}/${name}`,
   is_dir: false,
@@ -95,7 +114,7 @@ const file = (name, parent = 'books', extra = {}) => ({
   ...extra,
 })
 
-function browseResult(entries, path = 'books', extra = {}) {
+function browseResult(entries: Fixture[], path = 'books', extra: Fixture = {}) {
   return { path, parent: '', writable: true, entries, singletons_taken: {}, ...extra }
 }
 
@@ -113,7 +132,7 @@ async function openFolderInPane(name = 'core') {
 beforeEach(() => {
   vi.clearAllMocks()
   uploadQueue.items = []
-  useAuth.mockReturnValue({ user: { role: 'admin' } })
+  mockUseAuth.mockReturnValue({ user: { role: 'admin' } })
   // Each pane must echo back its own path: the destination of a cross-pane move
   // is the *other* pane's current folder, so a shared response would make the
   // move look like it targeted the source.
@@ -122,7 +141,7 @@ beforeEach(() => {
   // rows carry books/ paths. Only the row paths are faked that way — the path
   // browse is *called* with is untouched, so assertions about where the pane is
   // anchored stay honest.
-  filesApi.browse.mockImplementation((path) =>
+  mockFiles.browse.mockImplementation((path: string) =>
     Promise.resolve(
       browseResult([folder('core', path || 'books'), file('bestiary.pdf', path || 'books')], path)
     )
@@ -131,7 +150,7 @@ beforeEach(() => {
 
 describe('FileManagerView', () => {
   it('blocks non-admins', async () => {
-    useAuth.mockReturnValue({ user: { role: 'gm' } })
+    mockUseAuth.mockReturnValue({ user: { role: 'gm' } })
     render(<FileManagerView />)
     // The panes are not rendered, so no file listing or action reaches a
     // non-admin. (The backend is the real gate — every /files route is
@@ -199,7 +218,7 @@ describe('FileManagerView', () => {
   })
 
   it('moves the selection across panes and reports the count', async () => {
-    filesApi.move.mockResolvedValue({ moved: [{}], skipped: [], count: 1 })
+    mockFiles.move.mockResolvedValue({ moved: [{}], skipped: [], count: 1 })
     render(<FileManagerView />)
     await pinRight()
 
@@ -216,7 +235,7 @@ describe('FileManagerView', () => {
   })
 
   it('surfaces the reason when every item is refused', async () => {
-    filesApi.move.mockResolvedValue({
+    mockFiles.move.mockResolvedValue({
       moved: [],
       skipped: [
         { path: 'books/bestiary.pdf', reason: 'A file named that exists', code: 'conflict' },
@@ -234,7 +253,7 @@ describe('FileManagerView', () => {
   })
 
   it('reports a failed move instead of failing silently', async () => {
-    filesApi.move.mockRejectedValue(new Error('Library is read-only'))
+    mockFiles.move.mockRejectedValue(new Error('Library is read-only'))
     render(<FileManagerView />)
     await pinRight()
 
@@ -258,12 +277,12 @@ describe('FileManagerView', () => {
     // `category_host` on the row is what says its children are system folders —
     // the depth a container kind is read at. Without it the new folder would be
     // a category, and the modal offers no kind at all (see the case below).
-    filesApi.browse.mockImplementation((path) =>
+    mockFiles.browse.mockImplementation((path: string) =>
       Promise.resolve(
         browseResult([folder('core', path || 'books', { category_host: true })], path)
       )
     )
-    filesApi.createFolder.mockResolvedValue({ path: 'books/New', container_kind: 'parent' })
+    mockFiles.createFolder.mockResolvedValue({ path: 'books/New', container_kind: 'parent' })
     render(<FileManagerView />)
     // Creating a folder is a right-click action on the folder it goes inside.
     await openMenuOn('core')
@@ -293,7 +312,7 @@ describe('FileManagerView', () => {
 
   // The context menu is where rename, marker changes, and folder deletion live.
   // Opening it requires a right-click on a row.
-  async function openMenuOn(name, pane = 'primary') {
+  async function openMenuOn(name: string, pane = 'primary') {
     const target = await screen.findByTestId(`file-pane-${pane}`)
     fireEvent.contextMenu(within(target).getByTestId(`entry-${name}`), {
       clientX: 10,
@@ -344,10 +363,10 @@ describe('FileManagerView', () => {
     it('scaffolds categories when the pane sits inside a system folder', async () => {
       // The gap this closes: navigating *into* a system folder leaves no row to
       // right-click, so the action was unreachable exactly where it is wanted.
-      filesApi.browse.mockImplementation((path) =>
+      mockFiles.browse.mockImplementation((path: string) =>
         Promise.resolve(browseResult([], path, { category_host: true }))
       )
-      filesApi.scaffold.mockResolvedValue({ path: '', created: ['Core'], existing: [] })
+      mockFiles.scaffold.mockResolvedValue({ path: '', created: ['Core'], existing: [] })
       render(<FileManagerView />)
       await userEvent.click(await screen.findByTestId('scaffold-primary'))
       await waitFor(() => expect(filesApi.scaffold).toHaveBeenCalledWith(''))
@@ -361,7 +380,7 @@ describe('FileManagerView', () => {
     })
 
     it('hides every write action on a read-only mount', async () => {
-      filesApi.browse.mockImplementation((path) =>
+      mockFiles.browse.mockImplementation((path: string) =>
         Promise.resolve(browseResult([], path, { writable: false, category_host: true }))
       )
       render(<FileManagerView />)
@@ -388,7 +407,7 @@ describe('FileManagerView', () => {
 
   // Multi-choice actions (pin edges, container kinds) live behind a submenu so
   // the top level stays scannable; open it before clicking a leaf.
-  async function openSubmenu(testId) {
+  async function openSubmenu(testId: string) {
     await userEvent.click(await screen.findByTestId(testId))
   }
 
@@ -402,7 +421,7 @@ describe('FileManagerView', () => {
   it('creates a folder in the pane\u2019s own folder from the breadcrumb button', async () => {
     // The right-click route needs a folder to click on, which an empty folder
     // does not have — so the pane carries its own "new folder here" button.
-    filesApi.createFolder.mockResolvedValue({ path: 'books/core/New' })
+    mockFiles.createFolder.mockResolvedValue({ path: 'books/core/New' })
     render(<FileManagerView />)
     await openFolderInPane()
 
@@ -430,7 +449,7 @@ describe('FileManagerView', () => {
   })
 
   it('hides the new-folder button on a read-only mount', async () => {
-    filesApi.browse.mockImplementation((path) =>
+    mockFiles.browse.mockImplementation((path: string) =>
       Promise.resolve(browseResult([folder('core', path)], path, { writable: false }))
     )
     render(<FileManagerView />)
@@ -443,13 +462,13 @@ describe('FileManagerView', () => {
   it('reloads the folder a new folder landed in, even when it was collapsed', async () => {
     // The bug: refresh only re-read folders already on screen, so a folder
     // created inside a collapsed parent never appeared until a manual refresh.
-    filesApi.createFolder.mockResolvedValue({ path: 'books/core/New' })
+    mockFiles.createFolder.mockResolvedValue({ path: 'books/core/New' })
     render(<FileManagerView />)
     await openMenuOn('core')
     await userEvent.click(screen.getByText('files.newFolderInside'))
     const input = await screen.findByLabelText('files.folderName')
     await userEvent.type(input, 'Maps')
-    filesApi.browse.mockClear()
+    mockFiles.browse.mockClear()
     await userEvent.click(screen.getByRole('button', { name: 'files.create' }))
 
     await waitFor(() => expect(filesApi.browse).toHaveBeenCalledWith('books/core'))
@@ -514,7 +533,7 @@ describe('FileManagerView', () => {
   })
 
   it('opens the preview modal with the loaded record', async () => {
-    filesApi.record.mockResolvedValue({ id: 'rec-1', title: 'Bestiary', page_count: 12 })
+    mockFiles.record.mockResolvedValue({ id: 'rec-1', title: 'Bestiary', page_count: 12 })
     render(<FileManagerView />)
     await openMenuOn('bestiary.pdf')
 
@@ -525,7 +544,7 @@ describe('FileManagerView', () => {
   })
 
   it('renames an item from the context menu', async () => {
-    filesApi.rename.mockResolvedValue({ from: 'books/core', to: 'books/rulebooks', records: 3 })
+    mockFiles.rename.mockResolvedValue({ from: 'books/core', to: 'books/rulebooks', records: 3 })
     render(<FileManagerView />)
     await openMenuOn('core')
 
@@ -540,7 +559,7 @@ describe('FileManagerView', () => {
   })
 
   it('toggles the NSFW marker on a folder', async () => {
-    filesApi.setMarkers.mockResolvedValue({ path: 'books/core', nsfw: true, container_kind: '' })
+    mockFiles.setMarkers.mockResolvedValue({ path: 'books/core', nsfw: true, container_kind: '' })
     render(<FileManagerView />)
     await openMenuOn('core')
 
@@ -553,7 +572,7 @@ describe('FileManagerView', () => {
   })
 
   it('sets a container kind from the context menu', async () => {
-    filesApi.setMarkers.mockResolvedValue({ path: 'books/core', container_kind: 'parent' })
+    mockFiles.setMarkers.mockResolvedValue({ path: 'books/core', container_kind: 'parent' })
     render(<FileManagerView />)
     await openMenuOn('core')
 
@@ -566,8 +585,8 @@ describe('FileManagerView', () => {
   })
 
   it('deletes an empty folder from disk after a plain confirmation', async () => {
-    filesApi.folderContents.mockResolvedValue({ has_content: false, name: 'core' })
-    filesApi.deleteEntry.mockResolvedValue({
+    mockFiles.folderContents.mockResolvedValue({ has_content: false, name: 'core' })
+    mockFiles.deleteEntry.mockResolvedValue({
       path: 'books/core',
       files: 0,
       records: 0,
@@ -590,8 +609,8 @@ describe('FileManagerView', () => {
   it('soft-removes a folder and says so, counting records rather than files', async () => {
     // The default path. The flash has to describe what happened, not what was
     // asked for: no file was touched, so "and 0 file(s)" would read as a failure.
-    filesApi.folderContents.mockResolvedValue({ has_content: true, name: 'core' })
-    filesApi.deleteEntry.mockResolvedValue({
+    mockFiles.folderContents.mockResolvedValue({ has_content: true, name: 'core' })
+    mockFiles.deleteEntry.mockResolvedValue({
       path: 'books/core',
       files: 0,
       records: 3,
@@ -610,8 +629,8 @@ describe('FileManagerView', () => {
   })
 
   it('makes a folder with content be confirmed by name before deleting', async () => {
-    filesApi.folderContents.mockResolvedValue({ has_content: true, name: 'core' })
-    filesApi.deleteEntry.mockResolvedValue({ path: 'books/core', files: 3, records: 3 })
+    mockFiles.folderContents.mockResolvedValue({ has_content: true, name: 'core' })
+    mockFiles.deleteEntry.mockResolvedValue({ path: 'books/core', files: 3, records: 3 })
     render(<FileManagerView />)
     await openMenuOn('core')
 
@@ -631,8 +650,8 @@ describe('FileManagerView', () => {
   })
 
   it('reports why a delete failed', async () => {
-    filesApi.folderContents.mockResolvedValue({ has_content: false, name: 'core' })
-    filesApi.deleteEntry.mockRejectedValue(new Error('Folder is not empty'))
+    mockFiles.folderContents.mockResolvedValue({ has_content: false, name: 'core' })
+    mockFiles.deleteEntry.mockRejectedValue(new Error('Folder is not empty'))
     render(<FileManagerView />)
     await openMenuOn('core')
 
@@ -643,7 +662,7 @@ describe('FileManagerView', () => {
   })
 
   it('offers a destination picker for a file', async () => {
-    filesApi.move.mockResolvedValue({ moved: [{}], skipped: [], count: 1 })
+    mockFiles.move.mockResolvedValue({ moved: [{}], skipped: [], count: 1 })
     render(<FileManagerView />)
     await openMenuOn('bestiary.pdf')
 
@@ -684,7 +703,7 @@ describe('FileManagerView', () => {
   })
 
   it('moves items dropped onto a pane', async () => {
-    filesApi.move.mockResolvedValue({ moved: [{}], skipped: [], count: 1 })
+    mockFiles.move.mockResolvedValue({ moved: [{}], skipped: [], count: 1 })
     render(<FileManagerView />)
     const pane = await screen.findByTestId('file-pane-primary')
 
@@ -701,7 +720,7 @@ describe('FileManagerView', () => {
   })
 
   it('warns when only some of the selection moved', async () => {
-    filesApi.move.mockResolvedValue({
+    mockFiles.move.mockResolvedValue({
       moved: [{}],
       skipped: [{ path: 'books/core', reason: 'exists', code: 'conflict' }],
       count: 1,
@@ -717,7 +736,7 @@ describe('FileManagerView', () => {
   })
 
   it('moves a selection from the pinned pane back into the primary', async () => {
-    filesApi.move.mockResolvedValue({ moved: [{}], skipped: [], count: 1 })
+    mockFiles.move.mockResolvedValue({ moved: [{}], skipped: [], count: 1 })
     render(<FileManagerView />)
     const second = await pinRight()
 
@@ -731,20 +750,20 @@ describe('FileManagerView', () => {
   it('refreshes on demand', async () => {
     render(<FileManagerView />)
     await screen.findByTestId('file-pane-primary')
-    filesApi.browse.mockClear()
+    mockFiles.browse.mockClear()
 
     await userEvent.click(screen.getByText('files.refresh'))
     await waitFor(() => expect(filesApi.browse).toHaveBeenCalledTimes(1))
   })
 
   it('refreshes both panes after a successful mutation', async () => {
-    filesApi.move.mockResolvedValue({ moved: [{}], skipped: [], count: 1 })
+    mockFiles.move.mockResolvedValue({ moved: [{}], skipped: [], count: 1 })
     render(<FileManagerView />)
     await pinRight()
 
     const pane = screen.getByTestId('file-pane-primary')
     await userEvent.click(within(pane).getByTestId('entry-bestiary.pdf'))
-    filesApi.browse.mockClear()
+    mockFiles.browse.mockClear()
     await userEvent.click(screen.getByTitle('files.moveAcrossHint'))
 
     // Both source and destination change, and either pane may be showing either.
@@ -771,7 +790,7 @@ describe('FileManagerView', () => {
   })
 
   it('hides a singleton container kind that another folder already claims', async () => {
-    filesApi.browse.mockImplementation((path) =>
+    mockFiles.browse.mockImplementation((path: string) =>
       Promise.resolve(
         browseResult([folder('core', path)], path, {
           singletons_taken: { 'one-page': 'books/One Page RPGs' },
@@ -789,7 +808,7 @@ describe('FileManagerView', () => {
   })
 
   it('lets the holder of a singleton kind change away from it', async () => {
-    filesApi.browse.mockImplementation((path) =>
+    mockFiles.browse.mockImplementation((path: string) =>
       Promise.resolve(
         browseResult([folder('core', path, { container_kind: 'one-page' })], path, {
           singletons_taken: { 'one-page': 'books/core' },
@@ -811,15 +830,15 @@ describe('FileManagerView', () => {
   // Which folders can hold category folders is the server's call — a system
   // folder can, a container cannot, however deep the containers nest — so the
   // view keys off the row's flag rather than re-deriving it from the path.
-  const showCategoryHost = (host) =>
-    filesApi.browse.mockImplementation((path) => {
+  const showCategoryHost = (host: boolean) =>
+    mockFiles.browse.mockImplementation((path: string) => {
       const shown = path || 'books'
       return Promise.resolve(browseResult([folder('core', shown, { category_host: host })], path))
     })
 
   it('scaffolds category folders for a system folder', async () => {
     showCategoryHost(true)
-    filesApi.scaffold.mockResolvedValue({ path: 'books/core', created: ['Core'], existing: [] })
+    mockFiles.scaffold.mockResolvedValue({ path: 'books/core', created: ['Core'], existing: [] })
     render(<FileManagerView />)
     await openMenuOn('core')
 
@@ -831,7 +850,7 @@ describe('FileManagerView', () => {
 
   it('says when the category folders already existed', async () => {
     showCategoryHost(true)
-    filesApi.scaffold.mockResolvedValue({ path: 'books/core', created: [], existing: ['Core'] })
+    mockFiles.scaffold.mockResolvedValue({ path: 'books/core', created: [], existing: ['Core'] })
     render(<FileManagerView />)
     await openMenuOn('core')
     await userEvent.click(await screen.findByTestId('scaffold-categories'))
@@ -852,7 +871,7 @@ describe('FileManagerView', () => {
   })
 
   it('opens the shared metadata editor for an indexed file', async () => {
-    filesApi.record.mockResolvedValue({ id: 'rec-1', title: 'Bestiary' })
+    mockFiles.record.mockResolvedValue({ id: 'rec-1', title: 'Bestiary' })
     render(<FileManagerView />)
     await openMenuOn('bestiary.pdf')
 
@@ -867,7 +886,7 @@ describe('FileManagerView', () => {
   it('offers metadata edit on a system folder', async () => {
     // books/<system> folders map to a GameSystem row, which carries editable
     // metadata even though the folder is not an indexed file.
-    filesApi.browse.mockImplementation((path) =>
+    mockFiles.browse.mockImplementation((path: string) =>
       Promise.resolve(
         browseResult(
           [folder('core', path, { record_id: 'sys-1', collection: 'system', title: 'Core' })],
@@ -875,7 +894,7 @@ describe('FileManagerView', () => {
         )
       )
     )
-    filesApi.record.mockResolvedValue({ id: 'sys-1', title: 'Core' })
+    mockFiles.record.mockResolvedValue({ id: 'sys-1', title: 'Core' })
     render(<FileManagerView />)
     await openMenuOn('core')
 
@@ -895,7 +914,7 @@ describe('FileManagerView', () => {
   it('refuses to open the editor for a type it cannot render', async () => {
     // The editor looks up its field list by type and threw on a miss, blanking
     // the page. An unknown type must produce a message, not a white screen.
-    filesApi.browse.mockImplementation((path) =>
+    mockFiles.browse.mockImplementation((path: string) =>
       Promise.resolve(
         browseResult([folder('core', path, { record_id: 'x1', collection: 'campaign' })], path)
       )
@@ -910,7 +929,7 @@ describe('FileManagerView', () => {
   })
 
   it('reports a record that comes back empty instead of opening a blank editor', async () => {
-    filesApi.record.mockResolvedValue(null)
+    mockFiles.record.mockResolvedValue(null)
     render(<FileManagerView />)
     await openMenuOn('bestiary.pdf')
     await userEvent.click(await screen.findByTestId('edit-metadata'))
@@ -920,7 +939,7 @@ describe('FileManagerView', () => {
   })
 
   it("omits the folder's current container type from the submenu", async () => {
-    filesApi.browse.mockImplementation((path) =>
+    mockFiles.browse.mockImplementation((path: string) =>
       Promise.resolve(browseResult([folder('core', path, { container_kind: 'publisher' })], path))
     )
     render(<FileManagerView />)
@@ -946,7 +965,7 @@ describe('FileManagerView', () => {
   it('hides the container submenu on a folder that cannot hold systems', async () => {
     // A tokens/ folder. Offering a container type here would write a marker the
     // scanner never reads — the folder would gain a badge and change nothing.
-    filesApi.browse.mockImplementation((path) =>
+    mockFiles.browse.mockImplementation((path: string) =>
       Promise.resolve(
         browseResult([folder('Goblins', 'tokens', { accepts_container_kind: false })], path)
       )
@@ -958,7 +977,7 @@ describe('FileManagerView', () => {
   })
 
   it('still offers the submenu on a folder already carrying a kind, so it can be cleared', async () => {
-    filesApi.browse.mockImplementation((path) =>
+    mockFiles.browse.mockImplementation((path: string) =>
       Promise.resolve(
         browseResult(
           [
@@ -979,7 +998,7 @@ describe('FileManagerView', () => {
   })
 
   it('marks a tokens folder as a frame folder', async () => {
-    filesApi.browse.mockImplementation((path) =>
+    mockFiles.browse.mockImplementation((path: string) =>
       Promise.resolve(
         browseResult(
           [
@@ -992,7 +1011,10 @@ describe('FileManagerView', () => {
         )
       )
     )
-    filesApi.setMarkers.mockResolvedValue({ path: 'tokens/Fantasy Frames', frames_container: true })
+    mockFiles.setMarkers.mockResolvedValue({
+      path: 'tokens/Fantasy Frames',
+      frames_container: true,
+    })
     render(<FileManagerView />)
     await openMenuOn('Fantasy Frames')
 
@@ -1006,7 +1028,7 @@ describe('FileManagerView', () => {
   })
 
   it('clears the frame marker on a folder that already carries it', async () => {
-    filesApi.browse.mockImplementation((path) =>
+    mockFiles.browse.mockImplementation((path: string) =>
       Promise.resolve(
         browseResult(
           [
@@ -1019,7 +1041,7 @@ describe('FileManagerView', () => {
         )
       )
     )
-    filesApi.setMarkers.mockResolvedValue({ path: 'tokens/Fantasy Frames' })
+    mockFiles.setMarkers.mockResolvedValue({ path: 'tokens/Fantasy Frames' })
     render(<FileManagerView />)
     await openMenuOn('Fantasy Frames')
 
@@ -1040,7 +1062,7 @@ describe('FileManagerView', () => {
   })
 
   it('reports a metadata load failure instead of opening an empty editor', async () => {
-    filesApi.record.mockRejectedValue(new Error('Not found'))
+    mockFiles.record.mockRejectedValue(new Error('Not found'))
     render(<FileManagerView />)
     await openMenuOn('bestiary.pdf')
     await userEvent.click(await screen.findByTestId('edit-metadata'))
@@ -1167,14 +1189,14 @@ describe('FileManagerView', () => {
 
   // Keyboard shortcuts act on the *focused* pane's cursor. Clicking a row both
   // selects it and puts the cursor on it, which is how these tests position it.
-  async function cursorOn(name, pane = 'primary') {
+  async function cursorOn(name: string, pane = 'primary') {
     const target = await screen.findByTestId(`file-pane-${pane}`)
     await userEvent.click(within(target).getByTestId(`entry-${name}`))
     return screen.getByTestId(`file-list-${pane === 'primary' ? 'primary' : 'secondary'}`)
   }
 
   it('previews the row under the cursor on the space bar', async () => {
-    filesApi.record.mockResolvedValue({ id: 'rec-1', title: 'Bestiary', page_count: 12 })
+    mockFiles.record.mockResolvedValue({ id: 'rec-1', title: 'Bestiary', page_count: 12 })
     render(<FileManagerView />)
     const list = await cursorOn('bestiary.pdf')
 
@@ -1187,7 +1209,7 @@ describe('FileManagerView', () => {
   it('refuses to preview a file that was never indexed', async () => {
     // The keyboard reaches rows the context menu hides: it only offers Preview
     // on an indexed file, while Space lands on whatever the cursor is on.
-    filesApi.browse.mockResolvedValue(
+    mockFiles.browse.mockResolvedValue(
       browseResult([file('unindexed.pdf', '', { record_id: null, collection: 'book' })])
     )
     render(<FileManagerView />)
@@ -1209,7 +1231,7 @@ describe('FileManagerView', () => {
   })
 
   it('opens the delete confirmation on Delete', async () => {
-    filesApi.folderContents.mockResolvedValue({ has_content: false })
+    mockFiles.folderContents.mockResolvedValue({ has_content: false })
     render(<FileManagerView />)
     const list = await cursorOn('bestiary.pdf')
 
@@ -1248,7 +1270,7 @@ describe('FileManagerView', () => {
   })
 
   it('returns focus to the list after a rename goes through', async () => {
-    filesApi.rename.mockResolvedValue({ from: 'books/core', to: 'books/rulebooks' })
+    mockFiles.rename.mockResolvedValue({ from: 'books/core', to: 'books/rulebooks' })
     render(<FileManagerView />)
     const list = await cursorOn('core')
 
@@ -1268,7 +1290,7 @@ describe('FileManagerView', () => {
     // arrows reaching the tree behind it. So this pins the end state rather
     // than a hand-back: whatever route the dialog took, the list must be
     // drivable the moment it is gone.
-    filesApi.record.mockResolvedValue({ id: 'rec-1', title: 'Bestiary', page_count: 12 })
+    mockFiles.record.mockResolvedValue({ id: 'rec-1', title: 'Bestiary', page_count: 12 })
     render(<FileManagerView />)
     const list = await cursorOn('bestiary.pdf')
 
@@ -1287,8 +1309,8 @@ describe('FileManagerView', () => {
   it('returns focus and keeps a place in the list after a delete', async () => {
     // The sequential-edit case from issue #460: delete a file, and both the
     // keys and the cursor must stay where the work is, not reset to the top.
-    filesApi.folderContents.mockResolvedValue({ has_content: false })
-    filesApi.deleteEntry.mockResolvedValue({
+    mockFiles.folderContents.mockResolvedValue({ has_content: false })
+    mockFiles.deleteEntry.mockResolvedValue({
       path: 'books/bestiary.pdf',
       files: 1,
       records: 1,
@@ -1299,7 +1321,7 @@ describe('FileManagerView', () => {
 
     // Only now does the deleted row leave the listing, so the refresh after the
     // delete reads back a tree without it.
-    filesApi.browse.mockImplementation((path) =>
+    mockFiles.browse.mockImplementation((path: string) =>
       Promise.resolve(browseResult([folder('core', path || 'books')], path))
     )
 
@@ -1320,7 +1342,7 @@ describe('FileManagerView', () => {
   it('returns focus to the list after the metadata editor saves', async () => {
     // Saving is the usual way out of that dialog, and it closes by its own
     // route rather than through onClose — so it needs the hand-back too.
-    filesApi.record.mockResolvedValue({ id: 'rec-1', title: 'Bestiary' })
+    mockFiles.record.mockResolvedValue({ id: 'rec-1', title: 'Bestiary' })
     render(<FileManagerView />)
     const list = await cursorOn('bestiary.pdf')
 

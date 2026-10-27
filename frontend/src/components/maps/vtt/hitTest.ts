@@ -1,4 +1,5 @@
 import { distance, distanceToPolyline } from './geometry'
+import type { FeatureKey, LineKey, Point, Selection, VttDoc } from './types'
 
 /**
  * Picking a feature out from under the cursor.
@@ -64,7 +65,7 @@ export const LIGHT_PIXELS = LIGHT_MARKER_PX + 4
  * one screen pixel is `1 / (cellPx * scale)` grid units. Guarded because a zero
  * cell size would otherwise hand back Infinity and select the whole map.
  */
-export function gridTolerance(pixels, cellPx, scale = 1) {
+export function gridTolerance(pixels: number, cellPx: number, scale = 1): number {
   const denom = cellPx * (scale || 1)
   if (!denom || denom <= 0) return 0
   return pixels / denom
@@ -77,17 +78,22 @@ export function gridTolerance(pixels, cellPx, scale = 1) {
  * tolerance can be kept constant on screen. Returns `{ key, index }` naming the
  * document array and position, ready to use as a selection.
  */
-export function hitTest(doc, pt, { cellPx, scale = 1 } = {}) {
+export function hitTest(
+  doc: Partial<Pick<VttDoc, FeatureKey>> | null | undefined,
+  pt: Point,
+  { cellPx, scale = 1 }: { cellPx?: number; scale?: number } = {}
+): Selection | null {
   if (!doc) return null
-  const lineReach = gridTolerance(HIT_PIXELS, cellPx, scale)
-  const lightReach = gridTolerance(LIGHT_PIXELS, cellPx, scale)
+  // An absent cellPx makes the denominator NaN, which gridTolerance turns into 0.
+  const lineReach = gridTolerance(HIT_PIXELS, cellPx as number, scale)
+  const lightReach = gridTolerance(LIGHT_PIXELS, cellPx as number, scale)
   if (lineReach <= 0 && lightReach <= 0) return null
 
   // Lights win outright inside their marker, because the marker is a solid dot
   // drawn on top of everything else — a click within it is not ambiguous, and
   // letting a wall underneath compete is exactly the bug. The nearest light
   // still wins against other lights, so overlapping dots stay selectable.
-  let nearestLight = null
+  let nearestLight: { key: 'lights'; index: number; d: number } | null = null
   doc.lights?.forEach((light, index) => {
     if (!light?.position) return
     const d = distance(pt, light.position)
@@ -95,15 +101,17 @@ export function hitTest(doc, pt, { cellPx, scale = 1 } = {}) {
       nearestLight = { key: 'lights', index, d }
     }
   })
-  if (nearestLight) return { key: nearestLight.key, index: nearestLight.index }
+  // Narrowed explicitly: the assignment happens inside a callback, which TypeScript does not follow.
+  const light = nearestLight as { key: 'lights'; index: number; d: number } | null
+  if (light) return { key: light.key, index: light.index }
 
   // Outside every dot, the line features compete on plain distance: for two
   // walls near each other, nearest is simply the right answer.
-  let best = null
-  const consider = (key, index, d) => {
+  let best: { key: FeatureKey; index: number; d: number } | null = null
+  const consider = (key: FeatureKey, index: number, d: number) => {
     if (d <= lineReach && (!best || d < best.d)) best = { key, index, d }
   }
-  for (const key of ['line_of_sight', 'objects_line_of_sight']) {
+  for (const key of ['line_of_sight', 'objects_line_of_sight'] as LineKey[]) {
     doc[key]?.forEach((line, index) => consider(key, index, distanceToPolyline(pt, line)))
   }
   doc.portals?.forEach((portal, index) => {
@@ -111,5 +119,6 @@ export function hitTest(doc, pt, { cellPx, scale = 1 } = {}) {
     consider('portals', index, distanceToPolyline(pt, portal.bounds))
   })
 
-  return best ? { key: best.key, index: best.index } : null
+  const hit = best as { key: FeatureKey; index: number; d: number } | null
+  return hit ? { key: hit.key, index: hit.index } : null
 }

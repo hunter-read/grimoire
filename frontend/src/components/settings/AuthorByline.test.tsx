@@ -4,7 +4,7 @@ import AuthorByline from './AuthorByline'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k, opts) => (opts?.author ? `${k}:${opts.author}` : k),
+    t: (k: string, opts?: Record<string, string>) => (opts?.author ? `${k}:${opts.author}` : k),
   }),
 }))
 

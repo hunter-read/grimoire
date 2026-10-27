@@ -1,4 +1,6 @@
+import type { TFunction } from 'i18next'
 import { tokenFrames } from '../../../api'
+import type { Schema } from '../../../api'
 import { GENERIC_SHAPES, genericFrameUrl, genericShape, isGenericFrame } from './genericFrames'
 
 /**
@@ -17,8 +19,38 @@ import { GENERIC_SHAPES, genericFrameUrl, genericShape, isGenericFrame } from '.
  * and they should not cost an authenticated request to draw.
  */
 
+/** Another version of a library frame. */
+export type FrameVariant = Schema<'FrameVariantOut'>
+
+/**
+ * One entry in the catalogue: a generic shape, a bundled frame, or a library
+ * frame from the API. Built-ins carry a translation key; library frames a name.
+ */
+export interface Frame {
+  id: string
+  builtin: boolean
+  generic?: boolean
+  nameKey?: string
+  name?: string
+  url?: string
+  group?: string
+  format?: string
+  token_id?: string | null
+  variants?: FrameVariant[]
+  variant_kind?: string
+  variant_label?: string
+}
+
+/** A picker section: the built-ins, or one folder of library frames. */
+export interface FrameGroupData {
+  key: string
+  builtin: boolean
+  label: string
+  frames: Frame[]
+}
+
 /** The recolourable shapes, listed ahead of the themed frames in the picker. */
-export const GENERIC_FRAMES = GENERIC_SHAPES.map((shape) => ({
+export const GENERIC_FRAMES: Frame[] = GENERIC_SHAPES.map((shape) => ({
   id: `generic:${shape}`,
   nameKey: `tokenEditor.shape_${shape}`,
   generic: true,
@@ -33,7 +65,7 @@ export const GENERIC_FRAMES = GENERIC_SHAPES.map((shape) => ({
  * in greyscale and for colour-blind users, while a silhouette difference
  * survives. See the authoring notes in each SVG.
  */
-export const BUILTIN_FRAMES = [
+export const BUILTIN_FRAMES: (Frame & { url: string })[] = [
   { id: 'builtin:pc', nameKey: 'tokenEditor.framePc', url: '/frames/pc.svg', builtin: true },
   { id: 'builtin:npc', nameKey: 'tokenEditor.frameNpc', url: '/frames/npc.svg', builtin: true },
   {
@@ -48,7 +80,8 @@ export const BUILTIN_FRAMES = [
  *  server uses for its ids, so the two can never collide. */
 const BUILTIN_PREFIX = 'builtin:'
 
-export const isBuiltinFrame = (id) => typeof id === 'string' && id.startsWith(BUILTIN_PREFIX)
+export const isBuiltinFrame = (id: unknown): id is string =>
+  typeof id === 'string' && id.startsWith(BUILTIN_PREFIX)
 
 /**
  * Resolve a frame (or frame id) to the URL its image loads from.
@@ -56,7 +89,10 @@ export const isBuiltinFrame = (id) => typeof id === 'string' && id.startsWith(BU
  * `color` applies only to the generic shapes, which are generated on demand;
  * the themed and user frames are files and ignore it.
  */
-export function frameUrl(frame, color) {
+export function frameUrl(
+  frame: string | { id?: string | null } | null | undefined,
+  color?: string | null
+): string | null {
   if (!frame) return null
   const id = typeof frame === 'string' ? frame : frame.id
   if (!id) return null
@@ -69,7 +105,7 @@ export function frameUrl(frame, color) {
 }
 
 /** True when a frame's appearance responds to the colour picker. */
-export const frameIsRecolourable = (id) => isGenericFrame(id)
+export const frameIsRecolourable = (id: unknown): boolean => isGenericFrame(id)
 
 /**
  * Fetch the catalogue: built-ins first, then user frames grouped by folder.
@@ -78,11 +114,11 @@ export const frameIsRecolourable = (id) => isGenericFrame(id)
  * built-ins are still perfectly usable — so it degrades to those rather than
  * failing the editor open.
  */
-export async function fetchFrames() {
-  const builtins = [...GENERIC_FRAMES, ...BUILTIN_FRAMES].map((f) => ({ ...f, group: '' }))
+export async function fetchFrames(): Promise<Frame[]> {
+  const builtins: Frame[] = [...GENERIC_FRAMES, ...BUILTIN_FRAMES].map((f) => ({ ...f, group: '' }))
   try {
     const data = await tokenFrames.list()
-    const user = (data?.frames || []).map((f) => ({ ...f, builtin: false }))
+    const user: Frame[] = (data?.frames || []).map((f) => ({ ...f, builtin: false }))
     return [...builtins, ...user]
   } catch {
     return builtins
@@ -96,25 +132,28 @@ export async function fetchFrames() {
  * folder that holds their `.frames` directory, so a system's frames sit beside
  * that system's tokens.
  */
-export function groupFrames(frames) {
-  const groups = []
-  const index = new Map()
+export function groupFrames(frames: Frame[]): FrameGroupData[] {
+  const groups: FrameGroupData[] = []
+  const index = new Map<string, FrameGroupData>()
   for (const frame of frames) {
     const key = frame.builtin ? '' : frame.group || ''
     const bucket = frame.builtin ? 'builtin' : `user:${key}`
     if (!index.has(bucket)) {
       index.set(bucket, { key: bucket, builtin: !!frame.builtin, label: key, frames: [] })
-      groups.push(index.get(bucket))
+      groups.push(index.get(bucket)!)
     }
-    index.get(bucket).frames.push(frame)
+    index.get(bucket)!.frames.push(frame)
   }
   return groups
 }
 
 /** Display name for a frame — built-ins are translated, user frames are not. */
-export function frameLabel(frame, t) {
+export function frameLabel(
+  frame: Pick<Frame, 'builtin' | 'nameKey' | 'name'> | null | undefined,
+  t: TFunction
+): string {
   if (!frame) return ''
-  return frame.builtin ? t(frame.nameKey) : frame.name
+  return (frame.builtin ? t(frame.nameKey!) : frame.name) as string
 }
 
 /**
@@ -125,7 +164,11 @@ export function frameLabel(frame, t) {
  * readily as a filename. An empty query matches everything, so callers can pass
  * the raw input without special-casing it.
  */
-export function matchesFrameQuery(frame, query, t) {
+export function matchesFrameQuery(
+  frame: Pick<Frame, 'builtin' | 'nameKey' | 'name' | 'group'> | null | undefined,
+  query: string | null | undefined,
+  t: TFunction
+): boolean {
   const needle = (query || '').trim().toLowerCase()
   if (!needle) return true
   if (!frame) return false
@@ -142,7 +185,10 @@ export function matchesFrameQuery(frame, query, t) {
  * the *family* rather than the exact row. Returns null for the built-ins and
  * generic shapes, which have no versions.
  */
-export function frameFamily(frames, id) {
+export function frameFamily(
+  frames: Frame[] | null | undefined,
+  id: string | null | undefined
+): Frame | null {
   if (!id || !frames) return null
   for (const frame of frames) {
     if (frame.id === id) return frame

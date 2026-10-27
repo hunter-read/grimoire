@@ -13,8 +13,8 @@ import {
   toggleQueryTag,
 } from './tagQuery'
 
-const inc = (...tags) => ({ mode: GROUP_INCLUDE, tags })
-const exc = (...tags) => ({ mode: GROUP_EXCLUDE, tags })
+const inc = (...tags: unknown[]) => ({ mode: GROUP_INCLUDE, tags })
+const exc = (...tags: unknown[]) => ({ mode: GROUP_EXCLUDE, tags })
 
 describe('toGroups', () => {
   it('returns no groups for empty values', () => {

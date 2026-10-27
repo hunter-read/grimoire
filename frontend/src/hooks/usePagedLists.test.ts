@@ -3,16 +3,18 @@ import { renderHook, act, waitFor } from '@testing-library/react'
 import usePagedLists from './usePagedLists'
 
 // A fake endpoint over `rows`, recording each request.
-function endpoint(rows) {
-  const calls = []
-  const fetchPage = vi.fn((key, offset, limit) => {
+function endpoint<T>(rows: T[]) {
+  const calls: { key: string; offset: number; limit: number }[] = []
+  const fetchPage = vi.fn((key: string, offset: number, limit: number) => {
     calls.push({ key, offset, limit })
     return Promise.resolve({ total: rows.length, rows: rows.slice(offset, offset + limit) })
   })
   return { fetchPage, calls }
 }
 
-const ROWS = Array.from({ length: 5 }, (_, i) => ({ id: `r${i}` }))
+const ROWS: { id: string; seen?: boolean }[] = Array.from({ length: 5 }, (_, i) => ({
+  id: `r${i}`,
+}))
 
 describe('usePagedLists', () => {
   it('loads a list a page at a time and stops at the end', async () => {
@@ -21,14 +23,14 @@ describe('usePagedLists', () => {
     expect(result.current.get('a')).toBeUndefined()
 
     act(() => result.current.ensure('a'))
-    await waitFor(() => expect(result.current.get('a').items).toHaveLength(2))
-    expect(result.current.get('a').hasMore).toBe(true)
+    await waitFor(() => expect(result.current.get('a')!.items).toHaveLength(2))
+    expect(result.current.get('a')!.hasMore).toBe(true)
 
     act(() => result.current.loadMore('a'))
-    await waitFor(() => expect(result.current.get('a').items).toHaveLength(4))
+    await waitFor(() => expect(result.current.get('a')!.items).toHaveLength(4))
     act(() => result.current.loadMore('a'))
-    await waitFor(() => expect(result.current.get('a').items).toHaveLength(5))
-    expect(result.current.get('a').hasMore).toBe(false)
+    await waitFor(() => expect(result.current.get('a')!.items).toHaveLength(5))
+    expect(result.current.get('a')!.hasMore).toBe(false)
 
     act(() => result.current.loadMore('a'))
     expect(calls.map((c) => c.offset)).toEqual([0, 2, 4])
@@ -41,7 +43,7 @@ describe('usePagedLists', () => {
       result.current.ensure('a')
       result.current.ensure('a')
     })
-    await waitFor(() => expect(result.current.get('a').items).toHaveLength(2))
+    await waitFor(() => expect(result.current.get('a')!.items).toHaveLength(2))
     expect(fetchPage).toHaveBeenCalledTimes(1)
   })
 
@@ -52,15 +54,15 @@ describe('usePagedLists', () => {
       result.current.ensure('a')
       result.current.ensure('b')
     })
-    await waitFor(() => expect(result.current.get('b').items).toHaveLength(3))
+    await waitFor(() => expect(result.current.get('b')!.items).toHaveLength(3))
     expect(Object.keys(result.current.lists).sort()).toEqual(['a', 'b'])
   })
 
   it('drops every list, and ignores stale responses, when the reset key changes', async () => {
-    let release
+    let release: () => void
     const fetchPage = vi.fn(
       () =>
-        new Promise((resolve) => {
+        new Promise<{ total: number; rows: { id: string }[] }>((resolve) => {
           release = () => resolve({ total: 1, rows: [{ id: 'stale' }] })
         })
     )
@@ -77,7 +79,7 @@ describe('usePagedLists', () => {
     const fetchPage = vi.fn(() => Promise.reject(new Error('boom')))
     const { result } = renderHook(() => usePagedLists(fetchPage, 'k'))
     act(() => result.current.ensure('a'))
-    await waitFor(() => expect(result.current.get('a').error).toBeTruthy())
+    await waitFor(() => expect(result.current.get('a')!.error).toBeTruthy())
     act(() => result.current.loadMore('a'))
     expect(fetchPage).toHaveBeenCalledTimes(1)
   })
@@ -86,30 +88,30 @@ describe('usePagedLists', () => {
     const { fetchPage } = endpoint(ROWS)
     const { result } = renderHook(() => usePagedLists(fetchPage, 'k', { pageSize: 2 }))
     act(() => result.current.ensure('a'))
-    await waitFor(() => expect(result.current.get('a').items).toHaveLength(2))
+    await waitFor(() => expect(result.current.get('a')!.items).toHaveLength(2))
     act(() => result.current.mapItems((r) => ({ ...r, seen: true })))
-    expect(result.current.get('a').items.every((r) => r.seen)).toBe(true)
+    expect(result.current.get('a')!.items.every((r) => r.seen)).toBe(true)
   })
 
   it('drops removed items and shrinks the total to match', async () => {
     const { fetchPage } = endpoint(ROWS)
     const { result } = renderHook(() => usePagedLists(fetchPage, 'k', { pageSize: 2 }))
     act(() => result.current.ensure('a'))
-    await waitFor(() => expect(result.current.get('a').items).toHaveLength(2))
+    await waitFor(() => expect(result.current.get('a')!.items).toHaveLength(2))
     act(() => result.current.removeItems((r) => r.id === 'r0'))
-    expect(result.current.get('a').items.map((r) => r.id)).toEqual(['r1'])
+    expect(result.current.get('a')!.items.map((r) => r.id)).toEqual(['r1'])
     // Four rows remain on the server, so the list still has more to load.
-    expect(result.current.get('a').total).toBe(4)
-    expect(result.current.get('a').hasMore).toBe(true)
+    expect(result.current.get('a')!.total).toBe(4)
+    expect(result.current.get('a')!.hasMore).toBe(true)
   })
 
   it('asks for a smaller first page, then full pages', async () => {
     const { fetchPage, calls } = endpoint(Array.from({ length: 300 }, (_, i) => ({ id: i })))
     const { result } = renderHook(() => usePagedLists(fetchPage, 'k'))
     act(() => result.current.ensure('a'))
-    await waitFor(() => expect(result.current.get('a').items).toHaveLength(60))
+    await waitFor(() => expect(result.current.get('a')!.items).toHaveLength(60))
     act(() => result.current.loadMore('a'))
-    await waitFor(() => expect(result.current.get('a').items).toHaveLength(260))
+    await waitFor(() => expect(result.current.get('a')!.items).toHaveLength(260))
     expect(calls.map((c) => [c.offset, c.limit])).toEqual([
       [0, 60],
       [60, 200],

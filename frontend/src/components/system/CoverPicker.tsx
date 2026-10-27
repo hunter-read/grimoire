@@ -4,6 +4,7 @@ import { LuImage } from 'react-icons/lu'
 import { mediaUrl } from '../../api'
 import LazyImg from '../LazyImg'
 import { sortForCoverPicker } from './coverPickerUtils'
+import type { CoverPickerBook } from './coverPickerUtils'
 
 // A system can have hundreds of books; showing every thumbnail at once is both
 // slow and unusable, so start with a page and let the user ask for more. The
@@ -30,17 +31,25 @@ const PREVIEW_DELAY_MS = 500
  *   loading  – books are still being fetched; hold the section's space rather
  *              than rendering nothing and expanding once they arrive
  */
+export interface CoverPickerProps {
+  books: CoverPickerBook[] | null | undefined
+  value: string | null | undefined
+  onChange: (bookId: string | null) => void
+  pageSize?: number
+  loading?: boolean
+}
+
 export default function CoverPicker({
   books,
   value,
   onChange,
   pageSize = PAGE_SIZE,
   loading = false,
-}) {
+}: CoverPickerProps) {
   const { t } = useTranslation()
   const [shown, setShown] = useState(pageSize)
-  const [preview, setPreview] = useState(null)
-  const timerRef = useRef(null)
+  const [preview, setPreview] = useState<CoverPickerBook | null>(null)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const candidates = useMemo(() => sortForCoverPicker(books, value), [books, value])
 
@@ -48,7 +57,7 @@ export default function CoverPicker({
   // component and, worse, pop a preview over whatever replaced it.
   useEffect(() => () => clearTimeout(timerRef.current), [])
 
-  const openPreview = (book) => {
+  const openPreview = (book: CoverPickerBook) => {
     clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => setPreview(book), PREVIEW_DELAY_MS)
   }

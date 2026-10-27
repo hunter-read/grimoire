@@ -1,3 +1,30 @@
+import type { CSSProperties, ReactNode, RefObject } from 'react'
+import type { Schema } from '../../api'
+
+/** A page's word geometry, for the selectable text layer. */
+export type PageWords = Schema<'PageWordsResponse'>
+
+/** The reader's cache of page word geometry; null for a page that has none. */
+export type WordsCacheRef = RefObject<Record<number, PageWords | null | undefined>>
+
+/** Builds a page image URL at a render width. */
+export type PageUrl = (page: number, width: number) => string
+
+/** Draws the zoom tiles over one page (see ZoomTiles). */
+export type RenderTiles = (
+  page: number,
+  words: PageWords,
+  options?: { joined?: boolean }
+) => ReactNode
+
+/** The props every page layout takes for its entrance animation and zoom. */
+export interface PageMotion {
+  zoom: number
+  pan: { x: number; y: number }
+  axisRef: RefObject<'x' | 'y'>
+  directionRef: RefObject<number>
+}
+
 // Shared page-rendering constants and animation helper for the reader's page
 // components (SinglePage / SpreadPage) and ReaderView's image preloader.
 
@@ -37,7 +64,7 @@ export const TEXT_CACHE_MAX = 200
  * `max`. Relies on JS objects preserving string-key insertion order; callers
  * must delete-then-reinsert if they want to mark an entry as recently used.
  */
-export function pruneCache(cacheRef, max) {
+export function pruneCache(cacheRef: RefObject<Record<string, unknown>>, max: number): void {
   const keys = Object.keys(cacheRef.current)
   if (keys.length <= max) return
   for (const key of keys.slice(0, keys.length - max)) {
@@ -46,7 +73,12 @@ export function pruneCache(cacheRef, max) {
 }
 
 /** Page-turn entrance animation + zoom/pan transform for a page container. */
-export function animStyle(axisRef, directionRef, zoom, pan) {
+export function animStyle(
+  axisRef: RefObject<'x' | 'y'>,
+  directionRef: RefObject<number>,
+  zoom: number,
+  pan: { x: number; y: number }
+): CSSProperties {
   const axis = axisRef.current
   const dir = directionRef.current
   return {

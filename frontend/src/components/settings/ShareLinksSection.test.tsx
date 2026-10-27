@@ -3,12 +3,13 @@ import { render, screen } from '@testing-library/react'
 import ShareLinksSection from './ShareLinksSection'
 import UserShareLinksList from './UserShareLinksList'
 import { shareLinks } from '../../api'
+import type { Schema } from '../../api'
 
 vi.mock('../../api', () => ({
   shareLinks: { list: vi.fn(), listForUser: vi.fn(), revoke: vi.fn(), remove: vi.fn() },
 }))
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k) => k, i18n: { language: 'en-US' } }),
+  useTranslation: () => ({ t: (k: string) => k, i18n: { language: 'en-US' } }),
 }))
 
 const link = {
@@ -22,27 +23,27 @@ const link = {
   has_password: false,
   state: 'suspended',
   use_count: 0,
-}
+} as Schema<'ShareLinkOut'>
 
 beforeEach(() => vi.resetAllMocks())
 
 describe('ShareLinksSection', () => {
   it('lists my links across items', async () => {
-    shareLinks.list.mockResolvedValue([link])
+    vi.mocked(shareLinks.list).mockResolvedValue([link])
     render(<ShareLinksSection canShare />)
     expect(await screen.findByText('Core Rules')).toBeInTheDocument()
     expect(screen.getByText('userSettings.shareLinks.description')).toBeInTheDocument()
   })
 
   it('explains paused links to someone without the permission', async () => {
-    shareLinks.list.mockResolvedValue([])
+    vi.mocked(shareLinks.list).mockResolvedValue([])
     render(<ShareLinksSection canShare={false} />)
     expect(screen.getByText('userSettings.shareLinks.noPermission')).toBeInTheDocument()
     expect(await screen.findByText('userSettings.shareLinks.none')).toBeInTheDocument()
   })
 
   it('shows a load failure', async () => {
-    shareLinks.list.mockRejectedValue(new Error('down'))
+    vi.mocked(shareLinks.list).mockRejectedValue(new Error('down'))
     render(<ShareLinksSection canShare />)
     expect(await screen.findByText('down')).toBeInTheDocument()
   })
@@ -50,14 +51,14 @@ describe('ShareLinksSection', () => {
 
 describe('UserShareLinksList', () => {
   it("lists one user's links", async () => {
-    shareLinks.listForUser.mockResolvedValue([link])
+    vi.mocked(shareLinks.listForUser).mockResolvedValue([link])
     render(<UserShareLinksList userId="u9" />)
     expect(await screen.findByText('Core Rules')).toBeInTheDocument()
     expect(shareLinks.listForUser).toHaveBeenCalledWith('u9')
   })
 
   it('shows an empty state and failures', async () => {
-    shareLinks.listForUser.mockRejectedValue(new Error(''))
+    vi.mocked(shareLinks.listForUser).mockRejectedValue(new Error(''))
     render(<UserShareLinksList userId="u9" />)
     expect(await screen.findByText('share.loadFailed')).toBeInTheDocument()
     expect(screen.getByText('users.shareLinks.none')).toBeInTheDocument()

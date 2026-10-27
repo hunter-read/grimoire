@@ -1,6 +1,8 @@
+import type { CSSProperties } from 'react'
+
 // Shared modal styles for the character-sheet editor and its template picker.
 
-export const overlay = {
+export const overlay: CSSProperties = {
   position: 'fixed',
   inset: 0,
   background: 'var(--scrim-strong)',
@@ -11,7 +13,7 @@ export const overlay = {
   padding: 16,
 }
 
-export const panel = {
+export const panel: CSSProperties = {
   background: 'var(--bg-panel)',
   border: '1px solid var(--border)',
   borderRadius: 16,
@@ -23,7 +25,7 @@ export const panel = {
   position: 'relative',
 }
 
-export const closeBtn = {
+export const closeBtn: CSSProperties = {
   position: 'absolute',
   top: 14,
   right: 14,
@@ -33,7 +35,7 @@ export const closeBtn = {
   color: 'var(--text-muted)',
 }
 
-export const goldBtn = {
+export const goldBtn: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 6,
@@ -47,7 +49,7 @@ export const goldBtn = {
   fontWeight: 600,
 }
 
-export const ghostBtn = {
+export const ghostBtn: CSSProperties = {
   padding: '9px 16px',
   background: 'var(--bg-deep)',
   border: '1px solid var(--border)',
@@ -57,7 +59,7 @@ export const ghostBtn = {
   fontSize: 13,
 }
 
-export const fieldInput = {
+export const fieldInput: CSSProperties = {
   width: '100%',
   padding: '7px 9px',
   borderRadius: 6,

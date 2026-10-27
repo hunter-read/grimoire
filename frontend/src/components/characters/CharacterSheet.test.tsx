@@ -107,24 +107,25 @@ describe('CharacterSheet', () => {
 describe('CharacterSheet — phone layout', () => {
   // A controllable matchMedia: `set` flips the match and fires 'change', as a
   // rotation across the breakpoint would.
-  function installMatchMedia(initial) {
+  type ChangeListener = (event: { matches: boolean }) => void
+  function installMatchMedia(initial: boolean) {
     let matches = initial
-    const listeners = new Set()
-    const queries = []
-    window.matchMedia = vi.fn((query) => {
+    const listeners = new Set<ChangeListener>()
+    const queries: string[] = []
+    window.matchMedia = vi.fn((query: string) => {
       queries.push(query)
       return {
         get matches() {
           return matches
         },
         media: query,
-        addEventListener: (_type, cb) => listeners.add(cb),
-        removeEventListener: (_type, cb) => listeners.delete(cb),
-      }
+        addEventListener: (_type: string, cb: ChangeListener) => listeners.add(cb),
+        removeEventListener: (_type: string, cb: ChangeListener) => listeners.delete(cb),
+      } as unknown as MediaQueryList
     })
     return {
       queries,
-      set: (next) => {
+      set: (next: boolean) => {
         matches = next
         listeners.forEach((cb) => cb({ matches }))
       },
@@ -136,7 +137,7 @@ describe('CharacterSheet — phone layout', () => {
     window.matchMedia = originalMatchMedia
   })
 
-  const heading = (text) => ({
+  const heading = (text: string) => ({
     tag: 'h2',
     children: [{ text }],
   })
@@ -187,6 +188,7 @@ describe('CharacterSheet — phone layout', () => {
 
   it('keeps the desktop layout on a phone when the sheet has no phone layout', () => {
     installMatchMedia(true)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- picked off to leave the rest
     const { mobile_layout_ast: _a, mobile_styles_css: _c, ...desktopOnly } = PHONE
     render(<CharacterSheet document={desktopOnly} data={{}} />)
     expect(screen.getByRole('heading', { name: 'Desktop Sheet' })).toBeInTheDocument()
@@ -220,7 +222,7 @@ describe('CharacterSheet — phone layout', () => {
     const { container } = render(<CharacterSheet document={tabbed} data={{}} />)
     const tablist = container.querySelector('.gc-sheet .gc-tablist')
     expect(tablist).toBeTruthy()
-    expect(tablist.querySelectorAll(':scope > [role="tab"]')).toHaveLength(2)
+    expect(tablist!.querySelectorAll(':scope > [role="tab"]')).toHaveLength(2)
     expect(container.querySelectorAll('.gc-sheet input[type="checkbox"]')).toHaveLength(3)
   })
 

@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
+import { useState, useRef, useEffect, useMemo, useCallback, type KeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { LuX, LuHeart } from 'react-icons/lu'
 import { tags as tagsApi } from '../../api'
+import type { Schema } from '../../api'
 
 const GROUP_LIMIT = 10
 const DEBOUNCE_MS = 200
@@ -14,7 +15,7 @@ const DEBOUNCE_MS = 200
 // subtags, so "Storage/Box1" was never going to nest anything anyway.
 const FORBIDDEN_TAG_CHARS = /[/\\]/
 
-export function tagNameIsAddressable(name) {
+export function tagNameIsAddressable(name: string | null | undefined): boolean {
   return !FORBIDDEN_TAG_CHARS.test(String(name || ''))
 }
 
@@ -35,16 +36,38 @@ export function tagNameIsAddressable(name) {
  * tag); matching/dedup is case-insensitive. `value` is the selected string[];
  * `onChange(next)` receives the updated list.
  */
-export default function TagPicker({ value = [], onChange, resourceType = null, placeholder }) {
+export interface TagPickerProps {
+  /** The selected tags, in display casing. */
+  value?: string[]
+  onChange: (next: string[]) => void
+  /** The field's category (system|book|map|token|audio), for the "in this category" group. */
+  resourceType?: string | null
+  placeholder?: string
+}
+
+type TagItem = Schema<'TagListItem'>
+/** A selectable dropdown row: an existing tag, or the "Create" row for new text. */
+type TagOption = (TagItem & { type?: undefined }) | { type: 'create'; display: string }
+type TagGroup = { header: string | null; rows: TagOption[] }
+type FlatEntry = { kind: 'header'; label: string } | { kind: 'option'; row: TagOption; idx: number }
+
+export default function TagPicker({
+  value = [],
+  onChange,
+  resourceType = null,
+  placeholder,
+}: TagPickerProps) {
   const { t } = useTranslation()
-  const [allTags, setAllTags] = useState([]) // [{internal, display, category, is_favorite}]
+  const [allTags, setAllTags] = useState<TagItem[]>([]) // [{internal, display, category, is_favorite}]
   const [query, setQuery] = useState('')
   const [debouncedQ, setDebouncedQ] = useState('')
   const [open, setOpen] = useState(false)
   const [activeIdx, setActiveIdx] = useState(0)
-  const [menuRect, setMenuRect] = useState(null) // {left, top, width} in viewport coords
-  const wrapRef = useRef(null)
-  const inputRef = useRef(null)
+  const [menuRect, setMenuRect] = useState<{ left: number; top: number; width: number } | null>(
+    null
+  ) // {left, top, width} in viewport coords
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   // Load the whole tag catalog once (unscoped, so every tag's category is known
   // and group 3 can list tags from other categories).
@@ -66,7 +89,7 @@ export default function TagPicker({ value = [], onChange, resourceType = null, p
   }, [query])
 
   const selectedKeys = useMemo(() => new Set(value.map((v) => v.trim().toLowerCase())), [value])
-  const has = (internal) => selectedKeys.has(internal)
+  const has = (internal: string) => selectedKeys.has(internal)
 
   // The dropdown renders in a portal (position: fixed) so an ancestor with
   // overflow:hidden or a tight width can't clip it. Track the input's rect so the
@@ -91,10 +114,11 @@ export default function TagPicker({ value = [], onChange, resourceType = null, p
   }, [open, measure, value.length])
 
   useEffect(() => {
-    const onDoc = (e) => {
+    const onDoc = (e: MouseEvent) => {
+      const target = e.target as Element
       // The menu is portalled outside wrapRef, so ignore clicks inside it.
-      if (e.target.closest?.('[data-tagpicker-menu]')) return
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false)
+      if (target.closest?.('[data-tagpicker-menu]')) return
+      if (wrapRef.current && !wrapRef.current.contains(target)) setOpen(false)
     }
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)
@@ -106,14 +130,15 @@ export default function TagPicker({ value = [], onChange, resourceType = null, p
   // list of just the selectable rows for keyboard navigation.
   const { flat, options } = useMemo(() => {
     const avail = allTags.filter((tg) => !has(tg.internal))
-    const matches = (tg) => !q || tg.internal.includes(q) || tg.display.toLowerCase().includes(q)
-    const byPrefixThenName = (a, b) => {
+    const matches = (tg: TagItem) =>
+      !q || tg.internal.includes(q) || tg.display.toLowerCase().includes(q)
+    const byPrefixThenName = (a: TagItem, b: TagItem) => {
       const ap = a.internal.startsWith(q) || a.display.toLowerCase().startsWith(q)
       const bp = b.internal.startsWith(q) || b.display.toLowerCase().startsWith(q)
-      return bp - ap || a.display.localeCompare(b.display)
+      return Number(bp) - Number(ap) || a.display.localeCompare(b.display)
     }
 
-    let candidates
+    let candidates: TagItem[]
     if (!q) {
       // Empty input: only favorites (avoid dumping the whole catalog).
       candidates = avail.filter((tg) => tg.is_favorite)
@@ -121,7 +146,7 @@ export default function TagPicker({ value = [], onChange, resourceType = null, p
       candidates = avail.filter(matches)
     }
 
-    const inThisCategory = (tg) =>
+    const inThisCategory = (tg: TagItem) =>
       tg.category === 'shared' || (resourceType && tg.category === resourceType)
 
     const favorites = candidates.filter((tg) => tg.is_favorite).sort(byPrefixThenName)
@@ -136,16 +161,17 @@ export default function TagPicker({ value = [], onChange, resourceType = null, p
     const exact = allTags.some((tg) => tg.internal === q)
     const canCreate = q.length > 0 && !exact && !has(q) && tagNameIsAddressable(q)
 
-    const groups = [
-      canCreate && { header: null, rows: [{ type: 'create', display: query.trim() }] },
+    const candidateGroups: (TagGroup | false | 0)[] = [
+      canCreate && { header: null, rows: [{ type: 'create' as const, display: query.trim() }] },
       favorites.length && { header: t('tags.groupFavorites'), rows: favorites },
       category.length && { header: t('tags.groupCategory'), rows: category },
       remaining.length && { header: t('tags.groupOther'), rows: remaining },
-    ].filter(Boolean)
+    ]
+    const groups = candidateGroups.filter((g): g is TagGroup => Boolean(g))
 
     // Flatten to render (headers + rows) and to a selectable-only list for nav.
-    const flatList = []
-    const selectable = []
+    const flatList: FlatEntry[] = []
+    const selectable: TagOption[] = []
     for (const g of groups) {
       if (g.header) flatList.push({ kind: 'header', label: g.header })
       for (const row of g.rows) {
@@ -158,7 +184,7 @@ export default function TagPicker({ value = [], onChange, resourceType = null, p
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allTags, q, selectedKeys, query, resourceType])
 
-  const addTag = (display) => {
+  const addTag = (display: string) => {
     const v = display.trim()
     if (!tagNameIsAddressable(v)) return // keep the text so it can be corrected
     if (v && !has(v.toLowerCase())) onChange([...value, v])
@@ -168,12 +194,12 @@ export default function TagPicker({ value = [], onChange, resourceType = null, p
     setOpen(true)
   }
 
-  const choose = (row) => {
+  const choose = (row: TagOption | undefined) => {
     if (!row) return
     addTag(row.display)
   }
 
-  const onKeyDown = (e) => {
+  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault()
       setOpen(true)

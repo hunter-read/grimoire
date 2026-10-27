@@ -1,12 +1,23 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX, LuDownload } from 'react-icons/lu'
 import { mediaUrl } from '../api'
 
-export default function DownloadArchiveModal({ title, params, onClose }) {
+export interface DownloadArchiveModalProps {
+  title: ReactNode
+  /** Query parameters for `/downloads/archive` naming what to bundle; `fmt` is added here. */
+  params: Record<string, unknown>
+  onClose: () => void
+}
+
+export default function DownloadArchiveModal({
+  title,
+  params,
+  onClose,
+}: DownloadArchiveModalProps) {
   const { t } = useTranslation()
   const [fmt, setFmt] = useState('zip')
-  const firstRef = useRef(null)
+  const firstRef = useRef<HTMLLabelElement>(null)
 
   const FORMATS = [
     {
@@ -37,14 +48,18 @@ export default function DownloadArchiveModal({ title, params, onClose }) {
 
   useEffect(() => {
     firstRef.current?.focus()
-    const onKey = (e) => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const downloadUrl = mediaUrl('/downloads/archive', { ...params, fmt })
+  // mediaUrl stringifies every value (String(v)), so any descriptor value goes in as-is.
+  const downloadUrl = mediaUrl('/downloads/archive', {
+    ...(params as Parameters<typeof mediaUrl>[1]),
+    fmt,
+  })
 
   const handleDownload = () => {
     const a = document.createElement('a')

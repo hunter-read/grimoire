@@ -2,12 +2,13 @@ import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuLaptop, LuLogOut, LuShieldCheck } from 'react-icons/lu'
 import { auth as authApi } from '../../api'
+import type { Schema } from '../../api'
 import Spinner from '../Spinner'
 
 // Turn a raw User-Agent into something a person can recognise their own device
 // by. Deliberately coarse: the goal is "which of my devices is this", not
 // accurate client detection, and every unknown agent still shows its raw text.
-function describeClient(userAgent) {
+function describeClient(userAgent: string | null | undefined): string | null {
   if (!userAgent) return null
   const ua = userAgent
   const browser =
@@ -38,7 +39,7 @@ function describeClient(userAgent) {
   return browser || platform || null
 }
 
-function formatWhen(iso, locale) {
+function formatWhen(iso: string | null | undefined, locale: string): string | null {
   if (!iso) return null
   // Timestamps arrive as naive UTC, so mark them as such before formatting or
   // the browser reads them as local time and shows the wrong hour.
@@ -50,17 +51,17 @@ function formatWhen(iso, locale) {
 
 export default function ActiveSessionsSection() {
   const { t, i18n } = useTranslation()
-  const [sessions, setSessions] = useState([])
+  const [sessions, setSessions] = useState<Schema<'SessionOut'>[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [busyId, setBusyId] = useState(null)
+  const [error, setError] = useState<string | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     try {
       setSessions(await authApi.sessions())
       setError(null)
     } catch (err) {
-      setError(err?.message || t('userSettings.sessions.loadFailed'))
+      setError((err as Error | null)?.message || t('userSettings.sessions.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -70,14 +71,14 @@ export default function ActiveSessionsSection() {
     load()
   }, [load])
 
-  const revokeOne = async (id) => {
+  const revokeOne = async (id: string) => {
     setBusyId(id)
     setError(null)
     try {
       await authApi.revokeSession(id)
       setSessions((prev) => prev.filter((s) => s.id !== id))
     } catch (err) {
-      setError(err?.message || t('userSettings.sessions.revokeFailed'))
+      setError((err as Error | null)?.message || t('userSettings.sessions.revokeFailed'))
     } finally {
       setBusyId(null)
     }
@@ -90,7 +91,7 @@ export default function ActiveSessionsSection() {
       await authApi.revokeOtherSessions()
       setSessions((prev) => prev.filter((s) => s.current))
     } catch (err) {
-      setError(err?.message || t('userSettings.sessions.revokeFailed'))
+      setError((err as Error | null)?.message || t('userSettings.sessions.revokeFailed'))
     } finally {
       setBusyId(null)
     }

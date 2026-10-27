@@ -1,8 +1,24 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuChevronDown, LuDownload } from 'react-icons/lu'
 import { mediaUrl } from '../api'
-import useVariantOptions from './useVariantOptions'
+import useVariantOptions, { type VariantSource } from './useVariantOptions'
+
+/** An extra download entry appended to the version menu (e.g. a map's `.uvtt` export). */
+export interface DownloadExtraItem {
+  key: string
+  label: ReactNode
+  href: string
+  sublabel?: ReactNode
+}
+
+export interface DownloadVersionButtonProps {
+  type: string
+  id: string
+  item?: VariantSource | null
+  compact?: boolean
+  extraItems?: DownloadExtraItem[]
+}
 
 /**
  * The detail page's Download button, with a version picker when there is more
@@ -24,20 +40,26 @@ import useVariantOptions from './useVariantOptions'
  *   (issue #125). Supplying any forces the menu form even for a single-version
  *   item, since there is now more than one thing to download.
  */
-export default function DownloadVersionButton({ type, id, item, compact, extraItems = [] }) {
+export default function DownloadVersionButton({
+  type,
+  id,
+  item,
+  compact,
+  extraItems = [],
+}: DownloadVersionButtonProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
-  const wrapRef = useRef(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
   const { options, label, filename } = useVariantOptions(type, id, item)
 
   const hasVersions = (item?.variants || []).length > 0 || extraItems.length > 0
 
   useEffect(() => {
     if (!open) return
-    const onDown = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false)
+    const onDown = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
     }
-    const onKey = (e) => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false)
     }
     document.addEventListener('mousedown', onDown)
@@ -48,7 +70,7 @@ export default function DownloadVersionButton({ type, id, item, compact, extraIt
     }
   }, [open])
 
-  const baseStyle = {
+  const baseStyle: CSSProperties = {
     background: 'var(--bg-card)',
     border: '1px solid var(--border)',
     color: 'var(--text-dim)',

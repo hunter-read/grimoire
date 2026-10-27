@@ -2,21 +2,32 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import VirtualGrid from './VirtualGrid'
 import { columnsFor } from './VirtualGridRows'
+import type { ReactElement } from 'react'
+
+interface VirtualizerOpts {
+  count: number
+  getScrollElement: () => Element | null
+  initialOffset?: number | (() => number)
+}
+interface Item {
+  id: string
+  name: string
+}
 
 // jsdom reports every element as zero-sized and never scrolls, so the real
 // virtualizer would render no rows. These tests cover the parts that do not
 // need layout: the column arithmetic, the row assignment it drives, and that
 // only the rows the virtualizer asks for are rendered.
-let virtualRows
+let virtualRows: number[]
 // Every scroll element the virtualizer was constructed with, in order. A null
 // in here is the bug: see the scroll-jump test below.
-let scrollElementsSeen = []
+let scrollElementsSeen: (Element | null)[] = []
 // What the virtualizer was told its starting offset is. 0 while the page is
 // scrolled elsewhere means it will yank the page to the top on attach.
-let initialOffsetsSeen = []
+let initialOffsetsSeen: (number | undefined)[] = []
 
 vi.mock('@tanstack/react-virtual', () => ({
-  useVirtualizer: (opts) => {
+  useVirtualizer: (opts: VirtualizerOpts) => {
     scrollElementsSeen.push(opts.getScrollElement())
     initialOffsetsSeen.push(
       typeof opts.initialOffset === 'function' ? opts.initialOffset() : opts.initialOffset
@@ -38,14 +49,15 @@ beforeEach(() => {
   virtualRows = [0, 1, 2]
   scrollElementsSeen = []
   initialOffsetsSeen = []
-  global.ResizeObserver = class {
+  globalThis.ResizeObserver = class {
     observe() {}
     disconnect() {}
-  }
+  } as unknown as typeof ResizeObserver
 })
 
-const items = (n) => Array.from({ length: n }, (_, i) => ({ id: `i${i}`, name: `item ${i}` }))
-const renderItem = (item) => <span key={item.id} data-testid="cell" />
+const items = (n: number): Item[] =>
+  Array.from({ length: n }, (_, i) => ({ id: `i${i}`, name: `item ${i}` }))
+const renderItem = (item: Item) => <span key={item.id} data-testid="cell" />
 
 describe('columnsFor', () => {
   it('fits as many whole tracks as the width allows, counting gutters between them', () => {
@@ -81,7 +93,7 @@ describe('VirtualGrid', () => {
       <VirtualGrid items={items(100)} renderItem={renderItem} minColumn={130} gap={12} />
     )
     // The spacer carries the whole list's height so the scrollbar is honest.
-    const spacer = container.firstChild.firstChild
+    const spacer = container.firstChild!.firstChild as HTMLElement
     expect(spacer.style.height).toBe('240px')
     expect(spacer.style.position).toBe('relative')
   })
@@ -93,7 +105,7 @@ describe('VirtualGrid', () => {
     const { container } = render(
       <VirtualGrid items={items(3)} renderItem={renderItem} minColumn={130} gap={12} />
     )
-    const rows = [...container.querySelectorAll('[data-index]')]
+    const rows = [...container.querySelectorAll<HTMLElement>('[data-index]')]
     expect(rows).toHaveLength(2)
     for (const row of rows) {
       expect(row.style.gridTemplateColumns).toBe('repeat(1, minmax(0, 1fr))')
@@ -105,7 +117,7 @@ describe('VirtualGrid', () => {
     const { container } = render(
       <VirtualGrid items={items(2)} renderItem={renderItem} minColumn={130} gap={8} list />
     )
-    const rows = [...container.querySelectorAll('[data-index]')]
+    const rows = [...container.querySelectorAll<HTMLElement>('[data-index]')]
     expect(rows).toHaveLength(2)
     // List rows are flex columns, not grids.
     expect(rows[0].style.display).toBe('flex')
@@ -120,7 +132,7 @@ describe('VirtualGrid', () => {
 
 describe('scroll offset seeding (issue #531: expanding a folder jumped to the top)', () => {
   // A scrollable ancestor, the way <main> is in AppShell.
-  const inScroller = (ui) => render(<div style={{ overflowY: 'auto' }}>{ui}</div>)
+  const inScroller = (ui: ReactElement) => render(<div style={{ overflowY: 'auto' }}>{ui}</div>)
 
   it('seeds the virtualizer with the live scroll position of the page', () => {
     // The regression. A virtualizer attaches to its scroll element on the first

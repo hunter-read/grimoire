@@ -4,9 +4,10 @@ import MapImagePane from './MapImagePane'
 
 vi.mock('../../api', () => ({
   default: { get: vi.fn() },
-  mediaUrl: (p, params) => `http://localhost${p}${params ? `?${new URLSearchParams(params)}` : ''}`,
+  mediaUrl: (p: string, params?: Record<string, string>) =>
+    `http://localhost${p}${params ? `?${new URLSearchParams(params)}` : ''}`,
 }))
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }))
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }))
 
 const setup = (props = {}) =>
   render(<MapImagePane mapId="m1" filename="cave.png" hasThumbnail imageStyle={{}} {...props} />)
@@ -35,7 +36,7 @@ describe('MapImagePane', () => {
   it('shows a blurred thumbnail placeholder while loading, then drops it', () => {
     setup()
     const thumb = document.querySelector('img[aria-hidden="true"]')
-    expect(thumb.getAttribute('src')).toContain('/maps/m1/thumbnail')
+    expect(thumb!.getAttribute('src')).toContain('/maps/m1/thumbnail')
 
     fireEvent.load(screen.getByAltText('cave.png'))
 

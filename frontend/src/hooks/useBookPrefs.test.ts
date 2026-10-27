@@ -9,11 +9,11 @@ import {
   RECENT_MAX,
 } from './useBookPrefs'
 
-function setRecentLimit(value) {
+function setRecentLimit(value: unknown) {
   localStorage.setItem('grimoire:user-prefs', JSON.stringify({ recentLimit: value }))
 }
 
-function makeBook(id) {
+function makeBook(id: string) {
   return { id, title: `Book ${id}`, has_thumbnail: false, page_count: 10 }
 }
 

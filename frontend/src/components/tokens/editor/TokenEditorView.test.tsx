@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 const navigate = vi.fn()
-let routeParams = {}
-let routeState = {}
+let routeParams: Record<string, string> = {}
+let routeState: Record<string, string> = {}
 
 vi.mock('react-router-dom', () => ({
   useNavigate: () => navigate,
@@ -29,8 +30,8 @@ vi.mock('../../../lib/tokenCompositor', () => ({
 
 vi.mock('../../../api', () => ({
   campaigns: { uploadMemberArt: vi.fn(), list: vi.fn(), get: vi.fn() },
-  imageSources: { thumbUrl: (type, id) => `/api/${type}/${id}/thumb` },
-  mediaUrl: (path) => `/api${path}`,
+  imageSources: { thumbUrl: (type: string, id: string) => `/api/${type}/${id}/thumb` },
+  mediaUrl: (path: string) => `/api${path}`,
 }))
 
 vi.mock('../../../context/AuthContext', () => ({
@@ -39,13 +40,13 @@ vi.mock('../../../context/AuthContext', () => ({
 
 vi.mock('./frames', () => ({
   fetchFrames: vi.fn().mockResolvedValue([]),
-  frameUrl: (id) => `/frames/${id}.svg`,
+  frameUrl: (id: string) => `/frames/${id}.svg`,
   groupFrames: () => [],
-  frameLabel: (frame) => frame?.name || '',
-  frameIsRecolourable: (id) => String(id).startsWith('generic:'),
+  frameLabel: (frame: { name?: string } | null) => frame?.name || '',
+  frameIsRecolourable: (id: unknown) => String(id).startsWith('generic:'),
   BUILTIN_FRAMES: [],
   GENERIC_FRAMES: [],
-  isBuiltinFrame: (id) => String(id).startsWith('builtin:'),
+  isBuiltinFrame: (id: unknown) => String(id).startsWith('builtin:'),
   frameFamily: () => null,
 }))
 
@@ -53,22 +54,26 @@ vi.mock('../../../lib/frameMask', () => ({
   frameApertureMask: vi.fn(() => null),
 }))
 
-import { campaigns, mediaUrl } from '../../../api'
+import { campaigns as campaignsApi } from '../../../api'
 import { composeToBlob, loadImage } from '../../../lib/tokenCompositor'
+import type { LoadedImage } from '../../../lib/tokenCompositor'
 import TokenEditorView from './TokenEditorView'
 
-const loaded = { image: {}, width: 800, height: 600, intrinsic: true }
+// Reached untyped: the tests resolve these with partial payloads.
+const campaigns = campaignsApi as unknown as { uploadMemberArt: Mock; list: Mock; get: Mock }
+
+const loaded = { image: {}, width: 800, height: 600, intrinsic: true } as LoadedImage
 
 beforeEach(() => {
   vi.clearAllMocks()
   routeParams = {}
   routeState = {}
-  loadImage.mockResolvedValue(loaded)
-  composeToBlob.mockResolvedValue(new Blob(['png'], { type: 'image/png' }))
+  vi.mocked(loadImage).mockResolvedValue(loaded)
+  vi.mocked(composeToBlob).mockResolvedValue(new Blob(['png'], { type: 'image/png' }))
 })
 
 /** Render with a source already loaded, which is where both exits live. */
-async function renderWithSource(state = {}) {
+async function renderWithSource(state: Record<string, string> = {}) {
   routeParams = { tokenId: 'tok1' }
   routeState = state
   render(<TokenEditorView />)
@@ -88,7 +93,7 @@ describe('loading the source', () => {
   })
 
   it('reports a source that will not decode', async () => {
-    loadImage.mockRejectedValue(new Error('bad image'))
+    vi.mocked(loadImage).mockRejectedValue(new Error('bad image'))
     routeParams = { tokenId: 'tok1' }
     render(<TokenEditorView />)
     expect(await screen.findByRole('alert')).toHaveTextContent('That image could not be loaded.')
@@ -99,13 +104,13 @@ describe('the download exit', () => {
   it('composes a PNG and saves it under a sensible name', async () => {
     const click = vi.fn()
     const create = document.createElement.bind(document)
-    vi.spyOn(document, 'createElement').mockImplementation((tag) => {
+    const createSpy = vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
       const el = create(tag)
       if (tag === 'a') el.click = click
       return el
     })
-    global.URL.createObjectURL = vi.fn(() => 'blob:token')
-    global.URL.revokeObjectURL = vi.fn()
+    globalThis.URL.createObjectURL = vi.fn(() => 'blob:token')
+    globalThis.URL.revokeObjectURL = vi.fn()
 
     await renderWithSource({ memberName: 'Ireena Kolyana' })
     await userEvent.click(screen.getByRole('button', { name: /Download/ }))
@@ -113,15 +118,15 @@ describe('the download exit', () => {
     await waitFor(() => expect(composeToBlob).toHaveBeenCalled())
     expect(click).toHaveBeenCalled()
     // The anchor's download name is derived from the character.
-    const anchor = document.createElement.mock.results
-      .map((r) => r.value)
-      .find((el) => el.tagName === 'A')
+    const anchor = createSpy.mock.results
+      .map((r) => r.value as HTMLElement)
+      .find((el) => el.tagName === 'A') as HTMLAnchorElement
     expect(anchor.download).toBe('ireena-kolyana-token.png')
-    expect(global.URL.revokeObjectURL).toHaveBeenCalled()
+    expect(globalThis.URL.revokeObjectURL).toHaveBeenCalled()
   })
 
   it('surfaces an encoding failure', async () => {
-    composeToBlob.mockRejectedValue(new Error('encode failed'))
+    vi.mocked(composeToBlob).mockRejectedValue(new Error('encode failed'))
     await renderWithSource()
     await userEvent.click(screen.getByRole('button', { name: /Download/ }))
     expect(await screen.findByRole('alert')).toHaveTextContent('encode failed')
@@ -151,7 +156,7 @@ describe('the character-art exit', () => {
     await userEvent.click(screen.getByRole('button', { name: /Set\ as\ character\ art/ }))
 
     await waitFor(() => expect(navigate).toHaveBeenCalled())
-    const [path, options] = navigate.mock.calls.at(-1)
+    const [path, options] = navigate.mock.calls.at(-1)!
     expect(path).toBe('/campaigns/c1')
     expect(options.state.artUpdated).toEqual(expect.any(Number))
   })
@@ -185,7 +190,12 @@ describe('the character-art exit', () => {
 
 describe('the editing surface', () => {
   it('warns when the art is smaller than the chosen output', async () => {
-    loadImage.mockResolvedValue({ image: {}, width: 120, height: 120, intrinsic: true })
+    vi.mocked(loadImage).mockResolvedValue({
+      image: {},
+      width: 120,
+      height: 120,
+      intrinsic: true,
+    } as LoadedImage)
     await renderWithSource()
     expect(screen.getByText(/smaller than the 256px output/)).toBeInTheDocument()
   })

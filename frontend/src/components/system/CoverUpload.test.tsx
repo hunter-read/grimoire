@@ -1,16 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CoverUpload from './CoverUpload'
 import api, { imageSources } from '../../api'
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k) => k }),
+  useTranslation: () => ({ t: (k: string) => k }),
 }))
 
 vi.mock('../../api', () => ({
   default: { upload: vi.fn(), delete: vi.fn() },
-  mediaUrl: (path) => `/api${path}`,
+  mediaUrl: (path: string) => `/api${path}`,
   imageSources: {
     setSystemCover: vi.fn(),
     // The picker's browse tab searches the library and builds thumbnail URLs.
@@ -19,11 +20,17 @@ vi.mock('../../api', () => ({
         { resource_type: 'map', resource_id: 'm1', name: 'map-1.png', has_thumbnail: true },
       ])
     ),
-    thumbUrl: (type, id) => `/api/${type}s/${id}/thumbnail`,
+    thumbUrl: (type: string, id: string) => `/api/${type}s/${id}/thumbnail`,
   },
 }))
 
-const makeSystem = (over = {}) => ({
+// The transport is mocked above; its generic signatures don't fit a mock's.
+const mockApi = api as unknown as Record<
+  'get' | 'post' | 'patch' | 'put' | 'delete' | 'upload',
+  Mock
+>
+
+const makeSystem = (over: Record<string, unknown> = {}) => ({
   id: 'sys-1',
   name: 'Dungeons & Dragons',
   container_kind: 'parent',
@@ -67,19 +74,19 @@ describe('CoverUpload', () => {
   }
 
   it('uploads the chosen file and reports the change', async () => {
-    api.upload.mockResolvedValue({ cover_image: 'sys-1.png' })
+    mockApi.upload.mockResolvedValue({ cover_image: 'sys-1.png' })
     const onChange = vi.fn()
     render(<CoverUpload system={makeSystem()} onChange={onChange} />)
 
     await openPickerAndUpload()
 
     await waitFor(() => expect(api.upload).toHaveBeenCalled())
-    expect(api.upload.mock.calls[0][0]).toBe('/systems/sys-1/cover')
+    expect(mockApi.upload.mock.calls[0][0]).toBe('/systems/sys-1/cover')
     expect(onChange).toHaveBeenCalledWith({ cover_image: 'sys-1.png', has_cover: true })
   })
 
   it('surfaces an upload failure', async () => {
-    api.upload.mockRejectedValue(new Error('too big'))
+    mockApi.upload.mockRejectedValue(new Error('too big'))
     render(<CoverUpload system={makeSystem()} onChange={vi.fn()} />)
 
     await openPickerAndUpload()
@@ -88,7 +95,9 @@ describe('CoverUpload', () => {
   })
 
   it('sets the cover from a library asset without uploading', async () => {
-    imageSources.setSystemCover.mockResolvedValue({ cover_image: 'sys-1.webp' })
+    ;(imageSources.setSystemCover as unknown as Mock).mockResolvedValue({
+      cover_image: 'sys-1.webp',
+    })
     const onChange = vi.fn()
     render(<CoverUpload system={makeSystem()} onChange={onChange} />)
 
@@ -114,7 +123,7 @@ describe('CoverUpload', () => {
   })
 
   it('deletes the uploaded cover', async () => {
-    api.delete.mockResolvedValue({ status: 'ok' })
+    mockApi.delete.mockResolvedValue({ status: 'ok' })
     const onChange = vi.fn()
     render(
       <CoverUpload

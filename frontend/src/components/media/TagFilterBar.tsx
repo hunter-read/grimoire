@@ -4,12 +4,19 @@ import { LuX } from 'react-icons/lu'
 
 const VISIBLE_LIMIT = 15
 
+export interface TagFilterBarProps {
+  tags: string[]
+  selected: Set<string>
+  onToggle: (tag: string) => void
+  onClear: () => void
+}
+
 /**
  * Horizontal tag-pill filter row. Shows up to VISIBLE_LIMIT tags with a
  * show-more/less toggle and a clear button. `selected` is a Set of active tags;
  * `onToggle(tag)` and `onClear()` mutate it in the parent.
  */
-export default function TagFilterBar({ tags, selected, onToggle, onClear }) {
+export default function TagFilterBar({ tags, selected, onToggle, onClear }: TagFilterBarProps) {
   const { t } = useTranslation()
   const [showAll, setShowAll] = useState(false)
 

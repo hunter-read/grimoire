@@ -1,11 +1,11 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import useArrowKeyNavigation from './useArrowKeyNavigation'
 
-const press = (key) => window.dispatchEvent(new KeyboardEvent('keydown', { key }))
+const press = (key: string) => window.dispatchEvent(new KeyboardEvent('keydown', { key }))
 
 describe('useArrowKeyNavigation', () => {
-  let onNext, onPrev
+  let onNext: Mock<() => void>, onPrev: Mock<() => void>
 
   beforeEach(() => {
     onNext = vi.fn()
@@ -62,9 +62,12 @@ describe('useArrowKeyNavigation', () => {
   // The callbacks change identity every time the sibling index moves, so a
   // listener bound to a stale closure would navigate from the wrong position.
   it('calls the latest callbacks after a re-render', () => {
-    const { rerender } = renderHook(({ next }) => useArrowKeyNavigation(next, onPrev), {
-      initialProps: { next: onNext },
-    })
+    const { rerender } = renderHook(
+      ({ next }: { next: () => void }) => useArrowKeyNavigation(next, onPrev),
+      {
+        initialProps: { next: onNext },
+      }
+    )
     const newer = vi.fn()
     rerender({ next: newer })
     press('ArrowRight')

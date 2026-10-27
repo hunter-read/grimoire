@@ -20,7 +20,7 @@ const STROKE = 18
 
 // Geometry shared with the bundled SVGs: a 512 viewBox, everything inside it.
 // The editor crops to a frame's own interior, so these shapes define the crop.
-const SHAPES = {
+const SHAPES: Record<string, (color: string) => string> = {
   circle: (color) =>
     `<circle cx="256" cy="256" r="238" fill="none" stroke="${color}" stroke-width="${STROKE}"/>`,
   square: (color) =>
@@ -37,8 +37,11 @@ export const GENERIC_SHAPES = Object.keys(SHAPES)
  * the same vocabulary campaign icons use, validated the same way, so an
  * unrecognised value falls back rather than reaching a style attribute raw.
  */
-export function genericFrameUrl(shape, color) {
-  const draw = SHAPES[shape]
+export function genericFrameUrl(
+  shape: string | null,
+  color: string | null | undefined
+): string | null {
+  const draw = SHAPES[shape as string]
   if (!draw) return null
   const resolved = resolveIconColor(color, resolveIconColor(DEFAULT_FRAME_COLOR, '#d4a24c'))
   const svg =
@@ -51,7 +54,9 @@ export function genericFrameUrl(shape, color) {
 }
 
 /** True for a frame id this module owns. */
-export const isGenericFrame = (id) => typeof id === 'string' && id.startsWith('generic:')
+export const isGenericFrame = (id: unknown): id is string =>
+  typeof id === 'string' && id.startsWith('generic:')
 
 /** The shape half of a "generic:<shape>" id. */
-export const genericShape = (id) => (isGenericFrame(id) ? id.slice('generic:'.length) : null)
+export const genericShape = (id: unknown): string | null =>
+  isGenericFrame(id) ? id.slice('generic:'.length) : null

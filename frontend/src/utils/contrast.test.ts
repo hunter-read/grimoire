@@ -10,7 +10,7 @@ describe('contrast maths', () => {
   })
 
   it('expands three-digit hex', () => {
-    expect(relativeLuminance('#fff')).toBeCloseTo(relativeLuminance('#ffffff'), 10)
+    expect(relativeLuminance('#fff')).toBeCloseTo(relativeLuminance('#ffffff')!, 10)
   })
 
   it('returns null for a value it cannot parse', () => {
@@ -23,7 +23,10 @@ describe('contrast maths', () => {
   })
 
   it('is order-independent', () => {
-    expect(contrastRatio('#123456', '#abcdef')).toBeCloseTo(contrastRatio('#abcdef', '#123456'), 10)
+    expect(contrastRatio('#123456', '#abcdef')).toBeCloseTo(
+      contrastRatio('#abcdef', '#123456')!,
+      10
+    )
   })
 
   it('reports AA pass/fail against the threshold', () => {
@@ -42,10 +45,10 @@ describe('contrast maths', () => {
  */
 const css = readFileSync(resolve(process.cwd(), 'src/index.css'), 'utf8')
 
-function paletteFor(selector) {
+function paletteFor(selector: string): Record<string, string> {
   const block = css.slice(css.indexOf(selector))
   const body = block.slice(block.indexOf('{') + 1, block.indexOf('}'))
-  const tokens = {}
+  const tokens: Record<string, string> = {}
   for (const [, name, value] of body.matchAll(/--p-([\w-]+):\s*([^;]+);/g)) {
     tokens[name] = value.trim()
   }

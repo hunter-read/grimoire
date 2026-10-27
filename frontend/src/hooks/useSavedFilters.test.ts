@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import useSavedFilters from './useSavedFilters'
 import api from '../api'
@@ -7,17 +7,20 @@ vi.mock('../api', () => ({
   default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
 }))
 
+// The raw transport is generic over the URL; the tests only need its mocks.
+const mockApi = vi.mocked(api) as unknown as Record<'get' | 'post' | 'patch' | 'delete', Mock>
+
 beforeEach(() => {
   vi.clearAllMocks()
-  api.get.mockResolvedValue({ filters: [] })
-  api.post.mockResolvedValue({ id: 'new' })
-  api.patch.mockResolvedValue({})
-  api.delete.mockResolvedValue({})
+  mockApi.get.mockResolvedValue({ filters: [] })
+  mockApi.post.mockResolvedValue({ id: 'new' })
+  mockApi.patch.mockResolvedValue({})
+  mockApi.delete.mockResolvedValue({})
 })
 
 describe('useSavedFilters', () => {
   it('loads presets for its scope on mount', async () => {
-    api.get.mockResolvedValue({
+    mockApi.get.mockResolvedValue({
       filters: [
         { id: 'a', name: 'F', state: { sort: 'year' }, is_default: true, scope: 'systems' },
       ],
@@ -30,7 +33,7 @@ describe('useSavedFilters', () => {
   })
 
   it('degrades to an empty list on failure but still marks loaded', async () => {
-    api.get.mockRejectedValue(new Error('boom'))
+    mockApi.get.mockRejectedValue(new Error('boom'))
     const { result } = renderHook(() => useSavedFilters('systems'))
     await waitFor(() => expect(result.current.loaded).toBe(true))
     expect(result.current.saved).toEqual([])

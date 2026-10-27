@@ -1,11 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import CampaignDetailView from './CampaignDetailView'
 
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async (importOriginal) => {
-  const actual = await importOriginal()
+  const actual = await importOriginal<typeof import('react-router-dom')>()
   return { ...actual, useNavigate: () => mockNavigate }
 })
 
@@ -39,7 +39,15 @@ vi.mock('../context/UISettingsContext', () => ({
 // Stub the heavy child components so this suite stays focused on the view's own
 // wiring and doesn't pull in their API/render trees.
 vi.mock('../components/campaigns/CampaignEditor', () => ({
-  default: ({ onClose, onSaved, onDelete }) => (
+  default: ({
+    onClose,
+    onSaved,
+    onDelete,
+  }: {
+    onClose: () => void
+    onSaved: (campaign: { name: string }) => void
+    onDelete: () => void
+  }) => (
     <div data-testid="campaign-editor">
       <button onClick={onClose}>editor-close</button>
       <button onClick={() => onSaved({ name: 'Renamed' })}>editor-save</button>
@@ -49,7 +57,7 @@ vi.mock('../components/campaigns/CampaignEditor', () => ({
 }))
 vi.mock('../components/campaigns/WikiView', () => ({ default: () => <div /> }))
 vi.mock('../components/campaigns/WikiMarkdown', () => ({
-  default: ({ body }) => <div data-testid="wiki-md">{body}</div>,
+  default: ({ body }: { body: string }) => <div data-testid="wiki-md">{body}</div>,
 }))
 vi.mock('../components/campaigns/AvailabilityChart', () => ({
   default: () => <div data-testid="availability-chart" />,
@@ -61,7 +69,17 @@ vi.mock('../components/campaigns/BannerHero', () => ({
   default: () => <div data-testid="banner-hero" />,
 }))
 vi.mock('../components/campaigns/MemberRow', () => ({
-  default: ({ member, onRemove, onUpdateStatus, onSetCharacterName }) => (
+  default: ({
+    member,
+    onRemove,
+    onUpdateStatus,
+    onSetCharacterName,
+  }: {
+    member: { user_id: string; username: string }
+    onRemove: (userId: string) => void
+    onUpdateStatus: (userId: string, status: string) => void
+    onSetCharacterName: (userId: string, name: string) => void
+  }) => (
     <div data-testid="member-row">
       {member.username}
       <button onClick={() => onRemove(member.user_id)}>remove-{member.user_id}</button>
@@ -75,7 +93,15 @@ vi.mock('../components/campaigns/MemberRow', () => ({
   ),
 }))
 vi.mock('../components/campaigns/CampaignCharacters', () => ({
-  default: ({ campaignId, ownerId, canAdd }) => (
+  default: ({
+    campaignId,
+    ownerId,
+    canAdd,
+  }: {
+    campaignId: string
+    ownerId: string
+    canAdd: boolean
+  }) => (
     <div data-testid="campaign-characters" data-can-add={String(canAdd)}>
       {campaignId}:{ownerId}
     </div>
@@ -89,8 +115,11 @@ vi.mock('../components/campaigns/GuestPanel', () => ({
 }))
 
 import api, { campaigns } from '../api'
+const mockCampaigns = campaigns as unknown as Record<keyof typeof campaigns, Mock>
 
-function makeCampaign(overrides = {}) {
+const mockGet = vi.mocked(api.get) as unknown as Mock
+
+function makeCampaign(overrides: Record<string, unknown> = {}) {
   return {
     id: 'c1',
     name: 'Lost Mines',
@@ -115,11 +144,15 @@ function makeCampaign(overrides = {}) {
   }
 }
 
-function mockLoad({ campaign = makeCampaign(), schedule = null, availability = null } = {}) {
-  campaigns.get.mockResolvedValue(campaign)
-  campaigns.getSchedule.mockResolvedValue(schedule)
-  campaigns.getAvailability.mockResolvedValue(availability)
-  api.get.mockResolvedValue([])
+function mockLoad({
+  campaign = makeCampaign(),
+  schedule = null,
+  availability = null,
+}: { campaign?: unknown; schedule?: unknown; availability?: unknown } = {}) {
+  mockCampaigns.get.mockResolvedValue(campaign)
+  mockCampaigns.getSchedule.mockResolvedValue(schedule)
+  mockCampaigns.getAvailability.mockResolvedValue(availability)
+  mockGet.mockResolvedValue([])
 }
 
 function renderView() {
@@ -138,7 +171,7 @@ function openActionsMenu() {
   fireEvent.click(screen.getByRole('button', { name: /campaign actions/i }))
 }
 
-function clickMenuItem(name) {
+function clickMenuItem(name: RegExp | string) {
   openActionsMenu()
   fireEvent.click(screen.getByRole('menuitem', { name }))
 }
@@ -150,7 +183,7 @@ const actionsMenuTrigger = () => screen.queryByRole('button', { name: /campaign 
  * user can do nothing at all, so check that first and only open it when it is
  * present — otherwise the item's absence would pass for the wrong reason.
  */
-function expectNoMenuItem(name) {
+function expectNoMenuItem(name: RegExp | string) {
   if (!actionsMenuTrigger()) return
   openActionsMenu()
   expect(screen.queryByRole('menuitem', { name })).not.toBeInTheDocument()
@@ -164,11 +197,11 @@ beforeEach(() => {
 
 describe('CampaignDetailView loading and errors', () => {
   it('shows a spinner until the campaign loads', async () => {
-    let resolve
-    campaigns.get.mockReturnValue(new Promise((r) => (resolve = r)))
-    campaigns.getSchedule.mockResolvedValue(null)
-    campaigns.getAvailability.mockResolvedValue(null)
-    api.get.mockResolvedValue([])
+    let resolve!: (value: unknown) => void
+    mockCampaigns.get.mockReturnValue(new Promise((r) => (resolve = r)))
+    mockCampaigns.getSchedule.mockResolvedValue(null)
+    mockCampaigns.getAvailability.mockResolvedValue(null)
+    mockGet.mockResolvedValue([])
     renderView()
     // Before resolving, the campaign name is not present.
     expect(screen.queryByText('Lost Mines')).not.toBeInTheDocument()
@@ -177,10 +210,10 @@ describe('CampaignDetailView loading and errors', () => {
   })
 
   it('renders an error state with a back link when loading fails', async () => {
-    campaigns.get.mockRejectedValue(new Error('Not found'))
-    campaigns.getSchedule.mockResolvedValue(null)
-    campaigns.getAvailability.mockResolvedValue(null)
-    api.get.mockResolvedValue([])
+    mockCampaigns.get.mockRejectedValue(new Error('Not found'))
+    mockCampaigns.getSchedule.mockResolvedValue(null)
+    mockCampaigns.getAvailability.mockResolvedValue(null)
+    mockGet.mockResolvedValue([])
     renderView()
     expect(await screen.findByText('Not found')).toBeInTheDocument()
     // The error state renders a single "← Campaigns" back button.
@@ -195,7 +228,7 @@ describe('CampaignDetailView rendering', () => {
     // campaign set to "Dungeons & Dragons 5e" (a child of the "Dungeons &
     // Dragons" container) resolves to nothing and renders as "—".
     mockLoad({ campaign: makeCampaign({ system_id: 'sys1' }) })
-    api.get.mockResolvedValue([{ id: 'sys1', name: 'Dungeons & Dragons 5e', parent_id: 'sys-dnd' }])
+    mockGet.mockResolvedValue([{ id: 'sys1', name: 'Dungeons & Dragons 5e', parent_id: 'sys-dnd' }])
     renderView()
     expect(await screen.findByText('Dungeons & Dragons 5e')).toBeInTheDocument()
     expect(api.get).toHaveBeenCalledWith('/systems?include_children=true')
@@ -268,7 +301,7 @@ describe('CampaignDetailView owner actions', () => {
 
   it('deletes the campaign after confirmation', async () => {
     mockLoad()
-    campaigns.delete.mockResolvedValue({})
+    mockCampaigns.delete.mockResolvedValue({})
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     renderView()
     await screen.findByText('Lost Mines')
@@ -276,7 +309,7 @@ describe('CampaignDetailView owner actions', () => {
     fireEvent.click(screen.getByText('editor-delete'))
     await waitFor(() => expect(campaigns.delete).toHaveBeenCalledWith('c1'))
     expect(mockNavigate).toHaveBeenCalledWith('/campaigns')
-    window.confirm.mockRestore()
+    vi.mocked(window.confirm).mockRestore()
   })
 
   it('renders a real link to notes (supports middle-click / ctrl-click)', async () => {
@@ -339,15 +372,15 @@ describe('CampaignDetailView permissions', () => {
 describe('CampaignDetailView member handlers', () => {
   it('removes a member after confirmation and reloads', async () => {
     mockLoad()
-    campaigns.removeMember.mockResolvedValue({})
+    mockCampaigns.removeMember.mockResolvedValue({})
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     renderView()
     await screen.findByText('Lost Mines')
-    campaigns.get.mockClear()
+    mockCampaigns.get.mockClear()
     fireEvent.click(screen.getByText('remove-p1'))
     await waitFor(() => expect(campaigns.removeMember).toHaveBeenCalledWith('c1', 'p1'))
     await waitFor(() => expect(campaigns.get).toHaveBeenCalled())
-    window.confirm.mockRestore()
+    vi.mocked(window.confirm).mockRestore()
   })
 
   it('skips removal when the confirmation is declined', async () => {
@@ -357,12 +390,12 @@ describe('CampaignDetailView member handlers', () => {
     await screen.findByText('Lost Mines')
     fireEvent.click(screen.getByText('remove-p1'))
     expect(campaigns.removeMember).not.toHaveBeenCalled()
-    window.confirm.mockRestore()
+    vi.mocked(window.confirm).mockRestore()
   })
 
   it('updates a member status and reloads', async () => {
     mockLoad()
-    campaigns.updateMember.mockResolvedValue({})
+    mockCampaigns.updateMember.mockResolvedValue({})
     renderView()
     await screen.findByText('Lost Mines')
     fireEvent.click(screen.getByText('accept-p1'))
@@ -371,7 +404,7 @@ describe('CampaignDetailView member handlers', () => {
 
   it('sets a character name and reloads', async () => {
     mockLoad()
-    campaigns.setCharacterName.mockResolvedValue({})
+    mockCampaigns.setCharacterName.mockResolvedValue({})
     renderView()
     await screen.findByText('Lost Mines')
     fireEvent.click(screen.getByText('setname-p1'))
@@ -412,7 +445,7 @@ describe('CampaignDetailView archiving', () => {
     await screen.findByText('Lost Mines')
     clickMenuItem(/^Archive$/i)
     await waitFor(() => expect(campaigns.setArchived).toHaveBeenCalledWith('c1', true))
-    window.confirm.mockRestore()
+    vi.mocked(window.confirm).mockRestore()
   })
 
   it('does not archive when the confirm is dismissed', async () => {
@@ -422,7 +455,7 @@ describe('CampaignDetailView archiving', () => {
     await screen.findByText('Lost Mines')
     clickMenuItem(/^Archive$/i)
     expect(campaigns.setArchived).not.toHaveBeenCalled()
-    window.confirm.mockRestore()
+    vi.mocked(window.confirm).mockRestore()
   })
 
   // Unarchiving is the way back out of a read-only campaign, so it must stay
@@ -472,7 +505,7 @@ describe('CampaignDetailView convert to group', () => {
     await screen.findByText('Lost Mines')
     clickMenuItem(/convert to group/i)
     await waitFor(() => expect(campaigns.convertToGroup).toHaveBeenCalledWith('c1'))
-    window.confirm.mockRestore()
+    vi.mocked(window.confirm).mockRestore()
   })
 
   it('does not convert when the confirm is dismissed', async () => {
@@ -482,7 +515,7 @@ describe('CampaignDetailView convert to group', () => {
     await screen.findByText('Lost Mines')
     clickMenuItem(/convert to group/i)
     expect(campaigns.convertToGroup).not.toHaveBeenCalled()
-    window.confirm.mockRestore()
+    vi.mocked(window.confirm).mockRestore()
   })
 
   // One-way: once it's a group campaign there is nothing to convert back to.
@@ -530,7 +563,7 @@ describe('CampaignDetailView leaving a campaign', () => {
     fireEvent.click(screen.getByRole('button', { name: /leave campaign/i }))
     await waitFor(() => expect(campaigns.removeMember).toHaveBeenCalledWith('c1', 'owner1'))
     expect(mockNavigate).toHaveBeenCalledWith('/campaigns')
-    window.confirm.mockRestore()
+    vi.mocked(window.confirm).mockRestore()
   })
 
   it('does not leave when the confirm is dismissed', async () => {
@@ -540,7 +573,7 @@ describe('CampaignDetailView leaving a campaign', () => {
     await screen.findByText('Lost Mines')
     fireEvent.click(screen.getByRole('button', { name: /leave campaign/i }))
     expect(campaigns.removeMember).not.toHaveBeenCalled()
-    window.confirm.mockRestore()
+    vi.mocked(window.confirm).mockRestore()
   })
 
   it('still offers leaving on an archived campaign', async () => {

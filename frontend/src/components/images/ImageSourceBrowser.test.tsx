@@ -3,17 +3,18 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ImageSourceBrowser, { TOKEN_SOURCE_TYPES } from './ImageSourceBrowser'
 import { imageSources } from '../../api'
+import type { Schema } from '../../api'
 
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }))
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }))
 
 vi.mock('../../api', () => ({
   imageSources: {
     search: vi.fn(),
-    thumbUrl: (type, id) => `/api/${type}s/${id}/thumbnail`,
+    thumbUrl: (type: string, id: string) => `/api/${type}s/${id}/thumbnail`,
   },
 }))
 
-const row = (over = {}) => ({
+const row = (over: Partial<Schema<'ResourceSearchHit'>> = {}): Schema<'ResourceSearchHit'> => ({
   resource_type: 'map',
   resource_id: 'm1',
   name: 'ruins.png',
@@ -24,7 +25,7 @@ const row = (over = {}) => ({
 
 beforeEach(() => {
   vi.clearAllMocks()
-  imageSources.search.mockResolvedValue([row()])
+  vi.mocked(imageSources.search).mockResolvedValue([row()])
 })
 
 describe('ImageSourceBrowser', () => {
@@ -36,7 +37,7 @@ describe('ImageSourceBrowser', () => {
   })
 
   it('drops items that cannot produce an image', async () => {
-    imageSources.search.mockResolvedValue([
+    vi.mocked(imageSources.search).mockResolvedValue([
       row(),
       row({ resource_id: 'm2', name: 'no-thumb.png', has_thumbnail: false }),
     ])
@@ -101,14 +102,14 @@ describe('ImageSourceBrowser', () => {
   })
 
   it('shows an empty state when nothing matches', async () => {
-    imageSources.search.mockResolvedValue([])
+    vi.mocked(imageSources.search).mockResolvedValue([])
     render(<ImageSourceBrowser value={null} onChange={vi.fn()} />)
 
     await waitFor(() => expect(screen.getByText('imagePicker.noResults')).toBeInTheDocument())
   })
 
   it('surfaces a failed search', async () => {
-    imageSources.search.mockRejectedValue(new Error('offline'))
+    vi.mocked(imageSources.search).mockRejectedValue(new Error('offline'))
     render(<ImageSourceBrowser value={null} onChange={vi.fn()} />)
 
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('offline'))
@@ -180,7 +181,7 @@ describe('ImageSourceBrowser', () => {
 
   it('groups results under the folder each item came from', async () => {
     // A library files its tokens into folders; a flat grid throws that away.
-    imageSources.search.mockResolvedValue([
+    vi.mocked(imageSources.search).mockResolvedValue([
       row({ resource_id: 't1', name: 'orc.png', subtitle: 'Monsters' }),
       row({ resource_id: 't2', name: 'hero.png', subtitle: 'Party' }),
     ])
@@ -191,7 +192,7 @@ describe('ImageSourceBrowser', () => {
   })
 
   it('collapses a folder, hiding only its own items', async () => {
-    imageSources.search.mockResolvedValue([
+    vi.mocked(imageSources.search).mockResolvedValue([
       row({ resource_id: 't1', name: 'orc.png', subtitle: 'Monsters' }),
       row({ resource_id: 't2', name: 'hero.png', subtitle: 'Party' }),
     ])
@@ -204,7 +205,7 @@ describe('ImageSourceBrowser', () => {
   })
 
   it('files items with no folder under a loose-files heading, last', async () => {
-    imageSources.search.mockResolvedValue([
+    vi.mocked(imageSources.search).mockResolvedValue([
       row({ resource_id: 't1', name: 'loose.png', subtitle: '' }),
       row({ resource_id: 't2', name: 'orc.png', subtitle: 'Monsters' }),
     ])
@@ -222,7 +223,7 @@ describe('ImageSourceBrowser', () => {
 
   it('drops the folder headings while searching', async () => {
     // Matches spanning many folders read better as one result list.
-    imageSources.search.mockResolvedValue([
+    vi.mocked(imageSources.search).mockResolvedValue([
       row({ resource_id: 't1', name: 'orc.png', subtitle: 'Monsters' }),
     ])
     render(<ImageSourceBrowser types={TOKEN_SOURCE_TYPES} value={null} onChange={vi.fn()} />)
@@ -241,7 +242,7 @@ describe('ImageSourceBrowser', () => {
     await waitFor(() => expect(screen.getByText('ruins.png')).toBeInTheDocument())
 
     const box = [...container.querySelectorAll('div')].find((el) => el.style.overflowY === 'auto')
-    expect(box.style.maxHeight).toBe('300px')
+    expect(box!.style.maxHeight).toBe('300px')
   })
 
   it('fills the height it is given when asked to', async () => {
@@ -251,8 +252,8 @@ describe('ImageSourceBrowser', () => {
     await waitFor(() => expect(screen.getByText('ruins.png')).toBeInTheDocument())
 
     const box = [...container.querySelectorAll('div')].find((el) => el.style.overflowY === 'auto')
-    expect(box.style.maxHeight).toBe('')
-    expect(box.style.flex).toBe('1 1 0%')
+    expect(box!.style.maxHeight).toBe('')
+    expect(box!.style.flex).toBe('1 1 0%')
   })
 })
 
@@ -276,7 +277,7 @@ describe('choosing which version of an image to use', () => {
     })
 
   it('stays quiet about versions unless asked', async () => {
-    imageSources.search.mockResolvedValue([withVariants()])
+    vi.mocked(imageSources.search).mockResolvedValue([withVariants()])
     render(<ImageSourceBrowser value={null} onChange={vi.fn()} />)
 
     // The campaign picker links a resource rather than composing with the file,
@@ -286,7 +287,7 @@ describe('choosing which version of an image to use', () => {
   })
 
   it('offers the versions of the selected row when enabled', async () => {
-    imageSources.search.mockResolvedValue([withVariants()])
+    vi.mocked(imageSources.search).mockResolvedValue([withVariants()])
     render(
       <ImageSourceBrowser
         showVariants
@@ -303,7 +304,7 @@ describe('choosing which version of an image to use', () => {
   })
 
   it('keeps the versions hidden until the row is selected', async () => {
-    imageSources.search.mockResolvedValue([withVariants()])
+    vi.mocked(imageSources.search).mockResolvedValue([withVariants()])
     render(<ImageSourceBrowser showVariants value={null} onChange={vi.fn()} />)
 
     // Showing every row's versions inline would double a gallery's length to
@@ -313,7 +314,7 @@ describe('choosing which version of an image to use', () => {
   })
 
   it('reports the chosen version as the source', async () => {
-    imageSources.search.mockResolvedValue([withVariants()])
+    vi.mocked(imageSources.search).mockResolvedValue([withVariants()])
     const onChange = vi.fn()
     render(
       <ImageSourceBrowser
@@ -334,7 +335,7 @@ describe('choosing which version of an image to use', () => {
   })
 
   it('keeps the main row lit while one of its versions is chosen', async () => {
-    imageSources.search.mockResolvedValue([withVariants()])
+    vi.mocked(imageSources.search).mockResolvedValue([withVariants()])
     render(
       <ImageSourceBrowser
         showVariants
@@ -352,8 +353,8 @@ describe('choosing which version of an image to use', () => {
 
   it('skips a version that could not produce an image', async () => {
     const r = withVariants()
-    r.variants[0].has_thumbnail = false
-    imageSources.search.mockResolvedValue([r])
+    r.variants![0].has_thumbnail = false
+    vi.mocked(imageSources.search).mockResolvedValue([r])
     render(
       <ImageSourceBrowser
         showVariants

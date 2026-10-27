@@ -6,7 +6,7 @@
 // approach (same idea as textarea-caret-position) kept minimal for our one use.
 
 // Properties that affect text layout and so must be copied to the mirror.
-const MIRRORED = [
+const MIRRORED: readonly (keyof CSSStyleDeclaration & string)[] = [
   'boxSizing',
   'width',
   'fontFamily',
@@ -32,7 +32,10 @@ const MIRRORED = [
  * Return { top, left } of the caret in `textarea`, relative to the element's own
  * top-left (scroll already subtracted), or null when the DOM isn't available.
  */
-export function caretCoordinates(textarea, position) {
+export function caretCoordinates(
+  textarea: HTMLTextAreaElement | null | undefined,
+  position: number
+): { top: number; left: number } | null {
   if (!textarea || typeof window === 'undefined' || typeof document === 'undefined') return null
   // jsdom (and any environment without real layout) reports zeroes here; the
   // caller falls back to a fixed offset rather than showing the popup at 0,0.
@@ -45,7 +48,9 @@ export function caretCoordinates(textarea, position) {
   ms.visibility = 'hidden'
   ms.whiteSpace = 'pre-wrap'
   ms.overflowWrap = 'break-word'
-  for (const prop of MIRRORED) ms[prop] = style[prop]
+  // The list holds only writable string-valued style properties.
+  for (const prop of MIRRORED)
+    (ms as unknown as Record<string, string>)[prop] = style[prop] as string
   // The mirror grows with content; the textarea scrolls instead.
   ms.height = 'auto'
   ms.overflow = 'hidden'

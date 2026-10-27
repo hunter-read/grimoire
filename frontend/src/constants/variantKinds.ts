@@ -19,7 +19,10 @@
  * and the API rejects it. Each list is already in review order, so a picker can
  * render it as-is.
  */
-export const VARIANT_KINDS_BY_TYPE = {
+/** The collections that link versions. */
+export type VariantResourceType = 'book' | 'map' | 'token' | 'audio' | 'model'
+
+export const VARIANT_KINDS_BY_TYPE: Record<VariantResourceType, string[]> = {
   book: [
     'version',
     'printer-friendly',
@@ -55,9 +58,9 @@ export const VARIANT_KINDS_BY_TYPE = {
  * `other` is pulled to the end: flattening puts it wherever the first list
  * happened to end, and it has to stay last to read as the fallback it is.
  */
-export const VARIANT_KINDS = [
+export const VARIANT_KINDS: string[] = [
   ...new Set(
-    ['book', 'map', 'token', 'audio', 'model']
+    (['book', 'map', 'token', 'audio', 'model'] as const)
       .flatMap((type) => VARIANT_KINDS_BY_TYPE[type])
       .filter((kind) => kind !== 'other')
   ),
@@ -74,8 +77,8 @@ export const VARIANT_KINDS = [
  * save, write — a different kind than the row has. The backend allows exactly
  * this one exemption too (see `validate_kind`).
  */
-export function kindsFor(resourceType, current = '') {
-  const kinds = VARIANT_KINDS_BY_TYPE[resourceType] || VARIANT_KINDS
+export function kindsFor(resourceType: string | null | undefined, current: string = ''): string[] {
+  const kinds = VARIANT_KINDS_BY_TYPE[resourceType as VariantResourceType] || VARIANT_KINDS
   if (current && !kinds.includes(current)) return [...kinds, current]
   return kinds
 }

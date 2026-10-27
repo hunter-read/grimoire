@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { bookFolderScope, systemScope, groupScope } from './rescanScope'
 
-const book = (relative_path) => ({ relative_path })
+const book = (relative_path: string) => ({ relative_path })
 
 describe('bookFolderScope', () => {
   it('drops the filename', () => {

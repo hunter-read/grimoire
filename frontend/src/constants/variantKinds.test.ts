@@ -91,7 +91,7 @@ describe('VARIANT_KINDS_BY_TYPE', () => {
   it('keeps the map-only kinds off the other collections', () => {
     for (const kind of ['gridded', 'gridless', 'universal-vtt', 'video', 'image']) {
       expect(VARIANT_KINDS_BY_TYPE.map).toContain(kind)
-      for (const type of ['book', 'token', 'audio']) {
+      for (const type of ['book', 'token', 'audio'] as const) {
         expect(VARIANT_KINDS_BY_TYPE[type]).not.toContain(kind)
       }
     }
@@ -100,7 +100,7 @@ describe('VARIANT_KINDS_BY_TYPE', () => {
   it('keeps the book-only kinds off the other collections', () => {
     for (const kind of ['form-fillable', 'spreads', 'single-page']) {
       expect(VARIANT_KINDS_BY_TYPE.book).toContain(kind)
-      for (const type of ['map', 'token', 'audio']) {
+      for (const type of ['map', 'token', 'audio'] as const) {
         expect(VARIANT_KINDS_BY_TYPE[type]).not.toContain(kind)
       }
     }

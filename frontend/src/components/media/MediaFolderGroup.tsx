@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuFolder, LuChevronDown, LuChevronRight, LuDownload, LuPlay } from 'react-icons/lu'
 import MediaCard from './MediaCard'
@@ -12,8 +13,49 @@ import Spinner from '../Spinner'
 import { toTitleCase } from '../../utils'
 import { useAudioPlayer } from '../../context/AudioPlayerContext'
 import useIsMobile from '../../hooks/useIsMobile'
+import type { MediaConfig, MediaItem } from './mediaConfig'
+import type { ToggleMods } from './MediaCard'
 
-const zipBtnStyle = {
+/** One folder below the group (or the group's own items, under ''). */
+export interface MediaSubfolder {
+  path: string
+  count: number
+  items: MediaItem[]
+  loading?: boolean
+  hasMore: boolean
+}
+
+/** What a folder's download button hands the archive modal. */
+export interface FolderDownload {
+  title: string
+  params: { type: string; folder: string }
+}
+
+export interface MediaFolderGroupProps {
+  config: MediaConfig
+  folder: string
+  subfolders: Record<string, MediaSubfolder>
+  collapsed: Set<string>
+  onToggle: (key: string) => void
+  folderTags: Record<string, string[]>
+  frameFolders?: Set<string>
+  editingFolder: string | null
+  onSetEditingFolder: (key: string | null) => void
+  onSaveFolderTags: (path: string, tags: string[]) => void
+  bulkMode: boolean
+  selectedIds: Set<string>
+  selectedFolderPaths: Set<string>
+  onToggleItem: (id: string, mods: ToggleMods) => void
+  onToggleFolder: (path: string, items: MediaItem[]) => void
+  cardSize?: string
+  list?: boolean
+  canTag?: boolean
+  onDownload?: (download: FolderDownload) => void
+  onLoadFolder?: (path: string) => void
+  onFetchFolderItems?: (paths: string[]) => Promise<MediaItem[]>
+}
+
+const zipBtnStyle: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 3,
@@ -28,7 +70,7 @@ const zipBtnStyle = {
 }
 
 // Audio queued from a folder: playable tracks only, in the shape the player takes.
-const toTracks = (items) =>
+const toTracks = (items: MediaItem[]) =>
   items
     .filter((i) => !i.is_missing)
     .map((i) => ({ id: i.id, title: i.title || i.filename, artwork: i.has_artwork }))
@@ -67,7 +109,7 @@ export default function MediaFolderGroup({
   onDownload,
   onLoadFolder = () => {},
   onFetchFolderItems,
-}) {
+}: MediaFolderGroupProps) {
   const { t } = useTranslation()
   const isMobilePhone = useIsMobile(640)
   const { i18n, archiveType, countKey, type } = config
@@ -75,7 +117,7 @@ export default function MediaFolderGroup({
   const [editingRoot, setEditingRoot] = useState(false)
   // Only the token gallery is ever handed a frame-folder set; every other
   // collection leaves it undefined, and this then answers false for all of them.
-  const isFrameFolder = (path) => !!frameFolders && frameFolders.has(path)
+  const isFrameFolder = (path: string) => !!frameFolders && frameFolders.has(path)
 
   const isCollapsed = collapsed.has(folder)
   const groupsBelow = Object.values(subfolders)
@@ -84,7 +126,7 @@ export default function MediaFolderGroup({
   const total = groupsBelow.reduce((n, g) => n + g.count, 0)
   // Queue a folder to play: every track, fetched in full rather than only the
   // page that happens to be loaded.
-  const playFolder = async (paths) => {
+  const playFolder = async (paths: string[]) => {
     if (!onFetchFolderItems) return
     playQueue(toTracks(await onFetchFolderItems(paths)))
   }
@@ -103,7 +145,7 @@ export default function MediaFolderGroup({
     return a.localeCompare(b)
   })
 
-  const archiveTitle = (suffix) => toTitleCase(i18n) + ' — ' + suffix
+  const archiveTitle = (suffix: string) => toTitleCase(i18n) + ' — ' + suffix
 
   return (
     <div
@@ -282,8 +324,10 @@ export default function MediaFolderGroup({
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       {bulkMode && (
                         <FolderCheckbox
-                          checked={subChecked}
-                          indeterminate={subIndeterminate}
+                          // Only drawn for a subfolder, where subPath is non-empty and
+                          // both of these are booleans.
+                          checked={subChecked as boolean}
+                          indeterminate={subIndeterminate as boolean}
                           onChange={() => onToggleFolder(folderPath, subItems)}
                         />
                       )}

@@ -1,9 +1,23 @@
 import { useTranslation } from 'react-i18next'
 import ExportSegmented from './ExportSegmented'
+import type { ExportFormat } from './usePageExport'
 import { hintStyle, labelStyle, sectionStyle, warnStyle } from './exportStyles'
 
 export const DPI_OPTIONS = [96, 150, 300]
-const DPI_NAMES = { 96: 'screen', 150: 'standard', 300: 'print' }
+const DPI_NAMES: Record<number, string> = { 96: 'screen', 150: 'standard', 300: 'print' }
+
+export interface ExportOptionsProps {
+  formats: ExportFormat[]
+  format: ExportFormat
+  onFormatChange: (format: ExportFormat) => void
+  dpi: number
+  onDpiChange: (dpi: number) => void
+  pixelSize?: { width: number; height: number } | null
+  pixelSizeKey?: string
+  pixelSizeParams?: Record<string, unknown>
+  /** Format -> the reason it cannot be used right now. */
+  disabledFormats?: Partial<Record<ExportFormat, string | false | null>>
+}
 
 /**
  * "Save as" and "Resolution", shared by both export tabs.
@@ -26,7 +40,7 @@ export default function ExportOptions({
   pixelSizeKey = 'pageExport.sizePerPage',
   pixelSizeParams,
   disabledFormats = {},
-}) {
+}: ExportOptionsProps) {
   const { t } = useTranslation()
   const isImage = format !== 'pdf'
   const blocked = disabledFormats[format]

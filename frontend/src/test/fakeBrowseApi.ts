@@ -9,32 +9,86 @@
 
 import { matchesTagQuery } from '../components/library/tagQuery'
 
+/** The media fields the fake reads; tests pass whatever else they need. */
+export interface FakeMediaItem {
+  id?: string
+  relative_path?: string | null
+  filename?: string | null
+  title?: string | null
+  tags?: string[] | null
+  file_size?: number | null
+  added_at?: string | null
+}
+
+/** The book fields the fake shelf reads. */
+export interface FakeBook {
+  id?: string
+  title?: string | null
+  relative_path?: string | null
+  category?: string | null
+  tags?: string[] | null
+  genres?: string[] | null
+  is_explicit?: boolean | null
+  product_code?: string | null
+  added_at?: string | null
+  [field: string]: unknown
+}
+
+/** A stand-in for `api.get`: answers a URL as the server would. */
+export type FakeGet = (url: string) => Promise<unknown>
+
+export interface FakeMediaGetOptions<I extends FakeMediaItem> {
+  /** e.g. '/maps' */
+  listUrl: string
+  /** The response key, e.g. 'maps'. */
+  collection: string
+  /** e.g. '/map-folders' */
+  foldersUrl: string
+  items: I[]
+  /** `{ path, tags }` folder-tag rows. */
+  folders?: { path: string; tags?: string[] }[]
+  frameFolders?: string[]
+  /** For `favorites=true`. */
+  isFavorite?: (id: string) => boolean
+  /** Answers any other URL. */
+  fallback?: FakeGet
+}
+
+export interface FakeShelfGetOptions<B extends FakeBook> {
+  system: { id: string; category_depth?: number | null; parent_id?: string | null }
+  books: B[]
+  isFavorite?: (id: string) => boolean
+  fallback?: FakeGet
+}
+
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
 
-function parse(url) {
+function parse(url: string) {
   const [path, query = ''] = url.split('?')
   return { path, params: new URLSearchParams(query) }
 }
 
 /** An item's folder below the collection dir: "maps/A/B/x.png" → "A/B". */
-export function mediaFolder(item) {
+export function mediaFolder(item: { relative_path?: string | null }): string {
   return (item.relative_path || '').replace(/\\/g, '/').split('/').slice(1, -1).join('/')
 }
 
-function ancestors(folder) {
+function ancestors(folder: string): string[] {
   const parts = folder ? folder.split('/') : []
   return parts.map((_, i) => parts.slice(0, i + 1).join('/'))
 }
 
-function pageOf(rows, params) {
+function pageOf<T>(rows: T[], params: URLSearchParams): T[] {
   const offset = Number(params.get('offset') || 0)
   const limit = params.has('limit') ? Number(params.get('limit')) : rows.length
   return rows.slice(offset, offset + limit)
 }
 
-function sorter(sort, order) {
+type Compare = (a: FakeMediaItem, b: FakeMediaItem) => number
+
+function sorter(sort: string | null, order: string | null): Compare {
   const dir = order === 'desc' ? -1 : 1
-  const byName = (a, b) => dir * collator.compare(a.filename || '', b.filename || '')
+  const byName: Compare = (a, b) => dir * collator.compare(a.filename || '', b.filename || '')
   if (sort === 'size')
     return (a, b) => dir * ((a.file_size || 0) - (b.file_size || 0)) || byName(a, b)
   if (sort === 'title')
@@ -58,7 +112,7 @@ function sorter(sort, order) {
  * @param {Function} [opts.isFavorite] `(id) => bool` for `favorites=true`
  * @param {Function} [opts.fallback] answers any other URL
  */
-export function fakeMediaGet({
+export function fakeMediaGet<I extends FakeMediaItem>({
   listUrl,
   collection,
   foldersUrl,
@@ -67,15 +121,15 @@ export function fakeMediaGet({
   frameFolders,
   isFavorite = () => false,
   fallback = () => Promise.resolve({}),
-}) {
+}: FakeMediaGetOptions<I>): FakeGet {
   const folderTags = Object.fromEntries(folders.map((f) => [f.path, f.tags || []]))
-  const effective = (item) => [
+  const effective = (item: I): string[] => [
     ...(item.tags || []),
     ...ancestors(mediaFolder(item)).flatMap((p) => folderTags[p] || []),
   ]
-  const filtered = (params) => {
+  const filtered = (params: URLSearchParams) => {
     const q = (params.get('q') || '').toLowerCase()
-    const tags = params.get('tags') ? JSON.parse(params.get('tags')) : null
+    const tags = params.get('tags') ? JSON.parse(params.get('tags')!) : null
     const since = params.get('added_since')
     return items.filter((item) => {
       const tagList = effective(item)
@@ -86,19 +140,19 @@ export function fakeMediaGet({
         if (!hay.includes(q)) return false
       }
       if (tags && !matchesTagQuery(tags, tagList)) return false
-      if (params.get('favorites') === 'true' && !isFavorite(item.id)) return false
+      if (params.get('favorites') === 'true' && !isFavorite(item.id!)) return false
       if (since && !(item.added_at && Date.parse(item.added_at) >= Date.parse(since))) return false
       return true
     })
   }
 
-  return (url) => {
+  return (url: string) => {
     const { path, params } = parse(url)
     if (path === foldersUrl) {
       return Promise.resolve({ folders, ...(frameFolders ? { frame_folders: frameFolders } : {}) })
     }
     if (path === `${listUrl}/groups`) {
-      const counts = new Map()
+      const counts = new Map<string, number>()
       for (const item of filtered(params)) {
         const folder = mediaFolder(item)
         counts.set(folder, (counts.get(folder) || 0) + 1)
@@ -119,12 +173,12 @@ export function fakeMediaGet({
 }
 
 /** A book's subfolder below its category directory, for a given depth. */
-function bookFolder(book, depth) {
+function bookFolder(book: FakeBook, depth: number): string {
   const parts = (book.relative_path || '').replace(/\\/g, '/').split('/')
   return parts.length > depth + 2 ? parts.slice(depth + 1, -1).join('/') : ''
 }
 
-function bookDir(book) {
+function bookDir(book: FakeBook): string {
   return (book.relative_path || '').replace(/\\/g, '/').split('/').slice(0, -1).join('/')
 }
 
@@ -132,27 +186,27 @@ function bookDir(book) {
  * `api.get` for SystemDetailView: the summary (`system`, sent without books),
  * `/book-groups`, `/books` and `/book-facets` over `books`.
  */
-export function fakeShelfGet({
+export function fakeShelfGet<B extends FakeBook>({
   system,
   books,
   isFavorite = () => false,
   fallback = () => Promise.resolve({}),
-}) {
+}: FakeShelfGetOptions<B>): FakeGet {
   const depth = Number.isInteger(system.category_depth)
-    ? system.category_depth
+    ? (system.category_depth as number)
     : system.parent_id
       ? 3
       : 2
   const base = `/systems/${system.id}`
-  const filtered = (params) => {
+  const filtered = (params: URLSearchParams) => {
     const q = (params.get('q') || '').toLowerCase()
-    const tags = params.get('tags') ? JSON.parse(params.get('tags')) : null
+    const tags = params.get('tags') ? JSON.parse(params.get('tags')!) : null
     const genre = (params.get('genre') || '').toLowerCase()
     const code = (params.get('product_code') || '').toUpperCase()
     return books.filter((b) => {
       if (q && !(b.title || '').toLowerCase().includes(q)) return false
       if (tags && !matchesTagQuery(tags, b.tags)) return false
-      if (params.get('favorites') === 'true' && !isFavorite(b.id)) return false
+      if (params.get('favorites') === 'true' && !isFavorite(b.id!)) return false
       if (params.has('explicit') && String(!!b.is_explicit) !== params.get('explicit')) return false
       if (genre && !(b.genres || []).some((g) => g.toLowerCase() === genre)) return false
       if (code && !(b.product_code || '').toUpperCase().startsWith(code)) return false
@@ -161,26 +215,26 @@ export function fakeShelfGet({
       return true
     })
   }
-  const sortBooks = (rows, params) => {
+  const sortBooks = (rows: B[], params: URLSearchParams): B[] => {
     const sort = params.get('sort') || 'title'
     const dir = params.get('order') === 'desc' ? -1 : 1
-    const byTitle = (a, b) => dir * collator.compare(a.title || '', b.title || '')
-    const field = { size: 'file_size' }[sort] || sort
+    const byTitle = (a: B, b: B) => dir * collator.compare(a.title || '', b.title || '')
+    const field = ({ size: 'file_size' } as Record<string, string>)[sort] || sort
     if (sort === 'title') return [...rows].sort(byTitle)
     return [...rows].sort((a, b) => {
-      const va = a[field]
-      const vb = b[field]
+      const va = a[field] as number | string | null | undefined
+      const vb = b[field] as number | string | null | undefined
       if (va == null || vb == null) return va == null ? (vb == null ? byTitle(a, b) : 1) : -1
       return dir * (va < vb ? -1 : va > vb ? 1 : 0) || byTitle(a, b)
     })
   }
 
-  return (url) => {
+  return (url: string) => {
     const { path, params } = parse(url)
     if (path === base) {
       // The server reads the system's own folder off any book's path.
       const ref = books.find((b) => b.relative_path)
-      const parts = ref ? ref.relative_path.replace(/\\/g, '/').split('/') : []
+      const parts = ref ? ref.relative_path!.replace(/\\/g, '/').split('/') : []
       const scope = parts.length > depth ? parts.slice(0, depth).join('/') : null
       return Promise.resolve({ scope_path: scope, ...system, books: [] })
     }
@@ -193,7 +247,10 @@ export function fakeShelfGet({
       })
     }
     if (path === `${base}/book-groups`) {
-      const rows = new Map()
+      const rows = new Map<
+        string,
+        { category: string; path: string; dir: string; count: number; first: null }
+      >()
       for (const b of filtered(params)) {
         const key = `${b.category || 'core'}\u0000${bookDir(b)}`
         const row = rows.get(key) || {

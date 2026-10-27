@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { LuClipboard, LuExternalLink, LuChevronDown } from 'react-icons/lu'
 import useAnchoredMenu from '../../hooks/useAnchoredMenu'
 import { collectSystemLinks, splitSystemLinks, linkText } from './systemLinkUtils'
+import type { SystemLink, SystemWithLinks } from './systemLinkUtils'
 
 const MENU_WIDTH = 260
 
-const buttonStyle = {
+const buttonStyle: CSSProperties = {
   padding: '8px 16px',
   borderRadius: 6,
   fontSize: 15,
@@ -20,10 +22,14 @@ const buttonStyle = {
   maxWidth: 220,
 }
 
-const ellipsis = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
+const ellipsis: CSSProperties = {
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+}
 
 // A clipboard marks a character builder; an external-link arrow, a general link.
-const linkIcon = (builder, size) => {
+const linkIcon = (builder: boolean, size: number) => {
   const Icon = builder ? LuClipboard : LuExternalLink
   return <Icon size={size} aria-hidden="true" style={{ flexShrink: 0 }} />
 }
@@ -36,18 +42,24 @@ const linkIcon = (builder, size) => {
  * icon (a clipboard for character builders, an external-link arrow for general
  * links), and a tooltip that names the kind, in both the buttons and the menu.
  */
-export default function SystemLinks({ system }) {
+export interface SystemLinksProps {
+  system: SystemWithLinks
+}
+
+export default function SystemLinks({ system }: SystemLinksProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
+  // Narrowed to the elements this menu renders; the hook types them loosely.
   const { triggerRef, panelRef, style: menuStyle } = useAnchoredMenu(open, { width: MENU_WIDTH })
 
   useEffect(() => {
     if (!open) return
-    const onDoc = (e) => {
-      if (triggerRef.current?.contains(e.target) || panelRef.current?.contains(e.target)) return
+    const onDoc = (e: MouseEvent) => {
+      const target = e.target as Node | null
+      if (triggerRef.current?.contains(target) || panelRef.current?.contains(target)) return
       setOpen(false)
     }
-    const onKey = (e) => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setOpen(false)
         triggerRef.current?.focus()
@@ -65,14 +77,14 @@ export default function SystemLinks({ system }) {
   if (links.length === 0) return null
   const { visible, overflow } = splitSystemLinks(links)
 
-  const text = (l) =>
+  const text = (l: SystemLink) =>
     linkText(l, l.builder ? t('systemDetail.characterBuilder') : t('systemDetail.link'))
-  const kindTitle = (l) =>
+  const kindTitle = (l: SystemLink) =>
     l.builder
       ? t('systemDetail.characterBuilderTitle', { label: text(l) })
       : t('systemDetail.linkTitle', { label: text(l) })
 
-  const groups = [
+  const groups: { key: string; heading: string; items: SystemLink[] }[] = [
     { key: 'builders', heading: t('systemDetail.characterBuilders'), items: [] },
     { key: 'links', heading: t('systemDetail.links'), items: [] },
   ]

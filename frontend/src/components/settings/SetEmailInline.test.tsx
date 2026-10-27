@@ -4,7 +4,7 @@ import SetEmailInline from './SetEmailInline'
 
 describe('SetEmailInline', () => {
   it('saves the trimmed value and closes in non-persistent mode', async () => {
-    const onSave = vi.fn().mockResolvedValue()
+    const onSave = vi.fn().mockResolvedValue(undefined)
     const onCancel = vi.fn()
     render(<SetEmailInline initial="a@b.com" onSave={onSave} onCancel={onCancel} />)
     fireEvent.change(screen.getByLabelText('user@example.com'), {
@@ -16,7 +16,7 @@ describe('SetEmailInline', () => {
   })
 
   it('stays open and shows a saved hint in persistent mode', async () => {
-    const onSave = vi.fn().mockResolvedValue()
+    const onSave = vi.fn().mockResolvedValue(undefined)
     const onCancel = vi.fn()
     render(<SetEmailInline initial="a@b.com" onSave={onSave} onCancel={onCancel} persistent />)
     // No cancel button in persistent mode.

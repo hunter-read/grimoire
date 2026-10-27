@@ -2,6 +2,21 @@
 // whole-page image goes soft, ZoomTiles lays sharp squares of just the visible
 // area over it, each rendered by GET /books/:id/page/:n/tile.
 
+/** A screen rectangle, in px. */
+export interface TileRect {
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+/** One tile to fetch; `high` is on screen, `low` the ring around it. */
+export interface Tile {
+  col: number
+  row: number
+  priority: 'high' | 'low'
+}
+
 // Must match backend/routers/books/tiles.py.
 export const TILE_SIZE = 1024
 export const TILE_WIDTH_STEP = 256
@@ -20,7 +35,7 @@ const MAX_DEVICE_PIXEL_RATIO = 2
  * `zoom`: one image pixel per device pixel. Rounded up to the server's step so
  * a page has a bounded set of tile grids to cache.
  */
-export function tileWidthFor(cssWidth, zoom, devicePixelRatio = 1) {
+export function tileWidthFor(cssWidth: number, zoom: number, devicePixelRatio = 1): number {
   const dpr = Math.min(Math.max(devicePixelRatio || 1, 1), MAX_DEVICE_PIXEL_RATIO)
   const wanted = cssWidth * zoom * dpr
   const stepped = Math.ceil(wanted / TILE_WIDTH_STEP) * TILE_WIDTH_STEP
@@ -28,12 +43,12 @@ export function tileWidthFor(cssWidth, zoom, devicePixelRatio = 1) {
 }
 
 /** Whether a page image `imageWidth` pixels wide is too soft to show alone. */
-export function needsTiles(tileWidth, imageWidth) {
+export function needsTiles(tileWidth: number, imageWidth: number): boolean {
   return tileWidth > imageWidth * SOFTNESS_ALLOWED
 }
 
 /** Columns and rows of tiles covering a page `width` pixels wide. `aspect` is height / width. */
-export function tileGrid(width, aspect) {
+export function tileGrid(width: number, aspect: number): { cols: number; rows: number } {
   return {
     cols: Math.ceil(width / TILE_SIZE),
     rows: Math.ceil((width * aspect) / TILE_SIZE),
@@ -41,9 +56,14 @@ export function tileGrid(width, aspect) {
 }
 
 /** Where tile `col`/`row` sits on the page, as percentages of the page box. */
-export function tileRect(col, row, width, aspect) {
+export function tileRect(
+  col: number,
+  row: number,
+  width: number,
+  aspect: number
+): { left: string; top: string; width: string; height: string } {
   const height = width * aspect
-  const pct = (n) => `${(n * 100).toFixed(4)}%`
+  const pct = (n: number) => `${(n * 100).toFixed(4)}%`
   return {
     left: pct((col * TILE_SIZE) / width),
     top: pct((row * TILE_SIZE) / height),
@@ -60,7 +80,19 @@ export function tileRect(col, row, width, aspect) {
  * included) and `view` the reader's. Visible tiles come first, so they are
  * also requested first.
  */
-export function visibleTiles({ width, aspect, box, view, ring = 1 }) {
+export function visibleTiles({
+  width,
+  aspect,
+  box,
+  view,
+  ring = 1,
+}: {
+  width: number
+  aspect: number
+  box: TileRect
+  view: TileRect
+  ring?: number
+}): Tile[] {
   if (!(box.width > 0 && box.height > 0)) return []
   const fx0 = (Math.max(view.left, box.left) - box.left) / box.width
   const fx1 = (Math.min(view.left + view.width, box.left + box.width) - box.left) / box.width
@@ -70,15 +102,15 @@ export function visibleTiles({ width, aspect, box, view, ring = 1 }) {
 
   const { cols, rows } = tileGrid(width, aspect)
   const height = width * aspect
-  const clamp = (n, max) => Math.min(max - 1, Math.max(0, n))
+  const clamp = (n: number, max: number) => Math.min(max - 1, Math.max(0, n))
   const c0 = clamp(Math.floor((fx0 * width) / TILE_SIZE), cols)
   const c1 = clamp(Math.ceil((fx1 * width) / TILE_SIZE) - 1, cols)
   const r0 = clamp(Math.floor((fy0 * height) / TILE_SIZE), rows)
   const r1 = clamp(Math.ceil((fy1 * height) / TILE_SIZE) - 1, rows)
 
-  const seen = new Set()
-  const tiles = []
-  const add = (col, row, priority) => {
+  const seen = new Set<string>()
+  const tiles: Tile[] = []
+  const add = (col: number, row: number, priority: Tile['priority']) => {
     const key = `${col}:${row}`
     if (seen.has(key)) return
     seen.add(key)

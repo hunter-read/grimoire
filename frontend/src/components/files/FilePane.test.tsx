@@ -1,14 +1,24 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import FilePane, { DRAG_MIME, edgeScrollStep } from './FilePane'
+import FilePane, {
+  DRAG_MIME,
+  edgeScrollStep,
+  type FilePaneHandle,
+  type FilePaneProps,
+} from './FilePane'
+import type { PaneRow } from '../../hooks/useLibraryPane'
+
+type Pane = FilePaneProps['pane']
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k, o) => (o ? `${k}:${JSON.stringify(o)}` : k) }),
+  useTranslation: () => ({
+    t: (k: string, o?: Record<string, unknown>) => (o ? `${k}:${JSON.stringify(o)}` : k),
+  }),
 }))
 vi.mock('../Spinner', () => ({ default: () => <span data-testid="spinner" /> }))
 
-const entryDir = (name, extra = {}) => ({
+const entryDir = (name: string, extra: Record<string, unknown> = {}) => ({
   name,
   path: `books/System/${name}`,
   is_dir: true,
@@ -18,7 +28,7 @@ const entryDir = (name, extra = {}) => ({
   ...extra,
 })
 
-const entryFile = (name, extra = {}) => ({
+const entryFile = (name: string, extra: Record<string, unknown> = {}) => ({
   name,
   path: `books/System/${name}`,
   is_dir: false,
@@ -28,8 +38,9 @@ const entryFile = (name, extra = {}) => ({
   ...extra,
 })
 
-function makePane(overrides = {}) {
-  const rows = overrides.rows || [
+// A stand-in for useLibraryPane(): the state and callbacks the pane reads.
+function makePane(overrides: Record<string, unknown> & { rows?: PaneRow[] } = {}): Pane {
+  const rows: PaneRow[] = overrides.rows || [
     { entry: entryDir('core'), depth: 0, isOpen: false },
     { entry: entryFile('bestiary.pdf'), depth: 0, isOpen: false },
   ]
@@ -56,22 +67,28 @@ function makePane(overrides = {}) {
     cursorTo: vi.fn(),
     isWritable: () => true,
     ...overrides,
-  }
+  } as unknown as Pane
 }
 
-function renderPane(pane, props = {}) {
+function renderPane(pane: Pane, props: Partial<FilePaneProps> = {}) {
   const all = {
     onDropPaths: vi.fn(),
     onOpenContext: vi.fn(),
     onRequestCreateFolder: vi.fn(),
     ...props,
   }
-  render(<FilePane pane={pane} side="primary" {...all} />)
+  render(
+    <FilePane
+      pane={pane}
+      side="primary"
+      {...(all as unknown as Omit<FilePaneProps, 'pane' | 'side'>)}
+    />
+  )
   return all
 }
 
 // jsdom has no DataTransfer, so drag events carry a minimal stand-in.
-function dragData(payload) {
+function dragData(payload: unknown) {
   return {
     types: [DRAG_MIME],
     getData: () => JSON.stringify(payload),
@@ -82,7 +99,7 @@ function dragData(payload) {
 }
 
 // A desktop file drag, which the pane reads as an upload rather than a move.
-function fileDragData(files) {
+function fileDragData(files: File[]) {
   return {
     types: ['Files'],
     files,
@@ -351,12 +368,13 @@ describe('FilePane', () => {
     // `(pointer: coarse)` is what separates a finger from a mouse; the suite's
     // global stub answers false, so a touch device has to be asked for.
     const asTouch = () => {
-      globalThis.matchMedia = (media) => ({
-        matches: media.includes('coarse'),
-        media,
-        addEventListener: () => {},
-        removeEventListener: () => {},
-      })
+      globalThis.matchMedia = (media: string) =>
+        ({
+          matches: media.includes('coarse'),
+          media,
+          addEventListener: () => {},
+          removeEventListener: () => {},
+        }) as unknown as MediaQueryList
     }
 
     afterEach(() => {
@@ -631,7 +649,7 @@ function keyRows() {
   ]
 }
 
-const press = (key, init = {}) =>
+const press = (key: string, init: Record<string, unknown> = {}) =>
   fireEvent.keyDown(screen.getByTestId('file-list-primary'), { key, ...init })
 
 describe('FilePane keyboard navigation', () => {
@@ -871,13 +889,20 @@ describe('FilePane keyboard navigation', () => {
   it('exposes focus() so a closing dialog can hand the keys back', () => {
     // Issue #460: after a rename or a delete the list must be drivable again
     // without clicking into it.
-    const ref = { current: null }
-    render(<FilePane ref={ref} pane={makePane({ rows: keyRows() })} side="primary" />)
+    const ref: { current: FilePaneHandle | null } = { current: null }
+    render(
+      <FilePane
+        ref={ref}
+        pane={makePane({ rows: keyRows() })}
+        side="primary"
+        {...({} as Omit<FilePaneProps, 'pane' | 'side'>)}
+      />
+    )
 
     const list = screen.getByTestId('file-list-primary')
     expect(document.activeElement).not.toBe(list)
 
-    act(() => ref.current.focus())
+    act(() => ref.current!.focus())
     expect(document.activeElement).toBe(list)
   })
 })

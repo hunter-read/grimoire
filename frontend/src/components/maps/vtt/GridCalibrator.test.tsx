@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import GridCalibrator from './GridCalibrator'
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k, o) => (o ? `${k}:${JSON.stringify(o)}` : k) }),
+  useTranslation: () => ({ t: (k: string, o?: object) => (o ? `${k}:${JSON.stringify(o)}` : k) }),
 }))
 
 const props = {
@@ -22,16 +22,19 @@ const props = {
 // coordinate maths deterministic and checkable.
 beforeEach(() => {
   vi.clearAllMocks()
-  Element.prototype.getBoundingClientRect = vi.fn(() => ({
-    left: 0,
-    top: 0,
-    width: 1000,
-    height: 1000,
-    right: 1000,
-    bottom: 1000,
-    x: 0,
-    y: 0,
-  }))
+  Element.prototype.getBoundingClientRect = vi.fn(
+    () =>
+      ({
+        left: 0,
+        top: 0,
+        width: 1000,
+        height: 1000,
+        right: 1000,
+        bottom: 1000,
+        x: 0,
+        y: 0,
+      }) as DOMRect
+  )
   Object.defineProperty(HTMLElement.prototype, 'clientWidth', { value: 1000, configurable: true })
   Object.defineProperty(HTMLElement.prototype, 'clientHeight', { value: 1000, configurable: true })
 })
@@ -47,13 +50,13 @@ describe('GridCalibrator', () => {
 
     expect(panel).not.toBeNull()
     // Same parent, laid out as a row: side by side rather than stacked.
-    expect(panel.parentElement).toBe(canvas.parentElement)
+    expect(panel!.parentElement).toBe(canvas.parentElement)
     expect(canvas.parentElement).toHaveStyle({ display: 'flex' })
     // The panel matches the drawing phase's sidebar, so the two read as one
     // panel changing contents rather than two panels in different places.
     // Asserted on the inline style text: jsdom does not resolve a `border-left`
     // shorthand whose colour is a CSS variable.
-    expect(panel.getAttribute('style')).toContain('border-left: 1px solid var(--border)')
+    expect(panel!.getAttribute('style')).toContain('border-left: 1px solid var(--border)')
     expect(panel).toHaveStyle({ width: '290px' })
   })
 
@@ -76,7 +79,7 @@ describe('GridCalibrator', () => {
     // whole rows of it — which looked like the grid ignoring the cell count.
     render(<GridCalibrator {...props} />)
     const image = screen.getByTestId('grid-overlay').style.backgroundImage
-    const width = Number(image.match(/0 ([\d.]+)px/)[1])
+    const width = Number(image.match(/0 ([\d.]+)px/)![1])
     expect(width).toBeGreaterThan(1)
   })
 
@@ -206,12 +209,12 @@ describe('GridCalibrator', () => {
     // reserved for placing points.
     render(<GridCalibrator {...props} />)
     const canvas = screen.getByTestId('calibrator-canvas')
-    const before = screen.getByTestId('grid-overlay').parentElement.style.transform
+    const before = screen.getByTestId('grid-overlay').parentElement!.style.transform
 
     fireEvent.mouseDown(canvas, { button: 0, clientX: 500, clientY: 500 })
     fireEvent.mouseMove(canvas, { clientX: 560, clientY: 540 })
     fireEvent.mouseUp(canvas)
 
-    expect(screen.getByTestId('grid-overlay').parentElement.style.transform).not.toBe(before)
+    expect(screen.getByTestId('grid-overlay').parentElement!.style.transform).not.toBe(before)
   })
 })

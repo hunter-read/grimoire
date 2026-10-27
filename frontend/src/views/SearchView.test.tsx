@@ -1,40 +1,54 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import SearchView from './SearchView'
 import api from '../api'
 
+type Fixture = Record<string, unknown>
+
+const mockGet = vi.mocked(api.get) as unknown as Mock
+
 // Result rows render thumbnails via the named `imageSources` export, so the
 // mock has to provide it alongside the default client.
 vi.mock('../api', () => ({
   default: { get: vi.fn() },
   imageSources: {
-    thumbUrl: (type, id) =>
-      ({
-        book: `/api/books/${id}/thumbnail`,
-        map: `/api/maps/${id}/thumbnail`,
-        token: `/api/tokens/${id}/thumbnail`,
-        audio: `/api/audio/${id}/artwork`,
-      })[type] ?? null,
+    thumbUrl: (type: string, id: string) =>
+      (
+        ({
+          book: `/api/books/${id}/thumbnail`,
+          map: `/api/maps/${id}/thumbnail`,
+          token: `/api/tokens/${id}/thumbnail`,
+          audio: `/api/audio/${id}/artwork`,
+        }) as Record<string, string>
+      )[type] ?? null,
   },
 }))
 
-const openingPageUrls = vi.fn(() => ['/warm'])
-const prefetchNow = vi.fn()
+const openingPageUrls = vi.fn<(...args: unknown[]) => string[]>(() => ['/warm'])
+const prefetchNow = vi.fn<(...args: unknown[]) => void>()
 vi.mock('../components/reader/pagePrefetch', () => ({
-  openingPageUrls: (...args) => openingPageUrls(...args),
-  prefetchNow: (...args) => prefetchNow(...args),
+  openingPageUrls: (...args: unknown[]) => openingPageUrls(...args),
+  prefetchNow: (...args: unknown[]) => prefetchNow(...args),
 }))
 
 // Signed out unless a test sets a role: select mode is admin-only.
-let role = null
+let role: string | null = null
 vi.mock('../context/AuthContext', () => ({
   useAuth: () => (role ? { user: { role } } : null),
 }))
 
 vi.mock('../components/duplicates/MergeDialog', () => ({
-  default: ({ resourceType, ids, onDone }) => (
+  default: ({
+    resourceType,
+    ids,
+    onDone,
+  }: {
+    resourceType: string
+    ids: string[]
+    onDone: (result: { action: string; keepId: string; removedIds: string[] }) => void
+  }) => (
     <button onClick={() => onDone({ action: 'merged', keepId: ids[0], removedIds: ids.slice(1) })}>
       {`merge ${resourceType} ${ids.join(',')}`}
     </button>
@@ -42,12 +56,12 @@ vi.mock('../components/duplicates/MergeDialog', () => ({
 }))
 
 vi.mock('react-router-dom', async (importOriginal) => {
-  const actual = await importOriginal()
+  const actual = await importOriginal<typeof import('react-router-dom')>()
   return { ...actual, useNavigate: () => vi.fn() }
 })
 
 // Fake response helpers
-function makeBookResult(overrides = {}) {
+function makeBookResult(overrides: Fixture = {}): Fixture {
   return {
     id: overrides.id ?? 'book-1',
     title: overrides.title ?? 'Test Book',
@@ -60,7 +74,13 @@ function makeBookResult(overrides = {}) {
   }
 }
 
-function makeResponse(books = [], maps = [], tokens = [], audio = [], bookMatches = []) {
+function makeResponse(
+  books: Fixture[] = [],
+  maps: Fixture[] = [],
+  tokens: Fixture[] = [],
+  audio: Fixture[] = [],
+  bookMatches: Fixture[] = []
+) {
   return {
     query: 'fireball',
     total: books.length + maps.length + tokens.length + audio.length + bookMatches.length,
@@ -73,7 +93,7 @@ function makeResponse(books = [], maps = [], tokens = [], audio = [], bookMatche
   }
 }
 
-function makeBookMatch(overrides = {}) {
+function makeBookMatch(overrides: Fixture = {}): Fixture {
   return {
     id: 'match-1',
     title: 'Avatar Legends Core Rulebook',
@@ -106,7 +126,7 @@ describe('SearchView', () => {
 
   it('lets an admin merge two copies found by one search, then searches again', async () => {
     role = 'admin'
-    api.get.mockResolvedValue(
+    mockGet.mockResolvedValue(
       makeResponse(
         [makeBookResult({ id: 'b2', title: 'Dungeon Guide (1)' })],
         [],
@@ -122,7 +142,7 @@ describe('SearchView', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Select Dungeon Guide (1)' }))
     await userEvent.click(screen.getByRole('button', { name: /Merge/ }))
 
-    api.get.mockClear()
+    mockGet.mockClear()
     await userEvent.click(screen.getByRole('button', { name: 'merge book b1,b2' }))
     // The merged copy is gone server-side, so the results are fetched again.
     await waitFor(() => expect(api.get).toHaveBeenCalled())
@@ -130,7 +150,7 @@ describe('SearchView', () => {
 
   it('offers no select mode to anyone but an admin', async () => {
     role = 'gm'
-    api.get.mockResolvedValue(makeResponse([makeBookResult()]))
+    mockGet.mockResolvedValue(makeResponse([makeBookResult()]))
     renderView()
     await userEvent.type(screen.getByRole('textbox'), 'fi')
     await screen.findByText('Test Book')
@@ -143,7 +163,7 @@ describe('SearchView', () => {
   })
 
   it('shows book results grouped by book after a search', async () => {
-    api.get.mockResolvedValue(
+    mockGet.mockResolvedValue(
       makeResponse([
         makeBookResult({ id: 'b1', title: 'Player Handbook', page_number: 10 }),
         makeBookResult({ id: 'b1', title: 'Player Handbook', page_number: 22 }),
@@ -162,7 +182,7 @@ describe('SearchView', () => {
   // Issue #640: a page hit warms the reader's page image when it is about to
   // be opened, which takes the book's content token and format from the hit.
   it('warms a page hit with its book’s token and format', async () => {
-    api.get.mockResolvedValue(
+    mockGet.mockResolvedValue(
       makeResponse([
         makeBookResult({
           id: 'b1',
@@ -191,7 +211,7 @@ describe('SearchView', () => {
   })
 
   it('shows page count badge on each book group', async () => {
-    api.get.mockResolvedValue(
+    mockGet.mockResolvedValue(
       makeResponse([
         makeBookResult({ id: 'b1', title: 'Big Book', page_number: 1 }),
         makeBookResult({ id: 'b1', title: 'Big Book', page_number: 2 }),
@@ -207,7 +227,7 @@ describe('SearchView', () => {
   })
 
   it('book groups start expanded and clicking collapses then re-expands page snippets', async () => {
-    api.get.mockResolvedValue(
+    mockGet.mockResolvedValue(
       makeResponse([
         makeBookResult({
           id: 'b1',
@@ -232,7 +252,7 @@ describe('SearchView', () => {
   })
 
   it('shows the system filter dropdown when results span multiple systems', async () => {
-    api.get.mockResolvedValue(
+    mockGet.mockResolvedValue(
       makeResponse([
         makeBookResult({ id: 'b1', title: 'PHB', game_system: 'D&D 5e', game_system_id: 'sys-1' }),
         makeBookResult({
@@ -251,7 +271,7 @@ describe('SearchView', () => {
   })
 
   it('does not show system filter when all results share one system', async () => {
-    api.get.mockResolvedValue(
+    mockGet.mockResolvedValue(
       makeResponse([
         makeBookResult({ id: 'b1', title: 'PHB', game_system_id: 'sys-1' }),
         makeBookResult({ id: 'b2', title: 'DMG', game_system_id: 'sys-1' }),
@@ -265,7 +285,7 @@ describe('SearchView', () => {
   })
 
   it('system filter hides books from other systems', async () => {
-    api.get.mockResolvedValue(
+    mockGet.mockResolvedValue(
       makeResponse([
         makeBookResult({ id: 'b1', title: 'PHB', game_system: 'D&D 5e', game_system_id: 'sys-1' }),
         makeBookResult({
@@ -289,7 +309,7 @@ describe('SearchView', () => {
   })
 
   it('shows the sort control when there are book results', async () => {
-    api.get.mockResolvedValue(makeResponse([makeBookResult({ id: 'b1', title: 'Alpha Book' })]))
+    mockGet.mockResolvedValue(makeResponse([makeBookResult({ id: 'b1', title: 'Alpha Book' })]))
     renderView()
     await userEvent.type(screen.getByRole('textbox'), 'fi')
 
@@ -298,7 +318,7 @@ describe('SearchView', () => {
   })
 
   it('sort by title orders book groups alphabetically', async () => {
-    api.get.mockResolvedValue(
+    mockGet.mockResolvedValue(
       makeResponse([
         makeBookResult({ id: 'b1', title: 'Zephyr Manual' }),
         makeBookResult({ id: 'b2', title: 'Alpha Guide' }),
@@ -317,7 +337,7 @@ describe('SearchView', () => {
   })
 
   it('shows no results message when search returns empty', async () => {
-    api.get.mockResolvedValue(makeResponse())
+    mockGet.mockResolvedValue(makeResponse())
     renderView()
     await userEvent.type(screen.getByRole('textbox'), 'xyzabc')
 
@@ -325,7 +345,7 @@ describe('SearchView', () => {
   })
 
   it('shows map results in a separate section', async () => {
-    api.get.mockResolvedValue(
+    mockGet.mockResolvedValue(
       makeResponse(
         [],
         [{ id: 'm1', filename: 'dungeon.png', relative_path: 'maps/dungeon.png', tags: [] }]
@@ -340,7 +360,7 @@ describe('SearchView', () => {
   })
 
   it('shows token results in a separate section', async () => {
-    api.get.mockResolvedValue(
+    mockGet.mockResolvedValue(
       makeResponse(
         [],
         [],
@@ -355,7 +375,7 @@ describe('SearchView', () => {
   })
 
   it('shows audio results in a separate section (title preferred)', async () => {
-    api.get.mockResolvedValue(
+    mockGet.mockResolvedValue(
       makeResponse(
         [],
         [],
@@ -379,7 +399,7 @@ describe('SearchView', () => {
   })
 
   it('audio result falls back to filename when title is empty', async () => {
-    api.get.mockResolvedValue(
+    mockGet.mockResolvedValue(
       makeResponse(
         [],
         [],
@@ -401,7 +421,7 @@ describe('SearchView', () => {
   })
 
   it('collapses the audio section when its header is clicked', async () => {
-    api.get.mockResolvedValue(
+    mockGet.mockResolvedValue(
       makeResponse(
         [],
         [],
@@ -417,7 +437,7 @@ describe('SearchView', () => {
   })
 
   it('navigates when an audio result is clicked', async () => {
-    api.get.mockResolvedValue(
+    mockGet.mockResolvedValue(
       makeResponse(
         [],
         [],
@@ -433,7 +453,7 @@ describe('SearchView', () => {
   })
 
   it('navigates when a map result is clicked', async () => {
-    api.get.mockResolvedValue(
+    mockGet.mockResolvedValue(
       makeResponse(
         [],
         [{ id: 'm1', filename: 'cave.png', relative_path: 'maps/cave.png', tags: [] }]
@@ -462,11 +482,11 @@ describe('SearchView — URL query param persistence', () => {
         <SearchView />
       </MemoryRouter>
     )
-    expect(screen.getByRole('textbox').value).toBe('fireball')
+    expect((screen.getByRole('textbox') as HTMLInputElement).value).toBe('fireball')
   })
 
   it('runs the search immediately on mount when ?q= is present', async () => {
-    api.get.mockResolvedValue(makeResponse([makeBookResult({ title: 'Spell Guide' })]))
+    mockGet.mockResolvedValue(makeResponse([makeBookResult({ title: 'Spell Guide' })]))
     render(
       <MemoryRouter initialEntries={['/search?q=fireball']}>
         <SearchView />
@@ -494,7 +514,7 @@ describe('SearchView — URL query param persistence', () => {
 
   describe('book title matches', () => {
     it('pins a title match above the page hits', async () => {
-      api.get.mockResolvedValue(
+      mockGet.mockResolvedValue(
         makeResponse(
           [makeBookResult({ id: 'page-book', title: 'Monster Manual' })],
           [],
@@ -518,7 +538,7 @@ describe('SearchView — URL query param persistence', () => {
     })
 
     it('links a title match straight to the book', async () => {
-      api.get.mockResolvedValue(makeResponse([], [], [], [], [makeBookMatch()]))
+      mockGet.mockResolvedValue(makeResponse([], [], [], [], [makeBookMatch()]))
       render(
         <MemoryRouter initialEntries={['/search?q=avatar']}>
           <SearchView />
@@ -535,7 +555,7 @@ describe('SearchView — URL query param persistence', () => {
     })
 
     it('shows the books section for a title match even with no page hits at all', async () => {
-      api.get.mockResolvedValue(makeResponse([], [], [], [], [makeBookMatch()]))
+      mockGet.mockResolvedValue(makeResponse([], [], [], [], [makeBookMatch()]))
       render(
         <MemoryRouter initialEntries={['/search?q=title%3Aavatar']}>
           <SearchView />
@@ -548,7 +568,7 @@ describe('SearchView — URL query param persistence', () => {
     })
 
     it('counts pinned matches in the result total', async () => {
-      api.get.mockResolvedValue(makeResponse([], [], [], [], [makeBookMatch()]))
+      mockGet.mockResolvedValue(makeResponse([], [], [], [], [makeBookMatch()]))
       render(
         <MemoryRouter initialEntries={['/search?q=avatar']}>
           <SearchView />
@@ -558,7 +578,7 @@ describe('SearchView — URL query param persistence', () => {
     })
 
     it('hides a pinned match that the system filter excludes', async () => {
-      api.get.mockResolvedValue(
+      mockGet.mockResolvedValue(
         makeResponse(
           [
             makeBookResult({ id: 'p1', game_system_id: 'sys-1', game_system: 'PbtA' }),
@@ -591,12 +611,12 @@ describe('SearchView — URL query param persistence', () => {
     })
 
     it('runs the clicked example as a search and closes the popover', async () => {
-      api.get.mockResolvedValue(makeResponse())
+      mockGet.mockResolvedValue(makeResponse())
       renderView()
       await userEvent.click(screen.getByRole('button', { name: /search syntax help/i }))
       await userEvent.click(screen.getByText('title:avatar'))
 
-      expect(screen.getByRole('textbox').value).toBe('title:avatar')
+      expect((screen.getByRole('textbox') as HTMLInputElement).value).toBe('title:avatar')
       expect(screen.queryByRole('dialog')).toBeNull()
       await waitFor(() =>
         expect(api.get).toHaveBeenCalledWith(expect.stringContaining('title%3Aavatar'))
@@ -615,7 +635,7 @@ describe('SearchView — URL query param persistence', () => {
 
   describe('result thumbnails', () => {
     it('shows a map thumbnail on its result row', async () => {
-      api.get.mockResolvedValue(
+      mockGet.mockResolvedValue(
         makeResponse(
           [],
           [
@@ -658,7 +678,7 @@ describe('SearchView — long result lists start collapsed', () => {
     )
 
   it('collapses the sections, then the book groups inside them', async () => {
-    api.get.mockResolvedValue(longResponse())
+    mockGet.mockResolvedValue(longResponse())
     renderView()
     await userEvent.type(screen.getByRole('textbox'), 'fi')
 
@@ -679,7 +699,7 @@ describe('SearchView — long result lists start collapsed', () => {
   it('leaves a single long section open', async () => {
     const response = longResponse()
     response.maps = []
-    api.get.mockResolvedValue(response)
+    mockGet.mockResolvedValue(response)
     renderView()
     await userEvent.type(screen.getByRole('textbox'), 'fi')
 

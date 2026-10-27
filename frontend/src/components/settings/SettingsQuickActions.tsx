@@ -38,7 +38,7 @@ export default function SettingsQuickActions() {
   const [showModal, setShowModal] = useState(false)
   const { running } = status
 
-  const handleConfirm = (metadata_mode) => {
+  const handleConfirm = (metadata_mode: string) => {
     startRescan({ scope: null, metadata_mode }).catch(() => {})
   }
 

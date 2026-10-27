@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import type { ReactNode } from 'react'
 import App from './App'
+
+type WithChildren = { children: ReactNode }
 
 let status = 'authenticated'
 let pathname = '/'
@@ -11,15 +14,23 @@ vi.mock('react-router-dom', () => ({
   useLocation: () => ({ pathname }),
 }))
 // vi.mock is hoisted, so each factory carries its own pass-through provider.
-vi.mock('./context/FavoritesContext', () => ({ FavoritesProvider: ({ children }) => children }))
-vi.mock('./context/AudioPlayerContext', () => ({
-  AudioPlayerProvider: ({ children }) => children,
+vi.mock('./context/FavoritesContext', () => ({
+  FavoritesProvider: ({ children }: WithChildren) => children,
 }))
-vi.mock('./context/SoundboardContext', () => ({ SoundboardProvider: ({ children }) => children }))
-vi.mock('./context/ThemeContext', () => ({ ThemeProvider: ({ children }) => children }))
+vi.mock('./context/AudioPlayerContext', () => ({
+  AudioPlayerProvider: ({ children }: WithChildren) => children,
+}))
+vi.mock('./context/SoundboardContext', () => ({
+  SoundboardProvider: ({ children }: WithChildren) => children,
+}))
+vi.mock('./context/ThemeContext', () => ({
+  ThemeProvider: ({ children }: WithChildren) => children,
+}))
 vi.mock('./views/SetupView', () => ({ default: () => <div>setup</div> }))
 vi.mock('./views/LoginView', () => ({ default: () => <div>login</div> }))
-vi.mock('./views/ShareView', () => ({ default: ({ token }) => <div>{`share:${token}`}</div> }))
+vi.mock('./views/ShareView', () => ({
+  default: ({ token }: { token: string }) => <div>{`share:${token}`}</div>,
+}))
 vi.mock('./components/LoadingScreen', () => ({ default: () => <div>loading</div> }))
 vi.mock('./components/AppShell', () => ({ default: () => <div>shell</div> }))
 

@@ -5,10 +5,7 @@ import {
   useMemo,
   useEffect,
   type ChangeEvent,
-  type ComponentType,
-  type CSSProperties,
   type ReactNode,
-  type RefObject,
 } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -32,33 +29,11 @@ import { useAuth } from '../context/AuthContext'
 import useBulkMerge from '../hooks/useBulkMerge'
 import useMixedSelection from '../hooks/useMixedSelection'
 import BookGroup, { type SearchBookGroup } from '../components/search/BookGroup'
-import BookMatchCardJs from '../components/search/BookMatchCard'
-import ResultCardJs from '../components/search/ResultCard'
-import SearchHelpJs from '../components/search/SearchHelp'
+import BookMatchCard from '../components/search/BookMatchCard'
+import ResultCard from '../components/search/ResultCard'
+import SearchHelp from '../components/search/SearchHelp'
 import { shouldAutoCollapse } from '../utils/autoCollapse'
-import {
-  sectionHeadStyle as sectionHeadStyleJs,
-  controlStyle as controlStyleJs,
-} from '../components/search/searchStyles'
-
-// Still JavaScript, so TypeScript would read every destructured prop as required.
-const BookMatchCard = BookMatchCardJs as ComponentType<{ book: Schema<'SearchBookMatch'> }>
-const ResultCard = ResultCardJs as ComponentType<{
-  to: string
-  title: string
-  subtitle: string
-  tags: string[]
-  type: string
-  id: string
-  hasThumbnail?: boolean
-}>
-const SearchHelp = SearchHelpJs as ComponentType<{
-  onClose: () => void
-  onInsert: (example: string) => void
-  triggerRef: RefObject<HTMLButtonElement | null>
-}>
-const sectionHeadStyle = sectionHeadStyleJs as CSSProperties
-const controlStyle = controlStyleJs as CSSProperties
+import { sectionHeadStyle, controlStyle } from '../components/search/searchStyles'
 
 type SearchResults = Schema<'SearchResponse'>
 

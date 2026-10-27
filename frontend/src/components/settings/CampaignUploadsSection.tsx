@@ -2,24 +2,39 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCircleCheck } from 'react-icons/lu'
 import { settings as settingsApi } from '../../api'
+import type { BodyOf, Schema } from '../../api'
 import Spinner from '../Spinner'
+
+type UploadKey =
+  'campaign_uploads_disabled' | 'campaign_upload_max_file_mb' | 'campaign_upload_max_total_mb'
+
+// The number inputs hold their raw text between a keystroke and the blur that saves it.
+interface UploadValues {
+  campaign_uploads_disabled: boolean
+  campaign_upload_max_file_mb: number | string
+  campaign_upload_max_total_mb: number | string
+}
+
+// GET /settings is typed by SettingsResponse, which does not list these fields.
+type UploadSettings = Partial<Pick<Schema<'UISettingsResponse'>, UploadKey>>
 
 export default function CampaignUploadsSection() {
   const { t } = useTranslation()
-  const [values, setValues] = useState(null)
+  const [values, setValues] = useState<UploadValues | null>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
     settingsApi
       .get()
-      .then((d) =>
+      .then((res) => {
+        const d = res as UploadSettings
         setValues({
           campaign_uploads_disabled: !!d.campaign_uploads_disabled,
           campaign_upload_max_file_mb: d.campaign_upload_max_file_mb ?? 0,
           campaign_upload_max_total_mb: d.campaign_upload_max_total_mb ?? 0,
         })
-      )
+      })
       .catch(() =>
         setValues({
           campaign_uploads_disabled: false,
@@ -29,8 +44,8 @@ export default function CampaignUploadsSection() {
       )
   }, [])
 
-  const save = async (patch) => {
-    setValues((v) => ({ ...v, ...patch }))
+  const save = async (patch: BodyOf<'/settings', 'patch'>) => {
+    setValues((v) => ({ ...v!, ...patch }) as UploadValues)
     setSaving(true)
     try {
       await settingsApi.patch(patch)
@@ -46,7 +61,10 @@ export default function CampaignUploadsSection() {
     <div style={{ marginBottom: 40 }}>
       <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>
         {t('appSettings.campaignUploads.title')}
-        {saving && <Spinner size={13} style={{ marginLeft: 8 }} />}
+        {saving && (
+          // @ts-expect-error -- Spinner takes no style prop, so this margin has never applied.
+          <Spinner size={13} style={{ marginLeft: 8 }} />
+        )}
         {saved && <LuCircleCheck size={14} style={{ color: 'var(--green)', marginLeft: 8 }} />}
       </h3>
       <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.6 }}>
@@ -79,13 +97,18 @@ export default function CampaignUploadsSection() {
             </span>
           </label>
 
-          {[
-            { key: 'campaign_upload_max_file_mb', label: t('appSettings.campaignUploads.perFile') },
-            {
-              key: 'campaign_upload_max_total_mb',
-              label: t('appSettings.campaignUploads.perCampaign'),
-            },
-          ].map(({ key, label }) => (
+          {(
+            [
+              {
+                key: 'campaign_upload_max_file_mb',
+                label: t('appSettings.campaignUploads.perFile'),
+              },
+              {
+                key: 'campaign_upload_max_total_mb',
+                label: t('appSettings.campaignUploads.perCampaign'),
+              },
+            ] as { key: Exclude<UploadKey, 'campaign_uploads_disabled'>; label: string }[]
+          ).map(({ key, label }) => (
             <label
               key={key}
               style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 14 }}
@@ -94,7 +117,7 @@ export default function CampaignUploadsSection() {
                 type="number"
                 min="0"
                 value={values[key]}
-                onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
+                onChange={(e) => setValues((v) => ({ ...v!, [key]: e.target.value }))}
                 onBlur={(e) => save({ [key]: parseInt(e.target.value) || 0 })}
                 style={{
                   width: 90,

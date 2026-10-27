@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import TagListButton from './TagListButton'
+import TagListButton, { type TagListButtonProps } from './TagListButton'
 
 const tag = { internal: 'city watch', display: 'City Watch', count: 4 }
 
-const renderButton = (props) =>
+const renderButton = (props: TagListButtonProps) =>
   render(
     <MemoryRouter>
       <TagListButton {...props} />

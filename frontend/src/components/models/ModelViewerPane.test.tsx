@@ -12,11 +12,11 @@ const resetView = vi.fn()
 const setWireframe = vi.fn()
 
 vi.mock('../../lib/three', () => ({
-  createViewer: (...args) => createViewer(...args),
+  createViewer: (...args: unknown[]) => createViewer(...args),
 }))
 
 vi.mock('../../api', () => ({
-  mediaUrl: (path) => `http://localhost${path}`,
+  mediaUrl: (path: string) => `http://localhost${path}`,
   default: { get: vi.fn() },
 }))
 
@@ -130,7 +130,7 @@ describe('ModelViewerPane', () => {
   })
 
   it('disposes a viewer that resolves after unmount', async () => {
-    let resolve
+    let resolve!: (viewer: unknown) => void
     createViewer.mockReturnValue(new Promise((r) => (resolve = r)))
     const { unmount } = render(<ModelViewerPane model={aModel()} />)
     unmount()

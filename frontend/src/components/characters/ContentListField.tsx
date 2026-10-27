@@ -1,10 +1,29 @@
 import { useState, Fragment } from 'react'
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuSearch, LuTrash2, LuPencil } from 'react-icons/lu'
 import ContentBrowser from './ContentBrowser'
+import type { ContentRefValue } from './ContentBrowser'
 import FieldRenderer from './FieldRenderer'
+import type { FieldDefinition } from './FieldRenderer'
 import ContentEntryDetail from './ContentEntryDetail'
+import type { ContentFieldDefinition, ContentTypeDefinition } from './ContentEntryDetail'
 import { ghostBtn, iconBtn, fieldLabel } from './characterStyles'
+
+type EntryValues = Record<string, unknown>
+
+export interface ContentListFieldProps {
+  name: string
+  definition?: ContentFieldDefinition
+  value?: unknown
+  // Resolved catalog entries, keyed by id.
+  entries?: Record<string, unknown>
+  schemaId?: string
+  typeDefinition?: ContentTypeDefinition
+  onChange?: (value: ContentRefValue[]) => void
+  readOnly?: boolean
+  hideLabel?: boolean
+}
 
 /**
  * Many picks from the catalog — spells known, feats, cyberware.
@@ -28,13 +47,13 @@ export default function ContentListField({
   onChange,
   readOnly = false,
   hideLabel = false,
-}) {
+}: ContentListFieldProps) {
   const { t } = useTranslation()
   const [browsing, setBrowsing] = useState(false)
   // Which rows are open to show the whole entry, by position.
-  const [open, setOpen] = useState(() => new Set())
+  const [open, setOpen] = useState(() => new Set<number>())
 
-  const rows = Array.isArray(value) ? value : []
+  const rows: ContentRefValue[] = Array.isArray(value) ? value : []
   const perFields = definition.per_entry_fields || {}
   // `display_columns` draws the list as a table of the entries' own properties
   // - a spell's level, casting time and range - the way a printed sheet lists
@@ -45,7 +64,7 @@ export default function ContentListField({
       : column
   )
 
-  const add = (picked) => {
+  const add = (picked: ContentRefValue) => {
     // Picking something already on the sheet is a no-op rather than a duplicate
     // row: two copies of the same spell is never what was meant.
     if (rows.some((row) => row?._ref === picked._ref)) return
@@ -58,12 +77,12 @@ export default function ContentListField({
     setOpen((prev) => new Set(prev).add(rows.length))
   }
 
-  const remove = (index) => {
+  const remove = (index: number) => {
     onChange?.(rows.filter((_, i) => i !== index))
     setOpen(new Set())
   }
 
-  const toggle = (index) =>
+  const toggle = (index: number) =>
     setOpen((prev) => {
       const next = new Set(prev)
       if (next.has(index)) next.delete(index)
@@ -71,24 +90,25 @@ export default function ContentListField({
       return next
     })
 
-  const setPer = (index, key, cellValue) =>
+  const setPer = (index: number, key: string, cellValue: unknown) =>
     onChange?.(
       rows.map((row, i) =>
         i === index ? { ...row, _per: { ...(row._per || {}), [key]: cellValue } } : row
       )
     )
 
-  const setInline = (index, key, cellValue) =>
+  const setInline = (index: number, key: string, cellValue: unknown) =>
     onChange?.(rows.map((row, i) => (i === index ? { ...row, [key]: cellValue } : row)))
 
   // The fields a freeform entry can be given - the content type's own, so a
   // custom trait has a description just as a catalog one does.
-  const inlineFields = Object.keys(typeDefinition.fields || {}).length
-    ? typeDefinition.fields
+  const inlineFields: Record<string, FieldDefinition> = Object.keys(typeDefinition.fields || {})
+    .length
+    ? typeDefinition.fields!
     : { name: { type: 'text', label: t('characters.name') } }
 
-  const cell = { padding: '6px 6px', fontSize: 12, verticalAlign: 'middle' }
-  const perCells = (row, index) =>
+  const cell: CSSProperties = { padding: '6px 6px', fontSize: 12, verticalAlign: 'middle' }
+  const perCells = (row: ContentRefValue, index: number) =>
     Object.entries(perFields).map(([key, perDefinition]) => (
       <td key={key} style={{ ...cell, width: perDefinition.type === 'checkbox' ? 1 : 70 }}>
         <FieldRenderer
@@ -136,7 +156,7 @@ export default function ContentListField({
           ) : null}
           <tbody>
             {rows.map((row, index) => {
-              const entry = row?._ref ? entries[row._ref] : null
+              const entry = (row?._ref ? entries[row._ref] : null) as EntryValues | null | undefined
               const missing = !!row?._ref && !entry
               const expanded = open.has(index)
               const detail = entry || (row?._inline ? row : null)
@@ -182,7 +202,7 @@ export default function ContentListField({
                           aria-label={t(
                             expanded ? 'characters.hideEntry' : 'characters.showEntry',
                             {
-                              name: entry?.name || row?._ref,
+                              name: (entry?.name as string | undefined) || row?._ref,
                             }
                           )}
                           style={nameButton}
@@ -196,7 +216,7 @@ export default function ContentListField({
                             >
                               {expanded ? '▾' : '▸'}
                             </span>
-                            <span>{entry?.name || row?._ref}</span>
+                            <span>{(entry?.name as string | undefined) || row?._ref}</span>
                             {missing ? (
                               <span
                                 style={{ color: 'var(--warning)', fontSize: 11, marginLeft: 6 }}
@@ -307,8 +327,8 @@ export default function ContentListField({
 
       {browsing ? (
         <ContentBrowser
-          schemaId={schemaId}
-          contentType={definition.content_type}
+          schemaId={schemaId!}
+          contentType={definition.content_type!}
           typeDefinition={typeDefinition}
           multiple
           chosen={rows}
@@ -320,7 +340,7 @@ export default function ContentListField({
   )
 }
 
-const inlineEditor = {
+const inlineEditor: CSSProperties = {
   margin: '6px 0 8px',
   padding: 12,
   border: '1px solid var(--border)',
@@ -331,7 +351,7 @@ const inlineEditor = {
   gap: 10,
 }
 
-const headCell = {
+const headCell: CSSProperties = {
   // A column heading stays on one line - "Prep" wrapped to "PR / EP" in a
   // column sized to its checkbox.
   whiteSpace: 'nowrap',
@@ -344,7 +364,7 @@ const headCell = {
   borderBottom: '1px solid var(--border)',
 }
 
-const nameButton = {
+const nameButton: CSSProperties = {
   background: 'none',
   border: 'none',
   padding: 0,
@@ -355,7 +375,7 @@ const nameButton = {
   width: '100%',
 }
 
-function formatCell(value) {
+function formatCell(value: unknown): string {
   if (value === null || value === undefined || value === '') return '—'
   if (value === true) return '✓'
   if (value === false) return '—'
@@ -364,11 +384,11 @@ function formatCell(value) {
 
 // The one-line summary a row shows beneath its name, from the content type's
 // own `compact_display` template.
-function summaryOf(entry, typeDefinition) {
+function summaryOf(entry: EntryValues, typeDefinition: ContentTypeDefinition): string {
   const template = typeDefinition.compact_display
   if (!template) return ''
   return template
-    .replace(/\{([A-Za-z_][A-Za-z0-9_]*)\}/g, (_, key) => {
+    .replace(/\{([A-Za-z_][A-Za-z0-9_]*)\}/g, (_, key: string) => {
       const value = entry[key]
       if (value === null || value === undefined || value === false) return ''
       if (value === true) return 'yes'

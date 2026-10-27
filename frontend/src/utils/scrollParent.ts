@@ -6,7 +6,7 @@
  * sentinels - has to watch that element: measuring against the window would
  * compare rows to a box that never scrolls.
  */
-export default function scrollParent(el) {
+export default function scrollParent(el: Element | null | undefined): HTMLElement | null {
   for (let node = el?.parentElement; node; node = node.parentElement) {
     const { overflowY } = getComputedStyle(node)
     if (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') return node

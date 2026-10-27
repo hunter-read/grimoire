@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuArrowLeft, LuInfo, LuChevronDown, LuMusic, LuImagePlus } from 'react-icons/lu'
-import api, { imageSources, mediaUrl } from '../../api'
+import api, { imageSources, mediaUrl, type Schema } from '../../api'
 import useSiblingNavigation from '../../hooks/useSiblingNavigation'
 import useArrowKeyNavigation from '../../hooks/useArrowKeyNavigation'
 import ImagePickerModal from '../images/ImagePickerModal'
@@ -23,6 +23,8 @@ import SiblingPosition from '../media/SiblingPosition'
 import { isArchiveMedia } from '../../constants'
 import useIsMobile from '../../hooks/useIsMobile'
 
+type AudioDetail = Schema<'AudioDetailResponse'>
+
 export default function AudioDetailView() {
   const { audioId } = useParams()
   const navigate = useNavigate()
@@ -35,7 +37,7 @@ export default function AudioDetailView() {
   const goBack = () => navigate(backPathRef.current || '/audio', { state: { restoreView: true } })
   const { t } = useTranslation()
   const isMobilePhone = useIsMobile(640)
-  const [track, setTrack] = useState(null)
+  const [track, setTrack] = useState<AudioDetail | null>(null)
   const [editingTrackTags, setEditingTrackTags] = useState(false)
   const [editingFolderTags, setEditingFolderTags] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
@@ -49,7 +51,7 @@ export default function AudioDetailView() {
   // Cache-buster so a replaced cover isn't served from the browser cache.
   const [coverVersion, setCoverVersion] = useState(0)
 
-  const audioDetailPath = useCallback((id) => `/audio/${id}`, [])
+  const audioDetailPath = useCallback((id: string) => `/audio/${id}`, [])
   const {
     siblings,
     index: siblingIdx,
@@ -71,7 +73,7 @@ export default function AudioDetailView() {
   useArrowKeyNavigation(onNext, onPrev)
 
   useEffect(() => {
-    api.get(`/audio/${audioId}`).then(setTrack)
+    api.get(`/audio/${audioId}`).then((data) => setTrack(data as AudioDetail))
   }, [audioId])
 
   if (!track)
@@ -90,13 +92,13 @@ export default function AudioDetailView() {
   const currentFolderTags = track.folder_tags ?? []
   const isArchive = isArchiveMedia(track)
 
-  const saveTrackTags = async (tags) => {
+  const saveTrackTags = async (tags: string[]) => {
     await api.patch(`/audio/${audioId}`, { tags })
     setTrack({ ...track, tags })
     setEditingTrackTags(false)
   }
 
-  const saveFolderTags = async (tags) => {
+  const saveFolderTags = async (tags: string[]) => {
     await api.patch('/audio-folders', { path: track.folder_path, tags })
     setTrack({ ...track, folder_tags: tags })
     setEditingFolderTags(false)
@@ -184,16 +186,16 @@ export default function AudioDetailView() {
         )}
         <VariantPicker
           item={track}
-          detailPath={(id) => `/audio/${id}`}
+          detailPath={(id: string) => `/audio/${id}`}
           resourceType="audio"
           compact
         />
-        <DownloadVersionButton type="audio" id={audioId} item={track} compact={isMobilePhone} />
+        <DownloadVersionButton type="audio" id={audioId!} item={track} compact={isMobilePhone} />
         {/* Favourite, campaigns and share links live in the overflow menu, as in
             the book reader, so the toolbar keeps room for the title. */}
         <DetailMoreMenu
           resourceType="audio"
-          resourceId={audioId}
+          resourceId={audioId!}
           title={track.title || track.filename}
         />
       </div>
@@ -284,7 +286,7 @@ export default function AudioDetailView() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <AudioPlayer
                 track={{
-                  id: audioId,
+                  id: audioId!,
                   title: track.title || track.filename,
                   artwork: track.has_artwork,
                 }}
@@ -292,7 +294,7 @@ export default function AudioDetailView() {
                 size={56}
               />
               <AddToSoundboardButton
-                track={{ id: audioId, title: track.title || track.filename }}
+                track={{ id: audioId!, title: track.title || track.filename }}
                 size={36}
               />
             </div>
@@ -324,7 +326,7 @@ export default function AudioDetailView() {
           {track.duration > 0 && (
             <MetaRow label={t('audio.detail.duration')} value={formatDuration(track.duration)} />
           )}
-          <MetaRow label={t('audio.detail.fileSize')} value={formatSize(track.file_size)} />
+          <MetaRow label={t('audio.detail.fileSize')} value={formatSize(track.file_size!)} />
 
           {/* Folder tags */}
           {folder &&
@@ -404,21 +406,24 @@ export default function AudioDetailView() {
           }
           aspectRatio="1 / 1"
           formatsText={t('imagePicker.formats')}
-          onUpload={async (file) => {
-            await imageSources.uploadAudioCover(audioId, file)
-            setTrack(await api.get(`/audio/${audioId}`))
+          onUpload={async (file: Blob) => {
+            await imageSources.uploadAudioCover(audioId!, file)
+            setTrack((await api.get(`/audio/${audioId}`)) as AudioDetail)
             setCoverVersion((v) => v + 1)
           }}
-          onPickSource={async ({ source_type: type, source_id: id }) => {
-            await imageSources.setAudioCover(audioId, type, id)
-            setTrack(await api.get(`/audio/${audioId}`))
+          onPickSource={async ({
+            source_type: type,
+            source_id: id,
+          }: Schema<'AudioCoverSourceIn'>) => {
+            await imageSources.setAudioCover(audioId!, type, id)
+            setTrack((await api.get(`/audio/${audioId}`)) as AudioDetail)
             setCoverVersion((v) => v + 1)
           }}
           onRemove={
             track.has_cover
               ? async () => {
-                  await imageSources.deleteAudioCover(audioId)
-                  setTrack(await api.get(`/audio/${audioId}`))
+                  await imageSources.deleteAudioCover(audioId!)
+                  setTrack((await api.get(`/audio/${audioId}`)) as AudioDetail)
                   setCoverVersion((v) => v + 1)
                 }
               : undefined

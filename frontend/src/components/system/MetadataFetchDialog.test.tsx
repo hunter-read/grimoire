@@ -1,12 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { UserEvent } from '@testing-library/user-event'
 import MetadataFetchDialog from './MetadataFetchDialog'
 import { clearMetadataSourcesCache } from './useMetadataSources'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k, opts) => (opts?.count !== undefined ? `${k}:${opts.count}` : k),
+    t: (k: string, opts?: { count?: number }) =>
+      opts?.count !== undefined ? `${k}:${opts.count}` : k,
   }),
 }))
 
@@ -14,7 +17,8 @@ vi.mock('../../api', () => ({
   default: { get: vi.fn(), post: vi.fn(), patch: vi.fn() },
 }))
 
-const api = (await import('../../api')).default
+// The transport is mocked above; its generic signatures don't fit a mock's.
+const api = (await import('../../api')).default as unknown as Record<'get' | 'post' | 'patch', Mock>
 
 const SYSTEM = { id: 'sys-1', name: 'Blades in the Dark' }
 const BOOK = { id: 'bk-1', title: 'Blades in the Dark' }
@@ -58,13 +62,13 @@ const DETAIL = {
 
 function mockHappyPath() {
   api.get.mockResolvedValue(SOURCES)
-  api.post.mockImplementation((url) =>
+  api.post.mockImplementation((url: string) =>
     Promise.resolve(url.endsWith('metadata-search') ? RESULTS : DETAIL)
   )
   api.patch.mockResolvedValue({ status: 'ok' })
 }
 
-async function openDiff(user) {
+async function openDiff(user: UserEvent) {
   await user.click(screen.getByRole('button', { name: /metadataFetch.search/i }))
   await screen.findByText('Blades in the Dark (1st Edition)')
   await user.click(screen.getByText('Blades in the Dark (1st Edition)'))
@@ -95,7 +99,7 @@ describe('MetadataFetchDialog', () => {
   // The message used to render while the lookup was still in flight, so every
   // bulk-edit scrape flashed "an admin can install a metadata scraper" first.
   it('does not claim there are no sources while still loading', () => {
-    let resolve
+    let resolve!: (value: unknown) => void
     api.get.mockReturnValue(new Promise((r) => (resolve = r)))
     render(<MetadataFetchDialog resource={SYSTEM} onApply={vi.fn()} onClose={vi.fn()} />)
 
@@ -280,8 +284,10 @@ describe('MetadataFetchDialog', () => {
       await screen.findByDisplayValue('Blades in the Dark')
       await openDiff(user)
 
-      const fetchCall = api.post.mock.calls.find(([url]) => url.endsWith('metadata-fetch'))
-      expect(fetchCall[1]).toEqual({
+      const fetchCall = api.post.mock.calls.find(([url]: string[]) =>
+        url.endsWith('metadata-fetch')
+      )
+      expect(fetchCall![1]).toEqual({
         source_id: 'ttrpg-wiki',
         identity: 'blades-in-the-dark',
         query: 'Blades in the Dark',
@@ -322,12 +328,12 @@ describe('MetadataFetchDialog', () => {
       )
       await user.click(screen.getByRole('button', { name: 'metadataFetch.pasteUse' }))
 
-      const call = api.post.mock.calls.find(([url]) => url.endsWith('metadata-fetch'))
-      expect(call[1]).toMatchObject({
+      const call = api.post.mock.calls.find(([url]: string[]) => url.endsWith('metadata-fetch'))
+      expect(call![1]).toMatchObject({
         source_id: 'ttrpg-wiki',
         paste: 'https://ttrpgwiki.com/systems/cairn',
       })
-      expect(call[1]).not.toHaveProperty('identity')
+      expect(call![1]).not.toHaveProperty('identity')
     })
 
     it('goes straight to the diff, skipping the candidate list', async () => {
@@ -349,7 +355,7 @@ describe('MetadataFetchDialog', () => {
       await user.click(await screen.findByText('metadataFetch.pasteToggle'))
       await user.type(screen.getByLabelText('metadataFetch.pasteLabel'), 'cairn{Enter}')
       await waitFor(() =>
-        expect(api.post.mock.calls.some(([u]) => u.endsWith('metadata-fetch'))).toBe(true)
+        expect(api.post.mock.calls.some(([u]: string[]) => u.endsWith('metadata-fetch'))).toBe(true)
       )
     })
 
@@ -392,7 +398,7 @@ describe('MetadataFetchDialog', () => {
 
     const mockMerged = () => {
       api.get.mockResolvedValue(SOURCES)
-      api.post.mockImplementation((url) =>
+      api.post.mockImplementation((url: string) =>
         Promise.resolve(url.endsWith('metadata-search') ? RESULTS : MERGED_DETAIL)
       )
       api.patch.mockResolvedValue({ status: 'ok' })
@@ -558,7 +564,7 @@ describe('MetadataFetchDialog', () => {
 
     it('lands on Skip when the match has nothing new to apply', async () => {
       api.get.mockResolvedValue(SOURCES)
-      api.post.mockImplementation((url) =>
+      api.post.mockImplementation((url: string) =>
         Promise.resolve(
           url.endsWith('metadata-search') ? RESULTS : { ...DETAIL, fields: [DETAIL.fields[3]] } // only an "already set" row
         )

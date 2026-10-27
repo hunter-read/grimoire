@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuRotateCcw } from 'react-icons/lu'
 import { iconBtn } from './characterStyles'
@@ -18,7 +19,22 @@ import { iconBtn } from './characterStyles'
  * Without `onOverride` - someone else's sheet, a read-only view - this is the
  * plain value and nothing more.
  */
-export default function OverridableValue({ label, display, raw, overridden, onOverride }) {
+export interface OverridableValueProps {
+  label?: string
+  display?: ReactNode
+  raw?: unknown
+  overridden?: boolean
+  // `undefined` hands the value back to its formula.
+  onOverride?: (value: number | string | undefined) => void
+}
+
+export default function OverridableValue({
+  label,
+  display,
+  raw,
+  overridden,
+  onOverride,
+}: OverridableValueProps) {
   const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')

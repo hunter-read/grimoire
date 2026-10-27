@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, within, fireEvent } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import userEvent, { type UserEvent } from '@testing-library/user-event'
 import IconPicker from './IconPicker'
 
-const open = async (user) => {
+const open = async (user: UserEvent) => {
   await user.click(screen.getByRole('button', { name: 'Choose an icon' }))
   return screen.getByRole('dialog', { name: 'Choose an icon' })
 }

@@ -1,7 +1,27 @@
+import type { MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuArrowUp, LuDownload, LuMenu, LuTrash2 } from 'react-icons/lu'
 import PluginSourcePill from './PluginSourcePill'
 import AuthorByline from './AuthorByline'
+import type { Schema } from '../../api'
+
+type Installed = Schema<'InstalledAddon'>
+type Available = Schema<'AvailableAddon'>
+
+/** An add-on from either list: installed ones carry their state, index entries their checksum. */
+export type PluginAddon = (Installed & Partial<Available>) | (Available & Partial<Installed>)
+
+export interface PluginCardProps {
+  addon: PluginAddon
+  isInstalled: boolean
+  trustedIndexUrls?: string[]
+  busy?: boolean
+  onContextMenu?: (e: MouseEvent, addon: PluginAddon, isUpdate: boolean) => void
+  onUpdate?: (addon: PluginAddon) => void
+  onToggleEnabled?: (addon: PluginAddon) => void
+  onRemove?: (addon: PluginAddon) => void
+  onInstall?: (addon: PluginAddon) => void
+}
 
 /**
  * A single add-on plugin item card (installed or available).
@@ -16,7 +36,7 @@ export default function PluginCard({
   onToggleEnabled,
   onRemove,
   onInstall,
-}) {
+}: PluginCardProps) {
   const { t } = useTranslation()
 
   return (

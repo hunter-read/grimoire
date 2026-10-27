@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import { tagStyle, displayLabel } from './tagStyle'
 
@@ -13,7 +14,13 @@ import { tagStyle, displayLabel } from './tagStyle'
  * `style` overrides the shared chip look for callers that need a denser chip
  * (e.g. the book list row).
  */
-export default function LinkableTag({ label, color, style }) {
+export interface LinkableTagProps {
+  label: string
+  color?: string
+  style?: CSSProperties
+}
+
+export default function LinkableTag({ label, color, style }: LinkableTagProps) {
   const internal = String(label).trim().toLowerCase()
   return (
     <Link

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 import useMetadataSources, { clearMetadataSourcesCache } from './useMetadataSources'
 import api from '../../api'
@@ -7,12 +8,18 @@ vi.mock('../../api', () => ({
   default: { get: vi.fn() },
 }))
 
+// The transport is mocked above; its generic signatures don't fit a mock's.
+const mockApi = api as unknown as Record<
+  'get' | 'post' | 'patch' | 'put' | 'delete' | 'upload',
+  Mock
+>
+
 const SOURCES = [{ id: 'ttrpg-wiki', name: 'TTRPG Wiki' }]
 
 beforeEach(() => {
   vi.clearAllMocks()
   clearMetadataSourcesCache()
-  api.get.mockResolvedValue({ sources: SOURCES })
+  mockApi.get.mockResolvedValue({ sources: SOURCES })
 })
 
 describe('useMetadataSources', () => {
@@ -26,7 +33,7 @@ describe('useMetadataSources', () => {
   })
 
   it('treats a missing sources key as an empty list', async () => {
-    api.get.mockResolvedValue({})
+    mockApi.get.mockResolvedValue({})
     const { result } = renderHook(() => useMetadataSources('systems', 'sys-1'))
 
     await waitFor(() => expect(result.current.loading).toBe(false))
@@ -79,7 +86,7 @@ describe('useMetadataSources', () => {
   })
 
   it('reports a failure instead of hanging on loading', async () => {
-    api.get.mockRejectedValue(new Error('nope'))
+    mockApi.get.mockRejectedValue(new Error('nope'))
     const { result } = renderHook(() => useMetadataSources('systems', 'sys-1'))
 
     await waitFor(() => expect(result.current.loading).toBe(false))
@@ -89,11 +96,11 @@ describe('useMetadataSources', () => {
 
   // An offline blip must not disable the feature for the rest of the session.
   it('does not cache a failure', async () => {
-    api.get.mockRejectedValue(new Error('nope'))
+    mockApi.get.mockRejectedValue(new Error('nope'))
     const failed = renderHook(() => useMetadataSources('systems', 'sys-1'))
     await waitFor(() => expect(failed.result.current.loading).toBe(false))
 
-    api.get.mockResolvedValue({ sources: SOURCES })
+    mockApi.get.mockResolvedValue({ sources: SOURCES })
     const retried = renderHook(() => useMetadataSources('systems', 'sys-1'))
     await waitFor(() => expect(retried.result.current.sources).toEqual(SOURCES))
   })

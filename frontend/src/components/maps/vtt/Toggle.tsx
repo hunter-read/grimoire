@@ -11,7 +11,14 @@
  * it is reachable by keyboard and announced correctly by a screen reader for
  * free, and the visual switch is drawn from the input's own checked state.
  */
-export default function Toggle({ label, hint, checked, onChange }) {
+export interface ToggleProps {
+  label: string
+  hint?: string
+  checked: boolean
+  onChange: (checked: boolean) => void
+}
+
+export default function Toggle({ label, hint, checked, onChange }: ToggleProps) {
   return (
     <div style={{ marginTop: 12 }}>
       <label

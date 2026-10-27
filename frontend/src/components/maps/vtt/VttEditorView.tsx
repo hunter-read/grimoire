@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { LuArrowLeft, LuDownload, LuSave, LuTriangleAlert, LuUsers } from 'react-icons/lu'
+import { LuDownload, LuSave, LuTriangleAlert, LuUsers } from 'react-icons/lu'
 import api, { campaigns as campaignsApi, mediaUrl } from '../../../api'
+import type { Schema } from '../../../api'
 import { useAuth } from '../../../context/AuthContext'
 import Spinner from '../../Spinner'
 import GridCalibrator from './GridCalibrator'
@@ -10,6 +11,11 @@ import VttCanvas from './VttCanvas'
 import VttToolbar from './VttToolbar'
 import VttSidebar from './VttSidebar'
 import useVttDocument from './useVttDocument'
+import type { RawVttDoc } from './useVttDocument'
+import type { Viewport } from './useViewport'
+import type { Draft, Point, PreviewState, Selection, SnapMode } from './types'
+import type { Tool } from './tools'
+import type { VttSendChoice } from './SendVttToCampaignDialog'
 import { gridDimensions, round4 } from './geometry'
 import { hitTest } from './hitTest'
 import {
@@ -35,6 +41,19 @@ import {
   loadImageElement,
   readUvttFile,
 } from '../../../lib/uvtt'
+
+/** The stored document, plus the grid it was authored against. */
+type AuthoringData = RawVttDoc & { pixels_per_grid?: number; grid_offset?: Point | null }
+
+/** A dropped file the editor is working on, when there is no map row behind it. */
+interface StandaloneSource {
+  imageUrl: string
+  filename: string
+  pixelWidth: number
+  pixelHeight: number
+}
+
+type Phase = 'calibrate' | 'edit'
 
 /**
  * The Universal VTT map editor (issues #126 and #127).
@@ -64,35 +83,39 @@ export default function VttEditorView() {
   // the standalone campaign upload cares who the viewer is.
   const { user } = useAuth() || {}
 
-  const [meta, setMeta] = useState(null)
+  const [meta, setMeta] = useState<Schema<'VttAuthoringResponse'> | null>(null)
   const [loadError, setLoadError] = useState(false)
-  const [phase, setPhase] = useState('calibrate')
+  const [phase, setPhase] = useState<Phase>('calibrate')
   const [cellPx, setCellPx] = useState(0)
-  const [offset, setOffset] = useState({ x: 0, y: 0 })
+  const [offset, setOffset] = useState<Point>({ x: 0, y: 0 })
 
-  const [tool, setTool] = useState(TOOL_WALL)
+  const [tool, setTool] = useState<Tool>(TOOL_WALL)
   // The player-view preview. Editor state only — a .uvtt cannot carry a token
   // or a viewing position, so none of this is saved or exported.
-  const [preview, setPreview] = useState({ enabled: false, token: null, ...DEFAULT_PREVIEW })
-  const [snap, setSnap] = useState('grid')
+  const [preview, setPreview] = useState<PreviewState>({
+    enabled: false,
+    token: null,
+    ...DEFAULT_PREVIEW,
+  })
+  const [snap, setSnap] = useState<SnapMode>('grid')
   const [showGrid, setShowGrid] = useState(true)
-  const [draft, setDraft] = useState({ points: [], cursor: null })
-  const [selection, setSelection] = useState(null)
+  const [draft, setDraft] = useState<Draft>({ points: [], cursor: null })
+  const [selection, setSelection] = useState<Selection | null>(null)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(false)
-  const viewportRef = useRef(null)
+  const viewportRef = useRef<Viewport | null>(null)
 
   // --- Standalone mode (no map row) ---------------------------------------
   // Everything the editor needs about a dropped file: the picture to draw on,
   // its dimensions, and the name to suggest when the result is downloaded.
   // Nothing is written to the library, exactly as the token editor does it —
   // a library mounted read-only must not be a reason this cannot be used.
-  const [standalone, setStandalone] = useState(null)
+  const [standalone, setStandalone] = useState<StandaloneSource | null>(null)
   const [sourceError, setSourceError] = useState('')
   const [sending, setSending] = useState(false)
   const [choosingCampaign, setChoosingCampaign] = useState(false)
-  const objectUrl = useRef(null)
-  const imageRef = useRef(null)
+  const objectUrl = useRef<string | null>(null)
+  const imageRef = useRef<HTMLImageElement | null>(null)
 
   const { doc, docRef, update, undo, redo, reset, markSaved, dirty, counts, canUndo, canRedo } =
     useVttDocument(null)
@@ -104,10 +127,12 @@ export default function VttEditorView() {
     let cancelled = false
     api
       .get(`/maps/${mapId}/vtt/authoring`)
-      .then((d) => {
+      .then((res) => {
         if (cancelled) return
+        const d = res as Schema<'VttAuthoringResponse'>
+        const data = d.data as AuthoringData | null | undefined
         setMeta(d)
-        reset(d.data)
+        reset(data)
         // Seed the grid from what the map already resolves to, so the
         // calibration step opens showing the current best guess rather than a
         // blank overlay the user has to build from nothing.
@@ -117,15 +142,15 @@ export default function VttEditorView() {
         // raster by that count recovers the cell size, which is the difference
         // between opening on a drawn grid and opening on no overlay at all.
         const px =
-          d.data?.pixels_per_grid ||
+          data?.pixels_per_grid ||
           d.grid?.cell_px ||
           (d.grid?.width && d.pixel_width ? round4(d.pixel_width / d.grid.width) : 0)
         setCellPx(px)
-        setOffset(d.data?.grid_offset || { x: 0, y: 0 })
+        setOffset(data?.grid_offset || { x: 0, y: 0 })
         // A map that already carries authored geometry has had its grid
         // confirmed once; sending the user back through calibration every time
         // they reopen it would be busywork.
-        if (d.data) setPhase('edit')
+        if (data) setPhase('edit')
       })
       .catch(() => {
         if (!cancelled) setLoadError(true)
@@ -168,15 +193,17 @@ export default function VttEditorView() {
    * file is certain about would be busywork before the user could touch a wall.
    */
   const acceptFile = useCallback(
-    async (file) => {
+    async (file: File) => {
       setSourceError('')
       releaseObjectUrl()
       try {
         if (isUvttName(file.name)) {
           const { imageUrl: url, doc: fileDoc, grid } = await readUvttFile(file)
-          const image = await loadImageElement(url)
+          const image = (await loadImageElement(url)) as HTMLImageElement
           imageRef.current = image
-          reset(fileDoc)
+          // documentFromUvtt drops unreadable portals and lights, but its
+          // `.filter(Boolean)` does not narrow away their nulls.
+          reset(fileDoc as RawVttDoc)
           setCellPx(grid.pixelsPerGrid || guessCellPx(image.naturalWidth, grid.width))
           setOffset({ x: 0, y: 0 })
           setStandalone({
@@ -190,7 +217,7 @@ export default function VttEditorView() {
         }
         const url = URL.createObjectURL(file)
         objectUrl.current = url
-        const image = await loadImageElement(url)
+        const image = (await loadImageElement(url)) as HTMLImageElement
         imageRef.current = image
         reset(null)
         // No grid is known for a bare picture, so open on the default cell size
@@ -210,9 +237,8 @@ export default function VttEditorView() {
         setStandalone(null)
         // The parse failures are worth naming: picking the wrong file is the
         // likeliest mistake, and "that file has no map in it" is actionable.
-        const key = ['not-json', 'not-uvtt', 'no-image'].includes(err?.message)
-          ? err.message
-          : 'failed'
+        const message = (err as Error | null)?.message as string
+        const key = ['not-json', 'not-uvtt', 'no-image'].includes(message) ? message : 'failed'
         setSourceError(t(`maps.vtt.source.error.${key}`))
       }
     },
@@ -245,14 +271,14 @@ export default function VttEditorView() {
    * 100%, which is what makes zooming a usable answer to a crowded map.
    */
   const selectAt = useCallback(
-    (pt) => {
+    (pt: Point) => {
       setSelection(hitTest(docRef.current, pt, { cellPx, scale: viewportRef.current?.view.scale }))
     },
     [docRef, cellPx]
   )
 
   const handleClick = useCallback(
-    (pt) => {
+    (pt: Point) => {
       if (tool === TOOL_SELECT) {
         selectAt(pt)
         return
@@ -312,7 +338,7 @@ export default function VttEditorView() {
    * looks broken.
    */
   const togglePreview = useCallback(
-    (next) => {
+    (next: Partial<PreviewState>) => {
       setPreview((p) => ({
         ...p,
         ...next,
@@ -321,8 +347,8 @@ export default function VttEditorView() {
           p.token ??
           (cellPx > 0
             ? {
-                x: round4(meta ? meta.pixel_width / cellPx / 2 : 0),
-                y: round4(meta ? meta.pixel_height / cellPx / 2 : 0),
+                x: round4(meta ? (meta.pixel_width as number) / cellPx / 2 : 0),
+                y: round4(meta ? (meta.pixel_height as number) / cellPx / 2 : 0),
               }
             : { x: 0, y: 0 }),
       }))
@@ -333,7 +359,7 @@ export default function VttEditorView() {
   // Arrow keys nudge the token a square at a time, which is how a VTT moves
   // one. Shift takes a half step, for checking a sightline that a whole square
   // overshoots.
-  const nudgeToken = useCallback((dx, dy) => {
+  const nudgeToken = useCallback((dx: number, dy: number) => {
     setPreview((p) =>
       p.token ? { ...p, token: { x: round4(p.token.x + dx), y: round4(p.token.y + dy) } } : p
     )
@@ -343,10 +369,15 @@ export default function VttEditorView() {
   // Delete removes the selection, and Ctrl/Cmd+Z / +Shift+Z drive history.
   // While the preview is on, the arrow keys walk the token instead.
   useEffect(() => {
-    const onKey = (e) => {
-      const tag = e.target?.tagName
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
-      const arrows = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] }
+      const arrows: Record<string, [number, number]> = {
+        ArrowUp: [0, -1],
+        ArrowDown: [0, 1],
+        ArrowLeft: [-1, 0],
+        ArrowRight: [1, 0],
+      }
       if (preview.enabled && preview.token && arrows[e.key]) {
         e.preventDefault()
         const step = e.shiftKey ? 0.5 : 1
@@ -425,9 +456,9 @@ export default function VttEditorView() {
    */
   const buildStandaloneBlob = useCallback(() => {
     const envelope = buildUvtt({
-      imageBase64: encodeImageToBase64(imageRef.current),
-      pixelWidth: standalone.pixelWidth,
-      pixelHeight: standalone.pixelHeight,
+      imageBase64: encodeImageToBase64(imageRef.current!),
+      pixelWidth: standalone!.pixelWidth,
+      pixelHeight: standalone!.pixelHeight,
       cellPx,
       doc: docRef.current,
     })
@@ -464,7 +495,7 @@ export default function VttEditorView() {
    * so the map lands where the GM expects rather than loose at the bottom of
    * the resource list.
    */
-  const sendToCampaign = async ({ campaignId, categoryId }) => {
+  const sendToCampaign = async ({ campaignId, categoryId }: VttSendChoice) => {
     setSending(true)
     setSaveError(false)
     try {
@@ -486,7 +517,7 @@ export default function VttEditorView() {
   // minutes of effort and a stray back-navigation would discard all of it.
   useEffect(() => {
     if (!dirty) return undefined
-    const onBeforeUnload = (e) => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault()
       e.returnValue = ''
     }
@@ -534,11 +565,16 @@ export default function VttEditorView() {
   // One shape for both modes, so everything below reads from a single source
   // rather than branching on `mapId` at every use.
   const source = mapId
-    ? { filename: meta.filename, pixelWidth: meta.pixel_width, pixelHeight: meta.pixel_height }
+    ? {
+        filename: meta!.filename,
+        // The authoring endpoint measures the raster it serves.
+        pixelWidth: meta!.pixel_width as number,
+        pixelHeight: meta!.pixel_height as number,
+      }
     : {
-        filename: standalone.filename,
-        pixelWidth: standalone.pixelWidth,
-        pixelHeight: standalone.pixelHeight,
+        filename: standalone!.filename,
+        pixelWidth: standalone!.pixelWidth,
+        pixelHeight: standalone!.pixelHeight,
       }
 
   const dims = gridDimensions(source.pixelWidth, source.pixelHeight, cellPx, offset)
@@ -608,7 +644,7 @@ export default function VttEditorView() {
           pixelHeight={source.pixelHeight}
           cellPx={cellPx}
           offset={offset}
-          onChange={(px, off) => {
+          onChange={(px: number, off: Point) => {
             setCellPx(px)
             setOffset(off)
           }}

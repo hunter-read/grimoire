@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type CSSProperties, type MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { LuEllipsisVertical, LuSettings, LuUsers, LuArchive } from 'react-icons/lu'
@@ -26,7 +26,19 @@ const MENU_WIDTH = 240
  * and the menu renders just those. It returns null when nothing is available,
  * so the caller doesn't need to guard it.
  */
-export default function CampaignActionsMenu({ onEdit, onConvert, onArchive, isArchived }) {
+export interface CampaignActionsMenuProps {
+  onEdit?: (() => void) | null
+  onConvert?: (() => void) | null
+  onArchive?: (() => void) | null
+  isArchived?: boolean
+}
+
+export default function CampaignActionsMenu({
+  onEdit,
+  onConvert,
+  onArchive,
+  isArchived,
+}: CampaignActionsMenuProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const {
@@ -37,11 +49,12 @@ export default function CampaignActionsMenu({ onEdit, onConvert, onArchive, isAr
 
   useEffect(() => {
     if (!open) return
-    const onDoc = (e) => {
-      if (triggerRef.current?.contains(e.target) || menuRef.current?.contains(e.target)) return
+    const onDoc = (e: globalThis.MouseEvent) => {
+      const target = e.target as Node
+      if (triggerRef.current?.contains(target) || menuRef.current?.contains(target)) return
       setOpen(false)
     }
-    const onKey = (e) => e.key === 'Escape' && setOpen(false)
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
     document.addEventListener('mousedown', onDoc)
     document.addEventListener('keydown', onKey)
     return () => {
@@ -53,13 +66,13 @@ export default function CampaignActionsMenu({ onEdit, onConvert, onArchive, isAr
   // Nothing this user can do — render no trigger at all rather than an empty menu.
   if (!onEdit && !onConvert && !onArchive) return null
 
-  const run = (fn) => (e) => {
+  const run = (fn: () => void) => (e: MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation()
     setOpen(false)
     fn()
   }
 
-  const itemStyle = {
+  const itemStyle: CSSProperties = {
     display: 'flex',
     alignItems: 'center',
     gap: 10,

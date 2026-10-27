@@ -12,7 +12,7 @@ const COMPOUND_EXTS = ['.tar.gz', '.tar.bz2', '.tar.xz', '.tar.zst']
  * dot marks a hidden file, not an extension, and offering to rename ".nsfw" to
  * "x.nsfw" would be wrong.
  */
-export function splitExtension(name, isDir = false) {
+export function splitExtension(name: string, isDir = false): { stem: string; ext: string } {
   if (isDir) return { stem: name, ext: '' }
 
   const lower = name.toLowerCase()
@@ -29,6 +29,6 @@ export function splitExtension(name, isDir = false) {
 }
 
 /** Rejoin a user-edited stem with the extension it must keep. */
-export function joinExtension(stem, ext) {
+export function joinExtension(stem: string, ext: string): string {
   return `${stem.trim()}${ext}`
 }

@@ -1,31 +1,57 @@
 import { useCallback, useEffect, useState } from 'react'
+import type { MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuArrowUp, LuRefreshCw, LuTriangleAlert, LuPlus } from 'react-icons/lu'
 import api from '../../api'
+import type { Schema } from '../../api'
 import Spinner from '../Spinner'
 import AddonInstallDialog from './AddonInstallDialog'
+import type { PendingAddon } from './AddonInstallDialog'
 import AddonStatus from './AddonStatus'
-import PluginSourcePill from './PluginSourcePill'
 import PluginSourceRow from './PluginSourceRow'
 import PluginCard from './PluginCard'
+import type { PluginAddon } from './PluginCard'
 import PluginSourceContextMenu from './PluginSourceContextMenu'
-import AuthorByline from './AuthorByline'
 import CollapsibleSection from './CollapsibleSection'
 import ConfirmModal from './ConfirmModal'
 
+interface Status {
+  scope: string
+  notice?: string | null
+  error?: string
+}
+
+interface ContextMenuState {
+  x: number
+  y: number
+  addon: PluginAddon
+  isUpdate: boolean
+}
+
+// What an add-on action resolves to: a refresh lists the sources it could not
+// reach, an update-all how many it updated.
+type RunResult = { errors?: { url: string; error: string }[]; updated?: number } | null | undefined
+
+interface RunOptions {
+  scope?: string
+  success?: string | ((result: RunResult) => string) | null
+  onError?: ((message: string) => void) | null
+  onSuccess?: (() => void) | null
+}
+
 export default function AddonsSection() {
   const { t } = useTranslation()
-  const [data, setData] = useState(null)
-  const [indexUrls, setIndexUrls] = useState([])
+  const [data, setData] = useState<Schema<'AddonListResponse'> | null>(null)
+  const [indexUrls, setIndexUrls] = useState<string[]>([])
   const [newIndexUrl, setNewIndexUrl] = useState('')
   const [busy, setBusy] = useState(false)
   // The last action's outcome and where to show it: 'shared' (refresh, update
   // all, the script switch) or the category of the add-on it was about.
-  const [status, setStatus] = useState(null)
+  const [status, setStatus] = useState<Status | null>(null)
   const [sourceError, setSourceError] = useState('')
-  const [confirming, setConfirming] = useState(null)
-  const [contextMenu, setContextMenu] = useState(null)
-  const [confirmRemove, setConfirmRemove] = useState(null)
+  const [confirming, setConfirming] = useState<PendingAddon | null>(null)
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
+  const [confirmRemove, setConfirmRemove] = useState<number | null>(null)
   const [confirmReset, setConfirmReset] = useState(false)
 
   const load = useCallback(() => {
@@ -40,21 +66,22 @@ export default function AddonsSection() {
 
   useEffect(load, [load])
 
-  const isImporter = (addon) => addon.kind === 'character-importer'
-  const scopeOf = (addon) => (isImporter(addon) ? 'importers' : 'metadata')
+  const isImporter = (addon: PluginAddon) => addon.kind === 'character-importer'
+  const scopeOf = (addon: PluginAddon) => (isImporter(addon) ? 'importers' : 'metadata')
 
   // `success` is a message, or a function of the response that makes one. A
   // response listing `errors` (sources a refresh could not reach) reports them
   // beside the success rather than instead of it.
   const run = (
-    promise,
-    { scope = 'shared', success = null, onError = null, onSuccess = null } = {}
+    promise: Promise<unknown>,
+    { scope = 'shared', success = null, onError = null, onSuccess = null }: RunOptions = {}
   ) => {
     setBusy(true)
     setStatus(null)
     setSourceError('')
     return promise
-      .then((result) => {
+      .then((value) => {
+        const result = value as RunResult
         const failures = result?.errors || []
         const notice = typeof success === 'function' ? success(result) : success
         const error = failures.map((e) => `${e.url}: ${e.error}`).join(' | ')
@@ -66,7 +93,7 @@ export default function AddonsSection() {
       .finally(() => setBusy(false))
   }
 
-  const saveIndexUrls = (newUrls, onSuccess) =>
+  const saveIndexUrls = (newUrls: string[], onSuccess?: () => void) =>
     run(api.patch('/addons/settings', { index_urls: newUrls }), {
       onError: setSourceError,
       onSuccess,
@@ -78,7 +105,7 @@ export default function AddonsSection() {
     saveIndexUrls(updated, () => setNewIndexUrl(''))
   }
 
-  const requestRemoveIndex = (index) => setConfirmRemove(index)
+  const requestRemoveIndex = (index: number) => setConfirmRemove(index)
   const executeRemoveIndex = () => {
     if (confirmRemove === null) return
     const updated = indexUrls.filter((_, i) => i !== confirmRemove)
@@ -88,14 +115,18 @@ export default function AddonsSection() {
 
   const requestResetIndex = () => setConfirmReset(true)
   const executeResetIndex = () => {
-    const updated = [data.default_index_url]
+    const updated = [data!.default_index_url]
     setConfirmReset(false)
     saveIndexUrls(updated)
   }
 
   const refresh = () => run(api.post('/addons/refresh'), { success: t('addons.refreshed') })
 
-  const install = (addon, approveScript = false, specificIndexUrl = null) =>
+  const install = (
+    addon: PluginAddon,
+    approveScript = false,
+    specificIndexUrl: string | null | undefined = null
+  ) =>
     run(
       api.post(`/addons/${addon.id}/install`, {
         approve_script: approveScript,
@@ -107,7 +138,7 @@ export default function AddonsSection() {
   // Updating is the same install call — the version in the index is what gets
   // fetched. A script-backed add-on whose script changed comes back unapproved,
   // so consent is re-asked rather than inherited.
-  const update = (addon, specificIndexUrl = null) => {
+  const update = (addon: PluginAddon, specificIndexUrl: string | null = null) => {
     const hasNewChangelog = (addon.changelog || []).length > 0
     const targetIndexUrl = specificIndexUrl || addon.index_url
     if (addon.requires_script || hasNewChangelog) {
@@ -131,7 +162,7 @@ export default function AddonsSection() {
           : t('addons.alreadyUpToDate'),
     })
 
-  const startInstall = (addon, specificIndexUrl = null) => {
+  const startInstall = (addon: PluginAddon, specificIndexUrl: string | null = null) => {
     // Only code-bearing add-ons need consent; plain YAML installs straight away.
     // (We also now show the confirmation dialog for YAML add-ons if they have a changelog)
     const hasChangelog = addon.changelog && addon.changelog.length > 0
@@ -143,18 +174,19 @@ export default function AddonsSection() {
     }
   }
 
-  const toggleScripts = (allow) => run(api.patch('/addons/settings', { allow_scripts: allow }))
+  const toggleScripts = (allow: boolean) =>
+    run(api.patch('/addons/settings', { allow_scripts: allow }))
 
-  const toggleEnabled = (addon) =>
+  const toggleEnabled = (addon: PluginAddon) =>
     run(api.patch(`/addons/${addon.id}`, { enabled: !addon.enabled }), { scope: scopeOf(addon) })
 
-  const remove = (addon) =>
+  const remove = (addon: PluginAddon) =>
     run(api.delete(`/addons/${addon.id}`), {
       scope: scopeOf(addon),
       success: t('addons.removed', { name: addon.name }),
     })
 
-  const handleContextMenu = (e, addon, isUpdate) => {
+  const handleContextMenu = (e: MouseEvent, addon: PluginAddon, isUpdate: boolean) => {
     e.preventDefault()
     if (!addon.available_in || addon.available_in.length <= 1) return
     setContextMenu({ x: e.clientX, y: e.clientY, addon, isUpdate })
@@ -169,10 +201,10 @@ export default function AddonsSection() {
   // Refresh, update all and the script switch act on every category, so they
   // sit above them all; each category lists its own add-ons and reports what
   // happened to them.
-  const statusFor = (scope) =>
+  const statusFor = (scope: string) =>
     status?.scope === scope ? <AddonStatus error={status.error} notice={status.notice} /> : null
 
-  const addonLists = (installed, available) => (
+  const addonLists = (installed: PluginAddon[], available: PluginAddon[]) => (
     <>
       <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>
         {t('addons.installedHeading')}

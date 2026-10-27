@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX } from 'react-icons/lu'
 
@@ -16,11 +17,28 @@ import { LuX } from 'react-icons/lu'
  * fields explicitly ticked. Nothing is written until "Save all" — this only
  * edits drafts, so the result stays reviewable by paging through the carousel.
  */
-export default function ApplyToAllDialog({ fields, count, values, onApply, onClose }) {
-  const { t } = useTranslation()
-  const [selected, setSelected] = useState([])
+export interface ApplyToAllDialogProps {
+  /** The copyable fields, each with its display label. */
+  fields: { field: string; label: string }[]
+  /** How many items are selected. */
+  count: number
+  /** The current item's value per field, as shown in the preview. */
+  values: Record<string, ReactNode>
+  onApply: (fields: string[]) => void
+  onClose: () => void
+}
 
-  const toggle = (field) =>
+export default function ApplyToAllDialog({
+  fields,
+  count,
+  values,
+  onApply,
+  onClose,
+}: ApplyToAllDialogProps) {
+  const { t } = useTranslation()
+  const [selected, setSelected] = useState<string[]>([])
+
+  const toggle = (field: string) =>
     setSelected((prev) =>
       prev.includes(field) ? prev.filter((f) => f !== field) : [...prev, field]
     )
@@ -102,7 +120,7 @@ export default function ApplyToAllDialog({ fields, count, values, onApply, onClo
   )
 }
 
-const overlay = {
+const overlay: CSSProperties = {
   position: 'fixed',
   inset: 0,
   // Above the bulk-edit modal itself (1200).
@@ -113,7 +131,7 @@ const overlay = {
   background: 'var(--scrim)',
   padding: 16,
 }
-const panel = {
+const panel: CSSProperties = {
   background: 'var(--bg-panel)',
   border: '1px solid var(--border)',
   borderRadius: 10,
@@ -125,13 +143,13 @@ const panel = {
   flexDirection: 'column',
   boxSizing: 'border-box',
 }
-const header = {
+const header: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
   marginBottom: 8,
 }
-const closeBtn = {
+const closeBtn: CSSProperties = {
   background: 'none',
   border: 'none',
   cursor: 'pointer',
@@ -139,7 +157,7 @@ const closeBtn = {
   display: 'flex',
   padding: 2,
 }
-const selectAllBtn = {
+const selectAllBtn: CSSProperties = {
   alignSelf: 'flex-start',
   background: 'none',
   border: 'none',
@@ -150,14 +168,14 @@ const selectAllBtn = {
   cursor: 'pointer',
   textDecoration: 'underline',
 }
-const list = {
+const list: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: 2,
   overflowY: 'auto',
   minHeight: 0,
 }
-const row = {
+const row: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'auto 1fr',
   gap: 10,
@@ -167,14 +185,14 @@ const row = {
   background: 'var(--bg-deep)',
   cursor: 'pointer',
 }
-const preview = {
+const preview: CSSProperties = {
   fontSize: 12,
   color: 'var(--text-muted)',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
 }
-const cancelBtn = {
+const cancelBtn: CSSProperties = {
   padding: '7px 16px',
   borderRadius: 6,
   background: 'var(--bg-card)',
@@ -183,7 +201,7 @@ const cancelBtn = {
   fontSize: 14,
   cursor: 'pointer',
 }
-const goldBtn = {
+const goldBtn: CSSProperties = {
   padding: '7px 18px',
   borderRadius: 6,
   background: 'var(--gold-dim)',

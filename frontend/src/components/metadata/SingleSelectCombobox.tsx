@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX } from 'react-icons/lu'
 import api from '../../api'
@@ -20,6 +20,22 @@ import api from '../../api'
  *   onCreate      – called after a successful create, to reload the lookup list
  *   createLabel   – (name) => string for the create row (defaults to `Create "name"`)
  */
+export interface SingleSelectComboboxProps {
+  id: string
+  value: string | null | undefined
+  onChange: (value: string) => void
+  options?: string[]
+  placeholder?: string
+  createEndpoint?: string
+  onCreate?: (created: unknown) => void
+  createLabel?: (name: string) => string
+}
+
+interface ComboRow {
+  type: 'option' | 'create'
+  name: string
+}
+
 export default function SingleSelectCombobox({
   id,
   value,
@@ -29,22 +45,22 @@ export default function SingleSelectCombobox({
   createEndpoint,
   onCreate,
   createLabel,
-}) {
+}: SingleSelectComboboxProps) {
   const { t } = useTranslation()
   // `query` mirrors the input; it starts from the committed value and is kept in
   // sync when the value changes from outside.
   const [query, setQuery] = useState(value || '')
   const [open, setOpen] = useState(false)
   const [activeIdx, setActiveIdx] = useState(0)
-  const wrapRef = useRef(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setQuery(value || '')
   }, [value])
 
   useEffect(() => {
-    const onDoc = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false)
+    const onDoc = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
     }
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)
@@ -55,19 +71,19 @@ export default function SingleSelectCombobox({
   const exact = options.some((o) => o.toLowerCase() === q)
   const canCreate = q.length > 0 && !exact
 
-  const rows = [
-    ...matches.map((name) => ({ type: 'option', name })),
-    ...(canCreate ? [{ type: 'create', name: query.trim() }] : []),
+  const rows: ComboRow[] = [
+    ...matches.map((name) => ({ type: 'option' as const, name })),
+    ...(canCreate ? [{ type: 'create' as const, name: query.trim() }] : []),
   ]
 
-  const commit = (name) => {
+  const commit = (name: string) => {
     const v = name.trim()
     onChange(v)
     setQuery(v)
     setOpen(false)
   }
 
-  const create = (name) => {
+  const create = (name: string) => {
     const v = name.trim()
     if (!v) return
     commit(v)
@@ -81,13 +97,13 @@ export default function SingleSelectCombobox({
     }
   }
 
-  const choose = (row) => {
+  const choose = (row: ComboRow | undefined) => {
     if (!row) return
     if (row.type === 'create') create(row.name)
     else commit(row.name)
   }
 
-  const onKeyDown = (e) => {
+  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault()
       setOpen(true)

@@ -1,8 +1,16 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  type CSSProperties,
+  type MouseEvent,
+} from 'react'
+import type { IconType } from 'react-icons'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { LuCalendar, LuDownload, LuLink } from 'react-icons/lu'
-import { campaigns } from '../../api'
+import { campaigns, type Schema } from '../../api'
 import CalendarSubscribeDialog from './CalendarSubscribeDialog'
 
 const MENU_WIDTH = 270
@@ -21,13 +29,27 @@ const MENU_WIDTH = 270
  * `iconOnly` drops the text label (keeping an accessible name) for narrow
  * viewports where the full label would squeeze its neighbours.
  */
-export default function CalendarMenu({ campaign, style, iconOnly = false }) {
+export interface CalendarMenuProps {
+  campaign?: Pick<Schema<'CampaignOut'>, 'id' | 'name'> | null
+  style?: CSSProperties
+  iconOnly?: boolean
+}
+
+interface MenuItem {
+  key: string
+  Icon: IconType
+  label: string
+  hint: string
+  onClick: (e: MouseEvent<HTMLButtonElement>) => void
+}
+
+export default function CalendarMenu({ campaign, style, iconOnly = false }: CalendarMenuProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [showDialog, setShowDialog] = useState(false)
   const [coords, setCoords] = useState({ top: 0, left: 0 })
-  const triggerRef = useRef(null)
-  const menuRef = useRef(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   const place = useCallback(() => {
     const el = triggerRef.current
@@ -46,11 +68,12 @@ export default function CalendarMenu({ campaign, style, iconOnly = false }) {
   useEffect(() => {
     if (!open) return
     place()
-    const onDoc = (e) => {
-      if (triggerRef.current?.contains(e.target) || menuRef.current?.contains(e.target)) return
+    const onDoc = (e: globalThis.MouseEvent) => {
+      const target = e.target as Node
+      if (triggerRef.current?.contains(target) || menuRef.current?.contains(target)) return
       setOpen(false)
     }
-    const onKey = (e) => e.key === 'Escape' && setOpen(false)
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
     const onReposition = () => place()
     document.addEventListener('mousedown', onDoc)
     document.addEventListener('keydown', onKey)
@@ -64,11 +87,11 @@ export default function CalendarMenu({ campaign, style, iconOnly = false }) {
     }
   }, [open, place])
 
-  const handleDownload = async (e) => {
+  const handleDownload = async (e: MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation()
     setOpen(false)
     try {
-      await campaigns.downloadCalendar(campaign.id, campaign.name)
+      await campaigns.downloadCalendar(campaign!.id, campaign!.name)
     } catch {
       // api.download surfaces its own auth handling; a failed download needs no
       // extra UI here beyond not opening anything.
@@ -88,13 +111,13 @@ export default function CalendarMenu({ campaign, style, iconOnly = false }) {
       Icon: LuLink,
       label: t('calendar.subscribe'),
       hint: campaign ? t('calendar.subscribeHint') : t('calendar.subscribeAllHint'),
-      onClick: (e) => {
+      onClick: (e: MouseEvent<HTMLButtonElement>) => {
         e.stopPropagation()
         setOpen(false)
         setShowDialog(true)
       },
     },
-  ].filter(Boolean)
+  ].filter(Boolean) as MenuItem[]
 
   return (
     <>

@@ -1,8 +1,12 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX } from 'react-icons/lu'
 import api from '../../api'
-import { buildDiceMaterialRows } from './diceMaterials'
+import {
+  buildDiceMaterialRows,
+  type DiceMaterialGroup,
+  type DiceMaterialRow,
+} from './diceMaterials'
 
 /**
  * Combobox multi-select for a system's dice / materials, modeled on GenrePicker.
@@ -16,18 +20,34 @@ import { buildDiceMaterialRows } from './diceMaterials'
  * managed list (admin only) and calls `onCreate` to refresh, mirroring
  * GenrePicker; without `onCreate` it simply adds the free-text value.
  */
-export default function DiceMaterialsPicker({ selected, onChange, groups, onCreate }) {
+export interface DiceMaterialsPickerProps {
+  selected: string[]
+  onChange: (values: string[]) => void
+  /** Option groups from the managed lookup (`groupsFromManaged`); defaults otherwise. */
+  groups?: DiceMaterialGroup[]
+  onCreate?: (created: unknown) => void
+}
+
+type ItemRow = Extract<DiceMaterialRow, { type: 'item' }>
+type OptionRow = ItemRow | { type: 'create'; value: string }
+
+export default function DiceMaterialsPicker({
+  selected,
+  onChange,
+  groups,
+  onCreate,
+}: DiceMaterialsPickerProps) {
   const { t } = useTranslation()
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [activeIdx, setActiveIdx] = useState(0)
-  const wrapRef = useRef(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
 
-  const has = (name) => selected.some((g) => g.toLowerCase() === name.toLowerCase())
+  const has = (name: string) => selected.some((g) => g.toLowerCase() === name.toLowerCase())
 
   useEffect(() => {
-    const onDoc = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false)
+    const onDoc = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
     }
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)
@@ -40,7 +60,7 @@ export default function DiceMaterialsPicker({ selected, onChange, groups, onCrea
   const allRows = groups
     ? buildDiceMaterialRows(selected, t('metadata.diceCustomGroup'), groups)
     : buildDiceMaterialRows(selected, t('metadata.diceCustomGroup'))
-  const grouped = []
+  const grouped: { header: Extract<DiceMaterialRow, { type: 'group' }>; items: ItemRow[] }[] = []
   for (const row of allRows) {
     if (row.type === 'group') {
       grouped.push({ header: row, items: [] })
@@ -55,19 +75,19 @@ export default function DiceMaterialsPicker({ selected, onChange, groups, onCrea
 
   // Flat list of selectable option rows (for keyboard nav), plus an optional
   // create row. Group headers are rendered but excluded from this list.
-  const optionRows = [
+  const optionRows: OptionRow[] = [
     ...visibleGroups.flatMap((g) => g.items),
-    ...(canCreate ? [{ type: 'create', value: query.trim() }] : []),
+    ...(canCreate ? [{ type: 'create' as const, value: query.trim() }] : []),
   ]
 
-  const add = (value) => {
+  const add = (value: string) => {
     const v = value.trim()
     if (v && !has(v)) onChange([...selected, v])
   }
 
   // Best-effort: persist a newly created value to the managed lookup so it shows
   // up in the list later. Ignored if not permitted (non-admin) or already exists.
-  const persistCustom = (value) => {
+  const persistCustom = (value: string) => {
     const v = value.trim()
     if (!v) return
     const known = allRows.some(
@@ -80,7 +100,7 @@ export default function DiceMaterialsPicker({ selected, onChange, groups, onCrea
       .catch(() => {})
   }
 
-  const choose = (row) => {
+  const choose = (row: OptionRow | undefined) => {
     if (!row) return
     if (row.type === 'create' && onCreate) persistCustom(row.value)
     add(row.value)
@@ -89,7 +109,7 @@ export default function DiceMaterialsPicker({ selected, onChange, groups, onCrea
     setOpen(true)
   }
 
-  const onKeyDown = (e) => {
+  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault()
       setOpen(true)

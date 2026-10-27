@@ -23,9 +23,9 @@ const availability = {
 
 // Open a row's editable cell menu and pick a status. The chart renders one
 // status-picker button per editable cell, in row order.
-function pickStatusForCell(cellIndex, label) {
+function pickStatusForCell(cellIndex: number, label: string) {
   const buttons = screen.getAllByTitle((_, el) =>
-    ['Available', 'Set availability'].includes(el?.getAttribute('title'))
+    ['Available', 'Set availability'].includes(el?.getAttribute('title') ?? '')
   )
   fireEvent.click(buttons[cellIndex])
   // The status options render as <button>; the legend renders the same labels
@@ -83,7 +83,7 @@ describe('AvailabilityChart', () => {
 
     // A non-owner sees their own row editable and other rows read-only. The
     // GM row (status 'available') renders as a status icon, not a button.
-    const gmRow = screen.getByText('Gandalf').closest('tr')
+    const gmRow = screen.getByText('Gandalf').closest('tr')!
     expect(within(gmRow).queryByRole('button')).toBeNull()
 
     // The "(you)" badge shows on the viewer's own non-owner row.

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import VariantPicker from './VariantPicker'
+import VariantPicker, { type VariantPickerProps } from './VariantPicker'
 
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async () => {
@@ -14,11 +14,13 @@ let role = 'player'
 vi.mock('../context/AuthContext', () => ({ useAuth: () => ({ user: { role } }) }))
 
 const describeVariant = vi.fn()
-vi.mock('../api', () => ({ duplicates: { describe: (...a) => describeVariant(...a) } }))
+vi.mock('../api', () => ({
+  duplicates: { describe: (...a: unknown[]) => describeVariant(...a) },
+}))
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k, o) => {
+    t: (k: string, o: { count: number; name: string }) => {
       if (k === 'variants.badge') return `${o.count} versions`
       if (k === 'variants.renameNamed') return `Rename ${o.name}`
       if (k === 'variants.renameKind') return 'Type'
@@ -33,10 +35,10 @@ vi.mock('react-i18next', () => ({
   }),
 }))
 
-const renderPicker = (item, props = {}) =>
+const renderPicker = (item: VariantPickerProps['item'], props = {}) =>
   render(
     <MemoryRouter>
-      <VariantPicker item={item} detailPath={(id) => `/maps/${id}`} {...props} />
+      <VariantPicker item={item} detailPath={(id: string) => `/maps/${id}`} {...props} />
     </MemoryRouter>
   )
 

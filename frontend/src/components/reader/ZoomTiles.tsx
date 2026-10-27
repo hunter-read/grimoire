@@ -1,11 +1,29 @@
 import { useEffect, useRef, useState } from 'react'
 import { mediaUrl } from '../../api'
+import type { RefObject } from 'react'
 import ZoomTile from './ZoomTile'
+import type { Tile } from './zoomTileGeometry'
 import { needsTiles, tileRect, tileWidthFor, visibleTiles } from './zoomTileGeometry'
 
 // Tiles are worked out once zooming or panning has been still this long, so a
 // pinch or a fast pan doesn't queue renders for views already left behind.
 const SETTLE_MS = 150
+
+export interface ZoomTilesProps {
+  bookId: string
+  page: number
+  /** The book's content hash, so a replaced file's tiles are not served stale. */
+  contentToken?: string | null
+  /** Page height / width. */
+  aspect: number
+  zoom: number
+  pan: { x: number; y: number }
+  /** The width the whole-page image was rendered at. */
+  imageWidth: number
+  /** The scrolling viewport the tiles are clipped to. */
+  viewRef?: RefObject<HTMLElement | null>
+  rounded?: boolean
+}
 
 /**
  * Sharp tiles of the visible part of a page, laid over the whole-page image
@@ -29,9 +47,9 @@ export default function ZoomTiles({
   imageWidth,
   viewRef,
   rounded = true,
-}) {
-  const boxRef = useRef(null)
-  const [layout, setLayout] = useState({ width: 0, tiles: [] })
+}: ZoomTilesProps) {
+  const boxRef = useRef<HTMLDivElement>(null)
+  const [layout, setLayout] = useState<{ width: number; tiles: Tile[] }>({ width: 0, tiles: [] })
 
   useEffect(() => {
     const update = () => {

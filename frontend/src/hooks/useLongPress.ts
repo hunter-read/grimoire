@@ -1,4 +1,30 @@
-import { useCallback, useEffect, useRef } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  type MouseEvent as ReactMouseEvent,
+  type TouchEvent as ReactTouchEvent,
+} from 'react'
+
+/**
+ * What the callback receives: the touch's coordinates plus no-op versions of
+ * the two event methods a shared mouse `contextmenu` handler calls.
+ */
+export interface LongPressEvent {
+  clientX: number
+  clientY: number
+  preventDefault: () => void
+  stopPropagation: () => void
+}
+
+/** Props to spread onto the pressed element. */
+export interface LongPressHandlers {
+  onTouchStart: (e: ReactTouchEvent) => void
+  onTouchMove: (e: ReactTouchEvent) => void
+  onTouchEnd: () => void
+  onTouchCancel: () => void
+  onClickCapture: (e: ReactMouseEvent) => void
+}
 
 // How long a finger must stay down before it counts as a long press. Matches
 // the platform convention on both iOS and Android closely enough that it feels
@@ -34,9 +60,9 @@ const MOVE_TOLERANCE_PX = 10
  * it belongs to the same gesture and has to run before the element's own
  * `onClick`.
  */
-export default function useLongPress(onLongPress) {
-  const timer = useRef(null)
-  const start = useRef(null)
+export default function useLongPress(onLongPress: (e: LongPressEvent) => void): LongPressHandlers {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const start = useRef<{ x: number; y: number } | null>(null)
   // Set when the timer fires, read (and cleared) by the click it must swallow.
   const fired = useRef(false)
   // Held in a ref so the returned handlers keep one identity for the life of
@@ -48,7 +74,7 @@ export default function useLongPress(onLongPress) {
   callback.current = onLongPress
 
   const cancel = useCallback(() => {
-    clearTimeout(timer.current)
+    clearTimeout(timer.current ?? undefined)
     timer.current = null
     start.current = null
   }, [])
@@ -59,13 +85,13 @@ export default function useLongPress(onLongPress) {
   useEffect(() => cancel, [cancel])
 
   const onTouchStart = useCallback(
-    (e) => {
+    (e: ReactTouchEvent) => {
       // A second finger means a pinch or a two-finger scroll, not a press.
       if (e.touches.length !== 1) return cancel()
       const t = e.touches[0]
       start.current = { x: t.clientX, y: t.clientY }
       fired.current = false
-      clearTimeout(timer.current)
+      clearTimeout(timer.current ?? undefined)
       timer.current = setTimeout(() => {
         timer.current = null
         fired.current = true
@@ -84,7 +110,7 @@ export default function useLongPress(onLongPress) {
   )
 
   const onTouchMove = useCallback(
-    (e) => {
+    (e: ReactTouchEvent) => {
       if (!timer.current || !start.current) return
       const t = e.touches[0]
       if (!t) return
@@ -99,7 +125,7 @@ export default function useLongPress(onLongPress) {
     [cancel]
   )
 
-  const onClickCapture = useCallback((e) => {
+  const onClickCapture = useCallback((e: ReactMouseEvent) => {
     if (!fired.current) return
     fired.current = false
     e.preventDefault()

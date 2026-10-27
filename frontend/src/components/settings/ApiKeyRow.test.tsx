@@ -1,25 +1,32 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import type { Mock } from 'vitest'
 import ApiKeyRow from './ApiKeyRow'
+import type { Schema } from '../../api'
 
 const permissions = [
   { id: 'stats', levels: ['none', 'read'] },
   { id: 'books', levels: ['none', 'read', 'write'] },
-]
+] as Schema<'ApiKeyPermissionOut'>[]
 
-const key = (overrides = {}) => ({
-  id: 'k1',
-  name: 'Homepage',
-  prefix: 'grim_abc1234',
-  permissions: { stats: 'read', books: 'write' },
-  created_at: '2026-08-01T10:00:00+00:00',
-  last_used_at: null,
-  expires_at: null,
-  expired: false,
-  ...overrides,
-})
+const key = (overrides: Partial<Schema<'ApiKeyOut'>> = {}) =>
+  ({
+    id: 'k1',
+    name: 'Homepage',
+    prefix: 'grim_abc1234',
+    permissions: { stats: 'read', books: 'write' },
+    created_at: '2026-08-01T10:00:00+00:00',
+    last_used_at: null,
+    expires_at: null,
+    expired: false,
+    ...overrides,
+  }) as Schema<'ApiKeyOut'>
 
-const renderRow = (apiKey, handlers = {}, showOwner = false) =>
+const renderRow = (
+  apiKey: Schema<'ApiKeyOut'>,
+  handlers: { onEdit?: Mock; onRegenerate?: Mock; onRevoke?: Mock } = {},
+  showOwner = false
+) =>
   render(
     <ApiKeyRow
       apiKey={apiKey}

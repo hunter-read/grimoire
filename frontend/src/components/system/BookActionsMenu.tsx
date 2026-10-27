@@ -126,18 +126,12 @@ export default function BookActionsMenu({
   // Where a right-click opened the menu; null when it hangs off the kebab.
   const [at, setAt] = useState<ReturnType<typeof pointFromEvent>>(null)
   const hasProgress = open && (!!getBookPrefs(book.id).page || progressReset)
-  // useAnchoredMenu is still JavaScript, and its JSDoc types the refs and style
-  // loosely (`object`), so they are narrowed here to what this menu renders.
-  // `at ?? undefined` only satisfies that JSDoc's `object | undefined`: the hook
-  // defaults a missing point to null, so it means the same thing as null.
-  const anchored = useAnchoredMenu(open, {
-    width: MENU_WIDTH,
-    at: at ?? undefined,
-  })
-  const triggerRef = anchored.triggerRef as RefObject<HTMLButtonElement | null>
-  const menuRef = anchored.panelRef as RefObject<HTMLDivElement | null>
-  const menuStyle = anchored.style as CSSProperties
-  const { place } = anchored
+  const {
+    triggerRef,
+    panelRef: menuRef,
+    style: menuStyle,
+    place,
+  } = useAnchoredMenu(open, { width: MENU_WIDTH, at })
   const fileActions = useFileActions({ onChanged: onFileChanged })
   // A book only has file actions once we know where its file lives; rows served
   // by an older payload without `relative_path` simply do not offer them.
@@ -180,7 +174,8 @@ export default function BookActionsMenu({
       setShowDpi(false)
       setState('idle')
       setProgressReset(false)
-      setAt(pointFromEvent(e))
+      // Listened for on the element itself, so `currentTarget` is that element.
+      setAt(pointFromEvent(e as MouseEvent & { currentTarget: Element }))
       setOpen(true)
     }
     el.addEventListener('contextmenu', onContext)

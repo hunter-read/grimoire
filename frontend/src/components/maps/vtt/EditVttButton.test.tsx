@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import EditVttButton from './EditVttButton'
+import type { EditableMap } from './editTargets'
 
 const navigate = vi.fn()
 vi.mock('react-router-dom', async () => ({
@@ -10,10 +11,10 @@ vi.mock('react-router-dom', async () => ({
   useNavigate: () => navigate,
 }))
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k) => k }),
+  useTranslation: () => ({ t: (k: string) => k }),
 }))
 
-const renderButton = (map, props = {}) =>
+const renderButton = (map: EditableMap | null, props = {}) =>
   render(
     <MemoryRouter>
       <EditVttButton map={map} {...props} />

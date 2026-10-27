@@ -1,4 +1,7 @@
 import { useState } from 'react'
+import type { Dispatch, SetStateAction } from 'react'
+import type { ToggleMods } from './BookRow'
+import type { EditableBook } from './BookEditor'
 import BookRow from './BookRow'
 import BookEditor from './BookEditor'
 import BookDetailsModal from './BookDetailsModal'
@@ -22,6 +25,24 @@ import BookDetailsModal from './BookDetailsModal'
  *   selectedBookIds    – Set of selected book ids
  *   onToggleBook       – (bookId, mods) => void
  */
+export interface CategoryBookItemProps {
+  book: EditableBook
+  card?: boolean
+  compact?: boolean
+  list?: boolean
+  editingBookId: string | null
+  setEditingBookId: Dispatch<SetStateAction<string | null>>
+  allTags?: string[]
+  existingCategories?: string[]
+  systemGenres?: string[]
+  isEditor?: boolean
+  onSaveBook: (bookId: string, updated: EditableBook) => void
+  bulkMode?: boolean
+  selectedBookIds?: Set<string>
+  onToggleBook: (bookId: string, mods: ToggleMods) => void
+  onVariantsChanged?: (newMainId: string | null) => void
+}
+
 export default function CategoryBookItem({
   book,
   card,
@@ -38,7 +59,7 @@ export default function CategoryBookItem({
   selectedBookIds,
   onToggleBook,
   onVariantsChanged,
-}) {
+}: CategoryBookItemProps) {
   const editing = editingBookId === book.id
   // Read-only metadata view, available to every user (editing is gm/admin only).
   const [showDetails, setShowDetails] = useState(false)

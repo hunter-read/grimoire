@@ -1,8 +1,23 @@
 import { useTranslation } from 'react-i18next'
 import { LuX } from 'react-icons/lu'
 import { pixelSize } from './cutoutGeometry'
+import type { PageSizes } from './cutoutGeometry'
+import type { Cutout, PageUrl } from './usePageExport'
 import CutoutThumb from './CutoutThumb'
 import { numberStyle } from './exportStyles'
+
+interface Props {
+  cutout: Cutout
+  number: number
+  active: boolean
+  defaultName: string
+  sizes: PageSizes
+  dpi: number
+  pageUrl: PageUrl
+  onSelect: () => void
+  onRename: (name: string) => void
+  onRemove: () => void
+}
 
 /** One cut-out in the panel list: its picture, number, editable name and size. */
 export default function CutoutListRow({
@@ -16,7 +31,7 @@ export default function CutoutListRow({
   onSelect,
   onRename,
   onRemove,
-}) {
+}: Props) {
   const { t } = useTranslation()
   const px = pixelSize(cutout, sizes, dpi)
   const shapeLabel = t(

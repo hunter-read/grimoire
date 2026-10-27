@@ -13,8 +13,27 @@ import {
   LuZoomIn,
   LuZoomOut,
 } from 'react-icons/lu'
+import type { IconType } from 'react-icons'
 import { TOOL_LIGHT, TOOL_OBJECT, TOOL_PORTAL, TOOL_SELECT, TOOL_WALL, TOOL_WINDOW } from './tools'
+import type { Tool } from './tools'
 import { iconBtnStyle } from './ui'
+import type { SnapMode } from './types'
+
+export interface VttToolbarProps {
+  tool: Tool
+  onTool: (tool: Tool) => void
+  snap: SnapMode
+  onSnap: (snap: SnapMode) => void
+  showGrid: boolean
+  onToggleGrid: () => void
+  onUndo: () => void
+  onRedo: () => void
+  canUndo: boolean
+  canRedo: boolean
+  onZoomIn: () => void
+  onZoomOut: () => void
+  onFit: () => void
+}
 
 /**
  * Tool selection, snapping, and view controls for the editor.
@@ -38,10 +57,10 @@ export default function VttToolbar({
   onZoomIn,
   onZoomOut,
   onFit,
-}) {
+}: VttToolbarProps) {
   const { t } = useTranslation()
 
-  const tools = [
+  const tools: { id: Tool; icon: IconType; label: string }[] = [
     { id: TOOL_SELECT, icon: LuMousePointer2, label: t('maps.vtt.tools.select') },
     { id: TOOL_WALL, icon: LuMinus, label: t('maps.vtt.tools.wall') },
     { id: TOOL_OBJECT, icon: LuSquare, label: t('maps.vtt.tools.object') },
@@ -53,7 +72,7 @@ export default function VttToolbar({
     { id: TOOL_LIGHT, icon: LuLightbulb, label: t('maps.vtt.tools.light') },
   ]
 
-  const snaps = [
+  const snaps: { id: SnapMode; label: string }[] = [
     { id: 'grid', label: t('maps.vtt.snap.grid') },
     { id: 'half', label: t('maps.vtt.snap.half') },
     { id: 'free', label: t('maps.vtt.snap.free') },

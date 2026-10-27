@@ -22,8 +22,8 @@ function renderActions() {
 
 beforeEach(() => {
   vi.resetAllMocks()
-  api.get.mockResolvedValue({ running: false, phase: null })
-  api.post.mockResolvedValue({})
+  vi.mocked(api.get).mockResolvedValue({ running: false, phase: null })
+  vi.mocked(api.post).mockResolvedValue({})
 })
 
 describe('SettingsQuickActions', () => {
@@ -46,7 +46,7 @@ describe('SettingsQuickActions', () => {
   })
 
   it('shows the live scan phase and a stop control while a scan runs', async () => {
-    api.get.mockResolvedValue({
+    vi.mocked(api.get).mockResolvedValue({
       running: true,
       phase: 'scanning',
       total_books: 4,
@@ -63,7 +63,7 @@ describe('SettingsQuickActions', () => {
   })
 
   it('swallows a failed rescan request and returns to idle', async () => {
-    api.post.mockRejectedValue(new Error('busy'))
+    vi.mocked(api.post).mockRejectedValue(new Error('busy'))
     renderActions()
     fireEvent.click(screen.getByRole('button', { name: 'Rescan' }))
     fireEvent.click(await screen.findByText('Start rescan'))

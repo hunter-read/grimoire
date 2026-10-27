@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, type CSSProperties, type DragEvent, type SyntheticEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation } from 'react-router-dom'
 import { LuBookOpen, LuTrash2, LuChevronRight } from 'react-icons/lu'
-import { campaigns, mediaUrl } from '../../api'
+import { campaigns, mediaUrl, type Schema } from '../../api'
 import { TYPE_ICONS, RESOURCE_NAV, VISIBILITY_OPTIONS, selectStyle } from './resourcesShared'
 import AudioPlayer from '../audio/AudioPlayer'
 import NowPlayingIndicator from '../audio/NowPlayingIndicator'
@@ -10,6 +10,23 @@ import LazyImg from '../LazyImg'
 import { useAudioPlayer } from '../../context/AudioPlayerContext'
 
 /** A single linked campaign resource with owner controls (visibility, category, share). */
+// `subtitle` is not part of LinkedResourceOut, so the API never sends it.
+type Resource = Schema<'LinkedResourceOut'> & { subtitle?: string | null }
+
+interface ResourceRowProps {
+  campaignId: string
+  resource: Resource
+  isOwner: boolean
+  isGmCampaign?: boolean | null
+  members: Schema<'CampaignMemberOut'>[]
+  categories: Schema<'CampaignCategoryOut'>[]
+  onRemove: (resource: Resource) => void
+  onSetVisibility: (resourceId: string, visibility: string) => void
+  onSetShares: (resourceId: string, ids: string[]) => void
+  onSetCategory: (resourceId: string, categoryId: string) => void
+  onDragStart?: (e: DragEvent, resource: Resource) => void
+}
+
 export default function ResourceRow({
   campaignId,
   resource,
@@ -22,7 +39,7 @@ export default function ResourceRow({
   onSetShares,
   onSetCategory,
   onDragStart,
-}) {
+}: ResourceRowProps) {
   const { t } = useTranslation()
   const location = useLocation()
   const [hovered, setHovered] = useState(false)
@@ -48,12 +65,12 @@ export default function ResourceRow({
           )
         : null
 
-  const stop = (e) => e.stopPropagation()
+  const stop = (e: SyntheticEvent) => e.stopPropagation()
 
   // Row 1 — title, a real link so middle click / ctrl-click opens the resource
   // in a new tab (issue #313). Uploaded files aren't app routes: they open in
   // their own tab on any click via a plain anchor.
-  const titleStyle = {
+  const titleStyle: CSSProperties = {
     display: 'flex',
     alignItems: 'center',
     gap: 6,
@@ -165,7 +182,7 @@ export default function ResourceRow({
           >
             {isGmCampaign && (
               <select
-                value={resource.visibility}
+                value={resource.visibility as string}
                 onChange={(e) => onSetVisibility(resource.id, e.target.value)}
                 aria-label={t('resources.visibilityLabel')}
                 style={{
@@ -269,7 +286,7 @@ export default function ResourceRow({
             track={{
               id: resource.resource_id,
               title: resource.name,
-              artwork: resource.has_thumbnail,
+              artwork: resource.has_thumbnail as boolean | undefined,
             }}
             showPlayNext
             size={34}

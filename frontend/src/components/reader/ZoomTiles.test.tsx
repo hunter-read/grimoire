@@ -1,15 +1,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, act, fireEvent } from '@testing-library/react'
 import ZoomTiles from './ZoomTiles'
+import type { ZoomTilesProps } from './ZoomTiles'
 
 // jsdom has no layout, so give the page box and the view real-looking geometry:
 // an 800px-wide page box zoomed 6x - past what a 3000px page image can show -
 // centred in an 800 x 600 view.
 const PAGE_CSS_WIDTH = 800
 
-function setup(props = {}) {
+function setup(props: Partial<ZoomTilesProps> = {}) {
   const view = document.createElement('div')
-  view.getBoundingClientRect = () => ({ left: 0, top: 0, width: 800, height: 600 })
+  view.getBoundingClientRect = () => ({ left: 0, top: 0, width: 800, height: 600 }) as DOMRect
   const viewRef = { current: view }
   const utils = render(
     <div style={{ position: 'relative' }}>
@@ -26,13 +27,14 @@ function setup(props = {}) {
       />
     </div>
   )
-  const box = utils.container.querySelector('[aria-hidden="true"]')
+  const box = utils.container.querySelector<HTMLElement>('[aria-hidden="true"]')!
   Object.defineProperty(box, 'offsetWidth', { configurable: true, value: PAGE_CSS_WIDTH })
-  box.getBoundingClientRect = () => ({ left: -2000, top: -2700, width: 4800, height: 6000 })
+  box.getBoundingClientRect = () =>
+    ({ left: -2000, top: -2700, width: 4800, height: 6000 }) as DOMRect
   return { ...utils, box }
 }
 
-const tiles = (container) => [...container.querySelectorAll('img')]
+const tiles = (container: HTMLElement) => [...container.querySelectorAll('img')]
 
 describe('ZoomTiles', () => {
   beforeEach(() => vi.useFakeTimers())
@@ -50,7 +52,7 @@ describe('ZoomTiles', () => {
     act(() => vi.advanceTimersByTime(200))
     const src = tiles(container)[0].getAttribute('src')
     expect(src).toMatch(/^\/api\/books\/b1\/page\/3\/tile\?/)
-    const params = new URL(src, 'http://x').searchParams
+    const params = new URL(src!, 'http://x').searchParams
     expect(Number(params.get('width')) % 256).toBe(0)
     expect(params.get('v')).toBe('tok')
   })
@@ -104,7 +106,8 @@ describe('ZoomTiles', () => {
     const { container, box } = setup()
     act(() => vi.advanceTimersByTime(200))
     const before = tiles(container).length
-    box.getBoundingClientRect = () => ({ left: 5000, top: 5000, width: 4800, height: 6000 })
+    box.getBoundingClientRect = () =>
+      ({ left: 5000, top: 5000, width: 4800, height: 6000 }) as DOMRect
     act(() => window.dispatchEvent(new Event('resize')))
     act(() => vi.advanceTimersByTime(200))
     expect(tiles(container).length).not.toBe(before)
@@ -113,11 +116,11 @@ describe('ZoomTiles', () => {
   it('works them out again once the page box gets its size', () => {
     // A page turned while zoomed is measured before its image has loaded and
     // given the box a size; the observer catches the box growing.
-    let observed
+    let observed: (entries: unknown[]) => void = () => {}
     vi.stubGlobal(
       'ResizeObserver',
       class {
-        constructor(cb) {
+        constructor(cb: (entries: unknown[]) => void) {
           observed = cb
         }
         observe() {}
@@ -126,7 +129,7 @@ describe('ZoomTiles', () => {
     )
     const { container, box } = setup()
     const sized = box.getBoundingClientRect
-    box.getBoundingClientRect = () => ({ left: 0, top: 0, width: 0, height: 0 })
+    box.getBoundingClientRect = () => ({ left: 0, top: 0, width: 0, height: 0 }) as DOMRect
     act(() => vi.advanceTimersByTime(200))
     expect(tiles(container)).toHaveLength(0)
 

@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
+import type { CSSProperties, KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { campaigns as campaignsApi } from '../../../api'
+import type { Schema } from '../../../api'
 import Spinner from '../../Spinner'
 
 /**
@@ -23,15 +25,37 @@ import Spinner from '../../Spinner'
 // named their category in their own language still gets the preselection.
 const MAP_CATEGORY_PATTERN = /^(maps?|battlemaps?|karten?|mapas?|cartes?|kaarten|mapa|plans?)$/i
 
-export const isMapCategory = (name) => MAP_CATEGORY_PATTERN.test((name || '').trim())
+type Campaign = Schema<'CampaignOut'>
+type Category = Schema<'CampaignCategoryOut'>
 
-export default function SendVttToCampaignDialog({ userId, onClose, onChoose, busy }) {
+/** Where the finished file goes: a campaign, and optionally a category in it. */
+export interface VttSendChoice {
+  campaignId: string
+  categoryId: string | null
+}
+
+export interface SendVttToCampaignDialogProps {
+  userId?: string | number | null
+  onClose: () => void
+  onChoose: (choice: VttSendChoice) => void
+  busy?: boolean
+}
+
+export const isMapCategory = (name: string | null | undefined): boolean =>
+  MAP_CATEGORY_PATTERN.test((name || '').trim())
+
+export default function SendVttToCampaignDialog({
+  userId,
+  onClose,
+  onChoose,
+  busy,
+}: SendVttToCampaignDialogProps) {
   const { t } = useTranslation()
-  const [owned, setOwned] = useState(null)
+  const [owned, setOwned] = useState<Campaign[] | null>(null)
   const [error, setError] = useState('')
   const [failed, setFailed] = useState(false)
-  const [target, setTarget] = useState(null)
-  const [categories, setCategories] = useState(null)
+  const [target, setTarget] = useState<Campaign | null>(null)
+  const [categories, setCategories] = useState<Category[] | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -40,13 +64,16 @@ export default function SendVttToCampaignDialog({ userId, onClose, onChoose, bus
       .then((list) => {
         if (cancelled) return
         // `/campaigns` answers with a bare array, not a `{campaigns}` wrapper.
-        const rows = Array.isArray(list) ? list : list?.campaigns || []
+        // A wrapped `{ campaigns }` body is tolerated as well as the bare list.
+        const rows: Campaign[] = Array.isArray(list)
+          ? list
+          : (list as { campaigns?: Campaign[] } | null)?.campaigns || []
         // Mirror `assert_can_manage`: the owner, and not while archived. Only
         // these will accept an upload, and offering any other campaign would be
         // offering something the server refuses.
         setOwned(rows.filter((c) => c.owner_id === userId && !c.is_archived))
       })
-      .catch((err) => {
+      .catch((err: Error) => {
         if (cancelled) return
         // The fallback message is resolved at render time instead of here, so
         // `t` stays out of the dependency list below.
@@ -87,7 +114,7 @@ export default function SendVttToCampaignDialog({ userId, onClose, onChoose, bus
     }
   }, [targetId])
 
-  const onKeyDown = (e) => {
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== 'Escape') return
     // Step back before closing, so a user one level in does not lose the whole
     // dialog to one keystroke.
@@ -211,7 +238,7 @@ export default function SendVttToCampaignDialog({ userId, onClose, onChoose, bus
   )
 }
 
-const listStyle = {
+const listStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: 6,
@@ -219,7 +246,7 @@ const listStyle = {
   overflowY: 'auto',
 }
 
-const rowStyle = {
+const rowStyle: CSSProperties = {
   textAlign: 'left',
   padding: '8px 10px',
   borderRadius: 6,
@@ -229,10 +256,10 @@ const rowStyle = {
   color: 'var(--text)',
 }
 
-const rowTitle = { fontSize: 13, fontWeight: 600 }
-const rowSub = { fontSize: 11, color: 'var(--text-dim)' }
+const rowTitle: CSSProperties = { fontSize: 13, fontWeight: 600 }
+const rowSub: CSSProperties = { fontSize: 11, color: 'var(--text-dim)' }
 
-const backdrop = {
+const backdrop: CSSProperties = {
   position: 'fixed',
   inset: 0,
   background: 'rgba(0,0,0,0.6)',
@@ -243,7 +270,7 @@ const backdrop = {
   padding: 20,
 }
 
-const panel = {
+const panel: CSSProperties = {
   width: '100%',
   maxWidth: 420,
   background: 'var(--bg-panel)',
@@ -252,7 +279,7 @@ const panel = {
   padding: 20,
 }
 
-const btn = {
+const btn: CSSProperties = {
   padding: '8px 16px',
   borderRadius: 6,
   fontSize: 13,

@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import DetailsSidebar from './DetailsSidebar'
+import type { Schema } from '../../api'
 
 const mockUser = { role: 'player' }
 vi.mock('../../context/AuthContext', () => ({
@@ -12,7 +13,13 @@ vi.mock('../../context/AuthContext', () => ({
 // The editor is exercised in its own test; here it only needs to be
 // identifiable so the Edit toggle can be asserted on.
 vi.mock('./DetailsSidebarEditor', () => ({
-  default: ({ onCancel, onApplied }) => (
+  default: ({
+    onCancel,
+    onApplied,
+  }: {
+    onCancel: () => void
+    onApplied: (fields: Record<string, unknown>) => void
+  }) => (
     <div>
       <span>editor</span>
       <button onClick={onCancel}>cancel-editor</button>
@@ -21,7 +28,7 @@ vi.mock('./DetailsSidebarEditor', () => ({
   ),
 }))
 
-function makeBook(overrides = {}) {
+function makeBook(overrides: Record<string, unknown> = {}) {
   return {
     id: 'book-1',
     title: "Player's Handbook",
@@ -35,16 +42,16 @@ function makeBook(overrides = {}) {
     relative_path: 'D&D/Core/PHB.pdf',
     tags: [],
     ...overrides,
-  }
+  } as unknown as Schema<'BookDetail'>
 }
 
-function renderSidebar(overrides = {}) {
+function renderSidebar(overrides: { book?: Record<string, unknown> } = {}) {
   const props = {
     book: makeBook(overrides.book),
     onClose: vi.fn(),
     onSave: vi.fn(),
     ...overrides,
-  }
+  } as { book: Schema<'BookDetail'>; onClose: () => void; onSave: (book: unknown) => void }
   return {
     ...render(
       <MemoryRouter>

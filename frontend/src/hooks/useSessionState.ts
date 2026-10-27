@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, type Dispatch, type SetStateAction } from 'react'
 
 /**
  * Like useState, but the value is persisted in sessionStorage so it survives
@@ -19,16 +19,25 @@ import { useState, useEffect, useRef } from 'react'
  * @param {boolean} [opts.restore=true] whether to seed from the stored value
  * @returns [value, setValue] — same API as useState
  */
-export default function useSessionState(key, initial, { restore = true } = {}) {
+export interface SessionStateOptions {
+  /** Whether to seed from the stored value (default true). */
+  restore?: boolean
+}
+
+export default function useSessionState<T>(
+  key: string,
+  initial: T,
+  { restore = true }: SessionStateOptions = {}
+): [T, Dispatch<SetStateAction<T>>] {
   const isSet = initial instanceof Set
 
-  const [value, setValueRaw] = useState(() => {
+  const [value, setValueRaw] = useState<T>(() => {
     if (!restore) return initial
     try {
       const raw = sessionStorage.getItem(key)
       if (raw === null) return initial
-      const parsed = JSON.parse(raw)
-      return isSet ? new Set(parsed) : parsed
+      const parsed: unknown = JSON.parse(raw)
+      return isSet ? (new Set(parsed as Iterable<unknown>) as T) : (parsed as T)
     } catch {
       return initial
     }
@@ -40,7 +49,7 @@ export default function useSessionState(key, initial, { restore = true } = {}) {
   // fresh mount would immediately write its own default back to storage.
   const hasBeenSet = useRef(typeof initial === 'object' ? false : value !== initial)
 
-  const setValue = (next) => {
+  const setValue = (next: SetStateAction<T>) => {
     hasBeenSet.current = true
     setValueRaw(next)
   }

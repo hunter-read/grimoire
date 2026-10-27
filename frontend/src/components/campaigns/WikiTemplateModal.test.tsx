@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import WikiTemplateModal from './WikiTemplateModal'
 
@@ -18,6 +19,9 @@ vi.mock('../../api', () => ({
 }))
 
 import { campaigns } from '../../api'
+
+// The api module is mocked above; reach its helpers as plain vi.fn()s.
+const campaignsMock = campaigns as unknown as Record<keyof typeof campaigns, Mock>
 
 const SPELL = {
   id: 't1',
@@ -78,12 +82,12 @@ function renderModal(props = {}) {
 describe('WikiTemplateModal', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    campaigns.wikiTemplates.mockResolvedValue({
+    campaignsMock.wikiTemplates.mockResolvedValue({
       templates: [SPELL, NPC],
       campaign_system: 'D&D 5e',
       downloads_enabled: true,
     })
-    campaigns.browseWikiTemplates.mockResolvedValue(CATALOGUE)
+    campaignsMock.browseWikiTemplates.mockResolvedValue(CATALOGUE)
   })
 
   it('lists the campaign templates grouped by category', async () => {
@@ -94,7 +98,7 @@ describe('WikiTemplateModal', () => {
   })
 
   it('shows an empty state when the campaign has no templates', async () => {
-    campaigns.wikiTemplates.mockResolvedValue({
+    campaignsMock.wikiTemplates.mockResolvedValue({
       templates: [],
       campaign_system: '',
       downloads_enabled: true,
@@ -104,7 +108,7 @@ describe('WikiTemplateModal', () => {
   })
 
   it('hands the template content up as an unsaved draft, creating nothing', async () => {
-    campaigns.getWikiTemplate.mockResolvedValue({
+    campaignsMock.getWikiTemplate.mockResolvedValue({
       ...SPELL,
       body: '*2nd-level transmutation*',
       defaults: { title: 'New Spell', icon: 'sparkles', icon_color: 'blue', visibility: 'group' },
@@ -132,7 +136,7 @@ describe('WikiTemplateModal', () => {
   })
 
   it('falls back to the template name when it declares no starting title', async () => {
-    campaigns.getWikiTemplate.mockResolvedValue({ ...SPELL, body: 'x', defaults: {} })
+    campaignsMock.getWikiTemplate.mockResolvedValue({ ...SPELL, body: 'x', defaults: {} })
     const onUsed = vi.fn()
     renderModal({ onUsed })
     fireEvent.click(await screen.findByText('A 5e spell.'))
@@ -142,7 +146,7 @@ describe('WikiTemplateModal', () => {
   })
 
   it('surfaces an error when the template cannot be read', async () => {
-    campaigns.getWikiTemplate.mockRejectedValue(new Error('Template not found'))
+    campaignsMock.getWikiTemplate.mockRejectedValue(new Error('Template not found'))
     renderModal()
     fireEvent.click(await screen.findByText('A 5e spell.'))
     await waitFor(() => expect(screen.getByText('Template not found')).toBeTruthy())
@@ -150,7 +154,7 @@ describe('WikiTemplateModal', () => {
 
   it('deletes a template after confirmation', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)
-    campaigns.deleteWikiTemplate.mockResolvedValue({})
+    campaignsMock.deleteWikiTemplate.mockResolvedValue({})
     renderModal()
     fireEvent.click(await screen.findByLabelText('Delete Spell'))
     await waitFor(() => expect(campaigns.deleteWikiTemplate).toHaveBeenCalledWith('c1', 't1'))
@@ -164,7 +168,7 @@ describe('WikiTemplateModal', () => {
   })
 
   it('exports a template using its community id for the filename', async () => {
-    campaigns.exportWikiTemplate.mockResolvedValue({})
+    campaignsMock.exportWikiTemplate.mockResolvedValue({})
     renderModal()
     fireEvent.click(await screen.findByLabelText('Export as a folder Spell'))
     await waitFor(() =>
@@ -173,7 +177,7 @@ describe('WikiTemplateModal', () => {
   })
 
   it('falls back to the name when exporting an authored template', async () => {
-    campaigns.exportWikiTemplate.mockResolvedValue({})
+    campaignsMock.exportWikiTemplate.mockResolvedValue({})
     renderModal()
     fireEvent.click(await screen.findByLabelText('Export as a folder NPC'))
     await waitFor(() =>
@@ -182,23 +186,23 @@ describe('WikiTemplateModal', () => {
   })
 
   it('uploads a markdown template and returns to the list', async () => {
-    campaigns.uploadWikiTemplate.mockResolvedValue({ id: 't3' })
+    campaignsMock.uploadWikiTemplate.mockResolvedValue({ id: 't3' })
     const { container } = renderModal()
     await screen.findByText('Spells')
 
     const file = new File(['# Hi'], 'notes.md', { type: 'text/markdown' })
-    fireEvent.change(container.querySelector('input[type="file"]'), {
+    fireEvent.change(container.querySelector('input[type="file"]')!, {
       target: { files: [file] },
     })
     await waitFor(() => expect(campaigns.uploadWikiTemplate).toHaveBeenCalledWith('c1', file))
   })
 
   it('accepts a template .zip as well as markdown', async () => {
-    campaigns.uploadWikiTemplate.mockResolvedValue({ id: 't4' })
+    campaignsMock.uploadWikiTemplate.mockResolvedValue({ id: 't4' })
     const { container } = renderModal()
     await screen.findByText('Spells')
 
-    const picker = container.querySelector('input[type="file"]')
+    const picker = container.querySelector('input[type="file"]')!
     // The export format is a .zip, so upload has to take one back.
     expect(picker.getAttribute('accept')).toContain('.zip')
 
@@ -208,7 +212,7 @@ describe('WikiTemplateModal', () => {
   })
 
   it('hides the browse tab when downloading is disabled', async () => {
-    campaigns.wikiTemplates.mockResolvedValue({
+    campaignsMock.wikiTemplates.mockResolvedValue({
       templates: [SPELL],
       campaign_system: '',
       downloads_enabled: false,
@@ -227,7 +231,7 @@ describe('WikiTemplateModal', () => {
 
     fireEvent.click(screen.getByLabelText('Close'))
     expect(onClose).toHaveBeenCalledTimes(1)
-    fireEvent.click(container.firstChild)
+    fireEvent.click(container.firstChild as Element)
     expect(onClose).toHaveBeenCalledTimes(2)
   })
 })
@@ -242,12 +246,12 @@ describe('WikiTemplateModal — browse tab', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    campaigns.wikiTemplates.mockResolvedValue({
+    campaignsMock.wikiTemplates.mockResolvedValue({
       templates: [],
       campaign_system: 'D&D 5e',
       downloads_enabled: true,
     })
-    campaigns.browseWikiTemplates.mockResolvedValue(CATALOGUE)
+    campaignsMock.browseWikiTemplates.mockResolvedValue(CATALOGUE)
   })
 
   const openBrowse = async () => {
@@ -281,7 +285,7 @@ describe('WikiTemplateModal — browse tab', () => {
 
   it('downloads a template and confirms it, then settles into "download again"', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
-    campaigns.downloadWikiTemplate.mockResolvedValue({ id: 't9' })
+    campaignsMock.downloadWikiTemplate.mockResolvedValue({ id: 't9' })
     await openBrowse()
     await screen.findByText('A spell.')
 
@@ -305,11 +309,11 @@ describe('WikiTemplateModal — browse tab', () => {
     // Without this, clicking "Download again" would leave the row looking
     // exactly as it did before and give no sign anything happened.
     vi.useFakeTimers({ shouldAdvanceTime: true })
-    campaigns.browseWikiTemplates.mockResolvedValue({
+    campaignsMock.browseWikiTemplates.mockResolvedValue({
       ...CATALOGUE,
       downloaded_ids: ['5e-spell'],
     })
-    campaigns.downloadWikiTemplate.mockResolvedValue({ id: 't9' })
+    campaignsMock.downloadWikiTemplate.mockResolvedValue({ id: 't9' })
     await openBrowse()
 
     const button = await screen.findByRole('button', { name: /Download again/ })
@@ -318,7 +322,7 @@ describe('WikiTemplateModal — browse tab', () => {
   })
 
   it('surfaces an error when the catalogue is unreachable', async () => {
-    campaigns.browseWikiTemplates.mockRejectedValue(new Error('source timed out'))
+    campaignsMock.browseWikiTemplates.mockRejectedValue(new Error('source timed out'))
     await openBrowse()
     expect(await screen.findByText('source timed out')).toBeTruthy()
   })
@@ -330,7 +334,7 @@ describe('WikiTemplateModal — browse tab', () => {
   })
 
   it('reports an empty catalogue', async () => {
-    campaigns.browseWikiTemplates.mockResolvedValue({ ...CATALOGUE, folders: [] })
+    campaignsMock.browseWikiTemplates.mockResolvedValue({ ...CATALOGUE, folders: [] })
     await openBrowse()
     expect(await screen.findByText('The catalogue has no templates.')).toBeTruthy()
   })
@@ -339,7 +343,7 @@ describe('WikiTemplateModal — browse tab', () => {
 describe('WikiTemplateModal — create and edit', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    campaigns.wikiTemplates.mockResolvedValue({
+    campaignsMock.wikiTemplates.mockResolvedValue({
       templates: [SPELL],
       campaign_system: '',
       downloads_enabled: true,
@@ -358,7 +362,7 @@ describe('WikiTemplateModal — create and edit', () => {
   })
 
   it('lets a new category be typed and saves it', async () => {
-    campaigns.createWikiTemplate.mockResolvedValue({ id: 't5' })
+    campaignsMock.createWikiTemplate.mockResolvedValue({ id: 't5' })
     renderModal()
     fireEvent.click(await screen.findByRole('button', { name: 'Create' }))
     fireEvent.change(await screen.findByLabelText('Name'), { target: { value: 'Airship' } })
@@ -380,7 +384,7 @@ describe('WikiTemplateModal — create and edit', () => {
   })
 
   it('sends the page defaults, and never a game system', async () => {
-    campaigns.createWikiTemplate.mockResolvedValue({ id: 't6' })
+    campaignsMock.createWikiTemplate.mockResolvedValue({ id: 't6' })
     renderModal()
     fireEvent.click(await screen.findByRole('button', { name: 'Create' }))
     fireEvent.change(await screen.findByLabelText('Name'), { target: { value: 'NPC' } })
@@ -391,14 +395,14 @@ describe('WikiTemplateModal — create and edit', () => {
     fireEvent.click(screen.getByRole('button', { name: /Create template/ }))
 
     await waitFor(() => expect(campaigns.createWikiTemplate).toHaveBeenCalled())
-    const payload = campaigns.createWikiTemplate.mock.calls[0][1]
+    const payload = campaignsMock.createWikiTemplate.mock.calls[0][1]
     expect(payload.defaults).toMatchObject({ title: 'New NPC', visibility: 'group' })
     // Game system is meaningless for a hand-written template.
     expect(payload.system).toBeUndefined()
   })
 
   it("fills the form from a template's parsed defaults, hiding the frontmatter", async () => {
-    campaigns.getWikiTemplate.mockResolvedValue({
+    campaignsMock.getWikiTemplate.mockResolvedValue({
       ...SPELL,
       body: '*2nd-level transmutation*',
       defaults: { title: 'New Spell', icon: 'sparkles', icon_color: '', visibility: 'group' },
@@ -408,15 +412,15 @@ describe('WikiTemplateModal — create and edit', () => {
 
     // The defaults arrive as form values...
     expect(await screen.findByDisplayValue('New Spell')).toBeTruthy()
-    expect(screen.getByLabelText('Page visibility').value).toBe('group')
+    expect((screen.getByLabelText('Page visibility') as HTMLSelectElement).value).toBe('group')
     // ...and the body textarea shows no YAML.
-    const body = screen.getByLabelText('Page content')
+    const body = screen.getByLabelText('Page content') as HTMLTextAreaElement
     expect(body.value).toBe('*2nd-level transmutation*')
     expect(body.value).not.toContain('---')
   })
 
   it('creates a template from the form', async () => {
-    campaigns.createWikiTemplate.mockResolvedValue({ id: 't5' })
+    campaignsMock.createWikiTemplate.mockResolvedValue({ id: 't5' })
     renderModal()
     fireEvent.click(await screen.findByRole('button', { name: 'Create' }))
 
@@ -449,7 +453,7 @@ describe('WikiTemplateModal — create and edit', () => {
   })
 
   it('right-aligns the Save button when editing', async () => {
-    campaigns.getWikiTemplate.mockResolvedValue({ ...SPELL, body: '# Spell' })
+    campaignsMock.getWikiTemplate.mockResolvedValue({ ...SPELL, body: '# Spell' })
     renderModal()
     fireEvent.click(await screen.findByLabelText('Edit Spell'))
     const button = await screen.findByRole('button', { name: /Save/ })
@@ -457,8 +461,8 @@ describe('WikiTemplateModal — create and edit', () => {
   })
 
   it('loads an existing template into the editor and saves it', async () => {
-    campaigns.getWikiTemplate.mockResolvedValue({ ...SPELL, body: '# Spell' })
-    campaigns.updateWikiTemplate.mockResolvedValue({})
+    campaignsMock.getWikiTemplate.mockResolvedValue({ ...SPELL, body: '# Spell' })
+    campaignsMock.updateWikiTemplate.mockResolvedValue({})
     renderModal()
 
     fireEvent.click(await screen.findByLabelText('Edit Spell'))
@@ -476,14 +480,14 @@ describe('WikiTemplateModal — create and edit', () => {
   })
 
   it('surfaces an error when loading a template for editing fails', async () => {
-    campaigns.getWikiTemplate.mockRejectedValue(new Error('Template not found'))
+    campaignsMock.getWikiTemplate.mockRejectedValue(new Error('Template not found'))
     renderModal()
     fireEvent.click(await screen.findByLabelText('Edit Spell'))
     expect(await screen.findByText('Template not found')).toBeTruthy()
   })
 
   it('surfaces a save failure and stays on the form', async () => {
-    campaigns.createWikiTemplate.mockRejectedValue(new Error('Name cannot be empty'))
+    campaignsMock.createWikiTemplate.mockRejectedValue(new Error('Name cannot be empty'))
     renderModal()
     fireEvent.click(await screen.findByRole('button', { name: 'Create' }))
     fireEvent.change(await screen.findByLabelText('Name'), { target: { value: 'X' } })

@@ -10,13 +10,23 @@ import { ACCESS_ADMIN, ACCESS_GM, ACCESS_INHERIT, ACCESS_OPEN } from '../../acce
 // because "inherit from my system/category" and "explicitly open" are different
 // states: the second overrides a restricted system, the first does not. A
 // system sits at the top of the cascade and so has nothing to inherit from.
+export interface AccessLevelPickerProps {
+  /** The stored level; `null`/`undefined` mean inherit. */
+  value: string | null | undefined
+  onChange: (value: string) => void
+  allowInherit?: boolean
+  /** What "inherit" currently resolves to, shown as a hint. */
+  effectiveLevel?: string | null
+  id?: string
+}
+
 export default function AccessLevelPicker({
   value,
   onChange,
   allowInherit = true,
   effectiveLevel = null,
   id = 'access-level',
-}) {
+}: AccessLevelPickerProps) {
   const { t } = useTranslation()
   // useAuth returns null outside an AuthProvider (some editors are rendered in
   // isolation, and every test harness does). Treating that as "not an admin" is

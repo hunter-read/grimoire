@@ -1,11 +1,11 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi } from 'vitest'
-import SaveAudioSetModal from './SaveAudioSetModal'
+import SaveAudioSetModal, { type SaveAudioSetModalProps } from './SaveAudioSetModal'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key, opts) => {
+    t: (key: string, opts?: { name?: string; count?: number }) => {
       if (opts?.name) return `${key}:${opts.name}`
       if (opts?.count !== undefined) return `${key}:${opts.count}`
       return key
@@ -13,7 +13,7 @@ vi.mock('react-i18next', () => ({
   }),
 }))
 
-const setup = (props = {}) => {
+const setup = (props: Partial<SaveAudioSetModalProps> = {}) => {
   const onSave = props.onSave || vi.fn(() => Promise.resolve({ id: 'new' }))
   const onClose = props.onClose || vi.fn()
   const user = userEvent.setup()

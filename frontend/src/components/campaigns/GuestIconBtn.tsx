@@ -1,5 +1,14 @@
 /** Small icon-only action button used in the guest list rows. */
-export default function GuestIconBtn({ children, title, onClick, disabled }) {
+import type { MouseEventHandler, ReactNode } from 'react'
+
+interface GuestIconBtnProps {
+  children?: ReactNode
+  title?: string
+  onClick?: MouseEventHandler<HTMLButtonElement>
+  disabled?: boolean
+}
+
+export default function GuestIconBtn({ children, title, onClick, disabled }: GuestIconBtnProps) {
   return (
     <button
       onClick={onClick}

@@ -7,14 +7,14 @@ vi.mock('../../api', () => ({ default: { get: vi.fn() } }))
 
 beforeEach(() => {
   vi.clearAllMocks()
-  api.get.mockImplementation((path) => {
+  vi.mocked(api.get).mockImplementation(((path: string) => {
     if (path.includes('genres')) return Promise.resolve({ genres: [{ id: 'g' }] })
     if (path.includes('system-families')) return Promise.resolve({ families: [{ id: 'f' }] })
     if (path.includes('parent-systems')) return Promise.resolve({ parent_systems: [{ id: 'p' }] })
     if (path.includes('licenses')) return Promise.resolve({ licenses: [{ id: 'l' }] })
     if (path.includes('dice-materials')) return Promise.resolve({ dice_materials: [{ id: 'd' }] })
     return Promise.resolve({})
-  })
+  }) as unknown as typeof api.get)
 })
 
 // Number of lookup endpoints fetched on each load.
@@ -31,7 +31,7 @@ describe('useLookups', () => {
   })
 
   it('degrades to empty lists on failure', async () => {
-    api.get.mockRejectedValue(new Error('boom'))
+    vi.mocked(api.get).mockRejectedValue(new Error('boom'))
     const { result } = renderHook(() => useLookups())
     await waitFor(() => expect(api.get).toHaveBeenCalled())
     expect(result.current.genres).toEqual([])
@@ -44,7 +44,7 @@ describe('useLookups', () => {
   it('reload re-fetches every list', async () => {
     const { result } = renderHook(() => useLookups())
     await waitFor(() => expect(result.current.genres).toHaveLength(1))
-    api.get.mockClear()
+    vi.mocked(api.get).mockClear()
     act(() => result.current.reload())
     await waitFor(() => expect(api.get).toHaveBeenCalledTimes(ENDPOINT_COUNT))
   })

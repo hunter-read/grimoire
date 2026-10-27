@@ -6,13 +6,15 @@ import ResultThumb from './ResultThumb'
 // thumbnail, and each type has its own path rather than a pluralised guess.
 vi.mock('../../api', () => ({
   imageSources: {
-    thumbUrl: (type, id) =>
-      ({
-        book: `/api/books/${id}/thumbnail`,
-        map: `/api/maps/${id}/thumbnail`,
-        token: `/api/tokens/${id}/thumbnail`,
-        audio: `/api/audio/${id}/artwork`,
-      })[type] ?? null,
+    thumbUrl: (type: string, id: string) =>
+      (
+        ({
+          book: `/api/books/${id}/thumbnail`,
+          map: `/api/maps/${id}/thumbnail`,
+          token: `/api/tokens/${id}/thumbnail`,
+          audio: `/api/audio/${id}/artwork`,
+        }) as Record<string, string>
+      )[type] ?? null,
   },
 }))
 
@@ -45,8 +47,8 @@ describe('ResultThumb', () => {
   it('gives books a portrait box and other types a square one', () => {
     const { container: book } = render(<ResultThumb type="book" id="b1" size={50} />)
     const { container: map } = render(<ResultThumb type="map" id="m1" size={50} />)
-    expect(book.firstChild.style.height).toBe('65px')
-    expect(map.firstChild.style.height).toBe('50px')
+    expect((book.firstChild as HTMLElement).style.height).toBe('65px')
+    expect((map.firstChild as HTMLElement).style.height).toBe('50px')
   })
 
   it('falls back to a book glyph for an unrecognised type', () => {

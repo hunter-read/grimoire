@@ -1,21 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import type { ComponentProps } from 'react'
 import TokenFavorite from './TokenFavorite'
+import type { Schema } from '../../api'
 
-vi.mock('../../api', () => ({ mediaUrl: (p) => `http://localhost${p}` }))
+vi.mock('../../api', () => ({ mediaUrl: (p: string) => `http://localhost${p}` }))
 vi.mock('../FavoriteButton', () => ({ default: () => <button>fav</button> }))
 
 beforeEach(() => vi.clearAllMocks())
 
-const item = (over = {}) => ({
-  item_id: 't1',
-  filename: 'goblin.png',
-  has_thumbnail: false,
-  ...over,
-})
+// Only the fields the card reads.
+const item = (over: Record<string, unknown> = {}) =>
+  ({
+    item_id: 't1',
+    filename: 'goblin.png',
+    has_thumbnail: false,
+    ...over,
+  }) as unknown as Schema<'FavoriteTokenItem'>
 
-function renderToken(props) {
+function renderToken(props: ComponentProps<typeof TokenFavorite>) {
   return render(
     <MemoryRouter>
       <TokenFavorite {...props} />
@@ -41,7 +45,7 @@ describe('TokenFavorite', () => {
   it('renders the thumbnail (lazy) when has_thumbnail is set', () => {
     const { container } = renderToken({ item: item({ has_thumbnail: true }), grid: true })
     const img = container.querySelector('img')
-    expect(img.getAttribute('src')).toContain('/tokens/t1/thumbnail')
+    expect(img!.getAttribute('src')).toContain('/tokens/t1/thumbnail')
     expect(img).toHaveAttribute('loading', 'lazy')
   })
 

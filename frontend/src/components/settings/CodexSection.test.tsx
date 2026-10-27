@@ -18,8 +18,10 @@ const SETTINGS = {
 beforeEach(() => {
   vi.clearAllMocks()
   localStorage.clear()
-  api.get.mockResolvedValue(SETTINGS)
-  api.put.mockImplementation((_url, patch) => Promise.resolve({ ...SETTINGS, ...patch }))
+  vi.mocked(api.get).mockResolvedValue(SETTINGS)
+  vi.mocked(api.put as (url: string, data?: unknown) => Promise<unknown>).mockImplementation(
+    (_url, patch) => Promise.resolve({ ...SETTINGS, ...(patch as object) })
+  )
 })
 
 describe('CodexSection', () => {
@@ -49,7 +51,7 @@ describe('CodexSection', () => {
   })
 
   it('shows settings pinned by the environment as read-only', async () => {
-    api.get.mockResolvedValue({ ...SETTINGS, locked: ['url', 'send_hashes'] })
+    vi.mocked(api.get).mockResolvedValue({ ...SETTINGS, locked: ['url', 'send_hashes'] })
     render(<CodexSection />)
     expect(await screen.findByLabelText('Grimoire Codex DB address')).toBeDisabled()
     expect(screen.getByLabelText('Send file hashes when looking up books')).toBeDisabled()
@@ -57,7 +59,7 @@ describe('CodexSection', () => {
   })
 
   it('tests the connection', async () => {
-    api.post.mockResolvedValueOnce({
+    vi.mocked(api.post).mockResolvedValueOnce({
       ok: true,
       url: 'x',
       account: { name: 'Hunter', role: 'editor' },
@@ -66,23 +68,25 @@ describe('CodexSection', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Test connection' }))
     expect(await screen.findByRole('status')).toHaveTextContent('Connected as Hunter (editor)')
 
-    api.post.mockResolvedValueOnce({ ok: true, url: 'x', account: null })
+    vi.mocked(api.post).mockResolvedValueOnce({ ok: true, url: 'x', account: null })
     await userEvent.click(screen.getByRole('button', { name: 'Test connection' }))
     expect(await screen.findByRole('status')).toHaveTextContent(/^Connected\.$/)
 
-    api.post.mockRejectedValueOnce(new Error('Could not reach Grimoire Codex DB'))
+    vi.mocked(api.post).mockRejectedValueOnce(new Error('Could not reach Grimoire Codex DB'))
     await userEvent.click(screen.getByRole('button', { name: 'Test connection' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not reach')
   })
 
   it('reports a rejected save and a failed load', async () => {
-    api.put.mockRejectedValueOnce(new Error('The Grimoire Codex DB URL must be an http(s) address'))
+    vi.mocked(api.put).mockRejectedValueOnce(
+      new Error('The Grimoire Codex DB URL must be an http(s) address')
+    )
     const { unmount } = render(<CodexSection />)
     await userEvent.click(await screen.findByLabelText('Send file hashes when looking up books'))
     expect(await screen.findByRole('alert')).toHaveTextContent('http(s) address')
     unmount()
 
-    api.get.mockRejectedValueOnce(new Error('Forbidden'))
+    vi.mocked(api.get).mockRejectedValueOnce(new Error('Forbidden'))
     render(<CodexSection />)
     expect(await screen.findByRole('alert')).toHaveTextContent('Forbidden')
   })

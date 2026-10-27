@@ -4,16 +4,17 @@ import useFillViewport from './useFillViewport'
 
 // jsdom gives every element a zero-sized rect, so tests stub the one value the
 // hook reads (the element's distance from the top of the viewport).
-function elementAt(top) {
+function elementAt(top: number) {
   const el = document.createElement('div')
-  el.getBoundingClientRect = () => ({ top, left: 0, right: 0, bottom: 0, width: 0, height: 0 })
+  el.getBoundingClientRect = () =>
+    ({ top, left: 0, right: 0, bottom: 0, width: 0, height: 0 }) as DOMRect
   return el
 }
 
 const originalHeight = window.innerHeight
 const originalRO = globalThis.ResizeObserver
 
-function setViewportHeight(h) {
+function setViewportHeight(h: number) {
   Object.defineProperty(window, 'innerHeight', { value: h, configurable: true, writable: true })
 }
 
@@ -57,7 +58,7 @@ describe('useFillViewport', () => {
   it('waits for `ready` before measuring', () => {
     // A caller showing a spinner has no element yet; measuring now would read
     // an empty ref and never retry.
-    const ref = { current: null }
+    const ref: { current: HTMLElement | null } = { current: null }
     const { result, rerender } = renderHook(({ ready }) => useFillViewport(ref, { ready }), {
       initialProps: { ready: false },
     })
@@ -91,33 +92,33 @@ describe('useFillViewport', () => {
   })
 
   it('recomputes when an observed element reflows', () => {
-    let notify
+    let notify: () => void = () => {}
     globalThis.ResizeObserver = class {
-      constructor(cb) {
+      constructor(cb: () => void) {
         notify = cb
       }
       observe() {}
       disconnect() {}
-    }
+    } as unknown as typeof ResizeObserver
     const el = elementAt(100)
     const ref = { current: el }
     const { result } = renderHook(() => useFillViewport(ref))
     expect(result.current).toBe(776)
     // Content above the editor grew, pushing it down without a window resize.
-    el.getBoundingClientRect = () => ({ top: 200 })
+    el.getBoundingClientRect = () => ({ top: 200 }) as DOMRect
     act(() => notify())
     expect(result.current).toBe(676)
   })
 
   it('works when ResizeObserver is unavailable', () => {
-    globalThis.ResizeObserver = undefined
+    globalThis.ResizeObserver = undefined as unknown as typeof ResizeObserver
     const ref = { current: elementAt(100) }
     const { result } = renderHook(() => useFillViewport(ref))
     expect(result.current).toBe(776)
   })
 
   it('leaves the height untouched when the ref is empty', () => {
-    const ref = { current: null }
+    const ref: { current: HTMLElement | null } = { current: null }
     const { result } = renderHook(() => useFillViewport(ref))
     expect(result.current).toBeNull()
   })
@@ -135,7 +136,7 @@ describe('useFillViewport', () => {
     globalThis.ResizeObserver = class {
       observe() {}
       disconnect = disconnect
-    }
+    } as unknown as typeof ResizeObserver
     const ref = { current: elementAt(100) }
     const { unmount } = renderHook(() => useFillViewport(ref))
     unmount()

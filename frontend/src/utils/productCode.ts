@@ -11,7 +11,8 @@ const EDGE_BEFORE = '(?<![A-Za-z0-9])'
 const EDGE_AFTER = '(?![A-Za-z0-9])'
 const SEP = '[ _]?'
 
-const pattern = (body, flags = 'i') => new RegExp(`${EDGE_BEFORE}(?:${body})${EDGE_AFTER}`, flags)
+const pattern = (body: string, flags = 'i') =>
+  new RegExp(`${EDGE_BEFORE}(?:${body})${EDGE_AFTER}`, flags)
 
 export const PRODUCT_CODE_PATTERNS = [
   // Paizo: PZO9001, PZO2102E, PZO1110.
@@ -35,9 +36,9 @@ export const PRODUCT_CODE_PATTERNS = [
  * underscore separator turned into a space, or '' when none matches.
  * "First" means leftmost in the name, whichever pattern found it.
  */
-export function productCodeFromFilename(name) {
+export function productCodeFromFilename(name: string | null | undefined): string {
   if (!name) return ''
-  let best = null
+  let best: RegExpExecArray | null = null
   for (const re of PRODUCT_CODE_PATTERNS) {
     const m = re.exec(name)
     if (m && (best === null || m.index < best.index)) best = m

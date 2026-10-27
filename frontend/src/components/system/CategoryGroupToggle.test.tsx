@@ -5,7 +5,7 @@ import CategoryGroupToggle from './CategoryGroupToggle'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k) => (k === 'systemDetail.groupByCategory' ? 'Group by category' : k),
+    t: (k: string) => (k === 'systemDetail.groupByCategory' ? 'Group by category' : k),
   }),
 }))
 

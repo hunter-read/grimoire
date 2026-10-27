@@ -93,6 +93,6 @@ describe('ChangelogRelease', () => {
     const button = screen.getByRole('button')
     expect(button).toHaveAttribute('aria-expanded', 'true')
     const panelId = button.getAttribute('aria-controls')
-    expect(document.getElementById(panelId)).toBeTruthy()
+    expect(document.getElementById(panelId!)).toBeTruthy()
   })
 })

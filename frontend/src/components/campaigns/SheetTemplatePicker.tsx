@@ -1,29 +1,43 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX, LuLibrary, LuFolder } from 'react-icons/lu'
-import { campaigns } from '../../api'
+import { campaigns, type Schema } from '../../api'
 import Spinner from '../Spinner'
 import { overlay, panel, closeBtn } from './sheetEditorStyles'
 
 // Lets a member pick a blank form-fillable PDF (from the library Character
 // Sheets category or a campaign file) to duplicate into their sheet slot.
-export default function SheetTemplatePicker({ campaignId, memberId, onClose, onDuplicated }) {
+type SourceType = Parameters<typeof campaigns.duplicateMemberSheet>[2]['source_type']
+
+interface SheetTemplatePickerProps {
+  campaignId: string
+  memberId: string
+  onClose: () => void
+  onDuplicated?: () => void
+}
+
+export default function SheetTemplatePicker({
+  campaignId,
+  memberId,
+  onClose,
+  onDuplicated,
+}: SheetTemplatePickerProps) {
   const { t } = useTranslation()
-  const [sources, setSources] = useState(null)
+  const [sources, setSources] = useState<Schema<'SheetSourcesOut'> | null>(null)
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     campaigns
       .listSheetSources(campaignId)
       .then(setSources)
       .catch((err) => {
-        setError(err.message)
+        setError((err as Error).message)
         setSources({ books: [], files: [] })
       })
   }, [campaignId])
 
-  const duplicate = async (sourceType, sourceId) => {
+  const duplicate = async (sourceType: SourceType, sourceId: string) => {
     setBusy(true)
     setError(null)
     try {
@@ -33,12 +47,17 @@ export default function SheetTemplatePicker({ campaignId, memberId, onClose, onD
       })
       onDuplicated?.()
     } catch (err) {
-      setError(err.message)
+      setError((err as Error).message)
       setBusy(false)
     }
   }
 
-  const renderGroup = (icon, label, items, sourceType) =>
+  const renderGroup = (
+    icon: ReactNode,
+    label: string,
+    items: Schema<'SheetSourceOut'>[],
+    sourceType: SourceType
+  ) =>
     items.length > 0 && (
       <div style={{ marginBottom: 14 }}>
         <div

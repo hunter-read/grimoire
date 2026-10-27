@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 
 import { GLOBAL_HELP, TOOL_HELP } from './tools'
+import type { Tool } from './tools'
 import { sectionTitleStyle } from './ui'
 
 /**
@@ -16,14 +17,18 @@ import { sectionTitleStyle } from './ui'
  * doing right now. The always-true ones (pan, zoom, the snap override) follow
  * in a quieter block below.
  */
-export default function ToolHelp({ tool }) {
+export interface ToolHelpProps {
+  tool: Tool
+}
+
+export default function ToolHelp({ tool }: ToolHelpProps) {
   const { t } = useTranslation()
   const keys = TOOL_HELP[tool] || []
   // Nothing to explain for a tool with no entry: better an absent panel than a
   // heading over an empty list.
   if (keys.length === 0) return null
 
-  const row = (text, muted) => (
+  const row = (text: string, muted: boolean) => (
     <li
       key={text}
       style={{

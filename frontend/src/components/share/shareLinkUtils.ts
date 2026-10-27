@@ -14,7 +14,7 @@ export const EXPIRY_OPTIONS = [
 ]
 
 // How each link state is coloured. Only "active" works; the rest say why not.
-export const STATE_TONE = {
+export const STATE_TONE: Record<string, string> = {
   active: 'var(--success)',
   suspended: 'var(--warning)',
   unavailable: 'var(--warning)',
@@ -26,7 +26,7 @@ export const STATE_TONE = {
 }
 
 /** Copy text to the clipboard; false when the browser refuses (insecure origin). */
-export async function copyText(text) {
+export async function copyText(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text)
     return true
@@ -46,7 +46,10 @@ const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]'])
  * address this browser reached Grimoire on is the better guess. A configured
  * BASE_URL - the public address behind a reverse proxy - is used as-is.
  */
-export function publicUrl(url, here = window.location) {
+export function publicUrl(
+  url: string,
+  here: Pick<Location, 'hostname' | 'origin'> = window.location
+): string {
   try {
     const parsed = new URL(url)
     if (LOOPBACK.has(parsed.hostname) && !LOOPBACK.has(here.hostname)) {

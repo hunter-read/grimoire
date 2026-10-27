@@ -10,8 +10,10 @@ import MultiSelectField from './MultiSelectField'
 import ContentRefField from './ContentRefField'
 import ContentListField from './ContentListField'
 import ImageField from './ImageField'
+import type { ContentTypeDefinition } from './ContentEntryDetail'
 
-type Option = string | number | { value: string | number; label?: string }
+/** One option of a select or multiselect: a bare value, or a value with its label. */
+export type Option = string | number | { value: string | number; label?: string }
 
 /** A field definition from a schema - the keys this renderer reads. */
 export interface FieldDefinition {
@@ -125,7 +127,7 @@ export default function FieldRenderer({
         value={value}
         entries={entries}
         schemaId={schemaId}
-        typeDefinition={contentTypes[contentType] || {}}
+        typeDefinition={(contentTypes[contentType] || {}) as ContentTypeDefinition}
         onChange={onChange}
         readOnly={readOnly}
         hideLabel={hideLabel}
@@ -140,7 +142,7 @@ export default function FieldRenderer({
         value={value}
         entries={entries}
         schemaId={schemaId}
-        typeDefinition={contentTypes[contentType] || {}}
+        typeDefinition={(contentTypes[contentType] || {}) as ContentTypeDefinition}
         onChange={onChange}
         readOnly={readOnly}
         hideLabel={hideLabel}
@@ -287,7 +289,7 @@ function renderControl({
         return (
           <CompactNumber
             id={inputId}
-            value={value}
+            value={value as number | string | null | undefined}
             min={definition.min}
             max={definition.max}
             autoFocus={autoFocus}

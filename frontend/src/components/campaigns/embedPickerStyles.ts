@@ -1,6 +1,8 @@
+import type { CSSProperties } from 'react'
+
 // Shared button styles for the Grimoire embed picker and its image-upload panel.
 
-export const miniBtn = {
+export const miniBtn: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 3,
@@ -14,7 +16,7 @@ export const miniBtn = {
   fontWeight: 600,
 }
 
-export const miniBtnGhost = {
+export const miniBtnGhost: CSSProperties = {
   padding: '4px 10px',
   background: 'var(--bg-deep)',
   border: '1px solid var(--border)',

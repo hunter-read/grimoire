@@ -1,4 +1,6 @@
 import { useEffect, useRef } from 'react'
+import type { CSSProperties, KeyboardEvent } from 'react'
+import type { Schema } from '../../api'
 import { useTranslation } from 'react-i18next'
 
 /**
@@ -16,9 +18,21 @@ import { useTranslation } from 'react-i18next'
  *   onChoose  – (identity) => void
  *   onExitTop – () => void, called on ArrowUp from the first match
  */
-export default function MetadataResultList({ results, picked, onChoose, onExitTop }) {
+export interface MetadataResultListProps {
+  results: Pick<Schema<'MetadataCandidate'>, 'identity' | 'label'>[]
+  picked?: string | null
+  onChoose: (identity: string) => void
+  onExitTop?: () => void
+}
+
+export default function MetadataResultList({
+  results,
+  picked,
+  onChoose,
+  onExitTop,
+}: MetadataResultListProps) {
   const { t } = useTranslation()
-  const refs = useRef([])
+  const refs = useRef<(HTMLButtonElement | null)[]>([])
 
   // Focus once per result set, not on every render, so a mouse user who has
   // clicked into the search box is not yanked back out of it.
@@ -26,7 +40,7 @@ export default function MetadataResultList({ results, picked, onChoose, onExitTo
     refs.current[0]?.focus()
   }, [results])
 
-  const onKeyDown = (e, i) => {
+  const onKeyDown = (e: KeyboardEvent, i: number) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault()
       refs.current[Math.min(results.length - 1, i + 1)]?.focus()
@@ -42,7 +56,9 @@ export default function MetadataResultList({ results, picked, onChoose, onExitTo
       {results.map((r, i) => (
         <li key={r.identity} style={{ marginBottom: 6 }}>
           <button
-            ref={(el) => (refs.current[i] = el)}
+            ref={(el) => {
+              refs.current[i] = el
+            }}
             onClick={() => onChoose(r.identity)}
             onKeyDown={(e) => onKeyDown(e, i)}
             style={resultBtn}
@@ -62,7 +78,7 @@ export default function MetadataResultList({ results, picked, onChoose, onExitTo
   )
 }
 
-const resultBtn = {
+const resultBtn: CSSProperties = {
   width: '100%',
   textAlign: 'left',
   padding: '10px 12px',
@@ -72,7 +88,7 @@ const resultBtn = {
   color: 'var(--text)',
   cursor: 'pointer',
 }
-const pickedTag = {
+const pickedTag: CSSProperties = {
   marginLeft: 4,
   fontSize: 11,
   color: 'var(--text-muted)',

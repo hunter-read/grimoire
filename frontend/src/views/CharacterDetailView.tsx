@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import type { ComponentType } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -15,9 +14,9 @@ import { characters as charactersApi, content as contentApi } from '../api'
 import type { Schema } from '../api'
 import Spinner from '../components/Spinner'
 import CharacterSheet from '../components/characters/CharacterSheet'
-import ChoiceDialogJs from '../components/characters/ChoiceDialog'
+import ChoiceDialog from '../components/characters/ChoiceDialog'
 import AllValuesDialog from '../components/characters/AllValuesDialog'
-import { planPick, applyChoice } from '../components/characters/onPick'
+import { planPick, applyChoice, type PickChoice } from '../components/characters/onPick'
 import { OVERRIDES_KEY } from '../components/characters/expressions'
 import RawCharacterData from '../components/characters/RawCharacterData'
 import CharacterPortrait from '../components/characters/CharacterPortrait'
@@ -29,23 +28,10 @@ import GmEditAccess from '../components/characters/GmEditAccess'
 import { iconBtn, ghostBtn, card } from '../components/characters/characterStyles'
 import type { SheetDocument } from '../components/characters/LayoutRenderer'
 
-// Still JavaScript, so TypeScript reads `have` as only ever its default `[]`.
-const ChoiceDialog = ChoiceDialogJs as ComponentType<{
-  choice: Choice
-  have: unknown[]
-  sourceLabel: string
-  onConfirm: (picked: unknown[]) => void
-  onSkip: () => void
-}>
-
 type Character = Schema<'CharacterDetail'>
 type Values = Record<string, unknown>
 // A choice a pick asked for - "choose 2 skills" - as onPick plans it.
-interface Choice {
-  source: string
-  target: string
-  [key: string]: unknown
-}
+type Choice = PickChoice
 // A picked entry's own properties, or a freeform entry's values.
 type Entry = Record<string, unknown> | null | undefined
 
@@ -225,7 +211,7 @@ export default function CharacterDetailView() {
           lookup,
         })
         if (Object.keys(plan.patch).length) applyPatch(plan.patch as Values)
-        if (plan.choices.length) setChoices((prev) => [...prev, ...(plan.choices as Choice[])])
+        if (plan.choices.length) setChoices((prev) => [...prev, ...plan.choices])
       } catch (e) {
         // A pick that could not be followed up is still a pick: the value is
         // saved, and the player can add what it would have granted by hand.
@@ -314,7 +300,7 @@ export default function CharacterDetailView() {
         : prev
     )
 
-  const confirmChoice = (picked: unknown[]) => {
+  const confirmChoice = (picked: string[]) => {
     const [choice, ...rest] = choices
     applyPatch(applyChoice({ data: dataRef.current, choice, picked }))
     setChoices(rest)

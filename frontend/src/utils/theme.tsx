@@ -25,7 +25,13 @@ const TOKENS_KEY = 'grimoire:theme-tokens'
 const VARIANTS_KEY = 'grimoire:theme-variants'
 const APP_MODE_KEY = 'grimoire:app-mode'
 
-export const THEME_MODES = ['light', 'dark', 'system']
+/** A sanitized `{ token: colour }` map. */
+export type ThemeTokens = Record<string, string>
+
+/** A theme's per-colour-mode palettes. */
+export type ThemeVariants = { light?: ThemeTokens; dark?: ThemeTokens }
+
+export const THEME_MODES: string[] = ['light', 'dark', 'system']
 export const DEFAULT_MODE = 'dark'
 
 /**
@@ -37,7 +43,7 @@ export const DEFAULT_MODE = 'dark'
  * format changing later. Anyone reading the source will find it; that is fine,
  * it is a colour scheme, not a secret.
  */
-export const APP_MODES = ['grimoire', 'codex']
+export const APP_MODES: string[] = ['grimoire', 'codex']
 export const DEFAULT_APP_MODE = 'grimoire'
 
 /** Themes that ship with the app, per app mode. Keyed by theme id. */
@@ -115,7 +121,7 @@ const COLOR_RE =
   /^(#[0-9a-f]{3,8}|rgba?\(\s*[\d.\s,%/]+\)|hsla?\(\s*[\d.\s,%/deg]+\)|transparent|currentcolor|inherit)$/i
 
 /** True when `value` is a colour this app will write into the CSSOM. */
-export function isSafeColor(value) {
+export function isSafeColor(value: unknown): value is string {
   return typeof value === 'string' && value.length <= 64 && COLOR_RE.test(value.trim())
 }
 
@@ -123,17 +129,17 @@ export function isSafeColor(value) {
  * Drop any entry whose name is not in the allowlist or whose value is not a
  * plain colour. Returns a `{ token: value }` map safe to apply.
  */
-export function sanitizeTokens(tokens) {
+export function sanitizeTokens(tokens: unknown): ThemeTokens {
   if (!tokens || typeof tokens !== 'object') return {}
-  const safe = {}
+  const safe: ThemeTokens = {}
   for (const name of THEME_TOKENS) {
-    const value = tokens[name]
+    const value = (tokens as Record<string, unknown>)[name]
     if (isSafeColor(value)) safe[name] = value.trim()
   }
   return safe
 }
 
-function read(key, fallback) {
+function read(key: string, fallback: string): string {
   try {
     return localStorage.getItem(key) ?? fallback
   } catch {
@@ -141,7 +147,7 @@ function read(key, fallback) {
   }
 }
 
-function write(key, value) {
+function write(key: string, value: string | null): void {
   try {
     if (value === null) localStorage.removeItem(key)
     else localStorage.setItem(key, value)
@@ -151,20 +157,20 @@ function write(key, value) {
 }
 
 /** The active app mode, or the default when unset or unrecognised. */
-export function getAppMode() {
+export function getAppMode(): string {
   const stored = read(APP_MODE_KEY, DEFAULT_APP_MODE)
   return APP_MODES.includes(stored) ? stored : DEFAULT_APP_MODE
 }
 
 /** Write the app mode onto <html> so the CSS palette switches. */
-export function applyAppMode(appMode) {
+export function applyAppMode(appMode: string): string {
   const next = APP_MODES.includes(appMode) ? appMode : DEFAULT_APP_MODE
   document.documentElement.setAttribute('data-app-mode', next)
   return next
 }
 
 /** Persist and apply an app mode. */
-export function setAppMode(appMode) {
+export function setAppMode(appMode: string): string {
   const next = APP_MODES.includes(appMode) ? appMode : DEFAULT_APP_MODE
   write(APP_MODE_KEY, next)
   applyAppMode(next)
@@ -176,17 +182,17 @@ export function setAppMode(appMode) {
  * separately from the other. `grimoire` keeps the unscoped key it has always
  * used, so an existing user's choice is not lost on upgrade.
  */
-function scoped(key, appMode) {
+function scoped(key: string, appMode: string): string {
   return appMode === DEFAULT_APP_MODE ? key : `${key}:${appMode}`
 }
 
 /** The stored colour mode for an app mode, or the default. */
-export function getThemeMode(appMode = getAppMode()) {
+export function getThemeMode(appMode: string = getAppMode()): string {
   const stored = read(scoped(MODE_KEY, appMode), DEFAULT_MODE)
   return THEME_MODES.includes(stored) ? stored : DEFAULT_MODE
 }
 
-function prefersDark() {
+function prefersDark(): boolean {
   try {
     return window.matchMedia('(prefers-color-scheme: dark)').matches
   } catch {
@@ -195,18 +201,18 @@ function prefersDark() {
 }
 
 /** Resolve `system` to the OS preference; other modes pass through. */
-export function resolveMode(mode) {
+export function resolveMode(mode: string): string {
   if (mode === 'system') return prefersDark() ? 'dark' : 'light'
   return THEME_MODES.includes(mode) ? mode : DEFAULT_MODE
 }
 
 /** Write the resolved mode onto <html> so the CSS palette switches. */
-export function applyMode(mode) {
+export function applyMode(mode: string): void {
   document.documentElement.setAttribute('data-theme', resolveMode(mode))
 }
 
 /** Persist and apply a colour mode for an app mode. */
-export function setThemeMode(mode, appMode = getAppMode()) {
+export function setThemeMode(mode: string, appMode: string = getAppMode()): string {
   const next = THEME_MODES.includes(mode) ? mode : DEFAULT_MODE
   write(scoped(MODE_KEY, appMode), next)
   applyMode(next)
@@ -214,7 +220,7 @@ export function setThemeMode(mode, appMode = getAppMode()) {
 }
 
 /** The stored custom-theme tokens for an app mode, already sanitized. */
-export function getStoredTokens(appMode = getAppMode()) {
+export function getStoredTokens(appMode: string = getAppMode()): ThemeTokens {
   try {
     return sanitizeTokens(JSON.parse(read(scoped(TOKENS_KEY, appMode), '') || '{}'))
   } catch {
@@ -228,7 +234,7 @@ export function getStoredTokens(appMode = getAppMode()) {
  * Uses `setProperty` rather than building a CSS string, so a value can never be
  * parsed as anything but a single declaration.
  */
-export function applyTokens(tokens) {
+export function applyTokens(tokens: unknown): ThemeTokens {
   const safe = sanitizeTokens(tokens)
   const root = document.documentElement
   for (const name of THEME_TOKENS) {
@@ -239,7 +245,7 @@ export function applyTokens(tokens) {
 }
 
 /** Persist and apply a custom theme (pass null/{} to revert to the built-ins). */
-export function setThemeTokens(tokens, appMode = getAppMode()) {
+export function setThemeTokens(tokens: unknown, appMode: string = getAppMode()): ThemeTokens {
   const safe = sanitizeTokens(tokens)
   write(scoped(TOKENS_KEY, appMode), Object.keys(safe).length ? JSON.stringify(safe) : null)
   applyTokens(safe)
@@ -253,11 +259,11 @@ export function setThemeTokens(tokens, appMode = getAppMode()) {
  * single-mode theme has one. An empty variant is dropped rather than kept,
  * since it would render as "theme applied, nothing changed".
  */
-export function sanitizeVariants(variants) {
+export function sanitizeVariants(variants: unknown): ThemeVariants {
   if (!variants || typeof variants !== 'object') return {}
-  const safe = {}
-  for (const mode of ['light', 'dark']) {
-    const tokens = sanitizeTokens(variants[mode])
+  const safe: ThemeVariants = {}
+  for (const mode of ['light', 'dark'] as const) {
+    const tokens = sanitizeTokens((variants as Record<string, unknown>)[mode])
     if (Object.keys(tokens).length) safe[mode] = tokens
   }
   return safe
@@ -269,15 +275,16 @@ export function sanitizeVariants(variants) {
  * Falls back to whichever variant the theme does ship, so a light-only theme
  * stays visible in dark mode rather than silently switching itself off.
  */
-export function variantFor(variants, mode) {
+export function variantFor(variants: unknown, mode: string): ThemeTokens {
   const safe = sanitizeVariants(variants)
-  if (safe[mode]) return safe[mode]
+  const own = safe[mode as keyof ThemeVariants]
+  if (own) return own
   const [first] = Object.values(safe)
   return first || {}
 }
 
 /** The stored variants for an app mode. */
-export function getStoredVariants(appMode = getAppMode()) {
+export function getStoredVariants(appMode: string = getAppMode()): ThemeVariants {
   try {
     return sanitizeVariants(JSON.parse(read(scoped(VARIANTS_KEY, appMode), '') || '{}'))
   } catch {
@@ -289,7 +296,7 @@ export function getStoredVariants(appMode = getAppMode()) {
  * Persist a theme's variants and apply the one matching the current colour
  * mode. Pass null/{} to revert to the built-in palette.
  */
-export function setThemeVariants(variants, appMode = getAppMode()) {
+export function setThemeVariants(variants: unknown, appMode: string = getAppMode()): ThemeVariants {
   const safe = sanitizeVariants(variants)
   write(scoped(VARIANTS_KEY, appMode), Object.keys(safe).length ? JSON.stringify(safe) : null)
   applyTokens(variantFor(safe, resolveMode(getThemeMode(appMode))))
@@ -300,7 +307,7 @@ export function setThemeVariants(variants, appMode = getAppMode()) {
  * Apply the stored app mode, colour mode, and tokens, and keep `system` mode in
  * step with the OS. Returns an unsubscribe function.
  */
-export function initTheme() {
+export function initTheme(): () => void {
   const appMode = getAppMode()
   applyAppMode(appMode)
 
@@ -308,7 +315,7 @@ export function initTheme() {
   applyMode(mode)
   applyTokens(variantFor(getStoredVariants(appMode), resolveMode(mode)))
 
-  let media
+  let media: MediaQueryList
   try {
     media = window.matchMedia('(prefers-color-scheme: dark)')
   } catch {

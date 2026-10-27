@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { render, screen, fireEvent, waitFor, within, createEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import WikiView from './WikiView'
 
 // jsdom's synthetic drag events drop clientY, so build the event explicitly and
 // pin clientY on it — that's what the row's drop-zone math reads.
-function fireDragAt(type, el, clientY) {
+function fireDragAt(type: 'dragOver' | 'drop' | 'dragEnter', el: Element, clientY: number) {
   const ev = createEvent[type](el)
   Object.defineProperty(ev, 'clientY', { value: clientY })
   fireEvent(el, ev)
@@ -15,8 +16,8 @@ function fireDragAt(type, el, clientY) {
 // carries one — that fetch is what the embed-flicker regression test watches.
 const apiGet = vi.fn(() => Promise.resolve({ title: "Player's Handbook" }))
 vi.mock('../../api', () => ({
-  client: { get: (...args) => apiGet(...args) },
-  mediaUrl: (path) => `http://localhost${path}`,
+  client: { get: (...args: unknown[]) => apiGet(...(args as [])) },
+  mediaUrl: (path: string) => `http://localhost${path}`,
   campaigns: {
     listWikiPages: vi.fn(),
     getWikiPage: vi.fn(),
@@ -30,7 +31,7 @@ vi.mock('../../api', () => ({
     wikiTemplates: vi.fn(),
     useWikiTemplate: vi.fn(),
     getWikiTemplate: vi.fn(),
-    fileUrl: (cid, id) => `http://localhost/campaigns/${cid}/files/${id}`,
+    fileUrl: (cid: string, id: string) => `http://localhost/campaigns/${cid}/files/${id}`,
   },
 }))
 
@@ -46,11 +47,19 @@ vi.mock('../../context/AudioPlayerContext', () => ({
   }),
 }))
 
-import { campaigns } from '../../api'
+import { campaigns, type Schema } from '../../api'
+
+// The api module is mocked above; reach its helpers as plain vi.fn()s.
+const campaignsMock = campaigns as unknown as Record<keyof typeof campaigns, Mock>
 
 // A GM campaign: visibility levels only exist where there is an audience to
 // distinguish, so a personal campaign hides them entirely.
-const campaign = { id: 'c1', name: 'Test', is_gm_campaign: true, members: [] }
+const campaign = {
+  id: 'c1',
+  name: 'Test',
+  is_gm_campaign: true,
+  members: [],
+} as unknown as Schema<'CampaignOut'>
 
 const page = {
   id: 'p1',
@@ -80,16 +89,16 @@ function renderView(props = {}) {
 describe('WikiView quick icon picker', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    campaigns.listWikiPages.mockResolvedValue([page])
-    campaigns.getWikiPage.mockResolvedValue(page)
-    campaigns.updateWikiPage.mockResolvedValue(page)
+    campaignsMock.listWikiPages.mockResolvedValue([page])
+    campaignsMock.getWikiPage.mockResolvedValue(page)
+    campaignsMock.updateWikiPage.mockResolvedValue(page)
   })
 
   it('opens the icon picker from a sidebar row without re-selecting the page', async () => {
     renderView()
     // Wait for the first page to auto-load, then forget that initial fetch.
     await screen.findByText('Here be dragons')
-    campaigns.getWikiPage.mockClear()
+    campaignsMock.getWikiPage.mockClear()
 
     // The sidebar icon trigger carries the wiki icon aria-label.
     const triggers = await screen.findAllByRole('button', { name: 'Icon' })
@@ -115,8 +124,8 @@ describe('WikiView quick icon picker', () => {
   })
 
   it('shows a static icon (no picker) for rows the user cannot edit', async () => {
-    campaigns.listWikiPages.mockResolvedValue([{ ...page, can_edit: false }])
-    campaigns.getWikiPage.mockResolvedValue({ ...page, can_edit: false })
+    campaignsMock.listWikiPages.mockResolvedValue([{ ...page, can_edit: false }])
+    campaignsMock.getWikiPage.mockResolvedValue({ ...page, can_edit: false })
     renderView({ isOwner: false })
     await screen.findByText('Dragons')
     expect(screen.queryByRole('button', { name: 'Icon' })).toBeNull()
@@ -133,13 +142,13 @@ describe('WikiView visibility editor', () => {
       { user_id: 'u2', is_owner: false, username: 'alice' },
       { user_id: 'u3', is_owner: false, username: 'bob' },
     ],
-  }
+  } as unknown as Schema<'CampaignOut'>
 
   beforeEach(() => {
     vi.clearAllMocks()
-    campaigns.listWikiPages.mockResolvedValue([page])
-    campaigns.getWikiPage.mockResolvedValue({ ...page, shared_user_ids: [] })
-    campaigns.updateWikiPage.mockResolvedValue(page)
+    campaignsMock.listWikiPages.mockResolvedValue([page])
+    campaignsMock.getWikiPage.mockResolvedValue({ ...page, shared_user_ids: [] })
+    campaignsMock.updateWikiPage.mockResolvedValue(page)
   })
 
   it('opens a dropdown to change the visibility level', async () => {
@@ -161,7 +170,7 @@ describe('WikiView visibility editor', () => {
   })
 
   it('toggles member access when the page is Private', async () => {
-    campaigns.getWikiPage.mockResolvedValue({
+    campaignsMock.getWikiPage.mockResolvedValue({
       ...page,
       visibility: 'members',
       shared_user_ids: [],
@@ -191,8 +200,8 @@ describe('WikiView visibility editor', () => {
   // reclassifiable by its author (issues #232 / #233).
   it('shows a read-only badge for pages the user did not author', async () => {
     const theirs = { ...page, is_mine: false, can_delete: false, visibility: 'group' }
-    campaigns.listWikiPages.mockResolvedValue([theirs])
-    campaigns.getWikiPage.mockResolvedValue(theirs)
+    campaignsMock.listWikiPages.mockResolvedValue([theirs])
+    campaignsMock.getWikiPage.mockResolvedValue(theirs)
     renderView({ isOwner: false })
     await screen.findByText('Here be dragons')
     expect(screen.queryByRole('button', { name: 'Change visibility' })).toBeNull()
@@ -202,7 +211,12 @@ describe('WikiView visibility editor', () => {
   // same thing. The controls and indicators go away rather than showing a
   // choice that isn't one.
   describe('personal campaigns', () => {
-    const personal = { id: 'c1', name: 'Solo', is_gm_campaign: false, members: [] }
+    const personal = {
+      id: 'c1',
+      name: 'Solo',
+      is_gm_campaign: false,
+      members: [],
+    } as unknown as Schema<'CampaignOut'>
     const renderPersonal = () =>
       render(
         <MemoryRouter>
@@ -219,7 +233,7 @@ describe('WikiView visibility editor', () => {
     it('hides the per-row visibility glyph', async () => {
       renderPersonal()
       const title = await screen.findByText('Dragons')
-      const row = title.closest('div')
+      const row = title.closest('div')!
       fireEvent.mouseEnter(row)
       expect(within(row).queryByRole('button', { name: /change visibility/i })).toBeNull()
       expect(within(row).queryByRole('img', { name: /visibility/i })).toBeNull()
@@ -239,7 +253,7 @@ describe('WikiView visibility editor', () => {
     it('hides the per-row and header hide buttons', async () => {
       renderPersonal()
       const title = await screen.findByText('Dragons')
-      fireEvent.mouseEnter(title.closest('div'))
+      fireEvent.mouseEnter(title.closest('div')!)
       expect(screen.queryByRole('button', { name: 'Hide' })).toBeNull()
       expect(screen.queryByRole('button', { name: 'Unhide' })).toBeNull()
     })
@@ -257,7 +271,7 @@ describe('WikiView visibility editor', () => {
     it('keeps the icon picker and the delete action', async () => {
       renderPersonal()
       const title = await screen.findByText('Dragons')
-      fireEvent.mouseEnter(title.closest('div'))
+      fireEvent.mouseEnter(title.closest('div')!)
       expect(screen.getAllByRole('button', { name: 'Icon' }).length).toBeGreaterThan(0)
       // Delete lives in the *open page's* header, not the hovered tree row, so it
       // depends on a second async hop: listWikiPages resolving is what auto-opens
@@ -273,7 +287,7 @@ describe('WikiView visibility editor', () => {
     // Visibility is carried by its own glyph now; the icon colour is a user
     // choice, so it must be identical across visibility levels.
     for (const visibility of ['gm', 'group', 'members']) {
-      campaigns.getWikiPage.mockResolvedValue({
+      campaignsMock.getWikiPage.mockResolvedValue({
         ...page,
         visibility,
         icon_color: 'blue',
@@ -281,17 +295,17 @@ describe('WikiView visibility editor', () => {
       })
       const { unmount } = renderView()
       await screen.findByRole('button', { name: 'Change visibility' })
-      const iconBtn = screen.getAllByRole('button', { name: 'Icon' }).at(-1)
+      const iconBtn = screen.getAllByRole('button', { name: 'Icon' }).at(-1)!
       expect(iconBtn.style.color).toBe('rgb(85, 144, 212)') // preset "blue"
       unmount()
     }
   })
 
   it('leaves the page-title icon untinted when no colour is set', async () => {
-    campaigns.getWikiPage.mockResolvedValue({ ...page, icon_color: null, shared_user_ids: [] })
+    campaignsMock.getWikiPage.mockResolvedValue({ ...page, icon_color: null, shared_user_ids: [] })
     renderView()
     await screen.findByRole('button', { name: 'Change visibility' })
-    const iconBtn = screen.getAllByRole('button', { name: 'Icon' }).at(-1)
+    const iconBtn = screen.getAllByRole('button', { name: 'Icon' }).at(-1)!
     expect(iconBtn.style.color).toBe('var(--text-dim)')
   })
 })
@@ -309,9 +323,9 @@ describe('WikiView nested tree', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     localStorage.clear()
-    campaigns.listWikiPages.mockResolvedValue([parent, child])
-    campaigns.getWikiPage.mockResolvedValue(parent)
-    campaigns.updateWikiPage.mockResolvedValue(parent)
+    campaignsMock.listWikiPages.mockResolvedValue([parent, child])
+    campaignsMock.getWikiPage.mockResolvedValue(parent)
+    campaignsMock.updateWikiPage.mockResolvedValue(parent)
   })
 
   it('renders children under their parent and collapses/expands them', async () => {
@@ -336,7 +350,7 @@ describe('WikiView nested tree', () => {
     // Collapse the parent, which persists to localStorage.
     fireEvent.click(screen.getByRole('button', { name: 'Collapse' }))
     expect(screen.queryByText('Goblins')).toBeNull()
-    expect(JSON.parse(localStorage.getItem('grimoire_wiki_collapsed_c1'))).toContain('parent')
+    expect(JSON.parse(localStorage.getItem('grimoire_wiki_collapsed_c1')!)).toContain('parent')
 
     // Remounting (e.g. navigating back) restores the collapsed state.
     unmount()
@@ -351,30 +365,30 @@ describe('WikiView nested tree', () => {
     // Each owner row has an "Add subpage" button; click the parent's.
     fireEvent.click(screen.getAllByRole('button', { name: 'Add subpage' })[0])
     // The editor's parent select defaults to the chosen parent.
-    const select = await screen.findByLabelText('Parent page')
+    const select = (await screen.findByLabelText('Parent page')) as HTMLSelectElement
     expect(select.value).toBe('parent')
   })
 
   it('reorders siblings via drag-and-drop, persisting a new order', async () => {
     const a = { ...page, id: 'a', title: 'Alpha', slug: 'alpha', sort_order: 0 }
     const b = { ...page, id: 'b', title: 'Beta', slug: 'beta', sort_order: 1 }
-    campaigns.listWikiPages.mockResolvedValue([a, b])
-    campaigns.getWikiPage.mockResolvedValue(a)
+    campaignsMock.listWikiPages.mockResolvedValue([a, b])
+    campaignsMock.getWikiPage.mockResolvedValue(a)
     renderView()
     await screen.findByText('Alpha')
 
     // Drag Beta and drop it above Alpha (top third → "before").
     // "Alpha" also appears as the main-pane heading; the sidebar rows are the
     // draggable wrapper divs containing a link.
-    const rowFor = (title) =>
+    const rowFor = (title: string) =>
       screen
         .getAllByText(title)
-        .map((el) => el.closest('div[draggable]'))
+        .map((el) => el.closest('div[draggable]')!)
         .find(Boolean)
-    const betaRow = rowFor('Beta')
-    const alphaRow = rowFor('Alpha')
+    const betaRow = rowFor('Beta')!
+    const alphaRow = rowFor('Alpha')!
     fireEvent.dragStart(betaRow)
-    alphaRow.getBoundingClientRect = () => ({ top: 0, height: 30 })
+    alphaRow.getBoundingClientRect = () => ({ top: 0, height: 30 }) as DOMRect
     fireDragAt('dragOver', alphaRow, 2)
     fireDragAt('drop', alphaRow, 2)
 
@@ -384,20 +398,20 @@ describe('WikiView nested tree', () => {
   it('nests a page when dropped on the middle of another row', async () => {
     const a = { ...page, id: 'a', title: 'Alpha', slug: 'alpha', sort_order: 0 }
     const b = { ...page, id: 'b', title: 'Beta', slug: 'beta', sort_order: 1 }
-    campaigns.listWikiPages.mockResolvedValue([a, b])
-    campaigns.getWikiPage.mockResolvedValue(a)
+    campaignsMock.listWikiPages.mockResolvedValue([a, b])
+    campaignsMock.getWikiPage.mockResolvedValue(a)
     renderView()
     await screen.findByText('Alpha')
 
-    const rowFor = (title) =>
+    const rowFor = (title: string) =>
       screen
         .getAllByText(title)
-        .map((el) => el.closest('div[draggable]'))
+        .map((el) => el.closest('div[draggable]')!)
         .find(Boolean)
-    const betaRow = rowFor('Beta')
-    const alphaRow = rowFor('Alpha')
+    const betaRow = rowFor('Beta')!
+    const alphaRow = rowFor('Alpha')!
     fireEvent.dragStart(betaRow)
-    alphaRow.getBoundingClientRect = () => ({ top: 0, height: 30 })
+    alphaRow.getBoundingClientRect = () => ({ top: 0, height: 30 }) as DOMRect
     fireDragAt('dragOver', alphaRow, 15)
     fireDragAt('drop', alphaRow, 15)
 
@@ -410,9 +424,9 @@ describe('WikiView nested tree', () => {
 describe('WikiView markdown formatting toolbar', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    campaigns.listWikiPages.mockResolvedValue([page])
-    campaigns.getWikiPage.mockResolvedValue(page)
-    campaigns.updateWikiPage.mockResolvedValue(page)
+    campaignsMock.listWikiPages.mockResolvedValue([page])
+    campaignsMock.getWikiPage.mockResolvedValue(page)
+    campaignsMock.updateWikiPage.mockResolvedValue(page)
   })
 
   it('wraps the selection in bold markers when the Bold button is clicked', async () => {
@@ -420,7 +434,7 @@ describe('WikiView markdown formatting toolbar', () => {
     await screen.findByText('Here be dragons')
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
 
-    const textarea = await screen.findByLabelText('Markdown')
+    const textarea = (await screen.findByLabelText('Markdown')) as HTMLTextAreaElement
     textarea.setSelectionRange(8, 15) // "dragons"
     fireEvent.click(screen.getByRole('button', { name: 'Bold' }))
     expect(textarea.value).toBe('Here be **dragons**')
@@ -431,7 +445,7 @@ describe('WikiView markdown formatting toolbar', () => {
     await screen.findByText('Here be dragons')
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
 
-    const textarea = await screen.findByLabelText('Markdown')
+    const textarea = (await screen.findByLabelText('Markdown')) as HTMLTextAreaElement
     textarea.setSelectionRange(0, 0)
     fireEvent.click(screen.getByRole('button', { name: 'Bullet list' }))
     expect(textarea.value).toBe('- Here be dragons')
@@ -450,26 +464,26 @@ describe('WikiView audio "play all"', () => {
   }
 
   it('shows a Play all button when the note embeds audio and queues them in order', async () => {
-    campaigns.listWikiPages.mockResolvedValue([pageWithAudio])
-    campaigns.getWikiPage.mockResolvedValue(pageWithAudio)
+    campaignsMock.listWikiPages.mockResolvedValue([pageWithAudio])
+    campaignsMock.getWikiPage.mockResolvedValue(pageWithAudio)
     renderView()
     const playAll = await screen.findByRole('button', { name: /play all/i })
     fireEvent.click(playAll)
     expect(playQueue).toHaveBeenCalledTimes(1)
-    expect(playQueue.mock.calls[0][0].map((t) => t.id)).toEqual(['a1', 'a2'])
+    expect(playQueue.mock.calls[0][0].map((t: { id: string }) => t.id)).toEqual(['a1', 'a2'])
   })
 
   it('does not show a Play all button when the note has no audio embeds', async () => {
-    campaigns.listWikiPages.mockResolvedValue([page])
-    campaigns.getWikiPage.mockResolvedValue(page)
+    campaignsMock.listWikiPages.mockResolvedValue([page])
+    campaignsMock.getWikiPage.mockResolvedValue(page)
     renderView()
     await waitFor(() => screen.getByText('Dragons'))
     expect(screen.queryByTitle(/play all/i)).not.toBeInTheDocument()
   })
 
   it('shows Play all to a non-editor viewer when the note has audio', async () => {
-    campaigns.listWikiPages.mockResolvedValue([pageWithAudio])
-    campaigns.getWikiPage.mockResolvedValue({ ...pageWithAudio, can_edit: false })
+    campaignsMock.listWikiPages.mockResolvedValue([pageWithAudio])
+    campaignsMock.getWikiPage.mockResolvedValue({ ...pageWithAudio, can_edit: false })
     renderView({ isOwner: false })
     expect(await screen.findByRole('button', { name: /play all/i })).toBeInTheDocument()
   })
@@ -478,10 +492,10 @@ describe('WikiView audio "play all"', () => {
 describe('WikiView create / delete / search', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    campaigns.listWikiPages.mockResolvedValue([page])
-    campaigns.getWikiPage.mockResolvedValue(page)
-    campaigns.updateWikiPage.mockResolvedValue(page)
-    campaigns.deleteWikiPage.mockResolvedValue({})
+    campaignsMock.listWikiPages.mockResolvedValue([page])
+    campaignsMock.getWikiPage.mockResolvedValue(page)
+    campaignsMock.updateWikiPage.mockResolvedValue(page)
+    campaignsMock.deleteWikiPage.mockResolvedValue({})
   })
 
   it('opens the page editor when New Page is clicked', async () => {
@@ -497,21 +511,19 @@ describe('WikiView create / delete / search', () => {
     renderView()
     await screen.findByText('Here be dragons')
     // The page header has a delete (trash) button.
-    const buttons = screen.getAllByRole('button')
-    const del = buttons.find((b) => b.querySelector('svg') && b.textContent === '')
     // Fall back: click the trash button near the Edit button.
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
     fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
     // Re-open view, then delete.
     await screen.findByText('Here be dragons')
-    const trash = screen.getAllByRole('button').find((b) => b.style.color === 'var(--danger)')
+    const trash = screen.getAllByRole('button').find((b) => b.style.color === 'var(--danger)')!
     fireEvent.click(trash)
     await waitFor(() => expect(campaigns.deleteWikiPage).toHaveBeenCalledWith('c1', 'p1'))
-    window.confirm.mockRestore()
+    vi.mocked(window.confirm).mockRestore()
   })
 
   it('filters the page list by the search query', async () => {
-    campaigns.listWikiPages.mockResolvedValue([
+    campaignsMock.listWikiPages.mockResolvedValue([
       { ...page, id: 'p1', title: 'Dragons', slug: 'dragons' },
       { ...page, id: 'p2', title: 'Kobolds', slug: 'kobolds' },
     ])
@@ -534,16 +546,16 @@ describe('WikiView create / delete / search', () => {
   })
 
   it('navigates to a page by clicking its sidebar link', async () => {
-    campaigns.listWikiPages.mockResolvedValue([
+    campaignsMock.listWikiPages.mockResolvedValue([
       { ...page, id: 'p1', title: 'Dragons', slug: 'dragons' },
       { ...page, id: 'p2', title: 'Kobolds', slug: 'kobolds' },
     ])
-    campaigns.getWikiPage.mockImplementation((_c, id) =>
+    campaignsMock.getWikiPage.mockImplementation((_c, id) =>
       Promise.resolve({ ...page, id, title: id === 'p2' ? 'Kobolds' : 'Dragons' })
     )
     renderView()
     await screen.findByText('Kobolds')
-    campaigns.getWikiPage.mockClear()
+    campaignsMock.getWikiPage.mockClear()
     // Sidebar row is a <Link> — clicking it navigates (URL change triggers load).
     fireEvent.click(screen.getByRole('link', { name: 'Kobolds' }))
     await waitFor(() => expect(campaigns.getWikiPage).toHaveBeenCalledWith('c1', 'p2'))
@@ -553,13 +565,13 @@ describe('WikiView create / delete / search', () => {
 describe('WikiView tree row chrome', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    campaigns.updateWikiPage.mockResolvedValue(page)
+    campaignsMock.updateWikiPage.mockResolvedValue(page)
   })
 
   const renderRow = async (over = {}) => {
     const row = { ...page, ...over }
-    campaigns.listWikiPages.mockResolvedValue([row])
-    campaigns.getWikiPage.mockResolvedValue(row)
+    campaignsMock.listWikiPages.mockResolvedValue([row])
+    campaignsMock.getWikiPage.mockResolvedValue(row)
     renderView()
     return await screen.findByText(row.title)
   }
@@ -568,7 +580,7 @@ describe('WikiView tree row chrome', () => {
   // stays mounted (opacity 0) rather than unmounting, so rows don't reflow.
   it('reveals the add-subpage button only while the row is hovered', async () => {
     const title = await renderRow()
-    const rowEl = title.closest('div')
+    const rowEl = title.closest('div')!
     const plus = screen.getByRole('button', { name: 'Add subpage' })
     expect(plus.style.opacity).toBe('0')
 
@@ -590,16 +602,16 @@ describe('WikiView tree row chrome', () => {
   // Restricted pages read dimmer than public ones, so limited access is legible
   // without relying on the icon's colour.
   it('dims the title of a restricted page relative to a public one', async () => {
-    campaigns.listWikiPages.mockResolvedValue([
+    campaignsMock.listWikiPages.mockResolvedValue([
       { ...page, id: 'pub', title: 'Public page', visibility: 'group' },
       { ...page, id: 'sec', title: 'Secret page', visibility: 'gm' },
     ])
-    campaigns.getWikiPage.mockResolvedValue({ ...page, id: 'pub', visibility: 'group' })
+    campaignsMock.getWikiPage.mockResolvedValue({ ...page, id: 'pub', visibility: 'group' })
     renderView()
 
     const publicTitle = await screen.findByRole('link', { name: 'Public page' })
     const secretTitle = screen.getByRole('link', { name: 'Secret page' })
-    const opacityOf = (el) => Number(el.style.opacity || '1')
+    const opacityOf = (el: HTMLElement) => Number(el.style.opacity || '1')
     expect(opacityOf(secretTitle)).toBeLessThan(1)
     // The selected row keeps full contrast, so compare against an unselected one.
     expect(opacityOf(secretTitle)).toBeLessThan(opacityOf(publicTitle))
@@ -620,7 +632,7 @@ describe('WikiView tree row chrome', () => {
 
   it('changes visibility from the row glyph', async () => {
     const title = await renderRow({ visibility: 'gm' })
-    const rowEl = title.closest('div')
+    const rowEl = title.closest('div')!
     fireEvent.mouseEnter(rowEl)
     const glyph = screen.getByRole('button', { name: /change visibility \(currently/i })
     fireEvent.click(glyph)
@@ -641,8 +653,8 @@ describe('WikiView tree row chrome', () => {
 describe('WikiView export and import affordances', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    campaigns.listWikiPages.mockResolvedValue([page])
-    campaigns.exportWiki.mockResolvedValue({})
+    campaignsMock.listWikiPages.mockResolvedValue([page])
+    campaignsMock.exportWiki.mockResolvedValue({})
   })
 
   it('offers export to a non-owner member', async () => {
@@ -696,8 +708,8 @@ describe('WikiView sidebar scrolling', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    campaigns.listWikiPages.mockResolvedValue([page, child])
-    campaigns.getWikiPage.mockImplementation((_c, id) =>
+    campaignsMock.listWikiPages.mockResolvedValue([page, child])
+    campaignsMock.getWikiPage.mockImplementation((_c, id) =>
       Promise.resolve(id === 'p2' ? child : page)
     )
   })
@@ -706,7 +718,7 @@ describe('WikiView sidebar scrolling', () => {
     const { container } = renderView()
     await screen.findByText('Goblins')
     // jsdom reports a 0 top and a 768px viewport, leaving 744 after the gap.
-    expect(container.firstChild.style.height).toBe('744px')
+    expect((container.firstChild as HTMLElement).style.height).toBe('744px')
   })
 
   it('gives the page tree its own scroll container', async () => {
@@ -722,9 +734,9 @@ describe('WikiView sidebar scrolling', () => {
     await screen.findByText('Here be dragons')
     // The note's own pane is the row child that holds it — found by walking up
     // rather than by index, so inserting the divider doesn't break this.
-    const notePane = Array.from(container.firstChild.children).find((c) =>
+    const notePane = Array.from((container.firstChild as HTMLElement).children).find((c) =>
       c.contains(screen.getByText('Here be dragons'))
-    )
+    ) as HTMLElement
     expect(notePane).toBeDefined()
     expect(notePane.style.overflowY).toBe('auto')
     // Two independent scroll containers, so neither moves the other.
@@ -735,7 +747,7 @@ describe('WikiView sidebar scrolling', () => {
     renderView()
     await screen.findByText('Goblins')
     const tree = screen.getByTestId('wiki-page-tree')
-    const footer = screen.getByRole('button', { name: /^export$/i }).closest('div').parentElement
+    const footer = screen.getByRole('button', { name: /^export$/i }).closest('div')!.parentElement!
     expect(footer.style.flexShrink).toBe('0')
     // The footer is a sibling that follows the scroll area, not part of it.
     expect(tree.contains(footer)).toBe(false)
@@ -761,7 +773,7 @@ describe('WikiView sidebar scrolling', () => {
   it('lets the drop-to-root zone cover the whole scroll area', async () => {
     renderView()
     await screen.findByText('Goblins')
-    const dropZone = screen.getByTestId('wiki-page-tree').firstChild
+    const dropZone = screen.getByTestId('wiki-page-tree').firstChild as HTMLElement
     expect(dropZone.style.minHeight).toBe('100%')
   })
 
@@ -771,7 +783,7 @@ describe('WikiView sidebar scrolling', () => {
     try {
       const { container } = renderView()
       await screen.findByText('Goblins')
-      expect(container.firstChild.style.height).toBe('')
+      expect((container.firstChild as HTMLElement).style.height).toBe('')
       expect(screen.getByTestId('wiki-page-tree').style.overflowY).toBe('')
     } finally {
       Object.defineProperty(window, 'innerHeight', { value: original, configurable: true })
@@ -784,23 +796,24 @@ describe('WikiView sidebar scrolling', () => {
     fireEvent.click(screen.getByRole('button', { name: /edit/i }))
     await screen.findByRole('textbox', { name: 'Markdown' })
     // PageEditor does its own fill (#298), so the row steps out of the way.
-    expect(container.firstChild.style.height).toBe('')
+    expect((container.firstChild as HTMLElement).style.height).toBe('')
   })
 })
 
 // The divider between the page list and the note can be dragged to widen or
 // narrow the list, and the choice is kept for the session.
 describe('WikiView resizable sidebar', () => {
-  const sidebarOf = (container) => container.firstChild.children[0]
+  const sidebarOf = (container: HTMLElement) =>
+    (container.firstChild as HTMLElement).children[0] as HTMLElement
 
   beforeEach(() => {
     vi.clearAllMocks()
     sessionStorage.clear()
-    campaigns.listWikiPages.mockResolvedValue([page])
-    campaigns.getWikiPage.mockResolvedValue(page)
+    campaignsMock.listWikiPages.mockResolvedValue([page])
+    campaignsMock.getWikiPage.mockResolvedValue(page)
   })
 
-  const dragDivider = (from, to) => {
+  const dragDivider = (from: number, to: number) => {
     const handle = screen.getByRole('separator')
     fireEvent.pointerDown(handle, { clientX: from, button: 0, pointerId: 1 })
     fireEvent.pointerMove(handle, { clientX: to, pointerId: 1 })
@@ -870,7 +883,7 @@ describe('WikiView resizable sidebar', () => {
     renderView()
     await screen.findByText('Dragons')
     const handle = screen.getByRole('separator')
-    const line = handle.firstChild
+    const line = handle.firstChild as HTMLElement
     expect(line.style.width).toBe('1px')
     fireEvent.pointerDown(handle, { clientX: 300, button: 0, pointerId: 1 })
     expect(line.style.width).toBe('2px')
@@ -894,8 +907,8 @@ describe('WikiView embed stability across re-renders', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     apiGet.mockResolvedValue({ title: "Player's Handbook" })
-    campaigns.listWikiPages.mockResolvedValue([withEmbed, other])
-    campaigns.getWikiPage.mockResolvedValue(withEmbed)
+    campaignsMock.listWikiPages.mockResolvedValue([withEmbed, other])
+    campaignsMock.getWikiPage.mockResolvedValue(withEmbed)
   })
 
   it('keeps the resolved book title while sidebar rows are hovered', async () => {
@@ -941,9 +954,9 @@ describe('WikiView embed stability across re-renders', () => {
 describe('WikiView community note templates', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    campaigns.listWikiPages.mockResolvedValue([page])
-    campaigns.getWikiPage.mockResolvedValue(page)
-    campaigns.wikiTemplates.mockResolvedValue({
+    campaignsMock.listWikiPages.mockResolvedValue([page])
+    campaignsMock.getWikiPage.mockResolvedValue(page)
+    campaignsMock.wikiTemplates.mockResolvedValue({
       templates: [
         {
           id: '5e-spell',
@@ -980,7 +993,7 @@ describe('WikiView community note templates', () => {
   })
 
   it('opens a template as an unsaved draft rather than creating the page', async () => {
-    campaigns.getWikiTemplate.mockResolvedValue({
+    campaignsMock.getWikiTemplate.mockResolvedValue({
       id: '5e-spell',
       name: 'Spell',
       body: '*2nd-level transmutation*',
@@ -1000,7 +1013,7 @@ describe('WikiView community note templates', () => {
   })
 
   it('leaves no page behind when a template draft is cancelled', async () => {
-    campaigns.getWikiTemplate.mockResolvedValue({
+    campaignsMock.getWikiTemplate.mockResolvedValue({
       id: '5e-spell',
       name: 'Spell',
       body: 'body',
@@ -1019,7 +1032,7 @@ describe('WikiView community note templates', () => {
   })
 
   it('fills the editor when a template is picked with the editor already open', async () => {
-    campaigns.getWikiTemplate.mockResolvedValue({
+    campaignsMock.getWikiTemplate.mockResolvedValue({
       id: '5e-spell',
       name: 'Spell',
       body: '*2nd-level transmutation*',
@@ -1042,7 +1055,7 @@ describe('WikiView community note templates', () => {
   })
 
   it('does not carry a template draft into a blank New Page', async () => {
-    campaigns.getWikiTemplate.mockResolvedValue({
+    campaignsMock.getWikiTemplate.mockResolvedValue({
       id: '5e-spell',
       name: 'Spell',
       body: 'body',
@@ -1077,11 +1090,11 @@ describe('WikiView filters and hiding', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    campaigns.listWikiPages.mockResolvedValue([mine, theirs])
-    campaigns.getWikiPage.mockResolvedValue(mine)
-    campaigns.updateWikiPage.mockResolvedValue(mine)
-    campaigns.hideWikiPage.mockResolvedValue({ ok: true })
-    campaigns.unhideWikiPage.mockResolvedValue({ ok: true })
+    campaignsMock.listWikiPages.mockResolvedValue([mine, theirs])
+    campaignsMock.getWikiPage.mockResolvedValue(mine)
+    campaignsMock.updateWikiPage.mockResolvedValue(mine)
+    campaignsMock.hideWikiPage.mockResolvedValue({ ok: true })
+    campaignsMock.unhideWikiPage.mockResolvedValue({ ok: true })
   })
 
   // The filters drive the request rather than filtering client-side, so the
@@ -1112,10 +1125,10 @@ describe('WikiView filters and hiding', () => {
 
   // Queries are scoped to the sidebar tree: the open note renders its own title
   // and its own hide button, so an unscoped lookup would be ambiguous.
-  const treeRow = async (title) => {
+  const treeRow = async (title: string) => {
     const tree = await screen.findByTestId('wiki-page-tree')
     const link = await within(tree).findByText(title)
-    const row = link.closest('div')
+    const row = link.closest('div')!
     fireEvent.mouseEnter(row)
     return row
   }
@@ -1128,7 +1141,7 @@ describe('WikiView filters and hiding', () => {
   })
 
   it('un-hides a note that is already hidden', async () => {
-    campaigns.listWikiPages.mockResolvedValue([mine, { ...theirs, is_hidden: true }])
+    campaignsMock.listWikiPages.mockResolvedValue([mine, { ...theirs, is_hidden: true }])
     renderView()
     const row = await treeRow('Theirs')
     fireEvent.click(within(row).getByRole('button', { name: 'Unhide' }))
@@ -1148,18 +1161,18 @@ describe('WikiView filters and hiding', () => {
   // reversible one and the one always available.
   // The sidebar rows carry their own hide control, so header lookups exclude
   // the tree.
-  const headerButton = (name) =>
+  const headerButton = (name: string) =>
     screen
       .getAllByRole('button', { name })
       .find((b) => !b.closest('[data-testid="wiki-page-tree"]'))
 
   it('places hide immediately left of delete in the page header', async () => {
-    campaigns.listWikiPages.mockResolvedValue([mine])
-    campaigns.getWikiPage.mockResolvedValue(mine)
+    campaignsMock.listWikiPages.mockResolvedValue([mine])
+    campaignsMock.getWikiPage.mockResolvedValue(mine)
     renderView()
     await screen.findByText('Here be dragons')
-    const hide = headerButton('Hide')
-    const del = headerButton('Delete')
+    const hide = headerButton('Hide')!
+    const del = headerButton('Delete')!
     // Same container, and hide precedes delete in document order.
     expect(hide.parentElement).toBe(del.parentElement)
     expect(hide.compareDocumentPosition(del) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
@@ -1167,8 +1180,8 @@ describe('WikiView filters and hiding', () => {
 
   // Delete is author-only; hide is not, so the group survives without it.
   it('still shows hide in the header when the user cannot delete', async () => {
-    campaigns.listWikiPages.mockResolvedValue([theirs])
-    campaigns.getWikiPage.mockResolvedValue(theirs)
+    campaignsMock.listWikiPages.mockResolvedValue([theirs])
+    campaignsMock.getWikiPage.mockResolvedValue(theirs)
     renderView({ isOwner: false })
     await screen.findByText('Here be dragons')
     expect(headerButton('Hide')).toBeTruthy()
@@ -1179,7 +1192,7 @@ describe('WikiView filters and hiding', () => {
   // it — while a public one does, which is what makes a shared knowledge base
   // work (issue #233).
   it('offers a subpage only on notes the user can write', async () => {
-    campaigns.listWikiPages.mockResolvedValue([
+    campaignsMock.listWikiPages.mockResolvedValue([
       theirs,
       { ...theirs, id: 'p4', title: 'ReadOnly', slug: 'read-only', can_edit: false },
     ])
@@ -1205,16 +1218,16 @@ describe('WikiView multiselect', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    campaigns.listWikiPages.mockResolvedValue([mine, theirs])
-    campaigns.getWikiPage.mockResolvedValue(mine)
-    campaigns.deleteWikiPage.mockResolvedValue({})
-    campaigns.hideWikiPage.mockResolvedValue({ ok: true })
+    campaignsMock.listWikiPages.mockResolvedValue([mine, theirs])
+    campaignsMock.getWikiPage.mockResolvedValue(mine)
+    campaignsMock.deleteWikiPage.mockResolvedValue({})
+    campaignsMock.hideWikiPage.mockResolvedValue({ ok: true })
   })
 
-  const ctrlClick = (el) => fireEvent.click(el, { ctrlKey: true })
+  const ctrlClick = (el: Element) => fireEvent.click(el, { ctrlKey: true })
   // Row titles are looked up inside the tree so the open note's own heading
   // doesn't make the query ambiguous.
-  const treeTitle = async (title) => {
+  const treeTitle = async (title: string) => {
     const tree = await screen.findByTestId('wiki-page-tree')
     return within(tree).findByText(title)
   }
@@ -1311,7 +1324,7 @@ describe('WikiView multiselect', () => {
       slug: 'child',
       parent_id: 'p2',
     }
-    campaigns.listWikiPages.mockResolvedValue([mine, theirs, child])
+    campaignsMock.listWikiPages.mockResolvedValue([mine, theirs, child])
     renderView()
     ctrlClick(await treeTitle('Theirs'))
     fireEvent.click(screen.getByRole('button', { name: /Delete selected/i }))

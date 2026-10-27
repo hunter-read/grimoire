@@ -2,10 +2,11 @@ import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import SystemPageHit from './SystemPageHit'
+import type { SystemPageHitProps } from './SystemPageHit'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k, o) => {
+    t: (k: string, o: { page: number }) => {
       if (k === 'common.pagePrefixed') return `p. ${o.page}`
       return k
     },
@@ -19,7 +20,7 @@ const result = {
   snippet: 'a <b>dragon</b> appears',
 }
 
-const renderHit = (props) =>
+const renderHit = (props: SystemPageHitProps) =>
   render(
     <MemoryRouter>
       <SystemPageHit {...props} />

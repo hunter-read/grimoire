@@ -1,28 +1,40 @@
 /**
  * Draw-order smoke test for the compositor.
  *
- * `src/lib/**` is excluded from coverage, so this file contributes nothing to
- * the gate. It exists because a reordered draw sequence — filling the background
+ * It exists because a reordered draw sequence — filling the background
  * after the art, or clipping the frame — produces a plausible-looking canvas and
  * would ship silently. Asserting the call order against a stub context is the
  * cheapest way to catch that.
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 
 import {
   DEFAULT_TRANSFORM,
   OUTPUT_SIZES,
+  composeToBlob,
   composeToCanvas,
   drawSpec,
+  loadImage,
   renderPreview,
 } from './tokenCompositor'
+import type { TokenImage, TokenSpec } from './tokenCompositor'
+
+interface Call {
+  name: string
+  args: unknown[]
+}
+
+/** Replace every canvas's `getContext` with a stub (jsdom has none). */
+function stubGetContext(impl: () => unknown) {
+  HTMLCanvasElement.prototype.getContext = vi.fn(impl) as unknown as HTMLCanvasElement['getContext']
+}
 
 /** A 2D context that records the order of the calls we care about. */
 function stubContext() {
-  const calls = []
+  const calls: Call[] = []
   const record =
-    (name) =>
-    (...args) => {
+    (name: string) =>
+    (...args: unknown[]) => {
       calls.push({ name, args })
     }
   return {
@@ -39,35 +51,36 @@ function stubContext() {
     translate: record('translate'),
     rotate: record('rotate'),
     scale: record('scale'),
-    set fillStyle(v) {
+    set fillStyle(v: unknown) {
       calls.push({ name: 'fillStyle', args: [v] })
     },
-    set imageSmoothingEnabled(v) {
+    set imageSmoothingEnabled(v: unknown) {
       calls.push({ name: 'imageSmoothingEnabled', args: [v] })
     },
-    set imageSmoothingQuality(v) {
+    set imageSmoothingQuality(v: unknown) {
       calls.push({ name: 'imageSmoothingQuality', args: [v] })
     },
-    set globalCompositeOperation(v) {
+    set globalCompositeOperation(v: unknown) {
       calls.push({ name: 'globalCompositeOperation', args: [v] })
     },
   }
 }
 
-const fakeImage = (w = 800, h = 600) => ({ naturalWidth: w, naturalHeight: h })
+const fakeImage = (w = 800, h = 600) =>
+  ({ naturalWidth: w, naturalHeight: h }) as unknown as TokenImage
 
-let ctx
+let ctx: ReturnType<typeof stubContext>
 
 beforeEach(() => {
   ctx = stubContext()
   // jsdom canvases have no 2d context.
-  HTMLCanvasElement.prototype.getContext = vi.fn(() => ctx)
+  stubGetContext(() => ctx)
 })
 
 const names = () => ctx.calls.map((c) => c.name)
-const indexOf = (name) => names().indexOf(name)
+const indexOf = (name: string) => names().indexOf(name)
 
-const baseSpec = () => ({
+const baseSpec = (): TokenSpec => ({
   source: fakeImage(),
   frame: fakeImage(512, 512),
   size: 256,
@@ -132,14 +145,14 @@ describe('drawSpec', () => {
   it('folds a flip into the scale sign rather than a separate step', () => {
     composeToCanvas({ ...baseSpec(), transform: { ...DEFAULT_TRANSFORM, flipX: true } })
     const scale = ctx.calls.find((c) => c.name === 'scale')
-    expect(scale.args[0]).toBeLessThan(0)
-    expect(scale.args[1]).toBeGreaterThan(0)
+    expect(scale!.args[0]).toBeLessThan(0)
+    expect(scale!.args[1]).toBeGreaterThan(0)
   })
 
   it('requests high-quality smoothing before drawing', () => {
     composeToCanvas(baseSpec())
     const quality = ctx.calls.find((c) => c.name === 'imageSmoothingQuality')
-    expect(quality.args[0]).toBe('high')
+    expect(quality!.args[0]).toBe('high')
   })
 
   it('skips the fill for a fully transparent background', () => {
@@ -154,7 +167,7 @@ describe('drawSpec', () => {
   it('scales the frame to the output size regardless of its own dimensions', () => {
     composeToCanvas({ ...baseSpec(), size: 140, frame: fakeImage(512, 512) })
     const frameDraw = ctx.calls.filter((c) => c.name === 'drawImage').at(-1)
-    expect(frameDraw.args.slice(1)).toEqual([0, 0, 140, 140])
+    expect(frameDraw!.args.slice(1)).toEqual([0, 0, 140, 140])
   })
 
   it('renders with no source and no frame without throwing', () => {
@@ -170,7 +183,7 @@ describe('drawSpec', () => {
 })
 
 describe('frame-shaped masking', () => {
-  const fakeMask = () => ({ width: 256, height: 256 })
+  const fakeMask = () => ({ width: 256, height: 256 }) as unknown as CanvasImageSource
 
   it('punches the art to the frame mask instead of a circle', () => {
     composeToCanvas({ ...baseSpec(), frameMask: fakeMask() })
@@ -219,7 +232,7 @@ describe('renderPreview', () => {
     )
     const translate = ctx.calls.find((c) => c.name === 'translate')
     // 512/2 + 40*2 = 336 ; 512/2 - 10*2 = 236
-    expect(translate.args).toEqual([336, 236])
+    expect(translate!.args).toEqual([336, 236])
   })
 
   it('leaves the spec untouched when the sizes already agree', () => {
@@ -262,8 +275,80 @@ describe('OUTPUT_SIZES', () => {
 
 describe('drawSpec on a context-less canvas', () => {
   it('returns the canvas instead of throwing', () => {
-    HTMLCanvasElement.prototype.getContext = vi.fn(() => null)
+    stubGetContext(() => null)
     const canvas = document.createElement('canvas')
     expect(() => drawSpec(canvas, { size: 256 })).not.toThrow()
+  })
+})
+
+describe('loadImage', () => {
+  /** An Image stand-in that settles as soon as `src` is set. */
+  function stubImage({
+    width,
+    height,
+    fail = false,
+  }: {
+    width: number
+    height: number
+    fail?: boolean
+  }) {
+    class FakeImage {
+      naturalWidth = width
+      naturalHeight = height
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      set src(_value: string) {
+        queueMicrotask(() => (fail ? this.onerror?.() : this.onload?.()))
+      }
+    }
+    vi.stubGlobal('Image', FakeImage)
+  }
+
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('resolves with the image and its natural dimensions', async () => {
+    stubImage({ width: 300, height: 200 })
+    const loaded = await loadImage('/api/tokens/1/image')
+    expect(loaded).toMatchObject({ width: 300, height: 200, intrinsic: true })
+  })
+
+  it('falls back to a fixed size for a dimensionless SVG', async () => {
+    stubImage({ width: 0, height: 0 })
+    const loaded = await loadImage('/frames/ring.svg')
+    expect(loaded).toMatchObject({ width: 512, height: 512, intrinsic: false })
+  })
+
+  it('reads a Blob through an object URL and revokes it afterwards', async () => {
+    stubImage({ width: 10, height: 10 })
+    const create = vi.fn(() => 'blob:token')
+    const revoke = vi.fn()
+    vi.stubGlobal('URL', { ...URL, createObjectURL: create, revokeObjectURL: revoke })
+
+    await loadImage(new Blob(['x'], { type: 'image/png' }))
+
+    expect(create).toHaveBeenCalledTimes(1)
+    expect(revoke).toHaveBeenCalledWith('blob:token')
+  })
+
+  it('rejects when the image cannot be decoded', async () => {
+    stubImage({ width: 0, height: 0, fail: true })
+    await expect(loadImage('/broken.png')).rejects.toThrow('Image could not be loaded')
+  })
+})
+
+describe('composeToBlob', () => {
+  it('encodes the composed canvas as a PNG', async () => {
+    const blob = new Blob(['png'], { type: 'image/png' })
+    const toBlob = vi
+      .spyOn(HTMLCanvasElement.prototype, 'toBlob')
+      .mockImplementation((callback) => callback(blob))
+
+    await expect(composeToBlob(baseSpec())).resolves.toBe(blob)
+    expect(toBlob).toHaveBeenCalledWith(expect.any(Function), 'image/png')
+  })
+
+  it('rejects when the canvas cannot be encoded', async () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((callback) => callback(null))
+    await expect(composeToBlob(baseSpec())).rejects.toThrow('Token could not be encoded')
   })
 })

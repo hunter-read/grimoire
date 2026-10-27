@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuUsers, LuPlus, LuFileUp, LuSettings } from 'react-icons/lu'
-import { characters as charactersApi } from '../api'
+import { characters as charactersApi, type BodyOf, type Schema } from '../api'
 import Spinner from '../components/Spinner'
 import SheetManager from '../components/characters/SheetManager'
 import NewCharacterDialog from '../components/characters/NewCharacterDialog'
@@ -19,6 +19,9 @@ import { goldBtn, ghostBtn, disabledBtn } from '../components/characters/charact
  * play in one campaign. Laid out like the Campaigns page, with each character
  * a card showing their art.
  */
+type CharacterSummary = Schema<'CharacterSummary'>
+type SheetSchema = Schema<'SchemaListResponse'>['schemas'][number]
+
 export default function CharactersView() {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -28,8 +31,8 @@ export default function CharactersView() {
   const manageParam = searchParams.get('manage')
 
   const [loading, setLoading] = useState(true)
-  const [characters, setCharacters] = useState([])
-  const [schemas, setSchemas] = useState([])
+  const [characters, setCharacters] = useState<CharacterSummary[]>([])
+  const [schemas, setSchemas] = useState<SheetSchema[]>([])
   const [error, setError] = useState('')
   const [creating, setCreating] = useState(false)
   const [importing, setImporting] = useState(false)
@@ -48,7 +51,7 @@ export default function CharactersView() {
       setSchemas(schemaList.schemas || [])
       setError('')
     } catch (e) {
-      setError(e.message || t('characters.loadFailed'))
+      setError((e as Error).message || t('characters.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -58,20 +61,20 @@ export default function CharactersView() {
     load()
   }, [load])
 
-  const create = async (body) => {
+  const create = async (body: BodyOf<'/characters', 'post'>) => {
     const created = await charactersApi.create(body)
     setCreating(false)
     navigate(`/characters/${created.id}`)
   }
 
-  const remove = async (character) => {
+  const remove = async (character: CharacterSummary) => {
     const name = character.name || t('characters.untitled')
     if (!window.confirm(t('characters.confirmDelete', { name }))) return
     try {
       await charactersApi.remove(character.id)
       setCharacters((prev) => prev.filter((c) => c.id !== character.id))
     } catch (err) {
-      setError(err.message)
+      setError((err as Error).message)
     }
   }
 
@@ -199,7 +202,7 @@ export default function CharactersView() {
 
       {importing ? (
         <CharacterImportDialog
-          onImported={(created) => navigate(`/characters/${created.id}`)}
+          onImported={(created: { id: string }) => navigate(`/characters/${created.id}`)}
           onClose={() => setImporting(false)}
         />
       ) : null}

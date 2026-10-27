@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
@@ -19,9 +20,12 @@ vi.mock('../../context/AudioPlayerContext', () => ({
   useAudioPlayer: () => ({ playQueue: vi.fn() }),
 }))
 
-import { campaigns } from '../../api'
+import { campaigns, type Schema } from '../../api'
 
-const campaign = { id: 'c1', name: 'Test', members: [] }
+// The api module is mocked above; reach its helpers as plain vi.fn()s.
+const campaignsMock = campaigns as unknown as Record<keyof typeof campaigns, Mock>
+
+const campaign = { id: 'c1', name: 'Test', members: [] } as unknown as Schema<'CampaignOut'>
 const pageA = {
   id: 'p1',
   title: 'Gunnar Mountainson',
@@ -34,7 +38,7 @@ const pageA = {
   backlinks: [],
 }
 
-let WikiView
+let WikiView: typeof import('./WikiView').default
 
 beforeAll(async () => {
   window.matchMedia = vi.fn().mockReturnValue({
@@ -58,8 +62,8 @@ const renderView = (props = {}) =>
 describe('WikiView mobile full-screen swap', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    campaigns.listWikiPages.mockResolvedValue([pageA])
-    campaigns.getWikiPage.mockResolvedValue(pageA)
+    campaignsMock.listWikiPages.mockResolvedValue([pageA])
+    campaignsMock.getWikiPage.mockResolvedValue(pageA)
   })
 
   it('lands on the page tree (does not auto-open the first note) on mobile', async () => {

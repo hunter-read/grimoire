@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuDownload, LuX } from 'react-icons/lu'
 import api from '../../api'
+import type { Schema } from '../../api'
 import { CATEGORY_ORDER, categoryLabel, slugify } from '../../constants'
 import AccessLevelPicker from '../metadata/AccessLevelPicker'
 import GenrePicker from '../metadata/GenrePicker'
@@ -19,21 +20,83 @@ import BookVersionsSection from './BookVersionsSection'
 import useMetadataSources from './useMetadataSources'
 import { intoBookForm } from './metadataFieldValue'
 
+/**
+ * A system-page book row as the editor reads it. The server also sends the
+ * book's own access level and what it resolves to, which `BookOut` does not
+ * declare.
+ */
+export type EditableBook = Schema<'BookOut'> & {
+  access_level?: string | null
+  effective_access_level?: string | null
+}
+
+export interface BookEditorProps {
+  book: EditableBook
+  /** Called with the book as saved, once the PATCH succeeds. */
+  onSave: (updated: EditableBook) => void
+  onClose: () => void
+  /** Accepted from the shelf, but unused: TagPicker loads its own suggestions. */
+  allTags?: string[]
+  existingCategories?: string[]
+  systemGenres?: string[]
+  onVariantsChanged?: (newMainId: string | null) => void
+}
+
+/** The editor's form state; list and date fields are held as text. */
+interface BookForm {
+  title: string
+  description: string
+  authors: string
+  artists: string
+  genres: string[]
+  publisher: string
+  isbn: string
+  product_code: string
+  version: string
+  language: string
+  license: string
+  year: string
+  month: string
+  day: string
+  urls: Schema<'LinkEntry'>[]
+  category: string
+  is_explicit: boolean
+  access_level: string | null
+}
+
+/** The form fields edited through a plain text input. */
+type TextField = {
+  [K in keyof BookForm]: BookForm[K] extends string ? K : never
+}[keyof BookForm]
+
+/** What is PATCHed: the form with its text fields parsed back. */
+type BookPayload = Omit<
+  BookForm,
+  'access_level' | 'authors' | 'artists' | 'year' | 'month' | 'day'
+> & {
+  authors: string[]
+  artists: string[]
+  year: number | null
+  month: number | null
+  day: number | null
+  tags: string[]
+  access_level?: string
+}
+
 export default function BookEditor({
   book,
   onSave,
   onClose,
-  allTags = [],
   existingCategories = [],
   systemGenres = [],
   onVariantsChanged,
-}) {
+}: BookEditorProps) {
   const { t } = useTranslation()
   // May be null outside an AuthProvider; see AccessLevelPicker.
   const isAdmin = useAuth()?.user?.role === 'admin'
   const { genres: genreTree, licenses, reload: reloadLookups } = useLookups()
   const licenseOptions = licenses.map((l) => l.name)
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<BookForm>({
     title: book.title || '',
     description: book.description || '',
     authors: (book.authors || []).join(', '),
@@ -54,7 +117,7 @@ export default function BookEditor({
     // null means "inherit"; the picker maps it to its sentinel and back.
     access_level: book.access_level ?? null,
   })
-  const [tags, setTags] = useState(book.tags || [])
+  const [tags, setTags] = useState<string[]>(book.tags || [])
   // "Fetch metadata" only appears when a source is actually available, so the
   // button never promises something the server cannot do. Cached per kind, so
   // reopening an editor doesn't re-ask and the button doesn't pop in late.
@@ -67,12 +130,12 @@ export default function BookEditor({
   // their own state.
   // The dialog has already saved the link; it stays out of the form so a later
   // Save cannot quietly restore one the user has since removed.
-  const [codexId, setCodexId] = useState(book.codex_id ?? null)
-  const handleFetched = (fields) => {
+  const [codexId, setCodexId] = useState<string | null>(book.codex_id ?? null)
+  const handleFetched = (fields: Record<string, unknown>) => {
     const { tags: fetchedTags, codex_id: fetchedCodexId, ...rest } = fields
-    if (fetchedCodexId) setCodexId(fetchedCodexId)
-    setForm((f) => ({ ...f, ...intoBookForm(rest) }))
-    if (fetchedTags) setTags(fetchedTags)
+    if (fetchedCodexId) setCodexId(fetchedCodexId as string)
+    setForm((f) => ({ ...f, ...(intoBookForm(rest) as Partial<BookForm>) }))
+    if (fetchedTags) setTags(fetchedTags as string[])
   }
   const [saving, setSaving] = useState(false)
 
@@ -90,7 +153,7 @@ export default function BookEditor({
     marginBottom: 3,
   }
 
-  const field = (label, key, opts = {}) => (
+  const field = (label: string, key: TextField, opts: { textarea?: boolean } = {}) => (
     <div style={{ marginBottom: 10 }}>
       <label htmlFor={`book-field-${key}`} style={fieldLabel}>
         {label}
@@ -115,7 +178,7 @@ export default function BookEditor({
     </div>
   )
 
-  const splitCsv = (s) =>
+  const splitCsv = (s: string) =>
     s
       .split(',')
       .map((a) => a.trim())
@@ -124,7 +187,7 @@ export default function BookEditor({
   const handleSave = () => {
     setSaving(true)
     const { access_level, ...rest } = form
-    const payload = {
+    const payload: BookPayload = {
       ...rest,
       category: slugify(form.category) || 'core',
       authors: splitCsv(form.authors),

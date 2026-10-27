@@ -1,4 +1,16 @@
-import { useCallback, useEffect, useImperativeHandle, useRef, useState, forwardRef } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  forwardRef,
+  type CSSProperties,
+  type DragEvent,
+  type HTMLAttributes,
+  type KeyboardEvent,
+  type MouseEvent,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   LuChevronRight,
@@ -16,6 +28,61 @@ import FileRow from './FileRow'
 import useVirtualRows from '../../hooks/useVirtualRows'
 import { indexOfPath, nextSelectable, rightTarget, leftTarget } from './treeNav'
 import ToolbarMenuButton from './ToolbarMenuButton'
+import type { Schema } from '../../api'
+import type { useLibraryPane } from '../../hooks/useLibraryPane'
+import type { LongPressEvent } from '../../hooks/useLongPress'
+
+type BrowseEntry = Schema<'BrowseEntry'>
+
+/** Which of the file manager's two panes this is. */
+export type PaneSide = 'primary' | 'secondary'
+
+/** Where a right-click (or long press) opened the row menu, and on what. */
+export interface PaneContextTarget {
+  x: number
+  y: number
+  entry: BrowseEntry
+  side: PaneSide
+}
+
+/** What the pane exposes through its ref. */
+export interface FilePaneHandle {
+  focus: () => void
+}
+
+/** What a row's context handler is called with: a mouse event, or a long press. */
+export type RowContextEvent = MouseEvent<HTMLElement> | LongPressEvent
+
+export interface FilePaneProps {
+  pane: ReturnType<typeof useLibraryPane>
+  side: PaneSide
+  onDropPaths: (paths: string[], destination: string) => void
+  onDropFiles?: (files: FileList, destination: string) => void
+  onOpenContext: (target: PaneContextTarget) => void
+  onClose?: () => void
+  onNewFolder: (path: string) => void
+  onPickFiles: (destination: string, kind: 'files' | 'folder') => void
+  onScaffold?: (path: string) => void
+  onPreview?: (entry: BrowseEntry) => void
+  onRename?: (entry: BrowseEntry) => void
+  onDelete?: (entry: BrowseEntry) => void
+  onOpenMetadata?: (entry: BrowseEntry) => void
+  onShowShortcuts?: () => void
+  compact?: boolean
+  fill?: boolean
+}
+
+/** The JSON a row drag carries under DRAG_MIME. */
+interface DragPayload {
+  paths?: string[]
+  from?: string
+}
+
+/** How a row click or key moves the cursor. */
+interface CursorOptions {
+  extend?: boolean
+  select?: boolean
+}
 
 // Drag payloads are JSON so a drop can carry several paths at once (a
 // multi-select drag) plus the pane it came from, which the drop handler needs to
@@ -46,7 +113,12 @@ const SCROLL_STEP_PX = 12
  * reports every element as a zero-sized rect at the origin and makes the
  * behaviour impossible to observe through the DOM.
  */
-export function edgeScrollStep(box, clientY, zone = SCROLL_ZONE_PX, step = SCROLL_STEP_PX) {
+export function edgeScrollStep(
+  box: { top: number; bottom: number },
+  clientY: number,
+  zone = SCROLL_ZONE_PX,
+  step = SCROLL_STEP_PX
+): number {
   if (clientY - box.top < zone) return -step
   if (box.bottom - clientY < zone) return step
   return 0
@@ -67,7 +139,7 @@ export function edgeScrollStep(box, clientY, zone = SCROLL_ZONE_PX, step = SCROL
  * in this tree, and rendering them all — each with drag handlers — would stall
  * the main thread on every expand.
  */
-const FilePane = forwardRef(function FilePane(
+const FilePane = forwardRef<FilePaneHandle, FilePaneProps>(function FilePane(
   {
     pane,
     side,
@@ -89,11 +161,11 @@ const FilePane = forwardRef(function FilePane(
   ref
 ) {
   const { t } = useTranslation()
-  const [dragOver, setDragOver] = useState(null) // entry path being hovered, or '__pane__'
+  const [dragOver, setDragOver] = useState<string | null>(null) // entry path being hovered, or '__pane__'
   const [dragging, setDragging] = useState(false)
   const [focused, setFocused] = useState(false)
-  const springTimer = useRef(null)
-  const scrollTimer = useRef(null)
+  const springTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const scrollTimer = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
 
   const rows = pane.rows
   const { scrollRef, onScroll, first, last, padTop, padBottom } = useVirtualRows({
@@ -136,9 +208,9 @@ const FilePane = forwardRef(function FilePane(
   // dragged in from the desktop ("Files" in `types`). They mean different things
   // — reorganise versus upload — so they are distinguished up front rather than
   // guessed at on drop.
-  const isFileDrag = (e) => e.dataTransfer.types.includes('Files')
+  const isFileDrag = (e: DragEvent) => e.dataTransfer.types.includes('Files')
 
-  const readDrag = (e) => {
+  const readDrag = (e: DragEvent): DragPayload | null => {
     try {
       return JSON.parse(e.dataTransfer.getData(DRAG_MIME))
     } catch {
@@ -147,7 +219,7 @@ const FilePane = forwardRef(function FilePane(
   }
 
   const finishDrop = useCallback(
-    (e, destination) => {
+    (e: DragEvent, destination: string) => {
       e.preventDefault()
       e.stopPropagation()
       setDragOver(null)
@@ -168,7 +240,7 @@ const FilePane = forwardRef(function FilePane(
     [onDropPaths, onDropFiles]
   )
 
-  const allowDrop = useCallback((e, key) => {
+  const allowDrop = useCallback((e: DragEvent, key: string) => {
     const internal = e.dataTransfer.types.includes(DRAG_MIME)
     const external = e.dataTransfer.types.includes('Files')
     if (!internal && !external) return
@@ -181,7 +253,7 @@ const FilePane = forwardRef(function FilePane(
   // every scroll frame.
 
   const handleDragStart = useCallback(
-    (e, entry) => {
+    (e: DragEvent, entry: BrowseEntry) => {
       // Dragging an unselected row drags just that row; dragging a selected one
       // drags the whole selection, which is what makes bulk moves feel direct.
       const paths = pane.selected.has(entry.path) ? [...pane.selected] : [entry.path]
@@ -193,7 +265,7 @@ const FilePane = forwardRef(function FilePane(
   )
 
   const handleDragOverRow = useCallback(
-    (e, entry, isOpen) => {
+    (e: DragEvent, entry: BrowseEntry, isOpen: boolean) => {
       if (!entry.is_dir) return
       e.stopPropagation()
       allowDrop(e, entry.path)
@@ -206,21 +278,21 @@ const FilePane = forwardRef(function FilePane(
     [allowDrop, pane]
   )
 
-  const handleDragLeaveRow = useCallback((entry) => {
+  const handleDragLeaveRow = useCallback((entry: BrowseEntry) => {
     if (entry.is_dir) clearTimeout(springTimer.current)
   }, [])
 
   const handleDropRow = useCallback(
-    (e, entry) => {
+    (e: DragEvent, entry: BrowseEntry) => {
       if (entry.is_dir) finishDrop(e, entry.path)
     },
     [finishDrop]
   )
 
-  const handleOpenFolder = useCallback((folderPath) => pane.navigate(folderPath), [pane])
+  const handleOpenFolder = useCallback((folderPath: string) => pane.navigate(folderPath), [pane])
 
   const handleSelect = useCallback(
-    (e, entry) => {
+    (e: MouseEvent, entry: BrowseEntry) => {
       // Ctrl/Cmd-click still toggles one row in or out, but it moves the cursor
       // too, so a keyboard range can start from wherever the mouse left off.
       if (e.metaKey || e.ctrlKey) {
@@ -233,7 +305,7 @@ const FilePane = forwardRef(function FilePane(
   )
 
   const handleContext = useCallback(
-    (e, entry) => {
+    (e: RowContextEvent, entry: BrowseEntry) => {
       e.preventDefault()
       if (!pane.selected.has(entry.path)) pane.cursorTo(entry.path)
       onOpenContext({ x: e.clientX, y: e.clientY, entry, side })
@@ -261,7 +333,7 @@ const FilePane = forwardRef(function FilePane(
    * event, which feeds the virtual window on its own.
    */
   const scrollRowIntoView = useCallback(
-    (index) => {
+    (index: number) => {
       const el = scrollRef.current
       if (!el || index < 0) return
       const top = index * ROW_HEIGHT
@@ -296,21 +368,21 @@ const FilePane = forwardRef(function FilePane(
 
   /** Move the cursor to a row index, if it exists. */
   const moveTo = useCallback(
-    (index, opts) => {
+    (index: number, opts?: CursorOptions) => {
       if (index < 0 || index >= rows.length) return
-      pane.cursorTo(rows[index].entry.path, opts)
+      pane.cursorTo(rows[index].entry!.path, opts)
     },
     [pane, rows]
   )
 
   const handleKeyDown = useCallback(
-    (e) => {
+    (e: KeyboardEvent<HTMLDivElement>) => {
       // Guards, in the order they are cheapest to check. The dialog check is
       // belt-and-braces: focus normally moves into an open modal, but a modal
       // that does not trap focus would otherwise let these keys act on the tree
       // behind it.
       if (e.defaultPrevented) return
-      const el = e.target
+      const el = e.target as HTMLElement | null
       if (el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA' || el?.isContentEditable) return
       if (document.querySelector('[role="dialog"]')) return
 
@@ -429,7 +501,7 @@ const FilePane = forwardRef(function FilePane(
   )
 
   /** Auto-scroll the list when a drag nears its top or bottom edge. */
-  const handleListDragOver = (e) => {
+  const handleListDragOver = (e: DragEvent<HTMLDivElement>) => {
     const el = scrollRef.current
     if (!el) return
     clearInterval(scrollTimer.current)
@@ -465,7 +537,7 @@ const FilePane = forwardRef(function FilePane(
       onDragLeave={(e) => {
         // Only clear when the pointer actually leaves the pane, not when it
         // crosses between child rows.
-        if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(null)
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragOver(null)
       }}
       onDrop={(e) => finishDrop(e, pane.path)}
       data-testid={`file-pane-${side}`}
@@ -760,14 +832,14 @@ export default FilePane
 // `aria-activedescendant` needs a real element id, and a path is not one — it
 // carries slashes, spaces and whatever else a filename holds. Scoped by side so
 // the two panes never mint the same id for the same file.
-function rowDomId(side, path) {
+function rowDomId(side: PaneSide, path: string): string {
   return `filerow-${side}-${encodeURIComponent(path)}`
 }
 
 // Unlike the breadcrumbs beside it, this one *does* something to the library
 // rather than moving around it — so it carries a border and a filled background
 // instead of reading as another piece of the path.
-const actionBtnStyle = {
+const actionBtnStyle: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 5,
@@ -785,7 +857,7 @@ const actionBtnStyle = {
 // the pane stays self-contained — it is the only other place with a menu, and a
 // shared style module for two small objects would be more indirection than it
 // saves.
-const menuItemStyle = {
+const menuItemStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 8,
@@ -803,7 +875,7 @@ const menuItemStyle = {
 
 // Hover feedback applied as handlers rather than CSS, matching how the rest of
 // this view is styled.
-const menuHoverProps = {
+const menuHoverProps: HTMLAttributes<HTMLElement> = {
   onMouseEnter: (e) => {
     e.currentTarget.style.background = 'var(--bg-card-hover)'
   },
@@ -812,7 +884,7 @@ const menuHoverProps = {
   },
 }
 
-function crumbStyle(active) {
+function crumbStyle(active: boolean): CSSProperties {
   return {
     display: 'inline-flex',
     alignItems: 'center',

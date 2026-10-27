@@ -1,8 +1,14 @@
+import type { ComponentProps } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CampaignEditor from './CampaignEditor'
-import api, { campaigns } from '../../api'
+import api, { campaigns, type Schema } from '../../api'
+
+// The api module is mocked above; reach its helpers as plain vi.fn()s.
+const apiMock = api as unknown as Record<'get', Mock>
+const campaignsMock = campaigns as unknown as Record<keyof typeof campaigns, Mock>
 
 vi.mock('../../api', () => ({
   default: { get: vi.fn() },
@@ -14,7 +20,7 @@ vi.mock('../../api', () => ({
 }))
 
 vi.mock('../../context/FavoritesContext', () => ({
-  useFavorites: () => ({ isFavorite: (type, id) => id === 'sys-fav' }),
+  useFavorites: () => ({ isFavorite: (_type: string, id: string) => id === 'sys-fav' }),
 }))
 
 vi.mock('./ScheduleSetup', () => ({
@@ -24,7 +30,12 @@ vi.mock('./ScheduleSetup', () => ({
 // Stand-in picker: exposes a button that selects one book so the create
 // payload carries a resource, and echoes the systemId/pinSystem it received.
 vi.mock('./ResourcePicker', () => ({
-  default: ({ systemId, setSelected, preselectCore, pinSystem }) => (
+  default: ({
+    systemId,
+    setSelected,
+    preselectCore,
+    pinSystem,
+  }: ComponentProps<typeof import('./ResourcePicker').default>) => (
     <div data-testid="resource-picker">
       <span>{`sys:${systemId}`}</span>
       <span>{`pin:${pinSystem}`}</span>
@@ -54,7 +65,7 @@ const systems = [
 
 beforeEach(() => {
   vi.clearAllMocks()
-  api.get.mockResolvedValue(systems)
+  apiMock.get.mockResolvedValue(systems)
 })
 
 describe('CampaignEditor — create flow', () => {
@@ -68,7 +79,7 @@ describe('CampaignEditor — create flow', () => {
   })
 
   it('steps to the resource picker and creates with the chosen system and resources', async () => {
-    campaigns.create.mockResolvedValue({ id: 'c1' })
+    campaignsMock.create.mockResolvedValue({ id: 'c1' })
     const onSaved = vi.fn()
     render(<CampaignEditor isGmOrAdmin onClose={vi.fn()} onSaved={onSaved} />)
     await waitFor(() => expect(api.get).toHaveBeenCalled())
@@ -88,7 +99,7 @@ describe('CampaignEditor — create flow', () => {
     await userEvent.click(screen.getByRole('button', { name: /create campaign/i }))
 
     await waitFor(() => expect(campaigns.create).toHaveBeenCalled())
-    const payload = campaigns.create.mock.calls[0][0]
+    const payload = campaignsMock.create.mock.calls[0][0]
     expect(payload.name).toBe('My Campaign')
     expect(payload.system_id).toBe('sys1')
     expect(payload.resources).toEqual([
@@ -103,7 +114,7 @@ describe('CampaignEditor — create flow', () => {
     const select = screen.getByLabelText(/system/i)
     const values = within(select)
       .getAllByRole('option')
-      .map((o) => o.value)
+      .map((o) => (o as HTMLOptionElement).value)
 
     // Children of both container kinds are playable systems and selectable.
     expect(values).toContain('sys1')
@@ -114,7 +125,7 @@ describe('CampaignEditor — create flow', () => {
   })
 
   it('selects a container child as the campaign system', async () => {
-    campaigns.create.mockResolvedValue({ id: 'c3' })
+    campaignsMock.create.mockResolvedValue({ id: 'c3' })
     render(<CampaignEditor isGmOrAdmin onClose={vi.fn()} onSaved={vi.fn()} />)
     await waitFor(() => expect(api.get).toHaveBeenCalled())
     await userEvent.type(screen.getByLabelText(/name/i), 'Curse of Strahd')
@@ -122,7 +133,7 @@ describe('CampaignEditor — create flow', () => {
     await userEvent.click(screen.getByRole('button', { name: /next/i }))
     await userEvent.click(screen.getByRole('button', { name: /create campaign/i }))
     await waitFor(() => expect(campaigns.create).toHaveBeenCalled())
-    expect(campaigns.create.mock.calls[0][0].system_id).toBe('sys1')
+    expect(campaignsMock.create.mock.calls[0][0].system_id).toBe('sys1')
   })
 
   it('can go back from the resource step to the details step', async () => {
@@ -137,7 +148,7 @@ describe('CampaignEditor — create flow', () => {
   })
 
   it('sends a custom free-text system name', async () => {
-    campaigns.create.mockResolvedValue({ id: 'c2' })
+    campaignsMock.create.mockResolvedValue({ id: 'c2' })
     render(<CampaignEditor isGmOrAdmin onClose={vi.fn()} onSaved={vi.fn()} />)
     await waitFor(() => expect(api.get).toHaveBeenCalled())
     await userEvent.type(screen.getByLabelText(/name/i), 'Homebrew')
@@ -147,13 +158,13 @@ describe('CampaignEditor — create flow', () => {
     await userEvent.click(screen.getByRole('button', { name: /next/i }))
     await userEvent.click(screen.getByRole('button', { name: /create campaign/i }))
     await waitFor(() => expect(campaigns.create).toHaveBeenCalled())
-    const payload = campaigns.create.mock.calls[0][0]
+    const payload = campaignsMock.create.mock.calls[0][0]
     expect(payload.system_id).toBeNull()
     expect(payload.system_name).toBe('My Homebrew System')
   })
 
   it('surfaces a create error and stays open', async () => {
-    campaigns.create.mockRejectedValue(new Error('nope'))
+    campaignsMock.create.mockRejectedValue(new Error('nope'))
     render(<CampaignEditor isGmOrAdmin onClose={vi.fn()} onSaved={vi.fn()} />)
     await waitFor(() => expect(api.get).toHaveBeenCalled())
     await userEvent.type(screen.getByLabelText(/name/i), 'Failing')
@@ -171,7 +182,7 @@ describe('CampaignEditor — edit flow', () => {
     is_gm_campaign: true,
     gm_title: 'Dungeon Master',
     system_id: 'sys1',
-  }
+  } as unknown as Schema<'CampaignOut'>
 
   it('renders a single-step edit form with the schedule setup for GM campaigns', async () => {
     render(<CampaignEditor campaign={campaign} isGmOrAdmin onClose={vi.fn()} onSaved={vi.fn()} />)
@@ -183,7 +194,7 @@ describe('CampaignEditor — edit flow', () => {
   })
 
   it('saves edits via update and reports the result', async () => {
-    campaigns.update.mockResolvedValue({ ...campaign, name: 'Renamed' })
+    campaignsMock.update.mockResolvedValue({ ...campaign, name: 'Renamed' })
     const onSaved = vi.fn()
     render(<CampaignEditor campaign={campaign} isGmOrAdmin onClose={vi.fn()} onSaved={onSaved} />)
     await waitFor(() => expect(api.get).toHaveBeenCalled())
@@ -192,7 +203,7 @@ describe('CampaignEditor — edit flow', () => {
     await userEvent.type(name, 'Renamed')
     await userEvent.click(screen.getByRole('button', { name: /save/i }))
     await waitFor(() => expect(campaigns.update).toHaveBeenCalled())
-    expect(campaigns.update.mock.calls[0][1].name).toBe('Renamed')
+    expect(campaignsMock.update.mock.calls[0][1].name).toBe('Renamed')
     expect(onSaved).toHaveBeenCalled()
   })
 

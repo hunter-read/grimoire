@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { LuChevronDown } from 'react-icons/lu'
 import { getDefaultViewMode } from '../../hooks/useViewMode'
 import { getUserPrefs, saveUserPref } from '../../hooks/useUserPrefs'
@@ -6,20 +6,30 @@ import { gridStyle, ROW_LIST_STYLE } from './favoriteStyles'
 
 const PREFS_KEY = 'favoritesCollapsed'
 
+export interface FavoritesSectionProps<T> {
+  type: string
+  title: ReactNode
+  items: T[]
+  renderItem: (item: T, grid: boolean) => ReactNode
+  defaultCollapsed?: boolean
+}
+
 /**
  * A favorites section with a collapsible header. Items render using the user's
  * preferred view style for the section's content type (card/compact → grid,
  * list → rows). Collapse state persists per content type in user prefs; until
  * the user toggles it, the section follows `defaultCollapsed`.
  */
-export default function FavoritesSection({
+export default function FavoritesSection<T>({
   type,
   title,
   items,
   renderItem,
   defaultCollapsed = false,
-}) {
-  const [chosen, setCollapsed] = useState(() => getUserPrefs()[PREFS_KEY]?.[type])
+}: FavoritesSectionProps<T>) {
+  const [chosen, setCollapsed] = useState<boolean | undefined>(
+    () => (getUserPrefs()[PREFS_KEY] as Record<string, boolean> | undefined)?.[type]
+  )
   const collapsed = chosen ?? defaultCollapsed
   const mode = getDefaultViewMode(type)
   const grid = mode !== 'list'

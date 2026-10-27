@@ -4,7 +4,7 @@ import BackupListSection from './BackupListSection'
 import { backups } from '../../api'
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k) => k, i18n: { language: 'en-US' } }),
+  useTranslation: () => ({ t: (k: string) => k, i18n: { language: 'en-US' } }),
 }))
 vi.mock('../Spinner', () => ({ default: () => <span data-testid="spinner" /> }))
 vi.mock('../../api', () => ({
@@ -27,7 +27,7 @@ const listing = (items = [ITEM]) => ({
 
 beforeEach(() => {
   vi.clearAllMocks()
-  backups.list.mockResolvedValue(listing())
+  vi.mocked(backups.list).mockResolvedValue(listing())
 })
 
 afterEach(() => {
@@ -53,14 +53,14 @@ describe('BackupListSection', () => {
   })
 
   it('shows the empty state when there are no backups', async () => {
-    backups.list.mockResolvedValue(listing([]))
+    vi.mocked(backups.list).mockResolvedValue(listing([]))
     render(<BackupListSection />)
 
     expect(await screen.findByText('backups.list.empty')).toBeInTheDocument()
   })
 
   it('creates a backup and reloads the list', async () => {
-    backups.create.mockResolvedValue(ITEM)
+    vi.mocked(backups.create).mockResolvedValue(ITEM)
     render(<BackupListSection />)
     await screen.findByText(/5\.0 MB/)
 
@@ -71,10 +71,10 @@ describe('BackupListSection', () => {
   })
 
   it('warns that writes are blocked while a backup runs', async () => {
-    let resolveCreate
-    backups.create.mockReturnValue(
+    let resolveCreate!: (value: unknown) => void
+    vi.mocked(backups.create).mockReturnValue(
       new Promise((res) => {
-        resolveCreate = res
+        resolveCreate = res as (value: unknown) => void
       })
     )
     render(<BackupListSection />)
@@ -87,7 +87,7 @@ describe('BackupListSection', () => {
   })
 
   it('surfaces a failed backup instead of failing silently', async () => {
-    backups.create.mockRejectedValue(new Error('disk full'))
+    vi.mocked(backups.create).mockRejectedValue(new Error('disk full'))
     render(<BackupListSection />)
     await screen.findByText(/5\.0 MB/)
 
@@ -97,7 +97,7 @@ describe('BackupListSection', () => {
   })
 
   it('downloads a backup by id and filename', async () => {
-    backups.download.mockResolvedValue(undefined)
+    vi.mocked(backups.download).mockResolvedValue(undefined)
     render(<BackupListSection />)
     await screen.findByText(/5\.0 MB/)
 
@@ -108,7 +108,7 @@ describe('BackupListSection', () => {
 
   it('deletes only after the confirm prompt is accepted', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
-    backups.remove.mockResolvedValue(null)
+    vi.mocked(backups.remove).mockResolvedValue(null)
     render(<BackupListSection />)
     await screen.findByText(/5\.0 MB/)
 
@@ -121,7 +121,7 @@ describe('BackupListSection', () => {
   })
 
   it('reports a failed listing', async () => {
-    backups.list.mockRejectedValue(new Error('nope'))
+    vi.mocked(backups.list).mockRejectedValue(new Error('nope'))
     render(<BackupListSection />)
 
     expect(await screen.findByText('nope')).toBeInTheDocument()

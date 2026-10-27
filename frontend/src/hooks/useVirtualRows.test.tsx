@@ -7,7 +7,7 @@ import useVirtualRows from './useVirtualRows'
 const VIEWPORT = 300
 const ROW = 30
 
-function Probe({ count }) {
+function Probe({ count }: { count: number }) {
   const { scrollRef, onScroll, first, last, padTop, padBottom } = useVirtualRows({
     count,
     rowHeight: ROW,

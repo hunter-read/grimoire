@@ -1,3 +1,19 @@
+import type { ReactNode } from 'react'
+
+export interface SegmentOption<K extends string = string> {
+  key: K
+  label: ReactNode
+}
+
+interface SegmentControlProps<K extends string> {
+  value: K | null | undefined
+  options: readonly SegmentOption<K>[]
+  onChange: (key: K) => void
+  equalWidth?: boolean
+  asTabs?: boolean
+  label?: string
+}
+
 /**
  * Segmented button group (single-select) used in the schedule editor and the
  * embed picker's category tabs.
@@ -10,14 +26,14 @@
  * plain single-select choices (a schedule's frequency) that switch a value
  * rather than a panel, where announcing "tab" would mislead.
  */
-export default function SegmentControl({
+export default function SegmentControl<K extends string>({
   value,
   options,
   onChange,
   equalWidth = true,
   asTabs = false,
   label,
-}) {
+}: SegmentControlProps<K>) {
   return (
     <div
       role={asTabs ? 'tablist' : undefined}
@@ -28,7 +44,7 @@ export default function SegmentControl({
         borderRadius: 10,
         padding: 4,
         gap: 2,
-        ...(equalWidth ? null : { overflowX: 'auto', scrollbarWidth: 'thin' }),
+        ...(equalWidth ? null : { overflowX: 'auto' as const, scrollbarWidth: 'thin' as const }),
       }}
     >
       {options.map((o) => (

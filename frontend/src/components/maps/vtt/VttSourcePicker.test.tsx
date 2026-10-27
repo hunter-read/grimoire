@@ -4,10 +4,10 @@ import userEvent from '@testing-library/user-event'
 import VttSourcePicker, { isAcceptedSource } from './VttSourcePicker'
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k) => k }),
+  useTranslation: () => ({ t: (k: string) => k }),
 }))
 
-const file = (name, type = '') => new File(['x'], name, { type })
+const file = (name: string, type = '') => new File(['x'], name, { type })
 
 beforeEach(() => vi.clearAllMocks())
 

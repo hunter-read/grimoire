@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import useAudioSets from './useAudioSets'
 import api from '../api'
@@ -6,6 +6,9 @@ import api from '../api'
 vi.mock('../api', () => ({
   default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
 }))
+
+// The transport is generic over the URL; the tests drive it as plain mocks.
+const mockApi = vi.mocked(api) as unknown as Record<'get' | 'post' | 'patch' | 'delete', Mock>
 
 const ready = async () => {
   const { result } = renderHook(() => useAudioSets())
@@ -15,15 +18,15 @@ const ready = async () => {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  api.get.mockResolvedValue({ sets: [] })
-  api.post.mockResolvedValue({ id: 'new' })
-  api.patch.mockResolvedValue({ id: 'a' })
-  api.delete.mockResolvedValue({})
+  mockApi.get.mockResolvedValue({ sets: [] })
+  mockApi.post.mockResolvedValue({ id: 'new' })
+  mockApi.patch.mockResolvedValue({ id: 'a' })
+  mockApi.delete.mockResolvedValue({})
 })
 
 describe('useAudioSets', () => {
   it('lists the user’s sets on mount', async () => {
-    api.get.mockResolvedValue({
+    mockApi.get.mockResolvedValue({
       sets: [{ id: 'a', kind: 'playlist', name: 'Storm', count: 2, layout: null }],
     })
     const result = await ready()
@@ -32,7 +35,7 @@ describe('useAudioSets', () => {
   })
 
   it('degrades to an empty list on failure but stops loading', async () => {
-    api.get.mockRejectedValue(new Error('boom'))
+    mockApi.get.mockRejectedValue(new Error('boom'))
     const result = await ready()
     expect(result.current.sets).toEqual([])
   })
@@ -73,7 +76,7 @@ describe('useAudioSets', () => {
       expect.objectContaining({ name: 'Padded' })
     )
 
-    api.post.mockClear()
+    mockApi.post.mockClear()
     let returned
     await act(async () => {
       returned = await result.current.save('playlist', '   ', [])
@@ -83,7 +86,7 @@ describe('useAudioSets', () => {
   })
 
   it('surfaces a save failure as an error rather than throwing', async () => {
-    api.post.mockRejectedValue(new Error('name taken'))
+    mockApi.post.mockRejectedValue(new Error('name taken'))
     const result = await ready()
     let returned
     await act(async () => {
@@ -94,7 +97,7 @@ describe('useAudioSets', () => {
   })
 
   it('clears a previous error on the next save', async () => {
-    api.post.mockRejectedValueOnce(new Error('nope'))
+    mockApi.post.mockRejectedValueOnce(new Error('nope'))
     const result = await ready()
     await act(async () => {
       await result.current.save('playlist', 'A', [])
@@ -107,16 +110,16 @@ describe('useAudioSets', () => {
   })
 
   it('loads one set without swallowing a failure', async () => {
-    api.get.mockResolvedValue({ sets: [] })
+    mockApi.get.mockResolvedValue({ sets: [] })
     const result = await ready()
 
-    api.get.mockResolvedValueOnce({ id: 'a', entries: [{ audio_id: 'x' }], missing: 1 })
+    mockApi.get.mockResolvedValueOnce({ id: 'a', entries: [{ audio_id: 'x' }], missing: 1 })
     const full = await result.current.load('a')
     expect(api.get).toHaveBeenCalledWith('/audio-sets/a')
     expect(full.missing).toBe(1)
 
     // The caller needs the rejection so it can leave the live queue alone.
-    api.get.mockRejectedValueOnce(new Error('gone'))
+    mockApi.get.mockRejectedValueOnce(new Error('gone'))
     await expect(result.current.load('a')).rejects.toThrow('gone')
   })
 
@@ -140,7 +143,7 @@ describe('useAudioSets', () => {
   })
 
   it('surfaces a rename conflict', async () => {
-    api.patch.mockRejectedValue(new Error('A set with that name already exists'))
+    mockApi.patch.mockRejectedValue(new Error('A set with that name already exists'))
     const result = await ready()
     await act(async () => {
       await result.current.rename('a', 'Taken')
@@ -158,7 +161,7 @@ describe('useAudioSets', () => {
   })
 
   it('surfaces a delete failure', async () => {
-    api.delete.mockRejectedValue(new Error('boom'))
+    mockApi.delete.mockRejectedValue(new Error('boom'))
     const result = await ready()
     await act(async () => {
       await result.current.remove('a')
@@ -167,9 +170,9 @@ describe('useAudioSets', () => {
   })
 
   it('falls back to a generic message when the error carries none', async () => {
-    api.post.mockRejectedValue({})
-    api.patch.mockRejectedValue({})
-    api.delete.mockRejectedValue({})
+    mockApi.post.mockRejectedValue({})
+    mockApi.patch.mockRejectedValue({})
+    mockApi.delete.mockRejectedValue({})
     const result = await ready()
     await act(async () => {
       await result.current.save('playlist', 'A', [])

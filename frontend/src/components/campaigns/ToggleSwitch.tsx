@@ -1,5 +1,14 @@
 /** A small on/off switch styled as a toggle. */
-export default function ToggleSwitch({ checked, onChange, label, id }) {
+import type { ReactNode } from 'react'
+
+interface ToggleSwitchProps {
+  checked: boolean
+  onChange: (checked: boolean) => void
+  label?: ReactNode
+  id?: string
+}
+
+export default function ToggleSwitch({ checked, onChange, label, id }: ToggleSwitchProps) {
   return (
     <label
       htmlFor={id}

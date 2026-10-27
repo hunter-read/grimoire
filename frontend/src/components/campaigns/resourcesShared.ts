@@ -1,6 +1,42 @@
+import type { CSSProperties } from 'react'
+import type { IconType } from 'react-icons'
 import { LuBookOpen, LuMap, LuUser, LuMusic, LuBox, LuFile } from 'react-icons/lu'
 
-export const TYPE_ICONS = {
+export interface ResourceTypeIcon {
+  Icon: IconType
+  color: string
+}
+
+/** The fields every resource-like row (a search hit, a linked resource) carries. */
+export interface ResourceLike {
+  resource_type: string
+  resource_id: string
+}
+
+/** A resource the folder tree can file: a name plus a "/"-joined folder path. */
+export interface TreeResource extends ResourceLike {
+  name: string
+  subtitle?: string | null
+}
+
+/** One folder of `buildFolderTree`'s result. */
+export interface FolderNode<R extends TreeResource = TreeResource> {
+  key: string
+  name: string
+  path: string
+  folders: FolderNode<R>[]
+  items: R[]
+}
+
+interface BuildNode<R> {
+  name: string
+  path: string
+  folders: Map<string, BuildNode<R>>
+  items: R[]
+}
+
+// Keyed by any resource_type string, so a lookup of an unknown type is undefined.
+export const TYPE_ICONS: Record<string, ResourceTypeIcon> = {
   book: { Icon: LuBookOpen, color: 'var(--type-book)' },
   map: { Icon: LuMap, color: 'var(--type-map)' },
   token: { Icon: LuUser, color: 'var(--type-token)' },
@@ -12,10 +48,10 @@ export const TYPE_ICONS = {
 // Type tabs offered by the resource picker, in display order. No "all" tab —
 // one type at a time keeps the folder tree readable; "file" resources are
 // campaign uploads, not library items, so they aren't pickable here.
-export const PICKER_TYPES = ['book', 'map', 'token', 'audio', 'model']
+export const PICKER_TYPES: readonly string[] = ['book', 'map', 'token', 'audio', 'model']
 
 /** Stable key for a resource across every picker/panel. */
-export function resourceKey(r) {
+export function resourceKey(r: ResourceLike): string {
   return `${r.resource_type}:${r.resource_id}`
 }
 
@@ -34,8 +70,12 @@ export function resourceKey(r) {
  * rest stay alphabetical) — used to float the campaign's own game system above
  * the other systems in the book tree.
  */
-export function buildFolderTree(resources, ungroupedLabel, pinName = '') {
-  const root = { folders: new Map(), items: [] }
+export function buildFolderTree<R extends TreeResource>(
+  resources: readonly R[],
+  ungroupedLabel: string,
+  pinName = ''
+): FolderNode<R>[] {
+  const root: Pick<BuildNode<R>, 'folders' | 'items'> = { folders: new Map(), items: [] }
 
   for (const r of resources) {
     const segments = (r.subtitle || '')
@@ -54,13 +94,17 @@ export function buildFolderTree(resources, ungroupedLabel, pinName = '') {
       if (!node.folders.has(seg)) {
         node.folders.set(seg, { name: seg, path, folders: new Map(), items: [] })
       }
-      node = node.folders.get(seg)
+      node = node.folders.get(seg)!
     }
     node.items.push(r)
   }
 
-  const byName = (a, b) => a.name.localeCompare(b.name)
-  const toArray = (node, typePrefix, sort) =>
+  const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name)
+  const toArray = (
+    node: Pick<BuildNode<R>, 'folders'>,
+    typePrefix: string,
+    sort: (a: BuildNode<R>, b: BuildNode<R>) => number
+  ): FolderNode<R>[] =>
     [...node.folders.values()].sort(sort).map((f) => ({
       key: `${typePrefix}:::${f.path}`,
       name: f.name,
@@ -73,7 +117,7 @@ export function buildFolderTree(resources, ungroupedLabel, pinName = '') {
   // levels are always alphabetical.
   const pin = pinName.trim()
   const topSort = pin
-    ? (a, b) => {
+    ? (a: BuildNode<R>, b: BuildNode<R>) => {
         if (a.name === pin && b.name !== pin) return -1
         if (b.name === pin && a.name !== pin) return 1
         return byName(a, b)
@@ -84,24 +128,24 @@ export function buildFolderTree(resources, ungroupedLabel, pinName = '') {
 }
 
 /** Every resource contained by a tree node (its own items plus descendants). */
-export function nodeResources(node) {
+export function nodeResources<R extends TreeResource>(node: FolderNode<R>): R[] {
   const out = [...node.items]
   for (const f of node.folders) out.push(...nodeResources(f))
   return out
 }
 
-export const RESOURCE_NAV = {
-  book: (id) => `/library/book/${id}`,
-  map: (id) => `/maps/${id}`,
-  token: (id) => `/tokens/${id}`,
-  audio: (id) => `/audio/${id}`,
-  model: (id) => `/models/${id}`,
+export const RESOURCE_NAV: Record<string, ((id: string) => string) | undefined> = {
+  book: (id: string) => `/library/book/${id}`,
+  map: (id: string) => `/maps/${id}`,
+  token: (id: string) => `/tokens/${id}`,
+  audio: (id: string) => `/audio/${id}`,
+  model: (id: string) => `/models/${id}`,
 }
 
 // Visibility selector order: public, then private, then GM-only.
 export const VISIBILITY_OPTIONS = ['public', 'private', 'gm']
 
-export const selectStyle = {
+export const selectStyle: CSSProperties = {
   appearance: 'auto',
   fontSize: 12,
   padding: '3px 6px',

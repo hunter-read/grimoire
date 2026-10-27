@@ -5,7 +5,7 @@ import SystemGroupToggle from './SystemGroupToggle'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k) => (k === 'library.groupContainers' ? 'Group collections' : k),
+    t: (k: string) => (k === 'library.groupContainers' ? 'Group collections' : k),
   }),
 }))
 

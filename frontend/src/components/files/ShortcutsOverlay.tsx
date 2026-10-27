@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 
 // Platform-appropriate name for the modifier. macOS users read "Ctrl" as a
@@ -15,19 +15,24 @@ const isMac = () =>
  * one column is a wall, and they fall naturally into moving around, acting on a
  * row, and selecting.
  */
-export default function ShortcutsOverlay({ onClose }) {
+export interface ShortcutsOverlayProps {
+  onClose: () => void
+}
+
+export default function ShortcutsOverlay({ onClose }: ShortcutsOverlayProps) {
   const { t } = useTranslation()
   const mod = isMac() ? '⌘' : 'Ctrl'
 
   // Escape closes from here rather than from the pane: this carries
   // `role="dialog"`, which the pane's own handler treats as "keys are not mine".
   useEffect(() => {
-    const onKey = (e) => e.key === 'Escape' && onClose()
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const groups = [
+  // [heading, [[keys, what they do], …]] per group.
+  const groups: [string, [string, string][]][] = [
     [
       t('files.shortcutGroupMove'),
       [
@@ -94,7 +99,7 @@ export default function ShortcutsOverlay({ onClose }) {
   )
 }
 
-const backdrop = {
+const backdrop: CSSProperties = {
   position: 'fixed',
   inset: 0,
   background: 'var(--scrim)',
@@ -105,7 +110,7 @@ const backdrop = {
   padding: 16,
 }
 
-const panel = {
+const panel: CSSProperties = {
   background: 'var(--bg-panel)',
   border: '1px solid var(--border)',
   borderRadius: 10,
@@ -115,7 +120,7 @@ const panel = {
   overflowY: 'auto',
 }
 
-const groupHeading = {
+const groupHeading: CSSProperties = {
   fontSize: 11,
   fontWeight: 600,
   textTransform: 'uppercase',
@@ -124,7 +129,7 @@ const groupHeading = {
   marginBottom: 8,
 }
 
-const row = {
+const row: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 12,
@@ -132,7 +137,7 @@ const row = {
   padding: '3px 0',
 }
 
-const kbd = {
+const kbd: CSSProperties = {
   flexShrink: 0,
   minWidth: 104,
   padding: '2px 7px',
@@ -145,7 +150,7 @@ const kbd = {
   textAlign: 'center',
 }
 
-const closeBtn = {
+const closeBtn: CSSProperties = {
   padding: '7px 15px',
   borderRadius: 6,
   fontSize: 13,

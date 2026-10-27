@@ -8,10 +8,52 @@
 // folders sit among a node's books, using only what the server sent plus the
 // books loaded so far.
 
+import type { Schema } from '../../api'
+
+/** What the shelf comparator reads of a book (or a folder's stand-in). */
+export interface ShelfSortable {
+  title?: string | null
+  product_code?: string | null
+}
+
+/** A category or subfolder of the shelf, as `buildShelf` builds it. */
+export interface ShelfNode {
+  category: string
+  name: string
+  path: string
+  /** Books sitting directly in this node. */
+  direct: number
+  /** Books at or below this node. */
+  count: number
+  /** The library directories the node stands for (rescan scopes). */
+  dirs: string[]
+  /** The sort value of the node's first own book. */
+  first: number | string | null | undefined
+  folders: Record<string, ShelfNode>
+}
+
+/** A node's direct child, as `orderedNodeEntries` lists it. */
+export type ShelfEntry<B> =
+  | { type: 'folder'; name: string; node: ShelfNode; key: ShelfSortable }
+  | { type: 'book'; book: B; key: ShelfSortable }
+
+/** How `orderedNodeEntries` sorts and places folders. */
+export interface ShelfOrderOptions {
+  sort?: string
+  order?: string
+  placement?: string
+  hasMore?: boolean
+}
+
+/** A folder's stand-in: its sort field's value (whichever field that is) and its name. */
+export type ShelfStandIn = ShelfSortable & Record<string, unknown>
+
+type Comparator = (a: ShelfSortable, b: ShelfSortable) => number
+
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
 
 // The book field each sort reads - the same field a folder's stand-in carries.
-export const SORT_FIELDS = {
+export const SORT_FIELDS: Record<string, string> = {
   title: 'title',
   year: 'year',
   page_count: 'page_count',
@@ -21,15 +63,15 @@ export const SORT_FIELDS = {
 }
 
 /** The paged-list key for one node's own books. */
-export const nodeKey = (category, path) => `${category}\u0000${path}`
+export const nodeKey = (category: string, path: string): string => `${category}\u0000${path}`
 
 /** `nodeKey`'s inverse. */
-export const splitNodeKey = (key) => {
+export const splitNodeKey = (key: string): [string, string] => {
   const cut = key.indexOf('\u0000')
   return [key.slice(0, cut), key.slice(cut + 1)]
 }
 
-const blank = (v) => v === null || v === undefined || v === ''
+const blank = (v: unknown): v is null | undefined | '' => v === null || v === undefined || v === ''
 
 /**
  * Comparator matching the server's ORDER BY for the shelf (routers/systems/
@@ -37,13 +79,13 @@ const blank = (v) => v === null || v === undefined || v === ''
  * way the server ordered them: titles naturally, undated and unnumbered books
  * last whichever way the list runs, books without a product code last.
  */
-export function shelfComparator(sort = 'title', order = 'asc') {
+export function shelfComparator(sort = 'title', order = 'asc'): Comparator {
   const dir = order === 'desc' ? -1 : 1
   const field = SORT_FIELDS[sort] || 'title'
-  const byTitle = (a, b) => dir * collator.compare(a.title || '', b.title || '')
+  const byTitle: Comparator = (a, b) => dir * collator.compare(a.title || '', b.title || '')
   if (field === 'title') return byTitle
   if (field === 'product_code') {
-    return (a, b) => {
+    return (a: ShelfSortable, b: ShelfSortable) => {
       const ca = a.product_code || ''
       const cb = b.product_code || ''
       if (!ca !== !cb) return ca ? -1 : 1
@@ -51,25 +93,25 @@ export function shelfComparator(sort = 'title', order = 'asc') {
     }
   }
   const nullsLast = field === 'year' || field === 'added_at'
-  return (a, b) => {
-    let va = a[field]
-    let vb = b[field]
+  return (a: ShelfSortable, b: ShelfSortable) => {
+    let va = (a as Record<string, unknown>)[field]
+    let vb = (b as Record<string, unknown>)[field]
     if (nullsLast && (blank(va) || blank(vb))) {
       if (blank(va) && blank(vb)) return byTitle(a, b)
       return blank(va) ? 1 : -1
     }
     if (field === 'added_at') {
-      va = Date.parse(va)
-      vb = Date.parse(vb)
+      va = Date.parse(va as string)
+      vb = Date.parse(vb as string)
     } else {
       va = va || 0
       vb = vb || 0
     }
-    return dir * (va - vb) || byTitle(a, b)
+    return dir * ((va as number) - (vb as number)) || byTitle(a, b)
   }
 }
 
-const newNode = (category, name, path) => ({
+const newNode = (category: string, name: string, path: string): ShelfNode => ({
   category,
   name,
   path,
@@ -89,10 +131,14 @@ const newNode = (category, name, path) => ({
  * first own book. A row for "Monsters/Deep" creates "Monsters" too, empty if
  * nothing sits directly in it, as buildFolderTree did.
  */
-export function buildShelf(groups = [], sort = 'title', order = 'asc') {
+export function buildShelf(
+  groups: Schema<'ShelfFolderGroup'>[] = [],
+  sort = 'title',
+  order = 'asc'
+): Record<string, ShelfNode> {
   const cmp = shelfComparator(sort, order)
   const field = SORT_FIELDS[sort] || 'title'
-  const roots = {}
+  const roots: Record<string, ShelfNode> = {}
   for (const g of groups) {
     const category = g.category || 'core'
     if (!roots[category]) roots[category] = newNode(category, '', '')
@@ -108,10 +154,11 @@ export function buildShelf(groups = [], sort = 'title', order = 'asc') {
     if (g.dir) node.dirs.push(g.dir)
     if (!blank(g.first) && field !== 'title') {
       const candidate = { [field]: g.first }
-      if (blank(node.first) || cmp(candidate, { [field]: node.first }) < 0) node.first = g.first
+      if (blank(node.first) || cmp(candidate, { [field]: node.first } as ShelfSortable) < 0)
+        node.first = g.first
     }
   }
-  const total = (node) => {
+  const total = (node: ShelfNode): number => {
     node.count = node.direct + Object.values(node.folders).reduce((n, c) => n + total(c), 0)
     return node.count
   }
@@ -123,11 +170,13 @@ export function buildShelf(groups = [], sort = 'title', order = 'asc') {
  * What a folder sorts as among books: its name for the title sort, otherwise
  * the value of the first book anywhere beneath it.
  */
-export function standIn(node, sort = 'title', order = 'asc') {
+export function standIn(node: ShelfNode, sort = 'title', order = 'asc'): ShelfStandIn {
   const field = SORT_FIELDS[sort] || 'title'
   if (field === 'title') return { title: node.name }
   const cmp = shelfComparator(sort, order)
-  let best = blank(node.first) ? null : { [field]: node.first, title: node.name }
+  let best: ShelfStandIn | null = blank(node.first)
+    ? null
+    : { [field]: node.first, title: node.name }
   for (const child of Object.values(node.folders)) {
     const sub = standIn(child, sort, order)
     if (blank(sub[field])) continue
@@ -146,23 +195,23 @@ export function standIn(node, sort = 'title', order = 'asc') {
  * until the books before it have arrived, so pages landing never reshuffle
  * what is already on screen.
  */
-export function orderedNodeEntries(
-  node,
-  books = [],
-  { sort = 'title', order = 'asc', placement = 'first', hasMore = false } = {}
-) {
+export function orderedNodeEntries<B extends ShelfSortable>(
+  node: ShelfNode,
+  books: B[] = [],
+  { sort = 'title', order = 'asc', placement = 'first', hasMore = false }: ShelfOrderOptions = {}
+): ShelfEntry<B>[] {
   const cmp = shelfComparator(sort, order)
   const folders = Object.values(node.folders)
     .map((child) => ({
-      type: 'folder',
+      type: 'folder' as const,
       name: child.name,
       node: child,
       key: standIn(child, sort, order),
     }))
     .sort((a, b) => cmp(a.key, b.key) || collator.compare(a.name, b.name))
-  const bookEntries = books.map((book) => ({ type: 'book', book, key: book }))
+  const bookEntries = books.map((book) => ({ type: 'book' as const, book, key: book }))
   if (placement !== 'mixed') return [...folders, ...bookEntries]
-  const out = []
+  const out: ShelfEntry<B>[] = []
   let f = 0
   let b = 0
   while (f < folders.length || b < bookEntries.length) {
@@ -179,7 +228,7 @@ export function orderedNodeEntries(
 }
 
 /** Every directory at or below a node. */
-export function nodeDirs(node) {
+export function nodeDirs(node: ShelfNode): string[] {
   return [...node.dirs, ...Object.values(node.folders).flatMap(nodeDirs)]
 }
 
@@ -188,11 +237,15 @@ export function nodeDirs(node) {
  * `fallback` (the system's own folder) when they diverge above `depth`.
  * Mirrors groupScope in rescanScope.js, from directories rather than books.
  */
-export function nodeScope(node, depth = 2, fallback = null) {
+export function nodeScope(
+  node: ShelfNode,
+  depth = 2,
+  fallback: string | null = null
+): string | null {
   const dirs = nodeDirs(node).filter(Boolean)
   if (dirs.length === 0) return fallback
   const split = dirs.map((d) => d.split('/'))
-  const common = []
+  const common: string[] = []
   for (let i = 0; i < split[0].length; i++) {
     const seg = split[0][i]
     if (split.every((p) => p[i] === seg)) common.push(seg)
@@ -202,7 +255,7 @@ export function nodeScope(node, depth = 2, fallback = null) {
 }
 
 /** The category folder's own name ("GM Tools"), from any directory under it. */
-export function categoryFolderName(node, depth = 2) {
+export function categoryFolderName(node: ShelfNode, depth = 2): string | null {
   const dir = nodeDirs(node).find((d) => d.split('/').length > depth)
   return dir ? dir.split('/')[depth] : null
 }

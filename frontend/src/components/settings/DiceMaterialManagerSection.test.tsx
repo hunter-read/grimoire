@@ -6,7 +6,8 @@ import api from '../../api'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k, o) => (o?.defaultValue ? o.defaultValue : o ? `${k}:${JSON.stringify(o)}` : k),
+    t: (k: string, o?: Record<string, unknown>) =>
+      o?.defaultValue ? o.defaultValue : o ? `${k}:${JSON.stringify(o)}` : k,
   }),
 }))
 vi.mock('../Spinner', () => ({ default: () => <div>spinner</div> }))
@@ -20,9 +21,9 @@ const items = [
 
 beforeEach(() => {
   vi.clearAllMocks()
-  api.get.mockResolvedValue({ dice_materials: items })
-  api.post.mockResolvedValue({ id: 'n1', name: 'Fudge Dice', group: 'Dice' })
-  api.delete.mockResolvedValue({ status: 'ok' })
+  vi.mocked(api.get).mockResolvedValue({ dice_materials: items })
+  vi.mocked(api.post).mockResolvedValue({ id: 'n1', name: 'Fudge Dice', group: 'Dice' })
+  vi.mocked(api.delete).mockResolvedValue({ status: 'ok' })
 })
 
 describe('DiceMaterialManagerSection', () => {

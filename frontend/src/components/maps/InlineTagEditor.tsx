@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import TagPicker from '../metadata/TagPicker'
 
@@ -8,11 +9,23 @@ import TagPicker from '../metadata/TagPicker'
  * everywhere; saves on every change and offers a Done button to finish. Tags
  * suggestions are scoped to `resourceType` (map/token/audio) when given.
  */
-export default function InlineTagEditor({ tags, onSave, onCancel, resourceType = null }) {
+export interface InlineTagEditorProps {
+  tags: string[]
+  onSave: (tags: string[]) => void
+  onCancel: () => void
+  resourceType?: string | null
+}
+
+export default function InlineTagEditor({
+  tags,
+  onSave,
+  onCancel,
+  resourceType = null,
+}: InlineTagEditorProps) {
   const { t } = useTranslation()
   const [draft, setDraft] = useState([...tags])
 
-  const update = (next) => {
+  const update = (next: string[]) => {
     setDraft(next)
     onSave(next)
   }
@@ -29,7 +42,7 @@ export default function InlineTagEditor({ tags, onSave, onCancel, resourceType =
   )
 }
 
-const cancelBtnStyle = {
+const cancelBtnStyle: CSSProperties = {
   padding: '3px 10px',
   borderRadius: 6,
   fontSize: 12,

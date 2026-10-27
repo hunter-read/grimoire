@@ -1,20 +1,22 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { ImgHTMLAttributes } from 'react'
 import CoverPicker from './CoverPicker'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k, opts) => (opts?.count !== undefined ? `${k}:${opts.count}` : k),
+    t: (k: string, opts?: { count?: number }) =>
+      opts?.count !== undefined ? `${k}:${opts.count}` : k,
   }),
 }))
 
-vi.mock('../../api', () => ({ mediaUrl: (p) => `http://localhost${p}` }))
+vi.mock('../../api', () => ({ mediaUrl: (p: string) => `http://localhost${p}` }))
 vi.mock('../LazyImg', () => ({
-  default: ({ alt, ...rest }) => <img alt={alt} {...rest} />,
+  default: ({ alt, ...rest }: ImgHTMLAttributes<HTMLImageElement>) => <img alt={alt} {...rest} />,
 }))
 
-const books = (n, category = 'core') =>
+const books = (n: number, category = 'core') =>
   Array.from({ length: n }, (_, i) => ({
     id: `b${i}`,
     title: `Book ${String(i).padStart(2, '0')}`,

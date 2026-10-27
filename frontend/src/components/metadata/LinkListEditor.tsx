@@ -1,11 +1,23 @@
 import { useTranslation } from 'react-i18next'
 import { LuX, LuPlus } from 'react-icons/lu'
+import type { LinkRow } from './metadataUtils'
 
 /**
  * Repeatable list of labeled links ([{ label, url }]). Used for a system's
  * generic URLs and character-builder URLs, and a book's URLs. Empty rows are
  * filtered out by the caller on save (see cleanLinks).
  */
+export type EditableLink = LinkRow
+
+export interface LinkListEditorProps {
+  links: EditableLink[]
+  onChange: (links: EditableLink[]) => void
+  addLabel: string
+  labelPlaceholder?: string
+  urlPlaceholder?: string
+  idPrefix?: string
+}
+
 export default function LinkListEditor({
   links,
   onChange,
@@ -13,13 +25,13 @@ export default function LinkListEditor({
   labelPlaceholder,
   urlPlaceholder,
   idPrefix = 'link',
-}) {
+}: LinkListEditorProps) {
   const { t } = useTranslation()
-  const setLink = (idx, key, value) =>
+  const setLink = (idx: number, key: keyof EditableLink, value: string) =>
     onChange(links.map((l, i) => (i === idx ? { ...l, [key]: value } : l)))
 
   const addLink = () => onChange([...links, { label: '', url: '' }])
-  const removeLink = (idx) => onChange(links.filter((_, i) => i !== idx))
+  const removeLink = (idx: number) => onChange(links.filter((_, i) => i !== idx))
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

@@ -11,7 +11,7 @@
 const HEX8 = /^[0-9a-f]{8}$/
 
 /** Normalise user/stored input to bare lowercase 8-digit ARGB, or null. */
-export function normalizeArgb(value) {
+export function normalizeArgb(value: unknown): string | null {
   if (typeof value !== 'string') return null
   let v = value.trim().replace(/^#/, '').toLowerCase()
   if (v.length === 6) v = `ff${v}`
@@ -19,19 +19,19 @@ export function normalizeArgb(value) {
 }
 
 /** ARGB hex → `#rrggbb`, the form an `<input type="color">` requires. */
-export function argbToRgbHex(argb) {
+export function argbToRgbHex(argb: string | null | undefined): string {
   const v = normalizeArgb(argb)
   return v ? `#${v.slice(2)}` : '#ffffff'
 }
 
 /** ARGB hex → alpha as 0–1, for opacity controls and canvas rendering. */
-export function argbToAlpha(argb) {
+export function argbToAlpha(argb: string | null | undefined): number {
   const v = normalizeArgb(argb)
   return v ? parseInt(v.slice(0, 2), 16) / 255 : 1
 }
 
 /** `#rrggbb` + alpha 0–1 → the ARGB hex the file stores. */
-export function rgbHexToArgb(rgbHex, alpha = 1) {
+export function rgbHexToArgb(rgbHex: string | null | undefined, alpha = 1): string {
   const rgb = (rgbHex || '').trim().replace(/^#/, '').toLowerCase()
   const safe = /^[0-9a-f]{6}$/.test(rgb) ? rgb : 'ffffff'
   const a = Math.round(Math.max(0, Math.min(1, alpha)) * 255)
@@ -41,7 +41,7 @@ export function rgbHexToArgb(rgbHex, alpha = 1) {
 }
 
 /** ARGB hex → a CSS `rgba(...)` string for drawing the preview. */
-export function argbToCss(argb, alphaScale = 1) {
+export function argbToCss(argb: string | null | undefined, alphaScale = 1): string {
   const v = normalizeArgb(argb) || 'ffffffff'
   const a = (parseInt(v.slice(0, 2), 16) / 255) * alphaScale
   const r = parseInt(v.slice(2, 4), 16)

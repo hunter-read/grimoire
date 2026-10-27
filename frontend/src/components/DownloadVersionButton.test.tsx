@@ -5,12 +5,12 @@ import DownloadVersionButton from './DownloadVersionButton'
 
 vi.mock('../api', () => ({
   default: { get: vi.fn() },
-  mediaUrl: (p) => `http://localhost/api${p}`,
+  mediaUrl: (p: string) => `http://localhost/api${p}`,
 }))
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k) => {
+    t: (k: string) => {
       if (k === 'common.download') return 'Download'
       if (k === 'variants.mainVersion') return 'Main version'
       if (k.startsWith('variants.kind.')) return k.replace('variants.kind.', '')
@@ -120,7 +120,7 @@ describe('DownloadVersionButton', () => {
         <DownloadVersionButton
           type="maps"
           id="m1"
-          item={{ id: 'm1', variants: [{ id: 'm2', variant_kind: 'night' }] }}
+          item={{ id: 'm1', variants: [{ id: 'm2', variant_kind: 'night' } as { id: string }] }}
           extraItems={uvtt}
         />
       )

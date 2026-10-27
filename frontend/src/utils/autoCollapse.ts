@@ -12,7 +12,7 @@ export const CORE_OPEN_MAX = 5
  * should start with them collapsed. A lone group is left open: collapsing the
  * only thing on the page just adds a click before anything shows.
  */
-export function shouldAutoCollapse(count, groupCount = Infinity) {
+export function shouldAutoCollapse(count: number, groupCount: number = Infinity): boolean {
   return count > AUTO_COLLAPSE_THRESHOLD && groupCount > 1
 }
 
@@ -20,8 +20,10 @@ export function shouldAutoCollapse(count, groupCount = Infinity) {
  * The book categories a system page starts with collapsed, given all of its
  * books. Every category collapses on a long page, except a small core.
  */
-export function defaultCollapsedCategories(books) {
-  const counts = {}
+export function defaultCollapsedCategories(
+  books: readonly { category?: string | null }[] | null | undefined
+): Set<string> {
+  const counts: Record<string, number> = {}
   for (const b of books || []) {
     const cat = b.category || 'core'
     counts[cat] = (counts[cat] || 0) + 1
@@ -33,10 +35,10 @@ export function defaultCollapsedCategories(books) {
  * `defaultCollapsedCategories` from per-category counts rather than the books
  * themselves - what a paged shelf has before any book loads (issue #221).
  */
-export function defaultCollapsedFromCounts(counts = {}) {
+export function defaultCollapsedFromCounts(counts: Record<string, number> = {}): Set<string> {
   const cats = Object.keys(counts)
   const total = cats.reduce((n, c) => n + counts[c], 0)
-  if (!shouldAutoCollapse(total, cats.length)) return new Set()
+  if (!shouldAutoCollapse(total, cats.length)) return new Set<string>()
   const keepCore = (counts.core || 0) <= CORE_OPEN_MAX
   return new Set(cats.filter((cat) => !(keepCore && cat === 'core')))
 }

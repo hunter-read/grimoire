@@ -2,16 +2,17 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import InstalledPacks from './InstalledPacks'
+import type { Schema } from '../../api'
 
 const mockPacks = vi.fn()
 const mockUninstall = vi.fn()
 const mockBrowsePacks = vi.fn()
 let mockUser = { role: 'admin' }
 vi.mock('../../api', () => ({
-  content: { packs: (...a) => mockPacks(...a) },
+  content: { packs: (...a: unknown[]) => mockPacks(...a) },
   rulesets: {
-    uninstallPack: (...a) => mockUninstall(...a),
-    browsePacks: (...a) => mockBrowsePacks(...a),
+    uninstallPack: (...a: unknown[]) => mockUninstall(...a),
+    browsePacks: (...a: unknown[]) => mockBrowsePacks(...a),
     installPack: vi.fn(),
   },
 }))
@@ -26,7 +27,9 @@ const SRD = {
   entry_count: 1200,
 }
 
-const SCHEMAS = [{ schema_id: 'dnd-5e-2024', name: 'D&D 5th Edition (2024)' }]
+const SCHEMAS = [
+  { schema_id: 'dnd-5e-2024', name: 'D&D 5th Edition (2024)' },
+] as Schema<'SchemaSummary'>[]
 
 const renderPacks = (props = {}) =>
   render(<InstalledPacks schemas={SCHEMAS} onChanged={vi.fn()} {...props} />)

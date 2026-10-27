@@ -1,13 +1,16 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { ComponentProps } from 'react'
 import LayoutRenderer from './LayoutRenderer'
+import type { LayoutNode } from './LayoutRenderer'
 import { CharacterMediaContext } from './characterMedia'
 
 vi.mock('../../api', () => ({
   characters: {
-    portraitUrl: (id, v) => `/api/characters/${id}/portrait?v=${v}`,
-    imageUrl: (id, field, v) => `/api/characters/${id}/images/${field}?v=${v}`,
+    portraitUrl: (id: string, v: number) => `/api/characters/${id}/portrait?v=${v}`,
+    imageUrl: (id: string, field: string, v: number) =>
+      `/api/characters/${id}/images/${field}?v=${v}`,
   },
 }))
 
@@ -25,7 +28,9 @@ const DOCUMENT = {
   computed: { str_mod: { label: 'STR Mod' } },
 }
 
-const renderLayout = (ast, props = {}) =>
+type RendererProps = Partial<ComponentProps<typeof LayoutRenderer>>
+
+const renderLayout = (ast: LayoutNode[], props: RendererProps = {}) =>
   render(
     <LayoutRenderer
       ast={ast}
@@ -70,7 +75,7 @@ describe('LayoutRenderer', () => {
   })
 
   it('shows a g-if subtree only when its test passes', () => {
-    const ast = (test) => [
+    const ast = (test: string): LayoutNode[] => [
       { tag: 'g-if', attrs: { test }, children: [{ tag: 'p', children: [{ text: 'Caster' }] }] },
     ]
     const { unmount } = renderLayout(ast('strength > 10'))
@@ -121,7 +126,7 @@ describe('LayoutRenderer', () => {
       ])
       const div = container.querySelector('div.x')
       expect(div).not.toBeNull()
-      expect(div.getAttribute('onclick')).toBeNull()
+      expect(div!.getAttribute('onclick')).toBeNull()
       expect(onclick).not.toHaveBeenCalled()
     })
 
@@ -129,7 +134,7 @@ describe('LayoutRenderer', () => {
       const { container } = renderLayout([
         { tag: 'div', attrs: { style: 'position:fixed;inset:0', class: 'y' }, children: [] },
       ])
-      expect(container.querySelector('div.y').getAttribute('style')).toBeNull()
+      expect(container.querySelector('div.y')!.getAttribute('style')).toBeNull()
     })
 
     it('does not render a script tag carried in the AST', () => {
@@ -137,7 +142,7 @@ describe('LayoutRenderer', () => {
         { tag: 'script', attrs: {}, children: [{ text: 'window.__pwned = true' }] },
       ])
       expect(container.querySelector('script')).toBeNull()
-      expect(window.__pwned).toBeUndefined()
+      expect((window as unknown as { __pwned?: unknown }).__pwned).toBeUndefined()
     })
 
     it('does not render an iframe carried in the AST', () => {
@@ -158,7 +163,7 @@ describe('LayoutRenderer', () => {
       />
     )
     const style = document.head.querySelector('style[data-character-sheet]')
-    expect(style.textContent).toContain('.gc-sheet .a')
+    expect(style!.textContent).toContain('.gc-sheet .a')
 
     unmount()
     expect(document.head.querySelector('style[data-character-sheet]')).toBeNull()
@@ -193,7 +198,7 @@ describe('LayoutRenderer — Phase 2', () => {
     { name: 'Rope', qty: 2 },
   ]
 
-  const renderDoc = (ast, props = {}) =>
+  const renderDoc = (ast: LayoutNode[], props: RendererProps = {}) =>
     render(
       <LayoutRenderer
         ast={ast}
@@ -278,7 +283,7 @@ describe('LayoutRenderer — Phase 2', () => {
 })
 
 describe('LayoutRenderer — any value can be set', () => {
-  const value = (name) => [{ tag: 'g-value', attrs: { name }, children: [] }]
+  const value = (name: string): LayoutNode[] => [{ tag: 'g-value', attrs: { name }, children: [] }]
   const computedNode = [{ tag: 'g-computed', attrs: { name: 'str_mod' }, children: [] }]
 
   it('lets a calculated g-value be overridden', async () => {
@@ -355,7 +360,7 @@ describe('LayoutRenderer — any value can be set', () => {
 })
 
 describe('LayoutRenderer — pages', () => {
-  const pages = [
+  const pages: LayoutNode[] = [
     {
       tag: 'g-tabs',
       attrs: {},
@@ -404,7 +409,7 @@ describe('LayoutRenderer — one box per option', () => {
       skills: { type: 'multiselect', options: ['Arcana', 'Athletics', 'Stealth'] },
     },
   }
-  const option = (value) => [
+  const option = (value: string): LayoutNode[] => [
     {
       tag: 'g-option',
       attrs: { field: 'skills', value, label: `${value} proficiency` },
@@ -463,13 +468,13 @@ describe('LayoutRenderer — collapsible sections', () => {
     const { container } = renderLayout(section())
     const details = container.querySelector('details')
     expect(details).not.toBeNull()
-    expect(details.open).toBe(false)
+    expect(details!.open).toBe(false)
     expect(container.querySelector('summary')).toHaveTextContent('Other details')
   })
 
   it('honours open as a boolean attribute', () => {
     const { container } = renderLayout(section({ open: '' }))
-    expect(container.querySelector('details').open).toBe(true)
+    expect(container.querySelector('details')!.open).toBe(true)
   })
 })
 
@@ -502,9 +507,9 @@ describe('LayoutRenderer — field variants', () => {
         onChange: vi.fn(),
       }
     )
-    const box = container.querySelector('input.gc-option')
+    const box = container.querySelector<HTMLInputElement>('input.gc-option')
     expect(box).toHaveClass('expertise')
-    expect(box.style.accentColor).toBe('var(--gold)')
+    expect(box!.style.accentColor).toBe('var(--gold)')
   })
 })
 
@@ -588,7 +593,7 @@ describe('LayoutRenderer — boxes to tick off', () => {
     })
     const boxes = screen.getAllByRole('checkbox')
     expect(boxes).toHaveLength(4)
-    expect(boxes.filter((box) => box.checked)).toHaveLength(1)
+    expect(boxes.filter((box) => (box as HTMLInputElement).checked)).toHaveLength(1)
   })
 
   it('ticking a box casts - everything up to it is used', async () => {
@@ -619,7 +624,7 @@ describe('LayoutRenderer — boxes to tick off', () => {
       onError: vi.fn(),
       openPortrait: vi.fn(),
     }
-    const withMedia = (ast, data = {}) =>
+    const withMedia = (ast: LayoutNode[], data: Record<string, unknown> = {}) =>
       render(
         <CharacterMediaContext.Provider value={media}>
           <LayoutRenderer

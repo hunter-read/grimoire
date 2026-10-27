@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest'
+import type { TFunction } from 'i18next'
 import gallerySubtitle from './gallerySubtitle'
 
 // Stand-in for i18next's `t`: records which key was asked for and echoes the
 // interpolation values, so the tests assert on key choice rather than wording.
-const t = (key, opts) => `${key}:${JSON.stringify(opts)}`
+const t = ((key: string, opts: unknown) => `${key}:${JSON.stringify(opts)}`) as unknown as TFunction
 
 describe('gallerySubtitle', () => {
   it('uses the plain subtitle when the filters hide nothing', () => {

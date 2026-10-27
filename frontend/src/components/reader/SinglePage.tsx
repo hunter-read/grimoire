@@ -1,6 +1,20 @@
 import { mediaUrl } from '../../api'
 import TextOverlay from './TextOverlay'
 import { PAGE_WIDTH, animStyle } from './pageRender'
+import type { PageMotion, PageUrl, RenderTiles, WordsCacheRef } from './pageRender'
+
+export interface SinglePageProps extends PageMotion {
+  /** Required unless `pageUrl` is given. */
+  bookId?: string
+  currentPage: number
+  wordsCacheRef?: WordsCacheRef
+  getAlt: (page: number) => string
+  activeSearchQuery?: string | null
+  activeHighlight?: string | null
+  pageUrl?: PageUrl
+  renderWidth?: number
+  renderTiles?: RenderTiles
+}
 
 /**
  * Single-page view for the reader and PDF-map viewer.
@@ -29,8 +43,9 @@ export default function SinglePage({
   pageUrl,
   renderWidth = PAGE_WIDTH,
   renderTiles,
-}) {
-  const urlFor = pageUrl ?? ((p, width) => mediaUrl(`/books/${bookId}/page/${p}`, { width }))
+}: SinglePageProps) {
+  const urlFor =
+    pageUrl ?? ((p: number, width: number) => mediaUrl(`/books/${bookId}/page/${p}`, { width }))
   const wd = wordsCacheRef?.current[currentPage]
   return (
     <div

@@ -22,23 +22,29 @@ const ID_SUFFIX_RE = /:id-([0-9A-Za-z_-]+)$/
 
 export const EMBED_PREFIXES = ['book:', 'map:', 'token:', 'audio:', 'model:', 'file:', 'image:']
 
-export function isEmbed(target) {
+export function isEmbed(target: string | null | undefined): boolean {
   const lower = (target || '').trim().toLowerCase()
   return EMBED_PREFIXES.some((p) => lower.startsWith(p))
 }
 
 /** Split a raw [[...]] target into { title, pageId, heading }. */
-export function parseTarget(target) {
+export interface ParsedTarget {
+  title: string
+  pageId: string | null
+  heading: string | null
+}
+
+export function parseTarget(target: string | null | undefined): ParsedTarget {
   let raw = (target || '').trim()
 
-  let heading = null
+  let heading: string | null = null
   const hashAt = raw.indexOf(':#')
   if (hashAt !== -1) {
     heading = raw.slice(hashAt + 2).trim() || null
     raw = raw.slice(0, hashAt)
   }
 
-  let pageId = null
+  let pageId: string | null = null
   const m = ID_SUFFIX_RE.exec(raw)
   if (m) {
     pageId = m[1]
@@ -49,7 +55,11 @@ export function parseTarget(target) {
 }
 
 /** Inverse of parseTarget — assemble a target string from its parts. */
-export function buildTarget(title, pageId = null, heading = null) {
+export function buildTarget(
+  title: string | null | undefined,
+  pageId: string | null = null,
+  heading: string | null = null
+): string {
   let out = (title || '').trim()
   if (pageId) out += `:id-${pageId}`
   if (heading) out += `:#${heading}`
@@ -61,7 +71,7 @@ export function buildTarget(title, pageId = null, heading = null) {
 // the `u` flag) instead of JS's ASCII-only \w — otherwise non-ASCII letters like
 // ä/ö/ü/ß are stripped and the slug diverges (issue #252). `_` is kept here (as
 // \w does) then collapsed to `-` below.
-export function slugify(title) {
+export function slugify(title: string | null | undefined): string {
   return (
     (title || '')
       .toLowerCase()
@@ -72,7 +82,7 @@ export function slugify(title) {
 }
 
 /** Case/whitespace-insensitive key for matching a :#Heading to a heading. */
-export function normalizeHeading(text) {
+export function normalizeHeading(text: string | null | undefined): string {
   return (text || '').trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
@@ -84,7 +94,10 @@ export function normalizeHeading(text) {
  * rather than falling back to the title, which would silently re-point the link
  * at whatever page holds that title now (issue #287).
  */
-export function resolvePage(link, pages) {
+export function resolvePage<P extends { id: string; title: string; slug?: string | null }>(
+  link: Pick<ParsedTarget, 'title' | 'pageId'> | null | undefined,
+  pages: readonly P[]
+): P | null {
   if (!link) return null
   if (link.pageId) return pages.find((p) => p.id === link.pageId) || null
   const slug = slugify(link.title)
@@ -97,7 +110,15 @@ export function resolvePage(link, pages) {
  * Ties break by level first (H1 over H2 over H3), then document order — the most
  * prominent match wins, and among equals the first one does.
  */
-export function findHeading(headings, wanted) {
+export interface Heading {
+  level: number
+  text: string
+}
+
+export function findHeading<H extends Heading>(
+  headings: readonly H[] | null | undefined,
+  wanted: string | null | undefined
+): H | null {
   const key = normalizeHeading(wanted)
   if (!key) return null
   const matches = (headings || [])
@@ -121,17 +142,36 @@ export function findHeading(headings, wanted) {
  * Entries are indexed under every word start in the title, so typing "gob"
  * surfaces "Boblin the Goblin" as well as "Goblin Camp".
  */
-export class TitleTrie {
+/** One autocomplete suggestion: a page, or a heading on one. */
+export interface TrieEntry {
+  key: string
+  label: string
+  detail: string | null
+  target: string
+  pageId: string
+}
+
+type Ranked<E> = E & { _seq: number }
+
+interface TrieNode<E> {
+  children: Map<string, TrieNode<E>>
+  entries: Ranked<E>[]
+}
+
+export class TitleTrie<E extends { key: string } = TrieEntry> {
+  root: TrieNode<E>
+  _seq: number
+
   constructor() {
     this.root = { children: new Map(), entries: [] }
     this._seq = 0
   }
 
   /** Index one entry under the given searchable text. */
-  insert(text, entry) {
+  insert(text: string | null | undefined, entry: E): void {
     const key = (text || '').toLowerCase().trim()
     if (!key) return
-    const ranked = { ...entry, _seq: this._seq++ }
+    const ranked: Ranked<E> = { ...entry, _seq: this._seq++ }
     // Index each word start so a mid-title word still matches a typed prefix.
     const starts = [0]
     for (let i = 1; i < key.length; i++) {
@@ -158,13 +198,13 @@ export class TitleTrie {
    * Entries whose title (or one of its words) starts with `prefix`.
    * An empty prefix returns everything, in insertion order.
    */
-  search(prefix, limit = 8) {
+  search(prefix: string | null | undefined, limit = 8): Ranked<E>[] {
     const key = (prefix || '').toLowerCase().trim()
-    let pool
+    let pool: Ranked<E>[]
     if (!key) {
       pool = this._all()
     } else {
-      let node = this.root
+      let node: TrieNode<E> | undefined = this.root
       for (const ch of key) {
         node = node.children.get(ch)
         if (!node) return []
@@ -173,8 +213,8 @@ export class TitleTrie {
     }
     // De-duplicate (an entry indexed under several word starts appears once) and
     // restore insertion order, which callers set to their preferred ranking.
-    const seen = new Set()
-    const out = []
+    const seen = new Set<string>()
+    const out: Ranked<E>[] = []
     for (const e of [...pool].sort((a, b) => a._seq - b._seq)) {
       if (seen.has(e.key)) continue
       seen.add(e.key)
@@ -184,10 +224,10 @@ export class TitleTrie {
     return out
   }
 
-  _all() {
-    const seen = new Set()
-    const out = []
-    const walk = (node) => {
+  _all(): Ranked<E>[] {
+    const seen = new Set<string>()
+    const out: Ranked<E>[] = []
+    const walk = (node: TrieNode<E>) => {
       for (const e of node.entries) {
         if (!seen.has(e.key)) {
           seen.add(e.key)
@@ -208,8 +248,17 @@ export class TitleTrie {
  * `:id-` only when the page's title is ambiguous, so ordinary links stay readable
  * and ids show up exactly where they're needed to address a colliding page.
  */
-export function buildTitleTrie(pages) {
-  const trie = new TitleTrie()
+/** A page as the /wiki/titles payload lists it (`Schema<'WikiPageTitleOut'>`). */
+export interface TitlePage {
+  id: string
+  title: string
+  ambiguous?: boolean
+  parent_title?: string | null
+  headings?: readonly Heading[] | null
+}
+
+export function buildTitleTrie(pages: readonly TitlePage[] | null | undefined): TitleTrie {
+  const trie = new TitleTrie<TrieEntry>()
   for (const p of pages || []) {
     const pinned = p.ambiguous ? p.id : null
     // Same-named pages are otherwise indistinguishable in the list, so an

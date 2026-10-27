@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -5,19 +6,23 @@ import { MemoryRouter } from 'react-router-dom'
 import ResourceRow from './ResourceRow'
 
 vi.mock('../../api', () => ({
-  campaigns: { fileUrl: (cid, id) => `http://localhost/campaigns/${cid}/files/${id}` },
-  mediaUrl: (p) => `http://localhost${p}`,
+  campaigns: {
+    fileUrl: (cid: string, id: string) => `http://localhost/campaigns/${cid}/files/${id}`,
+  },
+  mediaUrl: (p: string) => `http://localhost${p}`,
 }))
 vi.mock('../audio/AudioPlayer', () => ({
-  default: ({ track }) => <span data-testid="audio-player">{track?.id}</span>,
+  default: ({ track }: ComponentProps<typeof import('../audio/AudioPlayer').default>) => (
+    <span data-testid="audio-player">{track?.id}</span>
+  ),
 }))
 
-let currentId = null
-let playingId = null
+let currentId: string | null = null
+let playingId: string | null = null
 vi.mock('../../context/AudioPlayerContext', () => ({
   useAudioPlayer: () => ({
-    isCurrent: (id) => id === currentId,
-    isPlayingId: (id) => id === playingId,
+    isCurrent: (id: string) => id === currentId,
+    isPlayingId: (id: string) => id === playingId,
   }),
 }))
 
@@ -151,7 +156,7 @@ describe('ResourceRow — other types', () => {
 
 describe('ResourceRow — now playing', () => {
   // The row's title is a real <Link>, so it needs a router context.
-  const renderRow = (over) =>
+  const renderRow = (over: object = {}) =>
     render(
       <MemoryRouter>
         <ResourceRow {...baseProps()} resource={resource(over)} />

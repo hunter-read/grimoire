@@ -1,4 +1,28 @@
 import FieldRenderer from './FieldRenderer'
+import type { FieldDefinition } from './FieldRenderer'
+
+/** A content type as a schema declares it: its fields and how an entry reads. */
+export interface ContentTypeDefinition {
+  label?: string
+  label_plural?: string
+  identity_field?: string
+  compact_display?: string
+  fields?: Record<string, FieldDefinition>
+  [key: string]: unknown
+}
+
+/** A content_ref/content_list field's definition - the keys those fields read. */
+export interface ContentFieldDefinition extends FieldDefinition {
+  allow_freeform?: boolean
+  per_entry_fields?: Record<string, FieldDefinition>
+  display_columns?: (string | { key: string; label?: string })[]
+}
+
+export interface ContentEntryDetailProps {
+  // A catalog entry, or anything carrying an entry's values under `data`.
+  entry: { data?: Record<string, unknown> }
+  typeDefinition: ContentTypeDefinition
+}
 
 /**
  * One entry, rendered read-only through the same FieldRenderer the sheet uses.
@@ -7,7 +31,7 @@ import FieldRenderer from './FieldRenderer'
  * to catalog entries, so the component that draws a character's fields draws an
  * entry's too.
  */
-export default function ContentEntryDetail({ entry, typeDefinition }) {
+export default function ContentEntryDetail({ entry, typeDefinition }: ContentEntryDetailProps) {
   const fields = typeDefinition.fields || {}
   const identity = typeDefinition.identity_field || 'name'
 

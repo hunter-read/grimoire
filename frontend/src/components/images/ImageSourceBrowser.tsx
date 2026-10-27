@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuSearch, LuImageOff } from 'react-icons/lu'
 import { imageSources } from '../../api'
+import type { Schema } from '../../api'
 import ImageSourceFolder from './ImageSourceFolder'
 import ImageSourceVariants from './ImageSourceVariants'
 import LazyImg from '../LazyImg'
@@ -27,6 +28,43 @@ const TYPES = ['map', 'token', 'book', 'audio']
  * lives elsewhere is still one upload away.
  */
 export const TOKEN_SOURCE_TYPES = ['token']
+
+/** An image Grimoire already holds, as the browser hands it back. */
+export interface ImageSourcePick {
+  source_type: string
+  source_id: string
+  name?: string
+  preview: string | null
+}
+
+/** One tile: a library search hit, or one of the campaign's own images. */
+export interface ImageSourceRow {
+  resource_type: string
+  resource_id: string
+  name?: string
+  subtitle?: string
+  thumb?: string | null
+  has_thumbnail?: boolean | null
+  variant_kind?: string
+  variant_label?: string
+  variants?: Schema<'ResourceSearchVariant'>[]
+}
+
+/** An image already attached to a campaign. */
+export interface CampaignImage {
+  id: string
+  name?: string
+  url?: string | null
+}
+
+export interface ImageSourceBrowserProps {
+  campaignImages?: CampaignImage[] | null
+  types?: string[]
+  fill?: boolean
+  value?: Pick<ImageSourcePick, 'source_type' | 'source_id'> | null
+  onChange: (pick: ImageSourcePick | null) => void
+  showVariants?: boolean
+}
 
 // A grid of thumbnails is far heavier than the resource picker's text rows, so
 // this asks for a smaller slice and pages through it client-side.
@@ -63,20 +101,20 @@ export default function ImageSourceBrowser({
   value,
   onChange,
   showVariants = false,
-}) {
+}: ImageSourceBrowserProps) {
   const { t } = useTranslation()
   const hasCampaign = Array.isArray(campaignImages) && campaignImages.length > 0
   // Narrowing `types` must not leave the browser on a tab it no longer offers.
   const allowed = TYPES.filter((type) => types.includes(type))
-  const [tab, setTab] = useState(hasCampaign ? 'campaign_file' : allowed[0] || 'map')
+  const [tab, setTab] = useState<string>(hasCampaign ? 'campaign_file' : allowed[0] || 'map')
   const [query, setQuery] = useState('')
   const [debounced, setDebounced] = useState('')
-  const [rows, setRows] = useState(null)
+  const [rows, setRows] = useState<ImageSourceRow[] | null>(null)
   const [error, setError] = useState('')
   const [shown, setShown] = useState(PAGE)
   // Folders the user has collapsed. Absent means open, so a fresh browse shows
   // everything rather than making the user expand to find anything.
-  const [closed, setClosed] = useState(() => new Set())
+  const [closed, setClosed] = useState(() => new Set<string>())
   // Guards against a slow earlier request landing after a newer one.
   const reqId = useRef(0)
   // Latest `t` without making it a dependency of the search effect.
@@ -122,9 +160,9 @@ export default function ImageSourceBrowser({
   const campaignRows = useMemo(() => {
     if (!hasCampaign) return []
     const q = debounced.toLowerCase()
-    return campaignImages
+    return campaignImages!
       .filter((f) => !q || (f.name || '').toLowerCase().includes(q))
-      .map((f) => ({
+      .map((f): ImageSourceRow => ({
         resource_type: 'campaign_file',
         resource_id: f.id,
         name: f.name,
@@ -146,11 +184,11 @@ export default function ImageSourceBrowser({
   const grouped = tab !== 'campaign_file' && !debounced
   const groups = useMemo(() => {
     if (!grouped) return [{ path: '', items: visible }]
-    const byPath = new Map()
+    const byPath = new Map<string, ImageSourceRow[]>()
     for (const item of visible) {
       const path = item.subtitle || ''
       if (!byPath.has(path)) byPath.set(path, [])
-      byPath.get(path).push(item)
+      byPath.get(path)!.push(item)
     }
     // Loose items (no folder) last: a named folder is more useful to land on.
     return [...byPath.entries()]
@@ -160,7 +198,7 @@ export default function ImageSourceBrowser({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, shown, grouped])
 
-  const toggleFolder = (path) =>
+  const toggleFolder = (path: string) =>
     setClosed((prev) => {
       const next = new Set(prev)
       if (next.has(path)) next.delete(path)
@@ -184,7 +222,9 @@ export default function ImageSourceBrowser({
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
           {tabs.map((type) => {
             const active = tab === type
-            const Icon = TYPE_ICONS[type === 'campaign_file' ? 'file' : type]?.Icon
+            const Icon =
+              TYPE_ICONS[(type === 'campaign_file' ? 'file' : type) as keyof typeof TYPE_ICONS]
+                ?.Icon
             return (
               <button
                 key={type}
@@ -330,7 +370,7 @@ export default function ImageSourceBrowser({
                         }}
                       >
                         <LazyImg
-                          src={src}
+                          src={src ?? undefined}
                           alt=""
                           placeholder
                           style={{

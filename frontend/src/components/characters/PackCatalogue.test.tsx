@@ -9,9 +9,9 @@ const mockUninstall = vi.fn()
 
 vi.mock('../../api', () => ({
   rulesets: {
-    browsePacks: (...a) => mockBrowse(...a),
-    installPack: (...a) => mockInstall(...a),
-    uninstallPack: (...a) => mockUninstall(...a),
+    browsePacks: (...a: unknown[]) => mockBrowse(...a),
+    installPack: (...a: unknown[]) => mockInstall(...a),
+    uninstallPack: (...a: unknown[]) => mockUninstall(...a),
   },
 }))
 

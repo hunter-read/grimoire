@@ -21,7 +21,7 @@ describe('page render constants', () => {
 })
 
 describe('pruneCache', () => {
-  const refOf = (obj) => ({ current: obj })
+  const refOf = (obj: Record<string, unknown>) => ({ current: obj })
 
   it('leaves a cache under the cap untouched', () => {
     const ref = refOf({ a: 1, b: 2 })

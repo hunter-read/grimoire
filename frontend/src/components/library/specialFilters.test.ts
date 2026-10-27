@@ -35,7 +35,7 @@ describe('isEmptyField', () => {
 })
 
 describe('matchSpecial', () => {
-  const matchValue = (field, wanted) => field === wanted
+  const matchValue = (field: unknown, wanted: unknown) => field === wanted
 
   it('matches empty fields for the "none" sentinel', () => {
     expect(matchSpecial([], FILTER_NONE, matchValue)).toBe(true)

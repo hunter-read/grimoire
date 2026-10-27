@@ -1,4 +1,11 @@
 import { bookPageUrl, imageSources } from '../../api'
+import type { Schema } from '../../api'
+
+interface Props {
+  resourceType: string
+  item: Schema<'CompareItem'>
+  page: number
+}
 
 /**
  * The page or cover image for one side of a comparison.
@@ -9,7 +16,7 @@ import { bookPageUrl, imageSources } from '../../api'
  * push its metadata out of line with the other's, and lining the two up is the
  * whole point of the view.
  */
-export default function PagePreview({ resourceType, item, page }) {
+export default function PagePreview({ resourceType, item, page }: Props) {
   const src =
     resourceType === 'book' && item.page_count
       ? bookPageUrl(item.id, page, 400, item.content_hash)

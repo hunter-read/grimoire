@@ -1,16 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import type { ComponentProps } from 'react'
+import type { Mock } from 'vitest'
 import ShareLinkRow from './ShareLinkRow'
 import ShareLinkStateBadge from './ShareLinkStateBadge'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k, o) => (o ? `${k}:${JSON.stringify(o)}` : k),
+    t: (k: string, o?: object) => (o ? `${k}:${JSON.stringify(o)}` : k),
     i18n: { language: 'en-US' },
   }),
 }))
 
-const base = {
+const base: ComponentProps<typeof ShareLinkRow>['link'] = {
   id: 'l1',
   url: 'https://g.example/share/tok',
   file_url: 'https://g.example/api/share/tok/tavern.png',
@@ -28,16 +30,16 @@ const base = {
   use_count: 3,
 }
 
-const renderRow = (props = {}) =>
+const renderRow = (props: Partial<ComponentProps<typeof ShareLinkRow>> = {}) =>
   render(
     <ul>
       <ShareLinkRow link={base} onRevoke={vi.fn()} onDelete={vi.fn()} {...props} />
     </ul>
   )
 
-let writeText
+let writeText: Mock
 beforeEach(() => {
-  writeText = vi.fn().mockResolvedValue()
+  writeText = vi.fn().mockResolvedValue(undefined)
   Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
 })
 

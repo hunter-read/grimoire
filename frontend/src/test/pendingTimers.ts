@@ -15,7 +15,8 @@
  * Timers within a file behave exactly as before.
  */
 
-type Handle = ReturnType<typeof setTimeout>
+// A number under the DOM typings, a Timeout under Node's; jsdom tests see both.
+type Handle = number | ReturnType<typeof setTimeout>
 
 interface RealTimers {
   setTimeout: typeof setTimeout

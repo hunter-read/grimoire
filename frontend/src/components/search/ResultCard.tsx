@@ -3,6 +3,16 @@ import ResultThumb from './ResultThumb'
 import TagList from './TagList'
 import { cardStyle } from './searchStyles'
 
+export interface ResultCardProps {
+  to: string
+  title: string
+  subtitle?: string | null
+  tags?: string[] | null
+  type?: string
+  id?: string
+  hasThumbnail?: boolean | null
+}
+
 /**
  * One media hit (map, token, audio) in the global search results. A real link:
  * a plain click navigates in place, middle click and ctrl/cmd-click open the
@@ -13,7 +23,15 @@ import { cardStyle } from './searchStyles'
  * quicker to recognise by its picture than by its filename. Without `type` the
  * row renders text-only, so callers outside search are unaffected.
  */
-export default function ResultCard({ to, title, subtitle, tags, type, id, hasThumbnail }) {
+export default function ResultCard({
+  to,
+  title,
+  subtitle,
+  tags,
+  type,
+  id,
+  hasThumbnail,
+}: ResultCardProps) {
   return (
     <div
       style={{
@@ -27,11 +45,11 @@ export default function ResultCard({ to, title, subtitle, tags, type, id, hasThu
       onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--bg-card)')}
     >
       <CardLink to={to} label={title} />
-      {type && <ResultThumb type={type} id={id} hasThumbnail={hasThumbnail} alt="" />}
+      {type && <ResultThumb type={type} id={id!} hasThumbnail={hasThumbnail} alt="" />}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 500, fontSize: 15 }}>{title}</div>
         <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>{subtitle}</div>
-        {tags?.length > 0 && <TagList tags={tags} />}
+        {(tags?.length ?? 0) > 0 && <TagList tags={tags!} />}
       </div>
     </div>
   )

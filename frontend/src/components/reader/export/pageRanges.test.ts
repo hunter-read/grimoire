@@ -26,7 +26,7 @@ describe('parsePageSpec', () => {
     ['0', 'fromOne'],
     ['11', 'pastEnd'],
   ])('flags %j as %s', (spec, key) => {
-    expect(parsePageSpec(spec, 10).error.key).toBe(key)
+    expect(parsePageSpec(spec, 10).error!.key).toBe(key)
   })
 
   it('skips the end check when the page count is unknown', () => {

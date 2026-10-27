@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import Tag from './Tag'
+import Tag, { type TagProps } from './Tag'
 
-const renderTag = (props) =>
+const renderTag = (props: TagProps) =>
   render(
     <MemoryRouter>
       <Tag {...props} />
@@ -27,7 +27,7 @@ describe('Tag', () => {
   })
 
   it('renders without throwing when label is undefined', () => {
-    renderTag({})
+    renderTag({} as TagProps)
   })
 
   it('renders without throwing when label is an empty string', () => {

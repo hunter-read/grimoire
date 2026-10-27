@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { imageSources } from '../../api'
 import variantLabel from '../../utils/variantLabel'
 import LazyImg from '../LazyImg'
+import type { ImageSourcePick, ImageSourceRow } from './ImageSourceBrowser'
 
 /**
  * The other versions of the selected image, offered as a choice.
@@ -17,12 +18,18 @@ import LazyImg from '../LazyImg'
  * versions inline would double the length of a gallery to answer a question
  * almost nobody is asking at that moment.
  */
-export default function ImageSourceVariants({ row, value, onChange }) {
+interface Props {
+  row?: ImageSourceRow | null
+  value?: Pick<ImageSourcePick, 'source_type' | 'source_id'> | null
+  onChange: (pick: ImageSourcePick) => void
+}
+
+export default function ImageSourceVariants({ row, value, onChange }: Props) {
   const { t } = useTranslation()
   const variants = (row?.variants || []).filter((v) => v.has_thumbnail)
   if (!row || variants.length === 0) return null
 
-  const entries = [{ ...row, isMain: true }, ...variants]
+  const entries: (ImageSourceRow & { isMain?: boolean })[] = [{ ...row, isMain: true }, ...variants]
 
   return (
     <div
@@ -84,7 +91,7 @@ export default function ImageSourceVariants({ row, value, onChange }) {
               }}
             >
               <LazyImg
-                src={src}
+                src={src ?? undefined}
                 alt=""
                 placeholder
                 style={{ width: '100%', height: 52, objectFit: 'cover', display: 'block' }}

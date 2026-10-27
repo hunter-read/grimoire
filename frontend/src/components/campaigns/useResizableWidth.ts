@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import useSessionState from '../../hooks/useSessionState'
 
 /**
@@ -20,25 +20,32 @@ import useSessionState from '../../hooks/useSessionState'
  * @param {number} options.max      largest allowed width
  * @param {number} options.step     px moved per arrow-key press
  */
+export interface ResizableWidthOptions {
+  initial?: number
+  min?: number
+  max?: number
+  step?: number
+}
+
 export default function useResizableWidth(
-  key,
-  { initial = 240, min = 160, max = 520, step = 16 } = {}
+  key: string,
+  { initial = 240, min = 160, max = 520, step = 16 }: ResizableWidthOptions = {}
 ) {
-  const [stored, setStored] = useSessionState(key, initial)
+  const [stored, setStored] = useSessionState<number>(key, initial)
   const [dragging, setDragging] = useState(false)
   // Where the pointer went down, and how wide the pane was at that moment —
   // the drag applies the delta between them, so grabbing the divider anywhere
   // along its length feels the same and there's no jump on the first move.
-  const origin = useRef(null)
+  const origin = useRef<{ x: number; width: number } | null>(null)
 
-  const clamp = useCallback((w) => Math.min(max, Math.max(min, w)), [min, max])
+  const clamp = useCallback((w: number) => Math.min(max, Math.max(min, w)), [min, max])
 
   // A stale stored value (e.g. saved before the limits changed) is corrected on
   // read rather than written back, so nothing is persisted until a real drag.
   const width = clamp(typeof stored === 'number' && !Number.isNaN(stored) ? stored : initial)
 
   const onPointerDown = useCallback(
-    (e) => {
+    (e: PointerEvent<HTMLElement>) => {
       // Ignore secondary buttons so a right-click never starts a drag.
       if (e.button !== 0) return
       e.preventDefault()
@@ -52,7 +59,7 @@ export default function useResizableWidth(
   )
 
   const onPointerMove = useCallback(
-    (e) => {
+    (e: PointerEvent<HTMLElement>) => {
       const start = origin.current
       if (!start) return
       setStored(clamp(start.width + (e.clientX - start.x)))
@@ -60,7 +67,7 @@ export default function useResizableWidth(
     [clamp, setStored]
   )
 
-  const endDrag = useCallback((e) => {
+  const endDrag = useCallback((e?: PointerEvent<HTMLElement>) => {
     if (!origin.current) return
     origin.current = null
     setDragging(false)
@@ -68,7 +75,7 @@ export default function useResizableWidth(
   }, [])
 
   const onKeyDown = useCallback(
-    (e) => {
+    (e: KeyboardEvent<HTMLElement>) => {
       const delta = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
       if (!delta) return
       e.preventDefault()
@@ -82,7 +89,7 @@ export default function useResizableWidth(
     dragging,
     handleProps: {
       role: 'separator',
-      'aria-orientation': 'vertical',
+      'aria-orientation': 'vertical' as const,
       'aria-valuenow': width,
       'aria-valuemin': min,
       'aria-valuemax': max,

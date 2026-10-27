@@ -1,9 +1,9 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import api, { type Schema } from '../api'
 
-type FavoriteItem = Schema<'FavoritesResponse'>['items'][number]
+export type FavoriteItem = Schema<'FavoritesResponse'>['items'][number]
 
-interface FavoritesContextValue {
+export interface FavoritesContextValue {
   isFavorite: (type: string, id: string) => boolean
   toggleFavorite: (type: string, id: string) => Promise<void>
   items: FavoriteItem[]

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { useState, type ReactNode } from 'react'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
@@ -7,6 +7,10 @@ import AudioView from './AudioView'
 import { SoundboardProvider, useSoundboard } from '../context/SoundboardContext'
 import api from '../api'
 import { fakeMediaGet } from '../test/fakeBrowseApi'
+
+type Fixture = Record<string, unknown>
+
+const mockGet = vi.mocked(api.get) as unknown as Mock
 
 vi.mock('../api', () => ({
   default: {
@@ -16,11 +20,11 @@ vi.mock('../api', () => ({
     delete: vi.fn(() => Promise.resolve({})),
   },
   tags: { list: vi.fn(() => Promise.resolve({ tags: [] })) },
-  mediaUrl: (path) => `http://localhost${path}`,
+  mediaUrl: (path: string) => `http://localhost${path}`,
 }))
 
 vi.mock('react-router-dom', async (importOriginal) => {
-  const actual = await importOriginal()
+  const actual = await importOriginal<typeof import('react-router-dom')>()
   return { ...actual, useNavigate: () => vi.fn() }
 })
 
@@ -32,7 +36,7 @@ vi.mock('../context/AuthContext', () => ({
   useAuth: () => ({ user: { id: 'u1', role: 'admin' } }),
 }))
 
-const mockIsFavorite = vi.fn(() => false)
+const mockIsFavorite = vi.fn<(type: string, id: string) => boolean>(() => false)
 vi.mock('../context/FavoritesContext', () => ({
   useFavorites: () => ({ isFavorite: mockIsFavorite, toggleFavorite: vi.fn() }),
 }))
@@ -43,7 +47,13 @@ vi.mock('../components/DownloadArchiveModal', () => ({
 
 // jsdom has no layout, so the real VirtualGrid measures zero rows; render all.
 vi.mock('../components/media/VirtualGrid', () => ({
-  default: ({ items, renderItem }) => <div>{items.map(renderItem)}</div>,
+  default: ({
+    items,
+    renderItem,
+  }: {
+    items: unknown[]
+    renderItem: (item: unknown, index: number) => ReactNode
+  }) => <div>{items.map(renderItem)}</div>,
 }))
 
 // Keep every folder expanded so filenames are immediately visible: the
@@ -54,15 +64,15 @@ vi.mock('../components/media/VirtualGrid', () => ({
 // state, since a no-op setter there would silently swallow the filter changes
 // these tests make.
 vi.mock('../hooks/useSessionState', () => ({
-  default: (_key, init) => {
+  default: (_key: string, init: unknown) => {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     const [val, setVal] = useState(init)
     return init instanceof Set ? [new Set(), () => {}] : [val, setVal]
   },
 }))
 
-function makeTrack(overrides = {}) {
-  const id = overrides.id ?? `audio-${Math.random().toString(36).slice(2)}`
+function makeTrack(overrides: Fixture = {}): Fixture & { id: string } {
+  const id = (overrides.id as string | undefined) ?? `audio-${Math.random().toString(36).slice(2)}`
   const filename = overrides.filename ?? `track-${id}.mp3`
   return {
     id,
@@ -80,10 +90,6 @@ function makeTrack(overrides = {}) {
   }
 }
 
-function makeResponse(audio = []) {
-  return { audio, total: audio.length }
-}
-
 function renderView() {
   return render(
     <MemoryRouter>
@@ -94,7 +100,7 @@ function renderView() {
 
 // A probe published alongside the view, so a test can read the board the view
 // wrote to without reaching into the context module.
-let board
+let board: ReturnType<typeof useSoundboard>
 function BoardProbe() {
   board = useSoundboard()
   return null
@@ -126,15 +132,15 @@ describe('AudioView', () => {
 
   // The server filters, groups and pages now (issue #221); the fake answers
   // those endpoints over `audio`, with favourites from the mocked context.
-  function setupAudio(audio) {
-    api.get.mockImplementation(
+  function setupAudio(audio: Fixture[]) {
+    mockGet.mockImplementation(
       fakeMediaGet({
         listUrl: '/audio',
         collection: 'audio',
         foldersUrl: '/audio-folders',
         items: audio,
-        isFavorite: (id) => mockIsFavorite('audio', id),
-      })
+        isFavorite: (id: string) => mockIsFavorite('audio', id),
+      } as unknown as Parameters<typeof fakeMediaGet>[0])
     )
   }
 
@@ -145,7 +151,7 @@ describe('AudioView', () => {
   })
 
   it('shows a spinner while loading', () => {
-    api.get.mockReturnValue(new Promise(() => {}))
+    mockGet.mockReturnValue(new Promise(() => {}))
     renderView()
     expect(document.querySelector('svg')).toBeInTheDocument()
   })
@@ -187,7 +193,9 @@ describe('AudioView', () => {
       relative_path: 'audio/other.mp3',
     })
     setupAudio([fav, other])
-    mockIsFavorite.mockImplementation((type, id) => type === 'audio' && id === 'fav')
+    mockIsFavorite.mockImplementation(
+      (type: string, id: string) => type === 'audio' && id === 'fav'
+    )
 
     renderView()
     await waitFor(() => expect(screen.getByText('fav')).toBeInTheDocument())

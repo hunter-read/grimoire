@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import DeleteAccountSection from './DeleteAccountSection'
 import api from '../../api'
 
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }))
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }))
 vi.mock('../Spinner', () => ({ default: () => <span data-testid="spinner" /> }))
 vi.mock('../../api', () => ({ default: { delete: vi.fn(() => Promise.resolve({})) } }))
 
@@ -35,7 +35,7 @@ describe('DeleteAccountSection', () => {
   })
 
   it('does not log out when the delete request fails', async () => {
-    api.delete.mockRejectedValueOnce(new Error('nope'))
+    vi.mocked(api.delete).mockRejectedValueOnce(new Error('nope'))
     const onLogout = vi.fn()
     render(<DeleteAccountSection user={{ role: 'player' }} onLogout={onLogout} />)
     await userEvent.click(screen.getByText('userSettings.deleteAccount.deleteButton'))

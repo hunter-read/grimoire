@@ -9,7 +9,7 @@
 // Preset tokens map to fixed hex values rather than theme variables: the tint is
 // a deliberate user choice, so it should look the same in light and dark mode.
 // These are picked to stay legible against both themes' panel backgrounds.
-export const ICON_COLOR_PRESETS = {
+export const ICON_COLOR_PRESETS: Record<string, string> = {
   red: '#e05252',
   orange: '#e08a3c',
   gold: '#d4a24c',
@@ -27,14 +27,17 @@ export const ICON_COLOR_NAMES = Object.keys(ICON_COLOR_PRESETS)
 const HEX_RE = /^#[0-9a-f]{6}$/
 
 // True when `value` is a shape we're willing to put in a style attribute.
-export function isValidIconColor(value) {
+export function isValidIconColor(value: unknown): boolean {
   if (typeof value !== 'string') return false
   const v = value.trim().toLowerCase()
   return v in ICON_COLOR_PRESETS || HEX_RE.test(v)
 }
 
 // A stored tint → a CSS colour, or `fallback` when unset/unrecognized.
-export function resolveIconColor(value, fallback = undefined) {
+export function resolveIconColor<F = undefined>(
+  value: unknown,
+  fallback: F = undefined as F
+): string | F {
   if (typeof value !== 'string') return fallback
   const v = value.trim().toLowerCase()
   if (v in ICON_COLOR_PRESETS) return ICON_COLOR_PRESETS[v]

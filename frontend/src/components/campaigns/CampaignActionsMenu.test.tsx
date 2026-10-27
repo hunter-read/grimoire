@@ -4,7 +4,7 @@ import CampaignActionsMenu from './CampaignActionsMenu'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k) =>
+    t: (k: string) =>
       ({
         'campaignDetail.actionsMenu': 'Campaign actions',
         'campaignDetail.edit': 'Edit',
@@ -69,7 +69,7 @@ describe('CampaignActionsMenu', () => {
     render(<CampaignActionsMenu {...props} />)
     open()
     fireEvent.click(screen.getByRole('menuitem', { name: label }))
-    expect(props[handler]).toHaveBeenCalledTimes(1)
+    expect(props[handler as keyof typeof props]).toHaveBeenCalledTimes(1)
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 

@@ -42,7 +42,7 @@ describe('LazyImg', () => {
       const { container } = render(
         <LazyImg src="/x.webp" alt="" placeholder style={{ width: 60, height: 80 }} />
       )
-      const box = container.querySelector('span')
+      const box = container.querySelector('span')!
       expect(box).toHaveStyle({ width: '60px', height: '80px' })
       expect(box.style.background).toBe('var(--bg-deep)')
     })
@@ -51,8 +51,8 @@ describe('LazyImg', () => {
       const { container } = render(
         <LazyImg src="/x.webp" alt="" placeholder style={{ width: 60, height: 80 }} />
       )
-      fireEvent.load(container.querySelector('img'))
-      expect(container.querySelector('span').style.background).toBe('none')
+      fireEvent.load(container.querySelector('img')!)
+      expect(container.querySelector('span')!.style.background).toBe('none')
     })
 
     // Otherwise a broken image leaves the tint sitting there forever.
@@ -60,8 +60,8 @@ describe('LazyImg', () => {
       const { container } = render(
         <LazyImg src="/gone.webp" alt="" placeholder style={{ width: 60, height: 80 }} />
       )
-      fireEvent.error(container.querySelector('img'))
-      expect(container.querySelector('span').style.background).toBe('none')
+      fireEvent.error(container.querySelector('img')!)
+      expect(container.querySelector('span')!.style.background).toBe('none')
     })
 
     it('accepts the size from width/height props', () => {
@@ -103,14 +103,14 @@ describe('LazyImg', () => {
           onLoad={onLoad}
         />
       )
-      fireEvent.load(container.querySelector('img'))
+      fireEvent.load(container.querySelector('img')!)
       expect(onLoad).toHaveBeenCalled()
     })
 
     it('still calls a caller onError', () => {
       const onError = vi.fn()
       const { container } = render(<LazyImg src="/gone.webp" alt="" onError={onError} />)
-      fireEvent.error(container.querySelector('img'))
+      fireEvent.error(container.querySelector('img')!)
       expect(onError).toHaveBeenCalled()
     })
   })

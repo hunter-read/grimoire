@@ -5,8 +5,9 @@ import { MemoryRouter } from 'react-router-dom'
 import TextBookViewer from './TextBookViewer'
 import api from '../../api'
 import { useFavorites } from '../../context/FavoritesContext'
+import type { Schema } from '../../api'
 
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }))
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }))
 
 const navigate = vi.fn()
 vi.mock('react-router-dom', async () => {
@@ -16,7 +17,7 @@ vi.mock('react-router-dom', async () => {
 
 vi.mock('../../api', () => ({
   default: { get: vi.fn() },
-  mediaUrl: vi.fn((p) => `/api${p}`),
+  mediaUrl: vi.fn((p: string) => `/api${p}`),
 }))
 
 vi.mock('../../context/FavoritesContext', () => ({ useFavorites: vi.fn() }))
@@ -25,15 +26,22 @@ vi.mock('../Spinner', () => ({ default: () => <div data-testid="spinner" /> }))
 
 const toggleFavorite = vi.fn()
 
-function setup({ favorite = false, book, ...props } = {}) {
-  useFavorites.mockReturnValue({ isFavorite: () => favorite, toggleFavorite })
+function setup({
+  favorite = false,
+  book,
+  ...props
+}: { favorite?: boolean; book?: Record<string, unknown>; backPath?: string } = {}) {
+  vi.mocked(useFavorites).mockReturnValue({
+    isFavorite: () => favorite,
+    toggleFavorite,
+  } as unknown as ReturnType<typeof useFavorites>)
   const merged = {
     title: 'Homebrew Notes',
     filename: 'notes.md',
     page_count: 3,
     mime_type: 'text/markdown',
     ...book,
-  }
+  } as unknown as Schema<'BookDetail'>
   return render(
     <MemoryRouter>
       <TextBookViewer book={merged} bookId="b1" {...props} />
@@ -44,7 +52,7 @@ function setup({ favorite = false, book, ...props } = {}) {
 describe('TextBookViewer', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    api.get.mockResolvedValue({ text: 'Page one text' })
+    vi.mocked(api.get).mockResolvedValue({ text: 'Page one text' })
   })
 
   it('fetches and renders the first page of text', async () => {
@@ -63,8 +71,8 @@ describe('TextBookViewer', () => {
   })
 
   it('shows a spinner until the text arrives', async () => {
-    let resolve
-    api.get.mockReturnValue(new Promise((r) => (resolve = r)))
+    let resolve: (value: unknown) => void = () => {}
+    vi.mocked(api.get).mockReturnValue(new Promise((r) => (resolve = r)))
     setup()
     expect(screen.getByTestId('spinner')).toBeInTheDocument()
     resolve({ text: 'Loaded' })
@@ -74,7 +82,7 @@ describe('TextBookViewer', () => {
   it('pages forward and fetches the next page', async () => {
     setup()
     await waitFor(() => expect(screen.getByText('Page one text')).toBeInTheDocument())
-    api.get.mockResolvedValue({ text: 'Page two text' })
+    vi.mocked(api.get).mockResolvedValue({ text: 'Page two text' })
 
     await userEvent.click(screen.getByLabelText('reader.nextPage'))
     await waitFor(() => expect(api.get).toHaveBeenCalledWith('/books/b1/page/2/text'))
@@ -95,7 +103,7 @@ describe('TextBookViewer', () => {
   })
 
   it('shows a fallback message when the text cannot be loaded', async () => {
-    api.get.mockRejectedValue(new Error('nope'))
+    vi.mocked(api.get).mockRejectedValue(new Error('nope'))
     setup()
     await waitFor(() => expect(screen.getByText('reader.textUnavailable')).toBeInTheDocument())
   })

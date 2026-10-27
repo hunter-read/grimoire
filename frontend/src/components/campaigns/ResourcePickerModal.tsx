@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX, LuLibrary } from 'react-icons/lu'
 import { campaigns } from '../../api'
-import ResourcePicker from './ResourcePicker'
+import ResourcePicker, { type PickedResource } from './ResourcePicker'
 
 /**
  * Modal for linking additional library resources to an existing campaign.
@@ -18,11 +18,17 @@ export default function ResourcePickerModal({
   linkedKeys,
   onClose,
   onAdded,
+}: {
+  campaignId: string
+  pinSystem?: string
+  linkedKeys?: Set<string> | null
+  onClose: () => void
+  onAdded: (added: Awaited<ReturnType<typeof campaigns.bulkAddResources>>) => void
 }) {
   const { t } = useTranslation()
-  const [selected, setSelected] = useState([])
+  const [selected, setSelected] = useState<PickedResource[]>([])
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
 
   const submit = async () => {
     if (selected.length === 0 || saving) return
@@ -37,7 +43,7 @@ export default function ResourcePickerModal({
       const added = await campaigns.bulkAddResources(campaignId, payload)
       onAdded(added)
     } catch (err) {
-      setError(err.message)
+      setError((err as Error).message)
       setSaving(false)
     }
   }
@@ -90,7 +96,7 @@ export default function ResourcePickerModal({
   )
 }
 
-const overlay = {
+const overlay: CSSProperties = {
   position: 'fixed',
   inset: 0,
   zIndex: 1200,
@@ -100,7 +106,7 @@ const overlay = {
   background: 'var(--scrim)',
   padding: 16,
 }
-const panel = {
+const panel: CSSProperties = {
   background: 'var(--bg-panel)',
   border: '1px solid var(--border)',
   borderRadius: 10,
@@ -111,13 +117,13 @@ const panel = {
   overflowY: 'auto',
   boxSizing: 'border-box',
 }
-const header = {
+const header: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
   marginBottom: 12,
 }
-const closeBtn = {
+const closeBtn: CSSProperties = {
   background: 'none',
   border: 'none',
   cursor: 'pointer',
@@ -125,7 +131,7 @@ const closeBtn = {
   display: 'flex',
   padding: 2,
 }
-const cancelBtn = {
+const cancelBtn: CSSProperties = {
   padding: '7px 16px',
   borderRadius: 6,
   background: 'var(--bg-card)',
@@ -134,7 +140,7 @@ const cancelBtn = {
   fontSize: 14,
   cursor: 'pointer',
 }
-const goldBtn = {
+const goldBtn: CSSProperties = {
   padding: '7px 18px',
   borderRadius: 6,
   background: 'var(--gold-dim)',

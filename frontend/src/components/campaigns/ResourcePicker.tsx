@@ -1,11 +1,18 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, type Dispatch, type SetStateAction } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuSearch, LuBookOpen, LuTrash2, LuTags } from 'react-icons/lu'
-import { campaigns, tags as tagsApi } from '../../api'
-import { useUISettings } from '../../context/UISettingsContext'
+import { campaigns, tags as tagsApi, type Schema } from '../../api'
+import { useUISettings, type UISettings } from '../../context/UISettingsContext'
 import Spinner from '../Spinner'
 import ResourceGroup from './ResourceGroup'
-import { TYPE_ICONS, PICKER_TYPES, resourceKey, buildFolderTree } from './resourcesShared'
+import {
+  TYPE_ICONS,
+  PICKER_TYPES,
+  resourceKey,
+  buildFolderTree,
+  type FolderNode,
+  type ResourceLike,
+} from './resourcesShared'
 import {
   inputStyle,
   sectionLabel,
@@ -23,7 +30,7 @@ const DEBOUNCE_MS = 250
 
 // The Settings switch that hides each library section from the sidebar. A type
 // hidden there gets no tab here either (issue #555). Books can't be hidden.
-const HIDE_SETTING = {
+const HIDE_SETTING: Partial<Record<string, keyof UISettings>> = {
   map: 'hide_maps',
   token: 'hide_tokens',
   audio: 'hide_audio',
@@ -31,7 +38,18 @@ const HIDE_SETTING = {
 }
 
 /** A library row as an entry in the selection, shared with players by default. */
-const asSelection = (r) => ({
+type SearchHit = Schema<'ResourceSearchHit'>
+type TagRow = NonNullable<Awaited<ReturnType<typeof tagsApi.list>>['tags']>[number]
+
+/** One picked resource, with the visibility it will be linked at. */
+export interface PickedResource extends ResourceLike {
+  name: string
+  visibility: string
+}
+
+const asSelection = (
+  r: Pick<SearchHit, 'resource_type' | 'resource_id' | 'name'>
+): PickedResource => ({
   resource_type: r.resource_type,
   resource_id: r.resource_id,
   name: r.name,
@@ -56,6 +74,15 @@ const asSelection = (r) => ({
  * `pinSystem` is the campaign's game-system *name*; when set it floats that
  * system to the top of the book folder tree (the rest stay alphabetical).
  */
+export interface ResourcePickerProps {
+  systemId?: string
+  selected: PickedResource[]
+  setSelected: Dispatch<SetStateAction<PickedResource[]>>
+  preselectCore?: boolean
+  excludeKeys?: Set<string> | null
+  pinSystem?: string
+}
+
 export default function ResourcePicker({
   systemId = '',
   selected,
@@ -63,12 +90,12 @@ export default function ResourcePicker({
   preselectCore = false,
   excludeKeys,
   pinSystem = '',
-}) {
+}: ResourcePickerProps) {
   const { t } = useTranslation()
   const uiSettings = useUISettings()
-  const types = PICKER_TYPES.filter((type) => !uiSettings[HIDE_SETTING[type]])
+  const types = PICKER_TYPES.filter((type) => !uiSettings[HIDE_SETTING[type] as keyof UISettings])
   // Resources for the active type tab, as returned by the server.
-  const [all, setAll] = useState(null)
+  const [all, setAll] = useState<SearchHit[] | null>(null)
   const [query, setQuery] = useState('')
   // The query actually sent to the server, trailing the input by DEBOUNCE_MS so
   // typing doesn't fire a request per keystroke.
@@ -76,9 +103,9 @@ export default function ResourcePicker({
   const [activeTab, setActiveTab] = useState('book')
   // A tab whose section was hidden since it was chosen falls back to books.
   const typeFilter = types.includes(activeTab) ? activeTab : 'book'
-  const [openKeys, setOpenKeys] = useState(() => new Set())
+  const [openKeys, setOpenKeys] = useState<Set<string>>(() => new Set())
   // "Add by tag" (issue #235.8): the loaded tag list and any add error.
-  const [tagList, setTagList] = useState([])
+  const [tagList, setTagList] = useState<TagRow[]>([])
   const [tagValue, setTagValue] = useState('')
   const [tagAdding, setTagAdding] = useState(false)
 
@@ -120,7 +147,7 @@ export default function ResourcePicker({
   // already selected or excluded are left as-is. Names are enriched from the
   // loaded resource set when it happens to hold the row (it only covers the
   // active type now), falling back to the tag API's own title/filename.
-  const addByTag = async (internal) => {
+  const addByTag = async (internal: string) => {
     if (!internal || tagAdding) return
     setTagAdding(true)
     try {
@@ -129,7 +156,7 @@ export default function ResourcePicker({
       const byKey = new Map((all || []).map((r) => [resourceKey(r), r]))
       setSelected((prev) => {
         const have = new Set(prev.map(resourceKey))
-        const additions = []
+        const additions: PickedResource[] = []
         for (const it of items || []) {
           // Systems aren't campaign resources; hidden sections aren't offered.
           if (!types.includes(it.item_type)) continue
@@ -137,10 +164,12 @@ export default function ResourcePicker({
           if (have.has(key)) continue
           if (excludeKeys && excludeKeys.has(key)) continue
           const meta = byKey.get(key)
+          // Books carry a title and file-backed items a filename.
+          const named = it as { title?: string; filename?: string }
           additions.push({
             resource_type: it.item_type,
             resource_id: it.item_id,
-            name: meta?.name || it.title || it.filename || it.item_id,
+            name: meta?.name || named.title || named.filename || it.item_id,
             visibility: 'public',
           })
           have.add(key)
@@ -178,7 +207,7 @@ export default function ResourcePicker({
 
   const selectedKeys = new Set(selected.map(resourceKey))
 
-  const toggleRow = (r) => {
+  const toggleRow = (r: SearchHit | PickedResource) => {
     setSelected((prev) => {
       const key = resourceKey(r)
       if (prev.some((s) => resourceKey(s) === key)) {
@@ -190,7 +219,7 @@ export default function ResourcePicker({
 
   // A folder's checkbox (issue #555): select every row in it, or clear them all.
   // Rows already selected keep their visibility and their place in the list.
-  const toggleFolder = (rows, select) =>
+  const toggleFolder = (rows: SearchHit[], select: boolean) =>
     setSelected((prev) => {
       if (!select) {
         const drop = new Set(rows.map(resourceKey))
@@ -201,7 +230,7 @@ export default function ResourcePicker({
       return additions.length ? [...prev, ...additions] : prev
     })
 
-  const setVisibility = (r, visibility) =>
+  const setVisibility = (r: PickedResource, visibility: string) =>
     setSelected((prev) =>
       prev.map((s) => (resourceKey(s) === resourceKey(r) ? { ...s, visibility } : s))
     )
@@ -220,10 +249,11 @@ export default function ResourcePicker({
   // the user's manual open/close set (folders start collapsed).
   const allKeys = collectKeys(tree)
   const openSet = q ? new Set(allKeys) : openKeys
-  const toggleGroup = (key) =>
+  const toggleGroup = (key: string) =>
     setOpenKeys((prev) => {
       const next = new Set(prev)
-      next.has(key) ? next.delete(key) : next.add(key)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
       return next
     })
 
@@ -360,8 +390,8 @@ export default function ResourcePicker({
 }
 
 /** All folder keys in a tree, for the search auto-expand set. */
-function collectKeys(nodes) {
-  const keys = []
+function collectKeys(nodes: FolderNode[]): string[] {
+  const keys: string[] = []
   for (const n of nodes) {
     keys.push(n.key)
     keys.push(...collectKeys(n.folders))

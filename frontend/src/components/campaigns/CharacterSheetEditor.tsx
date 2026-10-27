@@ -7,18 +7,55 @@ import { overlay, panel, closeBtn, goldBtn, ghostBtn, fieldInput } from './sheet
 
 // Edits a form-fillable PDF character sheet by its AcroForm fields. Loads the
 // fields on open; on save, writes the values back into the member's PDF.
-export default function CharacterSheetEditor({ campaignId, memberId, onClose, onSaved }) {
+type FieldValue = string | boolean
+
+interface SheetField {
+  name: string
+  type?: string
+  value?: FieldValue
+  options?: string[] | null
+}
+
+interface SheetFields {
+  fillable: boolean
+  fields: SheetField[]
+}
+
+// The api module no longer has the sheet-fields helpers this editor calls (and
+// nothing renders it), so this states what it expects of them.
+const sheetApi = campaigns as unknown as {
+  getMemberSheetFields: (campaignId: string, memberId: string) => Promise<SheetFields>
+  saveMemberSheetFields: (
+    campaignId: string,
+    memberId: string,
+    values: Record<string, FieldValue>
+  ) => Promise<SheetFields>
+}
+
+interface CharacterSheetEditorProps {
+  campaignId: string
+  memberId: string
+  onClose: () => void
+  onSaved?: () => void
+}
+
+export default function CharacterSheetEditor({
+  campaignId,
+  memberId,
+  onClose,
+  onSaved,
+}: CharacterSheetEditorProps) {
   const { t } = useTranslation()
   const [loading, setLoading] = useState(true)
-  const [fields, setFields] = useState([])
-  const [values, setValues] = useState({})
+  const [fields, setFields] = useState<SheetField[]>([])
+  const [values, setValues] = useState<Record<string, FieldValue | undefined>>({})
   const [fillable, setFillable] = useState(true)
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let active = true
-    campaigns
+    sheetApi
       .getMemberSheetFields(campaignId, memberId)
       .then((res) => {
         if (!active) return
@@ -26,7 +63,7 @@ export default function CharacterSheetEditor({ campaignId, memberId, onClose, on
         setFields(res.fields)
         setValues(Object.fromEntries(res.fields.map((f) => [f.name, f.value])))
       })
-      .catch((err) => active && setError(err.message))
+      .catch((err) => active && setError((err as Error).message))
       .finally(() => active && setLoading(false))
     return () => {
       active = false
@@ -37,17 +74,21 @@ export default function CharacterSheetEditor({ campaignId, memberId, onClose, on
     setBusy(true)
     setError(null)
     try {
-      await campaigns.saveMemberSheetFields(campaignId, memberId, values)
+      await sheetApi.saveMemberSheetFields(
+        campaignId,
+        memberId,
+        values as Record<string, FieldValue>
+      )
       onSaved?.()
       onClose()
     } catch (err) {
-      setError(err.message)
+      setError((err as Error).message)
     } finally {
       setBusy(false)
     }
   }
 
-  const renderField = (f) => {
+  const renderField = (f: SheetField) => {
     if (f.type === 'checkbox') {
       return (
         <label key={f.name} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
@@ -65,7 +106,7 @@ export default function CharacterSheetEditor({ campaignId, memberId, onClose, on
         <label key={f.name} style={{ display: 'block', fontSize: 12 }}>
           <span style={{ color: 'var(--text-dim)' }}>{f.name}</span>
           <select
-            value={values[f.name] ?? ''}
+            value={(values[f.name] as string | undefined) ?? ''}
             onChange={(e) => setValues((v) => ({ ...v, [f.name]: e.target.value }))}
             style={fieldInput}
           >
@@ -84,7 +125,7 @@ export default function CharacterSheetEditor({ campaignId, memberId, onClose, on
         <span style={{ color: 'var(--text-dim)' }}>{f.name}</span>
         <input
           type="text"
-          value={values[f.name] ?? ''}
+          value={(values[f.name] as string | undefined) ?? ''}
           onChange={(e) => setValues((v) => ({ ...v, [f.name]: e.target.value }))}
           style={fieldInput}
         />

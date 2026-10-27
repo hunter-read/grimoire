@@ -1,3 +1,4 @@
+import type { CSSProperties, ReactNode, Ref } from 'react'
 import { LuChevronLeft, LuChevronRight } from 'react-icons/lu'
 
 /**
@@ -19,6 +20,17 @@ import { LuChevronLeft, LuChevronRight } from 'react-icons/lu'
  *   shortcuts – advertise ArrowLeft / ArrowRight, for callers that bind them
  *   nextRef   – ref for the right button, for callers that move focus to it
  */
+export interface ItemCarouselNavProps {
+  title: ReactNode
+  subtitle: ReactNode
+  onPrev?: () => void
+  onNext?: () => void
+  prevLabel: string
+  nextLabel: string
+  shortcuts?: boolean
+  nextRef?: Ref<HTMLButtonElement>
+}
+
 export default function ItemCarouselNav({
   title,
   subtitle,
@@ -28,7 +40,7 @@ export default function ItemCarouselNav({
   nextLabel,
   shortcuts = false,
   nextRef,
-}) {
+}: ItemCarouselNavProps) {
   return (
     <div style={bar}>
       <button
@@ -60,7 +72,7 @@ export default function ItemCarouselNav({
   )
 }
 
-const bar = {
+const bar: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 10,
@@ -69,12 +81,12 @@ const bar = {
   border: '1px solid var(--border)',
   borderRadius: 8,
 }
-const ellipsis = {
+const ellipsis: CSSProperties = {
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
 }
-const navBtn = (disabled) => ({
+const navBtn = (disabled: boolean): CSSProperties => ({
   background: 'var(--bg-card)',
   border: '1px solid var(--border)',
   borderRadius: 6,

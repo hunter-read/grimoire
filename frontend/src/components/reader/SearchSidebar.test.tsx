@@ -40,7 +40,7 @@ describe('SearchSidebar', () => {
   })
 
   it('calls the search API after typing at least 2 characters', async () => {
-    api.get.mockResolvedValue({ total: 0, results: [] })
+    vi.mocked(api.get).mockResolvedValue({ total: 0, results: [] })
     renderSidebar()
 
     await userEvent.type(screen.getByPlaceholderText('Search this book…'), 'fi')
@@ -58,7 +58,7 @@ describe('SearchSidebar', () => {
   })
 
   it('shows "No results found" when API returns empty results', async () => {
-    api.get.mockResolvedValue({ total: 0, results: [] })
+    vi.mocked(api.get).mockResolvedValue({ total: 0, results: [] })
     renderSidebar()
 
     await userEvent.type(screen.getByPlaceholderText('Search this book…'), 'xyz')
@@ -67,7 +67,7 @@ describe('SearchSidebar', () => {
   })
 
   it('renders search results with page numbers', async () => {
-    api.get.mockResolvedValue({
+    vi.mocked(api.get).mockResolvedValue({
       total: 1,
       results: [{ page_number: 42, snippet: 'some text here' }],
     })
@@ -80,7 +80,7 @@ describe('SearchSidebar', () => {
   })
 
   it('calls onGoToPage with the correct page and query when a result is clicked', async () => {
-    api.get.mockResolvedValue({
+    vi.mocked(api.get).mockResolvedValue({
       total: 1,
       results: [{ page_number: 7, snippet: 'matching text' }],
     })
@@ -89,13 +89,13 @@ describe('SearchSidebar', () => {
     await userEvent.type(screen.getByPlaceholderText('Search this book…'), 'match')
     await waitFor(() => screen.getByText('p. 7'))
 
-    fireEvent.click(screen.getByText('p. 7').closest('button'))
+    fireEvent.click(screen.getByText('p. 7').closest('button')!)
 
     expect(props.onGoToPage).toHaveBeenCalledWith(7, 'match')
   })
 
   it('renders <mark> tags as highlighted elements, not as raw HTML', async () => {
-    api.get.mockResolvedValue({
+    vi.mocked(api.get).mockResolvedValue({
       total: 1,
       results: [{ page_number: 1, snippet: 'some <mark>highlighted</mark> word' }],
     })
@@ -111,7 +111,7 @@ describe('SearchSidebar', () => {
   })
 
   it('does not render injected script tags from snippet content', async () => {
-    api.get.mockResolvedValue({
+    vi.mocked(api.get).mockResolvedValue({
       total: 1,
       results: [{ page_number: 1, snippet: '<script>alert(1)</script> text' }],
     })

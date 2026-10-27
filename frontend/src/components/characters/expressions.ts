@@ -11,17 +11,58 @@
 // Keep the two in step: a change here almost always needs the same change
 // there, and the shared test cases are the check on that.
 
+import type { ValidatorResult } from './ValidatorMessages'
+
 export class ExpressionError extends Error {}
+
+/**
+ * A value a formula reads or produces. Sheet data is JSON, so this is JSON
+ * plus `undefined` (a missing argument).
+ */
+export type ExprValue =
+  number | string | boolean | null | undefined | ExprValue[] | { [key: string]: ExprValue }
+
+/** One row of a `list` field, or one resolved catalog entry. */
+type Row = { [key: string]: ExprValue }
+
+/** The values a formula's names resolve against, keyed by field name. */
+export type ExprContext = Record<string, unknown>
+
+type Token =
+  | ['num', number]
+  | ['str', string]
+  | ['name', string]
+  | ['op', string]
+  | ['lit', boolean | null]
+  | ['end', null]
+
+type ComparisonOp = '==' | '!=' | '<' | '<=' | '>' | '>='
+type ArithmeticOp = '+' | '-' | '*' | '/' | '%'
+
+/** A parsed formula: a tagged tuple per node kind. */
+export type ExprNode =
+  | ['const', number | string | boolean | null]
+  | ['name', string[]]
+  | ['neg', ExprNode]
+  | ['not', ExprNode]
+  | ['and', ExprNode, ExprNode]
+  | ['or', ExprNode, ExprNode]
+  | ['cond', ExprNode, ExprNode, ExprNode]
+  | ['compare', ComparisonOp, ExprNode, ExprNode]
+  | ['binary', ArithmeticOp, ExprNode, ExprNode]
+  | ['call', FunctionName, ExprNode[]]
+
+type ExprFunction = (...args: ExprValue[]) => ExprValue
 
 const TOKEN_RE =
   /\s+|(\d+\.\d+|\d+)|('[^']*'|"[^"]*")|([A-Za-z_][A-Za-z0-9_]*)|(<=|>=|==|!=|&&|\|\||[-+*/%<>(),?:.])/y
 
-const WORD_OPS = { and: '&&', or: '||', not: 'not' }
-const KEYWORDS = { true: true, false: false, null: null }
-const COMPARISONS = new Set(['==', '!=', '<', '<=', '>', '>='])
+const WORD_OPS: Record<string, string> = { and: '&&', or: '||', not: 'not' }
+const KEYWORDS: Record<string, boolean | null> = { true: true, false: false, null: null }
+const COMPARISONS = new Set<string>(['==', '!=', '<', '<=', '>', '>='])
 
-function tokenise(source) {
-  const tokens = []
+function tokenise(source: string): Token[] {
+  const tokens: Token[] = []
   TOKEN_RE.lastIndex = 0
   let pos = 0
   while (pos < source.length) {
@@ -49,7 +90,7 @@ function tokenise(source) {
 // reads as 0 rather than throwing. A sheet that shows "0" while you fill it in
 // is far more useful than one that refuses to draw.
 
-export function toNumber(value) {
+export function toNumber(value: unknown): number {
   if (value === true) return 1
   if (value === false) return 0
   if (typeof value === 'number') return Number.isFinite(value) ? value : 0
@@ -64,7 +105,7 @@ export function toNumber(value) {
   return 0
 }
 
-function truthy(value) {
+function truthy(value: unknown): boolean {
   if (typeof value === 'string') {
     const text = value.trim()
     return !!text && text !== '0' && text !== 'false' && text !== 'False'
@@ -75,41 +116,43 @@ function truthy(value) {
 }
 
 const FUNCTIONS = {
-  floor: (v) => Math.floor(toNumber(v)),
-  ceil: (v) => Math.ceil(toNumber(v)),
-  round: (v, digits = 0) => {
+  floor: (v: ExprValue) => Math.floor(toNumber(v)),
+  ceil: (v: ExprValue) => Math.ceil(toNumber(v)),
+  round: (v: ExprValue, digits: ExprValue = 0) => {
     const places = toNumber(digits)
     const factor = 10 ** places
     const result = Math.round(toNumber(v) * factor) / factor
     return places === 0 ? Math.round(toNumber(v)) : result
   },
-  abs: (v) => Math.abs(toNumber(v)),
+  abs: (v: ExprValue) => Math.abs(toNumber(v)),
   // min/max accept both min(a, b, c) and min(list): `column(equipment, 'qty')`
   // yields a list, and max(column(...)) should give the largest quantity rather
   // than the number of rows.
-  min: (...args) => {
+  min: (...args: ExprValue[]) => {
     const flat = flatten(args)
     return flat.length ? Math.min(...flat.map(toNumber)) : 0
   },
-  max: (...args) => {
+  max: (...args: ExprValue[]) => {
     const flat = flatten(args)
     return flat.length ? Math.max(...flat.map(toNumber)) : 0
   },
-  sum: (...args) =>
-    args.reduce(
+  sum: (...args: ExprValue[]) =>
+    args.reduce<number>(
       (total, v) =>
-        total + (Array.isArray(v) ? v.reduce((a, b) => a + toNumber(b), 0) : toNumber(v)),
+        total + (Array.isArray(v) ? v.reduce<number>((a, b) => a + toNumber(b), 0) : toNumber(v)),
       0
     ),
-  len: (v) => {
+  len: (v: ExprValue) => {
     if (Array.isArray(v) || typeof v === 'string') return v.length
     if (v && typeof v === 'object') return Object.keys(v).length
     return 0
   },
-  if: (condition, whenTrue, whenFalse) => (truthy(condition) ? whenTrue : whenFalse),
-  clamp: (v, low, high) => Math.max(toNumber(low), Math.min(toNumber(high), toNumber(v))),
+  if: (condition: ExprValue, whenTrue: ExprValue, whenFalse: ExprValue) =>
+    truthy(condition) ? whenTrue : whenFalse,
+  clamp: (v: ExprValue, low: ExprValue, high: ExprValue) =>
+    Math.max(toNumber(low), Math.min(toNumber(high), toNumber(v))),
   // How a character sheet prints a modifier: +3, -1, +0.
-  signed: (v) => {
+  signed: (v: ExprValue) => {
     const number = toNumber(v)
     return number >= 0 ? `+${number}` : String(number)
   },
@@ -117,7 +160,7 @@ const FUNCTIONS = {
   // Join values as text: concat(level, 'd', ref(klass, 'hit_die')) is "5d8".
   // `+` stays arithmetic; building a string is this function's job alone.
   // Capped to match the server, which is the authority on stored values.
-  concat: (...values) =>
+  concat: (...values: ExprValue[]) =>
     values
       .filter((value) => value !== null && value !== undefined && value !== false)
       .map((value) => String(value))
@@ -129,23 +172,28 @@ const FUNCTIONS = {
   // every row. The column name arrives as a *string* — count_where(equipment,
   // 'equipped', true) — because a bare name would resolve against the
   // character before the function ever saw it.
-  count_where: (rows, column, expected = true) =>
+  count_where: (rows: ExprValue, column: ExprValue, expected: ExprValue = true) =>
     listRows(rows).filter((row) => equal(row[String(column)], expected)).length,
 
-  sum_where: (rows, column, where = null, expected = true) => {
+  sum_where: (
+    rows: ExprValue,
+    column: ExprValue,
+    where: ExprValue = null,
+    expected: ExprValue = true
+  ) => {
     const key = String(column)
     const filterKey = where === null || where === undefined ? null : String(where)
-    return listRows(rows).reduce((total, row) => {
+    return listRows(rows).reduce<number>((total, row) => {
       if (filterKey !== null && !equal(row[filterKey], expected)) return total
       return total + toNumber(row[key])
     }, 0)
   },
 
-  any_where: (rows, column, expected = true) =>
+  any_where: (rows: ExprValue, column: ExprValue, expected: ExprValue = true) =>
     listRows(rows).some((row) => equal(row[String(column)], expected)),
 
   // Every value of one column, for passing to sum()/min()/max().
-  column: (rows, column) => listRows(rows).map((row) => row[String(column)]),
+  column: (rows: ExprValue, column: ExprValue) => listRows(rows).map((row) => row[String(column)]),
 
   // --- catalog functions --------------------------------------------------
   // A content_ref/content_list value is a reference — {_ref, _source, _per} —
@@ -157,29 +205,37 @@ const FUNCTIONS = {
   // property the entry lacks alike. '' coerces to 0 in arithmetic, so a sum is
   // unaffected, while `ref(klass, 'x') != ''` answers correctly — a 0 default
   // made every empty reference compare as a non-empty string.
-  ref: (value, prop, entries) => {
+  ref: (value: ExprValue, prop: ExprValue, entries: ExprValue) => {
     const found = resolveRefs(value, entries)
     if (!found.length) return ''
     return found[0][String(prop)] ?? ''
   },
 
-  sum_refs: (value, prop, entries) =>
-    resolveRefs(value, entries).reduce((total, entry) => total + toNumber(entry[String(prop)]), 0),
+  sum_refs: (value: ExprValue, prop: ExprValue, entries: ExprValue) =>
+    resolveRefs(value, entries).reduce<number>(
+      (total, entry) => total + toNumber(entry[String(prop)]),
+      0
+    ),
 
-  has_ref: (value, entryId) => {
+  has_ref: (value: ExprValue, entryId: ExprValue) => {
     const items = Array.isArray(value) ? value : [value]
     const wanted = String(entryId).trim().toLowerCase()
     return items.some(
       (item) =>
         item &&
         typeof item === 'object' &&
-        String(item._ref ?? '')
+        String((item as Row)._ref ?? '')
           .trim()
           .toLowerCase() === wanted
     )
   },
 
-  count_refs: (value, prop = null, expected = true, entries = undefined) => {
+  count_refs: (
+    value: ExprValue,
+    prop: ExprValue = null,
+    expected: ExprValue = true,
+    entries: ExprValue = undefined
+  ) => {
     if (prop === null || prop === undefined) {
       const items = Array.isArray(value) ? value : []
       return items.filter((item) => item && typeof item === 'object').length
@@ -192,14 +248,21 @@ const FUNCTIONS = {
   // Reads a `list` field's rows, or the entries a `content_list` picks with the
   // character's per-entry quantity on top. A blank quantity counts once, since
   // an item listed without a count is one item; a quantity of 0 counts as none.
-  sum_qty: (value, column, qty = 'qty', entries = undefined) => {
+  sum_qty: (
+    value: ExprValue,
+    column: ExprValue,
+    qty: ExprValue = 'qty',
+    entries: ExprValue = undefined
+  ) => {
     const key = String(column)
     const qtyKey = String(qty)
-    let rows = Array.isArray(value) ? value : []
-    if (rows.some((row) => row && typeof row === 'object' && ('_ref' in row || row._inline))) {
+    let rows: ExprValue[] = Array.isArray(value) ? value : []
+    if (
+      rows.some((row) => row && typeof row === 'object' && ('_ref' in row || (row as Row)._inline))
+    ) {
       rows = resolveRefs(rows, entries)
     }
-    return listRows(rows).reduce((total, row) => {
+    return listRows(rows).reduce<number>((total, row) => {
       const count = row[qtyKey]
       const multiplier =
         count === null || count === undefined || String(count).trim() === '' ? 1 : toNumber(count)
@@ -208,7 +271,7 @@ const FUNCTIONS = {
   },
 
   // Whether a multiselect (or any list) holds a value, or text contains it.
-  contains: (haystack, needle) => {
+  contains: (haystack: ExprValue, needle: ExprValue) => {
     if (Array.isArray(haystack)) return haystack.some((item) => equal(item, needle))
     if (typeof haystack === 'string') {
       return haystack.toLowerCase().includes(String(needle).trim().toLowerCase())
@@ -217,8 +280,14 @@ const FUNCTIONS = {
   },
 }
 
-function flatten(values) {
-  const flat = []
+type FunctionName = keyof typeof FUNCTIONS
+
+// The same table, seen as what the walker calls: every function takes values
+// and returns one.
+const CALLABLE: Record<FunctionName, ExprFunction> = FUNCTIONS
+
+function flatten(values: ExprValue[]): ExprValue[] {
+  const flat: ExprValue[] = []
   for (const value of values) {
     if (Array.isArray(value)) flat.push(...value)
     else flat.push(value)
@@ -232,47 +301,55 @@ function flatten(values) {
 // `count_refs(spells, 'prepared')` reads what the player set.
 // Functions that read resolved catalog entries, and the position the entry
 // table occupies in each one's parameter list.
-const ENTRY_AWARE = { ref: 3, sum_refs: 3, count_refs: 4, sum_qty: 4 }
+const ENTRY_AWARE: Partial<Record<FunctionName, number>> = {
+  ref: 3,
+  sum_refs: 3,
+  count_refs: 4,
+  sum_qty: 4,
+}
 
-function resolveRefs(value, entries) {
+function resolveRefs(value: ExprValue, entries: ExprValue): Row[] {
   const items = Array.isArray(value) ? value : [value]
-  const table = entries && typeof entries === 'object' ? entries : {}
-  const out = []
-  for (const item of items) {
-    if (!item || typeof item !== 'object') continue
+  const table = (entries && typeof entries === 'object' ? entries : {}) as Row
+  const out: Row[] = []
+  for (const rawItem of items) {
+    if (!rawItem || typeof rawItem !== 'object') continue
+    const item = rawItem as Row
     if (item._inline) {
       // A freeform entry's per-entry notes count as much as a picked one's - a
       // custom item's quantity, a homebrew spell marked prepared.
-      out.push({ ...item, ...(item._per || {}) })
+      out.push({ ...item, ...((item._per || {}) as Row) })
       continue
     }
     const entry = table[String(item._ref)]
-    if (entry && typeof entry === 'object') out.push({ ...entry, ...(item._per || {}) })
+    if (entry && typeof entry === 'object') {
+      out.push({ ...(entry as Row), ...((item._per || {}) as Row) })
+    }
   }
   return out
 }
 
-function listRows(value) {
+function listRows(value: ExprValue): Row[] {
   if (!Array.isArray(value)) return []
-  return value.filter((row) => row && typeof row === 'object' && !Array.isArray(row))
+  return value.filter((row): row is Row => !!row && typeof row === 'object' && !Array.isArray(row))
 }
 
 // --- parser ---------------------------------------------------------------
 
-function createParser(tokens) {
+function createParser(tokens: Token[]) {
   let pos = 0
-  const peek = () => tokens[pos]
-  const take = () => tokens[pos++]
-  const atOp = (...ops) => {
+  const peek = (): Token => tokens[pos]
+  const take = (): Token => tokens[pos++]
+  const atOp = (...ops: string[]): boolean => {
     const [kind, value] = peek()
     return kind === 'op' && ops.includes(value)
   }
-  const expectOp = (op) => {
+  const expectOp = (op: string): void => {
     const [kind, value] = take()
     if (kind !== 'op' || value !== op) throw new ExpressionError(`Expected ${op}`)
   }
 
-  function parseExpression() {
+  function parseExpression(): ExprNode {
     const condition = parseOr()
     if (atOp('?')) {
       take()
@@ -283,7 +360,7 @@ function createParser(tokens) {
     return condition
   }
 
-  function parseOr() {
+  function parseOr(): ExprNode {
     let node = parseAnd()
     while (atOp('||')) {
       take()
@@ -292,7 +369,7 @@ function createParser(tokens) {
     return node
   }
 
-  function parseAnd() {
+  function parseAnd(): ExprNode {
     let node = parseNot()
     while (atOp('&&')) {
       take()
@@ -301,7 +378,7 @@ function createParser(tokens) {
     return node
   }
 
-  function parseNot() {
+  function parseNot(): ExprNode {
     if (atOp('not')) {
       take()
       return ['not', parseNot()]
@@ -309,34 +386,34 @@ function createParser(tokens) {
     return parseComparison()
   }
 
-  function parseComparison() {
+  function parseComparison(): ExprNode {
     let node = parseAdditive()
-    while (peek()[0] === 'op' && COMPARISONS.has(peek()[1])) {
+    while (peek()[0] === 'op' && COMPARISONS.has(peek()[1] as string)) {
       const [, op] = take()
-      node = ['compare', op, node, parseAdditive()]
+      node = ['compare', op as ComparisonOp, node, parseAdditive()]
     }
     return node
   }
 
-  function parseAdditive() {
+  function parseAdditive(): ExprNode {
     let node = parseMultiplicative()
     while (atOp('+', '-')) {
       const [, op] = take()
-      node = ['binary', op, node, parseMultiplicative()]
+      node = ['binary', op as ArithmeticOp, node, parseMultiplicative()]
     }
     return node
   }
 
-  function parseMultiplicative() {
+  function parseMultiplicative(): ExprNode {
     let node = parseUnary()
     while (atOp('*', '/', '%')) {
       const [, op] = take()
-      node = ['binary', op, node, parseUnary()]
+      node = ['binary', op as ArithmeticOp, node, parseUnary()]
     }
     return node
   }
 
-  function parseUnary() {
+  function parseUnary(): ExprNode {
     if (atOp('-')) {
       take()
       return ['neg', parseUnary()]
@@ -348,7 +425,7 @@ function createParser(tokens) {
     return parsePrimary()
   }
 
-  function parsePrimary() {
+  function parsePrimary(): ExprNode {
     const [kind, value] = take()
 
     if (kind === 'num' || kind === 'str' || kind === 'lit') return ['const', value]
@@ -362,7 +439,7 @@ function createParser(tokens) {
     if (kind === 'name') {
       if (atOp('(')) {
         take()
-        const args = []
+        const args: ExprNode[] = []
         if (!atOp(')')) {
           args.push(parseExpression())
           while (atOp(',')) {
@@ -375,12 +452,12 @@ function createParser(tokens) {
         if (!Object.prototype.hasOwnProperty.call(FUNCTIONS, fn)) {
           throw new ExpressionError(`Unknown function ${value}`)
         }
-        return ['call', fn, args]
+        return ['call', fn as FunctionName, args]
       }
       // A dotted path reads a key out of a nested value. It is a path, not
       // property access: the walker only ever indexes plain objects, so
       // `x.constructor` resolves to 0 rather than reaching a JS internal.
-      const path = [value]
+      const path: string[] = [value]
       while (atOp('.')) {
         take()
         const [nextKind, nextValue] = take()
@@ -396,7 +473,7 @@ function createParser(tokens) {
   return { parseExpression, peek }
 }
 
-export function parse(source) {
+export function parse(source: unknown): ExprNode {
   if (typeof source !== 'string' || !source.trim()) {
     throw new ExpressionError('Expression is empty')
   }
@@ -408,30 +485,30 @@ export function parse(source) {
 
 // --- evaluation -----------------------------------------------------------
 
-function lookup(path, context) {
-  let current = context
+function lookup(path: string[], context: unknown): ExprValue {
+  let current: unknown = context
   for (const key of path) {
     // Own properties only: a path must not be able to walk up a prototype
     // chain and read something that is not sheet data.
     if (!current || typeof current !== 'object') return 0
     if (!Object.prototype.hasOwnProperty.call(current, key)) return 0
-    current = current[key]
+    current = (current as Record<string, unknown>)[key]
     if (current === null || current === undefined) return 0
   }
-  return current
+  return current as ExprValue
 }
 
-function equal(left, right) {
+function equal(left: ExprValue, right: ExprValue): boolean {
   if (typeof left === 'string' || typeof right === 'string') {
     return String(left).trim().toLowerCase() === String(right).trim().toLowerCase()
   }
   return toNumber(left) === toNumber(right)
 }
 
-function evalNode(node, context) {
+function evalNode(node: ExprNode, context: ExprContext | undefined): ExprValue {
   const [kind] = node
 
-  switch (kind) {
+  switch (node[0]) {
     case 'const':
       return node[1]
     case 'name':
@@ -467,12 +544,13 @@ function evalNode(node, context) {
       // `undefined` lets each parameter's own default apply, where null would
       // override it (which is how count_refs(spells, 'prepared') came to count
       // entries whose `prepared` was null rather than true).
-      if (ENTRY_AWARE[name]) {
-        while (args.length < ENTRY_AWARE[name] - 1) args.push(undefined)
-        args[ENTRY_AWARE[name] - 1] = context?._entries
+      const entryPosition = ENTRY_AWARE[name]
+      if (entryPosition) {
+        while (args.length < entryPosition - 1) args.push(undefined)
+        args[entryPosition - 1] = context?._entries as ExprValue
       }
       try {
-        return FUNCTIONS[name](...args)
+        return CALLABLE[name](...args)
       } catch {
         return 0
       }
@@ -495,10 +573,14 @@ function evalNode(node, context) {
   }
 }
 
-export function evaluate(source, context, fallback = 0) {
-  let node
+export function evaluate<F = number>(
+  source: unknown,
+  context?: ExprContext,
+  fallback: F | number = 0
+): ExprValue | F {
+  let node: ExprNode
   try {
-    node = Array.isArray(source) ? source : parse(source)
+    node = Array.isArray(source) ? (source as ExprNode) : parse(source)
   } catch {
     return fallback
   }
@@ -515,10 +597,32 @@ export function evaluate(source, context, fallback = 0) {
 // rather than failing to render one.
 const MAX_PASSES = 12
 
+/** The parts of a field definition the formula language reads. */
+interface ExpressionField {
+  type?: string
+  default?: unknown
+  default_from?: unknown
+  visible_if?: unknown
+}
+
+interface ExpressionValidator {
+  rule?: unknown
+  message?: string
+  severity?: string
+  field?: string | null
+}
+
+/** The parts of a schema document the formula language reads. */
+export interface ExpressionDocument {
+  fields?: Record<string, ExpressionField | null | undefined> | null
+  computed?: unknown
+  validators?: unknown
+}
+
 // What a field reads as when the character has no value for it. A list is an
 // empty list rather than 0, so `len(equipment)` is 0 on a new sheet instead of
 // counting a zero.
-const EMPTY_BY_TYPE = {
+const EMPTY_BY_TYPE: Record<string, ExprValue> = {
   text: '',
   textarea: '',
   select: '',
@@ -533,13 +637,16 @@ const EMPTY_BY_TYPE = {
 // presence in `data` is what marks a field as the player's, so once they set it
 // their value wins and the formula stops applying. Deriving a value from the
 // class or species is therefore a starting point, never a lock.
-export function buildContext(document, data) {
+export function buildContext(
+  document: ExpressionDocument | null | undefined,
+  data: ExprContext | null | undefined
+): ExprContext {
   const fields = document?.fields || {}
-  const context = {}
-  const deferred = {}
+  const context: ExprContext = {}
+  const deferred: Record<string, ExpressionField> = {}
   for (const [name, definition] of Object.entries(fields)) {
     if (Object.prototype.hasOwnProperty.call(data || {}, name)) {
-      context[name] = data[name]
+      context[name] = data![name]
       continue
     }
     if (definition?.default_from) {
@@ -567,7 +674,7 @@ export function buildContext(document, data) {
     if (!(name in context)) context[name] = type in EMPTY_BY_TYPE ? EMPTY_BY_TYPE[type] : 0
   }
   for (const [name, definition] of Object.entries(deferred)) {
-    let derived = evaluate(definition.default_from, context)
+    let derived: unknown = evaluate(definition.default_from, context)
     if (derived === null || derived === undefined || derived === '') {
       const type = definition?.type || 'text'
       derived =
@@ -586,7 +693,10 @@ export const OVERRIDES_KEY = '_overrides'
 
 // Mirrors `computed_overrides` in backend/services/characters/schema.py: the
 // player's overrides of computed values, limited to names the schema computes.
-export function computedOverrides(document, data) {
+export function computedOverrides(
+  document: ExpressionDocument | null | undefined,
+  data: ExprContext | null | undefined
+): ExprContext {
   const computed = document?.computed
   const stored = data?.[OVERRIDES_KEY]
   if (!computed || typeof computed !== 'object' || !stored || typeof stored !== 'object') return {}
@@ -595,14 +705,17 @@ export function computedOverrides(document, data) {
 
 // An overridden value is used as-is and its formula never runs. It is in the
 // context from the first pass, so everything depending on it follows.
-export function computeValues(document, data) {
+export function computeValues(
+  document: ExpressionDocument | null | undefined,
+  data: ExprContext | null | undefined
+): ExprContext {
   const computed = document?.computed
   if (!computed || typeof computed !== 'object') return {}
 
   const context = buildContext(document, data)
   const overrides = computedOverrides(document, data)
 
-  const results = { ...overrides }
+  const results: ExprContext = { ...overrides }
   Object.assign(context, overrides)
   for (let pass = 0; pass < MAX_PASSES; pass += 1) {
     let changed = false
@@ -634,15 +747,19 @@ const UNEVALUATED = Symbol('unevaluated')
  * means a stored document drifted, and inventing a warning the author never
  * wrote would be worse than staying quiet.
  */
-export function runValidators(document, data) {
+export function runValidators(
+  document: ExpressionDocument | null | undefined,
+  data: ExprContext | null | undefined
+): ValidatorResult[] {
   const validators = document?.validators
   if (!Array.isArray(validators) || !validators.length) return []
 
   const context = { ...buildContext(document, data), ...computeValues(document, data) }
 
-  const fired = []
-  for (const validator of validators) {
-    if (!validator || typeof validator !== 'object') continue
+  const fired: ValidatorResult[] = []
+  for (const entry of validators as unknown[]) {
+    if (!entry || typeof entry !== 'object') continue
+    const validator = entry as ExpressionValidator
     const rule = validator.rule
     if (typeof rule !== 'string') continue
     const outcome = evaluate(rule, context, UNEVALUATED)
@@ -664,11 +781,14 @@ export function runValidators(document, data) {
  * condition that cannot be evaluated shows the field, because hiding part of a
  * sheet over a broken expression loses the player access to their own data.
  */
-export function visibleFields(document, data) {
+export function visibleFields(
+  document: ExpressionDocument | null | undefined,
+  data: ExprContext | null | undefined
+): Record<string, boolean> {
   const fields = document?.fields || {}
   const context = { ...buildContext(document, data), ...computeValues(document, data) }
 
-  const result = {}
+  const result: Record<string, boolean> = {}
   for (const [name, definition] of Object.entries(fields)) {
     if (definition?.visible_if) {
       result[name] = !!evaluate(definition.visible_if, context, true)
@@ -678,7 +798,7 @@ export function visibleFields(document, data) {
 }
 
 // Whether one `visible_if` passes, for a layout section or a directive.
-export function isVisible(condition, context) {
+export function isVisible(condition: unknown, context: ExprContext | undefined): boolean {
   if (!condition) return true
   return !!evaluate(condition, context, true)
 }

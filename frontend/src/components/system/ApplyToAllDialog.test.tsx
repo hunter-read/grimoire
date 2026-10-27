@@ -4,7 +4,8 @@ import ApplyToAllDialog from './ApplyToAllDialog'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key, opts) => (opts?.count == null ? key : `${key}:${opts.count}`),
+    t: (key: string, opts?: { count?: number }) =>
+      opts?.count == null ? key : `${key}:${opts.count}`,
   }),
 }))
 
@@ -94,10 +95,10 @@ describe('ApplyToAllDialog', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
 
     // Clicking the panel itself must not close; only the backdrop does.
-    fireEvent.click(screen.getByRole('dialog').firstChild)
+    fireEvent.click(screen.getByRole('dialog').firstChild!)
     expect(onClose).toHaveBeenCalledTimes(1)
 
-    fireEvent.click(container.querySelector('[role="dialog"]'))
+    fireEvent.click(container.querySelector('[role="dialog"]')!)
     expect(onClose).toHaveBeenCalledTimes(2)
   })
 

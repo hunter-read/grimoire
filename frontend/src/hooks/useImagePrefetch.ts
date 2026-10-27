@@ -12,12 +12,16 @@ import { useEffect, useRef } from 'react'
  *
  * @param {Array} siblings   ordered list of neighbour items
  * @param {number} currentIndex index of the item currently shown (-1 if unknown)
- * @param {(item: any) => string} urlFor builds the full media URL for an item
+ * @param {(item) => string} urlFor builds the full media URL for an item
  */
-export default function useImagePrefetch(siblings, currentIndex, urlFor) {
+export default function useImagePrefetch<T>(
+  siblings: readonly T[] | null | undefined,
+  currentIndex: number,
+  urlFor: (item: T) => string | null | undefined
+): void {
   // Keep Image objects alive by URL so in-flight prefetches complete and we
   // never kick off the same request twice.
-  const prefetched = useRef(new Map())
+  const prefetched = useRef(new Map<string, HTMLImageElement>())
 
   useEffect(() => {
     if (currentIndex < 0 || !siblings || siblings.length === 0) return

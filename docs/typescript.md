@@ -1,8 +1,10 @@
 # TypeScript in the frontend
 
-The frontend is moving from JavaScript to TypeScript one file at a time. There is no
-big-bang rewrite: `.js`/`.jsx` and `.ts`/`.tsx` files live side by side, Vite and Vitest
-compile both, and a CI ratchet makes sure the JavaScript only ever shrinks.
+Everything under `frontend/src/` is TypeScript (`.ts`/`.tsx`), tests included, and `tsc`
+checks all of it under `strict`. The frontend started out in JavaScript and was converted a
+file at a time; JavaScript is no longer allowed under `src/`, and CI fails if a `.js` or
+`.jsx` file appears there. Config files and scripts outside `src/` (`vite.config.js`,
+`eslint.config.js`, `scripts/*.mjs`) are still plain JavaScript.
 
 The point is the contract between the frontend and the backend. The backend already
 describes every request and response in its OpenAPI schema; the frontend now consumes it, so
@@ -14,10 +16,10 @@ All run from `frontend/`:
 
 | Command | What it does |
 | --- | --- |
-| `npm run typecheck` | `tsc` over `src/`. TypeScript files are checked under `strict`; JavaScript files are part of the program (so TypeScript can import them) but not checked. |
+| `npm run typecheck` | `tsc` over `src/`, under `strict`. |
 | `npm run api:types` | Regenerates `src/api/schema.d.ts` from the backend's OpenAPI schema. |
 | `npm run api:types:check` | Fails if `src/api/schema.d.ts` is out of date. |
-| `npm run typescript:check` | The ratchet: fails if a change adds JavaScript, or modifies a JavaScript source file, under `src/`. |
+| `npm run typescript:check` | Fails if there is a `.js`/`.jsx` file anywhere under `src/`. |
 
 CI runs all four - see [CI/CD pipelines](pipelines.md#ci-ciyml).
 
@@ -65,8 +67,8 @@ levels, from most to least typed:
    name), and that the query and body match the schema; the result is typed from the
    response model.
 
-3. **The raw transport** (`api.get(url)`, the default export) is what existing JavaScript
-   uses. A literal URL is typed (`api.get('/latest-release')`); a URL built at runtime
+3. **The raw transport** (`api.get(url)`, the default export) is what older code uses. A
+   literal URL is typed (`api.get('/latest-release')`); a URL built at runtime
    resolves to `unknown`, so TypeScript code using it has to say what it expects. Prefer the
    two above in new code.
 
@@ -87,28 +89,21 @@ A field with a default on the backend is optional in these types, in requests an
 alike: Pydantic does not list defaulted fields as required in its schema, so the generator
 cannot tell a response always carries them.
 
-## Converting a file
+## Writing TypeScript here
 
-The ratchet decides when: a change that modifies a non-test `.js`/`.jsx` file under `src/`
-has to convert it. To convert one:
+- Give each component an `interface` for its props, and export it when another directory
+  renders the component.
+- Type data from the API with `Schema<'Name'>` rather than writing the shape out again.
+- Give `useState` a type when the initial value doesn't say enough
+  (`useState<Schema<'BookOut'> | null>(null)`), and type event handlers
+  (`React.ChangeEvent<HTMLInputElement>`).
+- In tests, reach mocks through `vi.mocked(fn)` (`vi.mocked(api.get).mockResolvedValue(...)`)
+  and use `globalThis` rather than `global`.
 
-1. Rename it with `git mv` (so history follows), `.js` → `.ts`, `.jsx` → `.tsx`.
-   Imports are extensionless, so nothing that imports it changes.
-2. Run `npm run typecheck` and fix what it reports. The usual work is typing props
-   (an `interface` for the component's props), `useState` initial values that start as
-   `null`, and event handlers. Type data from the API with `Schema<'Name'>` rather than
-   writing the shape out again.
-3. Convert the file's test alongside it when it is small enough to; a test that stays
-   JavaScript still runs, and the ratchet allows a modified `.test.js(x)`.
-
-In a TypeScript test, reach mocks through `vi.mocked(fn)` (`vi.mocked(api.get).mockResolvedValue(...)`)
-and use `globalThis` rather than `global`.
-
-New files - tests included - are written in TypeScript from the start.
-
-ESLint applies [typescript-eslint](https://typescript-eslint.io/)'s recommended rules to
-TypeScript files on top of the project's React rules, so `any` needs a reason
-(`// eslint-disable-next-line @typescript-eslint/no-explicit-any`).
+ESLint applies [typescript-eslint](https://typescript-eslint.io/)'s recommended rules on
+top of the project's React rules, so `any` needs a reason
+(`// eslint-disable-next-line @typescript-eslint/no-explicit-any -- why`). `@ts-ignore` is
+never used; a `@ts-expect-error` carries a comment saying why.
 
 ## TypeScript version
 

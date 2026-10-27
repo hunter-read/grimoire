@@ -9,8 +9,9 @@ import {
   orderedBooks,
   entryRuns,
 } from './folderTree'
+import type { FolderTreeEntry } from './folderTree'
 
-function book(id, relative_path) {
+function book(id: string, relative_path: string) {
   return { id, relative_path }
 }
 
@@ -174,7 +175,9 @@ describe('orderedEntries', () => {
         relative_path: 'books/S/core/AVENTURISCHES JAHRBUCH 1036 BF/j1036.pdf',
       },
     ])
-  const labels = (entries) => entries.map((e) => (e.type === 'folder' ? `[${e.name}]` : e.book.id))
+  type TestBook = { id: string; title?: string; relative_path: string }
+  const labels = (entries: FolderTreeEntry<TestBook>[]) =>
+    entries.map((e) => (e.type === 'folder' ? `[${e.name}]` : e.book.id))
 
   it('puts folders ahead of loose books by default', () => {
     expect(labels(orderedEntries(shelf()))).toEqual([

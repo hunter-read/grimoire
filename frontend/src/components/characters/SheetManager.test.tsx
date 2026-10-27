@@ -6,7 +6,7 @@ import SheetManager from './SheetManager'
 // The two panels are covered by their own tests; here they are stubbed so the
 // assertions are about the shell - which tab shows, and what closes what.
 vi.mock('./SheetsTab', () => ({
-  default: ({ onBrowse }) => (
+  default: ({ onBrowse }: { onBrowse: () => void }) => (
     <div>
       <span>sheets panel</span>
       <button onClick={onBrowse}>open catalogue</button>
@@ -15,7 +15,7 @@ vi.mock('./SheetsTab', () => ({
 }))
 vi.mock('./RulesetsPanel', () => ({ default: () => <div>rulesets panel</div> }))
 vi.mock('./SheetCatalogue', () => ({
-  default: ({ onClose }) => (
+  default: ({ onClose }: { onClose: () => void }) => (
     <div role="dialog" aria-label="Browse sheets">
       <button onClick={onClose}>close catalogue</button>
     </div>
@@ -66,7 +66,7 @@ describe('SheetManager', () => {
     const onClose = vi.fn()
     renderManager({ onClose })
     // The dialog is the panel; the scrim is what surrounds it.
-    await userEvent.click(screen.getByRole('dialog', { name: 'Manage sheets' }).parentElement)
+    await userEvent.click(screen.getByRole('dialog', { name: 'Manage sheets' }).parentElement!)
     expect(onClose).toHaveBeenCalled()
   })
 
@@ -80,7 +80,7 @@ describe('SheetManager', () => {
   it('moves focus into the dialog when it opens', () => {
     renderManager()
     expect(screen.getByRole('dialog', { name: 'Manage sheets' })).toContainElement(
-      document.activeElement
+      document.activeElement as HTMLElement | null
     )
   })
 

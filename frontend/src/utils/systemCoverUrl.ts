@@ -10,7 +10,10 @@ import { mediaUrl } from '../api'
  * Container folders (issues #261, #262) hold no books of their own, so the
  * cover endpoint is the only source of art they have.
  */
-export function systemCoverUrl(system) {
+export function systemCoverUrl(
+  system:
+    { id: string; has_cover?: boolean | null; cover_book_id?: string | null } | null | undefined
+): string | null {
   if (!system) return null
   if (system.has_cover) return mediaUrl(`/systems/${system.id}/cover`)
   if (system.cover_book_id) return mediaUrl(`/books/${system.cover_book_id}/thumbnail`)

@@ -7,6 +7,17 @@ import { gridOverlayStyle } from './gridOverlay'
 import Field from './Field'
 import NumberNudge from './NumberNudge'
 import { btnStyle, iconBtnStyle, inputStyle, sectionTitleStyle } from './ui'
+import type { Point } from './types'
+
+export interface GridCalibratorProps {
+  imageUrl: string | null
+  pixelWidth: number
+  pixelHeight: number
+  cellPx: number
+  offset: Point
+  onChange: (cellPx: number, offset: Point) => void
+  onConfirm: () => void
+}
 
 /**
  * Step 1 of the Universal VTT editor: confirm the grid before drawing on it.
@@ -30,9 +41,9 @@ export default function GridCalibrator({
   offset,
   onChange,
   onConfirm,
-}) {
+}: GridCalibratorProps) {
   const { t } = useTranslation()
-  const containerRef = useRef(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const imageSize = useMemo(
     () => ({ width: pixelWidth, height: pixelHeight }),
     [pixelWidth, pixelHeight]
@@ -53,7 +64,7 @@ export default function GridCalibrator({
    * calibration. The offset is left alone: it is a separate correction, and
    * resetting it here would undo nudging the user had already done.
    */
-  const setFromCellCount = (axis, raw) => {
+  const setFromCellCount = (axis: 'x' | 'y', raw: string) => {
     const count = Number(raw)
     if (!(count > 0)) return
     const span = axis === 'x' ? pixelWidth - offset.x : pixelHeight - offset.y
@@ -61,7 +72,7 @@ export default function GridCalibrator({
   }
 
   const onWheel = useCallback(
-    (e) => {
+    (e: WheelEvent) => {
       e.preventDefault()
       zoomAt(e.deltaY < 0 ? 1.15 : 1 / 1.15, e.clientX, e.clientY)
     },
@@ -156,7 +167,7 @@ export default function GridCalibrator({
             }}
           >
             <img
-              src={imageUrl}
+              src={imageUrl ?? undefined}
               alt=""
               width={pixelWidth}
               height={pixelHeight}

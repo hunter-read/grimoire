@@ -3,6 +3,19 @@ import { useTranslation } from 'react-i18next'
 import { LuTriangleAlert, LuX } from 'react-icons/lu'
 import AuthorByline from './AuthorByline'
 import PluginSourcePill, { isUrlTrusted } from './PluginSourcePill'
+import type { PluginAddon } from './PluginCard'
+
+/** The add-on being confirmed, with the index it is to come from when one was picked. */
+export type PendingAddon = PluginAddon & { updating?: boolean; targetIndexUrl?: string | null }
+
+interface Props {
+  addon: PendingAddon
+  updating?: boolean
+  defaultIndexUrl?: string
+  trustedIndexUrls?: string[]
+  onConfirm: () => void
+  onClose: () => void
+}
 
 /**
  * Install confirmation for a script-backed add-on (issue #203).
@@ -27,7 +40,7 @@ export default function AddonInstallDialog({
   trustedIndexUrls = [],
   onConfirm,
   onClose,
-}) {
+}: Props) {
   const { t } = useTranslation()
   const [acknowledged, setAcknowledged] = useState(false)
 
@@ -37,7 +50,7 @@ export default function AddonInstallDialog({
   const isVerified = targetIndexUrl ? isUrlTrusted(targetIndexUrl, trustedList) : true
 
   useEffect(() => {
-    const onKey = (e) => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', onKey)

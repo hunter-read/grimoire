@@ -1,7 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
+import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { LuTriangleAlert } from 'react-icons/lu'
-import { files as filesApi } from '../../api'
+import { files as filesApi, type Schema } from '../../api'
+
+/** The parts of a file or folder the dialog reads. */
+export type DeleteTarget = Pick<Schema<'BrowseEntry'>, 'path' | 'name' | 'is_dir'>
+
+export interface DeleteModalProps<E extends DeleteTarget> {
+  entry: E
+  onClose: () => void
+  onDeleted?: (result: Schema<'DeleteResponse'>, entry: E) => void
+}
 import Spinner from '../Spinner'
 
 /**
@@ -37,17 +47,21 @@ import Spinner from '../Spinner'
  * While that request is in flight the confirm button stays disabled, so the
  * dialog can never be submitted before it knows which guard applies.
  */
-export default function DeleteModal({ entry, onClose, onDeleted }) {
+export default function DeleteModal<E extends DeleteTarget>({
+  entry,
+  onClose,
+  onDeleted,
+}: DeleteModalProps<E>) {
   const { t } = useTranslation()
   const [typed, setTyped] = useState('')
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
   // Off by default: the destructive half is always opted into. Nothing about
   // opening this dialog should be able to erase a file on its own.
   const [deleteFiles, setDeleteFiles] = useState(false)
   // null while unknown — a folder's contents are checked before the dialog can
   // be submitted. Files are known up front: they never need the typed guard.
-  const [hasContent, setHasContent] = useState(entry.is_dir ? null : false)
+  const [hasContent, setHasContent] = useState<boolean | null>(entry.is_dir ? null : false)
 
   useEffect(() => {
     if (!entry.is_dir) return
@@ -73,7 +87,7 @@ export default function DeleteModal({ entry, onClose, onDeleted }) {
   // autofocused, so focus may still be on the pane that opened the dialog.
   useEffect(() => {
     if (busy) return
-    const onKey = (e) => e.key === 'Escape' && onClose()
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [busy, onClose])
@@ -84,7 +98,7 @@ export default function DeleteModal({ entry, onClose, onDeleted }) {
   const checking = hasContent === null
   const confirmed = !needsName || typed.trim() === entry.name
 
-  const submit = async (e) => {
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (busy || checking || !confirmed) return
     setBusy(true)
@@ -98,7 +112,7 @@ export default function DeleteModal({ entry, onClose, onDeleted }) {
       onDeleted?.(res, entry)
       onClose()
     } catch (err) {
-      setError(err.message || t('files.deleteFailed'))
+      setError((err as Error).message || t('files.deleteFailed'))
       setBusy(false)
     }
   }
@@ -213,7 +227,7 @@ export default function DeleteModal({ entry, onClose, onDeleted }) {
   )
 }
 
-const backdrop = {
+const backdrop: CSSProperties = {
   position: 'fixed',
   inset: 0,
   background: 'var(--scrim)',
@@ -224,7 +238,7 @@ const backdrop = {
   padding: 16,
 }
 
-const panel = {
+const panel: CSSProperties = {
   background: 'var(--bg-panel)',
   border: '1px solid var(--border)',
   borderRadius: 10,
@@ -241,7 +255,7 @@ const panel = {
  * `min-height` rather than a fixed one, so a long folder name that wraps grows
  * the block instead of overflowing it.
  */
-const warning = {
+const warning: CSSProperties = {
   fontSize: 12,
   color: 'var(--text-dim)',
   lineHeight: 1.5,
@@ -255,7 +269,7 @@ const warning = {
   boxSizing: 'border-box',
 }
 
-const checkboxRow = {
+const checkboxRow: CSSProperties = {
   display: 'flex',
   alignItems: 'flex-start',
   gap: 8,
@@ -264,7 +278,7 @@ const checkboxRow = {
   lineHeight: 1.45,
 }
 
-const nameChip = {
+const nameChip: CSSProperties = {
   display: 'block',
   userSelect: 'all',
   fontSize: 12,
@@ -277,7 +291,7 @@ const nameChip = {
   wordBreak: 'break-all',
 }
 
-const input = {
+const input: CSSProperties = {
   width: '100%',
   padding: '8px 10px',
   borderRadius: 6,
@@ -299,8 +313,8 @@ const input = {
  * `danger` fills solid, since that variant erases files and is the one case
  * where the button should stop the eye.
  */
-function btn(variant) {
-  const base = {
+function btn(variant: 'cancel' | 'danger' | 'warning'): CSSProperties {
+  const base: CSSProperties = {
     display: 'inline-flex',
     alignItems: 'center',
     gap: 6,
@@ -335,7 +349,7 @@ function btn(variant) {
 }
 
 /** Which "delete this?" question to ask, given the mode and what was clicked. */
-function promptText(t, entry, deleteFiles) {
+function promptText(t: TFunction, entry: DeleteTarget, deleteFiles: boolean): string {
   if (deleteFiles) {
     return entry.is_dir
       ? t('files.deleteFolderPrompt', { name: entry.name })
@@ -355,7 +369,12 @@ function promptText(t, entry, deleteFiles) {
  * wording reserved for a folder that still holds content, which is the only
  * variant that also demands the typed name.
  */
-function explainText(t, entry, deleteFiles, needsName) {
+function explainText(
+  t: TFunction,
+  entry: DeleteTarget,
+  deleteFiles: boolean,
+  needsName: boolean
+): string {
   if (!deleteFiles) {
     return entry.is_dir ? t('files.deleteFolderSoftExplain') : t('files.deleteSoftExplain')
   }

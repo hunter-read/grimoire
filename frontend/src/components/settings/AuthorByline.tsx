@@ -1,6 +1,11 @@
 import { useTranslation } from 'react-i18next'
 import { SiGithub } from 'react-icons/si'
 
+export interface AuthorBylineProps {
+  author?: string | null
+  authorUrl?: string | null
+}
+
 /**
  * "by <author>" credit for a community add-on, theme, or note template.
  *
@@ -15,7 +20,7 @@ import { SiGithub } from 'react-icons/si'
  * Renders nothing when the manifest declares no author, which is the common
  * case for add-ons predating the field.
  */
-export default function AuthorByline({ author, authorUrl }) {
+export default function AuthorByline({ author, authorUrl }: AuthorBylineProps) {
   const { t } = useTranslation()
   const name = (author || '').trim()
   if (!name) return null

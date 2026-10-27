@@ -62,8 +62,6 @@ export default function ShareLinkRolesSection({ onChanged }: ShareLinkRolesSecti
           >
             {t('users.shareLinks.rolesHint')}
           </p>
-          {/* PermissionToggle is still JavaScript, so TypeScript reads every
-              prop as required: the role toggles pass title and disabled. */}
           <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
             <PermissionToggle
               id="share-role-admin"

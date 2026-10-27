@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX, LuLibrary } from 'react-icons/lu'
-import { campaigns } from '../api'
+import { campaigns, type Schema } from '../api'
 import { useAuth } from '../context/AuthContext'
 import Spinner from './Spinner'
 
@@ -12,14 +12,25 @@ import Spinner from './Spinner'
  * is applied to all of them. Only campaigns the current user owns are offered,
  * since those are the only ones they can manage.
  */
-export default function AddToCampaignModal({ items, onClose, onAdded }) {
+type Campaign = Awaited<ReturnType<typeof campaigns.list>>[number]
+
+/** One resource to link: `{ resource_type, resource_id }`. */
+export type AddToCampaignItem = Pick<Schema<'ResourceAdd'>, 'resource_type' | 'resource_id'>
+
+export interface AddToCampaignModalProps {
+  items: AddToCampaignItem[]
+  onClose: () => void
+  onAdded: (added: Awaited<ReturnType<typeof campaigns.bulkAddResources>>) => void
+}
+
+export default function AddToCampaignModal({ items, onClose, onAdded }: AddToCampaignModalProps) {
   const { t } = useTranslation()
-  const { user } = useAuth()
-  const [list, setList] = useState(null)
+  const { user } = useAuth()!
+  const [list, setList] = useState<Campaign[] | null>(null)
   const [campaignId, setCampaignId] = useState('')
   const [visibility, setVisibility] = useState('public')
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     campaigns
@@ -41,7 +52,7 @@ export default function AddToCampaignModal({ items, onClose, onAdded }) {
       const added = await campaigns.bulkAddResources(campaignId, payload)
       onAdded(added)
     } catch (err) {
-      setError(err.message)
+      setError((err as Error).message)
       setSaving(false)
     }
   }
@@ -110,7 +121,7 @@ export default function AddToCampaignModal({ items, onClose, onAdded }) {
           </button>
           <button
             onClick={submit}
-            disabled={!campaignId || saving || (list && list.length === 0)}
+            disabled={!campaignId || saving || (list !== null && list.length === 0)}
             style={{
               ...goldBtn,
               opacity: !campaignId || saving || (list && list.length === 0) ? 0.5 : 1,
@@ -124,7 +135,7 @@ export default function AddToCampaignModal({ items, onClose, onAdded }) {
   )
 }
 
-const overlay = {
+const overlay: CSSProperties = {
   position: 'fixed',
   inset: 0,
   zIndex: 1200,
@@ -134,7 +145,7 @@ const overlay = {
   background: 'var(--scrim)',
   padding: 16,
 }
-const panel = {
+const panel: CSSProperties = {
   background: 'var(--bg-panel)',
   border: '1px solid var(--border)',
   borderRadius: 10,
@@ -143,13 +154,13 @@ const panel = {
   maxWidth: '92vw',
   boxSizing: 'border-box',
 }
-const header = {
+const header: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
   marginBottom: 8,
 }
-const closeBtn = {
+const closeBtn: CSSProperties = {
   background: 'none',
   border: 'none',
   cursor: 'pointer',
@@ -157,14 +168,14 @@ const closeBtn = {
   display: 'flex',
   padding: 2,
 }
-const label = {
+const label: CSSProperties = {
   display: 'block',
   fontSize: 12,
   color: 'var(--text-muted)',
   fontWeight: 500,
   marginBottom: 6,
 }
-const input = {
+const input: CSSProperties = {
   width: '100%',
   padding: '8px 10px',
   background: 'var(--bg-deep)',
@@ -174,7 +185,7 @@ const input = {
   fontSize: 14,
   boxSizing: 'border-box',
 }
-const cancelBtn = {
+const cancelBtn: CSSProperties = {
   padding: '7px 16px',
   borderRadius: 6,
   background: 'var(--bg-card)',
@@ -183,7 +194,7 @@ const cancelBtn = {
   fontSize: 14,
   cursor: 'pointer',
 }
-const goldBtn = {
+const goldBtn: CSSProperties = {
   padding: '7px 18px',
   borderRadius: 6,
   background: 'var(--gold-dim)',

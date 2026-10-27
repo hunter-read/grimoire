@@ -10,7 +10,7 @@ const DEFAULT_BREAKPOINT = 768
  * Unlike a one-off `window.matchMedia(...).matches` read at module load, this
  * subscribes to the media query and updates on resize / orientation change.
  */
-export default function useIsMobile(breakpoint = DEFAULT_BREAKPOINT) {
+export default function useIsMobile(breakpoint: number = DEFAULT_BREAKPOINT): boolean {
   const query = `(max-width: ${breakpoint - 1}px)`
 
   const [isMobile, setIsMobile] = useState(
@@ -19,7 +19,7 @@ export default function useIsMobile(breakpoint = DEFAULT_BREAKPOINT) {
 
   useEffect(() => {
     const mql = window.matchMedia(query)
-    const handler = (e) => setIsMobile(e.matches)
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches)
     // Sync immediately in case the query changed between render and effect.
     setIsMobile(mql.matches)
     // Safari <14 only supports the deprecated add/removeListener API.

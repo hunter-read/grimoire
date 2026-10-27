@@ -95,7 +95,7 @@ describe('calibrateFromPoints', () => {
       10,
       0
     )
-    expect(result.cellPx).toBe(140)
+    expect(result!.cellPx).toBe(140)
   })
 
   it('averages both axes when the picks span both', () => {
@@ -107,7 +107,7 @@ describe('calibrateFromPoints', () => {
       2,
       3
     )
-    expect(result.cellPx).toBe(140)
+    expect(result!.cellPx).toBe(140)
   })
 
   it('derives an origin offset inside the first cell', () => {
@@ -119,8 +119,8 @@ describe('calibrateFromPoints', () => {
       3,
       0
     )
-    expect(result.cellPx).toBe(140)
-    expect(result.offset.x).toBe(30)
+    expect(result!.cellPx).toBe(140)
+    expect(result!.offset.x).toBe(30)
   })
 
   it('returns null without at least two points', () => {

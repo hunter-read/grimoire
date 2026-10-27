@@ -10,7 +10,12 @@ import {
   PICKER_TYPES,
 } from './resourcesShared'
 
-const R = (id, subtitle) => ({ resource_type: 'book', resource_id: id, name: id, subtitle })
+const R = (id: string, subtitle: string) => ({
+  resource_type: 'book',
+  resource_id: id,
+  name: id,
+  subtitle,
+})
 
 describe('resourcesShared', () => {
   it('has icons for every resource type including audio', () => {
@@ -21,10 +26,10 @@ describe('resourcesShared', () => {
   })
 
   it('builds navigation paths for library resource types', () => {
-    expect(RESOURCE_NAV.book('b1')).toBe('/library/book/b1')
-    expect(RESOURCE_NAV.map('m1')).toBe('/maps/m1')
-    expect(RESOURCE_NAV.token('t1')).toBe('/tokens/t1')
-    expect(RESOURCE_NAV.audio('a1')).toBe('/audio/a1')
+    expect(RESOURCE_NAV.book!('b1')).toBe('/library/book/b1')
+    expect(RESOURCE_NAV.map!('m1')).toBe('/maps/m1')
+    expect(RESOURCE_NAV.token!('t1')).toBe('/tokens/t1')
+    expect(RESOURCE_NAV.audio!('a1')).toBe('/audio/a1')
   })
 
   it('exposes visibility options in priority order', () => {
@@ -99,7 +104,7 @@ describe('buildFolderTree', () => {
     )
     expect(tree.map((n) => n.name)).toEqual(['SysA', 'SysB'])
     const sysB = tree.find((n) => n.name === 'SysB')
-    expect(sysB.folders.map((f) => f.name)).toEqual(['core', 'zed'])
+    expect(sysB!.folders.map((f) => f.name)).toEqual(['core', 'zed'])
   })
 
   it('builds distinct paths for identically named leaf folders', () => {

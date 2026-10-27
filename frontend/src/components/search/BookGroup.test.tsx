@@ -7,7 +7,7 @@ import { cardStyle } from './searchStyles'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k, o) => {
+    t: (k: string, o: { page?: number; count?: number; title?: string }) => {
       if (k === 'common.pagePrefixed') return `p. ${o.page}`
       if (k === 'search.groupedBy') return `${o.count} page`
       if (k === 'search.expandBook') return `expand ${o.title}`

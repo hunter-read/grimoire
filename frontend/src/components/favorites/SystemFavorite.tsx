@@ -1,5 +1,6 @@
 import { LuLibrary } from 'react-icons/lu'
 import FavoriteButton from '../FavoriteButton'
+import type { Schema } from '../../api'
 import {
   cardWrapperStyle,
   rowWrapperStyle,
@@ -11,7 +12,12 @@ import LazyImg from '../LazyImg'
 import CardLink from '../CardLink'
 import { systemCoverUrl } from '../../utils/systemCoverUrl'
 
-export default function SystemFavorite({ item, grid }) {
+export interface SystemFavoriteProps {
+  item: Schema<'FavoriteSystemItem'>
+  grid: boolean
+}
+
+export default function SystemFavorite({ item, grid }: SystemFavoriteProps) {
   const publisher = (item.publishers || []).map((p) => p.name).join(', ')
   // A real link: middle click / ctrl-click opens this item in a new tab (issue #313).
   const cardLink = <CardLink to={`/library/system/${item.item_id}`} label={item.name} />

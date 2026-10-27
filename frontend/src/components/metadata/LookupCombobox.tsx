@@ -2,7 +2,21 @@
  * A single-value text input backed by a datalist of known options — the user
  * can pick an existing value or type a new one. Used for System Family.
  */
-export default function LookupCombobox({ id, value, onChange, options, placeholder = '' }) {
+export interface LookupComboboxProps {
+  id: string
+  value: string
+  onChange: (value: string) => void
+  options: string[]
+  placeholder?: string
+}
+
+export default function LookupCombobox({
+  id,
+  value,
+  onChange,
+  options,
+  placeholder = '',
+}: LookupComboboxProps) {
   const listId = `${id}-options`
   return (
     <>

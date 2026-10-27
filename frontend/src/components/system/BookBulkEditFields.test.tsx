@@ -2,25 +2,32 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useReducer } from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
 import BookBulkEditFields from './BookBulkEditFields'
+import type { BookDraft } from './BookBulkEditFields'
 
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }))
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }))
 
-const get = vi.fn((path) => {
+const get = vi.fn((path?: string) => {
   if (path?.includes('genres')) return Promise.resolve({ genres: [] })
   if (path?.includes('system-families')) return Promise.resolve({ families: [] })
   return Promise.resolve({})
 })
 vi.mock('../../api', () => ({
-  default: { get: (...a) => get(...a), post: vi.fn() },
+  default: { get: (...a: [string?]) => get(...a), post: vi.fn() },
   tags: { list: () => Promise.resolve({ tags: [] }) },
 }))
 
 // setField mutates the draft in place and forces a re-render.
-function Harness({ initialDraft, systemGenres = [] }) {
+function Harness({
+  initialDraft,
+  systemGenres = [],
+}: {
+  initialDraft: BookDraft
+  systemGenres?: string[]
+}) {
   const draft = initialDraft
-  const [, force] = useReducer((n) => n + 1, 0)
-  const setField = (field, value) => {
-    draft[field] = value
+  const [, force] = useReducer((n: number) => n + 1, 0)
+  const setField = (field: string, value: unknown) => {
+    ;(draft as Record<string, unknown>)[field] = value
     force()
   }
   return (
@@ -37,14 +44,14 @@ beforeEach(() => vi.clearAllMocks())
 
 describe('BookBulkEditFields', () => {
   it('edits the title', () => {
-    const draft = { title: 'Old', tags: [], genres: [] }
+    const draft: BookDraft = { title: 'Old', tags: [], genres: [] }
     render(<Harness initialDraft={draft} />)
     fireEvent.change(screen.getByLabelText('bookEditor.titleLabel'), { target: { value: 'New' } })
     expect(draft.title).toBe('New')
   })
 
   it('adds a tag chip', () => {
-    const draft = { tags: [], genres: [] }
+    const draft: BookDraft = { tags: [], genres: [] }
     render(<Harness initialDraft={draft} />)
     const input = screen.getByRole('combobox', { name: 'tags.addTag' })
     fireEvent.change(input, { target: { value: 'osr' } })
@@ -53,7 +60,7 @@ describe('BookBulkEditFields', () => {
   })
 
   it('parses authors CSV into an array', () => {
-    const draft = { tags: [], genres: [], authors: [] }
+    const draft: BookDraft = { tags: [], genres: [], authors: [] }
     render(<Harness initialDraft={draft} />)
     fireEvent.change(screen.getByLabelText('bookEditor.authorsLabel'), {
       target: { value: 'Ada, Grace' },
@@ -62,20 +69,20 @@ describe('BookBulkEditFields', () => {
   })
 
   it('shows the inherit-from-system control for genres', () => {
-    const draft = { tags: [], genres: [] }
+    const draft: BookDraft = { tags: [], genres: [] }
     render(<Harness initialDraft={draft} systemGenres={['Fantasy']} />)
     expect(screen.getByText('metadata.inheritFromSystem')).toBeInTheDocument()
   })
 
   it('toggles the explicit flag', () => {
-    const draft = { tags: [], genres: [], is_explicit: false }
+    const draft: BookDraft = { tags: [], genres: [], is_explicit: false }
     render(<Harness initialDraft={draft} />)
     fireEvent.click(screen.getByLabelText('bookEditor.markExplicit'))
     expect(draft.is_explicit).toBe(true)
   })
 
   it('edits the description, publisher, isbn, product code, version and language', () => {
-    const draft = { tags: [], genres: [] }
+    const draft: BookDraft = { tags: [], genres: [] }
     render(<Harness initialDraft={draft} />)
     fireEvent.change(screen.getByLabelText('bookEditor.descriptionLabel'), {
       target: { value: 'Desc' },
@@ -98,7 +105,7 @@ describe('BookBulkEditFields', () => {
   })
 
   it('edits the publication date fields', () => {
-    const draft = { tags: [], genres: [] }
+    const draft: BookDraft = { tags: [], genres: [] }
     render(<Harness initialDraft={draft} />)
     fireEvent.change(screen.getByLabelText('bookEditor.yearLabel'), { target: { value: '2019' } })
     fireEvent.change(screen.getByLabelText('bookEditor.monthLabel'), { target: { value: '6' } })
@@ -109,20 +116,20 @@ describe('BookBulkEditFields', () => {
   })
 
   it('parses artists CSV and edits a link row', () => {
-    const draft = { tags: [], genres: [], artists: [], urls: [] }
+    const draft: BookDraft = { tags: [], genres: [], artists: [], urls: [] }
     render(<Harness initialDraft={draft} />)
     fireEvent.change(screen.getByLabelText('bookEditor.artistsLabel'), {
       target: { value: 'Jane, Bob' },
     })
     expect(draft.artists).toEqual(['Jane', 'Bob'])
-    fireEvent.change(document.getElementById('book-bulk-url-url-0'), {
+    fireEvent.change(document.getElementById('book-bulk-url-url-0')!, {
       target: { value: 'http://x' },
     })
-    expect(draft.urls[0].url).toBe('http://x')
+    expect(draft.urls![0].url).toBe('http://x')
   })
 
   it('picks a category via the combobox', () => {
-    const draft = { tags: [], genres: [], category: 'core' }
+    const draft: BookDraft = { tags: [], genres: [], category: 'core' }
     render(<Harness initialDraft={draft} />)
     const combo = screen.getByRole('combobox', { name: 'bookEditor.categoryLabel' })
     fireEvent.focus(combo)

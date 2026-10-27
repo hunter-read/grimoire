@@ -1,3 +1,6 @@
+import type { CSSProperties } from 'react'
+import type { IconType } from 'react-icons'
+import type { Schema } from '../../api'
 import { LuCheck, LuMinus, LuX } from 'react-icons/lu'
 
 export const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -17,7 +20,24 @@ export const FREQ_OPTIONS = [
   { key: 'custom', label: 'Custom' },
 ]
 
-export const AVAIL_OPTIONS = [
+/** A saved schedule definition. The API types `definition` as a plain dict. */
+export type ScheduleDef = Schema<'ScheduleUpsert'>
+
+/** The schedule as GET/PUT /schedule return it, with its definition typed. */
+export interface ScheduleData {
+  definition?: ScheduleDef | null
+  enabled?: boolean
+  next_sessions?: string[]
+}
+
+export interface AvailOption {
+  value: string
+  label: string
+  Icon: IconType
+  color: string
+}
+
+export const AVAIL_OPTIONS: AvailOption[] = [
   { value: 'available', label: 'Available', Icon: LuCheck, color: 'var(--success)' },
   { value: 'tentative', label: 'Tentative', Icon: LuMinus, color: 'var(--gold)' },
   { value: 'unavailable', label: 'Unavailable', Icon: LuX, color: 'var(--danger)' },
@@ -25,7 +45,10 @@ export const AVAIL_OPTIONS = [
 
 export const USER_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone
 
-export function formatDate(dateStr) {
+export function formatDate(dateStr: string | null | undefined): {
+  short?: string
+  weekday?: string
+} {
   if (!dateStr) return {}
   const d = new Date(dateStr + 'T00:00:00')
   return {
@@ -40,7 +63,7 @@ export function formatDate(dateStr) {
 // conversion to do here — only formatting. The previous helpers converted to and
 // from UTC, which is what dropped the day rollover: 19:30 local became 02:30 UTC
 // while the weekday stayed put, so a Sunday game described Saturday evening.
-export function formatScheduleTime(localHHMM) {
+export function formatScheduleTime(localHHMM: string | null | undefined): string | null {
   if (!localHHMM) return null
   const [h, m] = localHHMM.split(':').map(Number)
   const d = new Date()
@@ -48,7 +71,7 @@ export function formatScheduleTime(localHHMM) {
   return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true })
 }
 
-export const inputStyle = {
+export const inputStyle: CSSProperties = {
   padding: '8px 10px',
   background: 'var(--bg-deep)',
   border: '1px solid var(--border)',
@@ -56,7 +79,7 @@ export const inputStyle = {
   color: 'var(--text)',
   fontSize: 14,
 }
-export const submitBtn = {
+export const submitBtn: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 6,
@@ -69,7 +92,7 @@ export const submitBtn = {
   fontSize: 13,
   fontWeight: 600,
 }
-export const dangerBtn = {
+export const dangerBtn: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 6,
@@ -81,7 +104,7 @@ export const dangerBtn = {
   cursor: 'pointer',
   fontSize: 13,
 }
-export const addBtn = {
+export const addBtn: CSSProperties = {
   padding: '8px 12px',
   background: 'var(--bg-deep)',
   border: '1px solid var(--border)',

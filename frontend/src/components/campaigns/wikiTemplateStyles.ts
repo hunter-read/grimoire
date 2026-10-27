@@ -1,6 +1,8 @@
+import type { CSSProperties } from 'react'
+
 // Shared styling for the note-template modal and its panels. Split out so
 // each component can live in its own file (eslint react/no-multi-comp).
-const backdrop = {
+const backdrop: CSSProperties = {
   position: 'fixed',
   inset: 0,
   background: 'var(--scrim-strong)',
@@ -11,7 +13,7 @@ const backdrop = {
   padding: 16,
 }
 
-const panel = {
+const panel: CSSProperties = {
   background: 'var(--bg-panel)',
   border: '1px solid var(--border)',
   borderRadius: 16,
@@ -24,7 +26,7 @@ const panel = {
   position: 'relative',
 }
 
-const closeBtn = {
+const closeBtn: CSSProperties = {
   position: 'absolute',
   top: 14,
   right: 14,
@@ -34,7 +36,7 @@ const closeBtn = {
   color: 'var(--text-muted)',
 }
 
-const scrollArea = {
+const scrollArea: CSSProperties = {
   overflowY: 'auto',
   minHeight: 0,
   flex: 1,
@@ -42,7 +44,7 @@ const scrollArea = {
   padding: '0 4px',
 }
 
-const groupHeading = {
+const groupHeading: CSSProperties = {
   fontSize: 11,
   textTransform: 'uppercase',
   letterSpacing: '0.06em',
@@ -51,7 +53,7 @@ const groupHeading = {
   marginBottom: 6,
 }
 
-const row = {
+const row: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 8,
@@ -61,7 +63,7 @@ const row = {
   borderRadius: 10,
 }
 
-const rowMain = (busy) => ({
+const rowMain = (busy: boolean): CSSProperties => ({
   flex: 1,
   minWidth: 0,
   textAlign: 'left',
@@ -73,7 +75,7 @@ const rowMain = (busy) => ({
   padding: 0,
 })
 
-const rowDesc = {
+const rowDesc: CSSProperties = {
   display: 'block',
   fontSize: 12,
   color: 'var(--text-dim)',
@@ -83,16 +85,21 @@ const rowDesc = {
 
 // The "by <author>" credit under a catalogue row. Dimmer and smaller than the
 // description so it reads as a byline rather than more description text.
-const rowAuthor = {
+const rowAuthor: CSSProperties = {
   display: 'block',
   fontSize: 11,
   color: 'var(--text-muted)',
   marginTop: 2,
 }
 
-const systemTag = { fontWeight: 400, color: 'var(--text-muted)', marginLeft: 6, fontSize: 12 }
+const systemTag: CSSProperties = {
+  fontWeight: 400,
+  color: 'var(--text-muted)',
+  marginLeft: 6,
+  fontSize: 12,
+}
 
-const folderRow = {
+const folderRow: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 8,
@@ -107,7 +114,7 @@ const folderRow = {
   textAlign: 'left',
 }
 
-const iconBtn = {
+const iconBtn: CSSProperties = {
   flexShrink: 0,
   display: 'inline-flex',
   background: 'none',
@@ -117,14 +124,14 @@ const iconBtn = {
   color: 'var(--text-muted)',
 }
 
-const emptyText = {
+const emptyText: CSSProperties = {
   fontSize: 13,
   color: 'var(--text-muted)',
   padding: '8px 0',
   lineHeight: 1.6,
 }
 
-const label = {
+const label: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: 4,
@@ -132,7 +139,7 @@ const label = {
   color: 'var(--text-dim)',
 }
 
-const input = {
+const input: CSSProperties = {
   width: '100%',
   padding: '7px 10px',
   background: 'var(--bg-deep)',
@@ -143,7 +150,7 @@ const input = {
   boxSizing: 'border-box',
 }
 
-const chip = (active) => ({
+const chip = (active: boolean): CSSProperties => ({
   padding: '5px 12px',
   background: active ? 'var(--gold)' : 'transparent',
   border: `1px solid ${active ? 'var(--gold)' : 'var(--border)'}`,
@@ -157,7 +164,7 @@ const chip = (active) => ({
 // Both button styles keep their label on one line. They sit in flex rows beside
 // a greedy input, and some translations are much longer than the English
 // ("Reset" → "Zurücksetzen"), so without this the text wraps mid-word.
-const goldBtn = {
+const goldBtn: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -173,7 +180,7 @@ const goldBtn = {
   whiteSpace: 'nowrap',
 }
 
-const ghostBtn = {
+const ghostBtn: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -188,7 +195,7 @@ const ghostBtn = {
   whiteSpace: 'nowrap',
 }
 
-const dashedBtn = {
+const dashedBtn: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 6,

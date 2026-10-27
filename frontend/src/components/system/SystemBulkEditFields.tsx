@@ -1,8 +1,11 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
+import type { CSSProperties } from 'react'
 import AccessLevelPicker from '../metadata/AccessLevelPicker'
 import { useTranslation } from 'react-i18next'
 import { LuX, LuPlus } from 'react-icons/lu'
 import api from '../../api'
+import type { Schema } from '../../api'
+import type { CoverPickerBook } from './coverPickerUtils'
 import CoverPicker from './CoverPicker'
 import GenrePicker from '../metadata/GenrePicker'
 import LinkListEditor from '../metadata/LinkListEditor'
@@ -20,7 +23,38 @@ import { linksForEditing } from '../metadata/metadataUtils'
 // generic + character-builder links, explicit flag, and a per-system cover
 // picker sourced from that system's own books (lazy-fetched, since the systems
 // list doesn't carry them).
-export default function SystemBulkEditFields({ system, draft, setField }) {
+/** One system's draft in the bulk-edit carousel, holding values as edited. */
+export interface SystemDraft {
+  description?: string | null
+  system_family?: string | null
+  dice_materials?: string[] | null
+  genres?: string[] | null
+  tags?: string[] | null
+  parent_system?: string | null
+  edition?: string | null
+  license?: string | null
+  /** A number from the server; text once the field has been typed in. */
+  year?: number | string | null
+  publishers?: Schema<'PublisherRef'>[] | null
+  urls?: Schema<'LinkEntry'>[] | null
+  character_builder_urls?: Schema<'LinkEntry'>[] | null
+  access_level?: string | null
+  is_explicit?: boolean | null
+  cover_book_id?: string | null
+}
+
+export interface SystemBulkEditFieldsProps {
+  /** The system on screen; a list row carries no books, so they are fetched. */
+  system: { id: string; books?: CoverPickerBook[] | null }
+  draft: SystemDraft
+  setField: (field: string, value: unknown) => void
+}
+
+export default function SystemBulkEditFields({
+  system,
+  draft,
+  setField,
+}: SystemBulkEditFieldsProps) {
   const { t } = useTranslation()
   const {
     genres: genreTree,
@@ -33,7 +67,7 @@ export default function SystemBulkEditFields({ system, draft, setField }) {
   const parentSystemOptions = parentSystems.map((p) => p.name)
   const licenseOptions = licenses.map((l) => l.name)
   const diceGroups = diceMaterials.length ? groupsFromManaged(diceMaterials) : undefined
-  const [books, setBooks] = useState(system.books || null)
+  const [books, setBooks] = useState<CoverPickerBook[] | null>(system.books || null)
 
   // The systems list endpoint omits per-system books, so fetch them the first
   // time we land on a system that doesn't already have them.
@@ -47,7 +81,7 @@ export default function SystemBulkEditFields({ system, draft, setField }) {
     api
       .get(`/systems/${system.id}`)
       .then((full) => {
-        if (!cancelled) setBooks(full.books || [])
+        if (!cancelled) setBooks((full as Schema<'SystemDetail'>).books || [])
       })
       .catch(() => {
         if (!cancelled) setBooks([])
@@ -61,13 +95,13 @@ export default function SystemBulkEditFields({ system, draft, setField }) {
   const publishers = draft.publishers || []
   const familyOptions = families.map((f) => f.name)
 
-  const setPublisher = (idx, key, value) =>
+  const setPublisher = (idx: number, key: 'name' | 'url', value: string) =>
     setField(
       'publishers',
       publishers.map((p, i) => (i === idx ? { ...p, [key]: value } : p))
     )
   const addPublisher = () => setField('publishers', [...publishers, { name: '', url: '' }])
-  const removePublisher = (idx) =>
+  const removePublisher = (idx: number) =>
     setField(
       'publishers',
       publishers.filter((_, i) => i !== idx)
@@ -286,14 +320,14 @@ export default function SystemBulkEditFields({ system, draft, setField }) {
   )
 }
 
-const label = {
+const label: CSSProperties = {
   display: 'block',
   fontSize: 12,
   color: 'var(--text-muted)',
   fontWeight: 500,
   marginBottom: 6,
 }
-const input = {
+const input: CSSProperties = {
   width: '100%',
   padding: '8px 10px',
   background: 'var(--bg-deep)',
@@ -303,46 +337,7 @@ const input = {
   fontSize: 14,
   boxSizing: 'border-box',
 }
-const tagBox = {
-  display: 'flex',
-  flexWrap: 'wrap',
-  gap: 5,
-  alignItems: 'center',
-  padding: '6px 8px',
-  borderRadius: 8,
-  cursor: 'text',
-  background: 'var(--bg-deep)',
-  border: '1px solid var(--border)',
-  minHeight: 36,
-}
-const tagChip = {
-  fontSize: 12,
-  padding: '2px 6px 2px 8px',
-  borderRadius: 10,
-  background: 'rgba(201,168,76,0.15)',
-  border: '1px solid var(--gold-dim)',
-  color: 'var(--gold)',
-  display: 'inline-flex',
-  alignItems: 'center',
-}
-const tagChipRemove = {
-  background: 'none',
-  border: 'none',
-  cursor: 'pointer',
-  color: 'inherit',
-  padding: '0 0 0 4px',
-  lineHeight: 1,
-}
-const tagBoxInput = {
-  fontSize: 13,
-  border: 'none',
-  outline: 'none',
-  background: 'transparent',
-  color: 'var(--text)',
-  minWidth: 80,
-  flex: 1,
-}
-const iconBtn = {
+const iconBtn: CSSProperties = {
   background: 'none',
   border: 'none',
   cursor: 'pointer',
@@ -350,7 +345,7 @@ const iconBtn = {
   display: 'flex',
   padding: 4,
 }
-const addBtn = {
+const addBtn: CSSProperties = {
   alignSelf: 'flex-start',
   display: 'flex',
   alignItems: 'center',

@@ -1,21 +1,23 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, fireEvent } from '@testing-library/react'
 import SpreadPage from './SpreadPage'
+import type { SpreadPageProps } from './SpreadPage'
+import type { RenderTiles } from './pageRender'
 
-const words = (width, height) => ({
+const words = (width: number, height: number) => ({
   width,
   height,
   words: [{ x0: 10, y0: 10, x1: 50, y1: 20, text: 'dragon' }],
 })
 
-function renderSpread(props = {}) {
+function renderSpread(props: Partial<SpreadPageProps> = {}) {
   return render(
     <SpreadPage
       bookId="b1"
       currentPage={2}
       rightPage={3}
       hasRight
-      getAlt={(p) => `Page ${p}`}
+      getAlt={(p: number) => `Page ${p}`}
       zoom={1}
       pan={{ x: 0, y: 0 }}
       axisRef={{ current: 'x' }}
@@ -25,8 +27,8 @@ function renderSpread(props = {}) {
   )
 }
 
-const container = (c) => c.firstChild
-const pageImages = (c) => [...c.querySelectorAll('img')]
+const container = (c: HTMLElement) => c.firstChild as HTMLElement
+const pageImages = (c: HTMLElement) => [...c.querySelectorAll('img')]
 
 describe('SpreadPage', () => {
   it('draws two separate pages with a gap by default', () => {
@@ -48,7 +50,7 @@ describe('SpreadPage', () => {
         wordsCacheRef: { current: { 2: words(600, 800), 3: words(600, 800) } },
       })
       expect(container(c).style.gap).toBe('0px')
-      const pair = c.querySelector('[data-joined-spread]')
+      const pair = c.querySelector<HTMLElement>('[data-joined-spread]')!
       expect(pair.style.boxShadow).not.toBe('')
       expect(pair.style.borderRadius).toBe('4px')
       // The wrapper clips the corners, so each page is square and unshadowed.
@@ -65,9 +67,9 @@ describe('SpreadPage', () => {
         joined: true,
         wordsCacheRef: { current: { 2: words(600, 800), 3: words(640, 800) } },
       })
-      const pair = c.querySelector('[data-joined-spread]')
+      const pair = c.querySelector<HTMLElement>('[data-joined-spread]')!
       expect(pair.dataset.aspect).toBe('1.5500')
-      const [left, right] = [...pair.children]
+      const [left, right] = [...pair.children] as HTMLElement[]
       expect(Number(left.style.flexGrow)).toBeCloseTo(0.75)
       expect(Number(right.style.flexGrow)).toBeCloseTo(0.8)
       // Fitted with container-query units against the spread box.
@@ -80,7 +82,7 @@ describe('SpreadPage', () => {
         activeSearchQuery: 'dragon',
         wordsCacheRef: { current: { 2: words(600, 800), 3: words(600, 800) } },
       })
-      const pair = c.querySelector('[data-joined-spread]')
+      const pair = c.querySelector<HTMLElement>('[data-joined-spread]')!
       for (const page of pair.children) {
         expect(page.querySelectorAll('[data-selectable]').length).toBe(1)
       }
@@ -88,7 +90,7 @@ describe('SpreadPage', () => {
 
     it('fits a pair without page geometry once its images load (PDF maps)', () => {
       const { container: c } = renderSpread({ joined: true })
-      const pair = c.querySelector('[data-joined-spread]')
+      const pair = c.querySelector<HTMLElement>('[data-joined-spread]')!
       // Not known yet: the pages sit side by side at their natural size.
       expect(pair.dataset.aspect).toBeUndefined()
       for (const img of pageImages(c)) {
@@ -96,18 +98,18 @@ describe('SpreadPage', () => {
         Object.defineProperty(img, 'naturalHeight', { value: 2000 })
         fireEvent.load(img)
       }
-      expect(c.querySelector('[data-joined-spread]').dataset.aspect).toBe('1.0000')
+      expect(c.querySelector<HTMLElement>('[data-joined-spread]')!.dataset.aspect).toBe('1.0000')
     })
 
     it('ignores an image that reports no size', () => {
       const { container: c } = renderSpread({ joined: true })
       const [img] = pageImages(c)
       fireEvent.load(img)
-      expect(c.querySelector('[data-joined-spread]').dataset.aspect).toBeUndefined()
+      expect(c.querySelector<HTMLElement>('[data-joined-spread]')!.dataset.aspect).toBeUndefined()
     })
 
     it('lays zoom tiles over each joined page, square-cornered (issue #574)', () => {
-      const renderTiles = vi.fn((p) => <span data-testid={`tiles-${p}`} />)
+      const renderTiles = vi.fn<RenderTiles>((p) => <span data-testid={`tiles-${p}`} />)
       const { getByTestId } = renderSpread({
         joined: true,
         renderTiles,
@@ -119,7 +121,7 @@ describe('SpreadPage', () => {
     })
 
     it('adds tiles to unjoined pages with their usual corners', () => {
-      const renderTiles = vi.fn(() => null)
+      const renderTiles = vi.fn<RenderTiles>(() => null)
       renderSpread({
         renderTiles,
         wordsCacheRef: { current: { 2: words(600, 800), 3: words(600, 800) } },

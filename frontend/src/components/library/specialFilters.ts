@@ -10,7 +10,7 @@
 export const FILTER_NONE = '__grim:none__'
 export const FILTER_ANY = '__grim:any__'
 
-export const isSpecialFilter = (v) => v === FILTER_NONE || v === FILTER_ANY
+export const isSpecialFilter = (v: unknown): boolean => v === FILTER_NONE || v === FILTER_ANY
 
 /**
  * Read a single-select filter value that may have been saved as an array.
@@ -19,10 +19,10 @@ export const isSpecialFilter = (v) => v === FILTER_NONE || v === FILTER_ANY
  * list; take its first entry rather than comparing a string against an array
  * and matching nothing.
  */
-export const firstValue = (v) => (Array.isArray(v) ? v[0] : v)
+export const firstValue = <T>(v: T | T[]): T | undefined => (Array.isArray(v) ? v[0] : v)
 
 /** True when a field holds no value (null/undefined/empty string/empty array). */
-export const isEmptyField = (field) => {
+export const isEmptyField = (field: unknown): boolean => {
   if (Array.isArray(field)) return field.length === 0
   return field === null || field === undefined || String(field).trim() === ''
 }
@@ -32,7 +32,11 @@ export const isEmptyField = (field) => {
  * Returns true when the item passes. Non-special values fall through to
  * `matchValue`, so callers keep their own comparison semantics.
  */
-export const matchSpecial = (field, wanted, matchValue) => {
+export const matchSpecial = <F, W>(
+  field: F,
+  wanted: W,
+  matchValue: (field: F, wanted: W) => boolean
+): boolean => {
   if (wanted === FILTER_NONE) return isEmptyField(field)
   if (wanted === FILTER_ANY) return !isEmptyField(field)
   return matchValue(field, wanted)
@@ -44,8 +48,11 @@ export const matchSpecial = (field, wanted, matchValue) => {
  * Returns `{ values, pass }` where `values` is the selection minus sentinels
  * and `pass` is false when a sentinel rules the item out.
  */
-export const splitSpecial = (selected = [], field) => {
-  const values = []
+export const splitSpecial = <T>(
+  selected: readonly T[] = [],
+  field?: unknown
+): { values: T[]; pass: boolean } => {
+  const values: T[] = []
   let pass = true
   for (const v of selected) {
     if (v === FILTER_NONE) {
@@ -63,8 +70,18 @@ export const splitSpecial = (selected = [], field) => {
  * Prepend the "None"/"Any" entries to an option list for a dropdown.
  * `labels` supplies the translated text; pass `{ none, any }`.
  */
-export const withSpecialOptions = (options = [], labels = {}) => [
-  { value: FILTER_NONE, label: labels.none, special: true },
-  { value: FILTER_ANY, label: labels.any, special: true },
+/** A "None"/"Any" entry prepended by withSpecialOptions. */
+export interface SpecialOption {
+  value: string
+  label: string | undefined
+  special: true
+}
+
+export const withSpecialOptions = <O>(
+  options: readonly O[] = [],
+  labels: { none?: string; any?: string } = {}
+): (SpecialOption | O)[] => [
+  { value: FILTER_NONE, label: labels.none, special: true as const },
+  { value: FILTER_ANY, label: labels.any, special: true as const },
   ...options,
 ]

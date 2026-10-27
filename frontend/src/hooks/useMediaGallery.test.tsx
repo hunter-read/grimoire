@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { useState, type ReactNode } from 'react'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import useMediaGallery, { FLAT, ROOT_FOLDER, splitFolder } from './useMediaGallery'
@@ -31,7 +31,7 @@ vi.mock('../context/FavoritesContext', () => ({
 // `groupedDefault` lets a test start ungrouped.
 let groupedDefault = true
 vi.mock('./useSessionState', () => ({
-  default: (key, init) => {
+  default: (key: string, init: unknown) => {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     const [val, setVal] = useState(key.endsWith(':grouped') ? groupedDefault : init)
     return [val, setVal]
@@ -40,7 +40,19 @@ vi.mock('./useSessionState', () => ({
 
 const config = MEDIA_CONFIGS.map
 
-const item = (over) => ({
+// The raw transport is mocked with fixtures of every shape, so it is typed loosely.
+const mockGet = vi.mocked(api.get) as unknown as Mock<(url: string) => Promise<unknown>>
+
+type Fixture = {
+  id?: string
+  filename?: string
+  relative_path?: string
+  file_size?: number
+  tags?: string[]
+  [field: string]: unknown
+}
+
+const item = (over: Fixture) => ({
   id: over.id,
   filename: over.filename,
   relative_path: over.relative_path || `maps/${over.filename}`,
@@ -51,7 +63,18 @@ const item = (over) => ({
 
 // The server filters, groups and pages (issue #221); the fake answers those
 // endpoints over `items`. Saved filters come from their own endpoint.
-function setup(items, { savedFilters = [], folders = [], isFavorite } = {}) {
+function setup(
+  items: Fixture[],
+  {
+    savedFilters = [],
+    folders = [],
+    isFavorite,
+  }: {
+    savedFilters?: object[]
+    folders?: { path: string; tags?: string[] }[]
+    isFavorite?: (id: string) => boolean
+  } = {}
+) {
   const fake = fakeMediaGet({
     listUrl: '/maps',
     collection: 'maps',
@@ -59,22 +82,23 @@ function setup(items, { savedFilters = [], folders = [], isFavorite } = {}) {
     items,
     folders,
     isFavorite,
-    fallback: (url) =>
+    fallback: (url: string) =>
       Promise.resolve(url.startsWith('/saved-filters') ? { filters: savedFilters } : {}),
   })
-  api.get.mockImplementation(fake)
+  mockGet.mockImplementation(fake)
 }
 
 const renderGallery = () =>
   renderHook(() => useMediaGallery(config), {
-    wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+    wrapper: ({ children }: { children: ReactNode }) => <MemoryRouter>{children}</MemoryRouter>,
   })
 
 // Every URL the hook asked for, with the given path.
-const calls = (path) =>
-  api.get.mock.calls.map(([url]) => url).filter((url) => url.split('?')[0] === path)
+const calls = (path: string) =>
+  mockGet.mock.calls.map(([url]) => url).filter((url: string) => url.split('?')[0] === path)
 
-const params = (url) => Object.fromEntries(new URLSearchParams(url.split('?')[1] || ''))
+const params = (url: string | undefined) =>
+  Object.fromEntries(new URLSearchParams(url!.split('?')[1] || ''))
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -113,14 +137,14 @@ describe('useMediaGallery (grouped)', () => {
     await waitFor(() => expect(result.current.data).not.toBeNull())
     await waitFor(() => expect(result.current.collapsed.has('Caves')).toBe(true))
     expect(result.current.collapsed.has('Caves::Deep')).toBe(true)
-    expect(calls('/maps').filter((u) => 'folder' in params(u))).toEqual([])
+    expect(calls('/maps').filter((u: string) => 'folder' in params(u))).toEqual([])
   })
 
   it('never draws a folder open before collapsing it', async () => {
     // Drawing every folder open for even one render mounts each one's loader -
     // a request per folder on a large library.
     setup(library)
-    const openFolders = []
+    const openFolders: string[] = []
     const { result } = renderHook(
       () => {
         const g = useMediaGallery(config)
@@ -128,7 +152,9 @@ describe('useMediaGallery (grouped)', () => {
           if (!g.collapsed.has(folder)) openFolders.push(folder)
         return g
       },
-      { wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter> }
+      {
+        wrapper: ({ children }: { children: ReactNode }) => <MemoryRouter>{children}</MemoryRouter>,
+      }
     )
     await waitFor(() => expect(result.current.folderEntries.length).toBe(2))
     expect(openFolders).toEqual([])
@@ -144,7 +170,7 @@ describe('useMediaGallery (grouped)', () => {
       expect(entry.items.map((i) => i.id)).toEqual(['b'])
       expect(entry.hasMore).toBe(false)
     })
-    const request = calls('/maps').find((u) => params(u).folder === 'Caves/Deep')
+    const request = calls('/maps').find((u: string) => params(u).folder === 'Caves/Deep')
     expect(params(request)).toMatchObject({ sort: 'name', order: 'asc', offset: '0' })
   })
 
@@ -158,9 +184,9 @@ describe('useMediaGallery (grouped)', () => {
     expect(result.current.sortFilter.sort).toBe('track')
     act(() => result.current.loadFolder('Caves/Deep'))
     await waitFor(() =>
-      expect(calls('/maps').some((u) => params(u).folder === 'Caves/Deep')).toBe(true)
+      expect(calls('/maps').some((u: string) => params(u).folder === 'Caves/Deep')).toBe(true)
     )
-    const request = calls('/maps').find((u) => params(u).folder === 'Caves/Deep')
+    const request = calls('/maps').find((u: string) => params(u).folder === 'Caves/Deep')
     expect(params(request)).toMatchObject({ sort: 'track', order: 'asc' })
   })
 
@@ -171,7 +197,9 @@ describe('useMediaGallery (grouped)', () => {
     act(() => result.current.toggleCollapse('Caves'))
     expect(result.current.collapsed.has('Caves')).toBe(false)
     act(() => result.current.setFilter('a'))
-    await waitFor(() => expect(calls('/maps/groups').some((u) => params(u).q === 'a')).toBe(true))
+    await waitFor(() =>
+      expect(calls('/maps/groups').some((u: string) => params(u).q === 'a')).toBe(true)
+    )
     expect(result.current.collapsed.has('Caves')).toBe(false)
     act(() => result.current.toggleCollapse('Caves'))
     expect(result.current.collapsed.has('Caves')).toBe(true)
@@ -211,7 +239,7 @@ describe('useMediaGallery (grouped)', () => {
     setup(many)
     const { result } = renderGallery()
     await waitFor(() => expect(result.current.data).not.toBeNull())
-    let rows
+    let rows: { id: string }[] = []
     await act(async () => {
       rows = await result.current.fetchFolderItems(['Big'])
     })
@@ -219,7 +247,8 @@ describe('useMediaGallery (grouped)', () => {
   })
 
   it('offers every tag used on the collection as a filter option', async () => {
-    tagsApi.list.mockResolvedValueOnce({
+    // Only the fields the hook reads.
+    ;(tagsApi.list as unknown as Mock).mockResolvedValueOnce({
       tags: [
         { internal: 'forest', display: 'Forest' },
         { internal: 'cave', display: 'Cave' },
@@ -259,7 +288,7 @@ describe('useMediaGallery (flat)', () => {
     await waitFor(() => expect(result.current.flatItems.map((i) => i.id)).toEqual(['b', 'a']))
     expect(result.current.flatHasMore).toBe(false)
     expect(result.current.noItems).toBe(false)
-    const first = params(calls('/maps').find((u) => params(u).offset === '0'))
+    const first = params(calls('/maps').find((u: string) => params(u).offset === '0'))
     expect(first.folder).toBeUndefined()
     // Nothing more to load: a further request is not sent.
     const before = calls('/maps').length
@@ -287,9 +316,9 @@ describe('useMediaGallery (flat)', () => {
     await waitFor(() => expect(result.current.flatItems).toHaveLength(2))
 
     // Hold the next list request open, as a slow server would.
-    const answer = api.get.getMockImplementation()
-    let release
-    api.get.mockImplementation((url) =>
+    const answer = mockGet.getMockImplementation()!
+    let release: (() => void) | undefined
+    mockGet.mockImplementation((url: string) =>
       url.split('?')[0] === '/maps' && params(url).q
         ? new Promise((resolve) => {
             release = () => resolve(answer(url))
@@ -300,7 +329,7 @@ describe('useMediaGallery (flat)', () => {
     await waitFor(() => expect(release).toBeDefined())
 
     expect(result.current.data).not.toBeNull()
-    await act(async () => release())
+    await act(async () => release!())
     await waitFor(() => expect(result.current.flatItems.map((i) => i.id)).toEqual(['g']))
   })
 
@@ -333,12 +362,12 @@ describe('useMediaGallery (flat)', () => {
     })
     expect(bulk.addTags).toHaveBeenCalledWith('map', ['a', 'b'], ['new'])
     expect(bulk.setFolderTags).toHaveBeenCalledWith('map', [{ path: 'Caves', tags: ['new'] }])
-    expect(result.current.flatItems.every((i) => i.tags.includes('new'))).toBe(true)
+    expect(result.current.flatItems.every((i) => i.tags!.includes('new'))).toBe(true)
     expect(result.current.folderTags.Caves).toEqual(['new'])
   })
 
   it('releases the applying flag when the bulk request fails', async () => {
-    bulk.addTags.mockRejectedValueOnce(new Error('Internal Server Error'))
+    vi.mocked(bulk.addTags).mockRejectedValueOnce(new Error('Internal Server Error'))
     setup([item({ id: 'a', filename: 'a.png' })])
     const { result } = renderGallery()
     await waitFor(() => expect(result.current.flatItems).toHaveLength(1))
@@ -398,14 +427,14 @@ describe('useMediaGallery (shared state)', () => {
     await waitFor(() => expect(result.current.data).not.toBeNull())
     act(() => result.current.setGrouped(false))
     await waitFor(() => expect(result.current.flatItems).toHaveLength(1))
-    expect(calls('/maps').some((u) => !('folder' in params(u)) && params(u).limit !== '1')).toBe(
-      true
-    )
+    expect(
+      calls('/maps').some((u: string) => !('folder' in params(u)) && params(u).limit !== '1')
+    ).toBe(true)
     expect(FLAT).toBeTruthy()
   })
 
   it('survives a failing groups request', async () => {
-    api.get.mockImplementation((url) =>
+    mockGet.mockImplementation((url: string) =>
       url.startsWith('/maps/groups') ? Promise.reject(new Error('boom')) : Promise.resolve({})
     )
     const { result } = renderGallery()

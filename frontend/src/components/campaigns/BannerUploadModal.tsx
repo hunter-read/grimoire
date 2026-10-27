@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import ImagePickerModal from '../images/ImagePickerModal'
 import BannerFocusPreview from '../images/BannerFocusPreview'
+import type { CampaignImage } from '../images/ImageSourceBrowser'
 
 /**
  * Campaign banner dialog.
@@ -14,6 +15,19 @@ import BannerFocusPreview from '../images/BannerFocusPreview'
  * The focal point is committed alongside the image — and on its own when only
  * the position changed, so nudging an existing banner doesn't re-upload it.
  */
+interface BannerUploadModalProps {
+  hasBanner: boolean
+  previewSrc?: string | null
+  campaignImages?: CampaignImage[] | null
+  focusY?: number
+  onPick: (file: File) => Promise<unknown> | void
+  onPickSource: (source: { source_type: string; source_id: string }) => Promise<unknown> | void
+  onFocusChange: (focusY: number) => Promise<unknown> | void
+  onRemove?: () => unknown
+  onClose: () => void
+  busy?: boolean
+}
+
 export default function BannerUploadModal({
   hasBanner,
   previewSrc,
@@ -25,7 +39,7 @@ export default function BannerUploadModal({
   onRemove,
   onClose,
   busy,
-}) {
+}: BannerUploadModalProps) {
   const { t } = useTranslation()
   const [focus, setFocus] = useState(focusY)
   const [savingFocus, setSavingFocus] = useState(false)

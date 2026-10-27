@@ -3,10 +3,15 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import OIDCButtonAppearance from './OIDCButtonAppearance'
 import { settings as settingsApi } from '../../api'
+import type { Schema } from '../../api'
 import { SettingsDirtyContext } from './settingsDirty'
 
+type Settings = Schema<'SettingsResponse'>
+
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k, o) => (o?.field ? `${k}:${o.field}` : k) }),
+  useTranslation: () => ({
+    t: (k: string, o?: { field?: string }) => (o?.field ? `${k}:${o.field}` : k),
+  }),
 }))
 vi.mock('../Spinner', () => ({ default: () => <span data-testid="spinner" /> }))
 vi.mock('../../api', () => ({
@@ -17,17 +22,18 @@ vi.mock('../../api', () => ({
   },
 }))
 
-const baseData = (over = {}) => ({
-  oidc_button_text: 'Sign in with Google',
-  oidc_button_bg_color: '',
-  oidc_button_text_color: '',
-  oidc_button_border_color: '',
-  oidc_button_radius: '',
-  oidc_button_icon_url: '',
-  ...over,
-})
+const baseData = (over: Partial<Settings> = {}) =>
+  ({
+    oidc_button_text: 'Sign in with Google',
+    oidc_button_bg_color: '',
+    oidc_button_text_color: '',
+    oidc_button_border_color: '',
+    oidc_button_radius: '',
+    oidc_button_icon_url: '',
+    ...over,
+  }) as Settings
 
-const setup = (over = {}) => {
+const setup = (over: Partial<Settings> = {}) => {
   const onSaved = vi.fn()
   const utils = render(<OIDCButtonAppearance data={baseData(over)} onSaved={onSaved} />)
   return { ...utils, onSaved }
@@ -48,7 +54,7 @@ describe('OIDCButtonAppearance', () => {
   it('reports a typed-but-unsaved change and announces the save', async () => {
     const set = vi.fn()
     const dirty = () => set.mock.calls.filter(([id]) => id === 'oidc-button').at(-1)?.[1]
-    settingsApi.patch.mockResolvedValue(baseData({ oidc_button_radius: '12' }))
+    vi.mocked(settingsApi.patch).mockResolvedValue(baseData({ oidc_button_radius: '12' }))
     render(
       <SettingsDirtyContext.Provider value={{ set }}>
         <OIDCButtonAppearance data={baseData()} onSaved={vi.fn()} />
@@ -66,8 +72,12 @@ describe('OIDCButtonAppearance', () => {
 
   it('seeds the fields from the server and previews them', () => {
     setup({ oidc_button_bg_color: '#131314', oidc_button_radius: '20' })
-    expect(screen.getByLabelText('authSettings.oidc.buttonBgColor').value).toBe('#131314')
-    expect(screen.getByLabelText('authSettings.oidc.buttonRadius').value).toBe('20')
+    expect(
+      (screen.getByLabelText('authSettings.oidc.buttonBgColor') as HTMLInputElement).value
+    ).toBe('#131314')
+    expect(
+      (screen.getByLabelText('authSettings.oidc.buttonRadius') as HTMLInputElement).value
+    ).toBe('20')
     expect(previewButton().style.background).toBe('rgb(19, 19, 20)')
     expect(previewButton().style.borderRadius).toBe('20px')
   })
@@ -79,9 +89,11 @@ describe('OIDCButtonAppearance', () => {
 
   // The button text sits in this panel, beside the look it is previewed with.
   it('edits the button text, previews it as typed, and saves it on blur', async () => {
-    settingsApi.patch.mockResolvedValue(baseData({ oidc_button_text: 'Sign in with Acme' }))
+    vi.mocked(settingsApi.patch).mockResolvedValue(
+      baseData({ oidc_button_text: 'Sign in with Acme' })
+    )
     const { onSaved } = setup()
-    const input = screen.getByLabelText('authSettings.oidc.buttonText')
+    const input = screen.getByLabelText('authSettings.oidc.buttonText') as HTMLInputElement
     expect(input.value).toBe('Sign in with Google')
     await userEvent.clear(input)
     await userEvent.type(input, ' Sign in with Acme ')
@@ -103,7 +115,7 @@ describe('OIDCButtonAppearance', () => {
 
   it('saves a valid color on blur and reports the saved settings', async () => {
     const updated = baseData({ oidc_button_bg_color: '#24292f' })
-    settingsApi.patch.mockResolvedValue(updated)
+    vi.mocked(settingsApi.patch).mockResolvedValue(updated)
     const { onSaved } = setup()
     const input = screen.getByLabelText('authSettings.oidc.buttonBgColor')
     await userEvent.type(input, '#24292f')
@@ -114,7 +126,7 @@ describe('OIDCButtonAppearance', () => {
   })
 
   it('commits on Enter', async () => {
-    settingsApi.patch.mockResolvedValue(baseData())
+    vi.mocked(settingsApi.patch).mockResolvedValue(baseData())
     setup()
     const input = screen.getByLabelText('authSettings.oidc.buttonRadius')
     input.focus()
@@ -143,7 +155,7 @@ describe('OIDCButtonAppearance', () => {
   })
 
   it('clearing a color saves the empty value to reset it', async () => {
-    settingsApi.patch.mockResolvedValue(baseData())
+    vi.mocked(settingsApi.patch).mockResolvedValue(baseData())
     setup({ oidc_button_bg_color: '#000000' })
     const input = screen.getByLabelText('authSettings.oidc.buttonBgColor')
     await userEvent.clear(input)
@@ -154,23 +166,25 @@ describe('OIDCButtonAppearance', () => {
   })
 
   it('drives the color picker from the text value and saves picks on blur', async () => {
-    settingsApi.patch.mockResolvedValue(baseData())
+    vi.mocked(settingsApi.patch).mockResolvedValue(baseData())
     setup({ oidc_button_bg_color: '#abc', oidc_button_text_color: '#5865f2cc' })
     const bgPicker = screen.getByLabelText(
       'authSettings.oidc.buttonColorPicker:authSettings.oidc.buttonBgColor'
-    )
+    ) as HTMLInputElement
     const textPicker = screen.getByLabelText(
       'authSettings.oidc.buttonColorPicker:authSettings.oidc.buttonTextColor'
-    )
+    ) as HTMLInputElement
     const borderPicker = screen.getByLabelText(
       'authSettings.oidc.buttonColorPicker:authSettings.oidc.buttonBorderColor'
-    )
+    ) as HTMLInputElement
     expect(bgPicker.value).toBe('#aabbcc')
     expect(textPicker.value).toBe('#5865f2')
     expect(borderPicker.value).toBe('#000000')
 
     fireEvent.change(borderPicker, { target: { value: '#5865f2' } })
-    expect(screen.getByLabelText('authSettings.oidc.buttonBorderColor').value).toBe('#5865f2')
+    expect(
+      (screen.getByLabelText('authSettings.oidc.buttonBorderColor') as HTMLInputElement).value
+    ).toBe('#5865f2')
     fireEvent.blur(borderPicker)
     await waitFor(() =>
       expect(settingsApi.patch).toHaveBeenCalledWith({ oidc_button_border_color: '#5865f2' })
@@ -178,7 +192,7 @@ describe('OIDCButtonAppearance', () => {
   })
 
   it('shows the server error when a save fails', async () => {
-    settingsApi.patch.mockRejectedValue(new Error('nope'))
+    vi.mocked(settingsApi.patch).mockRejectedValue(new Error('nope'))
     setup()
     const input = screen.getByLabelText('authSettings.oidc.buttonBgColor')
     await userEvent.type(input, '#fff')
@@ -187,7 +201,7 @@ describe('OIDCButtonAppearance', () => {
   })
 
   it('falls back to a generic error message', async () => {
-    settingsApi.patch.mockRejectedValue({})
+    vi.mocked(settingsApi.patch).mockRejectedValue({})
     setup()
     const input = screen.getByLabelText('authSettings.oidc.buttonBgColor')
     await userEvent.type(input, '#fff')
@@ -197,7 +211,7 @@ describe('OIDCButtonAppearance', () => {
 
   it('uploads an icon', async () => {
     const updated = baseData({ oidc_button_icon_url: '/api/auth/openid/button-icon?v=1' })
-    settingsApi.uploadOidcButtonIcon.mockResolvedValue(updated)
+    vi.mocked(settingsApi.uploadOidcButtonIcon).mockResolvedValue(updated)
     const { onSaved } = setup()
     const file = new File(['<svg/>'], 'logo.svg', { type: 'image/svg+xml' })
     await userEvent.click(screen.getByText('authSettings.oidc.buttonIconUpload'))
@@ -213,11 +227,11 @@ describe('OIDCButtonAppearance', () => {
   })
 
   it('shows the current icon and removes it', async () => {
-    settingsApi.deleteOidcButtonIcon.mockResolvedValue(baseData())
+    vi.mocked(settingsApi.deleteOidcButtonIcon).mockResolvedValue(baseData())
     const { container, onSaved } = setup({
       oidc_button_icon_url: '/api/auth/openid/button-icon?v=1',
     })
-    expect(container.querySelector('img').getAttribute('src')).toBe(
+    expect(container.querySelector('img')!.getAttribute('src')).toBe(
       '/api/auth/openid/button-icon?v=1'
     )
     expect(screen.getByText('authSettings.oidc.buttonIconReplace')).toBeInTheDocument()

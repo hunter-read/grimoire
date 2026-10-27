@@ -1,6 +1,17 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuChevronDown } from 'react-icons/lu'
+import type { Schema } from '../../api'
+
+export type TocNode = Schema<'TocEntry'>
+
+interface Props {
+  node: TocNode
+  currentPage: number
+  onGoToPage: (page: number) => void
+  depth?: number
+  startCollapsed?: boolean
+}
 
 /**
  * A single (recursive) table-of-contents node with collapsible children. The
@@ -12,7 +23,7 @@ export default function TocEntry({
   onGoToPage,
   depth = 0,
   startCollapsed = false,
-}) {
+}: Props) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(!startCollapsed && depth < 2)
   const hasChildren = node.children && node.children.length > 0

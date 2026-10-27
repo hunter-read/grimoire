@@ -1,12 +1,32 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCalendar, LuSave, LuTrash2, LuPlus, LuX } from 'react-icons/lu'
-import { campaigns } from '../../api'
-import { inputStyle, submitBtn, dangerBtn, addBtn, USER_TZ } from './_scheduleShared'
+import { campaigns, type Schema } from '../../api'
+import {
+  inputStyle,
+  submitBtn,
+  dangerBtn,
+  addBtn,
+  USER_TZ,
+  type ScheduleData,
+  type ScheduleDef,
+} from './_scheduleShared'
 import TimePicker from './TimePicker'
 import SegmentControl from './SegmentControl'
 
-export default function ScheduleEditor({ campaign, existing, onSaved, onDeleted }) {
+interface ScheduleEditorProps {
+  campaign: Pick<Schema<'CampaignOut'>, 'id'>
+  existing?: ScheduleDef | null
+  onSaved: (result: ScheduleData) => void
+  onDeleted: () => void
+}
+
+export default function ScheduleEditor({
+  campaign,
+  existing,
+  onSaved,
+  onDeleted,
+}: ScheduleEditorProps) {
   const { t } = useTranslation()
 
   const FREQ_OPTIONS = [
@@ -35,15 +55,15 @@ export default function ScheduleEditor({ campaign, existing, onSaved, onDeleted 
   ]
 
   const [frequency, setFrequency] = useState(existing?.frequency ?? 'weekly')
-  const [days, setDays] = useState(existing?.days ?? [])
-  const [timeLocal, setTimeLocal] = useState(existing?.time_local ?? null)
+  const [days, setDays] = useState<number[]>(existing?.days ?? [])
+  const [timeLocal, setTimeLocal] = useState<string | null>(existing?.time_local ?? null)
   const [biweeklyRef, setBiweeklyRef] = useState(existing?.biweekly_reference ?? '')
   const [monthlyWeek, setMonthlyWeek] = useState(existing?.monthly_week ?? 1)
-  const [customDates, setCustomDates] = useState(existing?.custom_dates ?? [])
+  const [customDates, setCustomDates] = useState<string[]>(existing?.custom_dates ?? [])
   const [newCustomDate, setNewCustomDate] = useState('')
   const [saving, setSaving] = useState(false)
 
-  const toggleDay = (d) =>
+  const toggleDay = (d: number) =>
     setDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort()))
 
   const addCustomDate = () => {
@@ -52,7 +72,7 @@ export default function ScheduleEditor({ campaign, existing, onSaved, onDeleted 
     setNewCustomDate('')
   }
 
-  const removeCustomDate = (d) => setCustomDates((prev) => prev.filter((x) => x !== d))
+  const removeCustomDate = (d: string) => setCustomDates((prev) => prev.filter((x) => x !== d))
 
   const save = async () => {
     if (frequency !== 'custom' && days.length === 0) {
@@ -80,9 +100,9 @@ export default function ScheduleEditor({ campaign, existing, onSaved, onDeleted 
         custom_dates: frequency === 'custom' ? customDates : null,
       }
       const result = await campaigns.setSchedule(campaign.id, payload)
-      onSaved(result)
+      onSaved(result as ScheduleData)
     } catch (err) {
-      alert(err.message)
+      alert((err as Error).message)
     } finally {
       setSaving(false)
     }

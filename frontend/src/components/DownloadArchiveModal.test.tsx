@@ -4,7 +4,7 @@ import DownloadArchiveModal from './DownloadArchiveModal'
 
 // Stub mediaUrl so tests don't need a real token in localStorage
 vi.mock('../api', () => ({
-  mediaUrl: (path, params) => {
+  mediaUrl: (path: string, params: Record<string, string>) => {
     const qs = new URLSearchParams(params).toString()
     return `/api${path}?${qs}`
   },
@@ -68,7 +68,7 @@ describe('DownloadArchiveModal — rendering', () => {
 
   it('renders four radio inputs', () => {
     renderModal()
-    const radios = screen.getAllByRole('radio')
+    const radios = screen.getAllByRole<HTMLInputElement>('radio')
     expect(radios).toHaveLength(4)
   })
 })
@@ -80,14 +80,14 @@ describe('DownloadArchiveModal — rendering', () => {
 describe('DownloadArchiveModal — default format', () => {
   it('selects ZIP by default', () => {
     renderModal()
-    const radios = screen.getAllByRole('radio')
-    const zipRadio = radios.find((r) => r.value === 'zip')
+    const radios = screen.getAllByRole<HTMLInputElement>('radio')
+    const zipRadio = radios.find((r) => r.value === 'zip')!
     expect(zipRadio).toBeChecked()
   })
 
   it('does not check other formats by default', () => {
     renderModal()
-    const radios = screen.getAllByRole('radio')
+    const radios = screen.getAllByRole<HTMLInputElement>('radio')
     for (const radio of radios) {
       if (radio.value !== 'zip') {
         expect(radio).not.toBeChecked()
@@ -103,17 +103,17 @@ describe('DownloadArchiveModal — default format', () => {
 describe('DownloadArchiveModal — format selection', () => {
   it('selecting tar.gz checks that radio', () => {
     renderModal()
-    const radios = screen.getAllByRole('radio')
-    const tarGzRadio = radios.find((r) => r.value === 'tar.gz')
+    const radios = screen.getAllByRole<HTMLInputElement>('radio')
+    const tarGzRadio = radios.find((r) => r.value === 'tar.gz')!
     fireEvent.click(tarGzRadio)
     expect(tarGzRadio).toBeChecked()
   })
 
   it('selecting a format unchecks zip', () => {
     renderModal()
-    const radios = screen.getAllByRole('radio')
-    const tarBz2Radio = radios.find((r) => r.value === 'tar.bz2')
-    const zipRadio = radios.find((r) => r.value === 'zip')
+    const radios = screen.getAllByRole<HTMLInputElement>('radio')
+    const tarBz2Radio = radios.find((r) => r.value === 'tar.bz2')!
+    const zipRadio = radios.find((r) => r.value === 'zip')!
     fireEvent.click(tarBz2Radio)
     expect(zipRadio).not.toBeChecked()
     expect(tarBz2Radio).toBeChecked()
@@ -121,8 +121,8 @@ describe('DownloadArchiveModal — format selection', () => {
 
   it('selecting tar checks tar radio', () => {
     renderModal()
-    const radios = screen.getAllByRole('radio')
-    const tarRadio = radios.find((r) => r.value === 'tar')
+    const radios = screen.getAllByRole<HTMLInputElement>('radio')
+    const tarRadio = radios.find((r) => r.value === 'tar')!
     fireEvent.click(tarRadio)
     expect(tarRadio).toBeChecked()
   })
@@ -181,27 +181,28 @@ describe('DownloadArchiveModal — close behaviour', () => {
 
 describe('DownloadArchiveModal — download behaviour', () => {
   // Capture anchors appended to body without breaking document.createElement
-  let appendedAnchors
-  let origAppendChild
-  let origRemoveChild
+  let appendedAnchors: HTMLAnchorElement[]
+  let origAppendChild: typeof document.body.appendChild
+  let origRemoveChild: typeof document.body.removeChild
 
   beforeEach(() => {
     appendedAnchors = []
     origAppendChild = document.body.appendChild.bind(document.body)
     origRemoveChild = document.body.removeChild.bind(document.body)
 
-    vi.spyOn(document.body, 'appendChild').mockImplementation((el) => {
+    vi.spyOn(document.body, 'appendChild').mockImplementation(<T extends Node>(node: T): T => {
+      const el = node as unknown as HTMLAnchorElement
       if (el && el.tagName === 'A') {
         appendedAnchors.push(el)
         // Intercept click so the browser doesn't actually navigate
         el.click = vi.fn()
-        return el
+        return node
       }
-      return origAppendChild(el)
+      return origAppendChild(node)
     })
-    vi.spyOn(document.body, 'removeChild').mockImplementation((el) => {
-      if (el && el.tagName === 'A') return el
-      return origRemoveChild(el)
+    vi.spyOn(document.body, 'removeChild').mockImplementation(<T extends Node>(node: T): T => {
+      if (node && (node as unknown as Element).tagName === 'A') return node
+      return origRemoveChild(node)
     })
   })
 
@@ -224,8 +225,8 @@ describe('DownloadArchiveModal — download behaviour', () => {
   it('clicking Download with tar.gz selected includes fmt=tar.gz in href', () => {
     const onClose = vi.fn()
     renderModal({ onClose })
-    const radios = screen.getAllByRole('radio')
-    fireEvent.click(radios.find((r) => r.value === 'tar.gz'))
+    const radios = screen.getAllByRole<HTMLInputElement>('radio')
+    fireEvent.click(radios.find((r) => r.value === 'tar.gz')!)
     fireEvent.click(screen.getByRole('button', { name: /^download$/i }))
     expect(appendedAnchors).toHaveLength(1)
     expect(appendedAnchors[0].href).toContain('fmt=tar.gz')
@@ -267,7 +268,7 @@ describe('DownloadArchiveModal — accessibility', () => {
     const dialog = screen.getByRole('dialog')
     const labelId = dialog.getAttribute('aria-labelledby')
     expect(labelId).toBeTruthy()
-    const label = document.getElementById(labelId)
+    const label = document.getElementById(labelId!)!
     expect(label).toBeInTheDocument()
     expect(label.textContent).toMatch(/Download Archive/i)
   })

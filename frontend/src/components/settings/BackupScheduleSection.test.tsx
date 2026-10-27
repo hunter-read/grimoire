@@ -2,9 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import BackupScheduleSection from './BackupScheduleSection'
 import { backups } from '../../api'
+import type { Schema } from '../../api'
 import { SettingsDirtyContext } from './settingsDirty'
 
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }))
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }))
 vi.mock('../Spinner', () => ({ default: () => <span data-testid="spinner" /> }))
 vi.mock('../../api', () => ({
   backups: { getSettings: vi.fn(), saveSettings: vi.fn() },
@@ -28,9 +29,13 @@ const saveButton = () => screen.getByRole('button', { name: /schedule\.save$/ })
 
 beforeEach(() => {
   vi.clearAllMocks()
-  backups.getSettings.mockResolvedValue(SETTINGS)
-  backups.saveSettings.mockImplementation((patch) =>
-    Promise.resolve({ ...SETTINGS, ...patch, backup_dir: patch.backup_dir || SETTINGS.backup_dir })
+  vi.mocked(backups.getSettings).mockResolvedValue(SETTINGS)
+  vi.mocked(backups.saveSettings).mockImplementation((patch) =>
+    Promise.resolve({
+      ...SETTINGS,
+      ...patch,
+      backup_dir: patch.backup_dir || SETTINGS.backup_dir,
+    } as Schema<'BackupSettingsResponse'>)
   )
 })
 
@@ -52,7 +57,7 @@ describe('BackupScheduleSection', () => {
     fireEvent.click(saveButton())
 
     await waitFor(() => expect(backups.saveSettings).toHaveBeenCalled())
-    const patch = backups.saveSettings.mock.calls[0][0]
+    const patch = vi.mocked(backups.saveSettings).mock.calls[0][0]
     expect(patch.backup_schedule).toBe('daily')
     expect(patch.backup_retention_count).toBe(5)
     expect(patch.backup_retention_gb).toBe(10)
@@ -85,7 +90,9 @@ describe('BackupScheduleSection', () => {
   })
 
   it('surfaces a rejected save', async () => {
-    backups.saveSettings.mockRejectedValue(new Error('Parent directory does not exist: /nope'))
+    vi.mocked(backups.saveSettings).mockRejectedValue(
+      new Error('Parent directory does not exist: /nope')
+    )
     render(<BackupScheduleSection />)
     await screen.findByText('backups.schedule.title')
 
@@ -94,7 +101,7 @@ describe('BackupScheduleSection', () => {
   })
 
   it('says why it has nothing to show when the settings fail to load', async () => {
-    backups.getSettings.mockRejectedValue(new Error('down'))
+    vi.mocked(backups.getSettings).mockRejectedValue(new Error('down'))
     render(<BackupScheduleSection />)
     expect(await screen.findByText('backups.schedule.loadFailed')).toBeInTheDocument()
   })
@@ -105,7 +112,7 @@ describe('BackupScheduleSection', () => {
     fireEvent.click(saveButton())
     expect(await screen.findByRole('status')).toHaveTextContent('backups.schedule.saved')
 
-    backups.saveSettings.mockRejectedValue({})
+    vi.mocked(backups.saveSettings).mockRejectedValue({})
     fireEvent.click(saveButton())
     expect(await screen.findByRole('alert')).toHaveTextContent('backups.schedule.saveFailed')
   })
@@ -143,7 +150,7 @@ describe('BackupScheduleSection', () => {
 
   describe('env-locked fields', () => {
     it('disables the controls an env var pins', async () => {
-      backups.getSettings.mockResolvedValue({
+      vi.mocked(backups.getSettings).mockResolvedValue({
         ...SETTINGS,
         backup_schedule: 'daily',
         schedule_env_locked: true,
@@ -159,7 +166,7 @@ describe('BackupScheduleSection', () => {
     })
 
     it('never sends a locked field, which the API would reject', async () => {
-      backups.getSettings.mockResolvedValue({
+      vi.mocked(backups.getSettings).mockResolvedValue({
         ...SETTINGS,
         schedule_env_locked: true,
         retention_gb_env_locked: true,
@@ -170,7 +177,7 @@ describe('BackupScheduleSection', () => {
       fireEvent.click(saveButton())
 
       await waitFor(() => expect(backups.saveSettings).toHaveBeenCalled())
-      const patch = backups.saveSettings.mock.calls[0][0]
+      const patch = vi.mocked(backups.saveSettings).mock.calls[0][0]
       expect(patch).not.toHaveProperty('backup_schedule')
       expect(patch).not.toHaveProperty('backup_retention_gb')
       // Unlocked fields still go.

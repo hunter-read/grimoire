@@ -12,6 +12,23 @@ import ExportSegmented from './ExportSegmented'
 import SaveToLibraryModal from './SaveToLibraryModal'
 import { buttonStyle, errorStyle, hintStyle } from './exportStyles'
 import { countSpreadImages, parsePageSpec } from './pageRanges'
+import type { ExportTab, PageExporter, PageUrl } from './usePageExport'
+
+export interface ExportSidebarProps {
+  exporter: PageExporter
+  title: string
+  totalPages: number
+  currentPage: number
+  isSpread?: boolean
+  spreadOffset?: number
+  /** The table-of-contents endpoint; books only. */
+  tocPath?: string | null
+  pageUrl: PageUrl
+  /** The source file's library path, so saving can open beside it. */
+  sourcePath?: string | null
+  onShowPage: (page: number) => void
+  onClose: () => void
+}
 
 /**
  * The export panel (issue #207): whole pages, or areas cut out of them.
@@ -37,13 +54,13 @@ export default function ExportSidebar({
   sourcePath,
   onShowPage,
   onClose,
-}) {
+}: ExportSidebarProps) {
   const { t } = useTranslation()
   const user = useAuth()?.user
   const libraryWritable = useUISettings()?.library_writable
   const canSave = user?.role === 'admin' && libraryWritable !== false
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -99,7 +116,7 @@ export default function ExportSidebar({
       await api.download(`${exporter.basePath}/export`, `${title}.zip`, { method: 'POST', body })
       setDone(true)
     } catch (e) {
-      setError(e.message || t('pageExport.failed'))
+      setError((e as Error).message || t('pageExport.failed'))
     } finally {
       setBusy(false)
     }
@@ -139,7 +156,7 @@ export default function ExportSidebar({
       </div>
 
       <div style={{ padding: '12px 14px 0', flexShrink: 0 }}>
-        <ExportSegmented
+        <ExportSegmented<ExportTab>
           ariaLabel={t('pageExport.title')}
           value={exporter.tab}
           onChange={exporter.setTab}

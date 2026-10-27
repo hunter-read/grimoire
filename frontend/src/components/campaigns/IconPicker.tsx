@@ -1,4 +1,13 @@
-import { useState, useRef, useEffect, useCallback, useMemo, useId } from 'react'
+import {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+  useId,
+  type CSSProperties,
+  type ReactNode,
+} from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { LuChevronDown, LuBan, LuSearch } from 'react-icons/lu'
@@ -22,6 +31,18 @@ const GRID_MAX_HEIGHT = 168
 // be adjusted together; it closes on Escape, an outside click, or the trigger.
 // It is rendered in a portal at fixed viewport coordinates so it isn't clipped
 // by a scrolling/overflow-hidden modal body.
+export interface IconPickerProps {
+  value?: string | null
+  onChange: (icon: string) => void
+  color?: string | null
+  onColorChange?: (color: string) => void
+  fallback?: ReactNode
+  ariaLabel?: string
+  compact?: boolean
+  size?: number
+  triggerColor?: string
+}
+
 export default function IconPicker({
   value,
   onChange,
@@ -32,15 +53,15 @@ export default function IconPicker({
   compact,
   size,
   triggerColor,
-}) {
+}: IconPickerProps) {
   const iconSize = size ?? (compact ? 13 : 15)
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState('icons')
   const [query, setQuery] = useState('')
   const [coords, setCoords] = useState({ top: 0, left: 0 })
-  const triggerRef = useRef(null)
-  const popoverRef = useRef(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const popoverRef = useRef<HTMLDivElement>(null)
   const searchId = useId()
 
   const iconResults = useMemo(() => (tab === 'icons' ? searchIconNames(query) : []), [tab, query])
@@ -69,11 +90,12 @@ export default function IconPicker({
   useEffect(() => {
     if (!open) return
     place()
-    const onDoc = (e) => {
-      if (triggerRef.current?.contains(e.target) || popoverRef.current?.contains(e.target)) return
+    const onDoc = (e: MouseEvent) => {
+      const target = e.target as Node
+      if (triggerRef.current?.contains(target) || popoverRef.current?.contains(target)) return
       setOpen(false)
     }
-    const onKey = (e) => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setOpen(false)
         triggerRef.current?.focus()
@@ -101,7 +123,7 @@ export default function IconPicker({
 
   // Picking an icon leaves the popover open so the colour can be set (or the
   // icon swapped) without reopening — Escape or a click outside closes it.
-  const pick = (name) => {
+  const pick = (name: string) => {
     onChange(name)
   }
 
@@ -237,7 +259,8 @@ export default function IconPicker({
               )}
               {tab === 'icons' &&
                 iconResults.map((name) => {
-                  const Icon = CAMPAIGN_ICONS[name]
+                  // Every searched name comes from the catalogue, so it has a component.
+                  const Icon = CAMPAIGN_ICONS[name]!
                   return (
                     <button
                       key={name}
@@ -290,7 +313,7 @@ export default function IconPicker({
   )
 }
 
-const tabStyle = (active) => ({
+const tabStyle = (active: boolean): CSSProperties => ({
   flex: 1,
   padding: '5px 8px',
   background: active ? 'var(--bg-card)' : 'transparent',
@@ -302,7 +325,7 @@ const tabStyle = (active) => ({
   fontSize: 12,
 })
 
-const iconCell = (active) => ({
+const iconCell = (active: boolean): CSSProperties => ({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',

@@ -3,11 +3,13 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 const describeVariant = vi.fn()
-vi.mock('../api', () => ({ duplicates: { describe: (...a) => describeVariant(...a) } }))
+vi.mock('../api', () => ({
+  duplicates: { describe: (...a: unknown[]) => describeVariant(...a) },
+}))
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k) => {
+    t: (k: string) => {
       if (k === 'variants.mainVersion') return 'Main version'
       if (k === 'variants.renameKind') return 'Type'
       if (k === 'variants.renameLabel') return 'Label'
@@ -21,8 +23,9 @@ vi.mock('react-i18next', () => ({
 }))
 
 import VariantDescribeForm from './VariantDescribeForm'
+import type { VariantOption } from './useVariantOptions'
 
-const renderForm = (option, extra = {}) => {
+const renderForm = (option: VariantOption, extra = {}) => {
   const onSaved = vi.fn()
   const onCancel = vi.fn()
   render(
@@ -37,7 +40,8 @@ const renderForm = (option, extra = {}) => {
   return { onSaved, onCancel }
 }
 
-const optionsOf = () => [...screen.getByLabelText('Type').options].map((o) => o.value)
+const optionsOf = () =>
+  [...screen.getByLabelText<HTMLSelectElement>('Type').options].map((o) => o.value)
 
 beforeEach(() => {
   describeVariant.mockReset().mockImplementation((_t, id, desc) => Promise.resolve({ id, ...desc }))

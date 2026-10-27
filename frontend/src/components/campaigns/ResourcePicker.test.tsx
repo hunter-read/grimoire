@@ -1,10 +1,15 @@
 import { useState } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import ResourcePicker from './ResourcePicker'
+import ResourcePicker, { type PickedResource, type ResourcePickerProps } from './ResourcePicker'
 import { PICKER_TYPES } from './resourcesShared'
 import { campaigns, tags } from '../../api'
+
+// The api module is mocked above; reach its helpers as plain vi.fn()s.
+const campaignsMock = campaigns as unknown as Record<keyof typeof campaigns, Mock>
+const tagsMock = tags as unknown as Record<keyof typeof tags, Mock>
 import { UISettingsProvider } from '../../context/UISettingsContext'
 
 vi.mock('../../api', () => ({
@@ -49,13 +54,20 @@ const byType = {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  campaigns.searchResources.mockImplementation((_q, type) => Promise.resolve(byType[type] || []))
+  campaignsMock.searchResources.mockImplementation((_q: string, type: keyof typeof byType) =>
+    Promise.resolve(byType[type] || [])
+  )
 })
 
 // Controlled wrapper so tests can drive and inspect the selection state.
-function Harness(props) {
-  const [selected, setSelected] = useState(props.initial || [])
+function Harness(props: Partial<ResourcePickerProps> & { initial?: PickedResource[] }) {
+  const [selected, setSelected] = useState<PickedResource[]>(props.initial || [])
   return <ResourcePicker selected={selected} setSelected={setSelected} {...props} />
+}
+
+/** The slice of a locale file the tab-label test reads. */
+interface Locale {
+  campaignEditor?: { resources?: Record<string, string> }
 }
 
 describe('ResourcePicker', () => {
@@ -161,20 +173,20 @@ describe('ResourcePicker', () => {
 
   describe('add by tag', () => {
     beforeEach(() => {
-      tags.list.mockResolvedValue({
+      tagsMock.list.mockResolvedValue({
         tags: [{ internal: 'strahd', display: 'Strahd', count: 2 }],
       })
     })
 
     it('shows the tag picker only when tags exist', async () => {
-      tags.list.mockResolvedValueOnce({ tags: [] })
+      tagsMock.list.mockResolvedValueOnce({ tags: [] })
       render(<Harness />)
       await screen.findByRole('button', { name: 'Books' })
       expect(screen.queryByLabelText(/add all with tag/i)).not.toBeInTheDocument()
     })
 
     it('adds every campaign-addable resource carrying the chosen tag', async () => {
-      tags.allItems.mockResolvedValue([
+      tagsMock.allItems.mockResolvedValue([
         { item_type: 'book', item_id: 'b2' },
         { item_type: 'map', item_id: 'm1' },
         // A system is not a campaign resource and must be skipped.
@@ -192,7 +204,7 @@ describe('ResourcePicker', () => {
     })
 
     it('does not duplicate a resource already selected', async () => {
-      tags.allItems.mockResolvedValue([{ item_type: 'map', item_id: 'm1' }])
+      tagsMock.allItems.mockResolvedValue([{ item_type: 'map', item_id: 'm1' }])
       render(
         <Harness
           initial={[
@@ -212,7 +224,8 @@ describe('ResourcePicker', () => {
 })
 
 describe('ResourcePicker — select a whole folder (issue #555)', () => {
-  const folderBox = (name) => screen.getByRole('checkbox', { name: `Select everything in ${name}` })
+  const folderBox = (name: string) =>
+    screen.getByRole('checkbox', { name: `Select everything in ${name}` }) as HTMLInputElement
 
   it('selects every item in a folder, subfolders included, and clears it again', async () => {
     render(<Harness />)
@@ -263,7 +276,7 @@ describe('ResourcePicker — select a whole folder (issue #555)', () => {
     await userEvent.click(folderBox('D&D 5e'))
     expect(screen.getByText('Selected (2)')).toBeInTheDocument()
     const visibilities = screen.getAllByRole('combobox', { name: 'Visibility' })
-    expect(visibilities.map((s) => s.value)).toEqual(['gm', 'public'])
+    expect(visibilities.map((s) => (s as HTMLSelectElement).value)).toEqual(['gm', 'public'])
   })
 
   it('works on the other tabs too', async () => {
@@ -282,8 +295,10 @@ describe('ResourcePicker — type tabs', () => {
   })
 
   it('has a tab label for every type in every language', async () => {
-    const locales = import.meta.glob('../../locales/*.json', { eager: true })
-    const missing = []
+    const locales = import.meta.glob<{ default?: Locale } & Locale>('../../locales/*.json', {
+      eager: true,
+    })
+    const missing: string[] = []
     for (const [file, mod] of Object.entries(locales)) {
       const labels = (mod.default ?? mod).campaignEditor?.resources ?? {}
       for (const type of PICKER_TYPES) {
@@ -308,8 +323,10 @@ describe('ResourcePicker — type tabs', () => {
   })
 
   it('does not add hidden sections by tag', async () => {
-    tags.list.mockResolvedValue({ tags: [{ internal: 'dragons', display: 'dragons', count: 2 }] })
-    tags.allItems.mockResolvedValue([
+    tagsMock.list.mockResolvedValue({
+      tags: [{ internal: 'dragons', display: 'dragons', count: 2 }],
+    })
+    tagsMock.allItems.mockResolvedValue([
       { item_type: 'model', item_id: 'x1', title: 'Dragon Mini' },
       { item_type: 'map', item_id: 'm1', title: 'Tavern' },
     ])

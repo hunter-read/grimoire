@@ -1,4 +1,10 @@
 import { useTranslation } from 'react-i18next'
+import type { Schema } from '../../api'
+
+interface Props {
+  user: Schema<'UserOut'>
+  onChange: (userId: string, override: string) => unknown
+}
 
 /**
  * A user's share-link permission (issue #541): follow their role, or allow or
@@ -6,7 +12,7 @@ import { useTranslation } from 'react-i18next'
  * which layer decided - "Allowed (from role)" for a GM with no override - so an
  * admin never has to work out the effective answer themselves.
  */
-export default function ShareLinksPermissionSelect({ user, onChange }) {
+export default function ShareLinksPermissionSelect({ user, onChange }: Props) {
   const { t } = useTranslation()
   const value = user.share_links || 'role'
   const allowed = Boolean(user.share_links_allowed)

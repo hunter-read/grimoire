@@ -11,7 +11,8 @@ import AppShell from './components/AppShell'
 import ShareView from './views/ShareView'
 
 export default function App() {
-  const { status, login } = useAuth()
+  // App is always rendered inside AuthProvider (see main.tsx).
+  const { status, login } = useAuth()!
   const { pathname } = useLocation()
 
   // A share link's page is public (issue #541): it renders for anyone, signed

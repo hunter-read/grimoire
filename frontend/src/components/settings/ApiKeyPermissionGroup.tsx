@@ -1,9 +1,26 @@
 import { useTranslation } from 'react-i18next'
+import type { ReactNode } from 'react'
 import { LuChevronDown, LuChevronRight } from 'react-icons/lu'
+
+interface Props {
+  id: string
+  open: boolean
+  onToggle: (id: string) => void
+  granted: number
+  total: number
+  children?: ReactNode
+}
 
 // A collapsible section of the key editor. Its header says how many of its
 // areas the key reaches, so a closed group still shows what it grants.
-export default function ApiKeyPermissionGroup({ id, open, onToggle, granted, total, children }) {
+export default function ApiKeyPermissionGroup({
+  id,
+  open,
+  onToggle,
+  granted,
+  total,
+  children,
+}: Props) {
   const { t } = useTranslation()
   const label = t(`appSettings.apiKeys.groups.${id}`, id)
   return (

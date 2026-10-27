@@ -4,7 +4,13 @@ import userEvent from '@testing-library/user-event'
 
 vi.mock('../../images/ImageSourceBrowser', () => ({
   TOKEN_SOURCE_TYPES: ['token'],
-  default: ({ onChange, types }) => (
+  default: ({
+    onChange,
+    types,
+  }: {
+    onChange: (pick: { source_type: string; source_id: string }) => void
+    types?: string[]
+  }) => (
     <button
       type="button"
       data-types={(types || []).join(',')}
@@ -56,7 +62,9 @@ describe('TokenSourcePicker', () => {
   it('takes an image pasted from the clipboard', () => {
     const onFile = vi.fn()
     render(<TokenSourcePicker onFile={onFile} onPickSource={vi.fn()} active />)
-    const event = new Event('paste', { bubbles: true, cancelable: true })
+    const event = new Event('paste', { bubbles: true, cancelable: true }) as Event & {
+      clipboardData: unknown
+    }
     event.clipboardData = { items: [], files: [png()] }
     document.dispatchEvent(event)
     expect(onFile).toHaveBeenCalled()

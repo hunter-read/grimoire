@@ -1,19 +1,35 @@
 import { render, screen, act, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { SoundboardProvider, useSoundboard, clampLayout, DEFAULT_LAYOUT } from './SoundboardContext'
+import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest'
+import {
+  SoundboardProvider,
+  useSoundboard,
+  clampLayout,
+  DEFAULT_LAYOUT,
+  type SoundboardContextValue,
+} from './SoundboardContext'
 
 vi.mock('../api', () => ({
   default: { get: vi.fn(() => Promise.resolve({})) },
-  mediaUrl: (path) => `http://test${path}`,
+  mediaUrl: (path: string) => `http://test${path}`,
 }))
 
 import api from '../api'
 
+const mockGet = vi.mocked(api.get) as unknown as Mock
+
 // A fake <audio> good enough for the pad behaviour we assert on: play/pause,
 // loop, currentTime, and the 'ended' listener the context attaches.
 class FakeAudio {
-  constructor(src) {
+  src: string
+  loop: boolean
+  volume: number
+  currentTime: number
+  ended: boolean
+  paused: boolean
+  playCount: number
+  listeners: Record<string, () => void>
+  constructor(src: string) {
     this.src = src
     this.loop = false
     this.volume = 1
@@ -24,7 +40,7 @@ class FakeAudio {
     this.listeners = {}
     FakeAudio.instances.push(this)
   }
-  addEventListener(type, fn) {
+  addEventListener(type: string, fn: () => void) {
     this.listeners[type] = fn
   }
   play() {
@@ -35,18 +51,29 @@ class FakeAudio {
   pause() {
     this.paused = true
   }
-  emit(type) {
+  emit(type: string) {
     this.listeners[type]?.()
   }
-  static instances = []
+  static instances: FakeAudio[] = []
   static reset() {
     FakeAudio.instances = []
   }
 }
 
-let board
+// The tests hand pads and tracks over in looser shapes than the context's own
+// types (an id alone, or garbage to prove it is ignored), so the board is read
+// through a widened view of those four actions.
+type TestPad = { id: string; title?: string; loop?: boolean }
+type TestBoard = Omit<SoundboardContextValue, 'trigger' | 'toggle' | 'addPads' | 'replacePads'> & {
+  trigger: (pad: TestPad) => void
+  toggle: (pad: TestPad) => void
+  addPads: (tracks: unknown) => number
+  replacePads: (tracks: unknown) => number
+}
+
+let board: TestBoard
 function Probe() {
-  board = useSoundboard()
+  board = useSoundboard() as unknown as TestBoard
   return (
     <div>
       <span data-testid="count">{board.pads.length}</span>
@@ -74,9 +101,9 @@ describe('SoundboardContext', () => {
   beforeEach(() => {
     localStorage.clear()
     FakeAudio.reset()
-    global.Audio = FakeAudio
-    api.get.mockReset()
-    api.get.mockResolvedValue({})
+    globalThis.Audio = FakeAudio as unknown as typeof Audio
+    mockGet.mockReset()
+    mockGet.mockResolvedValue({})
   })
 
   it('starts empty with the default layout and closed panel', () => {
@@ -99,7 +126,7 @@ describe('SoundboardContext', () => {
     expect(screen.getByTestId('count')).toHaveTextContent('2')
     expect(screen.getByTestId('open')).toHaveTextContent('true')
 
-    let added
+    let added: number | undefined
     act(() => {
       added = board.addPads([
         { id: 'a', title: 'Thunder' },
@@ -257,7 +284,7 @@ describe('SoundboardContext', () => {
     act(() => board.setPosition({ left: 40, top: 60 }))
 
     await waitFor(() =>
-      expect(JSON.parse(localStorage.getItem('grimoire:soundboard:pads'))).toHaveLength(1)
+      expect(JSON.parse(localStorage.getItem('grimoire:soundboard:pads')!)).toHaveLength(1)
     )
     unmount()
 
@@ -283,7 +310,7 @@ describe('SoundboardContext', () => {
   })
 
   it('hydrates a pad added with only an id', async () => {
-    api.get.mockResolvedValue({ title: 'Fetched Title' })
+    mockGet.mockResolvedValue({ title: 'Fetched Title' })
     renderBoard()
     act(() => board.addPads({ id: 'a' }))
     await waitFor(() => expect(screen.getByTestId('pad-a')).toHaveTextContent('Fetched Title'))
@@ -291,13 +318,13 @@ describe('SoundboardContext', () => {
   })
 
   it('stops retrying a pad whose lookup fails', async () => {
-    api.get.mockRejectedValue(new Error('nope'))
+    mockGet.mockRejectedValue(new Error('nope'))
     renderBoard()
     act(() => board.addPads({ id: 'a' }))
     await waitFor(() => expect(board.pads[0]._hydrated).toBe(true))
-    const calls = api.get.mock.calls.length
+    const calls = mockGet.mock.calls.length
     act(() => board.updateLayout({ cols: 2 }))
-    expect(api.get.mock.calls.length).toBe(calls)
+    expect(mockGet.mock.calls.length).toBe(calls)
   })
 
   it('does not fetch metadata for a pad that already has a title', async () => {
@@ -338,7 +365,7 @@ describe('SoundboardContext', () => {
       renderBoard()
       act(() => board.addPads([{ id: 'a', title: 'A' }]))
 
-      let count
+      let count: number | undefined
       act(() => {
         count = board.replacePads([
           { id: 'x', title: 'X', loop: true },
@@ -398,7 +425,7 @@ describe('SoundboardContext', () => {
       renderBoard()
       act(() => board.addPads([{ id: 'a', title: 'A' }]))
       act(() => board.trigger({ id: 'a' }))
-      const el = FakeAudio.instances.at(-1)
+      const el = FakeAudio.instances.at(-1)!
       act(() => board.replacePads([{ id: 'b', title: 'B' }]))
       expect(el.paused).toBe(true)
     })

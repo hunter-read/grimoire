@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, type DragEvent, type MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuChevronRight, LuChevronDown } from 'react-icons/lu'
 import Chip from './Chip'
@@ -6,8 +6,31 @@ import EntryIcon from './EntryIcon'
 import UnreadableNameHelp from './UnreadableNameHelp'
 import useLongPress from '../../hooks/useLongPress'
 import useCoarsePointer from '../../hooks/useCoarsePointer'
+import type { Schema } from '../../api'
+import type { RowContextEvent } from './FilePane'
 
-function formatSize(bytes) {
+type BrowseEntry = Schema<'BrowseEntry'>
+
+export interface FileRowProps {
+  id?: string
+  entry: BrowseEntry
+  depth: number
+  isOpen: boolean
+  isSelected?: boolean
+  isCursor?: boolean
+  isDropTarget?: boolean
+  height: number
+  onToggleExpand: (path: string) => void
+  onOpenFolder: (path: string) => void
+  onSelect: (e: MouseEvent<HTMLDivElement>, entry: BrowseEntry) => void
+  onContext: (e: RowContextEvent, entry: BrowseEntry) => void
+  onDragStart: (e: DragEvent<HTMLDivElement>, entry: BrowseEntry) => void
+  onDragOverRow: (e: DragEvent<HTMLDivElement>, entry: BrowseEntry, isOpen: boolean) => void
+  onDragLeaveRow: (entry: BrowseEntry) => void
+  onDropRow: (e: DragEvent<HTMLDivElement>, entry: BrowseEntry) => void
+}
+
+function formatSize(bytes: number | null | undefined): string {
   if (bytes == null) return ''
   const units = ['B', 'KB', 'MB', 'GB']
   let n = bytes
@@ -44,7 +67,7 @@ function FileRow({
   onDragOverRow,
   onDragLeaveRow,
   onDropRow,
-}) {
+}: FileRowProps) {
   const { t } = useTranslation()
   // Touch has no right mouse button, so a held finger stands in for one — every
   // action on a row lives behind this menu and was otherwise unreachable on a
@@ -66,16 +89,16 @@ function FileRow({
     : {
         ...longPress,
         draggable: !touch,
-        onDragStart: (e) => onDragStart(e, entry),
-        onDragOver: (e) => onDragOverRow(e, entry, isOpen),
+        onDragStart: (e: DragEvent<HTMLDivElement>) => onDragStart(e, entry),
+        onDragOver: (e: DragEvent<HTMLDivElement>) => onDragOverRow(e, entry, isOpen),
         onDragLeave: () => onDragLeaveRow(entry),
-        onDrop: (e) => onDropRow(e, entry),
-        onClick: (e) => onSelect(e, entry),
+        onDrop: (e: DragEvent<HTMLDivElement>) => onDropRow(e, entry),
+        onClick: (e: MouseEvent<HTMLDivElement>) => onSelect(e, entry),
         // Double-click *enters* the folder, re-anchoring the pane to it; the
         // twisty expands in place. Two distinct intents, two distinct targets —
         // double-clicking to expand left the user with no way to drill in.
         onDoubleClick: () => entry.is_dir && onOpenFolder(entry.path),
-        onContextMenu: (e) => onContext(e, entry),
+        onContextMenu: (e: MouseEvent<HTMLDivElement>) => onContext(e, entry),
       }
 
   return (

@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { ComponentProps } from 'react'
+import type { TFunction } from 'i18next'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CodexPanel from './CodexPanel'
@@ -9,11 +11,11 @@ vi.mock('../../api', () => ({
   default: { get: vi.fn(), post: vi.fn(), delete: vi.fn() },
 }))
 
-const api = (await import('../../api')).default
+const api = vi.mocked((await import('../../api')).default)
 
 const STATUS = { enabled: true, url: 'https://codex.test' }
 
-function renderPanel(props = {}) {
+function renderPanel(props: Partial<ComponentProps<typeof CodexPanel>> = {}) {
   const onLinkChange = vi.fn()
   render(
     <CodexPanel
@@ -167,7 +169,8 @@ describe('CodexPanel', () => {
 })
 
 describe('codexFieldLabel', () => {
-  const t = (key, fallback) => (key === 'systemEditor.edition' ? 'Edition' : fallback)
+  const t = ((key: string, fallback: string) =>
+    key === 'systemEditor.edition' ? 'Edition' : fallback) as unknown as TFunction
   it('uses editor labels and falls back to the field name', () => {
     expect(codexFieldLabel(t, 'systems', 'edition')).toBe('Edition')
     expect(codexFieldLabel(t, 'systems', 'unknown_field')).toBe('unknown_field')

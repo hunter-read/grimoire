@@ -260,11 +260,11 @@ const EMOJI_SEARCH_TEXT = Object.fromEntries(
 
 // Emoji matching `query`, in catalogue order — same every-term-must-match rule
 // as the built-in icon search. An empty query returns the whole set.
-export function searchEmoji(query) {
+export function searchEmoji(query: string | null | undefined): string[] {
   const terms = (query || '').toLowerCase().trim().split(/\s+/).filter(Boolean)
   if (terms.length === 0) return CAMPAIGN_EMOJI
   return CAMPAIGN_EMOJI.filter((char) => {
     const haystack = EMOJI_SEARCH_TEXT[char]
-    return terms.every((term) => haystack.includes(term))
+    return terms.every((term: string) => haystack.includes(term))
   })
 }

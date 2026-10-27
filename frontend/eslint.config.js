@@ -23,20 +23,8 @@ const reactRules = {
 export default [
   // schema.d.ts is generated from the backend (npm run api:types).
   { ignores: ['dist/**', 'node_modules/**', 'src/api/schema.d.ts'] },
-  {
-    files: ['src/**/*.{js,jsx}'],
-    plugins: { react, 'react-hooks': reactHooks },
-    languageOptions: {
-      ecmaVersion: 2022,
-      sourceType: 'module',
-      parserOptions: { ecmaFeatures: { jsx: true } },
-      globals: { ...globals.browser, ...globals.es2021 },
-    },
-    settings: { react: { version: reactVersion } },
-    rules: reactRules,
-  },
-  // TypeScript (issue #587): the same React rules, plus typescript-eslint's
-  // recommended set. Types themselves are checked by `npm run typecheck`.
+  // The project's React rules, plus typescript-eslint's recommended set. Types
+  // themselves are checked by `npm run typecheck`.
   ...tseslint.configs.recommended.map((config) => ({
     ...config,
     files: ['src/**/*.{ts,tsx}'],
@@ -53,7 +41,7 @@ export default [
   },
   {
     // Test files legitimately define local wrapper/harness components.
-    files: ['src/**/*.test.{js,jsx,ts,tsx}', 'src/test/**'],
+    files: ['src/**/*.test.{ts,tsx}', 'src/test/**'],
     languageOptions: { globals: { ...globals.vitest } },
     rules: {
       'react/no-multi-comp': 'off',

@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import RealTagFolderGroup from './TagFolderGroup'
+import RealTagFolderGroup, { type TagFolderGroupProps } from './TagFolderGroup'
 
-let prefs = {}
+let prefs: Record<string, unknown> = {}
 vi.mock('../../hooks/useUserPrefs', () => ({
   getUserPrefs: () => prefs,
-  saveUserPref: (key, value) => {
+  saveUserPref: (key: string, value: unknown) => {
     prefs[key] = value
   },
 }))
@@ -15,7 +15,11 @@ beforeEach(() => {
   prefs = {}
 })
 
-const renderItem = (item) => (
+interface Item {
+  item_id: string
+}
+
+const renderItem = (item: Item) => (
   <div key={item.item_id} data-testid="item">
     {item.item_id}
   </div>
@@ -24,11 +28,13 @@ const containerStyle = { display: 'grid' }
 
 // A folder group takes its count and a paged list now (issue #221); these tests
 // describe it by its items, so this hands those over fully loaded.
-function TagFolderGroup({ items = [], ...rest }) {
+type Props = Omit<TagFolderGroupProps<Item>, 'count' | 'list'> & { items?: Item[] }
+
+function TagFolderGroup({ items = [], ...rest }: Props) {
   return (
     <RealTagFolderGroup
       count={items.length}
-      list={{ items, total: items.length, hasMore: false, loading: false }}
+      list={{ items, hasMore: false, loading: false }}
       {...rest}
     />
   )
@@ -62,7 +68,7 @@ describe('TagFolderGroup', () => {
     expect(screen.getByTestId('item')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /woods/i }))
     expect(screen.queryByTestId('item')).not.toBeInTheDocument()
-    expect(prefs.tagsFolderCollapsed['map:woods']).toBe(true)
+    expect((prefs.tagsFolderCollapsed as Record<string, boolean>)['map:woods']).toBe(true)
   })
 
   it('starts collapsed when its key is already collapsed in prefs', () => {
@@ -163,7 +169,7 @@ describe('TagFolderGroup default collapse', () => {
         path="woods"
         items={[{ item_id: 'm1' }]}
         containerStyle={{}}
-        renderItem={(i) => <div key={i.item_id}>{i.item_id}</div>}
+        renderItem={(i: Item) => <div key={i.item_id}>{i.item_id}</div>}
         defaultCollapsed
       />
     )

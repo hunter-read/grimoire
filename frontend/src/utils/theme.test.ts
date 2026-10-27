@@ -18,12 +18,12 @@ import {
 } from './theme'
 
 /** Stub matchMedia so `system` mode is deterministic. */
-function stubMatchMedia(matches) {
-  const listeners = new Set()
+function stubMatchMedia(matches: boolean) {
+  const listeners = new Set<() => void>()
   const mql = {
     matches,
-    addEventListener: (_, fn) => listeners.add(fn),
-    removeEventListener: (_, fn) => listeners.delete(fn),
+    addEventListener: (_: string, fn: () => void) => listeners.add(fn),
+    removeEventListener: (_: string, fn: () => void) => listeners.delete(fn),
     fire: () => listeners.forEach((fn) => fn()),
     listenerCount: () => listeners.size,
   }

@@ -39,7 +39,7 @@ const envelope = (over = {}) => ({
   ...over,
 })
 
-const fakeFile = (text) => ({ text: () => Promise.resolve(text) })
+const fakeFile = (text: string) => ({ text: () => Promise.resolve(text) }) as unknown as Blob
 
 describe('isUvttName', () => {
   it('matches both extensions regardless of case', () => {
@@ -196,6 +196,7 @@ describe('readUvttFile', () => {
 
   it('rejects an envelope carrying no picture', async () => {
     // There is nothing to draw walls over, so this cannot be edited.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- dropped from the copy
     const { image, ...noImage } = envelope()
     await expect(readUvttFile(fakeFile(JSON.stringify(noImage)))).rejects.toThrow('no-image')
   })

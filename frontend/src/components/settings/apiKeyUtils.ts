@@ -1,15 +1,18 @@
 // Shared helpers for the API key settings (issue #489).
+import type { Schema } from '../../api'
+
+type Permission = Schema<'ApiKeyPermissionOut'>
 
 // Expiry choices offered when creating or editing a key, in days; null = never.
-export const EXPIRY_CHOICES = [30, 90, 365, null]
+export const EXPIRY_CHOICES: (number | null)[] = [30, 90, 365, null]
 
 // Turn an expiry choice into the ISO timestamp the API takes (null = never).
-export function expiryFromDays(days, now = new Date()) {
+export function expiryFromDays(days: number | null | undefined, now = new Date()): string | null {
   if (days == null) return null
   return new Date(now.getTime() + days * 24 * 60 * 60 * 1000).toISOString()
 }
 
-export function formatWhen(iso, locale) {
+export function formatWhen(iso: string | null | undefined, locale?: string): string | null {
   if (!iso) return null
   // Mark a naive timestamp as UTC before formatting, or the browser reads it as
   // local time.
@@ -22,13 +25,16 @@ export function formatWhen(iso, locale) {
 // The permissions key for "every area, including future ones".
 export const ALL = '*'
 
-const RANK = { none: 0, read: 1, write: 2 }
+const RANK: Record<string, number> = { none: 0, read: 1, write: 2 }
 
-export const rank = (level) => RANK[level] ?? 0
+export const rank = (level: string | null | undefined): number => RANK[level as string] ?? 0
 
 // The level a key effectively holds for one permission: the higher of its own
 // entry and the All permissions floor, capped at what that permission offers.
-export function effectiveLevel(levels, perm) {
+export function effectiveLevel(
+  levels: Record<string, string | undefined>,
+  perm: Pick<Permission, 'id' | 'levels'>
+): string {
   const explicit = levels[perm.id] || 'none'
   const floor = levels[ALL] || 'none'
   const wanted = rank(explicit) >= rank(floor) ? explicit : floor
@@ -37,7 +43,10 @@ export function effectiveLevel(levels, perm) {
 
 // What a key holds, for its summary line: All permissions first, then any area
 // raised above it, in the order the server lists them.
-export function grantedPermissions(key, permissions) {
+export function grantedPermissions(
+  key: { permissions?: Record<string, string> | null },
+  permissions: Pick<Permission, 'id'>[]
+): { id: string; level: string }[] {
   const granted = key.permissions || {}
   const floor = granted[ALL] || 'none'
   const out = floor !== 'none' ? [{ id: ALL, level: floor }] : []

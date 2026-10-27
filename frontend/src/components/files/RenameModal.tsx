@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, type CSSProperties, type FormEvent, type KeyboardEvent } from 'react'
+import type { Schema } from '../../api'
 import { useTranslation } from 'react-i18next'
 import Spinner from '../Spinner'
 import { splitExtension, joinExtension } from './filename'
@@ -11,7 +12,13 @@ import { splitExtension, joinExtension } from './filename'
  * copy says so, because the two are easy to confuse and only one of them is
  * visible to anything outside Grimoire.
  */
-export default function RenameModal({ entry, onClose, onRename }) {
+export interface RenameModalProps {
+  entry: Pick<Schema<'BrowseEntry'>, 'name' | 'path' | 'is_dir'>
+  onClose: () => void
+  onRename: (path: string, newName: string) => unknown
+}
+
+export default function RenameModal({ entry, onClose, onRename }: RenameModalProps) {
   const { t } = useTranslation()
   // The extension is held aside and re-attached on save. Letting it be edited
   // here would let a rename change the file's type — Grimoire infers MIME type,
@@ -20,12 +27,12 @@ export default function RenameModal({ entry, onClose, onRename }) {
   const { stem, ext } = splitExtension(entry.name, entry.is_dir)
   const [value, setValue] = useState(stem)
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
 
   const nextName = joinExtension(value, ext)
   const unchanged = nextName === entry.name
 
-  const submit = async (e) => {
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!value.trim() || unchanged || busy) return
     setBusy(true)
@@ -34,7 +41,7 @@ export default function RenameModal({ entry, onClose, onRename }) {
       await onRename(entry.path, nextName)
       onClose()
     } catch (err) {
-      setError(err.message || t('files.renameFailed'))
+      setError((err as Error).message || t('files.renameFailed'))
     } finally {
       setBusy(false)
     }
@@ -45,7 +52,7 @@ export default function RenameModal({ entry, onClose, onRename }) {
   // would also fire for a pane keystroke that happened to bubble while this was
   // open. `stopPropagation` keeps it from reaching the file pane behind it,
   // which reads Escape as "clear the selection".
-  const onKeyDown = (e) => {
+  const onKeyDown = (e: KeyboardEvent<HTMLFormElement>) => {
     if (e.key !== 'Escape') return
     e.stopPropagation()
     onClose()
@@ -117,7 +124,7 @@ export default function RenameModal({ entry, onClose, onRename }) {
   )
 }
 
-const backdrop = {
+const backdrop: CSSProperties = {
   position: 'fixed',
   inset: 0,
   background: 'var(--scrim)',
@@ -128,7 +135,7 @@ const backdrop = {
   padding: 16,
 }
 
-const panel = {
+const panel: CSSProperties = {
   background: 'var(--bg-panel)',
   border: '1px solid var(--border)',
   borderRadius: 10,
@@ -136,7 +143,7 @@ const panel = {
   width: 'min(420px, 100%)',
 }
 
-const input = {
+const input: CSSProperties = {
   width: '100%',
   padding: '8px 10px',
   borderRadius: 6,
@@ -147,7 +154,7 @@ const input = {
   marginBottom: 12,
 }
 
-function btn(primary) {
+function btn(primary?: boolean): CSSProperties {
   return {
     display: 'inline-flex',
     alignItems: 'center',

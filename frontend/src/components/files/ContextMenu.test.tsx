@@ -5,8 +5,10 @@ import ContextMenu from './ContextMenu'
 // jsdom gives every element a zero-sized box, so the measuring layout effect
 // has nothing to work with unless the height/width are stubbed. Each test sets
 // the size the menu should believe it has.
-const mockSize = (width, height) =>
-  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function () {
+const mockSize = (width: number, height: number) =>
+  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (
+    this: HTMLElement
+  ) {
     const top = parseFloat(this.style.top) || 0
     const left = parseFloat(this.style.left) || 0
     return {
@@ -19,10 +21,10 @@ const mockSize = (width, height) =>
       x: left,
       y: top,
       toJSON: () => {},
-    }
+    } as DOMRect
   })
 
-const renderMenu = (x, y) =>
+const renderMenu = (x: number, y: number) =>
   render(
     <ContextMenu x={x} y={y} onClick={() => {}}>
       <button>Delete</button>

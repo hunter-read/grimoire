@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeAll } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import type { ComponentType, ReactNode } from 'react'
 import { MEDIA_CONFIGS } from './mediaConfig'
+import type { MediaItem } from './mediaConfig'
+import type { MediaFolderGroupProps } from './MediaFolderGroup'
+
+type ItemsByFolder = Record<string, Partial<MediaItem>[]>
+type WrapperProps = Omit<MediaFolderGroupProps, 'subfolders'> & { subfolders: ItemsByFolder }
 
 // The component reads `isMobilePhone` via useIsMobile(640), so stub matchMedia to
 // report a phone BEFORE importing the component, then load it dynamically. This
@@ -8,15 +14,31 @@ import { MEDIA_CONFIGS } from './mediaConfig'
 vi.mock('../../context/AudioPlayerContext', () => ({
   useAudioPlayer: () => ({ playQueue: vi.fn() }),
 }))
-vi.mock('../../api', () => ({ mediaUrl: (p) => `http://localhost${p}` }))
-vi.mock('./MediaCard', () => ({ default: ({ item }) => <div>{item.filename}</div> }))
+vi.mock('../../api', () => ({ mediaUrl: (p: string) => `http://localhost${p}` }))
+vi.mock('./MediaCard', () => ({
+  default: ({ item }: { item: MediaItem }) => <div>{item.filename}</div>,
+}))
 vi.mock('./VirtualGrid', () => ({
-  default: ({ items, renderItem }) => <div>{items.map(renderItem)}</div>,
+  default: ({
+    items,
+    renderItem,
+  }: {
+    items: MediaItem[]
+    renderItem: (item: MediaItem) => ReactNode
+  }) => <div>{items.map(renderItem)}</div>,
 }))
 vi.mock('../RescanButton', () => ({ default: () => null }))
 // Fire the tag-row callbacks so the inline arrow handlers are exercised.
 vi.mock('./FolderTagRow', () => ({
-  default: ({ onEdit, onSave, onCancel }) => (
+  default: ({
+    onEdit,
+    onSave,
+    onCancel,
+  }: {
+    onEdit?: () => void
+    onSave?: (tags: string[]) => void
+    onCancel: () => void
+  }) => (
     <span data-testid="tag-row">
       <button data-testid="tr-edit" onClick={onEdit} />
       <button data-testid="tr-save" onClick={() => onSave?.(['x'])} />
@@ -25,7 +47,7 @@ vi.mock('./FolderTagRow', () => ({
   ),
 }))
 
-let MediaFolderGroup
+let MediaFolderGroup: ComponentType<WrapperProps>
 
 beforeAll(async () => {
   window.matchMedia = vi.fn().mockReturnValue({
@@ -39,13 +61,18 @@ beforeAll(async () => {
   const Real = (await import('./MediaFolderGroup')).default
   // Folder groups now take server counts and lazily loaded items per folder
   // (issue #221); these tests describe folders by their items, so adapt them.
-  MediaFolderGroup = ({ folder, subfolders, ...rest }) => (
+  MediaFolderGroup = ({ folder, subfolders, ...rest }: WrapperProps) => (
     <Real
       folder={folder}
       subfolders={Object.fromEntries(
         Object.entries(subfolders).map(([sub, items]) => [
           sub,
-          { path: sub ? `${folder}/${sub}` : folder, count: items.length, items, hasMore: false },
+          {
+            path: sub ? `${folder}/${sub}` : folder,
+            count: items.length,
+            items: items as MediaItem[],
+            hasMore: false,
+          },
         ])
       )}
       {...rest}
@@ -54,7 +81,7 @@ beforeAll(async () => {
 })
 
 const baseProps = {
-  collapsed: new Set(),
+  collapsed: new Set<string>(),
   onToggle: vi.fn(),
   folderTags: {},
   editingFolder: null,
@@ -62,8 +89,8 @@ const baseProps = {
   onSaveFolderTags: vi.fn(),
   onSelectItem: vi.fn(),
   bulkMode: false,
-  selectedIds: new Set(),
-  selectedFolderPaths: new Set(),
+  selectedIds: new Set<string>(),
+  selectedFolderPaths: new Set<string>(),
   onToggleItem: vi.fn(),
   onToggleFolder: vi.fn(),
   onDownload: vi.fn(),
@@ -125,9 +152,9 @@ describe('MediaFolderGroup (mobile branches)', () => {
       />
     )
     // The editing subfolder row exposes save + cancel.
-    await userEvent.click(screen.getAllByTestId('tr-save').at(-1))
+    await userEvent.click(screen.getAllByTestId('tr-save').at(-1)!)
     expect(onSaveFolderTags).toHaveBeenCalledWith('Dungeons/caves', ['x'])
-    await userEvent.click(screen.getAllByTestId('tr-cancel').at(-1))
+    await userEvent.click(screen.getAllByTestId('tr-cancel').at(-1)!)
     expect(onSetEditingFolder).toHaveBeenCalledWith(null)
   })
 })

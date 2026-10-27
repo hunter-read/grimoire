@@ -13,11 +13,21 @@ import { CATEGORY_ORDER } from '../../constants'
  *
  * Books with no thumbnail are dropped — there is nothing to show for them.
  */
-export function sortForCoverPicker(books, selectedId = null) {
-  const withThumbnails = (books || []).filter((b) => b?.has_thumbnail)
+export interface CoverPickerBook {
+  id: string
+  title?: string
+  category?: string | null
+  has_thumbnail?: boolean | null
+}
 
-  const rank = (book) => {
-    const index = CATEGORY_ORDER.indexOf(book.category)
+export function sortForCoverPicker<B extends CoverPickerBook>(
+  books: (B | null | undefined)[] | null | undefined,
+  selectedId: string | null = null
+): B[] {
+  const withThumbnails = (books || []).filter((b): b is B => !!b?.has_thumbnail)
+
+  const rank = (book: B): number => {
+    const index = CATEGORY_ORDER.indexOf(book.category as string)
     // Unknown or missing categories sort after every known one.
     return index === -1 ? CATEGORY_ORDER.length : index
   }

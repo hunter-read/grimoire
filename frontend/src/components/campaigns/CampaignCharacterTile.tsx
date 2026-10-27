@@ -1,14 +1,12 @@
-import type { ComponentType, ImgHTMLAttributes } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { characters as charactersApi } from '../../api'
-import LazyImgJs from '../LazyImg'
+import LazyImg from '../LazyImg'
 import { isActive, statusLabel } from '../characters/characterStatus'
 import { framedImageStyle } from '../characters/portraitCrop'
 import type { CampaignCharacter } from './campaignCharacterGroups'
 
 // Still JavaScript, so TypeScript would read every prop as required.
-const LazyImg = LazyImgJs as ComponentType<ImgHTMLAttributes<HTMLImageElement>>
 
 const THUMB = 40
 

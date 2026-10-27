@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCheck, LuLayers } from 'react-icons/lu'
 import { useNavigate } from 'react-router-dom'
 
 import api from '../../api'
+import type { Schema } from '../../api'
 import variantLabel, { mainOption } from '../../utils/variantLabel'
 
 /**
@@ -18,11 +20,27 @@ import variantLabel, { mainOption } from '../../utils/variantLabel'
  * the call site), which is also what keeps it clear of callers that render the
  * menu outside a Router.
  */
-export default function VariantMenuItems({ book, itemStyle, onPick }) {
+export interface VariantMenuItemsProps {
+  book: { id: string }
+  itemStyle?: CSSProperties
+  /** Called with the picked version's id, to close the menu. */
+  onPick?: (id: string) => void
+}
+
+/** One version in the list: the main entry or one of its variants. */
+interface VariantOption {
+  id: string
+  isMain: boolean
+  kind?: string
+  label?: string
+  filename?: string
+}
+
+export default function VariantMenuItems({ book, itemStyle, onPick }: VariantMenuItemsProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
-  const [family, setFamily] = useState(null)
+  const [family, setFamily] = useState<VariantOption[] | null>(null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -34,15 +52,15 @@ export default function VariantMenuItems({ book, itemStyle, onPick }) {
       .get(`/books/${book.id}`)
       .then((data) =>
         setFamily([
-          mainOption(data),
-          ...(data.variants || []).map((v) => ({ ...v, isMain: false })),
+          mainOption(data as Schema<'BookDetail'>),
+          ...((data as Schema<'BookDetail'>).variants || []).map((v) => ({ ...v, isMain: false })),
         ])
       )
       .catch(() => setFamily([]))
       .finally(() => setLoading(false))
   }, [open, family, loading, book.id])
 
-  const label = (option) => variantLabel(option, t)
+  const label = (option: VariantOption): string => variantLabel(option, t)
 
   return (
     <>

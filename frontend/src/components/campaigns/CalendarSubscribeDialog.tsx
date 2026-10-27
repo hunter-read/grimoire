@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCalendar, LuCopy, LuCheck, LuRefreshCw, LuTrash2, LuX } from 'react-icons/lu'
-import { campaigns } from '../../api'
+import { campaigns, type Schema } from '../../api'
+
+type Subscription = Awaited<ReturnType<typeof campaigns.getCalendarSubscription>>
 
 /**
  * The calendar subscription URL, in a modal opened from CalendarMenu.
@@ -15,12 +17,20 @@ import { campaigns } from '../../api'
  * `campaign` is optional — omitted, this is the global "all my campaigns"
  * variant and only the aggregate feed is offered.
  */
-export default function CalendarSubscribeDialog({ campaign, onClose }) {
+interface CalendarSubscribeDialogProps {
+  campaign?: Pick<Schema<'CampaignOut'>, 'id'> | null
+  onClose: () => void
+}
+
+export default function CalendarSubscribeDialog({
+  campaign,
+  onClose,
+}: CalendarSubscribeDialogProps) {
   const { t } = useTranslation()
-  const [sub, setSub] = useState(null)
+  const [sub, setSub] = useState<Subscription | null>(null)
   const [busy, setBusy] = useState(false)
-  const [copied, setCopied] = useState(null)
-  const [error, setError] = useState(null)
+  const [copied, setCopied] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -38,24 +48,24 @@ export default function CalendarSubscribeDialog({ campaign, onClose }) {
   }, [campaign?.id])
 
   useEffect(() => {
-    const onKey = (e) => e.key === 'Escape' && onClose()
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const run = async (fn) => {
+  const run = async (fn: () => Promise<Subscription>) => {
     setBusy(true)
     setError(null)
     try {
       setSub(await fn())
     } catch (e) {
-      setError(e.message)
+      setError((e as Error).message)
     } finally {
       setBusy(false)
     }
   }
 
-  const copy = async (value, key) => {
+  const copy = async (value: string, key: string) => {
     try {
       await navigator.clipboard.writeText(value)
       setCopied(key)
@@ -66,7 +76,7 @@ export default function CalendarSubscribeDialog({ campaign, onClose }) {
     }
   }
 
-  const btn = {
+  const btn: CSSProperties = {
     display: 'inline-flex',
     alignItems: 'center',
     gap: 6,
@@ -79,7 +89,7 @@ export default function CalendarSubscribeDialog({ campaign, onClose }) {
     fontSize: 12,
   }
 
-  const urlRow = (label, value, key) => (
+  const urlRow = (label: string, value: string, key: string) => (
     <div style={{ marginTop: 12 }}>
       <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 5 }}>{label}</div>
       <div style={{ display: 'flex', gap: 6 }}>

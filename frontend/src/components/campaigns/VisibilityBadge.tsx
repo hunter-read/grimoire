@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { VIS_META, badgeStyle, visLabelKey } from './wikiShared'
+import { VIS_META, badgeStyle, visLabelKey, type VisLevel } from './wikiShared'
 
 /** Read-only pill showing a wiki page's visibility level.
  *
@@ -7,9 +7,14 @@ import { VIS_META, badgeStyle, visLabelKey } from './wikiShared'
  * only" on the GM's own page and "Self only" on a player's — the same rule, seen
  * from whichever side you're on.
  */
-export default function VisibilityBadge({ visibility, authorIsGm = true }) {
+interface VisibilityBadgeProps {
+  visibility?: string | null
+  authorIsGm?: boolean
+}
+
+export default function VisibilityBadge({ visibility, authorIsGm = true }: VisibilityBadgeProps) {
   const { t } = useTranslation()
-  const meta = VIS_META[visibility] || VIS_META.gm
+  const meta = VIS_META[visibility as VisLevel] || VIS_META.gm
   const { Icon } = meta
   return (
     <span style={badgeStyle(meta, false)}>

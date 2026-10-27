@@ -1,3 +1,4 @@
+import type { HTMLAttributes, ReactNode } from 'react'
 import { normalizeHeading } from './wikiLinkTarget'
 
 // Heading anchors for [[Page Title:#Heading]] links (issue #279).
@@ -8,18 +9,21 @@ import { normalizeHeading } from './wikiLinkTarget'
 // the anchor and the link spelled the same way.
 
 /** DOM id for a heading anchor, derived from its normalized text. */
-export function headingDomId(text) {
+export function headingDomId(text: string | null | undefined): string {
   return `wiki-h-${encodeURIComponent(normalizeHeading(text))}`
 }
 
 /** Flatten a react-markdown heading's children to plain text for anchor keying. */
-export function childrenToText(children) {
+export function childrenToText(children: ReactNode): string {
   if (children == null || typeof children === 'boolean') return ''
   if (typeof children === 'string' || typeof children === 'number') return String(children)
   if (Array.isArray(children)) return children.map(childrenToText).join('')
-  if (children.props) return childrenToText(children.props.children)
+  const el = children as { props?: { children?: ReactNode } }
+  if (el.props) return childrenToText(el.props.children)
   return ''
 }
+
+type HeadingTag = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6'
 
 /**
  * Build react-markdown renderers for h1..h6 that attach the anchor id.
@@ -33,9 +37,9 @@ export function childrenToText(children) {
  * first-wins bookkeeping from leaking across renders.
  */
 export function buildHeadingComponents() {
-  const seen = new Set()
-  const make = (Tag) =>
-    function WikiHeading({ children, ...props }) {
+  const seen = new Set<string>()
+  const make = (Tag: HeadingTag) =>
+    function WikiHeading({ children, ...props }: HTMLAttributes<HTMLHeadingElement>) {
       const id = headingDomId(childrenToText(children))
       const first = !seen.has(id)
       if (first) seen.add(id)

@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ReplaceSheetDialog from './ReplaceSheetDialog'
 
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }))
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }))
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -52,7 +52,7 @@ describe('ReplaceSheetDialog', () => {
 
   it('cancels on a backdrop click but not on a click inside the panel', async () => {
     const { container, props } = setup()
-    await userEvent.click(container.firstChild)
+    await userEvent.click(container.firstChild as Element)
     expect(props.onCancel).toHaveBeenCalledTimes(1)
 
     await userEvent.click(screen.getByText('members.replaceSheetWarning'))

@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import FolderCheckbox from './FolderCheckbox'
 
-const box = (container) => container.firstChild
+const box = (container: HTMLElement) => container.firstChild as HTMLElement
 
 describe('FolderCheckbox', () => {
   it('calls onChange when clicked', async () => {
@@ -24,7 +24,7 @@ describe('FolderCheckbox', () => {
       </div>
     )
 
-    await userEvent.click(container.querySelector('[data-testid="row"]').firstChild)
+    await userEvent.click(container.querySelector('[data-testid="row"]')!.firstChild as Element)
 
     expect(onChange).toHaveBeenCalledTimes(1)
     expect(onRowClick).not.toHaveBeenCalled()

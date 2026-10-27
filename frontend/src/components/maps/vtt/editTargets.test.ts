@@ -26,12 +26,12 @@ describe('linkedVtt', () => {
     })
     // The link is what pairs them, not the name: the duplicate manager lets a
     // user pair two files whatever they are called.
-    expect(linkedVtt(map).id).toBe('v1')
+    expect(linkedVtt(map)!.id).toBe('v1')
   })
 
   it('falls back to the extension when the link carries no kind', () => {
     const map = raster({ variants: [{ id: 'v1', kind: '', filename: 'keep.uvtt' }] })
-    expect(linkedVtt(map).id).toBe('v1')
+    expect(linkedVtt(map)!.id).toBe('v1')
   })
 
   it('never returns the map itself', () => {

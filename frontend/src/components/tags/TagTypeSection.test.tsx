@@ -1,14 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import RealTagTypeSection from './TagTypeSection'
+import RealTagTypeSection, { type TagPages, type TagTypeSectionProps } from './TagTypeSection'
+import type { Schema } from '../../api'
 import { tagDetailProps } from '../../test/fakeTagItems'
 
 // User-prefs persistence is exercised; keep it in-memory and simple.
-let prefs = {}
+let prefs: Record<string, unknown> = {}
 vi.mock('../../hooks/useUserPrefs', () => ({
   getUserPrefs: () => prefs,
-  saveUserPref: (key, value) => {
+  saveUserPref: (key: string, value: unknown) => {
     prefs[key] = value
   },
 }))
@@ -23,21 +24,36 @@ beforeEach(() => {
 // A section takes its count and folders with counts now, and reads its items
 // from paged lists (issue #221). These tests describe a section by its items,
 // so this builds the paged form from them, fully loaded.
-function TagTypeSection({ type, items = [], folders = [], ...rest }) {
+interface Item {
+  item_id: string
+}
+
+interface FakeFolder {
+  resource_type: string
+  path: string
+  items: Item[]
+}
+
+type Props = Omit<TagTypeSectionProps<Item>, 'count' | 'folders' | 'pages' | 'onLoad'> & {
+  items?: Item[]
+  folders?: FakeFolder[]
+}
+
+function TagTypeSection({ type, items = [], folders = [], ...rest }: Props) {
   const paged = tagDetailProps({ items: items.map((i) => ({ item_type: type, ...i })), folders })
   return (
     <RealTagTypeSection
       type={type}
-      count={paged.detail.counts[type] || 0}
-      folders={paged.detail.folders}
-      pages={paged.pages}
+      count={(paged.detail.counts as Record<string, number>)[type] || 0}
+      folders={paged.detail.folders as Schema<'TaggedFolder'>[]}
+      pages={paged.pages as TagPages<Item>}
       onLoad={() => {}}
       {...rest}
     />
   )
 }
 
-const renderItem = (item) => (
+const renderItem = (item: Item) => (
   <div key={item.item_id} data-testid="item">
     {item.item_id}
   </div>
@@ -86,7 +102,7 @@ describe('TagTypeSection', () => {
     expect(screen.getByTestId('item')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /maps/i }))
     expect(screen.queryByTestId('item')).not.toBeInTheDocument()
-    expect(prefs.tagsSectionCollapsed.map).toBe(true)
+    expect((prefs.tagsSectionCollapsed as Record<string, boolean>).map).toBe(true)
   })
 })
 
@@ -185,7 +201,7 @@ describe('TagTypeSection download (issue #401)', () => {
 
 describe('TagTypeSection folder defaults', () => {
   it('starts many large tagged folders closed', () => {
-    const big = (path) => ({
+    const big = (path: string) => ({
       resource_type: 'token',
       path,
       items: Array.from({ length: 20 }, (_, i) => ({ item_id: `${path}-${i}` })),

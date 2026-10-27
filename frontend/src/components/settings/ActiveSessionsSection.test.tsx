@@ -34,7 +34,7 @@ beforeEach(() => {
 
 describe('ActiveSessionsSection', () => {
   it('lists the current session and labels it as this device', async () => {
-    auth.sessions.mockResolvedValue([session({ current: true })])
+    vi.mocked(auth.sessions).mockResolvedValue([session({ current: true })])
     render(<ActiveSessionsSection />)
 
     expect(await screen.findByText('This device')).toBeInTheDocument()
@@ -42,7 +42,7 @@ describe('ActiveSessionsSection', () => {
   })
 
   it('does not offer to revoke the current session', async () => {
-    auth.sessions.mockResolvedValue([session({ current: true })])
+    vi.mocked(auth.sessions).mockResolvedValue([session({ current: true })])
     render(<ActiveSessionsSection />)
 
     await screen.findByText('This device')
@@ -51,11 +51,11 @@ describe('ActiveSessionsSection', () => {
   })
 
   it('revokes a single session and drops it from the list', async () => {
-    auth.sessions.mockResolvedValue([
+    vi.mocked(auth.sessions).mockResolvedValue([
       session({ id: 'sess-1', current: true }),
       session({ id: 'sess-2', user_agent: FIREFOX_WIN }),
     ])
-    auth.revokeSession.mockResolvedValue({ ok: true })
+    vi.mocked(auth.revokeSession).mockResolvedValue({ ok: true, revoked: 1 })
     render(<ActiveSessionsSection />)
 
     fireEvent.click(await screen.findByText('Revoke'))
@@ -65,11 +65,15 @@ describe('ActiveSessionsSection', () => {
   })
 
   it('signs out all other devices, keeping the current one', async () => {
-    auth.sessions.mockResolvedValue([
+    vi.mocked(auth.sessions).mockResolvedValue([
       session({ id: 'sess-1', current: true }),
       session({ id: 'sess-2', user_agent: FIREFOX_WIN }),
     ])
-    auth.revokeOtherSessions.mockResolvedValue({ ok: true, revoked: 1 })
+    vi.mocked(auth.revokeOtherSessions).mockResolvedValue({
+      ok: true,
+      revoked: 1,
+      kept_current: true,
+    })
     render(<ActiveSessionsSection />)
 
     fireEvent.click(await screen.findByText('Sign out all other devices'))
@@ -80,39 +84,39 @@ describe('ActiveSessionsSection', () => {
   })
 
   it('shows the sign-in method for an SSO session', async () => {
-    auth.sessions.mockResolvedValue([session({ origin: 'oidc', current: true })])
+    vi.mocked(auth.sessions).mockResolvedValue([session({ origin: 'oidc', current: true })])
     render(<ActiveSessionsSection />)
 
     expect(await screen.findByText(/Single sign-on/)).toBeInTheDocument()
   })
 
   it('falls back to a placeholder when the user agent is unknown', async () => {
-    auth.sessions.mockResolvedValue([session({ user_agent: null, current: true })])
+    vi.mocked(auth.sessions).mockResolvedValue([session({ user_agent: null, current: true })])
     render(<ActiveSessionsSection />)
 
     expect(await screen.findByText('Unknown device')).toBeInTheDocument()
   })
 
   it('shows an empty state when there are no sessions', async () => {
-    auth.sessions.mockResolvedValue([])
+    vi.mocked(auth.sessions).mockResolvedValue([])
     render(<ActiveSessionsSection />)
 
     expect(await screen.findByText('No active sessions.')).toBeInTheDocument()
   })
 
   it('surfaces a load failure', async () => {
-    auth.sessions.mockRejectedValue(new Error('nope'))
+    vi.mocked(auth.sessions).mockRejectedValue(new Error('nope'))
     render(<ActiveSessionsSection />)
 
     expect(await screen.findByText('nope')).toBeInTheDocument()
   })
 
   it('surfaces a revoke failure and keeps the session listed', async () => {
-    auth.sessions.mockResolvedValue([
+    vi.mocked(auth.sessions).mockResolvedValue([
       session({ id: 'sess-1', current: true }),
       session({ id: 'sess-2', user_agent: FIREFOX_WIN }),
     ])
-    auth.revokeSession.mockRejectedValue(new Error('revoke exploded'))
+    vi.mocked(auth.revokeSession).mockRejectedValue(new Error('revoke exploded'))
     render(<ActiveSessionsSection />)
 
     fireEvent.click(await screen.findByText('Revoke'))

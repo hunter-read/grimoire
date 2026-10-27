@@ -1,15 +1,24 @@
 import { useTranslation } from 'react-i18next'
+import type { CSSProperties } from 'react'
 import { LuBadgeCheck } from 'react-icons/lu'
+import type { Schema } from '../../api'
 
-function isGitHubUserContentHost(hostname) {
+export interface PluginSourcePillProps {
+  url?: string | null
+  isVerified?: boolean
+  trustedIndexUrls?: string[]
+  style?: CSSProperties
+}
+
+function isGitHubUserContentHost(hostname: string): boolean {
   return hostname === 'githubusercontent.com' || hostname.endsWith('.githubusercontent.com')
 }
 
-function isGitHubComHost(hostname) {
+function isGitHubComHost(hostname: string): boolean {
   return hostname === 'github.com' || hostname.endsWith('.github.com')
 }
 
-export function formatIndexUrl(url) {
+export function formatIndexUrl(url: string | null | undefined): string {
   if (!url) return ''
   try {
     const parsed = new URL(url)
@@ -48,23 +57,26 @@ export function formatIndexUrl(url) {
       }
     }
     return parsed.hostname
-  } catch (e) {
+  } catch {
     return url
   }
 }
 
-export function normalizeUrl(url) {
+export function normalizeUrl(url: string | null | undefined): string {
   if (!url) return ''
   return url.trim().replace(/\/+$/, '')
 }
 
-export function isUrlTrusted(url, trustedUrls = []) {
+export function isUrlTrusted(url: string | null | undefined, trustedUrls: string[] = []): boolean {
   if (!url || !Array.isArray(trustedUrls) || trustedUrls.length === 0) return false
   const norm = normalizeUrl(url)
   return trustedUrls.some((t) => normalizeUrl(t) === norm)
 }
 
-export function getSourceContents(url, data) {
+export function getSourceContents(
+  url: string | null | undefined,
+  data?: Partial<Pick<Schema<'AddonListResponse'>, 'source_contents' | 'default_index_url'>> | null
+): string[] {
   if (!url) return []
   if (data?.source_contents?.[url]) {
     return data.source_contents[url]
@@ -78,7 +90,12 @@ export function getSourceContents(url, data) {
   return ['plugins', 'themes']
 }
 
-export default function PluginSourcePill({ url, isVerified, trustedIndexUrls = [], style }) {
+export default function PluginSourcePill({
+  url,
+  isVerified,
+  trustedIndexUrls = [],
+  style,
+}: PluginSourcePillProps) {
   const { t } = useTranslation()
 
   if (!url) return null

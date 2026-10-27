@@ -40,12 +40,15 @@ describe('AllValuesDialog', () => {
 
   it('ignores a phone layout too, even on a phone', () => {
     const originalMatchMedia = window.matchMedia
-    window.matchMedia = vi.fn((query) => ({
-      matches: true,
-      media: query,
-      addEventListener: () => {},
-      removeEventListener: () => {},
-    }))
+    window.matchMedia = vi.fn(
+      (query: string) =>
+        ({
+          matches: true,
+          media: query,
+          addEventListener: () => {},
+          removeEventListener: () => {},
+        }) as unknown as MediaQueryList
+    )
     try {
       renderDialog({
         document: {

@@ -8,7 +8,15 @@
  * Ticking an empty box ticks everything up to it; unticking a ticked one clears
  * it and everything after, so the boxes always read left to right.
  */
-export default function Pips({ count, used, label, disabled, onChange }) {
+export interface PipsProps {
+  count: number
+  used: number
+  label: string
+  disabled?: boolean
+  onChange?: (used: number) => void
+}
+
+export default function Pips({ count, used, label, disabled, onChange }: PipsProps) {
   const total = Math.max(0, Math.min(Number(count) || 0, 30))
   const ticked = Math.max(0, Math.min(Number(used) || 0, total))
   if (!total) return <span className="gc-pips gc-pips-empty">—</span>

@@ -17,22 +17,23 @@ const mockDeleteImage = vi.fn()
 const mockCampaigns = vi.fn()
 
 vi.mock('../api', () => ({
-  campaigns: { list: (...a) => mockCampaigns(...a) },
+  campaigns: { list: (...a: unknown[]) => mockCampaigns(...a) },
   characters: {
-    get: (...a) => mockGet(...a),
-    getSchema: (...a) => mockGetSchema(...a),
-    update: (...a) => mockUpdate(...a),
-    export: (...a) => mockExport(...a),
-    uploadPortrait: (...a) => mockUploadPortrait(...a),
-    portraitUrl: (id, v) => `/api/characters/${id}/portrait${v ? `?v=${v}` : ''}`,
-    uploadImage: (...a) => mockUploadImage(...a),
-    deleteImage: (...a) => mockDeleteImage(...a),
-    imageUrl: (id, field, v) => `/api/characters/${id}/images/${field}?v=${v}`,
+    get: (...a: unknown[]) => mockGet(...a),
+    getSchema: (...a: unknown[]) => mockGetSchema(...a),
+    update: (...a: unknown[]) => mockUpdate(...a),
+    export: (...a: unknown[]) => mockExport(...a),
+    uploadPortrait: (...a: unknown[]) => mockUploadPortrait(...a),
+    portraitUrl: (id: string, v?: string) => `/api/characters/${id}/portrait${v ? `?v=${v}` : ''}`,
+    uploadImage: (...a: unknown[]) => mockUploadImage(...a),
+    deleteImage: (...a: unknown[]) => mockDeleteImage(...a),
+    imageUrl: (id: string, field: string, v?: string) =>
+      `/api/characters/${id}/images/${field}?v=${v}`,
   },
 }))
 
 vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom')
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
   return { ...actual, useNavigate: () => mockNavigate, useParams: () => ({ characterId: 'c1' }) }
 })
 
@@ -108,7 +109,7 @@ describe('CharacterDetailView', () => {
     await user.type(input, '18')
 
     await waitFor(() => expect(mockUpdate).toHaveBeenCalled(), { timeout: 3000 })
-    const [, body] = mockUpdate.mock.calls.at(-1)
+    const [, body] = mockUpdate.mock.calls.at(-1)!
     expect(body.data.strength).toBe(18)
   })
 
@@ -288,18 +289,22 @@ describe('CharacterDetailView', () => {
 
     it('exports the character as a file', async () => {
       mockExport.mockResolvedValue({ name: 'Vex', schema_id: 'dnd-5e' })
-      global.URL.createObjectURL = vi.fn(() => 'blob:x')
-      global.URL.revokeObjectURL = vi.fn()
+      globalThis.URL.createObjectURL = vi.fn(() => 'blob:x')
+      globalThis.URL.revokeObjectURL = vi.fn()
       renderView()
       await screen.findByLabelText('Strength')
 
       const click = vi.fn()
       const realCreate = window.document.createElement.bind(window.document)
-      const spy = vi
-        .spyOn(window.document, 'createElement')
-        .mockImplementation((tag) =>
-          tag === 'a' ? { click, set href(v) {}, set download(v) {} } : realCreate(tag)
-        )
+      const spy = vi.spyOn(window.document, 'createElement').mockImplementation((tag: string) =>
+        tag === 'a'
+          ? ({
+              click,
+              set href(_v: string) {},
+              set download(_v: string) {},
+            } as unknown as HTMLElement)
+          : realCreate(tag)
+      )
       await userEvent.click(screen.getByLabelText(/Export character/i))
       // The download is built after the fetch resolves, so both are awaited.
       await waitFor(() => expect(mockExport).toHaveBeenCalledWith('c1'))

@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useReducer } from 'react'
 
 import { DEFAULT_TRANSFORM } from '../../../lib/tokenCompositor'
+import type { TokenTransform } from '../../../lib/tokenCompositor'
 
 /**
  * The token's pan/zoom/rotate/flip state.
@@ -13,10 +14,43 @@ import { DEFAULT_TRANSFORM } from '../../../lib/tokenCompositor'
 export const MIN_SCALE = 0.2
 export const MAX_SCALE = 8
 
-export const clampScale = (s) => Math.max(MIN_SCALE, Math.min(MAX_SCALE, s))
+/** The transform plus the output size its offset bound is measured in. */
+export interface TransformState extends TokenTransform {
+  size: number
+}
+
+export type TransformAction =
+  | { type: 'pan'; dx: number; dy: number }
+  | { type: 'setOffset'; x: number; y: number }
+  | { type: 'zoomBy'; factor: number }
+  | { type: 'setScale'; scale: number }
+  | { type: 'zoomAt'; factor: number; x: number; y: number }
+  | { type: 'rotate'; degrees: number }
+  | { type: 'setRotation'; degrees: number }
+  | { type: 'flipX' }
+  | { type: 'flipY' }
+  | { type: 'setSize'; size: number }
+  | { type: 'reset' }
+
+/** The actions the hook hands out, which the pointer hook drives. */
+export interface TransformActions {
+  pan: (dx: number, dy: number) => void
+  setOffset: (x: number, y: number) => void
+  zoomBy: (factor: number) => void
+  setScale: (scale: number) => void
+  zoomAt: (factor: number, x: number, y: number) => void
+  rotate: (degrees: number) => void
+  setRotation: (degrees: number) => void
+  flipX: () => void
+  flipY: () => void
+  setSize: (next: number) => void
+  reset: () => void
+}
+
+export const clampScale = (s: number): number => Math.max(MIN_SCALE, Math.min(MAX_SCALE, s))
 
 /** Wrap into [0, 360) so the rotation readout never shows -270 or 450. */
-export const wrapRotation = (deg) => ((deg % 360) + 360) % 360
+export const wrapRotation = (deg: number): number => ((deg % 360) + 360) % 360
 
 /**
  * Keep the art from being dragged entirely out of the frame.
@@ -33,12 +67,16 @@ export const wrapRotation = (deg) => ((deg % 360) + 360) % 360
  * below 1), where the art is smaller than the frame and a shrinking limit would
  * pin it needlessly to the centre.
  */
-export const clampOffset = (value, size, scale = 1) => {
+export const clampOffset = (
+  value: number,
+  size: number | null | undefined,
+  scale: number | null | undefined = 1
+): number => {
   const limit = (size || 0) * Math.max(1, scale || 1)
   return Math.max(-limit, Math.min(limit, value))
 }
 
-function reducer(state, action) {
+function reducer(state: TransformState, action: TransformAction): TransformState {
   const { size } = state
   switch (action.type) {
     case 'pan':
@@ -115,7 +153,7 @@ export default function useTokenTransform(size = 256) {
   const [state, dispatch] = useReducer(reducer, { ...DEFAULT_TRANSFORM, size })
 
   const actions = useMemo(
-    () => ({
+    (): TransformActions => ({
       pan: (dx, dy) => dispatch({ type: 'pan', dx, dy }),
       setOffset: (x, y) => dispatch({ type: 'setOffset', x, y }),
       zoomBy: (factor) => dispatch({ type: 'zoomBy', factor }),

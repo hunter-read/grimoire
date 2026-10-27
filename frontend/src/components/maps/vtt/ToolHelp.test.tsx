@@ -2,9 +2,10 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import ToolHelp from './ToolHelp'
 import { TOOL_LIGHT, TOOL_PORTAL, TOOL_SELECT, TOOL_WALL, TOOL_WINDOW } from './tools'
+import type { Tool } from './tools'
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k) => k }),
+  useTranslation: () => ({ t: (k: string) => k }),
 }))
 
 describe('ToolHelp', () => {
@@ -32,7 +33,7 @@ describe('ToolHelp', () => {
     [TOOL_PORTAL, 'maps.vtt.help.portal.click'],
     [TOOL_WINDOW, 'maps.vtt.help.window.click'],
   ])('covers the %s tool', (tool, key) => {
-    render(<ToolHelp tool={tool} />)
+    render(<ToolHelp tool={tool as Tool} />)
     expect(screen.getByText(key)).toBeInTheDocument()
   })
 
@@ -45,7 +46,7 @@ describe('ToolHelp', () => {
   })
 
   it('renders nothing for an unknown tool', () => {
-    const { container } = render(<ToolHelp tool="nonsense" />)
+    const { container } = render(<ToolHelp tool={'nonsense' as Tool} />)
     expect(container).toBeEmptyDOMElement()
   })
 })

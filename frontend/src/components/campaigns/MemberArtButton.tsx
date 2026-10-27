@@ -1,9 +1,9 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, type ChangeEvent, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { LuImagePlus, LuUpload, LuWand } from 'react-icons/lu'
 
-import { campaigns } from '../../api'
+import { campaigns, type Schema } from '../../api'
 import LazyImg from '../LazyImg'
 
 /**
@@ -18,6 +18,17 @@ import LazyImg from '../LazyImg'
  * player sees these actions on their own row and nowhere else, and nothing
  * offered here can be refused on submit.
  */
+interface MemberArtButtonProps {
+  member: Schema<'CampaignMemberOut'>
+  campaignId: string
+  canEdit: boolean
+  isMemberOwner: boolean
+  displayLabel: string
+  busy?: boolean
+  onUpload: (file: File) => void
+  artVersion?: string | number | null
+}
+
 export default function MemberArtButton({
   member,
   campaignId,
@@ -27,10 +38,10 @@ export default function MemberArtButton({
   busy,
   onUpload,
   artVersion,
-}) {
+}: MemberArtButtonProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const inputRef = useRef(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
 
   const openEditor = () => {
@@ -44,7 +55,7 @@ export default function MemberArtButton({
     })
   }
 
-  const handleFile = (e) => {
+  const handleFile = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     e.target.value = ''
     setMenuOpen(false)
@@ -146,7 +157,7 @@ export default function MemberArtButton({
   )
 }
 
-const menuItem = {
+const menuItem: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 8,

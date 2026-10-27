@@ -2,6 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import CategoryAccessSection from './CategoryAccessSection'
 import { settings as settingsApi } from '../../api'
+import type { Schema } from '../../api'
+
+type Settings = Schema<'SettingsResponse'>
 
 vi.mock('../../api', () => ({
   settings: { get: vi.fn(), patch: vi.fn() },
@@ -9,18 +12,18 @@ vi.mock('../../api', () => ({
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k, opts) => (opts?.category ? `${k}:${opts.category}` : k),
+    t: (k: string, opts?: Record<string, string>) => (opts?.category ? `${k}:${opts.category}` : k),
   }),
 }))
 
 // The accessible name, which disambiguates these selects from the identically
 // labelled stat toggles elsewhere on the settings page.
-const label = (category) => `appSettings.categoryAccess.selectLabel:${category}`
+const label = (category: string) => `appSettings.categoryAccess.selectLabel:${category}`
 
 beforeEach(() => {
   vi.clearAllMocks()
-  settingsApi.get.mockResolvedValue({ restricted_categories: {} })
-  settingsApi.patch.mockResolvedValue({})
+  vi.mocked(settingsApi.get).mockResolvedValue({ restricted_categories: {} } as Settings)
+  vi.mocked(settingsApi.patch).mockResolvedValue({} as Settings)
 })
 
 describe('CategoryAccessSection', () => {
@@ -33,7 +36,9 @@ describe('CategoryAccessSection', () => {
   })
 
   it('reflects a stored restriction', async () => {
-    settingsApi.get.mockResolvedValue({ restricted_categories: { adventure: 'gm' } })
+    vi.mocked(settingsApi.get).mockResolvedValue({
+      restricted_categories: { adventure: 'gm' },
+    } as unknown as Settings)
     render(<CategoryAccessSection />)
     expect(await screen.findByLabelText(label('Adventures & Modules'))).toHaveValue('gm')
   })
@@ -50,7 +55,9 @@ describe('CategoryAccessSection', () => {
   })
 
   it('removes the key entirely when set back to open', async () => {
-    settingsApi.get.mockResolvedValue({ restricted_categories: { adventure: 'gm' } })
+    vi.mocked(settingsApi.get).mockResolvedValue({
+      restricted_categories: { adventure: 'gm' },
+    } as unknown as Settings)
     render(<CategoryAccessSection />)
     const select = await screen.findByLabelText(label('Adventures & Modules'))
     fireEvent.change(select, { target: { value: '' } })
@@ -61,7 +68,7 @@ describe('CategoryAccessSection', () => {
   })
 
   it('reverts the control when the server rejects the change', async () => {
-    settingsApi.patch.mockRejectedValue(new Error('nope'))
+    vi.mocked(settingsApi.patch).mockRejectedValue(new Error('nope'))
     render(<CategoryAccessSection />)
     const select = await screen.findByLabelText(label('Adventures & Modules'))
     fireEvent.change(select, { target: { value: 'gm' } })
@@ -72,7 +79,7 @@ describe('CategoryAccessSection', () => {
   })
 
   it('survives a settings fetch failure', async () => {
-    settingsApi.get.mockRejectedValue(new Error('down'))
+    vi.mocked(settingsApi.get).mockRejectedValue(new Error('down'))
     render(<CategoryAccessSection />)
     expect(await screen.findByLabelText(label('Adventures & Modules'))).toHaveValue('')
   })

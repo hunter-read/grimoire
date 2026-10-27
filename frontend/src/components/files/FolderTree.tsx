@@ -1,12 +1,35 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuFolderOpen } from 'react-icons/lu'
-import { files as filesApi } from '../../api'
+import { files as filesApi, type Schema } from '../../api'
 import Spinner from '../Spinner'
 import MoveFolderRow, { moveRowStyle } from './MoveFolderRow'
 
+type BrowseEntry = Schema<'BrowseEntry'>
+
+/** One folder's listing as the tree holds it: its subfolders only. */
+export interface FolderListing {
+  entries: BrowseEntry[]
+  writable?: boolean
+  loading: boolean
+}
+
+type TreeRow =
+  | { kind: 'loading'; path: string; depth: number }
+  | { kind: 'folder'; entry: BrowseEntry; depth: number }
+
+export interface FolderTreeProps {
+  selected: string | null
+  onSelect: (path: string) => void
+  isBlocked?: (path: string) => boolean
+  blockedLabel?: string
+  revealPath?: string
+  onLoaded?: (path: string, folder: FolderListing) => void
+  testId?: string
+}
+
 /** Every ancestor of a folder path, root first: "a/b/c" -> ["", "a", "a/b"]. */
-const ancestorsOf = (path) => {
+const ancestorsOf = (path: string) => {
   const parts = path ? path.split('/') : []
   return ['', ...parts.slice(0, -1).map((_, i) => parts.slice(0, i + 1).join('/'))]
 }
@@ -36,20 +59,20 @@ export default function FolderTree({
   revealPath = '',
   onLoaded,
   testId,
-}) {
+}: FolderTreeProps) {
   const { t } = useTranslation()
   // path -> { entries, writable, loading }
-  const [folders, setFolders] = useState({})
+  const [folders, setFolders] = useState<Record<string, FolderListing>>({})
   const [expanded, setExpanded] = useState(
     () => new Set(ancestorsOf(revealPath).concat(revealPath ? [revealPath] : []))
   )
 
   const load = useCallback(
-    async (target) => {
+    async (target: string) => {
       setFolders((prev) =>
         prev[target]?.entries ? prev : { ...prev, [target]: { loading: true, entries: [] } }
       )
-      let folder
+      let folder: FolderListing
       try {
         const res = await filesApi.browse(target)
         // Folders only: a file is never a destination.
@@ -72,7 +95,7 @@ export default function FolderTree({
     // Mount only: later expansions load from `toggle`.
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const toggle = (path) => {
+  const toggle = (path: string) => {
     setExpanded((prev) => {
       const next = new Set(prev)
       if (next.has(path)) {
@@ -85,8 +108,8 @@ export default function FolderTree({
     })
   }
 
-  const rows = []
-  const walk = (path, depth) => {
+  const rows: TreeRow[] = []
+  const walk = (path: string, depth: number) => {
     const folder = folders[path]
     if (!folder) return
     if (folder.loading && !folder.entries.length) {
@@ -143,7 +166,7 @@ export default function FolderTree({
   )
 }
 
-const treeBox = {
+const treeBox: CSSProperties = {
   border: '1px solid var(--border)',
   borderRadius: 8,
   background: 'var(--bg-card)',

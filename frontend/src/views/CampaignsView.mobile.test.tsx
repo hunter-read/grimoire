@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeAll, beforeEach, type Mock } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
@@ -12,7 +12,7 @@ vi.mock('../api', () => ({
   },
 }))
 
-let mockUser = { id: 'user1', role: 'gm' }
+let mockUser: { id: string; role: string; campaign_access?: boolean } = { id: 'user1', role: 'gm' }
 vi.mock('../context/AuthContext', () => ({
   useAuth: () => ({ user: mockUser }),
 }))
@@ -22,8 +22,9 @@ vi.mock('../components/campaigns/CampaignEditor', () => ({
 }))
 
 import { campaigns } from '../api'
+const mockCampaigns = campaigns as unknown as Record<keyof typeof campaigns, Mock>
 
-let CampaignsView
+let CampaignsView: typeof import('./CampaignsView').default
 
 beforeAll(async () => {
   window.matchMedia = vi.fn().mockReturnValue({
@@ -48,7 +49,7 @@ function renderView() {
 describe('CampaignsView header on a phone', () => {
   beforeEach(() => {
     mockUser = { id: 'user1', role: 'gm' }
-    campaigns.list.mockResolvedValue([])
+    mockCampaigns.list.mockResolvedValue([])
   })
 
   it('collapses the header controls to icons that keep accessible names', async () => {

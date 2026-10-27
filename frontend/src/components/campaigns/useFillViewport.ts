@@ -1,4 +1,4 @@
-import { useState, useLayoutEffect } from 'react'
+import { useState, useLayoutEffect, type RefObject } from 'react'
 
 // Space left below the element so it stops short of the window edge instead of
 // running flush against it (matches the surrounding views' 24px padding).
@@ -19,8 +19,17 @@ const BOTTOM_GAP = 24
  * the ref is populated, so the measurement isn't taken — and missed — while the
  * ref is still empty.
  */
-export default function useFillViewport(ref, { min = 320, enabled = true, ready = true } = {}) {
-  const [height, setHeight] = useState(null)
+export interface FillViewportOptions {
+  min?: number
+  enabled?: boolean
+  ready?: boolean
+}
+
+export default function useFillViewport(
+  ref: RefObject<HTMLElement | null>,
+  { min = 320, enabled = true, ready = true }: FillViewportOptions = {}
+): number | null {
+  const [height, setHeight] = useState<number | null>(null)
 
   useLayoutEffect(() => {
     if (!enabled || !ready) {

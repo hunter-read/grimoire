@@ -2,9 +2,10 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import VttSidebar from './VttSidebar'
+import type { VttSidebarProps } from './VttSidebar'
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k, o) => (o ? `${k}:${JSON.stringify(o)}` : k) }),
+  useTranslation: () => ({ t: (k: string, o?: object) => (o ? `${k}:${JSON.stringify(o)}` : k) }),
 }))
 
 const wall = [
@@ -20,6 +21,7 @@ const doc = {
   environment: { baked_lighting: false, ambient_light: '00000000' },
 }
 
+// No tool or preview: the sidebar renders without them, and these tests do not need them.
 const props = {
   doc,
   counts: { line_of_sight: 1, objects_line_of_sight: 0, portals: 1, lights: 1 },
@@ -31,7 +33,7 @@ const props = {
   onDeleteFeature: vi.fn(),
   onEnvironment: vi.fn(),
   onRecalibrate: vi.fn(),
-}
+} as unknown as VttSidebarProps
 
 /**
  * Expand a collapsed section by clicking its header.
@@ -40,7 +42,7 @@ const props = {
  * the selection rather than on six stacked blocks, so a test that reads their
  * contents has to open them first — the same click a user makes.
  */
-const expand = async (title) => {
+const expand = async (title: string) => {
   const header = screen.getByRole('button', { name: new RegExp(title) })
   if (header.getAttribute('aria-expanded') === 'false') await userEvent.click(header)
 }

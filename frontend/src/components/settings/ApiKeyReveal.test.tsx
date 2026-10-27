@@ -2,11 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import ApiKeyReveal from './ApiKeyReveal'
 import { UISettingsProvider } from '../../context/UISettingsContext'
+import type { Schema } from '../../api'
 
-const apiKey = { id: 'k1', name: 'Homepage' }
+const apiKey = { id: 'k1', name: 'Homepage' } as Schema<'ApiKeyOut'>
 
 beforeEach(() => {
-  Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue() } })
+  Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } })
 })
 
 describe('ApiKeyReveal', () => {
@@ -44,7 +45,7 @@ describe('ApiKeyReveal', () => {
   })
 
   it('survives an unavailable clipboard', async () => {
-    navigator.clipboard.writeText.mockRejectedValue(new Error('denied'))
+    vi.mocked(navigator.clipboard.writeText).mockRejectedValue(new Error('denied'))
     render(<ApiKeyReveal apiKey={apiKey} secret="grim_secret" onClose={() => {}} />)
     fireEvent.click(screen.getByRole('button', { name: 'Copy key' }))
     await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalled())

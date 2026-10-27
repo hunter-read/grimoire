@@ -4,15 +4,20 @@ import LoadMoreSentinel from './LoadMoreSentinel'
 
 // Drive the observer by hand: record what it was built with and expose the
 // callback, so a test can report the sentinel on or off screen.
-const observers = []
+const observers: RecordingObserver[] = []
 class RecordingObserver {
-  constructor(callback, options) {
+  callback: (entries: Partial<IntersectionObserverEntry>[]) => void
+  options: IntersectionObserverInit & { root?: HTMLElement | null }
+  disconnected: boolean
+  target?: Element
+
+  constructor(callback: RecordingObserver['callback'], options: RecordingObserver['options']) {
     this.callback = callback
     this.options = options
     this.disconnected = false
     observers.push(this)
   }
-  observe(target) {
+  observe(target: Element) {
     this.target = target
   }
   disconnect() {
@@ -28,7 +33,7 @@ afterEach(() => {
 
 describe('LoadMoreSentinel', () => {
   it('asks for more when it scrolls into view', () => {
-    globalThis.IntersectionObserver = RecordingObserver
+    globalThis.IntersectionObserver = RecordingObserver as unknown as typeof IntersectionObserver
     const onVisible = vi.fn()
     render(<LoadMoreSentinel onVisible={onVisible} />)
     const [observer] = observers
@@ -40,7 +45,7 @@ describe('LoadMoreSentinel', () => {
   })
 
   it('watches the scrolling ancestor rather than the window', () => {
-    globalThis.IntersectionObserver = RecordingObserver
+    globalThis.IntersectionObserver = RecordingObserver as unknown as typeof IntersectionObserver
     render(
       <div style={{ overflowY: 'auto' }} data-testid="scroller">
         <LoadMoreSentinel onVisible={() => {}} />
@@ -50,13 +55,13 @@ describe('LoadMoreSentinel', () => {
   })
 
   it('does not observe while inactive', () => {
-    globalThis.IntersectionObserver = RecordingObserver
+    globalThis.IntersectionObserver = RecordingObserver as unknown as typeof IntersectionObserver
     render(<LoadMoreSentinel onVisible={() => {}} active={false} />)
     expect(observers).toHaveLength(0)
   })
 
   it('rebuilds the observer when more items load', () => {
-    globalThis.IntersectionObserver = RecordingObserver
+    globalThis.IntersectionObserver = RecordingObserver as unknown as typeof IntersectionObserver
     const { rerender } = render(<LoadMoreSentinel onVisible={() => {}} count={1} />)
     rerender(<LoadMoreSentinel onVisible={() => {}} count={2} />)
     expect(observers).toHaveLength(2)
@@ -64,7 +69,7 @@ describe('LoadMoreSentinel', () => {
   })
 
   it('renders without an IntersectionObserver', () => {
-    globalThis.IntersectionObserver = undefined
+    globalThis.IntersectionObserver = undefined as unknown as typeof IntersectionObserver
     const { getByTestId } = render(<LoadMoreSentinel onVisible={() => {}} />)
     expect(getByTestId('load-more')).toBeInTheDocument()
   })

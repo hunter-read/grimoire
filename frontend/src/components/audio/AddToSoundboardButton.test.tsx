@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -6,21 +7,21 @@ import SoundboardLauncher from './SoundboardLauncher'
 import { SoundboardProvider, useSoundboard } from '../../context/SoundboardContext'
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key) => key }),
+  useTranslation: () => ({ t: (key: string) => key }),
 }))
 
 vi.mock('../../api', () => ({
   default: { get: vi.fn(() => Promise.resolve({})) },
-  mediaUrl: (path) => `http://test${path}`,
+  mediaUrl: (path: string) => `http://test${path}`,
 }))
 
-let board
+let board: ReturnType<typeof useSoundboard>
 function Probe() {
   board = useSoundboard()
   return <span data-testid="pads">{board.pads.map((p) => p.id).join(',')}</span>
 }
 
-const withProvider = (ui) =>
+const withProvider = (ui: ReactNode) =>
   render(
     <SoundboardProvider>
       {ui}

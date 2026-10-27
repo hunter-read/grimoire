@@ -15,16 +15,16 @@ const mockResolve = vi.fn()
 vi.mock('../api', () => ({
   campaigns: { list: () => Promise.resolve([]) },
   characters: {
-    get: (...a) => mockGet(...a),
-    getSchema: (...a) => mockGetSchema(...a),
-    update: (...a) => mockUpdate(...a),
-    portraitUrl: (id) => `/api/characters/${id}/portrait`,
+    get: (...a: unknown[]) => mockGet(...a),
+    getSchema: (...a: unknown[]) => mockGetSchema(...a),
+    update: (...a: unknown[]) => mockUpdate(...a),
+    portraitUrl: (id: string) => `/api/characters/${id}/portrait`,
   },
-  content: { resolve: (...a) => mockResolve(...a) },
+  content: { resolve: (...a: unknown[]) => mockResolve(...a) },
 }))
 
 vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom')
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
   return { ...actual, useNavigate: () => vi.fn(), useParams: () => ({ characterId: 'c1' }) }
 })
 
@@ -38,7 +38,21 @@ const WIZARD = { name: 'Wizard', skill_choices: 1, skill_options: ['Arcana', 'Hi
 
 // A stand-in sheet: buttons that make the calls the real one would.
 vi.mock('../components/characters/CharacterSheet', () => ({
-  default: ({ data, onChange, onReset, onOverride, entries, readOnly }) => (
+  default: ({
+    data,
+    onChange,
+    onReset,
+    onOverride,
+    entries,
+    readOnly,
+  }: {
+    data: { skills?: string[] }
+    onChange: (field: string, value: unknown, pick?: { entry: unknown }) => void
+    onReset: (field: string) => void
+    onOverride: (field: string, value: unknown) => void
+    entries: Record<string, unknown>
+    readOnly?: boolean
+  }) => (
     <div>
       <span data-testid="read-only">{String(!!readOnly)}</span>
       <button onClick={() => onOverride('armor_class', 19)}>override ac</button>
@@ -86,7 +100,7 @@ const DOCUMENT = {
   },
 }
 
-let stored
+let stored: Record<string, unknown>
 beforeEach(() => {
   vi.clearAllMocks()
   stored = { speed: 35 }
@@ -94,7 +108,7 @@ beforeEach(() => {
   mockGetSchema.mockResolvedValue({ document: DOCUMENT })
   mockResolve.mockImplementation(async (schema, ids) => ({
     entries: Object.fromEntries(
-      ids.map((id) => [
+      ids.map((id: string) => [
         id,
         id === 'acolyte'
           ? { entry_id: id, name: 'Acolyte', data: ACOLYTE, missing: false }
@@ -119,7 +133,7 @@ const renderView = async () => {
   await screen.findByText('pick acolyte')
 }
 
-const lastSaved = () => mockUpdate.mock.calls.at(-1)[1]
+const lastSaved = () => mockUpdate.mock.calls.at(-1)![1]
 
 describe('CharacterDetailView — picks', () => {
   it('saves what a pick grants alongside the pick', async () => {

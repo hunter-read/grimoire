@@ -6,7 +6,7 @@ import { useUISettings } from '../../context/UISettingsContext'
  * switch (SHARE_LINKS_ENABLED) and the server's answer for this user, which
  * already folds in their role, any override, and that guests never may.
  */
-export default function useCanShare() {
+export default function useCanShare(): boolean {
   // Optional chaining: views are also rendered outside an AuthProvider (tests,
   // isolated previews), where nobody may share anyway.
   const user = useAuth()?.user

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuPackage, LuStore, LuTrash2 } from 'react-icons/lu'
 import { content as contentApi, rulesets as rulesetsApi } from '../../api'
+import type { Schema } from '../../api'
 import { useAuth } from '../../context/AuthContext'
 import Spinner from '../Spinner'
 import PackCatalogue from './PackCatalogue'
@@ -23,11 +24,18 @@ import {
  * sight here rather than only inside the catalogue. Installing and removing one
  * is an admin's job, since a pack is shared by everyone.
  */
-export default function InstalledPacks({ schemas, onChanged }) {
+type Pack = Schema<'PackSummary'>
+
+export interface InstalledPacksProps {
+  schemas: Schema<'SchemaSummary'>[]
+  onChanged?: () => void
+}
+
+export default function InstalledPacks({ schemas, onChanged }: InstalledPacksProps) {
   const { t } = useTranslation()
-  const { user } = useAuth()
+  const { user } = useAuth()!
   const isAdmin = user?.role === 'admin'
-  const [packs, setPacks] = useState(null)
+  const [packs, setPacks] = useState<Pack[] | null>(null)
   const [browsing, setBrowsing] = useState(false)
   const [error, setError] = useState('')
 
@@ -38,7 +46,7 @@ export default function InstalledPacks({ schemas, onChanged }) {
       setError('')
     } catch (e) {
       setPacks([])
-      setError(e.message)
+      setError((e as Error).message)
     }
   }, [])
 
@@ -46,17 +54,17 @@ export default function InstalledPacks({ schemas, onChanged }) {
     load()
   }, [load])
 
-  const sheetName = (schemaId) =>
+  const sheetName = (schemaId: string | undefined) =>
     schemas.find((schema) => schema.schema_id === schemaId)?.name || schemaId
 
-  const uninstall = async (pack) => {
+  const uninstall = async (pack: Pack) => {
     if (!window.confirm(t('contentPacks.confirmUninstall', { name: pack.name }))) return
     try {
       await rulesetsApi.uninstallPack(pack.pack_id)
       await load()
       onChanged?.()
     } catch (e) {
-      setError(e.message)
+      setError((e as Error).message)
     }
   }
 

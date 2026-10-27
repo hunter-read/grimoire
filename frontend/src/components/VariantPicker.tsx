@@ -3,9 +3,21 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { LuCheck, LuChevronDown, LuPencil } from 'react-icons/lu'
 
+import type { DuplicateType } from '../api'
 import { useAuth } from '../context/AuthContext'
 import variantLabel, { mainOption, variantFilename } from '../utils/variantLabel'
-import VariantDescribeForm from './VariantDescribeForm'
+import VariantDescribeForm, { type VariantDescription } from './VariantDescribeForm'
+import type { VariantOption, VariantSource } from './useVariantOptions'
+
+export interface VariantPickerProps {
+  /** The detail payload: its own id plus the family (`variants`). */
+  item: VariantSource & { id: string }
+  /** The route of one version's detail page. */
+  detailPath: (id: string) => string
+  /** Lets an admin rename versions from the menu. */
+  resourceType?: DuplicateType
+  compact?: boolean
+}
 
 /**
  * Switch between the versions of one item.
@@ -29,14 +41,19 @@ import VariantDescribeForm from './VariantDescribeForm'
  * #556). A saved name is applied here straight away rather than making every
  * detail view refetch the item for a menu label.
  */
-export default function VariantPicker({ item, detailPath, resourceType, compact = false }) {
+export default function VariantPicker({
+  item,
+  detailPath,
+  resourceType,
+  compact = false,
+}: VariantPickerProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const isAdmin = useAuth()?.user?.role === 'admin'
   const [open, setOpen] = useState(false)
-  const [editing, setEditing] = useState(null)
-  const [renamed, setRenamed] = useState({})
-  const wrapRef = useRef(null)
+  const [editing, setEditing] = useState<string | null>(null)
+  const [renamed, setRenamed] = useState<Record<string, VariantDescription>>({})
+  const wrapRef = useRef<HTMLSpanElement>(null)
   const canRename = isAdmin && !!resourceType
 
   const close = () => {
@@ -48,13 +65,13 @@ export default function VariantPicker({ item, detailPath, resourceType, compact 
   // menu, the reader's ⋮, the campaign menus): mousedown outside, or Escape.
   useEffect(() => {
     if (!open) return undefined
-    const onDown = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+    const onDown = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
         setOpen(false)
         setEditing(null)
       }
     }
-    const onKey = (e) => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setOpen(false)
         setEditing(null)
@@ -75,12 +92,13 @@ export default function VariantPicker({ item, detailPath, resourceType, compact 
   // `variants`, so it is prepended here to make one flat list of choices.
   // The main entry comes from the `variant_main_*` fields: when this item is a
   // variant, its own row describes the variant, not the main.
-  const options = [mainOption(item), ...siblings.map((v) => ({ ...v, isMain: false }))].map((o) =>
-    renamed[o.id] ? { ...o, ...renamed[o.id] } : o
-  )
+  const options: VariantOption[] = [
+    mainOption(item) as VariantOption,
+    ...siblings.map((v) => ({ ...v, isMain: false })),
+  ].map((o) => (renamed[o.id] ? { ...o, ...renamed[o.id] } : o))
   const current = options.find((o) => o.id === item.id)
 
-  const choose = (id) => {
+  const choose = (id: string) => {
     close()
     if (id !== item.id) navigate(detailPath(id))
   }
@@ -170,7 +188,7 @@ export default function VariantPicker({ item, detailPath, resourceType, compact 
                 <div key={option.id} style={{ padding: '6px 12px' }}>
                   <VariantDescribeForm
                     option={option}
-                    resourceType={resourceType}
+                    resourceType={resourceType!}
                     onSaved={(desc) => {
                       setRenamed((prev) => ({ ...prev, [option.id]: desc }))
                       setEditing(null)

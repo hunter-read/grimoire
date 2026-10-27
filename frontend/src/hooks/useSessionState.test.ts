@@ -78,7 +78,7 @@ describe('useSessionState', () => {
     it('persists a Set as a JSON array', () => {
       const { result } = renderHook(() => useSessionState(KEY, new Set()))
       act(() => result.current[1](new Set(['foo', 'bar'])))
-      const stored = JSON.parse(sessionStorage.getItem(KEY))
+      const stored = JSON.parse(sessionStorage.getItem(KEY)!)
       expect(Array.isArray(stored)).toBe(true)
       expect(stored).toContain('foo')
       expect(stored).toContain('bar')
@@ -109,7 +109,7 @@ describe('useSessionState', () => {
       sessionStorage.setItem(KEY, JSON.stringify('stored'))
       const { result } = renderHook(() => useSessionState(KEY, 'initial', { restore: false }))
       act(() => result.current[1]('typed'))
-      expect(JSON.parse(sessionStorage.getItem(KEY))).toBe('typed')
+      expect(JSON.parse(sessionStorage.getItem(KEY)!)).toBe('typed')
       // A later mount that *does* restore sees the value written above.
       const { result: r2 } = renderHook(() => useSessionState(KEY, 'initial'))
       expect(r2.current[0]).toBe('typed')

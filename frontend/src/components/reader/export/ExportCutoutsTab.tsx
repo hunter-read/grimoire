@@ -2,14 +2,24 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCircle, LuRectangleHorizontal, LuSparkles, LuSquare } from 'react-icons/lu'
 import api from '../../../api'
+import type { Schema } from '../../../api'
 import Spinner from '../../Spinner'
 import CutoutListRow from './CutoutListRow'
 import ExportOptions from './ExportOptions'
 import ExportSegmented from './ExportSegmented'
 import { overlap, pixelSize } from './cutoutGeometry'
+import type { Box, PageSize } from './cutoutGeometry'
+import type {
+  ExportFormat,
+  ExportTool,
+  NumberedCutout,
+  PageExporter,
+  PageUrl,
+} from './usePageExport'
+import type { SegmentOption } from './ExportSegmented'
 import { buttonStyle, errorStyle, hintStyle, labelStyle, sectionStyle } from './exportStyles'
 
-const FORMATS = ['png', 'webp', 'jpeg', 'pdf']
+const FORMATS: ExportFormat[] = ['png', 'webp', 'jpeg', 'pdf']
 
 // A detected box this close to an existing cut-out on the same page is the
 // same piece, found again; it is not added twice.
@@ -17,7 +27,7 @@ const SAME_PIECE = 0.7
 
 // Width/height of a detected rectangle (in points) this close to 1 is a
 // square token, so it is kept square while being adjusted.
-const isSquarish = (shape, size) => {
+const isSquarish = (shape: Box, size: PageSize | undefined) => {
   if (!size) return false
   const r = (shape.w * size.width) / (shape.h * size.height)
   return r > 0.93 && r < 1.07
@@ -31,10 +41,18 @@ const isSquarish = (shape, size) => {
  * piece is named, checked and removed. Rows are grouped by page, because a
  * token sheet is worked through a page at a time.
  */
-export default function ExportCutoutsTab({ exporter, pageUrl, onShowPage }) {
+export default function ExportCutoutsTab({
+  exporter,
+  pageUrl,
+  onShowPage,
+}: {
+  exporter: PageExporter
+  pageUrl: PageUrl
+  onShowPage: (page: number) => void
+}) {
   const { t } = useTranslation()
   const [finding, setFinding] = useState(false)
-  const [note, setNote] = useState(null)
+  const [note, setNote] = useState<{ tone: 'muted' | 'ok' | 'error'; text: string } | null>(null)
   const { cutouts, visiblePages, sizes } = exporter
 
   const findShapes = async () => {
@@ -45,7 +63,9 @@ export default function ExportCutoutsTab({ exporter, pageUrl, onShowPage }) {
         visiblePages.map((p) =>
           api
             .get(`${exporter.basePath}/page/${p}/shapes`)
-            .then((r) => r.shapes.map((s) => ({ ...s, pages: [p] })))
+            .then((r) =>
+              (r as Schema<'DetectShapesResponse'>).shapes.map((s) => ({ ...s, pages: [p] }))
+            )
         )
       )
       const found = results.flat()
@@ -69,7 +89,7 @@ export default function ExportCutoutsTab({ exporter, pageUrl, onShowPage }) {
             : { tone: 'ok', text: t('pageExport.foundSome', { count: fresh.length }) }
       )
     } catch (e) {
-      setNote({ tone: 'error', text: e.message || t('pageExport.findFailed') })
+      setNote({ tone: 'error', text: (e as Error).message || t('pageExport.findFailed') })
     } finally {
       setFinding(false)
     }
@@ -80,7 +100,7 @@ export default function ExportCutoutsTab({ exporter, pageUrl, onShowPage }) {
   const sample = active || cutouts[0]
 
   // Group rows by the page (or spread) they belong to, in page order.
-  const groups = []
+  const groups: { key: string; pages: number[]; items: NumberedCutout[] }[] = []
   for (const c of cutouts) {
     const key = c.pages.join(',')
     const last = groups[groups.length - 1]
@@ -88,7 +108,7 @@ export default function ExportCutoutsTab({ exporter, pageUrl, onShowPage }) {
     else groups.push({ key, pages: c.pages, items: [c] })
   }
 
-  const tools = [
+  const tools: SegmentOption<ExportTool>[] = [
     { value: 'rect', label: t('pageExport.tool.rect'), Icon: LuRectangleHorizontal },
     { value: 'square', label: t('pageExport.tool.square'), Icon: LuSquare },
     { value: 'circle', label: t('pageExport.tool.circle'), Icon: LuCircle },

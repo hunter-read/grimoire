@@ -8,15 +8,37 @@
 
 import { firstValue, matchSpecial } from './specialFilters'
 import { matchesTagQuery } from './tagQuery'
+import type { SortFilterState } from './FilterModal'
 
-const matchValue = (field, wanted) => {
+/**
+ * The fields of a system row the filter and sort read. A type alias (not an
+ * interface) so a plain record can be compared with it too.
+ */
+export type SortableSystem = {
+  id: string
+  name: string
+  is_explicit?: boolean | null
+  genres?: readonly string[] | null
+  system_family?: string | null
+  parent_system?: string | null
+  edition?: string | null
+  dice_materials?: readonly string[] | null
+  tags?: readonly string[] | null
+  book_count?: number | null
+  total_page_count?: number | null
+  year?: number | null
+}
+
+type SystemCompare = (a: SortableSystem, b: SortableSystem) => number
+
+const matchValue = (field: unknown, wanted: unknown): boolean => {
   const w = String(wanted).toLowerCase()
   if (Array.isArray(field)) return field.some((v) => String(v).toLowerCase() === w)
   return String(field || '').toLowerCase() === w
 }
 
 // `has` also handles the special "no value" / "any value" sentinels.
-const has = (field, wanted) => {
+const has = (field: unknown, wanted: unknown): boolean => {
   if (!wanted) return true
   return matchSpecial(field, wanted, matchValue)
 }
@@ -27,7 +49,11 @@ const has = (field, wanted) => {
  * @param state { sort, order, filters }
  * @param opts { isFavorite: (id) => bool } for the favorites filter
  */
-export function applySystemSortFilter(systems, state, opts = {}) {
+export function applySystemSortFilter<S extends SortableSystem>(
+  systems: S[],
+  state: Partial<SortFilterState> | null | undefined,
+  opts: { isFavorite?: (id: string) => boolean } = {}
+): S[] {
   const { sort = 'name', order = 'asc', filters = {} } = state || {}
   const { isFavorite } = opts
   const search = (filters.search || '').trim().toLowerCase()
@@ -45,7 +71,7 @@ export function applySystemSortFilter(systems, state, opts = {}) {
     return true
   })
   const dir = order === 'desc' ? -1 : 1
-  const cmp = {
+  const cmp: Record<string, SystemCompare> = {
     name: (a, b) => a.name.localeCompare(b.name),
     book_count: (a, b) => (a.book_count || 0) - (b.book_count || 0),
     page_count: (a, b) => (a.total_page_count || 0) - (b.total_page_count || 0),

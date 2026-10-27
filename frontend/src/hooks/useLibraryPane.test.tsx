@@ -1,14 +1,31 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
-import useLibraryPane from './useLibraryPane'
+import useLibraryPane, { type PaneRow } from './useLibraryPane'
 import { files as filesApi } from '../api'
 
 vi.mock('../api', () => ({ files: { browse: vi.fn() } }))
 
-const dir = (name, parent) => ({ name, path: `${parent}/${name}`, is_dir: true, child_count: 2 })
-const file = (name, parent) => ({ name, path: `${parent}/${name}`, is_dir: false, size: 1 })
+// The fixtures below are partial listings, so the mock is typed loosely.
+const browse = vi.mocked(filesApi.browse) as unknown as Mock<(path: string) => Promise<unknown>>
 
-const listing = (path, entries = [], extra = {}) => ({
+type EntryRow = Extract<PaneRow, { isOpen: boolean }>
+type NoteRow = Exclude<PaneRow, EntryRow>
+
+const dir = (name: string, parent: string) => ({
+  name,
+  path: `${parent}/${name}`,
+  is_dir: true,
+  child_count: 2,
+})
+const file = (name: string, parent: string) => ({
+  name,
+  path: `${parent}/${name}`,
+  is_dir: false,
+  size: 1,
+})
+
+const listing = (path: string, entries: object[] = [], extra: object = {}) => ({
   path,
   parent: '',
   writable: true,
@@ -20,7 +37,7 @@ const listing = (path, entries = [], extra = {}) => ({
 
 // A two-level library: books/ holds a folder and a file; the folder holds one file.
 function stubTree() {
-  filesApi.browse.mockImplementation((p) => {
+  browse.mockImplementation((p) => {
     if (p === 'books') {
       return Promise.resolve(listing('books', [dir('core', 'books'), file('loose.pdf', 'books')]))
     }
@@ -39,11 +56,11 @@ beforeEach(() => {
 // The rows that hold an entry. While an expanded folder loads, a placeholder
 // row stands in for its children - so the row count can already be right before
 // they arrive, and waiting on it alone races the load.
-const loaded = (rows) => rows.filter((r) => r.entry)
+const loaded = (rows: PaneRow[]) => rows.filter((r) => r.entry)
 
 describe('useLibraryPane', () => {
   it('reports whether the anchored folder hosts category folders', async () => {
-    filesApi.browse.mockResolvedValue(listing('books/System', [], { category_host: true }))
+    browse.mockResolvedValue(listing('books/System', [], { category_host: true }))
     const { result } = renderHook(() => useLibraryPane('books/System'))
     await waitFor(() => expect(result.current.categoryHost).toBe(true))
   })
@@ -60,7 +77,7 @@ describe('useLibraryPane', () => {
     const { result } = renderHook(() => useLibraryPane('books'))
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(filesApi.browse).toHaveBeenCalledWith('books')
-    expect(result.current.rows.map((r) => r.entry.name)).toEqual(['core', 'loose.pdf'])
+    expect(result.current.rows.map((r) => r.entry!.name)).toEqual(['core', 'loose.pdf'])
     expect(result.current.rows.every((r) => r.depth === 0)).toBe(true)
   })
 
@@ -72,7 +89,7 @@ describe('useLibraryPane', () => {
     await waitFor(() => expect(filesApi.browse).toHaveBeenCalledWith('books/core'))
     await waitFor(() => expect(loaded(result.current.rows)).toHaveLength(3))
 
-    const [folder, child, sibling] = result.current.rows
+    const [folder, child, sibling] = result.current.rows as EntryRow[]
     expect(folder.entry.name).toBe('core')
     expect(folder.isOpen).toBe(true)
     // The child is nested under its parent, not appended to the end.
@@ -87,7 +104,7 @@ describe('useLibraryPane', () => {
 
     act(() => result.current.toggleExpand('books/core'))
     await waitFor(() => expect(loaded(result.current.rows)).toHaveLength(3))
-    filesApi.browse.mockClear()
+    browse.mockClear()
 
     act(() => result.current.toggleExpand('books/core'))
     await waitFor(() => expect(result.current.rows).toHaveLength(2))
@@ -99,8 +116,8 @@ describe('useLibraryPane', () => {
   })
 
   it('shows a loading placeholder while a subfolder is being fetched', async () => {
-    let release
-    filesApi.browse.mockImplementation((p) => {
+    let release: () => void
+    browse.mockImplementation((p) => {
       if (p === 'books') {
         return Promise.resolve(listing('books', [dir('core', 'books')]))
       }
@@ -123,7 +140,7 @@ describe('useLibraryPane', () => {
   })
 
   it('marks an expanded empty folder rather than showing nothing', async () => {
-    filesApi.browse.mockImplementation((p) =>
+    browse.mockImplementation((p) =>
       Promise.resolve(
         p === 'books' ? listing('books', [dir('empty', 'books')]) : listing('books/empty', [])
       )
@@ -138,16 +155,17 @@ describe('useLibraryPane', () => {
   })
 
   it('reports a truncated folder so a partial listing is never passed off as whole', async () => {
-    filesApi.browse.mockImplementation(() =>
+    browse.mockImplementation(() =>
       Promise.resolve(listing('books', [file('a.pdf', 'books')], { total: 48213, truncated: true }))
     )
     const { result } = renderHook(() => useLibraryPane('books'))
     await waitFor(() => expect(result.current.loading).toBe(false))
 
-    const note = result.current.rows.find((r) => r.placeholder === 'truncated')
+    const note = result.current.rows.find((r) => r.placeholder === 'truncated') as
+      NoteRow | undefined
     expect(note).toBeTruthy()
-    expect(note.total).toBe(48213)
-    expect(note.shown).toBe(1)
+    expect(note!.total).toBe(48213)
+    expect(note!.shown).toBe(1)
   })
 
   it('expand() opens without toggling an already-open folder shut', async () => {
@@ -163,14 +181,14 @@ describe('useLibraryPane', () => {
   })
 
   it('records an error instead of throwing when the folder cannot be read', async () => {
-    filesApi.browse.mockRejectedValue(new Error('Path escapes the library root'))
+    browse.mockRejectedValue(new Error('Path escapes the library root'))
     const { result } = renderHook(() => useLibraryPane('books'))
     await waitFor(() => expect(result.current.error).toBe('Path escapes the library root'))
     expect(result.current.rows).toEqual([])
   })
 
   it('surfaces a failed subfolder load inline, without losing the tree', async () => {
-    filesApi.browse.mockImplementation((p) =>
+    browse.mockImplementation((p) =>
       p === 'books'
         ? Promise.resolve(listing('books', [dir('core', 'books')]))
         : Promise.reject(new Error('Permission denied'))
@@ -180,7 +198,7 @@ describe('useLibraryPane', () => {
 
     act(() => result.current.toggleExpand('books/core'))
     await waitFor(() => {
-      const err = result.current.rows.find((r) => r.placeholder === 'error')
+      const err = result.current.rows.find((r) => r.placeholder === 'error') as NoteRow | undefined
       expect(err?.text).toBe('Permission denied')
     })
   })
@@ -236,7 +254,7 @@ describe('useLibraryPane', () => {
   })
 
   it('leaves rows with unreadable names out of select-all', async () => {
-    filesApi.browse.mockResolvedValue(
+    browse.mockResolvedValue(
       listing('books', [
         file('loose.pdf', 'books'),
         { ...dir('M\ufffdRK BORG', 'books'), unreadable_name: true },
@@ -254,7 +272,7 @@ describe('useLibraryPane', () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
     act(() => result.current.toggleExpand('books/core'))
     await waitFor(() => expect(loaded(result.current.rows)).toHaveLength(3))
-    filesApi.browse.mockClear()
+    browse.mockClear()
 
     await act(async () => {
       result.current.refresh()
@@ -270,7 +288,7 @@ describe('useLibraryPane', () => {
     const { result } = renderHook(() => useLibraryPane('books'))
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.expanded.has('books/core')).toBe(false)
-    filesApi.browse.mockClear()
+    browse.mockClear()
 
     await act(async () => {
       result.current.refreshPath('books/core')
@@ -286,7 +304,7 @@ describe('useLibraryPane', () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
     act(() => result.current.toggleExpand('books/core'))
     await waitFor(() => expect(loaded(result.current.rows)).toHaveLength(3))
-    filesApi.browse.mockClear()
+    browse.mockClear()
 
     await act(async () => {
       result.current.refreshPath('books/core')
@@ -299,7 +317,7 @@ describe('useLibraryPane', () => {
   it('refreshPath reloads the pane root without expanding it', async () => {
     const { result } = renderHook(() => useLibraryPane('books'))
     await waitFor(() => expect(result.current.loading).toBe(false))
-    filesApi.browse.mockClear()
+    browse.mockClear()
 
     await act(async () => {
       result.current.refreshPath('books')
@@ -313,8 +331,8 @@ describe('useLibraryPane', () => {
   it('refreshPath re-fetches even while a load for that folder is in flight', async () => {
     // The listing already being fetched was requested before the folder existed,
     // so reusing it would show a stale folder and look like the create failed.
-    let resolveFirst
-    filesApi.browse.mockImplementation((p) => {
+    let resolveFirst: (() => void) | undefined
+    browse.mockImplementation((p) => {
       if (p === 'books/core') {
         return new Promise((res) => {
           resolveFirst = () => res(listing('books/core', []))
@@ -327,14 +345,14 @@ describe('useLibraryPane', () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
     act(() => result.current.toggleExpand('books/core'))
     await waitFor(() => expect(filesApi.browse).toHaveBeenCalledWith('books/core'))
-    const before = filesApi.browse.mock.calls.filter((c) => c[0] === 'books/core').length
+    const before = browse.mock.calls.filter((c) => c[0] === 'books/core').length
 
     await act(async () => {
       result.current.refreshPath('books/core')
       resolveFirst?.()
     })
 
-    const after = filesApi.browse.mock.calls.filter((c) => c[0] === 'books/core').length
+    const after = browse.mock.calls.filter((c) => c[0] === 'books/core').length
     expect(after).toBeGreaterThan(before)
   })
 
@@ -417,7 +435,7 @@ describe('useLibraryPane cursor', () => {
     act(() => result.current.cursorTo('books/loose.pdf'))
 
     // The file is gone from the server's next listing.
-    filesApi.browse.mockImplementation((p) =>
+    browse.mockImplementation((p) =>
       Promise.resolve(p === 'books' ? listing('books', [dir('core', 'books')]) : listing(p, []))
     )
     act(() => result.current.refresh())
@@ -431,7 +449,7 @@ describe('useLibraryPane cursor', () => {
     const { result } = await ready()
     act(() => result.current.cursorTo('books/core'))
 
-    filesApi.browse.mockImplementation((p) =>
+    browse.mockImplementation((p) =>
       Promise.resolve(
         p === 'books' ? listing('books', [file('loose.pdf', 'books')]) : listing(p, [])
       )
@@ -445,7 +463,7 @@ describe('useLibraryPane cursor', () => {
     const { result } = await ready()
     act(() => result.current.cursorTo('books/loose.pdf'))
 
-    filesApi.browse.mockImplementation((p) =>
+    browse.mockImplementation((p) =>
       Promise.resolve(
         p === 'books'
           ? listing('books', [dir('core', 'books'), file('renamed.pdf', 'books')])
@@ -465,7 +483,7 @@ describe('useLibraryPane cursor', () => {
     const { result } = await ready()
     act(() => result.current.cursorTo('books/loose.pdf'))
 
-    filesApi.browse.mockImplementation((p) =>
+    browse.mockImplementation((p) =>
       Promise.resolve(p === 'books' ? listing('books', [dir('core', 'books')]) : listing(p, []))
     )
     act(() => result.current.pruneCursor())

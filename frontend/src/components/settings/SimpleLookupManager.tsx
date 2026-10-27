@@ -4,6 +4,23 @@ import { LuTrash2, LuPlus } from 'react-icons/lu'
 import api from '../../api'
 import Spinner from '../Spinner'
 
+interface LookupItem {
+  id: string
+  name: string
+}
+
+interface ConfirmState {
+  id: string
+  name: string
+  count: number
+}
+
+interface Props {
+  endpoint: string
+  listKey: string
+  addPlaceholder?: string
+}
+
 /**
  * Generic manager for a flat name-only lookup list (system families, parent
  * systems, licenses). Handles load / add / remove with the shared in-use
@@ -15,17 +32,17 @@ import Spinner from '../Spinner'
  *   listKey    – key in the GET response holding the array, e.g. "parent_systems"
  *   addPlaceholder – localized placeholder / aria-label for the name input
  */
-export default function SimpleLookupManager({ endpoint, listKey, addPlaceholder }) {
+export default function SimpleLookupManager({ endpoint, listKey, addPlaceholder }: Props) {
   const { t } = useTranslation()
-  const [items, setItems] = useState(null)
+  const [items, setItems] = useState<LookupItem[] | null>(null)
   const [name, setName] = useState('')
-  const [confirm, setConfirm] = useState(null)
+  const [confirm, setConfirm] = useState<ConfirmState | null>(null)
   const [error, setError] = useState('')
 
   const load = () => {
     api
       .get(endpoint)
-      .then((r) => setItems(r[listKey] || []))
+      .then((r) => setItems((r as Record<string, LookupItem[]>)[listKey] || []))
       .catch(() => setItems([]))
   }
 
@@ -43,7 +60,7 @@ export default function SimpleLookupManager({ endpoint, listKey, addPlaceholder 
       .catch((e) => setError(e?.message || t('lookupSettings.addFailed')))
   }
 
-  const remove = (item, force = false) => {
+  const remove = (item: LookupItem, force = false) => {
     api
       .delete(`${endpoint}/${item.id}${force ? '?force=true' : ''}`)
       .then(() => {

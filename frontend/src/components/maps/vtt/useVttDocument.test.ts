@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import useVttDocument, { normalizeDoc } from './useVttDocument'
+import type { VttLight } from './types'
 
 const wall = [
   { x: 0, y: 0 },
@@ -43,7 +44,10 @@ describe('useVttDocument', () => {
     const { result } = renderHook(() => useVttDocument(null))
     act(() => result.current.update((d) => ({ ...d, line_of_sight: [wall] })))
     act(() =>
-      result.current.update((d) => ({ ...d, lights: [{ position: { x: 1, y: 1 }, range: 3 }] }))
+      result.current.update((d) => ({
+        ...d,
+        lights: [{ position: { x: 1, y: 1 }, range: 3 } as VttLight],
+      }))
     )
     act(() => result.current.undo())
     expect(result.current.counts.lights).toBe(0)
@@ -83,7 +87,9 @@ describe('useVttDocument', () => {
   it('reset replaces the document and drops history', () => {
     const { result } = renderHook(() => useVttDocument(null))
     act(() => result.current.update((d) => ({ ...d, line_of_sight: [wall] })))
-    act(() => result.current.reset({ lights: [{ position: { x: 0, y: 0 }, range: 1 }] }))
+    act(() =>
+      result.current.reset({ lights: [{ position: { x: 0, y: 0 }, range: 1 } as VttLight] })
+    )
     expect(result.current.counts.line_of_sight).toBe(0)
     expect(result.current.counts.lights).toBe(1)
     expect(result.current.canUndo).toBe(false)

@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuBan } from 'react-icons/lu'
 import { ICON_COLOR_NAMES, ICON_COLOR_PRESETS } from './iconColors'
@@ -6,7 +7,13 @@ import { ICON_COLOR_NAMES, ICON_COLOR_PRESETS } from './iconColors'
 // Reports changes immediately so the tint previews on the picker's trigger.
 // `color` is the stored value (preset token, "#rrggbb", or empty) and
 // `resolved` its CSS form, already computed by the caller.
-export default function IconColorRow({ color, resolved, onColorChange }) {
+interface IconColorRowProps {
+  color: string | null | undefined
+  resolved: string | null | undefined
+  onColorChange: (color: string) => void
+}
+
+export default function IconColorRow({ color, resolved, onColorChange }: IconColorRowProps) {
   const { t } = useTranslation()
   const isPreset = typeof color === 'string' && color.trim().toLowerCase() in ICON_COLOR_PRESETS
   // The native colour input needs a concrete hex; fall back to the resolved
@@ -92,7 +99,7 @@ export default function IconColorRow({ color, resolved, onColorChange }) {
   )
 }
 
-const swatchStyle = (active, background) => ({
+const swatchStyle = (active: boolean, background: string): CSSProperties => ({
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',

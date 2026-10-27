@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import NumberNudge from './NumberNudge'
 
 describe('NumberNudge', () => {

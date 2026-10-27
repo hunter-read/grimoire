@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { files as filesApi } from '../api'
 import { useAuth } from '../context/AuthContext'
@@ -11,6 +11,49 @@ import RenameModal from '../components/files/RenameModal'
 // content listen for it and reload, rather than every menu having to be handed a
 // refresh callback by whatever happens to be four levels above it.
 export const LIBRARY_CHANGED = 'grimoire:library-changed'
+
+/** The `{ path, name, is_dir }` shape the move / rename / delete modals work in. */
+export interface FileEntry {
+  path: string
+  name: string
+  is_dir: boolean
+}
+
+/**
+ * Anything a caller can hand to an opener: a browse row, a book record, or a
+ * map/token/audio row. Only a known library path makes it actionable.
+ */
+export interface FileActionItem {
+  path?: string | null
+  relative_path?: string | null
+  name?: string | null
+  filename?: string | null
+  is_dir?: boolean | null
+}
+
+/** The detail carried by `onChanged` and the `grimoire:library-changed` event. */
+export type LibraryChange =
+  | { action: 'rename'; path: string; name: string }
+  | { action: 'move'; path: string; destination: string; result: unknown }
+  | { action: 'delete'; path: string; result: unknown }
+
+export interface UseFileActionsOptions {
+  onChanged?: (detail: LibraryChange) => void
+}
+
+export interface FileActions {
+  /** Admin and a writable library: move and rename may be offered. */
+  available: boolean
+  /** Admin: removing from the library may be offered, even read-only. */
+  canRemove: boolean
+  entryFor: (item: FileActionItem | null | undefined) => FileEntry | null
+  labels: { move: string; rename: string; remove: string }
+  move: (item: FileActionItem | null | undefined) => void
+  rename: (item: FileActionItem | null | undefined) => void
+  remove: (item: FileActionItem | null | undefined) => void
+  /** The dialogs; the caller must render this. */
+  modals: ReactNode
+}
 
 /**
  * The move / rename / delete trio, shared by every menu that offers them.
@@ -46,16 +89,16 @@ export const LIBRARY_CHANGED = 'grimoire:library-changed'
  * hook so a menu that unmounts on click (all three do) does not take its own
  * confirmation dialog down with it.
  */
-export default function useFileActions({ onChanged } = {}) {
+export default function useFileActions({ onChanged }: UseFileActionsOptions = {}): FileActions {
   const { t } = useTranslation()
   // Both contexts are read defensively: this hook is mounted from menus that
   // appear in views tested (and rendered) without a provider above them, and a
   // missing provider must degrade to "no file actions" rather than throwing.
   const user = useAuth()?.user
   const libraryWritable = useUISettings()?.library_writable
-  const [moving, setMoving] = useState(null)
-  const [renaming, setRenaming] = useState(null)
-  const [deleting, setDeleting] = useState(null)
+  const [moving, setMoving] = useState<FileEntry | null>(null)
+  const [renaming, setRenaming] = useState<FileEntry | null>(null)
+  const [deleting, setDeleting] = useState<FileEntry | null>(null)
 
   const isAdmin = user?.role === 'admin'
   const available = isAdmin && libraryWritable !== false
@@ -66,13 +109,13 @@ export default function useFileActions({ onChanged } = {}) {
   // record, a map/token/audio row — onto the { path, name, is_dir } the modals
   // work in. Returns null when the item has no known library path, which is how
   // a caller learns not to offer the actions for it.
-  const entryFor = useCallback((item) => {
+  const entryFor = useCallback((item: FileActionItem | null | undefined): FileEntry | null => {
     if (!item) return null
     const path = item.path ?? item.relative_path
     if (!path) return null
     return {
       path,
-      name: item.name ?? item.filename ?? path.split('/').pop(),
+      name: item.name ?? item.filename ?? path.split('/').pop()!,
       is_dir: !!item.is_dir,
     }
   }, [])
@@ -80,7 +123,7 @@ export default function useFileActions({ onChanged } = {}) {
   // Tell the caller and the rest of the app in one place, so no call site can
   // announce a change it forgot to broadcast.
   const announce = useCallback(
-    (detail) => {
+    (detail: LibraryChange) => {
       onChanged?.(detail)
       window.dispatchEvent(new CustomEvent(LIBRARY_CHANGED, { detail }))
     },
@@ -88,7 +131,7 @@ export default function useFileActions({ onChanged } = {}) {
   )
 
   const handleRename = useCallback(
-    async (path, newName) => {
+    async (path: string, newName: string) => {
       await filesApi.rename(path, newName)
       announce({ action: 'rename', path, name: newName })
     },
@@ -97,9 +140,9 @@ export default function useFileActions({ onChanged } = {}) {
 
   const openers = useMemo(
     () => ({
-      move: (item) => setMoving(entryFor(item)),
-      rename: (item) => setRenaming(entryFor(item)),
-      remove: (item) => setDeleting(entryFor(item)),
+      move: (item: FileActionItem | null | undefined) => setMoving(entryFor(item)),
+      rename: (item: FileActionItem | null | undefined) => setRenaming(entryFor(item)),
+      remove: (item: FileActionItem | null | undefined) => setDeleting(entryFor(item)),
     }),
     [entryFor]
   )
@@ -110,7 +153,7 @@ export default function useFileActions({ onChanged } = {}) {
         <MoveModal
           items={[moving]}
           onClose={() => setMoving(null)}
-          onMoved={(res, destination) =>
+          onMoved={(res: unknown, destination: string) =>
             announce({ action: 'move', path: moving.path, destination, result: res })
           }
         />
@@ -122,7 +165,9 @@ export default function useFileActions({ onChanged } = {}) {
         <DeleteModal
           entry={deleting}
           onClose={() => setDeleting(null)}
-          onDeleted={(res) => announce({ action: 'delete', path: deleting.path, result: res })}
+          onDeleted={(res: unknown) =>
+            announce({ action: 'delete', path: deleting.path, result: res })
+          }
         />
       )}
     </>

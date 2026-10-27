@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type CSSProperties, type FormEvent, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import Spinner from '../Spinner'
 
@@ -18,22 +18,37 @@ const KINDS = ['', 'parent', 'one-page', 'family', 'publisher', 'generic']
  * game system belongs; the frame marker only under `tokens/`. Offering either
  * elsewhere would write a dot file the next scan ignores.
  */
+/** The markers a new folder is created with. */
+export interface NewFolderOptions {
+  containerKind: string
+  nsfw: boolean
+  framesContainer: boolean
+}
+
+export interface NewFolderModalProps {
+  parent?: string | null
+  allowKinds?: boolean
+  allowFrames?: boolean
+  onClose: () => void
+  onCreate: (name: string, options: NewFolderOptions) => unknown
+}
+
 export default function NewFolderModal({
   parent,
   allowKinds = false,
   allowFrames = false,
   onClose,
   onCreate,
-}) {
+}: NewFolderModalProps) {
   const { t } = useTranslation()
   const [name, setName] = useState('')
   const [kind, setKind] = useState('')
   const [nsfw, setNsfw] = useState(false)
   const [frames, setFrames] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
 
-  const submit = async (e) => {
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!name.trim() || busy) return
     setBusy(true)
@@ -46,7 +61,7 @@ export default function NewFolderModal({
       })
       onClose()
     } catch (err) {
-      setError(err.message || t('files.createFailed'))
+      setError((err as Error).message || t('files.createFailed'))
     } finally {
       setBusy(false)
     }
@@ -57,7 +72,7 @@ export default function NewFolderModal({
   // would also fire for a pane keystroke that happened to bubble while this was
   // open. `stopPropagation` keeps it from reaching the file pane behind it,
   // which reads Escape as "clear the selection".
-  const onKeyDown = (e) => {
+  const onKeyDown = (e: KeyboardEvent<HTMLFormElement>) => {
     if (e.key !== 'Escape') return
     e.stopPropagation()
     onClose()
@@ -168,7 +183,7 @@ export default function NewFolderModal({
   )
 }
 
-const backdrop = {
+const backdrop: CSSProperties = {
   position: 'fixed',
   inset: 0,
   background: 'var(--scrim)',
@@ -179,7 +194,7 @@ const backdrop = {
   padding: 16,
 }
 
-const panel = {
+const panel: CSSProperties = {
   background: 'var(--bg-panel)',
   border: '1px solid var(--border)',
   borderRadius: 10,
@@ -187,7 +202,7 @@ const panel = {
   width: 'min(420px, 100%)',
 }
 
-const input = {
+const input: CSSProperties = {
   width: '100%',
   padding: '8px 10px',
   borderRadius: 6,
@@ -198,14 +213,14 @@ const input = {
   marginBottom: 12,
 }
 
-const label = {
+const label: CSSProperties = {
   display: 'block',
   fontSize: 12,
   color: 'var(--text-dim)',
   marginBottom: 6,
 }
 
-function btn(primary) {
+function btn(primary?: boolean): CSSProperties {
   return {
     display: 'inline-flex',
     alignItems: 'center',

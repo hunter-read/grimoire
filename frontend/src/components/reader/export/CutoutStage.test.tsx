@@ -1,8 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import api from '../../../api'
 import CutoutStage from './CutoutStage'
 import usePageExport from './usePageExport'
+import type { ExportTool, NewCutout, PageExporter } from './usePageExport'
+
+// The transport is typed per route; these tests answer it loosely.
+const mockGet = () => api.get as unknown as Mock<(url: string) => Promise<unknown>>
 
 vi.mock('../../../api', () => ({ default: { get: vi.fn() } }))
 
@@ -10,8 +15,16 @@ vi.mock('../../../api', () => ({ default: { get: vi.fn() } }))
 // it a fixed 400 x 600 box at the origin.
 const RECT = { left: 0, top: 0, width: 400, height: 600, right: 400, bottom: 600, x: 0, y: 0 }
 
-let latest
-function Harness({ visible = [1], tool = 'rect', seed = [] }) {
+let latest: PageExporter
+function Harness({
+  visible = [1],
+  tool = 'rect',
+  seed = [],
+}: {
+  visible?: number[]
+  tool?: ExportTool
+  seed?: NewCutout[]
+}) {
   const exporter = usePageExport({ basePath: '/books/b1', title: 'Book', visiblePages: visible })
   latest = exporter
   return (
@@ -20,16 +33,21 @@ function Harness({ visible = [1], tool = 'rect', seed = [] }) {
       <button onClick={() => exporter.addCutouts(seed)}>seed</button>
       <CutoutStage
         exporter={exporter}
-        pageUrl={(p, w) => `/p/${p}?w=${w}`}
-        getAlt={(p) => `Page ${p}`}
+        pageUrl={(p: number, w?: number) => `/p/${p}?w=${w}`}
+        getAlt={(p: number) => `Page ${p}`}
       />
     </>
   )
 }
 
-const frame = () => screen.getByTestId('cutout-stage').querySelector('[tabindex="-1"]')
-const drag = (el, from, to, opts = {}) => {
-  fireEvent.pointerDown(el, {
+const frame = () => screen.getByTestId('cutout-stage').querySelector('[tabindex="-1"]')!
+const drag = (
+  el: Element | null,
+  from: [number, number],
+  to: [number, number],
+  opts: Record<string, unknown> = {}
+) => {
+  fireEvent.pointerDown(el!, {
     clientX: from[0],
     clientY: from[1],
     button: 0,
@@ -42,15 +60,15 @@ const drag = (el, from, to, opts = {}) => {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  api.get.mockResolvedValue({ width: 200, height: 300 })
-  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(RECT)
+  mockGet().mockResolvedValue({ width: 200, height: 300 })
+  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(RECT as DOMRect)
 })
 afterEach(() => vi.restoreAllMocks())
 
 describe('CutoutStage', () => {
   it('waits for page sizes, then shows the page with a hint', async () => {
-    let resolve
-    api.get.mockReturnValueOnce(new Promise((r) => (resolve = r)))
+    let resolve: (value: unknown) => void = () => {}
+    mockGet().mockReturnValueOnce(new Promise((r) => (resolve = r)))
     render(<Harness />)
     expect(screen.queryByAltText('Page 1')).not.toBeInTheDocument()
     await act(async () => resolve({ width: 200, height: 300 }))

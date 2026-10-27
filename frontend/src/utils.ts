@@ -1,11 +1,11 @@
-export function formatSize(bytes) {
+export function formatSize(bytes: number): string {
   if (bytes < 1024) return bytes + ' B'
   if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB'
   return (bytes / 1048576).toFixed(1) + ' MB'
 }
 
 /** Format a duration in seconds as m:ss (or h:mm:ss for long tracks). */
-export function formatDuration(seconds) {
+export function formatDuration(seconds: number | null | undefined): string {
   const total = Math.max(0, Math.round(seconds || 0))
   const h = Math.floor(total / 3600)
   const m = Math.floor((total % 3600) / 60)
@@ -22,7 +22,9 @@ import { capitalizeWord } from './utils/acronyms'
  * each word is capitalized, keeping well-known acronyms in canonical casing
  * ("gm-tools" → "GM Tools").
  */
-export function toTitleCase(str) {
+export function toTitleCase(str: string): string
+export function toTitleCase(str: string | null | undefined): string | null | undefined
+export function toTitleCase(str: string | null | undefined): string | null | undefined {
   if (!str) return str
   return str.replace(/[-_]+/g, ' ').replace(/\S+/g, capitalizeWord)
 }

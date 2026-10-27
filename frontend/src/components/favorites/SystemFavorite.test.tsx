@@ -1,22 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import type { ComponentProps } from 'react'
 import SystemFavorite from './SystemFavorite'
+import type { Schema } from '../../api'
 
-vi.mock('../../api', () => ({ mediaUrl: (p) => `http://localhost${p}` }))
+vi.mock('../../api', () => ({ mediaUrl: (p: string) => `http://localhost${p}` }))
 vi.mock('../FavoriteButton', () => ({ default: () => <button>fav</button> }))
 
 beforeEach(() => vi.clearAllMocks())
 
-const item = (over = {}) => ({
-  item_id: 's1',
-  name: 'Dungeons & Dragons',
-  cover_book_id: null,
-  publishers: [],
-  ...over,
-})
+// Only the fields the card reads.
+const item = (over: Record<string, unknown> = {}) =>
+  ({
+    item_id: 's1',
+    name: 'Dungeons & Dragons',
+    cover_book_id: null,
+    publishers: [],
+    ...over,
+  }) as unknown as Schema<'FavoriteSystemItem'>
 
-function renderSystem(props) {
+function renderSystem(props: ComponentProps<typeof SystemFavorite>) {
   return render(
     <MemoryRouter>
       <SystemFavorite {...props} />
@@ -47,7 +51,7 @@ describe('SystemFavorite', () => {
   it('renders the cover thumbnail (lazy) when cover_book_id is set', () => {
     const { container } = renderSystem({ item: item({ cover_book_id: 'b9' }), grid: true })
     const img = container.querySelector('img')
-    expect(img.getAttribute('src')).toContain('/books/b9/thumbnail')
+    expect(img!.getAttribute('src')).toContain('/books/b9/thumbnail')
     expect(img).toHaveAttribute('loading', 'lazy')
   })
 
@@ -68,7 +72,7 @@ describe('SystemFavorite', () => {
     ])('uses the system cover endpoint in %s mode when has_cover is set', (_name, grid) => {
       const { container } = renderSystem({ item: item({ has_cover: true }), grid })
       const img = container.querySelector('img')
-      expect(img.getAttribute('src')).toContain('/systems/s1/cover')
+      expect(img!.getAttribute('src')).toContain('/systems/s1/cover')
     })
 
     it('prefers the system cover over a book thumbnail', () => {
@@ -76,7 +80,7 @@ describe('SystemFavorite', () => {
         item: item({ has_cover: true, cover_book_id: 'b9' }),
         grid: true,
       })
-      expect(container.querySelector('img').getAttribute('src')).toContain('/systems/s1/cover')
+      expect(container.querySelector('img')!.getAttribute('src')).toContain('/systems/s1/cover')
     })
   })
 })

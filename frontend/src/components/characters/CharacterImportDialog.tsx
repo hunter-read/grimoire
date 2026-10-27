@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { DragEvent, FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuFileUp, LuLink, LuRotateCw } from 'react-icons/lu'
 import { characters as charactersApi } from '../../api'
+import type { ApiError, BodyOf, Schema } from '../../api'
 import CharacterDialog from './CharacterDialog'
 import ImporterList from './ImporterList'
 import Spinner from '../Spinner'
@@ -16,11 +18,15 @@ const AUTO = ''
 const GRIMOIRE = 'grimoire'
 
 /** A Grimoire character export names the sheet it was built on at its top. */
-function isGrimoireExport(payload) {
-  return payload !== null && typeof payload === 'object' && typeof payload.schema_id === 'string'
+function isGrimoireExport(payload: unknown): boolean {
+  return (
+    payload !== null &&
+    typeof payload === 'object' &&
+    typeof (payload as { schema_id?: unknown }).schema_id === 'string'
+  )
 }
 
-function parse(text) {
+function parse(text: string): unknown {
   try {
     return JSON.parse(text)
   } catch {
@@ -42,11 +48,33 @@ function parse(text) {
  * the same file or link again. What is typed is sent with the import and kept
  * nowhere.
  */
-export default function CharacterImportDialog({ onImported, onClose }) {
+// A file (`text` and `filename`) or a link (`url`) for an importer to read.
+type ExternalRequest = Pick<
+  BodyOf<'/characters/import/external', 'post'>,
+  'text' | 'filename' | 'url'
+>
+
+// What a character import resolves to, whichever endpoint read it.
+type Imported =
+  | Awaited<ReturnType<typeof charactersApi.import>>
+  | Awaited<ReturnType<typeof charactersApi.importExternal>>
+
+// The 422 an importer answers with when it needs something typed first.
+interface NeedsInputDetail {
+  needs_input?: string[]
+  importer_id?: string
+}
+
+export interface CharacterImportDialogProps {
+  onImported: (created: Imported) => void
+  onClose: () => void
+}
+
+export default function CharacterImportDialog({ onImported, onClose }: CharacterImportDialogProps) {
   const { t } = useTranslation()
-  const fileRef = useRef(null)
+  const fileRef = useRef<HTMLInputElement>(null)
   // `{importers, available, downloads_enabled}`, or null while it loads.
-  const [listing, setListing] = useState(null)
+  const [listing, setListing] = useState<Schema<'ImporterListResponse'> | null>(null)
   const importers = listing ? listing.importers || [] : null
   const [choice, setChoice] = useState(AUTO)
   const [url, setUrl] = useState('')
@@ -55,9 +83,9 @@ export default function CharacterImportDialog({ onImported, onClose }) {
   const [error, setError] = useState('')
   // Answers to the chosen importer's inputs, the keys the server asked for,
   // and the last file or link sent, so asking for a key can end in a retry.
-  const [answers, setAnswers] = useState({})
-  const [asked, setAsked] = useState([])
-  const [lastRequest, setLastRequest] = useState(null)
+  const [answers, setAnswers] = useState<Record<string, string>>({})
+  const [asked, setAsked] = useState<string[]>([])
+  const [lastRequest, setLastRequest] = useState<ExternalRequest | null>(null)
 
   const load = useCallback(
     () =>
@@ -79,26 +107,26 @@ export default function CharacterImportDialog({ onImported, onClose }) {
 
   const inputs = chosen?.inputs || []
 
-  const run = async (request) => {
+  const run = async (request: () => Promise<Imported>) => {
     setBusy(true)
     setError('')
     try {
       const created = await request()
       onImported(created)
     } catch (err) {
-      const detail = err.body?.detail
+      const detail = ((err as ApiError).body as { detail?: NeedsInputDetail } | undefined)?.detail
       if (Array.isArray(detail?.needs_input) && detail.needs_input.length) {
         // The importer wants something typed - choose it, so its fields show.
         setChoice(detail.importer_id || choice)
         setAsked(detail.needs_input)
       }
-      setError(err.message)
+      setError((err as Error).message)
       setBusy(false)
     }
   }
 
   // Another tool's file or link. `importer` is who reads it, when known.
-  const importExternal = (request, importer = choice) => {
+  const importExternal = (request: ExternalRequest, importer: string = choice) => {
     setLastRequest(request)
     const declared = (importers || []).find((item) => item.id === importer)?.inputs || []
     const given = Object.fromEntries(
@@ -115,7 +143,7 @@ export default function CharacterImportDialog({ onImported, onClose }) {
     )
   }
 
-  const importFile = async (file) => {
+  const importFile = async (file: File | undefined) => {
     if (!file || busy) return
     if (fileRef.current) fileRef.current.value = ''
     if (file.size > MAX_FILE_BYTES) {
@@ -131,19 +159,19 @@ export default function CharacterImportDialog({ onImported, onClose }) {
         setError(t('characters.importInvalidJson'))
         return
       }
-      await run(() => charactersApi.import(payload))
+      await run(() => charactersApi.import(payload as Record<string, unknown>))
       return
     }
     await importExternal({ text, filename: file.name })
   }
 
-  const importLink = async (event) => {
+  const importLink = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!url.trim() || busy) return
     await importExternal({ url: url.trim() })
   }
 
-  const onDrop = (event) => {
+  const onDrop = (event: DragEvent<HTMLElement>) => {
     event.preventDefault()
     setDragging(false)
     importFile(event.dataTransfer.files?.[0])
@@ -244,7 +272,7 @@ export default function CharacterImportDialog({ onImported, onClose }) {
         {inputs.length ? (
           <fieldset style={{ border: 'none', padding: 0, margin: 0, display: 'grid', gap: 12 }}>
             <legend style={{ ...fieldLabel, padding: 0 }}>
-              {t('characters.importInputsFor', { name: chosen.name })}
+              {t('characters.importInputsFor', { name: chosen!.name })}
             </legend>
             {inputs.map((input) => {
               const id = `character-import-input-${input.key}`

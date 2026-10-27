@@ -5,6 +5,13 @@ import Field from './Field'
 import NumberNudge from './NumberNudge'
 import { LIGHT_PRESETS, PRESET_CUSTOM, applyPreset, matchPreset } from './lightPresets'
 import { btnStyle, inputStyle } from './ui'
+import type { VttLight } from './types'
+
+export interface LightPropertiesProps {
+  light: VttLight
+  onChange: (light: VttLight) => void
+  onDelete: () => void
+}
 
 /**
  * Property panel for one light (issue #127).
@@ -26,11 +33,11 @@ import { btnStyle, inputStyle } from './ui'
  * three fields below, which stay editable — a preset is a starting point, and
  * tuning one simply reads as Custom again.
  */
-export default function LightProperties({ light, onChange, onDelete }) {
+export default function LightProperties({ light, onChange, onDelete }: LightPropertiesProps) {
   const { t } = useTranslation()
   const alpha = argbToAlpha(light.color)
 
-  const set = (patch) => onChange({ ...light, ...patch })
+  const set = (patch: Partial<VttLight>) => onChange({ ...light, ...patch })
   const preset = matchPreset(light)
 
   return (

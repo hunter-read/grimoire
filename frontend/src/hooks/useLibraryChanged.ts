@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { LIBRARY_CHANGED } from './useFileActions'
+import { LIBRARY_CHANGED, type LibraryChange } from './useFileActions'
 
 /**
  * Run `handler` whenever a file is moved, renamed, or deleted anywhere in the app.
@@ -14,12 +14,14 @@ import { LIBRARY_CHANGED } from './useFileActions'
  * re-subscribing on every render, which is the shape nearly every call site
  * wants.
  */
-export default function useLibraryChanged(handler) {
+export default function useLibraryChanged(
+  handler: ((detail: LibraryChange) => void) | null | undefined
+): void {
   const ref = useRef(handler)
   ref.current = handler
 
   useEffect(() => {
-    const onChanged = (e) => ref.current?.(e.detail)
+    const onChanged = (e: Event) => ref.current?.((e as CustomEvent<LibraryChange>).detail)
     window.addEventListener(LIBRARY_CHANGED, onChanged)
     return () => window.removeEventListener(LIBRARY_CHANGED, onChanged)
   }, [])

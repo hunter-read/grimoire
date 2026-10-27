@@ -1,7 +1,7 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, type ChangeEvent, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX, LuFileUp, LuFolderUp } from 'react-icons/lu'
-import { campaigns } from '../../api'
+import { campaigns, type Schema } from '../../api'
 
 const ACCEPT = '.zip,.json,.md,.markdown,.txt,.lk'
 // Only markdown is read out of a picked folder, so there is no point opening
@@ -12,38 +12,49 @@ const FOLDER_ACCEPT = '.md,.markdown,.txt'
 // Imports wiki pages from a markdown / JSON / LegendKeeper file, or from a
 // whole picked folder. On success it reports how many pages were created and
 // lets the caller refresh the list.
-export default function WikiImportModal({ campaignId, onClose, onImported }) {
+type ImportResult = Schema<'WikiImportOut'>
+
+// Spread onto the folder input: React's types don't know these attributes.
+const FOLDER_PICKER = { webkitdirectory: '', directory: '' }
+
+interface WikiImportModalProps {
+  campaignId: string
+  onClose: () => void
+  onImported?: (result: ImportResult) => void
+}
+
+export default function WikiImportModal({ campaignId, onClose, onImported }: WikiImportModalProps) {
   const { t } = useTranslation()
-  const inputRef = useRef(null)
-  const folderRef = useRef(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const folderRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState(null)
-  const [result, setResult] = useState(null)
+  const [error, setError] = useState<string | null>(null)
+  const [result, setResult] = useState<ImportResult | null>(null)
 
   // Shared tail of both pickers: run the import, report what came back.
-  const run = async (send) => {
+  const run = async (send: () => Promise<unknown>) => {
     setBusy(true)
     setError(null)
     setResult(null)
     try {
-      const res = await send()
+      const res = (await send()) as ImportResult
       setResult(res)
       onImported?.(res)
     } catch (err) {
-      setError(err.message)
+      setError((err as Error).message)
     } finally {
       setBusy(false)
     }
   }
 
-  const pick = async (e) => {
+  const pick = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
     await run(() => campaigns.importWiki(campaignId, file))
   }
 
-  const pickFolder = async (e) => {
+  const pickFolder = async (e: ChangeEvent<HTMLInputElement>) => {
     // `webkitRelativePath` is the file's path inside the folder the user picked;
     // it is the only place the browser reports the structure, and it is why the
     // folder input carries `webkitdirectory`.
@@ -157,8 +168,7 @@ export default function WikiImportModal({ campaignId, onClose, onImported }) {
           ref={folderRef}
           type="file"
           multiple
-          webkitdirectory=""
-          directory=""
+          {...FOLDER_PICKER}
           accept={FOLDER_ACCEPT}
           data-testid="wiki-folder-input"
           onChange={pickFolder}
@@ -169,7 +179,7 @@ export default function WikiImportModal({ campaignId, onClose, onImported }) {
   )
 }
 
-const plainBtn = {
+const plainBtn: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 6,
@@ -183,7 +193,7 @@ const plainBtn = {
   fontWeight: 600,
 }
 
-const goldBtn = {
+const goldBtn: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 6,

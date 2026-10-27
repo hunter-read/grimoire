@@ -1,5 +1,20 @@
 import { useCallback, useEffect, useState } from 'react'
-import api from '../api'
+import api, { type Schema } from '../api'
+
+export type SavedFilter = Schema<'SavedFilterOut'>
+
+export interface SavedFiltersResult {
+  saved: SavedFilter[]
+  loaded: boolean
+  defaultFilter: SavedFilter | null
+  save: (
+    name: string | null | undefined,
+    state: object,
+    opts?: { asDefault?: boolean }
+  ) => Promise<SavedFilter | null>
+  setDefault: (id: string, value?: boolean) => Promise<void>
+  remove: (id: string) => Promise<void>
+}
 
 /**
  * Server-backed named sort/filter presets for one scope
@@ -15,14 +30,14 @@ import api from '../api'
  *  - setDefault(id, value=true): mark/unmark a preset as the scope default
  *  - remove(id): delete a preset
  */
-export default function useSavedFilters(scope) {
-  const [saved, setSaved] = useState([])
+export default function useSavedFilters(scope: string): SavedFiltersResult {
+  const [saved, setSaved] = useState<SavedFilter[]>([])
   const [loaded, setLoaded] = useState(false)
 
   const load = useCallback(() => {
     api
       .get(`/saved-filters?scope=${encodeURIComponent(scope)}`)
-      .then((r) => setSaved(r.filters || []))
+      .then((r) => setSaved((r as Schema<'SavedFiltersResponse'>).filters || []))
       .catch(() => setSaved([]))
       .finally(() => setLoaded(true))
   }, [scope])
@@ -32,14 +47,23 @@ export default function useSavedFilters(scope) {
   }, [load])
 
   const save = useCallback(
-    (name, state, { asDefault = false } = {}) => {
+    (
+      name: string | null | undefined,
+      state: object,
+      { asDefault = false }: { asDefault?: boolean } = {}
+    ) => {
       const trimmed = (name || '').trim()
       if (!trimmed) return Promise.resolve(null)
       return api
-        .post('/saved-filters', { scope, name: trimmed, state, is_default: asDefault })
+        .post('/saved-filters', {
+          scope,
+          name: trimmed,
+          state: state as Record<string, unknown>,
+          is_default: asDefault,
+        })
         .then((created) => {
           load()
-          return created
+          return created as SavedFilter
         })
         .catch(() => null)
     },
@@ -47,7 +71,7 @@ export default function useSavedFilters(scope) {
   )
 
   const setDefault = useCallback(
-    (id, value = true) =>
+    (id: string, value = true) =>
       api
         .patch(`/saved-filters/${id}`, { is_default: value })
         .then(() => load())
@@ -56,7 +80,7 @@ export default function useSavedFilters(scope) {
   )
 
   const remove = useCallback(
-    (id) =>
+    (id: string) =>
       api
         .delete(`/saved-filters/${id}`)
         .then(() => load())

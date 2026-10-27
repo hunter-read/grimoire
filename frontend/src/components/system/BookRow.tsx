@@ -1,8 +1,10 @@
 import { useRef, useState } from 'react'
+import type { KeyboardEvent, MouseEvent } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuChevronRight, LuFileArchive, LuFileText, LuHeart, LuCheck, LuInfo } from 'react-icons/lu'
 import { mediaUrl } from '../../api'
+import type { Schema } from '../../api'
 import { CATEGORY_ICONS, isArchiveBook } from '../../constants'
 import { useFavorites } from '../../context/FavoritesContext'
 import { getBookPrefs } from '../../hooks/useBookPrefs'
@@ -38,6 +40,26 @@ const rowTagStyle = {
  * Right-clicking the row or card opens that same ⋮ menu at the cursor (issue
  * #487); `rowRef` is what the menu listens on.
  */
+/** The modifier keys held on a bulk-mode toggle, for range and add-to selection. */
+export interface ToggleMods {
+  shift: boolean
+  meta: boolean
+}
+
+export interface BookRowProps {
+  book: Schema<'BookOut'>
+  /** Opens the metadata editor; passed only for gm/admin. */
+  onEdit?: (() => void) | null
+  onDetails?: (() => void) | null
+  editing?: boolean
+  bulkMode?: boolean
+  selected?: boolean
+  /** Toggles selection; called only in bulk mode, which always passes it. */
+  onToggle?: (mods: ToggleMods) => void
+  card?: boolean
+  compact?: boolean
+}
+
 export default function BookRow({
   book,
   onEdit,
@@ -48,17 +70,18 @@ export default function BookRow({
   onToggle,
   card,
   compact,
-}) {
+}: BookRowProps) {
   const { t } = useTranslation()
   const location = useLocation()
   const [hovered, setHovered] = useState(false)
-  const rowRef = useRef(null)
+  const rowRef = useRef<HTMLDivElement>(null)
   const { isFavorite, toggleFavorite } = useFavorites()
   const isArchive = isArchiveBook(book)
-  const CatIcon = isArchive ? LuFileArchive : CATEGORY_ICONS[book.category] || LuFileText
+  const CatIcon = isArchive ? LuFileArchive : CATEGORY_ICONS[book.category as string] || LuFileText
 
   const lastPage = getBookPrefs(book.id).page || 0
-  const progress = book.page_count > 0 && lastPage > 1 ? Math.min(lastPage / book.page_count, 1) : 0
+  const progress =
+    (book.page_count ?? 0) > 0 && lastPage > 1 ? Math.min(lastPage / book.page_count!, 1) : 0
   const fav = isFavorite('book', book.id)
 
   // Outside bulk mode the row is a real link (a CardLink overlay), so middle
@@ -66,11 +89,12 @@ export default function BookRow({
   // Archives have no reader view, so their link is a download anchor instead.
   // Bulk mode claims the modifier keys for range select, so there the row stays
   // a toggle button.
-  const toggle = (e) => onToggle({ shift: e.shiftKey, meta: e.metaKey || e.ctrlKey })
+  const toggle = (e: MouseEvent | KeyboardEvent) =>
+    onToggle!({ shift: e.shiftKey, meta: e.metaKey || e.ctrlKey })
   const buttonProps = bulkMode
     ? {
         onClick: toggle,
-        onKeyDown: (e) => {
+        onKeyDown: (e: KeyboardEvent) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault()
             toggle(e)
@@ -288,9 +312,9 @@ export default function BookRow({
                 whiteSpace: 'nowrap',
               }}
             >
-              {book.page_count > 0 ? t('bookRow.pages', { count: book.page_count }) : ' '}
+              {(book.page_count ?? 0) > 0 ? t('bookRow.pages', { count: book.page_count }) : ' '}
             </span>
-            {book.variant_count > 0 && (
+            {(book.variant_count ?? 0) > 0 && (
               // The grid card has no badge strip, so this rides alongside the
               // page count rather than introducing a whole new row.
               <span
@@ -305,7 +329,7 @@ export default function BookRow({
                   border: '1px solid rgba(79,209,197,0.35)',
                 }}
               >
-                {t('variants.badge', { count: book.variant_count + 1 })}
+                {t('variants.badge', { count: book.variant_count! + 1 })}
               </span>
             )}
             {!bulkMode && (
@@ -454,7 +478,9 @@ export default function BookRow({
             alignItems: 'center',
           }}
         >
-          {book.page_count > 0 && <span>{t('bookRow.pages', { count: book.page_count })}</span>}
+          {(book.page_count ?? 0) > 0 && (
+            <span>{t('bookRow.pages', { count: book.page_count })}</span>
+          )}
           {progress > 0 && <span style={{ color: 'var(--gold-dim)' }}>p. {lastPage}</span>}
           {book.year && <span>{book.year}</span>}
           {book.publisher && <span>{book.publisher}</span>}
@@ -530,7 +556,7 @@ export default function BookRow({
                   or the read failed), so some of the text may be missing. Amber
                   rather than green: the book is searchable but not fully read, and
                   a green badge here is what made that invisible (issue #450). */}
-              {book.indexed && book.index_error === 'ocr' && book.ocr_pages_skipped > 0 && (
+              {book.indexed && book.index_error === 'ocr' && (book.ocr_pages_skipped ?? 0) > 0 && (
                 <span
                   title={t('bookRow.ocrPartialTitle', {
                     skipped: book.ocr_pages_skipped,
@@ -546,7 +572,7 @@ export default function BookRow({
                   }}
                 >
                   {t('bookRow.ocrPartial', {
-                    read: Math.max((book.page_count || 0) - book.ocr_pages_skipped, 0),
+                    read: Math.max((book.page_count || 0) - book.ocr_pages_skipped!, 0),
                     total: book.page_count || 0,
                   })}
                 </span>
@@ -587,7 +613,7 @@ export default function BookRow({
               )}
             </>
           )}
-          {book.variant_count > 0 && (
+          {(book.variant_count ?? 0) > 0 && (
             <span
               title={t('variants.otherVersions')}
               style={{
@@ -599,7 +625,7 @@ export default function BookRow({
                 border: '1px solid rgba(79,209,197,0.35)',
               }}
             >
-              {t('variants.badge', { count: book.variant_count + 1 })}
+              {t('variants.badge', { count: book.variant_count! + 1 })}
             </span>
           )}
           {/* Tags link to the tags page (issue #517); LinkableTag is positioned,

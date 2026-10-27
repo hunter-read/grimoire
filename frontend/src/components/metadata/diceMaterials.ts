@@ -2,7 +2,18 @@
 // Groups are display-only (unselectable); their items are selectable values.
 // User-entered values that aren't in any default group are shown under "Custom".
 
-export const DICE_MATERIAL_GROUPS = [
+/** A display-only group of selectable dice/materials values. */
+export interface DiceMaterialGroup {
+  key: string
+  label: string
+  items: string[]
+}
+
+/** One row of the picker list: an unselectable group header or a selectable item. */
+export type DiceMaterialRow =
+  { type: 'group'; label: string; key: string } | { type: 'item'; value: string; groupKey: string }
+
+export const DICE_MATERIAL_GROUPS: DiceMaterialGroup[] = [
   {
     key: 'dice',
     label: 'Dice',
@@ -25,7 +36,7 @@ const DEFAULT_VALUES = new Set(
   DICE_MATERIAL_GROUPS.flatMap((g) => g.items.map((i) => i.toLowerCase()))
 )
 
-export function isDefaultDiceMaterial(value) {
+export function isDefaultDiceMaterial(value: unknown): boolean {
   return DEFAULT_VALUES.has(String(value).trim().toLowerCase())
 }
 
@@ -37,12 +48,14 @@ const GROUP_ORDER = ['Dice', 'Cards', 'Other', 'Custom']
  * grouped shape as DICE_MATERIAL_GROUPS. Groups are ordered Dice → Cards → Other
  * → Custom, then any unexpected groups alphabetically.
  */
-export function groupsFromManaged(items = []) {
-  const byGroup = new Map()
+export function groupsFromManaged(
+  items: { name: string; group?: string | null }[] = []
+): DiceMaterialGroup[] {
+  const byGroup = new Map<string, string[]>()
   for (const item of items) {
     const group = (item.group || 'Custom').trim() || 'Custom'
     if (!byGroup.has(group)) byGroup.set(group, [])
-    byGroup.get(group).push(item.name)
+    byGroup.get(group)!.push(item.name)
   }
   const groupNames = [...byGroup.keys()].sort((a, b) => {
     const ai = GROUP_ORDER.indexOf(a)
@@ -53,7 +66,7 @@ export function groupsFromManaged(items = []) {
   return groupNames.map((name) => ({
     key: name.toLowerCase(),
     label: name,
-    items: byGroup.get(name),
+    items: byGroup.get(name)!,
   }))
 }
 
@@ -69,12 +82,12 @@ export function groupsFromManaged(items = []) {
  *   Pass `groupsFromManaged(lookupRows)` to source from the managed table.
  */
 export function buildDiceMaterialRows(
-  selected = [],
+  selected: string[] = [],
   customGroupLabel = 'Custom',
-  groups = DICE_MATERIAL_GROUPS
-) {
-  const rows = []
-  const known = new Set()
+  groups: DiceMaterialGroup[] = DICE_MATERIAL_GROUPS
+): DiceMaterialRow[] {
+  const rows: DiceMaterialRow[] = []
+  const known = new Set<string>()
   for (const g of groups) {
     rows.push({ type: 'group', label: g.label, key: g.key })
     for (const item of g.items) {

@@ -2,18 +2,21 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import FolderCategorySection from './FolderCategorySection'
 import { settings as settingsApi } from '../../api'
+import type { Schema } from '../../api'
+
+type Settings = Schema<'SettingsResponse'>
 
 vi.mock('../../api', () => ({
   settings: { get: vi.fn(), patch: vi.fn() },
 }))
 
 function mockSettings(overrides = {}) {
-  settingsApi.get.mockResolvedValue({
+  vi.mocked(settingsApi.get).mockResolvedValue({
     disable_folder_category_inference: false,
     disable_folder_category_inference_env_locked: false,
     ...overrides,
-  })
-  settingsApi.patch.mockResolvedValue({})
+  } as Settings)
+  vi.mocked(settingsApi.patch).mockResolvedValue({} as Settings)
 }
 
 beforeEach(() => {
@@ -60,7 +63,7 @@ describe('FolderCategorySection', () => {
   })
 
   it('falls back to defaults when the settings request fails', async () => {
-    settingsApi.get.mockRejectedValue(new Error('boom'))
+    vi.mocked(settingsApi.get).mockRejectedValue(new Error('boom'))
     render(<FolderCategorySection />)
     const checkbox = await screen.findByLabelText('Disable folder-name category inference')
     expect(checkbox).not.toBeChecked()

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
 import { render, screen, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -6,17 +6,19 @@ import ReaderView from './ReaderView'
 import api from '../api'
 import { getRecentBooks } from '../hooks/useBookPrefs'
 
+const mockGet = vi.mocked(api.get) as unknown as Mock
+
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
 vi.mock('../api', () => ({
   default: { get: vi.fn(), post: vi.fn(), delete: vi.fn() },
   // Mirrors the real signature's query params so tests can assert the render
   // width requested for a page.
-  mediaUrl: (path, params) =>
+  mediaUrl: (path: string, params?: Record<string, string>) =>
     `/media${path}${params ? `?${new URLSearchParams(params).toString()}` : ''}`,
   // Mirrors the real helper: `v` is the book's content token, present only once
   // the scanner has hashed the file.
-  bookPageUrl: (bookId, page, width, contentToken) =>
+  bookPageUrl: (bookId: string, page: number, width: string, contentToken?: string) =>
     `/media/books/${bookId}/page/${page}?${new URLSearchParams(
       contentToken ? { width, v: contentToken } : { width }
     ).toString()}`,
@@ -42,7 +44,7 @@ vi.mock('../hooks/useIsMobile', () => ({ default: () => mockIsMobile.value }))
 const mockSetSearchParams = vi.fn()
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async (importOriginal) => {
-  const actual = await importOriginal()
+  const actual = await importOriginal<typeof import('react-router-dom')>()
   return {
     ...actual,
     useSearchParams: () => [new URLSearchParams(), mockSetSearchParams],
@@ -71,7 +73,7 @@ const TOC = {
 const BOOKMARKS = [{ id: 1, page_number: 55, label: 'My mark', notes: '', selected_text: null }]
 
 function setupApiMocks() {
-  api.get.mockImplementation((url) => {
+  mockGet.mockImplementation((url) => {
     if (url.includes('/toc')) return Promise.resolve(TOC)
     if (url.includes('/bookmarks')) return Promise.resolve(BOOKMARKS)
     if (url.includes('/search')) return Promise.resolve({ total: 0, results: [] })
@@ -82,7 +84,7 @@ function setupApiMocks() {
   })
 }
 
-function renderReader(bookId = 'book-1', { locationState } = {}) {
+function renderReader(bookId = 'book-1', { locationState }: { locationState?: unknown } = {}) {
   const entry = locationState
     ? { pathname: `/library/book/${bookId}`, state: locationState }
     : `/library/book/${bookId}`
@@ -139,7 +141,7 @@ describe('ReaderView — jump navigation history behaviour', () => {
     vi.clearAllMocks()
     setupApiMocks()
     // Stub rAF so effects that schedule frames run synchronously in jsdom.
-    vi.stubGlobal('requestAnimationFrame', (cb) => {
+    vi.stubGlobal('requestAnimationFrame', (cb: () => void) => {
       cb()
       return 0
     })
@@ -297,7 +299,7 @@ describe('ReaderView — spread mode (integration)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     setupApiMocks()
-    vi.stubGlobal('requestAnimationFrame', (cb) => {
+    vi.stubGlobal('requestAnimationFrame', (cb: () => void) => {
       cb()
       return 0
     })
@@ -313,10 +315,10 @@ describe('ReaderView — spread mode (integration)', () => {
     await userEvent.click(screen.getByLabelText('More actions'))
     // The menu stays open across toggles, so both flips work in one pass.
     await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Pair cover with page 2' }))
-    expect(JSON.parse(localStorage.getItem('grimoire:book:book-1')).spreadOffset).toBe(1)
+    expect(JSON.parse(localStorage.getItem('grimoire:book:book-1')!).spreadOffset).toBe(1)
 
     await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Pair cover with page 2' }))
-    expect(JSON.parse(localStorage.getItem('grimoire:book:book-1')).spreadOffset).toBe(0)
+    expect(JSON.parse(localStorage.getItem('grimoire:book:book-1')!).spreadOffset).toBe(0)
   })
 
   it('persists joining the spread pages per book (issue #588)', async () => {
@@ -325,7 +327,7 @@ describe('ReaderView — spread mode (integration)', () => {
     await waitFor(() => screen.getByText('Test Book'))
     await userEvent.click(screen.getByLabelText('More actions'))
     await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Join pages' }))
-    expect(JSON.parse(localStorage.getItem('grimoire:book:book-1')).joinSpread).toBe(true)
+    expect(JSON.parse(localStorage.getItem('grimoire:book:book-1')!).joinSpread).toBe(true)
   })
 
   it('restores joined spreads on mount', async () => {
@@ -381,7 +383,7 @@ describe('ReaderView — back button navigation', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     setupApiMocks()
-    vi.stubGlobal('requestAnimationFrame', (cb) => {
+    vi.stubGlobal('requestAnimationFrame', (cb: () => void) => {
       cb()
       return 0
     })
@@ -424,12 +426,12 @@ describe('ReaderView — archive files (issue #94)', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    api.get.mockImplementation((url) => {
+    mockGet.mockImplementation((url) => {
       if (url.includes('/toc')) return Promise.resolve({ toc: [] })
       if (url.includes('/bookmarks')) return Promise.resolve([])
       return Promise.resolve(ARCHIVE_BOOK)
     })
-    vi.stubGlobal('requestAnimationFrame', (cb) => {
+    vi.stubGlobal('requestAnimationFrame', (cb: () => void) => {
       cb()
       return 0
     })
@@ -450,14 +452,14 @@ describe('ReaderView — zoom (issue #249)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     setupApiMocks()
-    vi.stubGlobal('requestAnimationFrame', (cb) => {
+    vi.stubGlobal('requestAnimationFrame', (cb: () => void) => {
       cb()
       return 0
     })
     vi.stubGlobal('cancelAnimationFrame', () => {})
   })
 
-  const press = (key) =>
+  const press = (key: string) =>
     act(async () => {
       window.dispatchEvent(new KeyboardEvent('keydown', { key }))
     })
@@ -524,8 +526,10 @@ describe('ReaderView — zoom (issue #249)', () => {
     await press('ArrowRight')
     await waitFor(() => expect(screen.getByAltText(/page 2/i)).toBeInTheDocument())
     expect(screen.getByText('150%')).toBeInTheDocument()
-    const page = container.querySelector('img[data-page-image]').closest('[style*="scale"]')
-    expect(page.style.transform).toContain('scale(1.5)')
+    const page = container
+      .querySelector('img[data-page-image]')!
+      .closest<HTMLElement>('[style*="scale"]')
+    expect(page!.style.transform).toContain('scale(1.5)')
   })
 
   it('steps through coarser zoom levels above 2x', async () => {
@@ -556,7 +560,7 @@ describe('ReaderView — mobile panel layout', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     setupApiMocks()
-    vi.stubGlobal('requestAnimationFrame', (cb) => {
+    vi.stubGlobal('requestAnimationFrame', (cb: () => void) => {
       cb()
       return 0
     })
@@ -615,9 +619,9 @@ describe('ReaderView — mobile panel layout', () => {
     await waitFor(() => screen.getByText('Test Book'))
     await waitForReaderIdle()
 
-    const root = document.querySelector('.fade-in')
+    const root = document.querySelector<HTMLElement>('.fade-in')
     expect(root).toHaveStyle({ flex: '1', minHeight: '0' })
-    expect(root.style.height).toBe('')
+    expect(root!.style.height).toBe('')
   })
 
   it('keeps the page beside the panel on a desktop', async () => {
@@ -637,11 +641,11 @@ describe('ReaderView — export (issue #207)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     setupApiMocks()
-    const base = api.get.getMockImplementation()
-    api.get.mockImplementation((url) =>
+    const base = mockGet.getMockImplementation()!
+    mockGet.mockImplementation((url) =>
       url.endsWith('/size') ? Promise.resolve({ width: 600, height: 800 }) : base(url)
     )
-    vi.stubGlobal('requestAnimationFrame', (cb) => {
+    vi.stubGlobal('requestAnimationFrame', (cb: () => void) => {
       cb()
       return 0
     })
@@ -685,8 +689,8 @@ describe('ReaderView — export (issue #207)', () => {
   })
 
   it('is not offered for comic archives', async () => {
-    const base = api.get.getMockImplementation()
-    api.get.mockImplementation((url) =>
+    const base = mockGet.getMockImplementation()!
+    mockGet.mockImplementation((url) =>
       url === '/books/book-1'
         ? Promise.resolve({
             ...BOOK,
@@ -714,8 +718,8 @@ describe('ReaderView — a book that fails to load', () => {
     localStorage.clear()
   })
 
-  const failBookWith = (error) =>
-    api.get.mockImplementation((url) =>
+  const failBookWith = (error: Error) =>
+    mockGet.mockImplementation((url) =>
       url === '/books/book-1' ? Promise.reject(error) : Promise.resolve({})
     )
 
@@ -743,8 +747,8 @@ describe('ReaderView — a book that fails to load', () => {
   })
 
   it('does not record a book as recent when its load lands after the reader closed', async () => {
-    let resolveBook
-    api.get.mockImplementation((url) =>
+    let resolveBook!: (value: unknown) => void
+    mockGet.mockImplementation((url) =>
       url === '/books/book-1'
         ? new Promise((resolve) => (resolveBook = resolve))
         : Promise.resolve({})

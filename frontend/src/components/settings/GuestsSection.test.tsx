@@ -9,6 +9,7 @@ vi.mock('../../api', () => ({
 }))
 
 import api, { auth } from '../../api'
+import type { Schema } from '../../api'
 import { clearPasswordRulesCache } from '../../hooks/usePasswordRules'
 
 const guests = [
@@ -42,7 +43,7 @@ const duplicateGuests = [
   },
 ]
 
-const status = (passwordMin) => ({
+const status = (passwordMin: number) => ({
   initialized: true,
   password_min_length: passwordMin,
   share_link_password_min_length: 8,
@@ -52,8 +53,8 @@ beforeEach(() => {
   vi.resetAllMocks()
   localStorage.clear()
   clearPasswordRulesCache()
-  api.get.mockResolvedValue(guests)
-  auth.status.mockResolvedValue(status(12))
+  vi.mocked(api.get).mockResolvedValue(guests)
+  vi.mocked(auth.status).mockResolvedValue(status(12))
 })
 
 const expand = async () => {
@@ -73,7 +74,7 @@ describe('GuestsSection', () => {
 
     fireEvent.click(toggle)
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    const body = document.getElementById(toggle.getAttribute('aria-controls'))
+    const body = document.getElementById(toggle.getAttribute('aria-controls')!)
     expect(body).not.toBeNull()
     await screen.findByText('Ivy')
     // The count joins the heading once the list has loaded.
@@ -140,7 +141,7 @@ describe('GuestsSection', () => {
   })
 
   it('shows the empty state when there are no guests', async () => {
-    api.get.mockResolvedValue([])
+    vi.mocked(api.get).mockResolvedValue([])
     render(<GuestsSection passwordAuthEnabled onConverted={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: /guests/i }))
     await screen.findByText(/no guests/i)
@@ -148,7 +149,7 @@ describe('GuestsSection', () => {
 
   it('converts a guest and reports the new user upward', async () => {
     const converted = { id: 'guest-1', username: 'ivy_perm', role: 'player' }
-    api.post.mockResolvedValue(converted)
+    vi.mocked(api.post).mockResolvedValue(converted)
     const onConverted = vi.fn()
     render(<GuestsSection passwordAuthEnabled onConverted={onConverted} />)
     fireEvent.click(screen.getByRole('button', { name: /guests/i }))
@@ -183,7 +184,7 @@ describe('GuestsSection', () => {
   })
 
   it("asks for the server's minimum when it has been changed", async () => {
-    auth.status.mockResolvedValue(status(10))
+    vi.mocked(auth.status).mockResolvedValue(status(10))
     await expand()
     fireEvent.click(screen.getByRole('button', { name: /convert/i }))
     const input = await screen.findByPlaceholderText('New password (min 10)')
@@ -191,7 +192,7 @@ describe('GuestsSection', () => {
   })
 
   it("shows the server's reason when it refuses a password as too common", async () => {
-    api.post.mockRejectedValue({
+    vi.mocked(api.post).mockRejectedValue({
       status: 422,
       message: 'That password is too common - choose one that is harder to guess',
     })
@@ -216,7 +217,7 @@ describe('GuestsSection', () => {
   })
 
   it('shows an error when conversion fails', async () => {
-    api.post.mockRejectedValue({ body: { detail: 'Username already exists' } })
+    vi.mocked(api.post).mockRejectedValue({ body: { detail: 'Username already exists' } })
     render(<GuestsSection passwordAuthEnabled onConverted={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: /guests/i }))
     await screen.findByText('Ivy')
@@ -233,7 +234,7 @@ describe('GuestsSection', () => {
 
   describe('merging duplicate guest accounts', () => {
     const expandDuplicates = async () => {
-      api.get.mockResolvedValue(duplicateGuests)
+      vi.mocked(api.get).mockResolvedValue(duplicateGuests)
       render(<GuestsSection passwordAuthEnabled onConverted={vi.fn()} />)
       fireEvent.click(screen.getByRole('button', { name: /guests/i }))
       await screen.findByText('Curse of Strahd')
@@ -241,7 +242,7 @@ describe('GuestsSection', () => {
 
     // Rows render in `duplicateGuests` order, and the two duplicates share a
     // display name, so select by row position rather than by label.
-    const selectGuests = (...ids) => {
+    const selectGuests = (...ids: string[]) => {
       const boxes = screen.getAllByRole('checkbox')
       for (const id of ids) {
         fireEvent.click(boxes[duplicateGuests.findIndex((g) => g.id === id)])
@@ -260,11 +261,13 @@ describe('GuestsSection', () => {
     // "Connect them" also means folding a guest into the real account the same
     // person already signs in with, not just guest-to-guest.
     it('offers permanent users as a merge target', async () => {
-      api.get.mockResolvedValue(duplicateGuests)
+      vi.mocked(api.get).mockResolvedValue(duplicateGuests)
       render(
         <GuestsSection
           passwordAuthEnabled
-          users={[{ id: 'user-1', username: 'ivy', display_name: 'Ivy Real' }]}
+          users={
+            [{ id: 'user-1', username: 'ivy', display_name: 'Ivy Real' }] as Schema<'UserOut'>[]
+          }
           onConverted={vi.fn()}
         />
       )
@@ -276,12 +279,18 @@ describe('GuestsSection', () => {
     })
 
     it('merges a lone guest into a permanent account', async () => {
-      api.get.mockResolvedValue(duplicateGuests)
-      api.post.mockResolvedValue({ id: 'user-1', merged_ids: ['guest-1'], memberships_moved: 1 })
+      vi.mocked(api.get).mockResolvedValue(duplicateGuests)
+      vi.mocked(api.post).mockResolvedValue({
+        id: 'user-1',
+        merged_ids: ['guest-1'],
+        memberships_moved: 1,
+      })
       render(
         <GuestsSection
           passwordAuthEnabled
-          users={[{ id: 'user-1', username: 'ivy', display_name: 'Ivy Real' }]}
+          users={
+            [{ id: 'user-1', username: 'ivy', display_name: 'Ivy Real' }] as Schema<'UserOut'>[]
+          }
           onConverted={vi.fn()}
         />
       )
@@ -303,7 +312,11 @@ describe('GuestsSection', () => {
     })
 
     it('merges the selected accounts into the chosen target', async () => {
-      api.post.mockResolvedValue({ id: 'guest-1', merged_ids: ['guest-2'], memberships_moved: 1 })
+      vi.mocked(api.post).mockResolvedValue({
+        id: 'guest-1',
+        merged_ids: ['guest-2'],
+        memberships_moved: 1,
+      })
       await expandDuplicates()
 
       selectGuests('guest-1', 'guest-2')
@@ -323,7 +336,9 @@ describe('GuestsSection', () => {
     })
 
     it('surfaces a merge failure', async () => {
-      api.post.mockRejectedValue({ body: { detail: 'Cannot merge an account into itself' } })
+      vi.mocked(api.post).mockRejectedValue({
+        body: { detail: 'Cannot merge an account into itself' },
+      })
       await expandDuplicates()
 
       selectGuests('guest-1', 'guest-2')
@@ -344,8 +359,8 @@ describe('GuestsSection', () => {
     // A guest whose campaign was deleted has no campaign and no inviter, and
     // previously had no action that could remove it.
     it('deletes a guest that has no campaign or inviter', async () => {
-      api.get.mockResolvedValue(duplicateGuests)
-      api.delete.mockResolvedValue(undefined)
+      vi.mocked(api.get).mockResolvedValue(duplicateGuests)
+      vi.mocked(api.delete).mockResolvedValue(undefined)
       render(<GuestsSection passwordAuthEnabled onConverted={vi.fn()} />)
       fireEvent.click(screen.getByRole('button', { name: /guests/i }))
       await screen.findByText('Orphan')
@@ -358,7 +373,7 @@ describe('GuestsSection', () => {
     })
 
     it('does not delete when the confirmation is dismissed', async () => {
-      window.confirm.mockReturnValue(false)
+      vi.mocked(window.confirm).mockReturnValue(false)
       await expand()
 
       fireEvent.click(screen.getByRole('button', { name: /delete guest/i }))
@@ -367,7 +382,7 @@ describe('GuestsSection', () => {
     })
 
     it('shows an error when deletion fails', async () => {
-      api.delete.mockRejectedValue({ body: { detail: 'Failed to delete guest.' } })
+      vi.mocked(api.delete).mockRejectedValue({ body: { detail: 'Failed to delete guest.' } })
       await expand()
 
       fireEvent.click(screen.getByRole('button', { name: /delete guest/i }))

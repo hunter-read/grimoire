@@ -1,19 +1,11 @@
-import {
-  Fragment,
-  useMemo,
-  useCallback,
-  type ComponentType,
-  type CSSProperties,
-  type ImgHTMLAttributes,
-  type ReactNode,
-} from 'react'
+import { Fragment, useMemo, useCallback, type CSSProperties, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import ReactMarkdown, { defaultUrlTransform, type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { LuFileQuestion } from 'react-icons/lu'
 import EmbedCard from './EmbedCard'
-import LazyImgJs from '../LazyImg'
+import LazyImg from '../LazyImg'
 import { isModifiedClick } from '../CardLink'
 import { isEmbed, parseTarget, resolvePage } from './wikiLinkTarget'
 import { buildHeadingComponents, headingDomId } from './wikiHeadings'
@@ -32,10 +24,6 @@ import { rehypeInlineSecrets, standsAlone } from './wikiSecrets'
 // the renderer can resolve by page id and honour a :#Heading suffix. Encoding
 // keeps ":" and spaces from being reinterpreted as part of the scheme, and keeps
 // a ")" or space in the target from ending the markdown link early.
-// LazyImg and the heading renderers are still JavaScript, so TypeScript infers
-// every destructured prop as required; these give them the shapes they take.
-const LazyImg = LazyImgJs as ComponentType<ImgHTMLAttributes<HTMLImageElement>>
-const headingComponents = (): Components => buildHeadingComponents() as Components
 
 const WIKI_SCHEME = 'grimoire-wiki:'
 const EMBED_SCHEME = 'grimoire-embed:'
@@ -364,7 +352,7 @@ export default function WikiMarkdown({
       // Headings get a deterministic id derived from their text, which is what
       // a [[Page:#Heading]] link scrolls to. Keyed on normalized text (not
       // document order) so the anchor survives edits elsewhere in the page.
-      ...headingComponents(),
+      ...buildHeadingComponents(),
       code(codeProps) {
         const { children } = codeProps
         // Not part of react-markdown's typed props; kept as it was.

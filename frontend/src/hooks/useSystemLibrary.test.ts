@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import useSystemLibrary from './useSystemLibrary'
 import { bulk } from '../api'
@@ -12,7 +12,16 @@ vi.mock('../api', () => ({
   },
 }))
 
-const systems = [
+interface TestSystem {
+  id: string
+  name: string
+  tags?: string[]
+}
+type List = TestSystem[] | null
+
+const mockAddTags = vi.mocked(bulk.addTags) as unknown as Mock
+
+const systems: TestSystem[] = [
   { id: 's1', name: 'Alpha', tags: ['OSR', 'fantasy'] },
   { id: 's2', name: 'Beta', tags: ['scifi'] },
   { id: 's3', name: 'Gamma' },
@@ -20,12 +29,12 @@ const systems = [
 
 // Render the hook with a `setSystems` that applies updater functions against a
 // mutable copy, so applyEdits/applyTags results are observable.
-function setup(initial = systems) {
+function setup(initial: List = systems) {
   let current = initial
-  const setSystems = vi.fn((updater) => {
+  const setSystems = vi.fn((updater: List | ((prev: List) => List)) => {
     current = typeof updater === 'function' ? updater(current) : updater
   })
-  const view = renderHook(({ list }) => useSystemLibrary(list, setSystems), {
+  const view = renderHook(({ list }: { list: List }) => useSystemLibrary(list, setSystems), {
     initialProps: { list: initial },
   })
   return {
@@ -97,7 +106,7 @@ describe('useSystemLibrary', () => {
     // Issue #270: the whole selection goes in ONE request. The old fan-out of a
     // PATCH per system raced on tag creation server-side and returned 500s.
     it('sends one bulk request for the entire selection', async () => {
-      bulk.addTags.mockResolvedValueOnce({
+      mockAddTags.mockResolvedValueOnce({
         updated: ['s1', 's2'],
         errors: [],
         tags: { s1: ['OSR', 'fantasy', 'new'], s2: ['scifi', 'new'] },
@@ -115,7 +124,7 @@ describe('useSystemLibrary', () => {
     })
 
     it('patches local copies from the tag lists the server returned', async () => {
-      bulk.addTags.mockResolvedValueOnce({
+      mockAddTags.mockResolvedValueOnce({
         updated: ['s1'],
         errors: [],
         tags: { s1: ['OSR', 'fantasy', 'new'] },
@@ -127,9 +136,9 @@ describe('useSystemLibrary', () => {
         await view.result.current.applyTags(['new'])
       })
 
-      expect(view.latest.find((s) => s.id === 's1').tags).toEqual(['OSR', 'fantasy', 'new'])
+      expect(view.latest!.find((s) => s.id === 's1')!.tags).toEqual(['OSR', 'fantasy', 'new'])
       // Untouched systems keep their original tags.
-      expect(view.latest.find((s) => s.id === 's2').tags).toEqual(['scifi'])
+      expect(view.latest!.find((s) => s.id === 's2')!.tags).toEqual(['scifi'])
     })
 
     // Issue #256: applying tags keeps the selection so the same batch can be
@@ -165,7 +174,7 @@ describe('useSystemLibrary', () => {
     })
 
     it('releases the applying flag when the request fails', async () => {
-      bulk.addTags.mockRejectedValueOnce(new Error('Internal Server Error'))
+      mockAddTags.mockRejectedValueOnce(new Error('Internal Server Error'))
       const { result } = setup()
       act(() => result.current.bulk.toggleItem('s1'))
 
@@ -178,7 +187,7 @@ describe('useSystemLibrary', () => {
     })
 
     it('falls back to an empty tag list when the server omits an id', async () => {
-      bulk.addTags.mockResolvedValueOnce({ updated: ['s1'], errors: [] })
+      mockAddTags.mockResolvedValueOnce({ updated: ['s1'], errors: [] })
       const view = setup()
       act(() => view.result.current.bulk.toggleItem('s1'))
 
@@ -186,7 +195,7 @@ describe('useSystemLibrary', () => {
         await view.result.current.applyTags(['new'])
       })
 
-      expect(view.latest.find((s) => s.id === 's1').tags).toEqual([])
+      expect(view.latest!.find((s) => s.id === 's1')!.tags).toEqual([])
     })
   })
 
@@ -194,8 +203,8 @@ describe('useSystemLibrary', () => {
     it('merges edited fields into the matching systems', () => {
       const view = setup()
       act(() => view.result.current.applyEdits({ s2: { name: 'Beta Renamed' } }))
-      expect(view.latest.find((s) => s.id === 's2').name).toBe('Beta Renamed')
-      expect(view.latest.find((s) => s.id === 's1').name).toBe('Alpha')
+      expect(view.latest!.find((s) => s.id === 's2')!.name).toBe('Beta Renamed')
+      expect(view.latest!.find((s) => s.id === 's1')!.name).toBe('Alpha')
     })
 
     it('is a no-op when the systems list has not loaded', () => {

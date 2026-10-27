@@ -13,7 +13,7 @@ describe('findActiveLinkQuery', () => {
   })
 
   it('returns an empty query right after the brackets', () => {
-    expect(findActiveLinkQuery('see [[', 6).query).toBe('')
+    expect(findActiveLinkQuery('see [[', 6)!.query).toBe('')
   })
 
   it('returns null when there is no [[ before the caret', () => {
@@ -42,7 +42,7 @@ describe('findActiveLinkQuery', () => {
   it('ignores text after the caret', () => {
     const text = 'see [[Bob]] tail'
     // Caret placed mid-query, before the closing brackets.
-    expect(findActiveLinkQuery(text, 9).query).toBe('Bob')
+    expect(findActiveLinkQuery(text, 9)!.query).toBe('Bob')
   })
 })
 

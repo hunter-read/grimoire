@@ -12,10 +12,47 @@
  */
 
 /** Output edges offered in the UI, in pixels. */
-export const OUTPUT_SIZES = [140, 256, 512, 1024]
+export const OUTPUT_SIZES: number[] = [140, 256, 512, 1024]
+
+/** Pan, zoom, rotation (degrees) and flip applied to the source art. */
+export interface TokenTransform {
+  scale: number
+  offsetX: number
+  offsetY: number
+  rotation: number
+  flipX: boolean
+  flipY: boolean
+}
+
+/** The geometric crop applied when the frame supplies no aperture of its own. */
+export type TokenMask = 'circle' | 'square' | 'none'
+
+/** Anything drawable that may also report its own pixel dimensions. */
+export type TokenImage = CanvasImageSource & { naturalWidth?: number; naturalHeight?: number }
+
+/** Everything `drawSpec` needs to paint one token. */
+export interface TokenSpec {
+  source?: TokenImage | null
+  sourceWidth?: number
+  sourceHeight?: number
+  frame?: CanvasImageSource | null
+  frameMask?: CanvasImageSource | null
+  size: number
+  mask?: TokenMask
+  background?: string
+  transform?: Partial<TokenTransform>
+}
+
+/** What `loadImage` resolves to. */
+export interface LoadedImage {
+  image: HTMLImageElement
+  width: number
+  height: number
+  intrinsic: boolean
+}
 
 /** The identity transform — also what the "reset" control restores. */
-export const DEFAULT_TRANSFORM = {
+export const DEFAULT_TRANSFORM: TokenTransform = {
   scale: 1,
   offsetX: 0,
   offsetY: 0,
@@ -41,10 +78,10 @@ const SVG_FALLBACK_SIZE = 512
  * Resolves `{ image, width, height, intrinsic }`. `intrinsic` is false when the
  * dimensions are the SVG fallback rather than the file's own.
  */
-export function loadImage(src) {
+export function loadImage(src: string | Blob): Promise<LoadedImage> {
   return new Promise((resolve, reject) => {
     const isBlob = typeof Blob !== 'undefined' && src instanceof Blob
-    const url = isBlob ? URL.createObjectURL(src) : src
+    const url = isBlob ? URL.createObjectURL(src) : (src as string)
     const image = new Image()
 
     const cleanup = () => {
@@ -70,7 +107,7 @@ export function loadImage(src) {
 }
 
 /** True when a CSS colour string would paint anything at all. */
-function hasVisibleFill(color) {
+function hasVisibleFill(color: string | null | undefined): boolean {
   if (!color || color === 'transparent') return false
   // #rrggbb00 / #rgb0 — an explicit zero alpha.
   const hex = /^#(?:[0-9a-f]{4}|[0-9a-f]{8})$/i
@@ -88,7 +125,7 @@ function hasVisibleFill(color) {
  * to be painted afterwards (wrong order for a translucent fill) or into a
  * scratch canvas. One clip call avoids both.
  */
-function applyMask(ctx, mask, size) {
+function applyMask(ctx: CanvasRenderingContext2D, mask: TokenMask, size: number): void {
   if (mask === 'none') return
   ctx.beginPath()
   if (mask === 'square') {
@@ -117,7 +154,13 @@ function applyMask(ctx, mask, size) {
  * `drawImage` in its 5-argument form. Letting `clip()` do the cropping avoids
  * source-rectangle arithmetic, which is where sub-pixel bugs live.
  */
-function applyTransform(ctx, transform, size, width, height) {
+function applyTransform(
+  ctx: CanvasRenderingContext2D,
+  transform: Partial<TokenTransform>,
+  size: number,
+  width: number,
+  height: number
+): void {
   const t = { ...DEFAULT_TRANSFORM, ...transform }
   const cover = Math.max(size / width, size / height)
   const scale = cover * t.scale
@@ -137,7 +180,7 @@ function applyTransform(ctx, transform, size, width, height) {
  *   3. the frame overlay — never clipped, because a ring whose outer edge was
  *      trimmed to the mask would simply vanish
  */
-export function drawSpec(canvas, spec) {
+export function drawSpec(canvas: HTMLCanvasElement, spec: TokenSpec): HTMLCanvasElement {
   const {
     source,
     sourceWidth,
@@ -169,7 +212,6 @@ export function drawSpec(canvas, spec) {
   // to the frame's real opening is what keeps art from spilling into corners the
   // frame does not cover. `frameMask` is built by lib/frameMask.js.
   const scratch = frameMask ? document.createElement('canvas') : null
-  const target = scratch || canvas
   if (scratch) {
     scratch.width = size
     scratch.height = size
@@ -204,7 +246,7 @@ export function drawSpec(canvas, spec) {
     // geometric path, because this scratch canvas holds nothing but the art and
     // its background — the frame has not been drawn yet.
     tctx.globalCompositeOperation = 'destination-in'
-    tctx.drawImage(frameMask, 0, 0, size, size)
+    tctx.drawImage(frameMask!, 0, 0, size, size)
     tctx.globalCompositeOperation = 'source-over'
     ctx.drawImage(scratch, 0, 0)
   }
@@ -215,7 +257,7 @@ export function drawSpec(canvas, spec) {
 }
 
 /** Compose into a fresh offscreen canvas. */
-export function composeToCanvas(spec) {
+export function composeToCanvas(spec: TokenSpec): HTMLCanvasElement {
   return drawSpec(document.createElement('canvas'), spec)
 }
 
@@ -233,7 +275,11 @@ export function composeToCanvas(spec) {
  * source can actually supply; the export size still governs what `composeToBlob`
  * produces.
  */
-export function renderPreview(canvas, spec, displaySize) {
+export function renderPreview(
+  canvas: HTMLCanvasElement | null | undefined,
+  spec: TokenSpec,
+  displaySize?: number | null
+): void {
   if (!canvas) return
   const size = displaySize && displaySize > 0 ? Math.round(displaySize) : spec.size
   if (size === spec.size) {
@@ -257,9 +303,9 @@ export function renderPreview(canvas, spec, displaySize) {
 }
 
 /** Compose and encode as a PNG blob. PNG because tokens need real transparency. */
-export function composeToBlob(spec) {
+export function composeToBlob(spec: TokenSpec): Promise<Blob> {
   const canvas = composeToCanvas(spec)
-  return new Promise((resolve, reject) => {
+  return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((blob) => {
       if (blob) resolve(blob)
       else reject(new Error('Token could not be encoded'))

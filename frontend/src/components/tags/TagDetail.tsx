@@ -1,14 +1,14 @@
 import { useState, type ComponentType, type CSSProperties, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuPencil, LuTrash2, LuCheck, LuX, LuHeart, LuDownload } from 'react-icons/lu'
-import TagTypeSectionJs from './TagTypeSection'
+import TagTypeSection, { type TagPages } from './TagTypeSection'
 import BulkActionBar from '../BulkActionBar'
 import BulkToggleButton from '../BulkToggleButton'
 import SelectableCard from '../SelectableCard'
 import { useAuth } from '../../context/AuthContext'
 import useBulkMerge from '../../hooks/useBulkMerge'
 import useMixedSelection from '../../hooks/useMixedSelection'
-import { canDownloadTagType } from './tagDownload'
+import { canDownloadTagType, type DownloadRequest } from './tagDownload'
 import { shouldAutoCollapse } from '../../utils/autoCollapse'
 import BookFavorite from '../favorites/BookFavorite'
 import MapFavorite from '../favorites/MapFavorite'
@@ -16,10 +16,7 @@ import TokenFavorite from '../favorites/TokenFavorite'
 import AudioFavorite from '../favorites/AudioFavorite'
 import ModelFavorite from '../favorites/ModelFavorite'
 import SystemFavorite from '../favorites/SystemFavorite'
-
-// TagTypeSection is still JavaScript; its props are inferred loosely.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const TagTypeSection = TagTypeSectionJs as ComponentType<Record<string, any>>
+import type { Schema } from '../../api'
 
 /** One tagged item as the tag's paged lists return it. */
 interface TagItem {
@@ -29,11 +26,7 @@ interface TagItem {
   [field: string]: unknown
 }
 
-interface TagFolder {
-  resource_type: string
-  count: number
-  [field: string]: unknown
-}
+type TagFolder = Schema<'TaggedFolder'>
 
 interface Props {
   detail: {
@@ -52,18 +45,22 @@ interface Props {
   deleteTag: () => void
   favorited: boolean
   onToggleFavorite: () => void
-  pages: unknown
-  onLoad: (...args: unknown[]) => void
-  onDownload?: (request: { title: string; params: Record<string, unknown> }) => void
+  pages: TagPages<TagItem>
+  onLoad: (key: string) => void
+  onDownload?: (request: DownloadRequest) => void
 }
 
-const CARD_FOR_TYPE: Record<string, ComponentType<{ item: TagItem; grid: boolean }>> = {
-  system: SystemFavorite,
-  book: BookFavorite,
-  map: MapFavorite,
-  token: TokenFavorite,
-  audio: AudioFavorite,
-  model: ModelFavorite,
+type TagCard = ComponentType<{ item: TagItem; grid: boolean }>
+
+// Each card takes its own type's item; the section picks the card by that same
+// type, so the item it hands over is always the matching shape.
+const CARD_FOR_TYPE: Record<string, TagCard> = {
+  system: SystemFavorite as unknown as TagCard,
+  book: BookFavorite as unknown as TagCard,
+  map: MapFavorite as unknown as TagCard,
+  token: TokenFavorite as unknown as TagCard,
+  audio: AudioFavorite as unknown as TagCard,
+  model: ModelFavorite as unknown as TagCard,
 }
 
 const TYPE_ORDER = ['system', 'book', 'map', 'token', 'audio', 'model']

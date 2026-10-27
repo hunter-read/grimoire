@@ -20,13 +20,20 @@ import scrollParent from '../utils/scrollParent'
  *   count      - how many items are loaded; see above
  *   rootMargin - how far ahead of the edge to start loading
  */
+export interface LoadMoreSentinelProps {
+  onVisible?: () => void
+  active?: boolean
+  count?: number
+  rootMargin?: string
+}
+
 export default function LoadMoreSentinel({
   onVisible,
   active = true,
   count = 0,
   rootMargin = '800px',
-}) {
-  const ref = useRef(null)
+}: LoadMoreSentinelProps) {
+  const ref = useRef<HTMLDivElement>(null)
   const callback = useRef(onVisible)
   callback.current = onVisible
 

@@ -7,7 +7,7 @@
  */
 
 /** WCAG 2.x relative luminance of a `#rgb` / `#rrggbb` colour. */
-export function relativeLuminance(hex) {
+export function relativeLuminance(hex: unknown): number | null {
   const h = String(hex).trim().replace(/^#/, '')
   const full =
     h.length === 3
@@ -26,7 +26,7 @@ export function relativeLuminance(hex) {
 }
 
 /** Contrast ratio between two hex colours, 1–21, or null if either is unparseable. */
-export function contrastRatio(a, b) {
+export function contrastRatio(a: unknown, b: unknown): number | null {
   const la = relativeLuminance(a)
   const lb = relativeLuminance(b)
   if (la === null || lb === null) return null
@@ -39,7 +39,7 @@ export const AA_NORMAL = 4.5
 export const AAA_NORMAL = 7
 
 /** True when `fg` on `bg` clears the given threshold (AA by default). */
-export function meetsContrast(fg, bg, threshold = AA_NORMAL) {
+export function meetsContrast(fg: unknown, bg: unknown, threshold: number = AA_NORMAL): boolean {
   const r = contrastRatio(fg, bg)
   return r !== null && r >= threshold
 }

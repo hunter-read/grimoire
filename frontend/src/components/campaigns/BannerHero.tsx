@@ -1,10 +1,11 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuImagePlus } from 'react-icons/lu'
-import { campaigns } from '../../api'
+import { campaigns, type Schema } from '../../api'
+import type { CampaignImage } from '../images/ImageSourceBrowser'
 import BannerUploadModal from './BannerUploadModal'
 
-const bannerBtnStyle = {
+const bannerBtnStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 5,
@@ -19,14 +20,20 @@ const bannerBtnStyle = {
 }
 
 /** Campaign banner image with an owner-only edit control revealed on hover. */
-export default function BannerHero({ campaign, isOwner, onChanged }) {
+export interface BannerHeroProps {
+  campaign: Schema<'CampaignOut'>
+  isOwner: boolean
+  onChanged: () => void
+}
+
+export default function BannerHero({ campaign, isOwner, onChanged }: BannerHeroProps) {
   const { t } = useTranslation()
   const [showModal, setShowModal] = useState(false)
   const [controlsVisible, setControlsVisible] = useState(false)
   // Images already attached to this campaign, offered first in the picker — the
   // banner someone wants is usually art they have already uploaded here (#286).
-  const [campaignImages, setCampaignImages] = useState([])
-  const hoverTimer = useRef(null)
+  const [campaignImages, setCampaignImages] = useState<CampaignImage[]>([])
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   // Loaded only when the dialog opens: the hero itself never needs this list,
   // and campaigns with many resources shouldn't pay for it on every render.

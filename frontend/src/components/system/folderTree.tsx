@@ -1,5 +1,36 @@
 import { bookComparator } from '../library/applyBookSortFilter'
 
+/** The fields of a book the folder tree reads (the sort reads more). */
+export interface TreeBook {
+  relative_path?: string | null
+  title?: string | null
+}
+
+/** One folder of the tree: its own books and its child folders by name. */
+export interface FolderNode<B> {
+  books: B[]
+  folders: Record<string, FolderNode<B>>
+}
+
+/** What a folder sorts as among books, or a book itself. */
+type SortKey = Record<string, unknown>
+
+/** A node's direct child, as `orderedEntries` lists it. */
+export type FolderTreeEntry<B> =
+  | { type: 'folder'; name: string; node: FolderNode<B>; key: SortKey }
+  | { type: 'book'; book: B; key: SortKey }
+
+/** A run of consecutive books, or a folder, as `entryRuns` groups them. */
+export type EntryRun<B, N> =
+  { type: 'folder'; name: string; node: N } | { type: 'books'; books: B[] }
+
+/** How `orderedEntries` sorts and places folders. */
+export interface OrderOptions {
+  sort?: string
+  order?: string
+  placement?: string
+}
+
 /** Nested-subfolder tree helpers shared by SystemCategorySection and BookFolderGroup.
  *  Supports arbitrarily deep folder nesting under a category (issue #189). */
 
@@ -20,8 +51,11 @@ import { bookComparator } from '../library/applyBookSortFilter'
  *  the payload carries only the immediate `parent_id`, not the whole chain — so
  *  a system two containers deep can't be told from one at a depth of 3 here
  *  (issue #357). `parent_id` is the fallback for a payload predating the field. */
-export function categoryDepth(system) {
-  if (Number.isInteger(system?.category_depth)) return system.category_depth
+export function categoryDepth(
+  system:
+    { id?: string; category_depth?: number | null; parent_id?: string | null } | null | undefined
+): number {
+  if (Number.isInteger(system?.category_depth)) return system!.category_depth as number
   return system?.parent_id ? 3 : 2
 }
 
@@ -32,7 +66,7 @@ export function categoryDepth(system) {
  *
  *  `depth` is the index of the category folder (see `categoryDepth`); pass the
  *  system's so container children don't treat their own folder as the category. */
-export function getBookSubfolderPath(book, depth = 2) {
+export function getBookSubfolderPath(book: TreeBook, depth = 2): string[] {
   const parts = (book.relative_path || '').replace(/\\/g, '/').split('/')
   return parts.length > depth + 2 ? parts.slice(depth + 1, -1) : []
 }
@@ -40,8 +74,8 @@ export function getBookSubfolderPath(book, depth = 2) {
 /** Build a nested folder tree from a category's books.
  *  Each node: { books: [], folders: { name -> node } }. Books directly in the
  *  category dir (empty subfolder path) collect at the root node's `books`. */
-export function buildFolderTree(books, depth = 2) {
-  const root = { books: [], folders: {} }
+export function buildFolderTree<B extends TreeBook>(books: B[], depth = 2): FolderNode<B> {
+  const root: FolderNode<B> = { books: [], folders: {} }
   for (const book of books) {
     const segs = getBookSubfolderPath(book, depth)
     let node = root
@@ -55,7 +89,7 @@ export function buildFolderTree(books, depth = 2) {
 }
 
 /** Total number of books at or below a tree node (recursive). */
-export function countBooks(node) {
+export function countBooks<B>(node: FolderNode<B>): number {
   return (
     node.books.length +
     Object.values(node.folders).reduce((sum, child) => sum + countBooks(child), 0)
@@ -64,7 +98,7 @@ export function countBooks(node) {
 
 /** All books at or below a folder-tree node, in tree order (own books first,
  *  then child folders alphabetically). */
-export function allBooks(node) {
+export function allBooks<B>(node: FolderNode<B>): B[] {
   return [
     ...node.books,
     ...Object.keys(node.folders)
@@ -83,19 +117,29 @@ export function allBooks(node) {
  *  books sorts first. Folders therefore follow the sort and its direction in
  *  either placement, and in `mixed` a folder whose name falls between two books
  *  lands between them. On a tie the folder goes first. */
-export function orderedEntries(node, { sort = 'title', order = 'asc', placement = 'first' } = {}) {
+export function orderedEntries<B extends SortKey>(
+  node: FolderNode<B>,
+  { sort = 'title', order = 'asc', placement = 'first' }: OrderOptions = {}
+): FolderTreeEntry<B>[] {
   // placement: 'first' pulls every folder ahead of the loose books; 'mixed'
   // sorts them in among the books as though each were one more entry.
-  const cmp = bookComparator(sort, order)
-  const standIn = (name, child) =>
+  const cmp = bookComparator(sort, order) as (a: SortKey, b: SortKey) => number
+  const standIn = (name: string, child: FolderNode<B>): SortKey =>
     sort === 'title' ? { title: name } : [...allBooks(child)].sort(cmp)[0]
   const folders = Object.entries(node.folders)
-    .map(([name, child]) => ({ type: 'folder', name, node: child, key: standIn(name, child) }))
+    .map(([name, child]) => ({
+      type: 'folder' as const,
+      name,
+      node: child,
+      key: standIn(name, child),
+    }))
     .sort((a, b) => cmp(a.key, b.key) || a.name.localeCompare(b.name))
-  const books = [...node.books].sort(cmp).map((book) => ({ type: 'book', book, key: book }))
+  const books = [...node.books]
+    .sort(cmp)
+    .map((book) => ({ type: 'book' as const, book, key: book as SortKey }))
   if (placement !== 'mixed') return [...folders, ...books]
   // Both lists are already in order, so merge rather than re-sort.
-  const out = []
+  const out: FolderTreeEntry<B>[] = []
   let f = 0
   let b = 0
   while (f < folders.length || b < books.length) {
@@ -111,7 +155,7 @@ export function orderedEntries(node, { sort = 'title', order = 'asc', placement 
 /** Every book at or below a node in on-screen order — the order `orderedEntries`
  *  renders, flattened. Shift-click range selection walks this, so the range it
  *  picks is the one the user sees. */
-export function orderedBooks(node, opts) {
+export function orderedBooks<B extends SortKey>(node: FolderNode<B>, opts?: OrderOptions): B[] {
   return orderedEntries(node, opts).flatMap((entry) =>
     entry.type === 'book' ? [entry.book] : orderedBooks(entry.node, opts)
   )
@@ -120,13 +164,15 @@ export function orderedBooks(node, opts) {
 /** `orderedEntries` with each stretch of consecutive books gathered into one
  *  `{ type: 'books', books }` run, so a run renders in a single grid/list
  *  container and folders sit between runs. Folder entries pass through. */
-export function entryRuns(entries) {
-  const runs = []
+export function entryRuns<B, N>(
+  entries: ({ type: 'folder'; name: string; node: N } | { type: 'book'; book: B })[]
+): EntryRun<B, N>[] {
+  const runs: EntryRun<B, N>[] = []
   for (const entry of entries) {
     if (entry.type === 'folder') {
       runs.push(entry)
     } else if (runs.at(-1)?.type === 'books') {
-      runs.at(-1).books.push(entry.book)
+      ;(runs.at(-1) as { type: 'books'; books: B[] }).books.push(entry.book)
     } else {
       runs.push({ type: 'books', books: [entry.book] })
     }

@@ -34,7 +34,7 @@ describe('LoginView', () => {
   })
 
   it('calls onLogin with token and user on successful login', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
+    globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ token: 'abc123', user: { username: 'admin', role: 'admin' } }),
     })
@@ -51,7 +51,7 @@ describe('LoginView', () => {
   })
 
   it('sends trimmed username to the API', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
+    globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ token: 't', user: {} }),
     })
@@ -62,13 +62,13 @@ describe('LoginView', () => {
     fireEvent.click(screen.getByRole('button', { name: /enter/i }))
 
     await waitFor(() => expect(fetch).toHaveBeenCalled())
-    const loginCall = fetch.mock.calls.find(([url]) => url === '/api/auth/login')
-    const body = JSON.parse(loginCall[1].body)
+    const loginCall = vi.mocked(fetch).mock.calls.find(([url]) => url === '/api/auth/login')
+    const body = JSON.parse(loginCall![1]!.body as string)
     expect(body.username).toBe('admin')
   })
 
   it('shows the API error message on a failed login', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
+    globalThis.fetch = vi.fn().mockResolvedValue({
       ok: false,
       json: () => Promise.resolve({ detail: 'Invalid username or password' }),
     })
@@ -82,7 +82,7 @@ describe('LoginView', () => {
   })
 
   it('shows a generic error when the server is unreachable', async () => {
-    global.fetch = vi.fn().mockRejectedValue(new Error('Network error'))
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error('Network error'))
 
     render(<LoginView onLogin={vi.fn()} />)
     await userEvent.type(screen.getByLabelText('Username'), 'admin')
@@ -93,7 +93,7 @@ describe('LoginView', () => {
   })
 
   it('shows the guest invite field when guest access is enabled', async () => {
-    global.fetch = vi.fn().mockImplementation((url) => {
+    globalThis.fetch = vi.fn().mockImplementation((url) => {
       if (url === '/api/auth/config') {
         return Promise.resolve({
           ok: true,
@@ -110,7 +110,7 @@ describe('LoginView', () => {
   })
 
   it('logs in as a guest and stashes the campaign id for redirect', async () => {
-    global.fetch = vi.fn().mockImplementation((url) => {
+    globalThis.fetch = vi.fn().mockImplementation((url) => {
       if (url === '/api/auth/config') {
         return Promise.resolve({
           ok: true,
@@ -150,12 +150,8 @@ describe('LoginView', () => {
   })
 
   it('disables the button and shows loading text while submitting', async () => {
-    let resolve
-    global.fetch = vi.fn().mockReturnValue(
-      new Promise((r) => {
-        resolve = r
-      })
-    )
+    // Never settles, so the form stays mid-submit.
+    globalThis.fetch = vi.fn().mockReturnValue(new Promise(() => {}))
 
     render(<LoginView onLogin={vi.fn()} />)
     await userEvent.type(screen.getByLabelText('Username'), 'admin')
@@ -167,7 +163,7 @@ describe('LoginView', () => {
   })
 
   it('renders the admin-styled OIDC button with its icon', async () => {
-    global.fetch = vi.fn().mockImplementation((url) => {
+    globalThis.fetch = vi.fn().mockImplementation((url) => {
       if (url === '/api/auth/config') {
         return Promise.resolve({
           ok: true,
@@ -192,7 +188,7 @@ describe('LoginView', () => {
     expect(btn.style.background).toBe('rgb(36, 41, 47)')
     expect(btn.style.color).toBe('rgb(255, 255, 255)')
     expect(btn.style.borderRadius).toBe('6px')
-    expect(container.querySelector('button img').getAttribute('src')).toBe(
+    expect(container.querySelector('button img')!.getAttribute('src')).toBe(
       '/api/auth/openid/button-icon?v=abc'
     )
   })
@@ -200,7 +196,7 @@ describe('LoginView', () => {
   describe('an OIDC token in the URL fragment', () => {
     it('is stripped from the address bar and never used to sign in', async () => {
       window.history.replaceState(null, '', '/login?x=1#oidc_token=attacker-token')
-      global.fetch = vi.fn().mockResolvedValue({
+      globalThis.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve({ password_auth_enabled: true }),
       })
@@ -209,9 +205,9 @@ describe('LoginView', () => {
       expect(window.location.hash).toBe('')
       expect(window.location.search).toBe('?x=1')
       // The login form still loads its config...
-      await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/auth/config'))
+      await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledWith('/api/auth/config'))
       // ...and the token was never sent anywhere or handed to onLogin.
-      for (const [, init] of global.fetch.mock.calls) {
+      for (const [, init] of vi.mocked(globalThis.fetch).mock.calls) {
         expect(JSON.stringify(init || {})).not.toContain('attacker-token')
       }
       expect(onLogin).not.toHaveBeenCalled()

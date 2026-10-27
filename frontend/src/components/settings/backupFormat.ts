@@ -2,7 +2,7 @@
 
 // Human-readable byte size. Backups run from a few MB to several GB, so the
 // unit is picked per value rather than fixed.
-export function formatBytes(bytes) {
+export function formatBytes(bytes: number | null | undefined): string {
   if (!bytes || bytes < 0) return '0 B'
   const units = ['B', 'KB', 'MB', 'GB', 'TB']
   let value = bytes
@@ -17,7 +17,7 @@ export function formatBytes(bytes) {
 }
 
 // Absolute local timestamp for a backup, e.g. "21 Aug 2026, 14:03".
-export function formatTimestamp(iso, locale) {
+export function formatTimestamp(iso: string, locale?: string | null): string {
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return ''
   return date.toLocaleString(locale || undefined, {
@@ -31,7 +31,10 @@ export function formatTimestamp(iso, locale) {
 
 // How long ago a backup was taken, as a coarse bucket. The exact timestamp is
 // shown alongside; this is the at-a-glance "is my newest backup stale?" read.
-export function relativeAge(iso, now = Date.now()) {
+export function relativeAge(
+  iso: string,
+  now = Date.now()
+): { unit: 'justNow' | 'minutes' | 'hours' | 'days'; count: number } | null {
   const then = new Date(iso).getTime()
   if (Number.isNaN(then)) return null
   const seconds = Math.max(0, Math.floor((now - then) / 1000))

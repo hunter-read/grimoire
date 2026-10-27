@@ -18,11 +18,34 @@
 
 import { FILTER_ANY, FILTER_NONE, isEmptyField, isSpecialFilter } from './specialFilters'
 
-export const GROUP_INCLUDE = 'include'
-export const GROUP_EXCLUDE = 'exclude'
+export const GROUP_INCLUDE = 'include' as const
+export const GROUP_EXCLUDE = 'exclude' as const
+
+export type GroupMode = typeof GROUP_INCLUDE | typeof GROUP_EXCLUDE
+
+/** One AND term: tags OR'd together, either required (`include`) or ruled out. */
+export interface TagGroup {
+  mode: GroupMode
+  tags: string[]
+}
+
+/** The labels describeQuery joins the expression with. */
+export interface QueryLabels {
+  and?: string
+  or?: string
+  not?: string
+  none?: string
+  any?: string
+}
+
+// A group as it may arrive from a saved preset, before it is normalised.
+interface RawGroup {
+  mode?: unknown
+  tags: unknown[]
+}
 
 /** An empty group, ready to be filled in by the editor. */
-export const emptyGroup = (mode = GROUP_INCLUDE) => ({ mode, tags: [] })
+export const emptyGroup = (mode: GroupMode = GROUP_INCLUDE): TagGroup => ({ mode, tags: [] })
 
 /**
  * Normalise whatever sits in `filters.tags` into a group list.
@@ -32,43 +55,44 @@ export const emptyGroup = (mode = GROUP_INCLUDE) => ({ mode, tags: [] })
  * include group per tag so an old preset keeps filtering exactly as it did,
  * and `undefined` / `[]` become no groups at all.
  */
-export const toGroups = (value) => {
+export const toGroups = (value: unknown): TagGroup[] => {
   if (!value) return []
   if (Array.isArray(value)) {
     if (value.length === 0) return []
     // Groups vs. legacy flat list. Decided on the first entry that is usable at
     // all, so a stray null at the head of the array cannot make a group list
     // read as a list of tag strings (which would silently drop every group).
-    const first = value.find((v) => v !== null && v !== undefined)
+    const first: unknown = value.find((v) => v !== null && v !== undefined)
     if (typeof first === 'object') {
-      return value
-        .filter((g) => g && Array.isArray(g.tags))
+      return (value as (RawGroup | null | undefined)[])
+        .filter((g): g is RawGroup => Boolean(g && Array.isArray(g.tags)))
         .map((g) => ({
           mode: g.mode === GROUP_EXCLUDE ? GROUP_EXCLUDE : GROUP_INCLUDE,
-          tags: g.tags.filter((t) => typeof t === 'string'),
+          tags: g.tags.filter((t): t is string => typeof t === 'string'),
         }))
     }
     // Legacy flat list: AND of single-tag groups.
-    return value
-      .filter((t) => typeof t === 'string')
+    return (value as unknown[])
+      .filter((t): t is string => typeof t === 'string')
       .map((t) => ({ mode: GROUP_INCLUDE, tags: [t] }))
   }
   return []
 }
 
 /** Drop groups with no tags — an empty group constrains nothing. */
-export const pruneGroups = (groups = []) => toGroups(groups).filter((g) => g.tags.length > 0)
+export const pruneGroups = (groups: unknown = []): TagGroup[] =>
+  toGroups(groups).filter((g) => g.tags.length > 0)
 
 /** True when the expression would filter nothing out. */
-export const isEmptyQuery = (value) => pruneGroups(toGroups(value)).length === 0
+export const isEmptyQuery = (value: unknown): boolean => pruneGroups(toGroups(value)).length === 0
 
 /**
  * The concrete (non-sentinel) tags named anywhere in the expression.
  * Used by the inline tag chips, which highlight the tags in play and know
  * nothing about groups or sentinels.
  */
-export const queryTags = (value) => {
-  const out = []
+export const queryTags = (value: unknown): string[] => {
+  const out: string[] = []
   for (const g of pruneGroups(toGroups(value))) {
     for (const t of g.tags) if (!isSpecialFilter(t)) out.push(t)
   }
@@ -83,7 +107,10 @@ export const queryTags = (value) => {
  *                (the item's own tags plus every parent folder's)
  * @returns true when the item passes
  */
-export const matchesTagQuery = (value, field) => {
+export const matchesTagQuery = (
+  value: unknown,
+  field: readonly unknown[] | null | undefined
+): boolean => {
   const groups = pruneGroups(toGroups(value))
   if (groups.length === 0) return true
   const owned = new Set((field || []).map((t) => String(t).toLowerCase()))
@@ -91,7 +118,7 @@ export const matchesTagQuery = (value, field) => {
   // Everything inside a group is OR'd, sentinels included — so each term is
   // tested on its own rather than through splitSpecial, which ANDs them (two
   // sentinels in one group are alternatives here, not a contradiction).
-  const termHit = (term) => {
+  const termHit = (term: string) => {
     if (term === FILTER_NONE) return empty
     if (term === FILTER_ANY) return !empty
     return owned.has(String(term).toLowerCase())
@@ -111,7 +138,7 @@ export const matchesTagQuery = (value, field) => {
  * "narrow it down by one more tag" behaviour the chips had before groups
  * existed, and it never rewrites a group the user built in the modal.
  */
-export const toggleQueryTag = (value, tag) => {
+export const toggleQueryTag = (value: unknown, tag: string): TagGroup[] => {
   const groups = pruneGroups(toGroups(value))
   const lower = tag.toLowerCase()
   const present = groups.some(
@@ -130,11 +157,11 @@ export const toggleQueryTag = (value, tag) => {
  * `Building AND (store OR shop) AND NOT (ruined)`. `labels` supplies the
  * translated joiners so the summary reads correctly in every locale.
  */
-export const describeQuery = (value, labels = {}) => {
+export const describeQuery = (value: unknown, labels: QueryLabels = {}): string => {
   const { and = 'AND', or = 'OR', not = 'NOT', none = 'No tags', any = 'Any tags' } = labels
   const groups = pruneGroups(toGroups(value))
   if (groups.length === 0) return ''
-  const term = (t) => (t === FILTER_NONE ? none : t === FILTER_ANY ? any : t)
+  const term = (t: string) => (t === FILTER_NONE ? none : t === FILTER_ANY ? any : t)
   return groups
     .map((g) => {
       const inner = g.tags.map(term).join(` ${or} `)

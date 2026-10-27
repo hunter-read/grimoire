@@ -2,9 +2,12 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AddonInstallDialog from './AddonInstallDialog'
+import type { PendingAddon } from './AddonInstallDialog'
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k, opts) => (opts?.name ? `${k}:${opts.name}` : k) }),
+  useTranslation: () => ({
+    t: (k: string, opts?: { name?: string }) => (opts?.name ? `${k}:${opts.name}` : k),
+  }),
 }))
 
 const ADDON = {
@@ -12,7 +15,7 @@ const ADDON = {
   name: 'DriveThruRPG',
   requires_script: true,
   script_sha256: 'a'.repeat(64),
-}
+} as PendingAddon
 
 describe('AddonInstallDialog', () => {
   it('warns that the add-on runs code', () => {

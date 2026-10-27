@@ -1,69 +1,81 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import GalleryLayout from './GalleryLayout'
+import type { ComponentProps, ReactNode } from 'react'
 import { MEDIA_CONFIGS } from './mediaConfig'
+import type { MediaItem } from './mediaConfig'
+import type useMediaGallery from '../../hooks/useMediaGallery'
+
+type Gallery = ReturnType<typeof useMediaGallery<MediaItem>>
 
 // The toolbar has its own coverage; stub it so this test focuses on layout.
 // It renders `leading` so the headerActions pass-through stays covered.
 vi.mock('./GalleryToolbar', () => ({
-  default: ({ leading }) => <div data-testid="toolbar">{leading}</div>,
+  default: ({ leading }: { leading?: ReactNode }) => <div data-testid="toolbar">{leading}</div>,
 }))
 vi.mock('./MediaFolderGroup', () => ({
-  default: ({ folder }) => <div data-testid="folder-group">{folder}</div>,
+  default: ({ folder }: { folder: string }) => <div data-testid="folder-group">{folder}</div>,
 }))
 vi.mock('./MediaCard', () => ({
-  default: ({ item, onToggle }) => (
+  default: ({ item, onToggle }: { item: MediaItem; onToggle: (mods: object) => void }) => (
     <button data-testid="flat-card" onDoubleClick={() => onToggle({})}>
       {item.filename}
     </button>
   ),
 }))
 vi.mock('./VirtualGrid', () => ({
-  default: ({ items, renderItem }) => <div>{items.map(renderItem)}</div>,
+  default: ({
+    items,
+    renderItem,
+  }: {
+    items: MediaItem[]
+    renderItem: (item: MediaItem) => ReactNode
+  }) => <div>{items.map(renderItem)}</div>,
 }))
 vi.mock('../BulkActionBar', () => ({ default: () => <div data-testid="bulk-bar" /> }))
 
-const makeGallery = (over = {}) => ({
-  filter: '',
-  setFilter: vi.fn(),
-  sortFilter: { sort: 'name', order: 'asc', filters: {} },
-  setSortFilter: vi.fn(),
-  savedFilters: { saved: [], save: vi.fn(), setDefault: vi.fn(), remove: vi.fn(), loaded: true },
-  grouped: true,
-  setGrouped: vi.fn(),
-  bulk: { bulkMode: false, enter: vi.fn(), exit: vi.fn(), toggleFolder: vi.fn() },
-  noFolders: false,
-  allCollapsed: false,
-  allExpanded: false,
-  allKeys: new Set(),
-  setCollapsed: vi.fn(),
-  viewMode: 'grid',
-  cycleViewMode: vi.fn(),
-  favOnly: false,
-  allTags: [],
-  selectedTags: new Set(),
-  toggleTag: vi.fn(),
-  clearTags: vi.fn(),
-  folderEntries: [['Dungeons', {}]],
-  flatItems: [],
-  cardSize: 'comfortable',
-  list: false,
-  collapsed: new Set(),
-  toggleCollapse: vi.fn(),
-  folderTags: {},
-  editingFolder: null,
-  setEditingFolder: vi.fn(),
-  saveFolderTags: vi.fn(),
-  selectedIds: new Set(),
-  selectedFolderPaths: new Set(),
-  toggleSelect: vi.fn(),
-  totalSelected: 0,
-  bulkApplying: false,
-  applyBulkTags: vi.fn(),
-  ...over,
-})
+const makeGallery = (over: Record<string, unknown> = {}) =>
+  ({
+    filter: '',
+    setFilter: vi.fn(),
+    sortFilter: { sort: 'name', order: 'asc', filters: {} },
+    setSortFilter: vi.fn(),
+    savedFilters: { saved: [], save: vi.fn(), setDefault: vi.fn(), remove: vi.fn(), loaded: true },
+    grouped: true,
+    setGrouped: vi.fn(),
+    bulk: { bulkMode: false, enter: vi.fn(), exit: vi.fn(), toggleFolder: vi.fn() },
+    noFolders: false,
+    allCollapsed: false,
+    allExpanded: false,
+    allKeys: new Set(),
+    setCollapsed: vi.fn(),
+    viewMode: 'grid',
+    cycleViewMode: vi.fn(),
+    favOnly: false,
+    allTags: [],
+    selectedTags: new Set(),
+    toggleTag: vi.fn(),
+    clearTags: vi.fn(),
+    folderEntries: [['Dungeons', {}]],
+    flatItems: [],
+    cardSize: 'comfortable',
+    list: false,
+    collapsed: new Set(),
+    toggleCollapse: vi.fn(),
+    folderTags: {},
+    editingFolder: null,
+    setEditingFolder: vi.fn(),
+    saveFolderTags: vi.fn(),
+    selectedIds: new Set(),
+    selectedFolderPaths: new Set(),
+    toggleSelect: vi.fn(),
+    totalSelected: 0,
+    bulkApplying: false,
+    applyBulkTags: vi.fn(),
+    ...over,
+  }) as unknown as Gallery
 
-const baseProps = (over = {}) => ({
+const baseProps = (over: Partial<ComponentProps<typeof GalleryLayout>> = {}) => ({
   config: MEDIA_CONFIGS.map,
   gallery: makeGallery(),
   isPlayer: false,

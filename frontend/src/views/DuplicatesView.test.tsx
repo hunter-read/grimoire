@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k, o) => {
+    t: (k: string, o: Record<string, unknown>) => {
       if (k === 'maintenance.dupes.groupsFound') return `${o.count} groups found`
       if (k === 'maintenance.dupes.mergeExact.button') return `merge exact ${o.count}`
       if (k === 'maintenance.dupes.mergeExact.done') return `merged ${o.count}, skipped ${o.failed}`
@@ -31,7 +31,15 @@ vi.mock('react-router-dom', () => ({
 
 // The dialogs have their own tests; here only the wiring to them matters.
 vi.mock('../components/duplicates/MergeDialog', () => ({
-  default: ({ ids, keepId, onDone }) => (
+  default: ({
+    ids,
+    keepId,
+    onDone,
+  }: {
+    ids: string[]
+    keepId: string
+    onDone: (result: unknown) => void
+  }) => (
     <div>
       merge dialog {ids.join(',')} keeping {keepId}
       <button onClick={() => onDone({ action: 'merged', keepId, removedIds: [] })}>
@@ -41,7 +49,13 @@ vi.mock('../components/duplicates/MergeDialog', () => ({
   ),
 }))
 vi.mock('../components/duplicates/MergeExactDialog', () => ({
-  default: ({ groups: exact, onDone }) => (
+  default: ({
+    groups: exact,
+    onDone,
+  }: {
+    groups: { id: string }[]
+    onDone: (result: unknown) => void
+  }) => (
     <div>
       exact dialog {exact.map((g) => g.id).join(',')}
       <button onClick={() => onDone({ merged: exact.length, failed: 0 })}>finish exact</button>
@@ -57,12 +71,12 @@ vi.mock('../context/AuthContext', () => ({ useAuth: () => ({ user: { role } }) }
 vi.mock('../api', () => ({
   default: { get: vi.fn(), post: vi.fn() },
   duplicates: {
-    scanStatus: (...a) => scanStatus(...a),
-    startScan: (...a) => startScan(...a),
-    cancelScan: (...a) => cancelScan(...a),
-    groups: (...a) => groups(...a),
-    dismissals: (...a) => dismissalsFn(...a),
-    undismiss: (...a) => undismiss(...a),
+    scanStatus: (...a: unknown[]) => scanStatus(...a),
+    startScan: (...a: unknown[]) => startScan(...a),
+    cancelScan: (...a: unknown[]) => cancelScan(...a),
+    groups: (...a: unknown[]) => groups(...a),
+    dismissals: (...a: unknown[]) => dismissalsFn(...a),
+    undismiss: (...a: unknown[]) => undismiss(...a),
     link: vi.fn(),
     dismiss: vi.fn(),
     deleteItem: vi.fn(),
@@ -180,7 +194,7 @@ describe('DuplicatesView', () => {
     expect(screen.getByText(/50%/)).toBeInTheDocument()
   })
 
-  const group = (members, extra = {}) => ({
+  const group = (members: Record<string, unknown>[], extra: Record<string, unknown> = {}) => ({
     id: 'g1',
     resource_type: 'book',
     confidence: 1,
@@ -191,7 +205,7 @@ describe('DuplicatesView', () => {
     ...extra,
   })
 
-  const member = (id) => ({
+  const member = (id: string) => ({
     id,
     filename: `${id}.pdf`,
     relative_path: `books/${id}.pdf`,
@@ -273,14 +287,14 @@ describe('DuplicatesView', () => {
       await screen.findByRole('combobox', { name: 'maintenance.dupes.filterMatch' }),
       'text'
     )
-    const update = setSearchParams.mock.calls.at(-1)[0]
+    const update = setSearchParams.mock.calls.at(-1)![0]
     expect(update(searchParams).toString()).toBe('type=book&match=text')
     // Back to "all" drops the key rather than leaving `match=`.
     await userEvent.selectOptions(
       screen.getByRole('combobox', { name: 'maintenance.dupes.filterType' }),
       ''
     )
-    expect(setSearchParams.mock.calls.at(-1)[0](searchParams).toString()).toBe('')
+    expect(setSearchParams.mock.calls.at(-1)![0](searchParams).toString()).toBe('')
   })
 
   it('quick-merges a row into its keeper and drops it from the list', async () => {
@@ -296,7 +310,7 @@ describe('DuplicatesView', () => {
   })
 
   it('merges every exact group behind one dialog, then reloads', async () => {
-    const exact = (id, a, b) =>
+    const exact = (id: string, a: string, b: string) =>
       group(
         [
           { ...member(a), content_hash: id },

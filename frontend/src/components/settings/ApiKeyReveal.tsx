@@ -1,9 +1,17 @@
 import { useState } from 'react'
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCircleCheck, LuCopy, LuTriangleAlert } from 'react-icons/lu'
 import { useUISettings } from '../../context/UISettingsContext'
+import type { Schema } from '../../api'
 
-const exampleStyle = {
+interface Props {
+  apiKey: Schema<'ApiKeyOut'>
+  secret: string
+  onClose: () => void
+}
+
+const exampleStyle: CSSProperties = {
   display: 'block',
   fontSize: 11,
   background: 'var(--bg-card)',
@@ -16,7 +24,7 @@ const exampleStyle = {
 
 // Shown once, right after a key is created or regenerated: the only time the
 // full key exists outside the integration it is pasted into.
-export default function ApiKeyReveal({ apiKey, secret, onClose }) {
+export default function ApiKeyReveal({ apiKey, secret, onClose }: Props) {
   const { t } = useTranslation()
   const { mcp_enabled: mcpEnabled } = useUISettings()
   const [copied, setCopied] = useState(false)

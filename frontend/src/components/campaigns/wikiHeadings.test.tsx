@@ -93,17 +93,17 @@ describe('buildHeadingComponents', () => {
         <c.h2>{'the  loot'}</c.h2>
       </div>
     )
-    expect(container.querySelector('h1').id).toBe('wiki-h-the%20loot')
-    expect(container.querySelector('h2').id).toBe('')
+    expect(container.querySelector('h1')!.id).toBe('wiki-h-the%20loot')
+    expect(container.querySelector('h2')!.id).toBe('')
   })
 
   it('starts fresh on each call so first-wins does not leak between renders', () => {
     const first = buildHeadingComponents()
     const { container: c1 } = render(<first.h1>Loot</first.h1>)
-    expect(c1.querySelector('h1').id).toBe('wiki-h-loot')
+    expect(c1.querySelector('h1')!.id).toBe('wiki-h-loot')
     const second = buildHeadingComponents()
     const { container: c2 } = render(<second.h1>Loot</second.h1>)
-    expect(c2.querySelector('h1').id).toBe('wiki-h-loot')
+    expect(c2.querySelector('h1')!.id).toBe('wiki-h-loot')
   })
 
   it('derives the id from nested markup inside the heading', () => {
@@ -113,6 +113,6 @@ describe('buildHeadingComponents', () => {
         The <em>Loot</em>
       </c.h2>
     )
-    expect(container.querySelector('h2').id).toBe('wiki-h-the%20loot')
+    expect(container.querySelector('h2')!.id).toBe('wiki-h-the%20loot')
   })
 })

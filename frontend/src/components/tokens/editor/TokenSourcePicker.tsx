@@ -1,8 +1,10 @@
 import { useRef, useState } from 'react'
+import type { DragEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuImagePlus, LuLibraryBig, LuUpload } from 'react-icons/lu'
 
 import ImageSourceBrowser, { TOKEN_SOURCE_TYPES } from '../../images/ImageSourceBrowser'
+import type { ImageSourcePick } from '../../images/ImageSourceBrowser'
 import useClipboardImage, { ACCEPTED_IMAGE_TYPES } from '../../images/useClipboardImage'
 
 /**
@@ -17,16 +19,28 @@ import useClipboardImage, { ACCEPTED_IMAGE_TYPES } from '../../images/useClipboa
  * is album art, so neither is ever the character picture someone came here to
  * crop. Anything else the user has is still reachable through the upload tab.
  */
-export default function TokenSourcePicker({ onFile, onPickSource, active = true }) {
+type SourceTab = 'upload' | 'library'
+
+export interface TokenSourcePickerProps {
+  onFile: (file: File) => void
+  onPickSource: (pick: ImageSourcePick) => void
+  active?: boolean
+}
+
+export default function TokenSourcePicker({
+  onFile,
+  onPickSource,
+  active = true,
+}: TokenSourcePickerProps) {
   const { t } = useTranslation()
-  const inputRef = useRef(null)
-  const [tab, setTab] = useState('upload')
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [tab, setTab] = useState<SourceTab>('upload')
   const [dragging, setDragging] = useState(false)
-  const [source, setSource] = useState(null)
+  const [source, setSource] = useState<ImageSourcePick | null>(null)
 
   useClipboardImage(onFile, active)
 
-  const handleDrop = (e) => {
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault()
     setDragging(false)
     const file = Array.from(e.dataTransfer?.files || []).find((f) =>
@@ -35,7 +49,7 @@ export default function TokenSourcePicker({ onFile, onPickSource, active = true 
     if (file) onFile(file)
   }
 
-  const pick = (next) => {
+  const pick = (next: ImageSourcePick | null) => {
     setSource(next)
     if (next) onPickSource(next)
   }
@@ -45,7 +59,7 @@ export default function TokenSourcePicker({ onFile, onPickSource, active = true 
     // Upload/Library switch, rather than stopping at a fixed box partway down.
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
       <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexShrink: 0 }}>
-        {['upload', 'library'].map((value) => (
+        {(['upload', 'library'] as SourceTab[]).map((value) => (
           <button
             key={value}
             type="button"

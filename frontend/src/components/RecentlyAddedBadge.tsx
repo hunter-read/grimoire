@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuSparkles } from 'react-icons/lu'
 import { isRecentlyAdded } from '../utils/recentlyAdded'
@@ -8,7 +9,13 @@ import { isRecentlyAdded } from '../utils/recentlyAdded'
  * Renders nothing for an older item or one with no recorded date, so callers
  * can drop it in unconditionally.
  */
-export default function RecentlyAddedBadge({ addedAt, size = 14, style }) {
+export interface RecentlyAddedBadgeProps {
+  addedAt: string | null | undefined
+  size?: number
+  style?: CSSProperties
+}
+
+export default function RecentlyAddedBadge({ addedAt, size = 14, style }: RecentlyAddedBadgeProps) {
   const { t } = useTranslation()
   if (!isRecentlyAdded(addedAt)) return null
   const label = t('common.newBadge')

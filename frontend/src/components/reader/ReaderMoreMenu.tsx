@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, Fragment } from 'react'
+import { useState, useEffect, Fragment } from 'react'
+import type { CSSProperties, MouseEvent as ReactMouseEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -21,6 +22,9 @@ import {
   LuTrash2,
 } from 'react-icons/lu'
 import { mediaUrl } from '../../api'
+import type { Schema } from '../../api'
+import type { IconType } from 'react-icons'
+import type { LibraryChange } from '../../hooks/useFileActions'
 import { useUISettings } from '../../context/UISettingsContext'
 import useFileActions from '../../hooks/useFileActions'
 import useAnchoredMenu from '../../hooks/useAnchoredMenu'
@@ -31,7 +35,32 @@ import ReaderVariantItems from './ReaderVariantItems'
 
 const MENU_WIDTH = 236
 
-export const MODE_ITEMS = [
+export type ReaderMode = 'page' | 'spread' | 'pdf'
+
+/** Wraps a menu action so it also closes the menu. */
+export type RunAction = (fn: () => void) => (e: ReactMouseEvent) => void
+
+export interface ReaderMoreMenuProps {
+  /** Left out until the book has loaded. */
+  book?: Schema<'BookDetail'> | null
+  bookId: string
+  mode: ReaderMode
+  onModeChange: (mode: ReaderMode) => void
+  spreadOffset: number
+  onSpreadOffsetChange: (offset: number) => void
+  joinSpread?: boolean
+  onJoinSpreadChange?: (join: boolean) => void
+  isMobilePhone: boolean
+  isFavorite: boolean
+  onToggleFavorite: () => void
+  onShowDetails: () => void
+  /** Left out for formats that cannot be exported. */
+  onExport?: () => void
+  onToggleShortcuts: () => void
+  onFileChanged: (change: LibraryChange) => void
+}
+
+export const MODE_ITEMS: { key: ReaderMode; Icon: IconType }[] = [
   { key: 'page', Icon: LuFileText },
   { key: 'spread', Icon: LuColumns2 },
   { key: 'pdf', Icon: LuFile },
@@ -74,7 +103,7 @@ export default function ReaderMoreMenu({
   onExport,
   onToggleShortcuts,
   onFileChanged,
-}) {
+}: ReaderMoreMenuProps) {
   const { t } = useTranslation()
   const { hide_campaigns } = useUISettings()
   const [open, setOpen] = useState(false)
@@ -95,11 +124,15 @@ export default function ReaderMoreMenu({
 
   useEffect(() => {
     if (!open) return
-    const onDoc = (e) => {
-      if (triggerRef.current?.contains(e.target) || menuRef.current?.contains(e.target)) return
+    const onDoc = (e: MouseEvent) => {
+      if (
+        triggerRef.current?.contains(e.target as Node) ||
+        menuRef.current?.contains(e.target as Node)
+      )
+        return
       setOpen(false)
     }
-    const onKey = (e) => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false)
     }
     document.addEventListener('mousedown', onDoc)
@@ -110,7 +143,7 @@ export default function ReaderMoreMenu({
     }
   }, [open, triggerRef, menuRef])
 
-  const itemStyle = {
+  const itemStyle: CSSProperties = {
     display: 'flex',
     alignItems: 'center',
     gap: 10,
@@ -124,9 +157,9 @@ export default function ReaderMoreMenu({
     textAlign: 'left',
   }
 
-  const dividerStyle = { height: 1, background: 'var(--border)', margin: '4px 0' }
+  const dividerStyle: CSSProperties = { height: 1, background: 'var(--border)', margin: '4px 0' }
 
-  const run = (fn) => (e) => {
+  const run: RunAction = (fn) => (e) => {
     e.stopPropagation()
     setOpen(false)
     fn()
@@ -186,7 +219,8 @@ export default function ReaderMoreMenu({
             )}
             {(book?.variants || []).length > 0 && (
               <ReaderVariantItems
-                book={book}
+                // Only reached once the book has loaded: it is what has variants.
+                book={book!}
                 bookId={bookId}
                 itemStyle={itemStyle}
                 dividerStyle={dividerStyle}

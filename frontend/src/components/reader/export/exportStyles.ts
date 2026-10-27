@@ -1,25 +1,32 @@
+import type { CSSProperties } from 'react'
+
 /**
  * Shared styles for the export panel (issue #207). The values are the reader's
  * own - the toolbar's bordered groups, the sidebars' 13px labels, the move
  * dialog's buttons - so the panel reads as part of the reader, not a new tool.
  */
 
-export const sectionStyle = { display: 'flex', flexDirection: 'column', gap: 8 }
+export const sectionStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 8 }
 
-export const labelStyle = {
+export const labelStyle: CSSProperties = {
   fontSize: 12,
   fontWeight: 600,
   color: 'var(--text-dim)',
   letterSpacing: '0.02em',
 }
 
-export const hintStyle = { fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }
+export const hintStyle: CSSProperties = {
+  fontSize: 12,
+  color: 'var(--text-muted)',
+  lineHeight: 1.5,
+  margin: 0,
+}
 
-export const warnStyle = { ...hintStyle, color: 'var(--warning)' }
+export const warnStyle: CSSProperties = { ...hintStyle, color: 'var(--warning)' }
 
-export const errorStyle = { ...hintStyle, color: 'var(--danger)' }
+export const errorStyle: CSSProperties = { ...hintStyle, color: 'var(--danger)' }
 
-export const inputStyle = {
+export const inputStyle: CSSProperties = {
   width: '100%',
   boxSizing: 'border-box',
   padding: '7px 10px',
@@ -30,7 +37,7 @@ export const inputStyle = {
   color: 'var(--text)',
 }
 
-export function buttonStyle(primary, disabled = false) {
+export function buttonStyle(primary: boolean, disabled = false): CSSProperties {
   return {
     display: 'inline-flex',
     alignItems: 'center',
@@ -50,7 +57,7 @@ export function buttonStyle(primary, disabled = false) {
 }
 
 /** A small pill for one-tap choices, such as "This page" or "This spread". */
-export function chipStyle(active) {
+export function chipStyle(active: boolean): CSSProperties {
   return {
     padding: '3px 10px',
     borderRadius: 999,
@@ -67,7 +74,7 @@ export function chipStyle(active) {
 }
 
 /** The numbered badge shared by a cut-out on the page and its row in the list. */
-export function numberStyle(active) {
+export function numberStyle(active: boolean): CSSProperties {
   return {
     flexShrink: 0,
     minWidth: 20,

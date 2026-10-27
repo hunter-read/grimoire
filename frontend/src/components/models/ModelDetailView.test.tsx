@@ -7,13 +7,15 @@ import api from '../../api'
 
 vi.mock('../../api', () => ({
   default: { get: vi.fn(), patch: vi.fn(() => Promise.resolve({})) },
-  mediaUrl: (p) => `http://localhost${p}`,
+  mediaUrl: (p: string) => `http://localhost${p}`,
   tags: { list: vi.fn(() => Promise.resolve({ tags: [] })) },
 }))
 
 // The viewer is covered by its own suite; stub it so this file tests the page.
 vi.mock('./ModelViewerPane', () => ({
-  default: ({ model }) => <div data-testid="viewer">{model.filename}</div>,
+  default: ({ model }: { model: { filename: string } }) => (
+    <div data-testid="viewer">{model.filename}</div>
+  ),
 }))
 
 const toggleFavorite = vi.fn()
@@ -28,7 +30,7 @@ vi.mock('../maps/InlineTagEditor', () => ({
 
 const navigate = vi.fn()
 vi.mock('react-router-dom', async (importOriginal) => {
-  const actual = await importOriginal()
+  const actual = await importOriginal<typeof import('react-router-dom')>()
   return { ...actual, useNavigate: () => navigate }
 })
 
@@ -38,7 +40,7 @@ vi.mock('../../hooks/useIsMobile', () => ({ default: () => isMobile }))
 let role = 'admin'
 vi.mock('../../context/AuthContext', () => ({ useAuth: () => ({ user: { id: 'u1', role } }) }))
 
-const aModel = (over = {}) => ({
+const aModel = (over: Record<string, unknown> = {}) => ({
   id: 'm1',
   filename: 'goblin-archer.stl',
   relative_path: 'models/Goblins/goblin-archer.stl',
@@ -57,8 +59,8 @@ const aModel = (over = {}) => ({
   ...over,
 })
 
-function renderAt(model) {
-  api.get.mockResolvedValue(model)
+function renderAt(model: ReturnType<typeof aModel>) {
+  vi.mocked(api.get).mockResolvedValue(model)
   return render(
     <MemoryRouter initialEntries={['/models/m1']}>
       <Routes>
@@ -145,7 +147,7 @@ describe('ModelDetailView', () => {
   })
 
   it('shows a spinner until the model loads', () => {
-    api.get.mockReturnValue(new Promise(() => {}))
+    vi.mocked(api.get).mockReturnValue(new Promise(() => {}))
     render(
       <MemoryRouter initialEntries={['/models/m1']}>
         <Routes>
@@ -236,7 +238,7 @@ describe('ModelDetailView', () => {
 
     // Route by URL: the folder list vs the model itself.
     const renderWithSiblings = (over = {}) => {
-      api.get.mockImplementation((url) => {
+      vi.mocked(api.get).mockImplementation((url) => {
         if (url.split('?')[0] === '/models')
           return Promise.resolve({ total: SIBLINGS.length, models: SIBLINGS })
         return Promise.resolve(aModel(over))

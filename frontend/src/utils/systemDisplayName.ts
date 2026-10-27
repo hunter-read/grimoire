@@ -9,12 +9,17 @@ import { capitalizeWord } from './acronyms'
  * capitalized ("One Page RPGs"), with well-known acronyms kept in canonical
  * casing. Normal systems keep their stored name untouched.
  */
-export function prettifyCollectionName(name) {
+export function prettifyCollectionName(name: string | null | undefined): string {
   if (!name) return ''
   return name.replace(/[-_]+/g, ' ').trim().split(/\s+/).map(capitalizeWord).join(' ')
 }
 
-export function systemDisplayName(system) {
+export function systemDisplayName(
+  system:
+    | { name: string; is_system_agnostic?: boolean | null; is_one_page?: boolean | null }
+    | null
+    | undefined
+): string {
   if (!system) return ''
   if (system.is_system_agnostic || system.is_one_page) {
     return prettifyCollectionName(system.name)

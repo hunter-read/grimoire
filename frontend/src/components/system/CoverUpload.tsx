@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuUpload, LuTrash2 } from 'react-icons/lu'
 import api, { imageSources, mediaUrl } from '../../api'
+import type { Schema } from '../../api'
 import ImagePickerModal from '../images/ImagePickerModal'
 
 /**
@@ -19,7 +20,18 @@ import ImagePickerModal from '../images/ImagePickerModal'
  * already holds — a library map, token, or book cover (issue #286) — through
  * the shared image picker.
  */
-export default function CoverUpload({ system, onChange }) {
+/** The cover fields a change reports, to merge into the system. */
+export interface CoverChange {
+  cover_image: string
+  has_cover: boolean
+}
+
+export interface CoverUploadProps {
+  system: { id: string; cover_image?: string | null; has_cover?: boolean }
+  onChange?: (cover: CoverChange) => void
+}
+
+export default function CoverUpload({ system, onChange }: CoverUploadProps) {
   const { t } = useTranslation()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -30,17 +42,23 @@ export default function CoverUpload({ system, onChange }) {
   const hasUpload = Boolean(system.cover_image)
   const hasFolderCover = Boolean(system.has_cover) && !hasUpload
 
-  const applied = (res) => {
+  const applied = (res: Schema<'SystemCoverResponse'>) => {
     setVersion((v) => v + 1)
     onChange?.({ cover_image: res.cover_image, has_cover: true })
   }
 
-  const handleFile = async (file) => {
+  const handleFile = async (file: File) => {
     const res = await api.upload(`/systems/${system.id}/cover`, file)
-    applied(res)
+    applied(res as Schema<'SystemCoverResponse'>)
   }
 
-  const handleSource = async ({ source_type: type, source_id: id }) => {
+  const handleSource = async ({
+    source_type: type,
+    source_id: id,
+  }: {
+    source_type: string
+    source_id: string
+  }) => {
     applied(await imageSources.setSystemCover(system.id, type, id))
   }
 
@@ -55,7 +73,7 @@ export default function CoverUpload({ system, onChange }) {
       setVersion((v) => v + 1)
       onChange?.({ cover_image: '', has_cover: false })
     } catch (err) {
-      setError(err?.message || t('systemEditor.coverUploadFailed'))
+      setError((err as { message?: string } | null)?.message || t('systemEditor.coverUploadFailed'))
       if (rethrow) throw err
     } finally {
       setBusy(false)

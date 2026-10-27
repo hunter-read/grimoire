@@ -1,4 +1,25 @@
 import { useRef } from 'react'
+import type { ReactNode } from 'react'
+import type { IconType } from 'react-icons'
+
+/** One segment of the group. */
+export interface SegmentOption<T> {
+  value: T
+  label: string
+  Icon?: IconType
+  /** A second, quieter line (a resolution's dpi under its name). */
+  sub?: ReactNode
+  disabled?: boolean
+  title?: string
+}
+
+export interface ExportSegmentedProps<T> {
+  options: SegmentOption<T>[]
+  value: T
+  onChange: (value: T) => void
+  ariaLabel: string
+  iconOnly?: boolean
+}
 
 /**
  * A row of mutually exclusive choices, drawn like the reader's page/spread/PDF
@@ -11,10 +32,16 @@ import { useRef } from 'react'
  * `options`: [{ value, label, Icon?, sub?, disabled?, title? }]. `sub` is a
  * second, quieter line (a resolution's dpi under its name).
  */
-export default function ExportSegmented({ options, value, onChange, ariaLabel, iconOnly }) {
-  const refs = useRef([])
+export default function ExportSegmented<T extends string | number>({
+  options,
+  value,
+  onChange,
+  ariaLabel,
+  iconOnly,
+}: ExportSegmentedProps<T>) {
+  const refs = useRef<(HTMLButtonElement | null)[]>([])
 
-  const move = (from, dir) => {
+  const move = (from: number, dir: number) => {
     for (let step = 1; step <= options.length; step++) {
       const i = (from + dir * step + options.length) % options.length
       if (!options[i].disabled) {
@@ -42,7 +69,9 @@ export default function ExportSegmented({ options, value, onChange, ariaLabel, i
         return (
           <button
             key={opt.value}
-            ref={(el) => (refs.current[i] = el)}
+            ref={(el) => {
+              refs.current[i] = el
+            }}
             type="button"
             role="radio"
             aria-checked={active}

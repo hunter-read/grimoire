@@ -1,22 +1,24 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuChevronDown, LuDownload } from 'react-icons/lu'
 import { getDefaultViewMode } from '../../hooks/useViewMode'
 import { getUserPrefs, saveUserPref } from '../../hooks/useUserPrefs'
 import { gridStyle, ROW_LIST_STYLE } from '../favorites/favoriteStyles'
-import TagFolderGroup from './TagFolderGroup'
+import TagFolderGroup, { type TagPageList } from './TagFolderGroup'
 import LoadMoreSentinel from '../LoadMoreSentinel'
 import Spinner from '../Spinner'
-import { tagZipBtnStyle, canDownloadTagType } from './tagDownload'
+import { tagZipBtnStyle, canDownloadTagType, type DownloadRequest } from './tagDownload'
 import { shouldAutoCollapse } from '../../utils/autoCollapse'
+import type { Schema } from '../../api'
 
 const PREFS_KEY = 'tagsSectionCollapsed'
 
 /** The paged-list key for one type's directly-tagged items. */
-export const typeListKey = (type) => `type\u0000${type}`
+export const typeListKey = (type: string): string => `type\u0000${type}`
 
 /** The paged-list key for one tagged folder's contents. */
-export const folderListKey = (type, key) => `folder\u0000${type}\u0000${key}`
+export const folderListKey = (type: string, key: string): string =>
+  `folder\u0000${type}\u0000${key}`
 
 /**
  * One collapsible section on the tags detail pane for a single resource type
@@ -29,7 +31,25 @@ export const folderListKey = (type, key) => `folder\u0000${type}\u0000${key}`
  * Systems are the one type without one: a tagged system is a shelf rather than
  * a file, so it is excluded from tag archives and downloaded from its own page.
  */
-export default function TagTypeSection({
+/** The tag view's paged lists, keyed by typeListKey / folderListKey. */
+export interface TagPages<T> {
+  get(key: string): TagPageList<T> | undefined
+}
+
+export interface TagTypeSectionProps<T> {
+  type: string
+  title: string
+  count?: number
+  folders: Schema<'TaggedFolder'>[]
+  pages: TagPages<T>
+  onLoad: (key: string) => void
+  renderItem: (item: T, grid: boolean) => ReactNode
+  tag?: string
+  onDownload?: (request: DownloadRequest) => void
+  defaultCollapsed?: boolean
+}
+
+export default function TagTypeSection<T>({
   type,
   title,
   count = 0,
@@ -40,9 +60,11 @@ export default function TagTypeSection({
   tag,
   onDownload,
   defaultCollapsed = false,
-}) {
+}: TagTypeSectionProps<T>) {
   const { t } = useTranslation()
-  const [chosen, setCollapsed] = useState(() => getUserPrefs()[PREFS_KEY]?.[type])
+  const [chosen, setCollapsed] = useState<boolean | undefined>(
+    () => (getUserPrefs()[PREFS_KEY] as Record<string, boolean> | undefined)?.[type]
+  )
   const collapsed = chosen ?? defaultCollapsed
   const mode = getDefaultViewMode(type)
   const grid = mode !== 'list'
@@ -109,7 +131,7 @@ export default function TagTypeSection({
           <button
             type="button"
             onClick={() =>
-              onDownload({
+              onDownload!({
                 title: t('tags.archiveType', { type: title, tag }),
                 params: { type: 'tag_type', tag, resource_type: type },
               })

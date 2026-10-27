@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX, LuChevronLeft, LuChevronRight, LuTriangleAlert } from 'react-icons/lu'
 import { mediaUrl, bookPageUrl } from '../../api'
@@ -33,7 +33,23 @@ const PAGE_CACHE_LIMIT = 8
  *   item     – the full record from files.record()
  *   onClose  – () => void
  */
-export default function PreviewModal({ type, item, onClose }) {
+/** The fields of a library record the preview reads. */
+export interface PreviewItem {
+  id: string
+  page_count?: number | null
+  content_token?: string | null
+  title?: string | null
+  name?: string | null
+  filename?: string | null
+}
+
+export interface PreviewModalProps {
+  type: string
+  item: PreviewItem
+  onClose: () => void
+}
+
+export default function PreviewModal({ type, item, onClose }: PreviewModalProps) {
   const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
@@ -43,20 +59,20 @@ export default function PreviewModal({ type, item, onClose }) {
   // does not re-request. Bounded by PAGE_CACHE_LIMIT and dropped entirely when
   // the modal closes — the short-lived cache the preview needs, rather than a
   // second long-lived store next to the reader's.
-  const cache = useRef(new Map())
+  const cache = useRef(new Map<number, string>())
 
   const pageCount = item?.page_count || 0
   const isBook = type === 'book'
 
   const urlFor = useCallback(
-    (p) => {
+    (p: number) => {
       const cached = cache.current.get(p)
       if (cached) return cached
       const url = bookPageUrl(item.id, p, PREVIEW_WIDTH, item.content_token)
       cache.current.set(p, url)
       // Map preserves insertion order, so the oldest key is the first one.
       if (cache.current.size > PAGE_CACHE_LIMIT) {
-        cache.current.delete(cache.current.keys().next().value)
+        cache.current.delete(cache.current.keys().next().value!)
       }
       return url
     },
@@ -64,7 +80,7 @@ export default function PreviewModal({ type, item, onClose }) {
   )
 
   const go = useCallback(
-    (delta) => {
+    (delta: number) => {
       if (!isBook) return
       setPage((p) => {
         const next = p + delta
@@ -78,7 +94,7 @@ export default function PreviewModal({ type, item, onClose }) {
   )
 
   useEffect(() => {
-    const onKey = (e) => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
       if (e.key === 'ArrowRight') go(1)
       if (e.key === 'ArrowLeft') go(-1)
@@ -301,7 +317,7 @@ export default function PreviewModal({ type, item, onClose }) {
   )
 }
 
-const navBtn = {
+const navBtn: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -313,7 +329,7 @@ const navBtn = {
   cursor: 'pointer',
 }
 
-const emptyStyle = {
+const emptyStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 8,

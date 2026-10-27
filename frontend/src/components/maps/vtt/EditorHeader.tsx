@@ -1,4 +1,14 @@
+import type { ReactNode } from 'react'
 import { LuArrowLeft } from 'react-icons/lu'
+
+export interface EditorHeaderProps {
+  title: ReactNode
+  subtitle?: ReactNode
+  onBack: () => void
+  backLabel: string
+  backAria?: string
+  children?: ReactNode
+}
 
 /**
  * The editor's top bar: back, title, the file being worked on, then actions.
@@ -7,7 +17,14 @@ import { LuArrowLeft } from 'react-icons/lu'
  * not appear to change shape when a file is chosen — the bar is already there,
  * and only what sits at its right-hand end differs.
  */
-export default function EditorHeader({ title, subtitle, onBack, backLabel, backAria, children }) {
+export default function EditorHeader({
+  title,
+  subtitle,
+  onBack,
+  backLabel,
+  backAria,
+  children,
+}: EditorHeaderProps) {
   return (
     <div
       style={{

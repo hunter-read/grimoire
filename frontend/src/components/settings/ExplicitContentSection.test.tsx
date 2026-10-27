@@ -4,11 +4,11 @@ import userEvent from '@testing-library/user-event'
 import ExplicitContentSection from './ExplicitContentSection'
 import api from '../../api'
 
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }))
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }))
 vi.mock('../Spinner', () => ({ default: () => <span data-testid="spinner" /> }))
 
 const refreshUser = vi.fn()
-let mockUser = { allow_explicit: true }
+let mockUser: { allow_explicit?: boolean; explicit_locked?: boolean } = { allow_explicit: true }
 vi.mock('../../context/AuthContext', () => ({
   useAuth: () => ({ user: mockUser, refreshUser }),
 }))

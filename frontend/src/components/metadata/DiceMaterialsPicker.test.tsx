@@ -4,7 +4,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import DiceMaterialsPicker from './DiceMaterialsPicker'
 import api from '../../api'
-import { groupsFromManaged } from './diceMaterials'
+import { groupsFromManaged, type DiceMaterialGroup } from './diceMaterials'
 
 vi.mock('../../api', () => ({ default: { post: vi.fn(() => Promise.resolve({ id: 'x' })) } }))
 
@@ -12,18 +12,28 @@ beforeEach(() => vi.clearAllMocks())
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k, o) =>
-      ({
-        'metadata.noDiceMaterials': 'No dice/materials selected',
-        'metadata.addDiceMaterial': 'Add dice/material',
-        'metadata.diceMaterialsComboPlaceholder': 'Search or add dice/materials…',
-        'metadata.createDiceMaterial': `Create "${o?.name}"`,
-        'metadata.diceCustomGroup': 'Custom',
-      })[k] || k,
+    t: (k: string, o?: { name?: string }) =>
+      (
+        ({
+          'metadata.noDiceMaterials': 'No dice/materials selected',
+          'metadata.addDiceMaterial': 'Add dice/material',
+          'metadata.diceMaterialsComboPlaceholder': 'Search or add dice/materials…',
+          'metadata.createDiceMaterial': `Create "${o?.name}"`,
+          'metadata.diceCustomGroup': 'Custom',
+        }) as Record<string, string>
+      )[k] || k,
   }),
 }))
 
-function Harness({ initial = [], groups, onCreate }) {
+function Harness({
+  initial = [],
+  groups,
+  onCreate,
+}: {
+  initial?: string[]
+  groups?: DiceMaterialGroup[]
+  onCreate?: (created: unknown) => void
+}) {
   const [selected, setSelected] = useState(initial)
   return (
     <div>

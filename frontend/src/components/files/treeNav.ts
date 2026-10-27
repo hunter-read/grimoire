@@ -12,6 +12,17 @@
  * range-selection helper.
  */
 
+import type { Schema } from '../../api'
+import type { PaneRow } from '../../hooks/useLibraryPane'
+
+type Rows = readonly PaneRow[]
+
+/** Where an arrow key sends the cursor: open or close a folder, or move to a row. */
+export type NavTarget =
+  | { action: 'expand'; path: string }
+  | { action: 'collapse'; path: string }
+  | { action: 'move'; index: number }
+
 /**
  * Whether an entry can be acted on at all.
  *
@@ -19,13 +30,14 @@
  * placeholder in its name and path. That path does not exist, so every action
  * on it would fail, and the entry is shown but never selected.
  */
-export const isActionable = (entry) => !!entry && !entry.unreadable_name
+export const isActionable = (entry: Schema<'BrowseEntry'> | null | undefined): boolean =>
+  !!entry && !entry.unreadable_name
 
 /** Whether a row is one the cursor can land on. */
-const selectable = (row) => isActionable(row?.entry)
+const selectable = (row: PaneRow | undefined) => isActionable(row?.entry)
 
 /** Index of the row holding `path`, or -1. */
-export function indexOfPath(rows, path) {
+export function indexOfPath(rows: Rows, path: string | null | undefined): number {
   if (path == null) return -1
   return rows.findIndex((row) => row.entry?.path === path)
 }
@@ -37,7 +49,7 @@ export function indexOfPath(rows, path) {
  * put" — arrowing past the last row should do nothing rather than wrap, since
  * wrapping in a tree of thousands of rows loses the user's place completely.
  */
-export function nextSelectable(rows, from, dir) {
+export function nextSelectable(rows: Rows, from: number, dir: number): number {
   for (let i = from; i >= 0 && i < rows.length; i += dir) {
     if (selectable(rows[i])) return i
   }
@@ -52,7 +64,7 @@ export function nextSelectable(rows, from, dir) {
  * end of a folder's children carrying the children's depth, so a naive depth
  * comparison would mistake it for the parent.
  */
-export function parentIndex(rows, i) {
+export function parentIndex(rows: Rows, i: number): number {
   const row = rows[i]
   if (!row) return -1
   for (let j = i - 1; j >= 0; j--) {
@@ -73,7 +85,10 @@ export function parentIndex(rows, i) {
  * the next selectable row would land on the folder's next **sibling** — an
  * arrow-right that silently jumps past the thing it just opened.
  */
-export function rightTarget(rows, i) {
+export function rightTarget(
+  rows: Rows,
+  i: number
+): Extract<NavTarget, { action: 'expand' | 'move' }> | null {
   const row = rows[i]
   if (!row?.entry?.is_dir) return null
   if (!row.isOpen) return { action: 'expand', path: row.entry.path }
@@ -88,7 +103,10 @@ export function rightTarget(rows, i) {
  * Finder semantics: an open folder closes; anything else steps out to its
  * parent. At the top level with nothing to close there is nowhere to go.
  */
-export function leftTarget(rows, i) {
+export function leftTarget(
+  rows: Rows,
+  i: number
+): Extract<NavTarget, { action: 'collapse' | 'move' }> | null {
   const row = rows[i]
   if (!row?.entry) return null
   if (row.entry.is_dir && row.isOpen) return { action: 'collapse', path: row.entry.path }
@@ -102,7 +120,11 @@ export function leftTarget(rows, i) {
  * Used for shift-range selection. Order of the arguments does not matter: the
  * anchor may sit below the cursor as easily as above it.
  */
-export function rangeBetween(rows, fromPath, toPath) {
+export function rangeBetween(
+  rows: Rows,
+  fromPath: string | null | undefined,
+  toPath: string | null | undefined
+): string[] {
   const a = indexOfPath(rows, fromPath)
   const b = indexOfPath(rows, toPath)
   if (a === -1 || b === -1) return []
@@ -110,5 +132,5 @@ export function rangeBetween(rows, fromPath, toPath) {
   return rows
     .slice(lo, hi + 1)
     .filter(selectable)
-    .map((row) => row.entry.path)
+    .map((row) => row.entry!.path)
 }

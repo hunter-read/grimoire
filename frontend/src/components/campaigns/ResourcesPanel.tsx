@@ -1,4 +1,11 @@
-import { useState, useEffect, useRef } from 'react'
+import {
+  useState,
+  useEffect,
+  useRef,
+  type ChangeEvent,
+  type CSSProperties,
+  type DragEvent,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   LuBookOpen,
@@ -10,7 +17,7 @@ import {
   LuUpload,
   LuPlay,
 } from 'react-icons/lu'
-import { campaigns } from '../../api'
+import { campaigns, type Schema } from '../../api'
 import { useAuth } from '../../context/AuthContext'
 import { useUISettings } from '../../context/UISettingsContext'
 import { useAudioPlayer } from '../../context/AudioPlayerContext'
@@ -24,14 +31,35 @@ import { TYPE_ICONS } from './resourcesShared'
 import useCollapsedSet from '../../hooks/useCollapsedSet'
 import { shouldAutoCollapse } from '../../utils/autoCollapse'
 
-export default function ResourcesPanel({ campaign, isOwner, onRefresh }) {
+type Resource = Schema<'LinkedResourceOut'>
+type Category = Schema<'CampaignCategoryOut'>
+
+/** One section of the panel: a custom category, or a built-in type group. */
+interface ResourceGroupSection {
+  key: string
+  catId?: string
+  label: string
+  custom?: boolean
+  icon?: string | null
+  iconColor?: string | null
+  type?: string
+  items: Resource[]
+}
+
+export interface ResourcesPanelProps {
+  campaign: Schema<'CampaignOut'>
+  isOwner: boolean
+  onRefresh?: () => void
+}
+
+export default function ResourcesPanel({ campaign, isOwner, onRefresh }: ResourcesPanelProps) {
   const { t } = useTranslation()
-  const { user } = useAuth()
+  const { user } = useAuth()!
   const ui = useUISettings()
   const { playQueue } = useAudioPlayer()
   const isGmCampaign = campaign.is_gm_campaign
 
-  const TYPE_LABELS = {
+  const TYPE_LABELS: Record<string, string> = {
     book: t('resources.books'),
     map: t('resources.maps'),
     token: t('resources.tokens'),
@@ -40,21 +68,21 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }) {
     file: t('resources.files'),
   }
 
-  const [resources, setResources] = useState(null)
-  const [categories, setCategories] = useState([])
+  const [resources, setResources] = useState<Resource[] | null>(null)
+  const [categories, setCategories] = useState<Category[]>([])
   // Local copy of the saved group order, so reordering reflects instantly without
   // waiting on a full campaign reload. Re-synced when the campaign prop changes.
-  const [groupOrder, setGroupOrder] = useState(campaign.resource_group_order || [])
+  const [groupOrder, setGroupOrder] = useState<string[]>(campaign.resource_group_order || [])
   const [adding, setAdding] = useState(false)
   const [managingCats, setManagingCats] = useState(false)
   const [uploading, setUploading] = useState(false)
-  const fileInputRef = useRef(null)
-  const dragId = useRef(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const dragId = useRef<string | null>(null)
 
   // Which group sections are collapsed, persisted per campaign so the choice
   // survives navigation. Keyed by group key (category id or built-in type).
   // Until the GM toggles one, a long list starts with every group collapsed.
-  const groupKeyOf = (r) =>
+  const groupKeyOf = (r: Resource) =>
     r.category_id && categories.some((c) => c.id === r.category_id)
       ? `cat:${r.category_id}`
       : `type:${r.resource_type}`
@@ -72,10 +100,11 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }) {
       : undefined,
     { storage: 'local' }
   )
-  const toggleCollapse = (key) =>
+  const toggleCollapse = (key: string) =>
     setCollapsed((prev) => {
       const next = new Set(prev)
-      next.has(key) ? next.delete(key) : next.add(key)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
       return next
     })
 
@@ -105,28 +134,28 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }) {
 
   const members = (campaign.members || []).filter((m) => !m.is_owner)
 
-  const remove = async (resource) => {
+  const remove = async (resource: Resource) => {
     if (resource.resource_type === 'file' && !confirm(t('resources.deleteFileConfirm'))) return
     await campaigns.removeResource(campaign.id, resource.id)
     load()
   }
 
-  const setVisibility = async (resourceId, visibility) => {
+  const setVisibility = async (resourceId: string, visibility: string) => {
     await campaigns.updateResource(campaign.id, resourceId, { visibility })
     load()
   }
-  const setShares = async (resourceId, ids) => {
+  const setShares = async (resourceId: string, ids: string[]) => {
     await campaigns.updateResource(campaign.id, resourceId, { shared_user_ids: ids })
     load()
   }
-  const setCategory = async (resourceId, categoryId) => {
+  const setCategory = async (resourceId: string, categoryId: string) => {
     await campaigns.updateResource(campaign.id, resourceId, { category_id: categoryId || '' })
     load()
   }
 
   const uploadDisabled = ui.campaign_uploads_disabled && user?.role !== 'admin'
 
-  const handleFile = async (e) => {
+  const handleFile = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
@@ -135,40 +164,40 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }) {
       await campaigns.uploadFile(campaign.id, file)
       load()
     } catch (err) {
-      alert(err.message)
+      alert((err as Error).message)
     } finally {
       setUploading(false)
     }
   }
 
   // --- Drag and drop (owner only) ---
-  const onDragStart = (e, resource) => {
+  const onDragStart = (e: DragEvent, resource: Resource) => {
     dragId.current = resource.id
     e.dataTransfer.effectAllowed = 'move'
   }
-  const onDropToGroup = async (group) => {
+  const onDropToGroup = async (group: ResourceGroupSection) => {
     const id = dragId.current
     dragId.current = null
     if (!id) return
     // Dropping onto a custom category sets category_id; onto a type group clears it.
-    const target = group.custom ? group.catId : ''
-    const res = resources.find((r) => r.id === id)
+    const target = group.custom ? group.catId! : ''
+    const res = resources!.find((r) => r.id === id)
     if (res && (res.category_id || '') !== target) {
       await setCategory(id, target)
     }
   }
-  const onDropOnResource = async (e, target) => {
+  const onDropOnResource = async (e: DragEvent, target: Resource) => {
     e.preventDefault()
     e.stopPropagation()
     const id = dragId.current
     dragId.current = null
     if (!id || id === target.id) return
     // Reorder: place dragged before target, and adopt target's category.
-    const dragged = resources.find((r) => r.id === id)
+    const dragged = resources!.find((r) => r.id === id)
     if (dragged && (dragged.category_id || '') !== (target.category_id || '')) {
       await campaigns.updateResource(campaign.id, id, { category_id: target.category_id || '' })
     }
-    const ids = resources.map((r) => r.id).filter((x) => x !== id)
+    const ids = resources!.map((r) => r.id).filter((x) => x !== id)
     const idx = ids.indexOf(target.id)
     ids.splice(idx, 0, id)
     await campaigns.reorderResources(campaign.id, ids)
@@ -185,8 +214,11 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }) {
   const linkedIds = new Set(resources.map((r) => `${r.resource_type}:${r.resource_id}`))
   const catById = new Map(categories.map((c) => [c.id, c]))
 
-  const sortedCats = [...categories].sort((a, b) => a.sort_order - b.sort_order)
-  const groups = []
+  // Every category the API returns carries a sort_order.
+  const sortedCats = [...categories].sort(
+    (a, b) => (a.sort_order as number) - (b.sort_order as number)
+  )
+  const groups: ResourceGroupSection[] = []
   for (const cat of sortedCats) {
     const items = resources.filter((r) => r.category_id === cat.id)
     groups.push({
@@ -209,7 +241,7 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }) {
   // relative order at the end. A type group with no items is hidden unless the GM
   // has explicitly placed it (so an empty Books group can still be reordered).
   const order = groupOrder || []
-  const orderIndex = (key) => {
+  const orderIndex = (key: string) => {
     const i = order.indexOf(key)
     return i === -1 ? order.length + groups.findIndex((g) => g.key === key) : i
   }
@@ -354,7 +386,7 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }) {
                           audioItems.map((r) => ({
                             id: r.resource_id,
                             title: r.name,
-                            artwork: r.has_thumbnail,
+                            artwork: r.has_thumbnail as boolean | undefined,
                           }))
                         )
                       }
@@ -442,7 +474,7 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }) {
   )
 }
 
-const panelHeaderBtn = {
+const panelHeaderBtn: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 5,

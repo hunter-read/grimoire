@@ -1,7 +1,32 @@
 import { LuPlus, LuTrash2, LuChevronUp, LuChevronDown } from 'react-icons/lu'
 import { useTranslation } from 'react-i18next'
 import FieldRenderer from './FieldRenderer'
+import type { FieldDefinition } from './FieldRenderer'
 import { ghostBtn, iconBtn, fieldLabel } from './characterStyles'
+
+/** One column of a list: a field definition with the key it is stored under. */
+interface ListColumn extends FieldDefinition {
+  key: string
+  flex?: number
+  default?: unknown
+}
+
+interface ListFieldDefinition extends FieldDefinition {
+  columns?: ListColumn[]
+  empty_text?: string
+  add_label?: string
+}
+
+type Row = Record<string, unknown>
+
+export interface ListFieldProps {
+  name: string
+  definition?: ListFieldDefinition
+  value?: unknown
+  onChange?: (value: Row[]) => void
+  readOnly?: boolean
+  hideLabel?: boolean
+}
 
 /**
  * A repeatable table of typed rows — equipment, attacks, spell slots.
@@ -22,27 +47,27 @@ export default function ListField({
   onChange,
   readOnly = false,
   hideLabel = false,
-}) {
+}: ListFieldProps) {
   const { t } = useTranslation()
   const columns = definition.columns || []
-  const rows = Array.isArray(value) ? value : []
+  const rows: Row[] = Array.isArray(value) ? value : []
 
-  const setRow = (index, key, cellValue) => {
+  const setRow = (index: number, key: string, cellValue: unknown) => {
     const next = rows.map((row, i) => (i === index ? { ...row, [key]: cellValue } : row))
     onChange?.(next)
   }
 
   const addRow = () => {
-    const blank = {}
+    const blank: Row = {}
     for (const column of columns) {
       blank[column.key] = 'default' in column ? column.default : emptyFor(column.type)
     }
     onChange?.([...rows, blank])
   }
 
-  const removeRow = (index) => onChange?.(rows.filter((_, i) => i !== index))
+  const removeRow = (index: number) => onChange?.(rows.filter((_, i) => i !== index))
 
-  const moveRow = (index, delta) => {
+  const moveRow = (index: number, delta: number) => {
     const target = index + delta
     if (target < 0 || target >= rows.length) return
     const next = [...rows]
@@ -152,7 +177,7 @@ export default function ListField({
   )
 }
 
-function emptyFor(type) {
+function emptyFor(type: string | undefined): false | null | '' {
   if (type === 'checkbox') return false
   if (type === 'number') return null
   return ''

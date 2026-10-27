@@ -1,8 +1,16 @@
-import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuBan } from 'react-icons/lu'
+import type { Schema } from '../../api'
 import { AVAIL_OPTIONS, formatDate } from './_scheduleShared'
 import AvailabilityCell from './AvailabilityCell'
+
+export interface AvailabilityChartProps {
+  availability: Schema<'AvailabilityOut'> | null
+  userId?: string
+  isOwner: boolean
+  onSetAvailability: (date: string, status: string, userId: string) => void
+  onCancelDate: (date: string) => void
+}
 
 export default function AvailabilityChart({
   availability,
@@ -10,9 +18,9 @@ export default function AvailabilityChart({
   isOwner,
   onSetAvailability,
   onCancelDate,
-}) {
+}: AvailabilityChartProps) {
   const { t } = useTranslation()
-  const AVAIL_LABELS = {
+  const AVAIL_LABELS: Record<string, string> = {
     available: t('schedule.availability.available'),
     tentative: t('schedule.availability.tentative'),
     unavailable: t('schedule.availability.unavailable'),

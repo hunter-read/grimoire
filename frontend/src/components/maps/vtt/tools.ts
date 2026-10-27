@@ -10,6 +10,8 @@
  * different thing to draw, not a style of wall.
  */
 
+import type { FeatureKey, PreviewSettings } from './types'
+
 export const TOOL_SELECT = 'select'
 export const TOOL_WALL = 'wall'
 export const TOOL_OBJECT = 'object'
@@ -17,8 +19,20 @@ export const TOOL_PORTAL = 'portal'
 export const TOOL_WINDOW = 'window'
 export const TOOL_LIGHT = 'light'
 
+/** Every tool the editor offers. */
+export type Tool =
+  | typeof TOOL_SELECT
+  | typeof TOOL_WALL
+  | typeof TOOL_OBJECT
+  | typeof TOOL_PORTAL
+  | typeof TOOL_WINDOW
+  | typeof TOOL_LIGHT
+
+/** The tools that draw something, as opposed to selecting it. */
+export type DrawingTool = Exclude<Tool, typeof TOOL_SELECT>
+
 /** Which document array each drawing tool appends to. */
-export const TOOL_TARGET = {
+export const TOOL_TARGET: Record<DrawingTool, FeatureKey> = {
   [TOOL_WALL]: 'line_of_sight',
   [TOOL_OBJECT]: 'objects_line_of_sight',
   [TOOL_PORTAL]: 'portals',
@@ -27,7 +41,7 @@ export const TOOL_TARGET = {
 }
 
 /** Tools that build a multi-point polyline (click to add, double-click to end). */
-export const POLYLINE_TOOLS = new Set([TOOL_WALL, TOOL_OBJECT])
+export const POLYLINE_TOOLS = new Set<Tool>([TOOL_WALL, TOOL_OBJECT])
 
 /**
  * Tools that draw a portal — a door or a window — as a two-click line.
@@ -37,17 +51,17 @@ export const POLYLINE_TOOLS = new Set([TOOL_WALL, TOOL_OBJECT])
  * mean placing a door, switching to select, clicking the door, and flipping it.
  * Four steps to say something the user knew before the first click.
  */
-export const PORTAL_TOOLS = new Set([TOOL_PORTAL, TOOL_WINDOW])
+export const PORTAL_TOOLS = new Set<Tool>([TOOL_PORTAL, TOOL_WINDOW])
 
 /** `closed` for a portal drawn with this tool: a door blocks sight, a window does not. */
-export const PORTAL_CLOSED = {
+export const PORTAL_CLOSED: Partial<Record<Tool, boolean>> = {
   [TOOL_PORTAL]: true,
   [TOOL_WINDOW]: false,
 }
 
 /** How each feature layer is drawn. Colours are deliberately distinguishable
  *  without relying on hue alone — portals are dashed, lights are circles. */
-export const LAYER_STYLE = {
+export const LAYER_STYLE: Record<FeatureKey, { stroke: string; width: number }> = {
   line_of_sight: { stroke: '#e8503a', width: 3 },
   objects_line_of_sight: { stroke: '#3aa0e8', width: 3 },
   portals: { stroke: '#f0c040', width: 5 },
@@ -83,7 +97,7 @@ export const DEFAULT_LIGHT = {
  * because most player characters do not have darkvision and starting with it
  * on would make every map look uniformly explorable.
  */
-export const DEFAULT_PREVIEW = {
+export const DEFAULT_PREVIEW: PreviewSettings = {
   vision: true,
   nightVision: false,
   nightVisionRange: 12,
@@ -102,7 +116,7 @@ export const DEFAULT_PREVIEW = {
  * Each entry is a list of i18n key suffixes under `maps.vtt.help.<tool>`, so
  * the panel renders from this table rather than a switch.
  */
-export const TOOL_HELP = {
+export const TOOL_HELP: Record<Tool, string[]> = {
   [TOOL_SELECT]: ['click', 'delete'],
   [TOOL_WALL]: ['click', 'finish', 'close', 'cancel', 'undo'],
   [TOOL_OBJECT]: ['click', 'finish', 'close', 'cancel', 'undo'],

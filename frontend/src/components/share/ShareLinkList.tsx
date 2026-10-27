@@ -1,6 +1,17 @@
 import { useTranslation } from 'react-i18next'
-import { shareLinks } from '../../api'
+import { shareLinks, type Schema } from '../../api'
 import ShareLinkRow from './ShareLinkRow'
+
+type ShareLink = Schema<'ShareLinkOut'>
+
+export interface ShareLinkListProps {
+  links: ShareLink[]
+  onChange: (links: ShareLink[]) => void
+  onError?: (message: string) => void
+  emptyText?: string
+  showItem?: boolean
+  showOwner?: boolean
+}
 
 /**
  * A list of share links with revoke and delete wired up.
@@ -16,24 +27,24 @@ export default function ShareLinkList({
   emptyText,
   showItem = false,
   showOwner = false,
-}) {
+}: ShareLinkListProps) {
   const { t } = useTranslation()
 
-  const revoke = async (link) => {
+  const revoke = async (link: ShareLink) => {
     try {
       const updated = await shareLinks.revoke(link.id)
       onChange(links.map((l) => (l.id === link.id ? { ...l, ...updated } : l)))
     } catch (err) {
-      onError?.(err.message || t('share.revokeFailed'))
+      onError?.((err as Error).message || t('share.revokeFailed'))
     }
   }
 
-  const remove = async (link) => {
+  const remove = async (link: ShareLink) => {
     try {
       await shareLinks.remove(link.id)
       onChange(links.filter((l) => l.id !== link.id))
     } catch (err) {
-      onError?.(err.message || t('share.deleteFailed'))
+      onError?.((err as Error).message || t('share.deleteFailed'))
     }
   }
 

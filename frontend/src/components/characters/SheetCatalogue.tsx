@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX, LuCheck, LuDownload, LuExternalLink, LuSearch } from 'react-icons/lu'
 import { characters as charactersApi } from '../../api'
+import type { Schema } from '../../api'
 import Spinner from '../Spinner'
 import AuthorByline from '../settings/AuthorByline'
-import { goldBtn, ghostBtn, iconBtn, fieldInput, card } from './characterStyles'
+import { goldBtn, iconBtn, fieldInput, card } from './characterStyles'
 
 /**
  * Browse the community catalogue of character sheets and install one.
@@ -14,15 +15,22 @@ import { goldBtn, ghostBtn, iconBtn, fieldInput, card } from './characterStyles'
  * follow. The catalogue itself comes from whichever add-on index the admin
  * configured, so pointing the server at a branch points this at it too.
  */
-export default function SheetCatalogue({ onInstalled, onClose }) {
+type Sheet = Schema<'CatalogueSheet'>
+
+export interface SheetCatalogueProps {
+  onInstalled?: () => void
+  onClose?: () => void
+}
+
+export default function SheetCatalogue({ onInstalled, onClose }: SheetCatalogueProps) {
   const { t } = useTranslation()
-  const [sheets, setSheets] = useState([])
+  const [sheets, setSheets] = useState<Sheet[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
   const [installing, setInstalling] = useState('')
-  const [sources, setSources] = useState([])
-  const [sourceErrors, setSourceErrors] = useState([])
+  const [sources, setSources] = useState<string[]>([])
+  const [sourceErrors, setSourceErrors] = useState<Schema<'CatalogueSourceError'>[]>([])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -36,7 +44,7 @@ export default function SheetCatalogue({ onInstalled, onClose }) {
       setSourceErrors(result.errors || [])
       setError('')
     } catch (e) {
-      setError(e.message || t('characters.catalogueFailed'))
+      setError((e as Error).message || t('characters.catalogueFailed'))
     } finally {
       setLoading(false)
     }
@@ -47,14 +55,14 @@ export default function SheetCatalogue({ onInstalled, onClose }) {
   }, [load])
 
   useEffect(() => {
-    const onKey = (event) => {
+    const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose?.()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const install = async (sheet) => {
+  const install = async (sheet: Sheet) => {
     setInstalling(sheet.id)
     try {
       await charactersApi.installSheet(sheet.id)
@@ -64,7 +72,7 @@ export default function SheetCatalogue({ onInstalled, onClose }) {
       onInstalled?.()
       setError('')
     } catch (e) {
-      setError(e.message)
+      setError((e as Error).message)
     } finally {
       setInstalling('')
     }
@@ -285,7 +293,7 @@ export default function SheetCatalogue({ onInstalled, onClose }) {
 }
 
 // The host a catalogue lives on, for telling two sources apart at a glance.
-function hostOf(url) {
+function hostOf(url: string): string {
   try {
     return new URL(url).host
   } catch {

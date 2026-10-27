@@ -2,7 +2,9 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import RefCounts from './RefCounts'
 
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k.split('.').pop() }) }))
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({ t: (k: string) => k.split('.').pop() }),
+}))
 
 describe('RefCounts', () => {
   it('lists only the counts that are non-zero', () => {

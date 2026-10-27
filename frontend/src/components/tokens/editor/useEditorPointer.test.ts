@@ -1,15 +1,20 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import type { Mock } from 'vitest'
+import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from 'react'
 import { act, fireEvent, renderHook } from '@testing-library/react'
 
 import useEditorPointer from './useEditorPointer'
+import type { PointerActions } from './useEditorPointer'
 
 /**
  * jsdom's Touch constructor is unreliable across versions, so touch events are
  * fabricated: build a plain Event and attach the `touches` list the handler
  * reads. `preventDefault` is stubbed so assertions can check it was called.
  */
-function touchEvent(type, touches) {
-  const event = new Event(type, { bubbles: true, cancelable: true })
+function touchEvent(type: string, touches: [number, number][]) {
+  const event = new Event(type, { bubbles: true, cancelable: true }) as Event & {
+    touches: { clientX: number; clientY: number }[]
+  }
   event.touches = touches.map(([clientX, clientY]) => ({ clientX, clientY }))
   event.preventDefault = vi.fn()
   return event
@@ -22,14 +27,30 @@ function wheelEvent({ deltaY = -100, clientX = 0, clientY = 0, shiftKey = false 
   return event
 }
 
-let element
-let actions
+interface MockActions {
+  size: number
+  scale: number
+  rotation: number
+  pan: Mock
+  zoomAt: Mock
+  zoomBy: Mock
+  rotate: Mock
+  setRotation: Mock
+  reset: Mock
+}
+
+let element: HTMLDivElement
+let actions: MockActions
+
+/** A React mouse event carrying only the fields the handler reads. */
+const mouse = (init: { button: number; clientX: number; clientY: number; preventDefault: Mock }) =>
+  init as unknown as ReactMouseEvent
 
 const RECT = { left: 0, top: 0, width: 256, height: 256 }
 
 beforeEach(() => {
   element = document.createElement('div')
-  element.getBoundingClientRect = () => ({ ...RECT, right: 256, bottom: 256 })
+  element.getBoundingClientRect = () => ({ ...RECT, right: 256, bottom: 256 }) as DOMRect
   document.body.appendChild(element)
 
   actions = {
@@ -45,16 +66,18 @@ beforeEach(() => {
   }
 })
 
-const setup = (options) => {
+const setup = (options?: { disabled?: boolean }) => {
   const ref = { current: element }
-  return renderHook(() => useEditorPointer(ref, actions, options))
+  return renderHook(() => useEditorPointer(ref, actions as unknown as PointerActions, options))
 }
 
 describe('mouse drag', () => {
   it('pans while the button is held, tracking the cursor', () => {
     const { result } = setup()
     act(() =>
-      result.current.onMouseDown({ button: 0, clientX: 0, clientY: 0, preventDefault: vi.fn() })
+      result.current.onMouseDown(
+        mouse({ button: 0, clientX: 0, clientY: 0, preventDefault: vi.fn() })
+      )
     )
     expect(result.current.isDragging).toBe(true)
 
@@ -67,7 +90,9 @@ describe('mouse drag', () => {
   it('keeps dragging when the pointer leaves the canvas, and ends on release', () => {
     const { result } = setup()
     act(() =>
-      result.current.onMouseDown({ button: 0, clientX: 0, clientY: 0, preventDefault: vi.fn() })
+      result.current.onMouseDown(
+        mouse({ button: 0, clientX: 0, clientY: 0, preventDefault: vi.fn() })
+      )
     )
 
     // A move far outside the element still pans — the listener is on document.
@@ -91,22 +116,28 @@ describe('mouse drag', () => {
   it('ignores non-primary buttons and the disabled state', () => {
     const { result } = setup()
     act(() =>
-      result.current.onMouseDown({ button: 2, clientX: 0, clientY: 0, preventDefault: vi.fn() })
+      result.current.onMouseDown(
+        mouse({ button: 2, clientX: 0, clientY: 0, preventDefault: vi.fn() })
+      )
     )
     expect(result.current.isDragging).toBe(false)
 
     const off = setup({ disabled: true })
     act(() =>
-      off.result.current.onMouseDown({ button: 0, clientX: 0, clientY: 0, preventDefault: vi.fn() })
+      off.result.current.onMouseDown(
+        mouse({ button: 0, clientX: 0, clientY: 0, preventDefault: vi.fn() })
+      )
     )
     expect(off.result.current.isDragging).toBe(false)
   })
 
   it('scales the drag delta when the canvas is displayed larger than its output', () => {
-    element.getBoundingClientRect = () => ({ left: 0, top: 0, width: 512, height: 512 })
+    element.getBoundingClientRect = () => ({ left: 0, top: 0, width: 512, height: 512 }) as DOMRect
     const { result } = setup()
     act(() =>
-      result.current.onMouseDown({ button: 0, clientX: 0, clientY: 0, preventDefault: vi.fn() })
+      result.current.onMouseDown(
+        mouse({ button: 0, clientX: 0, clientY: 0, preventDefault: vi.fn() })
+      )
     )
     act(() => {
       fireEvent.mouseMove(document, { clientX: 20, clientY: 0 })
@@ -287,7 +318,10 @@ describe('touch', () => {
 })
 
 describe('keyboard and double click', () => {
-  const key = (k, shiftKey = false) => ({ key: k, shiftKey, preventDefault: vi.fn() })
+  const key = (k: string, shiftKey = false) =>
+    ({ key: k, shiftKey, preventDefault: vi.fn() }) as unknown as ReactKeyboardEvent & {
+      preventDefault: Mock
+    }
 
   it('pans with the arrow keys, further with shift', () => {
     const { result } = setup()

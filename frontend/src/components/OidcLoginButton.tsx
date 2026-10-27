@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type CSSProperties, type MouseEventHandler } from 'react'
 
 // Matches the server's validation (backend/services/oidc_button.py). Anything
 // else - e.g. a half-typed value in the settings preview - falls back to the
@@ -6,9 +6,10 @@ import { useState } from 'react'
 const HEX_COLOR_RE = /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i
 const MAX_RADIUS = 40
 
-const validColor = (c) => (typeof c === 'string' && HEX_COLOR_RE.test(c.trim()) ? c.trim() : null)
+const validColor = (c: unknown): string | null =>
+  typeof c === 'string' && HEX_COLOR_RE.test(c.trim()) ? c.trim() : null
 
-const validRadius = (r) => {
+const validRadius = (r: number | string | null | undefined): number | null => {
   if (r === null || r === undefined || r === '') return null
   const n = Number(r)
   return Number.isInteger(n) && n >= 0 && n <= MAX_RADIUS ? n : null
@@ -22,6 +23,16 @@ const validRadius = (r) => {
  * values fall back to the theme's look. Shared by the login page and the
  * settings preview so the two can never drift apart.
  */
+export interface OidcLoginButtonProps {
+  label: string
+  onClick?: MouseEventHandler<HTMLButtonElement>
+  bgColor?: string | null
+  textColor?: string | null
+  borderColor?: string | null
+  radius?: number | string | null
+  iconUrl?: string | null
+}
+
 export default function OidcLoginButton({
   label,
   onClick,
@@ -30,15 +41,15 @@ export default function OidcLoginButton({
   borderColor,
   radius,
   iconUrl,
-}) {
+}: OidcLoginButtonProps) {
   // Remember which URL failed, so a replacement icon gets a fresh attempt.
-  const [failedUrl, setFailedUrl] = useState(null)
+  const [failedUrl, setFailedUrl] = useState<string | null>(null)
 
   const bg = validColor(bgColor)
   const fg = validColor(textColor)
   const border = validColor(borderColor)
   const r = validRadius(radius)
-  const style = {
+  const style: CSSProperties = {
     ...baseStyle,
     ...(bg && { background: bg }),
     ...(fg && { color: fg }),
@@ -64,7 +75,7 @@ export default function OidcLoginButton({
   )
 }
 
-const baseStyle = {
+const baseStyle: CSSProperties = {
   width: '100%',
   minHeight: 44,
   display: 'flex',

@@ -37,7 +37,7 @@ describe('compareAddedAt', () => {
   const old = { added_at: '2024-01-01T00:00:00Z' }
   const recent = { added_at: '2026-10-01T00:00:00Z' }
   const undated = { added_at: null }
-  const sortBy = (dir) =>
+  const sortBy = (dir: number) =>
     [undated, recent, old].sort((a, b) => compareAddedAt(a, b, dir)).map((i) => i.added_at)
 
   it('orders oldest first ascending and newest first descending', () => {

@@ -1,3 +1,4 @@
+import type { CSSProperties, MouseEventHandler } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuLayoutGrid, LuGrid2X2, LuList } from 'react-icons/lu'
 
@@ -7,9 +8,15 @@ export const MODE_ICON = { card: LuLayoutGrid, compact: LuGrid2X2, list: LuList 
  * Single button that cycles the shared view mode card → compact → list → card.
  * Styled to match the favorites (heart) toggle it sits beside.
  */
-export default function ViewModeToggle({ mode, onCycle, style }) {
+export interface ViewModeToggleProps {
+  mode: string
+  onCycle: MouseEventHandler<HTMLButtonElement>
+  style?: CSSProperties
+}
+
+export default function ViewModeToggle({ mode, onCycle, style }: ViewModeToggleProps) {
   const { t } = useTranslation()
-  const Icon = MODE_ICON[mode] || LuLayoutGrid
+  const Icon = MODE_ICON[mode as keyof typeof MODE_ICON] || LuLayoutGrid
   return (
     <button
       onClick={onCycle}

@@ -2,10 +2,11 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import AudioSetsModal from './AudioSetsModal'
+import type { Schema } from '../../api'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key, opts) => {
+    t: (key: string, opts?: { name?: string; count?: number }) => {
       if (opts?.name && opts?.count !== undefined) return `${key}:${opts.name}:${opts.count}`
       if (opts?.name) return `${key}:${opts.name}`
       if (opts?.count !== undefined) return `${key}:${opts.count}`
@@ -17,9 +18,9 @@ vi.mock('react-i18next', () => ({
 // The hook is mocked rather than the api module: this suite is about how the
 // modal drives the player and the board, and useAudioSets is covered on its own.
 const hook = {
-  sets: [],
+  sets: [] as Schema<'AudioSetSummary'>[],
   loading: false,
-  error: null,
+  error: null as string | null,
   refresh: vi.fn(),
   save: vi.fn(),
   load: vi.fn(),
@@ -28,11 +29,11 @@ const hook = {
 }
 vi.mock('../../hooks/useAudioSets', () => ({ default: () => hook }))
 
-const player = { queue: [], playQueue: vi.fn(), addToQueue: vi.fn() }
+const player = { queue: [] as { id: string }[], playQueue: vi.fn(), addToQueue: vi.fn() }
 vi.mock('../../context/AudioPlayerContext', () => ({ useAudioPlayer: () => player }))
 
 const board = {
-  pads: [],
+  pads: [] as { id: string }[],
   replacePads: vi.fn(),
   updateLayout: vi.fn(),
 }
@@ -47,7 +48,7 @@ const BOARD = {
   layout: { cols: 3, rows: 5 },
 }
 
-const entry = (id, extra = {}) => ({
+const entry = (id: string, extra: Partial<Schema<'SetEntryOut'>> = {}) => ({
   audio_id: id,
   loop: false,
   title: `Title ${id}`,

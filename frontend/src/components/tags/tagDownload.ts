@@ -8,8 +8,16 @@
  * its query string.
  */
 
+import type { CSSProperties } from 'react'
+
+/** What a download button asks the archive dialog for. */
+export interface DownloadRequest {
+  title: string
+  params: Record<string, unknown>
+}
+
 /** Matches the folder-download button on the media galleries. */
-export const tagZipBtnStyle = {
+export const tagZipBtnStyle: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 3,
@@ -33,4 +41,4 @@ export const tagZipBtnStyle = {
  */
 export const DOWNLOADABLE_TAG_TYPES = ['book', 'map', 'token', 'audio', 'model']
 
-export const canDownloadTagType = (type) => DOWNLOADABLE_TAG_TYPES.includes(type)
+export const canDownloadTagType = (type: string): boolean => DOWNLOADABLE_TAG_TYPES.includes(type)

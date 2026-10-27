@@ -1,19 +1,21 @@
 import { useState } from 'react'
+import type { FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCircleCheck } from 'react-icons/lu'
 import api from '../../api'
 import Spinner from '../Spinner'
 import { useAuth } from '../../context/AuthContext'
+import type { Schema } from '../../api'
 
 export default function EmailSection() {
   const { t } = useTranslation()
-  const { user, refreshUser } = useAuth()
-  const [value, setValue] = useState(user?.email ?? '')
+  const { user, refreshUser } = useAuth()!
+  const [value, setValue] = useState((user as Schema<'AuthMeResponse'> | null)?.email ?? '')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError(null)
     setSaving(true)
@@ -23,7 +25,7 @@ export default function EmailSection() {
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
     } catch (err) {
-      setError(err?.message || t('userSettings.email.failed'))
+      setError((err as Error | null)?.message || t('userSettings.email.failed'))
     } finally {
       setSaving(false)
     }

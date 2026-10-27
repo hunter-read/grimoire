@@ -1,6 +1,8 @@
+import type { CSSProperties, MouseEventHandler } from 'react'
+import type { IconType } from 'react-icons'
 import { NavLink } from 'react-router-dom'
 
-export const moreItemStyle = {
+export const moreItemStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 14,
@@ -10,7 +12,14 @@ export const moreItemStyle = {
 }
 
 /** A single row in the mobile "More" drawer. */
-export default function MoreItem({ to, Icon, label, onClick }) {
+export interface MoreItemProps {
+  to: string
+  Icon: IconType
+  label: string
+  onClick?: MouseEventHandler<HTMLAnchorElement>
+}
+
+export default function MoreItem({ to, Icon, label, onClick }: MoreItemProps) {
   return (
     <NavLink
       to={to}

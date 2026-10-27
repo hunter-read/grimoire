@@ -37,15 +37,15 @@ function renderSidebar(overrides = {}) {
  * field is reached by its id instead.
  */
 function labelInput(id = 1) {
-  return document.getElementById(`bookmark-label-${id}`)
+  return document.getElementById(`bookmark-label-${id}`)!
 }
 
 describe('BookmarkSidebar', () => {
   beforeEach(() => {
     vi.resetAllMocks()
-    api.get.mockResolvedValue(BOOKMARKS)
-    api.delete.mockResolvedValue({})
-    api.patch.mockResolvedValue({})
+    vi.mocked(api.get).mockResolvedValue(BOOKMARKS)
+    vi.mocked(api.delete).mockResolvedValue({})
+    vi.mocked(api.patch).mockResolvedValue({})
   })
 
   it('lists the book’s bookmarks once loaded', async () => {
@@ -55,7 +55,7 @@ describe('BookmarkSidebar', () => {
   })
 
   it('shows the empty state when there are none', async () => {
-    api.get.mockResolvedValue([])
+    vi.mocked(api.get).mockResolvedValue([])
     renderSidebar()
     expect(await screen.findByText('No bookmarks yet.')).toBeInTheDocument()
   })
@@ -63,7 +63,7 @@ describe('BookmarkSidebar', () => {
   // A failed fetch must still land on the empty state rather than spinning
   // forever behind a loader.
   it('falls back to the empty state when the fetch fails', async () => {
-    api.get.mockRejectedValue(new Error('offline'))
+    vi.mocked(api.get).mockRejectedValue(new Error('offline'))
     renderSidebar()
     expect(await screen.findByText('No bookmarks yet.')).toBeInTheDocument()
   })

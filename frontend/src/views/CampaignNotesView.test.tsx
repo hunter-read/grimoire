@@ -1,11 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import CampaignNotesView from './CampaignNotesView'
 
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async (importOriginal) => {
-  const actual = await importOriginal()
+  const actual = await importOriginal<typeof import('react-router-dom')>()
   return { ...actual, useNavigate: () => mockNavigate, useParams: () => ({ campaignId: 'c1' }) }
 })
 
@@ -17,7 +17,7 @@ vi.mock('../context/AuthContext', () => ({ useAuth: () => ({ user: mockUser }) }
 // Stub WikiView: expose a button that flips onViewingNoteChange so we can assert
 // the parent header hides/shows without rendering the whole wiki.
 vi.mock('../components/campaigns/WikiView', () => ({
-  default: ({ onViewingNoteChange }) => (
+  default: ({ onViewingNoteChange }: { onViewingNoteChange: (viewing: boolean) => void }) => (
     <div data-testid="wiki">
       <button data-testid="open-note" onClick={() => onViewingNoteChange(true)} />
       <button data-testid="close-note" onClick={() => onViewingNoteChange(false)} />
@@ -26,6 +26,7 @@ vi.mock('../components/campaigns/WikiView', () => ({
 }))
 
 import { campaigns } from '../api'
+const mockCampaigns = campaigns as unknown as Record<keyof typeof campaigns, Mock>
 
 const renderView = () =>
   render(
@@ -38,11 +39,11 @@ describe('CampaignNotesView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockUser = { id: 'owner1', role: 'admin', campaign_access: true }
-    campaigns.get.mockResolvedValue({ id: 'c1', name: 'The Tithe', owner_id: 'owner1' })
+    mockCampaigns.get.mockResolvedValue({ id: 'c1', name: 'The Tithe', owner_id: 'owner1' })
   })
 
   it('shows a spinner until the campaign loads', () => {
-    campaigns.get.mockReturnValue(new Promise(() => {}))
+    mockCampaigns.get.mockReturnValue(new Promise(() => {}))
     const { container } = renderView()
     expect(container.querySelector('svg')).toBeInTheDocument()
     expect(screen.queryByText('The Tithe')).not.toBeInTheDocument()
@@ -73,7 +74,7 @@ describe('CampaignNotesView', () => {
   })
 
   it('renders an error message when the campaign fails to load', async () => {
-    campaigns.get.mockRejectedValue(new Error('nope'))
+    mockCampaigns.get.mockRejectedValue(new Error('nope'))
     renderView()
     expect(await screen.findByText('nope')).toBeInTheDocument()
   })

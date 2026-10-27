@@ -1,8 +1,22 @@
-import { useState } from 'react'
+import { useState, type CSSProperties, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { duplicates } from '../api'
+import { duplicates, type DuplicateType } from '../api'
 import { kindsFor } from '../constants/variantKinds'
+import type { VariantOption } from './useVariantOptions'
+
+/** The name a version was given: what `onSaved` reports once it is stored. */
+export interface VariantDescription {
+  kind: string
+  label: string
+}
+
+export interface VariantDescribeFormProps {
+  option: VariantOption
+  resourceType: DuplicateType
+  onSaved: (desc: VariantDescription) => void
+  onCancel: () => void
+}
 
 /**
  * Rename one version: its kind and free-text label.
@@ -21,7 +35,12 @@ import { kindsFor } from '../constants/variantKinds'
  * @param {Function} props.onSaved called with `{ kind, label }` once stored
  * @param {Function} props.onCancel called when the user backs out
  */
-export default function VariantDescribeForm({ option, resourceType, onSaved, onCancel }) {
+export default function VariantDescribeForm({
+  option,
+  resourceType,
+  onSaved,
+  onCancel,
+}: VariantDescribeFormProps) {
   const { t } = useTranslation()
   const [kind, setKind] = useState(option.kind || '')
   const [label, setLabel] = useState(option.label || '')
@@ -30,10 +49,10 @@ export default function VariantDescribeForm({ option, resourceType, onSaved, onC
 
   const kinds = kindsFor(resourceType, option.kind || '')
   // A variant with no stored kind (very old rows) still has to submit one.
-  const choices = option.isMain ? ['', ...kinds] : kinds
+  const choices: string[] = option.isMain ? ['', ...kinds] : kinds
   const value = option.isMain || kind ? kind : 'other'
 
-  const save = async (e) => {
+  const save = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setBusy(true)
     setError('')
@@ -41,13 +60,13 @@ export default function VariantDescribeForm({ option, resourceType, onSaved, onC
       const res = await duplicates.describe(resourceType, option.id, { kind: value, label })
       onSaved({ kind: res?.kind ?? value, label: res?.label ?? label.trim() })
     } catch (err) {
-      setError(err?.message || t('common.error'))
+      setError((err as Error | undefined)?.message || t('common.error'))
     } finally {
       setBusy(false)
     }
   }
 
-  const fieldStyle = {
+  const fieldStyle: CSSProperties = {
     background: 'var(--bg-deep)',
     border: '1px solid var(--border)',
     color: 'var(--text)',
@@ -55,7 +74,7 @@ export default function VariantDescribeForm({ option, resourceType, onSaved, onC
     padding: '4px 6px',
     fontSize: 12,
   }
-  const btnStyle = {
+  const btnStyle: CSSProperties = {
     background: 'var(--bg-card)',
     border: '1px solid var(--border)',
     color: 'var(--text-dim)',

@@ -7,7 +7,13 @@ import { mediaUrl } from '../../api'
  * an archive (issue #250). Archives are opaque blobs — there is nothing to
  * preview — so the pane offers a download instead of a broken viewer.
  */
-export default function ArchivePlaceholder({ fileUrl, filename }) {
+export default function ArchivePlaceholder({
+  fileUrl,
+  filename,
+}: {
+  fileUrl: string
+  filename?: string | null
+}) {
   const { t } = useTranslation()
 
   return (

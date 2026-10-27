@@ -1,6 +1,12 @@
 import { useTranslation } from 'react-i18next'
 import { LuChevronLeft, LuChevronRight } from 'react-icons/lu'
 
+export interface PageFlipperProps {
+  page: number
+  maxPage: number
+  onChange: (page: number) => void
+}
+
 /**
  * Synced page flip across both copies, bounded by the shorter of the two.
  *
@@ -14,9 +20,9 @@ import { LuChevronLeft, LuChevronRight } from 'react-icons/lu'
  * page and know which one it is. Centred between the two columns so it reads as
  * belonging to both.
  */
-export default function PageFlipper({ page, maxPage, onChange }) {
+export default function PageFlipper({ page, maxPage, onChange }: PageFlipperProps) {
   const { t } = useTranslation()
-  const go = (next) => onChange(Math.min(maxPage, Math.max(1, next)))
+  const go = (next: number) => onChange(Math.min(maxPage, Math.max(1, next)))
 
   return (
     <div

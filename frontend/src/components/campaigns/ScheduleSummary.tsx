@@ -1,9 +1,16 @@
 import { useTranslation } from 'react-i18next'
 import { LuCalendar, LuClock } from 'react-icons/lu'
+import type { Schema } from '../../api'
 import { formatScheduleTime, USER_TZ } from './_scheduleShared'
 
 /** Read-only summary of a campaign's recurring schedule definition. */
-export default function ScheduleSummary({ def, onEdit, isOwner }) {
+interface ScheduleSummaryProps {
+  def: Schema<'ScheduleUpsert'>
+  onEdit?: () => void
+  isOwner?: boolean
+}
+
+export default function ScheduleSummary({ def, onEdit, isOwner }: ScheduleSummaryProps) {
   const { t } = useTranslation()
   const FREQ_OPTIONS = [
     { key: 'weekly', label: t('schedule.frequency.weekly') },
@@ -35,10 +42,10 @@ export default function ScheduleSummary({ def, onEdit, isOwner }) {
     pattern = `${def.custom_dates?.length ?? 0} custom dates`
   } else if (def.frequency === 'monthly') {
     const week = MONTH_WEEKS.find((w) => w.value === def.monthly_week)?.label ?? ''
-    const day = DAYS[def.days?.[0]] ?? ''
+    const day = DAYS[def.days?.[0] as number] ?? ''
     pattern = t('schedule.monthlyPattern', { week, day })
   } else {
-    pattern = def.days?.map((d) => DAYS[d]).join(' & ') ?? ''
+    pattern = def.days?.map((d: number) => DAYS[d]).join(' & ') ?? ''
   }
 
   const localTime = formatScheduleTime(def.time_local)

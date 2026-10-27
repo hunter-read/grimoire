@@ -3,8 +3,18 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import DeleteModal from './DeleteModal'
 import { files as filesApi } from '../../api'
+import type { Mock } from 'vitest'
+import type { Schema } from '../../api'
 
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }))
+// The mocked responses carry only the fields the dialog reads.
+const deleteEntryMock = vi.mocked(filesApi.deleteEntry) as unknown as Mock<
+  (...args: unknown[]) => Promise<Partial<Schema<'DeleteResponse'>>>
+>
+const folderContentsMock = vi.mocked(filesApi.folderContents) as unknown as Mock<
+  (path: string) => Promise<Partial<Schema<'FolderContentsResponse'>>>
+>
+
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }))
 vi.mock('../Spinner', () => ({ default: () => <span data-testid="spinner" /> }))
 vi.mock('../../api', () => ({
   files: { folderContents: vi.fn(), deleteEntry: vi.fn() },
@@ -15,7 +25,7 @@ const folder = { name: 'core', path: 'books/System/core', is_dir: true }
 
 beforeEach(() => {
   vi.clearAllMocks()
-  filesApi.deleteEntry.mockResolvedValue({ path: 'x', records: 1, files: 1 })
+  deleteEntryMock.mockResolvedValue({ path: 'x', records: 1, files: 1 })
 })
 
 /** Tick "also delete the files", turning the dialog into the permanent one. */
@@ -41,7 +51,7 @@ describe('DeleteModal', () => {
   })
 
   it('deletes an empty folder without asking for its name', async () => {
-    filesApi.folderContents.mockResolvedValue({ has_content: false, name: 'core' })
+    folderContentsMock.mockResolvedValue({ has_content: false, name: 'core' })
     render(<DeleteModal entry={folder} onClose={vi.fn()} onDeleted={vi.fn()} />)
 
     await optIntoFileDeletion()
@@ -55,7 +65,7 @@ describe('DeleteModal', () => {
   })
 
   it('locks a folder with content behind its typed name', async () => {
-    filesApi.folderContents.mockResolvedValue({ has_content: true, name: 'core' })
+    folderContentsMock.mockResolvedValue({ has_content: true, name: 'core' })
     render(<DeleteModal entry={folder} onClose={vi.fn()} onDeleted={vi.fn()} />)
 
     await optIntoFileDeletion()
@@ -79,7 +89,7 @@ describe('DeleteModal', () => {
 
   it('demands the name when the folder could not be inspected', async () => {
     // Failing safe: a folder we cannot read must not offer a one-click delete.
-    filesApi.folderContents.mockRejectedValue(new Error('nope'))
+    folderContentsMock.mockRejectedValue(new Error('nope'))
     render(<DeleteModal entry={folder} onClose={vi.fn()} onDeleted={vi.fn()} />)
     await optIntoFileDeletion()
 
@@ -88,7 +98,7 @@ describe('DeleteModal', () => {
   })
 
   it('cannot be submitted while the folder check is still in flight', () => {
-    filesApi.folderContents.mockReturnValue(new Promise(() => {}))
+    folderContentsMock.mockReturnValue(new Promise(() => {}))
     render(<DeleteModal entry={folder} onClose={vi.fn()} onDeleted={vi.fn()} />)
 
     // Which guard applies is not yet known, so neither answer may be acted on.
@@ -97,7 +107,7 @@ describe('DeleteModal', () => {
 
   it('surfaces a failure and stays open', async () => {
     const onClose = vi.fn()
-    filesApi.deleteEntry.mockRejectedValue(new Error('Folder is not empty'))
+    deleteEntryMock.mockRejectedValue(new Error('Folder is not empty'))
     render(<DeleteModal entry={file} onClose={onClose} onDeleted={vi.fn()} />)
 
     await userEvent.click(screen.getByTestId('delete-submit'))
@@ -126,7 +136,7 @@ describe('DeleteModal', () => {
   it('soft-removes a folder with content without the typed-name guard', async () => {
     // The guard is spent on irreversible loss only. A rescan undoes this one, so
     // demanding the folder name here would train people to type past it.
-    filesApi.folderContents.mockResolvedValue({ has_content: true, name: 'core' })
+    folderContentsMock.mockResolvedValue({ has_content: true, name: 'core' })
     render(<DeleteModal entry={folder} onClose={vi.fn()} onDeleted={vi.fn()} />)
 
     await waitFor(() => expect(screen.getByTestId('delete-submit')).toBeEnabled())
@@ -139,7 +149,7 @@ describe('DeleteModal', () => {
   })
 
   it('swaps wording and the guard as the checkbox is toggled both ways', async () => {
-    filesApi.folderContents.mockResolvedValue({ has_content: true, name: 'core' })
+    folderContentsMock.mockResolvedValue({ has_content: true, name: 'core' })
     render(<DeleteModal entry={folder} onClose={vi.fn()} onDeleted={vi.fn()} />)
 
     await waitFor(() => expect(screen.getByTestId('delete-submit')).toBeEnabled())
@@ -161,7 +171,7 @@ describe('DeleteModal', () => {
     // The four explanation strings differ by more than a line, and the checkbox
     // sits directly beneath them: without a floor on the height the panel jumps
     // and the box slides out from under the cursor as it is clicked.
-    filesApi.folderContents.mockResolvedValue({ has_content: true, name: 'core' })
+    folderContentsMock.mockResolvedValue({ has_content: true, name: 'core' })
     render(<DeleteModal entry={folder} onClose={vi.fn()} onDeleted={vi.fn()} />)
 
     const explain = await screen.findByTestId('delete-explain')
@@ -195,7 +205,7 @@ describe('DeleteModal', () => {
   })
 
   it('closes on Escape', () => {
-    filesApi.folderContents.mockResolvedValue({ has_content: false })
+    folderContentsMock.mockResolvedValue({ has_content: false })
     const onClose = vi.fn()
     render(<DeleteModal entry={file} onClose={onClose} onDeleted={vi.fn()} />)
     fireEvent.keyDown(window, { key: 'Escape' })

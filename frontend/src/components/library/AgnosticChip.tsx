@@ -3,13 +3,19 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuLibrary } from 'react-icons/lu'
 import { systemDisplayName } from '../../utils/systemDisplayName'
+import type { Schema } from '../../api'
+
+export interface AgnosticChipProps {
+  system: Schema<'SystemSummary'>
+  to: string
+}
 
 /**
  * Compact pill for system-agnostic collections — no cover image, sits at the
  * top of the library for quick access. A real link to the collection's route,
  * so middle click opens it in a new tab (issue #313).
  */
-export default function AgnosticChip({ system, to }) {
+export default function AgnosticChip({ system, to }: AgnosticChipProps) {
   const { t } = useTranslation()
   const [hovered, setHovered] = useState(false)
   return (

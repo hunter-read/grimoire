@@ -1,23 +1,32 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuDownload, LuExternalLink, LuLock, LuFile, LuLink2Off } from 'react-icons/lu'
 import Spinner from '../components/Spinner'
 import { formatSize } from '../utils'
 import { formatWhen } from '../components/share/shareLinkUtils'
+import type { Schema } from '../api'
+
+type ShareMeta = Schema<'ShareMetaResponse'>
+type PageStatus = 'loading' | 'ready' | 'locked' | 'missing' | 'throttled'
+
+/** A failed request, carrying the HTTP status it failed with. */
+interface HttpError extends Error {
+  status?: number
+}
 
 // Plain fetch rather than the api client: this page is for people with no
 // account, and the client treats a 401 as "your session expired".
-async function getJson(url, options) {
+async function getJson(url: string, options?: RequestInit) {
   const res = await fetch(url, { credentials: 'same-origin', ...options })
   if (!res.ok) {
-    const err = new Error(String(res.status))
+    const err: HttpError = new Error(String(res.status))
     err.status = res.status
     throw err
   }
   return res.json()
 }
 
-const buttonStyle = (primary) => ({
+const buttonStyle = (primary?: boolean): CSSProperties => ({
   display: 'inline-flex',
   alignItems: 'center',
   gap: 6,
@@ -41,10 +50,14 @@ const buttonStyle = (primary) => ({
  * the item gone, sharing turned off) arrives as the same 404, and reads as the
  * same message, so the page never says which.
  */
-export default function ShareView({ token }) {
+export interface ShareViewProps {
+  token: string
+}
+
+export default function ShareView({ token }: ShareViewProps) {
   const { t, i18n } = useTranslation()
-  const [meta, setMeta] = useState(null)
-  const [status, setStatus] = useState('loading')
+  const [meta, setMeta] = useState<ShareMeta | null>(null)
+  const [status, setStatus] = useState<PageStatus>('loading')
   const [password, setPassword] = useState('')
   const [unlockError, setUnlockError] = useState('')
   const [unlocking, setUnlocking] = useState(false)
@@ -52,11 +65,11 @@ export default function ShareView({ token }) {
 
   const load = () =>
     getJson(`${base}/meta`)
-      .then((data) => {
+      .then((data: ShareMeta) => {
         setMeta(data)
         setStatus(data.unlocked ? 'ready' : 'locked')
       })
-      .catch((err) => setStatus(err.status === 429 ? 'throttled' : 'missing'))
+      .catch((err: HttpError) => setStatus(err.status === 429 ? 'throttled' : 'missing'))
 
   useEffect(() => {
     load()
@@ -67,7 +80,7 @@ export default function ShareView({ token }) {
     document.title = meta?.name ? `${meta.name} - Grimoire` : 'Grimoire'
   }, [meta])
 
-  const unlock = async (e) => {
+  const unlock = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setUnlocking(true)
     setUnlockError('')
@@ -80,7 +93,9 @@ export default function ShareView({ token }) {
       setPassword('')
       await load()
     } catch (err) {
-      setUnlockError(err.status === 429 ? t('sharePage.throttled') : t('sharePage.wrongPassword'))
+      setUnlockError(
+        (err as HttpError).status === 429 ? t('sharePage.throttled') : t('sharePage.wrongPassword')
+      )
     } finally {
       setUnlocking(false)
     }
@@ -143,19 +158,21 @@ export default function ShareView({ token }) {
       </form>
     )
   } else {
-    const kind = meta.media_kind
+    // Only a loaded link reaches this branch, so the meta is there.
+    const ready = meta!
+    const kind = ready.media_kind
     const details = [
-      t(`share.type.${meta.resource_type}`),
-      meta.file_size ? formatSize(meta.file_size) : null,
-      meta.expires_at
-        ? t('sharePage.expires', { when: formatWhen(meta.expires_at, i18n.language) })
+      t(`share.type.${ready.resource_type}`),
+      ready.file_size ? formatSize(ready.file_size) : null,
+      ready.expires_at
+        ? t('sharePage.expires', { when: formatWhen(ready.expires_at, i18n.language) })
         : null,
     ].filter(Boolean)
     body = (
       <>
-        <h1 style={{ fontSize: 20, margin: 0, overflowWrap: 'anywhere' }}>{meta.name}</h1>
-        {meta.label && (
-          <p style={{ fontSize: 14, color: 'var(--text-dim)', margin: '4px 0 0' }}>{meta.label}</p>
+        <h1 style={{ fontSize: 20, margin: 0, overflowWrap: 'anywhere' }}>{ready.name}</h1>
+        {ready.label && (
+          <p style={{ fontSize: 14, color: 'var(--text-dim)', margin: '4px 0 0' }}>{ready.label}</p>
         )}
         <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '6px 0 16px' }}>
           {details.join(' · ')}
@@ -172,34 +189,41 @@ export default function ShareView({ token }) {
         >
           {kind === 'image' && (
             <img
-              src={meta.file_url}
-              alt={meta.name}
+              src={ready.file_url ?? undefined}
+              alt={ready.name ?? undefined}
               style={{ maxWidth: '100%', maxHeight: '65vh', display: 'block' }}
             />
           )}
           {kind === 'video' && (
             <video
-              src={meta.file_url}
+              src={ready.file_url ?? undefined}
               controls
               style={{ maxWidth: '100%', maxHeight: '65vh', display: 'block' }}
             />
           )}
-          {kind === 'audio' && <audio src={meta.file_url} controls style={{ width: '100%' }} />}
-          {!['image', 'video', 'audio'].includes(kind) && (
+          {kind === 'audio' && (
+            <audio src={ready.file_url ?? undefined} controls style={{ width: '100%' }} />
+          )}
+          {!['image', 'video', 'audio'].includes(kind as string) && (
             <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>
               <LuFile size={40} aria-hidden="true" />
               <div style={{ fontSize: 13, marginTop: 8, overflowWrap: 'anywhere' }}>
-                {meta.filename}
+                {ready.filename}
               </div>
             </div>
           )}
         </div>
         <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
-          <a href={meta.download_url} download style={buttonStyle(true)}>
+          <a href={ready.download_url ?? undefined} download style={buttonStyle(true)}>
             <LuDownload size={14} aria-hidden="true" /> {t('sharePage.download')}
           </a>
-          {['image', 'video', 'pdf'].includes(kind) && (
-            <a href={meta.file_url} target="_blank" rel="noopener noreferrer" style={buttonStyle()}>
+          {['image', 'video', 'pdf'].includes(kind as string) && (
+            <a
+              href={ready.file_url ?? undefined}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={buttonStyle()}
+            >
               <LuExternalLink size={14} aria-hidden="true" /> {t('sharePage.open')}
             </a>
           )}
@@ -224,7 +248,10 @@ export default function ShareView({ token }) {
     >
       <main
         style={{
-          width: status === 'ready' && ['image', 'video'].includes(meta?.media_kind) ? 880 : 440,
+          width:
+            status === 'ready' && ['image', 'video'].includes(meta?.media_kind as string)
+              ? 880
+              : 440,
           maxWidth: '100%',
           background: 'var(--bg-panel)',
           border: '1px solid var(--border)',

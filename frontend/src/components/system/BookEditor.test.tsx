@@ -1,27 +1,29 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import BookEditor from './BookEditor'
+import type { BookEditorProps, EditableBook } from './BookEditor'
 import { clearMetadataSourcesCache } from './useMetadataSources'
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k) => k }),
+  useTranslation: () => ({ t: (k: string) => k }),
 }))
 
-const mockPatch = vi.fn(() => Promise.resolve({}))
-const mockGet = vi.fn((path) =>
+const mockPatch: Mock = vi.fn(() => Promise.resolve({}))
+const mockGet: Mock = vi.fn((path: string) =>
   Promise.resolve(path.includes('genres') ? { genres: [] } : { families: [] })
 )
 vi.mock('../../api', () => ({
   default: {
-    patch: (...args) => mockPatch(...args),
+    patch: (...args: unknown[]) => mockPatch(...args),
     // useLookups loads the genre tree on mount.
-    get: (...args) => mockGet(...args),
+    get: (...args: unknown[]) => mockGet(...args),
     post: () => Promise.resolve({}),
   },
   // TagPicker loads the tag catalog.
   tags: { list: () => Promise.resolve({ tags: [] }) },
   // BookVersionsSection renders download links and mutates variants.
-  mediaUrl: (path) => `http://localhost${path}`,
+  mediaUrl: (path: string) => `http://localhost${path}`,
   duplicates: {
     link: vi.fn(() => Promise.resolve({})),
     promote: vi.fn(() => Promise.resolve({})),
@@ -37,14 +39,14 @@ vi.mock('../../context/AuthContext', () => ({
   useAuth: () => ({ user: { role: mockRole } }),
 }))
 
-const mockGetBookPrefs = vi.fn(() => ({}))
-const mockSaveBookPrefs = vi.fn()
+const mockGetBookPrefs: Mock = vi.fn(() => ({}))
+const mockSaveBookPrefs: Mock = vi.fn()
 vi.mock('../../hooks/useBookPrefs', () => ({
-  getBookPrefs: (...args) => mockGetBookPrefs(...args),
-  saveBookPrefs: (...args) => mockSaveBookPrefs(...args),
+  getBookPrefs: (...args: unknown[]) => mockGetBookPrefs(...args),
+  saveBookPrefs: (...args: unknown[]) => mockSaveBookPrefs(...args),
 }))
 
-function makeBook(overrides = {}) {
+function makeBook(overrides: Record<string, unknown> = {}): EditableBook {
   return {
     id: 'book-1',
     title: "Player's Handbook",
@@ -56,10 +58,12 @@ function makeBook(overrides = {}) {
     is_explicit: false,
     tags: [],
     ...overrides,
-  }
+  } as unknown as EditableBook
 }
 
-function renderEditor(props = {}) {
+function renderEditor(
+  props: Partial<Omit<BookEditorProps, 'book'>> & { book?: Record<string, unknown> } = {}
+) {
   return render(
     <BookEditor
       book={makeBook(props.book)}
@@ -81,7 +85,7 @@ describe('BookEditor category combobox', () => {
     // Reset to the default lookup responses; the metadata-source tests below
     // override this per case.
     mockGet.mockReset()
-    mockGet.mockImplementation((path) =>
+    mockGet.mockImplementation((path: string) =>
       Promise.resolve(path.includes('genres') ? { genres: [] } : { families: [] })
     )
     mockGetBookPrefs.mockReturnValue({})
@@ -89,7 +93,8 @@ describe('BookEditor category combobox', () => {
     mockRole = 'gm'
   })
 
-  const categoryInput = () => screen.getByRole('combobox', { name: 'bookEditor.categoryLabel' })
+  const categoryInput = () =>
+    screen.getByRole<HTMLInputElement>('combobox', { name: 'bookEditor.categoryLabel' })
 
   it('renders category as a combobox showing the friendly label of the current slug', () => {
     renderEditor({ existingCategories: ['core', 'my-custom'] })
@@ -224,8 +229,8 @@ describe('BookEditor category combobox', () => {
   })
 
   describe('fetch metadata trigger', () => {
-    const withSources = (sources) =>
-      mockGet.mockImplementation((path) => {
+    const withSources = (sources: unknown[]) =>
+      mockGet.mockImplementation((path: string) => {
         if (path.includes('metadata-sources')) return Promise.resolve({ sources })
         return Promise.resolve(path.includes('genres') ? { genres: [] } : { families: [] })
       })
@@ -245,7 +250,7 @@ describe('BookEditor category combobox', () => {
 
     it('stays hidden when the sources lookup fails', async () => {
       // A backend without the add-on routes must not break the editor.
-      mockGet.mockImplementation((path) => {
+      mockGet.mockImplementation((path: string) => {
         if (path.includes('metadata-sources')) return Promise.reject(new Error('nope'))
         return Promise.resolve(path.includes('genres') ? { genres: [] } : { families: [] })
       })
@@ -277,7 +282,7 @@ describe('BookEditor access picker placement', () => {
     const save = screen.getByText('bookEditor.save')
     // DOCUMENT_POSITION_FOLLOWING — the picker comes first in DOM order.
     expect(picker.compareDocumentPosition(save) & 4).toBeTruthy()
-    expect(save.parentElement.contains(picker)).toBe(false)
+    expect(save.parentElement!.contains(picker)).toBe(false)
   })
 
   it('follows the explicit checkbox in its own column', () => {
@@ -298,7 +303,7 @@ describe('BookEditor access picker placement', () => {
 describe('BookEditor versions section', () => {
   beforeEach(() => {
     mockRole = 'admin'
-    mockGet.mockImplementation((path) => {
+    mockGet.mockImplementation((path: string) => {
       if (path === '/books/book-1') {
         return Promise.resolve({
           id: 'book-1',

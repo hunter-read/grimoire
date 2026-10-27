@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   LuPlay,
@@ -20,7 +20,7 @@ import AudioChaptersPanel from './AudioChaptersPanel'
 
 const PLAYER_HEIGHT = 72
 
-const iconBtn = (active = false) => ({
+const iconBtn = (active = false): CSSProperties => ({
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -36,7 +36,15 @@ const iconBtn = (active = false) => ({
  * AppShell (outside <Routes>) so playback survives navigation. Renders nothing
  * when the queue is empty.
  */
-export default function GlobalAudioPlayer({ isMobile = false, sidebarWidth = 0 }) {
+export interface GlobalAudioPlayerProps {
+  isMobile?: boolean
+  sidebarWidth?: number
+}
+
+export default function GlobalAudioPlayer({
+  isMobile = false,
+  sidebarWidth = 0,
+}: GlobalAudioPlayerProps) {
   const { t } = useTranslation()
   const player = useAudioPlayer()
   const {
@@ -123,7 +131,7 @@ export default function GlobalAudioPlayer({ isMobile = false, sidebarWidth = 0 }
     if (!expanded) setShowChapters(false)
     toggleExpanded()
   }
-  const onSelectChapter = (start) => {
+  const onSelectChapter = (start: number) => {
     seek(start)
     if (!isPlaying) togglePlay()
   }
@@ -165,7 +173,7 @@ export default function GlobalAudioPlayer({ isMobile = false, sidebarWidth = 0 }
       >
         <audio
           ref={audioRef}
-          src={src}
+          src={src ?? undefined}
           preload="metadata"
           autoPlay={false}
           onPlay={() => setIsPlaying(true)}

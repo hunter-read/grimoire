@@ -26,7 +26,7 @@ describe('NowPlayingIndicator', () => {
 
   it('suppresses the animation under prefers-reduced-motion', () => {
     const { container } = render(<NowPlayingIndicator playing />)
-    const css = container.querySelector('style').textContent
+    const css = container.querySelector('style')!.textContent!
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)/)
     expect(css.split('@media (prefers-reduced-motion: reduce)')[1]).toMatch(/animation:\s*none/)
   })
@@ -39,6 +39,6 @@ describe('NowPlayingIndicator', () => {
 
   it('accepts a custom colour', () => {
     const { container } = render(<NowPlayingIndicator color="red" />)
-    expect(container.querySelector('.grimoire-eq-bar').style.background).toBe('red')
+    expect(container.querySelector<HTMLElement>('.grimoire-eq-bar')!.style.background).toBe('red')
   })
 })

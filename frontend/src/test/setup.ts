@@ -13,14 +13,15 @@ afterAll(trackTimers())
 
 // Node.js 22+ has a native localStorage/sessionStorage that lacks clear() and
 // doesn't reset between tests. Replace both with proper in-memory implementations.
-function makeStorageMock() {
-  let _store = {}
+function makeStorageMock(): Storage {
+  let _store: Record<string, string> = {}
   return {
-    getItem: (key) => (Object.prototype.hasOwnProperty.call(_store, key) ? _store[key] : null),
-    setItem: (key, val) => {
+    getItem: (key: string) =>
+      Object.prototype.hasOwnProperty.call(_store, key) ? _store[key] : null,
+    setItem: (key: string, val: unknown) => {
       _store[key] = String(val)
     },
-    removeItem: (key) => {
+    removeItem: (key: string) => {
       delete _store[key]
     },
     clear: () => {
@@ -29,7 +30,7 @@ function makeStorageMock() {
     get length() {
       return Object.keys(_store).length
     },
-    key: (i) => Object.keys(_store)[i] ?? null,
+    key: (i: number) => Object.keys(_store)[i] ?? null,
   }
 }
 const localStorageMock = makeStorageMock()
@@ -49,7 +50,7 @@ Object.defineProperty(globalThis, 'sessionStorage', {
 Object.defineProperty(globalThis, 'matchMedia', {
   writable: true,
   configurable: true,
-  value: (query) => ({
+  value: (query: string) => ({
     matches: false,
     media: query,
     onchange: null,
@@ -73,11 +74,17 @@ beforeEach(() => {
 // list's end is in a real browser, so lists load in full. A test can replace
 // this global to drive the observer itself (see LogsTab.test.jsx).
 class VisibleIntersectionObserver {
-  constructor(callback) {
+  callback: IntersectionObserverCallback | null
+  constructor(callback: IntersectionObserverCallback) {
     this.callback = callback
   }
-  observe(target) {
-    queueMicrotask(() => this.callback?.([{ isIntersecting: true, target }], this))
+  observe(target: Element) {
+    queueMicrotask(() =>
+      this.callback?.(
+        [{ isIntersecting: true, target } as IntersectionObserverEntry],
+        this as unknown as IntersectionObserver
+      )
+    )
   }
   unobserve() {}
   disconnect() {
@@ -87,4 +94,6 @@ class VisibleIntersectionObserver {
     return []
   }
 }
-globalThis.IntersectionObserver = VisibleIntersectionObserver
+// Only the members the views use; the rest of the interface is never read.
+globalThis.IntersectionObserver =
+  VisibleIntersectionObserver as unknown as typeof IntersectionObserver

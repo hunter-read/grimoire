@@ -3,13 +3,14 @@ import { useState } from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import TagQueryEditor from './TagQueryEditor'
+import type { TagGroup } from './tagQuery'
 import { FILTER_NONE } from './specialFilters'
 
 // The `t` mock echoes the key, interpolating {{field}} / {{n}} so the per-row
 // labels stay distinguishable.
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k, opts) => {
+    t: (k: string, opts?: { field?: string; n?: number }) => {
       if (opts?.field) return `${k}:${opts.field}`
       if (opts?.n) return `${k}:${opts.n}`
       return k
@@ -23,7 +24,12 @@ const options = [
   { value: 'shop', label: 'shop' },
 ]
 
-function Harness({ initial, onChange }) {
+interface HarnessProps {
+  initial: unknown
+  onChange?: (next: TagGroup[] | undefined) => void
+}
+
+function Harness({ initial, onChange }: HarnessProps) {
   const [value, setValue] = useState(initial)
   return (
     <TagQueryEditor
@@ -41,7 +47,11 @@ function Harness({ initial, onChange }) {
 
 // Open a group's dropdown and tick one or more tags. The panel stays open
 // across ticks, so a group holding several alternatives is built in one pass.
-const pick = async (user, rowIndex, ...tags) => {
+const pick = async (
+  user: ReturnType<typeof userEvent.setup>,
+  rowIndex: number,
+  ...tags: string[]
+) => {
   await user.click(screen.getByLabelText(`sortFilter.tagGroupTags:${rowIndex + 1}`))
   for (const tag of tags) await user.click(screen.getByLabelText(tag))
 }

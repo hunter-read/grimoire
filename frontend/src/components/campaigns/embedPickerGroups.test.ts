@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { buildEmbedGroups } from './embedPickerGroups'
 
-const label = (type) => type.toUpperCase()
+const label = (type: string) => type.toUpperCase()
 
-const res = (id, type, categoryId) => ({
+const res = (id: string, type: string, categoryId?: string) => ({
   id,
   resource_type: type,
   resource_id: id,

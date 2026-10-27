@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import ResultCard from './ResultCard'
+import ResultCard, { type ResultCardProps } from './ResultCard'
 
-const renderCard = (props) =>
+const renderCard = (props: ResultCardProps) =>
   render(
     <MemoryRouter>
       <ResultCard {...props} />
@@ -44,7 +44,7 @@ describe('ResultCard', () => {
     renderCard({ to: '/maps/5', title: 'tavern.jpg', subtitle: 'Maps' })
     // The card is the element carrying the hover handlers, not a fixed number
     // of parents up — the row gained a thumbnail column in issue #343.
-    const card = screen.getByText('tavern.jpg').closest('div[style*="border-radius"]')
+    const card = screen.getByText('tavern.jpg').closest<HTMLElement>('div[style*="border-radius"]')!
 
     await userEvent.hover(card)
     expect(card.style.background).toBe('var(--bg-card-hover)')

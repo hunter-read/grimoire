@@ -1,4 +1,13 @@
+import type { ReactNode } from 'react'
 import useIsMobile from '../../hooks/useIsMobile'
+
+export interface ReaderSidebarShellProps {
+  width?: number
+  overflowHidden?: boolean
+  /** On a phone, a sheet under the page rather than a full-screen panel. */
+  sheet?: boolean
+  children?: ReactNode
+}
 
 /**
  * The frame every reader sidebar sits in — contents, bookmarks, search and
@@ -20,7 +29,7 @@ export default function ReaderSidebarShell({
   overflowHidden = false,
   sheet = false,
   children,
-}) {
+}: ReaderSidebarShellProps) {
   const isMobilePhone = useIsMobile(640)
 
   if (isMobilePhone && sheet) {

@@ -1,15 +1,17 @@
 import { describe, it, expect, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import LogRow from './LogRow'
+import type { Schema } from '../../api'
 
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }))
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }))
 
-const entry = (over = {}) => ({
-  timestamp: '2026-07-25T09:15:42.123Z',
-  level: 'INFO',
-  message: 'Scan complete',
-  ...over,
-})
+const entry = (over: Partial<Schema<'LogEntry'>> = {}) =>
+  ({
+    timestamp: '2026-07-25T09:15:42.123Z',
+    level: 'INFO',
+    message: 'Scan complete',
+    ...over,
+  }) as Schema<'LogEntry'>
 
 describe('LogRow', () => {
   it('renders the time, level badge, and message', () => {

@@ -1,32 +1,39 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { LuX, LuExternalLink, LuBookOpen } from 'react-icons/lu'
 import { SiGithub } from 'react-icons/si'
-import api from '../api'
+import api, { type Schema } from '../api'
 import ChangelogRelease from './ChangelogRelease'
 
 const GITHUB_REPO_URL = 'https://github.com/hunter-read/grimoire'
 const DOCS_URL = 'https://docs.grimoirecodex.org'
 
-export default function AboutModal({ about, latestVersion, hasUpdate, onClose }) {
+export interface AboutModalProps {
+  about?: Schema<'AboutResponse'> | null
+  latestVersion?: string | null
+  hasUpdate?: boolean
+  onClose: () => void
+}
+
+export default function AboutModal({ about, latestVersion, hasUpdate, onClose }: AboutModalProps) {
   const { t } = useTranslation()
-  const closeRef = useRef(null)
+  const closeRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     closeRef.current?.focus()
-    const onKey = (e) => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const [releases, setReleases] = useState(null)
+  const [releases, setReleases] = useState<Schema<'ChangelogRelease'>[] | null>(null)
   // Which release bodies are expanded, keyed by version. Seeded from the fetch
   // rather than here: the running version is the one to open, and it is not
   // known to be present in the changelog until the list arrives.
-  const [openVersions, setOpenVersions] = useState({})
+  const [openVersions, setOpenVersions] = useState<Record<string, boolean>>({})
 
   // Fetched when the dialog opens rather than with the rest of the app: the
   // changelog is comfortably the largest thing here and nothing outside this
@@ -57,21 +64,29 @@ export default function AboutModal({ about, latestVersion, hasUpdate, onClose })
   const pythonVersion = about?.python_version ?? '—'
   const releaseUrl = `${GITHUB_REPO_URL}/releases/tag/v${currentVersion}`
 
-  const rowStyle = {
+  const rowStyle: CSSProperties = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'baseline',
     gap: 12,
     marginBottom: 10,
   }
-  const labelStyle = { fontSize: 13, color: 'var(--text-muted)', whiteSpace: 'nowrap' }
-  const valueStyle = {
+  const labelStyle: CSSProperties = {
+    fontSize: 13,
+    color: 'var(--text-muted)',
+    whiteSpace: 'nowrap',
+  }
+  const valueStyle: CSSProperties = {
     fontSize: 13,
     color: 'var(--text)',
     fontFamily: 'monospace',
     textAlign: 'right',
   }
-  const dotStyle = { flex: 1, borderBottom: '1px dotted var(--border)', minWidth: 16 }
+  const dotStyle: CSSProperties = {
+    flex: 1,
+    borderBottom: '1px dotted var(--border)',
+    minWidth: 16,
+  }
 
   return createPortal(
     <div

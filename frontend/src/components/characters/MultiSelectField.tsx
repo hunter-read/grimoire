@@ -1,5 +1,15 @@
 import { useId } from 'react'
 import { fieldLabel } from './characterStyles'
+import type { FieldDefinition, Option } from './FieldRenderer'
+
+export interface MultiSelectFieldProps {
+  name: string
+  definition?: FieldDefinition
+  value?: unknown
+  onChange?: (value: (string | number)[]) => void
+  readOnly?: boolean
+  hideLabel?: boolean
+}
 
 /**
  * A multi-choice field, rendered as a group of checkboxes.
@@ -20,12 +30,12 @@ export default function MultiSelectField({
   onChange,
   readOnly = false,
   hideLabel = false,
-}) {
+}: MultiSelectFieldProps) {
   const groupId = useId()
   const options = definition.options || []
-  const selected = Array.isArray(value) ? value : []
+  const selected: unknown[] = Array.isArray(value) ? value : []
 
-  const toggle = (optionValue) => {
+  const toggle = (optionValue: string | number) => {
     const next = selected.includes(optionValue)
       ? selected.filter((item) => item !== optionValue)
       : [...selected, optionValue]
@@ -85,6 +95,7 @@ export default function MultiSelectField({
   )
 }
 
-const valueOf = (option) => (typeof option === 'object' ? option.value : option)
-const labelOf = (option) => (typeof option === 'object' ? option.label || option.value : option)
-const optionValues = (options) => options.map(valueOf)
+const valueOf = (option: Option) => (typeof option === 'object' ? option.value : option)
+const labelOf = (option: Option) =>
+  typeof option === 'object' ? option.label || option.value : option
+const optionValues = (options: Option[]) => options.map(valueOf)

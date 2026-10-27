@@ -3,6 +3,13 @@ import { LuTriangleAlert } from 'react-icons/lu'
 import { argbToAlpha, argbToCss, argbToRgbHex, rgbHexToArgb } from './color'
 import Field from './Field'
 import { inputStyle } from './ui'
+import type { VttEnvironment } from './types'
+
+export interface EnvironmentPanelProps {
+  environment: VttEnvironment
+  lightCount: number
+  onChange: (environment: VttEnvironment) => void
+}
 
 /**
  * Map-wide environment settings (issue #127).
@@ -25,7 +32,11 @@ import { inputStyle } from './ui'
  * with the alpha channel carrying the strength; that packing is a format
  * detail, so the UI presents it as a colour and a separate brightness.
  */
-export default function EnvironmentPanel({ environment, lightCount, onChange }) {
+export default function EnvironmentPanel({
+  environment,
+  lightCount,
+  onChange,
+}: EnvironmentPanelProps) {
   const { t } = useTranslation()
   const alpha = argbToAlpha(environment.ambient_light)
   const bakedWithLights = environment.baked_lighting && lightCount > 0

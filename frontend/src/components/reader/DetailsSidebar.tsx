@@ -7,6 +7,15 @@ import Tag from '../Tag'
 import { publicationDate } from '../system/bookDetails'
 import DetailsSidebarEditor from './DetailsSidebarEditor'
 import ReaderSidebarShell from './ReaderSidebarShell'
+import type { Schema } from '../../api'
+
+type Book = Schema<'BookDetail'>
+
+export interface DetailsSidebarProps {
+  book: Book
+  onClose: () => void
+  onSave?: (book: Book) => void
+}
 
 /**
  * The book's metadata, shown in the same right-hand sidebar as contents,
@@ -18,9 +27,9 @@ import ReaderSidebarShell from './ReaderSidebarShell'
  * rendered blank, so a sparsely tagged book reads as short instead of
  * mostly-empty.
  */
-export default function DetailsSidebar({ book, onClose, onSave }) {
+export default function DetailsSidebar({ book, onClose, onSave }: DetailsSidebarProps) {
   const { t } = useTranslation()
-  const { user } = useAuth()
+  const { user } = useAuth()!
   const [editing, setEditing] = useState(false)
 
   const canEdit = user?.role === 'admin' || user?.role === 'gm'
@@ -95,12 +104,14 @@ export default function DetailsSidebar({ book, onClose, onSave }) {
         {editing ? (
           <DetailsSidebarEditor
             book={book}
-            onSaved={(updated) => {
+            onSaved={(updated: Book) => {
               onSave?.(updated)
               setEditing(false)
             }}
             onCancel={() => setEditing(false)}
-            onApplied={(fields) => onSave?.({ ...book, ...fields })}
+            onApplied={(fields: Record<string, unknown>) =>
+              onSave?.({ ...book, ...fields } as Book)
+            }
           />
         ) : (
           <>

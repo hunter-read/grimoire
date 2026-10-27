@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ChangeEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuPlus, LuSave, LuFileText } from 'react-icons/lu'
 import { campaigns } from '../../api'
@@ -10,7 +10,23 @@ import { label, input, goldBtn } from './wikiTemplateStyles'
 // anyone can pick, so it can't collide with a real name.
 const NEW_CATEGORY = '__new__'
 
-const EMPTY = {
+interface TemplateDefaults {
+  title: string
+  icon: string
+  icon_color: string
+  visibility: string
+  page_type: string
+}
+
+interface TemplateForm {
+  name: string
+  category: string
+  description: string
+  body: string
+  defaults: TemplateDefaults
+}
+
+const EMPTY: TemplateForm = {
   name: '',
   category: '',
   description: '',
@@ -30,13 +46,19 @@ export default function WikiTemplateEditor({
   categories = [],
   onSaved,
   onError,
+}: {
+  campaignId: string
+  templateId?: string | null
+  categories?: string[]
+  onSaved: () => Promise<unknown> | void
+  onError: (message: string | null) => void
 }) {
   const { t } = useTranslation()
-  const [form, setForm] = useState(EMPTY)
+  const [form, setForm] = useState<TemplateForm>(EMPTY)
   const [loading, setLoading] = useState(!!templateId)
   const [saving, setSaving] = useState(false)
   // Shown when the GM picks "New category…" from the dropdown.
-  const [newCategory, setNewCategory] = useState(null)
+  const [newCategory, setNewCategory] = useState<string | null>(null)
 
   useEffect(() => {
     if (!templateId) return
@@ -56,7 +78,7 @@ export default function WikiTemplateEditor({
       })
       .catch((err) => {
         if (cancelled) return
-        onError(err.message)
+        onError((err as Error).message)
         setLoading(false)
       })
     return () => {
@@ -64,11 +86,14 @@ export default function WikiTemplateEditor({
     }
   }, [campaignId, templateId, onError])
 
-  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
-  const setDefault = (key, value) =>
+  const set =
+    (key: 'name' | 'category' | 'description' | 'body') =>
+    (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+      setForm((f) => ({ ...f, [key]: e.target.value }))
+  const setDefault = (key: keyof TemplateDefaults, value: string) =>
     setForm((f) => ({ ...f, defaults: { ...f.defaults, [key]: value } }))
 
-  const pickCategory = (e) => {
+  const pickCategory = (e: ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value
     if (value === NEW_CATEGORY) {
       setNewCategory('')
@@ -98,7 +123,7 @@ export default function WikiTemplateEditor({
       else await campaigns.createWikiTemplate(campaignId, payload)
       await onSaved()
     } catch (err) {
-      onError(err.message)
+      onError((err as Error).message)
       setSaving(false)
     }
   }

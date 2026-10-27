@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   LuGripVertical,
@@ -15,6 +15,7 @@ import {
   MAX_COLS,
   MIN_ROWS,
   MAX_ROWS,
+  type SoundboardPosition,
 } from '../../context/SoundboardContext'
 import useAudioSets from '../../hooks/useAudioSets'
 import SaveAudioSetModal from './SaveAudioSetModal'
@@ -22,7 +23,7 @@ import SaveAudioSetModal from './SaveAudioSetModal'
 const PANEL_MARGIN = 16
 const PAD_MIN = 64
 
-const iconBtn = (active = false) => ({
+const iconBtn = (active = false): CSSProperties => ({
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -38,7 +39,10 @@ const iconBtn = (active = false) => ({
  * and then reopened on a smaller window (or a rotated phone) would otherwise be
  * stranded off-screen with no way to grab its drag handle back.
  */
-function clampToViewport(pos, size) {
+function clampToViewport(
+  pos: SoundboardPosition,
+  size: { width: number; height: number }
+): SoundboardPosition {
   const maxLeft = Math.max(PANEL_MARGIN, window.innerWidth - size.width - PANEL_MARGIN)
   const maxTop = Math.max(PANEL_MARGIN, window.innerHeight - size.height - PANEL_MARGIN)
   return {
@@ -63,7 +67,11 @@ function clampToViewport(pos, size) {
  * stays in localStorage — saving is explicit, and an existing board is
  * untouched by this.
  */
-export default function SoundboardPanel({ bottomOffset = 0 }) {
+export interface SoundboardPanelProps {
+  bottomOffset?: number
+}
+
+export default function SoundboardPanel({ bottomOffset = 0 }: SoundboardPanelProps) {
   const { t } = useTranslation()
   const {
     pads,
@@ -85,17 +93,17 @@ export default function SoundboardPanel({ bottomOffset = 0 }) {
 
   const { sets, save } = useAudioSets()
 
-  const panelRef = useRef(null)
-  const dragRef = useRef(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const dragRef = useRef<{ dx: number; dy: number } | null>(null)
   const [dragging, setDragging] = useState(false)
-  const [dragIndex, setDragIndex] = useState(null)
-  const [overIndex, setOverIndex] = useState(null)
+  const [dragIndex, setDragIndex] = useState<number | null>(null)
+  const [overIndex, setOverIndex] = useState<number | null>(null)
   const [savingSet, setSavingSet] = useState(false)
 
   // Pointer-driven move of the whole panel. Pointer events (not mouse) so a
   // touch drag works the same, with capture so the drag survives the pointer
   // leaving the handle.
-  const onHandleDown = (e) => {
+  const onHandleDown = (e: PointerEvent<HTMLDivElement>) => {
     const el = panelRef.current
     if (!el) return
     // The title bar's own buttons live inside the drag handle. Capturing the
@@ -103,7 +111,7 @@ export default function SoundboardPanel({ bottomOffset = 0 }) {
     // never sees one and the browser never synthesizes a click — and
     // preventDefault would suppress it outright. A press that starts on a
     // control is that control's, not the start of a drag.
-    if (e.target.closest('button, input, label')) return
+    if ((e.target as Element).closest('button, input, label')) return
     const rect = el.getBoundingClientRect()
     dragRef.current = { dx: e.clientX - rect.left, dy: e.clientY - rect.top }
     setDragging(true)
@@ -111,7 +119,7 @@ export default function SoundboardPanel({ bottomOffset = 0 }) {
     e.preventDefault()
   }
 
-  const onHandleMove = (e) => {
+  const onHandleMove = (e: PointerEvent<HTMLDivElement>) => {
     if (!dragging || !dragRef.current) return
     const el = panelRef.current
     const rect = el?.getBoundingClientRect()
@@ -124,7 +132,7 @@ export default function SoundboardPanel({ bottomOffset = 0 }) {
     )
   }
 
-  const endDrag = (e) => {
+  const endDrag = (e: PointerEvent<HTMLDivElement>) => {
     if (!dragging) return
     setDragging(false)
     dragRef.current = null
@@ -138,7 +146,7 @@ export default function SoundboardPanel({ bottomOffset = 0 }) {
     const onResize = () => {
       const rect = panelRef.current?.getBoundingClientRect()
       if (!rect) return
-      setPosition((prev) =>
+      setPosition((prev: SoundboardPosition | null) =>
         prev ? clampToViewport(prev, { width: rect.width, height: rect.height }) : prev
       )
     }
@@ -151,7 +159,7 @@ export default function SoundboardPanel({ bottomOffset = 0 }) {
     ? { left: position.left, top: position.top }
     : { right: PANEL_MARGIN, bottom: bottomOffset + PANEL_MARGIN }
 
-  const onPadDrop = (index) => {
+  const onPadDrop = (index: number) => {
     if (dragIndex !== null && dragIndex !== index) movePad(dragIndex, index)
     setDragIndex(null)
     setOverIndex(null)
@@ -264,7 +272,7 @@ export default function SoundboardPanel({ bottomOffset = 0 }) {
               min={MIN_COLS}
               max={MAX_COLS}
               value={layout.cols}
-              onChange={(e) => updateLayout({ cols: e.target.value })}
+              onChange={(e) => updateLayout({ cols: Number(e.target.value) })}
               style={{ width: 52, fontSize: 12, padding: '2px 4px' }}
             />
           </label>
@@ -275,7 +283,7 @@ export default function SoundboardPanel({ bottomOffset = 0 }) {
               min={MIN_ROWS}
               max={MAX_ROWS}
               value={layout.rows}
-              onChange={(e) => updateLayout({ rows: e.target.value })}
+              onChange={(e) => updateLayout({ rows: Number(e.target.value) })}
               style={{ width: 52, fontSize: 12, padding: '2px 4px' }}
             />
           </label>
@@ -452,7 +460,7 @@ export default function SoundboardPanel({ bottomOffset = 0 }) {
           kind="soundboard"
           count={pads.length}
           existing={sets.filter((s) => s.kind === 'soundboard').map((s) => s.name)}
-          onSave={(name) =>
+          onSave={(name: string) =>
             save(
               'soundboard',
               name,

@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import type { Schema } from '../../api'
 import { formatDuration } from '../../utils'
 import { chapterLabel } from '../../hooks/useTrackChapters'
 
@@ -7,13 +8,21 @@ import { chapterLabel } from '../../hooks/useTrackChapters'
  * same slot as the queue (issue #564). Clicking a chapter seeks to its start;
  * the chapter playing now is highlighted.
  */
+export interface AudioChaptersPanelProps {
+  chapters: Schema<'AudioChapterOut'>[]
+  currentIndex: number
+  onSelect: (start: number) => void
+  bottom?: number
+  left?: number
+}
+
 export default function AudioChaptersPanel({
   chapters,
   currentIndex,
   onSelect,
   bottom = 72,
   left = 0,
-}) {
+}: AudioChaptersPanelProps) {
   const { t } = useTranslation()
 
   return (

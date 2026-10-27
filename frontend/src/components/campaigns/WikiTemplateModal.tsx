@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX, LuUpload, LuRefreshCw } from 'react-icons/lu'
-import { campaigns } from '../../api'
+import { campaigns, type Schema } from '../../api'
 import WikiTemplateList from './WikiTemplateList'
-import WikiTemplateBrowser from './WikiTemplateBrowser'
+import WikiTemplateBrowser, { type WikiTemplateBrowserHandle } from './WikiTemplateBrowser'
 import WikiTemplateEditor from './WikiTemplateEditor'
 import {
   backdrop,
@@ -15,26 +15,46 @@ import {
   iconBtn,
 } from './wikiTemplateStyles'
 
-const TABS = ['mine', 'browse', 'create']
+type Tab = 'mine' | 'browse' | 'create'
+
+const TABS: Tab[] = ['mine', 'browse', 'create']
 
 // Manage a campaign's wiki note templates: use one to start a page, browse and
 // download from the community catalogue, write your own, or upload/export a
 // `.md`. Templates are per-campaign copies, so editing one here never touches
 // another campaign's — and a server with downloading disabled still gets the
 // authoring and upload paths.
-export default function WikiTemplateModal({ campaignId, onClose, onUsed }) {
+type Template = Schema<'WikiTemplateSummaryOut'>
+
+/** A new page's starting fields, from the chosen template. */
+export interface TemplateDraft {
+  title: string
+  body: string
+  visibility: string
+  page_type: string
+  icon: string
+  icon_color: string
+}
+
+interface WikiTemplateModalProps {
+  campaignId: string
+  onClose: () => void
+  onUsed?: (draft: TemplateDraft) => void
+}
+
+export default function WikiTemplateModal({ campaignId, onClose, onUsed }: WikiTemplateModalProps) {
   const { t } = useTranslation()
-  const [tab, setTab] = useState('mine')
+  const [tab, setTab] = useState<Tab>('mine')
   // Set while editing an existing template; the editor panel doubles as "new".
-  const [editingId, setEditingId] = useState(null)
-  const [owned, setOwned] = useState(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [owned, setOwned] = useState<Template[] | null>(null)
   const [campaignSystem, setCampaignSystem] = useState('')
   const [downloadsEnabled, setDownloadsEnabled] = useState(true)
-  const [categories, setCategories] = useState([])
-  const [error, setError] = useState(null)
-  const [busyId, setBusyId] = useState(null)
-  const uploadRef = useRef(null)
-  const browserRef = useRef(null)
+  const [categories, setCategories] = useState<string[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const uploadRef = useRef<HTMLInputElement>(null)
+  const browserRef = useRef<WikiTemplateBrowserHandle>(null)
 
   const loadOwned = useCallback(async () => {
     const res = await campaigns.wikiTemplates(campaignId)
@@ -45,10 +65,10 @@ export default function WikiTemplateModal({ campaignId, onClose, onUsed }) {
   }, [campaignId])
 
   useEffect(() => {
-    loadOwned().catch((err) => setError(err.message))
+    loadOwned().catch((err) => setError((err as Error).message))
   }, [loadOwned])
 
-  const show = (name) => {
+  const show = (name: Tab) => {
     setTab(name)
     setEditingId(null)
     setError(null)
@@ -58,7 +78,7 @@ export default function WikiTemplateModal({ campaignId, onClose, onUsed }) {
   // content and hands it to the caller, which opens an unsaved editor — so a
   // mis-click costs nothing and the GM can edit before committing (or cancel
   // and leave no page behind).
-  const use = async (templateId) => {
+  const use = async (templateId: string) => {
     setBusyId(templateId)
     setError(null)
     try {
@@ -75,32 +95,32 @@ export default function WikiTemplateModal({ campaignId, onClose, onUsed }) {
         icon_color: defaults.icon_color || '',
       })
     } catch (err) {
-      setError(err.message)
+      setError((err as Error).message)
       setBusyId(null)
     }
   }
 
-  const remove = async (tpl) => {
+  const remove = async (tpl: Template) => {
     if (!confirm(t('wiki.templateDeleteConfirm', { name: tpl.name }))) return
     setError(null)
     try {
       await campaigns.deleteWikiTemplate(campaignId, tpl.id)
       await loadOwned()
     } catch (err) {
-      setError(err.message)
+      setError((err as Error).message)
     }
   }
 
-  const exportOne = async (tpl) => {
+  const exportOne = async (tpl: Template) => {
     setError(null)
     try {
       await campaigns.exportWikiTemplate(campaignId, tpl.id, tpl.source_id || tpl.name)
     } catch (err) {
-      setError(err.message)
+      setError((err as Error).message)
     }
   }
 
-  const upload = async (e) => {
+  const upload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
@@ -110,7 +130,7 @@ export default function WikiTemplateModal({ campaignId, onClose, onUsed }) {
       await loadOwned()
       show('mine')
     } catch (err) {
-      setError(err.message)
+      setError((err as Error).message)
     }
   }
 

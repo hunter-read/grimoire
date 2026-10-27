@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import type { ChangeEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCircleCheck } from 'react-icons/lu'
 import i18n, { AVAILABLE_LANGUAGES } from '../../i18n'
@@ -7,7 +8,7 @@ export default function LanguageSection() {
   const { t } = useTranslation()
   const [lang, setLang] = useState(localStorage.getItem('grimoire:language') || 'en-US')
   const [saved, setSaved] = useState(false)
-  const flashTimer = useRef(null)
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   useEffect(() => () => clearTimeout(flashTimer.current), [])
 
@@ -16,7 +17,7 @@ export default function LanguageSection() {
     clearTimeout(flashTimer.current)
     flashTimer.current = setTimeout(() => setSaved(false), 2000)
   }
-  const handleLang = (e) => {
+  const handleLang = (e: ChangeEvent<HTMLSelectElement>) => {
     const v = e.target.value
     setLang(v)
     localStorage.setItem('grimoire:language', v)

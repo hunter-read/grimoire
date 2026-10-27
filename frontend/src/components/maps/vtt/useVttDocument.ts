@@ -1,4 +1,13 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
+import type {
+  FeatureCounts,
+  FeatureKey,
+  Point,
+  VttDoc,
+  VttEnvironment,
+  VttLight,
+  VttPortal,
+} from './types'
 
 /**
  * The editor's document: walls, object walls, portals, lights, environment.
@@ -13,7 +22,7 @@ import { useCallback, useMemo, useRef, useState } from 'react'
  * copy rather than a conversion. Pixel-space work happens in the canvas.
  */
 
-export const EMPTY_DOC = {
+export const EMPTY_DOC: VttDoc = {
   line_of_sight: [],
   objects_line_of_sight: [],
   portals: [],
@@ -26,9 +35,26 @@ export const EMPTY_DOC = {
 const HISTORY_LIMIT = 100
 
 /** The feature arrays, in the order the layer panel lists them. */
-export const FEATURE_KEYS = ['line_of_sight', 'objects_line_of_sight', 'portals', 'lights']
+export const FEATURE_KEYS: FeatureKey[] = [
+  'line_of_sight',
+  'objects_line_of_sight',
+  'portals',
+  'lights',
+]
 
-export function normalizeDoc(raw) {
+/**
+ * A document as it may arrive from the API or a parsed file: any part may be
+ * missing.
+ */
+export interface RawVttDoc {
+  line_of_sight?: Point[][] | null
+  objects_line_of_sight?: Point[][] | null
+  portals?: VttPortal[] | null
+  lights?: VttLight[] | null
+  environment?: Partial<{ [K in keyof VttEnvironment]: VttEnvironment[K] | null }> | null
+}
+
+export function normalizeDoc(raw: RawVttDoc | null | undefined): VttDoc {
   if (!raw) return { ...EMPTY_DOC, environment: { ...EMPTY_DOC.environment } }
   return {
     line_of_sight: raw.line_of_sight || [],
@@ -42,12 +68,12 @@ export function normalizeDoc(raw) {
   }
 }
 
-export default function useVttDocument(initial) {
+export default function useVttDocument(initial: RawVttDoc | null | undefined) {
   const [doc, setDocState] = useState(() => normalizeDoc(initial))
   // Stacks live in refs: they are never rendered, and keeping them out of state
   // avoids re-rendering the canvas on every push.
-  const undoStack = useRef([])
-  const redoStack = useRef([])
+  const undoStack = useRef<VttDoc[]>([])
+  const redoStack = useRef<VttDoc[]>([])
   // Mirrors `doc` so callbacks can read the current value without depending on
   // it — otherwise every tool handler would be re-created on each edit.
   const docRef = useRef(doc)
@@ -62,7 +88,7 @@ export default function useVttDocument(initial) {
   )
 
   const commit = useCallback(
-    (next) => {
+    (next: VttDoc) => {
       const prev = docRef.current
       if (next === prev) return
       undoStack.current.push(prev)
@@ -79,7 +105,7 @@ export default function useVttDocument(initial) {
 
   /** Apply a mutation described as `prev => next`. */
   const update = useCallback(
-    (fn) => {
+    (fn: (prev: VttDoc) => VttDoc) => {
       commit(fn(docRef.current))
     },
     [commit]
@@ -109,7 +135,7 @@ export default function useVttDocument(initial) {
   const markSaved = useCallback(() => setDirty(false), [])
 
   /** Replace the document wholesale — used when the editor (re)loads. */
-  const reset = useCallback((raw) => {
+  const reset = useCallback((raw: RawVttDoc | null | undefined) => {
     const next = normalizeDoc(raw)
     undoStack.current = []
     redoStack.current = []
@@ -119,7 +145,7 @@ export default function useVttDocument(initial) {
     setDepths({ undo: 0, redo: 0 })
   }, [])
 
-  const counts = useMemo(
+  const counts = useMemo<FeatureCounts>(
     () => ({
       line_of_sight: doc.line_of_sight.length,
       objects_line_of_sight: doc.objects_line_of_sight.length,

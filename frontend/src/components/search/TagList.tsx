@@ -1,5 +1,9 @@
+export interface TagListProps {
+  tags: string[]
+}
+
 /** Simple inline tag chips for map/token search results. */
-export default function TagList({ tags }) {
+export default function TagList({ tags }: TagListProps) {
   return (
     <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
       {tags.map((tag) => (

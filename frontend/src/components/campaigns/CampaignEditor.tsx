@@ -1,13 +1,31 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX, LuTrash2, LuChevronLeft, LuImagePlus } from 'react-icons/lu'
-import api, { campaigns } from '../../api'
+import api, { campaigns, type Schema } from '../../api'
 import { useFavorites } from '../../context/FavoritesContext'
-import ResourcePicker from './ResourcePicker'
+import ResourcePicker, { type PickedResource } from './ResourcePicker'
 import ScheduleSetup from './ScheduleSetup'
 import { labelStyle, inputStyle, cancelBtn, submitBtn, deleteBtn } from './campaignEditorShared'
 
 const CUSTOM_SYSTEM = '__custom__'
+
+type Campaign = Schema<'CampaignOut'>
+
+/** The fields of a /systems row the system picker reads. */
+interface SystemRow {
+  id: string
+  name: string
+  container_kind?: string | null
+}
+
+export interface CampaignEditorProps {
+  campaign?: Campaign | null
+  isGmOrAdmin?: boolean
+  onClose: () => void
+  onSaved: (campaign: Campaign) => void
+  onDelete?: () => void
+  onScheduleChanged?: () => void
+}
 
 export default function CampaignEditor({
   campaign,
@@ -16,7 +34,7 @@ export default function CampaignEditor({
   onSaved,
   onDelete,
   onScheduleChanged,
-}) {
+}: CampaignEditorProps) {
   const { t } = useTranslation()
   const { isFavorite } = useFavorites()
   const isEdit = !!campaign
@@ -32,12 +50,12 @@ export default function CampaignEditor({
     system_name: campaign?.system_name ?? '',
     parent_campaign_id: campaign?.parent_campaign_id ?? '',
   })
-  const [selectedResources, setSelectedResources] = useState([])
-  const [bannerFile, setBannerFile] = useState(null)
-  const bannerInputRef = useRef(null)
-  const [systems, setSystems] = useState([])
+  const [selectedResources, setSelectedResources] = useState<PickedResource[]>([])
+  const [bannerFile, setBannerFile] = useState<File | null>(null)
+  const bannerInputRef = useRef<HTMLInputElement>(null)
+  const [systems, setSystems] = useState<SystemRow[]>([])
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
 
   // Container children (e.g. "Dungeons & Dragons 5e" under the "Dungeons &
   // Dragons" parent-system container) are the systems a campaign is actually
@@ -51,7 +69,8 @@ export default function CampaignEditor({
       .catch(() => {})
   }, [])
 
-  const set = (key, val) => setForm((f) => ({ ...f, [key]: val }))
+  const set = <K extends keyof typeof form>(key: K, val: (typeof form)[K]) =>
+    setForm((f) => ({ ...f, [key]: val }))
 
   // Split the form's system choice into the two backend fields.
   const systemFields = () => {
@@ -90,7 +109,7 @@ export default function CampaignEditor({
       }
       onSaved(result)
     } catch (err) {
-      setError(err.message)
+      setError((err as Error).message)
       setSaving(false)
     }
   }
@@ -106,15 +125,15 @@ export default function CampaignEditor({
         ...systemFields(),
         parent_campaign_id: form.parent_campaign_id || null,
       }
-      const result = await campaigns.update(campaign.id, payload)
+      const result = await campaigns.update(campaign!.id, payload)
       onSaved(result)
     } catch (err) {
-      setError(err.message)
+      setError((err as Error).message)
       setSaving(false)
     }
   }
 
-  const next = (e) => {
+  const next = (e: FormEvent) => {
     e.preventDefault()
     if (!form.name.trim()) {
       setError(t('campaignEditor.nameRequired'))
@@ -124,7 +143,7 @@ export default function CampaignEditor({
     setStep(1)
   }
 
-  const submitDetails = (e) => {
+  const submitDetails = (e: FormEvent) => {
     e.preventDefault()
     if (!form.name.trim()) {
       setError(t('campaignEditor.nameRequired'))

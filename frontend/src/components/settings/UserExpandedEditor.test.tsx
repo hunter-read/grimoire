@@ -1,8 +1,10 @@
+import type { ComponentProps } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import UserExpandedEditor from './UserExpandedEditor'
 import { auth, campaigns, shareLinks } from '../../api'
+import type { Schema } from '../../api'
 import { clearPasswordRulesCache } from '../../hooks/usePasswordRules'
 
 vi.mock('../../api', () => ({
@@ -12,17 +14,17 @@ vi.mock('../../api', () => ({
   shareLinks: { listForUser: vi.fn(() => Promise.resolve([])) },
 }))
 
-const status = (passwordMin) => ({
+const status = (passwordMin: number) => ({
   initialized: true,
   password_min_length: passwordMin,
   share_link_password_min_length: 8,
 })
 
 beforeEach(() => {
-  campaigns.adminListByUser.mockClear()
+  vi.mocked(campaigns.adminListByUser).mockClear()
   clearPasswordRulesCache()
-  auth.status.mockReset()
-  auth.status.mockResolvedValue(status(12))
+  vi.mocked(auth.status).mockReset()
+  vi.mocked(auth.status).mockResolvedValue(status(12))
 })
 
 const baseUser = {
@@ -32,9 +34,11 @@ const baseUser = {
   role: 'player',
   allow_explicit: true,
   campaign_access: true,
-}
+} as Schema<'UserOut'>
 
-function setup(overrides = {}) {
+type Props = ComponentProps<typeof UserExpandedEditor>
+
+function setup(overrides: Partial<Props> = {}) {
   const props = {
     user: baseUser,
     isSelf: false,
@@ -47,7 +51,7 @@ function setup(overrides = {}) {
     onEmailChange: vi.fn(),
     onDelete: vi.fn(),
     ...overrides,
-  }
+  } as Props
   render(<UserExpandedEditor {...props} />, { wrapper: MemoryRouter })
   return props
 }
@@ -138,7 +142,7 @@ describe('UserExpandedEditor', () => {
   })
 
   it('saves a new password through onPasswordReset', async () => {
-    const onPasswordReset = vi.fn().mockResolvedValue()
+    const onPasswordReset = vi.fn().mockResolvedValue(undefined)
     setup({ onPasswordReset })
     fireEvent.click(screen.getByText('Set Password'))
     fireEvent.change(screen.getByLabelText('New password (min 12)'), {
@@ -161,8 +165,8 @@ describe('UserExpandedEditor', () => {
   })
 
   it("uses the server's minimum when it has been changed", async () => {
-    auth.status.mockResolvedValue(status(16))
-    const onPasswordReset = vi.fn().mockResolvedValue()
+    vi.mocked(auth.status).mockResolvedValue(status(16))
+    const onPasswordReset = vi.fn().mockResolvedValue(undefined)
     setup({ onPasswordReset })
     fireEvent.click(screen.getByText('Set Password'))
     const input = await screen.findByLabelText('New password (min 16)')
@@ -192,7 +196,7 @@ describe('UserExpandedEditor', () => {
   })
 
   it('saves an edited email through onEmailChange', async () => {
-    const onEmailChange = vi.fn().mockResolvedValue()
+    const onEmailChange = vi.fn().mockResolvedValue(undefined)
     setup({ onEmailChange })
     fireEvent.change(screen.getByLabelText('user@example.com'), {
       target: { value: 'new@b.com' },

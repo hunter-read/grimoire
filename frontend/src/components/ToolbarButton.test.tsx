@@ -24,6 +24,6 @@ describe('ToolbarButton', () => {
 
   it('applies a stable minWidth', () => {
     render(<ToolbarButton label="Wide" minWidth={140} />)
-    expect(screen.getByText('Wide').closest('button').style.minWidth).toBe('140px')
+    expect(screen.getByText('Wide').closest('button')!.style.minWidth).toBe('140px')
   })
 })

@@ -1,4 +1,20 @@
-export default function IconBtn({ onClick, children, title, active, style: extraStyle }) {
+import type { CSSProperties, MouseEventHandler, ReactNode } from 'react'
+
+export interface IconBtnProps {
+  onClick?: MouseEventHandler<HTMLButtonElement>
+  children?: ReactNode
+  title?: string
+  active?: boolean
+  style?: CSSProperties
+}
+
+export default function IconBtn({
+  onClick,
+  children,
+  title,
+  active,
+  style: extraStyle,
+}: IconBtnProps) {
   return (
     <button
       onClick={onClick}

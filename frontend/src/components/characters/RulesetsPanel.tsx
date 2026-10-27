@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
+import type { FormEvent } from 'react'
+import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import {
   LuArrowLeft,
@@ -15,6 +17,7 @@ import {
   content as contentApi,
   campaigns as campaignsApi,
 } from '../../api'
+import type { Schema } from '../../api'
 import Spinner from '../Spinner'
 import RulesetEntryDialog from './RulesetEntryDialog'
 import InstalledPacks from './InstalledPacks'
@@ -47,7 +50,16 @@ import {
  * Rendered inside the sheet manager, so it draws no page chrome of its own.
  */
 // Where a ruleset reaches: its campaign, just its owner, or every game.
-function scopeLabel(t, ruleset) {
+type Ruleset = Schema<'RulesetSummary'>
+type RulesetEntry = Schema<'RulesetEntrySummary'>
+
+// The entry dialog's subject: a content type, and the entry when editing one.
+interface Editing {
+  contentType: string
+  entry?: RulesetEntry
+}
+
+function scopeLabel(t: TFunction, ruleset: Ruleset): string {
   if (ruleset.personal) return t('rulesets.personal')
   return ruleset.campaign_name || t('rulesets.serverWide')
 }
@@ -56,10 +68,10 @@ export default function RulesetsPanel() {
   const { t } = useTranslation()
 
   const [loading, setLoading] = useState(true)
-  const [rulesets, setRulesets] = useState([])
-  const [schemas, setSchemas] = useState([])
-  const [campaigns, setCampaigns] = useState([])
-  const [packs, setPacks] = useState([])
+  const [rulesets, setRulesets] = useState<Ruleset[]>([])
+  const [schemas, setSchemas] = useState<Schema<'SchemaSummary'>[]>([])
+  const [campaigns, setCampaigns] = useState<Schema<'CampaignOut'>[]>([])
+  const [packs, setPacks] = useState<Schema<'InstallablePack'>[]>([])
   const [error, setError] = useState('')
 
   const [creating, setCreating] = useState(false)
@@ -72,10 +84,10 @@ export default function RulesetsPanel() {
   const [pasteTarget, setPasteTarget] = useState('')
   const [pasteConflict, setPasteConflict] = useState('skip')
 
-  const [open, setOpen] = useState(null)
-  const [entries, setEntries] = useState([])
-  const [types, setTypes] = useState([])
-  const [editing, setEditing] = useState(null)
+  const [open, setOpen] = useState<Ruleset | null>(null)
+  const [entries, setEntries] = useState<RulesetEntry[]>([])
+  const [types, setTypes] = useState<Schema<'ContentTypeSummary'>[]>([])
+  const [editing, setEditing] = useState<Editing | null>(null)
   const [addingType, setAddingType] = useState('')
 
   const load = useCallback(async () => {
@@ -84,14 +96,18 @@ export default function RulesetsPanel() {
       const [list, schemaList, campaignList] = await Promise.all([
         rulesetsApi.list(),
         charactersApi.listSchemas(),
-        campaignsApi.list().catch(() => []),
+        campaignsApi.list().catch((): Schema<'CampaignOut'>[] => []),
       ])
       setRulesets(list.rulesets || [])
       setSchemas(schemaList.schemas || [])
-      setCampaigns(Array.isArray(campaignList) ? campaignList : campaignList?.campaigns || [])
+      setCampaigns(
+        Array.isArray(campaignList)
+          ? campaignList
+          : (campaignList as { campaigns?: Schema<'CampaignOut'>[] } | null)?.campaigns || []
+      )
       setError('')
     } catch (e) {
-      setError(e.message || t('rulesets.loadFailed'))
+      setError((e as Error).message || t('rulesets.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -108,8 +124,12 @@ export default function RulesetsPanel() {
     let cancelled = false
     Promise.all([
       rulesetsApi.entries(open.id),
-      contentApi.types(open.schema_id).catch(() => ({ content_types: [] })),
-      rulesetsApi.installable(open.schema_id).catch(() => ({ packs: [] })),
+      contentApi
+        .types(open.schema_id)
+        .catch((): Schema<'ContentTypeListResponse'> => ({ content_types: [] })),
+      rulesetsApi
+        .installable(open.schema_id)
+        .catch((): Schema<'InstallablePackListResponse'> => ({ packs: [] })),
     ])
       .then(([entryList, typeList, packList]) => {
         if (cancelled) return
@@ -117,7 +137,7 @@ export default function RulesetsPanel() {
         setTypes(typeList.content_types || [])
         setPacks(packList.packs || [])
       })
-      .catch((e) => {
+      .catch((e: Error) => {
         if (!cancelled) setError(e.message)
       })
     return () => {
@@ -125,7 +145,7 @@ export default function RulesetsPanel() {
     }
   }, [open])
 
-  const create = async (event) => {
+  const create = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     try {
       const created = await rulesetsApi.create({
@@ -139,37 +159,37 @@ export default function RulesetsPanel() {
       load()
       setOpen(created)
     } catch (e) {
-      setError(e.message)
+      setError((e as Error).message)
     }
   }
 
-  const remove = async (ruleset) => {
+  const remove = async (ruleset: Ruleset) => {
     if (!window.confirm(t('rulesets.confirmDelete', { name: ruleset.name }))) return
     try {
       await rulesetsApi.remove(ruleset.id)
       setOpen(null)
       load()
     } catch (e) {
-      setError(e.message)
+      setError((e as Error).message)
     }
   }
 
-  const importPack = async (packId) => {
+  const importPack = async (packId: string) => {
     try {
-      const result = await rulesetsApi.import(open.id, { pack_id: packId })
-      const refreshed = await rulesetsApi.entries(open.id)
+      const result = await rulesetsApi.import(open!.id, { pack_id: packId })
+      const refreshed = await rulesetsApi.entries(open!.id)
       setEntries(refreshed.entries || [])
       load()
       window.alert(t('rulesets.importResult', result))
     } catch (e) {
-      setError(e.message)
+      setError((e as Error).message)
     }
   }
 
   // Importing a document into a ruleset the user picks. Separate from the
   // pack import inside an open ruleset: this is "I was sent a file", which is
   // reached before choosing which ruleset it belongs in.
-  const importDocument = async (event) => {
+  const importDocument = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     try {
       const result = await rulesetsApi.import(pasteTarget, {
@@ -182,29 +202,29 @@ export default function RulesetsPanel() {
       load()
       window.alert(t('rulesets.importResult', result))
     } catch (e) {
-      setError(e.message)
+      setError((e as Error).message)
     }
   }
 
-  const removeEntry = async (entry) => {
+  const removeEntry = async (entry: RulesetEntry) => {
     if (!window.confirm(t('rulesets.confirmDeleteEntry', { name: entry.name }))) return
     try {
-      await rulesetsApi.removeEntry(open.id, entry.id)
+      await rulesetsApi.removeEntry(open!.id, entry.id)
       setEntries((prev) => prev.filter((row) => row.id !== entry.id))
     } catch (e) {
-      setError(e.message)
+      setError((e as Error).message)
     }
   }
 
   const refreshEntries = async () => {
-    const refreshed = await rulesetsApi.entries(open.id)
+    const refreshed = await rulesetsApi.entries(open!.id)
     setEntries(refreshed.entries || [])
     load()
   }
 
   if (loading) return <Spinner />
 
-  const sheetName = (schemaId) =>
+  const sheetName = (schemaId: string) =>
     schemas.find((schema) => schema.schema_id === schemaId)?.name || schemaId
 
   // --- one ruleset, opened ------------------------------------------------

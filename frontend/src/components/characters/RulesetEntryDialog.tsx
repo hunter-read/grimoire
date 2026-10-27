@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react'
+import type { FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX } from 'react-icons/lu'
 import { rulesets as rulesetsApi } from '../../api'
+import type { Schema } from '../../api'
 import FieldRenderer from './FieldRenderer'
+import type { FieldDefinition } from './FieldRenderer'
 import { goldBtn, ghostBtn, iconBtn } from './characterStyles'
 
 /**
@@ -13,6 +16,20 @@ import { goldBtn, ghostBtn, iconBtn } from './characterStyles'
  * a catalog entry. A content type is a field schema applied to entries, so
  * authoring one needs no bespoke form.
  */
+type EntryDetail = Schema<'RulesetEntryDetail'>
+
+export interface RulesetEntryDialogProps {
+  rulesetId: string
+  contentType: string
+  // A content type's definition; only its `fields` are read.
+  typeDefinition?: { fields?: Record<string, unknown> }
+  // The entry being edited, or none for a new one. A list row carries no
+  // `data`, so it is optional here.
+  entry?: (Pick<EntryDetail, 'id'> & { data?: Record<string, unknown> }) | null
+  onSaved?: (saved: EntryDetail) => void
+  onClose?: () => void
+}
+
 export default function RulesetEntryDialog({
   rulesetId,
   contentType,
@@ -20,34 +37,34 @@ export default function RulesetEntryDialog({
   entry = null,
   onSaved,
   onClose,
-}) {
+}: RulesetEntryDialogProps) {
   const { t } = useTranslation()
-  const [data, setData] = useState(entry?.data || {})
+  const [data, setData] = useState<Record<string, unknown>>(entry?.data || {})
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const fields = typeDefinition.fields || {}
+  const fields = (typeDefinition.fields || {}) as Record<string, FieldDefinition>
   const editing = !!entry?.id
 
   useEffect(() => {
-    const onKey = (event) => {
+    const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose?.()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const save = async (event) => {
+  const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setSaving(true)
     try {
       const saved = editing
-        ? await rulesetsApi.updateEntry(rulesetId, entry.id, { data })
+        ? await rulesetsApi.updateEntry(rulesetId, entry!.id, { data })
         : await rulesetsApi.createEntry(rulesetId, { content_type: contentType, data })
       onSaved?.(saved)
       onClose?.()
     } catch (e) {
-      setError(e.message)
+      setError((e as Error).message)
     } finally {
       setSaving(false)
     }

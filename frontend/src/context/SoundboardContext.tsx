@@ -1,7 +1,77 @@
-import { createContext, useContext, useRef, useState, useCallback, useEffect } from 'react'
-import api, { mediaUrl } from '../api'
+import {
+  createContext,
+  useContext,
+  useRef,
+  useState,
+  useCallback,
+  useEffect,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+} from 'react'
+import api, { mediaUrl, type Schema } from '../api'
 
-const SoundboardContext = createContext(null)
+/** One pad on the board. */
+export interface SoundboardPad {
+  id: string
+  title: string
+  loop: boolean
+  /** 0..1; a pad without one plays at full volume. */
+  volume?: number
+  /** Set once a lazy GET /audio/:id has resolved (or failed) for this pad. */
+  _hydrated?: boolean
+}
+
+/** What `addPads` / `replacePads` accept: any track-like object with an id. */
+export interface SoundboardTrack {
+  id: string
+  title?: string
+  loop?: boolean
+}
+
+export interface SoundboardLayout {
+  cols: number
+  rows: number
+}
+
+/** Where the user dragged the panel; null means pinned bottom-right. */
+export interface SoundboardPosition {
+  left: number
+  top: number
+}
+
+/** What `trigger`/`toggle` read: an id, and the pad's loop and volume if set. */
+export type SoundboardPadRef = Pick<SoundboardPad, 'id'> & Partial<SoundboardPad>
+
+export interface SoundboardContextValue {
+  pads: SoundboardPad[]
+  layout: SoundboardLayout
+  position: SoundboardPosition | null
+  open: boolean
+  editing: boolean
+  // actions
+  addPads: (tracks: SoundboardTrack | SoundboardTrack[] | null | undefined) => number
+  removePad: (id: string) => void
+  movePad: (from: number, to: number) => void
+  setPadLoop: (id: string, loop: boolean) => void
+  clearPads: () => void
+  replacePads: (tracks: SoundboardTrack | SoundboardTrack[] | null | undefined) => number
+  trigger: (pad: SoundboardPadRef | null | undefined) => void
+  toggle: (pad: SoundboardPadRef | null | undefined) => void
+  stop: (id: string) => void
+  stopAll: () => void
+  setPosition: Dispatch<SetStateAction<SoundboardPosition | null>>
+  resetPosition: () => void
+  updateLayout: (next: Partial<SoundboardLayout>) => void
+  setOpen: Dispatch<SetStateAction<boolean>>
+  toggleOpen: () => void
+  setEditing: Dispatch<SetStateAction<boolean>>
+  // selectors
+  hasPad: (id: string) => boolean
+  isPadPlaying: (id: string) => boolean
+}
+
+const SoundboardContext = createContext<SoundboardContextValue | null>(null)
 
 const PADS_KEY = 'grimoire:soundboard:pads'
 const LAYOUT_KEY = 'grimoire:soundboard:layout'
@@ -14,16 +84,18 @@ export const MAX_COLS = 8
 export const MIN_ROWS = 1
 export const MAX_ROWS = 15
 
-export const DEFAULT_LAYOUT = { cols: 4, rows: 4 }
+export const DEFAULT_LAYOUT: SoundboardLayout = { cols: 4, rows: 4 }
 
-const clamp = (n, lo, hi) => Math.min(Math.max(n, lo), hi)
+const clamp = (n: number, lo: number, hi: number) => Math.min(Math.max(n, lo), hi)
 
-export const clampLayout = (layout) => ({
+export const clampLayout = (
+  layout: Partial<Record<keyof SoundboardLayout, unknown>> | null | undefined
+): SoundboardLayout => ({
   cols: clamp(Math.round(Number(layout?.cols) || DEFAULT_LAYOUT.cols), MIN_COLS, MAX_COLS),
   rows: clamp(Math.round(Number(layout?.rows) || DEFAULT_LAYOUT.rows), MIN_ROWS, MAX_ROWS),
 })
 
-function readStored(key, fallback) {
+function readStored(key: string, fallback: unknown): unknown {
   try {
     const raw = localStorage.getItem(key)
     return raw === null ? fallback : JSON.parse(raw)
@@ -32,7 +104,7 @@ function readStored(key, fallback) {
   }
 }
 
-function writeStored(key, value) {
+function writeStored(key: string, value: unknown): void {
   try {
     localStorage.setItem(key, JSON.stringify(value))
   } catch {}
@@ -44,8 +116,12 @@ function writeStored(key, value) {
  * not a per-visit queue, so unlike the audio queue (sessionStorage) it is kept
  * indefinitely.
  */
-function usePersistentState(key, initial, hydrate = (v) => v) {
-  const [value, setValue] = useState(() => hydrate(readStored(key, initial)))
+function usePersistentState<T>(
+  key: string,
+  initial: T,
+  hydrate: (stored: unknown) => T = (v) => v as T
+): [T, Dispatch<SetStateAction<T>>] {
+  const [value, setValue] = useState<T>(() => hydrate(readStored(key, initial)))
   const first = useRef(true)
   useEffect(() => {
     // Skip the write on mount so simply opening the app doesn't rewrite storage.
@@ -60,7 +136,8 @@ function usePersistentState(key, initial, hydrate = (v) => v) {
 
 // A pad needs hydrating if it was added with only an id (campaign resource, note
 // embed) and we haven't already resolved — or failed — a lookup for it.
-const needsHydration = (p) => p && p.id && !p.title && !p._hydrated
+const needsHydration = (p: SoundboardPad | null | undefined) =>
+  p && p.id && !p.title && !p._hydrated
 
 /**
  * The soundboard: a movable grid of one-shot sound pads that play *over*
@@ -73,33 +150,40 @@ const needsHydration = (p) => p && p.id && !p.title && !p._hydrated
  *
  * Pads, grid size, and panel position all persist in localStorage.
  */
-export function SoundboardProvider({ children }) {
-  const [pads, setPads] = usePersistentState(PADS_KEY, [], (v) => (Array.isArray(v) ? v : []))
-  const [layout, setLayout] = usePersistentState(LAYOUT_KEY, DEFAULT_LAYOUT, clampLayout)
+export function SoundboardProvider({ children }: { children?: ReactNode }) {
+  const [pads, setPads] = usePersistentState<SoundboardPad[]>(PADS_KEY, [], (v) =>
+    Array.isArray(v) ? v : []
+  )
+  const [layout, setLayout] = usePersistentState(
+    LAYOUT_KEY,
+    DEFAULT_LAYOUT,
+    clampLayout as (stored: unknown) => SoundboardLayout
+  )
   // null position means "unplaced" — the panel pins itself to the bottom-right
   // corner until the user drags it somewhere.
-  const [position, setPosition] = usePersistentState(POSITION_KEY, null)
+  const [position, setPosition] = usePersistentState<SoundboardPosition | null>(POSITION_KEY, null)
 
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState(false)
   // Ids of pads with a sound currently playing, for the pad's active styling.
-  const [playingIds, setPlayingIds] = useState(() => new Set())
+  const [playingIds, setPlayingIds] = useState(() => new Set<string>())
 
   // Live <audio> elements keyed by pad id. Never persisted — a reload starts
   // silent, which is what you want from a sound-effects board.
-  const elements = useRef(new Map())
+  const elements = useRef(new Map<string, HTMLAudioElement>())
 
-  const markPlaying = useCallback((id, playing) => {
+  const markPlaying = useCallback((id: string, playing: boolean) => {
     setPlayingIds((prev) => {
       if (playing === prev.has(id)) return prev
       const next = new Set(prev)
-      playing ? next.add(id) : next.delete(id)
+      if (playing) next.add(id)
+      else next.delete(id)
       return next
     })
   }, [])
 
   const stop = useCallback(
-    (id) => {
+    (id: string) => {
       const el = elements.current.get(id)
       if (el) {
         el.pause()
@@ -115,16 +199,17 @@ export function SoundboardProvider({ children }) {
    * stopping — a soundboard button should always make its noise.
    */
   const trigger = useCallback(
-    (pad) => {
+    (pad: SoundboardPadRef | null | undefined) => {
       if (!pad || !pad.id) return
       let el = elements.current.get(pad.id)
       if (!el) {
-        el = new Audio(mediaUrl(`/audio/${pad.id}/file`))
-        el.addEventListener('ended', () => {
-          if (!el.loop) markPlaying(pad.id, false)
+        const created = new Audio(mediaUrl(`/audio/${pad.id}/file`))
+        el = created
+        created.addEventListener('ended', () => {
+          if (!created.loop) markPlaying(pad.id, false)
         })
-        el.addEventListener('pause', () => {
-          if (el.currentTime === 0 || el.ended) markPlaying(pad.id, false)
+        created.addEventListener('pause', () => {
+          if (created.currentTime === 0 || created.ended) markPlaying(pad.id, false)
         })
         elements.current.set(pad.id, el)
       }
@@ -140,7 +225,7 @@ export function SoundboardProvider({ children }) {
 
   /** Tap behaviour: a looping pad toggles, a one-shot always (re)fires. */
   const toggle = useCallback(
-    (pad) => {
+    (pad: SoundboardPadRef | null | undefined) => {
       if (pad?.loop && playingIds.has(pad.id)) {
         stop(pad.id)
         return
@@ -166,8 +251,10 @@ export function SoundboardProvider({ children }) {
    * @returns {number} how many pads were actually added
    */
   const addPads = useCallback(
-    (tracks) => {
-      const list = (Array.isArray(tracks) ? tracks : [tracks]).filter((t) => t && t.id)
+    (tracks: SoundboardTrack | SoundboardTrack[] | null | undefined) => {
+      const list = (Array.isArray(tracks) ? tracks : [tracks]).filter(
+        (t): t is SoundboardTrack => !!t && !!t.id
+      )
       if (list.length === 0) return 0
 
       // Work out what is new against the current `pads` before updating, so the
@@ -175,7 +262,7 @@ export function SoundboardProvider({ children }) {
       // an updater can run more than once per commit, which would make a
       // counter assigned in it unreliable.
       const existing = new Set(pads.map((p) => p.id))
-      const fresh = []
+      const fresh: SoundboardPad[] = []
       list.forEach((t) => {
         if (existing.has(t.id)) return
         existing.add(t.id)
@@ -197,7 +284,7 @@ export function SoundboardProvider({ children }) {
   )
 
   const removePad = useCallback(
-    (id) => {
+    (id: string) => {
       stop(id)
       elements.current.delete(id)
       setPads((prev) => prev.filter((p) => p.id !== id))
@@ -206,7 +293,7 @@ export function SoundboardProvider({ children }) {
   )
 
   const setPadLoop = useCallback(
-    (id, loop) => {
+    (id: string, loop: boolean) => {
       setPads((prev) => prev.map((p) => (p.id === id ? { ...p, loop } : p)))
       const el = elements.current.get(id)
       if (el) el.loop = loop
@@ -216,7 +303,7 @@ export function SoundboardProvider({ children }) {
 
   /** Move the pad at `from` to index `to`, for drag-to-rearrange in edit mode. */
   const movePad = useCallback(
-    (from, to) => {
+    (from: number, to: number) => {
       setPads((prev) => {
         if (from === to || from < 0 || to < 0 || from >= prev.length || to >= prev.length)
           return prev
@@ -245,12 +332,14 @@ export function SoundboardProvider({ children }) {
    * also means the board never renders empty in between.
    */
   const replacePads = useCallback(
-    (tracks) => {
-      const list = (Array.isArray(tracks) ? tracks : [tracks]).filter((t) => t && t.id)
+    (tracks: SoundboardTrack | SoundboardTrack[] | null | undefined) => {
+      const list = (Array.isArray(tracks) ? tracks : [tracks]).filter(
+        (t): t is SoundboardTrack => !!t && !!t.id
+      )
       stopAll()
       elements.current.clear()
-      const seen = new Set()
-      const next = []
+      const seen = new Set<string>()
+      const next: SoundboardPad[] = []
       list.forEach((t) => {
         if (seen.has(t.id)) return
         seen.add(t.id)
@@ -264,15 +353,15 @@ export function SoundboardProvider({ children }) {
   )
 
   const updateLayout = useCallback(
-    (next) => setLayout((prev) => clampLayout({ ...prev, ...next })),
+    (next: Partial<SoundboardLayout>) => setLayout((prev) => clampLayout({ ...prev, ...next })),
     [setLayout]
   )
 
   const resetPosition = useCallback(() => setPosition(null), [setPosition])
 
-  const hasPad = useCallback((id) => pads.some((p) => p.id === id), [pads])
+  const hasPad = useCallback((id: string) => pads.some((p) => p.id === id), [pads])
 
-  const isPadPlaying = useCallback((id) => playingIds.has(id), [playingIds])
+  const isPadPlaying = useCallback((id: string) => playingIds.has(id), [playingIds])
 
   const toggleOpen = useCallback(() => setOpen((o) => !o), [])
 
@@ -288,7 +377,7 @@ export function SoundboardProvider({ children }) {
 
   // Lazily fill in titles for pads added with only an id. Each id is fetched at
   // most once; a failure marks the pad resolved so we don't retry forever.
-  const hydrating = useRef(new Set())
+  const hydrating = useRef(new Set<string>())
   useEffect(() => {
     const pending = pads.filter((p) => needsHydration(p) && !hydrating.current.has(p.id))
     if (pending.length === 0) return
@@ -297,7 +386,8 @@ export function SoundboardProvider({ children }) {
     ids.forEach((id) => {
       api
         .get(`/audio/${id}`)
-        .then((data) => {
+        .then((raw) => {
+          const data = raw as Schema<'AudioDetailResponse'>
           setPads((prev) =>
             prev.map((p) =>
               p.id === id
@@ -315,7 +405,7 @@ export function SoundboardProvider({ children }) {
     })
   }, [pads, setPads])
 
-  const value = {
+  const value: SoundboardContextValue = {
     pads,
     layout,
     position,
@@ -346,7 +436,7 @@ export function SoundboardProvider({ children }) {
   return <SoundboardContext.Provider value={value}>{children}</SoundboardContext.Provider>
 }
 
-export function useSoundboard() {
+export function useSoundboard(): SoundboardContextValue {
   const ctx = useContext(SoundboardContext)
   // A no-op fallback keeps "add to soundboard" buttons safe to render in
   // isolated component tests that don't wrap with the provider.
@@ -354,7 +444,7 @@ export function useSoundboard() {
 }
 
 const NOOP = () => {}
-const NOOP_BOARD = {
+const NOOP_BOARD: SoundboardContextValue = {
   pads: [],
   layout: DEFAULT_LAYOUT,
   position: null,

@@ -6,8 +6,8 @@ import CharacterPlacement from './CharacterPlacement'
 const mockUpdate = vi.fn()
 const mockCampaigns = vi.fn()
 vi.mock('../../api', () => ({
-  campaigns: { list: (...a) => mockCampaigns(...a) },
-  characters: { update: (...a) => mockUpdate(...a) },
+  campaigns: { list: (...a: unknown[]) => mockCampaigns(...a) },
+  characters: { update: (...a: unknown[]) => mockUpdate(...a) },
 }))
 
 const CHARACTER = { id: 'c1', name: 'Vex', campaign_id: null, status: 'active' }

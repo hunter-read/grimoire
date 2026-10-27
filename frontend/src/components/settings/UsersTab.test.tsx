@@ -16,6 +16,10 @@ vi.mock('../../context/AuthContext', () => ({
 }))
 
 import api, { auth, settings as settingsApi } from '../../api'
+import type { Schema } from '../../api'
+
+type AuthConfig = Schema<'AuthConfigResponse'>
+type Settings = Schema<'SettingsResponse'>
 
 const users = [
   {
@@ -45,11 +49,11 @@ const shareDefaults = {
 
 beforeEach(() => {
   vi.resetAllMocks()
-  api.get.mockResolvedValue(users)
-  auth.config.mockResolvedValue({ password_auth_enabled: true })
+  vi.mocked(api.get).mockResolvedValue(users)
+  vi.mocked(auth.config).mockResolvedValue({ password_auth_enabled: true } as AuthConfig)
   // The password minimums: the defaults, as every test here starts from them.
-  auth.status.mockRejectedValue(new Error('not needed'))
-  settingsApi.get.mockResolvedValue(shareDefaults)
+  vi.mocked(auth.status).mockRejectedValue(new Error('not needed'))
+  vi.mocked(settingsApi.get).mockResolvedValue(shareDefaults as Settings)
 })
 
 describe('UsersTab', () => {
@@ -69,7 +73,7 @@ describe('UsersTab', () => {
   })
 
   it('expands a row and patches the role from the editor', async () => {
-    api.patch.mockResolvedValue({ id: 'user-2', role: 'gm' })
+    vi.mocked(api.patch).mockResolvedValue({ id: 'user-2', role: 'gm' })
     render(<UsersTab />, { wrapper: MemoryRouter })
     await screen.findByText('bob')
     fireEvent.click(screen.getByText('bob'))
@@ -78,7 +82,7 @@ describe('UsersTab', () => {
   })
 
   it('deletes a user and removes the row', async () => {
-    api.delete.mockResolvedValue({})
+    vi.mocked(api.delete).mockResolvedValue({})
     render(<UsersTab />, { wrapper: MemoryRouter })
     await screen.findByText('bob')
     fireEvent.click(screen.getByText('bob'))
@@ -89,7 +93,7 @@ describe('UsersTab', () => {
   })
 
   it('shows an error when a patch fails', async () => {
-    api.patch.mockRejectedValue(new Error('nope'))
+    vi.mocked(api.patch).mockRejectedValue(new Error('nope'))
     render(<UsersTab />, { wrapper: MemoryRouter })
     await screen.findByText('bob')
     fireEvent.click(screen.getByText('bob'))
@@ -98,7 +102,7 @@ describe('UsersTab', () => {
   })
 
   it('hides the password setter when password auth is disabled', async () => {
-    auth.config.mockResolvedValue({ password_auth_enabled: false })
+    vi.mocked(auth.config).mockResolvedValue({ password_auth_enabled: false } as AuthConfig)
     render(<UsersTab />, { wrapper: MemoryRouter })
     await screen.findByText('bob')
     fireEvent.click(screen.getByText('bob'))
@@ -106,7 +110,7 @@ describe('UsersTab', () => {
   })
 
   it('toggles explicit content for a user', async () => {
-    api.patch.mockResolvedValue({ id: 'user-2', allow_explicit: true })
+    vi.mocked(api.patch).mockResolvedValue({ id: 'user-2', allow_explicit: true })
     render(<UsersTab />, { wrapper: MemoryRouter })
     await screen.findByText('bob')
     fireEvent.click(screen.getByText('bob'))
@@ -117,7 +121,7 @@ describe('UsersTab', () => {
   })
 
   it('grants API keys to a user and shows the badge', async () => {
-    api.patch.mockResolvedValue({ id: 'user-2', api_keys_enabled: true })
+    vi.mocked(api.patch).mockResolvedValue({ id: 'user-2', api_keys_enabled: true })
     render(<UsersTab />, { wrapper: MemoryRouter })
     await screen.findByText('bob')
     // The admin row carries the badge already; bob's does not until granted.
@@ -131,7 +135,7 @@ describe('UsersTab', () => {
   })
 
   it('shows an error when granting API keys fails', async () => {
-    api.patch.mockRejectedValue(new Error('nope'))
+    vi.mocked(api.patch).mockRejectedValue(new Error('nope'))
     render(<UsersTab />, { wrapper: MemoryRouter })
     await screen.findByText('bob')
     fireEvent.click(screen.getByText('bob'))
@@ -140,7 +144,7 @@ describe('UsersTab', () => {
   })
 
   it('saves an edited email', async () => {
-    api.patch.mockResolvedValue({ id: 'user-2', email: 'new@x.com' })
+    vi.mocked(api.patch).mockResolvedValue({ id: 'user-2', email: 'new@x.com' })
     render(<UsersTab />, { wrapper: MemoryRouter })
     await screen.findByText('bob')
     fireEvent.click(screen.getByText('bob'))
@@ -154,7 +158,7 @@ describe('UsersTab', () => {
   })
 
   it('resets a password', async () => {
-    api.patch.mockResolvedValue({})
+    vi.mocked(api.patch).mockResolvedValue({})
     render(<UsersTab />, { wrapper: MemoryRouter })
     await screen.findByText('bob')
     fireEvent.click(screen.getByText('bob'))
@@ -169,7 +173,12 @@ describe('UsersTab', () => {
   })
 
   it('adds a new user to the table', async () => {
-    api.post.mockResolvedValue({ id: 'user-3', username: 'carol', role: 'gm', campaign_count: 0 })
+    vi.mocked(api.post).mockResolvedValue({
+      id: 'user-3',
+      username: 'carol',
+      role: 'gm',
+      campaign_count: 0,
+    })
     render(<UsersTab />, { wrapper: MemoryRouter })
     await screen.findByText('admin')
     fireEvent.click(screen.getByText('Add User'))
@@ -184,7 +193,11 @@ describe('UsersTab', () => {
     // The share-link role defaults moved to Settings > Access & sharing
     // (ShareLinkRolesSection.test); the roster keeps only the per-user override.
     it("patches a user's override from the editor", async () => {
-      api.patch.mockResolvedValue({ id: 'user-2', share_links: 'allow', share_links_allowed: true })
+      vi.mocked(api.patch).mockResolvedValue({
+        id: 'user-2',
+        share_links: 'allow',
+        share_links_allowed: true,
+      })
       render(<UsersTab />, { wrapper: MemoryRouter })
       fireEvent.click(await screen.findByText('bob'))
       fireEvent.change(screen.getByLabelText('Share links'), { target: { value: 'allow' } })
@@ -194,7 +207,7 @@ describe('UsersTab', () => {
     })
 
     it('shows an error when the override fails', async () => {
-      api.patch.mockRejectedValue(new Error('no way'))
+      vi.mocked(api.patch).mockRejectedValue(new Error('no way'))
       render(<UsersTab />, { wrapper: MemoryRouter })
       fireEvent.click(await screen.findByText('bob'))
       fireEvent.change(screen.getByLabelText('Share links'), { target: { value: 'deny' } })
@@ -203,7 +216,7 @@ describe('UsersTab', () => {
   })
 
   it('dismisses the error banner', async () => {
-    api.patch.mockRejectedValue(new Error('boom'))
+    vi.mocked(api.patch).mockRejectedValue(new Error('boom'))
     render(<UsersTab />, { wrapper: MemoryRouter })
     await screen.findByText('bob')
     fireEvent.click(screen.getByText('bob'))

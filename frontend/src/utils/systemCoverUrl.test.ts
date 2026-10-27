@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { systemCoverUrl } from './systemCoverUrl'
 
 vi.mock('../api', () => ({
-  mediaUrl: (path) => `/api${path}`,
+  mediaUrl: (path: string) => `/api${path}`,
 }))
 
 describe('systemCoverUrl', () => {

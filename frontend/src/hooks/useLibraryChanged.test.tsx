@@ -2,14 +2,14 @@ import { describe, it, expect, vi } from 'vitest'
 import { render } from '@testing-library/react'
 import { act } from 'react'
 import useLibraryChanged from './useLibraryChanged'
-import { LIBRARY_CHANGED } from './useFileActions'
+import { LIBRARY_CHANGED, type LibraryChange } from './useFileActions'
 
-function Host({ handler }) {
+function Host({ handler }: { handler?: ((detail: LibraryChange) => void) | null }) {
   useLibraryChanged(handler)
   return null
 }
 
-const fire = (detail) =>
+const fire = (detail: unknown) =>
   act(() => {
     window.dispatchEvent(new CustomEvent(LIBRARY_CHANGED, { detail }))
   })

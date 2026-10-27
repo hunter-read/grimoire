@@ -1,7 +1,17 @@
+import type { Schema } from '../../api'
 import { formatDuration, formatSize } from '../../utils'
 
+type AudioOut = Schema<'AudioOut'>
+
+/** The fields `trackLabel` reads; only the filename is always present. */
+type TrackItem = Pick<AudioOut, 'filename'> &
+  Partial<Pick<AudioOut, 'title' | 'is_archive' | 'track_number'>>
+
+/** The fields `trackDetails` reads, any of which may be missing. */
+type TrackDetailsItem = Partial<Pick<AudioOut, 'artist' | 'album' | 'file_size' | 'duration'>>
+
 /** `01 - Thorwal.mp3` -> `01 - Thorwal`. A name with no extension is unchanged. */
-export function stripExtension(filename = '') {
+export function stripExtension(filename = ''): string {
   const dot = filename.lastIndexOf('.')
   return dot > 0 ? filename.slice(0, dot) : filename
 }
@@ -16,7 +26,7 @@ export function stripExtension(filename = '') {
  * keep their whole filename, extension included, as the one clue to what they
  * are.
  */
-export function trackLabel(item) {
+export function trackLabel(item: TrackItem): string {
   if (item.is_archive) return item.filename
   if (!item.title) return stripExtension(item.filename)
   if (!item.track_number) return item.title
@@ -27,9 +37,9 @@ export function trackLabel(item) {
  * The secondary line under a track's label: `artist · album · duration`. A file
  * with neither tag shows its size in their place, as every row did before.
  */
-export function trackDetails(item) {
+export function trackDetails(item: TrackDetailsItem): string {
   const parts = [item.artist, item.album].filter(Boolean)
   if (!parts.length) parts.push(formatSize(item.file_size || 0))
-  if (item.duration > 0) parts.push(formatDuration(item.duration))
+  if ((item.duration ?? 0) > 0) parts.push(formatDuration(item.duration))
   return parts.join(' · ')
 }

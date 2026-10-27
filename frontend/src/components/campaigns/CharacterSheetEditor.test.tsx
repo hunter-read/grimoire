@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import CharacterSheetEditor from './CharacterSheetEditor'
 import SheetTemplatePicker from './SheetTemplatePicker'
@@ -14,17 +15,24 @@ vi.mock('../../api', () => ({
 
 import { campaigns } from '../../api'
 
+// The api module is mocked above; reach its helpers as plain vi.fn()s.
+// The sheet-fields helpers are gone from the real api module (see the component).
+const campaignsMock = campaigns as unknown as Record<
+  keyof typeof campaigns | 'getMemberSheetFields' | 'saveMemberSheetFields',
+  Mock
+>
+
 describe('CharacterSheetEditor', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
   it('renders fields from the API and saves edited values', async () => {
-    campaigns.getMemberSheetFields.mockResolvedValue({
+    campaignsMock.getMemberSheetFields.mockResolvedValue({
       fillable: true,
       fields: [{ name: 'name', type: 'text', value: 'Bob' }],
     })
-    campaigns.saveMemberSheetFields.mockResolvedValue({ fillable: true, fields: [] })
+    campaignsMock.saveMemberSheetFields.mockResolvedValue({ fillable: true, fields: [] })
     const onSaved = vi.fn()
     const onClose = vi.fn()
 
@@ -37,14 +45,16 @@ describe('CharacterSheetEditor', () => {
     fireEvent.click(screen.getByText('Save'))
 
     await waitFor(() => {
-      expect(campaigns.saveMemberSheetFields).toHaveBeenCalledWith('c1', 'm1', { name: 'Frodo' })
+      expect(campaignsMock.saveMemberSheetFields).toHaveBeenCalledWith('c1', 'm1', {
+        name: 'Frodo',
+      })
     })
     expect(onSaved).toHaveBeenCalled()
     expect(onClose).toHaveBeenCalled()
   })
 
   it('shows a not-fillable message and hides Save when no form fields', async () => {
-    campaigns.getMemberSheetFields.mockResolvedValue({ fillable: false, fields: [] })
+    campaignsMock.getMemberSheetFields.mockResolvedValue({ fillable: false, fields: [] })
 
     render(<CharacterSheetEditor campaignId="c1" memberId="m1" onClose={vi.fn()} />)
 
@@ -59,11 +69,11 @@ describe('SheetTemplatePicker', () => {
   })
 
   it('duplicates the chosen library template', async () => {
-    campaigns.listSheetSources.mockResolvedValue({
+    campaignsMock.listSheetSources.mockResolvedValue({
       books: [{ id: 'b1', name: 'Blank 5e Sheet' }],
       files: [],
     })
-    campaigns.duplicateMemberSheet.mockResolvedValue({})
+    campaignsMock.duplicateMemberSheet.mockResolvedValue({})
     const onDuplicated = vi.fn()
 
     render(

@@ -1,13 +1,26 @@
 import { useState } from 'react'
+import type { ReactNode } from 'react'
 import { LuChevronDown, LuChevronRight } from 'react-icons/lu'
 import { fieldLabelStyle } from './EditorField'
+
+interface Props {
+  icon?: ReactNode
+  label: ReactNode
+  children?: ReactNode
+  defaultOpen?: boolean
+}
 
 /**
  * A collapsible block inside the expanded user editor. Collapsed by default:
  * its body (a campaign list, a link list) is fetched only once it is opened, so
  * expanding a user row stays one request.
  */
-export default function UserEditorDisclosure({ icon, label, children, defaultOpen = false }) {
+export default function UserEditorDisclosure({
+  icon,
+  label,
+  children,
+  defaultOpen = false,
+}: Props) {
   const [open, setOpen] = useState(defaultOpen)
   return (
     <div>

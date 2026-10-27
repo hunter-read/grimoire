@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import ScheduleEditor from './ScheduleEditor'
+import type { ScheduleDef } from './_scheduleShared'
 import SegmentControl from './SegmentControl'
 import { USER_TZ } from './_scheduleShared'
 
@@ -13,9 +15,12 @@ vi.mock('../../api', () => ({
 
 import { campaigns } from '../../api'
 
+// The api module is mocked above; reach its helpers as plain vi.fn()s.
+const campaignsMock = campaigns as unknown as Record<keyof typeof campaigns, Mock>
+
 const mockCampaign = { id: 'c1' }
 
-function renderEditor(existing = null) {
+function renderEditor(existing: ScheduleDef | null = null) {
   return render(
     <ScheduleEditor
       campaign={mockCampaign}
@@ -113,7 +118,7 @@ describe('ScheduleEditor', () => {
   it('renders datalist with time options when time is enabled', () => {
     renderEditor()
     fireEvent.click(screen.getByRole('checkbox'))
-    const datalist = document.getElementById('schedule-time-options')
+    const datalist = document.getElementById('schedule-time-options')!
     expect(datalist).toBeTruthy()
     const options = datalist.querySelectorAll('option')
     expect(options.length).toBe(96)
@@ -159,7 +164,7 @@ describe('ScheduleEditor', () => {
   })
 
   it('calls setSchedule with correct payload when a day is selected and saved', async () => {
-    campaigns.setSchedule.mockResolvedValue({ frequency: 'weekly', days: [0] })
+    campaignsMock.setSchedule.mockResolvedValue({ frequency: 'weekly', days: [0] })
     const onSaved = vi.fn()
     render(
       <ScheduleEditor
@@ -206,7 +211,7 @@ describe('ScheduleEditor', () => {
   })
 
   it('toggles a weekly day off again when clicked twice', async () => {
-    campaigns.setSchedule.mockResolvedValue({})
+    campaignsMock.setSchedule.mockResolvedValue({})
     renderEditor()
     fireEvent.click(screen.getByText('Wed'))
     fireEvent.click(screen.getByText('Mon'))
@@ -222,7 +227,7 @@ describe('ScheduleEditor', () => {
   })
 
   it('monthly mode keeps a single day and sends the chosen occurrence week', async () => {
-    campaigns.setSchedule.mockResolvedValue({})
+    campaignsMock.setSchedule.mockResolvedValue({})
     const onSaved = vi.fn()
     render(
       <ScheduleEditor
@@ -255,23 +260,23 @@ describe('ScheduleEditor', () => {
   })
 
   it('defaults the biweekly reference date to today when left blank', async () => {
-    campaigns.setSchedule.mockResolvedValue({})
+    campaignsMock.setSchedule.mockResolvedValue({})
     renderEditor()
     fireEvent.click(screen.getByText('Bi-weekly'))
     fireEvent.click(screen.getByText('Mon'))
     fireEvent.click(screen.getByText('Save Schedule'))
     await waitFor(() => expect(campaigns.setSchedule).toHaveBeenCalled())
-    const payload = campaigns.setSchedule.mock.calls[0][1]
+    const payload = campaignsMock.setSchedule.mock.calls[0][1]
     expect(payload.frequency).toBe('biweekly')
     expect(payload.biweekly_reference).toMatch(/^\d{4}-\d{2}-\d{2}$/)
   })
 
   it('sends an explicit biweekly reference date when one is entered', async () => {
-    campaigns.setSchedule.mockResolvedValue({})
+    campaignsMock.setSchedule.mockResolvedValue({})
     renderEditor()
     fireEvent.click(screen.getByText('Bi-weekly'))
     fireEvent.click(screen.getByText('Mon'))
-    fireEvent.change(document.getElementById('schedule-biweekly-ref'), {
+    fireEvent.change(document.getElementById('schedule-biweekly-ref')!, {
       target: { value: '2026-03-04' },
     })
     fireEvent.click(screen.getByText('Save Schedule'))
@@ -294,10 +299,10 @@ describe('ScheduleEditor', () => {
   })
 
   it('adds, deduplicates and removes custom dates, then saves them', async () => {
-    campaigns.setSchedule.mockResolvedValue({})
+    campaignsMock.setSchedule.mockResolvedValue({})
     renderEditor()
     fireEvent.click(screen.getByText('Custom'))
-    const dateInput = document.getElementById('schedule-custom-date')
+    const dateInput = document.getElementById('schedule-custom-date')!
     const addBtn = screen.getByLabelText('Add date')
 
     // A blank input is a no-op.
@@ -331,7 +336,7 @@ describe('ScheduleEditor', () => {
 
   it('alerts and stops saving when the API rejects', async () => {
     const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
-    campaigns.setSchedule.mockRejectedValue(new Error('server exploded'))
+    campaignsMock.setSchedule.mockRejectedValue(new Error('server exploded'))
     const onSaved = vi.fn()
     render(
       <ScheduleEditor
@@ -352,7 +357,7 @@ describe('ScheduleEditor', () => {
 
   it('deletes the schedule once the confirmation is accepted', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
-    campaigns.deleteSchedule.mockResolvedValue({})
+    campaignsMock.deleteSchedule.mockResolvedValue({})
     const onDeleted = vi.fn()
     render(
       <ScheduleEditor

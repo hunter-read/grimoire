@@ -11,8 +11,8 @@ describe('diceMaterials', () => {
     const labels = DICE_MATERIAL_GROUPS.map((g) => g.label)
     expect(labels).toEqual(['Dice', 'Cards', 'Other'])
     const dice = DICE_MATERIAL_GROUPS.find((g) => g.key === 'dice')
-    expect(dice.items).toContain('D20')
-    expect(dice.items).toContain('Custom (System specific)')
+    expect(dice!.items).toContain('D20')
+    expect(dice!.items).toContain('Custom (System specific)')
   })
 
   it('recognizes default values case-insensitively', () => {
@@ -32,7 +32,7 @@ describe('diceMaterials', () => {
     const customHeader = rows.find((r) => r.type === 'group' && r.label === 'Custom')
     expect(customHeader).toBeTruthy()
     const customItem = rows.find((r) => r.type === 'item' && r.value === 'Homebrew Widget')
-    expect(customItem.groupKey).toBe('__custom__')
+    expect(customItem).toMatchObject({ groupKey: '__custom__' })
     // A default value like D6 is NOT duplicated into the custom group.
     expect(rows.filter((r) => r.type === 'item' && r.value === 'D6')).toHaveLength(1)
   })
@@ -76,6 +76,6 @@ describe('diceMaterials', () => {
     // A value not in the supplied groups is surfaced under the trailing Custom group.
     const rows2 = buildDiceMaterialRows(['Unlisted'], 'Custom', managed)
     const unlisted = rows2.find((r) => r.type === 'item' && r.value === 'Unlisted')
-    expect(unlisted.groupKey).toBe('__custom__')
+    expect(unlisted).toMatchObject({ groupKey: '__custom__' })
   })
 })

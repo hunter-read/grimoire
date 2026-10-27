@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, type MouseEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -10,18 +10,23 @@ import {
   LuArrowDown,
   LuChevronDown,
 } from 'react-icons/lu'
-import { tags as tagsApi } from '../api'
+import { tags as tagsApi, type Schema } from '../api'
 import usePagedLists from '../hooks/usePagedLists'
 import { useAuth } from '../context/AuthContext'
 import { useFavorites } from '../context/FavoritesContext'
 import { getUserPrefs, saveUserPref } from '../hooks/useUserPrefs'
 import Spinner from '../components/Spinner'
 import DownloadArchiveModal from '../components/DownloadArchiveModal'
+import type { DownloadRequest } from '../components/tags/tagDownload'
 import TagDetail from '../components/tags/TagDetail'
 import TagListButton from '../components/tags/TagListButton'
 import { shouldAutoCollapse } from '../utils/autoCollapse'
 
 const CATS_COLLAPSED_KEY = 'tagsCategoryCollapsed'
+
+type TagListItem = Schema<'TagListItem'>
+type TagDetailData = Schema<'TagItemsResponse'>
+type TagItem = TagDetailData['items'][number]
 
 // Category order for the grouped tag list: Shared always on top, then the
 // resource types in their canonical order.
@@ -38,30 +43,30 @@ const CATEGORY_ORDER = ['shared', 'system', 'book', 'map', 'token', 'audio', 'mo
  */
 export default function TagsView() {
   const { t } = useTranslation()
-  const { user } = useAuth()
+  const { user } = useAuth()!
   const { isFavorite, toggleFavorite } = useFavorites()
   const isEditor = user?.role === 'admin' || user?.role === 'gm'
 
   const [searchParams, setSearchParams] = useSearchParams()
   const activeTag = searchParams.get('tag') || null
 
-  const [allTags, setAllTags] = useState(null)
+  const [allTags, setAllTags] = useState<TagListItem[] | null>(null)
   const [filter, setFilter] = useState('')
   const [favOnly, setFavOnly] = useState(false)
   const [sort, setSort] = useState('name') // 'name' | 'count'
   const [order, setOrder] = useState('asc')
-  const [detail, setDetail] = useState(null) // { internal, display, category, items, folders }
+  const [detail, setDetail] = useState<TagDetailData | null>(null) // { internal, display, category, items, folders }
   const [detailLoading, setDetailLoading] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [renameValue, setRenameValue] = useState('')
   // { title, params } for the archive modal, or null — same shape the media
   // galleries use, so the shared modal is reused as-is (issue #401).
-  const [downloadModal, setDownloadModal] = useState(null)
+  const [downloadModal, setDownloadModal] = useState<DownloadRequest | null>(null)
   // Per-category collapse state for the left list, persisted in user prefs.
   // Null until the user toggles a category; the list then follows the default
   // below (collapsed when it is long).
-  const [chosenCollapsedCats, setCollapsedCats] = useState(() => {
-    const saved = getUserPrefs()[CATS_COLLAPSED_KEY]
+  const [chosenCollapsedCats, setCollapsedCats] = useState<Set<string> | null>(() => {
+    const saved = getUserPrefs()[CATS_COLLAPSED_KEY] as Record<string, boolean> | undefined
     return saved ? new Set(Object.keys(saved).filter((c) => saved[c])) : null
   })
 
@@ -74,7 +79,7 @@ export default function TagsView() {
   }, [loadTags])
 
   const selectTag = useCallback(
-    (internal) => {
+    (internal: string | null) => {
       setSearchParams(internal ? { tag: internal } : {}, { replace: true })
     },
     [setSearchParams]
@@ -99,7 +104,8 @@ export default function TagsView() {
   // Whether a tag is favorited comes from the shared favorites context (so it
   // stays in sync with the favorites page); fall back to the list's is_favorite.
   const tagFavorited = useCallback(
-    (tg) => isFavorite('tag', tg.internal) || tg.is_favorite,
+    (tg: Pick<TagListItem, 'internal' | 'is_favorite'>) =>
+      isFavorite('tag', tg.internal) || tg.is_favorite,
     [isFavorite]
   )
 
@@ -118,15 +124,15 @@ export default function TagsView() {
       if (sort === 'count') return (a.count - b.count) * dir || a.display.localeCompare(b.display)
       return a.display.localeCompare(b.display) * dir
     })
-    const byCat = new Map()
+    const byCat = new Map<string, TagListItem[]>()
     for (const tg of sorted) {
       const cat = CATEGORY_ORDER.includes(tg.category) ? tg.category : 'shared'
       if (!byCat.has(cat)) byCat.set(cat, [])
-      byCat.get(cat).push(tg)
+      byCat.get(cat)!.push(tg)
     }
     return CATEGORY_ORDER.filter((c) => byCat.has(c)).map((c) => ({
       category: c,
-      tags: byCat.get(c),
+      tags: byCat.get(c)!,
     }))
   }, [allTags, filter, favOnly, sort, order, tagFavorited])
 
@@ -136,24 +142,25 @@ export default function TagsView() {
   // the groups holding the matches. The selected tag's group stays open.
   const activeCategory = useMemo(() => {
     const cat = allTags?.find((tg) => tg.internal === activeTag)?.category
-    return CATEGORY_ORDER.includes(cat) ? cat : cat && 'shared'
+    return cat !== undefined && CATEGORY_ORDER.includes(cat) ? cat : cat && 'shared'
   }, [allTags, activeTag])
   const collapsedCats = useMemo(() => {
     if (chosenCollapsedCats) return chosenCollapsedCats
-    if (!shouldAutoCollapse(totalVisible, groups.length)) return new Set()
+    if (!shouldAutoCollapse(totalVisible, groups.length)) return new Set<string>()
     return new Set(CATEGORY_ORDER.filter((c) => c !== activeCategory))
   }, [chosenCollapsedCats, totalVisible, groups, activeCategory])
 
-  const toggleCat = (cat) => {
+  const toggleCat = (cat: string) => {
     const next = new Set(collapsedCats)
-    next.has(cat) ? next.delete(cat) : next.add(cat)
-    const map = {}
+    if (next.has(cat)) next.delete(cat)
+    else next.add(cat)
+    const map: Record<string, boolean> = {}
     for (const c of next) map[c] = true
     saveUserPref(CATS_COLLAPSED_KEY, map)
     setCollapsedCats(next)
   }
 
-  const toggleTagFavorite = (tg, e) => {
+  const toggleTagFavorite = (tg: Pick<TagListItem, 'internal' | 'is_favorite'>, e?: MouseEvent) => {
     e?.stopPropagation()
     toggleFavorite('tag', tg.internal)
     // Optimistically flip the flag in the local list.
@@ -175,7 +182,7 @@ export default function TagsView() {
       // The internal key can change (typo fix) or merge into an existing tag;
       // re-select by the returned internal so the URL + detail stay in sync.
       if (updated.internal !== detail.internal) selectTag(updated.internal)
-      else setDetail((d) => ({ ...d, display: updated.display }))
+      else setDetail((d) => ({ ...d!, display: updated.display }))
     })
   }
 
@@ -191,19 +198,19 @@ export default function TagsView() {
   // One paged list per type section and per tagged folder, dropped whenever a
   // different tag is selected.
   const fetchTagPage = useCallback(
-    (key, offset, limit) => {
+    (key: string, offset: number, limit: number) => {
       const [kind, type, folder] = key.split('\u0000')
-      const request =
+      const request: Promise<{ total: number; items?: TagItem[] }> =
         kind === 'type'
-          ? tagsApi.items(activeTag, type, { limit, offset })
-          : tagsApi.folderItems(activeTag, type, folder, { limit, offset })
+          ? tagsApi.items(activeTag!, type, { limit, offset })
+          : tagsApi.folderItems(activeTag!, type, folder, { limit, offset })
       return request.then((r) => ({ total: r.total, rows: r.items || [] }))
     },
     [activeTag]
   )
   const tagPages = usePagedLists(fetchTagPage, activeTag || '')
   const loadTagList = useCallback(
-    (key) => (tagPages.get(key) ? tagPages.loadMore(key) : tagPages.ensure(key)),
+    (key: string) => (tagPages.get(key) ? tagPages.loadMore(key) : tagPages.ensure(key)),
     [tagPages]
   )
 

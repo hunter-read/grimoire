@@ -2,18 +2,21 @@ import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuDownload, LuTrash2, LuTriangleAlert, LuDatabaseBackup } from 'react-icons/lu'
 import { backups as backupsApi } from '../../api'
+import type { Schema } from '../../api'
 import Spinner from '../Spinner'
 import { formatBytes, formatTimestamp, relativeAge } from './backupFormat'
 
-export default function BackupListSection({ refreshKey }) {
+type Backup = Schema<'BackupItem'>
+
+export default function BackupListSection({ refreshKey }: { refreshKey?: number }) {
   const { t, i18n } = useTranslation()
-  const [items, setItems] = useState([])
+  const [items, setItems] = useState<Backup[]>([])
   const [directory, setDirectory] = useState('')
   const [totalBytes, setTotalBytes] = useState(0)
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
-  const [error, setError] = useState(null)
-  const [downloading, setDownloading] = useState(null)
+  const [error, setError] = useState<string | null>(null)
+  const [downloading, setDownloading] = useState<string | null>(null)
 
   // Deliberately dependency-free: `t` is a fresh identity on every render for
   // some i18n setups, and including it would rebuild `load`, re-fire the effect
@@ -26,7 +29,7 @@ export default function BackupListSection({ refreshKey }) {
       setTotalBytes(data.total_bytes || 0)
       setError(null)
     } catch (e) {
-      setError(e.message || 'Could not load backups.')
+      setError((e as Error).message || 'Could not load backups.')
     } finally {
       setLoading(false)
     }
@@ -43,25 +46,25 @@ export default function BackupListSection({ refreshKey }) {
       await backupsApi.create()
       await load()
     } catch (e) {
-      setError(e.message || t('backups.list.createFailed'))
+      setError((e as Error).message || t('backups.list.createFailed'))
     } finally {
       setCreating(false)
     }
   }
 
-  const handleDownload = async (item) => {
+  const handleDownload = async (item: Backup) => {
     setDownloading(item.id)
     setError(null)
     try {
       await backupsApi.download(item.id, item.filename)
     } catch (e) {
-      setError(e.message || t('backups.list.downloadFailed'))
+      setError((e as Error).message || t('backups.list.downloadFailed'))
     } finally {
       setDownloading(null)
     }
   }
 
-  const handleDelete = async (item) => {
+  const handleDelete = async (item: Backup) => {
     const when = formatTimestamp(item.created_at, i18n.language)
     if (!window.confirm(t('backups.list.confirmDelete', { date: when }))) return
     setError(null)
@@ -69,11 +72,11 @@ export default function BackupListSection({ refreshKey }) {
       await backupsApi.remove(item.id)
       await load()
     } catch (e) {
-      setError(e.message || t('backups.list.deleteFailed'))
+      setError((e as Error).message || t('backups.list.deleteFailed'))
     }
   }
 
-  const ageLabel = (iso) => {
+  const ageLabel = (iso: string) => {
     const age = relativeAge(iso)
     if (!age) return ''
     if (age.unit === 'justNow') return t('backups.list.age.justNow')

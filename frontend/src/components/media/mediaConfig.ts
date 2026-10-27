@@ -1,5 +1,83 @@
 import { LuMap, LuUser, LuMusic, LuBox } from 'react-icons/lu'
+import type { IconType } from 'react-icons'
+import type { Schema } from '../../api'
 import { trackDetails, trackLabel } from '../audio/trackLabel'
+
+/** The gallery collections, keyed as MEDIA_CONFIGS is. */
+export type MediaType = 'map' | 'token' | 'audio' | 'model'
+
+type AudioOut = Schema<'AudioOut'>
+
+/**
+ * One gallery item as the list endpoints return it. Every collection shares the
+ * map fields; the rest are only on some of them (explicit tokens, audio tags,
+ * a model's support state).
+ */
+export type MediaItem = Schema<'MapOut'> &
+  Partial<Pick<Schema<'TokenOut'>, 'is_explicit'>> &
+  Partial<
+    Pick<
+      AudioOut,
+      'title' | 'album' | 'artist' | 'duration' | 'disc_number' | 'track_number' | 'has_artwork'
+    >
+  > & {
+    is_presupported?: boolean | null
+    is_unsupported?: boolean | null
+  }
+
+export type BadgeCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
+
+/** A per-item badge on a gallery card. */
+export interface MediaBadge {
+  /** The item field that, when truthy, shows the badge. */
+  flag: keyof MediaItem
+  /** Absolute i18n key; without one the label is read under the config's `i18n`. */
+  labelKey?: string
+  label: string
+  color?: string
+  corner?: BadgeCorner
+  inlineColor?: string
+  footer?: boolean
+}
+
+/** One collection's entry in MEDIA_CONFIGS. */
+export interface MediaConfig {
+  type: MediaType
+  collection: string
+  i18n: string
+  countKey: string
+  emptyFilterKey: string
+  emptyKey: string
+  icon: IconType
+  listUrl: string
+  foldersUrl: string
+  itemUrl: (id: string) => string
+  thumbnailUrl: (id: string) => string
+  /** The item field saying a thumbnail exists; `has_thumbnail` when left out. */
+  thumbnailFlag?: keyof MediaItem
+  detailPath: (id: string) => string
+  downloadType: string
+  archiveType: string
+  sessionKey: string
+  sortOptions: string[]
+  defaultSort?: string
+  itemLabel?: (item: MediaItem) => string
+  itemDetails?: (item: MediaItem) => string
+  /** Grid cell min width, keyed by card size (`comfortable` / `compact`). */
+  gridMin: Record<string, string>
+  gridGap: number
+  thumb: { kind: 'fixedHeight'; height: number } | { kind: 'square' }
+  audioFileUrl?: (id: string) => string
+  badges: MediaBadge[]
+  titleFontSize: number
+  listIcon: { width: number; height: number }
+}
+
+/** The fields the folder helpers read. */
+interface PathItem {
+  relative_path?: string | null
+  tags?: string[] | null
+}
 
 /**
  * Per-entity configuration for the shared media gallery components (MediaCard,
@@ -12,7 +90,7 @@ import { trackDetails, trackLabel } from '../audio/trackLabel'
  * To add a new media type, add an entry here and render it through the shared
  * components — no new view/card/folder-group files needed.
  */
-export const MEDIA_CONFIGS = {
+export const MEDIA_CONFIGS: Record<MediaType, MediaConfig> = {
   map: {
     // Singular type, used for favorites and resource_type payloads.
     type: 'map',
@@ -29,9 +107,9 @@ export const MEDIA_CONFIGS = {
     // REST endpoints.
     listUrl: '/maps',
     foldersUrl: '/map-folders',
-    itemUrl: (id) => `/maps/${id}`,
-    thumbnailUrl: (id) => `/maps/${id}/thumbnail`,
-    detailPath: (id) => `/maps/${id}`,
+    itemUrl: (id: string) => `/maps/${id}`,
+    thumbnailUrl: (id: string) => `/maps/${id}/thumbnail`,
+    detailPath: (id: string) => `/maps/${id}`,
     downloadType: 'maps',
     archiveType: 'map_folder',
     sessionKey: 'grimoire:maps:collapsed',
@@ -87,9 +165,9 @@ export const MEDIA_CONFIGS = {
     icon: LuUser,
     listUrl: '/tokens',
     foldersUrl: '/token-folders',
-    itemUrl: (id) => `/tokens/${id}`,
-    thumbnailUrl: (id) => `/tokens/${id}/thumbnail`,
-    detailPath: (id) => `/tokens/${id}`,
+    itemUrl: (id: string) => `/tokens/${id}`,
+    thumbnailUrl: (id: string) => `/tokens/${id}/thumbnail`,
+    detailPath: (id: string) => `/tokens/${id}`,
     downloadType: 'tokens',
     archiveType: 'token_folder',
     sessionKey: 'grimoire:tokens:collapsed',
@@ -148,11 +226,11 @@ export const MEDIA_CONFIGS = {
     icon: LuMusic,
     listUrl: '/audio',
     foldersUrl: '/audio-folders',
-    itemUrl: (id) => `/audio/${id}`,
+    itemUrl: (id: string) => `/audio/${id}`,
     // Audio uses folder/embedded artwork in place of a generated thumbnail.
-    thumbnailUrl: (id) => `/audio/${id}/artwork`,
+    thumbnailUrl: (id: string) => `/audio/${id}/artwork`,
     thumbnailFlag: 'has_artwork',
-    detailPath: (id) => `/audio/${id}`,
+    detailPath: (id: string) => `/audio/${id}`,
     downloadType: 'audio',
     archiveType: 'audio_folder',
     sessionKey: 'grimoire:audio:collapsed',
@@ -160,13 +238,14 @@ export const MEDIA_CONFIGS = {
     sortOptions: ['track', 'title', 'name', 'duration', 'size'],
     defaultSort: 'track',
     // Rows read the tags: `03 · Title`, then `artist · album · duration`.
-    itemLabel: trackLabel,
-    itemDetails: trackDetails,
+    // Audio items always carry their tags, which these two read.
+    itemLabel: trackLabel as (item: MediaItem) => string,
+    itemDetails: trackDetails as (item: MediaItem) => string,
     gridMin: { comfortable: '200px', compact: '140px' },
     gridGap: 16,
     thumb: { kind: 'square' },
     // Inline play/pause button overlaid on the card artwork.
-    audioFileUrl: (id) => `/audio/${id}/file`,
+    audioFileUrl: (id: string) => `/audio/${id}/file`,
     badges: [
       {
         // variant_count is a number, and the badge system treats any truthy
@@ -211,11 +290,11 @@ export const MEDIA_CONFIGS = {
     icon: LuBox,
     listUrl: '/models',
     foldersUrl: '/model-folders',
-    itemUrl: (id) => `/models/${id}`,
+    itemUrl: (id: string) => `/models/${id}`,
     // Only .stl is rendered server-side (see indexer/stl_render.py); every other
     // model format falls back to the placeholder, exactly like an archive.
-    thumbnailUrl: (id) => `/models/${id}/thumbnail`,
-    detailPath: (id) => `/models/${id}`,
+    thumbnailUrl: (id: string) => `/models/${id}/thumbnail`,
+    detailPath: (id: string) => `/models/${id}`,
     downloadType: 'models',
     archiveType: 'model_folder',
     sessionKey: 'grimoire:models:collapsed',
@@ -279,17 +358,17 @@ export const MEDIA_CONFIGS = {
 }
 
 /** Folder path helpers — interpret `relative_path` as `<collection>/<top>/<sub>/<file>`. */
-export const getFolderPath = (item) => {
+export const getFolderPath = (item: PathItem): string => {
   const parts = (item.relative_path || '').replace(/\\/g, '/').split('/')
   return parts.slice(1, -1).join('/')
 }
 
-export const getTopFolder = (item) => {
+export const getTopFolder = (item: PathItem): string => {
   const parts = (item.relative_path || '').replace(/\\/g, '/').split('/')
   return parts.length > 2 ? parts[1] : '(Root)'
 }
 
-export const getSubPath = (item) => {
+export const getSubPath = (item: PathItem): string => {
   const parts = (item.relative_path || '').replace(/\\/g, '/').split('/')
   return parts.slice(2, -1).join('/')
 }
@@ -300,9 +379,9 @@ export const getSubPath = (item) => {
  * 'Fall Of Blackbottom'], so a tag set on an ancestor folder reaches the items
  * nested below it.
  */
-export const getFolderAncestors = (item) => {
+export const getFolderAncestors = (item: PathItem): string[] => {
   const parts = (item.relative_path || '').replace(/\\/g, '/').split('/').slice(1, -1)
-  const out = []
+  const out: string[] = []
   for (let i = parts.length; i > 0; i--) out.push(parts.slice(0, i).join('/'))
   return out
 }
@@ -314,10 +393,13 @@ export const getFolderAncestors = (item) => {
  * resolves folder tags through ancestor paths — this matches that behaviour in
  * the gallery. Returned de-duplicated case-insensitively, own tags first.
  */
-export const getEffectiveTags = (item, folderTags = {}) => {
-  const out = []
-  const seen = new Set()
-  const push = (tag) => {
+export const getEffectiveTags = (
+  item: PathItem,
+  folderTags: Record<string, string[]> = {}
+): string[] => {
+  const out: string[] = []
+  const seen = new Set<string>()
+  const push = (tag: string) => {
     const lower = String(tag).toLowerCase()
     if (!seen.has(lower)) {
       seen.add(lower)

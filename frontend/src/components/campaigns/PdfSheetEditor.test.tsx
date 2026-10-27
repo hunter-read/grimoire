@@ -9,13 +9,13 @@ const fakeDoc = {
   annotationStorage: {},
   getPage: vi.fn(() =>
     Promise.resolve({
-      getViewport: ({ scale = 1 }) => ({
+      getViewport: ({ scale = 1 }: { scale?: number }) => ({
         width: 600 * scale,
         height: 800 * scale,
         rawDims: { pageWidth: 600, pageHeight: 800 },
         clone: () => ({ width: 600, height: 800 }),
       }),
-      render: (...a) => pageRender(...a),
+      render: (...a: unknown[]) => pageRender(...a),
       getAnnotations: () => Promise.resolve([]),
     })
   ),
@@ -23,17 +23,21 @@ const fakeDoc = {
   destroy: vi.fn(),
 }
 
-const getDocument = vi.fn(() => ({ promise: Promise.resolve(fakeDoc) }))
-const pageRender = vi.fn(() => ({ promise: Promise.resolve() }))
-const annotationRender = vi.fn(() => Promise.resolve())
+const getDocument = vi.fn<(...a: unknown[]) => { promise: Promise<typeof fakeDoc> }>(() => ({
+  promise: Promise.resolve(fakeDoc),
+}))
+const pageRender = vi.fn<(...a: unknown[]) => { promise: Promise<void> }>(() => ({
+  promise: Promise.resolve(),
+}))
+const annotationRender = vi.fn<(...a: unknown[]) => Promise<void>>(() => Promise.resolve())
 
 vi.mock('../../lib/pdfjs', () => ({
   WASM_URL: '/pdfjs-wasm/',
   default: {
-    getDocument: (...a) => getDocument(...a),
+    getDocument: (...a: unknown[]) => getDocument(...a),
     AnnotationMode: { DISABLE: 0, ENABLE: 1, ENABLE_FORMS: 2, ENABLE_STORAGE: 3 },
     AnnotationLayer: class {
-      render(...a) {
+      render(...a: unknown[]) {
         return annotationRender(...a)
       }
     },
@@ -42,11 +46,11 @@ vi.mock('../../lib/pdfjs', () => ({
 
 vi.mock('pdfjs-dist/web/pdf_viewer.css', () => ({}))
 
-const uploadMemberSheet = vi.fn(() => Promise.resolve({}))
+const uploadMemberSheet = vi.fn<(...a: unknown[]) => Promise<object>>(() => Promise.resolve({}))
 vi.mock('../../api', () => ({
   campaigns: {
-    memberSheetUrl: (id, mid) => `/api/campaigns/${id}/members/${mid}/sheet`,
-    uploadMemberSheet: (...a) => uploadMemberSheet(...a),
+    memberSheetUrl: (id: string, mid: string) => `/api/campaigns/${id}/members/${mid}/sheet`,
+    uploadMemberSheet: (...a: unknown[]) => uploadMemberSheet(...a),
   },
 }))
 
@@ -55,10 +59,12 @@ beforeEach(() => {
   vi.clearAllMocks()
   pageRender.mockReturnValue({ promise: Promise.resolve() })
   annotationRender.mockResolvedValue(undefined)
-  HTMLCanvasElement.prototype.getContext = vi.fn(() => ({}))
+  HTMLCanvasElement.prototype.getContext = vi.fn(
+    () => ({})
+  ) as unknown as typeof HTMLCanvasElement.prototype.getContext
 })
 
-const renderEditor = (props = {}) =>
+const renderEditor = (props: { onClose?: () => void; onSaved?: () => void } = {}) =>
   render(
     <PdfSheetEditor
       campaignId="c1"
@@ -94,9 +100,9 @@ describe('PdfSheetEditor', () => {
     // --total-scale-factor undefined and every AcroForm widget collapses into a
     // tiny box in the top-left corner. Assert the DOM pdf.js's CSS expects.
     const page = await waitFor(() => {
-      const el = container.querySelector('.pdfViewer .page')
+      const el = container.querySelector<HTMLElement>('.pdfViewer .page')
       expect(el).toBeTruthy()
-      return el
+      return el!
     })
     // scale = RENDER_WIDTH (820) / base width (600).
     expect(page.style.getPropertyValue('--scale-factor')).toBe(String(820 / 600))
@@ -114,7 +120,7 @@ describe('PdfSheetEditor', () => {
     // but the correct layer factor is 820/600.
     const userUnit = 1.5
     fakeDoc.getPage.mockResolvedValueOnce({
-      getViewport: ({ scale = 1 }) => ({
+      getViewport: ({ scale = 1 }: { scale?: number }) => ({
         width: 600 * userUnit * scale,
         height: 800 * userUnit * scale,
         rawDims: { pageWidth: 600, pageHeight: 800 },
@@ -125,9 +131,9 @@ describe('PdfSheetEditor', () => {
     })
     const { container } = renderEditor()
     const page = await waitFor(() => {
-      const el = container.querySelector('.pdfViewer .page')
+      const el = container.querySelector<HTMLElement>('.pdfViewer .page')
       expect(el).toBeTruthy()
-      return el
+      return el!
     })
     // renderedWidth (820) / rawDims.pageWidth (600), NOT the nominal scale 820/900.
     expect(page.style.getPropertyValue('--scale-factor')).toBe(String(820 / 600))
@@ -149,7 +155,7 @@ describe('PdfSheetEditor', () => {
     expect(cid).toBe('c1')
     expect(mid).toBe('m1')
     expect(file).toBeInstanceOf(File)
-    expect(file.type).toBe('application/pdf')
+    expect((file as File).type).toBe('application/pdf')
     expect(onSaved).toHaveBeenCalled()
     expect(onClose).toHaveBeenCalled()
   })
@@ -173,7 +179,7 @@ describe('PdfSheetEditor', () => {
   it('does not render pages after being unmounted mid-load', async () => {
     // Simulate a doc that resolves after the component has already unmounted
     // (React StrictMode double-invoke), so the superseded run must bail out.
-    let resolveDoc
+    let resolveDoc: (doc: typeof fakeDoc) => void = () => {}
     getDocument.mockReturnValueOnce({ promise: new Promise((r) => (resolveDoc = r)) })
     const { container, unmount } = renderEditor()
     unmount()

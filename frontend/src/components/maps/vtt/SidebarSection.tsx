@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import type { ReactNode } from 'react'
 import { LuChevronRight } from 'react-icons/lu'
 import { sectionTitleStyle } from './ui'
 
@@ -23,6 +24,15 @@ import { sectionTitleStyle } from './ui'
  * `count` renders a quiet tally on the right, so a collapsed section can still
  * say how much it is hiding.
  */
+export interface SidebarSectionProps {
+  title: ReactNode
+  count?: number | null
+  open: boolean
+  onToggle: () => void
+  children?: ReactNode
+  'data-testid'?: string
+}
+
 export default function SidebarSection({
   title,
   count,
@@ -30,7 +40,7 @@ export default function SidebarSection({
   onToggle,
   children,
   'data-testid': testId,
-}) {
+}: SidebarSectionProps) {
   const bodyId = useId()
 
   return (

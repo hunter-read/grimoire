@@ -6,7 +6,7 @@ import Spinner from '../Spinner'
 
 export default function FolderCategorySection() {
   const { t } = useTranslation()
-  const [disabled, setDisabled] = useState(null)
+  const [disabled, setDisabled] = useState<boolean | null>(null)
   const [envLocked, setEnvLocked] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)

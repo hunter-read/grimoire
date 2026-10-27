@@ -22,7 +22,7 @@ describe('commonFilterParams', () => {
       now
     )
     expect(params.q).toBe('goblin')
-    expect(JSON.parse(params.tags)).toEqual([{ mode: 'include', tags: ['forest'] }])
+    expect(JSON.parse(params.tags!)).toEqual([{ mode: 'include', tags: ['forest'] }])
     expect(params.favorites).toBe('true')
     expect(params.added_since).toBe('2026-10-03T00:00:00.000Z')
   })

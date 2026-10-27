@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import ShareLinkDialog from './ShareLinkDialog'
 import ShareLinkButton from './ShareLinkButton'
-import { auth, shareLinks } from '../../api'
+import type { ComponentProps } from 'react'
+import { auth, shareLinks, type Schema } from '../../api'
 import { UISettingsProvider } from '../../context/UISettingsContext'
 import { clearPasswordRulesCache } from '../../hooks/usePasswordRules'
 
@@ -13,17 +14,18 @@ vi.mock('../../api', () => ({
 // Keys come back as-is; a `min` passed with one is shown after it.
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k, opts) => (opts?.min !== undefined ? `${k} (${opts.min})` : k),
+    t: (k: string, opts?: { min?: number }) => (opts?.min !== undefined ? `${k} (${opts.min})` : k),
     i18n: { language: 'en-US' },
   }),
 }))
-let authUser = null
+let authUser: { share_links_allowed: boolean } | null = null
 vi.mock('../../context/AuthContext', () => ({
   useAuth: () => ({ user: authUser }),
 }))
 
-const existing = {
+const existing: Schema<'ShareLinkOut'> = {
   id: 'l1',
+  resource_id: 'm1',
   url: 'u1',
   file_url: 'f1',
   resource_type: 'map',
@@ -35,7 +37,7 @@ const existing = {
   use_count: 1,
 }
 
-const status = (shareMin) => ({
+const status = (shareMin: number) => ({
   initialized: true,
   password_min_length: 12,
   share_link_password_min_length: shareMin,
@@ -45,11 +47,11 @@ beforeEach(() => {
   vi.resetAllMocks()
   clearPasswordRulesCache()
   authUser = null
-  shareLinks.list.mockResolvedValue([existing])
-  auth.status.mockResolvedValue(status(8))
+  vi.mocked(shareLinks.list).mockResolvedValue([existing])
+  vi.mocked(auth.status).mockResolvedValue(status(8))
 })
 
-const renderDialog = (props = {}) =>
+const renderDialog = (props: Partial<ComponentProps<typeof ShareLinkDialog>> = {}) =>
   render(
     <ShareLinkDialog
       resourceType="map"
@@ -68,7 +70,7 @@ describe('ShareLinkDialog', () => {
   })
 
   it('creates a link with the chosen expiry and password and puts it first', async () => {
-    shareLinks.create.mockResolvedValue({ ...existing, id: 'l2', label: 'Fresh' })
+    vi.mocked(shareLinks.create).mockResolvedValue({ ...existing, id: 'l2', label: 'Fresh' })
     renderDialog()
     await screen.findByText('Old one')
     fireEvent.change(screen.getByPlaceholderText('share.form.labelPlaceholder'), {
@@ -93,7 +95,7 @@ describe('ShareLinkDialog', () => {
   })
 
   it('offers 90- and 365-day expiries', async () => {
-    shareLinks.create.mockResolvedValue({ ...existing, id: 'l4' })
+    vi.mocked(shareLinks.create).mockResolvedValue({ ...existing, id: 'l4' })
     renderDialog()
     await screen.findByText('Old one')
     fireEvent.change(screen.getByDisplayValue('share.expiry.week'), { target: { value: '365' } })
@@ -106,7 +108,7 @@ describe('ShareLinkDialog', () => {
   })
 
   it('sends a 7-day expiry by default and no password', async () => {
-    shareLinks.create.mockResolvedValue({ ...existing, id: 'l3' })
+    vi.mocked(shareLinks.create).mockResolvedValue({ ...existing, id: 'l3' })
     renderDialog()
     await screen.findByText('Old one')
     fireEvent.click(screen.getByText('share.form.create'))
@@ -131,7 +133,7 @@ describe('ShareLinkDialog', () => {
   })
 
   it("uses the server's share-link minimum when it has been changed", async () => {
-    auth.status.mockResolvedValue(status(4))
+    vi.mocked(auth.status).mockResolvedValue(status(4))
     renderDialog()
     await screen.findByText('Old one')
     const input = screen.getByPlaceholderText('share.form.passwordPlaceholder')
@@ -146,7 +148,7 @@ describe('ShareLinkDialog', () => {
   })
 
   it("shows the server's reason when it refuses a password as too common", async () => {
-    shareLinks.create.mockRejectedValue(
+    vi.mocked(shareLinks.create).mockRejectedValue(
       new Error('That password is too common - choose one that is harder to guess')
     )
     renderDialog()
@@ -161,7 +163,7 @@ describe('ShareLinkDialog', () => {
   })
 
   it('shows a create failure', async () => {
-    shareLinks.create.mockRejectedValue(new Error('not allowed'))
+    vi.mocked(shareLinks.create).mockRejectedValue(new Error('not allowed'))
     renderDialog()
     await screen.findByText('Old one')
     fireEvent.click(screen.getByText('share.form.create'))
@@ -169,7 +171,7 @@ describe('ShareLinkDialog', () => {
   })
 
   it('shows a load failure and an empty list', async () => {
-    shareLinks.list.mockRejectedValue(new Error(''))
+    vi.mocked(shareLinks.list).mockRejectedValue(new Error(''))
     renderDialog()
     expect(await screen.findByText('share.loadFailed')).toBeInTheDocument()
     expect(screen.getByText('share.dialog.none')).toBeInTheDocument()
@@ -189,7 +191,11 @@ describe('ShareLinkDialog', () => {
 describe('ShareLinkButton', () => {
   const renderButton = (enabled = true) =>
     render(
-      <UISettingsProvider value={{ share_links_enabled: enabled }}>
+      <UISettingsProvider
+        value={
+          { share_links_enabled: enabled } as ComponentProps<typeof UISettingsProvider>['value']
+        }
+      >
         <ShareLinkButton resourceType="token" resourceId="t1" title="Goblin" />
       </UISettingsProvider>
     )
@@ -208,7 +214,7 @@ describe('ShareLinkButton', () => {
 
   it('opens the dialog for someone who may', async () => {
     authUser = { share_links_allowed: true }
-    shareLinks.list.mockResolvedValue([])
+    vi.mocked(shareLinks.list).mockResolvedValue([])
     renderButton()
     fireEvent.click(screen.getByText('share.button'))
     expect(await screen.findByText('share.dialog.title')).toBeInTheDocument()

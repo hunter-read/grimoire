@@ -2,9 +2,13 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCircleCheck, LuLink, LuLock, LuBan, LuTrash2, LuFileImage } from 'react-icons/lu'
 import ShareLinkStateBadge from './ShareLinkStateBadge'
+import type { CSSProperties } from 'react'
+import type { Schema } from '../../api'
 import { copyText, formatWhen, publicUrl } from './shareLinkUtils'
 
-const actionStyle = (danger) => ({
+type ShareLink = Schema<'ShareLinkOut'>
+
+const actionStyle = (danger?: boolean): CSSProperties => ({
   display: 'inline-flex',
   alignItems: 'center',
   gap: 5,
@@ -25,20 +29,28 @@ const actionStyle = (danger) => ({
  * The direct file URL is offered only for links without a password: a tool
  * loading it has no way to type one, so for a protected link it cannot work.
  */
+interface Props {
+  link: ShareLink
+  showItem?: boolean
+  showOwner?: boolean
+  onRevoke?: (link: ShareLink) => void
+  onDelete?: (link: ShareLink) => void
+}
+
 export default function ShareLinkRow({
   link,
   showItem = false,
   showOwner = false,
   onRevoke,
   onDelete,
-}) {
+}: Props) {
   const { t, i18n } = useTranslation()
-  const [copied, setCopied] = useState(null)
+  const [copied, setCopied] = useState<'page' | 'file' | null>(null)
   const [confirming, setConfirming] = useState(false)
-  const when = (iso) => formatWhen(iso, i18n.language)
+  const when = (iso: string) => formatWhen(iso, i18n.language)
   const revoked = link.state === 'revoked'
 
-  const copy = async (which, text) => {
+  const copy = async (which: 'page' | 'file', text: string) => {
     if (await copyText(text)) {
       setCopied(which)
       setTimeout(() => setCopied(null), 1800)
@@ -108,7 +120,7 @@ export default function ShareLinkRow({
         {!revoked && link.url && (
           <button
             type="button"
-            onClick={() => copy('page', publicUrl(link.url))}
+            onClick={() => copy('page', publicUrl(link.url!))}
             style={actionStyle()}
           >
             {copied === 'page' ? <LuCircleCheck size={12} /> : <LuLink size={12} />}
@@ -118,7 +130,7 @@ export default function ShareLinkRow({
         {!revoked && link.file_url && !link.has_password && (
           <button
             type="button"
-            onClick={() => copy('file', publicUrl(link.file_url))}
+            onClick={() => copy('file', publicUrl(link.file_url!))}
             title={t('share.row.copyFileHint')}
             style={actionStyle()}
           >

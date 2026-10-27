@@ -1,8 +1,8 @@
-import { useEffect, useId, useRef, useState, type ComponentType, type CSSProperties } from 'react'
+import { useEffect, useId, useRef, useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { naming, type Schema } from '../../api'
 import Spinner from '../Spinner'
-import FolderTreeJs from '../files/FolderTree'
+import FolderTree from '../files/FolderTree'
 import ConfirmModal from './ConfirmModal'
 import NamingPreviewTable from './NamingPreviewTable'
 import { canChangeTitle, canRename, isActionable } from './namingPreview'
@@ -24,19 +24,6 @@ interface Props {
 const PREVIEW_DELAY = 400
 
 const inBooks = (path: string) => path === 'books' || path.startsWith('books/')
-
-// FolderTree is still JavaScript, so TypeScript infers its props from the
-// destructuring: every prop required, and `isBlocked` typed from its
-// `() => false` default, without the path it is called with. This states what
-// it actually accepts.
-const FolderTree = FolderTreeJs as unknown as ComponentType<{
-  selected: string | null
-  onSelect: (path: string) => void
-  isBlocked?: (path: string) => boolean
-  blockedLabel?: string
-  revealPath?: string
-  testId?: string
-}>
 
 const outsideBooks = (path: string) => !inBooks(path)
 

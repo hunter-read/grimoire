@@ -15,7 +15,23 @@
  * every list above: expertise implies proficiency, and dropping to proficient
  * removes the expertise.
  */
-export default function TierSelect({ level, labels, titles, label, disabled, onChange }) {
+export interface TierSelectProps {
+  level: number
+  labels: string[]
+  titles: string[]
+  label?: string
+  disabled?: boolean
+  onChange?: (level: number) => void
+}
+
+export default function TierSelect({
+  level,
+  labels,
+  titles,
+  label,
+  disabled,
+  onChange,
+}: TierSelectProps) {
   return (
     <span className="gc-tier" style={{ display: 'inline-grid', alignItems: 'center' }}>
       <select

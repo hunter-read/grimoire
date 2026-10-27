@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import GuestPanel from './GuestPanel'
 
@@ -14,13 +15,16 @@ vi.mock('../../api', () => ({
 
 import { campaigns } from '../../api'
 
+// The api module is mocked above; reach its helpers as plain vi.fn()s.
+const campaignsMock = campaigns as unknown as Record<keyof typeof campaigns, Mock>
+
 beforeEach(() => {
   vi.clearAllMocks()
 })
 
 describe('GuestPanel', () => {
   it('lists existing guests with their codes', async () => {
-    campaigns.listGuests.mockResolvedValue([
+    campaignsMock.listGuests.mockResolvedValue([
       { id: 'm1', user_id: 'g1', nickname: 'Alice', guest_code: 'ABC1234567' },
     ])
     render(<GuestPanel campaignId="c1" onChanged={vi.fn()} />)
@@ -29,8 +33,8 @@ describe('GuestPanel', () => {
   })
 
   it('creates a guest and reloads', async () => {
-    campaigns.listGuests.mockResolvedValue([])
-    campaigns.createGuest.mockResolvedValue({
+    campaignsMock.listGuests.mockResolvedValue([])
+    campaignsMock.createGuest.mockResolvedValue({
       id: 'm2',
       user_id: 'g2',
       nickname: 'Bob',
@@ -43,7 +47,7 @@ describe('GuestPanel', () => {
     const input = screen.getByPlaceholderText(/nickname/i)
     fireEvent.change(input, { target: { value: 'Bob' } })
     // After create, listGuests is called again — return the new guest.
-    campaigns.listGuests.mockResolvedValue([
+    campaignsMock.listGuests.mockResolvedValue([
       { id: 'm2', user_id: 'g2', nickname: 'Bob', guest_code: 'XYZ7654321' },
     ])
     fireEvent.click(screen.getByText(/^Add$/))
@@ -53,10 +57,10 @@ describe('GuestPanel', () => {
   })
 
   it('opens the share modal with copy/email actions', async () => {
-    campaigns.listGuests.mockResolvedValue([
+    campaignsMock.listGuests.mockResolvedValue([
       { id: 'm1', user_id: 'g1', nickname: 'Alice', guest_code: 'ABC1234567' },
     ])
-    campaigns.guestShareTemplate.mockResolvedValue({
+    campaignsMock.guestShareTemplate.mockResolvedValue({
       message: 'join here',
       discord_message: 'discord join',
       mailto_url: 'mailto:test@example.com',
@@ -79,10 +83,10 @@ describe('GuestPanel', () => {
       writable: true,
       configurable: true,
     })
-    campaigns.listGuests.mockResolvedValue([
+    campaignsMock.listGuests.mockResolvedValue([
       { id: 'm1', user_id: 'g1', nickname: 'Alice', guest_code: 'ABC1234567' },
     ])
-    campaigns.guestShareTemplate.mockResolvedValue({
+    campaignsMock.guestShareTemplate.mockResolvedValue({
       message: 'join here',
       discord_message: 'discord join',
       mailto_url: 'mailto:test@example.com',
@@ -97,10 +101,10 @@ describe('GuestPanel', () => {
   })
 
   it('regenerates a guest code', async () => {
-    campaigns.listGuests.mockResolvedValue([
+    campaignsMock.listGuests.mockResolvedValue([
       { id: 'm1', user_id: 'g1', nickname: 'Alice', guest_code: 'ABC1234567' },
     ])
-    campaigns.regenerateGuestCode.mockResolvedValue({})
+    campaignsMock.regenerateGuestCode.mockResolvedValue({})
     render(<GuestPanel campaignId="c1" onChanged={vi.fn()} />)
     await screen.findByText('Alice')
 
@@ -110,10 +114,10 @@ describe('GuestPanel', () => {
 
   it('removes a guest after confirmation', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)
-    campaigns.listGuests.mockResolvedValue([
+    campaignsMock.listGuests.mockResolvedValue([
       { id: 'm1', user_id: 'g1', nickname: 'Alice', guest_code: 'ABC1234567' },
     ])
-    campaigns.removeGuest.mockResolvedValue({})
+    campaignsMock.removeGuest.mockResolvedValue({})
     const onChanged = vi.fn()
     render(<GuestPanel campaignId="c1" onChanged={onChanged} />)
     await screen.findByText('Alice')
@@ -125,7 +129,7 @@ describe('GuestPanel', () => {
 
   it('does not remove a guest when confirmation is declined', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(false)
-    campaigns.listGuests.mockResolvedValue([
+    campaignsMock.listGuests.mockResolvedValue([
       { id: 'm1', user_id: 'g1', nickname: 'Alice', guest_code: 'ABC1234567' },
     ])
     render(<GuestPanel campaignId="c1" onChanged={vi.fn()} />)
@@ -137,10 +141,10 @@ describe('GuestPanel', () => {
 
   it('surfaces an error when regenerate fails', async () => {
     vi.spyOn(window, 'alert').mockImplementation(() => {})
-    campaigns.listGuests.mockResolvedValue([
+    campaignsMock.listGuests.mockResolvedValue([
       { id: 'm1', user_id: 'g1', nickname: 'Alice', guest_code: 'ABC1234567' },
     ])
-    campaigns.regenerateGuestCode.mockRejectedValue(new Error('boom'))
+    campaignsMock.regenerateGuestCode.mockRejectedValue(new Error('boom'))
     render(<GuestPanel campaignId="c1" onChanged={vi.fn()} />)
     await screen.findByText('Alice')
 
@@ -149,10 +153,10 @@ describe('GuestPanel', () => {
   })
 
   it('closes the share modal', async () => {
-    campaigns.listGuests.mockResolvedValue([
+    campaignsMock.listGuests.mockResolvedValue([
       { id: 'm1', user_id: 'g1', nickname: 'Alice', guest_code: 'ABC1234567' },
     ])
-    campaigns.guestShareTemplate.mockResolvedValue({
+    campaignsMock.guestShareTemplate.mockResolvedValue({
       message: 'join here',
       discord_message: 'discord join',
       mailto_url: 'mailto:test@example.com',

@@ -10,6 +10,7 @@ import {
   LuTrash2,
 } from 'react-icons/lu'
 import { rulesets as rulesetsApi } from '../../api'
+import type { Schema } from '../../api'
 import Spinner from '../Spinner'
 import { goldBtn, ghostBtn, iconBtn, fieldInput, card, scrim, helpText } from './characterStyles'
 
@@ -21,16 +22,24 @@ import { goldBtn, ghostBtn, iconBtn, fieldInput, card, scrim, helpText } from '.
  * the SRD would give their table before asking for it, which is why the install
  * button is withheld rather than the whole dialog.
  */
-export default function PackCatalogue({ onInstalled, onClose }) {
+type Pack = Schema<'CataloguePack'>
+type SourceError = Schema<'CatalogueSourceError'>
+
+export interface PackCatalogueProps {
+  onInstalled?: () => void
+  onClose?: () => void
+}
+
+export default function PackCatalogue({ onInstalled, onClose }: PackCatalogueProps) {
   const { t } = useTranslation()
-  const [packs, setPacks] = useState([])
+  const [packs, setPacks] = useState<Pack[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
   const [installing, setInstalling] = useState('')
   const [canInstall, setCanInstall] = useState(false)
-  const [sources, setSources] = useState([])
-  const [sourceErrors, setSourceErrors] = useState([])
+  const [sources, setSources] = useState<string[]>([])
+  const [sourceErrors, setSourceErrors] = useState<SourceError[]>([])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -41,10 +50,11 @@ export default function PackCatalogue({ onInstalled, onClose }) {
       setSources(result.sources || [])
       // Shown rather than dropped: with several sources configured, a missing
       // one otherwise just looks like a smaller catalogue.
-      setSourceErrors(result.errors || [])
+      // The response declares its errors loosely; each is a source's url and error.
+      setSourceErrors((result.errors || []) as unknown as SourceError[])
       setError('')
     } catch (e) {
-      setError(e.message || t('contentPacks.catalogueFailed'))
+      setError((e as Error).message || t('contentPacks.catalogueFailed'))
     } finally {
       setLoading(false)
     }
@@ -55,7 +65,7 @@ export default function PackCatalogue({ onInstalled, onClose }) {
   }, [load])
 
   useEffect(() => {
-    const onKey = (event) => {
+    const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose?.()
     }
     window.addEventListener('keydown', onKey)
@@ -64,7 +74,7 @@ export default function PackCatalogue({ onInstalled, onClose }) {
 
   // Also how a pack is reinstalled or updated: installing replaces whatever
   // copy is there, so an installed pack is never stuck at the version it has.
-  const install = async (pack) => {
+  const install = async (pack: Pack) => {
     setInstalling(pack.id)
     try {
       await rulesetsApi.installPack(pack.id)
@@ -78,13 +88,13 @@ export default function PackCatalogue({ onInstalled, onClose }) {
       onInstalled?.()
       setError('')
     } catch (e) {
-      setError(e.message)
+      setError((e as Error).message)
     } finally {
       setInstalling('')
     }
   }
 
-  const uninstall = async (pack) => {
+  const uninstall = async (pack: Pack) => {
     if (!window.confirm(t('contentPacks.confirmUninstall', { name: pack.name }))) return
     setInstalling(pack.id)
     try {
@@ -99,7 +109,7 @@ export default function PackCatalogue({ onInstalled, onClose }) {
       onInstalled?.()
       setError('')
     } catch (e) {
-      setError(e.message)
+      setError((e as Error).message)
     } finally {
       setInstalling('')
     }

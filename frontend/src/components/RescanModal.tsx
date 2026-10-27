@@ -12,10 +12,16 @@ import { LuX, LuRefreshCw, LuTriangleAlert } from 'react-icons/lu'
  *   onConfirm – (metadata_mode: string) => void
  *   onClose   – () => void
  */
-export default function RescanModal({ scope, onConfirm, onClose }) {
+export interface RescanModalProps {
+  scope?: string | null
+  onConfirm: (metadataMode: string) => void
+  onClose: () => void
+}
+
+export default function RescanModal({ scope, onConfirm, onClose }: RescanModalProps) {
   const { t } = useTranslation()
   const [mode, setMode] = useState('new')
-  const firstRef = useRef(null)
+  const firstRef = useRef<HTMLLabelElement>(null)
 
   const MODES = [
     {
@@ -38,7 +44,7 @@ export default function RescanModal({ scope, onConfirm, onClose }) {
 
   useEffect(() => {
     firstRef.current?.focus()
-    const onKey = (e) => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', onKey)

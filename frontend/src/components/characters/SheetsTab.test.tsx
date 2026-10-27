@@ -2,14 +2,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SheetsTab from './SheetsTab'
+import type { Schema } from '../../api'
 
 const mockImportSchema = vi.fn()
 const mockDeleteSchema = vi.fn()
 
 vi.mock('../../api', () => ({
   characters: {
-    importSchema: (...a) => mockImportSchema(...a),
-    deleteSchema: (...a) => mockDeleteSchema(...a),
+    importSchema: (...a: unknown[]) => mockImportSchema(...a),
+    deleteSchema: (...a: unknown[]) => mockDeleteSchema(...a),
   },
 }))
 
@@ -20,7 +21,7 @@ const SCHEMA = {
   version: '1.0.0',
   is_community: true,
   character_count: 2,
-}
+} as Schema<'SchemaSummary'>
 
 const renderTab = (props = {}) =>
   render(

@@ -30,6 +30,30 @@ const GAP = 12
  *  - specialOptions: [{ value, label }] pinned above the regular options and
  *    exempt from the search box — used for presence filters ("has no genre").
  */
+export interface MultiSelectOption {
+  value: string
+  label: string
+}
+
+export interface MultiSelectDropdownProps {
+  options: MultiSelectOption[]
+  selected?: string[]
+  onChange: (selected: string[]) => void
+  label: string
+  emptyLabel?: string
+  searchPlaceholder?: string
+  specialOptions?: MultiSelectOption[]
+}
+
+/** Viewport coordinates of the portalled panel, and how tall its list may grow. */
+interface PanelPosition {
+  left: number
+  width: number
+  top: number | undefined
+  bottom: number | undefined
+  maxHeight: number
+}
+
 export default function MultiSelectDropdown({
   options,
   selected = [],
@@ -38,18 +62,18 @@ export default function MultiSelectDropdown({
   emptyLabel = '—',
   searchPlaceholder,
   specialOptions = [],
-}) {
+}: MultiSelectDropdownProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
-  const wrapRef = useRef(null)
-  const panelRef = useRef(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   // Viewport coordinates for the portalled panel, plus how tall its list may be.
   // The panel is rendered into <body>, so the filter modal's `overflow-y: auto`
   // no longer clips it and the list can spill past the modal's edge. Position is
   // measured from the trigger against the viewport: drop into whichever side has
   // more room, and cap the list to what fits there (never more than LIST_MAX).
-  const [pos, setPos] = useState(null)
+  const [pos, setPos] = useState<PanelPosition | null>(null)
 
   const measure = useCallback(() => {
     const el = wrapRef.current
@@ -92,9 +116,9 @@ export default function MultiSelectDropdown({
   // trigger and the panel separately — a DOM-containment check on the wrapper
   // alone would treat every click inside the open list as an outside click.
   useEffect(() => {
-    const onDoc = (e) => {
-      const inTrigger = wrapRef.current?.contains(e.target)
-      const inPanel = panelRef.current?.contains(e.target)
+    const onDoc = (e: MouseEvent) => {
+      const inTrigger = wrapRef.current?.contains(e.target as Node)
+      const inPanel = panelRef.current?.contains(e.target as Node)
       if (!inTrigger && !inPanel) {
         setOpen(false)
         setQuery('')
@@ -108,7 +132,7 @@ export default function MultiSelectDropdown({
   // nested in the modal, a keyboard user needs a way out that is not a click.
   useEffect(() => {
     if (!open) return
-    const onKey = (e) => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation()
         setOpen(false)
@@ -126,7 +150,7 @@ export default function MultiSelectDropdown({
   const specialValues = new Set(specialOptions.map((o) => o.value))
   const activeSpecial = selected.find((v) => specialValues.has(v))
 
-  const toggle = (value) => {
+  const toggle = (value: string) => {
     const isSpecial = specialValues.has(value)
     if (selected.includes(value)) {
       onChange(selected.filter((v) => v !== value))
@@ -143,7 +167,7 @@ export default function MultiSelectDropdown({
     return <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{emptyLabel}</div>
   }
 
-  const renderOption = (o) => {
+  const renderOption = (o: MultiSelectOption) => {
     const checked = selected.includes(o.value)
     // While a presence filter is active the concrete values are unselectable —
     // shown disabled rather than silently ignoring the click. The sentinels
@@ -204,7 +228,7 @@ export default function MultiSelectDropdown({
             than reporting a meaningless "1 selected". */}
         <span>
           {activeSpecial
-            ? specialOptions.find((o) => o.value === activeSpecial).label
+            ? specialOptions.find((o) => o.value === activeSpecial)!.label
             : selected.length
               ? t('sortFilter.multiSelected', { count: selected.length })
               : t('sortFilter.multiAny')}

@@ -1,22 +1,26 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
-import useSystemSearch from './useSystemSearch'
+import type { ChangeEvent } from 'react'
+import useSystemSearch, { type SystemSearch } from './useSystemSearch'
 import api from '../api'
 
 vi.mock('../api', () => ({ default: { get: vi.fn() } }))
 
+// The raw transport is generic over the URL; the tests only need its mock.
+const mockGet = vi.mocked(api.get) as unknown as Mock
+
 const RESULTS = { books: [{ id: 'b1' }] }
 
-const typeInto = (result, value) =>
+const typeInto = (result: { current: SystemSearch }, value: string) =>
   act(() => {
-    result.current.handleSearchInput({ target: { value } })
+    result.current.handleSearchInput({ target: { value } } as ChangeEvent<HTMLInputElement>)
   })
 
 beforeEach(() => {
   vi.clearAllMocks()
   vi.useFakeTimers()
   sessionStorage.clear()
-  api.get.mockResolvedValue(RESULTS)
+  mockGet.mockResolvedValue(RESULTS)
 })
 
 afterEach(() => {
@@ -69,7 +73,7 @@ describe('useSystemSearch', () => {
 
   it('keeps searching false when the request fails', async () => {
     vi.useRealTimers()
-    api.get.mockRejectedValue(new Error('boom'))
+    mockGet.mockRejectedValue(new Error('boom'))
     const { result } = renderHook(() => useSystemSearch('sys1', false))
     typeInto(result, 'drag')
     await waitFor(() => expect(api.get).toHaveBeenCalled())

@@ -3,25 +3,30 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { LuPencilRuler } from 'react-icons/lu'
 import Spinner from '../components/Spinner'
-import DownloadArchiveModal from '../components/DownloadArchiveModal'
-import BulkActionBar from '../components/BulkActionBar'
+import DownloadArchiveModal, {
+  type DownloadArchiveModalProps,
+} from '../components/DownloadArchiveModal'
 import AddToCampaignModal from '../components/AddToCampaignModal'
 import BulkEditModal from '../components/BulkEditModal'
 import { useAuth } from '../context/AuthContext'
-import useMediaGallery from '../hooks/useMediaGallery'
+import useMediaGallery, { type GalleryItem } from '../hooks/useMediaGallery'
 import { MEDIA_CONFIGS } from '../components/media/mediaConfig'
+import type { MediaItem } from '../components/media/mediaConfig'
 import GalleryLayout from '../components/media/GalleryLayout'
 import gallerySubtitle from '../components/media/gallerySubtitle'
 
+/** What the archive modal is asked to download. */
+type DownloadRequest = Pick<DownloadArchiveModalProps, 'title' | 'params'>
+
 export default function MapsView() {
   const { t } = useTranslation()
-  const { user } = useAuth()
+  const { user } = useAuth()!
   const navigate = useNavigate()
   const isPlayer = user?.role === 'player'
   const config = MEDIA_CONFIGS.map
-  const gallery = useMediaGallery(config)
+  const gallery = useMediaGallery<MediaItem>(config)
 
-  const [downloadModal, setDownloadModal] = useState(null)
+  const [downloadModal, setDownloadModal] = useState<DownloadRequest | null>(null)
   const [showAddToCampaign, setShowAddToCampaign] = useState(false)
   const [showBulkEdit, setShowBulkEdit] = useState(false)
 
@@ -103,7 +108,7 @@ export default function MapsView() {
           type="map"
           items={gallery.selectedObjects()}
           onClose={() => setShowBulkEdit(false)}
-          onSaved={(edited) => {
+          onSaved={(edited: Record<string, Partial<GalleryItem>>) => {
             gallery.applyEdits(edited)
             setShowBulkEdit(false)
           }}

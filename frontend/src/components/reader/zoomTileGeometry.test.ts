@@ -70,7 +70,7 @@ describe('visibleTiles', () => {
     const tiles = visibleTiles({ width, aspect: 1, box, view })
     const high = tiles.filter((t) => t.priority === 'high')
     expect(high.map(({ col, row }) => `${col}:${row}`)).toEqual(['1:1', '2:1', '1:2', '2:2'])
-    expect(tiles.indexOf(high.at(-1))).toBe(high.length - 1)
+    expect(tiles.indexOf(high.at(-1)!)).toBe(high.length - 1)
     // The ring adds the tiles around them without repeating any.
     const keys = tiles.map(({ col, row }) => `${col}:${row}`)
     expect(new Set(keys).size).toBe(keys.length)

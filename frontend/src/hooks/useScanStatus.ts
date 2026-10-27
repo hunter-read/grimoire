@@ -1,7 +1,24 @@
 import { useState, useEffect, useCallback } from 'react'
-import api from '../api'
+import api, { type Schema } from '../api'
 
-const EMPTY = {
+export type ScanStatus = Schema<'ScanStatusResponse'>
+
+export interface RescanOptions {
+  /** A library-relative folder to limit the scan to; null scans everything. */
+  scope?: string | null
+  metadata_mode?: string
+}
+
+export interface ScanStatusHandle {
+  status: ScanStatus
+  /** The last finished scan that found or changed something; null otherwise. */
+  lastResult: ScanStatus | null
+  stopping: boolean
+  startRescan: (opts?: RescanOptions) => Promise<void>
+  stopScan: () => Promise<void>
+}
+
+const EMPTY: ScanStatus = {
   running: false,
   phase: null,
   total_books: 0,
@@ -39,9 +56,9 @@ export const SCAN_STARTED = 'grimoire:scan-started'
  *
  * Polls every second while a scan is running, every 30s when idle.
  */
-export default function useScanStatus() {
-  const [status, setStatus] = useState(EMPTY)
-  const [lastResult, setLastResult] = useState(null)
+export default function useScanStatus(): ScanStatusHandle {
+  const [status, setStatus] = useState<ScanStatus>(EMPTY)
+  const [lastResult, setLastResult] = useState<ScanStatus | null>(null)
   const [stopping, setStopping] = useState(false)
 
   useEffect(() => {
@@ -54,13 +71,13 @@ export default function useScanStatus() {
           setStatus(s)
           if (!s.running) {
             const total =
-              s.new_books +
-              s.new_maps +
-              s.new_tokens +
+              s.new_books! +
+              s.new_maps! +
+              s.new_tokens! +
               (s.new_audio || 0) +
               (s.new_models || 0) +
               (s.updated_books || 0)
-            if (total > 0 || s.indexed > 0) setLastResult(s)
+            if (total > 0 || s.indexed! > 0) setLastResult(s)
           }
         })
         .catch(() => {})
@@ -84,7 +101,7 @@ export default function useScanStatus() {
   }, [])
 
   const startRescan = useCallback(
-    async ({ scope = null, metadata_mode = 'new' } = {}) => {
+    async ({ scope = null, metadata_mode = 'new' }: RescanOptions = {}) => {
       if (status.running) return
       setLastResult(null)
       setStopping(false)
@@ -112,7 +129,7 @@ export default function useScanStatus() {
         setStopping(false)
         setStatus((s) => ({ ...s, running: false, phase: null }))
       }
-    } catch (_) {}
+    } catch {}
   }, [])
 
   return { status, lastResult, stopping, startRescan, stopScan }

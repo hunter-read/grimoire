@@ -5,10 +5,19 @@ import {
   linkText,
   MAX_VISIBLE_LINKS,
 } from './systemLinkUtils'
+import type { SystemLink } from './systemLinkUtils'
 
-const b = (n) => ({ label: `B${n}`, url: `https://b${n}.example`, builder: true })
-const g = (n) => ({ label: `G${n}`, url: `https://g${n}.example`, builder: false })
-const labels = (list) => list.map((l) => l.label)
+const b = (n: number): SystemLink => ({
+  label: `B${n}`,
+  url: `https://b${n}.example`,
+  builder: true,
+})
+const g = (n: number): SystemLink => ({
+  label: `G${n}`,
+  url: `https://g${n}.example`,
+  builder: false,
+})
+const labels = (list: SystemLink[]) => list.map((l) => l.label)
 
 describe('collectSystemLinks', () => {
   it('lists builders first, then links, tagged by kind and without blank URLs', () => {

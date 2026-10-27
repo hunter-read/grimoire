@@ -10,8 +10,26 @@ export const MAX_VISIBLE_LINKS = 3
  * `character_builder_url` is the fallback for older data. Entries with no URL
  * are dropped.
  */
-export function collectSystemLinks(system) {
-  const builders = system.character_builder_urls?.length
+/** A labelled link, as systems store them. */
+export interface LinkLike {
+  label?: string
+  url?: string
+}
+
+/** A system link tagged with its kind. */
+export interface SystemLink extends LinkLike {
+  builder: boolean
+}
+
+/** The fields of a system that hold links. */
+export interface SystemWithLinks {
+  character_builder_urls?: LinkLike[] | null
+  character_builder_url?: string | null
+  urls?: LinkLike[] | null
+}
+
+export function collectSystemLinks(system: SystemWithLinks): SystemLink[] {
+  const builders: LinkLike[] = system.character_builder_urls?.length
     ? system.character_builder_urls
     : system.character_builder_url
       ? [{ label: '', url: system.character_builder_url }]
@@ -31,7 +49,10 @@ export function collectSystemLinks(system) {
  * with five builders and five links still shows one of each. The remaining
  * slots go to builders first, then to links.
  */
-export function splitSystemLinks(links, max = MAX_VISIBLE_LINKS) {
+export function splitSystemLinks(
+  links: SystemLink[],
+  max = MAX_VISIBLE_LINKS
+): { visible: SystemLink[]; overflow: SystemLink[] } {
   if (links.length <= max) return { visible: links, overflow: [] }
   const builders = links.filter((l) => l.builder)
   const generic = links.filter((l) => !l.builder)
@@ -53,10 +74,10 @@ export function splitSystemLinks(links, max = MAX_VISIBLE_LINKS) {
  * several unlabelled links that all read "Link" are hard to tell apart.
  * `fallback` covers a URL that does not parse.
  */
-export function linkText(link, fallback) {
+export function linkText(link: LinkLike, fallback: string): string {
   if (link.label) return link.label
   try {
-    return new URL(link.url).hostname.replace(/^www\./, '') || fallback
+    return new URL(link.url as string).hostname.replace(/^www\./, '') || fallback
   } catch {
     return fallback
   }

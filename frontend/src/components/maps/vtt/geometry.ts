@@ -14,8 +14,10 @@
  * cell size. That offset is what the calibration step exists to find.
  */
 
+import type { Point } from './types'
+
 /** Image pixels → grid units, honouring the calibrated origin offset. */
-export function imageToGrid(pt, cellPx, offset = { x: 0, y: 0 }) {
+export function imageToGrid(pt: Point, cellPx: number, offset: Point = { x: 0, y: 0 }): Point {
   return {
     x: (pt.x - offset.x) / cellPx,
     y: (pt.y - offset.y) / cellPx,
@@ -23,7 +25,7 @@ export function imageToGrid(pt, cellPx, offset = { x: 0, y: 0 }) {
 }
 
 /** Grid units → image pixels. The exact inverse of {@link imageToGrid}. */
-export function gridToImage(pt, cellPx, offset = { x: 0, y: 0 }) {
+export function gridToImage(pt: Point, cellPx: number, offset: Point = { x: 0, y: 0 }): Point {
   return {
     x: pt.x * cellPx + offset.x,
     y: pt.y * cellPx + offset.y,
@@ -31,7 +33,7 @@ export function gridToImage(pt, cellPx, offset = { x: 0, y: 0 }) {
 }
 
 /** Round to the stored precision (4dp) — sub-pixel at any real cell size. */
-export const round4 = (n) => Math.round(n * 10000) / 10000
+export const round4 = (n: number): number => Math.round(n * 10000) / 10000
 
 /**
  * Snap a grid-space point to the nearest intersection.
@@ -39,16 +41,16 @@ export const round4 = (n) => Math.round(n * 10000) / 10000
  * Snapping targets intersections rather than cell centres because that is where
  * walls belong: a wall runs along the edge between two cells, not through them.
  */
-export function snapToGrid(pt) {
+export function snapToGrid(pt: Point): Point {
   return { x: Math.round(pt.x), y: Math.round(pt.y) }
 }
 
 /** Snap to the nearest half-cell, for walls that legitimately split a square. */
-export function snapToHalf(pt) {
+export function snapToHalf(pt: Point): Point {
   return { x: Math.round(pt.x * 2) / 2, y: Math.round(pt.y * 2) / 2 }
 }
 
-export const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y)
+export const distance = (a: Point, b: Point): number => Math.hypot(a.x - b.x, a.y - b.y)
 
 /**
  * Distance from point `p` to segment `a`–`b`, all in the same space.
@@ -56,7 +58,7 @@ export const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y)
  * Used for hit-testing: clicking "on" a wall means clicking near any of its
  * segments, not near a vertex.
  */
-export function distanceToSegment(p, a, b) {
+export function distanceToSegment(p: Point, a: Point, b: Point): number {
   const dx = b.x - a.x
   const dy = b.y - a.y
   const lenSq = dx * dx + dy * dy
@@ -69,7 +71,7 @@ export function distanceToSegment(p, a, b) {
 }
 
 /** Shortest distance from `p` to any segment of a polyline. */
-export function distanceToPolyline(p, points) {
+export function distanceToPolyline(p: Point, points: Point[] | null | undefined): number {
   if (!points || points.length === 0) return Infinity
   if (points.length === 1) return distance(p, points[0])
   let best = Infinity
@@ -99,7 +101,11 @@ export function distanceToPolyline(p, points) {
  * that axis, so a horizontal pick calibrates x and leaves y to another pick or
  * to the square-cell fallback.
  */
-export function calibrateFromPoints(points, spanX, spanY) {
+export function calibrateFromPoints(
+  points: Point[] | null | undefined,
+  spanX: number,
+  spanY: number
+): { cellPx: number; offset: Point } | null {
   if (!points || points.length < 2) return null
   const xs = points.map((p) => p.x)
   const ys = points.map((p) => p.y)
@@ -132,7 +138,12 @@ export function calibrateFromPoints(points, spanX, spanY) {
  * Rounded to 2dp rather than to whole cells: maps routinely bleed a partial
  * cell past the grid, and the format's `map_size` is numeric for that reason.
  */
-export function gridDimensions(pixelWidth, pixelHeight, cellPx, offset = { x: 0, y: 0 }) {
+export function gridDimensions(
+  pixelWidth: number,
+  pixelHeight: number,
+  cellPx: number,
+  offset: Point = { x: 0, y: 0 }
+): { width: number; height: number } {
   if (!cellPx || cellPx <= 0) return { width: 0, height: 0 }
   return {
     width: Math.round(((pixelWidth - offset.x) / cellPx) * 100) / 100,
@@ -141,7 +152,7 @@ export function gridDimensions(pixelWidth, pixelHeight, cellPx, offset = { x: 0,
 }
 
 /** True when the two endpoints of a polyline coincide — a closed room. */
-export function isClosed(points) {
+export function isClosed(points: Point[] | null | undefined): boolean {
   if (!points || points.length < 3) return false
   const a = points[0]
   const b = points[points.length - 1]

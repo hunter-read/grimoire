@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX, LuSave } from 'react-icons/lu'
 
@@ -9,12 +9,27 @@ import { LuX, LuSave } from 'react-icons/lu'
  * can warn that saving will overwrite it before it happens — the API overwrites
  * by (kind, name), which is the wanted behaviour but a surprise unannounced.
  */
-export default function SaveAudioSetModal({ kind, count, existing = [], onSave, onClose }) {
+export interface SaveAudioSetModalProps {
+  kind: 'playlist' | 'soundboard'
+  count: number
+  existing?: string[]
+  /** Saves under `name`; a falsy result means the save failed. */
+  onSave: (name: string) => Promise<unknown> | unknown
+  onClose: () => void
+}
+
+export default function SaveAudioSetModal({
+  kind,
+  count,
+  existing = [],
+  onSave,
+  onClose,
+}: SaveAudioSetModalProps) {
   const { t } = useTranslation()
   const [name, setName] = useState('')
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState(null)
-  const inputRef = useRef(null)
+  const [error, setError] = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -32,7 +47,7 @@ export default function SaveAudioSetModal({ kind, count, existing = [], onSave, 
       if (!saved) throw new Error(t('audioSets.saveFailed'))
       onClose()
     } catch (err) {
-      setError(err.message || t('audioSets.saveFailed'))
+      setError((err as Error).message || t('audioSets.saveFailed'))
       setSaving(false)
     }
   }
@@ -102,7 +117,7 @@ export default function SaveAudioSetModal({ kind, count, existing = [], onSave, 
   )
 }
 
-const overlay = {
+const overlay: CSSProperties = {
   position: 'fixed',
   inset: 0,
   zIndex: 1200,
@@ -112,7 +127,7 @@ const overlay = {
   background: 'var(--scrim)',
   padding: 16,
 }
-const panel = {
+const panel: CSSProperties = {
   background: 'var(--bg-panel)',
   border: '1px solid var(--border)',
   borderRadius: 10,
@@ -121,13 +136,13 @@ const panel = {
   maxWidth: '92vw',
   boxSizing: 'border-box',
 }
-const header = {
+const header: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
   marginBottom: 8,
 }
-const closeBtn = {
+const closeBtn: CSSProperties = {
   background: 'none',
   border: 'none',
   cursor: 'pointer',
@@ -135,14 +150,14 @@ const closeBtn = {
   display: 'flex',
   padding: 2,
 }
-const label = {
+const label: CSSProperties = {
   display: 'block',
   fontSize: 12,
   color: 'var(--text-muted)',
   fontWeight: 500,
   marginBottom: 6,
 }
-const input = {
+const input: CSSProperties = {
   width: '100%',
   padding: '8px 10px',
   background: 'var(--bg-deep)',
@@ -152,7 +167,7 @@ const input = {
   fontSize: 14,
   boxSizing: 'border-box',
 }
-const cancelBtn = {
+const cancelBtn: CSSProperties = {
   padding: '7px 16px',
   borderRadius: 6,
   background: 'var(--bg-card)',
@@ -161,7 +176,7 @@ const cancelBtn = {
   fontSize: 14,
   cursor: 'pointer',
 }
-const goldBtn = {
+const goldBtn: CSSProperties = {
   padding: '7px 18px',
   borderRadius: 6,
   background: 'var(--gold-dim)',

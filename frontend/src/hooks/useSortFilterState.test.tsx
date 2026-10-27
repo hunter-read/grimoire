@@ -1,12 +1,16 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import type { ReactNode } from 'react'
 import useSortFilterState, { DEFAULT_SORT_FILTER } from './useSortFilterState'
+import type { SavedFiltersResult } from './useSavedFilters'
 
 const KEY = 'grimoire:test:sortFilter'
 
 const preset = { sort: 'size', order: 'desc', filters: {} }
-const savedWith = (defaultFilter, loaded = true) => ({ loaded, defaultFilter })
+type Saved = Pick<SavedFiltersResult, 'loaded' | 'defaultFilter'>
+const savedWith = (defaultFilter: { id?: string; state: object } | null, loaded = true): Saved =>
+  ({ loaded, defaultFilter }) as Saved
 
 /**
  * Render the hook as one of two arrivals:
@@ -16,11 +20,13 @@ const savedWith = (defaultFilter, loaded = true) => ({ loaded, defaultFilter })
  * Driving the real router state rather than mocking useRestoredView keeps the
  * test honest about the thing that actually distinguishes the two cases.
  */
-function renderAt(saved, { returned = false } = {}) {
+function renderAt(saved: Saved, { returned = false } = {}) {
   const entry = returned ? { pathname: '/library', state: { restoreView: true } } : '/library'
   return renderHook(({ s }) => useSortFilterState(KEY, s), {
     initialProps: { s: saved },
-    wrapper: ({ children }) => <MemoryRouter initialEntries={[entry]}>{children}</MemoryRouter>,
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <MemoryRouter initialEntries={[entry]}>{children}</MemoryRouter>
+    ),
   })
 }
 

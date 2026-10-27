@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { LuEllipsisVertical, LuHeart, LuScroll, LuShare2 } from 'react-icons/lu'
@@ -8,8 +9,26 @@ import useAnchoredMenu from '../../hooks/useAnchoredMenu'
 import AddToCampaignModal from '../AddToCampaignModal'
 import ShareLinkDialog from '../share/ShareLinkDialog'
 import useCanShare from '../share/useCanShare'
+import type { MediaType } from './mediaConfig'
 
 const MENU_WIDTH = 236
+
+/** A page's own entry in the menu, and the dialog it opens. */
+export interface DetailMenuItem {
+  key: string
+  label: ReactNode
+  icon: ReactNode
+  /** Hidden from anyone who may not create share links. */
+  requiresShare?: boolean
+  render: (onClose: () => void) => ReactNode
+}
+
+export interface DetailMoreMenuProps {
+  resourceType: MediaType
+  resourceId: string
+  title: string
+  extraItems?: DetailMenuItem[]
+}
 
 /**
  * The overflow menu (kebab) on a media detail page, the way the book reader has
@@ -26,22 +45,31 @@ const MENU_WIDTH = 236
  * Portalled to document.body at fixed coordinates so the toolbar cannot clip it;
  * its dialogs render outside the panel so they survive it closing.
  */
-export default function DetailMoreMenu({ resourceType, resourceId, title, extraItems = [] }) {
+export default function DetailMoreMenu({
+  resourceType,
+  resourceId,
+  title,
+  extraItems = [],
+}: DetailMoreMenuProps) {
   const { t } = useTranslation()
   const { hide_campaigns } = useUISettings()
   const favorites = useFavorites()
   const canShare = useCanShare()
   const [open, setOpen] = useState(false)
-  const [dialog, setDialog] = useState(null)
+  const [dialog, setDialog] = useState<string | null>(null)
   const { triggerRef, panelRef, style: menuStyle } = useAnchoredMenu(open, { width: MENU_WIDTH })
 
   useEffect(() => {
     if (!open) return
-    const onDoc = (e) => {
-      if (triggerRef.current?.contains(e.target) || panelRef.current?.contains(e.target)) return
+    const onDoc = (e: MouseEvent) => {
+      if (
+        triggerRef.current?.contains(e.target as Node) ||
+        panelRef.current?.contains(e.target as Node)
+      )
+        return
       setOpen(false)
     }
-    const onKey = (e) => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false)
     }
     document.addEventListener('mousedown', onDoc)
@@ -54,12 +82,12 @@ export default function DetailMoreMenu({ resourceType, resourceId, title, extraI
 
   const isFavorite = favorites?.isFavorite?.(resourceType, resourceId) ?? false
   const close = () => setDialog(null)
-  const run = (fn) => () => {
+  const run = (fn: () => void) => () => {
     setOpen(false)
     fn()
   }
 
-  const itemStyle = {
+  const itemStyle: CSSProperties = {
     display: 'flex',
     alignItems: 'center',
     gap: 10,

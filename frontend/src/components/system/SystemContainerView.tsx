@@ -7,6 +7,8 @@ import { applySystemSortFilter } from '../library/applySystemSortFilter'
 import BulkActionBar from '../BulkActionBar'
 import BulkEditModal from '../BulkEditModal'
 import CoverUpload from './CoverUpload'
+import type { CoverChange } from './CoverUpload'
+import type { Schema } from '../../api'
 import { useFavorites } from '../../context/FavoritesContext'
 import useSavedFilters from '../../hooks/useSavedFilters'
 import useSortFilterState from '../../hooks/useSortFilterState'
@@ -34,6 +36,19 @@ import { systemCoverUrl } from '../../utils/systemCoverUrl'
  * @param onChildrenChange  (updater) => void, patches the children after a bulk
  *   tag or edit so the grid updates without a refetch
  */
+type ChildSystem = Schema<'SystemSummary'>
+
+export interface SystemContainerViewProps {
+  system: Schema<'SystemDetail'>
+  viewMode: string
+  onCycleViewMode: () => void
+  canEdit?: boolean
+  backLabel?: string
+  onBack: () => void
+  onCoverChange?: (cover: CoverChange) => void
+  onChildrenChange: (update: (children: ChildSystem[]) => ChildSystem[]) => void
+}
+
 export default function SystemContainerView({
   system,
   viewMode,
@@ -43,7 +58,7 @@ export default function SystemContainerView({
   onBack,
   onCoverChange,
   onChildrenChange,
-}) {
+}: SystemContainerViewProps) {
   const { t } = useTranslation()
   const { isFavorite } = useFavorites()
   const [editingCover, setEditingCover] = useState(false)
@@ -59,7 +74,7 @@ export default function SystemContainerView({
     systemFilters
   )
   const shown = applySystemSortFilter(children, sortFilter, {
-    isFavorite: (id) => isFavorite('system', id),
+    isFavorite: (id: string) => isFavorite('system', id),
   })
   // A nested container holds systems rather than books, so like the main
   // library it never takes part in a bulk selection or a shift-click range.

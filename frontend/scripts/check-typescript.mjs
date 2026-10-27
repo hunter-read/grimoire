@@ -1,106 +1,47 @@
 #!/usr/bin/env node
 /**
- * TypeScript ratchet (issue #587): the frontend's JavaScript only shrinks.
+ * Keeps frontend/src all TypeScript (issue #587).
  *
- * Fails if, compared with the base branch, a change under src/:
- *   - adds a .js/.jsx file (tests included - write new ones in TypeScript), or
- *   - modifies or moves a non-test .js/.jsx file. Convert it while you are in
- *     there: rename it to .ts/.tsx and make `npm run typecheck` pass.
- *
- * A modified .js/.jsx *test* is allowed: tests convert along with the module
- * they cover, so touching the test of a JavaScript module does not force it.
- *
- * Mirrors the backend's mypy `disallow_untyped_defs` overrides. Like
- * check-coverage.mjs, the base ref comes from $BASE_REF (CI sets it), falling
- * back to origin/main, then main, and the check covers committed, uncommitted and
- * untracked changes.
+ * The frontend was converted from JavaScript a file at a time; it is finished,
+ * so this fails if any .js/.jsx file - tests included - exists under src/,
+ * whether committed, staged or untracked. tsc would not notice one: a JavaScript
+ * file nothing imports is simply not part of the program.
  */
 import { execFileSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-// Run git with args passed as an array (no shell), so a value derived from
-// untrusted input (a PR branch name in BASE_REF) is never read as shell syntax.
+// Run git with args passed as an array (no shell).
 function git(args, cwd) {
   return execFileSync('git', args, { encoding: 'utf8', cwd }).trim()
 }
 
-function gitLines(args, cwd) {
-  try {
-    return git(args, cwd).split('\n').filter(Boolean)
-  } catch {
-    return []
-  }
-}
-
-function resolveBase(root) {
-  const candidates = [process.env.BASE_REF, 'origin/main', 'main'].filter(Boolean)
-  for (const ref of candidates) {
-    try {
-      git(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], root)
-      return ref
-    } catch {
-      // try next
-    }
-  }
-  return null
-}
-
-const isJs = (p) => /\.(js|jsx)$/.test(p)
-const isTest = (p) => /\.test\.(js|jsx)$/.test(p) || p.startsWith('frontend/src/test/')
-
-/**
- * `git diff --name-status` lines as {status, path}: A(dded), M(odified),
- * R(enamed, with `path` the new name) or C(opied). Deletions are dropped.
- */
-function parseStatus(lines) {
-  return lines
-    .map((line) => line.split('\t'))
-    .map(([status, ...paths]) => ({ status: status[0], path: paths[paths.length - 1] }))
-    .filter(({ status }) => 'AMRC'.includes(status))
-}
-
-/** Changes under frontend/src vs the base: committed, uncommitted, and untracked. */
-function changes(base, root) {
-  const diff = (range) =>
-    parseStatus(gitLines(['diff', '--name-status', '-M', ...range, '--', 'frontend/src'], root))
-  const byPath = new Map()
-  // An add anywhere wins over a later modify: the file is new to the base.
-  for (const change of [...diff([`${base}...HEAD`]), ...diff(['HEAD'])]) {
-    if (byPath.get(change.path)?.status !== 'A') byPath.set(change.path, change)
-  }
-  for (const path of gitLines(
-    ['ls-files', '--others', '--exclude-standard', '--', 'frontend/src'],
+/** Repo-relative paths of the .js/.jsx files under frontend/src, ignored files excluded. */
+export function javascriptFiles(root) {
+  const listed = git(
+    ['ls-files', '--cached', '--others', '--exclude-standard', '--', 'frontend/src'],
     root
-  )) {
-    byPath.set(path, { status: 'A', path })
-  }
-  return [...byPath.values()]
+  )
+  return [...new Set(listed.split('\n').filter(Boolean))]
+    .filter((p) => /\.(js|jsx)$/.test(p))
+    .filter((p) => existsSync(join(root, p)))
+    .sort()
 }
 
 function main() {
   const root = git(['rev-parse', '--show-toplevel'])
-  const base = resolveBase(root)
-  if (!base) {
-    console.warn('⚠ check-typescript: no base ref resolvable; skipping.')
+  const found = javascriptFiles(root)
+  if (!found.length) {
+    console.log('✓ check-typescript: frontend/src has no JavaScript files.')
     return
   }
-
-  const failures = []
-  for (const { status, path } of changes(base, root)) {
-    if (!isJs(path)) continue
-    if (status === 'A' || status === 'C') failures.push({ path, why: 'new file' })
-    else if (!isTest(path)) failures.push({ path, why: status === 'R' ? 'moved' : 'modified' })
-  }
-
-  if (!failures.length) {
-    console.log(`✓ check-typescript: no new or modified JavaScript under frontend/src vs ${base}.`)
-    return
-  }
-  for (const { path, why } of failures) console.error(`✗ ${path} (${why})`)
+  for (const path of found) console.error(`✗ ${path}`)
   console.error(
-    `\n✗ check-typescript: ${failures.length} file(s) must be TypeScript.\n` +
+    `\n✗ check-typescript: ${found.length} JavaScript file(s) under frontend/src.\n` +
       '  Rename each to .ts/.tsx and make "npm run typecheck" pass. See docs/typescript.md.'
   )
   process.exit(1)
 }
 
-main()
+if (process.argv[1] === fileURLToPath(import.meta.url)) main()

@@ -1,8 +1,37 @@
 import { useTranslation } from 'react-i18next'
-import SortFilterBar from './SortFilterBar'
+import SortFilterBar, { type FilterOption, type SortFilterState } from './SortFilterBar'
+import type { SortableSystem } from './applySystemSortFilter'
+import type { Schema } from '../../api'
 import BulkToggleButton from '../BulkToggleButton'
 import ViewModeToggle from '../ViewModeToggle'
 import useTagLabels, { titleCaseTag } from '../../hooks/useTagLabels'
+
+/** The parts of a useSavedFilters() result the toolbar uses. */
+export interface SavedFiltersHandle {
+  saved: Schema<'SavedFilterOut'>[]
+  save: (name: string, state: SortFilterState, opts: { asDefault: boolean }) => unknown
+  setDefault: (id: string, value: boolean) => unknown
+  remove: (id: string) => unknown
+}
+
+/** The parts of a useBulkSelection() result the toolbar uses. */
+export interface BulkModeHandle {
+  bulkMode: boolean
+  enter: () => void
+  exit: () => void
+}
+
+export interface SystemSortFilterBarProps {
+  systems: SortableSystem[]
+  tags: string[]
+  state: SortFilterState
+  onChange: (next: SortFilterState) => void
+  saved: SavedFiltersHandle
+  bulk: BulkModeHandle
+  canEdit?: boolean
+  viewMode: string
+  onCycleViewMode: () => void
+}
 
 /**
  * The systems toolbar: name search, sort, filters, saved presets, multi-select
@@ -27,7 +56,7 @@ export default function SystemSortFilterBar({
   canEdit,
   viewMode,
   onCycleViewMode,
-}) {
+}: SystemSortFilterBarProps) {
   const { t } = useTranslation()
   // Shared-tag display labels for system tags (values still match on internal key).
   const systemTagLabels = useTagLabels('system')
@@ -37,8 +66,10 @@ export default function SystemSortFilterBar({
   // hides them again — an option that can never match is worse than a missing
   // one. (Edition is deliberately not offered: it isn't recorded consistently
   // enough across systems to filter on.)
-  const optionsFrom = (pick) =>
-    [...new Set(systems.flatMap((s) => [pick(s)].flat().filter(Boolean)))]
+  const optionsFrom = (
+    pick: (s: SortableSystem) => string | readonly string[] | null | undefined
+  ): FilterOption[] =>
+    [...new Set(systems.flatMap((s) => [pick(s)].flat().filter((v): v is string => Boolean(v))))]
       .sort((a, b) => a.localeCompare(b))
       .map((v) => ({ value: v, label: v }))
 

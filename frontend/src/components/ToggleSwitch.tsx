@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react'
+
 /**
  * A small on/off switch styled as a toggle.
  *
@@ -6,6 +8,15 @@
  *  - pill: wrap the whole control in a bordered, button-like pill so clicking
  *    anywhere on it toggles (the whole thing is a <label>, so it already does).
  */
+export interface ToggleSwitchProps {
+  checked: boolean
+  onChange: (checked: boolean) => void
+  label?: ReactNode
+  id?: string
+  labelFirst?: boolean
+  pill?: boolean
+}
+
 export default function ToggleSwitch({
   checked,
   onChange,
@@ -13,7 +24,7 @@ export default function ToggleSwitch({
   id,
   labelFirst = false,
   pill = false,
-}) {
+}: ToggleSwitchProps) {
   const track = (
     <span key="track" style={{ position: 'relative', width: 38, height: 22, flexShrink: 0 }}>
       <input

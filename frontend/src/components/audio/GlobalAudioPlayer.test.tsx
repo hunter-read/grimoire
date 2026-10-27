@@ -15,25 +15,25 @@ const BOOK_CHAPTERS = [
 vi.mock('../../api', () => ({
   // The queue panel's save control loads the user's saved sets (useAudioSets).
   default: {
-    get: vi.fn((url) =>
+    get: vi.fn((url: string) =>
       Promise.resolve(
         url === '/audio/book/chapters' ? { chapters: BOOK_CHAPTERS } : { sets: [], chapters: [] }
       )
     ),
   },
-  mediaUrl: (path) => `http://localhost${path}`,
+  mediaUrl: (path: string) => `http://localhost${path}`,
 }))
 
 // jsdom doesn't implement media playback; stub it so play()/pause() are no-ops.
 beforeEach(() => {
   sessionStorage.clear()
   _clearChapterCache()
-  window.HTMLMediaElement.prototype.play = vi.fn().mockResolvedValue()
+  window.HTMLMediaElement.prototype.play = vi.fn().mockResolvedValue(undefined)
   window.HTMLMediaElement.prototype.pause = vi.fn()
 })
 
 // A tiny harness exposing the context actions to the test.
-let api
+let api: ReturnType<typeof useAudioPlayer>
 function Capture() {
   api = useAudioPlayer()
   return null
@@ -119,9 +119,9 @@ describe('GlobalAudioPlayer', () => {
       ])
     )
     await userEvent.click(screen.getByRole('button', { name: /next track/i }))
-    expect(api.currentTrack.id).toBe('b')
+    expect(api.currentTrack!.id).toBe('b')
     await userEvent.click(screen.getByRole('button', { name: /previous track/i }))
-    expect(api.currentTrack.id).toBe('a')
+    expect(api.currentTrack!.id).toBe('a')
   })
 
   it('play/pause button calls the media element', async () => {
@@ -130,8 +130,8 @@ describe('GlobalAudioPlayer', () => {
     const btn = screen.getByRole('button', { name: /^play$|^pause$/i })
     await userEvent.click(btn)
     expect(
-      window.HTMLMediaElement.prototype.play.mock.calls.length +
-        window.HTMLMediaElement.prototype.pause.mock.calls.length
+      vi.mocked(window.HTMLMediaElement.prototype.play).mock.calls.length +
+        vi.mocked(window.HTMLMediaElement.prototype.pause).mock.calls.length
     ).toBeGreaterThan(0)
   })
 
@@ -156,7 +156,7 @@ describe('GlobalAudioPlayer', () => {
     )
     const el = screen.getByTestId('global-audio-element')
     act(() => el.dispatchEvent(new Event('ended')))
-    expect(api.currentTrack.id).toBe('b')
+    expect(api.currentTrack!.id).toBe('b')
   })
 
   it('onEnded replays the same track when repeat-one is on', () => {
@@ -171,7 +171,7 @@ describe('GlobalAudioPlayer', () => {
     const el = screen.getByTestId('global-audio-element')
     act(() => el.dispatchEvent(new Event('ended')))
     // Stays on the same track.
-    expect(api.currentTrack.id).toBe('a')
+    expect(api.currentTrack!.id).toBe('a')
   })
 
   it('renders above the mobile nav when isMobile', () => {
@@ -261,7 +261,7 @@ describe('GlobalAudioPlayer', () => {
       const panel = screen.getByRole('region', { name: /chapters/i })
       expect(panel).toHaveTextContent('Chapters (3)')
       await userEvent.click(screen.getByRole('button', { name: /epilogue/i }))
-      expect(screen.getByTestId('global-audio-element').currentTime).toBe(120)
+      expect((screen.getByTestId('global-audio-element') as HTMLAudioElement).currentTime).toBe(120)
       expect(window.HTMLMediaElement.prototype.play).toHaveBeenCalled()
     })
 

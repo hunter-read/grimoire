@@ -1,5 +1,16 @@
 import { useEffect, useState } from 'react'
 import api from '../../api'
+import type { Schema } from '../../api'
+
+/** A metadata add-on source, as `/{kind}/{id}/metadata-sources` lists it. */
+export type MetadataSource = Schema<'MetadataSource'>
+
+/** What `useMetadataSources` returns. */
+export interface MetadataSourcesState {
+  sources: MetadataSource[]
+  loading: boolean
+  error: string
+}
 
 // The source list depends only on which add-ons are installed and what target
 // they serve ('game-system' / 'book') — never on the resource being edited (the
@@ -12,41 +23,41 @@ import api from '../../api'
 //
 // The cache holds the promise, not just the result, so editors mounting
 // together share one in-flight request instead of racing to issue their own.
-const cache = new Map()
+const cache = new Map<string, Promise<MetadataSource[]>>()
 
 // Resolved values are kept alongside the promises so a warm hook can seed its
 // initial state synchronously — awaiting even a settled promise costs a tick,
 // and that tick is exactly the flash of "no sources" we're removing.
-const settled = new Map()
+const settled = new Map<string, MetadataSource[]>()
 
 /** Drop cached source lists — call after installing or enabling an add-on. */
-export function clearMetadataSourcesCache() {
+export function clearMetadataSourcesCache(): void {
   cache.clear()
   settled.clear()
 }
 
 // The endpoint is addressed per resource, so priming the cache needs some id of
 // that kind — any will do, since the answer is identical for all of them.
-function loadSources(kind, sampleId) {
+function loadSources(kind: string, sampleId: string): Promise<MetadataSource[]> {
   if (!cache.has(kind)) {
     cache.set(
       kind,
       api
         .get(`/${kind}/${sampleId}/metadata-sources`)
         .then((data) => {
-          const sources = data.sources || []
+          const sources = (data as Schema<'MetadataSourcesResponse'>).sources || []
           settled.set(kind, sources)
           return sources
         })
         // A failed lookup must not be cached as "no sources forever" — an
         // offline blip would disable the feature for the rest of the session.
-        .catch((e) => {
+        .catch((e: unknown) => {
           cache.delete(kind)
           throw e
         })
     )
   }
-  return cache.get(kind)
+  return cache.get(kind)!
 }
 
 /**
@@ -60,17 +71,20 @@ function loadSources(kind, sampleId) {
  * selection neither refetches nor flashes the "an admin can install a metadata
  * scraper" empty state.
  */
-export default function useMetadataSources(kind, sampleId) {
-  const [state, setState] = useState(() =>
+export default function useMetadataSources(
+  kind: string | null | undefined,
+  sampleId: string | null | undefined
+): MetadataSourcesState {
+  const [state, setState] = useState<MetadataSourcesState>(() =>
     kind && settled.has(kind)
-      ? { sources: settled.get(kind), loading: false, error: '' }
+      ? { sources: settled.get(kind)!, loading: false, error: '' }
       : { sources: [], loading: !!(kind && sampleId), error: '' }
   )
 
   useEffect(() => {
     if (!kind || !sampleId) return undefined
     if (settled.has(kind)) {
-      setState({ sources: settled.get(kind), loading: false, error: '' })
+      setState({ sources: settled.get(kind)!, loading: false, error: '' })
       return undefined
     }
     let active = true
@@ -81,7 +95,8 @@ export default function useMetadataSources(kind, sampleId) {
     loadSources(kind, sampleId)
       .then((sources) => active && setState({ sources, loading: false, error: '' }))
       .catch(
-        (e) => active && setState({ sources: [], loading: false, error: e.message || String(e) })
+        (e: Error) =>
+          active && setState({ sources: [], loading: false, error: e.message || String(e) })
       )
     return () => {
       active = false

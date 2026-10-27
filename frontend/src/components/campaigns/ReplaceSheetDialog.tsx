@@ -3,7 +3,17 @@ import { LuDownload } from 'react-icons/lu'
 import { smallBtn } from './memberStyles'
 
 // Warns that re-uploading replaces the current sheet, offering to download it first.
-export default function ReplaceSheetDialog({ downloadUrl, onCancel, onReplace }) {
+interface ReplaceSheetDialogProps {
+  downloadUrl: string
+  onCancel: () => void
+  onReplace: () => void
+}
+
+export default function ReplaceSheetDialog({
+  downloadUrl,
+  onCancel,
+  onReplace,
+}: ReplaceSheetDialogProps) {
   const { t } = useTranslation()
   return (
     <div

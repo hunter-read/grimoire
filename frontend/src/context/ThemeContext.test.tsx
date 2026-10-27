@@ -1,10 +1,14 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import type { ReactNode } from 'react'
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ThemeProvider, useTheme } from './ThemeContext'
 import api from '../api'
 
 vi.mock('../api', () => ({ default: { get: vi.fn(), put: vi.fn() } }))
+
+const mockGet = vi.mocked(api.get) as unknown as Mock
+const mockPut = vi.mocked(api.put) as unknown as Mock
 
 const THEME = {
   id: 'midnight',
@@ -37,7 +41,7 @@ function Controls() {
   )
 }
 
-const renderProvider = (extra = null) =>
+const renderProvider = (extra: ReactNode = null) =>
   render(
     <ThemeProvider>
       <Probe />
@@ -50,7 +54,7 @@ beforeEach(() => {
   localStorage.clear()
   document.documentElement.removeAttribute('data-theme')
   document.documentElement.style.cssText = ''
-  api.put.mockResolvedValue({})
+  mockPut.mockResolvedValue({})
 })
 
 afterEach(() => {
@@ -59,7 +63,7 @@ afterEach(() => {
 
 describe('ThemeProvider', () => {
   it('adopts the server state on load', async () => {
-    api.get.mockResolvedValue({ installed: [THEME], mode: 'light', theme_id: 'midnight' })
+    mockGet.mockResolvedValue({ installed: [THEME], mode: 'light', theme_id: 'midnight' })
     renderProvider()
 
     await waitFor(() => expect(screen.getByTestId('loaded')).toHaveTextContent('true'))
@@ -69,7 +73,7 @@ describe('ThemeProvider', () => {
   })
 
   it('applies the selected theme tokens to the document', async () => {
-    api.get.mockResolvedValue({ installed: [THEME], mode: 'dark', theme_id: 'midnight' })
+    mockGet.mockResolvedValue({ installed: [THEME], mode: 'dark', theme_id: 'midnight' })
     renderProvider()
 
     await waitFor(() =>
@@ -78,7 +82,7 @@ describe('ThemeProvider', () => {
   })
 
   it('falls back to the built-in palette when the selected theme is gone', async () => {
-    api.get.mockResolvedValue({ installed: [], mode: 'dark', theme_id: 'vanished' })
+    mockGet.mockResolvedValue({ installed: [], mode: 'dark', theme_id: 'vanished' })
     renderProvider()
 
     await waitFor(() => expect(screen.getByTestId('loaded')).toHaveTextContent('true'))
@@ -86,7 +90,7 @@ describe('ThemeProvider', () => {
   })
 
   it('keeps the locally stored theme when the server is unreachable', async () => {
-    api.get.mockRejectedValue(new Error('offline'))
+    mockGet.mockRejectedValue(new Error('offline'))
     renderProvider()
 
     await waitFor(() => expect(screen.getByTestId('loaded')).toHaveTextContent('true'))
@@ -94,7 +98,7 @@ describe('ThemeProvider', () => {
   })
 
   it('persists a mode change to the server and the document', async () => {
-    api.get.mockResolvedValue({ installed: [], mode: 'dark', theme_id: '' })
+    mockGet.mockResolvedValue({ installed: [], mode: 'dark', theme_id: '' })
     renderProvider(<Controls />)
     await waitFor(() => expect(screen.getByTestId('loaded')).toHaveTextContent('true'))
 
@@ -109,7 +113,7 @@ describe('ThemeProvider', () => {
   })
 
   it('persists a theme selection', async () => {
-    api.get.mockResolvedValue({ installed: [THEME], mode: 'dark', theme_id: '' })
+    mockGet.mockResolvedValue({ installed: [THEME], mode: 'dark', theme_id: '' })
     renderProvider(<Controls />)
     await waitFor(() => expect(screen.getByTestId('loaded')).toHaveTextContent('true'))
 
@@ -125,7 +129,7 @@ describe('ThemeProvider', () => {
   })
 
   it('clears the tokens when returning to the built-in theme', async () => {
-    api.get.mockResolvedValue({ installed: [THEME], mode: 'dark', theme_id: 'midnight' })
+    mockGet.mockResolvedValue({ installed: [THEME], mode: 'dark', theme_id: 'midnight' })
     renderProvider(<Controls />)
     await waitFor(() =>
       expect(document.documentElement.style.getPropertyValue('--p-text')).toBe('#abcdef')
@@ -139,8 +143,8 @@ describe('ThemeProvider', () => {
   })
 
   it('keeps a local change when the server rejects it', async () => {
-    api.get.mockResolvedValue({ installed: [], mode: 'dark', theme_id: '' })
-    api.put.mockRejectedValue(new Error('nope'))
+    mockGet.mockResolvedValue({ installed: [], mode: 'dark', theme_id: '' })
+    mockPut.mockRejectedValue(new Error('nope'))
     renderProvider(<Controls />)
     await waitFor(() => expect(screen.getByTestId('loaded')).toHaveTextContent('true'))
 
@@ -152,7 +156,7 @@ describe('ThemeProvider', () => {
   // A theme is untrusted even coming back from our own API: the row could have
   // been written before a validation fix, or edited in the database.
   it('never applies an unsafe token value from the server', async () => {
-    api.get.mockResolvedValue({
+    mockGet.mockResolvedValue({
       installed: [{ ...THEME, tokens: { text: 'red; background: url(https://evil/)' } }],
       mode: 'dark',
       theme_id: 'midnight',
@@ -192,7 +196,7 @@ describe('app modes', () => {
   }
 
   it('defaults to grimoire and stamps it on the document', async () => {
-    api.get.mockResolvedValue({ installed: [], built_in: BUILT_IN, mode: 'dark', theme_id: '' })
+    mockGet.mockResolvedValue({ installed: [], built_in: BUILT_IN, mode: 'dark', theme_id: '' })
     render(
       <ThemeProvider>
         <AppModeProbe />
@@ -211,7 +215,7 @@ describe('app modes', () => {
   it('starts every sign-in in grimoire, whatever the browser last stored', async () => {
     localStorage.setItem('grimoire:app-mode', 'codex')
     document.documentElement.setAttribute('data-app-mode', 'codex')
-    api.get.mockResolvedValue({ installed: [], built_in: BUILT_IN, mode: 'dark', theme_id: '' })
+    mockGet.mockResolvedValue({ installed: [], built_in: BUILT_IN, mode: 'dark', theme_id: '' })
     render(
       <ThemeProvider>
         <AppModeProbe />
@@ -225,7 +229,7 @@ describe('app modes', () => {
   })
 
   it('asks the server for the requested app mode', async () => {
-    api.get.mockResolvedValue({ installed: [], built_in: BUILT_IN, mode: 'dark', theme_id: '' })
+    mockGet.mockResolvedValue({ installed: [], built_in: BUILT_IN, mode: 'dark', theme_id: '' })
     render(
       <ThemeProvider>
         <AppModeProbe />
@@ -242,7 +246,7 @@ describe('app modes', () => {
   // A built-in theme carries no tokens — its colours are stylesheet rules keyed
   // off data-app-mode, so selecting one switches the attribute instead.
   it('selecting the Codex built-in switches the palette without tokens', async () => {
-    api.get.mockResolvedValue({ installed: [], built_in: BUILT_IN, mode: 'dark', theme_id: '' })
+    mockGet.mockResolvedValue({ installed: [], built_in: BUILT_IN, mode: 'dark', theme_id: '' })
     render(
       <ThemeProvider>
         <AppModeProbe />
@@ -263,7 +267,7 @@ describe('app modes', () => {
   it('remembers each app mode’s colour mode separately', async () => {
     localStorage.setItem('grimoire:theme-mode', 'light')
     localStorage.setItem('grimoire:theme-mode:codex', 'dark')
-    api.get.mockRejectedValue(new Error('offline'))
+    mockGet.mockRejectedValue(new Error('offline'))
 
     const { getThemeMode } = await import('../utils/theme')
     expect(getThemeMode('grimoire')).toBe('light')

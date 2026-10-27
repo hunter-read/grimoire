@@ -5,7 +5,7 @@ import useRestoredView from './useRestoredView'
 const mockNavigate = vi.fn()
 
 vi.mock('react-router-dom', async (importOriginal) => {
-  const actual = await importOriginal()
+  const actual = await importOriginal<typeof import('react-router-dom')>()
   return { ...actual, useNavigate: () => mockNavigate }
 })
 
@@ -14,7 +14,7 @@ function Probe() {
   return <span data-testid="restore">{String(restore)}</span>
 }
 
-function renderAt(entry) {
+function renderAt(entry: string | { pathname: string; state?: unknown }) {
   return render(
     <MemoryRouter initialEntries={[entry]}>
       <Probe />

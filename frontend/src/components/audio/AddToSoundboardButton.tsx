@@ -1,6 +1,7 @@
+import type { MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuGrid2X2Plus, LuGrid2X2Check } from 'react-icons/lu'
-import { useSoundboard } from '../../context/SoundboardContext'
+import { useSoundboard, type SoundboardTrack } from '../../context/SoundboardContext'
 
 /**
  * "Add to soundboard" for a single track, sitting alongside the queue's
@@ -9,7 +10,12 @@ import { useSoundboard } from '../../context/SoundboardContext'
  * Already-added tracks show a checked icon and the button becomes a no-op
  * rather than disappearing, so the control doesn't shift position on click.
  */
-export default function AddToSoundboardButton({ track, size = 30 }) {
+export interface AddToSoundboardButtonProps {
+  track?: SoundboardTrack | null
+  size?: number
+}
+
+export default function AddToSoundboardButton({ track, size = 30 }: AddToSoundboardButtonProps) {
   const { t } = useTranslation()
   const { addPads, hasPad } = useSoundboard()
 
@@ -18,7 +24,7 @@ export default function AddToSoundboardButton({ track, size = 30 }) {
   const added = hasPad(track.id)
   const label = added ? t('soundboard.added') : t('soundboard.add')
 
-  const onClick = (e) => {
+  const onClick = (e: MouseEvent) => {
     e.stopPropagation()
     if (!added) addPads(track)
   }

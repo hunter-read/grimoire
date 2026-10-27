@@ -10,7 +10,8 @@ import {
 import { ICON_COLOR_PRESETS } from '../../campaigns/iconColors'
 
 /** Decode a data-URI SVG back to markup so its contents can be asserted. */
-const decode = (url) => decodeURIComponent(url.replace(/^data:image\/svg\+xml;charset=utf-8,/, ''))
+const decode = (url: string | null) =>
+  decodeURIComponent(url!.replace(/^data:image\/svg\+xml;charset=utf-8,/, ''))
 
 describe('GENERIC_SHAPES', () => {
   it('offers a circle and a square', () => {
@@ -20,7 +21,7 @@ describe('GENERIC_SHAPES', () => {
 
 describe('genericFrameUrl', () => {
   it('builds a same-origin data URI, which cannot taint the canvas', () => {
-    const url = genericFrameUrl('circle', 'blue')
+    const url = genericFrameUrl('circle', 'blue')!
     expect(url.startsWith('data:image/svg+xml;charset=utf-8,')).toBe(true)
   })
 

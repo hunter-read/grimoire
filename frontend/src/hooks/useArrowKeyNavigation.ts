@@ -11,7 +11,10 @@ import { useEffect, useRef } from 'react'
  * @param {Function} onNext  ArrowRight / ArrowDown
  * @param {Function} onPrev  ArrowLeft / ArrowUp
  */
-export default function useArrowKeyNavigation(onNext, onPrev) {
+export default function useArrowKeyNavigation(
+  onNext: (() => void) | null | undefined,
+  onPrev: (() => void) | null | undefined
+): void {
   // Mutable refs so the listener is bound once but always sees the latest
   // callbacks, which change identity whenever the sibling index moves.
   const onNextRef = useRef(onNext)
@@ -24,7 +27,7 @@ export default function useArrowKeyNavigation(onNext, onPrev) {
   }, [onPrev])
 
   useEffect(() => {
-    const handler = (e) => {
+    const handler = (e: KeyboardEvent) => {
       const tag = document.activeElement?.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA') return
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown') onNextRef.current?.()

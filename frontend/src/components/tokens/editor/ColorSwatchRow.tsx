@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuBan } from 'react-icons/lu'
 
@@ -5,7 +6,7 @@ import { ICON_COLOR_NAMES, ICON_COLOR_PRESETS, resolveIconColor } from '../../ca
 
 // Plain white and black, stored as ordinary hex literals so they travel through
 // the same validated "#rrggbb" path every custom colour uses.
-const MONOCHROME = { white: '#ffffff', black: '#000000' }
+const MONOCHROME: Record<string, string> = { white: '#ffffff', black: '#000000' }
 const MONOCHROME_NAMES = Object.keys(MONOCHROME)
 
 /**
@@ -21,6 +22,15 @@ const MONOCHROME_NAMES = Object.keys(MONOCHROME)
  * uses for transparency; the frame colour has no such option, since a frame with
  * no colour would be invisible.
  */
+export interface ColorSwatchRowProps {
+  label: string
+  value: string | null | undefined
+  onChange: (color: string) => void
+  allowNone?: boolean
+  noneLabel?: string
+  fallback?: string
+}
+
 export default function ColorSwatchRow({
   label,
   value,
@@ -28,7 +38,7 @@ export default function ColorSwatchRow({
   allowNone = false,
   noneLabel,
   fallback = '#8a8f98',
-}) {
+}: ColorSwatchRowProps) {
   const { t } = useTranslation()
   // "Preset" for the custom swatch's purposes means "some other swatch already
   // shows this", which includes the two monochrome ones — otherwise picking
@@ -134,7 +144,7 @@ export default function ColorSwatchRow({
   )
 }
 
-const swatchStyle = (active, background) => ({
+const swatchStyle = (active: boolean, background: string): CSSProperties => ({
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',

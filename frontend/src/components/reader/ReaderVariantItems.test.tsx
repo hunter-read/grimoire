@@ -10,13 +10,17 @@ vi.mock('react-router-dom', async () => {
 })
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k, o) => (o?.defaultValue ? o.defaultValue : k) }),
+  useTranslation: () => ({
+    t: (k: string, o?: { defaultValue?: string }) => (o?.defaultValue ? o.defaultValue : k),
+  }),
 }))
 
 import ReaderVariantItems from './ReaderVariantItems'
+import type { RunAction } from './ReaderMoreMenu'
+import type { Schema } from '../../api'
 
 // Mirrors ReaderMoreMenu's own helper: stop propagation, close, then act.
-const run = (fn) => (e) => {
+const run: RunAction = (fn) => (e) => {
   e?.stopPropagation?.()
   fn()
 }
@@ -28,7 +32,7 @@ const book = {
     { id: 'b2', kind: 'spreads', label: '' },
     { id: 'b3', kind: 'version', label: 'v1.0.1' },
   ],
-}
+} as unknown as Schema<'BookDetail'>
 
 const renderItems = (props = {}, initialEntries = ['/library/book/b1']) =>
   render(

@@ -3,19 +3,20 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ImagePickerModal from './ImagePickerModal'
 import { imageSources } from '../../api'
+import type { ImagePickerModalProps } from './ImagePickerModal'
 
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }))
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }))
 
 vi.mock('../../api', () => ({
   imageSources: {
     search: vi.fn(),
-    thumbUrl: (type, id) => `/api/${type}s/${id}/thumbnail`,
+    thumbUrl: (type: string, id: string) => `/api/${type}s/${id}/thumbnail`,
   },
 }))
 
 const pngFile = (name = 'x.png') => new File(['x'], name, { type: 'image/png' })
 
-const props = (over = {}) => ({
+const props = (over: Partial<ImagePickerModalProps> = {}) => ({
   title: 'Set image',
   onUpload: vi.fn().mockResolvedValue(undefined),
   onPickSource: vi.fn().mockResolvedValue(undefined),
@@ -25,8 +26,14 @@ const props = (over = {}) => ({
 
 beforeEach(() => {
   vi.clearAllMocks()
-  imageSources.search.mockResolvedValue([
-    { resource_type: 'map', resource_id: 'm1', name: 'ruins.png', has_thumbnail: true },
+  vi.mocked(imageSources.search).mockResolvedValue([
+    {
+      resource_type: 'map',
+      resource_id: 'm1',
+      name: 'ruins.png',
+      subtitle: '',
+      has_thumbnail: true,
+    },
   ])
 })
 
@@ -54,7 +61,9 @@ describe('ImagePickerModal', () => {
     render(<ImagePickerModal {...p} />)
     const file = pngFile('pasted.png')
 
-    const event = new Event('paste', { bubbles: true, cancelable: true })
+    const event = new Event('paste', { bubbles: true, cancelable: true }) as Event & {
+      clipboardData: unknown
+    }
     event.clipboardData = {
       items: [{ kind: 'file', getAsFile: () => file }],
       files: [file],
@@ -161,7 +170,7 @@ describe('ImagePickerModal', () => {
     await userEvent.click(screen.getByLabelText('common.close'))
     expect(p.onClose).toHaveBeenCalledTimes(1)
 
-    await userEvent.click(container.firstChild)
+    await userEvent.click(container.firstChild as Element)
     expect(p.onClose).toHaveBeenCalledTimes(2)
 
     await userEvent.click(screen.getByText('Set image'))

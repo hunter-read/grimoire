@@ -1,9 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { LuChevronDown, LuPencilRuler } from 'react-icons/lu'
 
 import { editTargets } from './editTargets'
+import type { EditTarget, EditableMap } from './editTargets'
+
+export interface EditVttButtonProps {
+  map: EditableMap | null | undefined
+  compact?: boolean
+}
 
 /**
  * The detail page's entry into the Universal VTT editor.
@@ -17,20 +24,20 @@ import { editTargets } from './editTargets'
  *
  * Renders nothing when the map has no raster to draw on (PDF, video, archive).
  */
-export default function EditVttButton({ map, compact }) {
+export default function EditVttButton({ map, compact }: EditVttButtonProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
-  const wrapRef = useRef(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
 
   const targets = editTargets(map)
 
   useEffect(() => {
     if (!open) return undefined
-    const onDown = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false)
+    const onDown = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
     }
-    const onKey = (e) => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false)
     }
     document.addEventListener('mousedown', onDown)
@@ -43,7 +50,7 @@ export default function EditVttButton({ map, compact }) {
 
   if (targets.length === 0) return null
 
-  const baseStyle = {
+  const baseStyle: CSSProperties = {
     display: 'inline-flex',
     alignItems: 'center',
     gap: 5,
@@ -56,7 +63,7 @@ export default function EditVttButton({ map, compact }) {
     cursor: 'pointer',
   }
 
-  const go = (target) => {
+  const go = (target: EditTarget) => {
     setOpen(false)
     navigate(`/maps/${target.id}/vtt-editor`)
   }

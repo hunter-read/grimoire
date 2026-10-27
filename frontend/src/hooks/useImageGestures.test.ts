@@ -1,24 +1,34 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import useImageGestures from './useImageGestures'
+import useImageGestures, { type ImageGesturesOptions } from './useImageGestures'
+
+type Point = { clientX: number; clientY: number }
 
 // jsdom has no TouchEvent, so dispatch plain events carrying the touch arrays
 // the handlers actually read.
-const touchEvent = (type, touches, changedTouches = touches) => {
-  const e = new Event(type, { bubbles: true, cancelable: true })
+const touchEvent = (type: string, touches: Point[], changedTouches: Point[] = touches) => {
+  const e = new Event(type, { bubbles: true, cancelable: true }) as Event & {
+    touches: Point[]
+    changedTouches: Point[]
+  }
   e.touches = touches
   e.changedTouches = changedTouches
   return e
 }
-const at = (x, y) => ({ clientX: x, clientY: y })
+const at = (x: number, y: number): Point => ({ clientX: x, clientY: y })
 
 describe('useImageGestures', () => {
-  let el, containerRef, onNext, onPrev
+  let el: HTMLDivElement
+  let containerRef: { current: HTMLElement | null }
+  let onNext: Mock
+  let onPrev: Mock
 
   const setup = (resetKey = 'a') =>
-    renderHook((props) => useImageGestures({ onNext, onPrev, containerRef, resetKey, ...props }))
+    renderHook((props?: Partial<ImageGesturesOptions>) =>
+      useImageGestures({ onNext, onPrev, containerRef, resetKey, ...props })
+    )
 
-  const fire = (type, touches, changed) =>
+  const fire = (type: string, touches: Point[], changed?: Point[]) =>
     act(() => {
       el.dispatchEvent(touchEvent(type, touches, changed))
     })

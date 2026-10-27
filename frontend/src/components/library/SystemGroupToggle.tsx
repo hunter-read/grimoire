@@ -1,6 +1,11 @@
 import { useTranslation } from 'react-i18next'
 import ToggleSwitch from '../ToggleSwitch'
 
+export interface SystemGroupToggleProps {
+  grouped: boolean
+  onToggle: (grouped: boolean) => void
+}
+
 /**
  * Toggles the library grid between showing container folders as single cards
  * (the default) and flattening them so their child systems appear inline.
@@ -10,7 +15,7 @@ import ToggleSwitch from '../ToggleSwitch'
  * toggling — flattening changes which rows are in the grid, then the existing
  * sort and filters apply to that set as usual.
  */
-export default function SystemGroupToggle({ grouped, onToggle }) {
+export default function SystemGroupToggle({ grouped, onToggle }: SystemGroupToggleProps) {
   const { t } = useTranslation()
   return (
     <ToggleSwitch

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
 import { useLocation } from 'react-router-dom'
 
 // How long to keep trying to restore before giving up. Views fetch their data
@@ -24,8 +24,10 @@ const RESTORE_TIMEOUT_MS = 3000
  * 0 and silently lose the position. Any scroll the user performs themselves
  * ends the retry loop, so restoration never fights a deliberate scroll.
  */
-export default function useScrollRestoration() {
-  const ref = useRef(null)
+export default function useScrollRestoration<
+  E extends HTMLElement = HTMLElement,
+>(): RefObject<E | null> {
+  const ref = useRef<E | null>(null)
   const { pathname } = useLocation()
   const prevPathname = useRef(pathname)
 
@@ -45,7 +47,7 @@ export default function useScrollRestoration() {
 
     prevPathname.current = pathname
 
-    let target = null
+    let target: number | null = null
     try {
       const saved = sessionStorage.getItem(`grimoire:scroll:${pathname}`)
       if (saved !== null) target = Number(saved)
@@ -66,8 +68,8 @@ export default function useScrollRestoration() {
       if (done) return
       // Applying the target is only meaningful once the content can reach it.
       // scrollTop silently clamps, so compare against what the element accepted.
-      el.scrollTop = target
-      if (el.scrollTop >= target || Date.now() > deadline) {
+      el.scrollTop = target!
+      if (el.scrollTop >= target! || Date.now() > deadline) {
         done = true
         return
       }

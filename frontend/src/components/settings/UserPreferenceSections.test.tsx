@@ -10,7 +10,7 @@ import i18n from '../../i18n'
 // ---------------------------------------------------------------------------
 
 vi.mock('../../i18n', async (importOriginal) => {
-  const actual = await importOriginal()
+  const actual = await importOriginal<typeof import('../../i18n')>()
   return {
     ...actual,
     default: { ...actual.default, changeLanguage: vi.fn() },
@@ -33,7 +33,7 @@ describe('LanguageSection — rendering', () => {
 
   it('renders a <select> element', () => {
     render(<LanguageSection />)
-    expect(screen.getByRole('combobox')).toBeInTheDocument()
+    expect(screen.getByRole<HTMLSelectElement>('combobox')).toBeInTheDocument()
   })
 
   it('renders at least the English option', () => {
@@ -43,14 +43,14 @@ describe('LanguageSection — rendering', () => {
 
   it('defaults to en-US when localStorage has no saved language', () => {
     render(<LanguageSection />)
-    const select = screen.getByRole('combobox')
+    const select = screen.getByRole<HTMLSelectElement>('combobox')
     expect(select.value).toBe('en-US')
   })
 
   it('defaults to the saved language from localStorage', () => {
     localStorage.setItem('grimoire:language', 'de-DE')
     render(<LanguageSection />)
-    const select = screen.getByRole('combobox')
+    const select = screen.getByRole<HTMLSelectElement>('combobox')
     expect(select.value).toBe('de-DE')
   })
 })
@@ -62,26 +62,32 @@ describe('LanguageSection — rendering', () => {
 describe('LanguageSection — language change', () => {
   it('updates the select value when a new language is chosen', () => {
     render(<LanguageSection />)
-    const select = screen.getByRole('combobox')
+    const select = screen.getByRole<HTMLSelectElement>('combobox')
     fireEvent.change(select, { target: { value: 'fr-CA' } })
     expect(select.value).toBe('fr-CA')
   })
 
   it('saves the chosen language to localStorage', () => {
     render(<LanguageSection />)
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'de-DE' } })
+    fireEvent.change(screen.getByRole<HTMLSelectElement>('combobox'), {
+      target: { value: 'de-DE' },
+    })
     expect(localStorage.getItem('grimoire:language')).toBe('de-DE')
   })
 
   it('calls i18n.changeLanguage with the selected locale', () => {
     render(<LanguageSection />)
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'fr-CA' } })
+    fireEvent.change(screen.getByRole<HTMLSelectElement>('combobox'), {
+      target: { value: 'fr-CA' },
+    })
     expect(i18n.changeLanguage).toHaveBeenCalledWith('fr-CA')
   })
 
   it('shows the saved indicator after a change', () => {
     render(<LanguageSection />)
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'fr-CA' } })
+    fireEvent.change(screen.getByRole<HTMLSelectElement>('combobox'), {
+      target: { value: 'fr-CA' },
+    })
     // The LuCircleCheck is rendered as an svg icon; the save flash is visible
     expect(document.querySelector('svg')).toBeInTheDocument()
   })
@@ -90,7 +96,9 @@ describe('LanguageSection — language change', () => {
     vi.useFakeTimers()
     try {
       render(<LanguageSection />)
-      fireEvent.change(screen.getByRole('combobox'), { target: { value: 'fr-CA' } })
+      fireEvent.change(screen.getByRole<HTMLSelectElement>('combobox'), {
+        target: { value: 'fr-CA' },
+      })
       act(() => vi.advanceTimersByTime(2000))
       expect(document.querySelector('svg')).not.toBeInTheDocument()
     } finally {
@@ -103,7 +111,9 @@ describe('LanguageSection — language change', () => {
     vi.useFakeTimers()
     try {
       const { unmount } = render(<LanguageSection />)
-      fireEvent.change(screen.getByRole('combobox'), { target: { value: 'fr-CA' } })
+      fireEvent.change(screen.getByRole<HTMLSelectElement>('combobox'), {
+        target: { value: 'fr-CA' },
+      })
       unmount()
       expect(vi.getTimerCount()).toBe(0)
     } finally {
@@ -123,36 +133,36 @@ describe('LibrarySection — recently opened limit', () => {
 
   it('defaults to RECENT_DEFAULT when unset', () => {
     render(<LibrarySection />)
-    expect(screen.getByRole('spinbutton').value).toBe(String(RECENT_DEFAULT))
+    expect(screen.getByRole<HTMLInputElement>('spinbutton').value).toBe(String(RECENT_DEFAULT))
   })
 
   it('reflects the saved limit', () => {
     localStorage.setItem('grimoire:user-prefs', JSON.stringify({ recentLimit: 12 }))
     render(<LibrarySection />)
-    expect(screen.getByRole('spinbutton').value).toBe('12')
+    expect(screen.getByRole<HTMLInputElement>('spinbutton').value).toBe('12')
   })
 
   it('saves a changed limit to user prefs', () => {
     render(<LibrarySection />)
-    fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '8' } })
+    fireEvent.change(screen.getByRole<HTMLInputElement>('spinbutton'), { target: { value: '8' } })
     expect(getUserPrefs().recentLimit).toBe(8)
   })
 
   it('clamps values above the maximum', () => {
     render(<LibrarySection />)
-    fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '999' } })
+    fireEvent.change(screen.getByRole<HTMLInputElement>('spinbutton'), { target: { value: '999' } })
     expect(getUserPrefs().recentLimit).toBe(RECENT_MAX)
   })
 
   it('accepts 0 to disable the feature', () => {
     render(<LibrarySection />)
-    fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '0' } })
+    fireEvent.change(screen.getByRole<HTMLInputElement>('spinbutton'), { target: { value: '0' } })
     expect(getUserPrefs().recentLimit).toBe(0)
   })
 
   it('reverts an empty value to the default on blur', () => {
     render(<LibrarySection />)
-    const input = screen.getByRole('spinbutton')
+    const input = screen.getByRole<HTMLInputElement>('spinbutton')
     fireEvent.change(input, { target: { value: '' } })
     fireEvent.blur(input)
     expect(input.value).toBe(String(RECENT_DEFAULT))

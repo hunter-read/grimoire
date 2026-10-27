@@ -6,10 +6,13 @@ import { useAuth } from '../../context/AuthContext'
 vi.mock('../../context/AuthContext', () => ({ useAuth: vi.fn() }))
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k, opts) => (opts?.level ? `${k}:${opts.level}` : k) }),
+  useTranslation: () => ({
+    t: (k: string, opts?: { level?: string }) => (opts?.level ? `${k}:${opts.level}` : k),
+  }),
 }))
 
-const asRole = (role) => useAuth.mockReturnValue({ user: { role } })
+const asRole = (role: string) =>
+  vi.mocked(useAuth).mockReturnValue({ user: { role } } as unknown as ReturnType<typeof useAuth>)
 
 beforeEach(() => vi.clearAllMocks())
 

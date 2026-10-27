@@ -2,10 +2,10 @@ import { describe, it, expect } from 'vitest'
 import { useState } from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import LinkListEditor from './LinkListEditor'
+import LinkListEditor, { type EditableLink } from './LinkListEditor'
 
-function Harness({ initial = [{ label: '', url: '' }] }) {
-  const [links, setLinks] = useState(initial)
+function Harness({ initial = [{ label: '', url: '' }] }: { initial?: EditableLink[] }) {
+  const [links, setLinks] = useState<EditableLink[]>(initial)
   return (
     <LinkListEditor
       links={links}
@@ -21,10 +21,12 @@ function Harness({ initial = [{ label: '', url: '' }] }) {
 describe('LinkListEditor', () => {
   it('edits label and url', async () => {
     render(<Harness />)
-    await userEvent.type(document.getElementById('lnk-label-0'), 'DTRPG')
-    await userEvent.type(document.getElementById('lnk-url-0'), 'http://x')
-    expect(document.getElementById('lnk-label-0').value).toBe('DTRPG')
-    expect(document.getElementById('lnk-url-0').value).toBe('http://x')
+    const label = document.getElementById('lnk-label-0') as HTMLInputElement
+    const url = document.getElementById('lnk-url-0') as HTMLInputElement
+    await userEvent.type(label, 'DTRPG')
+    await userEvent.type(url, 'http://x')
+    expect(label.value).toBe('DTRPG')
+    expect(url.value).toBe('http://x')
   })
 
   it('adds a new row', async () => {

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCircleCheck } from 'react-icons/lu'
 import api from '../../api'
@@ -7,13 +8,13 @@ import { useAuth } from '../../context/AuthContext'
 
 export default function DisplayNameSection() {
   const { t } = useTranslation()
-  const { user, refreshUser } = useAuth()
+  const { user, refreshUser } = useAuth()!
   const [value, setValue] = useState(user?.display_name ?? '')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError(null)
     setSaving(true)
@@ -23,7 +24,7 @@ export default function DisplayNameSection() {
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
     } catch (err) {
-      setError(err?.message || t('common.save'))
+      setError((err as Error | null)?.message || t('common.save'))
     } finally {
       setSaving(false)
     }

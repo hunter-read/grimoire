@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { shareLinks } from '../../api'
+import type { Schema } from '../../api'
 import ShareLinkList from '../share/ShareLinkList'
 
 /**
@@ -9,12 +10,12 @@ import ShareLinkList from '../share/ShareLinkList'
  * lost the permission is listed as such, not hidden, since it comes back if
  * the permission does.
  */
-export default function UserShareLinksList({ userId }) {
+export default function UserShareLinksList({ userId }: { userId: string }) {
   const { t } = useTranslation()
-  const [links, setLinks] = useState(null)
+  const [links, setLinks] = useState<Schema<'ShareLinkOut'>[] | null>(null)
   const [error, setError] = useState('')
   // null until a load fails; then the server's message, or '' for the fallback.
-  const [loadError, setLoadError] = useState(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
     let live = true

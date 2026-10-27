@@ -11,7 +11,10 @@ import { rememberAuthStatus } from '../hooks/usePasswordRules'
 export type AuthStatus = 'loading' | 'uninitialized' | 'unauthenticated' | 'authenticated'
 
 /** The signed-in user: from /auth/me, or the shorter block a login returns. */
-export type AuthUser = Schema<'AuthMeResponse'> | Schema<'LoginUser'>
+export type AuthUser = (Schema<'AuthMeResponse'> | Schema<'LoginUser'>) & {
+  /** On /auth/me only; a login response leaves it out. */
+  campaign_access?: boolean
+}
 
 export interface AuthContextValue {
   status: AuthStatus

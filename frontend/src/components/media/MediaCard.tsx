@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { CSSProperties, KeyboardEvent, MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCheck, LuFileVideo } from 'react-icons/lu'
 import { mediaUrl } from '../../api'
@@ -13,8 +14,24 @@ import CardLink from '../CardLink'
 import { useAudioPlayer } from '../../context/AudioPlayerContext'
 import VariantBadge from './VariantBadge'
 import RecentlyAddedBadge from '../RecentlyAddedBadge'
+import type { BadgeCorner, MediaConfig, MediaItem } from './mediaConfig'
 
-const CORNER_POS = {
+/** The modifier keys held when a card is toggled in bulk mode. */
+export type ToggleMods = {
+  shift: boolean
+  meta: boolean
+}
+
+export interface MediaCardProps {
+  config: MediaConfig
+  item: MediaItem
+  bulkMode?: boolean
+  selected?: boolean
+  onToggle?: (mods: ToggleMods) => void
+  list?: boolean
+}
+
+const CORNER_POS: Partial<Record<BadgeCorner, CSSProperties>> = {
   'bottom-left': { bottom: 6, left: 6 },
   'bottom-right': { bottom: 6, right: 6 },
   // Top-left is free on the thumbnail (favorite/download sit top-right); in bulk
@@ -27,7 +44,14 @@ const CORNER_POS = {
  * across types; per-type differences (icon, thumbnail shape, badges, font size)
  * come from the `config` entry in mediaConfig.js.
  */
-export default function MediaCard({ config, item, bulkMode, selected, onToggle, list }) {
+export default function MediaCard({
+  config,
+  item,
+  bulkMode,
+  selected,
+  onToggle,
+  list,
+}: MediaCardProps) {
   const { t } = useTranslation()
   const [hovered, setHovered] = useState(false)
   const { isCurrent, isPlayingId } = useAudioPlayer()
@@ -35,23 +59,28 @@ export default function MediaCard({ config, item, bulkMode, selected, onToggle, 
   // What the card is called and the line beneath it. Most collections show the
   // filename and size; audio reads its tags instead (issue #494).
   const label = config.itemLabel ? config.itemLabel(item) : item.filename
-  const details = config.itemDetails ? config.itemDetails(item) : formatSize(item.file_size)
+  // The list endpoints always send a size; the schema marks it optional only for its default.
+  const details = config.itemDetails
+    ? config.itemDetails(item)
+    : formatSize(item.file_size as number)
 
   // Outside bulk mode the card is a real link (a CardLink overlay), so middle
   // click and ctrl/cmd-click open the detail page in a new tab (issue #313).
   // Bulk mode claims the modifier keys for range and multi-select, so there the
   // card stays a toggle button.
-  const toggle = (e) => onToggle({ shift: e.shiftKey, meta: e.metaKey || e.ctrlKey })
+  // onToggle is always given in bulk mode, the only time a card toggles.
+  const toggle = (e: MouseEvent | KeyboardEvent) =>
+    onToggle!({ shift: e.shiftKey, meta: e.metaKey || e.ctrlKey })
   const buttonProps = bulkMode
     ? {
         onClick: toggle,
-        onKeyDown: (e) => {
+        onKeyDown: (e: KeyboardEvent) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault()
             toggle(e)
           }
         },
-        role: 'button',
+        role: 'button' as const,
         tabIndex: 0,
         'aria-label': label,
         'aria-pressed': selected,
@@ -351,7 +380,7 @@ export default function MediaCard({ config, item, bulkMode, selected, onToggle, 
               key={b.flag}
               style={{
                 position: 'absolute',
-                ...CORNER_POS[b.corner],
+                ...CORNER_POS[b.corner!],
                 zIndex: 2,
                 fontSize: 11,
                 padding: '1px 6px',

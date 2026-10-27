@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { ChangeEvent, CSSProperties, DragEvent, ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX, LuUpload, LuLibrary, LuClipboardPaste, LuTrash2 } from 'react-icons/lu'
 import ImageSourceBrowser from './ImageSourceBrowser'
+import type { CampaignImage, ImageSourcePick } from './ImageSourceBrowser'
 import useClipboardImage, { ACCEPTED_IMAGE_TYPES, imageFromDataTransfer } from './useClipboardImage'
 
 const ACCEPT = ACCEPTED_IMAGE_TYPES.join(',')
@@ -24,6 +26,22 @@ const ACCEPT = ACCEPTED_IMAGE_TYPES.join(',')
  * is how people actually paste into a dialog (nothing paste-able is focused),
  * and dropping a file on the panel does the same thing.
  */
+export interface ImagePickerModalProps {
+  title?: string
+  hasImage?: boolean
+  previewSrc?: string | null
+  aspectRatio?: string
+  helpText?: ReactNode
+  formatsText?: ReactNode
+  campaignImages?: CampaignImage[] | null
+  onUpload: (file: File) => unknown
+  onPickSource: (source: { source_type: string; source_id: string }) => unknown
+  onRemove?: () => unknown
+  onClose: () => void
+  renderPreview?: (preview: { src: string | null; file: File | null }) => ReactNode
+  busy?: boolean
+}
+
 export default function ImagePickerModal({
   title,
   hasImage,
@@ -38,16 +56,16 @@ export default function ImagePickerModal({
   onClose,
   renderPreview,
   busy = false,
-}) {
+}: ImagePickerModalProps) {
   const { t } = useTranslation()
-  const inputRef = useRef(null)
-  const [mode, setMode] = useState('upload')
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [mode, setMode] = useState<'upload' | 'browse'>('upload')
   const [localBusy, setLocalBusy] = useState(false)
   const [error, setError] = useState('')
   // A staged device/clipboard file, previewed before it is committed.
-  const [pending, setPending] = useState(null)
-  const [pendingUrl, setPendingUrl] = useState(null)
-  const [picked, setPicked] = useState(null)
+  const [pending, setPending] = useState<File | null>(null)
+  const [pendingUrl, setPendingUrl] = useState<string | null>(null)
+  const [picked, setPicked] = useState<ImageSourcePick | null>(null)
   const [dragging, setDragging] = useState(false)
 
   const working = busy || localBusy
@@ -64,7 +82,7 @@ export default function ImagePickerModal({
     return () => URL.revokeObjectURL(url)
   }, [pending])
 
-  const stageFile = useCallback((file) => {
+  const stageFile = useCallback((file: File) => {
     setError('')
     setPicked(null)
     setPending(file)
@@ -75,13 +93,13 @@ export default function ImagePickerModal({
   // image is already on its way and swapping it underneath would be confusing.
   useClipboardImage(stageFile, !working)
 
-  const onFileInput = (e) => {
+  const onFileInput = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (file) stageFile(file)
   }
 
-  const onDrop = (e) => {
+  const onDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault()
     setDragging(false)
     const file = imageFromDataTransfer(e.dataTransfer)
@@ -95,10 +113,10 @@ export default function ImagePickerModal({
     setError('')
     try {
       if (pending) await onUpload(pending)
-      else await onPickSource({ source_type: picked.source_type, source_id: picked.source_id })
+      else await onPickSource({ source_type: picked!.source_type, source_id: picked!.source_id })
       onClose()
     } catch (err) {
-      setError(err?.message || t('imagePicker.failed'))
+      setError((err as Error | null)?.message || t('imagePicker.failed'))
       setLocalBusy(false)
     }
   }
@@ -107,10 +125,10 @@ export default function ImagePickerModal({
     setLocalBusy(true)
     setError('')
     try {
-      await onRemove()
+      await onRemove!()
       onClose()
     } catch (err) {
-      setError(err?.message || t('imagePicker.failed'))
+      setError((err as Error | null)?.message || t('imagePicker.failed'))
       setLocalBusy(false)
     }
   }
@@ -199,7 +217,7 @@ export default function ImagePickerModal({
         ) : null}
 
         <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
-          {['upload', 'browse'].map((m) => {
+          {(['upload', 'browse'] as const).map((m) => {
             const active = mode === m
             const Icon = m === 'upload' ? LuUpload : LuLibrary
             return (
@@ -341,7 +359,7 @@ export default function ImagePickerModal({
   )
 }
 
-const goldBtn = {
+const goldBtn: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 6,
@@ -354,7 +372,7 @@ const goldBtn = {
   fontSize: 13,
   fontWeight: 600,
 }
-const cancelBtn = {
+const cancelBtn: CSSProperties = {
   padding: '9px 16px',
   background: 'var(--bg-deep)',
   border: '1px solid var(--border)',
@@ -363,7 +381,7 @@ const cancelBtn = {
   cursor: 'pointer',
   fontSize: 13,
 }
-const dangerBtn = {
+const dangerBtn: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 6,

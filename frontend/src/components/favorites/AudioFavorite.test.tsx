@@ -1,22 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import type { ComponentProps } from 'react'
 import AudioFavorite from './AudioFavorite'
+import type { Schema } from '../../api'
 
-vi.mock('../../api', () => ({ mediaUrl: (p) => `http://localhost${p}` }))
+vi.mock('../../api', () => ({ mediaUrl: (p: string) => `http://localhost${p}` }))
 vi.mock('../FavoriteButton', () => ({ default: () => <button>fav</button> }))
 
 beforeEach(() => vi.clearAllMocks())
 
-const track = (over = {}) => ({
-  item_id: 'a1',
-  title: 'Tavern Night',
-  filename: 'tavern.mp3',
-  has_artwork: false,
-  ...over,
-})
+// Only the fields the card reads.
+const track = (over: Record<string, unknown> = {}) =>
+  ({
+    item_id: 'a1',
+    title: 'Tavern Night',
+    filename: 'tavern.mp3',
+    has_artwork: false,
+    ...over,
+  }) as unknown as Schema<'FavoriteAudioItem'>
 
-function renderAudio(props) {
+function renderAudio(props: ComponentProps<typeof AudioFavorite>) {
   return render(
     <MemoryRouter>
       <AudioFavorite {...props} />
@@ -44,7 +48,7 @@ describe('AudioFavorite', () => {
     const { container } = renderAudio({ item: track({ has_artwork: true }), grid: true })
     const img = container.querySelector('img')
     expect(img).toBeTruthy()
-    expect(img.getAttribute('src')).toContain('/audio/a1/artwork')
+    expect(img!.getAttribute('src')).toContain('/audio/a1/artwork')
   })
 
   it('renders in row mode (no grid) as a real link', () => {

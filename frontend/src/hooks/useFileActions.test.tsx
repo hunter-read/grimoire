@@ -1,12 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import useFileActions, { LIBRARY_CHANGED } from './useFileActions'
+import useFileActions, {
+  LIBRARY_CHANGED,
+  type FileActionItem,
+  type LibraryChange,
+} from './useFileActions'
 import { useAuth } from '../context/AuthContext'
 import { useUISettings } from '../context/UISettingsContext'
 import { files as filesApi } from '../api'
 
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }))
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }))
 vi.mock('../context/AuthContext', () => ({ useAuth: vi.fn() }))
 vi.mock('../context/UISettingsContext', () => ({ useUISettings: vi.fn() }))
 vi.mock('../api', () => ({
@@ -15,7 +19,21 @@ vi.mock('../api', () => ({
 
 // A minimal host: renders the openers as buttons plus whatever modals the hook
 // hands back, which is exactly the contract a real menu implements.
-function Host({ item, onChanged }) {
+// The mocks are fed partial fixtures, so they are reached as plain mocks.
+const mockUseAuth = vi.mocked(useAuth) as unknown as Mock
+const mockUseUISettings = vi.mocked(useUISettings) as unknown as Mock
+const mockFiles = vi.mocked(filesApi) as unknown as Record<
+  'rename' | 'deleteEntry' | 'folderContents' | 'browse',
+  Mock
+>
+
+function Host({
+  item,
+  onChanged,
+}: {
+  item: FileActionItem
+  onChanged?: (detail: LibraryChange) => void
+}) {
   const actions = useFileActions({ onChanged })
   return (
     <div>
@@ -37,12 +55,12 @@ const book = { relative_path: 'books/System/core/tome.pdf', filename: 'tome.pdf'
 
 beforeEach(() => {
   vi.clearAllMocks()
-  useAuth.mockReturnValue({ user: { role: 'admin' } })
-  useUISettings.mockReturnValue({ library_writable: true })
-  filesApi.folderContents.mockResolvedValue({ has_content: false, name: 'x' })
-  filesApi.deleteEntry.mockResolvedValue({ path: 'x', records: 1, files: 1 })
-  filesApi.rename.mockResolvedValue({})
-  filesApi.browse.mockResolvedValue({ writable: true, entries: [] })
+  mockUseAuth.mockReturnValue({ user: { role: 'admin' } })
+  mockUseUISettings.mockReturnValue({ library_writable: true })
+  mockFiles.folderContents.mockResolvedValue({ has_content: false, name: 'x' })
+  mockFiles.deleteEntry.mockResolvedValue({ path: 'x', records: 1, files: 1 })
+  mockFiles.rename.mockResolvedValue({})
+  mockFiles.browse.mockResolvedValue({ writable: true, entries: [] })
 })
 
 describe('useFileActions', () => {
@@ -56,8 +74,8 @@ describe('useFileActions', () => {
     ['a player', { user: { role: 'player' } }, { library_writable: true }],
     ['a read-only library', { user: { role: 'admin' } }, { library_writable: false }],
   ])('is unavailable to %s', (_label, auth, ui) => {
-    useAuth.mockReturnValue(auth)
-    useUISettings.mockReturnValue(ui)
+    mockUseAuth.mockReturnValue(auth)
+    mockUseUISettings.mockReturnValue(ui)
     render(<Host item={book} />)
     // Hidden rather than disabled: a read-only mount is a deployment choice,
     // not a temporary state, so a greyed-out row would be permanent clutter.
@@ -68,7 +86,7 @@ describe('useFileActions', () => {
     // The soft remove writes nothing to disk, so a read-only mount is no reason
     // to withhold it: it is the only cleanup such a library can perform. Move
     // and rename stay hidden, and the permanent mode is refused by the API.
-    useUISettings.mockReturnValue({ library_writable: false })
+    mockUseUISettings.mockReturnValue({ library_writable: false })
     render(<Host item={book} />)
 
     expect(screen.getByTestId('available')).toHaveTextContent('false')
@@ -76,14 +94,14 @@ describe('useFileActions', () => {
   })
 
   it('withholds removing from a non-admin regardless of writability', () => {
-    useAuth.mockReturnValue({ user: { role: 'gm' } })
+    mockUseAuth.mockReturnValue({ user: { role: 'gm' } })
     render(<Host item={book} />)
     expect(screen.getByTestId('can-remove')).toHaveTextContent('false')
   })
 
   it('survives a missing auth or settings provider', () => {
-    useAuth.mockReturnValue(null)
-    useUISettings.mockReturnValue(null)
+    mockUseAuth.mockReturnValue(null)
+    mockUseUISettings.mockReturnValue(null)
     render(<Host item={book} />)
     expect(screen.getByTestId('available')).toHaveTextContent('false')
   })

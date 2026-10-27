@@ -1,5 +1,7 @@
+import type { CSSProperties } from 'react'
+
 /** Shared visual style + label casing for tag chips (Tag / LinkableTag). */
-export function tagStyle(color) {
+export function tagStyle(color?: string | null): CSSProperties {
   return {
     display: 'inline-block',
     padding: '2px 10px',
@@ -14,5 +16,5 @@ export function tagStyle(color) {
   }
 }
 
-export const displayLabel = (label) =>
+export const displayLabel = <T extends string | null | undefined>(label: T): T | string =>
   label ? label.charAt(0).toUpperCase() + label.slice(1) : label

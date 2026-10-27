@@ -1,14 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Mock } from 'vitest'
+import type { ReactElement } from 'react'
 import { render as rtlRender, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import userEvent from '@testing-library/user-event'
 import RealBookFolderGroup from './BookFolderGroup'
+import type { BookFolderGroupProps } from './BookFolderGroup'
+import type { FolderOrder, ShelfItemProps, ShelfPages } from './ShelfNodeBody'
+import type { ShelfNode } from './shelfTree'
+import type { FolderNode } from './folderTree'
+import type { EditableBook } from './BookEditor'
 import { shelfNodeFromTree } from '../../test/shelfFixtures'
 import * as FavCtx from '../../context/FavoritesContext'
-import * as api from '../../api'
 
 // BookRow uses useLocation (for CardLink state), so a Router is required.
-const render = (ui) => rtlRender(<MemoryRouter>{ui}</MemoryRouter>)
+const render = (ui: ReactElement) => rtlRender(<MemoryRouter>{ui}</MemoryRouter>)
 
 vi.mock('../../context/FavoritesContext', () => ({
   useFavorites: vi.fn(),
@@ -16,12 +22,18 @@ vi.mock('../../context/FavoritesContext', () => ({
 
 vi.mock('../../api', () => ({
   default: {},
-  mediaUrl: (path) => `http://localhost${path}`,
+  mediaUrl: (path: string) => `http://localhost${path}`,
 }))
 
 // BookEditor makes its own API calls — stub it out so tests stay focused.
 vi.mock('./BookEditor', () => ({
-  default: ({ onClose, onSave }) => (
+  default: ({
+    onClose,
+    onSave,
+  }: {
+    onClose: () => void
+    onSave: (updated: { title: string }) => void
+  }) => (
     <div data-testid="book-editor">
       <button onClick={onClose}>Close Editor</button>
       <button onClick={() => onSave({ title: 'Updated Title' })}>Save Editor</button>
@@ -55,27 +67,44 @@ const ITEM_PROPS = [
 // A folder group now renders a node of the server-built shelf and reads its
 // books from the shelf's paged lists (issue #221). These tests describe a folder
 // by its contents, so this builds both from that, every node fully loaded.
-function BookFolderGroup({ folder, path, node, category, folderOrder, ...rest }) {
+/** The wrapper's props: the folder described by its contents, plus the real group's. */
+type WrapperProps = {
+  folder: string
+  path: string[]
+  node: FolderNode<EditableBook>
+  category: string
+  folderOrder?: FolderOrder
+} & Record<string, unknown>
+
+/** The real group's props that the wrapper passes straight through. */
+type PassedProps = Omit<
+  BookFolderGroupProps,
+  'node' | 'pages' | 'onLoadNode' | 'folderOrder' | 'itemProps'
+>
+
+function BookFolderGroup({ folder, path, node, category, folderOrder, ...rest }: WrapperProps) {
   const built = shelfNodeFromTree(node, {
     category,
     name: folder,
     path: path.join('/'),
     ...(folderOrder || {}),
   })
-  const itemProps = Object.fromEntries(ITEM_PROPS.filter((k) => k in rest).map((k) => [k, rest[k]]))
+  const itemProps = Object.fromEntries(
+    ITEM_PROPS.filter((k) => k in rest).map((k) => [k, rest[k]])
+  ) as unknown as ShelfItemProps
   return (
     <RealBookFolderGroup
-      node={built.node}
-      pages={built.pages}
+      node={built.node as ShelfNode}
+      pages={built.pages as unknown as ShelfPages}
       onLoadNode={() => {}}
-      folderOrder={folderOrder}
+      folderOrder={folderOrder as FolderOrder}
       itemProps={itemProps}
-      {...rest}
+      {...(rest as unknown as PassedProps)}
     />
   )
 }
 
-function makeBook(overrides = {}) {
+function makeBook(overrides: Partial<EditableBook> = {}): EditableBook {
   return {
     id: `book-${Math.random().toString(36).slice(2)}`,
     title: 'Test Book',
@@ -92,16 +121,23 @@ function makeBook(overrides = {}) {
     tags: [],
     relative_path: 'books/PF2e/adventures/Abomination Vaults/book.pdf',
     ...overrides,
-  }
+  } as EditableBook
 }
 
 /** Wrap a flat book list into a single-level folder-tree node (this folder's own
  *  books, no nested subfolders). Nested cases build their own `node` explicitly. */
-function nodeOf(books) {
+function nodeOf(books: EditableBook[]): FolderNode<EditableBook> {
   return { books, folders: {} }
 }
 
-function makeProps(overrides = {}) {
+function makeProps(
+  overrides: {
+    books?: EditableBook[]
+    node?: FolderNode<EditableBook>
+    folder?: string
+    path?: string[]
+  } & Record<string, unknown> = {}
+): WrapperProps {
   const { books, node, folder = 'Abomination Vaults', path, ...rest } = overrides
   return {
     folder,
@@ -122,7 +158,7 @@ function makeProps(overrides = {}) {
 
 describe('BookFolderGroup', () => {
   beforeEach(() => {
-    FavCtx.useFavorites.mockReturnValue({
+    ;(FavCtx.useFavorites as unknown as Mock).mockReturnValue({
       isFavorite: () => false,
       toggleFavorite: vi.fn(),
     })
@@ -218,7 +254,7 @@ describe('BookFolderGroup', () => {
       books: [makeBook({ title: 'Alpha Book' }), makeBook({ title: 'Gamma Book' })],
       folders: { 'beta folder': { books: [makeBook({ title: 'Inner Book' })], folders: {} } },
     })
-    const before = (a, b) =>
+    const before = (a: string, b: string) =>
       !!(screen.getByText(a).compareDocumentPosition(screen.getByText(b)) & 4)
 
     it('renders subfolders ahead of the folder own books by default', () => {
@@ -508,7 +544,7 @@ describe('BookFolderGroup', () => {
 
 describe('BookFolderGroup details action', () => {
   beforeEach(() => {
-    FavCtx.useFavorites.mockReturnValue({
+    ;(FavCtx.useFavorites as unknown as Mock).mockReturnValue({
       isFavorite: () => false,
       toggleFavorite: vi.fn(),
     })

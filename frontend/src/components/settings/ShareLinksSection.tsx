@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { shareLinks } from '../../api'
+import type { Schema } from '../../api'
 import ShareLinkList from '../share/ShareLinkList'
 
 /**
@@ -8,12 +9,12 @@ import ShareLinkList from '../share/ShareLinkList'
  * after an admin takes the permission away: the links are suspended rather than
  * deleted, and this is where you see that, or take one down for good.
  */
-export default function ShareLinksSection({ canShare }) {
+export default function ShareLinksSection({ canShare }: { canShare?: boolean }) {
   const { t } = useTranslation()
-  const [links, setLinks] = useState(null)
+  const [links, setLinks] = useState<Schema<'ShareLinkOut'>[] | null>(null)
   const [error, setError] = useState('')
   // null until a load fails; then the server's message, or '' for the fallback.
-  const [loadError, setLoadError] = useState(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
     let live = true

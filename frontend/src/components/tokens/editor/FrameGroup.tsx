@@ -1,4 +1,13 @@
+import type { ReactNode } from 'react'
 import { LuChevronDown, LuChevronRight } from 'react-icons/lu'
+
+export interface FrameGroupProps {
+  label: ReactNode
+  icon?: ReactNode
+  open: boolean
+  onToggle: () => void
+  children?: ReactNode
+}
 
 /**
  * One collapsible section of the frame gallery, with its own heading button.
@@ -6,7 +15,7 @@ import { LuChevronDown, LuChevronRight } from 'react-icons/lu'
  * A library can hold frames across many folders; collapsing a section the user
  * is not working from keeps the rest reachable without scrolling past it.
  */
-export default function FrameGroup({ label, icon, open, onToggle, children }) {
+export default function FrameGroup({ label, icon, open, onToggle, children }: FrameGroupProps) {
   return (
     <div style={{ marginBottom: 10 }}>
       <button

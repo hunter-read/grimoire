@@ -1,8 +1,26 @@
+import type { ReactNode } from 'react'
+
+interface Props {
+  id: string
+  checked: boolean
+  disabled?: boolean
+  onChange: (checked: boolean) => void
+  label: ReactNode
+  hint?: ReactNode
+}
+
 /**
  * A labelled checkbox for a settings page, with an optional hint underneath
  * (aligned with the label text, not the box).
  */
-export default function SettingToggle({ id, checked, disabled, onChange, label: text, hint }) {
+export default function SettingToggle({
+  id,
+  checked,
+  disabled,
+  onChange,
+  label: text,
+  hint,
+}: Props) {
   return (
     <div>
       <label

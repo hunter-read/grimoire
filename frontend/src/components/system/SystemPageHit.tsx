@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { useLocation } from 'react-router-dom'
+import type { Schema } from '../../api'
 import CardLink from '../CardLink'
 
 /**
@@ -8,7 +9,11 @@ import CardLink from '../CardLink'
  * in a new tab (issue #313). The current location rides along as `from` state
  * so the reader's back button returns here.
  */
-export default function SystemPageHit({ result }) {
+export interface SystemPageHitProps {
+  result: Pick<Schema<'SearchHit'>, 'id' | 'page_number' | 'title' | 'snippet'>
+}
+
+export default function SystemPageHit({ result }: SystemPageHitProps) {
   const { t } = useTranslation()
   const location = useLocation()
   return (

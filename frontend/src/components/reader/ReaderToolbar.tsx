@@ -43,7 +43,7 @@ const zoomBtnStyle = (disabled: boolean, divider: boolean) => ({
 type ReaderMode = 'page' | 'spread' | 'pdf'
 type PanelKey = 'toc' | 'bookmarks' | 'search'
 
-interface ReaderToolbarProps {
+export interface ReaderToolbarProps {
   book: Schema<'BookDetail'>
   bookId: string
   mode: ReaderMode

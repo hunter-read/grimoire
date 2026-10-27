@@ -1,3 +1,4 @@
+import type { CSSProperties, ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   LuFlipHorizontal2,
@@ -10,6 +11,8 @@ import {
 import ColorSwatchRow from './ColorSwatchRow'
 import IconButton from './IconButton'
 import { MAX_SCALE, MIN_SCALE } from './useTokenTransform'
+import type { TransformActions } from './useTokenTransform'
+import type { TokenTransform } from '../../../lib/tokenCompositor'
 
 /**
  * Output size, zoom, rotation, flip, and background.
@@ -23,8 +26,23 @@ import { MAX_SCALE, MIN_SCALE } from './useTokenTransform'
  * state of its own, so the editor keeps a single source of truth for the spec.
  */
 
-const label = { fontSize: 12, fontWeight: 600, marginBottom: 6, display: 'block' }
-const section = { marginBottom: 16 }
+const label: CSSProperties = { fontSize: 12, fontWeight: 600, marginBottom: 6, display: 'block' }
+const section: CSSProperties = { marginBottom: 16 }
+
+export interface TokenEditorControlsProps {
+  size: number
+  sizes: number[]
+  onSizeChange: (size: number) => void
+  background: string | null | undefined
+  onBackgroundChange: (color: string) => void
+  transform: TokenTransform
+  actions: Pick<
+    TransformActions,
+    'setScale' | 'setRotation' | 'rotate' | 'flipX' | 'flipY' | 'reset'
+  >
+  disabled?: boolean
+  sourceWarning?: ReactNode
+}
 
 export default function TokenEditorControls({
   size,
@@ -36,7 +54,7 @@ export default function TokenEditorControls({
   actions,
   disabled = false,
   sourceWarning = null,
-}) {
+}: TokenEditorControlsProps) {
   const { t } = useTranslation()
 
   return (

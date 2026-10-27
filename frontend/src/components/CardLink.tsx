@@ -1,10 +1,13 @@
-import { Link } from 'react-router-dom'
+import type { CSSProperties } from 'react'
+import { Link, type To } from 'react-router-dom'
 
 /**
  * True when a mouse click should be left to the browser (new tab, new window,
  * context menu): any modifier key held, or a non-primary button.
  */
-export function isModifiedClick(e) {
+export function isModifiedClick(
+  e: Pick<MouseEvent, 'button' | 'metaKey' | 'ctrlKey' | 'shiftKey' | 'altKey'>
+): boolean {
   return e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey
 }
 
@@ -38,10 +41,19 @@ export function isModifiedClick(e) {
  * at its mount value and send the back button to a stale URL. See the
  * regression test in PageHit.test.jsx.
  */
-export default function CardLink({ to, state, replace, href, download, label }) {
-  const style = { position: 'absolute', inset: 0 }
+export interface CardLinkProps {
+  to?: To
+  state?: unknown
+  replace?: boolean
+  href?: string
+  download?: string | boolean
+  label: string
+}
+
+export default function CardLink({ to, state, replace, href, download, label }: CardLinkProps) {
+  const style: CSSProperties = { position: 'absolute', inset: 0 }
   if (href) {
     return <a href={href} download={download} aria-label={label} style={style} />
   }
-  return <Link to={to} state={state} replace={replace} aria-label={label} style={style} />
+  return <Link to={to!} state={state} replace={replace} aria-label={label} style={style} />
 }

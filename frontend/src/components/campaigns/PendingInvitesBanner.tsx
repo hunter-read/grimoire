@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuMailOpen, LuX } from 'react-icons/lu'
-import { campaigns } from '../../api'
+import { campaigns, type Schema } from '../../api'
 import { useAuth } from '../../context/AuthContext'
 
 // Per-session dismissal: sessionStorage survives reloads within a tab but is
@@ -16,9 +16,9 @@ const DISMISS_KEY = 'grimoire:invites_dismissed'
  */
 export default function PendingInvitesBanner() {
   const { t } = useTranslation()
-  const { user } = useAuth()
+  const { user } = useAuth()!
   const navigate = useNavigate()
-  const [invites, setInvites] = useState([])
+  const [invites, setInvites] = useState<Schema<'CampaignInviteOut'>[]>([])
   const [dismissed, setDismissed] = useState(() => sessionStorage.getItem(DISMISS_KEY) === 'true')
   const [busy, setBusy] = useState(false)
 
@@ -35,11 +35,11 @@ export default function PendingInvitesBanner() {
     return () => window.removeEventListener('grimoire:campaigns-changed', load)
   }, [])
 
-  const respond = async (invite, status) => {
+  const respond = async (invite: Schema<'CampaignInviteOut'>, status: string) => {
     if (busy) return
     setBusy(true)
     try {
-      await campaigns.updateMember(invite.campaign_id, user.id, status)
+      await campaigns.updateMember(invite.campaign_id, user!.id, status)
       setInvites((cur) => cur.filter((i) => i.campaign_id !== invite.campaign_id))
       window.dispatchEvent(new CustomEvent('grimoire:campaigns-changed'))
     } catch {

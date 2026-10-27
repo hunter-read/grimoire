@@ -6,7 +6,7 @@ import InlineTagEditor from './InlineTagEditor'
 // InlineTagEditor now wraps the shared TagPicker, which loads the tag catalog.
 const mockList = vi.fn()
 vi.mock('../../api', () => ({
-  tags: { list: (...a) => mockList(...a) },
+  tags: { list: (...a: unknown[]) => mockList(...a) },
 }))
 
 beforeEach(() => {

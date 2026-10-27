@@ -48,8 +48,8 @@ describe('buildGenreTree', () => {
   it('assigns depth by nesting level', () => {
     const tree = buildGenreTree(genres)
     const cyber = tree.find((g) => g.name === 'Cyberpunk')
-    expect(cyber.depth).toBe(1)
-    expect(tree.find((g) => g.name === 'Fantasy').depth).toBe(0)
+    expect(cyber!.depth).toBe(1)
+    expect(tree.find((g) => g.name === 'Fantasy')!.depth).toBe(0)
   })
 
   it('handles an empty list', () => {

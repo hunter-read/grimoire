@@ -2,22 +2,44 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import RealMediaFolderGroup from './MediaFolderGroup'
+import type { ReactNode } from 'react'
+import type { MediaFolderGroupProps } from './MediaFolderGroup'
 import { MEDIA_CONFIGS } from './mediaConfig'
+import type { MediaItem } from './mediaConfig'
+import type { AudioTrack } from '../../context/AudioPlayerContext'
 
 const playQueue = vi.fn()
 vi.mock('../../context/AudioPlayerContext', () => ({
   useAudioPlayer: () => ({ playQueue }),
 }))
-vi.mock('../../api', () => ({ mediaUrl: (p) => `http://localhost${p}` }))
-vi.mock('./MediaCard', () => ({ default: ({ item }) => <div>{item.filename}</div> }))
+vi.mock('../../api', () => ({ mediaUrl: (p: string) => `http://localhost${p}` }))
+vi.mock('./MediaCard', () => ({
+  default: ({ item }: { item: MediaItem }) => <div>{item.filename}</div>,
+}))
 vi.mock('./VirtualGrid', () => ({
-  default: ({ items, renderItem }) => <div>{items.map(renderItem)}</div>,
+  default: ({
+    items,
+    renderItem,
+  }: {
+    items: MediaItem[]
+    renderItem: (item: MediaItem) => ReactNode
+  }) => <div>{items.map(renderItem)}</div>,
 }))
 vi.mock('../RescanButton', () => ({ default: () => <span data-testid="rescan" /> }))
 // Real-ish FolderTagRow: exposes its edit + save affordances so the editing
 // branches of the folder group are exercised.
 vi.mock('./FolderTagRow', () => ({
-  default: ({ editing, onEdit, onSave, onCancel }) =>
+  default: ({
+    editing,
+    onEdit,
+    onSave,
+    onCancel,
+  }: {
+    editing: boolean
+    onEdit: () => void
+    onSave: (tags: string[]) => void
+    onCancel: () => void
+  }) =>
     editing ? (
       <span>
         <button data-testid="save-folder-tags" onClick={() => onSave(['t'])}>
@@ -38,11 +60,22 @@ vi.mock('./FolderTagRow', () => ({
 // (issue #221). These tests describe a folder by its items, so this adapts that
 // to the new shape: every folder fully loaded, and whole-folder fetches (Play)
 // answered from the same items.
-function MediaFolderGroup({ folder, subfolders, ...rest }) {
+function MediaFolderGroup({
+  folder,
+  subfolders,
+  ...rest
+}: Omit<MediaFolderGroupProps, 'subfolders'> & {
+  subfolders: Record<string, Partial<MediaItem>[]>
+}) {
   const groups = Object.fromEntries(
     Object.entries(subfolders).map(([sub, items]) => [
       sub,
-      { path: sub ? `${folder}/${sub}` : folder, count: items.length, items, hasMore: false },
+      {
+        path: sub ? `${folder}/${sub}` : folder,
+        count: items.length,
+        items: items as MediaItem[],
+        hasMore: false,
+      },
     ])
   )
   const byPath = Object.fromEntries(Object.values(groups).map((g) => [g.path, g.items]))
@@ -50,14 +83,14 @@ function MediaFolderGroup({ folder, subfolders, ...rest }) {
     <RealMediaFolderGroup
       folder={folder}
       subfolders={groups}
-      onFetchFolderItems={async (paths) => paths.flatMap((p) => byPath[p] || [])}
+      onFetchFolderItems={async (paths: string[]) => paths.flatMap((p) => byPath[p] || [])}
       {...rest}
     />
   )
 }
 
-const baseProps = (over = {}) => ({
-  collapsed: new Set(),
+const baseProps = (over: Partial<Omit<MediaFolderGroupProps, 'subfolders'>> = {}) => ({
+  collapsed: new Set<string>(),
   onToggle: vi.fn(),
   folderTags: {},
   editingFolder: null,
@@ -65,8 +98,8 @@ const baseProps = (over = {}) => ({
   onSaveFolderTags: vi.fn(),
   onSelectItem: vi.fn(),
   bulkMode: false,
-  selectedIds: new Set(),
-  selectedFolderPaths: new Set(),
+  selectedIds: new Set<string>(),
+  selectedFolderPaths: new Set<string>(),
   onToggleItem: vi.fn(),
   onToggleFolder: vi.fn(),
   onDownload: vi.fn(),
@@ -94,7 +127,7 @@ describe('MediaFolderGroup — audio', () => {
     expect(playQueue).toHaveBeenCalledTimes(1)
     const queued = playQueue.mock.calls[0][0]
     // The missing track is excluded.
-    expect(queued.map((t) => t.id)).toEqual(['a1', 'a2'])
+    expect(queued.map((t: AudioTrack) => t.id)).toEqual(['a1', 'a2'])
   })
 
   it('does not show a Play button for a non-audio gallery (maps)', () => {
@@ -266,7 +299,7 @@ describe('MediaFolderGroup — audio', () => {
       />
     )
     await userEvent.click(screen.getByTitle(/play ambient/i))
-    const queued = playQueue.mock.calls[0][0].map((t) => t.id)
+    const queued = playQueue.mock.calls[0][0].map((t: AudioTrack) => t.id)
     expect(queued).toEqual(['a1', 'a2'])
   })
 
@@ -368,7 +401,12 @@ describe('MediaFolderGroup — paged folders (issue #221)', () => {
         config={MEDIA_CONFIGS.map}
         folder="Caves"
         subfolders={{
-          '': { path: 'Caves', count: 40, items: [{ id: 'm1', filename: 'm.png' }], hasMore: true },
+          '': {
+            path: 'Caves',
+            count: 40,
+            items: [{ id: 'm1', filename: 'm.png' } as MediaItem],
+            hasMore: true,
+          },
         }}
         onLoadFolder={onLoadFolder}
         {...baseProps()}
@@ -399,7 +437,7 @@ describe('MediaFolderGroup — paged folders (issue #221)', () => {
 
   it('plays a whole folder, fetched in full rather than the loaded page', async () => {
     playQueue.mockClear()
-    const onFetchFolderItems = vi.fn(async () => audioItems)
+    const onFetchFolderItems = vi.fn(async () => audioItems as MediaItem[])
     render(
       <RealMediaFolderGroup
         config={MEDIA_CONFIGS.audio}
@@ -414,6 +452,6 @@ describe('MediaFolderGroup — paged folders (issue #221)', () => {
     )
     await userEvent.click(screen.getByTitle(/play ambient/i))
     expect(onFetchFolderItems).toHaveBeenCalledWith(['Ambient', 'Ambient/Rain'])
-    expect(playQueue.mock.calls.at(-1)[0].map((t) => t.id)).toEqual(['a1', 'a2'])
+    expect(playQueue.mock.calls.at(-1)![0].map((t: AudioTrack) => t.id)).toEqual(['a1', 'a2'])
   })
 })

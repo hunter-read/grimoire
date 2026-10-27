@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import ArchivePlaceholder from './ArchivePlaceholder'
 
-vi.mock('../../api', () => ({ mediaUrl: (p) => `http://localhost${p}` }))
+vi.mock('../../api', () => ({ mediaUrl: (p: string) => `http://localhost${p}` }))
 
 describe('ArchivePlaceholder', () => {
   it('renders a download link pointing at the media file endpoint', () => {

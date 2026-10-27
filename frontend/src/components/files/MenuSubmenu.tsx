@@ -1,4 +1,11 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import {
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type HTMLAttributes,
+  type ReactNode,
+} from 'react'
 import { LuChevronRight } from 'react-icons/lu'
 
 /**
@@ -12,10 +19,26 @@ import { LuChevronRight } from 'react-icons/lu'
  * Opens on hover (with a small close delay so the diagonal move to the submenu
  * doesn't dismiss it) and on click, so it works for pointer and keyboard alike.
  */
-export default function MenuSubmenu({ label, icon, children, itemStyle, hoverProps, testId }) {
+export interface MenuSubmenuProps {
+  label: ReactNode
+  icon?: ReactNode
+  children?: ReactNode
+  itemStyle?: CSSProperties
+  hoverProps?: HTMLAttributes<HTMLButtonElement>
+  testId?: string
+}
+
+export default function MenuSubmenu({
+  label,
+  icon,
+  children,
+  itemStyle,
+  hoverProps,
+  testId,
+}: MenuSubmenuProps) {
   const [open, setOpen] = useState(false)
-  const closeTimer = useRef(null)
-  const panelRef = useRef(null)
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const panelRef = useRef<HTMLDivElement>(null)
   // Offsets applied to the panel's default position (right of the row, aligned
   // to its top) to keep it inside the window — see the layout effect below.
   const [shift, setShift] = useState({ up: 0, flip: false })

@@ -1,13 +1,18 @@
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX, LuMusic, LuGrid2X2, LuPencil, LuTrash2, LuPlay, LuListPlus } from 'react-icons/lu'
+import type { Schema } from '../../api'
 import Spinner from '../Spinner'
 import { useAudioPlayer } from '../../context/AudioPlayerContext'
 import { useSoundboard } from '../../context/SoundboardContext'
 import useAudioSets from '../../hooks/useAudioSets'
 
+type SetSummary = Schema<'AudioSetSummary'>
+type SetEntry = Schema<'SetEntryOut'>
+type SetLayout = Schema<'AudioSetOut'>['layout']
+
 /** A saved entry as the player/board wants it. */
-const toTrack = (e) => ({
+const toTrack = (e: SetEntry) => ({
   id: e.audio_id,
   title: e.title || '',
   artist: e.artist || '',
@@ -29,29 +34,33 @@ const toTrack = (e) => ({
  * A set whose tracks have since left the library loads the rest and says how
  * many were skipped, rather than failing or leaving dead pads.
  */
-export default function AudioSetsModal({ onClose }) {
+export interface AudioSetsModalProps {
+  onClose: () => void
+}
+
+export default function AudioSetsModal({ onClose }: AudioSetsModalProps) {
   const { t } = useTranslation()
   const { sets, loading, error, load, rename, remove } = useAudioSets()
   const { queue, playQueue, addToQueue } = useAudioPlayer()
   const { pads, replacePads, updateLayout } = useSoundboard()
 
   // The row awaiting a confirm, as { set, mode }: mode 'replace' | 'append'.
-  const [confirming, setConfirming] = useState(null)
-  const [renaming, setRenaming] = useState(null)
+  const [confirming, setConfirming] = useState<{ set: SetSummary; append: boolean } | null>(null)
+  const [renaming, setRenaming] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
-  const [busyId, setBusyId] = useState(null)
-  const [notice, setNotice] = useState(null)
-  const [loadError, setLoadError] = useState(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const liveCount = (kind) => (kind === 'soundboard' ? pads.length : queue.length)
+  const liveCount = (kind: string) => (kind === 'soundboard' ? pads.length : queue.length)
 
-  const applyPlaylist = (entries, append) => {
+  const applyPlaylist = (entries: SetEntry[], append: boolean) => {
     const tracks = entries.map(toTrack)
     if (append) tracks.forEach((track) => addToQueue(track))
     else playQueue(tracks)
   }
 
-  const applyBoard = (entries, layout) => {
+  const applyBoard = (entries: SetEntry[], layout: SetLayout) => {
     // replacePads, not clear-then-add: the two read the same committed pad list,
     // so adding after a clear would drop every track the outgoing board shared
     // with this one. It carries loop flags and opens the panel itself.
@@ -59,12 +68,12 @@ export default function AudioSetsModal({ onClose }) {
     replacePads(entries.map(toTrack))
   }
 
-  const doLoad = async (set, append = false) => {
+  const doLoad = async (set: SetSummary, append = false) => {
     setBusyId(set.id)
     setNotice(null)
     setLoadError(null)
     try {
-      const full = await load(set.id)
+      const full = (await load(set.id)) as Schema<'AudioSetOut'>
       const entries = full.entries || []
       if (set.kind === 'soundboard') applyBoard(entries, full.layout)
       else applyPlaylist(entries, append)
@@ -78,7 +87,7 @@ export default function AudioSetsModal({ onClose }) {
       }
     } catch (err) {
       // Nothing was applied, so the live queue/board is untouched.
-      setLoadError(err.message || t('audioSets.loadFailed'))
+      setLoadError((err as Error).message || t('audioSets.loadFailed'))
     } finally {
       setBusyId(null)
       setConfirming(null)
@@ -86,12 +95,12 @@ export default function AudioSetsModal({ onClose }) {
   }
 
   // Loading over live content asks first; loading into an empty player doesn't.
-  const requestLoad = (set, append = false) => {
+  const requestLoad = (set: SetSummary, append = false) => {
     if (append || liveCount(set.kind) === 0) doLoad(set, append)
     else setConfirming({ set, append })
   }
 
-  const submitRename = async (set) => {
+  const submitRename = async (set: SetSummary) => {
     const value = renameValue.trim()
     if (!value || value === set.name) {
       setRenaming(null)
@@ -243,7 +252,7 @@ export default function AudioSetsModal({ onClose }) {
                       </button>
                       <button
                         type="button"
-                        onClick={() => doLoad(confirming.set, confirming.append)}
+                        onClick={() => doLoad(confirming!.set, confirming!.append)}
                         style={goldBtn}
                       >
                         {t('audioSets.replace')}
@@ -264,7 +273,7 @@ export default function AudioSetsModal({ onClose }) {
   )
 }
 
-const overlay = {
+const overlay: CSSProperties = {
   position: 'fixed',
   inset: 0,
   zIndex: 1200,
@@ -274,7 +283,7 @@ const overlay = {
   background: 'var(--scrim)',
   padding: 16,
 }
-const panel = {
+const panel: CSSProperties = {
   background: 'var(--bg-panel)',
   border: '1px solid var(--border)',
   borderRadius: 10,
@@ -283,13 +292,13 @@ const panel = {
   maxWidth: '92vw',
   boxSizing: 'border-box',
 }
-const header = {
+const header: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
   marginBottom: 12,
 }
-const closeBtn = {
+const closeBtn: CSSProperties = {
   background: 'none',
   border: 'none',
   cursor: 'pointer',
@@ -297,7 +306,7 @@ const closeBtn = {
   display: 'flex',
   padding: 2,
 }
-const row = {
+const row: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 8,
@@ -305,7 +314,7 @@ const row = {
   padding: '8px 0',
   borderBottom: '1px solid var(--border)',
 }
-const rowName = {
+const rowName: CSSProperties = {
   display: 'block',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
@@ -313,8 +322,8 @@ const rowName = {
   fontSize: 14,
   color: 'var(--text)',
 }
-const rowMeta = { display: 'block', fontSize: 12, color: 'var(--text-muted)' }
-const iconBtn = {
+const rowMeta: CSSProperties = { display: 'block', fontSize: 12, color: 'var(--text-muted)' }
+const iconBtn: CSSProperties = {
   background: 'none',
   border: 'none',
   cursor: 'pointer',
@@ -323,7 +332,7 @@ const iconBtn = {
   display: 'flex',
   flexShrink: 0,
 }
-const inlineInput = {
+const inlineInput: CSSProperties = {
   padding: '5px 8px',
   background: 'var(--bg-deep)',
   border: '1px solid var(--border)',
@@ -332,7 +341,7 @@ const inlineInput = {
   fontSize: 14,
   minWidth: 0,
 }
-const confirmRow = {
+const confirmRow: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 8,
@@ -341,7 +350,7 @@ const confirmRow = {
   color: 'var(--text-dim)',
   padding: '6px 0 2px',
 }
-const cancelBtn = {
+const cancelBtn: CSSProperties = {
   padding: '4px 10px',
   borderRadius: 6,
   background: 'var(--bg-card)',
@@ -350,7 +359,7 @@ const cancelBtn = {
   fontSize: 12,
   cursor: 'pointer',
 }
-const goldBtn = {
+const goldBtn: CSSProperties = {
   padding: '4px 12px',
   borderRadius: 6,
   background: 'var(--gold-dim)',

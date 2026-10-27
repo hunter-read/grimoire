@@ -3,7 +3,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BannerUploadModal from './BannerUploadModal'
 
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }))
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }))
 
 // The banner dialog is now a thin wrapper over the shared image picker
 // (issue #286); the browse tab searches the library through this.
@@ -14,7 +14,7 @@ vi.mock('../../api', () => ({
         { resource_type: 'map', resource_id: 'm1', name: 'ruins.png', has_thumbnail: true },
       ])
     ),
-    thumbUrl: (type, id) => `/api/${type}s/${id}/thumbnail`,
+    thumbUrl: (type: string, id: string) => `/api/${type}s/${id}/thumbnail`,
   },
 }))
 
@@ -108,7 +108,7 @@ describe('BannerUploadModal', () => {
 
     // The reposition control only appears once the image reports an aspect
     // ratio taller than the 2:1 hero — otherwise there is nothing to slide.
-    const img = document.querySelector('img')
+    const img = document.querySelector('img')!
     Object.defineProperty(img, 'naturalWidth', { value: 100, configurable: true })
     Object.defineProperty(img, 'naturalHeight', { value: 400, configurable: true })
     fireEvent.load(img)
@@ -123,10 +123,14 @@ describe('BannerUploadModal', () => {
   })
 
   it('saves a reposition on its own, without touching the image', async () => {
-    const p = props({ hasBanner: true, focusY: 50, onFocusChange: vi.fn().mockResolvedValue() })
+    const p = props({
+      hasBanner: true,
+      focusY: 50,
+      onFocusChange: vi.fn().mockResolvedValue(undefined),
+    })
     render(<BannerUploadModal {...p} previewSrc="http://banner.png" />)
 
-    const img = document.querySelector('img')
+    const img = document.querySelector('img')!
     Object.defineProperty(img, 'naturalWidth', { value: 100, configurable: true })
     Object.defineProperty(img, 'naturalHeight', { value: 400, configurable: true })
     fireEvent.load(img)
@@ -147,7 +151,7 @@ describe('BannerUploadModal', () => {
   it('offers no reposition save until the position actually moves', async () => {
     render(<BannerUploadModal {...props({ hasBanner: true, focusY: 50 })} previewSrc="/b.png" />)
 
-    const img = document.querySelector('img')
+    const img = document.querySelector('img')!
     Object.defineProperty(img, 'naturalWidth', { value: 100, configurable: true })
     Object.defineProperty(img, 'naturalHeight', { value: 400, configurable: true })
     fireEvent.load(img)
@@ -174,7 +178,7 @@ describe('BannerUploadModal', () => {
     await userEvent.click(screen.getByLabelText('common.close'))
     expect(p.onClose).toHaveBeenCalledTimes(1)
 
-    await userEvent.click(container.firstChild)
+    await userEvent.click(container.firstChild as Element)
     expect(p.onClose).toHaveBeenCalledTimes(2)
 
     // Clicking inside the panel must not close the modal.

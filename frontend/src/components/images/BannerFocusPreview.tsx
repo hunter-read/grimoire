@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { SyntheticEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuMoveVertical } from 'react-icons/lu'
 
@@ -14,15 +15,27 @@ import { LuMoveVertical } from 'react-icons/lu'
  * Dragging is only offered when it would do something: an image at or wider
  * than 2:1 already fits, and there is nothing to slide.
  */
-export default function BannerFocusPreview({ src, focusY, onChange, disabled = false }) {
+export interface BannerFocusPreviewProps {
+  src?: string | null
+  focusY: number
+  onChange: (focusY: number) => void
+  disabled?: boolean
+}
+
+export default function BannerFocusPreview({
+  src,
+  focusY,
+  onChange,
+  disabled = false,
+}: BannerFocusPreviewProps) {
   const { t } = useTranslation()
-  const boxRef = useRef(null)
+  const boxRef = useRef<HTMLDivElement>(null)
   const [dragging, setDragging] = useState(false)
   // Null until the image loads; drives whether repositioning is offered at all.
   const [canReposition, setCanReposition] = useState(false)
 
   const setFromClientY = useCallback(
-    (clientY) => {
+    (clientY: number) => {
       const box = boxRef.current
       if (!box) return
       const rect = box.getBoundingClientRect()
@@ -37,9 +50,9 @@ export default function BannerFocusPreview({ src, focusY, onChange, disabled = f
   // releasing outside the preview is the normal way this gesture ends.
   useEffect(() => {
     if (!dragging) return undefined
-    const move = (e) => {
+    const move = (e: MouseEvent | TouchEvent) => {
       e.preventDefault()
-      setFromClientY(e.touches ? e.touches[0].clientY : e.clientY)
+      setFromClientY('touches' in e && e.touches ? e.touches[0].clientY : (e as MouseEvent).clientY)
     }
     const up = () => setDragging(false)
     document.addEventListener('mousemove', move)
@@ -54,8 +67,8 @@ export default function BannerFocusPreview({ src, focusY, onChange, disabled = f
     }
   }, [dragging, setFromClientY])
 
-  const onImageLoad = (e) => {
-    const { naturalWidth: w, naturalHeight: h } = e.target
+  const onImageLoad = (e: SyntheticEvent<HTMLImageElement>) => {
+    const { naturalWidth: w, naturalHeight: h } = e.target as HTMLImageElement
     // Taller than the 2:1 frame ⇒ cover crops vertically ⇒ Y is meaningful.
     setCanReposition(Boolean(w && h) && h / w > 0.5)
   }

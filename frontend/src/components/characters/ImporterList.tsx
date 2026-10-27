@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuPuzzle, LuDownload, LuChevronDown, LuChevronRight } from 'react-icons/lu'
 import { characters as charactersApi } from '../../api'
+import type { Schema } from '../../api'
 import Spinner from '../Spinner'
 import { goldBtn, disabledBtn, fieldLabel, helpText } from './characterStyles'
 import InstalledImporter from './InstalledImporter'
@@ -23,7 +24,9 @@ const meta = { fontSize: 12, color: 'var(--text-muted)' }
 const smallGold = { ...goldBtn, padding: '4px 10px', fontSize: 12 }
 
 // A plain render helper rather than a component: one component per file.
-function renderTitle(item) {
+type AvailableImporter = Schema<'AvailableImporter'>
+
+function renderTitle(item: { homepage?: string; name: string }) {
   const homepage = safeLink(item.homepage)
   return (
     <div style={{ fontSize: 14, fontWeight: 600 }}>
@@ -47,7 +50,13 @@ function renderTitle(item) {
  * themselves; an admin installs the rest for everyone, here or - for one that
  * runs a script and needs consent - in Settings; anyone else is told to ask.
  */
-export default function ImporterList({ listing, onChanged }) {
+export interface ImporterListProps {
+  // null while the listing loads.
+  listing: Schema<'ImporterListResponse'> | null
+  onChanged: () => unknown
+}
+
+export default function ImporterList({ listing, onChanged }: ImporterListProps) {
   const { t } = useTranslation()
   const [working, setWorking] = useState('')
   const [error, setError] = useState('')
@@ -85,27 +94,27 @@ export default function ImporterList({ listing, onChanged }) {
   const available = listing.available || []
   const downloads = listing.downloads_enabled !== false
 
-  const act = async (id, request) => {
+  const act = async (id: string, request: () => Promise<unknown>) => {
     setWorking(id)
     setError('')
     try {
       await request()
       await onChanged()
     } catch (err) {
-      setError(err.message)
+      setError((err as Error).message)
     } finally {
       setWorking('')
     }
   }
 
-  const install = (item) =>
+  const install = (item: AvailableImporter) =>
     act(item.id, () =>
       item.install_as === 'server'
         ? charactersApi.installImporterForEveryone(item.id, item.index_url)
         : charactersApi.installImporter(item.id)
     )
 
-  const offer = (item) => {
+  const offer = (item: AvailableImporter) => {
     if (!downloads) return null
     if (item.install_as === 'admin') {
       return <span style={meta}>{t('characters.importerAskAdmin')}</span>

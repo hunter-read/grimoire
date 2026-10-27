@@ -1,7 +1,26 @@
 import { useTranslation } from 'react-i18next'
+import type { CSSProperties } from 'react'
 import { rank } from './apiKeyUtils'
 
-const selectStyle = {
+/** A permission as the key editor lists it: the server's entry, with its label translated. */
+export interface PermissionRowData {
+  id: string
+  label: string
+  description: string
+  levels: string[]
+  emphasis?: boolean
+}
+
+interface Props {
+  perm: PermissionRowData
+  value: string
+  floor: string
+  covered: boolean
+  onChange: (id: string, level: string) => void
+  first?: boolean
+}
+
+const selectStyle: CSSProperties = {
   boxSizing: 'border-box',
   padding: '6px 8px',
   borderRadius: 6,
@@ -15,7 +34,14 @@ const selectStyle = {
 // One permission in the key editor: its name and what it covers, and a level
 // picker. `floor` is the All permissions level - levels below it aren't a choice,
 // and once it reaches this area's highest level (`covered`) the picker locks.
-export default function ApiKeyPermissionRow({ perm, value, floor, covered, onChange, first }) {
+export default function ApiKeyPermissionRow({
+  perm,
+  value,
+  floor,
+  covered,
+  onChange,
+  first,
+}: Props) {
   const { t } = useTranslation()
   return (
     <div

@@ -1,5 +1,5 @@
 import { LuMusic } from 'react-icons/lu'
-import { mediaUrl } from '../../api'
+import { mediaUrl, type Schema } from '../../api'
 import FavoriteButton from '../FavoriteButton'
 import {
   cardWrapperStyle,
@@ -11,7 +11,12 @@ import {
 import LazyImg from '../LazyImg'
 import CardLink from '../CardLink'
 
-export default function AudioFavorite({ item, grid }) {
+export interface AudioFavoriteProps {
+  item: Schema<'FavoriteAudioItem'>
+  grid: boolean
+}
+
+export default function AudioFavorite({ item, grid }: AudioFavoriteProps) {
   const label = item.title || item.filename
   // A real link: middle click / ctrl-click opens this item in a new tab (issue #313).
   const cardLink = <CardLink to={`/audio/${item.item_id}`} label={label} />

@@ -7,7 +7,8 @@ import {
   defaultCollapsedFromCounts,
 } from './autoCollapse'
 
-const books = (category, n) => Array.from({ length: n }, () => ({ category }))
+const books = (category: string | undefined, n: number) =>
+  Array.from({ length: n }, () => ({ category }))
 
 describe('shouldAutoCollapse', () => {
   it('collapses only past the threshold', () => {

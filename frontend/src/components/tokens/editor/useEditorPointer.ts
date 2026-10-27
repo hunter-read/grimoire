@@ -1,4 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type {
+  KeyboardEvent as ReactKeyboardEvent,
+  MouseEvent as ReactMouseEvent,
+  RefObject,
+} from 'react'
+import type { TransformActions } from './useTokenTransform'
 
 /**
  * Turns mouse, wheel, keyboard, and touch input into transform actions.
@@ -23,24 +29,51 @@ const KEY_PAN_STEP_LARGE = 10
 // means it; past the threshold, track freely.
 const ROTATE_DEADZONE_DEGREES = 5
 
-const distance = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)
-const angle = (a, b) => (Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX) * 180) / Math.PI
-const midpoint = (a, b) => ({
+/** Anything with client coordinates: a touch, or the midpoint between two. */
+interface ClientPoint {
+  clientX: number
+  clientY: number
+}
+
+/** What the hook drives: the transform actions plus the current state it reads. */
+export interface PointerActions extends TransformActions {
+  size?: number
+  scale: number
+  rotation: number
+}
+
+interface Pinch {
+  distance: number
+  angle: number
+  scale: number
+  rotation: number
+  twisted: boolean
+}
+
+const distance = (a: ClientPoint, b: ClientPoint) =>
+  Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)
+const angle = (a: ClientPoint, b: ClientPoint) =>
+  (Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX) * 180) / Math.PI
+const midpoint = (a: ClientPoint, b: ClientPoint): ClientPoint => ({
   clientX: (a.clientX + b.clientX) / 2,
   clientY: (a.clientY + b.clientY) / 2,
 })
 
-export default function useEditorPointer(containerRef, actions, { disabled = false } = {}) {
+export default function useEditorPointer(
+  containerRef: RefObject<HTMLElement | null>,
+  actions: PointerActions,
+  { disabled = false }: { disabled?: boolean } = {}
+) {
   const [isDragging, setIsDragging] = useState(false)
-  const drag = useRef(null)
-  const pinch = useRef(null)
+  const drag = useRef<{ x: number; y: number } | null>(null)
+  const pinch = useRef<Pinch | null>(null)
   // Actions are recreated per render; a ref keeps the document listeners stable.
   const latest = useRef(actions)
   latest.current = actions
 
   /** Client coordinates relative to the canvas centre, which is what offsets use. */
   const toCentre = useCallback(
-    (clientX, clientY) => {
+    (clientX: number, clientY: number) => {
       const el = containerRef.current
       if (!el) return { x: 0, y: 0 }
       const rect = el.getBoundingClientRect()
@@ -60,7 +93,7 @@ export default function useEditorPointer(containerRef, actions, { disabled = fal
    * 400px would move the art slower than the cursor.
    */
   const scaleDelta = useCallback(
-    (delta) => {
+    (delta: number) => {
       const el = containerRef.current
       const rect = el?.getBoundingClientRect()
       if (!rect?.width) return delta
@@ -71,7 +104,7 @@ export default function useEditorPointer(containerRef, actions, { disabled = fal
   )
 
   const onMouseDown = useCallback(
-    (e) => {
+    (e: ReactMouseEvent) => {
       if (disabled || e.button !== 0) return
       e.preventDefault()
       drag.current = { x: e.clientX, y: e.clientY }
@@ -85,7 +118,7 @@ export default function useEditorPointer(containerRef, actions, { disabled = fal
   useEffect(() => {
     if (!isDragging) return undefined
 
-    const onMove = (e) => {
+    const onMove = (e: MouseEvent) => {
       const start = drag.current
       if (!start) return
       latest.current.pan(scaleDelta(e.clientX - start.x), scaleDelta(e.clientY - start.y))
@@ -111,7 +144,7 @@ export default function useEditorPointer(containerRef, actions, { disabled = fal
     const el = containerRef.current
     if (!el || disabled) return undefined
 
-    const onWheel = (e) => {
+    const onWheel = (e: WheelEvent) => {
       e.preventDefault()
       if (e.shiftKey) {
         latest.current.rotate(e.deltaY < 0 ? WHEEL_ROTATE_STEP : -WHEEL_ROTATE_STEP)
@@ -121,7 +154,7 @@ export default function useEditorPointer(containerRef, actions, { disabled = fal
       latest.current.zoomAt(e.deltaY < 0 ? WHEEL_ZOOM_STEP : 1 / WHEEL_ZOOM_STEP, x, y)
     }
 
-    const onTouchStart = (e) => {
+    const onTouchStart = (e: TouchEvent) => {
       if (e.touches.length === 2) {
         const [a, b] = e.touches
         pinch.current = {
@@ -138,7 +171,7 @@ export default function useEditorPointer(containerRef, actions, { disabled = fal
       }
     }
 
-    const onTouchMove = (e) => {
+    const onTouchMove = (e: TouchEvent) => {
       if (e.touches.length === 2 && pinch.current) {
         e.preventDefault()
         const [a, b] = e.touches
@@ -172,7 +205,7 @@ export default function useEditorPointer(containerRef, actions, { disabled = fal
       }
     }
 
-    const onTouchEnd = (e) => {
+    const onTouchEnd = (e: TouchEvent) => {
       if (e.touches.length === 0) {
         drag.current = null
         pinch.current = null
@@ -202,11 +235,11 @@ export default function useEditorPointer(containerRef, actions, { disabled = fal
    * Not decoration: this is the only way a keyboard-only user positions the art.
    */
   const onKeyDown = useCallback(
-    (e) => {
+    (e: ReactKeyboardEvent) => {
       if (disabled) return
       const step = e.shiftKey ? KEY_PAN_STEP_LARGE : KEY_PAN_STEP
       const a = latest.current
-      const handlers = {
+      const handlers: Record<string, () => void> = {
         ArrowLeft: () => a.pan(-step, 0),
         ArrowRight: () => a.pan(step, 0),
         ArrowUp: () => a.pan(0, -step),

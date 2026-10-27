@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -18,8 +18,16 @@ import {
   LuUsers,
 } from 'react-icons/lu'
 import MoreItem, { moreItemStyle } from './MoreItem'
+import type { Schema } from '../api'
 
-export default function MobileSidebar({ user, onLogout, uiSettings = {} }) {
+export interface MobileSidebarProps {
+  /** The signed-in user; only the role is read. */
+  user: { role?: string | null } | null
+  onLogout?: () => void
+  uiSettings?: Partial<Schema<'UISettingsResponse'>>
+}
+
+export default function MobileSidebar({ user, onLogout, uiSettings = {} }: MobileSidebarProps) {
   const { t } = useTranslation()
   const [moreOpen, setMoreOpen] = useState(false)
   const location = useLocation()
@@ -143,7 +151,7 @@ export default function MobileSidebar({ user, onLogout, uiSettings = {} }) {
             <button
               onClick={() => {
                 setMoreOpen(false)
-                onLogout()
+                onLogout!()
               }}
               style={{
                 ...moreItemStyle,
@@ -205,7 +213,7 @@ export default function MobileSidebar({ user, onLogout, uiSettings = {} }) {
   )
 }
 
-const mobileNavStyle = (active) => ({
+const mobileNavStyle = (active: boolean): CSSProperties => ({
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',

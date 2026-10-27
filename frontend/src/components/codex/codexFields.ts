@@ -1,3 +1,5 @@
+import type { TFunction } from 'i18next'
+
 /**
  * The fields a book or system can send to Grimoire Codex DB (issue #35), in the
  * order the panel lists them. Mirrors `BOOK_SUBMIT_FIELDS` /
@@ -49,7 +51,7 @@ export const CODEX_FIELDS = {
 
 // Reuse the editors' own labels where they exist, so a field reads the same in
 // the form and in the panel.
-const BOOK_LABELS = {
+const BOOK_LABELS: Record<string, string> = {
   title: 'bookEditor.titleLabel',
   description: 'bookEditor.descriptionLabel',
   category: 'bookEditor.categoryLabel',
@@ -72,7 +74,7 @@ const BOOK_LABELS = {
   is_explicit: 'codex.fields.explicit',
 }
 
-const SYSTEM_LABELS = {
+const SYSTEM_LABELS: Record<string, string> = {
   name: 'systemEditor.name',
   description: 'systemEditor.description',
   publishers: 'systemEditor.publishers',
@@ -92,7 +94,7 @@ const SYSTEM_LABELS = {
 }
 
 /** The label for `field` of `kind` ('books' | 'systems'), falling back to the field name. */
-export function codexFieldLabel(t, kind, field) {
+export function codexFieldLabel(t: TFunction, kind: string, field: string): string {
   const key = (kind === 'books' ? BOOK_LABELS : SYSTEM_LABELS)[field]
   return key ? t(key, field) : field
 }

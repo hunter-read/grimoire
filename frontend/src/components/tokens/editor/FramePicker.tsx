@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import type { MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuBan, LuHeart, LuSearch } from 'react-icons/lu'
 
@@ -16,6 +17,32 @@ import {
   groupFrames,
   matchesFrameQuery,
 } from './frames'
+import type { Frame, FrameVariant } from './frames'
+
+/** Mouse handlers that show the enlarged preview for a tile. */
+export type HoverProps = (
+  frame: Frame | FrameVariant,
+  label: string
+) => {
+  onMouseEnter: (e: MouseEvent<HTMLElement>) => void
+  onMouseLeave: () => void
+}
+
+interface HoveredFrame {
+  id: string
+  label: string
+  anchor: DOMRect
+}
+
+export interface FramePickerProps {
+  frames: Frame[] | null | undefined
+  value: string | null | undefined
+  onChange: (id: string | null) => void
+  color?: string | null
+  onColorChange?: (color: string) => void
+  scroll?: boolean
+  loading?: boolean
+}
 
 // Height the colour row occupies, reserved whether or not it is showing. The
 // row only applies to the recolourable generic shapes, and letting it appear
@@ -45,18 +72,18 @@ export default function FramePicker({
   onColorChange,
   scroll = true,
   loading = false,
-}) {
+}: FramePickerProps) {
   const { t } = useTranslation()
   const favorites = useFavorites()
   const isFavorite = favorites?.isFavorite
   const [query, setQuery] = useState('')
   // Collapsed groups by key. Absent means expanded — a fresh picker shows
   // everything, and only what the user has actually closed stays closed.
-  const [collapsed, setCollapsed] = useState({})
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   // The tile the pointer is resting on, with the rectangle it occupies, so the
   // enlarged preview can sit beside it. Held here rather than in each tile
   // because only one preview is ever on screen.
-  const [hovered, setHovered] = useState(null)
+  const [hovered, setHovered] = useState<HoveredFrame | null>(null)
 
   const groups = useMemo(() => groupFrames(frames || []), [frames])
 
@@ -78,7 +105,7 @@ export default function FramePicker({
       .filter((f) => f.token_id && isFavorite('token', f.token_id))
   }, [userGroups, isFavorite])
 
-  const filter = (list) => list.filter((f) => matchesFrameQuery(f, query, t))
+  const filter = (list: Frame[]) => list.filter((f) => matchesFrameQuery(f, query, t))
   const filteredFavorites = filter(favoriteFrames)
   const visibleGroups = userGroups
     .map((g) => ({ ...g, frames: filter(g.frames) }))
@@ -87,18 +114,18 @@ export default function FramePicker({
   const hasUserFrames = userGroups.some((g) => g.frames.length > 0)
   const nothingMatched = query.trim() !== '' && visibleGroups.length === 0
 
-  const toggle = (key) => setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }))
+  const toggle = (key: string) => setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }))
 
   // Hovering a tile shows it enlarged beside the gallery. The rectangle is read
   // off the event target rather than tracked per tile, so a scroll or a resize
   // cannot leave the preview pointing at where a tile used to be.
-  const hoverProps = (frame, label) => ({
+  const hoverProps: HoverProps = (frame, label) => ({
     onMouseEnter: (e) =>
       setHovered({ id: frame.id, label, anchor: e.currentTarget.getBoundingClientRect() }),
     onMouseLeave: () => setHovered((prev) => (prev?.id === frame.id ? null : prev)),
   })
 
-  const renderTile = (frame) => {
+  const renderTile = (frame: Frame) => {
     const label = frameLabel(frame, t)
     return (
       <FrameTile
@@ -109,7 +136,7 @@ export default function FramePicker({
         {...hoverProps(frame, label)}
       >
         <img
-          src={frameUrl(frame, color)}
+          src={frameUrl(frame, color) ?? undefined}
           alt=""
           style={{ width: '100%', height: '100%', objectFit: 'contain' }}
         />
@@ -261,7 +288,11 @@ export default function FramePicker({
       )}
 
       {hovered && (
-        <FramePreview frame={hovered} url={frameUrl(hovered.id, color)} anchor={hovered.anchor} />
+        <FramePreview
+          frame={hovered}
+          url={frameUrl(hovered.id, color) ?? undefined}
+          anchor={hovered.anchor}
+        />
       )}
     </div>
   )

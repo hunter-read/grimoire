@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import PendingInvitesBanner from './PendingInvitesBanner'
@@ -21,6 +22,9 @@ vi.mock('../../context/AuthContext', () => ({
 }))
 
 import { campaigns } from '../../api'
+
+// The api module is mocked above; reach its helpers as plain vi.fn()s.
+const campaignsMock = campaigns as unknown as Record<keyof typeof campaigns, Mock>
 
 const oneInvite = [
   { campaign_id: 'c1', name: 'Lost Mines', description: '', owner_display_name: 'Alice' },
@@ -45,14 +49,14 @@ beforeEach(() => {
 
 describe('PendingInvitesBanner', () => {
   it('renders nothing when there are no invites', async () => {
-    campaigns.invites.mockResolvedValue([])
+    campaignsMock.invites.mockResolvedValue([])
     const { container } = renderBanner()
     await waitFor(() => expect(campaigns.invites).toHaveBeenCalled())
     expect(container.textContent).toBe('')
   })
 
   it('shows accept/decline for a single invite naming the campaign and GM', async () => {
-    campaigns.invites.mockResolvedValue(oneInvite)
+    campaignsMock.invites.mockResolvedValue(oneInvite)
     renderBanner()
     expect(await screen.findByText(/Lost Mines/)).toBeTruthy()
     expect(screen.getByText(/Alice/)).toBeTruthy()
@@ -63,8 +67,8 @@ describe('PendingInvitesBanner', () => {
   it('accepting calls updateMember and hides the invite', async () => {
     // First fetch has the invite; the reload after accepting reflects the server
     // having cleared it.
-    campaigns.invites.mockResolvedValueOnce(oneInvite).mockResolvedValue([])
-    campaigns.updateMember.mockResolvedValue({})
+    campaignsMock.invites.mockResolvedValueOnce(oneInvite).mockResolvedValue([])
+    campaignsMock.updateMember.mockResolvedValue({})
     renderBanner()
     fireEvent.click(await screen.findByText('Accept'))
     await waitFor(() =>
@@ -74,8 +78,8 @@ describe('PendingInvitesBanner', () => {
   })
 
   it('declining calls updateMember with declined', async () => {
-    campaigns.invites.mockResolvedValue(oneInvite)
-    campaigns.updateMember.mockResolvedValue({})
+    campaignsMock.invites.mockResolvedValue(oneInvite)
+    campaignsMock.updateMember.mockResolvedValue({})
     renderBanner()
     fireEvent.click(await screen.findByText('Decline'))
     await waitFor(() =>
@@ -84,7 +88,7 @@ describe('PendingInvitesBanner', () => {
   })
 
   it('shows a count and View button for multiple invites', async () => {
-    campaigns.invites.mockResolvedValue(twoInvites)
+    campaignsMock.invites.mockResolvedValue(twoInvites)
     renderBanner()
     const view = await screen.findByText('View')
     expect(screen.getByText(/2/)).toBeTruthy()
@@ -93,7 +97,7 @@ describe('PendingInvitesBanner', () => {
   })
 
   it('dismiss hides the banner and persists to sessionStorage', async () => {
-    campaigns.invites.mockResolvedValue(oneInvite)
+    campaignsMock.invites.mockResolvedValue(oneInvite)
     renderBanner()
     await screen.findByText(/Lost Mines/)
     fireEvent.click(screen.getByLabelText('Dismiss'))
@@ -103,7 +107,7 @@ describe('PendingInvitesBanner', () => {
 
   it('stays dismissed when sessionStorage already has the flag', async () => {
     sessionStorage.setItem('grimoire:invites_dismissed', 'true')
-    campaigns.invites.mockResolvedValue(oneInvite)
+    campaignsMock.invites.mockResolvedValue(oneInvite)
     renderBanner()
     await waitFor(() => expect(campaigns.invites).toHaveBeenCalled())
     expect(screen.queryByText(/Lost Mines/)).toBeNull()

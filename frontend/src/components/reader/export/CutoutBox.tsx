@@ -1,9 +1,27 @@
+import type { FocusEvent, KeyboardEvent, PointerEvent, Ref } from 'react'
+import type { Box, Handle } from './cutoutGeometry'
 import { numberStyle } from './exportStyles'
+import type { CutoutShape } from './usePageExport'
+
+export interface CutoutBoxProps {
+  box: Box
+  number: number
+  shape: CutoutShape
+  locked?: boolean
+  active: boolean
+  label: string
+  describedBy?: string
+  onBodyPointerDown: (e: PointerEvent<HTMLDivElement>) => void
+  onHandlePointerDown: (e: PointerEvent<HTMLSpanElement>, handle: Handle) => void
+  onKeyDown: (e: KeyboardEvent<HTMLDivElement>) => void
+  onFocus: (e: FocusEvent<HTMLDivElement>) => void
+  boxRef?: Ref<HTMLDivElement>
+}
 
 const CORNERS = ['nw', 'ne', 'sw', 'se']
 const EDGES = ['n', 's', 'e', 'w']
 
-const CURSORS = {
+const CURSORS: Record<Handle, string> = {
   n: 'ns-resize',
   s: 'ns-resize',
   e: 'ew-resize',
@@ -15,7 +33,7 @@ const CURSORS = {
 }
 
 /** Where a handle sits on the box, as percentages. */
-function handlePosition(h) {
+function handlePosition(h: Handle) {
   return {
     left: h.includes('w') ? '0%' : h.includes('e') ? '100%' : '50%',
     top: h.includes('n') ? '0%' : h.includes('s') ? '100%' : '50%',
@@ -46,7 +64,7 @@ export default function CutoutBox({
   onKeyDown,
   onFocus,
   boxRef,
-}) {
+}: CutoutBoxProps) {
   const round = shape === 'ellipse'
   const handles = active ? (locked ? CORNERS : [...CORNERS, ...EDGES]) : []
 

@@ -9,7 +9,12 @@
 
 /** The library-root-relative folder a book lives in (its relative_path minus the
  *  filename), e.g. "books/D&D 5e/adventure/Curse of Strahd". */
-export function bookFolderScope(book) {
+/** The part of a book the scope helpers read. */
+export interface ScopedBook {
+  relative_path?: string | null
+}
+
+export function bookFolderScope(book: ScopedBook): string {
   const parts = (book.relative_path || '').replace(/\\/g, '/').split('/')
   return parts.slice(0, -1).join('/')
 }
@@ -20,20 +25,20 @@ export function bookFolderScope(book) {
  *  has to include its own folder, or a rescan of one edition would re-scan every
  *  edition in the container (the backend reads the segment after the container
  *  as the child to scope to). */
-export function systemScope(books, depth = 2) {
+export function systemScope(books: ScopedBook[] | null | undefined, depth = 2): string | null {
   const ref = (books || []).find((b) => b.relative_path)
   if (!ref) return null
-  const parts = ref.relative_path.replace(/\\/g, '/').split('/')
+  const parts = ref.relative_path!.replace(/\\/g, '/').split('/')
   return parts.length >= depth ? parts.slice(0, depth).join('/') : null
 }
 
 /** The deepest common folder scope shared by a group of books (their category or
  *  subfolder dir). Falls back to the system scope when paths diverge. */
-export function groupScope(books, depth = 2) {
+export function groupScope(books: ScopedBook[] | null | undefined, depth = 2): string | null {
   const dirs = (books || []).map(bookFolderScope).filter(Boolean)
   if (dirs.length === 0) return null
   const split = dirs.map((d) => d.split('/'))
-  const common = []
+  const common: string[] = []
   for (let i = 0; i < split[0].length; i++) {
     const seg = split[0][i]
     if (split.every((p) => p[i] === seg)) common.push(seg)

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { campaigns } from '../../api'
+import { campaigns, type Schema } from '../../api'
 import Spinner from '../Spinner'
-import { formatScheduleTime, USER_TZ } from './_scheduleShared'
+import { formatScheduleTime, USER_TZ, type ScheduleData } from './_scheduleShared'
 import ScheduleEditor from './ScheduleEditor'
 import ToggleSwitch from './ToggleSwitch'
 import { cancelBtn } from './campaignEditorShared'
@@ -11,16 +11,21 @@ import { cancelBtn } from './campaignEditorShared'
 // stays on the overview). A toggle enables/disables the schedule (disabling
 // preserves the definition); when enabled, shows a summary with an Edit button
 // or the editor itself.
-export default function ScheduleSetup({ campaign, onChanged }) {
+interface ScheduleSetupProps {
+  campaign: Pick<Schema<'CampaignOut'>, 'id'>
+  onChanged?: () => void
+}
+
+export default function ScheduleSetup({ campaign, onChanged }: ScheduleSetupProps) {
   const { t } = useTranslation()
-  const [data, setData] = useState(null)
+  const [data, setData] = useState<ScheduleData | null>(null)
   const [editing, setEditing] = useState(false)
   const [togglingEnabled, setTogglingEnabled] = useState(false)
 
   useEffect(() => {
     campaigns
       .getSchedule(campaign.id)
-      .then(setData)
+      .then((d) => setData(d as ScheduleData))
       .catch(() => setData({ definition: null, enabled: false }))
   }, [campaign.id])
 
@@ -37,7 +42,7 @@ export default function ScheduleSetup({ campaign, onChanged }) {
   // Flip the enabled flag while keeping the existing definition. With no
   // definition yet there's nothing to persist — just reveal the editor so the
   // GM can fill one in.
-  const toggleEnabled = async (next) => {
+  const toggleEnabled = async (next: boolean) => {
     if (!def) {
       setData((d) => ({ ...d, enabled: next }))
       return
@@ -45,7 +50,7 @@ export default function ScheduleSetup({ campaign, onChanged }) {
     setTogglingEnabled(true)
     try {
       const result = await campaigns.setSchedule(campaign.id, { ...def, enabled: next })
-      setData(result)
+      setData(result as ScheduleData)
       onChanged?.()
     } catch {
       /* leave the toggle as-is on failure */
@@ -94,7 +99,7 @@ export default function ScheduleSetup({ campaign, onChanged }) {
     )
   }
 
-  const FREQ = {
+  const FREQ: Record<string, string> = {
     weekly: t('schedule.frequency.weekly'),
     biweekly: t('schedule.frequency.biweekly'),
     monthly: t('schedule.frequency.monthly'),
@@ -113,7 +118,7 @@ export default function ScheduleSetup({ campaign, onChanged }) {
   if (def.frequency === 'custom') {
     pattern = t('campaignDetail.overview.customDates', { count: def.custom_dates?.length ?? 0 })
   } else if (def.frequency === 'monthly') {
-    const WEEKS = {
+    const WEEKS: Record<string, string> = {
       1: t('schedule.weeks.1st'),
       2: t('schedule.weeks.2nd'),
       3: t('schedule.weeks.3rd'),
@@ -122,10 +127,10 @@ export default function ScheduleSetup({ campaign, onChanged }) {
     }
     pattern = t('schedule.monthlyPattern', {
       week: WEEKS[String(def.monthly_week)] ?? '',
-      day: DAY_NAMES[def.days?.[0]] ?? '',
+      day: DAY_NAMES[def.days?.[0] as number] ?? '',
     })
   } else {
-    pattern = (def.days ?? []).map((d) => DAY_NAMES[d]).join(' & ')
+    pattern = (def.days ?? []).map((d: number) => DAY_NAMES[d]).join(' & ')
   }
   const localTime = formatScheduleTime(def.time_local)
 
@@ -146,7 +151,7 @@ export default function ScheduleSetup({ campaign, onChanged }) {
       >
         <div style={{ fontSize: 13 }}>
           <div style={{ fontWeight: 600 }}>
-            {FREQ[def.frequency] ?? def.frequency}
+            {FREQ[def.frequency as string] ?? def.frequency}
             {pattern ? ` — ${pattern}` : ''}
           </div>
           {localTime && (

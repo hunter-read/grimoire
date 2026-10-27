@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
@@ -6,13 +7,17 @@ vi.mock('../../../api', () => ({
   campaigns: { list: vi.fn(), get: vi.fn(), listCategories: vi.fn() },
 }))
 
-import { campaigns } from '../../../api'
+import { campaigns as campaignsApi } from '../../../api'
 import SendToCampaignDialog from './SendToCampaignDialog'
+
+// The fixtures below are partial campaign payloads, so the mocks are reached
+// untyped rather than through the full response types.
+const campaigns = campaignsApi as unknown as { list: Mock; get: Mock; listCategories: Mock }
 
 const ME = 'user-me'
 
 /** One campaign detail payload, with a members list. */
-const campaign = (over = {}) => ({
+const campaign = (over: Record<string, unknown> = {}) => ({
   id: 'c1',
   name: 'Curse of Strahd',
   owner_id: 'someone-else',
@@ -20,14 +25,14 @@ const campaign = (over = {}) => ({
   ...over,
 })
 
-const member = (over = {}) => ({
+const member = (over: Record<string, unknown> = {}) => ({
   id: 'm1',
   user_id: ME,
   character_name: 'Ireena',
   ...over,
 })
 
-const setup = (props = {}) =>
+const setup = (props: Record<string, unknown> = {}) =>
   render(
     <SendToCampaignDialog
       userId={ME}

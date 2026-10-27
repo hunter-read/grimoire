@@ -1,11 +1,13 @@
-export const labelStyle = {
+import type { CSSProperties } from 'react'
+
+export const labelStyle: CSSProperties = {
   fontSize: 13,
   color: 'var(--text-muted)',
   fontWeight: 500,
   display: 'block',
   marginBottom: 6,
 }
-export const inputStyle = {
+export const inputStyle: CSSProperties = {
   width: '100%',
   padding: '9px 12px',
   background: 'var(--bg-deep)',
@@ -15,7 +17,7 @@ export const inputStyle = {
   fontSize: 14,
   boxSizing: 'border-box',
 }
-export const cancelBtn = {
+export const cancelBtn: CSSProperties = {
   padding: '9px 18px',
   background: 'var(--bg-deep)',
   border: '1px solid var(--border)',
@@ -24,7 +26,7 @@ export const cancelBtn = {
   cursor: 'pointer',
   fontSize: 14,
 }
-export const submitBtn = {
+export const submitBtn: CSSProperties = {
   padding: '9px 18px',
   background: 'var(--gold)',
   border: 'none',
@@ -34,7 +36,7 @@ export const submitBtn = {
   fontSize: 14,
   fontWeight: 600,
 }
-export const deleteBtn = {
+export const deleteBtn: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 6,
@@ -47,7 +49,7 @@ export const deleteBtn = {
   cursor: 'pointer',
   fontSize: 14,
 }
-export const sectionLabel = {
+export const sectionLabel: CSSProperties = {
   fontSize: 11,
   textTransform: 'uppercase',
   letterSpacing: '0.06em',
@@ -55,7 +57,7 @@ export const sectionLabel = {
   fontWeight: 600,
   marginBottom: 8,
 }
-export const selectedRow = {
+export const selectedRow: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 8,
@@ -64,7 +66,7 @@ export const selectedRow = {
   border: '1px solid var(--border)',
   borderRadius: 8,
 }
-export const visibilitySelect = {
+export const visibilitySelect: CSSProperties = {
   appearance: 'auto',
   fontSize: 12,
   padding: '3px 6px',
@@ -76,7 +78,7 @@ export const visibilitySelect = {
 }
 // Defaulted for the same reason as `smallBtn`: a bare call must not produce
 // `color: undefined`, which renders as UA-default black on the dark panels.
-export const iconBtn = (color = 'var(--text-dim)') => ({
+export const iconBtn = (color = 'var(--text-dim)'): CSSProperties => ({
   background: 'none',
   border: 'none',
   cursor: 'pointer',
@@ -85,27 +87,27 @@ export const iconBtn = (color = 'var(--text-dim)') => ({
   padding: 2,
   flexShrink: 0,
 })
-export const resultEmpty = {
+export const resultEmpty: CSSProperties = {
   fontSize: 13,
   color: 'var(--text-muted)',
   padding: '10px 12px',
 }
-export const ellipsis = {
+export const ellipsis: CSSProperties = {
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
 }
-export const browserBox = {
+export const browserBox: CSSProperties = {
   border: '1px solid var(--border)',
   borderRadius: 8,
   background: 'var(--bg-deep)',
   maxHeight: 300,
   overflowY: 'auto',
 }
-export const resGroup = {
+export const resGroup: CSSProperties = {
   borderBottom: '1px solid var(--border)',
 }
-export const resGroupHeader = {
+export const resGroupHeader: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 8,
@@ -118,7 +120,7 @@ export const resGroupHeader = {
   fontSize: 13,
   fontWeight: 500,
 }
-export const resRow = (checked) => ({
+export const resRow = (checked: boolean): CSSProperties => ({
   display: 'flex',
   alignItems: 'center',
   gap: 8,
@@ -128,7 +130,7 @@ export const resRow = (checked) => ({
   color: checked ? 'var(--text)' : 'var(--text-dim)',
   background: checked ? 'rgba(201,168,76,0.08)' : 'transparent',
 })
-export const typeTab = (active) => ({
+export const typeTab = (active: boolean): CSSProperties => ({
   flex: 1,
   padding: '5px 8px',
   fontSize: 12,

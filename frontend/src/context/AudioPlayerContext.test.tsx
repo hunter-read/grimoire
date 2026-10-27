@@ -1,19 +1,24 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import type { ReactNode } from 'react'
+import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
-import { AudioPlayerProvider, useAudioPlayer } from './AudioPlayerContext'
+import { AudioPlayerProvider, useAudioPlayer, type AudioTrack } from './AudioPlayerContext'
 import api from '../api'
 
 vi.mock('../api', () => ({ default: { get: vi.fn() } }))
 
-const wrapper = ({ children }) => <AudioPlayerProvider>{children}</AudioPlayerProvider>
+const mockGet = vi.mocked(api.get) as unknown as Mock
 
-const tracks = (...ids) => ids.map((id) => ({ id, title: `Track ${id}` }))
+const wrapper = ({ children }: { children?: ReactNode }) => (
+  <AudioPlayerProvider>{children}</AudioPlayerProvider>
+)
+
+const tracks = (...ids: string[]) => ids.map((id) => ({ id, title: `Track ${id}` }))
 
 describe('AudioPlayerContext', () => {
   beforeEach(() => {
     sessionStorage.clear()
     vi.clearAllMocks()
-    api.get.mockResolvedValue({})
+    mockGet.mockResolvedValue({})
   })
 
   it('playQueue replaces the queue and starts at index 0', () => {
@@ -21,20 +26,20 @@ describe('AudioPlayerContext', () => {
     act(() => result.current.playQueue(tracks('a', 'b', 'c')))
     expect(result.current.queue.map((t) => t.id)).toEqual(['a', 'b', 'c'])
     expect(result.current.currentIndex).toBe(0)
-    expect(result.current.currentTrack.id).toBe('a')
+    expect(result.current.currentTrack!.id).toBe('a')
   })
 
   it('playQueue can start at a given index', () => {
     const { result } = renderHook(() => useAudioPlayer(), { wrapper })
     act(() => result.current.playQueue(tracks('a', 'b', 'c'), 2))
     expect(result.current.currentIndex).toBe(2)
-    expect(result.current.currentTrack.id).toBe('c')
+    expect(result.current.currentTrack!.id).toBe('c')
   })
 
   it('playQueue ignores empty / invalid input', () => {
     const { result } = renderHook(() => useAudioPlayer(), { wrapper })
     act(() => result.current.playQueue([]))
-    act(() => result.current.playQueue([{ title: 'no id' }]))
+    act(() => result.current.playQueue([{ title: 'no id' } as AudioTrack]))
     expect(result.current.queue).toEqual([])
     expect(result.current.currentIndex).toBe(-1)
   })
@@ -45,7 +50,7 @@ describe('AudioPlayerContext', () => {
     act(() => result.current.playNext({ id: 'x', title: 'X' }))
     expect(result.current.queue.map((t) => t.id)).toEqual(['a', 'x', 'b', 'c'])
     // current track unchanged
-    expect(result.current.currentTrack.id).toBe('a')
+    expect(result.current.currentTrack!.id).toBe('a')
   })
 
   it('playNext on an empty queue starts playing the track', () => {
@@ -76,7 +81,7 @@ describe('AudioPlayerContext', () => {
     const { result } = renderHook(() => useAudioPlayer(), { wrapper })
     act(() => result.current.playQueue(tracks('a', 'b', 'c')))
     act(() => result.current.jumpTo(2))
-    expect(result.current.currentTrack.id).toBe('c')
+    expect(result.current.currentTrack!.id).toBe('c')
   })
 
   it('removeAt before current shifts the index down', () => {
@@ -84,7 +89,7 @@ describe('AudioPlayerContext', () => {
     act(() => result.current.playQueue(tracks('a', 'b', 'c'), 2))
     act(() => result.current.removeAt(0))
     expect(result.current.queue.map((t) => t.id)).toEqual(['b', 'c'])
-    expect(result.current.currentTrack.id).toBe('c')
+    expect(result.current.currentTrack!.id).toBe('c')
   })
 
   it('removeAt the current track advances to the next in its slot', () => {
@@ -93,7 +98,7 @@ describe('AudioPlayerContext', () => {
     act(() => result.current.removeAt(1))
     expect(result.current.queue.map((t) => t.id)).toEqual(['a', 'c'])
     // Same slot, now holding 'c'.
-    expect(result.current.currentTrack.id).toBe('c')
+    expect(result.current.currentTrack!.id).toBe('c')
   })
 
   it('toggleRepeat flips repeatOne', () => {
@@ -149,7 +154,7 @@ describe('AudioPlayerContext', () => {
       // Move 'c' (index 2) to the front (index 0); current 'a' shifts to index 1.
       act(() => result.current.moveTrack(2, 0))
       expect(result.current.queue.map((t) => t.id)).toEqual(['c', 'a', 'b'])
-      expect(result.current.currentTrack.id).toBe('a')
+      expect(result.current.currentTrack!.id).toBe('a')
     })
 
     it('moving the current track follows it', () => {
@@ -157,7 +162,7 @@ describe('AudioPlayerContext', () => {
       act(() => result.current.playQueue(tracks('a', 'b', 'c'), 0))
       act(() => result.current.moveTrack(0, 2))
       expect(result.current.queue.map((t) => t.id)).toEqual(['b', 'c', 'a'])
-      expect(result.current.currentTrack.id).toBe('a')
+      expect(result.current.currentTrack!.id).toBe('a')
     })
 
     it('is a no-op for out-of-range or identical indices', () => {
@@ -171,7 +176,7 @@ describe('AudioPlayerContext', () => {
 
   describe('lazy hydration', () => {
     it('fetches metadata for id-only tracks and patches the queue', async () => {
-      api.get.mockResolvedValue({
+      mockGet.mockResolvedValue({
         title: 'Mystic Drone',
         artist: 'Bardcore',
         has_artwork: true,
@@ -193,7 +198,7 @@ describe('AudioPlayerContext', () => {
     })
 
     it('marks a track resolved after a failed fetch so it is not retried', async () => {
-      api.get.mockRejectedValue(new Error('boom'))
+      mockGet.mockRejectedValue(new Error('boom'))
       const { result } = renderHook(() => useAudioPlayer(), { wrapper })
       act(() => result.current.playQueue([{ id: 'z1' }]))
       await waitFor(() => expect(result.current.queue[0]._hydrated).toBe(true))

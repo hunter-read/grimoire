@@ -2,10 +2,11 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import SystemSearchResults from './SystemSearchResults'
+import type { SystemSearchResultsProps } from './SystemSearchResults'
 
 vi.mock('../../api', () => ({
   default: {},
-  mediaUrl: (path) => `http://localhost${path}`,
+  mediaUrl: (path: string) => `http://localhost${path}`,
 }))
 
 vi.mock('../../context/FavoritesContext', () => ({
@@ -14,7 +15,7 @@ vi.mock('../../context/FavoritesContext', () => ({
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k, o) => {
+    t: (k: string, o: Record<string, unknown>) => {
       if (k === 'systemDetail.matchingBooks')
         return `${o.count} matching book${o.count === 1 ? '' : 's'}`
       if (k === 'systemDetail.resultsInPages')
@@ -27,7 +28,7 @@ vi.mock('react-i18next', () => ({
   }),
 }))
 
-function makeBook(overrides = {}) {
+function makeBook(overrides: Record<string, unknown> = {}) {
   return {
     id: `book-${Math.random().toString(36).slice(2)}`,
     title: 'Matched Book',
@@ -46,10 +47,11 @@ const baseProps = {
   compact: false,
 }
 
-const renderResults = (props) =>
+// Cases build loose books and hits; the component reads only what they set.
+const renderResults = (props: Record<string, unknown>) =>
   render(
     <MemoryRouter>
-      <SystemSearchResults {...props} />
+      <SystemSearchResults {...(props as unknown as SystemSearchResultsProps)} />
     </MemoryRouter>
   )
 
@@ -126,7 +128,7 @@ describe('SystemSearchResults', () => {
       searchResults: { query: 'x', results: [result] },
       matchedBooks: [],
     })
-    const card = screen.getByText('Player Handbook').closest('div[style]').parentElement
+    const card = screen.getByText('Player Handbook').closest('div[style]')!.parentElement!
     fireEvent.mouseEnter(card)
     expect(card.style.background).toBe('var(--bg-card-hover)')
     fireEvent.mouseLeave(card)

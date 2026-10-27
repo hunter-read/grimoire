@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
-import useShelf, { FLAT } from './useShelf'
+import useShelf, { FLAT, type ShelfOptions } from './useShelf'
 import api from '../api'
 import { fakeShelfGet } from '../test/fakeBrowseApi'
 import { nodeKey } from '../components/system/shelfTree'
@@ -8,7 +8,9 @@ import { nodeKey } from '../components/system/shelfTree'
 vi.mock('../api', () => ({ default: { get: vi.fn() } }))
 
 const system = { id: 's1', name: 'Sys', category_depth: 2 }
-const book = (id, title, path, extra = {}) => ({
+const mockGet = vi.mocked(api.get) as unknown as Mock<(url: string) => Promise<unknown>>
+
+const book = (id: string, title: string, path: string, extra: Record<string, unknown> = {}) => ({
   id,
   title,
   category: 'core',
@@ -21,15 +23,15 @@ const books = [
   book('b3', 'Gamma', 'Monsters/'),
 ]
 
-const calls = (part) => api.get.mock.calls.map(([u]) => u).filter((u) => u.includes(part))
+const calls = (part: string) => mockGet.mock.calls.map(([u]) => u).filter((u) => u.includes(part))
 
 beforeEach(() => {
   vi.clearAllMocks()
-  api.get.mockImplementation(fakeShelfGet({ system, books }))
+  mockGet.mockImplementation(fakeShelfGet({ system, books }))
 })
 
-const render = (props) =>
-  renderHook((p) => useShelf('s1', p), {
+const render = (props?: Partial<ShelfOptions>) =>
+  renderHook((p: ShelfOptions) => useShelf('s1', p), {
     initialProps: {
       grouped: true,
       bookFilter: { sort: 'title', order: 'asc', filters: {} },
@@ -53,10 +55,9 @@ describe('useShelf', () => {
     await waitFor(() => expect(result.current.shelf.core).toBeDefined())
     act(() => result.current.loadNode(nodeKey('core', 'Monsters')))
     await waitFor(() =>
-      expect(result.current.pages.get(nodeKey('core', 'Monsters')).items.map((b) => b.id)).toEqual([
-        'b2',
-        'b3',
-      ])
+      expect(result.current.pages.get(nodeKey('core', 'Monsters'))!.items.map((b) => b.id)).toEqual(
+        ['b2', 'b3']
+      )
     )
     expect(result.current.loadedBooks.map((b) => b.id).sort()).toEqual(['b2', 'b3'])
     const req = calls('/books?').find((u) => u.includes('folder=Monsters'))
@@ -107,7 +108,7 @@ describe('useShelf', () => {
   })
 
   it('falls back to empty facets and groups when those requests fail', async () => {
-    api.get.mockImplementation((url) =>
+    mockGet.mockImplementation((url) =>
       url.includes('/book-')
         ? Promise.reject(new Error('boom'))
         : fakeShelfGet({ system, books })(url)

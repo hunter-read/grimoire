@@ -7,8 +7,8 @@ const mockCreate = vi.fn()
 const mockUpdate = vi.fn()
 vi.mock('../../api', () => ({
   rulesets: {
-    createEntry: (...a) => mockCreate(...a),
-    updateEntry: (...a) => mockUpdate(...a),
+    createEntry: (...a: unknown[]) => mockCreate(...a),
+    updateEntry: (...a: unknown[]) => mockUpdate(...a),
   },
 }))
 

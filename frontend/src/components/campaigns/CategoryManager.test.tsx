@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CategoryManager from './CategoryManager'
@@ -16,6 +17,9 @@ vi.mock('../../api', () => ({
 }))
 
 import { campaigns } from '../../api'
+
+// The api module is mocked above; reach its helpers as plain vi.fn()s.
+const campaignsMock = campaigns as unknown as Record<keyof typeof campaigns, Mock>
 
 const cat = (over = {}) => ({
   id: 'c1',
@@ -40,13 +44,13 @@ const renderManager = (props = {}) =>
 
 beforeEach(() => {
   vi.clearAllMocks()
-  campaigns.listCategories.mockResolvedValue([cat()])
-  campaigns.createCategory.mockResolvedValue({})
-  campaigns.renameCategory.mockResolvedValue({})
-  campaigns.updateCategory.mockResolvedValue({})
-  campaigns.deleteCategory.mockResolvedValue({})
-  campaigns.reorderCategories.mockResolvedValue({})
-  campaigns.setResourceGroupOrder.mockResolvedValue({})
+  campaignsMock.listCategories.mockResolvedValue([cat()])
+  campaignsMock.createCategory.mockResolvedValue({})
+  campaignsMock.renameCategory.mockResolvedValue({})
+  campaignsMock.updateCategory.mockResolvedValue({})
+  campaignsMock.deleteCategory.mockResolvedValue({})
+  campaignsMock.reorderCategories.mockResolvedValue({})
+  campaignsMock.setResourceGroupOrder.mockResolvedValue({})
 })
 
 describe('CategoryManager', () => {
@@ -57,7 +61,7 @@ describe('CategoryManager', () => {
   })
 
   it('shows an empty-state message when there are none', async () => {
-    campaigns.listCategories.mockResolvedValue([])
+    campaignsMock.listCategories.mockResolvedValue([])
     renderManager()
     expect(await screen.findByText('No categories yet.')).toBeInTheDocument()
   })
@@ -135,7 +139,7 @@ describe('CategoryManager', () => {
 
   it('reorders categories with the arrow buttons', async () => {
     const user = userEvent.setup()
-    campaigns.listCategories.mockResolvedValue([
+    campaignsMock.listCategories.mockResolvedValue([
       cat({ id: 'a', name: 'Alpha', sort_order: 0 }),
       cat({ id: 'b', name: 'Beta', sort_order: 1 }),
     ])

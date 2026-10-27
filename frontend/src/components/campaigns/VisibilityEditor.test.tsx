@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import userEvent, { type UserEvent } from '@testing-library/user-event'
 import VisibilityEditor from './VisibilityEditor'
 
 const campaign = {
@@ -39,7 +39,7 @@ const setup = (over = {}) => {
   return { onSetVisibility, onSetShares }
 }
 
-const openMenu = async (user) => {
+const openMenu = async (user: UserEvent) => {
   await user.click(screen.getByRole('button', { name: 'Change visibility' }))
   return screen.getByRole('menu')
 }

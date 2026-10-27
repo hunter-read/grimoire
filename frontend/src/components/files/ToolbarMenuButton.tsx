@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { LuChevronDown } from 'react-icons/lu'
 
 /**
@@ -12,16 +12,32 @@ import { LuChevronDown } from 'react-icons/lu'
  * Used for Upload, whose two choices (files, or a whole folder) are one verb
  * with a variant rather than two separate buttons worth of toolbar width.
  */
-export default function ToolbarMenuButton({ label, icon, style, title, testId, children }) {
+export interface ToolbarMenuButtonProps {
+  label: ReactNode
+  icon?: ReactNode
+  style?: CSSProperties
+  title?: string
+  testId?: string
+  children?: ReactNode
+}
+
+export default function ToolbarMenuButton({
+  label,
+  icon,
+  style,
+  title,
+  testId,
+  children,
+}: ToolbarMenuButtonProps) {
   const [open, setOpen] = useState(false)
-  const wrapRef = useRef(null)
+  const wrapRef = useRef<HTMLSpanElement>(null)
 
   useEffect(() => {
     if (!open) return
-    const onDown = (e) => {
-      if (!wrapRef.current?.contains(e.target)) setOpen(false)
+    const onDown = (e: PointerEvent) => {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false)
     }
-    const onKey = (e) => e.key === 'Escape' && setOpen(false)
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
     // Pointerdown rather than click, so the menu is already gone by the time a
     // click lands on whatever is underneath it.
     window.addEventListener('pointerdown', onDown)

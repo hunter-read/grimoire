@@ -23,7 +23,7 @@ const RISE_RATIO = 1.5
 // still momentum tail can't turn a page.
 const MIN_RISE = 6
 
-const average = (values) => values.reduce((sum, v) => sum + v, 0) / values.length
+const average = (values: number[]) => values.reduce((sum, v) => sum + v, 0) / values.length
 
 /**
  * Make a gesture tracker for one wheel target.
@@ -32,11 +32,11 @@ const average = (values) => values.reduce((sum, v) => sum + v, 0) / values.lengt
  *   event with its larger absolute delta and a timestamp in ms; returns true when
  *   the event starts a new gesture.
  */
-export function createWheelGesture() {
+export function createWheelGesture(): (magnitude: number, now: number) => boolean {
   let lastAt = -Infinity
   let peak = 0
   let fading = false
-  let recent = []
+  let recent: number[] = []
 
   const isRising = () => {
     if (recent.length < WINDOW * 2) return false
@@ -45,7 +45,7 @@ export function createWheelGesture() {
     return after >= MIN_RISE && after > before * RISE_RATIO
   }
 
-  return function isNewGesture(magnitude, now) {
+  return function isNewGesture(magnitude: number, now: number) {
     const quiet = now - lastAt >= GESTURE_GAP
     lastAt = now
     recent.push(magnitude)

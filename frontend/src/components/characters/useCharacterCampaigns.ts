@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
 import { campaigns as campaignsApi } from '../../api'
+import type { Schema } from '../../api'
+
+type Campaign = Schema<'CampaignOut'>
 
 /**
  * The campaigns a character can be placed in: every campaign the user owns -
@@ -11,13 +14,15 @@ import { campaigns as campaignsApi } from '../../api'
  * player has not joined yet, and offering it here would only lead to that
  * refusal.
  */
-export function placeableCampaigns(list) {
+export function placeableCampaigns(
+  list: Campaign[] | { campaigns?: Campaign[] } | null | undefined
+): Campaign[] {
   const rows = Array.isArray(list) ? list : list?.campaigns || []
   return rows.filter((campaign) => campaign.invitation_status !== 'invited')
 }
 
-export default function useCharacterCampaigns({ enabled = true } = {}) {
-  const [campaigns, setCampaigns] = useState([])
+export default function useCharacterCampaigns({ enabled = true }: { enabled?: boolean } = {}) {
+  const [campaigns, setCampaigns] = useState<Campaign[]>([])
 
   useEffect(() => {
     if (!enabled) return undefined

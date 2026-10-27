@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { createWheelGesture } from './wheelGesture'
 
 /** Feed magnitudes 16 ms apart (one per frame) and count the gestures started. */
-function run(magnitudes, { tracker = createWheelGesture(), start = 0, every = 16 } = {}) {
+function run(magnitudes: number[], { tracker = createWheelGesture(), start = 0, every = 16 } = {}) {
   let starts = 0
   magnitudes.forEach((m, i) => {
     if (tracker(m, start + i * every)) starts++

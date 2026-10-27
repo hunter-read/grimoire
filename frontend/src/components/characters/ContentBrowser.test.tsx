@@ -5,7 +5,7 @@ import ContentBrowser from './ContentBrowser'
 
 const mockBrowse = vi.fn()
 vi.mock('../../api', () => ({
-  content: { browse: (...args) => mockBrowse(...args) },
+  content: { browse: (...args: unknown[]) => mockBrowse(...args) },
 }))
 
 const TYPE = {

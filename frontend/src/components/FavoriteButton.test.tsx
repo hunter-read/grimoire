@@ -10,8 +10,11 @@ vi.mock('../context/FavoritesContext', () => ({
 describe('FavoriteButton', () => {
   const toggleFavorite = vi.fn()
 
-  function setup(isFav, props = {}) {
-    FavCtx.useFavorites.mockReturnValue({ isFavorite: () => isFav, toggleFavorite })
+  function setup(isFav: boolean, props = {}) {
+    vi.mocked(FavCtx.useFavorites).mockReturnValue({
+      isFavorite: () => isFav,
+      toggleFavorite,
+    } as unknown as ReturnType<typeof FavCtx.useFavorites>)
     return render(<FavoriteButton type="book" id="b1" {...props} />)
   }
 

@@ -16,19 +16,19 @@ const mockTypes = vi.fn()
 const mockCampaigns = vi.fn()
 vi.mock('../../api', () => ({
   rulesets: {
-    list: (...a) => mockList(...a),
-    create: (...a) => mockCreate(...a),
-    remove: (...a) => mockRemove(...a),
-    entries: (...a) => mockEntries(...a),
-    removeEntry: (...a) => mockRemoveEntry(...a),
-    installable: (...a) => mockInstallable(...a),
-    browsePacks: (...a) => mockBrowsePacks(...a),
+    list: (...a: unknown[]) => mockList(...a),
+    create: (...a: unknown[]) => mockCreate(...a),
+    remove: (...a: unknown[]) => mockRemove(...a),
+    entries: (...a: unknown[]) => mockEntries(...a),
+    removeEntry: (...a: unknown[]) => mockRemoveEntry(...a),
+    installable: (...a: unknown[]) => mockInstallable(...a),
+    browsePacks: (...a: unknown[]) => mockBrowsePacks(...a),
     installPack: vi.fn(),
-    import: (...a) => mockImport(...a),
+    import: (...a: unknown[]) => mockImport(...a),
   },
-  characters: { listSchemas: (...a) => mockSchemas(...a) },
-  content: { types: (...a) => mockTypes(...a) },
-  campaigns: { list: (...a) => mockCampaigns(...a) },
+  characters: { listSchemas: (...a: unknown[]) => mockSchemas(...a) },
+  content: { types: (...a: unknown[]) => mockTypes(...a) },
+  campaigns: { list: (...a: unknown[]) => mockCampaigns(...a) },
 }))
 
 const MINE = {
@@ -56,7 +56,7 @@ const SERVER = {
 // The installed packs have their own tests; here they are stubbed, so these are
 // about the rulesets half of the tab. The stub shows which sheets it was given.
 vi.mock('./InstalledPacks', () => ({
-  default: ({ schemas }) => (
+  default: ({ schemas }: { schemas: { name: string }[] }) => (
     <section aria-label="installed packs">
       packs for {schemas.map((s) => s.name).join(', ')}
     </section>

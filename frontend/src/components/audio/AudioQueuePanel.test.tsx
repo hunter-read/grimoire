@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AudioQueuePanel from './AudioQueuePanel'
+import type { AudioTrack } from '../../context/AudioPlayerContext'
 import api from '../../api'
 
 vi.mock('../../api', () => ({
@@ -12,13 +13,13 @@ vi.mock('../../api', () => ({
     patch: vi.fn(),
     delete: vi.fn(),
   },
-  mediaUrl: (p) => `http://localhost${p}`,
+  mediaUrl: (p: string) => `http://localhost${p}`,
 }))
 
 const jumpTo = vi.fn()
 const removeAt = vi.fn()
 const moveTrack = vi.fn()
-let queue = []
+let queue: AudioTrack[] = []
 let currentIndex = 0
 let isPlaying = true
 
@@ -92,7 +93,7 @@ describe('AudioQueuePanel', () => {
     expect(rows).toHaveLength(3)
     // Drag the third row's handle onto the first row.
     fireEvent.dragStart(rows[2])
-    const firstRow = rows[0].closest('div')
+    const firstRow = rows[0].closest('div')!
     fireEvent.dragOver(firstRow)
     fireEvent.drop(firstRow)
     expect(moveTrack).toHaveBeenCalledWith(2, 0)
@@ -106,7 +107,7 @@ describe('AudioQueuePanel', () => {
     const { container } = render(<AudioQueuePanel />)
     const rows = [...container.querySelectorAll('[draggable="true"]')]
     fireEvent.dragStart(rows[0])
-    const ownRow = rows[0].closest('div')
+    const ownRow = rows[0].closest('div')!
     fireEvent.dragOver(ownRow)
     fireEvent.drop(ownRow)
     expect(moveTrack).not.toHaveBeenCalled()

@@ -14,29 +14,32 @@ vi.mock('../../../lib/tokenCompositor', () => ({
 }))
 
 import { renderPreview } from '../../../lib/tokenCompositor'
+import type { TokenSpec } from '../../../lib/tokenCompositor'
 import TokenEditorCanvas from './TokenEditorCanvas'
+import type { PointerActions } from './useEditorPointer'
 
-const spec = (overrides = {}) => ({
+const spec = (overrides: Partial<TokenSpec> = {}): TokenSpec => ({
   source: null,
   frame: null,
   size: 256,
-  mask: 'circle',
+  mask: 'circle' as const,
   background: 'transparent',
   transform: { scale: 1, offsetX: 0, offsetY: 0, rotation: 0, flipX: false, flipY: false },
   ...overrides,
 })
 
-const actions = () => ({
-  size: 256,
-  scale: 1,
-  rotation: 0,
-  pan: vi.fn(),
-  zoomAt: vi.fn(),
-  zoomBy: vi.fn(),
-  rotate: vi.fn(),
-  setRotation: vi.fn(),
-  reset: vi.fn(),
-})
+const actions = () =>
+  ({
+    size: 256,
+    scale: 1,
+    rotation: 0,
+    pan: vi.fn(),
+    zoomAt: vi.fn(),
+    zoomBy: vi.fn(),
+    rotate: vi.fn(),
+    setRotation: vi.fn(),
+    reset: vi.fn(),
+  }) as unknown as PointerActions
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -58,12 +61,12 @@ describe('TokenEditorCanvas', () => {
     vi.spyOn(HTMLDivElement.prototype, 'getBoundingClientRect').mockReturnValue({
       width: 420,
       height: 420,
-    })
+    } as DOMRect)
     window.devicePixelRatio = 2
 
     render(<TokenEditorCanvas spec={spec({ size: 256 })} actions={actions()} />)
 
-    const displaySize = renderPreview.mock.calls.at(-1)[2]
+    const displaySize = vi.mocked(renderPreview).mock.calls.at(-1)![2]
     expect(displaySize).toBe(840) // 420 CSS px x 2 device pixels
     expect(el).toBeTruthy()
   })
@@ -72,12 +75,12 @@ describe('TokenEditorCanvas', () => {
     vi.spyOn(HTMLDivElement.prototype, 'getBoundingClientRect').mockReturnValue({
       width: 400,
       height: 400,
-    })
+    } as DOMRect)
     window.devicePixelRatio = 8
 
     render(<TokenEditorCanvas spec={spec()} actions={actions()} />)
 
-    expect(renderPreview.mock.calls.at(-1)[2]).toBe(1200) // 400 x 3, not x 8
+    expect(vi.mocked(renderPreview).mock.calls.at(-1)![2]).toBe(1200) // 400 x 3, not x 8
   })
 
   it('redraws when the spec changes', () => {
@@ -86,7 +89,7 @@ describe('TokenEditorCanvas', () => {
 
     rerender(<TokenEditorCanvas spec={spec({ size: 512 })} actions={actions()} />)
     expect(renderPreview).toHaveBeenCalledTimes(2)
-    expect(renderPreview.mock.calls[1][1].size).toBe(512)
+    expect(vi.mocked(renderPreview).mock.calls[1][1].size).toBe(512)
   })
 
   it('never asks jsdom for a 2D context itself', () => {
@@ -103,14 +106,22 @@ describe('TokenEditorCanvas', () => {
     // what stops the page scrolling behind the canvas while the user zooms.
     const wheelCalls = spy.mock.calls.filter(([type]) => type === 'wheel')
     expect(wheelCalls.length).toBeGreaterThan(0)
-    expect(wheelCalls.some(([, , options]) => options && options.passive === false)).toBe(true)
+    expect(
+      wheelCalls.some(
+        ([, , options]) => options && (options as AddEventListenerOptions).passive === false
+      )
+    ).toBe(true)
   })
 
   it('registers touch listeners as non-passive too', () => {
     const spy = vi.spyOn(EventTarget.prototype, 'addEventListener')
     render(<TokenEditorCanvas spec={spec()} actions={actions()} />)
     const move = spy.mock.calls.filter(([type]) => type === 'touchmove')
-    expect(move.some(([, , options]) => options && options.passive === false)).toBe(true)
+    expect(
+      move.some(
+        ([, , options]) => options && (options as AddEventListenerOptions).passive === false
+      )
+    ).toBe(true)
   })
 
   it('disables browser gesture handling on the surface', () => {

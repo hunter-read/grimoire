@@ -1,13 +1,27 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { getAccessToken, setAccessToken } from '../api/accessToken'
+import { setAccessToken } from '../api/accessToken'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import useUploadQueue from './useUploadQueue'
 
 // A controllable XMLHttpRequest stand-in: jsdom has no real one that uploads,
 // and the queue's whole contract is what it does with load/error/abort.
-const sockets = []
+const sockets: FakeXHR[] = []
 
 class FakeXHR {
+  // `declare` so the fields are typed without being emitted: the constructor
+  // and the hook under test assign them, exactly as before.
+  declare upload: {
+    onprogress?: (e: { lengthComputable: boolean; loaded: number; total: number }) => void
+  }
+  declare status: number
+  declare responseText: string
+  declare headers: Record<string, string>
+  declare method: string
+  declare url: string
+  declare body: unknown
+  declare onabort: (() => void) | undefined
+  declare onload: () => void
+  declare onerror: () => void
   constructor() {
     this.upload = {}
     this.status = 0
@@ -15,14 +29,14 @@ class FakeXHR {
     this.headers = {}
     sockets.push(this)
   }
-  open(method, url) {
+  open(method: string, url: string) {
     this.method = method
     this.url = url
   }
-  setRequestHeader(k, v) {
+  setRequestHeader(k: string, v: string) {
     this.headers[k] = v
   }
-  send(body) {
+  send(body: unknown) {
     this.body = body
   }
   abort() {
@@ -42,12 +56,12 @@ class FakeXHR {
   networkError() {
     this.onerror()
   }
-  progress(loaded, total) {
+  progress(loaded: number, total: number) {
     this.upload.onprogress?.({ lengthComputable: true, loaded, total })
   }
 }
 
-const mkFile = (name, size = 10) => {
+const mkFile = (name: string, size = 10) => {
   const f = new File(['x'.repeat(size)], name, { type: 'application/pdf' })
   return f
 }
@@ -86,7 +100,7 @@ describe('useUploadQueue', () => {
     })
     await waitFor(() => expect(sockets).toHaveLength(1))
 
-    const body = sockets[0].body
+    const body = sockets[0].body as FormData
     expect(body.get('destination')).toBe('books/DnD')
     // A dropped folder keeps its shape via this path.
     expect(body.get('relative_dir')).toBe('Core/2024')
@@ -144,9 +158,9 @@ describe('useUploadQueue', () => {
     const bad = result.current.items.find((i) => i.name === 'bad.mp3')
     // The whole point of per-file requests: one failure does not sink the batch,
     // and the user is told which file and why.
-    expect(bad.status).toBe('error')
-    expect(bad.error).toBe('Unsupported file type')
-    expect(result.current.items.find((i) => i.name === 'good.pdf').status).toBe('done')
+    expect(bad!.status).toBe('error')
+    expect(bad!.error).toBe('Unsupported file type')
+    expect(result.current.items.find((i) => i.name === 'good.pdf')!.status).toBe('done')
   })
 
   it('reports a network failure without a response body', async () => {
@@ -223,10 +237,10 @@ describe('useUploadQueue', () => {
     await waitFor(() => expect(sockets).toHaveLength(3))
 
     const pending = result.current.items.find((i) => i.status === 'queued')
-    act(() => result.current.cancel(pending.id))
+    act(() => result.current.cancel(pending!.id))
 
     await waitFor(() =>
-      expect(result.current.items.find((i) => i.id === pending.id).status).toBe('cancelled')
+      expect(result.current.items.find((i) => i.id === pending!.id)!.status).toBe('cancelled')
     )
     // It was never sent.
     expect(sockets).toHaveLength(3)

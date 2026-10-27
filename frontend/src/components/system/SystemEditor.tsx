@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import type { ReactNode } from 'react'
 import AccessLevelPicker from '../metadata/AccessLevelPicker'
 import { useAuth } from '../../context/AuthContext'
 import { useTranslation } from 'react-i18next'
 import { LuDownload, LuX, LuPlus } from 'react-icons/lu'
 import api from '../../api'
+import type { Schema } from '../../api'
+import type { CoverChange } from './CoverUpload'
 import CoverPicker from './CoverPicker'
 import CoverUpload from './CoverUpload'
 import MetadataFetchDialog from './MetadataFetchDialog'
@@ -19,7 +22,52 @@ import { groupsFromManaged } from '../metadata/diceMaterials'
 import useLookups from '../metadata/useLookups'
 import { cleanLinks, linksForEditing } from '../metadata/metadataUtils'
 
-export default function SystemEditor({ system, onSave, onCoverChange, onCodexLinkChange }) {
+/**
+ * A game system as the editor reads it. The server also sends the system's
+ * access level, which `SystemDetail` does not declare.
+ */
+export type EditableSystem = Schema<'SystemDetail'> & { access_level?: string | null }
+
+export interface SystemEditorProps {
+  system: EditableSystem
+  /** Called with the fields saved (or applied by a metadata fetch). */
+  onSave: (updated: Partial<EditableSystem>) => void
+  onCoverChange?: (cover: CoverChange) => void
+  onCodexLinkChange?: (codexId: string | null) => void
+}
+
+/** The editor's form state; the year is held as text while it is edited. */
+interface SystemForm {
+  name: string
+  description: string
+  publishers: Schema<'PublisherRef'>[]
+  urls: Schema<'LinkEntry'>[]
+  character_builder_urls: Schema<'LinkEntry'>[]
+  tags: string[]
+  genres: string[]
+  dice_materials: string[]
+  system_family: string
+  parent_system: string
+  edition: string
+  license: string
+  year: number | string
+  cover_book_id: string | null
+  is_explicit: boolean
+  access_level: string
+}
+
+/** What is PATCHed: the form with the year parsed and empty links dropped. */
+type SystemPayload = Omit<SystemForm, 'access_level' | 'year'> & {
+  year: number | null
+  access_level?: string
+}
+
+export default function SystemEditor({
+  system,
+  onSave,
+  onCoverChange,
+  onCodexLinkChange,
+}: SystemEditorProps) {
   const { t } = useTranslation()
   // May be null outside an AuthProvider; see AccessLevelPicker.
   const isAdmin = useAuth()?.user?.role === 'admin'
@@ -33,7 +81,7 @@ export default function SystemEditor({ system, onSave, onCoverChange, onCodexLin
   } = useLookups()
   // Managed dice/materials groups (undefined until loaded → picker falls back to defaults).
   const diceGroups = diceMaterials.length ? groupsFromManaged(diceMaterials) : undefined
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<SystemForm>({
     name: system.name || '',
     description: system.description || '',
     publishers: system.publishers?.length ? system.publishers : [{ name: '', url: '' }],
@@ -62,12 +110,12 @@ export default function SystemEditor({ system, onSave, onCoverChange, onCodexLin
   // and tell the parent so its copy of the system stays in step.
   // The link is saved by the dialog and kept out of the form, so a later Save
   // cannot quietly restore one the user has since removed.
-  const [codexId, setCodexId] = useState(system.codex_id ?? null)
-  const handleFetched = (fields) => {
+  const [codexId, setCodexId] = useState<string | null>(system.codex_id ?? null)
+  const handleFetched = (fields: Record<string, unknown>) => {
     const { codex_id: fetchedCodexId, ...rest } = fields
-    if (fetchedCodexId) setCodexId(fetchedCodexId)
-    setForm((f) => ({ ...f, ...rest }))
-    onSave(fields)
+    if (fetchedCodexId) setCodexId(fetchedCodexId as string)
+    setForm((f) => ({ ...f, ...(rest as Partial<SystemForm>) }))
+    onSave(fields as Partial<EditableSystem>)
   }
 
   // Only systems whose name the scanner derives from folder structure — the
@@ -83,13 +131,13 @@ export default function SystemEditor({ system, onSave, onCoverChange, onCodexLin
   const parentSystemOptions = parentSystems.map((p) => p.name)
   const licenseOptions = licenses.map((l) => l.name)
 
-  const setTags = (tags) => setForm((f) => ({ ...f, tags }))
+  const setTags = (tags: string[]) => setForm((f) => ({ ...f, tags }))
 
   const handleSave = () => {
-    const publishers = form.publishers.filter((p) => p.name.trim())
+    const publishers = form.publishers.filter((p) => p.name!.trim())
     const year = form.year === '' ? null : Number(form.year)
     const { access_level, ...rest } = form
-    const data = {
+    const data: SystemPayload = {
       ...rest,
       publishers,
       urls: cleanLinks(form.urls),
@@ -109,7 +157,7 @@ export default function SystemEditor({ system, onSave, onCoverChange, onCodexLin
       .then(() => onSave(renamed ? { ...data, name_is_custom: true } : data))
   }
 
-  const setPublisher = (idx, key, value) =>
+  const setPublisher = (idx: number, key: 'name' | 'url', value: string) =>
     setForm((f) => ({
       ...f,
       publishers: f.publishers.map((p, i) => (i === idx ? { ...p, [key]: value } : p)),
@@ -118,10 +166,10 @@ export default function SystemEditor({ system, onSave, onCoverChange, onCodexLin
   const addPublisher = () =>
     setForm((f) => ({ ...f, publishers: [...f.publishers, { name: '', url: '' }] }))
 
-  const removePublisher = (idx) =>
+  const removePublisher = (idx: number) =>
     setForm((f) => ({ ...f, publishers: f.publishers.filter((_, i) => i !== idx) }))
 
-  const labeledBlock = (label, node) => (
+  const labeledBlock = (label: string, node: ReactNode) => (
     <div style={{ marginBottom: 12 }}>
       <label
         style={{ fontSize: 14, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}
@@ -132,7 +180,7 @@ export default function SystemEditor({ system, onSave, onCoverChange, onCodexLin
     </div>
   )
 
-  const field = (label, key, type = 'text') => (
+  const field = (label: string, key: 'name' | 'description', type = 'text') => (
     <div style={{ marginBottom: 12 }}>
       <label
         htmlFor={`system-field-${key}`}

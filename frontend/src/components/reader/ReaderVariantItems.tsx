@@ -2,7 +2,18 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { LuCheck, LuLayers } from 'react-icons/lu'
 
+import type { CSSProperties } from 'react'
+import type { Schema } from '../../api'
 import variantLabel, { mainOption } from '../../utils/variantLabel'
+import type { RunAction } from './ReaderMoreMenu'
+
+interface Props {
+  book: Schema<'BookDetail'>
+  bookId: string
+  itemStyle: CSSProperties
+  dividerStyle: CSSProperties
+  run: RunAction
+}
 
 /**
  * "Switch version" rows for the reader's overflow menu.
@@ -15,7 +26,7 @@ import variantLabel, { mainOption } from '../../utils/variantLabel'
  * single-page cut of the same book should land on the same spot rather than
  * bouncing the reader back to page one.
  */
-export default function ReaderVariantItems({ book, bookId, itemStyle, dividerStyle, run }) {
+export default function ReaderVariantItems({ book, bookId, itemStyle, dividerStyle, run }: Props) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()

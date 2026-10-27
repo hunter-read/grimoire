@@ -10,10 +10,10 @@ const mockInstallImporter = vi.fn()
 
 vi.mock('../../api', () => ({
   characters: {
-    listImporters: (...a) => mockListImporters(...a),
-    import: (...a) => mockImport(...a),
-    importExternal: (...a) => mockImportExternal(...a),
-    installImporter: (...a) => mockInstallImporter(...a),
+    listImporters: (...a: unknown[]) => mockListImporters(...a),
+    import: (...a: unknown[]) => mockImport(...a),
+    importExternal: (...a: unknown[]) => mockImportExternal(...a),
+    installImporter: (...a: unknown[]) => mockInstallImporter(...a),
   },
 }))
 
@@ -46,7 +46,7 @@ const LINKED = {
   url_hint: 'https://builder.test/c/123',
 }
 
-const fileOf = (text, name = 'hero.ds-hero', size) => {
+const fileOf = (text: string, name = 'hero.ds-hero', size?: number) => {
   const file = new File([text], name)
   // jsdom's File has no text(), which is what the dialog reads it with.
   file.text = () => Promise.resolve(text)

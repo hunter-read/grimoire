@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX } from 'react-icons/lu'
 
@@ -26,16 +26,22 @@ const FIELD_EXAMPLES = [
  * (i) button. Clicking an example inserts it, which teaches the syntax by
  * letting the user run it rather than by asking them to retype it.
  */
-export default function SearchHelp({ onClose, onInsert, triggerRef }) {
+export interface SearchHelpProps {
+  onClose: () => void
+  onInsert: (example: string) => void
+  triggerRef?: RefObject<HTMLElement | null>
+}
+
+export default function SearchHelp({ onClose, onInsert, triggerRef }: SearchHelpProps) {
   const { t } = useTranslation()
-  const panelRef = useRef(null)
-  const closeRef = useRef(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const closeRef = useRef<HTMLButtonElement>(null)
 
   // Escape closes, and focus moves into the panel so a keyboard user isn't left
   // behind on the input while a dialog is open in front of them.
   useEffect(() => {
     closeRef.current?.focus()
-    const onKey = (e) => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation()
         onClose()
@@ -49,9 +55,9 @@ export default function SearchHelp({ onClose, onInsert, triggerRef }) {
   // toggle, and closing here as well would immediately be undone by that toggle
   // reopening the panel — leaving a button that can never close what it opened.
   useEffect(() => {
-    const onClick = (e) => {
-      const inPanel = panelRef.current?.contains(e.target)
-      const onTrigger = triggerRef?.current?.contains(e.target)
+    const onClick = (e: MouseEvent) => {
+      const inPanel = panelRef.current?.contains(e.target as Node)
+      const onTrigger = triggerRef?.current?.contains(e.target as Node)
       if (!inPanel && !onTrigger) onClose()
     }
     document.addEventListener('mouseup', onClick)

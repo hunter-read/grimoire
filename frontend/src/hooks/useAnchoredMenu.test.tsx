@@ -1,15 +1,28 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { useRef, useState } from 'react'
 import { render, screen, act, fireEvent } from '@testing-library/react'
-import useAnchoredMenu, { pointFromEvent } from './useAnchoredMenu'
+import useAnchoredMenu, {
+  pointFromEvent,
+  type AnchoredMenuOptions,
+  type MenuPoint,
+} from './useAnchoredMenu'
+
+interface Box {
+  top?: number
+  left?: number
+  width?: number
+  height?: number
+}
 
 // jsdom gives every element a zero-sized box, so the measuring layout effect has
 // nothing to work with unless the geometry is stubbed. The trigger and the panel
 // need different boxes, so they are told apart by data attribute: the trigger
 // reports the rect the test places it at, the panel reports the size it should
 // believe it has.
-const mockGeometry = ({ trigger, panel }) => {
-  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function () {
+const mockGeometry = ({ trigger, panel }: { trigger: Box; panel: Box }) => {
+  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (
+    this: HTMLElement
+  ) {
     const box = this.dataset.role === 'trigger' ? trigger : { top: 0, left: 0, ...panel }
     const { top = 0, left = 0, width = 0, height = 0 } = box
     return {
@@ -22,16 +35,21 @@ const mockGeometry = ({ trigger, panel }) => {
       x: left,
       y: top,
       toJSON: () => {},
-    }
+    } as DOMRect
   })
   // scrollHeight is what the hook measures the panel's natural height with, and
   // jsdom always reports 0 for it.
-  vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockImplementation(function () {
-    return this.dataset.role === 'panel' ? panel.height : 0
+  vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockImplementation(function (
+    this: HTMLElement
+  ) {
+    return this.dataset.role === 'panel' ? panel.height! : 0
   })
 }
 
-function Harness({ open = true, ...options }) {
+function Harness({
+  open = true,
+  ...options
+}: { open?: boolean } & AnchoredMenuOptions<HTMLButtonElement>) {
   const { triggerRef, panelRef, style } = useAnchoredMenu(open, options)
   return (
     <>
@@ -225,7 +243,7 @@ describe('useAnchoredMenu', () => {
   // the row that was right-clicked.
   describe('at a point', () => {
     function PointHarness() {
-      const [at, setAt] = useState(null)
+      const [at, setAt] = useState<MenuPoint | null>(null)
       const { panelRef, style } = useAnchoredMenu(at != null, { width: 220, at })
       return (
         <>
@@ -244,7 +262,7 @@ describe('useAnchoredMenu', () => {
     }
 
     const row = { top: 100, left: 100, width: 800, height: 60 }
-    const rightClick = (clientX, clientY) =>
+    const rightClick = (clientX: number, clientY: number) =>
       fireEvent.contextMenu(screen.getByTestId('row'), { clientX, clientY })
 
     it('opens below and to the right of the cursor', () => {
@@ -323,7 +341,7 @@ describe('useAnchoredMenu', () => {
   })
 
   describe('pointFromEvent', () => {
-    const eventAt = (clientX, clientY) => {
+    const eventAt = (clientX: number, clientY: number) => {
       const element = document.createElement('div')
       element.dataset.role = 'trigger'
       return { currentTarget: element, clientX, clientY }

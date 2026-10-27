@@ -1,17 +1,24 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { ImgHTMLAttributes } from 'react'
 import BookDetailsModal from './BookDetailsModal'
+import type { Schema } from '../../api'
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k) => k }),
+  useTranslation: () => ({ t: (k: string) => k }),
 }))
 
-vi.mock('../../api', () => ({ mediaUrl: (p) => `http://localhost${p}` }))
-vi.mock('../LazyImg', () => ({ default: ({ alt, ...rest }) => <img alt={alt} {...rest} /> }))
-vi.mock('../Tag', () => ({ default: ({ label }) => <span>{label}</span> }))
+vi.mock('../../api', () => ({ mediaUrl: (p: string) => `http://localhost${p}` }))
+vi.mock('../LazyImg', () => ({
+  default: ({ alt, ...rest }: ImgHTMLAttributes<HTMLImageElement>) => <img alt={alt} {...rest} />,
+}))
+vi.mock('../Tag', () => ({ default: ({ label }: { label: string }) => <span>{label}</span> }))
 
-const BOOK = {
+/** A partial book, as the cases need it; the modal omits whatever is unset. */
+const asBook = (b: Record<string, unknown>) => b as unknown as Schema<'BookOut'>
+
+const BOOK = asBook({
   id: 'b1',
   title: 'Blades in the Dark',
   category: 'core',
@@ -32,7 +39,7 @@ const BOOK = {
   tags: ['Heist'],
   urls: [{ label: 'DriveThruRPG', url: 'https://example.com/p/1' }],
   has_thumbnail: true,
-}
+})
 
 describe('BookDetailsModal', () => {
   it('shows the title and description', () => {
@@ -58,7 +65,7 @@ describe('BookDetailsModal', () => {
 
   it('omits fields with no value instead of rendering them blank', () => {
     // A sparsely tagged book should read short, not mostly-empty.
-    render(<BookDetailsModal book={{ id: 'b', title: 'Bare' }} onClose={vi.fn()} />)
+    render(<BookDetailsModal book={asBook({ id: 'b', title: 'Bare' })} onClose={vi.fn()} />)
     expect(screen.queryByText('bookDetails.publisher')).toBeNull()
     expect(screen.queryByText('bookDetails.isbn')).toBeNull()
     expect(screen.queryByText('bookDetails.productCode')).toBeNull()
@@ -94,7 +101,7 @@ describe('BookDetailsModal', () => {
   })
 
   it('copes with a book that has no cover', () => {
-    render(<BookDetailsModal book={{ id: 'b', title: 'No Cover' }} onClose={vi.fn()} />)
+    render(<BookDetailsModal book={asBook({ id: 'b', title: 'No Cover' })} onClose={vi.fn()} />)
     expect(screen.queryByAltText('No Cover')).toBeNull()
   })
 

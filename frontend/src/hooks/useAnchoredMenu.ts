@@ -1,4 +1,40 @@
-import { useCallback, useLayoutEffect, useRef, useState } from 'react'
+import {
+  useCallback,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type RefObject,
+} from 'react'
+
+/** A right-click point, stored relative to the element that caught it. */
+export interface MenuPoint {
+  element: Element
+  dx: number
+  dy: number
+}
+
+export interface AnchoredMenuOptions<T extends Element> {
+  /** Fixed panel width; omit to let content size it. */
+  width?: number
+  /** Which trigger edge to align to (default right). */
+  align?: 'left' | 'right'
+  /** Space between the trigger and the panel (default 4). */
+  gap?: number
+  /** An anchor owned by the caller; defaults to the returned `triggerRef`. */
+  anchorRef?: RefObject<T | null>
+  /** Open at a point instead of beside the trigger; null goes back to it. */
+  at?: MenuPoint | null
+}
+
+export interface AnchoredMenu<T extends Element, P extends Element> {
+  triggerRef: RefObject<T | null>
+  panelRef: RefObject<P | null>
+  /** Spread onto the panel. */
+  style: CSSProperties
+  /** Re-run placement (already wired to scroll and resize while open). */
+  place: () => void
+}
 
 // Breathing room kept between the menu and the viewport edge, so a clamped menu
 // never sits flush against the window.
@@ -43,11 +79,14 @@ const MARGIN = 8
  *   left or above when that would overflow) under the same clamping rules as a
  *   trigger-anchored panel. `null` goes back to the trigger.
  */
-export default function useAnchoredMenu(
-  open,
-  { width, align = 'right', gap = 4, anchorRef, at = null } = {}
-) {
-  const ownTriggerRef = useRef(null)
+export default function useAnchoredMenu<
+  T extends Element = HTMLButtonElement,
+  P extends Element = HTMLDivElement,
+>(
+  open: boolean,
+  { width, align = 'right', gap = 4, anchorRef, at = null }: AnchoredMenuOptions<T> = {}
+): AnchoredMenu<T, P> {
+  const ownTriggerRef = useRef<T | null>(null)
   const triggerRef = anchorRef ?? ownTriggerRef
   // Held in a ref so `place` keeps a stable identity: a caller that passes a
   // freshly-built anchor object each render would otherwise re-create `place`,
@@ -56,11 +95,11 @@ export default function useAnchoredMenu(
   anchor.current = triggerRef
   const point = useRef(at)
   point.current = at
-  const panelRef = useRef(null)
+  const panelRef = useRef<P | null>(null)
   // null until measured; the panel stays invisible (but laid out, so it has a
   // box to read) for that first pass.
-  const [pos, setPos] = useState(null)
-  const [maxHeight, setMaxHeight] = useState(null)
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+  const [maxHeight, setMaxHeight] = useState<number | null>(null)
 
   const place = useCallback(() => {
     const pt = point.current
@@ -81,8 +120,8 @@ export default function useAnchoredMenu(
     const vh = window.innerHeight
     const room = vh - 2 * MARGIN
 
-    let top
-    let limit = null
+    let top: number
+    let limit: number | null = null
     if (height > room) {
       // Taller than the window: it has to scroll, so anchor it at the top.
       top = MARGIN
@@ -95,7 +134,7 @@ export default function useAnchoredMenu(
       top = vh - height - MARGIN // clamp to the bottom edge
     }
 
-    let preferred
+    let preferred: number
     if (pt) {
       // Right of the cursor, or flipped to its left near the right-hand edge.
       preferred = r.left + panelWidth + MARGIN <= vw ? r.left : r.left - panelWidth
@@ -130,7 +169,7 @@ export default function useAnchoredMenu(
     }
   }, [open, place, at])
 
-  const style = {
+  const style: CSSProperties = {
     position: 'fixed',
     top: pos ? pos.top : 0,
     left: pos ? pos.left : 0,
@@ -156,8 +195,13 @@ export default function useAnchoredMenu(
  * that need not be anywhere near the focused row, so the caller should anchor
  * to its trigger instead.
  */
-export function pointFromEvent(e) {
-  const element = e.currentTarget
+export function pointFromEvent(e: {
+  currentTarget: EventTarget | null
+  clientX: number
+  clientY: number
+}): MenuPoint | null {
+  // Always the element the handler is attached to, for a contextmenu event.
+  const element = e.currentTarget as Element
   const r = element.getBoundingClientRect()
   const dx = e.clientX - r.left
   const dy = e.clientY - r.top
@@ -166,7 +210,7 @@ export function pointFromEvent(e) {
 }
 
 // The zero-sized box a stored point currently sits at.
-function pointRect({ element, dx, dy }) {
+function pointRect({ element, dx, dy }: MenuPoint) {
   const r = element.getBoundingClientRect()
   const x = r.left + dx
   const y = r.top + dy

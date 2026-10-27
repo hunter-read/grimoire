@@ -35,10 +35,17 @@
  * stored, so applying a preset is a plain field update with no conversion.
  */
 
+import type { VttLight } from './types'
+
+/** A named light: the values a preset applies, plus its id. */
+export interface LightPreset extends Omit<VttLight, 'position'> {
+  id: string
+}
+
 /** The fallback when nothing else is chosen — matches `DEFAULT_LIGHT`. */
 export const PRESET_CUSTOM = 'custom'
 
-export const LIGHT_PRESETS = [
+export const LIGHT_PRESETS: LightPreset[] = [
   // --- Small flames ---------------------------------------------------------
   // The most common 1-square light in the sample set, and the only bright-value
   // colour among them: a candle is small enough that the glow is the fixture.
@@ -65,7 +72,7 @@ export const LIGHT_PRESETS = [
 ]
 
 /** Look one up by id, or null for `custom` / anything unrecognised. */
-export function findPreset(id) {
+export function findPreset(id: string): LightPreset | null {
   return LIGHT_PRESETS.find((p) => p.id === id) || null
 }
 
@@ -78,7 +85,7 @@ export function findPreset(id) {
  * the panel is reopened. Compared on the three fields a preset sets, so a light
  * tuned away from its preset correctly goes back to custom.
  */
-export function matchPreset(light) {
+export function matchPreset(light: Partial<VttLight> | null | undefined): string {
   if (!light) return PRESET_CUSTOM
   const hit = LIGHT_PRESETS.find(
     (p) =>
@@ -96,9 +103,10 @@ export function matchPreset(light) {
  * where it is — moving a placed light to the preset's origin would be a
  * surprising way to lose work.
  */
-export function applyPreset(light, id) {
+export function applyPreset<L extends Partial<VttLight>>(light: L, id: string): L {
   const preset = findPreset(id)
   if (!preset) return light
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructured only to drop it
   const { id: _id, ...values } = preset
   return { ...light, ...values }
 }

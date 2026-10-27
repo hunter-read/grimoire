@@ -15,6 +15,8 @@ import {
   LuVideo,
   LuFileCode,
 } from 'react-icons/lu'
+import type { IconType } from 'react-icons'
+import type { MediaItem } from './mediaConfig'
 
 // How many icons a card shows before collapsing the rest into "+N". Two covers
 // the pairs this exists for (a still map beside its Universal VTT and its
@@ -24,7 +26,7 @@ const MAX_KIND_ICONS = 2
 // One icon per variant kind, covering the vocabulary in models/variants.py.
 // A kind with no entry here (or one added to the backend later) falls back to
 // the generic stack icon rather than rendering nothing.
-const KIND_ICON = {
+const KIND_ICON: Record<string, IconType> = {
   'universal-vtt': LuFileCode,
   video: LuVideo,
   image: LuImage,
@@ -63,13 +65,17 @@ const KIND_ICON = {
  * page, so this costs no extra request; it is empty for variants linked without
  * a kind, and the count carries those.
  */
-export default function VariantBadge({ item }) {
+export default function VariantBadge({
+  item,
+}: {
+  item: Pick<MediaItem, 'variant_count' | 'variant_kinds'>
+}) {
   const { t } = useTranslation()
   const kinds = item.variant_kinds || []
   const style = { display: 'inline-flex', alignItems: 'center', color: 'var(--variant)' }
 
   if (!kinds.length) {
-    const label = t('variants.badge', { count: item.variant_count + 1 })
+    const label = t('variants.badge', { count: item.variant_count! + 1 })
     return (
       <span
         style={{ ...style, color: 'var(--text-muted)', gap: 3 }}
@@ -77,7 +83,7 @@ export default function VariantBadge({ item }) {
         aria-label={label}
       >
         <LuLayers size={13} aria-hidden="true" />
-        <span aria-hidden="true">{item.variant_count + 1}</span>
+        <span aria-hidden="true">{item.variant_count! + 1}</span>
       </span>
     )
   }

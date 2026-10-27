@@ -1,11 +1,15 @@
 import { useLayoutEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuFileText, LuHash } from 'react-icons/lu'
+import type { TrieEntry } from './wikiLinkTarget'
 
 // The open "[[" nearest the caret, if the caret is still inside it. Returns the
 // query typed so far plus the span to replace on accept. A "]]" or a newline
 // between the brackets and the caret closes the link, so we stop looking.
-export function findActiveLinkQuery(text, caret) {
+export function findActiveLinkQuery(
+  text: string | null | undefined,
+  caret: number
+): { query: string; start: number; end: number } | null {
   const upto = (text || '').slice(0, caret)
   const open = upto.lastIndexOf('[[')
   if (open === -1) return null
@@ -22,15 +26,23 @@ export function findActiveLinkQuery(text, caret) {
  * the exact string to place inside `[[...]]` — already carrying `:#Heading` for a
  * heading completion (issue #279) and `:id-` when the title collides (issue #287).
  */
-export default function WikiLinkAutocomplete({
+type LinkMatch = Pick<TrieEntry, 'key' | 'label' | 'detail'>
+
+export default function WikiLinkAutocomplete<M extends LinkMatch>({
   matches,
   position,
   onAccept,
   activeIndex,
   onActiveIndexChange,
+}: {
+  matches: readonly M[] | null | undefined
+  position: { top: number; left: number }
+  onAccept: (match: M) => void
+  activeIndex: number
+  onActiveIndexChange: (index: number) => void
 }) {
   const { t } = useTranslation()
-  const listRef = useRef(null)
+  const listRef = useRef<HTMLDivElement>(null)
 
   // Keep the highlighted row scrolled into view during keyboard navigation.
   // Guarded because scrollIntoView is absent in jsdom and older embedded views.

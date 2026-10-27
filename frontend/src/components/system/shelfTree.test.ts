@@ -10,8 +10,15 @@ import {
   splitNodeKey,
   standIn,
 } from './shelfTree'
+import type { ShelfEntry, ShelfNode, ShelfStandIn } from './shelfTree'
+import type { Schema } from '../../api'
 
-const row = (category, path, count, extra = {}) => ({
+const row = (
+  category: string,
+  path: string,
+  count: number,
+  extra: Partial<Schema<'ShelfFolderGroup'>> = {}
+): Schema<'ShelfFolderGroup'> => ({
   category,
   path,
   dir: `books/Sys/${category}${path ? `/${path}` : ''}`,
@@ -28,7 +35,7 @@ describe('nodeKey', () => {
 })
 
 describe('shelfComparator', () => {
-  const sorted = (books, sort, order) =>
+  const sorted = (books: ShelfStandIn[], sort: string, order: string) =>
     [...books].sort(shelfComparator(sort, order)).map((b) => b.title)
 
   it('orders titles naturally', () => {
@@ -105,7 +112,9 @@ describe('buildShelf', () => {
   })
 
   it('defaults a missing category to core', () => {
-    expect(Object.keys(buildShelf([{ path: '', count: 1 }]))).toEqual(['core'])
+    expect(Object.keys(buildShelf([{ path: '', count: 1 } as Schema<'ShelfFolderGroup'>]))).toEqual(
+      ['core']
+    )
   })
 
   it('keeps the best first value when two directories map to one node', () => {
@@ -149,7 +158,7 @@ describe('orderedNodeEntries', () => {
     { id: '1', title: 'Alpha' },
     { id: '2', title: 'Charlie' },
   ]
-  const kinds = (entries) =>
+  const kinds = (entries: ShelfEntry<{ id: string; title: string }>[]) =>
     entries.map((e) => (e.type === 'folder' ? `F:${e.name}` : e.book.title))
 
   it('puts folders first by default', () => {
@@ -196,11 +205,15 @@ describe('scopes and labels', () => {
       row('core', 'x', 1, { dir: 'books/B/core/x' }),
     ])
     expect(nodeScope(split.core, 2, 'fallback')).toBe('fallback')
-    expect(nodeScope({ dirs: [], folders: {} }, 2, 'fallback')).toBe('fallback')
+    expect(nodeScope({ dirs: [], folders: {} } as unknown as ShelfNode, 2, 'fallback')).toBe(
+      'fallback'
+    )
   })
 
   it("reads the category folder's own name from a directory", () => {
     expect(categoryFolderName(shelf.core, 2)).toBe('Core Rulebooks')
-    expect(categoryFolderName({ dirs: ['books/Sys'], folders: {} }, 2)).toBeNull()
+    expect(
+      categoryFolderName({ dirs: ['books/Sys'], folders: {} } as unknown as ShelfNode, 2)
+    ).toBeNull()
   })
 })

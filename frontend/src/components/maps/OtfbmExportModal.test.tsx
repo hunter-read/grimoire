@@ -1,20 +1,24 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import OtfbmExportModal from './OtfbmExportModal'
 import api, { shareLinks } from '../../api'
 
+// Fixtures carry only the fields the code under test reads, so these mocks are untyped.
+const mockListLinks = shareLinks.list as unknown as Mock
+const mockCreateLink = shareLinks.create as unknown as Mock
+
 vi.mock('../../api', () => ({
   default: { get: vi.fn() },
   shareLinks: { list: vi.fn(), create: vi.fn() },
-  mediaUrl: (p, params = {}) => {
-    const qs = new URLSearchParams(params).toString()
+  mediaUrl: (p: string, params: Record<string, string | number> = {}) => {
+    const qs = new URLSearchParams(params as Record<string, string>).toString()
     return `/api${p}${qs ? `?${qs}` : ''}`
   },
 }))
 
 vi.mock('react-i18next', () => {
-  const t = (k, opts) => (opts ? `${k} ${JSON.stringify(opts)}` : k)
+  const t = (k: string, opts?: object) => (opts ? `${k} ${JSON.stringify(opts)}` : k)
   return { useTranslation: () => ({ t, i18n: { language: 'en-US' } }) }
 })
 
@@ -50,13 +54,13 @@ const renderModal = (props = {}) =>
 
 beforeEach(() => {
   vi.clearAllMocks()
-  api.get.mockImplementation((url) => {
+  vi.mocked(api.get).mockImplementation((url) => {
     const match = /cell=(\d+)/.exec(url)
     if (!match) return Promise.resolve(plan())
     const cell = Number(match[1])
     return Promise.resolve(plan({ cell, image_width: cell * 10, image_height: cell * 14 }))
   })
-  shareLinks.list.mockResolvedValue([])
+  mockListLinks.mockResolvedValue([])
 })
 
 afterEach(() => {
@@ -77,7 +81,7 @@ describe('OtfbmExportModal', () => {
   })
 
   it('creates a share link and fills the command with it', async () => {
-    shareLinks.create.mockResolvedValue(otfbmLink())
+    mockCreateLink.mockResolvedValue(otfbmLink())
     renderModal()
     const create = await screen.findByText('maps.otfbm.createLink')
     expect(screen.queryByLabelText('maps.otfbm.command')).toBeNull()
@@ -100,7 +104,7 @@ describe('OtfbmExportModal', () => {
   })
 
   it('reuses an existing link at the same cell size', async () => {
-    shareLinks.list.mockResolvedValue([otfbmLink({ expires_at: '2026-11-01T00:00:00Z' })])
+    mockListLinks.mockResolvedValue([otfbmLink({ expires_at: '2026-11-01T00:00:00Z' })])
     renderModal()
     expect(await screen.findByLabelText('maps.otfbm.command')).toHaveValue(
       '!map -mapsize 10x14 -options c70 -bg https://g.example/api/share/tok/village-10x14c70.jpg'
@@ -110,7 +114,7 @@ describe('OtfbmExportModal', () => {
   })
 
   it('ignores links that would not work for OTFBM', async () => {
-    shareLinks.list.mockResolvedValue([
+    mockListLinks.mockResolvedValue([
       otfbmLink({ id: 'a', state: 'revoked' }),
       otfbmLink({ id: 'b', has_password: true }),
       otfbmLink({ id: 'c', variant_options: { cell: 50 } }),
@@ -120,7 +124,7 @@ describe('OtfbmExportModal', () => {
   })
 
   it('switches to the matching link when the cell size changes', async () => {
-    shareLinks.list.mockResolvedValue([
+    mockListLinks.mockResolvedValue([
       otfbmLink({
         id: 'c50',
         file_url: 'https://g.example/api/share/t50/v.jpg',
@@ -139,7 +143,7 @@ describe('OtfbmExportModal', () => {
   })
 
   it('reports a failed link creation', async () => {
-    shareLinks.create.mockRejectedValue(new Error('not allowed'))
+    mockCreateLink.mockRejectedValue(new Error('not allowed'))
     renderModal()
     fireEvent.click(await screen.findByText('maps.otfbm.createLink'))
     expect(await screen.findByText('not allowed')).toBeInTheDocument()
@@ -177,21 +181,21 @@ describe('OtfbmExportModal', () => {
   })
 
   it('warns when the grid is only the default guess', async () => {
-    api.get.mockResolvedValue(plan({ grid_source: 'default' }))
+    vi.mocked(api.get).mockResolvedValue(plan({ grid_source: 'default' }))
     renderModal()
     expect(await screen.findByText('maps.otfbm.defaultGrid')).toBeInTheDocument()
   })
 
   it('warns when the map is larger than OTFBM can show', async () => {
-    api.get.mockResolvedValue(plan({ truncated: true, width: 99 }))
+    vi.mocked(api.get).mockResolvedValue(plan({ truncated: true, width: 99 }))
     renderModal()
     expect(await screen.findByText('maps.otfbm.truncated')).toBeInTheDocument()
   })
 
   it('copies the command to the clipboard', async () => {
-    const writeText = vi.fn().mockResolvedValue()
+    const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
-    shareLinks.list.mockResolvedValue([otfbmLink()])
+    mockListLinks.mockResolvedValue([otfbmLink()])
     renderModal()
     await screen.findByLabelText('maps.otfbm.command')
     await userEvent.click(screen.getByRole('button', { name: /maps.otfbm.copy/ }))
@@ -204,7 +208,7 @@ describe('OtfbmExportModal', () => {
   it('survives a clipboard that refuses', async () => {
     const writeText = vi.fn().mockRejectedValue(new Error('denied'))
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
-    shareLinks.list.mockResolvedValue([otfbmLink()])
+    mockListLinks.mockResolvedValue([otfbmLink()])
     renderModal()
     await screen.findByLabelText('maps.otfbm.command')
     await userEvent.click(screen.getByRole('button', { name: /maps.otfbm.copy/ }))
@@ -212,13 +216,13 @@ describe('OtfbmExportModal', () => {
   })
 
   it('treats a failed link listing as no links', async () => {
-    shareLinks.list.mockRejectedValue(new Error('down'))
+    mockListLinks.mockRejectedValue(new Error('down'))
     renderModal()
     expect(await screen.findByText('maps.otfbm.createLink')).toBeInTheDocument()
   })
 
   it('shows an error when the plan cannot be loaded', async () => {
-    api.get.mockRejectedValue(new Error('403'))
+    vi.mocked(api.get).mockRejectedValue(new Error('403'))
     renderModal()
     expect(await screen.findByRole('alert')).toHaveTextContent('maps.otfbm.loadFailed')
   })

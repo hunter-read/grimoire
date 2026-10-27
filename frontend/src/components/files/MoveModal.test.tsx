@@ -3,22 +3,34 @@ import { render, screen, waitFor, within, fireEvent } from '@testing-library/rea
 import userEvent from '@testing-library/user-event'
 import MoveModal from './MoveModal'
 import { files as filesApi } from '../../api'
+import type { Mock } from 'vitest'
+import type { Schema } from '../../api'
+
+// The mocked listings carry only the fields the tree reads.
+const browseMock = vi.mocked(filesApi.browse) as unknown as Mock<
+  (path?: string) => Promise<Partial<Schema<'BrowseResponse'>>>
+>
+const moveMock = vi.mocked(filesApi.move) as unknown as Mock<
+  (...args: unknown[]) => Promise<Partial<Schema<'MoveResponse'>>>
+>
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k, o) => (o?.name ? `${k}:${o.name}` : k) }),
+  useTranslation: () => ({
+    t: (k: string, o?: Record<string, unknown>) => (o?.name ? `${k}:${o.name}` : k),
+  }),
 }))
 vi.mock('../Spinner', () => ({ default: () => <span data-testid="spinner" /> }))
 vi.mock('../../api', () => ({ files: { browse: vi.fn(), move: vi.fn() } }))
 
-const dir = (name, path) => ({ name, path, is_dir: true })
-const doc = (name, path) => ({ name, path, is_dir: false })
+const dir = (name: string, path: string) => ({ name, path, is_dir: true })
+const doc = (name: string, path: string) => ({ name, path, is_dir: false })
 
 const item = { name: 'bestiary.pdf', path: 'books/System/core/bestiary.pdf', is_dir: false }
 
 beforeEach(() => {
   vi.clearAllMocks()
-  filesApi.move.mockResolvedValue({ moved: [{}], skipped: [], count: 1 })
-  filesApi.browse.mockImplementation((path) => {
+  moveMock.mockResolvedValue({ moved: [{}], skipped: [], count: 1 })
+  browseMock.mockImplementation((path) => {
     if (path === '') {
       return Promise.resolve({
         writable: true,
@@ -84,7 +96,7 @@ describe('MoveModal', () => {
   it('refuses the folder the item already sits in, and the item itself', async () => {
     // Moving a folder into itself detaches its subtree; moving into the current
     // parent does nothing. The API refuses both, so the picker never offers them.
-    filesApi.browse.mockResolvedValue({
+    browseMock.mockResolvedValue({
       writable: true,
       entries: [dir('core', 'books/System/core'), dir('adventures', 'books/System/adventures')],
     })
@@ -104,7 +116,7 @@ describe('MoveModal', () => {
   })
 
   it('reports a move the server refused', async () => {
-    filesApi.move.mockResolvedValue({
+    moveMock.mockResolvedValue({
       moved: [],
       skipped: [{ reason: 'A file named that already exists there' }],
       count: 0,

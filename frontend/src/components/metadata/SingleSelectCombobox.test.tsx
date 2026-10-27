@@ -2,19 +2,24 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useState } from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import SingleSelectCombobox from './SingleSelectCombobox'
+import SingleSelectCombobox, { type SingleSelectComboboxProps } from './SingleSelectCombobox'
 import api from '../../api'
 
 vi.mock('../../api', () => ({ default: { post: vi.fn(() => Promise.resolve({ id: 'x' })) } }))
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k, o) => (k === 'common.clear' ? 'Clear' : `Create "${o?.name}"`),
+    t: (k: string, o?: { name?: string }) =>
+      k === 'common.clear' ? 'Clear' : `Create "${o?.name}"`,
   }),
 }))
 
 beforeEach(() => vi.clearAllMocks())
 
-function Harness({ options = ['Dungeons & Dragons', 'Cyberpunk'], initial = '', ...rest }) {
+function Harness({
+  options = ['Dungeons & Dragons', 'Cyberpunk'],
+  initial = '',
+  ...rest
+}: { initial?: string } & Partial<SingleSelectComboboxProps>) {
   const [value, setValue] = useState(initial)
   return (
     <div>

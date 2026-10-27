@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import DisplayNameSection from './DisplayNameSection'
 import api from '../../api'
 
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }))
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }))
 vi.mock('../Spinner', () => ({ default: () => <span data-testid="spinner" /> }))
 
 const refreshUser = vi.fn()
@@ -22,12 +22,14 @@ beforeEach(() => {
 describe('DisplayNameSection', () => {
   it('seeds the input from the current display name', () => {
     render(<DisplayNameSection />)
-    expect(screen.getByLabelText('userSettings.displayName.label').value).toBe('Game Master')
+    expect(screen.getByLabelText<HTMLInputElement>('userSettings.displayName.label').value).toBe(
+      'Game Master'
+    )
   })
 
   it('saves a trimmed display name and refreshes the user', async () => {
     render(<DisplayNameSection />)
-    const input = screen.getByLabelText('userSettings.displayName.label')
+    const input = screen.getByLabelText<HTMLInputElement>('userSettings.displayName.label')
     await userEvent.clear(input)
     await userEvent.type(input, '  New Name  ')
     await userEvent.click(screen.getByText('userSettings.displayName.save'))
@@ -38,7 +40,7 @@ describe('DisplayNameSection', () => {
   })
 
   it('shows an error message when saving fails', async () => {
-    api.patch.mockRejectedValueOnce(new Error('boom'))
+    vi.mocked(api.patch).mockRejectedValueOnce(new Error('boom'))
     render(<DisplayNameSection />)
     await userEvent.click(screen.getByText('userSettings.displayName.save'))
     await waitFor(() => expect(screen.getByText('boom')).toBeInTheDocument())

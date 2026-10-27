@@ -7,12 +7,12 @@ const mockBrowse = vi.fn()
 const mockInstall = vi.fn()
 vi.mock('../../api', () => ({
   characters: {
-    browseSheets: (...a) => mockBrowse(...a),
-    installSheet: (...a) => mockInstall(...a),
+    browseSheets: (...a: unknown[]) => mockBrowse(...a),
+    installSheet: (...a: unknown[]) => mockInstall(...a),
   },
 }))
 
-const CAIRN = {
+const CAIRN: Record<string, unknown> = {
   id: 'cairn',
   name: 'Cairn',
   version: '1.0.0',

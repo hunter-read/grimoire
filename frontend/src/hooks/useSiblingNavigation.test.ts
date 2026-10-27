@@ -1,6 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
-import useSiblingNavigation, { folderPathOf } from './useSiblingNavigation'
+import useSiblingNavigation, {
+  folderPathOf,
+  type SiblingNavigationOptions,
+} from './useSiblingNavigation'
 
 const ITEMS = [
   { id: 'b', filename: 'b.png', relative_path: 'tokens/Goblins/b.png' },
@@ -33,12 +36,15 @@ describe('folderPathOf', () => {
 })
 
 describe('useSiblingNavigation', () => {
-  let navigate, get
+  let navigate: Mock<(to: string) => void>
+  let get: Mock<(url: string) => Promise<unknown>>
 
-  const setup = (over = {}) =>
-    renderHook((props) => useSiblingNavigation({ ...baseProps, ...over, ...props }))
+  type Props = Partial<SiblingNavigationOptions>
 
-  let baseProps
+  const setup = (over: Props = {}) =>
+    renderHook((props?: Props) => useSiblingNavigation({ ...baseProps, ...over, ...props }))
+
+  let baseProps: SiblingNavigationOptions
   beforeEach(() => {
     navigate = vi.fn()
     get = vi.fn().mockResolvedValue({ tokens: ITEMS })
@@ -47,7 +53,7 @@ describe('useSiblingNavigation', () => {
       id: 'b',
       listUrl: '/tokens',
       listKey: 'tokens',
-      detailPath: (id) => `/tokens/${id}`,
+      detailPath: (id: string) => `/tokens/${id}`,
       navigate,
       get,
     }
@@ -106,7 +112,7 @@ describe('useSiblingNavigation', () => {
 
   // Stepping through a folder should cost one request, not one per item.
   it('reuses the loaded list while navigating inside a folder', async () => {
-    const { result, rerender } = renderHook((props) =>
+    const { result, rerender } = renderHook((props?: Props) =>
       useSiblingNavigation({ ...baseProps, ...props })
     )
     await waitFor(() => expect(result.current.siblings).toHaveLength(3))
@@ -116,7 +122,7 @@ describe('useSiblingNavigation', () => {
   })
 
   it('refetches when the folder changes', async () => {
-    const { result, rerender } = renderHook((props) =>
+    const { result, rerender } = renderHook((props?: Props) =>
       useSiblingNavigation({ ...baseProps, ...props })
     )
     await waitFor(() => expect(result.current.siblings).toHaveLength(3))

@@ -3,10 +3,11 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ReaderSection from './ReaderSection'
 import { getUserPrefs, saveUserPref } from '../../hooks/useUserPrefs'
+import type { SegmentedOption } from './SegmentedControl'
 
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }))
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }))
 vi.mock('../../hooks/useUserPrefs', async (importOriginal) => {
-  const actual = await importOriginal()
+  const actual = await importOriginal<typeof import('../../hooks/useUserPrefs')>()
   return {
     ...actual,
     // getWheelAction stays real — its back-compat behaviour is under test.
@@ -17,7 +18,15 @@ vi.mock('../../hooks/useUserPrefs', async (importOriginal) => {
 // SegmentedControl renders a button per option; keep it real but simple. The
 // selected value is exposed so tests can assert what the control reads back.
 vi.mock('./SegmentedControl', () => ({
-  default: ({ options, value, onChange }) => (
+  default: ({
+    options,
+    value,
+    onChange,
+  }: {
+    options: SegmentedOption[]
+    value: string
+    onChange: (v: string) => void
+  }) => (
     // Keyed by the first option so each control on the page is addressable —
     // the section renders one for reader mode and one for the wheel action.
     <div>
@@ -33,7 +42,7 @@ vi.mock('./SegmentedControl', () => ({
 
 beforeEach(() => {
   vi.clearAllMocks()
-  getUserPrefs.mockReturnValue({})
+  vi.mocked(getUserPrefs).mockReturnValue({})
 })
 
 describe('ReaderSection', () => {
@@ -53,7 +62,7 @@ describe('ReaderSection', () => {
   })
 
   it('reads back a stored wheelAction', () => {
-    getUserPrefs.mockReturnValue({ wheelAction: 'zoom' })
+    vi.mocked(getUserPrefs).mockReturnValue({ wheelAction: 'zoom' })
     render(<ReaderSection />)
     expect(screen.getByTestId('segmented-value-page')).toHaveTextContent('zoom')
   })
@@ -61,13 +70,13 @@ describe('ReaderSection', () => {
   it('reads a legacy wheelNav=false as "none"', () => {
     // The pref used to be a boolean; "off" meant don't page on scroll, which
     // is now the 'none' action rather than a missing preference.
-    getUserPrefs.mockReturnValue({ wheelNav: false })
+    vi.mocked(getUserPrefs).mockReturnValue({ wheelNav: false })
     render(<ReaderSection />)
     expect(screen.getByTestId('segmented-value-page')).toHaveTextContent('none')
   })
 
   it('reads a legacy wheelNav=true as the paging default', () => {
-    getUserPrefs.mockReturnValue({ wheelNav: true })
+    vi.mocked(getUserPrefs).mockReturnValue({ wheelNav: true })
     render(<ReaderSection />)
     expect(screen.getByTestId('segmented-value-page')).toHaveTextContent('page')
   })

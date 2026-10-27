@@ -1,9 +1,41 @@
+import type { CSSProperties } from 'react'
 import { LuFolder, LuChevronDown, LuChevronRight, LuDownload } from 'react-icons/lu'
 import { toTitleCase } from '../../utils'
 import RescanButton from '../RescanButton'
 import FolderTagRow from '../media/FolderTagRow'
 import ShelfNodeBody from './ShelfNodeBody'
 import { nodeScope } from './shelfTree'
+import type { ShelfNode } from './shelfTree'
+import type { FolderOrder, ShelfItemProps, ShelfPages } from './ShelfNodeBody'
+
+/** A download the folder or category asks the page to start. */
+export interface ShelfDownload {
+  title: string
+  /** Query parameters for `/downloads/archive` naming what to bundle. */
+  params: Record<string, string | number | undefined>
+}
+
+export interface BookFolderGroupProps {
+  node: ShelfNode
+  depth?: number
+  pages: ShelfPages
+  onLoadNode: (key: string) => void
+  folderOrder: FolderOrder
+  systemId: string
+  /** Collapsed folders, keyed `{category}::{path}`. */
+  collapsed: Set<string>
+  onToggle: (key: string) => void
+  isEditor: boolean
+  onDownload?: (download: ShelfDownload) => void
+  booksContainerStyle?: CSSProperties
+  itemProps: ShelfItemProps
+  categoryDepth?: number
+  scopeFallback?: string | null
+  bookFolderTags?: Record<string, string[]>
+  editingFolderKey?: string | null
+  onEditFolder?: (fullPath: string | null) => void
+  onSaveBookFolderTags?: (fullPath: string, tags: string[]) => void
+}
 
 /**
  * Renders a single subfolder group within a book category section, recursing into
@@ -54,12 +86,12 @@ export default function BookFolderGroup({
   editingFolderKey = null,
   onEditFolder,
   onSaveBookFolderTags,
-}) {
+}: BookFolderGroupProps) {
   const { category, name: folder, path: folderPath } = node
   const toggleKey = `${category}::${folderPath}`
   const isCollapsed = collapsed.has(toggleKey)
   const total = node.count
-  const containerStyle = booksContainerStyle || {
+  const containerStyle: CSSProperties = booksContainerStyle || {
     display: 'flex',
     flexDirection: 'column',
     gap: 8,
@@ -225,7 +257,7 @@ export default function BookFolderGroup({
   )
 }
 
-const zipBtnStyle = {
+const zipBtnStyle: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 3,

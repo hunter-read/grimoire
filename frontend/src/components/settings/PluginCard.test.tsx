@@ -1,10 +1,11 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import PluginCard from './PluginCard'
+import type { PluginAddon } from './PluginCard'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k, opts) =>
+    t: (k: string, opts?: string | { author?: string; version?: string }) =>
       typeof opts === 'string'
         ? opts
         : opts?.author
@@ -35,7 +36,7 @@ describe('PluginCard', () => {
       },
       { index_url: 'https://raw.githubusercontent.com/vandie/community-add-ons/main/index.json' },
     ],
-  }
+  } as unknown as PluginAddon
 
   const availableAddon = {
     id: 'dnd5e-spells',
@@ -46,7 +47,7 @@ describe('PluginCard', () => {
     requires_script: true,
     index_url: 'https://raw.githubusercontent.com/vandie/community-add-ons/main/index.json',
     available_in: [],
-  }
+  } as unknown as PluginAddon
 
   it('renders an installed add-on card with version, update badge, menu, checkbox and remove button', () => {
     const onToggleEnabled = vi.fn()
@@ -57,7 +58,7 @@ describe('PluginCard', () => {
       <PluginCard
         addon={installedAddon}
         isInstalled={true}
-        trustedIndexUrls={[installedAddon.index_url]}
+        trustedIndexUrls={[installedAddon.index_url!]}
         busy={false}
         onToggleEnabled={onToggleEnabled}
         onRemove={onRemove}

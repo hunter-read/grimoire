@@ -1,15 +1,15 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuUpload } from 'react-icons/lu'
-import { campaigns } from '../../api'
+import { campaigns, type Schema } from '../../api'
 import { miniBtn, miniBtnGhost } from './embedPickerStyles'
 
-const radioRow = {
+const radioRow: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 8,
 }
-const selectStyle = {
+const selectStyle: CSSProperties = {
   appearance: 'auto',
   fontSize: 13,
   padding: '6px 8px',
@@ -20,15 +20,28 @@ const selectStyle = {
 }
 
 // Upload an image, choosing an existing resource category or creating a new one.
-export default function ImageUploadPanel({ campaignId, onUploaded, onCancel }) {
+// The upload returns the new resource row (the raw transport leaves it untyped).
+type UploadedImage = Schema<'LinkedResourceOut'>
+
+interface ImageUploadPanelProps {
+  campaignId: string
+  onUploaded: (created: UploadedImage) => void
+  onCancel: () => void
+}
+
+export default function ImageUploadPanel({
+  campaignId,
+  onUploaded,
+  onCancel,
+}: ImageUploadPanelProps) {
   const { t } = useTranslation()
-  const [categories, setCategories] = useState([])
-  const [mode, setMode] = useState('existing') // 'existing' | 'new'
+  const [categories, setCategories] = useState<Schema<'CampaignCategoryOut'>[]>([])
+  const [mode, setMode] = useState<'existing' | 'new'>('existing') // 'existing' | 'new'
   const [categoryId, setCategoryId] = useState('')
   const [newName, setNewName] = useState('')
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState(null)
-  const fileRef = useRef(null)
+  const [error, setError] = useState<string | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     campaigns
@@ -52,10 +65,10 @@ export default function ImageUploadPanel({ campaignId, onUploaded, onCancel }) {
     try {
       const opts =
         mode === 'new' ? { newCategoryName: newName.trim() } : categoryId ? { categoryId } : {}
-      const created = await campaigns.uploadImage(campaignId, file, opts)
+      const created = (await campaigns.uploadImage(campaignId, file, opts)) as UploadedImage
       onUploaded(created)
     } catch (e) {
-      setError(e.message)
+      setError((e as Error).message)
       setBusy(false)
     }
   }

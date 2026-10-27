@@ -14,20 +14,20 @@ const mockImportCharacter = vi.fn()
 const mockCampaigns = vi.fn()
 
 vi.mock('../api', () => ({
-  campaigns: { list: (...a) => mockCampaigns(...a) },
+  campaigns: { list: (...a: unknown[]) => mockCampaigns(...a) },
   characters: {
-    portraitUrl: (id, v) => `/api/characters/${id}/portrait${v ? `?v=${v}` : ''}`,
-    import: (...a) => mockImportCharacter(...a),
+    portraitUrl: (id: string, v?: string) => `/api/characters/${id}/portrait${v ? `?v=${v}` : ''}`,
+    import: (...a: unknown[]) => mockImportCharacter(...a),
     listImporters: () => Promise.resolve({ importers: [] }),
-    list: (...a) => mockList(...a),
-    listSchemas: (...a) => mockListSchemas(...a),
-    create: (...a) => mockCreate(...a),
-    remove: (...a) => mockRemove(...a),
+    list: (...a: unknown[]) => mockList(...a),
+    listSchemas: (...a: unknown[]) => mockListSchemas(...a),
+    create: (...a: unknown[]) => mockCreate(...a),
+    remove: (...a: unknown[]) => mockRemove(...a),
   },
 }))
 
 vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom')
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
   return { ...actual, useNavigate: () => mockNavigate }
 })
 
@@ -276,7 +276,7 @@ describe('CharactersView', () => {
   })
 
   describe('importing a character file', () => {
-    const fileOf = (text) => {
+    const fileOf = (text: string) => {
       const file = new File([text], 'c.json', { type: 'application/json' })
       // jsdom's File has no text(), which is what the dialog reads it with.
       file.text = () => Promise.resolve(text)
@@ -336,7 +336,7 @@ describe('CharactersView', () => {
   describe('styling', () => {
     it('styles the primary action with the app accent and no class', async () => {
       renderView()
-      const button = (await screen.findByText(/New character/i)).closest('button')
+      const button = (await screen.findByText(/New character/i)).closest('button')!
       expect(button.style.background).toBe('var(--gold)')
       expect(button.className).toBe('')
     })
@@ -344,7 +344,7 @@ describe('CharactersView', () => {
     it('styles the secondary action as a bordered card', async () => {
       renderView()
       await screen.findByText('Vex')
-      const button = screen.getByText('Manage sheets').closest('button')
+      const button = screen.getByText('Manage sheets').closest('button')!
       expect(button.style.background).toBe('var(--bg-card)')
       expect(button.className).toBe('')
     })

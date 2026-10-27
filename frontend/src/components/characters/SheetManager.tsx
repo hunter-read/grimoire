@@ -1,4 +1,5 @@
 import { useState, useId, useRef } from 'react'
+import type { KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuFileText, LuBookOpen } from 'react-icons/lu'
 import SheetsTab from './SheetsTab'
@@ -6,6 +7,7 @@ import RulesetsPanel from './RulesetsPanel'
 import SheetCatalogue from './SheetCatalogue'
 import CharacterDialog from './CharacterDialog'
 import { tabList, tabBtn } from './characterStyles'
+import type { Schema } from '../../api'
 
 const TABS = [
   { key: 'sheets', icon: LuFileText, label: 'characters.manageSheetsTab' },
@@ -19,16 +21,28 @@ const TABS = [
  * rulesets a table edits - is what it picks from. They are one job, so they
  * are one dialog with a tab each.
  */
-export default function SheetManager({ schemas, onChanged, onClose, initialTab = 'sheets' }) {
+export interface SheetManagerProps {
+  schemas: Schema<'SchemaSummary'>[]
+  onChanged?: () => void
+  onClose: () => void
+  initialTab?: string
+}
+
+export default function SheetManager({
+  schemas,
+  onChanged,
+  onClose,
+  initialTab = 'sheets',
+}: SheetManagerProps) {
   const { t } = useTranslation()
   const baseId = useId()
-  const tabRefs = useRef({})
+  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   const [tab, setTab] = useState(initialTab === 'rulesets' ? 'content' : initialTab)
   const [browsing, setBrowsing] = useState(false)
   const [error, setError] = useState('')
 
   // Left and right move between tabs, as a tab list should.
-  const onTabKey = (event) => {
+  const onTabKey = (event: KeyboardEvent<HTMLButtonElement>) => {
     if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return
     const index = TABS.findIndex((entry) => entry.key === tab)
     const step = event.key === 'ArrowRight' ? 1 : -1

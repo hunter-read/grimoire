@@ -1,4 +1,6 @@
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { Schema } from '../../api'
 import { CATEGORY_ORDER, categoryLabel } from '../../constants'
 import AccessLevelPicker from '../metadata/AccessLevelPicker'
 import GenrePicker from '../metadata/GenrePicker'
@@ -12,22 +14,59 @@ import { linksForEditing } from '../metadata/metadataUtils'
 // Rich editor body for one book inside the bulk-edit carousel. Mirrors the
 // single-book editor and reuses the same shared components (CategoryPicker,
 // GenrePicker with inherit-from-system, TagPicker, LinkListEditor).
+/** One book's draft in the bulk-edit carousel, holding values as edited. */
+export interface BookDraft {
+  title?: string | null
+  description?: string | null
+  category?: string | null
+  genres?: string[] | null
+  tags?: string[] | null
+  urls?: Schema<'LinkEntry'>[] | null
+  authors?: string[] | null
+  artists?: string[] | null
+  publisher?: string | null
+  isbn?: string | null
+  product_code?: string | null
+  version?: string | null
+  language?: string | null
+  license?: string | null
+  /** Numbers from the server; text once the field has been typed in. */
+  year?: number | string | null
+  month?: number | string | null
+  day?: number | string | null
+  access_level?: string | null
+  /** What an inherited level resolves to; sent by the server, never edited. */
+  effective_access_level?: string | null
+  is_explicit?: boolean | null
+}
+
+export interface BookBulkEditFieldsProps {
+  draft: BookDraft
+  setField: (field: string, value: unknown) => void
+  existingCategories?: string[]
+  systemGenres?: string[]
+}
+
 export default function BookBulkEditFields({
   draft,
   setField,
   existingCategories = [],
   systemGenres = [],
-}) {
+}: BookBulkEditFieldsProps) {
   const { t } = useTranslation()
   const { genres: genreTree, licenses, reload: reloadLookups } = useLookups()
   const licenseOptions = licenses.map((l) => l.name)
 
   const categoryOptions = [
-    ...new Set([...CATEGORY_ORDER, ...existingCategories, draft.category].filter(Boolean)),
+    ...new Set(
+      [...CATEGORY_ORDER, ...existingCategories, draft.category].filter((c): c is string =>
+        Boolean(c)
+      )
+    ),
   ].map((slug) => ({ value: slug, label: categoryLabel(slug) }))
 
-  const csv = (arr) => (Array.isArray(arr) ? arr.join(', ') : '')
-  const setCsv = (field, value) =>
+  const csv = (arr: unknown) => (Array.isArray(arr) ? arr.join(', ') : '')
+  const setCsv = (field: string, value: string) =>
     setField(
       field,
       value
@@ -272,14 +311,14 @@ export default function BookBulkEditFields({
   )
 }
 
-const label = {
+const label: CSSProperties = {
   display: 'block',
   fontSize: 12,
   color: 'var(--text-muted)',
   fontWeight: 500,
   marginBottom: 6,
 }
-const input = {
+const input: CSSProperties = {
   width: '100%',
   padding: '8px 10px',
   background: 'var(--bg-deep)',

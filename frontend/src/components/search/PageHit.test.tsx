@@ -2,11 +2,12 @@ import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter, useLocation, useSearchParams } from 'react-router-dom'
 import userEvent from '@testing-library/user-event'
+import type { ComponentProps } from 'react'
 import PageHit from './PageHit'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k, o) => {
+    t: (k: string, o: { page: number }) => {
       if (k === 'common.pagePrefixed') return `p. ${o.page}`
       return k
     },
@@ -15,7 +16,7 @@ vi.mock('react-i18next', () => ({
 
 const page = { page_number: 12, snippet: 'the <b>lich</b> waits' }
 
-const renderHit = (props) =>
+const renderHit = (props: ComponentProps<typeof PageHit>) =>
   render(
     <MemoryRouter>
       <PageHit {...props} />
@@ -69,7 +70,7 @@ describe('PageHit', () => {
       )
     }
 
-    const renderHarness = (initialEntry) =>
+    const renderHarness = (initialEntry: string) =>
       render(
         <MemoryRouter initialEntries={[initialEntry]}>
           <Harness />

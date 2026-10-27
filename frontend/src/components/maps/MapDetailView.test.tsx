@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -6,11 +7,11 @@ import api from '../../api'
 
 vi.mock('../../api', () => ({
   default: { get: vi.fn(), patch: vi.fn() },
-  mediaUrl: (p) => `http://localhost${p}`,
+  mediaUrl: (p: string) => `http://localhost${p}`,
 }))
 
 let currentMapId = 'm2'
-let locationState = null
+let locationState: { from?: string } | null = null
 const navigate = vi.fn()
 vi.mock('react-router-dom', () => ({
   useParams: () => ({ mapId: currentMapId }),
@@ -23,19 +24,32 @@ vi.mock('../../context/FavoritesContext', () => ({
   useFavorites: () => ({ isFavorite: () => false, toggleFavorite }),
 }))
 vi.mock('./MapGridEditor', () => ({
-  default: ({ onSaved }) => (
+  default: ({ onSaved }: { onSaved: () => void }) => (
     <button onClick={onSaved} data-testid="grid-saved">
       grid-editor
     </button>
   ),
 }))
 vi.mock('../DownloadVersionButton', () => ({
-  default: ({ extraItems = [] }) => (
+  default: ({ extraItems = [] }: { extraItems?: { href: string }[] }) => (
     <div data-testid="download-extras">{extraItems.map((e) => e.href).join(',')}</div>
   ),
 }))
 vi.mock('../media/DetailMoreMenu', () => ({
-  default: ({ resourceType, resourceId, extraItems = [] }) => (
+  default: ({
+    resourceType,
+    resourceId,
+    extraItems = [],
+  }: {
+    resourceType: string
+    resourceId: string
+    extraItems?: {
+      key: string
+      label: string
+      requiresShare?: boolean
+      render: (onClose: () => void) => ReactNode
+    }[]
+  }) => (
     <div data-testid="map-more-menu">
       {`menu:${resourceType}:${resourceId}`}
       {extraItems.map((item) => (
@@ -48,31 +62,35 @@ vi.mock('../media/DetailMoreMenu', () => ({
   ),
 }))
 vi.mock('./OtfbmExportModal', () => ({
-  default: ({ mapId }) => <div data-testid="otfbm-modal">{`otfbm:${mapId}`}</div>,
+  default: ({ mapId }: { mapId: string }) => (
+    <div data-testid="otfbm-modal">{`otfbm:${mapId}`}</div>
+  ),
 }))
 vi.mock('./InlineTagEditor', () => ({
-  default: ({ onSave }) => (
+  default: ({ onSave }: { onSave: (tags: string[]) => void }) => (
     <button onClick={() => onSave(['new'])} data-testid="save-tags">
       save
     </button>
   ),
 }))
 vi.mock('../TagSection', () => ({
-  default: ({ label, onEdit }) => <button onClick={onEdit}>{`edit-${label}`}</button>,
+  default: ({ label, onEdit }: { label: string; onEdit: () => void }) => (
+    <button onClick={onEdit}>{`edit-${label}`}</button>
+  ),
 }))
 vi.mock('./MapPdfViewer', () => ({
-  default: ({ mapId, totalPages }) => (
+  default: ({ mapId, totalPages }: { mapId: string; totalPages: number }) => (
     <div data-testid="pdf-viewer">{`pdf:${mapId}:${totalPages}`}</div>
   ),
 }))
 vi.mock('./MapImagePane', () => ({
-  default: ({ mapId }) => <div data-testid="image-pane">{`image:${mapId}`}</div>,
+  default: ({ mapId }: { mapId: string }) => <div data-testid="image-pane">{`image:${mapId}`}</div>,
 }))
 vi.mock('./MapVideoPane', () => ({
-  default: ({ mapId }) => <div data-testid="video-pane">{`video:${mapId}`}</div>,
+  default: ({ mapId }: { mapId: string }) => <div data-testid="video-pane">{`video:${mapId}`}</div>,
 }))
 vi.mock('./MapVttPane', () => ({
-  default: ({ mapId, onData }) => (
+  default: ({ mapId, onData }: { mapId: string; onData: (data: object) => void }) => (
     <div data-testid="vtt-pane">
       {`vtt:${mapId}`}
       <button
@@ -102,7 +120,7 @@ const SIBLINGS = [
   { id: 'm3', filename: 'c.png', relative_path: 'DnD/Dungeons/c.png' },
 ]
 
-const detail = (id, over = {}) => ({
+const detail = (id: string, over = {}) => ({
   id,
   filename: `${id}.png`,
   relative_path: `DnD/Dungeons/${id}.png`,
@@ -114,8 +132,8 @@ const detail = (id, over = {}) => ({
 })
 
 // Route api.get by URL: the folder listing vs a single map fetch.
-const mockApi = (currentId, over = {}) => {
-  api.get.mockImplementation((url) => {
+const mockApi = (currentId: string, over = {}) => {
+  vi.mocked(api.get).mockImplementation((url) => {
     if (url.startsWith('/maps?')) return Promise.resolve({ total: SIBLINGS.length, maps: SIBLINGS })
     return Promise.resolve(detail(currentId, over))
   })
@@ -129,7 +147,7 @@ beforeEach(() => {
 
 describe('MapDetailView', () => {
   it('shows a spinner before the map loads', () => {
-    api.get.mockReturnValue(new Promise(() => {}))
+    vi.mocked(api.get).mockReturnValue(new Promise(() => {}))
     render(<MapDetailView />)
     expect(document.querySelector('svg')).toBeInTheDocument()
   })
@@ -243,7 +261,7 @@ describe('MapDetailView', () => {
 
   it('saves edited map tags', async () => {
     mockApi('m2')
-    api.patch.mockResolvedValue({})
+    vi.mocked(api.patch).mockResolvedValue({})
     render(<MapDetailView />)
     await waitFor(() => screen.getByText('edit-Map Tags'))
     await userEvent.click(screen.getByText('edit-Map Tags'))
@@ -253,7 +271,7 @@ describe('MapDetailView', () => {
 
   it('saves edited folder tags', async () => {
     mockApi('m2')
-    api.patch.mockResolvedValue({})
+    vi.mocked(api.patch).mockResolvedValue({})
     render(<MapDetailView />)
     await waitFor(() => screen.getByText('edit-Folder Tags'))
     await userEvent.click(screen.getByText('edit-Folder Tags'))
@@ -304,11 +322,11 @@ describe('MapDetailView', () => {
       await screen.findByTestId('image-pane')
 
       await userEvent.click(screen.getByTestId('open-grid-editor'))
-      const before = api.get.mock.calls.length
+      const before = vi.mocked(api.get).mock.calls.length
       await userEvent.click(screen.getByTestId('grid-saved'))
       // The resolved grid only exists server-side, so a save re-fetches rather
       // than patching local state.
-      await waitFor(() => expect(api.get.mock.calls.length).toBeGreaterThan(before))
+      await waitFor(() => expect(vi.mocked(api.get).mock.calls.length).toBeGreaterThan(before))
     })
 
     it('offers the editor for a map with no detected grid', async () => {

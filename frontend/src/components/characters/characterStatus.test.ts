@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import { CHARACTER_STATUSES, isActive, statusLabel } from './characterStatus'
+import type { TFunction } from 'i18next'
+import type { Schema } from '../../api'
 import { placeableCampaigns } from './useCharacterCampaigns'
 
-const t = (key) => key
+const t = ((key: string) => key) as unknown as TFunction
 
 describe('characterStatus', () => {
   it('matches the server set', () => {
@@ -26,7 +28,7 @@ describe('placeableCampaigns', () => {
     const rows = [
       { id: 'a', invitation_status: null },
       { id: 'b', invitation_status: 'invited' },
-    ]
+    ] as unknown as Schema<'CampaignOut'>[]
     expect(placeableCampaigns(rows).map((c) => c.id)).toEqual(['a'])
     expect(placeableCampaigns({ campaigns: rows }).map((c) => c.id)).toEqual(['a'])
     expect(placeableCampaigns(null)).toEqual([])

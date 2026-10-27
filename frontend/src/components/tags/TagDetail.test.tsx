@@ -4,10 +4,10 @@ import userEvent from '@testing-library/user-event'
 import TagDetail from './TagDetail'
 import { tagDetailProps } from '../../test/fakeTagItems'
 
-let prefs = {}
+let prefs: Record<string, unknown> = {}
 vi.mock('../../hooks/useUserPrefs', () => ({
   getUserPrefs: () => prefs,
-  saveUserPref: (key, value) => {
+  saveUserPref: (key: string, value: unknown) => {
     prefs[key] = value
   },
 }))
@@ -19,22 +19,34 @@ vi.mock('../../hooks/useViewMode', () => ({
 // matters here, so stub them to plain output. Each factory is inlined because
 // vi.mock is hoisted above any local helper it might otherwise share.
 vi.mock('../favorites/BookFavorite', () => ({
-  default: ({ item }) => <div data-testid="book-card">{item.item_id}</div>,
+  default: ({ item }: { item: { item_id: string } }) => (
+    <div data-testid="book-card">{item.item_id}</div>
+  ),
 }))
 vi.mock('../favorites/MapFavorite', () => ({
-  default: ({ item }) => <div data-testid="map-card">{item.item_id}</div>,
+  default: ({ item }: { item: { item_id: string } }) => (
+    <div data-testid="map-card">{item.item_id}</div>
+  ),
 }))
 vi.mock('../favorites/TokenFavorite', () => ({
-  default: ({ item }) => <div data-testid="token-card">{item.item_id}</div>,
+  default: ({ item }: { item: { item_id: string } }) => (
+    <div data-testid="token-card">{item.item_id}</div>
+  ),
 }))
 vi.mock('../favorites/AudioFavorite', () => ({
-  default: ({ item }) => <div data-testid="audio-card">{item.item_id}</div>,
+  default: ({ item }: { item: { item_id: string } }) => (
+    <div data-testid="audio-card">{item.item_id}</div>
+  ),
 }))
 vi.mock('../favorites/ModelFavorite', () => ({
-  default: ({ item }) => <div data-testid="model-card">{item.item_id}</div>,
+  default: ({ item }: { item: { item_id: string } }) => (
+    <div data-testid="model-card">{item.item_id}</div>
+  ),
 }))
 vi.mock('../favorites/SystemFavorite', () => ({
-  default: ({ item }) => <div data-testid="system-card">{item.item_id}</div>,
+  default: ({ item }: { item: { item_id: string } }) => (
+    <div data-testid="system-card">{item.item_id}</div>
+  ),
 }))
 
 beforeEach(() => {

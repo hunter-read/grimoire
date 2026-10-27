@@ -11,7 +11,7 @@ vi.mock('../../api', () => ({
   auth: { status: vi.fn() },
 }))
 
-const status = (passwordMin) => ({
+const status = (passwordMin: number) => ({
   initialized: true,
   password_min_length: passwordMin,
   share_link_password_min_length: 8,
@@ -21,7 +21,7 @@ describe('AddUserForm', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     clearPasswordRulesCache()
-    auth.status.mockResolvedValue(status(12))
+    vi.mocked(auth.status).mockResolvedValue(status(12))
   })
 
   it('renders username, password, and role fields', () => {
@@ -53,8 +53,8 @@ describe('AddUserForm', () => {
   })
 
   it("uses the server's minimum when it has been changed", async () => {
-    auth.status.mockResolvedValue(status(8))
-    api.post.mockResolvedValue({ id: '5', username: 'erin', role: 'player' })
+    vi.mocked(auth.status).mockResolvedValue(status(8))
+    vi.mocked(api.post).mockResolvedValue({ id: '5', username: 'erin', role: 'player' })
     render(<AddUserForm onAdd={vi.fn()} onCancel={vi.fn()} />)
     await waitFor(() => expect(auth.status).toHaveBeenCalled())
     await userEvent.type(screen.getByLabelText('Username'), 'erin')
@@ -75,7 +75,7 @@ describe('AddUserForm', () => {
   })
 
   it("shows the server's reason when it refuses a password as too common", async () => {
-    api.post.mockRejectedValueOnce(
+    vi.mocked(api.post).mockRejectedValueOnce(
       new Error('That password is too common - choose one that is harder to guess')
     )
     render(<AddUserForm onAdd={vi.fn()} onCancel={vi.fn()} />)
@@ -89,7 +89,7 @@ describe('AddUserForm', () => {
 
   it('submits the form and calls onAdd on success', async () => {
     const created = { id: '1', username: 'alice', role: 'player' }
-    api.post.mockResolvedValueOnce(created)
+    vi.mocked(api.post).mockResolvedValueOnce(created)
     const onAdd = vi.fn()
 
     render(<AddUserForm onAdd={onAdd} onCancel={vi.fn()} />)
@@ -109,7 +109,7 @@ describe('AddUserForm', () => {
   })
 
   it('grants API keys when ticked, and leaves them out when keys are off', async () => {
-    api.post.mockResolvedValue({ id: '9', username: 'dee', role: 'player' })
+    vi.mocked(api.post).mockResolvedValue({ id: '9', username: 'dee', role: 'player' })
     const { unmount } = render(<AddUserForm onAdd={vi.fn()} onCancel={vi.fn()} />)
     await userEvent.type(screen.getByLabelText('Username'), 'dee')
     await userEvent.type(screen.getByLabelText('Password'), 'securepassword')
@@ -123,7 +123,7 @@ describe('AddUserForm', () => {
     )
     unmount()
 
-    api.post.mockClear()
+    vi.mocked(api.post).mockClear()
     render(
       <UISettingsProvider value={{ api_keys_enabled: false }}>
         <AddUserForm onAdd={vi.fn()} onCancel={vi.fn()} />
@@ -134,12 +134,12 @@ describe('AddUserForm', () => {
     await userEvent.type(screen.getByLabelText('Password'), 'securepassword')
     fireEvent.click(screen.getByText('Create User'))
     await waitFor(() => expect(api.post).toHaveBeenCalled())
-    expect(api.post.mock.calls[0][1]).not.toHaveProperty('api_keys_enabled')
+    expect(vi.mocked(api.post).mock.calls[0][1]).not.toHaveProperty('api_keys_enabled')
   })
 
   it('hides the password field and omits password when password auth is disabled', async () => {
     const created = { id: '3', username: 'carol', role: 'player' }
-    api.post.mockResolvedValueOnce(created)
+    vi.mocked(api.post).mockResolvedValueOnce(created)
     const onAdd = vi.fn()
 
     render(<AddUserForm onAdd={onAdd} onCancel={vi.fn()} passwordAuthEnabled={false} />)
@@ -149,12 +149,12 @@ describe('AddUserForm', () => {
     fireEvent.click(screen.getByText('Create User'))
 
     await waitFor(() => expect(api.post).toHaveBeenCalled())
-    expect(api.post.mock.calls[0][1]).not.toHaveProperty('password')
+    expect(vi.mocked(api.post).mock.calls[0][1]).not.toHaveProperty('password')
   })
 
   it('passes permission toggles in the payload', async () => {
     const created = { id: '4', username: 'dave', role: 'player' }
-    api.post.mockResolvedValueOnce(created)
+    vi.mocked(api.post).mockResolvedValueOnce(created)
 
     render(<AddUserForm onAdd={vi.fn()} onCancel={vi.fn()} />)
     await userEvent.type(screen.getByLabelText('Username'), 'dave')
@@ -171,7 +171,7 @@ describe('AddUserForm', () => {
   })
 
   it('shows API error message when creation fails', async () => {
-    api.post.mockRejectedValueOnce(new Error('Username already exists'))
+    vi.mocked(api.post).mockRejectedValueOnce(new Error('Username already exists'))
 
     render(<AddUserForm onAdd={vi.fn()} onCancel={vi.fn()} />)
     await userEvent.type(screen.getByLabelText('Username'), 'duplicate')
@@ -182,12 +182,8 @@ describe('AddUserForm', () => {
   })
 
   it('shows loading state while submitting', async () => {
-    let resolve
-    api.post.mockReturnValueOnce(
-      new Promise((r) => {
-        resolve = r
-      })
-    )
+    // Never settles, so the form stays mid-submit.
+    vi.mocked(api.post).mockReturnValueOnce(new Promise(() => {}))
 
     render(<AddUserForm onAdd={vi.fn()} onCancel={vi.fn()} />)
     await userEvent.type(screen.getByLabelText('Username'), 'alice')
@@ -199,7 +195,7 @@ describe('AddUserForm', () => {
 
   it('can submit with gm role selected', async () => {
     const created = { id: '2', username: 'bob', role: 'gm' }
-    api.post.mockResolvedValueOnce(created)
+    vi.mocked(api.post).mockResolvedValueOnce(created)
     const onAdd = vi.fn()
 
     render(<AddUserForm onAdd={onAdd} onCancel={vi.fn()} />)

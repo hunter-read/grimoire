@@ -1,6 +1,7 @@
 import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuChevronRight } from 'react-icons/lu'
+import type { Schema } from '../api'
 
 /**
  * One collapsible release in the About dialog's changelog.
@@ -9,7 +10,19 @@ import { LuChevronRight } from 'react-icons/lu'
  * release is expanded (the running version, initially), and a release that
  * closed itself would have no way to honour that.
  */
-export default function ChangelogRelease({ release, isCurrent, isOpen, onToggle }) {
+export interface ChangelogReleaseProps {
+  release: Schema<'ChangelogRelease'>
+  isCurrent: boolean
+  isOpen: boolean
+  onToggle: () => void
+}
+
+export default function ChangelogRelease({
+  release,
+  isCurrent,
+  isOpen,
+  onToggle,
+}: ChangelogReleaseProps) {
   const { t } = useTranslation()
   const panelId = useId()
   const { version, date, summary, sections } = release

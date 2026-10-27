@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import type { CSSProperties } from 'react'
 
 const WHOLE = /^[-+]?\d+$/
 
@@ -13,15 +14,33 @@ const WHOLE = /^[-+]?\d+$/
  * digit that follows it, and only whole numbers ever reach the character.
  * Clearing it stores nothing (null), as the ordinary number box does.
  */
-export default function CompactNumber({ id, value, min, max, autoFocus, onChange, style }) {
-  const [draft, setDraft] = useState(value ?? '')
+export interface CompactNumberProps {
+  id?: string
+  value?: number | string | null
+  min?: number
+  max?: number
+  autoFocus?: boolean
+  onChange?: (value: number | null) => void
+  style?: CSSProperties
+}
+
+export default function CompactNumber({
+  id,
+  value,
+  min,
+  max,
+  autoFocus,
+  onChange,
+  style,
+}: CompactNumberProps) {
+  const [draft, setDraft] = useState<number | string>(value ?? '')
 
   // Follow the stored value when it changes from outside - a pick, a reset.
   useEffect(() => {
     setDraft(value ?? '')
   }, [value])
 
-  const change = (text) => {
+  const change = (text: string) => {
     if (text !== '' && !/^[-+]?\d*$/.test(text)) return
     setDraft(text)
     if (text === '') onChange?.(null)

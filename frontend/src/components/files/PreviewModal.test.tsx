@@ -4,11 +4,14 @@ import userEvent from '@testing-library/user-event'
 import PreviewModal from './PreviewModal'
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k, o) => (o ? `${k}:${JSON.stringify(o)}` : k) }),
+  useTranslation: () => ({
+    t: (k: string, o?: Record<string, unknown>) => (o ? `${k}:${JSON.stringify(o)}` : k),
+  }),
 }))
 vi.mock('../../api', () => ({
-  mediaUrl: (path) => `/api${path}`,
-  bookPageUrl: (id, page, width) => `/api/books/${id}/page/${page}?width=${width}`,
+  mediaUrl: (path: string) => `/api${path}`,
+  bookPageUrl: (id: string, page: number, width: number) =>
+    `/api/books/${id}/page/${page}?width=${width}`,
 }))
 
 const book = (over = {}) => ({ id: 'b1', title: 'Bestiary', page_count: 3, ...over })

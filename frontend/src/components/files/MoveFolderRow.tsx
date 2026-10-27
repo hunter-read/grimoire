@@ -1,10 +1,24 @@
+import type { CSSProperties } from 'react'
 import { LuChevronRight, LuFolder, LuFolderOpen, LuLock } from 'react-icons/lu'
+import type { Schema } from '../../api'
 
 // Indent per tree level. Matches FilePane's stepping so the destination picker
 // and the file manager read as the same tree seen through different windows.
 const INDENT = 14
 
 /** One folder in the destination tree: a disclosure caret plus a select target. */
+export interface MoveFolderRowProps {
+  entry: Pick<Schema<'BrowseEntry'>, 'name' | 'path'>
+  depth: number
+  open: boolean
+  selected: boolean
+  blocked: boolean
+  onToggle: () => void
+  onSelect: () => void
+  blockedLabel?: string
+  expandLabel?: string
+}
+
 export default function MoveFolderRow({
   entry,
   depth,
@@ -15,7 +29,7 @@ export default function MoveFolderRow({
   onSelect,
   blockedLabel,
   expandLabel,
-}) {
+}: MoveFolderRowProps) {
   return (
     <div style={{ display: 'flex', alignItems: 'stretch' }}>
       <button
@@ -63,7 +77,7 @@ export default function MoveFolderRow({
   )
 }
 
-export function moveRowStyle(depth, selected, disabled) {
+export function moveRowStyle(depth: number, selected: boolean, disabled: boolean): CSSProperties {
   return {
     display: 'flex',
     alignItems: 'center',

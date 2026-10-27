@@ -1,5 +1,7 @@
 /** Small uppercase pill labelling the viewer's relationship to a campaign. */
-export default function CampaignRoleBadge({ label }) {
+import type { ReactNode } from 'react'
+
+export default function CampaignRoleBadge({ label }: { label: ReactNode }) {
   return (
     <span
       style={{

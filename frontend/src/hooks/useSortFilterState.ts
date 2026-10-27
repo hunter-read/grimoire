@@ -1,8 +1,13 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type Dispatch, type SetStateAction } from 'react'
 import useSessionState from './useSessionState'
 import useRestoredView from './useRestoredView'
+import type { SavedFiltersResult } from './useSavedFilters'
+import type { SortFilterState } from '../components/library/FilterModal'
 
-export const DEFAULT_SORT_FILTER = { sort: 'name', order: 'asc', filters: {} }
+/** A gallery's sort + filter state, as stored and as saved in a preset. */
+export type SortFilter = SortFilterState
+
+export const DEFAULT_SORT_FILTER: SortFilter = { sort: 'name', order: 'asc', filters: {} }
 
 /**
  * The sort/filter state for a gallery, plus the "apply the saved default" rule.
@@ -37,9 +42,13 @@ export const DEFAULT_SORT_FILTER = { sort: 'name', order: 'asc', filters: {} }
  * @param {object} [initial]  the built-in state before any default preset
  * @returns [sortFilter, setSortFilter]
  */
-export default function useSortFilterState(key, saved, initial = DEFAULT_SORT_FILTER) {
+export default function useSortFilterState<S extends object = SortFilterState>(
+  key: string,
+  saved: Pick<SavedFiltersResult, 'loaded' | 'defaultFilter'>,
+  initial: S = DEFAULT_SORT_FILTER as unknown as S
+): [S, Dispatch<SetStateAction<S>>] {
   const restoreView = useRestoredView()
-  const [sortFilter, setSortFilter] = useSessionState(key, initial, {
+  const [sortFilter, setSortFilter] = useSessionState<S>(key, initial, {
     restore: restoreView,
   })
 
@@ -51,7 +60,7 @@ export default function useSortFilterState(key, saved, initial = DEFAULT_SORT_FI
     // A return trip already shows the user's own filtering — including the case
     // where they deliberately cleared the default away before drilling in.
     if (restoreView) return
-    if (saved.defaultFilter?.state) setSortFilter(saved.defaultFilter.state)
+    if (saved.defaultFilter?.state) setSortFilter(saved.defaultFilter.state as unknown as S)
     // setSortFilter is stable enough for this one-shot effect; re-running on its
     // identity would re-apply the default after the user changes something.
     // eslint-disable-next-line react-hooks/exhaustive-deps

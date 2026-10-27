@@ -7,9 +7,9 @@ const mockUpload = vi.fn()
 const mockDelete = vi.fn()
 vi.mock('../../api', () => ({
   characters: {
-    portraitUrl: (id, v) => `/api/characters/${id}/portrait${v ? `?v=${v}` : ''}`,
-    uploadPortrait: (...a) => mockUpload(...a),
-    deletePortrait: (...a) => mockDelete(...a),
+    portraitUrl: (id: string, v?: number) => `/api/characters/${id}/portrait${v ? `?v=${v}` : ''}`,
+    uploadPortrait: (...a: unknown[]) => mockUpload(...a),
+    deletePortrait: (...a: unknown[]) => mockDelete(...a),
   },
 }))
 
@@ -71,7 +71,7 @@ describe('CharacterPortrait', () => {
     renderPortrait()
     const input = screen.getByLabelText('Add art', { selector: 'input' })
     await userEvent.upload(input, png())
-    await waitFor(() => expect(input.value).toBe(''))
+    await waitFor(() => expect((input as HTMLInputElement).value).toBe(''))
   })
 
   it('shows the art under its versioned URL and offers to change it', () => {

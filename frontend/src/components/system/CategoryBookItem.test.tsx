@@ -1,24 +1,28 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import CategoryBookItem from './CategoryBookItem'
+import type { CategoryBookItemProps } from './CategoryBookItem'
+import type { BookRowProps, ToggleMods } from './BookRow'
+import type { BookDetailsModalProps } from './BookDetailsModal'
+import type { BookEditorProps, EditableBook } from './BookEditor'
 
 // BookRow / BookEditor have their own coverage; stub them to keep this focused
 // on CategoryBookItem's wiring (edit toggle, save/close, selection).
 vi.mock('./BookRow', () => ({
-  default: ({ book, editing, onEdit, onDetails, onToggle, selected }) => (
+  default: ({ book, editing, onEdit, onDetails, onToggle, selected }: BookRowProps) => (
     <div data-testid="book-row">
       <span>{book.title}</span>
       <span data-testid="editing">{String(editing)}</span>
       <span data-testid="selected">{String(selected)}</span>
       {onEdit && <button onClick={onEdit}>edit</button>}
       {onDetails && <button onClick={onDetails}>details</button>}
-      <button onClick={() => onToggle({ shift: true })}>toggle</button>
+      <button onClick={() => onToggle!({ shift: true } as ToggleMods)}>toggle</button>
     </div>
   ),
 }))
 
 vi.mock('./BookDetailsModal', () => ({
-  default: ({ book, onClose }) => (
+  default: ({ book, onClose }: BookDetailsModalProps) => (
     <div data-testid="book-details">
       <span>{book.title}</span>
       <button onClick={onClose}>close-details</button>
@@ -27,17 +31,17 @@ vi.mock('./BookDetailsModal', () => ({
 }))
 
 vi.mock('./BookEditor', () => ({
-  default: ({ onSave, onClose }) => (
+  default: ({ onSave, onClose }: BookEditorProps) => (
     <div data-testid="book-editor">
-      <button onClick={() => onSave({ title: 'Saved' })}>save</button>
+      <button onClick={() => onSave({ title: 'Saved' } as EditableBook)}>save</button>
       <button onClick={onClose}>close</button>
     </div>
   ),
 }))
 
-const book = { id: 'b1', title: 'The Book', relative_path: '' }
+const book = { id: 'b1', title: 'The Book', relative_path: '' } as EditableBook
 
-function baseProps(overrides = {}) {
+function baseProps(overrides: Partial<CategoryBookItemProps> = {}): CategoryBookItemProps {
   return {
     book,
     card: false,
@@ -50,7 +54,7 @@ function baseProps(overrides = {}) {
     isEditor: true,
     onSaveBook: vi.fn(),
     bulkMode: false,
-    selectedBookIds: new Set(),
+    selectedBookIds: new Set<string>(),
     onToggleBook: vi.fn(),
     ...overrides,
   }

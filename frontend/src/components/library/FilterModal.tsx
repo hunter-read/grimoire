@@ -1,10 +1,83 @@
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX, LuSearch } from 'react-icons/lu'
 import MultiSelectDropdown from '../metadata/MultiSelectDropdown'
 import TagQueryEditor from './TagQueryEditor'
 import { FILTER_NONE, FILTER_ANY } from './specialFilters'
 import { isEmptyQuery } from './tagQuery'
+
+/** One choice in a select, multi-select or tag filter. */
+export interface FilterOption {
+  value: string
+  label: string
+}
+
+/** A single-select filter (`<select>`), with the presence options unless `special` is false. */
+export interface SelectFilterDef {
+  key: string
+  label: string
+  allLabel?: string
+  options: FilterOption[]
+  special?: boolean
+}
+
+/** A multi-select filter, with the presence options unless `special` is false. */
+export interface MultiFilterDef {
+  key: string
+  label: string
+  options: FilterOption[]
+  emptyLabel?: string
+  searchPlaceholder?: string
+  special?: boolean
+}
+
+/** A grouped AND/OR tag filter (see ./tagQuery). */
+export interface QueryFilterDef {
+  key: string
+  label: string
+  options: FilterOption[]
+  emptyLabel?: string
+  searchPlaceholder?: string
+}
+
+/** A checkbox (`boolean`) or a tri-state any/true/false select. */
+export interface ToggleFilterDef {
+  key: string
+  label: string
+  boolean?: boolean
+  anyLabel?: string
+  trueLabel?: string
+  falseLabel?: string
+}
+
+/** The filter values, keyed by each definition's `key`. */
+export interface Filters {
+  search?: string
+  [key: string]: unknown
+}
+
+/** A gallery's sort + filter state. A type alias so a saved preset's state casts to it. */
+export type SortFilterState = {
+  sort: string
+  order: string
+  filters?: Filters
+}
+
+/** Save the current state as a named preset. */
+export type SavePreset = (name: string, opts: { asDefault: boolean }) => void
+
+export interface FilterModalProps {
+  state: SortFilterState
+  onChange: (next: SortFilterState) => void
+  selectFilters?: SelectFilterDef[]
+  multiFilters?: MultiFilterDef[]
+  queryFilters?: QueryFilterDef[]
+  toggleFilters?: ToggleFilterDef[]
+  showSearch?: boolean
+  searchPlaceholder?: string
+  onSavePreset?: SavePreset
+  onClose: () => void
+}
 
 /**
  * Modal housing all filter controls for a scope, plus a "save as filter"
@@ -30,15 +103,16 @@ export default function FilterModal({
   searchPlaceholder,
   onSavePreset,
   onClose,
-}) {
+}: FilterModalProps) {
   const { t } = useTranslation()
   const [saveName, setSaveName] = useState('')
   const [saveAsDefault, setSaveAsDefault] = useState(false)
 
   const filters = state.filters || {}
-  const setFilter = (key, value) => onChange({ ...state, filters: { ...filters, [key]: value } })
+  const setFilter = (key: string, value: unknown) =>
+    onChange({ ...state, filters: { ...filters, [key]: value } })
 
-  const isActive = (v) => {
+  const isActive = (v: unknown) => {
     if (v === undefined || v === null || v === '' || v === 'any') return false
     // A grouped tag filter is an array of groups; an all-empty one is inactive.
     if (Array.isArray(v)) return v.length > 0 && !isEmptyQuery(v)
@@ -63,7 +137,7 @@ export default function FilterModal({
   const booleanToggles = toggleFilters.filter((f) => f.boolean)
   const otherToggles = toggleFilters.filter((f) => !f.boolean)
 
-  const renderToggle = (f) =>
+  const renderToggle = (f: ToggleFilterDef) =>
     f.boolean ? (
       <label
         key={f.key}
@@ -149,7 +223,7 @@ export default function FilterModal({
               <label style={label}>{f.label}</label>
               <select
                 aria-label={f.label}
-                value={filters[f.key] || ''}
+                value={(filters[f.key] as string | undefined) || ''}
                 onChange={(e) => setFilter(f.key, e.target.value || undefined)}
                 style={control}
               >
@@ -181,8 +255,8 @@ export default function FilterModal({
               <MultiSelectDropdown
                 label={f.label}
                 options={f.options}
-                selected={Array.isArray(filters[f.key]) ? filters[f.key] : []}
-                onChange={(next) => setFilter(f.key, next.length ? next : undefined)}
+                selected={Array.isArray(filters[f.key]) ? (filters[f.key] as string[]) : []}
+                onChange={(next: string[]) => setFilter(f.key, next.length ? next : undefined)}
                 emptyLabel={f.emptyLabel}
                 searchPlaceholder={f.searchPlaceholder}
                 specialOptions={
@@ -307,7 +381,7 @@ export default function FilterModal({
   )
 }
 
-const overlay = {
+const overlay: CSSProperties = {
   position: 'fixed',
   inset: 0,
   background: 'var(--overlay)',
@@ -317,7 +391,7 @@ const overlay = {
   zIndex: 100,
   padding: 16,
 }
-const panel = {
+const panel: CSSProperties = {
   background: 'var(--bg-panel)',
   border: '1px solid var(--border)',
   borderRadius: 12,
@@ -327,27 +401,27 @@ const panel = {
   maxHeight: '85vh',
   overflowY: 'auto',
 }
-const header = {
+const header: CSSProperties = {
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
   marginBottom: 16,
 }
-const closeBtn = {
+const closeBtn: CSSProperties = {
   background: 'none',
   border: 'none',
   cursor: 'pointer',
   color: 'var(--text-muted)',
   display: 'flex',
 }
-const label = {
+const label: CSSProperties = {
   display: 'block',
   fontSize: 12,
   color: 'var(--text-muted)',
   fontWeight: 500,
   marginBottom: 6,
 }
-const control = {
+const control: CSSProperties = {
   fontSize: 13,
   padding: '6px 10px',
   borderRadius: 6,

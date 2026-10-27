@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ReaderMoreMenu from './ReaderMoreMenu'
+import type { ReaderMoreMenuProps } from './ReaderMoreMenu'
 
 const uiSettings = { hide_campaigns: false }
 vi.mock('../../context/UISettingsContext', () => ({
@@ -9,7 +10,7 @@ vi.mock('../../context/UISettingsContext', () => ({
 }))
 
 vi.mock('../AddToCampaignModal', () => ({
-  default: ({ onClose }) => (
+  default: ({ onClose }: { onClose: () => void }) => (
     <div>
       <span>campaign-modal</span>
       <button onClick={onClose}>close-modal</button>
@@ -20,7 +21,7 @@ vi.mock('../AddToCampaignModal', () => ({
 let canShare = false
 vi.mock('../share/useCanShare', () => ({ default: () => canShare }))
 vi.mock('../share/ShareLinkDialog', () => ({
-  default: ({ resourceId, onClose }) => (
+  default: ({ resourceId, onClose }: { resourceId: string; onClose: () => void }) => (
     <div>
       <span>{`share-dialog:${resourceId}`}</span>
       <button onClick={onClose}>close-share</button>
@@ -28,7 +29,7 @@ vi.mock('../share/ShareLinkDialog', () => ({
   ),
 }))
 
-function renderMenu(overrides = {}) {
+function renderMenu(overrides: Record<string, unknown> = {}) {
   const props = {
     bookId: 'book-1',
     mode: 'page',
@@ -41,7 +42,7 @@ function renderMenu(overrides = {}) {
     onShowDetails: vi.fn(),
     onToggleShortcuts: vi.fn(),
     ...overrides,
-  }
+  } as unknown as ReaderMoreMenuProps
   return { ...render(<ReaderMoreMenu {...props} />), props }
 }
 

@@ -1,15 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { getAccessToken, setAccessToken } from '../api/accessToken'
 import { render, screen, waitFor, act } from '@testing-library/react'
-import { AuthProvider, useAuth } from './AuthContext'
+import { AuthProvider, useAuth, type AuthUser } from './AuthContext'
 
 function StatusDisplay() {
-  const { status, user, login, logout } = useAuth()
+  const { status, user, login, logout } = useAuth()!
   return (
     <div>
       <span data-testid="status">{status}</span>
       <span data-testid="user">{user?.username ?? 'none'}</span>
-      <button onClick={() => login('tok', { username: 'alice', role: 'admin' })}>Login</button>
+      <button onClick={() => login('tok', { username: 'alice', role: 'admin' } as AuthUser)}>
+        Login
+      </button>
       <button onClick={logout}>Logout</button>
     </div>
   )
@@ -31,13 +33,13 @@ describe('AuthContext', () => {
   })
 
   it('starts in loading state before fetch resolves', () => {
-    global.fetch = vi.fn(() => new Promise(() => {})) // never resolves
+    globalThis.fetch = vi.fn(() => new Promise<Response>(() => {})) // never resolves
     renderAuth()
     expect(screen.getByTestId('status').textContent).toBe('loading')
   })
 
   it('transitions to uninitialized when no users exist on the server', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
+    globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ initialized: false }),
     })
@@ -46,7 +48,7 @@ describe('AuthContext', () => {
   })
 
   it('transitions to unauthenticated when server is initialized but no token is stored', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
+    globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ initialized: true }),
     })
@@ -56,7 +58,7 @@ describe('AuthContext', () => {
 
   it('transitions to authenticated when stored token validates successfully', async () => {
     setAccessToken('valid-token')
-    global.fetch = vi
+    globalThis.fetch = vi
       .fn()
       .mockResolvedValueOnce({
         ok: true,
@@ -75,7 +77,7 @@ describe('AuthContext', () => {
 
   it('removes invalid token and goes to unauthenticated', async () => {
     setAccessToken('bad-token')
-    global.fetch = vi
+    globalThis.fetch = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ initialized: true }) })
       .mockResolvedValueOnce({ ok: false, json: () => Promise.resolve(null) })
@@ -88,7 +90,7 @@ describe('AuthContext', () => {
 
   it('transitions to unauthenticated on grimoire:unauthorized event', async () => {
     setAccessToken('tok')
-    global.fetch = vi
+    globalThis.fetch = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ initialized: true }) })
       .mockResolvedValueOnce({
@@ -107,7 +109,7 @@ describe('AuthContext', () => {
   })
 
   it('login() stores token and sets authenticated state', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
+    globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ initialized: true }),
     })
@@ -123,7 +125,7 @@ describe('AuthContext', () => {
 
   it('logout() clears token and sets unauthenticated state', async () => {
     setAccessToken('tok')
-    global.fetch = vi
+    globalThis.fetch = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ initialized: true }) })
       .mockResolvedValueOnce({
@@ -141,14 +143,14 @@ describe('AuthContext', () => {
     expect(screen.getByTestId('status').textContent).toBe('unauthenticated')
     expect(getAccessToken()).toBeNull()
     // The server-side cookie clear was requested.
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(globalThis.fetch).toHaveBeenCalledWith(
       '/api/auth/logout',
       expect.objectContaining({ method: 'POST' })
     )
   })
 
   it('becomes unauthenticated when fetch throws a network error', async () => {
-    global.fetch = vi.fn().mockRejectedValue(new Error('Network failure'))
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error('Network failure'))
     renderAuth()
     await waitFor(() => expect(screen.getByTestId('status').textContent).toBe('unauthenticated'))
   })

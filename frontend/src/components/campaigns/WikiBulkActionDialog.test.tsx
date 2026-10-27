@@ -80,7 +80,7 @@ describe('WikiBulkActionDialog', () => {
     const { onCancel } = setup({ deleteCount: 1 })
     fireEvent.click(screen.getByRole('dialog'))
     expect(onCancel).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('dialog').parentElement)
+    fireEvent.click(screen.getByRole('dialog').parentElement!)
     expect(onCancel).toHaveBeenCalled()
   })
 })

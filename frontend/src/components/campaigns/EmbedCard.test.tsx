@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -6,18 +7,22 @@ import EmbedCard from './EmbedCard'
 
 const get = vi.fn()
 vi.mock('../../api', () => ({
-  client: { get: (...args) => get(...args) },
-  campaigns: { fileUrl: (cid, id) => `http://localhost/campaigns/${cid}/files/${id}` },
-  mediaUrl: (path) => `http://localhost${path}`,
+  client: { get: (...args: unknown[]) => get(...args) },
+  campaigns: {
+    fileUrl: (cid: string, id: string) => `http://localhost/campaigns/${cid}/files/${id}`,
+  },
+  mediaUrl: (path: string) => `http://localhost${path}`,
 }))
 
-const openingPageUrls = vi.fn((book, page) => [`/pages/${book.id}/${page ?? 'saved'}`])
+const openingPageUrls = vi.fn((book: { id: string }, page?: number | null) => [
+  `/pages/${book.id}/${page ?? 'saved'}`,
+])
 const prefetchInBackground = vi.fn()
 const prefetchNow = vi.fn()
 vi.mock('../reader/pagePrefetch', () => ({
-  openingPageUrls: (...args) => openingPageUrls(...args),
-  prefetchInBackground: (...args) => prefetchInBackground(...args),
-  prefetchNow: (...args) => prefetchNow(...args),
+  openingPageUrls: (...args: Parameters<typeof openingPageUrls>) => openingPageUrls(...args),
+  prefetchInBackground: (...args: unknown[]) => prefetchInBackground(...args),
+  prefetchNow: (...args: unknown[]) => prefetchNow(...args),
 }))
 
 const playQueue = vi.fn()
@@ -32,7 +37,7 @@ vi.mock('../../context/AudioPlayerContext', () => ({
   }),
 }))
 
-function renderEmbed(props) {
+function renderEmbed(props: ComponentProps<typeof EmbedCard>) {
   return render(
     <MemoryRouter>
       <EmbedCard {...props} />

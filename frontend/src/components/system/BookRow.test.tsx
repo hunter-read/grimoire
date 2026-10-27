@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Mock } from 'vitest'
+import type { ReactElement } from 'react'
 import { render as rtlRender, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import userEvent from '@testing-library/user-event'
 import BookRow from './BookRow'
 import * as FavCtx from '../../context/FavoritesContext'
-import * as api from '../../api'
+import type { Schema } from '../../api'
 
 vi.mock('../../context/FavoritesContext', () => ({
   useFavorites: vi.fn(),
@@ -12,19 +13,19 @@ vi.mock('../../context/FavoritesContext', () => ({
 
 vi.mock('../../api', () => ({
   default: {},
-  mediaUrl: (path) => `http://localhost${path}`,
+  mediaUrl: (path: string) => `http://localhost${path}`,
 }))
 
 // Control reading progress so the progress-bar branches can be exercised.
-const mockGetBookPrefs = vi.fn(() => ({ page: 0 }))
+const mockGetBookPrefs: Mock = vi.fn(() => ({ page: 0 }))
 vi.mock('../../hooks/useBookPrefs', () => ({
-  getBookPrefs: (id) => mockGetBookPrefs(id),
+  getBookPrefs: (id: string) => mockGetBookPrefs(id),
 }))
 
 // BookRow uses useLocation (for the CardLink state), so every render needs a Router.
-const render = (ui) => rtlRender(<MemoryRouter>{ui}</MemoryRouter>)
+const render = (ui: ReactElement) => rtlRender(<MemoryRouter>{ui}</MemoryRouter>)
 
-function makeBook(overrides = {}) {
+function makeBook(overrides: Partial<Schema<'BookOut'>> = {}): Schema<'BookOut'> {
   return {
     id: 'book-1',
     title: "Player's Handbook",
@@ -38,12 +39,15 @@ function makeBook(overrides = {}) {
     index_failed: false,
     index_error: '',
     ...overrides,
-  }
+  } as Schema<'BookOut'>
 }
+
+// The real hook's type has no mock methods; the module is mocked above.
+const mockUseFavorites = FavCtx.useFavorites as unknown as Mock
 
 describe('BookRow', () => {
   beforeEach(() => {
-    FavCtx.useFavorites.mockReturnValue({
+    mockUseFavorites.mockReturnValue({
       isFavorite: () => false,
       toggleFavorite: vi.fn(),
     })
@@ -341,7 +345,7 @@ describe('BookRow', () => {
     render(<BookRow book={makeBook({ id: 'b9', has_thumbnail: true })} card />)
     const img = document.querySelector('img')
     expect(img).toBeTruthy()
-    expect(img.getAttribute('src')).toContain('/books/b9/thumbnail')
+    expect(img!.getAttribute('src')).toContain('/books/b9/thumbnail')
   })
 
   it('renders in compact view with the title visible', () => {
@@ -377,7 +381,7 @@ describe('BookRow', () => {
 
   it('reveals row actions on hover (mouse enter/leave)', () => {
     render(<BookRow book={makeBook()} />)
-    const row = screen.getByRole('link', { name: /open player's handbook/i }).closest('div')
+    const row = screen.getByRole('link', { name: /open player's handbook/i }).closest('div')!
     fireEvent.mouseEnter(row)
     fireEvent.mouseOver(row)
     fireEvent.mouseOut(row)
@@ -417,7 +421,7 @@ describe('BookRow', () => {
 
   it('clicking the favorite button toggles favorite and stops propagation', () => {
     const toggleFavorite = vi.fn()
-    FavCtx.useFavorites.mockReturnValue({ isFavorite: () => false, toggleFavorite })
+    mockUseFavorites.mockReturnValue({ isFavorite: () => false, toggleFavorite })
     render(<BookRow book={makeBook()} />)
     fireEvent.click(screen.getByRole('button', { name: /add to favorites/i }))
     expect(toggleFavorite).toHaveBeenCalledWith('book', 'book-1')
@@ -467,7 +471,7 @@ describe('BookRow', () => {
     'offers a favorite toggle on right-click that matches the row (favorite: %s)',
     (fav, label) => {
       const toggleFavorite = vi.fn()
-      FavCtx.useFavorites.mockReturnValue({ isFavorite: () => fav, toggleFavorite })
+      mockUseFavorites.mockReturnValue({ isFavorite: () => fav, toggleFavorite })
       render(<BookRow book={makeBook()} />)
       fireEvent.contextMenu(screen.getByRole('link', { name: /open player's handbook/i }))
       fireEvent.click(screen.getByRole('menuitem', { name: new RegExp(label, 'i') }))
@@ -569,7 +573,7 @@ describe('BookRow', () => {
 
 describe('BookRow — new badge (issue #199)', () => {
   beforeEach(() => {
-    FavCtx.useFavorites.mockReturnValue({ isFavorite: () => false, toggleFavorite: vi.fn() })
+    mockUseFavorites.mockReturnValue({ isFavorite: () => false, toggleFavorite: vi.fn() })
   })
   const yesterday = () => new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 

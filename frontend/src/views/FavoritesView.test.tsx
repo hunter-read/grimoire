@@ -1,21 +1,29 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import FavoritesView from './FavoritesView'
 import * as FavCtx from '../context/FavoritesContext'
 
 vi.mock('../context/FavoritesContext', () => ({ useFavorites: vi.fn() }))
-vi.mock('../api', () => ({ mediaUrl: (p) => `http://localhost${p}` }))
+vi.mock('../api', () => ({ mediaUrl: (p: string) => `http://localhost${p}` }))
 
 // Signed out (no provider) unless a test sets a role: select mode is admin-only.
-let role = null
+let role: string | null = null
 vi.mock('../context/AuthContext', () => ({
   useAuth: () => (role ? { user: { role } } : null),
 }))
 
 // The merge dialog has its own tests; here only the hand-off matters.
 vi.mock('../components/duplicates/MergeDialog', () => ({
-  default: ({ resourceType, ids, onDone }) => (
+  default: ({
+    resourceType,
+    ids,
+    onDone,
+  }: {
+    resourceType: string
+    ids: string[]
+    onDone: (result: unknown) => void
+  }) => (
     <button onClick={() => onDone({ action: 'merged', keepId: ids[0], removedIds: ids.slice(1) })}>
       {`merge ${resourceType} ${ids.join(',')}`}
     </button>
@@ -24,8 +32,8 @@ vi.mock('../components/duplicates/MergeDialog', () => ({
 
 const reload = vi.fn()
 
-function renderWith(items) {
-  FavCtx.useFavorites.mockReturnValue({
+function renderWith(items: unknown) {
+  ;(FavCtx.useFavorites as Mock).mockReturnValue({
     items,
     isFavorite: () => true,
     toggleFavorite: vi.fn(),

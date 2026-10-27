@@ -4,12 +4,31 @@ import { LuBookmark, LuX, LuTrash2, LuPencil, LuCheck } from 'react-icons/lu'
 import api from '../../api'
 import Spinner from '../Spinner'
 import ReaderSidebarShell from './ReaderSidebarShell'
+import type { Schema } from '../../api'
 
-export default function BookmarkSidebar({ bookId, currentPage, onGoToPage, onClose, refreshKey }) {
+type Bookmark = Schema<'BookmarkOut'>
+
+interface Props {
+  bookId: string
+  currentPage: number
+  /** Jumps to a bookmark, passing its selected text so the page can highlight it. */
+  onGoToPage: (page: number, text?: string | null) => void
+  onClose: () => void
+  /** Bumped to reload the list after a bookmark is added elsewhere. */
+  refreshKey?: number
+}
+
+export default function BookmarkSidebar({
+  bookId,
+  currentPage,
+  onGoToPage,
+  onClose,
+  refreshKey,
+}: Props) {
   const { t } = useTranslation()
-  const [bookmarks, setBookmarks] = useState(null)
+  const [bookmarks, setBookmarks] = useState<Bookmark[] | null>(null)
   const [loading, setLoading] = useState(true)
-  const [editingId, setEditingId] = useState(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [editLabel, setEditLabel] = useState('')
   const [editNotes, setEditNotes] = useState('')
 
@@ -27,20 +46,22 @@ export default function BookmarkSidebar({ bookId, currentPage, onGoToPage, onClo
       })
   }, [bookId, refreshKey])
 
-  const handleDelete = (id) => {
-    api.delete(`/bookmarks/${id}`).then(() => setBookmarks((bms) => bms.filter((b) => b.id !== id)))
+  const handleDelete = (id: string) => {
+    api
+      .delete(`/bookmarks/${id}`)
+      .then(() => setBookmarks((bms) => bms!.filter((b) => b.id !== id)))
   }
 
-  const startEdit = (bm) => {
+  const startEdit = (bm: Bookmark) => {
     setEditingId(bm.id)
-    setEditLabel(bm.label)
+    setEditLabel(bm.label as string)
     setEditNotes(bm.notes || '')
   }
 
-  const saveEdit = (bm) => {
+  const saveEdit = (bm: Bookmark) => {
     api.patch(`/bookmarks/${bm.id}`, { label: editLabel, notes: editNotes }).then(() => {
       setBookmarks((bms) =>
-        bms.map((b) => (b.id === bm.id ? { ...b, label: editLabel, notes: editNotes } : b))
+        bms!.map((b) => (b.id === bm.id ? { ...b, label: editLabel, notes: editNotes } : b))
       )
       setEditingId(null)
     })

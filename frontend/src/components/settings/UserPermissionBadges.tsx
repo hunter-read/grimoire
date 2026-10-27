@@ -1,5 +1,22 @@
 import { useTranslation } from 'react-i18next'
+import type { ReactNode } from 'react'
 import { LuScroll, LuFlame, LuKey, LuShare2 } from 'react-icons/lu'
+
+interface Props {
+  allowExplicit?: boolean
+  campaignAccess?: boolean
+  apiKeys?: boolean
+  shareLinks?: boolean
+}
+
+interface Badge {
+  key: string
+  label: string
+  icon: ReactNode
+  color: string
+  bg: string
+  border: string
+}
 
 /** Read-only summary of a user's permission flags, shown in the table row. */
 export default function UserPermissionBadges({
@@ -7,10 +24,10 @@ export default function UserPermissionBadges({
   campaignAccess,
   apiKeys = false,
   shareLinks = false,
-}) {
+}: Props) {
   const { t } = useTranslation()
 
-  const badges = []
+  const badges: Badge[] = []
   if (campaignAccess) {
     badges.push({
       key: 'campaigns',

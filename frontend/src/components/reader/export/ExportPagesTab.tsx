@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import api from '../../../api'
+import type { Schema } from '../../../api'
 import ExportOptions from './ExportOptions'
 import {
   chipStyle,
@@ -11,8 +12,27 @@ import {
   sectionStyle,
 } from './exportStyles'
 import { findSection, formatPageSpec } from './pageRanges'
+import type { PageSpecResult } from './pageRanges'
+import type { ExportFormat, PageExporter } from './usePageExport'
 
-const FORMATS = ['pdf', 'png', 'jpeg', 'webp']
+interface Props {
+  exporter: PageExporter
+  parsed: PageSpecResult
+  totalPages: number
+  /** The table-of-contents endpoint; books only. */
+  tocPath?: string | null
+  currentPage: number
+  isSpread?: boolean
+}
+
+interface Chip {
+  key: string
+  label: string
+  title?: string
+  spec: string
+}
+
+const FORMATS: ExportFormat[] = ['pdf', 'png', 'jpeg', 'webp']
 
 /**
  * Whole pages: which pages, and in what form.
@@ -29,9 +49,9 @@ export default function ExportPagesTab({
   tocPath,
   currentPage,
   isSpread,
-}) {
+}: Props) {
   const { t } = useTranslation()
-  const [section, setSection] = useState(null)
+  const [section, setSection] = useState<ReturnType<typeof findSection>>(null)
   const visible = exporter.visiblePages
 
   // The section is looked up from the table of contents, which only books have.
@@ -40,34 +60,39 @@ export default function ExportPagesTab({
     let live = true
     api
       .get(tocPath)
-      .then((r) => live && setSection(findSection(r.toc, currentPage, totalPages)))
+      .then(
+        (r) =>
+          live && setSection(findSection((r as Schema<'TocResponse'>).toc, currentPage, totalPages))
+      )
       .catch(() => live && setSection(null))
     return () => {
       live = false
     }
   }, [tocPath, currentPage, totalPages])
 
-  const chips = [
-    { key: 'page', label: t('pageExport.quickThisPage'), spec: String(currentPage) },
-    isSpread && visible.length > 1
-      ? { key: 'spread', label: t('pageExport.quickThisSpread'), spec: formatPageSpec(visible) }
-      : null,
-    section && section.end > section.start
-      ? {
-          key: 'section',
-          label: t('pageExport.quickSection', { title: section.title }),
-          title: t('pageExport.pageSpan', { start: section.start, end: section.end }),
-          spec: `${section.start}-${section.end}`,
-        }
-      : null,
-    totalPages > 1
-      ? {
-          key: 'all',
-          label: t('pageExport.quickAll', { count: totalPages }),
-          spec: `1-${totalPages}`,
-        }
-      : null,
-  ].filter(Boolean)
+  const chips = (
+    [
+      { key: 'page', label: t('pageExport.quickThisPage'), spec: String(currentPage) },
+      isSpread && visible.length > 1
+        ? { key: 'spread', label: t('pageExport.quickThisSpread'), spec: formatPageSpec(visible) }
+        : null,
+      section && section.end > section.start
+        ? {
+            key: 'section',
+            label: t('pageExport.quickSection', { title: section.title }),
+            title: t('pageExport.pageSpan', { start: section.start, end: section.end }),
+            spec: `${section.start}-${section.end}`,
+          }
+        : null,
+      totalPages > 1
+        ? {
+            key: 'all',
+            label: t('pageExport.quickAll', { count: totalPages }),
+            spec: `1-${totalPages}`,
+          }
+        : null,
+    ] as (Chip | null)[]
+  ).filter((c): c is Chip => Boolean(c))
 
   const size = exporter.sizes[visible[0]]
   const joined = exporter.joinSpreads && exporter.pagesFormat !== 'pdf'

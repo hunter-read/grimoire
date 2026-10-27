@@ -3,32 +3,34 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import BulkEditModal from './BulkEditModal'
 import { clearMetadataSourcesCache } from './system/useMetadataSources'
 
-const patch = vi.fn(() => Promise.resolve({}))
-const defaultPost = () => Promise.resolve({ id: 'g1', name: 'Fantasy' })
-const post = vi.fn(defaultPost)
+const patch = vi.fn<(...args: unknown[]) => Promise<unknown>>(() => Promise.resolve({}))
+const defaultPost = (): Promise<unknown> => Promise.resolve({ id: 'g1', name: 'Fantasy' })
+const post = vi.fn<(url?: string, body?: unknown) => Promise<unknown>>(defaultPost)
 // useLookups fetches /genres and /system-families; return empty lookup lists.
-const defaultGet = (path) => {
+const defaultGet = (path?: string): Promise<unknown> => {
   if (path?.includes('metadata-sources')) return Promise.resolve({ sources: [] })
   if (path?.includes('genres')) return Promise.resolve({ genres: [] })
   if (path?.includes('system-families')) return Promise.resolve({ families: [] })
   return Promise.resolve({ books: [] })
 }
-const get = vi.fn(defaultGet)
+const get = vi.fn<(path?: string) => Promise<unknown>>(defaultGet)
 // "Save all" sends the whole batch through the bulk endpoint (issue #270).
-const bulkUpdate = vi.fn(() => Promise.resolve({ updated: [], errors: [] }))
+const bulkUpdate = vi.fn<(...args: unknown[]) => Promise<unknown>>(() =>
+  Promise.resolve({ updated: [], errors: [] })
+)
 vi.mock('../api', () => ({
   default: {
-    patch: (...args) => patch(...args),
-    get: (...args) => get(...args),
-    post: (...args) => post(...args),
+    patch: (...args: Parameters<typeof patch>) => patch(...args),
+    get: (...args: Parameters<typeof get>) => get(...args),
+    post: (...args: Parameters<typeof post>) => post(...args),
   },
   bulk: {
-    update: (...args) => bulkUpdate(...args),
+    update: (...args: Parameters<typeof bulkUpdate>) => bulkUpdate(...args),
     addTags: vi.fn(() => Promise.resolve({ updated: [], errors: [], tags: {} })),
     setFolderTags: vi.fn(() => Promise.resolve({ folders: [] })),
   },
   tags: { list: () => Promise.resolve({ tags: [] }) },
-  mediaUrl: (p) => p,
+  mediaUrl: (p: string) => p,
 }))
 
 const items = [
@@ -448,8 +450,12 @@ describe('BulkEditModal', () => {
       })
       post.mockImplementation((url, body) =>
         Promise.resolve(
-          url.endsWith('metadata-search')
-            ? { results: [{ identity: 'hit', label: `Match for ${body.query}` }] }
+          url!.endsWith('metadata-search')
+            ? {
+                results: [
+                  { identity: 'hit', label: `Match for ${(body as { query: string }).query}` },
+                ],
+              }
             : {
                 fields: [
                   {
@@ -470,13 +476,13 @@ describe('BulkEditModal', () => {
       )
     const fetchDialog = () => within(screen.getByRole('dialog', { name: 'Fetch metadata' }))
     // The dialog carries the bulk editor's own navigation bar: name and position.
-    const expectDialogOn = (name, position) => {
+    const expectDialogOn = (name: string, position: string) => {
       expect(fetchDialog().getByText(name)).toBeInTheDocument()
       expect(fetchDialog().getByText(position)).toBeInTheDocument()
     }
     const openFetch = async () =>
       fireEvent.click(await screen.findByRole('button', { name: 'Fetch metadata' }))
-    const pickMatch = async (title) => {
+    const pickMatch = async (title: string) => {
       fireEvent.click(await screen.findByRole('button', { name: `Match for ${title}` }))
       return screen.findByRole('button', { name: 'Apply 2 fields & next' })
     }
@@ -716,7 +722,7 @@ describe('BulkEditModal', () => {
       renderModal()
       const body = screen
         .getByPlaceholderText('Comma-separated tags')
-        .closest('[style*="overflow-y: auto"]')
+        .closest<HTMLElement>('[style*="overflow-y: auto"]')!
       body.scrollTop = 300
       fireEvent.click(screen.getByLabelText('Next'))
       expect(body.scrollTop).toBe(0)

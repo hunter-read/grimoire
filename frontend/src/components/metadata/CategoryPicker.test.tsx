@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event'
 import CategoryPicker from './CategoryPicker'
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k, o) => (o ? `${k}:${o.name}` : k) }),
+  useTranslation: () => ({ t: (k: string, o?: { name?: string }) => (o ? `${k}:${o.name}` : k) }),
 }))
 
 const options = [
@@ -27,7 +27,7 @@ function Harness({ initial = 'core' }) {
 describe('CategoryPicker', () => {
   it('shows the friendly label for the current slug when not editing', () => {
     render(<Harness />)
-    expect(screen.getByRole('combobox').value).toBe('Core Rulebooks')
+    expect(screen.getByRole<HTMLInputElement>('combobox').value).toBe('Core Rulebooks')
   })
 
   it('lists options on focus and filters as you type', async () => {

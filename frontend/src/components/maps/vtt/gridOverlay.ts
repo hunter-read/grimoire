@@ -22,11 +22,26 @@
  * them on every keystroke.
  */
 
+import type { Point } from './types'
+
+/** The background declarations that draw the grid; spreadable into a style. */
+export interface GridOverlayStyle {
+  backgroundImage: string
+  backgroundSize: string
+  backgroundPosition: string
+  opacity: number
+}
+
 /**
  * Background style for a grid of `cellPx` cells offset by `offset`, viewed at
  * `scale`. Returns null when there is no grid to draw yet.
  */
-export function gridOverlayStyle(cellPx, offset, scale = 1, opacity = 0.55) {
+export function gridOverlayStyle(
+  cellPx: number | null | undefined,
+  offset: Point,
+  scale = 1,
+  opacity = 0.55
+): GridOverlayStyle | null {
   if (!cellPx || cellPx <= 0) return null
   // One screen pixel, expressed in image pixels. Floored at a hair above zero
   // so a pathological scale cannot produce a zero-width (invisible) line.

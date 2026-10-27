@@ -1,9 +1,30 @@
 import { useState } from 'react'
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuSearch, LuX, LuPencil } from 'react-icons/lu'
 import ContentBrowser from './ContentBrowser'
+import type { ContentRefValue } from './ContentBrowser'
 import FieldRenderer from './FieldRenderer'
+import type { FieldDefinition } from './FieldRenderer'
+import type { ContentFieldDefinition, ContentTypeDefinition } from './ContentEntryDetail'
 import { iconBtn, fieldLabel, ghostBtn } from './characterStyles'
+
+export interface ContentRefFieldProps {
+  name: string
+  definition?: ContentFieldDefinition
+  value?: unknown
+  // Resolved catalog entries, keyed by id.
+  entries?: Record<string, unknown>
+  schemaId?: string
+  typeDefinition?: ContentTypeDefinition
+  // `meta.entry` is the picked entry's own properties, or null.
+  onChange?: (
+    value: ContentRefValue | null,
+    meta: { entry: Record<string, unknown> | null }
+  ) => void
+  readOnly?: boolean
+  hideLabel?: boolean
+}
 
 /**
  * A single pick from the catalog — a class, an ancestry, a kit.
@@ -26,23 +47,25 @@ export default function ContentRefField({
   onChange,
   readOnly = false,
   hideLabel = false,
-}) {
+}: ContentRefFieldProps) {
   const { t } = useTranslation()
   const [browsing, setBrowsing] = useState(false)
   const [editingInline, setEditingInline] = useState(false)
 
-  const ref = value && typeof value === 'object' ? value : null
+  const ref = value && typeof value === 'object' ? (value as ContentRefValue) : null
   const inline = !!ref?._inline
-  const entry = !inline && ref?._ref ? entries[ref._ref] : null
+  const entry = (!inline && ref?._ref ? entries[ref._ref] : null) as
+    { name?: string } | null | undefined
   // A reference whose entry is not installed still shows what was chosen: the
   // id is what the player picked, and hiding it would look like data loss.
-  const display = inline ? ref.name || t('characters.customEntry') : entry?.name || ref?._ref || ''
+  const display = inline ? ref!.name || t('characters.customEntry') : entry?.name || ref?._ref || ''
   const missing = !inline && !!ref?._ref && !entry
 
   // The fields a freeform entry can be given - the content type's own, so a
   // custom class keeps a hit die just as a catalog one does.
-  const inlineFields = Object.keys(typeDefinition.fields || {}).length
-    ? typeDefinition.fields
+  const inlineFields: Record<string, FieldDefinition> = Object.keys(typeDefinition.fields || {})
+    .length
+    ? typeDefinition.fields!
     : { name: { type: 'text', label: t('characters.name') } }
 
   const startInline = () => {
@@ -50,7 +73,7 @@ export default function ContentRefField({
     setEditingInline(true)
   }
 
-  const setInline = (key, cellValue) => {
+  const setInline = (key: string, cellValue: unknown) => {
     if (!inline) return
     onChange?.({ ...ref, [key]: cellValue }, { entry: null })
   }
@@ -64,7 +87,7 @@ export default function ContentRefField({
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <input
               type="text"
-              value={ref.name || ''}
+              value={ref!.name || ''}
               onChange={(e) => setInline('name', e.target.value)}
               disabled={readOnly}
               placeholder={t('characters.customEntry')}
@@ -127,7 +150,7 @@ export default function ContentRefField({
                     <FieldRenderer
                       name={`${name}.${key}`}
                       definition={fieldDefinition}
-                      value={ref[key]}
+                      value={ref![key]}
                       onChange={(v) => setInline(key, v)}
                     />
                   </div>
@@ -232,8 +255,8 @@ export default function ContentRefField({
 
       {browsing ? (
         <ContentBrowser
-          schemaId={schemaId}
-          contentType={definition.content_type}
+          schemaId={schemaId!}
+          contentType={definition.content_type!}
           typeDefinition={typeDefinition}
           chosen={ref && !inline ? [ref] : []}
           onChoose={(picked, chosenEntry) => {
@@ -247,7 +270,7 @@ export default function ContentRefField({
   )
 }
 
-const inlineEditor = {
+const inlineEditor: CSSProperties = {
   margin: '6px 0 8px',
   padding: 12,
   border: '1px solid var(--border)',

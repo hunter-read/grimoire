@@ -1,8 +1,8 @@
-import type { ComponentType, ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuHeart } from 'react-icons/lu'
 import { useFavorites } from '../context/FavoritesContext'
-import FavoritesSectionJs from '../components/favorites/FavoritesSection'
+import FavoritesSection from '../components/favorites/FavoritesSection'
 import BulkActionBar from '../components/BulkActionBar'
 import BulkToggleButton from '../components/BulkToggleButton'
 import SelectableCard from '../components/SelectableCard'
@@ -18,11 +18,14 @@ import SystemFavorite from '../components/favorites/SystemFavorite'
 import Tag from '../components/Tag'
 import { shouldAutoCollapse } from '../utils/autoCollapse'
 
-// FavoritesSection is still JavaScript; its props are inferred loosely.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const FavoritesSection = FavoritesSectionJs as ComponentType<Record<string, any>>
-
 type FavoriteItem = NonNullable<ReturnType<typeof useFavorites>>['items'][number]
+type FavoriteOf<K extends FavoriteItem['item_type']> = Extract<FavoriteItem, { item_type: K }>
+
+// A filter predicate that also narrows the favorite to its own item shape.
+const ofType =
+  <K extends FavoriteItem['item_type']>(type: K) =>
+  (item: FavoriteItem): item is FavoriteOf<K> =>
+    item.item_type === type
 
 const nameOf = (item: FavoriteItem): string => {
   const named = item as { title?: string | null; filename?: string | null }
@@ -63,12 +66,12 @@ export default function FavoritesView() {
     </SelectableCard>
   )
 
-  const systems = items.filter((i) => i.item_type === 'system')
-  const books = items.filter((i) => i.item_type === 'book')
-  const maps = items.filter((i) => i.item_type === 'map')
-  const tokens = items.filter((i) => i.item_type === 'token')
-  const audio = items.filter((i) => i.item_type === 'audio')
-  const models = items.filter((i) => i.item_type === 'model')
+  const systems = items.filter(ofType('system'))
+  const books = items.filter(ofType('book'))
+  const maps = items.filter(ofType('map'))
+  const tokens = items.filter(ofType('token'))
+  const audio = items.filter(ofType('audio'))
+  const models = items.filter(ofType('model'))
   const tags = items.filter((i) => i.item_type === 'tag')
   // Tags render as a chip row rather than a collapsible section, so only the
   // other sections count towards a long page.
@@ -141,7 +144,7 @@ export default function FavoritesView() {
           type="system"
           title={t('favorites.systems', { count: systems.length })}
           items={systems}
-          renderItem={(item: FavoriteItem, grid: boolean) => (
+          renderItem={(item: FavoriteOf<'system'>, grid: boolean) => (
             <SystemFavorite key={item.item_id} item={item} grid={grid} />
           )}
         />
@@ -153,7 +156,7 @@ export default function FavoritesView() {
           type="book"
           title={t('favorites.books', { count: books.length })}
           items={books}
-          renderItem={(item: FavoriteItem, grid: boolean) =>
+          renderItem={(item: FavoriteOf<'book'>, grid: boolean) =>
             selectable(item, <BookFavorite item={item} grid={grid} />)
           }
         />
@@ -165,7 +168,7 @@ export default function FavoritesView() {
           type="map"
           title={t('favorites.maps', { count: maps.length })}
           items={maps}
-          renderItem={(item: FavoriteItem, grid: boolean) =>
+          renderItem={(item: FavoriteOf<'map'>, grid: boolean) =>
             selectable(item, <MapFavorite item={item} grid={grid} />)
           }
         />
@@ -177,7 +180,7 @@ export default function FavoritesView() {
           type="token"
           title={t('favorites.tokens', { count: tokens.length })}
           items={tokens}
-          renderItem={(item: FavoriteItem, grid: boolean) =>
+          renderItem={(item: FavoriteOf<'token'>, grid: boolean) =>
             selectable(item, <TokenFavorite item={item} grid={grid} />)
           }
         />
@@ -189,7 +192,7 @@ export default function FavoritesView() {
           type="audio"
           title={t('favorites.audio', { count: audio.length })}
           items={audio}
-          renderItem={(item: FavoriteItem, grid: boolean) =>
+          renderItem={(item: FavoriteOf<'audio'>, grid: boolean) =>
             selectable(item, <AudioFavorite item={item} grid={grid} />)
           }
         />
@@ -201,7 +204,7 @@ export default function FavoritesView() {
           type="models"
           title={t('favorites.models', { count: models.length })}
           items={models}
-          renderItem={(item: FavoriteItem, grid: boolean) =>
+          renderItem={(item: FavoriteOf<'model'>, grid: boolean) =>
             selectable(item, <ModelFavorite item={item} grid={grid} />)
           }
         />

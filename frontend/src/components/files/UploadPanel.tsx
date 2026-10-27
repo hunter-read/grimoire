@@ -1,8 +1,15 @@
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX, LuRotateCw, LuCircleCheck, LuTriangleAlert } from 'react-icons/lu'
 import Spinner from '../Spinner'
+import type { useUploadQueue } from '../../hooks/useUploadQueue'
 
-function formatSize(bytes) {
+export interface UploadPanelProps {
+  queue: Omit<ReturnType<typeof useUploadQueue>, 'enqueue'>
+  onClose: () => void
+}
+
+function formatSize(bytes: number | null | undefined): string {
   if (bytes == null) return ''
   const units = ['B', 'KB', 'MB', 'GB']
   let n = bytes
@@ -22,7 +29,7 @@ function formatSize(bytes) {
  * "3 failed" and leave the user with no idea which three, or any way to act on
  * it. Every failure names its file and its reason, and can be retried on its own.
  */
-export default function UploadPanel({ queue, onClose }) {
+export default function UploadPanel({ queue, onClose }: UploadPanelProps) {
   const { t } = useTranslation()
   const { items, counts, inFlight } = queue
 
@@ -180,7 +187,7 @@ export default function UploadPanel({ queue, onClose }) {
   )
 }
 
-const ghost = {
+const ghost: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 4,

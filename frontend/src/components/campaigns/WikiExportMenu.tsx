@@ -1,6 +1,15 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  type CSSProperties,
+  type MouseEvent,
+} from 'react'
+import type { campaigns } from '../../api'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
+import type { IconType } from 'react-icons'
 import { LuDownload, LuFileArchive, LuFileText, LuBraces } from 'react-icons/lu'
 
 const MENU_WIDTH = 260
@@ -8,7 +17,9 @@ const MENU_WIDTH = 260
 // The formats the wiki export endpoint accepts, in the order they're offered:
 // the zip first (the round-trippable Obsidian-friendly one), then the single
 // combined file, then the JSON bundle.
-const FORMATS = [
+export type ExportFormat = Parameters<typeof campaigns.exportWiki>[1]
+
+const FORMATS: { format: ExportFormat; Icon: IconType; labelKey: string; hintKey: string }[] = [
   { format: 'md', Icon: LuFileArchive, labelKey: 'wiki.exportMd', hintKey: 'wiki.exportMdHint' },
   {
     format: 'mdfile',
@@ -27,12 +38,17 @@ const FORMATS = [
  * repositions on scroll/resize, so the sidebar's own scroll container can't clip
  * it. `onExport(format)` receives the chosen format string.
  */
-export default function WikiExportMenu({ onExport, style }) {
+interface WikiExportMenuProps {
+  onExport: (format: ExportFormat) => void
+  style?: CSSProperties
+}
+
+export default function WikiExportMenu({ onExport, style }: WikiExportMenuProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [coords, setCoords] = useState({ top: 0, left: 0 })
-  const triggerRef = useRef(null)
-  const menuRef = useRef(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   const place = useCallback(() => {
     const el = triggerRef.current
@@ -50,11 +66,12 @@ export default function WikiExportMenu({ onExport, style }) {
   useEffect(() => {
     if (!open) return
     place()
-    const onDoc = (e) => {
-      if (triggerRef.current?.contains(e.target) || menuRef.current?.contains(e.target)) return
+    const onDoc = (e: globalThis.MouseEvent) => {
+      const target = e.target as Node
+      if (triggerRef.current?.contains(target) || menuRef.current?.contains(target)) return
       setOpen(false)
     }
-    const onKey = (e) => e.key === 'Escape' && setOpen(false)
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
     const onReposition = () => place()
     document.addEventListener('mousedown', onDoc)
     document.addEventListener('keydown', onKey)
@@ -68,7 +85,7 @@ export default function WikiExportMenu({ onExport, style }) {
     }
   }, [open, place])
 
-  const choose = (format) => (e) => {
+  const choose = (format: ExportFormat) => (e: MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation()
     setOpen(false)
     onExport(format)

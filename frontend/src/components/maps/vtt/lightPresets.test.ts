@@ -44,7 +44,7 @@ describe('lightPresets', () => {
     expect(out.position).toEqual({ x: 4, y: 7 })
     expect(out).toMatchObject({ range: 5, intensity: 0.25, color: 'fff79308' })
     // The preset's own id is not a light field and must not leak into the doc.
-    expect(out.id).toBeUndefined()
+    expect((out as typeof out & { id?: string }).id).toBeUndefined()
   })
 
   it('leaves the light untouched for an unknown preset', () => {
@@ -59,12 +59,12 @@ describe('lightPresets', () => {
 
   it('reads a tuned light as custom again', () => {
     const torch = LIGHT_PRESETS.find((p) => p.id === 'torch')
-    expect(matchPreset({ ...torch, range: torch.range + 2 })).toBe(PRESET_CUSTOM)
+    expect(matchPreset({ ...torch, range: torch!.range + 2 })).toBe(PRESET_CUSTOM)
   })
 
   it('matches case-insensitively, since stored colour casing varies', () => {
     const torch = LIGHT_PRESETS.find((p) => p.id === 'torch')
-    expect(matchPreset({ ...torch, color: torch.color.toUpperCase() })).toBe('torch')
+    expect(matchPreset({ ...torch, color: torch!.color.toUpperCase() })).toBe('torch')
   })
 
   it('calls a missing light custom rather than throwing', () => {

@@ -13,8 +13,8 @@ import api from '../api'
 
 beforeEach(() => {
   vi.resetAllMocks()
-  api.get.mockResolvedValue({ running: false, phase: null })
-  api.post.mockResolvedValue({})
+  vi.mocked(api.get).mockResolvedValue({ running: false, phase: null })
+  vi.mocked(api.post).mockResolvedValue({})
 })
 
 describe('RescanButton', () => {

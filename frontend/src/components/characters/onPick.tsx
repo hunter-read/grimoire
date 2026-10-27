@@ -14,11 +14,69 @@
 // remove a granted feat or add a skill no pick offered, and a sheet with no
 // content installed at all works exactly as it did before.
 
+import type { Schema } from '../../api'
+
 export const GRANTED_KEY = '_granted'
+
+type Values = Record<string, unknown>
+
+// What one pick added, per target field: `{skills: ['arcana']}`.
+type Grants = Record<string, string[]>
+
+/** One `on_pick` rule on a content_ref field. */
+interface PickRule {
+  grant?: string
+  choose?: string
+  ref?: string
+  name?: string
+  from?: string
+  names?: string
+  carry?: Record<string, string>
+  count?: number | string
+  label?: string
+}
+
+interface PickField {
+  type?: string
+  options?: unknown[]
+  on_pick?: unknown
+  content_type?: string
+  default?: unknown
+  default_from?: unknown
+}
+
+/** The parts of a schema document a pick reads. */
+interface PickDocument {
+  fields?: Record<string, PickField | undefined> | null
+}
+
+/** A choice a pick still asks the player to make: "choose 2 skills". */
+// A type alias rather than an interface, so it fits a `Record<string, unknown>`.
+export type PickChoice = {
+  source: string
+  target: string
+  count: number
+  options: string[]
+  label: string
+}
+
+/** How the catalog resolves entry ids, keyed by id. */
+type ResolvedRefs = Record<
+  string,
+  Pick<Schema<'ResolvedEntry'>, 'content_type' | 'source' | 'missing'>
+>
+
+interface PlanPickArgs {
+  document?: PickDocument | null
+  data?: Values | null
+  field: string
+  entry?: Values | null
+  lookup?: (ids: string[]) => Promise<ResolvedRefs | null | undefined>
+}
 
 // A property read off an entry as a list: a real list, or comma-separated text
 // for content written before lists were declared.
-function asList(value) {
+function asList(value: unknown): string[] {
   if (Array.isArray(value)) return value.map((item) => String(item))
   if (typeof value === 'string') {
     return value
@@ -29,21 +87,24 @@ function asList(value) {
   return []
 }
 
-function optionValues(definition) {
+function optionValues(definition: PickField | undefined): string[] {
   return (definition?.options || []).map((option) =>
-    option && typeof option === 'object' ? String(option.value) : String(option)
+    option && typeof option === 'object'
+      ? String((option as { value?: unknown }).value)
+      : String(option)
   )
 }
 
 // Whether a content-list item is the one a grant recorded under `key`: a
 // reference by its id, a freeform entry by its name.
-function matchesKey(item, key) {
-  if (!item || typeof item !== 'object') return false
+function matchesKey(value: unknown, key: string): boolean {
+  if (!value || typeof value !== 'object') return false
+  const item = value as Values
   if (item._ref !== undefined && item._ref !== null) return String(item._ref) === key
   return !!item._inline && String(item.name ?? '') === key
 }
 
-function currentList(data, patch, target) {
+function currentList(data: Values | null | undefined, patch: Values, target: string): unknown[] {
   const value = target in patch ? patch[target] : data?.[target]
   return Array.isArray(value) ? [...value] : []
 }
@@ -63,14 +124,24 @@ function currentList(data, patch, target) {
  * @returns {Promise<{patch: object, choices: object[]}>} the data to write, and
  *   any choices the player still has to make
  */
-export async function planPick({ document, data, field, entry, lookup }) {
+export async function planPick({
+  document,
+  data,
+  field,
+  entry,
+  lookup,
+}: PlanPickArgs): Promise<{ patch: Values; choices: PickChoice[] }> {
   const fields = document?.fields || {}
-  const rules = Array.isArray(fields[field]?.on_pick) ? fields[field].on_pick : []
-  const patch = {}
-  const choices = []
+  const rules: PickRule[] = Array.isArray(fields[field]?.on_pick)
+    ? (fields[field]!.on_pick as PickRule[])
+    : []
+  const patch: Values = {}
+  const choices: PickChoice[] = []
 
-  const granted = { ...(data?.[GRANTED_KEY] || {}) }
-  const previous = granted[field] || {}
+  const granted: Record<string, Grants> = {
+    ...((data?.[GRANTED_KEY] || {}) as Record<string, Grants>),
+  }
+  const previous: Grants = granted[field] || {}
   const hadGrants = Object.keys(previous).length > 0
   delete granted[field]
 
@@ -85,14 +156,14 @@ export async function planPick({ document, data, field, entry, lookup }) {
         : list.filter((value) => !remove.has(String(value)))
   }
 
-  const recorded = {}
-  const record = (target, key) => {
+  const recorded: Grants = {}
+  const record = (target: string, key: string) => {
     recorded[target] = [...(recorded[target] || []), key]
   }
 
   if (entry && rules.length) {
     // Resolved up front, in one request, for every reference any rule grants.
-    const wanted = []
+    const wanted: string[] = []
     for (const rule of rules) {
       if (!rule.grant) continue
       if (rule.ref && entry[rule.ref]) wanted.push(String(entry[rule.ref]))
@@ -100,7 +171,7 @@ export async function planPick({ document, data, field, entry, lookup }) {
         wanted.push(...asList(entry[rule.from]))
       }
     }
-    let resolved = {}
+    let resolved: ResolvedRefs = {}
     if (wanted.length && lookup) {
       try {
         resolved = (await lookup(wanted)) || {}
@@ -120,7 +191,7 @@ export async function planPick({ document, data, field, entry, lookup }) {
         if (definition.type === 'multiselect') {
           const allowed = new Set(optionValues(definition))
           const list = currentList(data, patch, target)
-          for (const value of asList(entry[rule.from])) {
+          for (const value of asList(entry[rule.from!])) {
             if (!allowed.has(value) || list.includes(value)) continue
             list.push(value)
             record(target, value)
@@ -133,14 +204,14 @@ export async function planPick({ document, data, field, entry, lookup }) {
           const list = currentList(data, patch, target)
           // Values carried from the pick onto a freeform entry - the species'
           // name as each of its traits' source.
-          const carried = {}
+          const carried: Values = {}
           for (const [toKey, fromKey] of Object.entries(rule.carry || {})) {
             if (entry[fromKey] !== undefined) carried[toKey] = entry[fromKey]
           }
           // One entry (`ref`/`name`) or several (`from`, with `names` in the
           // same order to fall back to).
-          const pairs = rule.from
-            ? asList(entry[rule.from]).map((id, i) => [id, asList(entry[rule.names])[i] || ''])
+          const pairs: [string, string][] = rule.from
+            ? asList(entry[rule.from]).map((id, i) => [id, asList(entry[rule.names!])[i] || ''])
             : [
                 [
                   rule.ref ? String(entry[rule.ref] ?? '') : '',
@@ -176,7 +247,7 @@ export async function planPick({ document, data, field, entry, lookup }) {
         const definition = fields[target]
         if (!definition) continue
         const allowed = new Set(optionValues(definition))
-        const options = asList(entry[rule.from]).filter((value) => allowed.has(value))
+        const options = asList(entry[rule.from!]).filter((value) => allowed.has(value))
         const count =
           typeof rule.count === 'string' ? Number(entry[rule.count]) || 0 : Number(rule.count ?? 1)
         if (count > 0 && options.length) {
@@ -197,15 +268,27 @@ export async function planPick({ document, data, field, entry, lookup }) {
  * Recorded under the same source as the pick that asked, so re-picking the
  * class later takes the chosen skills back off along with everything else.
  */
-export function applyChoice({ data, choice, picked }) {
-  const list = Array.isArray(data?.[choice.target]) ? [...data[choice.target]] : []
-  const added = []
+export function applyChoice({
+  data,
+  choice,
+  picked,
+}: {
+  data?: Values | null
+  choice: Pick<PickChoice, 'source' | 'target'>
+  picked?: unknown[] | null
+}): Values {
+  const list: unknown[] = Array.isArray(data?.[choice.target])
+    ? [...(data![choice.target] as unknown[])]
+    : []
+  const added: unknown[] = []
   for (const value of picked || []) {
     if (list.includes(value)) continue
     list.push(value)
     added.push(value)
   }
-  const granted = { ...(data?.[GRANTED_KEY] || {}) }
+  const granted: Record<string, Record<string, unknown[]>> = {
+    ...((data?.[GRANTED_KEY] || {}) as Record<string, Record<string, unknown[]>>),
+  }
   const fromSource = { ...(granted[choice.source] || {}) }
   fromSource[choice.target] = [...(fromSource[choice.target] || []), ...added]
   granted[choice.source] = fromSource
@@ -224,7 +307,12 @@ export function applyChoice({ data, choice, picked }) {
  * own box sat empty - the sheet and its arithmetic disagreeing about the same
  * number.
  */
-export function fieldState(name, definition, data, context) {
+export function fieldState(
+  name: string,
+  definition: PickField | null | undefined,
+  data: Values | null | undefined,
+  context: Values | null | undefined
+): { value: unknown; derived: boolean; overridden: boolean } {
   const own = Object.prototype.hasOwnProperty.call(data || {}, name)
   const derivable = !!definition?.default_from
   let value = data?.[name]

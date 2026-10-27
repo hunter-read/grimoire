@@ -5,7 +5,7 @@ import BulkToggleButton from './BulkToggleButton'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k) => ({ 'common.select': 'Select', 'common.cancel': 'Cancel' })[k] || k,
+    t: (k: string) => ({ 'common.select': 'Select', 'common.cancel': 'Cancel' })[k] || k,
   }),
 }))
 
@@ -19,7 +19,7 @@ describe('BulkToggleButton', () => {
 
   it('keeps a stable width across states (minWidth set)', () => {
     render(<BulkToggleButton active={false} onToggle={() => {}} />)
-    expect(screen.getByText('Select').closest('button').style.minWidth).toBe('96px')
+    expect(screen.getByText('Select').closest('button')!.style.minWidth).toBe('96px')
   })
 
   it('fires onToggle when clicked', async () => {

@@ -6,7 +6,17 @@
 // `resource_group_order` reorders the whole set. A GM who has arranged their
 // Resources panel sees the same tabs, in the same order, when embedding.
 
+import type { Schema } from '../../api'
 import { TYPE_ICONS } from './resourcesShared'
+
+type EmbedResource = Pick<Schema<'LinkedResourceOut'>, 'resource_type' | 'category_id'>
+type EmbedCategory = Pick<Schema<'CampaignCategoryOut'>, 'id' | 'name' | 'sort_order'>
+
+export interface EmbedGroup<R> {
+  key: string
+  label: string
+  items: R[]
+}
 
 /**
  * Build the tab groups for a resource list.
@@ -17,13 +27,19 @@ import { TYPE_ICONS } from './resourcesShared'
  * @param {(type: string) => string} typeLabel  localized label for a type group
  * @returns {Array} `{ key, label, items }`, empty groups dropped
  */
-export function buildEmbedGroups(resources, categories, groupOrder, typeLabel) {
+export function buildEmbedGroups<R extends EmbedResource>(
+  resources: readonly R[] | null | undefined,
+  categories: readonly EmbedCategory[] | null | undefined,
+  groupOrder: readonly string[] | null | undefined,
+  typeLabel: (type: string) => string
+): EmbedGroup<R>[] {
   const items = resources || []
   const cats = categories || []
   const catById = new Map(cats.map((c) => [c.id, c]))
 
-  const groups = [...cats]
-    .sort((a, b) => a.sort_order - b.sort_order)
+  const groups: EmbedGroup<R>[] = [...cats]
+    // Every category the API returns carries a sort_order.
+    .sort((a, b) => (a.sort_order as number) - (b.sort_order as number))
     .map((cat) => ({
       key: `cat:${cat.id}`,
       label: cat.name,
@@ -45,7 +61,7 @@ export function buildEmbedGroups(resources, categories, groupOrder, typeLabel) {
   // Groups the GM has explicitly ordered lead, in that order; the rest keep
   // their default relative order behind them.
   const order = groupOrder || []
-  const orderIndex = (key) => {
+  const orderIndex = (key: string) => {
     const i = order.indexOf(key)
     return i === -1 ? order.length + groups.findIndex((g) => g.key === key) : i
   }

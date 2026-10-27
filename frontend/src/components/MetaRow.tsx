@@ -1,5 +1,12 @@
+import type { ReactNode } from 'react'
+
+export interface MetaRowProps {
+  label: ReactNode
+  value: ReactNode
+}
+
 /** Labelled metadata row used in the map/token detail sidebars. */
-export default function MetaRow({ label, value }) {
+export default function MetaRow({ label, value }: MetaRowProps) {
   return (
     <div style={{ marginBottom: 14 }}>
       <div

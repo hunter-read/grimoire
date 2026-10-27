@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import CalendarMenu from './CalendarMenu'
 
@@ -13,18 +14,21 @@ vi.mock('../../api', () => ({
 
 import { campaigns } from '../../api'
 
+// The api module is mocked above; reach its helpers as plain vi.fn()s.
+const campaignsMock = campaigns as unknown as Record<keyof typeof campaigns, Mock>
+
 const campaign = { id: 'c1', name: 'Curse of Strahd' }
 
 beforeEach(() => {
   vi.clearAllMocks()
-  campaigns.getCalendarSubscription.mockResolvedValue({
+  campaignsMock.getCalendarSubscription.mockResolvedValue({
     has_token: false,
     base_url_configured: true,
     feed_url: null,
     webcal_url: null,
     campaign_feed_url: null,
   })
-  campaigns.downloadCalendar.mockResolvedValue(undefined)
+  campaignsMock.downloadCalendar.mockResolvedValue(undefined)
 })
 
 describe('CalendarMenu', () => {

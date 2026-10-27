@@ -1,18 +1,25 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { ReactNode } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import LogsTab from './LogsTab'
 import api from '../../api'
 
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }))
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }))
 vi.mock('../../api', () => ({ default: { get: vi.fn() } }))
 vi.mock('./LogRow', () => ({
-  default: ({ entry, onUserClick }) => (
+  default: ({
+    entry,
+    onUserClick,
+  }: {
+    entry: { message: string; user?: string }
+    onUserClick?: (user: string) => void
+  }) => (
     <div data-testid="log-row">
       {entry.message}
       {entry.user && onUserClick && (
-        <button onClick={() => onUserClick(entry.user)}>{`chip:${entry.user}`}</button>
+        <button onClick={() => onUserClick(entry.user!)}>{`chip:${entry.user}`}</button>
       )}
     </div>
   ),
@@ -20,34 +27,38 @@ vi.mock('./LogRow', () => ({
 
 // Capture the IntersectionObserver callback so tests can drive "scrolled to the
 // top" without a real layout engine.
-let observerCallback = null
+let observerCallback: IntersectionObserverCallback | null = null
 
 // Scroll to the top until the older page is actually requested. The component
 // reads its entry counts from refs that an effect fills after each render, and
 // that effect is scheduled apart from the test's own waits - so a single
 // intersection fired straight after the first page renders can find nothing
 // older to load, and the test would pass without ever loading it.
-const scrollToTopUntilRequested = (url) =>
+const scrollToTopUntilRequested = (url: string) =>
   waitFor(() => {
-    observerCallback([{ isIntersecting: true }])
+    fire([{ isIntersecting: true }])
     expect(api.get).toHaveBeenCalledWith(url)
   })
+// Drive the captured observer with just the entry fields the component reads.
+const fire = (entries: Partial<IntersectionObserverEntry>[]) =>
+  observerCallback!(entries as IntersectionObserverEntry[], null as unknown as IntersectionObserver)
+
 class MockIntersectionObserver {
-  constructor(cb) {
+  constructor(cb: IntersectionObserverCallback) {
     observerCallback = cb
   }
   observe() {}
   disconnect() {}
 }
 
-const entry = (message, level = 'info') => ({
+const entry = (message: string, level = 'info') => ({
   timestamp: '2026-08-11T10:00:00.000000',
   level,
   message,
   logger: 'backend',
 })
 
-const page = (entries, over = {}) => ({
+const page = (entries: object[], over = {}) => ({
   entries,
   total: entries.length,
   max_seq: entries.length,
@@ -58,9 +69,10 @@ beforeEach(() => {
   vi.clearAllMocks()
   // clearAllMocks keeps queued `mockResolvedValueOnce` values, so one a test
   // never consumed would answer the next test's first fetch instead.
-  api.get.mockReset()
+  vi.mocked(api.get).mockReset()
   observerCallback = null
-  globalThis.IntersectionObserver = MockIntersectionObserver
+  globalThis.IntersectionObserver =
+    MockIntersectionObserver as unknown as typeof IntersectionObserver
 })
 
 afterEach(() => {
@@ -69,7 +81,7 @@ afterEach(() => {
 
 describe('LogsTab', () => {
   it('loads and renders the initial page of entries', async () => {
-    api.get.mockResolvedValue(page([entry('server started'), entry('ready')]))
+    vi.mocked(api.get).mockResolvedValue(page([entry('server started'), entry('ready')]))
     render(<LogsTab />, { wrapper: MemoryRouter })
     expect(await screen.findByText('server started')).toBeInTheDocument()
     expect(screen.getByText('ready')).toBeInTheDocument()
@@ -77,25 +89,25 @@ describe('LogsTab', () => {
   })
 
   it('shows the empty state when there are no entries for the level', async () => {
-    api.get.mockResolvedValue(page([]))
+    vi.mocked(api.get).mockResolvedValue(page([]))
     render(<LogsTab />, { wrapper: MemoryRouter })
     expect(await screen.findByText('logs.noEntriesLevel')).toBeInTheDocument()
   })
 
   it('shows an error when the initial load fails', async () => {
-    api.get.mockRejectedValue(new Error('logs unavailable'))
+    vi.mocked(api.get).mockRejectedValue(new Error('logs unavailable'))
     render(<LogsTab />, { wrapper: MemoryRouter })
     expect(await screen.findByRole('alert')).toHaveTextContent('logs unavailable')
   })
 
   it('falls back to a default message when the error has none', async () => {
-    api.get.mockRejectedValue({})
+    vi.mocked(api.get).mockRejectedValue({})
     render(<LogsTab />, { wrapper: MemoryRouter })
     expect(await screen.findByRole('alert')).toHaveTextContent('Failed to load logs')
   })
 
   it('refetches when the level changes', async () => {
-    api.get.mockResolvedValue(page([entry('boom', 'error')]))
+    vi.mocked(api.get).mockResolvedValue(page([entry('boom', 'error')]))
     render(<LogsTab />, { wrapper: MemoryRouter })
     await screen.findByText('boom')
 
@@ -107,11 +119,13 @@ describe('LogsTab', () => {
 
   describe('user filter', () => {
     const at =
-      (url) =>
-      ({ children }) => <MemoryRouter initialEntries={[url]}>{children}</MemoryRouter>
+      (url: string) =>
+      ({ children }: { children?: ReactNode }) => (
+        <MemoryRouter initialEntries={[url]}>{children}</MemoryRouter>
+      )
 
     it('narrows to the user named in the URL and hides the per-line chips', async () => {
-      api.get.mockResolvedValue(
+      vi.mocked(api.get).mockResolvedValue(
         page([{ ...entry('signed in'), user: 'alice' }], { users: ['alice'] })
       )
       render(<LogsTab />, { wrapper: at('/settings/logs?user=alice') })
@@ -122,7 +136,9 @@ describe('LogsTab', () => {
     })
 
     it("narrows to a line's user from its chip", async () => {
-      api.get.mockResolvedValue(page([{ ...entry('opened map'), user: 'bob' }], { users: ['bob'] }))
+      vi.mocked(api.get).mockResolvedValue(
+        page([{ ...entry('opened map'), user: 'bob' }], { users: ['bob'] })
+      )
       render(<LogsTab />, { wrapper: MemoryRouter })
       await userEvent.click(await screen.findByText('chip:bob'))
       await waitFor(() =>
@@ -132,7 +148,7 @@ describe('LogsTab', () => {
     })
 
     it('offers a way back to everyone when the user has no lines', async () => {
-      api.get.mockResolvedValue(page([], { users: [] }))
+      vi.mocked(api.get).mockResolvedValue(page([], { users: [] }))
       render(<LogsTab />, { wrapper: at('/settings/logs?user=carol') })
       await screen.findByText('logs.noEntriesUser')
       await userEvent.click(screen.getByText('logs.showAllUsers'))
@@ -144,7 +160,7 @@ describe('LogsTab', () => {
   })
 
   it('marks the active level button as pressed', async () => {
-    api.get.mockResolvedValue(page([]))
+    vi.mocked(api.get).mockResolvedValue(page([]))
     render(<LogsTab />, { wrapper: MemoryRouter })
     await screen.findByText('logs.noEntriesLevel')
     const [debugBtn] = screen.getAllByLabelText('logs.showLevelAbove')
@@ -154,7 +170,7 @@ describe('LogsTab', () => {
   })
 
   it('filters entries by the search box', async () => {
-    api.get.mockResolvedValue(page([entry('alpha event'), entry('beta event')]))
+    vi.mocked(api.get).mockResolvedValue(page([entry('alpha event'), entry('beta event')]))
     render(<LogsTab />, { wrapper: MemoryRouter })
     await screen.findByText('alpha event')
 
@@ -164,7 +180,7 @@ describe('LogsTab', () => {
   })
 
   it('shows the no-match empty state when the search excludes everything', async () => {
-    api.get.mockResolvedValue(page([entry('alpha event')]))
+    vi.mocked(api.get).mockResolvedValue(page([entry('alpha event')]))
     render(<LogsTab />, { wrapper: MemoryRouter })
     await screen.findByText('alpha event')
 
@@ -173,7 +189,7 @@ describe('LogsTab', () => {
   })
 
   it('toggles live tailing off and on', async () => {
-    api.get.mockResolvedValue(page([]))
+    vi.mocked(api.get).mockResolvedValue(page([]))
     render(<LogsTab />, { wrapper: MemoryRouter })
     await screen.findByText('logs.noEntriesLevel')
 
@@ -188,11 +204,11 @@ describe('LogsTab', () => {
 
   it('appends new entries from the live poll', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
-    api.get.mockResolvedValueOnce(page([entry('first')]))
+    vi.mocked(api.get).mockResolvedValueOnce(page([entry('first')]))
     render(<LogsTab />, { wrapper: MemoryRouter })
     await screen.findByText('first')
 
-    api.get.mockResolvedValueOnce(page([entry('second')], { total: 2, max_seq: 2 }))
+    vi.mocked(api.get).mockResolvedValueOnce(page([entry('second')], { total: 2, max_seq: 2 }))
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1100)
     })
@@ -202,11 +218,11 @@ describe('LogsTab', () => {
 
   it('ignores an empty live poll response', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
-    api.get.mockResolvedValueOnce(page([entry('only')]))
+    vi.mocked(api.get).mockResolvedValueOnce(page([entry('only')]))
     render(<LogsTab />, { wrapper: MemoryRouter })
     await screen.findByText('only')
 
-    api.get.mockResolvedValueOnce(page([], { total: 1, max_seq: 1 }))
+    vi.mocked(api.get).mockResolvedValueOnce(page([], { total: 1, max_seq: 1 }))
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1100)
     })
@@ -215,11 +231,11 @@ describe('LogsTab', () => {
 
   it('swallows live poll failures without showing an error', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
-    api.get.mockResolvedValueOnce(page([entry('only')]))
+    vi.mocked(api.get).mockResolvedValueOnce(page([entry('only')]))
     render(<LogsTab />, { wrapper: MemoryRouter })
     await screen.findByText('only')
 
-    api.get.mockRejectedValueOnce(new Error('transient'))
+    vi.mocked(api.get).mockRejectedValueOnce(new Error('transient'))
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1100)
     })
@@ -229,67 +245,67 @@ describe('LogsTab', () => {
 
   it('does not poll while paused', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
-    api.get.mockResolvedValue(page([entry('only')]))
+    vi.mocked(api.get).mockResolvedValue(page([entry('only')]))
     render(<LogsTab />, { wrapper: MemoryRouter })
     await screen.findByText('only')
     await userEvent.click(screen.getByLabelText('logs.pauseAriaLabel'))
 
-    const callsBefore = api.get.mock.calls.length
+    const callsBefore = vi.mocked(api.get).mock.calls.length
     await act(async () => {
       await vi.advanceTimersByTimeAsync(3000)
     })
-    expect(api.get.mock.calls.length).toBe(callsBefore)
+    expect(vi.mocked(api.get).mock.calls.length).toBe(callsBefore)
   })
 
   it('shows the older-entries banner and loads older pages when the sentinel intersects', async () => {
-    api.get.mockResolvedValueOnce(page([entry('recent')], { total: 3, max_seq: 1 }))
+    vi.mocked(api.get).mockResolvedValueOnce(page([entry('recent')], { total: 3, max_seq: 1 }))
     render(<LogsTab />, { wrapper: MemoryRouter })
     await screen.findByText('recent')
     expect(screen.getByText('logs.olderEntries')).toBeInTheDocument()
 
-    api.get.mockResolvedValueOnce(page([entry('older')], { total: 3, max_seq: 1 }))
+    vi.mocked(api.get).mockResolvedValueOnce(page([entry('older')], { total: 3, max_seq: 1 }))
     await scrollToTopUntilRequested('/logs?level=info&limit=2&offset=1')
     expect(await screen.findByText('older')).toBeInTheDocument()
   })
 
   it('does not load older entries when everything is already loaded', async () => {
-    api.get.mockResolvedValue(page([entry('all of it')]))
+    vi.mocked(api.get).mockResolvedValue(page([entry('all of it')]))
     render(<LogsTab />, { wrapper: MemoryRouter })
     await screen.findByText('all of it')
     expect(screen.queryByText('logs.olderEntries')).not.toBeInTheDocument()
 
-    const callsBefore = api.get.mock.calls.length
+    const callsBefore = vi.mocked(api.get).mock.calls.length
     await act(async () => {
-      observerCallback([{ isIntersecting: true }])
+      fire([{ isIntersecting: true }])
     })
-    expect(api.get.mock.calls.length).toBe(callsBefore)
+    expect(vi.mocked(api.get).mock.calls.length).toBe(callsBefore)
   })
 
   it('ignores a non-intersecting sentinel callback', async () => {
-    api.get.mockResolvedValueOnce(page([entry('recent')], { total: 5, max_seq: 1 }))
+    vi.mocked(api.get).mockResolvedValueOnce(page([entry('recent')], { total: 5, max_seq: 1 }))
     render(<LogsTab />, { wrapper: MemoryRouter })
     await screen.findByText('recent')
 
-    const callsBefore = api.get.mock.calls.length
+    const callsBefore = vi.mocked(api.get).mock.calls.length
     await act(async () => {
-      observerCallback([{ isIntersecting: false }])
+      fire([{ isIntersecting: false }])
     })
-    expect(api.get.mock.calls.length).toBe(callsBefore)
+    expect(vi.mocked(api.get).mock.calls.length).toBe(callsBefore)
   })
 
   it('swallows a failure while loading older entries', async () => {
-    api.get.mockResolvedValueOnce(page([entry('recent')], { total: 5, max_seq: 1 }))
+    vi.mocked(api.get).mockResolvedValueOnce(page([entry('recent')], { total: 5, max_seq: 1 }))
     render(<LogsTab />, { wrapper: MemoryRouter })
     await screen.findByText('recent')
 
-    api.get.mockRejectedValueOnce(new Error('older boom'))
+    vi.mocked(api.get).mockRejectedValueOnce(new Error('older boom'))
     await scrollToTopUntilRequested('/logs?level=info&limit=4&offset=1')
     await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument())
     expect(screen.getByText('recent')).toBeInTheDocument()
   })
 
   it('unpins on scroll away from the bottom and re-pins via the jump button', async () => {
-    api.get.mockResolvedValue(page([entry('line')]))
+    vi.mocked(api.get).mockResolvedValue(page([entry('line')]))
     render(<LogsTab />, { wrapper: MemoryRouter })
     await screen.findByText('line')
 

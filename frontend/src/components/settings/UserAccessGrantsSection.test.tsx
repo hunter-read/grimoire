@@ -3,23 +3,29 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import UserAccessGrantsSection from './UserAccessGrantsSection'
 import api from '../../api'
 
+type Get = (url: string) => Promise<unknown>
+
 vi.mock('../../api', () => ({
   default: { get: vi.fn(), post: vi.fn(), delete: vi.fn() },
 }))
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k) => k }),
+  useTranslation: () => ({ t: (k: string) => k }),
 }))
 
-function mockApi({ grants = [], systems = [], books = [] } = {}) {
-  api.get.mockImplementation((url) => {
+function mockApi({
+  grants = [] as object[],
+  systems = [] as object[],
+  books = [] as object[],
+} = {}) {
+  vi.mocked(api.get as Get).mockImplementation((url) => {
     if (url.includes('access-grants')) return Promise.resolve(grants)
     if (url.startsWith('/systems')) return Promise.resolve(systems)
     if (url.startsWith('/books')) return Promise.resolve({ books })
     return Promise.resolve([])
   })
-  api.post.mockResolvedValue({})
-  api.delete.mockResolvedValue({})
+  vi.mocked(api.post).mockResolvedValue({})
+  vi.mocked(api.delete).mockResolvedValue({})
 }
 
 beforeEach(() => vi.clearAllMocks())
@@ -102,7 +108,7 @@ describe('UserAccessGrantsSection', () => {
 
   it('surfaces a failure to create a grant', async () => {
     mockApi({ systems: [{ id: 's1', name: 'Ravenloft', access_level: 'admin' }] })
-    api.post.mockRejectedValue(new Error('denied'))
+    vi.mocked(api.post).mockRejectedValue(new Error('denied'))
     render(<UserAccessGrantsSection userId="u1" userRole="gm" />)
     const picker = await screen.findByLabelText('access.grants.addSystem')
     fireEvent.change(picker, { target: { value: 's1' } })

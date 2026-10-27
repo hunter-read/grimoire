@@ -6,7 +6,7 @@ import ContentListField from './ContentListField'
 
 const mockBrowse = vi.fn()
 vi.mock('../../api', () => ({
-  content: { browse: (...args) => mockBrowse(...args) },
+  content: { browse: (...args: unknown[]) => mockBrowse(...args) },
 }))
 
 const TYPE = {
@@ -235,7 +235,7 @@ describe('ContentListField', () => {
     const onChange = vi.fn()
     renderList({ value: [{ _ref: 'fireball' }], onChange })
     await userEvent.click(screen.getByText(/Browse catalog/i))
-    await userEvent.click(await screen.findAllByLabelText(/Already on the sheet/i)[0])
+    await userEvent.click((await screen.findAllByLabelText(/Already on the sheet/i))[0])
     expect(onChange).not.toHaveBeenCalled()
   })
 

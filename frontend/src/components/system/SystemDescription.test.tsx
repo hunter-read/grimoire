@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import SystemDescription from './SystemDescription'
 
 // jsdom has no layout, so stub the heights the overflow check reads.
-function stubHeights(scrollHeight, clientHeight) {
+function stubHeights(scrollHeight: number, clientHeight: number) {
   vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(scrollHeight)
   vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(clientHeight)
 }

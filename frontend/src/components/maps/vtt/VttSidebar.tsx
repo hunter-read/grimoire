@@ -8,7 +8,37 @@ import ToolHelp from './ToolHelp'
 import LightProperties from './LightProperties'
 import PortalProperties from './PortalProperties'
 import { LAYER_STYLE } from './tools'
+import type { Tool } from './tools'
 import { btnStyle } from './ui'
+import type {
+  FeatureCounts,
+  FeatureKey,
+  Point,
+  PreviewState,
+  Selection,
+  VttDoc,
+  VttEnvironment,
+  VttLight,
+  VttPortal,
+} from './types'
+
+export interface VttSidebarProps {
+  doc: VttDoc
+  counts: FeatureCounts
+  dims: { width: number; height: number }
+  cellPx: number
+  tool: Tool
+  preview: PreviewState
+  onPreviewChange: (next: Partial<PreviewState>) => void
+  selection: Selection | null
+  onSelect?: (selection: Selection | null) => void
+  onUpdateFeature: (key: FeatureKey, index: number, value: VttLight | VttPortal | Point[]) => void
+  onDeleteFeature: (key: FeatureKey, index: number) => void
+  onEnvironment: (environment: VttEnvironment) => void
+  onRecalibrate: () => void
+}
+
+type SectionKey = 'selection' | 'help' | 'layers' | 'grid' | 'preview' | 'environment'
 
 /**
  * The editor's right-hand panel: what is selected, what exists, and the
@@ -44,18 +74,17 @@ export default function VttSidebar({
   preview,
   onPreviewChange,
   selection,
-  onSelect,
   onUpdateFeature,
   onDeleteFeature,
   onEnvironment,
   onRecalibrate,
-}) {
+}: VttSidebarProps) {
   const { t } = useTranslation()
 
   // Defaults chosen so the panel opens showing what a user in the middle of
   // authoring needs: the selection and the gestures for the current tool.
   // Counts and grid are reference, consulted rarely and re-openable in a click.
-  const [open, setOpen] = useState({
+  const [open, setOpen] = useState<Record<SectionKey, boolean>>({
     selection: true,
     help: true,
     layers: false,
@@ -63,7 +92,7 @@ export default function VttSidebar({
     preview: false,
     environment: false,
   })
-  const toggle = (key) => setOpen((o) => ({ ...o, [key]: !o[key] }))
+  const toggle = (key: SectionKey) => setOpen((o) => ({ ...o, [key]: !o[key] }))
 
   // Selecting something on the canvas must reveal its properties, or the click
   // appears to do nothing — placing a light already auto-selects it, and that
@@ -72,7 +101,7 @@ export default function VttSidebar({
     if (selection) setOpen((o) => (o.selection ? o : { ...o, selection: true }))
   }, [selection])
 
-  const layers = [
+  const layers: { key: FeatureKey; label: string; count: number }[] = [
     { key: 'line_of_sight', label: t('maps.vtt.layers.walls'), count: counts.line_of_sight },
     {
       key: 'objects_line_of_sight',
@@ -83,7 +112,9 @@ export default function VttSidebar({
     { key: 'lights', label: t('maps.vtt.layers.lights'), count: counts.lights },
   ]
 
-  const selected = selection ? doc[selection.key]?.[selection.index] : null
+  const selected: VttLight | VttPortal | Point[] | null | undefined = selection
+    ? doc[selection.key]?.[selection.index]
+    : null
 
   // Every section after the first is separated by a rule, so a collapsed panel
   // still reads as a list of distinct things rather than a run of headings.
@@ -113,29 +144,29 @@ export default function VttSidebar({
           <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
             {t('maps.vtt.selection.none')}
           </div>
-        ) : selection.key === 'lights' ? (
+        ) : selection!.key === 'lights' ? (
           <LightProperties
-            light={selected}
-            onChange={(v) => onUpdateFeature('lights', selection.index, v)}
-            onDelete={() => onDeleteFeature('lights', selection.index)}
+            light={selected as VttLight}
+            onChange={(v) => onUpdateFeature('lights', selection!.index, v)}
+            onDelete={() => onDeleteFeature('lights', selection!.index)}
           />
-        ) : selection.key === 'portals' ? (
+        ) : selection!.key === 'portals' ? (
           <PortalProperties
-            portal={selected}
-            onChange={(v) => onUpdateFeature('portals', selection.index, v)}
-            onDelete={() => onDeleteFeature('portals', selection.index)}
+            portal={selected as VttPortal}
+            onChange={(v) => onUpdateFeature('portals', selection!.index, v)}
+            onDelete={() => onDeleteFeature('portals', selection!.index)}
           />
         ) : (
           <div>
             <div style={{ fontSize: 13, marginBottom: 10 }}>
-              {t('maps.vtt.selection.wall', { count: selected.length })}
+              {t('maps.vtt.selection.wall', { count: (selected as Point[]).length })}
             </div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 10 }}>
               {t('maps.vtt.selection.wallHint')}
             </div>
             <button
               type="button"
-              onClick={() => onDeleteFeature(selection.key, selection.index)}
+              onClick={() => onDeleteFeature(selection!.key, selection!.index)}
               style={btnStyle}
             >
               {t('maps.vtt.deleteSelected')}

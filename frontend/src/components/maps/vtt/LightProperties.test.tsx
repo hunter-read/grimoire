@@ -5,7 +5,7 @@ import LightProperties from './LightProperties'
 import { LIGHT_PRESETS } from './lightPresets'
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k, o) => (o ? `${k}:${JSON.stringify(o)}` : k) }),
+  useTranslation: () => ({ t: (k: string, o?: object) => (o ? `${k}:${JSON.stringify(o)}` : k) }),
 }))
 
 const light = {
@@ -32,7 +32,9 @@ describe('LightProperties', () => {
         onDelete={vi.fn()}
       />
     )
-    expect(Number(screen.getByLabelText('maps.vtt.light.opacity').value)).toBeCloseTo(0.502, 2)
+    expect(
+      Number((screen.getByLabelText('maps.vtt.light.opacity') as HTMLInputElement).value)
+    ).toBeCloseTo(0.502, 2)
   })
 
   it('writes the colour back as ARGB', () => {
@@ -172,7 +174,7 @@ describe('LightProperties', () => {
       const torch = LIGHT_PRESETS.find((p) => p.id === 'torch')
       render(
         <LightProperties
-          light={{ position: { x: 0, y: 0 }, ...torch }}
+          light={{ position: { x: 0, y: 0 }, ...torch! }}
           onChange={vi.fn()}
           onDelete={vi.fn()}
         />
@@ -185,7 +187,7 @@ describe('LightProperties', () => {
       const torch = LIGHT_PRESETS.find((p) => p.id === 'torch')
       render(
         <LightProperties
-          light={{ position: { x: 0, y: 0 }, ...torch, range: 11 }}
+          light={{ position: { x: 0, y: 0 }, ...torch!, range: 11 }}
           onChange={vi.fn()}
           onDelete={vi.fn()}
         />

@@ -2,11 +2,18 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCircleCheck } from 'react-icons/lu'
 import api from '../../api'
+import type { Schema } from '../../api'
 import Spinner from '../Spinner'
 import CollapsibleSection from './CollapsibleSection'
 import SettingToggle from './SettingToggle'
 import { clearCodexStatusCache } from '../codex/useCodexStatus'
 import { clearMetadataSourcesCache } from '../system/useMetadataSources'
+
+interface TestState {
+  busy?: boolean
+  result?: Schema<'CodexTestResponse'>
+  error?: string
+}
 
 /**
  * Admin settings for Grimoire Codex DB (issue #35), the built-in metadata source.
@@ -18,12 +25,12 @@ import { clearMetadataSourcesCache } from '../system/useMetadataSources'
  */
 export default function CodexSection() {
   const { t } = useTranslation()
-  const [values, setValues] = useState(null)
+  const [values, setValues] = useState<Schema<'CodexSettingsResponse'> | null>(null)
   const [url, setUrl] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
-  const [test, setTest] = useState(null)
+  const [test, setTest] = useState<TestState | null>(null)
 
   useEffect(() => {
     api
@@ -35,9 +42,9 @@ export default function CodexSection() {
       .catch((e) => setError(e.message))
   }, [])
 
-  const locked = (key) => values?.locked?.includes(key)
+  const locked = (key: string) => values?.locked?.includes(key)
 
-  const save = (patch) => {
+  const save = (patch: Schema<'CodexSettingsUpdate'>) => {
     setSaving(true)
     setError('')
     setTest(null)
@@ -57,7 +64,7 @@ export default function CodexSection() {
   }
 
   const saveUrl = () => {
-    if (url.trim() && url.trim() !== values.url) save({ url: url.trim() })
+    if (url.trim() && url.trim() !== values!.url) save({ url: url.trim() })
   }
 
   const runTest = () => {
@@ -72,7 +79,10 @@ export default function CodexSection() {
   const title = (
     <>
       {t('codex.settings.title')}
-      {saving && <Spinner size={13} style={{ marginLeft: 8 }} />}
+      {saving && (
+        // @ts-expect-error -- Spinner takes no style prop, so this margin has never applied.
+        <Spinner size={13} style={{ marginLeft: 8 }} />
+      )}
       {saved && <LuCircleCheck size={14} style={{ color: 'var(--green)', marginLeft: 8 }} />}
     </>
   )

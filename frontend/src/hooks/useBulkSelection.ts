@@ -1,4 +1,26 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, type Dispatch, type SetStateAction } from 'react'
+
+/** Modifier keys from the click, plus the visible ids in display order. */
+export interface BulkToggleMods<Id = string> {
+  shift?: boolean
+  meta?: boolean
+  orderedIds?: readonly Id[]
+}
+
+export interface BulkSelection<Id = string> {
+  bulkMode: boolean
+  selectedIds: Set<Id>
+  selectedFolderPaths: Set<string>
+  /** Selected items plus selected folders. */
+  count: number
+  enter: () => void
+  exit: () => void
+  clear: () => void
+  toggleItem: (id: Id, mods?: BulkToggleMods<Id>) => void
+  toggleFolder: (folderPath: string, itemsInFolder: readonly { id: Id }[]) => void
+  setSelectedIds: Dispatch<SetStateAction<Set<Id>>>
+  setSelectedFolderPaths: Dispatch<SetStateAction<Set<string>>>
+}
 
 /**
  * Shared bulk-selection state for the library views (maps, tokens, books).
@@ -10,12 +32,12 @@ import { useState, useCallback, useRef, useEffect } from 'react'
  *
  * Folder toggling selects/deselects every item under a folder at once.
  */
-export default function useBulkSelection() {
+export default function useBulkSelection<Id = string>(): BulkSelection<Id> {
   const [bulkMode, setBulkMode] = useState(false)
-  const [selectedIds, setSelectedIds] = useState(new Set())
-  const [selectedFolderPaths, setSelectedFolderPaths] = useState(new Set())
+  const [selectedIds, setSelectedIds] = useState(new Set<Id>())
+  const [selectedFolderPaths, setSelectedFolderPaths] = useState(new Set<string>())
   // Anchor for shift-range selection.
-  const lastClickedId = useRef(null)
+  const lastClickedId = useRef<Id | null>(null)
 
   const enter = useCallback(() => setBulkMode(true), [])
 
@@ -31,10 +53,10 @@ export default function useBulkSelection() {
   // text field the user might be trying to clear/blur.
   useEffect(() => {
     if (!bulkMode) return
-    const onKeyDown = (e) => {
+    const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.defaultPrevented) return
       if (document.querySelector('[role="dialog"]')) return
-      const el = document.activeElement
+      const el = document.activeElement as HTMLElement | null
       const tag = el?.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || el?.isContentEditable) return
       exit()
@@ -55,7 +77,8 @@ export default function useBulkSelection() {
    * @param {object} mods - { shift, meta } from the click event, plus the
    *   current flat ordered id list as `orderedIds` for range selection.
    */
-  const toggleItem = useCallback((id, { shift, meta, orderedIds } = {}) => {
+  // `meta` is accepted for symmetry with the click event; it toggles like a plain click.
+  const toggleItem = useCallback((id: Id, { shift, orderedIds }: BulkToggleMods<Id> = {}) => {
     setSelectedIds((prev) => {
       const next = new Set(prev)
       const anchor = lastClickedId.current
@@ -73,7 +96,8 @@ export default function useBulkSelection() {
       // Plain click and cmd/ctrl-click both toggle the single item; the only
       // difference (clearing others) isn't applied here since these views allow
       // accumulating individual selections by design.
-      next.has(id) ? next.delete(id) : next.add(id)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
       return next
     })
     if (!shift) lastClickedId.current = id
@@ -87,12 +111,13 @@ export default function useBulkSelection() {
    * deselect it; otherwise select all of its items.
    */
   const toggleFolder = useCallback(
-    (folderPath, itemsInFolder) => {
+    (folderPath: string, itemsInFolder: readonly { id: Id }[]) => {
       const ids = itemsInFolder.map((i) => i.id)
       setSelectedFolderPaths((prevFolders) => {
         const allSelected = prevFolders.has(folderPath) && ids.every((id) => selectedIds.has(id))
         const nextFolders = new Set(prevFolders)
-        allSelected ? nextFolders.delete(folderPath) : nextFolders.add(folderPath)
+        if (allSelected) nextFolders.delete(folderPath)
+        else nextFolders.add(folderPath)
         setSelectedIds((prev) => {
           const next = new Set(prev)
           if (allSelected) ids.forEach((id) => next.delete(id))

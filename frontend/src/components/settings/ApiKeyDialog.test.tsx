@@ -1,6 +1,9 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import ApiKeyDialog from './ApiKeyDialog'
+import type { Schema } from '../../api'
+
+type ApiKey = Schema<'ApiKeyOut'>
 
 const permissions = [
   { id: 'stats', group: 'library', description: 'server stats copy', levels: ['none', 'read'] },
@@ -17,7 +20,7 @@ const permissions = [
     description: 'A permission the UI has no copy for',
     levels: ['none', 'read'],
   },
-]
+] as Schema<'ApiKeyPermissionOut'>[]
 
 // Groups start folded on a new key; open them all to reach every picker.
 const openAll = () =>
@@ -33,13 +36,13 @@ describe('ApiKeyDialog', () => {
     expect(
       screen.getByText('Library counts and totals (e.g. for dashboard widgets like Homepage)')
     ).toBeInTheDocument()
-    const books = screen.getByLabelText('Books')
+    const books = screen.getByLabelText('Books') as HTMLSelectElement
     expect([...books.options].map((o) => o.textContent)).toEqual([
       'No access',
       'Read',
       'Read and write',
     ])
-    expect([...screen.getByLabelText('Statistics').options]).toHaveLength(2)
+    expect([...(screen.getByLabelText('Statistics') as HTMLSelectElement).options]).toHaveLength(2)
     // Falls back to the server's copy for a permission the UI doesn't know yet.
     expect(screen.getByText('A permission the UI has no copy for')).toBeInTheDocument()
   })
@@ -55,7 +58,7 @@ describe('ApiKeyDialog', () => {
   })
 
   it('creates with the chosen permissions and a 90-day default expiry', async () => {
-    const onSave = vi.fn().mockResolvedValue()
+    const onSave = vi.fn().mockResolvedValue(undefined)
     render(
       <ApiKeyDialog apiKey={null} permissions={permissions} onSave={onSave} onClose={vi.fn()} />
     )
@@ -69,12 +72,12 @@ describe('ApiKeyDialog', () => {
     const payload = onSave.mock.calls[0][0]
     expect(payload.name).toBe('Widget')
     expect(payload.permissions).toEqual({ books: 'write' })
-    const days = (new Date(payload.expires_at) - Date.now()) / 86400000
+    const days = (new Date(payload.expires_at).getTime() - Date.now()) / 86400000
     expect(Math.round(days)).toBe(90)
   })
 
   it('can create a key that never expires', async () => {
-    const onSave = vi.fn().mockResolvedValue()
+    const onSave = vi.fn().mockResolvedValue(undefined)
     render(
       <ApiKeyDialog apiKey={null} permissions={permissions} onSave={onSave} onClose={vi.fn()} />
     )
@@ -88,13 +91,13 @@ describe('ApiKeyDialog', () => {
   })
 
   it('edits without touching the expiry unless it is changed', async () => {
-    const onSave = vi.fn().mockResolvedValue()
+    const onSave = vi.fn().mockResolvedValue(undefined)
     const apiKey = {
       id: 'k1',
       name: 'Old',
       permissions: { stats: 'read' },
       expires_at: '2026-12-01T00:00:00+00:00',
-    }
+    } as unknown as ApiKey
     render(
       <ApiKeyDialog apiKey={apiKey} permissions={permissions} onSave={onSave} onClose={vi.fn()} />
     )
@@ -107,7 +110,7 @@ describe('ApiKeyDialog', () => {
   })
 
   it('offers "keep current (never)" for a key with no expiry', () => {
-    const apiKey = { id: 'k1', name: 'Old', permissions: {}, expires_at: null }
+    const apiKey = { id: 'k1', name: 'Old', permissions: {}, expires_at: null } as ApiKey
     render(
       <ApiKeyDialog apiKey={apiKey} permissions={permissions} onSave={vi.fn()} onClose={vi.fn()} />
     )
@@ -138,7 +141,7 @@ describe('ApiKeyDialog', () => {
   })
 
   it('All permissions sets a floor the individual pickers respect', async () => {
-    const onSave = vi.fn().mockResolvedValue()
+    const onSave = vi.fn().mockResolvedValue(undefined)
     render(
       <ApiKeyDialog apiKey={null} permissions={permissions} onSave={onSave} onClose={vi.fn()} />
     )
@@ -152,10 +155,10 @@ describe('ApiKeyDialog', () => {
     expect(screen.getByLabelText('Statistics')).toBeDisabled()
     expect(screen.getByLabelText('Statistics')).toHaveValue('read')
     // Books can still go higher, but not lower.
-    const books = screen.getByLabelText('Books')
+    const books = screen.getByLabelText('Books') as HTMLSelectElement
     expect(books).not.toBeDisabled()
     expect(books).toHaveValue('read')
-    expect([...books.options].find((o) => o.value === 'none').disabled).toBe(true)
+    expect([...books.options].find((o) => o.value === 'none')!.disabled).toBe(true)
     fireEvent.change(books, { target: { value: 'write' } })
 
     fireEvent.click(screen.getByRole('button', { name: 'Create key' }))
@@ -217,7 +220,14 @@ describe('ApiKeyDialog', () => {
     it('opens groups that already grant something when editing', () => {
       render(
         <ApiKeyDialog
-          apiKey={{ id: 'k1', name: 'Old', permissions: { maps: 'read' }, expires_at: null }}
+          apiKey={
+            {
+              id: 'k1',
+              name: 'Old',
+              permissions: { maps: 'read' },
+              expires_at: null,
+            } as unknown as ApiKey
+          }
           permissions={permissions}
           onSave={vi.fn()}
           onClose={vi.fn()}

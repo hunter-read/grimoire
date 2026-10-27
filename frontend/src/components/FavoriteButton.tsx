@@ -1,8 +1,17 @@
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuHeart } from 'react-icons/lu'
 import { useFavorites } from '../context/FavoritesContext'
 
-export default function FavoriteButton({ type, id, style, cardHovered }) {
+export interface FavoriteButtonProps {
+  type: string
+  id: string
+  style?: CSSProperties
+  /** When given, the button only shows while the card is hovered or the item is a favorite. */
+  cardHovered?: boolean
+}
+
+export default function FavoriteButton({ type, id, style, cardHovered }: FavoriteButtonProps) {
   const { t } = useTranslation()
   const { isFavorite, toggleFavorite } = useFavorites()
   const active = isFavorite(type, id)

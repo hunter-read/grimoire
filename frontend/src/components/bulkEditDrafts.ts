@@ -1,4 +1,5 @@
-import { cleanLinks } from './metadata/metadataUtils'
+import type { BulkType } from '../api'
+import { cleanLinks, type LinkRow } from './metadata/metadataUtils'
 
 // Draft bookkeeping for BulkEditModal: which fields each item type edits, how
 // a draft is seeded from an item, and how drafts are diffed back into patches.
@@ -7,7 +8,30 @@ import { cleanLinks } from './metadata/metadataUtils'
 // Per-type editable fields. Saving goes through the shared bulk endpoint for
 // this type (see `bulk` in api.js). Tags are edited as a comma-separated string
 // and split on save.
-export const CONFIG = {
+export interface BulkEditConfig {
+  /** The fields this type's editor shows and saves. */
+  fields: string[]
+  /** The metadata add-on kind offering "Fetch metadata", when there is one. */
+  metadataKind?: 'books' | 'systems'
+  /** A bespoke editor body that keeps tags and structured fields as native values. */
+  custom?: boolean
+}
+
+/** An item in the selection: only its id is known here, the rest is read by field name. */
+export interface BulkEditItem {
+  id: string
+}
+
+/** An item read by field name, which is how drafts are seeded and diffed. */
+export type BulkEditRow = BulkEditItem & Record<string, unknown>
+
+/** One item's working values, keyed by field name. */
+export type BulkDraft = Record<string, unknown>
+
+/** The changed fields of one item, keyed by field name. */
+export type BulkPatch = Record<string, unknown>
+
+export const CONFIG: Record<BulkType, BulkEditConfig> = {
   map: {
     fields: ['tags', 'grid_size'],
   },
@@ -93,7 +117,7 @@ export const STRUCTURED_FIELDS = new Set([
 // Pull a grid size like "22x22" out of a map's filename or folder, e.g.
 // "Sunken Temple (22x22)" → "22x22". Used to pre-fill an empty grid size.
 const GRID_RE = /(\d+\s*[x×]\s*\d+)/i
-const inferGridSize = (item) => {
+const inferGridSize = (item: BulkEditRow): string => {
   for (const src of [item.filename, item.folder_path, item.relative_path]) {
     const m = typeof src === 'string' && src.match(GRID_RE)
     if (m) return m[1].replace(/\s*[x×]\s*/i, 'x')
@@ -102,16 +126,17 @@ const inferGridSize = (item) => {
 }
 
 // Normalize a structured field's draft value before compare/save.
-const cleanStructured = (field, value) => {
-  const list = value || []
-  if (field === 'publishers') return list.filter((p) => p.name?.trim())
-  if (field === 'urls' || field === 'character_builder_urls') return cleanLinks(list)
+const cleanStructured = (field: string, value: unknown): unknown[] => {
+  const list = (value || []) as unknown[]
+  if (field === 'publishers')
+    return list.filter((p) => (p as { name?: string | null }).name?.trim())
+  if (field === 'urls' || field === 'character_builder_urls') return cleanLinks(list as LinkRow[])
   // genres / dice_materials are plain string arrays, already trimmed in the UI.
   return list
 }
 
-export const tagsToString = (tags) => (Array.isArray(tags) ? tags.join(', ') : '')
-export const stringToTags = (s) =>
+export const tagsToString = (tags: unknown): string => (Array.isArray(tags) ? tags.join(', ') : '')
+export const stringToTags = (s: string): string[] =>
   s
     .split(',')
     .map((tag) => tag.trim().toLowerCase())
@@ -122,14 +147,18 @@ export const stringToTags = (s) =>
  * whose draft value differs from the item's current value. Shared by the save
  * path and the unsaved-changes check behind Cancel (issue #256).
  */
-export const diffDrafts = (items, drafts, cfg) => {
-  const changedById = {}
-  for (const it of items) {
+export const diffDrafts = (
+  items: BulkEditItem[],
+  drafts: Record<string, BulkDraft>,
+  cfg: BulkEditConfig
+): Record<string, BulkPatch> => {
+  const changedById: Record<string, BulkPatch> = {}
+  for (const it of items as BulkEditRow[]) {
     const d = drafts[it.id]
-    const patch = {}
+    const patch: BulkPatch = {}
     for (const f of cfg.fields) {
       if (f === 'tags') {
-        const next = cfg.custom ? d.tags : stringToTags(d.tags)
+        const next = cfg.custom ? d.tags : stringToTags(d.tags as string)
         if (tagsToString(next) !== tagsToString(it.tags)) patch.tags = next
       } else if (STRUCTURED_FIELDS.has(f)) {
         const next = cleanStructured(f, d[f])
@@ -156,10 +185,13 @@ export const diffDrafts = (items, drafts, cfg) => {
  * Custom bodies (books, systems) keep tags and structured fields as native
  * arrays/objects; the generic body stores everything as strings.
  */
-export const seedDrafts = (items, cfg) => {
-  const out = {}
-  for (const it of items) {
-    const d = {}
+export const seedDrafts = (
+  items: BulkEditItem[],
+  cfg: BulkEditConfig
+): Record<string, BulkDraft> => {
+  const out: Record<string, BulkDraft> = {}
+  for (const it of items as BulkEditRow[]) {
+    const d: BulkDraft = {}
     for (const f of cfg.fields) {
       if (f === 'tags') d[f] = cfg.custom ? it.tags || [] : tagsToString(it.tags)
       else if (STRUCTURED_FIELDS.has(f)) d[f] = it[f] || []

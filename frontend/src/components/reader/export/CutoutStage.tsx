@@ -1,18 +1,48 @@
 import { useEffect, useRef, useState } from 'react'
+import type { CSSProperties, KeyboardEvent, PointerEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { renderWidthFor } from '../../../hooks/useReaderZoom'
 import Spinner from '../../Spinner'
 import { PAGE_WIDTH } from '../pageRender'
 import CutoutBox from './CutoutBox'
 import { boxFromDrag, fromStage, isTiny, moveBox, resizeBox, toStage } from './cutoutGeometry'
+import type { Box, Handle, Point } from './cutoutGeometry'
 import { TOOLS } from './usePageExport'
+import type { NumberedCutout, PageExporter, PageUrl } from './usePageExport'
+
+export interface CutoutStageProps {
+  exporter: PageExporter
+  pageUrl: PageUrl
+  zoom?: number
+  getAlt?: (page: number) => string
+}
+
+/** The gesture in progress: drawing a new box, or moving or resizing one. */
+type Drag =
+  | { mode: 'draw'; start: Point; box: Box; id?: undefined; moved?: boolean }
+  | { mode: 'move'; id: string; start: Point; origin: Box; box: Box; moved: boolean }
+  | {
+      mode: 'resize'
+      id: string
+      handle: Handle
+      locked?: boolean
+      start: Point
+      origin: Box
+      box: Box
+      moved: boolean
+    }
+
+type StagePointerEvent = PointerEvent<HTMLElement>
 
 // Breathing room around the page, so a box can be started just outside its edge.
 const PAD = 28
 const NUDGE = 0.004
 const NUDGE_FAR = 0.02
 
-const clampPoint = (p) => ({ x: Math.min(1, Math.max(0, p.x)), y: Math.min(1, Math.max(0, p.y)) })
+const clampPoint = (p: Point): Point => ({
+  x: Math.min(1, Math.max(0, p.x)),
+  y: Math.min(1, Math.max(0, p.y)),
+})
 
 /**
  * The page (or spread) as a drawing surface for cut-outs (issue #207).
@@ -28,13 +58,13 @@ const clampPoint = (p) => ({ x: Math.min(1, Math.max(0, p.x)), y: Math.min(1, Ma
  * a pointer is down and committed once on release, so the panel list (and its
  * thumbnails) update once per gesture rather than on every pixel.
  */
-export default function CutoutStage({ exporter, pageUrl, zoom = 1, getAlt }) {
+export default function CutoutStage({ exporter, pageUrl, zoom = 1, getAlt }: CutoutStageProps) {
   const { t } = useTranslation()
-  const containerRef = useRef(null)
-  const frameRef = useRef(null)
-  const boxRefs = useRef({})
+  const containerRef = useRef<HTMLDivElement>(null)
+  const frameRef = useRef<HTMLDivElement>(null)
+  const boxRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const [area, setArea] = useState({ width: 0, height: 0 })
-  const [drag, setDrag] = useState(null)
+  const [drag, setDrag] = useState<Drag | null>(null)
   const layout = exporter.stageLayout
 
   useEffect(() => {
@@ -51,11 +81,11 @@ export default function CutoutStage({ exporter, pageUrl, zoom = 1, getAlt }) {
   // Keep keyboard focus on the selected box, so it can be nudged or deleted
   // straight after it is drawn or picked from the list.
   useEffect(() => {
-    const node = boxRefs.current[exporter.activeId]
+    const node = boxRefs.current[exporter.activeId!]
     if (node && document.activeElement !== node && !drag) node.focus({ preventScroll: true })
   }, [exporter.activeId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const containerStyle = {
+  const containerStyle: CSSProperties = {
     flex: 1,
     minWidth: 0,
     minHeight: 0,
@@ -89,12 +119,12 @@ export default function CutoutStage({ exporter, pageUrl, zoom = 1, getAlt }) {
   const renderWidth = renderWidthFor(PAGE_WIDTH, zoom)
   const toolSpec = TOOLS[exporter.tool]
 
-  const pointFrom = (e) => {
-    const r = frameRef.current.getBoundingClientRect()
+  const pointFrom = (e: StagePointerEvent): Point => {
+    const r = frameRef.current!.getBoundingClientRect()
     return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }
   }
 
-  const capture = (e) => {
+  const capture = (e: StagePointerEvent) => {
     try {
       frameRef.current?.setPointerCapture?.(e.pointerId)
     } catch {
@@ -103,7 +133,7 @@ export default function CutoutStage({ exporter, pageUrl, zoom = 1, getAlt }) {
     }
   }
 
-  const startDraw = (e) => {
+  const startDraw = (e: StagePointerEvent) => {
     if (e.button !== undefined && e.button !== 0) return
     e.preventDefault()
     capture(e)
@@ -111,7 +141,7 @@ export default function CutoutStage({ exporter, pageUrl, zoom = 1, getAlt }) {
     setDrag({ mode: 'draw', start: p, box: { ...p, w: 0, h: 0 } })
   }
 
-  const startMove = (cutout, box) => (e) => {
+  const startMove = (cutout: NumberedCutout, box: Box) => (e: StagePointerEvent) => {
     if (e.button !== undefined && e.button !== 0) return
     e.stopPropagation()
     e.preventDefault()
@@ -120,29 +150,30 @@ export default function CutoutStage({ exporter, pageUrl, zoom = 1, getAlt }) {
     setDrag({ mode: 'move', id: cutout.id, start: pointFrom(e), origin: box, box, moved: false })
   }
 
-  const startResize = (cutout, box) => (e, handle) => {
-    e.stopPropagation()
-    e.preventDefault()
-    capture(e)
-    exporter.setActiveId(cutout.id)
-    setDrag({
-      mode: 'resize',
-      id: cutout.id,
-      handle,
-      locked: cutout.locked,
-      start: pointFrom(e),
-      origin: box,
-      box,
-      moved: false,
-    })
-  }
+  const startResize =
+    (cutout: NumberedCutout, box: Box) => (e: StagePointerEvent, handle: Handle) => {
+      e.stopPropagation()
+      e.preventDefault()
+      capture(e)
+      exporter.setActiveId(cutout.id)
+      setDrag({
+        mode: 'resize',
+        id: cutout.id,
+        handle,
+        locked: cutout.locked,
+        start: pointFrom(e),
+        origin: box,
+        box,
+        moved: false,
+      })
+    }
 
-  const onPointerMove = (e) => {
+  const onPointerMove = (e: StagePointerEvent) => {
     if (!drag) return
     const p = pointFrom(e)
     const dx = p.x - drag.start.x
     const dy = p.y - drag.start.y
-    let box
+    let box: Box
     if (drag.mode === 'draw') {
       box = boxFromDrag(drag.start, clampPoint(p), {
         square: toolSpec.locked || e.shiftKey,
@@ -170,10 +201,10 @@ export default function CutoutStage({ exporter, pageUrl, zoom = 1, getAlt }) {
     setDrag(null)
   }
 
-  const onBoxKeyDown = (cutout, box) => (e) => {
+  const onBoxKeyDown = (cutout: NumberedCutout, box: Box) => (e: KeyboardEvent<HTMLElement>) => {
     if (e.key === 'Tab') return
     const step = e.shiftKey ? NUDGE_FAR : NUDGE
-    const arrows = {
+    const arrows: Record<string, [number, number]> = {
       ArrowLeft: [-step, 0],
       ArrowRight: [step, 0],
       ArrowUp: [0, -step],
@@ -202,7 +233,7 @@ export default function CutoutStage({ exporter, pageUrl, zoom = 1, getAlt }) {
 
   const onStage = exporter.cutouts
     .map((c) => ({ cutout: c, box: toStage(c, layout) }))
-    .filter((x) => x.box)
+    .filter((x): x is { cutout: NumberedCutout; box: Box } => Boolean(x.box))
 
   return (
     <div ref={containerRef} data-testid="cutout-stage" style={containerStyle}>
@@ -260,7 +291,9 @@ export default function CutoutStage({ exporter, pageUrl, zoom = 1, getAlt }) {
           return (
             <CutoutBox
               key={cutout.id}
-              boxRef={(el) => (boxRefs.current[cutout.id] = el)}
+              boxRef={(el) => {
+                boxRefs.current[cutout.id] = el
+              }}
               box={live}
               number={cutout.number}
               shape={cutout.shape}

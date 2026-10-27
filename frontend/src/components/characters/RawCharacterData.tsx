@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next'
  * one they do not, still sees everything they wrote, and reinstalling the schema
  * brings the real sheet straight back.
  */
-export default function RawCharacterData({ data }) {
+export default function RawCharacterData({ data }: { data?: Record<string, unknown> | null }) {
   const { t } = useTranslation()
   const entries = Object.entries(data || {})
 

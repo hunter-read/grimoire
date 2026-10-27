@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react'
+import type { Schema } from '../api'
 
-const UISettingsContext = createContext({
+const DEFAULT_UI_SETTINGS: UISettings = {
   hide_maps: false,
   hide_tokens: false,
   hide_audio: false,
@@ -19,10 +20,19 @@ const UISettingsContext = createContext({
   // Whether the library can be written to at all. Gates the move / rename /
   // delete actions everywhere outside the file manager, which asks per folder.
   library_writable: false,
-})
+}
+
+/**
+ * The instance-wide UI flags from /settings/ui. Every key is optional: until the
+ * response lands the provider holds partial defaults, and a key still missing
+ * reads as undefined, which every consumer treats as off.
+ */
+export type UISettings = Partial<Schema<'UISettingsResponse'>>
+
+const UISettingsContext = createContext<UISettings>(DEFAULT_UI_SETTINGS)
 
 export const UISettingsProvider = UISettingsContext.Provider
 
-export function useUISettings() {
+export function useUISettings(): UISettings {
   return useContext(UISettingsContext)
 }

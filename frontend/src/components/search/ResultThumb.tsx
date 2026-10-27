@@ -1,3 +1,5 @@
+import type { CSSProperties } from 'react'
+import type { IconType } from 'react-icons'
 import { LuBookOpen, LuMap, LuMusic, LuBox, LuUser } from 'react-icons/lu'
 import LazyImg from '../LazyImg'
 import { imageSources } from '../../api'
@@ -5,7 +7,7 @@ import { imageSources } from '../../api'
 // Fallback glyph per collection, shown when a row has no thumbnail yet (or its
 // image fails to load). A search result should never be a blank rectangle: the
 // icon still tells the user what kind of thing they are looking at.
-const FALLBACK_ICONS = {
+const FALLBACK_ICONS: Record<string, IconType> = {
   book: LuBookOpen,
   map: LuMap,
   token: LuUser,
@@ -22,11 +24,19 @@ const FALLBACK_ICONS = {
  * the box is reserved before the image arrives so results don't jump as
  * thumbnails stream in.
  */
-export default function ResultThumb({ type, id, hasThumbnail, alt, size = 48 }) {
+export interface ResultThumbProps {
+  type: string
+  id: string
+  hasThumbnail?: boolean | null
+  alt?: string
+  size?: number
+}
+
+export default function ResultThumb({ type, id, hasThumbnail, alt, size = 48 }: ResultThumbProps) {
   const Fallback = FALLBACK_ICONS[type] ?? LuBookOpen
   const src = hasThumbnail ? imageSources.thumbUrl(type, id) : null
 
-  const box = {
+  const box: CSSProperties = {
     width: size,
     // Books are portrait; everything else reads better square.
     height: type === 'book' ? Math.round(size * 1.3) : size,

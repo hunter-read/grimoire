@@ -1,16 +1,19 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import VttEditorView from './VttEditorView'
 import api from '../../../api'
 
+// Fixtures carry only the fields the code under test reads, so these mocks are untyped.
+const mockPut = api.put as unknown as Mock
+
 vi.mock('../../../api', () => ({
   default: { get: vi.fn(), put: vi.fn() },
-  mediaUrl: (p) => p,
+  mediaUrl: (p: string) => p,
 }))
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k, o) => (o ? `${k}:${JSON.stringify(o)}` : k) }),
+  useTranslation: () => ({ t: (k: string, o?: object) => (o ? `${k}:${JSON.stringify(o)}` : k) }),
 }))
 
 const meta = {
@@ -37,18 +40,21 @@ const renderEditor = () =>
 
 beforeEach(() => {
   vi.clearAllMocks()
-  api.get.mockResolvedValue(meta)
-  api.put.mockResolvedValue({ status: 'ok' })
-  Element.prototype.getBoundingClientRect = vi.fn(() => ({
-    left: 0,
-    top: 0,
-    width: 1000,
-    height: 1000,
-    right: 1000,
-    bottom: 1000,
-    x: 0,
-    y: 0,
-  }))
+  vi.mocked(api.get).mockResolvedValue(meta)
+  mockPut.mockResolvedValue({ status: 'ok' })
+  Element.prototype.getBoundingClientRect = vi.fn(
+    () =>
+      ({
+        left: 0,
+        top: 0,
+        width: 1000,
+        height: 1000,
+        right: 1000,
+        bottom: 1000,
+        x: 0,
+        y: 0,
+      }) as DOMRect
+  )
   Object.defineProperty(HTMLElement.prototype, 'clientWidth', { value: 1000, configurable: true })
   Object.defineProperty(HTMLElement.prototype, 'clientHeight', { value: 1000, configurable: true })
 })
@@ -60,7 +66,7 @@ beforeEach(() => {
  * on the selection; a test that reads inside one opens it first, exactly as a
  * user would.
  */
-const expandSection = async (title) => {
+const expandSection = async (title: string) => {
   const header = screen.getByRole('button', { name: new RegExp(title) })
   if (header.getAttribute('aria-expanded') === 'false') await userEvent.click(header)
 }
@@ -96,7 +102,7 @@ describe('VttEditorView', () => {
   it('draws an overlay for a grid that knows cell counts but not cell size', async () => {
     // A grid parsed from a "(30x40)" filename carries no cell_px at all.
     // Seeding 0 from it left the calibration step with no overlay to judge.
-    api.get.mockResolvedValue({
+    vi.mocked(api.get).mockResolvedValue({
       ...meta,
       grid: { width: 10, height: 10, source: 'filename' },
     })
@@ -109,7 +115,7 @@ describe('VttEditorView', () => {
   })
 
   it('prefers the authored grid over the detected one when reopening', async () => {
-    api.get.mockResolvedValue({
+    vi.mocked(api.get).mockResolvedValue({
       ...meta,
       grid: { width: 10, height: 10, cell_px: 140, source: 'computed' },
       data: { pixels_per_grid: 70, grid_offset: { x: 5, y: 5 }, line_of_sight: [] },
@@ -124,7 +130,7 @@ describe('VttEditorView', () => {
   it('skips calibration for a map that already carries authored geometry', async () => {
     // Its grid was confirmed once already; re-running the step every time the
     // editor opens would be busywork.
-    api.get.mockResolvedValue({
+    vi.mocked(api.get).mockResolvedValue({
       ...meta,
       data: { pixels_per_grid: 140, grid_offset: { x: 0, y: 0 }, line_of_sight: [] },
     })
@@ -133,7 +139,7 @@ describe('VttEditorView', () => {
   })
 
   it('loads existing walls onto the canvas', async () => {
-    api.get.mockResolvedValue({
+    vi.mocked(api.get).mockResolvedValue({
       ...meta,
       data: {
         pixels_per_grid: 140,
@@ -151,7 +157,7 @@ describe('VttEditorView', () => {
   })
 
   it('reports a load failure rather than showing an empty editor', async () => {
-    api.get.mockRejectedValue(new Error('nope'))
+    vi.mocked(api.get).mockRejectedValue(new Error('nope'))
     renderEditor()
     expect(await screen.findByText('maps.vtt.loadFailed')).toBeInTheDocument()
   })
@@ -243,14 +249,14 @@ describe('VttEditorView', () => {
     fireEvent.doubleClick(canvas, { clientX: 600, clientY: 400 })
     await userEvent.click(screen.getByRole('button', { name: /common.save/ }))
     await waitFor(() => expect(api.put).toHaveBeenCalled())
-    const [url, body] = api.put.mock.calls[0]
+    const [url, body] = mockPut.mock.calls[0]
     expect(url).toBe('/maps/m1/vtt/authoring')
     expect(body.data.pixels_per_grid).toBe(140)
     expect(body.data.line_of_sight).toHaveLength(1)
   })
 
   it('surfaces a failed save rather than pretending it worked', async () => {
-    api.put.mockRejectedValue(new Error('boom'))
+    mockPut.mockRejectedValue(new Error('boom'))
     const canvas = await enterEditPhase()
     fireEvent.mouseDown(canvas, { button: 0, clientX: 400, clientY: 400 })
     fireEvent.mouseDown(canvas, { button: 0, clientX: 600, clientY: 400 })
@@ -312,7 +318,7 @@ describe('VttEditorView', () => {
   })
 
   it('selects a wall by clicking near it with the select tool', async () => {
-    api.get.mockResolvedValue({
+    vi.mocked(api.get).mockResolvedValue({
       ...meta,
       data: {
         pixels_per_grid: 140,
@@ -378,7 +384,7 @@ describe('VttEditorView', () => {
   it('applies a recalibrated cell size to the canvas', async () => {
     // Walls are stored in grid units, so changing the cell size is what moves
     // them on screen — the conversion has to flow through.
-    api.get.mockResolvedValue({
+    vi.mocked(api.get).mockResolvedValue({
       ...meta,
       data: {
         pixels_per_grid: 140,
@@ -480,7 +486,7 @@ describe('VttEditorView window tool', () => {
     fireEvent.mouseDown(canvas, { button: 0, clientX: 500, clientY: 400 })
 
     await userEvent.click(screen.getByText('common.save'))
-    const sent = api.put.mock.calls[0][1].data
+    const sent = mockPut.mock.calls[0][1].data
     expect(sent.portals).toHaveLength(1)
     // A window is the see-through portal: `closed` false is what says so.
     expect(sent.portals[0].closed).toBe(false)
@@ -493,7 +499,7 @@ describe('VttEditorView window tool', () => {
     fireEvent.mouseDown(canvas, { button: 0, clientX: 500, clientY: 400 })
 
     await userEvent.click(screen.getByText('common.save'))
-    expect(api.put.mock.calls[0][1].data.portals[0].closed).toBe(true)
+    expect(mockPut.mock.calls[0][1].data.portals[0].closed).toBe(true)
   })
 })
 
@@ -506,7 +512,7 @@ describe('VttEditorView free placement', () => {
     fireEvent.doubleClick(canvas, { clientX: 600, clientY: 400 })
 
     await userEvent.click(screen.getByText('common.save'))
-    const [first] = api.put.mock.calls[0][1].data.line_of_sight[0]
+    const [first] = mockPut.mock.calls[0][1].data.line_of_sight[0]
     expect(Number.isInteger(first.x)).toBe(true)
     expect(Number.isInteger(first.y)).toBe(true)
   })
@@ -520,7 +526,7 @@ describe('VttEditorView free placement', () => {
     fireEvent.doubleClick(canvas, { clientX: 600, clientY: 400 })
 
     await userEvent.click(screen.getByText('common.save'))
-    const [first, second] = api.put.mock.calls[0][1].data.line_of_sight[0]
+    const [first, second] = mockPut.mock.calls[0][1].data.line_of_sight[0]
     // The Alt point keeps its fractional position; the plain one still snaps.
     expect(Number.isInteger(first.x) && Number.isInteger(first.y)).toBe(false)
     expect(Number.isInteger(second.x)).toBe(true)
@@ -549,16 +555,16 @@ describe('VttEditorView player preview', () => {
 
   it('walks the token with the arrow keys', async () => {
     await enablePreview()
-    const before = screen.getByTestId('preview-token').querySelector('circle').getAttribute('cx')
+    const before = screen.getByTestId('preview-token').querySelector('circle')!.getAttribute('cx')
     fireEvent.keyDown(window, { key: 'ArrowRight' })
-    const after = screen.getByTestId('preview-token').querySelector('circle').getAttribute('cx')
+    const after = screen.getByTestId('preview-token').querySelector('circle')!.getAttribute('cx')
     expect(after).not.toBe(before)
   })
 
   it('takes a half step with Shift', async () => {
     await enablePreview()
     const cx = () =>
-      Number(screen.getByTestId('preview-token').querySelector('circle').getAttribute('cx'))
+      Number(screen.getByTestId('preview-token').querySelector('circle')!.getAttribute('cx'))
     const start = cx()
     fireEvent.keyDown(window, { key: 'ArrowRight' })
     const full = cx() - start
@@ -584,7 +590,7 @@ describe('VttEditorView player preview', () => {
   it('never sends the preview to the server', async () => {
     await enablePreview()
     await userEvent.click(screen.getByText('common.save'))
-    const sent = api.put.mock.calls[0][1].data
+    const sent = mockPut.mock.calls[0][1].data
     // A .uvtt has no concept of a player token or a viewing position.
     expect(sent).not.toHaveProperty('preview')
     expect(sent).not.toHaveProperty('token')

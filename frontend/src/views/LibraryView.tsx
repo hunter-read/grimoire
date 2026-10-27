@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuLibrary, LuChevronDown, LuChevronRight } from 'react-icons/lu'
-import api, { mediaUrl } from '../api'
+import api, { mediaUrl, type Schema } from '../api'
 import Spinner from '../components/Spinner'
 import useViewMode from '../hooks/useViewMode'
 import { getUserPrefs, saveUserPref } from '../hooks/useUserPrefs'
@@ -16,19 +16,28 @@ import SystemCard from '../components/library/SystemCard'
 import SystemGroupToggle from '../components/library/SystemGroupToggle'
 import AgnosticChip from '../components/library/AgnosticChip'
 import SystemSortFilterBar from '../components/library/SystemSortFilterBar'
+import type { SortFilterState } from '../components/library/FilterModal'
 import { applySystemSortFilter } from '../components/library/applySystemSortFilter'
 import { queryTags } from '../components/library/tagQuery'
 import BulkActionBar from '../components/BulkActionBar'
 import BulkEditModal from '../components/BulkEditModal'
 import LazyImg from '../components/LazyImg'
 
+type SystemSummary = Schema<'SystemSummary'>
+
+/** The modifier keys a card's selection click carries. */
+interface SelectMods {
+  shift?: boolean
+  meta?: boolean
+}
+
 export default function LibraryView() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { isFavorite } = useFavorites()
-  const { user } = useAuth()
+  const { user } = useAuth()!
   const canEdit = user?.role === 'admin' || user?.role === 'gm'
-  const [systems, setSystems] = useState(null)
+  const [systems, setSystems] = useState<SystemSummary[] | null>(null)
   const [viewMode, cycleViewMode] = useViewMode('system')
   const [recentBooks, setRecentBooks] = useState(() => getRecentBooks())
   const [recentCollapsed, setRecentCollapsed] = useState(
@@ -44,7 +53,7 @@ export default function LibraryView() {
   const systemFilters = useSavedFilters('systems')
   // Session-persisted, so coming back from a system keeps the user's filters
   // instead of re-applying their saved default over them.
-  const [sortFilter, setSortFilter] = useSortFilterState(
+  const [sortFilter, setSortFilter] = useSortFilterState<SortFilterState>(
     'grimoire:systems:sortFilter',
     systemFilters
   )
@@ -68,31 +77,31 @@ export default function LibraryView() {
   // dropdown). Presence sentinels aren't tags, so they stay out of this set.
   const selectedTags = new Set(queryTags(activeFilters.tags).map((tg) => tg.toLowerCase()))
   const favOnly = activeFilters.favorites === true
-  const isFavSystem = (id) => isFavorite('system', id)
+  const isFavSystem = (id: string) => isFavorite('system', id)
 
   // A container folder holds systems rather than books of its own, so it stays
   // visible on the strength of its children (issues #261, #262).
-  const visible = (s) => s.book_count > 0 || (s.container_kind && s.child_count > 0)
+  const visible = (s: SystemSummary) => s.book_count > 0 || (s.container_kind && s.child_count > 0)
 
   // "Special" collections (system-agnostic + one-page/small RPGs) are grouped
   // together above the regular game systems and shown as compact chips.
   // Container folders ("Dungeons & Dragons" holding its editions, "d20 System"
   // holding its family members) are ordinary library entries in the main grid.
-  const isSpecial = (s) => s.is_system_agnostic || s.is_one_page
+  const isSpecial = (s: SystemSummary) => s.is_system_agnostic || s.is_one_page
 
   // One-page collections are the exception to flattening. Their whole purpose
   // is to keep a pile of tiny one-book games out of the main grid, so spilling
   // dozens of them into it is exactly what the collection exists to prevent —
   // the container keeps its chip in the Special Collections strip and its
   // children stay reachable by drilling in, grouped or not.
-  const isOnePageChild = (s) => s.parent_id && s.parent_is_one_page
+  const isOnePageChild = (s: SystemSummary) => s.parent_id && s.parent_is_one_page
 
   // Grouped (default): containers show as one card and their children are
   // reached by drilling in, so the children stay out of the grid. Flattened:
   // the containers themselves drop out and their children take their place, so
   // the grid is a plain list of real systems (never both, which would show the
   // same games twice). Special collections keep their own chip strip either way.
-  const inGrid = (s) =>
+  const inGrid = (s: SystemSummary) =>
     visible(s) &&
     !isSpecial(s) &&
     !isOnePageChild(s) &&
@@ -191,7 +200,8 @@ export default function LibraryView() {
             >
               {recentBooks.map((book) => {
                 const lastPage = getBookPrefs(book.id).page || 1
-                const progress = book.page_count > 0 ? Math.min(lastPage / book.page_count, 1) : 0
+                const progress =
+                  (book.page_count ?? 0) > 0 ? Math.min(lastPage / book.page_count!, 1) : 0
                 return (
                   <div
                     key={book.id}
@@ -309,7 +319,7 @@ export default function LibraryView() {
                         <div style={{ fontSize: 11, color: 'var(--gold-dim)', marginTop: 2 }}>
                           {t('common.pageRange', {
                             page: lastPage,
-                            total: book.page_count > 0 ? book.page_count : '?',
+                            total: (book.page_count ?? 0) > 0 ? book.page_count : '?',
                           })}
                         </div>
                       )}
@@ -369,7 +379,7 @@ export default function LibraryView() {
                 {hasContainers && (
                   <SystemGroupToggle
                     grouped={grouped}
-                    onToggle={(next) => {
+                    onToggle={(next: boolean) => {
                       setGrouped(next)
                       saveUserPref('systemsGrouped', next)
                     }}
@@ -426,7 +436,7 @@ export default function LibraryView() {
                     list={list}
                     selectable={bulk.bulkMode}
                     selected={bulk.selectedIds.has(system.id)}
-                    onToggleSelect={(mods) =>
+                    onToggleSelect={(mods: SelectMods) =>
                       bulk.toggleItem(system.id, {
                         ...mods,
                         // Parent containers are excluded from bulk actions, so

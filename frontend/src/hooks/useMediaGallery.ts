@@ -11,7 +11,7 @@ import { queryTags, toggleQueryTag } from '../components/library/tagQuery'
 import { browseKey, commonFilterParams, withQuery } from '../utils/browseParams'
 
 // The sort/filter state the SortFilterBar edits (see useSortFilterState).
-interface SortFilter {
+type SortFilter = {
   sort?: string
   order?: 'asc' | 'desc'
   filters: Record<string, unknown> & { search?: string; tags?: unknown; favorites?: boolean }
@@ -47,10 +47,10 @@ interface Groups {
 }
 
 /** One folder (or the folder's own items, under '') as MediaFolderGroup draws it. */
-interface SubfolderEntry {
+interface SubfolderEntry<T extends GalleryItem = GalleryItem> {
   path: string
   count: number
-  items: GalleryItem[]
+  items: T[]
   loading: boolean
   hasMore: boolean
   started: boolean
@@ -87,7 +87,9 @@ export function splitFolder(path: string | null | undefined): [string, string] {
  * the whole collection, so a library of a few hundred thousand tokens opens as
  * quickly as a small one.
  */
-export default function useMediaGallery(config: GalleryConfig) {
+export default function useMediaGallery<T extends GalleryItem = GalleryItem>(
+  config: GalleryConfig
+) {
   const { type, collection, foldersUrl, listUrl, sessionKey } = config
 
   const [folderTags, setFolderTags] = useState<Record<string, string[]>>({})
@@ -109,10 +111,12 @@ export default function useMediaGallery(config: GalleryConfig) {
   // Persisted for the session so returning from a detail view keeps the filters
   // the user had, rather than snapping back to their saved default.
   // A collection can open in its own order (audio: album order, issue #494).
-  const [sortFilter, setSortFilter] = useSortFilterState(
+  const [sortFilter, setSortFilter] = useSortFilterState<SortFilter>(
     `${sessionKey}:sortFilter`,
     savedFilters,
-    config.defaultSort ? { ...DEFAULT_SORT_FILTER, sort: config.defaultSort } : DEFAULT_SORT_FILTER
+    (config.defaultSort
+      ? { ...DEFAULT_SORT_FILTER, sort: config.defaultSort }
+      : DEFAULT_SORT_FILTER) as SortFilter
   )
 
   const activeFilters = sortFilter.filters || {}
@@ -191,7 +195,7 @@ export default function useMediaGallery(config: GalleryConfig) {
       }
       return api.get(withQuery(listUrl, params)).then((body) => {
         const page = body as ({ total?: number } & Record<string, unknown>) | null
-        return { total: page?.total ?? 0, rows: (page?.[collection] as GalleryItem[]) || [] }
+        return { total: page?.total ?? 0, rows: (page?.[collection] as T[]) || [] }
       })
     },
     [listUrl, collection, sort, order]
@@ -283,8 +287,8 @@ export default function useMediaGallery(config: GalleryConfig) {
   // Every item loaded so far, across the open folders (or the flat list),
   // de-duplicated - what bulk selection and edits act on.
   const loadedItems = useMemo(() => {
-    const seen = new Map<string, GalleryItem>()
-    const all = Object.values(pages.lists) as { items: GalleryItem[] }[]
+    const seen = new Map<string, T>()
+    const all = Object.values(pages.lists) as { items: T[] }[]
     for (const list of all) {
       for (const item of list.items) if (!seen.has(item.id)) seen.set(item.id, item)
     }
@@ -313,7 +317,7 @@ export default function useMediaGallery(config: GalleryConfig) {
         }))
       }
 
-      pages.mapItems((item: GalleryItem) =>
+      pages.mapItems((item: T) =>
         selectedIds.has(item.id)
           ? { ...item, tags: [...new Set([...(item.tags || []), ...newTags])] }
           : item
@@ -330,14 +334,14 @@ export default function useMediaGallery(config: GalleryConfig) {
 
   const selectedObjects = () => loadedItems.filter((i) => selectedIds.has(i.id))
 
-  const applyEdits = (edited: Record<string, Partial<GalleryItem>>) =>
-    pages.mapItems((i: GalleryItem) => (edited[i.id] ? { ...i, ...edited[i.id] } : i))
+  const applyEdits = (edited: Record<string, Partial<T>>) =>
+    pages.mapItems((i: T) => (edited[i.id] ? { ...i, ...edited[i.id] } : i))
 
   // Drop items the server has deleted - the copies a merge folded into another
   // (issue #589) - from the loaded pages and from the selection.
   const removeItems = (ids: Iterable<string>) => {
     const gone = new Set(ids)
-    pages.removeItems((i: GalleryItem) => gone.has(i.id))
+    pages.removeItems((i: T) => gone.has(i.id))
     bulk.setSelectedIds((prev: Set<string>) => new Set([...prev].filter((id) => !gone.has(id))))
   }
 
@@ -346,7 +350,7 @@ export default function useMediaGallery(config: GalleryConfig) {
   // order, independent of how much of the folder is on screen.
   const fetchFolderItems = useCallback(
     async (paths: string[]) => {
-      const out: GalleryItem[] = []
+      const out: T[] = []
       for (const path of paths) {
         for (let offset = 0; ; offset += FULL_PAGE) {
           const params = {
@@ -360,7 +364,7 @@ export default function useMediaGallery(config: GalleryConfig) {
           const page = (await api.get(withQuery(listUrl, params))) as {
             total: number
           } & Record<string, unknown>
-          const rows = (page[collection] as GalleryItem[]) || []
+          const rows = (page[collection] as T[]) || []
           out.push(...rows)
           if (rows.length < FULL_PAGE || out.length >= page.total) break
         }
@@ -378,9 +382,9 @@ export default function useMediaGallery(config: GalleryConfig) {
   // `[[folder, { sub: { path, count, items, total, loading, hasMore } }]]`, the
   // shape MediaFolderGroup renders: top-level folders in name order, each with
   // the folders below it that hold items ('' for its own items).
-  const folderEntries = useMemo((): [string, Record<string, SubfolderEntry>][] => {
+  const folderEntries = useMemo((): [string, Record<string, SubfolderEntry<T>>][] => {
     if (!groups) return []
-    const byFolder: Record<string, Record<string, SubfolderEntry>> = {}
+    const byFolder: Record<string, Record<string, SubfolderEntry<T>>> = {}
     for (const g of groups.groups) {
       const [folder, sub] = splitFolder(g.path)
       const list = getList(g.path)
@@ -398,9 +402,7 @@ export default function useMediaGallery(config: GalleryConfig) {
   }, [groups, getList, dir, collator])
 
   const flatList = getList(FLAT)
-  // usePagedLists is still JavaScript; its lists hold the pages loaded so far.
-  const lists = pages.lists as Record<string, { items: GalleryItem[] } | undefined>
-  const flatItems = lists[FLAT]?.items || EMPTY_ITEMS
+  const flatItems = (pages.lists[FLAT]?.items as T[] | undefined) || (EMPTY_ITEMS as T[])
 
   // Subtitle counts: what the filters match, out of the whole collection.
   const filteredCount = grouped ? (groups?.total ?? 0) : (flatList?.total ?? 0)

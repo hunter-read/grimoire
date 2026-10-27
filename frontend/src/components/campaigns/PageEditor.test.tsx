@@ -1,6 +1,8 @@
+import type { ComponentProps } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import userEvent, { type UserEvent } from '@testing-library/user-event'
 import PageEditor from './PageEditor'
 
 vi.mock('../../api', () => ({
@@ -11,15 +13,20 @@ vi.mock('../../api', () => ({
   },
 }))
 vi.mock('./WikiMarkdown', () => ({
-  default: ({ body }) => <div data-testid="preview">{body}</div>,
+  default: ({ body }: ComponentProps<typeof import('./WikiMarkdown').default>) => (
+    <div data-testid="preview">{body}</div>
+  ),
 }))
 vi.mock('./GrimoireEmbedPicker', () => ({
-  default: ({ onInsert }) => (
+  default: ({ onInsert }: ComponentProps<typeof import('./GrimoireEmbedPicker').default>) => (
     <button onClick={() => onInsert('[[book:1]]')}>insert-embed-stub</button>
   ),
 }))
 
-import { campaigns } from '../../api'
+import { campaigns, type Schema } from '../../api'
+
+// The api module is mocked above; reach its helpers as plain vi.fn()s.
+const campaignsMock = campaigns as unknown as Record<keyof typeof campaigns, Mock>
 
 const campaign = {
   id: 'c1',
@@ -29,7 +36,7 @@ const campaign = {
     { user_id: 'u1', is_owner: true, username: 'gm' },
     { user_id: 'u2', is_owner: false, username: 'alice' },
   ],
-}
+} as unknown as Schema<'CampaignOut'>
 
 const existing = {
   id: 'p1',
@@ -71,9 +78,9 @@ const renderEditor = (props = {}) =>
 
 beforeEach(() => {
   vi.clearAllMocks()
-  campaigns.createWikiPage.mockResolvedValue({ id: 'new' })
-  campaigns.updateWikiPage.mockResolvedValue({ id: 'p1' })
-  campaigns.wikiTitles.mockResolvedValue(LINK_TARGETS)
+  campaignsMock.createWikiPage.mockResolvedValue({ id: 'new' })
+  campaignsMock.updateWikiPage.mockResolvedValue({ id: 'p1' })
+  campaignsMock.wikiTitles.mockResolvedValue(LINK_TARGETS)
 })
 
 describe('PageEditor', () => {
@@ -185,7 +192,7 @@ describe('PageEditor', () => {
     })
     await user.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(campaigns.updateWikiPage).toHaveBeenCalled())
-    const payload = campaigns.updateWikiPage.mock.calls[0][2]
+    const payload = campaignsMock.updateWikiPage.mock.calls[0][2]
     expect(payload).not.toHaveProperty('visibility')
     expect(payload).not.toHaveProperty('shared_user_ids')
     expect(payload).not.toHaveProperty('shared_write_user_ids')
@@ -198,7 +205,7 @@ describe('PageEditor', () => {
     renderEditor({ page: { ...existing, parent_id: 'p9' } })
     await user.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(campaigns.updateWikiPage).toHaveBeenCalled())
-    expect(campaigns.updateWikiPage.mock.calls[0][2]).not.toHaveProperty('parent_id')
+    expect(campaignsMock.updateWikiPage.mock.calls[0][2]).not.toHaveProperty('parent_id')
   })
 
   // The same rule applies to the author: only a real change is sent.
@@ -210,7 +217,7 @@ describe('PageEditor', () => {
     await user.click(screen.getByRole('checkbox', { name: 'Read access for alice' }))
     await user.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(campaigns.updateWikiPage).toHaveBeenCalled())
-    const payload = campaigns.updateWikiPage.mock.calls[0][2]
+    const payload = campaignsMock.updateWikiPage.mock.calls[0][2]
     expect(payload.shared_user_ids).toEqual(['u2'])
     // Visibility was untouched, so it stays out of the payload.
     expect(payload).not.toHaveProperty('visibility')
@@ -298,7 +305,7 @@ describe('PageEditor', () => {
   it('wraps the selection with the bold button', async () => {
     const user = userEvent.setup()
     renderEditor()
-    const body = screen.getByLabelText('Markdown')
+    const body = screen.getByLabelText('Markdown') as HTMLTextAreaElement
     await user.type(body, 'word')
     body.setSelectionRange(0, 4)
     await user.click(screen.getByRole('button', { name: 'Bold' }))
@@ -308,7 +315,7 @@ describe('PageEditor', () => {
   it('prefixes lines with the quote button, and toggles them back off', async () => {
     const user = userEvent.setup()
     renderEditor()
-    const body = screen.getByLabelText('Markdown')
+    const body = screen.getByLabelText('Markdown') as HTMLTextAreaElement
     await user.type(body, 'line')
     await user.click(screen.getByRole('button', { name: 'Quote' }))
     expect(body).toHaveValue('> line')
@@ -335,7 +342,7 @@ describe('PageEditor', () => {
   it('surfaces a save error and stays open', async () => {
     const user = userEvent.setup()
     const onSaved = vi.fn()
-    campaigns.createWikiPage.mockRejectedValue(new Error('Server exploded'))
+    campaignsMock.createWikiPage.mockRejectedValue(new Error('Server exploded'))
     renderEditor({ onSaved })
     await user.click(screen.getByRole('button', { name: 'Save' }))
     expect(await screen.findByText('Server exploded')).toBeInTheDocument()
@@ -355,8 +362,8 @@ describe('PageEditor', () => {
 describe('PageEditor [[link]] autocomplete', () => {
   // Type into the body textarea. userEvent reads "[" as the start of its
   // special-key syntax, so brackets are doubled to type them literally.
-  const typeBody = async (user, text) => {
-    const body = screen.getByLabelText('Markdown')
+  const typeBody = async (user: UserEvent, text: string) => {
+    const body = screen.getByLabelText('Markdown') as HTMLTextAreaElement
     await user.click(body)
     await user.type(body, text.replace(/\[/g, '[['))
     return body
@@ -365,8 +372,8 @@ describe('PageEditor [[link]] autocomplete', () => {
   // The suggestion dropdown, or null when it isn't showing. Scoped to the
   // listbox because the visibility/parent <select>s also expose role="option".
   const listbox = () => screen.queryByRole('listbox', { name: 'Page suggestions' })
-  const options = () => (listbox() ? within(listbox()).getAllByRole('option') : [])
-  const findOption = async (name) =>
+  const options = () => (listbox() ? within(listbox()!).getAllByRole('option') : [])
+  const findOption = async (name: string | RegExp) =>
     within(await screen.findByRole('listbox', { name: 'Page suggestions' })).findByRole('option', {
       name,
     })
@@ -402,7 +409,7 @@ describe('PageEditor [[link]] autocomplete', () => {
     const user = userEvent.setup()
     renderEditor()
     await waitFor(() => expect(campaigns.wikiTitles).toHaveBeenCalled())
-    const body = screen.getByLabelText('Markdown')
+    const body = screen.getByLabelText('Markdown') as HTMLTextAreaElement
     await user.click(screen.getByRole('button', { name: /Link page/ }))
 
     // The button defers its caret placement and dropdown open into a
@@ -507,7 +514,7 @@ describe('PageEditor [[link]] autocomplete', () => {
   })
 
   it('stays usable when the titles lookup fails', async () => {
-    campaigns.wikiTitles.mockRejectedValue(new Error('nope'))
+    campaignsMock.wikiTitles.mockRejectedValue(new Error('nope'))
     const user = userEvent.setup()
     renderEditor()
     const body = await typeBody(user, '[[Bob')
@@ -522,12 +529,12 @@ describe('PageEditor viewport fill', () => {
   it('sizes its root to the remaining viewport height', () => {
     const { container } = renderEditor()
     // jsdom reports a 0 top and a 768px viewport, leaving 744 after the gap.
-    expect(container.firstChild.style.height).toBe('744px')
+    expect((container.firstChild as HTMLElement).style.height).toBe('744px')
   })
 
   it('lets the editor row take the leftover space while the buttons stay fixed', () => {
     const { container } = renderEditor()
-    const rows = Array.from(container.firstChild.children)
+    const rows = Array.from((container.firstChild as HTMLElement).children) as HTMLElement[]
     // The markdown/preview row is the only one allowed to grow.
     const growing = rows.filter((r) => r.style.flex === '1 1 auto')
     expect(growing).toHaveLength(1)
@@ -548,7 +555,7 @@ describe('PageEditor viewport fill', () => {
     const user = userEvent.setup()
     renderEditor()
     await user.click(screen.getByRole('button', { name: /preview/i }))
-    const pane = screen.getByTestId('preview').parentElement
+    const pane = screen.getByTestId('preview').parentElement!
     expect(pane.style.overflowY).toBe('auto')
   })
 
@@ -557,7 +564,7 @@ describe('PageEditor viewport fill', () => {
     Object.defineProperty(window, 'innerHeight', { value: 200, configurable: true })
     try {
       const { container } = renderEditor()
-      expect(container.firstChild.style.height).toBe('')
+      expect((container.firstChild as HTMLElement).style.height).toBe('')
       const body = screen.getByRole('textbox', { name: 'Markdown' })
       expect(body.style.resize).toBe('vertical')
     } finally {
@@ -571,10 +578,10 @@ describe('PageEditor viewport fill', () => {
       matches: true,
       addEventListener: () => {},
       removeEventListener: () => {},
-    }))
+    })) as unknown as typeof window.matchMedia
     try {
       const { container } = renderEditor()
-      expect(container.firstChild.style.height).toBe('')
+      expect((container.firstChild as HTMLElement).style.height).toBe('')
     } finally {
       window.matchMedia = original
     }

@@ -3,7 +3,6 @@ import {
   useEffect,
   useCallback,
   useMemo,
-  type ComponentType,
   type CSSProperties,
   type Dispatch,
   type SetStateAction,
@@ -20,12 +19,12 @@ import DownloadArchiveModal from '../components/DownloadArchiveModal'
 import BulkActionBar from '../components/BulkActionBar'
 import useBulkMerge from '../hooks/useBulkMerge'
 import AddToCampaignModal from '../components/AddToCampaignModal'
-import BulkEditModalJs from '../components/BulkEditModal'
+import BulkEditModal from '../components/BulkEditModal'
 import useBulkSelection from '../hooks/useBulkSelection'
 
 import { useAuth } from '../context/AuthContext'
 import Spinner from '../components/Spinner'
-import TagJs from '../components/Tag'
+import Tag from '../components/Tag'
 import SystemEditor from '../components/system/SystemEditor'
 import SystemLinks from '../components/system/SystemLinks'
 import SystemDescription from '../components/system/SystemDescription'
@@ -34,19 +33,23 @@ import SystemCategorySection from '../components/system/SystemCategorySection'
 import SystemContainerView from '../components/system/SystemContainerView'
 import CategoryBookItem from '../components/system/CategoryBookItem'
 import CategoryGroupToggle from '../components/system/CategoryGroupToggle'
-import { nodeKey, orderedNodeEntries } from '../components/system/shelfTree'
+import { nodeKey, orderedNodeEntries, type ShelfNode } from '../components/system/shelfTree'
 import LoadMoreSentinel from '../components/LoadMoreSentinel'
 import useShelf from '../hooks/useShelf'
 import { bookFilterParams, withQuery } from '../utils/browseParams'
 import { getFolderPlacement } from '../hooks/useUserPrefs'
-import BulkToggleButtonJs from '../components/BulkToggleButton'
+import BulkToggleButton from '../components/BulkToggleButton'
 import CollapseExpandButtons from '../components/CollapseExpandButtons'
-import ToolbarButtonJs from '../components/ToolbarButton'
-import RescanButtonJs from '../components/RescanButton'
-import FavoriteButtonJs from '../components/FavoriteButton'
+import ToolbarButton from '../components/ToolbarButton'
+import RescanButton from '../components/RescanButton'
+import FavoriteButton from '../components/FavoriteButton'
 import ViewModeToggle from '../components/ViewModeToggle'
 import useViewMode from '../hooks/useViewMode'
-import SortFilterBarJs from '../components/library/SortFilterBar'
+import SortFilterBar, {
+  type SavedPreset,
+  type SortFilterState,
+} from '../components/library/SortFilterBar'
+import type { ShelfDownload } from '../components/system/BookFolderGroup'
 import useSavedFilters from '../hooks/useSavedFilters'
 import { CATEGORY_ORDER } from '../constants'
 import { defaultCollapsedFromCounts } from '../utils/autoCollapse'
@@ -55,18 +58,6 @@ import { parentSystemLabel } from '../utils/parentSystemLabel'
 import useTagLabels, { titleCaseTag } from '../hooks/useTagLabels'
 import { RECENTLY_ADDED_DAYS } from '../utils/recentlyAdded'
 
-// Still-JavaScript components whose props TypeScript would infer from their
-// defaults, turning every optional prop into a required one.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Loose = ComponentType<Record<string, any>>
-const Tag = TagJs as Loose
-const BulkToggleButton = BulkToggleButtonJs as Loose
-const ToolbarButton = ToolbarButtonJs as Loose
-const FavoriteButton = FavoriteButtonJs as Loose
-const SortFilterBar = SortFilterBarJs as Loose
-const RescanButton = RescanButtonJs as Loose
-const BulkEditModal = BulkEditModalJs as Loose
-
 type System = Schema<'SystemDetail'>
 type Book = Schema<'BookOut'>
 
@@ -74,38 +65,6 @@ interface BookFilter {
   sort: string
   order: string
   filters: { tags?: unknown; favorites?: boolean; [key: string]: unknown }
-}
-
-/** A category or subfolder of the shelf, as shelfTree's buildShelf builds it. */
-interface ShelfNode {
-  category: string
-  path: string
-  count: number
-  direct: number
-  folders: Record<string, ShelfNode>
-}
-
-/** What useShelf (still JavaScript) returns. */
-interface ShelfData {
-  system: System | null
-  setSystem: Dispatch<SetStateAction<System | null>>
-  facets: {
-    categories: string[]
-    genres: string[]
-    product_code_prefixes: string[]
-    tags: string[]
-  }
-  shelf: Record<string, ShelfNode>
-  pages: { get: (key: string) => { items: Book[]; hasMore: boolean } | undefined }
-  loadNode: (...args: unknown[]) => void
-  loadedBooks: Book[]
-  updateBooks: (fn: (book: Book) => Book) => void
-  reload: () => void
-  flatBooks: Book[]
-  flatHasMore: boolean
-  flatLoading: boolean
-  loadMoreFlat: () => void
-  matchCount: number
 }
 
 type SetState<T> = Dispatch<SetStateAction<T>>
@@ -166,7 +125,7 @@ export default function SystemDetailView() {
     grouped,
     bookFilter,
     ready: defaultApplied,
-  }) as unknown as ShelfData
+  })
   const { system, setSystem, facets, shelf, pages, loadNode, loadedBooks, updateBooks } = shelfData
 
   // A long system starts with its categories collapsed (a small core stays
@@ -206,17 +165,8 @@ export default function SystemDetailView() {
   const { searchQuery, searchResults, searching, handleSearchInput, clearSearch } = useSystemSearch(
     systemId,
     restoreView
-  ) as {
-    searchQuery: string
-    searchResults: { query?: string } | null
-    searching: boolean
-    handleSearchInput: (e: React.ChangeEvent<HTMLInputElement>) => void
-    clearSearch: () => void
-  }
-  const [downloadModal, setDownloadModal] = useState<{
-    title: string
-    params: Record<string, unknown>
-  } | null>(null)
+  )
+  const [downloadModal, setDownloadModal] = useState<ShelfDownload | null>(null)
   // Books whose title or metadata match the in-system search, shown above the
   // page hits. Asked of the server with the shelf's filters, so they honour the
   // same tag/favourite filters as the grid.
@@ -267,7 +217,7 @@ export default function SystemDetailView() {
     setDefault: setBookPresetDefault,
     remove: removeBookPreset,
   } = useSavedFilters('books') as {
-    saved: unknown[]
+    saved: SavedPreset[]
     loaded: boolean
     defaultFilter: { state?: BookFilter } | null
     save: (name: string, state: BookFilter, opts?: unknown) => void
@@ -292,7 +242,7 @@ export default function SystemDetailView() {
   // cannot be a local patch.
   const { reload } = shelfData
   const handleVariantsChanged = useCallback(
-    (newMainId?: string) => {
+    (newMainId?: string | null) => {
       reload()
       if (newMainId) setEditingBookId(newMainId)
     },
@@ -372,7 +322,8 @@ export default function SystemDetailView() {
   // For the empty-state copy.
   const favOnly = bookFilters.favorites === true
 
-  const updateBookFilter = (next: BookFilter) => setBookFilter(next)
+  // The bar hands back the state it was given, so its `filters` is still set.
+  const updateBookFilter = (next: SortFilterState) => setBookFilter(next as BookFilter)
   const handleSaveBookPreset = (name: string, opts?: unknown) =>
     saveBookPreset(name, bookFilter, opts)
 

@@ -4,14 +4,24 @@ import { LuCircleCheck, LuRefreshCw, LuSquare } from 'react-icons/lu'
 import Spinner from '../Spinner'
 import RescanModal from '../RescanModal'
 import useScanStatus from '../../hooks/useScanStatus'
+import type { ScanStatus, ScanStatusHandle } from '../../hooks/useScanStatus'
 import scanPhaseLabel, { scanPercent, scanTotals } from './scanPhaseLabel'
+
+// The counters are read as plain numbers here: a missing one compares and adds
+// as 0, which the progress maths below relies on.
+type ScanCounters = { [K in keyof ScanStatus]-?: NonNullable<ScanStatus[K]> }
+type CountedScanStatus = Omit<ScanStatusHandle, 'status' | 'lastResult'> & {
+  status: ScanCounters
+  lastResult: ScanCounters | null
+}
 
 export default function RescanSection() {
   const { t } = useTranslation()
-  const { status, lastResult, stopping, startRescan, stopScan } = useScanStatus()
+  const { status, lastResult, stopping, startRescan, stopScan } =
+    useScanStatus() as CountedScanStatus
   const [showModal, setShowModal] = useState(false)
 
-  const handleConfirm = (metadata_mode) => {
+  const handleConfirm = (metadata_mode: string) => {
     startRescan({ scope: null, metadata_mode }).catch(() => {})
   }
 

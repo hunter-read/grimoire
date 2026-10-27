@@ -1,17 +1,14 @@
 import { useState } from 'react'
-import type { ComponentType, ImgHTMLAttributes } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuTrash2, LuTriangleAlert, LuUsers } from 'react-icons/lu'
 import { characters as charactersApi } from '../../api'
 import type { Schema } from '../../api'
-import CardLinkJs from '../CardLink'
-import LazyImgJs from '../LazyImg'
+import CardLink from '../CardLink'
+import LazyImg from '../LazyImg'
 import { isActive, statusLabel } from './characterStatus'
 import { framedImageStyle } from './portraitCrop'
 
 // Still JavaScript, so TypeScript would read every prop as required.
-const CardLink = CardLinkJs as ComponentType<{ to: string; label: string }>
-const LazyImg = LazyImgJs as ComponentType<ImgHTMLAttributes<HTMLImageElement>>
 
 interface Props {
   character: Schema<'CharacterSummary'>

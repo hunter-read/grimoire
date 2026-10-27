@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ImporterList from './ImporterList'
+import type { ImporterListProps } from './ImporterList'
 
 const mockInstall = vi.fn()
 const mockRemove = vi.fn()
@@ -9,9 +10,9 @@ const mockInstallForEveryone = vi.fn()
 
 vi.mock('../../api', () => ({
   characters: {
-    installImporter: (...a) => mockInstall(...a),
-    removeImporter: (...a) => mockRemove(...a),
-    installImporterForEveryone: (...a) => mockInstallForEveryone(...a),
+    installImporter: (...a: unknown[]) => mockInstall(...a),
+    removeImporter: (...a: unknown[]) => mockRemove(...a),
+    installImporterForEveryone: (...a: unknown[]) => mockInstallForEveryone(...a),
   },
 }))
 
@@ -32,7 +33,7 @@ const MINE = {
   available_version: '',
 }
 const SERVERS = { ...MINE, id: 'forge-steel', name: 'Forge Steel', scope: 'server' }
-const offer = (id, installAs, extra = {}) => ({
+const offer = (id: string, installAs: string, extra = {}) => ({
   id,
   name: `${id} importer`,
   description: `Reads ${id}.`,
@@ -45,12 +46,12 @@ const offer = (id, installAs, extra = {}) => ({
   ...extra,
 })
 
-const openList = (count) =>
+const openList = (count: number) =>
   userEvent.click(screen.getByRole('button', { name: `Installed importers (${count})` }))
 
-function renderList(listing) {
+function renderList(listing: object | null) {
   const onChanged = vi.fn(() => Promise.resolve())
-  render(<ImporterList listing={listing} onChanged={onChanged} />)
+  render(<ImporterList listing={listing as ImporterListProps['listing']} onChanged={onChanged} />)
   return { onChanged }
 }
 

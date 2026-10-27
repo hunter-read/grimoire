@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import ScheduleSetup from './ScheduleSetup'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k, opts) => (opts ? `${k}:${JSON.stringify(opts)}` : k),
+    t: (k: string, opts?: Record<string, unknown>) => (opts ? `${k}:${JSON.stringify(opts)}` : k),
   }),
 }))
 
@@ -15,7 +16,13 @@ vi.mock('../../api', () => ({
 // Stub the editor so the setup component's own callbacks can be driven without
 // depending on the editor's internals.
 vi.mock('./ScheduleEditor', () => ({
-  default: ({ onSaved, onDeleted }) => (
+  default: ({
+    onSaved,
+    onDeleted,
+  }: {
+    onSaved: (result: unknown) => void
+    onDeleted: () => void
+  }) => (
     <div>
       <button
         onClick={() =>
@@ -32,9 +39,12 @@ vi.mock('./ScheduleEditor', () => ({
   ),
 }))
 
-import { campaigns } from '../../api'
+import { campaigns, type Schema } from '../../api'
 
-const campaign = { id: 'c1' }
+// The api module is mocked above; reach its helpers as plain vi.fn()s.
+const campaignsMock = campaigns as unknown as Record<keyof typeof campaigns, Mock>
+
+const campaign = { id: 'c1' } as Schema<'CampaignOut'>
 const weekly = { frequency: 'weekly', days: [6], time_local: '19:30' }
 
 beforeEach(() => {
@@ -43,25 +53,25 @@ beforeEach(() => {
 
 describe('ScheduleSetup', () => {
   it('shows a spinner until the schedule loads', () => {
-    campaigns.getSchedule.mockReturnValue(new Promise(() => {}))
+    campaignsMock.getSchedule.mockReturnValue(new Promise(() => {}))
     const { container } = render(<ScheduleSetup campaign={campaign} />)
     expect(container.querySelector('svg, div')).toBeTruthy()
   })
 
   it('renders the summary once loaded', async () => {
-    campaigns.getSchedule.mockResolvedValue({ definition: weekly, enabled: true })
+    campaignsMock.getSchedule.mockResolvedValue({ definition: weekly, enabled: true })
     render(<ScheduleSetup campaign={campaign} />)
     expect(await screen.findByText(/schedule\.frequency\.weekly/)).toBeInTheDocument()
   })
 
   it('shows the stored local time without converting it', async () => {
-    campaigns.getSchedule.mockResolvedValue({ definition: weekly, enabled: true })
+    campaignsMock.getSchedule.mockResolvedValue({ definition: weekly, enabled: true })
     render(<ScheduleSetup campaign={campaign} />)
     expect(await screen.findByText(/7:30/)).toBeInTheDocument()
   })
 
   it('collapses to just the toggle when disabled', async () => {
-    campaigns.getSchedule.mockResolvedValue({ definition: weekly, enabled: false })
+    campaignsMock.getSchedule.mockResolvedValue({ definition: weekly, enabled: false })
     render(<ScheduleSetup campaign={campaign} />)
     await waitFor(() =>
       expect(screen.getByText('campaignEditor.scheduleDisabled')).toBeInTheDocument()
@@ -70,13 +80,13 @@ describe('ScheduleSetup', () => {
   })
 
   it('shows the editor when there is no definition yet', async () => {
-    campaigns.getSchedule.mockResolvedValue({ definition: null, enabled: true })
+    campaignsMock.getSchedule.mockResolvedValue({ definition: null, enabled: true })
     render(<ScheduleSetup campaign={campaign} />)
     expect(await screen.findByText('stub-save')).toBeInTheDocument()
   })
 
   it('falls back to an empty schedule when loading fails', async () => {
-    campaigns.getSchedule.mockRejectedValue(new Error('nope'))
+    campaignsMock.getSchedule.mockRejectedValue(new Error('nope'))
     render(<ScheduleSetup campaign={campaign} />)
     await waitFor(() =>
       expect(screen.getByText('campaignEditor.scheduleDisabled')).toBeInTheDocument()
@@ -84,7 +94,7 @@ describe('ScheduleSetup', () => {
   })
 
   it('opens the editor from the summary and saves', async () => {
-    campaigns.getSchedule.mockResolvedValue({ definition: weekly, enabled: true })
+    campaignsMock.getSchedule.mockResolvedValue({ definition: weekly, enabled: true })
     const onChanged = vi.fn()
     render(<ScheduleSetup campaign={campaign} onChanged={onChanged} />)
     fireEvent.click(await screen.findByText('schedule.edit'))
@@ -93,7 +103,7 @@ describe('ScheduleSetup', () => {
   })
 
   it('clears the definition when the editor deletes it', async () => {
-    campaigns.getSchedule.mockResolvedValue({ definition: null, enabled: true })
+    campaignsMock.getSchedule.mockResolvedValue({ definition: null, enabled: true })
     const onChanged = vi.fn()
     render(<ScheduleSetup campaign={campaign} onChanged={onChanged} />)
     fireEvent.click(await screen.findByText('stub-delete'))
@@ -101,8 +111,8 @@ describe('ScheduleSetup', () => {
   })
 
   it('persists the enabled flag through the API when a definition exists', async () => {
-    campaigns.getSchedule.mockResolvedValue({ definition: weekly, enabled: true })
-    campaigns.setSchedule.mockResolvedValue({ definition: weekly, enabled: false })
+    campaignsMock.getSchedule.mockResolvedValue({ definition: weekly, enabled: true })
+    campaignsMock.setSchedule.mockResolvedValue({ definition: weekly, enabled: false })
     render(<ScheduleSetup campaign={campaign} />)
     await screen.findByText('schedule.edit')
     fireEvent.click(screen.getByRole('switch'))
@@ -112,7 +122,7 @@ describe('ScheduleSetup', () => {
   })
 
   it('toggles locally without an API call when there is no definition', async () => {
-    campaigns.getSchedule.mockResolvedValue({ definition: null, enabled: true })
+    campaignsMock.getSchedule.mockResolvedValue({ definition: null, enabled: true })
     render(<ScheduleSetup campaign={campaign} />)
     await screen.findByText('stub-save')
     fireEvent.click(screen.getByRole('switch'))
@@ -123,8 +133,8 @@ describe('ScheduleSetup', () => {
   })
 
   it('keeps the toggle as-is when persisting the flag fails', async () => {
-    campaigns.getSchedule.mockResolvedValue({ definition: weekly, enabled: true })
-    campaigns.setSchedule.mockRejectedValue(new Error('boom'))
+    campaignsMock.getSchedule.mockResolvedValue({ definition: weekly, enabled: true })
+    campaignsMock.setSchedule.mockRejectedValue(new Error('boom'))
     render(<ScheduleSetup campaign={campaign} />)
     await screen.findByText('schedule.edit')
     fireEvent.click(screen.getByRole('switch'))
@@ -133,7 +143,7 @@ describe('ScheduleSetup', () => {
   })
 
   it('summarises custom dates by count', async () => {
-    campaigns.getSchedule.mockResolvedValue({
+    campaignsMock.getSchedule.mockResolvedValue({
       definition: { frequency: 'custom', custom_dates: ['2026-08-23'] },
       enabled: true,
     })
@@ -142,7 +152,7 @@ describe('ScheduleSetup', () => {
   })
 
   it('describes a monthly pattern', async () => {
-    campaigns.getSchedule.mockResolvedValue({
+    campaignsMock.getSchedule.mockResolvedValue({
       definition: { frequency: 'monthly', days: [2], monthly_week: -1 },
       enabled: true,
     })
@@ -151,7 +161,7 @@ describe('ScheduleSetup', () => {
   })
 
   it('falls back to the raw frequency when unrecognised', async () => {
-    campaigns.getSchedule.mockResolvedValue({
+    campaignsMock.getSchedule.mockResolvedValue({
       definition: { frequency: 'hourly', days: [] },
       enabled: true,
     })

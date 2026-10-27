@@ -1,13 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import VttCanvas from './VttCanvas'
+import type { VttCanvasProps } from './VttCanvas'
+import type { Viewport } from './useViewport'
+import type { PreviewState, VttDoc } from './types'
 
 const wall = [
   { x: 0, y: 0 },
   { x: 3, y: 0 },
 ]
 
-const doc = {
+const doc: VttDoc = {
   line_of_sight: [wall],
   objects_line_of_sight: [
     [
@@ -20,7 +23,7 @@ const doc = {
   environment: { baked_lighting: false, ambient_light: '00000000' },
 }
 
-const props = {
+const props: VttCanvasProps = {
   imageUrl: '/img.png',
   pixelWidth: 1400,
   pixelHeight: 1400,
@@ -36,16 +39,19 @@ const props = {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  Element.prototype.getBoundingClientRect = vi.fn(() => ({
-    left: 0,
-    top: 0,
-    width: 1000,
-    height: 1000,
-    right: 1000,
-    bottom: 1000,
-    x: 0,
-    y: 0,
-  }))
+  Element.prototype.getBoundingClientRect = vi.fn(
+    () =>
+      ({
+        left: 0,
+        top: 0,
+        width: 1000,
+        height: 1000,
+        right: 1000,
+        bottom: 1000,
+        x: 0,
+        y: 0,
+      }) as DOMRect
+  )
   Object.defineProperty(HTMLElement.prototype, 'clientWidth', { value: 1000, configurable: true })
   Object.defineProperty(HTMLElement.prototype, 'clientHeight', { value: 1000, configurable: true })
 })
@@ -188,10 +194,10 @@ describe('VttCanvas', () => {
   })
 
   it('hands its viewport up so the toolbar can drive zoom', () => {
-    const viewportRef = { current: null }
+    const viewportRef: { current: Viewport | null } = { current: null }
     render(<VttCanvas {...props} viewportRef={viewportRef} />)
-    expect(typeof viewportRef.current.fit).toBe('function')
-    expect(typeof viewportRef.current.zoomBy).toBe('function')
+    expect(typeof viewportRef.current!.fit).toBe('function')
+    expect(typeof viewportRef.current!.zoomBy).toBe('function')
   })
 })
 
@@ -229,7 +235,7 @@ describe('VttCanvas selection precision', () => {
 })
 
 describe('VttCanvas player view', () => {
-  const preview = (over = {}) => ({
+  const preview = (over: Partial<PreviewState> = {}): PreviewState => ({
     enabled: true,
     token: { x: 2, y: 6 },
     vision: true,
@@ -287,14 +293,14 @@ describe('VttCanvas player view', () => {
     const defined = new Set([...container.querySelectorAll('mask[id]')].map((m) => m.id))
     const referenced = [...container.querySelectorAll('*')]
       .map((el) => el.getAttribute?.('mask'))
-      .filter((v) => v && v.startsWith('url(#'))
+      .filter((v): v is string => !!v && v.startsWith('url(#'))
       .map((v) => v.slice(5, -1))
     expect(referenced.length).toBeGreaterThan(0)
     for (const id of referenced) expect(defined).toContain(id)
   })
 
   it('lightens the shroud as authored ambient light rises', () => {
-    const alphaOf = (el) => Number(el.getAttribute('fill').match(/([\d.]+)\)$/)[1])
+    const alphaOf = (el: Element) => Number(el.getAttribute('fill')!.match(/([\d.]+)\)$/)![1])
 
     const dark = { ...doc, environment: { ...doc.environment, ambient_light: '00000000' } }
     const { rerender } = render(<VttCanvas {...props} doc={dark} preview={preview()} />)
@@ -314,6 +320,6 @@ describe('VttCanvas player view', () => {
     const bright = { ...doc, environment: { ...doc.environment, ambient_light: 'ffffffff' } }
     render(<VttCanvas {...props} doc={bright} preview={preview()} />)
     const fill = screen.getByTestId('preview-shroud').getAttribute('fill')
-    expect(Number(fill.match(/([\d.]+)\)$/)[1])).toBeGreaterThan(0.2)
+    expect(Number(fill!.match(/([\d.]+)\)$/)![1])).toBeGreaterThan(0.2)
   })
 })

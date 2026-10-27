@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import AboutModal from './AboutModal'
 import api from '../api'
@@ -6,7 +6,8 @@ import api from '../api'
 vi.mock('../api', () => ({ default: { get: vi.fn() } }))
 
 // __REACT_VERSION__ is injected by Vite at build time; stub it for tests.
-globalThis.__REACT_VERSION__ = '18.3.1'
+const viteGlobals = globalThis as unknown as { __REACT_VERSION__: string }
+viteGlobals.__REACT_VERSION__ = '18.3.1'
 
 const CHANGELOG = {
   releases: [
@@ -26,8 +27,8 @@ const CHANGELOG = {
 }
 
 beforeEach(() => {
-  api.get.mockReset()
-  api.get.mockResolvedValue(CHANGELOG)
+  vi.mocked(api.get).mockReset()
+  vi.mocked(api.get).mockResolvedValue(CHANGELOG)
 })
 
 const defaultAbout = {
@@ -220,7 +221,7 @@ describe('AboutModal — accessibility', () => {
     const dialog = screen.getByRole('dialog')
     const labelId = dialog.getAttribute('aria-labelledby')
     expect(labelId).toBeTruthy()
-    const label = document.getElementById(labelId)
+    const label = document.getElementById(labelId!)!
     expect(label).toBeInTheDocument()
     expect(label.textContent).toMatch(/About Grimoire/i)
   })
@@ -281,14 +282,14 @@ describe('AboutModal — changelog', () => {
   })
 
   it('omits the changelog when the API returns none', async () => {
-    api.get.mockResolvedValue({ releases: [] })
+    vi.mocked(api.get).mockResolvedValue({ releases: [] })
     renderModal()
     await waitFor(() => expect(api.get).toHaveBeenCalled())
     expect(screen.queryByText('Changelog')).not.toBeInTheDocument()
   })
 
   it('still shows build information when the changelog fails to load', async () => {
-    api.get.mockRejectedValue(new Error('boom'))
+    vi.mocked(api.get).mockRejectedValue(new Error('boom'))
     renderModal()
     await waitFor(() => expect(api.get).toHaveBeenCalled())
     // The dialog's actual purpose survives a failed changelog fetch.
@@ -297,7 +298,7 @@ describe('AboutModal — changelog', () => {
   })
 
   it('marks no release current when the running version is absent', async () => {
-    api.get.mockResolvedValue({
+    vi.mocked(api.get).mockResolvedValue({
       releases: [{ version: '9.9.9', date: null, summary: null, sections: [] }],
     })
     renderModal()

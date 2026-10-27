@@ -1,7 +1,9 @@
 import { useState } from 'react'
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuDownload } from 'react-icons/lu'
 import api from '../../api'
+import type { Schema } from '../../api'
 import { CATEGORY_ORDER, categoryLabel, slugify } from '../../constants'
 import CategoryPicker from '../metadata/CategoryPicker'
 import GenrePicker from '../metadata/GenrePicker'
@@ -13,6 +15,31 @@ import { cleanLinks, linksForEditing } from '../metadata/metadataUtils'
 import MetadataFetchDialog from '../system/MetadataFetchDialog'
 import useMetadataSources from '../system/useMetadataSources'
 import { intoBookForm } from '../system/metadataFieldValue'
+
+type Book = Schema<'BookDetail'>
+
+/** The form fields edited as one line (or block) of text. */
+type TextField =
+  | 'title'
+  | 'description'
+  | 'authors'
+  | 'artists'
+  | 'publisher'
+  | 'isbn'
+  | 'product_code'
+  | 'version'
+  | 'language'
+  | 'year'
+  | 'month'
+  | 'day'
+
+export interface DetailsSidebarEditorProps {
+  book: Book
+  onSaved: (book: Book) => void
+  onCancel: () => void
+  /** Fields a metadata fetch saved, in API shape. */
+  onApplied?: (fields: Record<string, unknown>) => void
+}
 
 /**
  * The editable form behind the details sidebar's Edit button.
@@ -28,7 +55,12 @@ import { intoBookForm } from '../system/metadataFieldValue'
  * applies, so `onApplied` hands those fields up straight away — the reader's
  * copy of the book stays current even if this form is then cancelled.
  */
-export default function DetailsSidebarEditor({ book, onSaved, onCancel, onApplied }) {
+export default function DetailsSidebarEditor({
+  book,
+  onSaved,
+  onCancel,
+  onApplied,
+}: DetailsSidebarEditorProps) {
   const { t } = useTranslation()
   const { genres: genreTree, licenses, reload: reloadLookups } = useLookups()
   const licenseOptions = licenses.map((l) => l.name)
@@ -61,10 +93,11 @@ export default function DetailsSidebarEditor({ book, onSaved, onCancel, onApplie
 
   // Applied fields arrive in API shape; the form holds some of them as text.
   // The Grimoire Codex DB link is saved by the dialog and kept out of the form.
-  const handleFetched = (fields) => {
+  const handleFetched = (fields: Record<string, unknown>) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- named only to drop it from `rest`
     const { tags: fetchedTags, codex_id: _codexId, ...rest } = fields
     setForm((f) => ({ ...f, ...intoBookForm(rest) }))
-    if (fetchedTags) setTags(fetchedTags)
+    if (fetchedTags) setTags(fetchedTags as string[])
     onApplied?.(fields)
   }
 
@@ -72,14 +105,14 @@ export default function DetailsSidebarEditor({ book, onSaved, onCancel, onApplie
     (slug) => ({ value: slug, label: categoryLabel(slug) })
   )
 
-  const fieldLabel = {
+  const fieldLabel: CSSProperties = {
     fontSize: 12,
     color: 'var(--text-muted)',
     display: 'block',
     marginBottom: 3,
   }
 
-  const field = (label, key, opts = {}) => (
+  const field = (label: string, key: TextField, opts: { textarea?: boolean } = {}) => (
     <div style={{ marginBottom: 10 }}>
       <label htmlFor={`reader-book-field-${key}`} style={fieldLabel}>
         {label}
@@ -104,7 +137,7 @@ export default function DetailsSidebarEditor({ book, onSaved, onCancel, onApplie
     </div>
   )
 
-  const splitCsv = (s) =>
+  const splitCsv = (s: string) =>
     s
       .split(',')
       .map((a) => a.trim())
@@ -128,7 +161,7 @@ export default function DetailsSidebarEditor({ book, onSaved, onCancel, onApplie
       .patch(`/books/${book.id}`, payload)
       .then(() => {
         setSaving(false)
-        onSaved({ ...book, ...payload })
+        onSaved({ ...book, ...payload } as Book)
       })
       .catch(() => {
         setSaving(false)

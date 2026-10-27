@@ -4,7 +4,7 @@ import PluginSourceContextMenu from './PluginSourceContextMenu'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k, fallback) => fallback || k,
+    t: (k: string, fallback?: string) => fallback || k,
   }),
 }))
 

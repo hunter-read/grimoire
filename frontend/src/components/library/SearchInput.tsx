@@ -1,12 +1,27 @@
 import { useTranslation } from 'react-i18next'
+import type { CSSProperties } from 'react'
 import { LuSearch, LuX } from 'react-icons/lu'
+
+export interface SearchInputProps {
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+  ariaLabel?: string
+  style?: CSSProperties
+}
 
 /**
  * Compact, standalone search box (magnifier icon + clear button) matching the
  * system-detail search bar. Used to keep title/name search visible outside the
  * filter modal for the media galleries.
  */
-export default function SearchInput({ value, onChange, placeholder, ariaLabel, style }) {
+export default function SearchInput({
+  value,
+  onChange,
+  placeholder,
+  ariaLabel,
+  style,
+}: SearchInputProps) {
   const { t } = useTranslation()
   return (
     <div style={{ position: 'relative', ...style }}>

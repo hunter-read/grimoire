@@ -1,27 +1,27 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import useImagePrefetch from './useImagePrefetch'
 
 // Capture every URL assigned to a prefetch Image, in order.
-let requested
-let OriginalImage
+let requested: string[]
+let OriginalImage: typeof Image
 
 beforeEach(() => {
   requested = []
-  OriginalImage = global.Image
-  global.Image = class {
-    set src(v) {
+  OriginalImage = globalThis.Image
+  globalThis.Image = class {
+    set src(v: string) {
       requested.push(v)
     }
-  }
+  } as unknown as typeof Image
 })
 
 afterEach(() => {
-  global.Image = OriginalImage
+  globalThis.Image = OriginalImage
 })
 
 const siblings = Array.from({ length: 6 }, (_, i) => ({ id: `s${i}` }))
-const urlFor = (item) => `/api/x/${item.id}/file`
+const urlFor = (item: { id: string }) => `/api/x/${item.id}/file`
 
 describe('useImagePrefetch', () => {
   it('prefetches next, prev, 2nd-next, 2nd-prev in that order', () => {

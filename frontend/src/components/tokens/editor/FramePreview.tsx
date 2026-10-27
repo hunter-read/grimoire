@@ -14,7 +14,14 @@ import { useTranslation } from 'react-i18next'
  * scroller, so it is never clipped by the frame list's own `overflow` and never
  * reflows the gallery under the pointer.
  */
-export default function FramePreview({ frame, url, anchor, size = 176 }) {
+export interface FramePreviewProps {
+  frame: { label?: string } | null | undefined
+  url: string | undefined
+  anchor: Pick<DOMRect, 'left' | 'right' | 'top' | 'height'> | null | undefined
+  size?: number
+}
+
+export default function FramePreview({ frame, url, anchor, size = 176 }: FramePreviewProps) {
   const { t } = useTranslation()
   if (!frame || !anchor) return null
 

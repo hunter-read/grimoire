@@ -1,8 +1,12 @@
 import { useTranslation } from 'react-i18next'
 import { STATE_TONE } from './shareLinkUtils'
 
+interface Props {
+  state: string
+}
+
 /** A link's current state, with the reason as a tooltip when it does not work. */
-export default function ShareLinkStateBadge({ state }) {
+export default function ShareLinkStateBadge({ state }: Props) {
   const { t } = useTranslation()
   const tone = STATE_TONE[state] || 'var(--text-muted)'
   return (

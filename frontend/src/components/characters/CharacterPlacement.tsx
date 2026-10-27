@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { characters as charactersApi } from '../../api'
+import type { BodyOf, Schema } from '../../api'
 import useCharacterCampaigns from './useCharacterCampaigns'
 import { CHARACTER_STATUSES, statusLabel } from './characterStatus'
 
@@ -23,7 +24,21 @@ const selectStyle = {
  *
  * Read-only for a party member's sheet, where it is just the two labels.
  */
-export default function CharacterPlacement({ character, readOnly, onChanged, onError }) {
+type Character = Schema<'CharacterDetail'>
+
+export interface CharacterPlacementProps {
+  character: Pick<Character, 'id' | 'status' | 'campaign_id' | 'campaign_name'>
+  readOnly?: boolean
+  onChanged: (updated: Character) => void
+  onError: (message: string) => void
+}
+
+export default function CharacterPlacement({
+  character,
+  readOnly,
+  onChanged,
+  onError,
+}: CharacterPlacementProps) {
   const { t } = useTranslation()
   const campaigns = useCharacterCampaigns({ enabled: !readOnly })
   const [busy, setBusy] = useState(false)
@@ -38,12 +53,12 @@ export default function CharacterPlacement({ character, readOnly, onChanged, onE
     )
   }
 
-  const save = async (patch) => {
+  const save = async (patch: BodyOf<'/characters/{character_id}', 'put'>) => {
     setBusy(true)
     try {
       onChanged(await charactersApi.update(character.id, patch))
     } catch (e) {
-      onError(e.message)
+      onError((e as Error).message)
     } finally {
       setBusy(false)
     }
@@ -51,7 +66,7 @@ export default function CharacterPlacement({ character, readOnly, onChanged, onE
 
   // The character's own campaign stays selectable even when the list does not
   // carry it (an archived campaign is left out of the list by default).
-  const options = [...campaigns]
+  const options: { id: string; name: string }[] = [...campaigns]
   if (character.campaign_id && !options.some((c) => c.id === character.campaign_id)) {
     options.push({ id: character.campaign_id, name: character.campaign_name || '…' })
   }

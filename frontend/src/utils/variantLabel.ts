@@ -17,7 +17,37 @@
  * of them carries no label there is nothing left to name it by, and the filename
  * is the only thing that can tell the user which file they are about to open.
  */
+import type { Translate } from '../i18n'
+
 const GENERIC_KINDS = new Set(['version', 'other'])
+
+/** One entry in a version picker. */
+export interface VariantOption {
+  id?: string
+  isMain?: boolean
+  kind?: string | null
+  label?: string | null
+  filename?: string | null
+}
+
+/** The main entry `mainOption` builds. */
+export interface MainVariantOption {
+  id: string
+  isMain: true
+  kind: string
+  label: string
+  filename?: string
+}
+
+/** The family fields `mainOption` reads from a detail response. */
+export interface VariantFamilyItem {
+  id?: string | null
+  filename?: string | null
+  variant_main_id?: string | null
+  variant_main_kind?: string | null
+  variant_main_label?: string | null
+  variant_main_filename?: string | null
+}
 
 /**
  * The name of one version: kind, label, or both.
@@ -27,7 +57,7 @@ const GENERIC_KINDS = new Set(['version', 'other'])
  * @param {Function} t i18next translate
  * @returns {string} the text for this row
  */
-export default function variantLabel(option, t) {
+export default function variantLabel(option: VariantOption, t: Translate): string {
   // A label that is just the filename is not a description of anything - it is
   // what the linker filled in when it had nothing better, and the indexer does
   // exactly that for an auto-detected pair. Treating it as a real label prints
@@ -59,7 +89,7 @@ export default function variantLabel(option, t) {
  * Kept separate so `variantFilename` can ask the same question without
  * re-deriving it from the composed name.
  */
-function labelText(option) {
+function labelText(option: VariantOption): string {
   const label = (option.label || '').trim()
   if (!label) return ''
   return label === (option.filename || '').trim() ? '' : label
@@ -78,7 +108,7 @@ function labelText(option) {
  * @param {Function} t i18next translate
  * @returns {string} the filename, or '' when it would be redundant
  */
-export function variantFilename(option, t) {
+export function variantFilename(option: VariantOption, t: Translate): string {
   const filename = (option.filename || '').trim()
   if (!filename) return ''
   return variantLabel(option, t).includes(filename) ? '' : filename
@@ -95,12 +125,13 @@ export function variantFilename(option, t) {
  * @param {string} [fallbackId] id to use when the response has none
  * @returns {object} `{ id, isMain, kind, label, filename }`
  */
-export function mainOption(item, fallbackId) {
+export function mainOption(item: VariantFamilyItem, fallbackId?: string): MainVariantOption {
   return {
-    id: item.variant_main_id || item.id || fallbackId,
+    // A detail response always carries its own id; `fallbackId` covers the rest.
+    id: (item.variant_main_id || item.id || fallbackId) as string,
     isMain: true,
     kind: item.variant_main_kind || '',
     label: item.variant_main_label || '',
-    filename: item.variant_main_filename || item.filename,
+    filename: (item.variant_main_filename || item.filename) as string | undefined,
   }
 }

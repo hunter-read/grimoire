@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import ReaderToolbar from './ReaderToolbar'
+import type { ReaderToolbarProps } from './ReaderToolbar'
 
 vi.mock('../AddToCampaignModal', () => ({ default: () => null }))
 vi.mock('../../context/UISettingsContext', () => ({ useUISettings: () => ({}) }))
@@ -20,7 +21,7 @@ const BOOK_PDF = {
   indexed: true,
 }
 
-function defaultProps(overrides = {}) {
+function defaultProps(overrides: Record<string, unknown> = {}) {
   return {
     book: BOOK_PDF,
     bookId: 'book-1',
@@ -55,10 +56,10 @@ function defaultProps(overrides = {}) {
     onZoomOut: vi.fn(),
     onResetZoom: vi.fn(),
     ...overrides,
-  }
+  } as unknown as ReaderToolbarProps
 }
 
-function renderToolbar(overrides = {}) {
+function renderToolbar(overrides: Record<string, unknown> = {}) {
   return render(
     <MemoryRouter>
       <ReaderToolbar {...defaultProps(overrides)} />
@@ -231,7 +232,7 @@ describe('ReaderToolbar — panel selector', () => {
       },
     })
 
-    const rightZone = screen.getByTitle('Contents').closest('div').parentElement
+    const rightZone = screen.getByTitle('Contents').closest('div')!.parentElement
     expect(rightZone).toHaveStyle({ flex: '0 0 auto' })
 
     const title = container.querySelector('span[style*="ellipsis"]')
@@ -243,7 +244,7 @@ describe('ReaderToolbar — panel selector', () => {
   it('gives the title a row of its own on a phone', () => {
     const { container } = renderToolbar({ isMobilePhone: true })
 
-    const leftZone = container.firstChild.children[0]
+    const leftZone = (container.firstChild as HTMLElement).children[0]
     expect(leftZone).toHaveStyle({ minWidth: '100%' })
   })
 
@@ -257,7 +258,7 @@ describe('ReaderToolbar — panel selector', () => {
   it('keeps everything on one row on a desktop', () => {
     const { container } = renderToolbar({ isMobilePhone: false })
 
-    expect(container.firstChild.children[0]).toHaveStyle({ minWidth: '160px' })
+    expect((container.firstChild as HTMLElement).children[0]).toHaveStyle({ minWidth: '160px' })
     const pageNav = screen.getByLabelText('Current page number').parentElement
     expect(pageNav).not.toHaveStyle({ order: '1' })
   })
@@ -265,8 +266,8 @@ describe('ReaderToolbar — panel selector', () => {
 
 describe('ReaderToolbar — overflow menu placement', () => {
   /** The kebab and the back button share the title's zone on a phone. */
-  function titleZone(container) {
-    return container.firstChild.children[0]
+  function titleZone(container: HTMLElement) {
+    return (container.firstChild as HTMLElement).children[0]
   }
 
   // On a phone the kebab rides with the title, leaving the controls row for
@@ -354,7 +355,7 @@ describe('ReaderToolbar — actions', () => {
     const onToggleShortcuts = vi.fn()
     renderToolbar({ showShortcuts: true, onToggleShortcuts })
     // The backdrop div contains the modal — click outside the inner card.
-    const backdrop = screen.getByText('Keyboard Shortcuts').closest('[style*="inset"]')
+    const backdrop = screen.getByText('Keyboard Shortcuts').closest('[style*="inset"]')!
     await userEvent.click(backdrop)
     expect(onToggleShortcuts).toHaveBeenCalledOnce()
   })
@@ -407,7 +408,7 @@ describe('ReaderToolbar — zoom controls', () => {
       screen
         .getAllByRole('button')
         .map((b) => b.getAttribute('aria-label'))
-        .filter((l) => ['Zoom out', 'Zoom in', 'Reset zoom'].includes(l))
+        .filter((l) => ['Zoom out', 'Zoom in', 'Reset zoom'].includes(l!))
 
     const { unmount } = renderToolbar({ isZoomed: false })
     const atDefault = labels()

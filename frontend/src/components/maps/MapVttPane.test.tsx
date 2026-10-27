@@ -5,15 +5,15 @@ import api from '../../api'
 
 vi.mock('../../api', () => ({
   default: { get: vi.fn() },
-  mediaUrl: (p) => `http://localhost${p}`,
+  mediaUrl: (p: string) => `http://localhost${p}`,
 }))
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }))
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }))
 
 const DATA = { grid_width: 20, grid_height: 16, pixels_per_grid: 100, wall_count: 12 }
 
 beforeEach(() => {
   vi.clearAllMocks()
-  api.get.mockResolvedValue(DATA)
+  vi.mocked(api.get).mockResolvedValue(DATA)
 })
 
 describe('MapVttPane', () => {
@@ -33,7 +33,7 @@ describe('MapVttPane', () => {
   })
 
   it('reports null upward when the file cannot be parsed', async () => {
-    api.get.mockRejectedValue(new Error('bad json'))
+    vi.mocked(api.get).mockRejectedValue(new Error('bad json'))
     const onData = vi.fn()
     render(<MapVttPane mapId="m1" filename="broken.uvtt" onData={onData} />)
     await waitFor(() => expect(onData).toHaveBeenCalledWith(null))

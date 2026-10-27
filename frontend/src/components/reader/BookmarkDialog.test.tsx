@@ -5,15 +5,17 @@ import BookmarkDialog from './BookmarkDialog'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k, o) =>
-      ({
-        'bookmark.bookmarkSelection': 'Bookmark selection',
-        'bookmark.bookmarkPage': `Bookmark page ${o?.page}`,
-        'bookmark.notes': 'Notes',
-        'bookmark.notesPlaceholder': 'Notes…',
-        'bookmark.cancel': 'Cancel',
-        'bookmark.save': 'Save',
-      })[k] || k,
+    t: (k: string, o?: { page?: number }) =>
+      (
+        ({
+          'bookmark.bookmarkSelection': 'Bookmark selection',
+          'bookmark.bookmarkPage': `Bookmark page ${o?.page}`,
+          'bookmark.notes': 'Notes',
+          'bookmark.notesPlaceholder': 'Notes…',
+          'bookmark.cancel': 'Cancel',
+          'bookmark.save': 'Save',
+        }) as Record<string, string>
+      )[k] || k,
   }),
 }))
 

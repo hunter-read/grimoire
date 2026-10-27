@@ -1,19 +1,32 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX, LuDownload, LuCopy } from 'react-icons/lu'
 import ItemCarouselNav from './ItemCarouselNav'
-import { bulk as bulkApi } from '../api'
-import SystemBulkEditFields from './system/SystemBulkEditFields'
-import BookBulkEditFields from './system/BookBulkEditFields'
+import { bulk as bulkApi, type BulkType } from '../api'
+import SystemBulkEditFields, {
+  type SystemBulkEditFieldsProps,
+  type SystemDraft,
+} from './system/SystemBulkEditFields'
+import BookBulkEditFields, { type BookDraft } from './system/BookBulkEditFields'
 import ApplyToAllDialog from './system/ApplyToAllDialog'
-import MetadataFetchDialog from './system/MetadataFetchDialog'
+import MetadataFetchDialog, {
+  type MetadataFetchDialogProps,
+  type RememberedFetch,
+} from './system/MetadataFetchDialog'
 import useMetadataSources from './system/useMetadataSources'
-import { CONFIG, diffDrafts, seedDrafts } from './bulkEditDrafts'
+import {
+  CONFIG,
+  diffDrafts,
+  seedDrafts,
+  type BulkEditItem,
+  type BulkEditRow,
+  type BulkPatch,
+} from './bulkEditDrafts'
 
 // i18n keys for the "apply to all" checklist. The single-item editors already
 // label every one of these fields, so their keys are reused rather than adding
 // a parallel set of bulkEdit.* strings to all ten locales.
-const BOOK_LABEL_KEYS = {
+const BOOK_LABEL_KEYS: Record<string, string> = {
   title: 'titleLabel',
   description: 'descriptionLabel',
   category: 'categoryLabel',
@@ -32,7 +45,7 @@ const BOOK_LABEL_KEYS = {
   month: 'monthLabel',
   day: 'dayLabel',
 }
-const SYSTEM_LABEL_KEYS = {
+const SYSTEM_LABEL_KEYS: Record<string, string> = {
   description: 'description',
   tags: 'tags',
   genres: 'genres',
@@ -54,9 +67,10 @@ const NOT_COPYABLE = new Set(['cover_book_id', 'isbn', 'product_code'])
 
 // One entry of a list-valued field, flattened for the checklist preview.
 // Publishers are {name, url}; link lists are {label, url}.
-const previewEntry = (entry) => {
-  if (entry === null || entry === undefined) return ''
-  if (typeof entry !== 'object') return String(entry)
+const previewEntry = (value: unknown): string => {
+  if (value === null || value === undefined) return ''
+  if (typeof value !== 'object') return String(value)
+  const entry = value as { name?: unknown; label?: unknown; url?: unknown }
   if (entry.name) return String(entry.name)
   if (entry.label && entry.url) return `${entry.label}: ${entry.url}`
   return String(entry.url || entry.label || '')
@@ -68,6 +82,16 @@ const previewEntry = (entry) => {
  * changed item in a single bulk request and calls `onSaved` with a map of
  * { id: changedFields } so the parent view can patch local state.
  */
+export interface BulkEditModalProps {
+  type: BulkType
+  items: BulkEditItem[]
+  onClose: () => void
+  /** Called with `{ id: changedFields }` for every item saved (or fetched). */
+  onSaved(edited: Record<string, BulkPatch>): void
+  existingCategories?: string[]
+  systemGenres?: string[]
+}
+
 export default function BulkEditModal({
   type,
   items,
@@ -75,12 +99,12 @@ export default function BulkEditModal({
   onSaved,
   existingCategories = [],
   systemGenres = [],
-}) {
+}: BulkEditModalProps) {
   const { t } = useTranslation()
   const cfg = CONFIG[type]
   const [index, setIndex] = useState(0)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
 
   const [drafts, setDrafts] = useState(() => seedDrafts(items, cfg))
 
@@ -90,15 +114,16 @@ export default function BulkEditModal({
   // guard from treating a fetched field as a pending edit, and they are handed
   // to `onSaved` however the modal closes so the parent's list is not left
   // showing the pre-fetch values (issue #466).
-  const [fetched, setFetched] = useState({})
+  const [fetched, setFetched] = useState<Record<string, BulkPatch>>({})
   const savedItems = useMemo(
-    () => items.map((it) => (fetched[it.id] ? { ...it, ...fetched[it.id] } : it)),
+    () =>
+      (items as BulkEditRow[]).map((it) => (fetched[it.id] ? { ...it, ...fetched[it.id] } : it)),
     [items, fetched]
   )
 
   const current = savedItems[index]
   const draft = drafts[current.id]
-  const fieldLabels = useMemo(
+  const fieldLabels = useMemo<Record<string, string>>(
     () => ({
       title: t('bulkEdit.field_title'),
       category: t('bulkEdit.field_category'),
@@ -114,14 +139,14 @@ export default function BulkEditModal({
     [t]
   )
 
-  const setField = (field, value) =>
+  const setField = (field: string, value: unknown) =>
     setDrafts((prev) => ({ ...prev, [current.id]: { ...prev[current.id], [field]: value } }))
 
   // Copy the current item's values for the chosen fields onto every other
   // selected item's draft (issue #260). Nothing is written until "Save all", so
   // this stays reviewable — step through the carousel and the change is visible
   // on each item. Arrays/objects are cloned so drafts don't share a reference.
-  const applyFieldsToAll = (fields) => {
+  const applyFieldsToAll = (fields: string[]) => {
     const source = drafts[current.id] || {}
     setDrafts((prev) => {
       const next = { ...prev }
@@ -140,7 +165,7 @@ export default function BulkEditModal({
   // The checklist rows: every copyable field for this type, with a label and a
   // preview of the value that would be pushed to the rest of the selection.
   const copyableFields = useMemo(() => {
-    const labelFor = (f) => {
+    const labelFor = (f: string): string => {
       if (type === 'book' && BOOK_LABEL_KEYS[f]) return t(`bookEditor.${BOOK_LABEL_KEYS[f]}`)
       if (type === 'system' && SYSTEM_LABEL_KEYS[f])
         return t(`systemEditor.${SYSTEM_LABEL_KEYS[f]}`)
@@ -155,7 +180,7 @@ export default function BulkEditModal({
   // One-line renderings of the current draft's values, shown beside each row so
   // the choice is informed — particularly for fields that are currently empty.
   const fieldPreviews = useMemo(() => {
-    const out = {}
+    const out: Record<string, string> = {}
     for (const { field: f } of copyableFields) {
       const v = draft?.[f]
       if (f === 'is_explicit') out[f] = v ? t('common.yes') : t('common.no')
@@ -165,7 +190,7 @@ export default function BulkEditModal({
     return out
   }, [copyableFields, draft, t])
 
-  const go = (delta) => setIndex((i) => Math.min(items.length - 1, Math.max(0, i + delta)))
+  const go = (delta: number) => setIndex((i) => Math.min(items.length - 1, Math.max(0, i + delta)))
   const isLast = index === items.length - 1
   // Undefined at either end, which the navigation bars render as disabled.
   const goPrev = index === 0 ? undefined : () => go(-1)
@@ -175,7 +200,7 @@ export default function BulkEditModal({
   // Each item opens at the top of its form. Without this, paging through the
   // selection kept the scroll offset of the previous item's (differently sized)
   // form, so every step started with a scroll back up.
-  const bodyRef = useRef(null)
+  const bodyRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = 0
   }, [index])
@@ -195,8 +220,9 @@ export default function BulkEditModal({
   // Each item's search (query, source, results, last pick), so stepping back
   // to an item shows the same matches — handy when two look-alike books were
   // mixed up — without asking the source again.
-  const [fetchMemory, setFetchMemory] = useState({})
-  const rememberFetch = (id) => (state) => setFetchMemory((prev) => ({ ...prev, [id]: state }))
+  const [fetchMemory, setFetchMemory] = useState<Record<string, RememberedFetch>>({})
+  const rememberFetch = (id: string) => (state: RememberedFetch) =>
+    setFetchMemory((prev) => ({ ...prev, [id]: state }))
   const [applyingAll, setApplyingAll] = useState(false)
 
   // Dismissing the modal throws the drafts away, which is punishing after
@@ -216,7 +242,7 @@ export default function BulkEditModal({
   const overlayOpen = fetching || applyingAll || confirmingClose
   useEffect(() => {
     if (overlayOpen) return undefined
-    const onKey = (e) => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return
       if (isTextEntry(e.target)) return
       if (e.key === 'ArrowLeft') go(-1)
@@ -234,7 +260,7 @@ export default function BulkEditModal({
   // then write back over the top. Values arrive in API shape, which is also the
   // shape the bulk bodies keep (authors and artists as arrays) — the single-book
   // editor's comma-joined form would blank them here.
-  const handleFetched = (fields) => {
+  const handleFetched = (fields: Record<string, unknown>) => {
     const id = current.id
     setFetched((prev) => ({ ...prev, [id]: { ...prev[id], ...fields } }))
     setDrafts((prev) => {
@@ -257,7 +283,10 @@ export default function BulkEditModal({
       if (changes.length) {
         // One request for the whole batch: the old per-item PATCH fan-out raced
         // on tag creation server-side and 500'd (issue #270).
-        const { errors } = await bulkApi.update(type, changes)
+        const { errors } = await bulkApi.update(
+          type,
+          changes as Parameters<typeof bulkApi.update>[1]
+        )
         if (errors?.length) {
           // Items the server rejected individually (unknown id, name clash) must
           // not be reported to the parent as saved.
@@ -272,7 +301,7 @@ export default function BulkEditModal({
       }
       onSaved(edited)
     } catch (err) {
-      setError(err.message)
+      setError((err as Error).message)
     } finally {
       // Always released, so a failed save re-enables the button rather than
       // leaving it stuck on "Applying" (issue #270).
@@ -314,10 +343,14 @@ export default function BulkEditModal({
         {/* Only the form scrolls, between the fixed header and footer. */}
         <div ref={bodyRef} style={body}>
           {cfg.custom && type === 'system' ? (
-            <SystemBulkEditFields system={current} draft={draft} setField={setField} />
+            <SystemBulkEditFields
+              system={current as SystemBulkEditFieldsProps['system']}
+              draft={draft as SystemDraft}
+              setField={setField}
+            />
           ) : cfg.custom && type === 'book' ? (
             <BookBulkEditFields
-              draft={draft}
+              draft={draft as BookDraft}
               setField={setField}
               existingCategories={existingCategories}
               systemGenres={systemGenres}
@@ -344,14 +377,14 @@ export default function BulkEditModal({
                     <label style={label}>{fieldLabels[f]}</label>
                     {multiline ? (
                       <textarea
-                        value={draft[f]}
+                        value={draft[f] as string}
                         onChange={(e) => setField(f, e.target.value)}
                         rows={3}
                         style={{ ...input, resize: 'vertical', fontFamily: 'inherit' }}
                       />
                     ) : (
                       <input
-                        value={draft[f]}
+                        value={draft[f] as string}
                         onChange={(e) => setField(f, e.target.value)}
                         placeholder={f === 'tags' ? t('bulkEdit.tagsPlaceholder') : ''}
                         style={input}
@@ -414,7 +447,7 @@ export default function BulkEditModal({
       {fetching && (
         <MetadataFetchDialog
           key={current.id}
-          resource={current}
+          resource={current as MetadataFetchDialogProps['resource']}
           kind={metadataKind}
           onApply={handleFetched}
           onClose={() => setFetching(false)}
@@ -461,17 +494,18 @@ export default function BulkEditModal({
   )
 }
 
-const itemName = (item) => item.filename || item.title || item.name
+const itemName = (item: BulkEditRow): string => (item.filename || item.title || item.name) as string
 
 // Keys typed into these belong to the field, not to the carousel.
 const NON_TEXT_INPUTS = new Set(['checkbox', 'radio', 'button', 'submit', 'reset', 'range'])
-const isTextEntry = (el) => {
+const isTextEntry = (target: EventTarget | null): boolean => {
+  const el = target as (HTMLElement & { type: string }) | null
   if (!el?.tagName) return false
   if (el.isContentEditable || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') return true
   return el.tagName === 'INPUT' && !NON_TEXT_INPUTS.has(el.type)
 }
 
-const overlay = {
+const overlay: CSSProperties = {
   position: 'fixed',
   inset: 0,
   zIndex: 1200,
@@ -481,7 +515,7 @@ const overlay = {
   background: 'var(--scrim)',
   padding: 16,
 }
-const panel = {
+const panel: CSSProperties = {
   background: 'var(--bg-panel)',
   border: '1px solid var(--border)',
   borderRadius: 10,
@@ -497,7 +531,7 @@ const panel = {
 }
 // The scrolling middle of the panel. The small side padding, cancelled by the
 // negative margin, leaves room for focus rings that overflow would clip.
-const body = {
+const body: CSSProperties = {
   flex: 1,
   minHeight: 0,
   overflowY: 'auto',
@@ -506,7 +540,7 @@ const body = {
 }
 // Outside the scrolling body, like the footer, so the item navigation is
 // always in reach.
-const header = {
+const header: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: 14,
@@ -514,12 +548,12 @@ const header = {
   paddingBottom: 16,
   borderBottom: '1px solid var(--border)',
 }
-const titleRow = {
+const titleRow: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
 }
-const closeBtn = {
+const closeBtn: CSSProperties = {
   background: 'none',
   border: 'none',
   cursor: 'pointer',
@@ -529,7 +563,7 @@ const closeBtn = {
 }
 // Outside the scrolling body, like the header, so "Save all" and "Fetch
 // metadata" are always in reach without scrolling.
-const footer = {
+const footer: CSSProperties = {
   display: 'flex',
   gap: 8,
   alignItems: 'center',
@@ -538,14 +572,14 @@ const footer = {
   paddingTop: 16,
   borderTop: '1px solid var(--border)',
 }
-const label = {
+const label: CSSProperties = {
   display: 'block',
   fontSize: 12,
   color: 'var(--text-muted)',
   fontWeight: 500,
   marginBottom: 6,
 }
-const input = {
+const input: CSSProperties = {
   width: '100%',
   padding: '8px 10px',
   background: 'var(--bg-deep)',
@@ -555,7 +589,7 @@ const input = {
   fontSize: 14,
   boxSizing: 'border-box',
 }
-const cancelBtn = {
+const cancelBtn: CSSProperties = {
   padding: '7px 16px',
   borderRadius: 6,
   background: 'var(--bg-card)',
@@ -564,7 +598,7 @@ const cancelBtn = {
   fontSize: 14,
   cursor: 'pointer',
 }
-const fetchBtn = {
+const fetchBtn: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 6,
@@ -576,7 +610,7 @@ const fetchBtn = {
   fontSize: 13,
   cursor: 'pointer',
 }
-const goldBtn = {
+const goldBtn: CSSProperties = {
   padding: '7px 18px',
   borderRadius: 6,
   background: 'var(--gold-dim)',
@@ -586,7 +620,7 @@ const goldBtn = {
   fontWeight: 600,
   cursor: 'pointer',
 }
-const confirmOverlay = {
+const confirmOverlay: CSSProperties = {
   position: 'fixed',
   inset: 0,
   // Above the bulk-edit modal itself (1200), matching ApplyToAllDialog.
@@ -597,7 +631,7 @@ const confirmOverlay = {
   background: 'var(--scrim)',
   padding: 16,
 }
-const confirmPanel = {
+const confirmPanel: CSSProperties = {
   background: 'var(--bg-panel)',
   border: '1px solid var(--border)',
   borderRadius: 10,
@@ -606,7 +640,7 @@ const confirmPanel = {
   maxWidth: '94vw',
   boxSizing: 'border-box',
 }
-const dangerBtn = {
+const dangerBtn: CSSProperties = {
   padding: '7px 18px',
   borderRadius: 6,
   background: 'var(--danger)',

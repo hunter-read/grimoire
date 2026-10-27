@@ -1,24 +1,31 @@
+import type { ComponentProps } from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import BannerHero from './BannerHero'
-import { campaigns } from '../../api'
+import { campaigns, type Schema } from '../../api'
 
 vi.mock('../../api', () => ({
   campaigns: {
-    bannerUrl: (id, updated) => `http://localhost/banner/${id}?v=${updated}`,
+    bannerUrl: (id: string, updated: string) => `http://localhost/banner/${id}?v=${updated}`,
     uploadBanner: vi.fn(() => Promise.resolve()),
     deleteBanner: vi.fn(() => Promise.resolve()),
     setBannerFromSource: vi.fn(() => Promise.resolve()),
     setBannerFocus: vi.fn(() => Promise.resolve()),
     // The picker offers the campaign's own images first (issue #286).
     listResources: vi.fn(() => Promise.resolve([])),
-    fileUrl: (id, fileId) => `http://localhost/files/${id}/${fileId}`,
+    fileUrl: (id: string, fileId: string) => `http://localhost/files/${id}/${fileId}`,
   },
 }))
 
 // Stub the picker modal to expose its callbacks as buttons.
 vi.mock('./BannerUploadModal', () => ({
-  default: ({ onPick, onPickSource, onFocusChange, onRemove, onClose }) => (
+  default: ({
+    onPick,
+    onPickSource,
+    onFocusChange,
+    onRemove,
+    onClose,
+  }: ComponentProps<typeof import('./BannerUploadModal').default>) => (
     <div data-testid="banner-modal">
       <button onClick={() => onPick(new File(['x'], 'b.png'))}>pick</button>
       <button onClick={() => onPickSource({ source_type: 'map', source_id: 'm1' })}>
@@ -31,8 +38,16 @@ vi.mock('./BannerUploadModal', () => ({
   ),
 }))
 
-const withBanner = { id: 'c1', has_banner: true, updated_at: '2026-01-01T00:00:00Z' }
-const noBanner = { id: 'c1', has_banner: false, updated_at: null }
+const withBanner = {
+  id: 'c1',
+  has_banner: true,
+  updated_at: '2026-01-01T00:00:00Z',
+} as unknown as Schema<'CampaignOut'>
+const noBanner = {
+  id: 'c1',
+  has_banner: false,
+  updated_at: null,
+} as unknown as Schema<'CampaignOut'>
 
 describe('BannerHero', () => {
   beforeEach(() => {
@@ -53,7 +68,7 @@ describe('BannerHero', () => {
 
   it('renders the banner image when a banner exists', () => {
     render(<BannerHero campaign={withBanner} isOwner={false} onChanged={vi.fn()} />)
-    const img = document.querySelector('img')
+    const img = document.querySelector('img')!
     expect(img).toBeTruthy()
     expect(img.getAttribute('src')).toContain('/banner/c1')
   })
@@ -66,7 +81,7 @@ describe('BannerHero', () => {
 
   it('reveals the edit control only after a >1s hover for owners', () => {
     render(<BannerHero campaign={withBanner} isOwner={true} onChanged={vi.fn()} />)
-    const hero = document.querySelector('div[style]')
+    const hero = document.querySelector('div[style]')!
     fireEvent.mouseEnter(hero)
     // Before the timer fires, the edit control is hidden.
     expect(screen.queryByTestId('banner-modal')).not.toBeInTheDocument()
@@ -78,7 +93,7 @@ describe('BannerHero', () => {
 
   it('does not start the hover timer for non-owners', () => {
     render(<BannerHero campaign={withBanner} isOwner={false} onChanged={vi.fn()} />)
-    const hero = document.querySelector('div[style]')
+    const hero = document.querySelector('div[style]')!
     fireEvent.mouseEnter(hero)
     act(() => vi.advanceTimersByTime(1000))
     expect(screen.queryByText(/edit/i)).not.toBeInTheDocument()
@@ -86,7 +101,7 @@ describe('BannerHero', () => {
 
   it('clears controls on mouse leave', () => {
     render(<BannerHero campaign={withBanner} isOwner={true} onChanged={vi.fn()} />)
-    const hero = document.querySelector('div[style]')
+    const hero = document.querySelector('div[style]')!
     fireEvent.mouseEnter(hero)
     act(() => vi.advanceTimersByTime(1000))
     expect(screen.getByText(/edit/i)).toBeInTheDocument()

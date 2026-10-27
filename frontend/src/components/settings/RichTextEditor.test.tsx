@@ -1,14 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import RichTextEditor from './RichTextEditor'
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k) => k, i18n: { language: 'en-US' } }),
+  useTranslation: () => ({ t: (k: string) => k, i18n: { language: 'en-US' } }),
 }))
 
 // jsdom does not implement execCommand; the component's whole job is to call it
 // with the right command, so stub it and assert on the calls.
-let execCommand
+let execCommand: Mock<() => boolean>
 
 beforeEach(() => {
   execCommand = vi.fn(() => true)

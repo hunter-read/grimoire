@@ -1,9 +1,25 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuTriangleAlert } from 'react-icons/lu'
+import type { CSSProperties } from 'react'
 import api from '../../api'
+import type { Schema } from '../../api'
 
-const inputStyle = {
+/** The advisory the server returns when a saved grid looks implausible. */
+interface GridWarning {
+  cell_x?: number
+  cell_y?: number
+  suggested_width?: number
+  suggested_height?: number
+}
+
+export interface MapGridEditorProps {
+  map: Pick<Schema<'MapDetailResponse'>, 'id' | 'grid' | 'grid_width' | 'grid_height' | 'grid_px'>
+  onSaved: () => void
+  onCancel: () => void
+}
+
+const inputStyle: CSSProperties = {
   width: '100%',
   padding: '5px 8px',
   fontSize: 14,
@@ -13,7 +29,7 @@ const inputStyle = {
   color: 'var(--text)',
 }
 
-const btnStyle = {
+const btnStyle: CSSProperties = {
   padding: '5px 12px',
   fontSize: 13,
   borderRadius: 4,
@@ -24,7 +40,7 @@ const btnStyle = {
 }
 
 // A blank field means "no value"; 0 is the API's signal to clear the override.
-const toNumber = (v) => (v.trim() === '' ? 0 : Number(v))
+const toNumber = (v: string) => (v.trim() === '' ? 0 : Number(v))
 
 /**
  * Editor for a map's grid, letting a GM correct a wrong detection (issue #125).
@@ -37,27 +53,27 @@ const toNumber = (v) => (v.trim() === '' ? 0 : Number(v))
  * warning is shown afterwards with what the dimensions imply, because unusual
  * maps genuinely exist and only the user can say which case this is.
  */
-export default function MapGridEditor({ map, onSaved, onCancel }) {
+export default function MapGridEditor({ map, onSaved, onCancel }: MapGridEditorProps) {
   const { t } = useTranslation()
-  const detected = map.grid || {}
+  const detected: Partial<Schema<'MapGrid'>> = map.grid || {}
   const [width, setWidth] = useState(String(map.grid_width ?? detected.width ?? ''))
   const [height, setHeight] = useState(String(map.grid_height ?? detected.height ?? ''))
   const [cellPx, setCellPx] = useState(String(map.grid_px ?? detected.cell_px ?? ''))
-  const [warning, setWarning] = useState(null)
+  const [warning, setWarning] = useState<GridWarning | null>(null)
   const [saving, setSaving] = useState(false)
 
   const save = async () => {
     setSaving(true)
     try {
-      const res = await api.patch(`/maps/${map.id}`, {
+      const res = (await api.patch(`/maps/${map.id}`, {
         grid_width: toNumber(width),
         grid_height: toNumber(height),
         grid_px: toNumber(cellPx),
-      })
+      })) as Schema<'backend__routers__maps___schemas__StatusResponse'> | null
       // Surface the advisory once, then let the next save close the editor —
       // the value is already stored either way.
       if (res?.grid_warning && !warning) {
-        setWarning(res.grid_warning)
+        setWarning(res.grid_warning as GridWarning)
         setSaving(false)
         return
       }

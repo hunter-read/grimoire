@@ -2,6 +2,25 @@ import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import PluginSourcePill, { isUrlTrusted } from './PluginSourcePill'
 
+/** One place an add-on can be installed from; the schema leaves its shape open. */
+interface SourceOption {
+  index_url: string
+  version?: string | null
+  isVerified?: boolean
+  is_verified?: boolean
+}
+
+export interface PluginSourceContextMenuProps {
+  x: number
+  y: number
+  isUpdate?: boolean
+  sources?: Record<string, unknown>[]
+  defaultIndexUrl?: string
+  trustedIndexUrls?: string[]
+  onSelect: (indexUrl: string) => void
+  onClose: () => void
+}
+
 const DEFAULT_COMMUNITY_URLS = [
   'https://raw.githubusercontent.com/grimoire-codex/community-add-ons/main/index.yaml',
   'https://raw.githubusercontent.com/grimoire-codex/community-add-ons/main/index.json',
@@ -16,12 +35,12 @@ export default function PluginSourceContextMenu({
   trustedIndexUrls = [],
   onSelect,
   onClose,
-}) {
+}: PluginSourceContextMenuProps) {
   const { t } = useTranslation()
 
   useEffect(() => {
     const handleClick = () => onClose()
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
     window.addEventListener('click', handleClick)
@@ -72,7 +91,7 @@ export default function PluginSourceContextMenu({
       >
         {titleText}
       </div>
-      {sources.map((avail, i) => {
+      {(sources as unknown as SourceOption[]).map((avail, i) => {
         const isVerified =
           avail.isVerified ??
           avail.is_verified ??
@@ -98,8 +117,8 @@ export default function PluginSourceContextMenu({
               cursor: 'pointer',
               fontSize: 13,
             }}
-            onMouseOver={(e) => (e.target.style.background = 'var(--bg-hover)')}
-            onMouseOut={(e) => (e.target.style.background = 'none')}
+            onMouseOver={(e) => ((e.target as HTMLElement).style.background = 'var(--bg-hover)')}
+            onMouseOut={(e) => ((e.target as HTMLElement).style.background = 'none')}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <PluginSourcePill

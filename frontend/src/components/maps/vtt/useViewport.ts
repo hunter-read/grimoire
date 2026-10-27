@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { Dispatch, RefObject, SetStateAction } from 'react'
+import type { Point } from './types'
 
 /**
  * Pan/zoom viewport shared by the calibration step and the editor canvas.
@@ -17,13 +19,37 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 const MIN_SCALE = 0.02
 const MAX_SCALE = 40
 
-const clampScale = (s) => Math.max(MIN_SCALE, Math.min(MAX_SCALE, s))
+/** An image point maps to screen as `p * scale + t`. */
+export interface View {
+  scale: number
+  tx: number
+  ty: number
+}
 
-export default function useViewport(containerRef, imageSize) {
-  const [view, setView] = useState({ scale: 1, tx: 0, ty: 0 })
+/** What the hook hands back; also what a canvas passes up through `viewportRef`. */
+export interface Viewport {
+  view: View
+  setView: Dispatch<SetStateAction<View>>
+  fit: () => void
+  toImage: (clientX: number, clientY: number) => Point
+  zoomAt: (factor: number, clientX: number, clientY: number) => void
+  zoomBy: (factor: number) => void
+  startPan: (clientX: number, clientY: number) => void
+  movePan: (clientX: number, clientY: number) => boolean
+  endPan: () => void
+  isPanning: boolean
+}
+
+const clampScale = (s: number) => Math.max(MIN_SCALE, Math.min(MAX_SCALE, s))
+
+export default function useViewport(
+  containerRef: RefObject<HTMLElement | null>,
+  imageSize: { width?: number | null; height?: number | null } | null | undefined
+): Viewport {
+  const [view, setView] = useState<View>({ scale: 1, tx: 0, ty: 0 })
   // Panning is tracked in a ref: it updates on every mousemove and must not
   // re-render the tool layer while a drag is in flight.
-  const panning = useRef(null)
+  const panning = useRef<{ x: number; y: number; tx: number; ty: number } | null>(null)
   const [isPanning, setIsPanning] = useState(false)
 
   /** Scale and centre the image so the whole thing is visible. */
@@ -49,7 +75,7 @@ export default function useViewport(containerRef, imageSize) {
 
   /** Screen (client) coordinates → image pixels. */
   const toImage = useCallback(
-    (clientX, clientY) => {
+    (clientX: number, clientY: number) => {
       const el = containerRef.current
       if (!el) return { x: 0, y: 0 }
       const rect = el.getBoundingClientRect()
@@ -63,7 +89,7 @@ export default function useViewport(containerRef, imageSize) {
 
   /** Zoom by a factor, holding the given client point fixed on screen. */
   const zoomAt = useCallback(
-    (factor, clientX, clientY) => {
+    (factor: number, clientX: number, clientY: number) => {
       const el = containerRef.current
       if (!el) return
       const rect = el.getBoundingClientRect()
@@ -83,7 +109,7 @@ export default function useViewport(containerRef, imageSize) {
 
   /** Zoom about the viewport centre — for the toolbar buttons. */
   const zoomBy = useCallback(
-    (factor) => {
+    (factor: number) => {
       const el = containerRef.current
       if (!el) return
       const rect = el.getBoundingClientRect()
@@ -93,14 +119,14 @@ export default function useViewport(containerRef, imageSize) {
   )
 
   const startPan = useCallback(
-    (clientX, clientY) => {
+    (clientX: number, clientY: number) => {
       panning.current = { x: clientX, y: clientY, tx: view.tx, ty: view.ty }
       setIsPanning(true)
     },
     [view.tx, view.ty]
   )
 
-  const movePan = useCallback((clientX, clientY) => {
+  const movePan = useCallback((clientX: number, clientY: number) => {
     const p = panning.current
     if (!p) return false
     setView((v) => ({ ...v, tx: p.tx + (clientX - p.x), ty: p.ty + (clientY - p.y) }))

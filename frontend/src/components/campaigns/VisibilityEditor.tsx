@@ -9,7 +9,9 @@ import {
   SHARE_POPOVER_WIDTH,
   VIS_OPTIONS,
   visLabelKey,
+  type VisLevel,
 } from './wikiShared'
+import type { Schema } from '../../api'
 import ShareAccessTable from './ShareAccessTable'
 import useAnchoredMenu from '../../hooks/useAnchoredMenu'
 
@@ -28,11 +30,20 @@ export default function VisibilityEditor({
   page,
   onSetVisibility,
   onSetShares,
+}: {
+  campaign: Pick<Schema<'CampaignOut'>, 'members'>
+  isOwner: boolean
+  page: Pick<
+    Schema<'WikiPageDetailOut'>,
+    'visibility' | 'created_by_id' | 'shared_user_ids' | 'shared_write_user_ids'
+  >
+  onSetVisibility: (visibility: VisLevel) => void
+  onSetShares: (readIds: string[], writeIds: string[]) => void
 }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
 
-  const meta = VIS_META[page.visibility] || VIS_META.gm
+  const meta = VIS_META[page.visibility as VisLevel] || VIS_META.gm
   const { Icon } = meta
   // Every level is open to whoever wrote the page; what "author only" is called
   // depends on whether that author is the GM.
@@ -55,8 +66,9 @@ export default function VisibilityEditor({
 
   useEffect(() => {
     if (!open) return
-    const onDoc = (e) => {
-      if (triggerRef.current?.contains(e.target) || popoverRef.current?.contains(e.target)) return
+    const onDoc = (e: MouseEvent) => {
+      const target = e.target as Node
+      if (triggerRef.current?.contains(target) || popoverRef.current?.contains(target)) return
       setOpen(false)
     }
     document.addEventListener('mousedown', onDoc)

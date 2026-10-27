@@ -2,18 +2,20 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { useState } from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import MultiSelectDropdown from './MultiSelectDropdown'
+import MultiSelectDropdown, { type MultiSelectDropdownProps } from './MultiSelectDropdown'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k, o) =>
-      ({
-        'sortFilter.multiAny': 'Any',
-        'sortFilter.multiSelected': `${o?.count} selected`,
-        'sortFilter.clear': 'Clear',
-        'common.search': 'Search',
-        'common.noResults': 'No results',
-      })[k] || k,
+    t: (k: string, o?: { count?: number }) =>
+      (
+        ({
+          'sortFilter.multiAny': 'Any',
+          'sortFilter.multiSelected': `${o?.count} selected`,
+          'sortFilter.clear': 'Clear',
+          'common.search': 'Search',
+          'common.noResults': 'No results',
+        }) as Record<string, string>
+      )[k] || k,
   }),
 }))
 
@@ -28,7 +30,10 @@ const specialOptions = [
   { value: '__any__', label: 'Any tags' },
 ]
 
-function Harness({ initial = [], ...rest }) {
+function Harness({
+  initial = [],
+  ...rest
+}: { initial?: string[] } & Partial<MultiSelectDropdownProps>) {
   const [selected, setSelected] = useState(initial)
   return (
     <div>
@@ -174,12 +179,16 @@ describe('MultiSelectDropdown', () => {
   // modal's edge. jsdom reports every rect as zero, so the trigger geometry and
   // viewport height are stubbed to drive the placement maths.
   describe('placement', () => {
-    const stub = ({ triggerTop, viewport = 800 }) => {
+    const stub = ({ triggerTop, viewport = 800 }: { triggerTop: number; viewport?: number }) => {
       vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(viewport)
-      vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function () {
-        return this.dataset?.modal
-          ? { top: 0, bottom: 500, left: 0, width: 460 }
-          : { top: triggerTop, bottom: triggerTop + 30, left: 20, width: 200 }
+      vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+        this: HTMLElement
+      ) {
+        return (
+          this.dataset?.modal
+            ? { top: 0, bottom: 500, left: 0, width: 460 }
+            : { top: triggerTop, bottom: triggerTop + 30, left: 20, width: 200 }
+        ) as DOMRect
       })
     }
 
@@ -205,7 +214,7 @@ describe('MultiSelectDropdown', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Tags' }))
 
       const modal = container.querySelector('[data-modal]')
-      expect(modal.contains(panel())).toBe(false)
+      expect(modal!.contains(panel())).toBe(false)
       expect(document.body.contains(panel())).toBe(true)
     })
 
@@ -254,7 +263,7 @@ describe('MultiSelectDropdown', () => {
       renderInModal()
       await userEvent.click(screen.getByRole('button', { name: 'Tags' }))
 
-      const maxHeight = parseInt(list().style.maxHeight, 10)
+      const maxHeight = parseInt(list()!.style.maxHeight, 10)
       expect(maxHeight).toBeLessThan(320)
       expect(maxHeight).toBeGreaterThanOrEqual(140)
     })
@@ -291,7 +300,7 @@ describe('MultiSelectDropdown', () => {
         bottom: 130,
         left: 20,
         width: 200,
-      })
+      } as DOMRect)
     })
     afterEach(() => vi.restoreAllMocks())
 

@@ -1,4 +1,6 @@
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { Schema } from '../../api'
 
 /**
  * Per-member read/write access for a Private ("members") wiki page.
@@ -18,10 +20,27 @@ import { useTranslation } from 'react-i18next'
  * decides who is eligible. `onChange(readIds, writeIds)` receives both full
  * lists, matching the API's two-array shape.
  */
-export default function ShareAccessTable({ members, readIds, writeIds, onChange }) {
+type ShareMember = Pick<
+  Schema<'CampaignMemberOut'>,
+  'user_id' | 'username' | 'character_name' | 'display_name'
+>
+
+interface ShareAccessTableProps {
+  members: readonly ShareMember[]
+  readIds: readonly string[]
+  writeIds: readonly string[]
+  onChange: (readIds: string[], writeIds: string[]) => void
+}
+
+export default function ShareAccessTable({
+  members,
+  readIds,
+  writeIds,
+  onChange,
+}: ShareAccessTableProps) {
   const { t } = useTranslation()
 
-  const setAccess = (userId, { read, write }) => {
+  const setAccess = (userId: string, { read, write }: { read: boolean; write: boolean }) => {
     const reads = new Set(readIds)
     const writes = new Set(writeIds)
     // Write implies read, so granting write adds both and revoking read clears
@@ -104,7 +123,7 @@ export default function ShareAccessTable({ members, readIds, writeIds, onChange 
   )
 }
 
-const headCell = {
+const headCell: CSSProperties = {
   fontSize: 10,
   textTransform: 'uppercase',
   letterSpacing: '0.06em',
@@ -113,14 +132,14 @@ const headCell = {
   padding: '0 4px 6px',
 }
 
-const bodyCell = {
+const bodyCell: CSSProperties = {
   padding: '3px 4px',
   color: 'var(--text-dim)',
 }
 
 // The two checkbox columns are sized to their headers and right-aligned, so the
 // boxes line up in a scannable pair however long the names get.
-const checkCol = {
+const checkCol: CSSProperties = {
   width: 52,
   textAlign: 'right',
 }

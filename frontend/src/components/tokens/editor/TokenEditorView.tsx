@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { LuArrowLeft, LuDownload, LuUserRound } from 'react-icons/lu'
@@ -8,16 +9,37 @@ import { useAuth } from '../../../context/AuthContext'
 import useIsMobile from '../../../hooks/useIsMobile'
 import Spinner from '../../Spinner'
 import { OUTPUT_SIZES, composeToBlob, loadImage } from '../../../lib/tokenCompositor'
+import type { LoadedImage, TokenMask, TokenSpec } from '../../../lib/tokenCompositor'
 import { frameApertureMask } from '../../../lib/frameMask'
 import { resolveIconColor } from '../../campaigns/iconColors'
 import FramePicker from './FramePicker'
 import SendToCampaignDialog from './SendToCampaignDialog'
+import type { CampaignChoice } from './SendToCampaignDialog'
 import TokenEditorCanvas from './TokenEditorCanvas'
 import TokenEditorControls from './TokenEditorControls'
 import TokenSourcePicker from './TokenSourcePicker'
 import { fetchFrames, frameUrl } from './frames'
+import type { Frame } from './frames'
 import { DEFAULT_FRAME_COLOR, genericShape } from './genericFrames'
 import useTokenTransform from './useTokenTransform'
+import type { PointerActions } from './useEditorPointer'
+import type { ImageSourcePick } from '../../images/ImageSourceBrowser'
+
+/**
+ * Where the editor was opened from, when a member row opened it: who the token
+ * is for, so it can be saved straight back as their art.
+ */
+interface EditorTarget {
+  campaignId?: string
+  memberId?: string
+  memberName?: string
+}
+
+/** A specific character in a specific campaign. */
+interface MemberTarget {
+  campaignId: string
+  memberId: string
+}
 
 /**
  * The token editor.
@@ -35,7 +57,7 @@ export default function TokenEditorView() {
   const navigate = useNavigate()
   const location = useLocation()
   const { tokenId } = useParams()
-  const { user } = useAuth()
+  const { user } = useAuth()!
   // Stacked on a narrow screen, the two columns cannot each own a slice of a
   // fixed viewport height — so the page scrolls as one instead, and the frame
   // list grows to its content rather than scrolling inside a squeezed box.
@@ -43,20 +65,20 @@ export default function TokenEditorView() {
 
   // A member target arrives in router state rather than the URL: a membership id
   // in the address bar is noise, and state survives the back button.
-  const target = location.state || {}
+  const target: EditorTarget = location.state || {}
 
-  const [source, setSource] = useState(null)
+  const [source, setSource] = useState<LoadedImage | null>(null)
   const [loadingSource, setLoadingSource] = useState(!!tokenId)
-  const [frames, setFrames] = useState(null)
-  const [frameId, setFrameId] = useState(null)
-  const [frameImage, setFrameImage] = useState(null)
+  const [frames, setFrames] = useState<Frame[] | null>(null)
+  const [frameId, setFrameId] = useState<string | null>(null)
+  const [frameImage, setFrameImage] = useState<HTMLImageElement | null>(null)
   // Stored as an icon-colour token or "#rrggbb" (empty = transparent), the same
   // vocabulary campaign icons use, and resolved only at the point of drawing.
   const [background, setBackground] = useState('')
   // Empty means "no visible frame": the generic shapes then contribute only
   // their silhouette, which is what replaced the old separate Shape control.
-  const [frameColor, setFrameColor] = useState(DEFAULT_FRAME_COLOR)
-  const [frameMask, setFrameMask] = useState(null)
+  const [frameColor, setFrameColor] = useState<string>(DEFAULT_FRAME_COLOR)
+  const [frameMask, setFrameMask] = useState<HTMLCanvasElement | null>(null)
   // A generic shape with the colour cleared: crop to the silhouette, draw no
   // ring. This is what the old, redundant Shape segmented control did — the
   // frame list already offers a circle and a square, so having both was two
@@ -70,7 +92,7 @@ export default function TokenEditorView() {
   // The pointer hook reads live scale/rotation for pinch gestures, so hand it
   // the current values alongside the dispatchers.
   const pointerActions = useMemo(
-    () => ({
+    (): PointerActions => ({
       ...transform,
       scale: transform.transform.scale,
       rotation: transform.transform.rotation,
@@ -78,7 +100,7 @@ export default function TokenEditorView() {
     [transform]
   )
 
-  const objectUrl = useRef(null)
+  const objectUrl = useRef<string | null>(null)
   const releaseObjectUrl = useCallback(() => {
     if (objectUrl.current) {
       URL.revokeObjectURL(objectUrl.current)
@@ -98,7 +120,7 @@ export default function TokenEditorView() {
   }, [])
 
   const applySource = useCallback(
-    async (src) => {
+    async (src: string | Blob) => {
       setError('')
       setLoadingSource(true)
       try {
@@ -135,7 +157,8 @@ export default function TokenEditorView() {
       setFrameMask(null)
       return undefined
     }
-    loadImage(frameUrl(frameId, frameColor))
+    // A frame id always resolves to a URL; an unknown one fails to load below.
+    loadImage(frameUrl(frameId, frameColor) as string)
       .then((loaded) => {
         if (cancelled) return
         setFrameImage(loaded.image)
@@ -155,7 +178,7 @@ export default function TokenEditorView() {
   }, [frameId, frameColor, shapeOnly])
 
   const onFile = useCallback(
-    (file) => {
+    (file: File) => {
       releaseObjectUrl()
       applySource(file)
     },
@@ -163,7 +186,7 @@ export default function TokenEditorView() {
   )
 
   const onPickSource = useCallback(
-    ({ source_type: type, source_id: id }) => {
+    ({ source_type: type, source_id: id }: ImageSourcePick) => {
       // The picker only offers tokens, which have a full-resolution file. The
       // other branches are the safety net for any type a future caller might
       // pass: maps also have a real file, everything else only a thumbnail.
@@ -178,14 +201,15 @@ export default function TokenEditorView() {
 
   // The token's outline: a generic shape names its own mask, a frame with a
   // readable aperture supplies its own, and anything else is the full square.
-  const mask = useMemo(() => {
-    const shape = genericShape(frameId)
+  const mask = useMemo((): TokenMask => {
+    // Generic shapes are named after the masks they crop to.
+    const shape = genericShape(frameId) as TokenMask | null
     if (shape) return shape
     return 'none'
   }, [frameId])
 
   const spec = useMemo(
-    () => ({
+    (): TokenSpec => ({
       source: source?.image || null,
       sourceWidth: source?.width,
       sourceHeight: source?.height,
@@ -235,14 +259,14 @@ export default function TokenEditorView() {
       anchor.remove()
       URL.revokeObjectURL(url)
     } catch (err) {
-      setError(err.message || t('tokenEditor.saveFailed'))
+      setError((err as Error).message || t('tokenEditor.saveFailed'))
     } finally {
       setBusy(false)
     }
   }
 
   /** Compose once and hand the PNG to `send`, then land on the campaign. */
-  const deliver = async (campaignId, send) => {
+  const deliver = async (campaignId: string, send: (file: File) => Promise<unknown>) => {
     if (!source || busy) return
     setBusy(true)
     setError('')
@@ -253,23 +277,23 @@ export default function TokenEditorView() {
       setChoosingDestination(false)
       navigate(`/campaigns/${campaignId}`, { state: { artUpdated: Date.now() } })
     } catch (err) {
-      setError(err.message || t('tokenEditor.saveFailed'))
+      setError((err as Error).message || t('tokenEditor.saveFailed'))
     } finally {
       setBusy(false)
     }
   }
 
-  const saveAsArt = ({ campaignId, memberId }) =>
+  const saveAsArt = ({ campaignId, memberId }: MemberTarget) =>
     deliver(campaignId, (file) => campaignsApi.uploadMemberArt(campaignId, memberId, file))
 
   // A character's VTT token, stored beside their portrait rather than over it.
-  const saveAsMemberToken = ({ campaignId, memberId }) =>
+  const saveAsMemberToken = ({ campaignId, memberId }: MemberTarget) =>
     deliver(campaignId, (file) => campaignsApi.uploadMemberToken(campaignId, memberId, file))
 
   // The GM path. `uploadImage` stores the PNG as a campaign file *and* links it
   // as a resource under the chosen category in one call — it is guarded by
   // `assert_can_manage`, which is exactly the "GM of this campaign" rule.
-  const saveToCampaign = ({ campaignId, categoryId }) =>
+  const saveToCampaign = ({ campaignId, categoryId }: CampaignChoice) =>
     deliver(campaignId, (file) =>
       campaignsApi.uploadImage(campaignId, file, categoryId ? { categoryId } : {})
     )
@@ -278,7 +302,7 @@ export default function TokenEditorView() {
   // and skips the chooser entirely.
   const onSetAsArt = () => {
     if (target.campaignId && target.memberId) {
-      saveAsArt(target)
+      saveAsArt(target as MemberTarget)
       return
     }
     setChoosingDestination(true)
@@ -462,7 +486,7 @@ export default function TokenEditorView() {
   )
 }
 
-const iconBtn = {
+const iconBtn: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -478,7 +502,7 @@ const iconBtn = {
 // Matches the shared modal button shape used across the app (see `btn` in
 // components/files/RenameModal.jsx) rather than inventing a local variant:
 // solid gold for the primary action, bordered and transparent for the rest.
-const baseBtn = {
+const baseBtn: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 6,
@@ -489,13 +513,13 @@ const baseBtn = {
   border: '1px solid var(--border)',
 }
 
-const primaryBtn = {
+const primaryBtn: CSSProperties = {
   ...baseBtn,
   background: 'var(--gold)',
   color: 'var(--on-accent)',
 }
 
-const secondaryBtn = {
+const secondaryBtn: CSSProperties = {
   ...baseBtn,
   background: 'transparent',
   color: 'var(--text-dim)',

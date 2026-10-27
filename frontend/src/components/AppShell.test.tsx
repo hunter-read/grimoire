@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useNavigate } from 'react-router-dom'
+import type { ReactNode } from 'react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import AppShell from './AppShell'
@@ -14,12 +15,12 @@ let role = 'admin'
 vi.mock('../context/AuthContext', () => ({
   useAuth: () => ({ user: { role }, logout: vi.fn() }),
 }))
-let queue = []
+let queue: { id: string }[] = []
 vi.mock('../context/AudioPlayerContext', () => ({
   useAudioPlayer: () => ({ queue }),
 }))
 vi.mock('../context/UISettingsContext', () => ({
-  UISettingsProvider: ({ children }) => children,
+  UISettingsProvider: ({ children }: { children?: ReactNode }) => children,
 }))
 vi.mock('../hooks/useScrollRestoration', () => ({ default: () => ({ current: null }) }))
 vi.mock('./Sidebar', () => ({ default: () => <nav>sidebar</nav> }))
@@ -56,7 +57,7 @@ vi.mock('./campaigns/PendingInvitesBanner', () => ({ default: () => null }))
 // Views are lazy chunks (issue #708). This one is held back until a test lets it
 // load, so the shell can be seen mid-fetch.
 const duplicatesChunk = vi.hoisted(() => {
-  let release
+  let release!: (value?: unknown) => void
   const loaded = new Promise((resolve) => (release = resolve))
   return { loaded, release }
 })
@@ -65,7 +66,7 @@ vi.mock('../views/DuplicatesView', async () => {
   return { default: () => <div>duplicates</div> }
 })
 
-const renderAt = (path) =>
+const renderAt = (path: string) =>
   render(
     <MemoryRouter initialEntries={[path]}>
       <AppShell />
@@ -198,9 +199,9 @@ describe('AppShell', () => {
     it('sizes the shell through the .app-shell class, not an inline 100vh', async () => {
       renderAt('/library/book/1')
       await waitFor(() => expect(screen.getByText('reader')).toBeInTheDocument())
-      const shell = document.querySelector('.app-shell')
+      const shell = document.querySelector<HTMLElement>('.app-shell')
       expect(shell).toBeTruthy()
-      expect(shell.style.height).toBe('')
+      expect(shell!.style.height).toBe('')
       expect(shell).toContainElement(document.querySelector('main'))
     })
 
@@ -208,7 +209,7 @@ describe('AppShell', () => {
       const css = readFileSync(resolve(process.cwd(), 'src/index.css'), 'utf8')
       const rule = css.match(/\.app-shell\s*{([^}]*)}/)
       expect(rule).toBeTruthy()
-      const body = rule[1]
+      const body = rule![1]
       expect(body).toMatch(/display:\s*flex/)
       // Order matters: the fallback must come first so dvh wins where supported.
       expect(body.indexOf('height: 100vh')).toBeGreaterThan(-1)

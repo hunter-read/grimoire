@@ -1,21 +1,24 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render as rtlRender, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
+import type { ReactElement } from 'react'
 import SystemCard from './SystemCard'
+import type { Schema } from '../../api'
 
 vi.mock('../../context/FavoritesContext', () => ({
   useFavorites: () => ({ isFavorite: () => false, toggleFavorite: vi.fn() }),
 }))
 
 vi.mock('../../api', () => ({
-  mediaUrl: (path) => `http://localhost${path}`,
+  mediaUrl: (path: string) => `http://localhost${path}`,
 }))
 
 // SystemCard renders CardLink (<Link>) and LinkableTag (<Link>), so every render needs a Router.
-const render = (ui) => rtlRender(<MemoryRouter>{ui}</MemoryRouter>)
+const render = (ui: ReactElement) => rtlRender(<MemoryRouter>{ui}</MemoryRouter>)
 
-function makeSystem(overrides = {}) {
+// A partial row is enough here: SystemCard reads only these fields.
+function makeSystem(overrides: Record<string, unknown> = {}): Schema<'SystemSummary'> {
   return {
     id: 'sys-1',
     name: 'Dungeons & Dragons',
@@ -26,7 +29,7 @@ function makeSystem(overrides = {}) {
     publishers: [],
     tags: [],
     ...overrides,
-  }
+  } as unknown as Schema<'SystemSummary'>
 }
 
 describe('SystemCard', () => {
@@ -244,7 +247,7 @@ describe('SystemCard', () => {
   // indistinguishable from the gold selection border in bulk mode. They now
   // carry an eyebrow label above the title and never take part in a selection.
   describe('parent-system marker', () => {
-    const borderOf = (container) => container.firstChild.style.border
+    const borderOf = (container: HTMLElement) => (container.firstChild as HTMLElement).style.border
     const parent = () => makeSystem({ container_kind: 'parent', child_count: 3 })
 
     it.each([
@@ -289,7 +292,7 @@ describe('SystemCard', () => {
   // Family and publisher shelves make different claims about how their children
   // relate, so each carries its own wording rather than a generic label.
   describe('family and publisher containers (issue #301)', () => {
-    const borderOf = (container) => container.firstChild.style.border
+    const borderOf = (container: HTMLElement) => (container.firstChild as HTMLElement).style.border
 
     it.each([
       ['full', {}],

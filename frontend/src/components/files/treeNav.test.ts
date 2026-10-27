@@ -8,18 +8,25 @@ import {
   leftTarget,
   rangeBetween,
 } from './treeNav'
+import type { PaneRow } from '../../hooks/useLibraryPane'
 
-const dir = (path, depth, isOpen = false) => ({
-  entry: { path, name: path.split('/').pop(), is_dir: true },
+type Placeholder = Extract<PaneRow, { placeholder: string }>['placeholder']
+
+const dir = (path: string, depth: number, isOpen = false): PaneRow => ({
+  entry: { path, name: path.split('/').pop()!, is_dir: true },
   depth,
   isOpen,
 })
-const file = (path, depth) => ({
-  entry: { path, name: path.split('/').pop(), is_dir: false },
+const file = (path: string, depth: number): PaneRow => ({
+  entry: { path, name: path.split('/').pop()!, is_dir: false },
   depth,
   isOpen: false,
 })
-const ph = (placeholder, path, depth) => ({ placeholder, path, depth })
+const ph = (placeholder: Placeholder, path: string, depth: number): PaneRow => ({
+  placeholder,
+  path,
+  depth,
+})
 
 // books/
 //   core/            (open)
@@ -200,8 +207,8 @@ describe('rangeBetween', () => {
 })
 
 describe('unreadable names', () => {
-  const locked = (path, depth) => ({
-    entry: { path, name: path.split('/').pop(), is_dir: true, unreadable_name: true },
+  const locked = (path: string, depth: number): PaneRow => ({
+    entry: { path, name: path.split('/').pop()!, is_dir: true, unreadable_name: true },
     depth,
     isOpen: false,
   })

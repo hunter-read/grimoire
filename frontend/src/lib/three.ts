@@ -12,6 +12,35 @@
  * component's state machine stays testable with this module mocked.
  */
 
+import type { BufferGeometry, Material, Mesh, MeshStandardMaterial, Object3D } from 'three'
+
+/** What a format loader can hand back: a mesh's geometry, or a scene. */
+type LoadResult = BufferGeometry | Object3D | { scene: Object3D }
+
+/** The shape every three.js loader shares, as far as the viewer uses it. */
+type ModelLoader = {
+  load(
+    url: string,
+    onLoad: (result: LoadResult) => void,
+    onProgress?: (event: ProgressEvent) => void,
+    onError?: (err: unknown) => void
+  ): void
+}
+
+/** The handle `createViewer` resolves to. */
+export interface ModelViewer {
+  triangles: number
+  resetView: () => void
+  setWireframe: (on: boolean) => void
+  /** Must be called on unmount, to release the WebGL context. */
+  dispose: () => void
+}
+
+export interface ViewerOptions {
+  /** Load progress as a fraction, when the response length is known. */
+  onProgress?: (fraction: number) => void
+}
+
 // Which loader each format needs, keyed by the `viewer_loader` string the API
 // returns. The backend owns this mapping (see indexer/models3d.py) so the two
 // sides cannot drift; this table only says how to fetch what it names.
@@ -29,7 +58,9 @@ const LOADERS = {
 // sitting next to it. glTF is Y-up by spec and needs no rotation.
 const Z_UP_LOADERS = new Set(['stl', 'ply', '3mf'])
 
-export function isLoaderSupported(kind) {
+type LoaderKind = keyof typeof LOADERS
+
+export function isLoaderSupported(kind: string): boolean {
   return Object.prototype.hasOwnProperty.call(LOADERS, kind)
 }
 
@@ -42,8 +73,8 @@ export async function loadThree() {
   return { THREE, OrbitControls }
 }
 
-export async function loadLoader(kind) {
-  const get = LOADERS[kind]
+export async function loadLoader(kind: string) {
+  const get = LOADERS[kind as LoaderKind]
   if (!get) throw new Error(`Unsupported model format: ${kind}`)
   return get()
 }
@@ -56,9 +87,16 @@ export async function loadLoader(kind) {
  * that leaks one per visit renders nothing at all after a dozen models — with no
  * error to explain why.
  */
-export async function createViewer(canvasHost, url, kind, { onProgress } = {}) {
+export async function createViewer(
+  canvasHost: HTMLElement,
+  url: string,
+  kind: string,
+  { onProgress }: ViewerOptions = {}
+): Promise<ModelViewer> {
   const { THREE, OrbitControls } = await loadThree()
-  const Loader = await loadLoader(kind)
+  // The loaders' own typings differ in what they resolve; the viewer only needs
+  // the common `load` shape and tells the results apart itself.
+  const Loader = (await loadLoader(kind)) as unknown as new () => ModelLoader
 
   const width = canvasHost.clientWidth || 640
   const height = canvasHost.clientHeight || 480
@@ -80,17 +118,18 @@ export async function createViewer(canvasHost, url, kind, { onProgress } = {}) {
   const controls = new OrbitControls(camera, renderer.domElement)
   controls.enableDamping = true
 
-  const object = await new Promise((resolve, reject) => {
+  const object = await new Promise<Object3D>((resolve, reject) => {
     new Loader().load(
       url,
       (result) => {
         // Mesh loaders hand back a BufferGeometry; scene loaders (glTF, 3MF)
         // hand back an Object3D that is already a subtree.
-        if (result && result.isBufferGeometry) {
-          result.computeVertexNormals()
+        if (result && (result as BufferGeometry).isBufferGeometry) {
+          const geometry = result as BufferGeometry
+          geometry.computeVertexNormals()
           resolve(
             new THREE.Mesh(
-              result,
+              geometry,
               new THREE.MeshStandardMaterial({
                 color: 0x9aa4b8,
                 roughness: 0.75,
@@ -99,7 +138,7 @@ export async function createViewer(canvasHost, url, kind, { onProgress } = {}) {
             )
           )
         } else {
-          resolve(result.scene || result)
+          resolve((result as { scene?: Object3D }).scene || (result as Object3D))
         }
       },
       (event) => {
@@ -153,7 +192,7 @@ export async function createViewer(canvasHost, url, kind, { onProgress } = {}) {
 
   let triangles = 0
   object.traverse((child) => {
-    const geom = child.geometry
+    const geom = (child as Partial<Mesh>).geometry
     if (!geom) return
     triangles += geom.index ? geom.index.count / 3 : (geom.attributes.position?.count || 0) / 3
   })
@@ -183,9 +222,10 @@ export async function createViewer(canvasHost, url, kind, { onProgress } = {}) {
       controls.target.copy(pivot)
       controls.update()
     },
-    setWireframe(on) {
+    setWireframe(on: boolean) {
       object.traverse((child) => {
-        if (child.material) child.material.wireframe = !!on
+        const mesh = child as Partial<Mesh>
+        if (mesh.material) (mesh.material as MeshStandardMaterial).wireframe = !!on
       })
     },
     dispose() {
@@ -193,8 +233,9 @@ export async function createViewer(canvasHost, url, kind, { onProgress } = {}) {
       window.removeEventListener('resize', onResize)
       controls.dispose()
       object.traverse((child) => {
-        child.geometry?.dispose()
-        const mat = child.material
+        const mesh = child as Partial<Mesh>
+        mesh.geometry?.dispose()
+        const mat: Material | Material[] | undefined = mesh.material
         if (Array.isArray(mat)) mat.forEach((m) => m.dispose())
         else mat?.dispose()
       })

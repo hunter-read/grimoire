@@ -3,14 +3,16 @@ import { render as rtlRender, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import userEvent from '@testing-library/user-event'
 import MediaCard from './MediaCard'
+import type { ReactElement } from 'react'
 import { MEDIA_CONFIGS } from './mediaConfig'
+import type { MediaItem, MediaType } from './mediaConfig'
 
-vi.mock('../../api', () => ({ mediaUrl: (p) => `http://localhost${p}` }))
+vi.mock('../../api', () => ({ mediaUrl: (p: string) => `http://localhost${p}` }))
 vi.mock('../FavoriteButton', () => ({ default: () => <span data-testid="fav" /> }))
 vi.mock('../DownloadButton', () => ({ default: () => <span data-testid="dl" /> }))
 // AudioPlayer controller stub: renders a button when given a track.
 vi.mock('../audio/AudioPlayer', () => ({
-  default: ({ track, showPlayNext }) => (
+  default: ({ track, showPlayNext }: { track?: { id: string }; showPlayNext?: boolean }) => (
     <span data-testid="audio-player">
       {track?.id}
       {showPlayNext ? ':next' : ''}
@@ -19,38 +21,40 @@ vi.mock('../audio/AudioPlayer', () => ({
 }))
 
 // MediaCard renders CardLink (<Link>) in non-bulk mode, so a Router is required.
-const render = (ui) => rtlRender(<MemoryRouter>{ui}</MemoryRouter>)
-let currentId = null
-let playingId = null
+const render = (ui: ReactElement) => rtlRender(<MemoryRouter>{ui}</MemoryRouter>)
+let currentId: string | null = null
+let playingId: string | null = null
 vi.mock('../../context/AudioPlayerContext', () => ({
   useAudioPlayer: () => ({
-    isCurrent: (id) => id === currentId,
-    isPlayingId: (id) => id === playingId,
+    isCurrent: (id: string) => id === currentId,
+    isPlayingId: (id: string) => id === playingId,
   }),
 }))
 
-const audioItem = (over = {}) => ({
-  id: 'a1',
-  filename: 'tavern.mp3',
-  title: 'Tavern Night',
-  relative_path: 'audio/Ambient/tavern.mp3',
-  has_artwork: false,
-  is_missing: false,
-  file_size: 1000,
-  tags: [],
-  ...over,
-})
+const audioItem = (over: Partial<MediaItem> = {}) =>
+  ({
+    id: 'a1',
+    filename: 'tavern.mp3',
+    title: 'Tavern Night',
+    relative_path: 'audio/Ambient/tavern.mp3',
+    has_artwork: false,
+    is_missing: false,
+    file_size: 1000,
+    tags: [],
+    ...over,
+  }) as MediaItem
 
-const mapItem = (over = {}) => ({
-  id: 'm1',
-  filename: 'cave.png',
-  relative_path: 'maps/cave.png',
-  has_thumbnail: false,
-  is_missing: false,
-  file_size: 1000,
-  tags: [],
-  ...over,
-})
+const mapItem = (over: Partial<MediaItem> = {}) =>
+  ({
+    id: 'm1',
+    filename: 'cave.png',
+    relative_path: 'maps/cave.png',
+    has_thumbnail: false,
+    is_missing: false,
+    file_size: 1000,
+    tags: [],
+    ...over,
+  }) as MediaItem
 
 describe('MediaCard — audio', () => {
   it('renders an audio player in grid mode', () => {
@@ -309,7 +313,7 @@ describe('MediaCard — map (no audio controls)', () => {
     ])(
       'non-bulk %s card has the right href for native new-tab support',
       (_label, key, makeItem, name, href) => {
-        render(<MediaCard config={MEDIA_CONFIGS[key]} item={makeItem()} />)
+        render(<MediaCard config={MEDIA_CONFIGS[key as MediaType]} item={makeItem()} />)
         const link = screen.getByRole('link', { name })
         expect(link).toHaveAttribute('href', href)
       }
@@ -336,12 +340,12 @@ describe('MediaCard — now playing (audio list rows)', () => {
     playingId = null
   })
 
-  const renderRow = (over) =>
+  const renderRow = (over?: Partial<MediaItem>) =>
     render(<MediaCard config={MEDIA_CONFIGS.audio} item={audioItem(over)} list />)
 
   // Outside bulk mode the row is a plain container holding a stretched <a>, so
   // the now-playing state sits on the link's parent rather than on a button.
-  const row = () => screen.getByRole('link', { name: 'Tavern Night' }).parentElement
+  const row = () => screen.getByRole('link', { name: 'Tavern Night' }).parentElement!
 
   it('leaves an unrelated row unmarked', () => {
     currentId = 'other'

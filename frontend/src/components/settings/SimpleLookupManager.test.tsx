@@ -5,7 +5,9 @@ import SimpleLookupManager from './SimpleLookupManager'
 import api from '../../api'
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k, o) => (o ? `${k}:${JSON.stringify(o)}` : k) }),
+  useTranslation: () => ({
+    t: (k: string, o?: Record<string, unknown>) => (o ? `${k}:${JSON.stringify(o)}` : k),
+  }),
 }))
 vi.mock('../Spinner', () => ({ default: () => <div>spinner</div> }))
 vi.mock('../../api', () => ({ default: { get: vi.fn(), post: vi.fn(), delete: vi.fn() } }))
@@ -14,9 +16,9 @@ const items = [{ id: 'p1', name: 'Dungeons & Dragons', is_default: false, sort_o
 
 beforeEach(() => {
   vi.clearAllMocks()
-  api.get.mockResolvedValue({ parent_systems: items })
-  api.post.mockResolvedValue({ id: 'p2', name: 'Cyberpunk' })
-  api.delete.mockResolvedValue({ status: 'ok' })
+  vi.mocked(api.get).mockResolvedValue({ parent_systems: items })
+  vi.mocked(api.post).mockResolvedValue({ id: 'p2', name: 'Cyberpunk' })
+  vi.mocked(api.delete).mockResolvedValue({ status: 'ok' })
 })
 
 const renderManager = () =>
@@ -36,7 +38,7 @@ describe('SimpleLookupManager', () => {
   })
 
   it('shows an empty message when the list is empty', async () => {
-    api.get.mockResolvedValue({ parent_systems: [] })
+    vi.mocked(api.get).mockResolvedValue({ parent_systems: [] })
     renderManager()
     expect(await screen.findByText('lookupSettings.empty')).toBeInTheDocument()
   })
@@ -50,7 +52,7 @@ describe('SimpleLookupManager', () => {
   })
 
   it('confirms before force-deleting an in-use item', async () => {
-    api.delete.mockRejectedValueOnce(
+    vi.mocked(api.delete).mockRejectedValueOnce(
       Object.assign(new Error('conflict'), {
         status: 409,
         body: { detail: { name: 'Dungeons & Dragons', usage_count: 3 } },
@@ -60,7 +62,7 @@ describe('SimpleLookupManager', () => {
     await screen.findByText('Dungeons & Dragons')
     await userEvent.click(screen.getByLabelText('common.remove Dungeons & Dragons'))
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
-    api.delete.mockResolvedValueOnce({ status: 'ok' })
+    vi.mocked(api.delete).mockResolvedValueOnce({ status: 'ok' })
     await userEvent.click(screen.getByText('lookupSettings.confirmRemove'))
     await waitFor(() =>
       expect(api.delete).toHaveBeenLastCalledWith('/parent-systems/p1?force=true')

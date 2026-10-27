@@ -1,13 +1,51 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import api from '../../../api'
+import type { BodyOf } from '../../../api'
 import { layoutFor } from './cutoutGeometry'
+import type { PageBox, PageSize, PageSizes } from './cutoutGeometry'
 import { formatPageSpec, pageLabel, safeStem } from './pageRanges'
 
 let nextId = 1
 const newId = () => `c${nextId++}`
 
+export type CutoutShape = 'rect' | 'ellipse'
+export type ExportFormat = 'pdf' | 'png' | 'jpeg' | 'webp'
+export type ExportTab = 'pages' | 'cut'
+export type ExportTool = 'rect' | 'square' | 'circle'
+
+/** A cut-out as the viewer keeps it. */
+export interface Cutout extends PageBox {
+  id: string
+  name: string
+  shape: CutoutShape
+  /** Kept square (or round) on the page while it is adjusted. */
+  locked?: boolean
+}
+
+export type { PageUrl } from '../pageRender'
+
+/** A cut-out as it is listed: numbered in page order, with the name it downloads as. */
+export interface NumberedCutout extends Cutout {
+  number: number
+  defaultName: string
+}
+
+/** What a new cut-out is made from; `name` defaults to empty. */
+export type NewCutout = Omit<Cutout, 'id' | 'name'> & { name?: string }
+
+/** The body of an export request. */
+export type ExportBody = BodyOf<'/books/{book_id}/export', 'post'>
+
+interface Options {
+  /** `/books/{id}` or `/maps/{id}`. */
+  basePath: string
+  title: string
+  visiblePages: number[]
+  active?: boolean
+}
+
 /** Tool -> the shape and aspect lock a newly drawn cut-out takes. */
-export const TOOLS = {
+export const TOOLS: Record<ExportTool, { shape: CutoutShape; locked: boolean }> = {
   rect: { shape: 'rect', locked: false },
   square: { shape: 'rect', locked: true },
   circle: { shape: 'ellipse', locked: true },
@@ -29,30 +67,30 @@ export const TOOLS = {
  * name is built exactly as the server builds it ("Title (p12) 2"), so the
  * placeholder in the list is the filename that will be downloaded.
  */
-export default function usePageExport({ basePath, title, visiblePages, active = true }) {
-  const [tab, setTab] = useState('pages')
+export default function usePageExport({ basePath, title, visiblePages, active = true }: Options) {
+  const [tab, setTab] = useState<ExportTab>('pages')
   const [pagesSpec, setPagesSpec] = useState(() => formatPageSpec(visiblePages))
-  const [pagesFormat, setPagesFormat] = useState('pdf')
+  const [pagesFormat, setPagesFormat] = useState<ExportFormat>('pdf')
   const [pagesDpi, setPagesDpi] = useState(150)
   const [joinSpreads, setJoinSpreads] = useState(visiblePages.length > 1)
-  const [cutFormat, setCutFormat] = useState('png')
+  const [cutFormat, setCutFormat] = useState<ExportFormat>('png')
   const [cutDpi, setCutDpi] = useState(150)
-  const [tool, setTool] = useState('rect')
-  const [cutouts, setCutouts] = useState([])
-  const [activeId, setActiveId] = useState(null)
-  const [sizes, setSizes] = useState({})
-  const requestedSizes = useRef(new Set())
+  const [tool, setTool] = useState<ExportTool>('rect')
+  const [cutouts, setCutouts] = useState<Cutout[]>([])
+  const [activeId, setActiveId] = useState<string | null>(null)
+  const [sizes, setSizes] = useState<PageSizes>({})
+  const requestedSizes = useRef(new Set<number>())
 
   // Fetch each page's point size once. The stage needs them to lay pages out
   // exactly as the server will, and the panel needs them for pixel estimates.
   const ensureSizes = useCallback(
-    (pages) => {
+    (pages: number[]) => {
       pages.forEach((p) => {
         if (requestedSizes.current.has(p)) return
         requestedSizes.current.add(p)
         api
           .get(`${basePath}/page/${p}/size`)
-          .then((s) => setSizes((prev) => ({ ...prev, [p]: s })))
+          .then((s) => setSizes((prev) => ({ ...prev, [p]: s as PageSize })))
           .catch(() => requestedSizes.current.delete(p))
       })
     },
@@ -69,33 +107,33 @@ export default function usePageExport({ basePath, title, visiblePages, active = 
     [visibleKey, sizes] // eslint-disable-line react-hooks/exhaustive-deps
   )
 
-  const addCutout = useCallback((cutout) => {
+  const addCutout = useCallback((cutout: NewCutout) => {
     const id = newId()
     setCutouts((prev) => [...prev, { name: '', ...cutout, id }])
     setActiveId(id)
     return id
   }, [])
 
-  const addCutouts = useCallback((list) => {
+  const addCutouts = useCallback((list: NewCutout[]) => {
     setCutouts((prev) => [...prev, ...list.map((c) => ({ name: '', ...c, id: newId() }))])
   }, [])
 
-  const updateCutout = useCallback((id, patch) => {
+  const updateCutout = useCallback((id: string, patch: Partial<Cutout>) => {
     setCutouts((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)))
   }, [])
 
-  const removeCutout = useCallback((id) => {
+  const removeCutout = useCallback((id: string) => {
     setCutouts((prev) => prev.filter((c) => c.id !== id))
     setActiveId((a) => (a === id ? null : a))
   }, [])
 
-  const numbered = useMemo(() => {
+  const numbered = useMemo((): NumberedCutout[] => {
     const stem = safeStem(title)
     // Stable, so pieces on one page keep the order they were drawn or found in.
     const ordered = [...cutouts].sort(
       (a, b) => a.pages[0] - b.pages[0] || a.pages.length - b.pages.length
     )
-    const perPage = {}
+    const perPage: Record<string, number> = {}
     return ordered.map((c, i) => {
       const key = c.pages.join(',')
       perPage[key] = (perPage[key] || 0) + 1
@@ -118,14 +156,14 @@ export default function usePageExport({ basePath, title, visiblePages, active = 
    * Point the page list at what is on screen. Called each time the panel opens,
    * so "Pages" starts from where the reader is, not where it was last time.
    */
-  const openAt = useCallback((pages) => {
+  const openAt = useCallback((pages: number[]) => {
     setPagesSpec(formatPageSpec(pages))
     setJoinSpreads(pages.length > 1)
   }, [])
 
   /** The request body for the current tab. */
   const requestBody = useCallback(
-    (spreadOffset) =>
+    (spreadOffset: number): ExportBody =>
       tab === 'pages'
         ? {
             kind: 'pages',
@@ -133,7 +171,8 @@ export default function usePageExport({ basePath, title, visiblePages, active = 
             format: pagesFormat,
             dpi: pagesDpi,
             join_spreads: pagesFormat !== 'pdf' && joinSpreads,
-            spread_offset: spreadOffset,
+            // The reader's spread pairing is always 0 or 1.
+            spread_offset: spreadOffset as 0 | 1,
           }
         : {
             kind: 'regions',
@@ -186,3 +225,6 @@ export default function usePageExport({ basePath, title, visiblePages, active = 
     requestBody,
   }
 }
+
+/** Everything usePageExport hands the export panel and the cut-out stage. */
+export type PageExporter = ReturnType<typeof usePageExport>

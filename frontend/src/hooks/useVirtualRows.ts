@@ -1,4 +1,31 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+  type UIEvent,
+} from 'react'
+
+export interface VirtualRowsOptions {
+  count: number
+  rowHeight: number
+  /** Rows kept beyond each edge (default 8). */
+  overscan?: number
+}
+
+export interface VirtualRows<E extends HTMLElement> {
+  /** Attach to the scrolling element. */
+  scrollRef: RefObject<E | null>
+  onScroll: (e: UIEvent<E>) => void
+  /** First rendered row index. */
+  first: number
+  /** One past the last rendered row index. */
+  last: number
+  padTop: number
+  padBottom: number
+}
 
 /**
  * Window a long, uniform-height list down to the rows actually on screen.
@@ -18,8 +45,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
  * `overscan` rows are kept beyond each edge so fast scrolling doesn't flash
  * blank space, and so a drag hovering just past the edge still finds a row.
  */
-export function useVirtualRows({ count, rowHeight, overscan = 8 }) {
-  const scrollRef = useRef(null)
+export function useVirtualRows<E extends HTMLElement = HTMLDivElement>({
+  count,
+  rowHeight,
+  overscan = 8,
+}: VirtualRowsOptions): VirtualRows<E> {
+  const scrollRef = useRef<E | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [viewportHeight, setViewportHeight] = useState(0)
 
@@ -39,7 +70,7 @@ export function useVirtualRows({ count, rowHeight, overscan = 8 }) {
     return () => ro.disconnect()
   }, [])
 
-  const onScroll = useCallback((e) => setScrollTop(e.currentTarget.scrollTop), [])
+  const onScroll = useCallback((e: UIEvent<E>) => setScrollTop(e.currentTarget.scrollTop), [])
 
   const range = useMemo(() => {
     // Before the first measurement, render a modest slice rather than nothing:

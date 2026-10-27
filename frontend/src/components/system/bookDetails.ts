@@ -7,7 +7,17 @@
  *
  * Returns '' when there is no year, since a month without a year says nothing.
  */
-export function publicationDate(book, locale = undefined) {
+/** The date parts of a book; any may be unset. */
+export interface PublicationDateParts {
+  year?: number | null
+  month?: number | null
+  day?: number | null
+}
+
+export function publicationDate(
+  book: PublicationDateParts | null | undefined,
+  locale: string | undefined = undefined
+): string {
   if (!book?.year) return ''
   const { year, month, day } = book
 

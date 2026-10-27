@@ -1,11 +1,15 @@
 import { useTranslation } from 'react-i18next'
 
+interface Props {
+  counts?: Record<string, number> | null
+}
+
 /**
  * Non-zero reference counts only — "0 bookmarks, 0 favorites" is noise, and
  * what matters when choosing which copy to keep is which one carries actual
  * user work.
  */
-export default function RefCounts({ counts }) {
+export default function RefCounts({ counts }: Props) {
   const { t } = useTranslation()
   const text = Object.entries(counts || {})
     .filter(([, v]) => v > 0)

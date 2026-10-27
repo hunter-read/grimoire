@@ -1,3 +1,12 @@
+import type { TFunction } from 'i18next'
+
+export interface SubtitleCounts {
+  count: number
+  total: number
+  loading?: boolean
+  available?: number | null
+}
+
 /**
  * Subtitle text for a gallery header.
  *
@@ -14,7 +23,11 @@
  * pages land — so the header reads correctly from the first page and the rest
  * of the library fills in silently below the fold.
  */
-export default function gallerySubtitle(t, prefix, { count, total, loading, available }) {
+export default function gallerySubtitle(
+  t: TFunction,
+  prefix: string,
+  { count, total, loading, available }: SubtitleCounts
+): string {
   // A filter narrowing the (partial) set still has to report what it matched:
   // "Displaying x of y" stays honest mid-load because both halves grow together.
   if (loading && count === total) {

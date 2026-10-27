@@ -1,4 +1,4 @@
-import { useState, useRef, lazy, Suspense } from 'react'
+import { useState, useRef, lazy, Suspense, type ChangeEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   LuUserMinus,
@@ -14,19 +14,29 @@ import {
   LuFilePlus2,
   LuPencilLine,
 } from 'react-icons/lu'
-import { campaigns } from '../../api'
+import { campaigns, type Schema } from '../../api'
 import SheetTemplatePicker from './SheetTemplatePicker'
 import ReplaceSheetDialog from './ReplaceSheetDialog'
 import { STATUS_COLORS, sheetActionBtn, smallBtn } from './memberStyles'
-import LazyImg from '../LazyImg'
 import MemberArtButton from './MemberArtButton'
 
 // Lazy so pdf.js (a large dependency) is only fetched when a sheet is edited.
 const PdfSheetEditor = lazy(() => import('./PdfSheetEditor'))
 
+export interface MemberRowProps {
+  member: Schema<'CampaignMemberOut'>
+  isOwner: boolean
+  canManage: boolean
+  onRemove: (userId: string) => void
+  onUpdateStatus: (userId: string, status: string) => void
+  onSetCharacterName: (userId: string, characterName: string) => Promise<unknown> | void
+  currentUserId?: string
+  campaignId: string
+  onMediaChanged?: () => void
+}
+
 export default function MemberRow({
   member,
-  isOwner,
   canManage,
   onRemove,
   onUpdateStatus,
@@ -34,14 +44,14 @@ export default function MemberRow({
   currentUserId,
   campaignId,
   onMediaChanged,
-}) {
+}: MemberRowProps) {
   const { t } = useTranslation()
   const isCurrentUser = member.user_id === currentUserId
   const isMemberOwner = member.is_owner === true
   const [editingChar, setEditingChar] = useState(false)
   const [charValue, setCharValue] = useState(member.character_name ?? '')
   const [artVersion, setArtVersion] = useState(0)
-  const sheetInputRef = useRef(null)
+  const sheetInputRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
   const [linkingSheet, setLinkingSheet] = useState(false)
   const [sheetUrlValue, setSheetUrlValue] = useState('')
@@ -60,31 +70,31 @@ export default function MemberRow({
     setEditingChar(false)
   }
 
-  const uploadArt = async (file) => {
+  const uploadArt = async (file: File) => {
     setBusy(true)
     try {
-      await campaigns.uploadMemberArt(campaignId, member.id, file)
+      await campaigns.uploadMemberArt(campaignId, member.id!, file)
       // Bumping the version re-requests the art past the 5-minute upload cache,
       // so a replaced portrait appears at once instead of when the cache lapses.
       setArtVersion(Date.now())
       onMediaChanged?.()
     } catch (err) {
-      alert(err.message)
+      alert((err as Error).message)
     } finally {
       setBusy(false)
     }
   }
 
-  const handleSheetFile = async (e) => {
+  const handleSheetFile = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
     setBusy(true)
     try {
-      await campaigns.uploadMemberSheet(campaignId, member.id, file)
+      await campaigns.uploadMemberSheet(campaignId, member.id!, file)
       onMediaChanged?.()
     } catch (err) {
-      alert(err.message)
+      alert((err as Error).message)
     } finally {
       setBusy(false)
     }
@@ -96,7 +106,7 @@ export default function MemberRow({
       if (member.character_sheet_url) {
         await campaigns.setCharacterSheetUrl(campaignId, member.user_id, '')
       } else {
-        await campaigns.deleteMemberSheet(campaignId, member.id)
+        await campaigns.deleteMemberSheet(campaignId, member.id!)
       }
       onMediaChanged?.()
     } finally {
@@ -497,8 +507,8 @@ export default function MemberRow({
             borderRadius: 20,
             flexShrink: 0,
             background: 'var(--bg-deep)',
-            color: STATUS_COLORS[member.status] || 'var(--text-muted)',
-            border: `1px solid ${STATUS_COLORS[member.status] || 'var(--border)'}`,
+            color: STATUS_COLORS[member.status as string] || 'var(--text-muted)',
+            border: `1px solid ${STATUS_COLORS[member.status as string] || 'var(--border)'}`,
             textTransform: 'uppercase',
             letterSpacing: '0.05em',
             fontWeight: 600,

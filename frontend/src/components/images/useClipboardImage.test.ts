@@ -6,10 +6,11 @@ const pngFile = (name = 'shot.png') => new File(['x'], name, { type: 'image/png'
 
 // Minimal DataTransfer stand-in: jsdom does not implement the clipboard item
 // API, and only `items`/`files` are ever read.
-const transfer = ({ items = [], files = [] } = {}) => ({
-  items: items.map((f) => ({ kind: 'file', getAsFile: () => f })),
-  files,
-})
+const transfer = ({ items = [], files = [] }: { items?: File[]; files?: File[] } = {}) =>
+  ({
+    items: items.map((f) => ({ kind: 'file', getAsFile: () => f })),
+    files,
+  }) as unknown as DataTransfer
 
 describe('imageFromDataTransfer', () => {
   it('returns the first acceptable image from items', () => {
@@ -30,8 +31,8 @@ describe('imageFromDataTransfer', () => {
   it('names an unnamed clipboard image after its type', () => {
     const unnamed = new File(['x'], '', { type: 'image/webp' })
     const out = imageFromDataTransfer(transfer({ items: [unnamed] }))
-    expect(out.name).toBe('pasted.webp')
-    expect(out.type).toBe('image/webp')
+    expect(out!.name).toBe('pasted.webp')
+    expect(out!.type).toBe('image/webp')
   })
 
   it('tolerates a missing DataTransfer', () => {
@@ -41,8 +42,10 @@ describe('imageFromDataTransfer', () => {
 })
 
 describe('useClipboardImage', () => {
-  const paste = (dataTransfer) => {
-    const event = new Event('paste', { bubbles: true, cancelable: true })
+  const paste = (dataTransfer: DataTransfer) => {
+    const event = new Event('paste', { bubbles: true, cancelable: true }) as Event & {
+      clipboardData: DataTransfer
+    }
     event.clipboardData = dataTransfer
     document.dispatchEvent(event)
     return event

@@ -1,7 +1,7 @@
 import { LEVEL_COLORS, LEVEL_LABELS } from './logShared'
 
 /** Coloured log-level label for a logs viewer row. */
-export default function LevelBadge({ level }) {
+export default function LevelBadge({ level }: { level: string }) {
   const color = LEVEL_COLORS[level] ?? LEVEL_COLORS.INFO
   return (
     <span

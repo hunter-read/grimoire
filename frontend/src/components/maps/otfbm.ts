@@ -7,7 +7,10 @@
  */
 export const OTFBM_URL_PLACEHOLDER = '<image-url>'
 
-export function otfbmCommand(plan, imageUrl = '') {
+export function otfbmCommand(
+  plan: { width: number; height: number; cell: number | string } | null | undefined,
+  imageUrl = ''
+): string {
   if (!plan) return ''
   const url = imageUrl.trim() || OTFBM_URL_PLACEHOLDER
   return `!map -mapsize ${plan.width}x${plan.height} -options c${plan.cell} -bg ${url}`

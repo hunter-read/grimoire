@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { render, screen, waitFor, within, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import api, { files as filesApi } from '../../../api'
@@ -6,6 +7,18 @@ import { useAuth } from '../../../context/AuthContext'
 import { useUISettings } from '../../../context/UISettingsContext'
 import ExportSidebar from './ExportSidebar'
 import usePageExport from './usePageExport'
+import type { ExportBody } from './usePageExport'
+
+// The transport is typed per route; these tests answer it loosely.
+type Loose = Mock<(url: string, ...rest: unknown[]) => Promise<unknown>>
+const mockGet = () => api.get as unknown as Loose
+const mockPost = () => api.post as unknown as Loose
+const mockDownload = () => vi.mocked(api.download)
+const mockBrowse = () => filesApi.browse as unknown as Mock<(path: string) => Promise<unknown>>
+const mockAuth = (value: unknown) =>
+  vi.mocked(useAuth).mockReturnValue(value as ReturnType<typeof useAuth>)
+const mockUISettings = (value: unknown) =>
+  vi.mocked(useUISettings).mockReturnValue(value as ReturnType<typeof useUISettings>)
 
 vi.mock('../../../api', () => ({
   default: { get: vi.fn(), post: vi.fn(), download: vi.fn() },
@@ -44,7 +57,7 @@ function Harness({ visible = [4], total = 8, onShowPage = vi.fn() }) {
       isSpread={visible.length > 1}
       spreadOffset={0}
       tocPath="/books/b1/toc"
-      pageUrl={(p, w) => `/p/${p}?w=${w}`}
+      pageUrl={(p: number, w?: number) => `/p/${p}?w=${w}`}
       sourcePath="books/Ashen/core/Ashen.pdf"
       onShowPage={onShowPage}
       onClose={vi.fn()}
@@ -54,16 +67,16 @@ function Harness({ visible = [4], total = 8, onShowPage = vi.fn() }) {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  useAuth.mockReturnValue({ user: { role: 'admin' } })
-  useUISettings.mockReturnValue({ library_writable: true })
-  api.get.mockImplementation((url) => {
+  mockAuth({ user: { role: 'admin' } })
+  mockUISettings({ library_writable: true })
+  mockGet().mockImplementation((url: string) => {
     if (url.endsWith('/size')) return Promise.resolve({ width: 612, height: 792 })
     if (url.endsWith('/toc')) return Promise.resolve(TOC)
     if (url.endsWith('/shapes')) return Promise.resolve(SHAPES)
     return Promise.reject(new Error(`unexpected ${url}`))
   })
-  api.download.mockResolvedValue(undefined)
-  filesApi.browse.mockImplementation((path) =>
+  mockDownload().mockResolvedValue(undefined)
+  mockBrowse().mockImplementation((path: string) =>
     Promise.resolve(
       path === ''
         ? {
@@ -155,7 +168,7 @@ describe('ExportSidebar - whole pages', () => {
 
   it('reports a failed download', async () => {
     const user = userEvent.setup()
-    api.download.mockRejectedValueOnce(new Error('Disk on fire'))
+    mockDownload().mockRejectedValueOnce(new Error('Disk on fire'))
     render(<Harness />)
     await user.click(downloadButton())
     expect(await screen.findByRole('alert')).toHaveTextContent('Disk on fire')
@@ -200,10 +213,10 @@ describe('ExportSidebar - cut-outs', () => {
 
     await user.type(screen.getByLabelText('File name for cut-out 1'), 'Goblin')
     await user.click(downloadButton())
-    const body = api.download.mock.calls[0][2].body
+    const body = mockDownload().mock.calls[0][2]!.body as ExportBody
     expect(body.kind).toBe('regions')
-    expect(body.regions.map((r) => r.name)).toEqual(['Goblin', ''])
-    expect(body.regions[0]).toMatchObject({ pages: [4], shape: 'ellipse' })
+    expect(body.regions!.map((r) => r.name)).toEqual(['Goblin', ''])
+    expect(body.regions![0]).toMatchObject({ pages: [4], shape: 'ellipse' })
 
     await user.click(screen.getByRole('button', { name: 'Remove cut-out 2' }))
     expect(screen.getByText('Cut-outs (1)')).toBeInTheDocument()
@@ -213,7 +226,7 @@ describe('ExportSidebar - cut-outs', () => {
 
   it('says so when a page has nothing to find, or the lookup fails', async () => {
     const user = userEvent.setup()
-    api.get.mockImplementation((url) =>
+    mockGet().mockImplementation((url: string) =>
       url.endsWith('/shapes')
         ? Promise.resolve({ shapes: [] })
         : Promise.resolve({ width: 612, height: 792, toc: [] })
@@ -223,7 +236,7 @@ describe('ExportSidebar - cut-outs', () => {
     await user.click(screen.getByRole('button', { name: /Find shapes/ }))
     expect(await screen.findByText(/Nothing found/)).toBeInTheDocument()
 
-    api.get.mockRejectedValueOnce(new Error('boom'))
+    mockGet().mockRejectedValueOnce(new Error('boom'))
     await user.click(screen.getByRole('button', { name: /Find shapes/ }))
     expect(await screen.findByText('boom')).toBeInTheDocument()
   })
@@ -241,20 +254,20 @@ describe('ExportSidebar - cut-outs', () => {
 
 describe('ExportSidebar - save to library', () => {
   it('is only offered to admins on a writable library', () => {
-    useAuth.mockReturnValue({ user: { role: 'gm' } })
+    mockAuth({ user: { role: 'gm' } })
     const { unmount } = render(<Harness />)
     expect(screen.queryByRole('button', { name: /Save to library/ })).not.toBeInTheDocument()
     unmount()
 
-    useAuth.mockReturnValue({ user: { role: 'admin' } })
-    useUISettings.mockReturnValue({ library_writable: false })
+    mockAuth({ user: { role: 'admin' } })
+    mockUISettings({ library_writable: false })
     render(<Harness />)
     expect(screen.queryByRole('button', { name: /Save to library/ })).not.toBeInTheDocument()
   })
 
   it('opens beside the original, warns about PDFs in Tokens, and saves', async () => {
     const user = userEvent.setup()
-    api.post.mockImplementation((url) =>
+    mockPost().mockImplementation((url: string) =>
       url === '/rescan'
         ? Promise.resolve({ status: 'scan_started' })
         : Promise.resolve({
@@ -306,7 +319,7 @@ describe('ExportSidebar - save to library', () => {
 
   it('says when the files will be indexed later, and shows a failed save', async () => {
     const user = userEvent.setup()
-    api.post.mockImplementation((url) =>
+    mockPost().mockImplementation((url: string) =>
       url === '/rescan'
         ? Promise.resolve({ status: 'already_running' })
         : Promise.resolve({
@@ -320,7 +333,7 @@ describe('ExportSidebar - save to library', () => {
     expect(await screen.findByText(/already running/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Done' }))
 
-    api.post.mockRejectedValueOnce(new Error('Read-only library'))
+    mockPost().mockRejectedValueOnce(new Error('Read-only library'))
     await user.click(screen.getByRole('button', { name: /Save to library/ }))
     await user.click(await screen.findByRole('button', { name: 'Save here' }))
     expect(await screen.findByText('Read-only library')).toBeInTheDocument()

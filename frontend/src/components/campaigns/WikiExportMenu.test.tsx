@@ -1,10 +1,11 @@
+import type { Mock } from 'vitest'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import WikiExportMenu from './WikiExportMenu'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k) =>
+    t: (k: string) =>
       ({
         'wiki.export': 'Export',
         'wiki.exportTitle': 'Export the wiki',
@@ -21,7 +22,7 @@ vi.mock('react-i18next', () => ({
 const open = () => fireEvent.click(screen.getByRole('button', { name: /export/i }))
 
 describe('WikiExportMenu', () => {
-  let onExport
+  let onExport: Mock
 
   beforeEach(() => {
     onExport = vi.fn()
@@ -100,7 +101,7 @@ describe('WikiExportMenu', () => {
       right: 200,
       width: 180,
       height: 30,
-    })
+    } as DOMRect)
     vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(760)
     open()
     expect(screen.getByRole('menu')).toHaveStyle({ top: '496px' })
@@ -116,7 +117,7 @@ describe('WikiExportMenu', () => {
       right: 980,
       width: 80,
       height: 30,
-    })
+    } as DOMRect)
     vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(1000)
     open()
     // 1000 - 8 margin - 260 menu width
@@ -134,7 +135,7 @@ describe('WikiExportMenu', () => {
       right: 210,
       width: 180,
       height: 30,
-    })
+    } as DOMRect)
     fireEvent.scroll(document, {})
     expect(screen.getByRole('menu')).toHaveStyle({ top: '134px' })
   })

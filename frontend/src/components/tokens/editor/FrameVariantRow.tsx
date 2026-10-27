@@ -3,6 +3,15 @@ import { useTranslation } from 'react-i18next'
 import variantLabel from '../../../utils/variantLabel'
 import FrameTile from './FrameTile'
 import { frameUrl } from './frames'
+import type { Frame } from './frames'
+import type { HoverProps } from './FramePicker'
+
+export interface FrameVariantRowProps {
+  frame: Frame | null | undefined
+  value: string | null | undefined
+  onChange: (id: string) => void
+  hoverProps?: HoverProps
+}
 
 /**
  * The versions of the selected frame, shown in the slot the colour row uses.
@@ -20,7 +29,12 @@ import { frameUrl } from './frames'
  * The main version leads the row, so switching away from a version and back is
  * one click rather than a hunt through the gallery for the tile you started on.
  */
-export default function FrameVariantRow({ frame, value, onChange, hoverProps }) {
+export default function FrameVariantRow({
+  frame,
+  value,
+  onChange,
+  hoverProps,
+}: FrameVariantRowProps) {
   const { t } = useTranslation()
   const variants = frame?.variants || []
   if (!frame || variants.length === 0) return null
@@ -57,7 +71,7 @@ export default function FrameVariantRow({ frame, value, onChange, hoverProps }) 
               {...(hoverProps ? hoverProps(entry, label) : {})}
             >
               <img
-                src={frameUrl(entry)}
+                src={frameUrl(entry) ?? undefined}
                 alt=""
                 style={{ width: '100%', height: '100%', objectFit: 'contain' }}
               />

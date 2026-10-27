@@ -1,10 +1,16 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuChevronDown, LuChevronRight, LuFolder } from 'react-icons/lu'
-import { resourceKey, nodeResources } from './resourcesShared'
+import { resourceKey, nodeResources, type FolderNode, type TreeResource } from './resourcesShared'
 import { resGroup, resGroupHeader, ellipsis, resRow } from './campaignEditorShared'
 
-const folderCheckboxStyle = { width: 15, height: 15, flexShrink: 0, cursor: 'pointer', margin: 0 }
+const folderCheckboxStyle: CSSProperties = {
+  width: 15,
+  height: 15,
+  flexShrink: 0,
+  cursor: 'pointer',
+  margin: 0,
+}
 
 /**
  * One collapsible folder in the resource picker's folder tree. Renders nested
@@ -16,7 +22,17 @@ const folderCheckboxStyle = { width: 15, height: 15, flexShrink: 0, cursor: 'poi
  * state while only some of the folder is selected. `toggleFolder(rows, select)`
  * adds or removes those rows.
  */
-export default function ResourceGroup({
+interface ResourceGroupProps<R extends TreeResource> {
+  node: FolderNode<R>
+  depth?: number
+  openKeys: Set<string>
+  onToggle: (key: string) => void
+  selectedKeys: Set<string>
+  toggleRow: (r: R) => void
+  toggleFolder: (rows: R[], select: boolean) => void
+}
+
+export default function ResourceGroup<R extends TreeResource>({
   node,
   depth = 0,
   openKeys,
@@ -24,7 +40,7 @@ export default function ResourceGroup({
   selectedKeys,
   toggleRow,
   toggleFolder,
-}) {
+}: ResourceGroupProps<R>) {
   const { t } = useTranslation()
   const open = openKeys.has(node.key)
   const contained = nodeResources(node)
@@ -32,7 +48,7 @@ export default function ResourceGroup({
   const allSelected = contained.length > 0 && selectedCount === contained.length
   const someSelected = selectedCount > 0 && !allSelected
   // `indeterminate` has no HTML attribute, so it can only be set on the element.
-  const folderBox = useRef(null)
+  const folderBox = useRef<HTMLInputElement>(null)
   useEffect(() => {
     if (folderBox.current) folderBox.current.indeterminate = someSelected
   }, [someSelected])

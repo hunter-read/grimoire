@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
+import type { CSSProperties, FormEvent } from 'react'
+import type { Schema } from '../../api'
 import { useTranslation } from 'react-i18next'
 import Spinner from '../Spinner'
 import ApiKeyPermissionGroup from './ApiKeyPermissionGroup'
 import ApiKeyPermissionRow from './ApiKeyPermissionRow'
+import type { PermissionRowData } from './ApiKeyPermissionRow'
 import {
   ALL,
   EXPIRY_CHOICES,
@@ -14,7 +17,23 @@ import {
 
 const KEEP = 'keep'
 
-const inputStyle = {
+type Permission = Schema<'ApiKeyPermissionOut'>
+type PermissionRow = Permission & PermissionRowData
+
+interface PermissionGroup {
+  id: string
+  rows: PermissionRow[]
+  granted: number
+}
+
+interface Props {
+  apiKey: Schema<'ApiKeyOut'> | null
+  permissions: Permission[]
+  onSave: (payload: Schema<'ApiKeyCreate'>) => Promise<unknown>
+  onClose: () => void
+}
+
+const inputStyle: CSSProperties = {
   width: '100%',
   boxSizing: 'border-box',
   padding: '8px 10px',
@@ -32,15 +51,17 @@ const inputStyle = {
 //
 // Permissions are listed in collapsible groups (the server says which), with a
 // filter box above them, so the list stays findable as more areas are added.
-export default function ApiKeyDialog({ apiKey, permissions, onSave, onClose }) {
+export default function ApiKeyDialog({ apiKey, permissions, onSave, onClose }: Props) {
   const { t, i18n } = useTranslation()
   const editing = Boolean(apiKey)
   const [name, setName] = useState(apiKey?.name || '')
-  const [levels, setLevels] = useState(() => ({ ...(apiKey?.permissions || {}) }))
+  const [levels, setLevels] = useState<Record<string, string>>(() => ({
+    ...(apiKey?.permissions || {}),
+  }))
   // Editing starts on "keep the current expiry"; creating defaults to 90 days.
-  const [expiry, setExpiry] = useState(editing ? KEEP : '90')
+  const [expiry, setExpiry] = useState<string>(editing ? KEEP : '90')
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   // Groups start open where the key already reaches something, so an edit shows
   // what it grants; a new key starts with everything folded.
@@ -54,7 +75,7 @@ export default function ApiKeyDialog({ apiKey, permissions, onSave, onClose }) {
   })
 
   useEffect(() => {
-    const onKey = (e) => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', onKey)
@@ -69,7 +90,7 @@ export default function ApiKeyDialog({ apiKey, permissions, onSave, onClose }) {
     levels: ['none', 'read', 'write'],
     emphasis: true,
   }
-  const rows = permissions.map((perm) => ({
+  const rows: PermissionRow[] = permissions.map((perm) => ({
     ...perm,
     label: t(`appSettings.apiKeys.permissions.${perm.id}.label`, perm.id),
     description: t(`appSettings.apiKeys.permissions.${perm.id}.description`, perm.description),
@@ -78,9 +99,9 @@ export default function ApiKeyDialog({ apiKey, permissions, onSave, onClose }) {
   // Group in the order the server lists permissions (it lists them group by
   // group), so a new group appears without a client change.
   const needle = query.trim().toLowerCase()
-  const matches = (row) =>
+  const matches = (row: PermissionRow) =>
     !needle || `${row.label} ${row.description} ${row.id}`.toLowerCase().includes(needle)
-  const groups = []
+  const groups: PermissionGroup[] = []
   for (const row of rows) {
     const id = row.group || 'other'
     let group = groups.find((g) => g.id === id)
@@ -95,8 +116,8 @@ export default function ApiKeyDialog({ apiKey, permissions, onSave, onClose }) {
     .map((g) => ({ ...g, shown: g.rows.filter(matches) }))
     .filter((g) => g.shown.length > 0)
 
-  const setLevel = (id, level) => setLevels((prev) => ({ ...prev, [id]: level }))
-  const toggleGroup = (id) =>
+  const setLevel = (id: string, level: string) => setLevels((prev) => ({ ...prev, [id]: level }))
+  const toggleGroup = (id: string) =>
     setOpenGroups((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
@@ -104,13 +125,13 @@ export default function ApiKeyDialog({ apiKey, permissions, onSave, onClose }) {
       return next
     })
 
-  const submit = async (e) => {
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!name.trim()) {
       setError(t('appSettings.apiKeys.dialog.nameRequired'))
       return
     }
-    const payload = { name: name.trim(), permissions: levels }
+    const payload: Schema<'ApiKeyCreate'> = { name: name.trim(), permissions: levels }
     if (expiry !== KEEP) {
       payload.expires_at = expiryFromDays(expiry === 'never' ? null : Number(expiry))
     }
@@ -119,7 +140,7 @@ export default function ApiKeyDialog({ apiKey, permissions, onSave, onClose }) {
     try {
       await onSave(payload)
     } catch (err) {
-      setError(err?.message || t('appSettings.apiKeys.dialog.saveFailed'))
+      setError((err as Error | null)?.message || t('appSettings.apiKeys.dialog.saveFailed'))
       setSaving(false)
     }
   }

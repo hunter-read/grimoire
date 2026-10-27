@@ -32,16 +32,16 @@ export const UNRESTRICTABLE_CATEGORIES = ['core', 'character-sheet']
 
 // Normalise an API value (null | '' | 'gm' | 'admin') to a picker value.
 // null becomes the inherit sentinel so a <select> can represent it.
-export function toPickerValue(level) {
+export function toPickerValue(level: string | null | undefined): string {
   return level === null || level === undefined ? ACCESS_INHERIT : level
 }
 
 // The inverse: what to send back for a picker value.
-export function fromPickerValue(value) {
+export function fromPickerValue(value: string): string {
   return value === ACCESS_INHERIT ? ACCESS_INHERIT : value
 }
 
 // Whether a resolved level restricts anyone at all.
-export function isRestricted(level) {
+export function isRestricted(level: string | null | undefined): boolean {
   return level === ACCESS_GM || level === ACCESS_ADMIN
 }

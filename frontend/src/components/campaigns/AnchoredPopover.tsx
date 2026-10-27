@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import useAnchoredMenu from '../../hooks/useAnchoredMenu'
 
@@ -13,17 +13,30 @@ import useAnchoredMenu from '../../hooks/useAnchoredMenu'
  * `anchorRef` is the element to align under; `onClose` fires on outside click,
  * Escape, or a viewport change large enough that the anchor is gone.
  */
-export default function AnchoredPopover({ anchorRef, onClose, width = 320, children }) {
+export interface AnchoredPopoverProps {
+  anchorRef: RefObject<HTMLElement | null>
+  onClose?: () => void
+  width?: number
+  children?: ReactNode
+}
+
+export default function AnchoredPopover({
+  anchorRef,
+  onClose,
+  width = 320,
+  children,
+}: AnchoredPopoverProps) {
   // The trigger is rendered by the caller, so the hook measures against the ref
   // it passes in rather than one of its own.
   const { panelRef, style } = useAnchoredMenu(true, { width, gap: 6, anchorRef })
 
   useEffect(() => {
-    const onDoc = (e) => {
-      if (anchorRef?.current?.contains(e.target) || panelRef.current?.contains(e.target)) return
+    const onDoc = (e: MouseEvent) => {
+      const target = e.target as Node
+      if (anchorRef?.current?.contains(target) || panelRef.current?.contains(target)) return
       onClose?.()
     }
-    const onKey = (e) => e.key === 'Escape' && onClose?.()
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose?.()
     document.addEventListener('mousedown', onDoc)
     document.addEventListener('keydown', onKey)
     return () => {

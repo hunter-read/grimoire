@@ -4,7 +4,9 @@ import userEvent from '@testing-library/user-event'
 import NewFolderModal from './NewFolderModal'
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k, o) => (o ? `${k}:${JSON.stringify(o)}` : k) }),
+  useTranslation: () => ({
+    t: (k: string, o?: Record<string, unknown>) => (o ? `${k}:${JSON.stringify(o)}` : k),
+  }),
 }))
 vi.mock('../Spinner', () => ({ default: () => <span data-testid="spinner" /> }))
 

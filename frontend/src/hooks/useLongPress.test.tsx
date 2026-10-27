@@ -1,12 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
-import useLongPress from './useLongPress'
+import type { ReactNode } from 'react'
+import useLongPress, { type LongPressEvent } from './useLongPress'
 
 // A touch list shaped like the one a real event carries — the hook reads
 // `length` and the first touch's coordinates.
-const touches = (...points) => points.map(([x, y]) => ({ clientX: x, clientY: y }))
+const touches = (...points: [number, number][]) =>
+  points.map(([x, y]) => ({ clientX: x, clientY: y }))
 
-function Probe({ onLongPress }) {
+function Probe({ onLongPress }: { onLongPress: (e: LongPressEvent) => void }) {
   const props = useLongPress(onLongPress)
   return (
     <div data-testid="target" {...props}>
@@ -142,6 +144,6 @@ describe('useLongPress', () => {
 
 // A click listener above the hook's element, standing in for the row's own
 // onClick and the menu's close-on-outside-click.
-function Wrapper({ onClick, children }) {
+function Wrapper({ onClick, children }: { onClick: () => void; children: ReactNode }) {
   return <div onClick={onClick}>{children}</div>
 }

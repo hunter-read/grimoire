@@ -2,6 +2,23 @@ import { mediaUrl } from '../../api'
 import JoinedSpread from './JoinedSpread'
 import TextOverlay from './TextOverlay'
 import { SPREAD_WIDTH, animStyle } from './pageRender'
+import type { PageMotion, PageUrl, RenderTiles, WordsCacheRef } from './pageRender'
+
+export interface SpreadPageProps extends PageMotion {
+  /** Required unless `pageUrl` is given. */
+  bookId?: string
+  currentPage: number
+  rightPage: number
+  hasRight: boolean
+  wordsCacheRef?: WordsCacheRef
+  getAlt: (page: number) => string
+  activeSearchQuery?: string | null
+  activeHighlight?: string | null
+  pageUrl?: PageUrl
+  renderWidth?: number
+  joined?: boolean
+  renderTiles?: RenderTiles
+}
 
 /**
  * Two-page spread view for the reader and PDF-map viewer.
@@ -34,9 +51,10 @@ export default function SpreadPage({
   renderWidth = SPREAD_WIDTH,
   joined = false,
   renderTiles,
-}) {
-  const urlFor = pageUrl ?? ((p, width) => mediaUrl(`/books/${bookId}/page/${p}`, { width }))
-  const pages = [currentPage, hasRight ? rightPage : null].filter(Boolean)
+}: SpreadPageProps) {
+  const urlFor =
+    pageUrl ?? ((p: number, width: number) => mediaUrl(`/books/${bookId}/page/${p}`, { width }))
+  const pages = [currentPage, hasRight ? rightPage : null].filter((p): p is number => Boolean(p))
   const joinPair = joined && pages.length === 2
   return (
     <div

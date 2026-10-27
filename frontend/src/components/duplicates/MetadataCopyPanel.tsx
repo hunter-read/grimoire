@@ -2,7 +2,19 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCopy } from 'react-icons/lu'
 
+import type { Schema } from '../../api'
 import Spinner from '../Spinner'
+
+type CompareItem = Schema<'CompareItem'>
+
+export interface MetadataCopyPanelProps {
+  fields: string[]
+  differences: Schema<'CompareDifference'>[]
+  source: CompareItem | undefined
+  target: CompareItem | undefined
+  onCopy: (fields: string[]) => void
+  busy: boolean
+}
 
 /**
  * Copy chosen metadata fields from one copy onto the other.
@@ -16,15 +28,22 @@ import Spinner from '../Spinner'
  * Only fields that actually differ are offered — copying a value onto an
  * identical one is a no-op the user should not have to reason about.
  */
-export default function MetadataCopyPanel({ fields, differences, source, target, onCopy, busy }) {
+export default function MetadataCopyPanel({
+  fields,
+  differences,
+  source,
+  target,
+  onCopy,
+  busy,
+}: MetadataCopyPanelProps) {
   const { t } = useTranslation()
-  const [selected, setSelected] = useState([])
+  const [selected, setSelected] = useState<string[]>([])
 
   const differing = new Set((differences || []).filter((d) => !d.same).map((d) => d.field))
   const offered = (fields || []).filter((f) => differing.has(f))
   if (offered.length === 0 || !source || !target) return null
 
-  const toggle = (field) =>
+  const toggle = (field: string) =>
     setSelected((prev) =>
       prev.includes(field) ? prev.filter((f) => f !== field) : [...prev, field]
     )

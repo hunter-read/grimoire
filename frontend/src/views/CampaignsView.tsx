@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuScroll, LuPlus, LuMailOpen, LuArchive } from 'react-icons/lu'
-import { campaigns } from '../api'
+import { campaigns, type Schema } from '../api'
 import { useAuth } from '../context/AuthContext'
 import Spinner from '../components/Spinner'
 import CampaignEditor from '../components/campaigns/CampaignEditor'
@@ -10,7 +10,9 @@ import CampaignCard from '../components/campaigns/CampaignCard'
 import CalendarMenu from '../components/campaigns/CalendarMenu'
 import useIsMobile from '../hooks/useIsMobile'
 
-const CARD_GRID = {
+type Campaign = Schema<'CampaignOut'>
+
+const CARD_GRID: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
   gap: 14,
@@ -19,28 +21,29 @@ const CARD_GRID = {
 
 export default function CampaignsView() {
   const { t } = useTranslation()
-  const { user } = useAuth()
+  const { user } = useAuth()!
   const navigate = useNavigate()
   // Phone-width only: the three header controls don't fit beside the title at
   // 375px (worse in locales with longer labels), so they move to their own row
   // and shed their text labels there.
   const isMobilePhone = useIsMobile(640)
-  const [list, setList] = useState(null)
+  const [list, setList] = useState<Campaign[] | null>(null)
   const [showEditor, setShowEditor] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
   // When off (the default) the server omits archived campaigns entirely, so
   // finished games stay out of the way until they're asked for.
   const [showArchived, setShowArchived] = useState(false)
 
   const isGmOrAdmin = user?.role === 'admin' || user?.role === 'gm'
   // campaign_access defaults to enabled when the field is absent (older tokens).
-  const canCreate = user?.campaign_access !== false
+  // Only the /auth/me shape carries it, so a just-logged-in user reads as enabled.
+  const canCreate = (user as { campaign_access?: boolean } | null)?.campaign_access !== false
 
   const load = (includeArchived = showArchived) => {
     campaigns
       .list(includeArchived)
       .then(setList)
-      .catch((e) => setError(e.message))
+      .catch((e: Error) => setError(e.message))
   }
 
   useEffect(() => {
@@ -52,7 +55,7 @@ export default function CampaignsView() {
   }, [showArchived])
 
   // Most recently accessed (by any user) first; campaigns never opened fall last.
-  const byRecentAccess = (a, b) =>
+  const byRecentAccess = (a: Campaign, b: Campaign) =>
     (b.last_accessed_at || '').localeCompare(a.last_accessed_at || '')
 
   const invitations = list?.filter((c) => c.invitation_status === 'invited') ?? []
@@ -68,8 +71,8 @@ export default function CampaignsView() {
   const personalCampaigns = active.filter((c) => c.owner_id === user?.id && !c.is_gm_campaign)
   const joinedCampaigns = active.filter((c) => c.owner_id !== user?.id)
 
-  const respondToInvite = async (campaign, status) => {
-    await campaigns.updateMember(campaign.id, user.id, status)
+  const respondToInvite = async (campaign: Campaign, status: string) => {
+    await campaigns.updateMember(campaign.id, user!.id, status)
     load()
     // Let the app-level invite banner drop this invite too.
     window.dispatchEvent(new CustomEvent('grimoire:campaigns-changed'))
@@ -403,7 +406,7 @@ export default function CampaignsView() {
         <CampaignEditor
           isGmOrAdmin={isGmOrAdmin}
           onClose={() => setShowEditor(false)}
-          onSaved={(c) => {
+          onSaved={(c: Campaign) => {
             setShowEditor(false)
             navigate(`/campaigns/${c.id}`)
           }}

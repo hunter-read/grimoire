@@ -2,6 +2,13 @@ import { useTranslation } from 'react-i18next'
 import { LuChevronsLeftRight, LuUndo2 } from 'react-icons/lu'
 
 import Spinner from '../Spinner'
+import type { Schema } from '../../api'
+
+export interface DismissedPairRowProps {
+  dismissal: Schema<'DismissalOut'>
+  onRestore: (dismissal: Schema<'DismissalOut'>) => unknown
+  busy?: boolean
+}
 
 /**
  * One dismissed set, as a row that can be put back.
@@ -16,7 +23,7 @@ import Spinner from '../Spinner'
  * deleted since the dismissal was made leaves no name behind, so the id is
  * shown as a last resort rather than an empty row.
  */
-export default function DismissedPairRow({ dismissal, onRestore, busy }) {
+export default function DismissedPairRow({ dismissal, onRestore, busy }: DismissedPairRowProps) {
   const { t } = useTranslation()
   const names = dismissal.member_names || []
   const ids = dismissal.member_ids || []

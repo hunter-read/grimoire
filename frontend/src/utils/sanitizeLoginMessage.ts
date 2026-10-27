@@ -18,25 +18,26 @@ const ALLOWED_TAGS = new Set([
   'li',
   'a',
 ])
-const ALLOWED_ATTRS = { a: new Set(['href', 'title']) }
+const ALLOWED_ATTRS: Record<string, Set<string>> = { a: new Set(['href', 'title']) }
 const SAFE_URL_RE = /^(https?:|mailto:|\/|#)/i
 // Tags whose contents must be dropped entirely (rather than kept as text).
 const DANGEROUS_TAGS = new Set(['script', 'style', 'iframe', 'object', 'embed', 'svg', 'math'])
 
-export function sanitizeLoginMessage(html) {
+export function sanitizeLoginMessage(html: string | null | undefined): string {
   if (!html) return ''
   // Use the browser parser to robustly walk the tree.
   const doc = new DOMParser().parseFromString(`<div>${html}</div>`, 'text/html')
-  const root = doc.body.firstChild
+  const root = doc.body.firstChild as Element | null
   if (!root) return ''
   walk(root)
   return root.innerHTML
 }
 
-function walk(node) {
+function walk(node: Node): void {
   const children = Array.from(node.childNodes)
-  for (const child of children) {
-    if (child.nodeType === 1) {
+  for (const childNode of children) {
+    if (childNode.nodeType === 1) {
+      const child = childNode as Element
       // Element
       const tag = child.tagName.toLowerCase()
       if (DANGEROUS_TAGS.has(tag)) {
@@ -66,9 +67,9 @@ function walk(node) {
         child.setAttribute('target', '_blank')
       }
       walk(child)
-    } else if (child.nodeType !== 3) {
+    } else if (childNode.nodeType !== 3) {
       // Drop comments and anything else that isn't a text node
-      node.removeChild(child)
+      node.removeChild(childNode)
     }
   }
 }

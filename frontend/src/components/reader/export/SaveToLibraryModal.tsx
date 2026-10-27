@@ -1,11 +1,15 @@
 import { useCallback, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCircleCheck, LuX } from 'react-icons/lu'
 import api from '../../../api'
+import type { Schema } from '../../../api'
 import useDialogFocus from '../../../hooks/useDialogFocus'
 import { SCAN_STARTED } from '../../../hooks/useScanStatus'
 import FolderTree from '../../files/FolderTree'
+import type { FolderListing } from '../../files/FolderTree'
 import Spinner from '../../Spinner'
+import type { ExportBody } from './usePageExport'
 import {
   buttonStyle,
   chipStyle,
@@ -15,8 +19,20 @@ import {
   warnStyle,
 } from './exportStyles'
 
-const parentOf = (path) => (path ? path.split('/').slice(0, -1).join('/') : '')
-const collectionOf = (path) => (path || '').split('/')[0].toLowerCase()
+type BrowseEntry = Schema<'BrowseEntry'>
+type SaveResult = Schema<'SaveExportResponse'> & { indexing: 'started' | 'later' }
+
+interface Props {
+  basePath: string
+  body: ExportBody
+  sourcePath?: string | null
+  title: string
+  summary: string
+  onClose: () => void
+}
+
+const parentOf = (path: string) => (path ? path.split('/').slice(0, -1).join('/') : '')
+const collectionOf = (path: string | null) => (path || '').split('/')[0].toLowerCase()
 
 /**
  * Save an export into the library instead of downloading it (admins, writable
@@ -40,30 +56,30 @@ export default function SaveToLibraryModal({
   title,
   summary,
   onClose,
-}) {
+}: Props) {
   const { t } = useTranslation()
-  const dialogRef = useRef(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
   const beside = parentOf(sourcePath || '')
-  const [selected, setSelected] = useState(beside || null)
-  const [roots, setRoots] = useState([])
+  const [selected, setSelected] = useState<string | null>(beside || null)
+  const [roots, setRoots] = useState<BrowseEntry[]>([])
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState(null)
-  const [result, setResult] = useState(null)
+  const [error, setError] = useState<string | null>(null)
+  const [result, setResult] = useState<SaveResult | null>(null)
 
   useDialogFocus(dialogRef, { onClose: busy ? undefined : onClose })
 
-  const onLoaded = useCallback((path, folder) => {
+  const onLoaded = useCallback((path: string, folder: FolderListing) => {
     if (path === '') setRoots(folder.entries)
   }, [])
 
-  const rootNamed = (name) => roots.find((e) => e.name.toLowerCase() === name)
+  const rootNamed = (name: string) => roots.find((e) => e.name.toLowerCase() === name)
   const quick = [
     beside ? { key: 'beside', label: t('pageExport.quickBeside'), path: beside } : null,
     rootNamed('tokens')
-      ? { key: 'tokens', label: t('nav.tokens'), path: rootNamed('tokens').path }
+      ? { key: 'tokens', label: t('nav.tokens'), path: rootNamed('tokens')!.path }
       : null,
-    rootNamed('maps') ? { key: 'maps', label: t('nav.maps'), path: rootNamed('maps').path } : null,
-  ].filter(Boolean)
+    rootNamed('maps') ? { key: 'maps', label: t('nav.maps'), path: rootNamed('maps')!.path } : null,
+  ].filter((q): q is { key: string; label: string; path: string } => Boolean(q))
 
   const pdfIntoTokens = body.format === 'pdf' && collectionOf(selected) === 'tokens'
   const canSave = selected !== null && selected !== '' && !pdfIntoTokens && !busy
@@ -73,8 +89,11 @@ export default function SaveToLibraryModal({
     setBusy(true)
     setError(null)
     try {
-      const res = await api.post(`${basePath}/export/save`, { ...body, destination: selected })
-      let indexing = 'later'
+      const res = (await api.post(`${basePath}/export/save`, {
+        ...body,
+        destination: selected,
+      })) as Schema<'SaveExportResponse'>
+      let indexing: SaveResult['indexing'] = 'later'
       try {
         const scan = await api.post('/rescan', { scope: res.folder, metadata_mode: 'new' })
         if (scan?.status === 'scan_started') {
@@ -86,7 +105,7 @@ export default function SaveToLibraryModal({
       }
       setResult({ ...res, indexing })
     } catch (e) {
-      setError(e.message || t('pageExport.saveFailed'))
+      setError((e as Error).message || t('pageExport.saveFailed'))
     } finally {
       setBusy(false)
     }
@@ -242,7 +261,7 @@ export default function SaveToLibraryModal({
   )
 }
 
-const backdrop = {
+const backdrop: CSSProperties = {
   position: 'fixed',
   inset: 0,
   background: 'var(--scrim)',
@@ -253,7 +272,7 @@ const backdrop = {
   padding: 16,
 }
 
-const panel = {
+const panel: CSSProperties = {
   background: 'var(--bg-panel)',
   border: '1px solid var(--border)',
   borderRadius: 10,

@@ -14,7 +14,13 @@ import useScanStatus from '../hooks/useScanStatus'
  *   compact – icon-only styling for dense folder rows (default true)
  *   label   – optional text label shown next to the icon (non-compact)
  */
-export default function RescanButton({ scope = null, compact = true, label }) {
+export interface RescanButtonProps {
+  scope?: string | null
+  compact?: boolean
+  label?: string
+}
+
+export default function RescanButton({ scope = null, compact = true, label }: RescanButtonProps) {
   const { t } = useTranslation()
   const { status, startRescan } = useScanStatus()
   const [open, setOpen] = useState(false)
@@ -22,7 +28,7 @@ export default function RescanButton({ scope = null, compact = true, label }) {
 
   const running = status.running && triggered
 
-  const handleConfirm = (metadata_mode) => {
+  const handleConfirm = (metadata_mode: string) => {
     setTriggered(true)
     startRescan({ scope, metadata_mode }).catch(() => setTriggered(false))
   }

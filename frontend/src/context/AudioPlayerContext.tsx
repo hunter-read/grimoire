@@ -1,8 +1,63 @@
-import { createContext, useContext, useRef, useState, useCallback, useEffect } from 'react'
-import api from '../api'
+import {
+  createContext,
+  useContext,
+  useRef,
+  useState,
+  useCallback,
+  useEffect,
+  type Dispatch,
+  type ReactNode,
+  type RefObject,
+  type SetStateAction,
+} from 'react'
+import api, { type Schema } from '../api'
 import useSessionState from '../hooks/useSessionState'
 
-const AudioPlayerContext = createContext(null)
+/** A queue entry: only `id` is required; the rest is display metadata. */
+export interface AudioTrack {
+  id: string
+  title?: string
+  artist?: string
+  artwork?: boolean
+  /** Set once a lazy GET /audio/:id has resolved (or failed) for this entry. */
+  _hydrated?: boolean
+}
+
+export interface AudioPlayerContextValue {
+  audioRef: RefObject<HTMLAudioElement | null>
+  playRequested: RefObject<boolean>
+  queue: AudioTrack[]
+  currentIndex: number
+  currentTrack: AudioTrack | null
+  isPlaying: boolean
+  setIsPlaying: Dispatch<SetStateAction<boolean>>
+  currentTime: number
+  setCurrentTime: Dispatch<SetStateAction<number>>
+  duration: number
+  setDuration: Dispatch<SetStateAction<number>>
+  repeatOne: boolean
+  expanded: boolean
+  // actions
+  playQueue: (tracks: AudioTrack[] | null | undefined, startIndex?: number) => void
+  playNext: (track: AudioTrack | null | undefined) => void
+  addToQueue: (track: AudioTrack | null | undefined) => void
+  next: () => void
+  prev: () => void
+  togglePlay: () => void
+  toggleRepeat: () => void
+  seek: (t: number) => void
+  removeAt: (index: number) => void
+  jumpTo: (index: number) => void
+  moveTrack: (from: number, to: number) => void
+  clear: () => void
+  toggleExpanded: () => void
+  // selectors
+  isCurrent: (id: string) => boolean
+  isPlayingId: (id: string) => boolean
+  inQueue: (id: string) => boolean
+}
+
+const AudioPlayerContext = createContext<AudioPlayerContextValue | null>(null)
 
 // A track ref is the minimal shape we need to play + display a queue entry:
 //   { id, title?, artist?, artwork? }
@@ -13,7 +68,7 @@ const AudioPlayerContext = createContext(null)
 // A track needs hydrating only if it has an id but no display title yet and we
 // haven't already resolved (or failed) a fetch for it. Tracks added with a
 // title/artist (gallery, detail view) are already rich and never fetched.
-const needsHydration = (t) => t && t.id && !t.title && !t._hydrated
+const needsHydration = (t: AudioTrack | null | undefined) => t && t.id && !t.title && !t._hydrated
 
 /**
  * Owns the single app-wide <audio> element (via `audioRef`, attached by
@@ -24,10 +79,10 @@ const needsHydration = (t) => t && t.id && !t.title && !t._hydrated
  * (sessionStorage) and reset on a hard refresh. Playback state (isPlaying,
  * currentTime) is ephemeral and driven by the <audio> element's events.
  */
-export function AudioPlayerProvider({ children }) {
-  const audioRef = useRef(null)
+export function AudioPlayerProvider({ children }: { children?: ReactNode }) {
+  const audioRef = useRef<HTMLAudioElement | null>(null)
 
-  const [queue, setQueue] = useSessionState('grimoire:audio:queue', [])
+  const [queue, setQueue] = useSessionState<AudioTrack[]>('grimoire:audio:queue', [])
   const [currentIndex, setCurrentIndex] = useSessionState('grimoire:audio:index', -1)
   const [repeatOne, setRepeatOne] = useSessionState('grimoire:audio:repeatOne', false)
 
@@ -44,7 +99,7 @@ export function AudioPlayerProvider({ children }) {
   const playRequested = useRef(false)
 
   const playQueue = useCallback(
-    (tracks, startIndex = 0) => {
+    (tracks: AudioTrack[] | null | undefined, startIndex = 0) => {
       const list = (tracks || []).filter((t) => t && t.id)
       if (list.length === 0) return
       const idx = Math.min(Math.max(startIndex, 0), list.length - 1)
@@ -57,7 +112,7 @@ export function AudioPlayerProvider({ children }) {
   )
 
   const playNext = useCallback(
-    (track) => {
+    (track: AudioTrack | null | undefined) => {
       if (!track || !track.id) return
       setQueue((prev) => {
         if (prev.length === 0) {
@@ -75,7 +130,7 @@ export function AudioPlayerProvider({ children }) {
   )
 
   const addToQueue = useCallback(
-    (track) => {
+    (track: AudioTrack | null | undefined) => {
       if (!track || !track.id) return
       setQueue((prev) => {
         if (prev.length === 0) {
@@ -132,13 +187,13 @@ export function AudioPlayerProvider({ children }) {
 
   const toggleRepeat = useCallback(() => setRepeatOne((r) => !r), [setRepeatOne])
 
-  const seek = useCallback((t) => {
+  const seek = useCallback((t: number) => {
     const el = audioRef.current
     if (el && Number.isFinite(t)) el.currentTime = t
   }, [])
 
   const removeAt = useCallback(
-    (index) => {
+    (index: number) => {
       setQueue((prev) => {
         const nextQueue = prev.filter((_, i) => i !== index)
         setCurrentIndex((ci) => {
@@ -159,7 +214,7 @@ export function AudioPlayerProvider({ children }) {
   )
 
   const jumpTo = useCallback(
-    (index) => {
+    (index: number) => {
       if (index < 0 || index >= queue.length) return
       playRequested.current = true
       setCurrentIndex(index)
@@ -170,7 +225,7 @@ export function AudioPlayerProvider({ children }) {
   // Reorder the queue by moving the track at `from` to `to`, keeping the
   // currently-playing track selected (no remove/re-add, so playback continues).
   const moveTrack = useCallback(
-    (from, to) => {
+    (from: number, to: number) => {
       setQueue((prev) => {
         if (from === to || from < 0 || to < 0 || from >= prev.length || to >= prev.length)
           return prev
@@ -204,11 +259,11 @@ export function AudioPlayerProvider({ children }) {
 
   // Whether a track is anywhere in the queue — what the "Play next" control
   // uses to show an already-queued state, mirroring the soundboard's pad check.
-  const inQueue = useCallback((id) => queue.some((t) => t.id === id), [queue])
+  const inQueue = useCallback((id: string) => queue.some((t) => t.id === id), [queue])
 
-  const isCurrent = useCallback((id) => currentTrack?.id === id, [currentTrack])
+  const isCurrent = useCallback((id: string) => currentTrack?.id === id, [currentTrack])
   const isPlayingId = useCallback(
-    (id) => isPlaying && currentTrack?.id === id,
+    (id: string) => isPlaying && currentTrack?.id === id,
     [isPlaying, currentTrack]
   )
 
@@ -220,7 +275,7 @@ export function AudioPlayerProvider({ children }) {
   // Lazily hydrate queue entries that were added with only an id (campaign
   // resources, note embeds) so the player/queue show title + artwork. Each id is
   // fetched at most once; results patch every matching entry still in the queue.
-  const hydratingIds = useRef(new Set())
+  const hydratingIds = useRef(new Set<string>())
   useEffect(() => {
     const pending = queue.filter((t) => needsHydration(t) && !hydratingIds.current.has(t.id))
     if (pending.length === 0) return
@@ -229,7 +284,8 @@ export function AudioPlayerProvider({ children }) {
     ids.forEach((id) => {
       api
         .get(`/audio/${id}`)
-        .then((data) => {
+        .then((raw) => {
+          const data = raw as Schema<'AudioDetailResponse'>
           setQueue((prev) =>
             prev.map((t) =>
               t.id === id
@@ -254,7 +310,7 @@ export function AudioPlayerProvider({ children }) {
     })
   }, [queue, setQueue])
 
-  const value = {
+  const value: AudioPlayerContextValue = {
     audioRef,
     playRequested,
     queue,
@@ -291,7 +347,7 @@ export function AudioPlayerProvider({ children }) {
   return <AudioPlayerContext.Provider value={value}>{children}</AudioPlayerContext.Provider>
 }
 
-export function useAudioPlayer() {
+export function useAudioPlayer(): AudioPlayerContextValue {
   const ctx = useContext(AudioPlayerContext)
   if (!ctx) {
     // A no-op fallback keeps controllers safe to render outside the provider
@@ -302,7 +358,7 @@ export function useAudioPlayer() {
 }
 
 const NOOP = () => {}
-const NOOP_PLAYER = {
+const NOOP_PLAYER: AudioPlayerContextValue = {
   audioRef: { current: null },
   playRequested: { current: false },
   queue: [],

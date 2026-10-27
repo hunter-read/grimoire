@@ -1,7 +1,16 @@
 import { useTranslation } from 'react-i18next'
 import { LuExternalLink, LuLayers } from 'react-icons/lu'
 
+import type { Schema } from '../../api'
 import Spinner from '../Spinner'
+
+export interface VariantFamilyNoticeProps {
+  main: Schema<'VariantMain'>
+  keeper: Schema<'CompareItem'>
+  busy: boolean
+  onPromote: () => void
+  onCompareMain: () => void
+}
 
 /**
  * The way out of the "that copy is already a variant" dead end.
@@ -17,7 +26,13 @@ import Spinner from '../Spinner'
  * this offers exactly that, plus a link to review the main version first, since
  * moving a family sight-unseen is a bigger commitment than linking a pair.
  */
-export default function VariantFamilyNotice({ main, keeper, busy, onPromote, onCompareMain }) {
+export default function VariantFamilyNotice({
+  main,
+  keeper,
+  busy,
+  onPromote,
+  onCompareMain,
+}: VariantFamilyNoticeProps) {
   const { t } = useTranslation()
   const name = main.title || main.filename
 

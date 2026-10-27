@@ -32,7 +32,10 @@ const WORK_SIZE = 256
  * The returned canvas is white where art should show and transparent elsewhere,
  * ready to use as a compositing mask at any output size.
  */
-export function frameApertureMask(frameImage, size = WORK_SIZE) {
+export function frameApertureMask(
+  frameImage: CanvasImageSource,
+  size: number = WORK_SIZE
+): HTMLCanvasElement | null {
   const source = document.createElement('canvas')
   source.width = size
   source.height = size
@@ -42,7 +45,7 @@ export function frameApertureMask(frameImage, size = WORK_SIZE) {
   sctx.clearRect(0, 0, size, size)
   sctx.drawImage(frameImage, 0, 0, size, size)
 
-  let pixels
+  let pixels: Uint8ClampedArray
   try {
     pixels = sctx.getImageData(0, 0, size, size).data
   } catch {
@@ -81,7 +84,7 @@ export function frameApertureMask(frameImage, size = WORK_SIZE) {
     if (y < size - 1) push(index + size)
   }
 
-  function push(next) {
+  function push(next: number): void {
     if (inside[next]) return
     if (pixels[next * 4 + 3] > TRANSPARENT_MAX) return
     inside[next] = 1

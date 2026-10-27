@@ -1,19 +1,35 @@
 import { describe, it, expect, vi } from 'vitest'
 import { useState } from 'react'
+import type { ComponentProps } from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import UserRow from './UserRow'
+import type { Schema } from '../../api'
 
 vi.mock('../../api', () => ({
   default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
   campaigns: { adminListByUser: vi.fn(() => Promise.resolve([])) },
 }))
 
-const alice = { id: 'user-1', username: 'alice', role: 'player', campaign_count: 0 }
-const admin = { id: 'admin-1', username: 'admin', role: 'admin', campaign_count: 2 }
+const alice = {
+  id: 'user-1',
+  username: 'alice',
+  role: 'player',
+  campaign_count: 0,
+} as Schema<'UserOut'>
+const admin = {
+  id: 'admin-1',
+  username: 'admin',
+  role: 'admin',
+  campaign_count: 2,
+} as Schema<'UserOut'>
+
+type Props = ComponentProps<typeof UserRow>
+// The handlers the harness leaves to each test.
+type RowProps = Partial<Props> & Pick<Props, 'onApiKeysChange' | 'onShareLinksChange'>
 
 // Wraps the row in a table and drives the expand state like UsersTab does.
-function renderRow(props = {}) {
+function renderRow(props: Partial<Props> & { startExpanded?: boolean } = {}) {
   function Harness() {
     const [expanded, setExpanded] = useState(props.startExpanded || false)
     return (
@@ -33,7 +49,7 @@ function renderRow(props = {}) {
             onPasswordReset={vi.fn()}
             onEmailChange={vi.fn()}
             onDelete={vi.fn()}
-            {...props}
+            {...(props as RowProps)}
           />
         </tbody>
       </table>

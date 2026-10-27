@@ -18,14 +18,14 @@ describe('stripExtension', () => {
 
 describe('trackLabel', () => {
   it('leads a titled track with its zero-padded number', () => {
-    expect(trackLabel({ title: 'Die Sümpfe Harodiens', track_number: 3 })).toBe(
+    expect(trackLabel({ filename: '', title: 'Die Sümpfe Harodiens', track_number: 3 })).toBe(
       '03 · Die Sümpfe Harodiens'
     )
-    expect(trackLabel({ title: 'Finale', track_number: 112 })).toBe('112 · Finale')
+    expect(trackLabel({ filename: '', title: 'Finale', track_number: 112 })).toBe('112 · Finale')
   })
 
   it('shows a title alone when there is no track number', () => {
-    expect(trackLabel({ title: 'Thorwal', track_number: null })).toBe('Thorwal')
+    expect(trackLabel({ filename: '', title: 'Thorwal', track_number: null })).toBe('Thorwal')
   })
 
   it('falls back to the filename without its extension', () => {

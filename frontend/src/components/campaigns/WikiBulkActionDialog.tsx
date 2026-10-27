@@ -17,6 +17,12 @@ export default function WikiBulkActionDialog({
   hiddenChildCount,
   onConfirm,
   onCancel,
+}: {
+  deleteCount: number
+  hideCount: number
+  hiddenChildCount: number
+  onConfirm: () => void
+  onCancel: () => void
 }) {
   const { t } = useTranslation()
 

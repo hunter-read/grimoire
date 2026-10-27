@@ -1,16 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import TokenDetailView from './TokenDetailView'
-import api from '../../api'
+import realApi from '../../api'
 
 vi.mock('../../api', () => ({
   default: { get: vi.fn(), patch: vi.fn() },
-  mediaUrl: (p) => `http://localhost${p}`,
+  mediaUrl: (p: string) => `http://localhost${p}`,
 }))
 
 let currentTokenId = 't2'
-let locationState = null
+let locationState: Record<string, unknown> | null = null
 const navigate = vi.fn()
 vi.mock('react-router-dom', () => ({
   useParams: () => ({ tokenId: currentTokenId }),
@@ -27,15 +28,21 @@ vi.mock('../../context/FavoritesContext', () => ({
   useFavorites: () => ({ isFavorite: () => false, toggleFavorite }),
 }))
 vi.mock('../maps/InlineTagEditor', () => ({
-  default: ({ onSave }) => (
+  default: ({ onSave }: { onSave: (tags: string[]) => void }) => (
     <button onClick={() => onSave(['new'])} data-testid="save-tags">
       save
     </button>
   ),
 }))
 vi.mock('../TagSection', () => ({
-  default: ({ label, onEdit }) => <button onClick={onEdit}>{`edit-${label}`}</button>,
+  default: ({ label, onEdit }: { label: string; onEdit: () => void }) => (
+    <button onClick={onEdit}>{`edit-${label}`}</button>
+  ),
 }))
+
+// The raw transport's generic signatures do not take mock fixtures, so the
+// mocks are reached untyped.
+const api = realApi as unknown as { get: Mock; patch: Mock }
 
 // Three tokens in the same folder, sorted by filename: t1, t2, t3.
 const SIBLINGS = [
@@ -44,7 +51,7 @@ const SIBLINGS = [
   { id: 't3', filename: 'c.png', relative_path: 'DnD/Goblins/c.png' },
 ]
 
-const detail = (id, over = {}) => ({
+const detail = (id: string, over: Record<string, unknown> = {}) => ({
   id,
   filename: `${id}.png`,
   relative_path: `DnD/Goblins/${id}.png`,
@@ -57,8 +64,8 @@ const detail = (id, over = {}) => ({
 })
 
 // Route api.get by URL: the full token list vs a single token fetch.
-const mockApi = (currentId, over = {}) => {
-  api.get.mockImplementation((url) => {
+const mockApi = (currentId: string, over: Record<string, unknown> = {}) => {
+  api.get.mockImplementation((url: string) => {
     // The real endpoint returns {total, tokens}, not a bare array — a fixture
     // that returned the array hid sibling navigation being broken.
     if (url.split('?')[0] === '/tokens')

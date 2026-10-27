@@ -1,8 +1,14 @@
+import type { CSSProperties, MouseEvent } from 'react'
+import type { IconType } from 'react-icons'
 import { LuPanelRight, LuPanelLeft, LuPanelTop, LuPanelBottom } from 'react-icons/lu'
+import type { BulkType } from '../api'
+
+/** The edge a pinned second pane sits on. */
+export type SplitEdge = 'right' | 'left' | 'top' | 'bottom'
 
 // Where a pinned second pane sits relative to the first. Side-by-side splits
 // read as two columns; top/bottom stack them.
-export const SPLIT_ICONS = {
+export const SPLIT_ICONS: Record<SplitEdge, IconType> = {
   right: LuPanelRight,
   left: LuPanelLeft,
   top: LuPanelTop,
@@ -25,7 +31,7 @@ export const CONTAINER_KINDS = [
 // Mapping here rather than assuming they match: they do not, and treating
 // "books" as a type gave the editor an unknown key, which it dereferenced and
 // crashed on — a blank page instead of a form.
-export const EDITOR_TYPES = {
+export const EDITOR_TYPES: Record<string, BulkType | undefined> = {
   books: 'book',
   maps: 'map',
   tokens: 'token',
@@ -38,9 +44,9 @@ export const EDITOR_TYPES = {
 // Kinds that name *the* collection of their sort. The backend enforces this too;
 // hiding them here means the user is never offered a choice that would be
 // refused.
-export const SINGLETON_KINDS = new Set(['one-page', 'agnostic'])
+export const SINGLETON_KINDS = new Set<string>(['one-page', 'agnostic'])
 
-export const ghostBtn = {
+export const ghostBtn: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 6,
@@ -53,7 +59,7 @@ export const ghostBtn = {
   color: 'var(--text-dim)',
 }
 
-export const menuItem = {
+export const menuItem: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 8,
@@ -71,10 +77,10 @@ export const menuItem = {
 // Hover feedback for context-menu rows. Applied as handlers rather than CSS
 // because the menu is inline-styled like the rest of this view.
 export const menuHover = {
-  onMouseEnter: (e) => {
+  onMouseEnter: (e: MouseEvent<HTMLElement>) => {
     e.currentTarget.style.background = 'var(--bg-card-hover)'
   },
-  onMouseLeave: (e) => {
+  onMouseLeave: (e: MouseEvent<HTMLElement>) => {
     e.currentTarget.style.background = 'transparent'
   },
 }

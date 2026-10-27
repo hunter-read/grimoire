@@ -2,11 +2,14 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuScroll, LuChevronDown, LuChevronUp } from 'react-icons/lu'
 import { campaigns } from '../../api'
+import type { ResponseOf } from '../../api'
 
-export default function UserCampaignsPanel({ userId }) {
+type CampaignList = ResponseOf<'/campaigns/admin/by-user/{user_id}', 'get'>
+
+export default function UserCampaignsPanel({ userId }: { userId: string }) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
-  const [list, setList] = useState(null)
+  const [list, setList] = useState<CampaignList | null>(null)
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState('')
 
@@ -17,7 +20,7 @@ export default function UserCampaignsPanel({ userId }) {
       const data = await campaigns.adminListByUser(userId)
       setList(data)
     } catch (e) {
-      setErr(e?.message || t('users.campaigns.loadFailed'))
+      setErr((e as Error | null)?.message || t('users.campaigns.loadFailed'))
     } finally {
       setLoading(false)
     }

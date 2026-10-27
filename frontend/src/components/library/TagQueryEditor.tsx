@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuPlus, LuX } from 'react-icons/lu'
 import MultiSelectDropdown from '../metadata/MultiSelectDropdown'
@@ -10,7 +10,19 @@ import {
   emptyGroup,
   pruneGroups,
   toGroups,
+  type GroupMode,
+  type TagGroup,
 } from './tagQuery'
+import type { FilterOption } from './FilterModal'
+
+export interface TagQueryEditorProps {
+  value: unknown
+  onChange: (next: TagGroup[] | undefined) => void
+  options?: FilterOption[]
+  label?: string
+  emptyLabel?: string
+  searchPlaceholder?: string
+}
 
 /**
  * Editor for the grouped tag filter. Each row is one group — a mode
@@ -34,24 +46,25 @@ export default function TagQueryEditor({
   label,
   emptyLabel,
   searchPlaceholder,
-}) {
+}: TagQueryEditorProps) {
   const { t } = useTranslation()
   const groups = toGroups(value)
   // An empty group constrains nothing, so it is pruned out of the committed
   // filter state — but it still needs to be *shown* while the user fills it in.
   // `draft` holds those not-yet-committed rows: the trailing empty groups, plus
   // the one always-present row when nothing has been picked at all.
-  const [draft, setDraft] = useState(groups.length ? [] : [emptyGroup()])
+  const [draft, setDraft] = useState<TagGroup[]>(groups.length ? [] : [emptyGroup()])
   const rows = [...groups, ...draft]
 
-  const commit = (next) => {
+  const commit = (next: TagGroup[]) => {
     setDraft(next.filter((g) => g.tags.length === 0))
     const pruned = pruneGroups(next)
     onChange(pruned.length ? pruned : undefined)
   }
 
-  const update = (i, patch) => commit(rows.map((g, n) => (n === i ? { ...g, ...patch } : g)))
-  const remove = (i) => commit(rows.filter((_, n) => n !== i))
+  const update = (i: number, patch: Partial<TagGroup>) =>
+    commit(rows.map((g, n) => (n === i ? { ...g, ...patch } : g)))
+  const remove = (i: number) => commit(rows.filter((_, n) => n !== i))
   const add = () => setDraft((d) => [...d, emptyGroup()])
 
   const summary = describeQuery(rows, {
@@ -74,7 +87,7 @@ export default function TagQueryEditor({
           <select
             aria-label={t('sortFilter.tagGroupMode', { n: i + 1 })}
             value={group.mode}
-            onChange={(e) => update(i, { mode: e.target.value })}
+            onChange={(e) => update(i, { mode: e.target.value as GroupMode })}
             style={modeSelect}
           >
             <option value={GROUP_INCLUDE}>{t('sortFilter.tagGroupAnyOf')}</option>
@@ -85,7 +98,7 @@ export default function TagQueryEditor({
               label={t('sortFilter.tagGroupTags', { n: i + 1 })}
               options={options}
               selected={group.tags}
-              onChange={(tags) => update(i, { tags })}
+              onChange={(tags: string[]) => update(i, { tags })}
               emptyLabel={emptyLabel}
               searchPlaceholder={searchPlaceholder}
               specialOptions={[
@@ -126,7 +139,7 @@ export default function TagQueryEditor({
   )
 }
 
-const joiner = {
+const joiner: CSSProperties = {
   fontSize: 10,
   fontWeight: 700,
   letterSpacing: '0.06em',
@@ -135,7 +148,7 @@ const joiner = {
   textAlign: 'right',
   flexShrink: 0,
 }
-const modeSelect = {
+const modeSelect: CSSProperties = {
   fontSize: 12,
   padding: '6px 4px',
   borderRadius: 6,
@@ -144,7 +157,7 @@ const modeSelect = {
   color: 'var(--text)',
   flexShrink: 0,
 }
-const iconBtn = {
+const iconBtn: CSSProperties = {
   background: 'none',
   border: 'none',
   cursor: 'pointer',
@@ -153,7 +166,7 @@ const iconBtn = {
   padding: 2,
   flexShrink: 0,
 }
-const addBtn = {
+const addBtn: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 4,
@@ -165,7 +178,7 @@ const addBtn = {
   color: 'var(--text-dim)',
   cursor: 'pointer',
 }
-const summaryStyle = {
+const summaryStyle: CSSProperties = {
   fontSize: 11,
   color: 'var(--text-muted)',
   fontStyle: 'italic',

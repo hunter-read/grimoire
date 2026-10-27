@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { TFunction } from 'i18next'
 
 vi.mock('../../../api', () => ({
   tokenFrames: {
     list: vi.fn(),
-    fileUrl: (id) => `/api/token-frames/${id}/file`,
+    fileUrl: (id: string) => `/api/token-frames/${id}/file`,
   },
 }))
 
@@ -58,7 +59,7 @@ describe('generic frames', () => {
   })
 
   it('renders a generic in the requested colour', () => {
-    const url = frameUrl('generic:circle', 'blue')
+    const url = frameUrl('generic:circle', 'blue')!
     expect(url.startsWith('data:image/svg+xml')).toBe(true)
     expect(decodeURIComponent(url)).toContain('#5590d4')
   })
@@ -85,7 +86,7 @@ describe('isBuiltinFrame', () => {
 
 describe('fetchFrames', () => {
   it('leads with the generic shapes, then the themed frames, then user frames', async () => {
-    tokenFrames.list.mockResolvedValue({
+    vi.mocked(tokenFrames.list).mockResolvedValue({
       frames: [{ id: 'abc', name: 'orc ring', group: 'Fantasy', format: 'svg' }],
     })
     const frames = await fetchFrames()
@@ -97,14 +98,16 @@ describe('fetchFrames', () => {
   })
 
   it('falls back to the bundled frames when the library cannot be read', async () => {
-    tokenFrames.list.mockRejectedValue(new Error('nope'))
+    vi.mocked(tokenFrames.list).mockRejectedValue(new Error('nope'))
     const frames = await fetchFrames()
     expect(frames).toHaveLength(GENERIC_FRAMES.length + BUILTIN_FRAMES.length)
     expect(frames.every((f) => f.builtin)).toBe(true)
   })
 
   it('tolerates a malformed response', async () => {
-    tokenFrames.list.mockResolvedValue({})
+    vi.mocked(tokenFrames.list).mockResolvedValue(
+      {} as Awaited<ReturnType<typeof tokenFrames.list>>
+    )
     expect(await fetchFrames()).toHaveLength(GENERIC_FRAMES.length + BUILTIN_FRAMES.length)
   })
 })
@@ -128,7 +131,7 @@ describe('groupFrames', () => {
 })
 
 describe('frameLabel', () => {
-  const t = (key) => `T:${key}`
+  const t = ((key: string) => `T:${key}`) as unknown as TFunction
 
   it('translates built-ins and shows user names verbatim', () => {
     expect(frameLabel({ builtin: true, nameKey: 'tokenEditor.framePc' }, t)).toBe(
@@ -140,7 +143,8 @@ describe('frameLabel', () => {
 })
 
 describe('matchesFrameQuery', () => {
-  const t = (key) => (key === 'tokenEditor.framePc' ? 'Player character' : key)
+  const t = ((key: string) =>
+    key === 'tokenEditor.framePc' ? 'Player character' : key) as unknown as TFunction
   const frame = { builtin: false, name: 'orc ring', group: 'Fantasy Frames' }
 
   it('matches everything on an empty or whitespace query', () => {

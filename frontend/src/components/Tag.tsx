@@ -8,7 +8,13 @@ import { tagStyle, displayLabel } from './tagStyle'
  * render a plain, non-interactive chip (e.g. genres, or inside another clickable
  * card that already handles tag clicks).
  */
-export default function Tag({ label, color, linkable = true }) {
+export interface TagProps {
+  label: string
+  color?: string
+  linkable?: boolean
+}
+
+export default function Tag({ label, color, linkable = true }: TagProps) {
   if (linkable && label) {
     return <LinkableTag label={label} color={color} />
   }

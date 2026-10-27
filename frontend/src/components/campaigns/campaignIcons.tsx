@@ -6,6 +6,8 @@
 // Each entry carries search keywords so the picker can find an icon by concept
 // rather than by its key alone ("pine" is findable via "tree", "mask" via
 // "disguise"). Keywords are matched as substrings, lowercase.
+import type { ComponentType, CSSProperties } from 'react'
+import type { IconBaseProps, IconType } from 'react-icons'
 import {
   LuActivity,
   LuAlarmClock,
@@ -235,7 +237,8 @@ import {
 
 // key: [component, ...search keywords]. The key itself is always searchable, so
 // keywords only need to add synonyms and concepts the key doesn't already carry.
-const ICON_DEFS = {
+// Each entry: the component, then its search keywords.
+const ICON_DEFS: Record<string, [IconType, ...string[]]> = {
   // --- People & creatures ---
   user: [LuUser, 'person', 'character', 'npc', 'profile'],
   users: [LuUsers, 'group', 'party', 'faction', 'people'],
@@ -485,7 +488,7 @@ const ICON_DEFS = {
   settings: [LuSettings, 'gear', 'options', 'config'],
 }
 
-export const CAMPAIGN_ICONS = Object.fromEntries(
+export const CAMPAIGN_ICONS: Record<string, IconType | undefined> = Object.fromEntries(
   Object.entries(ICON_DEFS).map(([key, [Component]]) => [key, Component])
 )
 
@@ -502,25 +505,42 @@ const SEARCH_TEXT = Object.fromEntries(
 // Icon keys matching `query`, in catalogue order. Every term must appear
 // somewhere in the icon's key or keywords, so "fire spell" narrows rather than
 // widens. An empty query returns the whole set.
-export function searchIconNames(query) {
+export function searchIconNames(query: string | null | undefined): string[] {
   const terms = (query || '').toLowerCase().trim().split(/\s+/).filter(Boolean)
   if (terms.length === 0) return CAMPAIGN_ICON_NAMES
   return CAMPAIGN_ICON_NAMES.filter((name) => {
     const haystack = SEARCH_TEXT[name]
-    return terms.every((term) => haystack.includes(term))
+    return terms.every((term: string) => haystack.includes(term))
   })
 }
 
 // True when a stored icon value is an emoji rather than a curated Lucide key.
 // Curated keys are ASCII, so anything non-ASCII is treated as emoji and rendered
 // as text — that also keeps unknown future emoji working without a code change.
-export function isEmojiIcon(value) {
+export function isEmojiIcon(value: string | null | undefined): boolean {
   return !!value && !/^[\x20-\x7e]*$/.test(value)
 }
 
 // Renders a stored icon name, or `fallback` (a component) when unset/unknown.
 // Emoji values render as text at the requested size; Lucide keys render as SVG.
-export function CampaignIcon({ name, fallback: Fallback = null, size, style, ...props }) {
+export interface CampaignIconProps {
+  name?: string | null
+  fallback?: ComponentType<IconBaseProps> | null
+  size?: number
+  style?: CSSProperties
+  className?: string
+  title?: string
+  'aria-hidden'?: boolean | 'true' | 'false'
+  'aria-label'?: string
+}
+
+export function CampaignIcon({
+  name,
+  fallback: Fallback = null,
+  size,
+  style,
+  ...props
+}: CampaignIconProps) {
   if (isEmojiIcon(name)) {
     return (
       <span

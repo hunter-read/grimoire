@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
+import type { CSSProperties, KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { campaigns as campaignsApi } from '../../../api'
+import type { Schema } from '../../../api'
 import Spinner from '../../Spinner'
 
 /**
@@ -27,23 +29,54 @@ import Spinner from '../../Spinner'
  * `assert_can_manage`. A viewer with neither relationship sees neither list —
  * anything offered here must be something the server will actually accept.
  */
+type Member = Schema<'CampaignMemberOut'>
+type Category = Schema<'CampaignCategoryOut'>
+
+/** One character a token can be sent to. */
+export interface MemberOption {
+  campaignId: string
+  campaignName: string
+  memberId: string
+  memberName: string
+}
+
+/** A campaign the viewer runs, with the characters in it. */
+interface OwnedCampaign {
+  id: string
+  name: string
+  members: MemberOption[]
+}
+
+/** A campaign, and optionally a category in it, to file the token under. */
+export interface CampaignChoice {
+  campaignId: string
+  categoryId: string | null
+}
+
+export interface SendToCampaignDialogProps {
+  userId?: string | null
+  onClose: () => void
+  onChooseMember: (option: MemberOption) => void
+  onChooseCampaign: (choice: CampaignChoice) => void
+}
+
 export default function SendToCampaignDialog({
   userId,
   onClose,
   onChooseMember,
   onChooseCampaign,
-}) {
+}: SendToCampaignDialogProps) {
   const { t } = useTranslation()
   // Characters in games the viewer *plays* — their own membership only.
-  const [playing, setPlaying] = useState(null)
+  const [playing, setPlaying] = useState<MemberOption[] | null>(null)
   // Campaigns the viewer owns, each carrying its own member rows for step three.
-  const [owned, setOwned] = useState([])
+  const [owned, setOwned] = useState<OwnedCampaign[]>([])
   const [error, setError] = useState('')
   // The campaign a GM has drilled into, and whether they are picking a character
   // within it rather than a category.
-  const [target, setTarget] = useState(null)
+  const [target, setTarget] = useState<OwnedCampaign | null>(null)
   const [pickingCharacter, setPickingCharacter] = useState(false)
-  const [categories, setCategories] = useState(null)
+  const [categories, setCategories] = useState<Category[] | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -51,17 +84,21 @@ export default function SendToCampaignDialog({
       try {
         // `/campaigns` answers with a bare array, not a `{campaigns}` wrapper.
         const list = await campaignsApi.list()
-        const summaries = Array.isArray(list) ? list : list?.campaigns || []
-        const playingRows = []
-        const ownedRows = []
+        // A wrapped `{ campaigns }` body is tolerated as well as the bare list.
+        const summaries = Array.isArray(list)
+          ? list
+          : (list as { campaigns?: Schema<'CampaignOut'>[] } | null)?.campaigns || []
+        const playingRows: MemberOption[] = []
+        const ownedRows: OwnedCampaign[] = []
         // The list payload carries only light member rows, so each campaign is
         // fetched for the membership ids the token endpoint is keyed by.
         for (const summary of summaries) {
           const detail = await campaignsApi.get(summary.id)
-          const row = (m) => ({
+          // Only members that have an id reach here; see `membersWithIds`.
+          const row = (m: Member): MemberOption => ({
             campaignId: detail.id,
             campaignName: detail.name,
-            memberId: m.id,
+            memberId: m.id as string,
             memberName: m.character_name || m.display_name || m.username,
           })
           // The synthetic owner row has no membership id to key an upload by.
@@ -85,7 +122,7 @@ export default function SendToCampaignDialog({
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err.message || t('tokenEditor.campaignsFailed'))
+          setError((err as Error).message || t('tokenEditor.campaignsFailed'))
           setPlaying([])
         }
       }
@@ -128,7 +165,7 @@ export default function SendToCampaignDialog({
   // in does not lose the whole dialog to one keystroke. Handled on the panel
   // rather than window — the same reasoning as the file-manager modals: a window
   // listener would also catch keystrokes bubbling from whatever is behind this.
-  const onKeyDown = (e) => {
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== 'Escape') return
     e.stopPropagation()
     if (target) {
@@ -139,7 +176,7 @@ export default function SendToCampaignDialog({
   }
 
   const loading = playing === null
-  const nothingOffered = !loading && playing.length === 0 && owned.length === 0
+  const nothingOffered = !loading && playing!.length === 0 && owned.length === 0
 
   const heading = () => {
     if (pickingCharacter) return t('tokenEditor.chooseCharacter')
@@ -148,7 +185,7 @@ export default function SendToCampaignDialog({
   }
 
   const subheading = () => {
-    if (pickingCharacter) return t('tokenEditor.chooseCharacterHint', { name: target.name })
+    if (pickingCharacter) return t('tokenEditor.chooseCharacterHint', { name: target!.name })
     if (target) return t('tokenEditor.chooseCategoryHint', { name: target.name })
     return t('tokenEditor.sendToCampaignHint')
   }
@@ -256,10 +293,10 @@ export default function SendToCampaignDialog({
         {/* Step one: the two relationships, never mixed. */}
         {!target && !loading && (
           <div style={listStyle}>
-            {playing.length > 0 && (
+            {playing!.length > 0 && (
               <>
                 <div style={sectionLabel}>{t('tokenEditor.sendToCharacter')}</div>
-                {playing.map((option) => (
+                {playing!.map((option) => (
                   <button
                     key={option.memberId}
                     type="button"
@@ -306,7 +343,7 @@ export default function SendToCampaignDialog({
   )
 }
 
-const listStyle = {
+const listStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: 6,
@@ -314,7 +351,7 @@ const listStyle = {
   overflowY: 'auto',
 }
 
-const sectionLabel = {
+const sectionLabel: CSSProperties = {
   fontSize: 11,
   color: 'var(--text-dim)',
   textTransform: 'uppercase',
@@ -324,12 +361,12 @@ const sectionLabel = {
 
 // Separates the character route from the resource categories below it: the two
 // do genuinely different things with the token.
-const dividerStyle = {
+const dividerStyle: CSSProperties = {
   borderTop: '1px solid var(--border)',
   margin: '4px 0',
 }
 
-const rowStyle = {
+const rowStyle: CSSProperties = {
   textAlign: 'left',
   padding: '8px 10px',
   borderRadius: 6,
@@ -339,10 +376,10 @@ const rowStyle = {
   color: 'var(--text)',
 }
 
-const rowTitle = { fontSize: 13, fontWeight: 600 }
-const rowSub = { fontSize: 11, color: 'var(--text-dim)' }
+const rowTitle: CSSProperties = { fontSize: 13, fontWeight: 600 }
+const rowSub: CSSProperties = { fontSize: 11, color: 'var(--text-dim)' }
 
-const backdrop = {
+const backdrop: CSSProperties = {
   position: 'fixed',
   inset: 0,
   background: 'rgba(0,0,0,0.6)',
@@ -353,7 +390,7 @@ const backdrop = {
   padding: 20,
 }
 
-const panel = {
+const panel: CSSProperties = {
   width: '100%',
   maxWidth: 420,
   background: 'var(--bg-panel)',
@@ -362,7 +399,7 @@ const panel = {
   padding: 20,
 }
 
-const btn = {
+const btn: CSSProperties = {
   padding: '8px 16px',
   borderRadius: 6,
   fontSize: 13,

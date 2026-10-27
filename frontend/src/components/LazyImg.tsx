@@ -1,4 +1,11 @@
-import { useState } from 'react'
+import { useState, type ImgHTMLAttributes } from 'react'
+
+export interface LazyImgProps extends ImgHTMLAttributes<HTMLImageElement> {
+  /** Load and decode straight away instead of lazily. */
+  eager?: boolean
+  /** Hold the image's space with a tinted block until it loads (needs a known size). */
+  placeholder?: boolean
+}
 
 /**
  * Image wrapper that defaults to lazy loading and async decoding so dense
@@ -29,7 +36,7 @@ export default function LazyImg({
   onLoad,
   onError,
   ...props
-}) {
+}: LazyImgProps) {
   const [settled, setSettled] = useState(false)
 
   const img = (

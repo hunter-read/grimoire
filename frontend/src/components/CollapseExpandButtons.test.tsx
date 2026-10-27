@@ -5,7 +5,8 @@ import CollapseExpandButtons from './CollapseExpandButtons'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k) => ({ 'common.collapseAll': 'Collapse All', 'common.expandAll': 'Expand All' })[k] || k,
+    t: (k: string) =>
+      ({ 'common.collapseAll': 'Collapse All', 'common.expandAll': 'Expand All' })[k] || k,
   }),
 }))
 

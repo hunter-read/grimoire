@@ -2,14 +2,17 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuScroll } from 'react-icons/lu'
 import { campaigns } from '../../api'
+import type { ResponseOf } from '../../api'
+
+type CampaignList = ResponseOf<'/campaigns/admin/by-user/{user_id}', 'get'>
 
 /**
  * Inline, always-loaded list of the campaigns a user owns/belongs to.
  * Used inside the expanded user editor (no toggle — shown immediately).
  */
-export default function UserCampaignsList({ userId }) {
+export default function UserCampaignsList({ userId }: { userId: string }) {
   const { t } = useTranslation()
-  const [list, setList] = useState(null)
+  const [list, setList] = useState<CampaignList | null>(null)
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
 
@@ -23,7 +26,7 @@ export default function UserCampaignsList({ userId }) {
         if (active) setList(data)
       })
       .catch((e) => {
-        if (active) setErr(e?.message || t('users.campaigns.loadFailed'))
+        if (active) setErr((e as Error | null)?.message || t('users.campaigns.loadFailed'))
       })
       .finally(() => {
         if (active) setLoading(false)

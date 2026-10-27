@@ -6,7 +6,7 @@ import TagPicker from './TagPicker'
 
 const mockList = vi.fn()
 vi.mock('../../api', () => ({
-  tags: { list: (...a) => mockList(...a) },
+  tags: { list: (...a: unknown[]) => mockList(...a) },
 }))
 
 beforeEach(() => {
@@ -22,7 +22,13 @@ beforeEach(() => {
   })
 })
 
-function Harness({ initial = [], resourceType = null }) {
+function Harness({
+  initial = [],
+  resourceType = null,
+}: {
+  initial?: string[]
+  resourceType?: string | null
+}) {
   const [value, setValue] = useState(initial)
   return <TagPicker value={value} onChange={setValue} resourceType={resourceType} />
 }

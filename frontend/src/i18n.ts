@@ -11,6 +11,12 @@ const loaders = import.meta.glob<ResourceKey>(['./locales/*.json', '!./locales/e
   import: 'default',
 })
 
+/**
+ * The slice of i18next's `t` that plain helpers need. Both react-i18next's `t`
+ * and a test's stub translate fit it, unlike the full overloaded `TFunction`.
+ */
+export type Translate = (key: string, opts?: Record<string, unknown>) => string
+
 export const AVAILABLE_LANGUAGES = Object.entries(LANGUAGE_NAMES)
   .map(([value, label]) => ({ value, label }))
   .sort((a, b) => a.label.localeCompare(b.label))

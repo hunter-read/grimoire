@@ -1,9 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import VttEditorView from './VttEditorView'
 import api, { campaigns as campaignsApi } from '../../../api'
+
+// Fixtures carry only the fields the code under test reads, so these mocks are untyped.
+const mockList = campaignsApi.list as unknown as Mock
+const mockListCategories = campaignsApi.listCategories as unknown as Mock
+const mockUploadFile = campaignsApi.uploadFile as unknown as Mock
 
 /**
  * Standalone mode: a map dragged in from the desktop, with no library row.
@@ -21,10 +26,10 @@ vi.mock('react-router-dom', async () => ({
 vi.mock('../../../api', () => ({
   default: { get: vi.fn(), put: vi.fn() },
   campaigns: { list: vi.fn(), listCategories: vi.fn(), uploadFile: vi.fn() },
-  mediaUrl: (p) => p,
+  mediaUrl: (p: string) => p,
 }))
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k, o) => (o ? `${k}:${JSON.stringify(o)}` : k) }),
+  useTranslation: () => ({ t: (k: string, o?: object) => (o ? `${k}:${JSON.stringify(o)}` : k) }),
 }))
 vi.mock('../../../context/AuthContext', () => ({
   useAuth: () => ({ user: { id: 'u1', role: 'gm' } }),
@@ -59,7 +64,7 @@ const uvttText = (over = {}) =>
   })
 
 /** A File stand-in: jsdom's File has no usable `text()` in this environment. */
-const fakeFile = (name, text = '') => {
+const fakeFile = (name: string, text = '') => {
   const f = new File(['x'], name, { type: name.endsWith('.png') ? 'image/png' : '' })
   Object.defineProperty(f, 'text', { value: () => Promise.resolve(text) })
   return f
@@ -76,18 +81,21 @@ const renderEditor = () =>
 
 beforeEach(() => {
   vi.clearAllMocks()
-  global.URL.createObjectURL = vi.fn(() => 'blob:map')
-  global.URL.revokeObjectURL = vi.fn()
-  Element.prototype.getBoundingClientRect = vi.fn(() => ({
-    left: 0,
-    top: 0,
-    width: 1000,
-    height: 1000,
-    right: 1000,
-    bottom: 1000,
-    x: 0,
-    y: 0,
-  }))
+  globalThis.URL.createObjectURL = vi.fn(() => 'blob:map')
+  globalThis.URL.revokeObjectURL = vi.fn()
+  Element.prototype.getBoundingClientRect = vi.fn(
+    () =>
+      ({
+        left: 0,
+        top: 0,
+        width: 1000,
+        height: 1000,
+        right: 1000,
+        bottom: 1000,
+        x: 0,
+        y: 0,
+      }) as DOMRect
+  )
   Object.defineProperty(HTMLElement.prototype, 'clientWidth', { value: 1000, configurable: true })
   Object.defineProperty(HTMLElement.prototype, 'clientHeight', { value: 1000, configurable: true })
 })
@@ -167,18 +175,16 @@ describe('VttEditorView (standalone)', () => {
 
     await userEvent.click(screen.getByText('maps.vtt.export'))
     expect(click).toHaveBeenCalled()
-    const anchor = click.mock.instances[0]
+    const anchor = click.mock.instances[0] as unknown as HTMLAnchorElement
     expect(anchor.download).toBe('tavern.uvtt')
     expect(anchor.href).toBe('blob:map')
     click.mockRestore()
   })
 
   it('uploads to the chosen campaign and category', async () => {
-    campaignsApi.list.mockResolvedValue([
-      { id: 'c1', name: 'Dragons', owner_id: 'u1', is_archived: false },
-    ])
-    campaignsApi.listCategories.mockResolvedValue([{ id: 'cat1', name: 'Maps' }])
-    campaignsApi.uploadFile.mockResolvedValue({ id: 'r1' })
+    mockList.mockResolvedValue([{ id: 'c1', name: 'Dragons', owner_id: 'u1', is_archived: false }])
+    mockListCategories.mockResolvedValue([{ id: 'cat1', name: 'Maps' }])
+    mockUploadFile.mockResolvedValue({ id: 'r1' })
 
     renderEditor()
     const input = await screen.findByTestId('vtt-source-input')
@@ -190,7 +196,7 @@ describe('VttEditorView (standalone)', () => {
     await userEvent.click(await screen.findByText('Maps'))
 
     await waitFor(() => expect(campaignsApi.uploadFile).toHaveBeenCalled())
-    const [campaignId, file, opts] = campaignsApi.uploadFile.mock.calls[0]
+    const [campaignId, file, opts] = mockUploadFile.mock.calls[0]
     expect(campaignId).toBe('c1')
     expect(file.name).toBe('tavern.uvtt')
     expect(opts).toEqual({ categoryId: 'cat1' })
@@ -199,11 +205,9 @@ describe('VttEditorView (standalone)', () => {
   })
 
   it('uploads with no category when the default group is chosen', async () => {
-    campaignsApi.list.mockResolvedValue([
-      { id: 'c1', name: 'Dragons', owner_id: 'u1', is_archived: false },
-    ])
-    campaignsApi.listCategories.mockResolvedValue([])
-    campaignsApi.uploadFile.mockResolvedValue({ id: 'r1' })
+    mockList.mockResolvedValue([{ id: 'c1', name: 'Dragons', owner_id: 'u1', is_archived: false }])
+    mockListCategories.mockResolvedValue([])
+    mockUploadFile.mockResolvedValue({ id: 'r1' })
 
     renderEditor()
     const input = await screen.findByTestId('vtt-source-input')
@@ -215,15 +219,13 @@ describe('VttEditorView (standalone)', () => {
     await userEvent.click(await screen.findByText('maps.vtt.send.defaultCategory'))
 
     await waitFor(() => expect(campaignsApi.uploadFile).toHaveBeenCalled())
-    expect(campaignsApi.uploadFile.mock.calls[0][2]).toEqual({})
+    expect(mockUploadFile.mock.calls[0][2]).toEqual({})
   })
 
   it('reports a failed upload without losing the drawing', async () => {
-    campaignsApi.list.mockResolvedValue([
-      { id: 'c1', name: 'Dragons', owner_id: 'u1', is_archived: false },
-    ])
-    campaignsApi.listCategories.mockResolvedValue([])
-    campaignsApi.uploadFile.mockRejectedValue(new Error('nope'))
+    mockList.mockResolvedValue([{ id: 'c1', name: 'Dragons', owner_id: 'u1', is_archived: false }])
+    mockListCategories.mockResolvedValue([])
+    mockUploadFile.mockRejectedValue(new Error('nope'))
 
     renderEditor()
     const input = await screen.findByTestId('vtt-source-input')

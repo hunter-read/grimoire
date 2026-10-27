@@ -1,12 +1,18 @@
 import { useCallback, useEffect, useState } from 'react'
+import type { CSSProperties } from 'react'
+import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
-import { LuDownload, LuLink, LuPalette, LuTrash2, LuUpload } from 'react-icons/lu'
+import { LuDownload, LuPalette, LuTrash2, LuUpload } from 'react-icons/lu'
 import api from '../../api'
+import type { Schema } from '../../api'
 import Spinner from '../Spinner'
 import { useTheme } from '../../context/ThemeContext'
 import { THEME_MODES } from '../../utils/theme'
 import AuthorByline from './AuthorByline'
 import PluginSourcePill from './PluginSourcePill'
+
+// The catalogue may name the sources it trusts; the schema does not list them.
+type ThemeCatalogue = Schema<'ThemeBrowseResponse'> & { trusted_index_urls?: string[] }
 
 /**
  * Per-user appearance: light/dark/system, plus installing and picking a theme.
@@ -23,14 +29,14 @@ export default function AppearanceSection() {
   const { t } = useTranslation()
   const { mode, themeId, installed, builtIn, setMode, selectTheme, reload } = useTheme()
 
-  const [catalogue, setCatalogue] = useState(null)
+  const [catalogue, setCatalogue] = useState<ThemeCatalogue | null>(null)
   const [browsing, setBrowsing] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [pasting, setPasting] = useState(false)
   const [pasted, setPasted] = useState('')
-  const [state, setState] = useState(null)
+  const [state, setState] = useState<Schema<'ThemeListResponse'> | null>(null)
 
   const loadState = useCallback(() => {
     api
@@ -43,7 +49,7 @@ export default function AppearanceSection() {
 
   // Resolves to true on success, false on failure, so a caller can follow up
   // without having to re-inspect the error it already reported.
-  const run = (promise, successMessage) => {
+  const run = (promise: Promise<unknown>, successMessage?: string) => {
     setBusy(true)
     setError('')
     setNotice('')
@@ -74,14 +80,14 @@ export default function AppearanceSection() {
       .finally(() => setBusy(false))
   }
 
-  const install = (id) =>
+  const install = (id: string) =>
     run(api.post(`/themes/install/${id}`), t('appearance.installed')).then((ok) => {
       // Only re-browse on success: refreshing the catalogue clears the error
       // the user needs to read.
       if (ok && browsing) browse()
     })
 
-  const remove = (id) => run(api.delete(`/themes/${id}`), t('appearance.removed'))
+  const remove = (id: string) => run(api.delete(`/themes/${id}`), t('appearance.removed'))
 
   const importPasted = () => {
     let parsed
@@ -319,7 +325,7 @@ export default function AppearanceSection() {
                     <div style={{ marginTop: 2 }}>
                       <PluginSourcePill
                         url={theme.index_url}
-                        isVerified={theme.index_url === catalogue.default_index_url}
+                        isVerified={theme.index_url === catalogue!.default_index_url}
                         trustedIndexUrls={catalogue?.trusted_index_urls || []}
                       />
                     </div>
@@ -357,13 +363,13 @@ export default function AppearanceSection() {
  * is clear System mode will work with it — that is the whole reason for pairing
  * them rather than listing two themes.
  */
-function themeCoverage(t, theme) {
+function themeCoverage(t: TFunction, theme: Schema<'InstalledTheme'>): string {
   const modes = theme.modes?.length ? theme.modes : [theme.mode || 'dark']
   if (modes.length > 1) return t('appearance.bothModes')
   return t(`appearance.modes.${modes[0]}`)
 }
 
-const rowStyle = (active) => ({
+const rowStyle = (active: boolean): CSSProperties => ({
   display: 'flex',
   alignItems: 'center',
   gap: 10,
@@ -376,7 +382,7 @@ const rowStyle = (active) => ({
   border: `1px solid ${active ? 'var(--gold)' : 'var(--border)'}`,
 })
 
-const actionStyle = {
+const actionStyle: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 8,

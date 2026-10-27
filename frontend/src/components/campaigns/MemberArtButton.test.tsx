@@ -10,7 +10,7 @@ vi.mock('../../api', () => ({
 }))
 
 vi.mock('../LazyImg', () => ({
-  default: ({ src, alt }) => <img src={src} alt={alt} />,
+  default: ({ src, alt }: { src: string; alt: string }) => <img src={src} alt={alt} />,
 }))
 
 import { campaigns } from '../../api'
@@ -19,6 +19,7 @@ import MemberArtButton from './MemberArtButton'
 const member = (overrides = {}) => ({
   id: 'm1',
   user_id: 'u1',
+  username: 'ireena',
   character_name: 'Ireena',
   has_art: false,
   ...overrides,
@@ -111,7 +112,7 @@ describe('MemberArtButton', () => {
     expect(screen.getByRole('menu')).toBeInTheDocument()
 
     // The invisible full-screen dismisser sits directly before the menu.
-    await userEvent.click(container.querySelector('div[style*="fixed"]'))
+    await userEvent.click(container.querySelector('div[style*="fixed"]')!)
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 

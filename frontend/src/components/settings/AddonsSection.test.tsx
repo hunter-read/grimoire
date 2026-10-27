@@ -5,7 +5,7 @@ import AddonsSection from './AddonsSection'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k, opts) => (opts?.name ? `${k}:${opts.name}` : k),
+    t: (k: string, opts?: { name?: string }) => (opts?.name ? `${k}:${opts.name}` : k),
   }),
 }))
 
@@ -51,17 +51,24 @@ const INSTALLED = {
 }
 const OUTDATED = { ...INSTALLED, available_version: '2.0.0', update_available: true }
 
-function mockState({ installed = [], available = [], allow_scripts = false } = {}) {
-  api.get.mockResolvedValue({
+// Test fixtures carry only the fields each case needs.
+type Fixture = Record<string, unknown>
+
+function mockState({
+  installed = [],
+  available = [],
+  allow_scripts = false,
+}: { installed?: Fixture[]; available?: Fixture[]; allow_scripts?: boolean } = {}) {
+  vi.mocked(api.get).mockResolvedValue({
     installed,
     available,
     index_url: 'https://example.com/index.json',
     allow_scripts,
     index_generated: '',
   })
-  api.post.mockResolvedValue({ status: 'ok' })
-  api.patch.mockResolvedValue({ status: 'ok' })
-  api.delete.mockResolvedValue({ status: 'ok' })
+  vi.mocked(api.post).mockResolvedValue({ status: 'ok' })
+  vi.mocked(api.patch).mockResolvedValue({ status: 'ok' })
+  vi.mocked(api.delete).mockResolvedValue({ status: 'ok' })
 }
 
 beforeEach(() => {
@@ -111,7 +118,7 @@ describe('AddonsSection', () => {
     await screen.findByText('Forge Steel')
     expect(screen.getByText('addons.categories.importers')).toBeInTheDocument()
     const lists = screen.getAllByRole('list')
-    const holding = (name) => lists.findIndex((list) => list.textContent.includes(name))
+    const holding = (name: string) => lists.findIndex((list) => list.textContent.includes(name))
     expect(holding('Forge Steel')).toBeGreaterThan(holding('TTRPG Wiki'))
   })
 
@@ -123,7 +130,7 @@ describe('AddonsSection', () => {
       kind: 'character-importer',
       target: 'character',
     }
-    const after = (earlier, later) =>
+    const after = (earlier: Node, later: Node) =>
       Boolean(earlier.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING)
 
     it('keeps refresh and the script switch above every category', async () => {
@@ -138,13 +145,13 @@ describe('AddonsSection', () => {
 
     it("reports a character importer's failed install in the importers section", async () => {
       mockState({ available: [YAML_ADDON, IMPORTER] })
-      api.post.mockRejectedValue(new Error('Could not download forge-steel.yml'))
+      vi.mocked(api.post).mockRejectedValue(new Error('Could not download forge-steel.yml'))
       const user = userEvent.setup()
       render(<AddonsSection />)
       await screen.findByText('Forge Steel')
 
       const list = screen.getAllByRole('list').find((l) => l.textContent.includes('Forge Steel'))
-      await user.click(within(list).getByRole('button', { name: /addons.install/i }))
+      await user.click(within(list!).getByRole('button', { name: /addons.install/i }))
 
       const alert = await screen.findByRole('alert')
       expect(alert).toHaveTextContent('Could not download forge-steel.yml')
@@ -153,13 +160,13 @@ describe('AddonsSection', () => {
 
     it("reports a scraper's failed install in the scrapers section", async () => {
       mockState({ available: [YAML_ADDON, IMPORTER] })
-      api.post.mockRejectedValue(new Error('Could not download ttrpg-wiki.yml'))
+      vi.mocked(api.post).mockRejectedValue(new Error('Could not download ttrpg-wiki.yml'))
       const user = userEvent.setup()
       render(<AddonsSection />)
       await screen.findByText('TTRPG Wiki')
 
       const list = screen.getAllByRole('list').find((l) => l.textContent.includes('TTRPG Wiki'))
-      await user.click(within(list).getByRole('button', { name: /addons.install/i }))
+      await user.click(within(list!).getByRole('button', { name: /addons.install/i }))
 
       const alert = await screen.findByRole('alert')
       expect(after(screen.getByText('addons.categories.metadata'), alert)).toBe(true)
@@ -168,7 +175,7 @@ describe('AddonsSection', () => {
 
     it('shows a partial refresh as done, with the sources it could not reach', async () => {
       mockState()
-      api.post.mockResolvedValue({
+      vi.mocked(api.post).mockResolvedValue({
         errors: [{ url: 'https://x.example/index.json', error: '404' }],
       })
       const user = userEvent.setup()
@@ -286,7 +293,7 @@ describe('AddonsSection', () => {
 
   it('surfaces an error from a failed refresh', async () => {
     mockState()
-    api.post.mockRejectedValue(new Error('Could not fetch the add-on index'))
+    vi.mocked(api.post).mockRejectedValue(new Error('Could not fetch the add-on index'))
     const user = userEvent.setup()
     render(<AddonsSection />)
 
@@ -336,7 +343,7 @@ describe('AddonsSection', () => {
 
     it('update all calls the bulk endpoint', async () => {
       mockState({ installed: [OUTDATED] })
-      api.post.mockResolvedValue({ updated: [{ id: 'ttrpg-wiki' }], failed: [] })
+      vi.mocked(api.post).mockResolvedValue({ updated: [{ id: 'ttrpg-wiki' }], failed: [] })
       const user = userEvent.setup()
       render(<AddonsSection />)
       await screen.findByText('TTRPG Wiki')
@@ -371,12 +378,12 @@ describe('AddonsSection', () => {
   })
 
   it('adds a new index URL', async () => {
-    api.get.mockResolvedValue({
+    vi.mocked(api.get).mockResolvedValue({
       installed: [],
       available: [],
       index_urls: ['https://example.com/index.json'],
     })
-    api.patch.mockResolvedValue({ status: 'ok' })
+    vi.mocked(api.patch).mockResolvedValue({ status: 'ok' })
     const user = userEvent.setup()
     render(<AddonsSection />)
 
@@ -396,12 +403,12 @@ describe('AddonsSection', () => {
   })
 
   it('removes an index URL after confirmation modal', async () => {
-    api.get.mockResolvedValue({
+    vi.mocked(api.get).mockResolvedValue({
       installed: [],
       available: [],
       index_urls: ['https://example.com/index.json'],
     })
-    api.patch.mockResolvedValue({ status: 'ok' })
+    vi.mocked(api.patch).mockResolvedValue({ status: 'ok' })
     const user = userEvent.setup()
     render(<AddonsSection />)
 
@@ -422,13 +429,13 @@ describe('AddonsSection', () => {
   })
 
   it('resets index URLs to default after confirmation modal', async () => {
-    api.get.mockResolvedValue({
+    vi.mocked(api.get).mockResolvedValue({
       installed: [],
       available: [],
       index_urls: ['https://custom.com/index.json'],
       default_index_url: 'https://default.com/index.json',
     })
-    api.patch.mockResolvedValue({ status: 'ok' })
+    vi.mocked(api.patch).mockResolvedValue({ status: 'ok' })
     const user = userEvent.setup()
     render(<AddonsSection />)
 
@@ -514,7 +521,7 @@ describe('AddonsSection', () => {
 
   it('handles error state when saving index URLs fails', async () => {
     mockState()
-    api.patch.mockRejectedValue(new Error('Save Error'))
+    vi.mocked(api.patch).mockRejectedValue(new Error('Save Error'))
     const user = userEvent.setup()
     render(<AddonsSection />)
 

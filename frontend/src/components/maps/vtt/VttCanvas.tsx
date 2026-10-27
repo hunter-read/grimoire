@@ -1,11 +1,35 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { MouseEvent as ReactMouseEvent, MutableRefObject } from 'react'
 import { gridToImage, imageToGrid, round4, snapToGrid, snapToHalf } from './geometry'
 import { collectSegments, computeVisibility, litRegions, polygonPath } from './visibility'
 import { argbToAlpha, argbToCss } from './color'
 import { LAYER_STYLE, POLYLINE_TOOLS, PORTAL_TOOLS, TOOL_LIGHT, TOOL_SELECT } from './tools'
+import type { Tool } from './tools'
 import useViewport from './useViewport'
+import type { Viewport } from './useViewport'
 import { gridOverlayStyle } from './gridOverlay'
 import { LIGHT_MARKER_PX } from './hitTest'
+import type { Draft, LineKey, Point, PreviewState, Selection, SnapMode, VttDoc } from './types'
+
+export interface VttCanvasProps {
+  imageUrl: string | null
+  pixelWidth: number
+  pixelHeight: number
+  cellPx: number
+  offset: Point
+  doc: VttDoc
+  tool: Tool
+  snap: SnapMode
+  showGrid: boolean
+  draft: Draft | null
+  selection: Selection | null
+  preview?: Partial<PreviewState> | null
+  onCanvasClick?: (pt: Point, e: ReactMouseEvent<HTMLDivElement>) => void
+  onCanvasDoubleClick?: (pt: Point, e: ReactMouseEvent<HTMLDivElement>) => void
+  onPointerMove?: (pt: Point, free: boolean) => void
+  onTokenMove?: (token: Point) => void
+  viewportRef?: MutableRefObject<Viewport | null>
+}
 
 /**
  * The drawing surface: the map image, the grid overlay, and every authored
@@ -39,8 +63,8 @@ export default function VttCanvas({
   onPointerMove,
   onTokenMove,
   viewportRef,
-}) {
-  const containerRef = useRef(null)
+}: VttCanvasProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
   // Dragging the preview token. Held here rather than lifted: it lasts exactly
   // as long as one gesture on this surface and nothing above needs to know.
   const [draggingToken, setDraggingToken] = useState(false)
@@ -57,7 +81,7 @@ export default function VttCanvas({
   })
 
   const onWheel = useCallback(
-    (e) => {
+    (e: WheelEvent) => {
       e.preventDefault()
       zoomAt(e.deltaY < 0 ? 1.15 : 1 / 1.15, e.clientX, e.clientY)
     },
@@ -83,7 +107,7 @@ export default function VttCanvas({
    * exception to exactly the point that needs it.
    */
   const toGridPoint = useCallback(
-    (clientX, clientY, freeOverride = false) => {
+    (clientX: number, clientY: number, freeOverride = false) => {
       const img = toImage(clientX, clientY)
       const g = imageToGrid(img, cellPx, offset)
       if (freeOverride) return { x: round4(g.x), y: round4(g.y) }
@@ -94,7 +118,7 @@ export default function VttCanvas({
     [toImage, cellPx, offset, snap]
   )
 
-  const handleDown = (e) => {
+  const handleDown = (e: ReactMouseEvent<HTMLDivElement>) => {
     if (e.button !== 0) {
       startPan(e.clientX, e.clientY)
       return
@@ -111,7 +135,7 @@ export default function VttCanvas({
     onCanvasClick?.(toGridPoint(e.clientX, e.clientY, free), e)
   }
 
-  const handleMove = (e) => {
+  const handleMove = (e: ReactMouseEvent<HTMLDivElement>) => {
     if (draggingToken) {
       // Free placement while dragging: a token is a viewing position, not a
       // wall, so forcing it onto intersections would make the preview coarser
@@ -131,7 +155,7 @@ export default function VttCanvas({
     endPan()
   }
 
-  const toPx = useCallback((pt) => gridToImage(pt, cellPx, offset), [cellPx, offset])
+  const toPx = useCallback((pt: Point) => gridToImage(pt, cellPx, offset), [cellPx, offset])
 
   // The player view. Recomputed only when the token moves or the geometry
   // changes — memoised because it runs on every render otherwise, and a pan is
@@ -146,14 +170,14 @@ export default function VttCanvas({
   // used to live here is now night vision, which is the thing that genuinely
   // has a distance.
   const sightPolygon = useMemo(() => {
-    if (!previewOn || !preview.token || !hasVision) return null
+    if (!previewOn || !preview?.token || !hasVision) return null
     return computeVisibility(preview.token, segments, 0)
   }, [previewOn, preview?.token, hasVision, segments])
 
   // The regions that are actually lit (or seen by darkvision). Each is
   // clipped to `sightPolygon` when drawn, so nothing shows through a wall.
   const regions = useMemo(() => {
-    if (!previewOn || !preview.token) return []
+    if (!previewOn || !preview?.token) return []
     return litRegions({
       token: preview.token,
       lights: doc.lights,
@@ -187,11 +211,13 @@ export default function VttCanvas({
   // drawing, not the thing being judged.
   const gridStyle = gridOverlayStyle(cellPx, offset, view.scale, 0.35)
   const path = useCallback(
-    (points) => points.map((p, i) => `${i === 0 ? 'M' : 'L'}${toPx(p).x} ${toPx(p).y}`).join(' '),
+    (points: Point[]) =>
+      points.map((p, i) => `${i === 0 ? 'M' : 'L'}${toPx(p).x} ${toPx(p).y}`).join(' '),
     [toPx]
   )
 
-  const isSelected = (key, index) => selection?.key === key && selection?.index === index
+  const isSelected = (key: Selection['key'], index: number) =>
+    selection?.key === key && selection?.index === index
 
   return (
     <div
@@ -222,7 +248,7 @@ export default function VttCanvas({
         }}
       >
         <img
-          src={imageUrl}
+          src={imageUrl ?? undefined}
           alt=""
           width={pixelWidth}
           height={pixelHeight}
@@ -376,7 +402,7 @@ export default function VttCanvas({
               )
             })}
 
-          {['line_of_sight', 'objects_line_of_sight'].map((key) =>
+          {(['line_of_sight', 'objects_line_of_sight'] as LineKey[]).map((key) =>
             doc[key].map((line, i) => (
               <path
                 key={`${key}-${i}`}
@@ -417,7 +443,7 @@ export default function VttCanvas({
 
           {/* The shape being drawn right now, including the rubber-band segment
               to the cursor so the user can see where the next click lands. */}
-          {draft?.points?.length > 0 && (
+          {draft && draft.points?.length > 0 && (
             <>
               <path
                 data-testid="draft-path"
@@ -448,7 +474,7 @@ export default function VttCanvas({
           {/* The token last, so it sits above the shroud and the geometry —
               it is the thing being moved, and losing it under a wall would
               make dragging guesswork. */}
-          {previewOn && preview.token && (
+          {previewOn && preview?.token && (
             <g
               data-testid="preview-token"
               onMouseDown={(e) => {

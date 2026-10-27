@@ -2,31 +2,37 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import UploadPanel from './UploadPanel'
+import type { UploadItem, UploadStatus } from '../../hooks/useUploadQueue'
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k, o) => (o ? `${k}:${JSON.stringify(o)}` : k) }),
+  useTranslation: () => ({ t: (k: string, o?: object) => (o ? `${k}:${JSON.stringify(o)}` : k) }),
 }))
 vi.mock('../Spinner', () => ({ default: () => <span data-testid="spinner" /> }))
 
-const item = (over = {}) => ({
-  id: over.name || 'i1',
-  name: 'a.pdf',
-  size: 2048,
-  relativeDir: '',
-  status: 'done',
-  progress: 1,
-  error: null,
-  ...over,
-})
+// Only the fields the panel reads; no File behind it.
+const item = (over: Partial<UploadItem> = {}) =>
+  ({
+    id: over.name || 'i1',
+    name: 'a.pdf',
+    size: 2048,
+    relativeDir: '',
+    status: 'done',
+    progress: 1,
+    error: null,
+    ...over,
+  }) as UploadItem
 
-function makeQueue(items) {
-  const counts = items.reduce((acc, it) => ({ ...acc, [it.status]: (acc[it.status] || 0) + 1 }), {
-    queued: 0,
-    uploading: 0,
-    done: 0,
-    error: 0,
-    cancelled: 0,
-  })
+function makeQueue(items: UploadItem[]) {
+  const counts = items.reduce<Record<UploadStatus, number>>(
+    (acc, it) => ({ ...acc, [it.status]: (acc[it.status] || 0) + 1 }),
+    {
+      queued: 0,
+      uploading: 0,
+      done: 0,
+      error: 0,
+      cancelled: 0,
+    }
+  )
   return {
     items,
     counts,

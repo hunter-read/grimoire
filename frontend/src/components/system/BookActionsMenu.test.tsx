@@ -1,22 +1,27 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { useRef } from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import BookActionsMenu from './BookActionsMenu'
+import type { Schema } from '../../api'
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k) => k }),
+  useTranslation: () => ({ t: (k: string) => k }),
 }))
 
-const mockPost = vi.fn(() => Promise.resolve({}))
-const mockGet = vi.fn(() => Promise.resolve({}))
-const mockCampaignList = vi.fn(() => Promise.resolve([]))
+const mockPost: Mock = vi.fn(() => Promise.resolve({}))
+const mockGet: Mock = vi.fn(() => Promise.resolve({}))
+const mockCampaignList: Mock = vi.fn(() => Promise.resolve([]))
 vi.mock('../../api', () => ({
-  default: { post: (...args) => mockPost(...args), get: (...args) => mockGet(...args) },
-  mediaUrl: (path) => `http://localhost${path}`,
+  default: {
+    post: (...args: unknown[]) => mockPost(...args),
+    get: (...args: unknown[]) => mockGet(...args),
+  },
+  mediaUrl: (path: string) => `http://localhost${path}`,
   // Used by AddToCampaignModal, which the "add to campaign" item opens.
   campaigns: {
-    list: (...args) => mockCampaignList(...args),
+    list: (...args: unknown[]) => mockCampaignList(...args),
     bulkAddResources: vi.fn(() => Promise.resolve([])),
   },
 }))
@@ -33,11 +38,11 @@ vi.mock('../../context/UISettingsContext', () => ({
 }))
 
 let mockFavorite = false
-const mockToggleFavorite = vi.fn()
+const mockToggleFavorite: Mock = vi.fn()
 vi.mock('../../context/FavoritesContext', () => ({
   useFavorites: () => ({
     isFavorite: () => mockFavorite,
-    toggleFavorite: (...args) => mockToggleFavorite(...args),
+    toggleFavorite: (...args: unknown[]) => mockToggleFavorite(...args),
   }),
 }))
 
@@ -47,17 +52,25 @@ vi.mock('../../context/AuthContext', () => ({
 
 // Reading progress is per-user browser state; mocked so the reset item's
 // visibility is driven by the test rather than by leftover localStorage.
-const mockGetBookPrefs = vi.fn(() => ({}))
-const mockSaveBookPrefs = vi.fn()
+const mockGetBookPrefs: Mock = vi.fn(() => ({}))
+const mockSaveBookPrefs: Mock = vi.fn()
 vi.mock('../../hooks/useBookPrefs', () => ({
-  getBookPrefs: (...args) => mockGetBookPrefs(...args),
-  saveBookPrefs: (...args) => mockSaveBookPrefs(...args),
+  getBookPrefs: (...args: unknown[]) => mockGetBookPrefs(...args),
+  saveBookPrefs: (...args: unknown[]) => mockSaveBookPrefs(...args),
 }))
 
 let mockCanShare = false
 vi.mock('../share/useCanShare', () => ({ default: () => mockCanShare }))
 vi.mock('../share/ShareLinkDialog', () => ({
-  default: ({ resourceType, resourceId, onClose }) => (
+  default: ({
+    resourceType,
+    resourceId,
+    onClose,
+  }: {
+    resourceType: string
+    resourceId: string
+    onClose: () => void
+  }) => (
     <div>
       <span>{`share-dialog:${resourceType}:${resourceId}`}</span>
       <button onClick={onClose}>close-share</button>
@@ -65,7 +78,7 @@ vi.mock('../share/ShareLinkDialog', () => ({
   ),
 }))
 
-function makeBook(overrides = {}) {
+function makeBook(overrides: Record<string, unknown> = {}): Schema<'BookOut'> {
   return {
     id: 'b1',
     mime_type: 'application/pdf',
@@ -74,10 +87,10 @@ function makeBook(overrides = {}) {
     index_failed: false,
     can_reocr: false,
     ...overrides,
-  }
+  } as unknown as Schema<'BookOut'>
 }
 
-function renderMenu(book = {}, props = {}) {
+function renderMenu(book: Record<string, unknown> = {}, props: Record<string, unknown> = {}) {
   return render(<BookActionsMenu book={makeBook(book)} onEdit={() => {}} {...props} />)
 }
 
@@ -433,7 +446,7 @@ describe('BookActionsMenu', () => {
       // so they must stay separated from the routine items above.
       const menu = screen.getByRole('menu')
       expect(menu.querySelector('[role="separator"]')).toBeInTheDocument()
-      const items = [...menu.querySelectorAll('[role="menuitem"]')]
+      const items = [...menu.querySelectorAll<HTMLElement>('[role="menuitem"]')]
       expect(items.slice(-3).map((el) => el.dataset.testid)).toEqual([
         'book-move-file',
         'book-rename-file',
@@ -489,7 +502,7 @@ describe('BookActionsMenu', () => {
 
 // VariantMenuItems (the pre-existing "switch version" rows) calls useNavigate,
 // so this group renders inside a Router; the base renderMenu above does not.
-const renderVersionMenu = (book) =>
+const renderVersionMenu = (book: Record<string, unknown>) =>
   render(
     <MemoryRouter>
       <BookActionsMenu book={makeBook(book)} onEdit={() => {}} />
@@ -499,8 +512,8 @@ const renderVersionMenu = (book) =>
 // Issue #487: right-clicking the book opens the same menu the kebab does. The
 // kebab is kept; this is a second way in.
 describe('BookActionsMenu right-click', () => {
-  function Row(props) {
-    const ref = useRef(null)
+  function Row(props: Record<string, unknown>) {
+    const ref = useRef<HTMLDivElement>(null)
     return (
       <div ref={ref} data-testid="row">
         <span>Player's Handbook</span>
@@ -579,7 +592,7 @@ describe('BookActionsMenu right-click', () => {
         <BookActionsMenu book={makeBook()} onEdit={() => {}} />
       </div>
     )
-    expect(fireEvent.contextMenu(container.firstChild)).toBe(true)
+    expect(fireEvent.contextMenu(container.firstChild!)).toBe(true)
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 })

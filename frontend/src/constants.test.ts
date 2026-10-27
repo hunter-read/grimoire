@@ -54,15 +54,19 @@ describe('isArchiveBook', () => {
 
 describe('isArchiveMedia', () => {
   it('returns true when the backend flags the item as an archive', () => {
-    expect(isArchiveMedia({ filename: 'pack.zip', is_archive: true })).toBe(true)
+    expect(
+      isArchiveMedia({ filename: 'pack.zip', is_archive: true } as { is_archive?: boolean })
+    ).toBe(true)
   })
 
   it('returns false for a regular media item', () => {
-    expect(isArchiveMedia({ filename: 'cave.png', is_archive: false })).toBe(false)
+    expect(
+      isArchiveMedia({ filename: 'cave.png', is_archive: false } as { is_archive?: boolean })
+    ).toBe(false)
   })
 
   it('returns false when the flag is absent or the item is nullish', () => {
-    expect(isArchiveMedia({ filename: 'cave.png' })).toBe(false)
+    expect(isArchiveMedia({ filename: 'cave.png' } as { is_archive?: boolean })).toBe(false)
     expect(isArchiveMedia(null)).toBe(false)
     expect(isArchiveMedia(undefined)).toBe(false)
   })

@@ -13,7 +13,12 @@ const TIME_OPTIONS = Array.from({ length: 96 }, (_, i) => {
  * The value is a local "HH:MM" stored as-is — the zone is recorded alongside it,
  * so no UTC conversion happens here. Converting used to drop the day rollover.
  */
-export default function TimePicker({ value, onChange }) {
+interface TimePickerProps {
+  value: string | null | undefined
+  onChange: (value: string | null) => void
+}
+
+export default function TimePicker({ value, onChange }: TimePickerProps) {
   const { t } = useTranslation()
   const [enabled, setEnabled] = useState(!!value)
 

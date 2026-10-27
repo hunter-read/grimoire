@@ -4,7 +4,13 @@ import { LuCheck, LuMinus } from 'react-icons/lu'
  * Tri-state checkbox shown on folder headers in bulk-select mode.
  * `indeterminate` renders a minus when some (but not all) children are selected.
  */
-export default function FolderCheckbox({ checked, indeterminate, onChange }) {
+export interface FolderCheckboxProps {
+  checked?: boolean
+  indeterminate?: boolean
+  onChange: () => void
+}
+
+export default function FolderCheckbox({ checked, indeterminate, onChange }: FolderCheckboxProps) {
   return (
     <div
       onClick={(e) => {

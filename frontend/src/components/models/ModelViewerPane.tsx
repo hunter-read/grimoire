@@ -1,8 +1,24 @@
 import { useEffect, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuRotateCcw, LuBox, LuDownload, LuTriangleAlert } from 'react-icons/lu'
 import Spinner from '../Spinner'
 import { mediaUrl } from '../../api'
+import type { Schema } from '../../api'
+import type { createViewer } from '../../lib/three'
+
+type Viewer = Awaited<ReturnType<typeof createViewer>>
+
+/** The parts of a model's detail the viewer reads. */
+export type ViewerModel = Pick<
+  Schema<'Model3DDetailResponse'>,
+  'id' | 'filename' | 'viewer_loader' | 'viewer_available' | 'viewer_oversized'
+>
+
+interface Props {
+  model: ViewerModel
+  height?: number | string
+}
 
 /**
  * The 3D preview on a model's detail page.
@@ -13,11 +29,11 @@ import { mediaUrl } from '../../api'
  * is deliberate: jsdom has no WebGL, so the lib is mocked in tests and every
  * branch here stays exercisable.
  */
-export default function ModelViewerPane({ model, height = 420 }) {
+export default function ModelViewerPane({ model, height = 420 }: Props) {
   const { t } = useTranslation()
-  const hostRef = useRef(null)
-  const viewerRef = useRef(null)
-  const [status, setStatus] = useState('idle')
+  const hostRef = useRef<HTMLDivElement>(null)
+  const viewerRef = useRef<Viewer | null>(null)
+  const [status, setStatus] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle')
   const [wireframe, setWireframe] = useState(false)
 
   const loader = model?.viewer_loader || ''
@@ -31,7 +47,7 @@ export default function ModelViewerPane({ model, height = 420 }) {
   // for one render `forced` would still be true against the new model and the
   // load effect would start fetching a mesh the user never agreed to — the
   // exact hang this gate exists to prevent.
-  const [forcedId, setForcedId] = useState(null)
+  const [forcedId, setForcedId] = useState<string | null>(null)
   const forced = !!model?.id && forcedId === model.id
   const available = !!model?.viewer_available || (oversized && forced)
 
@@ -43,7 +59,7 @@ export default function ModelViewerPane({ model, height = 420 }) {
 
     import('../../lib/three')
       .then(({ createViewer }) =>
-        createViewer(hostRef.current, mediaUrl(`/models/${model.id}/file`), loader)
+        createViewer(hostRef.current!, mediaUrl(`/models/${model.id}/file`), loader)
       )
       .then((viewer) => {
         // The effect can be torn down while the mesh is still downloading; the
@@ -75,7 +91,7 @@ export default function ModelViewerPane({ model, height = 420 }) {
     viewerRef.current?.setWireframe(next)
   }
 
-  const frameStyle = {
+  const frameStyle: CSSProperties = {
     position: 'relative',
     height,
     borderRadius: 8,
@@ -213,7 +229,7 @@ export default function ModelViewerPane({ model, height = 420 }) {
   )
 }
 
-function viewerButtonStyle(active) {
+function viewerButtonStyle(active: boolean): CSSProperties {
   return {
     display: 'inline-flex',
     alignItems: 'center',

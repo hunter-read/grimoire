@@ -1,23 +1,28 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SendVttToCampaignDialog, { isMapCategory } from './SendVttToCampaignDialog'
+import type { SendVttToCampaignDialogProps } from './SendVttToCampaignDialog'
 import { campaigns as campaignsApi } from '../../../api'
+
+// Fixtures carry only the fields the code under test reads, so these mocks are untyped.
+const mockList = campaignsApi.list as unknown as Mock
+const mockListCategories = campaignsApi.listCategories as unknown as Mock
 
 vi.mock('../../../api', () => ({
   default: {},
   campaigns: { list: vi.fn(), listCategories: vi.fn(), uploadFile: vi.fn() },
-  mediaUrl: (p) => p,
+  mediaUrl: (p: string) => p,
 }))
 vi.mock('react-i18next', () => ({
   // A fresh `t` identity per render, exactly as i18next gives — which is what
   // catches an effect that wrongly depends on it.
-  useTranslation: () => ({ t: (k, o) => (o ? `${k}:${JSON.stringify(o)}` : k) }),
+  useTranslation: () => ({ t: (k: string, o?: object) => (o ? `${k}:${JSON.stringify(o)}` : k) }),
 }))
 
 const mine = { id: 'c1', name: 'Dragons', owner_id: 'u1', is_archived: false }
 
-const renderDialog = (props = {}) =>
+const renderDialog = (props: Partial<SendVttToCampaignDialogProps> = {}) =>
   render(
     <SendVttToCampaignDialog
       userId="u1"
@@ -29,8 +34,8 @@ const renderDialog = (props = {}) =>
 
 beforeEach(() => {
   vi.clearAllMocks()
-  campaignsApi.list.mockResolvedValue([mine])
-  campaignsApi.listCategories.mockResolvedValue([])
+  mockList.mockResolvedValue([mine])
+  mockListCategories.mockResolvedValue([])
 })
 
 describe('isMapCategory', () => {
@@ -54,7 +59,7 @@ describe('SendVttToCampaignDialog', () => {
   })
 
   it('offers only campaigns the viewer owns', async () => {
-    campaignsApi.list.mockResolvedValue([
+    mockList.mockResolvedValue([
       mine,
       { id: 'c2', name: 'Someone else’s', owner_id: 'u2', is_archived: false },
     ])
@@ -66,13 +71,13 @@ describe('SendVttToCampaignDialog', () => {
   })
 
   it('leaves out archived campaigns', async () => {
-    campaignsApi.list.mockResolvedValue([{ ...mine, is_archived: true }])
+    mockList.mockResolvedValue([{ ...mine, is_archived: true }])
     renderDialog()
     expect(await screen.findByText('maps.vtt.send.noCampaigns')).toBeInTheDocument()
   })
 
   it('loads that campaign’s categories once chosen', async () => {
-    campaignsApi.listCategories.mockResolvedValue([{ id: 'cat1', name: 'Handouts' }])
+    mockListCategories.mockResolvedValue([{ id: 'cat1', name: 'Handouts' }])
     renderDialog()
     await userEvent.click(await screen.findByText('Dragons'))
     expect(await screen.findByText('Handouts')).toBeInTheDocument()
@@ -81,7 +86,7 @@ describe('SendVttToCampaignDialog', () => {
   })
 
   it('marks a maps-like category as the suggestion', async () => {
-    campaignsApi.listCategories.mockResolvedValue([
+    mockListCategories.mockResolvedValue([
       { id: 'cat1', name: 'Handouts' },
       { id: 'cat2', name: 'Maps' },
     ])
@@ -94,7 +99,7 @@ describe('SendVttToCampaignDialog', () => {
 
   it('reports the chosen campaign and category', async () => {
     const onChoose = vi.fn()
-    campaignsApi.listCategories.mockResolvedValue([{ id: 'cat2', name: 'Maps' }])
+    mockListCategories.mockResolvedValue([{ id: 'cat2', name: 'Maps' }])
     renderDialog({ onChoose })
     await userEvent.click(await screen.findByText('Dragons'))
     await userEvent.click(await screen.findByText('Maps'))
@@ -110,7 +115,7 @@ describe('SendVttToCampaignDialog', () => {
   })
 
   it('treats a category fetch failure as simply having none', async () => {
-    campaignsApi.listCategories.mockRejectedValue(new Error('nope'))
+    mockListCategories.mockRejectedValue(new Error('nope'))
     renderDialog()
     await userEvent.click(await screen.findByText('Dragons'))
     // A campaign with no categories is the normal case, not an error.
@@ -145,13 +150,13 @@ describe('SendVttToCampaignDialog', () => {
   })
 
   it('says so when the viewer runs no campaigns', async () => {
-    campaignsApi.list.mockResolvedValue([])
+    mockList.mockResolvedValue([])
     renderDialog()
     expect(await screen.findByText('maps.vtt.send.noCampaigns')).toBeInTheDocument()
   })
 
   it('surfaces a failed campaign load', async () => {
-    campaignsApi.list.mockRejectedValue(new Error('offline'))
+    mockList.mockRejectedValue(new Error('offline'))
     renderDialog()
     expect(await screen.findByText('offline')).toBeInTheDocument()
     // The "no campaigns" line would be misleading here: there may well be some.

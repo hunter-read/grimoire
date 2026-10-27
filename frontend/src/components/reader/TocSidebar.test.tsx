@@ -6,7 +6,17 @@ import api from '../../api'
 
 vi.mock('../../api', () => ({ default: { get: vi.fn() } }))
 
-const node = (title, page, children = []) => ({ title, page, children })
+interface Node {
+  title: string
+  page: number
+  children: Node[]
+}
+
+const node = (title: string, page: number, children: Node[] = []): Node => ({
+  title,
+  page,
+  children,
+})
 
 // Two chapters; the first nests four levels deep.
 const shortToc = [
@@ -33,7 +43,7 @@ describe('TocSidebar', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('opens the top two levels of a short TOC', async () => {
-    api.get.mockResolvedValue({ toc: shortToc })
+    vi.mocked(api.get).mockResolvedValue({ toc: shortToc })
     renderToc()
     expect(await screen.findByText('Section 1.1')).toBeInTheDocument()
     expect(screen.getByText('Detail 1.1.1')).toBeInTheDocument()
@@ -44,7 +54,7 @@ describe('TocSidebar', () => {
   })
 
   it('collapses a long TOC to its chapters', async () => {
-    api.get.mockResolvedValue({ toc: longToc })
+    vi.mocked(api.get).mockResolvedValue({ toc: longToc })
     renderToc()
     expect(await screen.findByText('Chapter 1')).toBeInTheDocument()
     expect(screen.queryByText('Section 1.0')).not.toBeInTheDocument()
@@ -57,7 +67,7 @@ describe('TocSidebar', () => {
   it('jumps to an entry’s page and closes from the header', async () => {
     const onGoToPage = vi.fn()
     const onClose = vi.fn()
-    api.get.mockResolvedValue({ toc: shortToc })
+    vi.mocked(api.get).mockResolvedValue({ toc: shortToc })
     renderToc({ onGoToPage, onClose })
     await userEvent.click(await screen.findByText('Chapter 2'))
     expect(onGoToPage).toHaveBeenCalledWith(10)
@@ -66,7 +76,7 @@ describe('TocSidebar', () => {
   })
 
   it('says so when the book has no TOC, including when loading fails', async () => {
-    api.get.mockRejectedValue(new Error('nope'))
+    vi.mocked(api.get).mockRejectedValue(new Error('nope'))
     renderToc()
     await waitFor(() =>
       expect(screen.getByText('No table of contents in this PDF.')).toBeInTheDocument()

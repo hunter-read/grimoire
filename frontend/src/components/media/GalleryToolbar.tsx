@@ -1,6 +1,15 @@
 import { useTranslation } from 'react-i18next'
 import CollapseExpandButtons from '../CollapseExpandButtons'
 import ToggleSwitch from '../ToggleSwitch'
+import type { ReactNode } from 'react'
+import type useMediaGallery from '../../hooks/useMediaGallery'
+import type { MediaConfig } from './mediaConfig'
+
+export interface GalleryToolbarProps {
+  config: Pick<MediaConfig, 'i18n'>
+  gallery: ReturnType<typeof useMediaGallery>
+  leading?: ReactNode
+}
 
 /**
  * Header view-controls for a media gallery (maps / tokens / audio): a
@@ -14,7 +23,7 @@ import ToggleSwitch from '../ToggleSwitch'
  * search box above it, keeping the header a tidy rectangle rather than a
  * ragged right edge.
  */
-export default function GalleryToolbar({ config, gallery, leading }) {
+export default function GalleryToolbar({ config, gallery, leading }: GalleryToolbarProps) {
   const { t } = useTranslation()
   const { i18n } = config
   const { bulkMode } = gallery.bulk

@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import PluginSourceRow from './PluginSourceRow'
 import { addons } from '../../api'
+import type { Schema } from '../../api'
 
 vi.mock('../../api', () => ({
   addons: { setSourceCredential: vi.fn(), clearSourceCredential: vi.fn() },
@@ -9,7 +10,7 @@ vi.mock('../../api', () => ({
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k, fallback) => (typeof fallback === 'string' ? fallback : k),
+    t: (k: string, fallback?: unknown) => (typeof fallback === 'string' ? fallback : k),
   }),
 }))
 
@@ -21,7 +22,7 @@ describe('PluginSourceRow', () => {
     source_contents: {
       [url]: ['plugins', 'themes', 'templates'],
     },
-  }
+  } as unknown as Schema<'AddonListResponse'>
 
   it('renders repository name, link, verified icon, and content labels', () => {
     const { container } = render(
@@ -101,7 +102,7 @@ describe('PluginSourceRow', () => {
   })
 
   it('shows the private badge once a token is saved, without a reload', async () => {
-    addons.setSourceCredential.mockResolvedValue({
+    vi.mocked(addons.setSourceCredential).mockResolvedValue({
       source_credentials: {
         [url]: { header: 'Authorization', env_locked: false, unreadable: false },
       },

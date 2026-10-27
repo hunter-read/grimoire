@@ -1,6 +1,8 @@
 import { useState, useRef } from 'react'
+import type { FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuFileText, LuCheck } from 'react-icons/lu'
+import type { BodyOf, Schema } from '../../api'
 import CharacterDialog from './CharacterDialog'
 import useCharacterCampaigns from './useCharacterCampaigns'
 import { goldBtn, ghostBtn, disabledBtn, fieldInput, fieldLabel, helpText } from './characterStyles'
@@ -13,9 +15,19 @@ import { goldBtn, ghostBtn, disabledBtn, fieldInput, fieldLabel, helpText } from
  * to use is the one decision here that matters, and a system's name alone does
  * not tell two versions of it apart.
  */
-export default function NewCharacterDialog({ schemas, onCreate, onClose }) {
+export interface NewCharacterDialogProps {
+  schemas: Schema<'SchemaSummary'>[]
+  onCreate: (body: BodyOf<'/characters', 'post'>) => Promise<unknown>
+  onClose: () => void
+}
+
+export default function NewCharacterDialog({
+  schemas,
+  onCreate,
+  onClose,
+}: NewCharacterDialogProps) {
   const { t } = useTranslation()
-  const nameRef = useRef(null)
+  const nameRef = useRef<HTMLInputElement>(null)
   const [name, setName] = useState('')
   const [schemaRef, setSchemaRef] = useState(schemas.length === 1 ? schemas[0].schema_id : '')
   const [campaignId, setCampaignId] = useState('')
@@ -23,7 +35,7 @@ export default function NewCharacterDialog({ schemas, onCreate, onClose }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const submit = async (event) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!schemaRef || saving) return
     setSaving(true)
@@ -34,7 +46,7 @@ export default function NewCharacterDialog({ schemas, onCreate, onClose }) {
         ...(campaignId ? { campaign_id: campaignId } : {}),
       })
     } catch (err) {
-      setError(err.message)
+      setError((err as Error).message)
       setSaving(false)
     }
   }

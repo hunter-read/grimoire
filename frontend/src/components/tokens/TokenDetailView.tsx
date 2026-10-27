@@ -9,6 +9,7 @@ import useSiblingNavigation from '../../hooks/useSiblingNavigation'
 import useIsMobile from '../../hooks/useIsMobile'
 
 import api, { mediaUrl } from '../../api'
+import type { Schema } from '../../api'
 import Spinner from '../Spinner'
 import { formatSize } from '../../utils'
 import InlineTagEditor from '../maps/InlineTagEditor'
@@ -33,16 +34,16 @@ export default function TokenDetailView() {
   // had rather than re-applying their saved default over them.
   const goBack = () => navigate(backPathRef.current || '/tokens', { state: { restoreView: true } })
   const { t } = useTranslation()
-  const { user } = useAuth()
+  const { user } = useAuth()!
   const isMobilePhone = useIsMobile(640)
   const canEdit = user?.role === 'admin' || user?.role === 'gm'
-  const [token, setToken] = useState(null)
+  const [token, setToken] = useState<Schema<'TokenDetailResponse'> | null>(null)
   const [editingTokenTags, setEditingTokenTags] = useState(false)
   const [editingFolderTags, setEditingFolderTags] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
-  const imagePane = useRef(null)
+  const imagePane = useRef<HTMLDivElement>(null)
 
-  const tokenDetailPath = useCallback((id) => `/tokens/${id}`, [])
+  const tokenDetailPath = useCallback((id: string) => `/tokens/${id}`, [])
   const {
     siblings,
     index: siblingIdx,
@@ -68,11 +69,11 @@ export default function TokenDetailView() {
   })
 
   // Warm the cache for neighbouring tokens so prev/next feels instant.
-  const tokenFileUrl = useCallback((tok) => mediaUrl(`/tokens/${tok.id}/file`), [])
+  const tokenFileUrl = useCallback((tok: { id: string }) => mediaUrl(`/tokens/${tok.id}/file`), [])
   useImagePrefetch(siblings, siblingIdx, tokenFileUrl)
 
   useEffect(() => {
-    api.get(`/tokens/${tokenId}`).then(setToken)
+    api.get(`/tokens/${tokenId}`).then((data) => setToken(data as Schema<'TokenDetailResponse'>))
   }, [tokenId])
 
   if (!token)
@@ -91,13 +92,13 @@ export default function TokenDetailView() {
   const currentFolderTags = token.folder_tags ?? []
   const isArchive = isArchiveMedia(token)
 
-  const saveTokenTags = async (tags) => {
+  const saveTokenTags = async (tags: string[]) => {
     await api.patch(`/tokens/${tokenId}`, { tags })
     setToken({ ...token, tags })
     setEditingTokenTags(false)
   }
 
-  const saveFolderTags = async (tags) => {
+  const saveFolderTags = async (tags: string[]) => {
     await api.patch('/token-folders', { path: token.folder_path, tags })
     setToken({ ...token, folder_tags: tags })
     setEditingFolderTags(false)
@@ -218,14 +219,14 @@ export default function TokenDetailView() {
         )}
         <VariantPicker
           item={token}
-          detailPath={(id) => `/tokens/${id}`}
+          detailPath={(id: string) => `/tokens/${id}`}
           resourceType="token"
           compact
         />
-        <DownloadVersionButton type="tokens" id={tokenId} item={token} compact={isMobilePhone} />
+        <DownloadVersionButton type="tokens" id={tokenId!} item={token} compact={isMobilePhone} />
         {/* Favourite, campaigns and share links live in the overflow menu, as in
             the book reader, so the toolbar keeps room for the title. */}
-        <DetailMoreMenu resourceType="token" resourceId={tokenId} title={token.filename} />
+        <DetailMoreMenu resourceType="token" resourceId={tokenId!} title={token.filename} />
       </div>
 
       {/* Body */}
@@ -322,7 +323,10 @@ export default function TokenDetailView() {
             </div>
           )}
           {folder && <MetaRow label={t('tokens.detail.location')} value={folder} />}
-          <MetaRow label={t('tokens.detail.fileSize')} value={formatSize(token.file_size)} />
+          <MetaRow
+            label={t('tokens.detail.fileSize')}
+            value={formatSize(token.file_size as number)}
+          />
           {token.pixel_width != null && (
             <MetaRow
               label={t('tokens.detail.resolution')}

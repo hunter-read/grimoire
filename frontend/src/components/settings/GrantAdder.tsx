@@ -1,15 +1,23 @@
 import { useState } from 'react'
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ACCESS_ADMIN, ACCESS_GM } from '../../accessLevels'
 import { ghostBtnStyle } from './settingsButtons'
 
+interface Props {
+  label: string
+  options: { id: string; name: string }[]
+  onAdd: (target: string, level: string) => void
+  disabled?: boolean
+}
+
 // One "pick a target, pick a level, add" row of the access-grants panel. Its
 // own file because eslint's react/no-multi-comp is an error here, with
 // ignoreStateless off — one component per file, no exceptions outside tests.
-export default function GrantAdder({ label, options, onAdd, disabled }) {
+export default function GrantAdder({ label, options, onAdd, disabled }: Props) {
   const { t } = useTranslation()
   const [target, setTarget] = useState('')
-  const [level, setLevel] = useState(ACCESS_GM)
+  const [level, setLevel] = useState<string>(ACCESS_GM)
 
   if (options.length === 0) return null
 
@@ -52,7 +60,7 @@ export default function GrantAdder({ label, options, onAdd, disabled }) {
   )
 }
 
-const selectStyle = {
+const selectStyle: CSSProperties = {
   padding: '6px 8px',
   borderRadius: 6,
   background: 'var(--bg-deep)',

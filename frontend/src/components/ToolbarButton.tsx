@@ -1,3 +1,18 @@
+import type { CSSProperties, MouseEventHandler, ReactNode } from 'react'
+
+export interface ToolbarButtonProps {
+  icon?: ReactNode
+  label?: ReactNode
+  onClick?: MouseEventHandler<HTMLButtonElement>
+  active?: boolean
+  disabled?: boolean
+  title?: string
+  ariaLabel?: string
+  ariaPressed?: boolean
+  minWidth?: CSSProperties['minWidth']
+  style?: CSSProperties
+}
+
 /**
  * Shared toolbar button base used across the library/gallery/system toolbars so
  * every page renders consistent controls. Renders an optional leading icon plus
@@ -14,7 +29,7 @@ export default function ToolbarButton({
   ariaPressed,
   minWidth,
   style,
-}) {
+}: ToolbarButtonProps) {
   return (
     <button
       type="button"

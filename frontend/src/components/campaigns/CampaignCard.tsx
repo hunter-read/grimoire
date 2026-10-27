@@ -10,13 +10,13 @@ import {
   LuNotebook,
   LuArchive,
 } from 'react-icons/lu'
-import { campaigns } from '../../api'
+import { campaigns, type Schema } from '../../api'
 import WikiMarkdown from './WikiMarkdown'
 import CampaignRoleBadge from './CampaignRoleBadge'
 import LazyImg from '../LazyImg'
 import CardLink from '../CardLink'
 
-function formatSessionDate(dateStr) {
+function formatSessionDate(dateStr: string | null | undefined): string {
   if (!dateStr) return ''
   return new Date(dateStr + 'T00:00:00').toLocaleDateString(undefined, {
     weekday: 'short',
@@ -31,7 +31,19 @@ function formatSessionDate(dateStr) {
  * link of its own, so both support middle click / ctrl-click into a new tab
  * (issue #313).
  */
-export default function CampaignCard({ campaign, userId, badgeLabel, subtitle }) {
+export interface CampaignCardProps {
+  campaign: Schema<'CampaignOut'>
+  userId?: string
+  badgeLabel?: string
+  subtitle?: string | null
+}
+
+export default function CampaignCard({
+  campaign,
+  userId,
+  badgeLabel,
+  subtitle,
+}: CampaignCardProps) {
   const { t } = useTranslation()
   const [hovered, setHovered] = useState(false)
   const acceptedCount =

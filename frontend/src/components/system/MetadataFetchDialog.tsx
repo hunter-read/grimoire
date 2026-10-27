@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuLink, LuSearch, LuTriangleAlert, LuX } from 'react-icons/lu'
 import api from '../../api'
+import type { Schema } from '../../api'
 import ItemCarouselNav from '../ItemCarouselNav'
 import Spinner from '../Spinner'
 import { defaultSelection } from './metadataFieldValue'
@@ -49,6 +51,36 @@ import useMetadataSources from './useMetadataSources'
  *   applied         – fields an earlier fetch wrote to this item, which a new
  *                     match may replace without the usual "differs" caution
  */
+/** A candidate match from a metadata search. */
+type Candidate = Schema<'MetadataCandidate'>
+
+/** One item's search, handed out through `onRemember` and back in as `remembered`. */
+export interface RememberedFetch {
+  sourceId: string
+  query: string
+  results: Candidate[] | null
+  picked: string | null
+}
+
+export interface MetadataFetchDialogProps {
+  /** The game system (`name`) or book (`title`) being edited. */
+  resource: { id: string; name?: string | null; title?: string | null }
+  kind?: 'systems' | 'books'
+  /** Called with the applied fields after a successful PATCH. */
+  onApply: (fields: Record<string, unknown>) => void
+  onClose: () => void
+  autoSearch?: boolean
+  initialSourceId?: string
+  onSourceChange?: (sourceId: string) => void
+  position?: string
+  itemName?: string
+  onNext?: () => void
+  onPrev?: () => void
+  remembered?: RememberedFetch
+  onRemember?: (state: RememberedFetch) => void
+  applied?: Record<string, unknown>
+}
+
 export default function MetadataFetchDialog({
   resource,
   kind = 'systems',
@@ -64,7 +96,7 @@ export default function MetadataFetchDialog({
   remembered,
   onRemember,
   applied,
-}) {
+}: MetadataFetchDialogProps) {
   const { t } = useTranslation()
   const {
     sources,
@@ -73,11 +105,11 @@ export default function MetadataFetchDialog({
   } = useMetadataSources(kind, resource.id)
   const [sourceId, setSourceId] = useState(remembered?.sourceId || initialSourceId)
   const [query, setQuery] = useState(remembered?.query ?? (resource.name || resource.title || ''))
-  const [results, setResults] = useState(remembered?.results ?? null)
+  const [results, setResults] = useState<Candidate[] | null>(remembered?.results ?? null)
   // The match chosen last time on this item, marked in the list on return.
-  const [picked, setPicked] = useState(remembered?.picked ?? null)
-  const [detail, setDetail] = useState(null)
-  const [selected, setSelected] = useState([])
+  const [picked, setPicked] = useState<string | null>(remembered?.picked ?? null)
+  const [detail, setDetail] = useState<Schema<'MetadataFetchResponse'> | null>(null)
+  const [selected, setSelected] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   // "I already know exactly which one" — a pasted source URL or bare ID, which
@@ -85,9 +117,9 @@ export default function MetadataFetchDialog({
   const [paste, setPaste] = useState('')
   const [pasting, setPasting] = useState(false)
 
-  const searchRef = useRef(null)
-  const primaryRef = useRef(null)
-  const fallbackRef = useRef(null)
+  const searchRef = useRef<HTMLInputElement>(null)
+  const primaryRef = useRef<HTMLButtonElement>(null)
+  const fallbackRef = useRef<HTMLButtonElement>(null)
   // Returning to an item with results already in hand counts as searched.
   const autoSearched = useRef(!!remembered?.results)
 
@@ -103,7 +135,7 @@ export default function MetadataFetchDialog({
   const supportsPaste = !!activeSource?.supports_paste
 
   useEffect(() => {
-    const onKey = (e) => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', onKey)
@@ -116,7 +148,7 @@ export default function MetadataFetchDialog({
     if (sources.length && !sources.some((s) => s.id === sourceId)) setSourceId(sources[0].id)
   }, [sources, sourceId])
 
-  const pickSource = (id) => {
+  const pickSource = (id: string) => {
     setSourceId(id)
     onSourceChange?.(id)
   }
@@ -129,7 +161,7 @@ export default function MetadataFetchDialog({
     api
       .post(`/${kind}/${resource.id}/metadata-search`, { source_id: sourceId, query })
       .then((data) => {
-        const found = data.results || []
+        const found = (data as Schema<'MetadataSearchResponse'>).results || []
         setResults(found)
         // Nothing to pick, so the next useful keystroke is a better query.
         if (!found.length) searchRef.current?.focus()
@@ -165,7 +197,7 @@ export default function MetadataFetchDialog({
 
   // Both entry points — picking a search result, and pasting a link/ID — land
   // on the same review step, so they share one fetch.
-  const fetchCandidate = (body) => {
+  const fetchCandidate = (body: { identity: string } | { paste: string }) => {
     setBusy(true)
     setError('')
     api
@@ -179,7 +211,8 @@ export default function MetadataFetchDialog({
       // `busy` is cleared alongside the result rather than in a `finally`, so
       // the review step's first render already has an enabled apply button
       // for the focus effect to land on.
-      .then((data) => {
+      .then((res) => {
+        const data = res as Schema<'MetadataFetchResponse'>
         setBusy(false)
         setSelected(defaultSelection(data.fields || [], applied))
         setDetail(data)
@@ -190,7 +223,7 @@ export default function MetadataFetchDialog({
       })
   }
 
-  const choose = (identity) => {
+  const choose = (identity: string) => {
     setPicked(identity)
     fetchCandidate({ identity })
   }
@@ -200,14 +233,14 @@ export default function MetadataFetchDialog({
     fetchCandidate({ paste })
   }
 
-  const toggle = (field) =>
+  const toggle = (field: string) =>
     setSelected((prev) =>
       prev.includes(field) ? prev.filter((f) => f !== field) : [...prev, field]
     )
 
-  const apply = (advance) => {
-    const payload = {}
-    for (const row of detail.fields) {
+  const apply = (advance: boolean) => {
+    const payload: Record<string, unknown> = {}
+    for (const row of detail!.fields) {
       if (selected.includes(row.field)) payload[row.field] = row.incoming
     }
     setBusy(true)
@@ -215,7 +248,7 @@ export default function MetadataFetchDialog({
       .patch(`/${kind}/${resource.id}`, payload)
       .then(() => {
         onApply(payload)
-        if (advance) onNext()
+        if (advance) onNext!()
         else onClose()
       })
       .catch((e) => setError(e.message))
@@ -403,10 +436,10 @@ export default function MetadataFetchDialog({
           <p style={{ fontSize: 13, color: 'var(--text-dim)' }}>{t('metadataFetch.noMatches')}</p>
         )}
 
-        {!detail && results?.length > 0 && (
+        {!detail && (results?.length ?? 0) > 0 && (
           <>
             <MetadataResultList
-              results={results}
+              results={results!}
               picked={picked}
               onChoose={choose}
               onExitTop={() => searchRef.current?.focus()}
@@ -461,7 +494,7 @@ export default function MetadataFetchDialog({
   )
 }
 
-const overlay = {
+const overlay: CSSProperties = {
   position: 'fixed',
   inset: 0,
   zIndex: 1200,
@@ -470,7 +503,7 @@ const overlay = {
   justifyContent: 'center',
   background: 'var(--scrim)',
 }
-const panel = {
+const panel: CSSProperties = {
   background: 'var(--bg-panel)',
   border: '1px solid var(--border)',
   borderRadius: 10,
@@ -481,7 +514,7 @@ const panel = {
   overflowY: 'auto',
   boxSizing: 'border-box',
 }
-const closeBtn = {
+const closeBtn: CSSProperties = {
   background: 'none',
   border: 'none',
   cursor: 'pointer',
@@ -489,14 +522,14 @@ const closeBtn = {
   display: 'flex',
   padding: 2,
 }
-const field = {
+const field: CSSProperties = {
   padding: '8px 10px',
   borderRadius: 6,
   background: 'var(--bg-deep)',
   color: 'var(--text)',
   border: '1px solid var(--border)',
 }
-const primaryBtn = (enabled) => ({
+const primaryBtn = (enabled: boolean): CSSProperties => ({
   padding: '10px 24px',
   borderRadius: 6,
   background: enabled ? 'var(--gold-dim)' : 'var(--bg-deep)',
@@ -504,7 +537,7 @@ const primaryBtn = (enabled) => ({
   fontWeight: 600,
   cursor: enabled ? 'pointer' : 'default',
 })
-const secondaryBtn = {
+const secondaryBtn: CSSProperties = {
   padding: '10px 16px',
   borderRadius: 6,
   background: 'none',

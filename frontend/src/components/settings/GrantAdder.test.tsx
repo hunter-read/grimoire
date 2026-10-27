@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import GrantAdder from './GrantAdder'
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k) => k }),
+  useTranslation: () => ({ t: (k: string) => k }),
 }))
 
 const OPTIONS = [

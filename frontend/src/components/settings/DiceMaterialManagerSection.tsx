@@ -2,7 +2,16 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuTrash2, LuPlus } from 'react-icons/lu'
 import api from '../../api'
+import type { Schema } from '../../api'
 import Spinner from '../Spinner'
+
+type DiceMaterial = Schema<'DiceMaterialOut'>
+
+interface ConfirmState {
+  id: string
+  name: string
+  count: number
+}
 
 const GROUPS = ['Dice', 'Cards', 'Other', 'Custom']
 
@@ -13,10 +22,10 @@ const GROUPS = ['Dice', 'Cards', 'Other', 'Custom']
  */
 export default function DiceMaterialManagerSection() {
   const { t } = useTranslation()
-  const [items, setItems] = useState(null)
+  const [items, setItems] = useState<DiceMaterial[] | null>(null)
   const [name, setName] = useState('')
   const [group, setGroup] = useState('Custom')
-  const [confirm, setConfirm] = useState(null)
+  const [confirm, setConfirm] = useState<ConfirmState | null>(null)
   const [error, setError] = useState('')
 
   const load = () => {
@@ -40,7 +49,7 @@ export default function DiceMaterialManagerSection() {
       .catch((e) => setError(e?.message || t('lookupSettings.addFailed')))
   }
 
-  const remove = (item, force = false) => {
+  const remove = (item: Pick<DiceMaterial, 'id' | 'name'>, force = false) => {
     api
       .delete(`/dice-materials/${item.id}${force ? '?force=true' : ''}`)
       .then(() => {
@@ -65,7 +74,7 @@ export default function DiceMaterialManagerSection() {
 
   // Group the items for display, preserving the canonical group order with any
   // unexpected groups appended after.
-  const byGroup = {}
+  const byGroup: Record<string, DiceMaterial[]> = {}
   for (const item of items) {
     const g = item.group || 'Custom'
     ;(byGroup[g] = byGroup[g] || []).push(item)

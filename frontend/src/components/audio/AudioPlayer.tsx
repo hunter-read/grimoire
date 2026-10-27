@@ -1,6 +1,7 @@
+import type { MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuPlay, LuPause, LuListPlus, LuListCheck } from 'react-icons/lu'
-import { useAudioPlayer } from '../../context/AudioPlayerContext'
+import { useAudioPlayer, type AudioTrack } from '../../context/AudioPlayerContext'
 
 /**
  * A thin controller for the global audio player. Given a `track`
@@ -17,7 +18,13 @@ import { useAudioPlayer } from '../../context/AudioPlayerContext'
  * one audio element app-wide (see GlobalAudioPlayer), so playback survives
  * navigation and multiple controls stay in sync.
  */
-export default function AudioPlayer({ track, showPlayNext = false, size = 44 }) {
+export interface AudioPlayerProps {
+  track?: AudioTrack | null
+  showPlayNext?: boolean
+  size?: number
+}
+
+export default function AudioPlayer({ track, showPlayNext = false, size = 44 }: AudioPlayerProps) {
   const { t } = useTranslation()
   const {
     playQueue,
@@ -41,7 +48,7 @@ export default function AudioPlayer({ track, showPlayNext = false, size = 44 }) 
   const progress = current && duration > 0 ? Math.min(Math.max(currentTime / duration, 0), 1) : 0
   const ringWidth = Math.max(2, Math.round(size * 0.07))
 
-  const onToggle = (e) => {
+  const onToggle = (e: MouseEvent) => {
     e.stopPropagation()
     if (isCurrent(track.id)) {
       togglePlay()
@@ -53,7 +60,7 @@ export default function AudioPlayer({ track, showPlayNext = false, size = 44 }) 
   const queued = inQueue(track.id)
   const queueLabel = queued ? t('audio.player.queued') : t('audio.player.playNext')
 
-  const onPlayNext = (e) => {
+  const onPlayNext = (e: MouseEvent) => {
     e.stopPropagation()
     if (!queued) playNext(track)
   }

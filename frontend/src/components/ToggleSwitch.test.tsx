@@ -25,7 +25,7 @@ describe('ToggleSwitch', () => {
 
   it('renders the label before the switch when labelFirst is set', () => {
     render(<ToggleSwitch id="s" checked={false} onChange={() => {}} label="Group" labelFirst />)
-    const wrapper = screen.getByText('Group').closest('label')
+    const wrapper = screen.getByText('Group').closest('label')!
     const sw = screen.getByRole('switch')
     // The label text node precedes the switch in DOM order.
     expect(wrapper.textContent).toBe('Group')

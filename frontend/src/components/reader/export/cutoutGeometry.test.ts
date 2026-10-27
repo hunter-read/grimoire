@@ -18,11 +18,14 @@ const sizes = {
   2: { width: 200, height: 300 },
   3: { width: 100, height: 150 },
 }
-const close = (a, b) => Object.keys(b).forEach((k) => expect(a[k]).toBeCloseTo(b[k], 6))
+const close = (a: object, b: object) =>
+  Object.keys(b).forEach((k) =>
+    expect((a as Record<string, number>)[k]).toBeCloseTo((b as Record<string, number>)[k], 6)
+  )
 
 describe('layoutFor', () => {
   it('lays pages side by side at the first page height', () => {
-    const l = layoutFor([1, 2], sizes)
+    const l = layoutFor([1, 2], sizes)!
     expect(l.width).toBe(400)
     expect(l.height).toBe(300)
     expect(l.parts).toEqual([
@@ -32,7 +35,7 @@ describe('layoutFor', () => {
   })
 
   it('scales a smaller facing page up to match', () => {
-    const l = layoutFor([2, 3], sizes)
+    const l = layoutFor([2, 3], sizes)!
     expect(l.parts[1].width).toBe(200)
   })
 
@@ -43,12 +46,12 @@ describe('layoutFor', () => {
 })
 
 describe('stage mapping', () => {
-  const spread = layoutFor([1, 2], sizes)
-  const single = layoutFor([1], sizes)
+  const spread = layoutFor([1, 2], sizes)!
+  const single = layoutFor([1], sizes)!
 
   it('maps a single-page cut-out onto the right half of a spread', () => {
     const box = toStage({ pages: [2], x: 0.5, y: 0.1, w: 0.5, h: 0.2 }, spread)
-    close(box, { x: 0.75, y: 0.1, w: 0.25, h: 0.2 })
+    close(box!, { x: 0.75, y: 0.1, w: 0.25, h: 0.2 })
   })
 
   it('passes a cut-out drawn on the same pages through unchanged', () => {
@@ -80,7 +83,7 @@ describe('stage mapping', () => {
 
   it('round-trips through the stage', () => {
     const original = { pages: [1], x: 0.1, y: 0.2, w: 0.3, h: 0.4 }
-    const back = fromStage(toStage(original, spread), spread)
+    const back = fromStage(toStage(original, spread)!, spread)
     expect(back.pages).toEqual([1])
     close(back, original)
   })

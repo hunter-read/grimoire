@@ -67,7 +67,7 @@ describe('MobileSidebar', () => {
     renderBar({ onLogout })
     await userEvent.click(screen.getByRole('button', { name: /more/i }))
     // The drawer's log-out button (distinct from any bottom-bar control).
-    const logout = screen.getAllByText(/log out/i).at(-1)
+    const logout = screen.getAllByText(/log out/i).at(-1)!
     await userEvent.click(logout)
     expect(onLogout).toHaveBeenCalled()
   })

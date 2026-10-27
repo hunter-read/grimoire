@@ -12,6 +12,54 @@
  * spread is saved as "page 13" and still shows up in single-page view.
  */
 
+import type { Schema } from '../../../api'
+
+/** A point as fractions of the stage. */
+export interface Point {
+  x: number
+  y: number
+}
+
+/** A box as fractions (0-1) of its frame. */
+export interface Box extends Point {
+  w: number
+  h: number
+}
+
+/** A box stored against the pages it covers. */
+export interface PageBox extends Box {
+  pages: number[]
+}
+
+/** A page's size in PDF points. */
+export type PageSize = Schema<'PageSizeResponse'>
+
+/** Page number -> its point size, for the pages fetched so far. */
+export type PageSizes = Record<number, PageSize>
+
+/** One page's slot in a layout: where it starts and how wide it is. */
+export interface LayoutPart {
+  page: number
+  offset: number
+  width: number
+}
+
+/** Pages laid side by side at a common height, in PDF points. */
+export interface Layout {
+  pages: number[]
+  parts: LayoutPart[]
+  width: number
+  height: number
+}
+
+/** A box corner, or edge for a resize handle: 'n', 'se', ... */
+export type Handle = string
+
+interface SquareOptions {
+  square?: boolean
+  aspect?: number
+}
+
 /** Smallest side, as a fraction of the stage, that counts as a deliberate box. */
 export const MIN_SIZE = 0.01
 
@@ -19,7 +67,7 @@ export const MIN_SIZE = 0.01
  * Lay pages out left to right at the first page's height, in PDF points.
  * `sizes` maps page -> { width, height }. Returns null until every size is known.
  */
-export function layoutFor(pages, sizes) {
+export function layoutFor(pages: number[], sizes: PageSizes): Layout | null {
   if (!pages.length || pages.some((p) => !sizes[p])) return null
   const height = sizes[pages[0]].height
   let offset = 0
@@ -33,10 +81,10 @@ export function layoutFor(pages, sizes) {
   return { pages, parts, width: offset, height }
 }
 
-const clamp01 = (v) => Math.min(1, Math.max(0, v))
+const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 
 /** Clamp a box into the unit square, keeping its size where possible. */
-export function clampBox(box) {
+export function clampBox<B extends Box>(box: B): B {
   const w = Math.min(box.w, 1)
   const h = Math.min(box.h, 1)
   return {
@@ -49,7 +97,7 @@ export function clampBox(box) {
 }
 
 /** The stage-frame box for a cut-out, or null when it is not on this stage. */
-export function toStage(cutout, layout) {
+export function toStage(cutout: PageBox, layout: Layout | null): Box | null {
   if (!layout) return null
   const key = cutout.pages.join(',')
   if (key === layout.pages.join(',')) {
@@ -70,7 +118,7 @@ export function toStage(cutout, layout) {
  * Map a stage-frame box back to page coordinates: `{ pages, x, y, w, h }`.
  * A box that sits wholly on one page of a spread is stored against that page.
  */
-export function fromStage(box, layout) {
+export function fromStage(box: Box, layout: Layout): PageBox {
   const b = clampBox(box)
   if (layout.parts.length > 1) {
     const x0 = b.x * layout.width
@@ -97,7 +145,7 @@ export function fromStage(box, layout) {
  * non-square frame). `aspect` is the stage's width / height. The box keeps the
  * corner given by `anchor` ('nw' | 'ne' | 'sw' | 'se') fixed.
  */
-export function squareUp(box, aspect, anchor = 'nw') {
+export function squareUp(box: Box, aspect: number, anchor: Handle = 'nw'): Box {
   // Side length in "height units": w * aspect is the width in the same units.
   const side = Math.max(box.w * aspect, box.h)
   let w = side / aspect
@@ -115,7 +163,11 @@ export function squareUp(box, aspect, anchor = 'nw') {
 }
 
 /** The box spanned by a drag from `a` to `b` (both {x, y} stage fractions). */
-export function boxFromDrag(a, b, { square = false, aspect = 1 } = {}) {
+export function boxFromDrag(
+  a: Point,
+  b: Point,
+  { square = false, aspect = 1 }: SquareOptions = {}
+): Box {
   const x0 = clamp01(Math.min(a.x, b.x))
   const y0 = clamp01(Math.min(a.y, b.y))
   const x1 = clamp01(Math.max(a.x, b.x))
@@ -135,18 +187,24 @@ export function boxFromDrag(a, b, { square = false, aspect = 1 } = {}) {
 }
 
 /** Move a box by (dx, dy), stopping at the stage edges. */
-export function moveBox(box, dx, dy) {
+export function moveBox<B extends Box>(box: B, dx: number, dy: number): B {
   return clampBox({ ...box, x: box.x + dx, y: box.y + dy })
 }
 
 /** The corner opposite a handle, which stays put while that handle is dragged. */
-const OPPOSITE = { n: 's', s: 'n', e: 'w', w: 'e' }
+const OPPOSITE: Record<string, string> = { n: 's', s: 'n', e: 'w', w: 'e' }
 
 /**
  * Resize `box` by dragging `handle` ('n', 'se', ...) by (dx, dy). With `square`,
  * the result stays square on the page, anchored at the opposite corner.
  */
-export function resizeBox(box, handle, dx, dy, { square = false, aspect = 1 } = {}) {
+export function resizeBox(
+  box: Box,
+  handle: Handle,
+  dx: number,
+  dy: number,
+  { square = false, aspect = 1 }: SquareOptions = {}
+): Box {
   let x0 = box.x
   let y0 = box.y
   let x1 = box.x + box.w
@@ -165,7 +223,7 @@ export function resizeBox(box, handle, dx, dy, { square = false, aspect = 1 } = 
 }
 
 /** Whether a box is too small to have been meant (a click, not a drag). */
-export function isTiny(box) {
+export function isTiny(box: Pick<Box, 'w' | 'h'>): boolean {
   return box.w < MIN_SIZE || box.h < MIN_SIZE
 }
 
@@ -173,7 +231,11 @@ export function isTiny(box) {
  * Pixel size a cut-out renders to at `dpi`, from the point sizes of its pages.
  * Null until the sizes are known.
  */
-export function pixelSize(cutout, sizes, dpi) {
+export function pixelSize(
+  cutout: Pick<PageBox, 'pages' | 'w' | 'h'>,
+  sizes: PageSizes,
+  dpi: number
+): { width: number; height: number } | null {
   const layout = layoutFor(cutout.pages, sizes)
   if (!layout) return null
   const k = dpi / 72
@@ -184,7 +246,7 @@ export function pixelSize(cutout, sizes, dpi) {
 }
 
 /** Intersection over union of two boxes in the same frame (0 = apart, 1 = same). */
-export function overlap(a, b) {
+export function overlap(a: Box, b: Box): number {
   const ix = Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x))
   const iy = Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y))
   const inter = ix * iy

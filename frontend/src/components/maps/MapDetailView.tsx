@@ -6,6 +6,7 @@ import useImageGestures from '../../hooks/useImageGestures'
 import useImagePrefetch from '../../hooks/useImagePrefetch'
 import useSiblingNavigation from '../../hooks/useSiblingNavigation'
 import api, { mediaUrl } from '../../api'
+import type { Schema } from '../../api'
 import Spinner from '../Spinner'
 import { formatSize } from '../../utils'
 import InlineTagEditor from './InlineTagEditor'
@@ -28,8 +29,12 @@ import MetaRow from '../MetaRow'
 import TagSection from '../TagSection'
 import useIsMobile from '../../hooks/useIsMobile'
 
+type MapDetail = Schema<'MapDetailResponse'>
+type VttData = Schema<'VttDataResponse'>
+
 export default function MapDetailView() {
-  const { mapId } = useParams()
+  // The route always carries the id.
+  const { mapId } = useParams() as { mapId: string }
   const navigate = useNavigate()
   const location = useLocation()
   // Return to wherever the map was opened from (a campaign resource row passes
@@ -41,15 +46,15 @@ export default function MapDetailView() {
   const goBack = () => navigate(backPathRef.current || '/maps', { state: { restoreView: true } })
   const { t } = useTranslation()
   const isMobilePhone = useIsMobile(640)
-  const [map, setMap] = useState(null)
+  const [map, setMap] = useState<MapDetail | null>(null)
   const [editingMapTags, setEditingMapTags] = useState(false)
   const [editingFolderTags, setEditingFolderTags] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
   const [editingGrid, setEditingGrid] = useState(false)
-  const [vttData, setVttData] = useState(null)
-  const imagePane = useRef(null)
+  const [vttData, setVttData] = useState<VttData | null>(null)
+  const imagePane = useRef<HTMLDivElement>(null)
 
-  const mapDetailPath = useCallback((id) => `/maps/${id}`, [])
+  const mapDetailPath = useCallback((id: string) => `/maps/${id}`, [])
   const {
     siblings,
     index: siblingIdx,
@@ -57,7 +62,7 @@ export default function MapDetailView() {
     hasNext,
     onPrev,
     onNext,
-  } = useSiblingNavigation({
+  } = useSiblingNavigation<Schema<'MapOut'>>({
     item: map,
     id: mapId,
     listUrl: '/maps',
@@ -78,7 +83,7 @@ export default function MapDetailView() {
   // the downscaled preview, not the original — pulling neighbouring 50MB files
   // in the background competed for bandwidth with the map being viewed, which
   // made the thing the user actually asked for slower.
-  const mapPreviewUrl = useCallback((m) => {
+  const mapPreviewUrl = useCallback((m: Schema<'MapOut'>) => {
     if (m.is_archive) return null
     const ext = (m.filename || '').toLowerCase()
     // Videos stream on demand and VTT images come from their own endpoint;
@@ -90,7 +95,7 @@ export default function MapDetailView() {
 
   useEffect(() => {
     setVttData(null)
-    api.get(`/maps/${mapId}`).then(setMap)
+    api.get(`/maps/${mapId}`).then((m) => setMap(m as MapDetail))
   }, [mapId])
 
   if (!map)
@@ -112,19 +117,19 @@ export default function MapDetailView() {
   const isVideo = map.media_kind === 'video'
   const isVtt = map.media_kind === 'vtt'
 
-  const saveMapTags = async (tags) => {
+  const saveMapTags = async (tags: string[]) => {
     await api.patch(`/maps/${mapId}`, { tags })
     setMap({ ...map, tags })
     setEditingMapTags(false)
   }
 
-  const saveFolderTags = async (tags) => {
+  const saveFolderTags = async (tags: string[]) => {
     await api.patch('/map-folders', { path: map.folder_path, tags })
     setMap({ ...map, folder_tags: tags })
     setEditingFolderTags(false)
   }
 
-  const gridSourceLabel = {
+  const gridSourceLabel: Record<string, string> = {
     filename: t('maps.detail.gridSourceFilename'),
     dpi: t('maps.detail.gridSourceDpi'),
     computed: t('maps.detail.gridSourceComputed'),
@@ -135,7 +140,7 @@ export default function MapDetailView() {
   // payload's `grid` is derived server-side from the override, so the response
   // is the only place the resolved grid actually exists.
   const reloadMap = async () => {
-    setMap(await api.get(`/maps/${mapId}`))
+    setMap((await api.get(`/maps/${mapId}`)) as MapDetail)
     setEditingGrid(false)
   }
 
@@ -229,7 +234,12 @@ export default function MapDetailView() {
             />
           </button>
         )}
-        <VariantPicker item={map} detailPath={(id) => `/maps/${id}`} resourceType="map" compact />
+        <VariantPicker
+          item={map}
+          detailPath={(id: string) => `/maps/${id}`}
+          resourceType="map"
+          compact
+        />
         {/* The VTT editor authors walls, doors and lights (issues #126/#127).
             A .uvtt opens on the geometry it already carries; a map paired with
             one offers the choice, since only the user knows which they mean.
@@ -270,7 +280,7 @@ export default function MapDetailView() {
                     label: t('maps.otfbm.menuLabel'),
                     icon: <LuGrid3X3 size={15} aria-hidden="true" />,
                     requiresShare: true,
-                    render: (onClose) => (
+                    render: (onClose: () => void) => (
                       <OtfbmExportModal mapId={mapId} filename={map.filename} onClose={onClose} />
                     ),
                   },
@@ -364,7 +374,7 @@ export default function MapDetailView() {
           <h3 style={{ fontSize: 15, marginBottom: 20 }}>{t('maps.detail.title')}</h3>
 
           {folder && <MetaRow label={t('maps.detail.location')} value={folder} />}
-          <MetaRow label={t('maps.detail.fileSize')} value={formatSize(map.file_size)} />
+          <MetaRow label={t('maps.detail.fileSize')} value={formatSize(map.file_size as number)} />
           {map.pixel_width != null && (
             <MetaRow
               label={t('maps.detail.resolution')}
@@ -409,7 +419,7 @@ export default function MapDetailView() {
               )}
               <MetaRow
                 label={t('maps.detail.vttWalls')}
-                value={String(vttData.wall_count + vttData.object_wall_count)}
+                value={String(vttData.wall_count! + vttData.object_wall_count!)}
               />
               <MetaRow label={t('maps.detail.vttPortals')} value={String(vttData.portal_count)} />
               <MetaRow label={t('maps.detail.vttLights')} value={String(vttData.light_count)} />

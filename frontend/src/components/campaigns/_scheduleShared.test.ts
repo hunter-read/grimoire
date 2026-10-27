@@ -43,6 +43,6 @@ describe('formatDate', () => {
     expect(result).toHaveProperty('weekday')
     expect(typeof result.short).toBe('string')
     expect(typeof result.weekday).toBe('string')
-    expect(result.short.length).toBeGreaterThan(0)
+    expect(result.short!.length).toBeGreaterThan(0)
   })
 })

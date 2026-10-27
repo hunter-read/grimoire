@@ -4,11 +4,11 @@ import MapVideoPane from './MapVideoPane'
 
 vi.mock('../../api', () => ({
   default: { get: vi.fn() },
-  mediaUrl: (p) => `http://localhost${p}`,
+  mediaUrl: (p: string) => `http://localhost${p}`,
 }))
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }))
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }))
 
-const video = () => document.querySelector('video')
+const video = () => document.querySelector('video')!
 
 describe('MapVideoPane', () => {
   it('streams the original file and loops muted for a battlemap', () => {

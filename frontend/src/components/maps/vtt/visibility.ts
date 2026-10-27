@@ -22,6 +22,27 @@
  */
 
 import { distanceToSegment } from './geometry'
+import type { Point, VttDoc, VttLight } from './types'
+
+/** One straight piece of a wall. */
+export interface Segment {
+  a: Point
+  b: Point
+}
+
+/** A region the preview reveals: night vision, the token's torch, or a placed light. */
+export type LitRegion =
+  | { kind: 'night'; polygon: Point[] }
+  | { kind: 'token-light'; polygon: Point[] }
+  | { kind: 'light'; light: VttLight; polygon: Point[] }
+
+/**
+ * A light as these functions read it: only position and range matter, and an
+ * entry without a position is skipped.
+ */
+type MaybeLight = { position?: Point | null; range?: number }
+
+type LightList<L> = readonly (L | null | undefined)[] | null | undefined
 
 // How far either side of a corner the extra rays are aimed. Small enough that
 // the ray still passes the corner it is meant to clear, large enough to survive
@@ -41,9 +62,9 @@ const UNBOUNDED = 10000
  * thing a GM is checking. Object walls block sight too; importers treat them
  * differently for movement, but they are line-of-sight blockers by name.
  */
-export function collectSegments(doc) {
-  const segments = []
-  const pushLine = (points) => {
+export function collectSegments(doc: Partial<VttDoc> | null | undefined): Segment[] {
+  const segments: Segment[] = []
+  const pushLine = (points: Point[]) => {
     for (let i = 0; i < points.length - 1; i++) {
       segments.push({ a: points[i], b: points[i + 1] })
     }
@@ -67,7 +88,7 @@ export function collectSegments(doc) {
  * parametrically rather than by stepping: an exact intersection keeps corners
  * crisp, where marching would round them off at whatever step size was chosen.
  */
-export function rayHit(origin, dx, dy, seg) {
+export function rayHit(origin: Point, dx: number, dy: number, seg: Segment): number | null {
   const sx = seg.b.x - seg.a.x
   const sy = seg.b.y - seg.a.y
   const denom = dx * sy - dy * sx
@@ -93,7 +114,7 @@ export function rayHit(origin, dx, dy, seg) {
  * nothing: with no walls, everything in reach is visible, and returning an
  * empty polygon would render that as total darkness.
  */
-export function computeVisibility(origin, segments, maxRange = 0) {
+export function computeVisibility(origin: Point, segments: Segment[], maxRange = 0): Point[] {
   const reach = maxRange > 0 ? maxRange : UNBOUNDED
 
   // Only walls that can possibly be hit within `reach` matter. A bounded
@@ -119,7 +140,7 @@ export function computeVisibility(origin, segments, maxRange = 0) {
   // Aim at every endpoint, plus a hair either side so a ray can round the
   // corner and light what is behind it. Without the nudged pair, the polygon
   // stops dead at each corner and produces visible notches.
-  const angles = []
+  const angles: number[] = []
   for (const seg of near) {
     for (const p of [seg.a, seg.b]) {
       const base = Math.atan2(p.y - origin.y, p.x - origin.x)
@@ -136,7 +157,7 @@ export function computeVisibility(origin, segments, maxRange = 0) {
   const RING = 64
   for (let i = 0; i < RING; i++) angles.push((i / RING) * Math.PI * 2 - Math.PI)
 
-  const points = []
+  const points: (Point & { angle: number })[] = []
   for (const angle of angles) {
     const dx = Math.cos(angle)
     const dy = Math.sin(angle)
@@ -160,7 +181,7 @@ export function computeVisibility(origin, segments, maxRange = 0) {
  * same question answered — "is there a wall between these two points?" — and
  * the polygon machinery above is far more than either needs.
  */
-export function hasLineOfSight(from, to, segments) {
+export function hasLineOfSight(from: Point, to: Point, segments: Segment[]): boolean {
   const dx = to.x - from.x
   const dy = to.y - from.y
   const dist = Math.hypot(dx, dy)
@@ -196,15 +217,19 @@ export function hasLineOfSight(from, to, segments) {
  * format uses 0 for an unbounded light, and rendering that as "lights nothing"
  * would silently drop it.
  */
-export function reachingLights(origin, lights, segments) {
+export function reachingLights<L extends MaybeLight>(
+  origin: Point,
+  lights: LightList<L>,
+  segments: Segment[]
+): L[] {
   return (lights || []).filter((light) => {
     if (!light?.position) return false
     const dist = Math.hypot(light.position.x - origin.x, light.position.y - origin.y)
     // Standing inside the light is always lit.
     if (dist < 1e-9) return true
-    if (light.range > 0 && dist > light.range) return false
+    if (light.range! > 0 && dist > light.range!) return false
     return hasLineOfSight(origin, light.position, segments)
-  })
+  }) as L[]
 }
 
 /**
@@ -215,14 +240,26 @@ export function reachingLights(origin, lights, segments) {
  * token sees where there is light and nowhere else, so somewhere unlit is
  * hidden from it even with a clear line of sight.
  */
-export function isLit({ origin, lights, segments, tokenLight = 0, ambient = 0 }) {
+export function isLit({
+  origin,
+  lights,
+  segments,
+  tokenLight = 0,
+  ambient = 0,
+}: {
+  origin: Point
+  lights: LightList<MaybeLight>
+  segments: Segment[]
+  tokenLight?: number
+  ambient?: number
+}): boolean {
   if (ambient > 0.02) return true
   if (tokenLight > 0) return true
   return reachingLights(origin, lights, segments).length > 0
 }
 
 /** An SVG path `d` for a polygon, in whatever space the points are already in. */
-export function polygonPath(points) {
+export function polygonPath(points: Point[] | null | undefined): string {
   if (!points || points.length === 0) return ''
   return `${points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x} ${p.y}`).join(' ')} Z`
 }
@@ -258,8 +295,15 @@ export function litRegions({
   nightVision = 0,
   tokenLight = 0,
   hasVision = true,
-}) {
-  const regions = []
+}: {
+  token: Point | null | undefined
+  lights: LightList<MaybeLight>
+  segments: Segment[]
+  nightVision?: number
+  tokenLight?: number
+  hasVision?: boolean
+}): LitRegion[] {
+  const regions: LitRegion[] = []
   if (!token || !hasVision) return regions
 
   // Darkvision: sees regardless of light, bounded by its distance and by walls.
@@ -291,7 +335,8 @@ export function litRegions({
     if (!light?.position) continue
     regions.push({
       kind: 'light',
-      light,
+      // Lights in an editor document carry every field; only these two are read here.
+      light: light as VttLight,
       polygon: computeVisibility(light.position, segments, light.range),
     })
   }

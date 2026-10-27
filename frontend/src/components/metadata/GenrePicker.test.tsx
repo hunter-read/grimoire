@@ -6,7 +6,7 @@ import GenrePicker from './GenrePicker'
 import api from '../../api'
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k, o) => (o ? `${k}:${o.name}` : k) }),
+  useTranslation: () => ({ t: (k: string, o?: { name?: string }) => (o ? `${k}:${o.name}` : k) }),
 }))
 vi.mock('../../api', () => ({ default: { post: vi.fn(() => Promise.resolve({ id: 'new' })) } }))
 
@@ -15,7 +15,13 @@ const tree = [
   { id: 'cyber', name: 'Cyberpunk', parent_id: 'sci', sort_order: 1 },
 ]
 
-function Harness({ initial = [], inheritGenres = null }) {
+function Harness({
+  initial = [],
+  inheritGenres = null,
+}: {
+  initial?: string[]
+  inheritGenres?: string[] | null
+}) {
   const [selected, setSelected] = useState(initial)
   return (
     <GenrePicker

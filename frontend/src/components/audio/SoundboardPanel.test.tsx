@@ -2,12 +2,16 @@ import { render, screen, fireEvent, within, waitFor } from '@testing-library/rea
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import SoundboardPanel from './SoundboardPanel'
-import { SoundboardProvider, useSoundboard } from '../../context/SoundboardContext'
+import {
+  SoundboardProvider,
+  useSoundboard,
+  type SoundboardTrack,
+} from '../../context/SoundboardContext'
 import api from '../../api'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key, opts) => (opts?.name ? `${key}:${opts.name}` : key),
+    t: (key: string, opts?: { name?: string }) => (opts?.name ? `${key}:${opts.name}` : key),
   }),
 }))
 
@@ -20,11 +24,17 @@ vi.mock('../../api', () => ({
     patch: vi.fn(),
     delete: vi.fn(),
   },
-  mediaUrl: (path) => `http://test${path}`,
+  mediaUrl: (path: string) => `http://test${path}`,
 }))
 
 class FakeAudio {
-  constructor(src) {
+  src: string
+  loop: boolean
+  volume: number
+  currentTime: number
+  paused: boolean
+  playCount: number
+  constructor(src: string) {
     this.src = src
     this.loop = false
     this.volume = 1
@@ -42,11 +52,11 @@ class FakeAudio {
   pause() {
     this.paused = true
   }
-  static instances = []
+  static instances: FakeAudio[] = []
 }
 
-let board
-function Harness({ seed = [] }) {
+let board: ReturnType<typeof useSoundboard>
+function Harness({ seed = [] }: { seed?: SoundboardTrack[] }) {
   board = useSoundboard()
   return (
     <>
@@ -56,7 +66,7 @@ function Harness({ seed = [] }) {
   )
 }
 
-const setup = async (seed = []) => {
+const setup = async (seed: SoundboardTrack[] = []) => {
   const user = userEvent.setup()
   render(
     <SoundboardProvider>
@@ -71,7 +81,7 @@ describe('SoundboardPanel', () => {
   beforeEach(() => {
     localStorage.clear()
     FakeAudio.instances = []
-    global.Audio = FakeAudio
+    globalThis.Audio = FakeAudio as unknown as typeof Audio
   })
 
   it('shows an empty state with no pads', async () => {
@@ -106,7 +116,7 @@ describe('SoundboardPanel', () => {
     fireEvent.change(inputs[0], { target: { value: '5' } })
     fireEvent.change(inputs[1], { target: { value: '5' } })
 
-    const grid = screen.getByRole('button', { name: 'Thunder' }).closest('div').parentElement
+    const grid = screen.getByRole('button', { name: 'Thunder' }).closest('div')!.parentElement
     expect(grid).toHaveStyle({ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' })
   })
 
@@ -153,7 +163,7 @@ describe('SoundboardPanel', () => {
     ])
     await user.click(screen.getByRole('button', { name: 'soundboard.edit' }))
 
-    const wrapperOf = (name) => screen.getByRole('button', { name }).parentElement
+    const wrapperOf = (name: string) => screen.getByRole('button', { name }).parentElement!
     fireEvent.dragStart(wrapperOf('A'))
     fireEvent.dragOver(wrapperOf('C'))
     fireEvent.drop(wrapperOf('C'))
@@ -332,8 +342,8 @@ describe('SoundboardPanel', () => {
     fireEvent.pointerMove(handle, { clientX: -900, clientY: -900, pointerId: 1 })
     fireEvent.pointerUp(handle, { pointerId: 1 })
 
-    expect(board.position.left).toBeGreaterThanOrEqual(16)
-    expect(board.position.top).toBeGreaterThanOrEqual(16)
+    expect(board.position!.left).toBeGreaterThanOrEqual(16)
+    expect(board.position!.top).toBeGreaterThanOrEqual(16)
   })
 
   it('marks a playing pad as pressed', async () => {

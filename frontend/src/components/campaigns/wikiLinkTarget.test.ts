@@ -113,15 +113,15 @@ describe('resolvePage', () => {
   ]
 
   it('resolves an unpinned link by slug', () => {
-    expect(resolvePage(parseTarget('Ancient Ruins'), pages).id).toBe('p1')
+    expect(resolvePage(parseTarget('Ancient Ruins'), pages)!.id).toBe('p1')
   })
 
   it('resolves a pinned link by id, reaching the -2 page', () => {
-    expect(resolvePage(parseTarget('Ancient Ruins:id-p2'), pages).id).toBe('p2')
+    expect(resolvePage(parseTarget('Ancient Ruins:id-p2'), pages)!.id).toBe('p2')
   })
 
   it('follows the id even when the title has gone stale', () => {
-    expect(resolvePage(parseTarget('Whatever Old Name:id-p1'), pages).id).toBe('p1')
+    expect(resolvePage(parseTarget('Whatever Old Name:id-p1'), pages)!.id).toBe('p1')
   })
 
   it('returns null for a stale pin rather than falling back to the title', () => {
@@ -136,7 +136,7 @@ describe('findHeading', () => {
       { text: 'Loot', level: 2 },
       { text: 'Loot', level: 1 },
     ]
-    expect(findHeading(headings, 'Loot').level).toBe(1)
+    expect(findHeading(headings, 'Loot')!.level).toBe(1)
   })
 
   it('takes the first of equal level', () => {
@@ -159,14 +159,14 @@ describe('findHeading', () => {
 
 describe('TitleTrie', () => {
   it('matches on a leading prefix', () => {
-    const trie = new TitleTrie()
+    const trie = new TitleTrie<{ key: string; label: string }>()
     trie.insert('Boblin the Goblin', { key: 'a', label: 'Boblin the Goblin' })
     trie.insert('Castle Ruins', { key: 'b', label: 'Castle Ruins' })
     expect(trie.search('bob').map((e) => e.key)).toEqual(['a'])
   })
 
   it('matches on any word start, not just the first', () => {
-    const trie = new TitleTrie()
+    const trie = new TitleTrie<{ key: string; label: string }>()
     trie.insert('Boblin the Goblin', { key: 'a', label: 'Boblin the Goblin' })
     trie.insert('Goblin Camp', { key: 'b', label: 'Goblin Camp' })
     expect(
@@ -178,33 +178,33 @@ describe('TitleTrie', () => {
   })
 
   it('is case-insensitive', () => {
-    const trie = new TitleTrie()
+    const trie = new TitleTrie<{ key: string; label: string }>()
     trie.insert('Boblin', { key: 'a', label: 'Boblin' })
     expect(trie.search('BOB').map((e) => e.key)).toEqual(['a'])
   })
 
   it('returns everything for an empty query', () => {
-    const trie = new TitleTrie()
+    const trie = new TitleTrie<{ key: string; label: string }>()
     trie.insert('One', { key: 'a', label: 'One' })
     trie.insert('Two', { key: 'b', label: 'Two' })
     expect(trie.search('').length).toBe(2)
   })
 
   it('returns nothing for a prefix that matches no entry', () => {
-    const trie = new TitleTrie()
+    const trie = new TitleTrie<{ key: string; label: string }>()
     trie.insert('Boblin', { key: 'a', label: 'Boblin' })
     expect(trie.search('zzz')).toEqual([])
   })
 
   it('de-duplicates an entry indexed under several word starts', () => {
-    const trie = new TitleTrie()
+    const trie = new TitleTrie<{ key: string; label: string }>()
     // "goblin" appears twice, so the entry is indexed twice under "gob".
     trie.insert('Goblin the Goblin', { key: 'a', label: 'Goblin the Goblin' })
     expect(trie.search('gob').length).toBe(1)
   })
 
   it('honours the result limit', () => {
-    const trie = new TitleTrie()
+    const trie = new TitleTrie<{ key: string; label: string }>()
     for (let i = 0; i < 20; i++) trie.insert(`Page ${i}`, { key: `k${i}`, label: `Page ${i}` })
     expect(trie.search('page', 5).length).toBe(5)
   })
@@ -232,21 +232,21 @@ describe('buildTitleTrie', () => {
   it('emits a bare title for an unambiguous page', () => {
     const trie = buildTitleTrie(pages)
     const match = trie.search('bestiary').find((m) => m.key === 'page:p1')
-    expect(match.target).toBe('Bestiary')
+    expect(match!.target).toBe('Bestiary')
   })
 
   it('appends :id- only when the title is ambiguous', () => {
     const trie = buildTitleTrie(pages)
     const matches = trie.search('ancient')
-    expect(matches.find((m) => m.key === 'page:p2').target).toBe('Ancient Ruins:id-p2')
-    expect(matches.find((m) => m.key === 'page:p3').target).toBe('ancient ruins:id-p3')
+    expect(matches.find((m) => m.key === 'page:p2')!.target).toBe('Ancient Ruins:id-p2')
+    expect(matches.find((m) => m.key === 'page:p3')!.target).toBe('ancient ruins:id-p3')
   })
 
   it('offers a heading completion that inserts :#Heading', () => {
     const trie = buildTitleTrie(pages)
     const heading = trie.search('goblins').find((m) => m.detail === 'H1')
-    expect(heading.target).toBe('Bestiary:#Goblins')
-    expect(heading.label).toBe('Bestiary › Goblins')
+    expect(heading!.target).toBe('Bestiary:#Goblins')
+    expect(heading!.label).toBe('Bestiary › Goblins')
   })
 
   it('carries the id into a heading target when the page is ambiguous', () => {
@@ -259,8 +259,8 @@ describe('buildTitleTrie', () => {
   it('qualifies an ambiguous title with its immediate parent', () => {
     const trie = buildTitleTrie(pages)
     const matches = trie.search('ancient')
-    expect(matches.find((m) => m.key === 'page:p2').label).toBe('Ancient Ruins (Northlands)')
-    expect(matches.find((m) => m.key === 'page:p3').label).toBe('ancient ruins (Southmarch)')
+    expect(matches.find((m) => m.key === 'page:p2')!.label).toBe('Ancient Ruins (Northlands)')
+    expect(matches.find((m) => m.key === 'page:p3')!.label).toBe('ancient ruins (Southmarch)')
   })
 
   it('leaves an unambiguous title unqualified even when it has a parent', () => {

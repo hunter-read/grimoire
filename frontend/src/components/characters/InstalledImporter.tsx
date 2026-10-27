@@ -1,19 +1,35 @@
 import { useId, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuArrowUp, LuChevronDown, LuChevronRight, LuPuzzle, LuTrash2 } from 'react-icons/lu'
 import { ghostBtn, helpText } from './characterStyles'
 import { safeLink } from './importerLinks'
+import type { Schema } from '../../api'
 
 const meta = { fontSize: 12, color: 'var(--text-muted)' }
 const small = { ...ghostBtn, padding: '4px 10px', fontSize: 12 }
-const link = { color: 'var(--gold)', wordBreak: 'break-all' }
+const link: CSSProperties = { color: 'var(--gold)', wordBreak: 'break-all' }
 
 /**
  * One installed importer in the import dialog: its name and what it reads on
  * one line, with the rest - what it is, who made the source, an example of
  * the links it takes, its website - a click away.
  */
-export default function InstalledImporter({ importer, downloads, working, onUpdate, onRemove }) {
+export interface InstalledImporterProps {
+  importer: Schema<'ImporterSummary'>
+  downloads: boolean
+  working: boolean
+  onUpdate: () => void
+  onRemove: () => void
+}
+
+export default function InstalledImporter({
+  importer,
+  downloads,
+  working,
+  onUpdate,
+  onRemove,
+}: InstalledImporterProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const detailsId = useId()
@@ -21,7 +37,7 @@ export default function InstalledImporter({ importer, downloads, working, onUpda
   const website = safeLink(importer.homepage)
 
   const summary = [
-    importer.extensions.join(' '),
+    importer.extensions!.join(' '),
     importer.accepts_url ? t('characters.importerTakesLinks') : '',
     importer.sheet_installed
       ? t('characters.importerSheet', { sheet: importer.sheet_name })

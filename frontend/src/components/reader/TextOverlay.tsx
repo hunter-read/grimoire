@@ -10,7 +10,17 @@
 //   highlightQuery — search terms to highlight in gold
 //   highlightText  — bookmark text to highlight in teal
 
-function parseTerms(str) {
+import type { Schema } from '../../api'
+
+interface Props {
+  words: Schema<'PageWord'>[]
+  naturalWidth: number
+  naturalHeight: number
+  highlightQuery?: string | null
+  highlightText?: string | null
+}
+
+function parseTerms(str: string | null | undefined): string[] {
   if (!str) return []
   return str
     .replace(/["*]/g, '')
@@ -24,7 +34,7 @@ export default function TextOverlay({
   naturalHeight,
   highlightQuery,
   highlightText,
-}) {
+}: Props) {
   if (!words.length || !naturalWidth) return null
 
   const searchTerms = parseTerms(highlightQuery)

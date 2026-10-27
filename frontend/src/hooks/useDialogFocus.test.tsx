@@ -4,9 +4,15 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import useDialogFocus from './useDialogFocus'
 
-function Dialog({ onClose, withInitial = false, empty = false }) {
-  const ref = useRef(null)
-  const initial = useRef(null)
+interface DialogProps {
+  onClose?: () => void
+  withInitial?: boolean
+  empty?: boolean
+}
+
+function Dialog({ onClose, withInitial = false, empty = false }: DialogProps) {
+  const ref = useRef<HTMLDivElement>(null)
+  const initial = useRef<HTMLInputElement>(null)
   useDialogFocus(ref, { onClose, initialFocusRef: withInitial ? initial : undefined })
   return (
     <div ref={ref} role="dialog" aria-label="Test" tabIndex={-1}>
@@ -21,7 +27,7 @@ function Dialog({ onClose, withInitial = false, empty = false }) {
   )
 }
 
-function Host({ onClose, ...props }) {
+function Host({ onClose, ...props }: DialogProps) {
   const [open, setOpen] = useState(false)
   return (
     <>

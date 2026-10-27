@@ -27,7 +27,7 @@ describe('MenuSubmenu', () => {
       toJSON: () => {},
     })
     renderSub()
-    fireEvent.mouseEnter(screen.getByTestId('sub').parentElement)
+    fireEvent.mouseEnter(screen.getByTestId('sub').parentElement!)
     // -4 default, minus the 108px overhang.
     expect(screen.getByTestId('sub-panel')).toHaveStyle({ top: '-112px' })
     vi.restoreAllMocks()
@@ -47,7 +47,7 @@ describe('MenuSubmenu', () => {
       toJSON: () => {},
     })
     renderSub()
-    fireEvent.mouseEnter(screen.getByTestId('sub').parentElement)
+    fireEvent.mouseEnter(screen.getByTestId('sub').parentElement!)
     expect(screen.getByTestId('sub-panel')).toHaveStyle({ right: '100%' })
     vi.restoreAllMocks()
   })
@@ -60,7 +60,7 @@ describe('MenuSubmenu', () => {
 
   it('opens on hover', () => {
     renderSub()
-    fireEvent.mouseEnter(screen.getByTestId('sub').parentElement)
+    fireEvent.mouseEnter(screen.getByTestId('sub').parentElement!)
     expect(screen.getByTestId('sub-panel')).toBeInTheDocument()
   })
 
@@ -83,7 +83,7 @@ describe('MenuSubmenu', () => {
   it('closes shortly after the pointer leaves', () => {
     vi.useFakeTimers()
     renderSub()
-    const row = screen.getByTestId('sub').parentElement
+    const row = screen.getByTestId('sub').parentElement!
 
     fireEvent.mouseEnter(row)
     expect(screen.getByTestId('sub-panel')).toBeInTheDocument()
@@ -100,7 +100,7 @@ describe('MenuSubmenu', () => {
   it('stays open while the pointer is inside the panel', () => {
     vi.useFakeTimers()
     renderSub()
-    const row = screen.getByTestId('sub').parentElement
+    const row = screen.getByTestId('sub').parentElement!
 
     fireEvent.mouseEnter(row)
     fireEvent.mouseLeave(row)

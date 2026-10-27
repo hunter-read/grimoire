@@ -1,16 +1,20 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
-import { createRef } from 'react'
+import {
+  createRef,
+  type MouseEvent as ReactMouseEvent,
+  type TouchEvent as ReactTouchEvent,
+} from 'react'
 import useReaderGestures from './useReaderGestures'
 import { MAX_ZOOM } from './useReaderZoom'
 
 /** Mount the hook against a real element so the native wheel listener binds. */
-function setup(overrides = {}) {
+function setup(overrides: { mode?: string; wheelAction?: string; zoom?: number } = {}) {
   const el = document.createElement('div')
   // jsdom gives zero-size rects; fake one so cursor-anchor maths has a centre.
-  el.getBoundingClientRect = () => ({ left: 0, top: 0, width: 800, height: 600 })
+  el.getBoundingClientRect = () => ({ left: 0, top: 0, width: 800, height: 600 }) as DOMRect
   document.body.appendChild(el)
-  const contentRef = createRef()
+  const contentRef = createRef<HTMLDivElement>()
   contentRef.current = el
 
   const zoomRef = { current: overrides.zoom ?? 1 }
@@ -31,7 +35,7 @@ function setup(overrides = {}) {
     ...overrides,
   }
   const view = renderHook(() => useReaderGestures(opts))
-  const wheel = (init = {}) => {
+  const wheel = (init: WheelEventInit = {}) => {
     const e = new WheelEvent('wheel', { deltaY: 100, cancelable: true, ...init })
     el.dispatchEvent(e)
     return e
@@ -120,7 +124,12 @@ describe('useReaderGestures — wheel', () => {
     afterEach(() => vi.useRealTimers())
 
     /** Fire `count` wheel events `every` ms apart, like a trackpad's momentum tail. */
-    const stream = (wheel, count, every, init = {}) => {
+    const stream = (
+      wheel: (init?: WheelEventInit) => WheelEvent,
+      count: number,
+      every: number,
+      init: WheelEventInit = {}
+    ) => {
       for (let i = 0; i < count; i++) {
         wheel({ deltaY: Math.max(1, 60 - i), ...init })
         vi.advanceTimersByTime(every)
@@ -208,14 +217,15 @@ describe('useReaderGestures — wheel', () => {
 })
 
 describe('useReaderGestures — mouse pan', () => {
-  const mouseDown = (extra = {}) => ({
-    button: 0,
-    clientX: 100,
-    clientY: 100,
-    preventDefault: vi.fn(),
-    target: { closest: () => null },
-    ...extra,
-  })
+  const mouseDown = (extra: object = {}) =>
+    ({
+      button: 0,
+      clientX: 100,
+      clientY: 100,
+      preventDefault: vi.fn(),
+      target: { closest: () => null },
+      ...extra,
+    }) as unknown as ReactMouseEvent
 
   it('pans while dragging a zoomed page', () => {
     const { result, opts } = setup({ zoom: 2 })
@@ -249,12 +259,15 @@ describe('useReaderGestures — mouse pan', () => {
 })
 
 describe('useReaderGestures — touch', () => {
-  const touch = (x, y) => ({ clientX: x, clientY: y })
-  const touchEvent = (touches, changed = touches) => ({
-    touches,
-    changedTouches: changed,
-    preventDefault: vi.fn(),
-  })
+  type Touchish = { clientX: number; clientY: number }
+  const touch = (x: number, y: number): Touchish => ({ clientX: x, clientY: y })
+  // The handlers only read these members, so a plain object stands in for the event.
+  const touchEvent = (touches: Touchish[], changed: Touchish[] = touches) =>
+    ({
+      touches,
+      changedTouches: changed,
+      preventDefault: vi.fn(),
+    }) as unknown as ReactTouchEvent
 
   it('pinches to zoom, clamped to the supported range', () => {
     const { result, opts } = setup()

@@ -2,8 +2,17 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuTrash2, LuPlus } from 'react-icons/lu'
 import api from '../../api'
+import type { Schema } from '../../api'
 import Spinner from '../Spinner'
 import { buildGenreTree } from '../metadata/metadataUtils'
+
+type Genre = Schema<'GenreOut'>
+
+interface ConfirmState {
+  id: string
+  name: string
+  count: number
+}
 
 /**
  * Admin panel to manage the genre lookup list: add tiered genres and remove
@@ -12,10 +21,10 @@ import { buildGenreTree } from '../metadata/metadataUtils'
  */
 export default function GenreManagerSection() {
   const { t } = useTranslation()
-  const [genres, setGenres] = useState(null)
+  const [genres, setGenres] = useState<Genre[] | null>(null)
   const [name, setName] = useState('')
   const [parentId, setParentId] = useState('')
-  const [confirm, setConfirm] = useState(null) // { id, name, count }
+  const [confirm, setConfirm] = useState<ConfirmState | null>(null)
   const [error, setError] = useState('')
 
   const load = () => {
@@ -40,7 +49,7 @@ export default function GenreManagerSection() {
       .catch((e) => setError(e?.message || t('lookupSettings.addFailed')))
   }
 
-  const remove = (g, force = false) => {
+  const remove = (g: Pick<Genre, 'id' | 'name'>, force = false) => {
     api
       .delete(`/genres/${g.id}${force ? '?force=true' : ''}`)
       .then(() => {
@@ -132,7 +141,7 @@ export default function GenreManagerSection() {
             </span>
             <button
               type="button"
-              onClick={() => remove(genres.find((x) => x.id === g.id))}
+              onClick={() => remove(genres.find((x) => x.id === g.id)!)}
               aria-label={`${t('common.remove')} ${g.name}`}
               style={{
                 background: 'none',

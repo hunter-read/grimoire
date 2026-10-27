@@ -4,7 +4,7 @@ import useTagLabels, { titleCaseTag } from './useTagLabels'
 
 const mockList = vi.fn()
 vi.mock('../api', () => ({
-  tags: { list: (...a) => mockList(...a) },
+  tags: { list: (...a: unknown[]) => mockList(...a) },
 }))
 
 beforeEach(() => vi.clearAllMocks())

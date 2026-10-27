@@ -1,12 +1,14 @@
+import type { CSSProperties } from 'react'
+
 // Shared styles for the campaign member row, invite panel, and sheet dialogs.
 
-export const STATUS_COLORS = {
+export const STATUS_COLORS: Record<string, string> = {
   accepted: 'var(--success)',
   invited: 'var(--gold)',
   declined: 'var(--danger)',
 }
 
-export const sheetActionBtn = {
+export const sheetActionBtn: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 4,
@@ -20,7 +22,7 @@ export const sheetActionBtn = {
 
 // `color` defaults rather than being required: several call sites invoke this
 // bare, which used to yield `color: undefined` and a black-on-dark button.
-export const smallBtn = (color = 'var(--text-dim)') => ({
+export const smallBtn = (color = 'var(--text-dim)'): CSSProperties => ({
   background: 'var(--bg-deep)',
   border: `1px solid var(--border)`,
   borderRadius: 6,

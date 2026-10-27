@@ -1,43 +1,49 @@
 import { useState } from 'react'
+import type { ChangeEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCircleCheck } from 'react-icons/lu'
 import { getUserPrefs, saveUserPref, getFolderPlacement } from '../../hooks/useUserPrefs'
+import type { FolderPlacement } from '../../hooks/useUserPrefs'
 import { getDefaultViewMode, saveDefaultViewMode, CONTENT_TYPES } from '../../hooks/useViewMode'
+import type { ContentType, ViewMode } from '../../hooks/useViewMode'
 import { MODE_ICON } from '../ViewModeToggle'
 import { RECENT_DEFAULT, RECENT_MAX } from '../../hooks/useBookPrefs'
 import SegmentedControl from './SegmentedControl'
+import type { SegmentedOption } from './SegmentedControl'
 
 export default function LibrarySection() {
   const { t } = useTranslation()
   const prefs = getUserPrefs()
-  const [sort, setSort] = useState(prefs.librarySort || 'az')
-  const [folderPlacement, setFolderPlacement] = useState(() => getFolderPlacement(prefs))
-  const [viewModes, setViewModes] = useState(() =>
+  const [sort, setSort] = useState<string>(prefs.librarySort || 'az')
+  const [folderPlacement, setFolderPlacement] = useState<FolderPlacement>(() =>
+    getFolderPlacement(prefs)
+  )
+  const [viewModes, setViewModes] = useState<Record<string, ViewMode>>(() =>
     Object.fromEntries(CONTENT_TYPES.map((type) => [type, getDefaultViewMode(type)]))
   )
-  const [recentLimit, setRecentLimit] = useState(
+  const [recentLimit, setRecentLimit] = useState<number | ''>(
     typeof prefs.recentLimit === 'number' ? prefs.recentLimit : RECENT_DEFAULT
   )
   const [saved, setSaved] = useState(false)
 
-  const SORT_OPTIONS = [
+  const SORT_OPTIONS: SegmentedOption[] = [
     { value: 'az', label: 'A → Z' },
     { value: 'za', label: 'Z → A' },
   ]
 
-  const FOLDER_PLACEMENT_OPTIONS = [
+  const FOLDER_PLACEMENT_OPTIONS: SegmentedOption<FolderPlacement>[] = [
     { value: 'first', label: t('userSettings.library.folderPlacementFirst') },
     { value: 'mixed', label: t('userSettings.library.folderPlacementMixed') },
   ]
 
-  const VIEW_MODE_OPTIONS = [
+  const VIEW_MODE_OPTIONS: SegmentedOption<ViewMode>[] = [
     { value: 'card', label: t('library.viewMode.card'), icon: MODE_ICON.card },
     { value: 'compact', label: t('library.viewMode.compact'), icon: MODE_ICON.compact },
     { value: 'list', label: t('library.viewMode.list'), icon: MODE_ICON.list },
   ]
 
   // One default-view control per content type, in display order.
-  const VIEW_MODE_SECTIONS = [
+  const VIEW_MODE_SECTIONS: { type: ContentType; label: string }[] = [
     { type: 'system', label: t('userSettings.library.viewModeSystems') },
     { type: 'book', label: t('userSettings.library.viewModeBooks') },
     { type: 'map', label: t('userSettings.library.viewModeMaps') },
@@ -50,22 +56,22 @@ export default function LibrarySection() {
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
-  const handleSort = (v) => {
+  const handleSort = (v: string) => {
     setSort(v)
     saveUserPref('librarySort', v)
     flash()
   }
-  const handleFolderPlacement = (v) => {
+  const handleFolderPlacement = (v: FolderPlacement) => {
     setFolderPlacement(v)
     saveUserPref('folderPlacement', v)
     flash()
   }
-  const handleViewMode = (type, v) => {
+  const handleViewMode = (type: ContentType, v: ViewMode) => {
     setViewModes((prev) => ({ ...prev, [type]: v }))
     saveDefaultViewMode(type, v)
     flash()
   }
-  const handleRecentLimit = (e) => {
+  const handleRecentLimit = (e: ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value
     // Allow the field to be cleared transiently without snapping to a number.
     if (raw === '') {

@@ -1,11 +1,22 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuTrash2 } from 'react-icons/lu'
+import type { CSSProperties } from 'react'
 import api from '../../api'
-import { ACCESS_ADMIN, ACCESS_GM } from '../../accessLevels'
+import type { Schema } from '../../api'
 import Spinner from '../Spinner'
 import { ghostBtnStyle } from './settingsButtons'
 import GrantAdder from './GrantAdder'
+
+// The admin lookups carry the access level the picker filters on; the
+// schema's summary models do not list it.
+type GrantSystem = Schema<'SystemSummary'> & { access_level?: string | null }
+type GrantBook = Schema<'BookListItem'> & { effective_access_level?: string | null }
+
+interface Props {
+  userId: string
+  userRole?: string | null
+}
 
 // Per-user access grants (issue #258). Lets an admin hand one GM access to a
 // restricted system or book without lowering the restriction for anyone else.
@@ -14,11 +25,11 @@ import GrantAdder from './GrantAdder'
 // no-op) and players are exactly who the restrictions exclude, so the backend
 // rejects grants for both. Showing the panel with an explanation, rather than
 // hiding it, answers the obvious "why can't I grant this player access?".
-export default function UserAccessGrantsSection({ userId, userRole }) {
+export default function UserAccessGrantsSection({ userId, userRole }: Props) {
   const { t } = useTranslation()
-  const [grants, setGrants] = useState(null)
-  const [systems, setSystems] = useState([])
-  const [books, setBooks] = useState([])
+  const [grants, setGrants] = useState<Schema<'AccessGrantOut'>[] | null>(null)
+  const [systems, setSystems] = useState<GrantSystem[]>([])
+  const [books, setBooks] = useState<GrantBook[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -31,7 +42,7 @@ export default function UserAccessGrantsSection({ userId, userRole }) {
     }
     api
       .get(`/users/${userId}/access-grants`)
-      .then(setGrants)
+      .then((rows) => setGrants(rows as Schema<'AccessGrantOut'>[]))
       .catch(() => setGrants([]))
   }, [userId, isGm])
 
@@ -43,15 +54,17 @@ export default function UserAccessGrantsSection({ userId, userRole }) {
     // are the only ones worth granting.
     api
       .get('/systems')
-      .then((rows) => setSystems(rows.filter((s) => s.access_level)))
+      .then((rows) => setSystems((rows as GrantSystem[]).filter((s) => s.access_level)))
       .catch(() => setSystems([]))
     api
       .get('/books?limit=500')
-      .then((d) => setBooks((d.books || []).filter((b) => b.effective_access_level)))
+      .then((d) =>
+        setBooks(((d.books || []) as GrantBook[]).filter((b) => b.effective_access_level))
+      )
       .catch(() => setBooks([]))
   }, [isGm])
 
-  const addGrant = async (scopeType, scopeId, level) => {
+  const addGrant = async (scopeType: string, scopeId: string, level: string) => {
     if (!scopeId) return
     setBusy(true)
     setError('')
@@ -63,13 +76,13 @@ export default function UserAccessGrantsSection({ userId, userRole }) {
       })
       load()
     } catch (e) {
-      setError(e?.message || 'Could not add the grant.')
+      setError((e as Error | null)?.message || 'Could not add the grant.')
     } finally {
       setBusy(false)
     }
   }
 
-  const removeGrant = async (grantId) => {
+  const removeGrant = async (grantId: string) => {
     setBusy(true)
     try {
       await api.delete(`/users/${userId}/access-grants/${grantId}`)
@@ -150,25 +163,15 @@ export default function UserAccessGrantsSection({ userId, userRole }) {
   )
 }
 
-const titleStyle = {
+const titleStyle: CSSProperties = {
   fontSize: 12,
   color: 'var(--text-muted)',
   fontWeight: 500,
   marginBottom: 6,
 }
-const noteStyle = {
+const noteStyle: CSSProperties = {
   fontSize: 13,
   color: 'var(--text-dim)',
   lineHeight: 1.5,
   marginBottom: 10,
-}
-const selectStyle = {
-  padding: '6px 8px',
-  borderRadius: 6,
-  background: 'var(--bg-deep)',
-  border: '1px solid var(--border)',
-  color: 'var(--text)',
-  fontSize: 13,
-  flex: 1,
-  minWidth: 0,
 }

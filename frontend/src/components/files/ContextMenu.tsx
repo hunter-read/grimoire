@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState, type MouseEventHandler, type ReactNode } from 'react'
 
 // Breathing room kept between the menu and the viewport edge, so a clamped
 // menu never sits flush against the window.
@@ -23,12 +23,19 @@ const MARGIN = 8
  * short window — it pins to the top and scrolls internally rather than
  * overflowing off both ends.
  */
-export default function ContextMenu({ x, y, onClick, children }) {
-  const ref = useRef(null)
+export interface ContextMenuProps {
+  x: number
+  y: number
+  onClick?: MouseEventHandler<HTMLDivElement>
+  children?: ReactNode
+}
+
+export default function ContextMenu({ x, y, onClick, children }: ContextMenuProps) {
+  const ref = useRef<HTMLDivElement>(null)
   // null until measured; the menu stays invisible (but laid out, so it has a
   // height to read) for that first pass.
-  const [pos, setPos] = useState(null)
-  const [maxHeight, setMaxHeight] = useState(null)
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+  const [maxHeight, setMaxHeight] = useState<number | null>(null)
 
   useLayoutEffect(() => {
     const el = ref.current
@@ -38,7 +45,7 @@ export default function ContextMenu({ x, y, onClick, children }) {
     const vh = window.innerHeight
     const room = vh - 2 * MARGIN
 
-    let top
+    let top: number
     if (height > room) {
       // Taller than the window: it has to scroll, so anchor it at the top.
       top = MARGIN
@@ -53,7 +60,7 @@ export default function ContextMenu({ x, y, onClick, children }) {
 
     // Horizontal follows the same rule: prefer right of the cursor, flip left
     // when that overflows, clamp if neither fits.
-    let left
+    let left: number
     if (x + width + MARGIN <= vw) left = x
     else if (x - width - MARGIN >= 0) left = x - width
     else left = Math.max(MARGIN, vw - width - MARGIN)

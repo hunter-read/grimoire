@@ -1,12 +1,12 @@
+import type { ComponentProps } from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import WikiMarkdown from './WikiMarkdown'
 
 const CASTLE = { id: 'p-castle', title: 'The Castle', slug: 'the-castle' }
 
-function renderMd(props) {
+function renderMd(props: ComponentProps<typeof WikiMarkdown>) {
   return render(
     <MemoryRouter>
       <WikiMarkdown {...props} />
@@ -186,7 +186,7 @@ describe('WikiMarkdown', () => {
       body: 'Intro.\n\n||**GM:** [[The Castle]] is a ruin. **Not yet.**||\n\nOutro.',
       pages: [CASTLE],
     })
-    const block = screen.getByText('GM:').closest('div[title]')
+    const block = screen.getByText('GM:').closest('div[title]')!
     expect(block).toBeTruthy()
     expect(block.textContent).toBe('GM: The Castle is a ruin. Not yet.')
     expect(screen.getByRole('button', { name: 'The Castle' })).toBeTruthy()
@@ -280,7 +280,7 @@ describe('WikiMarkdown', () => {
 
   it('renders an [[image:ID]] embed as an inline image when given a campaign id', () => {
     const { container } = renderMd({ body: '[[image:img789]]', campaignId: 'camp1' })
-    const img = container.querySelector('img')
+    const img = container.querySelector('img')!
     expect(img).toBeTruthy()
     // The src points at the campaign file endpoint for that image.
     expect(img.getAttribute('src')).toContain('/campaigns/camp1/files/img789')
@@ -298,14 +298,14 @@ describe('WikiMarkdown', () => {
   // these lock in the markup contract those rules hang off instead.
   it('wraps rendered markdown in the .wiki-markdown scope the list styles target', () => {
     const { container } = renderMd({ body: '- one\n- two' })
-    const scope = container.querySelector('.wiki-markdown')
+    const scope = container.querySelector('.wiki-markdown')!
     expect(scope).toBeTruthy()
     expect(scope.querySelector('ul')).toBeTruthy()
   })
 
   it('nests a sub-list inside its parent list item', () => {
     const { container } = renderMd({ body: '- one\n  - nested\n- two' })
-    const top = container.querySelector('.wiki-markdown > ul')
+    const top = container.querySelector('.wiki-markdown > ul')!
     expect(top.children).toHaveLength(2)
     // The nested <ul> lives inside the first <li>, so `li > ul` indents it.
     expect(top.children[0].querySelector('ul')).toBeTruthy()
@@ -314,7 +314,7 @@ describe('WikiMarkdown', () => {
 
   it('renders an ordered list as <ol>', () => {
     const { container } = renderMd({ body: '1. first\n2. second' })
-    const ol = container.querySelector('.wiki-markdown ol')
+    const ol = container.querySelector('.wiki-markdown ol')!
     expect(ol).toBeTruthy()
     expect(ol.children).toHaveLength(2)
   })
@@ -341,12 +341,12 @@ describe('WikiMarkdown', () => {
       ['steam://run/1'],
     ])('drops the href of a %s link', (url) => {
       renderMd({ body: `[click](${url})` })
-      expect(screen.getByText('click').closest('a').getAttribute('href')).toBe('')
+      expect(screen.getByText('click').closest('a')!.getAttribute('href')).toBe('')
     })
 
     it('drops an unsafe image src', () => {
       const { container } = renderMd({ body: '![x](data:image/svg+xml,<svg onload=alert(1)>)' })
-      const img = container.querySelector('img')
+      const img = container.querySelector('img')!
       expect(img?.getAttribute('src') || '').toBe('')
     })
 
@@ -354,7 +354,7 @@ describe('WikiMarkdown', () => {
       'keeps a %s link',
       (url) => {
         renderMd({ body: `[ok](${url})` })
-        expect(screen.getByText('ok').closest('a').getAttribute('href')).toBe(url)
+        expect(screen.getByText('ok').closest('a')!.getAttribute('href')).toBe(url)
       }
     )
 

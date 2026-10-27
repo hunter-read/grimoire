@@ -3,12 +3,9 @@ import {
   useEffect,
   useRef,
   useCallback,
-  type ComponentType,
   type CSSProperties,
   type DragEvent,
-  type HTMLAttributes,
   type ReactElement,
-  type ReactNode,
 } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -29,26 +26,25 @@ import {
   LuUser,
   LuX,
 } from 'react-icons/lu'
-import type { IconType } from 'react-icons'
 import { campaigns, type ApiError, type Schema } from '../../api'
 import { useAudioPlayer } from '../../context/AudioPlayerContext'
 import useIsMobile from '../../hooks/useIsMobile'
-import useCollapsedSetJs from '../../hooks/useCollapsedSet'
+import useCollapsedSet from '../../hooks/useCollapsedSet'
 import Spinner from '../Spinner'
 import WikiMarkdown from './WikiMarkdown'
 import WikiImportModal from './WikiImportModal'
 import WikiExportMenu from './WikiExportMenu'
 import WikiTemplateModal from './WikiTemplateModal'
-import IconPickerJs from './IconPicker'
-import { CampaignIcon as CampaignIconJs } from './campaignIcons'
+import IconPicker from './IconPicker'
+import { CampaignIcon } from './campaignIcons'
 import { resolveIconColor } from './iconColors'
 import VisibilityBadge from './VisibilityBadge'
 import VisibilityEditor from './VisibilityEditor'
 import RowVisibilityControl from './RowVisibilityControl'
-import PageEditorJs from './PageEditor'
+import PageEditor from './PageEditor'
 import WikiBulkActionDialog from './WikiBulkActionDialog'
 import useFillViewport from './useFillViewport'
-import useResizableWidthJs from './useResizableWidth'
+import useResizableWidth from './useResizableWidth'
 import { headingDomId } from './wikiHeadings'
 import { defaultCollapsedParents, descendantIds, ghostBtn, goldBtn } from './wikiShared'
 
@@ -57,45 +53,6 @@ type WikiPage = Schema<'WikiPageListItem'>
 type WikiPageDetail = Schema<'WikiPageDetailOut'>
 type DropWhere = 'before' | 'after' | 'inside'
 type ExportFormat = Parameters<typeof campaigns.exportWiki>[1]
-
-// These are still JavaScript, so TypeScript infers their props (or arguments)
-// from the destructuring: every one required, and anything defaulted typed from
-// its default. This states what they actually accept.
-const IconPicker = IconPickerJs as unknown as ComponentType<{
-  value?: string | null
-  onChange: (icon: string | null) => void
-  color?: string | null
-  onColorChange?: (color: string | null) => void
-  fallback?: ReactNode
-  ariaLabel?: string
-  compact?: boolean
-  size?: number
-}>
-const CampaignIcon = CampaignIconJs as unknown as ComponentType<{
-  name?: string | null
-  fallback?: IconType | null
-  size?: number
-  style?: CSSProperties
-}>
-const PageEditor = PageEditorJs as unknown as ComponentType<{
-  campaign: Campaign
-  isOwner: boolean
-  // A template draft has no `id`, which is what makes PageEditor create a page.
-  page: Partial<WikiPageDetail> | null
-  allPages: WikiPage[]
-  defaultParentId?: string
-  onSaved: (saved: { id: string }) => void
-  onCancel: () => void
-}>
-const useCollapsedSet = useCollapsedSetJs as unknown as (
-  key: string,
-  defaultCollapsed?: Set<string>,
-  options?: { storage?: 'session' | 'local' }
-) => [Set<string>, (next: Set<string> | ((prev: Set<string>) => Set<string>)) => void]
-const useResizableWidth = useResizableWidthJs as unknown as (
-  key: string,
-  options?: { initial?: number; min?: number; max?: number; step?: number }
-) => { width: number; dragging: boolean; handleProps: HTMLAttributes<HTMLDivElement> }
 
 // Ordered list of [[audio:ID]] embed ids in a note body, used for "play all".
 const AUDIO_EMBED_RE = /\[\[audio:([^\]|]+?)(?:\|[^\]]+)?\]\]/g
@@ -112,11 +69,7 @@ interface WikiViewProps {
 
 export default function WikiView({ campaign, isOwner, onViewingNoteChange }: WikiViewProps) {
   const { t } = useTranslation()
-  // The context's no-provider fallback is a `() => {}`, which is all
-  // TypeScript can see of it while the context is JavaScript.
-  const { playQueue } = useAudioPlayer() as unknown as {
-    playQueue: (tracks: { id: string }[], startIndex?: number) => void
-  }
+  const { playQueue } = useAudioPlayer()
   const isMobile = useIsMobile()
   const [pages, setPages] = useState<WikiPage[] | null>(null)
   // The open note lives in the URL (`?note=<id>`) so a note is linkable: it can
@@ -594,7 +547,7 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
     const where = dropTarget?.where || 'inside'
     setDropTarget(null)
     if (!id || id === target.id) return
-    if (descendantIds(id, pages).has(target.id)) return
+    if (descendantIds(id, pages!).has(target.id)) return
     const dragged = pages?.find((p) => p.id === id)
     if (!dragged) return
 

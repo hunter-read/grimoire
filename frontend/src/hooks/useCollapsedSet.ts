@@ -1,21 +1,27 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-const EMPTY = new Set()
+const EMPTY = new Set<never>()
 
-function storageFor(kind) {
+/** Which Web Storage the choice lives in. */
+export type CollapsedStorage = 'session' | 'local'
+
+/** A Set, or an updater from the current one; what `setCollapsed` takes. */
+export type CollapsedUpdate<K> = Iterable<K> | ((prev: Set<K>) => Iterable<K>)
+
+function storageFor(kind: CollapsedStorage): Storage {
   return kind === 'local' ? localStorage : sessionStorage
 }
 
-function read(kind, key) {
+function read<K>(kind: CollapsedStorage, key: string): Set<K> | null {
   try {
     const raw = storageFor(kind).getItem(key)
-    return raw === null ? null : new Set(JSON.parse(raw))
+    return raw === null ? null : new Set<K>(JSON.parse(raw))
   } catch {
     return null
   }
 }
 
-function write(kind, key, set) {
+function write<K>(kind: CollapsedStorage, key: string, set: Set<K>): void {
   try {
     storageFor(kind).setItem(key, JSON.stringify([...set]))
   } catch {
@@ -38,18 +44,18 @@ function write(kind, key, set) {
  * @param {'session'|'local'} [opts.storage='session'] which Web Storage to use
  * @returns [collapsed, setCollapsed] - setCollapsed takes a Set or an updater
  */
-export default function useCollapsedSet(
-  key,
-  defaultCollapsed = EMPTY,
-  { storage = 'session' } = {}
-) {
-  const [state, setState] = useState(() => ({ key, chosen: read(storage, key) }))
+export default function useCollapsedSet<K = string>(
+  key: string,
+  defaultCollapsed: Set<K> = EMPTY,
+  { storage = 'session' }: { storage?: CollapsedStorage } = {}
+): [Set<K>, (next: CollapsedUpdate<K>) => void] {
+  const [state, setState] = useState(() => ({ key, chosen: read<K>(storage, key) }))
 
   // A new key (e.g. navigating between systems on the same route) starts from
   // whatever that key has stored, not the previous key's choice.
   let current = state
   if (state.key !== key) {
-    current = { key, chosen: read(storage, key) }
+    current = { key, chosen: read<K>(storage, key) }
     setState(current)
   }
 
@@ -59,7 +65,7 @@ export default function useCollapsedSet(
   })
 
   const setCollapsed = useCallback(
-    (next) =>
+    (next: CollapsedUpdate<K>) =>
       setState((prev) => {
         const base = prev.chosen ?? defaultRef.current
         const value = new Set(typeof next === 'function' ? next(base) : next)

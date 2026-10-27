@@ -1,5 +1,19 @@
+import type { IconType } from 'react-icons'
+
+export interface SegmentedOption<T extends string = string> {
+  value: T
+  label: string
+  icon?: IconType
+}
+
+interface Props<T extends string> {
+  options: readonly SegmentedOption<T>[]
+  value: T
+  onChange: (value: T) => void
+}
+
 /** Segmented button group used across the user-preference settings sections. */
-export default function SegmentedControl({ options, value, onChange }) {
+export default function SegmentedControl<T extends string>({ options, value, onChange }: Props<T>) {
   return (
     <div
       style={{

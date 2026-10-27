@@ -3,15 +3,24 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import FolderTree from './FolderTree'
 import { files as filesApi } from '../../api'
+import type { Mock } from 'vitest'
+import type { Schema } from '../../api'
+
+// The mocked listings carry only the fields the tree reads.
+const browseMock = vi.mocked(filesApi.browse) as unknown as Mock<
+  (path?: string) => Promise<Partial<Schema<'BrowseResponse'>>>
+>
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k, o) => (o?.name ? `${k}:${o.name}` : k) }),
+  useTranslation: () => ({
+    t: (k: string, o?: Record<string, unknown>) => (o?.name ? `${k}:${o.name}` : k),
+  }),
 }))
 vi.mock('../Spinner', () => ({ default: () => <span data-testid="spinner" /> }))
 vi.mock('../../api', () => ({ files: { browse: vi.fn() } }))
 
-const dir = (name, path) => ({ name, path, is_dir: true })
-const LISTINGS = {
+const dir = (name: string, path: string) => ({ name, path, is_dir: true })
+const LISTINGS: Record<string, Partial<Schema<'BrowseResponse'>>> = {
   '': { writable: true, entries: [dir('books', 'books'), dir('tokens', 'tokens')] },
   books: { writable: true, entries: [dir('Ashen', 'books/Ashen')] },
   'books/Ashen': { writable: true, entries: [dir('core', 'books/Ashen/core')] },
@@ -20,8 +29,8 @@ const LISTINGS = {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  filesApi.browse.mockImplementation((path) =>
-    Promise.resolve(LISTINGS[path] || { writable: true, entries: [] })
+  browseMock.mockImplementation((path) =>
+    Promise.resolve(LISTINGS[path!] || { writable: true, entries: [] })
   )
 })
 
@@ -40,7 +49,7 @@ describe('FolderTree', () => {
       'aria-pressed',
       'true'
     )
-    expect(filesApi.browse.mock.calls.map((c) => c[0])).toEqual([
+    expect(browseMock.mock.calls.map((c) => c[0])).toEqual([
       '',
       'books',
       'books/Ashen',
@@ -65,7 +74,7 @@ describe('FolderTree', () => {
   })
 
   it('will not select an unwritable root, and survives a failed listing', async () => {
-    filesApi.browse.mockImplementation((path) =>
+    browseMock.mockImplementation((path) =>
       path === ''
         ? Promise.resolve({ writable: false, entries: [dir('books', 'books')] })
         : Promise.reject(new Error('x'))

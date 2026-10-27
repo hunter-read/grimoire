@@ -13,7 +13,7 @@ const QUERY = '(pointer: coarse)'
  * Subscribed rather than read once, so a 2-in-1 folded from laptop to tablet
  * updates instead of keeping whatever it was at mount.
  */
-export default function useCoarsePointer() {
+export default function useCoarsePointer(): boolean {
   const [coarse, setCoarse] = useState(
     () => typeof window !== 'undefined' && !!window.matchMedia?.(QUERY).matches
   )
@@ -21,7 +21,7 @@ export default function useCoarsePointer() {
   useEffect(() => {
     const mql = window.matchMedia?.(QUERY)
     if (!mql) return
-    const handler = (e) => setCoarse(e.matches)
+    const handler = (e: MediaQueryListEvent) => setCoarse(e.matches)
     // Sync in case the answer changed between render and effect.
     setCoarse(mql.matches)
     // Safari <14 only has the deprecated add/removeListener API.

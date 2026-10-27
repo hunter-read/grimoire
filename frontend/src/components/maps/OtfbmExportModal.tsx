@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX, LuDownload, LuCopy, LuCircleCheck, LuLink } from 'react-icons/lu'
 import api, { mediaUrl, shareLinks } from '../../api'
+import type { Schema } from '../../api'
 import { otfbmCommand } from './otfbm'
 import { EXPIRY_OPTIONS, formatWhen, publicUrl } from '../share/shareLinkUtils'
 
@@ -11,7 +13,16 @@ const FALLBACK_MIN = 20
 const FALLBACK_MAX = 100
 
 /** The working OTFBM share link for this cell size, if there is one. */
-const linkForCell = (links, cell) =>
+type OtfbmPlan = Schema<'OtfbmPlanResponse'>
+type ShareLink = Schema<'ShareLinkOut'>
+
+export interface OtfbmExportModalProps {
+  mapId: string
+  filename: string
+  onClose: () => void
+}
+
+const linkForCell = (links: ShareLink[], cell: number) =>
   links.find(
     (l) =>
       l.state === 'active' &&
@@ -30,19 +41,19 @@ const linkForCell = (links, cell) =>
  * An existing link at the same cell size is reused rather than duplicated.
  * Downloading the image to host elsewhere stays available as a fallback.
  */
-export default function OtfbmExportModal({ mapId, filename, onClose }) {
+export default function OtfbmExportModal({ mapId, filename, onClose }: OtfbmExportModalProps) {
   const { t, i18n } = useTranslation()
-  const [plan, setPlan] = useState(null)
+  const [plan, setPlan] = useState<OtfbmPlan | null>(null)
   const [error, setError] = useState(false)
   const [cellInput, setCellInput] = useState('')
-  const [links, setLinks] = useState(null)
+  const [links, setLinks] = useState<ShareLink[] | null>(null)
   const [expiry, setExpiry] = useState('')
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState('')
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    const onKey = (e) => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', onKey)
@@ -55,8 +66,9 @@ export default function OtfbmExportModal({ mapId, filename, onClose }) {
     let live = true
     api
       .get(`/maps/${mapId}/otfbm`)
-      .then((p) => {
+      .then((res) => {
         if (!live) return
+        const p = res as OtfbmPlan
         setPlan(p)
         setCellInput(String(p.cell))
       })
@@ -75,7 +87,7 @@ export default function OtfbmExportModal({ mapId, filename, onClose }) {
   const cell = /^\d+$/.test(cellInput) ? Number(cellInput) : NaN
   const cellValid = cell >= min && cell <= max
   // The plan lags the field by the debounce; nothing acts on a half-typed value.
-  const settled = Boolean(plan) && cellValid && cell === plan.cell
+  const settled = Boolean(plan) && cellValid && cell === plan!.cell
 
   // Re-plan as the cell size changes. Debounced so typing "75" does not ask
   // about a 7px cell on the way; the server owns the arithmetic, so the sizes
@@ -85,14 +97,14 @@ export default function OtfbmExportModal({ mapId, filename, onClose }) {
     const timer = setTimeout(() => {
       api
         .get(`/maps/${mapId}/otfbm?cell=${cell}`)
-        .then(setPlan)
+        .then((p) => setPlan(p as OtfbmPlan))
         .catch(() => setError(true))
     }, 250)
     return () => clearTimeout(timer)
   }, [cell, cellValid, plan, mapId])
 
-  const link = settled && links ? linkForCell(links, plan.cell) : null
-  const command = link ? otfbmCommand(plan, publicUrl(link.file_url)) : ''
+  const link = settled && links ? linkForCell(links, plan!.cell) : null
+  const command = link ? otfbmCommand(plan, publicUrl(link.file_url as string)) : ''
 
   const createLink = async () => {
     setCreating(true)
@@ -102,13 +114,13 @@ export default function OtfbmExportModal({ mapId, filename, onClose }) {
         resource_type: 'map',
         resource_id: mapId,
         variant: 'otfbm',
-        cell: plan.cell,
-        label: t('maps.otfbm.linkLabel', { cell: plan.cell }),
+        cell: plan!.cell,
+        label: t('maps.otfbm.linkLabel', { cell: plan!.cell }),
         expires_in_days: expiry ? Number(expiry) : null,
       })
       setLinks((prev) => [created, ...(prev || [])])
     } catch (err) {
-      setCreateError(err.message || t('share.createFailed'))
+      setCreateError((err as Error).message || t('share.createFailed'))
     } finally {
       setCreating(false)
     }
@@ -124,10 +136,15 @@ export default function OtfbmExportModal({ mapId, filename, onClose }) {
     }
   }
 
-  const label = { fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 6 }
-  const hint = { fontSize: 12, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.5 }
-  const warn = { ...hint, color: 'var(--gold)' }
-  const input = {
+  const label: CSSProperties = { fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 6 }
+  const hint: CSSProperties = {
+    fontSize: 12,
+    color: 'var(--text-muted)',
+    marginTop: 6,
+    lineHeight: 1.5,
+  }
+  const warn: CSSProperties = { ...hint, color: 'var(--gold)' }
+  const input: CSSProperties = {
     width: '100%',
     boxSizing: 'border-box',
     padding: '6px 10px',
@@ -137,7 +154,7 @@ export default function OtfbmExportModal({ mapId, filename, onClose }) {
     borderRadius: 4,
     color: 'var(--text)',
   }
-  const button = (primary) => ({
+  const button = (primary: boolean): CSSProperties => ({
     background: primary ? 'var(--gold-dim)' : 'var(--bg-card)',
     border: `1px solid ${primary ? 'var(--gold-dim)' : 'var(--border)'}`,
     color: primary ? 'var(--bg-deep)' : 'var(--text)',
@@ -345,7 +362,7 @@ export default function OtfbmExportModal({ mapId, filename, onClose }) {
               <p style={{ ...hint, marginTop: 0 }}>
                 {t('maps.otfbm.selfHost')}{' '}
                 <a
-                  href={mediaUrl(`/maps/${mapId}/otfbm/image`, { cell: plan.cell })}
+                  href={mediaUrl(`/maps/${mapId}/otfbm/image`, { cell: plan!.cell })}
                   download
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
                 >

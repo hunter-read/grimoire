@@ -1,6 +1,9 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import RealSystemCategorySection from './SystemCategorySection'
+import type { SystemCategorySectionProps } from './SystemCategorySection'
+import type { FolderOrder, ShelfPages } from './ShelfNodeBody'
+import type { ShelfNode } from './shelfTree'
 import { shelfFromBooks } from '../../test/shelfFixtures'
 
 vi.mock('../RescanButton', () => ({ default: () => <div data-testid="rescan" /> }))
@@ -8,12 +11,12 @@ vi.mock('../RescanButton', () => ({ default: () => <div data-testid="rescan" /> 
 // Represent each book item / folder group by a testid so we can assert the
 // flat-vs-grouped branch selection without their full render trees.
 vi.mock('./CategoryBookItem', () => ({
-  default: ({ book }) => <div data-testid="book-item">{book.id}</div>,
+  default: ({ book }: { book: { id: string } }) => <div data-testid="book-item">{book.id}</div>,
 }))
 vi.mock('./BookFolderGroup', () => ({
   // Expose the immediate child folder names + path so tests can assert that a
   // nested tree (not a flattened key) is built for the top-level group.
-  default: ({ node }) => (
+  default: ({ node }: { node: ShelfNode }) => (
     <div
       data-testid="folder-group"
       data-path={node.path}
@@ -27,9 +30,20 @@ vi.mock('./BookFolderGroup', () => ({
 // A category section now renders the root of the server-built shelf and reads
 // books from the shelf's paged lists (issue #221). These tests describe a
 // category by its books, so this builds both from them, fully loaded.
-function SystemCategorySection({ books, cat, system, folderOrder, ...rest }) {
+/** A test book: only what the shelf reads. */
+type TestBook = { id: string; title: string; relative_path: string; category?: string }
+
+/** The wrapper's props: the category described by its books, plus the real section's. */
+type WrapperProps = {
+  books: TestBook[]
+  cat: string
+  system: SystemCategorySectionProps['system']
+  folderOrder?: FolderOrder
+} & Record<string, unknown>
+
+function SystemCategorySection({ books, cat, system, folderOrder, ...rest }: WrapperProps) {
   const depth = Number.isInteger(system?.category_depth)
-    ? system.category_depth
+    ? (system.category_depth as number)
     : system?.parent_id
       ? 3
       : 2
@@ -37,7 +51,7 @@ function SystemCategorySection({ books, cat, system, folderOrder, ...rest }) {
     books.map((b) => ({ ...b, category: b.category || cat })),
     { depth, ...(folderOrder || {}) }
   )
-  const node = shelf[cat] || {
+  const node: ShelfNode = shelf[cat] || {
     category: cat,
     name: '',
     path: '',
@@ -51,31 +65,34 @@ function SystemCategorySection({ books, cat, system, folderOrder, ...rest }) {
     <RealSystemCategorySection
       cat={cat}
       node={node}
-      pages={pages}
+      pages={pages as unknown as ShelfPages}
       onLoadNode={() => {}}
       system={system}
-      folderOrder={folderOrder}
-      {...rest}
+      folderOrder={folderOrder as FolderOrder}
+      {...(rest as unknown as Omit<
+        SystemCategorySectionProps,
+        'cat' | 'node' | 'pages' | 'onLoadNode' | 'system' | 'folderOrder'
+      >)}
     />
   )
 }
 
 const system = { id: 'sys1', name: 'D&D 5e' }
 
-function flatBook(id) {
+function flatBook(id: string): TestBook {
   // 4 segments → no subfolder (sits directly in the category dir)
   return { id, title: id, relative_path: `books/D&D 5e/adventure/${id}.pdf` }
 }
-function subfolderBook(id, folder) {
+function subfolderBook(id: string, folder: string): TestBook {
   // 5 segments → parts[3] is the subfolder
   return { id, title: id, relative_path: `books/D&D 5e/adventure/${folder}/${id}.pdf` }
 }
-function nestedBook(id, ...segs) {
+function nestedBook(id: string, ...segs: string[]): TestBook {
   // Arbitrary depth: books/D&D 5e/adventure/<seg1>/<seg2>/.../id.pdf
   return { id, title: id, relative_path: `books/D&D 5e/adventure/${segs.join('/')}/${id}.pdf` }
 }
 
-function baseProps(overrides = {}) {
+function baseProps(overrides: Record<string, unknown> = {}): WrapperProps {
   return {
     cat: 'adventure',
     books: [flatBook('b1'), flatBook('b2')],
@@ -129,7 +146,7 @@ describe('SystemCategorySection', () => {
     // books/Dungeons & Dragons/5e/… — the system dir sits one level deeper, so
     // every path index shifts. `parent_id` is what marks the system as a child.
     const child = { id: 'sys-5e', name: 'Dungeons & Dragons 5e', parent_id: 'sys-dnd' }
-    const childBook = (id, ...segs) => ({
+    const childBook = (id: string, ...segs: string[]) => ({
       id,
       title: id,
       relative_path: `books/Dungeons & Dragons/5e/${segs.join('/')}/${id}.pdf`,

@@ -5,7 +5,7 @@ import SidecarExportSection from './SidecarExportSection'
 import { sidecars } from '../../api'
 import { SettingsDirtyContext } from './settingsDirty'
 
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }))
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }))
 vi.mock('../Spinner', () => ({ default: () => <span data-testid="spinner" /> }))
 vi.mock('../../api', () => ({
   sidecars: { get: vi.fn(), save: vi.fn(), export: vi.fn() },
@@ -15,20 +15,21 @@ const DISABLED = { formats: [], covers: false, overwrite_foreign: false }
 
 beforeEach(() => {
   vi.clearAllMocks()
-  sidecars.get.mockResolvedValue(DISABLED)
+  vi.mocked(sidecars.get).mockResolvedValue(DISABLED)
 })
 
 // Queried live rather than captured: each visible label concatenates its label
 // and hint text, so a text matcher for one checkbox also matches its
 // neighbours — the id is the only unambiguous handle.
-const box = (id) => screen.getByRole('checkbox', { name: (_, el) => el.id === id })
-const formatBox = (fmt) => box(`sidecar-format-${fmt}`)
+const box = (id: string) =>
+  screen.getByRole('checkbox', { name: (_: string, el: Element) => el.id === id })
+const formatBox = (fmt: string) => box(`sidecar-format-${fmt}`)
 const saveButton = () => screen.getByRole('button', { name: /sidecars\.save$/ })
 const exportButton = () => screen.getByRole('button', { name: /sidecars\.export$/ })
 
 describe('SidecarExportSection', () => {
   it('reports unsaved edits until they are saved, and announces the save', async () => {
-    sidecars.save.mockImplementation((body) => Promise.resolve(body))
+    vi.mocked(sidecars.save).mockImplementation((body) => Promise.resolve(body))
     const set = vi.fn()
     const dirty = () => set.mock.calls.filter(([id]) => id === 'sidecars').at(-1)?.[1]
     const { unmount } = render(
@@ -61,7 +62,7 @@ describe('SidecarExportSection', () => {
   })
 
   it('loads the current settings on mount', async () => {
-    sidecars.get.mockResolvedValue({
+    vi.mocked(sidecars.get).mockResolvedValue({
       formats: ['opf', 'json'],
       covers: true,
       overwrite_foreign: false,
@@ -95,7 +96,7 @@ describe('SidecarExportSection', () => {
   })
 
   it('saves the chosen formats and toggles', async () => {
-    sidecars.save.mockResolvedValue({
+    vi.mocked(sidecars.save).mockResolvedValue({
       formats: ['nfo'],
       covers: true,
       overwrite_foreign: false,
@@ -118,12 +119,16 @@ describe('SidecarExportSection', () => {
   })
 
   it('unchecking a format removes it from the saved set', async () => {
-    sidecars.get.mockResolvedValue({
+    vi.mocked(sidecars.get).mockResolvedValue({
       formats: ['opf', 'nfo'],
       covers: false,
       overwrite_foreign: false,
     })
-    sidecars.save.mockResolvedValue({ formats: ['opf'], covers: false, overwrite_foreign: false })
+    vi.mocked(sidecars.save).mockResolvedValue({
+      formats: ['opf'],
+      covers: false,
+      overwrite_foreign: false,
+    })
     render(<SidecarExportSection />)
     await waitFor(() => expect(sidecars.get).toHaveBeenCalled())
 
@@ -140,8 +145,12 @@ describe('SidecarExportSection', () => {
   })
 
   it('can enable YAML, the hand-editable lossless format', async () => {
-    sidecars.get.mockResolvedValue(DISABLED)
-    sidecars.save.mockResolvedValue({ formats: ['yaml'], covers: false, overwrite_foreign: false })
+    vi.mocked(sidecars.get).mockResolvedValue(DISABLED)
+    vi.mocked(sidecars.save).mockResolvedValue({
+      formats: ['yaml'],
+      covers: false,
+      overwrite_foreign: false,
+    })
     render(<SidecarExportSection />)
 
     await waitFor(() => expect(sidecars.get).toHaveBeenCalled())
@@ -158,8 +167,12 @@ describe('SidecarExportSection', () => {
   })
 
   it('runs the backfill once a format is enabled', async () => {
-    sidecars.get.mockResolvedValue({ formats: ['opf'], covers: false, overwrite_foreign: false })
-    sidecars.export.mockResolvedValue({
+    vi.mocked(sidecars.get).mockResolvedValue({
+      formats: ['opf'],
+      covers: false,
+      overwrite_foreign: false,
+    })
+    vi.mocked(sidecars.export).mockResolvedValue({
       written: 12,
       skipped_foreign: 0,
       skipped_missing: 0,
@@ -178,8 +191,12 @@ describe('SidecarExportSection', () => {
   })
 
   it('reports files it refused to overwrite', async () => {
-    sidecars.get.mockResolvedValue({ formats: ['opf'], covers: false, overwrite_foreign: false })
-    sidecars.export.mockResolvedValue({
+    vi.mocked(sidecars.get).mockResolvedValue({
+      formats: ['opf'],
+      covers: false,
+      overwrite_foreign: false,
+    })
+    vi.mocked(sidecars.export).mockResolvedValue({
       written: 3,
       skipped_foreign: 2,
       skipped_missing: 0,
@@ -200,8 +217,12 @@ describe('SidecarExportSection', () => {
   })
 
   it('surfaces a read-only library rather than looking successful', async () => {
-    sidecars.get.mockResolvedValue({ formats: ['opf'], covers: false, overwrite_foreign: false })
-    sidecars.export.mockResolvedValue({
+    vi.mocked(sidecars.get).mockResolvedValue({
+      formats: ['opf'],
+      covers: false,
+      overwrite_foreign: false,
+    })
+    vi.mocked(sidecars.export).mockResolvedValue({
       written: 0,
       skipped_foreign: 0,
       skipped_missing: 0,
@@ -220,7 +241,7 @@ describe('SidecarExportSection', () => {
   })
 
   it('reports a failed save', async () => {
-    sidecars.save.mockRejectedValue(new Error('nope'))
+    vi.mocked(sidecars.save).mockRejectedValue(new Error('nope'))
     render(<SidecarExportSection />)
     await waitFor(() => expect(sidecars.get).toHaveBeenCalled())
 
@@ -230,8 +251,12 @@ describe('SidecarExportSection', () => {
   })
 
   it('reports a failed export', async () => {
-    sidecars.get.mockResolvedValue({ formats: ['opf'], covers: false, overwrite_foreign: false })
-    sidecars.export.mockRejectedValue(new Error('nope'))
+    vi.mocked(sidecars.get).mockResolvedValue({
+      formats: ['opf'],
+      covers: false,
+      overwrite_foreign: false,
+    })
+    vi.mocked(sidecars.export).mockRejectedValue(new Error('nope'))
     render(<SidecarExportSection />)
     await waitFor(() => expect(sidecars.get).toHaveBeenCalled())
 
@@ -241,7 +266,7 @@ describe('SidecarExportSection', () => {
   })
 
   it('reports when the settings cannot be loaded', async () => {
-    sidecars.get.mockRejectedValue(new Error('nope'))
+    vi.mocked(sidecars.get).mockRejectedValue(new Error('nope'))
     render(<SidecarExportSection />)
 
     expect(await screen.findByText('maintenance.sidecars.loadFailed')).toBeInTheDocument()

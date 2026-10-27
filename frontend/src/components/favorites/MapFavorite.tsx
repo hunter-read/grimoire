@@ -1,5 +1,5 @@
 import { LuMap } from 'react-icons/lu'
-import { mediaUrl } from '../../api'
+import { mediaUrl, type Schema } from '../../api'
 import FavoriteButton from '../FavoriteButton'
 import {
   cardWrapperStyle,
@@ -11,7 +11,12 @@ import {
 import LazyImg from '../LazyImg'
 import CardLink from '../CardLink'
 
-export default function MapFavorite({ item, grid }) {
+export interface MapFavoriteProps {
+  item: Schema<'FavoriteMapItem'>
+  grid: boolean
+}
+
+export default function MapFavorite({ item, grid }: MapFavoriteProps) {
   // A real link: middle click / ctrl-click opens this item in a new tab (issue #313).
   const cardLink = <CardLink to={`/maps/${item.item_id}`} label={item.filename} />
 

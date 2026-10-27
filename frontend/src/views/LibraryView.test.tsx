@@ -1,9 +1,13 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import LibraryView from './LibraryView'
 import api, { bulk } from '../api'
+
+type Fixture = Record<string, unknown>
+
+const mockGet = vi.mocked(api.get) as unknown as Mock
 
 vi.mock('../api', () => ({
   default: {
@@ -18,7 +22,7 @@ vi.mock('../api', () => ({
     setFolderTags: vi.fn(() => Promise.resolve({ folders: [] })),
   },
   tags: { list: vi.fn(() => Promise.resolve({ tags: [] })) },
-  mediaUrl: (path) => `http://localhost${path}`,
+  mediaUrl: (path: string) => `http://localhost${path}`,
 }))
 
 // Open the shared filter modal (favourites/tags/genre live there now).
@@ -26,44 +30,46 @@ const openFilters = () => userEvent.click(screen.getByRole('button', { name: 'Fi
 
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async (importOriginal) => {
-  const actual = await importOriginal()
+  const actual = await importOriginal<typeof import('react-router-dom')>()
   return { ...actual, useNavigate: () => mockNavigate }
 })
 
-let mockUserPrefs = { cardSize: 'comfortable', librarySort: 'az' }
+let mockUserPrefs: Fixture = { cardSize: 'comfortable', librarySort: 'az' }
 vi.mock('../hooks/useUserPrefs', () => ({
   getUserPrefs: () => mockUserPrefs,
-  saveUserPref: (key, value) => {
+  saveUserPref: (key: string, value: unknown) => {
     mockUserPrefs = { ...mockUserPrefs, [key]: value }
   },
 }))
 
-let mockRecentBooks = []
+let mockRecentBooks: Fixture[] = []
 const mockRemoveRecentBook = vi.fn()
 vi.mock('../hooks/useBookPrefs', () => ({
   getRecentBooks: () => mockRecentBooks,
   getBookPrefs: () => ({}),
-  removeRecentBook: (id) => mockRemoveRecentBook(id),
+  removeRecentBook: (id: string) => mockRemoveRecentBook(id),
 }))
 
 // Favorites context — default: nothing is a favorite
-const mockIsFavorite = vi.fn(() => false)
+const mockIsFavorite = vi.fn<(type: string, id: string) => boolean>(() => false)
 vi.mock('../context/FavoritesContext', () => ({
   useFavorites: () => ({ isFavorite: mockIsFavorite, toggleFavorite: vi.fn() }),
 }))
 
 // Auth context — default: an admin (so bulk-edit controls are available)
-let mockUser = { role: 'admin' }
+let mockUser: { role: string } = { role: 'admin' }
 vi.mock('../context/AuthContext', () => ({
   useAuth: () => ({ user: mockUser }),
 }))
 
 vi.mock('../components/FavoriteButton', () => ({
-  default: ({ type, id }) => <button data-testid={`fav-${type}-${id}`}>fav</button>,
+  default: ({ type, id }: { type: string; id: string }) => (
+    <button data-testid={`fav-${type}-${id}`}>fav</button>
+  ),
 }))
 
-function makeSystem(overrides = {}) {
-  const id = overrides.id ?? `sys-${Math.random().toString(36).slice(2)}`
+function makeSystem(overrides: Fixture = {}): Fixture {
+  const id = (overrides.id as string | undefined) ?? `sys-${Math.random().toString(36).slice(2)}`
   return {
     id,
     name: overrides.name ?? 'Test System',
@@ -98,19 +104,19 @@ describe('LibraryView', () => {
   })
 
   it('renders system cards after loading', async () => {
-    api.get.mockResolvedValue([makeSystem({ name: 'D&D 5e' })])
+    mockGet.mockResolvedValue([makeSystem({ name: 'D&D 5e' })])
     renderView()
     await waitFor(() => expect(screen.getByText('D&D 5e')).toBeInTheDocument())
   })
 
   it('shows a spinner while loading', () => {
-    api.get.mockReturnValue(new Promise(() => {}))
+    mockGet.mockReturnValue(new Promise(() => {}))
     renderView()
     expect(document.querySelector('svg')).toBeInTheDocument()
   })
 
   it('shows the favorites filter toggle in the filter modal', async () => {
-    api.get.mockResolvedValue([makeSystem()])
+    mockGet.mockResolvedValue([makeSystem()])
     renderView()
     await waitFor(() => expect(screen.getByRole('button', { name: 'Filters' })).toBeInTheDocument())
     await openFilters()
@@ -118,11 +124,13 @@ describe('LibraryView', () => {
   })
 
   it('favorites toggle hides non-favorite systems', async () => {
-    api.get.mockResolvedValue([
+    mockGet.mockResolvedValue([
       makeSystem({ id: 'sys-fav', name: 'Favorite System' }),
       makeSystem({ id: 'sys-other', name: 'Other System' }),
     ])
-    mockIsFavorite.mockImplementation((type, id) => type === 'system' && id === 'sys-fav')
+    mockIsFavorite.mockImplementation(
+      (type: string, id: string) => type === 'system' && id === 'sys-fav'
+    )
 
     renderView()
     await waitFor(() => expect(screen.getByText('Favorite System')).toBeInTheDocument())
@@ -135,11 +143,13 @@ describe('LibraryView', () => {
   })
 
   it('toggling favorites off restores all systems', async () => {
-    api.get.mockResolvedValue([
+    mockGet.mockResolvedValue([
       makeSystem({ id: 'sys-fav', name: 'Favorite System' }),
       makeSystem({ id: 'sys-other', name: 'Other System' }),
     ])
-    mockIsFavorite.mockImplementation((type, id) => type === 'system' && id === 'sys-fav')
+    mockIsFavorite.mockImplementation(
+      (type: string, id: string) => type === 'system' && id === 'sys-fav'
+    )
 
     renderView()
     await waitFor(() => expect(screen.getByText('Other System')).toBeInTheDocument())
@@ -155,7 +165,7 @@ describe('LibraryView', () => {
 
   it('view-mode toggle cycles card → compact → list → card', async () => {
     sessionStorage.clear()
-    api.get.mockResolvedValue([makeSystem()])
+    mockGet.mockResolvedValue([makeSystem()])
     renderView()
     await waitFor(() => expect(screen.getByText('Test System')).toBeInTheDocument())
 
@@ -178,7 +188,7 @@ describe('LibraryView', () => {
 
   it('renders the favorite button on system cards in compact mode', async () => {
     sessionStorage.clear()
-    api.get.mockResolvedValue([makeSystem({ id: 'sys-1', name: 'Test System' })])
+    mockGet.mockResolvedValue([makeSystem({ id: 'sys-1', name: 'Test System' })])
     renderView()
     await waitFor(() => expect(screen.getByText('Test System')).toBeInTheDocument())
 
@@ -190,7 +200,7 @@ describe('LibraryView', () => {
 
   it('view-mode override is stored in sessionStorage, not user prefs', async () => {
     sessionStorage.clear()
-    api.get.mockResolvedValue([makeSystem()])
+    mockGet.mockResolvedValue([makeSystem()])
     renderView()
     await waitFor(() => expect(screen.getByText('Test System')).toBeInTheDocument())
 
@@ -202,7 +212,7 @@ describe('LibraryView', () => {
   })
 
   it('shows empty hint when favorites filter is on but nothing is favorited', async () => {
-    api.get.mockResolvedValue([makeSystem({ name: 'Unfavorited System' })])
+    mockGet.mockResolvedValue([makeSystem({ name: 'Unfavorited System' })])
     mockIsFavorite.mockReturnValue(false)
 
     renderView()
@@ -228,7 +238,7 @@ describe('LibraryView', () => {
     }
 
     it('lists every tag present across systems in the Tags dropdown', async () => {
-      api.get.mockResolvedValue([
+      mockGet.mockResolvedValue([
         makeSystem({ id: 's1', name: 'Alpha', tags: ['osr', 'fantasy'] }),
         makeSystem({ id: 's2', name: 'Beta', tags: ['pbta'] }),
       ])
@@ -242,7 +252,7 @@ describe('LibraryView', () => {
     })
 
     it('filters systems to those carrying a selected tag', async () => {
-      api.get.mockResolvedValue([
+      mockGet.mockResolvedValue([
         makeSystem({ id: 's1', name: 'OSR System', tags: ['osr'] }),
         makeSystem({ id: 's2', name: 'PbtA System', tags: ['pbta'] }),
       ])
@@ -257,7 +267,7 @@ describe('LibraryView', () => {
     })
 
     it('ORs tags selected within one group', async () => {
-      api.get.mockResolvedValue([
+      mockGet.mockResolvedValue([
         makeSystem({ id: 's1', name: 'Both System', tags: ['osr', 'grim'] }),
         makeSystem({ id: 's2', name: 'OSR Only', tags: ['osr'] }),
         makeSystem({ id: 's3', name: 'Neither', tags: ['pbta'] }),
@@ -276,7 +286,7 @@ describe('LibraryView', () => {
     })
 
     it('ANDs tags across separate groups', async () => {
-      api.get.mockResolvedValue([
+      mockGet.mockResolvedValue([
         makeSystem({ id: 's1', name: 'Both System', tags: ['osr', 'grim'] }),
         makeSystem({ id: 's2', name: 'OSR Only', tags: ['osr'] }),
       ])
@@ -295,7 +305,7 @@ describe('LibraryView', () => {
     })
 
     it('excludes a tag with a "none of" group', async () => {
-      api.get.mockResolvedValue([
+      mockGet.mockResolvedValue([
         makeSystem({ id: 's1', name: 'Grim System', tags: ['osr', 'grim'] }),
         makeSystem({ id: 's2', name: 'OSR Only', tags: ['osr'] }),
       ])
@@ -317,11 +327,13 @@ describe('LibraryView', () => {
     it('shows an empty-match message when the tag + favorites combo matches nothing', async () => {
       // Only the non-favorite system carries "osr"; with favorites on and the
       // osr tag selected, nothing matches.
-      api.get.mockResolvedValue([
+      mockGet.mockResolvedValue([
         makeSystem({ id: 'fav', name: 'Fav System', tags: ['pbta'] }),
         makeSystem({ id: 'osr', name: 'OSR System', tags: ['osr'] }),
       ])
-      mockIsFavorite.mockImplementation((type, id) => type === 'system' && id === 'fav')
+      mockIsFavorite.mockImplementation(
+        (type: string, id: string) => type === 'system' && id === 'fav'
+      )
       renderView()
       await waitFor(() => expect(screen.getByText('OSR System')).toBeInTheDocument())
 
@@ -335,7 +347,7 @@ describe('LibraryView', () => {
     })
 
     it('clicking a tag on a card navigates to the tags page (issue #235.7)', async () => {
-      api.get.mockResolvedValue([
+      mockGet.mockResolvedValue([
         makeSystem({ id: 's1', name: 'Alpha', tags: ['osr'] }),
         makeSystem({ id: 's2', name: 'Beta', tags: ['pbta'] }),
       ])
@@ -352,14 +364,14 @@ describe('LibraryView', () => {
   describe('bulk actions', () => {
     it('only shows the Select button to admins and GMs', async () => {
       mockUser = { role: 'player' }
-      api.get.mockResolvedValue([makeSystem()])
+      mockGet.mockResolvedValue([makeSystem()])
       renderView()
       await waitFor(() => expect(screen.getByText('Test System')).toBeInTheDocument())
       expect(screen.queryByRole('button', { name: /select/i })).not.toBeInTheDocument()
     })
 
     it('enters bulk mode and applies tags to selected systems', async () => {
-      api.get.mockResolvedValue([
+      mockGet.mockResolvedValue([
         makeSystem({ id: 's1', name: 'Alpha', tags: ['osr'] }),
         makeSystem({ id: 's2', name: 'Beta', tags: [] }),
       ])
@@ -381,7 +393,7 @@ describe('LibraryView', () => {
     })
 
     it('opens the bulk edit modal for the selected systems', async () => {
-      api.get.mockResolvedValue([makeSystem({ id: 's1', name: 'Alpha' })])
+      mockGet.mockResolvedValue([makeSystem({ id: 's1', name: 'Alpha' })])
       renderView()
       await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument())
 
@@ -395,7 +407,7 @@ describe('LibraryView', () => {
 
     // Bulk tag/edit are undefined for a container (it holds systems, not books).
     it('never sweeps a parent container into a shift-click range', async () => {
-      api.get.mockResolvedValue([
+      mockGet.mockResolvedValue([
         makeSystem({ id: 's1', name: 'Alpha' }),
         makeSystem({
           id: 'ctr',
@@ -412,7 +424,11 @@ describe('LibraryView', () => {
       await userEvent.click(screen.getByRole('button', { name: /select/i }))
       await userEvent.click(screen.getByText('Alpha'))
       // Shift-click the far end: the range spans the container in display order.
-      await userEvent.click(screen.getByText('Beta'), { shiftKey: true })
+      // Hold Shift through the click: user-event has no shiftKey click option.
+      const user = userEvent.setup()
+      await user.keyboard('{Shift>}')
+      await user.click(screen.getByText('Beta'))
+      await user.keyboard('{/Shift}')
       await userEvent.click(screen.getByRole('button', { name: /bulk edit/i }))
 
       // Both ordinary systems, and only those two.
@@ -420,7 +436,7 @@ describe('LibraryView', () => {
     })
 
     it('leaves a parent container clickable as a link in bulk mode', async () => {
-      api.get.mockResolvedValue([
+      mockGet.mockResolvedValue([
         makeSystem({ id: 's1', name: 'Alpha' }),
         makeSystem({
           id: 'ctr',
@@ -460,7 +476,7 @@ describe('LibraryView', () => {
     const toggle = () => screen.getByRole('switch', { name: /group collections/i })
 
     it('shows the container and hides its children by default', async () => {
-      api.get.mockResolvedValue(withContainer())
+      mockGet.mockResolvedValue(withContainer())
       renderView()
       await waitFor(() => expect(screen.getByText('Standalone')).toBeInTheDocument())
 
@@ -469,7 +485,7 @@ describe('LibraryView', () => {
     })
 
     it('swaps the container for its children when toggled off', async () => {
-      api.get.mockResolvedValue(withContainer())
+      mockGet.mockResolvedValue(withContainer())
       renderView()
       await waitFor(() => expect(screen.getByText('Dungeons & Dragons')).toBeInTheDocument())
 
@@ -483,7 +499,7 @@ describe('LibraryView', () => {
     })
 
     it('persists the choice as a user preference', async () => {
-      api.get.mockResolvedValue(withContainer())
+      mockGet.mockResolvedValue(withContainer())
       renderView()
       await waitFor(() => expect(screen.getByText('Dungeons & Dragons')).toBeInTheDocument())
 
@@ -494,7 +510,7 @@ describe('LibraryView', () => {
 
     it('starts flattened when the stored preference says so', async () => {
       mockUserPrefs = { ...mockUserPrefs, systemsGrouped: false }
-      api.get.mockResolvedValue(withContainer())
+      mockGet.mockResolvedValue(withContainer())
       renderView()
       await waitFor(() => expect(screen.getByText('D&D 5e')).toBeInTheDocument())
 
@@ -502,7 +518,7 @@ describe('LibraryView', () => {
     })
 
     it('hides the toggle when no container is present', async () => {
-      api.get.mockResolvedValue([makeSystem({ id: 's1', name: 'Standalone' })])
+      mockGet.mockResolvedValue([makeSystem({ id: 's1', name: 'Standalone' })])
       renderView()
       await waitFor(() => expect(screen.getByText('Standalone')).toBeInTheDocument())
 
@@ -512,7 +528,7 @@ describe('LibraryView', () => {
     // A family holding a parent-system container (issue #301): flattening must
     // reach the leaf systems, not surface the inner shelf as if it were a game.
     it('flattens nested containers down to their leaf systems', async () => {
-      api.get.mockResolvedValue([
+      mockGet.mockResolvedValue([
         makeSystem({
           id: 'fam',
           name: 'd20 System',
@@ -546,7 +562,7 @@ describe('LibraryView', () => {
     // The one-page collection exists precisely to keep a pile of tiny games out
     // of the main grid, so flattening must not spill them into it.
     it('never flattens a one-page collection into the grid', async () => {
-      api.get.mockResolvedValue([
+      mockGet.mockResolvedValue([
         // A flattenable container, so the toggle is present at all.
         makeSystem({
           id: 'ctr',
@@ -587,7 +603,7 @@ describe('LibraryView', () => {
     })
 
     it('flattens a generic .container shelf like any other', async () => {
-      api.get.mockResolvedValue([
+      mockGet.mockResolvedValue([
         makeSystem({
           id: 'gen',
           name: 'My Shelf',
@@ -609,7 +625,7 @@ describe('LibraryView', () => {
     })
 
     it('requests children so flattening needs no second fetch', async () => {
-      api.get.mockResolvedValue(withContainer())
+      mockGet.mockResolvedValue(withContainer())
       renderView()
       await waitFor(() => expect(screen.getByText('Standalone')).toBeInTheDocument())
 
@@ -623,7 +639,7 @@ describe('LibraryView', () => {
     })
 
     it('always shows the remove button for recent books', async () => {
-      api.get.mockResolvedValue([makeSystem()])
+      mockGet.mockResolvedValue([makeSystem()])
       renderView()
       await waitFor(() => expect(screen.getByText('Recent Book')).toBeInTheDocument())
 
@@ -637,7 +653,7 @@ describe('LibraryView', () => {
     })
 
     it('collapses and expands the recently opened section', async () => {
-      api.get.mockResolvedValue([makeSystem()])
+      mockGet.mockResolvedValue([makeSystem()])
       renderView()
       await waitFor(() => expect(screen.getByText('Recent Book')).toBeInTheDocument())
 
@@ -651,7 +667,7 @@ describe('LibraryView', () => {
 
     it('starts collapsed when the pref is set', async () => {
       mockUserPrefs = { ...mockUserPrefs, recentCollapsed: true }
-      api.get.mockResolvedValue([makeSystem()])
+      mockGet.mockResolvedValue([makeSystem()])
       renderView()
       await waitFor(() =>
         expect(screen.getByRole('button', { name: /^recently opened$/i })).toBeInTheDocument()
@@ -669,7 +685,7 @@ describe('LibraryView', () => {
     })
 
     it('groups one-page systems with the special collection section', async () => {
-      api.get.mockResolvedValue([
+      mockGet.mockResolvedValue([
         makeSystem({ id: 'normal', name: 'Normal System' }),
         makeSystem({ id: 'onepage', name: 'Tiny RPGs', is_one_page: true }),
         makeSystem({ id: 'agnostic', name: 'Zines', is_system_agnostic: true }),
@@ -681,7 +697,7 @@ describe('LibraryView', () => {
     })
 
     it('renders the sort control and reorders by name descending', async () => {
-      api.get.mockResolvedValue([
+      mockGet.mockResolvedValue([
         makeSystem({ id: 'a', name: 'Aardvark' }),
         makeSystem({ id: 'z', name: 'Zebra' }),
       ])
@@ -695,7 +711,7 @@ describe('LibraryView', () => {
     })
 
     it('offers genre and family filter options derived from systems', async () => {
-      api.get.mockResolvedValue([
+      mockGet.mockResolvedValue([
         makeSystem({ id: 'g', name: 'GenreSys', genres: ['Fantasy'], system_family: 'Fate' }),
       ])
       renderView()
@@ -711,7 +727,7 @@ describe('LibraryView', () => {
   })
   describe('system containers (issues #261, #262)', () => {
     it('shows a parent-system container that has no books of its own', async () => {
-      api.get.mockResolvedValue([
+      mockGet.mockResolvedValue([
         makeSystem({
           id: 'ctr',
           name: 'Dungeons & Dragons',
@@ -725,7 +741,7 @@ describe('LibraryView', () => {
     })
 
     it('still hides an ordinary system with no books', async () => {
-      api.get.mockResolvedValue([makeSystem({ id: 'empty', name: 'Empty System', book_count: 0 })])
+      mockGet.mockResolvedValue([makeSystem({ id: 'empty', name: 'Empty System', book_count: 0 })])
       renderView()
       // An all-empty library falls back to the "0 game systems" empty state.
       await waitFor(() =>
@@ -735,7 +751,7 @@ describe('LibraryView', () => {
     })
 
     it('hides a container that has no children yet', async () => {
-      api.get.mockResolvedValue([
+      mockGet.mockResolvedValue([
         makeSystem({
           id: 'ctr-empty',
           name: 'Empty Container',
@@ -752,7 +768,7 @@ describe('LibraryView', () => {
     })
 
     it('puts a one-page container in the special collections strip', async () => {
-      api.get.mockResolvedValue([
+      mockGet.mockResolvedValue([
         makeSystem({
           id: 'op',
           name: 'one-page-rpgs',
@@ -769,7 +785,7 @@ describe('LibraryView', () => {
   })
   describe('subtitle count (filtered vs total)', () => {
     it('shows the plain total when nothing is filtered out', async () => {
-      api.get.mockResolvedValue([
+      mockGet.mockResolvedValue([
         makeSystem({ id: 'a', name: 'Alpha' }),
         makeSystem({ id: 'b', name: 'Beta' }),
       ])
@@ -780,12 +796,14 @@ describe('LibraryView', () => {
     })
 
     it('switches to "x of y" once a filter hides something', async () => {
-      api.get.mockResolvedValue([
+      mockGet.mockResolvedValue([
         makeSystem({ id: 'sys-fav', name: 'Favorite System' }),
         makeSystem({ id: 'sys-other', name: 'Other System' }),
         makeSystem({ id: 'sys-third', name: 'Third System' }),
       ])
-      mockIsFavorite.mockImplementation((type, id) => type === 'system' && id === 'sys-fav')
+      mockIsFavorite.mockImplementation(
+        (type: string, id: string) => type === 'system' && id === 'sys-fav'
+      )
 
       renderView()
       await waitFor(() =>
@@ -803,7 +821,7 @@ describe('LibraryView', () => {
       // Grouped by default, so the container's child is not a grid row — the
       // denominator must not count it, or an unfiltered view would read
       // "2 of 3".
-      api.get.mockResolvedValue([
+      mockGet.mockResolvedValue([
         makeSystem({
           id: 'ctr',
           name: 'Dungeons & Dragons',

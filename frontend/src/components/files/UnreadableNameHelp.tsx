@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState, type MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCircleHelp } from 'react-icons/lu'
 
@@ -16,17 +16,17 @@ import { LuCircleHelp } from 'react-icons/lu'
  */
 export default function UnreadableNameHelp() {
   const { t } = useTranslation()
-  const [anchor, setAnchor] = useState(null)
-  const buttonRef = useRef(null)
+  const [anchor, setAnchor] = useState<DOMRect | null>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
   const id = useId()
   const text = t('files.unreadableName')
 
   useEffect(() => {
     if (!anchor) return
     const close = () => setAnchor(null)
-    const onKey = (e) => e.key === 'Escape' && close()
-    const onPointer = (e) => {
-      if (!buttonRef.current?.contains(e.target)) close()
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close()
+    const onPointer = (e: PointerEvent) => {
+      if (!buttonRef.current?.contains(e.target as Node)) close()
     }
     window.addEventListener('keydown', onKey)
     window.addEventListener('pointerdown', onPointer)
@@ -38,7 +38,7 @@ export default function UnreadableNameHelp() {
     }
   }, [anchor])
 
-  const toggle = (e) => {
+  const toggle = (e: MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation()
     setAnchor((cur) => (cur ? null : e.currentTarget.getBoundingClientRect()))
   }

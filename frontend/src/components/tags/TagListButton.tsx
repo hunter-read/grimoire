@@ -1,4 +1,10 @@
 import { Link } from 'react-router-dom'
+import type { Schema } from '../../api'
+
+export interface TagListButtonProps {
+  tag: Pick<Schema<'TagListItem'>, 'internal' | 'display' | 'count'>
+  active: boolean
+}
 
 /**
  * One tag in the tags page's left-hand list. Selecting a tag is a URL change
@@ -7,7 +13,7 @@ import { Link } from 'react-router-dom'
  * #313). `replace` matches how the view itself updates the param, so browsing
  * tags doesn't pile up one history entry per click.
  */
-export default function TagListButton({ tag, active }) {
+export default function TagListButton({ tag, active }: TagListButtonProps) {
   return (
     <Link
       to={`/tags?tag=${encodeURIComponent(tag.internal)}`}

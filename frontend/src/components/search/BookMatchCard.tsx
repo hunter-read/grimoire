@@ -4,6 +4,11 @@ import CardLink from '../CardLink'
 import ResultThumb from './ResultThumb'
 import TagList from './TagList'
 import { cardStyle } from './searchStyles'
+import type { Schema } from '../../api'
+
+export interface BookMatchCardProps {
+  book: Schema<'SearchBookMatch'>
+}
 
 /**
  * A book matched on its own title/metadata rather than its page text (issue #343).
@@ -13,7 +18,7 @@ import { cardStyle } from './searchStyles'
  * metadata and links straight to the book. A book that also matched on content
  * still shows its page hits below, in the normal grouped list.
  */
-export default function BookMatchCard({ book }) {
+export default function BookMatchCard({ book }: BookMatchCardProps) {
   const { t } = useTranslation()
   const location = useLocation()
 

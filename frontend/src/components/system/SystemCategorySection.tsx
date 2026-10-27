@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuFileText, LuChevronDown, LuChevronRight, LuDownload } from 'react-icons/lu'
 import { CATEGORY_ICONS, CATEGORY_LABELS, categoryLabel } from '../../constants'
@@ -6,6 +7,36 @@ import RescanButton from '../RescanButton'
 import ShelfNodeBody from './ShelfNodeBody'
 import { categoryDepth } from './folderTree'
 import { categoryFolderName, nodeScope } from './shelfTree'
+import type { ShelfNode } from './shelfTree'
+import type { FolderOrder, ShelfItemProps, ShelfPages } from './ShelfNodeBody'
+import type { ShelfDownload } from './BookFolderGroup'
+
+export interface SystemCategorySectionProps extends ShelfItemProps {
+  cat: string
+  node: ShelfNode
+  pages: ShelfPages
+  onLoadNode: (key: string) => void
+  folderOrder: FolderOrder
+  system: {
+    id: string
+    name: string
+    scope_path?: string | null
+    is_one_page?: boolean
+    category_depth?: number | null
+    parent_id?: string | null
+  }
+  isCollapsed: boolean
+  isEditor: boolean
+  onToggleCat: () => void
+  collapsedSubfolders: Set<string>
+  onToggleSubfolder: (key: string) => void
+  bookFolderTags?: Record<string, string[]>
+  editingFolderKey?: string | null
+  onEditFolder?: (fullPath: string | null) => void
+  onSaveBookFolderTags?: (fullPath: string, tags: string[]) => void
+  booksContainerStyle?: CSSProperties
+  onDownload: (download: ShelfDownload) => void
+}
 
 /**
  * One collapsible category section within SystemDetailView: the category header
@@ -65,7 +96,7 @@ export default function SystemCategorySection({
   selectedBookIds,
   onToggleBook,
   onVariantsChanged,
-}) {
+}: SystemCategorySectionProps) {
   const { t, i18n } = useTranslation()
   const CatIcon = CATEGORY_ICONS[cat] || LuFileText
   // Label resolution:
@@ -86,7 +117,7 @@ export default function SystemCategorySection({
       ? t(`categories.${cat}`, { defaultValue: categoryLabel(cat) })
       : customLabel
 
-  const itemProps = {
+  const itemProps: ShelfItemProps = {
     card,
     compact,
     list,

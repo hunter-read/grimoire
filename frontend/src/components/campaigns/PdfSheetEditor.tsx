@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX } from 'react-icons/lu'
 import 'pdfjs-dist/web/pdf_viewer.css'
 import './pdfSheetEditor.css'
+import type { DocumentInitParameters, PDFDocumentProxy } from 'pdfjs-dist/types/src/display/api'
 import pdfjs, { WASM_URL } from '../../lib/pdfjs'
 import { campaigns } from '../../api'
 import Spinner from '../Spinner'
@@ -17,7 +18,7 @@ const NOOP_LINK_SERVICE = {
   getDestinationHash: () => '#',
   getAnchorUrl: () => '#',
   setHash: () => {},
-  addLinkAttributes: (link, url) => {
+  addLinkAttributes: (link: HTMLAnchorElement, url: string) => {
     link.href = url || '#'
   },
   goToDestination: () => Promise.resolve(),
@@ -43,16 +44,41 @@ const MAX_CANVAS_AREA = 16_777_216
  * to the member's sheet slot — replacing the field-list modal with true
  * in-browser editing.
  */
-export default function PdfSheetEditor({ campaignId, memberId, onClose, onSaved }) {
+// pdf.js 6 moved destroy() from the document to its loading task, but this
+// editor still calls it on the document.
+type SheetDoc = PDFDocumentProxy & { destroy?: () => void }
+
+/** One render pass; cleanup flags it cancelled and destroys the doc it loaded. */
+interface RenderSignal {
+  cancelled: boolean
+  doc: SheetDoc | null
+}
+
+type AnnotationLayerInit = ConstructorParameters<typeof pdfjs.AnnotationLayer>[0]
+type AnnotationRenderParams = Parameters<InstanceType<typeof pdfjs.AnnotationLayer>['render']>[0]
+
+interface PdfSheetEditorProps {
+  campaignId: string
+  memberId: string
+  onClose: () => void
+  onSaved?: () => void
+}
+
+export default function PdfSheetEditor({
+  campaignId,
+  memberId,
+  onClose,
+  onSaved,
+}: PdfSheetEditorProps) {
   const { t } = useTranslation()
-  const containerRef = useRef(null)
-  const docRef = useRef(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const docRef = useRef<SheetDoc | null>(null)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
 
   const renderPdf = useCallback(
-    async (signal) => {
+    async (signal: RenderSignal) => {
       setLoading(true)
       setError(null)
       try {
@@ -61,15 +87,19 @@ export default function PdfSheetEditor({ campaignId, memberId, onClose, onSaved 
         const url = campaigns.memberSheetUrl(campaignId, memberId, Date.now())
         // wasmUrl lets pdf.js decode JPEG2000/JBIG2 page images; without it such
         // pages render blank (OpenJPEG fails to initialize).
-        const doc = await pdfjs.getDocument({ url, isEvalSupported: false, wasmUrl: WASM_URL })
-          .promise
+        // isEvalSupported is no longer one of pdf.js's options.
+        const doc: SheetDoc = await pdfjs.getDocument({
+          url,
+          isEvalSupported: false,
+          wasmUrl: WASM_URL,
+        } as DocumentInitParameters).promise
         // A superseded run (React StrictMode double-invokes effects) must not touch
         // the DOM or leave a half-rendered doc behind, or the page renders blank.
         // The doc is owned by this run's signal so cleanup destroys exactly the
         // doc it created — never a newer run's live doc.
         signal.doc = doc
         if (signal.cancelled) {
-          doc.destroy()
+          doc.destroy!()
           return
         }
         docRef.current = doc
@@ -102,7 +132,7 @@ export default function PdfSheetEditor({ campaignId, memberId, onClose, onSaved 
           // scale — which folds in the PDF's UserUnit — or positions drift more
           // the further a field sits from the top-left. So derive it from the
           // rendered viewport rather than assuming it equals the nominal scale.
-          const layerScale = viewport.width / viewport.rawDims.pageWidth
+          const layerScale = viewport.width / (viewport.rawDims as { pageWidth: number }).pageWidth
           const pageDiv = document.createElement('div')
           pageDiv.className = 'page'
           pageDiv.style.setProperty('--scale-factor', String(layerScale))
@@ -142,15 +172,16 @@ export default function PdfSheetEditor({ campaignId, memberId, onClose, onSaved 
           // form field. DISABLE keeps the canvas from also painting the widgets,
           // which would double each value and blur the text.
           const renderTask = page.render({
-            canvasContext: canvas.getContext('2d'),
+            canvasContext: canvas.getContext('2d')!,
             viewport,
             annotationMode: pdfjs.AnnotationMode.DISABLE,
             transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined,
-          })
+            // `canvas` defaults to the context's own canvas; the types require it.
+          } as Parameters<typeof page.render>[0])
           try {
             await renderTask.promise
           } catch (err) {
-            if (err?.name === 'RenderingCancelledException') return
+            if ((err as Error | null)?.name === 'RenderingCancelledException') return
             throw err
           }
           if (signal.cancelled) return
@@ -162,13 +193,14 @@ export default function PdfSheetEditor({ campaignId, memberId, onClose, onSaved 
             viewport: viewport.clone({ dontFlip: true }),
             linkService: NOOP_LINK_SERVICE,
             annotationStorage: doc.annotationStorage,
-          })
+            // pdf.js's generated types list every option as required.
+          } as unknown as AnnotationLayerInit)
           // renderForms wires each widget's input to doc.annotationStorage, which
           // is what saveDocument() serializes.
-          await layer.render({ annotations, renderForms: true })
+          await layer.render({ annotations, renderForms: true } as AnnotationRenderParams)
         }
       } catch (err) {
-        setError(err?.message || String(err))
+        setError((err as Error | null)?.message || String(err))
       } finally {
         setLoading(false)
       }
@@ -177,7 +209,7 @@ export default function PdfSheetEditor({ campaignId, memberId, onClose, onSaved 
   )
 
   useEffect(() => {
-    const signal = { cancelled: false, doc: null }
+    const signal: RenderSignal = { cancelled: false, doc: null }
     renderPdf(signal)
     return () => {
       signal.cancelled = true
@@ -193,7 +225,7 @@ export default function PdfSheetEditor({ campaignId, memberId, onClose, onSaved 
     if (!doc || busy) return
     // A field being edited only commits to annotationStorage on blur, so flush
     // the focused input first or its value is missing from the saved PDF.
-    document.activeElement?.blur?.()
+    ;(document.activeElement as HTMLElement | null)?.blur?.()
     setBusy(true)
     setError(null)
     try {
@@ -204,7 +236,7 @@ export default function PdfSheetEditor({ campaignId, memberId, onClose, onSaved 
       onSaved?.()
       onClose()
     } catch (err) {
-      setError(err?.message || String(err))
+      setError((err as Error | null)?.message || String(err))
     } finally {
       setBusy(false)
     }
@@ -253,7 +285,7 @@ export default function PdfSheetEditor({ campaignId, memberId, onClose, onSaved 
   )
 }
 
-const panel = {
+const panel: CSSProperties = {
   background: 'var(--bg-panel)',
   border: '1px solid var(--border)',
   borderRadius: 12,
@@ -264,14 +296,14 @@ const panel = {
   padding: 16,
   boxSizing: 'border-box',
 }
-const headerRow = {
+const headerRow: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
   marginBottom: 12,
   flexShrink: 0,
 }
-const inlineCloseBtn = {
+const inlineCloseBtn: CSSProperties = {
   background: 'none',
   border: 'none',
   cursor: 'pointer',
@@ -279,14 +311,14 @@ const inlineCloseBtn = {
   display: 'flex',
   padding: 2,
 }
-const pagesArea = {
+const pagesArea: CSSProperties = {
   flex: 1,
   overflow: 'auto',
   background: 'var(--bg-deep)',
   borderRadius: 8,
   padding: 16,
 }
-const footerRow = {
+const footerRow: CSSProperties = {
   display: 'flex',
   gap: 10,
   justifyContent: 'flex-end',

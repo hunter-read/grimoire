@@ -1,10 +1,19 @@
+import type { ReactNode } from 'react'
+
 /**
  * A small square icon button; `active` renders it as pressed.
  *
  * Its own file because the project lints one React component per file.
  */
 
-export default function IconButton({ onClick, title, children, active = false }) {
+export interface IconButtonProps {
+  onClick: () => void
+  title: string
+  children?: ReactNode
+  active?: boolean
+}
+
+export default function IconButton({ onClick, title, children, active = false }: IconButtonProps) {
   return (
     <button
       type="button"

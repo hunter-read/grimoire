@@ -1,8 +1,13 @@
+import type { ComponentProps } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import type { Mock } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import MemberRow from './MemberRow'
 import { campaigns } from '../../api'
+
+// The api module is mocked above; reach its helpers as plain vi.fn()s.
+const campaignsMock = campaigns as unknown as Record<keyof typeof campaigns, Mock>
 
 vi.mock('../../api', () => ({
   campaigns: {
@@ -23,21 +28,24 @@ vi.mock('react-router-dom', () => ({
 // The nested editor/picker/dialog components make their own API calls — stub
 // them so these tests stay focused on MemberRow's own wiring.
 vi.mock('./PdfSheetEditor', () => ({
-  default: ({ onClose }) => (
+  default: ({ onClose }: ComponentProps<typeof import('./PdfSheetEditor').default>) => (
     <div data-testid="sheet-editor">
       <button onClick={onClose}>close-editor</button>
     </div>
   ),
 }))
 vi.mock('./SheetTemplatePicker', () => ({
-  default: ({ onClose }) => (
+  default: ({ onClose }: ComponentProps<typeof import('./SheetTemplatePicker').default>) => (
     <div data-testid="template-picker">
       <button onClick={onClose}>close-picker</button>
     </div>
   ),
 }))
 vi.mock('./ReplaceSheetDialog', () => ({
-  default: ({ onReplace, onCancel }) => (
+  default: ({
+    onReplace,
+    onCancel,
+  }: ComponentProps<typeof import('./ReplaceSheetDialog').default>) => (
     <div data-testid="replace-dialog">
       <button onClick={onReplace}>confirm-replace</button>
       <button onClick={onCancel}>cancel-replace</button>
@@ -79,7 +87,7 @@ beforeEach(() => {
 
 describe('MemberRow character name editing', () => {
   it('lets a manager edit and save the character name', async () => {
-    const onSetCharacterName = vi.fn().mockResolvedValue()
+    const onSetCharacterName = vi.fn().mockResolvedValue(undefined)
     renderRow({}, { canManage: true, onSetCharacterName })
 
     await userEvent.click(screen.getByLabelText('Edit character name'))
@@ -91,7 +99,7 @@ describe('MemberRow character name editing', () => {
   })
 
   it('saves the character name on Enter', async () => {
-    const onSetCharacterName = vi.fn().mockResolvedValue()
+    const onSetCharacterName = vi.fn().mockResolvedValue(undefined)
     renderRow({}, { canManage: true, onSetCharacterName })
     await userEvent.click(screen.getByLabelText('Edit character name'))
     await userEvent.type(screen.getByLabelText('Character name'), 'Nott{Enter}')
@@ -117,13 +125,13 @@ describe('MemberRow character name editing', () => {
 
 describe('MemberRow art upload', () => {
   it('uploads character art and signals a media change', async () => {
-    campaigns.uploadMemberArt.mockResolvedValue()
+    campaignsMock.uploadMemberArt.mockResolvedValue(undefined)
     const onMediaChanged = vi.fn()
     // isCurrentUser enables editing without canManage.
     renderRow({}, { currentUserId: 'u1', onMediaChanged })
 
     const file = new File(['x'], 'art.png', { type: 'image/png' })
-    const input = document.querySelector('input[type="file"]')
+    const input = document.querySelector<HTMLInputElement>('input[type="file"]')!
     await waitFor(() => expect(input).toBeTruthy())
     await userEvent.upload(input, file)
 
@@ -132,12 +140,12 @@ describe('MemberRow art upload', () => {
   })
 
   it('alerts when art upload fails', async () => {
-    campaigns.uploadMemberArt.mockRejectedValue(new Error('too big'))
+    campaignsMock.uploadMemberArt.mockRejectedValue(new Error('too big'))
     const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
     renderRow({}, { currentUserId: 'u1' })
 
     const file = new File(['x'], 'art.png', { type: 'image/png' })
-    const input = document.querySelector('input[type="file"]')
+    const input = document.querySelector<HTMLInputElement>('input[type="file"]')!
     await userEvent.upload(input, file)
 
     await waitFor(() => expect(alertSpy).toHaveBeenCalledWith('too big'))
@@ -160,12 +168,12 @@ describe('MemberRow sheet actions', () => {
   })
 
   it('uploads a sheet file', async () => {
-    campaigns.uploadMemberSheet.mockResolvedValue()
+    campaignsMock.uploadMemberSheet.mockResolvedValue(undefined)
     const onMediaChanged = vi.fn()
     renderRow({}, { currentUserId: 'u1', onMediaChanged })
 
     const file = new File(['%PDF'], 'sheet.pdf', { type: 'application/pdf' })
-    const sheetInput = document.querySelector('input[accept*="application/pdf"]')
+    const sheetInput = document.querySelector<HTMLInputElement>('input[accept*="application/pdf"]')!
     await userEvent.upload(sheetInput, file)
 
     await waitFor(() => expect(campaigns.uploadMemberSheet).toHaveBeenCalledWith('c1', 'm1', file))
@@ -181,7 +189,7 @@ describe('MemberRow sheet actions', () => {
   })
 
   it('links an external sheet URL', async () => {
-    campaigns.setCharacterSheetUrl.mockResolvedValue()
+    campaignsMock.setCharacterSheetUrl.mockResolvedValue(undefined)
     const onMediaChanged = vi.fn()
     renderRow({}, { currentUserId: 'u1', onMediaChanged })
 
@@ -215,7 +223,7 @@ describe('MemberRow sheet actions', () => {
   })
 
   it('removes an uploaded sheet via the delete endpoint', async () => {
-    campaigns.deleteMemberSheet.mockResolvedValue()
+    campaignsMock.deleteMemberSheet.mockResolvedValue(undefined)
     const onMediaChanged = vi.fn()
     renderRow(
       { has_sheet: true, character_sheet_filename: 'char.pdf' },
@@ -227,7 +235,7 @@ describe('MemberRow sheet actions', () => {
   })
 
   it('removing an external-link sheet clears the URL instead', async () => {
-    campaigns.setCharacterSheetUrl.mockResolvedValue()
+    campaignsMock.setCharacterSheetUrl.mockResolvedValue(undefined)
     renderRow({ character_sheet_url: 'https://sheet.example/abc' }, { currentUserId: 'u1' })
     await userEvent.click(screen.getByLabelText('Remove sheet'))
     await waitFor(() => expect(campaigns.setCharacterSheetUrl).toHaveBeenCalledWith('c1', 'u1', ''))

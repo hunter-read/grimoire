@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest'
+import type { TFunction } from 'i18next'
 import { renderHook, waitFor } from '@testing-library/react'
 import api from '../api'
 import useTrackChapters, {
@@ -9,6 +10,8 @@ import useTrackChapters, {
 
 vi.mock('../api', () => ({ default: { get: vi.fn() } }))
 
+const mockGet = vi.mocked(api.get) as unknown as Mock<(url: string) => Promise<unknown>>
+
 const CHAPTERS = [
   { start: 0, title: 'One' },
   { start: 10, title: '' },
@@ -16,7 +19,7 @@ const CHAPTERS = [
 
 beforeEach(() => {
   _clearChapterCache()
-  api.get.mockReset()
+  mockGet.mockReset()
 })
 
 describe('useTrackChapters', () => {
@@ -27,8 +30,8 @@ describe('useTrackChapters', () => {
   })
 
   it("fetches a track's chapters once and reuses them", async () => {
-    api.get.mockResolvedValue({ chapters: CHAPTERS })
-    const { result, rerender } = renderHook(({ id }) => useTrackChapters(id), {
+    mockGet.mockResolvedValue({ chapters: CHAPTERS })
+    const { result, rerender } = renderHook(({ id }: { id: string }) => useTrackChapters(id), {
       initialProps: { id: 'book' },
     })
     expect(result.current).toEqual([])
@@ -38,24 +41,24 @@ describe('useTrackChapters', () => {
     rerender({ id: 'other' })
     rerender({ id: 'book' })
     expect(result.current).toEqual(CHAPTERS)
-    expect(api.get.mock.calls.filter(([url]) => url === '/audio/book/chapters')).toHaveLength(1)
+    expect(mockGet.mock.calls.filter(([url]) => url === '/audio/book/chapters')).toHaveLength(1)
   })
 
   it('treats a malformed response as no chapters', async () => {
-    api.get.mockResolvedValue({})
+    mockGet.mockResolvedValue({})
     const { result } = renderHook(() => useTrackChapters('odd'))
     await waitFor(() => expect(api.get).toHaveBeenCalled())
     expect(result.current).toEqual([])
   })
 
   it('does not cache a failed request, so the track asks again later', async () => {
-    api.get.mockRejectedValueOnce(new Error('offline'))
+    mockGet.mockRejectedValueOnce(new Error('offline'))
     const first = renderHook(() => useTrackChapters('flaky'))
     await waitFor(() => expect(api.get).toHaveBeenCalledTimes(1))
     expect(first.result.current).toEqual([])
     first.unmount()
 
-    api.get.mockResolvedValue({ chapters: CHAPTERS })
+    mockGet.mockResolvedValue({ chapters: CHAPTERS })
     const second = renderHook(() => useTrackChapters('flaky'))
     await waitFor(() => expect(second.result.current).toEqual(CHAPTERS))
   })
@@ -76,7 +79,7 @@ describe('chapterIndexAt', () => {
 })
 
 describe('chapterLabel', () => {
-  const t = (key, opts) => `${key}:${opts.n}`
+  const t = ((key: string, opts: { n: number }) => `${key}:${opts.n}`) as unknown as TFunction
 
   it("uses the chapter's title, else its number", () => {
     expect(chapterLabel(t, CHAPTERS, 0)).toBe('One')

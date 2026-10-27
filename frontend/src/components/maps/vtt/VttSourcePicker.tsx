@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import type { DragEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuImagePlus, LuUpload } from 'react-icons/lu'
 
@@ -17,7 +18,7 @@ export const ACCEPTED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'i
  * inconsistently (often `application/json`, frequently an empty string for an
  * unknown extension), so the type is not a reliable signal for this format.
  */
-export const isAcceptedSource = (file) =>
+export const isAcceptedSource = (file: File | null | undefined): boolean =>
   !!file && (ACCEPTED_IMAGE_TYPES.includes(file.type) || isUvttName(file.name))
 
 /**
@@ -28,12 +29,17 @@ export const isAcceptedSource = (file) =>
  * different job from tracing a dungeon; folding both into one component would
  * mean a props matrix describing which of its tabs and formats apply where.
  */
-export default function VttSourcePicker({ onFile, error }) {
+export interface VttSourcePickerProps {
+  onFile: (file: File) => void
+  error?: string
+}
+
+export default function VttSourcePicker({ onFile, error }: VttSourcePickerProps) {
   const { t } = useTranslation()
-  const inputRef = useRef(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
 
-  const handleDrop = (e) => {
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault()
     setDragging(false)
     const file = Array.from(e.dataTransfer?.files || []).find(isAcceptedSource)

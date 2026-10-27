@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -5,7 +6,17 @@ import AudioView from './AudioView'
 
 // Drive the three modal branches by mocking GalleryLayout to expose its callbacks.
 vi.mock('../components/media/GalleryLayout', () => ({
-  default: ({ onDownload, onAddToCampaign, onBulkEdit, headerActions }) => (
+  default: ({
+    onDownload,
+    onAddToCampaign,
+    onBulkEdit,
+    headerActions,
+  }: {
+    onDownload: (request: { title: string; params: Record<string, unknown> }) => void
+    onAddToCampaign: () => void
+    onBulkEdit: () => void
+    headerActions: ReactNode
+  }) => (
     <div>
       <button onClick={() => onDownload({ title: 'T', params: {} })}>fire-download</button>
       <button onClick={onAddToCampaign}>fire-campaign</button>
@@ -32,14 +43,20 @@ vi.mock('../context/AuthContext', () => ({
 vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn() }))
 
 vi.mock('../components/DownloadArchiveModal', () => ({
-  default: ({ onClose }) => (
+  default: ({ onClose }: { onClose: () => void }) => (
     <div data-testid="dl-modal">
       <button onClick={onClose}>x</button>
     </div>
   ),
 }))
 vi.mock('../components/AddToCampaignModal', () => ({
-  default: ({ items, onAdded }) => (
+  default: ({
+    items,
+    onAdded,
+  }: {
+    items: { resource_type: string; resource_id: string }[]
+    onAdded: () => void
+  }) => (
     <div data-testid="campaign-modal">
       {items.map((i) => i.resource_type + ':' + i.resource_id).join(',')}
       <button onClick={onAdded}>x</button>
@@ -47,7 +64,15 @@ vi.mock('../components/AddToCampaignModal', () => ({
   ),
 }))
 vi.mock('../components/BulkEditModal', () => ({
-  default: ({ type, onClose, onSaved }) => (
+  default: ({
+    type,
+    onClose,
+    onSaved,
+  }: {
+    type: string
+    onClose: () => void
+    onSaved: (edited: Record<string, Record<string, unknown>>) => void
+  }) => (
     <div data-testid="bulk-modal">
       {type}
       <button onClick={() => onSaved({ a1: { tags: ['x'] } })}>save-bulk</button>
@@ -57,7 +82,7 @@ vi.mock('../components/BulkEditModal', () => ({
 }))
 
 vi.mock('../components/audio/AudioSetsModal', () => ({
-  default: ({ onClose }) => (
+  default: ({ onClose }: { onClose: () => void }) => (
     <div data-testid="sets-modal">
       <button onClick={onClose}>close-sets</button>
     </div>

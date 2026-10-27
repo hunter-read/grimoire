@@ -13,16 +13,18 @@ import { useLocation, useNavigate } from 'react-router-dom'
  *
  * @returns {boolean} whether persisted view state should be restored
  */
-export default function useRestoredView() {
+export default function useRestoredView(): boolean {
   const location = useLocation()
   const navigate = useNavigate()
   // Captured on the first render so the value is stable for the whole mount,
   // including for state initialisers that run before the cleanup effect below.
-  const restoreRef = useRef(location.state?.restoreView === true)
+  const state = location.state as Record<string, unknown> | null | undefined
+  const restoreRef = useRef(state?.restoreView === true)
 
   useEffect(() => {
     if (!restoreRef.current) return
-    const { restoreView, ...rest } = location.state || {}
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- dropped from the copy
+    const { restoreView, ...rest } = state || {}
     navigate(location.pathname + location.search, {
       replace: true,
       state: Object.keys(rest).length ? rest : null,

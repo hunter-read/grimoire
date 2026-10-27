@@ -1,10 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import SortFilterBar from './SortFilterBar'
+import SortFilterBar, {
+  type SavedPreset,
+  type SavePreset,
+  type SortFilterState,
+} from './SortFilterBar'
 
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }))
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }))
 
 const sortOptions = [
   { value: 'name', label: 'Name' },
@@ -25,6 +29,18 @@ const multiFilters = [
 ]
 const booleanToggles = [{ key: 'favorites', label: 'Favorites', boolean: true }]
 
+interface HarnessProps {
+  initial?: SortFilterState
+  withMulti?: boolean
+  withBoolean?: boolean
+  saved?: SavedPreset[]
+  onSavePreset?: SavePreset
+  onSetDefault?: (id: string, value: boolean) => void
+  onDeletePreset?: (id: string) => void
+  trailing?: ReactNode
+  sticky?: boolean
+}
+
 function Harness({
   initial = { sort: 'name', order: 'asc', filters: {} },
   withMulti = false,
@@ -35,7 +51,7 @@ function Harness({
   onDeletePreset,
   trailing,
   sticky,
-}) {
+}: HarnessProps) {
   const [state, setState] = useState(initial)
   return (
     <div>
@@ -277,7 +293,7 @@ describe('SortFilterBar', () => {
       window.matchMedia = realMatchMedia
     })
 
-    const setViewport = (mobile) => {
+    const setViewport = (mobile: boolean) => {
       window.matchMedia = (query) => ({
         matches: mobile,
         media: query,

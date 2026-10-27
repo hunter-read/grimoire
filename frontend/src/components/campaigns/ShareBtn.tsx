@@ -1,5 +1,13 @@
+import type { ReactNode } from 'react'
+
 /** Button (or span) used in the guest share modal's action row. */
-export default function ShareBtn({ children, onClick, as = 'button' }) {
+interface ShareBtnProps {
+  children?: ReactNode
+  onClick?: () => void
+  as?: 'button' | 'span'
+}
+
+export default function ShareBtn({ children, onClick, as = 'button' }: ShareBtnProps) {
   const Tag = as
   return (
     <Tag

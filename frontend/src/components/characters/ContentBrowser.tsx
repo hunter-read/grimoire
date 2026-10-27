@@ -2,9 +2,39 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuSearch, LuX, LuCheck, LuPlus } from 'react-icons/lu'
 import { content as contentApi } from '../../api'
+import type { Schema } from '../../api'
 import Spinner from '../Spinner'
 import ContentEntryDetail from './ContentEntryDetail'
+import type { ContentTypeDefinition } from './ContentEntryDetail'
 import { goldBtn, ghostBtn, iconBtn, fieldInput, fieldLabel, card } from './characterStyles'
+
+type CatalogEntry = Schema<'CatalogEntry'>
+type Facets = NonNullable<Schema<'CatalogResponse'>['filters_available']>
+
+/**
+ * A content_ref/content_list value: a reference to a catalog entry (`_ref`,
+ * `_source`) or a freeform `_inline` entry, plus the character's own `_per`
+ * notes on it.
+ */
+export interface ContentRefValue {
+  _ref?: string
+  _source?: string
+  _inline?: boolean
+  _per?: Record<string, unknown>
+  name?: string
+  [key: string]: unknown
+}
+
+export interface ContentBrowserProps {
+  schemaId: string
+  contentType: string
+  typeDefinition?: ContentTypeDefinition
+  multiple?: boolean
+  chosen?: (ContentRefValue | null | undefined)[]
+  // The reference to store, and the picked entry's own properties.
+  onChoose?: (ref: { _ref: string; _source: string }, entry: Record<string, unknown>) => void
+  onClose?: () => void
+}
 
 /**
  * The catalog picker: search, filter, and choose entries for a sheet.
@@ -25,19 +55,19 @@ export default function ContentBrowser({
   chosen = [],
   onChoose,
   onClose,
-}) {
+}: ContentBrowserProps) {
   const { t } = useTranslation()
-  const [entries, setEntries] = useState([])
+  const [entries, setEntries] = useState<CatalogEntry[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
-  const [facets, setFacets] = useState({})
-  const [filters, setFilters] = useState({})
+  const [facets, setFacets] = useState<Facets>({})
+  const [filters, setFilters] = useState<Record<string, string>>({})
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [detail, setDetail] = useState(null)
+  const [detail, setDetail] = useState<CatalogEntry | null>(null)
 
-  const searchRef = useRef(null)
+  const searchRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -55,7 +85,7 @@ export default function ContentBrowser({
       if (!Object.keys(filters).length) setFacets(result.filters_available || {})
       setError('')
     } catch (e) {
-      setError(e.message || t('characters.catalogFailed'))
+      setError((e as Error).message || t('characters.catalogFailed'))
     } finally {
       setLoading(false)
     }
@@ -67,7 +97,7 @@ export default function ContentBrowser({
 
   // Close on Escape, the way every other dialog in the app does.
   useEffect(() => {
-    const onKey = (event) => {
+    const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose?.()
     }
     window.addEventListener('keydown', onKey)
@@ -79,7 +109,7 @@ export default function ContentBrowser({
   const pageSize = 50
   const pages = Math.max(1, Math.ceil(total / pageSize))
 
-  const choose = (entry) => {
+  const choose = (entry: CatalogEntry) => {
     // The entry's own properties ride along beside the reference, so a pick
     // with `on_pick` rules can act on it straight away rather than waiting for
     // the sheet to resolve it.
@@ -90,7 +120,7 @@ export default function ContentBrowser({
     if (!multiple) onClose?.()
   }
 
-  const setFilter = (field, value) => {
+  const setFilter = (field: string, value: string) => {
     setPage(1)
     setFilters((prev) => {
       const next = { ...prev }
@@ -190,11 +220,15 @@ export default function ContentBrowser({
                     style={fieldInput}
                   >
                     <option value="">{t('characters.filterAny')}</option>
-                    {options.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.value} ({option.count})
-                      </option>
-                    ))}
+                    {options.map((option) => {
+                      // A facet is a column of scalar values.
+                      const value = option.value as string | number
+                      return (
+                        <option key={value} value={value}>
+                          {value} ({option.count})
+                        </option>
+                      )
+                    })}
                   </select>
                 </div>
               ))}
@@ -218,7 +252,9 @@ export default function ContentBrowser({
                     <li key={`${entry.source}:${entry.entry_id}`}>
                       <div style={{ ...card, display: 'flex', alignItems: 'center', gap: 10 }}>
                         <button
-                          onClick={() => setDetail(detail === entry.entry_id ? null : entry)}
+                          onClick={() =>
+                            setDetail((detail as unknown) === entry.entry_id ? null : entry)
+                          }
                           style={{
                             flex: 1,
                             textAlign: 'left',

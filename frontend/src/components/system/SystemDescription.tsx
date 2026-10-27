@@ -10,9 +10,13 @@ const FADE = 'linear-gradient(to bottom, #000 60%, transparent)'
 // A system's description, keeping the paragraph breaks typed in the editor.
 // Text taller than COLLAPSED_HEIGHT is clamped with a fade and a toggle; the
 // toggle only appears when the text actually overflows at the current width.
-export default function SystemDescription({ text }) {
+export interface SystemDescriptionProps {
+  text: string
+}
+
+export default function SystemDescription({ text }: SystemDescriptionProps) {
   const { t } = useTranslation()
-  const ref = useRef(null)
+  const ref = useRef<HTMLParagraphElement>(null)
   const [expanded, setExpanded] = useState(false)
   const [overflows, setOverflows] = useState(false)
 

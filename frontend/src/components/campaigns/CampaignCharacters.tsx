@@ -1,22 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { ComponentType, CSSProperties, ReactNode, RefObject } from 'react'
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuPlus, LuSwords } from 'react-icons/lu'
 import { characters as charactersApi } from '../../api'
 import Spinner from '../Spinner'
-import AnchoredPopoverJs from './AnchoredPopover'
+import AnchoredPopover from './AnchoredPopover'
 import AttachCharacterPicker from './AttachCharacterPicker'
 import CampaignCharacterGroup from './CampaignCharacterGroup'
 import { groupByOwner } from './campaignCharacterGroups'
 import type { CampaignCharacter } from './campaignCharacterGroups'
-
-// Still JavaScript, so TypeScript would read every prop as required.
-const AnchoredPopover = AnchoredPopoverJs as ComponentType<{
-  anchorRef: RefObject<HTMLElement | null>
-  onClose: () => void
-  width?: number
-  children: ReactNode
-}>
 
 interface Props {
   campaignId: string

@@ -1,19 +1,22 @@
 import { describe, it, expect } from 'vitest'
 import { distance, distanceToPolyline } from './geometry'
 import { HIT_PIXELS, LIGHT_MARKER_PX, LIGHT_PIXELS, gridTolerance, hitTest } from './hitTest'
+import type { FeatureKey, VttDoc } from './types'
 
 const cellPx = 140
 const view = (scale = 1) => ({ cellPx, scale })
 
-const doc = (over = {}) => ({
-  line_of_sight: [],
-  objects_line_of_sight: [],
-  portals: [],
-  lights: [],
-  ...over,
-})
+// Fixtures carry only the fields a hit test reads, so they are cast to the document shape.
+const doc = (over: object = {}) =>
+  ({
+    line_of_sight: [],
+    objects_line_of_sight: [],
+    portals: [],
+    lights: [],
+    ...over,
+  }) as Pick<VttDoc, FeatureKey>
 
-const wall = (y) => [
+const wall = (y: number) => [
   { x: 0, y },
   { x: 10, y },
 ]

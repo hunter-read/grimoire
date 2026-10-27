@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, type MouseEvent } from 'react'
+import type { IconType } from 'react-icons'
 import { useTranslation } from 'react-i18next'
 import { LuLibrary, LuCheck, LuFolderTree, LuNetwork, LuBuilding2, LuFolder } from 'react-icons/lu'
 import Tag from '../Tag'
@@ -7,18 +8,19 @@ import LazyImg from '../LazyImg'
 import CardLink from '../CardLink'
 import { systemDisplayName } from '../../utils/systemDisplayName'
 import { systemCoverUrl } from '../../utils/systemCoverUrl'
+import type { Schema } from '../../api'
 
 // Eyebrow badge per container kind (issues #261, #262, #301). One-page
 // collections are absent on purpose: they render as chips in the Special
 // Collections strip, which already identifies them.
-const CONTAINER_BADGE_KEYS = {
+const CONTAINER_BADGE_KEYS: Record<string, string> = {
   parent: 'systemContainer.badge',
   family: 'systemContainer.familyBadge',
   publisher: 'systemContainer.publisherBadge',
   generic: 'systemContainer.genericBadge',
 }
 
-const CONTAINER_BADGE_ICONS = {
+const CONTAINER_BADGE_ICONS: Record<string, IconType> = {
   parent: LuFolderTree,
   family: LuNetwork,
   publisher: LuBuilding2,
@@ -41,6 +43,22 @@ const CONTAINER_BADGE_ICONS = {
  * new tab (issue #313). In bulk-select mode the card selects rather than
  * navigates, so no link is rendered.
  */
+/** How a bulk-select click extends the selection. */
+export interface SelectModifiers {
+  shift: boolean
+  meta: boolean
+}
+
+export interface SystemCardProps {
+  system: Schema<'SystemSummary'>
+  to: string
+  compact?: boolean
+  list?: boolean
+  selectable?: boolean
+  selected?: boolean
+  onToggleSelect?: (modifiers: SelectModifiers) => void
+}
+
 export default function SystemCard({
   system,
   to,
@@ -49,7 +67,7 @@ export default function SystemCard({
   selectable = false,
   selected = false,
   onToggleSelect,
-}) {
+}: SystemCardProps) {
   const { t } = useTranslation()
   const [hovered, setHovered] = useState(false)
   // Containers are stored under their raw folder slug ("one-page-rpgs"), so
@@ -78,7 +96,8 @@ export default function SystemCard({
   // Selection mode owns the click (shift/cmd extend the selection); outside it
   // the CardLink overlay below handles navigation.
   const toggleSelect = isSelectable
-    ? (e) => onToggleSelect?.({ shift: e.shiftKey, meta: e.metaKey || e.ctrlKey })
+    ? (e: MouseEvent<HTMLDivElement>) =>
+        onToggleSelect?.({ shift: e.shiftKey, meta: e.metaKey || e.ctrlKey })
     : undefined
   const cardLink = !isSelectable && <CardLink to={to} label={displayName} />
 
@@ -111,7 +130,7 @@ export default function SystemCard({
     </div>
   )
 
-  const checkbox = (overlay) => (
+  const checkbox = (overlay: boolean) => (
     <div
       style={{
         ...(overlay

@@ -1,4 +1,11 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
+
+export interface DialogFocusOptions {
+  /** Called on Escape. */
+  onClose?: () => void
+  /** The control to focus on open; defaults to the dialog's first one. */
+  initialFocusRef?: RefObject<HTMLElement | null>
+}
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
@@ -14,7 +21,10 @@ const FOCUSABLE =
  * Escape is handled on the dialog element rather than the window, so with one
  * dialog stacked on another only the one holding focus closes.
  */
-export default function useDialogFocus(ref, { onClose, initialFocusRef } = {}) {
+export default function useDialogFocus(
+  ref: RefObject<HTMLElement | null>,
+  { onClose, initialFocusRef }: DialogFocusOptions = {}
+): void {
   // The latest onClose, read at keypress time: a parent passing an inline
   // function must not leave a stale one wired up.
   const closeRef = useRef(onClose)
@@ -23,19 +33,21 @@ export default function useDialogFocus(ref, { onClose, initialFocusRef } = {}) {
   useEffect(() => {
     const node = ref.current
     if (!node) return undefined
-    const opener = typeof document !== 'undefined' ? document.activeElement : null
+    const opener = (
+      typeof document !== 'undefined' ? document.activeElement : null
+    ) as HTMLElement | null
 
-    const target = initialFocusRef?.current || node.querySelector(FOCUSABLE) || node
+    const target = initialFocusRef?.current || node.querySelector<HTMLElement>(FOCUSABLE) || node
     target.focus?.()
 
-    const onKeyDown = (event) => {
+    const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.stopPropagation()
         closeRef.current?.()
         return
       }
       if (event.key !== 'Tab') return
-      const focusable = [...node.querySelectorAll(FOCUSABLE)].filter(
+      const focusable = [...node.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
         (el) => !el.closest('[aria-hidden="true"]')
       )
       if (!focusable.length) return

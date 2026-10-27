@@ -1,24 +1,36 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX } from 'react-icons/lu'
-import { shareLinks } from '../../api'
+import { shareLinks, type Schema } from '../../api'
 import ShareLinkCreateForm from './ShareLinkCreateForm'
 import ShareLinkList from './ShareLinkList'
+
+export interface ShareLinkDialogProps {
+  resourceType: Schema<'ShareLinkCreate'>['resource_type']
+  resourceId: string
+  title?: string | null
+  onClose: () => void
+}
 
 /**
  * Share one item (issue #541): make a new link, and see, copy or revoke the
  * links you already made for it. A newly created link goes to the top of the
  * list, where its Copy buttons are.
  */
-export default function ShareLinkDialog({ resourceType, resourceId, title, onClose }) {
+export default function ShareLinkDialog({
+  resourceType,
+  resourceId,
+  title,
+  onClose,
+}: ShareLinkDialogProps) {
   const { t } = useTranslation()
-  const [links, setLinks] = useState(null)
+  const [links, setLinks] = useState<Schema<'ShareLinkOut'>[] | null>(null)
   const [error, setError] = useState('')
   // null until a load fails; then the server's message, or '' for the fallback.
-  const [loadError, setLoadError] = useState(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
-    const onKey = (e) => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', onKey)
@@ -30,7 +42,7 @@ export default function ShareLinkDialog({ resourceType, resourceId, title, onClo
     shareLinks
       .list({ resource_type: resourceType, resource_id: resourceId })
       .then((data) => live && setLinks(data))
-      .catch((err) => {
+      .catch((err: Error) => {
         if (!live) return
         setLinks([])
         setLoadError(err.message || '')

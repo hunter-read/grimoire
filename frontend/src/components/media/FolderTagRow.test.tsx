@@ -3,15 +3,24 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import FolderTagRow from './FolderTagRow'
+import type { FolderTagRowProps } from './FolderTagRow'
 
 vi.mock('../maps/InlineTagEditor', () => ({
-  default: ({ tags }) => <div data-testid="editor">{tags.join(',')}</div>,
+  default: ({ tags }: { tags: string[] }) => <div data-testid="editor">{tags.join(',')}</div>,
 }))
 
-const renderRow = (props = {}) =>
+const renderRow = (props: Partial<FolderTagRowProps> = {}) =>
   render(
     <MemoryRouter>
-      <FolderTagRow tags={[]} editing={false} canTag={false} i18n="maps" {...props} />
+      <FolderTagRow
+        tags={[]}
+        editing={false}
+        canTag={false}
+        i18n="maps"
+        onSave={vi.fn()}
+        onCancel={vi.fn()}
+        {...props}
+      />
     </MemoryRouter>
   )
 
@@ -39,7 +48,14 @@ describe('FolderTagRow', () => {
     render(
       <MemoryRouter>
         <div onClick={onHeaderClick}>
-          <FolderTagRow tags={['urban']} editing={false} canTag={false} i18n="maps" />
+          <FolderTagRow
+            tags={['urban']}
+            editing={false}
+            canTag={false}
+            i18n="maps"
+            onSave={vi.fn()}
+            onCancel={vi.fn()}
+          />
         </div>
       </MemoryRouter>
     )

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { ReactNode } from 'react'
 import { tabBtn } from './characterStyles'
 
 /**
@@ -12,7 +13,17 @@ import { tabBtn } from './characterStyles'
  * `tabs` is `[{ title, content }]`, already filtered for any `visible_if`, so a
  * Spells page can disappear for a character who casts nothing.
  */
-export default function LayoutTabs({ tabs, scope }) {
+export interface LayoutTab {
+  title: string
+  content: ReactNode
+}
+
+export interface LayoutTabsProps {
+  tabs: LayoutTab[]
+  scope: string
+}
+
+export default function LayoutTabs({ tabs, scope }: LayoutTabsProps) {
   const [active, setActive] = useState(0)
   if (!tabs.length) return null
   const current = Math.min(active, tabs.length - 1)

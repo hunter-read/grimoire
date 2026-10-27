@@ -2,12 +2,18 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import api from '../../api'
 import Spinner from '../Spinner'
+import type { SettingsUser } from './areas/types'
 
-export default function DeleteAccountSection({ user, onLogout }) {
+interface Props {
+  user?: SettingsUser | null
+  onLogout?: () => void
+}
+
+export default function DeleteAccountSection({ user, onLogout }: Props) {
   const { t } = useTranslation()
   const [confirming, setConfirming] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
   const isAdmin = user?.role === 'admin'
 
   const handleDelete = async () => {
@@ -15,9 +21,9 @@ export default function DeleteAccountSection({ user, onLogout }) {
     setError(null)
     try {
       await api.delete('/users/me')
-      onLogout()
+      onLogout!()
     } catch (err) {
-      setError(err?.message || t('userSettings.deleteAccount.failed'))
+      setError((err as Error | null)?.message || t('userSettings.deleteAccount.failed'))
       setDeleting(false)
       setConfirming(false)
     }

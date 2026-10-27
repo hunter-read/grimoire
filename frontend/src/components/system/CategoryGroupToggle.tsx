@@ -7,7 +7,12 @@ import ToggleSwitch from '../ToggleSwitch'
  * the switch second; clicking anywhere on the pill flips it. Sort/filter state
  * is unaffected by toggling.
  */
-export default function CategoryGroupToggle({ grouped, onToggle }) {
+export interface CategoryGroupToggleProps {
+  grouped: boolean
+  onToggle: (grouped: boolean) => void
+}
+
+export default function CategoryGroupToggle({ grouped, onToggle }: CategoryGroupToggleProps) {
   const { t } = useTranslation()
   return (
     <ToggleSwitch

@@ -1,5 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import api from '../api'
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react'
+import api, { type Schema } from '../api'
+
+export type SystemSearchResults = Schema<'SearchResponse'>
+
+export interface SystemSearch {
+  searchQuery: string
+  /** The last response; null when the box holds fewer than two characters. */
+  searchResults: SystemSearchResults | null
+  searching: boolean
+  handleSearchInput: (e: ChangeEvent<HTMLInputElement>) => void
+  clearSearch: () => void
+}
 import useSessionState from './useSessionState'
 
 /**
@@ -14,18 +25,21 @@ import useSessionState from './useSessionState'
  * survive a trip into the reader and back; arriving at the system fresh starts
  * with an empty box.
  */
-export default function useSystemSearch(systemId, restoreView) {
+export default function useSystemSearch(
+  systemId: string | number | undefined,
+  restoreView: boolean
+): SystemSearch {
   const [searchQuery, setSearchQuery] = useSessionState(
     `grimoire:system:${systemId}:search-query`,
     '',
     { restore: restoreView }
   )
-  const [searchResults, setSearchResults] = useState(null)
+  const [searchResults, setSearchResults] = useState<SystemSearchResults | null>(null)
   const [searching, setSearching] = useState(false)
-  const searchTimer = useRef(null)
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const doSearch = useCallback(
-    (q) => {
+    (q: string) => {
       if (q.length < 2) {
         setSearchResults(null)
         return
@@ -34,7 +48,7 @@ export default function useSystemSearch(systemId, restoreView) {
       api
         .get(`/search?q=${encodeURIComponent(q)}&system_id=${systemId}`)
         .then((r) => {
-          setSearchResults(r)
+          setSearchResults(r as SystemSearchResults)
           setSearching(false)
         })
         .catch(() => setSearching(false))
@@ -51,7 +65,7 @@ export default function useSystemSearch(systemId, restoreView) {
   // A debounced query still pending when the view unmounts must not fire.
   useEffect(() => () => clearTimeout(searchTimer.current), [])
 
-  const handleSearchInput = (e) => {
+  const handleSearchInput = (e: ChangeEvent<HTMLInputElement>) => {
     const v = e.target.value
     setSearchQuery(v)
     clearTimeout(searchTimer.current)

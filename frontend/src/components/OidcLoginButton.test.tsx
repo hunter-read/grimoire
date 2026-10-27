@@ -31,7 +31,7 @@ describe('OidcLoginButton', () => {
     expect(btn.style.color).toBe('rgb(227, 227, 227)')
     expect(btn.style.borderColor).toBe('rgb(142, 145, 143)')
     expect(btn.style.borderRadius).toBe('20px')
-    const img = container.querySelector('img')
+    const img = container.querySelector('img')!
     expect(img.getAttribute('src')).toBe('/api/auth/openid/button-icon?v=abc')
     expect(img.getAttribute('alt')).toBe('')
   })
@@ -60,9 +60,9 @@ describe('OidcLoginButton', () => {
 
   it('hides an icon that fails to load, and retries a new URL', () => {
     const { container, rerender } = render(<OidcLoginButton label="Go" iconUrl="/icon?v=1" />)
-    fireEvent.error(container.querySelector('img'))
+    fireEvent.error(container.querySelector('img')!)
     expect(container.querySelector('img')).toBeNull()
     rerender(<OidcLoginButton label="Go" iconUrl="/icon?v=2" />)
-    expect(container.querySelector('img').getAttribute('src')).toBe('/icon?v=2')
+    expect(container.querySelector('img')!.getAttribute('src')).toBe('/icon?v=2')
   })
 })

@@ -21,12 +21,12 @@ describe('LookupCombobox', () => {
   it('renders options in a datalist', () => {
     render(<Harness />)
     const list = document.getElementById('fam-options')
-    expect(list.querySelectorAll('option')).toHaveLength(2)
+    expect(list!.querySelectorAll('option')).toHaveLength(2)
   })
 
   it('accepts typed custom values', async () => {
     render(<Harness />)
     await userEvent.type(screen.getByPlaceholderText('family'), 'Custom Engine')
-    expect(screen.getByPlaceholderText('family').value).toBe('Custom Engine')
+    expect(screen.getByPlaceholderText<HTMLInputElement>('family').value).toBe('Custom Engine')
   })
 })

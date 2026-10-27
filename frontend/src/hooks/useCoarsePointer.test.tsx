@@ -5,16 +5,18 @@ import useCoarsePointer from './useCoarsePointer'
 const realMatchMedia = globalThis.matchMedia
 
 /** Stub matchMedia, capturing the listener so a change can be simulated. */
-function stubPointer(matches) {
-  const listeners = new Set()
-  globalThis.matchMedia = vi.fn((media) => ({
+type Listener = (e: { matches: boolean }) => void
+
+function stubPointer(matches: boolean) {
+  const listeners = new Set<Listener>()
+  globalThis.matchMedia = vi.fn((media: string) => ({
     matches,
     media,
-    addEventListener: (_, cb) => listeners.add(cb),
-    removeEventListener: (_, cb) => listeners.delete(cb),
-  }))
+    addEventListener: (_: string, cb: Listener) => listeners.add(cb),
+    removeEventListener: (_: string, cb: Listener) => listeners.delete(cb),
+  })) as unknown as typeof globalThis.matchMedia
   return {
-    change: (next) =>
+    change: (next: boolean) =>
       act(() => {
         listeners.forEach((cb) => cb({ matches: next }))
       }),
@@ -48,7 +50,7 @@ describe('useCoarsePointer', () => {
   })
 
   it('falls back to false where matchMedia is missing', () => {
-    globalThis.matchMedia = undefined
+    globalThis.matchMedia = undefined as unknown as typeof globalThis.matchMedia
     // Server-rendered or an old browser: assume a mouse rather than throwing,
     // which keeps drag-and-drop rather than silently disabling it.
     const { result } = renderHook(() => useCoarsePointer())

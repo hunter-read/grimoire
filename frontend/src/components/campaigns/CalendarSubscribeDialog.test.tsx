@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import CalendarSubscribeDialog from './CalendarSubscribeDialog'
 
@@ -11,6 +12,9 @@ vi.mock('../../api', () => ({
 }))
 
 import { campaigns } from '../../api'
+
+// The api module is mocked above; reach its helpers as plain vi.fn()s.
+const campaignsMock = campaigns as unknown as Record<keyof typeof campaigns, Mock>
 
 const campaign = { id: 'c1', name: 'Curse of Strahd' }
 
@@ -32,9 +36,9 @@ const unsubscribed = {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  campaigns.getCalendarSubscription.mockResolvedValue(unsubscribed)
-  campaigns.generateCalendarToken.mockResolvedValue(subscribed)
-  campaigns.revokeCalendarToken.mockResolvedValue(unsubscribed)
+  campaignsMock.getCalendarSubscription.mockResolvedValue(unsubscribed)
+  campaignsMock.generateCalendarToken.mockResolvedValue(subscribed)
+  campaignsMock.revokeCalendarToken.mockResolvedValue(unsubscribed)
 })
 
 describe('CalendarSubscribeDialog', () => {
@@ -54,7 +58,7 @@ describe('CalendarSubscribeDialog', () => {
   })
 
   it('shows only the aggregate feed for the global variant', async () => {
-    campaigns.getCalendarSubscription.mockResolvedValue({
+    campaignsMock.getCalendarSubscription.mockResolvedValue({
       ...subscribed,
       campaign_feed_url: null,
     })
@@ -66,14 +70,14 @@ describe('CalendarSubscribeDialog', () => {
   })
 
   it('warns the link is personal and that RSVP does not flow back', async () => {
-    campaigns.getCalendarSubscription.mockResolvedValue(subscribed)
+    campaignsMock.getCalendarSubscription.mockResolvedValue(subscribed)
     render(<CalendarSubscribeDialog campaign={campaign} onClose={() => {}} />)
     expect(await screen.findByText(/This link is personal/i)).toBeInTheDocument()
     expect(screen.getByText(/read-only/i)).toBeInTheDocument()
   })
 
   it('revokes the token and hides the URLs', async () => {
-    campaigns.getCalendarSubscription.mockResolvedValue(subscribed)
+    campaignsMock.getCalendarSubscription.mockResolvedValue(subscribed)
     render(<CalendarSubscribeDialog campaign={campaign} onClose={() => {}} />)
 
     fireEvent.click(await screen.findByText('Revoke link'))
@@ -86,7 +90,7 @@ describe('CalendarSubscribeDialog', () => {
   it('copies a feed URL to the clipboard', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.assign(navigator, { clipboard: { writeText } })
-    campaigns.getCalendarSubscription.mockResolvedValue(subscribed)
+    campaignsMock.getCalendarSubscription.mockResolvedValue(subscribed)
     render(<CalendarSubscribeDialog campaign={campaign} onClose={() => {}} />)
 
     const buttons = await screen.findAllByTitle('Copy')
@@ -95,7 +99,7 @@ describe('CalendarSubscribeDialog', () => {
   })
 
   it('explains when BASE_URL is unset and offers no link controls', async () => {
-    campaigns.getCalendarSubscription.mockResolvedValue({
+    campaignsMock.getCalendarSubscription.mockResolvedValue({
       has_token: false,
       base_url_configured: false,
       feed_url: null,
@@ -108,7 +112,7 @@ describe('CalendarSubscribeDialog', () => {
   })
 
   it('surfaces an error when minting fails', async () => {
-    campaigns.generateCalendarToken.mockRejectedValue(new Error('BASE_URL must be set'))
+    campaignsMock.generateCalendarToken.mockRejectedValue(new Error('BASE_URL must be set'))
     render(<CalendarSubscribeDialog campaign={campaign} onClose={() => {}} />)
     fireEvent.click(await screen.findByText('Get link'))
     expect(await screen.findByText(/BASE_URL must be set/i)).toBeInTheDocument()
@@ -121,7 +125,7 @@ describe('CalendarSubscribeDialog', () => {
 
     fireEvent.keyDown(document, { key: 'Escape' })
     fireEvent.click(screen.getByLabelText('Close'))
-    fireEvent.click(container.firstChild)
+    fireEvent.click(container.firstChild as Element)
     expect(onClose).toHaveBeenCalledTimes(3)
   })
 })

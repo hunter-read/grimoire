@@ -2,7 +2,15 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { renderPreview } from '../../../lib/tokenCompositor'
+import type { TokenSpec } from '../../../lib/tokenCompositor'
 import useEditorPointer from './useEditorPointer'
+import type { PointerActions } from './useEditorPointer'
+
+export interface TokenEditorCanvasProps {
+  spec: TokenSpec
+  actions: PointerActions
+  disabled?: boolean
+}
 
 /**
  * The live preview surface.
@@ -13,10 +21,14 @@ import useEditorPointer from './useEditorPointer'
  * the compositor is mocked and this file's own behaviour (does it redraw when
  * the spec changes? is the wheel listener non-passive?) is still asserted.
  */
-export default function TokenEditorCanvas({ spec, actions, disabled = false }) {
+export default function TokenEditorCanvas({
+  spec,
+  actions,
+  disabled = false,
+}: TokenEditorCanvasProps) {
   const { t } = useTranslation()
-  const canvasRef = useRef(null)
-  const containerRef = useRef(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const { isDragging, onMouseDown, onKeyDown, onDoubleClick } = useEditorPointer(
     containerRef,
     actions,

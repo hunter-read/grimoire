@@ -18,16 +18,21 @@ import SaveAudioSetModal from './SaveAudioSetModal'
  * #422), so a scene built here can be reloaded next session from any device.
  * The live queue itself stays in sessionStorage — saving is explicit.
  */
-export default function AudioQueuePanel({ bottom = 72, left = 0 }) {
+export interface AudioQueuePanelProps {
+  bottom?: number
+  left?: number
+}
+
+export default function AudioQueuePanel({ bottom = 72, left = 0 }: AudioQueuePanelProps) {
   const { t } = useTranslation()
   const { queue, currentIndex, isPlaying, jumpTo, removeAt, moveTrack } = useAudioPlayer()
   const { sets, save } = useAudioSets()
 
-  const dragFrom = useRef(null)
-  const [dragOver, setDragOver] = useState(null)
+  const dragFrom = useRef<number | null>(null)
+  const [dragOver, setDragOver] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
 
-  const onDrop = (to) => {
+  const onDrop = (to: number) => {
     const from = dragFrom.current
     dragFrom.current = null
     setDragOver(null)
@@ -232,7 +237,7 @@ export default function AudioQueuePanel({ bottom = 72, left = 0 }) {
           kind="playlist"
           count={queue.length}
           existing={sets.filter((s) => s.kind === 'playlist').map((s) => s.name)}
-          onSave={(name) =>
+          onSave={(name: string) =>
             save(
               'playlist',
               name,

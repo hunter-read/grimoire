@@ -1,24 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BookVersionsSection from './BookVersionsSection'
 
-const mockGet = vi.fn()
-const mockLink = vi.fn()
-const mockPromote = vi.fn()
-const mockUnlink = vi.fn()
-const mockDelete = vi.fn()
-const mockDescribe = vi.fn()
+const mockGet: Mock = vi.fn()
+const mockLink: Mock = vi.fn()
+const mockPromote: Mock = vi.fn()
+const mockUnlink: Mock = vi.fn()
+const mockDelete: Mock = vi.fn()
+const mockDescribe: Mock = vi.fn()
 
 vi.mock('../../api', () => ({
-  default: { get: (...a) => mockGet(...a) },
-  mediaUrl: (p) => `http://localhost/api${p}`,
+  default: { get: (...a: unknown[]) => mockGet(...a) },
+  mediaUrl: (p: string) => `http://localhost/api${p}`,
   duplicates: {
-    link: (...a) => mockLink(...a),
-    promote: (...a) => mockPromote(...a),
-    unlink: (...a) => mockUnlink(...a),
-    deleteItem: (...a) => mockDelete(...a),
-    describe: (...a) => mockDescribe(...a),
+    link: (...a: unknown[]) => mockLink(...a),
+    promote: (...a: unknown[]) => mockPromote(...a),
+    unlink: (...a: unknown[]) => mockUnlink(...a),
+    deleteItem: (...a: unknown[]) => mockDelete(...a),
+    describe: (...a: unknown[]) => mockDescribe(...a),
   },
 }))
 
@@ -27,7 +28,7 @@ vi.mock('../../context/AuthContext', () => ({ useAuth: () => ({ user: { role } }
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k, o) => {
+    t: (k: string, o: { count?: number; name?: string }) => {
       if (k === 'variants.versionsHeading') return `Versions (${o.count})`
       if (k === 'variants.mainVersion') return 'Main version'
       if (k === 'common.download') return 'Download'
@@ -96,7 +97,7 @@ describe('BookVersionsSection', () => {
 
   it('changes a variant kind', async () => {
     render(<BookVersionsSection book={row} />)
-    const select = await screen.findByLabelText('Change version type')
+    const select = await screen.findByLabelText<HTMLSelectElement>('Change version type')
     await userEvent.selectOptions(select, 'black-and-white')
     // `describe`, not a re-link, so a label the version already carries stays.
     await waitFor(() =>
@@ -153,7 +154,7 @@ describe('BookVersionsSection', () => {
     // Mounted from the book editor and details modal, so a map- or audio-only
     // kind here would just be a submit the API rejects.
     render(<BookVersionsSection book={row} />)
-    const select = await screen.findByLabelText('Change version type')
+    const select = await screen.findByLabelText<HTMLSelectElement>('Change version type')
     const values = [...select.options].map((o) => o.value)
     expect(values).toEqual([
       'version',
@@ -172,7 +173,7 @@ describe('BookVersionsSection', () => {
       variants: [{ ...family.variants[0], kind: 'gridless' }],
     })
     render(<BookVersionsSection book={row} />)
-    const select = await screen.findByLabelText('Change version type')
+    const select = await screen.findByLabelText<HTMLSelectElement>('Change version type')
     expect([...select.options].map((o) => o.value)).toContain('gridless')
     // ...and it is what the select shows, rather than silently another kind.
     expect(select.value).toBe('gridless')

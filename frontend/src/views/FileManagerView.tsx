@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -21,7 +21,7 @@ import {
   LuFolderInput,
   LuDownload,
 } from 'react-icons/lu'
-import { files as filesApi } from '../api'
+import { files as filesApi, type BulkType, type Schema } from '../api'
 import { useAuth } from '../context/AuthContext'
 import useLibraryPane from '../hooks/useLibraryPane'
 import FilePane from '../components/files/FilePane'
@@ -48,7 +48,54 @@ import {
   ghostBtn,
   menuHover,
   menuItem,
+  type SplitEdge,
 } from './fileManagerShared'
+
+type BrowseEntry = Schema<'BrowseEntry'>
+type Side = 'primary' | 'secondary'
+type Pane = ReturnType<typeof useLibraryPane>
+
+/** The one-line result banner above the panes. */
+interface Flash {
+  tone: 'ok' | 'warn' | 'error'
+  text: string
+}
+
+/** Where a right-click opened the row menu, and on what. */
+interface ContextTarget {
+  x: number
+  y: number
+  entry: BrowseEntry
+  side: Side
+}
+
+/** The parent a new folder goes in, and what that folder may declare. */
+interface CreateTarget {
+  path: string
+  allowKinds?: boolean
+  allowFrames?: boolean
+}
+
+/** A record loaded for the metadata editor or the quick-look preview. */
+interface LoadedRecord {
+  type: BulkType
+  item: Awaited<ReturnType<typeof filesApi.record>>
+}
+
+// The non-standard attributes that turn a file input into a folder picker.
+// Spread rather than written inline: React's input typings do not list them.
+const FOLDER_PICKER = { webkitdirectory: '', directory: '' }
+
+/** What a pane's imperative handle exposes. */
+interface PaneHandle {
+  focus: () => void
+}
+
+interface MarkerPatch {
+  containerKind?: string
+  nsfw?: boolean
+  framesContainer?: boolean
+}
 
 /**
  * Library file manager (issue #302).
@@ -67,7 +114,7 @@ import {
 export default function FileManagerView() {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user } = useAuth()!
   const isAdmin = user?.role === 'admin'
 
   // Both panes start at the library root. Anchoring the first pane on `books`
@@ -79,10 +126,10 @@ export default function FileManagerView() {
   // Every modal here is opened from a pane — by a key or by its context menu —
   // and closing one must hand the keys back to *that* pane rather than to
   // whichever happens to be first (issue #460).
-  const paneRefs = useRef({})
-  const focusSide = useRef('primary')
+  const paneRefs = useRef<Partial<Record<Side, PaneHandle | null>>>({})
+  const focusSide = useRef<Side>('primary')
   const paneFor = useCallback(
-    (side) => (side === 'secondary' ? secondary : primary),
+    (side: Side) => (side === 'secondary' ? secondary : primary),
     [primary, secondary]
   )
 
@@ -99,33 +146,33 @@ export default function FileManagerView() {
   }, [])
   // null when only one pane is open; otherwise the edge the second pane is
   // pinned to ('right' | 'left' | 'top' | 'bottom').
-  const [split, setSplit] = useState(null)
+  const [split, setSplit] = useState<SplitEdge | null>(null)
 
   const [busy, setBusy] = useState(false)
-  const [flash, setFlash] = useState(null) // { tone, text }
-  const [context, setContext] = useState(null) // right-click menu
+  const [flash, setFlash] = useState<Flash | null>(null)
+  const [context, setContext] = useState<ContextTarget | null>(null) // right-click menu
   // { path, allowKinds, allowFrames } for the new-folder modal — the parent and
   // what a folder created there may declare. Carried rather than re-derived: the
   // rules live on the server, and both the row menu and the pane toolbar already
   // have the answer from the browse response.
-  const [creatingIn, setCreatingIn] = useState(null)
-  const [renaming, setRenaming] = useState(null) // entry
-  const [deleting, setDeleting] = useState(null) // entry pending delete confirmation
-  const [movingEntries, setMovingEntries] = useState(null) // entries pending a destination
-  const [editing, setEditing] = useState(null) // { type, item } for the metadata editor
+  const [creatingIn, setCreatingIn] = useState<CreateTarget | null>(null)
+  const [renaming, setRenaming] = useState<BrowseEntry | null>(null) // entry
+  const [deleting, setDeleting] = useState<BrowseEntry | null>(null) // entry pending delete confirmation
+  const [movingEntries, setMovingEntries] = useState<BrowseEntry[] | null>(null) // entries pending a destination
+  const [editing, setEditing] = useState<LoadedRecord | null>(null) // { type, item } for the metadata editor
   // Where a file picker will drop its files, set just before the input opens.
   // null is "not set yet", distinct from '' — the library root, which is a real
   // folder the user can be anchored on.
-  const uploadTarget = useRef(null)
-  const fileInput = useRef(null)
-  const folderInput = useRef(null)
+  const uploadTarget = useRef<string | null>(null)
+  const fileInput = useRef<HTMLInputElement>(null)
+  const folderInput = useRef<HTMLInputElement>(null)
   const [showUploads, setShowUploads] = useState(false)
   // Path a context-menu rescan will be scoped to, while its mode modal is open.
-  const [rescanning, setRescanning] = useState(null)
+  const [rescanning, setRescanning] = useState<string | null>(null)
   // Folder path whose download-format picker is open, or null.
-  const [downloading, setDownloading] = useState(null)
+  const [downloading, setDownloading] = useState<BrowseEntry | null>(null)
   // { type, item } for the quick-look preview, once its record has loaded.
-  const [previewing, setPreviewing] = useState(null)
+  const [previewing, setPreviewing] = useState<LoadedRecord | null>(null)
   const [showShortcuts, setShowShortcuts] = useState(false)
   const { status: scanStatus, startRescan } = useScanStatus()
 
@@ -148,7 +195,7 @@ export default function FileManagerView() {
   }, [primary, secondary, split])
 
   const runMove = useCallback(
-    async (paths, destination) => {
+    async (paths: string[], destination: string) => {
       setBusy(true)
       setFlash(null)
       try {
@@ -164,10 +211,13 @@ export default function FileManagerView() {
         } else {
           // Every item was refused. Surface the first reason rather than a bare
           // "0 moved", which gives the user nothing to act on.
-          setFlash({ tone: 'warn', text: res.skipped[0]?.reason || t('files.nothingMoved') })
+          setFlash({
+            tone: 'warn',
+            text: (res.skipped[0]?.reason as string | undefined) || t('files.nothingMoved'),
+          })
         }
       } catch (e) {
-        setFlash({ tone: 'error', text: e.message || t('files.moveFailed') })
+        setFlash({ tone: 'error', text: (e as Error).message || t('files.moveFailed') })
       } finally {
         setBusy(false)
       }
@@ -176,7 +226,7 @@ export default function FileManagerView() {
   )
 
   const handleCreate = useCallback(
-    async (parent, name, opts) => {
+    async (parent: string, name: string, opts?: MarkerPatch) => {
       await filesApi.createFolder(parent, name, opts)
       // Reload the folder it landed in *and* open it, rather than only
       // re-reading what was already on screen: a folder created inside a
@@ -189,7 +239,7 @@ export default function FileManagerView() {
   )
 
   const handleRename = useCallback(
-    async (path, newName) => {
+    async (path: string, newName: string) => {
       await filesApi.rename(path, newName)
       // A rename changes the path, which is what the cursor is keyed by, so the
       // old row leaves the tree and the cursor would land on a neighbour. Ask
@@ -213,7 +263,7 @@ export default function FileManagerView() {
   // A soft remove counts records, not files: no file was touched, and reporting
   // "and 0 file(s)" would read as a failure.
   const handleDeleted = useCallback(
-    (res, entry) => {
+    (res: Schema<'DeleteResponse'>, entry: BrowseEntry) => {
       refreshAll()
       const removedFiles = res.files_deleted !== false
       let text
@@ -232,14 +282,14 @@ export default function FileManagerView() {
   )
 
   const toggleMarker = useCallback(
-    async (entry, patch) => {
+    async (entry: BrowseEntry, patch: MarkerPatch) => {
       setBusy(true)
       try {
         await filesApi.setMarkers(entry.path, patch)
         refreshAll()
         setFlash({ tone: 'ok', text: t('files.markersUpdated') })
       } catch (e) {
-        setFlash({ tone: 'error', text: e.message || t('files.markersFailed') })
+        setFlash({ tone: 'error', text: (e as Error).message || t('files.markersFailed') })
       } finally {
         setBusy(false)
       }
@@ -248,7 +298,7 @@ export default function FileManagerView() {
   )
 
   const scaffold = useCallback(
-    async (path) => {
+    async (path: string) => {
       setBusy(true)
       try {
         const res = await filesApi.scaffold(path)
@@ -259,7 +309,7 @@ export default function FileManagerView() {
             : { tone: 'warn', text: t('files.scaffoldNothingToDo') }
         )
       } catch (e) {
-        setFlash({ tone: 'error', text: e.message || t('files.scaffoldFailed') })
+        setFlash({ tone: 'error', text: (e as Error).message || t('files.scaffoldFailed') })
       } finally {
         setBusy(false)
       }
@@ -271,10 +321,12 @@ export default function FileManagerView() {
    * which is exactly what a browse entry's `path` already is.
    */
   const runRescan = useCallback(
-    (scope, metadataMode) => {
+    (scope: string, metadataMode: string) => {
       startRescan({ scope, metadata_mode: metadataMode })
         .then(() => setFlash({ tone: 'ok', text: t('files.rescanStarted', { path: scope }) }))
-        .catch((e) => setFlash({ tone: 'error', text: e.message || t('files.rescanFailed') }))
+        .catch((e: Error) =>
+          setFlash({ tone: 'error', text: e.message || t('files.rescanFailed') })
+        )
     },
     [startRescan, t]
   )
@@ -286,22 +338,22 @@ export default function FileManagerView() {
    * will ever need.
    */
   const openMetadata = useCallback(
-    async (entry) => {
+    async (entry: BrowseEntry) => {
       // The editor is configured per resource type and renders nothing sensible
       // for one it does not know — it read `CONFIG[type].fields` and threw,
       // blanking the page. Refuse up front with a message instead.
-      const type = EDITOR_TYPES[entry.collection]
+      const type = EDITOR_TYPES[entry.collection as string]
       if (!type) {
         setFlash({ tone: 'warn', text: t('files.metadataUnsupported') })
         return
       }
       setBusy(true)
       try {
-        const item = await filesApi.record(type, entry.record_id)
+        const item = await filesApi.record(type, entry.record_id!)
         if (!item?.id) throw new Error(t('files.metadataLoadFailed'))
         setEditing({ type, item })
       } catch (e) {
-        setFlash({ tone: 'error', text: e.message || t('files.metadataLoadFailed') })
+        setFlash({ tone: 'error', text: (e as Error).message || t('files.metadataLoadFailed') })
       } finally {
         setBusy(false)
       }
@@ -316,13 +368,13 @@ export default function FileManagerView() {
    * address its pages at all.
    */
   const openPreview = useCallback(
-    async (entry) => {
+    async (entry: BrowseEntry) => {
       // `record_id` is checked alongside the type because the keyboard can reach
       // rows the context menu hides: it only offers Preview on an indexed file,
       // while Space lands on whatever the cursor is on. Without this an
       // unindexed file would fetch `record(type, undefined)` and report the
       // fetch failing rather than the honest "nothing to preview".
-      const type = EDITOR_TYPES[entry.collection]
+      const type = EDITOR_TYPES[entry.collection as string]
       if (!type || type === 'system' || !entry.record_id) {
         setFlash({ tone: 'warn', text: t('files.previewUnsupported') })
         return
@@ -333,7 +385,7 @@ export default function FileManagerView() {
         if (!item?.id) throw new Error(t('files.previewFailed'))
         setPreviewing({ type, item })
       } catch (e) {
-        setFlash({ tone: 'error', text: e.message || t('files.previewFailed') })
+        setFlash({ tone: 'error', text: (e as Error).message || t('files.previewFailed') })
       } finally {
         setBusy(false)
       }
@@ -348,14 +400,14 @@ export default function FileManagerView() {
 
   /** Queue a FileList for upload into `destination`. */
   const startUpload = useCallback(
-    (fileList, destination) => {
+    (fileList: FileList | null, destination: string | null) => {
       // A stray change event that arrives before the picker set a target has no
       // folder to land in. Dropping it is the only honest answer: the previous
       // fallback to `primary.path || 'books'` guessed, and once the pane could
       // be anchored on the library root that guess silently routed files into
       // books/ — somewhere other than where the user put them.
       if (destination == null) return
-      const entries = [...fileList].map((file) => {
+      const entries = [...fileList!].map((file) => {
         // A folder pick reports each file's path within the dropped folder;
         // strip the file name to get the sub-directory to recreate.
         const rel = file.webkitRelativePath || ''
@@ -370,7 +422,7 @@ export default function FileManagerView() {
   )
 
   /** Open the OS picker, remembering which folder the files belong in. */
-  const pickFiles = useCallback((destination, kind) => {
+  const pickFiles = useCallback((destination: string, kind: 'files' | 'folder') => {
     uploadTarget.current = destination
     const input = kind === 'folder' ? folderInput.current : fileInput.current
     if (input) {
@@ -381,13 +433,13 @@ export default function FileManagerView() {
 
   /** Files dragged in from the desktop, dropped onto a pane. */
   const handleExternalDrop = useCallback(
-    (fileList, destination) => startUpload(fileList, destination),
+    (fileList: FileList | null, destination: string | null) => startUpload(fileList, destination),
     [startUpload]
   )
 
   /** Open the second pane at `edge`, anchored on `folderPath`. */
   const pinTo = useCallback(
-    (folderPath, edge) => {
+    (folderPath: string, edge: SplitEdge) => {
       secondary.navigate(folderPath)
       setSplit(edge)
     },
@@ -402,7 +454,7 @@ export default function FileManagerView() {
    * tree showing the folder the user kept.
    */
   const closePane = useCallback(
-    (which) => {
+    (which: Side) => {
       if (which === 'primary') {
         primary.navigate(secondary.path)
       }
@@ -414,7 +466,7 @@ export default function FileManagerView() {
 
   // Move the selection into the other pane's folder — the fallback for a
   // selection too large to drag comfortably.
-  const sendAcross = (from, to) => {
+  const sendAcross = (from: Pane, to: Pane) => {
     if (!from.selected.size) return
     runMove([...from.selected], to.path)
   }
@@ -434,7 +486,7 @@ export default function FileManagerView() {
   //  * singleton kinds another folder already claims, so the menu never offers
   //    a second "one-page RPGs" collection the API would then refuse.
   const takenSingletons = primary.singletonsTaken || {}
-  const availableKinds = (entry) => {
+  const availableKinds = (entry: BrowseEntry) => {
     const current = entry.container_kind || ''
     return CONTAINER_KINDS.filter((k) => {
       if (k === current) return false
@@ -449,21 +501,21 @@ export default function FileManagerView() {
   // folder actually appears on that side.
   const secondFirst = split === 'left' || split === 'top'
 
-  const renderPane = (pane, side) => (
+  const renderPane = (pane: Pane, side: Side) => (
     <FilePane
       key={side}
-      ref={(handle) => {
+      ref={(handle: PaneHandle | null) => {
         paneRefs.current[side] = handle
       }}
       pane={pane}
       side={side}
       onDropPaths={runMove}
       onDropFiles={handleExternalDrop}
-      onOpenContext={(payload) => {
+      onOpenContext={(payload: ContextTarget) => {
         focusSide.current = payload.side
         setContext(payload)
       }}
-      onNewFolder={(path) =>
+      onNewFolder={(path: string) =>
         setCreatingIn({
           path,
           allowKinds: pane.childrenAcceptContainerKind,
@@ -478,19 +530,19 @@ export default function FileManagerView() {
       // which row the cursor is on; what to do with it lives here, beside the
       // state each one opens. Each records the pane it came from, so closing
       // the dialog returns the keys to the tree the user was driving.
-      onPreview={(entry) => {
+      onPreview={(entry: BrowseEntry) => {
         focusSide.current = side
         openPreview(entry)
       }}
-      onRename={(entry) => {
+      onRename={(entry: BrowseEntry) => {
         focusSide.current = side
         setRenaming(entry)
       }}
-      onDelete={(entry) => {
+      onDelete={(entry: BrowseEntry) => {
         focusSide.current = side
         setDeleting(entry)
       }}
-      onOpenMetadata={(entry) => {
+      onOpenMetadata={(entry: BrowseEntry) => {
         focusSide.current = side
         openMetadata(entry)
       }}
@@ -652,8 +704,7 @@ export default function FileManagerView() {
         ref={folderInput}
         type="file"
         multiple
-        webkitdirectory=""
-        directory=""
+        {...FOLDER_PICKER}
         data-testid="folder-input"
         style={{ display: 'none' }}
         onChange={(e) => startUpload(e.target.files, uploadTarget.current)}
@@ -689,7 +740,7 @@ export default function FileManagerView() {
           key={`${context.x},${context.y}`}
           x={context.x}
           y={context.y}
-          onClick={(e) => e.stopPropagation()}
+          onClick={(e: MouseEvent) => e.stopPropagation()}
         >
           {/* Only indexed *files* can be previewed — a system folder has a
               record but nothing to show. */}
@@ -830,7 +881,7 @@ export default function FileManagerView() {
                   hoverProps={menuHover}
                   testId="pin-submenu"
                 >
-                  {['right', 'left', 'top', 'bottom'].map((edge) => {
+                  {(['right', 'left', 'top', 'bottom'] as const).map((edge) => {
                     const Icon = SPLIT_ICONS[edge]
                     return (
                       <button
@@ -965,7 +1016,7 @@ export default function FileManagerView() {
           allowKinds={creatingIn.allowKinds}
           allowFrames={creatingIn.allowFrames}
           onClose={() => setCreatingIn(null)}
-          onCreate={(name, opts) => handleCreate(creatingIn.path, name, opts)}
+          onCreate={(name: string, opts?: MarkerPatch) => handleCreate(creatingIn.path, name, opts)}
         />
       )}
 
@@ -1003,7 +1054,7 @@ export default function FileManagerView() {
         <MoveModal
           items={movingEntries}
           onClose={() => setMovingEntries(null)}
-          onMoved={(res) => {
+          onMoved={(res: Schema<'MoveResponse'>) => {
             refreshAll()
             setFlash({ tone: 'ok', text: t('files.movedCount', { count: res.count }) })
           }}
@@ -1026,7 +1077,7 @@ export default function FileManagerView() {
       {rescanning !== null && (
         <RescanModal
           scope={rescanning}
-          onConfirm={(mode) => runRescan(rescanning, mode)}
+          onConfirm={(mode: string) => runRescan(rescanning, mode)}
           onClose={() => setRescanning(null)}
         />
       )}

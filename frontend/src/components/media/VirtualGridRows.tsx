@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useState } from 'react'
+import type { ReactNode, RefObject } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 
 // How many rows beyond the visible range to keep mounted on each side. Enough
@@ -16,9 +17,28 @@ const ESTIMATED_ROW_HEIGHT = 240
  * Mirrors what the grid itself does: fit as many whole tracks of at least `min`
  * as there is room for, counting the gutters that sit *between* them.
  */
-export function columnsFor(width, min, gap) {
+export function columnsFor(width: number | undefined, min: number, gap: number): number {
   if (!width || !min) return 1
   return Math.max(1, Math.floor((width + gap) / (min + gap)))
+}
+
+/** VirtualGrid's props. */
+export interface VirtualGridProps<T> {
+  /** The full ordered list. */
+  items: T[]
+  /** Renders one item. */
+  renderItem: (item: T, index: number, items: T[]) => ReactNode
+  /** The grid's `gridMin` for the current card size, in px. */
+  minColumn: number
+  /** Gutter between rows and columns, in px. */
+  gap?: number
+  /** One item per row (no tiling); `minColumn` is then unused. */
+  list?: boolean
+}
+
+interface Props<T> extends VirtualGridProps<T> {
+  scrollEl: HTMLElement | null
+  containerRef: RefObject<HTMLDivElement | null>
 }
 
 /**
@@ -29,7 +49,7 @@ export function columnsFor(width, min, gap) {
  * `scrollEl` is the resolved scrolling ancestor (or null when the document
  * scrolls), and `containerRef` is the wrapper `VirtualGrid` already owns.
  */
-export default function VirtualGridRows({
+export default function VirtualGridRows<T>({
   items,
   renderItem,
   minColumn,
@@ -37,7 +57,7 @@ export default function VirtualGridRows({
   list = false,
   scrollEl,
   containerRef,
-}) {
+}: Props<T>) {
   const [width, setWidth] = useState(0)
 
   // Column count follows the container's width, not the window's: the gallery
@@ -89,7 +109,10 @@ export default function VirtualGridRows({
   // Measured through the virtualizer's own ref so each row reports its real
   // height: cards with square thumbnails grow with the column width, and titles
   // wrap to a second line at some widths and not others.
-  const measureRef = useCallback((node) => virtualizer.measureElement(node), [virtualizer])
+  const measureRef = useCallback(
+    (node: HTMLDivElement | null) => virtualizer.measureElement(node),
+    [virtualizer]
+  )
 
   return (
     <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>

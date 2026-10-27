@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   LuX,
@@ -11,7 +11,7 @@ import {
   LuFolder,
   LuLayers,
 } from 'react-icons/lu'
-import { campaigns } from '../../api'
+import { campaigns, type Schema } from '../../api'
 import Spinner from '../Spinner'
 import IconPicker from './IconPicker'
 
@@ -20,6 +20,39 @@ import IconPicker from './IconPicker'
 // is supplied (resource kind), the built-in type groups (Books/Maps/Tokens/Files)
 // appear in the same orderable list so the whole panel order is GM-controlled;
 // type groups can be moved but not renamed or deleted.
+type Category = Schema<'CampaignCategoryOut'>
+type CategoryKind = NonNullable<Parameters<typeof campaigns.listCategories>[1]>
+type DeleteMode = Parameters<typeof campaigns.deleteCategory>[2]
+
+/** What the per-category controls read: a category, or a category row. */
+interface CatLike {
+  id: string
+  name: string
+  icon?: string | null
+  icon_color?: string | null
+}
+
+/** One row of the unified list: a category, or a built-in type group. */
+interface GroupRow {
+  key: string
+  kind: 'cat' | 'type'
+  id?: string
+  name: string
+  icon?: string | null
+  icon_color?: string | null
+  sort_order?: number | null
+}
+
+interface CategoryManagerProps {
+  campaignId: string
+  kind: CategoryKind
+  typeGroups?: { key: string; label: string }[]
+  groupOrder?: string[]
+  onGroupOrderChange?: (orderedKeys: string[]) => void
+  onClose: () => void
+  onChanged?: () => void
+}
+
 export default function CategoryManager({
   campaignId,
   kind,
@@ -28,24 +61,24 @@ export default function CategoryManager({
   onGroupOrderChange,
   onClose,
   onChanged,
-}) {
+}: CategoryManagerProps) {
   const { t } = useTranslation()
-  const [cats, setCats] = useState(null)
+  const [cats, setCats] = useState<Category[] | null>(null)
   const [newName, setNewName] = useState('')
-  const [editingId, setEditingId] = useState(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
-  const [deleting, setDeleting] = useState(null) // the category pending delete-mode choice
+  const [deleting, setDeleting] = useState<CatLike | null>(null) // the category pending delete-mode choice
   const [busy, setBusy] = useState(false)
   // The unified, ordered list of rows shown when type groups are included.
-  const [rows, setRows] = useState(null)
+  const [rows, setRows] = useState<GroupRow[] | null>(null)
 
   const hasTypeGroups = typeGroups.length > 0
 
   // Merge categories + type groups into one ordered list using the saved group
   // order; unlisted groups fall to the end (categories before type groups).
   const buildRows = useCallback(
-    (list) => {
-      const catRows = list.map((c) => ({
+    (list: Category[]): GroupRow[] => {
+      const catRows = list.map((c): GroupRow => ({
         key: `cat:${c.id}`,
         kind: 'cat',
         id: c.id,
@@ -54,9 +87,13 @@ export default function CategoryManager({
         icon_color: c.icon_color,
         sort_order: c.sort_order,
       }))
-      const typeRows = typeGroups.map((g) => ({ key: g.key, kind: 'type', name: g.label }))
+      const typeRows = typeGroups.map((g): GroupRow => ({
+        key: g.key,
+        kind: 'type',
+        name: g.label,
+      }))
       const all = [...catRows, ...typeRows]
-      const orderIndex = (key) => {
+      const orderIndex = (key: string) => {
         const i = groupOrder.indexOf(key)
         return i === -1 ? groupOrder.length + all.findIndex((r) => r.key === key) : i
       }
@@ -69,7 +106,8 @@ export default function CategoryManager({
     campaigns
       .listCategories(campaignId, kind)
       .then((list) => {
-        const sorted = [...list].sort((a, b) => a.sort_order - b.sort_order)
+        // Every category the API returns carries a sort_order.
+        const sorted = [...list].sort((a, b) => (a.sort_order as number) - (b.sort_order as number))
         setCats(sorted)
         if (hasTypeGroups) setRows(buildRows(sorted))
       })
@@ -100,7 +138,7 @@ export default function CategoryManager({
     }
   }
 
-  const rename = async (id) => {
+  const rename = async (id: string) => {
     const name = editName.trim()
     if (!name) return
     setBusy(true)
@@ -115,9 +153,9 @@ export default function CategoryManager({
   }
 
   // Patch a category's icon and/or tint, optimistically then on the server.
-  const patchIcon = async (id, patch) => {
-    setCats((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)))
-    if (hasTypeGroups) setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)))
+  const patchIcon = async (id: string, patch: { icon?: string; icon_color?: string }) => {
+    setCats((prev) => prev!.map((c) => (c.id === id ? { ...c, ...patch } : c)))
+    if (hasTypeGroups) setRows((prev) => prev!.map((r) => (r.id === id ? { ...r, ...patch } : r)))
     await campaigns.updateCategory(campaignId, id, patch)
     onChanged?.()
   }
@@ -125,8 +163,8 @@ export default function CategoryManager({
   // Reorder in the unified (categories + type groups) list: persist the whole
   // group order, and also push category sort_order so the order is stable even
   // without a saved group order.
-  const moveRow = async (index, dir) => {
-    const next = [...rows]
+  const moveRow = async (index: number, dir: number) => {
+    const next = [...rows!]
     const target = index + dir
     if (target < 0 || target >= next.length) return
     ;[next[index], next[target]] = [next[target], next[index]]
@@ -134,14 +172,14 @@ export default function CategoryManager({
     const orderedKeys = next.map((r) => r.key)
     onGroupOrderChange?.(orderedKeys)
     await campaigns.setResourceGroupOrder(campaignId, orderedKeys)
-    const catIds = next.filter((r) => r.kind === 'cat').map((r) => r.id)
+    const catIds = next.filter((r) => r.kind === 'cat').map((r) => r.id!)
     if (catIds.length) await campaigns.reorderCategories(campaignId, catIds)
     onChanged?.()
   }
 
   // Reorder categories only (notes kind, or any kind without type groups).
-  const move = async (index, dir) => {
-    const next = [...cats]
+  const move = async (index: number, dir: number) => {
+    const next = [...cats!]
     const target = index + dir
     if (target < 0 || target >= next.length) return
     ;[next[index], next[target]] = [next[target], next[index]]
@@ -153,10 +191,10 @@ export default function CategoryManager({
     onChanged?.()
   }
 
-  const doDelete = async (mode) => {
+  const doDelete = async (mode: DeleteMode) => {
     setBusy(true)
     try {
-      await campaigns.deleteCategory(campaignId, deleting.id, mode)
+      await campaigns.deleteCategory(campaignId, deleting!.id, mode)
       setDeleting(null)
       load()
       onChanged?.()
@@ -166,7 +204,11 @@ export default function CategoryManager({
   }
 
   // Up/down arrows for a row at `index` in a list of length `count`.
-  const moveArrows = (index, count, onMove) => (
+  const moveArrows = (
+    index: number,
+    count: number,
+    onMove: (index: number, dir: number) => void
+  ) => (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
       <button
         onClick={() => onMove(index, -1)}
@@ -188,7 +230,7 @@ export default function CategoryManager({
   )
 
   // The editable name + edit/delete controls for a category row.
-  const catControls = (c) => (
+  const catControls = (c: CatLike) => (
     <>
       <IconPicker
         value={c.icon}
@@ -258,9 +300,9 @@ export default function CategoryManager({
 
     // Unified list: categories interleaved with built-in type groups.
     if (hasTypeGroups) {
-      return rows.map((r, i) => (
+      return rows!.map((r, i) => (
         <div key={r.key} style={rowStyle}>
-          {moveArrows(i, rows.length, moveRow)}
+          {moveArrows(i, rows!.length, moveRow)}
           {r.kind === 'type' ? (
             <>
               <LuLayers size={15} aria-hidden="true" style={{ color: 'var(--text-muted)' }} />
@@ -270,23 +312,24 @@ export default function CategoryManager({
               </span>
             </>
           ) : (
-            catControls(r)
+            // A category row carries its category's id.
+            catControls(r as CatLike)
           )}
         </div>
       ))
     }
 
     // Category-only list (notes, or resources without type groups).
-    if (cats.length === 0) {
+    if (cats!.length === 0) {
       return (
         <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '8px 2px' }}>
           {t('campaignCategories.none')}
         </div>
       )
     }
-    return cats.map((c, i) => (
+    return cats!.map((c, i) => (
       <div key={c.id} style={rowStyle}>
-        {moveArrows(i, cats.length, move)}
+        {moveArrows(i, cats!.length, move)}
         {catControls(c)}
       </div>
     ))
@@ -404,14 +447,14 @@ export default function CategoryManager({
   )
 }
 
-const rowStyle = {
+const rowStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 6,
   padding: '7px 4px',
   borderBottom: '1px solid var(--border)',
 }
-const goldBtn = {
+const goldBtn: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 5,
@@ -424,7 +467,7 @@ const goldBtn = {
   fontSize: 13,
   fontWeight: 600,
 }
-const ghostBtn = {
+const ghostBtn: CSSProperties = {
   padding: '6px 12px',
   background: 'var(--bg-card)',
   border: '1px solid var(--border)',
@@ -433,7 +476,7 @@ const ghostBtn = {
   cursor: 'pointer',
   fontSize: 12,
 }
-const iconBtn = {
+const iconBtn: CSSProperties = {
   background: 'none',
   border: 'none',
   cursor: 'pointer',
@@ -441,7 +484,7 @@ const iconBtn = {
   display: 'flex',
   padding: 4,
 }
-const arrowBtn = (disabled) => ({
+const arrowBtn = (disabled: boolean): CSSProperties => ({
   background: 'none',
   border: 'none',
   cursor: disabled ? 'default' : 'pointer',

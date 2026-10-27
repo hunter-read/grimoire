@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuDownload } from 'react-icons/lu'
 import { mediaUrl } from '../api'
-import useVariantOptions from './useVariantOptions'
+import useVariantOptions, { type VariantSource } from './useVariantOptions'
 
 const MENU_WIDTH = 200
 
@@ -22,10 +22,24 @@ const MENU_WIDTH = 200
  * @param {string} type one of 'books' | 'maps' | 'tokens' | 'audio' (the API path segment)
  * @param {object} [item] the list row or detail payload, for the version count
  */
-export default function DownloadButton({ type, id, style, cardHovered, item }) {
+export interface DownloadButtonProps {
+  type: string
+  id: string
+  style?: CSSProperties
+  cardHovered?: boolean
+  item?: VariantSource | null
+}
+
+export default function DownloadButton({
+  type,
+  id,
+  style,
+  cardHovered,
+  item,
+}: DownloadButtonProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
-  const wrapRef = useRef(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
   const { options, loading, load, label } = useVariantOptions(type, id, item)
 
   const visible = cardHovered === undefined ? true : cardHovered
@@ -39,10 +53,10 @@ export default function DownloadButton({ type, id, style, cardHovered, item }) {
 
   useEffect(() => {
     if (!open) return
-    const onDown = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false)
+    const onDown = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
     }
-    const onKey = (e) => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false)
     }
     document.addEventListener('mousedown', onDown)
@@ -53,7 +67,7 @@ export default function DownloadButton({ type, id, style, cardHovered, item }) {
     }
   }, [open])
 
-  const anchorStyle = {
+  const anchorStyle: CSSProperties = {
     position: 'absolute',
     top: 6,
     right: 40,
@@ -125,7 +139,7 @@ export default function DownloadButton({ type, id, style, cardHovered, item }) {
             position: 'absolute',
             // Hangs below the button, right-aligned with it so it stays on the
             // card rather than overflowing a grid column.
-            top: (style?.top ?? 6) + 32,
+            top: ((style?.top ?? 6) as number) + 32,
             right: style?.right ?? 40,
             zIndex: 2000,
             width: MENU_WIDTH,

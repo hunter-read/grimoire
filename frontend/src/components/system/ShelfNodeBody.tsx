@@ -1,9 +1,46 @@
+import type { CSSProperties } from 'react'
 import CategoryBookItem from './CategoryBookItem'
+import type { CategoryBookItemProps } from './CategoryBookItem'
+import type { BookFolderGroupProps } from './BookFolderGroup'
+import type { EditableBook } from './BookEditor'
 import BookFolderGroup from './BookFolderGroup'
 import LoadMoreSentinel from '../LoadMoreSentinel'
 import Spinner from '../Spinner'
 import { entryRuns } from './folderTree'
 import { nodeKey, orderedNodeEntries } from './shelfTree'
+import type { ShelfNode, ShelfOrderOptions } from './shelfTree'
+
+/** One node's paged list of books, as useShelf keeps it. */
+export interface ShelfPage {
+  items: EditableBook[]
+  hasMore: boolean
+  loading?: boolean
+}
+
+/** The shelf's paged lists (useShelf's `pages`), as the shelf reads them. */
+export interface ShelfPages {
+  get: (key: string) => ShelfPage | undefined
+}
+
+/** How folders are ordered among books: the sort, its order, and the placement. */
+export type FolderOrder = Omit<ShelfOrderOptions, 'hasMore'>
+
+/** The props every CategoryBookItem on the shelf shares. */
+export type ShelfItemProps = Omit<CategoryBookItemProps, 'book'>
+
+/** The props every nested BookFolderGroup shares. */
+export type ShelfFolderProps = Omit<BookFolderGroupProps, 'node' | 'depth'>
+
+export interface ShelfNodeBodyProps {
+  node: ShelfNode
+  pages: ShelfPages
+  onLoadNode: (key: string) => void
+  folderOrder: FolderOrder
+  itemProps: ShelfItemProps
+  folderProps: ShelfFolderProps
+  depth?: number
+  containerStyle?: CSSProperties
+}
 
 /**
  * The inside of one shelf node - a category, or a folder within it: its
@@ -33,7 +70,7 @@ export default function ShelfNodeBody({
   folderProps,
   depth = 0,
   containerStyle,
-}) {
+}: ShelfNodeBodyProps) {
   const key = nodeKey(node.category, node.path)
   const list = node.direct > 0 ? pages.get(key) : undefined
   const books = list ? list.items : []

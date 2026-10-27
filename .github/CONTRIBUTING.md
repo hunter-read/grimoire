@@ -66,7 +66,7 @@ grimoire/
 ├── backend/        # FastAPI application (Python)
 │   ├── routers/    # API route handlers
 │   └── models.py   # SQLAlchemy ORM models
-├── frontend/       # React 19 SPA (TypeScript, migrating from JavaScript)
+├── frontend/       # React 19 SPA (TypeScript)
 │   ├── src/
 │   │   ├── components/
 │   │   ├── views/

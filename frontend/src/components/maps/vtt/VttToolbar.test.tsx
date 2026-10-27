@@ -2,15 +2,17 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import VttToolbar from './VttToolbar'
+import type { Tool } from './tools'
+import type { SnapMode } from './types'
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k, o) => (o ? `${k}:${JSON.stringify(o)}` : k) }),
+  useTranslation: () => ({ t: (k: string, o?: object) => (o ? `${k}:${JSON.stringify(o)}` : k) }),
 }))
 
 const props = {
-  tool: 'wall',
+  tool: 'wall' as Tool,
   onTool: vi.fn(),
-  snap: 'grid',
+  snap: 'grid' as SnapMode,
   onSnap: vi.fn(),
   showGrid: true,
   onToggleGrid: vi.fn(),

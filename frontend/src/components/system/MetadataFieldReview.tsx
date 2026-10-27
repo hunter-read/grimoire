@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { LuExternalLink } from 'react-icons/lu'
+import type { Schema } from '../../api'
 import { addedLinks, formatValue, isMergedField, labelKey } from './metadataFieldValue'
 
 /**
@@ -13,15 +14,28 @@ import { addedLinks, formatValue, isMergedField, labelKey } from './metadataFiel
  *   selected – field names currently ticked
  *   onToggle – (field) => void
  */
-export default function MetadataFieldReview({ detail, selected, onToggle }) {
+export interface MetadataFieldReviewProps {
+  detail: Pick<Schema<'MetadataFetchResponse'>, 'fields' | 'attribution' | 'url'>
+  selected: string[]
+  onToggle: (field: string) => void
+}
+
+/** A link-list field value, as the merged fields hold them. */
+type LinkList = { url?: unknown }[] | null | undefined
+
+export default function MetadataFieldReview({
+  detail,
+  selected,
+  onToggle,
+}: MetadataFieldReviewProps) {
   const { t } = useTranslation()
 
-  const statusLabel = {
+  const statusLabel: Record<string, string> = {
     only_incoming: t('metadataFetch.statusNew'),
     differs: t('metadataFetch.statusDiffers'),
     same: t('metadataFetch.statusSame'),
   }
-  const statusColor = {
+  const statusColor: Record<string, string> = {
     only_incoming: 'var(--gold-dim)',
     differs: 'var(--warning, #d98324)',
     same: 'var(--text-muted)',
@@ -83,12 +97,12 @@ export default function MetadataFieldReview({ detail, selected, onToggle }) {
                 )}
                 <div style={{ fontSize: 13, wordBreak: 'break-word' }}>
                   {isMergedField(row.field)
-                    ? formatValue(addedLinks(row.current, row.incoming))
+                    ? formatValue(addedLinks(row.current as LinkList, row.incoming as LinkList))
                     : formatValue(row.incoming)}
                 </div>
-                {isMergedField(row.field) && row.current?.length > 0 && (
+                {isMergedField(row.field) && ((row.current as LinkList)?.length ?? 0) > 0 && (
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                    {t('metadataFetch.keepsExisting', { count: row.current.length })}
+                    {t('metadataFetch.keepsExisting', { count: (row.current as unknown[]).length })}
                   </div>
                 )}
               </div>

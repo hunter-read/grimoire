@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import EnvironmentPanel from './EnvironmentPanel'
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k, o) => (o ? `${k}:${JSON.stringify(o)}` : k) }),
+  useTranslation: () => ({ t: (k: string, o?: object) => (o ? `${k}:${JSON.stringify(o)}` : k) }),
 }))
 
 const env = { baked_lighting: false, ambient_light: '00000000' }

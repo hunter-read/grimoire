@@ -5,13 +5,13 @@ import DownloadButton from './DownloadButton'
 
 const mockGet = vi.fn()
 vi.mock('../api', () => ({
-  default: { get: (...a) => mockGet(...a) },
-  mediaUrl: (p) => `http://localhost/api${p}`,
+  default: { get: (...a: unknown[]) => mockGet(...a) },
+  mediaUrl: (p: string) => `http://localhost/api${p}`,
 }))
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k) => {
+    t: (k: string) => {
       if (k === 'common.download') return 'Download'
       if (k === 'common.loading') return 'Loading'
       if (k === 'variants.downloadVersion') return 'Download version'

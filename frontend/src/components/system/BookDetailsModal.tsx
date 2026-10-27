@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuExternalLink, LuX } from 'react-icons/lu'
 import { mediaUrl } from '../../api'
+import type { Schema } from '../../api'
 import { formatSize } from '../../utils'
 import LazyImg from '../LazyImg'
 import Tag from '../Tag'
@@ -22,11 +23,16 @@ import BookVersionsSection from './BookVersionsSection'
  *   book    – the book, in the serialized API shape
  *   onClose – () => void
  */
-export default function BookDetailsModal({ book, onClose }) {
+export interface BookDetailsModalProps {
+  book: Schema<'BookOut'>
+  onClose: () => void
+}
+
+export default function BookDetailsModal({ book, onClose }: BookDetailsModalProps) {
   const { t } = useTranslation()
 
   useEffect(() => {
-    const onKey = (e) => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', onKey)
@@ -36,23 +42,25 @@ export default function BookDetailsModal({ book, onClose }) {
   const date = publicationDate(book)
 
   // [label, value] pairs; anything falsy is dropped below.
-  const rows = [
-    [t('bookDetails.category'), book.category],
-    [t('bookDetails.authors'), (book.authors || []).join(', ')],
-    [t('bookDetails.artists'), (book.artists || []).join(', ')],
-    [t('bookDetails.publisher'), book.publisher],
-    [t('bookDetails.published'), date],
-    [t('bookDetails.genres'), (book.genres || []).join(', ')],
-    [t('bookDetails.license'), book.license],
-    [t('bookDetails.isbn'), book.isbn],
-    [t('bookDetails.productCode'), book.product_code],
-    [t('bookDetails.version'), book.version],
-    [t('bookDetails.language'), book.language],
-    [t('bookDetails.pages'), book.page_count ? String(book.page_count) : ''],
-    [t('bookDetails.fileSize'), book.file_size ? formatSize(book.file_size) : ''],
-    [t('bookDetails.format'), book.mime_type],
-    [t('bookDetails.path'), book.relative_path],
-  ].filter(([, value]) => value)
+  const rows = (
+    [
+      [t('bookDetails.category'), book.category],
+      [t('bookDetails.authors'), (book.authors || []).join(', ')],
+      [t('bookDetails.artists'), (book.artists || []).join(', ')],
+      [t('bookDetails.publisher'), book.publisher],
+      [t('bookDetails.published'), date],
+      [t('bookDetails.genres'), (book.genres || []).join(', ')],
+      [t('bookDetails.license'), book.license],
+      [t('bookDetails.isbn'), book.isbn],
+      [t('bookDetails.productCode'), book.product_code],
+      [t('bookDetails.version'), book.version],
+      [t('bookDetails.language'), book.language],
+      [t('bookDetails.pages'), book.page_count ? String(book.page_count) : ''],
+      [t('bookDetails.fileSize'), book.file_size ? formatSize(book.file_size) : ''],
+      [t('bookDetails.format'), book.mime_type],
+      [t('bookDetails.path'), book.relative_path],
+    ] as [string, string | null | undefined][]
+  ).filter(([, value]) => value)
 
   return (
     <div

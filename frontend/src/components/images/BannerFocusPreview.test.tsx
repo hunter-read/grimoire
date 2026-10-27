@@ -2,11 +2,11 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import BannerFocusPreview from './BannerFocusPreview'
 
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }))
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }))
 
 /** Report a natural size on the rendered image and fire its load event. */
-const loadImageAs = (width, height) => {
-  const img = document.querySelector('img')
+const loadImageAs = (width: number, height: number) => {
+  const img = document.querySelector('img')!
   Object.defineProperty(img, 'naturalWidth', { value: width, configurable: true })
   Object.defineProperty(img, 'naturalHeight', { value: height, configurable: true })
   fireEvent.load(img)
@@ -58,7 +58,7 @@ describe('BannerFocusPreview', () => {
 
     const box = screen.getByTestId('banner-focus-box')
     // jsdom has no layout, so the preview's geometry has to be supplied.
-    box.getBoundingClientRect = () => ({ top: 0, height: 200 })
+    box.getBoundingClientRect = () => ({ top: 0, height: 200 }) as DOMRect
 
     fireEvent.mouseDown(box, { clientY: 50 })
     expect(onChange).toHaveBeenLastCalledWith(25)
@@ -76,7 +76,7 @@ describe('BannerFocusPreview', () => {
     loadImageAs(100, 400)
 
     const box = screen.getByTestId('banner-focus-box')
-    box.getBoundingClientRect = () => ({ top: 0, height: 200 })
+    box.getBoundingClientRect = () => ({ top: 0, height: 200 }) as DOMRect
     fireEvent.mouseDown(box, { clientY: 50 })
 
     expect(onChange).not.toHaveBeenCalled()

@@ -8,9 +8,10 @@ import {
   litRegions,
   reachingLights,
 } from './visibility'
+import type { Point, VttPortal } from './types'
 
 /** Is `pt` inside the polygon? Ray-casting, used to assert what is visible. */
-const contains = (poly, pt) => {
+const contains = (poly: Point[], pt: Point) => {
   let inside = false
   for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
     const a = poly[i]
@@ -84,7 +85,7 @@ describe('collectSegments', () => {
   it('survives an empty or partial document', () => {
     expect(collectSegments(null)).toEqual([])
     expect(collectSegments({})).toEqual([])
-    expect(collectSegments({ portals: [{ closed: true }] })).toEqual([])
+    expect(collectSegments({ portals: [{ closed: true } as VttPortal] })).toEqual([])
   })
 })
 
@@ -202,7 +203,7 @@ describe('computeVisibility range culling', () => {
 })
 
 describe('reachingLights', () => {
-  const light = (x, y, range = 5) => ({ position: { x, y }, range })
+  const light = (x: number, y: number, range = 5) => ({ position: { x, y }, range })
 
   it('keeps a light in reach with a clear path', () => {
     expect(reachingLights({ x: 0, y: 0 }, [light(2, 0)], [])).toHaveLength(1)

@@ -4,13 +4,15 @@ import userEvent from '@testing-library/user-event'
 import AppearanceSection from './AppearanceSection'
 import api from '../../api'
 
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }))
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }))
 vi.mock('../Spinner', () => ({ default: () => <span data-testid="spinner" /> }))
 
 const setMode = vi.fn()
 const selectTheme = vi.fn()
 const reload = vi.fn()
-let themeState
+let themeState: ThemeContextValue
+
+import type { ThemeContextValue } from '../../context/ThemeContext'
 
 vi.mock('../../context/ThemeContext', () => ({
   useTheme: () => themeState,
@@ -54,8 +56,8 @@ beforeEach(() => {
     setMode,
     selectTheme,
     reload,
-  }
-  api.get.mockResolvedValue({ downloads_enabled: true })
+  } as unknown as ThemeContextValue
+  vi.mocked(api.get).mockResolvedValue({ downloads_enabled: true })
 })
 
 describe('AppearanceSection', () => {
@@ -87,7 +89,7 @@ describe('AppearanceSection', () => {
   // A paired theme is one row that says so, rather than two entries the user
   // has to switch between by hand.
   it('shows a paired theme once, marked as covering both modes', async () => {
-    themeState.installed = [PAIRED]
+    themeState.installed = [PAIRED] as unknown as ThemeContextValue['installed']
     render(<AppearanceSection />)
 
     expect(await screen.findByText('Duo')).toBeInTheDocument()
@@ -121,7 +123,7 @@ describe('AppearanceSection', () => {
   })
 
   it('removes a theme', async () => {
-    api.delete.mockResolvedValue({})
+    vi.mocked(api.delete).mockResolvedValue({})
     render(<AppearanceSection />)
 
     await userEvent.click(await screen.findByRole('button', { name: 'appearance.remove' }))
@@ -130,7 +132,7 @@ describe('AppearanceSection', () => {
   })
 
   it('browses the catalogue and installs from it', async () => {
-    api.get.mockImplementation((url) =>
+    vi.mocked(api.get).mockImplementation((url) =>
       url.startsWith('/themes/browse') || url.startsWith('/themes/catalogue')
         ? Promise.resolve({
             themes: [{ id: 'parchment', name: 'Parchment', description: 'Warm', installed: false }],
@@ -138,7 +140,7 @@ describe('AppearanceSection', () => {
           })
         : Promise.resolve({ downloads_enabled: true })
     )
-    api.post.mockResolvedValue({})
+    vi.mocked(api.post).mockResolvedValue({})
     render(<AppearanceSection />)
 
     await userEvent.click(await screen.findByText('appearance.browse'))
@@ -149,7 +151,7 @@ describe('AppearanceSection', () => {
   })
 
   it('marks a catalogue theme the user already has', async () => {
-    api.get.mockImplementation((url) =>
+    vi.mocked(api.get).mockImplementation((url) =>
       url.startsWith('/themes/browse') || url.startsWith('/themes/catalogue')
         ? Promise.resolve({ themes: [{ id: 'midnight', name: 'Midnight', installed: true }] })
         : Promise.resolve({ downloads_enabled: true })
@@ -162,7 +164,7 @@ describe('AppearanceSection', () => {
   })
 
   it('reports a catalogue that cannot be reached', async () => {
-    api.get.mockImplementation((url) =>
+    vi.mocked(api.get).mockImplementation((url) =>
       url.startsWith('/themes/browse') || url.startsWith('/themes/catalogue')
         ? Promise.reject(new Error('upstream is down'))
         : Promise.resolve({ downloads_enabled: true })
@@ -175,7 +177,7 @@ describe('AppearanceSection', () => {
   })
 
   it('shows an empty catalogue plainly', async () => {
-    api.get.mockImplementation((url) =>
+    vi.mocked(api.get).mockImplementation((url) =>
       url.startsWith('/themes/browse') || url.startsWith('/themes/catalogue')
         ? Promise.resolve({ themes: [] })
         : Promise.resolve({ downloads_enabled: true })
@@ -188,7 +190,7 @@ describe('AppearanceSection', () => {
   })
 
   it('imports a pasted theme', async () => {
-    api.post.mockResolvedValue({})
+    vi.mocked(api.post).mockResolvedValue({})
     render(<AppearanceSection />)
 
     await userEvent.click(await screen.findByText('appearance.import'))
@@ -200,8 +202,8 @@ describe('AppearanceSection', () => {
     await userEvent.click(screen.getByText('appearance.importAction'))
 
     await waitFor(() => expect(api.post).toHaveBeenCalled())
-    expect(api.post.mock.calls[0][0]).toBe('/themes')
-    expect(api.post.mock.calls[0][1]).toEqual({ id: 'x', tokens: { text: '#fff' } })
+    expect(vi.mocked(api.post).mock.calls[0][0]).toBe('/themes')
+    expect(vi.mocked(api.post).mock.calls[0][1]).toEqual({ id: 'x', tokens: { text: '#fff' } })
   })
 
   it('rejects paste that is not JSON without calling the API', async () => {
@@ -218,7 +220,7 @@ describe('AppearanceSection', () => {
   })
 
   it('keeps the pasted text when the server rejects the theme', async () => {
-    api.post.mockRejectedValue(new Error('sets no colours Grimoire recognises'))
+    vi.mocked(api.post).mockRejectedValue(new Error('sets no colours Grimoire recognises'))
     render(<AppearanceSection />)
 
     await userEvent.click(await screen.findByText('appearance.import'))
@@ -231,7 +233,7 @@ describe('AppearanceSection', () => {
   })
 
   it('hides browsing and explains why when downloads are disabled', async () => {
-    api.get.mockResolvedValue({ downloads_enabled: false })
+    vi.mocked(api.get).mockResolvedValue({ downloads_enabled: false })
     render(<AppearanceSection />)
 
     expect(await screen.findByText('appearance.downloadsDisabled')).toBeInTheDocument()
@@ -241,12 +243,12 @@ describe('AppearanceSection', () => {
   })
 
   it('surfaces a failed install', async () => {
-    api.get.mockImplementation((url) =>
+    vi.mocked(api.get).mockImplementation((url) =>
       url.startsWith('/themes/browse') || url.startsWith('/themes/catalogue')
         ? Promise.resolve({ themes: [{ id: 'bad', name: 'Bad', installed: false }] })
         : Promise.resolve({ downloads_enabled: true })
     )
-    api.post.mockRejectedValue(new Error('integrity check failed'))
+    vi.mocked(api.post).mockRejectedValue(new Error('integrity check failed'))
     render(<AppearanceSection />)
 
     await userEvent.click(await screen.findByText('appearance.browse'))

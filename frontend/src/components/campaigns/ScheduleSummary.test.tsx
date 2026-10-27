@@ -4,7 +4,7 @@ import ScheduleSummary from './ScheduleSummary'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k, opts) => (opts ? `${k}:${JSON.stringify(opts)}` : k),
+    t: (k: string, opts?: Record<string, unknown>) => (opts ? `${k}:${JSON.stringify(opts)}` : k),
   }),
 }))
 

@@ -12,7 +12,7 @@ import Spinner from '../Spinner'
 // guarantee.
 export default function CategoryAccessSection() {
   const { t } = useTranslation()
-  const [levels, setLevels] = useState(null)
+  const [levels, setLevels] = useState<Record<string, string> | null>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
@@ -20,7 +20,7 @@ export default function CategoryAccessSection() {
   useEffect(() => {
     settingsApi
       .get()
-      .then((d) => setLevels(d.restricted_categories || {}))
+      .then((d) => setLevels((d.restricted_categories as Record<string, string>) || {}))
       .catch(() => setLevels({}))
   }, [])
 
@@ -28,7 +28,7 @@ export default function CategoryAccessSection() {
   // them here keeps the UI from offering a choice that would be rejected.
   const categories = CATEGORY_ORDER.filter((c) => !UNRESTRICTABLE_CATEGORIES.includes(c))
 
-  const setLevel = async (category, level) => {
+  const setLevel = async (category: string, level: string) => {
     const next = { ...levels }
     if (level === ACCESS_OPEN) delete next[category]
     else next[category] = level
@@ -45,7 +45,7 @@ export default function CategoryAccessSection() {
       // Put the old value back rather than leaving the UI showing a change the
       // server rejected.
       setLevels(previous)
-      setError(e?.message || t('appSettings.categoryAccess.saveFailed'))
+      setError((e as Error | null)?.message || t('appSettings.categoryAccess.saveFailed'))
     } finally {
       setSaving(false)
     }

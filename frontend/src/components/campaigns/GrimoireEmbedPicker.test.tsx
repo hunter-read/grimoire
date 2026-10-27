@@ -1,22 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import GrimoireEmbedPicker from './GrimoireEmbedPicker'
 import { campaigns } from '../../api'
 
+// The api module is mocked above; reach its helpers as plain vi.fn()s.
+const campaignsMock = campaigns as unknown as Record<keyof typeof campaigns, Mock>
+
 vi.mock('../../api', () => ({
   campaigns: {
     listResources: vi.fn(),
     listCategories: vi.fn(),
-    fileUrl: (cid, id) => `http://localhost/c/${cid}/f/${id}`,
+    fileUrl: (cid: string, id: string) => `http://localhost/c/${cid}/f/${id}`,
   },
-  mediaUrl: (p) => `http://localhost${p}`,
+  mediaUrl: (p: string) => `http://localhost${p}`,
 }))
 vi.mock('./ImageUploadPanel', () => ({ default: () => <div>upload-panel</div> }))
 
 beforeEach(() => {
   vi.clearAllMocks()
-  campaigns.listCategories.mockResolvedValue([])
+  campaignsMock.listCategories.mockResolvedValue([])
 })
 
 const resources = [
@@ -27,7 +31,7 @@ const resources = [
 
 describe('GrimoireEmbedPicker', () => {
   it('shows the first category by default and hides the others', async () => {
-    campaigns.listResources.mockResolvedValue(resources)
+    campaignsMock.listResources.mockResolvedValue(resources)
     render(<GrimoireEmbedPicker campaignId="c1" onInsert={vi.fn()} onClose={vi.fn()} />)
     // Books lead the built-in type order, so the book is the only row visible.
     await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
@@ -36,7 +40,7 @@ describe('GrimoireEmbedPicker', () => {
   })
 
   it('switches the listed resources when another category tab is picked', async () => {
-    campaigns.listResources.mockResolvedValue(resources)
+    campaignsMock.listResources.mockResolvedValue(resources)
     render(<GrimoireEmbedPicker campaignId="c1" onInsert={vi.fn()} onClose={vi.fn()} />)
     await waitFor(() => screen.getByText('PHB'))
     await userEvent.click(screen.getByRole('tab', { name: /maps/i }))
@@ -45,18 +49,18 @@ describe('GrimoireEmbedPicker', () => {
   })
 
   it('labels each category tab with its item count', async () => {
-    campaigns.listResources.mockResolvedValue(resources)
+    campaignsMock.listResources.mockResolvedValue(resources)
     render(<GrimoireEmbedPicker campaignId="c1" onInsert={vi.fn()} onClose={vi.fn()} />)
     await waitFor(() => screen.getByText('PHB'))
     expect(screen.getByRole('tab', { name: /books \(1\)/i })).toBeInTheDocument()
   })
 
   it('groups by the campaign’s custom resource categories', async () => {
-    campaigns.listResources.mockResolvedValue([
+    campaignsMock.listResources.mockResolvedValue([
       { id: 'r1', resource_type: 'map', resource_id: 'm1', name: 'Cave', category_id: 'c9' },
       { id: 'r2', resource_type: 'book', resource_id: 'b1', name: 'PHB' },
     ])
-    campaigns.listCategories.mockResolvedValue([{ id: 'c9', name: 'Handouts', sort_order: 1 }])
+    campaignsMock.listCategories.mockResolvedValue([{ id: 'c9', name: 'Handouts', sort_order: 1 }])
     render(<GrimoireEmbedPicker campaignId="c1" onInsert={vi.fn()} onClose={vi.fn()} />)
     // Custom categories lead, so the Handouts map shows before the book group.
     await waitFor(() => expect(screen.getByText('Cave')).toBeInTheDocument())
@@ -65,14 +69,14 @@ describe('GrimoireEmbedPicker', () => {
   })
 
   it('still lists resources when the categories request fails', async () => {
-    campaigns.listResources.mockResolvedValue(resources)
-    campaigns.listCategories.mockRejectedValue(new Error('nope'))
+    campaignsMock.listResources.mockResolvedValue(resources)
+    campaignsMock.listCategories.mockRejectedValue(new Error('nope'))
     render(<GrimoireEmbedPicker campaignId="c1" onInsert={vi.fn()} onClose={vi.fn()} />)
     await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
   })
 
   it('inserts an [[audio:ID]] token when an audio resource is picked', async () => {
-    campaigns.listResources.mockResolvedValue(resources)
+    campaignsMock.listResources.mockResolvedValue(resources)
     const onInsert = vi.fn()
     render(<GrimoireEmbedPicker campaignId="c1" onInsert={onInsert} onClose={vi.fn()} />)
     await waitFor(() => screen.getByText('PHB'))
@@ -82,7 +86,7 @@ describe('GrimoireEmbedPicker', () => {
   })
 
   it('searches across every category, not just the open tab', async () => {
-    campaigns.listResources.mockResolvedValue(resources)
+    campaignsMock.listResources.mockResolvedValue(resources)
     render(<GrimoireEmbedPicker campaignId="c1" onInsert={vi.fn()} onClose={vi.fn()} />)
     await waitFor(() => screen.getByText('PHB'))
     // "Cave" is a map, behind another tab — searching must still surface it.
@@ -93,7 +97,7 @@ describe('GrimoireEmbedPicker', () => {
   })
 
   it('hides the category tabs while a search is active', async () => {
-    campaigns.listResources.mockResolvedValue(resources)
+    campaignsMock.listResources.mockResolvedValue(resources)
     render(<GrimoireEmbedPicker campaignId="c1" onInsert={vi.fn()} onClose={vi.fn()} />)
     await waitFor(() => screen.getByText('PHB'))
     expect(screen.getAllByRole('tab').length).toBeGreaterThan(1)
@@ -102,13 +106,13 @@ describe('GrimoireEmbedPicker', () => {
   })
 
   it('shows an empty state when no resources are linked', async () => {
-    campaigns.listResources.mockResolvedValue([])
+    campaignsMock.listResources.mockResolvedValue([])
     render(<GrimoireEmbedPicker campaignId="c1" onInsert={vi.fn()} onClose={vi.fn()} />)
     await waitFor(() => expect(screen.getByText(/no.*resources|link/i)).toBeInTheDocument())
   })
 
   it('inserts a book embed with a page number', async () => {
-    campaigns.listResources.mockResolvedValue([
+    campaignsMock.listResources.mockResolvedValue([
       { id: 'r3', resource_type: 'book', resource_id: 'b1', name: 'PHB', has_thumbnail: false },
     ])
     const onInsert = vi.fn()
@@ -122,7 +126,7 @@ describe('GrimoireEmbedPicker', () => {
   })
 
   it('focuses the page input as soon as "at page" is clicked', async () => {
-    campaigns.listResources.mockResolvedValue([
+    campaignsMock.listResources.mockResolvedValue([
       { id: 'r3', resource_type: 'book', resource_id: 'b1', name: 'PHB', has_thumbnail: false },
     ])
     render(<GrimoireEmbedPicker campaignId="c1" onInsert={vi.fn()} onClose={vi.fn()} />)
@@ -132,7 +136,7 @@ describe('GrimoireEmbedPicker', () => {
   })
 
   it('inserts the book embed when Enter is pressed in the page input', async () => {
-    campaigns.listResources.mockResolvedValue([
+    campaignsMock.listResources.mockResolvedValue([
       { id: 'r3', resource_type: 'book', resource_id: 'b1', name: 'PHB', has_thumbnail: false },
     ])
     const onInsert = vi.fn()
@@ -145,7 +149,7 @@ describe('GrimoireEmbedPicker', () => {
   })
 
   it('inserts without a page when Enter is pressed on an empty page input', async () => {
-    campaigns.listResources.mockResolvedValue([
+    campaignsMock.listResources.mockResolvedValue([
       { id: 'r3', resource_type: 'book', resource_id: 'b1', name: 'PHB', has_thumbnail: false },
     ])
     const onInsert = vi.fn()
@@ -157,7 +161,7 @@ describe('GrimoireEmbedPicker', () => {
   })
 
   it('opens the image upload panel', async () => {
-    campaigns.listResources.mockResolvedValue([])
+    campaignsMock.listResources.mockResolvedValue([])
     render(<GrimoireEmbedPicker campaignId="c1" onInsert={vi.fn()} onClose={vi.fn()} />)
     await waitFor(() => screen.getByPlaceholderText(/search/i))
     await userEvent.click(screen.getByTitle(/upload image/i))
@@ -165,13 +169,13 @@ describe('GrimoireEmbedPicker', () => {
   })
 
   it('closes when the backdrop is clicked', async () => {
-    campaigns.listResources.mockResolvedValue([])
+    campaignsMock.listResources.mockResolvedValue([])
     const onClose = vi.fn()
     const { container } = render(
       <GrimoireEmbedPicker campaignId="c1" onInsert={vi.fn()} onClose={onClose} />
     )
     await waitFor(() => screen.getByPlaceholderText(/search/i))
-    await userEvent.click(container.firstChild)
+    await userEvent.click(container.firstChild as Element)
     expect(onClose).toHaveBeenCalled()
   })
 })

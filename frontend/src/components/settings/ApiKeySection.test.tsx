@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import ApiKeySection from './ApiKeySection'
 import { apiKeys } from '../../api'
+import type { Schema } from '../../api'
 
 vi.mock('../../api', () => ({
   apiKeys: {
@@ -31,7 +32,8 @@ const permissions = [
   },
 ]
 
-const key = (overrides = {}) => ({
+const key = (overrides: Partial<Schema<'ApiKeyOut'>> = {}): Schema<'ApiKeyOut'> => ({
+  user_id: 'u1',
   id: 'k1',
   name: 'Homepage',
   prefix: 'grim_abc1234',
@@ -45,32 +47,32 @@ const key = (overrides = {}) => ({
 
 beforeEach(() => {
   vi.clearAllMocks()
-  apiKeys.permissions.mockResolvedValue(permissions)
+  vi.mocked(apiKeys.permissions).mockResolvedValue(permissions)
 })
 
 describe('ApiKeySection', () => {
   it('says when there are no keys', async () => {
-    apiKeys.list.mockResolvedValue([])
+    vi.mocked(apiKeys.list).mockResolvedValue([])
     render(<ApiKeySection />)
     expect(await screen.findByText('No API keys yet.')).toBeInTheDocument()
   })
 
   it('shows a load error', async () => {
-    apiKeys.list.mockRejectedValue(new Error('Admin access required'))
+    vi.mocked(apiKeys.list).mockRejectedValue(new Error('Admin access required'))
     render(<ApiKeySection />)
     expect(await screen.findByRole('alert')).toHaveTextContent('Admin access required')
   })
 
   it('lists keys by name and prefix', async () => {
-    apiKeys.list.mockResolvedValue([key()])
+    vi.mocked(apiKeys.list).mockResolvedValue([key()])
     render(<ApiKeySection />)
     expect(await screen.findByText('Homepage')).toBeInTheDocument()
     expect(screen.getByText('grim_abc1234…')).toBeInTheDocument()
   })
 
   it('creates a key and reveals it once', async () => {
-    apiKeys.list.mockResolvedValue([])
-    apiKeys.create.mockResolvedValue({
+    vi.mocked(apiKeys.list).mockResolvedValue([])
+    vi.mocked(apiKeys.create).mockResolvedValue({
       api_key: key({ id: 'k2', name: 'Script' }),
       key: 'grim_full-secret',
     })
@@ -90,8 +92,8 @@ describe('ApiKeySection', () => {
   })
 
   it('edits a key in place', async () => {
-    apiKeys.list.mockResolvedValue([key()])
-    apiKeys.update.mockResolvedValue(key({ name: 'Renamed' }))
+    vi.mocked(apiKeys.list).mockResolvedValue([key()])
+    vi.mocked(apiKeys.update).mockResolvedValue(key({ name: 'Renamed' }))
     render(<ApiKeySection />)
     fireEvent.click(await screen.findByRole('button', { name: /Edit/ }))
     fireEvent.change(screen.getByDisplayValue('Homepage'), { target: { value: 'Renamed' } })
@@ -104,8 +106,8 @@ describe('ApiKeySection', () => {
   })
 
   it('regenerates after confirming and reveals the new key', async () => {
-    apiKeys.list.mockResolvedValue([key()])
-    apiKeys.regenerate.mockResolvedValue({
+    vi.mocked(apiKeys.list).mockResolvedValue([key()])
+    vi.mocked(apiKeys.regenerate).mockResolvedValue({
       api_key: key({ prefix: 'grim_new1234' }),
       key: 'grim_new-secret',
     })
@@ -121,8 +123,8 @@ describe('ApiKeySection', () => {
   })
 
   it('revokes after confirming', async () => {
-    apiKeys.list.mockResolvedValue([key()])
-    apiKeys.revoke.mockResolvedValue()
+    vi.mocked(apiKeys.list).mockResolvedValue([key()])
+    vi.mocked(apiKeys.revoke).mockResolvedValue(null)
     render(<ApiKeySection />)
     fireEvent.click(await screen.findByRole('button', { name: /Revoke/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
@@ -132,7 +134,7 @@ describe('ApiKeySection', () => {
   })
 
   it('does nothing when the confirmation is cancelled', async () => {
-    apiKeys.list.mockResolvedValue([key()])
+    vi.mocked(apiKeys.list).mockResolvedValue([key()])
     render(<ApiKeySection />)
     fireEvent.click(await screen.findByRole('button', { name: /Revoke/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
@@ -141,8 +143,8 @@ describe('ApiKeySection', () => {
   })
 
   it('shows an error when an action fails', async () => {
-    apiKeys.list.mockResolvedValue([key()])
-    apiKeys.revoke.mockRejectedValue(new Error('Nope'))
+    vi.mocked(apiKeys.list).mockResolvedValue([key()])
+    vi.mocked(apiKeys.revoke).mockRejectedValue(new Error('Nope'))
     render(<ApiKeySection />)
     fireEvent.click(await screen.findByRole('button', { name: /Revoke/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
@@ -152,7 +154,7 @@ describe('ApiKeySection', () => {
 
   describe('everyone view', () => {
     it("lists every user's keys with owners, and no create button", async () => {
-      apiKeys.list.mockResolvedValue([key({ username: 'gmuser' })])
+      vi.mocked(apiKeys.list).mockResolvedValue([key({ username: 'gmuser' })])
       render(<ApiKeySection scope="all" />)
       expect(await screen.findByText('All API Keys')).toBeInTheDocument()
       expect(apiKeys.list).toHaveBeenCalledWith(true)
@@ -161,8 +163,8 @@ describe('ApiKeySection', () => {
     })
 
     it("revokes someone else's key", async () => {
-      apiKeys.list.mockResolvedValue([key({ username: 'gmuser' })])
-      apiKeys.revoke.mockResolvedValue()
+      vi.mocked(apiKeys.list).mockResolvedValue([key({ username: 'gmuser' })])
+      vi.mocked(apiKeys.revoke).mockResolvedValue(null)
       render(<ApiKeySection scope="all" />)
       fireEvent.click(await screen.findByRole('button', { name: /Revoke/ }))
       fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))

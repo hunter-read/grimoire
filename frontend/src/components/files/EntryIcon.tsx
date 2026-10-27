@@ -1,4 +1,9 @@
 import { LuFolder, LuFolderOpen, LuFile, LuFileText } from 'react-icons/lu'
+import type { Schema } from '../../api'
+
+export interface EntryIconProps {
+  entry: Pick<Schema<'BrowseEntry'>, 'is_dir' | 'container_kind' | 'record_id'>
+}
 
 /**
  * The icon for one listing row.
@@ -7,7 +12,7 @@ import { LuFolder, LuFolderOpen, LuFile, LuFileText } from 'react-icons/lu'
  * change a move's consequences — "this folder declares a system" and "this file
  * carries metadata" — are visible without reading the badges.
  */
-export default function EntryIcon({ entry }) {
+export default function EntryIcon({ entry }: EntryIconProps) {
   if (entry.is_dir)
     return entry.container_kind ? <LuFolderOpen size={15} /> : <LuFolder size={15} />
   return entry.record_id ? <LuFileText size={15} /> : <LuFile size={15} />

@@ -6,17 +6,34 @@
  * after a round trip. The server still validates; this is for feedback only.
  */
 
+import type { Schema } from '../../../api'
+
+/** A mistake in a page list: an i18n key under `pageExport.errors`. */
+export interface PageSpecError {
+  key: string
+  params?: Record<string, string | number>
+}
+
+export type PageSpecResult =
+  { pages: number[]; error?: undefined } | { error: PageSpecError; pages?: undefined }
+
+/** A table-of-contents entry, as findSection walks it. */
+type TocNode = Pick<Schema<'TocEntry'>, 'title' | 'page'> & { children?: TocNode[] | null }
+
 const RANGE = /^(\d+)\s*(?:-\s*(\d+))?$/
 
 /**
  * Parse "12-15, 20". Returns `{ pages }` or `{ error: { key, params } }`, where
  * `key` is an i18n key under `pageExport.errors`.
  */
-export function parsePageSpec(spec, total) {
+export function parsePageSpec(
+  spec: string | null | undefined,
+  total?: number | null
+): PageSpecResult {
   const text = (spec || '').replace(/[\u2013\u2014]/g, '-').trim()
   if (!text) return { error: { key: 'empty' } }
-  const pages = []
-  const seen = new Set()
+  const pages: number[] = []
+  const seen = new Set<number>()
   for (const raw of text.split(',')) {
     const part = raw.trim()
     if (!part) continue
@@ -39,7 +56,7 @@ export function parsePageSpec(spec, total) {
 }
 
 /** "12", or "12-13" for a run of consecutive pages. */
-export function formatPageSpec(pages) {
+export function formatPageSpec(pages: number[]): string {
   if (!pages.length) return ''
   const first = pages[0]
   const last = pages[pages.length - 1]
@@ -47,7 +64,7 @@ export function formatPageSpec(pages) {
 }
 
 /** "p12" or "p12-13", as the server names files after their pages. */
-export function pageLabel(pages) {
+export function pageLabel(pages: number[]): string {
   const first = Math.min(...pages)
   const last = Math.max(...pages)
   return first === last ? `p${first}` : `p${first}-${last}`
@@ -57,7 +74,7 @@ export function pageLabel(pages) {
  * A filename stem with reserved characters removed - the server's `safe_stem`,
  * so a default name shown in the panel is the name the file is saved under.
  */
-export function safeStem(text, fallback = 'export') {
+export function safeStem(text: string | null | undefined, fallback = 'export'): string {
   const stem = (text || '')
     .replace(/[<>:"/\\|?*\x00-\x1f]+/g, ' ')
     .split(/\s+/)
@@ -67,11 +84,11 @@ export function safeStem(text, fallback = 'export') {
 }
 
 /** Whether `page` opens a spread under the reader's pairing (see SpreadPage). */
-export const isLeftPage = (page, spreadOffset) =>
+export const isLeftPage = (page: number, spreadOffset: number): boolean =>
   spreadOffset === 1 ? page % 2 === 1 : page % 2 === 0
 
 /** How many images joined spreads make of `pages` - the server's pairing rule. */
-export function countSpreadImages(pages, spreadOffset) {
+export function countSpreadImages(pages: number[], spreadOffset: number): number {
   let count = 0
   for (let i = 0; i < pages.length; i++) {
     if (pages[i + 1] === pages[i] + 1 && isLeftPage(pages[i], spreadOffset)) i++
@@ -85,9 +102,13 @@ export function countSpreadImages(pages, spreadOffset) {
  * before it, running until the next entry at the same or a shallower level.
  * A character sheet at the back of a book is usually exactly such a section.
  */
-export function findSection(toc, page, total) {
-  const flat = []
-  const walk = (nodes, depth) => {
+export function findSection(
+  toc: TocNode[] | null | undefined,
+  page: number,
+  total: number
+): { title: string; start: number; end: number } | null {
+  const flat: { title: string; page: number; depth: number }[] = []
+  const walk = (nodes: TocNode[] | null | undefined, depth: number) => {
     for (const n of nodes || []) {
       if (n.page > 0) flat.push({ title: n.title, page: n.page, depth })
       walk(n.children, depth + 1)

@@ -1,14 +1,18 @@
 import { useState } from 'react'
 import { getUserPrefs, saveUserPref } from './useUserPrefs'
 
-export const VIEW_MODES = ['card', 'compact', 'list']
+export type ViewMode = 'card' | 'compact' | 'list'
+
+export const VIEW_MODES: ViewMode[] = ['card', 'compact', 'list']
 
 // Content types that have an independent, remembered view mode. Each gets its
 // own default and its own persisted Settings preference.
-export const CONTENT_TYPES = ['system', 'book', 'map', 'token', 'audio', 'model']
+export type ContentType = 'system' | 'book' | 'map' | 'token' | 'audio' | 'model'
+
+export const CONTENT_TYPES: ContentType[] = ['system', 'book', 'map', 'token', 'audio', 'model']
 
 // Per-content-type default view mode, used when the user has not chosen one.
-export const DEFAULT_VIEW_MODES = {
+export const DEFAULT_VIEW_MODES: Record<ContentType, ViewMode> = {
   system: 'card',
   book: 'list',
   map: 'compact',
@@ -17,30 +21,32 @@ export const DEFAULT_VIEW_MODES = {
   model: 'card',
 }
 
-const sessionKey = (type) => `grimoire:view-mode:${type}`
+const sessionKey = (type: string) => `grimoire:view-mode:${type}`
 
 /**
  * The persisted default view mode for a content type, read from user prefs.
  * Falls back to the legacy single `viewMode` / `cardSize` prefs (so existing
  * users keep a sensible setting) and finally to the per-type default.
  */
-export function getDefaultViewMode(type) {
+const isViewMode = (value: unknown): value is ViewMode => (VIEW_MODES as unknown[]).includes(value)
+
+export function getDefaultViewMode(type: string): ViewMode {
   const prefs = getUserPrefs()
   const byType = prefs.viewModes || {}
-  if (VIEW_MODES.includes(byType[type])) return byType[type]
+  if (isViewMode(byType[type])) return byType[type]
   // Legacy single shared pref (pre per-type) — honour it only for `system`,
   // which was the page that owned that setting; other types use their default.
   if (type === 'system') {
-    if (VIEW_MODES.includes(prefs.viewMode)) return prefs.viewMode
+    if (isViewMode(prefs.viewMode)) return prefs.viewMode
     if (prefs.cardSize === 'compact') return 'compact'
   }
-  return DEFAULT_VIEW_MODES[type] || 'card'
+  return DEFAULT_VIEW_MODES[type as ContentType] || 'card'
 }
 
 /**
  * Persist a content type's default view mode into user prefs.
  */
-export function saveDefaultViewMode(type, mode) {
+export function saveDefaultViewMode(type: string, mode: ViewMode): void {
   const prefs = getUserPrefs()
   saveUserPref('viewModes', { ...(prefs.viewModes || {}), [type]: mode })
 }
@@ -54,11 +60,11 @@ export function saveDefaultViewMode(type, mode) {
  * @param {string} type one of CONTENT_TYPES
  * @returns [mode, cycle] where cycle() advances card → compact → list → card.
  */
-export default function useViewMode(type = 'system') {
-  const [mode, setMode] = useState(() => {
+export default function useViewMode(type: string = 'system'): [ViewMode, () => void] {
+  const [mode, setMode] = useState<ViewMode>(() => {
     try {
       const stored = sessionStorage.getItem(sessionKey(type))
-      if (VIEW_MODES.includes(stored)) return stored
+      if (isViewMode(stored)) return stored
     } catch {}
     return getDefaultViewMode(type)
   })

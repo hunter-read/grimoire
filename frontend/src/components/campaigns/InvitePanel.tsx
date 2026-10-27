@@ -1,13 +1,18 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuUserPlus } from 'react-icons/lu'
-import { campaigns } from '../../api'
+import { campaigns, type Schema } from '../../api'
 import Spinner from '../Spinner'
 
 /** Lists campaign-eligible users not yet invited, with an invite action. */
-export default function InvitePanel({ campaignId, onInvited }) {
+export interface InvitePanelProps {
+  campaignId: string
+  onInvited: () => void
+}
+
+export default function InvitePanel({ campaignId, onInvited }: InvitePanelProps) {
   const { t } = useTranslation()
-  const [users, setUsers] = useState(null)
+  const [users, setUsers] = useState<Schema<'EligibleMemberOut'>[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [query, setQuery] = useState('')
 
@@ -18,13 +23,13 @@ export default function InvitePanel({ campaignId, onInvited }) {
       .catch(() => setUsers([]))
   }, [campaignId])
 
-  const invite = async (userId) => {
+  const invite = async (userId: string) => {
     setLoading(true)
     try {
       await campaigns.invite(campaignId, userId)
       onInvited()
     } catch (e) {
-      alert(e.message)
+      alert((e as Error).message)
     } finally {
       setLoading(false)
     }

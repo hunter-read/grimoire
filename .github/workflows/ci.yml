@@ -26,9 +26,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          # Full history so the TypeScript ratchet can diff against the PR base.
-          fetch-depth: 0
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -52,16 +49,10 @@ jobs:
         working-directory: frontend
         run: npm run typecheck
 
-      # The TypeScript ratchet (issue #587): new or modified source under
-      # frontend/src must be .ts/.tsx, so the JavaScript only shrinks.
-      - name: Check new and changed files are TypeScript
-        if: github.event_name == 'pull_request'
+      # frontend/src is all TypeScript (issue #587); keep it that way.
+      - name: Check src has no JavaScript
         working-directory: frontend
-        env:
-          BASE_REF: origin/${{ github.event.pull_request.base.ref }}
-        run: |
-          git fetch --no-tags --depth=1 origin "${{ github.event.pull_request.base.ref }}"
-          npm run typescript:check
+        run: npm run typescript:check
 
       - name: Build
         working-directory: frontend

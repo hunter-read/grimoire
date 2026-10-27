@@ -2,25 +2,27 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCircleCheck } from 'react-icons/lu'
 import { getUserPrefs, saveUserPref, getWheelAction } from '../../hooks/useUserPrefs'
+import type { WheelAction } from '../../hooks/useUserPrefs'
 import SegmentedControl from './SegmentedControl'
+import type { SegmentedOption } from './SegmentedControl'
 
 export default function ReaderSection() {
   const { t } = useTranslation()
   const prefs = getUserPrefs()
-  const [readerMode, setReaderMode] = useState(prefs.readerMode || 'default')
+  const [readerMode, setReaderMode] = useState<string>(prefs.readerMode || 'default')
   // Reads the legacy wheelNav boolean too, so an existing "off" setting still
   // means "don't page on scroll" (issue #249).
-  const [wheelAction, setWheelAction] = useState(() => getWheelAction(prefs))
+  const [wheelAction, setWheelAction] = useState<WheelAction>(() => getWheelAction(prefs))
   const [saved, setSaved] = useState(false)
 
-  const READER_MODE_OPTIONS = [
+  const READER_MODE_OPTIONS: SegmentedOption[] = [
     { value: 'default', label: t('userSettings.reader.perBook') },
     { value: 'page', label: t('userSettings.reader.page') },
     { value: 'spread', label: t('userSettings.reader.spread') },
     { value: 'pdf', label: t('userSettings.reader.pdf') },
   ]
 
-  const WHEEL_ACTION_OPTIONS = [
+  const WHEEL_ACTION_OPTIONS: SegmentedOption<WheelAction>[] = [
     { value: 'page', label: t('userSettings.reader.wheelPage') },
     { value: 'zoom', label: t('userSettings.reader.wheelZoom') },
     { value: 'none', label: t('userSettings.reader.wheelNone') },
@@ -30,12 +32,12 @@ export default function ReaderSection() {
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
-  const handleMode = (v) => {
+  const handleMode = (v: string) => {
     setReaderMode(v)
     saveUserPref('readerMode', v)
     flash()
   }
-  const handleWheel = (v) => {
+  const handleWheel = (v: WheelAction) => {
     setWheelAction(v)
     saveUserPref('wheelAction', v)
     flash()

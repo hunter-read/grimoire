@@ -177,7 +177,7 @@ describe('product code (issue #479)', () => {
 
 describe('date added (issue #199)', () => {
   const day = 24 * 60 * 60 * 1000
-  const ago = (days) => new Date(Date.now() - days * day).toISOString()
+  const ago = (days: number) => new Date(Date.now() - days * day).toISOString()
   const dated = [
     { id: 'legacy', title: 'Aardvark', added_at: null },
     { id: 'old', title: 'Old', added_at: ago(60) },

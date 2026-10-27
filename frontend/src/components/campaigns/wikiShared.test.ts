@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { defaultCollapsedParents, descendantIds } from './wikiShared'
 
-const page = (id, parent_id = null) => ({ id, parent_id })
+const page = (id: string, parent_id: string | null = null) => ({ id, parent_id })
 
 // Two top-level pages, each with a run of children, past the auto-collapse
 // threshold in total.

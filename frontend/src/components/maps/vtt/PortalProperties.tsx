@@ -1,6 +1,13 @@
 import { useTranslation } from 'react-i18next'
 import { LuTrash2 } from 'react-icons/lu'
 import { btnStyle } from './ui'
+import type { VttPortal } from './types'
+
+export interface PortalPropertiesProps {
+  portal: VttPortal
+  onChange: (portal: VttPortal) => void
+  onDelete: () => void
+}
 
 /**
  * Property panel for one portal — a door or a window (issue #126).
@@ -15,9 +22,9 @@ import { btnStyle } from './ui'
  * secret or locked *after* import; it is not something the file can express, so
  * offering the toggle here would lose the setting on export.
  */
-export default function PortalProperties({ portal, onChange, onDelete }) {
+export default function PortalProperties({ portal, onChange, onDelete }: PortalPropertiesProps) {
   const { t } = useTranslation()
-  const set = (patch) => onChange({ ...portal, ...patch })
+  const set = (patch: Partial<VttPortal>) => onChange({ ...portal, ...patch })
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import type { CSSProperties } from 'react'
+import type { Schema } from '../../api'
 import { useTranslation } from 'react-i18next'
 import BookRow from './BookRow'
 import BookDetailsModal from './BookDetailsModal'
@@ -16,16 +18,25 @@ import SystemPageHit from './SystemPageHit'
  *   booksContainerStyle– grid/list style shared with the category grid
  *   card, compact      – view-mode layout flags for BookRow
  */
+export interface SystemSearchResultsProps {
+  /** The active search, or null when there is none (renders nothing). */
+  searchResults: Pick<Schema<'SearchResponse'>, 'query' | 'results'> | null
+  matchedBooks: Schema<'BookOut'>[]
+  booksContainerStyle?: CSSProperties
+  card?: boolean
+  compact?: boolean
+}
+
 export default function SystemSearchResults({
   searchResults,
   matchedBooks,
   booksContainerStyle,
   card,
   compact,
-}) {
+}: SystemSearchResultsProps) {
   const { t } = useTranslation()
   // The book whose read-only details view is open, if any.
-  const [detailsBook, setDetailsBook] = useState(null)
+  const [detailsBook, setDetailsBook] = useState<Schema<'BookOut'> | null>(null)
   if (!searchResults) return null
 
   return (

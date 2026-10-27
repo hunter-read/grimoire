@@ -1,10 +1,55 @@
-import { useRef, useEffect, useState } from 'react'
-import { MIN_ZOOM, MAX_ZOOM } from './useReaderZoom'
+import {
+  useRef,
+  useEffect,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type RefObject,
+  type SetStateAction,
+  type TouchEvent as ReactTouchEvent,
+} from 'react'
+import { MIN_ZOOM, MAX_ZOOM, type Pan } from './useReaderZoom'
 import { createWheelGesture } from './wheelGesture'
 
 // Largest zoom change a single wheel event may cause, so a fast flick on a mouse
 // wheel doesn't jump the whole range at once.
 const ZOOM_WHEEL_STEP = 0.15
+
+export interface ReaderGesturesOptions {
+  /** 'page' | 'spread' | 'pdf' */
+  mode: string
+  currentPage: number
+  zoom: number
+  pan: Pan
+  /** Live zoom, for native listeners. */
+  zoomRef: RefObject<number>
+  /** Live pan, for native listeners. */
+  panRef: RefObject<Pan>
+  setPan: (next: SetStateAction<Pan>) => void
+  /** Absolute zoom set, for pinch. */
+  setZoomDirect: (next: number) => void
+  zoomAt: (delta: number, originX?: number, originY?: number) => void
+  /** The hook never passes a mode, so any reader's mode type fits. */
+  goToPage: (page: number, mode?: never, axis?: 'x' | 'y') => void
+  /** The scrollable content container. */
+  contentRef: RefObject<HTMLElement | null>
+  /** 'page' | 'zoom' | 'none' */
+  wheelAction?: string
+}
+
+export interface ReaderGestures {
+  handleTouchStart: (e: ReactTouchEvent) => void
+  handleTouchMove: (e: ReactTouchEvent) => void
+  handleTouchEnd: (e: ReactTouchEvent) => void
+  handleMouseDown: (e: ReactMouseEvent) => void
+}
+
+type PanGesture = { type: 'pan'; startX: number; startY: number; startPan: Pan }
+type ReaderGesture =
+  | { type: 'pinch'; initialDist: number; initialZoom: number; initialPan: Pan }
+  | PanGesture
+  | { type: 'swipe' }
+
+type TouchPoint = { clientX: number; clientY: number }
 
 /**
  * Manages wheel, pinch-to-zoom, pan, and swipe gesture navigation for the reader.
@@ -41,10 +86,10 @@ export default function useReaderGestures({
   goToPage,
   contentRef,
   wheelAction = 'page',
-}) {
-  const gestureRef = useRef(null)
-  const touchStartRef = useRef(null)
-  const longPressTimerRef = useRef(null)
+}: ReaderGesturesOptions): ReaderGestures {
+  const gestureRef = useRef<ReaderGesture | null>(null)
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null)
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const longPressFiredRef = useRef(false)
   const [isNewWheelGesture] = useState(createWheelGesture)
 
@@ -54,7 +99,7 @@ export default function useReaderGestures({
   useEffect(() => {
     const el = contentRef.current
     if (!el) return
-    const handleWheel = (e) => {
+    const handleWheel = (e: WheelEvent) => {
       if (mode === 'pdf') return
 
       // Ctrl/Cmd + wheel is the browser-wide zoom convention, so honour it
@@ -100,15 +145,15 @@ export default function useReaderGestures({
 
   // Mouse drag-to-pan while zoomed. The touch path already pans; without this
   // a mouse user who zooms in has no way to reach the rest of the page.
-  const handleMouseDown = (e) => {
+  const handleMouseDown = (e: ReactMouseEvent) => {
     if (mode === 'pdf' || zoomRef.current <= 1 || e.button !== 0) return
     // Don't fight text selection over selectable page text.
-    if (e.target?.closest?.('[data-selectable]')) return
+    if ((e.target as Element | null)?.closest?.('[data-selectable]')) return
     e.preventDefault()
     const startX = e.clientX
     const startY = e.clientY
     const startPan = { ...panRef.current }
-    const onMove = (ev) => {
+    const onMove = (ev: MouseEvent) => {
       const z = zoomRef.current
       setPan({
         x: startPan.x + (ev.clientX - startX) / z,
@@ -123,13 +168,13 @@ export default function useReaderGestures({
     window.addEventListener('mouseup', onUp)
   }
 
-  const getPinchDist = (t1, t2) => {
+  const getPinchDist = (t1: TouchPoint, t2: TouchPoint) => {
     const dx = t1.clientX - t2.clientX
     const dy = t1.clientY - t2.clientY
     return Math.sqrt(dx * dx + dy * dy)
   }
 
-  const handleTouchStart = (e) => {
+  const handleTouchStart = (e: ReactTouchEvent) => {
     if (mode === 'pdf') return
     if (e.touches.length === 2) {
       // Two fingers — start pinch
@@ -152,7 +197,7 @@ export default function useReaderGestures({
         const selection = window.getSelection()
         if (!selection) return
         const range = document.createRange()
-        range.selectNodeContents(el.closest('[data-selectable]'))
+        range.selectNodeContents(el.closest('[data-selectable]')!)
         selection.removeAllRanges()
         selection.addRange(range)
         longPressFiredRef.current = true
@@ -172,15 +217,16 @@ export default function useReaderGestures({
     }
   }
 
-  const handleTouchMove = (e) => {
+  const handleTouchMove = (e: ReactTouchEvent) => {
     if (mode === 'pdf' || !gestureRef.current) return
     // Cancel long-press if finger moves more than 10 px
     if (longPressTimerRef.current && e.touches.length === 1) {
       const t = e.touches[0]
-      const g = gestureRef.current
+      // Only a pan carries a start point; a pinch or swipe never cancels here.
+      const g = gestureRef.current as Partial<PanGesture>
       if (
         g.startX !== undefined &&
-        (Math.abs(t.clientX - g.startX) > 10 || Math.abs(t.clientY - g.startY) > 10)
+        (Math.abs(t.clientX - g.startX) > 10 || Math.abs(t.clientY - g.startY!) > 10)
       ) {
         clearTimeout(longPressTimerRef.current)
         longPressTimerRef.current = null
@@ -200,9 +246,9 @@ export default function useReaderGestures({
     }
   }
 
-  const handleTouchEnd = (e) => {
+  const handleTouchEnd = (e: ReactTouchEvent) => {
     if (mode === 'pdf') return
-    clearTimeout(longPressTimerRef.current)
+    clearTimeout(longPressTimerRef.current ?? undefined)
     longPressTimerRef.current = null
     // Long-press fired — selection is active, don't navigate
     if (longPressFiredRef.current) {
@@ -228,13 +274,11 @@ export default function useReaderGestures({
     const absDx = Math.abs(dx)
     const absDy = Math.abs(dy)
     if (absDx > 50 && absDx > absDy) {
-      dx < 0
-        ? goToPage(currentPage + step, undefined, 'x')
-        : goToPage(currentPage - step, undefined, 'x')
+      if (dx < 0) goToPage(currentPage + step, undefined, 'x')
+      else goToPage(currentPage - step, undefined, 'x')
     } else if (absDy > 50 && absDy > absDx) {
-      dy < 0
-        ? goToPage(currentPage + step, undefined, 'y')
-        : goToPage(currentPage - step, undefined, 'y')
+      if (dy < 0) goToPage(currentPage + step, undefined, 'y')
+      else goToPage(currentPage - step, undefined, 'y')
     }
   }
 

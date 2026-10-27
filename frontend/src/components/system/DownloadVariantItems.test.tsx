@@ -1,17 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import DownloadVariantItems from './DownloadVariantItems'
 
-const mockGet = vi.fn()
+const mockGet: Mock = vi.fn()
 vi.mock('../../api', () => ({
-  default: { get: (...a) => mockGet(...a) },
-  mediaUrl: (p) => `http://localhost/api${p}`,
+  default: { get: (...a: unknown[]) => mockGet(...a) },
+  mediaUrl: (p: string) => `http://localhost/api${p}`,
 }))
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k) => {
+    t: (k: string) => {
       if (k === 'variants.downloadVersion') return 'Download version'
       if (k === 'variants.mainVersion') return 'Main version'
       if (k === 'common.loading') return 'Loading'

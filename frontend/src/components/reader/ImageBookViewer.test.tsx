@@ -5,8 +5,9 @@ import { MemoryRouter } from 'react-router-dom'
 import ImageBookViewer from './ImageBookViewer'
 import { mediaUrl } from '../../api'
 import { useFavorites } from '../../context/FavoritesContext'
+import type { Schema } from '../../api'
 
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k }) }))
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }))
 
 const navigate = vi.fn()
 vi.mock('react-router-dom', async () => {
@@ -14,23 +15,34 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useNavigate: () => navigate }
 })
 
-vi.mock('../../api', () => ({ mediaUrl: vi.fn((p) => `/api${p}`) }))
+vi.mock('../../api', () => ({ mediaUrl: vi.fn((p: string) => `/api${p}`) }))
 
 vi.mock('../../context/FavoritesContext', () => ({ useFavorites: vi.fn() }))
 
 vi.mock('../campaigns/AddToCampaignButton', () => ({
-  default: ({ resourceType, resourceId }) => (
+  default: ({ resourceType, resourceId }: { resourceType: string; resourceId: string }) => (
     <button data-testid="add-to-campaign">{`${resourceType}:${resourceId}`}</button>
   ),
 }))
 
 const toggleFavorite = vi.fn()
 
-function setup({ favorite = false, ...props } = {}) {
-  useFavorites.mockReturnValue({ isFavorite: () => favorite, toggleFavorite })
+function setup({
+  favorite = false,
+  ...props
+}: { favorite?: boolean; book?: Record<string, unknown>; backPath?: string } = {}) {
+  vi.mocked(useFavorites).mockReturnValue({
+    isFavorite: () => favorite,
+    toggleFavorite,
+  } as unknown as ReturnType<typeof useFavorites>)
   return render(
     <MemoryRouter>
-      <ImageBookViewer book={{ title: 'Map of Barovia' }} bookId={7} {...props} />
+      <ImageBookViewer
+        book={{ title: 'Map of Barovia' } as Schema<'BookDetail'>}
+        // A numeric id, as the routes once passed it; the URLs read the same either way.
+        bookId={7 as unknown as string}
+        {...(props as { book?: Schema<'BookDetail'>; backPath?: string })}
+      />
     </MemoryRouter>
   )
 }

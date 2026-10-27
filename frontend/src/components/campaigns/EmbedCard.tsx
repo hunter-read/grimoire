@@ -1,17 +1,11 @@
-import {
-  useState,
-  useEffect,
-  type ComponentType,
-  type CSSProperties,
-  type ImgHTMLAttributes,
-} from 'react'
+import { useState, useEffect, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuBookOpen, LuMap, LuUser, LuBox, LuMusic, LuFile } from 'react-icons/lu'
 import type { IconType } from 'react-icons'
 import { campaigns, client } from '../../api'
 import AudioPlayer from '../audio/AudioPlayer'
-import LazyImgJs from '../LazyImg'
+import LazyImg from '../LazyImg'
 import useHoverPrefetch from '../../hooks/useHoverPrefetch'
 import {
   openingPageUrls,
@@ -20,7 +14,6 @@ import {
 } from '../reader/pagePrefetch'
 
 // Still JavaScript, so TypeScript would read every destructured prop as required.
-const LazyImg = LazyImgJs as ComponentType<ImgHTMLAttributes<HTMLImageElement>>
 
 // Ids are uuids or slugs. The spec comes straight from wiki text anyone with
 // edit rights wrote, and the id lands in router paths and an authenticated API

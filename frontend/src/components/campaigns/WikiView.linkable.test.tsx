@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
 import WikiView from './WikiView'
 
 vi.mock('../../api', () => ({
   default: { get: vi.fn(() => Promise.resolve({})) },
-  mediaUrl: (path) => `http://localhost${path}`,
+  mediaUrl: (path: string) => `http://localhost${path}`,
   campaigns: {
     listWikiPages: vi.fn(),
     getWikiPage: vi.fn(),
@@ -17,7 +18,7 @@ vi.mock('../../api', () => ({
     wikiTemplates: vi.fn(),
     useWikiTemplate: vi.fn(),
     getWikiTemplate: vi.fn(),
-    fileUrl: (cid, id) => `http://localhost/campaigns/${cid}/files/${id}`,
+    fileUrl: (cid: string, id: string) => `http://localhost/campaigns/${cid}/files/${id}`,
   },
 }))
 
@@ -31,9 +32,12 @@ vi.mock('../../context/AudioPlayerContext', () => ({
   }),
 }))
 
-import { campaigns } from '../../api'
+import { campaigns, type Schema } from '../../api'
 
-const campaign = { id: 'c1', name: 'Test', members: [] }
+// The api module is mocked above; reach its helpers as plain vi.fn()s.
+const campaignsMock = campaigns as unknown as Record<keyof typeof campaigns, Mock>
+
+const campaign = { id: 'c1', name: 'Test', members: [] } as unknown as Schema<'CampaignOut'>
 
 const makePage = (over = {}) => ({
   id: 'p1',
@@ -76,8 +80,8 @@ const url = () => screen.getByTestId('loc').textContent
 describe('WikiView linkable notes (issue #313)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    campaigns.listWikiPages.mockResolvedValue([dragons, goblins])
-    campaigns.getWikiPage.mockImplementation((_cid, id) =>
+    campaignsMock.listWikiPages.mockResolvedValue([dragons, goblins])
+    campaignsMock.getWikiPage.mockImplementation((_cid, id) =>
       Promise.resolve(id === 'p2' ? goblins : dragons)
     )
   })
@@ -115,12 +119,12 @@ describe('WikiView linkable notes (issue #313)', () => {
   // Selection replaces rather than pushes, so browsing the sidebar doesn't bury
   // the page the user arrived from under one back-step per note they clicked.
   it('replaces history rather than pushing an entry per note opened', async () => {
-    const seenIdx = []
+    const seenIdx: number[] = []
     function IdxProbe() {
       // `idx` is react-router's position in the history stack; it advances on a
       // push and stays put on a replace.
       const location = useLocation()
-      seenIdx.push(location.idx ?? window.history.state?.idx ?? 0)
+      seenIdx.push((location as { idx?: number }).idx ?? window.history.state?.idx ?? 0)
       return null
     }
     render(
@@ -150,9 +154,12 @@ describe('WikiView linkable notes (issue #313)', () => {
     // Each getWikiPage call waits on a promise the test settles by hand, so the
     // responses can be made to arrive out of order.
     function deferLoads() {
-      const pending = {}
-      campaigns.getWikiPage.mockImplementation(
-        (_cid, id) =>
+      const pending: Record<
+        string,
+        { resolve: (value: unknown) => void; reject: (reason: unknown) => void }
+      > = {}
+      campaignsMock.getWikiPage.mockImplementation(
+        (_cid: string, id: string) =>
           new Promise((resolve, reject) => {
             pending[id] = { resolve, reject }
           })
@@ -206,7 +213,7 @@ describe('WikiView linkable notes (issue #313)', () => {
     })
 
     it('backlink chip is a real link with the correct href', async () => {
-      campaigns.getWikiPage.mockResolvedValue(
+      campaignsMock.getWikiPage.mockResolvedValue(
         makePage({ backlinks: [{ id: 'p2', title: 'Goblins' }] })
       )
       renderAt()
@@ -224,7 +231,7 @@ describe('WikiView linkable notes (issue #313)', () => {
     })
 
     it('plain click on a backlink chip still opens it in place', async () => {
-      campaigns.getWikiPage.mockImplementation((_cid, id) =>
+      campaignsMock.getWikiPage.mockImplementation((_cid, id) =>
         Promise.resolve(
           id === 'p2' ? goblins : makePage({ backlinks: [{ id: 'p2', title: 'Goblins' }] })
         )

@@ -7,7 +7,7 @@ import api from '../../api'
 vi.mock('../../api', () => ({ default: { patch: vi.fn() } }))
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k, o) => (o ? `${k}:${JSON.stringify(o)}` : k),
+    t: (k: string, o?: object) => (o ? `${k}:${JSON.stringify(o)}` : k),
   }),
 }))
 
@@ -22,7 +22,7 @@ const baseMap = {
 describe('MapGridEditor', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    api.patch.mockResolvedValue({ status: 'ok', grid_warning: null })
+    vi.mocked(api.patch).mockResolvedValue({ status: 'ok', grid_warning: null })
   })
 
   it('seeds the fields from the detected grid', () => {
@@ -58,7 +58,7 @@ describe('MapGridEditor', () => {
   })
 
   it('shows the warning without closing, then saves anyway on confirm', async () => {
-    api.patch.mockResolvedValueOnce({
+    vi.mocked(api.patch).mockResolvedValueOnce({
       status: 'ok',
       grid_warning: { code: 'aspect_mismatch', cell_x: 200.87, cell_y: 140, suggested_width: 33 },
     })
@@ -112,7 +112,7 @@ describe('MapGridEditor', () => {
   })
 
   it('stays open when the save fails', async () => {
-    api.patch.mockRejectedValue(new Error('nope'))
+    vi.mocked(api.patch).mockRejectedValue(new Error('nope'))
     const onSaved = vi.fn()
     render(<MapGridEditor map={baseMap} onSaved={onSaved} onCancel={vi.fn()} />)
     await userEvent.click(screen.getByText('common.save'))

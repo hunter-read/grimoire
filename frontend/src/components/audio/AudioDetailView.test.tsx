@@ -6,7 +6,7 @@ import api, { imageSources } from '../../api'
 
 vi.mock('../../api', () => ({
   default: { get: vi.fn(), patch: vi.fn() },
-  mediaUrl: (p) => `http://localhost${p}`,
+  mediaUrl: (p: string) => `http://localhost${p}`,
   imageSources: {
     uploadAudioCover: vi.fn(),
     setAudioCover: vi.fn(),
@@ -16,11 +16,11 @@ vi.mock('../../api', () => ({
         { resource_type: 'map', resource_id: 'm1', name: 'ruins.png', has_thumbnail: true },
       ])
     ),
-    thumbUrl: (type, id) => `/api/${type}s/${id}/thumbnail`,
+    thumbUrl: (type: string, id: string) => `/api/${type}s/${id}/thumbnail`,
   },
 }))
 
-let locationState = null
+let locationState: { from: string } | null = null
 const navigate = vi.fn()
 vi.mock('react-router-dom', () => ({
   useParams: () => ({ audioId: 'a1' }),
@@ -37,13 +37,13 @@ vi.mock('../../context/FavoritesContext', () => ({
   useFavorites: () => ({ isFavorite: () => false, toggleFavorite }),
 }))
 // Cover art is a gm/admin affordance (issue #286); default to an admin so it renders.
-let authUser = { id: 'u1', role: 'admin' }
+let authUser: { id: string; role: string } = { id: 'u1', role: 'admin' }
 vi.mock('../../context/AuthContext', () => ({
   useAuth: () => (authUser ? { user: authUser } : null),
 }))
 // Stub the tag editor to immediately save, so the save-tag handlers run.
 vi.mock('../maps/InlineTagEditor', () => ({
-  default: ({ onSave }) => (
+  default: ({ onSave }: { onSave: (tags: string[]) => void }) => (
     <button onClick={() => onSave(['new'])} data-testid="save-tags">
       save
     </button>
@@ -51,7 +51,9 @@ vi.mock('../maps/InlineTagEditor', () => ({
 }))
 // TagSection exposes an Edit button via onEdit.
 vi.mock('../TagSection', () => ({
-  default: ({ label, onEdit }) => <button onClick={onEdit}>{`edit-${label}`}</button>,
+  default: ({ label, onEdit }: { label: string; onEdit: () => void }) => (
+    <button onClick={onEdit}>{`edit-${label}`}</button>
+  ),
 }))
 
 beforeEach(() => {
@@ -78,7 +80,7 @@ const detail = (over = {}) => ({
 
 describe('AudioDetailView', () => {
   it('shows a spinner before the track loads', () => {
-    api.get.mockReturnValue(new Promise(() => {}))
+    vi.mocked(api.get).mockReturnValue(new Promise(() => {}))
     render(<AudioDetailView />)
     expect(document.querySelector('svg')).toBeInTheDocument()
   })
@@ -86,7 +88,7 @@ describe('AudioDetailView', () => {
   // Issue #361: guests open tracks from a campaign and have no /audio route.
   it('returns to the referring path when one was passed in navigation state', async () => {
     locationState = { from: '/campaigns/c1/resources' }
-    api.get.mockResolvedValue(detail())
+    vi.mocked(api.get).mockResolvedValue(detail())
     render(<AudioDetailView />)
     await waitFor(() => expect(screen.getByText('Bardcore')).toBeInTheDocument())
     await userEvent.click(screen.getByLabelText('Back to audio'))
@@ -96,7 +98,7 @@ describe('AudioDetailView', () => {
   })
 
   it('falls back to the audio list when there is no referring path', async () => {
-    api.get.mockResolvedValue(detail())
+    vi.mocked(api.get).mockResolvedValue(detail())
     render(<AudioDetailView />)
     await waitFor(() => expect(screen.getByText('Bardcore')).toBeInTheDocument())
     await userEvent.click(screen.getByLabelText('Back to audio'))
@@ -104,7 +106,7 @@ describe('AudioDetailView', () => {
   })
 
   it('renders track metadata once loaded', async () => {
-    api.get.mockResolvedValue(detail())
+    vi.mocked(api.get).mockResolvedValue(detail())
     render(<AudioDetailView />)
     await waitFor(() => expect(screen.getByText('Bardcore')).toBeInTheDocument())
     expect(screen.getByText('Inn')).toBeInTheDocument()
@@ -115,7 +117,7 @@ describe('AudioDetailView', () => {
   })
 
   it('renders the music placeholder when no artwork', async () => {
-    api.get.mockResolvedValue(detail({ has_artwork: false }))
+    vi.mocked(api.get).mockResolvedValue(detail({ has_artwork: false }))
     const { container } = render(<AudioDetailView />)
     // Title appears in the toolbar and the metadata row.
     await waitFor(() => expect(screen.getAllByText('Tavern Night').length).toBeGreaterThan(0))
@@ -124,7 +126,7 @@ describe('AudioDetailView', () => {
   })
 
   it('renders the archive placeholder (no player) for an audio archive', async () => {
-    api.get.mockResolvedValue(
+    vi.mocked(api.get).mockResolvedValue(
       detail({
         filename: 'ambience.zip',
         title: '',
@@ -141,8 +143,8 @@ describe('AudioDetailView', () => {
   })
 
   it('saves edited track tags', async () => {
-    api.get.mockResolvedValue(detail())
-    api.patch.mockResolvedValue({})
+    vi.mocked(api.get).mockResolvedValue(detail())
+    vi.mocked(api.patch).mockResolvedValue({})
     render(<AudioDetailView />)
     await waitFor(() => screen.getByText('edit-Track Tags'))
     await userEvent.click(screen.getByText('edit-Track Tags'))
@@ -151,8 +153,8 @@ describe('AudioDetailView', () => {
   })
 
   it('saves edited folder tags', async () => {
-    api.get.mockResolvedValue(detail())
-    api.patch.mockResolvedValue({})
+    vi.mocked(api.get).mockResolvedValue(detail())
+    vi.mocked(api.patch).mockResolvedValue({})
     render(<AudioDetailView />)
     await waitFor(() => screen.getByText('edit-Folder Tags'))
     await userEvent.click(screen.getByText('edit-Folder Tags'))
@@ -163,7 +165,7 @@ describe('AudioDetailView', () => {
   describe('cover art (issue #286)', () => {
     it('hides the cover control from players', async () => {
       authUser = { id: 'u2', role: 'player' }
-      api.get.mockResolvedValue(detail())
+      vi.mocked(api.get).mockResolvedValue(detail())
       render(<AudioDetailView />)
       await waitFor(() => expect(api.get).toHaveBeenCalled())
       await waitFor(() => expect(screen.getAllByText('Tavern Night').length).toBeGreaterThan(0))
@@ -171,14 +173,14 @@ describe('AudioDetailView', () => {
     })
 
     it('offers "set cover" when the track has no artwork at all', async () => {
-      api.get.mockResolvedValue(detail({ has_artwork: false }))
+      vi.mocked(api.get).mockResolvedValue(detail({ has_artwork: false }))
       render(<AudioDetailView />)
       await waitFor(() => screen.getByRole('button', { name: /Set cover/i }))
     })
 
     it('uploads a cover and refreshes the track', async () => {
-      api.get.mockResolvedValue(detail())
-      imageSources.uploadAudioCover.mockResolvedValue({ cover_image: 'a1.png' })
+      vi.mocked(api.get).mockResolvedValue(detail())
+      vi.mocked(imageSources.uploadAudioCover).mockResolvedValue({ cover_image: 'a1.png' })
       render(<AudioDetailView />)
       await waitFor(() => screen.getByRole('button', { name: /Change cover/i }))
 
@@ -191,13 +193,13 @@ describe('AudioDetailView', () => {
       // The track is re-fetched so has_cover/has_artwork reflect the new state.
       // Counted by endpoint rather than in total: the view also lists the folder's
       // tracks for prev/next navigation, which is not what this asserts.
-      const trackFetches = api.get.mock.calls.filter((c) => c[0] === '/audio/a1')
+      const trackFetches = vi.mocked(api.get).mock.calls.filter((c) => c[0] === '/audio/a1')
       expect(trackFetches).toHaveLength(2)
     })
 
     it('sets the cover from a library image', async () => {
-      api.get.mockResolvedValue(detail())
-      imageSources.setAudioCover.mockResolvedValue({ cover_image: 'a1.webp' })
+      vi.mocked(api.get).mockResolvedValue(detail())
+      vi.mocked(imageSources.setAudioCover).mockResolvedValue({ cover_image: 'a1.webp' })
       render(<AudioDetailView />)
       await waitFor(() => screen.getByRole('button', { name: /Change cover/i }))
 
@@ -213,8 +215,8 @@ describe('AudioDetailView', () => {
     })
 
     it('removes a set cover, but only offers it when one is set', async () => {
-      api.get.mockResolvedValue(detail({ has_cover: true }))
-      imageSources.deleteAudioCover.mockResolvedValue({ status: 'ok' })
+      vi.mocked(api.get).mockResolvedValue(detail({ has_cover: true }))
+      vi.mocked(imageSources.deleteAudioCover).mockResolvedValue({ status: 'ok' })
       render(<AudioDetailView />)
       await waitFor(() => screen.getByRole('button', { name: /Change cover/i }))
 
@@ -227,7 +229,7 @@ describe('AudioDetailView', () => {
     it('does not offer removal for folder or embedded art', async () => {
       // has_artwork without has_cover means the art comes from the library or
       // the file's own tags — neither is Grimoire's to delete.
-      api.get.mockResolvedValue(detail({ has_artwork: true, has_cover: false }))
+      vi.mocked(api.get).mockResolvedValue(detail({ has_artwork: true, has_cover: false }))
       render(<AudioDetailView />)
       await waitFor(() => screen.getByRole('button', { name: /Change cover/i }))
 
@@ -237,7 +239,7 @@ describe('AudioDetailView', () => {
   })
 
   it('favourites the track from the overflow menu', async () => {
-    api.get.mockResolvedValue(detail())
+    vi.mocked(api.get).mockResolvedValue(detail())
     render(<AudioDetailView />)
     // Favourite lives in the overflow menu with campaigns and share links.
     await userEvent.click(await screen.findByRole('button', { name: 'More actions' }))
@@ -254,7 +256,7 @@ describe('AudioDetailView', () => {
 
     // Route by URL: the folder list vs the track itself.
     const mockApi = (over = {}) => {
-      api.get.mockImplementation((url) => {
+      vi.mocked(api.get).mockImplementation((url: string) => {
         if (url.split('?')[0] === '/audio')
           return Promise.resolve({ total: SIBLINGS.length, audio: SIBLINGS })
         return Promise.resolve(detail(over))

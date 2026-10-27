@@ -14,7 +14,7 @@ const ACCEPTED = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
  *
  * Returns a File, or null when the payload holds no usable image.
  */
-export function imageFromDataTransfer(dataTransfer) {
+export function imageFromDataTransfer(dataTransfer: DataTransfer | null | undefined): File | null {
   const items = Array.from(dataTransfer?.items || [])
   for (const item of items) {
     if (item.kind !== 'file') continue
@@ -43,10 +43,10 @@ export function imageFromDataTransfer(dataTransfer) {
  * listener down while the dialog is closed or busy, so a paste meant for
  * something else on the page is never intercepted.
  */
-export default function useClipboardImage(onImage, active = true) {
+export default function useClipboardImage(onImage: (file: File) => void, active = true): void {
   useEffect(() => {
     if (!active) return undefined
-    const onPaste = (e) => {
+    const onPaste = (e: ClipboardEvent) => {
       const file = imageFromDataTransfer(e.clipboardData)
       if (!file) return
       // Only claim the event once we know we have an image to handle, so a

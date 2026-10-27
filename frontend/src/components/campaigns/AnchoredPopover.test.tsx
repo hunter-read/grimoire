@@ -5,7 +5,7 @@ import AnchoredPopover from './AnchoredPopover'
 
 /** Renders the popover anchored to a real button in the document. */
 function setup(onClose = vi.fn()) {
-  const ref = createRef()
+  const ref = createRef<HTMLButtonElement>()
   const utils = render(
     <div>
       <button ref={ref}>anchor</button>

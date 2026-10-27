@@ -4,21 +4,23 @@ import userEvent from '@testing-library/user-event'
 
 import FramePicker from './FramePicker'
 import { BUILTIN_FRAMES } from './frames'
+import type { Frame } from './frames'
 import * as favoritesContext from '../../../context/FavoritesContext'
 
 const builtins = BUILTIN_FRAMES.map((f) => ({ ...f, group: '' }))
-const userFrame = { id: 'abc', name: 'orc ring', group: 'Fantasy', builtin: false }
+const userFrame: Frame = { id: 'abc', name: 'orc ring', group: 'Fantasy', builtin: false }
 
 const HINT =
   'Add your own frames by putting PNG, WebP, or SVG images in a folder that contains a ' +
   '.frames-container marker file, anywhere inside your tokens library.'
 
 /** Pretend the given token ids are favourited, the way the gallery would. */
-function mockFavorites(favoritedTokenIds = []) {
+function mockFavorites(favoritedTokenIds: string[] = []) {
   vi.spyOn(favoritesContext, 'useFavorites').mockReturnValue({
     isFavorite: (type, id) => type === 'token' && favoritedTokenIds.includes(id),
     toggleFavorite: vi.fn(),
     items: [],
+    reload: vi.fn(),
   })
 }
 
@@ -239,7 +241,7 @@ describe('FramePicker', () => {
     render(<FramePicker frames={[...builtins, fav]} value={null} onChange={onChange} />)
 
     const favGroup = screen.getByRole('button', { name: /Favourites/ }).parentElement
-    await userEvent.click(within(favGroup).getByRole('button', { name: 'orc ring' }))
+    await userEvent.click(within(favGroup!).getByRole('button', { name: 'orc ring' }))
 
     expect(onChange).toHaveBeenCalledWith('abc')
   })
@@ -297,7 +299,7 @@ describe('FramePicker', () => {
         onColorChange={vi.fn()}
       />
     )
-    const slotOf = (root) =>
+    const slotOf = (root: HTMLElement) =>
       Array.from(root.querySelectorAll('div')).find(
         (el) => el.style.minHeight && el.style.minHeight !== '0px'
       )

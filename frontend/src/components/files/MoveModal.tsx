@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
-import { files as filesApi } from '../../api'
+import { files as filesApi, type Schema } from '../../api'
 import Spinner from '../Spinner'
 import FolderTree from './FolderTree'
 
@@ -13,18 +13,24 @@ import FolderTree from './FolderTree'
  * listed, because the only question being asked is *where*, and showing files
  * would offer targets that cannot be dropped on.
  */
-export default function MoveModal({ items, onClose, onMoved }) {
+export interface MoveModalProps {
+  items: Pick<Schema<'BrowseEntry'>, 'path' | 'name'>[]
+  onClose: () => void
+  onMoved?: (result: Schema<'MoveResponse'>, destination: string) => void
+}
+
+export default function MoveModal({ items, onClose, onMoved }: MoveModalProps) {
   const { t } = useTranslation()
-  const [selected, setSelected] = useState(null)
+  const [selected, setSelected] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
 
   // Escape closes, unless a move is already in flight. A window listener rather
   // than a handler on the panel: nothing here is autofocused, so focus may still
   // be on the pane that opened the dialog.
   useEffect(() => {
     if (busy) return
-    const onKey = (e) => e.key === 'Escape' && onClose()
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [busy, onClose])
@@ -34,7 +40,7 @@ export default function MoveModal({ items, onClose, onMoved }) {
   // both are refused by the API, so the picker never offers them.
   const sources = items.map((i) => i.path)
   const parents = new Set(sources.map((p) => p.split('/').slice(0, -1).join('/')))
-  const isBlocked = (path) =>
+  const isBlocked = (path: string) =>
     parents.has(path) || sources.some((s) => path === s || path.startsWith(`${s}/`))
 
   const submit = async () => {
@@ -44,14 +50,14 @@ export default function MoveModal({ items, onClose, onMoved }) {
     try {
       const res = await filesApi.move(sources, selected, 'rename')
       if (!res.count) {
-        setError(res.skipped?.[0]?.reason || t('files.nothingMoved'))
+        setError((res.skipped?.[0]?.reason as string | undefined) || t('files.nothingMoved'))
         setBusy(false)
         return
       }
       onMoved?.(res, selected)
       onClose()
     } catch (e) {
-      setError(e.message || t('files.moveFailed'))
+      setError((e as Error).message || t('files.moveFailed'))
       setBusy(false)
     }
   }
@@ -105,7 +111,7 @@ export default function MoveModal({ items, onClose, onMoved }) {
   )
 }
 
-const backdrop = {
+const backdrop: CSSProperties = {
   position: 'fixed',
   inset: 0,
   background: 'var(--scrim)',
@@ -116,7 +122,7 @@ const backdrop = {
   padding: 16,
 }
 
-const panel = {
+const panel: CSSProperties = {
   background: 'var(--bg-panel)',
   border: '1px solid var(--border)',
   borderRadius: 10,
@@ -124,7 +130,7 @@ const panel = {
   width: 'min(480px, 100%)',
 }
 
-function btn(primary) {
+function btn(primary?: boolean): CSSProperties {
   return {
     display: 'inline-flex',
     alignItems: 'center',

@@ -4,22 +4,31 @@ import { LuSearch, LuX } from 'react-icons/lu'
 import api from '../../api'
 import Spinner from '../Spinner'
 import SnippetText from './SnippetText'
+import type { ChangeEvent } from 'react'
+import type { Schema } from '../../api'
 import ReaderSidebarShell from './ReaderSidebarShell'
 
-export default function SearchSidebar({ bookId, onGoToPage, onClose }) {
+interface Props {
+  bookId: string
+  /** Jumps to a hit, passing the query so the page can highlight it. */
+  onGoToPage: (page: number, query?: string) => void
+  onClose: () => void
+}
+
+export default function SearchSidebar({ bookId, onGoToPage, onClose }: Props) {
   const { t } = useTranslation()
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState(null)
+  const [results, setResults] = useState<Schema<'SearchResponse'> | null>(null)
   const [searching, setSearching] = useState(false)
-  const timerRef = useRef(null)
-  const inputRef = useRef(null)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     inputRef.current?.focus()
   }, [])
 
   const doSearch = useCallback(
-    (q) => {
+    (q: string) => {
       if (q.length < 2) {
         setResults(null)
         return
@@ -36,7 +45,7 @@ export default function SearchSidebar({ bookId, onGoToPage, onClose }) {
     [bookId]
   )
 
-  const handleInput = (e) => {
+  const handleInput = (e: ChangeEvent<HTMLInputElement>) => {
     const v = e.target.value
     setQuery(v)
     clearTimeout(timerRef.current)

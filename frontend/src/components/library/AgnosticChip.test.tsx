@@ -2,11 +2,12 @@ import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import AgnosticChip from './AgnosticChip'
+import AgnosticChip, { type AgnosticChipProps } from './AgnosticChip'
+import type { Schema } from '../../api'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k, o) => {
+    t: (k: string, o: { count: number }) => {
       if (k === 'library.bookCount') return `${o.count} books`
       if (k === 'systemContainer.count') return `${o.count} systems`
       return k
@@ -14,15 +15,17 @@ vi.mock('react-i18next', () => ({
   }),
 }))
 
-const makeSystem = (over = {}) => ({
-  id: 's1',
-  name: 'one-page-rpgs',
-  is_one_page: true,
-  book_count: 3,
-  ...over,
-})
+// A partial row is enough: the chip reads only these fields.
+const makeSystem = (over: Record<string, unknown> = {}) =>
+  ({
+    id: 's1',
+    name: 'one-page-rpgs',
+    is_one_page: true,
+    book_count: 3,
+    ...over,
+  }) as unknown as Schema<'SystemSummary'>
 
-const renderChip = (props) =>
+const renderChip = (props: AgnosticChipProps) =>
   render(
     <MemoryRouter>
       <AgnosticChip {...props} />

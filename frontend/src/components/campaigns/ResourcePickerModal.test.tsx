@@ -1,8 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ResourcePickerModal from './ResourcePickerModal'
+import type { ResourcePickerProps } from './ResourcePicker'
 import { campaigns } from '../../api'
+
+// The api module is mocked above; reach its helpers as plain vi.fn()s.
+const campaignsMock = campaigns as unknown as Record<keyof typeof campaigns, Mock>
 
 vi.mock('../../api', () => ({
   campaigns: { bulkAddResources: vi.fn() },
@@ -11,7 +16,7 @@ vi.mock('../../api', () => ({
 // Stand-in picker: exposes a button that selects one book, and echoes the
 // pinSystem / excludeKeys it was handed so the modal's wiring is verified.
 vi.mock('./ResourcePicker', () => ({
-  default: ({ selected, setSelected, pinSystem, systemId, excludeKeys }) => (
+  default: ({ selected, setSelected, pinSystem, systemId, excludeKeys }: ResourcePickerProps) => (
     <div data-testid="picker">
       <span>{`pin:${pinSystem}`}</span>
       <span>{`sys:${systemId ?? ''}`}</span>
@@ -66,7 +71,7 @@ describe('ResourcePickerModal', () => {
 
   it('bulk-adds the selection and reports the additions', async () => {
     const added = [{ id: 'r1' }]
-    campaigns.bulkAddResources.mockResolvedValue(added)
+    campaignsMock.bulkAddResources.mockResolvedValue(added)
     const onAdded = vi.fn()
     render(
       <ResourcePickerModal
@@ -87,7 +92,7 @@ describe('ResourcePickerModal', () => {
   })
 
   it('surfaces an error and stays open when the add fails', async () => {
-    campaigns.bulkAddResources.mockRejectedValue(new Error('boom'))
+    campaignsMock.bulkAddResources.mockRejectedValue(new Error('boom'))
     const onAdded = vi.fn()
     render(
       <ResourcePickerModal

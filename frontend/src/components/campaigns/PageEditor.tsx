@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   LuLink2,
@@ -13,13 +13,13 @@ import {
   LuList,
   LuQuote,
 } from 'react-icons/lu'
-import { campaigns } from '../../api'
+import { campaigns, type Schema } from '../../api'
 import WikiMarkdown from './WikiMarkdown'
 import GrimoireEmbedPicker from './GrimoireEmbedPicker'
 import IconPicker from './IconPicker'
 import WikiLinkAutocomplete, { findActiveLinkQuery } from './WikiLinkAutocomplete'
 import ShareAccessTable from './ShareAccessTable'
-import { buildTitleTrie } from './wikiLinkTarget'
+import { buildTitleTrie, type TitlePage, type TrieEntry } from './wikiLinkTarget'
 import { caretCoordinates } from './caretPosition'
 import useFillViewport from './useFillViewport'
 import useIsMobile from '../../hooks/useIsMobile'
@@ -39,10 +39,33 @@ import {
 
 // Compare two id lists as sets: order and duplicates carry no meaning in a share
 // list, and treating a reorder as a change would send a needless write.
-const sameIds = (a = [], b = []) => {
+const sameIds = (a: readonly string[] = [], b: readonly string[] | null = []) => {
   const x = new Set(a)
   const y = new Set(b ?? [])
   return x.size === y.size && [...x].every((id) => y.has(id))
+}
+
+type WikiPageDetail = Schema<'WikiPageDetailOut'>
+type PagePayload = Schema<'WikiPageCreate'> & Schema<'WikiPageUpdate'>
+
+/** The open [[ query, and where to draw its dropdown. */
+interface LinkSuggest {
+  query: string
+  start: number
+  end: number
+  top: number
+  left: number
+}
+
+export interface PageEditorProps {
+  campaign: Schema<'CampaignOut'>
+  isOwner: boolean
+  // A template draft has no `id`, which is what makes this create a page.
+  page: Partial<WikiPageDetail> | null
+  allPages: Schema<'WikiPageListItem'>[]
+  defaultParentId?: string
+  onSaved: (saved: { id: string }) => void
+  onCancel: () => void
 }
 
 /** Full create/edit form for a wiki page: metadata, markdown toolbar, live preview. */
@@ -54,7 +77,7 @@ export default function PageEditor({
   defaultParentId,
   onSaved,
   onCancel,
-}) {
+}: PageEditorProps) {
   const { t } = useTranslation()
   const isNew = !page?.id
   const [title, setTitle] = useState(page?.title ?? '')
@@ -62,36 +85,36 @@ export default function PageEditor({
   // "gm" (author only) is the default for everyone now, not just the GM: a note
   // starts private to whoever is writing it and is opened up deliberately.
   const [visibility, setVisibility] = useState(page?.visibility ?? 'gm')
-  const [sharedIds, setSharedIds] = useState(page?.shared_user_ids ?? [])
-  const [writeIds, setWriteIds] = useState(page?.shared_write_user_ids ?? [])
+  const [sharedIds, setSharedIds] = useState<string[]>(page?.shared_user_ids ?? [])
+  const [writeIds, setWriteIds] = useState<string[]>(page?.shared_write_user_ids ?? [])
   const [parentId, setParentId] = useState(page?.parent_id ?? defaultParentId ?? '')
   const [icon, setIcon] = useState(page?.icon ?? '')
   const [iconColor, setIconColor] = useState(page?.icon_color ?? '')
 
   // Pages eligible as a parent: every page except this one and its descendants.
-  const excluded = page?.id ? descendantIds(page.id, allPages) : new Set()
+  const excluded = page?.id ? descendantIds(page.id, allPages) : new Set<string>()
   const parentOptions = allPages
     .filter((p) => !excluded.has(p.id))
     .sort((a, b) => (a.title || '').localeCompare(b.title || ''))
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
   const [showEmbedPicker, setShowEmbedPicker] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
-  const bodyRef = useRef(null)
+  const bodyRef = useRef<HTMLTextAreaElement>(null)
 
   // Fill the viewport so a long note doesn't push Save/Cancel off-screen (#293).
   // On phones the editor already owns the whole screen and the on-screen
   // keyboard shrinks the visual viewport, so it keeps the natural page flow.
   const isMobile = useIsMobile()
-  const rootRef = useRef(null)
+  const rootRef = useRef<HTMLDivElement>(null)
   const fillHeight = useFillViewport(rootRef, { enabled: !isMobile })
 
   // --- [[link]] autocomplete (issue #196) ---
   // Titles come from the dedicated endpoint rather than `allPages` because they
   // carry each page's headings and an `ambiguous` flag, which drive heading
   // completions and the `:id-` disambiguator respectively.
-  const [linkTargets, setLinkTargets] = useState([])
-  const [suggest, setSuggest] = useState(null) // { query, start, end, top, left }
+  const [linkTargets, setLinkTargets] = useState<TitlePage[]>([])
+  const [suggest, setSuggest] = useState<LinkSuggest | null>(null) // { query, start, end, top, left }
   const [suggestIndex, setSuggestIndex] = useState(0)
 
   useEffect(() => {
@@ -121,7 +144,7 @@ export default function PageEditor({
 
   // Re-evaluate whether the caret sits inside an open "[[" after any edit or
   // cursor move, and position the dropdown under it.
-  const refreshSuggest = useCallback((ta) => {
+  const refreshSuggest = useCallback((ta: HTMLTextAreaElement | null) => {
     if (!ta) return
     const active = findActiveLinkQuery(ta.value, ta.selectionStart ?? 0)
     if (!active) {
@@ -141,7 +164,7 @@ export default function PageEditor({
 
   // Replace the "[[query" span with the chosen target and close the link.
   const acceptSuggestion = useCallback(
-    (match) => {
+    (match: TrieEntry) => {
       if (!suggest) return
       const ta = bodyRef.current
       // Reuse a "]]" that's already sitting at the caret rather than adding a
@@ -165,7 +188,7 @@ export default function PageEditor({
   // Arrow/Enter/Tab drive the dropdown while it's open; Escape dismisses it.
   // Everything else falls through to normal typing.
   const onBodyKeyDown = useCallback(
-    (e) => {
+    (e: KeyboardEvent<HTMLTextAreaElement>) => {
       if (!suggest || !suggestMatches.length) return
       if (e.key === 'Escape') {
         e.preventDefault()
@@ -200,7 +223,7 @@ export default function PageEditor({
   )
 
   const insertAtCursor = useCallback(
-    (text) => {
+    (text: string) => {
       const ta = bodyRef.current
       if (!ta) {
         setBody((b) => b + text)
@@ -221,7 +244,7 @@ export default function PageEditor({
   // Wrap the current selection in before/after markers (or insert the empty pair
   // and drop the cursor between them when nothing is selected).
   const wrapSelection = useCallback(
-    (before, after) => {
+    (before: string, after: string) => {
       const ta = bodyRef.current
       if (!ta) {
         setBody((b) => b + before + after)
@@ -244,7 +267,7 @@ export default function PageEditor({
   // "> "). With nothing selected the current line is prefixed. Toggling off when
   // every touched line already has the marker keeps the buttons idempotent.
   const prefixLines = useCallback(
-    (marker) => {
+    (marker: string) => {
       const ta = bodyRef.current
       const start = ta?.selectionStart ?? body.length
       const end = ta?.selectionEnd ?? body.length
@@ -268,7 +291,7 @@ export default function PageEditor({
     setSaving(true)
     setError(null)
     try {
-      const payload = {
+      const payload: PagePayload = {
         title: title.trim() || t('wiki.untitled'),
         body,
         icon: icon || '',
@@ -278,7 +301,7 @@ export default function PageEditor({
       // the server checks write access to the *destination*, so resending the
       // parent a page already sits under would refuse an edit to a child whose
       // parent the user cannot write (#386).
-      if (isNew || (parentId || '') !== (page.parent_id || '')) {
+      if (isNew || (parentId || '') !== (page!.parent_id || '')) {
         payload.parent_id = parentId || ''
       }
       // Classification travels only when it actually changed. Resending the
@@ -294,17 +317,17 @@ export default function PageEditor({
         payload.shared_user_ids = nextShared
         payload.shared_write_user_ids = nextWrite
       } else {
-        if (visibility !== page.visibility) payload.visibility = visibility
-        if (!sameIds(nextShared, page.shared_user_ids)) payload.shared_user_ids = nextShared
-        if (!sameIds(nextWrite, page.shared_write_user_ids))
+        if (visibility !== page!.visibility) payload.visibility = visibility
+        if (!sameIds(nextShared, page!.shared_user_ids)) payload.shared_user_ids = nextShared
+        if (!sameIds(nextWrite, page!.shared_write_user_ids))
           payload.shared_write_user_ids = nextWrite
       }
       const result = isNew
         ? await campaigns.createWikiPage(campaign.id, payload)
-        : await campaigns.updateWikiPage(campaign.id, page.id, payload)
+        : await campaigns.updateWikiPage(campaign.id, page!.id!, payload)
       onSaved(result)
     } catch (e) {
-      setError(e.message)
+      setError((e as Error).message)
       setSaving(false)
     }
   }
@@ -552,7 +575,7 @@ export default function PageEditor({
             onKeyDown={onBodyKeyDown}
             // Cursor moves (clicks, arrows) can leave or enter a "[[", so
             // re-evaluate after the selection has settled.
-            onSelect={(e) => refreshSuggest(e.target)}
+            onSelect={(e) => refreshSuggest(e.target as HTMLTextAreaElement)}
             onBlur={closeSuggest}
             placeholder={t('wiki.bodyPlaceholder')}
             rows={20}

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import MemberRow from './MemberRow'
+import MemberRow, { type MemberRowProps } from './MemberRow'
 import InvitePanel from './InvitePanel'
 
 // MemberRow's avatar navigates to the token editor, so it needs a router.
@@ -20,6 +21,9 @@ vi.mock('../../api', () => ({
 
 import { campaigns } from '../../api'
 
+// The api module is mocked above; reach its helpers as plain vi.fn()s.
+const campaignsMock = campaigns as unknown as Record<keyof typeof campaigns, Mock>
+
 const baseMember = {
   user_id: 'u1',
   username: 'alice',
@@ -28,7 +32,7 @@ const baseMember = {
   status: 'accepted',
 }
 
-function renderRow(overrides = {}, props = {}) {
+function renderRow(overrides = {}, props: Partial<MemberRowProps> = {}) {
   const member = { ...baseMember, ...overrides }
   return render(
     <MemberRow
@@ -39,6 +43,8 @@ function renderRow(overrides = {}, props = {}) {
       onRemove={vi.fn()}
       onUpdateStatus={vi.fn()}
       onSetCharacterName={vi.fn()}
+      // Most rows render without a campaign, which hides the media actions.
+      campaignId={undefined as unknown as string}
       {...props}
     />
   )
@@ -164,7 +170,7 @@ describe('InvitePanel', () => {
   })
 
   it('shows users available to invite', async () => {
-    campaigns.eligibleMembers.mockResolvedValue([
+    campaignsMock.eligibleMembers.mockResolvedValue([
       { id: 'u2', username: 'bob', display_name: null, role: 'player', already_invited: false },
     ])
     render(<InvitePanel campaignId="c1" onInvited={vi.fn()} />)
@@ -173,7 +179,7 @@ describe('InvitePanel', () => {
   })
 
   it('shows message when all users are already invited', async () => {
-    campaigns.eligibleMembers.mockResolvedValue([
+    campaignsMock.eligibleMembers.mockResolvedValue([
       { id: 'u2', username: 'bob', display_name: null, role: 'player', already_invited: true },
     ])
     render(<InvitePanel campaignId="c1" onInvited={vi.fn()} />)
@@ -183,10 +189,10 @@ describe('InvitePanel', () => {
   })
 
   it('calls invite and onInvited when Invite button is clicked', async () => {
-    campaigns.eligibleMembers.mockResolvedValue([
+    campaignsMock.eligibleMembers.mockResolvedValue([
       { id: 'u2', username: 'bob', display_name: null, role: 'player', already_invited: false },
     ])
-    campaigns.invite.mockResolvedValue({})
+    campaignsMock.invite.mockResolvedValue({})
     const onInvited = vi.fn()
     render(<InvitePanel campaignId="c1" onInvited={onInvited} />)
     await waitFor(() => screen.getByText('bob'))
@@ -196,7 +202,7 @@ describe('InvitePanel', () => {
   })
 
   it('hides the search box for a short list', async () => {
-    campaigns.eligibleMembers.mockResolvedValue([
+    campaignsMock.eligibleMembers.mockResolvedValue([
       { id: 'u2', username: 'bob', display_name: null, role: 'player', already_invited: false },
     ])
     render(<InvitePanel campaignId="c1" onInvited={vi.fn()} />)
@@ -205,7 +211,7 @@ describe('InvitePanel', () => {
   })
 
   it('filters the list by the search query once the list is long', async () => {
-    campaigns.eligibleMembers.mockResolvedValue(
+    campaignsMock.eligibleMembers.mockResolvedValue(
       ['bob', 'carol', 'dave', 'erin', 'frank', 'grace'].map((n, i) => ({
         id: `u${i}`,
         username: n,
@@ -225,7 +231,7 @@ describe('InvitePanel', () => {
   })
 
   it('shows an empty-state when the search matches nobody', async () => {
-    campaigns.eligibleMembers.mockResolvedValue(
+    campaignsMock.eligibleMembers.mockResolvedValue(
       ['bob', 'carol', 'dave', 'erin', 'frank', 'grace'].map((n, i) => ({
         id: `u${i}`,
         username: n,
@@ -244,7 +250,7 @@ describe('InvitePanel', () => {
   })
 
   it('matches on display name as well as username', async () => {
-    campaigns.eligibleMembers.mockResolvedValue(
+    campaignsMock.eligibleMembers.mockResolvedValue(
       [
         { username: 'bob', display_name: 'Robert Tables' },
         { username: 'carol', display_name: null },
@@ -265,7 +271,7 @@ describe('InvitePanel', () => {
   })
 
   it('disables the invite button for users whose campaign access is off', async () => {
-    campaigns.eligibleMembers.mockResolvedValue([
+    campaignsMock.eligibleMembers.mockResolvedValue([
       {
         id: 'u3',
         username: 'carol',

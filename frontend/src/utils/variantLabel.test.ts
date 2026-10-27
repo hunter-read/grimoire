@@ -5,17 +5,19 @@ import variantLabel, { mainOption, variantFilename } from './variantLabel'
 // The real translator, minus i18n: the helper only ever looks up
 // `variants.kind.*`, so echoing the key back with a recognisable shape is
 // enough to assert which branch ran.
-const t = (key, opts) => {
+const t = (key: string, opts?: Record<string, unknown>): string => {
   if (key === 'variants.mainVersion') return 'Main version'
   const kind = key.replace('variants.kind.', '')
   return (
-    {
-      gridded: 'Gridded',
-      version: 'Version',
-      other: 'Other',
-      'universal-vtt': 'Universal VTT',
-    }[kind] ||
-    opts?.defaultValue ||
+    (
+      {
+        gridded: 'Gridded',
+        version: 'Version',
+        other: 'Other',
+        'universal-vtt': 'Universal VTT',
+      } as Record<string, string>
+    )[kind] ||
+    (opts?.defaultValue as string | undefined) ||
     kind
   )
 }

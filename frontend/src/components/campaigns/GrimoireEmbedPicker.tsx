@@ -10,9 +10,9 @@ import {
   LuFile,
   LuImage,
   LuPlus,
-  LuUpload,
 } from 'react-icons/lu'
-import { campaigns, mediaUrl } from '../../api'
+import type { IconType } from 'react-icons'
+import { campaigns, mediaUrl, type Schema } from '../../api'
 import Spinner from '../Spinner'
 import ImageUploadPanel from './ImageUploadPanel'
 import SegmentControl from './SegmentControl'
@@ -20,22 +20,42 @@ import { miniBtn, miniBtnGhost } from './embedPickerStyles'
 import { buildEmbedGroups } from './embedPickerGroups'
 import LazyImg from '../LazyImg'
 
-const TYPE_ICON = { book: LuBookOpen, map: LuMap, token: LuUser, audio: LuMusic, file: LuFile }
+type Resource = Schema<'LinkedResourceOut'>
+
+const TYPE_ICON: Record<string, IconType | undefined> = {
+  book: LuBookOpen,
+  map: LuMap,
+  token: LuUser,
+  audio: LuMusic,
+  file: LuFile,
+}
 
 // Picks a linked campaign resource (or uploads a new image) and returns the
 // [[...]] embed token to insert into a wiki note. Only resources already linked
 // to this campaign are listed — to embed new library content, link it first in
 // the Resources panel.
-export default function GrimoireEmbedPicker({ campaignId, groupOrder, onInsert, onClose }) {
+interface GrimoireEmbedPickerProps {
+  campaignId: string
+  groupOrder?: string[] | null
+  onInsert: (token: string) => void
+  onClose: () => void
+}
+
+export default function GrimoireEmbedPicker({
+  campaignId,
+  groupOrder,
+  onInsert,
+  onClose,
+}: GrimoireEmbedPickerProps) {
   const { t } = useTranslation()
   const [query, setQuery] = useState('')
-  const [resources, setResources] = useState(null)
-  const [categories, setCategories] = useState([])
-  const [activeGroup, setActiveGroup] = useState(null) // null until groups load
-  const [pageFor, setPageFor] = useState(null) // book item awaiting a page number
+  const [resources, setResources] = useState<Resource[] | null>(null)
+  const [categories, setCategories] = useState<Schema<'CampaignCategoryOut'>[]>([])
+  const [activeGroup, setActiveGroup] = useState<string | null>(null) // null until groups load
+  const [pageFor, setPageFor] = useState<string | null>(null) // book item awaiting a page number
   const [pageNum, setPageNum] = useState('')
   const [uploadOpen, setUploadOpen] = useState(false)
-  const pageInputRef = useRef(null)
+  const pageInputRef = useRef<HTMLInputElement>(null)
 
   // Clicking "at page" reveals the page input — focus it so the number can be
   // typed right away instead of requiring a second click.
@@ -58,7 +78,7 @@ export default function GrimoireEmbedPicker({ campaignId, groupOrder, onInsert, 
 
   // The embed token for a resource. Images use the `image:` prefix so they render
   // inline; other files use `file:`; books optionally carry a page number.
-  const tokenFor = (item, page) => {
+  const tokenFor = (item: Resource, page: string | null) => {
     if (item.resource_type === 'file') {
       return item.is_image ? `[[image:${item.resource_id}]]` : `[[file:${item.resource_id}]]`
     }
@@ -68,15 +88,15 @@ export default function GrimoireEmbedPicker({ campaignId, groupOrder, onInsert, 
     return `[[${item.resource_type}:${item.resource_id}]]`
   }
 
-  const insert = (item, page) => onInsert(tokenFor(item, page))
+  const insert = (item: Resource, page: string | null) => onInsert(tokenFor(item, page))
 
-  const handleUploaded = (created) => {
+  const handleUploaded = (created: { resource_id: string }) => {
     setUploadOpen(false)
     // The new image is a linked resource; embed it immediately.
     onInsert(`[[image:${created.resource_id}]]`)
   }
 
-  const TYPE_LABELS = {
+  const TYPE_LABELS: Record<string, string> = {
     book: t('resources.books'),
     map: t('resources.maps'),
     token: t('resources.tokens'),
@@ -85,7 +105,7 @@ export default function GrimoireEmbedPicker({ campaignId, groupOrder, onInsert, 
   }
 
   const search = query.trim().toLowerCase()
-  const matchesQuery = (r) => (r.name || '').toLowerCase().includes(search)
+  const matchesQuery = (r: Resource) => (r.name || '').toLowerCase().includes(search)
 
   const groups = buildEmbedGroups(
     resources || [],
@@ -342,7 +362,7 @@ export default function GrimoireEmbedPicker({ campaignId, groupOrder, onInsert, 
 }
 
 // Thumbnail URL for a resource row, or null when there's nothing to show.
-function thumbnailUrl(campaignId, item) {
+function thumbnailUrl(campaignId: string, item: Resource): string | null {
   if (item.resource_type === 'file') {
     return item.is_image ? campaigns.fileUrl(campaignId, item.resource_id) : null
   }

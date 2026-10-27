@@ -6,7 +6,7 @@
  * Also handles a few plural/possessive forms that would otherwise lose their
  * acronym casing ("gms" → "GMs").
  */
-export const ACRONYMS = {
+export const ACRONYMS: Record<string, string> = {
   gm: 'GM',
   gms: 'GMs',
   dm: 'DM',
@@ -31,7 +31,9 @@ export const ACRONYMS = {
  * Capitalize a single already-split word, honoring the acronym table. A leading
  * possessive like "gm's" is handled so it renders "GM's".
  */
-export function capitalizeWord(word) {
+export function capitalizeWord(word: string): string
+export function capitalizeWord(word: string | null | undefined): string | null | undefined
+export function capitalizeWord(word: string | null | undefined): string | null | undefined {
   if (!word) return word
   const lower = word.toLowerCase()
   if (ACRONYMS[lower]) return ACRONYMS[lower]

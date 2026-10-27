@@ -2,23 +2,28 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import GalleryToolbar from './GalleryToolbar'
+import type { ReactNode } from 'react'
 import { MEDIA_CONFIGS } from './mediaConfig'
+import type useMediaGallery from '../../hooks/useMediaGallery'
 
-const makeGallery = (over = {}) => ({
-  bulk: { bulkMode: false, enter: vi.fn(), exit: vi.fn() },
-  viewMode: 'grid',
-  cycleViewMode: vi.fn(),
-  grouped: true,
-  setGrouped: vi.fn(),
-  setCollapsed: vi.fn(),
-  allKeys: new Set(['a']),
-  noFolders: false,
-  allCollapsed: false,
-  allExpanded: false,
-  ...over,
-})
+type Gallery = ReturnType<typeof useMediaGallery>
 
-const renderToolbar = (props = {}) =>
+const makeGallery = (over: Record<string, unknown> = {}) =>
+  ({
+    bulk: { bulkMode: false, enter: vi.fn(), exit: vi.fn() },
+    viewMode: 'grid',
+    cycleViewMode: vi.fn(),
+    grouped: true,
+    setGrouped: vi.fn(),
+    setCollapsed: vi.fn(),
+    allKeys: new Set(['a']),
+    noFolders: false,
+    allCollapsed: false,
+    allExpanded: false,
+    ...over,
+  }) as unknown as Gallery
+
+const renderToolbar = (props: { gallery?: Record<string, unknown>; leading?: ReactNode } = {}) =>
   render(
     <GalleryToolbar
       config={MEDIA_CONFIGS.map}
@@ -32,9 +37,9 @@ describe('GalleryToolbar', () => {
     renderToolbar({ leading: <button type="button">Saved sets</button> })
     const first = screen.getByRole('button', { name: 'Saved sets' })
     // It must come first in the row so it takes the slack on the left.
-    expect(first.parentElement.firstElementChild).toBe(first)
+    expect(first.parentElement!.firstElementChild).toBe(first)
     // …and the grouping switch follows it in that same row.
-    expect(first.parentElement).toContainElement(screen.getByRole('switch'))
+    expect(first.parentElement!).toContainElement(screen.getByRole('switch'))
   })
 
   it('renders no leading slot when none is given', () => {

@@ -1,8 +1,18 @@
 import { useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuMinus, LuBan } from 'react-icons/lu'
+import type { AvailOption } from './_scheduleShared'
 
 /** A single availability cell: shows current status and opens a status-picker menu. */
+interface AvailabilityCellProps {
+  status?: string | null
+  isCancelled: boolean
+  isOwner: boolean
+  onSet: (status: string) => void
+  onCancel: () => void
+  availOptions: readonly AvailOption[]
+}
+
 export default function AvailabilityCell({
   status,
   isCancelled,
@@ -10,10 +20,10 @@ export default function AvailabilityCell({
   onSet,
   onCancel,
   availOptions,
-}) {
+}: AvailabilityCellProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
-  const btnRef = useRef(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 })
 
   const openMenu = () => {

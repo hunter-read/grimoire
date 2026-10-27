@@ -17,7 +17,7 @@ describe('MEDIA_CONFIGS', () => {
 
   it('audio config exposes file/artwork urls and an artwork thumbnail flag', () => {
     const a = MEDIA_CONFIGS.audio
-    expect(a.audioFileUrl('x')).toBe('/audio/x/file')
+    expect(a.audioFileUrl?.('x')).toBe('/audio/x/file')
     expect(a.thumbnailUrl('x')).toBe('/audio/x/artwork')
     expect(a.thumbnailFlag).toBe('has_artwork')
     expect(a.itemUrl('x')).toBe('/audio/x')
@@ -43,7 +43,7 @@ describe('MEDIA_CONFIGS', () => {
 })
 
 describe('folder path helpers', () => {
-  const item = (rp) => ({ relative_path: rp })
+  const item = (rp: string) => ({ relative_path: rp })
 
   it('getFolderPath drops the collection prefix and filename', () => {
     expect(getFolderPath(item('audio/Ambient/Sub/track.mp3'))).toBe('Ambient/Sub')
@@ -65,7 +65,7 @@ describe('folder path helpers', () => {
 })
 
 describe('getFolderAncestors', () => {
-  const item = (rp) => ({ relative_path: rp })
+  const item = (rp: string) => ({ relative_path: rp })
 
   it('lists every folder from the item up to the top level', () => {
     expect(getFolderAncestors(item('maps/Fall Of Blackbottom/Alleyways/Map1.png'))).toEqual([

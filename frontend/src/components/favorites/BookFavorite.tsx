@@ -1,7 +1,7 @@
 import { useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuFileText } from 'react-icons/lu'
-import { mediaUrl } from '../../api'
+import { mediaUrl, type Schema } from '../../api'
 import FavoriteButton from '../FavoriteButton'
 import { CATEGORY_ICONS } from '../../constants'
 import {
@@ -14,10 +14,15 @@ import {
 import LazyImg from '../LazyImg'
 import CardLink from '../CardLink'
 
-export default function BookFavorite({ item, grid }) {
+export interface BookFavoriteProps {
+  item: Schema<'FavoriteBookItem'>
+  grid: boolean
+}
+
+export default function BookFavorite({ item, grid }: BookFavoriteProps) {
   const { t } = useTranslation()
   const location = useLocation()
-  const CatIcon = CATEGORY_ICONS[item.category] || LuFileText
+  const CatIcon = CATEGORY_ICONS[item.category as string] || LuFileText
   // A real link: middle click / ctrl-click opens the reader in a new tab (issue
   // #313). The `from` state rides along on in-page navigations only; a new tab
   // falls back to the reader's default back target, as any real link would.
@@ -115,7 +120,7 @@ export default function BookFavorite({ item, grid }) {
         </div>
         <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
           {item.category}
-          {item.page_count > 0 ? ` · ${t('bookRow.pages', { count: item.page_count })}` : ''}
+          {(item.page_count ?? 0) > 0 ? ` · ${t('bookRow.pages', { count: item.page_count })}` : ''}
         </div>
       </div>
       <FavoriteButton type="book" id={item.item_id} style={rowFavoriteButtonStyle} />

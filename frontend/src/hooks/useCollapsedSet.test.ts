@@ -32,7 +32,7 @@ describe('useCollapsedSet', () => {
       })
     )
     expect(result.current[0]).toEqual(new Set(['b']))
-    expect(JSON.parse(sessionStorage.getItem('k'))).toEqual(['b'])
+    expect(JSON.parse(sessionStorage.getItem('k')!)).toEqual(['b'])
 
     // Once chosen, the stored value wins over a changed default.
     rerender({ def: new Set(['a', 'b', 'c']) })
@@ -57,7 +57,7 @@ describe('useCollapsedSet', () => {
     const { result } = renderHook(() => useCollapsedSet('k', undefined, { storage: 'local' }))
     expect(result.current[0]).toEqual(new Set(['x']))
     act(() => result.current[1](new Set(['y'])))
-    expect(JSON.parse(localStorage.getItem('k'))).toEqual(['y'])
+    expect(JSON.parse(localStorage.getItem('k')!)).toEqual(['y'])
     expect(sessionStorage.getItem('k')).toBeNull()
   })
 

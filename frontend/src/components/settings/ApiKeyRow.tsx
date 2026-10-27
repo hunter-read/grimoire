@@ -1,8 +1,21 @@
 import { useTranslation } from 'react-i18next'
 import { LuKey, LuPencil, LuRefreshCw, LuTrash } from 'react-icons/lu'
+import type { CSSProperties } from 'react'
+import type { Schema } from '../../api'
 import { formatWhen, grantedPermissions } from './apiKeyUtils'
 
-const actionStyle = (danger) => ({
+type ApiKey = Schema<'ApiKeyOut'>
+
+interface Props {
+  apiKey: ApiKey
+  permissions: Schema<'ApiKeyPermissionOut'>[]
+  showOwner?: boolean
+  onEdit: (key: ApiKey) => void
+  onRegenerate: (key: ApiKey) => void
+  onRevoke: (key: ApiKey) => void
+}
+
+const actionStyle = (danger?: boolean): CSSProperties => ({
   display: 'inline-flex',
   alignItems: 'center',
   gap: 6,
@@ -25,9 +38,9 @@ export default function ApiKeyRow({
   onEdit,
   onRegenerate,
   onRevoke,
-}) {
+}: Props) {
   const { t, i18n } = useTranslation()
-  const when = (iso) => formatWhen(iso, i18n.language)
+  const when = (iso: string | null | undefined) => formatWhen(iso, i18n.language)
   const granted = grantedPermissions(apiKey, permissions)
 
   const expiry = apiKey.expired

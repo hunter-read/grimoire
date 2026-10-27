@@ -4,11 +4,13 @@ import { MemoryRouter } from 'react-router-dom'
 import userEvent from '@testing-library/user-event'
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k, o) => (o?.defaultValue ? o.defaultValue : k) }),
+  useTranslation: () => ({
+    t: (k: string, o?: { defaultValue?: string }) => (o?.defaultValue ? o.defaultValue : k),
+  }),
 }))
 
 const get = vi.fn()
-vi.mock('../../api', () => ({ default: { get: (...a) => get(...a) } }))
+vi.mock('../../api', () => ({ default: { get: (...a: unknown[]) => get(...a) } }))
 
 import VariantMenuItems from './VariantMenuItems'
 

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type CSSProperties, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   LuArrowUp,
@@ -9,9 +9,60 @@ import {
   LuX,
   LuFilter,
 } from 'react-icons/lu'
-import FilterModal from './FilterModal'
+import FilterModal, {
+  type MultiFilterDef,
+  type QueryFilterDef,
+  type SavePreset,
+  type SelectFilterDef,
+  type SortFilterState,
+  type ToggleFilterDef,
+} from './FilterModal'
 import { isEmptyQuery } from './tagQuery'
 import useIsMobile from '../../hooks/useIsMobile'
+import type { Schema } from '../../api'
+
+export type {
+  FilterOption,
+  Filters,
+  MultiFilterDef,
+  QueryFilterDef,
+  SavePreset,
+  SelectFilterDef,
+  SortFilterState,
+  ToggleFilterDef,
+} from './FilterModal'
+
+/** A saved preset as the menu lists it. */
+export type SavedPreset = Pick<Schema<'SavedFilterOut'>, 'id' | 'name' | 'state'> & {
+  is_default?: boolean
+}
+
+/** One entry in the sort dropdown; `defaultOrder` is applied when it is picked. */
+export interface SortOption {
+  value: string
+  label: string
+  defaultOrder?: string
+}
+
+export interface SortFilterBarProps {
+  state: SortFilterState
+  onChange: (next: SortFilterState) => void
+  sortOptions: SortOption[]
+  selectFilters?: SelectFilterDef[]
+  multiFilters?: MultiFilterDef[]
+  queryFilters?: QueryFilterDef[]
+  toggleFilters?: ToggleFilterDef[]
+  showSearch?: boolean
+  searchPlaceholder?: string
+  saved?: SavedPreset[]
+  onSavePreset?: SavePreset
+  onDeletePreset?: (id: string) => void
+  onSetDefault?: (id: string, value: boolean) => void
+  trailing?: ReactNode
+  sticky?: boolean
+  /** The saved-preset scope the caller loads presets for; the bar itself does not read it. */
+  scope?: string
+}
 
 /**
  * Compact, stash-inspired sort + filter toolbar with server-backed saved
@@ -53,7 +104,7 @@ export default function SortFilterBar({
   onSetDefault,
   trailing,
   sticky = false,
-}) {
+}: SortFilterBarProps) {
   const { t } = useTranslation()
   const [showSaved, setShowSaved] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
@@ -61,13 +112,13 @@ export default function SortFilterBar({
   // still fits on a single line instead of wrapping into a tall block.
   const isMobile = useIsMobile()
   const filters = state.filters || {}
-  const setSort = (sort) => {
+  const setSort = (sort: string) => {
     const defaultOrder = sortOptions.find((o) => o.value === sort)?.defaultOrder
     onChange({ ...state, sort, ...(defaultOrder ? { order: defaultOrder } : null) })
   }
   const toggleOrder = () => onChange({ ...state, order: state.order === 'asc' ? 'desc' : 'asc' })
 
-  const isActive = (v) => {
+  const isActive = (v: unknown) => {
     if (v === undefined || v === null || v === '' || v === 'any') return false
     // A grouped tag filter is an array of groups; an all-empty one is inactive.
     if (Array.isArray(v)) return v.length > 0 && !isEmptyQuery(v)
@@ -76,7 +127,7 @@ export default function SortFilterBar({
   const activeFilterCount = Object.values(filters).filter(isActive).length
   const clearFilters = () => onChange({ ...state, filters: {} })
 
-  const controlStyle = {
+  const controlStyle: CSSProperties = {
     fontSize: 13,
     padding: '5px 8px',
     borderRadius: 6,
@@ -85,7 +136,7 @@ export default function SortFilterBar({
     color: 'var(--text)',
   }
 
-  const groupLabelStyle = {
+  const groupLabelStyle: CSSProperties = {
     fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: '0.06em',
@@ -283,7 +334,7 @@ export default function SortFilterBar({
                     <button
                       type="button"
                       onClick={() => {
-                        onChange(f.state)
+                        onChange(f.state as SortFilterState)
                         setShowSaved(false)
                       }}
                       style={{

@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX } from 'react-icons/lu'
 import api from '../../api'
-import { buildGenreTree } from './metadataUtils'
+import { buildGenreTree, type GenreLookupRow, type GenreTreeNode } from './metadataUtils'
 
 /**
  * Tiered, single-input combobox multi-select for genres. Selected genres show
@@ -12,21 +12,33 @@ import { buildGenreTree } from './metadataUtils'
  * genre, which is also persisted to the lookup list (best-effort) so it appears
  * next time.
  */
+export interface GenrePickerProps {
+  /** The flat genre lookup rows; arranged into a tree for the dropdown. */
+  genreTree: GenreLookupRow[]
+  selected: string[]
+  onChange: (genres: string[]) => void
+  onGenreCreated?: (created: unknown) => void
+  /** The system's genres, offered by "Inherit from system"; `null` hides it. */
+  inheritGenres?: string[] | null
+}
+
+type GenreRow = ({ type: 'genre' } & GenreTreeNode) | { type: 'create'; name: string }
+
 export default function GenrePicker({
   genreTree,
   selected,
   onChange,
   onGenreCreated,
   inheritGenres = null,
-}) {
+}: GenrePickerProps) {
   const { t } = useTranslation()
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [activeIdx, setActiveIdx] = useState(0)
-  const wrapRef = useRef(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
 
   const tree = buildGenreTree(genreTree)
-  const has = (name) => selected.some((g) => g.toLowerCase() === name.toLowerCase())
+  const has = (name: string) => selected.some((g) => g.toLowerCase() === name.toLowerCase())
 
   // "Inherit from system": merge the system's genres into the book's, keeping
   // any extras the book already has and never duplicating (case-insensitive).
@@ -37,8 +49,8 @@ export default function GenrePicker({
 
   // Close the dropdown when clicking outside.
   useEffect(() => {
-    const onDoc = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false)
+    const onDoc = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
     }
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)
@@ -51,17 +63,17 @@ export default function GenrePicker({
   const canCreate = q.length > 0 && !exact
 
   // Build the concrete option rows (existing matches, then an optional create row).
-  const rows = [
-    ...matches.map((g) => ({ type: 'genre', ...g })),
-    ...(canCreate ? [{ type: 'create', name: query.trim() }] : []),
+  const rows: GenreRow[] = [
+    ...matches.map((g) => ({ type: 'genre' as const, ...g })),
+    ...(canCreate ? [{ type: 'create' as const, name: query.trim() }] : []),
   ]
 
-  const addGenre = (name) => {
+  const addGenre = (name: string) => {
     const v = name.trim()
     if (v && !has(v)) onChange([...selected, v])
   }
 
-  const createGenre = (name) => {
+  const createGenre = (name: string) => {
     const v = name.trim()
     if (!v) return
     addGenre(v)
@@ -75,7 +87,7 @@ export default function GenrePicker({
     }
   }
 
-  const choose = (row) => {
+  const choose = (row: GenreRow | undefined) => {
     if (!row) return
     if (row.type === 'create') createGenre(row.name)
     else addGenre(row.name)
@@ -84,7 +96,7 @@ export default function GenrePicker({
     setOpen(true)
   }
 
-  const onKeyDown = (e) => {
+  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault()
       setOpen(true)

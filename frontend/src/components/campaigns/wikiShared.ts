@@ -1,15 +1,24 @@
+import type { CSSProperties } from 'react'
+import type { IconType } from 'react-icons'
 import { LuShield, LuUsers, LuLock } from 'react-icons/lu'
 import { shouldAutoCollapse } from '../../utils/autoCollapse'
 
+/** The fields of a wiki page the tree helpers below look at. */
+interface TreePage {
+  id: string
+  parent_id?: string | null
+}
+
 // Return the ids of `pageId` and all its descendants, so a parent picker can
 // exclude them (a page may not nest under itself or its own subtree).
-export function descendantIds(pageId, pages) {
-  const childrenOf = {}
-  for (const p of pages) (childrenOf[p.parent_id] ||= []).push(p)
+export function descendantIds(pageId: string, pages: readonly TreePage[]): Set<string> {
+  const childrenOf: Record<string, TreePage[]> = {}
+  // A top-level page files under the key "null"/"undefined", which no page id matches.
+  for (const p of pages) (childrenOf[String(p.parent_id)] ||= []).push(p)
   const out = new Set([pageId])
   const stack = [pageId]
   while (stack.length) {
-    for (const child of childrenOf[stack.pop()] || []) {
+    for (const child of childrenOf[stack.pop()!] || []) {
       if (!out.has(child.id)) {
         out.add(child.id)
         stack.push(child.id)
@@ -22,14 +31,17 @@ export function descendantIds(pageId, pages) {
 // The parent pages a long wiki's tree starts with collapsed: every page with
 // children, except the ancestors of the open note (`selectedId`) so it is still
 // on screen. Empty for a short wiki, or one with a single top-level page.
-export function defaultCollapsedParents(pages, selectedId) {
+export function defaultCollapsedParents(
+  pages: readonly TreePage[] | null | undefined,
+  selectedId?: string | null
+): Set<string> {
   if (!pages) return new Set()
   const byId = new Map(pages.map((p) => [p.id, p]))
   const roots = pages.filter((p) => !p.parent_id || !byId.has(p.parent_id))
   if (!shouldAutoCollapse(pages.length, roots.length)) return new Set()
-  const collapsed = new Set(pages.filter((p) => p.parent_id).map((p) => p.parent_id))
+  const collapsed = new Set(pages.filter((p) => p.parent_id).map((p) => p.parent_id!))
   // Stops at the root, or on revisiting an ancestor if the data has a cycle.
-  for (let p = byId.get(selectedId); p?.parent_id; p = byId.get(p.parent_id)) {
+  for (let p = byId.get(selectedId!); p?.parent_id; p = byId.get(p.parent_id)) {
     if (!collapsed.delete(p.parent_id)) break
   }
   return collapsed
@@ -37,7 +49,15 @@ export function defaultCollapsedParents(pages, selectedId) {
 
 // Visibility colour coding: author-only is the app's red, Private uses the same
 // gold as default icons, and Public is plain white/foreground.
-export const VIS_META = {
+export type VisLevel = 'gm' | 'group' | 'members'
+
+export interface VisMeta {
+  Icon: IconType
+  color: string
+  key: VisLevel
+}
+
+export const VIS_META: Record<VisLevel, VisMeta> = {
   gm: { Icon: LuShield, color: 'var(--red)', key: 'gm' },
   group: { Icon: LuUsers, color: 'var(--text)', key: 'group' },
   members: { Icon: LuLock, color: 'var(--gold)', key: 'members' },
@@ -45,7 +65,7 @@ export const VIS_META = {
 
 // Every visibility level is now available to every member, since what each one
 // means is relative to whoever wrote the page.
-export const VIS_OPTIONS = ['gm', 'group', 'members']
+export const VIS_OPTIONS: VisLevel[] = ['gm', 'group', 'members']
 
 // The i18n key for a level's label. "gm" is the one that reads differently
 // depending on who is looking: it means "only the author", which is "GM only"
@@ -53,12 +73,12 @@ export const VIS_OPTIONS = ['gm', 'group', 'members']
 // same thing to everyone. `isOwner` is the campaign owner flag — the label
 // follows the *page's author*, so pass whether the author is the GM, which for
 // an unsaved page is simply whether the current user is.
-export function visLabelKey(level, authorIsGm) {
+export function visLabelKey(level: string, authorIsGm: boolean): string {
   if (level === 'gm') return authorIsGm ? 'wiki.vis_gm' : 'wiki.vis_self'
   return `wiki.vis_${level}`
 }
 
-export function badgeStyle(meta, interactive) {
+export function badgeStyle(meta: Pick<VisMeta, 'color'>, interactive?: boolean): CSSProperties {
   return {
     display: 'inline-flex',
     alignItems: 'center',
@@ -84,7 +104,7 @@ export const SHARE_POPOVER_WIDTH = 300
 
 // ----- Wiki editor / toolbar styles (shared by WikiView and PageEditor) -----
 
-export const toolbarBtn = {
+export const toolbarBtn: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 5,
@@ -96,12 +116,12 @@ export const toolbarBtn = {
   cursor: 'pointer',
   fontSize: 12,
 }
-export const toolbarBtnActive = {
+export const toolbarBtnActive: CSSProperties = {
   background: 'var(--bg-card)',
   borderColor: 'var(--gold)',
   color: 'var(--gold)',
 }
-export const toolbarGroup = {
+export const toolbarGroup: CSSProperties = {
   display: 'inline-flex',
   gap: 2,
   padding: 2,
@@ -109,7 +129,7 @@ export const toolbarGroup = {
   border: '1px solid var(--border)',
   borderRadius: 8,
 }
-export const iconBtn = {
+export const iconBtn: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -121,7 +141,7 @@ export const iconBtn = {
   color: 'var(--text-dim)',
   cursor: 'pointer',
 }
-export const toolbarControl = {
+export const toolbarControl: CSSProperties = {
   appearance: 'auto',
   fontSize: 12,
   padding: '5px 8px',
@@ -130,7 +150,7 @@ export const toolbarControl = {
   borderRadius: 8,
   color: 'var(--text)',
 }
-export const paneLabel = {
+export const paneLabel: CSSProperties = {
   fontSize: 11,
   textTransform: 'uppercase',
   letterSpacing: '0.06em',
@@ -138,7 +158,7 @@ export const paneLabel = {
   fontWeight: 600,
   marginBottom: 6,
 }
-export const ghostBtn = {
+export const ghostBtn: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 5,
@@ -150,7 +170,7 @@ export const ghostBtn = {
   cursor: 'pointer',
   fontSize: 13,
 }
-export const goldBtn = {
+export const goldBtn: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 6,

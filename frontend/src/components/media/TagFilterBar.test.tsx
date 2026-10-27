@@ -5,13 +5,15 @@ import TagFilterBar from './TagFilterBar'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k, o) =>
-      ({
-        'common.tags': 'Tags:',
-        'common.clear': 'Clear',
-        'common.showLess': 'Show less',
-        'common.showMore': `+${o?.count} more`,
-      })[k] || k,
+    t: (k: string, o?: { count?: number }) =>
+      (
+        ({
+          'common.tags': 'Tags:',
+          'common.clear': 'Clear',
+          'common.showLess': 'Show less',
+          'common.showMore': `+${o?.count} more`,
+        }) as Record<string, string>
+      )[k] || k,
   }),
 }))
 

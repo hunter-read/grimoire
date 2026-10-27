@@ -135,10 +135,9 @@ describe('TokenEditorControls', () => {
   it('goes inert when disabled', () => {
     const { container } = render(
       <TokenEditorControls
-        mask="circle"
-        onMaskChange={vi.fn()}
         size={256}
         sizes={[256]}
+        onSizeChange={vi.fn()}
         background="transparent"
         onBackgroundChange={vi.fn()}
         transform={transform()}

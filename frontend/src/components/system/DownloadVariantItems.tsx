@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuDownload } from 'react-icons/lu'
 
@@ -17,7 +18,18 @@ import useVariantOptions from '../useVariantOptions'
  * VariantMenuItems: a shelf of 200 books must not fire 200 requests for a menu
  * nobody opened.
  */
-export default function DownloadVariantItems({ book, itemStyle, onPick }) {
+export interface DownloadVariantItemsProps {
+  book: { id: string }
+  itemStyle?: CSSProperties
+  /** Called once a version is picked, to close the menu. */
+  onPick?: () => void
+}
+
+export default function DownloadVariantItems({
+  book,
+  itemStyle,
+  onPick,
+}: DownloadVariantItemsProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const { options, loading, load, label } = useVariantOptions('books', book.id, null)

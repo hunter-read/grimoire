@@ -3,12 +3,13 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import BookMatchCard from './BookMatchCard'
+import type { Schema } from '../../api'
 
 vi.mock('../../api', () => ({
-  imageSources: { thumbUrl: (type, id) => `/api/${type}s/${id}/thumbnail` },
+  imageSources: { thumbUrl: (type: string, id: string) => `/api/${type}s/${id}/thumbnail` },
 }))
 
-function makeBook(overrides = {}) {
+function makeBook(overrides: Partial<Schema<'SearchBookMatch'>> = {}): Schema<'SearchBookMatch'> {
   return {
     id: 'b1',
     title: 'Avatar Legends Core Rulebook',
@@ -78,7 +79,7 @@ describe('BookMatchCard', () => {
     renderCard()
     const card = screen
       .getByText('Avatar Legends Core Rulebook')
-      .closest('div[style*="border-radius"]')
+      .closest<HTMLElement>('div[style*="border-radius"]')!
 
     await userEvent.hover(card)
     expect(card.style.background).toBe('var(--bg-card-hover)')

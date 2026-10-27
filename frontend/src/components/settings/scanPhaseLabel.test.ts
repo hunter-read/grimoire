@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest'
+import type { TFunction } from 'i18next'
 import scanPhaseLabel, { scanPercent, scanTotals } from './scanPhaseLabel'
 
-const t = (key, vars) => (vars ? `${key} ${JSON.stringify(vars)}` : key)
+const t = ((key: string, vars?: object) =>
+  vars ? `${key} ${JSON.stringify(vars)}` : key) as unknown as TFunction
 
 describe('scanPhaseLabel', () => {
   it('shows the overall percentage while scanning once totals are known', () => {

@@ -34,11 +34,11 @@ describe('publicUrl', () => {
 describe('copyText', () => {
   it('reports success and failure', async () => {
     Object.defineProperty(navigator, 'clipboard', {
-      value: { writeText: vi.fn().mockResolvedValue() },
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
       configurable: true,
     })
     expect(await copyText('x')).toBe(true)
-    navigator.clipboard.writeText.mockRejectedValue(new Error('no'))
+    vi.mocked(navigator.clipboard.writeText).mockRejectedValue(new Error('no'))
     expect(await copyText('x')).toBe(false)
   })
 })

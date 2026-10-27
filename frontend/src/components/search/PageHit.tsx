@@ -1,13 +1,12 @@
-import type { ComponentType, CSSProperties } from 'react'
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation } from 'react-router-dom'
-import CardLinkJs from '../CardLink'
+import CardLink from '../CardLink'
 import useHoverPrefetch from '../../hooks/useHoverPrefetch'
 import { openingPageUrls, type PrefetchableBook } from '../reader/pagePrefetch'
 import { cardStyle } from './searchStyles'
 
 // Still JavaScript, so TypeScript would read every destructured prop as required.
-const CardLink = CardLinkJs as ComponentType<{ to: string; state?: unknown; label: string }>
 
 interface PageHitProps {
   book: PrefetchableBook

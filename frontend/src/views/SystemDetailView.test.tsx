@@ -1,10 +1,17 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import SystemDetailView from './SystemDetailView'
 import api, { bulk } from '../api'
 import { fakeShelfGet } from '../test/fakeBrowseApi'
+
+type Fixture = Record<string, unknown>
+type Book = Fixture & { id: string }
+
+const mockGet = vi.mocked(api.get) as unknown as Mock
+const mockPatch = vi.mocked(api.patch) as unknown as Mock
+const mockUpload = vi.mocked(api.upload) as unknown as Mock
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -22,12 +29,12 @@ vi.mock('../api', () => ({
     setFolderTags: vi.fn(() => Promise.resolve({ folders: [] })),
   },
   tags: { list: vi.fn(() => Promise.resolve({ tags: [] })) },
-  mediaUrl: (path) => `http://localhost${path}`,
+  mediaUrl: (path: string) => `http://localhost${path}`,
   // The cover is set through the shared image picker (issue #286).
   imageSources: {
     setSystemCover: vi.fn(() => Promise.resolve({ cover_image: 'system-1.webp' })),
     search: vi.fn(() => Promise.resolve([])),
-    thumbUrl: (type, id) => `http://localhost/api/${type}s/${id}/thumbnail`,
+    thumbUrl: (type: string, id: string) => `http://localhost/api/${type}s/${id}/thumbnail`,
   },
 }))
 
@@ -36,7 +43,7 @@ const openBookFilters = () => userEvent.click(screen.getByRole('button', { name:
 
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async (importOriginal) => {
-  const actual = await importOriginal()
+  const actual = await importOriginal<typeof import('react-router-dom')>()
   return {
     ...actual,
     useParams: () => ({ systemId: 'system-1' }),
@@ -48,7 +55,7 @@ vi.mock('../context/AuthContext', () => ({
   useAuth: () => ({ user: { id: 'u1', role: 'admin' } }),
 }))
 
-const mockIsFavorite = vi.fn(() => false)
+const mockIsFavorite = vi.fn<(type: string, id: string) => boolean>(() => false)
 vi.mock('../context/FavoritesContext', () => ({
   useFavorites: () => ({ isFavorite: mockIsFavorite, toggleFavorite: vi.fn() }),
 }))
@@ -58,7 +65,7 @@ vi.mock('../components/FavoriteButton', () => ({
 }))
 
 vi.mock('../components/DownloadArchiveModal', () => ({
-  default: ({ onClose }) => (
+  default: ({ onClose }: { onClose: () => void }) => (
     <div data-testid="download-modal">
       <button onClick={onClose}>Close</button>
     </div>
@@ -67,7 +74,7 @@ vi.mock('../components/DownloadArchiveModal', () => ({
 
 const bookEditorProps = vi.fn()
 vi.mock('../components/system/BookEditor', () => ({
-  default: (props) => {
+  default: (props: { onClose: () => void }) => {
     bookEditorProps(props)
     return (
       <div data-testid="book-editor">
@@ -84,7 +91,17 @@ vi.mock('../components/system/SystemEditor', () => ({
 // Bulk-selection surfaces: expose minimal buttons that fire the callbacks the
 // view wires up, so the bulk handlers (applyBulkTags / applyBookEdits) run.
 vi.mock('../components/BulkActionBar', () => ({
-  default: ({ count, applying, onApplyTags, onBulkEdit }) => (
+  default: ({
+    count,
+    applying,
+    onApplyTags,
+    onBulkEdit,
+  }: {
+    count: number
+    applying: boolean
+    onApplyTags: (tags: string[]) => void
+    onBulkEdit: () => void
+  }) => (
     <div data-testid="bulk-bar">
       <span data-testid="bulk-count">{count}</span>
       <span data-testid="bulk-applying">{String(applying)}</span>
@@ -95,7 +112,13 @@ vi.mock('../components/BulkActionBar', () => ({
 }))
 
 vi.mock('../components/BulkEditModal', () => ({
-  default: ({ items, onSaved }) => (
+  default: ({
+    items,
+    onSaved,
+  }: {
+    items: { id: string }[]
+    onSaved: (edited: Record<string, unknown>) => void
+  }) => (
     <div data-testid="bulk-edit-modal">
       <button onClick={() => onSaved(Object.fromEntries(items.map((b) => [b.id, { year: 1999 }])))}>
         bulk-save
@@ -110,13 +133,13 @@ vi.mock('../components/AddToCampaignModal', () => ({
 
 // Expose the rescan scope so tests can assert which folder a rescan targets.
 vi.mock('../components/RescanButton', () => ({
-  default: ({ scope }) => <div data-testid="rescan" data-scope={scope ?? ''} />,
+  default: ({ scope }: { scope?: string }) => <div data-testid="rescan" data-scope={scope ?? ''} />,
 }))
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 
-function makeBook(overrides = {}) {
-  const id = overrides.id ?? `book-${Math.random().toString(36).slice(2)}`
+function makeBook(overrides: Fixture = {}): Book {
+  const id = (overrides.id as string | undefined) ?? `book-${Math.random().toString(36).slice(2)}`
   return {
     id,
     title: 'Test Book',
@@ -136,7 +159,7 @@ function makeBook(overrides = {}) {
   }
 }
 
-function makeSystem(books = []) {
+function makeSystem(books: Book[] = []): Fixture & { books: Book[] } {
   return {
     id: 'system-1',
     name: 'Test System',
@@ -160,14 +183,17 @@ function makeSystem(books = []) {
 // facets, the category/subfolder groups, and the books a page at a time. This
 // serves all of them from one system object, its `books` included; any other
 // URL (search, book folders, saved filters) falls through to `fallback`.
-function serveSystem(system, fallback = () => Promise.resolve({})) {
-  api.get.mockImplementation(
+function serveSystem(
+  system: Fixture & { books?: Book[] },
+  fallback: (url: string) => Promise<unknown> = () => Promise.resolve({})
+) {
+  mockGet.mockImplementation(
     fakeShelfGet({
       system,
       books: system.books || [],
-      isFavorite: (id) => mockIsFavorite('book', id),
+      isFavorite: (id: string) => mockIsFavorite('book', id),
       fallback,
-    })
+    } as unknown as Parameters<typeof fakeShelfGet>[0])
   )
 }
 
@@ -331,8 +357,8 @@ describe('SystemDetailView — subfolder grouping', () => {
 
   describe('book folder tagging', () => {
     // Return folder tags for the /book-folders endpoint, the system otherwise.
-    function mockWithFolders(books, folders = []) {
-      serveSystem(makeSystem(books), (url) =>
+    function mockWithFolders(books: Book[], folders: Fixture[] = []) {
+      serveSystem(makeSystem(books), (url: string) =>
         Promise.resolve(url.includes('/book-folders') ? { folders } : {})
       )
     }
@@ -375,7 +401,7 @@ describe('SystemDetailView — subfolder grouping', () => {
     })
 
     it('shows a spinner while loading', () => {
-      api.get.mockReturnValue(new Promise(() => {})) // never resolves
+      mockGet.mockReturnValue(new Promise(() => {})) // never resolves
       renderView()
       expect(document.querySelector('svg')).toBeInTheDocument() // Spinner renders an SVG
     })
@@ -486,7 +512,9 @@ describe('SystemDetailView — subfolder grouping', () => {
       const favBook = makeBook({ id: 'fav-book', title: 'Favorite Book' })
       const otherBook = makeBook({ id: 'other-book', title: 'Other Book' })
       serveSystem(makeSystem([favBook, otherBook]))
-      mockIsFavorite.mockImplementation((type, id) => type === 'book' && id === 'fav-book')
+      mockIsFavorite.mockImplementation(
+        (type: string, id: string) => type === 'book' && id === 'fav-book'
+      )
 
       renderView()
       await waitFor(() => expect(screen.getByText('Favorite Book')).toBeInTheDocument())
@@ -516,7 +544,7 @@ describe('SystemDetailView — in-system search persistence', () => {
   const SESSION_KEY = 'grimoire:system:system-1:search-query'
 
   function setupSearchMock(resultTitle = 'Spell Compendium') {
-    serveSystem(makeSystem([makeBook({ title: 'PHB' })]), (url) => {
+    serveSystem(makeSystem([makeBook({ title: 'PHB' })]), (url: string) => {
       if (url.includes('/search')) {
         return Promise.resolve({
           query: 'fireball',
@@ -570,7 +598,7 @@ describe('SystemDetailView — in-system search persistence', () => {
     renderView({ restoreView: true })
 
     await waitFor(() => screen.getByLabelText(/search within/i))
-    expect(screen.getByLabelText(/search within/i).value).toBe('fireball')
+    expect((screen.getByLabelText(/search within/i) as HTMLInputElement).value).toBe('fireball')
   })
 
   it('ignores a stored query on a fresh navigation', async () => {
@@ -580,8 +608,8 @@ describe('SystemDetailView — in-system search persistence', () => {
 
     await waitFor(() => screen.getByText('PHB'))
     // Box is empty and no search was issued — the book grid renders as normal.
-    expect(screen.getByLabelText(/search within/i).value).toBe('')
-    expect(api.get.mock.calls.filter(([url]) => url.includes('/search'))).toHaveLength(0)
+    expect((screen.getByLabelText(/search within/i) as HTMLInputElement).value).toBe('')
+    expect(mockGet.mock.calls.filter(([url]) => url.includes('/search'))).toHaveLength(0)
   })
 
   it('does not run a search on mount when the stored query is too short', async () => {
@@ -590,7 +618,7 @@ describe('SystemDetailView — in-system search persistence', () => {
     renderView({ restoreView: true })
 
     await waitFor(() => screen.getByText('PHB'))
-    const searchCalls = api.get.mock.calls.filter(([url]) => url.includes('/search'))
+    const searchCalls = mockGet.mock.calls.filter(([url]) => url.includes('/search'))
     expect(searchCalls).toHaveLength(0)
   })
 
@@ -599,7 +627,7 @@ describe('SystemDetailView — in-system search persistence', () => {
     // System has a book whose title matches the query.
     serveSystem(
       makeSystem([makeBook({ id: 'fb', title: 'Fireball Grimoire' }), makeBook({ title: 'PHB' })]),
-      (url) => {
+      (url: string) => {
         if (url.includes('/search')) {
           return Promise.resolve({
             query: 'fireball',
@@ -634,7 +662,7 @@ describe('SystemDetailView — in-system search persistence', () => {
 
   it('shows no-results when neither a book nor a page matches', async () => {
     sessionStorage.setItem(SESSION_KEY, JSON.stringify('zzznomatch'))
-    serveSystem(makeSystem([makeBook({ title: 'PHB' })]), (url) => {
+    serveSystem(makeSystem([makeBook({ title: 'PHB' })]), (url: string) => {
       if (url.includes('/search')) {
         return Promise.resolve({
           query: 'zzznomatch',
@@ -669,7 +697,7 @@ describe('SystemDetailView — sort/filter persistence', () => {
 
     await waitFor(() => screen.getByText('PHB'))
     // The sort select reflects the restored filter state rather than the default.
-    expect(screen.getByLabelText(/^sort$/i).value).toBe('year')
+    expect((screen.getByLabelText(/^sort$/i) as HTMLInputElement).value).toBe('year')
   })
 
   it('ignores the stored sort/filter on a fresh navigation', async () => {
@@ -677,7 +705,7 @@ describe('SystemDetailView — sort/filter persistence', () => {
     renderView()
 
     await waitFor(() => screen.getByText('PHB'))
-    expect(screen.getByLabelText(/^sort$/i).value).toBe('title')
+    expect((screen.getByLabelText(/^sort$/i) as HTMLInputElement).value).toBe('title')
   })
 
   it('restores an active filter, not just the sort, when returning', async () => {
@@ -753,7 +781,7 @@ describe('SystemDetailView — book editor categories', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: /edit metadata/i }))
     await waitFor(() => expect(screen.getByTestId('book-editor')).toBeInTheDocument())
 
-    const props = bookEditorProps.mock.calls.at(-1)[0]
+    const props = bookEditorProps.mock.calls.at(-1)![0]
     expect(props.existingCategories).toEqual(['adventure', 'core', 'my-custom'])
   })
 })
@@ -762,7 +790,7 @@ describe('SystemDetailView — header, tag filter, and bulk actions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockIsFavorite.mockReturnValue(false)
-    api.patch.mockResolvedValue({})
+    mockPatch.mockResolvedValue({})
   })
 
   it('renders publisher links and plain-text publishers in the header', async () => {
@@ -864,7 +892,7 @@ describe('SystemDetailView — header, tag filter, and bulk actions', () => {
   })
 
   it('sorts by date added newest first and filters to recent books across categories', async () => {
-    const ago = (days) => new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+    const ago = (days: number) => new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
     serveSystem(
       makeSystem([
         makeBook({ id: 'b1', title: 'Ancient', category: 'core', added_at: ago(90) }),
@@ -917,7 +945,7 @@ describe('SystemDetailView — header, tag filter, and bulk actions', () => {
         makeBook({ id: 'b1', title: 'Clean', is_explicit: false }),
         makeBook({ id: 'b2', title: 'Spicy', is_explicit: true }),
       ]),
-      (url) =>
+      (url: string) =>
         Promise.resolve(
           url.includes('/saved-filters')
             ? {
@@ -939,7 +967,7 @@ describe('SystemDetailView — header, tag filter, and bulk actions', () => {
     await waitFor(() => expect(screen.getByText('Spicy')).toBeInTheDocument())
     expect(screen.queryByText('Clean')).not.toBeInTheDocument()
     // The shelf was never fetched unfiltered first.
-    const bookCalls = api.get.mock.calls.map(([u]) => u).filter((u) => u.includes('/books?'))
+    const bookCalls = mockGet.mock.calls.map(([u]) => u).filter((u) => u.includes('/books?'))
     expect(bookCalls.every((u) => u.includes('explicit=true'))).toBe(true)
   })
 
@@ -997,7 +1025,7 @@ describe('SystemDetailView — system containers (issues #261, #262)', () => {
     mockIsFavorite.mockReturnValue(false)
   })
 
-  const makeContainer = (over = {}) => ({
+  const makeContainer = (over: Fixture = {}) => ({
     ...makeSystem([]),
     id: 'system-1',
     name: 'one-page-rpgs',
@@ -1039,7 +1067,7 @@ describe('SystemDetailView — system containers (issues #261, #262)', () => {
   // lands on the children shown without a refetch.
   it('bulk tags container children in place', async () => {
     serveSystem(makeContainer())
-    bulk.addTags.mockResolvedValue({ tags: { c1: ['fresh'] } })
+    vi.mocked(bulk.addTags as unknown as Mock).mockResolvedValue({ tags: { c1: ['fresh'] } })
     renderView()
     await waitFor(() => expect(screen.getByText('Honey Heist')).toBeInTheDocument())
     expect(screen.getByRole('button', { name: 'Filters' })).toBeInTheDocument()
@@ -1140,7 +1168,7 @@ describe('SystemDetailView — system containers (issues #261, #262)', () => {
 
   it('reflects a container cover upload without leaving the view', async () => {
     serveSystem(makeContainer())
-    api.upload.mockResolvedValue({ cover_image: 'system-1.png' })
+    mockUpload.mockResolvedValue({ cover_image: 'system-1.png' })
     renderView()
     await waitFor(() => expect(screen.getByText('Honey Heist')).toBeInTheDocument())
 
@@ -1207,7 +1235,7 @@ describe('SystemDetailView — collapse and expand all categories', () => {
     await waitFor(() => expect(screen.getByText('Bestiary')).toBeInTheDocument())
 
     await userEvent.click(screen.getByRole('button', { name: /collapse all/i }))
-    expect(JSON.parse(sessionStorage.getItem('grimoire:system:system-1:subfolders'))).toEqual([
+    expect(JSON.parse(sessionStorage.getItem('grimoire:system:system-1:subfolders')!)).toEqual([
       'core::monsters',
     ])
 
@@ -1218,7 +1246,7 @@ describe('SystemDetailView — collapse and expand all categories', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /expand all/i }))
     expect(screen.getByText('Bestiary')).toBeInTheDocument()
-    expect(JSON.parse(sessionStorage.getItem('grimoire:system:system-1:subfolders'))).toEqual([])
+    expect(JSON.parse(sessionStorage.getItem('grimoire:system:system-1:subfolders')!)).toEqual([])
   })
 })
 
@@ -1231,13 +1259,13 @@ describe('SystemDetailView — category depth for a system inside a container', 
 
   // books/Dungeons & Dragons/5e/… — one level deeper than a top-level system,
   // so both the category tree and the rescan scope shift by the container dir.
-  const childBook = (over = {}) =>
+  const childBook = (over: Fixture = {}) =>
     makeBook({
       category: 'monster-manuals',
       relative_path: 'books/Dungeons & Dragons/5e/Monster Manuals/mm.pdf',
       ...over,
     })
-  const childSystem = (books) => ({
+  const childSystem = (books: Book[]) => ({
     ...makeSystem(books),
     name: 'Dungeons & Dragons 5e',
     parent_id: 'container-dnd',
@@ -1350,7 +1378,7 @@ describe('SystemDetailView variant promotion', () => {
 
     // The promoted copy is the row that exists now.
     serveSystem(makeSystem(after))
-    const props = bookEditorProps.mock.calls.at(-1)[0]
+    const props = bookEditorProps.mock.calls.at(-1)![0]
     props.onVariantsChanged('b2')
 
     // The list reflects the promotion...
@@ -1358,7 +1386,7 @@ describe('SystemDetailView variant promotion', () => {
     expect(screen.queryByText('PHB')).not.toBeInTheDocument()
     // ...and the editor followed it to the new main, in its new category.
     await waitFor(() => {
-      const latest = bookEditorProps.mock.calls.at(-1)[0]
+      const latest = bookEditorProps.mock.calls.at(-1)![0]
       expect(latest.book.id).toBe('b2')
       expect(latest.book.category).toBe('starter-set')
     })
@@ -1374,8 +1402,8 @@ describe('SystemDetailView variant promotion', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: /edit metadata/i }))
     await waitFor(() => expect(screen.getByTestId('book-editor')).toBeInTheDocument())
 
-    api.get.mockClear()
-    const props = bookEditorProps.mock.calls.at(-1)[0]
+    mockGet.mockClear()
+    const props = bookEditorProps.mock.calls.at(-1)![0]
     // An unlink reports no new main id.
     props.onVariantsChanged(null)
     // The summary and the shelf's books both come back fresh.
@@ -1395,7 +1423,7 @@ describe('SystemDetailView — long systems start collapsed', () => {
     mockIsFavorite.mockReturnValue(false)
   })
 
-  const longSystem = (coreCount) =>
+  const longSystem = (coreCount: number) =>
     makeSystem([
       ...Array.from({ length: coreCount }, (_, i) =>
         makeBook({ id: `core-${i}`, title: `Core ${i}`, category: 'core' })
@@ -1418,7 +1446,7 @@ describe('SystemDetailView — long systems start collapsed', () => {
     // The user's toggle wins over the default and is remembered.
     await userEvent.click(screen.getByRole('button', { name: /adventures & modules/i }))
     expect(screen.getByText('Adventure 0')).toBeInTheDocument()
-    expect(JSON.parse(sessionStorage.getItem('grimoire:system:system-1:collapsed'))).toEqual([])
+    expect(JSON.parse(sessionStorage.getItem('grimoire:system:system-1:collapsed')!)).toEqual([])
   })
 
   it('collapses core too when it holds more than a few books', async () => {
@@ -1432,7 +1460,7 @@ describe('SystemDetailView — long systems start collapsed', () => {
   })
 
   it('opens the categories again when a filter narrows the list', async () => {
-    mockIsFavorite.mockImplementation((type, id) => id === 'adv-4')
+    mockIsFavorite.mockImplementation((type: string, id: string) => id === 'adv-4')
     serveSystem(longSystem(3))
     renderView()
     await waitFor(() => expect(screen.getByText('Core 0')).toBeInTheDocument())

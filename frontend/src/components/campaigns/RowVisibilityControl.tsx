@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { LuCheck } from 'react-icons/lu'
-import { VIS_META, POPOVER_WIDTH, VIS_OPTIONS, visLabelKey } from './wikiShared'
+import { VIS_META, POPOVER_WIDTH, VIS_OPTIONS, visLabelKey, type VisLevel } from './wikiShared'
 import useAnchoredMenu from '../../hooks/useAnchoredMenu'
 
 // The per-row visibility indicator in the campaign tree.
@@ -23,6 +23,12 @@ export default function RowVisibilityControl({
   authorIsGm = true,
   rowHovered,
   onSetVisibility,
+}: {
+  visibility?: string | null
+  isMine: boolean
+  authorIsGm?: boolean
+  rowHovered: boolean
+  onSetVisibility: (visibility: VisLevel) => void
 }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
@@ -33,7 +39,7 @@ export default function RowVisibilityControl({
     style: popoverStyle,
   } = useAnchoredMenu(open, { width: POPOVER_WIDTH })
 
-  const meta = VIS_META[visibility] || VIS_META.gm
+  const meta = VIS_META[visibility as VisLevel] || VIS_META.gm
   const { Icon } = meta
   const isRestricted = visibility !== 'group'
   // Restricted pages always advertise their state; "group" is the unremarkable
@@ -43,11 +49,12 @@ export default function RowVisibilityControl({
 
   useEffect(() => {
     if (!open) return
-    const onDoc = (e) => {
-      if (triggerRef.current?.contains(e.target) || popoverRef.current?.contains(e.target)) return
+    const onDoc = (e: MouseEvent) => {
+      const target = e.target as Node
+      if (triggerRef.current?.contains(target) || popoverRef.current?.contains(target)) return
       setOpen(false)
     }
-    const onKey = (e) => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setOpen(false)
         triggerRef.current?.focus()

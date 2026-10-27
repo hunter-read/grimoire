@@ -10,8 +10,10 @@ import { tags as tagsApi } from '../api'
  * map only covers item tags stored in the shared-tag tables; callers fall back
  * to a Title-Cased internal for anything not present (e.g. folder-only tags).
  */
-export default function useTagLabels(resourceType) {
-  const [labels, setLabels] = useState({})
+export default function useTagLabels(
+  resourceType: string | null | undefined
+): Record<string, string> {
+  const [labels, setLabels] = useState<Record<string, string>>({})
 
   useEffect(() => {
     // No-op when there's no scope, or when the tags API isn't available (e.g. a
@@ -25,7 +27,7 @@ export default function useTagLabels(resourceType) {
       .list(resourceType)
       .then((r) => {
         if (cancelled) return
-        const map = {}
+        const map: Record<string, string> = {}
         for (const tg of r.tags || []) map[tg.internal] = tg.display
         setLabels(map)
       })
@@ -41,7 +43,7 @@ export default function useTagLabels(resourceType) {
 }
 
 /** Title-case fallback for an internal tag key with no shared display value. */
-export function titleCaseTag(internal) {
+export function titleCaseTag(internal: unknown): string {
   return String(internal)
     .split(' ')
     .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : w))

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import useScanStatus from './useScanStatus'
 
@@ -11,10 +11,13 @@ vi.mock('../api', () => ({
 
 import api from '../api'
 
+// The transport is generic over the URL; the tests drive it as plain mocks.
+const mockApi = vi.mocked(api) as unknown as Record<'get' | 'post', Mock>
+
 beforeEach(() => {
   vi.resetAllMocks()
-  api.get.mockResolvedValue({ running: false, phase: null })
-  api.post.mockResolvedValue({})
+  mockApi.get.mockResolvedValue({ running: false, phase: null })
+  mockApi.post.mockResolvedValue({})
 })
 
 describe('useScanStatus', () => {
@@ -23,8 +26,8 @@ describe('useScanStatus', () => {
     const b = renderHook(() => useScanStatus())
     await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2))
     // The backend reports the scan as running from the moment /rescan returns.
-    api.post.mockImplementation(async () => {
-      api.get.mockResolvedValue({ running: true, phase: 'scanning' })
+    mockApi.post.mockImplementation(async () => {
+      mockApi.get.mockResolvedValue({ running: true, phase: 'scanning' })
       return {}
     })
 
@@ -36,7 +39,7 @@ describe('useScanStatus', () => {
   })
 
   it('does not announce a scan whose request failed', async () => {
-    api.post.mockRejectedValue(new Error('busy'))
+    mockApi.post.mockRejectedValue(new Error('busy'))
     const a = renderHook(() => useScanStatus())
     const b = renderHook(() => useScanStatus())
 
@@ -47,7 +50,7 @@ describe('useScanStatus', () => {
   })
 
   it('records the last result once a scan that found something finishes', async () => {
-    api.get.mockResolvedValue({
+    mockApi.get.mockResolvedValue({
       running: false,
       phase: null,
       new_books: 2,
@@ -71,13 +74,13 @@ describe('useScanStatus', () => {
   it.each(['cleared_stale', 'not_running'])(
     'returns to idle at once when the backend reports %s',
     async (outcome) => {
-      api.get.mockResolvedValue({ running: true, phase: 'scanning' })
+      mockApi.get.mockResolvedValue({ running: true, phase: 'scanning' })
       const { result } = renderHook(() => useScanStatus())
       await waitFor(() => expect(result.current.status.running).toBe(true))
       // The backend reports idle from here on, but the hook would not poll it
       // again for another second without the immediate reset.
-      api.post.mockImplementation(async () => {
-        api.get.mockResolvedValue({ running: false, phase: null })
+      mockApi.post.mockImplementation(async () => {
+        mockApi.get.mockResolvedValue({ running: false, phase: null })
         return { status: outcome }
       })
 
@@ -90,10 +93,10 @@ describe('useScanStatus', () => {
   )
 
   it('keeps showing the scan while a live one winds down', async () => {
-    api.get.mockResolvedValue({ running: true, phase: 'scanning' })
+    mockApi.get.mockResolvedValue({ running: true, phase: 'scanning' })
     const { result } = renderHook(() => useScanStatus())
     await waitFor(() => expect(result.current.status.running).toBe(true))
-    api.post.mockResolvedValue({ status: 'stop_requested' })
+    mockApi.post.mockResolvedValue({ status: 'stop_requested' })
 
     await act(() => result.current.stopScan())
 

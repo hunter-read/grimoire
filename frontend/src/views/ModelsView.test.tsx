@@ -1,11 +1,15 @@
-import { useState } from 'react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { useState, type ReactNode } from 'react'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import ModelsView from './ModelsView'
 import api from '../api'
 import { fakeMediaGet } from '../test/fakeBrowseApi'
+
+type Fixture = Record<string, unknown>
+
+const mockGet = vi.mocked(api.get) as unknown as Mock
 
 vi.mock('../api', () => ({
   default: {
@@ -15,11 +19,11 @@ vi.mock('../api', () => ({
     delete: vi.fn(() => Promise.resolve({})),
   },
   tags: { list: vi.fn(() => Promise.resolve({ tags: [] })) },
-  mediaUrl: (path) => `http://localhost${path}`,
+  mediaUrl: (path: string) => `http://localhost${path}`,
 }))
 
 vi.mock('react-router-dom', async (importOriginal) => {
-  const actual = await importOriginal()
+  const actual = await importOriginal<typeof import('react-router-dom')>()
   return { ...actual, useNavigate: () => vi.fn() }
 })
 
@@ -31,13 +35,13 @@ vi.mock('../context/AuthContext', () => ({
   useAuth: () => ({ user: { id: 'u1', role: 'admin' } }),
 }))
 
-const mockIsFavorite = vi.fn(() => false)
+const mockIsFavorite = vi.fn<(type: string, id: string) => boolean>(() => false)
 vi.mock('../context/FavoritesContext', () => ({
   useFavorites: () => ({ isFavorite: mockIsFavorite, toggleFavorite: vi.fn() }),
 }))
 
 vi.mock('../components/DownloadArchiveModal', () => ({
-  default: ({ title, onClose }) => (
+  default: ({ title, onClose }: { title: string; onClose: () => void }) => (
     <div data-testid="download-modal">
       <span data-testid="dl-title">{title}</span>
       <button onClick={onClose}>close dl</button>
@@ -48,7 +52,15 @@ vi.mock('../components/DownloadArchiveModal', () => ({
 // The bulk modals are exercised as mount/unmount wiring here; their own
 // behaviour is covered by their component tests.
 vi.mock('../components/AddToCampaignModal', () => ({
-  default: ({ items, onClose, onAdded }) => (
+  default: ({
+    items,
+    onClose,
+    onAdded,
+  }: {
+    items: { resource_id: string }[]
+    onClose: () => void
+    onAdded: () => void
+  }) => (
     <div data-testid="add-to-campaign">
       <span data-testid="atc-count">{items.length}</span>
       <span data-testid="atc-payload">{items.map((i) => i.resource_id).join(',')}</span>
@@ -59,7 +71,17 @@ vi.mock('../components/AddToCampaignModal', () => ({
 }))
 
 vi.mock('../components/BulkEditModal', () => ({
-  default: ({ type, items, onClose, onSaved }) => (
+  default: ({
+    type,
+    items,
+    onClose,
+    onSaved,
+  }: {
+    type: string
+    items: unknown[]
+    onClose: () => void
+    onSaved: (edited: Record<string, Record<string, unknown>>) => void
+  }) => (
     <div data-testid="bulk-edit">
       <span data-testid="be-type">{type}</span>
       <span data-testid="be-count">{items.length}</span>
@@ -72,7 +94,13 @@ vi.mock('../components/BulkEditModal', () => ({
 
 // jsdom has no layout, so the real VirtualGrid measures zero rows; render all.
 vi.mock('../components/media/VirtualGrid', () => ({
-  default: ({ items, renderItem }) => <div>{items.map(renderItem)}</div>,
+  default: ({
+    items,
+    renderItem,
+  }: {
+    items: unknown[]
+    renderItem: (item: unknown, index: number) => ReactNode
+  }) => <div>{items.map(renderItem)}</div>,
 }))
 
 // Keep every folder expanded so filenames are immediately visible: the
@@ -83,15 +111,15 @@ vi.mock('../components/media/VirtualGrid', () => ({
 // state, since a no-op setter there would silently swallow the filter changes
 // these tests make.
 vi.mock('../hooks/useSessionState', () => ({
-  default: (_key, init) => {
+  default: (_key: string, init: unknown) => {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     const [val, setVal] = useState(init)
     return init instanceof Set ? [new Set(), () => {}] : [val, setVal]
   },
 }))
 
-function makeModel(overrides = {}) {
-  const id = overrides.id ?? `tok-${Math.random().toString(36).slice(2)}`
+function makeModel(overrides: Fixture = {}): Fixture & { id: string } {
+  const id = (overrides.id as string | undefined) ?? `tok-${Math.random().toString(36).slice(2)}`
   return {
     id,
     filename: overrides.filename ?? `model-${id}.png`,
@@ -103,10 +131,6 @@ function makeModel(overrides = {}) {
     is_explicit: false,
     ...overrides,
   }
-}
-
-function makeModelsResponse(models = []) {
-  return { models, total: models.length }
 }
 
 function renderView() {
@@ -132,15 +156,15 @@ describe('ModelsView', () => {
 
   // The server filters, groups and pages now (issue #221); the fake answers
   // those endpoints over `models`, with favourites from the mocked context.
-  function setupModels(models) {
-    api.get.mockImplementation(
+  function setupModels(models: Fixture[]) {
+    mockGet.mockImplementation(
       fakeMediaGet({
         listUrl: '/models',
         collection: 'models',
         foldersUrl: '/model-folders',
         items: models,
-        isFavorite: (id) => mockIsFavorite('model', id),
-      })
+        isFavorite: (id: string) => mockIsFavorite('model', id),
+      } as unknown as Parameters<typeof fakeMediaGet>[0])
     )
   }
 
@@ -151,7 +175,7 @@ describe('ModelsView', () => {
   })
 
   it('shows a spinner while loading', () => {
-    api.get.mockReturnValue(new Promise(() => {}))
+    mockGet.mockReturnValue(new Promise(() => {}))
     renderView()
     expect(document.querySelector('svg')).toBeInTheDocument()
   })
@@ -176,7 +200,9 @@ describe('ModelsView', () => {
       relative_path: 'models/other.png',
     })
     setupModels([favModel, otherModel])
-    mockIsFavorite.mockImplementation((type, id) => type === 'model' && id === 'fav-tok')
+    mockIsFavorite.mockImplementation(
+      (type: string, id: string) => type === 'model' && id === 'fav-tok'
+    )
 
     renderView()
     await waitFor(() => expect(screen.getByText('fav.png')).toBeInTheDocument())
@@ -199,7 +225,9 @@ describe('ModelsView', () => {
       relative_path: 'models/other.png',
     })
     setupModels([favModel, otherModel])
-    mockIsFavorite.mockImplementation((type, id) => type === 'model' && id === 'fav-tok')
+    mockIsFavorite.mockImplementation(
+      (type: string, id: string) => type === 'model' && id === 'fav-tok'
+    )
 
     renderView()
     await waitFor(() => expect(screen.getByText('other.png')).toBeInTheDocument())
@@ -224,7 +252,7 @@ describe('ModelsView', () => {
 
   // Bulk mode: selecting models and opening the two bulk modals the view owns.
   describe('bulk actions', () => {
-    async function enterBulkAndSelect(filename) {
+    async function enterBulkAndSelect(filename: string) {
       await userEvent.click(screen.getByRole('button', { name: /^select$/i }))
       await userEvent.click(screen.getByText(filename))
     }
@@ -309,7 +337,9 @@ describe('ModelsView', () => {
       relative_path: 'models/goblin.png',
     })
     setupModels([favModel, otherFav, nonFav])
-    mockIsFavorite.mockImplementation((type, id) => ['fav-tok', 'other-fav'].includes(id))
+    mockIsFavorite.mockImplementation((type: string, id: string) =>
+      ['fav-tok', 'other-fav'].includes(id)
+    )
 
     renderView()
     await waitFor(() => expect(screen.getByText('goblin.png')).toBeInTheDocument())

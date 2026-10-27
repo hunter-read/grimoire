@@ -36,9 +36,8 @@ test**.
 **Frontend (`frontend/`)** is split so the slow part runs in parallel:
 - **Frontend lint + build:** `npm run format:check` (Prettier), `npm run lint` (ESLint;
   errors fail CI), `npm run typecheck` (`tsc` over `src/`, see [TypeScript](typescript.md)),
-  `npm run typescript:check` (PRs only - the TypeScript ratchet: fails if the PR adds a
-  `.js`/`.jsx` file under `src/`, or modifies a non-test one, so the JavaScript only
-  shrinks), and `npm run build` (catches broken imports / JSX errors).
+  `npm run typescript:check` (fails if there is a `.js`/`.jsx` file anywhere under
+  `src/`, which is all TypeScript), and `npm run build` (catches broken imports / JSX errors).
 - **Frontend tests (1/3, 2/3, 3/3):** Vitest with coverage, a third of the test files each
   (`--shard`). Most of the suite's time is creating a jsdom environment per file, which
   spreads across runners where it can't within one. Each shard uploads a blob report.

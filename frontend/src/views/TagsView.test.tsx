@@ -14,16 +14,21 @@ const mockRemove = vi.fn()
 
 vi.mock('../api', () => ({
   tags: {
-    list: (...a) => mockList(...a),
+    list: (...a: unknown[]) => mockList(...a),
     // The view pages a tag's items now (issue #221). `mockItems` still
     // describes the whole tag; these answer the paged requests from it.
-    items: (internal, type, opts) => pagedTagItems(mockItems(internal), type, opts),
-    folderItems: (internal, type, folder, opts) =>
-      pagedFolderItems(mockItems(internal), type, folder, opts),
-    rename: (...a) => mockRename(...a),
-    remove: (...a) => mockRemove(...a),
+    items: (internal: string, type: string, opts: { limit?: number; offset?: number }) =>
+      pagedTagItems(mockItems(internal), type, opts),
+    folderItems: (
+      internal: string,
+      type: string,
+      folder: string,
+      opts: { limit?: number; offset?: number }
+    ) => pagedFolderItems(mockItems(internal), type, folder, opts),
+    rename: (...a: unknown[]) => mockRename(...a),
+    remove: (...a: unknown[]) => mockRemove(...a),
   },
-  mediaUrl: (p) => `http://localhost${p}`,
+  mediaUrl: (p: string) => `http://localhost${p}`,
 }))
 
 let mockRole = 'admin'
@@ -32,7 +37,7 @@ vi.mock('../context/AuthContext', () => ({
 }))
 
 const mockToggleFavorite = vi.fn()
-const mockIsFavorite = vi.fn(() => false)
+const mockIsFavorite = vi.fn<(type: string, id: string) => boolean>(() => false)
 vi.mock('../context/FavoritesContext', () => ({
   useFavorites: () => ({ isFavorite: mockIsFavorite, toggleFavorite: mockToggleFavorite }),
 }))
@@ -40,19 +45,29 @@ vi.mock('../context/FavoritesContext', () => ({
 // Cards pull in media/context — stub to plain output. TagTypeSection renders
 // for real so its type/folder layout is exercised.
 vi.mock('../components/favorites/BookFavorite', () => ({
-  default: ({ item }) => <div data-testid="book-card">{item.item_id}</div>,
+  default: ({ item }: { item: { item_id: string } }) => (
+    <div data-testid="book-card">{item.item_id}</div>
+  ),
 }))
 vi.mock('../components/favorites/MapFavorite', () => ({
-  default: ({ item }) => <div data-testid="map-card">{item.item_id}</div>,
+  default: ({ item }: { item: { item_id: string } }) => (
+    <div data-testid="map-card">{item.item_id}</div>
+  ),
 }))
 vi.mock('../components/favorites/TokenFavorite', () => ({
-  default: ({ item }) => <div data-testid="token-card">{item.item_id}</div>,
+  default: ({ item }: { item: { item_id: string } }) => (
+    <div data-testid="token-card">{item.item_id}</div>
+  ),
 }))
 vi.mock('../components/favorites/AudioFavorite', () => ({
-  default: ({ item }) => <div data-testid="audio-card">{item.item_id}</div>,
+  default: ({ item }: { item: { item_id: string } }) => (
+    <div data-testid="audio-card">{item.item_id}</div>
+  ),
 }))
 vi.mock('../components/favorites/SystemFavorite', () => ({
-  default: ({ item }) => <div data-testid="system-card">{item.item_id}</div>,
+  default: ({ item }: { item: { item_id: string } }) => (
+    <div data-testid="system-card">{item.item_id}</div>
+  ),
 }))
 
 function renderView(initialEntry = '/tags') {
@@ -215,7 +230,7 @@ describe('TagsView', () => {
     await screen.findByRole('heading', { name: 'Forest' })
     await userEvent.click(screen.getByLabelText(/delete tag/i))
     await waitFor(() => expect(mockRemove).toHaveBeenCalledWith('forest'))
-    window.confirm.mockRestore()
+    vi.mocked(window.confirm).mockRestore()
   })
 
   // The tag list and the selected tag's items each own a scrollbar, so a long
@@ -243,7 +258,7 @@ describe('TagsView', () => {
       // below their content height and scroll internally.
       const root = container.querySelector('.fade-in')
       expect(root).toHaveStyle({ minHeight: '0px' })
-      expect(root.firstElementChild).toHaveStyle({ minHeight: '0px' })
+      expect(root!.firstElementChild).toHaveStyle({ minHeight: '0px' })
       expect(document.querySelector('.tags-layout')).toBeInTheDocument()
     })
   })
@@ -329,7 +344,7 @@ describe('TagsView — long tag lists start collapsed', () => {
     // Opening one is remembered as the user's choice.
     await userEvent.click(screen.getByRole('button', { name: /^map/i }))
     expect(screen.getByText('Map Tag 0')).toBeInTheDocument()
-    expect(JSON.parse(localStorage.getItem('grimoire:user-prefs')).tagsCategoryCollapsed).toEqual({
+    expect(JSON.parse(localStorage.getItem('grimoire:user-prefs')!).tagsCategoryCollapsed).toEqual({
       shared: true,
       system: true,
       book: true,

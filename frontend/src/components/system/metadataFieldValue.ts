@@ -7,20 +7,21 @@
  */
 
 /** Human-readable one-line rendering of a game-system field value. */
-export function formatValue(value) {
+export function formatValue(value: unknown): string {
   if (value === null || value === undefined || value === '') return ''
   if (Array.isArray(value)) return value.map(formatEntry).filter(Boolean).join(', ')
   return String(value)
 }
 
 /** One element of a list-valued field. */
-function formatEntry(entry) {
+function formatEntry(entry: unknown): string {
   if (entry === null || entry === undefined) return ''
   if (typeof entry !== 'object') return String(entry)
+  const e = entry as { name?: unknown; label?: unknown; url?: unknown }
   // Publishers are {name, url}; urls/character_builder_urls are {label, url}.
-  if (entry.name) return String(entry.name)
-  if (entry.label && entry.url) return `${entry.label}: ${entry.url}`
-  return String(entry.url || entry.label || '')
+  if (e.name) return String(e.name)
+  if (e.label && e.url) return `${e.label}: ${e.url}`
+  return String(e.url || e.label || '')
 }
 
 /**
@@ -35,7 +36,18 @@ function formatEntry(entry) {
  * fetched came from the wrong match, not from the user, so replacing it is the
  * point of coming back — those are pre-selected too.
  */
-export function defaultSelection(fields, applied = {}) {
+/** One row of the fetched-metadata diff. */
+export interface DiffField {
+  field: string
+  status: string
+  current?: unknown
+  incoming?: unknown
+}
+
+export function defaultSelection(
+  fields: DiffField[],
+  applied: Record<string, unknown> = {}
+): string[] {
   return fields
     .filter(
       (f) =>
@@ -53,14 +65,14 @@ export function defaultSelection(fields, applied = {}) {
  * The API returns snake_case column names; the existing `systemEditor.*` labels
  * are camelCase, so the differing ones are mapped rather than duplicated.
  */
-const LABEL_KEYS = {
+const LABEL_KEYS: Record<string, string> = {
   system_family: 'systemFamily',
   parent_system: 'parentSystem',
   dice_materials: 'diceMaterials',
   character_builder_urls: 'characterBuilderUrls',
 }
 
-export function labelKey(field) {
+export function labelKey(field: string): string {
   return `systemEditor.${LABEL_KEYS[field] || field}`
 }
 
@@ -81,7 +93,7 @@ const NUMERIC_TEXT_FIELDS = ['year', 'month', 'day']
 // is being *added* rather than the whole resulting list.
 const MERGED_FIELDS = ['urls', 'character_builder_urls']
 
-export function isMergedField(field) {
+export function isMergedField(field: string): boolean {
   return MERGED_FIELDS.includes(field)
 }
 
@@ -92,7 +104,10 @@ export function isMergedField(field) {
  * offers, so rendering the whole thing buries the one new link among the user's
  * existing ones.
  */
-export function addedLinks(current, incoming) {
+export function addedLinks<L extends { url?: unknown }>(
+  current: ({ url?: unknown } | null | undefined)[] | null | undefined,
+  incoming: L[] | null | undefined
+): L[] {
   const existing = new Set(
     (current || [])
       .map((e) =>
@@ -112,8 +127,8 @@ export function addedLinks(current, incoming) {
   )
 }
 
-export function intoBookForm(fields) {
-  const out = {}
+export function intoBookForm(fields: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(fields)) {
     if (CSV_FIELDS.includes(key)) {
       out[key] = Array.isArray(value) ? value.join(', ') : String(value ?? '')

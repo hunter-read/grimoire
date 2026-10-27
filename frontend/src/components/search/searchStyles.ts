@@ -1,6 +1,8 @@
 // Shared styles for the search results view and its result sub-components.
 
-export const sectionHeadStyle = {
+import type { CSSProperties } from 'react'
+
+export const sectionHeadStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 8,
@@ -16,7 +18,7 @@ export const sectionHeadStyle = {
   padding: '4px 0',
 }
 
-export const cardStyle = {
+export const cardStyle: CSSProperties = {
   background: 'var(--bg-card)',
   // Set explicitly rather than left to inherit: this style is spread onto
   // <button> elements (the book-title rows in BookGroup), and a button without
@@ -30,7 +32,7 @@ export const cardStyle = {
   transition: 'background 0.15s',
 }
 
-export const controlStyle = {
+export const controlStyle: CSSProperties = {
   fontSize: 13,
   padding: '6px 10px',
   borderRadius: 6,

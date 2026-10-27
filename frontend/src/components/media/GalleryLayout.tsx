@@ -1,8 +1,8 @@
-import type { ComponentType, ReactNode } from 'react'
-import type { IconType } from 'react-icons'
+import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import GalleryToolbar from './GalleryToolbar'
-import MediaFolderGroupJs from './MediaFolderGroup'
+import MediaFolderGroup from './MediaFolderGroup'
+import type { FolderDownload } from './MediaFolderGroup'
 import MediaCard from './MediaCard'
 import VirtualGrid from './VirtualGrid'
 import BulkActionBar from '../BulkActionBar'
@@ -10,42 +10,22 @@ import LoadMoreSentinel from '../LoadMoreSentinel'
 import Spinner from '../Spinner'
 import BulkToggleButton from '../BulkToggleButton'
 import ViewModeToggle from '../ViewModeToggle'
-import SortFilterBarJs from '../library/SortFilterBar'
+import SortFilterBar from '../library/SortFilterBar'
+import type { SortFilterState } from '../library/SortFilterBar'
 import SearchInput from '../library/SearchInput'
 import { titleCaseTag } from '../../hooks/useTagLabels'
 import useBulkMerge from '../../hooks/useBulkMerge'
 import type useMediaGallery from '../../hooks/useMediaGallery'
-import type { GalleryConfig, GalleryItem } from '../../hooks/useMediaGallery'
+import type { MediaConfig, MediaItem } from './mediaConfig'
 import { RECENTLY_ADDED_DAYS } from '../../utils/recentlyAdded'
 
-// MediaFolderGroup is still JavaScript, and infers its callbacks' arity from
-// their defaults.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const MediaFolderGroup = MediaFolderGroupJs as ComponentType<Record<string, any>>
-
-// SortFilterBar is still JavaScript; its filter lists default to `[]`, which
-// TypeScript would otherwise read as lists that can hold nothing.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const SortFilterBar = SortFilterBarJs as ComponentType<Record<string, any>>
-
-/** The mediaConfig.js entry, with the fields the page layout reads. */
-interface LayoutConfig extends GalleryConfig {
-  i18n: string
-  icon: IconType
-  emptyKey: string
-  emptyFilterKey: string
-  sortOptions?: string[]
-  gridMin: Record<string, string>
-  gridGap: number
-}
-
 interface Props {
-  config: LayoutConfig
-  gallery: ReturnType<typeof useMediaGallery>
+  config: MediaConfig
+  gallery: ReturnType<typeof useMediaGallery<MediaItem>>
   isPlayer: boolean
   title: ReactNode
   subtitle: ReactNode
-  onDownload?: (...args: unknown[]) => void
+  onDownload?: (download: FolderDownload) => void
   onAddToCampaign?: () => void
   onBulkEdit?: () => void
   onAddToSoundboard?: () => void
@@ -101,6 +81,7 @@ export default function GalleryLayout({
     value: tg,
     label: tagLabels[tg] || titleCaseTag(tg),
   }))
+  const { folderEntries, flatItems } = gallery
   const handleSavePreset = (name: string, opts?: { asDefault?: boolean }) =>
     gallery.savedFilters.save(name, gallery.sortFilter, opts)
 
@@ -174,8 +155,10 @@ export default function GalleryLayout({
             are inert there but harmless. */}
         <SortFilterBar
           sticky
-          state={gallery.sortFilter}
-          onChange={gallery.setSortFilter}
+          // The gallery's state always carries `filters` and a default sort;
+          // SortFilterBar's type is the looser one every list shares.
+          state={gallery.sortFilter as SortFilterState}
+          onChange={gallery.setSortFilter as (next: SortFilterState) => void}
           sortOptions={sortOptions}
           showSearch={false}
           queryFilters={[
@@ -224,7 +207,7 @@ export default function GalleryLayout({
 
         {/* Grouped by folder (default) or a single flat sorted grid. */}
         {gallery.grouped
-          ? gallery.folderEntries.map(([folder, subfolders]) => (
+          ? folderEntries.map(([folder, subfolders]) => (
               <MediaFolderGroup
                 key={folder}
                 config={config}
@@ -247,17 +230,19 @@ export default function GalleryLayout({
                 onToggleFolder={gallery.bulk.toggleFolder}
                 onDownload={onDownload}
                 onLoadFolder={gallery.loadFolder}
-                onFetchFolderItems={gallery.fetchFolderItems}
+                onFetchFolderItems={
+                  gallery.fetchFolderItems as (paths: string[]) => Promise<MediaItem[]>
+                }
               />
             ))
           : gallery.flatItems.length > 0 && (
               <>
                 <VirtualGrid
-                  items={gallery.flatItems}
+                  items={flatItems}
                   minColumn={parseInt(config.gridMin[gallery.cardSize], 10)}
                   gap={gallery.list ? 8 : config.gridGap}
                   list={gallery.list}
-                  renderItem={(item: GalleryItem) => (
+                  renderItem={(item) => (
                     <MediaCard
                       key={item.id}
                       config={config}

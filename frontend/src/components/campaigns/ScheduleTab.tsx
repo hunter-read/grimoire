@@ -1,19 +1,27 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCalendar } from 'react-icons/lu'
-import { campaigns } from '../../api'
+import { campaigns, type Schema } from '../../api'
+import type { ScheduleData } from './_scheduleShared'
 import Spinner from '../Spinner'
 import ScheduleEditor from './ScheduleEditor'
 import AvailabilityChart from './AvailabilityChart'
 import ScheduleSummary from './ScheduleSummary'
 
-export default function ScheduleTab({ campaign, isOwner, userId }) {
+interface ScheduleTabProps {
+  campaign: Schema<'CampaignOut'>
+  isOwner: boolean
+  userId?: string
+}
+
+export default function ScheduleTab({ campaign, isOwner, userId }: ScheduleTabProps) {
   const { t } = useTranslation()
-  const [data, setData] = useState(null)
-  const [availability, setAvailability] = useState(null)
+  const [data, setData] = useState<ScheduleData | null>(null)
+  const [availability, setAvailability] = useState<Schema<'AvailabilityOut'> | null>(null)
   const [editingSchedule, setEditingSchedule] = useState(false)
 
-  const loadSchedule = () => campaigns.getSchedule(campaign.id).then(setData)
+  const loadSchedule = () =>
+    campaigns.getSchedule(campaign.id).then((d) => setData(d as ScheduleData))
   const loadAvailability = () =>
     campaigns
       .getAvailability(campaign.id)
@@ -27,7 +35,7 @@ export default function ScheduleTab({ campaign, isOwner, userId }) {
     loadAvailability()
   }, [campaign.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleSetAvailability = async (date, status, targetUserId) => {
+  const handleSetAvailability = async (date: string, status: string, targetUserId?: string) => {
     // Include user_id only when the GM is editing another member's row; the
     // backend defaults to the caller when it's absent.
     const body =
@@ -36,7 +44,7 @@ export default function ScheduleTab({ campaign, isOwner, userId }) {
     loadAvailability()
   }
 
-  const handleCancelDate = async (date) => {
+  const handleCancelDate = async (date: string) => {
     await campaigns.cancelDate(campaign.id, date)
     loadAvailability()
   }

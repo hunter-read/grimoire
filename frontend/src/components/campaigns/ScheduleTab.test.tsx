@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Mock } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import ScheduleTab from './ScheduleTab'
 
@@ -16,7 +17,13 @@ vi.mock('../../api', () => ({
 // Stub the editor/summary children so we can drive ScheduleTab's callbacks
 // (onSaved/onDeleted/onEdit) directly without depending on their internals.
 vi.mock('./ScheduleEditor', () => ({
-  default: ({ onSaved, onDeleted }) => (
+  default: ({
+    onSaved,
+    onDeleted,
+  }: {
+    onSaved: (result: unknown) => void
+    onDeleted: () => void
+  }) => (
     <div>
       <button
         onClick={() =>
@@ -35,12 +42,15 @@ vi.mock('./ScheduleEditor', () => ({
 }))
 
 vi.mock('./ScheduleSummary', () => ({
-  default: ({ onEdit }) => <button onClick={onEdit}>mock-edit</button>,
+  default: ({ onEdit }: { onEdit: () => void }) => <button onClick={onEdit}>mock-edit</button>,
 }))
 
-import { campaigns } from '../../api'
+import { campaigns, type Schema } from '../../api'
 
-const campaign = { id: 'c1' }
+// The api module is mocked above; reach its helpers as plain vi.fn()s.
+const campaignsMock = campaigns as unknown as Record<keyof typeof campaigns, Mock>
+
+const campaign = { id: 'c1' } as Schema<'CampaignOut'>
 
 const scheduleData = {
   definition: { days: [1], frequency: 'weekly', time_utc: '18:00' },
@@ -69,15 +79,15 @@ const availability = {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  campaigns.getSchedule.mockResolvedValue(scheduleData)
-  campaigns.getAvailability.mockResolvedValue(availability)
-  campaigns.setAvailability.mockResolvedValue({})
-  campaigns.cancelDate.mockResolvedValue({})
+  campaignsMock.getSchedule.mockResolvedValue(scheduleData)
+  campaignsMock.getAvailability.mockResolvedValue(availability)
+  campaignsMock.setAvailability.mockResolvedValue({})
+  campaignsMock.cancelDate.mockResolvedValue({})
 })
 
-function clickStatusForCell(cellIndex, label) {
+function clickStatusForCell(cellIndex: number, label: string) {
   const buttons = screen.getAllByTitle((_, el) =>
-    ['Available', 'Set availability'].includes(el?.getAttribute('title'))
+    ['Available', 'Set availability'].includes(el?.getAttribute('title') ?? '')
   )
   fireEvent.click(buttons[cellIndex])
   fireEvent.click(screen.getByRole('button', { name: label }))
@@ -114,7 +124,7 @@ describe('ScheduleTab handleSetAvailability', () => {
   it('reloads availability after a change', async () => {
     render(<ScheduleTab campaign={campaign} isOwner={true} userId="gm1" />)
     await waitFor(() => expect(screen.getByText('Frodo')).toBeTruthy())
-    campaigns.getAvailability.mockClear()
+    campaignsMock.getAvailability.mockClear()
 
     clickStatusForCell(1, 'Unavailable')
 
@@ -127,7 +137,7 @@ describe('ScheduleTab handleSetAvailability', () => {
 
     // Open the GM's own cell menu (cell 0) and pick the cancel-session action.
     const buttons = screen.getAllByTitle((_, el) =>
-      ['Available', 'Set availability'].includes(el?.getAttribute('title'))
+      ['Available', 'Set availability'].includes(el?.getAttribute('title') ?? '')
     )
     fireEvent.click(buttons[0])
     fireEvent.click(screen.getByRole('button', { name: /Cancel session/i }))
@@ -136,8 +146,12 @@ describe('ScheduleTab handleSetAvailability', () => {
   })
 
   it('renders the schedule editor when no schedule is defined', async () => {
-    campaigns.getSchedule.mockResolvedValue({ definition: null, enabled: false, next_sessions: [] })
-    campaigns.getAvailability.mockResolvedValue({
+    campaignsMock.getSchedule.mockResolvedValue({
+      definition: null,
+      enabled: false,
+      next_sessions: [],
+    })
+    campaignsMock.getAvailability.mockResolvedValue({
       next_sessions: [],
       cancelled_dates: [],
       rows: [],
@@ -158,15 +172,19 @@ describe('ScheduleTab handleSetAvailability', () => {
     expect(screen.getByText('mock-save')).toBeTruthy()
 
     // Saving applies the result, closes the editor, and reloads availability.
-    campaigns.getAvailability.mockClear()
+    campaignsMock.getAvailability.mockClear()
     fireEvent.click(screen.getByText('mock-save'))
     await waitFor(() => expect(screen.getByText('mock-edit')).toBeTruthy())
     expect(campaigns.getAvailability).toHaveBeenCalledWith('c1')
   })
 
   it('clears the schedule when the editor reports a deletion', async () => {
-    campaigns.getSchedule.mockResolvedValue({ definition: null, enabled: false, next_sessions: [] })
-    campaigns.getAvailability.mockResolvedValue({
+    campaignsMock.getSchedule.mockResolvedValue({
+      definition: null,
+      enabled: false,
+      next_sessions: [],
+    })
+    campaignsMock.getAvailability.mockResolvedValue({
       next_sessions: [],
       cancelled_dates: [],
       rows: [],
@@ -174,7 +192,7 @@ describe('ScheduleTab handleSetAvailability', () => {
     render(<ScheduleTab campaign={campaign} isOwner={true} userId="gm1" />)
     await waitFor(() => expect(screen.getByText('mock-delete')).toBeTruthy())
 
-    campaigns.getAvailability.mockClear()
+    campaignsMock.getAvailability.mockClear()
     fireEvent.click(screen.getByText('mock-delete'))
 
     // After deletion the empty-state prompt appears and availability reloads.

@@ -1,6 +1,17 @@
 import { LuChevronLeft, LuChevronRight } from 'react-icons/lu'
 
-const navButtonStyle = {
+import type { CSSProperties } from 'react'
+
+export interface SiblingNavButtonsProps {
+  hasPrev: boolean
+  hasNext: boolean
+  onPrev: () => void
+  onNext: () => void
+  prevLabel: string
+  nextLabel: string
+}
+
+const navButtonStyle: CSSProperties = {
   position: 'absolute',
   top: '50%',
   transform: 'translateY(-50%)',
@@ -31,7 +42,7 @@ export default function SiblingNavButtons({
   onNext,
   prevLabel,
   nextLabel,
-}) {
+}: SiblingNavButtonsProps) {
   return (
     <>
       {hasPrev && (

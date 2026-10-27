@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { LuChevronDown, LuChevronRight, LuFolder } from 'react-icons/lu'
 
 /**
@@ -9,6 +10,15 @@ import { LuChevronDown, LuChevronRight, LuFolder } from 'react-icons/lu'
  * matches span many folders — and the tiles then render bare, with no header
  * claiming a structure that isn't there.
  */
+interface Props {
+  label?: ReactNode
+  count?: number
+  open?: boolean
+  onToggle?: () => void
+  showHeading?: boolean
+  children?: ReactNode
+}
+
 export default function ImageSourceFolder({
   label,
   count,
@@ -16,7 +26,7 @@ export default function ImageSourceFolder({
   onToggle,
   showHeading = true,
   children,
-}) {
+}: Props) {
   const grid = (
     <div
       style={{

@@ -24,7 +24,7 @@ import useMediaLoadState from '../../hooks/useMediaLoadState'
 interface MapImagePaneProps {
   mapId: string
   filename: string
-  hasThumbnail?: boolean
+  hasThumbnail?: boolean | null
   imageStyle?: CSSProperties
   isMobilePhone?: boolean
 }

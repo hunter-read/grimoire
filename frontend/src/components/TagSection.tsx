@@ -1,6 +1,7 @@
+import type { CSSProperties, MouseEventHandler, ReactNode } from 'react'
 import { LuTag } from 'react-icons/lu'
 
-const tagPillStyle = {
+const tagPillStyle: CSSProperties = {
   fontSize: 12,
   padding: '2px 8px',
   borderRadius: 10,
@@ -10,7 +11,23 @@ const tagPillStyle = {
 }
 
 /** Tag list with an optional edit button — used in the map/token detail sidebars. */
-export default function TagSection({ label, tags, onEdit, canEdit, editLabel, noTagsLabel }) {
+export interface TagSectionProps {
+  label: ReactNode
+  tags: string[]
+  onEdit?: MouseEventHandler<HTMLButtonElement>
+  canEdit?: boolean
+  editLabel?: ReactNode
+  noTagsLabel?: ReactNode
+}
+
+export default function TagSection({
+  label,
+  tags,
+  onEdit,
+  canEdit,
+  editLabel,
+  noTagsLabel,
+}: TagSectionProps) {
   return (
     <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
       <div

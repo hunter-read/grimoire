@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCheck } from 'react-icons/lu'
 import { goldBtn, ghostBtn, scrim, card, helpText } from './characterStyles'
+import type { PickChoice } from './onPick'
 
 /**
  * Asks the player to make a choice a pick offered: "choose 2 skills".
@@ -14,21 +15,36 @@ import { goldBtn, ghostBtn, scrim, card, helpText } from './characterStyles'
  * Skipping is always allowed. The sheet stays fully editable afterwards, so a
  * choice made later, by hand, is as good as one made here.
  */
-export default function ChoiceDialog({ choice, have = [], sourceLabel, onConfirm, onSkip }) {
+export interface ChoiceDialogProps {
+  choice: Pick<PickChoice, 'count' | 'options'> & { label?: string }
+  // What the character already has, which cannot be picked again.
+  have?: unknown[]
+  sourceLabel?: string
+  onConfirm?: (picked: string[]) => void
+  onSkip?: () => void
+}
+
+export default function ChoiceDialog({
+  choice,
+  have = [],
+  sourceLabel,
+  onConfirm,
+  onSkip,
+}: ChoiceDialogProps) {
   const { t } = useTranslation()
-  const [picked, setPicked] = useState([])
+  const [picked, setPicked] = useState<string[]>([])
   const owned = new Set(have.map(String))
   const remaining = choice.count - picked.length
 
   useEffect(() => {
-    const onKey = (event) => {
+    const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onSkip?.()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onSkip])
 
-  const toggle = (option) =>
+  const toggle = (option: string) =>
     setPicked((prev) =>
       prev.includes(option)
         ? prev.filter((value) => value !== option)

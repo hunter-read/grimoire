@@ -503,7 +503,8 @@ export default function ReaderView() {
     setPan,
     setZoomDirect,
     zoomAt,
-    goToPage,
+    // The hook only ever passes `undefined` for the mode, so the narrower ReaderMode holds.
+    goToPage: goToPage as Parameters<typeof useReaderGestures>[0]['goToPage'],
     contentRef,
     wheelAction,
   })
@@ -768,7 +769,7 @@ export default function ReaderView() {
             bookId={bookId}
             currentPage={currentPage}
             refreshKey={bookmarkRefreshKey}
-            onGoToPage={(page: number, text?: string) => {
+            onGoToPage={(page: number, text?: string | null) => {
               setActiveHighlight(text || null)
               pushNextRef.current = true
               goToPage(page)
@@ -784,7 +785,7 @@ export default function ReaderView() {
             currentPage={currentPage}
             isSpread={mode === 'spread'}
             spreadOffset={spreadOffset}
-            tocPath={book.mime_type === 'application/pdf' ? `/books/${bookId}/toc` : null}
+            tocPath={book.mime_type === 'application/pdf' ? `/books/${bookId}/toc` : undefined}
             pageUrl={pageUrl}
             sourcePath={book.relative_path}
             onShowPage={(page: number) => {

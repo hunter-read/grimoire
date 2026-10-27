@@ -1,3 +1,5 @@
+import type { ButtonHTMLAttributes, ReactNode } from 'react'
+
 /**
  * One frame swatch in the picker.
  *
@@ -5,7 +7,25 @@
  * ring on white read completely differently, and the pattern also communicates
  * that the middle of a frame is transparent.
  */
-export default function FrameTile({ selected, label, onClick, children, size = 52, ...rest }) {
+export interface FrameTileProps extends Omit<
+  ButtonHTMLAttributes<HTMLButtonElement>,
+  'onClick' | 'title' | 'style'
+> {
+  selected: boolean
+  label: string
+  onClick: () => void
+  children?: ReactNode
+  size?: number
+}
+
+export default function FrameTile({
+  selected,
+  label,
+  onClick,
+  children,
+  size = 52,
+  ...rest
+}: FrameTileProps) {
   return (
     <button
       type="button"

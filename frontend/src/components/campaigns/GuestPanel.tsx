@@ -1,19 +1,26 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { LuUserPlus, LuRefreshCw, LuTrash2, LuShare2, LuCopy, LuMail } from 'react-icons/lu'
-import { campaigns } from '../../api'
+import { campaigns, type Schema } from '../../api'
 import Spinner from '../Spinner'
 import GuestIconBtn from './GuestIconBtn'
 import ShareBtn from './ShareBtn'
 
 /** GM-only management of a campaign's code-based guests. */
-export default function GuestPanel({ campaignId, onChanged }) {
+type Guest = Awaited<ReturnType<typeof campaigns.listGuests>>[number]
+
+export interface GuestPanelProps {
+  campaignId: string
+  onChanged?: () => void
+}
+
+export default function GuestPanel({ campaignId, onChanged }: GuestPanelProps) {
   const { t } = useTranslation()
-  const [guests, setGuests] = useState(null)
+  const [guests, setGuests] = useState<Guest[] | null>(null)
   const [nickname, setNickname] = useState('')
   const [busy, setBusy] = useState(false)
-  const [share, setShare] = useState(null) // { ...template } for the share modal
+  const [share, setShare] = useState<Schema<'GuestShareTemplateOut'> | null>(null) // { ...template } for the share modal
   const [copied, setCopied] = useState('')
 
   const reload = () =>
@@ -27,7 +34,7 @@ export default function GuestPanel({ campaignId, onChanged }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campaignId])
 
-  const create = async (e) => {
+  const create = async (e: FormEvent) => {
     e.preventDefault()
     setBusy(true)
     try {
@@ -36,25 +43,25 @@ export default function GuestPanel({ campaignId, onChanged }) {
       await reload()
       onChanged?.()
     } catch (err) {
-      alert(err.message)
+      alert((err as Error).message)
     } finally {
       setBusy(false)
     }
   }
 
-  const regenerate = async (memberId) => {
+  const regenerate = async (memberId: string) => {
     setBusy(true)
     try {
       await campaigns.regenerateGuestCode(campaignId, memberId)
       await reload()
     } catch (err) {
-      alert(err.message)
+      alert((err as Error).message)
     } finally {
       setBusy(false)
     }
   }
 
-  const remove = async (memberId) => {
+  const remove = async (memberId: string) => {
     if (!window.confirm(t('guests.confirmRemove'))) return
     setBusy(true)
     try {
@@ -62,22 +69,22 @@ export default function GuestPanel({ campaignId, onChanged }) {
       await reload()
       onChanged?.()
     } catch (err) {
-      alert(err.message)
+      alert((err as Error).message)
     } finally {
       setBusy(false)
     }
   }
 
-  const openShare = async (memberId) => {
+  const openShare = async (memberId: string) => {
     try {
       const tpl = await campaigns.guestShareTemplate(campaignId, memberId)
       setShare(tpl)
     } catch (err) {
-      alert(err.message)
+      alert((err as Error).message)
     }
   }
 
-  const copy = async (text, key) => {
+  const copy = async (text: string, key: string) => {
     try {
       await navigator.clipboard.writeText(text)
       setCopied(key)

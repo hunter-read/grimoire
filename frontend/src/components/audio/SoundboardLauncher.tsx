@@ -11,7 +11,7 @@ const MARGIN = 16
  * Only shown once the board has pads — an empty board has nothing to reopen, so
  * the corner stays clear until the user adds their first sound.
  */
-export default function SoundboardLauncher({ bottomOffset = 0 }) {
+export default function SoundboardLauncher({ bottomOffset = 0 }: { bottomOffset?: number }) {
   const { t } = useTranslation()
   const { pads, open, setOpen } = useSoundboard()
 

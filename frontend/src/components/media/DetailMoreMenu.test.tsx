@@ -2,9 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import DetailMoreMenu from './DetailMoreMenu'
+import type { DetailMoreMenuProps } from './DetailMoreMenu'
 
 vi.mock('react-i18next', () => {
-  const t = (k) => k
+  const t = (k: string) => k
   return { useTranslation: () => ({ t }) }
 })
 
@@ -23,8 +24,8 @@ vi.mock('../share/useCanShare', () => ({ default: () => canShare }))
 // vi.hoisted: the mock factories below are hoisted above ordinary declarations.
 const { dialog } = vi.hoisted(() => ({
   dialog:
-    (name) =>
-    ({ onClose }) => (
+    (name: string) =>
+    ({ onClose }: { onClose: () => void }) => (
       <div>
         <span>{`${name}-dialog`}</span>
         <button onClick={onClose}>{`close-${name}`}</button>
@@ -40,9 +41,9 @@ const otfbmItem = {
   label: 'maps.otfbm.menuLabel',
   icon: null,
   requiresShare: true,
-  render: (onClose) => <Otfbm onClose={onClose} />,
+  render: (onClose: () => void) => <Otfbm onClose={onClose} />,
 }
-const renderMenu = (props = {}) =>
+const renderMenu = (props: Partial<DetailMoreMenuProps> = {}) =>
   render(
     <DetailMoreMenu
       resourceType="map"
@@ -53,7 +54,7 @@ const renderMenu = (props = {}) =>
     />
   )
 const openMenu = () => userEvent.click(screen.getByLabelText('bookActions.menu'))
-const items = () => screen.getAllByRole('menuitem').map((el) => el.textContent.trim())
+const items = () => screen.getAllByRole('menuitem').map((el) => el.textContent!.trim())
 
 beforeEach(() => {
   vi.clearAllMocks()
