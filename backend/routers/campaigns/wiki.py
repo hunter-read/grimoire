@@ -46,7 +46,7 @@ from ._wiki_helpers import (
     rebuild_links,
     rewrite_inbound_titles,
 )
-from .wikilinks import extract_headings, slugify
+from ...text.wikilinks import extract_headings, slugify
 
 __all__ = [
     "slugify",

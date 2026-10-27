@@ -113,7 +113,7 @@ def load_source_image(
     Raises HTTPException(400) for an unknown type, 404 when the asset or its
     image is missing, and 403 when the user may not read it.
     """
-    from ..routers._media_access import assert_media_access
+    from .media.access import assert_media_access
 
     if source_type not in SOURCE_TYPES:
         raise HTTPException(400, f"Unsupported image source: {source_type}")
@@ -139,9 +139,9 @@ def load_source_image(
         book = db.query(Book).filter_by(id=source_id).first()
         if not book:
             raise HTTPException(404, "Book not found")
-        from ..routers.books._helpers import _assert_book_access
+        from .books.access import assert_book_access
 
-        _assert_book_access(db, book, user)
+        assert_book_access(db, book, user)
         thumb = _book_thumb_path(book)
         if not thumb:
             raise HTTPException(404, "That book has no cover thumbnail")
@@ -152,7 +152,7 @@ def load_source_image(
         if not a:
             raise HTTPException(404, "Audio not found")
         assert_media_access(db, user, "audio", a.id)
-        from ..routers.audio.core import _extract_embedded_art, _find_folder_artwork
+        from ..indexer import _extract_embedded_art, _find_folder_artwork
 
         cover = _find_folder_artwork(os.path.dirname(a.filepath or ""))
         if cover and os.path.isfile(cover):

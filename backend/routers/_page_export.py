@@ -18,7 +18,7 @@ from ..config import logger
 from ..render import pool as render_pool
 from ..services import library_fs as fs
 from ..services import page_export as pe
-from .books._render_cache import render_errors
+from ._render_errors import render_errors
 
 # Mirrors the file manager's mapping, so a save into the library fails with the
 # same status a plain upload into that folder would.

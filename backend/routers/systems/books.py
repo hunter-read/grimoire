@@ -37,8 +37,8 @@ from ...services.browse.paths import relative_folder
 from ...services.browse.tag_query import FILTER_ANY, FILTER_NONE, TagMatcher
 from ...services.search_query import parse_query
 from .._browse import parse_tags_param
-from ..search._books import _apply_field_filters, _free_text_clause
-from ._helpers import load_browsable_system
+from ...services.book_search import apply_field_filters, free_text_clause
+from ...services.systems import load_browsable_system
 from ._serializers import _category_depth, serialize_book
 
 BOOK_SORTS = frozenset({"title", "year", "page_count", "size", "product_code", "added_at"})
@@ -222,9 +222,9 @@ class ShelfBrowser:
             if parsed.free_text:
                 # Title, filename or product code - what the search page's bare
                 # text matches on a book, so the shelf finds the same books.
-                q = q.filter(_free_text_clause(parsed.free_text))
+                q = q.filter(free_text_clause(parsed.free_text))
             if parsed.metadata_fields:
-                filtered = _apply_field_filters(self.db, q, parsed)
+                filtered = apply_field_filters(self.db, q, parsed)
                 q = filtered if filtered is not None else q.filter(literal_column("0") == 1)
         if params.category is not None:
             q = q.filter(Book.category == params.category)

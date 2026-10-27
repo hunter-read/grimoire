@@ -26,8 +26,7 @@ def start(library_path: str) -> None:
     global _supervisor
     from .. import config
     from ..config import SessionLocal
-    from ..routers.library import run_rescan_sync
-    from ..routers.library._helpers import scan_in_progress
+    from ..services.library_scan.runner import run_rescan_sync, scan_in_progress
 
     stop()
     _supervisor = Supervisor(

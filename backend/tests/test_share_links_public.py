@@ -442,7 +442,7 @@ class TestOtfbmVariant:
 
     def test_map_that_can_no_longer_be_resized_is_404(self, client, gm_headers, village, monkeypatch):
         link = create(client, gm_headers, "map", village.id, variant="otfbm").json()
-        from backend.routers.maps import otfbm_export
+        from backend.services.media import map_export as otfbm_export
         from fastapi import HTTPException
 
         def broken(*_a, **_k):

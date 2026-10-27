@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from ...auth import CurrentUser, require_gm_or_admin
 from ...config import get_db
 from .._metadata_lookup import fetch, list_sources, search
-from ._helpers import get_visible_system as _get_system
+from ...services.systems import get_visible_system as _get_system
 from ._schemas import MetadataFetch, MetadataSearch
 
 TARGET = "game-system"

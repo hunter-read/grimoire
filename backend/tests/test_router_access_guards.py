@@ -24,8 +24,8 @@ GUARDS = {
     "restricted_book_ids",
     "can_access_book",
     "can_access_system",
-    "_assert_book_access",
-    "_can_read_book",
+    "assert_book_access",
+    "can_read_book",
     "access_control",
 }
 
@@ -34,9 +34,7 @@ ALLOWED_UNGUARDED = {
     "campaigns/core.py": "admin view of a user's campaigns: system names only",
     "campaigns/resources.py": "names of resources a GM already linked; campaign visibility applies",
     "duplicates/_helpers.py": "admin-only duplicate finder",
-    "library/_helpers.py": "admin-only library scan and file management",
     "lookups/_helpers.py": "metadata autocomplete counts, no titles or ids",
-    "maintenance/_helpers.py": "admin-only maintenance",
     "tags/_helpers.py": "enriches ids its caller (tags/items.py) already filtered",
 }
 
@@ -82,7 +80,7 @@ def test_routers_reading_books_or_systems_apply_access_rules():
             unguarded.append(name)
     assert not unguarded, (
         "These router modules query Book/GameSystem without the access rules "
-        "(visible_books / visible_systems / _assert_book_access ...). Apply them, "
+        "(visible_books / visible_systems / assert_book_access ...). Apply them, "
         f"or add the module to ALLOWED_UNGUARDED with the reason: {unguarded}"
     )
 
@@ -113,7 +111,7 @@ def test_the_scanner_sees_a_query():
 # ---------------------------------------------------------------------------
 
 # Columns referencing users.id that the delete and merge paths in
-# routers/campaigns/_helpers.py don't list in their tables, with where they are
+# services/campaigns/user_data.py don't list in their tables, with where they are
 # handled instead. Nothing references users.id with ON DELETE, so every column
 # needs handling in code: SQLite runs with foreign_keys=ON and a delete that
 # misses one fails.
@@ -136,7 +134,7 @@ def _user_foreign_keys() -> set[str]:
 
 def _listed() -> tuple[set[str], set[str]]:
     """(columns user deletion handles, columns guest merge handles)."""
-    from backend.routers.campaigns import _helpers as h
+    from backend.services.campaigns import user_data as h
 
     scoped = {f"{t}.user_id" for t in h._USER_SCOPED_TABLES}
     delete_only = {f"{t}.user_id" for t in h._USER_DELETE_ONLY_TABLES}
@@ -152,14 +150,14 @@ def test_user_deletion_handles_every_foreign_key():
     missing = sorted(_user_foreign_keys() - deleted)
     assert not missing, (
         "Deleting a user doesn't handle these; add them to the lists in "
-        f"routers/campaigns/_helpers.py: {missing}"
+        f"services/campaigns/user_data.py: {missing}"
     )
 
 
 def test_guest_merge_moves_every_foreign_key_except_delete_only():
     """Merging a guest into an account moves their rows; only the deliberate
     delete-only tables (credentials and grants) may be left to deletion."""
-    from backend.routers.campaigns import _helpers as h
+    from backend.services.campaigns import user_data as h
 
     _, merged = _listed()
     delete_only = {f"{t}.user_id" for t in h._USER_DELETE_ONLY_TABLES}
@@ -189,7 +187,7 @@ def test_guest_merge_knows_every_per_user_unique_constraint():
     """Merging moves rows with a blanket UPDATE of user_id, so a unique
     constraint it doesn't drop collisions for first fails the whole merge
     whenever both accounts hold the same row."""
-    from backend.routers.campaigns import _helpers as h
+    from backend.services.campaigns import user_data as h
 
     listed = {
         (table, frozenset(c.strip() for c in scope.split(",")))
@@ -316,3 +314,13 @@ def test_media_type_is_guessed_from_the_extension(tmp_path):
     resp = serve_user_file(str(png))
     assert resp.media_type == "image/png"
     assert "content-security-policy" not in resp.headers
+
+
+def test_served_files_are_private_unless_the_route_says_otherwise(tmp_path):
+    from backend.routers._user_files import serve_user_file
+
+    png = tmp_path / "p.png"
+    png.write_bytes(b"\x89PNG")
+    assert serve_user_file(str(png)).headers["cache-control"] == "private"
+    chosen = serve_user_file(str(png), headers={"cache-control": "no-store"})
+    assert chosen.headers["cache-control"] == "no-store"

@@ -10,7 +10,7 @@ from ...config import OPDS_ENABLED, BASE_URL, get_db
 from ...models import User
 from ...auth import get_current_user, CurrentUser, hash_password, verify_password
 from ...sessions import delete_user_sessions, revoke_user_sessions
-from ..campaigns._helpers import purge_user_data
+from ...services.campaigns.user_data import purge_user_data
 from ._schemas import PasswordChange, PreferencesUpdate
 
 router = APIRouter()
@@ -23,11 +23,11 @@ def _assert_email_self_service(db: Session, user: User) -> None:
     SSO login finds its account, so only an admin (or the provider) sets it.
     Campaign guests have no use for an email at all.
     """
-    from ..settings._helpers import _get_raw, oidc_effective
+    from ...services.app_settings import get_raw, oidc_effective
 
     if user.is_guest or user.role == "guest":
         raise HTTPException(403, "Guest accounts can't set an email address")
-    if oidc_effective(_get_raw(db)).get("oidc_match_by") == "email":
+    if oidc_effective(get_raw(db)).get("oidc_match_by") == "email":
         raise HTTPException(
             403,
             "Your email address is used to sign you in, so only an admin can change it",

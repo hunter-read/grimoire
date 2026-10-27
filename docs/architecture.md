@@ -41,6 +41,7 @@ backend on port 9481.
 | [`backend/render/`](../backend/render/) | Page rendering: `pool.py` (the API the page, tile, map and MCP routes call, and the pool of render worker processes behind it), `worker.py` (a worker's entry point), `ops.py` (the MuPDF work itself, shared with the in-process path), `documents.py` (`open_document` and the EPUB layout, re-exported by `indexer.formats`), `outline.py` (the table-of-contents reader, re-exported by `indexer.outline`) and `memory.py` (the store-shrink + `malloc_trim` reclaim). See [Page rendering](#page-rendering) below. |
 | [`backend/addon_worker.py`](../backend/addon_worker.py) | Standalone entry point for the spawned add-on script process. Like `pdf_worker`, imports nothing from `backend` - a child running third-party code must not reach the DB or our internals. |
 | [`backend/routers/`](../backend/routers/) | One package per feature area (see the router shape below). |
+| [`backend/services/`](../backend/services/) | Domain logic shared by more than one router, or used outside the HTTP layer: access control, app settings, book documents and access, campaign data, the library scan and cleanup, media access, share links, search, and more. Routers, the render pool, the scheduler, the library watcher and the MCP server all call into it. |
 | [`backend/library_watch/`](../backend/library_watch/) | Watching the library for changes: `changes.py` decides which filesystem events matter and whether a scoped or full scan covers them, `settings.py` resolves the env pins and detects network shares, `watcher.py` runs the `watchdog` observer, the quiet-period queue, and the supervisor that follows the settings. Started from `lifespan` in the worker that holds the scan lock. |
 | [`backend/scheduler.py`](../backend/scheduler.py), [`backend/session_creator.py`](../backend/session_creator.py) | Campaign session scheduling - apply recurrence on startup and auto-create upcoming sessions. |
 | [`backend/sessions.py`](../backend/sessions.py) | Login-session lifecycle behind refresh tokens: issue, rotate, revoke. Access tokens stay stateless; this is what makes a session revocable. |
@@ -60,6 +61,13 @@ modules like [`books/pages.py`](../backend/routers/books/pages.py) or
 - `core.py` - the endpoint handler functions (plain functions, no decorators).
 - `_schemas.py` - Pydantic request/response models (when needed).
 - `_helpers.py` - shared internal helpers (when needed).
+
+A package's `_`-prefixed modules are private to it. Code that two routers share lives in
+[`backend/services/`](../backend/services/), or in a top-level `backend/routers/_*.py`
+module when it is HTTP-only (response headers, error mapping). Nothing outside
+`backend/routers/` imports a router except `main.py`, which mounts them, and the MCP
+server, whose tools call the REST handlers.
+[`tests/test_layering.py`](../backend/tests/test_layering.py) enforces both rules.
 
 ### Frontend
 
@@ -135,13 +143,16 @@ token, so the previous renders become unreachable rather than being served as if
 current. Rows that predate content hashing fall back to a digest of the path, preserving the
 old behaviour until the next scan backfills them.
 
-All three paths send `Cache-Control: max-age=31536000, immutable`
+All three paths send `Cache-Control: private, max-age=31536000, immutable`
 (`_PAGE_CACHE_HEADERS` in [`config/defaults.py`](../backend/config/defaults.py)) plus an `ETag` carrying the
 same token, so browsers cache aggressively but can still revalidate a replaced file (the
 `immutable` policy alone would pin a stale page for a year). Because image/download URLs are
 used in `<img>`/download contexts that can't set an `Authorization` header, they authenticate
 via the HttpOnly session cookie. Thumbnails work the same way, cached under
-`DATA_PATH/thumbnails/`.
+`DATA_PATH/thumbnails/`. Map images (`/api/maps/:id/page/:n`, `/api/maps/:id/vtt/image`) keep
+one URL when the file is replaced, so they are sent `private, no-cache` with an `ETag` from
+the map's content token, page and width; the browser revalidates and gets a `304` while its
+copy is current.
 
 The disk cache is bounded by `PAGE_CACHE_MAX_MB` and trimmed oldest-first by
 `sweep_page_cache()` at startup and after each library scan - superseded renders are
@@ -187,7 +198,7 @@ replaced in place, reaches the worker holding it and is ordered with that worker
 requests.
 
 `RENDER_WORKERS=0` runs the same operations in the app process through the `open_pdf()`
-document cache in [`routers/books/_helpers.py`](../backend/routers/books/_helpers.py), as
+document cache in [`services/books/documents.py`](../backend/services/books/documents.py), as
 rendering worked before: no extra process, no crash isolation.
 
 ### Change and move detection
@@ -369,7 +380,7 @@ about OCR timeouts on large scanned books).
    When OCR is unavailable (slim image / `OCR_ENABLED=false`) the pre-OCR
    behaviour is kept: the book is marked `image-only` and `indexed`.
 2. **OCR phase** - after the fast phases, `run_ocr_queue` (in
-   [`routers/library/_helpers.py`](../backend/routers/library/_helpers.py)) drains
+   [`services/library_scan/runner.py`](../backend/services/library_scan/runner.py)) drains
    the `ocr_pending` books. Each book is OCR'd **one page at a time** by
    `indexer.ocr_book`, which spawns [`pdf_worker.py`](../backend/pdf_worker.py)'s
    `ocr_page_main` per page (isolated, per-page-timeout bounded), inserts the

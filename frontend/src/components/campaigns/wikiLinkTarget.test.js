@@ -10,7 +10,7 @@ import {
   slugify,
 } from './wikiLinkTarget'
 
-// These parse rules must match backend/routers/campaigns/wikilinks.py exactly —
+// These parse rules must match backend/text/wikilinks.py exactly —
 // the backend has the mirror of this suite in test_campaign_wiki_links.py.
 describe('parseTarget', () => {
   it('parses a plain title', () => {

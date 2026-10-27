@@ -14,7 +14,7 @@ import pytest
 
 from backend.config import SessionLocal
 from backend.models import Token
-from backend.routers.token_frames import _helpers
+from backend.services import token_frames as _helpers
 
 # A 1x1 transparent PNG — real bytes, so PIL/stat-based checks behave normally.
 _PNG = bytes.fromhex(

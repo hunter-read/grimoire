@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from ...auth import CurrentUser, get_current_user, require_admin
 from ...config import get_db
 from ...models import GenericMap
-from .._media_access import assert_media_access
+from ...services.media.access import assert_media_access
 from .._page_export import (
     ExportRequest,
     SaveExportRequest,
@@ -21,7 +21,7 @@ from .._page_export import (
     page_size,
     save_export,
 )
-from ._helpers import _is_pdf
+from ...services.media.maps import is_pdf
 
 
 def _exportable(db: Session, map_id: str, user: CurrentUser) -> GenericMap:
@@ -30,7 +30,7 @@ def _exportable(db: Session, map_id: str, user: CurrentUser) -> GenericMap:
     if not m:
         raise HTTPException(404, "Map not found")
     assert_media_access(db, user, "map", m.id)
-    if not _is_pdf(m.filepath):
+    if not is_pdf(m.filepath):
         raise HTTPException(400, "Only PDF maps have pages to export")
     if not os.path.exists(m.filepath):
         if not m.is_missing:

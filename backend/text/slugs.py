@@ -10,7 +10,7 @@ against the copy it replaced.
 
 The families, and whether their output is stored:
 
-    wiki page slugs      routers/campaigns/wikilinks.slugify     PERSISTED
+    wiki page slugs      text/wikilinks.slugify                  PERSISTED
                          chars="words", trim=False, fallback="untitled"
                          ``[[Title]]`` links resolve by re-slugging the title, so a
                          change would break every link to an existing page.

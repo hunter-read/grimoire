@@ -19,8 +19,8 @@ from sqlalchemy import text
 from backend.config import LIBRARY_PATH, SessionLocal
 from backend.indexer import refresh_book_file, reset_book_index
 from backend.models import Book, Bookmark
-from backend.routers.library import _claims, _reindex_queue
-from backend.routers.library import _helpers as library_helpers
+from backend.services.library_scan import claims, reindex_queue
+from backend.services.library_scan import runner
 from backend.services import library_fs as fs
 from backend.services import tag_service
 
@@ -34,12 +34,12 @@ def _idle_background():
     """No job running, nothing queued or claimed, before and after each test."""
 
     def reset():
-        library_helpers.clear_stop()
+        runner.clear_stop()
         # Cleared, not just reset: a live status carries a heartbeat key too.
-        library_helpers.SCAN_JOB._status.clear()
-        library_helpers._set_status({**library_helpers._DEFAULT_STATUS})
-        _reindex_queue._queue.clear()
-        _claims._claims.clear()
+        runner.SCAN_JOB._status.clear()
+        runner.set_status({**runner.DEFAULT_STATUS})
+        reindex_queue._queue.clear()
+        claims._claims.clear()
 
     reset()
     yield
@@ -242,7 +242,7 @@ class TestReplaceEndpoint:
         db.commit()
         db.close()
 
-        with patch.object(_reindex_queue, "drain_reindex_queue") as drain:
+        with patch.object(reindex_queue, "drain_reindex_queue") as drain:
             resp = _replace(client, admin_headers, rel, "core.pdf", _pdf("revised"))
 
         assert resp.status_code == 200, resp.text
@@ -250,8 +250,8 @@ class TestReplaceEndpoint:
         assert body["record_id"] == book.id
         assert body["replaced"] is True
         drain.assert_called_once_with()
-        assert _reindex_queue._pop_queued() == book.id
-        assert _claims._claims == set()
+        assert reindex_queue._pop_queued() == book.id
+        assert claims._claims == set()
 
         db = SessionLocal()
         try:
@@ -288,7 +288,7 @@ class TestReplaceEndpoint:
         assert _search_hits("zymurgical") == [book.id]
 
         # The real background task, so the index is actually rebuilt.
-        with patch.object(library_helpers, "run_ocr_queue"):
+        with patch.object(runner, "run_ocr_queue"):
             resp = _replace(client, admin_headers, rel, "lore.pdf", _pdf("xylographic"))
 
         assert resp.status_code == 200, resp.text
@@ -317,7 +317,7 @@ class TestReplaceEndpoint:
             index_failed=True,
             index_error="timed out",
         )
-        with patch.object(_reindex_queue, "drain_reindex_queue"):
+        with patch.object(reindex_queue, "drain_reindex_queue"):
             resp = _replace(client, admin_headers, rel, "scan.pdf", _pdf("one"))
         assert resp.status_code == 200, resp.text
         db = SessionLocal()
@@ -333,7 +333,7 @@ class TestReplaceEndpoint:
         rel, system = shelf
         book = _shelve(rel, system.id, "lost.pdf", b"gone", is_missing=True)
         os.unlink(book.filepath)
-        with patch.object(_reindex_queue, "drain_reindex_queue"):
+        with patch.object(reindex_queue, "drain_reindex_queue"):
             resp = _replace(client, admin_headers, rel, "lost.pdf", _pdf("found"))
         assert resp.status_code == 200, resp.text
         db = SessionLocal()
@@ -350,7 +350,7 @@ class TestReplaceEndpoint:
         book = _shelve(
             rel, system.id, "cover.png", b"old", mime_type="image/png", page_count=1
         )
-        with patch.object(_reindex_queue, "drain_reindex_queue") as rescan, patch(
+        with patch.object(reindex_queue, "drain_reindex_queue") as rescan, patch(
             "backend.indexer.generate_thumbnail", return_value=True
         ):
             resp = _replace(client, admin_headers, rel, "cover.png", b"\x89PNG new image")
@@ -372,7 +372,7 @@ class TestReplaceEndpoint:
         book = _shelve(rel, system.id, "core.pdf", b"old", file_size=3)
         with patch(
             "backend.routers.files.core.refresh_book_file", side_effect=RuntimeError("boom")
-        ), patch.object(_reindex_queue, "drain_reindex_queue") as rescan:
+        ), patch.object(reindex_queue, "drain_reindex_queue") as rescan:
             resp = _replace(client, admin_headers, rel, "core.pdf", _pdf("new"))
         assert resp.status_code == 200, resp.text
         assert resp.json()["replaced"] is True
@@ -387,7 +387,7 @@ class TestReplaceEndpoint:
         """An OCR worker resuming on the old checkpoint would splice two files."""
         rel, system = shelf
         _shelve(rel, system.id, "core.pdf", b"original")
-        with patch.object(library_helpers, "scan_in_progress", return_value=True):
+        with patch.object(runner, "scan_in_progress", return_value=True):
             resp = _replace(client, admin_headers, rel, "core.pdf", b"new")
         assert resp.status_code == 409
         with open(os.path.join(LIB, rel, "core.pdf"), "rb") as f:
@@ -397,7 +397,7 @@ class TestReplaceEndpoint:
         """Only the replace re-index accepts replaces; the manual one does not."""
         rel, system = shelf
         _shelve(rel, system.id, "core.pdf", b"original")
-        library_helpers._set_status(live_scan_status(phase="indexing"))
+        runner.set_status(live_scan_status(phase="indexing"))
         resp = _replace(client, admin_headers, rel, "core.pdf", b"new")
         assert resp.status_code == 409
         assert "scan or OCR run" in resp.json()["detail"]
@@ -409,44 +409,44 @@ class TestReplaceEndpoint:
         rel, system = shelf
         busy = _shelve(rel, system.id, "first.pdf", _pdf("first"))
         book = _shelve(rel, system.id, "second.pdf", _pdf("second"))
-        library_helpers._set_status(
-            live_scan_status(phase="indexing", kind=_reindex_queue.REINDEX_KIND)
+        runner.set_status(
+            live_scan_status(phase="indexing", kind=reindex_queue.REINDEX_KIND)
         )
-        _claims.claim_book(busy.id)
-        with patch.object(_reindex_queue, "drain_reindex_queue") as drain:
+        claims.claim_book(busy.id)
+        with patch.object(reindex_queue, "drain_reindex_queue") as drain:
             resp = _replace(client, admin_headers, rel, "second.pdf", _pdf("revised"))
         assert resp.status_code == 200, resp.text
         assert drain.called
-        assert _reindex_queue._pop_queued() == book.id
+        assert reindex_queue._pop_queued() == book.id
         # The running drain's claim is its own; only the replace's was released.
-        assert _claims._claims == {busy.id}
+        assert claims._claims == {busy.id}
 
     def test_refused_while_the_replace_re_index_works_on_this_book(
         self, client, admin_headers, shelf
     ):
         rel, system = shelf
         book = _shelve(rel, system.id, "core.pdf", b"original")
-        library_helpers._set_status(
-            live_scan_status(phase="ocr", kind=_reindex_queue.REINDEX_KIND)
+        runner.set_status(
+            live_scan_status(phase="ocr", kind=reindex_queue.REINDEX_KIND)
         )
-        _claims.claim_book(book.id)
+        claims.claim_book(book.id)
         resp = _replace(client, admin_headers, rel, "core.pdf", b"new")
         assert resp.status_code == 409
         assert "being re-indexed" in resp.json()["detail"]
         with open(os.path.join(LIB, rel, "core.pdf"), "rb") as f:
             assert f.read() == b"original"
-        assert _reindex_queue.queued_count() == 0
+        assert reindex_queue.queued_count() == 0
 
     def test_a_claim_left_by_a_dead_job_does_not_block(
         self, client, admin_headers, shelf
     ):
         rel, system = shelf
         book = _shelve(rel, system.id, "core.pdf", b"original")
-        _claims.claim_book(book.id)
-        with patch.object(_reindex_queue, "drain_reindex_queue"):
+        claims.claim_book(book.id)
+        with patch.object(reindex_queue, "drain_reindex_queue"):
             resp = _replace(client, admin_headers, rel, "core.pdf", _pdf("new"))
         assert resp.status_code == 200, resp.text
-        assert _claims._claims == set()
+        assert claims._claims == set()
 
     def test_a_batch_of_replaces_is_all_accepted_and_indexed(
         self, client, admin_headers, shelf
@@ -455,7 +455,7 @@ class TestReplaceEndpoint:
         rel, system = shelf
         names = [f"book{i}.pdf" for i in range(4)]
         books = [_shelve(rel, system.id, n, _pdf("draft")) for n in names]
-        with patch.object(library_helpers, "run_ocr_queue"):
+        with patch.object(runner, "run_ocr_queue"):
             codes = [
                 _replace(client, admin_headers, rel, n, _pdf(f"errata{i}")).status_code
                 for i, n in enumerate(names)
@@ -463,8 +463,8 @@ class TestReplaceEndpoint:
         assert codes == [200] * 4
         for i, b in enumerate(books):
             assert _search_hits(f"errata{i}") == [b.id]
-        assert _reindex_queue.queued_count() == 0
-        assert library_helpers._get_status()["running"] is False
+        assert reindex_queue.queued_count() == 0
+        assert runner.get_status()["running"] is False
 
     def test_unindexed_path_is_a_409(self, client, admin_headers, shelf):
         rel, _ = shelf

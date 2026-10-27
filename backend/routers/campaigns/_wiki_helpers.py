@@ -12,7 +12,7 @@ from fastapi import HTTPException
 from ...auth import CurrentUser
 from ...models import WikiPage, WikiPageHidden, WikiPageLink, WikiPageShare
 from ._helpers import can_view
-from .wikilinks import (
+from ...text.wikilinks import (
     LINK_RE,
     LinkTarget,
     build_target,

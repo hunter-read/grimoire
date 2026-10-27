@@ -48,10 +48,16 @@ def serve_user_file(
     ``same_origin_frame`` is for a file the reader embeds in a same-origin
     frame. The inert headers win over ``headers`` for an SVG, so a caller can't
     loosen them by accident.
+
+    Without a ``Cache-Control`` from the caller the response is ``private``: what
+    a route serves depends on who is signed in, so only that user's browser keeps
+    a copy.
     """
     media = media_type or guess_media_type(path)
     merged = {
         **(headers or {}),
         **inert_svg_headers(media, path, same_origin_frame=same_origin_frame),
     }
+    if not any(key.lower() == "cache-control" for key in merged):
+        merged["Cache-Control"] = "private"
     return FileResponse(path, media_type=media, filename=filename, headers=merged)

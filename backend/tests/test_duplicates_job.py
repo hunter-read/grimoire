@@ -213,9 +213,9 @@ class TestAnotherWorker:
         assert not os.path.exists(job.JOB.stop_file())
 
     def test_start_is_refused_while_another_worker_runs(self, client, admin_headers, monkeypatch):
-        from backend.routers.library import _helpers as lib
+        from backend.services.library_scan import runner
 
-        monkeypatch.setattr(lib, "scan_in_progress", lambda: False)
+        monkeypatch.setattr(runner, "scan_in_progress", lambda: False)
         lock = _hold_run_lock()
         try:
             resp = client.post("/api/duplicates/scan", headers=admin_headers, json={})

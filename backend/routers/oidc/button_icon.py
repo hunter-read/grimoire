@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from ...config import OIDC_ENV, get_db
 from ...services.oidc_button import current_icon
-from ..settings._helpers import _get_raw
+from ...services.app_settings import get_raw
 
 # The icon is always a server-normalized PNG, but it is fetched pre-auth by
 # anyone, so lock the response down anyway: no sniffing, and nothing it could
@@ -25,7 +25,7 @@ def serve_oidc_button_icon(
 ):
     # Not gated on OIDC being fully configured: the icon is only the admin's
     # chosen login-page logo, and the settings preview shows it mid-setup.
-    raw = _get_raw(db)
+    raw = get_raw(db)
     icon = current_icon(raw.get("oidc_button_icon", ""), OIDC_ENV.get("oidc_button_icon"))
     if icon is None:
         raise HTTPException(404, "No login button icon")

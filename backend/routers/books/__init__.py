@@ -22,7 +22,6 @@ from .metadata import (
 from .pages import get_book_toc, serve_book_page, get_page_text, get_page_words
 from .tiles import serve_book_page_tile
 from .export import detect_book_page_shapes, export_book, get_book_page_size, save_book_export
-from ._helpers import _invalidate_book_cache  # re-exported for library.py
 from .._bulk_schemas import BulkResult, BulkTagResult
 from .._page_export import DetectShapesResponse, PageSizeResponse, SaveExportResponse
 from .._metadata_lookup import (
@@ -42,11 +41,11 @@ from ._schemas import (
 
 router = APIRouter(prefix="/books", tags=["books"])
 
-__all__ = ["router", "_invalidate_book_cache"]
+__all__ = ["router"]
 
 # Browsing the whole book library is blocked for guests. Reading an individual
 # book by id is allowed, but the file/thumbnail/page/toc/text/words handlers each
-# enforce access themselves (via _assert_book_access): guests are limited to books
+# enforce access themselves (via assert_book_access): guests are limited to books
 # shared into their campaign, and explicit books are gated on allow_explicit.
 router.add_api_route(
     "", list_books, methods=["GET"], summary="List books",

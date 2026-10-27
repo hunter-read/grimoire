@@ -22,8 +22,8 @@ from typing import Any, Literal, Optional
 
 from sqlalchemy.orm import Session
 
-from .. import config
-from ..models import AppSetting
+from ... import config
+from ...models import AppSetting
 
 # app_settings keys for the role defaults, and their values when unset.
 ROLE_SETTING_KEYS = {"gm": "share_links_role_gm", "player": "share_links_role_player"}

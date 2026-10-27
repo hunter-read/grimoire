@@ -21,7 +21,7 @@ from ...config import BASE_URL
 from ...models import ShareLink, User
 from ...models.base import utc_iso
 from ...services import share_links as policy
-from . import _content
+from . import content as _content
 
 # How long a correct password keeps a link unlocked in that browser.
 UNLOCK_HOURS = 12

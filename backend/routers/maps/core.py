@@ -16,7 +16,6 @@ from .._user_files import serve_user_file
 from ...http_headers import content_disposition
 from ...config import (
     _MEDIA_FILE_CACHE_HEADERS,
-    _PAGE_CACHE_HEADERS,
     _THUMBNAIL_CACHE_HEADERS,
     PAGE_CACHE_DIR,
     THUMB_DIR,
@@ -34,13 +33,13 @@ from ...auth import require_gm_or_admin, get_current_user, CurrentUser
 from ...indexer import MAP_OPAQUE_EXTS, archive_ext, archive_mime, is_vtt_data, slugify
 from .._browse import media_browse_params
 from .._bulk_schemas import BulkAddTags, BulkFolderTags
-from .._media_access import assert_media_access, guest_visible_variants
+from ...services.media.access import assert_media_access, guest_visible_variants
 from .._thumbnails import clear_stale_thumbnail_flag as _clear_stale_thumbnail_flag
-from ._helpers import (
-    _is_pdf,
-    _map_image_info,
-    _map_media_type,
-    _sniff_image_mime,
+from ...services.media.maps import (
+    is_pdf,
+    map_image_info,
+    map_media_type,
+    sniff_image_mime,
     render_map_pdf_page,
     render_map_preview,
     vtt_authoring_doc,
@@ -48,10 +47,11 @@ from ._helpers import (
     vtt_image_size,
     vtt_metadata,
 )
+from ...services.media.map_export import export_grid, has_single_raster
 from ._schemas import FolderTagsUpdate, MapBulkUpdate, MapUpdate, VttAuthoringUpdate
-from .otfbm import MIN_SOURCE_PX
-from .uvtt import build_uvtt, check_grid_plausible, resolve_grid, round2
-from .vtt_authoring import VttDataError, doc_counts, normalize_vtt_data
+from ...services.media.otfbm import MIN_SOURCE_PX
+from ...services.media.uvtt import build_uvtt, check_grid_plausible, resolve_grid, round2
+from ...services.media.vtt_authoring import VttDataError, doc_counts, normalize_vtt_data
 
 router = APIRouter()
 
@@ -146,7 +146,7 @@ def get_map(
     if not m:
         raise HTTPException(404)
     assert_media_access(db, current_user, "map", m.id)
-    img_info = _map_image_info(
+    img_info = map_image_info(
         m.filepath, m.relative_path, (m.grid_width, m.grid_height, m.grid_px)
     )
     folder_path = _folder_path(m.relative_path)
@@ -198,7 +198,7 @@ def serve_map_file(
     if arc_ext:
         media = archive_mime(arc_ext)
     else:
-        media = _map_media_type(m.filepath)
+        media = map_media_type(m.filepath)
     # Videos are viewed in place (MapVideoPane points a <video src> straight at
     # this route), so they must not arrive with a Content-Disposition that makes
     # the browser download them instead. VTT data used to be exempt for the same
@@ -215,9 +215,20 @@ def serve_map_file(
     )
 
 
+def _map_image_etag(m: GenericMap, *variant: object) -> str:
+    """ETag for a rendered or extracted map image: the map's contents plus the variant.
+
+    The URL stays the same when the map file is replaced, so the browser
+    revalidates every time and this tag tells it whether its copy still holds.
+    """
+    suffix = "-".join(str(v) for v in variant)
+    return f'"{content_token(m.content_hash, m.filepath)}-{suffix}"'
+
+
 def serve_map_page(
     map_id: str,
     page_num: int,
+    request: Request,
     width: int = Query(1600, ge=MIN_RENDER_WIDTH, le=3000),
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -226,7 +237,8 @@ def serve_map_page(
 
     Image maps have exactly one page and are streamed as-is (page_num must be 1).
     PDF maps are rendered server-side with PyMuPDF and cached, mirroring the book
-    page reader but without text extraction.
+    page reader but without text extraction. A client that already holds the
+    current image gets a 304 before anything is rendered.
     """
     m = db.query(GenericMap).filter_by(id=map_id).first()
     if not m:
@@ -243,7 +255,12 @@ def serve_map_page(
     if archive_ext(m.filename):
         raise HTTPException(400, "Archives have no viewable pages")
 
-    if not _is_pdf(filepath):
+    etag = _map_image_etag(m, page_num, width)
+    if etag_matches(request, etag):
+        return Response(status_code=304, headers={"ETag": etag, **_THUMBNAIL_CACHE_HEADERS})
+    headers = {**_THUMBNAIL_CACHE_HEADERS, "ETag": etag}
+
+    if not is_pdf(filepath):
         if page_num != 1:
             raise HTTPException(400, "Image maps have only one page")
         ext = Path(filepath).suffix.lower()
@@ -261,13 +278,13 @@ def serve_map_page(
                 return StreamingResponse(
                     io.BytesIO(render_map_preview(filepath, width)),
                     media_type="image/webp",
-                    headers=_PAGE_CACHE_HEADERS,
+                    headers=headers,
                 )
             except Exception:
                 # A format Pillow cannot decode still has a usable original.
                 logger.warning(f"Map preview render failed, serving original: {filepath}")
-        media = _map_media_type(filepath)
-        return serve_user_file(filepath, media, headers=_PAGE_CACHE_HEADERS)
+        media = map_media_type(filepath)
+        return serve_user_file(filepath, media, headers=headers)
 
     try:
         img_bytes = render_map_pdf_page(filepath, page_num, width)
@@ -275,9 +292,7 @@ def serve_map_page(
         raise HTTPException(400, str(e))
     except Exception:
         raise HTTPException(500, "Failed to render page") from None
-    return StreamingResponse(
-        io.BytesIO(img_bytes), media_type="image/webp", headers=_PAGE_CACHE_HEADERS
-    )
+    return StreamingResponse(io.BytesIO(img_bytes), media_type="image/webp", headers=headers)
 
 
 def _load_accessible_map(map_id: str, current_user: CurrentUser, db: Session) -> GenericMap:
@@ -296,6 +311,7 @@ def _load_accessible_map(map_id: str, current_user: CurrentUser, db: Session) ->
 
 def serve_map_vtt_image(
     map_id: str,
+    request: Request,
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -308,58 +324,18 @@ def serve_map_vtt_image(
     m = _load_accessible_map(map_id, current_user, db)
     if not is_vtt_data(m.filename):
         raise HTTPException(400, "Not a Universal VTT map")
+    etag = _map_image_etag(m, "vtt")
+    if etag_matches(request, etag):
+        return Response(status_code=304, headers={"ETag": etag, **_THUMBNAIL_CACHE_HEADERS})
     try:
         raw = vtt_image_bytes(m.filepath)
     except ValueError as e:
         raise HTTPException(400, str(e)) from None
     return StreamingResponse(
-        io.BytesIO(raw), media_type=_sniff_image_mime(raw), headers=_PAGE_CACHE_HEADERS
+        io.BytesIO(raw),
+        media_type=sniff_image_mime(raw),
+        headers={**_THUMBNAIL_CACHE_HEADERS, "ETag": etag},
     )
-
-
-def _has_single_raster(m: GenericMap) -> bool:
-    """Whether a map is one still picture an export can be built from.
-
-    A PDF, video or archive has no single raster to embed. A .uvtt *is* one of
-    these files: its picture is inside the envelope, so it qualifies.
-    """
-    is_vtt = is_vtt_data(m.filename)
-    opaque = Path(m.filepath).suffix.lower() in MAP_OPAQUE_EXTS
-    return not (_is_pdf(m.filepath) or archive_ext(m.filename) or (opaque and not is_vtt))
-
-
-def _export_grid(m: GenericMap, is_vtt: bool) -> tuple[dict, dict]:
-    """Measure a map and resolve the grid an export uses: ``(info, grid)``.
-
-    Shared by the Universal VTT and OTFBM exports so the two cannot disagree
-    about a map's grid. 400s when the picture cannot be measured.
-    """
-    info = _map_image_info(m.filepath, m.relative_path, (m.grid_width, m.grid_height, m.grid_px))
-    # A .uvtt's raster is inside the envelope, so nothing at the path measures.
-    if is_vtt and not info.get("pixel_width"):
-        px_w, px_h = vtt_image_size(m.filepath)
-        if px_w:
-            info = {**info, "pixel_width": px_w, "pixel_height": px_h}
-    if not info.get("pixel_width"):
-        raise HTTPException(400, "Map image could not be read")
-    grid = resolve_grid(m, info)
-    # As in the authoring handler: the file's own cell size is what its geometry
-    # was drawn against, so it wins over detection or a default.
-    if is_vtt and grid["source"] != "manual":
-        try:
-            file_px = (vtt_metadata(m.filepath) or {}).get("pixels_per_grid")
-        except ValueError:
-            file_px = None
-        # The same floor a manual grid has: a file claiming a sub-pixel cell
-        # would otherwise scale the OTFBM background up by thousands.
-        if isinstance(file_px, (int, float)) and file_px >= MIN_SOURCE_PX:
-            grid = {
-                "width": round2(info["pixel_width"] / file_px),
-                "height": round2(info["pixel_height"] / file_px),
-                "px": float(file_px),
-                "source": "vtt",
-            }
-    return info, grid
 
 
 def export_map_uvtt(
@@ -389,7 +365,7 @@ def export_map_uvtt(
     # these files, so it re-exports rather than being rejected: the GM may have
     # edited its walls, and the export is how the edit leaves Grimoire.
     is_vtt = is_vtt_data(m.filename)
-    if not _has_single_raster(m):
+    if not has_single_raster(m):
         raise HTTPException(400, "Only image maps can be exported to Universal VTT")
 
     # A raster map already linked to a real Universal VTT file has nothing to
@@ -408,7 +384,7 @@ def export_map_uvtt(
         ):
             raise HTTPException(400, "This map is already linked to a Universal VTT file")
 
-    info, grid = _export_grid(m, is_vtt)
+    info, grid = export_grid(m, is_vtt)
 
     try:
         mtime = int(os.path.getmtime(m.filepath))
@@ -482,7 +458,7 @@ def get_map_authoring(
     """
     m = _load_accessible_map(map_id, current_user, db)
     is_vtt = is_vtt_data(m.filename)
-    info = _map_image_info(m.filepath, m.relative_path, (m.grid_width, m.grid_height, m.grid_px))
+    info = map_image_info(m.filepath, m.relative_path, (m.grid_width, m.grid_height, m.grid_px))
     # A .uvtt's raster is base64 inside the envelope, so nothing at the path can
     # be measured and `info` comes back with no dimensions. The editor sizes its
     # canvas and grid overlay from these, so measure the embedded image instead.
@@ -651,7 +627,7 @@ def update_map(
     # genuinely have one. The UI surfaces this as a confirmable notice.
     warning = None
     if m.grid_width and m.grid_height:
-        info = _map_image_info(m.filepath, m.relative_path)
+        info = map_image_info(m.filepath, m.relative_path)
         warning = check_grid_plausible(
             info.get("pixel_width"), info.get("pixel_height"), m.grid_width, m.grid_height
         )

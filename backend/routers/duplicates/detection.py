@@ -31,9 +31,9 @@ def start_scan(
     library, and comparing rows the scanner is actively rewriting produces groups
     that are wrong by the time they are displayed.
     """
-    from ..library import _helpers as _lib
+    from ...services.library_scan import runner
 
-    if _lib.scan_in_progress():
+    if runner.scan_in_progress():
         raise HTTPException(
             status_code=409,
             detail="A library scan is already running; retry after it completes.",

@@ -1,7 +1,6 @@
 """Maintenance package — admin-only housekeeping tasks."""
 from fastapi import APIRouter
 
-from ._helpers import run_cleanup_sync  # re-exported for the scheduler
 from ._schemas import (
     CleanupPreviewResponse,
     CleanupResponse,

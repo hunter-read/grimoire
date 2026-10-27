@@ -21,7 +21,8 @@ from ...auth import CurrentUser
 from ...indexer import archive_ext, archive_mime, is_vtt_data, slugify
 from ...indexer.models3d import model_mime
 from ...models import Audio, Book, GenericMap, Model3D, Token
-from .._media_access import assert_media_access
+from ...services.media.access import assert_media_access
+from ...services.media.audio import AUDIO_MIME
 
 _TABLES: dict[str, Any] = {
     "book": Book,
@@ -72,9 +73,9 @@ def assert_readable(db: Session, user: CurrentUser, resource_type: str, record: 
     Exactly the check the item's own ``/file`` route makes.
     """
     if resource_type == "book":
-        from ..books._helpers import _assert_book_access
+        from ...services.books.access import assert_book_access
 
-        _assert_book_access(db, record, user)
+        assert_book_access(db, record, user)
         return
     explicit = bool(getattr(record, "is_explicit", False)) if resource_type in (
         "token",
@@ -134,10 +135,10 @@ def served_filename(resource_type: str, record: Any) -> str:
 
 
 def _vtt_extension(filepath: str) -> str:
-    from ..maps._helpers import _sniff_image_mime, vtt_image_bytes
+    from ...services.media.maps import sniff_image_mime, vtt_image_bytes
 
     try:
-        mime = _sniff_image_mime(vtt_image_bytes(filepath))
+        mime = sniff_image_mime(vtt_image_bytes(filepath))
     except (ValueError, OSError):
         return ".png"
     return {"image/jpeg": ".jpg", "image/webp": ".webp", "image/gif": ".gif"}.get(mime, ".png")
@@ -187,9 +188,9 @@ def shared_file(resource_type: str, record: Any) -> SharedFile:
         return SharedFile(media_type=record.mime_type or "application/pdf", path=record.filepath)
 
     if resource_type == "map":
-        from ..maps._helpers import (
-            _map_media_type,
-            _sniff_image_mime,
+        from ...services.media.maps import (
+            map_media_type,
+            sniff_image_mime,
             render_map_pdf_page,
             vtt_image_bytes,
         )
@@ -201,17 +202,15 @@ def shared_file(resource_type: str, record: Any) -> SharedFile:
                 return SharedFile(media_type="image/webp", content=raw)
             if kind == "vtt":
                 raw = vtt_image_bytes(record.filepath)
-                return SharedFile(media_type=_sniff_image_mime(raw), content=raw)
+                return SharedFile(media_type=sniff_image_mime(raw), content=raw)
         except Exception:  # an unreadable PDF or envelope serves nothing
             raise HTTPException(404, "Not found") from None
-        return SharedFile(media_type=_map_media_type(record.filepath), path=record.filepath)
+        return SharedFile(media_type=map_media_type(record.filepath), path=record.filepath)
 
     if resource_type == "audio":
-        from ..audio.core import _AUDIO_MIME
-
         ext = Path(record.filepath).suffix.lower()
         return SharedFile(
-            media_type=_AUDIO_MIME.get(ext, "application/octet-stream"), path=record.filepath
+            media_type=AUDIO_MIME.get(ext, "application/octet-stream"), path=record.filepath
         )
 
     if resource_type == "model":
@@ -241,7 +240,7 @@ def link_file(link: Any, record: Any) -> SharedFile:
     """What a link serves, honouring its variant. 404s rather than 400s: to
     someone holding a link, a map that can no longer be resized is gone."""
     if link.variant == "otfbm":
-        from ..maps.otfbm_export import otfbm_background
+        from ..media.map_export import otfbm_background
 
         try:
             _plan, raw, ext = otfbm_background(record, (link.variant_options or {}).get("cell"))

@@ -2,8 +2,9 @@
 
 # Rendered pages are content-addressed (the cache key includes a digest of the
 # file's bytes), so a given URL's body can never change — hence "immutable".
-# Replacing the file changes the token and therefore the URL.
-_PAGE_CACHE_HEADERS = {"Cache-Control": "max-age=31536000, immutable"}
+# Replacing the file changes the token and therefore the URL. Who may read a page
+# depends on the signed-in user, not the URL, so only their browser keeps it.
+_PAGE_CACHE_HEADERS = {"Cache-Control": "private, max-age=31536000, immutable"}
 
 # Original media files (a 50MB battlemap, an animated .webm) are served straight
 # off disk at their full size, and unlike rendered pages their URL is not
@@ -14,9 +15,9 @@ _PAGE_CACHE_HEADERS = {"Cache-Control": "max-age=31536000, immutable"}
 # holding hundreds of megabytes of originals.
 _MEDIA_FILE_CACHE_HEADERS = {"Cache-Control": "private, max-age=300"}
 
-# Media thumbnails (map/token grid cards). Unlike rendered pages these are NOT
-# content-addressed — the URL is /maps/{id}/thumbnail and stays the same when the
-# underlying image is replaced — so they must not be "immutable", or a browser
+# Media thumbnails (map/token grid cards) and map images. Unlike rendered book
+# pages these are NOT content-addressed — the URL is /maps/{id}/thumbnail (or
+# /maps/{id}/page/1) and stays the same when the underlying image is replaced — so they must not be "immutable", or a browser
 # would never re-check and a replaced map would show its old thumbnail forever.
 # "no-cache" still caches the bytes; it just requires a revalidation, which the
 # ETag then answers with a cheap 304. They are also access-controlled (guests see

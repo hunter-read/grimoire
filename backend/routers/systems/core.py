@@ -10,8 +10,8 @@ from ...config import get_db
 from ...models import Book, BookFolder, GameSystem, User
 from ...services import access_control, bulk_service, tag_service, variants
 from .._bulk_schemas import BulkAddTags
-from ..books._helpers import _enforce_campaign_visibility, pop_access_level
-from ._helpers import (
+from ...services.books.access import enforce_campaign_visibility, pop_access_level
+from ...services.systems import (
     get_visible_system,
     load_browsable_system,
     resolve_cover_book_id,
@@ -450,12 +450,12 @@ def _enforce_system_campaign_visibility(db: Session, system: GameSystem) -> None
     its own, so the same campaign rule that applies to a directly-restricted
     book has to reach those too — otherwise "restrict the whole D&D shelf" would
     leave each book still shared with the players. Books carrying an explicit
-    level are skipped by ``_enforce_campaign_visibility`` itself, which re-runs
+    level are skipped by ``enforce_campaign_visibility`` itself, which re-runs
     the full cascade per book rather than assuming the system's level applies.
     """
     books = db.query(Book).filter(Book.game_system_id == system.id).all()
     for book in books:
-        _enforce_campaign_visibility(db, book)
+        enforce_campaign_visibility(db, book)
 
 
 def _apply_rename(db: Session, system: GameSystem, payload: dict) -> None:

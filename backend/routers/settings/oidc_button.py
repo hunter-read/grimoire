@@ -16,7 +16,7 @@ from ...services.oidc_button import (
     remove_icon,
     store_icon,
 )
-from ._helpers import _get_raw, _set, _to_typed
+from ...services.app_settings import get_raw, set_raw, to_typed
 
 
 def _ensure_icon_unlocked() -> None:
@@ -39,9 +39,9 @@ def upload_oidc_button_icon(
         png = normalize_icon(data)
     except IconError as e:
         raise HTTPException(400, str(e)) from e
-    _set(db, "oidc_button_icon", store_icon(png))
+    set_raw(db, "oidc_button_icon", store_icon(png))
     db.commit()
-    return _to_typed(_get_raw(db))
+    return to_typed(get_raw(db))
 
 
 def delete_oidc_button_icon(
@@ -50,6 +50,6 @@ def delete_oidc_button_icon(
 ):
     _ensure_icon_unlocked()
     remove_icon()
-    _set(db, "oidc_button_icon", "")
+    set_raw(db, "oidc_button_icon", "")
     db.commit()
-    return _to_typed(_get_raw(db))
+    return to_typed(get_raw(db))

@@ -8,8 +8,8 @@ import fitz  # type: ignore[import-untyped]
 import pytest
 
 from backend.render import ops, pool, worker
-from backend.routers.books._render_cache import render_errors
-from backend.routers.maps._helpers import render_map_pdf_page
+from backend.routers._render_errors import render_errors
+from backend.services.media.maps import render_map_pdf_page
 from backend.tests.conftest import make_book, make_game_system, make_map
 
 

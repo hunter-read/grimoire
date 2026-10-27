@@ -27,7 +27,8 @@ from ...auth import CurrentUser, get_current_user
 from ...config import BASE_URL, get_db
 from ...models import Campaign, CampaignMember, CampaignSchedule, SessionAvailability, User
 from ._calendar import build_calendar, build_event, session_uid
-from ._helpers import can_view, compute_next_sessions, get_campaign_or_404
+from ._helpers import can_view, get_campaign_or_404
+from ...services.campaigns.schedule import compute_next_sessions
 
 # How far ahead a subscription feed publishes. Calendar apps re-poll, so this
 # only has to outrun the polling interval by a comfortable margin.

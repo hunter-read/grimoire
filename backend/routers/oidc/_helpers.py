@@ -21,7 +21,7 @@ with warnings.catch_warnings():
 
 from ...models import User
 from ...usernames import match_username, username_taken
-from ..settings._helpers import _VALID_SIGNING_ALGS
+from ...services.app_settings import VALID_SIGNING_ALGS
 from ._state import _jwks_cache, _state_store  # noqa: F401  (re-exported)
 
 
@@ -162,7 +162,7 @@ def _validate_id_token(
     expected_nonce: str,
     allowed_alg: str,
 ) -> dict:
-    if allowed_alg not in _VALID_SIGNING_ALGS:
+    if allowed_alg not in VALID_SIGNING_ALGS:
         # HS256 used to be offered, but a shared-secret token can't be checked
         # against the provider's published keys, so it could never sign in.
         unsupported = (

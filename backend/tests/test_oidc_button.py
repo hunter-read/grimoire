@@ -38,7 +38,7 @@ def branding_dir(tmp_path, monkeypatch):
 def oidc_env(monkeypatch):
     """A mutable copy of OIDC_ENV patched into every module that reads it."""
     import backend.routers.oidc.button_icon as icon_router
-    import backend.routers.settings._helpers as helpers
+    import backend.services.app_settings as helpers
     import backend.routers.settings.oidc_button as settings_icon
 
     env = dict(helpers.OIDC_ENV)
@@ -359,7 +359,7 @@ class TestSettingsAPI:
         assert body["oidc_button_radius"] == ""
 
     def test_invalid_env_style_warns(self, oidc_env, caplog):
-        import backend.routers.settings._helpers as helpers
+        import backend.services.app_settings as helpers
 
         oidc_env["oidc_button_text_color"] = "white"
         oidc_env["oidc_button_radius"] = "-3"

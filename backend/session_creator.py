@@ -16,7 +16,7 @@ _stop_event = threading.Event()
 
 def _create_upcoming_sessions(db) -> None:
     from .models import Campaign, CampaignSchedule, SessionNote
-    from .routers.campaigns._helpers import compute_next_sessions
+    from .services.campaigns.schedule import compute_next_sessions
 
     tomorrow = (datetime.date.today() + datetime.timedelta(days=1)).isoformat()
 

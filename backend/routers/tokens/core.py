@@ -15,7 +15,7 @@ from ...config import _THUMBNAIL_CACHE_HEADERS, THUMB_DIR, get_db
 from ...models import Token, TokenFolder
 from ...models.base import utc_iso
 from ...services import bulk_service, tag_service, variants
-from ..token_frames._helpers import frame_folder_paths
+from ...services.token_frames import frame_folder_paths
 from ...services.browse.media import MediaBrowse, MediaBrowser
 from ...services.content_cache import content_token
 from ...file_cache import etag_matches
@@ -23,9 +23,9 @@ from ...auth import require_gm_or_admin, get_current_user, CurrentUser
 from ...indexer import archive_ext, archive_mime, slugify
 from .._browse import media_browse_params
 from .._bulk_schemas import BulkAddTags, BulkFolderTags
-from .._media_access import assert_media_access, guest_visible_variants
+from ...services.media.access import assert_media_access, guest_visible_variants
 from .._thumbnails import clear_stale_thumbnail_flag as _clear_stale_thumbnail_flag
-from ._helpers import _allow_explicit
+from ...services.media.access import allow_explicit
 from ._schemas import FolderTagsUpdate, TokenBulkUpdate, TokenUpdate
 
 router = APIRouter()
@@ -41,7 +41,7 @@ def list_tokens(
     # Filtering, ordering and the folder scope all run in SQL (issue #221); see
     # services/browse/media.py.
     browser = MediaBrowser(
-        db, "token", current_user.id, hide_explicit=not _allow_explicit(db, current_user.id)
+        db, "token", current_user.id, hide_explicit=not allow_explicit(db, current_user.id)
     )
     total, tokens = browser.page(params, limit, offset)
     token_tags = tag_service.display_tags_for_resources(db, "token", [t.id for t in tokens])
@@ -77,7 +77,7 @@ def list_token_groups(
 ):
     """Every folder holding tokens that match the filters, with how many."""
     browser = MediaBrowser(
-        db, "token", current_user.id, hide_explicit=not _allow_explicit(db, current_user.id)
+        db, "token", current_user.id, hide_explicit=not allow_explicit(db, current_user.id)
     )
     total, groups = browser.groups(params)
     return {"total": total, "groups": groups}

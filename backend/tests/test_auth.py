@@ -297,7 +297,7 @@ class TestTokenType:
 
         from backend import auth
         from backend.models import ShareLink
-        from backend.routers.share._links import unlock_token
+        from backend.services.share_links.links import unlock_token
 
         token = unlock_token(ShareLink(id="l1", password_hash="h"))
         with pytest.raises(jwt.InvalidSignatureError):

@@ -25,8 +25,8 @@ from ...services.browse.media import MediaBrowse, MediaBrowser
 from ...services.content_cache import content_token
 from .._browse import media_browse_params
 from .._bulk_schemas import BulkAddTags, BulkFolderTags
-from .._media_access import assert_media_access, guest_visible_variants
-from ._helpers import _allow_explicit
+from ...services.media.access import assert_media_access, guest_visible_variants
+from ...services.media.access import allow_explicit
 from ._schemas import FolderTagsUpdate, Model3DBulkUpdate, Model3DUpdate
 
 router = APIRouter()
@@ -42,7 +42,7 @@ def list_models(
     # Filtering, ordering and the folder scope all run in SQL (issue #221); see
     # services/browse/media.py.
     browser = MediaBrowser(
-        db, "model", current_user.id, hide_explicit=not _allow_explicit(db, current_user.id)
+        db, "model", current_user.id, hide_explicit=not allow_explicit(db, current_user.id)
     )
     total, rows = browser.page(params, limit, offset)
     model_tags = tag_service.display_tags_for_resources(db, "model", [m.id for m in rows])
@@ -82,7 +82,7 @@ def list_model_groups(
 ):
     """Every folder holding rows that match the filters, with how many."""
     browser = MediaBrowser(
-        db, "model", current_user.id, hide_explicit=not _allow_explicit(db, current_user.id)
+        db, "model", current_user.id, hide_explicit=not allow_explicit(db, current_user.id)
     )
     total, groups = browser.groups(params)
     return {"total": total, "groups": groups}

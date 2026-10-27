@@ -6,7 +6,7 @@ from ...auth import CurrentUser, require_admin
 from ...config import get_db, logger
 from ...metadata import export as sidecar_export
 from ...metadata import settings as sidecar_settings
-from . import _helpers
+from ...services import library_cleanup
 from ._schemas import SidecarSettings
 
 LIBRARY_UNAVAILABLE_DETAIL = (
@@ -15,9 +15,9 @@ LIBRARY_UNAVAILABLE_DETAIL = (
 
 
 def _refuse_during_scan() -> None:
-    from ..library import _helpers as _lib
+    from ...services.library_scan import runner
 
-    if _lib.scan_in_progress():
+    if runner.scan_in_progress():
         logger.debug("Cleanup: blocked - library scan is currently running")
         raise HTTPException(
             status_code=409,
@@ -39,7 +39,7 @@ def cleanup_missing(
     logger.debug("Cleanup: manual trigger received")
     _refuse_during_scan()
 
-    if _helpers.library_root_unavailable(db):
+    if library_cleanup.library_root_unavailable(db):
         if not force:
             logger.warning("Cleanup: refused - the library folder is missing or empty")
             raise HTTPException(status_code=409, detail=LIBRARY_UNAVAILABLE_DETAIL)
@@ -47,7 +47,7 @@ def cleanup_missing(
 
     logger.debug("Cleanup: no scan running, proceeding")
     try:
-        removed = _helpers._do_cleanup(db)
+        removed = library_cleanup.do_cleanup(db)
         logger.info(f"Cleanup complete: {removed}")
         return {"removed": removed}
     except Exception:
@@ -62,7 +62,7 @@ def cleanup_missing_preview(
     """Dry run of the cleanup: what is missing, out of how much, and whether the
     library folder itself looks unmounted. Deletes nothing."""
     _refuse_during_scan()
-    return _helpers.preview_cleanup(db)
+    return library_cleanup.preview_cleanup(db)
 
 
 def get_sidecar_settings(
@@ -114,9 +114,9 @@ def export_sidecars(
     files were skipped as foreign, and whether the mount is writable — in the
     response rather than in a log they have to go find.
     """
-    from ..library import _helpers as _lib
+    from ...services.library_scan import runner
 
-    if _lib.scan_in_progress():
+    if runner.scan_in_progress():
         # A scan rewrites the very rows being exported, so the sidecars would
         # capture a moving target.
         raise HTTPException(

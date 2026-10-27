@@ -7,7 +7,7 @@ import uuid
 
 import pytest
 
-from backend.routers.campaigns.wikilinks import (
+from backend.text.wikilinks import (
     build_target,
     extract_headings,
     find_heading,

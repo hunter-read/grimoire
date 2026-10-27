@@ -116,8 +116,8 @@ def apply(db: Session) -> None:
     Called on app startup and after settings are updated.
     """
     from .models import AppSetting
-    from .routers.library import run_rescan_sync
-    from .routers.maintenance import run_cleanup_sync
+    from .services.library_scan.runner import run_rescan_sync
+    from .services.library_cleanup import run_cleanup_sync
 
     rows = {r.key: r.value for r in db.query(AppSetting).all() if r.value is not None}
     enabled = rows.get("rescan_schedule_enabled", "false") == "true"

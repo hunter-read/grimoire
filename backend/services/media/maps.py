@@ -1,4 +1,7 @@
-"""Image metadata helpers for map endpoints."""
+"""Reading map files: media type, image size and grid, previews, PDF pages and VTT data.
+
+Used by the maps routes, map share links and the indexer's thumbnails.
+"""
 import base64
 import binascii
 import hashlib
@@ -23,11 +26,11 @@ from .vtt_authoring import VttDataError, normalize_vtt_data
 _VTT_MIME = "application/json"
 
 
-def _is_pdf(filepath: str) -> bool:
+def is_pdf(filepath: str) -> bool:
     return Path(filepath).suffix.lower() == ".pdf"
 
 
-def _map_media_type(filepath: str) -> str:
+def map_media_type(filepath: str) -> str:
     """Content type for a non-archive map file.
 
     Videos and VTT data need real MIME types — the old ``f"image/{ext}"`` guess
@@ -129,7 +132,7 @@ def _estimate_grid(
     return best
 
 
-def _map_image_info(
+def map_image_info(
     filepath: str, relative_path: str, override: Optional[tuple] = None
 ) -> dict:
     """Measure a map file and infer its grid.
@@ -161,7 +164,7 @@ def _map_image_info(
     # VTT viewer reports the real pixel size once it parses the embedded image.
     if ext in MAP_OPAQUE_EXTS:
         return info
-    if _is_pdf(filepath):
+    if is_pdf(filepath):
         info["is_pdf"] = True
         try:
             doc_info = render_pool.document_info(filepath)
@@ -315,7 +318,7 @@ def _vtt_get(data: dict, *names: str) -> Any:
     return None
 
 
-def _sniff_image_mime(raw: bytes) -> str:
+def sniff_image_mime(raw: bytes) -> str:
     """Detect the image type of decoded VTT bytes from its magic number.
 
     The envelope does not name the format and exporters vary (PNG from
@@ -433,7 +436,7 @@ def vtt_authoring_doc(filepath: str) -> Optional[dict]:
 def vtt_image_size(filepath: str) -> tuple[Optional[int], Optional[int]]:
     """Pixel dimensions of the battlemap embedded in a Universal VTT file.
 
-    ``_map_image_info`` cannot measure these: the raster lives inside a JSON
+    ``map_image_info`` cannot measure these: the raster lives inside a JSON
     envelope as base64, so there is nothing for Pillow to open at the path. The
     editor needs real dimensions to size its canvas and grid overlay, so this
     decodes the image and measures it. Returns ``(None, None)`` rather than

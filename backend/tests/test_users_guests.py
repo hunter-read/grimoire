@@ -416,7 +416,7 @@ class TestGuestHoldingCredentials:
 
         from backend.config import SessionLocal
         from backend.models import ApiKey, ShareLink, User, UserAccessGrant
-        from backend.routers.campaigns._helpers import _USER_DELETE_ONLY_TABLES
+        from backend.services.campaigns.user_data import _USER_DELETE_ONLY_TABLES
 
         keep, absorb = guest_pair
         src = absorb["user_id"]

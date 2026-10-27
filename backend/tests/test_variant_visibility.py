@@ -216,7 +216,7 @@ class TestStillReachable:
     def test_orphaned_system_pruning_counts_variants(self, system):
         """A system whose only books are variants is not empty — it must survive."""
         from backend.models import GameSystem
-        from backend.routers.maintenance._helpers import _prune_orphaned_systems
+        from backend.services.library_cleanup import _prune_orphaned_systems
 
         parent = make_book(system_id=system.id)
         child = make_book(system_id=system.id)

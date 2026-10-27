@@ -12,7 +12,7 @@ import json
 import pytest
 from PIL import Image
 
-from backend.routers.maps.otfbm import (
+from backend.services.media.otfbm import (
     MAX_CELL,
     MAX_MAPSIZE,
     MAX_OUTPUT_PIXELS,
@@ -182,7 +182,7 @@ class TestRenderOnce:
     def test_concurrent_cold_fetches_render_once(self, monkeypatch, raster_map):
         import threading
 
-        from backend.routers.maps import otfbm_export
+        from backend.services.media import map_export as otfbm_export
 
         calls = []
         real = otfbm_export.render_otfbm_image
@@ -390,9 +390,9 @@ class TestImageEndpoint:
             filename="empty.uvtt", filepath=str(path), relative_path="DnD/Maps/empty.uvtt"
         )
         # Let it past measurement, so the failure is the decode itself.
-        from backend.routers.maps import core
+        from backend.services.media import map_export
 
-        monkeypatch.setattr(core, "vtt_image_size", lambda _p: (600, 480))
+        monkeypatch.setattr(map_export, "vtt_image_size", lambda _p: (600, 480))
         r = client.get(f"/api/maps/{m.id}/otfbm/image", headers=admin_headers)
         assert r.status_code == 400
 
@@ -425,7 +425,7 @@ class TestNeedsSharePermission:
 class TestBackgroundCache:
     def test_second_render_is_served_from_cache(self, client, admin_headers, raster_map, monkeypatch):
         first = client.get(f"/api/maps/{raster_map.id}/otfbm/image", params={"cell": 33}, headers=admin_headers)
-        from backend.routers.maps import otfbm_export
+        from backend.services.media import map_export as otfbm_export
 
         def refuse(*_a, **_k):
             raise AssertionError("re-rendered a cached background")
@@ -444,7 +444,7 @@ class TestBackgroundCache:
         assert again.headers["content-type"] == "image/png"
 
     def test_unwritable_cache_still_serves(self, client, admin_headers, raster_map, monkeypatch):
-        from backend.routers.maps import otfbm_export
+        from backend.services.media import map_export as otfbm_export
 
         monkeypatch.setattr(otfbm_export, "PAGE_CACHE_DIR", "/nonexistent/cache")
         r = client.get(f"/api/maps/{raster_map.id}/otfbm/image", params={"cell": 21}, headers=admin_headers)

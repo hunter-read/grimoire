@@ -470,9 +470,9 @@ def library_mounted(monkeypatch):
     rows left by other tests - exactly what an unmounted share looks like - so
     tests about what cleanup removes opt out of the guard with this fixture.
     """
-    from backend.routers.maintenance import _helpers
+    from backend.services import library_cleanup
 
-    monkeypatch.setattr(_helpers, "library_root_unavailable", lambda db: False)
+    monkeypatch.setattr(library_cleanup, "library_root_unavailable", lambda db: False)
 
 
 # A settings patch that makes OIDC count as configured (enabled, with an issuer,

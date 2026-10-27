@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from ...auth import CurrentUser, get_current_user
 from ...config import get_db
 from ...models import SET_TYPES, Audio, AudioSet
-from .._media_access import assert_media_access
+from ...services.media.access import assert_media_access
 from ._schemas import AudioSetCreate, AudioSetUpdate
 
 

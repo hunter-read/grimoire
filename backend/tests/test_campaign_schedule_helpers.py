@@ -6,13 +6,8 @@ and the date arithmetic in nth_weekday_of_month.
 """
 import datetime
 
-from backend.routers.campaigns._helpers import (
-    compute_next_sessions,
-    merge_gm_secrets,
-    nth_weekday_of_month,
-    extract_snippet,
-    strip_gm_secrets,
-)
+from backend.routers.campaigns._helpers import merge_gm_secrets, extract_snippet, strip_gm_secrets
+from backend.services.campaigns.schedule import compute_next_sessions, nth_weekday_of_month
 
 
 class TestComputeNextSessions:

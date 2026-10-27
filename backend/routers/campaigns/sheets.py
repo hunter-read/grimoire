@@ -17,7 +17,7 @@ from ...auth import CurrentUser, get_current_user
 from ...config import get_db
 from ...models import Book, Campaign, CampaignFile
 from ...services import access_control
-from ..books._helpers import _can_read_book
+from ...services.books.access import can_read_book
 from ._helpers import can_view, get_campaign_or_404
 from .uploads import (
     _FILES_DIR,
@@ -48,7 +48,7 @@ def _sheet_books(db: Session, c: Campaign, user: CurrentUser) -> list[Book]:
     q = access_control.visible_books(db, q, access_control.load_user(db, user))
     books = [b for b in q.order_by(Book.title).all() if _is_pdf_name(b.relative_path)]
     if user.role == "guest":
-        books = [b for b in books if _can_read_book(db, b, user)]
+        books = [b for b in books if can_read_book(db, b, user)]
     return books
 
 

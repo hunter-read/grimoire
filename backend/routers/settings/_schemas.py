@@ -81,7 +81,7 @@ class LibraryWatchState(BaseModel):
     detail: str
 
 class SettingsResponse(BaseModel):
-    """The full admin settings payload, as built by `_helpers._to_typed`.
+    """The full admin settings payload, as built by `services.app_settings.to_typed`.
 
     Every field is derived from the string-valued `app_settings` table through
     `_DEFAULTS`, so each one is always present and already coerced to its final

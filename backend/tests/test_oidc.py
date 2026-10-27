@@ -92,7 +92,7 @@ class TestOIDCSettings:
         assert resp.json()["oidc_gm_group"] == "gm"
 
     def test_role_group_names_can_be_pinned_by_env(self, client, admin_headers, monkeypatch):
-        import backend.routers.settings._helpers as helpers
+        import backend.services.app_settings as helpers
 
         env = dict(helpers.OIDC_ENV)
         env["oidc_admin_group"] = "sso-admins"
@@ -123,7 +123,7 @@ class TestOIDCSettings:
         assert resp.status_code == 400
 
     def test_unsupported_env_signing_alg_is_logged(self, monkeypatch, caplog):
-        import backend.routers.settings._helpers as helpers
+        import backend.services.app_settings as helpers
 
         monkeypatch.setattr(helpers, "OIDC_ENV", {"oidc_signing_alg": "HS256"})
         with caplog.at_level("WARNING", logger=helpers.logger.name):
@@ -198,7 +198,7 @@ class TestOIDCSettings:
 
     def test_unreadable_secret_counts_as_unset_and_is_logged(self, monkeypatch, caplog):
         from backend import auth, token_vault
-        from backend.routers.settings import _helpers
+        from backend.services import app_settings as _helpers
 
         sealed = token_vault.seal_secret("written-under-the-old-key")
         monkeypatch.setattr(auth, "SECRET_KEY", "a-different-secret-key-" + "k" * 20)
@@ -212,7 +212,7 @@ class TestOIDCSettings:
         )
 
     def test_env_lock_blocks_individual_fields(self, client, admin_headers, monkeypatch):
-        import backend.routers.settings._helpers as helpers
+        import backend.services.app_settings as helpers
         # Pin only the issuer URL via env
         env = dict(helpers.OIDC_ENV)
         env["oidc_issuer_url"] = "https://locked.example.com"

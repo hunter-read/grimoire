@@ -16,7 +16,7 @@ Safe to run on every startup: once no note-categories remain it does nothing.
 """
 
 from .config import logger
-from .routers.campaigns.wikilinks import slugify
+from .text.wikilinks import slugify
 
 
 def _unique_slug(db, WikiPage, campaign_id: str, base: str) -> str:

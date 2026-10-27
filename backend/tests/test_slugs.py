@@ -14,7 +14,7 @@ import pytest
 from backend.addons import transforms
 from backend.codex import compare
 from backend.indexer import categories
-from backend.routers.campaigns import wikilinks
+from backend.text import wikilinks
 from backend.routers.characters import core as characters
 from backend.services import themes
 from backend.services.characters import rulesets

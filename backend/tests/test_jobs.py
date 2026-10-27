@@ -44,9 +44,9 @@ class TestKeys:
 
     def test_the_library_scan_keeps_its_existing_names(self):
         """Renaming them would strand state an older build left behind."""
-        from backend.routers.library import _helpers
+        from backend.services.library_scan import runner
 
-        scan = _helpers.SCAN_JOB
+        scan = runner.SCAN_JOB
         assert scan.status_key == "grimoire:scan_status"
         assert scan.stop_key == "grimoire:scan_stop"
         assert scan.heartbeat_key == "grimoire:scan_heartbeat"

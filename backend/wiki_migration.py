@@ -11,7 +11,7 @@ run finds nothing left to migrate).
 """
 
 from .config import logger
-from .routers.campaigns.wikilinks import slugify
+from .text.wikilinks import slugify
 
 
 def _unique_slug(db, WikiPage, campaign_id: str, base: str) -> str:

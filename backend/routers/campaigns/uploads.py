@@ -545,9 +545,9 @@ def delete_member_sheet(
 
 def _upload_limits(db):
     """Return (disabled, max_file_bytes, max_total_bytes); 0 bytes = unlimited."""
-    from ..settings._helpers import _get_raw
+    from ...services.app_settings import get_raw
 
-    raw = _get_raw(db)
+    raw = get_raw(db)
     disabled = raw.get("campaign_uploads_disabled") == "true"
     max_file = int(raw.get("campaign_upload_max_file_mb") or 0) * 1024 * 1024
     max_total = int(raw.get("campaign_upload_max_total_mb") or 0) * 1024 * 1024

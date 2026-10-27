@@ -57,7 +57,7 @@ def apply_updates(
     from the ``setattr`` loop. Does not commit — the caller owns the transaction.
 
     ``access_level`` is refused outright: it is an admin-only field with its own
-    translation (see ``books._helpers.pop_access_level``), so every caller must
+    translation (see ``services.books.access.pop_access_level``), so every caller must
     take it out of the payload and apply it itself.
     """
     if "access_level" in payload:

@@ -13,7 +13,7 @@ import pytest
 
 from backend.config import SessionLocal
 from backend.models import Book, GenericMap
-from backend.routers.maintenance import _helpers
+from backend.services import library_cleanup
 from backend.routers.maintenance.core import LIBRARY_UNAVAILABLE_DETAIL
 from backend.tests.conftest import (
     live_scan_status,
@@ -45,7 +45,7 @@ def mounted_library(tmp_path, monkeypatch):
     root = tmp_path / "library"
     root.mkdir()
     (root / "Some System").mkdir()
-    monkeypatch.setattr(_helpers, "LIBRARY_PATH", str(root))
+    monkeypatch.setattr(library_cleanup, "LIBRARY_PATH", str(root))
     return root
 
 
@@ -54,7 +54,7 @@ def empty_library(tmp_path, monkeypatch):
     """An empty library folder - what an unmounted mount point looks like."""
     root = tmp_path / "mountpoint"
     root.mkdir()
-    monkeypatch.setattr(_helpers, "LIBRARY_PATH", str(root))
+    monkeypatch.setattr(library_cleanup, "LIBRARY_PATH", str(root))
     return root
 
 
@@ -74,32 +74,32 @@ class TestLibraryRootUnavailable:
     def test_mounted_library_is_available(self, mounted_library, a_book):
         db = SessionLocal()
         try:
-            assert _helpers.library_root_unavailable(db) is False
+            assert library_cleanup.library_root_unavailable(db) is False
         finally:
             db.close()
 
     def test_empty_folder_with_rows_is_unavailable(self, empty_library, a_book):
         db = SessionLocal()
         try:
-            assert _helpers.library_root_unavailable(db) is True
+            assert library_cleanup.library_root_unavailable(db) is True
         finally:
             db.close()
 
     def test_missing_folder_with_rows_is_unavailable(self, tmp_path, monkeypatch, a_book):
-        monkeypatch.setattr(_helpers, "LIBRARY_PATH", str(tmp_path / "not-there"))
+        monkeypatch.setattr(library_cleanup, "LIBRARY_PATH", str(tmp_path / "not-there"))
         db = SessionLocal()
         try:
-            assert _helpers.library_root_unavailable(db) is True
+            assert library_cleanup.library_root_unavailable(db) is True
         finally:
             db.close()
 
     def test_a_file_in_place_of_the_folder_is_unavailable(self, tmp_path, monkeypatch, a_book):
         target = tmp_path / "library"
         target.write_text("not a directory")
-        monkeypatch.setattr(_helpers, "LIBRARY_PATH", str(target))
+        monkeypatch.setattr(library_cleanup, "LIBRARY_PATH", str(target))
         db = SessionLocal()
         try:
-            assert _helpers.library_root_unavailable(db) is True
+            assert library_cleanup.library_root_unavailable(db) is True
         finally:
             db.close()
 
@@ -107,17 +107,17 @@ class TestLibraryRootUnavailable:
         (empty_library / ".DS_Store").write_bytes(b"")
         db = SessionLocal()
         try:
-            assert _helpers.library_root_unavailable(db) is True
+            assert library_cleanup.library_root_unavailable(db) is True
         finally:
             db.close()
 
     def test_empty_folder_with_empty_database_is_a_new_install(
         self, empty_library, monkeypatch
     ):
-        monkeypatch.setattr(_helpers, "_db_has_library_rows", lambda db: False)
+        monkeypatch.setattr(library_cleanup, "_db_has_library_rows", lambda db: False)
         db = SessionLocal()
         try:
-            assert _helpers.library_root_unavailable(db) is False
+            assert library_cleanup.library_root_unavailable(db) is False
         finally:
             db.close()
 
@@ -125,7 +125,7 @@ class TestLibraryRootUnavailable:
         make_map(filepath=_missing_path("png"))
         db = SessionLocal()
         try:
-            assert _helpers._db_has_library_rows(db) is True
+            assert library_cleanup._db_has_library_rows(db) is True
         finally:
             db.close()
 
@@ -133,20 +133,20 @@ class TestLibraryRootUnavailable:
         def _denied(path):
             raise PermissionError(path)
 
-        monkeypatch.setattr(_helpers.os, "scandir", _denied)
-        assert _helpers._library_root_has_entries(str(mounted_library)) is False
+        monkeypatch.setattr(library_cleanup.os, "scandir", _denied)
+        assert library_cleanup._library_root_has_entries(str(mounted_library)) is False
 
     def test_hung_listing_counts_as_empty(self, mounted_library, monkeypatch, caplog):
-        real_scandir = _helpers.os.scandir
+        real_scandir = library_cleanup.os.scandir
 
         def _slow(path):
             time.sleep(0.3)
             return real_scandir(path)
 
-        monkeypatch.setattr(_helpers, "_FS_TIMEOUT", 0.05)
-        monkeypatch.setattr(_helpers.os, "scandir", _slow)
+        monkeypatch.setattr(library_cleanup, "_FS_TIMEOUT", 0.05)
+        monkeypatch.setattr(library_cleanup.os, "scandir", _slow)
         with caplog.at_level(logging.WARNING, logger="grimoire"):
-            assert _helpers._library_root_has_entries(str(mounted_library)) is False
+            assert library_cleanup._library_root_has_entries(str(mounted_library)) is False
         assert any("timed out" in r.getMessage() for r in caplog.records)
         time.sleep(0.3)  # let the stuck thread finish before scandir is restored
 
@@ -196,7 +196,7 @@ class TestCleanupPreview:
 
     def test_refused_while_a_scan_runs(self, client, admin_headers):
         with patch(
-            "backend.routers.library._helpers._get_status",
+            "backend.services.library_scan.runner.get_status",
             return_value=live_scan_status(),
         ):
             resp = client.get(PREVIEW, headers=admin_headers)
@@ -216,7 +216,7 @@ class TestCleanupGuard:
         assert _exists(Book, a_book.id)
 
     def test_refuses_when_library_is_missing(self, client, admin_headers, tmp_path, monkeypatch):
-        monkeypatch.setattr(_helpers, "LIBRARY_PATH", str(tmp_path / "gone"))
+        monkeypatch.setattr(library_cleanup, "LIBRARY_PATH", str(tmp_path / "gone"))
         system = make_game_system()
         book = make_book(system_id=system.id, filepath=_missing_path())
         resp = client.post(CLEANUP, headers=admin_headers)
@@ -244,10 +244,10 @@ class TestCleanupGuard:
 class TestScheduledCleanupGuard:
     def test_skips_with_a_warning_when_library_is_empty(self, empty_library, a_book, caplog):
         with caplog.at_level(logging.WARNING, logger="grimoire"):
-            _helpers.run_cleanup_sync()
+            library_cleanup.run_cleanup_sync()
         assert _exists(Book, a_book.id)
         assert any("may not be mounted" in r.getMessage() for r in caplog.records)
 
     def test_runs_when_library_is_mounted(self, mounted_library, a_book):
-        _helpers.run_cleanup_sync()
+        library_cleanup.run_cleanup_sync()
         assert not _exists(Book, a_book.id)

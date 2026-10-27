@@ -1,13 +1,17 @@
-"""Shared helpers for the systems router."""
-from typing import Iterable
+"""Which game systems a user may see, and the cover each one shows them.
+
+Shared by the systems, campaigns, favorites, tags and Codex routers.
+"""
+from typing import Any, Iterable
 
 from fastapi import HTTPException
+from sqlalchemy.orm import Session
 
-from ...models import Book, GameSystem, User
-from ...services import access_control, variants
+from ..models import Book, GameSystem, User
+from . import access_control, variants
 
 
-def system_browsable(db, system: GameSystem, current_user) -> bool:
+def system_browsable(db: Session, system: GameSystem, current_user: Any) -> bool:
     """Whether ``current_user`` may see ``system`` at all.
 
     Applies both the access level and the user's explicit-content setting, the
@@ -16,7 +20,7 @@ def system_browsable(db, system: GameSystem, current_user) -> bool:
     return system.id in browsable_system_ids(db, [system], current_user)
 
 
-def browsable_system_ids(db, systems: Iterable[GameSystem], current_user) -> set[str]:
+def browsable_system_ids(db: Session, systems: Iterable[GameSystem], current_user: Any) -> set[str]:
     """The ids of ``systems`` that ``system_browsable`` would allow.
 
     A fixed number of queries however many systems are asked about, for lists
@@ -28,7 +32,7 @@ def browsable_system_ids(db, systems: Iterable[GameSystem], current_user) -> set
     return access_control.accessible_system_ids(db, user or current_user, candidates)
 
 
-def load_browsable_system(db, system_id: str, current_user) -> GameSystem:
+def load_browsable_system(db: Session, system_id: str, current_user: Any) -> GameSystem:
     """The system, or 404 when it is missing or hidden from this user.
 
     See ``system_browsable`` for the rules.
@@ -39,7 +43,7 @@ def load_browsable_system(db, system_id: str, current_user) -> GameSystem:
     return system
 
 
-def get_visible_system(db, system_id: str, user) -> GameSystem:
+def get_visible_system(db: Session, system_id: str, user: Any) -> GameSystem:
     """The system for a GM/admin edit, or 404 when it is missing or hidden from ``user``.
 
     Edits reach only the systems the editor can see, so one outside their access
@@ -53,7 +57,7 @@ def get_visible_system(db, system_id: str, user) -> GameSystem:
     return system
 
 
-def visible_cover_id(db, cover_book_id: str | None, user) -> str | None:
+def visible_cover_id(db: Session, cover_book_id: str | None, user: Any) -> str | None:
     """``cover_book_id``, or None when it names a book ``user`` cannot see."""
     if not cover_book_id or access_control.sees_everything(user):
         return cover_book_id or None
@@ -64,7 +68,7 @@ def visible_cover_id(db, cover_book_id: str | None, user) -> str | None:
     return cover_book_id if book.first() is None else None
 
 
-def resolve_cover_book_id(db, system, user) -> str | None:
+def resolve_cover_book_id(db: Session, system: GameSystem, user: Any) -> str | None:
     """Return the system's cover book id, falling back to an auto-derived cover.
 
     Most systems don't have an explicit ``cover_book_id`` set, so we pick the

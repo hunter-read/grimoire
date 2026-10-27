@@ -75,7 +75,10 @@ def download_backup(
         record.path,
         media_type="application/zip",
         filename=record.filename,
-        headers={"Content-Disposition": content_disposition(record.filename)},
+        headers={
+            "Content-Disposition": content_disposition(record.filename),
+            "Cache-Control": "no-store",
+        },
     )
 
 
@@ -110,7 +113,7 @@ def update_backup_settings(
 ):
     """Update backup settings and re-arm the scheduler."""
     from ... import backup_scheduler
-    from ..settings._helpers import _set
+    from ...services.app_settings import set_raw
 
     config = backup_service.backup_settings(db)
 
@@ -123,14 +126,14 @@ def update_backup_settings(
             raise HTTPException(
                 400, f"backup_schedule must be one of: {', '.join(VALID_SCHEDULES)}"
             )
-        _set(db, "backup_schedule", data.backup_schedule)
+        set_raw(db, "backup_schedule", data.backup_schedule)
 
     if data.backup_schedule_hour is not None:
-        _set(db, "backup_schedule_hour", str(max(0, min(23, data.backup_schedule_hour))))
+        set_raw(db, "backup_schedule_hour", str(max(0, min(23, data.backup_schedule_hour))))
     if data.backup_schedule_minute is not None:
-        _set(db, "backup_schedule_minute", str(max(0, min(59, data.backup_schedule_minute))))
+        set_raw(db, "backup_schedule_minute", str(max(0, min(59, data.backup_schedule_minute))))
     if data.backup_schedule_weekday is not None:
-        _set(db, "backup_schedule_weekday", str(max(0, min(6, data.backup_schedule_weekday))))
+        set_raw(db, "backup_schedule_weekday", str(max(0, min(6, data.backup_schedule_weekday))))
 
     if data.backup_retention_count is not None:
         if config.retention_count_env_locked:
@@ -139,7 +142,7 @@ def update_backup_settings(
                 "Backup retention count is locked by the BACKUP_RETENTION_COUNT "
                 "environment variable",
             )
-        _set(db, "backup_retention_count", str(max(0, data.backup_retention_count)))
+        set_raw(db, "backup_retention_count", str(max(0, data.backup_retention_count)))
 
     if data.backup_retention_gb is not None:
         if config.retention_gb_env_locked:
@@ -147,7 +150,7 @@ def update_backup_settings(
                 400,
                 "Backup retention size is locked by the BACKUP_RETENTION_GB environment variable",
             )
-        _set(db, "backup_retention_gb", str(max(0, data.backup_retention_gb)))
+        set_raw(db, "backup_retention_gb", str(max(0, data.backup_retention_gb)))
 
     if data.backup_dir is not None:
         if config.dir_env_locked:
@@ -155,7 +158,7 @@ def update_backup_settings(
                 400, "Backup directory is locked by the BACKUP_DIR environment variable"
             )
         _validate_backup_dir(data.backup_dir)
-        _set(db, "backup_dir", data.backup_dir.strip())
+        set_raw(db, "backup_dir", data.backup_dir.strip())
 
     db.commit()
     backup_scheduler.apply(db)

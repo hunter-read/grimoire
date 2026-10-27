@@ -17,9 +17,9 @@ from typing import Any, Optional
 from sqlalchemy import String, cast, func, or_
 from sqlalchemy.orm import Session
 
-from ...models import Book, GameSystem, ResourceTag, Tag
-from ...services import access_control, tag_service, variants
-from ...services.search_query import BOOK_FIELDS, ParsedQuery, year_bounds
+from ..models import Book, GameSystem, ResourceTag, Tag
+from . import access_control, tag_service, variants
+from .search_query import BOOK_FIELDS, ParsedQuery, year_bounds
 
 # Ceiling on title-match rows. Generous relative to what a person reads, but
 # bounded so a one-letter filter (``language:e``) cannot select the library.
@@ -59,7 +59,7 @@ def _any_of(column_clause_builder: Any, terms: list[str]) -> Any:
     return or_(*[column_clause_builder(t) for t in terms])
 
 
-def _apply_field_filters(db: Session, query: Any, parsed: ParsedQuery) -> Optional[Any]:
+def apply_field_filters(db: Session, query: Any, parsed: ParsedQuery) -> Optional[Any]:
     """AND every recognised book filter onto ``query``.
 
     Returns ``None`` when a filter cannot possibly match a book (a ``year:``
@@ -134,7 +134,7 @@ def _product_code_clause(term: str) -> Any:
     return _compact(Book.product_code).ilike(f"%{compact}%")
 
 
-def _free_text_clause(term: str) -> Any:
+def free_text_clause(term: str) -> Any:
     """What a bare (unprefixed) query matches on a book row.
 
     Title first and foremost — that is what someone typing "Avatar" means — plus
@@ -178,7 +178,7 @@ def search_book_metadata(
         query = query.filter(Book.game_system_id == system_id)
 
     if parsed.has_filters:
-        filtered = _apply_field_filters(db, query, parsed)
+        filtered = apply_field_filters(db, query, parsed)
         if filtered is None:
             return []
         query = filtered
@@ -186,9 +186,9 @@ def search_book_metadata(
         # treat the leftovers as an additional title constraint rather than
         # dropping them, which would silently widen the search.
         if parsed.free_text and parsed.metadata_fields:
-            query = query.filter(_free_text_clause(parsed.free_text))
+            query = query.filter(free_text_clause(parsed.free_text))
     elif parsed.free_text:
-        query = query.filter(_free_text_clause(parsed.free_text))
+        query = query.filter(free_text_clause(parsed.free_text))
     else:
         return []
 

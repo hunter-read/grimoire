@@ -140,7 +140,7 @@ def test_campaign_delete_rolls_back_with_guest_sessions(
     client, gm_headers, guest_campaign, monkeypatch
 ):
     guest = guest_campaign()
-    monkeypatch.setattr("backend.routers.campaigns._helpers.purge_user_data", _fail)
+    monkeypatch.setattr("backend.services.campaigns.user_data.purge_user_data", _fail)
     with pytest.raises(_Injected):
         client.delete(f"/api/campaigns/{guest['campaign_id']}", headers=gm_headers)
     assert _exists(Campaign, guest["campaign_id"])
@@ -152,7 +152,7 @@ def test_member_removal_rolls_back_with_guest_sessions(
     client, gm_headers, guest_campaign, monkeypatch
 ):
     guest = guest_campaign()
-    monkeypatch.setattr("backend.routers.campaigns._helpers.purge_user_data", _fail)
+    monkeypatch.setattr("backend.services.campaigns.user_data.purge_user_data", _fail)
     with pytest.raises(_Injected):
         client.delete(
             f"/api/campaigns/{guest['campaign_id']}/members/{guest['user_id']}",
@@ -167,7 +167,7 @@ def test_guest_removal_rolls_back_with_guest_sessions(
     client, gm_headers, guest_campaign, monkeypatch
 ):
     guest = guest_campaign()
-    monkeypatch.setattr("backend.routers.campaigns._helpers.purge_user_data", _fail)
+    monkeypatch.setattr("backend.services.campaigns.user_data.purge_user_data", _fail)
     with pytest.raises(_Injected):
         client.delete(
             f"/api/campaigns/{guest['campaign_id']}/guests/{guest['id']}",

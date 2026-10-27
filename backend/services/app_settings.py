@@ -1,24 +1,29 @@
-"""Shared helpers and defaults for settings endpoints."""
+"""App-wide settings stored in ``app_settings``: defaults, reads, writes and env overrides.
+
+The settings router, auth, OIDC, users, campaigns and backups all read these, so
+they live below the routers rather than in the settings router's helpers.
+"""
 import json
 import logging
 
-from ... import config, token_vault
-from ...config import (
+from sqlalchemy.orm import Session
+
+from .. import config, token_vault
+from ..config import (
     ALLOW_PASSWORD_AUTHENTICATION_ENV,
     DISABLE_FOLDER_CATEGORY_INFERENCE_ENV,
     GUEST_ACCESS_ENABLED_ENV,
     OIDC_ENV,
     BASE_URL,
 )
-from ...library_watch import settings as library_watch_settings
-from ...models import AppSetting
-from ...services.oidc_button import current_icon, normalize_color, normalize_radius
-from ._login_message import sanitize_login_message  # noqa: F401  (re-exported)
+from ..library_watch import settings as library_watch_settings
+from ..models import AppSetting
+from .oidc_button import current_icon, normalize_color, normalize_radius
 
 logger = logging.getLogger("grimoire.oidc")
 
 
-_VALID_INTERVALS = ("hourly", "daily", "weekly")
+VALID_INTERVALS = ("hourly", "daily", "weekly")
 
 _DEFAULTS = {
     "rescan_schedule_enabled": "false",
@@ -94,13 +99,13 @@ _DEFAULTS = {
     "campaign_upload_max_total_mb": "0",
 }
 
-_VALID_MATCH_BY = ("none", "email", "username")
+VALID_MATCH_BY = ("none", "email", "username")
 # ID tokens are verified against the provider's published keys (its JWKS), so
 # only public-key algorithms can ever verify. HS256 was once offered too, but a
 # shared-secret token can't be checked that way and never signed anyone in; a
 # stored HS256 now fails each sign-in with a clear message until it is changed.
-_VALID_SIGNING_ALGS = ("RS256", "RS384", "RS512", "ES256", "ES384", "ES512", "PS256", "PS384", "PS512")
-_OIDC_STRING_FIELDS = (
+VALID_SIGNING_ALGS = ("RS256", "RS384", "RS512", "ES256", "ES384", "ES512", "PS256", "PS384", "PS512")
+OIDC_STRING_FIELDS = (
     "oidc_issuer_url",
     "oidc_token_issuer",
     "oidc_authorization_endpoint",
@@ -122,13 +127,13 @@ _OIDC_STRING_FIELDS = (
     "oidc_permissions_claim",
     "oidc_match_by",
 )
-_OIDC_BOOL_FIELDS = ("oidc_enabled", "oidc_auto_launch", "oidc_auto_register")
+OIDC_BOOL_FIELDS = ("oidc_enabled", "oidc_auto_launch", "oidc_auto_register")
 # Set through their own endpoints rather than the PATCH body, but env-lockable.
-_OIDC_LOCKABLE_FIELDS = _OIDC_STRING_FIELDS + _OIDC_BOOL_FIELDS + (
+_OIDC_LOCKABLE_FIELDS = OIDC_STRING_FIELDS + OIDC_BOOL_FIELDS + (
     "oidc_client_secret",
     "oidc_button_icon",
 )
-_OIDC_BUTTON_COLOR_FIELDS = (
+OIDC_BUTTON_COLOR_FIELDS = (
     "oidc_button_bg_color",
     "oidc_button_text_color",
     "oidc_button_border_color",
@@ -138,7 +143,7 @@ OIDC_BUTTON_ICON_PATH = "/api/auth/openid/button-icon"
 
 def _warn_invalid_button_env() -> None:
     """Log once at startup for env-pinned button styles that will be ignored."""
-    for key in _OIDC_BUTTON_COLOR_FIELDS:
+    for key in OIDC_BUTTON_COLOR_FIELDS:
         val = OIDC_ENV.get(key)
         if val is not None and normalize_color(val) is None:
             logger.warning("%s=%r is not a CSS hex color; ignoring it", key.upper(), val)
@@ -153,25 +158,25 @@ _warn_invalid_button_env()
 def _warn_unsupported_signing_alg_env() -> None:
     """Log at startup when OIDC_SIGNING_ALG pins an algorithm that can't verify."""
     alg = OIDC_ENV.get("oidc_signing_alg")
-    if alg is not None and alg not in _VALID_SIGNING_ALGS:
+    if alg is not None and alg not in VALID_SIGNING_ALGS:
         logger.warning(
             "OIDC_SIGNING_ALG=%r is not supported, so single sign-on will fail; "
             "use one of %s",
             alg,
-            ", ".join(_VALID_SIGNING_ALGS),
+            ", ".join(VALID_SIGNING_ALGS),
         )
 
 
 _warn_unsupported_signing_alg_env()
 
 
-def _get_raw(db) -> dict:
+def get_raw(db: Session) -> dict:
     """Return all settings as a string dict, falling back to defaults."""
     rows = {r.key: r.value for r in db.query(AppSetting).all()}
     return {**_DEFAULTS, **rows}
 
 
-def _set(db, key: str, value: str) -> None:
+def set_raw(db: Session, key: str, value: str) -> None:
     row = db.query(AppSetting).filter_by(key=key).first()
     if row:
         row.value = value
@@ -179,7 +184,7 @@ def _set(db, key: str, value: str) -> None:
         db.add(AppSetting(key=key, value=value))
 
 
-def _to_typed(raw: dict) -> dict:
+def to_typed(raw: dict) -> dict:
     return {
         "rescan_schedule_enabled": raw["rescan_schedule_enabled"] == "true",
         "rescan_schedule_interval": raw["rescan_schedule_interval"],
@@ -222,7 +227,7 @@ def _to_typed(raw: dict) -> dict:
     }
 
 
-def _restricted_categories_to_typed(raw) -> dict:
+def _restricted_categories_to_typed(raw: dict) -> dict:
     """Parse the stored category→level JSON for the settings response.
 
     Mirrors ``access_control.category_defaults``' forgiveness: a corrupt value

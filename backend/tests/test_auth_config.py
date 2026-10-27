@@ -1,7 +1,7 @@
 """Tests for the public auth-config endpoint, login enforcement, and the
 custom-login-message HTML sanitizer."""
 
-from backend.routers.settings._helpers import sanitize_login_message
+from backend.routers.settings._login_message import sanitize_login_message
 from backend.tests.conftest import OIDC_CLEARED, OIDC_CONFIGURED
 
 
@@ -102,7 +102,7 @@ class TestEnvLock:
 
     def test_env_lock_blocks_patch(self, client, admin_headers, monkeypatch):
         # Patch the module-level constant to simulate the env override
-        import backend.routers.settings._helpers as helpers
+        import backend.services.app_settings as helpers
         monkeypatch.setattr(helpers, "ALLOW_PASSWORD_AUTHENTICATION_ENV", True)
 
         resp = client.patch(

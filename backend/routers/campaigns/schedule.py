@@ -11,13 +11,8 @@ from sqlalchemy.orm import Session
 from ...auth import CurrentUser, get_current_user
 from ...config import get_db
 from ...models import CampaignMember, CampaignSchedule, SessionAvailability, User
-from ._helpers import (
-    assert_can_manage,
-    assert_not_archived,
-    can_view,
-    compute_next_sessions,
-    get_campaign_or_404,
-)
+from ._helpers import assert_can_manage, assert_not_archived, can_view, get_campaign_or_404
+from ...services.campaigns.schedule import compute_next_sessions
 from ._schemas import AvailabilityUpdate, ScheduleUpsert
 
 

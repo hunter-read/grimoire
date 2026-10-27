@@ -20,17 +20,13 @@ from ...auth import CurrentUser, get_current_user
 from ...config import get_db, BASE_URL
 from ...models import Campaign, CampaignMember, User
 from ...sessions import revoke_user_sessions
-from ..settings._helpers import _get_raw, guest_access_effective
-from ._helpers import (
-    assert_can_manage,
-    generate_guest_code,
-    get_campaign_or_404,
-    release_guest_membership,
-)
+from ...services.app_settings import get_raw, guest_access_effective
+from ._helpers import assert_can_manage, get_campaign_or_404
+from ...services.campaigns.user_data import generate_guest_code, release_guest_membership
 from ._schemas import GuestCreate
 
 def _assert_guest_access(db):
-    if not guest_access_effective(_get_raw(db)):
+    if not guest_access_effective(get_raw(db)):
         raise HTTPException(403, "Guest access is disabled on this server")
 
 

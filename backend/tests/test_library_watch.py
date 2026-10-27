@@ -672,7 +672,7 @@ class TestModuleEntryPoints:
         monkeypatch.setattr(library_watch, "Supervisor", RecordingSupervisor)
         scanned: list = []
         monkeypatch.setattr(
-            "backend.routers.library.run_rescan_sync",
+            "backend.services.library_scan.runner.run_rescan_sync",
             lambda scope_path=None: scanned.append(scope_path),
         )
 

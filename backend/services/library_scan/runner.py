@@ -1,4 +1,4 @@
-"""Background indexer and rescan helpers for the library."""
+"""Library rescans, the deferred OCR and model-thumbnail queues, and the scan status they share."""
 import os
 
 from ... import config
@@ -6,11 +6,11 @@ from ...config import SessionLocal, LIBRARY_PATH, DATA_PATH, logger
 from ...models import Book, Model3D
 from ...indexer import scan_library, index_book_text, ocr_book
 from ...indexer.formats import INDEXABLE_MIMES
-from ..books import _invalidate_book_cache
-from ...services.jobs import Job
-from ._claims import claim_book, release_book
+from ..books.documents import invalidate_book_cache
+from ..jobs import Job
+from .claims import claim_book, release_book
 
-_DEFAULT_STATUS: dict = {
+DEFAULT_STATUS: dict = {
     "running": False,
     "phase": None,
     "total_books": 0,
@@ -59,14 +59,14 @@ _DEFAULT_STATUS: dict = {
 # DATA_PATH/.scan.stop, which every worker can see (issue #651): an in-process
 # flag alone only reached the worker that took the POST, and with WORKERS > 1
 # that is often not the one holding .scan.lock and running the startup scan.
-SCAN_JOB = Job("scan", _DEFAULT_STATUS)
+SCAN_JOB = Job("scan", DEFAULT_STATUS)
 
 request_stop = SCAN_JOB.request_stop
 clear_stop = SCAN_JOB.clear_stop
 is_stop_requested = SCAN_JOB.is_stop_requested
 is_stale = SCAN_JOB.is_stale
-_get_status = SCAN_JOB.status
-_set_status = SCAN_JOB.update
+get_status = SCAN_JOB.status
+set_status = SCAN_JOB.update
 _start_heartbeat = SCAN_JOB.start_heartbeat
 force_clear = SCAN_JOB.force_clear
 
@@ -78,7 +78,7 @@ def startup_scan_running() -> bool:
 
 def scan_in_progress() -> bool:
     """Whether a library scan is really running - a stale status does not count."""
-    status = _get_status()
+    status = get_status()
     return bool(status.get("running")) and not is_stale(status)
 
 
@@ -106,7 +106,7 @@ def _ocr_one_book(book_id: str) -> str:
         book = db.get(Book, book_id)
         if not book or not book.ocr_pending:
             return "done"
-        _set_status({"ocr_current": book.filename})
+        set_status({"ocr_current": book.filename})
         return ocr_book(book, db, should_stop=is_stop_requested)
     except Exception as e:
         logger.exception(f"OCR: unexpected error draining book {book_id}: {e}")
@@ -180,7 +180,7 @@ def run_ocr_queue() -> int:
         logger.debug("OCR queue: nothing pending.")
         return 0
 
-    _set_status(
+    set_status(
         {"running": True, "phase": "ocr", "total_ocr": len(pending_ids), "ocr_done": 0}
     )
     logger.info(
@@ -213,7 +213,7 @@ def run_ocr_queue() -> int:
                         break
                     if _ocr_one_book(book_id) == "done":
                         completed += 1
-                    _set_status({"ocr_done": _get_status()["ocr_done"] + 1})
+                    set_status({"ocr_done": get_status()["ocr_done"] + 1})
                 if stopped:
                     break
             else:
@@ -229,7 +229,7 @@ def run_ocr_queue() -> int:
                             continue
                         if result == "done":
                             completed += 1
-                        _set_status({"ocr_done": _get_status()["ocr_done"] + 1})
+                        set_status({"ocr_done": get_status()["ocr_done"] + 1})
                 if stopped:
                     break
             pending_ids = _pending()
@@ -243,10 +243,10 @@ def run_ocr_queue() -> int:
                     f"{len(newly)} more scanned book(s) were queued while this ran - "
                     f"reading those too."
                 )
-                _set_status({"total_ocr": len(attempted) + len(newly)})
+                set_status({"total_ocr": len(attempted) + len(newly)})
         logger.info(f"Finished reading text from {completed} of {len(attempted)} scanned book(s).")
     finally:
-        _set_status({"ocr_current": None})
+        set_status({"ocr_current": None})
     return completed
 
 
@@ -286,7 +286,7 @@ def _thumbnail_one_model(model_id: str) -> str:
         model = db.query(Model3D).filter_by(id=model_id).first()
         if not model or not model.thumbnail_pending:
             return "skipped"
-        _set_status({"thumbs_current": model.filename})
+        set_status({"thumbs_current": model.filename})
 
         from ...indexer import generate_thumbnail
         from ...indexer._context import _title_from_filename, thumb_path_for
@@ -360,7 +360,7 @@ def run_model_thumbnail_queue() -> int:
         logger.debug("Model preview queue: nothing pending.")
         return 0
 
-    _set_status(
+    set_status(
         {
             "running": True,
             "phase": "thumbnails",
@@ -377,20 +377,20 @@ def run_model_thumbnail_queue() -> int:
                 break
             if _thumbnail_one_model(model_id) == "done":
                 completed += 1
-            _set_status({"thumbs_done": _get_status()["thumbs_done"] + 1})
+            set_status({"thumbs_done": get_status()["thumbs_done"] + 1})
         logger.info(
             f"Finished rendering {completed} of {len(pending_ids)} large model preview(s)."
         )
     finally:
-        _set_status({"thumbs_current": None})
+        set_status({"thumbs_current": None})
     return completed
 
 
 def _take_ocr_request() -> bool:
     """Whether a drain was asked for while another job held the run; clears the ask."""
-    if not _get_status().get("ocr_requested"):
+    if not get_status().get("ocr_requested"):
         return False
-    _set_status({"ocr_requested": False})
+    set_status({"ocr_requested": False})
     return True
 
 
@@ -401,11 +401,11 @@ def follow_up_ocr_request() -> None:
     arrived after that job's own drain last read the queue would otherwise wait
     for the next scan.
     """
-    if _get_status().get("ocr_requested") and not scan_in_progress():
+    if get_status().get("ocr_requested") and not scan_in_progress():
         trigger_ocr_queue()
 
 
-def trigger_ocr_queue():
+def trigger_ocr_queue() -> None:
     """Drain the OCR queue now (on-demand, e.g. after a per-book re-OCR request).
 
     Unlike the startup scan this has no delay of its own. While another job
@@ -418,18 +418,18 @@ def trigger_ocr_queue():
     """
     while True:
         if scan_in_progress():
-            _set_status({"ocr_requested": True})
+            set_status({"ocr_requested": True})
             if scan_in_progress():
                 return
-        _set_status({"ocr_requested": False})
+        set_status({"ocr_requested": False})
         heartbeat = _start_heartbeat()
         try:
             run_ocr_queue()
         finally:
-            if _get_status()["phase"] == "ocr":
-                _set_status({"running": False, "phase": None})
+            if get_status()["phase"] == "ocr":
+                set_status({"running": False, "phase": None})
             heartbeat.set()
-        if not _get_status().get("ocr_requested"):
+        if not get_status().get("ocr_requested"):
             return
 
 
@@ -446,13 +446,13 @@ def rescan_single_book(book_id: str) -> None:
     its own, and the user can re-trigger once it finishes. Progress is
     observable via GET /scan-status.
     """
-    from . import _reindex_queue
+    from . import reindex_queue
 
-    if scan_in_progress() and not _reindex_queue.reindex_running():
+    if scan_in_progress() and not reindex_queue.reindex_running():
         logger.info("A library scan is already running - skipping this single-book re-index.")
         return
-    _reindex_queue.queue_reindex(book_id, refresh_file=True)
-    _reindex_queue.drain_reindex_queue()
+    reindex_queue.queue_reindex(book_id, refresh_file=True)
+    reindex_queue.drain_reindex_queue()
 
 
 def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -> None:
@@ -469,23 +469,26 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
     if scan_in_progress():
         logger.info("A library scan is already running - ignoring this request.")
         return
-    if _get_status()["running"]:
+    if get_status()["running"]:
         # The previous scan's process died before it could clear its status
         # (issue #524). Nothing is competing with this one, so start anyway.
         logger.warning("The previous library scan was left stuck; starting a new one anyway.")
 
     clear_stop()
-    _set_status({**_DEFAULT_STATUS, "running": True, "phase": "scanning"})
+    set_status({**DEFAULT_STATUS, "running": True, "phase": "scanning"})
     heartbeat = _start_heartbeat()
     try:
-        _invalidate_book_cache()
+        invalidate_book_cache()
         db = SessionLocal()
         try:
             # --- Phase 1: file scan ---
             logger.info("Scanning your library for new and changed files…")
 
-            def on_progress(sb, tb, sm, tm, st, tt, sa, ta, smo=0, tmo=0):
-                _set_status(
+            def on_progress(
+                sb: int, tb: int, sm: int, tm: int, st: int, tt: int, sa: int, ta: int,
+                smo: int = 0, tmo: int = 0,
+            ) -> None:
+                set_status(
                     {
                         "scanned_books": sb,
                         "total_books": tb,
@@ -534,7 +537,7 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
                 f"updated_books={stats.get('updated_books', 0)}, "
                 f"errors={_errors}"
             )
-            _set_status(
+            set_status(
                 {
                     "new_books": stats.get("new_books", 0),
                     "new_maps": stats.get("new_maps", 0),
@@ -566,7 +569,7 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
             )
             .all()
         )
-            _set_status({"phase": "indexing", "to_index": len(to_index), "indexed": 0})
+            set_status({"phase": "indexing", "to_index": len(to_index), "indexed": 0})
             logger.info(f"Making {len(to_index)} book(s) searchable…")
             indexed_count = 0
             for book in to_index:
@@ -586,7 +589,7 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
                     book.index_error = str(e)[:500]
                     book.index_failed = True
                     db.commit()
-                _set_status({"indexed": _get_status()["indexed"] + 1})
+                set_status({"indexed": get_status()["indexed"] + 1})
             logger.info(f"Finished - {indexed_count} of {len(to_index)} book(s) are now searchable.")
         finally:
             db.close()
@@ -607,8 +610,8 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
             try:
                 run_model_thumbnail_queue()
             finally:
-                if _get_status()["phase"] == "thumbnails":
-                    _set_status({"running": True, "phase": None})
+                if get_status()["phase"] == "thumbnails":
+                    set_status({"running": True, "phase": None})
 
         # --- Phase 4: deferred OCR of scanned/image-only PDFs ---
         # Runs after the fast phases so text-layer books and other media are
@@ -618,9 +621,9 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
     finally:
         # A scan is when replaced files are found and their old renders orphaned,
         # so it is the natural moment to trim the on-disk cache back under its cap.
-        from ...services.content_cache import sweep_page_cache
+        from ..content_cache import sweep_page_cache
 
         sweep_page_cache()
-        _set_status({"running": False, "phase": None})
+        set_status({"running": False, "phase": None})
         heartbeat.set()
     follow_up_ocr_request()

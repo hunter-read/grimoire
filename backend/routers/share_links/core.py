@@ -17,7 +17,7 @@ from ...config import get_db
 from ...models import ShareLink, User
 from ...passwords import check_share_link_password
 from ...services import share_links as policy
-from ..share import _content, _links
+from ...services.share_links import content as _content, links as _links
 from ._schemas import ShareLinkCreate, ShareLinkUpdate
 
 
@@ -136,7 +136,7 @@ def create_share_link(
         # warm for OTFBM's first request.
         if data.resource_type != "map":
             raise HTTPException(400, "Only maps can be shared as an OTFBM background")
-        from ..maps.otfbm_export import otfbm_background, otfbm_filename
+        from ...services.media.map_export import otfbm_background, otfbm_filename
 
         plan, _raw, ext = otfbm_background(record, data.cell)
         filename = otfbm_filename(record, plan, ext)

@@ -13,7 +13,7 @@ referenced it by id. Nothing in the schema removes those rows for us:
 
 This module is the single place that knows the full list. It was previously
 open-coded in two places that each knew a different subset: the cleanup sweep in
-``routers/maintenance/_helpers`` (books only) and migration 0024. The media
+``services/library_cleanup`` (books only) and migration 0024. The media
 cleanup loops knew none of it, so every cleanup run orphaned favorites and tags
 for missing maps, tokens, and audio.
 """

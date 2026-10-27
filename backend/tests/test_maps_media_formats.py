@@ -13,9 +13,9 @@ import pytest
 from PIL import Image
 
 from backend.tests.conftest import make_map
-from backend.routers.maps._helpers import (
-    _map_media_type,
-    _sniff_image_mime,
+from backend.services.media.maps import (
+    map_media_type,
+    sniff_image_mime,
     render_map_preview,
     vtt_image_bytes,
     vtt_metadata,
@@ -83,10 +83,10 @@ class TestMapMediaType:
         ],
     )
     def test_media_type(self, name, expected):
-        assert _map_media_type(name) == expected
+        assert map_media_type(name) == expected
 
     def test_extension_case_is_ignored(self):
-        assert _map_media_type("A.WEBM") == "video/webm"
+        assert map_media_type("A.WEBM") == "video/webm"
 
 
 class TestSniffImageMime:
@@ -97,10 +97,10 @@ class TestSniffImageMime:
     def test_detects_format(self, fmt, expected):
         buf = io.BytesIO()
         Image.new("RGB", (8, 8)).save(buf, fmt)
-        assert _sniff_image_mime(buf.getvalue()) == expected
+        assert sniff_image_mime(buf.getvalue()) == expected
 
     def test_unknown_bytes_fall_back(self):
-        assert _sniff_image_mime(b"not an image") == "application/octet-stream"
+        assert sniff_image_mime(b"not an image") == "application/octet-stream"
 
 
 class TestRenderMapPreview:
@@ -143,9 +143,68 @@ class TestServeMapPagePreview:
         # Much smaller than streaming the original PNG.
         assert len(resp.content) < os.path.getsize(png_map.filepath)
 
-    def test_preview_is_cached_immutably(self, client, admin_headers, png_map):
+    def test_preview_revalidates_with_its_etag(self, client, admin_headers, png_map):
+        """The URL stays the same when the map is replaced, so it is never immutable."""
         resp = client.get(f"/api/maps/{png_map.id}/page/1", headers=admin_headers)
-        assert "immutable" in resp.headers["cache-control"]
+        assert resp.headers["cache-control"] == "private, no-cache"
+        etag = resp.headers["etag"]
+        again = client.get(
+            f"/api/maps/{png_map.id}/page/1",
+            headers={**admin_headers, "If-None-Match": etag},
+        )
+        assert again.status_code == 304
+        assert again.headers["etag"] == etag
+        assert again.headers["cache-control"] == "private, no-cache"
+
+    def test_etag_depends_on_width(self, client, admin_headers, png_map):
+        small = client.get(f"/api/maps/{png_map.id}/page/1?width=800", headers=admin_headers)
+        large = client.get(f"/api/maps/{png_map.id}/page/1?width=1600", headers=admin_headers)
+        assert small.headers["etag"] != large.headers["etag"]
+
+    def test_replaced_map_gets_a_new_etag(self, client, admin_headers, png_map):
+        from backend.config import SessionLocal
+        from backend.models import GenericMap
+
+        old = client.get(f"/api/maps/{png_map.id}/page/1", headers=admin_headers)
+        db = SessionLocal()
+        try:
+            db.query(GenericMap).filter_by(id=png_map.id).update({"content_hash": "f" * 64})
+            db.commit()
+        finally:
+            db.close()
+        resp = client.get(
+            f"/api/maps/{png_map.id}/page/1",
+            headers={**admin_headers, "If-None-Match": old.headers["etag"]},
+        )
+        assert resp.status_code == 200
+        assert resp.headers["etag"] != old.headers["etag"]
+
+    def test_pdf_map_page_revalidates(self, client, admin_headers, tmp_path):
+        import fitz  # type: ignore[import-untyped]
+
+        path = tmp_path / "dungeon.pdf"
+        doc = fitz.open()
+        doc.new_page(width=200, height=200)
+        doc.save(str(path))
+        doc.close()
+        m = make_map(filename="dungeon.pdf", filepath=str(path), relative_path="DnD/Maps/dungeon.pdf")
+        resp = client.get(f"/api/maps/{m.id}/page/1?width=400", headers=admin_headers)
+        assert resp.status_code == 200
+        assert resp.headers["cache-control"] == "private, no-cache"
+        again = client.get(
+            f"/api/maps/{m.id}/page/1?width=400",
+            headers={**admin_headers, "If-None-Match": resp.headers["etag"]},
+        )
+        assert again.status_code == 304
+
+    def test_svg_map_page_revalidates(self, client, admin_headers, tmp_path):
+        path = tmp_path / "plan.svg"
+        path.write_text("<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10'/>")
+        m = make_map(filename="plan.svg", filepath=str(path), relative_path="DnD/Maps/plan.svg")
+        resp = client.get(f"/api/maps/{m.id}/page/1", headers=admin_headers)
+        assert resp.status_code == 200
+        assert resp.headers["cache-control"] == "private, no-cache"
+        assert resp.headers["etag"]
 
     def test_width_is_honoured(self, client, admin_headers, png_map):
         resp = client.get(f"/api/maps/{png_map.id}/page/1?width=800", headers=admin_headers)
@@ -261,6 +320,16 @@ class TestVttEndpoints:
         assert resp.status_code == 200
         assert resp.headers["content-type"] == "image/png"
         assert Image.open(io.BytesIO(resp.content)).size == (600, 480)
+
+    def test_image_endpoint_revalidates_with_its_etag(self, client, admin_headers, uvtt_map):
+        resp = client.get(f"/api/maps/{uvtt_map.id}/vtt/image", headers=admin_headers)
+        assert resp.headers["cache-control"] == "private, no-cache"
+        again = client.get(
+            f"/api/maps/{uvtt_map.id}/vtt/image",
+            headers={**admin_headers, "If-None-Match": resp.headers["etag"]},
+        )
+        assert again.status_code == 304
+        assert again.headers["cache-control"] == "private, no-cache"
 
     def test_data_endpoint_returns_counts_without_the_image(
         self, client, admin_headers, uvtt_map

@@ -10,7 +10,7 @@ import json
 import pytest
 from PIL import Image
 
-from backend.routers.maps.vtt_authoring import (
+from backend.services.media.vtt_authoring import (
     DEFAULT_AMBIENT_LIGHT,
     MAX_POLYLINES,
     VTT_DOC_VERSION,
@@ -266,7 +266,7 @@ class TestExportFeatures:
 
 class TestBuildUvttWithAuthoring:
     def test_authored_features_reach_the_envelope(self, tmp_path):
-        from backend.routers.maps.uvtt import build_uvtt
+        from backend.services.media.uvtt import build_uvtt
 
         path = str(tmp_path / "m.png")
         Image.new("RGB", (280, 280), (10, 10, 10)).save(path)
@@ -284,7 +284,7 @@ class TestBuildUvttWithAuthoring:
         assert env["environment"]["baked_lighting"] is True
 
     def test_no_authoring_exports_empty_arrays(self, tmp_path):
-        from backend.routers.maps.uvtt import build_uvtt
+        from backend.services.media.uvtt import build_uvtt
 
         path = str(tmp_path / "m.png")
         Image.new("RGB", (280, 280), (10, 10, 10)).save(path)
@@ -469,7 +469,7 @@ class TestEditingAnExistingUvtt:
         assert body["seeded_from_file"] is False
 
     def test_embedded_image_is_measured_for_the_canvas(self, client, gm_headers, vtt_map):
-        # Nothing at the path is an image, so _map_image_info measures nothing.
+        # Nothing at the path is an image, so map_image_info measures nothing.
         # Without this the editor would have no canvas dimensions at all.
         body = client.get(f"/api/maps/{vtt_map.id}/vtt/authoring", headers=gm_headers).json()
         assert body["pixel_width"] == 600
@@ -547,13 +547,13 @@ class TestVttImageSize:
     """Measuring the raster a .uvtt carries inside its envelope."""
 
     def test_measures_the_embedded_image(self, tmp_path):
-        from backend.routers.maps._helpers import vtt_image_size
+        from backend.services.media.maps import vtt_image_size
 
         path = _uvtt_file(tmp_path, name="sized.uvtt", size=(320, 240))
         assert vtt_image_size(str(path)) == (320, 240)
 
     def test_returns_nothing_for_a_file_with_no_image(self, tmp_path):
-        from backend.routers.maps._helpers import vtt_image_size
+        from backend.services.media.maps import vtt_image_size
 
         path = tmp_path / "noimg.uvtt"
         path.write_text(json.dumps({"format": 0.3}))
@@ -563,7 +563,7 @@ class TestVttImageSize:
     def test_returns_nothing_when_the_image_is_not_decodable(self, tmp_path):
         import base64
 
-        from backend.routers.maps._helpers import vtt_image_size
+        from backend.services.media.maps import vtt_image_size
 
         path = tmp_path / "junk.uvtt"
         path.write_text(

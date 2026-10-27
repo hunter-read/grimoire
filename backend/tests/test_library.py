@@ -279,24 +279,24 @@ class TestRescan:
 class TestCancelScan:
     def test_cancel_when_not_running_returns_not_running(self, client, admin_headers):
         # Ensure no scan is running
-        from backend.routers.library import _helpers
-        _helpers.SCAN_JOB._status["running"] = False
+        from backend.services.library_scan import runner
+        runner.SCAN_JOB._status["running"] = False
         resp = client.post("/api/cancel-scan", headers=admin_headers)
         assert resp.status_code == 200
         assert resp.json()["status"] == "not_running"
 
     def test_cancel_while_running_returns_stop_requested(self, client, admin_headers):
-        from backend.routers.library import _helpers
-        _helpers.SCAN_JOB._status["running"] = True
-        _helpers.SCAN_JOB.beat()  # a live scan, not an abandoned one (issue #524)
+        from backend.services.library_scan import runner
+        runner.SCAN_JOB._status["running"] = True
+        runner.SCAN_JOB.beat()  # a live scan, not an abandoned one (issue #524)
         try:
             resp = client.post("/api/cancel-scan", headers=admin_headers)
             assert resp.status_code == 200
             assert resp.json()["status"] == "stop_requested"
-            assert _helpers.is_stop_requested() is True
+            assert runner.is_stop_requested() is True
         finally:
-            _helpers.SCAN_JOB._status["running"] = False
-            _helpers.clear_stop()
+            runner.SCAN_JOB._status["running"] = False
+            runner.clear_stop()
 
     def test_gm_cannot_cancel_scan(self, client, gm_headers):
         resp = client.post("/api/cancel-scan", headers=gm_headers)

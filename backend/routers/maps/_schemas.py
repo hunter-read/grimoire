@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, field_validator
 from ...services import tag_service
 from .._bulk_schemas import bulk_update_model
 from .._variant_schemas import VariantCountMixin, VariantFamilyMixin
-from .otfbm import MIN_SOURCE_PX
+from ...services.media.otfbm import MIN_SOURCE_PX
 
 
 class MapUpdate(BaseModel):
@@ -91,7 +91,7 @@ class MapListResponse(BaseModel):
 
 
 class MapGrid(BaseModel):
-    """Detected grid dimensions for a map (see `_helpers._map_image_info`).
+    """Detected grid dimensions for a map (see `services.media.maps.map_image_info`).
 
     `cell_px` is only present on the DPI/computed branches — the filename branch
     omits it, and PDF maps have it stripped — so it is Optional.
@@ -110,7 +110,7 @@ class MapGrid(BaseModel):
 class MapDetailResponse(VariantFamilyMixin):
     """`GET /maps/{id}` — map metadata, folder context, and image info.
 
-    Everything from `_map_image_info` is nullable by construction: the dict is
+    Everything from `map_image_info` is nullable by construction: the dict is
     seeded with `None`s and only filled in when the file could be measured
     (archives, unreadable files, and PDFs all leave some or all of it None).
     """

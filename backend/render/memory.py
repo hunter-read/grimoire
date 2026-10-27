@@ -1,6 +1,6 @@
 """Handing the memory MuPDF used for a render back to the operating system.
 
-Shared by the in-process render path (``routers/books/_helpers.py``) and the
+Shared by the in-process render path (``services/books/documents.py``) and the
 render workers (``backend/render/worker.py``), which reclaim their own memory
 the same way.
 """

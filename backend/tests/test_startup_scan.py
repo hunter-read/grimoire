@@ -8,13 +8,13 @@ from unittest.mock import patch
 
 import backend.main as main
 from backend import config, ocr
-from backend.routers.library import _helpers
+from backend.services.library_scan import runner
 from backend.services.characters import packs
 
 
 class TestStartupScan:
     def teardown_method(self):
-        _helpers.clear_stop()
+        runner.clear_stop()
 
     def _run(self, enabled: bool, **patches):
         with patch.object(config, "STARTUP_SCAN", enabled), \
@@ -39,10 +39,10 @@ class TestStartupScan:
         assert "STARTUP_SCAN=false" in caplog.text
 
     def test_clears_a_stop_left_by_the_previous_run(self):
-        _helpers.request_stop()
+        runner.request_stop()
         self._run(False)
-        assert not os.path.exists(_helpers.SCAN_JOB.stop_file())
-        assert _helpers.is_stop_requested() is False
+        assert not os.path.exists(runner.SCAN_JOB.stop_file())
+        assert runner.is_stop_requested() is False
 
     def test_failures_are_logged_and_the_rest_still_runs(self, caplog):
         boom = {"side_effect": RuntimeError("boom")}

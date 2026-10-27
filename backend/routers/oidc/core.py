@@ -29,9 +29,9 @@ from ...security import limiter
 from ...sessions import create_session
 from ...services.user_activity import note_sign_in
 from ...config import get_db
-from ..auth._helpers import client_ip, client_user_agent
-from ..settings._helpers import (
-    _get_raw,
+from .._client import client_ip, client_user_agent
+from ...services.app_settings import (
+    get_raw,
     oidc_effective,
     oidc_effective_client_secret,
     oidc_is_configured,
@@ -145,7 +145,7 @@ def oidc_login(
     return_to: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
-    raw = _get_raw(db)
+    raw = get_raw(db)
 
     if not oidc_is_configured(raw):
         raise HTTPException(503, "OIDC is not configured")
@@ -291,7 +291,7 @@ def _finish_sign_in(
     if not code:
         return _redirect_with_error("missing code or state")
 
-    raw = _get_raw(db)
+    raw = get_raw(db)
     eff = oidc_effective(raw)
     secret = oidc_effective_client_secret(raw)
 

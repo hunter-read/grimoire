@@ -10,22 +10,7 @@ from ...auth import create_token, set_auth_cookie, set_refresh_cookie
 from ...models import User
 from ...sessions import create_session
 from ...services.user_activity import note_sign_in
-
-
-def client_user_agent(request: Optional[Request]) -> Optional[str]:
-    if request is None:
-        return None
-    return request.headers.get("User-Agent")
-
-
-def client_ip(request: Optional[Request]) -> Optional[str]:
-    """Best-effort client IP for the session list, read the same way as for
-    rate limiting: X-Forwarded-For only from a trusted proxy (backend/security.py)."""
-    if request is None:
-        return None
-    from ...security import client_ip as resolved_client_ip
-
-    return resolved_client_ip(request)
+from .._client import client_ip, client_user_agent
 
 
 def issue_login(

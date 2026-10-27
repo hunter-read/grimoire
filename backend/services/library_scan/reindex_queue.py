@@ -10,7 +10,7 @@ Now a replace queues its book here instead, and one worker drains the queue:
 every book replaced while it runs is picked up by the same run, after the books
 ahead of it. A replace is still refused while a library scan or any other
 background job runs, and while the worker is busy with that very book (see
-``_claims``); otherwise it never waits on the queue.
+``claims``); otherwise it never waits on the queue.
 
 A single-book rescan (``POST /api/books/:id/rescan``) goes on the same queue,
 flagged to re-read the file first, so it neither blocks replaces nor is
@@ -26,9 +26,9 @@ from typing import Optional
 from ...config import DATA_PATH, SessionLocal, logger, valkey_client, valkey_errors
 from ...indexer import index_book_text, reindex_single_book
 from ...models import Book
-from ..books import _invalidate_book_cache
-from . import _helpers
-from ._claims import claim_book, release_book
+from ..books.documents import invalidate_book_cache
+from . import runner
+from .claims import claim_book, release_book
 
 # The scan status ``kind`` of a run draining this queue. A replace upload is
 # accepted while one is running; any other running job refuses it.
@@ -109,7 +109,7 @@ def queued_count() -> int:
 
 def reindex_running() -> bool:
     """Whether the live background job is this queue's drain."""
-    return _helpers.scan_in_progress() and _helpers._get_status().get("kind") == REINDEX_KIND
+    return runner.scan_in_progress() and runner.get_status().get("kind") == REINDEX_KIND
 
 
 def drain_reindex_queue() -> None:
@@ -124,7 +124,7 @@ def drain_reindex_queue() -> None:
     drain after its last pop is always seen by that re-check.
     """
     while queued_count():
-        if _helpers.scan_in_progress():
+        if runner.scan_in_progress():
             return
         if not _drain_once():
             return
@@ -132,10 +132,10 @@ def drain_reindex_queue() -> None:
 
 def _drain_once() -> bool:
     """One run of the drain, as a scan-status job. False when it was stopped."""
-    _helpers.clear_stop()
-    _helpers._set_status(
+    runner.clear_stop()
+    runner.set_status(
         {
-            **_helpers._DEFAULT_STATUS,
+            **runner.DEFAULT_STATUS,
             "running": True,
             "phase": "indexing",
             "kind": REINDEX_KIND,
@@ -143,27 +143,27 @@ def _drain_once() -> bool:
             "indexed": 0,
         }
     )
-    heartbeat = _helpers._start_heartbeat()
+    heartbeat = runner._start_heartbeat()
     try:
         indexed = 0
-        while not _helpers.is_stop_requested():
+        while not runner.is_stop_requested():
             book_id = _pop_queued()
             if book_id is None:
                 # Image-only books were left ocr_pending by the index - read them
                 # now. Books replaced during the OCR are queued for another round.
-                _helpers.run_ocr_queue()
+                runner.run_ocr_queue()
                 if not queued_count():
                     break
-                _helpers._set_status({"phase": "indexing"})
+                runner.set_status({"phase": "indexing"})
                 continue
             _index_queued_book(book_id)
             indexed += 1
-            _helpers._set_status({"indexed": indexed, "to_index": indexed + queued_count()})
+            runner.set_status({"indexed": indexed, "to_index": indexed + queued_count()})
     finally:
-        _helpers._set_status({"running": False, "phase": None, "kind": None})
+        runner.set_status({"running": False, "phase": None, "kind": None})
         heartbeat.set()
-    _helpers.follow_up_ocr_request()
-    return not _helpers.is_stop_requested()
+    runner.follow_up_ocr_request()
+    return not runner.is_stop_requested()
 
 
 def _index_queued_book(book_id: str) -> None:
@@ -188,12 +188,12 @@ def _index_queued_book(book_id: str) -> None:
             try:
                 if refresh_file:
                     reindex_single_book(
-                        book, DATA_PATH, db, should_stop=_helpers.is_stop_requested
+                        book, DATA_PATH, db, should_stop=runner.is_stop_requested
                     )
                     # The (path, hash) lookup still holds the file's old hash.
-                    _invalidate_book_cache()
+                    invalidate_book_cache()
                 else:
-                    index_book_text(book, DATA_PATH, db, should_stop=_helpers.is_stop_requested)
+                    index_book_text(book, DATA_PATH, db, should_stop=runner.is_stop_requested)
             except Exception as e:
                 logger.error(f"Re-index failed for '{book.title or book.filename}': {e}")
                 db.rollback()

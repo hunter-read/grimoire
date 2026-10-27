@@ -14,18 +14,18 @@ from ... import config
 from ...services import access_control
 from ...services import share_links as share_policy
 from ...services.oidc_button import MAX_RADIUS_PX, normalize_color, normalize_radius
-from . import _helpers as helpers
-from ._helpers import (
-    _OIDC_BOOL_FIELDS,
-    _OIDC_BUTTON_COLOR_FIELDS,
-    _OIDC_STRING_FIELDS,
-    _VALID_INTERVALS,
-    _VALID_MATCH_BY,
-    _VALID_SIGNING_ALGS,
-    _set,
-    sanitize_login_message,
+from ...services import app_settings as settings_store
+from ...services.app_settings import (
+    OIDC_BOOL_FIELDS,
+    OIDC_BUTTON_COLOR_FIELDS,
+    OIDC_STRING_FIELDS,
+    VALID_INTERVALS,
+    VALID_MATCH_BY,
+    VALID_SIGNING_ALGS,
     seal_client_secret,
+    set_raw,
 )
+from ._login_message import sanitize_login_message
 
 # (db, setting key, patched value) -> None.
 Writer = Callable[[Session, str, Any], None]
@@ -41,7 +41,7 @@ def _store(transform: Transform = _flag) -> Writer:
     def write(db: Session, key: str, value: Any) -> None:
         stored = transform(value)
         if stored is not None:
-            _set(db, key, stored)
+            set_raw(db, key, stored)
 
     return write
 
@@ -62,7 +62,7 @@ def _one_of(label: str, choices: tuple[str, ...], then: Transform = str) -> Tran
 def _pinned(pin: Callable[[], Any], message: str, writer: Writer) -> Writer:
     """``writer``, refused while ``pin()`` is set.
 
-    ``pin`` reads the env var at call time, from ``_helpers`` where the rest of
+    ``pin`` reads the env var at call time, from ``services.app_settings`` where the rest of
     the settings code (and the tests that patch it) looks for it.
     """
 
@@ -91,7 +91,7 @@ def _share_link_role(db: Session, key: str, allowed: bool) -> None:
 
 def _oidc_pinned(key: str, writer: Writer) -> Writer:
     return _pinned(
-        lambda: helpers.OIDC_ENV.get(key), f"{key} is locked by an environment variable", writer
+        lambda: settings_store.OIDC_ENV.get(key), f"{key} is locked by an environment variable", writer
     )
 
 
@@ -127,12 +127,12 @@ def _client_secret(value: str) -> str:
 
 
 def _oidc_writers() -> dict[str, Writer]:
-    transforms: dict[str, Transform] = {key: _strip for key in _OIDC_STRING_FIELDS}
-    transforms.update({key: _button_color(key) for key in _OIDC_BUTTON_COLOR_FIELDS})
+    transforms: dict[str, Transform] = {key: _strip for key in OIDC_STRING_FIELDS}
+    transforms.update({key: _button_color(key) for key in OIDC_BUTTON_COLOR_FIELDS})
     transforms["oidc_button_radius"] = _button_radius
-    transforms["oidc_match_by"] = _one_of("oidc_match_by", _VALID_MATCH_BY, _strip)
-    transforms["oidc_signing_alg"] = _one_of("oidc_signing_alg", _VALID_SIGNING_ALGS, _strip)
-    transforms.update({key: _flag for key in _OIDC_BOOL_FIELDS})
+    transforms["oidc_match_by"] = _one_of("oidc_match_by", VALID_MATCH_BY, _strip)
+    transforms["oidc_signing_alg"] = _one_of("oidc_signing_alg", VALID_SIGNING_ALGS, _strip)
+    transforms.update({key: _flag for key in OIDC_BOOL_FIELDS})
     writers = {key: _oidc_pinned(key, _store(t)) for key, t in transforms.items()}
     pinned_secret = _oidc_pinned("oidc_client_secret", _store(_client_secret))
 
@@ -169,7 +169,7 @@ _FLAGS = (
 
 WRITERS: dict[str, Writer] = {
     **{key: _store() for key in _FLAGS},
-    "rescan_schedule_interval": _store(_one_of("interval", _VALID_INTERVALS)),
+    "rescan_schedule_interval": _store(_one_of("interval", VALID_INTERVALS)),
     "rescan_schedule_hour": _clamped(0, 23),
     "rescan_schedule_minute": _clamped(0, 59),
     "rescan_schedule_weekday": _clamped(0, 6),
@@ -187,19 +187,19 @@ WRITERS: dict[str, Writer] = {
     "campaign_upload_max_file_mb": _clamped(0),
     "campaign_upload_max_total_mb": _clamped(0),
     "password_auth_enabled": _pinned(
-        lambda: helpers.ALLOW_PASSWORD_AUTHENTICATION_ENV,
+        lambda: settings_store.ALLOW_PASSWORD_AUTHENTICATION_ENV,
         "Password authentication is locked by the ALLOW_PASSWORD_AUTHENTICATION environment variable",
         _store(),
     ),
     "guest_access_enabled": _pinned(
-        lambda: helpers.GUEST_ACCESS_ENABLED_ENV,
+        lambda: settings_store.GUEST_ACCESS_ENABLED_ENV,
         "Guest access is locked by the GUEST_ACCESS_ENABLED environment variable",
         _store(),
     ),
     "share_links_role_gm": _share_link_role,
     "share_links_role_player": _share_link_role,
     "disable_folder_category_inference": _pinned(
-        lambda: helpers.DISABLE_FOLDER_CATEGORY_INFERENCE_ENV,
+        lambda: settings_store.DISABLE_FOLDER_CATEGORY_INFERENCE_ENV,
         "Folder category inference is locked by the "
         "DISABLE_FOLDER_CATEGORY_INFERENCE environment variable",
         _store(),

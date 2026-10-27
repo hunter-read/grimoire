@@ -18,29 +18,10 @@ import threading
 from contextlib import contextmanager
 from typing import Callable, Iterator, Optional
 
-from fastapi import HTTPException
 from fastapi.responses import Response, StreamingResponse
 
 from .._user_files import serve_user_file
 from ...config import valkey_client, logger, valkey_cache_set
-from ...render.ops import PageOutOfRange, RenderError, TileOutOfRange, WidthOutOfRange
-
-
-@contextmanager
-def render_errors(failed: str = "This page could not be rendered") -> Iterator[None]:
-    """Turn the render pool's errors into HTTP responses.
-
-    A page or tile the document doesn't have is the caller's mistake (400). A
-    render that failed, or whose worker crashed or hung, is ours (500): the
-    worker is replaced and the next request tries again.
-    """
-    try:
-        yield
-    except (PageOutOfRange, TileOutOfRange, WidthOutOfRange) as e:
-        raise HTTPException(400, str(e)) from None
-    except RenderError as e:
-        logger.warning("%s: %s", failed, e)
-        raise HTTPException(500, failed) from None
 
 
 # One lock per key currently rendering, with the number of requests holding or

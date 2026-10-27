@@ -11724,7 +11724,7 @@ export interface components {
          * MapDetailResponse
          * @description `GET /maps/{id}` — map metadata, folder context, and image info.
          *
-         *     Everything from `_map_image_info` is nullable by construction: the dict is
+         *     Everything from `map_image_info` is nullable by construction: the dict is
          *     seeded with `None`s and only filled in when the file could be measured
          *     (archives, unreadable files, and PDFs all leave some or all of it None).
          */
@@ -11819,7 +11819,7 @@ export interface components {
         };
         /**
          * MapGrid
-         * @description Detected grid dimensions for a map (see `_helpers._map_image_info`).
+         * @description Detected grid dimensions for a map (see `services.media.maps.map_image_info`).
          *
          *     `cell_px` is only present on the DPI/computed branches — the filename branch
          *     omits it, and PDF maps have it stripped — so it is Optional.
@@ -14336,7 +14336,7 @@ export interface components {
         };
         /**
          * SettingsResponse
-         * @description The full admin settings payload, as built by `_helpers._to_typed`.
+         * @description The full admin settings payload, as built by `services.app_settings.to_typed`.
          *
          *     Every field is derived from the string-valued `app_settings` table through
          *     `_DEFAULTS`, so each one is always present and already coerced to its final

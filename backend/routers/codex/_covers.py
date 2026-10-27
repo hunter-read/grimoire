@@ -23,7 +23,7 @@ from ...models import Book, GameSystem
 from ...render import pool as render_pool
 from ...render.ops import PageOutOfRange, RenderError
 from ..books.core import book_thumbnail_path
-from ..systems._helpers import resolve_cover_book_id
+from ...services.systems import resolve_cover_book_id
 from ..systems.covers import resolve_cover_file
 
 # Wide enough for a sharp catalogue cover, small enough to stay well under the upload limit.

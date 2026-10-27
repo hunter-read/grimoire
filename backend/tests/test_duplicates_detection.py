@@ -323,9 +323,9 @@ class TestDetectionRun:
         assert client.get(f"{API}/scan-status", headers=player_headers).status_code == 403
 
     def test_scan_is_refused_during_a_library_scan(self, client, admin_headers, monkeypatch):
-        from backend.routers.library import _helpers as lib
+        from backend.services.library_scan import runner
 
-        monkeypatch.setattr(lib, "_get_status", lambda: live_scan_status())
+        monkeypatch.setattr(runner, "get_status", lambda: live_scan_status())
         resp = client.post(f"{API}/scan", headers=admin_headers, json={})
         assert resp.status_code == 409
         assert "library scan" in resp.json()["detail"]
@@ -697,13 +697,13 @@ class TestStuckScanRecovery:
 
     @pytest.fixture(autouse=True)
     def _clean_status(self, monkeypatch):
-        from backend.routers.library import _helpers as lib
+        from backend.services.library_scan import runner
         from backend.services.duplicates import job
 
         # The library-scan status is process-global and outlives whichever test
         # last set it; /scan refuses with 409 while one is running, which has
         # nothing to do with what these tests are about.
-        monkeypatch.setattr(lib, "_get_status", lambda: {"running": False})
+        monkeypatch.setattr(runner, "get_status", lambda: {"running": False})
 
         job.set_status({**job.DEFAULT_STATUS})
         job.clear_stop()

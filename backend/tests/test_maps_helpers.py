@@ -2,10 +2,10 @@
 import fitz
 from PIL import Image
 
-from backend.routers.maps._helpers import (
+from backend.services.media.maps import (
     _estimate_grid,
-    _is_pdf,
-    _map_image_info,
+    is_pdf,
+    map_image_info,
     _parse_grid_dims,
     render_map_pdf_page,
 )
@@ -61,17 +61,17 @@ class TestEstimateGrid:
 
 class TestIsPdf:
     def test_true_for_pdf(self):
-        assert _is_pdf("/x/atlas.PDF") is True
+        assert is_pdf("/x/atlas.PDF") is True
 
     def test_false_for_png(self):
-        assert _is_pdf("/x/battle.png") is False
+        assert is_pdf("/x/battle.png") is False
 
 
 class TestMapImageInfo:
     def test_grid_from_filename(self, tmp_path):
         f = tmp_path / "cave.png"
         _png(f, 500, 500)
-        info = _map_image_info(str(f), "DnD/Maps/cave (12x15).png")
+        info = map_image_info(str(f), "DnD/Maps/cave (12x15).png")
         assert info["grid"] == {"width": 12, "height": 15, "source": "filename"}
         assert info["is_pdf"] is False
         assert info["pixel_width"] == 500
@@ -80,7 +80,7 @@ class TestMapImageInfo:
         f = tmp_path / "grid.png"
         # 700x1050 at 70 DPI → 10x15 cells with 1 inch = 1 cell.
         _png(f, 700, 1050, dpi=70)
-        info = _map_image_info(str(f), "DnD/Maps/grid.png")
+        info = map_image_info(str(f), "DnD/Maps/grid.png")
         assert info["dpi"] == 70
         assert info["grid"]["source"] == "dpi"
         assert (info["grid"]["width"], info["grid"]["height"]) == (10, 15)
@@ -88,7 +88,7 @@ class TestMapImageInfo:
     def test_grid_computed(self, tmp_path):
         f = tmp_path / "plain.png"
         _png(f, 700, 1400)  # no dpi, no filename dims → estimated
-        info = _map_image_info(str(f), "DnD/Maps/plain.png")
+        info = map_image_info(str(f), "DnD/Maps/plain.png")
         assert info["grid"]["source"] == "computed"
 
     def test_override_beats_every_inference(self, tmp_path):
@@ -96,7 +96,7 @@ class TestMapImageInfo:
         # a stored override outranks both, because it exists to correct them.
         f = tmp_path / "cave.png"
         _png(f, 700, 1400)
-        info = _map_image_info(str(f), "DnD/Maps/cave (12x15).png", (10.0, 20.0, 70.0))
+        info = map_image_info(str(f), "DnD/Maps/cave (12x15).png", (10.0, 20.0, 70.0))
         assert info["grid"] == {
             "width": 10.0,
             "height": 20.0,
@@ -109,7 +109,7 @@ class TestMapImageInfo:
         # is derived from the raster rather than left unknown.
         f = tmp_path / "bleed.png"
         _png(f, 700, 1400)
-        info = _map_image_info(str(f), "DnD/Maps/bleed.png", (10.5, 21.0, None))
+        info = map_image_info(str(f), "DnD/Maps/bleed.png", (10.5, 21.0, None))
         assert info["grid"]["source"] == "manual"
         assert info["grid"]["cell_px"] == 66.67
 
@@ -117,18 +117,18 @@ class TestMapImageInfo:
         # Width without height is not a usable grid, so inference still runs.
         f = tmp_path / "half.png"
         _png(f, 700, 1400)
-        info = _map_image_info(str(f), "DnD/Maps/half (12x15).png", (10.0, None, None))
+        info = map_image_info(str(f), "DnD/Maps/half (12x15).png", (10.0, None, None))
         assert info["grid"]["source"] == "filename"
 
     def test_unreadable_file_returns_nulls(self, tmp_path):
-        info = _map_image_info(str(tmp_path / "missing.png"), "DnD/Maps/missing.png")
+        info = map_image_info(str(tmp_path / "missing.png"), "DnD/Maps/missing.png")
         assert info["pixel_width"] is None
         assert info["grid"] is None
 
     def test_pdf_reports_page_count_without_raster_fields(self, tmp_path):
         f = tmp_path / "atlas.pdf"
         _pdf(f, pages=3)
-        info = _map_image_info(str(f), "DnD/Maps/atlas.pdf")
+        info = map_image_info(str(f), "DnD/Maps/atlas.pdf")
         assert info["is_pdf"] is True
         assert info["page_count"] == 3
         assert info["pixel_width"] is None
@@ -137,7 +137,7 @@ class TestMapImageInfo:
     def test_pdf_grid_from_filename(self, tmp_path):
         f = tmp_path / "battlemap.pdf"
         _pdf(f, pages=1)
-        info = _map_image_info(str(f), "DnD/Maps/battlemap (24x18).pdf")
+        info = map_image_info(str(f), "DnD/Maps/battlemap (24x18).pdf")
         assert info["grid"] == {"width": 24, "height": 18, "source": "filename"}
         # cell_px must be stripped for PDFs even when grid is detected.
         assert "cell_px" not in info["grid"]
@@ -145,14 +145,14 @@ class TestMapImageInfo:
     def test_broken_pdf_returns_nulls(self, tmp_path):
         f = tmp_path / "broken.pdf"
         f.write_bytes(b"not really a pdf")
-        info = _map_image_info(str(f), "DnD/Maps/broken.pdf")
+        info = map_image_info(str(f), "DnD/Maps/broken.pdf")
         assert info["is_pdf"] is True
         assert info["page_count"] is None
 
 
 class TestRenderMapPdfPage:
     def test_renders_webp_bytes(self, tmp_path, monkeypatch):
-        import backend.routers.maps._helpers as helpers
+        import backend.services.media.maps as helpers
 
         monkeypatch.setattr(helpers, "PAGE_CACHE_DIR", str(tmp_path))
         f = tmp_path / "map.pdf"
@@ -161,7 +161,7 @@ class TestRenderMapPdfPage:
         assert data[:4] == b"RIFF"
 
     def test_second_call_hits_disk_cache(self, tmp_path, monkeypatch):
-        import backend.routers.maps._helpers as helpers
+        import backend.services.media.maps as helpers
 
         cache = tmp_path / "cache"
         cache.mkdir()
@@ -175,7 +175,7 @@ class TestRenderMapPdfPage:
         assert first == second
 
     def test_out_of_range_raises_value_error(self, tmp_path, monkeypatch):
-        import backend.routers.maps._helpers as helpers
+        import backend.services.media.maps as helpers
 
         monkeypatch.setattr(helpers, "PAGE_CACHE_DIR", str(tmp_path))
         f = tmp_path / "map.pdf"

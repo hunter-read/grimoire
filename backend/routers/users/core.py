@@ -11,8 +11,8 @@ from ...models import User, Campaign, CampaignMember, UserAccessGrant
 from ...auth import require_admin, CurrentUser, hash_password
 from ...sessions import delete_user_sessions, revoke_user_sessions
 from ...usernames import username_taken
-from ..campaigns._helpers import purge_user_data, reassign_user_data
-from ..settings._helpers import _get_raw, password_auth_effective
+from ...services.campaigns.user_data import purge_user_data, reassign_user_data
+from ...services.app_settings import get_raw, password_auth_effective
 from ...services import share_links as share_policy
 from ._schemas import UserCreate, UserUpdate, GuestConvert, GuestMerge
 
@@ -267,7 +267,7 @@ def convert_guest(
     if username_taken(db, new_username, exclude_id=user.id):
         raise HTTPException(400, "Username already exists")
 
-    password_enabled = password_auth_effective(_get_raw(db))
+    password_enabled = password_auth_effective(get_raw(db))
     if password_enabled:
         if not data.password:
             raise HTTPException(400, "Password is required")

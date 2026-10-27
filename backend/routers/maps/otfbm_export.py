@@ -1,19 +1,14 @@
-"""OTFBM export routes and the cached background they serve (issue #551).
+"""OTFBM export routes (issue #551).
 
-The sizing rules live in ``otfbm.py``; this module applies them to a library
-map. The background is cached on disk because it is not a one-off download:
-a share link made from it is fetched by OTFBM on every render of the map -
-every token moved in a play-by-post game - and resizing a large battlemap each
-time would be wasted work.
+The sizing rules live in ``services/media/otfbm.py`` and the cached background
+in ``services/media/map_export.py``, which share links serve too. The background
+is cached on disk because it is not a one-off download: a share link made from it
+is fetched by OTFBM on every render of the map - every token moved in a
+play-by-post game - and resizing a large battlemap each time would be wasted work.
 
 Setting a map up for OTFBM is offered only to users who may create share
 links: the point of it is a background OTFBM can fetch, which is a share link.
 """
-import hashlib
-import io
-import os
-import threading
-from pathlib import Path
 from typing import Optional
 
 from fastapi import Depends, HTTPException, Query
@@ -22,95 +17,12 @@ from sqlalchemy.orm import Session
 
 from ...http_headers import content_disposition
 from ...auth import CurrentUser, get_current_user
-from ...config import PAGE_CACHE_DIR, get_db, logger
-from ...indexer import is_vtt_data, slugify
+from ...config import get_db
 from ...models import GenericMap, User
 from ...services import share_links as share_policy
-from ._helpers import _sniff_image_mime, vtt_image_bytes
-from .core import _export_grid, _has_single_raster, _load_accessible_map
-from .otfbm import MAX_CELL, MIN_CELL, plan_otfbm, render_otfbm_image
-
-
-def otfbm_filename(m: GenericMap, plan: dict, ext: str) -> str:
-    """``<slug>-<W>x<H>c<cell>.<ext>``, after the convention shared OTFBM maps
-    use, so the file says how to set it up wherever it ends up."""
-    stem = slugify(Path(m.filename).stem) or "map"
-    return f"{stem}-{plan['width']}x{plan['height']}c{plan['cell']}.{ext}"
-
-
-def otfbm_plan(m: GenericMap, cell: Optional[int]) -> dict:
-    """The OTFBM setup for a map. 400 for a map with no single picture."""
-    if not _has_single_raster(m):
-        raise HTTPException(400, "Only image maps can be exported for OTFBM")
-    info, grid = _export_grid(m, is_vtt_data(m.filename))
-    return plan_otfbm(grid, info["pixel_width"], info["pixel_height"], cell)
-
-
-# One lock per cache file, so simultaneous cold fetches of the same background
-# (a share link posted to a busy channel) render it once rather than once each.
-# Handlers run in the threadpool, so a thread lock covers one worker process.
-_render_locks: dict[str, threading.Lock] = {}
-_render_locks_guard = threading.Lock()
-
-
-def _render_lock(cache_path: str) -> threading.Lock:
-    with _render_locks_guard:
-        return _render_locks.setdefault(cache_path, threading.Lock())
-
-
-def _read_cached(cache_path: str) -> Optional[tuple[bytes, str]]:
-    if not os.path.exists(cache_path):
-        return None
-    with open(cache_path, "rb") as f:
-        raw = f.read()
-    return raw, "png" if _sniff_image_mime(raw) == "image/png" else "jpg"
-
-
-def otfbm_background(m: GenericMap, cell: Optional[int]) -> tuple[dict, bytes, str]:
-    """``(plan, image bytes, extension)`` for a map's OTFBM background.
-
-    Cached on disk, keyed on the file's mtime and the planned sizes, so a
-    replaced file or a corrected grid renders afresh. The key is built from DB
-    values only, never request input.
-    """
-    plan = otfbm_plan(m, cell)
-    try:
-        mtime = int(os.path.getmtime(m.filepath))
-    except OSError:
-        mtime = 0
-    key = (
-        f"{m.filepath}:{mtime}:{plan['image_width']}x{plan['image_height']}:"
-        f"{plan['width']}x{plan['height']}c{plan['cell']}"
-    )
-    cache_path = os.path.join(
-        PAGE_CACHE_DIR, f"otfbm_{hashlib.sha1(key.encode()).hexdigest()[:16]}.img"
-    )
-    cached = _read_cached(cache_path)
-    if cached:
-        return (plan, *cached)
-
-    with _render_lock(cache_path):
-        # Another request may have rendered it while this one waited.
-        cached = _read_cached(cache_path)
-        if cached:
-            return (plan, *cached)
-        try:
-            source = (
-                io.BytesIO(vtt_image_bytes(m.filepath)) if is_vtt_data(m.filename) else m.filepath
-            )
-            raw, ext = render_otfbm_image(source, plan["image_width"], plan["image_height"])
-        except ValueError as e:
-            raise HTTPException(400, str(e)) from None
-        try:
-            # Written aside and moved into place, so a request reading the cache
-            # outside the lock never sees half a file.
-            partial = f"{cache_path}.{os.getpid()}.{threading.get_ident()}.tmp"
-            with open(partial, "wb") as f:
-                f.write(raw)
-            os.replace(partial, cache_path)
-        except OSError as e:  # a full or read-only cache must not fail the export
-            logger.warning(f"Could not cache OTFBM background: {e}")
-    return plan, raw, ext
+from ...services.media.map_export import otfbm_background, otfbm_filename, otfbm_plan
+from ...services.media.otfbm import MAX_CELL, MIN_CELL
+from .core import _load_accessible_map
 
 
 def _sharer_map(map_id: str, current_user: CurrentUser, db: Session) -> GenericMap:

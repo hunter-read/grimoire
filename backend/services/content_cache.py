@@ -110,7 +110,7 @@ def invalidate_book_content(
 
     # The open fitz handle still points at the replaced file's inode.
     from ..render import pool as render_pool
-    from ..routers.books._helpers import _invalidate_book_cache
+    from ..services.books.documents import invalidate_book_cache
 
     try:
         render_pool.evict(filepath)
@@ -133,7 +133,7 @@ def invalidate_book_content(
         except OSError as e:
             logger.debug("Could not remove stale thumbnail %s: %s", thumb_path, e)
 
-    _invalidate_book_cache()
+    invalidate_book_cache()
     logger.debug(
         "Invalidated caches for book %s: %d Valkey key(s), %d cached page(s)",
         book_id,

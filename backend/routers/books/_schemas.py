@@ -5,6 +5,7 @@ from typing import Optional
 from pydantic import BaseModel, field_validator
 
 from ...services import tag_service
+from ...services.books.access import ACCESS_INHERIT
 from .._bulk_schemas import bulk_update_model
 from .._codex_schemas import codex_id_validator
 from .._json_list_coercion import coerce_link_list, coerce_str_list
@@ -12,10 +13,7 @@ from .._link_urls import LinkEntry, LinkRef, http_url_or_none, require_http_url
 from .._variant_schemas import VariantEntry
 
 
-# Accepted ``access_level`` values on the wire. "inherit" is the API spelling of
-# a NULL column (no book-level opinion); "" is an explicit "open" that overrides
-# a restricted system. See backend.models.access.
-ACCESS_INHERIT = "inherit"
+# Accepted ``access_level`` values on the wire (see services.books.access).
 _BOOK_ACCESS_VALUES = frozenset({ACCESS_INHERIT, "", "gm", "admin"})
 
 

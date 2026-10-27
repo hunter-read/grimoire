@@ -33,7 +33,7 @@ lockstep or authored links resolve differently on each side (cf. issue #252).
 import re
 from typing import NamedTuple, Optional
 
-from ...text import slugs
+from . import slugs
 
 # Matches [[target]] or [[target|label]]; target/label captured separately.
 LINK_RE = re.compile(r"\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]")

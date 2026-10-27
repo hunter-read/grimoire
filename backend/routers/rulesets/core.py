@@ -21,7 +21,7 @@ from ...models import Campaign, ContentEntry, ContentPack, Ruleset, RulesetEntry
 from ...services import characters as svc
 from ...services.characters import pack_catalogue, packs as pack_service
 from ...services.characters import rulesets as rs
-from ..content._helpers import user_schema_document
+from ...services.characters.user_schemas import user_schema_document
 from ._schemas import (
     EntryCreate,
     EntryUpdate,

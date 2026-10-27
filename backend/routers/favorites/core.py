@@ -7,7 +7,7 @@ from ...config import get_db
 from ...auth import get_current_user, CurrentUser
 from ...models import Favorite, Book, GenericMap, Token, Audio, Model3D, GameSystem
 from ...services import access_control, tag_service
-from ..systems._helpers import resolve_cover_book_id
+from ...services.systems import resolve_cover_book_id
 from ..systems.covers import has_cover_file
 from ._schemas import FavoriteIn
 
@@ -55,7 +55,7 @@ def list_favorites(user: CurrentUser = Depends(get_current_user), db: Session = 
         # campaign: favouriting an arbitrary id must not turn this list into a
         # way to read its name (issue #519). Systems and tags are library
         # browsing, which guests have no access to at all.
-        from ..campaigns._helpers import user_can_access_resource
+        from ...services.campaigns.access import user_can_access_resource
 
         def _shared(rtype: str, found: dict) -> dict:
             return {

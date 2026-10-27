@@ -188,4 +188,4 @@ class TestTileCaching:
             headers={**admin_headers, "If-None-Match": etag},
         )
         assert resp.status_code == 304
-        assert "immutable" in resp.headers["cache-control"]
+        assert resp.headers["cache-control"] == "private, max-age=31536000, immutable"

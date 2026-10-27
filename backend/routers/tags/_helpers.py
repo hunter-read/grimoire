@@ -4,7 +4,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from ...models import Audio, Book, GameSystem, GenericMap, Model3D, Token, User
-from ..systems._helpers import resolve_cover_book_id
+from ...services.systems import resolve_cover_book_id
 
 
 def can_see_explicit(db: Session, user_id: str) -> bool:

@@ -338,7 +338,7 @@ class TestFileManager:
 
 @needs_raw_names
 def test_frame_listing_skips_bad_names():
-    from backend.routers.token_frames import _helpers
+    from backend.services import token_frames as _helpers
 
     stamp = uuid.uuid4().hex[:8]
     folder = Path(LIBRARY_PATH) / "tokens" / f"Frames-{stamp}"

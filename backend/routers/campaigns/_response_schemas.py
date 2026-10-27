@@ -543,7 +543,7 @@ class WikiPageDetailOut(BaseModel):
     icon: Optional[str] = None
     icon_color: Optional[str] = None
     # Nullable FK: a page outlives the user who wrote it (attribution is cleared,
-    # not cascaded — see `_helpers.purge_user_data`).
+    # not cascaded — see `services.campaigns.user_data.purge_user_data`).
     created_by_id: Optional[str] = None
     created_by_name: Optional[str] = None
     can_edit: bool

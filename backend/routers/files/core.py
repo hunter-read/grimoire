@@ -506,7 +506,7 @@ def _replace_book(
     The cheap re-read happens here, before responding, so the content hash
     changes (and with it every page URL) before anyone can load a page of the
     new file under the old file's cache key. Search text and OCR can take far
-    longer: the book is queued for the background re-index (``_reindex_queue``),
+    longer: the book is queued for the background re-index (``services.library_scan.reindex_queue``),
     with progress on ``GET /api/scan-status``.
 
     Refused while a library scan or a standalone OCR run is going, and while the
@@ -518,11 +518,11 @@ def _replace_book(
     #657), so a batch of replaces runs back to back while their text is read in
     the background.
     """
-    from ..library import _claims, _reindex_queue
-    from ..library._helpers import scan_in_progress
+    from ...services.library_scan import claims, reindex_queue
+    from ...services.library_scan.runner import scan_in_progress
 
     live = scan_in_progress()
-    if live and not _reindex_queue.reindex_running():
+    if live and not reindex_queue.reindex_running():
         raise HTTPException(
             status_code=409,
             detail="A library scan or OCR run is in progress - replace the file once it finishes",
@@ -532,7 +532,7 @@ def _replace_book(
 
     def claim(book_id: str) -> None:
         # With no job running, a claim still held was left by one that died.
-        if not _claims.claim_book(book_id, force=not live):
+        if not claims.claim_book(book_id, force=not live):
             raise HTTPException(
                 status_code=409,
                 detail="This book is being re-indexed - replace the file once it finishes",
@@ -561,8 +561,8 @@ def _replace_book(
                 # claim is released, so a drain that skipped the book while it was
                 # claimed finds it again.
                 reset_book_index(book, db)
-                _reindex_queue.queue_reindex(book.id)
-                background_tasks.add_task(_reindex_queue.drain_reindex_queue)
+                reindex_queue.queue_reindex(book.id)
+                background_tasks.add_task(reindex_queue.drain_reindex_queue)
             else:
                 db.commit()
         except Exception as e:
@@ -573,10 +573,10 @@ def _replace_book(
         finally:
             # The cached (path, hash) lookup may have been refilled with the old hash
             # by a request that landed during the re-read.
-            from ..books._helpers import _invalidate_book_cache
+            from ...services.books.documents import invalidate_book_cache
 
-            _invalidate_book_cache()
+            invalidate_book_cache()
         return result
     finally:
         for book_id in claimed:
-            _claims.release_book(book_id)
+            claims.release_book(book_id)

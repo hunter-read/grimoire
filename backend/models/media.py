@@ -56,7 +56,7 @@ class GenericMap(Base):
     map_type: Mapped[Optional[str]] = mapped_column(String(100), default="")
     grid_size: Mapped[Optional[str]] = mapped_column(String(50), default="")
     # Manual grid override (issue #125). NULL means "no override" — the detail
-    # endpoint falls back to the detection in maps/_helpers.py. Stored as floats
+    # endpoint falls back to the detection in services/media/maps.py. Stored as floats
     # rounded to 2dp because maps routinely bleed a partial cell past the grid
     # (a 33x24 map printed with a quarter-cell margin is really 33.5x24.5), and
     # UVTT's map_size is numeric, not integral. grid_px is pixels per cell.
@@ -71,7 +71,7 @@ class GenericMap(Base):
     # Geometry is in grid units (as UVTT itself uses) and carries the
     # pixels_per_grid it was authored at, since everything is scale-relative and
     # replacing the source image would otherwise invalidate it undetectably.
-    # See backend/routers/maps/vtt_authoring.py for the document shape.
+    # See backend/services/media/vtt_authoring.py for the document shape.
     vtt_data: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
     file_size: Mapped[Optional[int]] = mapped_column(Integer, default=0)
     # Content identity — see the note on Book.content_hash. ``file_mtime`` +

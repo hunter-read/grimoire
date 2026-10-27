@@ -28,15 +28,15 @@ from typing import Any, Optional
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from ...http_headers import content_disposition
-from ...config import logger
-from ...filenames import is_undecodable
-from ...indexer import resolve_collection_dir
-from ...indexer.constants import FRAMES_MARKER as _FRAMES_MARKER
-from ...models import Token
-from ...security import INERT_DOCUMENT_HEADERS
-from ...services.library_fs.constants import LibraryFSError
-from ...services.library_fs.paths import library_root, safe_join, to_relative
+from ..http_headers import content_disposition
+from ..config import logger
+from ..filenames import is_undecodable
+from ..indexer import resolve_collection_dir
+from ..indexer.constants import FRAMES_MARKER as _FRAMES_MARKER
+from ..models import Token
+from ..security import INERT_DOCUMENT_HEADERS
+from .library_fs.constants import LibraryFSError
+from .library_fs.paths import library_root, safe_join, to_relative
 
 # Formats the editor can draw onto a canvas. SVG is admitted because an
 # ``<img>``-loaded SVG renders in the browser's secure static mode — no script

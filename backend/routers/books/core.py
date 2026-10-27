@@ -26,18 +26,16 @@ from ...models.base import utc_iso
 from ...services import access_control, bulk_service, library_fs, tag_service, variants
 from ...services.content_cache import content_token
 from .._bulk_schemas import BulkAddTags
-from .._media_access import guest_visible_variants
-from ._helpers import (
-    LEVEL_KEPT_DETAIL,
-    _allow_explicit,
-    _assert_book_access,
-    _can_read_book,
-    _enforce_campaign_visibility,
-    _invalidate_book_cache,
-    get_visible_book,
-    keeps_access_level,
+from ...services.media.access import guest_visible_variants
+from ._helpers import LEVEL_KEPT_DETAIL, get_visible_book, keeps_access_level
+from ...services.media.access import allow_explicit
+from ...services.books.access import (
+    assert_book_access,
+    can_read_book,
+    enforce_campaign_visibility,
     pop_access_level,
 )
+from ...services.books.documents import invalidate_book_cache
 from ._schemas import BookBulkUpdate, BookUpdate
 
 # OCR DPI bounds, mirroring backend.config._read_ocr_dpi clamping.
@@ -83,7 +81,7 @@ def list_books(
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    can_see_explicit = _allow_explicit(db, current_user.id)
+    can_see_explicit = allow_explicit(db, current_user.id)
     # Variants (printer-friendly cuts, older versions) collapse into their parent
     # entry, so the browse list shows one row per book (issues #304, #306). They
     # stay reachable by id, which is what the version picker opens.
@@ -166,12 +164,12 @@ def get_book(
         # A guest reads only books shared into their campaign, at a visibility
         # that reaches them — the same narrowing the file and page routes apply
         # (issue #519). 404 for the same reason as above. NSFW isn't filtered
-        # for guests, matching `_assert_book_access`.
-        from ..campaigns._helpers import user_can_access_resource
+        # for guests, matching `assert_book_access`.
+        from ...services.campaigns.access import user_can_access_resource
 
         if not user_can_access_resource(db, current_user.id, "book", book.id):
             raise HTTPException(404, "Book not found")
-    elif book.is_explicit and not _allow_explicit(db, current_user.id):
+    elif book.is_explicit and not allow_explicit(db, current_user.id):
         # 404 like a restricted book: a distinct answer would confirm the book
         # exists. MCP's book tools load through here, so they answer the same.
         raise HTTPException(404, "Book not found")
@@ -187,11 +185,11 @@ def get_book(
         "book",
         book.id,
         siblings,
-        can_read=lambda s: _can_read_book(db, s, current_user),
+        can_read=lambda s: can_read_book(db, s, current_user),
     )
     # The main version is named only to someone who could open it. Without it,
     # this book heads its own family, so it is not listed again as a sibling.
-    main_readable = variant_parent.id == book.id or _can_read_book(
+    main_readable = variant_parent.id == book.id or can_read_book(
         db, variant_parent, current_user
     )
     if not main_readable:
@@ -276,7 +274,7 @@ def update_book(
     bulk_service.apply_updates(db, "book", book, payload)
     if has_access:
         book.access_level = access_level
-        _enforce_campaign_visibility(db, book)
+        enforce_campaign_visibility(db, book)
     # A category change moves the file into the matching folder, because the
     # folder is what the next rescan reads: leaving the file put would let the
     # scan overwrite the edit with the old category. Best-effort by design — a
@@ -319,7 +317,7 @@ def bulk_update_books(
             raise bulk_service.BulkItemError(LEVEL_KEPT_DETAIL)
         if has_access:
             obj.access_level = level
-            _enforce_campaign_visibility(db_, obj)
+            enforce_campaign_visibility(db_, obj)
 
     access_user = access_control.load_user(db, current_user)
     result = bulk_service.run_bulk_update(
@@ -397,7 +395,7 @@ def reindex_book(
     The OCR itself runs in the background; poll ``GET /api/scan-status`` (phase
     ``ocr``) for progress.
     """
-    from ..library._helpers import trigger_ocr_queue
+    from ...services.library_scan.runner import trigger_ocr_queue
 
     book = get_visible_book(db, book_id, current_user)
     if book.mime_type != "application/pdf":
@@ -429,7 +427,7 @@ def reindex_book(
     book.index_failed = False
     book.index_error = ""
     db.commit()
-    _invalidate_book_cache()
+    invalidate_book_cache()
 
     background_tasks.add_task(trigger_ocr_queue)
     return {"status": "reindex_queued", "ocr_dpi": ocr_dpi}
@@ -454,7 +452,7 @@ def rescan_book(
     No-ops (leaving the request for the running scan) if a library scan is
     already in progress.
     """
-    from ..library._helpers import rescan_single_book
+    from ...services.library_scan.runner import rescan_single_book
 
     book = get_visible_book(db, book_id, current_user)
     # Any indexable format can be re-read, not just PDF (issues #200/#373).
@@ -475,7 +473,7 @@ def serve_book_file(
     book = db.query(Book).filter_by(id=book_id).first()
     if not book:
         raise HTTPException(404, "Book not found")
-    _assert_book_access(db, book, current_user)
+    assert_book_access(db, book, current_user)
     if not os.path.exists(book.filepath):
         if not book.is_missing:
             book.is_missing = True
@@ -505,7 +503,7 @@ def serve_book_thumbnail(
     book = db.query(Book).filter_by(id=book_id).first()
     if not book:
         raise HTTPException(404)
-    _assert_book_access(db, book, current_user)
+    assert_book_access(db, book, current_user)
     # Thumbnails are written at index time as "{slugify(title)}_{fhash}.webp"
     # (see indexer.generate_thumbnail call sites). On a large library the
     # per-request glob over tens of thousands of files is costly and this

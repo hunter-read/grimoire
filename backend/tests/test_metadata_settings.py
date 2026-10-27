@@ -230,7 +230,7 @@ class TestBackfillEndpoint:
     ):
         """A scan rewrites the rows being exported, so sidecars would be a moving target."""
         monkeypatch.setattr(
-            "backend.routers.library._helpers._get_status", lambda: live_scan_status()
+            "backend.services.library_scan.runner.get_status", lambda: live_scan_status()
         )
         resp = client.post("/api/maintenance/sidecars/export", headers=admin_headers)
 

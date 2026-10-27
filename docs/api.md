@@ -831,7 +831,7 @@ a book whose file is missing.
 
 | `/api/maps/:id` | PATCH | gm/admin | Update `description`, `tags`, `map_type`, `grid_size`, and the grid override `grid_width`/`grid_height`/`grid_px` (`grid_px` is `0` to clear, or at least 4) |
 | `/api/maps/:id/file` | GET | any | Download/stream the original map image, PDF, or archive (served with the archive's MIME type) |
-| `/api/maps/:id/page/:n` | GET | any | Render page `n` of a PDF map to WebP (`width?` target pixel width, default 1600, 16-3000; outside that range is 422). Image maps stream as-is and only accept page 1; archives return 400 |
+| `/api/maps/:id/page/:n` | GET | any | Render page `n` of a PDF map to WebP (`width?` target pixel width, default 1600, 16-3000; outside that range is 422). Image maps stream as-is and only accept page 1; archives return 400. Sends an `ETag` from the map's contents, page and width with `Cache-Control: private, no-cache`, and honours `If-None-Match` (`304`) |
 | `/api/maps/:id/page/:n/size` | GET | any | A PDF map page's `{width, height}` in points. 400 for non-PDF maps |
 | `/api/maps/:id/page/:n/shapes` | GET | any | Suggested cut-outs on a PDF map page, as for [books](#page-export) |
 | `/api/maps/:id/export` | POST | any | Export PDF map pages or cut-outs, as for [books](#page-export). 400 for non-PDF maps |
@@ -839,7 +839,7 @@ a book whose file is missing.
 | `/api/maps/:id/export.uvtt` | GET | any | Export a map as a Universal VTT file (`application/octet-stream`, attachment named `<slug>.uvtt`). An existing `.uvtt` re-exports, carrying its own embedded image plus any edited geometry. 400 for PDF, video and archive maps, and for a raster map already **variant-linked** to a Universal VTT file |
 | `/api/maps/:id/otfbm` | GET | may share | How to set the map up as an [OTFBM](#otfbm-export) background: whole-cell `width`/`height` (the `-mapsize`), `cell` (the `-options c` value; `?cell=` 20-100, defaults to `suggested_cell`), the map's own `source_px`, `grid_source`, the resized `image_width`/`image_height`, and `truncated` when the map exceeds 99 cells per side. 400 for PDF, video and archive maps |
 | `/api/maps/:id/otfbm/image` | GET | may share | The map resized so each cell is `?cell=` pixels, as a JPEG (PNG when the map has transparency). Attachment named `<slug>-<W>x<H>c<cell>.jpg`. 400 for PDF, video and archive maps |
-| `/api/maps/:id/vtt/image` | GET | any | Decode and stream the image embedded in a `.uvtt`/`.dd2vtt` map. 400 if the map is not Universal VTT or carries no image |
+| `/api/maps/:id/vtt/image` | GET | any | Decode and stream the image embedded in a `.uvtt`/`.dd2vtt` map. 400 if the map is not Universal VTT or carries no image. Revalidates by `ETag` like the page route |
 | `/api/maps/:id/vtt/data` | GET | any | Grid resolution plus wall/portal/light counts parsed from a `.uvtt`/`.dd2vtt` map, image omitted. 400 if the map is not Universal VTT |
 | `/api/maps/:id/vtt/authoring` | GET | any | Walls, portals, lights and environment authored in the in-app editor, plus the resolved grid to draw them on, the `image_url` to draw against, and `is_vtt`/`seeded_from_file` flags. `data` is `null` when nothing has been authored; for an unedited `.uvtt` it is seeded from the file's own geometry |
 | `/api/maps/:id/vtt/authoring` | PUT | gm/admin | Replace the authored geometry in one atomic write. Body: `{data: {...}}`; `{"data": null}` clears it |

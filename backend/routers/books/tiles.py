@@ -23,8 +23,9 @@ from ...indexer.formats import is_fitz_mime
 from ...services.content_cache import content_token, page_cache_prefix
 from ...render import pool as render_pool
 from ...render.ops import MAX_RENDER_WIDTH, TILE_SIZE, tile_clip, tile_grid  # noqa: F401  re-exported
-from ._helpers import _cached_book_info
-from ._render_cache import render_errors, serve_cached_render
+from ...services.books.documents import cached_book_info
+from ._render_cache import serve_cached_render
+from .._render_errors import render_errors
 from .pages import _authorize_book, _mark_missing
 
 # Virtual page widths come in steps of this, so a page has a bounded number of
@@ -47,7 +48,7 @@ def serve_book_page_tile(
     if width % WIDTH_STEP:
         raise HTTPException(400, f"width must be a multiple of {WIDTH_STEP}")
     _authorize_book(db, book_id, current_user)
-    book_info = _cached_book_info(book_id)
+    book_info = cached_book_info(book_id)
     if not book_info:
         raise HTTPException(404)
     filepath, mime_type = book_info[0], book_info[1]

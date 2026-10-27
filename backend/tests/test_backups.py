@@ -441,6 +441,7 @@ class TestBackupAPI:
         assert dl.status_code == 200
         assert dl.headers["content-type"] == "application/zip"
         assert item["filename"] in dl.headers["content-disposition"]
+        assert dl.headers["cache-control"] == "no-store"
 
     def test_download_missing_returns_404(self, client, admin_headers, backup_dir):
         resp = client.get("/api/backups/20990101T000000Z/download", headers=admin_headers)

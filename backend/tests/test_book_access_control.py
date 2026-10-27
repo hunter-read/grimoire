@@ -18,7 +18,7 @@ import pytest
 
 from backend.config import SessionLocal
 from backend.models import User
-from backend.routers.books._helpers import _invalidate_book_cache
+from backend.services.books.documents import invalidate_book_cache
 from .conftest import make_book, make_game_system
 
 
@@ -43,7 +43,7 @@ def _real_pdf_book(system_id, **kwargs):
         **kwargs,
     )
     # The page/text/words routes read filepath through an LRU cache.
-    _invalidate_book_cache()
+    invalidate_book_cache()
     return book, f.name
 
 
@@ -384,7 +384,7 @@ def rendered_pdf_book():
         is_missing=False,
         page_count=2,
     )
-    _invalidate_book_cache()
+    invalidate_book_cache()
     yield book
     os.unlink(f.name)
 
@@ -468,7 +468,7 @@ def image_book():
         is_missing=False,
         page_count=1,
     )
-    _invalidate_book_cache()
+    invalidate_book_cache()
     yield book
     os.unlink(f.name)
 
@@ -488,7 +488,7 @@ class TestImageAndMissingPages:
         # Delete the backing file, then request it: the handler 404s and flips
         # is_missing on the row.
         os.unlink(image_book.filepath)
-        _invalidate_book_cache()
+        invalidate_book_cache()
         r = client.get(f"/api/books/{image_book.id}/page/1", headers=admin_headers)
         assert r.status_code == 404
         db = SessionLocal()

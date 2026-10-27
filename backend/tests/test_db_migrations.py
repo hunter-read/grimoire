@@ -1216,7 +1216,7 @@ class TestOidcClientSecretAtRest:
 
     def test_plaintext_secret_is_sealed(self):
         from backend import token_vault
-        from backend.routers.settings._helpers import oidc_effective_client_secret
+        from backend.services.app_settings import oidc_effective_client_secret
 
         path = self._db_with_plaintext_secret()
         init_db(path)

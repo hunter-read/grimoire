@@ -288,7 +288,7 @@ class TestReindexBook:
         book, fpath = self._make_ocr_book(sys.id)
         try:
             with _patch(
-                "backend.routers.library._helpers.trigger_ocr_queue"
+                "backend.services.library_scan.runner.trigger_ocr_queue"
             ) as m:
                 resp = client.post(f"/api/books/{book.id}/reindex", headers=admin_headers)
             assert resp.status_code == 200
@@ -309,7 +309,7 @@ class TestReindexBook:
 
         book, fpath = self._make_ocr_book(sys.id)
         try:
-            with _patch("backend.routers.library._helpers.trigger_ocr_queue"):
+            with _patch("backend.services.library_scan.runner.trigger_ocr_queue"):
                 resp = client.post(
                     f"/api/books/{book.id}/reindex?ocr_dpi=300", headers=admin_headers
                 )
@@ -324,7 +324,7 @@ class TestReindexBook:
 
         book, fpath = self._make_ocr_book(sys.id)
         try:
-            with _patch("backend.routers.library._helpers.trigger_ocr_queue"):
+            with _patch("backend.services.library_scan.runner.trigger_ocr_queue"):
                 too_high = client.post(
                     f"/api/books/{book.id}/reindex?ocr_dpi=9000", headers=admin_headers
                 )
@@ -355,7 +355,7 @@ class TestReindexBook:
         try:
             detail = client.get(f"/api/books/{book.id}", headers=admin_headers).json()
             assert detail["can_reocr"] is True
-            with _patch("backend.routers.library._helpers.trigger_ocr_queue"):
+            with _patch("backend.services.library_scan.runner.trigger_ocr_queue"):
                 resp = client.post(f"/api/books/{book.id}/reindex", headers=admin_headers)
             assert resp.status_code == 200
             # Cleared: the OCR worker reads a book asked for by hand in full.
@@ -426,7 +426,7 @@ class TestRescanBook:
         book, fpath = self._make_pdf_book(sys.id, index_error="")
         try:
             with _patch(
-                "backend.routers.library._helpers.rescan_single_book"
+                "backend.services.library_scan.runner.rescan_single_book"
             ) as m:
                 resp = client.post(f"/api/books/{book.id}/rescan", headers=admin_headers)
             assert resp.status_code == 200
@@ -441,7 +441,7 @@ class TestRescanBook:
 
         book, fpath = self._make_pdf_book(sys.id, index_error="ocr")
         try:
-            with _patch("backend.routers.library._helpers.rescan_single_book") as m:
+            with _patch("backend.services.library_scan.runner.rescan_single_book") as m:
                 resp = client.post(f"/api/books/{book.id}/rescan", headers=admin_headers)
             assert resp.status_code == 200
             assert m.called
@@ -478,7 +478,7 @@ class TestRescanBook:
 
 
 class TestRescanSingleBookHelper:
-    """The background helper backend.routers.library._helpers.rescan_single_book."""
+    """The background helper backend.services.library_scan.runner.rescan_single_book."""
 
     def _make_pdf_book(self, system_id, index_error=""):
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
@@ -502,49 +502,49 @@ class TestRescanSingleBookHelper:
 
     def test_rebuilds_index_via_reindex_single_book(self, sys):
         from unittest.mock import patch as _patch
-        from backend.routers.library import _helpers, _reindex_queue
+        from backend.services.library_scan import reindex_queue, runner
 
         book, fpath = self._make_pdf_book(sys.id)
         try:
-            with _patch.object(_reindex_queue, "reindex_single_book") as reidx, _patch.object(
-                _helpers, "run_ocr_queue"
+            with _patch.object(reindex_queue, "reindex_single_book") as reidx, _patch.object(
+                runner, "run_ocr_queue"
             ) as drain:
-                _helpers.rescan_single_book(book.id)
+                runner.rescan_single_book(book.id)
             assert reidx.called
             # its first positional arg is the freshly-loaded Book
             assert reidx.call_args.args[0].id == book.id
             assert drain.called  # OCR queue drained afterwards
             # status is reset to idle when done
-            assert _helpers._get_status()["running"] is False
+            assert runner.get_status()["running"] is False
         finally:
             os.unlink(fpath)
 
     def test_skips_when_scan_running(self, sys):
         from unittest.mock import patch as _patch
-        from backend.routers.library import _helpers, _reindex_queue
+        from backend.services.library_scan import reindex_queue, runner
 
         book, fpath = self._make_pdf_book(sys.id)
         try:
-            _helpers._set_status({"running": True})
+            runner.set_status({"running": True})
             try:
-                with _patch.object(_reindex_queue, "reindex_single_book") as reidx:
-                    _helpers.rescan_single_book(book.id)
+                with _patch.object(reindex_queue, "reindex_single_book") as reidx:
+                    runner.rescan_single_book(book.id)
                 assert not reidx.called  # left for the running scan
             finally:
-                _helpers._set_status({"running": False, "phase": None})
+                runner.set_status({"running": False, "phase": None})
         finally:
             os.unlink(fpath)
 
     def test_missing_book_no_crash(self):
         from unittest.mock import patch as _patch
-        from backend.routers.library import _helpers, _reindex_queue
+        from backend.services.library_scan import reindex_queue, runner
 
-        with _patch.object(_reindex_queue, "reindex_single_book") as reidx, _patch.object(
-            _helpers, "run_ocr_queue"
+        with _patch.object(reindex_queue, "reindex_single_book") as reidx, _patch.object(
+            runner, "run_ocr_queue"
         ):
-            _helpers.rescan_single_book("does-not-exist")
+            runner.rescan_single_book("does-not-exist")
         assert not reidx.called
-        assert _helpers._get_status()["running"] is False
+        assert runner.get_status()["running"] is False
 
 
 class TestImageBookPage:
@@ -582,6 +582,7 @@ class TestImageBookPage:
             resp = client.get(f"/api/books/{book.id}/page/1", headers=admin_headers)
             assert resp.status_code == 200
             assert resp.headers["content-type"].startswith("image/")
+            assert resp.headers["cache-control"] == "private, max-age=31536000, immutable"
         finally:
             os.unlink(fpath)
 
@@ -819,6 +820,7 @@ class TestServeBookThumbnail:
         try:
             first = client.get(f"/api/books/{book.id}/thumbnail", headers=admin_headers)
             assert first.status_code == 200
+            assert first.headers["cache-control"] == "private, max-age=31536000, immutable"
             etag = first.headers["etag"]
 
             # A client presenting the same tag is told nothing changed.

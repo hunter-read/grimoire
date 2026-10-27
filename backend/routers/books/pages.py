@@ -24,8 +24,10 @@ from ...models import Book
 from ...services.content_cache import content_token, page_cache_prefix
 from ...render import pool as render_pool
 from ...render.ops import MIN_RENDER_WIDTH
-from ._helpers import _assert_book_access, _cached_book_info
-from ._render_cache import render_errors, serve_cached_render
+from ...services.books.access import assert_book_access
+from ...services.books.documents import cached_book_info
+from ._render_cache import serve_cached_render
+from .._render_errors import render_errors
 
 
 def _mark_missing(db: Session, book_id: str) -> None:
@@ -46,7 +48,7 @@ def _authorize_book(db: Session, book_id: str, user) -> None:
     book = db.query(Book).filter_by(id=book_id).first()
     if not book:
         raise HTTPException(404, "Book not found")
-    _assert_book_access(db, book, user)
+    assert_book_access(db, book, user)
 
 
 def get_book_toc(
@@ -59,7 +61,7 @@ def get_book_toc(
     # through the same API as a PDF outline (issue #373).
     if not book or not is_fitz_mime(book.mime_type):
         raise HTTPException(404)
-    _assert_book_access(db, book, current_user)
+    assert_book_access(db, book, current_user)
     # Not `get_toc` directly: MuPDF drops the whole outline over one bookmark
     # it can't resolve, which left books with a perfectly usable TOC showing none
     # (see render/outline.py). Read in a render worker, like the pages.
@@ -98,7 +100,7 @@ def serve_book_page(
     db: Session = Depends(get_db),
 ):
     _authorize_book(db, book_id, current_user)
-    book_info = _cached_book_info(book_id)
+    book_info = cached_book_info(book_id)
     if not book_info:
         raise HTTPException(404)
     filepath, mime_type = book_info[0], book_info[1]
@@ -163,7 +165,7 @@ def get_page_text(
     db: Session = Depends(get_db),
 ):
     _authorize_book(db, book_id, current_user)
-    book_info = _cached_book_info(book_id)
+    book_info = cached_book_info(book_id)
     # Ask the format table rather than testing for an "application/" MIME
     # prefix: text/plain and text/markdown books carry readable text too, and
     # the prefix check silently excluded them (issues #200/#373).
@@ -202,7 +204,7 @@ def get_page_words(
     db: Session = Depends(get_db),
 ):
     _authorize_book(db, book_id, current_user)
-    book_info = _cached_book_info(book_id)
+    book_info = cached_book_info(book_id)
     # Word boxes exist only for rendered documents; anything else gets an empty
     # overlay rather than an error.
     if not book_info or not is_fitz_mime(book_info[1]):

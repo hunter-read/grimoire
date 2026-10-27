@@ -16,7 +16,7 @@ from backend.indexer.media import _enrich_model
 from backend.indexer import stl_render
 from backend.indexer.stl_render import INLINE_TRIANGLE_BUDGET, MAX_TRIANGLES
 from backend.models import Model3D
-from backend.routers.library import _helpers
+from backend.services.library_scan import runner
 from backend.tests.conftest import live_scan_status, make_model3d
 
 
@@ -98,12 +98,12 @@ class TestQueueDrain:
         these tests for a reason that has nothing to do with the queue. The
         production entry points clear it the same way before starting a run.
         """
-        _helpers.clear_stop()
+        runner.clear_stop()
         yield
-        _helpers.clear_stop()
+        runner.clear_stop()
 
     def test_empty_queue_is_a_no_op(self):
-        assert _helpers.run_model_thumbnail_queue() == 0
+        assert runner.run_model_thumbnail_queue() == 0
 
     def test_renders_a_pending_model(self, tmp_path, monkeypatch):
         src = tmp_path / "mini.stl"
@@ -117,7 +117,7 @@ class TestQueueDrain:
             f.write(b"\0\0")
         m = make_model3d(filename="mini.stl", filepath=str(src), thumbnail_pending=True)
 
-        assert _helpers.run_model_thumbnail_queue() == 1
+        assert runner.run_model_thumbnail_queue() == 1
 
         db = SessionLocal()
         try:
@@ -147,7 +147,7 @@ class TestQueueDrain:
         make_model3d(
             filename="Dragon_Scan-01.stl", filepath=str(src), thumbnail_pending=True
         )
-        _helpers.run_model_thumbnail_queue()
+        runner.run_model_thumbnail_queue()
 
         title = Path("Dragon_Scan-01.stl").stem.replace("_", " ").replace("-", " ")
         served = os.path.join(
@@ -163,7 +163,7 @@ class TestQueueDrain:
         src.write_bytes(b"not a mesh")
         m = make_model3d(filename="broken.stl", filepath=str(src), thumbnail_pending=True)
 
-        _helpers.run_model_thumbnail_queue()
+        runner.run_model_thumbnail_queue()
 
         db = SessionLocal()
         try:
@@ -176,25 +176,25 @@ class TestQueueDrain:
     def test_missing_file_does_not_stall_the_drain(self, tmp_path):
         make_model3d(filepath="/tmp/definitely-absent.stl", thumbnail_pending=True)
         # The point is that it returns at all rather than raising.
-        assert _helpers.run_model_thumbnail_queue() == 0
+        assert runner.run_model_thumbnail_queue() == 0
 
     def test_lightest_first(self, tmp_path, monkeypatch):
         """An interrupted drain should have produced as many previews as it could."""
         seen = []
         monkeypatch.setattr(
-            _helpers, "_thumbnail_one_model", lambda mid: seen.append(mid) or "done"
+            runner, "_thumbnail_one_model", lambda mid: seen.append(mid) or "done"
         )
         heavy = make_model3d(triangle_count=900_000, thumbnail_pending=True)
         light = make_model3d(triangle_count=1_200, thumbnail_pending=True)
-        _helpers.run_model_thumbnail_queue()
+        runner.run_model_thumbnail_queue()
         assert seen.index(light.id) < seen.index(heavy.id)
 
     def test_stop_request_leaves_the_rest_pending(self, monkeypatch):
         """A stop must be resumable — the flag is what makes the next run continue."""
         make_model3d(thumbnail_pending=True)
         make_model3d(thumbnail_pending=True)
-        monkeypatch.setattr(_helpers, "is_stop_requested", lambda: True)
-        assert _helpers.run_model_thumbnail_queue() == 0
+        monkeypatch.setattr(runner, "is_stop_requested", lambda: True)
+        assert runner.run_model_thumbnail_queue() == 0
 
         db = SessionLocal()
         try:
@@ -208,7 +208,7 @@ class TestQueueTimeout:
         from backend.indexer.constants import _THUMBNAIL_TIMEOUT
 
         # The whole point of deferring: work refused inline gets a real chance.
-        assert _helpers.MODEL_THUMBNAIL_TIMEOUT > _THUMBNAIL_TIMEOUT
+        assert runner.MODEL_THUMBNAIL_TIMEOUT > _THUMBNAIL_TIMEOUT
 
     def test_budget_covers_the_largest_allowed_mesh(self):
         """The timeout must clear the worst case the caps actually permit.
@@ -230,7 +230,7 @@ class TestQueueTimeout:
         measured_rate = 350_000
         slow_host_factor = 4
         worst_case = stl_render.MAX_TRIANGLES / measured_rate
-        assert _helpers.MODEL_THUMBNAIL_TIMEOUT >= worst_case * slow_host_factor
+        assert runner.MODEL_THUMBNAIL_TIMEOUT >= worst_case * slow_host_factor
 
 
 class TestScanStatus:
@@ -251,24 +251,24 @@ class TestStartupRecovery:
     """
 
     def test_startup_scan_drains_pending_models(self, monkeypatch):
-        _helpers.clear_stop()
-        _helpers._set_status({**_helpers._DEFAULT_STATUS})
+        runner.clear_stop()
+        runner.set_status({**runner.DEFAULT_STATUS})
         calls = []
-        monkeypatch.setattr(_helpers, "scan_library", lambda *a, **k: {})
-        monkeypatch.setattr(_helpers, "run_model_thumbnail_queue", lambda: calls.append("thumbs"))
-        monkeypatch.setattr(_helpers, "run_ocr_queue", lambda: calls.append("ocr"))
-        _helpers.run_rescan_sync()
+        monkeypatch.setattr(runner, "scan_library", lambda *a, **k: {})
+        monkeypatch.setattr(runner, "run_model_thumbnail_queue", lambda: calls.append("thumbs"))
+        monkeypatch.setattr(runner, "run_ocr_queue", lambda: calls.append("ocr"))
+        runner.run_rescan_sync()
         # Thumbnails first: bounded and quick, where OCR of a scanned library
         # can run for hours.
         assert calls == ["thumbs", "ocr"]
 
     def test_rescan_defers_to_a_run_already_in_progress(self, monkeypatch):
         called = []
-        monkeypatch.setattr(_helpers, "run_model_thumbnail_queue", lambda: called.append(1))
+        monkeypatch.setattr(runner, "run_model_thumbnail_queue", lambda: called.append(1))
         monkeypatch.setattr(
-            _helpers, "_get_status", lambda: live_scan_status(phase="scanning")
+            runner, "get_status", lambda: live_scan_status(phase="scanning")
         )
-        _helpers.run_rescan_sync()
+        runner.run_rescan_sync()
         assert called == []
 
     def test_startup_wires_the_scan_that_drains(self):
@@ -287,14 +287,14 @@ class TestStartupRecovery:
 
 class TestThumbnailOneModel:
     def test_unknown_id_is_skipped(self):
-        _helpers.clear_stop()
-        assert _helpers._thumbnail_one_model("no-such-id") == "skipped"
+        runner.clear_stop()
+        assert runner._thumbnail_one_model("no-such-id") == "skipped"
 
     def test_a_model_not_flagged_is_skipped(self):
         """Guards a double-drain: two passes must not re-render the same row."""
-        _helpers.clear_stop()
+        runner.clear_stop()
         m = make_model3d(thumbnail_pending=False)
-        assert _helpers._thumbnail_one_model(m.id) == "skipped"
+        assert runner._thumbnail_one_model(m.id) == "skipped"
 
 
 class TestModelThumbnailRequeue:

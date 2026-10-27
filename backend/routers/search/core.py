@@ -10,9 +10,9 @@ from ...config import get_db
 from ...models import Book, GameSystem
 from ...services import access_control
 from ...services.content_cache import content_token
-from ._books import search_book_metadata
+from ...services.book_search import search_book_metadata
 from ...services.search_query import FIELD_ALIASES, parse_query
-from ..books._helpers import _allow_explicit
+from ...services.media.access import allow_explicit
 from ._helpers import (
     EXPLICIT_BOOKS_CLAUSE,
     _search_models,
@@ -52,7 +52,7 @@ def search_library(
     # Explicit books are left out the same way - inside the query - when the
     # user has explicit content off, so neither a snippet nor the page count
     # gives one away.
-    hide_explicit = not _allow_explicit(db, current_user.id)
+    hide_explicit = not allow_explicit(db, current_user.id)
     if hide_explicit:
         access_sql = f"{access_sql} {EXPLICIT_BOOKS_CLAUSE}"
 

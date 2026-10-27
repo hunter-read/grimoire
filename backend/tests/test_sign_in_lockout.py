@@ -7,7 +7,7 @@ import pytest
 
 from backend.config import SessionLocal
 from backend.models import AppSetting
-from backend.routers.settings import _helpers as settings_helpers
+from backend.services import app_settings as settings_helpers
 from backend.tests.conftest import OIDC_CONFIGURED
 
 SETTINGS = "/api/settings"

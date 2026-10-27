@@ -22,7 +22,7 @@ from .._page_export import (
     page_size,
     save_export,
 )
-from ._helpers import _assert_book_access
+from ...services.books.access import assert_book_access
 
 
 def _exportable(db: Session, book_id: str, user: CurrentUser) -> Book:
@@ -30,7 +30,7 @@ def _exportable(db: Session, book_id: str, user: CurrentUser) -> Book:
     book = db.query(Book).filter_by(id=book_id).first()
     if not book:
         raise HTTPException(404, "Book not found")
-    _assert_book_access(db, book, user)
+    assert_book_access(db, book, user)
     if not is_fitz_mime(book.mime_type):
         raise HTTPException(400, "This kind of file has no pages to export")
     if not os.path.exists(book.filepath):

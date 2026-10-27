@@ -20,6 +20,7 @@ from ...config import get_db
 from ...models import ContentEntry, ContentPack, Ruleset, RulesetEntry
 from ...services.characters import packs as pack_service
 from ...services.characters import rulesets as rs
+from ...services.characters.user_schemas import user_schema_document
 from . import _helpers as helpers
 
 logger = logging.getLogger("grimoire.content")
@@ -139,7 +140,7 @@ def list_content_types(
     db: Session = Depends(get_db),
 ):
     """The content types this user's copy of a schema declares."""
-    document = helpers.user_schema_document(db, current_user.id, schema_id)
+    document = user_schema_document(db, current_user.id, schema_id)
     if document is None:
         raise HTTPException(status_code=404, detail="Schema not found")
 
@@ -188,7 +189,7 @@ def browse_content(
     handler takes the raw request — FastAPI cannot express that bracketed shape
     as a typed parameter.
     """
-    document = helpers.user_schema_document(db, current_user.id, schema_id)
+    document = user_schema_document(db, current_user.id, schema_id)
     if document is None:
         raise HTTPException(status_code=404, detail="Schema not found")
 
@@ -266,7 +267,7 @@ def get_entry(
     db: Session = Depends(get_db),
 ):
     """One catalog entry in full."""
-    document = helpers.user_schema_document(db, current_user.id, schema_id)
+    document = user_schema_document(db, current_user.id, schema_id)
     if document is None:
         raise HTTPException(status_code=404, detail="Schema not found")
 

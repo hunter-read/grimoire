@@ -65,7 +65,7 @@ from .wiki import (
     rebuild_links,
     slugify,
 )
-from .wikilinks import build_target, parse_target
+from ...text.wikilinks import build_target, parse_target
 
 BUNDLE_VERSION = 1
 _MAX_IMPORT_BYTES = 25 * 1024 * 1024  # 25 MB — bounds a single in-memory read.

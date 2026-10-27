@@ -102,7 +102,7 @@ class TestDeletingAUser:
         assert not os.path.exists(picture)
 
     def test_a_delete_that_rolls_back_keeps_the_pictures(self, client, admin_headers):
-        from backend.routers.campaigns._helpers import purge_user_data
+        from backend.services.campaigns.user_data import purge_user_data
 
         user_id = _player(client, admin_headers)
         character_id = _give_builder_rows(user_id)["character"]

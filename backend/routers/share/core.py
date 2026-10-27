@@ -27,7 +27,7 @@ from ...security import (
     record_share_failure,
     share_attempts_blocked,
 )
-from . import _content, _links
+from ...services.share_links import content as _content, links as _links
 from ._schemas import ShareUnlock
 
 # Headers on everything served through a link. Cross-origin reads are allowed

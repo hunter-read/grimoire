@@ -18,7 +18,7 @@ import pytest
 
 from backend.config import LIBRARY_PATH as LIB, SessionLocal
 from backend.models import Book, GameSystem, MapFolder, ResourceTag, Tag
-from backend.routers.maintenance._helpers import _do_cleanup
+from backend.services.library_cleanup import do_cleanup
 from backend.services import library_fs as fs, tag_service
 from backend.tests.conftest import make_book, make_game_system, make_map
 
@@ -125,7 +125,7 @@ class TestCleanupCollectsTheDebris:
         db.query(Book).filter_by(id=book.id).delete(synchronize_session=False)
         db.commit()
 
-        removed = _do_cleanup(db)
+        removed = do_cleanup(db)
         assert removed["tag_links"] >= 1
         assert db.query(ResourceTag).filter_by(resource_id=book.id).count() == 0
         # The tag row had no other carrier, so it goes too rather than lingering
@@ -144,7 +144,7 @@ class TestCleanupCollectsTheDebris:
         book = make_book(system.id, tags=[tag], filepath=str(real))
 
         db = SessionLocal()
-        _do_cleanup(db)
+        do_cleanup(db)
         assert db.query(ResourceTag).filter_by(resource_id=book.id).count() == 1
         assert db.query(Tag).filter_by(internal=tag).first() is not None
         db.close()
@@ -239,7 +239,7 @@ class TestFolderRowsFollowTheirFolder:
         db.close()
 
         db = SessionLocal()
-        removed = _do_cleanup(db)
+        removed = do_cleanup(db)
         db.close()
 
         assert removed["folders"] >= 1
@@ -264,7 +264,7 @@ class TestSystemDeleteLeavesNothingBehind:
         db.commit()
 
         # The system has no books on disk, so the sweep prunes book and system.
-        _do_cleanup(db)
+        do_cleanup(db)
 
         assert db.query(GameSystem).filter_by(id=system.id).first() is None
         assert db.query(Book).filter_by(id=book.id).first() is None
@@ -278,7 +278,7 @@ class TestSystemDeleteLeavesNothingBehind:
 
         db = SessionLocal()
         assert db.query(ResourceTag).filter_by(resource_id=system.id).count() == 1
-        _do_cleanup(db)
+        do_cleanup(db)
         assert db.query(GameSystem).filter_by(id=system.id).first() is None
         assert db.query(ResourceTag).filter_by(resource_id=system.id).count() == 0
         db.close()

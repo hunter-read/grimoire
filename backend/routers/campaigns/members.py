@@ -16,9 +16,9 @@ from ._helpers import (
     assert_can_manage,
     assert_not_archived,
     get_campaign_or_404,
-    release_guest_membership,
     user_has_campaign_access,
 )
+from ...services.campaigns.user_data import release_guest_membership
 from ._schemas import InvitePayload, MemberStatusUpdate
 
 

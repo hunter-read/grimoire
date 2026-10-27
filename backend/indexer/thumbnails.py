@@ -121,7 +121,7 @@ def _vtt_embedded_image(filepath: str) -> Optional[bytes]:
     only. Returns None rather than raising — a malformed file just means no
     thumbnail, exactly like an archive with no readable cover.
     """
-    from ..routers.maps._helpers import vtt_image_bytes
+    from ..services.media.maps import vtt_image_bytes
 
     try:
         return vtt_image_bytes(filepath)

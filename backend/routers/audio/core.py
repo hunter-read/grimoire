@@ -23,21 +23,9 @@ from ...indexer import (
 )
 from .._browse import media_browse_params
 from .._bulk_schemas import BulkAddTags, BulkFolderTags
-from .._media_access import assert_media_access, guest_visible_variants
+from ...services.media.audio import AUDIO_MIME
+from ...services.media.access import assert_media_access, guest_visible_variants
 from ._schemas import AudioBulkUpdate, AudioUpdate, FolderTagsUpdate
-
-# Map audio extensions to the mimetype the browser <audio> element expects.
-_AUDIO_MIME = {
-    ".mp3": "audio/mpeg",
-    ".ogg": "audio/ogg",
-    ".opus": "audio/ogg",
-    ".flac": "audio/flac",
-    ".wav": "audio/wav",
-    ".m4a": "audio/mp4",
-    # Audiobooks: the same container as .m4a, so the same player handles them.
-    ".m4b": "audio/mp4",
-    ".aac": "audio/aac",
-}
 
 
 def _serialize(a: Audio, tags: list[str] | None = None) -> dict:
@@ -189,7 +177,7 @@ def serve_audio_file(
         media = archive_mime(arc_ext)
     else:
         ext = Path(a.filepath).suffix.lower()
-        media = _AUDIO_MIME.get(ext, "application/octet-stream")
+        media = AUDIO_MIME.get(ext, "application/octet-stream")
     # FileResponse honours HTTP Range requests, so browsers can seek/stream.
     return serve_user_file(a.filepath, media, filename=a.filename)
 

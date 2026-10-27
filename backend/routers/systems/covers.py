@@ -24,7 +24,7 @@ from ...file_cache import cached_file_response
 from ...models import GameSystem
 from ...security import inert_svg_headers
 from ...services.upload_images import is_upload_image
-from ._helpers import get_visible_system, load_browsable_system
+from ...services.systems import get_visible_system, load_browsable_system
 from ._schemas import SystemCoverSourceIn
 
 _IMAGE_TYPES = {

@@ -11,7 +11,7 @@ import json
 import pytest
 from PIL import Image
 
-from backend.routers.maps.uvtt import (
+from backend.services.media.uvtt import (
     DEFAULT_PIXELS_PER_GRID,
     build_uvtt,
     check_grid_plausible,
@@ -190,7 +190,7 @@ class TestEncodeMapImage:
 
     def test_downscales_beyond_webp_limit(self, tmp_path, monkeypatch):
         # Patch the cap rather than building a 16k image in a test.
-        monkeypatch.setattr("backend.routers.maps.uvtt.WEBP_MAX_DIM", 100)
+        monkeypatch.setattr("backend.services.media.uvtt.WEBP_MAX_DIM", 100)
         raw = base64.b64decode(encode_map_image(_img(tmp_path / "big.png", 400, 200)))
         assert max(Image.open(io.BytesIO(raw)).size) == 100
 

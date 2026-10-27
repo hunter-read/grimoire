@@ -21,7 +21,7 @@ from ...models import Model3D, GameSystem, Book, GenericMap, Token, Audio
 from ...auth import require_admin, require_not_guest, get_current_user, CurrentUser
 from ...indexer import resolve_scope
 from ...services import access_control, changelog, variants
-from . import _helpers
+from ...services.library_scan import runner
 from ._schemas import (
     AboutResponse,
     ChangelogResponse,
@@ -45,7 +45,7 @@ stats_router = APIRouter(tags=["stats"])
     response_model=ScanStatusResponse,
 )
 def get_scan_status(_: CurrentUser = Depends(require_admin)):
-    return _helpers._get_status()
+    return runner.get_status()
 
 
 @router.post(
@@ -69,10 +69,10 @@ def rescan_library(
             resolve_scope(LIBRARY_PATH, req.scope)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
-    if _helpers.scan_in_progress():
+    if runner.scan_in_progress():
         return {"status": "already_running"}
     background_tasks.add_task(
-        _helpers.run_rescan_sync,
+        runner.run_rescan_sync,
         scope_path=req.scope,
         metadata_mode=req.metadata_mode,
     )
@@ -98,21 +98,21 @@ def cancel_scan(_: CurrentUser = Depends(require_admin)):
     the meantime (issue #524). A status whose heartbeat has gone stale is
     cleared here directly - the only recovery the UI has short of a restart.
     """
-    status = _helpers._get_status()
+    status = runner.get_status()
     if not status["running"]:
         # Without Valkey each worker has its own status, and the startup scan
         # may be running on another one (issue #651).
-        if valkey_client() is None and _helpers.startup_scan_running():
-            _helpers.request_stop()
+        if valkey_client() is None and runner.startup_scan_running():
+            runner.request_stop()
             return {"status": "stop_requested"}
         return {"status": "not_running"}
-    if _helpers.is_stale(status):
-        _helpers.force_clear()
+    if runner.is_stale(status):
+        runner.force_clear()
         logger.warning(
             "Cleared a stuck library scan (no sign of life since %s).", status.get("heartbeat")
         )
         return {"status": "cleared_stale"}
-    _helpers.request_stop()
+    runner.request_stop()
     return {"status": "stop_requested"}
 
 

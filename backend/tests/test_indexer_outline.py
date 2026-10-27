@@ -13,7 +13,7 @@ import pytest
 from backend.indexer.outline import read_toc as reexported_read_toc
 from backend.render import outline
 from backend.render.outline import read_toc
-from backend.routers.books._helpers import _invalidate_book_cache
+from backend.services.books.documents import invalidate_book_cache
 from .conftest import make_book, make_game_system
 
 TOC = [
@@ -219,7 +219,7 @@ def test_toc_endpoint_survives_a_broken_bookmark(tmp_path, client, admin_headers
         is_missing=False,
         page_count=5,
     )
-    _invalidate_book_cache()
+    invalidate_book_cache()
 
     r = client.get(f"/api/books/{book.id}/toc", headers=admin_headers)
 

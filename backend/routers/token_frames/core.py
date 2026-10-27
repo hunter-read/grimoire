@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from ...config import get_db
 from ...file_cache import cached_file_response
-from ._helpers import (
+from ...services.token_frames import (
     FRAME_MEDIA_TYPES,
     attach_token_ids,
     cached_user_frames,

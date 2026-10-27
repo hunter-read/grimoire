@@ -77,7 +77,7 @@ from .routers import (
     tokens as tokens_router,
     users as users_router,
 )
-from .routers.library import run_rescan_sync
+from .services.library_scan.runner import run_rescan_sync
 from .render import pool as render_pool
 from .seed_users import seed_users
 
@@ -172,11 +172,11 @@ def startup_scan() -> None:
     Runs on a background thread. ``STARTUP_SCAN=false`` skips the scan itself
     (issue #651); the rest still runs, since it is quick and nothing else does it.
     """
-    from .routers.library._helpers import clear_stop, _set_status, _DEFAULT_STATUS
+    from .services.library_scan.runner import DEFAULT_STATUS, clear_stop, set_status
 
     # Clear any stale scan state left in Valkey from a previous crashed/frozen run.
     clear_stop()
-    _set_status({**_DEFAULT_STATUS})
+    set_status({**DEFAULT_STATUS})
 
     # If OCR is available, re-queue any books previously skipped as
     # image-only so the next scan runs them through OCR.

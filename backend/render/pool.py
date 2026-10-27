@@ -362,7 +362,7 @@ def render_page(
     pool = _get_pool()
     if pool is not None:
         return pool.call("page", filepath, page_num, width, quality, method, count)
-    from ..routers.books._helpers import note_page_render, open_pdf
+    from ..services.books.documents import note_page_render, open_pdf
 
     with open_pdf(filepath) as doc:
         img = ops.rasterize_page(doc, page_num, width)
@@ -382,7 +382,7 @@ def render_tile(filepath: str, page_num: int, width: int, col: int, row: int) ->
     pool = _get_pool()
     if pool is not None:
         return pool.call("tile", filepath, page_num, width, col, row)
-    from ..routers.books._helpers import open_pdf
+    from ..services.books.documents import open_pdf
 
     with open_pdf(filepath) as doc:
         img = ops.rasterize_tile(doc, page_num, width, col, row)
@@ -397,7 +397,7 @@ def page_text(filepath: str, page_num: int) -> str:
     pool = _get_pool()
     if pool is not None:
         return pool.call("text", filepath, page_num)
-    from ..routers.books._helpers import open_pdf
+    from ..services.books.documents import open_pdf
 
     with open_pdf(filepath) as doc:
         return ops.page_text(doc, page_num)
@@ -408,7 +408,7 @@ def page_words(filepath: str, page_num: int) -> dict[str, Any]:
     pool = _get_pool()
     if pool is not None:
         return pool.call("words", filepath, page_num)
-    from ..routers.books._helpers import open_pdf
+    from ..services.books.documents import open_pdf
 
     with open_pdf(filepath) as doc:
         return ops.page_words(doc, page_num)
@@ -419,7 +419,7 @@ def document_info(filepath: str) -> dict[str, Any]:
     pool = _get_pool()
     if pool is not None:
         return pool.call("info", filepath)
-    from ..routers.books._helpers import open_pdf
+    from ..services.books.documents import open_pdf
 
     with open_pdf(filepath) as doc:
         return ops.document_info(doc)
@@ -430,7 +430,7 @@ def document_metadata(filepath: str) -> dict[str, str]:
     pool = _get_pool()
     if pool is not None:
         return pool.call("metadata", filepath)
-    from ..routers.books._helpers import open_pdf
+    from ..services.books.documents import open_pdf
 
     with open_pdf(filepath) as doc:
         return ops.document_metadata(doc)
@@ -456,7 +456,7 @@ def export_page_size(filepath: str, page_num: int) -> dict[str, float]:
     pool = _get_pool()
     if pool is not None:
         return pool.call("page_size", filepath, page_num)
-    from ..routers.books._helpers import open_pdf
+    from ..services.books.documents import open_pdf
     from ..services.page_export import run as export_run
 
     with open_pdf(filepath) as doc:
@@ -468,7 +468,7 @@ def detect_shapes(filepath: str, page_num: int) -> list[dict[str, Any]]:
     pool = _get_pool()
     if pool is not None:
         return pool.call("detect", filepath, page_num)
-    from ..routers.books._helpers import open_pdf
+    from ..services.books.documents import open_pdf
     from ..services.page_export import run as export_run
 
     with open_pdf(filepath) as doc:
@@ -535,7 +535,7 @@ def evict(filepath: str) -> None:
     """
     pool = _get_pool()
     if pool is None:
-        from ..routers.books._helpers import evict_pdf
+        from ..services.books.documents import evict_pdf
 
         evict_pdf(filepath)
         return

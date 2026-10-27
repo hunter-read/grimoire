@@ -346,7 +346,7 @@ class TestCleanupMissingBehavior:
 
     def test_returns_409_when_scan_running(self, client, admin_headers):
         with patch(
-            "backend.routers.library._helpers._get_status",
+            "backend.services.library_scan.runner.get_status",
             return_value=live_scan_status(),
         ):
             resp = client.post("/api/maintenance/cleanup-missing", headers=admin_headers)
@@ -354,7 +354,7 @@ class TestCleanupMissingBehavior:
 
     def test_proceeds_when_scan_not_running(self, client, admin_headers):
         with patch(
-            "backend.routers.library._helpers._get_status",
+            "backend.services.library_scan.runner.get_status",
             return_value={"running": False},
         ):
             resp = client.post("/api/maintenance/cleanup-missing", headers=admin_headers)
@@ -640,12 +640,12 @@ class TestCleanupSystemContainers:
 
 class TestRunCleanupSync:
     def test_callable_without_http_context(self):
-        from backend.routers.maintenance import run_cleanup_sync
+        from backend.services.library_cleanup import run_cleanup_sync
 
         run_cleanup_sync()  # must not raise
 
     def test_removes_missing_records(self, tmp_path):
-        from backend.routers.maintenance import run_cleanup_sync
+        from backend.services.library_cleanup import run_cleanup_sync
 
         sys = make_game_system()
         missing_book = make_book(
@@ -807,7 +807,7 @@ class TestDisableFolderCategoryInference:
         )
 
     def test_env_lock_blocks_patch_and_reports_locked(self, client, admin_headers, monkeypatch):
-        import backend.routers.settings._helpers as helpers
+        import backend.services.app_settings as helpers
 
         monkeypatch.setattr(helpers, "DISABLE_FOLDER_CATEGORY_INFERENCE_ENV", True)
 

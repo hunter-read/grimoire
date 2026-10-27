@@ -1,4 +1,7 @@
-"""Filesystem-check and cleanup helpers for the maintenance router."""
+"""Removing library records whose files are gone, and the check that the library is mounted.
+
+Run from the maintenance routes and, on a schedule, by the scheduler.
+"""
 import os
 import threading
 from pathlib import Path
@@ -6,12 +9,12 @@ from typing import Any, Iterator
 
 from sqlalchemy.orm import Session
 
-from ...config import LIBRARY_PATH, logger
-from ...indexer.metadata import resolve_collection_dir
-from ...models.collections import CollectionSpec, iter_specs
-from ...models import RESOURCE_TYPES, Book, BookFolder, Campaign, GameSystem, ResourceTag
-from ...services import tag_service
-from ...services.library_fs.references import purge_references, purge_system_references
+from ..config import LIBRARY_PATH, logger
+from ..indexer.metadata import resolve_collection_dir
+from ..models.collections import CollectionSpec, iter_specs
+from ..models import RESOURCE_TYPES, Book, BookFolder, Campaign, GameSystem, ResourceTag
+from . import tag_service
+from .library_fs.references import purge_references, purge_system_references
 
 _FS_TIMEOUT = 5  # seconds before an os.path.exists() call is treated as hung
 
@@ -20,7 +23,7 @@ def _path_exists(filepath: str) -> bool:
     """Return whether filepath exists, with a timeout guard against hung mounts."""
     result = [False]
 
-    def _check():
+    def _check() -> None:
         try:
             result[0] = os.path.exists(filepath)
         except Exception:
@@ -129,7 +132,7 @@ def _remove_missing(db: Session, spec: CollectionSpec) -> int:
     return count
 
 
-def _prune_orphaned_systems(db) -> int:
+def _prune_orphaned_systems(db: Session) -> int:
     """Delete game systems left with no books after the book sweep.
 
     Orphaned systems otherwise linger in the campaign-creation picker even
@@ -164,7 +167,7 @@ def _prune_orphaned_systems(db) -> int:
         if system.parent_id:
             children.setdefault(system.parent_id, []).append(system.id)
 
-    def _depth(system) -> int:
+    def _depth(system: Any) -> int:
         """Distance from the tree root, guarding against a parent_id cycle."""
         depth, seen, cur = 0, {system.id}, system
         while cur.parent_id and cur.parent_id in by_id and cur.parent_id not in seen:
@@ -211,7 +214,7 @@ def _prune_orphaned_systems(db) -> int:
     return count
 
 
-def _prune_stale_folders(db) -> int:
+def _prune_stale_folders(db: Session) -> int:
     """Delete media folder-tag rows whose directory is no longer on disk.
 
     Folder rows are keyed by path rather than id, so they are the one kind of row
@@ -247,7 +250,7 @@ def _prune_stale_folders(db) -> int:
     return count
 
 
-def _prune_orphaned_book_folders(db) -> int:
+def _prune_orphaned_book_folders(db: Session) -> int:
     """Delete book folder-tag rows that no longer cover any book.
 
     A ``BookFolder.path`` is ``{system_id}/{category}/subfolder…`` rather than a
@@ -293,7 +296,7 @@ def _prune_orphaned_book_folders(db) -> int:
     return count
 
 
-def _prune_orphaned_tag_links(db) -> int:
+def _prune_orphaned_tag_links(db: Session) -> int:
     """Delete ``resource_tags`` rows whose resource is gone, then tags left bare.
 
     ``resource_tags`` is polymorphic — a type discriminator plus a bare id — so
@@ -333,7 +336,7 @@ def _prune_orphaned_tag_links(db) -> int:
     return removed
 
 
-def _do_cleanup(db) -> dict:
+def do_cleanup(db: Session) -> dict:
     """Delete DB records whose files no longer exist on disk.
 
     Callers check :func:`library_root_unavailable` first: this function trusts
@@ -371,7 +374,7 @@ def _do_cleanup(db) -> dict:
 
 def run_cleanup_sync() -> None:
     """Synchronous wrapper used by the scheduler."""
-    from ...config import SessionLocal
+    from ..config import SessionLocal
 
     logger.debug("Cleanup: scheduled run starting")
     db = SessionLocal()
@@ -383,7 +386,7 @@ def run_cleanup_sync() -> None:
                 LIBRARY_PATH,
             )
             return
-        removed = _do_cleanup(db)
+        removed = do_cleanup(db)
         logger.info(f"Cleanup complete: {removed}")
     except Exception:
         db.rollback()

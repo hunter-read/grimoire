@@ -15,7 +15,7 @@ from sqlalchemy import text
 from backend import indexer
 from backend.config import SessionLocal
 from backend.models import Book
-from backend.routers.library import _helpers
+from backend.services.library_scan import runner
 
 
 def _clear_pending() -> None:
@@ -305,8 +305,8 @@ class TestOcrBookPageIsolatedWrapper:
 
 class TestRunOcrQueue:
     def test_drains_pending_books(self):
-        _helpers.clear_stop()
-        _helpers._set_status({**_helpers._DEFAULT_STATUS})
+        runner.clear_stop()
+        runner.set_status({**runner.DEFAULT_STATUS})
         _clear_pending()
         bid = _queued_book(page_count=2)
 
@@ -315,7 +315,7 @@ class TestRunOcrQueue:
                  indexer, "ocr_book_page_isolated_wrapper",
                  side_effect=lambda fp, i, should_stop=None, dpi=None: "t",
              ):
-            completed = _helpers.run_ocr_queue()
+            completed = runner.run_ocr_queue()
 
         assert completed == 1
         db = SessionLocal()
@@ -327,33 +327,33 @@ class TestRunOcrQueue:
             db.close()
 
     def test_empty_queue_is_noop(self):
-        _helpers.clear_stop()
+        runner.clear_stop()
         _clear_pending()
-        assert _helpers.run_ocr_queue() == 0
+        assert runner.run_ocr_queue() == 0
 
     def test_stop_halts_before_processing(self):
-        _helpers._set_status({**_helpers._DEFAULT_STATUS})
+        runner.set_status({**runner.DEFAULT_STATUS})
         _clear_pending()
         _queued_book(page_count=2)
-        _helpers.request_stop()
+        runner.request_stop()
         try:
             with patch.object(indexer, "ocr_book_page_isolated_wrapper") as m:
-                completed = _helpers.run_ocr_queue()
+                completed = runner.run_ocr_queue()
             assert completed == 0
             m.assert_not_called()
         finally:
-            _helpers.clear_stop()
+            runner.clear_stop()
 
     def test_unexpected_error_flags_book_and_clears_queue(self):
         """A book whose OCR raises is marked failed and dropped from the queue,
         not left ocr_pending to re-crash on every future scan."""
-        _helpers.clear_stop()
-        _helpers._set_status({**_helpers._DEFAULT_STATUS})
+        runner.clear_stop()
+        runner.set_status({**runner.DEFAULT_STATUS})
         _clear_pending()
         bid = _queued_book(page_count=1)
 
-        with patch.object(_helpers, "ocr_book", side_effect=TypeError("boom")):
-            completed = _helpers.run_ocr_queue()
+        with patch.object(runner, "ocr_book", side_effect=TypeError("boom")):
+            completed = runner.run_ocr_queue()
 
         assert completed == 0
         db = SessionLocal()
@@ -367,13 +367,13 @@ class TestRunOcrQueue:
 
     def test_one_crashing_book_does_not_stall_the_rest(self):
         """A raising book is contained so the drain still completes other books."""
-        _helpers.clear_stop()
-        _helpers._set_status({**_helpers._DEFAULT_STATUS})
+        runner.clear_stop()
+        runner.set_status({**runner.DEFAULT_STATUS})
         _clear_pending()
         bad = _queued_book(page_count=1)
         good = _queued_book(page_count=1)
 
-        real_ocr_book = _helpers.ocr_book
+        real_ocr_book = runner.ocr_book
 
         def _maybe_raise(book, session, **kw):
             if book.id == bad:
@@ -385,8 +385,8 @@ class TestRunOcrQueue:
                  indexer, "ocr_book_page_isolated_wrapper",
                  side_effect=lambda fp, i, should_stop=None, dpi=None: "t",
              ), \
-             patch.object(_helpers, "ocr_book", side_effect=_maybe_raise):
-            completed = _helpers.run_ocr_queue()
+             patch.object(runner, "ocr_book", side_effect=_maybe_raise):
+            completed = runner.run_ocr_queue()
 
         assert completed == 1  # the good book still finished
         db = SessionLocal()
@@ -403,13 +403,13 @@ class TestRunOcrQueue:
         """Issue #688: a book queued while the drain runs was invisible to the
         snapshot it started from, and trigger_ocr_queue refuses to start a
         second drain, so it waited for a restart. The drain re-checks now."""
-        _helpers.clear_stop()
-        _helpers._set_status({**_helpers._DEFAULT_STATUS})
+        runner.clear_stop()
+        runner.set_status({**runner.DEFAULT_STATUS})
         _clear_pending()
         first = _queued_book(page_count=1)
         latecomer: list[str] = []
 
-        real_ocr_book = _helpers.ocr_book
+        real_ocr_book = runner.ocr_book
 
         def _queue_another(book, session, **kw):
             # Stands in for a second Re-OCR request arriving mid-drain.
@@ -420,8 +420,8 @@ class TestRunOcrQueue:
         with patch.object(indexer, "_book_page_count", return_value=1), patch.object(
             indexer, "ocr_book_page_isolated_wrapper",
             side_effect=lambda fp, i, should_stop=None, dpi=None: "text",
-        ), patch.object(_helpers, "ocr_book", side_effect=_queue_another):
-            completed = _helpers.run_ocr_queue()
+        ), patch.object(runner, "ocr_book", side_effect=_queue_another):
+            completed = runner.run_ocr_queue()
 
         assert completed == 2, "the book queued mid-drain was dropped"
         db = SessionLocal()
@@ -435,8 +435,8 @@ class TestRunOcrQueue:
         """The re-check must terminate. A book that stays queued - OCR stopped
         part-way, or a failure that leaves it for next time - is attempted once
         per call, not retried until the process spins."""
-        _helpers.clear_stop()
-        _helpers._set_status({**_helpers._DEFAULT_STATUS})
+        runner.clear_stop()
+        runner.set_status({**runner.DEFAULT_STATUS})
         _clear_pending()
         bid = _queued_book(page_count=1)
         calls = {"n": 0}
@@ -447,9 +447,9 @@ class TestRunOcrQueue:
             return "stopped"  # leaves ocr_pending set, as a stop does
 
         with patch.object(indexer, "_book_page_count", return_value=1), patch.object(
-            _helpers, "ocr_book", side_effect=_leave_it_pending
+            runner, "ocr_book", side_effect=_leave_it_pending
         ):
-            _helpers.run_ocr_queue()
+            runner.run_ocr_queue()
 
         assert calls["n"] == 1
         db = SessionLocal()
@@ -463,28 +463,28 @@ class TestOcrRequests:
     """A Re-OCR asked for while another job holds the run is not dropped (#688)."""
 
     def setup_method(self):
-        _helpers.clear_stop()
-        _helpers._set_status({**_helpers._DEFAULT_STATUS})
+        runner.clear_stop()
+        runner.set_status({**runner.DEFAULT_STATUS})
         _clear_pending()
 
     def teardown_method(self):
-        _helpers._set_status({**_helpers._DEFAULT_STATUS})
+        runner.set_status({**runner.DEFAULT_STATUS})
 
     def test_a_trigger_during_a_run_leaves_a_request(self):
-        _helpers._set_status({"running": True, "phase": "scanning"})
-        with patch.object(_helpers, "run_ocr_queue") as drain:
-            _helpers.trigger_ocr_queue()
+        runner.set_status({"running": True, "phase": "scanning"})
+        with patch.object(runner, "run_ocr_queue") as drain:
+            runner.trigger_ocr_queue()
         drain.assert_not_called()
-        assert _helpers._get_status()["ocr_requested"] is True
+        assert runner.get_status()["ocr_requested"] is True
 
     def test_a_run_that_ends_mid_trigger_is_not_missed(self):
         # Running when first checked, finished by the time the request is left.
         checks = iter([True, False])
-        with patch.object(_helpers, "scan_in_progress", side_effect=lambda: next(checks, False)), \
-                patch.object(_helpers, "run_ocr_queue") as drain:
-            _helpers.trigger_ocr_queue()
+        with patch.object(runner, "scan_in_progress", side_effect=lambda: next(checks, False)), \
+                patch.object(runner, "run_ocr_queue") as drain:
+            runner.trigger_ocr_queue()
         drain.assert_called_once()
-        assert _helpers._get_status()["ocr_requested"] is False
+        assert runner.get_status()["ocr_requested"] is False
 
     def test_a_request_during_the_drain_goes_round_again(self):
         calls = []
@@ -492,21 +492,21 @@ class TestOcrRequests:
         def drain():
             calls.append(1)
             if len(calls) == 1:
-                _helpers._set_status({"ocr_requested": True})
+                runner.set_status({"ocr_requested": True})
 
-        with patch.object(_helpers, "run_ocr_queue", side_effect=drain):
-            _helpers.trigger_ocr_queue()
+        with patch.object(runner, "run_ocr_queue", side_effect=drain):
+            runner.trigger_ocr_queue()
         assert len(calls) == 2
 
     def test_finishing_a_run_follows_up_a_request(self):
-        _helpers._set_status({"ocr_requested": True})
-        with patch.object(_helpers, "trigger_ocr_queue") as trigger:
-            _helpers.follow_up_ocr_request()
+        runner.set_status({"ocr_requested": True})
+        with patch.object(runner, "trigger_ocr_queue") as trigger:
+            runner.follow_up_ocr_request()
         trigger.assert_called_once()
 
     def test_no_request_no_follow_up(self):
-        with patch.object(_helpers, "trigger_ocr_queue") as trigger:
-            _helpers.follow_up_ocr_request()
+        with patch.object(runner, "trigger_ocr_queue") as trigger:
+            runner.follow_up_ocr_request()
         trigger.assert_not_called()
 
     def test_a_requested_book_is_read_again_in_the_same_drain(self):
@@ -525,12 +525,12 @@ class TestOcrRequests:
             finally:
                 db.close()
             if len(reads) == 1:
-                _helpers._set_status({"ocr_requested": True})
+                runner.set_status({"ocr_requested": True})
             return "done"
 
-        with patch.object(_helpers, "_ocr_one_book", side_effect=_read), \
-                patch.object(_helpers.config, "OCR_CONCURRENCY", 1):
-            _helpers.run_ocr_queue()
+        with patch.object(runner, "_ocr_one_book", side_effect=_read), \
+                patch.object(runner.config, "OCR_CONCURRENCY", 1):
+            runner.run_ocr_queue()
         assert reads == [bid, bid]
 
 

@@ -40,15 +40,15 @@ from ...sessions import (
     revoke_user_sessions,
     rotate_session,
 )
-from ..settings._helpers import (
-    _get_raw,
+from ...services.app_settings import (
+    get_raw,
     guest_access_effective,
     oidc_button_icon_url,
     oidc_effective,
     oidc_is_configured,
     password_auth_effective,
 )
-from ..campaigns._helpers import guest_member_by_code
+from ...services.campaigns.user_data import guest_member_by_code
 from ._helpers import issue_login
 from ._schemas import GuestLoginRequest, LoginRequest, SetupRequest
 
@@ -94,7 +94,7 @@ def auth_login(
     response: Response,
     db: Session = Depends(get_db),
 ):
-    if not password_auth_effective(_get_raw(db)):
+    if not password_auth_effective(get_raw(db)):
         raise HTTPException(403, "Password authentication is disabled")
     # Usernames are matched case-insensitively so a user who registered as
     # "Admin" can still log in as "admin"/"ADMIN" - "Émile" as "émile" too
@@ -122,7 +122,7 @@ def auth_login(
 
 def _guest_still_invited(db: Session, user: User) -> bool:
     """Whether guest access is on and ``user`` still holds an accepted guest invite."""
-    if not guest_access_effective(_get_raw(db)):
+    if not guest_access_effective(get_raw(db)):
         return False
     member = (
         db.query(CampaignMember)
@@ -139,7 +139,7 @@ def guest_login(
     response: Response,
     db: Session = Depends(get_db),
 ):
-    if not guest_access_effective(_get_raw(db)):
+    if not guest_access_effective(get_raw(db)):
         raise HTTPException(403, "Guest access is disabled")
     if not data.code:
         raise HTTPException(401, "Invalid invite code")
@@ -297,7 +297,7 @@ def revoke_other_sessions(
 
 
 def auth_config(db: Session = Depends(get_db)):
-    raw = _get_raw(db)
+    raw = get_raw(db)
     msg_enabled = raw.get("custom_login_message_enabled", "false") == "true"
     eff = oidc_effective(raw)
     oidc_ready = oidc_is_configured(raw)

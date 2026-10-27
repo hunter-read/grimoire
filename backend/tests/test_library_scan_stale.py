@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from backend import config
-from backend.routers.library import _helpers, _reindex_queue
+from backend.services.library_scan import reindex_queue, runner
 from backend.tests.conftest import live_scan_status
 
 
@@ -23,17 +23,17 @@ def _ago(seconds: float) -> str:
 
 def _stuck(**extra) -> None:
     """Leave the in-process status the way a killed scan does."""
-    _helpers._set_status({**_helpers._DEFAULT_STATUS, "running": True, "phase": "scanning", **extra})
-    _helpers.SCAN_JOB._heartbeat = _ago(_helpers.SCAN_JOB.stale_after_seconds + 60)
+    runner.set_status({**runner.DEFAULT_STATUS, "running": True, "phase": "scanning", **extra})
+    runner.SCAN_JOB._heartbeat = _ago(runner.SCAN_JOB.stale_after_seconds + 60)
 
 
 @pytest.fixture(autouse=True)
 def _clean_status():
-    _helpers.clear_stop()
-    _helpers._set_status({**_helpers._DEFAULT_STATUS})
+    runner.clear_stop()
+    runner.set_status({**runner.DEFAULT_STATUS})
     yield
-    _helpers.clear_stop()
-    _helpers._set_status({**_helpers._DEFAULT_STATUS})
+    runner.clear_stop()
+    runner.set_status({**runner.DEFAULT_STATUS})
 
 
 def _fake_valkey():
@@ -48,56 +48,56 @@ def _fake_valkey():
 
 class TestIsStale:
     def test_an_idle_status_is_never_stale(self):
-        assert _helpers.is_stale({"running": False, "heartbeat": None}) is False
+        assert runner.is_stale({"running": False, "heartbeat": None}) is False
 
     def test_a_fresh_heartbeat_is_live(self):
-        assert _helpers.is_stale(live_scan_status()) is False
+        assert runner.is_stale(live_scan_status()) is False
 
     def test_a_heartbeat_past_the_threshold_is_stale(self):
-        status = {"running": True, "heartbeat": _ago(_helpers.SCAN_JOB.stale_after_seconds + 1)}
-        assert _helpers.is_stale(status) is True
+        status = {"running": True, "heartbeat": _ago(runner.SCAN_JOB.stale_after_seconds + 1)}
+        assert runner.is_stale(status) is True
 
     def test_a_running_status_without_a_heartbeat_is_stale(self):
         # Written by a build that predates the heartbeat, so it outlived a restart.
-        assert _helpers.is_stale({"running": True}) is True
+        assert runner.is_stale({"running": True}) is True
 
     def test_an_unreadable_heartbeat_is_stale(self):
-        assert _helpers.is_stale({"running": True, "heartbeat": "yesterday"}) is True
+        assert runner.is_stale({"running": True, "heartbeat": "yesterday"}) is True
 
     def test_a_naive_timestamp_is_read_as_utc(self):
         naive = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
-        assert _helpers.is_stale({"running": True, "heartbeat": naive}) is False
+        assert runner.is_stale({"running": True, "heartbeat": naive}) is False
 
     def test_reads_the_current_status_by_default(self):
         _stuck()
-        assert _helpers.is_stale() is True
-        assert _helpers.scan_in_progress() is False
+        assert runner.is_stale() is True
+        assert runner.scan_in_progress() is False
 
 
 class TestHeartbeat:
     def test_every_status_write_beats(self):
-        _helpers.SCAN_JOB._heartbeat = None
-        _helpers._set_status({"running": True})
-        status = _helpers._get_status()
+        runner.SCAN_JOB._heartbeat = None
+        runner.set_status({"running": True})
+        status = runner.get_status()
         assert status["heartbeat"] is not None
-        assert _helpers.scan_in_progress() is True
+        assert runner.scan_in_progress() is True
 
     def test_valkey_keeps_the_heartbeat_out_of_the_status_blob(self):
         """A heartbeat write must never rewrite the status a scan is updating."""
         fake, store = _fake_valkey()
         with patch.object(config, "_valkey", fake):
-            _helpers._set_status({**_helpers._DEFAULT_STATUS, "running": True})
-            blob = store[_helpers.SCAN_JOB.status_key]
-            _helpers.SCAN_JOB.beat()
-            assert store[_helpers.SCAN_JOB.status_key] == blob
+            runner.set_status({**runner.DEFAULT_STATUS, "running": True})
+            blob = store[runner.SCAN_JOB.status_key]
+            runner.SCAN_JOB.beat()
+            assert store[runner.SCAN_JOB.status_key] == blob
             assert "heartbeat" not in blob
-            assert _helpers._get_status()["heartbeat"] == store[_helpers.SCAN_JOB.heartbeat_key]
+            assert runner.get_status()["heartbeat"] == store[runner.SCAN_JOB.heartbeat_key]
 
     def test_valkey_bytes_heartbeat_is_decoded(self):
         fake, store = _fake_valkey()
         with patch.object(config, "_valkey", fake):
-            store[_helpers.SCAN_JOB.heartbeat_key] = b"2026-01-01T00:00:00+00:00"
-            assert _helpers.SCAN_JOB.heartbeat() == "2026-01-01T00:00:00+00:00"
+            store[runner.SCAN_JOB.heartbeat_key] = b"2026-01-01T00:00:00+00:00"
+            assert runner.SCAN_JOB.heartbeat() == "2026-01-01T00:00:00+00:00"
 
     def test_valkey_errors_fall_back_to_in_process_heartbeat(self):
         from redis.exceptions import RedisError
@@ -106,15 +106,15 @@ class TestHeartbeat:
         fake.get.side_effect = RedisError("boom")
         fake.set.side_effect = RedisError("boom")
         with patch.object(config, "_valkey", fake):
-            _helpers.SCAN_JOB._heartbeat = None
-            _helpers.SCAN_JOB.beat()
-            assert _helpers.SCAN_JOB.heartbeat() == _helpers.SCAN_JOB._heartbeat is not None
+            runner.SCAN_JOB._heartbeat = None
+            runner.SCAN_JOB.beat()
+            assert runner.SCAN_JOB.heartbeat() == runner.SCAN_JOB._heartbeat is not None
 
     def test_the_ticker_beats_until_stopped(self, monkeypatch):
-        monkeypatch.setattr(_helpers.SCAN_JOB, "heartbeat_interval_seconds", 0.01)
+        monkeypatch.setattr(runner.SCAN_JOB, "heartbeat_interval_seconds", 0.01)
         beats = []
-        monkeypatch.setattr(_helpers.SCAN_JOB, "beat", lambda: beats.append(1))
-        done = _helpers._start_heartbeat()
+        monkeypatch.setattr(runner.SCAN_JOB, "beat", lambda: beats.append(1))
+        done = runner._start_heartbeat()
         deadline = time.monotonic() + 2
         while len(beats) < 3 and time.monotonic() < deadline:
             time.sleep(0.01)
@@ -127,7 +127,7 @@ class TestHeartbeat:
 
     def test_the_ticker_survives_a_failed_beat(self, monkeypatch):
         """A ticker that died would make a live scan look abandoned."""
-        monkeypatch.setattr(_helpers.SCAN_JOB, "heartbeat_interval_seconds", 0.01)
+        monkeypatch.setattr(runner.SCAN_JOB, "heartbeat_interval_seconds", 0.01)
         calls = []
 
         def flaky():
@@ -135,8 +135,8 @@ class TestHeartbeat:
             if len(calls) == 1:
                 raise RuntimeError("transient")
 
-        monkeypatch.setattr(_helpers.SCAN_JOB, "beat", flaky)
-        done = _helpers._start_heartbeat()
+        monkeypatch.setattr(runner.SCAN_JOB, "beat", flaky)
+        done = runner._start_heartbeat()
         deadline = time.monotonic() + 2
         while len(calls) < 3 and time.monotonic() < deadline:
             time.sleep(0.01)
@@ -147,11 +147,11 @@ class TestHeartbeat:
 class TestForceClear:
     def test_resets_the_status_and_the_stop_flag(self):
         _stuck(scanned_books=40, total_books=40)
-        _helpers.request_stop()
-        status = _helpers.force_clear()
+        runner.request_stop()
+        status = runner.force_clear()
         assert status["running"] is False
         assert status["scanned_books"] == 0
-        assert _helpers.is_stop_requested() is False
+        assert runner.is_stop_requested() is False
 
 
 class TestCancelEndpoint:
@@ -159,35 +159,35 @@ class TestCancelEndpoint:
         _stuck()
         resp = client.post("/api/cancel-scan", headers=admin_headers)
         assert resp.json() == {"status": "cleared_stale"}
-        assert _helpers._get_status()["running"] is False
+        assert runner.get_status()["running"] is False
 
     def test_only_asks_a_live_scan_to_stop(self, client, admin_headers):
-        _helpers._set_status({"running": True, "phase": "scanning"})
+        runner.set_status({"running": True, "phase": "scanning"})
         resp = client.post("/api/cancel-scan", headers=admin_headers)
         assert resp.json() == {"status": "stop_requested"}
-        assert _helpers._get_status()["running"] is True
-        assert _helpers.is_stop_requested() is True
+        assert runner.get_status()["running"] is True
+        assert runner.is_stop_requested() is True
 
 
 class TestRescanEndpoint:
     def test_starts_over_a_stuck_scan(self, client, admin_headers):
         _stuck()
-        with patch.object(_helpers, "run_rescan_sync") as run:
+        with patch.object(runner, "run_rescan_sync") as run:
             resp = client.post("/api/rescan", headers=admin_headers, json={})
         assert resp.json() == {"status": "scan_started"}
         run.assert_called_once()
 
     def test_still_refuses_while_a_live_scan_runs(self, client, admin_headers):
-        _helpers._set_status({"running": True, "phase": "scanning"})
-        with patch.object(_helpers, "run_rescan_sync") as run:
+        runner.set_status({"running": True, "phase": "scanning"})
+        with patch.object(runner, "run_rescan_sync") as run:
             resp = client.post("/api/rescan", headers=admin_headers, json={})
         assert resp.json() == {"status": "already_running"}
         run.assert_not_called()
 
     def test_scan_status_reports_the_heartbeat(self, client, admin_headers):
-        _helpers._set_status({"running": True})
+        runner.set_status({"running": True})
         body = client.get("/api/scan-status", headers=admin_headers).json()
-        assert body["heartbeat"] == _helpers.SCAN_JOB.heartbeat()
+        assert body["heartbeat"] == runner.SCAN_JOB.heartbeat()
 
 
 class TestScanOwners:
@@ -196,38 +196,38 @@ class TestScanOwners:
     @pytest.fixture
     def ticker(self, monkeypatch):
         done = threading.Event()
-        monkeypatch.setattr(_helpers, "_start_heartbeat", lambda: done)
+        monkeypatch.setattr(runner, "_start_heartbeat", lambda: done)
         return done
 
     def test_rescan_runs_over_a_stuck_scan(self, ticker):
         _stuck()
         with (
-            patch.object(_helpers, "scan_library", return_value={}) as scan,
-            patch.object(_helpers, "run_model_thumbnail_queue", return_value=0),
-            patch.object(_helpers, "run_ocr_queue", return_value=0),
+            patch.object(runner, "scan_library", return_value={}) as scan,
+            patch.object(runner, "run_model_thumbnail_queue", return_value=0),
+            patch.object(runner, "run_ocr_queue", return_value=0),
         ):
-            _helpers.run_rescan_sync()
+            runner.run_rescan_sync()
         scan.assert_called_once()
         assert ticker.is_set()
-        assert _helpers._get_status()["running"] is False
+        assert runner.get_status()["running"] is False
 
     def test_rescan_defers_to_a_live_scan(self, ticker):
-        _helpers._set_status({"running": True, "phase": "scanning"})
-        with patch.object(_helpers, "scan_library") as scan:
-            _helpers.run_rescan_sync()
+        runner.set_status({"running": True, "phase": "scanning"})
+        with patch.object(runner, "scan_library") as scan:
+            runner.run_rescan_sync()
         scan.assert_not_called()
 
     def test_single_book_rescan_runs_over_a_stuck_scan(self, ticker):
         _stuck()
-        with patch.object(_helpers, "run_ocr_queue", return_value=0):
-            _helpers.rescan_single_book("no-such-book")
+        with patch.object(runner, "run_ocr_queue", return_value=0):
+            runner.rescan_single_book("no-such-book")
         assert ticker.is_set()
-        assert _helpers._get_status()["running"] is False
+        assert runner.get_status()["running"] is False
 
     def test_single_book_rescan_defers_to_a_live_scan(self, ticker):
-        _helpers._set_status({"running": True, "phase": "scanning"})
-        with patch.object(_reindex_queue, "reindex_single_book") as reindex:
-            _helpers.rescan_single_book("any")
+        runner.set_status({"running": True, "phase": "scanning"})
+        with patch.object(reindex_queue, "reindex_single_book") as reindex:
+            runner.rescan_single_book("any")
         reindex.assert_not_called()
         assert not ticker.is_set()
 
@@ -235,19 +235,19 @@ class TestScanOwners:
         _stuck()
 
         def drain():
-            _helpers._set_status({"running": True, "phase": "ocr"})
+            runner.set_status({"running": True, "phase": "ocr"})
             return 0
 
-        with patch.object(_helpers, "run_ocr_queue", side_effect=drain) as run:
-            _helpers.trigger_ocr_queue()
+        with patch.object(runner, "run_ocr_queue", side_effect=drain) as run:
+            runner.trigger_ocr_queue()
         run.assert_called_once()
         assert ticker.is_set()
-        assert _helpers._get_status()["running"] is False
+        assert runner.get_status()["running"] is False
 
     def test_ocr_trigger_defers_to_a_live_scan(self, ticker):
-        _helpers._set_status({"running": True, "phase": "scanning"})
-        with patch.object(_helpers, "run_ocr_queue") as run:
-            _helpers.trigger_ocr_queue()
+        runner.set_status({"running": True, "phase": "scanning"})
+        with patch.object(runner, "run_ocr_queue") as run:
+            runner.trigger_ocr_queue()
         run.assert_not_called()
 
 

@@ -6,9 +6,9 @@ from ... import api_keys, config
 from ...config import get_db
 from ...auth import require_admin, get_current_user, CurrentUser
 from ...services.library_fs import library_writable
-from ._helpers import (
-    _get_raw,
-    _to_typed,
+from ...services.app_settings import (
+    get_raw,
+    to_typed,
     guest_access_effective,
     oidc_is_configured,
     password_auth_effective,
@@ -45,8 +45,8 @@ _SIGN_IN_FIELDS = (
 
 
 def get_settings(_: CurrentUser = Depends(require_admin), db: Session = Depends(get_db)):
-    raw = _get_raw(db)
-    return _to_typed(raw)
+    raw = get_raw(db)
+    return to_typed(raw)
 
 
 def update_settings(
@@ -61,7 +61,7 @@ def update_settings(
         api_keys.assert_session(current_user, "Sign-in settings need a signed-in session")
     # Only a change that takes sign-in away is refused below, never one made while
     # it is already impossible - that would stop an admin repairing it in steps.
-    could_sign_in = touches_sign_in and _sign_in_possible(_get_raw(db))
+    could_sign_in = touches_sign_in and _sign_in_possible(get_raw(db))
 
     apply_patch(
         db,
@@ -71,7 +71,7 @@ def update_settings(
     # Judged on the settings as this patch leaves them (the query autoflushes the
     # writes above), so a patch that sets up OIDC and turns passwords off in one
     # go is allowed. Nothing is committed yet, so a refusal discards it all.
-    if could_sign_in and not _sign_in_possible(_get_raw(db)):
+    if could_sign_in and not _sign_in_possible(get_raw(db)):
         db.rollback()
         raise HTTPException(
             400,
@@ -84,12 +84,12 @@ def update_settings(
     scheduler.apply(db)
     library_watch.poke()
 
-    return _to_typed(_get_raw(db))
+    return to_typed(get_raw(db))
 
 
 def get_ui_settings(_: CurrentUser = Depends(get_current_user), db: Session = Depends(get_db)):
     """Returns the subset of settings that affect UI visibility for all users."""
-    raw = _get_raw(db)
+    raw = get_raw(db)
     return {
         "hide_maps": raw["hide_maps"] == "true",
         "hide_tokens": raw["hide_tokens"] == "true",
