@@ -79,11 +79,19 @@ const MAX_BACKGROUND = 2
 // linked or hovered. Bounded so a long session doesn't grow it forever; a URL
 // that ages out is at worst fetched again, from the browser cache.
 const REMEMBERED_MAX = 500
+// A background load that fails - usually a 503 from a server busy rendering
+// (issue #701) - keeps its place this long before the next one starts, so the
+// prefetch backs off instead of piling more renders on. The page goes to the
+// back of the queue, to be tried again up to MAX_RETRIES times.
+const RETRY_DELAY_MS = 2000
+const MAX_RETRIES = 2
 
 const requested = new Set<string>()
 const queue: string[] = []
 // Holds each loading Image so it isn't collected before its request lands.
 const loading = new Set<HTMLImageElement>()
+// Failed attempts so far for each URL that has failed and is to be tried again.
+const retries = new Map<string, number>()
 let backgroundActive = 0
 let pumpScheduled = false
 
@@ -98,13 +106,17 @@ function remember(url: string): void {
 // An Image rather than fetch(): while it is still loading, the reader's <img>
 // for the same URL joins that load instead of starting a second one, and the
 // result lands in the image cache the reader reads from.
-function load(url: string, priority: 'low' | 'auto', onSettled?: () => void): void {
+function load(url: string, priority: 'low' | 'auto', onSettled?: (ok: boolean) => void): void {
   const img = new Image()
   img.decoding = 'async'
   img.fetchPriority = priority
-  img.onload = img.onerror = () => {
+  img.onload = () => {
     loading.delete(img)
-    onSettled?.()
+    onSettled?.(true)
+  }
+  img.onerror = () => {
+    loading.delete(img)
+    onSettled?.(false)
   }
   loading.add(img)
   img.src = url
@@ -118,13 +130,31 @@ function whenIdle(fn: () => void): void {
   }
 }
 
+function release(): void {
+  backgroundActive--
+  schedulePump()
+}
+
 function pump(): void {
   while (backgroundActive < MAX_BACKGROUND && queue.length > 0) {
     const url = queue.shift() as string
     backgroundActive++
-    load(url, 'low', () => {
-      backgroundActive--
-      schedulePump()
+    load(url, 'low', (ok) => {
+      if (ok) {
+        retries.delete(url)
+        release()
+        return
+      }
+      const failed = (retries.get(url) ?? 0) + 1
+      if (failed <= MAX_RETRIES && requested.has(url)) {
+        retries.set(url, failed)
+        queue.push(url)
+      } else {
+        // Given up on for now; a later link or hover may ask for it again.
+        retries.delete(url)
+        requested.delete(url)
+      }
+      setTimeout(release, RETRY_DELAY_MS)
     })
   }
 }
@@ -163,6 +193,7 @@ export function prefetchInBackground(urls: string[]): () => void {
       if (i === -1) continue
       queue.splice(i, 1)
       requested.delete(u)
+      retries.delete(u)
     }
   }
 }
@@ -181,7 +212,11 @@ export function prefetchNow(urls: string[]): void {
     } else {
       remember(u)
     }
-    load(u, 'auto')
+    // A page that failed (the server was busy) is forgotten, so the next hover
+    // asks again rather than the reader finding nothing warmed.
+    load(u, 'auto', (ok) => {
+      if (!ok) requested.delete(u)
+    })
   }
 }
 
@@ -190,6 +225,7 @@ export function resetPrefetchForTests(): void {
   requested.clear()
   queue.length = 0
   loading.clear()
+  retries.clear()
   backgroundActive = 0
   pumpScheduled = false
 }

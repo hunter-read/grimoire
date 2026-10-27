@@ -392,6 +392,23 @@ def _read_render_workers() -> int:
 RENDER_WORKERS = _read_render_workers()
 
 
+#   RENDER_QUEUE_LIMIT — how many page and tile renders may be running or
+#             waiting at once in each app process (issue #701). Every one holds
+#             a request thread until its render is done, and the threads are
+#             shared with the whole API, so an unbounded burst (a big book
+#             opened, a zoom) left nothing to answer anything else. A render
+#             over the limit is answered 503 with Retry-After at once and the
+#             reader asks again. Pages already rendered are never refused.
+def _read_render_queue_limit() -> int:
+    try:
+        return max(1, int(_str_env("RENDER_QUEUE_LIMIT", "16")))
+    except ValueError:
+        return 16
+
+
+RENDER_QUEUE_LIMIT = _read_render_queue_limit()
+
+
 #   PAGE_CACHE_TTL — seconds a rendered page stays in Valkey. Rendered pages are
 #             a regenerable cache, not durable data: without an expiry they
 #             accumulate until Valkey hits maxmemory and starts evicting under

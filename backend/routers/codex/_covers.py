@@ -17,7 +17,7 @@ from typing import Optional, Union
 from PIL import Image
 from sqlalchemy.orm import Session
 
-from ...config import logger
+from ...config import logger, release_connection
 from ...indexer.formats import is_fitz_mime
 from ...models import Book, GameSystem
 from ...render import pool as render_pool
@@ -83,10 +83,13 @@ def _book_cover(book: Book) -> Optional[Cover]:
 def local_cover(db: Session, resource: Union[Book, GameSystem], user: object) -> Optional[Cover]:
     """The cover ``resource`` would send, or None when it has none."""
     if isinstance(resource, Book):
+        # A first-page render can take seconds (issue #701).
+        release_connection(db)
         return _book_cover(resource)
     path = resolve_cover_file(resource)
     if path:
         return _read(path)
     book_id = resolve_cover_book_id(db, resource, user)
     book = db.get(Book, book_id) if book_id else None
+    release_connection(db)
     return _book_cover(book) if book else None

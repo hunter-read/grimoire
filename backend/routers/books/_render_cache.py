@@ -11,6 +11,11 @@ rendering waits for that render and is served from the cache it fills, rather
 than rendering the same page again. The client prefetches the pages a note
 links to and the search hit under the cursor (issue #640), so a click that
 lands mid-prefetch asks for exactly the page being rendered.
+
+Misses are also capped (issue #701): every one holds a request thread until its
+render is done, waiting for the same key included, and those threads serve the
+whole API. Past ``RENDER_QUEUE_LIMIT`` a miss is answered 503 with Retry-After
+straight away, and the reader asks again. Cache hits are never refused.
 """
 import io
 import os
@@ -18,16 +23,42 @@ import threading
 from contextlib import contextmanager
 from typing import Callable, Iterator, Optional
 
+from fastapi import HTTPException
 from fastapi.responses import Response, StreamingResponse
 
 from .._user_files import serve_user_file
+from ... import config
 from ...config import valkey_client, logger, valkey_cache_set
+
+# Seconds a refused render is told to wait before asking again: about one render.
+RETRY_AFTER = 1
 
 
 # One lock per key currently rendering, with the number of requests holding or
 # waiting on it, so the entry is dropped once the last of them is done.
 _inflight: dict[str, tuple[threading.Lock, int]] = {}
 _inflight_guard = threading.Lock()
+# Misses rendering or waiting on a render, across every key; under _inflight_guard.
+_admitted = 0
+
+
+@contextmanager
+def _admission() -> Iterator[None]:
+    """Count a miss against RENDER_QUEUE_LIMIT, or refuse it with a 503 when full."""
+    global _admitted
+    with _inflight_guard:
+        if _admitted >= config.RENDER_QUEUE_LIMIT:
+            raise HTTPException(
+                503,
+                "The server is busy rendering pages; try again shortly",
+                headers={"Retry-After": str(RETRY_AFTER), "Cache-Control": "no-store"},
+            )
+        _admitted += 1
+    try:
+        yield
+    finally:
+        with _inflight_guard:
+            _admitted -= 1
 
 
 @contextmanager
@@ -97,7 +128,7 @@ def serve_cached_render(
     """The cached WebP for ``valkey_key``/``cache_path``, rendering it on a miss."""
     if (hit := _cached(valkey_key, cache_path, headers)) is not None:
         return hit
-    with _single_flight(valkey_key):
+    with _admission(), _single_flight(valkey_key):
         # Another request may have rendered it while this one waited.
         if (hit := _cached(valkey_key, cache_path, headers)) is not None:
             return hit

@@ -1,19 +1,25 @@
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
+import RetryingImage from './RetryingImage'
+
+interface Props {
+  src: string
+  rect: CSSProperties
+  priority?: 'high' | 'low' | 'auto'
+}
 
 /**
  * One zoom tile: invisible until its image has loaded, then faded in over the
  * softer whole-page image beneath, so the page sharpens rather than having
- * squares pop in.
+ * squares pop in. A tile the server was too busy to render is asked for again.
  */
-export default function ZoomTile({ src, rect, priority }) {
+export default function ZoomTile({ src, rect, priority }: Props) {
   const [loaded, setLoaded] = useState(false)
   return (
-    <img
+    <RetryingImage
       src={src}
       alt=""
       draggable={false}
-      // Lower-case so React passes it through as the HTML attribute.
-      fetchpriority={priority}
+      fetchPriority={priority}
       onLoad={() => setLoaded(true)}
       style={{
         position: 'absolute',

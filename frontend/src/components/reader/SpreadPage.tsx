@@ -1,7 +1,28 @@
 import { mediaUrl } from '../../api'
 import JoinedSpread from './JoinedSpread'
+import RetryingImage from './RetryingImage'
 import TextOverlay from './TextOverlay'
 import { SPREAD_WIDTH, animStyle } from './pageRender'
+import type { PageUrlFor, RenderTiles, WordsCacheRef } from './pageTypes'
+
+interface Props {
+  bookId?: string
+  currentPage: number
+  rightPage?: number
+  hasRight?: boolean
+  wordsCacheRef?: WordsCacheRef
+  getAlt: (page: number) => string
+  zoom: number
+  pan: { x: number; y: number }
+  axisRef: { current: string }
+  directionRef: { current: number }
+  activeSearchQuery?: string | null
+  activeHighlight?: string | null
+  pageUrl?: PageUrlFor
+  renderWidth?: number
+  joined?: boolean
+  renderTiles?: RenderTiles
+}
 
 /**
  * Two-page spread view for the reader and PDF-map viewer.
@@ -34,9 +55,10 @@ export default function SpreadPage({
   renderWidth = SPREAD_WIDTH,
   joined = false,
   renderTiles,
-}) {
-  const urlFor = pageUrl ?? ((p, width) => mediaUrl(`/books/${bookId}/page/${p}`, { width }))
-  const pages = [currentPage, hasRight ? rightPage : null].filter(Boolean)
+}: Props) {
+  const urlFor: PageUrlFor =
+    pageUrl ?? ((p, width) => mediaUrl(`/books/${bookId}/page/${p}`, { width }))
+  const pages = [currentPage, hasRight ? rightPage : null].filter((p): p is number => !!p)
   const joinPair = joined && pages.length === 2
   return (
     <div
@@ -80,7 +102,7 @@ export default function SpreadPage({
                 lineHeight: 0,
               }}
             >
-              <img
+              <RetryingImage
                 src={urlFor(p, renderWidth)}
                 data-page-image
                 alt={getAlt(p)}
@@ -104,7 +126,7 @@ export default function SpreadPage({
               />
             </div>
           ) : (
-            <img
+            <RetryingImage
               key={p}
               src={urlFor(p, renderWidth)}
               data-page-image

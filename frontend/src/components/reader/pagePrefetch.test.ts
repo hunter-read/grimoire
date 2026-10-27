@@ -54,6 +54,9 @@ const setPrefs = (user: object, book: object = {}) => {
   localStorage.setItem('grimoire:book:b1', JSON.stringify(book))
 }
 
+// Fake setTimeout only: the idle callback stays the stub runIdle drives.
+const onlyTimeouts = () => vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+
 const onPhone = (phone: boolean) =>
   vi
     .spyOn(window, 'matchMedia')
@@ -167,12 +170,49 @@ describe('prefetchInBackground', () => {
     expect(srcs()).toEqual([page(1), page(2), page(3)])
   })
 
-  it('moves on after a page that fails to load', () => {
+  it('backs off after a page that fails to load, then tries it again', () => {
+    onlyTimeouts()
     prefetchInBackground([page(1), page(2), page(3)])
     runIdle()
     FakeImage.all[1].onerror?.()
     runIdle()
-    expect(srcs()).toContain(page(3))
+    // The server may be busy: the failed page keeps its slot for a while.
+    expect(srcs()).toEqual([page(1), page(2)])
+    vi.advanceTimersByTime(2000)
+    runIdle()
+    expect(srcs()).toEqual([page(1), page(2), page(3)])
+    FakeImage.all[0].finish()
+    runIdle()
+    expect(srcs()).toEqual([page(1), page(2), page(3), page(2)])
+    vi.useRealTimers()
+  })
+
+  it('gives up on a page after a few tries, and a later link may ask again', () => {
+    onlyTimeouts()
+    prefetchInBackground([page(1)])
+    for (let i = 0; i < 3; i++) {
+      runIdle()
+      FakeImage.all[i].onerror?.()
+      vi.advanceTimersByTime(2000)
+    }
+    runIdle()
+    expect(srcs()).toEqual([page(1), page(1), page(1)])
+    prefetchInBackground([page(1)])
+    runIdle()
+    expect(srcs()).toHaveLength(4)
+    vi.useRealTimers()
+  })
+
+  it('does not retry a page cancelled while it was failing', () => {
+    onlyTimeouts()
+    const cancel = prefetchInBackground([page(1)])
+    runIdle()
+    FakeImage.all[0].onerror?.()
+    cancel()
+    vi.advanceTimersByTime(2000)
+    runIdle()
+    expect(srcs()).toEqual([page(1)])
+    vi.useRealTimers()
   })
 
   it('asks for a page once, however often it is linked', () => {
@@ -243,6 +283,13 @@ describe('prefetchNow', () => {
     runIdle()
     prefetchNow([page(1)])
     expect(srcs()).toEqual([page(1)])
+  })
+
+  it('asks again for a page that failed to load', () => {
+    prefetchNow([page(1)])
+    FakeImage.all[0].onerror?.()
+    prefetchNow([page(1)])
+    expect(srcs()).toEqual([page(1), page(1)])
   })
 
   it('forgets the oldest pages past its memory', () => {

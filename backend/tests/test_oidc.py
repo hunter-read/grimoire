@@ -820,6 +820,34 @@ class TestOIDCCallback:
         finally:
             self._cleanup(client, admin_headers)
 
+    def test_no_connection_is_held_through_the_token_exchange(
+        self, client, admin_headers, request_sessions
+    ):
+        """The provider can take seconds to answer; the pool must not wait on it (issue #701)."""
+        from backend.routers.oidc import core as oidc_core
+
+        self._configure(client, admin_headers)
+        try:
+            _seed_state(client,
+                "state-held",
+                {"code_verifier": "verifier", "nonce": "nonce123", "return_to": "/"},
+            )
+            seen = []
+
+            def post(*_args, **_kwargs):
+                seen.append(request_sessions[-1].in_transaction())
+                raise httpx.ConnectError("unreachable")
+
+            with patch.object(oidc_core.httpx, "post", side_effect=post):
+                resp = client.get(
+                    "/api/auth/openid/callback?code=abc&state=state-held",
+                    follow_redirects=False,
+                )
+            assert "token+exchange+failed" in resp.headers["location"]
+            assert seen == [False]
+        finally:
+            self._cleanup(client, admin_headers)
+
     @pytest.mark.parametrize(
         "return_to",
         [

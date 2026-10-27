@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from .. import addons, codex
 from ..codex import lookup as codex_lookup
+from ..config import release_connection
 from ..metadata import embedded
 from ..render.ops import RenderError
 from ..models import Book, GameSystem
@@ -236,7 +237,10 @@ def fetch(
             # The id becomes part of the Grimoire Codex DB request path, so it gets the
             # same check as a pasted id or a PATCHed ``codex_id``.
             identity = codex_id_validator(identity) or ""
-            result = codex_lookup.fetch(codex.load(db), target, identity)
+            settings = codex.load(db)
+            # Grimoire Codex DB can take seconds to answer (issue #701).
+            release_connection(db)
+            result = codex_lookup.fetch(settings, target, identity)
         except (codex.CodexError, ValueError) as exc:
             raise _codex_error(exc) from exc
         identity = result["identity"]

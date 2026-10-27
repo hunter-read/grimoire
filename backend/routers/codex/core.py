@@ -16,7 +16,7 @@ from ...auth import CurrentUser, require_admin, require_gm_or_admin, require_not
 from ...codex import client as codex_client
 from ...codex import compare as codex_compare
 from ...codex.records import local_record, submit_payload
-from ...config import get_db
+from ...config import get_db, release_connection
 from ...models import Book, GameSystem
 from ...services import access_control
 from ._covers import local_cover
@@ -65,6 +65,8 @@ def test_connection(
 ):
     """Reach Grimoire Codex DB and report the account the token belongs to."""
     s = codex.load(db)
+    # Grimoire Codex DB can take seconds to answer (issue #701).
+    release_connection(db)
     try:
         me = codex_client.me(s)
     except codex.CodexError as exc:
@@ -100,6 +102,7 @@ def _compare(db: Session, resource: Union[Book, GameSystem], user: CurrentUser) 
     target = _target(resource)
     entity = "book" if target == "book" else "system"
     remote: dict[str, Any] | None = None
+    release_connection(db)
     try:
         if resource.codex_id:
             remote = codex_client.export(s, entity, resource.codex_id)
@@ -134,6 +137,7 @@ def _system_choices(db: Session, s: codex.CodexSettings, book: Book) -> dict | N
         return None
     candidates = []
     if not system.codex_id:
+        release_connection(db)
         candidates = [
             {
                 "codex_id": hit["id"],
@@ -181,13 +185,16 @@ def _send(
         payload["attributions"] = [data.attribution.model_dump()]
     if data.base_revision and resource.codex_id:
         payload["base_revision"] = data.base_revision
+    cover = None
+    if data.cover or cover_if_any:
+        cover = local_cover(db, resource, access_control.load_user(db, user))
+        if cover is None and not cover_if_any:
+            raise HTTPException(400, "There is no cover to send")
+    # Grimoire Codex DB can take seconds to answer (issue #701).
+    release_connection(db)
     try:
-        if data.cover or cover_if_any:
-            cover = local_cover(db, resource, access_control.load_user(db, user))
-            if cover is not None:
-                payload["cover"] = codex_client.upload_cover(s, cover.data, cover.content_type)
-            elif not cover_if_any:
-                raise HTTPException(400, "There is no cover to send")
+        if cover is not None:
+            payload["cover"] = codex_client.upload_cover(s, cover.data, cover.content_type)
         result: dict[str, Any] = codex_client.submit(s, "book" if target == "book" else "system", payload)
     except codex.CodexError as exc:
         raise codex.http_error(exc) from exc

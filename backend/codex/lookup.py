@@ -10,6 +10,7 @@ from typing import Any, Optional, Union
 
 from sqlalchemy.orm import Session
 
+from ..config import release_connection
 from ..models import Book, GameSystem
 from . import client
 from .records import book_signals, candidate_label, incoming_fields
@@ -52,7 +53,10 @@ def search(
     (ISBN, hash, authors, page count…); systems are a plain name search.
     """
     if target == "book" and isinstance(resource, Book):
-        result = client.match_book(settings, book_signals(db, resource, settings, query))
+        signals = book_signals(db, resource, settings, query)
+        # Grimoire Codex DB can take seconds to answer (issue #701).
+        release_connection(db)
+        result = client.match_book(settings, signals)
         return [
             {
                 "identity": c["book"]["id"],
@@ -63,6 +67,7 @@ def search(
             for c in result.get("candidates", [])
         ]
     name = query.strip() or (getattr(resource, "name", "") if resource is not None else "")
+    release_connection(db)
     hits = client.search(settings, name, "system")
     return [
         {
