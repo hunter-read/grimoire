@@ -26,6 +26,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Fixed
 
+- A long system name on a library card no longer breaks in the middle of a word when the 18+ and book-count badges sit beside it: the badges move below the name instead
 - A scanned book carrying a few pages of real text, such as a digitally-set cover or a bundled web enhancement, is read with OCR instead of being left mostly unsearchable
 - A scan with its chapter title stamped on every page is read with OCR, instead of being left searchable only by its headers
 - Reading a book with OCR keeps the pages that already had their own text in search, instead of dropping them

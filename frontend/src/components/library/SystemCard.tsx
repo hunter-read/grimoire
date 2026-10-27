@@ -386,26 +386,29 @@ export default function SystemCard({
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'flex-start',
+            flexWrap: 'wrap',
+            gap: '6px 10px',
             marginBottom: 8,
           }}
         >
-          {/* minWidth:0 lets this flex item shrink below its longest word.
-              Without it a long name next to the count badge wraps one or two
-              characters per line instead of breaking at spaces. */}
+          {/* The title's basis is its one-line width, so a name that doesn't
+              fit beside the badges wraps the badges onto their own row rather
+              than squeezing the title until it breaks mid-word ("Apocalyp / se
+              World"). Alone on its row the title takes the full width and
+              wraps at spaces; break-word only splits a single word too long
+              for the whole card. */}
           <h3
             style={{
               fontSize: 18,
               lineHeight: 1.3,
-              flex: 1,
+              flex: '1 1 auto',
               minWidth: 0,
-              overflowWrap: 'anywhere',
+              overflowWrap: 'break-word',
             }}
           >
             {displayName}
           </h3>
-          <div
-            style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, marginLeft: 10 }}
-          >
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
             {system.is_explicit && (
               <span
                 style={{
