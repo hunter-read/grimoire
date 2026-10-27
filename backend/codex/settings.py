@@ -12,7 +12,8 @@ env-locked settings.
 
 Lookup only ever runs when someone asks for it (fetching metadata, sending a
 record). Nothing is sent in the background. File hashes are the one signal that can say "this library holds
-this exact file", so sending them is opt-in.
+this exact file", so sending them is opt-in. So is collection sync, which tells
+Grimoire Codex DB which of its records this library holds (``collection.py``).
 """
 from dataclasses import dataclass
 from typing import Optional
@@ -30,11 +31,13 @@ TOKEN_ENV_VAR = "GRIMOIRE_CODEX_DB_API_TOKEN"
 _DEFAULTS = {
     "codex_url": DEFAULT_URL,
     "codex_send_hashes": "false",
+    "codex_sync_collection": "false",
 }
 
 ENV_VARS = {
     "codex_url": "GRIMOIRE_CODEX_DB_URL",
     "codex_send_hashes": "GRIMOIRE_CODEX_DB_SEND_HASHES",
+    "codex_sync_collection": "GRIMOIRE_CODEX_DB_SYNC_COLLECTION",
 }
 
 
@@ -45,6 +48,8 @@ class CodexSettings:
     send_hashes: bool
     # Setting keys pinned by an environment variable.
     locked: frozenset[str]
+    # Keep the token owner's Grimoire Codex DB collection in step with what is linked here.
+    sync_collection: bool = False
 
     @property
     def enabled(self) -> bool:
@@ -56,6 +61,7 @@ class CodexSettings:
         return {
             "url": self.url,
             "send_hashes": self.send_hashes,
+            "sync_collection": self.sync_collection,
             "locked": sorted(k.removeprefix("codex_") for k in self.locked),
         }
 
@@ -107,6 +113,7 @@ def load(db: Session) -> CodexSettings:
         url=url,
         token=token(),
         send_hashes=raw["codex_send_hashes"].lower() == "true",
+        sync_collection=raw["codex_sync_collection"].lower() == "true",
         locked=frozenset(locked),
     )
 
@@ -116,6 +123,7 @@ def save(
     *,
     url: Optional[str] = None,
     send_hashes: Optional[bool] = None,
+    sync_collection: Optional[bool] = None,
 ) -> None:
     """Store the given settings. ``None`` leaves a setting alone.
 
@@ -127,6 +135,8 @@ def save(
         updates["codex_url"] = normalize_url(url)
     if send_hashes is not None:
         updates["codex_send_hashes"] = "true" if send_hashes else "false"
+    if sync_collection is not None:
+        updates["codex_sync_collection"] = "true" if sync_collection else "false"
     for key, value in updates.items():
         if _env(key) is not None:
             raise ValueError(f"{ENV_VARS[key]} is set in the environment, so this setting is read-only")

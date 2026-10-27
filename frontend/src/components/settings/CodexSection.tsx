@@ -6,6 +6,7 @@ import type { Schema } from '../../api'
 import Spinner from '../Spinner'
 import CollapsibleSection from './CollapsibleSection'
 import SettingToggle from './SettingToggle'
+import CodexCollectionSync from './CodexCollectionSync'
 import { clearCodexStatusCache } from '../codex/useCodexStatus'
 import { clearMetadataSourcesCache } from '../system/useMetadataSources'
 
@@ -44,13 +45,14 @@ export default function CodexSection() {
 
   const locked = (key: string) => values?.locked?.includes(key)
 
+  /** Resolves to the saved settings, or null when the save failed. */
   const save = (patch: Schema<'CodexSettingsUpdate'>) => {
     setSaving(true)
     setError('')
     setTest(null)
-    api
+    return api
       .put('/codex/settings', patch)
-      .then((s) => {
+      .then((s): Schema<'CodexSettingsResponse'> | null => {
         setValues(s)
         setUrl(s.url)
         // The source list and the editors' Grimoire Codex DB panel both read these.
@@ -58,8 +60,12 @@ export default function CodexSection() {
         clearCodexStatusCache()
         setSaved(true)
         setTimeout(() => setSaved(false), 2000)
+        return s
       })
-      .catch((e) => setError(e.message))
+      .catch((e) => {
+        setError(e.message)
+        return null
+      })
       .finally(() => setSaving(false))
   }
 
@@ -138,6 +144,8 @@ export default function CodexSection() {
                 : t('codex.settings.sendHashesHint')
             }
           />
+
+          <CodexCollectionSync values={values} saving={saving} onSave={save} />
 
           <p style={{ ...hintText, margin: 0 }}>{t('codex.settings.tokenFromEnv')}</p>
 

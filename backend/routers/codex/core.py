@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from ... import codex
 from ...auth import CurrentUser, require_admin, require_gm_or_admin, require_not_guest
 from ...codex import client as codex_client
+from ...codex import collection as codex_collection
 from ...codex import compare as codex_compare
 from ...codex.records import local_record, submit_payload
 from ...config import get_db, release_connection
@@ -52,7 +53,7 @@ def update_settings(
 ):
     """Change the connection. The token is set by ``GRIMOIRE_CODEX_DB_API_TOKEN`` only."""
     try:
-        codex.save(db, url=data.url, send_hashes=data.send_hashes)
+        codex.save(db, url=data.url, send_hashes=data.send_hashes, sync_collection=data.sync_collection)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     db.commit()
@@ -151,6 +152,10 @@ def _system_choices(db: Session, s: codex.CodexSettings, book: Book) -> dict | N
     return {"id": system.id, "name": system.name, "codex_id": system.codex_id, "candidates": candidates}
 
 
+def _kind(resource: Union[Book, GameSystem]) -> codex_collection.EntityType:
+    return "book" if isinstance(resource, Book) else "system"
+
+
 def _send(
     db: Session,
     s: codex.CodexSettings,
@@ -205,8 +210,10 @@ def _send(
     # never: link it only once it does, so a rejection cannot leave a dead link.
     linked = bool(codex_id) and (status == "applied" or bool(resource.codex_id))
     if linked and resource.codex_id != codex_id:
+        before = {resource.id: resource.codex_id}
         resource.codex_id = codex_id
         db.commit()
+        codex_collection.push_link_changes(db, _kind(resource), before)
     return {
         "status": status,
         "codex_id": codex_id,
@@ -232,8 +239,10 @@ def _submit(db: Session, resource: Union[Book, GameSystem], data: CodexSubmit, u
 
     if choice.codex_id:
         result = _send(db, s, resource, data, user, systems=[choice.codex_id])
+        before = {system.id: system.codex_id}
         system.codex_id = choice.codex_id
         db.commit()
+        codex_collection.push_link_changes(db, "system", before)
         return result
 
     # The system goes as a whole new record with its cover; the book's field choice,
@@ -290,8 +299,10 @@ def unlink_book(
 ):
     """Forget which Grimoire Codex DB record this book is. Nothing changes in Grimoire Codex DB."""
     book = _book(db, book_id, current_user)
+    before = {book.id: book.codex_id}
     book.codex_id = None
     db.commit()
+    codex_collection.push_link_changes(db, "book", before)
     return {"status": "ok"}
 
 
@@ -302,6 +313,22 @@ def unlink_system(
 ):
     """Forget which Grimoire Codex DB record this system is. Nothing changes in Grimoire Codex DB."""
     system = _system(db, system_id, current_user)
+    before = {system.id: system.codex_id}
     system.codex_id = None
     db.commit()
+    codex_collection.push_link_changes(db, "system", before)
     return {"status": "ok"}
+
+
+def sync_collection(
+    _: CurrentUser = Depends(require_admin),  # noqa: ARG001
+    db: Session = Depends(get_db),
+):
+    """Replace every mark Grimoire made in the token owner's collection with what is linked now."""
+    s = codex.load(db)
+    if not s.sync_collection:
+        raise HTTPException(400, "Collection sync is off. Turn it on in the Grimoire Codex DB settings first.")
+    try:
+        return codex_collection.sync_all(db, s)
+    except codex.CodexError as exc:
+        raise codex.http_error(exc) from exc

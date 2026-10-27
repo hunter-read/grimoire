@@ -3247,6 +3247,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/codex/collection/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sync the Grimoire Codex DB collection
+         * @description Admin only, and only with collection sync on. Replaces every mark Grimoire made in the collection of the account that owns the API token with the books and systems linked now (books whose file is missing are left out). Marks made on the site are untouched.
+         */
+        post: operations["sync_collection_api_codex_collection_sync_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/codex/settings": {
         parameters: {
             query?: never;
@@ -9509,6 +9529,29 @@ export interface components {
             /** Url */
             url: string;
         };
+        /** CodexCollectionCounts */
+        CodexCollectionCounts: {
+            /** Books */
+            books: number;
+            /** Systems */
+            systems: number;
+        };
+        /** CodexCollectionSyncResponse */
+        CodexCollectionSyncResponse: {
+            /** Books */
+            books: number;
+            sent: components["schemas"]["CodexCollectionCounts"];
+            /** Systems */
+            systems: number;
+            unknown: components["schemas"]["CodexCollectionUnknown"];
+        };
+        /** CodexCollectionUnknown */
+        CodexCollectionUnknown: {
+            /** Books */
+            books: string[];
+            /** Systems */
+            systems: string[];
+        };
         /** CodexCompareCover */
         CodexCompareCover: {
             /** Local */
@@ -9576,6 +9619,8 @@ export interface components {
             locked: string[];
             /** Send Hashes */
             send_hashes: boolean;
+            /** Sync Collection */
+            sync_collection: boolean;
             /** Url */
             url: string;
         };
@@ -9583,6 +9628,8 @@ export interface components {
         CodexSettingsUpdate: {
             /** Send Hashes */
             send_hashes?: boolean | null;
+            /** Sync Collection */
+            sync_collection?: boolean | null;
             /** Url */
             url?: string | null;
         };
@@ -24506,6 +24553,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CodexSubmitResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sync_collection_api_codex_collection_sync_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodexCollectionSyncResponse"];
                 };
             };
             /** @description Validation Error */

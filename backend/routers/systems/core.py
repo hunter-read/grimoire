@@ -6,6 +6,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Query as OrmQuery, Session
 
 from ...auth import CurrentUser, get_current_user, require_gm_or_admin
+from ...codex import collection as codex_collection
 from ...config import get_db
 from ...models import Book, BookFolder, GameSystem, User
 from ...services import access_control, bulk_service, tag_service, variants
@@ -429,6 +430,7 @@ def update_system(
     # Removed before apply_updates' blind setattr so the admin-only rule is
     # actually enforced. A system has no "inherit" state — it is the fallback.
     has_access, access_level = pop_access_level(payload, current_user, allow_inherit=False)
+    links = {system.id: system.codex_id} if "codex_id" in payload else {}
     try:
         _apply_rename(db, system, payload)
     except bulk_service.BulkItemError as exc:
@@ -440,6 +442,7 @@ def update_system(
         system.access_level = access_level
         _enforce_system_campaign_visibility(db, system)
     db.commit()
+    codex_collection.push_link_changes(db, "system", links)
     return {"status": "ok"}
 
 
@@ -504,16 +507,20 @@ def bulk_update_systems(
             _enforce_system_campaign_visibility(db_, system)
 
     access_user = access_control.load_user(db, current_user)
-    return bulk_service.run_bulk_update(
+    items = list(data.items)  # type: ignore[attr-defined]
+    links = codex_collection.links_before(db, "system", [i.id for i in items if i.codex_id is not None])
+    result = bulk_service.run_bulk_update(
         db,
         "system",
-        list(data.items),  # type: ignore[attr-defined]
+        items,
         payload_for=lambda item: item.model_dump(exclude_none=True, exclude={"id"}),
         validate=_validate,
         # Edits reach only the systems the editor can see; the rest read as unknown ids.
         scope=lambda q: access_control.visible_systems(db, q, access_user),
         not_found_detail="System not found",
     )
+    codex_collection.push_link_changes(db, "system", links)
+    return result
 
 
 def bulk_add_system_tags(

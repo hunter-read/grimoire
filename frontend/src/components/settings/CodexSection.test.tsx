@@ -12,6 +12,7 @@ const api = (await import('../../api')).default
 const SETTINGS = {
   url: 'https://db.grimoirecodex.org',
   send_hashes: false,
+  sync_collection: false,
   locked: [],
 }
 

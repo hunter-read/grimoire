@@ -170,6 +170,46 @@ def upload_cover(settings: CodexSettings, data: bytes, content_type: str) -> str
     return key
 
 
+# Marks Grimoire makes in the token owner's collection carry this source, so a full
+# sync replaces only them and leaves the marks the person made on the site alone.
+COLLECTION_SOURCE = "grimoire"
+
+
+def _collection_path(entity_type: str, codex_id: str) -> str:
+    path = "books" if entity_type == "book" else "systems"
+    return f"/me/collection/{path}/{_segment(codex_id)}"
+
+
+def collection_mark(settings: CodexSettings, entity_type: str, codex_id: str) -> dict[str, Any]:
+    """Mark a book or system as held by this library (``PUT /me/collection/{type}/{id}``)."""
+    result: dict[str, Any] = request(
+        settings, "PUT", _collection_path(entity_type, codex_id), body={"source": COLLECTION_SOURCE}
+    )
+    return result
+
+
+def collection_unmark(settings: CodexSettings, entity_type: str, codex_id: str) -> dict[str, Any]:
+    """Take back this library's mark (``DELETE /me/collection/{type}/{id}?source=grimoire``).
+
+    Only the mark Grimoire made goes; one the person made on the site stays.
+    """
+    result: dict[str, Any] = request(
+        settings, "DELETE", _collection_path(entity_type, codex_id), params={"source": COLLECTION_SOURCE}
+    )
+    return result
+
+
+def collection_sync(settings: CodexSettings, books: list[str], systems: list[str]) -> dict[str, Any]:
+    """Replace every mark Grimoire made with exactly these records (``POST /me/collection/sync``)."""
+    result: dict[str, Any] = request(
+        settings,
+        "POST",
+        "/me/collection/sync",
+        body={"source": COLLECTION_SOURCE, "books": books, "systems": systems},
+    )
+    return result
+
+
 def me(settings: CodexSettings) -> dict[str, Any]:
     """The account the token belongs to (``user`` is null if Grimoire Codex DB does not know it)."""
     result: dict[str, Any] = request(settings, "GET", "/me")

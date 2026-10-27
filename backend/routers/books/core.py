@@ -13,6 +13,7 @@ from sqlalchemy import text
 from .._user_files import serve_user_file
 from ...http_headers import content_disposition
 from ...auth import CurrentUser, get_current_user, require_gm_or_admin
+from ...codex import collection as codex_collection
 from ...config import _PAGE_CACHE_HEADERS, THUMB_DIR, get_db
 from ...security import SAME_ORIGIN_FRAME_HEADERS
 
@@ -269,6 +270,7 @@ def update_book(
     has_access, access_level = pop_access_level(payload, current_user)
     if not keeps_access_level(db, book, payload, current_user):
         raise HTTPException(403, LEVEL_KEPT_DETAIL)
+    links = {book.id: book.codex_id} if "codex_id" in payload else {}
     # Tags live in the shared-tag tables, not a column on the book (issue #235);
     # apply_updates routes them through the tag service for us.
     bulk_service.apply_updates(db, "book", book, payload)
@@ -282,6 +284,7 @@ def update_book(
     if book.category and book.category != previous_category:
         library_fs.relocate_book_for_category(db, book, book.category)
     db.commit()
+    codex_collection.push_link_changes(db, "book", links)
     # Refresh sidecars this book already has (issue #300). After the commit, so a
     # rollback can never leave a sidecar describing metadata that was not saved,
     # and never creating a file — sidecars appear only from an explicit backfill.
@@ -302,6 +305,7 @@ def bulk_update_books(
         b.id: b.category
         for b in db.query(Book).filter(Book.id.in_([i.id for i in items] or [""])).all()
     }
+    links = codex_collection.links_before(db, "book", [i.id for i in items if i.codex_id is not None])
 
     def _apply_access(db_, obj, payload):
         """Handle access_level per item, inside the bulk transaction.
@@ -330,6 +334,7 @@ def bulk_update_books(
         scope=lambda q: access_control.visible_books(db, q, access_user),
         not_found_detail="Book not found",
     )
+    codex_collection.push_link_changes(db, "book", links)
     _relocate_recategorised(db, result["updated"], before)
     _refresh_sidecars(db, result["updated"])
     return result

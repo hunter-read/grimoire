@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Depends
 
 from ._schemas import (
+    CodexCollectionSyncResponse,
     CodexCompareResponse,
     CodexSettingsResponse,
     CodexStatus,
@@ -17,6 +18,7 @@ from .core import (
     require_enabled,
     submit_book,
     submit_system,
+    sync_collection,
     test_connection,
     unlink_book,
     unlink_system,
@@ -130,4 +132,17 @@ router.add_api_route(
     description="Clears the system's codex_id. Nothing changes in Grimoire Codex DB.",
     dependencies=_enabled,
     response_model=StatusResponse,
+)
+router.add_api_route(
+    "/collection/sync",
+    sync_collection,
+    methods=["POST"],
+    summary="Sync the Grimoire Codex DB collection",
+    description=(
+        "Admin only, and only with collection sync on. Replaces every mark Grimoire made in the "
+        "collection of the account that owns the API token with the books and systems linked now "
+        "(books whose file is missing are left out). Marks made on the site are untouched."
+    ),
+    dependencies=_enabled,
+    response_model=CodexCollectionSyncResponse,
 )

@@ -22,13 +22,36 @@ class CodexStatus(BaseModel):
 class CodexSettingsResponse(BaseModel):
     url: str
     send_hashes: bool
-    # Settings pinned by an environment variable (url, send_hashes).
+    # Keep the token owner's Grimoire Codex DB collection in step with what is linked here.
+    sync_collection: bool
+    # Settings pinned by an environment variable (url, send_hashes, sync_collection).
     locked: list[str]
 
 
 class CodexSettingsUpdate(BaseModel):
     url: Optional[str] = None
     send_hashes: Optional[bool] = None
+    sync_collection: Optional[bool] = None
+
+
+class CodexCollectionCounts(BaseModel):
+    books: int
+    systems: int
+
+
+class CodexCollectionUnknown(BaseModel):
+    books: list[str]
+    systems: list[str]
+
+
+class CodexCollectionSyncResponse(BaseModel):
+    # How many linked records were sent.
+    sent: CodexCollectionCounts
+    # How many Grimoire Codex DB marked.
+    books: int
+    systems: int
+    # Linked ids Grimoire Codex DB no longer knows (deleted there, or never existed).
+    unknown: CodexCollectionUnknown
 
 
 class CodexAccount(BaseModel):

@@ -102,6 +102,7 @@ class TestSettings:
         assert r.json() == {
             "url": "https://codex.test",
             "send_hashes": False,
+            "sync_collection": False,
             "locked": [],
         }
         r = client.put(

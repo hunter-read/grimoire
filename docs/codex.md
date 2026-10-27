@@ -41,7 +41,8 @@ Grimoire Codex DB off, remove the variable and restart.
 
 Grimoire only contacts Grimoire Codex DB when someone asks it to: opening **Fetch metadata**
 with Grimoire Codex DB selected, sending a record, or testing the connection in settings.
-Nothing runs in the background or on a schedule.
+With [collection sync](#keeping-your-collection-in-sync) on, linking, unlinking and
+**Sync collection now** contact it too. Nothing runs in the background or on a schedule.
 
 - **Book lookups** send what Grimoire already knows about the book to Grimoire Codex DB's
   `/match` endpoint: title, file name, ISBN, product code, authors, publisher, the
@@ -55,6 +56,9 @@ Nothing runs in the background or on a schedule.
   exact files this library holds. Turn on **Send file hashes** in settings to
   include them in lookups and in books you send.
 - **System lookups** send the system's name, or your search text.
+- **Collection sync** (off by default) sends the Grimoire Codex DB ids of the books and
+  systems this library is linked to, and nothing else about them. Like file hashes, it
+  tells Grimoire Codex DB what this library holds, which is why it is opt-in.
 - **Sending a record** sends the fields you choose from those listed under
   [Sending records](#sending-records), the cover when you tick it, and the source
   link you pick. Paths and access levels stay local.
@@ -72,9 +76,11 @@ is set):
 | ------- | ------- | ------------ |
 | Grimoire Codex DB address | `https://db.grimoirecodex.org` | Change only to use a self-hosted Grimoire Codex DB. Plain `http://` is accepted for a server on your network. |
 | Send file hashes when looking up books | off | Recommended on. See [What is sent](#what-is-sent-and-when). |
+| Keep my Grimoire Codex DB collection in sync | off | Marks the linked books and systems as owned in the token account's collection. See [Keeping your collection in sync](#keeping-your-collection-in-sync). |
 
 Each setting can be pinned with an environment variable, which makes it read-only in
-the UI: `GRIMOIRE_CODEX_DB_URL` and `GRIMOIRE_CODEX_DB_SEND_HASHES`. See
+the UI: `GRIMOIRE_CODEX_DB_URL`, `GRIMOIRE_CODEX_DB_SEND_HASHES` and
+`GRIMOIRE_CODEX_DB_SYNC_COLLECTION`. See
 [Configuration](configuration.md#environment-variables).
 
 ## Finding and linking a record
@@ -93,7 +99,35 @@ Some fields are never offered from Grimoire Codex DB because they describe your 
 than the book: category, page count and file size.
 
 To unlink, choose **Unlink** in the editor's Grimoire Codex DB section. That only clears
-the local `codex_id`; nothing changes in Grimoire Codex DB.
+the local `codex_id`; the record itself does not change in Grimoire Codex DB. With
+collection sync on, it also takes back the record's "owned" mark (see below).
+
+## Keeping your collection in sync
+
+Grimoire Codex DB lets a signed-in person mark the books and systems they own, then
+filter its lists by **Owned** and **Not owned**. A system counts as owned when you own
+any of its books, or when it is marked itself. Grimoire can keep those marks for you:
+
+1. In **Settings → Metadata → Grimoire Codex DB**, turn on **Keep my Grimoire Codex DB
+   collection in sync** (or set `GRIMOIRE_CODEX_DB_SYNC_COLLECTION=true`).
+2. Grimoire runs a first sync straight away. It marks every book and system linked to a
+   Grimoire Codex DB record, and leaves out books whose file is missing.
+3. From then on, linking a book or system marks it, and unlinking it takes the mark back,
+   unless another book or system here is still linked to the same record.
+
+The marks go to the collection of the account that owns `GRIMOIRE_CODEX_DB_API_TOKEN`,
+so create the token on your own account if you want them on it. Grimoire's marks are
+tagged as coming from Grimoire, and Grimoire only ever changes those: marks you make
+yourself on the site stay, even if you unlink the book here.
+
+Books deleted from the library are caught by **Sync collection now**, which replaces
+every mark Grimoire made with what is linked at that moment. It reports how many records
+were marked, and how many linked ids Grimoire Codex DB no longer knows (a record deleted
+there). Relink or unlink those to tidy them up.
+
+A mark that fails to send, for example while Grimoire Codex DB is down, never stops the
+link or unlink. The next **Sync collection now** puts it right. Turning the setting off
+stops sending but leaves the existing marks; remove them on Grimoire Codex DB.
 
 ## Sending records
 

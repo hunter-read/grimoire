@@ -790,6 +790,7 @@ CODEX_DB_API_TOKEN: str = _read_codex_db_api_token()
 CODEX_DB_ENV: dict[str, Optional[str]] = {
     "codex_url": _raw("GRIMOIRE_CODEX_DB_URL"),
     "codex_send_hashes": _raw("GRIMOIRE_CODEX_DB_SEND_HASHES"),
+    "codex_sync_collection": _raw("GRIMOIRE_CODEX_DB_SYNC_COLLECTION"),
 }
 
 
