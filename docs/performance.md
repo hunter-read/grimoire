@@ -19,6 +19,14 @@ The default Grimoire image bundles the [Tesseract](https://github.com/tesseract-
 
 OCR runs quietly in the background, so it never holds up the rest of your library. A scan indexes all your regular (text-based) books, maps, tokens, and audio first - those are searchable right away - and then works through the scanned books afterward. Even if you add 100+ scanned books at once, the rest of your library stays available while they're being processed.
 
+### Scans with a few pages of text
+
+Some scanned books carry a handful of real text pages - a digitally-set cover or appendix, or a web enhancement bundled into the back. Those pages used to make the whole book look like a text book, so the rest of it was never read. Now a book whose own text covers less than half of its pages is treated as a scan and read with OCR, keeping the text pages it already had. `OCR_MIN_TEXT_COVERAGE` sets that share: `0.5` by default, `0` to only OCR books with no text at all (the old behaviour), `1` to OCR anything short of complete.
+
+A digital book that is mostly full-page art - a map pack, an art book, a bundle of handouts - looks the same to that test. So before reading such a book in full, Grimoire reads a few of its picture-only pages as a sample. A scanned page gives a page of words; a map or an illustration gives a handful. If the sample reads like artwork, the book keeps its own text and isn't read with OCR, and the log says so. To read it anyway, use **Re-OCR…** from its actions menu, which reads the whole book without sampling it.
+
+This applies when a book is indexed: added, replaced, or re-scanned. Books already in your library are left as they are. To fix one, open its actions menu (**⋮**) and choose **Re-OCR…**, which is offered for any PDF whose text covers less than `OCR_MIN_TEXT_COVERAGE` of it.
+
 Scanned books are also processed **page by page**, and progress is saved as it goes. If the server restarts (or you stop and start a scan), OCR simply picks up where it left off instead of starting the book over - so even a very large scanned book will finish, however long it takes.
 
 - **Progress:** the admin scan status shows an OCR phase with a progress bar and the book currently being processed.
@@ -46,7 +54,7 @@ The fix is to give the slow pages more time: raise `OCR_PAGE_TIMEOUT` (see [Spee
 
 ### Re-OCR a single book at a higher DPI
 
-`OCR_DPI` sets the resolution for the whole library, and `150` is usually plenty. But the occasional faint or low-quality scan reads better at a higher resolution. Rather than raise the global default (and re-OCR everything), you can re-OCR just that one book: on an OCR-badged book, open the actions menu (**⋮**) and choose **Re-OCR…**, optionally enter a DPI (e.g. `300`), and run it. The book is re-read in the background at that resolution while the rest of the library is untouched; leave the DPI blank to re-OCR at the global default. It appears only for scanned/OCR'd books and requires GM or admin.
+`OCR_DPI` sets the resolution for the whole library, and `150` is usually plenty. But the occasional faint or low-quality scan reads better at a higher resolution. Rather than raise the global default (and re-OCR everything), you can re-OCR just that one book: on an OCR-badged book, open the actions menu (**⋮**) and choose **Re-OCR…**, optionally enter a DPI (e.g. `300`), and run it. The book is re-read in the background at that resolution while the rest of the library is untouched; leave the DPI blank to re-OCR at the global default. It appears for scanned and OCR'd books, and for books whose own text covers less than `OCR_MIN_TEXT_COVERAGE` of their pages (see [Scans with a few pages of text](#scans-with-a-few-pages-of-text)), and requires GM or admin.
 
 ### Re-scan &amp; re-index a single book
 

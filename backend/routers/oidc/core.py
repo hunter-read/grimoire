@@ -4,7 +4,7 @@ Implements the authorization-code + PKCE flow against any standards-compliant
 IdP (Keycloak, Authentik, Authelia, Auth0, Okta, etc.).
 
 The IdP is configured at runtime via Settings → Authentication. Each individual
-field can be locked by an environment variable; see backend/config.py.
+field can be locked by an environment variable; see backend/config/env.py.
 """
 import hmac
 import json
@@ -114,9 +114,17 @@ def discover(data: DiscoverRequest, _: CurrentUser = Depends(require_admin)):
         resp.raise_for_status()
         doc = resp.json()
     except httpx.HTTPError as e:
-        raise HTTPException(502, f"Failed to fetch discovery document: {e}") from e
+        logger.warning("OIDC discovery fetch from %s failed: %s", url, e)
+        raise HTTPException(
+            502,
+            "Could not fetch the discovery document from that issuer URL. "
+            "The server log has the details.",
+        ) from e
     except json.JSONDecodeError as e:
-        raise HTTPException(502, f"Invalid discovery document: {e}") from e
+        logger.warning("OIDC discovery document from %s is not JSON: %s", url, e)
+        raise HTTPException(
+            502, "That issuer URL did not return a valid discovery document."
+        ) from e
 
     return {
         "issuer": doc.get("issuer", ""),
@@ -336,8 +344,10 @@ def _finish_sign_in(
             allowed_alg=eff["oidc_signing_alg"],
         )
     except _OIDCError as e:
+        # The reason stays in the log: it can name the identity provider's
+        # hosts or carry network errors, and this redirect is shown to anyone.
         logger.warning("OIDC id_token validation failed: %s", e)
-        return _redirect_with_error(str(e))
+        return _redirect_with_error(e.public or "the sign-in could not be verified")
 
     # Resolve / fetch userinfo (some IdPs put groups only in /userinfo)
     userinfo = _fetch_userinfo(

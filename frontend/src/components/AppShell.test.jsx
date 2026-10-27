@@ -45,6 +45,17 @@ vi.mock('../views/CampaignDetailView', () => ({ default: () => <div>campaign-det
 vi.mock('../views/CampaignNotesView', () => ({ default: () => <div>campaign-notes</div> }))
 vi.mock('../views/TagsView', () => ({ default: () => <div>tags</div> }))
 vi.mock('./campaigns/PendingInvitesBanner', () => ({ default: () => null }))
+// Views are lazy chunks (issue #708). This one is held back until a test lets it
+// load, so the shell can be seen mid-fetch.
+const duplicatesChunk = vi.hoisted(() => {
+  let release
+  const loaded = new Promise((resolve) => (release = resolve))
+  return { loaded, release }
+})
+vi.mock('../views/DuplicatesView', async () => {
+  await duplicatesChunk.loaded
+  return { default: () => <div>duplicates</div> }
+})
 
 const renderAt = (path) =>
   render(
@@ -63,8 +74,8 @@ beforeEach(() => {
 describe('AppShell', () => {
   it('renders the sidebar and the audio route on desktop', async () => {
     renderAt('/audio')
-    await waitFor(() => expect(screen.getByText('sidebar')).toBeInTheDocument())
-    expect(screen.getByText('audio')).toBeInTheDocument()
+    expect(await screen.findByText('audio')).toBeInTheDocument()
+    expect(screen.getByText('sidebar')).toBeInTheDocument()
     expect(screen.getByTestId('global-player')).toBeInTheDocument()
   })
 
@@ -83,6 +94,15 @@ describe('AppShell', () => {
     queue = [{ id: 'a' }]
     renderAt('/search')
     await waitFor(() => expect(screen.getByTestId('global-player')).toBeInTheDocument())
+  })
+
+  it('keeps the shell up and shows a spinner while a view is still loading', async () => {
+    renderAt('/settings/duplicates')
+    expect(await screen.findByRole('status')).toBeInTheDocument()
+    expect(screen.getByText('sidebar')).toBeInTheDocument()
+    duplicatesChunk.release()
+    expect(await screen.findByText('duplicates')).toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
   // Issue #361: a guest clicking a public campaign resource fell through to the

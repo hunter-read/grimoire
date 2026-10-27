@@ -324,3 +324,53 @@ def test_guest_accounts_go_with_their_campaign(client, gm_headers, admin_headers
         assert db.query(User).filter_by(id=created["user_id"]).first() is None
     finally:
         db.close()
+
+
+def test_guest_code_is_stored_hashed_and_sealed(client, gm_headers, admin_headers, gm_campaign):
+    from backend import token_vault
+    from backend.models import CampaignMember
+
+    _set_guest_access(client, admin_headers, True)
+    created = client.post(
+        f"/api/campaigns/{gm_campaign}/guests",
+        json={"nickname": "Erin"},
+        headers=gm_headers,
+    ).json()
+    code = created["guest_code"]
+
+    db = SessionLocal()
+    try:
+        member = db.query(CampaignMember).filter_by(id=created["id"]).one()
+        assert member.guest_code_hash == token_vault.lookup_hash(code)
+        assert member.guest_code_sealed and code not in member.guest_code_sealed
+        assert member.guest_code == code
+        member.guest_code = None
+        assert member.guest_code_hash is None and member.guest_code_sealed is None
+        db.rollback()
+    finally:
+        db.close()
+
+    # The GM still sees the code to share it again.
+    listed = client.get(f"/api/campaigns/{gm_campaign}/guests", headers=gm_headers).json()
+    assert [g["guest_code"] for g in listed] == [code]
+
+
+def test_guest_login_rejects_a_code_on_a_pending_membership(
+    client, gm_headers, admin_headers, gm_campaign
+):
+    from backend.models import CampaignMember
+
+    _set_guest_access(client, admin_headers, True)
+    created = client.post(
+        f"/api/campaigns/{gm_campaign}/guests",
+        json={"nickname": "Fay"},
+        headers=gm_headers,
+    ).json()
+    db = SessionLocal()
+    try:
+        db.query(CampaignMember).filter_by(id=created["id"]).one().status = "invited"
+        db.commit()
+    finally:
+        db.close()
+    resp = client.post("/api/auth/guest-login", json={"code": created["guest_code"]})
+    assert resp.status_code == 401

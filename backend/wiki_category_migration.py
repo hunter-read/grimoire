@@ -15,15 +15,8 @@ the flat category system.
 Safe to run on every startup: once no note-categories remain it does nothing.
 """
 
-import re
-
 from .config import logger
-
-
-def _slugify(title: str) -> str:
-    s = re.sub(r"[^\w\s-]", "", (title or "").lower()).strip()
-    s = re.sub(r"[\s_-]+", "-", s)
-    return s or "untitled"
+from .routers.campaigns.wikilinks import slugify
 
 
 def _unique_slug(db, WikiPage, campaign_id: str, base: str) -> str:
@@ -54,7 +47,7 @@ def migrate(db) -> None:
         parent = WikiPage(
             campaign_id=cat.campaign_id,
             title=cat.name,
-            slug=_unique_slug(db, WikiPage, cat.campaign_id, _slugify(cat.name)),
+            slug=_unique_slug(db, WikiPage, cat.campaign_id, slugify(cat.name)),
             body="",
             visibility="group",
             page_type="note",

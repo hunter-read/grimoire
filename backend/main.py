@@ -298,7 +298,7 @@ async def lifespan(app: FastAPI):
     finally:
         db.close()
 
-    if not os.getenv("PYTEST_CURRENT_TEST"):
+    if not config.under_test_run():
         db = SessionLocal()
         try:
             scheduler.apply(db)

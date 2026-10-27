@@ -1,8 +1,8 @@
-fastapi==0.143.3
-starlette==1.8.0
+fastapi==0.161.1
+starlette==1.9.0
 uvicorn[standard]==0.54.0
-sqlalchemy==2.1.5
-alembic==1.20.0
+sqlalchemy==2.1.6
+alembic==1.20.1
 aiosqlite==0.22.1
 pymupdf==1.28.2
 python-multipart==0.0.32
@@ -19,7 +19,7 @@ markdownify==1.2.3
 mutagen==1.48.1
 rarfile==4.5
 py7zr==1.1.4
-striprtf==0.0.33
+striprtf==0.0.34
 pytesseract==0.3.13
 pathspec==1.1.1
 tzdata==2026.5

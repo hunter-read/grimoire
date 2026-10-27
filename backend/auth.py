@@ -12,6 +12,7 @@ import jwt
 from fastapi import Cookie, Depends, Header, HTTPException, Request, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
+from . import config
 from .log_context import set_log_user
 from .password_hash import hash_password, verify_password  # noqa: F401 - re-exported
 
@@ -164,10 +165,7 @@ def _secret_key() -> str:
         with _secret_key_lock:
             key = globals().get("SECRET_KEY")
             if key is None:
-                key = resolve_secret_key(
-                    os.environ.get("SECRET_KEY"),
-                    os.environ.get("DATA_PATH", "./data"),
-                )
+                key = resolve_secret_key(config.SECRET_KEY_ENV, config.DATA_PATH)
                 globals()["SECRET_KEY"] = key
     return key
 
@@ -181,9 +179,7 @@ AUTH_COOKIE_NAME = "grimoire_session"
 # without one, each response decides from its own request (cookie_secure). A
 # bare "http://" self-host (e.g. behind a LAN reverse proxy without TLS) still
 # needs the cookie to be sent, so Secure is off there.
-COOKIE_SECURE = os.environ.get("BASE_URL", "http://localhost:9481").lower().startswith(
-    "https://"
-)
+COOKIE_SECURE = config.BASE_URL.lower().startswith("https://")
 
 
 def cookie_secure(request: Optional[Request] = None) -> bool:
@@ -227,9 +223,7 @@ def create_token(
     the request path. Revocation works by cutting off the refresh that would
     renew it; see backend/sessions.py.
     """
-    from .sessions import ACCESS_TOKEN_EXPIRE_MINUTES
-
-    minutes = ACCESS_TOKEN_EXPIRE_MINUTES if expires_minutes is None else expires_minutes
+    minutes = config.ACCESS_TOKEN_EXPIRE_MINUTES if expires_minutes is None else expires_minutes
     now = datetime.datetime.now(datetime.timezone.utc)
     payload = {
         # Names what the token is for, so a token minted for something else

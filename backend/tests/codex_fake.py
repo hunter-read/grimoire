@@ -12,6 +12,7 @@ import pytest
 
 from backend import codex
 from backend.codex import client as codex_client
+from backend import config
 from backend.config import SessionLocal
 from backend.models import AppSetting
 
@@ -49,9 +50,8 @@ def fake_codex(monkeypatch):
     monkeypatch.setattr(
         codex_client.httpx, "Client", lambda **kw: _RealClient(transport=transport, **kw)
     )
-    for var in codex.settings.ENV_VARS.values():
-        monkeypatch.delenv(var, raising=False)
-    monkeypatch.setenv("GRIMOIRE_CODEX_DB_API_TOKEN", "cdx_tok")
+    monkeypatch.setattr(config, "CODEX_DB_ENV", dict.fromkeys(codex.settings.ENV_VARS))
+    monkeypatch.setattr(config, "CODEX_DB_API_TOKEN", "cdx_tok")
     db = SessionLocal()
     codex.save(db, url="https://codex.test")
     db.commit()

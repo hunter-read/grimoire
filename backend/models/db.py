@@ -661,10 +661,12 @@ def init_db(db_path: str) -> Tuple[Engine, sessionmaker[Session]]:
         cursor.close()
         sql_functions.register(dbapi_connection)
 
-    # Serialize migrations across workers: init_db runs once per process (at
-    # config import), so with multiple uvicorn workers several may reach this
-    # concurrently. A blocking file lock keyed on the DB lets the first worker
-    # migrate while the others wait, then find the DB already at head.
+    # Serialize migrations across processes: init_db is called lazily by
+    # config.init_database() (from startup() or the first session use), so
+    # uvicorn workers, or a script opening a session while the server starts,
+    # can reach this concurrently even at WORKERS=1. A blocking file lock keyed
+    # on the DB lets the first process migrate while the others wait, then find
+    # the DB already at head.
     with _migration_lock(db_path):
         _apply_migrations(engine)
         _post_migration_setup(engine)

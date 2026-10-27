@@ -7,7 +7,8 @@ yielded working feeds and links (issue #583). Each token now becomes:
 * ``<name>_hash`` - HMAC-SHA256 under a key derived from SECRET_KEY, which requests
   are matched on, and
 * ``<name>_sealed`` - the token encrypted under another SECRET_KEY-derived key, so
-  its owner can still copy the URL (see backend/token_vault.py).
+  its owner can still copy the URL (see backend/token_vault.py; this revision
+  uses the frozen copy in backend/migrations/_frozen/token_vault.py).
 
 Existing tokens are converted in place, so every feed URL and share link already
 handed out keeps working. The plaintext columns and their indexes are dropped.
@@ -34,6 +35,8 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import inspect, text
 
+from backend.migrations._frozen import token_vault
+
 
 # revision identifiers, used by Alembic.
 revision: str = "5e1b8c3a7d42"
@@ -58,18 +61,16 @@ def _indexes(table: str) -> set:
 
 
 def upgrade() -> None:
-    from backend import token_vault
-
     bind = op.get_bind()
     previous = bind.execute(text("PRAGMA secure_delete")).scalar()
     op.execute("PRAGMA secure_delete = ON")
     try:
-        _convert(bind, token_vault)
+        _convert(bind, token_vault.secret_key())
     finally:
         op.execute(f"PRAGMA secure_delete = {int(previous or 0)}")
 
 
-def _convert(bind, token_vault) -> None:
+def _convert(bind, secret: str) -> None:
     converted = 0
     for table, old, new in _TOKENS:
         cols = _columns(table)
@@ -85,7 +86,11 @@ def _convert(bind, token_vault) -> None:
             for row_id, token in rows:
                 bind.execute(
                     text(f"UPDATE {table} SET {new}_hash = :h, {new}_sealed = :s WHERE id = :id"),
-                    {"h": token_vault.lookup_hash(token), "s": token_vault.seal(token), "id": row_id},
+                    {
+                        "h": token_vault.lookup_hash(secret, token),
+                        "s": token_vault.seal(secret, token),
+                        "id": row_id,
+                    },
                 )
             converted += len(rows)
             if f"ix_{table}_{old}" in _indexes(table):
@@ -104,8 +109,7 @@ def _convert(bind, token_vault) -> None:
 
 
 def downgrade() -> None:
-    from backend import token_vault
-
+    secret = token_vault.secret_key()
     bind = op.get_bind()
     for table, old, new in _TOKENS:
         cols = _columns(table)
@@ -118,7 +122,7 @@ def downgrade() -> None:
             for row_id, sealed in rows:
                 # A token sealed under a different SECRET_KEY is unrecoverable;
                 # such a row goes back without one, as if never issued.
-                token = token_vault.unseal(sealed)
+                token = token_vault.unseal(secret, sealed)
                 if token is not None:
                     bind.execute(
                         text(f"UPDATE {table} SET {old} = :t WHERE id = :id"),

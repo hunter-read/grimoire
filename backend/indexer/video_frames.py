@@ -23,12 +23,14 @@ import shutil
 import subprocess
 from typing import Optional
 
+from .. import config
+
 logger = logging.getLogger("grimoire.indexer")
 
-# Where the Dockerfile installs the purpose-built decode-only binary. Overridable
-# so a dev machine can point at a system ffmpeg (the flags used here are ordinary
-# ones that any build supports).
-FFMPEG_BINARY = os.environ.get("FFMPEG_BINARY", "/usr/local/bin/ffmpeg")
+# Where the Dockerfile installs the purpose-built decode-only binary, unless
+# FFMPEG_BINARY points at another (the flags used here are ordinary ones that
+# any build supports).
+FFMPEG_BINARY = config.FFMPEG_BINARY
 
 # Seek offset for the grabbed frame. Frame 0 of a looping battlemap is often a
 # fade-in or a black leader, which would thumbnail as an empty tile; half a

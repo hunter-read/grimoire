@@ -24,44 +24,22 @@ yields no usable sessions.
 import datetime
 import hashlib
 import logging
-import os
 import secrets
 from typing import Optional, Tuple
 
 from sqlalchemy.orm import Session
 
+from .config import REFRESH_TOKEN_EXPIRE_DAYS
 from .models import AuthSession
 from .services.user_activity import record_activity, record_login
 
 logger = logging.getLogger("grimoire.sessions")
 
 
-def _int_env(name: str, default: int, minimum: int = 1) -> int:
-    """Read a positive int from the environment, falling back on junk values."""
-    raw = (os.environ.get(name) or "").strip()
-    if not raw:
-        return default
-    try:
-        value = int(raw)
-    except ValueError:
-        logger.warning("%s=%r is not an integer - using the default of %d", name, raw, default)
-        return default
-    if value < minimum:
-        logger.warning("%s=%d is below the minimum of %d - using %d", name, value, minimum, minimum)
-        return minimum
-    return value
-
-
-# How long an access token is valid. This is also the worst-case window between
-# revoking a session and the last access token going dead, so it is deliberately
-# short. Configurable because self-hosters on a trusted LAN may prefer fewer
-# refreshes over a tighter revocation window.
-ACCESS_TOKEN_EXPIRE_MINUTES = _int_env("ACCESS_TOKEN_EXPIRE_MINUTES", 30)
-
-# How long a session can live without any activity before the refresh token
-# expires and the user must log in again. Matches the old JWT lifetime, so a
-# normally-active user sees no behaviour change from before this feature.
-REFRESH_TOKEN_EXPIRE_DAYS = _int_env("REFRESH_TOKEN_EXPIRE_DAYS", 30)
+# ACCESS_TOKEN_EXPIRE_MINUTES (default 30) is how long an access token is valid,
+# and so the worst-case window between revoking a session and its last access
+# token going dead. REFRESH_TOKEN_EXPIRE_DAYS (default 30) is how long a session
+# lives without activity. Both are read in backend/config/env.py.
 
 # Name of the HttpOnly cookie carrying the refresh token. Scoped to the refresh
 # and logout endpoints so it is not sent on every API call — a refresh token is

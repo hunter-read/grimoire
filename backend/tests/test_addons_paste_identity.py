@@ -20,6 +20,7 @@ from backend.addons.constants import (
     SETTING_INSTALLED,
 )
 from backend.addons.manifest import AddonManifest
+from backend import config
 from backend.config import SessionLocal
 from backend.models import AppSetting
 from backend.tests.conftest import make_game_system
@@ -41,7 +42,7 @@ BASE = {
 @pytest.fixture(autouse=True)
 def codex_off(monkeypatch):
     """These tests are about add-ons: keep the built-in Grimoire Codex DB source out of the lists."""
-    monkeypatch.delenv("GRIMOIRE_CODEX_DB_API_TOKEN", raising=False)
+    monkeypatch.setattr(config, "CODEX_DB_API_TOKEN", "")
 
 
 

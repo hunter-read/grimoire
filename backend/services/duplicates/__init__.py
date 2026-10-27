@@ -16,6 +16,7 @@ from .grid import grid_marker, is_grid_pair, strip_grid_tokens
 from .grouping import Edge, Group, build_groups, group_key
 from .job import (
     DEFAULT_STATUS,
+    JOB,
     RESOURCE_MODELS,
     clear_stop,
     detect_edges,
@@ -39,6 +40,7 @@ __all__ = [
     "group_key",
     # job control
     "DEFAULT_STATUS",
+    "JOB",
     "RESOURCE_MODELS",
     "get_status",
     "set_status",

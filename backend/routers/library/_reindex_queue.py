@@ -162,6 +162,7 @@ def _drain_once() -> bool:
     finally:
         _helpers._set_status({"running": False, "phase": None, "kind": None})
         heartbeat.set()
+    _helpers.follow_up_ocr_request()
     return not _helpers.is_stop_requested()
 
 

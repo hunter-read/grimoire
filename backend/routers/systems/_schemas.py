@@ -191,6 +191,8 @@ class BookOut(VariantCountMixin, BaseModel):
     index_error: Optional[str] = None
     # Derived comparison, so always a concrete bool.
     ocr_indexed: bool
+    # Re-OCR has something to add: see indexer.text_index.reocr_applies.
+    can_reocr: bool
     # Pages OCR gave up on; 0 for a clean read. Always concrete (serializer
     # coalesces NULL), so the UI can compare it without a null guard.
     ocr_pages_skipped: int = 0

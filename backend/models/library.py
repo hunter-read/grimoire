@@ -213,6 +213,12 @@ class Book(Base):
     # distinguishes it from a clean read. Surfaced via the API so the UI can badge
     # it and the user can raise the timeout and re-read. See issue #450.
     ocr_pages_skipped: Mapped[Optional[int]] = mapped_column(Integer, default=0)
+    # How many pages yielded text from the book's own text layer when it was last
+    # indexed. Set by the indexer; NULL when not known (a manual Re-OCR clears
+    # it). Lets the UI and the Re-OCR endpoint tell a scan carrying a few text
+    # pages from a real text book without counting FTS rows, which is a full
+    # scan of the search index per book. See indexer.text_index.reocr_applies.
+    text_pages: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     # Optional per-book OCR resolution override (DPI). NULL means "use the global
     # OCR_DPI default". Set when a user re-OCRs a specific book at a higher DPI
     # for a sharper read than the library-wide default gives; persisted so the

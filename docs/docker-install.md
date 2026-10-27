@@ -318,11 +318,21 @@ rather than with `BACKUP_DIR` is left as it is; if that user can't write to it, 
 so, and you can give it access on the host or set `BACKUP_DIR` instead.
 
 Your setup keeps working as it did, whatever it is. If the chosen user could not read your
-library, could not write to a library that root could write to (one mounted without `:ro`),
-or could not write to your data folder (for example a network share that refuses to change
-file owners), Grimoire stays root and says so in the log (`docker compose logs grimoire`),
-along with how to fix it. Symlinks, `lost+found`, and entries that user owns itself at the
-top of the library don't count towards that check.
+library, could not write to library folders that root could write to (a library mounted
+without `:ro`), or could not write to your data folder (for example a network share that
+refuses to change file owners), Grimoire stays root and says so in the log
+(`docker compose logs grimoire`), along with how to fix it. Write access is checked on the
+library folder and on up to 500 folders inside it, top levels first, since renaming or
+moving a book needs write access to the folder it is in. Symlinks, `lost+found`, and folders
+that user owns itself don't count towards that check. The data folder is checked by
+actually writing a test file there, because some NAS filesystems refuse writes that a
+plain permission check allows. The library is only ever checked, never written to.
+
+If a library folder is still out of reach - one deeper than the check looks, say - renaming,
+moving, or uploading there says Grimoire doesn't have permission to write to that folder,
+and names the user it runs as. A library that really is mounted `:ro` says so instead. See
+[the FAQ](faq.md#since-updating-renaming-or-moving-a-file-says-the-library-is-read-only)
+for the fixes.
 
 ### Choosing the user: `PUID` and `PGID`
 

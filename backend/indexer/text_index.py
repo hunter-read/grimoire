@@ -22,7 +22,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend import indexer  # package namespace, for patch-sensitive calls
-from .. import ocr
+from .. import config, ocr
 from ..models import Book
 from . import text_documents
 from ._subprocess import (
@@ -36,6 +36,33 @@ from .formats import TEXT_MIMES, can_index
 from .hashing import apply_signature, file_signature, hash_file_signature
 
 logger = logging.getLogger("grimoire.indexer")
+
+
+def text_too_thin(text_pages: int, page_count: int) -> bool:
+    """Whether a text layer covering ``text_pages`` of ``page_count`` is too thin
+    to count as one (issue #685) - a scan carrying a few text pages, say.
+
+    No text at all is not "thin": that is an image-only book, judged on its own.
+    """
+    if text_pages <= 0 or page_count <= 0:
+        return False
+    return text_pages / page_count < config.OCR_MIN_TEXT_COVERAGE
+
+
+def reocr_applies(book: Book) -> bool:
+    """Whether Re-OCR has anything to add for ``book``.
+
+    The one rule for the Re-OCR endpoint and the UI that offers it: a PDF read
+    by OCR, an image-only PDF, or a PDF whose own text layer covers too little
+    of it. A book that failed to index, or whose text layer covers it, is not.
+    """
+    if book.mime_type != "application/pdf" or book.index_failed:
+        return False
+    if book.index_error in ("ocr", "image-only"):
+        return True
+    if book.indexed and not book.index_error and book.text_pages is not None:
+        return book.text_pages == 0 or text_too_thin(book.text_pages, book.page_count or 0)
+    return False
 
 
 def index_book_text(
@@ -99,24 +126,46 @@ def index_book_text(
             session.rollback()
         return False
 
-    if not pages:
-        if ocr.ocr_available():
-            # Scanned/image-only PDF: hand it to the deferred-OCR queue instead
-            # of OCRing inline. Left not-indexed with ocr_pending set so the OCR
-            # worker (and startup recovery) picks it up; index_failed cleared so
-            # it isn't mistaken for a hard failure.
+    # A scan can still yield a few pages of text - a web enhancement bundled into
+    # the back, a digitally-set cover or appendix - and taking that as "this book
+    # has a text layer" left the rest of it unsearchable for good (issue #685).
+    # Judge by how much of the book the text covers, not by whether any exists.
+    # extract_text_isolated leaves image-only pages out, so len(pages) is the
+    # number that produced text.
+    total_pages = book.page_count or 0
+    too_thin = text_too_thin(len(pages), total_pages)
+    book.text_pages = len(pages)
+
+    if (not pages or too_thin) and ocr.ocr_available():
+        # Scanned/image-only PDF: hand it to the deferred-OCR queue instead
+        # of OCRing inline. Left not-indexed with ocr_pending set so the OCR
+        # worker (and startup recovery) picks it up; index_failed cleared so
+        # it isn't mistaken for a hard failure.
+        #
+        # The pages found here are dropped rather than kept: the OCR pass
+        # re-reads the whole book and keeps a page's embedded text wherever it
+        # exists (see extract_text_from_pdf), so they come back unchanged.
+        if too_thin:
+            logger.info(
+                f"'{book.title or book.filename}' has text on only {len(pages)} of "
+                f"{total_pages} page(s) - treating it as a scan and queuing it to "
+                f"read the rest later."
+            )
+        else:
             logger.info(
                 f"'{book.title or book.filename}' is a scanned book with no text - "
                 f"queued to read text from later."
             )
-            book.ocr_pending = True
-            book.ocr_pages_done = 0
-            book.ocr_pages_skipped = 0
-            book.indexed = False
-            book.index_failed = False
-            book.index_error = ""
-            _commit(session, f"queue ocr '{book.filepath}'")
-            return False
+        book.ocr_pending = True
+        book.ocr_pages_done = 0
+        book.ocr_pages_skipped = 0
+        book.indexed = False
+        book.index_failed = False
+        book.index_error = ""
+        _commit(session, f"queue ocr '{book.filepath}'")
+        return False
+
+    if not pages:
         # OCR unavailable (slim image): keep the pre-OCR behaviour — mark
         # image-only and indexed so it isn't retried every scan.
         logger.info(

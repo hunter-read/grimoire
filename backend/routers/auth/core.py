@@ -48,6 +48,7 @@ from ..settings._helpers import (
     oidc_is_configured,
     password_auth_effective,
 )
+from ..campaigns._helpers import guest_member_by_code
 from ._helpers import issue_login
 from ._schemas import GuestLoginRequest, LoginRequest, SetupRequest
 
@@ -143,12 +144,8 @@ def guest_login(
     if not data.code:
         raise HTTPException(401, "Invalid invite code")
 
-    member = (
-        db.query(CampaignMember)
-        .filter_by(guest_code=data.code, is_guest=True, status="accepted")
-        .first()
-    )
-    if not member:
+    member = guest_member_by_code(db, data.code)
+    if not member or not member.is_guest or member.status != "accepted":
         raise HTTPException(401, "Invalid invite code")
 
     user = db.query(User).filter_by(id=member.user_id).first()

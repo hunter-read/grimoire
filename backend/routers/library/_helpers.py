@@ -1,40 +1,14 @@
 """Background indexer and rescan helpers for the library."""
-import fcntl
-import json
 import os
-import threading
-import time
-from datetime import datetime, timezone
-from typing import Optional
 
 from ... import config
-from ...config import SessionLocal, LIBRARY_PATH, DATA_PATH, logger, valkey_client, valkey_errors
+from ...config import SessionLocal, LIBRARY_PATH, DATA_PATH, logger
 from ...models import Book, Model3D
 from ...indexer import scan_library, index_book_text, ocr_book
 from ...indexer.formats import INDEXABLE_MIMES
 from ..books import _invalidate_book_cache
+from ...services.jobs import Job
 from ._claims import claim_book, release_book
-
-# Errors raised by the Valkey/Redis client for connection/protocol failures.
-# When a Valkey op fails this way, callers fall back to in-process state; any
-# other exception type is a real bug and should not be swallowed.
-
-_SCAN_KEY = "grimoire:scan_status"
-_STOP_KEY = "grimoire:scan_stop"
-# The heartbeat has its own key rather than living in the status blob. The
-# blob is written read-modify-write, so a second writer (the heartbeat thread)
-# racing the scan's own updates could put back a stale copy - including
-# `running: true` over the scan's final `running: false`.
-_HEARTBEAT_KEY = "grimoire:scan_heartbeat"
-
-# How long a running scan's heartbeat may go unrefreshed before it is treated
-# as abandoned (issue #524). Mirrors the duplicate scanner's threshold.
-STALE_AFTER_SECONDS = 300
-# How often a running scan refreshes its heartbeat, independent of progress.
-# Progress alone is too coarse: OCR of one long scanned book or a single large
-# model preview can go far longer than STALE_AFTER_SECONDS between status
-# writes, and mistaking that for a dead scan would let a second one start.
-HEARTBEAT_INTERVAL_SECONDS = 30
 
 _DEFAULT_STATUS: dict = {
     "running": False,
@@ -74,215 +48,38 @@ _DEFAULT_STATUS: dict = {
     # "reindex" while the run is the replace-upload re-index queue's drain
     # (issue #657), which accepts further replace uploads; None for every other run.
     "kind": None,
+    # A Re-OCR asked for a drain while another job held the run. Internal: the
+    # running drain, or whoever finishes the run, reads the queue again for it
+    # (see trigger_ocr_queue). Kept in the shared status so it reaches the
+    # worker that holds the run when there are several.
+    "ocr_requested": False,
 }
 
-# Without Valkey the stop flag is a file under DATA_PATH, which every worker
-# can see (issue #651). An in-process flag alone only reached the worker that
-# took the POST, and with WORKERS > 1 that is often not the one holding
-# .scan.lock and running the startup scan, so Stop never landed. Ignored once
-# older than the Valkey key's expiry, so a flag a crash left behind cannot stop
-# a later run that never clears it.
-_STOP_FILENAME = ".scan.stop"
-_STOP_TTL_SECONDS = 3600
+# The scan's status, stop flag and heartbeat. Without Valkey the stop flag is
+# DATA_PATH/.scan.stop, which every worker can see (issue #651): an in-process
+# flag alone only reached the worker that took the POST, and with WORKERS > 1
+# that is often not the one holding .scan.lock and running the startup scan.
+SCAN_JOB = Job("scan", _DEFAULT_STATUS)
 
-# In-process fallback when Valkey is unavailable (single-worker or no cache)
-_scan_status: dict = dict(_DEFAULT_STATUS)
-_stop_requested: bool = False
-_heartbeat: Optional[str] = None
-
-
-def _stop_file() -> str:
-    return os.path.join(config.DATA_PATH, _STOP_FILENAME)
-
-
-def request_stop() -> None:
-    global _stop_requested
-    if (client := valkey_client()) is not None:
-        try:
-            client.set(_STOP_KEY, "1", ex=_STOP_TTL_SECONDS)
-        except valkey_errors() as e:
-            logger.warning("Valkey set(stop) failed, using the stop file: %s", e)
-    try:
-        with open(_stop_file(), "w"):
-            pass
-    except OSError as e:
-        # Last resort, and only then: a flag in this process would outlive
-        # another worker's clear_stop() and stop that worker's next run early.
-        logger.warning("Couldn't write the scan stop file, using in-process flag: %s", e)
-        _stop_requested = True
-
-
-def clear_stop() -> None:
-    global _stop_requested
-    _stop_requested = False
-    if (client := valkey_client()) is not None:
-        try:
-            client.delete(_STOP_KEY)
-        except valkey_errors() as e:
-            logger.warning("Valkey delete(stop) failed, using the stop file: %s", e)
-    try:
-        os.remove(_stop_file())
-    except FileNotFoundError:
-        pass
-    except OSError as e:
-        logger.warning("Couldn't remove the scan stop file: %s", e)
-
-
-def _stop_file_set() -> bool:
-    try:
-        age = time.time() - os.stat(_stop_file()).st_mtime
-    except OSError:
-        return False
-    return age < _STOP_TTL_SECONDS
+request_stop = SCAN_JOB.request_stop
+clear_stop = SCAN_JOB.clear_stop
+is_stop_requested = SCAN_JOB.is_stop_requested
+is_stale = SCAN_JOB.is_stale
+_get_status = SCAN_JOB.status
+_set_status = SCAN_JOB.update
+_start_heartbeat = SCAN_JOB.start_heartbeat
+force_clear = SCAN_JOB.force_clear
 
 
 def startup_scan_running() -> bool:
-    """Whether some worker still holds ``.scan.lock`` for its startup scan.
-
-    Without Valkey the scan status is per-process, so a worker that is not
-    running the startup scan reports nothing running and would turn a Stop away
-    (issue #651). The lock is shared across processes, so it can tell.
-    """
-    try:
-        with open(os.path.join(config.DATA_PATH, ".scan.lock"), "a") as lock:
-            try:
-                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except OSError:
-                return True
-            fcntl.flock(lock, fcntl.LOCK_UN)
-            return False
-    except OSError:
-        return False
-
-
-def is_stop_requested() -> bool:
-    if (client := valkey_client()) is not None:
-        try:
-            return bool(client.exists(_STOP_KEY))
-        except valkey_errors() as e:
-            logger.warning("Valkey exists(stop) failed, using the stop file: %s", e)
-    return _stop_requested or _stop_file_set()
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
-def _beat() -> None:
-    """Record that the scan owning the status is still alive."""
-    global _heartbeat
-    now = _now()
-    if (client := valkey_client()) is not None:
-        try:
-            client.set(_HEARTBEAT_KEY, now, ex=86400)
-            return
-        except valkey_errors() as e:
-            logger.warning("Valkey set(heartbeat) failed, using in-process heartbeat: %s", e)
-    _heartbeat = now
-
-
-def _get_heartbeat() -> Optional[str]:
-    if (client := valkey_client()) is not None:
-        try:
-            raw = client.get(_HEARTBEAT_KEY)
-            if raw:
-                return raw.decode() if isinstance(raw, bytes) else str(raw)
-        except valkey_errors() as e:
-            logger.warning("Valkey get(heartbeat) failed, using in-process heartbeat: %s", e)
-    return _heartbeat
-
-
-def _read_status() -> dict:
-    if (client := valkey_client()) is not None:
-        try:
-            raw = client.get(_SCAN_KEY)
-            if raw:
-                return json.loads(raw)
-        except (*valkey_errors(), ValueError) as e:
-            # ValueError covers a corrupt/non-JSON cached status blob.
-            logger.warning("Valkey get(status) failed, using in-process status: %s", e)
-    return dict(_scan_status)
-
-
-def _get_status() -> dict:
-    return {**_read_status(), "heartbeat": _get_heartbeat()}
-
-
-def _set_status(updates: dict) -> None:
-    global _scan_status
-    # Every write is a sign of life, so the heartbeat starts with the scan
-    # rather than one HEARTBEAT_INTERVAL_SECONDS later.
-    _beat()
-    if (client := valkey_client()) is not None:
-        try:
-            current = _read_status()
-            current.update(updates)
-            client.set(_SCAN_KEY, json.dumps(current), ex=86400)
-            return
-        except valkey_errors() as e:
-            logger.warning("Valkey set(status) failed, using in-process status: %s", e)
-    _scan_status.update(updates)
-
-
-def _start_heartbeat() -> threading.Event:
-    """Keep the heartbeat fresh while a scan runs; set the returned event to stop.
-
-    A daemon thread, so it dies with the process - which is exactly the case the
-    heartbeat exists to detect. A scan that ends normally stops it from its
-    ``finally``.
-    """
-    done = threading.Event()
-
-    def tick() -> None:
-        while not done.wait(HEARTBEAT_INTERVAL_SECONDS):
-            try:
-                _beat()
-            except Exception:  # noqa: BLE001 - a dead ticker would fake a dead scan
-                logger.exception("Scan heartbeat failed")
-
-    threading.Thread(target=tick, name="scan-heartbeat", daemon=True).start()
-    return done
-
-
-def is_stale(status: Optional[dict] = None) -> bool:
-    """Whether a status claiming to run has actually been abandoned (issue #524).
-
-    A scan whose process died mid-run never reaches the ``finally`` that clears
-    ``running``, and Valkey keeps that status for a day, refusing every later
-    scan. True when the heartbeat stopped advancing. A running status with no
-    heartbeat at all is stale too: it was written by a build that predates the
-    field, so it survived a restart and cannot be live.
-    """
-    current = _get_status() if status is None else status
-    if not current.get("running"):
-        return False
-    beat = current.get("heartbeat")
-    if not beat:
-        return True
-    try:
-        last = datetime.fromisoformat(beat)
-    except (TypeError, ValueError):
-        return True
-    if last.tzinfo is None:
-        last = last.replace(tzinfo=timezone.utc)
-    return (datetime.now(timezone.utc) - last).total_seconds() > STALE_AFTER_SECONDS
+    """Whether some worker still holds ``.scan.lock`` for its startup scan."""
+    return SCAN_JOB.lock_held()
 
 
 def scan_in_progress() -> bool:
     """Whether a library scan is really running - a stale status does not count."""
     status = _get_status()
     return bool(status.get("running")) and not is_stale(status)
-
-
-def force_clear() -> dict:
-    """Drop an abandoned scan's status so the UI unblocks and a new scan can start.
-
-    Only for a scan nothing is running any more: a live one must be asked to
-    stop via ``request_stop``, so it winds down at a safe checkpoint.
-    """
-    clear_stop()
-    _set_status({**_DEFAULT_STATUS})
-    return _get_status()
 
 
 def _ocr_one_book(book_id: str) -> str:
@@ -361,24 +158,26 @@ def run_ocr_queue() -> int:
         logger.debug("OCR queue: OCR disabled (OCR_CONCURRENCY=0), skipping.")
         return 0
 
-    db = SessionLocal()
-    try:
-        pending_ids = [
-            b.id
-            for b in db.query(Book)
-            # OCR remains PDF-only: it rasterises pages of scanned PDFs.
-            .filter_by(ocr_pending=True, mime_type="application/pdf")
-            .order_by(Book.ocr_pages_done.desc())  # finish nearly-done books first
-            .all()
-        ]
-    finally:
-        db.close()
+    def _pending() -> list[str]:
+        db = SessionLocal()
+        try:
+            return [
+                b.id
+                for b in db.query(Book)
+                # OCR remains PDF-only: it rasterises pages of scanned PDFs.
+                .filter_by(ocr_pending=True, mime_type="application/pdf")
+                .order_by(Book.ocr_pages_done.desc())  # finish nearly-done books first
+                .all()
+            ]
+        finally:
+            db.close()
 
+    pending_ids = _pending()
     if not pending_ids:
         # Logged rather than returning in silence. An empty queue and a queue
         # that is never called look identical from the outside, and telling them
-        # apart is the whole diagnosis when a model has no preview.
-        logger.debug("Model preview queue: nothing pending.")
+        # apart is the whole diagnosis when a book has no text.
+        logger.debug("OCR queue: nothing pending.")
         return 0
 
     _set_status(
@@ -387,32 +186,65 @@ def run_ocr_queue() -> int:
     logger.info(
         f"Reading text from {len(pending_ids)} scanned book(s) - this can take a while."
     )
-    logger.debug(f"OCR queue: {len(pending_ids)} book(s) to OCR (concurrency={concurrency})")
     completed = 0
+    attempted: set[str] = set()
     try:
-        if concurrency <= 1:
-            for book_id in pending_ids:
-                if is_stop_requested():
-                    logger.info("Stopping - leaving the rest for next time.")
-                    break
-                if _ocr_one_book(book_id) == "done":
-                    completed += 1
-                _set_status({"ocr_done": _get_status()["ocr_done"] + 1})
-        else:
-            from concurrent.futures import ThreadPoolExecutor
-
-            stopped = False
-            with ThreadPoolExecutor(max_workers=concurrency) as pool:
-                for result in pool.map(_ocr_unless_stopped, pending_ids):
-                    if result == "not started":
-                        if not stopped:
-                            logger.info("Stopping - leaving the rest for next time.")
-                            stopped = True
-                        continue
-                    if result == "done":
+        # Re-check the queue between passes. A book queued while this drain is
+        # running is invisible to the snapshot it started from, and
+        # trigger_ocr_queue declines to start a second drain while this one
+        # holds the phase - so without this the newly-queued book waits for a
+        # restart or the next library scan (issue #688).
+        #
+        # `attempted` is what makes it terminate: a book left pending on purpose
+        # - a stop part-way through, or one that fails and stays queued for the
+        # next run - is not retried here in a loop.
+        while True:
+            batch = [b for b in pending_ids if b not in attempted]
+            if not batch:
+                break
+            attempted.update(batch)
+            logger.debug(f"OCR queue: {len(batch)} book(s) to OCR (concurrency={concurrency})")
+            if concurrency <= 1:
+                stopped = False
+                for book_id in batch:
+                    if is_stop_requested():
+                        logger.info("Stopping - leaving the rest for next time.")
+                        stopped = True
+                        break
+                    if _ocr_one_book(book_id) == "done":
                         completed += 1
                     _set_status({"ocr_done": _get_status()["ocr_done"] + 1})
-        logger.info(f"Finished reading text from {completed} of {len(pending_ids)} scanned book(s).")
+                if stopped:
+                    break
+            else:
+                from concurrent.futures import ThreadPoolExecutor
+
+                stopped = False
+                with ThreadPoolExecutor(max_workers=concurrency) as pool:
+                    for result in pool.map(_ocr_unless_stopped, batch):
+                        if result == "not started":
+                            if not stopped:
+                                logger.info("Stopping - leaving the rest for next time.")
+                                stopped = True
+                            continue
+                        if result == "done":
+                            completed += 1
+                        _set_status({"ocr_done": _get_status()["ocr_done"] + 1})
+                if stopped:
+                    break
+            pending_ids = _pending()
+            if _take_ocr_request():
+                # Someone asked for these since: a book re-queued after this run
+                # read it is read again, rather than waiting for the next run.
+                attempted.difference_update(pending_ids)
+            newly = [b for b in pending_ids if b not in attempted]
+            if newly:
+                logger.info(
+                    f"{len(newly)} more scanned book(s) were queued while this ran - "
+                    f"reading those too."
+                )
+                _set_status({"total_ocr": len(attempted) + len(newly)})
+        logger.info(f"Finished reading text from {completed} of {len(attempted)} scanned book(s).")
     finally:
         _set_status({"ocr_current": None})
     return completed
@@ -554,23 +386,51 @@ def run_model_thumbnail_queue() -> int:
     return completed
 
 
+def _take_ocr_request() -> bool:
+    """Whether a drain was asked for while another job held the run; clears the ask."""
+    if not _get_status().get("ocr_requested"):
+        return False
+    _set_status({"ocr_requested": False})
+    return True
+
+
+def follow_up_ocr_request() -> None:
+    """Drain the OCR queue if a Re-OCR asked for it while the finished run held it.
+
+    Called by every job that clears the running flag once it has. A request that
+    arrived after that job's own drain last read the queue would otherwise wait
+    for the next scan.
+    """
+    if _get_status().get("ocr_requested") and not scan_in_progress():
+        trigger_ocr_queue()
+
+
 def trigger_ocr_queue():
     """Drain the OCR queue now (on-demand, e.g. after a per-book re-OCR request).
 
-    Unlike the startup scan this has no delay of its own. It no-ops if a
-    scan/OCR run is already in progress — the newly-queued book is picked up by that run (or
-    the next one), since the queue lives in the DB. Clears the running/phase flags
-    on completion when this call owns the OCR phase.
+    Unlike the startup scan this has no delay of its own. While another job
+    holds the run it leaves a request in the status instead (issue #688): a
+    drain in progress reads the queue again for it before finishing, and a job
+    finishing calls follow_up_ocr_request. The run is checked again after the
+    request is left, so a job that finished in between is not missed. Clears the
+    running/phase flags on completion when this call owns the OCR phase, and
+    goes round again if a request arrived after its drain last read the queue.
     """
-    if scan_in_progress():
-        return
-    heartbeat = _start_heartbeat()
-    try:
-        run_ocr_queue()
-    finally:
-        if _get_status()["phase"] == "ocr":
-            _set_status({"running": False, "phase": None})
-        heartbeat.set()
+    while True:
+        if scan_in_progress():
+            _set_status({"ocr_requested": True})
+            if scan_in_progress():
+                return
+        _set_status({"ocr_requested": False})
+        heartbeat = _start_heartbeat()
+        try:
+            run_ocr_queue()
+        finally:
+            if _get_status()["phase"] == "ocr":
+                _set_status({"running": False, "phase": None})
+            heartbeat.set()
+        if not _get_status().get("ocr_requested"):
+            return
 
 
 def rescan_single_book(book_id: str) -> None:
@@ -763,3 +623,4 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
         sweep_page_cache()
         _set_status({"running": False, "phase": None})
         heartbeat.set()
+    follow_up_ocr_request()

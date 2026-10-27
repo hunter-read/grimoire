@@ -23,7 +23,11 @@ vi.mock('../api', () => ({
   default: { get: vi.fn() },
 }))
 
+// Hovering a destination fetches its view ahead of the click (issue #708).
+vi.mock('./routeViews', () => ({ preloadRoute: vi.fn() }))
+
 import api from '../api'
+import { preloadRoute } from './routeViews'
 
 const DISMISSED_KEY = 'grimoire_update_dismissed'
 
@@ -341,5 +345,31 @@ describe('Sidebar update banner dismiss', () => {
     await waitFor(() => {
       expect(screen.getByText(/update available/i)).toBeInTheDocument()
     })
+  })
+})
+
+describe('Sidebar — view prefetch', () => {
+  beforeEach(() => {
+    mockLatest()
+    vi.mocked(preloadRoute).mockClear()
+  })
+
+  it('prefetches a destination when it is hovered or focused', async () => {
+    renderSidebar({ user: { ...baseUser, role: 'admin' } })
+    await settle()
+    fireEvent.mouseEnter(screen.getByRole('link', { name: /maps/i }))
+    expect(preloadRoute).toHaveBeenCalledWith('/maps')
+    fireEvent.focus(screen.getByRole('link', { name: /settings/i }))
+    expect(preloadRoute).toHaveBeenCalledWith('/settings')
+  })
+
+  it('prefetches the settings page from its footer button', async () => {
+    renderSidebar({ user: { ...baseUser, role: 'admin' } })
+    await settle()
+    const settings = screen
+      .getAllByRole('link')
+      .find((l) => l.getAttribute('href') === '/settings')!
+    fireEvent.mouseEnter(settings)
+    expect(preloadRoute).toHaveBeenCalledWith('/settings')
   })
 })

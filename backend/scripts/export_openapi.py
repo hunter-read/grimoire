@@ -29,11 +29,6 @@ _PINNED_ENV = {
 
 
 def main() -> None:
-    # A route serving GET and HEAD takes its operationId from whichever method
-    # its `methods` set yields first, and set order follows the string hash
-    # seed - so without a fixed seed the ids flip between runs.
-    if os.environ.get("PYTHONHASHSEED") != "0":
-        os.execve(sys.executable, [sys.executable, *sys.argv], {**os.environ, "PYTHONHASHSEED": "0"})
     root =os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     sys.path.insert(0, root)
     with tempfile.TemporaryDirectory(prefix="grimoire_openapi_") as data_dir:
@@ -45,11 +40,6 @@ def main() -> None:
             from backend.main import app
 
             spec = app.openapi()
-    # A GET+HEAD route emits both operations under one shared operationId,
-    # which is invalid OpenAPI and rejected by the type generator. HEAD mirrors
-    # GET and the frontend never sends it, so it has nothing to contribute.
-    for ops in spec["paths"].values():
-        ops.pop("head", None)
     json.dump(spec, sys.stdout, indent=2, sort_keys=True)
     sys.stdout.write("\n")
 

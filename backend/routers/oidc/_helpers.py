@@ -110,7 +110,16 @@ def _discover_issuer(issuer_url: str) -> str:
 
 
 class _OIDCError(Exception):
-    pass
+    """A sign-in that can't go ahead.
+
+    ``str(e)`` is for the server log. ``public`` is what the login page may
+    show, set only for messages that are safe and useful to anyone - a setting
+    to fix, say - and None where the detail belongs in the log alone.
+    """
+
+    def __init__(self, message: str, public: Optional[str] = None) -> None:
+        super().__init__(message)
+        self.public = public
 
 
 def _get_jwks(jwks_uri: str, force: bool = False) -> dict:
@@ -156,12 +165,13 @@ def _validate_id_token(
     if allowed_alg not in _VALID_SIGNING_ALGS:
         # HS256 used to be offered, but a shared-secret token can't be checked
         # against the provider's published keys, so it could never sign in.
-        raise _OIDCError(
+        unsupported = (
             f"signing algorithm {allowed_alg or '(none)'} is not supported - "
             "choose RS256 or another listed algorithm in Settings"
         )
+        raise _OIDCError(unsupported, public=unsupported)
     if not jwks_uri:
-        raise _OIDCError("jwks uri is not configured")
+        raise _OIDCError("jwks uri is not configured", public="jwks uri is not configured")
 
     claims_options = {
         "iss": {"essential": True, "value": issuer},

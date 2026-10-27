@@ -31,7 +31,9 @@ lockstep or authored links resolve differently on each side (cf. issue #252).
 """
 
 import re
-from typing import NamedTuple
+from typing import NamedTuple, Optional
+
+from ...text import slugs
 
 # Matches [[target]] or [[target|label]]; target/label captured separately.
 LINK_RE = re.compile(r"\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]")
@@ -117,10 +119,9 @@ def parse_page_links(body: str) -> list[LinkTarget]:
     return out
 
 
-def slugify(title: str) -> str:
-    s = re.sub(r"[^\w\s-]", "", (title or "").lower()).strip()
-    s = re.sub(r"[\s_-]+", "-", s)
-    return s or "untitled"
+def slugify(title: Optional[str]) -> str:
+    """A wiki page's slug. Persisted, and what ``[[Title]]`` links resolve by."""
+    return slugs.slugify(title, chars="words", trim=False, fallback="untitled")
 
 
 # --- Heading extraction -------------------------------------------------------

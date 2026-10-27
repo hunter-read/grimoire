@@ -300,3 +300,56 @@ class TestMemoryHandler:
         assert e["seq"] > 0
         assert isinstance(max_seq, int)
         assert max_seq > 0
+
+
+class TestConfigReload:
+    """Reloading backend.config (test_opds.py does, to re-read the environment)
+    must leave logging as it found it, not stack a second buffer or reformat one."""
+
+    def test_reload_keeps_one_bare_message_buffer(self):
+        import importlib
+        from backend.routers.logs import core as logs_core
+
+        foreign = logging.NullHandler()
+        foreign.setFormatter(logging.Formatter("foreign %(message)s"))
+        logging.root.addHandler(foreign)
+        before = config._memory_handler
+        logging.getLogger("grimoire").info("before the reload")
+        _, seq_before = before.get_entries(limit=1)
+        try:
+            importlib.reload(config)
+        finally:
+            logging.root.removeHandler(foreign)
+
+        buffers = [h for h in logging.root.handlers if config._is_ours(h, "memory")]
+        assert buffers == [before]
+        assert config._memory_handler is before is logs_core._memory_handler
+        assert before.formatter._fmt == "%(message)s"
+        assert foreign.formatter._fmt == "foreign %(message)s"
+
+        logging.getLogger("grimoire").info("after the reload")
+        entries, seq_after = before.get_entries(limit=1)
+        assert entries[-1]["message"] == "after the reload"
+        assert seq_after > seq_before
+
+    def test_reload_in_a_fresh_interpreter_keeps_root_as_it_was(self):
+        """Outside pytest (whose own handlers sit on root), config adds the
+        console handler itself - a reload must add neither it nor the buffer
+        again, nor give the buffer the console's format."""
+        import subprocess
+        import sys
+
+        probe = (
+            "import importlib, logging\n"
+            "import backend.config as c\n"
+            "fmts = lambda: [h.formatter._fmt for h in logging.root.handlers]\n"
+            "before = fmts()\n"
+            "importlib.reload(c)\n"
+            "print(before == fmts(), fmts())\n"
+        )
+        out = subprocess.run(
+            [sys.executable, "-c", probe], capture_output=True, text=True, check=True
+        ).stdout
+        assert out.strip() == (
+            "True ['%(asctime)s [%(name)s] %(levelname)s: %(message)s', '%(message)s']"
+        )

@@ -41,7 +41,7 @@ class TestStartupScan:
     def test_clears_a_stop_left_by_the_previous_run(self):
         _helpers.request_stop()
         self._run(False)
-        assert not os.path.exists(_helpers._stop_file())
+        assert not os.path.exists(_helpers.SCAN_JOB.stop_file())
         assert _helpers.is_stop_requested() is False
 
     def test_failures_are_logged_and_the_rest_still_runs(self, caplog):

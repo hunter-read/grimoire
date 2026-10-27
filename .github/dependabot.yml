@@ -21,6 +21,16 @@ updates:
         patterns: [fastapi, starlette, "uvicorn*", "pydantic*"]
       minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      # PyMuPDF 2 makes onnxruntime, numpy, networkx and its layout packages hard
+      # dependencies and imports the layout model on `import fitz`, with no way
+      # to turn it off: ~120 MB more memory in every process that opens a PDF
+      # (server and each render worker) and ~135 MB more image. 1.x patch and
+      # minor releases still come through. Security advisories still raise
+      # Dependabot alerts, but a fix released only on 2.x gets no PR - check
+      # the alert and decide by hand.
+      - dependency-name: pymupdf
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: npm
     directory: /frontend

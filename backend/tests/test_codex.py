@@ -15,6 +15,7 @@ from backend import codex
 from backend.codex import client as codex_client
 from backend.codex.lookup import resolve_paste
 from backend.codex.records import candidate_label, incoming_fields
+from backend import config
 from backend.config import SessionLocal
 from backend.models import AppSetting, Book, GameSystem
 from backend.tests.codex_fake import _codex_id, _link, _set, fake_codex  # noqa: F401  (the "fake" fixture)
@@ -56,7 +57,7 @@ class TestUnconfigured:
     """Without GRIMOIRE_CODEX_DB_API_TOKEN, Grimoire Codex DB is neither offered nor reachable."""
 
     def test_nothing_is_offered_or_sent(self, client, admin_headers, gm_headers, fake, monkeypatch):
-        monkeypatch.delenv("GRIMOIRE_CODEX_DB_API_TOKEN")
+        monkeypatch.setattr(config, "CODEX_DB_API_TOKEN", "")
         system = make_game_system()
         book = make_book(system.id)
         r = client.get("/api/codex/status", headers=gm_headers)
@@ -87,6 +88,7 @@ class TestUnconfigured:
 
     def test_a_blank_token_counts_as_unset(self, fake, monkeypatch):
         monkeypatch.setenv("GRIMOIRE_CODEX_DB_API_TOKEN", "  ")
+        monkeypatch.setattr(config, "CODEX_DB_API_TOKEN", config.env._read_codex_db_api_token())
         db = SessionLocal()
         settings = codex.load(db)
         db.close()
@@ -126,8 +128,8 @@ class TestSettings:
         assert r.status_code == 403
 
     def test_environment_pins_a_setting(self, client, admin_headers, fake, monkeypatch):
-        monkeypatch.setenv("GRIMOIRE_CODEX_DB_URL", "https://pinned.test/")
-        monkeypatch.setenv("GRIMOIRE_CODEX_DB_SEND_HASHES", "true")
+        monkeypatch.setitem(config.CODEX_DB_ENV, "codex_url", "https://pinned.test/")
+        monkeypatch.setitem(config.CODEX_DB_ENV, "codex_send_hashes", "true")
         body = client.get("/api/codex/settings", headers=admin_headers).json()
         assert body["url"] == "https://pinned.test"
         assert body["send_hashes"] is True

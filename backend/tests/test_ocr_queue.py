@@ -399,6 +399,141 @@ class TestRunOcrQueue:
             db.close()
 
 
+    def test_book_queued_mid_drain_is_picked_up(self):
+        """Issue #688: a book queued while the drain runs was invisible to the
+        snapshot it started from, and trigger_ocr_queue refuses to start a
+        second drain, so it waited for a restart. The drain re-checks now."""
+        _helpers.clear_stop()
+        _helpers._set_status({**_helpers._DEFAULT_STATUS})
+        _clear_pending()
+        first = _queued_book(page_count=1)
+        latecomer: list[str] = []
+
+        real_ocr_book = _helpers.ocr_book
+
+        def _queue_another(book, session, **kw):
+            # Stands in for a second Re-OCR request arriving mid-drain.
+            if not latecomer:
+                latecomer.append(_queued_book(page_count=1))
+            return real_ocr_book(book, session, **kw)
+
+        with patch.object(indexer, "_book_page_count", return_value=1), patch.object(
+            indexer, "ocr_book_page_isolated_wrapper",
+            side_effect=lambda fp, i, should_stop=None, dpi=None: "text",
+        ), patch.object(_helpers, "ocr_book", side_effect=_queue_another):
+            completed = _helpers.run_ocr_queue()
+
+        assert completed == 2, "the book queued mid-drain was dropped"
+        db = SessionLocal()
+        try:
+            for bid in (first, latecomer[0]):
+                assert db.query(Book).filter_by(id=bid).first().ocr_pending is False
+        finally:
+            db.close()
+
+    def test_a_book_left_pending_does_not_loop(self):
+        """The re-check must terminate. A book that stays queued - OCR stopped
+        part-way, or a failure that leaves it for next time - is attempted once
+        per call, not retried until the process spins."""
+        _helpers.clear_stop()
+        _helpers._set_status({**_helpers._DEFAULT_STATUS})
+        _clear_pending()
+        bid = _queued_book(page_count=1)
+        calls = {"n": 0}
+
+        def _leave_it_pending(book, session, **kw):
+            calls["n"] += 1
+            assert calls["n"] < 5, "run_ocr_queue is looping on a still-pending book"
+            return "stopped"  # leaves ocr_pending set, as a stop does
+
+        with patch.object(indexer, "_book_page_count", return_value=1), patch.object(
+            _helpers, "ocr_book", side_effect=_leave_it_pending
+        ):
+            _helpers.run_ocr_queue()
+
+        assert calls["n"] == 1
+        db = SessionLocal()
+        try:
+            assert db.query(Book).filter_by(id=bid).first().ocr_pending is True
+        finally:
+            db.close()
+
+
+class TestOcrRequests:
+    """A Re-OCR asked for while another job holds the run is not dropped (#688)."""
+
+    def setup_method(self):
+        _helpers.clear_stop()
+        _helpers._set_status({**_helpers._DEFAULT_STATUS})
+        _clear_pending()
+
+    def teardown_method(self):
+        _helpers._set_status({**_helpers._DEFAULT_STATUS})
+
+    def test_a_trigger_during_a_run_leaves_a_request(self):
+        _helpers._set_status({"running": True, "phase": "scanning"})
+        with patch.object(_helpers, "run_ocr_queue") as drain:
+            _helpers.trigger_ocr_queue()
+        drain.assert_not_called()
+        assert _helpers._get_status()["ocr_requested"] is True
+
+    def test_a_run_that_ends_mid_trigger_is_not_missed(self):
+        # Running when first checked, finished by the time the request is left.
+        checks = iter([True, False])
+        with patch.object(_helpers, "scan_in_progress", side_effect=lambda: next(checks, False)), \
+                patch.object(_helpers, "run_ocr_queue") as drain:
+            _helpers.trigger_ocr_queue()
+        drain.assert_called_once()
+        assert _helpers._get_status()["ocr_requested"] is False
+
+    def test_a_request_during_the_drain_goes_round_again(self):
+        calls = []
+
+        def drain():
+            calls.append(1)
+            if len(calls) == 1:
+                _helpers._set_status({"ocr_requested": True})
+
+        with patch.object(_helpers, "run_ocr_queue", side_effect=drain):
+            _helpers.trigger_ocr_queue()
+        assert len(calls) == 2
+
+    def test_finishing_a_run_follows_up_a_request(self):
+        _helpers._set_status({"ocr_requested": True})
+        with patch.object(_helpers, "trigger_ocr_queue") as trigger:
+            _helpers.follow_up_ocr_request()
+        trigger.assert_called_once()
+
+    def test_no_request_no_follow_up(self):
+        with patch.object(_helpers, "trigger_ocr_queue") as trigger:
+            _helpers.follow_up_ocr_request()
+        trigger.assert_not_called()
+
+    def test_a_requested_book_is_read_again_in_the_same_drain(self):
+        """Re-queued after this drain read it: read again, not left for later."""
+        bid = _queued_book(page_count=1)
+        reads = []
+
+        def _read(book_id):
+            reads.append(book_id)
+            db = SessionLocal()
+            try:
+                book = db.get(Book, book_id)
+                # The first read is asked for again while it runs.
+                book.ocr_pending = len(reads) == 1
+                db.commit()
+            finally:
+                db.close()
+            if len(reads) == 1:
+                _helpers._set_status({"ocr_requested": True})
+            return "done"
+
+        with patch.object(_helpers, "_ocr_one_book", side_effect=_read), \
+                patch.object(_helpers.config, "OCR_CONCURRENCY", 1):
+            _helpers.run_ocr_queue()
+        assert reads == [bid, bid]
+
+
 class TestOcrPageTimeoutConfig:
     """The per-page budget is read live from config, not frozen at import (#450)."""
 

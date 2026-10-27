@@ -1,0 +1,50 @@
+name: Test order
+
+# Runs the backend suite on main split differently from CI, so a test that only
+# passes because of where the four-worker split puts it shows up here rather
+# than on an unrelated PR. CI's split (see conftest.py) hands each worker a
+# contiguous run of files; serially every file sees all its predecessors, and on
+# two workers the second half loses them. Not a required check - a failure here
+# means an order-dependent test to fix, not a broken main.
+on:
+  schedule:
+    # 06:00 UTC daily, an hour before the nightly image build. Best-effort, like
+    # every scheduled trigger.
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend tests (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: serial
+            workers: "0"
+          - name: two workers
+            workers: "2"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            requirements-test.txt
+
+      - name: Install dependencies
+        run: |
+          pip install -r backend/requirements.txt
+          pip install -r requirements-test.txt
+
+      # No community add-ons checkout, so their contract tests skip: ci.yml
+      # pins that repo and runs them on every PR, and this job is about order.
+      - name: Run tests
+        run: pytest backend/tests/ -q -n ${{ matrix.workers }} --dist loadgroup

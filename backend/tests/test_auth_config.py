@@ -102,9 +102,7 @@ class TestEnvLock:
 
     def test_env_lock_blocks_patch(self, client, admin_headers, monkeypatch):
         # Patch the module-level constant to simulate the env override
-        import backend.routers.settings.core as core
         import backend.routers.settings._helpers as helpers
-        monkeypatch.setattr(core, "ALLOW_PASSWORD_AUTHENTICATION_ENV", True)
         monkeypatch.setattr(helpers, "ALLOW_PASSWORD_AUTHENTICATION_ENV", True)
 
         resp = client.patch(

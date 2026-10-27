@@ -1,9 +1,9 @@
-"""Default seed data for the genre and system-family lookup tables (issue #202).
+"""Seed data for the lookup tables, as revisions 0004 and 0006 insert it (issue #202).
 
-Kept as plain Python data so both the Alembic migration and any future reseed
-routine share one source of truth. The genre tree is loosely modeled on
-DriveThruRPG's genre/subgenre taxonomy; families cover the most common design
-lineages. All values are user-removable after seeding.
+Frozen: those revisions must seed the same rows on every upgrade, so this is
+never edited. New defaults go in a new revision. The genre tree is loosely
+modeled on DriveThruRPG's genre/subgenre taxonomy; families cover the most
+common design lineages. All values are user-removable after seeding.
 """
 from typing import Sequence
 

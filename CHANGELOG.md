@@ -11,6 +11,26 @@ Release candidates are omitted; their contents are rolled into the stable releas
 ### Added
 
 - Character sheets can ship a second layout for phones, with its own stylesheet. On a phone-sized screen the sheet switches to it, and back again when you rotate to a wider view. Paste one in the new Mobile layout and Mobile styles boxes, or install a catalogue sheet that includes one
+- `OCR_MIN_TEXT_COVERAGE` sets how much of a PDF its own text must cover before it counts as a text book (default `0.5`); `0` only reads books with no text at all with OCR, as before
+
+### Changed
+
+- Grimoire's first load downloads about a fifth as much JavaScript: each page and each language other than English is fetched the first time it is opened, rather than all of them up front
+
+### Fixed
+
+- A scanned book carrying a few pages of real text, such as a digitally-set cover or a bundled web enhancement, is read with OCR instead of being left mostly unsearchable
+- A book that is mostly full-page art, such as a map pack, isn't read with OCR just because its pictures carry no text: a few of its pages are sampled first, and it keeps its own text if they read like artwork
+- Re-OCR appears in the actions menu of a scanned book with only a few pages of text, so books already in the library can be read in full
+- A book asked to be re-read with OCR while another book is being read is no longer left waiting until a restart or the next scan
+- Books that belong to no game system no longer vanish from players' and GMs' book lists, search and OPDS feeds once any system is restricted to GMs or admins
+
+- Renaming, moving or uploading into a library folder Grimoire doesn't have permission to write to no longer says the library is mounted read-only. It names the folder and the user Grimoire runs as, and points to `PUID`/`PGID`; a library that really is mounted read-only still says so
+- Grimoire stays root at start-up when the user it would switch to can't write to folders inside the library, not just the library folder itself, so moving and renaming keep working after updating from a version that ran as root
+- On NAS filesystems that refuse writes a permission check allows, Grimoire no longer switches to a user that can't write to the data folder and then fails to start; it tests the data folder with a real write and stays root if that fails
+- Stopping a duplicate scan works when Grimoire runs several workers without Valkey, and a second scan can no longer start on another worker while one is running
+- The API schema at `/api/openapi.json` no longer gives the share-link and calendar-feed routes two operations with the same id, so API client generators and the docs page's "Try it out" work for them, and their ids no longer change between restarts
+- The campaigns page and the admin user list no longer slow down as campaigns, members and users are added
 
 ## [1.9.2] - 2026-10-23
 

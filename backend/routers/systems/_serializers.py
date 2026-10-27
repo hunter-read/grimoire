@@ -5,6 +5,7 @@ endpoint emit the same shape.
 """
 from typing import Any
 
+from ...indexer import reocr_applies
 from ...models import Book, GameSystem
 from ...models.base import utc_iso
 from .covers import has_cover_file
@@ -50,6 +51,7 @@ def serialize_book(
         "index_failed": book.index_failed,
         "index_error": book.index_error,
         "ocr_indexed": book.index_error == "ocr",
+        "can_reocr": reocr_applies(book),
         # >0 means the book is indexed but only partly searchable: these pages
         # exceeded OCR_PAGE_TIMEOUT and their text is missing (issue #450).
         "ocr_pages_skipped": book.ocr_pages_skipped or 0,

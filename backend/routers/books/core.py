@@ -17,7 +17,7 @@ from ...config import _PAGE_CACHE_HEADERS, THUMB_DIR, get_db
 from ...security import SAME_ORIGIN_FRAME_HEADERS
 
 from ...file_cache import etag_matches
-from ...indexer import slugify
+from ...indexer import reocr_applies, slugify
 from ...indexer.formats import can_index
 from ...metadata import export as sidecar_export
 from ...metadata import settings as sidecar_settings
@@ -132,6 +132,7 @@ def list_books(
                 "indexed": b.indexed,
                 "index_failed": b.index_failed,
                 "ocr_indexed": b.index_error == "ocr",
+                "can_reocr": reocr_applies(b),
                 "is_explicit": bool(b.is_explicit),
                 # NULL ("inherit") is passed through as-is rather than
                 # normalised, so the editor can tell "no opinion" from an
@@ -222,6 +223,7 @@ def get_book(
         "indexed": book.indexed,
         "index_failed": book.index_failed,
         "ocr_indexed": book.index_error == "ocr",
+        "can_reocr": reocr_applies(book),
         "ocr_pending": bool(book.ocr_pending),
         "ocr_pages_skipped": book.ocr_pages_skipped or 0,
         "ocr_dpi": book.ocr_dpi,
@@ -402,10 +404,13 @@ def reindex_book(
         raise HTTPException(400, "Only PDF books can be OCR'd")
     if not os.path.exists(book.filepath):
         raise HTTPException(404, "File not found on disk")
-    # Re-OCR only makes sense for image-only books (no embedded text layer).
-    # A book indexed from its own text layer (index_error == "") would gain
-    # nothing and OCRing it would duplicate content.
-    if book.index_error not in ("ocr", "image-only"):
+    # Re-OCR only makes sense for books that are mostly image. A book indexed
+    # from its own text layer would gain nothing and OCRing it would duplicate
+    # content - but "has a text layer" is a matter of degree: a scan with a web
+    # enhancement bundled into the back reads as a text book while almost none
+    # of it is searchable (issue #685). reocr_applies is the same rule the UI
+    # uses to offer Re-OCR at all.
+    if not reocr_applies(book):
         raise HTTPException(
             400, "This book has an embedded text layer; OCR does not apply to it."
         )
@@ -416,6 +421,10 @@ def reindex_book(
     book.ocr_pending = True
     book.ocr_pages_done = 0
     book.ocr_pages_skipped = 0
+    # Unknown until the OCR pass has read the book. Also what tells the OCR
+    # worker this was asked for by hand, so it reads the whole book rather than
+    # sampling it first to rule out artwork.
+    book.text_pages = None
     book.indexed = False
     book.index_failed = False
     book.index_error = ""

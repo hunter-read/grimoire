@@ -1,4 +1,6 @@
 """Tests for auth rate limiting and security response headers."""
+import logging
+
 import pytest
 
 from backend.security import client_ip, limiter, rate_limit_key
@@ -38,6 +40,19 @@ class TestSecurityHeaders:
             headers={"X-Forwarded-Proto": "https"},
         )
         assert "max-age=" in resp.headers["Strict-Transport-Security"]
+
+    def test_no_hsts_when_untrusted_peer_claims_https(self):
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        from backend.security import SecurityHeadersMiddleware
+
+        app = FastAPI()
+        app.add_api_route("/ping", lambda: {})
+        app.add_middleware(SecurityHeadersMiddleware)
+        untrusted = TestClient(app, client=("203.0.113.9", 50000))
+        resp = untrusted.get("/ping", headers={"X-Forwarded-Proto": "https"})
+        assert "Strict-Transport-Security" not in resp.headers
 
 
 class TestClientIp:
@@ -94,15 +109,65 @@ class TestClientIp:
     def test_client_on_the_private_network(self):
         assert client_ip(self._req("172.18.0.2", "192.168.1.50")) == "192.168.1.50"
 
-    def test_tailscale_ipv6_peer_is_trusted_by_default(self):
-        """Documents the default: fc00::/7 covers Tailscale's IPv6 range, so a
-        tailnet client connecting directly over IPv6 has its own header read."""
-        assert client_ip(self._req("fd7a:115c:a1e0::5", "203.0.113.7")) == "203.0.113.7"
-        assert client_ip(self._req("fd7a:115c:a1e0::5")) == "fd7a:115c:a1e0::5"
 
-    def test_tailscale_ipv4_peer_is_not(self):
-        """Tailscale's IPv4 range (100.64.0.0/10) is not in the default list."""
-        assert client_ip(self._req("100.101.102.103", "203.0.113.7")) == "100.101.102.103"
+class TestDefaultTrustedProxies:
+    """The default list: loopback and Docker's bridge networks, nothing wider.
+
+    The test session trusts more (see conftest), so these swap the default in.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _default_list(self, monkeypatch):
+        from backend import config, security
+
+        networks, names = security._parse_trusted(config.DEFAULT_TRUSTED_PROXIES)
+        monkeypatch.setattr(security, "_TRUSTED_NETWORKS", networks)
+        monkeypatch.setattr(security, "_TRUSTED_NAMES", names)
+        monkeypatch.setattr(security, "_HINTED_PEERS", set())
+
+    _req = staticmethod(TestClientIp._req)
+
+    @pytest.mark.parametrize("proxy", ["127.0.0.1", "::1", "172.17.0.1", "172.31.255.2"])
+    def test_same_host_and_docker_proxies_are_trusted(self, proxy):
+        assert client_ip(self._req(proxy, "203.0.113.7")) == "203.0.113.7"
+
+    @pytest.mark.parametrize(
+        "peer",
+        [
+            "192.168.1.10",  # another machine on the LAN
+            "10.42.0.7",  # a Kubernetes pod network
+            "10.88.0.4",  # Podman's default network
+            "fd7a:115c:a1e0::5",  # Tailscale over IPv6
+            "100.101.102.103",  # Tailscale over IPv4
+        ],
+    )
+    def test_other_private_peers_are_not(self, peer):
+        assert client_ip(self._req(peer, "203.0.113.7")) == peer
+
+    def test_an_ignored_private_proxy_is_named_in_the_log_once(self, caplog):
+        with caplog.at_level(logging.INFO, logger="grimoire"):
+            for _ in range(3):
+                client_ip(self._req("192.168.1.10", "203.0.113.7"))
+        hints = [r for r in caplog.records if "TRUSTED_PROXIES" in r.getMessage()]
+        assert len(hints) == 1
+        assert "192.168.1.10" in hints[0].getMessage()
+
+    def test_no_hint_for_a_public_peer_or_without_the_header(self, caplog):
+        with caplog.at_level(logging.INFO, logger="grimoire"):
+            # Not 198.51.100.x: Python counts the documentation ranges as private.
+            client_ip(self._req("93.184.216.34", "203.0.113.7"))
+            client_ip(self._req("192.168.1.11"))
+            client_ip(self._req("not-an-address", "203.0.113.7"))
+        assert not [r for r in caplog.records if "TRUSTED_PROXIES" in r.getMessage()]
+
+    def test_hints_stop_after_a_few_addresses(self, caplog, monkeypatch):
+        from backend import security
+
+        monkeypatch.setattr(security, "_MAX_HINTED_PEERS", 2)
+        with caplog.at_level(logging.INFO, logger="grimoire"):
+            for host in range(1, 6):
+                client_ip(self._req(f"192.168.1.{host}", "203.0.113.7"))
+        assert len([r for r in caplog.records if "TRUSTED_PROXIES" in r.getMessage()]) == 2
 
 
 class TestRateLimitKey:

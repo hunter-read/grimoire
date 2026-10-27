@@ -413,6 +413,30 @@ class TestCanAccessSystem:
         db.commit()
         assert ac.can_access_system(db, player, system) is False
 
+    def test_many_systems_are_decided_at_once(self, real_user, db):
+        """The batched check answers each system as can_access_system would."""
+        gm = real_user("gm")
+        granted = make_game_system(access_level=LEVEL_ADMIN)
+        ungranted = make_game_system(access_level=LEVEL_ADMIN)
+        gm_level = make_game_system(access_level=LEVEL_GM)
+        open_system = make_game_system()
+        db.add(
+            UserAccessGrant(
+                user_id=gm.id, scope_type=SCOPE_SYSTEM, scope_id=granted.id, level=LEVEL_ADMIN
+            )
+        )
+        db.commit()
+        systems = [granted, ungranted, gm_level, open_system]
+        assert ac.accessible_system_ids(db, gm, systems) == {
+            granted.id,
+            gm_level.id,
+            open_system.id,
+        }
+        for system in systems:
+            assert ac.can_access_system(db, gm, system) is (
+                system.id in ac.accessible_system_ids(db, gm, systems)
+            )
+
 
 # ---------------------------------------------------------------------------
 # The SQL filter must agree with the per-row resolver
@@ -433,12 +457,14 @@ class TestVisibleBooksFilter:
 
         levels = [None, LEVEL_OPEN, LEVEL_GM, LEVEL_ADMIN]
         made = []
-        for sys_level in (LEVEL_OPEN, LEVEL_GM, LEVEL_ADMIN):
-            system = make_game_system(access_level=sys_level)
+        # None: a book with no system row at all, beside restricted systems -
+        # the case where a NULL game_system_id meets the system IN lists.
+        for sys_level in (None, LEVEL_OPEN, LEVEL_GM, LEVEL_ADMIN):
+            system_id = make_game_system(access_level=sys_level).id if sys_level else None
             for book_level in levels:
                 for category in ("core", "adventure", "handout"):
                     made.append(
-                        make_book(system.id, access_level=book_level, category=category)
+                        make_book(system_id, access_level=book_level, category=category)
                     )
 
         made_ids = {b.id for b in made}

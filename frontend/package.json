@@ -20,12 +20,12 @@
     "format:check": "prettier --check \"src/**/*.{js,jsx,ts,tsx,json}\""
   },
   "dependencies": {
-    "@tanstack/react-virtual": "^3.14.21",
-    "i18next": "^26.5.2",
+    "@tanstack/react-virtual": "^3.14.22",
+    "i18next": "^26.5.6",
     "pdfjs-dist": "^6.4.299",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "react-i18next": "^17.1.0",
+    "react-i18next": "^17.1.4",
     "react-icons": "^5.7.0",
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.18.4",
@@ -47,10 +47,11 @@
     "globals": "^17.13.0",
     "jsdom": "^30.1.3",
     "openapi-typescript": "^7.13.0",
+    "picomatch": "^4.0.7",
     "prettier": "^3.9.10",
     "typescript": "~5.9.3",
-    "typescript-eslint": "^8.71.2",
-    "vite": "^8.3.4",
+    "typescript-eslint": "^8.72.0",
+    "vite": "^8.3.5",
     "vitest": "^5.0.5"
   },
   "overrides": {

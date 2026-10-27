@@ -33,7 +33,7 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import inspect, text
 
-from backend.models.browse import folder_path_of, natural_key
+from backend.migrations._frozen.sort_keys import folder_path_of, natural_key
 
 
 # revision identifiers, used by Alembic.

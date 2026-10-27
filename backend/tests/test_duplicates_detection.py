@@ -6,7 +6,7 @@ import pytest
 from backend.config import SessionLocal
 from backend.models import Book
 from backend.models.duplicates import DuplicateGroup
-from backend.services import duplicates, variants
+from backend.services import duplicates, jobs, variants
 from backend.services.duplicates import signals
 from backend.services.duplicates.grouping import Edge, build_groups, group_key
 from backend.tests.conftest import live_scan_status, make_book, make_game_system, make_map
@@ -726,12 +726,12 @@ class TestStuckScanRecovery:
         )
         # Written past set_status, which always stamps a *fresh* heartbeat -
         # the point here is to age it, which no caller of set_status can do.
-        job._status["heartbeat"] = heartbeat
+        job.JOB._heartbeat = heartbeat
 
     def test_a_live_scan_is_asked_to_stop_not_cleared(self, client, admin_headers):
         from backend.services.duplicates import job
 
-        self._stick(heartbeat=job._now())
+        self._stick(heartbeat=jobs.now())
         resp = client.post(f"{API}/cancel-scan", headers=admin_headers).json()
         # Still running: a live scan has partial results to discard on its way
         # out, which only the scan itself can do.
@@ -742,7 +742,7 @@ class TestStuckScanRecovery:
     def test_cancel_clears_a_scan_whose_heartbeat_died(self, client, admin_headers):
         from backend.services.duplicates import job
 
-        stale = datetime.now(timezone.utc) - timedelta(seconds=job.STALE_AFTER_SECONDS + 60)
+        stale = datetime.now(timezone.utc) - timedelta(seconds=jobs.STALE_AFTER_SECONDS + 60)
         self._stick(heartbeat=stale.isoformat())
 
         resp = client.post(f"{API}/cancel-scan", headers=admin_headers).json()
@@ -765,7 +765,6 @@ class TestStuckScanRecovery:
 
     def test_a_stuck_scan_does_not_block_the_next_one(self, client, admin_headers, monkeypatch):
         from backend.routers.duplicates import detection
-        from backend.services.duplicates import job
 
         # The real job is stubbed out: this is about the endpoint agreeing to
         # start one, and letting an actual scan run would leave shared status
@@ -775,7 +774,7 @@ class TestStuckScanRecovery:
             detection.duplicates, "run_detection_sync", lambda *a, **k: started.append(a)
         )
 
-        stale = datetime.now(timezone.utc) - timedelta(seconds=job.STALE_AFTER_SECONDS + 60)
+        stale = datetime.now(timezone.utc) - timedelta(seconds=jobs.STALE_AFTER_SECONDS + 60)
         self._stick(heartbeat=stale.isoformat())
 
         resp = client.post(f"{API}/scan", headers=admin_headers, json={})
@@ -783,9 +782,8 @@ class TestStuckScanRecovery:
         assert started, "the stale status must not have stopped the scan being queued"
 
     def test_a_live_scan_still_blocks_the_next_one(self, client, admin_headers):
-        from backend.services.duplicates import job
 
-        self._stick(heartbeat=job._now())
+        self._stick(heartbeat=jobs.now())
         resp = client.post(f"{API}/scan", headers=admin_headers, json={})
         assert resp.json()["status"] == "already_running"
 
@@ -793,7 +791,7 @@ class TestStuckScanRecovery:
         """A slow-but-alive scan must never look stale."""
         from backend.services.duplicates import job
 
-        stale = datetime.now(timezone.utc) - timedelta(seconds=job.STALE_AFTER_SECONDS + 60)
+        stale = datetime.now(timezone.utc) - timedelta(seconds=jobs.STALE_AFTER_SECONDS + 60)
         self._stick(heartbeat=stale.isoformat())
         assert job.is_stale() is True
 
@@ -822,7 +820,7 @@ class TestStuckScanRecovery:
         """
         from backend.services.duplicates import job
 
-        stale = datetime.now(timezone.utc) - timedelta(seconds=job.STALE_AFTER_SECONDS + 60)
+        stale = datetime.now(timezone.utc) - timedelta(seconds=jobs.STALE_AFTER_SECONDS + 60)
         self._stick(heartbeat=stale.isoformat())
 
         self._startup_reset()
@@ -838,7 +836,7 @@ class TestStuckScanRecovery:
         """
         from backend.services.duplicates import job
 
-        self._stick(heartbeat=job._now())
+        self._stick(heartbeat=jobs.now())
 
         self._startup_reset()
 

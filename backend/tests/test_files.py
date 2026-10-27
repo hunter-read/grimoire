@@ -957,6 +957,22 @@ class TestMoveAndRenameGuards:
         finally:
             db.close()
 
+    def test_a_refused_rename_says_it_is_permissions(self, library_tree, monkeypatch):
+        # os.access passed (as it can on NAS ACLs), then the rename was refused.
+        _write(f"books/System-{library_tree}/core/denied.pdf")
+        monkeypatch.setattr(
+            fs.os, "replace", lambda *a: (_ for _ in ()).throw(OSError(13, "Denied"))
+        )
+        db = SessionLocal()
+        try:
+            with pytest.raises(fs.LibraryFSError) as exc:
+                fs.rename_path(db, f"books/System-{library_tree}/core/denied.pdf", "x.pdf")
+            assert exc.value.code == "read_only"
+            assert "permission" in exc.value.message
+            assert f"books/System-{library_tree}/core" in exc.value.message
+        finally:
+            db.close()
+
     def test_a_failed_rename_reports_io_error(self, library_tree, monkeypatch):
         _write(f"books/System-{library_tree}/core/io.pdf")
         monkeypatch.setattr(
@@ -1133,6 +1149,78 @@ class TestFailureSafety:
         )
         db.close()
         assert result.skipped[0]["code"] == "read_only"
+
+
+class TestNotWritable:
+    """A refused write names its cause: a read-only mount, or the user's permissions."""
+
+    def _deny(self, monkeypatch):
+        real_access = os.access
+        monkeypatch.setattr(
+            fs.os, "access", lambda p, m: False if m & os.W_OK else real_access(p, m)
+        )
+
+    def test_permission_denied_names_the_folder_and_the_fix(self, library_tree, monkeypatch):
+        self._deny(monkeypatch)
+        monkeypatch.setattr(fs.paths, "_on_read_only_mount", lambda path: False)
+        folder = Path(LIB) / f"books/System-{library_tree}/core"
+        with pytest.raises(fs.LibraryFSError) as exc:
+            fs.assert_writable(folder)
+        assert exc.value.code == "read_only"
+        assert "mounted read-only" not in exc.value.message
+        assert f"'books/System-{library_tree}/core'" in exc.value.message
+        assert f"uid {os.getuid()}" in exc.value.message
+        assert "PUID and PGID" in exc.value.message
+
+    def test_a_read_only_mount_says_so(self, library_tree, monkeypatch):
+        self._deny(monkeypatch)
+        monkeypatch.setattr(fs.paths, "_on_read_only_mount", lambda path: True)
+        with pytest.raises(fs.LibraryFSError) as exc:
+            fs.assert_writable(Path(LIB) / f"books/System-{library_tree}/core")
+        assert exc.value.code == "read_only"
+        assert "mounted read-only" in exc.value.message
+
+    def test_a_folder_outside_the_library_is_not_named(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(fs.paths, "_on_read_only_mount", lambda path: False)
+        assert "this folder" in fs.paths.not_writable(tmp_path).message
+
+    def test_the_root_is_named_as_such(self, monkeypatch):
+        monkeypatch.setattr(fs.paths, "_on_read_only_mount", lambda path: False)
+        root = fs.library_root()
+        assert "write to the library folder:" in fs.paths.not_writable(root).message
+
+    def test_without_getuid_the_uid_is_left_out(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(fs.paths, "_on_read_only_mount", lambda path: False)
+        monkeypatch.delattr(fs.paths.os, "getuid")
+        assert "uid" not in fs.paths.not_writable(tmp_path).message
+
+    def test_read_only_mount_detection(self, tmp_path, monkeypatch):
+        assert fs.paths._on_read_only_mount(tmp_path) is False
+        assert fs.paths._on_read_only_mount(tmp_path / "missing") is False
+
+        class _Ro:
+            f_flag = os.ST_RDONLY
+
+        monkeypatch.setattr(fs.paths.os, "statvfs", lambda path: _Ro())
+        assert fs.paths._on_read_only_mount(tmp_path) is True
+        monkeypatch.delattr(fs.paths.os, "statvfs")
+        assert fs.paths._on_read_only_mount(tmp_path) is False
+
+    def test_a_refused_move_says_it_is_permissions(self, library_tree, monkeypatch):
+        _write(f"books/System-{library_tree}/core/denied.pdf")
+        monkeypatch.setattr(
+            os, "replace", lambda *a: (_ for _ in ()).throw(OSError(13, "Denied"))
+        )
+        db = SessionLocal()
+        try:
+            result = fs.move_paths(
+                db, [f"books/System-{library_tree}/core/denied.pdf"],
+                f"books/System-{library_tree}/adventures",
+            )
+        finally:
+            db.close()
+        assert result.skipped[0]["code"] == "read_only"
+        assert "permission" in result.skipped[0]["reason"]
 
 
 class TestBookPlacement:
@@ -2848,6 +2936,7 @@ class TestReadOnly:
     def test_readonly_mount_gives_actionable_error(self, library_tree, monkeypatch):
         """A read-only mount must explain itself, not surface a raw OSError."""
         monkeypatch.setattr(os, "access", lambda *a, **k: False)
+        monkeypatch.setattr(fs.paths, "_on_read_only_mount", lambda path: True)
         with pytest.raises(fs.LibraryFSError) as exc:
             fs.create_folder(f"books/System-{library_tree}", "nope")
         assert exc.value.code == "read_only"

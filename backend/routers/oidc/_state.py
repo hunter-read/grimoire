@@ -2,15 +2,15 @@
 
 Both pieces of state are per-flow rather than per-process, but the original
 implementation kept them in module-level dicts. That only works for a single
-replica: the app runs uvicorn with ``--workers 2`` (see ``Dockerfile``), so an
-authorization callback can land on a different process than the one that
-started the flow, and the ``state`` lookup misses.
+replica: when run with more than one worker, an authorization callback can
+land on a different process than the one that started the flow, and the
+``state`` lookup misses.
 
 Each store therefore has two implementations behind a small interface — one
 backed by Valkey (shared across replicas/workers) and an in-memory fallback
 that preserves the previous behavior for Valkey-less installs. The factories at
 the bottom pick a backend based on Valkey availability, mirroring how the page
-image cache degrades to disk in ``config.py``.
+image cache degrades to disk in ``config/valkey.py``.
 """
 import json
 import logging

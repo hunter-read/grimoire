@@ -36,7 +36,7 @@ def _idle_background():
     def reset():
         library_helpers.clear_stop()
         # Cleared, not just reset: a live status carries a heartbeat key too.
-        library_helpers._scan_status.clear()
+        library_helpers.SCAN_JOB._status.clear()
         library_helpers._set_status({**library_helpers._DEFAULT_STATUS})
         _reindex_queue._queue.clear()
         _claims._claims.clear()

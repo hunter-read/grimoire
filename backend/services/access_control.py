@@ -276,19 +276,32 @@ def can_access_system(db: Session, user: Any, system: GameSystem) -> bool:
     A restricted system is hidden outright rather than shown empty: an empty
     "Curse of Strahd" shelf is the same spoiler as the books inside it.
     """
-    required = normalize(system.access_level)
-    if required == LEVEL_OPEN:
-        return True
-    if rank(role_ceiling(getattr(user, "role", None))) >= rank(required):
-        return True
-    if not can_receive_grants(getattr(user, "role", None)):
-        return False
-    grant = (
-        db.query(UserAccessGrant)
-        .filter_by(user_id=user.id, scope_type=SCOPE_SYSTEM, scope_id=system.id)
-        .first()
-    )
-    return grant is not None and rank(normalize(grant.level)) >= rank(required)
+    return system.id in accessible_system_ids(db, user, [system])
+
+
+def accessible_system_ids(db: Session, user: Any, systems: Iterable[GameSystem]) -> set[str]:
+    """The ids of ``systems`` that ``can_access_system`` would allow.
+
+    One grants query at most, however many systems are asked about, so a list
+    that checks a system per row stays a fixed number of queries (issue #707).
+    """
+    role = getattr(user, "role", None)
+    ceiling = rank(role_ceiling(role))
+    grants: Optional[dict[str, str]] = None
+    allowed = set()
+    for system in systems:
+        required = normalize(system.access_level)
+        if required == LEVEL_OPEN or ceiling >= rank(required):
+            allowed.add(system.id)
+            continue
+        if not can_receive_grants(role):
+            continue
+        if grants is None:
+            grants = _grant_scope_ids(db, user, SCOPE_SYSTEM)
+        level = grants.get(system.id)
+        if level is not None and rank(level) >= rank(required):
+            allowed.add(system.id)
+    return allowed
 
 
 # --------------------------------------------------------------------------
@@ -380,11 +393,20 @@ def _build_book_filter(db: Session, user: Any) -> Optional[ColumnElement[bool]]:
     # ``and_``/``or_`` is not a SQL expression, and an empty ``IN ()`` is not
     # portable, so each optional clause is spelled out as an explicit constant
     # when its id list is empty.
+    #
+    # A book with no system has a NULL game_system_id, and ``NULL IN (...)`` is
+    # NULL - which would leave ``hidden`` NULL and drop the book from every list
+    # as soon as any system is restricted. Hence the IS NOT NULL guards.
+    has_system = Book.game_system_id.isnot(None)
     in_restricted_system = (
-        Book.game_system_id.in_(restricted_system_ids) if restricted_system_ids else false()
+        and_(has_system, Book.game_system_id.in_(restricted_system_ids))
+        if restricted_system_ids
+        else false()
     )
     in_levelled_system = (
-        Book.game_system_id.in_(levelled_system_ids) if levelled_system_ids else false()
+        and_(has_system, Book.game_system_id.in_(levelled_system_ids))
+        if levelled_system_ids
+        else false()
     )
     in_blocked_category = (
         Book.category.in_(blocked_categories) if blocked_categories else false()

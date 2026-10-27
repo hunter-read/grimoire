@@ -24,7 +24,7 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import inspect
 
-from backend.models.lookup_defaults import DEFAULT_GENRES, DEFAULT_SYSTEM_FAMILIES
+from backend.migrations._frozen.lookup_defaults import DEFAULT_GENRES, DEFAULT_SYSTEM_FAMILIES
 
 
 # revision identifiers, used by Alembic.

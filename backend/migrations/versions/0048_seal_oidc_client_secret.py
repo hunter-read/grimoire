@@ -18,6 +18,8 @@ from typing import Sequence, Union
 from alembic import op
 from sqlalchemy import text
 
+from backend.migrations._frozen import token_vault
+
 
 # revision identifiers, used by Alembic.
 revision: str = "7a2f9d4c1e85"
@@ -35,19 +37,18 @@ def _stored(bind) -> str:
 
 
 def upgrade() -> None:
-    from backend import token_vault
-
+    secret = token_vault.secret_key()
     bind = op.get_bind()
     value = _stored(bind)
     # Already sealed (a re-run, or saved by a newer build): leave it.
-    if not value or token_vault.unseal_secret(value) is not None:
+    if not value or token_vault.unseal_secret(secret, value) is not None:
         return
     previous = bind.execute(text("PRAGMA secure_delete")).scalar()
     op.execute("PRAGMA secure_delete = ON")
     try:
         bind.execute(
             text("UPDATE app_settings SET value = :v WHERE key = :k"),
-            {"v": token_vault.seal_secret(value), "k": _KEY},
+            {"v": token_vault.seal_secret(secret, value), "k": _KEY},
         )
         bind.execute(
             text("INSERT OR REPLACE INTO app_settings (key, value) VALUES (:k, '1')"),
@@ -58,12 +59,10 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    from backend import token_vault
-
     bind = op.get_bind()
-    secret = token_vault.unseal_secret(_stored(bind))
-    if secret is not None:
+    value = token_vault.unseal_secret(token_vault.secret_key(), _stored(bind))
+    if value is not None:
         bind.execute(
             text("UPDATE app_settings SET value = :v WHERE key = :k"),
-            {"v": secret, "k": _KEY},
+            {"v": value, "k": _KEY},
         )

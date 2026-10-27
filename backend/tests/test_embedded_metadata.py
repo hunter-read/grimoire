@@ -479,7 +479,7 @@ def _fetch(client, headers, book, **body):
 @pytest.mark.usefixtures("in_process")
 class TestApi:
     def test_listed_for_books_but_not_systems(self, client, gm_headers, system, monkeypatch):
-        monkeypatch.delenv("GRIMOIRE_CODEX_DB_API_TOKEN", raising=False)
+        monkeypatch.setattr(config, "CODEX_DB_API_TOKEN", "")
         book = make_book(system.id)
         sources = client.get(f"/api/books/{book.id}/metadata-sources", headers=gm_headers)
         entry = sources.json()["sources"][-1]

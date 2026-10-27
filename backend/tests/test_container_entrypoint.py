@@ -220,6 +220,51 @@ def test_probe_treats_a_failed_switch_as_no_access(tmp_path):
     assert ep.probe(4242, 4242, [(str(tmp_path), os.R_OK)]) == [(str(tmp_path), os.R_OK)]
 
 
+def test_probe_real_writes_catch_what_access_allows(tmp_path, monkeypatch):
+    # Issue #690: os.access said yes, then mkdir was refused. The child inherits
+    # the patch, standing in for a NAS share that refuses the actual write.
+    monkeypatch.setattr(ep, "_really_writable", lambda path: False)
+    write = [(str(tmp_path), os.W_OK | os.X_OK)]
+    read = [(str(tmp_path), os.R_OK | os.X_OK)]
+    assert ep.probe(os.getuid(), os.getgid(), write) == []
+    assert ep.probe(os.getuid(), os.getgid(), write, real_writes=True) == write
+    assert ep.probe(os.getuid(), os.getgid(), read, real_writes=True) == []
+
+
+def test_really_writable_folder_leaves_nothing_behind(tmp_path):
+    assert ep._really_writable(str(tmp_path)) is True
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_really_writable_file_is_opened_not_changed(tmp_path):
+    db = tmp_path / "grimoire.db"
+    db.write_bytes(b"keep")
+    assert ep._really_writable(str(db)) is True
+    assert db.read_bytes() == b"keep"
+
+
+def test_really_writable_refused_write(tmp_path, monkeypatch):
+    def refuse(*a, **k):
+        raise PermissionError(13, "Permission denied")
+
+    monkeypatch.setattr(ep.os, "open", refuse)
+    assert ep._really_writable(str(tmp_path)) is False
+
+
+def test_really_writable_falls_back_to_access_for_other_paths(tmp_path):
+    assert ep._really_writable(str(tmp_path / "missing")) is False
+
+
+def test_allowed_only_tries_writes(tmp_path, monkeypatch):
+    tried = []
+    monkeypatch.setattr(ep, "_really_writable", lambda path: tried.append(path) or True)
+    assert ep._allowed(str(tmp_path), os.R_OK, real_writes=True) is True
+    assert ep._allowed(str(tmp_path), os.W_OK, real_writes=False) is True
+    assert tried == []
+    assert ep._allowed(str(tmp_path), os.W_OK | os.X_OK, real_writes=True) is True
+    assert tried == [str(tmp_path)]
+
+
 def test_describe_says_which_access_is_missing():
     checks = [("/library", os.W_OK | os.X_OK), ("/library/a", os.R_OK)]
     assert ep.describe(checks) == "write /library, read /library/a"
@@ -241,7 +286,56 @@ def test_library_checks_read_top_level_and_write_when_root_could(tmp_path, monke
     assert (str(tmp_path), os.R_OK | os.X_OK) in checks
     assert (str(tmp_path / "D&D 5e"), os.R_OK | os.X_OK) in checks
     assert (str(tmp_path / "loose.pdf"), os.R_OK) in checks
-    assert checks[-1] == (str(tmp_path), os.W_OK | os.X_OK)
+    assert (str(tmp_path), os.W_OK | os.X_OK) in checks
+    assert (str(tmp_path / "D&D 5e"), os.W_OK | os.X_OK) in checks
+
+
+def test_library_checks_write_below_the_top_level(tmp_path):
+    # Renaming a book needs write access to its own folder, not just the root.
+    core = tmp_path / "D&D 5e" / "Core"
+    core.mkdir(parents=True)
+    (core / "phb.pdf").write_bytes(b"x")
+    writes = [path for path, mode in ep.library_checks(str(tmp_path)) if mode & os.W_OK]
+    assert writes == [str(tmp_path), str(tmp_path / "D&D 5e"), str(core)]
+    own = os.stat(core).st_uid
+    writes = [path for path, mode in ep.library_checks(str(tmp_path), own) if mode & os.W_OK]
+    assert writes == [str(tmp_path)]
+
+
+def test_library_dirs_is_breadth_first_and_bounded(tmp_path, monkeypatch):
+    for system in ("A", "B"):
+        (tmp_path / system / "Core" / "Deep").mkdir(parents=True)
+    (tmp_path / "lost+found").mkdir()
+    (tmp_path / "link").symlink_to(tmp_path / "A")
+    (tmp_path / "A" / "loose.pdf").write_bytes(b"x")
+    assert ep._library_dirs(str(tmp_path)) == [
+        str(tmp_path / "A"), str(tmp_path / "B"),
+        str(tmp_path / "A" / "Core"), str(tmp_path / "B" / "Core"),
+        str(tmp_path / "A" / "Core" / "Deep"), str(tmp_path / "B" / "Core" / "Deep"),
+    ]
+    monkeypatch.setattr(ep, "_MAX_LIBRARY_DIRS", 3)
+    assert ep._library_dirs(str(tmp_path)) == [
+        str(tmp_path / "A"), str(tmp_path / "B"), str(tmp_path / "A" / "Core"),
+    ]
+
+
+def test_library_dirs_skips_unlistable_folders(tmp_path, monkeypatch):
+    (tmp_path / "A").mkdir()
+    real_scandir = os.scandir
+
+    def scandir(path):
+        if path != str(tmp_path):
+            raise PermissionError
+        return real_scandir(path)
+
+    monkeypatch.setattr(ep.os, "scandir", scandir)
+    assert ep._library_dirs(str(tmp_path)) == [str(tmp_path / "A")]
+
+
+def test_library_checks_skip_folders_that_vanish(tmp_path, monkeypatch):
+    monkeypatch.setattr(ep, "_library_dirs", lambda library: [str(tmp_path / "Missing")])
+    writes = [path for path, mode in ep.library_checks(str(tmp_path)) if mode & os.W_OK]
+    assert writes == [str(tmp_path)]
 
 
 def test_library_checks_read_only_library_needs_no_write(tmp_path, monkeypatch):
@@ -367,7 +461,7 @@ def volumes(tmp_path, monkeypatch):
 def _probe_failing(monkeypatch, failing):
     seen = []
 
-    def fake_probe(uid, gid, checks):
+    def fake_probe(uid, gid, checks, real_writes=False):
         seen.append(checks)
         return [c for c in checks if c[0] in failing]
 
@@ -433,6 +527,17 @@ def test_prepare_stays_root_when_data_stays_unwritable(volumes, monkeypatch):
     seen = _probe_failing(monkeypatch, {db})
     assert ep.prepare({}, str(library), str(data), 1000, 1000, False) is False
     assert (db, os.W_OK) in seen[-1]
+
+
+def test_prepare_tests_data_with_a_real_write(volumes, monkeypatch):
+    library, data, _ = volumes
+    calls = []
+    monkeypatch.setattr(
+        ep, "probe", lambda uid, gid, checks, real_writes=False: calls.append(real_writes) or []
+    )
+    assert ep.prepare({}, str(library), str(data), 1000, 1000, False) is True
+    # The library is only ever asked about, never written to.
+    assert calls == [False, True]
 
 
 def test_prepare_honours_explicit_puid_regardless(volumes, monkeypatch):

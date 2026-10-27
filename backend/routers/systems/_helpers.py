@@ -1,4 +1,6 @@
 """Shared helpers for the systems router."""
+from typing import Iterable
+
 from fastapi import HTTPException
 
 from ...models import Book, GameSystem, User
@@ -11,11 +13,19 @@ def system_browsable(db, system: GameSystem, current_user) -> bool:
     Applies both the access level and the user's explicit-content setting, the
     same rules the system's own detail page uses.
     """
+    return system.id in browsable_system_ids(db, [system], current_user)
+
+
+def browsable_system_ids(db, systems: Iterable[GameSystem], current_user) -> set[str]:
+    """The ids of ``systems`` that ``system_browsable`` would allow.
+
+    A fixed number of queries however many systems are asked about, for lists
+    that check one per row (issue #707).
+    """
     user = db.query(User).filter_by(id=current_user.id).first()
     see_explicit = bool(user.allow_explicit) if user and user.allow_explicit is not None else True
-    if system.is_explicit and not see_explicit:
-        return False
-    return access_control.can_access_system(db, user or current_user, system)
+    candidates = [s for s in systems if see_explicit or not s.is_explicit]
+    return access_control.accessible_system_ids(db, user or current_user, candidates)
 
 
 def load_browsable_system(db, system_id: str, current_user) -> GameSystem:

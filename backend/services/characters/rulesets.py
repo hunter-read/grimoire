@@ -24,6 +24,7 @@ from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from ...models import Campaign, CampaignMember, Ruleset, RulesetEntry
+from ...text import slugs
 from .schema import SchemaError, coerce_value
 
 logger = logging.getLogger("grimoire.characters.rulesets")
@@ -172,10 +173,9 @@ def slugify(value: str) -> str:
     Apostrophes are dropped rather than turned into separators, so "Hunter's
     Bolt" reads as `hunters-bolt` rather than `hunter-s-bolt`.
     """
-    text = str(value).lower().replace("'", "").replace("’", "")
-    cleaned = "".join(char if char.isalnum() else "-" for char in text)
-    parts = [part for part in cleaned.split("-") if part]
-    return "-".join(parts)[:200] or "entry"
+    return slugs.slugify(
+        str(value), chars="unicode", drop_apostrophes=True, max_len=200, fallback="entry"
+    )
 
 
 def unique_entry_id(

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from .. import config
 from ..models import AppSetting
+from ..text import slugs
 from .constants import (
     CATEGORY_EXACT_NAMES,
     CATEGORY_MAP,
@@ -42,12 +43,8 @@ def strip_sort_prefix(name: str) -> str:
 
 
 def slugify(name: str) -> str:
-    """Create a URL-safe slug from a name."""
-    slug = name.lower().strip()
-    slug = re.sub(r"[^\w\s-]", "", slug)
-    slug = re.sub(r"[\s_]+", "-", slug)
-    slug = re.sub(r"-+", "-", slug)
-    return slug.strip("-")
+    """Create a URL-safe slug from a name. Persisted as game-system slugs."""
+    return slugs.slugify(name, chars="words")
 
 
 def is_system_agnostic_folder(folder_name: str) -> bool:

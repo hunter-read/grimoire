@@ -15,6 +15,7 @@ from backend import config
 from backend.config import SessionLocal
 from backend.models import Book
 from backend.routers.library import _helpers
+from backend.services import jobs
 
 
 def _queue_books(n: int) -> list[str]:
@@ -47,32 +48,32 @@ class TestStopFile:
 
     def test_request_writes_the_file_and_clear_removes_it(self):
         _helpers.request_stop()
-        assert os.path.exists(_helpers._stop_file())
+        assert os.path.exists(_helpers.SCAN_JOB.stop_file())
         _helpers.clear_stop()
-        assert not os.path.exists(_helpers._stop_file())
+        assert not os.path.exists(_helpers.SCAN_JOB.stop_file())
 
     def test_a_stop_from_another_worker_is_seen(self):
         # What another worker's request_stop() leaves behind: just the file,
         # with no flag in this process.
-        with open(_helpers._stop_file(), "w"):
+        with open(_helpers.SCAN_JOB.stop_file(), "w"):
             pass
-        assert _helpers._stop_requested is False
+        assert _helpers.SCAN_JOB._stop_requested is False
         assert _helpers.is_stop_requested() is True
 
     def test_another_workers_clear_is_seen(self):
         _helpers.request_stop()
-        os.remove(_helpers._stop_file())  # another worker's clear_stop()
+        os.remove(_helpers.SCAN_JOB.stop_file())  # another worker's clear_stop()
         assert _helpers.is_stop_requested() is False
 
     def test_a_stale_file_is_ignored(self):
         _helpers.request_stop()
-        old = time.time() - _helpers._STOP_TTL_SECONDS - 60
-        os.utime(_helpers._stop_file(), (old, old))
+        old = time.time() - jobs.STOP_TTL_SECONDS - 60
+        os.utime(_helpers.SCAN_JOB.stop_file(), (old, old))
         assert _helpers.is_stop_requested() is False
 
     def test_unwritable_data_path_falls_back_to_the_process_flag(self, tmp_path):
         missing = str(tmp_path / "gone" / ".scan.stop")
-        with patch.object(_helpers, "_stop_file", return_value=missing):
+        with patch.object(_helpers.SCAN_JOB, "stop_file", return_value=missing):
             _helpers.request_stop()
             assert _helpers.is_stop_requested() is True
             _helpers.clear_stop()
@@ -81,7 +82,7 @@ class TestStopFile:
     def test_clear_tolerates_a_file_it_cannot_remove(self):
         with patch.object(_helpers.os, "remove", side_effect=PermissionError("ro")):
             _helpers.clear_stop()  # logged, not raised
-        assert _helpers._stop_requested is False
+        assert _helpers.SCAN_JOB._stop_requested is False
 
 
 
@@ -126,12 +127,12 @@ class TestCancelReachesAnotherWorker:
         finally:
             lock.close()
         assert resp.json()["status"] == "stop_requested"
-        assert os.path.exists(_helpers._stop_file())
+        assert os.path.exists(_helpers.SCAN_JOB.stop_file())
 
     def test_nothing_running_anywhere_is_left_alone(self, client, admin_headers):
         resp = client.post("/api/cancel-scan", headers=admin_headers)
         assert resp.json()["status"] == "not_running"
-        assert not os.path.exists(_helpers._stop_file())
+        assert not os.path.exists(_helpers.SCAN_JOB.stop_file())
 
     def test_with_valkey_the_shared_status_decides(self, client, admin_headers):
         fake = MagicMock()
@@ -143,7 +144,7 @@ class TestCancelReachesAnotherWorker:
         finally:
             lock.close()
         assert resp.json()["status"] == "not_running"
-        assert all(c.args[0] != _helpers._STOP_KEY for c in fake.set.call_args_list)
+        assert all(c.args[0] != _helpers.SCAN_JOB.stop_key for c in fake.set.call_args_list)
 
 
 class TestConcurrentOcrStop:

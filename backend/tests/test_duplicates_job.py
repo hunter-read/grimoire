@@ -4,6 +4,8 @@ Separate from test_duplicates_detection.py, which is about *what* the scan
 finds. This is about how the job behaves - especially the paths that only run
 when something goes wrong, or when Valkey is in the picture.
 """
+import fcntl
+import os
 from unittest.mock import MagicMock
 
 import pytest
@@ -13,17 +15,18 @@ from backend.config import SessionLocal
 from backend.models import Book
 from backend.models.duplicates import DuplicateGroup
 from backend.services.duplicates import job
+from backend.services.jobs import Job
 from backend.tests.conftest import make_book, make_game_system
 
 
 @pytest.fixture(autouse=True)
 def _clean_status():
     """Every test starts from a settled, cancel-free job."""
-    job._status = dict(job.DEFAULT_STATUS)
-    job._stop_requested = False
+    job.JOB._status = dict(job.DEFAULT_STATUS)
+    job.clear_stop()
     yield
-    job._status = dict(job.DEFAULT_STATUS)
-    job._stop_requested = False
+    job.JOB._status = dict(job.DEFAULT_STATUS)
+    job.clear_stop()
 
 
 class TestStopFlag:
@@ -46,7 +49,7 @@ class TestStopFlag:
         fake.delete.assert_called_once()
 
     def test_falls_back_when_valkey_errors(self, monkeypatch):
-        """A Valkey outage must degrade to the in-process flag, not crash."""
+        """A Valkey outage must degrade to the stop file, not crash."""
         try:
             from redis.exceptions import RedisError
         except ImportError:  # pragma: no cover - redis is a normal dependency
@@ -59,7 +62,7 @@ class TestStopFlag:
         monkeypatch.setattr(config, "_valkey", fake)
 
         job.request_stop()
-        assert job.is_stop_requested() is True  # in-process flag carried it
+        assert job.is_stop_requested() is True  # the stop file carried it
         job.clear_stop()
         assert job.is_stop_requested() is False
 
@@ -79,7 +82,7 @@ class TestStatus:
 
         job.set_status({"phase": "grouping"})
         assert job.get_status()["phase"] == "grouping"
-        assert job._DUP_KEY in store
+        assert job.JOB.status_key in store
 
     def test_corrupt_valkey_blob_falls_back(self, monkeypatch):
         fake = MagicMock()
@@ -158,3 +161,64 @@ class TestRunGuards:
         status = job.run_detection_sync(["book"])
         assert status["groups_found"] == 0
         assert status["error"] is None
+
+
+def _hold_run_lock():
+    """Take the job's lock on a file of its own, as a scan on another worker does."""
+    lock = open(job.JOB.lock_path(), "a")
+    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    return lock
+
+
+class TestAnotherWorker:
+    """Without Valkey the scan's status is per-process, so another worker's run
+    shows only in the lock and its Stop only in the stop file (issue #711)."""
+
+    def test_a_stop_from_another_worker_cancels_the_run(self, monkeypatch):
+        seen = []
+
+        def candidates(db, model):
+            seen.append(model)
+            # Another worker has its own Job of the same name and none of this
+            # process's state: only what it writes to disk reaches this one.
+            Job(job.JOB.name, {}).request_stop()
+            return []
+
+        monkeypatch.setattr(job, "_candidates", candidates)
+        status = job.run_detection_sync(["book", "map"])
+        assert len(seen) == 1
+        assert status["running"] is False
+
+    def test_a_run_on_another_worker_is_not_doubled(self, monkeypatch):
+        monkeypatch.setattr(job, "_candidates", lambda db, model: pytest.fail("ran twice"))
+        lock = _hold_run_lock()
+        try:
+            status = job.run_detection_sync(["book"])
+        finally:
+            lock.close()
+        assert status["running"] is False and status["scan_id"] is None
+
+    def test_cancel_reaches_a_run_on_another_worker(self, client, admin_headers):
+        lock = _hold_run_lock()
+        try:
+            resp = client.post("/api/duplicates/cancel-scan", headers=admin_headers)
+        finally:
+            lock.close()
+        assert resp.json()["status"] == "stop_requested"
+        assert os.path.exists(job.JOB.stop_file())
+
+    def test_cancel_with_nothing_running_anywhere_is_left_alone(self, client, admin_headers):
+        resp = client.post("/api/duplicates/cancel-scan", headers=admin_headers)
+        assert resp.json()["status"] == "not_running"
+        assert not os.path.exists(job.JOB.stop_file())
+
+    def test_start_is_refused_while_another_worker_runs(self, client, admin_headers, monkeypatch):
+        from backend.routers.library import _helpers as lib
+
+        monkeypatch.setattr(lib, "scan_in_progress", lambda: False)
+        lock = _hold_run_lock()
+        try:
+            resp = client.post("/api/duplicates/scan", headers=admin_headers, json={})
+        finally:
+            lock.close()
+        assert resp.json()["status"] == "already_running"

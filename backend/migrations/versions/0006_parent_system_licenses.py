@@ -19,7 +19,7 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import inspect
 
-from backend.models.lookup_defaults import (
+from backend.migrations._frozen.lookup_defaults import (
     DEFAULT_DICE_MATERIALS,
     DEFAULT_LICENSES,
     DEFAULT_PARENT_SYSTEMS,

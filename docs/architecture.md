@@ -11,7 +11,8 @@ update the matching section here.
 ## Stack
 
 - **Frontend** - React 18 + Vite 6 SPA, React Router v6, React Context (no Redux/Zustand),
-  i18next (see [`frontend/src/locales/`](../frontend/src/locales) for available locales),
+  i18next (see [`frontend/src/locales/`](../frontend/src/locales) for available locales;
+  only `en-US` is bundled, the rest load on demand),
   Vitest + React Testing Library.
 - **Backend** - FastAPI (async) + SQLAlchemy 2.0, SQLite with FTS5 full-text search,
   PyMuPDF (`fitz`) for PDF→WebP rendering, PyJWT auth.
@@ -28,7 +29,7 @@ backend on port 9481.
 | Path | Responsibility |
 | --- | --- |
 | [`backend/main.py`](../backend/main.py) | FastAPI app construction, router registration, the `lifespan` startup hook (library scan, user seeding, wiki migrations, scheduler), and the SPA catch-all `serve_frontend`. |
-| [`backend/config.py`](../backend/config.py) | Settings parsed from the environment, `DATA_PATH`/`LIBRARY_PATH` and cache dirs, logging setup (incl. the in-memory ring buffer for `/api/logs`), and `startup()`, which creates the data dirs, opens and migrates the database (`engine`, `SessionLocal`, the `get_db` dependency) and connects the optional Valkey client (`valkey_client()`). Importing it does no file, database or network I/O - see [Startup and migrations](#startup-and-migrations). |
+| [`backend/config/`](../backend/config/__init__.py) | Configuration, split by concern: `env.py` reads every environment variable the backend uses, typed, with its default (the one place `os.environ` is read); `paths.py` the data dirs under `DATA_PATH`; `defaults.py` fixed settings such as cache headers; `logs.py` logging setup (incl. the in-memory ring buffer for `/api/logs`); `db.py` the `engine`, `SessionLocal` and the `get_db` dependency; `valkey.py` the optional Valkey client (`valkey_client()`). `backend.config` is a facade over them - `config.X` reads, and assigning it writes, the module that defines `X` - and holds `startup()`, which creates the data dirs, opens and migrates the database and connects Valkey. Importing it does no file, database or network I/O - see [Startup and migrations](#startup-and-migrations). |
 | [`backend/models/`](../backend/models/) | ORM models split by domain (`library.py`, `media.py`, `users.py`, `campaigns.py`, `settings.py`); `db.py` holds `init_db`, runtime migrations, and FTS5 setup. See [`docs/data-model.md`](data-model.md). |
 | [`backend/auth.py`](../backend/auth.py) | JWT creation/validation, the `get_current_user` dependency, and the role-guard dependencies (`require_admin`, `require_gm_or_admin`, `require_not_guest`). |
 | [`backend/password_hash.py`](../backend/password_hash.py) | Password hashing and verification in passlib's `bcrypt_sha256` format, on `bcrypt` directly; `backend/auth.py` re-exports `hash_password`/`verify_password`. |
@@ -135,7 +136,7 @@ current. Rows that predate content hashing fall back to a digest of the path, pr
 old behaviour until the next scan backfills them.
 
 All three paths send `Cache-Control: max-age=31536000, immutable`
-(`_PAGE_CACHE_HEADERS` in [`config.py`](../backend/config.py)) plus an `ETag` carrying the
+(`_PAGE_CACHE_HEADERS` in [`config/defaults.py`](../backend/config/defaults.py)) plus an `ETag` carrying the
 same token, so browsers cache aggressively but can still revalidate a replaced file (the
 `immutable` policy alone would pin a stale page for a year). Because image/download URLs are
 used in `<img>`/download contexts that can't set an `Authorization` header, they authenticate
@@ -250,7 +251,7 @@ initial admin. All three are public routes - see
 Implemented in [`routers/oidc/`](../backend/routers/oidc/) against any standards-compliant
 IdP (Keycloak, Authentik, Authelia, Auth0, Okta, …). The IdP is configured at runtime via
 **Settings → Sign-in**; each field can be pinned/locked by an environment variable
-(`OIDC_*`, see the `OIDC_ENV` map in [`config.py`](../backend/config.py)).
+(`OIDC_*`, see the `OIDC_ENV` map in [`config/env.py`](../backend/config/env.py)).
 
 ```mermaid
 sequenceDiagram
@@ -402,6 +403,13 @@ heartbeat has its own key because the status blob is written read-modify-write:
 a second writer racing the scan could restore `running: true` over its final
 `running: false`.
 
+The status, stop flag, heartbeat and staleness check live in
+[`services/jobs.py`](../backend/services/jobs.py) as a `Job`, which the duplicate
+scan uses too under keys of its own (`grimoire:duplicate_scan_*`). Without Valkey
+each job's stop flag is a file (`DATA_PATH/.<name>.stop`), and a duplicate scan
+holds `DATA_PATH/.duplicate_scan.lock` the way the startup scan holds
+`.scan.lock`, so a Stop that lands on another worker still reaches the run.
+
 ### Schema migrations
 
 Schema changes are managed by **Alembic** (revisions in
@@ -450,3 +458,10 @@ without its migration, or the reverse, fails CI. Rebuilding a table that other t
 is risky in batch mode: migrations run with `PRAGMA foreign_keys=ON`, which can't be turned off
 inside the migration's transaction, so dropping the old copy would fire the children's
 `ON DELETE` actions - see how 0055 sets `ruleset_entries` aside while it rebuilds `rulesets`.
+
+A revision must do on every upgrade what it did the day it was written, so it never imports
+app code (`backend.*`) - a later refactor of that code would silently change the old
+revision. Logic a revision needs (seed data, a sort key, the token vault's key derivation) is
+copied into [`backend/migrations/_frozen/`](../backend/migrations/_frozen/) and never edited
+once a revision uses it. `backend/tests/test_migrations_frozen.py` fails on any other import,
+and checks the frozen token vault still agrees with the live one.

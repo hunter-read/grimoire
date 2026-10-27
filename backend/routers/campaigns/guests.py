@@ -1,7 +1,8 @@
 """Guest invite management: create/list/regenerate/remove per-campaign guests.
 
 A guest is a lightweight, code-only User (role="guest", no password/OIDC) backing
-a CampaignMember. The 10-char alphanumeric guest_code mints a JWT for that guest
+a CampaignMember. The 10-char alphanumeric guest code (stored hashed and sealed,
+see ``CampaignMember.guest_code``) mints a JWT for that guest
 via POST /api/auth/guest-login. A guest normally belongs to one campaign:
 removing the member (here or via the generic member-removal endpoint) also
 deletes the guest User and its contributions, unless an admin merged it into
@@ -100,7 +101,7 @@ def create_guest(
     db: Session = Depends(get_db),
 ):
     _assert_guest_access(db)
-    c = _get_managed_campaign(db, campaign_id, current_user)
+    _get_managed_campaign(db, campaign_id, current_user)
 
     nickname = (data.nickname or "").strip() or "Guest"
     code = generate_guest_code(db)
@@ -124,10 +125,6 @@ def create_guest(
         guest_code=code,
     )
     db.add(member)
-
-    # First guest flips the per-campaign flag on.
-    if not c.guest_invites_enabled:
-        c.guest_invites_enabled = True
 
     db.commit()
     db.refresh(member)

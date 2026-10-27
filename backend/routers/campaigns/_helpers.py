@@ -4,16 +4,17 @@ import datetime
 import re
 import secrets
 import string
-from typing import Optional, List
+from typing import List, NamedTuple, Optional
 
 from fastapi import HTTPException
 from sqlalchemy import text
 
+from ... import token_vault
 from ...models import Campaign, CampaignMember, Character, GameSystem, Ruleset, User
 from ...services.characters.images import remove_files_after_commit
 from ...auth import CurrentUser
 from ...sessions import delete_user_sessions
-from ..systems._helpers import system_browsable
+from ..systems._helpers import browsable_system_ids, system_browsable
 
 
 # Tables holding rows that belong to a single user and die with them. Kept as a
@@ -182,7 +183,7 @@ def purge_user_data(db, user_id: str) -> None:
     # this campaign's owner knew. A guest left with no campaign is kept, as
     # before, for an admin to remove from the guest list.
     owned_guests = (
-        db.query(CampaignMember.user_id, CampaignMember.guest_code)
+        db.query(CampaignMember)
         .filter(
             CampaignMember.campaign_id.in_([c.id for c in owned]),
             CampaignMember.is_guest.is_(True),
@@ -192,6 +193,7 @@ def purge_user_data(db, user_id: str) -> None:
         if owned
         else []
     )
+    owned_guests = [(m.user_id, m.guest_code) for m in owned_guests]
     detach_campaign_characters(db, [c.id for c in owned])
     for campaign in owned:
         db.delete(campaign)
@@ -237,11 +239,20 @@ _CODE_ALPHABET = string.ascii_uppercase + string.digits
 _CODE_LENGTH = 10
 
 
+def guest_member_by_code(db, code: str) -> Optional[CampaignMember]:
+    """The guest membership ``code`` signs in to, matched on its lookup hash."""
+    return (
+        db.query(CampaignMember)
+        .filter_by(guest_code_hash=token_vault.lookup_hash(code))
+        .first()
+    )
+
+
 def generate_guest_code(db) -> str:
     """Return a unique 10-char A–Z0–9 code, retrying on the rare collision."""
     for _ in range(20):
         code = "".join(secrets.choice(_CODE_ALPHABET) for _ in range(_CODE_LENGTH))
-        if not db.query(CampaignMember).filter_by(guest_code=code).first():
+        if not guest_member_by_code(db, code):
             return code
     raise HTTPException(500, "Could not allocate a unique guest code")
 
@@ -591,7 +602,9 @@ def build_members(c: Campaign, db) -> list:
     from ...models import User
 
     rows = db.query(CampaignMember).filter_by(campaign_id=c.id).all()
-    all_users = {u.id: u for u in db.query(User).all()}
+    # Only the people in this campaign, never the whole users table.
+    wanted = {c.owner_id, *(m.user_id for m in rows)}
+    all_users = {u.id: u for u in db.query(User).filter(User.id.in_(wanted)).all()}
     owner = all_users.get(c.owner_id)
     def _access(u) -> bool:
         return u is None or u.campaign_access is None or bool(u.campaign_access)
@@ -649,6 +662,73 @@ def members_for(c: Campaign, user: CurrentUser, db) -> list:
     return members
 
 
+def member_summaries(db, campaigns: list[Campaign]) -> dict[str, list[dict]]:
+    """The members the campaign list shows, for every campaign in it at once.
+
+    Two queries however many campaigns are listed (issue #707), and only the
+    users who are members are loaded.
+    """
+    from ...models import User
+
+    out: dict[str, list[dict]] = {c.id: [] for c in campaigns}
+    if not out:
+        return out
+    rows = db.query(CampaignMember).filter(CampaignMember.campaign_id.in_(out)).all()
+    user_ids = {m.user_id for m in rows}
+    users = {u.id: u for u in db.query(User).filter(User.id.in_(user_ids)).all()} if user_ids else {}
+    for m in rows:
+        user = users.get(m.user_id)
+        out[m.campaign_id].append(
+            {
+                "user_id": m.user_id,
+                "username": user.username if user else "",
+                "display_name": user.display_name if user else None,
+                "status": m.status,
+                "character_name": m.character_name,
+            }
+        )
+    return out
+
+
+class CampaignLookups(NamedTuple):
+    """What ``serialize_campaign`` reads besides the campaign, keyed by id."""
+
+    owners: dict
+    schedules: dict
+    # Only the linked systems the viewer may see: see visible_campaign_system.
+    systems: dict
+
+
+def campaign_lookups(db, campaigns: list[Campaign], viewer) -> CampaignLookups:
+    """Owners, schedules and visible systems for ``campaigns``, a few queries in all.
+
+    Shared by a whole list so serializing it costs the same however long it is
+    (issue #707).
+    """
+    from ...models import User, CampaignSchedule
+
+    owner_ids = {c.owner_id for c in campaigns}
+    owners = {u.id: u for u in db.query(User).filter(User.id.in_(owner_ids)).all()} if owner_ids else {}
+    campaign_ids = [c.id for c in campaigns]
+    schedules = (
+        {
+            s.campaign_id: s
+            for s in db.query(CampaignSchedule)
+            .filter(CampaignSchedule.campaign_id.in_(campaign_ids))
+            .all()
+        }
+        if campaign_ids
+        else {}
+    )
+    systems = {}
+    system_ids = {c.system_id for c in campaigns if c.system_id}
+    if system_ids:
+        linked = db.query(GameSystem).filter(GameSystem.id.in_(system_ids)).all()
+        visible = browsable_system_ids(db, linked, viewer)
+        systems = {s.id: s for s in linked if s.id in visible}
+    return CampaignLookups(owners, schedules, systems)
+
+
 def visible_campaign_system(db, c: Campaign, viewer) -> Optional[GameSystem]:
     """The game system ``c`` is linked to, if ``viewer`` may see it.
 
@@ -665,20 +745,26 @@ def visible_campaign_system(db, c: Campaign, viewer) -> Optional[GameSystem]:
     return system
 
 
-def serialize_campaign(c: Campaign, members: list, db, viewer) -> dict:
-    """The campaign as ``viewer`` sees it."""
-    from ...models import User, CampaignSchedule
+def serialize_campaign(
+    c: Campaign, members: list, db, viewer, lookups: Optional[CampaignLookups] = None
+) -> dict:
+    """The campaign as ``viewer`` sees it.
 
-    owner = db.query(User).filter_by(id=c.owner_id).first()
+    A list passes ``lookups`` from ``campaign_lookups`` over all its campaigns;
+    a single campaign looks its own up.
+    """
+    if lookups is None:
+        lookups = campaign_lookups(db, [c], viewer)
+    owner = lookups.owners.get(c.owner_id)
     owner_display = owner.display_name or owner.username if owner else ""
     owner_has_access = owner is None or owner.campaign_access is None or bool(owner.campaign_access)
-    schedule = db.query(CampaignSchedule).filter_by(campaign_id=c.id).first()
+    schedule = lookups.schedules.get(c.id)
 
     # Human-readable system name: the linked game system's name when set, else
     # the free-text system_name. Lets the UI pin the campaign's system without a
     # separate systems lookup. A linked system the viewer cannot see is left
     # out, id and all.
-    system = visible_campaign_system(db, c, viewer)
+    system = lookups.systems.get(c.system_id) if c.system_id else None
     system_display = system.name if system else (c.system_name or "")
 
     # Next upcoming scheduled session date (YYYY-MM-DD), if an enabled schedule exists.

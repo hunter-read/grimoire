@@ -6,7 +6,7 @@
 # Every base image is pinned by digest as well as tag, so a re-pushed tag can't
 # change what a build pulls. Dependabot's docker ecosystem keeps the digests
 # current (.github/dependabot.yml).
-FROM --platform=$BUILDPLATFORM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS frontend-builder
+FROM --platform=$BUILDPLATFORM node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm ci
@@ -14,7 +14,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # Stage 2: Build Python dependencies (compilers live here, not in the runtime image)
-FROM python:3.12-slim@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1 AS backend-builder
+FROM python:3.12-slim@sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704 AS backend-builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
@@ -49,7 +49,7 @@ RUN pip install --no-cache-dir --prefix=/install -r requirements.txt \
 # --enable-zlib is not optional despite nothing here compressing video: the PNG
 # *encoder* needs it, and without it the build silently produces a binary that
 # demuxes and decodes correctly, then dies with "Unknown encoder 'png'".
-FROM debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587 AS ffmpeg-builder
+FROM debian:bookworm-slim@sha256:7ff6ba31527b9e336162fa061746c366c4b2032f4d2cff2078bea43f78efe3f8 AS ffmpeg-builder
 
 # Bumping the version means bumping the checksum with it. Take it from a tarball
 # whose signature checks out against the FFmpeg release key
@@ -104,7 +104,7 @@ RUN ./configure \
     && strip ffmpeg
 
 # Stage 4: Runtime base shared by both variants (no build toolchain)
-FROM python:3.12-slim@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1 AS runtime-base
+FROM python:3.12-slim@sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704 AS runtime-base
 
 WORKDIR /app
 

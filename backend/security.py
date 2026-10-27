@@ -16,8 +16,6 @@ Two pieces of hardening live here:
    Referrer-Policy, and HSTS on HTTPS) on every response.
 """
 import ipaddress
-import os
-import sys
 from typing import Any, Optional
 
 from limits import parse as parse_limit
@@ -27,33 +25,30 @@ from starlette.requests import Request
 from starlette.responses import Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from .config import VALKEY_CONNECT_TIMEOUT, VALKEY_SOCKET_TIMEOUT, VALKEY_URL, logger
+from .config import (
+    ACCOUNT_RATE_LIMIT,
+    AUTH_RATE_LIMIT,
+    RATE_LIMIT_ENABLED,
+    TRUST_FORWARDED_FOR,
+    TRUSTED_PROXIES,
+    VALKEY_CONNECT_TIMEOUT,
+    VALKEY_SOCKET_TIMEOUT,
+    VALKEY_URL,
+    logger,
+)
 
 # --- Rate limiting -----------------------------------------------------------
 
-# Per-IP limit applied to the auth endpoints. Tunable via env var; the default
-# is generous enough for legitimate retyping-your-password use but shuts down
-# automated credential stuffing. Format is a slowapi/limits string.
-AUTH_RATE_LIMIT = os.environ.get("AUTH_RATE_LIMIT", "10/minute")
-
-# Trust a reverse proxy's X-Forwarded-For header. Default on so clients behind a
-# proxy don't all share the proxy's single IP bucket. Set to "false" to ignore the
-# header entirely and always key on the connecting address.
-_TRUST_FORWARDED = os.environ.get("TRUST_FORWARDED_FOR", "true").strip().lower() != "false"
-
-# Which connecting addresses count as a reverse proxy whose X-Forwarded-For is
-# read (comma-separated addresses or CIDR ranges). The default covers loopback
-# and the private ranges Docker networks, LANs and tunnel daemons use, so nginx,
-# Traefik, Caddy, Cloudflare Tunnel or Tailscale in front of Grimoire need no
-# setting. A proxy reaching Grimoire from a public address (a VPS, say) is added
-# here; until then its clients share one bucket.
+# AUTH_RATE_LIMIT is the per-IP limit on the auth endpoints, read with the
+# other settings in backend/config/env.py, as are TRUST_FORWARDED_FOR and
+# TRUSTED_PROXIES: whether, and from which connecting addresses, a reverse
+# proxy's X-Forwarded-For is believed. The default trusts loopback and Docker's
+# bridge networks only.
 #
-# Any client connecting from one of these ranges is believed, though: a LAN or
-# Tailscale-over-IPv6 (fd7a:115c:a1e0::/48) client names its own address in the
-# header, and behind Docker Desktop's or rootlesskit's port forwarding every
-# client - internet ones included - arrives from a private gateway address.
-# docs/security.md recommends TRUST_FORWARDED_FOR=false for those setups.
-_DEFAULT_TRUSTED_PROXIES = "127.0.0.0/8,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7"
+# Any client connecting from a trusted range is believed, though: behind a port
+# forwarder that swaps each client's address for a gateway inside one, every
+# client - internet ones included - counts as a proxy. docs/security.md
+# recommends TRUST_FORWARDED_FOR=false for those setups.
 
 
 def _parse_trusted(raw: str) -> tuple[list[Any], frozenset[str]]:
@@ -74,20 +69,11 @@ def _parse_trusted(raw: str) -> tuple[list[Any], frozenset[str]]:
 
 
 _TRUSTED_NETWORKS, _TRUSTED_NAMES = (
-    _parse_trusted(os.environ.get("TRUSTED_PROXIES", _DEFAULT_TRUSTED_PROXIES))
-    if _TRUST_FORWARDED
-    else ([], frozenset())
+    _parse_trusted(TRUSTED_PROXIES) if TRUST_FORWARDED_FOR else ([], frozenset())
 )
 
-# Disabled automatically under pytest so the many auth-touching tests don't trip
-# the limit; the dedicated rate-limit test re-enables it explicitly. Detected via
-# sys.modules because this module is imported at collection time, before any
-# individual test sets PYTEST_CURRENT_TEST.
-_UNDER_PYTEST = "pytest" in sys.modules
-_RATE_LIMIT_ENABLED = os.environ.get(
-    "RATE_LIMIT_ENABLED",
-    "false" if _UNDER_PYTEST else "true",
-).strip().lower() == "true"
+# Off by default under pytest (see RATE_LIMIT_ENABLED in backend/config/env.py).
+_RATE_LIMIT_ENABLED = RATE_LIMIT_ENABLED
 
 
 def _is_trusted_proxy(host: str) -> bool:
@@ -133,6 +119,8 @@ def client_ip(request: Any) -> str:
     if not peer:
         return "127.0.0.1"
     if not _is_trusted_proxy(peer):
+        if TRUST_FORWARDED_FOR and request.headers.get("x-forwarded-for"):
+            _hint_untrusted_proxy(peer)
         return peer
     # Some proxies add a second header line rather than extending the first;
     # read them all, in order.
@@ -145,6 +133,35 @@ def client_ip(request: Any) -> str:
     # Every hop is a trusted address: the client itself is on the private
     # network, and the left-most hop is the closest we have to it.
     return hops[0] if hops else peer
+
+
+# Private addresses already told about, so each is logged once. Bounded: a LAN
+# has few proxies, and past that the hint has been made.
+_HINTED_PEERS: set[str] = set()
+_MAX_HINTED_PEERS = 16
+
+
+def _hint_untrusted_proxy(peer: str) -> None:
+    """Log, once per address, a private peer sending X-Forwarded-For untrusted.
+
+    That is usually a reverse proxy on another machine on the LAN, or on a
+    Kubernetes or Podman network, which the default TRUSTED_PROXIES does not
+    cover. Its header is ignored, so every client behind it shares its address.
+    """
+    if peer in _HINTED_PEERS or len(_HINTED_PEERS) >= _MAX_HINTED_PEERS:
+        return
+    try:
+        if not ipaddress.ip_address(peer.strip("[]")).is_private:
+            return
+    except ValueError:
+        return
+    _HINTED_PEERS.add(peer)
+    logger.info(
+        "Ignoring X-Forwarded-For from %s, which is not in TRUSTED_PROXIES. If it is "
+        "your reverse proxy, add it there, or every client behind it shares its "
+        "address for rate limiting and Active Sessions.",
+        peer,
+    )
 
 
 # An IPv6 host is usually given a whole /64 and can pick any address in it, so
@@ -275,7 +292,6 @@ def record_share_failure(request: Request, scope: str, key: str = "") -> None:
 # from: an account (by the username typed, existing or not), a recognised device
 # of that account (see backend/login_devices.py), or a password-protected share
 # link. Tunable with ACCOUNT_RATE_LIMIT.
-ACCOUNT_RATE_LIMIT = os.environ.get("ACCOUNT_RATE_LIMIT", "20/hour")
 _ACCOUNT_LIMIT = parse_limit(ACCOUNT_RATE_LIMIT)
 LOGIN_ACCOUNT_SCOPE = "login-account"
 LOGIN_DEVICE_SCOPE = "login-device"
@@ -381,13 +397,7 @@ _HSTS = "max-age=31536000; includeSubDomains"
 
 
 def _is_https(scope: Scope) -> bool:
-    if scope.get("scheme") == "https":
-        return True
-    # Behind a TLS-terminating proxy the original scheme arrives in a header.
-    for name, value in scope.get("headers", []):
-        if name == b"x-forwarded-proto" and value.split(b",")[0].strip() == b"https":
-            return True
-    return False
+    return request_is_https(Request(scope))
 
 
 class SecurityHeadersMiddleware:

@@ -1,6 +1,7 @@
 """Tests for OIDC settings, helpers, discovery endpoint, and user resolution."""
+import json
 import pytest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import httpx
 from authlib.jose.errors import JoseError
@@ -91,12 +92,10 @@ class TestOIDCSettings:
         assert resp.json()["oidc_gm_group"] == "gm"
 
     def test_role_group_names_can_be_pinned_by_env(self, client, admin_headers, monkeypatch):
-        import backend.routers.settings.core as core
         import backend.routers.settings._helpers as helpers
 
-        env = dict(core.OIDC_ENV)
+        env = dict(helpers.OIDC_ENV)
         env["oidc_admin_group"] = "sso-admins"
-        monkeypatch.setattr(core, "OIDC_ENV", env)
         monkeypatch.setattr(helpers, "OIDC_ENV", env)
         resp = client.patch(
             "/api/settings", headers=admin_headers, json={"oidc_admin_group": "other"}
@@ -213,12 +212,10 @@ class TestOIDCSettings:
         )
 
     def test_env_lock_blocks_individual_fields(self, client, admin_headers, monkeypatch):
-        import backend.routers.settings.core as core
         import backend.routers.settings._helpers as helpers
         # Pin only the issuer URL via env
-        env = dict(core.OIDC_ENV)
+        env = dict(helpers.OIDC_ENV)
         env["oidc_issuer_url"] = "https://locked.example.com"
-        monkeypatch.setattr(core, "OIDC_ENV", env)
         monkeypatch.setattr(helpers, "OIDC_ENV", env)
 
         resp = client.patch(
@@ -356,6 +353,36 @@ class TestDiscovery:
                 json={"issuer_url": "https://idp.example.com"},
             )
         assert resp.status_code == 502
+
+    def test_discover_keeps_fetch_errors_in_the_log(self, client, admin_headers, caplog):
+        with patch(
+            "backend.routers.oidc.httpx.get",
+            side_effect=httpx.ConnectError("connect to 10.0.0.5:8443 refused"),
+        ), caplog.at_level("WARNING"):
+            resp = client.post(
+                "/api/auth/openid/discover",
+                headers=admin_headers,
+                json={"issuer_url": "https://idp.example.com"},
+            )
+        assert resp.status_code == 502
+        assert "10.0.0.5" not in resp.json()["detail"]
+        assert "10.0.0.5" in caplog.text
+
+    def test_discover_rejects_a_non_json_document(self, client, admin_headers, caplog):
+        bad = MagicMock()
+        bad.raise_for_status.return_value = None
+        bad.json.side_effect = json.JSONDecodeError("Expecting value", "<html>", 0)
+        with patch("backend.routers.oidc.httpx.get", return_value=bad), caplog.at_level(
+            "WARNING"
+        ):
+            resp = client.post(
+                "/api/auth/openid/discover",
+                headers=admin_headers,
+                json={"issuer_url": "https://idp.example.com"},
+            )
+        assert resp.status_code == 502
+        assert "Expecting value" not in resp.json()["detail"]
+        assert "Expecting value" in caplog.text
 
     def test_discovery_doc_logs_http_failure(self, caplog):
         """A discovery fetch failure returns {} but is logged, not swallowed."""
@@ -834,6 +861,41 @@ class TestOIDCCallback:
                 )
             assert resp.status_code == 302
             assert resp.headers["location"] == "/"
+        finally:
+            self._cleanup(client, admin_headers)
+
+    def test_callback_keeps_token_validation_details_in_the_log(
+        self, client, admin_headers, caplog
+    ):
+        from backend.routers.oidc import core as oidc_core
+        from backend.routers.oidc._helpers import _OIDCError
+
+        self._configure(client, admin_headers)
+        try:
+            _seed_state(client,
+                "state-jwks",
+                {"code_verifier": "verifier", "nonce": "nonce123", "return_to": "/"},
+            )
+            token_resp = httpx.Response(
+                200,
+                json={"id_token": "id-tok", "access_token": "acc-tok"},
+                request=httpx.Request("POST", "https://idp.example.com/realm/token"),
+            )
+            failure = _OIDCError("jwks fetch failed: connect to idp-internal.lan refused")
+            with (
+                patch.object(oidc_core.httpx, "post", return_value=token_resp),
+                patch.object(oidc_core, "_discover_issuer", return_value="https://idp.example.com/realm"),
+                patch.object(oidc_core, "_validate_id_token", side_effect=failure),
+                caplog.at_level("WARNING"),
+            ):
+                resp = client.get(
+                    "/api/auth/openid/callback?code=abc&state=state-jwks",
+                    follow_redirects=False,
+                )
+            assert resp.status_code == 302
+            location = resp.headers["location"]
+            assert location == "/login?oidc_error=the+sign-in+could+not+be+verified"
+            assert "idp-internal.lan" in caplog.text
         finally:
             self._cleanup(client, admin_headers)
 

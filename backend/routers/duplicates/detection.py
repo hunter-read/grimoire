@@ -5,7 +5,7 @@ from fastapi import BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, require_admin
-from ...config import get_db, logger
+from ...config import get_db, logger, valkey_client
 from ...models.duplicates import DuplicateGroup
 from ...services import duplicates
 from ...services.library_fs.references import reference_counts_for
@@ -41,6 +41,10 @@ def start_scan(
     # A scan whose process died still reads as running, and refusing on that
     # would leave the user with no way to start another one - the same stuck
     # state /cancel-scan recovers from. A genuinely live scan is still refused.
+    # Without Valkey a run on another worker is missing from this one's status,
+    # but it holds the job's lock.
+    if duplicates.JOB.lock_held():
+        return {"status": "already_running"}
     if duplicates.get_status().get("running"):
         if not duplicates.is_stale():
             return {"status": "already_running"}
@@ -69,6 +73,11 @@ def cancel_scan(
     """
     status = duplicates.get_status()
     if not status.get("running"):
+        # Without Valkey each worker has its own status, and the scan may be
+        # running on another one.
+        if valkey_client() is None and duplicates.JOB.lock_held():
+            duplicates.request_stop()
+            return {"status": "stop_requested"}
         return {"status": "not_running"}
     if duplicates.is_stale(status):
         duplicates.force_clear()
