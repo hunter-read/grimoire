@@ -339,6 +339,8 @@ Served outside `/api` when `OPDS_ENABLED` is on, and authenticated by the token 
 
 Each version's links stay inside that version, so a reader subscribed to v1 sees exactly what it always has.
 
+**Paging.** Every route above except download and cover takes an optional `page_size` query parameter (1-500). Without it the acquisition feeds (`all`, `system`, `other`) list every book in one document, as they always have. With it they also take `page` (from 1, default 1; ignored without `page_size`) and return at most `page_size` books, ordered by title then id, with Atom links `rel="self"`, `"first"`, `"last"`, and `"previous"`/`"next"` where those pages exist (all as `?page_size=N&page=P`), plus the OpenSearch elements `opensearch:totalResults`, `opensearch:itemsPerPage` and `opensearch:startIndex`. A page past the last returns no entries. On the navigation roots and single-book entries, `page_size` is carried onto every link back into the catalog (sub-feeds, `start`, `up`, each book's `alternate` entry link), so setting it on the root URL pages the whole catalog. Out-of-range values return `422`. See [Paging large libraries](opds.md#paging-large-libraries).
+
 ### Library
 
 | Endpoint | Method | Auth | Description |

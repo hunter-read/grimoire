@@ -18,6 +18,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - A GM can give a character they prepared to one of their players: pick the player from **Give to player…** in the sheet's header. The character stays in the campaign with its art, the GM keeps edit access until the player switches it off, and the player gets the sheet and any of the GM's private content the character uses
 - When the catalogue has a newer version of a sheet you installed, the Characters page says so and **Update all** installs every update at once. **Manage sheets** and **Browse sheets** offer an **Update** button for each sheet
 - Other players' characters you can see through a campaign now sit in their own **Party members** section on the Characters page, grouped by campaign. Each card names the player, and each campaign's group can be folded away
+- The OPDS feed can be split into pages for e-readers that struggle with a large library: add `?page_size=100` to the end of the feed URL and every list of books arrives 100 at a time, with links to the next and previous pages. Without it the feed is unchanged
 
 ### Changed
 

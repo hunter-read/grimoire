@@ -11,9 +11,14 @@ original single "All Books" catalog and is kept exactly as it was, so a reader
 already pointed at it keeps working. v2 (``/opds/v2/{token}``) adds one
 sub-feed per game system (issue #673). Each feed's links stay inside its own
 version, so a client never wanders from one into the other.
+
+Both versions page their acquisition feeds when the URL asks with
+``?page_size=N`` (issue #706; see ``_paging``). Without it, every feed is the
+single unpaged document it always was.
 """
 import datetime
 import os
+from typing import Optional
 from xml.sax.saxutils import escape, quoteattr
 
 from fastapi import Depends, HTTPException
@@ -22,6 +27,14 @@ from sqlalchemy import func
 from sqlalchemy.orm import Query, Session
 
 from .._user_files import serve_user_file
+from ._paging import (
+    OPENSEARCH_NS,
+    Paging,
+    page_links,
+    page_size_param,
+    paging_params,
+    with_page_size,
+)
 from ... import token_vault
 from ...config import get_db
 from ...models import Book, GameSystem, User
@@ -63,7 +76,9 @@ def _v2_root(token: str) -> str:
     return f"{_base_url()}/opds/v2/{token}"
 
 
-def _book_to_entry(book: Book, root: str, tags: list[str]) -> str:
+def _book_to_entry(
+    book: Book, root: str, tags: list[str], page_size: Optional[int] = None
+) -> str:
     """Render a single Book as an OPDS Atom <entry>, linking under feed ``root``."""
     title = escape(book.title or "Untitled")
     authors = book.authors or []
@@ -74,7 +89,7 @@ def _book_to_entry(book: Book, root: str, tags: list[str]) -> str:
     updated = (book.updated_at or book.created_at or datetime.datetime.utcnow()).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
     )
-    entry_url = f"{root}/entry/{book.id}"
+    entry_url = with_page_size(f"{root}/entry/{book.id}", page_size)
     download_url = f"{root}/download/{book.id}"
     mime = quoteattr(book.mime_type or "application/pdf")
 
@@ -108,10 +123,12 @@ def _book_to_entry(book: Book, root: str, tags: list[str]) -> str:
     )
 
 
-def _feed_wrapper(title: str, feed_id: str, updated: str, links: str, entries: str) -> str:
+def _feed_wrapper(
+    title: str, feed_id: str, updated: str, links: str, entries: str, namespaces: str = _NAMESPACES
+) -> str:
     return (
         f"{_XML_HEADER}"
-        f'<feed {_NAMESPACES}>'
+        f'<feed {namespaces}>'
         f"<id>{escape(feed_id)}</id>"
         f"<title>{escape(title)}</title>"
         f"<updated>{updated}</updated>"
@@ -152,20 +169,41 @@ def _nav_entry(entry_id: str, title: str, updated: str, content: str, href: str)
     )
 
 
-def _books_feed(db: Session, title: str, feed_url: str, root: str, books: list[Book]) -> Response:
-    """An acquisition feed of ``books`` whose links stay under feed ``root``."""
-    links = (
-        f'<link rel="self" href="{escape(feed_url)}" type="{_ACQUISITION_TYPE}"/>'
-        f'<link rel="start" href="{escape(root)}" type="{_CONTENT_TYPE}"/>'
-        f'<link rel="up" href="{escape(root)}" type="{_CONTENT_TYPE}"/>'
+def _books_feed(
+    db: Session, title: str, feed_url: str, root: str, query: Query, paging: Paging
+) -> Response:
+    """An acquisition feed of the books in ``query``, linking under feed ``root``.
+
+    Ordered by title, with the id breaking ties so a page boundary never
+    shows one book twice or skips another. Only ``paging``'s page is loaded.
+    """
+    query = query.order_by(Book.title, Book.id)
+    home = escape(with_page_size(root, paging.size))
+    nav_links = (
+        f'<link rel="start" href="{home}" type="{_CONTENT_TYPE}"/>'
+        f'<link rel="up" href="{home}" type="{_CONTENT_TYPE}"/>'
     )
+    if paging.size:
+        total = query.count()
+        books = query.offset(paging.offset).limit(paging.size).all()
+        links = page_links(feed_url, paging, total, _ACQUISITION_TYPE) + nav_links
+        namespaces = f"{_NAMESPACES} {OPENSEARCH_NS}"
+    else:
+        books = query.all()
+        self_link = f'<link rel="self" href="{escape(feed_url)}" type="{_ACQUISITION_TYPE}"/>'
+        links = self_link + nav_links
+        namespaces = _NAMESPACES
     book_tags = tag_service.display_tags_for_resources(db, "book", [b.id for b in books])
-    entries = "".join(_book_to_entry(b, root, book_tags.get(b.id, [])) for b in books)
-    body = _feed_wrapper(title, feed_url, _now_iso(), links, entries)
+    entries = "".join(
+        _book_to_entry(b, root, book_tags.get(b.id, []), paging.size) for b in books
+    )
+    body = _feed_wrapper(title, feed_url, _now_iso(), links, entries, namespaces)
     return Response(content=body, media_type=_ACQUISITION_TYPE)
 
 
-def _entry_feed(db: Session, token: str, book_id: str, root: str) -> Response:
+def _entry_feed(
+    db: Session, token: str, book_id: str, root: str, page_size: Optional[int]
+) -> Response:
     """Single-entry acquisition feed for one book, linking under feed ``root``."""
     user = _resolve_user(db, token)
     book = db.query(Book).filter_by(id=book_id).first()
@@ -179,21 +217,26 @@ def _entry_feed(db: Session, token: str, book_id: str, root: str) -> Response:
         raise HTTPException(403, "Forbidden")
 
     feed_url = f"{root}/entry/{book_id}"
+    self_url = escape(with_page_size(feed_url, page_size))
+    home = escape(with_page_size(root, page_size))
+    all_url = escape(with_page_size(f"{root}/all", page_size))
     links = (
-        f'<link rel="self" href="{escape(feed_url)}" type="{_ACQUISITION_TYPE}"/>'
-        f'<link rel="start" href="{escape(root)}" type="{_CONTENT_TYPE}"/>'
-        f'<link rel="up" href="{escape(root)}/all" type="{_ACQUISITION_TYPE}"/>'
+        f'<link rel="self" href="{self_url}" type="{_ACQUISITION_TYPE}"/>'
+        f'<link rel="start" href="{home}" type="{_CONTENT_TYPE}"/>'
+        f'<link rel="up" href="{all_url}" type="{_ACQUISITION_TYPE}"/>'
     )
 
-    entry = _book_to_entry(book, root, tag_service.display_tags_for_resource(db, "book", book.id))
+    tags = tag_service.display_tags_for_resource(db, "book", book.id)
+    entry = _book_to_entry(book, root, tags, page_size)
     body = _feed_wrapper(book.title or "Book", feed_url, _now_iso(), links, entry)
     return Response(content=body, media_type=_ACQUISITION_TYPE)
 
 
-def _root_feed(root: str, entries: str, updated: str) -> Response:
+def _root_feed(root: str, entries: str, updated: str, page_size: Optional[int]) -> Response:
+    home = escape(with_page_size(root, page_size))
     links = (
-        f'<link rel="self" href="{escape(root)}" type="{_CONTENT_TYPE}"/>'
-        f'<link rel="start" href="{escape(root)}" type="{_CONTENT_TYPE}"/>'
+        f'<link rel="self" href="{home}" type="{_CONTENT_TYPE}"/>'
+        f'<link rel="start" href="{home}" type="{_CONTENT_TYPE}"/>'
     )
     body = _feed_wrapper("Grimoire Library", root, updated, links, entries)
     return Response(content=body, media_type=_CONTENT_TYPE)
@@ -201,11 +244,17 @@ def _root_feed(root: str, entries: str, updated: str) -> Response:
 
 # ---------------------------------------------------------------------------
 # v1 — the original catalog. Its URLs and output are frozen: readers already
-# subscribed to it must see exactly what they always have.
+# subscribed to it must see exactly what they always have. Paging changes
+# nothing unless the URL asks for it with ``page_size``.
 # ---------------------------------------------------------------------------
 
 
-def catalog(token: str, request_url: str = "", db: Session = Depends(get_db)) -> Response:
+def catalog(
+    token: str,
+    request_url: str = "",
+    page_size: Optional[int] = Depends(page_size_param),
+    db: Session = Depends(get_db),
+) -> Response:
     """Root navigation feed — lists available sub-feeds."""
     # Validates the token (raises on an invalid/expired one) before we build
     # the feed; the resolved user itself isn't needed for the root catalog.
@@ -213,22 +262,32 @@ def catalog(token: str, request_url: str = "", db: Session = Depends(get_db)) ->
     root = _v1_root(token)
     updated = _now_iso()
     entries = _nav_entry(
-        "urn:grimoire:opds:all", "All Books", updated, "Browse the complete library", f"{root}/all"
+        "urn:grimoire:opds:all",
+        "All Books",
+        updated,
+        "Browse the complete library",
+        with_page_size(f"{root}/all", page_size),
     )
-    return _root_feed(root, entries, updated)
+    return _root_feed(root, entries, updated, page_size)
 
 
-def catalog_all(token: str, db: Session = Depends(get_db)) -> Response:
+def catalog_all(
+    token: str, paging: Paging = Depends(paging_params), db: Session = Depends(get_db)
+) -> Response:
     """Acquisition feed — all books the user is allowed to see."""
     user = _resolve_user(db, token)
     root = _v1_root(token)
-    books = _visible_books(db, user).order_by(Book.title).all()
-    return _books_feed(db, "All Books", f"{root}/all", root, books)
+    return _books_feed(db, "All Books", f"{root}/all", root, _visible_books(db, user), paging)
 
 
-def book_entry(token: str, book_id: str, db: Session = Depends(get_db)) -> Response:
+def book_entry(
+    token: str,
+    book_id: str,
+    page_size: Optional[int] = Depends(page_size_param),
+    db: Session = Depends(get_db),
+) -> Response:
     """Single-entry acquisition feed for a specific book."""
-    return _entry_feed(db, token, book_id, _v1_root(token))
+    return _entry_feed(db, token, book_id, _v1_root(token), page_size)
 
 
 # ---------------------------------------------------------------------------
@@ -248,7 +307,11 @@ def _visible_systems(db: Session, user: User) -> Query:
     return q
 
 
-def catalog_v2(token: str, db: Session = Depends(get_db)) -> Response:
+def catalog_v2(
+    token: str,
+    page_size: Optional[int] = Depends(page_size_param),
+    db: Session = Depends(get_db),
+) -> Response:
     """Root navigation feed: All Books, then one sub-feed per game system."""
     user = _resolve_user(db, token)
     root = _v2_root(token)
@@ -275,7 +338,7 @@ def catalog_v2(token: str, db: Session = Depends(get_db)) -> Response:
             "All Books",
             updated,
             "Browse the complete library",
-            f"{root}/all",
+            with_page_size(f"{root}/all", page_size),
         )
     ]
     entries += [
@@ -284,7 +347,7 @@ def catalog_v2(token: str, db: Session = Depends(get_db)) -> Response:
             s.name,
             updated,
             _book_count(counts[s.id]),
-            f"{root}/system/{s.id}",
+            with_page_size(f"{root}/system/{s.id}", page_size),
         )
         for s in systems
     ]
@@ -295,21 +358,27 @@ def catalog_v2(token: str, db: Session = Depends(get_db)) -> Response:
                 "Other Books",
                 updated,
                 f"{_book_count(counts[None])} without a game system",
-                f"{root}/other",
+                with_page_size(f"{root}/other", page_size),
             )
         )
-    return _root_feed(root, "".join(entries), updated)
+    return _root_feed(root, "".join(entries), updated, page_size)
 
 
-def catalog_all_v2(token: str, db: Session = Depends(get_db)) -> Response:
+def catalog_all_v2(
+    token: str, paging: Paging = Depends(paging_params), db: Session = Depends(get_db)
+) -> Response:
     """Acquisition feed — all books the user is allowed to see."""
     user = _resolve_user(db, token)
     root = _v2_root(token)
-    books = _visible_books(db, user).order_by(Book.title).all()
-    return _books_feed(db, "All Books", f"{root}/all", root, books)
+    return _books_feed(db, "All Books", f"{root}/all", root, _visible_books(db, user), paging)
 
 
-def catalog_system_v2(token: str, system_id: str, db: Session = Depends(get_db)) -> Response:
+def catalog_system_v2(
+    token: str,
+    system_id: str,
+    paging: Paging = Depends(paging_params),
+    db: Session = Depends(get_db),
+) -> Response:
     """Acquisition feed — one game system's books."""
     user = _resolve_user(db, token)
     system = _visible_systems(db, user).filter(GameSystem.id == system_id).first()
@@ -318,31 +387,28 @@ def catalog_system_v2(token: str, system_id: str, db: Session = Depends(get_db))
         # indistinguishable from one that does not exist.
         raise HTTPException(404, "Game system not found")
     root = _v2_root(token)
-    books = (
-        _visible_books(db, user)
-        .filter(Book.game_system_id == system.id)
-        .order_by(Book.title)
-        .all()
-    )
-    return _books_feed(db, system.name, f"{root}/system/{system.id}", root, books)
+    books = _visible_books(db, user).filter(Book.game_system_id == system.id)
+    return _books_feed(db, system.name, f"{root}/system/{system.id}", root, books, paging)
 
 
-def catalog_other_v2(token: str, db: Session = Depends(get_db)) -> Response:
+def catalog_other_v2(
+    token: str, paging: Paging = Depends(paging_params), db: Session = Depends(get_db)
+) -> Response:
     """Acquisition feed — books that belong to no game system."""
     user = _resolve_user(db, token)
     root = _v2_root(token)
-    books = (
-        _visible_books(db, user)
-        .filter(Book.game_system_id.is_(None))
-        .order_by(Book.title)
-        .all()
-    )
-    return _books_feed(db, "Other Books", f"{root}/other", root, books)
+    books = _visible_books(db, user).filter(Book.game_system_id.is_(None))
+    return _books_feed(db, "Other Books", f"{root}/other", root, books, paging)
 
 
-def book_entry_v2(token: str, book_id: str, db: Session = Depends(get_db)) -> Response:
+def book_entry_v2(
+    token: str,
+    book_id: str,
+    page_size: Optional[int] = Depends(page_size_param),
+    db: Session = Depends(get_db),
+) -> Response:
     """Single-entry acquisition feed for a specific book."""
-    return _entry_feed(db, token, book_id, _v2_root(token))
+    return _entry_feed(db, token, book_id, _v2_root(token), page_size)
 
 
 # ---------------------------------------------------------------------------

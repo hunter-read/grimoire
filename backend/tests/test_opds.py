@@ -808,3 +808,185 @@ class TestOPDSv2Restrictions:
         token = _generate_token(opds_client, opds_player_headers)
         titles = _nav_titles(opds_client.get(f"/opds/v2/{token}").text)
         assert "V2 Spicy System" in titles
+
+
+# ===========================================================================
+# Opt-in paging with ?page_size= (issue #706)
+# ===========================================================================
+
+_ATOM = "{http://www.w3.org/2005/Atom}"
+_OPENSEARCH = "{http://a9.com/-/spec/opensearch/1.1/}"
+
+
+@pytest.fixture(scope="module")
+def paged_library():
+    """Five books in one system, two of them sharing a title to test tie-breaking."""
+    db = SessionLocal()
+    system = _make_system(db, "pg-system", "PG System")
+    books = [
+        _make_book(db, title, system)
+        for title in ("PG Ash", "PG Birch", "PG Cedar", "PG Cedar 2", "PG Elm")
+    ]
+    books[3].title = "PG Cedar"  # same title as books[2], on its own file path
+    ids = {"system": system.id, "books": [b.id for b in books]}
+    db.commit()
+    db.close()
+
+    yield ids
+
+    db = SessionLocal()
+    db.query(Book).filter(Book.title.like("PG %")).delete(synchronize_session=False)
+    db.query(GameSystem).filter_by(slug="pg-system").delete(synchronize_session=False)
+    db.commit()
+    db.close()
+
+
+def _parse(xml_text):
+    import xml.etree.ElementTree as ET
+
+    return ET.fromstring(xml_text)
+
+
+def _links(feed):
+    return {link.get("rel"): link.get("href") for link in feed.findall(f"{_ATOM}link")}
+
+
+def _entry_ids(feed):
+    return [
+        e.find(f"{_ATOM}id").text.removeprefix("urn:grimoire:book:")
+        for e in feed.findall(f"{_ATOM}entry")
+    ]
+
+
+def _walk(client, url):
+    """Follow ``next`` links from ``url``, returning every page's feed."""
+    pages = []
+    while url:
+        resp = client.get(url.removeprefix("http://testserver"))
+        assert resp.status_code == 200, resp.text
+        pages.append(_parse(resp.text))
+        url = _links(pages[-1]).get("next")
+    return pages
+
+
+class TestOPDSPaging:
+    @pytest.fixture(autouse=True)
+    def token(self, opds_client, opds_admin_headers):
+        self._token = _generate_token(opds_client, opds_admin_headers)
+
+    def _system_feed(self, paged_library):
+        return f"http://testserver/opds/v2/{self._token}/system/{paged_library['system']}"
+
+    def test_without_page_size_the_feed_is_unpaged(self, opds_client, paged_library):
+        text = opds_client.get(f"/opds/v2/{self._token}/system/{paged_library['system']}").text
+        feed = _parse(text)
+        assert len(_entry_ids(feed)) == 5
+        assert set(_links(feed)) == {"self", "start", "up"}
+        assert "opensearch" not in text
+        assert "page_size" not in text
+
+    def test_page_holds_page_size_books_with_paging_links(self, opds_client, paged_library):
+        base = self._system_feed(paged_library)
+        feed = _parse(opds_client.get(f"{base}?page_size=2&page=2").text)
+        links = _links(feed)
+        assert len(_entry_ids(feed)) == 2
+        assert links["self"] == f"{base}?page_size=2&page=2"
+        assert links["first"] == f"{base}?page_size=2&page=1"
+        assert links["previous"] == f"{base}?page_size=2&page=1"
+        assert links["next"] == f"{base}?page_size=2&page=3"
+        assert links["last"] == f"{base}?page_size=2&page=3"
+        assert feed.find(f"{_OPENSEARCH}totalResults").text == "5"
+        assert feed.find(f"{_OPENSEARCH}itemsPerPage").text == "2"
+        assert feed.find(f"{_OPENSEARCH}startIndex").text == "3"
+
+    def test_first_and_last_pages_omit_previous_and_next(self, opds_client, paged_library):
+        base = self._system_feed(paged_library)
+        first = _links(_parse(opds_client.get(f"{base}?page_size=2").text))
+        assert "previous" not in first
+        assert first["self"] == f"{base}?page_size=2&page=1"
+        last = _parse(opds_client.get(f"{base}?page_size=2&page=3").text)
+        assert len(_entry_ids(last)) == 1
+        assert "next" not in _links(last)
+
+    @pytest.mark.parametrize("size,count", [(1, 5), (2, 3), (3, 2), (5, 1), (500, 1)])
+    def test_next_links_walk_every_book_exactly_once(
+        self, opds_client, paged_library, size, count
+    ):
+        # Size 3 puts the page break between the two "PG Cedar" books.
+        pages = _walk(opds_client, f"{self._system_feed(paged_library)}?page_size={size}")
+        seen = [book for page in pages for book in _entry_ids(page)]
+        assert len(pages) == count
+        assert sorted(seen) == sorted(paged_library["books"])
+
+    def test_page_past_the_end_is_empty_and_points_back(self, opds_client, paged_library):
+        base = self._system_feed(paged_library)
+        feed = _parse(opds_client.get(f"{base}?page_size=2&page=9").text)
+        assert _entry_ids(feed) == []
+        assert "next" not in _links(feed)
+        assert _links(feed)["previous"] == f"{base}?page_size=2&page=3"
+
+    def test_links_back_into_the_catalog_keep_page_size(self, opds_client, paged_library):
+        root = f"http://testserver/opds/v2/{self._token}"
+        feed = _parse(opds_client.get(f"{self._system_feed(paged_library)}?page_size=2").text)
+        assert _links(feed)["up"] == f"{root}?page_size=2"
+        assert _links(feed)["start"] == f"{root}?page_size=2"
+        book = _entry_ids(feed)[0]
+        entry = feed.find(f"{_ATOM}entry")
+        entry_links = {link.get("rel"): link.get("href") for link in entry.iter(f"{_ATOM}link")}
+        assert entry_links["alternate"] == f"{root}/entry/{book}?page_size=2"
+        assert entry_links["http://opds-spec.org/acquisition"] == f"{root}/download/{book}"
+
+    def test_v2_root_carries_page_size_to_every_sub_feed(self, opds_client, paged_library):
+        root = f"http://testserver/opds/v2/{self._token}"
+        feed = _parse(opds_client.get(f"/opds/v2/{self._token}?page_size=50").text)
+        assert _links(feed)["self"] == f"{root}?page_size=50"
+        hrefs = [e.find(f"{_ATOM}link").get("href") for e in feed.findall(f"{_ATOM}entry")]
+        assert f"{root}/all?page_size=50" in hrefs
+        assert f"{root}/system/{paged_library['system']}?page_size=50" in hrefs
+        assert all(h.endswith("?page_size=50") for h in hrefs)
+
+    def test_v2_all_and_other_feeds_page(self, opds_client, paged_library, v2_library):
+        for path in ("all", "other"):
+            url = f"http://testserver/opds/v2/{self._token}/{path}?page_size=1"
+            pages = _walk(opds_client, url)
+            seen = [book for page in pages for book in _entry_ids(page)]
+            assert all(len(_entry_ids(page)) == 1 for page in pages)
+            assert len(seen) == len(set(seen))
+        assert v2_library["loose_book"] in seen
+
+    def test_entry_feed_carries_page_size(self, opds_client, paged_library):
+        root = f"http://testserver/opds/v2/{self._token}"
+        book = paged_library["books"][0]
+        feed = _parse(opds_client.get(f"/opds/v2/{self._token}/entry/{book}?page_size=2").text)
+        assert _links(feed)["up"] == f"{root}/all?page_size=2"
+        assert _links(feed)["start"] == f"{root}?page_size=2"
+
+    def test_v1_pages_when_asked(self, opds_client, paged_library):
+        root = f"http://testserver/opds/{self._token}"
+        nav = _parse(opds_client.get(f"/opds/{self._token}?page_size=2").text)
+        all_url = nav.find(f"{_ATOM}entry").find(f"{_ATOM}link").get("href")
+        assert all_url == f"{root}/all?page_size=2"
+        pages = _walk(opds_client, all_url)
+        seen = [book for page in pages for book in _entry_ids(page)]
+        assert set(paged_library["books"]) <= set(seen)
+        assert len(seen) == len(set(seen))
+        assert all("/opds/v2/" not in href for page in pages for href in _links(page).values())
+        book = paged_library["books"][0]
+        entry = _parse(opds_client.get(f"/opds/{self._token}/entry/{book}?page_size=2").text)
+        assert _links(entry)["up"] == f"{root}/all?page_size=2"
+
+    def test_v1_without_page_size_is_unchanged(self, opds_client, paged_library):
+        text = opds_client.get(f"/opds/{self._token}/all").text
+        assert set(_links(_parse(text))) == {"self", "start", "up"}
+        assert "page_size" not in text
+
+    def test_page_without_page_size_is_ignored(self, opds_client, paged_library):
+        url = f"/opds/v2/{self._token}/system/{paged_library['system']}"
+        assert opds_client.get(f"{url}?page=3").text.count("<entry>") == 5
+
+    @pytest.mark.parametrize(
+        "query", ["page_size=0", "page_size=501", "page_size=x", "page_size=2&page=0"]
+    )
+    def test_invalid_paging_is_422(self, opds_client, paged_library, query):
+        url = f"/opds/v2/{self._token}/system/{paged_library['system']}?{query}"
+        assert opds_client.get(url).status_code == 422

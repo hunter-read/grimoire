@@ -62,6 +62,25 @@ https://grimoire.example.com/opds/{token}/download/{id}  ← file download
 https://grimoire.example.com/opds/{token}/cover/{id}     ← cover thumbnail (WebP)
 ```
 
+## Paging large libraries
+
+By default every list of books - **All Books**, each game system, **Other Books** - arrives as one feed holding every book in it. That suits most readers, but with a large library some apps are slow to load the feed or give up on it.
+
+To split the lists into pages, add `?page_size=` to the end of the feed URL you give the app:
+
+```
+https://grimoire.example.com/opds/v2/{token}?page_size=100
+```
+
+Every list then holds at most that many books, with **next**, **previous**, **first** and **last** links between the pages, and the app loads more as you scroll or turn the page. Pick a size from 1 to 500; 100 is a good start.
+
+- **Set it once, on the root URL.** Grimoire carries `page_size` onto every link in the catalog, so each game system's feed, the book entries and the links back up are all paged the same way. You can also add it to a single feed's URL, such as `/opds/v2/{token}/all?page_size=100`.
+- **Leave it off and nothing changes.** Without `page_size` the feed is exactly as it always was, so apps you have already connected keep working.
+- **Your app has to follow the links.** Paging relies on the app reading the standard OPDS `next` link, as most OPDS apps do. If yours shows only the first page of books, remove `page_size` from its URL.
+- **It works with both versions.** v1 pages its **All Books** feed the same way: `/opds/{token}?page_size=100`.
+
+A page past the end - say the library shrank while you were browsing - comes back empty, with links to the first and last real pages. A `page_size` of 0 or above 500, or a `page` below 1, is rejected with `422`.
+
 ## Content filtering
 
 The OPDS feed respects each user's explicit-content preference. Users with explicit content disabled will not see explicit books in their feed and cannot download them via OPDS.
