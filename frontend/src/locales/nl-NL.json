@@ -102,6 +102,10 @@
     "dismissError": "Foutmelding sluiten",
     "confirm": "Bevestigen"
   },
+  "errorBoundary": {
+    "message": "Er ging iets mis bij het tonen van deze pagina. Laad opnieuw om het nog eens te proberen, of ga terug.",
+    "reload": "Opnieuw laden"
+  },
   "login": {
     "username": "Gebruikersnaam",
     "password": "Wachtwoord",
@@ -253,7 +257,9 @@
     "spreadExcludeCover": "Omslag uitsluiten van dubbele pagina (pagina's 2-3, 4-5 koppelen…)",
     "archiveNotViewable": "Dit is een archiefbestand en kan niet in de lezer worden bekeken. Download het om de inhoud te openen.",
     "textUnavailable": "This document's text could not be loaded.",
-    "shortcutExport": "Pagina's en uitsneden exporteren"
+    "shortcutExport": "Pagina's en uitsneden exporteren",
+    "notFound": "Dit boek is niet gevonden. Het is mogelijk verplaatst of verwijderd.",
+    "loadFailed": "Dit boek kon niet worden geladen."
   },
   "pageExport": {
     "menuItem": "Pagina's en uitsneden exporteren",

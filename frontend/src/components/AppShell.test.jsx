@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter, useNavigate } from 'react-router-dom'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import AppShell from './AppShell'
@@ -43,7 +44,14 @@ vi.mock('../views/FavoritesView', () => ({ default: () => <div>favorites</div> }
 vi.mock('../views/CampaignsView', () => ({ default: () => <div>campaigns</div> }))
 vi.mock('../views/CampaignDetailView', () => ({ default: () => <div>campaign-detail</div> }))
 vi.mock('../views/CampaignNotesView', () => ({ default: () => <div>campaign-notes</div> }))
-vi.mock('../views/TagsView', () => ({ default: () => <div>tags</div> }))
+// Throws while rendering when a test sets it, to exercise the error boundary.
+let tagsThrows = false
+vi.mock('../views/TagsView', () => ({
+  default: () => {
+    if (tagsThrows) throw new Error('render failed')
+    return <div>tags</div>
+  },
+}))
 vi.mock('./campaigns/PendingInvitesBanner', () => ({ default: () => null }))
 // Views are lazy chunks (issue #708). This one is held back until a test lets it
 // load, so the shell can be seen mid-fetch.
@@ -66,12 +74,36 @@ const renderAt = (path) =>
 
 beforeEach(() => {
   vi.clearAllMocks()
+  tagsThrows = false
   queue = []
   role = 'admin'
   window.innerWidth = 1200 // desktop
 })
 
 describe('AppShell', () => {
+  it('shows a recovery panel for a view that throws, and recovers on navigation', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    tagsThrows = true
+    // Stands in for a sidebar link: the sidebar itself is stubbed out here.
+    function GoToAudio() {
+      const navigate = useNavigate()
+      return <button onClick={() => navigate('/audio')}>to audio</button>
+    }
+    render(
+      <MemoryRouter initialEntries={['/tags']}>
+        <AppShell />
+        <GoToAudio />
+      </MemoryRouter>
+    )
+    expect(await screen.findByRole('alert')).toHaveTextContent('Something went wrong')
+    // The failure is contained to the routed content: the nav is still up.
+    expect(screen.getByText('sidebar')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'to audio' }))
+    expect(await screen.findByText('audio')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    consoleError.mockRestore()
+  })
+
   it('renders the sidebar and the audio route on desktop', async () => {
     renderAt('/audio')
     expect(await screen.findByText('audio')).toBeInTheDocument()

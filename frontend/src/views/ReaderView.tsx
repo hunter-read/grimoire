@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { LuArrowLeft, LuDownload, LuHeart } from 'react-icons/lu'
+import { LuArrowLeft, LuDownload } from 'react-icons/lu'
 import api, { bookPageUrl, mediaUrl } from '../api'
+import type { ApiError, Schema } from '../api'
 import { isArchiveBook, isComicBook, isSingleImageBook, isTextBook } from '../constants'
 import Spinner from '../components/Spinner'
 import { getBookPrefs, saveBookPrefs, saveRecentBook } from '../hooks/useBookPrefs'
@@ -16,7 +17,9 @@ import SearchSidebar from '../components/reader/SearchSidebar'
 import BookmarkSidebar from '../components/reader/BookmarkSidebar'
 import DetailsSidebar from '../components/reader/DetailsSidebar'
 import BookmarkDialog from '../components/reader/BookmarkDialog'
+import type { PendingBookmark } from '../components/reader/BookmarkDialog'
 import SelectionPopup from '../components/reader/SelectionPopup'
+import type { TextSelection } from '../components/reader/SelectionPopup'
 import ReaderToolbar from '../components/reader/ReaderToolbar'
 import SpreadPage from '../components/reader/SpreadPage'
 import SinglePage from '../components/reader/SinglePage'
@@ -34,11 +37,17 @@ import {
   pruneCache,
 } from '../components/reader/pageRender'
 
-// Must match across visible images and preloader so browser cache hits
+type Book = Schema<'BookDetail'>
+type ReaderMode = 'page' | 'spread' | 'pdf'
+type Panel = 'toc' | 'search' | 'bookmarks' | 'export' | 'details'
+type Axis = 'x' | 'y'
+
+const READER_MODES: readonly unknown[] = ['page', 'spread', 'pdf']
+const isReaderMode = (value: unknown): value is ReaderMode => READER_MODES.includes(value)
 
 export default function ReaderView() {
   const { t } = useTranslation()
-  const { bookId } = useParams()
+  const { bookId = '' } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -57,34 +66,35 @@ export default function ReaderView() {
 
   const _prefs = getBookPrefs(bookId)
   const _userPrefs = getUserPrefs()
-  const initialPage = parseInt(searchParams.get('page')) || _prefs.page || 1
+  const initialPage: number = parseInt(searchParams.get('page') ?? '') || _prefs.page || 1
   const isMobilePhone = useIsMobile(640)
-  const _globalMode = ['page', 'spread', 'pdf'].includes(_userPrefs.readerMode)
-    ? _userPrefs.readerMode
-    : null
-  const initialMode = isMobilePhone
+  const _globalMode = isReaderMode(_userPrefs.readerMode) ? _userPrefs.readerMode : null
+  const viewParam = searchParams.get('view')
+  const initialMode: ReaderMode = isMobilePhone
     ? 'page'
-    : ['page', 'spread', 'pdf'].includes(searchParams.get('view'))
-      ? searchParams.get('view')
-      : (_globalMode ?? (['page', 'spread', 'pdf'].includes(_prefs.mode) ? _prefs.mode : 'page'))
+    : isReaderMode(viewParam)
+      ? viewParam
+      : (_globalMode ?? (isReaderMode(_prefs.mode) ? _prefs.mode : 'page'))
 
   const initialSpreadOffset = _prefs.spreadOffset ?? 0
   // Per book: one full of two-page art can stay joined while others don't (issue #588).
   const initialJoinSpread = _prefs.joinSpread === true
 
-  const [book, setBook] = useState(null)
+  const [book, setBook] = useState<Book | null>(null)
+  // Why the book could not be opened, shown in place of the reader.
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(initialPage)
   const [totalPages, setTotalPages] = useState(0)
   const [mode, setMode] = useState(initialMode)
   const [spreadOffset, setSpreadOffset] = useState(initialSpreadOffset)
   const [joinSpread, setJoinSpread] = useState(initialJoinSpread)
   const [pageInput, setPageInput] = useState(String(initialPage))
-  const [panel, setPanel] = useState(null)
-  const [activeSearchQuery, setActiveSearchQuery] = useState(null)
-  const [activeHighlight, setActiveHighlight] = useState(null)
+  const [panel, setPanel] = useState<Panel | null>(null)
+  const [activeSearchQuery, setActiveSearchQuery] = useState<string | null>(null)
+  const [activeHighlight, setActiveHighlight] = useState<string | null>(null)
   const [bookmarkRefreshKey, setBookmarkRefreshKey] = useState(0)
-  const [selectionPopup, setSelectionPopup] = useState(null)
-  const [pendingBookmark, setPendingBookmark] = useState(null)
+  const [selectionPopup, setSelectionPopup] = useState<TextSelection | null>(null)
+  const [pendingBookmark, setPendingBookmark] = useState<PendingBookmark | null>(null)
   const [pendingLabel, setPendingLabel] = useState('')
   const [pendingNotes, setPendingNotes] = useState('')
   const [showShortcuts, setShowShortcuts] = useState(false)
@@ -92,38 +102,56 @@ export default function ReaderView() {
   const { isFavorite, toggleFavorite } = useFavorites()
 
   const directionRef = useRef(1)
-  const axisRef = useRef('x')
+  const axisRef = useRef<Axis>('x')
   const currentPageRef = useRef(1)
-  const contentRef = useRef(null)
+  const contentRef = useRef<HTMLDivElement>(null)
   // Set below once zoom state exists; goToPage calls it to carry zoom over.
-  const turnPanRef = useRef(null)
+  const turnPanRef = useRef<((direction: number) => void) | null>(null)
   const isMountedSyncRef = useRef(false)
   // When true, the next setSearchParams call will push a new history entry
   // rather than replacing the current one. Set before any jump navigation
   // (ToC, bookmarks) so the back button returns to the page before the jump.
   const pushNextRef = useRef(false)
-  const preloadCacheRef = useRef({})
-  const pageTextCacheRef = useRef({})
-  const wordsCacheRef = useRef({})
+  const preloadCacheRef = useRef<Record<string, HTMLImageElement>>({})
+  const pageTextCacheRef = useRef<Record<number, string>>({})
+  const wordsCacheRef = useRef<Record<number, Schema<'PageWordsResponse'> | null>>({})
   const [, setPageTextVersion] = useState(0)
   const [, setWordsVersion] = useState(0)
 
   useEffect(() => {
-    api.get(`/books/${bookId}`).then((b) => {
-      setBook(b)
-      setTotalPages(b.page_count || 0)
-      // The saved page can be past the end when the file was replaced by a
-      // shorter one (issue #497) - open on its last page instead of a blank one.
-      if (b.page_count > 0) {
-        setCurrentPage((p) => Math.min(p, b.page_count))
-        setPageInput((v) => (parseInt(v) > b.page_count ? String(b.page_count) : v))
-      }
-      saveRecentBook(b)
-    })
-  }, [bookId])
+    // The view remounts per book (see BookReader), so a load still in flight
+    // when it goes belongs to a book nobody is reading any more: it must not
+    // mark that book as the most recent one.
+    let cancelled = false
+    ;(api.get(`/books/${bookId}`) as Promise<Book>)
+      .then((b) => {
+        if (cancelled) return
+        const pageCount = b.page_count ?? 0
+        setBook(b)
+        setTotalPages(pageCount)
+        // The saved page can be past the end when the file was replaced by a
+        // shorter one (issue #497) - open on its last page instead of a blank one.
+        if (pageCount > 0) {
+          setCurrentPage((p) => Math.min(p, pageCount))
+          setPageInput((v) => (parseInt(v) > pageCount ? String(pageCount) : v))
+        }
+        saveRecentBook(b)
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return
+        setLoadError(
+          (e as ApiError | undefined)?.status === 404
+            ? t('reader.notFound')
+            : t('reader.loadFailed')
+        )
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [bookId, t])
 
   const goToPage = useCallback(
-    (p, currentMode, axis = 'x') => {
+    (p: number, currentMode?: ReaderMode, axis: Axis = 'x') => {
       if (totalPages === 0) return
       let page = Math.max(1, Math.min(p, totalPages))
       if ((currentMode ?? mode) === 'spread') {
@@ -166,10 +194,10 @@ export default function ReaderView() {
   // and arrives at the top of the next page (the bottom when going back), as a
   // continuous scroll would. Measured from the page being left.
   useEffect(() => {
-    turnPanRef.current = (direction) => {
+    turnPanRef.current = (direction: number) => {
       const view = contentRef.current
       if (zoomRef.current <= 1 || !view) return
-      const pages = [...view.querySelectorAll('img[data-page-image]')]
+      const pages = [...view.querySelectorAll<HTMLImageElement>('img[data-page-image]')]
       if (!pages.length) return
       const v = view.getBoundingClientRect()
       const centre = v.top + v.height / 2
@@ -217,7 +245,7 @@ export default function ReaderView() {
   openExportRef.current = openExport
   const showStage = panel === 'export' && exporter.tab === 'cut'
 
-  const togglePanel = (name) => setPanel((p) => (p === name ? null : name))
+  const togglePanel = (name: Panel) => setPanel((p) => (p === name ? null : name))
 
   useEffect(() => {
     if (!book || mode === 'pdf') return
@@ -233,7 +261,7 @@ export default function ReaderView() {
       api
         .get(`/books/${bookId}/page/${p}/text`)
         .then((data) => {
-          pageTextCacheRef.current[p] = data.text || ''
+          pageTextCacheRef.current[p] = (data as Schema<'PageTextResponse'>).text || ''
           pruneCache(pageTextCacheRef, TEXT_CACHE_MAX)
           setPageTextVersion((v) => v + 1)
         })
@@ -259,7 +287,7 @@ export default function ReaderView() {
       api
         .get(`/books/${bookId}/page/${p}/words`)
         .then((data) => {
-          wordsCacheRef.current[p] = data
+          wordsCacheRef.current[p] = data as Schema<'PageWordsResponse'>
           pruneCache(wordsCacheRef, TEXT_CACHE_MAX)
           setWordsVersion((v) => v + 1)
         })
@@ -271,12 +299,13 @@ export default function ReaderView() {
   }, [currentPage, mode, spreadOffset, book, bookId, totalPages])
 
   useEffect(() => {
-    const onMouseUp = (e) => {
-      if (e.target.closest('[data-bookmark-ui]')) return
+    const onMouseUp = (e: MouseEvent) => {
+      const target = e.target as Element
+      if (target.closest('[data-bookmark-ui]')) return
       setTimeout(() => {
         const sel = window.getSelection()
         if (!sel || sel.isCollapsed || !sel.toString().trim()) {
-          if (!e.target.closest('[data-bookmark-ui]')) setSelectionPopup(null)
+          if (!target.closest('[data-bookmark-ui]')) setSelectionPopup(null)
           return
         }
         if (!sel.anchorNode?.parentElement?.closest('[data-selectable]')) {
@@ -320,7 +349,7 @@ export default function ReaderView() {
   // busts the browser's (year-long, immutable) cache of the previous renders.
   const contentToken = book?.content_token
   const pageUrl = useCallback(
-    (p, width) => bookPageUrl(bookId, p, width, contentToken),
+    (p: number, width: number) => bookPageUrl(bookId, p, width, contentToken),
     [bookId, contentToken]
   )
 
@@ -352,7 +381,7 @@ export default function ReaderView() {
       isMountedSyncRef.current = true
       return
     }
-    const params = {}
+    const params: Record<string, string> = {}
     if (currentPage > 1) params.page = String(currentPage)
     if (mode !== 'page') params.view = mode
     const push = pushNextRef.current
@@ -370,8 +399,8 @@ export default function ReaderView() {
 
   const step = mode === 'spread' ? 2 : 1
   useEffect(() => {
-    const handleKeyDown = (e) => {
-      const el = e.target
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null
       if (el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA' || el?.isContentEditable) return
       if (mode !== 'pdf') {
         if (e.key === 'ArrowLeft') {
@@ -443,8 +472,12 @@ export default function ReaderView() {
 
   // Past what that whole-page image can show, sharp tiles of the visible area
   // go over it (issue #574). Pages without geometry (non-PDFs) keep the image.
-  const renderTiles = (p, wd, { joined = false } = {}) =>
-    wd?.width > 0 ? (
+  const renderTiles = (
+    p: number,
+    wd: Schema<'PageWordsResponse'> | null | undefined,
+    { joined = false } = {}
+  ) =>
+    wd && wd.width > 0 ? (
       <ZoomTiles
         rounded={!joined}
         bookId={bookId}
@@ -475,6 +508,35 @@ export default function ReaderView() {
     wheelAction,
   })
 
+  const backButton = (
+    <button
+      onClick={goBack}
+      aria-label={t('common.back')}
+      style={{
+        background: 'none',
+        border: 'none',
+        color: 'var(--text-muted)',
+        cursor: 'pointer',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        marginBottom: 24,
+      }}
+    >
+      <LuArrowLeft size={16} aria-hidden="true" /> {t('common.back')}
+    </button>
+  )
+
+  if (loadError)
+    return (
+      <div style={{ padding: 40, textAlign: 'center' }}>
+        {backButton}
+        <p role="alert" style={{ color: 'var(--text-muted)' }}>
+          {loadError}
+        </p>
+      </div>
+    )
+
   if (!book)
     return (
       <div style={{ padding: 40, textAlign: 'center' }}>
@@ -496,22 +558,7 @@ export default function ReaderView() {
   if (isArchiveBook(book)) {
     return (
       <div style={{ padding: 40, textAlign: 'center' }}>
-        <button
-          onClick={goBack}
-          aria-label={t('common.back')}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: 'var(--text-muted)',
-            cursor: 'pointer',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            marginBottom: 24,
-          }}
-        >
-          <LuArrowLeft size={16} aria-hidden="true" /> {t('common.back')}
-        </button>
+        {backButton}
         <h2 style={{ marginBottom: 8 }}>{book.title}</h2>
         <p style={{ color: 'var(--text-muted)', marginBottom: 24 }}>
           {t('reader.archiveNotViewable')}
@@ -542,7 +589,7 @@ export default function ReaderView() {
   const hasRight =
     mode === 'spread' && (spreadOffset === 1 || currentPage !== 1) && rightPage <= totalPages
 
-  const getAlt = (p) => {
+  const getAlt = (p: number) => {
     const text = pageTextCacheRef.current[p]
     return text || `${t('reader.page')} ${p} — ${book.title}`
   }
@@ -695,7 +742,7 @@ export default function ReaderView() {
           <TocSidebar
             bookId={bookId}
             currentPage={currentPage}
-            onGoToPage={(page) => {
+            onGoToPage={(page: number) => {
               pushNextRef.current = true
               goToPage(page)
             }}
@@ -705,7 +752,7 @@ export default function ReaderView() {
         {panel === 'search' && (
           <SearchSidebar
             bookId={bookId}
-            onGoToPage={(page, q) => {
+            onGoToPage={(page: number, q?: string) => {
               setActiveSearchQuery(q || null)
               pushNextRef.current = true
               goToPage(page)
@@ -721,7 +768,7 @@ export default function ReaderView() {
             bookId={bookId}
             currentPage={currentPage}
             refreshKey={bookmarkRefreshKey}
-            onGoToPage={(page, text) => {
+            onGoToPage={(page: number, text?: string) => {
               setActiveHighlight(text || null)
               pushNextRef.current = true
               goToPage(page)
@@ -740,7 +787,7 @@ export default function ReaderView() {
             tocPath={book.mime_type === 'application/pdf' ? `/books/${bookId}/toc` : null}
             pageUrl={pageUrl}
             sourcePath={book.relative_path}
-            onShowPage={(page) => {
+            onShowPage={(page: number) => {
               pushNextRef.current = true
               goToPage(page)
             }}
@@ -750,7 +797,7 @@ export default function ReaderView() {
         {panel === 'details' && (
           <DetailsSidebar
             book={book}
-            onSave={(updated) => setBook(updated)}
+            onSave={(updated: Book) => setBook(updated)}
             onClose={() => setPanel(null)}
           />
         )}

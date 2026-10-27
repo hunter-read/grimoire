@@ -102,6 +102,10 @@
     "dismissError": "Fehler ausblenden",
     "confirm": "Bestätigen"
   },
+  "errorBoundary": {
+    "message": "Beim Anzeigen dieser Seite ist ein Fehler aufgetreten. Lade neu, um es erneut zu versuchen, oder gehe zurück.",
+    "reload": "Neu laden"
+  },
   "login": {
     "username": "Benutzername",
     "password": "Passwort",
@@ -253,7 +257,9 @@
     "spreadExcludeCover": "Titelseite aus Doppelseite ausschließen (Seiten 2-3, 4-5 paaren…)",
     "archiveNotViewable": "Dies ist eine Archivdatei und kann nicht im Reader angezeigt werden. Lade sie herunter, um den Inhalt zu öffnen.",
     "textUnavailable": "This document's text could not be loaded.",
-    "shortcutExport": "Seiten & Ausschnitte exportieren"
+    "shortcutExport": "Seiten & Ausschnitte exportieren",
+    "notFound": "Dieses Buch wurde nicht gefunden. Es wurde möglicherweise verschoben oder entfernt.",
+    "loadFailed": "Dieses Buch konnte nicht geladen werden."
   },
   "pageExport": {
     "menuItem": "Seiten & Ausschnitte exportieren",

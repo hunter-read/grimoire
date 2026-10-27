@@ -1,16 +1,22 @@
 import { useTranslation } from 'react-i18next'
 
-/**
- * Modal dialog for naming and saving a new bookmark (page or text selection).
- *
- * @param {object}   props.pendingBookmark - { page, selectedText? }
- * @param {string}   props.pendingLabel
- * @param {string}   props.pendingNotes
- * @param {Function} props.onLabelChange   - called with new label string
- * @param {Function} props.onNotesChange   - called with new notes string
- * @param {Function} props.onSave
- * @param {Function} props.onClose
- */
+/** The page, or text selection, a new bookmark is being made for. */
+export interface PendingBookmark {
+  page: number
+  selectedText?: string
+}
+
+interface BookmarkDialogProps {
+  pendingBookmark: PendingBookmark
+  pendingLabel: string
+  pendingNotes: string
+  onLabelChange: (label: string) => void
+  onNotesChange: (notes: string) => void
+  onSave: () => void
+  onClose: () => void
+}
+
+/** Modal dialog for naming and saving a new bookmark (page or text selection). */
 export default function BookmarkDialog({
   pendingBookmark,
   pendingLabel,
@@ -19,7 +25,7 @@ export default function BookmarkDialog({
   onNotesChange,
   onSave,
   onClose,
-}) {
+}: BookmarkDialogProps) {
   const { t } = useTranslation()
   return (
     <div

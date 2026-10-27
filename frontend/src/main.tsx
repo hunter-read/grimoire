@@ -5,6 +5,7 @@ import App from './App'
 import './index.css'
 import { languageReady } from './i18n'
 import { initTheme } from './utils/theme'
+import { logRenderError } from './utils/renderErrors'
 
 // Before the first render, so the app never paints in the wrong theme.
 initTheme()
@@ -13,7 +14,10 @@ initTheme()
 // so the app never paints in English and then switches. A failed fetch still
 // renders, in English.
 languageReady.finally(() => {
-  ReactDOM.createRoot(document.getElementById('root')!).render(
+  ReactDOM.createRoot(document.getElementById('root')!, {
+    onCaughtError: logRenderError('caught'),
+    onUncaughtError: logRenderError('uncaught'),
+  }).render(
     <BrowserRouter>
       <AuthProvider>
         <App />

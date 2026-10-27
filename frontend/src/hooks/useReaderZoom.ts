@@ -1,4 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
+import type { SetStateAction } from 'react'
+
+/** Pre-scale pan offset, in CSS pixels (the transform is `scale(z) translate(pan)`). */
+export interface Pan {
+  x: number
+  y: number
+}
 
 // Zoom bounds and granularity. Up to 8x (issue #574). The whole-page image can
 // only be re-fetched sharp up to the render endpoint's 3000px cap; past that
@@ -17,20 +24,21 @@ export const HIDPI_THRESHOLD = 1.5
 // Server-side ceiling on the page endpoint's `width` query param.
 export const MAX_RENDER_WIDTH = 3000
 
-export const clampZoom = (z) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z))
+export const clampZoom = (z: number): number => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z))
 
 /** Round to the nearest step, to quantise the whole-page render width. */
-const snap = (z) => Math.round(z / ZOOM_STEP) * ZOOM_STEP
+const snap = (z: number): number => Math.round(z / ZOOM_STEP) * ZOOM_STEP
 
 // Wheel and pinch land between stops; a hair of slack keeps 1.2499 from
 // counting as below 1.25.
 const EPSILON = 1e-3
 
 /** The next stop above `z`, or MAX_ZOOM. */
-export const nextZoomLevel = (z) => ZOOM_LEVELS.find((l) => l > z + EPSILON) ?? MAX_ZOOM
+export const nextZoomLevel = (z: number): number =>
+  ZOOM_LEVELS.find((l) => l > z + EPSILON) ?? MAX_ZOOM
 
 /** The next stop below `z`, or MIN_ZOOM. */
-export const prevZoomLevel = (z) =>
+export const prevZoomLevel = (z: number): number =>
   [...ZOOM_LEVELS].reverse().find((l) => l < z - EPSILON) ?? MIN_ZOOM
 
 /**
@@ -44,7 +52,25 @@ export const prevZoomLevel = (z) =>
  * straight from getBoundingClientRect(). Pan is pre-scale (the transform is
  * `scale(z) translate(pan)`), hence the divisions by zoom.
  */
-export function panForTurn({ direction, zoom, pan, top, bottom, viewHeight, margin = 12 }) {
+interface PanForTurnArgs {
+  direction: number
+  zoom: number
+  pan: Pan
+  top: number
+  bottom: number
+  viewHeight: number
+  margin?: number
+}
+
+export function panForTurn({
+  direction,
+  zoom,
+  pan,
+  top,
+  bottom,
+  viewHeight,
+  margin = 12,
+}: PanForTurnArgs): Pan {
   const pageTop = top / zoom - pan.y
   const pageBottom = bottom / zoom - pan.y
   const halfView = viewHeight / 2 / zoom
@@ -63,7 +89,7 @@ export function panForTurn({ direction, zoom, pan, top, bottom, viewHeight, marg
  * Quantised to whole steps so panning around at one zoom level doesn't churn
  * through cache entries — each step maps to exactly one cached image per page.
  */
-export function renderWidthFor(baseWidth, zoom) {
+export function renderWidthFor(baseWidth: number, zoom: number): number {
   if (zoom <= HIDPI_THRESHOLD) return baseWidth
   const wanted = Math.round(baseWidth * snap(zoom))
   return Math.min(MAX_RENDER_WIDTH, Math.max(baseWidth, wanted))
@@ -79,19 +105,17 @@ export function renderWidthFor(baseWidth, zoom) {
  *
  * `resetKey` resets zoom and pan when it changes - the book and view mode, not
  * the page: zoom carries across page turns (see panForTurn).
- *
- * @returns {{zoom, pan, setPan, zoomIn, zoomOut, resetZoom, zoomAt, canZoomIn, canZoomOut, isZoomed}}
  */
-export default function useReaderZoom({ resetKey } = {}) {
+export default function useReaderZoom({ resetKey }: { resetKey?: unknown } = {}) {
   const [zoom, setZoom] = useState(MIN_ZOOM)
-  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const [pan, setPan] = useState<Pan>({ x: 0, y: 0 })
 
   // Handlers live in native (non-React) wheel listeners, so they need refs to
   // read current values without being re-bound on every change.
   const zoomRef = useRef(MIN_ZOOM)
-  const panRef = useRef({ x: 0, y: 0 })
+  const panRef = useRef<Pan>({ x: 0, y: 0 })
 
-  const apply = useCallback((nextZoom, nextPan) => {
+  const apply = useCallback((nextZoom: number, nextPan: Pan) => {
     zoomRef.current = nextZoom
     panRef.current = nextPan
     setZoom(nextZoom)
@@ -112,7 +136,7 @@ export default function useReaderZoom({ resetKey } = {}) {
    * origin correction divides by each zoom level rather than multiplying.
    */
   const zoomTo = useCallback(
-    (target, originX = 0, originY = 0) => {
+    (target: number, originX = 0, originY = 0) => {
       const from = zoomRef.current
       const to = clampZoom(target)
       if (to === from) return
@@ -135,11 +159,12 @@ export default function useReaderZoom({ resetKey } = {}) {
 
   /** Continuous zoom by a relative delta, anchored at a point. For the wheel. */
   const zoomAt = useCallback(
-    (delta, originX, originY) => zoomTo(zoomRef.current + delta, originX, originY),
+    (delta: number, originX?: number, originY?: number) =>
+      zoomTo(zoomRef.current + delta, originX, originY),
     [zoomTo]
   )
 
-  const setPanBoth = useCallback((next) => {
+  const setPanBoth = useCallback((next: SetStateAction<Pan>) => {
     const value = typeof next === 'function' ? next(panRef.current) : next
     panRef.current = value
     setPan(value)
@@ -150,7 +175,7 @@ export default function useReaderZoom({ resetKey } = {}) {
    * to 1x. Used by pinch, which tracks the gesture's own scale factor and so
    * can't go through the stepped helpers.
    */
-  const setZoomDirect = useCallback((next) => {
+  const setZoomDirect = useCallback((next: number) => {
     const to = clampZoom(next)
     zoomRef.current = to
     setZoom(to)

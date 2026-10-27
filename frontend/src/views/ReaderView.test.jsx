@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import ReaderView from './ReaderView'
 import api from '../api'
+import { getRecentBooks } from '../hooks/useBookPrefs'
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -704,5 +705,56 @@ describe('ReaderView — export (issue #207)', () => {
     ).not.toBeInTheDocument()
     await userEvent.keyboard('{Escape}e')
     expect(screen.queryByRole('button', { name: 'Close export' })).not.toBeInTheDocument()
+  })
+})
+
+describe('ReaderView — a book that fails to load', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    localStorage.clear()
+  })
+
+  const failBookWith = (error) =>
+    api.get.mockImplementation((url) =>
+      url === '/books/book-1' ? Promise.reject(error) : Promise.resolve({})
+    )
+
+  it('says the book was not found on a 404, instead of spinning forever', async () => {
+    failBookWith(Object.assign(new Error('Not found'), { status: 404 }))
+    renderReader()
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'This book could not be found. It may have been moved or removed.'
+    )
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('says the book could not be loaded on any other failure', async () => {
+    failBookWith(new TypeError('Failed to fetch'))
+    renderReader()
+    expect(await screen.findByRole('alert')).toHaveTextContent('This book could not be loaded.')
+  })
+
+  it('offers a way back out of the error', async () => {
+    failBookWith(Object.assign(new Error('Server error'), { status: 500 }))
+    renderReader('book-1', { locationState: { from: '/library' } })
+    await screen.findByRole('alert')
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }))
+    expect(mockNavigate).toHaveBeenCalledWith('/library', { state: { restoreView: true } })
+  })
+
+  it('does not record a book as recent when its load lands after the reader closed', async () => {
+    let resolveBook
+    api.get.mockImplementation((url) =>
+      url === '/books/book-1'
+        ? new Promise((resolve) => (resolveBook = resolve))
+        : Promise.resolve({})
+    )
+    const { unmount } = renderReader()
+    await waitFor(() => expect(resolveBook).toBeDefined())
+    unmount()
+    await act(async () => {
+      resolveBook(BOOK)
+    })
+    expect(getRecentBooks()).toEqual([])
   })
 })

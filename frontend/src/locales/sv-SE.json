@@ -102,6 +102,10 @@
     "dismissError": "Stäng felmeddelandet",
     "confirm": "Bekräfta"
   },
+  "errorBoundary": {
+    "message": "Ett fel uppstod och sidan kunde inte visas. Läs in igen för att försöka på nytt, eller gå tillbaka.",
+    "reload": "Läs in igen"
+  },
   "login": {
     "username": "Användarnamn",
     "password": "Lösenord",
@@ -253,7 +257,9 @@
     "spreadExcludeCover": "Exkludera omslag från uppslag (para sidorna 2-3, 4-5…)",
     "archiveNotViewable": "Det här är en arkivfil och kan inte visas i läsaren. Ladda ner den för att öppna innehållet.",
     "textUnavailable": "Det här dokumentets text kunde inte läsas in.",
-    "shortcutExport": "Exportera sidor och urklipp"
+    "shortcutExport": "Exportera sidor och urklipp",
+    "notFound": "Boken hittades inte. Den kan ha flyttats eller tagits bort.",
+    "loadFailed": "Boken kunde inte läsas in."
   },
   "pageExport": {
     "menuItem": "Exportera sidor och urklipp",

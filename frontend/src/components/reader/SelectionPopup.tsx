@@ -1,13 +1,22 @@
 import { useTranslation } from 'react-i18next'
 import { LuBookmarkPlus } from 'react-icons/lu'
 
-/**
- * Floating chip shown above a text selection, allowing users to bookmark it.
- *
- * @param {object}   props.selectionPopup - { x, y, text, page }
- * @param {Function} props.onBookmark     - called with (page, text) when the button is pressed
- */
-export default function SelectionPopup({ selectionPopup, onBookmark }) {
+/** Where a text selection sits on screen, what it says, and which page it is on. */
+export interface TextSelection {
+  x: number
+  y: number
+  text: string
+  page: number
+}
+
+interface SelectionPopupProps {
+  selectionPopup: TextSelection
+  /** Called with (page, text) when the button is pressed. */
+  onBookmark: (page: number, text: string) => void
+}
+
+/** Floating chip shown above a text selection, allowing users to bookmark it. */
+export default function SelectionPopup({ selectionPopup, onBookmark }: SelectionPopupProps) {
   const { t } = useTranslation()
   return (
     <div

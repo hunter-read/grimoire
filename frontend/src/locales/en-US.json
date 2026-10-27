@@ -102,6 +102,10 @@
     "dismissError": "Dismiss error",
     "confirm": "Confirm"
   },
+  "errorBoundary": {
+    "message": "This page hit an error and could not be shown. Reload to try again, or go back.",
+    "reload": "Reload"
+  },
   "login": {
     "username": "Username",
     "password": "Password",
@@ -253,7 +257,9 @@
     "spreadExcludeCover": "Exclude cover from spread (pair pages 2-3, 4-5…)",
     "archiveNotViewable": "This is an archive file and cannot be viewed in the reader. Download it to open its contents.",
     "textUnavailable": "This document's text could not be loaded.",
-    "shortcutExport": "Export pages & cut-outs"
+    "shortcutExport": "Export pages & cut-outs",
+    "notFound": "This book could not be found. It may have been moved or removed.",
+    "loadFailed": "This book could not be loaded."
   },
   "pageExport": {
     "menuItem": "Export pages & cut-outs",

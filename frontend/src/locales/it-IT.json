@@ -102,6 +102,10 @@
     "dismissError": "Ignora l'errore",
     "confirm": "Conferma"
   },
+  "errorBoundary": {
+    "message": "Si è verificato un errore e questa pagina non può essere mostrata. Ricarica per riprovare o torna indietro.",
+    "reload": "Ricarica"
+  },
   "login": {
     "username": "Nome utente",
     "password": "Password",
@@ -253,7 +257,9 @@
     "spreadExcludeCover": "Escludi la copertina dalla doppia pagina (abbina pagine 2-3, 4-5…)",
     "archiveNotViewable": "Questo è un file archivio e non può essere visualizzato nel lettore. Scaricalo per aprirne il contenuto.",
     "textUnavailable": "Non è stato possibile caricare il testo di questo documento.",
-    "shortcutExport": "Esporta pagine e ritagli"
+    "shortcutExport": "Esporta pagine e ritagli",
+    "notFound": "Impossibile trovare questo libro. Potrebbe essere stato spostato o rimosso.",
+    "loadFailed": "Impossibile caricare questo libro."
   },
   "pageExport": {
     "menuItem": "Esporta pagine e ritagli",

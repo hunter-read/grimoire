@@ -41,6 +41,7 @@ import {
   CampaignNotesView,
 } from './routeViews'
 import RouteFallback from './RouteFallback'
+import ErrorBoundary from './ErrorBoundary'
 import PendingInvitesBanner from './campaigns/PendingInvitesBanner'
 
 const SIDEBAR_COLLAPSED_KEY = 'grimoire_sidebar_collapsed'
@@ -175,105 +176,118 @@ export default function AppShell() {
           }}
         >
           {!isGuest && <PendingInvitesBanner />}
-          {/* Each view is fetched the first time its route renders (issue #708);
+          {/* A view that throws while rendering shows a recovery panel here
+              rather than blanking the app; navigating anywhere clears it.
+              Each view is fetched the first time its route renders (issue #708);
               the sidebar and banner stay put while it loads. */}
-          <Suspense fallback={<RouteFallback />}>
-            {isGuest ? (
-              // Guests are scoped to their campaign(s); everything else redirects.
-              // The by-id detail routes are included because a campaign resource
-              // row links straight to one (issue #361) — without them the link
-              // fell through to the catch-all and bounced back to the campaign
-              // list. Library *browsing* stays closed: there is no list route
-              // here, and the backend authorises each by-id read against the
-              // guest's campaign shares (`user_can_access_resource`).
-              <Routes>
-                <Route path="/campaigns" element={<CampaignsView />} />
-                <Route path="/campaigns/:campaignId" element={<Navigate to="overview" replace />} />
-                <Route path="/campaigns/:campaignId/notes" element={<CampaignNotesView />} />
-                <Route path="/campaigns/:campaignId/:tab" element={<CampaignDetailView />} />
-                <Route path="/characters" element={<CharactersView />} />
-                {/* Rulesets moved into the sheet manager. Kept as a redirect so
+          <ErrorBoundary resetKey={location.key}>
+            <Suspense fallback={<RouteFallback />}>
+              {isGuest ? (
+                // Guests are scoped to their campaign(s); everything else redirects.
+                // The by-id detail routes are included because a campaign resource
+                // row links straight to one (issue #361) — without them the link
+                // fell through to the catch-all and bounced back to the campaign
+                // list. Library *browsing* stays closed: there is no list route
+                // here, and the backend authorises each by-id read against the
+                // guest's campaign shares (`user_can_access_resource`).
+                <Routes>
+                  <Route path="/campaigns" element={<CampaignsView />} />
+                  <Route
+                    path="/campaigns/:campaignId"
+                    element={<Navigate to="overview" replace />}
+                  />
+                  <Route path="/campaigns/:campaignId/notes" element={<CampaignNotesView />} />
+                  <Route path="/campaigns/:campaignId/:tab" element={<CampaignDetailView />} />
+                  <Route path="/characters" element={<CharactersView />} />
+                  {/* Rulesets moved into the sheet manager. Kept as a redirect so
                   a bookmarked link still lands somewhere useful, and before
                   :characterId, which would otherwise swallow it. */}
-                <Route
-                  path="/characters/rulesets"
-                  element={<Navigate to="/characters?manage=rulesets" replace />}
-                />
-                <Route path="/characters/:characterId" element={<CharacterDetailView />} />
-                <Route path="/library/book/:bookId" element={<BookReader />} />
-                <Route path="/maps/:mapId" element={<MapDetailView />} />
-                <Route path="/tokens/:tokenId" element={<TokenDetailView />} />
-                <Route path="/audio/:audioId" element={<AudioDetailView />} />
-                <Route path="/models/:modelId" element={<ModelDetailView />} />
-                <Route path="*" element={<Navigate to="/campaigns" replace />} />
-              </Routes>
-            ) : (
-              <Routes>
-                <Route path="/" element={<Navigate to="/library" replace />} />
-                <Route path="/library" element={<LibraryView />} />
-                <Route path="/library/system/:systemId" element={<SystemDetailView />} />
-                <Route path="/library/book/:bookId" element={<BookReader />} />
-                <Route path="/maps" element={<MapsView />} />
-                <Route path="/maps/:mapId" element={<MapDetailView />} />
-                {/* Full-page: the Universal VTT editor needs the whole width for
+                  <Route
+                    path="/characters/rulesets"
+                    element={<Navigate to="/characters?manage=rulesets" replace />}
+                  />
+                  <Route path="/characters/:characterId" element={<CharacterDetailView />} />
+                  <Route path="/library/book/:bookId" element={<BookReader />} />
+                  <Route path="/maps/:mapId" element={<MapDetailView />} />
+                  <Route path="/tokens/:tokenId" element={<TokenDetailView />} />
+                  <Route path="/audio/:audioId" element={<AudioDetailView />} />
+                  <Route path="/models/:modelId" element={<ModelDetailView />} />
+                  <Route path="*" element={<Navigate to="/campaigns" replace />} />
+                </Routes>
+              ) : (
+                <Routes>
+                  <Route path="/" element={<Navigate to="/library" replace />} />
+                  <Route path="/library" element={<LibraryView />} />
+                  <Route path="/library/system/:systemId" element={<SystemDetailView />} />
+                  <Route path="/library/book/:bookId" element={<BookReader />} />
+                  <Route path="/maps" element={<MapsView />} />
+                  <Route path="/maps/:mapId" element={<MapDetailView />} />
+                  {/* Full-page: the Universal VTT editor needs the whole width for
                   a zoomable canvas plus its tool and property panels, and the
                   detail pane already competes with a sidebar and nav arrows. */}
-                {/* Standalone: upload a map image or a .uvtt and edit it without
+                  {/* Standalone: upload a map image or a .uvtt and edit it without
                   anything being written to the library, as the token editor
                   does. Declared after :mapId for readability — React Router
                   already ranks the static segment higher. */}
-                <Route path="/maps/editor" element={<VttEditorView />} />
-                <Route path="/maps/:mapId/vtt-editor" element={<VttEditorView />} />
-                <Route path="/tokens" element={<TokensView />} />
-                {/* Full-page for the same reason as the VTT editor: the canvas,
+                  <Route path="/maps/editor" element={<VttEditorView />} />
+                  <Route path="/maps/:mapId/vtt-editor" element={<VttEditorView />} />
+                  <Route path="/tokens" element={<TokensView />} />
+                  {/* Full-page for the same reason as the VTT editor: the canvas,
                   the control column, and the frame gallery need to sit side by
                   side. Declared before the :tokenId route for readability —
                   React Router already ranks the static segment higher.
                   Registered only in this block, so guests (whose routes are the
                   branch above) cannot reach the editor at all. */}
-                <Route path="/tokens/editor" element={<TokenEditorView />} />
-                <Route path="/tokens/:tokenId/editor" element={<TokenEditorView />} />
-                <Route path="/tokens/:tokenId" element={<TokenDetailView />} />
-                <Route path="/audio" element={<AudioView />} />
-                <Route path="/audio/:audioId" element={<AudioDetailView />} />
-                <Route path="/models" element={<ModelsView />} />
-                <Route path="/models/:modelId" element={<ModelDetailView />} />
-                <Route path="/search" element={<SearchView />} />
-                <Route path="/favorites" element={<FavoritesView />} />
-                <Route path="/tags" element={<TagsView />} />
-                <Route path="/campaigns" element={<CampaignsView />} />
-                <Route path="/campaigns/:campaignId" element={<Navigate to="overview" replace />} />
-                <Route path="/campaigns/:campaignId/notes" element={<CampaignNotesView />} />
-                <Route path="/campaigns/:campaignId/:tab" element={<CampaignDetailView />} />
-                <Route path="/characters" element={<CharactersView />} />
-                {/* Rulesets moved into the sheet manager. Kept as a redirect so
+                  <Route path="/tokens/editor" element={<TokenEditorView />} />
+                  <Route path="/tokens/:tokenId/editor" element={<TokenEditorView />} />
+                  <Route path="/tokens/:tokenId" element={<TokenDetailView />} />
+                  <Route path="/audio" element={<AudioView />} />
+                  <Route path="/audio/:audioId" element={<AudioDetailView />} />
+                  <Route path="/models" element={<ModelsView />} />
+                  <Route path="/models/:modelId" element={<ModelDetailView />} />
+                  <Route path="/search" element={<SearchView />} />
+                  <Route path="/favorites" element={<FavoritesView />} />
+                  <Route path="/tags" element={<TagsView />} />
+                  <Route path="/campaigns" element={<CampaignsView />} />
+                  <Route
+                    path="/campaigns/:campaignId"
+                    element={<Navigate to="overview" replace />}
+                  />
+                  <Route path="/campaigns/:campaignId/notes" element={<CampaignNotesView />} />
+                  <Route path="/campaigns/:campaignId/:tab" element={<CampaignDetailView />} />
+                  <Route path="/characters" element={<CharactersView />} />
+                  {/* Rulesets moved into the sheet manager. Kept as a redirect so
                   a bookmarked link still lands somewhere useful, and before
                   :characterId, which would otherwise swallow it. */}
-                <Route
-                  path="/characters/rulesets"
-                  element={<Navigate to="/characters?manage=rulesets" replace />}
-                />
-                <Route path="/characters/:characterId" element={<CharacterDetailView />} />
-                {/* Full-page, outside the settings tabs: bulk reorganisation needs
+                  <Route
+                    path="/characters/rulesets"
+                    element={<Navigate to="/characters?manage=rulesets" replace />}
+                  />
+                  <Route path="/characters/:characterId" element={<CharacterDetailView />} />
+                  {/* Full-page, outside the settings tabs: bulk reorganisation needs
                   the whole width for two panes (issue #302). */}
-                <Route path="/settings/files" element={<FileManagerView />} />
-                {/* Full-page for the same reason: comparing copies wants the
+                  <Route path="/settings/files" element={<FileManagerView />} />
+                  {/* Full-page for the same reason: comparing copies wants the
                   width, and destructive actions stay off the settings tab. */}
-                <Route path="/settings/duplicates" element={<DuplicatesView />} />
-                <Route
-                  path="/settings/duplicates/compare/:resourceType"
-                  element={<DuplicateCompareView />}
-                />
-                {/* SettingsView picks the landing area: the admin overview, or
+                  <Route path="/settings/duplicates" element={<DuplicatesView />} />
+                  <Route
+                    path="/settings/duplicates/compare/:resourceType"
+                    element={<DuplicateCompareView />}
+                  />
+                  {/* SettingsView picks the landing area: the admin overview, or
                   the account page for everyone else. */}
-                <Route path="/settings" element={<SettingsView user={user} onLogout={logout} />} />
-                <Route
-                  path="/settings/:tab"
-                  element={<SettingsView user={user} onLogout={logout} />}
-                />
-              </Routes>
-            )}
-          </Suspense>
+                  <Route
+                    path="/settings"
+                    element={<SettingsView user={user} onLogout={logout} />}
+                  />
+                  <Route
+                    path="/settings/:tab"
+                    element={<SettingsView user={user} onLogout={logout} />}
+                  />
+                </Routes>
+              )}
+            </Suspense>
+          </ErrorBoundary>
         </main>
 
         {isMobile && <MobileSidebar user={user} onLogout={logout} uiSettings={uiSettings} />}

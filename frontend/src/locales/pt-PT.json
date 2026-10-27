@@ -102,6 +102,10 @@
     "dismissError": "Ignorar erro",
     "confirm": "Confirmar"
   },
+  "errorBoundary": {
+    "message": "Ocorreu um erro e não foi possível mostrar esta página. Recarregue para tentar novamente ou volte atrás.",
+    "reload": "Recarregar"
+  },
   "login": {
     "username": "Nome de utilizador",
     "password": "Palavra-passe",
@@ -253,7 +257,9 @@
     "spreadExcludeCover": "Excluir capa da página dupla (emparelhar páginas 2-3, 4-5…)",
     "archiveNotViewable": "Este é um ficheiro de arquivo e não pode ser visualizado no leitor. Descarregue-o para abrir o seu conteúdo.",
     "textUnavailable": "This document's text could not be loaded.",
-    "shortcutExport": "Exportar páginas e recortes"
+    "shortcutExport": "Exportar páginas e recortes",
+    "notFound": "Este livro não foi encontrado. Pode ter sido movido ou removido.",
+    "loadFailed": "Não foi possível carregar este livro."
   },
   "pageExport": {
     "menuItem": "Exportar páginas e recortes",

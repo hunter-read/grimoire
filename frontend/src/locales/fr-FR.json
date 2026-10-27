@@ -102,6 +102,10 @@
     "dismissError": "Masquer l'erreur",
     "confirm": "Confirmer"
   },
+  "errorBoundary": {
+    "message": "Une erreur a empêché l'affichage de cette page. Rechargez pour réessayer ou revenez en arrière.",
+    "reload": "Recharger"
+  },
   "login": {
     "username": "Nom d'utilisateur",
     "password": "Mot de passe",
@@ -253,7 +257,9 @@
     "spreadExcludeCover": "Exclure la couverture de la double page (pages 2-3, 4-5…)",
     "archiveNotViewable": "Ce fichier est une archive et ne peut pas être affiché dans le lecteur. Téléchargez-le pour en ouvrir le contenu.",
     "textUnavailable": "This document's text could not be loaded.",
-    "shortcutExport": "Exporter des pages et découpes"
+    "shortcutExport": "Exporter des pages et découpes",
+    "notFound": "Ce livre est introuvable. Il a peut-être été déplacé ou supprimé.",
+    "loadFailed": "Impossible de charger ce livre."
   },
   "pageExport": {
     "menuItem": "Exporter des pages et découpes",
