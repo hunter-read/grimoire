@@ -172,7 +172,9 @@ describe('WatchLibrarySection', () => {
     fireEvent.click(screen.getByRole('radio', { name: 'Check regularly' }))
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
     expect(await screen.findByRole('status')).toHaveTextContent('Saved')
-    expect(dirty()).toBe(false)
+    // "Saved" renders in the same commit as the new settings, but the section
+    // reports itself clean from an effect after it, so wait for that report.
+    await waitFor(() => expect(dirty()).toBe(false))
 
     unmount()
     expect(set).toHaveBeenLastCalledWith('watch', false)
