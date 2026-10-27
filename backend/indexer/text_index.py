@@ -143,7 +143,11 @@ def index_book_text(
     # coverage setting (0 = keep whatever text the book has, as before) rather
     # than taking the image-only path, where ``text_too_thin`` reads 0 as "no
     # text at all" and declines to judge it.
-    no_text_pages = bool(pages) and not text_pages and config.OCR_MIN_TEXT_COVERAGE > 0
+    # total_pages of 0 means the page count is unreadable, which is no basis
+    # for calling a layer thin - the same guard text_too_thin makes.
+    no_text_pages = (
+        bool(pages) and total_pages > 0 and not text_pages and config.OCR_MIN_TEXT_COVERAGE > 0
+    )
     too_thin = no_text_pages or text_too_thin(text_pages, total_pages)
 
     if (not pages or too_thin) and ocr.ocr_available():
