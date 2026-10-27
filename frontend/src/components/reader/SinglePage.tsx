@@ -1,17 +1,21 @@
 import { mediaUrl } from '../../api'
+import RetryingImage from './RetryingImage'
 import TextOverlay from './TextOverlay'
 import { PAGE_WIDTH, animStyle } from './pageRender'
-import type { PageMotion, PageUrl, RenderTiles, WordsCacheRef } from './pageRender'
+import type { PageUrlFor, RenderTiles, WordsCacheRef } from './pageTypes'
 
-export interface SinglePageProps extends PageMotion {
-  /** Required unless `pageUrl` is given. */
+interface Props {
   bookId?: string
   currentPage: number
   wordsCacheRef?: WordsCacheRef
   getAlt: (page: number) => string
+  zoom: number
+  pan: { x: number; y: number }
+  axisRef: { current: 'x' | 'y' }
+  directionRef: { current: number }
   activeSearchQuery?: string | null
   activeHighlight?: string | null
-  pageUrl?: PageUrl
+  pageUrl?: PageUrlFor
   renderWidth?: number
   renderTiles?: RenderTiles
 }
@@ -28,6 +32,8 @@ export interface SinglePageProps extends PageMotion {
  *
  * `renderTiles(page, words)` adds the reader's zoom tiles over the page image,
  * under the selectable text (issue #574). Only pages with geometry get them.
+ *
+ * A page image the server was too busy to render is asked for again (issue #701).
  */
 export default function SinglePage({
   bookId,
@@ -43,9 +49,9 @@ export default function SinglePage({
   pageUrl,
   renderWidth = PAGE_WIDTH,
   renderTiles,
-}: SinglePageProps) {
-  const urlFor =
-    pageUrl ?? ((p: number, width: number) => mediaUrl(`/books/${bookId}/page/${p}`, { width }))
+}: Props) {
+  const urlFor: PageUrlFor =
+    pageUrl ?? ((p, width) => mediaUrl(`/books/${bookId}/page/${p}`, { width }))
   const wd = wordsCacheRef?.current[currentPage]
   return (
     <div
@@ -71,7 +77,7 @@ export default function SinglePage({
             lineHeight: 0,
           }}
         >
-          <img
+          <RetryingImage
             src={urlFor(currentPage, renderWidth)}
             data-page-image
             alt={getAlt(currentPage)}
@@ -95,7 +101,7 @@ export default function SinglePage({
           />
         </div>
       ) : (
-        <img
+        <RetryingImage
           src={urlFor(currentPage, renderWidth)}
           data-page-image
           alt={getAlt(currentPage)}

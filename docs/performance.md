@@ -79,6 +79,8 @@ Four workers fall short of four times one because books are shared out by a hash
 
 Set `RENDER_WORKERS=0` on a host that is very short of memory: rendering then happens inside Grimoire as it used to, without the crash protection. See [Memory use](#memory-use) for the trade-off.
 
+**`RENDER_QUEUE_LIMIT`** (default `16`) caps how many pages and zoom tiles may be rendering or waiting to render at once. Each one ties up a request thread until its render finishes, so without a cap a big book opened or a deep zoom could leave nothing to answer anyone else. Past the cap, a page that isn't rendered yet gets a "busy, try again" answer and the reader asks again a second or two later; pages already rendered are always served. Raise it alongside `RENDER_WORKERS`, but going far past `20` leaves little room for other requests during a burst.
+
 ## Memory use
 
 Out of the box Grimoire runs a single worker process and settles at roughly 250 MB once your library is scanned. Reading adds to that temporarily: rendering an illustrated page decodes its images to full size, which can take a few hundred MB while someone is turning pages. Grimoire hands that memory back automatically - every `PAGE_RECLAIM_INTERVAL` renders, and again once nobody has read anything for `PAGE_IDLE_RELEASE` seconds - so it returns to its idle footprint after a reading session.

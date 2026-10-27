@@ -8,6 +8,7 @@ import io
 import uuid
 from types import SimpleNamespace
 
+import httpx
 import pytest
 from PIL import Image
 
@@ -461,3 +462,56 @@ def test_upload_cover_needs_a_key(fake):
     fake.on("POST", "/api/v1/uploads", status=201, body=["nope"])
     with pytest.raises(codex.CodexError):
         codex_client.upload_cover(settings, b"x", "image/png")
+
+
+class TestNoConnectionHeld:
+    """Grimoire Codex DB can take seconds to answer; no pooled connection waits on it (issue #701)."""
+
+    def _record(self, fake, sessions, method, path, status=200, body=None):
+        seen = []
+
+        def answer(_req):
+            seen.append(sessions[-1].in_transaction())
+            return httpx.Response(status, json=body)
+
+        fake.routes[(method, path)] = answer
+        return seen
+
+    def test_compare(self, client, gm_headers, fake, cover, scrapers, request_sessions):
+        system = make_game_system(name=_name("Cairn"))
+        _link(GameSystem, system.id, "sy_cairn01")
+        seen = self._record(
+            fake, request_sessions, "GET", "/api/v1/systems/sy_cairn01/grimoire", body=SYSTEM_EXPORT
+        )
+        r = client.get(f"/api/codex/systems/{system.id}/compare", headers=gm_headers)
+        assert r.status_code == 200
+        assert seen == [False]
+
+    def test_submit_with_a_cover(self, client, gm_headers, fake, cover, request_sessions):
+        system = make_game_system()
+        _link(GameSystem, system.id, "sy_cairn01")
+        uploads = self._record(
+            fake, request_sessions, "POST", "/api/v1/uploads", status=201, body={"key": KEY}
+        )
+        submits = self._record(
+            fake,
+            request_sessions,
+            "POST",
+            "/api/v1/grimoire/systems",
+            body={"codex_id": "sy_cairn01", "edit": {"id": "ed_9", "status": "applied"}},
+        )
+        r = client.post(
+            f"/api/codex/systems/{system.id}/submit",
+            json={"fields": [], "cover": True},
+            headers=gm_headers,
+        )
+        assert r.status_code == 200, r.text
+        assert uploads == [False] and submits == [False]
+
+    def test_test_connection(self, client, admin_headers, fake, request_sessions):
+        seen = self._record(
+            fake, request_sessions, "GET", "/api/v1/me", body={"user": {"name": "a", "role": "editor"}}
+        )
+        r = client.post("/api/codex/test", headers=admin_headers)
+        assert r.status_code == 200, r.text
+        assert seen == [False]

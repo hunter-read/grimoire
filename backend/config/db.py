@@ -71,6 +71,32 @@ def get_db() -> Iterator["Session"]:
         db.close()
 
 
+def release_connection(db: "Session") -> None:
+    """Hand the session's pooled connection back before a slow wait (issue #701).
+
+    A session holds its connection from its first query until the transaction
+    ends, which for a request's ``get_db`` session is the end of the request. A
+    handler that then waits on a render or a remote server kept a connection
+    out of a small pool the whole time, and a burst of them left every other
+    request waiting 30 seconds for one.
+
+    Ends the transaction without expiring what it loaded, so the objects stay
+    usable; the next query starts a new one. Only for a session with nothing
+    left to write: committing someone's pending changes early would be a
+    surprise, so that raises instead.
+    """
+    if not db.in_transaction():
+        return
+    if db.new or db.dirty or db.deleted:
+        raise RuntimeError("release_connection() on a session with unsaved changes")
+    expire = db.expire_on_commit
+    db.expire_on_commit = False
+    try:
+        db.commit()
+    finally:
+        db.expire_on_commit = expire
+
+
 def __getattr__(name: str) -> Any:
     """``SessionLocal``, created on first use so importing config doesn't load SQLAlchemy."""
     if name == "SessionLocal":

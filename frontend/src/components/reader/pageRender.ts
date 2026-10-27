@@ -1,29 +1,4 @@
-import type { CSSProperties, ReactNode, RefObject } from 'react'
-import type { Schema } from '../../api'
-
-/** A page's word geometry, for the selectable text layer. */
-export type PageWords = Schema<'PageWordsResponse'>
-
-/** The reader's cache of page word geometry; null for a page that has none. */
-export type WordsCacheRef = RefObject<Record<number, PageWords | null | undefined>>
-
-/** Builds a page image URL at a render width. */
-export type PageUrl = (page: number, width: number) => string
-
-/** Draws the zoom tiles over one page (see ZoomTiles). */
-export type RenderTiles = (
-  page: number,
-  words: PageWords,
-  options?: { joined?: boolean }
-) => ReactNode
-
-/** The props every page layout takes for its entrance animation and zoom. */
-export interface PageMotion {
-  zoom: number
-  pan: { x: number; y: number }
-  axisRef: RefObject<'x' | 'y'>
-  directionRef: RefObject<number>
-}
+import type { CSSProperties, RefObject } from 'react'
 
 // Shared page-rendering constants and animation helper for the reader's page
 // components (SinglePage / SpreadPage) and ReaderView's image preloader.

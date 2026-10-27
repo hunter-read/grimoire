@@ -127,6 +127,7 @@ if TYPE_CHECKING:
         PAGE_RECLAIM_INTERVAL as PAGE_RECLAIM_INTERVAL,
         PAGE_IDLE_RELEASE as PAGE_IDLE_RELEASE,
         RENDER_WORKERS as RENDER_WORKERS,
+        RENDER_QUEUE_LIMIT as RENDER_QUEUE_LIMIT,
         PAGE_CACHE_TTL as PAGE_CACHE_TTL,
         PAGE_CACHE_MAX_MB as PAGE_CACHE_MAX_MB,
         ALLOW_PASSWORD_AUTHENTICATION_ENV as ALLOW_PASSWORD_AUTHENTICATION_ENV,
@@ -197,6 +198,7 @@ if TYPE_CHECKING:
         SessionLocal as SessionLocal,
         init_database as init_database,
         get_db as get_db,
+        release_connection as release_connection,
     )
     from .valkey import (
         valkey_errors as valkey_errors,

@@ -22,7 +22,7 @@ export interface Cutout extends PageBox {
   locked?: boolean
 }
 
-export type { PageUrl } from '../pageRender'
+export type { PageUrlFor as PageUrl } from '../pageTypes'
 
 /** A cut-out as it is listed: numbered in page order, with the name it downloads as. */
 export interface NumberedCutout extends Cutout {

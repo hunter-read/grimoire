@@ -28,6 +28,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Opening a book that has been removed, or that the server can't load, says so instead of showing a spinner forever
 - Clicking quickly from one campaign note to another no longer leaves the first note on screen under the second's name, where editing it changed the wrong note
 - Merging duplicates with "delete files" on no longer deletes the merged copies' files if saving the merge fails, which used to leave them listed in the library with nothing on disk
+- Opening a large book or zooming in deeply no longer stalls the rest of Grimoire for half a minute or fails other requests with server errors. Pages waiting to render no longer hold on to the database, and once `RENDER_QUEUE_LIMIT` pages (default `16`) are already rendering, the reader is told to try again shortly and does so by itself
 
 - Renaming, moving or uploading into a library folder Grimoire doesn't have permission to write to no longer says the library is mounted read-only. It names the folder and the user Grimoire runs as, and points to `PUID`/`PGID`; a library that really is mounted read-only still says so
 - Grimoire stays root at start-up when the user it would switch to can't write to folders inside the library, not just the library folder itself, so moving and renaming keep working after updating from a version that ran as root

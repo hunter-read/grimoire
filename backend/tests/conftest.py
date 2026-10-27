@@ -28,6 +28,10 @@ os.environ.setdefault(
 from fastapi.testclient import TestClient  # noqa: E402
 from backend.main import app  # noqa: E402
 from backend.config import SessionLocal  # noqa: E402
+# The get_db every router captured when backend.main was imported just above,
+# kept for ``request_sessions``: a test that reloads config replaces the one
+# backend.config holds, but not the routers' copy.
+from backend.config import get_db as _ROUTER_GET_DB  # noqa: E402
 from backend.models import (  # noqa: E402
     GameSystem,
     Book,
@@ -473,6 +477,37 @@ def library_mounted(monkeypatch):
     from backend.services import library_cleanup
 
     monkeypatch.setattr(library_cleanup, "library_root_unavailable", lambda db: False)
+
+
+@pytest.fixture
+def request_sessions():
+    """The sessions ``get_db`` hands to handlers during the test, newest last.
+
+    For asserting a handler let go of its connection before a slow wait
+    (issue #701): ``request_sessions[-1].in_transaction()`` is False once it has.
+
+    Overrides the ``get_db`` the routers imported as well as the one
+    ``backend.config`` holds now: they differ once a test has reloaded config,
+    and only the routers' copy is ever consulted.
+    """
+    from backend import config
+
+    sessions = []
+
+    def tracked():
+        db = SessionLocal()
+        sessions.append(db)
+        try:
+            yield db
+        finally:
+            db.close()
+
+    targets = {_ROUTER_GET_DB, config.get_db}
+    for call in targets:
+        app.dependency_overrides[call] = tracked
+    yield sessions
+    for call in targets:
+        app.dependency_overrides.pop(call, None)
 
 
 # A settings patch that makes OIDC count as configured (enabled, with an issuer,

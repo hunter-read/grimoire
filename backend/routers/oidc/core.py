@@ -28,7 +28,7 @@ from ...auth import (
 from ...security import limiter
 from ...sessions import create_session
 from ...services.user_activity import note_sign_in
-from ...config import get_db
+from ...config import get_db, release_connection
 from .._client import client_ip, client_user_agent
 from ...services.app_settings import (
     get_raw,
@@ -297,6 +297,9 @@ def _finish_sign_in(
 
     if not oidc_is_configured(raw):
         return _redirect_with_error("OIDC is not configured")
+    # The calls to the provider below can take seconds each; don't hold a
+    # pooled connection through them (issue #701).
+    release_connection(db)
 
     token_url = eff["oidc_token_endpoint"] or _try_endpoint(
         eff["oidc_issuer_url"], "token_endpoint"

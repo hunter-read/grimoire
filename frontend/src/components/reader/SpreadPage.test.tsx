@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
+import type { ComponentProps } from 'react'
 import { render, fireEvent } from '@testing-library/react'
 import SpreadPage from './SpreadPage'
-import type { SpreadPageProps } from './SpreadPage'
-import type { RenderTiles } from './pageRender'
+import type { RenderTiles } from './pageTypes'
 
 const words = (width: number, height: number) => ({
   width,
@@ -10,7 +10,7 @@ const words = (width: number, height: number) => ({
   words: [{ x0: 10, y0: 10, x1: 50, y1: 20, text: 'dragon' }],
 })
 
-function renderSpread(props: Partial<SpreadPageProps> = {}) {
+function renderSpread(props: Partial<ComponentProps<typeof SpreadPage>> = {}) {
   return render(
     <SpreadPage
       bookId="b1"

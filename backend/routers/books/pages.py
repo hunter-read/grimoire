@@ -10,7 +10,7 @@ from sqlalchemy import text as sql_text
 
 from .._user_files import serve_user_file
 from ...auth import CurrentUser, get_current_user
-from ...config import _PAGE_CACHE_HEADERS, PAGE_CACHE_DIR, get_db
+from ...config import _PAGE_CACHE_HEADERS, PAGE_CACHE_DIR, get_db, release_connection
 from ...file_cache import etag_matches
 from ...indexer import comics, text_documents
 from ...indexer.formats import (
@@ -44,11 +44,16 @@ def _authorize_book(db: Session, book_id: str, user) -> None:
     Shared by the page/TOC/text/words routes, which otherwise serve content by
     bare id with no per-book authorisation. 404s a missing book so we don't leak
     which ids exist to a caller that couldn't read them anyway.
+
+    Hands the session's connection back once it has answered: every one of
+    these routes may go on to wait on the render pool, and holding a pooled
+    connection through that starved the rest of the API (issue #701).
     """
     book = db.query(Book).filter_by(id=book_id).first()
     if not book:
         raise HTTPException(404, "Book not found")
     assert_book_access(db, book, user)
+    release_connection(db)
 
 
 def get_book_toc(
@@ -62,6 +67,7 @@ def get_book_toc(
     if not book or not is_fitz_mime(book.mime_type):
         raise HTTPException(404)
     assert_book_access(db, book, current_user)
+    release_connection(db)
     # Not `get_toc` directly: MuPDF drops the whole outline over one bookmark
     # it can't resolve, which left books with a perfectly usable TOC showing none
     # (see render/outline.py). Read in a render worker, like the pages.
@@ -180,6 +186,7 @@ def get_page_text(
     ).fetchone()
     if row is not None:
         return {"text": row[0] or ""}
+    release_connection(db)
 
     filepath = book_info[0]
     if not os.path.exists(filepath):

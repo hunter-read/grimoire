@@ -21,6 +21,7 @@ from ...config import (
     THUMB_DIR,
     get_db,
     logger,
+    release_connection,
 )
 from ...models import GenericMap, MapFolder
 from ...models.base import utc_iso
@@ -250,6 +251,9 @@ def serve_map_page(
             db.commit()
         raise HTTPException(404, "File not found on disk")
     filepath = m.filepath
+    # Nothing below needs the database, and a cold render can take seconds
+    # (issue #701).
+    release_connection(db)
 
     # Archives have no renderable pages — the client downloads them instead.
     if archive_ext(m.filename):

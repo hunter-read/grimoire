@@ -5,6 +5,7 @@ import threading
 from unittest.mock import MagicMock
 
 import pytest
+from fastapi import HTTPException
 
 from backend import config
 from backend.routers.books import _render_cache
@@ -162,6 +163,83 @@ class TestSingleFlight:
         assert _render_cache._inflight == {}
         # The next request tries again rather than waiting on a dead render.
         assert _body(_serve(cache_path, lambda: b"retry")) == b"retry"
+
+
+class TestAdmission:
+    """Misses past RENDER_QUEUE_LIMIT are refused with a 503 (issue #701)."""
+
+    @pytest.fixture(autouse=True)
+    def no_valkey(self, monkeypatch):
+        monkeypatch.setattr(config, "_valkey", None)
+        monkeypatch.setattr(_render_cache, "valkey_cache_set", lambda *_a: False)
+        monkeypatch.setattr(config, "RENDER_QUEUE_LIMIT", 1)
+
+    def _hold(self, tmp_path, key="page:held"):
+        """Start a render of ``key`` that runs until the returned event is set."""
+        started, release = threading.Event(), threading.Event()
+
+        def render():
+            started.set()
+            assert release.wait(5)
+            return b"held"
+
+        thread = threading.Thread(
+            target=_render_cache.serve_cached_render,
+            args=(key, str(tmp_path / "held.webp"), {}, render),
+        )
+        thread.start()
+        assert started.wait(5)
+        return thread, release
+
+    def test_a_miss_over_the_limit_is_a_503(self, tmp_path):
+        thread, release = self._hold(tmp_path)
+        try:
+            with pytest.raises(HTTPException) as exc:
+                _render_cache.serve_cached_render(
+                    "page:other", str(tmp_path / "other.webp"), {}, lambda: b"never"
+                )
+            assert exc.value.status_code == 503
+            assert exc.value.headers["Retry-After"] == str(_render_cache.RETRY_AFTER)
+        finally:
+            release.set()
+            thread.join(5)
+        assert _render_cache._admitted == 0
+        # With room again, the same miss renders.
+        resp = _render_cache.serve_cached_render(
+            "page:other", str(tmp_path / "other.webp"), {}, lambda: b"now"
+        )
+        assert _body(resp) == b"now"
+
+    def test_waiting_on_the_same_key_counts_too(self, tmp_path):
+        """A request for a page already rendering still holds a thread while it waits."""
+        thread, release = self._hold(tmp_path)
+        try:
+            with pytest.raises(HTTPException):
+                _render_cache.serve_cached_render(
+                    "page:held", str(tmp_path / "held.webp"), {}, lambda: b"never"
+                )
+        finally:
+            release.set()
+            thread.join(5)
+
+    def test_a_cache_hit_is_never_refused(self, tmp_path):
+        cached = tmp_path / "cached.webp"
+        cached.write_bytes(b"cached")
+        thread, release = self._hold(tmp_path)
+        try:
+            resp = _render_cache.serve_cached_render("page:cached", str(cached), {}, lambda: b"x")
+            assert _body(resp) == b"cached"
+        finally:
+            release.set()
+            thread.join(5)
+
+    def test_a_failed_render_gives_its_place_back(self, cache_path):
+        def boom():
+            raise RuntimeError("worker died")
+
+        with pytest.raises(RuntimeError):
+            _serve(cache_path, boom)
+        assert _render_cache._admitted == 0
 
 
 class TestDiskWrite:
