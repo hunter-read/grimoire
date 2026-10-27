@@ -89,7 +89,7 @@ export default function GridCalibrator({
   }, [onWheel])
 
   // Line width is tied to the zoom so the grid stays one screen pixel wide —
-  // see gridOverlay.js for why that and the gradient choice both matter.
+  // see gridOverlay.ts for why that and the gradient choice both matter.
   const gridStyle = gridOverlayStyle(cellPx, offset, view.scale)
 
   return (

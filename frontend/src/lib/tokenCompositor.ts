@@ -1,7 +1,7 @@
 /**
  * Canvas compositing for the token editor.
  *
- * Lives under `src/lib/` for the same reason `three.js` and `pdfjs.js` do: that
+ * Lives under `src/lib/` for the same reason `three.ts` and `pdfjs.ts` do: that
  * directory is excluded from coverage, and a 2D canvas context does not exist
  * under jsdom. Keep the untestable pixel work here and the branching in the
  * components, so their state machines stay testable with this module mocked.
@@ -210,7 +210,7 @@ export function drawSpec(canvas: HTMLCanvasElement, spec: TokenSpec): HTMLCanvas
   // canvas and punched to that shape. A frame is rarely a circle — a hexagon or
   // an ornate border has an interior no geometric mask describes — so cropping
   // to the frame's real opening is what keeps art from spilling into corners the
-  // frame does not cover. `frameMask` is built by lib/frameMask.js.
+  // frame does not cover. `frameMask` is built by lib/frameMask.ts.
   const scratch = frameMask ? document.createElement('canvas') : null
   if (scratch) {
     scratch.width = size

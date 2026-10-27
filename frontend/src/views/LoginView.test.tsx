@@ -126,7 +126,7 @@ describe('LoginView', () => {
         return Promise.resolve({
           ok: true,
           status: 200,
-          // api.js reads the body as text and parses it itself (issue #270).
+          // api.ts reads the body as text and parses it itself (issue #270).
           text: () => Promise.resolve(JSON.stringify(body)),
           json: () => Promise.resolve(body),
         })

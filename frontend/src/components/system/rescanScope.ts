@@ -2,7 +2,7 @@
  *
  *  A scope is a library-root-relative folder path the backend re-scans. Each
  *  helper takes the system's category `depth` (see `categoryDepth` in
- *  folderTree.js): 2 for an ordinary system, 3 for one nested in a container
+ *  folderTree.tsx): 2 for an ordinary system, 3 for one nested in a container
  *  folder, where every path index shifts by the container segment.
  *
  *  Extracted from SystemDetailView so the path arithmetic is unit-testable. */

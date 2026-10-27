@@ -73,12 +73,12 @@ server, whose tools call the REST handlers.
 
 | Path | Responsibility |
 | --- | --- |
-| [`frontend/src/App.jsx`](../frontend/src/App.jsx) | Router setup, protected routes, and the context-provider tree. |
+| [`frontend/src/App.tsx`](../frontend/src/App.tsx) | Router setup, protected routes, and the context-provider tree. |
 | [`frontend/src/api.ts`](../frontend/src/api.ts) | The API client everything imports from. [`api/client.ts`](../frontend/src/api/client.ts) is the transport - attaches the JWT, refreshes a stale token once, turns error bodies into `ApiError`s - plus the `client` typed from the OpenAPI schema and the `mediaUrl(...)` helper for image/download URLs; the per-feature namespaces (`campaigns`, `auth`, `settings`, …) live beside it in `api/`. [`api/schema.d.ts`](../frontend/src/api/schema.d.ts) is generated from the backend - see [TypeScript](typescript.md). |
 | [`frontend/src/context/`](../frontend/src/context/) | `AuthContext` (token + current user), `UISettingsContext`, `FavoritesContext`. |
 | [`frontend/src/views/`](../frontend/src/views/) | Page-level components - one per route. |
 | [`frontend/src/components/`](../frontend/src/components/) | Shared UI components (one component per file - enforced by ESLint). |
-| [`frontend/src/hooks/`](../frontend/src/hooks/), [`frontend/src/utils.js`](../frontend/src/utils.js) | Reusable hooks and helpers. |
+| [`frontend/src/hooks/`](../frontend/src/hooks/), [`frontend/src/utils.ts`](../frontend/src/utils.ts) | Reusable hooks and helpers. |
 
 ## Request lifecycle
 

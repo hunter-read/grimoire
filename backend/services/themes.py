@@ -86,7 +86,7 @@ def is_built_in(theme_id: str, app_mode: str = DEFAULT_APP_MODE) -> bool:
 
 
 #: Every token a theme may set. Mirrors THEME_TOKENS in
-#: frontend/src/utils/theme.js — the two lists must stay in step, and a test
+#: frontend/src/utils/theme.tsx — the two lists must stay in step, and a test
 #: asserts they do.
 THEME_TOKENS: tuple[str, ...] = (
     "bg-deep",

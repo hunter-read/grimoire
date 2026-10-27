@@ -39,7 +39,7 @@ export function isModifiedClick(
  * re-renders on navigation: memoizing a card, or hoisting the `useLocation()`
  * call into a parent that renders on a different cadence, would freeze `from`
  * at its mount value and send the back button to a stale URL. See the
- * regression test in PageHit.test.jsx.
+ * regression test in PageHit.test.tsx.
  */
 export interface CardLinkProps {
   to?: To

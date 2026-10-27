@@ -72,7 +72,7 @@ beforeEach(() => {
 // a LoadMoreSentinel scrolls into view (issue #221); in a layout-less test
 // every sentinel counts as on screen the moment it is observed, the way a short
 // list's end is in a real browser, so lists load in full. A test can replace
-// this global to drive the observer itself (see LogsTab.test.jsx).
+// this global to drive the observer itself (see LogsTab.test.tsx).
 class VisibleIntersectionObserver {
   callback: IntersectionObserverCallback | null
   constructor(callback: IntersectionObserverCallback) {

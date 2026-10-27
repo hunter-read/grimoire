@@ -1,7 +1,7 @@
 // The system shelf's folder tree, built from server-side groups (issue #221).
 //
 // The detail view used to receive every book and build its category/subfolder
-// tree in the browser (folderTree.js). Now `/systems/{id}/book-groups` reports
+// tree in the browser (folderTree.tsx). Now `/systems/{id}/book-groups` reports
 // which (category, subfolder) pairs hold matching books and how many, and each
 // node fetches its own books a page at a time. These helpers turn that report
 // into the same tree shape - folders nested by path segment - and decide where
@@ -235,7 +235,7 @@ export function nodeDirs(node: ShelfNode): string[] {
 /**
  * The rescan scope for a node: the deepest directory its books share, or
  * `fallback` (the system's own folder) when they diverge above `depth`.
- * Mirrors groupScope in rescanScope.js, from directories rather than books.
+ * Mirrors groupScope in rescanScope.ts, from directories rather than books.
  */
 export function nodeScope(
   node: ShelfNode,

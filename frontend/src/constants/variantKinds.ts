@@ -7,7 +7,7 @@
  *
  * Kept in sync by hand — the lists are closed and change rarely, and fetching
  * them would cost a round trip before the picker could render. The mirror is
- * held to the backend by `variantKinds.test.js`, which asserts the exact
+ * held to the backend by `variantKinds.test.ts`, which asserts the exact
  * per-collection membership rather than deriving it.
  */
 

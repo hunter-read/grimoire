@@ -106,7 +106,7 @@ class TestTokenAllowlist:
         import pathlib
         import re
 
-        src = pathlib.Path(__file__).resolve().parents[2] / "frontend/src/utils/theme.js"
+        src = pathlib.Path(__file__).resolve().parents[2] / "frontend/src/utils/theme.tsx"
         body = src.read_text()
         block = body[body.index("THEME_TOKENS = ["): body.index("]", body.index("THEME_TOKENS = ["))]
         frontend = set(re.findall(r"'([a-z-]+)'", block))

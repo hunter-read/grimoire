@@ -6,7 +6,7 @@ import { cleanLinks, type LinkRow } from './metadata/metadataUtils'
 // Kept apart from the modal so the component file stays about the UI.
 
 // Per-type editable fields. Saving goes through the shared bulk endpoint for
-// this type (see `bulk` in api.js). Tags are edited as a comma-separated string
+// this type (see `bulk` in api.ts). Tags are edited as a comma-separated string
 // and split on save.
 export interface BulkEditConfig {
   /** The fields this type's editor shows and saves. */

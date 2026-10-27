@@ -26,7 +26,7 @@ The one target this syntax cannot express is a *title* that literally contains
 ``:#`` or ``:id-``; such a page is still addressable by its `:id-` suffix.
 
 `_LINK_RE` and the parse rules here are mirrored in
-`frontend/src/components/campaigns/wikiLinkTarget.js` — the two must stay in
+`frontend/src/components/campaigns/wikiLinkTarget.ts` — the two must stay in
 lockstep or authored links resolve differently on each side (cf. issue #252).
 """
 

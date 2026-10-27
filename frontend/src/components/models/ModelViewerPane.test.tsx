@@ -5,7 +5,7 @@ import ModelViewerPane from './ModelViewerPane'
 
 // jsdom has no WebGL, so the graphics module is mocked wholesale and what is
 // tested here is the component's state machine — which is exactly why the
-// untestable parts live in src/lib/three.js.
+// untestable parts live in src/lib/three.ts.
 const createViewer = vi.fn()
 const dispose = vi.fn()
 const resetView = vi.fn()

@@ -181,7 +181,7 @@ export default function SearchView() {
 
   // A long result list starts with its sections and book groups collapsed, so
   // the headers (with their counts) are the overview; anything the user has
-  // toggled keeps their choice. See autoCollapse.js.
+  // toggled keeps their choice. See autoCollapse.ts.
   const pageHitCount = groupedBooks.reduce((n, g) => n + g.pages.length, 0)
   const sectionCounts = [
     matchedBookCount + groupedBooks.length,

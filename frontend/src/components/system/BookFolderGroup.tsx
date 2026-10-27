@@ -50,7 +50,7 @@ export interface BookFolderGroupProps {
  * (persisted via /systems/{id}/book-folders). Collapse state is keyed by the full
  * folder path so each level toggles independently.
  *
- * The folder is a node of the server-built shelf tree (shelfTree.js): its count
+ * The folder is a node of the server-built shelf tree (shelfTree.ts): its count
  * comes from the server, and its books page in through ShelfNodeBody once it is
  * open (issue #221).
  *

@@ -1,6 +1,6 @@
 import { trackTimers } from './pendingTimers'
 
-// setup.js already tracks this file's timers; these tests take their own
+// setup.ts already tracks this file's timers; these tests take their own
 // tracker, which wraps the same untouched originals.
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 

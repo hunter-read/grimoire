@@ -86,7 +86,7 @@ class FavoriteSystemItem(BaseModel):
     name: str
     # Free-form JSON on the model, and in practice a list of
     # ``{"name": ..., "url": ...}`` objects (which is what the UI renders — see
-    # `SystemFavorite.jsx` reading `p.name`). Declaring the element type keeps
+    # `SystemFavorite.tsx` reading `p.name`). Declaring the element type keeps
     # generated clients usable (issue #356); the coercion below folds a bare
     # string into ``{"name": ...}`` so an off-shape legacy row does not 500 the
     # whole favorites response, as a plain `list[str]` once did.

@@ -500,7 +500,7 @@ const iconBtn: CSSProperties = {
 }
 
 // Matches the shared modal button shape used across the app (see `btn` in
-// components/files/RenameModal.jsx) rather than inventing a local variant:
+// components/files/RenameModal.tsx) rather than inventing a local variant:
 // solid gold for the primary action, bordered and transparent for the rest.
 const baseBtn: CSSProperties = {
   display: 'inline-flex',

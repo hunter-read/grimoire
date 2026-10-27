@@ -30,7 +30,7 @@ export interface GalleryItem {
   [field: string]: unknown
 }
 
-/** The `mediaConfig.js` fields the gallery reads. */
+/** The `mediaConfig.ts` fields the gallery reads. */
 export interface GalleryConfig {
   type: 'map' | 'token' | 'audio' | 'model'
   collection: string
@@ -67,7 +67,7 @@ const FULL_PAGE = 500
 /**
  * A server folder path ("Pack/Sub/Deep") as the gallery's two-level grouping:
  * `[top folder, path below it]`, with items at the collection root under
- * `(Root)`. Mirrors getTopFolder/getSubPath in mediaConfig.js.
+ * `(Root)`. Mirrors getTopFolder/getSubPath in mediaConfig.ts.
  */
 export function splitFolder(path: string | null | undefined): [string, string] {
   if (!path) return [ROOT_FOLDER, '']
@@ -77,7 +77,7 @@ export function splitFolder(path: string | null | undefined): [string, string] {
 
 /**
  * All shared data, filtering, grouping, and bulk-edit logic for a media gallery
- * (maps, tokens, audio, models). Driven by a `config` entry from mediaConfig.js
+ * (maps, tokens, audio, models). Driven by a `config` entry from mediaConfig.ts
  * so the views reduce to thin wrappers around the returned state.
  *
  * The server does the filtering, sorting and grouping (issue #221). Grouped,

@@ -1,7 +1,7 @@
 """The browse views' tag filter, evaluated in SQL (issue #221).
 
 The filter is the grouped boolean expression the frontend builds
-(``components/library/tagQuery.js``): a list of groups, tags OR'd within a group
+(``components/library/tagQuery.ts``): a list of groups, tags OR'd within a group
 and every group required, each group either ``include`` ("any of") or
 ``exclude`` ("none of"). The ``__grim:none__`` / ``__grim:any__`` sentinels mean
 "carries no tag at all" / "carries at least one".

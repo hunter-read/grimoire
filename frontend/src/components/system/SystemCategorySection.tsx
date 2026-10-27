@@ -43,7 +43,7 @@ export interface SystemCategorySectionProps extends ShelfItemProps {
  * (icon, label, count, download, rescan) and its books, grouped by subfolder when
  * present. Extracted from SystemDetailView (issue #152).
  *
- * The category is the root node of the server-built shelf tree (shelfTree.js):
+ * The category is the root node of the server-built shelf tree (shelfTree.ts):
  * its count and subfolders come from `/book-groups`, and its books page in
  * through ShelfNodeBody while it is open (issue #221).
  *

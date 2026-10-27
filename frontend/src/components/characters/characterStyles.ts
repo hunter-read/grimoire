@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
 
 // Shared styles for the character builder, following the same vocabulary as
-// `campaigns/sheetEditorStyles.js` — gold for the primary action, a bordered
+// `campaigns/sheetEditorStyles.ts` — gold for the primary action, a bordered
 // ghost for everything else, and the app's own tokens throughout.
 //
 // The app has no `.btn-primary`/`.btn-secondary` classes: buttons are styled

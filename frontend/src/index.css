@@ -13,7 +13,7 @@
    lets a theme redefine what "gold" resolves to without a rename touching every
    file, and gives installed themes a small, fixed set of keys to override.
 
-   Mode lives in `data-theme` on <html>, stamped by utils/theme.js as the first
+   Mode lives in `data-theme` on <html>, stamped by utils/theme.tsx as the first
    statement of the entry bundle. It is not an inline <script> in index.html
    because the CSP is `script-src 'self'`, which would block one.
    --------------------------------------------------------------------------- */

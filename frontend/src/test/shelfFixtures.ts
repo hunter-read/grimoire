@@ -2,7 +2,7 @@
 //
 // SystemCategorySection and BookFolderGroup used to receive their books and
 // build the folder tree themselves. They now render a node of the server-built
-// shelf tree (shelfTree.js) and read each node's books from the shelf's paged
+// shelf tree (shelfTree.ts) and read each node's books from the shelf's paged
 // lists. These build both from the book lists the tests already describe, as
 // the server would answer: groups from the books' paths, and every node's own
 // books fully loaded.

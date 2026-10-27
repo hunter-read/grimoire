@@ -112,7 +112,7 @@ export const imageSources = {
  * Token frames — overlay art for the in-app token editor.
  *
  * Only *user* frames come from the API. The built-in three are bundled with the
- * frontend and resolved client-side (see components/tokens/editor/frames.js), so
+ * frontend and resolved client-side (see components/tokens/editor/frames.ts), so
  * the editor still has frames when the library is empty or unreadable.
  */
 export const tokenFrames = {

@@ -23,7 +23,7 @@ interface Props {
 /**
  * The 3D preview on a model's detail page.
  *
- * All the WebGL work lives in `src/lib/three.js`; this component owns the state
+ * All the WebGL work lives in `src/lib/three.ts`; this component owns the state
  * machine around it — loading, loaded, error, and the two "no viewer" cases
  * (a format with no loader, and a mesh too large to hand a browser). That split
  * is deliberate: jsdom has no WebGL, so the lib is mocked in tests and every

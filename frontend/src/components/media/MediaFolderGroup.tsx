@@ -78,7 +78,7 @@ const toTracks = (items: MediaItem[]) =>
 /**
  * Renders a top-level folder group and its subfolders for a media gallery.
  * Type-specific concerns (icon, grid sizing, endpoints, i18n keys) come from
- * `config` (see mediaConfig.js), so a single component serves maps, tokens, etc.
+ * `config` (see mediaConfig.ts), so a single component serves maps, tokens, etc.
  *
  * `subfolders` maps each folder below this one (or '' for its own items) to
  * `{ path, count, items, loading, hasMore }`: counts come from the server and

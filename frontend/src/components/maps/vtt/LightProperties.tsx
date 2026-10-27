@@ -22,7 +22,7 @@ export interface LightPropertiesProps {
  * of them and importers derive the last one themselves. Offering the control
  * would promise something the exported file could not keep.
  *
- * Colour is edited as RGB + opacity and stored as ARGB hex — see `color.js`.
+ * Colour is edited as RGB + opacity and stored as ARGB hex — see `color.ts`.
  * `intensity` has no scale agreed between VTTs (Foundry, Roll20 and FGU each
  * read it differently), so the preview here can never match a target VTT
  * exactly; what is guaranteed is that the exported value is the one entered.

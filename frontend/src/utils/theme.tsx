@@ -12,7 +12,7 @@
  * a user's theme choice is remembered *per app mode*, so switching modes
  * restores the colours they picked there rather than carrying one over.
  *
- * This module runs from the entry bundle (main.jsx) rather than an inline
+ * This module runs from the entry bundle (main.tsx) rather than an inline
  * <script> in index.html, because the CSP is `script-src 'self'` — an inline
  * bootstrap would be blocked in production, and loosening the CSP to avoid a
  * brief flash is a bad trade. Applying it as the first statement of the bundle

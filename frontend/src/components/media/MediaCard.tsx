@@ -42,7 +42,7 @@ const CORNER_POS: Partial<Record<BadgeCorner, CSSProperties>> = {
 /**
  * Generic gallery card for a media item (map, token, …). Behaviour is identical
  * across types; per-type differences (icon, thumbnail shape, badges, font size)
- * come from the `config` entry in mediaConfig.js.
+ * come from the `config` entry in mediaConfig.ts.
  */
 export default function MediaCard({
   config,

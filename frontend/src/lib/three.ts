@@ -6,7 +6,7 @@
  * below into its own chunk, fetched the first time someone opens a model detail
  * page and cached by the browser after that. The main bundle is unaffected.
  *
- * Lives under `src/lib/` for the same reason `pdfjs.js` does: that directory is
+ * Lives under `src/lib/` for the same reason `pdfjs.ts` does: that directory is
  * excluded from coverage, and WebGL cannot be exercised under jsdom. Keep the
  * untestable graphics glue here and the branching in the component, so the
  * component's state machine stays testable with this module mocked.

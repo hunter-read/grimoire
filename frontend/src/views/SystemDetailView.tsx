@@ -129,7 +129,7 @@ export default function SystemDetailView() {
   const { system, setSystem, facets, shelf, pages, loadNode, loadedBooks, updateBooks } = shelfData
 
   // A long system starts with its categories collapsed (a small core stays
-  // open) until the user opens or closes one; see autoCollapse.js. Counted on
+  // open) until the user opens or closes one; see autoCollapse.ts. Counted on
   // the matching books, so narrowing the list opens the categories it leaves.
   const categoryCounts = useMemo(
     () => Object.fromEntries(Object.entries(shelf).map(([cat, node]) => [cat, node.count])),
