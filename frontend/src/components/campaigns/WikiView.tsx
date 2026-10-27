@@ -1,5 +1,15 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { createPortal } from 'react-dom'
+import {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  type ComponentType,
+  type CSSProperties,
+  type DragEvent,
+  type HTMLAttributes,
+  type ReactElement,
+  type ReactNode,
+} from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -19,40 +29,96 @@ import {
   LuUser,
   LuX,
 } from 'react-icons/lu'
-import { campaigns } from '../../api'
+import type { IconType } from 'react-icons'
+import { campaigns, type ApiError, type Schema } from '../../api'
 import { useAudioPlayer } from '../../context/AudioPlayerContext'
 import useIsMobile from '../../hooks/useIsMobile'
-import useCollapsedSet from '../../hooks/useCollapsedSet'
+import useCollapsedSetJs from '../../hooks/useCollapsedSet'
 import Spinner from '../Spinner'
 import WikiMarkdown from './WikiMarkdown'
 import WikiImportModal from './WikiImportModal'
 import WikiExportMenu from './WikiExportMenu'
 import WikiTemplateModal from './WikiTemplateModal'
-import IconPicker from './IconPicker'
-import { CampaignIcon } from './campaignIcons'
+import IconPickerJs from './IconPicker'
+import { CampaignIcon as CampaignIconJs } from './campaignIcons'
 import { resolveIconColor } from './iconColors'
 import VisibilityBadge from './VisibilityBadge'
 import VisibilityEditor from './VisibilityEditor'
 import RowVisibilityControl from './RowVisibilityControl'
-import PageEditor from './PageEditor'
+import PageEditorJs from './PageEditor'
 import WikiBulkActionDialog from './WikiBulkActionDialog'
 import useFillViewport from './useFillViewport'
-import useResizableWidth from './useResizableWidth'
+import useResizableWidthJs from './useResizableWidth'
 import { headingDomId } from './wikiHeadings'
 import { defaultCollapsedParents, descendantIds, ghostBtn, goldBtn } from './wikiShared'
 
+type Campaign = Schema<'CampaignOut'>
+type WikiPage = Schema<'WikiPageListItem'>
+type WikiPageDetail = Schema<'WikiPageDetailOut'>
+type DropWhere = 'before' | 'after' | 'inside'
+type ExportFormat = Parameters<typeof campaigns.exportWiki>[1]
+
+// These are still JavaScript, so TypeScript infers their props (or arguments)
+// from the destructuring: every one required, and anything defaulted typed from
+// its default. This states what they actually accept.
+const IconPicker = IconPickerJs as unknown as ComponentType<{
+  value?: string | null
+  onChange: (icon: string | null) => void
+  color?: string | null
+  onColorChange?: (color: string | null) => void
+  fallback?: ReactNode
+  ariaLabel?: string
+  compact?: boolean
+  size?: number
+}>
+const CampaignIcon = CampaignIconJs as unknown as ComponentType<{
+  name?: string | null
+  fallback?: IconType | null
+  size?: number
+  style?: CSSProperties
+}>
+const PageEditor = PageEditorJs as unknown as ComponentType<{
+  campaign: Campaign
+  isOwner: boolean
+  // A template draft has no `id`, which is what makes PageEditor create a page.
+  page: Partial<WikiPageDetail> | null
+  allPages: WikiPage[]
+  defaultParentId?: string
+  onSaved: (saved: { id: string }) => void
+  onCancel: () => void
+}>
+const useCollapsedSet = useCollapsedSetJs as unknown as (
+  key: string,
+  defaultCollapsed?: Set<string>,
+  options?: { storage?: 'session' | 'local' }
+) => [Set<string>, (next: Set<string> | ((prev: Set<string>) => Set<string>)) => void]
+const useResizableWidth = useResizableWidthJs as unknown as (
+  key: string,
+  options?: { initial?: number; min?: number; max?: number; step?: number }
+) => { width: number; dragging: boolean; handleProps: HTMLAttributes<HTMLDivElement> }
+
 // Ordered list of [[audio:ID]] embed ids in a note body, used for "play all".
 const AUDIO_EMBED_RE = /\[\[audio:([^\]|]+?)(?:\|[^\]]+)?\]\]/g
-function extractAudioEmbedIds(body) {
+function extractAudioEmbedIds(body: string | null | undefined): string[] {
   if (!body) return []
   return Array.from(body.matchAll(AUDIO_EMBED_RE), (m) => m[1].trim()).filter(Boolean)
 }
 
-export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
+interface WikiViewProps {
+  campaign: Campaign
+  isOwner: boolean
+  onViewingNoteChange?: (viewingNote: boolean) => void
+}
+
+export default function WikiView({ campaign, isOwner, onViewingNoteChange }: WikiViewProps) {
   const { t } = useTranslation()
-  const { playQueue } = useAudioPlayer()
+  // The context's no-provider fallback is a `() => {}`, which is all
+  // TypeScript can see of it while the context is JavaScript.
+  const { playQueue } = useAudioPlayer() as unknown as {
+    playQueue: (tracks: { id: string }[], startIndex?: number) => void
+  }
   const isMobile = useIsMobile()
-  const [pages, setPages] = useState(null)
+  const [pages, setPages] = useState<WikiPage[] | null>(null)
   // The open note lives in the URL (`?note=<id>`) so a note is linkable: it can
   // be opened in a new tab, bookmarked, and shared (issue #313). The param is
   // the single source of truth — there is no mirrored state to drift from it.
@@ -63,14 +129,15 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
   // than pushing: clicking through the sidebar shouldn't bury the page the user
   // arrived from under one back-step per note.
   const setSelectedId = useCallback(
-    (next) => {
+    (next: string | null | ((current: string | null) => string | null)) => {
       setSearchParams(
         (prev) => {
           const current = prev.get('note')
           const value = typeof next === 'function' ? next(current) : next
           if (value === current) return prev
           const params = new URLSearchParams(prev)
-          value ? params.set('note', value) : params.delete('note')
+          if (value) params.set('note', value)
+          else params.delete('note')
           return params
         },
         { replace: true }
@@ -83,16 +150,16 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
   // note in its own tab (issue #313). Built from the notes route rather than
   // the live location so it is correct no matter which note is currently open.
   const noteHref = useCallback(
-    (id) => `/campaigns/${campaign.id}/notes?note=${encodeURIComponent(id)}`,
+    (id: string) => `/campaigns/${campaign.id}/notes?note=${encodeURIComponent(id)}`,
     [campaign.id]
   )
-  const [page, setPage] = useState(null)
+  const [page, setPage] = useState<WikiPageDetail | null>(null)
   const [editing, setEditing] = useState(false)
   const [creating, setCreating] = useState(false)
   const [createParentId, setCreateParentId] = useState('')
   // Content for a page started from a template: an unsaved draft PageEditor
   // opens with. Null for an ordinary blank New Page.
-  const [draft, setDraft] = useState(null)
+  const [draft, setDraft] = useState<Partial<WikiPageDetail> | null>(null)
   // Bumped every time a draft is applied. PageEditor seeds its fields from
   // `page` in useState initialisers, so swapping the prop on an editor that is
   // already open would leave the old (usually empty) body on screen — the
@@ -107,12 +174,12 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
   const [showHidden, setShowHidden] = useState(false)
   // Ctrl/Cmd-click multiselect over the tree, for exporting or clearing a subset
   // of notes. Empty set = not in multiselect mode.
-  const [selectedIds, setSelectedIds] = useState(() => new Set())
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
   const [bulkOpen, setBulkOpen] = useState(false)
   const [importing, setImporting] = useState(false)
   const [browsingTemplates, setBrowsingTemplates] = useState(false)
   // Heading a [[Page:#Heading]] link asked for, pending the target page loading.
-  const [pendingHeading, setPendingHeading] = useState(null)
+  const [pendingHeading, setPendingHeading] = useState<string | null>(null)
   // Ids of parent pages whose children are collapsed in the sidebar tree,
   // persisted per campaign (per browser) so the choice survives navigation.
   // Until the user toggles one, a long wiki starts with every parent collapsed
@@ -122,14 +189,14 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
     defaultCollapsedParents(pages, selectedId),
     { storage: 'local' }
   )
-  const dragId = useRef(null)
+  const dragId = useRef<string | null>(null)
   // Size the two-pane row to the viewport so the page tree scrolls in its own
   // container instead of riding the window scroll with the note (#288). On
   // phones the tree and the note swap full-screen, so the page flow is left
   // alone — there the list is the whole screen and scrolls on its own already.
   // While the editor is open it does its own viewport fill (#298) and needs the
   // natural flow around it, so the row steps back and lets it size itself.
-  const rowRef = useRef(null)
+  const rowRef = useRef<HTMLDivElement>(null)
   const fillHeight = useFillViewport(rowRef, {
     enabled: !isMobile && !editing && !creating,
     // The row replaces a loading spinner, so there's nothing to measure until
@@ -146,10 +213,10 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
     handleProps: resizeHandleProps,
   } = useResizableWidth(`grimoire_wiki_sidebar_w_${campaign.id}`, { initial: 240 })
   // Live drop indicator: { id, where: 'before' | 'after' | 'inside' }.
-  const [dropTarget, setDropTarget] = useState(null)
+  const [dropTarget, setDropTarget] = useState<{ id: string; where: DropWhere } | null>(null)
   // Id of the tree row under the cursor — drives the hover-only row controls
   // (add-subpage, and the visibility glyph on fully-visible pages).
-  const [hoveredRow, setHoveredRow] = useState(null)
+  const [hoveredRow, setHoveredRow] = useState<string | null>(null)
 
   // Importing writes pages into the campaign, so it needs manage rights and a
   // campaign that isn't frozen. Exporting only reads and stays available to all.
@@ -169,18 +236,19 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
   // worse than absent.
   const isSharedCampaign = !!campaign.is_gm_campaign
 
-  const exportWiki = async (format) => {
+  const exportWiki = async (format: ExportFormat) => {
     try {
       await campaigns.exportWiki(campaign.id, format)
     } catch (e) {
-      alert(e.message)
+      alert((e as ApiError).message)
     }
   }
 
-  const toggleCollapse = (id) =>
+  const toggleCollapse = (id: string) =>
     setCollapsed((prev) => {
       const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
       return next
     })
 
@@ -196,7 +264,7 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
   const filtersRef = useRef({ mine: onlyMine, includeHidden: showHidden })
   filtersRef.current = { mine: onlyMine, includeHidden: showHidden }
   const loadList = useCallback(
-    (selectId) => {
+    (selectId?: string | null) => {
       campaigns.listWikiPages(campaign.id, filtersRef.current).then((list) => {
         setPages(list)
         setSelectedId((current) => {
@@ -237,10 +305,22 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
       return
     }
     setEditing(false)
+    // Switching notes (or campaigns) before the last request answers would let
+    // a slow response for the old note land after the new one, showing it under
+    // the new selection - and saving to it (issue #705). Drop any response the
+    // selection has since moved past.
+    let ignore = false
     campaigns
       .getWikiPage(campaign.id, selectedId)
-      .then(setPage)
-      .catch(() => setPage(null))
+      .then((loaded) => {
+        if (!ignore) setPage(loaded)
+      })
+      .catch(() => {
+        if (!ignore) setPage(null)
+      })
+    return () => {
+      ignore = true
+    }
   }, [campaign.id, selectedId])
 
   // Tell the parent when the note pane is shown full-screen on mobile, so it can
@@ -263,7 +343,7 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
   // has fetched back to the generic label. Any parent re-render (hovering a
   // sidebar row) would otherwise make the titles flicker.
   const openPage = useCallback(
-    (target, heading) => {
+    (target: { id: string } | null, heading?: string | null) => {
       if (!target) {
         loadList()
         return
@@ -288,7 +368,7 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
     return () => cancelAnimationFrame(raf)
   }, [pendingHeading, page])
 
-  const handleSaved = (saved) => {
+  const handleSaved = (saved: { id: string }) => {
     setCreating(false)
     setDraft(null)
     setEditing(false)
@@ -308,7 +388,7 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
   // --- Per-user hiding ---
   // Hiding is available on any note the user can see, including ones they can
   // neither edit nor delete — it only affects their own view.
-  const toggleHidden = async (p) => {
+  const toggleHidden = async (p: Pick<WikiPage, 'id' | 'is_hidden'>) => {
     if (p.is_hidden) await campaigns.unhideWikiPage(campaign.id, p.id)
     else await campaigns.hideWikiPage(campaign.id, p.id)
     // A note that has just been hidden leaves the list unless hidden notes are
@@ -333,11 +413,12 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
   // Doing it in that order also keeps the result independent of whether the
   // `?note=` URL update has committed yet, which a "cancel out" scheme would
   // silently depend on.
-  const toggleSelected = (id) =>
+  const toggleSelected = (id: string) =>
     setSelectedIds((prev) => {
       const next = new Set(prev)
       if (next.size === 0 && selectedId) next.add(selectedId)
-      next.has(id) ? next.delete(id) : next.add(id)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
       return next
     })
   const clearSelection = () => setSelectedIds(new Set())
@@ -361,7 +442,7 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
     for (const p of toDelete) await campaigns.deleteWikiPage(campaign.id, p.id)
     for (const p of toHide) await campaigns.hideWikiPage(campaign.id, p.id)
     // The open note may have just been deleted or hidden out of the list.
-    if (selectedIds.has(selectedId)) {
+    if (selectedId && selectedIds.has(selectedId)) {
       setSelectedId(null)
       setPage(null)
     }
@@ -372,19 +453,24 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
 
   // Quick icon/tint change without entering the full editor. Updates the list
   // (and the open page, if it's the one changed) so the change shows immediately.
-  const patchPage = async (pageId, patch) => {
+  const patchPage = async (
+    pageId: string,
+    patch: Pick<Schema<'WikiPageUpdate'>, 'icon' | 'icon_color'>
+  ) => {
     await campaigns.updateWikiPage(campaign.id, pageId, patch)
     loadList(selectedId)
     if (page?.id === pageId) setPage((p) => (p ? { ...p, ...patch } : p))
   }
-  const changeIcon = (pageId, icon) => patchPage(pageId, { icon: icon || '' })
-  const changeIconColor = (pageId, iconColor) => patchPage(pageId, { icon_color: iconColor || '' })
+  const changeIcon = (pageId: string, icon: string | null) =>
+    patchPage(pageId, { icon: icon || '' })
+  const changeIconColor = (pageId: string, iconColor: string | null) =>
+    patchPage(pageId, { icon_color: iconColor || '' })
 
   // Change a page's visibility from its row glyph or the header badge. Switching
   // away from "members" clears the share list to mirror PageEditor's save
   // behaviour.
-  const changePageVisibility = async (pageId, visibility) => {
-    const payload = { visibility }
+  const changePageVisibility = async (pageId: string, visibility: string) => {
+    const payload: Schema<'WikiPageUpdate'> = { visibility }
     if (visibility !== 'members') {
       payload.shared_user_ids = []
       payload.shared_write_user_ids = []
@@ -404,12 +490,12 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
     }
     loadList(selectedId)
   }
-  const changeVisibility = (visibility) =>
+  const changeVisibility = (visibility: string) =>
     page ? changePageVisibility(page.id, visibility) : undefined
 
   // Set who can read and who can edit the open Private page. Write implies
   // read, which the server also enforces.
-  const changeShares = async (sharedIds, writeIds) => {
+  const changeShares = async (sharedIds: string[], writeIds: string[]) => {
     if (!page) return
     await campaigns.updateWikiPage(campaign.id, page.id, {
       shared_user_ids: sharedIds,
@@ -432,8 +518,8 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
 
   // The pages in their current sidebar display order (depth-first, siblings by
   // sort_order then title) — the basis for computing a new manual order on drop.
-  const orderedSiblings = (parentId) =>
-    pages
+  const orderedSiblings = (parentId: string | null): WikiPage[] =>
+    (pages ?? [])
       .filter((p) => (p.parent_id || null) === (parentId || null))
       .sort(
         (a, b) =>
@@ -442,9 +528,9 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
 
   // Depth-first walk producing the full ordered id list, used as the payload for
   // the reorder endpoint (sort_order is global, so we persist the whole order).
-  const flattenOrder = (siblingsByParent) => {
-    const out = []
-    const walk = (parentId) => {
+  const flattenOrder = (siblingsByParent: (parentId: string | null) => WikiPage[]) => {
+    const out: string[] = []
+    const walk = (parentId: string | null) => {
       for (const p of siblingsByParent(parentId)) {
         out.push(p.id)
         walk(p.id)
@@ -455,14 +541,14 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
   }
 
   // --- Drag to reorder / reparent pages (owner only) ---
-  const onPageDragStart = (e, id) => {
+  const onPageDragStart = (e: DragEvent<HTMLDivElement>, id: string) => {
     dragId.current = id
     if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
   }
 
   // Classify the pointer within a row: top/bottom thirds reorder as a sibling
   // before/after the target; the middle third nests under it.
-  const dropZone = (e) => {
+  const dropZone = (e: DragEvent<HTMLDivElement>): DropWhere => {
     const r = e.currentTarget.getBoundingClientRect()
     const y = e.clientY - r.top
     if (y < r.height / 3) return 'before'
@@ -470,7 +556,7 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
     return 'inside'
   }
 
-  const onPageDragOver = (e, target) => {
+  const onPageDragOver = (e: DragEvent<HTMLDivElement>, target: WikiPage) => {
     e.preventDefault()
     const id = dragId.current
     if (!id || id === target.id) return
@@ -483,7 +569,7 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
     dragId.current = null
     setDropTarget(null)
     if (!id) return
-    const dragged = pages.find((p) => p.id === id)
+    const dragged = pages?.find((p) => p.id === id)
     if (!dragged) return
     if (dragged.parent_id) {
       await campaigns.updateWikiPage(campaign.id, id, { parent_id: '' })
@@ -500,7 +586,7 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
 
   // Drop onto a page: nest under it (middle) or place as a sibling before/after.
   // No-op if it would create a cycle (the server guards too).
-  const onDropOnPage = async (e, target) => {
+  const onDropOnPage = async (e: DragEvent<HTMLDivElement>, target: WikiPage) => {
     e.preventDefault()
     e.stopPropagation()
     const id = dragId.current
@@ -509,7 +595,7 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
     setDropTarget(null)
     if (!id || id === target.id) return
     if (descendantIds(id, pages).has(target.id)) return
-    const dragged = pages.find((p) => p.id === id)
+    const dragged = pages?.find((p) => p.id === id)
     if (!dragged) return
 
     if (where === 'inside') {
@@ -551,15 +637,16 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
 
   // Build the child lookup for the tree. While searching we flatten to the matching
   // rows (a filtered tree would hide parents of matches), so the list stays useful.
-  const childrenOf = {}
+  const childrenOf: Record<string, WikiPage[]> = {}
   for (const p of pages) (childrenOf[p.parent_id || '__root__'] ||= []).push(p)
   const idSet = new Set(pages.map((p) => p.id))
   // A page whose parent_id points nowhere (e.g. its parent was filtered out by
   // visibility) is treated as a root so it never disappears.
-  const rootKey = (p) => (p.parent_id && idSet.has(p.parent_id) ? p.parent_id : '__root__')
+  const rootKey = (p: WikiPage) =>
+    p.parent_id && idSet.has(p.parent_id) ? p.parent_id : '__root__'
   const roots = pages.filter((p) => rootKey(p) === '__root__')
 
-  const renderRow = (p, depth, flat = false) => {
+  const renderRow = (p: WikiPage, depth: number, flat = false): ReactElement => {
     const active = p.id === selectedId && !creating
     // In the flat search view, nesting and chevrons are suppressed.
     const kids = flat ? [] : (childrenOf[p.id] || []).filter((c) => idSet.has(c.id))
@@ -801,7 +888,7 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
               isMine={p.is_mine}
               authorIsGm={isOwner}
               rowHovered={hovered}
-              onSetVisibility={(v) => changePageVisibility(p.id, v)}
+              onSetVisibility={(v: string) => changePageVisibility(p.id, v)}
             />
           )}
         </div>
@@ -1390,7 +1477,7 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
         <WikiTemplateModal
           campaignId={campaign.id}
           onClose={() => setBrowsingTemplates(false)}
-          onUsed={(draft) => {
+          onUsed={(draft: Partial<WikiPageDetail>) => {
             // Open the template's content as an *unsaved* page. Nothing is
             // written until the GM hits save, so picking the wrong template
             // costs a cancel rather than a delete.
@@ -1411,7 +1498,7 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }) {
 // The standard button the rest of the app uses (ghostBtn), widened to fill the
 // sidebar column. Replaces the dashed placeholder style these controls carried,
 // which read as an empty drop target rather than an action (issue #289).
-const sidebarBtn = {
+const sidebarBtn: CSSProperties = {
   ...ghostBtn,
   display: 'flex',
   width: '100%',
@@ -1422,7 +1509,7 @@ const sidebarBtn = {
 
 // A filter toggle under the search box. Reads as pressed (gold) when active,
 // matching the toolbar toggles elsewhere in the app.
-const filterChip = (active) => ({
+const filterChip = (active: boolean): CSSProperties => ({
   display: 'inline-flex',
   alignItems: 'center',
   gap: 5,
@@ -1437,7 +1524,7 @@ const filterChip = (active) => ({
   fontSize: 12,
 })
 
-const mobileBackBtn = {
+const mobileBackBtn: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 5,

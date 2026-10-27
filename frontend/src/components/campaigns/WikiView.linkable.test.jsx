@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
 import WikiView from './WikiView'
 
@@ -142,6 +142,56 @@ describe('WikiView linkable notes (issue #313)', () => {
 
     // Two notes were opened, yet the stack never grew past its starting entry.
     expect(new Set(seenIdx).size).toBe(1)
+  })
+
+  // Issue #705 — a slow response for the previous note must not land on screen
+  // under the new selection (where a save would go to the wrong note).
+  describe('switching notes before the previous one loads', () => {
+    // Each getWikiPage call waits on a promise the test settles by hand, so the
+    // responses can be made to arrive out of order.
+    function deferLoads() {
+      const pending = {}
+      campaigns.getWikiPage.mockImplementation(
+        (_cid, id) =>
+          new Promise((resolve, reject) => {
+            pending[id] = { resolve, reject }
+          })
+      )
+      return pending
+    }
+
+    it("shows note B when note A's request resolves after B's", async () => {
+      const pending = deferLoads()
+      renderAt('/campaigns/c1/notes?note=p1')
+      await waitFor(() => expect(pending.p1).toBeDefined())
+
+      fireEvent.click(await screen.findByRole('link', { name: 'Goblins' }))
+      await waitFor(() => expect(pending.p2).toBeDefined())
+
+      await act(async () => pending.p2.resolve(goblins))
+      expect(await screen.findByText('Small and mean')).toBeInTheDocument()
+
+      // A's answer arrives last; it belongs to a selection that has moved on.
+      await act(async () => pending.p1.resolve(dragons))
+      expect(screen.getByText('Small and mean')).toBeInTheDocument()
+      expect(screen.queryByText('Here be dragons')).not.toBeInTheDocument()
+      expect(url()).toBe('/campaigns/c1/notes?note=p2')
+    })
+
+    it("keeps note B open when note A's request fails after B loaded", async () => {
+      const pending = deferLoads()
+      renderAt('/campaigns/c1/notes?note=p1')
+      await waitFor(() => expect(pending.p1).toBeDefined())
+
+      fireEvent.click(await screen.findByRole('link', { name: 'Goblins' }))
+      await waitFor(() => expect(pending.p2).toBeDefined())
+      await act(async () => pending.p2.resolve(goblins))
+      expect(await screen.findByText('Small and mean')).toBeInTheDocument()
+
+      // A stale failure must not blank the pane either.
+      await act(async () => pending.p1.reject(new Error('gone')))
+      expect(screen.getByText('Small and mean')).toBeInTheDocument()
+    })
   })
 
   // Issue #313 — sidebar rows and backlink chips are real <Link> elements.
