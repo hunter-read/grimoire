@@ -10,15 +10,8 @@ deleted afterward, which also makes this safe to run on every startup (a second
 run finds nothing left to migrate).
 """
 
-import re
-
 from .config import logger
-
-
-def _slugify(title: str) -> str:
-    s = re.sub(r"[^\w\s-]", "", (title or "").lower()).strip()
-    s = re.sub(r"[\s_-]+", "-", s)
-    return s or "untitled"
+from .routers.campaigns.wikilinks import slugify
 
 
 def _unique_slug(db, WikiPage, campaign_id: str, base: str) -> str:
@@ -75,7 +68,7 @@ def migrate(db) -> None:
 
     def _add_page(campaign_id, title, body, visibility, created_by_id, session_date):
         nonlocal created
-        slug = _unique_slug(db, WikiPage, campaign_id, _slugify(title))
+        slug = _unique_slug(db, WikiPage, campaign_id, slugify(title))
         db.add(
             WikiPage(
                 campaign_id=campaign_id,

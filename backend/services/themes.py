@@ -24,6 +24,7 @@ from urllib.parse import urljoin, urlparse
 from sqlalchemy.orm import Session
 
 from .. import config
+from ..text import slugs
 from ..addons.constants import (
     HTTP_MAX_BYTES,
     external_installs_enabled,
@@ -188,8 +189,9 @@ def valid_theme_id(value: Any) -> bool:
 
 def slugify_id(name: str) -> str:
     """Derive a theme id from a display name, for a theme authored in the app."""
-    slug = re.sub(r"[^a-z0-9]+", "-", (name or "").lower()).strip("-")
-    return (slug or "custom")[:MAX_ID_LENGTH].strip("-") or "custom"
+    # Trimmed again after the cap, unlike the other families: an id never ends
+    # in a hyphen.
+    return slugs.slugify(name, max_len=MAX_ID_LENGTH).strip("-") or "custom"
 
 
 def parse_variants(payload: dict[str, Any], fallback_mode: str) -> dict[str, dict[str, str]]:

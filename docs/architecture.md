@@ -402,6 +402,13 @@ heartbeat has its own key because the status blob is written read-modify-write:
 a second writer racing the scan could restore `running: true` over its final
 `running: false`.
 
+The status, stop flag, heartbeat and staleness check live in
+[`services/jobs.py`](../backend/services/jobs.py) as a `Job`, which the duplicate
+scan uses too under keys of its own (`grimoire:duplicate_scan_*`). Without Valkey
+each job's stop flag is a file (`DATA_PATH/.<name>.stop`), and a duplicate scan
+holds `DATA_PATH/.duplicate_scan.lock` the way the startup scan holds
+`.scan.lock`, so a Stop that lands on another worker still reaches the run.
+
 ### Schema migrations
 
 Schema changes are managed by **Alembic** (revisions in

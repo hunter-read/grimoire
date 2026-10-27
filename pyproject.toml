@@ -62,5 +62,7 @@ module = [
     "backend.models.*",
     "backend.services",
     "backend.services.*",
+    "backend.text",
+    "backend.text.*",
 ]
 disallow_untyped_defs = true

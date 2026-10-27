@@ -5,15 +5,15 @@ transform that exists here, so no add-on YAML can ever cause arbitrary code to
 run. Add new entries here (and to the schema) when a real source needs one.
 """
 import re
-import unicodedata
 from html import unescape
 from typing import Callable, Iterable, Union
 from urllib.parse import urlsplit, urlunsplit
 
+from ..text import slugs
+
 # Words a title-caser should leave lowercase when they aren't the first word.
 _MINOR_WORDS = frozenset({"of", "the", "and", "in", "on", "a", "an", "to", "for", "or"})
 
-_SLUG_STRIP = re.compile(r"[^a-z0-9]+")
 _DICE_TOKEN = re.compile(r"\b(\d*)[dD](\d+|F)\b")
 
 
@@ -24,9 +24,7 @@ def slugify(value: str) -> str:
     rather than becoming separators, so "Dungeons & Dragons" yields
     ``dungeons-dragons`` rather than ``dungeons---dragons``.
     """
-    folded = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode()
-    folded = folded.lower().replace("&", "").replace("'", "").replace("’", "")
-    return _SLUG_STRIP.sub("-", folded).strip("-")
+    return slugs.slugify(value, fold="ascii", amp="", drop_apostrophes=True)
 
 
 def titlecase(value: str) -> str:

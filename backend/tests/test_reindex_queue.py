@@ -75,7 +75,7 @@ def _clean_state():
     def reset():
         _helpers.clear_stop()
         # Cleared, not just reset: a live status carries a heartbeat key too.
-        _helpers._scan_status.clear()
+        _helpers.SCAN_JOB._status.clear()
         _helpers._set_status({**_helpers._DEFAULT_STATUS})
         _reindex_queue._queue.clear()
         _reindex_queue._refresh.clear()

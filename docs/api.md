@@ -2761,8 +2761,8 @@ about them (issues #304, #306).
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/duplicates/scan-status` | GET | Progress of the detection scan. `heartbeat` is the last time the running scan touched its status - it stops advancing when the process behind the scan dies |
-| `/api/duplicates/scan` | POST | Start a scan. Body: `resource_types` (empty = every collection), `accuracy`. `{status: "already_running"}` if one is genuinely in progress; a scan left stuck by a killed process is discarded rather than blocking this |
-| `/api/duplicates/cancel-scan` | POST | Stop a running scan. `{status: "stop_requested"}` for a live one, `"cleared_stale"` when it cleared a scan that was no longer really running, `"not_running"` when there was nothing to stop |
+| `/api/duplicates/scan` | POST | Start a scan. Body: `resource_types` (empty = every collection), `accuracy`. `{status: "already_running"}` if one is genuinely in progress, on this worker or (without Valkey) another; a scan left stuck by a killed process is discarded rather than blocking this |
+| `/api/duplicates/cancel-scan` | POST | Stop a running scan. `{status: "stop_requested"}` for a live one, `"cleared_stale"` when it cleared a scan that was no longer really running, `"not_running"` when there was nothing to stop. Without Valkey, a scan running on another worker counts as running |
 | `/api/duplicates/groups` | GET | Candidate groups from the last completed scan. Query: `resource_type`, `min_confidence`, `limit` (max 200), `offset`. `total` counts the open groups walked to fill the page, not the whole table - a short page means the end |
 | `/api/duplicates/compare` | GET | Side-by-side data for 2–4 items. Query: `resource_type`, repeated `ids`. `mergeable_fields` lists what `merge-metadata` may copy |
 | `/api/duplicates/link` | POST | File items under a parent as its variants. Optional `parent_kind`/`parent_label` name the parent too |

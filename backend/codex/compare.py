@@ -14,7 +14,6 @@ an ISBN without hyphens, links merged rather than replaced), so a field that
 would not change on the other side never reads as a difference.
 """
 import re
-import unicodedata
 from typing import Any, Optional, Union
 from urllib.parse import urlsplit
 
@@ -23,6 +22,7 @@ from sqlalchemy.orm import Session
 from .. import addons
 from ..addons import diff as addon_diff
 from ..models import Book, GameSystem
+from ..text import slugs
 
 STATUS_ONLY_LOCAL = "only_local"
 STATUS_DIFFERS = "differs"
@@ -40,9 +40,7 @@ _NAME_SUFFIX = re.compile(r"\s*\([^)]*\)\s*$")
 
 def _slug(value: str) -> str:
     """Grimoire Codex DB's ``slugify``: how it stores a book's category."""
-    text = unicodedata.normalize("NFKD", value)
-    text = "".join(c for c in text if not unicodedata.combining(c)).lower().replace("&", " and ")
-    return re.sub(r"[^a-z0-9]+", "-", text).strip("-")[:100]
+    return slugs.slugify(value, fold="accents", amp=" and ", max_len=100)
 
 
 def _matches(field: str, local: Any, remote: Any) -> bool:

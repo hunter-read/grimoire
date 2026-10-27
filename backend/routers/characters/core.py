@@ -26,6 +26,7 @@ from ...services import characters as svc
 from ...services.characters import catalogue
 from ...services.characters import images as char_images
 from ...services.characters import importing
+from ...text import slugs
 from . import _helpers as helpers
 from .portraits import store_portrait
 from ._schemas import (
@@ -41,9 +42,7 @@ logger = logging.getLogger("grimoire.characters")
 
 def _slugify(value: str) -> str:
     """A schema id derived from its name, for a document that omits one."""
-    cleaned = "".join(char if char.isalnum() else "-" for char in value.lower())
-    parts = [part for part in cleaned.split("-") if part]
-    return "-".join(parts)[:100] or "sheet"
+    return slugs.slugify(value, chars="unicode", max_len=100, fallback="sheet")
 
 
 def _serialize_schema(row: CharacterSchema, *, count: int = 0) -> dict:

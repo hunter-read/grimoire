@@ -23,6 +23,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Renaming, moving or uploading into a library folder Grimoire doesn't have permission to write to no longer says the library is mounted read-only. It names the folder and the user Grimoire runs as, and points to `PUID`/`PGID`; a library that really is mounted read-only still says so
 - Grimoire stays root at start-up when the user it would switch to can't write to folders inside the library, not just the library folder itself, so moving and renaming keep working after updating from a version that ran as root
 - On NAS filesystems that refuse writes a permission check allows, Grimoire no longer switches to a user that can't write to the data folder and then fails to start; it tests the data folder with a real write and stays root if that fails
+- Stopping a duplicate scan works when Grimoire runs several workers without Valkey, and a second scan can no longer start on another worker while one is running
 
 ## [1.9.2] - 2026-10-23
 

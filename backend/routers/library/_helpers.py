@@ -1,40 +1,14 @@
 """Background indexer and rescan helpers for the library."""
-import fcntl
-import json
 import os
-import threading
-import time
-from datetime import datetime, timezone
-from typing import Optional
 
 from ... import config
-from ...config import SessionLocal, LIBRARY_PATH, DATA_PATH, logger, valkey_client, valkey_errors
+from ...config import SessionLocal, LIBRARY_PATH, DATA_PATH, logger
 from ...models import Book, Model3D
 from ...indexer import scan_library, index_book_text, ocr_book
 from ...indexer.formats import INDEXABLE_MIMES
 from ..books import _invalidate_book_cache
+from ...services.jobs import Job
 from ._claims import claim_book, release_book
-
-# Errors raised by the Valkey/Redis client for connection/protocol failures.
-# When a Valkey op fails this way, callers fall back to in-process state; any
-# other exception type is a real bug and should not be swallowed.
-
-_SCAN_KEY = "grimoire:scan_status"
-_STOP_KEY = "grimoire:scan_stop"
-# The heartbeat has its own key rather than living in the status blob. The
-# blob is written read-modify-write, so a second writer (the heartbeat thread)
-# racing the scan's own updates could put back a stale copy - including
-# `running: true` over the scan's final `running: false`.
-_HEARTBEAT_KEY = "grimoire:scan_heartbeat"
-
-# How long a running scan's heartbeat may go unrefreshed before it is treated
-# as abandoned (issue #524). Mirrors the duplicate scanner's threshold.
-STALE_AFTER_SECONDS = 300
-# How often a running scan refreshes its heartbeat, independent of progress.
-# Progress alone is too coarse: OCR of one long scanned book or a single large
-# model preview can go far longer than STALE_AFTER_SECONDS between status
-# writes, and mistaking that for a dead scan would let a second one start.
-HEARTBEAT_INTERVAL_SECONDS = 30
 
 _DEFAULT_STATUS: dict = {
     "running": False,
@@ -81,213 +55,31 @@ _DEFAULT_STATUS: dict = {
     "ocr_requested": False,
 }
 
-# Without Valkey the stop flag is a file under DATA_PATH, which every worker
-# can see (issue #651). An in-process flag alone only reached the worker that
-# took the POST, and with WORKERS > 1 that is often not the one holding
-# .scan.lock and running the startup scan, so Stop never landed. Ignored once
-# older than the Valkey key's expiry, so a flag a crash left behind cannot stop
-# a later run that never clears it.
-_STOP_FILENAME = ".scan.stop"
-_STOP_TTL_SECONDS = 3600
+# The scan's status, stop flag and heartbeat. Without Valkey the stop flag is
+# DATA_PATH/.scan.stop, which every worker can see (issue #651): an in-process
+# flag alone only reached the worker that took the POST, and with WORKERS > 1
+# that is often not the one holding .scan.lock and running the startup scan.
+SCAN_JOB = Job("scan", _DEFAULT_STATUS)
 
-# In-process fallback when Valkey is unavailable (single-worker or no cache)
-_scan_status: dict = dict(_DEFAULT_STATUS)
-_stop_requested: bool = False
-_heartbeat: Optional[str] = None
-
-
-def _stop_file() -> str:
-    return os.path.join(config.DATA_PATH, _STOP_FILENAME)
-
-
-def request_stop() -> None:
-    global _stop_requested
-    if (client := valkey_client()) is not None:
-        try:
-            client.set(_STOP_KEY, "1", ex=_STOP_TTL_SECONDS)
-        except valkey_errors() as e:
-            logger.warning("Valkey set(stop) failed, using the stop file: %s", e)
-    try:
-        with open(_stop_file(), "w"):
-            pass
-    except OSError as e:
-        # Last resort, and only then: a flag in this process would outlive
-        # another worker's clear_stop() and stop that worker's next run early.
-        logger.warning("Couldn't write the scan stop file, using in-process flag: %s", e)
-        _stop_requested = True
-
-
-def clear_stop() -> None:
-    global _stop_requested
-    _stop_requested = False
-    if (client := valkey_client()) is not None:
-        try:
-            client.delete(_STOP_KEY)
-        except valkey_errors() as e:
-            logger.warning("Valkey delete(stop) failed, using the stop file: %s", e)
-    try:
-        os.remove(_stop_file())
-    except FileNotFoundError:
-        pass
-    except OSError as e:
-        logger.warning("Couldn't remove the scan stop file: %s", e)
-
-
-def _stop_file_set() -> bool:
-    try:
-        age = time.time() - os.stat(_stop_file()).st_mtime
-    except OSError:
-        return False
-    return age < _STOP_TTL_SECONDS
+request_stop = SCAN_JOB.request_stop
+clear_stop = SCAN_JOB.clear_stop
+is_stop_requested = SCAN_JOB.is_stop_requested
+is_stale = SCAN_JOB.is_stale
+_get_status = SCAN_JOB.status
+_set_status = SCAN_JOB.update
+_start_heartbeat = SCAN_JOB.start_heartbeat
+force_clear = SCAN_JOB.force_clear
 
 
 def startup_scan_running() -> bool:
-    """Whether some worker still holds ``.scan.lock`` for its startup scan.
-
-    Without Valkey the scan status is per-process, so a worker that is not
-    running the startup scan reports nothing running and would turn a Stop away
-    (issue #651). The lock is shared across processes, so it can tell.
-    """
-    try:
-        with open(os.path.join(config.DATA_PATH, ".scan.lock"), "a") as lock:
-            try:
-                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except OSError:
-                return True
-            fcntl.flock(lock, fcntl.LOCK_UN)
-            return False
-    except OSError:
-        return False
-
-
-def is_stop_requested() -> bool:
-    if (client := valkey_client()) is not None:
-        try:
-            return bool(client.exists(_STOP_KEY))
-        except valkey_errors() as e:
-            logger.warning("Valkey exists(stop) failed, using the stop file: %s", e)
-    return _stop_requested or _stop_file_set()
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
-def _beat() -> None:
-    """Record that the scan owning the status is still alive."""
-    global _heartbeat
-    now = _now()
-    if (client := valkey_client()) is not None:
-        try:
-            client.set(_HEARTBEAT_KEY, now, ex=86400)
-            return
-        except valkey_errors() as e:
-            logger.warning("Valkey set(heartbeat) failed, using in-process heartbeat: %s", e)
-    _heartbeat = now
-
-
-def _get_heartbeat() -> Optional[str]:
-    if (client := valkey_client()) is not None:
-        try:
-            raw = client.get(_HEARTBEAT_KEY)
-            if raw:
-                return raw.decode() if isinstance(raw, bytes) else str(raw)
-        except valkey_errors() as e:
-            logger.warning("Valkey get(heartbeat) failed, using in-process heartbeat: %s", e)
-    return _heartbeat
-
-
-def _read_status() -> dict:
-    if (client := valkey_client()) is not None:
-        try:
-            raw = client.get(_SCAN_KEY)
-            if raw:
-                return json.loads(raw)
-        except (*valkey_errors(), ValueError) as e:
-            # ValueError covers a corrupt/non-JSON cached status blob.
-            logger.warning("Valkey get(status) failed, using in-process status: %s", e)
-    return dict(_scan_status)
-
-
-def _get_status() -> dict:
-    return {**_read_status(), "heartbeat": _get_heartbeat()}
-
-
-def _set_status(updates: dict) -> None:
-    global _scan_status
-    # Every write is a sign of life, so the heartbeat starts with the scan
-    # rather than one HEARTBEAT_INTERVAL_SECONDS later.
-    _beat()
-    if (client := valkey_client()) is not None:
-        try:
-            current = _read_status()
-            current.update(updates)
-            client.set(_SCAN_KEY, json.dumps(current), ex=86400)
-            return
-        except valkey_errors() as e:
-            logger.warning("Valkey set(status) failed, using in-process status: %s", e)
-    _scan_status.update(updates)
-
-
-def _start_heartbeat() -> threading.Event:
-    """Keep the heartbeat fresh while a scan runs; set the returned event to stop.
-
-    A daemon thread, so it dies with the process - which is exactly the case the
-    heartbeat exists to detect. A scan that ends normally stops it from its
-    ``finally``.
-    """
-    done = threading.Event()
-
-    def tick() -> None:
-        while not done.wait(HEARTBEAT_INTERVAL_SECONDS):
-            try:
-                _beat()
-            except Exception:  # noqa: BLE001 - a dead ticker would fake a dead scan
-                logger.exception("Scan heartbeat failed")
-
-    threading.Thread(target=tick, name="scan-heartbeat", daemon=True).start()
-    return done
-
-
-def is_stale(status: Optional[dict] = None) -> bool:
-    """Whether a status claiming to run has actually been abandoned (issue #524).
-
-    A scan whose process died mid-run never reaches the ``finally`` that clears
-    ``running``, and Valkey keeps that status for a day, refusing every later
-    scan. True when the heartbeat stopped advancing. A running status with no
-    heartbeat at all is stale too: it was written by a build that predates the
-    field, so it survived a restart and cannot be live.
-    """
-    current = _get_status() if status is None else status
-    if not current.get("running"):
-        return False
-    beat = current.get("heartbeat")
-    if not beat:
-        return True
-    try:
-        last = datetime.fromisoformat(beat)
-    except (TypeError, ValueError):
-        return True
-    if last.tzinfo is None:
-        last = last.replace(tzinfo=timezone.utc)
-    return (datetime.now(timezone.utc) - last).total_seconds() > STALE_AFTER_SECONDS
+    """Whether some worker still holds ``.scan.lock`` for its startup scan."""
+    return SCAN_JOB.lock_held()
 
 
 def scan_in_progress() -> bool:
     """Whether a library scan is really running - a stale status does not count."""
     status = _get_status()
     return bool(status.get("running")) and not is_stale(status)
-
-
-def force_clear() -> dict:
-    """Drop an abandoned scan's status so the UI unblocks and a new scan can start.
-
-    Only for a scan nothing is running any more: a live one must be asked to
-    stop via ``request_stop``, so it winds down at a safe checkpoint.
-    """
-    clear_stop()
-    _set_status({**_DEFAULT_STATUS})
-    return _get_status()
 
 
 def _ocr_one_book(book_id: str) -> str:

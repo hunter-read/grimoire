@@ -24,7 +24,7 @@ def _ago(seconds: float) -> str:
 def _stuck(**extra) -> None:
     """Leave the in-process status the way a killed scan does."""
     _helpers._set_status({**_helpers._DEFAULT_STATUS, "running": True, "phase": "scanning", **extra})
-    _helpers._heartbeat = _ago(_helpers.STALE_AFTER_SECONDS + 60)
+    _helpers.SCAN_JOB._heartbeat = _ago(_helpers.SCAN_JOB.stale_after_seconds + 60)
 
 
 @pytest.fixture(autouse=True)
@@ -54,7 +54,7 @@ class TestIsStale:
         assert _helpers.is_stale(live_scan_status()) is False
 
     def test_a_heartbeat_past_the_threshold_is_stale(self):
-        status = {"running": True, "heartbeat": _ago(_helpers.STALE_AFTER_SECONDS + 1)}
+        status = {"running": True, "heartbeat": _ago(_helpers.SCAN_JOB.stale_after_seconds + 1)}
         assert _helpers.is_stale(status) is True
 
     def test_a_running_status_without_a_heartbeat_is_stale(self):
@@ -76,7 +76,7 @@ class TestIsStale:
 
 class TestHeartbeat:
     def test_every_status_write_beats(self):
-        _helpers._heartbeat = None
+        _helpers.SCAN_JOB._heartbeat = None
         _helpers._set_status({"running": True})
         status = _helpers._get_status()
         assert status["heartbeat"] is not None
@@ -87,17 +87,17 @@ class TestHeartbeat:
         fake, store = _fake_valkey()
         with patch.object(config, "_valkey", fake):
             _helpers._set_status({**_helpers._DEFAULT_STATUS, "running": True})
-            blob = store[_helpers._SCAN_KEY]
-            _helpers._beat()
-            assert store[_helpers._SCAN_KEY] == blob
+            blob = store[_helpers.SCAN_JOB.status_key]
+            _helpers.SCAN_JOB.beat()
+            assert store[_helpers.SCAN_JOB.status_key] == blob
             assert "heartbeat" not in blob
-            assert _helpers._get_status()["heartbeat"] == store[_helpers._HEARTBEAT_KEY]
+            assert _helpers._get_status()["heartbeat"] == store[_helpers.SCAN_JOB.heartbeat_key]
 
     def test_valkey_bytes_heartbeat_is_decoded(self):
         fake, store = _fake_valkey()
         with patch.object(config, "_valkey", fake):
-            store[_helpers._HEARTBEAT_KEY] = b"2026-01-01T00:00:00+00:00"
-            assert _helpers._get_heartbeat() == "2026-01-01T00:00:00+00:00"
+            store[_helpers.SCAN_JOB.heartbeat_key] = b"2026-01-01T00:00:00+00:00"
+            assert _helpers.SCAN_JOB.heartbeat() == "2026-01-01T00:00:00+00:00"
 
     def test_valkey_errors_fall_back_to_in_process_heartbeat(self):
         from redis.exceptions import RedisError
@@ -106,14 +106,14 @@ class TestHeartbeat:
         fake.get.side_effect = RedisError("boom")
         fake.set.side_effect = RedisError("boom")
         with patch.object(config, "_valkey", fake):
-            _helpers._heartbeat = None
-            _helpers._beat()
-            assert _helpers._get_heartbeat() == _helpers._heartbeat is not None
+            _helpers.SCAN_JOB._heartbeat = None
+            _helpers.SCAN_JOB.beat()
+            assert _helpers.SCAN_JOB.heartbeat() == _helpers.SCAN_JOB._heartbeat is not None
 
     def test_the_ticker_beats_until_stopped(self, monkeypatch):
-        monkeypatch.setattr(_helpers, "HEARTBEAT_INTERVAL_SECONDS", 0.01)
+        monkeypatch.setattr(_helpers.SCAN_JOB, "heartbeat_interval_seconds", 0.01)
         beats = []
-        monkeypatch.setattr(_helpers, "_beat", lambda: beats.append(1))
+        monkeypatch.setattr(_helpers.SCAN_JOB, "beat", lambda: beats.append(1))
         done = _helpers._start_heartbeat()
         deadline = time.monotonic() + 2
         while len(beats) < 3 and time.monotonic() < deadline:
@@ -127,7 +127,7 @@ class TestHeartbeat:
 
     def test_the_ticker_survives_a_failed_beat(self, monkeypatch):
         """A ticker that died would make a live scan look abandoned."""
-        monkeypatch.setattr(_helpers, "HEARTBEAT_INTERVAL_SECONDS", 0.01)
+        monkeypatch.setattr(_helpers.SCAN_JOB, "heartbeat_interval_seconds", 0.01)
         calls = []
 
         def flaky():
@@ -135,7 +135,7 @@ class TestHeartbeat:
             if len(calls) == 1:
                 raise RuntimeError("transient")
 
-        monkeypatch.setattr(_helpers, "_beat", flaky)
+        monkeypatch.setattr(_helpers.SCAN_JOB, "beat", flaky)
         done = _helpers._start_heartbeat()
         deadline = time.monotonic() + 2
         while len(calls) < 3 and time.monotonic() < deadline:
@@ -187,7 +187,7 @@ class TestRescanEndpoint:
     def test_scan_status_reports_the_heartbeat(self, client, admin_headers):
         _helpers._set_status({"running": True})
         body = client.get("/api/scan-status", headers=admin_headers).json()
-        assert body["heartbeat"] == _helpers._get_heartbeat()
+        assert body["heartbeat"] == _helpers.SCAN_JOB.heartbeat()
 
 
 class TestScanOwners:

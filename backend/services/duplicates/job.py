@@ -4,39 +4,27 @@ Hashing and comparing a whole library is expensive, so this never runs on
 startup or as part of a rescan - issue #304 asks for a triggered scan with
 progress, and that is what this is.
 
-The status plumbing deliberately mirrors ``routers/library/_helpers`` (Valkey
-when available, an in-process dict otherwise) but keeps its **own** keys.
-Sharing ``_SCAN_KEY`` would be a bug in both directions: ``run_rescan_sync``
-replaces the whole status dict when it starts, which would erase a duplicate
-scan mid-run, and ``/cancel-scan`` would stop whichever job happened to be
-listening. Two jobs, two keys, two cancel buttons.
-
-The ~60 lines of status handling here are near-identical to the library
-helper's. Extracting a shared ``JobStatus`` is worth doing, but it would mean
-touching the scan path that every install depends on, so it is left as a
-follow-up rather than bundled into this feature.
+Its status, stop flag and heartbeat are a ``services.jobs.Job``, the same
+machinery the library scan uses, under keys of its own: two jobs, two keys, two
+cancel buttons.
 """
-import json
 import logging
 import uuid
-from datetime import datetime, timezone
 from typing import Any, Callable, Optional, Sequence
 
 from sqlalchemy.orm import Session
 
-from ...config import SessionLocal, valkey_client, valkey_errors
+from ...config import SessionLocal
 from ...models.collections import models_by_singular
 from ...models.duplicates import DuplicateGroup
 from ..filename_rules import variant_rules
+from ..jobs import Job, now
 from . import dismissals, scoring, signals
 from .grid import is_grid_pair
 from .grouping import Edge, build_groups
 
 logger = logging.getLogger("grimoire.duplicates")
 
-
-_DUP_KEY = "grimoire:duplicate_scan_status"
-_DUP_STOP = "grimoire:duplicate_scan_stop"
 
 RESOURCE_MODELS: dict[str, Any] = models_by_singular()
 
@@ -51,20 +39,10 @@ DEFAULT_STATUS: dict = {
     "scan_id": None,
     "started_at": None,
     "finished_at": None,
-    # Last time the running scan touched its status. Refreshed by every
-    # set_status call, which the comparison loops make continuously, so a
-    # timestamp that stops advancing means the thread behind it is gone.
-    "heartbeat": None,
     "error": None,
 }
 
-# How long a running scan's heartbeat may go unrefreshed before Stop treats it
-# as dead and clears the status outright. Comfortably longer than the gap
-# between progress reports, so a slow pass is never mistaken for a dead one.
-STALE_AFTER_SECONDS = 300
-
-_status: dict = dict(DEFAULT_STATUS)
-_stop_requested: bool = False
+JOB = Job("duplicate_scan", DEFAULT_STATUS)
 
 # How often the comparison loops check for a cancel request. Small enough that
 # Stop feels immediate, large enough not to hammer Valkey.
@@ -76,89 +54,12 @@ _STOP_CHECK_INTERVAL = 100
 # _STOP_CHECK_INTERVAL comparisons to make.
 _PROGRESS_INTERVAL = 5
 
-
-def request_stop() -> None:
-    global _stop_requested
-    _stop_requested = True
-    if (client := valkey_client()) is not None:
-        try:
-            client.set(_DUP_STOP, "1", ex=3600)
-        except valkey_errors() as e:
-            logger.warning("Valkey set(dup stop) failed, using in-process flag: %s", e)
-
-
-def clear_stop() -> None:
-    global _stop_requested
-    _stop_requested = False
-    if (client := valkey_client()) is not None:
-        try:
-            client.delete(_DUP_STOP)
-        except valkey_errors() as e:
-            logger.warning("Valkey delete(dup stop) failed, using in-process flag: %s", e)
-
-
-def is_stop_requested() -> bool:
-    if (client := valkey_client()) is not None:
-        try:
-            return bool(client.exists(_DUP_STOP))
-        except valkey_errors() as e:
-            logger.warning("Valkey exists(dup stop) failed, using in-process flag: %s", e)
-    return _stop_requested
-
-
-def get_status() -> dict:
-    if (client := valkey_client()) is not None:
-        try:
-            raw = client.get(_DUP_KEY)
-            if raw:
-                return json.loads(raw)
-        except (*valkey_errors(), ValueError) as e:
-            logger.warning("Valkey get(dup status) failed, using in-process: %s", e)
-    return dict(_status)
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
-def set_status(updates: dict) -> None:
-    global _status
-    # Stamped on every write rather than only on the progress ones, so the
-    # heartbeat covers the slow phases too — those report rarely, but they do
-    # report, and a scan that is alive anywhere is alive.
-    updates = {**updates, "heartbeat": _now()}
-    if (client := valkey_client()) is not None:
-        try:
-            current = get_status()
-            current.update(updates)
-            client.set(_DUP_KEY, json.dumps(current), ex=86400)
-            return
-        except valkey_errors() as e:
-            logger.warning("Valkey set(dup status) failed, using in-process: %s", e)
-    _status.update(updates)
-
-
-def is_stale(status: Optional[dict] = None) -> bool:
-    """Whether a status claiming to run has actually been abandoned.
-
-    True when the heartbeat stopped advancing — the process running the scan was
-    killed, so nothing will ever clear the flag on its own. A status with no
-    heartbeat at all is stale too: it was written by a version that predates the
-    field, which means it survived a restart and cannot be live.
-    """
-    current = get_status() if status is None else status
-    if not current.get("running"):
-        return False
-    beat = current.get("heartbeat")
-    if not beat:
-        return True
-    try:
-        last = datetime.fromisoformat(beat)
-    except (TypeError, ValueError):
-        return True
-    if last.tzinfo is None:
-        last = last.replace(tzinfo=timezone.utc)
-    return (datetime.now(timezone.utc) - last).total_seconds() > STALE_AFTER_SECONDS
+request_stop = JOB.request_stop
+clear_stop = JOB.clear_stop
+is_stop_requested = JOB.is_stop_requested
+get_status = JOB.status
+set_status = JOB.update
+is_stale = JOB.is_stale
 
 
 def force_clear() -> dict:
@@ -168,9 +69,7 @@ def force_clear() -> dict:
     must be asked to stop via ``request_stop`` so it can discard its partial
     results, which this cannot do on its behalf.
     """
-    clear_stop()
-    set_status({**DEFAULT_STATUS, "finished_at": _now()})
-    return get_status()
+    return JOB.force_clear(finished_at=now())
 
 
 def _candidates(db: Session, model: Any) -> list:
@@ -332,6 +231,17 @@ def run_detection_sync(
     Returns the final status. Safe to call directly (tests do); the router runs
     it through ``BackgroundTasks``.
     """
+    with JOB.run_lock() as acquired:
+        if not acquired:
+            # Without Valkey another worker's run is invisible to this one's
+            # status, but not to the lock.
+            logger.info("A duplicate scan is running on another worker - ignoring this request.")
+            return get_status()
+        return _run(resource_types, accuracy)
+
+
+def _run(resource_types: Optional[Sequence[str]], accuracy: str) -> dict:
+    """The scan itself, run while holding the job's lock."""
     if get_status().get("running"):
         # Stale means the previous run's process is gone, so nothing is actually
         # competing with this one and refusing would strand the caller.
@@ -353,10 +263,13 @@ def run_detection_sync(
             "phase": "hashing",
             "accuracy": accuracy,
             "scan_id": scan_id,
-            "started_at": _now(),
+            "started_at": now(),
         }
     )
 
+    # Not every pass reports progress (the grid and grouping passes don't), so
+    # on a large library status writes alone can't prove the scan is alive.
+    heartbeat = JOB.start_heartbeat()
     db = SessionLocal()
     total_groups = 0
     cancelled = False
@@ -429,8 +342,9 @@ def run_detection_sync(
                 "running": False,
                 "phase": None,
                 "resource_type": None,
-                "finished_at": _now(),
+                "finished_at": now(),
             }
         )
         clear_stop()
+        heartbeat.set()
     return get_status()
