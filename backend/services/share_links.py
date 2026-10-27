@@ -71,12 +71,18 @@ def set_role_default(db: Session, role: str, allowed: bool) -> None:
         db.add(AppSetting(key=key, value=value))
 
 
-def role_allows(db: Session, role: Optional[str]) -> bool:
-    """Whether ``role`` may share by default, before any per-user override."""
+def role_allows(
+    db: Session, role: Optional[str], defaults: Optional[dict[str, bool]] = None
+) -> bool:
+    """Whether ``role`` may share by default, before any per-user override.
+
+    ``defaults`` is ``role_defaults(db)`` when the caller already has it - a list
+    of users reads it once rather than once per user (issue #707).
+    """
     if role == "admin":
         return True
     if role in ROLE_SETTING_KEYS:
-        return role_defaults(db)[role]
+        return (role_defaults(db) if defaults is None else defaults)[role]
     return False
 
 
@@ -93,16 +99,18 @@ def override_value(override: Override) -> Optional[bool]:
     return {"role": None, "allow": True, "deny": False}[override]
 
 
-def share_status(db: Session, user: Any) -> dict[str, Any]:
+def share_status(
+    db: Session, user: Any, defaults: Optional[dict[str, bool]] = None
+) -> dict[str, Any]:
     """Whether ``user`` (an ORM ``User``) may create share links, and why.
 
     ``{"allowed", "source", "override", "role_allows"}`` - ``source`` says which
     layer decided, so the admin UI can show "allowed (from role)" for a GM with
-    no override of their own.
+    no override of their own. ``defaults`` is as for ``role_allows``.
     """
     override = override_of(user)
     role = getattr(user, "role", None)
-    by_role = role_allows(db, role)
+    by_role = role_allows(db, role, defaults)
     if user is None or not links_enabled():
         return {"allowed": False, "source": "disabled", "override": override, "role_allows": by_role}
     if role == "guest" or getattr(user, "is_guest", False):

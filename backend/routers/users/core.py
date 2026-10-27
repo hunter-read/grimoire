@@ -1,4 +1,6 @@
 """Admin user management endpoints."""
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -17,9 +19,13 @@ from ._schemas import UserCreate, UserUpdate, GuestConvert, GuestMerge
 router = APIRouter()
 
 
-def _share_fields(db: Session, user: User) -> dict:
-    """The share-link permission as the admin page shows it (issue #541)."""
-    status = share_policy.share_status(db, user)
+def _share_fields(db: Session, user: User, defaults: Optional[dict[str, bool]] = None) -> dict:
+    """The share-link permission as the admin page shows it (issue #541).
+
+    A list passes ``share_policy.role_defaults(db)`` as ``defaults``, read once
+    for every row rather than once per user (issue #707).
+    """
+    status = share_policy.share_status(db, user, defaults)
     return {
         "share_links": status["override"],
         "share_links_allowed": status["allowed"],
@@ -42,6 +48,7 @@ def list_users(_: CurrentUser = Depends(require_admin), db: Session = Depends(ge
         .group_by(Campaign.owner_id)
         .all()
     }
+    share_defaults = share_policy.role_defaults(db)
     return [
         {
             "id": u.id,
@@ -53,7 +60,7 @@ def list_users(_: CurrentUser = Depends(require_admin), db: Session = Depends(ge
             "explicit_locked": bool(u.explicit_locked),
             "campaign_access": u.campaign_access is None or bool(u.campaign_access),
             "api_keys_enabled": bool(u.api_keys_enabled),
-            **_share_fields(db, u),
+            **_share_fields(db, u, share_defaults),
             "campaign_count": owned_counts.get(u.id, 0),
             "oidc_linked": bool(u.oidc_subject),
             "created_at": u.created_at.isoformat() if u.created_at else None,
