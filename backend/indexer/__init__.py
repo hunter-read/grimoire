@@ -120,6 +120,9 @@ from .hashing import (  # noqa: E402,F401
     signature_matches,
 )
 
+# --- Same-thread DB steps -------------------------------------------------------
+from ._db import DatabaseBusyError, _db_call  # noqa: E402,F401
+
 # --- Isolated extraction / OCR -------------------------------------------------
 from ._subprocess import (  # noqa: E402,F401
     OCR_PAGE_ABANDONED,
@@ -127,7 +130,6 @@ from ._subprocess import (  # noqa: E402,F401
     _book_page_count,
     _commit,
     _fitz_open_with_timeout,
-    _run_with_timeout,
     extract_text_from_pdf,
     extract_text_isolated,
     ocr_book,

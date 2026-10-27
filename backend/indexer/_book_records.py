@@ -22,14 +22,13 @@ from backend import indexer  # package namespace, for patch-sensitive calls
 from . import comics, text_documents
 from ..services.filename_rules.folders import read_filename
 from ._context import _ScanContext, _title_from_filename
-from ._subprocess import _run_with_timeout
+from ._db import DatabaseBusyError, _db_call
 from .categories import agnostic_category, guess_category
 from .constants import (
     IMAGE_EXTS,
     TEXT_DOC_EXTS,
     UNCATEGORIZED,
     _COMIC_ARCHIVE_EXTS,
-    _DB_TIMEOUT,
 )
 from .formats import apply_reflow_layout, can_thumbnail, has_page_count, mime_for_ext
 from .hashing import (
@@ -155,11 +154,9 @@ def _register_book(
                 system_category_off, is_special_collection, relative_path, system_depth
             )
             try:
-                _run_with_timeout(
-                    session.commit, _DB_TIMEOUT, f"commit re-home '{filepath}'"
-                )
+                _db_call(session.commit, f"commit re-home '{filepath}'")
                 stats["updated_books"] += 1
-            except (TimeoutError, IntegrityError) as e:
+            except (DatabaseBusyError, IntegrityError) as e:
                 logger.error(f"DB error re-homing '{filename}': {e}")
                 session.rollback()
         # Re-apply sidecar metadata to already-indexed books when
@@ -178,14 +175,10 @@ def _register_book(
             if changed:
                 logger.debug(f"Refreshing metadata for '{filename}' (mode={ctx.metadata_mode})")
                 try:
-                    _run_with_timeout(
-                        session.commit,
-                        _DB_TIMEOUT,
-                        f"commit metadata refresh '{filepath}'",
-                    )
+                    _db_call(session.commit, f"commit metadata refresh '{filepath}'")
                     stats["updated_books"] += 1
-                except (TimeoutError, IntegrityError) as e:
-                    logger.error(f"DB hang refreshing metadata for '{filename}': {e}")
+                except (DatabaseBusyError, IntegrityError) as e:
+                    logger.error(f"DB error refreshing metadata for '{filename}': {e}")
                     session.rollback()
         # Detect an in-place replacement before the completeness checks below:
         # those only ask whether work is *outstanding*, so a fully-indexed book
@@ -195,10 +188,8 @@ def _register_book(
             _handle_replaced_book(ctx, existing, filepath, filename)
         if wrote_signature:
             try:
-                _run_with_timeout(
-                    session.commit, _DB_TIMEOUT, f"commit signature '{filepath}'"
-                )
-            except (TimeoutError, IntegrityError) as e:
+                _db_call(session.commit, f"commit signature '{filepath}'")
+            except (DatabaseBusyError, IntegrityError) as e:
                 logger.error(f"DB error saving file signature for '{filename}': {e}")
                 session.rollback()
 
@@ -283,17 +274,17 @@ def _register_book(
     session.add(book)
     logger.debug(f"DB: committing new book '{filename}'")
     try:
-        _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit book '{filepath}'")
+        _db_call(session.commit, f"commit book '{filepath}'")
         ctx.inserted_ids.add(book.id)
         # OPF ``subjects`` become shared tags on the book (issue #235).
         opf_tags = opf_meta.get("tags")
         if opf_tags:
             tag_service.set_resource_tags(session, "book", book.id, opf_tags)
-            session.commit()
+            _db_call(session.commit, f"commit tags '{filepath}'")
         stats["new_books"] += 1
         logger.info(f"Added book: {book.title} ({category}) in {system_name}")
-    except TimeoutError as e:
-        logger.error(f"DB hang: {e} - rolling back '{filename}'")
+    except DatabaseBusyError as e:
+        logger.error(f"DB error: {e} - rolling back '{filename}'")
         session.rollback()
         stats["errors"] += 1
         return None, False, False
@@ -320,9 +311,9 @@ def _do_book_thumbnail(
     # clears it below so the file is resumed normally next time.
     book.scan_failed = True
     try:
-        _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit scan_failed '{filepath}'")
-    except (TimeoutError, IntegrityError) as e:
-        logger.error(f"DB hang writing scan_failed for '{filename}': {e}")
+        _db_call(session.commit, f"commit scan_failed '{filepath}'")
+    except (DatabaseBusyError, IntegrityError) as e:
+        logger.error(f"DB error writing scan_failed for '{filename}': {e}")
         session.rollback()
     logger.debug(f"Generating thumbnail: {filepath}")
     if indexer.generate_thumbnail(filepath, thumb_path, should_stop=ctx.should_stop):
@@ -331,9 +322,9 @@ def _do_book_thumbnail(
         # Cancelled — clear the flag so the file is resumed next scan.
         book.scan_failed = False
     try:
-        _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit thumbnail '{filepath}'")
-    except (TimeoutError, IntegrityError) as e:
-        logger.error(f"DB hang saving thumbnail for '{filename}': {e}")
+        _db_call(session.commit, f"commit thumbnail '{filepath}'")
+    except (DatabaseBusyError, IntegrityError) as e:
+        logger.error(f"DB error saving thumbnail for '{filename}': {e}")
         session.rollback()
 
 
@@ -343,9 +334,9 @@ def _do_book_page_count(ctx: _ScanContext, book: Book, filepath: str, filename: 
     if not book.scan_failed:
         book.scan_failed = True
         try:
-            _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit scan_failed '{filepath}'")
-        except (TimeoutError, IntegrityError) as e:
-            logger.error(f"DB hang writing scan_failed for '{filename}': {e}")
+            _db_call(session.commit, f"commit scan_failed '{filepath}'")
+        except (DatabaseBusyError, IntegrityError) as e:
+            logger.error(f"DB error writing scan_failed for '{filename}': {e}")
             session.rollback()
     logger.debug(f"Reading page count: {filepath}")
     ext = Path(filepath).suffix.lower()
@@ -367,7 +358,7 @@ def _do_book_page_count(ctx: _ScanContext, book: Book, filepath: str, filename: 
             doc.close()
         logger.debug(f"Page count: {book.page_count} pages in '{filename}'")
         book.scan_failed = False
-        _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit page_count '{filepath}'")
+        _db_call(session.commit, f"commit page_count '{filepath}'")
     except Exception as e:
         if ctx.stop_requested():
             # Cancelled — clear the flag so the file is resumed next scan.
@@ -377,7 +368,7 @@ def _do_book_page_count(ctx: _ScanContext, book: Book, filepath: str, filename: 
             book.index_error = str(e)[:500]
             stats["errors"] += 1
         try:
-            _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit scan_failed '{filepath}'")
-        except (TimeoutError, IntegrityError) as e2:
-            logger.error(f"DB hang saving index_error for '{filename}': {e2}")
+            _db_call(session.commit, f"commit scan_failed '{filepath}'")
+        except (DatabaseBusyError, IntegrityError) as e2:
+            logger.error(f"DB error saving index_error for '{filename}': {e2}")
             session.rollback()

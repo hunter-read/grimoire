@@ -26,9 +26,9 @@ from sqlalchemy.orm import Session
 from backend import indexer  # package namespace, for patch-sensitive calls
 from .. import config, ocr
 from ..models import Book
+from ._db import DatabaseBusyError, _db_call
 from .constants import (
     _COMIC_ARCHIVE_EXTS,
-    _DB_TIMEOUT,
     _EXTRACT_TIMEOUT,
     _FITZ_TIMEOUT,
     _MP_CONTEXT,
@@ -64,28 +64,6 @@ class PdfExtractionCrashError(Exception):
     out-of-memory kill on a low-RAM host.  The caller marks the book failed so
     the file is skipped instead of crashing the server and re-looping the scan.
     """
-
-
-def _run_with_timeout(fn: Callable[[], Any], timeout: int, label: str) -> Any:
-    """Run fn() in a daemon thread.  Returns its result, or raises TimeoutError if it
-    does not complete within `timeout` seconds.  `label` is used in log/error messages."""
-    result: list[Any] = [None]
-    exc: list[Optional[Exception]] = [None]
-
-    def _worker() -> None:
-        try:
-            result[0] = fn()
-        except Exception as e:
-            exc[0] = e
-
-    t = threading.Thread(target=_worker, daemon=True)
-    t.start()
-    t.join(timeout)
-    if t.is_alive():
-        raise TimeoutError(f"DB operation timed out after {timeout}s: {label}")
-    if exc[0] is not None:
-        raise exc[0]
-    return result[0]
 
 
 def _fitz_open_with_timeout(
@@ -498,9 +476,9 @@ def _book_page_count(filepath: str) -> int:
 
 
 def _commit(session: Session, label: str) -> None:
-    """Commit with the standard indexer timeout guard; roll back on hang."""
+    """Commit, rolling back if the database stays locked or rejects the row."""
     try:
-        _run_with_timeout(session.commit, _DB_TIMEOUT, label)
-    except (TimeoutError, IntegrityError) as e:
-        logger.error(f"DB hang on commit ({label}): {e}")
+        _db_call(session.commit, label)
+    except (DatabaseBusyError, IntegrityError) as e:
+        logger.error(f"DB error on commit ({label}): {e}")
         session.rollback()

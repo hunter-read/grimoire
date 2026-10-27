@@ -15,9 +15,10 @@ import logging
 import os
 from typing import Any
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from ._context import _ScanContext
-from ._subprocess import _run_with_timeout
-from .constants import _DB_TIMEOUT
+from ._db import _db_call
 from .moves import (  # noqa: F401  (re-exported for patch compatibility)
     _detect_moves,
     _remove_stale_thumbnail,
@@ -115,13 +116,13 @@ def _reconcile_missing(
             f"{missing_tokens} token(s), {missing_audio} audio file(s)."
         )
     try:
-        _run_with_timeout(session.commit, _DB_TIMEOUT, "commit missing flags")
+        _db_call(session.commit, "commit missing flags")
         # Only a sweep of every collection reconciles every row; a scoped one
         # leaves rows elsewhere still waiting for move detection.
         if scope_dir is None and all(enabled for _k, _m, enabled, _l in collections):
             mark_reconciled(session, started)
-    except (TimeoutError, Exception) as e:
-        logger.error(f"DB hang saving missing flags: {e}")
+    except SQLAlchemyError as e:
+        logger.error(f"DB error saving missing flags: {e}")
         session.rollback()
 
     ctx.stats["missing_books"] = missing_books

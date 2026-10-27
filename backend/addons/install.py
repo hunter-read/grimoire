@@ -37,6 +37,7 @@ from .registry import (
     load_manifest,
     read_manifest_file,
     save_cached_index,
+    script_digest,
     update_state_for,
 )
 
@@ -419,9 +420,21 @@ def set_enabled(db: Session, addon_id: str, enabled: bool) -> dict:
 
 
 def set_script_approved(db: Session, addon_id: str, approved: bool) -> dict:
+    """Grant or revoke script approval.
+
+    Approving records the SHA-256 of the script on disk right now, so the
+    approval covers exactly that file (see ``registry.is_runnable``).
+    """
     manifest = load_manifest(addon_id)
-    if approved and not manifest.requires_script:
+    if not approved:
+        record = update_state_for(db, addon_id, script_approved=False)
+        db.commit()
+        return record
+    if not manifest.requires_script:
         raise AddonError(f"add-on '{addon_id}' does not use a script")
-    record = update_state_for(db, addon_id, script_approved=approved)
+    digest = script_digest(manifest)
+    if not digest:
+        raise AddonError(f"add-on '{addon_id}' script is missing")
+    record = update_state_for(db, addon_id, script_approved=True, script_sha256=digest)
     db.commit()
     return record

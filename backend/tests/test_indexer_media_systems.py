@@ -14,6 +14,7 @@ from unittest.mock import patch
 
 from backend.config import SessionLocal
 from backend.indexer import scan_library
+from backend.indexer._db import DatabaseBusyError
 from backend.indexer.categories import slugify
 from backend.models import Audio, Book, GameSystem, GenericMap
 
@@ -52,12 +53,12 @@ class TestMediaScanResilience:
         tmp, lib = _mk_lib()
         _touch(_media(lib, "maps", "Battle"), "keep.png")
 
-        def hang(fn, timeout, label):
+        def hang(fn, label):
             if "query map" in label:
-                raise TimeoutError(label)
+                raise DatabaseBusyError(label)
             return fn()
 
-        with patch("backend.indexer.media._run_with_timeout", side_effect=hang):
+        with patch("backend.indexer.media._db_call", side_effect=hang):
             stats = _scan(lib, tmp)
 
         assert stats["errors"] >= 1
@@ -79,12 +80,12 @@ class TestMediaScanResilience:
         tmp, lib = _mk_lib()
         _touch(_media(lib, "maps", "Battle"), "rollback.png")
 
-        def hang(fn, timeout, label):
+        def hang(fn, label):
             if label.startswith("commit map"):
-                raise TimeoutError(label)
+                raise DatabaseBusyError(label)
             return fn()
 
-        with patch("backend.indexer.media._run_with_timeout", side_effect=hang):
+        with patch("backend.indexer.media._db_call", side_effect=hang):
             stats = _scan(lib, tmp)
 
         assert stats["errors"] >= 1
@@ -105,12 +106,12 @@ class TestMediaScanResilience:
         tmp, lib = _mk_lib()
         _touch(_media(lib, "audio", "Tracks"), "theme.mp3", b"ID3\x04\x00")
 
-        def hang(fn, timeout, label):
+        def hang(fn, label):
             if "query audio" in label:
-                raise TimeoutError(label)
+                raise DatabaseBusyError(label)
             return fn()
 
-        with patch("backend.indexer.media._run_with_timeout", side_effect=hang):
+        with patch("backend.indexer.media._db_call", side_effect=hang):
             stats = _scan(lib, tmp)
 
         assert stats["errors"] >= 1
@@ -120,12 +121,12 @@ class TestMediaScanResilience:
         tmp, lib = _mk_lib()
         _touch(_media(lib, "audio", "Tracks"), "rollback.mp3", b"ID3\x04\x00")
 
-        def hang(fn, timeout, label):
+        def hang(fn, label):
             if label.startswith("commit audio"):
-                raise TimeoutError(label)
+                raise DatabaseBusyError(label)
             return fn()
 
-        with patch("backend.indexer.media._run_with_timeout", side_effect=hang):
+        with patch("backend.indexer.media._db_call", side_effect=hang):
             stats = _scan(lib, tmp)
 
         assert stats["errors"] >= 1
@@ -182,12 +183,12 @@ class TestSystemRegistrationResilience:
         d.mkdir(parents=True)
         (d / "tome.pdf").write_bytes(b"%PDF-1.4")
 
-        def hang(fn, timeout, label):
+        def hang(fn, label):
             if label.startswith("query system '"):
-                raise TimeoutError(label)
+                raise DatabaseBusyError(label)
             return fn()
 
-        with patch("backend.indexer.systems._run_with_timeout", side_effect=hang):
+        with patch("backend.indexer.systems._db_call", side_effect=hang):
             stats = _scan(lib, tmp)
 
         assert stats["errors"] >= 1
@@ -201,12 +202,12 @@ class TestSystemRegistrationResilience:
         d.mkdir(parents=True)
         (d / "tome.pdf").write_bytes(b"%PDF-1.4")
 
-        def hang(fn, timeout, label):
+        def hang(fn, label):
             if label.startswith("flush system"):
-                raise TimeoutError(label)
+                raise DatabaseBusyError(label)
             return fn()
 
-        with patch("backend.indexer.systems._run_with_timeout", side_effect=hang):
+        with patch("backend.indexer.systems._db_call", side_effect=hang):
             stats = _scan(lib, tmp)
 
         assert stats["errors"] >= 1

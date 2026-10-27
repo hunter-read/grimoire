@@ -8,6 +8,7 @@ Directories are the source of truth for *what is installed*; the state blob only
 annotates them. A hand-placed directory therefore works without any UI step,
 which is how private/unpublished add-ons are supported.
 """
+import hashlib
 import json
 import logging
 import os
@@ -225,12 +226,24 @@ def is_enabled(db: Session, addon_id: str) -> bool:
     return bool(get_state_for(db, addon_id).get("enabled", True))
 
 
+def script_digest(manifest: AddonManifest) -> str:
+    """SHA-256 of the add-on's script as it is on disk now; "" if there is none."""
+    if manifest.script is None:
+        return ""
+    path = os.path.join(addon_dir(manifest.id), manifest.script.entry)
+    try:
+        with open(path, "rb") as fh:
+            return hashlib.sha256(fh.read()).hexdigest()
+    except OSError:
+        return ""
+
+
 def is_runnable(db: Session, addon_id: str, manifest: AddonManifest) -> tuple[bool, str]:
     """Whether an add-on may run now.  Returns ``(ok, reason_if_not)``.
 
-    Script-backed add-ons need both the global toggle and their own
-    install-time approval; the approval is tied to the script digest, so an
-    updated script must be re-approved.
+    Script-backed add-ons need both the global toggle and their own approval.
+    Approving records the script's SHA-256, and a script that no longer matches
+    it - edited on disk, or replaced since - waits for approval again.
     """
     if not is_enabled(db, addon_id):
         return False, "add-on is disabled"
@@ -238,8 +251,12 @@ def is_runnable(db: Session, addon_id: str, manifest: AddonManifest) -> tuple[bo
         return True, ""
     if not scripts_allowed(db):
         return False, "add-on scripts are not enabled on this server"
-    if not get_state_for(db, addon_id).get("script_approved"):
+    state = get_state_for(db, addon_id)
+    if not state.get("script_approved"):
         return False, "add-on script has not been approved"
+    approved_digest = state.get("script_sha256") or ""
+    if not approved_digest or approved_digest != script_digest(manifest):
+        return False, "add-on script has changed since it was approved - approve it again"
     return True, ""
 
 

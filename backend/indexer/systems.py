@@ -29,10 +29,9 @@ from .categories import (
 from .constants import (
     CONTAINER_AGNOSTIC,
     CONTAINER_ONE_PAGE,
-    _DB_TIMEOUT,
 )
 from .metadata import _find_folder_artwork
-from ._subprocess import _run_with_timeout
+from ._db import DatabaseBusyError, _db_call
 from ..models import GameSystem
 
 logger = logging.getLogger("grimoire.indexer")
@@ -91,13 +90,12 @@ def _adopt_existing_system(
     """
     session = ctx.session
     try:
-        existing = _run_with_timeout(
+        existing = _db_call(
             lambda: session.query(GameSystem).filter_by(name=name).first(),
-            _DB_TIMEOUT,
             f"query system by name '{name}'",
         )
-    except TimeoutError as e:
-        logger.error(f"DB hang: {e} - cannot adopt system '{name}'")
+    except DatabaseBusyError as e:
+        logger.error(f"DB error: {e} - cannot adopt system '{name}'")
         return None
     if existing is None or existing.parent_id or existing.container_kind:
         return None
@@ -115,13 +113,12 @@ def _unique_system_name(ctx: _ScanContext, name: str, slug: str) -> str:
     """
     session = ctx.session
     try:
-        taken = _run_with_timeout(
+        taken = _db_call(
             lambda: session.query(GameSystem).filter_by(name=name).first(),
-            _DB_TIMEOUT,
             f"query system by name '{name}'",
         )
-    except TimeoutError as e:
-        logger.error(f"DB hang: {e} - using name '{name}' as-is")
+    except DatabaseBusyError as e:
+        logger.error(f"DB error: {e} - using name '{name}' as-is")
         return name
     if taken is None:
         return name
@@ -129,12 +126,11 @@ def _unique_system_name(ctx: _ScanContext, name: str, slug: str) -> str:
     suffix = 2
     while True:
         try:
-            clash = _run_with_timeout(
-                lambda c=candidate: session.query(GameSystem).filter_by(name=c).first(),  # type: ignore[misc]  # default-arg capture defeats lambda inference
-                _DB_TIMEOUT,
+            clash = _db_call(
+                lambda: session.query(GameSystem).filter_by(name=candidate).first(),
                 f"query system by name '{candidate}'",
             )
-        except TimeoutError:
+        except DatabaseBusyError:
             return candidate
         if clash is None:
             logger.warning(
@@ -221,13 +217,12 @@ def _register_system_row(
     name = display_name or folder.name
     logger.debug(f"DB: querying system '{folder.slug}'")
     try:
-        system = _run_with_timeout(
-            lambda slug=folder.slug: session.query(GameSystem).filter_by(slug=slug).first(),  # type: ignore[misc]  # default-arg capture defeats lambda inference
-            _DB_TIMEOUT,
+        system = _db_call(
+            lambda: session.query(GameSystem).filter_by(slug=folder.slug).first(),
             f"query system '{folder.slug}'",
         )
-    except TimeoutError as e:
-        logger.error(f"DB hang: {e} - skipping system '{name}'")
+    except DatabaseBusyError as e:
+        logger.error(f"DB error: {e} - skipping system '{name}'")
         stats["errors"] += 1
         return None
 
@@ -276,9 +271,9 @@ def _register_system_row(
         session.add(system)
         logger.debug(f"DB: flushing new system '{name}'")
         try:
-            _run_with_timeout(session.flush, _DB_TIMEOUT, f"flush system '{name}'")
-        except TimeoutError as e:
-            logger.error(f"DB hang: {e} - skipping system '{name}'")
+            _db_call(session.flush, f"flush system '{name}'")
+        except DatabaseBusyError as e:
+            logger.error(f"DB error: {e} - skipping system '{name}'")
             session.rollback()
             stats["errors"] += 1
             return None

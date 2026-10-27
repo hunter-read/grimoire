@@ -18,6 +18,9 @@ package namespace (``indexer.NAME``).
 import logging
 import os
 from pathlib import Path
+
+from sqlalchemy.exc import SQLAlchemyError
+
 from ._book_records import (  # noqa: F401  (re-exported for patch compatibility)
     _derive_category,
     _do_book_page_count,
@@ -27,7 +30,7 @@ from ._book_records import (  # noqa: F401  (re-exported for patch compatibility
     _register_book,
 )
 from ..filenames import display_name
-from ._subprocess import _run_with_timeout
+from ._db import DatabaseBusyError, _db_call
 from ._context import (
     _ScanContext,
     _keep_entry,
@@ -50,7 +53,6 @@ from .constants import (
     DOC_EXTS,
     IMAGE_EXTS,
     NO_AUTO_CATEGORY_MARKER,
-    _DB_TIMEOUT,
 )
 from .metadata import is_exported_cover_name, is_folder_cover_name, parse_opf_metadata
 from .thumbnails import archive_ext
@@ -97,8 +99,8 @@ def _scan_books(ctx: _ScanContext, books_dir: Path) -> None:
 
     if registered:
         try:
-            _run_with_timeout(session.commit, _DB_TIMEOUT, "commit top-level systems")
-        except (TimeoutError, Exception) as e:
+            _db_call(session.commit, "commit top-level systems")
+        except SQLAlchemyError as e:
             logger.error(f"DB error saving top-level systems: {e}")
             session.rollback()
             ctx.stats["errors"] += 1
@@ -287,10 +289,8 @@ def _scan_container(
     # shelf complete rather than rolling the registrations back with it.
     if registered:
         try:
-            _run_with_timeout(
-                ctx.session.commit, _DB_TIMEOUT, f"commit child systems of '{container.name}'"
-            )
-        except (TimeoutError, Exception) as e:
+            _db_call(ctx.session.commit, f"commit child systems of '{container.name}'")
+        except SQLAlchemyError as e:
             logger.error(f"DB error saving child systems of '{container.name}': {e}")
             ctx.session.rollback()
             ctx.stats["errors"] += 1
@@ -512,13 +512,12 @@ def _scan_books_in_system(
             )
             logger.debug(f"DB: querying existing book '{filepath}'")
             try:
-                existing = _run_with_timeout(
-                    lambda fp=filepath: session.query(Book).filter_by(filepath=fp).first(),  # type: ignore[misc]  # default-arg capture defeats lambda inference
-                    _DB_TIMEOUT,
+                existing = _db_call(
+                    lambda: session.query(Book).filter_by(filepath=filepath).first(),
                     f"query book '{filepath}'",
                 )
-            except TimeoutError as e:
-                logger.error(f"DB hang: {e} - skipping '{filename}'")
+            except DatabaseBusyError as e:
+                logger.error(f"DB error: {e} - skipping '{filename}'")
                 stats["errors"] += 1
                 continue
 

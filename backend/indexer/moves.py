@@ -21,11 +21,11 @@ import logging
 import os
 from typing import Any, Optional
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from ._context import _ScanContext, _title_from_filename
-from ._subprocess import _run_with_timeout
-from .constants import _DB_TIMEOUT
+from ._db import _db_call
 from ..models import AppSetting, Book, GenericMap, Model3D, Token
 
 logger = logging.getLogger("grimoire.indexer")
@@ -220,8 +220,8 @@ def _detect_moves(ctx: _ScanContext, model: Any, gone: list, present: list) -> i
 
     if moved:
         try:
-            _run_with_timeout(session.commit, _DB_TIMEOUT, "commit detected moves")
-        except (TimeoutError, Exception) as e:
+            _db_call(session.commit, "commit detected moves")
+        except SQLAlchemyError as e:
             logger.error(f"DB error saving detected moves: {e}")
             session.rollback()
             return 0

@@ -14,6 +14,7 @@ from PIL import Image
 
 from backend.config import SessionLocal
 from backend.models import Audio
+from backend.indexer._db import DatabaseBusyError
 from backend.indexer import (
     AUDIO_EXTS,
     _leading_number,
@@ -298,18 +299,18 @@ class TestAudioScanFailures:
         os.makedirs(adir)
         return lib, adir
 
-    def _timeout_on(self, monkeypatch, prefix, needle):
-        """Make the DB step whose label starts with ``prefix`` hang for ``needle``."""
+    def _locked_on(self, monkeypatch, prefix, needle):
+        """Make the DB step whose label starts with ``prefix`` find the database locked for ``needle``."""
         from backend.indexer import media
 
-        real = media._run_with_timeout
+        real = media._db_call
 
-        def fake(fn, timeout, label):
+        def fake(fn, label):
             if label.startswith(prefix) and needle in label:
-                raise TimeoutError(label)
-            return real(fn, timeout, label)
+                raise DatabaseBusyError(label)
+            return real(fn, label)
 
-        monkeypatch.setattr(media, "_run_with_timeout", fake)
+        monkeypatch.setattr(media, "_db_call", fake)
 
     def _row(self, db, path):
         return db.query(Audio).filter(Audio.filepath == path).first()
@@ -318,7 +319,7 @@ class TestAudioScanFailures:
         lib, adir = self._lib()
         wav = os.path.join(adir, "hang.wav")
         _write_wav(wav)
-        self._timeout_on(monkeypatch, "query audio", wav)
+        self._locked_on(monkeypatch, "query audio", wav)
         db = SessionLocal()
         try:
             stats = scan_library(lib, tempfile.mkdtemp(), db)
@@ -331,7 +332,7 @@ class TestAudioScanFailures:
         lib, adir = self._lib()
         wav = os.path.join(adir, "stuck.wav")
         _write_wav(wav)
-        self._timeout_on(monkeypatch, "commit audio", wav)
+        self._locked_on(monkeypatch, "commit audio", wav)
         db = SessionLocal()
         try:
             stats = scan_library(lib, tempfile.mkdtemp(), db)
@@ -352,7 +353,7 @@ class TestAudioScanFailures:
                 {"track_number": None}, synchronize_session=False
             )
             db.commit()
-            self._timeout_on(monkeypatch, "commit audio", wav)
+            self._locked_on(monkeypatch, "commit audio", wav)
             stats = scan_library(lib, data, db)
             assert stats["errors"] >= 1
             db.expire_all()
@@ -368,14 +369,14 @@ class TestAudioScanFailures:
         lib, adir = self._lib()
         wav = os.path.join(adir, "twice.wav")
         _write_wav(wav)
-        real = media._run_with_timeout
+        real = media._db_call
 
-        def fake(fn, timeout, label):
+        def fake(fn, label):
             if label.startswith("commit audio") and wav in label:
                 raise IntegrityError("INSERT", {}, Exception("UNIQUE constraint failed"))
-            return real(fn, timeout, label)
+            return real(fn, label)
 
-        monkeypatch.setattr(media, "_run_with_timeout", fake)
+        monkeypatch.setattr(media, "_db_call", fake)
         db = SessionLocal()
         try:
             stats = scan_library(lib, tempfile.mkdtemp(), db)

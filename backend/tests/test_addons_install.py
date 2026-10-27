@@ -315,6 +315,15 @@ class TestScriptInstall:
         install.install(db, "demo", approve_script=True)
         assert registry.get_state_for(db, "demo")["script_approved"] is True
 
+    def test_approving_at_install_covers_the_installed_script(self, db, addons_dir, scripted):
+        install.install(db, "demo", approve_script=True)
+        registry.set_scripts_allowed(db, True)
+        ok, reason = registry.is_runnable(db, "demo", registry.load_manifest("demo"))
+        assert ok, reason
+        (addons_dir / "demo" / "demo.py").write_text("def main():\n    pass  # edited\n")
+        ok, reason = registry.is_runnable(db, "demo", registry.load_manifest("demo"))
+        assert not ok and "changed since it was approved" in reason
+
     def test_script_checksum_mismatch_is_refused(self, db, addons_dir, files):
         manifest = {**MANIFEST, "script": {"entry": "demo.py"}}
         body = _yaml_bytes(manifest)

@@ -2021,7 +2021,7 @@ repo. See [`docs/addons.md`](addons.md) for the full picture.
 | `/api/addons/sources/credential` | PUT | admin | Store a [private source's](addons.md#private-sources) access token. Body `{url, token, header?}`; `url` must be a configured index URL, and `header` defaults to `Authorization` (sent as `Bearer <token>`). `400` for an unconfigured URL, one pinned by `ADDON_INDEX_CREDENTIALS`, or an unusable token or header. Returns `{source_credentials}`. Session only |
 | `/api/addons/sources/credential?url=` | DELETE | admin | Forget a source's stored token. Returns `{source_credentials}`. Session only |
 | `/api/addons/:id/install` | POST | admin | Install or update from the index. Body `{approve_script: bool}` |
-| `/api/addons/:id` | PATCH | admin | Set `enabled` and/or `script_approved` |
+| `/api/addons/:id` | PATCH | admin | Set `enabled` and/or `script_approved` (approving records the script's SHA-256; 404 if the script file is missing) |
 | `/api/addons/:id` | DELETE | admin | Uninstall and forget its state |
 
 **Installed add-on fields:** `id`, `name`, `version`, `kind`, `target`,
@@ -2112,9 +2112,11 @@ index entry and therefore never reports an update.
 **Script safety:** an add-on may ship a Python script for sources YAML cannot
 express. Grimoire runs one only when `allow_scripts` is on **and** that add-on
 was approved at install time (`approve_script: true`). Scripts execute in an
-isolated subprocess with a timeout and no database access. Approval is tied to
-the script's digest, so an update that changes the script drops back to
-unapproved - including via `update-all`, which never silently re-grants consent.
+isolated subprocess with a timeout and no database handle. Approving records
+the script's SHA-256, and every run checks the file on disk against it: an
+update that changes the script, or an edit to the file, drops back to unapproved
+(`blocked_reason` says so) - including via `update-all`, which never silently
+re-grants consent. Re-approving with `PATCH` records the script as it is then.
 Downloads are verified against the SHA-256 the index declares and refused on
 mismatch.
 

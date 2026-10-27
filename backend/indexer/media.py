@@ -20,7 +20,7 @@ from sqlalchemy.exc import IntegrityError
 
 from backend import indexer  # package namespace, for patch-sensitive calls
 from ._context import _ScanContext, _prune_dirs, _readable_name, _title_from_filename
-from ._subprocess import _run_with_timeout
+from ._db import DatabaseBusyError, _db_call
 from .added_dates import added_at_for_insert
 from .constants import (
     AUDIO_EXTS,
@@ -29,7 +29,6 @@ from .constants import (
     MEDIA_ARCHIVE_EXTS,
     PDF_EXTS,
     VTT_DATA_EXTS,
-    _DB_TIMEOUT,
 )
 from .hashing import file_signature, hash_file
 from .metadata import _find_folder_artwork, _read_audio_metadata
@@ -159,13 +158,12 @@ def _scan_media(
             )
             logger.debug(f"DB: querying existing {singular} '{filepath}'")
             try:
-                existing = _run_with_timeout(
-                    lambda fp=filepath: session.query(model).filter_by(filepath=fp).first(),  # type: ignore[misc]  # default-arg capture defeats lambda inference
-                    _DB_TIMEOUT,
+                existing = _db_call(
+                    lambda: session.query(model).filter_by(filepath=filepath).first(),
                     f"query {singular} '{filepath}'",
                 )
-            except TimeoutError as e:
-                logger.error(f"DB hang: {e} - skipping '{filename}'")
+            except DatabaseBusyError as e:
+                logger.error(f"DB error: {e} - skipping '{filename}'")
                 stats["errors"] += 1
                 continue
             title = _title_from_filename(filename)
@@ -183,14 +181,10 @@ def _scan_media(
                 if _needs_model_thumbnail_requeue(existing, ext):
                     existing.thumbnail_pending = True
                     try:
-                        _run_with_timeout(
-                            session.commit,
-                            _DB_TIMEOUT,
-                            f"commit {singular} requeue '{filepath}'",
-                        )
+                        _db_call(session.commit, f"commit {singular} requeue '{filepath}'")
                         logger.debug(f"Requeued model preview: {filepath}")
-                    except TimeoutError as e:
-                        logger.error(f"DB hang: {e} - rolling back '{filename}'")
+                    except DatabaseBusyError as e:
+                        logger.error(f"DB error: {e} - rolling back '{filename}'")
                         session.rollback()
                     continue
                 # A row can also claim a thumbnail whose file is no longer
@@ -210,14 +204,10 @@ def _scan_media(
                     ):
                         existing.has_thumbnail = True
                         try:
-                            _run_with_timeout(
-                                session.commit,
-                                _DB_TIMEOUT,
-                                f"commit {singular} thumbnail '{filepath}'",
-                            )
+                            _db_call(session.commit, f"commit {singular} thumbnail '{filepath}'")
                             stats[f"updated_{section}"] += 1
-                        except TimeoutError as e:
-                            logger.error(f"DB hang: {e} - rolling back '{filename}'")
+                        except DatabaseBusyError as e:
+                            logger.error(f"DB error: {e} - rolling back '{filename}'")
                             session.rollback()
                     continue
                 logger.debug(f"Already registered, skipping: {filename}")
@@ -270,12 +260,12 @@ def _scan_media(
             session.add(record)
             logger.debug(f"DB: committing new {singular} '{filename}'")
             try:
-                _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit {singular} '{filepath}'")
+                _db_call(session.commit, f"commit {singular} '{filepath}'")
                 ctx.inserted_ids.add(record.id)
                 stats[f"new_{section}"] += 1
                 logger.info(f"Added {singular}: {title}")
-            except TimeoutError as e:
-                logger.error(f"DB hang: {e} - rolling back '{filename}'")
+            except DatabaseBusyError as e:
+                logger.error(f"DB error: {e} - rolling back '{filename}'")
                 session.rollback()
                 stats["errors"] += 1
             except IntegrityError:
@@ -304,9 +294,9 @@ def _backfill_track_numbers(
             if not getattr(track, field) and meta[field]:
                 setattr(track, field, meta[field])
     try:
-        _run_with_timeout(ctx.session.commit, _DB_TIMEOUT, f"commit audio '{filepath}'")
-    except TimeoutError as e:
-        logger.error(f"DB hang: {e} - rolling back '{filepath}'")
+        _db_call(ctx.session.commit, f"commit audio '{filepath}'")
+    except DatabaseBusyError as e:
+        logger.error(f"DB error: {e} - rolling back '{filepath}'")
         ctx.session.rollback()
         ctx.stats["errors"] += 1
 
@@ -347,13 +337,12 @@ def _scan_audio(ctx: _ScanContext, walk_dir: Path) -> None:
             )
             logger.debug(f"DB: querying existing audio '{filepath}'")
             try:
-                existing = _run_with_timeout(
-                    lambda fp=filepath: session.query(Audio).filter_by(filepath=fp).first(),  # type: ignore[misc]  # default-arg capture defeats lambda inference
-                    _DB_TIMEOUT,
+                existing = _db_call(
+                    lambda: session.query(Audio).filter_by(filepath=filepath).first(),
                     f"query audio '{filepath}'",
                 )
-            except TimeoutError as e:
-                logger.error(f"DB hang: {e} - skipping '{filename}'")
+            except DatabaseBusyError as e:
+                logger.error(f"DB error: {e} - skipping '{filename}'")
                 stats["errors"] += 1
                 continue
             if existing:
@@ -407,12 +396,12 @@ def _scan_audio(ctx: _ScanContext, walk_dir: Path) -> None:
             session.add(track)
             logger.debug(f"DB: committing new audio '{filename}'")
             try:
-                _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit audio '{filepath}'")
+                _db_call(session.commit, f"commit audio '{filepath}'")
                 ctx.inserted_ids.add(track.id)
                 stats["new_audio"] += 1
                 logger.info(f"Added audio: {meta['title'] or filename}")
-            except TimeoutError as e:
-                logger.error(f"DB hang: {e} - rolling back '{filename}'")
+            except DatabaseBusyError as e:
+                logger.error(f"DB error: {e} - rolling back '{filename}'")
                 session.rollback()
                 stats["errors"] += 1
             except IntegrityError:

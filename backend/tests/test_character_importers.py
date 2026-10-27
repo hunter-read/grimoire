@@ -740,7 +740,7 @@ class TestApi:
         (addons_dir / "import-demo" / "go.py").write_text("def main():\n    pass\n")
         db = SessionLocal()
         registry.set_scripts_allowed(db, True)
-        registry.update_state_for(db, "import-demo", script_approved=True)
+        addon_install.set_script_approved(db, "import-demo", True)
         db.commit()
         db.close()
         seen = {}
@@ -843,7 +843,7 @@ def scripted(addons_dir, clean_state):
         (addons_dir / manifest["id"] / "go.py").write_text("def main():\n    pass\n")
         db = SessionLocal()
         registry.set_scripts_allowed(db, True)
-        registry.update_state_for(db, manifest["id"], script_approved=True)
+        addon_install.set_script_approved(db, manifest["id"], True)
         db.commit()
         db.close()
 

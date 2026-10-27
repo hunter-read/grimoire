@@ -1,4 +1,5 @@
 """Tests for add-on manifest validation, on-disk discovery, and install state."""
+import hashlib
 import json
 import os
 
@@ -6,7 +7,7 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from backend.addons import registry
+from backend.addons import install, registry
 from backend.addons.constants import (
     SETTING_ALLOW_SCRIPTS,
     SETTING_INDEX_URL,
@@ -329,14 +330,72 @@ class TestRunnability:
         )
         assert not ok and "not been approved" in reason
 
+    def _approved_script(self, db, addons_dir):
+        manifest = {**VALID, "script": {"entry": "s.py"}}
+        _write_addon(addons_dir, "scripted", manifest=manifest, script="s.py")
+        registry.set_scripts_allowed(db, True)
+        install.set_script_approved(db, "scripted", True)
+        return addons_dir / "scripted" / "s.py"
+
+    def _runnable(self, db):
+        return registry.is_runnable(db, "scripted", registry.load_manifest("scripted"))
+
     def test_script_addon_runs_with_both_consents(self, db, addons_dir):
+        self._approved_script(db, addons_dir)
+        ok, _ = self._runnable(db)
+        assert ok
+
+    def test_approval_records_the_digest_of_the_script_on_disk(self, db, addons_dir):
+        script = self._approved_script(db, addons_dir)
+        expected = hashlib.sha256(script.read_bytes()).hexdigest()
+        assert registry.get_state_for(db, "scripted")["script_sha256"] == expected
+
+    def test_a_script_edited_after_approval_is_blocked(self, db, addons_dir):
+        script = self._approved_script(db, addons_dir)
+        script.write_text("def main():\n    print('{}')\n")
+        ok, reason = self._runnable(db)
+        assert not ok and "changed since it was approved" in reason
+        with pytest.raises(AddonError, match="changed since it was approved"):
+            registry.get_runnable(db, "scripted")
+
+    def test_approving_again_covers_the_edited_script(self, db, addons_dir):
+        script = self._approved_script(db, addons_dir)
+        script.write_text("def main():\n    print('{}')\n")
+        install.set_script_approved(db, "scripted", True)
+        ok, _ = self._runnable(db)
+        assert ok
+
+    def test_a_deleted_script_is_blocked(self, db, addons_dir):
+        script = self._approved_script(db, addons_dir)
+        script.unlink()
+        ok, reason = self._runnable(db)
+        assert not ok and "changed since it was approved" in reason
+
+    def test_an_approval_with_no_recorded_digest_is_blocked(self, db, addons_dir):
         manifest = {**VALID, "script": {"entry": "s.py"}}
         _write_addon(addons_dir, "scripted", manifest=manifest, script="s.py")
         registry.set_scripts_allowed(db, True)
         registry.update_state_for(db, "scripted", script_approved=True)
         db.commit()
-        ok, _ = registry.is_runnable(db, "scripted", registry.load_manifest("scripted"))
-        assert ok
+        ok, reason = self._runnable(db)
+        assert not ok and "approve it again" in reason
+
+    def test_approving_a_missing_script_is_refused(self, db, addons_dir):
+        manifest = {**VALID, "script": {"entry": "s.py"}}
+        _write_addon(addons_dir, "scripted", manifest=manifest, script="s.py")
+        (addons_dir / "scripted" / "s.py").unlink()
+        with pytest.raises(AddonError, match="script is missing"):
+            install.set_script_approved(db, "scripted", True)
+
+    def test_revoking_needs_no_script(self, db, addons_dir):
+        script = self._approved_script(db, addons_dir)
+        script.unlink()
+        record = install.set_script_approved(db, "scripted", False)
+        assert record["script_approved"] is False
+
+    def test_script_digest_is_empty_without_a_script(self, addons_dir):
+        _write_addon(addons_dir, "alpha")
+        assert registry.script_digest(registry.load_manifest("alpha")) == ""
 
     def test_get_runnable_raises_when_blocked(self, db, addons_dir):
         _write_addon(addons_dir, "alpha")

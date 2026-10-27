@@ -25,13 +25,12 @@ from backend import indexer  # package namespace, for patch-sensitive calls
 from .. import config, ocr
 from ..models import Book
 from . import text_documents
+from ._db import DatabaseBusyError, _db_call
 from ._subprocess import (
     PdfExtractionCrashError,
     _commit,
-    _run_with_timeout,
 )
 from .categories import slugify
-from .constants import _DB_TIMEOUT
 from .formats import TEXT_MIMES, can_index
 from .hashing import apply_signature, file_signature, hash_file_signature
 
@@ -93,9 +92,9 @@ def index_book_text(
     # forever.  Committed up front; cleared on success below.
     book.index_failed = True
     try:
-        _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit index attempt '{book.filepath}'")
-    except (TimeoutError, IntegrityError) as e:
-        logger.error(f"DB hang marking index attempt for '{book.filename}': {e}")
+        _db_call(session.commit, f"commit index attempt '{book.filepath}'")
+    except (DatabaseBusyError, IntegrityError) as e:
+        logger.error(f"DB error marking index attempt for '{book.filename}': {e}")
         session.rollback()
 
     logger.debug(f"Indexing: extracting text from '{book.filepath}'")
@@ -111,9 +110,9 @@ def index_book_text(
         book.index_error = f"extraction crashed: {e}"[:500]
         book.index_failed = True
         try:
-            _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit index_failed '{book.filepath}'")
-        except (TimeoutError, IntegrityError) as e2:
-            logger.error(f"DB hang saving index_failed for '{book.filename}': {e2}")
+            _db_call(session.commit, f"commit index_failed '{book.filepath}'")
+        except (DatabaseBusyError, IntegrityError) as e2:
+            logger.error(f"DB error saving index_failed for '{book.filename}': {e2}")
             session.rollback()
         return False
     except TimeoutError:
@@ -121,8 +120,8 @@ def index_book_text(
         # resumed on the next scan rather than being left permanently failed.
         book.index_failed = False
         try:
-            _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit index cancel '{book.filepath}'")
-        except (TimeoutError, IntegrityError):
+            _db_call(session.commit, f"commit index cancel '{book.filepath}'")
+        except (DatabaseBusyError, IntegrityError):
             session.rollback()
         return False
 
@@ -177,11 +176,9 @@ def index_book_text(
         book.index_failed = False
         logger.debug(f"DB: committing image-only indexed for '{book.filename}'")
         try:
-            _run_with_timeout(
-                session.commit, _DB_TIMEOUT, f"commit image-only indexed '{book.filepath}'"
-            )
-        except TimeoutError as e:
-            logger.error(f"DB hang: {e} - rolling back image-only indexed for '{book.filename}'")
+            _db_call(session.commit, f"commit image-only indexed '{book.filepath}'")
+        except DatabaseBusyError as e:
+            logger.error(f"DB error: {e} - rolling back image-only indexed for '{book.filename}'")
             session.rollback()
         return True
 
@@ -201,9 +198,9 @@ def index_book_text(
     book.index_error = "ocr" if used_ocr else ""
     logger.debug(f"DB: committing index for '{book.filename}'")
     try:
-        _run_with_timeout(session.commit, _DB_TIMEOUT, f"commit index '{book.filepath}'")
-    except TimeoutError as e:
-        logger.error(f"DB hang: {e} - rolling back index for '{book.filename}'")
+        _db_call(session.commit, f"commit index '{book.filepath}'")
+    except DatabaseBusyError as e:
+        logger.error(f"DB error: {e} - rolling back index for '{book.filename}'")
         session.rollback()
         return False
     logger.info(f"'{book.title or book.filename}' is now searchable ({len(pages)} page(s)).")

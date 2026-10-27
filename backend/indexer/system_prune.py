@@ -21,11 +21,12 @@ Two things happen here, in order:
 import logging
 import os
 import re
-from typing import Any
+from typing import Any, Optional
+
+from sqlalchemy.exc import SQLAlchemyError
 
 from ._context import _ScanContext
-from ._subprocess import _run_with_timeout
-from .constants import _DB_TIMEOUT
+from ._db import DatabaseBusyError, _db_call
 from ..models import Book, GameSystem
 from ..models.campaigns import Campaign
 
@@ -158,8 +159,8 @@ def _adopt_renamed_systems(ctx: _ScanContext) -> int:
 
     if adopted:
         try:
-            _run_with_timeout(session.commit, _DB_TIMEOUT, "commit renamed systems")
-        except (TimeoutError, Exception) as e:
+            _db_call(session.commit, "commit renamed systems")
+        except SQLAlchemyError as e:
             logger.error(f"DB error saving renamed systems: {e}")
             session.rollback()
             return 0
@@ -217,11 +218,9 @@ def _prune_vanished_systems(ctx: _ScanContext) -> int:
 
     session = ctx.session
     try:
-        systems = _run_with_timeout(
-            lambda: session.query(GameSystem).all(), _DB_TIMEOUT, "query systems for pruning"
-        )
-    except TimeoutError as e:
-        logger.error(f"DB hang: {e} - skipping system pruning")
+        systems = _db_call(lambda: session.query(GameSystem).all(), "query systems for pruning")
+    except DatabaseBusyError as e:
+        logger.error(f"DB error: {e} - skipping system pruning")
         return 0
 
     unseen = [s for s in systems if s.id not in ctx.seen_system_ids]
@@ -271,12 +270,10 @@ def _prune_vanished_systems(ctx: _ScanContext) -> int:
     keep_parents: set = set()
     for system in systems:
         if system.id in owning or system.id in ctx.seen_system_ids:
-            node = system
-            while node.parent_id:
-                keep_parents.add(node.parent_id)
-                node = by_id.get(node.parent_id)
-                if node is None:
-                    break
+            ancestor: Optional[GameSystem] = system
+            while ancestor is not None and ancestor.parent_id:
+                keep_parents.add(ancestor.parent_id)
+                ancestor = by_id.get(ancestor.parent_id)
 
     from ..services.library_fs.references import purge_system_references
 
@@ -316,8 +313,8 @@ def _prune_vanished_systems(ctx: _ScanContext) -> int:
 
     if removed:
         try:
-            _run_with_timeout(session.commit, _DB_TIMEOUT, "commit system pruning")
-        except (TimeoutError, Exception) as e:
+            _db_call(session.commit, "commit system pruning")
+        except SQLAlchemyError as e:
             logger.error(f"DB error pruning systems: {e}")
             session.rollback()
             return 0

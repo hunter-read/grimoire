@@ -119,7 +119,11 @@ router.add_api_route(
     update_addon,
     methods=["PATCH"],
     summary="Enable, disable, or approve an add-on",
-    description="Toggles an add-on's enabled state or its script approval. Admin only.",
+    description=(
+        "Toggles an add-on's enabled state or its script approval. Approving "
+        "records the SHA-256 of the script on disk; a script that no longer "
+        "matches it must be approved again before it runs. Admin only."
+    ),
     response_model=InstalledAddon,
 )
 router.add_api_route(

@@ -105,8 +105,8 @@ Two deliberate behaviours:
 - **Versions compare as semver**, not as strings - `1.10.0` is newer than
   `1.9.0`, and republishing an older version is never offered as an update.
 - **A changed script drops back to unapproved.** Consent was given to specific
-  code; if the code changed, Grimoire asks again before running it. `Update all`
-  is no exception.
+  code; if the code changed - by an update or an edit on disk - Grimoire asks
+  again before running it. `Update all` is no exception.
 - **An update that needs a newer Grimoire is held back.** A version whose
   `grimoire_min_version` is above the running build is not offered as an
   update, and installing it directly is refused with a message naming the
@@ -218,12 +218,16 @@ Grimoire will not run one unless **both** are true:
 
 When one does run, it executes in a short-lived **subprocess** with a timeout,
 no database handle, and no access to Grimoire internals - so a crash, hang, or
-memory blow-up takes down only that subprocess. Approval is bound to the script's
-digest, so an update that changes the script requires fresh consent.
+memory blow-up takes down only that subprocess. Approving records the script's
+SHA-256, and Grimoire checks the file against it before every run: an update that
+changes the script, or an edit to the file on disk, requires fresh consent. An
+add-on you placed by hand is approved with `PATCH /api/addons/:id`
+(`script_approved: true`), which records the script as it is at that moment.
 
-This is process isolation, not a sandbox: a script can still reach the network
-and read what the server user can read. Treat installing one as running a
-program someone sent you. That is exactly why add-ons live in a public repo -
+This is process isolation, not a sandbox: a script runs as the server user, so it
+can reach the network and read and write whatever that user can - Grimoire's
+database and data directory included. Approving a script gives it as much power
+as an admin account. Treat installing one as running a program someone sent you. That is exactly why add-ons live in a public repo -
 the code is there to be read before you trust it.
 
 Downloads are checked against the SHA-256 in the index and refused on mismatch.

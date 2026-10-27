@@ -19,6 +19,7 @@ from pathlib import Path
 
 from backend.config import LIBRARY_PATH, SessionLocal
 from backend.indexer import scan_library
+from backend.indexer._db import DatabaseBusyError
 from backend.models import Book, GameSystem
 from backend.models.campaigns import Campaign
 from backend.models.users import Bookmark
@@ -728,15 +729,15 @@ class TestPruneEdges:
         """
         from backend.indexer import system_prune
 
-        real = system_prune._run_with_timeout
+        real = system_prune._db_call
         failing: set = set()
 
-        def flaky(fn, timeout, label):
+        def flaky(fn, label):
             if label in failing:
-                raise TimeoutError(label)
-            return real(fn, timeout, label)
+                raise DatabaseBusyError(label)
+            return real(fn, label)
 
-        monkeypatch.setattr(system_prune, "_run_with_timeout", flaky)
+        monkeypatch.setattr(system_prune, "_db_call", flaky)
         tmp, lib = _mk_lib()
         stamp = _stamp()
         _file(lib / "books" / f"Rn {stamp}" / "core", "a.pdf")

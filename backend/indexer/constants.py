@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Optional
 
 _FITZ_TIMEOUT = 30  # seconds — files that can't be opened in 30s are unreadable
-_DB_TIMEOUT = 30  # seconds — max time to wait for a DB operation before treating it as hung
 
 # Wall-clock budget for extracting text from a single PDF in the isolated
 # worker process.  Generous because OCR of a large scanned book is slow; a file
