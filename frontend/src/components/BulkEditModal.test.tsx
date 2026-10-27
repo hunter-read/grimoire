@@ -708,8 +708,13 @@ describe('BulkEditModal', () => {
       render(<BulkEditModal type="book" items={books} onClose={vi.fn()} onSaved={vi.fn()} />)
       await screen.findByRole('button', { name: 'Fetch metadata' })
 
-      fireEvent.keyDown(document.body, { key: 'f' })
-      expect(await screen.findByRole('dialog', { name: 'Fetch metadata' })).toBeInTheDocument()
+      // The key listener is re-attached in an effect, so the one that knows a
+      // source exists can land after the button paints: keep pressing F until
+      // the dialog opens (an open dialog detaches the listener).
+      await waitFor(() => {
+        fireEvent.keyDown(document.body, { key: 'f' })
+        expect(screen.getByRole('dialog', { name: 'Fetch metadata' })).toBeInTheDocument()
+      })
     })
 
     it('does nothing on F where there is nothing to fetch from', () => {

@@ -55,7 +55,9 @@ describe('SidecarExportSection', () => {
     await waitFor(() =>
       expect(screen.getByRole('status')).toHaveTextContent('maintenance.sidecars.saved')
     )
-    expect(dirty()).toBe(false)
+    // The dirty flag is reported from an effect, which can run after the
+    // status paints.
+    await waitFor(() => expect(dirty()).toBe(false))
 
     unmount()
     expect(set).toHaveBeenLastCalledWith('sidecars', false)
