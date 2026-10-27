@@ -29,6 +29,8 @@ Grimoire supports multiple languages, and new or improved translations are alway
 
 If you would like to contribute, please review the existing locale files in the frontend to follow the current format and structure. I am proficient in English and passable in French. For some other languages, I use AI-assisted translations and then validate them with help from a few of my players, so there may still be mistakes we do not catch.
 
+A new language is a new file in `frontend/src/locales/` plus its name in `frontend/src/locales/languages.ts`, which is what the language picker lists - a test fails until both agree.
+
 If you find a translation issue or want to contribute but do not want to open a pull request, please reach out on Discord and we can coordinate there.
 
 If you do want to submit changes, feel free to open a pull request directly. No issue is required for translation-only PRs.

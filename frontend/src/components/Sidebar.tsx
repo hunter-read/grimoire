@@ -20,6 +20,7 @@ import {
 } from 'react-icons/lu'
 import api, { type Schema } from '../api'
 import AboutModal from './AboutModal'
+import { preloadRoute } from './routeViews'
 
 const UPDATE_DISMISSED_KEY = 'grimoire_update_dismissed'
 
@@ -150,6 +151,8 @@ export default function Sidebar({
     <NavLink
       to={to}
       end={end}
+      onMouseEnter={() => preloadRoute(to)}
+      onFocus={() => preloadRoute(to)}
       title={collapsed ? label : undefined}
       aria-label={collapsed ? label : undefined}
       style={({ isActive }) => navLinkStyle(isActive, collapsed)}
@@ -460,6 +463,8 @@ export default function Sidebar({
           {!isGuest && (
             <NavLink
               to="/settings"
+              onMouseEnter={() => preloadRoute('/settings')}
+              onFocus={() => preloadRoute('/settings')}
               title={t('nav.settings')}
               aria-label={t('nav.settings')}
               style={({ isActive }) => ({

@@ -14,7 +14,7 @@ export const COVERAGE_EXCLUDE = [
   // Type declarations (the generated API schema among them) hold no code.
   'src/**/*.d.ts',
   'src/test/**',
-  'src/main.jsx',
+  'src/main.tsx',
   // Third-party setup glue (pdf.js worker wiring, the three.js bundle
   // entry) that is mocked in tests and carries no logic of its own to
   // exercise. Named individually rather than excluding all of `src/lib/`:

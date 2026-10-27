@@ -12,6 +12,10 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 - `OCR_MIN_TEXT_COVERAGE` sets how much of a PDF its own text must cover before it counts as a text book (default `0.5`); `0` only reads books with no text at all with OCR, as before
 
+### Changed
+
+- Grimoire's first load downloads about a fifth as much JavaScript: each page and each language other than English is fetched the first time it is opened, rather than all of them up front
+
 ### Fixed
 
 - A scanned book carrying a few pages of real text, such as a digitally-set cover or a bundled web enhancement, is read with OCR instead of being left mostly unsearchable
