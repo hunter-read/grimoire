@@ -525,6 +525,51 @@ def _validate_content_type(name: str, definition: Any) -> None:
             )
 
 
+def _derive_html_layouts(document: dict, scope: str) -> dict[str, Any]:
+    """Parse a sheet's HTML layouts and scope their stylesheets.
+
+    Returns the derived keys (``layout_ast``, ``styles_css`` and their
+    ``mobile_`` counterparts) for whichever of them the document supplies.
+    """
+    derived: dict[str, Any] = {}
+
+    layout_html = document.get("layout_html")
+    if layout_html is not None:
+        try:
+            derived["layout_ast"] = parse_layout_html(layout_html)
+        except LayoutHtmlError as exc:
+            raise SchemaError(f"Invalid layout_html: {exc}") from exc
+
+    styles = document.get("styles")
+    if styles is not None:
+        try:
+            derived["styles_css"] = scope_styles(styles, scope)
+        except StylesError as exc:
+            raise SchemaError(f"Invalid styles: {exc}") from exc
+
+    # A phone layout: the same parser, allowlist and caps as the desktop pair,
+    # and independent of it - a sheet with a JSON `layout` can still ship one.
+    # Its stylesheet shares the sheet's scope class; the client attaches one
+    # stylesheet or the other, never both, so the two cannot mix.
+    mobile_layout_html = document.get("mobile_layout_html")
+    if mobile_layout_html is not None:
+        try:
+            derived["mobile_layout_ast"] = parse_layout_html(mobile_layout_html)
+        except LayoutHtmlError as exc:
+            raise SchemaError(f"Invalid mobile_layout_html: {exc}") from exc
+
+    mobile_styles = document.get("mobile_styles")
+    if mobile_styles is not None:
+        if mobile_layout_html is None:
+            raise SchemaError("mobile_styles needs a mobile_layout_html")
+        try:
+            derived["mobile_styles_css"] = scope_styles(mobile_styles, scope)
+        except StylesError as exc:
+            raise SchemaError(f"Invalid mobile_styles: {exc}") from exc
+
+    return derived
+
+
 def validate_schema(document: Any, *, scope: str = "gc-sheet") -> dict:
     """Validate a schema document, returning it normalised.
 
@@ -651,42 +696,9 @@ def validate_schema(document: Any, *, scope: str = "gc-sheet") -> dict:
         _validate_layout(document["layout"], known, images)
 
     normalised = dict(document)
+    normalised.update(_derive_html_layouts(document, scope))
 
-    layout_html = document.get("layout_html")
-    if layout_html is not None:
-        try:
-            normalised["layout_ast"] = parse_layout_html(layout_html)
-        except LayoutHtmlError as exc:
-            raise SchemaError(f"Invalid layout_html: {exc}") from exc
-
-    styles = document.get("styles")
-    if styles is not None:
-        try:
-            normalised["styles_css"] = scope_styles(styles, scope)
-        except StylesError as exc:
-            raise SchemaError(f"Invalid styles: {exc}") from exc
-
-    # A phone layout: the same parser, allowlist and caps as the desktop pair,
-    # and independent of it - a sheet with a JSON `layout` can still ship one.
-    # Its stylesheet shares the sheet's scope class; the client attaches one
-    # stylesheet or the other, never both, so the two cannot mix.
-    mobile_layout_html = document.get("mobile_layout_html")
-    if mobile_layout_html is not None:
-        try:
-            normalised["mobile_layout_ast"] = parse_layout_html(mobile_layout_html)
-        except LayoutHtmlError as exc:
-            raise SchemaError(f"Invalid mobile_layout_html: {exc}") from exc
-
-    mobile_styles = document.get("mobile_styles")
-    if mobile_styles is not None:
-        if mobile_layout_html is None:
-            raise SchemaError("mobile_styles needs a mobile_layout_html")
-        try:
-            normalised["mobile_styles_css"] = scope_styles(mobile_styles, scope)
-        except StylesError as exc:
-            raise SchemaError(f"Invalid mobile_styles: {exc}") from exc
-
-    if "layout" not in document and layout_html is None:
+    if "layout" not in document and document.get("layout_html") is None:
         # Neither layout given: the renderer falls back to listing fields in
         # declaration order, which is a usable sheet for a simple system.
         normalised["layout"] = [{"title": name, "fields": list(fields)}]
