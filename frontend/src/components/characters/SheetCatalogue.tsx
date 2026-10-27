@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuX, LuCheck, LuDownload, LuExternalLink, LuSearch } from 'react-icons/lu'
+import { LuX, LuCheck, LuDownload, LuExternalLink, LuSearch, LuRefreshCw } from 'react-icons/lu'
 import { characters as charactersApi } from '../../api'
 import type { Schema } from '../../api'
 import Spinner from '../Spinner'
@@ -67,7 +67,11 @@ export default function SheetCatalogue({ onInstalled, onClose }: SheetCatalogueP
     try {
       await charactersApi.installSheet(sheet.id)
       setSheets((prev) =>
-        prev.map((row) => (row.id === sheet.id ? { ...row, installed: true } : row))
+        prev.map((row) =>
+          row.id === sheet.id
+            ? { ...row, installed: true, installed_version: row.version, update_available: false }
+            : row
+        )
       )
       onInstalled?.()
       setError('')
@@ -195,7 +199,21 @@ export default function SheetCatalogue({ onInstalled, onClose }: SheetCatalogueP
                       {sources.length > 1 && sheet.index_url ? ` · ${hostOf(sheet.index_url)}` : ''}
                     </span>
                     <span style={{ flex: 1 }} />
-                    {sheet.installed ? (
+                    {sheet.update_available ? (
+                      // Installing again is the update: it replaces the copy
+                      // the user has, and every character on it follows.
+                      <button
+                        onClick={() => install(sheet)}
+                        disabled={installing === sheet.id}
+                        title={t('characters.updateFrom', { version: sheet.installed_version })}
+                        style={{ ...goldBtn, padding: '6px 12px', fontSize: 12 }}
+                      >
+                        <LuRefreshCw size={13} />
+                        {installing === sheet.id
+                          ? t('characters.updatingSheets')
+                          : t('characters.updateTo', { version: sheet.version })}
+                      </button>
+                    ) : sheet.installed ? (
                       <span
                         style={{
                           display: 'inline-flex',

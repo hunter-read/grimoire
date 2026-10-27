@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, type CSSProperties } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuUsers, LuPlus, LuFileUp, LuSettings, LuArrowDownUp } from 'react-icons/lu'
@@ -7,12 +7,13 @@ import Spinner from '../components/Spinner'
 import SheetManager from '../components/characters/SheetManager'
 import NewCharacterDialog from '../components/characters/NewCharacterDialog'
 import CharacterImportDialog from '../components/characters/CharacterImportDialog'
-import CharacterCard from '../components/characters/CharacterCard'
+import CharacterGrid from '../components/characters/CharacterGrid'
+import PartyCharacters from '../components/characters/PartyCharacters'
+import SheetUpdatesNotice from '../components/characters/SheetUpdatesNotice'
 import {
   CHARACTER_SORTS,
   CHARACTER_SORT_LABELS,
   getCharacterSort,
-  groupBySystem,
   saveCharacterSort,
   sortCharacters,
   type CharacterSort,
@@ -26,17 +27,19 @@ import { goldBtn, ghostBtn, disabledBtn } from '../components/characters/charact
  * the people most likely to want a character sheet: a guest account exists to
  * play in one campaign. Laid out like the Campaigns page, with each character
  * a card showing their art.
+ *
+ * The user's own characters come first. Other players' characters they can
+ * read through a campaign follow in a section of their own, one folding group
+ * per campaign.
  */
 type CharacterSummary = Schema<'CharacterSummary'>
 type SheetSchema = Schema<'SchemaListResponse'>['schemas'][number]
+type SheetUpdate = Schema<'SheetUpdate'>
 
-const gridStyle: CSSProperties = {
-  listStyle: 'none',
-  padding: 0,
-  margin: 0,
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))',
-  gap: 16,
+const sectionHeading = {
+  margin: '0 0 16px',
+  fontSize: 17,
+  fontWeight: 600,
 }
 
 export default function CharactersView() {
@@ -54,8 +57,17 @@ export default function CharactersView() {
   const [creating, setCreating] = useState(false)
   const [importing, setImporting] = useState(false)
   const [managing, setManaging] = useState(Boolean(manageParam))
+  const [updates, setUpdates] = useState<SheetUpdate[]>([])
   const [sort, setSort] = useState<CharacterSort>(() => getCharacterSort())
-  const sorted = useMemo(() => sortCharacters(characters, sort), [characters, sort])
+  const own = useMemo(
+    () =>
+      sortCharacters(
+        characters.filter((c) => c.owned !== false),
+        sort
+      ),
+    [characters, sort]
+  )
+  const party = useMemo(() => characters.filter((c) => c.owned === false), [characters])
 
   const changeSort = (next: CharacterSort) => {
     setSort(next)
@@ -78,6 +90,11 @@ export default function CharactersView() {
     } finally {
       setLoading(false)
     }
+    // A hint, fetched after the list so a slow catalogue never holds it up.
+    charactersApi
+      .sheetUpdates()
+      .then((result) => setUpdates(result.updates || []))
+      .catch(() => setUpdates([]))
   }, [t])
 
   useEffect(() => {
@@ -199,6 +216,7 @@ export default function CharactersView() {
         </div>
       ) : (
         <>
+          <SheetUpdatesNotice updates={updates} onUpdated={load} onError={setError} />
           {characters.length > 1 ? (
             <label
               style={{
@@ -238,41 +256,30 @@ export default function CharactersView() {
               </select>
             </label>
           ) : null}
-          {sort === 'system' ? (
-            groupBySystem(sorted).map(({ system, characters: group }) => {
-              const heading = system || t('characters.noSystem')
-              return (
-                <section key={system} style={{ marginBottom: 28 }}>
-                  <h2
-                    style={{
-                      margin: '0 0 12px',
-                      fontSize: 15,
-                      fontWeight: 600,
-                      color: 'var(--text-dim)',
-                    }}
-                  >
-                    {heading}
-                  </h2>
-                  <ul aria-label={heading} style={gridStyle}>
-                    {group.map((character) => (
-                      <CharacterCard key={character.id} character={character} onDelete={remove} />
-                    ))}
-                  </ul>
-                </section>
-              )
-            })
+          {party.length ? (
+            // Headed only when there are two sections to tell apart.
+            <h2 style={sectionHeading}>{t('characters.yourCharacters')}</h2>
+          ) : null}
+          {own.length ? (
+            <CharacterGrid
+              characters={own}
+              sort={sort}
+              label={t('characters.yourCharacters')}
+              onDelete={remove}
+            />
           ) : (
-            <ul aria-label={t('characters.title')} style={gridStyle}>
-              {sorted.map((character) => (
-                <CharacterCard
-                  key={character.id}
-                  character={character}
-                  onDelete={remove}
-                  showVersion={sort === 'sheet'}
-                />
-              ))}
-            </ul>
+            <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: '0 0 8px' }}>
+              {canCreate ? t('characters.emptyNoCharacters') : t('characters.emptyBrowseFirst')}
+            </p>
           )}
+          {party.length ? (
+            <section aria-labelledby="party-characters" style={{ marginTop: 36 }}>
+              <h2 id="party-characters" style={sectionHeading}>
+                {t('characters.partyMembers')}
+              </h2>
+              <PartyCharacters characters={party} sort={sort} />
+            </section>
+          ) : null}
         </>
       )}
 

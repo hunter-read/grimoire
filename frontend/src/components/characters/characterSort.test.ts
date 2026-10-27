@@ -3,7 +3,8 @@ import type { Schema } from '../../api'
 import {
   compareVersions,
   getCharacterSort,
-  groupBySystem,
+  groupCharacters,
+  partyGroups,
   saveCharacterSort,
   sortCharacters,
 } from './characterSort'
@@ -84,16 +85,76 @@ describe('compareVersions', () => {
   })
 })
 
-describe('groupBySystem', () => {
+describe('sorting by campaign', () => {
+  it('orders by campaign name, players first within each, no campaign last', () => {
+    const list = [
+      character({ name: 'Loner' }),
+      character({ name: 'Zed', campaign_id: 'c1', campaign_name: 'Zeta' }),
+      character({ name: 'Fallen', campaign_id: 'c2', campaign_name: 'Alpha', status: 'dead' }),
+      character({ name: 'Bram', campaign_id: 'c2', campaign_name: 'Alpha' }),
+    ]
+    expect(names(sortCharacters(list, 'campaign'))).toEqual(['Bram', 'Fallen', 'Zed', 'Loner'])
+  })
+})
+
+describe('groupCharacters', () => {
   it('splits a system-sorted list into one run per system', () => {
-    const groups = groupBySystem([
-      character({ name: 'A', system: 'D&D 5e' }),
-      character({ name: 'B', system: 'D&D 5e' }),
-      character({ name: 'C', system: '' }),
-    ])
-    expect(groups.map((g) => [g.system, names(g.characters)])).toEqual([
+    const groups = groupCharacters(
+      [
+        character({ name: 'A', system: 'D&D 5e' }),
+        character({ name: 'B', system: 'D&D 5e' }),
+        character({ name: 'C', system: '' }),
+      ],
+      'system'
+    )
+    expect(groups.map((g) => [g.label, names(g.characters)])).toEqual([
       ['D&D 5e', ['A', 'B']],
       ['', ['C']],
+    ])
+  })
+
+  it('splits a campaign-sorted list by campaign id, labelled by name', () => {
+    const groups = groupCharacters(
+      sortCharacters(
+        [
+          character({ name: 'A', campaign_id: 'c1', campaign_name: 'Table' }),
+          character({ name: 'B' }),
+          character({ name: 'C', campaign_id: 'c1', campaign_name: 'Table' }),
+        ],
+        'campaign'
+      ),
+      'campaign'
+    )
+    expect(groups.map((g) => [g.key, g.label, names(g.characters)])).toEqual([
+      ['c1', 'Table', ['A', 'C']],
+      ['', '', ['B']],
+    ])
+  })
+})
+
+describe('partyGroups', () => {
+  const party = [
+    character({ name: 'Zed', campaign_id: 'c1', campaign_name: 'Zeta' }),
+    character({ name: 'Ada', campaign_id: 'c2', campaign_name: 'Alpha' }),
+    character({ name: 'Bram', campaign_id: 'c1', campaign_name: 'Zeta' }),
+    // Same name as c2, but a different table: kept in its own group.
+    character({ name: 'Cy', campaign_id: 'c3', campaign_name: 'Alpha' }),
+  ]
+
+  it('groups by campaign in name order, each in the chosen sort', () => {
+    const groups = partyGroups(party, 'name-desc')
+    expect(groups.map((g) => [g.label, names(g.characters)])).toEqual([
+      ['Alpha', ['Ada']],
+      ['Alpha', ['Cy']],
+      ['Zeta', ['Zed', 'Bram']],
+    ])
+  })
+
+  it('orders by name inside each campaign under a grouped sort', () => {
+    const groups = partyGroups(party, 'system')
+    expect(groups.find((g) => g.key === 'c1')?.characters.map((c) => c.name)).toEqual([
+      'Bram',
+      'Zed',
     ])
   })
 })

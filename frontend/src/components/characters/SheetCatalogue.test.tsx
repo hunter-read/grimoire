@@ -106,6 +106,21 @@ describe('SheetCatalogue', () => {
     await waitFor(() => expect(screen.getAllByText('Installed')).toHaveLength(2))
   })
 
+  it('offers a newer version of an installed sheet as an update', async () => {
+    mockBrowse.mockResolvedValue({
+      sheets: [{ ...CAIRN, installed: true, installed_version: '0.9.0', update_available: true }],
+      sources: [],
+      errors: [],
+    })
+    mockInstall.mockResolvedValue({ schema_id: 'cairn' })
+    renderCatalogue()
+    const update = await screen.findByRole('button', { name: 'Update to v1.0.0' })
+    expect(update).toHaveAttribute('title', 'You have v0.9.0')
+    await userEvent.click(update)
+    await waitFor(() => expect(mockInstall).toHaveBeenCalledWith('cairn'))
+    expect(await screen.findByText('Installed')).toBeInTheDocument()
+  })
+
   it('surfaces an install failure', async () => {
     mockInstall.mockRejectedValue(new Error('integrity check failed'))
     renderCatalogue()

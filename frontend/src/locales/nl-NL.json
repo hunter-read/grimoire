@@ -3917,7 +3917,22 @@
     "readOnlyParty": "Personage van een groepslid - alleen lezen",
     "gmEditing": "Personage van een speler - je kunt het als GM bewerken",
     "gmCanEdit": "GM mag bewerken",
-    "gmCanEditHelp": "Laat de GM van deze campagne het blad ook bewerken. Andere spelers kunnen het nog steeds alleen lezen. Gaat uit als het personage naar een andere campagne gaat."
+    "gmCanEditHelp": "Laat de GM van deze campagne het blad ook bewerken. Andere spelers kunnen het nog steeds alleen lezen. Gaat uit als het personage naar een andere campagne gaat.",
+    "sortCampaign": "Campagne",
+    "yourCharacters": "Jouw personages",
+    "partyMembers": "Groepsleden",
+    "playedBy": "Gespeeld door {{name}}",
+    "sheetUpdatesTitle": "Er is een nieuwere versie van {{count}} blad",
+    "sheetUpdatesTitle_other": "Er zijn nieuwere versies van {{count}} bladen",
+    "sheetUpdateLine": "{{name}} v{{from}} → v{{to}}",
+    "updateSheets": "Blad bijwerken",
+    "updateSheets_other": "Alles bijwerken",
+    "updatingSheets": "Bijwerken…",
+    "updateTo": "Bijwerken naar v{{version}}",
+    "updateFrom": "Je hebt v{{version}}",
+    "giveToPlayer": "Aan speler geven…",
+    "giveToPlayerHelp": "Geef dit personage aan een speler aan je tafel. Je kunt het blijven bewerken tot zij dat uitzetten.",
+    "confirmGive": "{{name}} aan {{player}} geven? Het wordt hun personage. Je kunt het blijven bewerken tot zij dat uitzetten."
   },
   "contentPacks": {
     "title": "Inhoudspakketten",

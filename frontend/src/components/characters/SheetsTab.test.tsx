@@ -6,11 +6,15 @@ import type { Schema } from '../../api'
 
 const mockImportSchema = vi.fn()
 const mockDeleteSchema = vi.fn()
+const mockSheetUpdates = vi.fn()
+const mockInstallSheet = vi.fn()
 
 vi.mock('../../api', () => ({
   characters: {
     importSchema: (...a: unknown[]) => mockImportSchema(...a),
     deleteSchema: (...a: unknown[]) => mockDeleteSchema(...a),
+    sheetUpdates: (...a: unknown[]) => mockSheetUpdates(...a),
+    installSheet: (...a: unknown[]) => mockInstallSheet(...a),
   },
 }))
 
@@ -38,6 +42,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockImportSchema.mockResolvedValue({ schema_id: 'pasted', name: 'Pasted' })
   mockDeleteSchema.mockResolvedValue({ deleted: true })
+  mockSheetUpdates.mockResolvedValue({ updates: [] })
 })
 
 describe('SheetsTab', () => {
@@ -182,5 +187,46 @@ describe('SheetsTab', () => {
     renderTab()
     await userEvent.click(screen.getByLabelText(/Uninstall D&D 5e/i))
     expect(confirm.mock.calls[0][0]).toMatch(/kept/i)
+  })
+
+  describe('updates', () => {
+    const UPDATE = {
+      schema_id: 'dnd-5e',
+      name: 'D&D 5e',
+      installed_version: '1.0.0',
+      version: '1.2.0',
+      sheet_id: 'dnd-5e-abc',
+    }
+
+    it('offers a newer catalogue version beside the sheet and installs it', async () => {
+      mockSheetUpdates.mockResolvedValue({ updates: [UPDATE] })
+      mockInstallSheet.mockResolvedValue({})
+      const onChanged = vi.fn()
+      renderTab({ onChanged })
+      await userEvent.click(await screen.findByRole('button', { name: 'Update to v1.2.0' }))
+      await waitFor(() => expect(mockInstallSheet).toHaveBeenCalledWith('dnd-5e-abc'))
+      expect(onChanged).toHaveBeenCalled()
+      await waitFor(() =>
+        expect(screen.queryByRole('button', { name: 'Update to v1.2.0' })).not.toBeInTheDocument()
+      )
+      expect(screen.getByRole('status')).toHaveTextContent('D&D 5e')
+    })
+
+    it('reports a failed update and keeps offering it', async () => {
+      mockSheetUpdates.mockResolvedValue({ updates: [UPDATE] })
+      mockInstallSheet.mockRejectedValue(new Error('offline'))
+      const setError = vi.fn()
+      renderTab({ setError })
+      await userEvent.click(await screen.findByRole('button', { name: 'Update to v1.2.0' }))
+      await waitFor(() => expect(setError).toHaveBeenCalledWith('offline'))
+      expect(screen.getByRole('button', { name: 'Update to v1.2.0' })).toBeEnabled()
+    })
+
+    it('offers nothing when the catalogue cannot be read', async () => {
+      mockSheetUpdates.mockRejectedValue(new Error('offline'))
+      renderTab()
+      await waitFor(() => expect(mockSheetUpdates).toHaveBeenCalled())
+      expect(screen.queryByRole('button', { name: /Update to/ })).not.toBeInTheDocument()
+    })
   })
 })

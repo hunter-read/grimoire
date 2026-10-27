@@ -3917,7 +3917,22 @@
     "readOnlyParty": "Charakter eines Gruppenmitglieds - nur lesen",
     "gmEditing": "Charakter eines Spielers - als DM bearbeitbar",
     "gmCanEdit": "DM darf bearbeiten",
-    "gmCanEditHelp": "Erlaubt dem Spielleiter dieser Kampagne, den Bogen ebenfalls zu bearbeiten. Andere Spieler können ihn weiterhin nur lesen. Wird ausgeschaltet, wenn der Charakter in eine andere Kampagne wechselt."
+    "gmCanEditHelp": "Erlaubt dem Spielleiter dieser Kampagne, den Bogen ebenfalls zu bearbeiten. Andere Spieler können ihn weiterhin nur lesen. Wird ausgeschaltet, wenn der Charakter in eine andere Kampagne wechselt.",
+    "sortCampaign": "Kampagne",
+    "yourCharacters": "Deine Charaktere",
+    "partyMembers": "Gruppenmitglieder",
+    "playedBy": "Gespielt von {{name}}",
+    "sheetUpdatesTitle": "Für {{count}} Bogen gibt es eine neuere Version",
+    "sheetUpdatesTitle_other": "Für {{count}} Bögen gibt es neuere Versionen",
+    "sheetUpdateLine": "{{name}} v{{from}} → v{{to}}",
+    "updateSheets": "Bogen aktualisieren",
+    "updateSheets_other": "Alle aktualisieren",
+    "updatingSheets": "Wird aktualisiert…",
+    "updateTo": "Auf v{{version}} aktualisieren",
+    "updateFrom": "Du hast v{{version}}",
+    "giveToPlayer": "An Spieler übergeben…",
+    "giveToPlayerHelp": "Übergib diesen Charakter an einen Spieler deiner Runde. Du kannst ihn weiter bearbeiten, bis er das abschaltet.",
+    "confirmGive": "{{name}} an {{player}} übergeben? Der Charakter gehört dann ihnen. Du kannst ihn weiter bearbeiten, bis sie das abschalten."
   },
   "contentPacks": {
     "title": "Inhaltspakete",

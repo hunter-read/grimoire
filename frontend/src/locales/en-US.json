@@ -3917,7 +3917,22 @@
     "readOnlyParty": "A party member's character - read only",
     "gmEditing": "A player's character - you can edit it as GM",
     "gmCanEdit": "Let the GM edit",
-    "gmCanEditHelp": "Lets this campaign's GM edit the sheet too. Other players can still only read it. Turns off if the character moves to another campaign."
+    "gmCanEditHelp": "Lets this campaign's GM edit the sheet too. Other players can still only read it. Turns off if the character moves to another campaign.",
+    "sortCampaign": "Campaign",
+    "yourCharacters": "Your characters",
+    "partyMembers": "Party members",
+    "playedBy": "Played by {{name}}",
+    "sheetUpdatesTitle": "A newer version of {{count}} sheet is available",
+    "sheetUpdatesTitle_other": "Newer versions of {{count}} sheets are available",
+    "sheetUpdateLine": "{{name}} v{{from}} → v{{to}}",
+    "updateSheets": "Update sheet",
+    "updateSheets_other": "Update all",
+    "updatingSheets": "Updating…",
+    "updateTo": "Update to v{{version}}",
+    "updateFrom": "You have v{{version}}",
+    "giveToPlayer": "Give to player…",
+    "giveToPlayerHelp": "Hand this character to a player at your table. You can keep editing it until they switch that off.",
+    "confirmGive": "Give {{name}} to {{player}}? It becomes their character. You can keep editing it until they switch that off."
   },
   "contentPacks": {
     "title": "Content packs",

@@ -132,9 +132,13 @@ GUEST_REACHABLE = {
     "/api/characters/schemas": "GET POST",
     "/api/characters/schemas/browse": "GET",
     "/api/characters/schemas/install/{sheet_id}": "POST",
+    # Their own sheets, against the catalogue they may already browse.
+    "/api/characters/schemas/updates": "GET",
     "/api/characters/schemas/{schema_id}": "DELETE GET",
     "/api/characters/{character_id}": "DELETE GET PUT",
     "/api/characters/{character_id}/export": "GET",
+    # Only from a campaign the caller runs, which a guest never does.
+    "/api/characters/{character_id}/transfer": "POST",
     "/api/characters/{character_id}/portrait": "DELETE GET POST",
     # A sheet's image fields: owner-only writes, readable like the sheet.
     "/api/characters/{character_id}/images/{field}": "DELETE GET POST",

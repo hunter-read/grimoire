@@ -2146,8 +2146,9 @@ campaign, which is exactly who wants a character sheet.
 |----------|--------|------|-------------|
 | `/api/characters/schemas` | GET | user | The user's installed schemas, each with a `character_count` |
 | `/api/characters/schemas` | POST | user | Install a pasted sheet (see below). 400 with a message naming the problem if it does not validate |
-| `/api/characters/schemas/browse` | GET | user | The community catalogue of sheets, each marked `installed` |
-| `/api/characters/schemas/install/:sheet_id` | POST | user | Install one sheet from the catalogue |
+| `/api/characters/schemas/browse` | GET | user | The community catalogue of sheets, each marked `installed`. A sheet you downloaded from that same catalogue also carries `installed_version`, and `update_available` when the catalogue's `version` is newer. A pasted sheet is never offered an update, since it may be your own edit |
+| `/api/characters/schemas/updates` | GET | user | `{updates: [{schema_id, name, installed_version, version, sheet_id}]}` - your installed sheets whose catalogue has a newer version. Install `sheet_id` with the route below to update one; it replaces your copy and every character on it follows. An unreadable catalogue, or downloads switched off, answers with no updates rather than an error |
+| `/api/characters/schemas/install/:sheet_id` | POST | user | Install one sheet from the catalogue, replacing your copy if you have one |
 | `/api/characters/schemas/:schema_id` | GET | user | One schema with its validated `document` |
 | `/api/characters/schemas/:schema_id` | DELETE | user | Uninstall a schema. Characters built on it are **kept** |
 | `/api/characters` | GET | user | The user's characters plus their parties', newest first. `?schema_ref=` filters by schema, `?campaign_id=` by campaign |
@@ -2160,6 +2161,7 @@ campaign, which is exactly who wants a character sheet.
 | `/api/characters/importers/:id/install` | POST | user | Install a catalogue importer into your own account, or update your copy. Only one that reads files with YAML - the downloaded manifest is checked, whatever the index says; 400 otherwise, 403 when installs are switched off |
 | `/api/characters/importers/:id` | DELETE | user | Remove an importer you installed. Characters imported with it are kept |
 | `/api/characters/import/external` | POST | user | Build a character from another tool's export. Body: `{text, filename}` for a file or `{url}` for a link, plus optional `importer_id`, `campaign_id` and `inputs` (`{key: value}` answers to the importer's declared inputs - passed to its script for this import only, never stored; undeclared keys are dropped). The importer is chosen from the file's extension and contents (or the link) unless `importer_id` names one; 409 when several claim it. The importer's sheet is installed from the catalogue if missing. Returns the character plus `importer_id`, `importer_name`, and `unmatched` - names kept as custom entries because no installed content matched. When an input is missing - a required one, or one the script asks for, such as a key for a private character - the answer is 400 with `detail: {message, importer_id, needs_input: [keys]}`; send the import again with `importer_id` and `inputs` |
+| `/api/characters/:id/transfer` | POST | user | Give a character to a player. Body: `{user_id}`. Only the character's owner, and only when they own its campaign; the recipient must be an accepted member of it. 404 for someone else's character, 400 for any other refusal. See [Handing a character to a player](#handing-a-character-to-a-player) |
 | `/api/characters/:id/export` | GET | user | Export a character as a self-contained file |
 | `/api/characters/:id/portrait` | POST | user | Set a portrait (PNG/JPEG/WebP/GIF, 5 MB). The owner, or the campaign's GM when `gm_can_edit` is on |
 | `/api/characters/:id/portrait` | GET | user | The portrait image |
@@ -2222,7 +2224,7 @@ rather than stored as sent:
 `schema_missing`, `user_id`, `owner_name`, `campaign_id`, `campaign_name`, `campaign_has_gm`,
 `gm_can_edit`, `status`, `portrait_path`, `portrait_version`, `portrait_crop`,
 `owned`, `editable`, `created_at`, `updated_at`, and on detail `data`,
-`computed`, `validators`, and `entries`.
+`computed`, `validators`, `entries` and `transfer_candidates`.
 
 `user_id` is the character's player and `owner_name` their display name (or
 username), so a campaign page can group its characters by player - including a
@@ -2286,6 +2288,29 @@ same people.
 A character with no campaign stays private to its owner. `GET /api/characters`
 returns your own plus your parties', and `?campaign_id=` narrows it to one
 table's roster.
+
+#### Handing a character to a player
+
+A GM can create a character in a campaign they run and then give it to one of
+its players with `POST /api/characters/:id/transfer`. On detail,
+`transfer_candidates` lists who it can go to, as `[{user_id, name}]`. That is
+the campaign's accepted members, guests included and the caller excluded. The
+list is empty unless the caller owns both the character and its campaign.
+
+Transferring moves the row itself, so the portrait, pictures and campaign stay
+as they are:
+
+- `user_id` becomes the recipient's, and `gm_can_edit` is set to `true` so the
+  GM can keep adjusting the sheet. The new owner can switch it off.
+- If the recipient has no copy of the sheet, the GM's is installed for them,
+  with its provenance. A copy they already have is kept, even an older one.
+- Entries the character refers to that the recipient cannot read - ones from
+  the GM's personal rulesets - are copied into a new personal ruleset for the
+  recipient, named after the character. Entries from packs, server rulesets
+  or the campaign's rulesets are left alone.
+
+The response is the character as the GM now sees it: `owned: false`,
+`editable: true`.
 
 #### Export and import
 

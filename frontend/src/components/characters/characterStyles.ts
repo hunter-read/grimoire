@@ -217,3 +217,21 @@ export const emptyState: CSSProperties = {
   color: 'var(--text-muted)',
   textAlign: 'center',
 }
+
+// The Characters page's grid of cards, shared by its own and party sections.
+export const cardGrid: CSSProperties = {
+  listStyle: 'none',
+  padding: 0,
+  margin: 0,
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))',
+  gap: 16,
+}
+
+// A heading over a group of cards: a system or a campaign.
+export const groupHeading: CSSProperties = {
+  margin: '0 0 12px',
+  fontSize: 15,
+  fontWeight: 600,
+  color: 'var(--text-dim)',
+}

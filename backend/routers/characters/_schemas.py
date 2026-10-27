@@ -104,6 +104,26 @@ class CatalogueSheet(BaseModel):
     # Which catalogue offered it, so a repo on a branch stays distinguishable.
     index_url: str = ""
     installed: bool = False
+    # The version the user has of this catalogue's copy, and whether the
+    # catalogue now offers a newer one. Empty and false for a sheet that was
+    # pasted, which an update must not overwrite.
+    installed_version: str = ""
+    update_available: bool = False
+
+
+class SheetUpdate(BaseModel):
+    """An installed sheet its catalogue has a newer version of."""
+
+    schema_id: str
+    name: str
+    installed_version: str = ""
+    version: str = ""
+    # The catalogue id to install, which replaces the copy the user has.
+    sheet_id: str
+
+
+class SheetUpdateListResponse(BaseModel):
+    updates: list[SheetUpdate] = Field(default_factory=list)
 
 
 class CatalogueSourceError(BaseModel):
@@ -199,9 +219,19 @@ class ValidatorResult(BaseModel):
     field: Optional[str] = None
 
 
+class TransferCandidate(BaseModel):
+    """A player the character could be handed to."""
+
+    user_id: str
+    name: str
+
+
 class CharacterDetail(CharacterSummary):
     """A character with its values, derived values, and any validator results."""
 
+    # The players at the character's table its owner may hand it to. Empty
+    # unless the viewer owns the character *and* runs its campaign.
+    transfer_candidates: list[TransferCandidate] = Field(default_factory=list)
     data: dict[str, Any] = Field(default_factory=dict)
     computed: dict[str, Any] = Field(default_factory=dict)
     validators: list[ValidatorResult] = Field(default_factory=list)
@@ -238,6 +268,12 @@ class CharacterUpdate(BaseModel):
     # Lets the campaign's GM edit the sheet. The owner's to set; a GM sending
     # it, a campaign or a status is refused.
     gm_can_edit: Optional[bool] = None
+
+
+class CharacterTransfer(BaseModel):
+    """Who to hand a character to: a player who has joined its campaign."""
+
+    user_id: str = Field(min_length=1, max_length=36)
 
 
 class CharacterExport(BaseModel):

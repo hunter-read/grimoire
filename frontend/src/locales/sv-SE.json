@@ -3917,7 +3917,22 @@
     "readOnlyParty": "En gruppmedlems rollperson - skrivskyddad",
     "gmEditing": "En spelares rollperson - du kan redigera den som spelledare",
     "gmCanEdit": "Låt spelledaren redigera",
-    "gmCanEditHelp": "Låter kampanjens spelledare också redigera formuläret. Andra spelare kan fortfarande bara läsa det. Stängs av om rollpersonen flyttas till en annan kampanj."
+    "gmCanEditHelp": "Låter kampanjens spelledare också redigera formuläret. Andra spelare kan fortfarande bara läsa det. Stängs av om rollpersonen flyttas till en annan kampanj.",
+    "sortCampaign": "Kampanj",
+    "yourCharacters": "Dina rollpersoner",
+    "partyMembers": "Gruppmedlemmar",
+    "playedBy": "Spelas av {{name}}",
+    "sheetUpdatesTitle": "En nyare version av {{count}} formulär finns",
+    "sheetUpdatesTitle_other": "Nyare versioner av {{count}} formulär finns",
+    "sheetUpdateLine": "{{name}} v{{from}} → v{{to}}",
+    "updateSheets": "Uppdatera formulär",
+    "updateSheets_other": "Uppdatera alla",
+    "updatingSheets": "Uppdaterar…",
+    "updateTo": "Uppdatera till v{{version}}",
+    "updateFrom": "Du har v{{version}}",
+    "giveToPlayer": "Ge till spelare…",
+    "giveToPlayerHelp": "Lämna över den här rollpersonen till en spelare vid ditt bord. Du kan fortsätta redigera den tills de stänger av det.",
+    "confirmGive": "Ge {{name}} till {{player}}? Rollpersonen blir deras. Du kan fortsätta redigera den tills de stänger av det."
   },
   "rulesets": {
     "title": "Regeluppsättningar",

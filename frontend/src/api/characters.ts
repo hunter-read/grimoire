@@ -34,6 +34,9 @@ export const characters = {
   browseSheets: () => client.get('/characters/schemas/browse'),
   installSheet: (sheetId: string) =>
     client.post('/characters/schemas/install/{sheet_id}', { path: { sheet_id: sheetId } }),
+  // Installed sheets the catalogue has a newer version of. Updating one is
+  // installing its `sheet_id`, which replaces the copy you have.
+  sheetUpdates: () => client.get('/characters/schemas/updates'),
   deleteSchema: (schemaId: string) =>
     client.delete('/characters/schemas/{schema_id}', { path: { schema_id: schemaId } }),
   // A string is read as a schema filter, which is what Phase 1 callers pass.
@@ -46,6 +49,12 @@ export const characters = {
   update: (id: Id, body: BodyOf<'/characters/{character_id}', 'put'>) =>
     client.put('/characters/{character_id}', { path: { character_id: id }, body }),
   remove: (id: Id) => client.delete('/characters/{character_id}', { path: { character_id: id } }),
+  // Hand a character to a player at a campaign table you run (issue #726).
+  transfer: (id: Id, userId: string) =>
+    client.post('/characters/{character_id}/transfer', {
+      path: { character_id: id },
+      body: { user_id: userId },
+    }),
   export: (id: Id) =>
     client.get('/characters/{character_id}/export', { path: { character_id: id } }),
   import: (payload: BodyOf<'/characters/import', 'post'>['payload'], importEntries = true) =>

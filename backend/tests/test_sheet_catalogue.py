@@ -734,7 +734,7 @@ class TestSidecarFiles:
                 "mobile_styles_sha256": "def",
             },
             f"{REPO}/main/character-sheets/index.json",
-            set(),
+            {},
         )
         assert summary["custom_mobile_layout"] is True
         assert summary["mobile_layout_path"] == "a/mobile.html"
@@ -1094,3 +1094,94 @@ class TestMultipleSources:
             "/api/characters/schemas/browse", headers=admin_headers
         ).json()["sheets"]
         assert len(sheets) == 1
+
+
+class TestUpdates:
+    """A newer catalogue version of an installed sheet is offered as an update."""
+
+    def _offer(self, monkeypatch, version):
+        monkeypatch.setattr(
+            cat,
+            "fetch_document",
+            lambda url, **kwargs: {
+                "sheets": [
+                    {
+                        "id": "catalogue-demo",
+                        "name": "Catalogue Demo",
+                        "version": version,
+                        "path": "character-sheets/catalogue-demo/catalogue-demo.json",
+                        "sha256": "",
+                    }
+                ]
+            },
+        )
+        monkeypatch.setattr(
+            cat, "fetch_sheet", lambda db, entry: {**SHEET, "version": version}
+        )
+
+    @pytest.fixture
+    def installed(self, client, gm_headers, monkeypatch):
+        self._offer(monkeypatch, "1.0.0")
+        resp = client.post("/api/characters/schemas/install/catalogue-demo", headers=gm_headers)
+        assert resp.status_code == 200, resp.text
+        yield
+        client.delete("/api/characters/schemas/catalogue-demo", headers=gm_headers)
+
+    def test_the_catalogue_marks_a_newer_version(self, client, gm_headers, monkeypatch, installed):
+        self._offer(monkeypatch, "1.10.0")
+        sheet = client.get("/api/characters/schemas/browse", headers=gm_headers).json()["sheets"][0]
+        assert sheet["installed"] is True
+        assert sheet["installed_version"] == "1.0.0"
+        # 1.10 is newer than 1.9 and 1.0: compared as numbers, not text.
+        assert sheet["update_available"] is True
+
+    def test_lists_updates_and_installing_one_applies_it(
+        self, client, gm_headers, monkeypatch, installed
+    ):
+        self._offer(monkeypatch, "1.1.0")
+        updates = client.get("/api/characters/schemas/updates", headers=gm_headers).json()
+        assert updates["updates"] == [
+            {
+                "schema_id": "catalogue-demo",
+                "name": "Catalogue Demo",
+                "installed_version": "1.0.0",
+                "version": "1.1.0",
+                "sheet_id": updates["updates"][0]["sheet_id"],
+            }
+        ]
+
+        sheet_id = updates["updates"][0]["sheet_id"]
+        resp = client.post(f"/api/characters/schemas/install/{sheet_id}", headers=gm_headers)
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["version"] == "1.1.0"
+        after = client.get("/api/characters/schemas/updates", headers=gm_headers).json()
+        assert after["updates"] == []
+
+    def test_the_same_version_is_not_an_update(self, client, gm_headers, monkeypatch, installed):
+        assert client.get("/api/characters/schemas/updates", headers=gm_headers).json() == {
+            "updates": []
+        }
+
+    def test_a_pasted_sheet_is_never_offered_an_update(self, client, gm_headers, monkeypatch):
+        # It may be the user's own edit of the catalogue's copy; an update
+        # would throw it away.
+        client.post("/api/characters/schemas", json={"document": SHEET}, headers=gm_headers)
+        try:
+            self._offer(monkeypatch, "2.0.0")
+            sheet = client.get("/api/characters/schemas/browse", headers=gm_headers).json()[
+                "sheets"
+            ][0]
+            assert sheet["installed"] is True
+            assert sheet["update_available"] is False
+            updates = client.get("/api/characters/schemas/updates", headers=gm_headers).json()
+            assert updates["updates"] == []
+        finally:
+            client.delete("/api/characters/schemas/catalogue-demo", headers=gm_headers)
+
+    def test_no_updates_rather_than_an_error_when_downloads_are_off(
+        self, client, gm_headers, monkeypatch
+    ):
+        monkeypatch.setattr(cat, "downloads_enabled", lambda: False)
+        resp = client.get("/api/characters/schemas/updates", headers=gm_headers)
+        assert resp.status_code == 200
+        assert resp.json() == {"updates": []}

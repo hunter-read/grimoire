@@ -25,6 +25,7 @@ import { CharacterMediaContext } from '../components/characters/characterMedia'
 import type { CharacterMedia, PortraitPatch } from '../components/characters/characterMedia'
 import CharacterPlacement from '../components/characters/CharacterPlacement'
 import GmEditAccess from '../components/characters/GmEditAccess'
+import GiveToPlayer from '../components/characters/GiveToPlayer'
 import { iconBtn, ghostBtn, card } from '../components/characters/characterStyles'
 import type { SheetDocument } from '../components/characters/LayoutRenderer'
 
@@ -300,6 +301,22 @@ export default function CharacterDetailView() {
         : prev
     )
 
+  // Handing the character on changes whose it is, not what it holds.
+  const onTransferred = (updated: Character) =>
+    setCharacter((prev) =>
+      prev
+        ? {
+            ...prev,
+            user_id: updated.user_id,
+            owner_name: updated.owner_name,
+            owned: updated.owned,
+            editable: updated.editable,
+            gm_can_edit: updated.gm_can_edit,
+            transfer_candidates: updated.transfer_candidates,
+          }
+        : prev
+    )
+
   const confirmChoice = (picked: string[]) => {
     const [choice, ...rest] = choices
     applyPatch(applyChoice({ data: dataRef.current, choice, picked }))
@@ -423,6 +440,11 @@ export default function CharacterDetailView() {
               <GmEditAccess
                 character={character}
                 onChanged={onPlacementChanged}
+                onError={setError}
+              />
+              <GiveToPlayer
+                character={character}
+                onTransferred={onTransferred}
                 onError={setError}
               />
               {readOnly ? (

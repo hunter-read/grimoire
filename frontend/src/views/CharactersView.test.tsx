@@ -12,6 +12,8 @@ const mockNavigate = vi.fn()
 
 const mockImportCharacter = vi.fn()
 const mockCampaigns = vi.fn()
+const mockSheetUpdates = vi.fn()
+const mockInstallSheet = vi.fn()
 
 vi.mock('../api', () => ({
   campaigns: { list: (...a: unknown[]) => mockCampaigns(...a) },
@@ -23,6 +25,8 @@ vi.mock('../api', () => ({
     listSchemas: (...a: unknown[]) => mockListSchemas(...a),
     create: (...a: unknown[]) => mockCreate(...a),
     remove: (...a: unknown[]) => mockRemove(...a),
+    sheetUpdates: (...a: unknown[]) => mockSheetUpdates(...a),
+    installSheet: (...a: unknown[]) => mockInstallSheet(...a),
   },
 }))
 
@@ -53,6 +57,7 @@ beforeEach(() => {
   mockList.mockResolvedValue({ characters: [CHARACTER] })
   mockListSchemas.mockResolvedValue({ schemas: [SCHEMA] })
   mockCampaigns.mockResolvedValue([{ id: 'camp1', name: 'Curse of Strahd' }])
+  mockSheetUpdates.mockResolvedValue({ updates: [] })
 })
 
 describe('CharactersView', () => {
@@ -71,7 +76,9 @@ describe('CharactersView', () => {
     })
     renderView()
     await screen.findByText('Successor')
-    const cards = within(screen.getByRole('list', { name: 'Characters' })).getAllByRole('listitem')
+    const cards = within(screen.getByRole('list', { name: 'Your characters' })).getAllByRole(
+      'listitem'
+    )
     expect(cards.map((card) => within(card).getByText(/Fallen|Successor/).textContent)).toEqual([
       'Successor',
       'Fallen',
@@ -96,11 +103,11 @@ describe('CharactersView', () => {
     it('keeps the most recently updated order until another sort is picked', async () => {
       renderView()
       await screen.findByText('Vex')
-      const list = screen.getByRole('list', { name: 'Characters' })
+      const list = screen.getByRole('list', { name: 'Your characters' })
       expect(cardNames(list)).toEqual(['Vex', 'Ash', 'Bram'])
 
       await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Sort' }), 'name')
-      expect(cardNames(screen.getByRole('list', { name: 'Characters' }))).toEqual([
+      expect(cardNames(screen.getByRole('list', { name: 'Your characters' }))).toEqual([
         'Ash',
         'Bram',
         'Vex',
@@ -116,7 +123,7 @@ describe('CharactersView', () => {
       renderView()
       await screen.findByText('Vex')
       expect(screen.getByRole('combobox', { name: 'Sort' })).toHaveValue('name-desc')
-      expect(cardNames(screen.getByRole('list', { name: 'Characters' }))).toEqual([
+      expect(cardNames(screen.getByRole('list', { name: 'Your characters' }))).toEqual([
         'Vex',
         'Bram',
         'Ash',
@@ -135,7 +142,7 @@ describe('CharactersView', () => {
       localStorage.setItem('grimoire:user-prefs', JSON.stringify({ characterSort: 'sheet' }))
       renderView()
       await screen.findByText('Vex')
-      expect(cardNames(screen.getByRole('list', { name: 'Characters' }))).toEqual([
+      expect(cardNames(screen.getByRole('list', { name: 'Your characters' }))).toEqual([
         'Vex',
         'Ash',
         'Bram',
@@ -276,11 +283,141 @@ describe('CharactersView', () => {
   })
 
   it('offers no delete for a party member\u2019s character', async () => {
-    mockList.mockResolvedValue({ characters: [{ ...CHARACTER, owned: false }] })
+    mockList.mockResolvedValue({
+      characters: [{ ...CHARACTER, owned: false, campaign_id: 'k1', campaign_name: 'Strahd' }],
+    })
     renderView()
     await screen.findByText('Vex')
     expect(screen.getByText('party member')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Delete/ })).not.toBeInTheDocument()
+  })
+
+  describe('party members (issue #726)', () => {
+    const MINE = { ...CHARACTER, id: 'm1', name: 'Mine' }
+    const party = (id: string, name: string, campaignId: string, campaignName: string) => ({
+      ...CHARACTER,
+      id,
+      name,
+      owned: false,
+      owner_name: 'Robin',
+      campaign_id: campaignId,
+      campaign_name: campaignName,
+    })
+    const LIST = [
+      MINE,
+      party('p1', 'Zara', 'k2', 'Waterdeep'),
+      party('p2', 'Olaf', 'k1', 'Barovia'),
+      party('p3', 'Ines', 'k2', 'Waterdeep'),
+    ]
+
+    beforeEach(() => mockList.mockResolvedValue({ characters: LIST }))
+
+    it('lists them apart from your own, one group per campaign by name', async () => {
+      renderView()
+      await screen.findByText('Mine')
+      expect(screen.getByRole('heading', { name: 'Your characters' })).toBeInTheDocument()
+      const own = screen.getByRole('list', { name: 'Your characters' })
+      expect(within(own).getAllByRole('listitem')).toHaveLength(1)
+
+      const section = screen.getByRole('region', { name: 'Party members' })
+      const groups = within(section).getAllByRole('button', { expanded: true })
+      expect(groups.map((g) => g.textContent)).toEqual(['Barovia(1)', 'Waterdeep(2)'])
+      const waterdeep = within(section).getByRole('list', { name: 'Waterdeep' })
+      expect(within(waterdeep).getByText('Ines')).toBeInTheDocument()
+      // Their player is named; the campaign is the heading, not repeated.
+      expect(within(waterdeep).getAllByText('Played by Robin')).toHaveLength(2)
+      expect(within(waterdeep).queryByText('Waterdeep')).not.toBeInTheDocument()
+    })
+
+    it('folds a campaign away and remembers it', async () => {
+      const { unmount } = renderView()
+      await screen.findByText('Mine')
+      await userEvent.click(screen.getByRole('button', { name: /Waterdeep/ }))
+      expect(screen.queryByText('Zara')).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Waterdeep/ })).toHaveAttribute(
+        'aria-expanded',
+        'false'
+      )
+      unmount()
+
+      renderView()
+      await screen.findByText('Mine')
+      expect(screen.queryByText('Zara')).not.toBeInTheDocument()
+      expect(screen.getByText('Olaf')).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: /Waterdeep/ }))
+      expect(screen.getByText('Zara')).toBeInTheDocument()
+    })
+
+    it('says so when every character is someone else\u2019s', async () => {
+      mockList.mockResolvedValue({ characters: LIST.slice(1) })
+      renderView()
+      await screen.findByText('Zara')
+      expect(screen.getByText('Create one to start filling in a sheet.')).toBeInTheDocument()
+    })
+  })
+
+  it('groups your characters under a heading per campaign', async () => {
+    localStorage.setItem('grimoire:user-prefs', JSON.stringify({ characterSort: 'campaign' }))
+    mockList.mockResolvedValue({
+      characters: [
+        { ...CHARACTER, id: 'a', name: 'Alone' },
+        { ...CHARACTER, id: 'b', name: 'Bard', campaign_id: 'k1', campaign_name: 'Barovia' },
+      ],
+    })
+    renderView()
+    expect(await screen.findByRole('heading', { name: 'Barovia' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'No campaign' })).toBeInTheDocument()
+    expect(within(screen.getByRole('list', { name: 'Barovia' })).getByText('Bard')).toBeVisible()
+  })
+
+  describe('sheet updates', () => {
+    const UPDATES = [
+      {
+        schema_id: 'dnd-5e',
+        name: 'D&D 5e',
+        installed_version: '1.0.0',
+        version: '1.1.0',
+        sheet_id: 'dnd-5e-abc',
+      },
+      {
+        schema_id: 'cairn',
+        name: 'Cairn',
+        installed_version: '2.0.0',
+        version: '2.1.0',
+        sheet_id: 'cairn-abc',
+      },
+    ]
+
+    it('offers every update in one click and reloads after', async () => {
+      mockSheetUpdates.mockResolvedValueOnce({ updates: UPDATES })
+      mockInstallSheet.mockResolvedValue({})
+      renderView()
+      expect(
+        await screen.findByText('Newer versions of 2 sheets are available')
+      ).toBeInTheDocument()
+      expect(screen.getByText(/D&D 5e v1\.0\.0 → v1\.1\.0/)).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Update all' }))
+      await waitFor(() => expect(mockInstallSheet).toHaveBeenCalledTimes(2))
+      expect(mockInstallSheet).toHaveBeenCalledWith('dnd-5e-abc')
+      expect(mockInstallSheet).toHaveBeenCalledWith('cairn-abc')
+      await waitFor(() => expect(screen.queryByText(/Newer versions/)).not.toBeInTheDocument())
+    })
+
+    it('reports a failed update', async () => {
+      mockSheetUpdates.mockResolvedValue({ updates: UPDATES.slice(0, 1) })
+      mockInstallSheet.mockRejectedValue(new Error('Digest mismatch'))
+      renderView()
+      await userEvent.click(await screen.findByRole('button', { name: 'Update sheet' }))
+      expect(await screen.findByText('Digest mismatch')).toBeInTheDocument()
+    })
+
+    it('stays quiet when the catalogue cannot be read', async () => {
+      mockSheetUpdates.mockRejectedValue(new Error('offline'))
+      renderView()
+      await screen.findByText('Vex')
+      await waitFor(() => expect(mockSheetUpdates).toHaveBeenCalled())
+      expect(screen.queryByText('offline')).not.toBeInTheDocument()
+    })
   })
 
   it('deletes a character after confirmation', async () => {

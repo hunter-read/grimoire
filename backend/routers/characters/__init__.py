@@ -15,6 +15,7 @@ from ._schemas import (
     SchemaDeletedResponse,
     SchemaDetail,
     SchemaListResponse,
+    SheetUpdateListResponse,
 )
 from .importers import (
     import_external,
@@ -37,8 +38,10 @@ from .core import (
     import_schema,
     list_characters,
     list_schemas,
+    list_sheet_updates,
     update_character,
 )
+from .transfer import transfer_character
 
 router = APIRouter(prefix="/characters", tags=["characters"])
 
@@ -65,6 +68,13 @@ router.add_api_route(
     methods=["GET"],
     summary="Browse the community sheet catalogue",
     response_model=SheetCatalogueResponse,
+)
+router.add_api_route(
+    "/schemas/updates",
+    list_sheet_updates,
+    methods=["GET"],
+    summary="Installed sheets the catalogue has a newer version of",
+    response_model=SheetUpdateListResponse,
 )
 router.add_api_route(
     "/schemas/install/{sheet_id}",
@@ -148,6 +158,13 @@ router.add_api_route(
     update_character,
     methods=["PUT"],
     summary="Update a character",
+    response_model=CharacterDetail,
+)
+router.add_api_route(
+    "/{character_id}/transfer",
+    transfer_character,
+    methods=["POST"],
+    summary="Give a character to a player in a campaign you run",
     response_model=CharacterDetail,
 )
 router.add_api_route(

@@ -5,17 +5,28 @@ import { isActive } from './characterStatus'
 
 type CharacterSummary = Schema<'CharacterSummary'>
 
-export type CharacterSort = 'updated' | 'name' | 'name-desc' | 'system' | 'sheet'
+export type CharacterSort = 'updated' | 'name' | 'name-desc' | 'system' | 'campaign' | 'sheet'
 
-export const CHARACTER_SORTS: CharacterSort[] = ['updated', 'name', 'name-desc', 'system', 'sheet']
+export const CHARACTER_SORTS: CharacterSort[] = [
+  'updated',
+  'name',
+  'name-desc',
+  'system',
+  'campaign',
+  'sheet',
+]
 
 export const CHARACTER_SORT_LABELS: Record<CharacterSort, string> = {
   updated: 'characters.sortUpdated',
   name: 'characters.sortNameAsc',
   'name-desc': 'characters.sortNameDesc',
   system: 'characters.sortSystem',
+  campaign: 'characters.sortCampaign',
   sheet: 'characters.sortSheet',
 }
+
+/** The sorts that put each group under its own heading. */
+export const GROUPED_SORTS: ReadonlySet<CharacterSort> = new Set(['system', 'campaign'])
 
 const PREF_KEY = 'characterSort'
 
@@ -72,6 +83,9 @@ const COMPARATORS: Record<CharacterSort, (a: CharacterSummary, b: CharacterSumma
   // System leads, so each system's characters sit together under one heading;
   // within it the ones being played still come first.
   system: (a, b) => byText(a.system ?? '', b.system ?? '') || byActive(a, b) || byName(a, b),
+  // The same, by campaign name; characters in no campaign gather at the end.
+  campaign: (a, b) =>
+    byText(a.campaign_name ?? '', b.campaign_name ?? '') || byActive(a, b) || byName(a, b),
   // Newest sheet version first, so the characters left on an older one gather
   // at the end of their sheet's run.
   sheet: (a, b) =>
@@ -84,23 +98,67 @@ const COMPARATORS: Record<CharacterSort, (a: CharacterSummary, b: CharacterSumma
 
 /**
  * The list in `sort` order. Characters still being played lead and retired or
- * fallen ones follow, whatever the sort - except by system, where that holds
- * within each system.
+ * fallen ones follow, whatever the sort - except by system or campaign, where
+ * that holds within each group.
  */
 export function sortCharacters(list: CharacterSummary[], sort: CharacterSort): CharacterSummary[] {
   return [...list].sort(COMPARATORS[sort])
 }
 
-/** Runs of characters sharing a system, in list order: the "System" sort's headings. */
-export function groupBySystem(
-  list: CharacterSummary[]
-): { system: string; characters: CharacterSummary[] }[] {
-  const groups: { system: string; characters: CharacterSummary[] }[] = []
+export interface CharacterGroup {
+  /** What the group's characters share: a system, or a campaign's id. */
+  key: string
+  /** The heading to show; empty for no system or no campaign. */
+  label: string
+  characters: CharacterSummary[]
+}
+
+/**
+ * Runs of characters sharing a key, in list order. A sorted list keeps each
+ * key's characters together, so one pass gives its headings.
+ */
+function groupRuns(
+  list: CharacterSummary[],
+  keyOf: (c: CharacterSummary) => string,
+  labelOf: (c: CharacterSummary) => string
+): CharacterGroup[] {
+  const groups: CharacterGroup[] = []
   for (const character of list) {
-    const system = character.system ?? ''
+    const key = keyOf(character)
     const last = groups[groups.length - 1]
-    if (last && last.system === system) last.characters.push(character)
-    else groups.push({ system, characters: [character] })
+    if (last && last.key === key) last.characters.push(character)
+    else groups.push({ key, label: labelOf(character), characters: [character] })
   }
   return groups
+}
+
+const systemOf = (c: CharacterSummary) => c.system ?? ''
+// Keyed by id, so two campaigns that share a name stay apart.
+const campaignOf = (c: CharacterSummary) => c.campaign_id ?? ''
+const campaignNameOf = (c: CharacterSummary) => c.campaign_name ?? ''
+
+/** The headings of a grouped sort, for a list already in that order. */
+export function groupCharacters(
+  list: CharacterSummary[],
+  sort: 'system' | 'campaign'
+): CharacterGroup[] {
+  return sort === 'system'
+    ? groupRuns(list, systemOf, systemOf)
+    : groupRuns(list, campaignOf, campaignNameOf)
+}
+
+/**
+ * Party members' characters, one group per campaign in campaign-name order,
+ * each group in `sort` order. A grouped sort would only split a campaign's
+ * handful again, so those fall back to the order by name.
+ */
+export function partyGroups(list: CharacterSummary[], sort: CharacterSort): CharacterGroup[] {
+  const within = GROUPED_SORTS.has(sort) ? 'name' : sort
+  // The sort is stable, so each campaign keeps `within`'s order; the id
+  // settles two campaigns of the same name, keeping each in one run.
+  const ordered = sortCharacters(list, within).sort(
+    (a, b) =>
+      byText(campaignNameOf(a), campaignNameOf(b)) || campaignOf(a).localeCompare(campaignOf(b))
+  )
+  return groupRuns(ordered, campaignOf, campaignNameOf)
 }

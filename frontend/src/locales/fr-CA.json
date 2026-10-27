@@ -3917,7 +3917,22 @@
     "readOnlyParty": "Personnage d'un membre du groupe - lecture seule",
     "gmEditing": "Personnage d'un joueur - modifiable en tant que MJ",
     "gmCanEdit": "Autoriser le MJ à modifier",
-    "gmCanEditHelp": "Permet au MJ de cette campagne de modifier aussi la fiche. Les autres joueurs peuvent toujours seulement la lire. Se désactive si le personnage change de campagne."
+    "gmCanEditHelp": "Permet au MJ de cette campagne de modifier aussi la fiche. Les autres joueurs peuvent toujours seulement la lire. Se désactive si le personnage change de campagne.",
+    "sortCampaign": "Campagne",
+    "yourCharacters": "Vos personnages",
+    "partyMembers": "Membres du groupe",
+    "playedBy": "Joué par {{name}}",
+    "sheetUpdatesTitle": "Une nouvelle version de {{count}} feuille est disponible",
+    "sheetUpdatesTitle_other": "De nouvelles versions de {{count}} feuilles sont disponibles",
+    "sheetUpdateLine": "{{name}} v{{from}} → v{{to}}",
+    "updateSheets": "Mettre à jour la feuille",
+    "updateSheets_other": "Tout mettre à jour",
+    "updatingSheets": "Mise à jour…",
+    "updateTo": "Mettre à jour vers v{{version}}",
+    "updateFrom": "Vous avez la v{{version}}",
+    "giveToPlayer": "Donner à un joueur…",
+    "giveToPlayerHelp": "Confiez ce personnage à un joueur de votre table. Vous pouvez continuer à le modifier jusqu'à ce qu'il le désactive.",
+    "confirmGive": "Donner {{name}} à {{player}} ? Le personnage lui appartiendra. Vous pourrez continuer à le modifier jusqu'à ce qu'il le désactive."
   },
   "contentPacks": {
     "title": "Packs de contenu",

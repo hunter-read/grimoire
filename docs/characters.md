@@ -57,6 +57,21 @@ checked against the catalogue's digest and validated before it is stored; nothin
 in a sheet runs. Uninstalling a sheet keeps the characters built on it: they open
 showing their stored values until you install it again.
 
+### Updating a sheet
+
+Every character follows your installed copy of its sheet, so updating the sheet
+updates all of them. When the catalogue has a newer version of a sheet you
+installed from it, Grimoire offers the update in three places:
+
+- A notice at the top of the **Characters** page lists each sheet with your
+  version and the new one. **Update all** installs every update in one go.
+- **Manage sheets** shows an **Update to v…** button beside the sheet.
+- **Browse sheets** shows the same button in place of *Installed*.
+
+A sheet you pasted is never offered an update, even if the catalogue has one
+with the same id, because it may be your own edited copy. To switch it to the
+catalogue's version, install it from **Browse sheets**.
+
 ### Pasting one
 
 Three boxes, because a custom sheet is three things:
@@ -195,13 +210,28 @@ you have more than one, the **Sort** menu above them offers:
 
 - **Name (A–Z)** or **Name (Z–A)**.
 - **System**, which puts each game system's characters under their own heading.
+- **Campaign**, which puts each campaign's characters under their own heading,
+  in order of campaign name, with characters in no campaign last.
 - **Sheet and version**, which groups characters by the sheet they are built
   on, newest version first, and shows the version on each card. That is the
   quick way to see which characters are still on an older version of a sheet.
 
 Characters still being played come first in every order, and retired or dead
-ones after them. Sorted by system, that applies within each system. The page
-remembers your choice in this browser.
+ones after them. Sorted by system or campaign, that applies within each group.
+The page remembers your choice in this browser.
+
+### Party members
+
+Other players' characters you can read through a campaign (see
+[Campaigns](#campaigns)) are kept out of your own list. They appear below it,
+under **Party members**, in one group per campaign, ordered by campaign name.
+Each card names the player. Within a campaign, the characters follow the sort
+you picked. Sorting by system or campaign orders them by name instead, since
+they are already grouped by campaign.
+
+Click a campaign's name to fold its group away. Grimoire remembers which
+groups you folded in this browser, so a table you only check now and then
+stays out of the way.
 
 ## The content catalog
 
@@ -295,6 +325,31 @@ character is built on.
   let in again.
 - It is only offered when the campaign has a GM besides you - not for a
   character in no campaign or in your own personal campaign.
+
+### Giving a character to a player
+
+A GM can prepare characters for their players: pregens for a one-shot, a
+replacement mid-campaign, or a sheet set up for someone new to the builder.
+Create the character in a campaign you run, then pick a player from **Give to
+player…** in the sheet's header. The menu lists the players who have joined
+that campaign, guests included. It does not appear for a character in no
+campaign, or in a campaign someone else runs.
+
+The character becomes the player's, as if they had made it:
+
+- It stays in the campaign, with its portrait and pictures.
+- **Let the GM edit** is switched on, so you can keep adjusting it. The player
+  can switch that off like any other time.
+- If the player hasn't installed the sheet, your copy is installed for them.
+  If they already have it, their copy is used, even an older one, so check
+  for a sheet update if the character was built on a newer version.
+- Content you picked from your own *Only you* rulesets is copied into a new
+  personal ruleset for the player, named after the character, so the
+  character still reads correctly for them. Content from packs, server
+  rulesets and the campaign's own rulesets is left as it is, since the player
+  can already read it.
+
+There's no undo. To get a character back, ask the player to export it for you.
 
 ### More than one character in a campaign
 

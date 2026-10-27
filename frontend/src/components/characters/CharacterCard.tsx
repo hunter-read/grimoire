@@ -8,13 +8,14 @@ import LazyImg from '../LazyImg'
 import { isActive, statusLabel } from './characterStatus'
 import { framedImageStyle } from './portraitCrop'
 
-// Still JavaScript, so TypeScript would read every prop as required.
-
 interface Props {
   character: Schema<'CharacterSummary'>
-  onDelete: (character: Schema<'CharacterSummary'>) => void
+  /** Offered on the user's own characters only; a party member's has none. */
+  onDelete?: (character: Schema<'CharacterSummary'>) => void
   /** Show the sheet's version beside its name, for the list sorted by sheet. */
   showVersion?: boolean
+  /** Leave the campaign out, for a card under a heading that already names it. */
+  hideCampaign?: boolean
 }
 
 /**
@@ -26,7 +27,12 @@ interface Props {
  * the character's initials, which tells characters apart better than a row of
  * identical placeholder icons.
  */
-export default function CharacterCard({ character, onDelete, showVersion = false }: Props) {
+export default function CharacterCard({
+  character,
+  onDelete,
+  showVersion = false,
+  hideCampaign = false,
+}: Props) {
   const { t } = useTranslation()
   const [hovered, setHovered] = useState(false)
   const name = character.name || t('characters.untitled')
@@ -40,6 +46,7 @@ export default function CharacterCard({ character, onDelete, showVersion = false
   // A retired or fallen character stays in the list beside whoever replaced
   // them, faded so the one being played is the one that stands out.
   const inactive = !isActive(character)
+  const campaign = hideCampaign ? null : character.campaign_name
 
   return (
     <li
@@ -131,7 +138,7 @@ export default function CharacterCard({ character, onDelete, showVersion = false
               character.schema_name || character.schema_ref
             )}
           </div>
-          {character.campaign_name || inactive ? (
+          {campaign || inactive ? (
             <div
               style={{
                 fontSize: 12,
@@ -142,7 +149,7 @@ export default function CharacterCard({ character, onDelete, showVersion = false
                 whiteSpace: 'nowrap',
               }}
             >
-              {[character.campaign_name, inactive ? statusLabel(t, character.status) : null]
+              {[campaign, inactive ? statusLabel(t, character.status) : null]
                 .filter(Boolean)
                 .join(' · ')}
             </div>
@@ -159,11 +166,13 @@ export default function CharacterCard({ character, onDelete, showVersion = false
               }}
             >
               <LuUsers size={12} aria-hidden="true" />
-              {t('characters.partyMember')}
+              {character.owner_name
+                ? t('characters.playedBy', { name: character.owner_name })
+                : t('characters.partyMember')}
             </div>
           ) : null}
         </div>
-        {owned ? (
+        {owned && onDelete ? (
           // Positioned, so it sits above the card's link overlay.
           <button
             type="button"

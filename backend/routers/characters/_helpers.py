@@ -114,6 +114,32 @@ def assert_in_campaign(db: Session, user_id: str, campaign_id: Optional[str]) ->
         raise HTTPException(status_code=403, detail="You are not in that campaign")
 
 
+def transfer_candidates(db: Session, character: Character, viewer_id: str) -> list[dict]:
+    """The players this viewer may hand the character to.
+
+    Only a character's owner hands it on, and only at a table they run: a GM
+    preparing a pregen for one of their players. The recipients are the
+    campaign's accepted members - an invitation not yet answered is not a seat
+    at the table, the same line ``assert_in_campaign`` draws. Guests count:
+    they are often exactly who a GM prepares a character for.
+    """
+    if character.user_id != viewer_id or not character.campaign_id:
+        return []
+    campaign = db.query(Campaign).filter_by(id=character.campaign_id).first()
+    if not campaign or campaign.owner_id != viewer_id:
+        return []
+    rows = (
+        db.query(User.id, User.display_name, User.username)
+        .join(CampaignMember, CampaignMember.user_id == User.id)
+        .filter(CampaignMember.campaign_id == campaign.id)
+        .filter(CampaignMember.status == "accepted")
+        .filter(User.id != viewer_id)
+        .all()
+    )
+    people = [{"user_id": row[0], "name": row[1] or row[2]} for row in rows]
+    return sorted(people, key=lambda person: person["name"].lower())
+
+
 class CampaignLabel(NamedTuple):
     """What a character's payload needs to know about its campaign."""
 
@@ -173,40 +199,6 @@ def export_character(
     open anywhere else.
     """
     data = character.data if isinstance(character.data, dict) else {}
-    entry_ids = referenced_ids(document, data)
-
-    embedded: dict[str, Any] = {}
-    if entry_ids:
-        for row in (
-            db.query(ContentEntry)
-            .filter(ContentEntry.schema_id == character.schema_ref)
-            .filter(ContentEntry.entry_id.in_(entry_ids))
-            .all()
-        ):
-            embedded[row.entry_id] = {
-                "content_type": row.content_type,
-                "source": row.source,
-                "name": row.name,
-                "data": row.data if isinstance(row.data, dict) else {},
-            }
-        for entry in (
-            db.query(RulesetEntry)
-            .join(Ruleset, Ruleset.id == RulesetEntry.ruleset_id)
-            .filter(RulesetEntry.schema_id == character.schema_ref)
-            .filter(RulesetEntry.entry_id.in_(entry_ids))
-            .filter(rs.readable_filter(db, character.user_id))
-            .all()
-        ):
-            embedded.setdefault(
-                entry.entry_id,
-                {
-                    "content_type": entry.content_type,
-                    "source": "ruleset",
-                    "name": entry.name,
-                    "data": entry.data if isinstance(entry.data, dict) else {},
-                },
-            )
-
     return {
         "$schema": EXPORT_SCHEMA,
         "name": character.name or "",
@@ -214,7 +206,7 @@ def export_character(
         "schema_id": character.schema_ref,
         "schema": schema_document or {},
         "data": data,
-        "entries": embedded,
+        "entries": embedded_entries(db, character, document),
         "portrait": (
             char_images.encode_data_url(
                 os.path.join(CHARACTER_PORTRAIT_DIR, character.portrait_path)
@@ -225,6 +217,49 @@ def export_character(
         "portrait_crop": character.portrait_crop if character.portrait_path else None,
         "images": char_images.export_images(character),
     }
+
+
+def embedded_entries(db: Session, character: Character, document: dict) -> dict[str, Any]:
+    """Every entry the character refers to, in full, keyed by entry id.
+
+    Read as the character's owner: these are the entries their sheet shows,
+    including any from a ruleset only they can read.
+    """
+    data = character.data if isinstance(character.data, dict) else {}
+    entry_ids = referenced_ids(document, data)
+    embedded: dict[str, Any] = {}
+    if not entry_ids:
+        return embedded
+    for row in (
+        db.query(ContentEntry)
+        .filter(ContentEntry.schema_id == character.schema_ref)
+        .filter(ContentEntry.entry_id.in_(entry_ids))
+        .all()
+    ):
+        embedded[row.entry_id] = {
+            "content_type": row.content_type,
+            "source": row.source,
+            "name": row.name,
+            "data": row.data if isinstance(row.data, dict) else {},
+        }
+    for entry in (
+        db.query(RulesetEntry)
+        .join(Ruleset, Ruleset.id == RulesetEntry.ruleset_id)
+        .filter(RulesetEntry.schema_id == character.schema_ref)
+        .filter(RulesetEntry.entry_id.in_(entry_ids))
+        .filter(rs.readable_filter(db, character.user_id))
+        .all()
+    ):
+        embedded.setdefault(
+            entry.entry_id,
+            {
+                "content_type": entry.content_type,
+                "source": "ruleset",
+                "name": entry.name,
+                "data": entry.data if isinstance(entry.data, dict) else {},
+            },
+        )
+    return embedded
 
 
 def referenced_ids(document: dict, data: dict) -> set:
@@ -253,6 +288,7 @@ def import_embedded_entries(
     owner_id: str,
     schema_id: str,
     document: Optional[dict],
+    description: str = "Recreated from an imported character.",
 ) -> int:
     """Recreate an exported file's embedded entries in a ruleset.
 
@@ -315,7 +351,7 @@ def import_embedded_entries(
                 owner_id=owner_id,
                 schema_id=schema_id,
                 name=str(payload.get("name") or "Imported content")[:200],
-                description="Recreated from an imported character.",
+                description=description,
                 created_by_id=owner_id,
             )
             db.add(target)

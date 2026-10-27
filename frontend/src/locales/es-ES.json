@@ -3917,7 +3917,22 @@
     "readOnlyParty": "Personaje de un miembro del grupo - solo lectura",
     "gmEditing": "Personaje de un jugador - puedes editarlo como DJ",
     "gmCanEdit": "Permitir que el DJ edite",
-    "gmCanEditHelp": "Permite que el DJ de esta campaña también edite la hoja. Los demás jugadores solo pueden leerla. Se desactiva si el personaje pasa a otra campaña."
+    "gmCanEditHelp": "Permite que el DJ de esta campaña también edite la hoja. Los demás jugadores solo pueden leerla. Se desactiva si el personaje pasa a otra campaña.",
+    "sortCampaign": "Campaña",
+    "yourCharacters": "Tus personajes",
+    "partyMembers": "Miembros del grupo",
+    "playedBy": "Jugado por {{name}}",
+    "sheetUpdatesTitle": "Hay una versión nueva de {{count}} hoja",
+    "sheetUpdatesTitle_other": "Hay versiones nuevas de {{count}} hojas",
+    "sheetUpdateLine": "{{name}} v{{from}} → v{{to}}",
+    "updateSheets": "Actualizar hoja",
+    "updateSheets_other": "Actualizar todas",
+    "updatingSheets": "Actualizando…",
+    "updateTo": "Actualizar a v{{version}}",
+    "updateFrom": "Tienes la v{{version}}",
+    "giveToPlayer": "Dar a un jugador…",
+    "giveToPlayerHelp": "Entrega este personaje a un jugador de tu mesa. Puedes seguir editándolo hasta que lo desactive.",
+    "confirmGive": "¿Dar {{name}} a {{player}}? Pasará a ser su personaje. Puedes seguir editándolo hasta que lo desactive."
   },
   "contentPacks": {
     "title": "Paquetes de contenido",

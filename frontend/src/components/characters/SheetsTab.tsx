@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuTrash2, LuStore, LuClipboardPaste, LuCheck } from 'react-icons/lu'
+import { LuTrash2, LuStore, LuClipboardPaste, LuCheck, LuRefreshCw } from 'react-icons/lu'
 import { characters as charactersApi } from '../../api'
 import type { Schema } from '../../api'
 import {
@@ -26,6 +26,7 @@ import {
  * optional boxes take a phone-specific layout and stylesheet the same way.
  */
 type SchemaSummary = Schema<'SchemaSummary'>
+type SheetUpdate = Schema<'SheetUpdate'>
 
 interface Props {
   schemas: SchemaSummary[]
@@ -45,6 +46,43 @@ export default function SheetsTab({ schemas, onChanged, onBrowse, setError }: Pr
   const [mobileStyles, setMobileStyles] = useState('')
   const [saving, setSaving] = useState(false)
   const [installed, setInstalled] = useState('')
+  // Catalogue sheets with a newer version, keyed by schema id.
+  const [updates, setUpdates] = useState<Record<string, SheetUpdate>>({})
+  const [updating, setUpdating] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    charactersApi
+      .sheetUpdates()
+      .then((result) => {
+        if (cancelled) return
+        setUpdates(Object.fromEntries((result.updates || []).map((u) => [u.schema_id, u])))
+      })
+      // A hint only: a catalogue that will not answer just offers no updates.
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const update = async (available: SheetUpdate) => {
+    setUpdating(available.schema_id)
+    try {
+      await charactersApi.installSheet(available.sheet_id)
+      setUpdates((prev) => {
+        const next = { ...prev }
+        delete next[available.schema_id]
+        return next
+      })
+      setInstalled(available.name)
+      setError('')
+      onChanged?.()
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setUpdating('')
+    }
+  }
 
   const paste = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -249,6 +287,18 @@ export default function SheetsTab({ schemas, onChanged, onBrowse, setError }: Pr
                     .join(' · ')}
                 </div>
               </div>
+              {updates[schema.schema_id] ? (
+                <button
+                  onClick={() => update(updates[schema.schema_id]!)}
+                  disabled={updating === schema.schema_id}
+                  style={{ ...goldBtn, padding: '6px 12px', fontSize: 12 }}
+                >
+                  <LuRefreshCw size={13} />
+                  {updating === schema.schema_id
+                    ? t('characters.updatingSheets')
+                    : t('characters.updateTo', { version: updates[schema.schema_id]!.version })}
+                </button>
+              ) : null}
               <button
                 onClick={() => remove(schema)}
                 aria-label={t('characters.uninstallSheet', {

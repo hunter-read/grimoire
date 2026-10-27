@@ -403,6 +403,9 @@ def _serialize_character(
         )
         # The entries the sheet needs, so rendering costs no extra request.
         payload["entries"] = entries
+        payload["transfer_candidates"] = (
+            helpers.transfer_candidates(db, row, viewer_id) if db and viewer_id else []
+        )
     return payload
 
 
@@ -816,19 +819,49 @@ def browse_sheets(
     # A hand-written or pasted schema has no source, so it marks every
     # catalogue copy of that id as installed — which is right, since
     # installing any of them would replace it.
-    installed = {
-        (row.schema_id, row.source_url or "")
-        for row in db.query(CharacterSchema.schema_id, CharacterSchema.source_url)
-        .filter(CharacterSchema.user_id == current_user.id)
-        .all()
-    }
     try:
-        return catalogue.fetch_catalogue(db, installed_ids=installed)
+        return catalogue.fetch_catalogue(db, installed=_installed_sheets(db, current_user.id))
     except catalogue.CatalogueError as exc:
         # Downloads switched off is a policy answer, not a failure.
         if not catalogue.downloads_enabled():
             raise HTTPException(status_code=403, detail=str(exc)) from exc
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+def _installed_sheets(db: Session, user_id: str) -> catalogue.Installed:
+    """The user's sheets as the catalogue matches them, with their versions.
+
+    The version recorded at download wins over the document's own: it is the
+    catalogue's number, and the catalogue's number is what it is compared to.
+    """
+    return {
+        (row.schema_id, row.source_url or ""): row.source_version or row.version or ""
+        for row in db.query(
+            CharacterSchema.schema_id,
+            CharacterSchema.source_url,
+            CharacterSchema.source_version,
+            CharacterSchema.version,
+        )
+        .filter(CharacterSchema.user_id == user_id)
+        .all()
+    }
+
+
+def list_sheet_updates(
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """The installed sheets their catalogue has a newer version of.
+
+    A hint for the Characters page rather than a page of its own, so a
+    catalogue that cannot be read - or downloads switched off - answers with
+    no updates instead of an error.
+    """
+    try:
+        listing = catalogue.fetch_catalogue(db, installed=_installed_sheets(db, current_user.id))
+    except catalogue.CatalogueError:
+        return {"updates": []}
+    return {"updates": catalogue.find_updates(listing)}
 
 
 def install_sheet(

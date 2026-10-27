@@ -3917,7 +3917,22 @@
     "readOnlyParty": "Personaggio di un membro del gruppo - sola lettura",
     "gmEditing": "Personaggio di un giocatore - puoi modificarlo come GM",
     "gmCanEdit": "Consenti al GM di modificare",
-    "gmCanEditHelp": "Consente anche al GM di questa campagna di modificare la scheda. Gli altri giocatori possono comunque solo leggerla. Si disattiva se il personaggio passa a un'altra campagna."
+    "gmCanEditHelp": "Consente anche al GM di questa campagna di modificare la scheda. Gli altri giocatori possono comunque solo leggerla. Si disattiva se il personaggio passa a un'altra campagna.",
+    "sortCampaign": "Campagna",
+    "yourCharacters": "I tuoi personaggi",
+    "partyMembers": "Membri del gruppo",
+    "playedBy": "Giocato da {{name}}",
+    "sheetUpdatesTitle": "È disponibile una nuova versione di {{count}} scheda",
+    "sheetUpdatesTitle_other": "Sono disponibili nuove versioni di {{count}} schede",
+    "sheetUpdateLine": "{{name}} v{{from}} → v{{to}}",
+    "updateSheets": "Aggiorna scheda",
+    "updateSheets_other": "Aggiorna tutte",
+    "updatingSheets": "Aggiornamento…",
+    "updateTo": "Aggiorna a v{{version}}",
+    "updateFrom": "Hai la v{{version}}",
+    "giveToPlayer": "Dai a un giocatore…",
+    "giveToPlayerHelp": "Affida questo personaggio a un giocatore del tuo tavolo. Puoi continuare a modificarlo finché non lo disattiva.",
+    "confirmGive": "Dare {{name}} a {{player}}? Diventerà il suo personaggio. Puoi continuare a modificarlo finché non lo disattiva."
   },
   "contentPacks": {
     "title": "Pacchetti di contenuti",

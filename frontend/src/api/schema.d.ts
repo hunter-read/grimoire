@@ -3035,6 +3035,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/characters/schemas/updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Installed sheets the catalogue has a newer version of
+         * @description The installed sheets their catalogue has a newer version of.
+         *
+         *     A hint for the Characters page rather than a page of its own, so a
+         *     catalogue that cannot be read - or downloads switched off - answers with
+         *     no updates instead of an error.
+         */
+        get: operations["list_sheet_updates_api_characters_schemas_updates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/characters/schemas/{schema_id}": {
         parameters: {
             query?: never;
@@ -3182,6 +3206,31 @@ export interface paths {
          * @description Remove a character's portrait.
          */
         delete: operations["delete_portrait_api_characters__character_id__portrait_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/characters/{character_id}/transfer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give a character to a player in a campaign you run
+         * @description Give a character to a player at the table its owner runs.
+         *
+         *     Only the owner may, and only when they are the GM of the character's
+         *     campaign; the recipient must have joined it. The sheet stays where it is
+         *     played, and the GM keeps edit access - they prepared it, and are likely
+         *     still adjusting it - which the new owner can switch off like any other GM.
+         */
+        post: operations["transfer_character_api_characters__character_id__transfer_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -8972,6 +9021,11 @@ export interface components {
              */
             installed?: boolean;
             /**
+             * Installed Version
+             * @default
+             */
+            installed_version?: string;
+            /**
              * Layout Path
              * @default
              */
@@ -9043,6 +9097,11 @@ export interface components {
              * @default
              */
             system?: string;
+            /**
+             * Update Available
+             * @default false
+             */
+            update_available?: boolean;
             /**
              * Version
              * @default
@@ -9300,6 +9359,8 @@ export interface components {
              * @default
              */
             system?: string;
+            /** Transfer Candidates */
+            transfer_candidates?: components["schemas"]["TransferCandidate"][];
             /** Updated At */
             updated_at?: string | null;
             /**
@@ -9455,6 +9516,14 @@ export interface components {
              * @default
              */
             user_id?: string;
+        };
+        /**
+         * CharacterTransfer
+         * @description Who to hand a character to: a player who has joined its campaign.
+         */
+        CharacterTransfer: {
+            /** User Id */
+            user_id: string;
         };
         /** CharacterUpdate */
         CharacterUpdate: {
@@ -11206,6 +11275,8 @@ export interface components {
              * @default
              */
             system?: string;
+            /** Transfer Candidates */
+            transfer_candidates?: components["schemas"]["TransferCandidate"][];
             /** Unmatched */
             unmatched?: string[];
             /** Updated At */
@@ -14810,6 +14881,33 @@ export interface components {
             files: components["schemas"]["SheetSourceOut"][];
         };
         /**
+         * SheetUpdate
+         * @description An installed sheet its catalogue has a newer version of.
+         */
+        SheetUpdate: {
+            /**
+             * Installed Version
+             * @default
+             */
+            installed_version?: string;
+            /** Name */
+            name: string;
+            /** Schema Id */
+            schema_id: string;
+            /** Sheet Id */
+            sheet_id: string;
+            /**
+             * Version
+             * @default
+             */
+            version?: string;
+        };
+        /** SheetUpdateListResponse */
+        SheetUpdateListResponse: {
+            /** Updates */
+            updates?: components["schemas"]["SheetUpdate"][];
+        };
+        /**
          * ShelfFacetsResponse
          * @description The values the shelf's filter menus offer, over the whole visible shelf.
          */
@@ -15718,6 +15816,16 @@ export interface components {
             is_explicit?: boolean | null;
             /** Tags */
             tags?: string[] | null;
+        };
+        /**
+         * TransferCandidate
+         * @description A player the character could be handed to.
+         */
+        TransferCandidate: {
+            /** Name */
+            name: string;
+            /** User Id */
+            user_id: string;
         };
         /**
          * UISettingsResponse
@@ -24022,6 +24130,40 @@ export interface operations {
             };
         };
     };
+    list_sheet_updates_api_characters_schemas_updates_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SheetUpdateListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_schema_api_characters_schemas__schema_id__get: {
         parameters: {
             query?: never;
@@ -24456,6 +24598,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CharacterDeletedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    transfer_character_api_characters__character_id__transfer_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                character_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CharacterTransfer"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CharacterDetail"];
                 };
             };
             /** @description Validation Error */

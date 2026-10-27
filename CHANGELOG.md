@@ -14,7 +14,10 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Grimoire can keep your Grimoire Codex DB collection in sync, so the site can show which books and systems you own and filter by them. Turn on **Keep my Grimoire Codex DB collection in sync** in the Grimoire Codex DB settings (or set `GRIMOIRE_CODEX_DB_SYNC_COLLECTION`): linking a book or system marks it as owned, unlinking takes the mark back, and **Sync collection now** catches books deleted from the library. Off by default
 - `OCR_MIN_TEXT_COVERAGE` sets how much of a PDF its own text must cover before it counts as a text book (default `0.5`); `0` only reads books with no text at all with OCR, as before
 - `OCR_MIN_PAGE_CHARS` sets how many characters a page must carry to count as a page of text (default `100`), so a running header on its own no longer passes for a text layer; `0` counts any text at all, as before
-- The Characters page can be sorted by name, system or sheet version as well as by when each character was last updated, and remembers your choice. Sorted by system, each system gets its own heading; sorted by sheet, each card shows its sheet's version
+- The Characters page can be sorted by name, system, campaign or sheet version as well as by when each character was last updated, and remembers your choice. Sorted by system or campaign, each gets its own heading; sorted by sheet, each card shows its sheet's version
+- A GM can give a character they prepared to one of their players: pick the player from **Give to player…** in the sheet's header. The character stays in the campaign with its art, the GM keeps edit access until the player switches it off, and the player gets the sheet and any of the GM's private content the character uses
+- When the catalogue has a newer version of a sheet you installed, the Characters page says so and **Update all** installs every update at once. **Manage sheets** and **Browse sheets** offer an **Update** button for each sheet
+- Other players' characters you can see through a campaign now sit in their own **Party members** section on the Characters page, grouped by campaign. Each card names the player, and each campaign's group can be folded away
 
 ### Changed
 

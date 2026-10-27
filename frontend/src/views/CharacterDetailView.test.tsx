@@ -15,6 +15,7 @@ const mockUploadImage = vi.fn()
 const mockDeleteImage = vi.fn()
 
 const mockCampaigns = vi.fn()
+const mockTransfer = vi.fn()
 
 vi.mock('../api', () => ({
   campaigns: { list: (...a: unknown[]) => mockCampaigns(...a) },
@@ -22,6 +23,7 @@ vi.mock('../api', () => ({
     get: (...a: unknown[]) => mockGet(...a),
     getSchema: (...a: unknown[]) => mockGetSchema(...a),
     update: (...a: unknown[]) => mockUpdate(...a),
+    transfer: (...a: unknown[]) => mockTransfer(...a),
     export: (...a: unknown[]) => mockExport(...a),
     uploadPortrait: (...a: unknown[]) => mockUploadPortrait(...a),
     portraitUrl: (id: string, v?: string) => `/api/characters/${id}/portrait${v ? `?v=${v}` : ''}`,
@@ -279,6 +281,38 @@ describe('CharacterDetailView', () => {
       await userEvent.click(toggle)
       await waitFor(() => expect(mockUpdate).toHaveBeenCalledWith('c1', { gm_can_edit: true }))
       await waitFor(() => expect(screen.getByLabelText('Let the GM edit')).toBeChecked())
+    })
+
+    it('lets the GM give a character they prepared to a player', async () => {
+      vi.spyOn(window, 'confirm').mockReturnValue(true)
+      const prepared = {
+        ...CHARACTER,
+        owned: true,
+        editable: true,
+        campaign_id: 'camp1',
+        campaign_name: 'My Notes',
+        transfer_candidates: [{ user_id: 'u1', name: 'Robin' }],
+      }
+      mockGet.mockResolvedValue(prepared)
+      mockTransfer.mockResolvedValue({
+        ...prepared,
+        user_id: 'u1',
+        owner_name: 'Robin',
+        owned: false,
+        editable: true,
+        gm_can_edit: true,
+        transfer_candidates: [],
+      })
+      renderView()
+      await userEvent.selectOptions(
+        await screen.findByRole('combobox', { name: 'Give to player…' }),
+        'u1'
+      )
+      await waitFor(() => expect(mockTransfer).toHaveBeenCalledWith('c1', 'u1'))
+      // Now the player's, which the GM may still edit.
+      expect(await screen.findByText(/edit it as GM/i)).toBeInTheDocument()
+      expect(screen.queryByRole('combobox', { name: 'Give to player…' })).not.toBeInTheDocument()
+      expect(screen.getByLabelText('Strength')).not.toHaveAttribute('readonly')
     })
 
     it('says the sheet the character is built on', async () => {

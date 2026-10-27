@@ -30,6 +30,7 @@ from ...addons.constants import (
 )
 from ...addons.credentials import SourceCredentials
 from ...addons.fetch import AddonFetchError, fetch_document, open_client
+from ...addons.registry import is_newer
 from .schema import SchemaError, validate_schema
 
 logger = logging.getLogger("grimoire.characters.catalogue")
@@ -39,8 +40,13 @@ __all__ = [
     "compute_source_hash",
     "fetch_catalogue",
     "fetch_sheet",
+    "find_updates",
     "get_index_urls",
 ]
+
+#: What a user has installed: (schema id, source URL) → the installed version.
+#: The source URL is "" for a sheet that was pasted rather than downloaded.
+Installed = dict[tuple[str, str], str]
 
 
 class CatalogueError(ValueError):
@@ -209,7 +215,7 @@ def _candidate_urls(configured: str) -> list[str]:
     return list(dict.fromkeys(candidates))
 
 
-def fetch_catalogue(db: Session, installed_ids: Optional[set] = None) -> dict[str, Any]:
+def fetch_catalogue(db: Session, installed: Optional[Installed] = None) -> dict[str, Any]:
     """Every sheet the configured catalogues offer.
 
     A source that cannot be read is skipped and logged rather than failing the
@@ -217,7 +223,7 @@ def fetch_catalogue(db: Session, installed_ids: Optional[set] = None) -> dict[st
     fine.
     """
     _assert_downloads_enabled()
-    installed = installed_ids or set()
+    installed = installed or {}
 
     sheets: list[dict[str, Any]] = []
     errors: list[dict[str, str]] = []
@@ -320,13 +326,15 @@ def _read_source(
     return candidates[0], None, [{"url": candidates[0], "error": reason}]
 
 
-def _summarise(entry: dict, index_url: str, installed: set) -> dict:
+def _summarise(entry: dict, index_url: str, installed: Installed) -> dict:
     author = str(entry.get("author") or "")
     # (display name, profile URL) — a GitHub username becomes a link, anything
     # else is credited as plain text, exactly as add-ons and themes do it.
     author_name, author_url = parse_author(author) if author else ("", "")
     raw_id = str(entry["id"])
     source_hash = compute_source_hash(index_url)
+    version = str(entry.get("version") or "")
+    installed_version = installed.get((raw_id, index_url))
     return {
         # Namespaced by source so two catalogues offering the same sheet stay
         # distinct. `raw_id` is what the sheet calls itself, and what it
@@ -334,7 +342,7 @@ def _summarise(entry: dict, index_url: str, installed: set) -> dict:
         "id": f"{raw_id}-{source_hash}" if source_hash else raw_id,
         "raw_id": raw_id,
         "name": str(entry.get("name") or entry["id"]),
-        "version": str(entry.get("version") or ""),
+        "version": version,
         "system": str(entry.get("system") or ""),
         "description": str(entry.get("description") or ""),
         "author": author_name or author,
@@ -362,10 +370,37 @@ def _summarise(entry: dict, index_url: str, installed: set) -> dict:
         "mobile_styles_sha256": str(entry.get("mobile_styles_sha256") or ""),
         "index_url": index_url,
         "installed": _is_installed(raw_id, index_url, installed),
+        # Only for a copy downloaded from this very catalogue. A pasted sheet
+        # with the same id may be the user's own edit of it, and "updating"
+        # it would quietly throw their changes away.
+        "installed_version": installed_version or "",
+        "update_available": installed_version is not None
+        and bool(version)
+        and is_newer(version, installed_version),
     }
 
 
-def _is_installed(raw_id: str, index_url: str, installed: set) -> bool:
+def find_updates(listing: dict[str, Any]) -> list[dict[str, Any]]:
+    """The installed sheets a catalogue listing offers a newer version of.
+
+    Each names the catalogue copy to install, so updating is the ordinary
+    install - the same download, digest check and validation - landing on the
+    row the user already has.
+    """
+    return [
+        {
+            "schema_id": sheet["raw_id"],
+            "name": sheet["name"],
+            "installed_version": sheet["installed_version"],
+            "version": sheet["version"],
+            "sheet_id": sheet["id"],
+        }
+        for sheet in listing.get("sheets", [])
+        if sheet.get("update_available")
+    ]
+
+
+def _is_installed(raw_id: str, index_url: str, installed: Installed) -> bool:
     """Whether *this* copy of a sheet is the one the user has.
 
     Matched on the source as well as the id, so installing one catalogue's

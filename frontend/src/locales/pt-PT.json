@@ -3917,7 +3917,22 @@
     "readOnlyParty": "Personagem de um membro do grupo - só de leitura",
     "gmEditing": "Personagem de um jogador - podes editá-la como GM",
     "gmCanEdit": "Permitir que o GM edite",
-    "gmCanEditHelp": "Permite que o GM desta campanha também edite a ficha. Os outros jogadores continuam só a poder lê-la. Desliga-se se a personagem mudar de campanha."
+    "gmCanEditHelp": "Permite que o GM desta campanha também edite a ficha. Os outros jogadores continuam só a poder lê-la. Desliga-se se a personagem mudar de campanha.",
+    "sortCampaign": "Campanha",
+    "yourCharacters": "Os seus personagens",
+    "partyMembers": "Membros do grupo",
+    "playedBy": "Jogado por {{name}}",
+    "sheetUpdatesTitle": "Há uma versão nova de {{count}} ficha",
+    "sheetUpdatesTitle_other": "Há versões novas de {{count}} fichas",
+    "sheetUpdateLine": "{{name}} v{{from}} → v{{to}}",
+    "updateSheets": "Atualizar ficha",
+    "updateSheets_other": "Atualizar todas",
+    "updatingSheets": "A atualizar…",
+    "updateTo": "Atualizar para v{{version}}",
+    "updateFrom": "Tem a v{{version}}",
+    "giveToPlayer": "Dar a um jogador…",
+    "giveToPlayerHelp": "Entregue este personagem a um jogador da sua mesa. Pode continuar a editá-lo até que ele o desative.",
+    "confirmGive": "Dar {{name}} a {{player}}? Passa a ser o personagem dele. Pode continuar a editá-lo até que ele o desative."
   },
   "contentPacks": {
     "title": "Pacotes de conteúdo",
