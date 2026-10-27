@@ -24,6 +24,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Re-OCR appears in the actions menu of a scanned book with only a few pages of text, so books already in the library can be read in full
 - A book asked to be re-read with OCR while another book is being read is no longer left waiting until a restart or the next scan
 - Books that belong to no game system no longer vanish from players' and GMs' book lists, search and OPDS feeds once any system is restricted to GMs or admins
+- Clicking quickly from one campaign note to another no longer leaves the first note on screen under the second's name, where editing it changed the wrong note
 
 - Renaming, moving or uploading into a library folder Grimoire doesn't have permission to write to no longer says the library is mounted read-only. It names the folder and the user Grimoire runs as, and points to `PUID`/`PGID`; a library that really is mounted read-only still says so
 - Grimoire stays root at start-up when the user it would switch to can't write to folders inside the library, not just the library folder itself, so moving and renaming keep working after updating from a version that ran as root
