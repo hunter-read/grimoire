@@ -22,14 +22,14 @@ describe('measuredFiles', () => {
     expect(
       measuredFiles(
         [
-          'frontend/src/lib/uvtt.js',
-          'frontend/src/lib/tokenCompositor.js',
-          'frontend/src/lib/pdfjs.js',
-          'frontend/src/lib/three.js',
+          'frontend/src/lib/uvtt.ts',
+          'frontend/src/lib/tokenCompositor.ts',
+          'frontend/src/lib/pdfjs.ts',
+          'frontend/src/lib/three.ts',
         ],
         ROOT
       )
-    ).toEqual([abs('frontend/src/lib/uvtt.js'), abs('frontend/src/lib/tokenCompositor.js')])
+    ).toEqual([abs('frontend/src/lib/uvtt.ts'), abs('frontend/src/lib/tokenCompositor.ts')])
   })
 
   it('skips the files the coverage report leaves out', () => {
@@ -37,9 +37,9 @@ describe('measuredFiles', () => {
       measuredFiles(
         [
           'frontend/src/main.tsx',
-          'frontend/src/lib/uvtt.test.js',
+          'frontend/src/lib/uvtt.test.ts',
           'frontend/src/api/schema.d.ts',
-          'frontend/src/test/fakeBrowseApi.js',
+          'frontend/src/test/fakeBrowseApi.ts',
         ],
         ROOT
       )
@@ -49,28 +49,28 @@ describe('measuredFiles', () => {
   it('drops blank lines, duplicates and files that no longer exist', () => {
     expect(
       measuredFiles(
-        ['', ' frontend/src/lib/uvtt.js ', 'frontend/src/lib/uvtt.js', 'frontend/src/lib/gone.js'],
+        ['', ' frontend/src/lib/uvtt.js ', 'frontend/src/lib/uvtt.ts', 'frontend/src/lib/gone.ts'],
         ROOT
       )
-    ).toEqual([abs('frontend/src/lib/uvtt.js')])
+    ).toEqual([abs('frontend/src/lib/uvtt.ts')])
   })
 })
 
 describe('checkFiles', () => {
-  const file = abs('frontend/src/lib/uvtt.js')
+  const file = abs('frontend/src/lib/uvtt.ts')
 
   it('fails a file below the threshold and passes one at or above it', () => {
     expect(checkFiles([file], { [file]: { lines: { pct: 50 } } }, ROOT, 80).failures).toEqual([
-      { rel: 'frontend/src/lib/uvtt.js', pct: 50, untested: false },
+      { rel: 'frontend/src/lib/uvtt.ts', pct: 50, untested: false },
     ])
     expect(checkFiles([file], { [file]: { lines: { pct: 80 } } }, ROOT, 80).passes).toEqual([
-      { rel: 'frontend/src/lib/uvtt.js', pct: 80 },
+      { rel: 'frontend/src/lib/uvtt.ts', pct: 80 },
     ])
   })
 
   it('counts a file missing from the report as untested', () => {
     expect(checkFiles([file], {}, ROOT, 80).failures).toEqual([
-      { rel: 'frontend/src/lib/uvtt.js', pct: 0, untested: true },
+      { rel: 'frontend/src/lib/uvtt.ts', pct: 0, untested: true },
     ])
   })
 })
@@ -124,19 +124,19 @@ describe('npm run coverage:check', () => {
   }
 
   it('fails when a changed src/lib/ file is under-covered', () => {
-    const result = changeLibFile('helpers.js', 50)
+    const result = changeLibFile('helpers.ts', 50)
     expect(result.status).toBe(1)
-    expect(result.stderr).toContain('50.00%  frontend/src/lib/helpers.js')
+    expect(result.stderr).toContain('50.00%  frontend/src/lib/helpers.ts')
   })
 
   it('passes a well-covered src/lib/ file', () => {
-    const result = changeLibFile('helpers.js', 95)
+    const result = changeLibFile('helpers.ts', 95)
     expect(result.status).toBe(0)
-    expect(result.stdout).toContain('95.00%  frontend/src/lib/helpers.js')
+    expect(result.stdout).toContain('95.00%  frontend/src/lib/helpers.ts')
   })
 
   it('ignores the vendor wrappers', () => {
-    const result = changeLibFile('pdfjs.js', 0)
+    const result = changeLibFile('pdfjs.ts', 0)
     expect(result.status).toBe(0)
     expect(result.stdout).toContain('no changed frontend source files')
   })

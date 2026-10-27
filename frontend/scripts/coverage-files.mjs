@@ -20,7 +20,7 @@ export const COVERAGE_EXCLUDE = [
   // exercise. Named individually rather than excluding all of `src/lib/`:
   // the rest of that directory is real logic with its own tests, and a
   // blanket exclusion silently left it ungated.
-  'src/lib/pdfjs.js',
-  'src/lib/three.js',
+  'src/lib/pdfjs.ts',
+  'src/lib/three.ts',
   'src/**/*.config.{js,jsx,ts,tsx}',
 ]

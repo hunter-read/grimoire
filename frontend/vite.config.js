@@ -37,7 +37,7 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
-    setupFiles: ['./src/test/setup.js'],
+    setupFiles: ['./src/test/setup.ts'],
     globals: true,
     coverage: {
       // Istanbul (not v8) so per-file coverage merges correctly across the many
