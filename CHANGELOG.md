@@ -24,6 +24,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Grimoire stays root at start-up when the user it would switch to can't write to folders inside the library, not just the library folder itself, so moving and renaming keep working after updating from a version that ran as root
 - On NAS filesystems that refuse writes a permission check allows, Grimoire no longer switches to a user that can't write to the data folder and then fails to start; it tests the data folder with a real write and stays root if that fails
 - The API schema at `/api/openapi.json` no longer gives the share-link and calendar-feed routes two operations with the same id, so API client generators and the docs page's "Try it out" work for them, and their ids no longer change between restarts
+- The campaigns page and the admin user list no longer slow down as campaigns, members and users are added
 
 ## [1.9.2] - 2026-10-23
 

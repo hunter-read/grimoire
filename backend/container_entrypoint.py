@@ -37,10 +37,11 @@ nothing about access to the library's files. The data volume is checked with a
 real write, since some NAS filesystems refuse writes ``os.access`` allows.
 
 Run as ``python -I backend/container_entrypoint.py``: standard library only,
-and it must not import the ``backend`` package. Config is lazy now; data
-directories under ``DATA_PATH`` are created later by ``ensure_data_dirs()``
-and ``init_database()`` from ``startup()``. Importing as root from here
-would still be the wrong place to trigger that.
+and it must not import the ``backend`` package. Importing ``backend.config``
+sets the process umask from ``UMASK`` and configures logging, which would
+happen as root and carry over into uvicorn through the ``exec``. ``-I`` keeps
+the script's directory and the working directory off ``sys.path``, so the
+import would not resolve anyway.
 """
 
 from __future__ import annotations

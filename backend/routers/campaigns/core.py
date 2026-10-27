@@ -22,11 +22,13 @@ from ...models import (
 from ..systems._helpers import load_browsable_system
 from ._helpers import (
     assert_can_manage,
+    campaign_lookups,
     can_see_resource,
     can_view,
     detach_campaign_characters,
     get_campaign_or_404,
     is_gm_or_admin,
+    member_summaries,
     members_for,
     release_guest_membership,
     serialize_campaign,
@@ -77,29 +79,19 @@ def list_campaigns(
             member_q = member_q.filter(Campaign.is_archived.is_(False))
         member_campaigns = member_q.all()
 
-    def _members(c):
-        rows = db.query(CampaignMember).filter_by(campaign_id=c.id).all()
-        all_users = {u.id: u for u in db.query(User).all()}
-        return [
-            {
-                "user_id": m.user_id,
-                "username": all_users[m.user_id].username if m.user_id in all_users else "",
-                "display_name": all_users[m.user_id].display_name
-                if m.user_id in all_users
-                else None,
-                "status": m.status,
-                "character_name": m.character_name,
-            }
-            for m in rows
-        ]
+    # Everything per-row is fetched for the whole list up front, so the list
+    # costs the same few queries however many campaigns it holds (issue #707).
+    campaigns = owned + member_campaigns
+    members = member_summaries(db, campaigns)
+    lookups = campaign_lookups(db, campaigns, current_user)
 
     result = []
     for c in owned:
-        d = serialize_campaign(c, _members(c), db, current_user)
+        d = serialize_campaign(c, members[c.id], db, current_user, lookups)
         d["invitation_status"] = None
         result.append(d)
     for c in member_campaigns:
-        d = serialize_campaign(c, _members(c), db, current_user)
+        d = serialize_campaign(c, members[c.id], db, current_user, lookups)
         d["invitation_status"] = membership_status.get(c.id)
         result.append(d)
     return result
