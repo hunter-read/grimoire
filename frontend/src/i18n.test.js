@@ -40,6 +40,39 @@ describe('i18n — AVAILABLE_LANGUAGES', () => {
 })
 
 // ---------------------------------------------------------------------------
+// Lazy locales (issue #708)
+// ---------------------------------------------------------------------------
+
+describe('i18n — locales load on demand', () => {
+  afterEach(async () => {
+    const { default: i18n } = await import('./i18n')
+    await i18n.changeLanguage('en-US')
+  })
+
+  it('bundles only en-US up front', async () => {
+    const { default: i18n } = await import('./i18n')
+    expect(i18n.hasResourceBundle('en-US', 'translation')).toBe(true)
+    expect(i18n.hasResourceBundle('sv-SE', 'translation')).toBe(false)
+  })
+
+  it('loads a language when it is switched to', async () => {
+    const { default: i18n } = await import('./i18n')
+    await i18n.changeLanguage('de-DE')
+    expect(i18n.hasResourceBundle('de-DE', 'translation')).toBe(true)
+    expect(i18n.t('nav.library')).toBe('Bibliothek')
+  })
+
+  it('reads an unknown language as empty, so en-US shows through', async () => {
+    const { default: i18n, lazyLocales } = await import('./i18n')
+    const callback = vi.fn()
+    lazyLocales.read('xx-XX', 'translation', callback)
+    expect(callback).toHaveBeenCalledWith(null, {})
+    await i18n.changeLanguage('xx-XX')
+    expect(i18n.t('nav.library')).toBe('Library')
+  })
+})
+
+// ---------------------------------------------------------------------------
 // detectLanguage priority rules (tested via an equivalent inline function)
 // ---------------------------------------------------------------------------
 

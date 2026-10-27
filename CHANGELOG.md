@@ -12,6 +12,10 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 - `OCR_MIN_TEXT_COVERAGE` sets how much of a PDF its own text must cover before it counts as a text book (default `0.5`); `0` only reads books with no text at all with OCR, as before
 
+### Changed
+
+- Grimoire's first load downloads about a fifth as much JavaScript: each page and each language other than English is fetched the first time it is opened, rather than all of them up front
+
 ### Fixed
 
 - A scanned book carrying a few pages of real text, such as a digitally-set cover or a bundled web enhancement, is read with OCR instead of being left mostly unsearchable
@@ -24,6 +28,8 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Grimoire stays root at start-up when the user it would switch to can't write to folders inside the library, not just the library folder itself, so moving and renaming keep working after updating from a version that ran as root
 - On NAS filesystems that refuse writes a permission check allows, Grimoire no longer switches to a user that can't write to the data folder and then fails to start; it tests the data folder with a real write and stays root if that fails
 - Stopping a duplicate scan works when Grimoire runs several workers without Valkey, and a second scan can no longer start on another worker while one is running
+- The API schema at `/api/openapi.json` no longer gives the share-link and calendar-feed routes two operations with the same id, so API client generators and the docs page's "Try it out" work for them, and their ids no longer change between restarts
+- The campaigns page and the admin user list no longer slow down as campaigns, members and users are added
 
 ## [1.9.2] - 2026-10-23
 

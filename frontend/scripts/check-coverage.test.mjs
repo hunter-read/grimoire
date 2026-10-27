@@ -36,7 +36,7 @@ describe('measuredFiles', () => {
     expect(
       measuredFiles(
         [
-          'frontend/src/main.jsx',
+          'frontend/src/main.tsx',
           'frontend/src/lib/uvtt.test.js',
           'frontend/src/api/schema.d.ts',
           'frontend/src/test/fakeBrowseApi.js',

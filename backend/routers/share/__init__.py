@@ -5,6 +5,7 @@ accident; the token in the path is the only credential.
 """
 from fastapi import APIRouter
 
+from .._get_and_head import add_get_and_head_route
 from ._schemas import ShareMetaResponse, ShareUnlockResponse
 from .core import share_content, share_meta, unlock_share
 
@@ -36,10 +37,10 @@ public_router.add_api_route(
     ),
     response_model=ShareUnlockResponse,
 )
-public_router.add_api_route(
+add_get_and_head_route(
+    public_router,
     "/{token}",
     share_content,
-    methods=["GET", "HEAD"],
     summary="Fetch a shared item",
     description=(
         "Serves the shared item inline (`?download=1` for an attachment). Image "
@@ -49,10 +50,10 @@ public_router.add_api_route(
         "password; 404 for any link that does not work."
     ),
 )
-public_router.add_api_route(
+add_get_and_head_route(
+    public_router,
     "/{token}/{filename}",
     share_content,
-    methods=["GET", "HEAD"],
     summary="Fetch a shared item by filename",
     description=(
         "The same as `GET /api/share/{token}`. The filename is ignored; it is "

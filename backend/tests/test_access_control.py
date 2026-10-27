@@ -413,6 +413,30 @@ class TestCanAccessSystem:
         db.commit()
         assert ac.can_access_system(db, player, system) is False
 
+    def test_many_systems_are_decided_at_once(self, real_user, db):
+        """The batched check answers each system as can_access_system would."""
+        gm = real_user("gm")
+        granted = make_game_system(access_level=LEVEL_ADMIN)
+        ungranted = make_game_system(access_level=LEVEL_ADMIN)
+        gm_level = make_game_system(access_level=LEVEL_GM)
+        open_system = make_game_system()
+        db.add(
+            UserAccessGrant(
+                user_id=gm.id, scope_type=SCOPE_SYSTEM, scope_id=granted.id, level=LEVEL_ADMIN
+            )
+        )
+        db.commit()
+        systems = [granted, ungranted, gm_level, open_system]
+        assert ac.accessible_system_ids(db, gm, systems) == {
+            granted.id,
+            gm_level.id,
+            open_system.id,
+        }
+        for system in systems:
+            assert ac.can_access_system(db, gm, system) is (
+                system.id in ac.accessible_system_ids(db, gm, systems)
+            )
+
 
 # ---------------------------------------------------------------------------
 # The SQL filter must agree with the per-row resolver

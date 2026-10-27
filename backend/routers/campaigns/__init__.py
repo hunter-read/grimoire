@@ -4,6 +4,7 @@ from fastapi import APIRouter
 from fastapi.responses import Response
 
 from ... import api_keys
+from .._get_and_head import add_get_and_head_route
 
 from .core import (
     list_campaigns,
@@ -182,17 +183,17 @@ public_router = APIRouter(prefix="/api/campaigns/calendar", tags=["campaigns"])
 # the feed with HEAD before it will accept the subscription; a 405 there makes it
 # reject the URL as invalid and silently import nothing. Starlette runs the same
 # handler and drops the body, so the probe sees the real status and Content-Type.
-public_router.add_api_route(
+add_get_and_head_route(
+    public_router,
     "/{token}/all.ics",
     all_campaigns_calendar_feed,
-    methods=["GET", "HEAD"],
     summary="ICS feed of every campaign the token's user belongs to",
     response_class=Response,
 )
-public_router.add_api_route(
+add_get_and_head_route(
+    public_router,
     "/{token}/{campaign_id}.ics",
     campaign_calendar_feed,
-    methods=["GET", "HEAD"],
     summary="ICS feed for a single campaign",
     response_class=Response,
 )

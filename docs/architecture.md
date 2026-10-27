@@ -11,7 +11,8 @@ update the matching section here.
 ## Stack
 
 - **Frontend** - React 18 + Vite 6 SPA, React Router v6, React Context (no Redux/Zustand),
-  i18next (see [`frontend/src/locales/`](../frontend/src/locales) for available locales),
+  i18next (see [`frontend/src/locales/`](../frontend/src/locales) for available locales;
+  only `en-US` is bundled, the rest load on demand),
   Vitest + React Testing Library.
 - **Backend** - FastAPI (async) + SQLAlchemy 2.0, SQLite with FTS5 full-text search,
   PyMuPDF (`fitz`) for PDF→WebP rendering, PyJWT auth.
