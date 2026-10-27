@@ -299,6 +299,19 @@ class TestTagBooks:
         assert "dragons" in text.lower()
         assert text.endswith("Not found: nope")
 
+    def test_ids_the_bulk_route_refuses_are_reported(
+        self, mcp_client, admin_key, library, monkeypatch
+    ):
+        monkeypatch.setattr(library_tools, "load_book", lambda ctx, book_id: {})
+        text = call_text(
+            mcp_client,
+            admin_key,
+            "tag_books",
+            {"book_ids": [library["unindexed"].id, "nope"], "tags": ["Dragons"]},
+        )
+        assert f"- {library['unindexed'].id}: now tagged " in text
+        assert text.endswith("Not found: nope")
+
     def test_a_player_is_not_offered_it(self, mcp_client, player_key, library):
         listed = result_of(mcp_client, player_key, "tools/list")["tools"]
         assert "tag_books" not in {t["name"] for t in listed}

@@ -287,6 +287,7 @@ def tag_books(args: TagBooksArgs, ctx: ToolContext) -> str:
         )
         for book_id in done["updated"]:
             lines.append(f"- {book_id}: now tagged {', '.join(done['tags'].get(book_id, []))}")
+        refused.extend(error["id"] for error in done["errors"])
     if refused:
         lines.append(f"Not found: {', '.join(refused)}")
     return "\n".join(lines)
