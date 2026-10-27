@@ -36,20 +36,23 @@ def test_exports_the_api_schema_as_json():
     assert spec["components"]["schemas"]
 
 
-def test_drops_head_operations_so_operation_ids_are_unique():
-    # A GET+HEAD route gives both methods one operationId, which the type
-    # generator rejects as invalid OpenAPI.
+def test_operation_ids_are_unique():
+    # The type generator rejects duplicate operationIds as invalid OpenAPI. The
+    # exporter no longer strips anything to get there (issue #709): it prints
+    # what the live /api/openapi.json serves.
     spec = json.loads(_export())
-    ids = []
-    for ops in spec["paths"].values():
-        assert "head" not in ops
-        ids.extend(op["operationId"] for op in ops.values() if isinstance(op, dict))
+    ids = [
+        op["operationId"]
+        for ops in spec["paths"].values()
+        for op in ops.values()
+        if isinstance(op, dict)
+    ]
     assert len(ids) == len(set(ids))
 
 
 def test_output_is_stable_across_runs_and_environments():
-    # The hash seed decides which operationId a GET+HEAD route gets, and the
-    # OPDS/MCP flags add routes; neither may leak into the output.
+    # The hash seed once decided which operationId a GET+HEAD route got (issue
+    # #709), and the OPDS/MCP flags add routes; neither may leak into the output.
     first = _export({"PYTHONHASHSEED": "123"})
     second = _export({"OPDS_ENABLED": "true", "MCP_ENABLED": "true"})
     assert first == second
