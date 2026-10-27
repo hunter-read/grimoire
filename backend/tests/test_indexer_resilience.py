@@ -26,6 +26,10 @@ from backend.indexer import (
 )
 from backend.models import Book, GenericMap, Token
 
+# What a real page of a rulebook holds, as opposed to a running header: enough
+# characters to clear OCR_MIN_PAGE_CHARS and count as a text page.
+_PAGE_OF_TEXT = " ".join(["The corridor turns north and the air grows cold."] * 6)
+
 
 # Top-level (picklable) worker stand-ins for the spawned extraction process.
 # Defined at module scope so the "spawn" start method can import them by name.
@@ -1106,6 +1110,50 @@ class TestReindexSingleBook:
             db.close()
         assert self._search_count(book.id) == 0  # stale rows cleared
 
+    def test_header_only_pages_are_not_a_text_layer(self):
+        """A scan with its chapter title stamped on every page covered all of
+        them by the old page count, so it was never OCR'd though nothing but
+        the headers was searchable."""
+        book = self._seed_book()
+        db = SessionLocal()
+        try:
+            book = db.query(Book).filter_by(id=book.id).first()
+            headers = [{"page": n, "content": "Chapter Five: The Fortress"} for n in range(1, 11)]
+            with patch.object(indexer, "_book_page_count", return_value=10), patch.object(
+                indexer, "generate_thumbnail", return_value=False
+            ), patch.object(
+                indexer, "extract_text_isolated", return_value=(headers, False)
+            ), patch.object(indexer.ocr, "ocr_available", return_value=True):
+                indexer.reindex_single_book(book, "/tmp", db)
+            db.refresh(book)
+            assert book.ocr_pending is True
+            assert book.indexed is False
+            assert book.text_pages == 0
+        finally:
+            db.close()
+
+    def test_header_only_pages_follow_the_coverage_off_switch(self):
+        """OCR_MIN_TEXT_COVERAGE=0 still means "only a book with no text at
+        all": a header is text, so such a book keeps what it has."""
+        book = self._seed_book()
+        db = SessionLocal()
+        try:
+            book = db.query(Book).filter_by(id=book.id).first()
+            headers = [{"page": n, "content": "Chapter Five: The Fortress"} for n in range(1, 11)]
+            with patch.object(indexer, "_book_page_count", return_value=10), patch.object(
+                indexer, "generate_thumbnail", return_value=False
+            ), patch.object(
+                indexer, "extract_text_isolated", return_value=(headers, False)
+            ), patch.object(indexer.ocr, "ocr_available", return_value=True), patch.object(
+                config, "OCR_MIN_TEXT_COVERAGE", 0.0
+            ):
+                indexer.reindex_single_book(book, "/tmp", db)
+            db.refresh(book)
+            assert book.ocr_pending is False
+            assert book.indexed is True
+        finally:
+            db.close()
+
     def test_thin_text_layer_requeued_for_ocr(self):
         """Issue #685: a scan carrying a few text pages - a bundled web
         enhancement, a digitally-set cover - is still a scan. Taking it for a
@@ -1114,7 +1162,7 @@ class TestReindexSingleBook:
         db = SessionLocal()
         try:
             book = db.query(Book).filter_by(id=book.id).first()
-            thin = [{"page": 9, "content": "web enhancement text"}]
+            thin = [{"page": 9, "content": _PAGE_OF_TEXT}]
             with patch.object(indexer, "_book_page_count", return_value=10), patch.object(
                 indexer, "generate_thumbnail", return_value=False
             ), patch.object(
@@ -1136,7 +1184,7 @@ class TestReindexSingleBook:
         db = SessionLocal()
         try:
             book = db.query(Book).filter_by(id=book.id).first()
-            full = [{"page": n, "content": f"page {n}"} for n in range(1, 10)]
+            full = [{"page": n, "content": f"page {n}. {_PAGE_OF_TEXT}"} for n in range(1, 10)]
             with patch.object(indexer, "_book_page_count", return_value=10), patch.object(
                 indexer, "generate_thumbnail", return_value=False
             ), patch.object(

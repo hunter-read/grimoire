@@ -135,15 +135,18 @@ def extract_text_from_pdf(
     ``{page, content}`` dicts and ``used_ocr`` is True if any page's text came
     from OCR rather than an embedded text layer.
 
-    Pages with an embedded text layer are read directly. Pages with no embedded
-    text are OCR'd when OCR is available (default image); otherwise they are
-    skipped, so a PDF with no extractable text yields an empty list — the
-    caller then marks it ``image-only``.
+    Pages with a text layer of their own are read directly. Pages with none, and
+    pages carrying so little text that it reads as a running header rather than
+    a text layer, are OCR'd when OCR is available (default image); otherwise
+    they are left as they are, so a PDF with no extractable text yields an empty
+    list — the caller then marks it ``image-only``.
 
     When ``text_only`` is True, OCR is skipped: image-only pages are left out and
     the book is queued for deferred OCR by the caller instead of being OCR'd
     inline (which could stall the scan for hours on a large scanned book).
     """
+    from .. import pdf_worker
+
     pages = []
     used_ocr = False
     ocr_on = False if text_only else ocr.ocr_available()
@@ -159,15 +162,19 @@ def extract_text_from_pdf(
             if should_stop and should_stop():
                 break
             page_text = page.get_text().strip()
-            if page_text:
-                pages.append({"page": i + 1, "content": page_text})
-            elif ocr_on:
+            content = page_text
+            # A page with only a header is read by OCR too, not just a blank
+            # one - but its own text is kept when OCR manages less, so a page
+            # can never come out of this with less text than it went in with.
+            if ocr_on and pdf_worker.text_is_thin(page_text):
                 scale = config.OCR_DPI / 72.0
                 pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), alpha=False)
-                ocr_text = ocr.ocr_pixmap(pix, should_stop=should_stop)
-                if ocr_text:
-                    pages.append({"page": i + 1, "content": ocr_text})
+                ocr_text = ocr.ocr_pixmap(pix, should_stop=should_stop) or ""
+                if len(ocr_text) > len(content):
+                    content = ocr_text
                     used_ocr = True
+            if content:
+                pages.append({"page": i + 1, "content": content})
         doc.close()
     except Exception as e:
         logger.error(f"Text extraction failed for {filepath}: {e}")

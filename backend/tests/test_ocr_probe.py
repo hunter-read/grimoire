@@ -57,7 +57,12 @@ def _search_pages(book_id: str) -> list[int]:
         db.close()
 
 
-_NATIVE = ([{"page": 1, "content": "cover"}, {"page": 10, "content": "credits"}], False)
+# Two pages carrying a text layer of their own, long enough to count as one.
+_COVER = " ".join(["Dungeons and Dragons, an adventure for four characters."] * 4)
+_CREDITS = " ".join(["Design by the staff, cartography by the usual hands."] * 4)
+_NATIVE = ([{"page": 1, "content": _COVER}, {"page": 10, "content": _CREDITS}], False)
+# The same book, but what each page carries is only a running header.
+_HEADERS = ([{"page": n, "content": "Chapter Five: The Fortress"} for n in range(1, 11)], False)
 
 
 def _ocr_returning(content):
@@ -118,6 +123,27 @@ class TestProbe:
         assert book.index_error == ""
         assert book.text_pages == 2
         assert _search_pages(bid) == [1, 10]
+
+    def test_header_only_pages_are_sampled(self):
+        """A page carrying just a running header is one OCR would read, so the
+        sample has to be taken from those pages - otherwise a scan stamped with
+        its chapter title offers nothing to sample and can never be judged."""
+        bid = _thin_book()
+        ocr, seen = _ocr_returning(SCANNED_PAGE)
+        verdict, book = self._probe(bid, ocr, extract=_HEADERS)
+        assert verdict == "scan"
+        assert len(seen) == 3
+        assert book.ocr_pending is True
+
+    def test_header_only_artwork_still_offers_reocr(self):
+        """Judged artwork, the book keeps every page's text but counts none of
+        it, so Re-OCR is still offered for it from the menu."""
+        bid = _thin_book()
+        ocr, _ = _ocr_returning(MAP_LABELS)
+        verdict, book = self._probe(bid, ocr, extract=_HEADERS)
+        assert verdict == "artwork"
+        assert book.text_pages == 0
+        assert _search_pages(bid) == list(range(1, 11))  # no page's text is lost
 
     def test_a_scan_goes_on_to_ocr(self):
         bid = _thin_book()

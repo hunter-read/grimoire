@@ -178,15 +178,95 @@ def test_ocr_page_single(tmp_path):
     assert out == "page text"
 
 
+def _make_long_text_pdf(path: Path, pages: list[list[str]]) -> None:
+    """A PDF whose pages carry several lines each — a real text layer."""
+    doc = fitz.open()
+    for lines in pages:
+        page = doc.new_page()
+        y = 72.0
+        for line in lines:
+            page.insert_text((72, y), line)
+            y += 14
+    doc.save(str(path))
+    doc.close()
+
+
+# Six lines, ~290 characters: comfortably a text page under any sane setting.
+BODY = ["The corridor turns north and the air grows cold."] * 6
+# What a running header leaves on an otherwise image-only page.
+HEADER = "Chapter Five: The Fortress"
+
+
 def test_ocr_page_skips_text_layer_pages(tmp_path):
     """ocr_page returns "" for a page that already has a text layer (no dup)."""
     pdf = tmp_path / "text.pdf"
-    _make_text_pdf(pdf, ["Already has text"])
+    _make_long_text_pdf(pdf, [BODY])
 
     with patch.object(pdf_worker, "_ocr_page", return_value="unexpected") as m:
         out = pdf_worker.ocr_page(str(pdf), 0, "eng")
     assert out == ""
     assert not m.called
+
+
+def test_text_is_thin_follows_the_setting(monkeypatch):
+    monkeypatch.setattr(config, "OCR_MIN_PAGE_CHARS", 100)
+    assert pdf_worker.text_is_thin("")
+    assert pdf_worker.text_is_thin("   ")
+    assert pdf_worker.text_is_thin(HEADER)
+    assert not pdf_worker.text_is_thin(" ".join(BODY))
+
+    # 0 is the off switch: only a page with no text at all is thin, which is
+    # how this behaved before the setting existed.
+    monkeypatch.setattr(config, "OCR_MIN_PAGE_CHARS", 0)
+    assert pdf_worker.text_is_thin("")
+    assert not pdf_worker.text_is_thin(HEADER)
+
+
+def test_ocr_page_reads_a_header_only_page(tmp_path, monkeypatch):
+    """A page carrying only a running header is OCR'd, not taken as text."""
+    monkeypatch.setattr(config, "OCR_MIN_PAGE_CHARS", 100)
+    pdf = tmp_path / "header.pdf"
+    _make_long_text_pdf(pdf, [[HEADER]])
+
+    recognised = " ".join(BODY)
+    with patch.object(pdf_worker, "_ocr_page", return_value=recognised) as m:
+        out = pdf_worker.ocr_page(str(pdf), 0, "eng")
+    assert m.called
+    assert out == recognised
+
+
+def test_ocr_page_keeps_embedded_text_when_ocr_reads_less(tmp_path, monkeypatch):
+    """A page's own text survives an OCR pass that reads nothing.
+
+    The caller indexes whatever comes back and indexes nothing for "", and a
+    re-OCR clears the book's rows first — so returning "" here would empty the
+    index of a book whose every page carries a header OCR cannot improve on.
+    """
+    monkeypatch.setattr(config, "OCR_MIN_PAGE_CHARS", 100)
+    pdf = tmp_path / "header.pdf"
+    _make_long_text_pdf(pdf, [[HEADER]])
+
+    with patch.object(pdf_worker, "_ocr_page", return_value=""):
+        out = pdf_worker.ocr_page(str(pdf), 0, "eng")
+    assert out == HEADER
+
+
+def test_run_ocrs_header_only_pages(tmp_path, monkeypatch):
+    """run() reads a header-only page with OCR and keeps the better text."""
+    monkeypatch.setattr(config, "OCR_MIN_PAGE_CHARS", 100)
+    pdf = tmp_path / "mixed.pdf"
+    _make_long_text_pdf(pdf, [[HEADER], BODY])
+
+    recognised = " ".join(BODY) + " recognised from the scan"
+    with patch.object(pdf_worker, "_ocr_settings", return_value=(True, "eng")):
+        with patch.object(pdf_worker, "_ocr_page", return_value=recognised) as m:
+            pages, used_ocr = pdf_worker.run(str(pdf))
+
+    # Only the header page was OCR'd; the page with a text layer was left alone.
+    assert m.call_count == 1
+    assert used_ocr is True
+    assert pages[0] == {"page": 1, "content": recognised}
+    assert pages[1]["content"].startswith("The corridor turns north")
 
 
 def test_ocr_scale_default(monkeypatch):

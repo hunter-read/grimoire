@@ -40,6 +40,18 @@ def _ocr_settings() -> tuple[bool, str]:
         return False, languages
 
 
+def text_is_thin(page_text: str) -> bool:
+    """Whether a page's own text is too little to count as a text layer.
+
+    A page carrying only a running header or a folio is not a text page: taken
+    as one it made a scan look fully covered while almost none of it was
+    searchable.  ``OCR_MIN_PAGE_CHARS`` is the bar; at 0 only a page with no
+    text at all is thin, which is how this behaved before the setting existed.
+    """
+    stripped = page_text.strip()
+    return not stripped or len(stripped) < config.OCR_MIN_PAGE_CHARS
+
+
 def run(filepath: str, text_only: bool = False) -> tuple[list[dict], bool]:
     """Extract text from every page of ``filepath``.
 
@@ -61,13 +73,17 @@ def run(filepath: str, text_only: bool = False) -> tuple[list[dict], bool]:
     try:
         for i, page in enumerate(doc):
             page_text = page.get_text().strip()
-            if page_text:
-                pages.append({"page": i + 1, "content": page_text})
-            elif ocr_on:
+            content = page_text
+            # A page with only a header is read by OCR too, not just a blank
+            # one - but its own text is kept when OCR manages less, so a page
+            # can never come out of this with less text than it went in with.
+            if ocr_on and text_is_thin(page_text):
                 ocr_text = _ocr_page(page, languages)
-                if ocr_text:
-                    pages.append({"page": i + 1, "content": ocr_text})
+                if len(ocr_text) > len(content):
+                    content = ocr_text
                     used_ocr = True
+            if content:
+                pages.append({"page": i + 1, "content": content})
     finally:
         doc.close()
     return pages, used_ocr
@@ -79,7 +95,11 @@ def ocr_page(filepath: str, page_index: int, languages: str, dpi: int | None = N
     Used by the deferred-OCR worker's isolated subprocess so a native crash or
     hang while OCRing one page can't take down the server or the whole book —
     the parent checkpoints progress and resumes at the next page.  Returns "" on
-    any failure (page already has a text layer, render error, OCR error).
+    any failure (page has a text layer of its own, render error, OCR error).
+
+    A page whose text is only a running header is OCR'd rather than left alone,
+    and its own text is returned when OCR reads less, so the caller always has
+    the better of the two to index.
 
     ``dpi`` overrides the resolution the page is rasterized at; None uses the
     global ``OCR_DPI`` default. Used by the per-book re-OCR flow to re-read a
@@ -88,11 +108,17 @@ def ocr_page(filepath: str, page_index: int, languages: str, dpi: int | None = N
     doc = fitz.open(filepath)
     try:
         page = doc[page_index]
-        # A page that already has embedded text was handled in the fast phase;
+        embedded = page.get_text().strip()
+        # A page with a text layer of its own was handled in the fast phase;
         # OCRing it again would duplicate content in the index.
-        if page.get_text().strip():
+        if not text_is_thin(embedded):
             return ""
-        return _ocr_page(page, languages, dpi=dpi)
+        ocr_text = _ocr_page(page, languages, dpi=dpi)
+        # The caller inserts whatever comes back and inserts nothing for "", so
+        # returning the embedded text is what stops a re-OCR - which clears the
+        # book's rows first - from emptying the index of a book whose every
+        # page carries a header and nothing OCR can read.
+        return ocr_text if len(ocr_text) > len(embedded) else embedded
     finally:
         doc.close()
 

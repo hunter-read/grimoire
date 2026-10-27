@@ -22,7 +22,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend import indexer  # package namespace, for patch-sensitive calls
-from .. import config, ocr
+from .. import config, ocr, pdf_worker
 from ..models import Book
 from . import text_documents
 from ._subprocess import (
@@ -130,11 +130,21 @@ def index_book_text(
     # the back, a digitally-set cover or appendix - and taking that as "this book
     # has a text layer" left the rest of it unsearchable for good (issue #685).
     # Judge by how much of the book the text covers, not by whether any exists.
-    # extract_text_isolated leaves image-only pages out, so len(pages) is the
-    # number that produced text.
+    #
+    # Count only pages carrying enough text to be text pages: a scan with its
+    # chapter title stamped on every page covered all of them by the old count
+    # and so was never OCR'd, though nothing but the headers was searchable.
     total_pages = book.page_count or 0
-    too_thin = text_too_thin(len(pages), total_pages)
-    book.text_pages = len(pages)
+    text_pages = sum(1 for page in pages if not pdf_worker.text_is_thin(page["content"]))
+    book.text_pages = text_pages
+    # A page holding only a running header is not a text page, so a book can
+    # come back with text on every page and no text page among them. That is
+    # the thinnest layer there is, but it is still a layer: it follows the
+    # coverage setting (0 = keep whatever text the book has, as before) rather
+    # than taking the image-only path, where ``text_too_thin`` reads 0 as "no
+    # text at all" and declines to judge it.
+    no_text_pages = bool(pages) and not text_pages and config.OCR_MIN_TEXT_COVERAGE > 0
+    too_thin = no_text_pages or text_too_thin(text_pages, total_pages)
 
     if (not pages or too_thin) and ocr.ocr_available():
         # Scanned/image-only PDF: hand it to the deferred-OCR queue instead
@@ -147,8 +157,8 @@ def index_book_text(
         # exists (see extract_text_from_pdf), so they come back unchanged.
         if too_thin:
             logger.info(
-                f"'{book.title or book.filename}' has text on only {len(pages)} of "
-                f"{total_pages} page(s) - treating it as a scan and queuing it to "
+                f"'{book.title or book.filename}' has a text layer on only {text_pages} "
+                f"of {total_pages} page(s) - treating it as a scan and queuing it to "
                 f"read the rest later."
             )
         else:

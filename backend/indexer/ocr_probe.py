@@ -22,6 +22,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from backend import indexer  # package namespace, for patch-sensitive calls
+from .. import pdf_worker
 from ..models import Book
 from ._subprocess import OCR_PAGE_ABANDONED, PdfExtractionCrashError, _commit
 
@@ -85,7 +86,10 @@ def probe(
         logger.warning(f"OCR: couldn't sample '{book.filename}' ({e}) - reading all of it")
         return "scan"
 
-    with_text = {p["page"] for p in pages}
+    # The pages OCR would actually read: those without a text layer of their
+    # own. A page holding only a running header is one of them, so sampling it
+    # is what tells a scan stamped with its chapter title from real artwork.
+    with_text = {p["page"] for p in pages if not pdf_worker.text_is_thin(p["content"])}
     image_only = [i for i in range(page_count) if i + 1 not in with_text]
     words: list[int] = []
     for index in sample_pages(image_only):
@@ -109,7 +113,10 @@ def probe(
             ),
             {"bid": book.id, "pnum": page["page"], "content": page["content"]},
         )
-    book.text_pages = len(pages)
+    # Every page's own text is kept, but only the substantive ones count - the
+    # same measure the indexer records, so Re-OCR is still offered for a book
+    # whose pages carry nothing but a header.
+    book.text_pages = len(with_text)
     book.ocr_pending = False
     book.ocr_pages_done = 0
     book.indexed = True

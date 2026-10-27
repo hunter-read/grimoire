@@ -280,6 +280,29 @@ def _read_ocr_min_text_coverage() -> float:
 OCR_MIN_TEXT_COVERAGE = _read_ocr_min_text_coverage()
 
 
+# How much text a page must carry before it counts as a text page at all.
+#
+# Coverage above is measured in pages, so a page holding nothing but a running
+# header or a folio counted the same as a full page of prose. A scan with its
+# chapter title stamped on every page therefore scored complete coverage while
+# almost none of it was searchable, and because the book looked covered it was
+# never queued for OCR and Re-OCR was not offered for it either.
+#
+# Judging a page by how much text it carries separates the two: a header is
+# tens of characters, a page of prose is thousands.
+#
+# 0 restores the old behaviour exactly (any text at all makes a text page).
+def _read_ocr_min_page_chars() -> int:
+    try:
+        value = int(_str_env("OCR_MIN_PAGE_CHARS", "100"))
+    except ValueError:
+        return 100
+    return max(0, value)
+
+
+OCR_MIN_PAGE_CHARS = _read_ocr_min_page_chars()
+
+
 #   MAX_IMAGE_PIXELS — ceiling for how large an image may be before Pillow
 #             refuses to decode it as a possible decompression bomb. Pillow
 #             warns above this and raises above twice it; its own default
