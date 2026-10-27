@@ -642,6 +642,36 @@ a:focus-visible {
   font-size: 13px;
   color: var(--text-muted);
 }
+/* Character sheets on a phone - the same breakpoint that picks a sheet's
+   mobile layout - get touch-friendly defaults, so a sheet does not have to
+   repeat them. A sheet's own stylesheet, scoped under .gc-sheet and attached
+   later, still outranks every rule here bar the font size. */
+@media (max-width: 640px) {
+  /* A sheet with many pages scrolls its tab strip sideways rather than
+     squeezing six tabs into 360px or pushing the page wider. */
+  .gc-tablist {
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+  }
+  .gc-tablist > [role='tab'] {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  /* Checkboxes and pips at least 24px, a fingertip's target. Minimums, so
+     they win over the renderer's inline width and height. */
+  .gc-sheet input[type='checkbox'] {
+    min-width: 24px;
+    min-height: 24px;
+  }
+  /* Below 16px iOS zooms the page on focus. The renderer sets a smaller size
+     inline, which only !important outranks. */
+  .gc-sheet input:not([type='checkbox']),
+  .gc-sheet select,
+  .gc-sheet textarea {
+    font-size: 16px !important;
+  }
+}
 @media print {
   /* A picture prints; the buttons around it do not. */
   .gc-image-field button,

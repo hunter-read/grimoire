@@ -74,7 +74,13 @@ describe('SheetsTab', () => {
     await userEvent.click(screen.getByText('Install'))
 
     await waitFor(() =>
-      expect(mockImportSchema).toHaveBeenCalledWith({ text: 'id: x', layout: '', styles: '' })
+      expect(mockImportSchema).toHaveBeenCalledWith({
+        text: 'id: x',
+        layout: '',
+        styles: '',
+        mobile_layout: '',
+        mobile_styles: '',
+      })
     )
   })
 
@@ -82,7 +88,7 @@ describe('SheetsTab', () => {
     renderTab()
     await userEvent.click(screen.getByText('Paste a sheet'))
     await userEvent.type(screen.getByLabelText(/Sheet \(JSON or YAML\)/i), 'id: x')
-    await userEvent.type(screen.getByLabelText(/Layout \(HTML\)/i), '<div></div>')
+    await userEvent.type(screen.getByLabelText(/^Layout \(HTML\)/i), '<div></div>')
     await userEvent.type(screen.getByLabelText(/Stylesheet \(CSS\)/i), '.sheet{{}')
     await userEvent.click(screen.getByText('Install'))
 
@@ -91,8 +97,35 @@ describe('SheetsTab', () => {
         text: 'id: x',
         layout: '<div></div>',
         styles: '.sheet{}',
+        mobile_layout: '',
+        mobile_styles: '',
       })
     )
+  })
+
+  it('sends a phone layout and stylesheet alongside the desktop pair', async () => {
+    renderTab()
+    await userEvent.click(screen.getByText('Paste a sheet'))
+    await userEvent.type(screen.getByLabelText(/Sheet \(JSON or YAML\)/i), 'id: x')
+    await userEvent.type(screen.getByLabelText(/^Layout \(HTML\)/i), '<div></div>')
+    await userEvent.type(screen.getByLabelText(/Mobile layout \(HTML\)/i), '<section></section>')
+    await userEvent.type(screen.getByLabelText(/Mobile styles \(CSS\)/i), '.m{{}')
+    await userEvent.click(screen.getByText('Install'))
+
+    await waitFor(() =>
+      expect(mockImportSchema).toHaveBeenCalledWith({
+        text: 'id: x',
+        layout: '<div></div>',
+        styles: '',
+        mobile_layout: '<section></section>',
+        mobile_styles: '.m{}',
+      })
+    )
+    // Cleared once installed, so the next paste starts empty.
+    await screen.findByRole('status')
+    await userEvent.click(screen.getByText('Paste a sheet'))
+    expect(screen.getByLabelText(/Mobile layout \(HTML\)/i)).toHaveValue('')
+    expect(screen.getByLabelText(/Mobile styles \(CSS\)/i)).toHaveValue('')
   })
 
   it('confirms the install and refreshes the list', async () => {

@@ -1,6 +1,8 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import CharacterSheet from './CharacterSheet'
 
 // A schema describes its sheet either as a JSON `layout` tree or as HTML
@@ -97,6 +99,156 @@ describe('CharacterSheet', () => {
   it('renders nothing without a document', () => {
     const { container } = render(<CharacterSheet document={null} data={{}} />)
     expect(container).toBeEmptyDOMElement()
+  })
+})
+
+// --- a phone-specific layout ------------------------------------------------
+
+describe('CharacterSheet — phone layout', () => {
+  // A controllable matchMedia: `set` flips the match and fires 'change', as a
+  // rotation across the breakpoint would.
+  function installMatchMedia(initial) {
+    let matches = initial
+    const listeners = new Set()
+    const queries = []
+    window.matchMedia = vi.fn((query) => {
+      queries.push(query)
+      return {
+        get matches() {
+          return matches
+        },
+        media: query,
+        addEventListener: (_type, cb) => listeners.add(cb),
+        removeEventListener: (_type, cb) => listeners.delete(cb),
+      }
+    })
+    return {
+      queries,
+      set: (next) => {
+        matches = next
+        listeners.forEach((cb) => cb({ matches }))
+      },
+    }
+  }
+
+  const originalMatchMedia = window.matchMedia
+  afterEach(() => {
+    window.matchMedia = originalMatchMedia
+  })
+
+  const heading = (text) => ({
+    tag: 'h2',
+    children: [{ text }],
+  })
+
+  const PHONE = {
+    ...BASE,
+    layout_ast: [{ tag: 'section', children: [heading('Desktop Sheet')] }],
+    styles_css: '.gc-sheet .desk { color: red }',
+    mobile_layout_ast: [{ tag: 'section', children: [heading('Phone Sheet')] }],
+    mobile_styles_css: '.gc-sheet .phone { color: blue }',
+  }
+
+  const injected = () =>
+    [...window.document.head.querySelectorAll('style[data-character-sheet]')].map(
+      (el) => el.textContent
+    )
+
+  it('draws the phone layout and only its stylesheet on a phone', () => {
+    const media = installMatchMedia(true)
+    render(<CharacterSheet document={PHONE} data={{}} />)
+    expect(media.queries).toContain('(max-width: 640px)')
+    expect(screen.getByRole('heading', { name: 'Phone Sheet' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Desktop Sheet' })).not.toBeInTheDocument()
+    expect(injected()).toEqual(['.gc-sheet .phone { color: blue }'])
+  })
+
+  it('draws the desktop layout and stylesheet on a wider screen', () => {
+    installMatchMedia(false)
+    render(<CharacterSheet document={PHONE} data={{}} />)
+    expect(screen.getByRole('heading', { name: 'Desktop Sheet' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Phone Sheet' })).not.toBeInTheDocument()
+    expect(injected()).toEqual(['.gc-sheet .desk { color: red }'])
+  })
+
+  it('switches layout and stylesheet when the viewport crosses the breakpoint', () => {
+    const media = installMatchMedia(false)
+    render(<CharacterSheet document={PHONE} data={{}} />)
+    expect(screen.getByRole('heading', { name: 'Desktop Sheet' })).toBeInTheDocument()
+
+    act(() => media.set(true))
+    expect(screen.getByRole('heading', { name: 'Phone Sheet' })).toBeInTheDocument()
+    expect(injected()).toEqual(['.gc-sheet .phone { color: blue }'])
+
+    act(() => media.set(false))
+    expect(screen.getByRole('heading', { name: 'Desktop Sheet' })).toBeInTheDocument()
+    expect(injected()).toEqual(['.gc-sheet .desk { color: red }'])
+  })
+
+  it('keeps the desktop layout on a phone when the sheet has no phone layout', () => {
+    installMatchMedia(true)
+    const { mobile_layout_ast: _a, mobile_styles_css: _c, ...desktopOnly } = PHONE
+    render(<CharacterSheet document={desktopOnly} data={{}} />)
+    expect(screen.getByRole('heading', { name: 'Desktop Sheet' })).toBeInTheDocument()
+    expect(injected()).toEqual(['.gc-sheet .desk { color: red }'])
+  })
+
+  it('treats an empty phone layout as none', () => {
+    installMatchMedia(true)
+    render(<CharacterSheet document={{ ...PHONE, mobile_layout_ast: [] }} data={{}} />)
+    expect(screen.getByRole('heading', { name: 'Desktop Sheet' })).toBeInTheDocument()
+  })
+
+  // jsdom does not load index.css, so the phone defaults are checked as a
+  // class contract plus the rules themselves.
+  it('draws tabs and pips inside the .gc-sheet scope the phone defaults target', () => {
+    installMatchMedia(true)
+    const tabbed = {
+      ...BASE,
+      fields: { ...BASE.fields, slots: { type: 'number', label: 'Slots' } },
+      mobile_layout_ast: [
+        {
+          tag: 'g-tabs',
+          children: [
+            { tag: 'g-tab', attrs: { title: 'One' }, children: [] },
+            { tag: 'g-tab', attrs: { title: 'Two' }, children: [] },
+          ],
+        },
+        { tag: 'g-pips', attrs: { value: 'slots', count: '3' }, children: [] },
+      ],
+    }
+    const { container } = render(<CharacterSheet document={tabbed} data={{}} />)
+    const tablist = container.querySelector('.gc-sheet .gc-tablist')
+    expect(tablist).toBeTruthy()
+    expect(tablist.querySelectorAll(':scope > [role="tab"]')).toHaveLength(2)
+    expect(container.querySelectorAll('.gc-sheet input[type="checkbox"]')).toHaveLength(3)
+  })
+
+  it('gives phone sheets scrolling tabs, 24px ticks and 16px inputs', () => {
+    const css = readFileSync(resolve(process.cwd(), 'src/index.css'), 'utf8')
+    const start = css.indexOf('.gc-tablist {')
+    const block = css.slice(css.lastIndexOf('@media (max-width: 640px)', start), start + 1200)
+    expect(block.startsWith('@media (max-width: 640px)')).toBe(true)
+    expect(block).toMatch(/\.gc-tablist\s*{[^}]*overflow-x:\s*auto/)
+    expect(block).toMatch(/\[role='tab'\]\s*{[^}]*flex-shrink:\s*0/)
+    expect(block).toMatch(
+      /\.gc-sheet input\[type='checkbox'\]\s*{[^}]*min-width:\s*24px;[^}]*min-height:\s*24px/
+    )
+    expect(block).toMatch(/\.gc-sheet textarea\s*{[^}]*font-size:\s*16px/)
+  })
+
+  it('draws a phone layout for a sheet whose desktop layout is JSON', () => {
+    installMatchMedia(true)
+    const jsonSheet = {
+      ...BASE,
+      layout: [{ title: 'Basics', fields: ['hero_name'] }],
+      mobile_layout_ast: PHONE.mobile_layout_ast,
+    }
+    render(<CharacterSheet document={jsonSheet} data={{}} />)
+    expect(screen.getByRole('heading', { name: 'Phone Sheet' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Basics' })).not.toBeInTheDocument()
+    // No phone stylesheet, and the desktop one is never borrowed.
+    expect(injected()).toEqual([])
   })
 })
 

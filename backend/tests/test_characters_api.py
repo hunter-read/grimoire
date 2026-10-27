@@ -615,6 +615,127 @@ computed:
         assert "styles_file" not in document
         self._cleanup(client, admin_headers, "pointer-demo")
 
+    def test_a_phone_layout_arrives_as_its_own_fields(self, client, admin_headers):
+        """`mobile_layout`/`mobile_styles` mirror `layout`/`styles` exactly."""
+        resp = client.post(
+            "/api/characters/schemas",
+            json={
+                "text": "id: phone-demo\nname: Phone\nfields:\n  hp:\n    type: number\n"
+                        "layout:\n  - title: Stats\n    fields: [hp]\n",
+                "mobile_layout": '<div class="m"><g-field name="hp" /></div>',
+                "mobile_styles": ".m { display: grid; }",
+            },
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200, resp.json()
+        assert resp.json()["document"]["mobile_layout_ast"][0]["tag"] == "div"
+        document = client.get(
+            "/api/characters/schemas/phone-demo", headers=admin_headers
+        ).json()["document"]
+        assert "g-field" in document["mobile_layout_html"]
+        assert document["mobile_layout_ast"][0]["attrs"]["class"] == "m"
+        assert document["mobile_styles_css"] == ".gc-sheet .m { display: grid }"
+        # A JSON layout and a phone layout sit side by side.
+        assert document["layout"] == [{"title": "Stats", "fields": ["hp"]}]
+        assert "layout_ast" not in document
+        self._cleanup(client, admin_headers, "phone-demo")
+
+    def test_a_pasted_phone_layout_wins_over_one_inlined(self, client, admin_headers):
+        resp = client.post(
+            "/api/characters/schemas",
+            json={
+                "text": json.dumps({
+                    "id": "phone-override", "name": "Override",
+                    "fields": {"hp": {"type": "number"}},
+                    "mobile_layout_html": "<div><g-label name='hp' /></div>",
+                    "mobile_styles": ".a { color: red }",
+                    "mobile_layout_file": "mobile.html",
+                    "mobile_styles_file": "mobile.css",
+                }),
+                "mobile_layout": "<section><g-field name='hp' /></section>",
+                "mobile_styles": ".b { color: blue }",
+            },
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200, resp.json()
+        document = client.get(
+            "/api/characters/schemas/phone-override", headers=admin_headers
+        ).json()["document"]
+        assert "g-field" in document["mobile_layout_html"]
+        assert "g-label" not in document["mobile_layout_html"]
+        assert document["mobile_styles"] == ".b { color: blue }"
+        assert "mobile_layout_file" not in document
+        assert "mobile_styles_file" not in document
+        self._cleanup(client, admin_headers, "phone-override")
+
+    def test_phone_styles_without_a_phone_layout_are_refused(self, client, admin_headers):
+        resp = client.post(
+            "/api/characters/schemas",
+            json={
+                "text": "id: phone-css\nname: CSS\nfields:\n  hp:\n    type: number\n",
+                "layout": "<div><g-field name='hp' /></div>",
+                "mobile_styles": ".m { color: red }",
+            },
+            headers=admin_headers,
+        )
+        assert resp.status_code == 400
+        assert "mobile_styles needs a mobile_layout_html" in resp.json()["detail"]
+
+    def test_a_pasted_phone_layout_is_still_validated(self, client, admin_headers):
+        resp = client.post(
+            "/api/characters/schemas",
+            json={
+                "text": "id: phone-hostile\nname: Hostile\nfields:\n  hp:\n    type: number\n",
+                "mobile_layout": '<div onclick="steal()"><g-field name="hp" /></div>',
+            },
+            headers=admin_headers,
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"].startswith("Invalid mobile_layout_html")
+
+    def test_a_phone_layout_travels_with_an_exported_character(
+        self, client, admin_headers, gm_headers
+    ):
+        """Export carries the phone pair, and importing it installs it intact."""
+        client.post(
+            "/api/characters/schemas",
+            json={
+                "text": "id: phone-trip\nname: Trip\nfields:\n  hp:\n    type: number\n",
+                "layout": "<div><g-field name='hp' /></div>",
+                "styles": ".d { color: red }",
+                "mobile_layout": "<section><g-field name='hp' /></section>",
+                "mobile_styles": ".m { color: blue }",
+            },
+            headers=admin_headers,
+        )
+        created = client.post(
+            "/api/characters",
+            json={"schema_ref": "phone-trip", "name": "Pocket", "data": {"hp": 3}},
+            headers=admin_headers,
+        ).json()
+        pack = client.get(
+            f"/api/characters/{created['id']}/export", headers=admin_headers
+        ).json()
+        assert pack["schema"]["mobile_layout_html"].startswith("<section>")
+        assert pack["schema"]["mobile_styles"] == ".m { color: blue }"
+
+        imported = client.post(
+            "/api/characters/import", json={"payload": pack}, headers=gm_headers
+        )
+        assert imported.status_code == 200, imported.json()
+        document = client.get(
+            "/api/characters/schemas/phone-trip", headers=gm_headers
+        ).json()["document"]
+        assert document["mobile_layout_ast"][0]["tag"] == "section"
+        assert document["mobile_styles_css"] == ".gc-sheet .m { color: blue }"
+        assert document["layout_ast"][0]["tag"] == "div"
+        assert document["styles_css"] == ".gc-sheet .d { color: red }"
+
+        client.delete(f"/api/characters/{imported.json()['id']}", headers=gm_headers)
+        client.delete(f"/api/characters/{created['id']}", headers=admin_headers)
+        self._cleanup(client, gm_headers, "phone-trip")
+        self._cleanup(client, admin_headers, "phone-trip")
+
     def test_a_pasted_layout_is_still_validated(self, client, admin_headers):
         """Pasting is not a way around the layout allowlist."""
         resp = client.post(

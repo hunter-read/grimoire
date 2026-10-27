@@ -380,6 +380,81 @@ class TestSchemaValidation:
             svc.validate_schema(_schema(styles=".a { position: fixed }"))
 
 
+class TestMobileLayout:
+    """A phone layout: the same parser, allowlist, scope and caps as desktop."""
+
+    def test_derives_mobile_layout_ast_and_scoped_css(self):
+        validated = svc.validate_schema(
+            _schema(
+                layout_html='<div class="s"><g-field name="strength"/></div>',
+                styles=".s { color: red }",
+                mobile_layout_html='<section class="m"><g-field name="strength"/></section>',
+                mobile_styles=".m { color: blue }",
+            ),
+            scope="gc-test",
+        )
+        assert validated["mobile_layout_ast"][0]["tag"] == "section"
+        assert validated["mobile_styles_css"] == ".gc-test .m { color: blue }"
+        # The desktop pair is untouched by the phone one.
+        assert validated["layout_ast"][0]["tag"] == "div"
+        assert validated["styles_css"] == ".gc-test .s { color: red }"
+
+    def test_absent_keys_derive_nothing(self):
+        validated = svc.validate_schema(_schema())
+        assert "mobile_layout_ast" not in validated
+        assert "mobile_styles_css" not in validated
+
+    def test_a_mobile_layout_needs_no_desktop_html(self):
+        """A sheet with a JSON layout can still add a phone layout."""
+        validated = svc.validate_schema(
+            _schema(
+                layout=[{"title": "Stats", "fields": ["strength"]}],
+                mobile_layout_html="<div><g-field name='strength'/></div>",
+            )
+        )
+        assert validated["layout"] == [{"title": "Stats", "fields": ["strength"]}]
+        assert "layout_ast" not in validated
+        assert validated["mobile_layout_ast"][0]["tag"] == "div"
+
+    def test_mobile_alone_keeps_the_default_desktop_layout(self):
+        validated = svc.validate_schema(
+            _schema(mobile_layout_html="<div><g-field name='strength'/></div>")
+        )
+        assert validated["layout"][0]["fields"] == ["strength", "name"]
+
+    def test_mobile_styles_without_a_mobile_layout_is_refused(self):
+        with pytest.raises(svc.SchemaError, match="mobile_styles needs a mobile_layout_html"):
+            svc.validate_schema(
+                _schema(layout_html="<div></div>", mobile_styles=".a { color: red }")
+            )
+
+    def test_rejects_a_hostile_mobile_layout(self):
+        with pytest.raises(svc.SchemaError, match="Invalid mobile_layout_html"):
+            svc.validate_schema(_schema(mobile_layout_html="<script>alert(1)</script>"))
+
+    def test_rejects_a_mobile_layout_that_is_not_a_string(self):
+        with pytest.raises(svc.SchemaError, match="Invalid mobile_layout_html"):
+            svc.validate_schema(_schema(mobile_layout_html=["<div></div>"]))
+
+    def test_rejects_hostile_mobile_styles(self):
+        with pytest.raises(svc.SchemaError, match="Invalid mobile_styles"):
+            svc.validate_schema(
+                _schema(
+                    mobile_layout_html="<div></div>",
+                    mobile_styles=".a { position: fixed }",
+                )
+            )
+
+    def test_mobile_styles_are_capped_like_the_desktop_ones(self):
+        with pytest.raises(svc.SchemaError, match="Invalid mobile_styles: styles exceeds"):
+            svc.validate_schema(
+                _schema(
+                    mobile_layout_html="<div></div>",
+                    mobile_styles="a { color: red }" * 20000,
+                )
+            )
+
+
 class TestComputeValues:
     def test_computes_from_data(self):
         document = svc.validate_schema(_schema())

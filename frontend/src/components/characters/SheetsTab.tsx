@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuTrash2, LuStore, LuClipboardPaste, LuCheck } from 'react-icons/lu'
 import { characters as charactersApi } from '../../api'
+import type { Schema } from '../../api'
 import {
   goldBtn,
   ghostBtn,
@@ -21,39 +22,60 @@ import {
  * escaping every quote and newline into one unreadable line — the community
  * repo keeps them as sibling files for that reason, and pasting one should not
  * be harder than installing it. The document box accepts YAML as well as JSON,
- * since a sheet is written by hand and YAML is the kinder of the two.
+ * since a sheet is written by hand and YAML is the kinder of the two. Two more
+ * optional boxes take a phone-specific layout and stylesheet the same way.
  */
-export default function SheetsTab({ schemas, onChanged, onBrowse, setError }) {
+type SchemaSummary = Schema<'SchemaSummary'>
+
+interface Props {
+  schemas: SchemaSummary[]
+  onChanged?: () => void
+  onBrowse?: () => void
+  setError: (message: string) => void
+}
+
+export default function SheetsTab({ schemas, onChanged, onBrowse, setError }: Props) {
   const { t } = useTranslation()
   const [pasting, setPasting] = useState(false)
   const [text, setText] = useState('')
   const [layout, setLayout] = useState('')
   const [styles, setStyles] = useState('')
+  // A second, phone-specific layout and stylesheet, used on narrow screens.
+  const [mobileLayout, setMobileLayout] = useState('')
+  const [mobileStyles, setMobileStyles] = useState('')
   const [saving, setSaving] = useState(false)
   const [installed, setInstalled] = useState('')
 
-  const paste = async (event) => {
+  const paste = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setSaving(true)
     try {
       // Parsed server-side: it already reads JSON and YAML for add-on indexes,
       // and doing it there keeps one parser rather than two that can disagree.
-      const body = await charactersApi.importSchema({ text, layout, styles })
+      const body = await charactersApi.importSchema({
+        text,
+        layout,
+        styles,
+        mobile_layout: mobileLayout,
+        mobile_styles: mobileStyles,
+      })
       setText('')
       setLayout('')
       setStyles('')
+      setMobileLayout('')
+      setMobileStyles('')
       setPasting(false)
       setInstalled(body.name || body.schema_id)
       setError('')
       onChanged?.()
     } catch (err) {
-      setError(err.message)
+      setError((err as Error).message)
     } finally {
       setSaving(false)
     }
   }
 
-  const remove = async (schema) => {
+  const remove = async (schema: SchemaSummary) => {
     const name = schema.name || schema.schema_id
     if (!window.confirm(t('characters.confirmUninstall', { name }))) return
     try {
@@ -61,7 +83,7 @@ export default function SheetsTab({ schemas, onChanged, onBrowse, setError }) {
       setError('')
       onChanged?.()
     } catch (err) {
-      setError(err.message)
+      setError((err as Error).message)
     }
   }
 
@@ -143,6 +165,38 @@ export default function SheetsTab({ schemas, onChanged, onBrowse, setError }) {
               style={codeArea}
             />
             <p style={helpText}>{t('characters.sheetStylesHelp')}</p>
+          </div>
+
+          {/* Optional too: a second layout for phone-sized screens. Without
+              one, a phone draws the sheet's ordinary layout. */}
+          <div>
+            <label htmlFor="sheet-mobile-layout" style={fieldLabel}>
+              {t('characters.sheetMobileLayout')}
+            </label>
+            <textarea
+              id="sheet-mobile-layout"
+              value={mobileLayout}
+              onChange={(event) => setMobileLayout(event.target.value)}
+              rows={6}
+              spellCheck={false}
+              style={codeArea}
+            />
+            <p style={helpText}>{t('characters.sheetMobileLayoutHelp')}</p>
+          </div>
+
+          <div>
+            <label htmlFor="sheet-mobile-styles" style={fieldLabel}>
+              {t('characters.sheetMobileStyles')}
+            </label>
+            <textarea
+              id="sheet-mobile-styles"
+              value={mobileStyles}
+              onChange={(event) => setMobileStyles(event.target.value)}
+              rows={5}
+              spellCheck={false}
+              style={codeArea}
+            />
+            <p style={helpText}>{t('characters.sheetMobileStylesHelp')}</p>
           </div>
 
           <div style={{ display: 'flex', gap: 8 }}>

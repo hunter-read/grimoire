@@ -46,7 +46,8 @@ class SchemaImport(BaseModel):
     template into one unbroken line of ``\\"`` and ``\\n`` — the community repo
     keeps them in sibling files for exactly that reason, and pasting one should
     not be worse than installing one. Given here, they override whatever the
-    document holds.
+    document holds. ``mobile_layout`` and ``mobile_styles`` do the same for a
+    sheet's optional phone layout (``mobile_layout_html`` / ``mobile_styles``).
     """
 
     document: dict[str, Any] = Field(default_factory=dict)
@@ -55,6 +56,8 @@ class SchemaImport(BaseModel):
     text: str = Field(default="", max_length=512 * 1024)
     layout: str = Field(default="", max_length=256 * 1024)
     styles: str = Field(default="", max_length=128 * 1024)
+    mobile_layout: str = Field(default="", max_length=256 * 1024)
+    mobile_styles: str = Field(default="", max_length=128 * 1024)
     source_id: Optional[str] = None
     source_url: Optional[str] = None
     source_version: Optional[str] = None
@@ -81,6 +84,8 @@ class CatalogueSheet(BaseModel):
     # Rendered verbatim: several open licences mandate exact wording.
     attribution: str = ""
     custom_layout: bool = False
+    # Whether the sheet also ships a phone-specific layout.
+    custom_mobile_layout: bool = False
     field_count: int = 0
     grimoire_min_version: str = ""
     path: str = ""
@@ -91,6 +96,11 @@ class CatalogueSheet(BaseModel):
     layout_sha256: str = ""
     styles_path: str = ""
     styles_sha256: str = ""
+    # And a phone-specific layout and stylesheet, used on narrow screens.
+    mobile_layout_path: str = ""
+    mobile_layout_sha256: str = ""
+    mobile_styles_path: str = ""
+    mobile_styles_sha256: str = ""
     # Which catalogue offered it, so a repo on a branch stays distinguishable.
     index_url: str = ""
     installed: bool = False

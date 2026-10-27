@@ -635,6 +635,113 @@ class TestSidecarFiles:
         assert document["styles"] == self.STYLES.decode()
         assert "layout_file" not in document and "styles_file" not in document
 
+    MOBILE_LAYOUT = b'<section class="m"><g-field name="level" /></section>'
+    MOBILE_STYLES = b".m { color: blue }"
+
+    def _serve_mobile(self, monkeypatch, *, mobile_layout=None):
+        """Serve the desktop pair and a phone pair, told apart by filename."""
+        import httpx
+
+        def handler(request):
+            path = request.url.path
+            if path.endswith("mobile.html"):
+                return httpx.Response(200, content=mobile_layout or self.MOBILE_LAYOUT)
+            if path.endswith("mobile.css"):
+                return httpx.Response(200, content=self.MOBILE_STYLES)
+            if path.endswith(".html"):
+                return httpx.Response(200, content=self.LAYOUT)
+            if path.endswith(".css"):
+                return httpx.Response(200, content=self.STYLES)
+            return httpx.Response(200, content=self.SHEET_BODY)
+
+        transport = httpx.MockTransport(handler)
+        real_client = httpx.Client
+        monkeypatch.setattr(
+            httpx,
+            "Client",
+            lambda **kwargs: real_client(transport=transport, **kwargs),
+        )
+        _no_credentials(monkeypatch)
+
+    def _mobile_entry(self, **overrides):
+        phone = {
+            "mobile_layout_path": "character-sheets/sidecar-demo/mobile.html",
+            "mobile_layout_sha256": hashlib.sha256(self.MOBILE_LAYOUT).hexdigest(),
+            "mobile_styles_path": "character-sheets/sidecar-demo/mobile.css",
+            "mobile_styles_sha256": hashlib.sha256(self.MOBILE_STYLES).hexdigest(),
+        }
+        phone.update(overrides)
+        return self._entry(**phone)
+
+    def test_folds_the_phone_layout_into_the_document(self, monkeypatch):
+        self._serve_mobile(monkeypatch)
+        document = cat.fetch_sheet(None, self._mobile_entry())
+        assert document["layout_html"] == self.LAYOUT.decode()
+        assert document["styles"] == self.STYLES.decode()
+        assert document["mobile_layout_html"] == self.MOBILE_LAYOUT.decode()
+        assert document["mobile_styles"] == self.MOBILE_STYLES.decode()
+
+    def test_drops_the_phone_layout_pointers(self, monkeypatch):
+        body = json.dumps(
+            {
+                "id": "sidecar-demo",
+                "name": "Sidecar Demo",
+                "fields": {"level": {"type": "number"}},
+                "mobile_layout_file": "mobile.html",
+                "mobile_styles_file": "mobile.css",
+            }
+        ).encode()
+        monkeypatch.setattr(self, "SHEET_BODY", body)
+        self._serve_mobile(monkeypatch)
+        document = cat.fetch_sheet(
+            None, self._mobile_entry(sha256=hashlib.sha256(body).hexdigest())
+        )
+        assert "mobile_layout_file" not in document
+        assert "mobile_styles_file" not in document
+
+    def test_a_tampered_phone_layout_is_refused(self, monkeypatch):
+        self._serve_mobile(monkeypatch)
+        with pytest.raises(cat.CatalogueError, match="integrity check"):
+            cat.fetch_sheet(None, self._mobile_entry(mobile_layout_sha256="0" * 64))
+
+    def test_a_tampered_phone_stylesheet_is_refused(self, monkeypatch):
+        self._serve_mobile(monkeypatch)
+        with pytest.raises(cat.CatalogueError, match="integrity check"):
+            cat.fetch_sheet(None, self._mobile_entry(mobile_styles_sha256="0" * 64))
+
+    def test_an_oversized_phone_layout_is_refused(self, monkeypatch):
+        self._serve_mobile(monkeypatch, mobile_layout=b"x" * (cat.MAX_LAYOUT_BYTES + 1))
+        with pytest.raises(cat.CatalogueError, match="too large"):
+            cat.fetch_sheet(None, self._mobile_entry(mobile_layout_sha256=""))
+
+    def test_a_hostile_phone_layout_is_still_refused(self, monkeypatch):
+        hostile = b'<div onclick="alert(1)">x</div>'
+        self._serve_mobile(monkeypatch, mobile_layout=hostile)
+        with pytest.raises(cat.CatalogueError, match="mobile_layout_html"):
+            cat.fetch_sheet(
+                None,
+                self._mobile_entry(mobile_layout_sha256=hashlib.sha256(hostile).hexdigest()),
+            )
+
+    def test_the_listing_carries_the_phone_sidecars(self):
+        summary = cat._summarise(
+            {
+                "id": "demo",
+                "custom_mobile_layout": True,
+                "mobile_layout_path": "a/mobile.html",
+                "mobile_layout_sha256": "abc",
+                "mobile_styles_path": "a/mobile.css",
+                "mobile_styles_sha256": "def",
+            },
+            f"{REPO}/main/character-sheets/index.json",
+            set(),
+        )
+        assert summary["custom_mobile_layout"] is True
+        assert summary["mobile_layout_path"] == "a/mobile.html"
+        assert summary["mobile_layout_sha256"] == "abc"
+        assert summary["mobile_styles_path"] == "a/mobile.css"
+        assert summary["mobile_styles_sha256"] == "def"
+
     def test_a_sheet_with_no_sibling_files_is_unaffected(self, monkeypatch):
         self._serve(monkeypatch)
         document = cat.fetch_sheet(

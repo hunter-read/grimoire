@@ -38,6 +38,29 @@ describe('AllValuesDialog', () => {
     expect(screen.queryByText('A sheet with nothing on it')).not.toBeInTheDocument()
   })
 
+  it('ignores a phone layout too, even on a phone', () => {
+    const originalMatchMedia = window.matchMedia
+    window.matchMedia = vi.fn((query) => ({
+      matches: true,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }))
+    try {
+      renderDialog({
+        document: {
+          ...DOCUMENT,
+          mobile_layout_ast: [{ tag: 'p', children: [{ text: 'A phone sheet' }] }],
+          mobile_layout_html: '<p>A phone sheet</p>',
+        },
+      })
+      expect(screen.getByLabelText('Strength')).toHaveValue(14)
+      expect(screen.queryByText('A phone sheet')).not.toBeInTheDocument()
+    } finally {
+      window.matchMedia = originalMatchMedia
+    }
+  })
+
   it('shows a field its condition would hide', () => {
     renderDialog()
     expect(screen.getByLabelText('Secret Name')).toBeInTheDocument()

@@ -46,7 +46,8 @@ def _sheet(sheet_id: str) -> dict:
     path = os.path.join(_REPO, "character-sheets", sheet_id, f"{sheet_id}.json")
     with open(path, encoding="utf-8") as fh:
         raw = json.load(fh)
-    for key in ("$schema", "layout_file", "styles_file"):
+    for key in ("$schema", "layout_file", "styles_file", "mobile_layout_file",
+                "mobile_styles_file"):
         raw.pop(key, None)
     return validate_schema(raw)
 

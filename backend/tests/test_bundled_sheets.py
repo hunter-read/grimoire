@@ -82,14 +82,34 @@ class TestBundledSheets:
         """
         document = _load(path)
         folder = os.path.dirname(path)
-        for pointer, key in (("layout_file", "layout_html"), ("styles_file", "styles")):
+        for pointer, key in (
+            ("layout_file", "layout_html"),
+            ("styles_file", "styles"),
+            ("mobile_layout_file", "mobile_layout_html"),
+            ("mobile_styles_file", "mobile_styles"),
+        ):
             name = document.pop(pointer, None)
             if name:
                 with open(os.path.join(folder, name), encoding="utf-8") as handle:
                     document[key] = handle.read()
+        # A phone layout sits beside the sheet as `<id>.mobile.html` and
+        # `<id>.mobile.css`, which the catalogue index lists as sidecars.
+        stem = os.path.basename(path).removesuffix(".json")
+        for suffix, key in (("mobile.html", "mobile_layout_html"), ("mobile.css", "mobile_styles")):
+            sibling = os.path.join(folder, f"{stem}.{suffix}")
+            if key not in document and os.path.isfile(sibling):
+                with open(sibling, encoding="utf-8") as handle:
+                    document[key] = handle.read()
         validated = svc.validate_schema(document, scope="gc-test")
         if document.get("layout_html"):
             assert validated["layout_ast"]
+        if document.get("mobile_layout_html"):
+            assert validated["mobile_layout_ast"]
+        if document.get("mobile_styles"):
+            for line in validated["mobile_styles_css"].splitlines():
+                if line.strip().startswith(("@", "}")) or "{" not in line:
+                    continue
+                assert ".gc-test" in line, f"unscoped rule: {line}"
 
 
 def test_at_least_the_shipped_systems_are_present():

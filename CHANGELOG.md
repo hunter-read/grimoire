@@ -8,6 +8,10 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ## [Unreleased]
 
+### Added
+
+- Character sheets can ship a second layout for phones, with its own stylesheet. On a phone-sized screen the sheet switches to it, and back again when you rotate to a wider view. Paste one in the new Mobile layout and Mobile styles boxes, or install a catalogue sheet that includes one
+
 ## [1.9.2] - 2026-10-23
 
 ### Added

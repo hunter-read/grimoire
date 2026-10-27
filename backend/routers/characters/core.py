@@ -147,14 +147,19 @@ def import_schema(
 
     # Naming a sibling file is a repository convention; what gets stored is one
     # self-contained document, so drop the pointers and keep the content.
-    document.pop("layout_file", None)
-    document.pop("styles_file", None)
+    for pointer in catalogue.SIDECAR_POINTERS:
+        document.pop(pointer, None)
     # Pasted alongside the sheet, these win over anything inlined in it: they
-    # are the more specific thing the user just provided.
-    if data.layout.strip():
-        document["layout_html"] = data.layout
-    if data.styles.strip():
-        document["styles"] = data.styles
+    # are the more specific thing the user just provided. The phone layout and
+    # its stylesheet follow the same rule as the desktop pair.
+    for pasted, key in (
+        (data.layout, "layout_html"),
+        (data.styles, "styles"),
+        (data.mobile_layout, "mobile_layout_html"),
+        (data.mobile_styles, "mobile_styles"),
+    ):
+        if pasted.strip():
+            document[key] = pasted
 
     if not document.get("id") and isinstance(document.get("name"), str):
         document["id"] = _slugify(document["name"])
@@ -203,7 +208,7 @@ def _store_schema(
     row.description = str(document.get("description") or "")
     row.version = str(document.get("version") or "1.0.0")[:20]
     # The author's document is stored, not the normalised one: the derived
-    # layout_ast/styles_css are rebuilt on read, so a future parser improvement
+    # layout_ast/styles_css (and their mobile_ twins) are rebuilt on read, so a future parser improvement
     # reaches schemas that are already installed.
     row.document = document
     row.source_id = source_id

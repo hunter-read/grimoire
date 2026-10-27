@@ -1,7 +1,9 @@
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import FieldRenderer from './FieldRenderer'
+import type { FieldDefinition } from './FieldRenderer'
 import LayoutRenderer from './LayoutRenderer'
+import type { SheetDocument } from './LayoutRenderer'
 import {
   computeValues,
   runValidators,
@@ -12,6 +14,36 @@ import {
 import { sectionHeading } from './characterStyles'
 import ValidatorMessages from './ValidatorMessages'
 import { fieldState } from './onPick'
+import { forViewport, usePhoneViewport } from './phoneLayout'
+
+type Values = Record<string, unknown>
+
+// One entry in a JSON layout section: a field's name, or `{field: name}`.
+type LayoutEntry = string | { field?: string } | null | undefined
+
+interface LayoutSection {
+  title?: string
+  visible_if?: string
+  fields?: LayoutEntry[]
+  rows?: LayoutEntry[]
+}
+
+interface ComputedDefinition {
+  label?: string
+  formula?: string
+}
+
+interface Props {
+  document?: SheetDocument | null
+  data?: Values
+  onChange?: (name: string, value: unknown, meta?: unknown) => void
+  onReset?: (name: string) => void
+  onOverride?: (name: string, value: unknown) => void
+  showUnplacedComputed?: boolean
+  readOnly?: boolean
+  entries?: Record<string, unknown>
+  schemaId?: string
+}
 
 /**
  * Draws a character against its schema.
@@ -20,7 +52,9 @@ import { fieldState } from './onPick'
  * `layout_ast` (from the author's `layout_html`) when it has one, and the JSON
  * `layout` tree otherwise. The JSON path is what a simple system uses — it
  * produces a clean sectioned sheet with no design work — so shipping a system
- * never *requires* writing HTML.
+ * never *requires* writing HTML. On a phone-sized screen a sheet that also
+ * ships `mobile_layout_ast` is drawn with that instead, with its own
+ * stylesheet (see phoneLayout.ts).
  *
  * Computed values are recalculated here as you type. The server recomputes them
  * too and is the authority; doing it locally as well is what makes a modifier
@@ -44,15 +78,20 @@ export default function CharacterSheet({
   // detail view so no field has to fetch its own.
   entries = {},
   schemaId,
-}) {
+}: Props) {
   const { t } = useTranslation()
+  // The phone layout, when the sheet has one and the screen is phone-sized,
+  // stands in for the desktop one. Values and validators are the same
+  // whichever layout draws them.
+  const phone = usePhoneViewport()
+  const layoutDocument = useMemo(() => forViewport(schemaDocument, phone), [schemaDocument, phone])
   // Entries ride in the evaluation context so `sum_refs(spells, 'level')` can
   // read a referenced entry's own properties.
-  const withEntries = useMemo(
+  const withEntries = useMemo<Values>(
     () => (Object.keys(entries).length ? { ...(data || {}), _entries: entries } : data || {}),
     [data, entries]
   )
-  const computed = useMemo(
+  const computed = useMemo<Values>(
     () => computeValues(schemaDocument, withEntries),
     [schemaDocument, withEntries]
   )
@@ -64,26 +103,29 @@ export default function CharacterSheet({
     () => runValidators(schemaDocument, withEntries),
     [schemaDocument, withEntries]
   )
-  const context = useMemo(
+  const context = useMemo<Values>(
     () => ({ ...buildContext(schemaDocument, withEntries), ...computed }),
     [schemaDocument, withEntries, computed]
   )
 
-  if (!schemaDocument) return null
+  if (!schemaDocument || !layoutDocument) return null
 
-  const overrides = computedOverrides(schemaDocument, data)
-  const overrideProps = (name) =>
+  const overrides: Values = computedOverrides(schemaDocument, data)
+  const overrideProps = (name: string) =>
     !readOnly && onOverride
-      ? { overridden: name in overrides, onOverride: (value) => onOverride(name, value) }
+      ? {
+          overridden: name in overrides,
+          onOverride: (value: unknown) => onOverride(name, value),
+        }
       : {}
 
-  if (Array.isArray(schemaDocument.layout_ast) && schemaDocument.layout_ast.length) {
+  if (Array.isArray(layoutDocument.layout_ast) && layoutDocument.layout_ast.length) {
     return (
       <>
         <ValidatorMessages results={validators} />
         <LayoutRenderer
-          ast={schemaDocument.layout_ast}
-          document={schemaDocument}
+          ast={layoutDocument.layout_ast}
+          document={layoutDocument}
           data={data}
           computed={computed}
           context={context}
@@ -98,9 +140,11 @@ export default function CharacterSheet({
     )
   }
 
-  const layout = Array.isArray(schemaDocument.layout) ? schemaDocument.layout : []
-  const fields = schemaDocument.fields || {}
-  const computedDefs = schemaDocument.computed || {}
+  const layout: LayoutSection[] = Array.isArray(schemaDocument.layout)
+    ? (schemaDocument.layout as LayoutSection[])
+    : []
+  const fields: Record<string, FieldDefinition> = schemaDocument.fields || {}
+  const computedDefs = (schemaDocument.computed || {}) as Record<string, ComputedDefinition>
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -120,7 +164,7 @@ export default function CharacterSheet({
               }}
             >
               {(section.fields || section.rows || []).map((entry) => {
-                const name = typeof entry === 'string' ? entry : entry?.field
+                const name = entryName(entry)
                 if (!name) return null
                 const definition = fields[name]
                 if (definition) {
@@ -141,7 +185,11 @@ export default function CharacterSheet({
                         onReset={
                           !readOnly && state.overridden && onReset ? () => onReset(name) : undefined
                         }
-                        onChange={readOnly ? undefined : (...args) => onChange?.(name, ...args)}
+                        onChange={
+                          readOnly
+                            ? undefined
+                            : (...args: [unknown, unknown?]) => onChange?.(name, ...args)
+                        }
                         readOnly={readOnly}
                         entries={entries}
                         schemaId={schemaId || schemaDocument.id}
@@ -199,13 +247,21 @@ export default function CharacterSheet({
   )
 }
 
+function entryName(entry: LayoutEntry): string | undefined {
+  return typeof entry === 'string' ? entry : entry?.field
+}
+
 // A schema that places its computed values itself should not also get the
 // automatic "Derived" block underneath.
-function layoutMentionsComputed(layout, computedDefs) {
+function layoutMentionsComputed(
+  layout: LayoutSection[],
+  computedDefs: Record<string, ComputedDefinition>
+): boolean {
   const names = new Set(Object.keys(computedDefs))
   return layout.some((section) =>
-    (section.fields || section.rows || []).some((entry) =>
-      names.has(typeof entry === 'string' ? entry : entry?.field)
-    )
+    (section.fields || section.rows || []).some((entry) => {
+      const name = entryName(entry)
+      return name !== undefined && names.has(name)
+    })
   )
 }

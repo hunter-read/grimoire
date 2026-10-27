@@ -530,7 +530,9 @@ def validate_schema(document: Any, *, scope: str = "gc-sheet") -> dict:
 
     The returned document gains two derived keys the renderer uses and the
     author never writes: ``layout_ast`` (the parsed, allowlisted HTML) and
-    ``styles_css`` (the filtered, scoped stylesheet). Deriving them here means
+    ``styles_css`` (the filtered, scoped stylesheet), plus ``mobile_layout_ast``
+    and ``mobile_styles_css`` for a sheet that ships a phone layout as well.
+    Deriving them here means
     the expensive, security-critical work happens once at install rather than on
     every render, and the client is handed data instead of markup.
     """
@@ -663,6 +665,26 @@ def validate_schema(document: Any, *, scope: str = "gc-sheet") -> dict:
             normalised["styles_css"] = scope_styles(styles, scope)
         except StylesError as exc:
             raise SchemaError(f"Invalid styles: {exc}") from exc
+
+    # A phone layout: the same parser, allowlist and caps as the desktop pair,
+    # and independent of it - a sheet with a JSON `layout` can still ship one.
+    # Its stylesheet shares the sheet's scope class; the client attaches one
+    # stylesheet or the other, never both, so the two cannot mix.
+    mobile_layout_html = document.get("mobile_layout_html")
+    if mobile_layout_html is not None:
+        try:
+            normalised["mobile_layout_ast"] = parse_layout_html(mobile_layout_html)
+        except LayoutHtmlError as exc:
+            raise SchemaError(f"Invalid mobile_layout_html: {exc}") from exc
+
+    mobile_styles = document.get("mobile_styles")
+    if mobile_styles is not None:
+        if mobile_layout_html is None:
+            raise SchemaError("mobile_styles needs a mobile_layout_html")
+        try:
+            normalised["mobile_styles_css"] = scope_styles(mobile_styles, scope)
+        except StylesError as exc:
+            raise SchemaError(f"Invalid mobile_styles: {exc}") from exc
 
     if "layout" not in document and layout_html is None:
         # Neither layout given: the renderer falls back to listing fields in

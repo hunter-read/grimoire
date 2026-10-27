@@ -54,9 +54,27 @@ FETCH_TIMEOUT = 10
 #: hostile catalogue cannot hand us something enormous and call it a sheet.
 MAX_SHEET_BYTES = 512 * 1024
 #: A layout and a stylesheet are bounded separately, matching the engine's own
-#: caps on `layout_html` and `styles`.
+#: caps on `layout_html` and `styles` (and their `mobile_` counterparts).
 MAX_LAYOUT_BYTES = 256 * 1024
 MAX_STYLES_BYTES = 128 * 1024
+
+#: Each sidecar file a catalogue entry may list: its kind (the index keys are
+#: `<kind>_path` and `<kind>_sha256`), the document key it fills, and its cap.
+_SIDECARS: tuple[tuple[str, str, int], ...] = (
+    ("layout", "layout_html", MAX_LAYOUT_BYTES),
+    ("styles", "styles", MAX_STYLES_BYTES),
+    ("mobile_layout", "mobile_layout_html", MAX_LAYOUT_BYTES),
+    ("mobile_styles", "mobile_styles", MAX_STYLES_BYTES),
+)
+
+#: Sibling-file pointers a sheet may name in the repository. Dropped on install:
+#: what gets stored is one self-contained document.
+SIDECAR_POINTERS: tuple[str, ...] = (
+    "layout_file",
+    "styles_file",
+    "mobile_layout_file",
+    "mobile_styles_file",
+)
 
 #: Where the sheet index sits relative to whichever index the admin configured.
 _SHEET_INDEX_PATH = "character-sheets/index.json"
@@ -326,6 +344,7 @@ def _summarise(entry: dict, index_url: str, installed: set) -> dict:
         "license_url": str(entry.get("license_url") or ""),
         "attribution": str(entry.get("attribution") or ""),
         "custom_layout": bool(entry.get("custom_layout")),
+        "custom_mobile_layout": bool(entry.get("custom_mobile_layout")),
         "field_count": int(entry.get("field_count") or 0),
         "grimoire_min_version": str(entry.get("grimoire_min_version") or ""),
         "path": str(entry.get("path") or ""),
@@ -336,6 +355,11 @@ def _summarise(entry: dict, index_url: str, installed: set) -> dict:
         "layout_sha256": str(entry.get("layout_sha256") or ""),
         "styles_path": str(entry.get("styles_path") or ""),
         "styles_sha256": str(entry.get("styles_sha256") or ""),
+        # And a phone-specific layout and stylesheet, the same way.
+        "mobile_layout_path": str(entry.get("mobile_layout_path") or ""),
+        "mobile_layout_sha256": str(entry.get("mobile_layout_sha256") or ""),
+        "mobile_styles_path": str(entry.get("mobile_styles_path") or ""),
+        "mobile_styles_sha256": str(entry.get("mobile_styles_sha256") or ""),
         "index_url": index_url,
         "installed": _is_installed(raw_id, index_url, installed),
     }
@@ -475,15 +499,15 @@ def fetch_sheet(db: Session, entry: dict[str, Any]) -> dict[str, Any]:
     # Naming a sibling file is an authoring convenience; what gets stored is
     # one self-contained document, so the sheet still renders if the
     # catalogue later moves.
-    document.pop("layout_file", None)
-    document.pop("styles_file", None)
+    for pointer in SIDECAR_POINTERS:
+        document.pop(pointer, None)
 
-    layout = _fetch_sidecar(index_url, entry, "layout", MAX_LAYOUT_BYTES, creds)
-    if layout is not None:
-        document["layout_html"] = layout
-    styles = _fetch_sidecar(index_url, entry, "styles", MAX_STYLES_BYTES, creds)
-    if styles is not None:
-        document["styles"] = styles
+    # A phone layout and its stylesheet come the same way as the desktop pair,
+    # with the same caps and their own digests.
+    for kind, key, max_bytes in _SIDECARS:
+        content = _fetch_sidecar(index_url, entry, kind, max_bytes, creds)
+        if content is not None:
+            document[key] = content
 
     try:
         validate_schema(document)

@@ -12,7 +12,15 @@ import { LuTriangleAlert, LuCircleAlert } from 'react-icons/lu'
  * save would lose work over a state the player is on their way out of. These
  * are advice, and the schema author chose the wording.
  */
-export default function ValidatorMessages({ results = [] }) {
+/** One validator that fired: what `runValidators` and the server report. */
+export interface ValidatorResult {
+  rule: string
+  message?: string
+  severity?: string
+  field?: string | null
+}
+
+export default function ValidatorMessages({ results = [] }: { results?: ValidatorResult[] }) {
   if (!results.length) return null
 
   const ordered = [...results].sort((a, b) => rank(a.severity) - rank(b.severity))
@@ -57,4 +65,4 @@ export default function ValidatorMessages({ results = [] }) {
   )
 }
 
-const rank = (severity) => (severity === 'error' ? 0 : 1)
+const rank = (severity?: string) => (severity === 'error' ? 0 : 1)

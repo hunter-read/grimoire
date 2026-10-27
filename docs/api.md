@@ -2167,7 +2167,9 @@ campaign, which is exactly who wants a character sheet.
 ```json
 { "text": "id: cairn\nname: Cairn\nfields: {...}",
   "layout": "<div class=\"sheet\">...</div>",
-  "styles": ".sheet { display: grid; }" }
+  "styles": ".sheet { display: grid; }",
+  "mobile_layout": "<div class=\"phone\">...</div>",
+  "mobile_styles": ".phone { display: flex; }" }
 ```
 
 `text` is parsed as **JSON and then as YAML**, the same rule add-on indexes
@@ -2181,6 +2183,11 @@ rather than escaped into the document, which is how the community repository
 keeps them too. Given here they **override** whatever the document holds, and
 `layout_file`/`styles_file` pointers are dropped — what gets stored is one
 self-contained document, so the sheet still renders if its catalogue moves.
+`mobile_layout` and `mobile_styles` do the same for the sheet's optional phone
+layout - they fill `mobile_layout_html` and `mobile_styles`, override what the
+document holds, and `mobile_layout_file`/`mobile_styles_file` pointers are
+dropped. All four fields are optional; an empty string leaves the document's own
+value alone.
 
 A pasted layout goes through the same tag allowlist as a downloaded one, and a
 pasted stylesheet through the same property filter. Pasting is not a way around
@@ -2485,6 +2492,39 @@ any `href`/`src` that is not relative or https are rejected at install time.
 Schema CSS is scope-prefixed to the sheet and filtered against a property
 allowlist, so a hostile schema cannot restyle the app around it. The worst one
 can do is look wrong.
+
+**Phone layouts.** A schema may also ship a second, phone-specific layout:
+`mobile_layout_html` with an optional `mobile_styles` stylesheet. Both go
+through exactly the same parser, allowlist, scoping and size caps as
+`layout_html`/`styles`, and come back as derived `mobile_layout_ast` /
+`mobile_styles_css` beside `layout_ast`/`styles_css` wherever a schema
+`document` is returned (the schema `GET`, install and paste responses, and a
+character export's embedded `schema`). Errors read `Invalid mobile_layout_html:
+...` or `Invalid mobile_styles: ...`, and `mobile_styles` without a
+`mobile_layout_html` is refused ("mobile_styles needs a mobile_layout_html"). A
+phone layout does not need a desktop `layout_html` - a sheet with a JSON
+`layout` can add one. In the catalogue it is a sibling file like the others,
+listed as `mobile_layout_path`/`mobile_layout_sha256` and
+`mobile_styles_path`/`mobile_styles_sha256` and digest-checked the same way.
+
+The web app draws a sheet with `mobile_layout_ast` and attaches only
+`mobile_styles_css` when the screen matches `(max-width: 640px)`, switching
+back and forth as the viewport changes (on rotation, say). Otherwise, or when
+`mobile_layout_ast` is empty or absent, it uses the desktop layout and
+stylesheet as before. The two stylesheets share the sheet's scope class and are
+never attached together, so a mobile stylesheet must stand alone - nothing from
+`styles` applies to the phone layout, and a phone layout without
+`mobile_styles` gets no sheet stylesheet at all. The all-values view ignores
+both HTML layouts. The catalogue listing also carries `custom_mobile_layout`,
+as it does `custom_layout`.
+
+On a phone-sized screen (the same `(max-width: 640px)`) the app gives every HTML
+sheet touch-friendly defaults, whichever layout is in use, so a sheet need not
+repeat them: a `<g-tabs>` strip scrolls sideways instead of overflowing,
+checkboxes and pips are at least 24px, and inputs, selects and text areas use a
+16px font so iOS does not zoom on focus. A sheet's own stylesheet still
+outranks the first two; the font size is applied with `!important`, because the
+field renderers set a smaller size inline.
 
 ### Content catalog
 

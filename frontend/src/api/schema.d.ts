@@ -8909,6 +8909,11 @@ export interface components {
              */
             custom_layout?: boolean;
             /**
+             * Custom Mobile Layout
+             * @default false
+             */
+            custom_mobile_layout?: boolean;
+            /**
              * Description
              * @default
              */
@@ -8960,6 +8965,26 @@ export interface components {
              * @default
              */
             license_url?: string;
+            /**
+             * Mobile Layout Path
+             * @default
+             */
+            mobile_layout_path?: string;
+            /**
+             * Mobile Layout Sha256
+             * @default
+             */
+            mobile_layout_sha256?: string;
+            /**
+             * Mobile Styles Path
+             * @default
+             */
+            mobile_styles_path?: string;
+            /**
+             * Mobile Styles Sha256
+             * @default
+             */
+            mobile_styles_sha256?: string;
             /** Name */
             name: string;
             /**
@@ -13830,7 +13855,8 @@ export interface components {
          *     template into one unbroken line of ``\"`` and ``\n`` — the community repo
          *     keeps them in sibling files for exactly that reason, and pasting one should
          *     not be worse than installing one. Given here, they override whatever the
-         *     document holds.
+         *     document holds. ``mobile_layout`` and ``mobile_styles`` do the same for a
+         *     sheet's optional phone layout (``mobile_layout_html`` / ``mobile_styles``).
          */
         SchemaImport: {
             /** Document */
@@ -13842,6 +13868,16 @@ export interface components {
              * @default
              */
             layout?: string;
+            /**
+             * Mobile Layout
+             * @default
+             */
+            mobile_layout?: string;
+            /**
+             * Mobile Styles
+             * @default
+             */
+            mobile_styles?: string;
             /** Source Id */
             source_id?: string | null;
             /** Source Url */
