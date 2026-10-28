@@ -126,6 +126,8 @@ class _ScanContext:
     should_stop: Optional[Callable[[], bool]]
     stats: dict
     totals: dict  # {"books": int, "maps": int, "tokens": int, "audio": int, "models": int}
+    # Progress of the steps after the walk - see ``scan_library``.
+    on_phase: Optional[Callable[[str, int, int], None]] = None
     scanned: dict = field(
         default_factory=lambda: {"books": 0, "maps": 0, "tokens": 0, "audio": 0, "models": 0}
     )
@@ -177,6 +179,10 @@ class _ScanContext:
                 self.scanned["models"],
                 self.totals["models"],
             )
+
+    def emit_phase(self, phase: str, done: int, total: int) -> None:
+        if self.on_phase:
+            self.on_phase(phase, done, total)
 
     def thumb_path(self, section: str, title: str, filepath: str) -> str:
         return thumb_path_for(self.thumb_dir, section, title, filepath)

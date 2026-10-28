@@ -20,6 +20,8 @@ from pathlib import Path
 from backend.config import LIBRARY_PATH, SessionLocal
 from backend.indexer import scan_library
 from backend.indexer._db import DatabaseBusyError
+from sqlalchemy import text
+
 from backend.models import Book, GameSystem
 from backend.models.campaigns import Campaign
 from backend.models.users import Bookmark
@@ -703,7 +705,7 @@ class TestPruneEdges:
     def test_a_system_that_cannot_be_deleted_does_not_stop_the_scan(self, monkeypatch):
         import backend.services.library_fs.references as references
 
-        def boom(db, system_id):
+        def boom(db, system_id, **kw):
             raise RuntimeError("locked")
 
         tmp, lib = _mk_lib()
@@ -761,3 +763,172 @@ class TestPruneEdges:
         assert _scan(lib, tmp)["removed_systems"] == 0
         assert _system(id=kept.id) is not None, "a hung query must skip pruning"
         assert renamed.id and deleted.id
+
+
+def _relink_book(lib: Path, rel: str, dest_rel: str, system_id: str) -> None:
+    """Move a file the way the file manager does: on disk and in its row at once.
+
+    ``_relink`` in ``services/library_fs/moves.py`` rewrites the path and the
+    system when the request is made, so no later scan sees the book leave.
+    """
+    src, dest = lib / rel, lib / dest_rel
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    src.rename(dest)
+    db = SessionLocal()
+    try:
+        book = db.query(Book).filter_by(filepath=str(src)).one()
+        book.filepath = str(dest)
+        book.game_system_id = system_id
+        db.commit()
+    finally:
+        db.close()
+
+
+class TestEmptiedByTheFileManager:
+    """Children of a container emptied by in-app moves (issue #749)."""
+
+    def _shelf(self) -> tuple[str, Path, str]:
+        tmp, lib = _mk_lib()
+        shelf = f"books/Shelf {_stamp()} (publisher)"
+        _file(lib / shelf / "Game A" / "core", "a.pdf")
+        _file(lib / shelf / "Game B" / "core", "b.pdf")
+        _scan(lib, tmp)
+        return tmp, lib, shelf
+
+    def _children(self, lib: Path, shelf: str) -> tuple[GameSystem, GameSystem]:
+        db = SessionLocal()
+        try:
+            a = fs.system_for_folder(db, lib / shelf / "Game A")
+            b = fs.system_for_folder(db, lib / shelf / "Game B")
+        finally:
+            db.close()
+        return a, b
+
+    def test_a_child_emptied_by_a_move_is_pruned_by_a_full_scan(self):
+        tmp, lib, shelf = self._shelf()
+        a = _books(lib)[f"{shelf}/Game A/core/a.pdf"].game_system_id
+        b = _books(lib)[f"{shelf}/Game B/core/b.pdf"].game_system_id
+
+        _relink_book(lib, f"{shelf}/Game A/core/a.pdf", f"{shelf}/Game B/core/a.pdf", b)
+        shutil.rmtree(lib / shelf / "Game A")
+        stats = _scan(lib, tmp)
+
+        assert _system(id=a) is None, "the emptied child was left as a 0-book shelf"
+        assert _system(id=b) is not None
+        assert stats["removed_systems"] == 1
+
+    def test_an_emptied_child_with_a_description_is_kept(self):
+        tmp, lib, shelf = self._shelf()
+        a = _books(lib)[f"{shelf}/Game A/core/a.pdf"].game_system_id
+        b = _books(lib)[f"{shelf}/Game B/core/b.pdf"].game_system_id
+        _update_system(a, description="Still wanted")
+
+        _relink_book(lib, f"{shelf}/Game A/core/a.pdf", f"{shelf}/Game B/core/a.pdf", b)
+        shutil.rmtree(lib / shelf / "Game A")
+        _scan(lib, tmp)
+
+        assert _system(id=a) is not None
+
+    def test_a_scoped_scan_still_prunes_nothing(self):
+        tmp, lib, shelf = self._shelf()
+        a = _books(lib)[f"{shelf}/Game A/core/a.pdf"].game_system_id
+        b = _books(lib)[f"{shelf}/Game B/core/b.pdf"].game_system_id
+
+        _relink_book(lib, f"{shelf}/Game A/core/a.pdf", f"{shelf}/Game B/core/a.pdf", b)
+        shutil.rmtree(lib / shelf / "Game A")
+        _scan(lib, tmp, scope_path=shelf)
+
+        assert _system(id=a) is not None
+
+
+class TestLargePrune:
+    """Pruning a big reorganisation: batched, reported, and lock-friendly (issue #748)."""
+
+    def _deleted_systems(self, monkeypatch, count: int, batch: int):
+        from backend.indexer import system_prune
+
+        monkeypatch.setattr(system_prune, "_PRUNE_BATCH", batch)
+        tmp, lib = _mk_lib()
+        stamp = _stamp()
+        names = [f"Bulk {stamp} {i}" for i in range(count)]
+        for name in names:
+            _file(lib / "books" / name / "core", "a.pdf")
+        _file(lib / "books" / f"Kept {stamp}" / "core", "k.pdf")
+        _scan(lib, tmp)
+        book_ids = [b.id for b in _books(lib).values()]
+        db = SessionLocal()
+        try:
+            for book_id in book_ids:
+                db.execute(
+                    text(
+                        "INSERT INTO book_search (book_id, page_number, content) "
+                        "VALUES (:b, 1, 'orcs')"
+                    ),
+                    {"b": book_id},
+                )
+            db.commit()
+        finally:
+            db.close()
+        for name in names:
+            shutil.rmtree(lib / "books" / name)
+        return tmp, lib, names, book_ids
+
+    def test_commits_in_batches_and_clears_search_rows(self, monkeypatch):
+        from backend.indexer import system_prune
+
+        tmp, lib, names, book_ids = self._deleted_systems(monkeypatch, count=5, batch=2)
+        commits: list = []
+        real = system_prune._db_call
+
+        def counting(fn, label):
+            if label == "commit system pruning":
+                commits.append(label)
+            return real(fn, label)
+
+        monkeypatch.setattr(system_prune, "_db_call", counting)
+        phases: list = []
+        stats = _scan(lib, tmp, on_phase=lambda *a: phases.append(a))
+
+        assert stats["removed_systems"] == 5
+        assert len(commits) == 3
+        assert all(_system(name=name) is None for name in names)
+        db = SessionLocal()
+        try:
+            left = {
+                row[0]
+                for row in db.execute(text("SELECT book_id FROM book_search")).fetchall()
+            }
+        finally:
+            db.close()
+        assert left & set(book_ids) == {b.id for b in _books(lib).values()}
+
+        assert ("pruning", 0, 5) in phases and ("pruning", 5, 5) in phases
+        reconciling = [p for p in phases if p[0] == "reconciling"]
+        assert reconciling[0][1] == 0 and reconciling[-1][1] == reconciling[-1][2]
+
+    def test_a_failed_later_batch_keeps_the_earlier_ones(self, monkeypatch):
+        from backend.indexer import system_prune
+
+        tmp, lib, names, _ids = self._deleted_systems(monkeypatch, count=3, batch=1)
+        real = system_prune._db_call
+        calls = {"n": 0}
+
+        def flaky(fn, label):
+            if label == "commit system pruning":
+                calls["n"] += 1
+                if calls["n"] == 2:
+                    raise DatabaseBusyError(label)
+            return real(fn, label)
+
+        monkeypatch.setattr(system_prune, "_db_call", flaky)
+        stats = _scan(lib, tmp)
+
+        # Only the committed batch is reported. The failure stops the prune, and
+        # the next scan picks up whatever it left.
+        assert stats["removed_systems"] == 1
+        assert _system(name=names[0]) is None
+        assert _system(name=names[2]) is not None
+
+        monkeypatch.setattr(system_prune, "_db_call", real)
+        _scan(lib, tmp)
+        assert all(_system(name=name) is None for name in names)

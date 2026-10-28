@@ -32,6 +32,9 @@ from ..models import Audio, Book, GenericMap, Model3D, Token
 
 logger = logging.getLogger("grimoire.indexer")
 
+# Records checked between progress reports in ``_reconcile_missing``.
+_PROGRESS_EVERY = 250
+
 
 def _reconcile_missing(
     ctx: _ScanContext,
@@ -74,6 +77,23 @@ def _reconcile_missing(
         ("audio", Audio, scan_audio, "audio"),
         ("models", Model3D, scan_models, "model"),
     )
+    # Each record is checked once per pass. On a slow mount that is minutes of
+    # work after the walk has already reported 100%, so it reports its own
+    # progress rather than looking like a hang (issue #748).
+    total = 2 * sum(
+        _scoped(session.query(model), model).count()
+        for _key, model, enabled, _label in collections
+        if enabled
+    )
+    checked = 0
+
+    def _tick() -> None:
+        nonlocal checked
+        checked += 1
+        if checked % _PROGRESS_EVERY == 0:
+            ctx.emit_phase("reconciling", checked, total)
+
+    ctx.emit_phase("reconciling", 0, total)
     # Pass 1 — re-point moved files. This runs to completion first, and commits as
     # it goes, so the missing-flag pass below sees a settled set of rows: a moved
     # file must never be reported missing on the way to being recognised.
@@ -84,6 +104,7 @@ def _reconcile_missing(
         present_rows: list[Any] = []
         for record in _scoped(session.query(model), model).all():
             (gone_rows if _gone(record.filepath) else present_rows).append(record)
+            _tick()
         moved[key] = _detect_moves(ctx, model, gone_rows, present_rows)
 
     # Pass 2 — flag whatever is still unaccounted for. Rows are re-read because
@@ -92,6 +113,7 @@ def _reconcile_missing(
         if not enabled:
             continue
         for record in _scoped(session.query(model), model).all():
+            _tick()
             gone = _gone(record.filepath)
             if gone != bool(record.is_missing):
                 record.is_missing = gone
@@ -100,6 +122,7 @@ def _reconcile_missing(
                     name = getattr(record, "title", None) or record.filename
                     logger.warning(f"Missing {label}: '{name}' ({record.filepath})")
 
+    ctx.emit_phase("reconciling", total, total)
     missing_books = counts["books"]
     missing_maps = counts["maps"]
     missing_tokens = counts["tokens"]

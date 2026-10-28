@@ -17,7 +17,7 @@ open-coded in two places that each knew a different subset: the cleanup sweep in
 cleanup loops knew none of it, so every cleanup run orphaned favorites and tags
 for missing maps, tokens, and audio.
 """
-from typing import Any, Sequence
+from typing import Any, Iterator, Sequence
 
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
@@ -54,6 +54,27 @@ def item_type_for(model: Any) -> str:
     return _ITEM_TYPES.get(_section_for_model(model), "")
 
 
+def _chunks(ids: Sequence[str]) -> Iterator[list[str]]:
+    ids = list(ids)
+    for i in range(0, len(ids), _ID_CHUNK):
+        yield ids[i : i + _ID_CHUNK]
+
+
+def purge_search_rows(db: Session, book_ids: Sequence[str]) -> None:
+    """Delete the full-text rows of ``book_ids``. Does not commit.
+
+    ``book_search`` declares ``book_id UNINDEXED``, so every ``WHERE book_id``
+    is a scan of the whole FTS table - a second or more on a large library.
+    Deleting one book at a time made pruning thousands of missing books take
+    hours (issue #748); one ``IN`` list per chunk pays that scan once per
+    :data:`_ID_CHUNK` books instead.
+    """
+    for chunk in _chunks(book_ids):
+        params = {f"id{i}": book_id for i, book_id in enumerate(chunk)}
+        placeholders = ", ".join(f":{key}" for key in params)
+        db.execute(text(f"DELETE FROM book_search WHERE book_id IN ({placeholders})"), params)
+
+
 def purge_references(db: Session, model: Any, record_id: str) -> None:
     """Delete every row pointing at ``record_id`` that no foreign key removes.
 
@@ -63,45 +84,71 @@ def purge_references(db: Session, model: Any, record_id: str) -> None:
     Safe to call for a record that has no references — every query is a no-op
     delete — so callers do not need to know what a given record accumulated.
     """
+    purge_many_references(db, model, [record_id])
+
+
+def purge_many_references(
+    db: Session, model: Any, record_ids: Sequence[str], *, search: bool = True
+) -> None:
+    """:func:`purge_references` for many records of one model at once.
+
+    ``search=False`` leaves the books' ``book_search`` rows for the caller to
+    delete with :func:`purge_search_rows`, so a caller removing many books in
+    several steps can pay the full-text scan once for all of them.
+    """
     item_type = item_type_for(model)
-    if not item_type:
+    if not item_type or not record_ids:
         return
 
     if model is Book:
         # Soft reference: book_search is an FTS5 virtual table, so no constraint
         # ties these rows to the book and nothing else will ever collect them.
-        db.execute(text("DELETE FROM book_search WHERE book_id = :id"), {"id": record_id})
-        db.query(Bookmark).filter_by(book_id=record_id).delete(synchronize_session=False)
+        if search:
+            purge_search_rows(db, record_ids)
+        for chunk in _chunks(record_ids):
+            db.query(Bookmark).filter(Bookmark.book_id.in_(chunk)).delete(
+                synchronize_session=False
+            )
 
-    db.query(Favorite).filter_by(item_type=item_type, item_id=record_id).delete(
-        synchronize_session=False
-    )
-    db.query(ResourceTag).filter_by(resource_type=item_type, resource_id=record_id).delete(
-        synchronize_session=False
-    )
+    for chunk in _chunks(record_ids):
+        db.query(Favorite).filter(
+            Favorite.item_type == item_type, Favorite.item_id.in_(chunk)
+        ).delete(synchronize_session=False)
+        db.query(ResourceTag).filter(
+            ResourceTag.resource_type == item_type, ResourceTag.resource_id.in_(chunk)
+        ).delete(synchronize_session=False)
 
-    # ORM delete per row rather than a bulk delete: CampaignResourceShare hangs
-    # off CampaignResource through a relationship cascade, not a DB constraint,
-    # so a bulk delete would leave the shares stranded.
-    for resource in (
-        db.query(CampaignResource)
-        .filter_by(resource_type=item_type, resource_id=record_id)
-        .all()
-    ):
-        db.delete(resource)
+        # ORM delete per row rather than a bulk delete: CampaignResourceShare hangs
+        # off CampaignResource through a relationship cascade, not a DB constraint,
+        # so a bulk delete would leave the shares stranded.
+        for resource in (
+            db.query(CampaignResource)
+            .filter(
+                CampaignResource.resource_type == item_type,
+                CampaignResource.resource_id.in_(chunk),
+            )
+            .all()
+        ):
+            db.delete(resource)
 
 
-def purge_system_references(db: Session, system_id: str) -> None:
+def purge_system_references(db: Session, system_id: str, *, search: bool = True) -> list[str]:
     """:func:`purge_references` for a system *and* every book it will cascade to.
 
     ``GameSystem.books`` is ``cascade="all, delete-orphan"``, so deleting a
     system deletes its books through the ORM rather than through the delete paths
     that know to clean up after them. Each book's references have to be collected
     here, before the cascade fires, or they outlive the row that explained them.
+
+    Returns the ids of those books. With ``search=False`` their ``book_search``
+    rows are left for the caller to pass to :func:`purge_search_rows`.
     """
-    for (book_id,) in db.query(Book.id).filter(Book.game_system_id == system_id).all():
-        purge_references(db, Book, book_id)
+    book_ids = [
+        book_id for (book_id,) in db.query(Book.id).filter(Book.game_system_id == system_id)
+    ]
+    purge_many_references(db, Book, book_ids, search=search)
     purge_references(db, GameSystem, system_id)
+    return book_ids
 
 
 def reference_counts(db: Session, model: Any, record_id: str) -> dict[str, int]:
@@ -165,7 +212,7 @@ def reference_counts_for(
                 counts[record_id][key] = total
 
     # Chunked to stay under SQLite's variable limit on a large page.
-    for chunk in (ids[i : i + _ID_CHUNK] for i in range(0, len(ids), _ID_CHUNK)):
+    for chunk in _chunks(ids):
         tally(
             "favorites",
             db.query(Favorite.item_id, func.count())

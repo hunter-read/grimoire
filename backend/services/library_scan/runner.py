@@ -35,6 +35,10 @@ DEFAULT_STATUS: dict = {
     "moved_files": 0,
     "indexed": 0,
     "to_index": 0,
+    # Progress of the steps after the walk (phases "reconciling" and "pruning"),
+    # which used to sit silently at 100% for as long as they took (issue #748).
+    "step_done": 0,
+    "step_total": 0,
     # Deferred-OCR queue progress (phase "ocr"). total_ocr = books queued,
     # ocr_done = books finished, ocr_current = filename in flight.
     "total_ocr": 0,
@@ -507,10 +511,13 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
                     f"tokens={st}/{tt}, audio={sa}/{ta}, models={smo}/{tmo}"
                 )
 
+            def on_phase(phase: str, done: int, total: int) -> None:
+                set_status({"phase": phase, "step_done": done, "step_total": total})
+
             stats = scan_library(
                 LIBRARY_PATH, DATA_PATH, db,
                 on_progress=on_progress, should_stop=is_stop_requested,
-                scope_path=scope_path, metadata_mode=metadata_mode,
+                scope_path=scope_path, metadata_mode=metadata_mode, on_phase=on_phase,
             )
             new_total = (
                 stats.get("new_books", 0)

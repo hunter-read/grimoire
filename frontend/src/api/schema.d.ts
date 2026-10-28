@@ -13847,6 +13847,10 @@ export interface components {
             scanned_models?: number | null;
             /** Scanned Tokens */
             scanned_tokens?: number | null;
+            /** Step Done */
+            step_done?: number | null;
+            /** Step Total */
+            step_total?: number | null;
             /** Thumbs Current */
             thumbs_current?: string | null;
             /** Thumbs Done */

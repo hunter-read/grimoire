@@ -43,6 +43,11 @@ _FOLDER_FIELDS = (
     "parent_id",
     "folder_cover_path",
 )
+# Systems, or books on them, removed per commit by ``_remove_systems``. Each
+# commit also pays one ``book_search`` scan per ``_ID_CHUNK`` books.
+_PRUNE_BATCH = 25
+_PRUNE_BATCH_BOOKS = 2000
+
 # What a container fills in on its children only while the child has no value of
 # its own. The adopted row keeps what it has and takes the rest.
 _FILL_FIELDS = ("parent_system", "edition", "system_family", "publishers")
@@ -210,6 +215,9 @@ def _prune_vanished_systems(ctx: _ScanContext) -> int:
     of it. That last one is what clears the "0 books" shelf a folder emptied by
     moves used to leave behind (issue #670): once every book had moved away,
     nothing tied the row to this library any more, so it was never pruned.
+    Ownership then spreads along ``parent_id`` both ways: a container whose
+    child is in scope is in scope, and so is a child of a container that is
+    (issue #749).
     """
     if ctx.scope_dir is not None:
         return 0
@@ -243,6 +251,10 @@ def _prune_vanished_systems(ctx: _ScanContext) -> int:
     # self-evidently this library's; so is one it moved books out of.
     in_this_library |= ctx.seen_system_ids & set(by_id)
     in_this_library |= set(ctx.vacated_systems) & set(by_id)
+    children: dict = {}
+    for system in systems:
+        if system.parent_id:
+            children.setdefault(system.parent_id, []).append(system)
     # Ownership flows *up*: a container belongs to this library when any of its
     # descendants does, so a container is still claimed on the very scan that
     # prunes its children (nothing is deleted until the loop below).
@@ -253,6 +265,17 @@ def _prune_vanished_systems(ctx: _ScanContext) -> int:
         if parent is not None and parent.id not in in_this_library:
             in_this_library.add(parent.id)
             pending.append(parent)
+    # ...and *down*: a child's folder sits inside its container's, so a child of
+    # a container this library owns is this library's too. That is the only link
+    # left to a system emptied by the file manager, which re-points its books when
+    # they move, so no scan ever sees them leave it (issue #749).
+    pending = [s for s in systems if s.id in in_this_library]
+    while pending:
+        node = pending.pop()
+        for child in children.get(node.id, ()):
+            if child.id not in in_this_library:
+                in_this_library.add(child.id)
+                pending.append(child)
 
     # Books are the only collection tied to a system — maps, tokens, and audio
     # are deliberately system-agnostic — so one distinct query covers ownership.
@@ -275,15 +298,60 @@ def _prune_vanished_systems(ctx: _ScanContext) -> int:
                 keep_parents.add(ancestor.parent_id)
                 ancestor = by_id.get(ancestor.parent_id)
 
-    from ..services.library_fs.references import purge_system_references
+    # Not this library's rows to delete — see the docstring. Children first, so a
+    # container is only considered once its shelf is clear.
+    candidates = [
+        s
+        for s in sorted(unseen, key=lambda s: _depth(s, by_id), reverse=True)
+        if s.id in in_this_library
+    ]
+    if not candidates:
+        return 0
+    return _remove_systems(ctx, candidates, owning | keep_parents)
+
+
+def _remove_systems(ctx: _ScanContext, candidates: list, keep: set) -> int:
+    """Delete each of ``candidates`` that nothing keeps; return how many.
+
+    Committed in batches rather than once at the end, so the write lock is
+    released while a large reorganisation is pruned and logins, token refreshes
+    and the rest of the app keep working (issue #748). The books' full-text rows
+    are deleted once per batch: ``book_search`` cannot look a book up by id, so
+    each delete scans the whole table, and doing that per book is what made this
+    step take hours.
+    """
+    from ..services.library_fs import references
+
+    session = ctx.session
+    total = len(candidates)
+    logger.info(f"Checking {total} system(s) whose folder is gone…")
+    ctx.emit_phase("pruning", 0, total)
 
     removed = 0
-    # Children first, so a container is only considered once its shelf is clear.
-    for system in sorted(unseen, key=lambda s: _depth(s, by_id), reverse=True):
-        # Not this library's row to delete — see the docstring.
-        if system.id not in in_this_library:
-            continue
-        if system.id in owning or system.id in keep_parents:
+    batch_systems = 0
+    batch_books: list = []
+
+    def commit_batch() -> bool:
+        nonlocal removed, batch_systems, batch_books
+        if not batch_systems:
+            return True
+        try:
+            _db_call(
+                lambda: references.purge_search_rows(session, batch_books),
+                "purge pruned books from search",
+            )
+            _db_call(session.commit, "commit system pruning")
+        except SQLAlchemyError as e:
+            logger.error(f"DB error pruning systems: {e}")
+            session.rollback()
+            return False
+        removed += batch_systems
+        batch_systems, batch_books = 0, []
+        return True
+
+    for done, system in enumerate(candidates, 1):
+        ctx.emit_phase("pruning", done - 1, total)
+        if system.id in keep:
             continue
         if system.name_is_custom or system.description or system.cover_image:
             logger.info(
@@ -303,19 +371,22 @@ def _prune_vanished_systems(ctx: _ScanContext) -> int:
         name = system.name
         try:
             with session.begin_nested():
-                purge_system_references(session, system.id)
+                book_ids = references.purge_system_references(
+                    session, system.id, search=False
+                )
                 session.delete(system)
         except Exception as e:  # noqa: BLE001 - one row must not keep the rest
             logger.error(f"Could not remove system '{name}': {e}")
             continue
         logger.info(f"Removing system '{name}': its folder is gone or now ignored")
-        removed += 1
+        batch_systems += 1
+        batch_books.extend(book_ids)
+        if batch_systems >= _PRUNE_BATCH or len(batch_books) >= _PRUNE_BATCH_BOOKS:
+            if not commit_batch():
+                return removed
+            logger.info(f"Pruning systems: checked {done} of {total}, removed {removed}")
 
-    if removed:
-        try:
-            _db_call(session.commit, "commit system pruning")
-        except SQLAlchemyError as e:
-            logger.error(f"DB error pruning systems: {e}")
-            session.rollback()
-            return 0
+    if not commit_batch():
+        return removed
+    ctx.emit_phase("pruning", total, total)
     return removed

@@ -5,7 +5,7 @@ import Spinner from '../Spinner'
 import RescanModal from '../RescanModal'
 import useScanStatus from '../../hooks/useScanStatus'
 import type { ScanStatus, ScanStatusHandle } from '../../hooks/useScanStatus'
-import scanPhaseLabel, { scanPercent, scanTotals } from './scanPhaseLabel'
+import scanPhaseLabel, { scanPercent, scanTotals, stepPercent } from './scanPhaseLabel'
 
 // The counters are read as plain numbers here: a missing one compares and adds
 // as 0, which the progress maths below relies on.
@@ -46,12 +46,15 @@ export default function RescanSection() {
     thumbs_current,
     ocr_done,
     ocr_current,
+    step_done,
+    step_total,
   } = status
 
   const { total: totalScan, scanned: scannedScan } = scanTotals(status)
   const scanPct = scanPercent(status)
   const indexPct = to_index > 0 ? Math.round((indexed / to_index) * 100) : 0
   const ocrPct = total_ocr > 0 ? Math.round((ocr_done / total_ocr) * 100) : 0
+  const stepPct = stepPercent(status)
   const thumbsPct = total_thumbs > 0 ? Math.round((thumbs_done / total_thumbs) * 100) : 0
 
   const phaseLabel = scanPhaseLabel(t, status)
@@ -191,6 +194,32 @@ export default function RescanSection() {
               100% { margin-left: 100%; }
             }
           `}</style>
+        </div>
+      )}
+
+      {/* Progress bar — missing-file sweep and system pruning, after the walk */}
+      {running && (phase === 'reconciling' || phase === 'pruning') && step_total > 0 && (
+        <div style={{ marginTop: 12 }}>
+          <div
+            style={{ height: 4, borderRadius: 2, background: 'var(--border)', overflow: 'hidden' }}
+          >
+            <div
+              style={{
+                height: '100%',
+                borderRadius: 2,
+                background: 'var(--gold)',
+                width: `${stepPct}%`,
+                transition: 'width 0.4s ease',
+              }}
+            />
+          </div>
+          <div style={{ marginTop: 5, fontSize: 12, color: 'var(--text-muted)' }}>
+            {t('maintenance.rescan.stepProgress', {
+              pct: stepPct,
+              done: step_done,
+              total: step_total,
+            })}
+          </div>
         </div>
       )}
 

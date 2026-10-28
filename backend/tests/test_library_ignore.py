@@ -136,3 +136,40 @@ class TestCaching:
         (root / IGNORE_FILENAME).unlink()
         # Cached spec still applies — a single scan sees a consistent rule set.
         assert m.is_ignored(str(root / "b.pdf"), is_dir=False) is True
+
+
+class TestResolveCache:
+    """Each directory is resolved once per matcher (issue #748).
+
+    Resolving stats every path component; doing it per file made the
+    missing-file sweep take half an hour a pass on a slow bind mount.
+    """
+
+    def _count_resolves(self, monkeypatch) -> list:
+        calls: list = []
+        real = Path.resolve
+
+        def counting(self, *args, **kwargs):
+            calls.append(self)
+            return real(self, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "resolve", counting)
+        return calls
+
+    def test_files_in_one_directory_resolve_it_once(self, monkeypatch):
+        root = _mk_root()
+        m = IgnoreMatcher(str(root))
+        calls = self._count_resolves(monkeypatch)
+        for i in range(5):
+            assert m.is_ignored(str(root / "books" / "Sys" / f"{i}.pdf"), is_dir=False) is False
+        assert len(calls) == 1
+
+    def test_rules_still_apply_through_the_cache(self):
+        root = _mk_root()
+        _write_ignore(root / "books", "*.tmp", "Drafts/")
+        m = IgnoreMatcher(str(root))
+        for _ in range(2):
+            assert m.is_ignored(str(root / "books" / "Sys" / "a.tmp"), is_dir=False) is True
+            assert m.is_ignored(str(root / "books" / "Sys" / "a.pdf"), is_dir=False) is False
+            assert m.is_ignored(str(root / "books" / "Drafts"), is_dir=True) is True
+            assert m.is_ignored(str(root / "books" / "Drafts") + "/", is_dir=True) is True

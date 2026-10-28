@@ -26,7 +26,8 @@ class ScanStatusResponse(BaseModel):
     """
 
     running: bool
-    # "scanning" | "indexing" | "ocr", or None between runs.
+    # "scanning" | "reconciling" | "pruning" | "indexing" | "ocr" | "thumbnails",
+    # or None between runs.
     phase: Optional[str] = None
     total_books: Optional[int] = None
     scanned_books: Optional[int] = None
@@ -46,6 +47,10 @@ class ScanStatusResponse(BaseModel):
     updated_books: Optional[int] = None
     indexed: Optional[int] = None
     to_index: Optional[int] = None
+    # Progress of the steps after the walk (phases "reconciling" and "pruning"):
+    # records checked for a missing file, or systems whose folder is gone.
+    step_done: Optional[int] = None
+    step_total: Optional[int] = None
     # Deferred-OCR queue progress (phase "ocr").
     total_ocr: Optional[int] = None
     ocr_done: Optional[int] = None

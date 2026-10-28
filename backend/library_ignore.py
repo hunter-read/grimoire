@@ -45,6 +45,9 @@ class IgnoreMatcher:
         # dir (resolved) -> compiled PathSpec, or None when that dir has no
         # ignore file.  None is cached too, so a missing file is stat'd once.
         self._cache: dict[Path, Optional[PathSpec]] = {}
+        # parent dir as the caller spelled it -> (resolved dir, the rules that
+        # apply under it, shallowest first). See ``_rules_for``.
+        self._rules: dict[str, tuple[Path, list[tuple[Path, PathSpec]]]] = {}
 
     def _spec_for_dir(self, directory: Path) -> Optional[PathSpec]:
         """Load and cache the PathSpec for a single directory's ignore file."""
@@ -62,11 +65,10 @@ class IgnoreMatcher:
         return spec
 
     def _ancestors(self, directory: Path) -> list[Path]:
-        """Return [root, …, directory], shallowest first, or [] if outside root."""
-        try:
-            directory = directory.resolve()
-        except OSError:
-            return []
+        """Return [root, …, directory], shallowest first, or [] if outside root.
+
+        ``directory`` must already be resolved, as the root is.
+        """
         if directory != self._root and self._root not in directory.parents:
             return []
         chain = [directory]
@@ -74,6 +76,29 @@ class IgnoreMatcher:
             chain.append(chain[-1].parent)
         chain.reverse()
         return chain
+
+    def _rules_for(self, directory: str) -> tuple[Path, list[tuple[Path, PathSpec]]]:
+        """``directory`` resolved, and each ancestor's ignore rules, cached.
+
+        Resolving a path stats every component of it, so doing it per file cost
+        the missing-file sweep 15-20 ``lstat`` calls a record - half an hour a
+        pass over a large library on a Docker Desktop bind mount, even with no
+        ignore file anywhere (issue #748). Files share directories, so each
+        directory is resolved once, and a file under no rules needs no stat.
+        """
+        cached = self._rules.get(directory)
+        if cached is None:
+            try:
+                resolved = Path(directory).resolve()
+            except OSError:
+                resolved = Path(directory)
+            rules = []
+            for ancestor in self._ancestors(resolved):
+                spec = self._spec_for_dir(ancestor)
+                if spec is not None:
+                    rules.append((ancestor, spec))
+            cached = self._rules[directory] = (resolved, rules)
+        return cached
 
     def is_ignored(self, path: str, is_dir: bool) -> bool:
         """Return True if `path` is excluded by any applicable ignore rule.
@@ -84,21 +109,19 @@ class IgnoreMatcher:
         nested ``.grimoireignore`` can override (including re-include via ``!``)
         what an ancestor ignored; the last matching rule wins, as in git.
         """
-        # Resolve so the path is spelled the same way as the ancestor chain
-        # (which is derived from the resolved library root); otherwise a symlink
-        # in the root (e.g. macOS ``/var`` -> ``/private/var``) makes relpath
-        # produce a bogus ``../..`` prefix that never matches. resolve() is
-        # non-strict, so it works even for the removed-file reconciliation case
-        # where the path no longer exists on disk.
-        try:
-            p = Path(path).resolve()
-        except OSError:
-            p = Path(path)
+        # The parent is resolved so the path is spelled the same way as the
+        # ancestor chain (which is derived from the resolved library root);
+        # otherwise a symlink in the root (e.g. macOS ``/var`` -> ``/private/var``)
+        # makes relpath produce a bogus ``../..`` prefix that never matches.
+        # resolve() is non-strict, so it works even for the removed-file
+        # reconciliation case where the path no longer exists on disk.
+        parent, name = os.path.split(path.rstrip(os.sep) or path)
+        resolved_parent, rules = self._rules_for(parent)
+        if not rules:
+            return False
+        p = resolved_parent / name
         result = False
-        for ancestor in self._ancestors(p.parent):
-            spec = self._spec_for_dir(ancestor)
-            if spec is None:
-                continue
+        for ancestor, spec in rules:
             # Patterns in `ancestor`'s ignore file are relative to `ancestor`.
             rel = os.path.relpath(str(p), str(ancestor)).replace(os.sep, "/")
             if is_dir:

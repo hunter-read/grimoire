@@ -26,6 +26,9 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Fixed
 
+- A full rescan after a large library reorganisation no longer sits at 100% for hours while it removes the systems whose folders are gone, and no longer locks you out while it does: logins and session refreshes keep working, and the rescan shows its progress through checking for missing files and removing old systems
+- Cleaning up a library with thousands of missing books is much faster, and no longer holds the database for the whole run
+- A full rescan now removes a game in a shelf or system family that was left empty by moving or renaming its files with the file manager, instead of leaving it listed with 0 books until the scheduled cleanup ran
 - A long system name on a library card no longer breaks in the middle of a word when the 18+ and book-count badges sit beside it: the badges move below the name instead
 - A scanned book carrying a few pages of real text, such as a digitally-set cover or a bundled web enhancement, is read with OCR instead of being left mostly unsearchable
 - A scan with its chapter title stamped on every page is read with OCR, instead of being left searchable only by its headers

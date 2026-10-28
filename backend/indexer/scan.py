@@ -106,6 +106,7 @@ def scan_library(
     should_stop: Optional[Callable[[], bool]] = None,
     scope_path: str | None = None,
     metadata_mode: str = "new",
+    on_phase: Optional[Callable[[str, int, int], None]] = None,
 ) -> dict:
     """Scan the library directory and register all files in the database.
 
@@ -114,6 +115,10 @@ def scan_library(
     after each file is processed if provided.
 
     should_stop() is an optional callable that returns True when the scan should abort early.
+
+    on_phase(phase, done, total) reports the steps after the walk, which can take
+    a long time on a large library: "reconciling" (records checked for a missing
+    file) and "pruning" (systems whose folder is gone).
 
     scope_path, when given, restricts the scan to a single subtree (relative to the
     library root, e.g. "books/D&D 5e/adventure").  Only the matching collection is
@@ -226,6 +231,7 @@ def scan_library(
         scope_path=scope_path,
         metadata_mode=metadata_mode,
         on_progress=on_progress,
+        on_phase=on_phase,
         should_stop=should_stop,
         stats=stats,
         totals=totals,

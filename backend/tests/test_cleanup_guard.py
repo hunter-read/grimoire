@@ -251,3 +251,33 @@ class TestScheduledCleanupGuard:
     def test_runs_when_library_is_mounted(self, mounted_library, a_book):
         library_cleanup.run_cleanup_sync()
         assert not _exists(Book, a_book.id)
+
+
+class TestRemoveMissingBatches:
+    """Missing rows go in batches: one ``book_search`` scan per batch (issue #748)."""
+
+    def test_removes_every_missing_row_across_batches(self, mounted_library, monkeypatch):
+        from backend.models.collections import iter_specs
+
+        monkeypatch.setattr(library_cleanup, "_REMOVE_BATCH", 2)
+        system = make_game_system()
+        books = [make_book(system_id=system.id, filepath=_missing_path()) for _ in range(5)]
+        purged: list = []
+        real = library_cleanup.purge_many_references
+
+        def recording(db, model, ids, **kw):
+            if model is Book:
+                purged.append(list(ids))
+            return real(db, model, ids, **kw)
+
+        monkeypatch.setattr(library_cleanup, "purge_many_references", recording)
+        spec = next(s for s in iter_specs() if s.model is Book)
+        db = SessionLocal()
+        try:
+            removed = library_cleanup._remove_missing(db, spec)
+        finally:
+            db.close()
+
+        assert removed >= 5
+        assert all(len(batch) <= 2 for batch in purged)
+        assert not any(_exists(Book, b.id) for b in books)

@@ -28,7 +28,10 @@ from backend.models.users import Bookmark
 from backend.services.library_fs.deletes import delete_record, unindex_path
 from backend.services.library_fs.references import (
     item_type_for,
+    purge_many_references,
     purge_references,
+    purge_search_rows,
+    purge_system_references,
     reference_counts,
     reference_counts_for,
 )
@@ -183,6 +186,102 @@ class TestPurgeReferences:
             }
             purge_references(db, Book, book.id)  # must not raise
             db.commit()
+        finally:
+            db.close()
+
+
+class TestBatchedPurge:
+    """Many books at once: one ``book_search`` scan per chunk, not per book (issue #748)."""
+
+    @staticmethod
+    def _index(db, *book_ids):
+        for book_id in book_ids:
+            db.execute(
+                text(
+                    "INSERT INTO book_search (book_id, page_number, content) "
+                    "VALUES (:b, 1, 'goblins')"
+                ),
+                {"b": book_id},
+            )
+        db.commit()
+
+    @staticmethod
+    def _fts(db, book_id):
+        return db.execute(
+            text("SELECT COUNT(*) FROM book_search WHERE book_id = :b"), {"b": book_id}
+        ).scalar()
+
+    def test_search_rows_are_deleted_in_chunks(self, monkeypatch):
+        import backend.services.library_fs.references as references
+
+        monkeypatch.setattr(references, "_ID_CHUNK", 2)
+        ids = [f"fts-{uuid.uuid4().hex}" for _ in range(5)]
+        keep = f"fts-{uuid.uuid4().hex}"
+        db = SessionLocal()
+        try:
+            self._index(db, *ids, keep)
+            statements = []
+            real = db.execute
+
+            def counting(stmt, *args, **kw):
+                if "book_search" in str(stmt):
+                    statements.append(stmt)
+                return real(stmt, *args, **kw)
+
+            monkeypatch.setattr(db, "execute", counting)
+            purge_search_rows(db, ids)
+            monkeypatch.undo()
+            db.commit()
+            assert len(statements) == 3
+            assert all(self._fts(db, i) == 0 for i in ids)
+            assert self._fts(db, keep) == 1
+        finally:
+            db.close()
+
+    def test_many_books_lose_every_reference(self, admin_id):
+        system = make_game_system()
+        books = [make_book(system_id=system.id) for _ in range(3)]
+        campaign = make_campaign(owner_id=admin_id)
+        db = SessionLocal()
+        try:
+            for book in books:
+                db.add(Bookmark(user_id=admin_id, book_id=book.id, page_number=1))
+                _attach_all(db, "book", book.id, admin_id, campaign.id)
+            self._index(db, *(b.id for b in books))
+
+            purge_many_references(db, Book, [b.id for b in books])
+            db.commit()
+
+            for book in books:
+                assert reference_counts(db, Book, book.id) == {
+                    "favorites": 0,
+                    "tags": 0,
+                    "campaigns": 0,
+                    "bookmarks": 0,
+                }
+                assert self._fts(db, book.id) == 0
+        finally:
+            db.close()
+
+    def test_a_system_purge_can_leave_search_rows_to_the_caller(self):
+        system = make_game_system()
+        book = make_book(system_id=system.id)
+        db = SessionLocal()
+        try:
+            self._index(db, book.id)
+            assert purge_system_references(db, system.id, search=False) == [book.id]
+            assert self._fts(db, book.id) == 1
+            assert purge_system_references(db, system.id) == [book.id]
+            assert self._fts(db, book.id) == 0
+            db.commit()
+        finally:
+            db.close()
+
+    def test_no_ids_is_a_no_op(self):
+        db = SessionLocal()
+        try:
+            purge_many_references(db, Book, [])
+            purge_search_rows(db, [])
         finally:
             db.close()
 

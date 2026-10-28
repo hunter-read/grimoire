@@ -14,9 +14,11 @@ from ..indexer.metadata import resolve_collection_dir
 from ..models.collections import CollectionSpec, iter_specs
 from ..models import RESOURCE_TYPES, Book, BookFolder, Campaign, GameSystem, ResourceTag
 from . import tag_service
-from .library_fs.references import purge_references, purge_system_references
+from .library_fs.references import purge_many_references, purge_system_references
 
 _FS_TIMEOUT = 5  # seconds before an os.path.exists() call is treated as hung
+# Missing rows removed per commit - see ``_remove_missing``.
+_REMOVE_BATCH = 200
 
 
 def _path_exists(filepath: str) -> bool:
@@ -118,17 +120,32 @@ def preview_cleanup(db: Session) -> dict[str, Any]:
 def _remove_missing(db: Session, spec: CollectionSpec) -> int:
     """Delete one collection's rows whose file is gone; return how many.
 
-    Commits after each row so the write lock is released between rows and
-    doesn't block concurrent scanner sessions.
+    Commits every :data:`_REMOVE_BATCH` rows so the write lock is released
+    between batches and doesn't block concurrent scanner sessions. Not after
+    every row: a book's full-text rows can only be found by scanning the whole
+    ``book_search`` table, so purging them one book at a time made a large
+    cleanup take hours (issue #748).
     """
     count = 0
+    batch: list[Any] = []
+
+    def flush() -> None:
+        purge_many_references(db, spec.model, [row.id for row in batch])
+        for row in batch:
+            db.delete(row)
+        db.commit()
+        logger.debug(f"Cleanup: committed removal of {len(batch)} {spec.singular}(s)")
+
     for row in _iter_missing(db, spec):
         logger.info(f"Cleanup: removing missing {spec.singular} ({row.filepath})")
-        purge_references(db, spec.model, row.id)
-        db.delete(row)
-        db.commit()
-        logger.debug(f"Cleanup: committed removal of {spec.singular} id={row.id}")
-        count += 1
+        batch.append(row)
+        if len(batch) >= _REMOVE_BATCH:
+            flush()
+            count += len(batch)
+            batch = []
+    if batch:
+        flush()
+        count += len(batch)
     return count
 
 

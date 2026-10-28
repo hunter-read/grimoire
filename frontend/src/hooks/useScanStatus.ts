@@ -33,6 +33,8 @@ const EMPTY: ScanStatus = {
   scanned_models: 0,
   indexed: 0,
   to_index: 0,
+  step_done: 0,
+  step_total: 0,
   new_books: 0,
   new_maps: 0,
   new_tokens: 0,

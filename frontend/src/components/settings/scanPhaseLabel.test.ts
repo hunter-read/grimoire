@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { TFunction } from 'i18next'
-import scanPhaseLabel, { scanPercent, scanTotals } from './scanPhaseLabel'
+import scanPhaseLabel, { scanPercent, scanTotals, stepPercent } from './scanPhaseLabel'
 
 const t = ((key: string, vars?: object) =>
   vars ? `${key} ${JSON.stringify(vars)}` : key) as unknown as TFunction
@@ -31,6 +31,25 @@ describe('scanPhaseLabel', () => {
     expect(scanPhaseLabel(t, { phase: 'thumbnails', thumbs_done: 3, total_thumbs: 9 })).toBe(
       'maintenance.rescan.thumbnails {"done":3,"total":9}'
     )
+  })
+
+  it('describes the missing-file sweep and system pruning after the walk', () => {
+    expect(scanPhaseLabel(t, { phase: 'reconciling', step_done: 1, step_total: 4 })).toBe(
+      'maintenance.rescan.reconciling {"pct":25}'
+    )
+    expect(scanPhaseLabel(t, { phase: 'pruning', step_done: 3, step_total: 7 })).toBe(
+      'maintenance.rescan.pruning {"done":3,"total":7}'
+    )
+    expect(scanPhaseLabel(t, { phase: 'pruning' })).toBe(
+      'maintenance.rescan.pruning {"done":0,"total":0}'
+    )
+  })
+})
+
+describe('stepPercent', () => {
+  it('is 0 until a total is known', () => {
+    expect(stepPercent({})).toBe(0)
+    expect(stepPercent({ step_done: 2, step_total: 8 })).toBe(25)
   })
 })
 
