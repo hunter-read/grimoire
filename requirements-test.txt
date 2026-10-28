@@ -1,4 +1,7 @@
-pytest>=9.1.1
+# <9.2: pytest 9.2 keeps a node's id in `_id`, so pytest-xdist 3.8's `--dist loadgroup`
+# (which rewrites `item._nodeid`) silently stops grouping, and the suite's order-dependent
+# files run scattered across workers. Lift once pytest-xdist supports 9.2.
+pytest>=9.1.1,<9.2
 pytest-cov>=7.1.0
 ruff>=0.17.2
 mypy>=2.4.0

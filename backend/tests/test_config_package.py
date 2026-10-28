@@ -52,6 +52,17 @@ class TestFacade:
         assert env.RENDER_WORKERS == before
         assert config.RENDER_WORKERS == before
 
+    def test_undoing_a_patch_puts_the_setting_back_rather_than_deleting_it(self, monkeypatch):
+        """pytest 9.2 restores from the module ``__dict__`` unless a data descriptor
+        says otherwise; settings live on their owning module, so without one the
+        undo deleted ``env.VERSION`` outright and broke every later test."""
+        before = config.VERSION
+        with monkeypatch.context() as m:
+            m.setattr(config, "VERSION", "0.0.0-test")
+            assert env.VERSION == "0.0.0-test"
+        assert env.VERSION == before
+        assert "VERSION" not in config.__dict__
+
     def test_deleting_a_lazy_setting_resolves_it_again(self, monkeypatch):
         config.VERSION  # resolved and cached in env
         monkeypatch.setenv("APP_VERSION", "4.5.6")

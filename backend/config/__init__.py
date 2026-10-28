@@ -80,24 +80,35 @@ def startup() -> None:
     valkey.connect_valkey()
 
 
+def _forward(name: str) -> property:
+    """``config.<name>`` read, assigned and deleted on the module that owns it."""
+
+    def get(_self: types.ModuleType) -> Any:
+        return getattr(_OWNERS[name], name)
+
+    def set_(_self: types.ModuleType, value: Any) -> None:
+        setattr(_OWNERS[name], name, value)
+
+    def delete(_self: types.ModuleType) -> None:
+        delattr(_OWNERS[name], name)
+
+    return property(get, set_, delete)
+
+
 class _Facade(types.ModuleType):
-    def __setattr__(self, name: str, value: Any) -> None:
-        owner = _OWNERS.get(name)
-        if owner is None:
-            super().__setattr__(name, value)
-        else:
-            setattr(owner, name, value)
-
-    def __delattr__(self, name: str) -> None:
-        owner = _OWNERS.get(name)
-        if owner is None:
-            super().__delattr__(name)
-        else:
-            delattr(owner, name)
-
     def __dir__(self) -> list[str]:
         return sorted({*super().__dir__(), *_OWNERS})
 
+
+# One property per setting rather than ``__setattr__``/``__delattr__`` hooks.
+# pytest's ``monkeypatch.setattr`` (9.2+) only reads the value to restore through
+# ``getattr`` when the type has a data descriptor for the name; otherwise it takes
+# it from the module's own ``__dict__``, finds nothing there, and its undo
+# *deletes* the attribute - which the hooks forwarded to the owning module,
+# removing the real setting for every test that followed.
+for _name in _OWNERS:
+    if _name not in globals():
+        setattr(_Facade, _name, _forward(_name))
 
 sys.modules[__name__].__class__ = _Facade
 
