@@ -8,7 +8,7 @@ network, just what the publisher (or their export tool) wrote into the file.
            custom info key, the XMP packet, or an "ISBN …" in the subject or
            keywords
     EPUB   the OPF package the container points at, read by the same rules as
-           a Calibre ``.opf`` sidecar, plus its language and full date
+           a Calibre ``.opf`` sidecar, plus its full date
     Comic  ``ComicInfo.xml`` (the ComicRack schema) in a CBZ/CBR/CB7/CBT
 
 PDF info dictionaries are written by whatever tool exported the file, and many
@@ -244,10 +244,6 @@ def epub_fields(filepath: str) -> dict[str, Any]:
         isbn = _urn_isbn(root)
         if isbn:
             fields["isbn"] = isbn
-
-    language = _language(_dc_text(root, "language"))
-    if language:
-        fields["language"] = language
 
     # The sidecar reader keeps only the year; an EPUB's date is often exact.
     dated = _date_fields(_dc_text(root, "date"))

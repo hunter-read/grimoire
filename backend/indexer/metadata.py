@@ -258,9 +258,8 @@ def parse_opf_metadata(opf_path: str) -> dict:
     """Parse a Calibre/OPF metadata file and return a dict of book fields.
 
     Returns a dict containing any of: title, authors, description, publisher,
-    year, isbn, product_code, tags, cover_image_filename. Only keys with actual
-    values are
-    included. cover_image_filename is the bare filename (not a path) of the
+    year, isbn, product_code, language, tags, cover_image_filename. Only keys
+    with actual values are included. cover_image_filename is the bare filename (not a path) of the
     cover image referenced in the OPF <guide>, if present.
     """
     try:
@@ -326,6 +325,13 @@ def opf_fields(root: ElementTree.Element) -> dict:
     product_code = _parse_opf_product_code(root)
     if product_code:
         meta["product_code"] = product_code
+
+    # ``dc:language`` is a BCP 47 tag ("en", "de-DE") or, from Calibre, an
+    # ISO 639-2 code ("eng"). The column holds 20 characters, and a tag longer
+    # than that is not a real one.
+    language = " ".join(_find_text("language").split())
+    if 0 < len(language) <= 20:
+        meta["language"] = language
 
     subjects = [
         el.text.strip().lower()

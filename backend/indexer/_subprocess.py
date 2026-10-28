@@ -262,6 +262,7 @@ def ocr_page_isolated(
     page_index: int,
     should_stop: Optional[Callable[[], bool]] = None,
     dpi: int | None = None,
+    languages: str | None = None,
 ) -> str:
     """OCR a single page in a spawned child, bounded by ``config.OCR_PAGE_TIMEOUT``.
 
@@ -276,7 +277,8 @@ def ocr_page_isolated(
     rather than losing the whole book or crashing the server.
 
     ``dpi`` overrides the rasterization resolution (per-book re-OCR); None uses
-    the global ``OCR_DPI`` default.
+    the global ``OCR_DPI`` default. ``languages`` is the book's Tesseract
+    language string (``ocr_language.book_languages``); None uses ``OCR_LANGUAGES``.
     """
     from .. import pdf_worker
 
@@ -284,7 +286,7 @@ def ocr_page_isolated(
     os.close(fd)
     proc = _MP_CONTEXT.Process(
         target=pdf_worker.ocr_page_main,
-        args=(filepath, page_index, ocr.effective_languages(), result_path, dpi),
+        args=(filepath, page_index, languages or ocr.effective_languages(), result_path, dpi),
     )
     try:
         budget = config.OCR_PAGE_TIMEOUT
@@ -355,11 +357,14 @@ def ocr_book(
         _commit(session, f"ocr open-failed '{book.filepath}'")
         return "error"
 
-    # A thin text layer may be artwork rather than a scan: sample it first.
-    from . import ocr_probe
+    # Read in the book's own language when its metadata or file names one.
+    from . import ocr_language, ocr_probe
 
+    languages = ocr_language.book_languages(book)
+
+    # A thin text layer may be artwork rather than a scan: sample it first.
     if ocr_probe.should_sample(book):
-        verdict = ocr_probe.probe(book, session, page_count, should_stop)
+        verdict = ocr_probe.probe(book, session, page_count, should_stop, languages=languages)
         if verdict == "stopped":
             return "stopped"
         if verdict == "artwork":
@@ -375,7 +380,8 @@ def ocr_book(
         f"Reading text from '{book.title or book.filename}' - {page_count} page(s){_where}…"
     )
     logger.debug(
-        f"OCR: '{book.filename}' - {page_count} page(s), resuming at page {start + 1}"
+        f"OCR: '{book.filename}' - {page_count} page(s), resuming at page {start + 1}, "
+        f"languages={languages}"
         + (f" (dpi={dpi})" if dpi else "")
     )
     for i in range(start, page_count):
@@ -384,7 +390,7 @@ def ocr_book(
             return "stopped"
 
         text_out = indexer.ocr_book_page_isolated_wrapper(
-            book.filepath, i, should_stop, dpi=dpi
+            book.filepath, i, should_stop, dpi=dpi, languages=languages
         )
 
         # A page cancelled mid-flight comes back empty; treat that as a stop, not a
@@ -451,8 +457,11 @@ def ocr_book_page_isolated_wrapper(
     page_index: int,
     should_stop: Optional[Callable[[], bool]] = None,
     dpi: int | None = None,
+    languages: str | None = None,
 ) -> str:
-    return indexer.ocr_page_isolated(filepath, page_index, should_stop=should_stop, dpi=dpi)
+    return indexer.ocr_page_isolated(
+        filepath, page_index, should_stop=should_stop, dpi=dpi, languages=languages
+    )
 
 
 def _book_page_count(filepath: str) -> int:

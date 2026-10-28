@@ -303,6 +303,7 @@ _OPF_BOOK_FIELDS = (
     "year",
     "isbn",
     "product_code",
+    "language",
 )
 
 # The ``dc:identifier opf:scheme`` Grimoire writes a product code under (issue

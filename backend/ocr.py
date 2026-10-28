@@ -33,6 +33,8 @@ logger = logging.getLogger("grimoire.ocr")
 
 # Cached result of the tesseract-binary probe (None = not yet probed).
 _available: bool | None = None
+# Cached ``tesseract --list-langs`` (None = not yet listed).
+_installed: frozenset[str] | None = None
 
 
 def _probe_tesseract() -> bool:
@@ -68,14 +70,34 @@ def ocr_available() -> bool:
 
 
 def reset_availability_cache() -> None:
-    """Clear the cached tesseract probe (used by tests)."""
-    global _available
+    """Clear the cached tesseract probe and language list (used by tests)."""
+    global _available, _installed
     _available = None
+    _installed = None
 
 
 def effective_languages() -> str:
     """The Tesseract language string to OCR with (mirrors ``config.OCR_LANGUAGES``)."""
     return config.OCR_LANGUAGES
+
+
+def installed_languages() -> frozenset[str]:
+    """The Tesseract languages whose traineddata is installed; empty when unknown.
+
+    Listed once and cached: the set only changes when tessdata is remounted,
+    which means a restart. A failure is cached too, as an empty set, so a
+    broken install is asked once rather than for every book.
+    """
+    global _installed
+    if _installed is None:
+        try:
+            import pytesseract
+
+            _installed = frozenset(pytesseract.get_languages(config=""))
+        except Exception as exc:  # ImportError, TesseractNotFoundError, etc.
+            logger.debug(f"Could not list Tesseract languages: {exc}")
+            _installed = frozenset()
+    return _installed
 
 
 def requeue_image_only_books(session: Session) -> int:

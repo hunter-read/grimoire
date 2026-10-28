@@ -196,6 +196,12 @@ The product code travels the same way, under `opf:scheme="PRODUCT_CODE"`. The
 importer also accepts `SKU` (any case), for an OPF written by another tool.
 Product codes have no shared format, so no check is applied beyond trimming.
 
+`dc:language` is read as written - a BCP 47 tag such as `en` or `de-DE`, or
+the three-letter code Calibre writes, such as `eng` - and fills the book's
+language field. The first `dc:language` wins when there are several. OCR uses
+it to pick the language a scanned book is read in (see
+[OCR](performance.md#ocr)).
+
 Precedence is set by the **metadata refresh mode** used when scanning:
 
 | Mode | On rescan | Use with export |

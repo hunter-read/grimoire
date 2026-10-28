@@ -267,6 +267,29 @@ class TestEffectiveLanguages:
             assert ocr.effective_languages() == "eng+deu"
 
 
+class TestInstalledLanguages:
+    def teardown_method(self):
+        ocr.reset_availability_cache()
+        sys.modules.pop("pytesseract", None)
+
+    def test_lists_and_caches_the_installed_languages(self):
+        calls = []
+        fake = types.SimpleNamespace(
+            get_languages=lambda config="": calls.append(1) or ["eng", "deu", "osd"]
+        )
+        with patch.dict(sys.modules, {"pytesseract": fake}):
+            assert ocr.installed_languages() == {"eng", "deu", "osd"}
+            assert ocr.installed_languages() == {"eng", "deu", "osd"}
+        assert len(calls) == 1
+
+    def test_empty_when_tesseract_cannot_list_them(self):
+        def broken(config=""):
+            raise RuntimeError("tesseract is not installed")
+
+        with patch.dict(sys.modules, {"pytesseract": types.SimpleNamespace(get_languages=broken)}):
+            assert ocr.installed_languages() == frozenset()
+
+
 class TestOcrConcurrencyConfig:
     def test_defaults_to_one(self, monkeypatch):
         monkeypatch.delenv("OCR_CONCURRENCY", raising=False)

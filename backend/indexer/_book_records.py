@@ -264,6 +264,7 @@ def _register_book(
         year=opf_meta.get("year") or named.get("year"),
         isbn=opf_meta.get("isbn") or named.get("isbn", ""),
         product_code=opf_meta.get("product_code") or named.get("product_code", ""),
+        language=opf_meta.get("language", ""),
         version=named.get("version", ""),
         added_at=added_at_for_insert(ctx.date_inserts),
     )

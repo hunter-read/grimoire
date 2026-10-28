@@ -73,8 +73,12 @@ def probe(
     session: Session,
     page_count: int,
     should_stop: Optional[Callable[[], bool]] = None,
+    languages: Optional[str] = None,
 ) -> Verdict:
     """Sample ``book`` and, if it reads as artwork, index its own text layer instead.
+
+    ``languages`` is what the sampled pages are read with, the same as the full
+    pass would use; None means ``OCR_LANGUAGES``.
 
     Returns ``"scan"`` to go on with the full OCR pass, ``"artwork"`` when the
     book has been indexed from its own text (and taken off the queue), or
@@ -108,7 +112,7 @@ def probe(
         if should_stop and should_stop():
             return "stopped"
         content = indexer.ocr_book_page_isolated_wrapper(
-            book.filepath, index, should_stop, dpi=book.ocr_dpi
+            book.filepath, index, should_stop, dpi=book.ocr_dpi, languages=languages
         )
         if should_stop and should_stop():
             return "stopped"

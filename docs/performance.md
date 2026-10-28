@@ -36,6 +36,7 @@ Scanned books are also processed **page by page**, and progress is saved as it g
 - **Slim image:** the `-slim` tags (e.g. `hunterreadca/grimoire:v1.5.0-slim`, `:slim`) omit Tesseract for a smaller image. OCR is automatically disabled there.
 - **Upgrading to OCR:** if you enable OCR later (or switch from a slim image), any books that were previously skipped as image-only are automatically queued for OCR on the next scan.
 - **Additional languages:** set `OCR_LANGUAGES` to a `+`-joined list of Tesseract language codes (e.g. `eng+deu+fra`). The extra languages' data files must be present in the image - mount a directory of `.traineddata` files (or point `TESSDATA_PREFIX` at one) to add languages without rebuilding.
+- **Each book's own language:** before a book is OCR'd, Grimoire looks up its language - the book's **Language** field first, then `dc:language` in its `.opf` sidecar, then the PDF's own language setting (`/Lang`). That language is read first, followed by `OCR_LANGUAGES`, so a German book in a library set to `eng` is read with `deu+eng`. This only works when the language's data file is installed; if it isn't, the book is read with `OCR_LANGUAGES` and the log names the language file that would have helped. To read a book again after correcting its language, use **Re-OCR…**.
 
 ### Speeding up OCR
 

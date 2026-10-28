@@ -97,6 +97,7 @@ class TestOpf:
         assert parsed["isbn"] == FIELDS["isbn"]
         # Carried the same way, under its own scheme (issue #479).
         assert parsed["product_code"] == FIELDS["product_code"]
+        assert parsed["language"] == FIELDS["language"]
         assert parsed["tags"] == ["core", "rules"]
         assert parsed["cover_image_filename"] == "phb.jpg"
 

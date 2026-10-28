@@ -97,7 +97,7 @@ def _driving_the_real_page_reader(recognised: str):
 
     seen: list[int] = []
 
-    def wrapper(filepath, index, should_stop=None, dpi=None):
+    def wrapper(filepath, index, should_stop=None, dpi=None, languages=None):
         seen.append(index)
         with patch.object(pdf_worker, "_ocr_page", return_value=recognised):
             return pdf_worker.ocr_page(filepath, index, "eng", dpi=dpi)
@@ -140,7 +140,7 @@ _HEADERS = ([{"page": n, "content": "Chapter Five: The Fortress"} for n in range
 def _ocr_returning(content):
     seen: list[int] = []
 
-    def ocr(fp, i, should_stop=None, dpi=None):
+    def ocr(fp, i, should_stop=None, dpi=None, languages=None):
         seen.append(i)
         return content
 
@@ -185,6 +185,24 @@ class TestProbe:
             return verdict, book
         finally:
             db.close()
+
+    def test_samples_are_read_in_the_given_languages(self):
+        bid = _thin_book()
+        seen: list = []
+
+        def ocr(fp, i, should_stop=None, dpi=None, languages=None):
+            seen.append(languages)
+            return MAP_LABELS
+
+        db = SessionLocal()
+        try:
+            book = db.get(Book, bid)
+            with patch.object(indexer, "extract_text_isolated", return_value=_NATIVE), \
+                 patch.object(indexer, "ocr_book_page_isolated_wrapper", side_effect=ocr):
+                ocr_probe.probe(book, db, 10, languages="deu+eng")
+        finally:
+            db.close()
+        assert seen and set(seen) == {"deu+eng"}
 
     def test_artwork_keeps_its_own_text(self):
         bid = _thin_book()
@@ -257,7 +275,7 @@ class TestProbe:
         bid = _thin_book()
         calls = []
 
-        def ocr(fp, i, should_stop=None, dpi=None):
+        def ocr(fp, i, should_stop=None, dpi=None, languages=None):
             calls.append(i)
             return MAP_LABELS
 

@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 from sqlalchemy import text
 
-from backend import indexer
+from backend import config, indexer, ocr
 from backend.config import SessionLocal
 from backend.models import Book
 from backend.services.library_scan import runner
@@ -75,7 +75,7 @@ class TestOcrBook:
             with patch.object(indexer, "_book_page_count", return_value=3), \
                  patch.object(
                      indexer, "ocr_book_page_isolated_wrapper",
-                     side_effect=lambda fp, i, should_stop=None, dpi=None: f"text-{i + 1}",
+                     side_effect=lambda fp, i, should_stop=None, dpi=None, languages=None: f"text-{i + 1}",
                  ):
                 result = indexer.ocr_book(book, db)
             assert result == "done"
@@ -96,7 +96,7 @@ class TestOcrBook:
         try:
             book = db.get(Book, bid)
 
-            def _ocr(fp, i, should_stop=None, dpi=None):
+            def _ocr(fp, i, should_stop=None, dpi=None, languages=None):
                 seen.append(i)
                 return f"text-{i + 1}"
 
@@ -119,7 +119,7 @@ class TestOcrBook:
             with patch.object(indexer, "_book_page_count", return_value=2), \
                  patch.object(
                      indexer, "ocr_book_page_isolated_wrapper",
-                     side_effect=lambda fp, i, should_stop=None, dpi=None: "" if i == 0 else "text",
+                     side_effect=lambda fp, i, should_stop=None, dpi=None, languages=None: "" if i == 0 else "text",
                  ):
                 indexer.ocr_book(book, db)
             db.refresh(book)
@@ -145,7 +145,7 @@ class TestOcrBook:
             with patch.object(indexer, "_book_page_count", return_value=5), \
                  patch.object(
                      indexer, "ocr_book_page_isolated_wrapper",
-                     side_effect=lambda fp, i, should_stop=None, dpi=None: f"t{i}",
+                     side_effect=lambda fp, i, should_stop=None, dpi=None, languages=None: f"t{i}",
                  ):
                 result = indexer.ocr_book(book, db, should_stop=_stop)
             assert result == "stopped"
@@ -169,7 +169,7 @@ class TestOcrBook:
             # checkpoint must NOT advance.
             state = {"stopping": False}
 
-            def _ocr(fp, i, should_stop=None, dpi=None):
+            def _ocr(fp, i, should_stop=None, dpi=None, languages=None):
                 state["stopping"] = True  # cancel arrives while OCRing page 1
                 return ""
 
@@ -208,7 +208,7 @@ class TestOcrBook:
             db.commit()
             seen_dpi = []
 
-            def _ocr(fp, i, should_stop=None, dpi=None):
+            def _ocr(fp, i, should_stop=None, dpi=None, languages=None):
                 seen_dpi.append(dpi)
                 return "t"
 
@@ -229,10 +229,33 @@ class TestOcrBook:
             with patch.object(indexer, "_book_page_count", return_value=1), \
                  patch.object(
                      indexer, "ocr_book_page_isolated_wrapper",
-                     side_effect=lambda fp, i, should_stop=None, dpi=None: seen.append(dpi) or "t",
+                     side_effect=lambda fp, i, should_stop=None, dpi=None, languages=None: seen.append(dpi) or "t",
                  ):
                 indexer.ocr_book(book, db)
             assert seen == [None]
+        finally:
+            db.close()
+
+    def test_book_language_is_threaded_to_worker(self):
+        """ocr_book reads each page in the book's own language (issue #728)."""
+        bid = _queued_book(page_count=2)
+        db = SessionLocal()
+        try:
+            book = db.get(Book, bid)
+            book.language = "de"
+            db.commit()
+            seen = []
+            with patch.object(indexer, "_book_page_count", return_value=2), \
+                 patch.object(config, "OCR_LANGUAGES", "eng"), \
+                 patch.object(ocr, "installed_languages", return_value=frozenset({"eng", "deu"})), \
+                 patch.object(
+                     indexer, "ocr_book_page_isolated_wrapper",
+                     side_effect=lambda fp, i, should_stop=None, dpi=None, languages=None: (
+                         seen.append(languages) or "t"
+                     ),
+                 ):
+                indexer.ocr_book(book, db)
+            assert seen == ["deu+eng", "deu+eng"]
         finally:
             db.close()
 
@@ -281,6 +304,18 @@ class TestOcrPageIsolated:
         assert args[1] == 2  # page_index
         assert args[-1] == 350  # dpi
 
+    def test_languages_default_to_the_configured_ones(self):
+        with patch.object(indexer._MP_CONTEXT, "Process") as MockProc, \
+             patch.object(config, "OCR_LANGUAGES", "eng+fra"), \
+             patch("backend.indexer.pickle.load", return_value="x"), \
+             patch("backend.indexer.os.path.getsize", return_value=10), \
+             patch("builtins.open"):
+            MockProc.return_value.is_alive.return_value = False
+            indexer.ocr_page_isolated("/tmp/x.pdf", 0)
+            assert MockProc.call_args.kwargs["args"][2] == "eng+fra"
+            indexer.ocr_page_isolated("/tmp/x.pdf", 0, languages="deu+eng")
+            assert MockProc.call_args.kwargs["args"][2] == "deu+eng"
+
 
 class TestOcrBookPageIsolatedWrapper:
     """The real wrapper ocr_book calls — not the stub the queue tests patch in.
@@ -302,6 +337,11 @@ class TestOcrBookPageIsolatedWrapper:
             indexer.ocr_book_page_isolated_wrapper("/tmp/x.pdf", 0, None)
         assert m.call_args.kwargs["dpi"] is None
 
+    def test_forwards_languages(self):
+        with patch.object(indexer, "ocr_page_isolated", return_value="ok") as m:
+            indexer.ocr_book_page_isolated_wrapper("/tmp/x.pdf", 0, None, languages="deu+eng")
+        assert m.call_args.kwargs["languages"] == "deu+eng"
+
 
 class TestRunOcrQueue:
     def test_drains_pending_books(self):
@@ -313,7 +353,7 @@ class TestRunOcrQueue:
         with patch.object(indexer, "_book_page_count", return_value=2), \
              patch.object(
                  indexer, "ocr_book_page_isolated_wrapper",
-                 side_effect=lambda fp, i, should_stop=None, dpi=None: "t",
+                 side_effect=lambda fp, i, should_stop=None, dpi=None, languages=None: "t",
              ):
             completed = runner.run_ocr_queue()
 
@@ -383,7 +423,7 @@ class TestRunOcrQueue:
         with patch.object(indexer, "_book_page_count", return_value=1), \
              patch.object(
                  indexer, "ocr_book_page_isolated_wrapper",
-                 side_effect=lambda fp, i, should_stop=None, dpi=None: "t",
+                 side_effect=lambda fp, i, should_stop=None, dpi=None, languages=None: "t",
              ), \
              patch.object(runner, "ocr_book", side_effect=_maybe_raise):
             completed = runner.run_ocr_queue()
@@ -419,7 +459,7 @@ class TestRunOcrQueue:
 
         with patch.object(indexer, "_book_page_count", return_value=1), patch.object(
             indexer, "ocr_book_page_isolated_wrapper",
-            side_effect=lambda fp, i, should_stop=None, dpi=None: "text",
+            side_effect=lambda fp, i, should_stop=None, dpi=None, languages=None: "text",
         ), patch.object(runner, "ocr_book", side_effect=_queue_another):
             completed = runner.run_ocr_queue()
 
@@ -646,7 +686,7 @@ class TestOcrPagesSkipped:
         try:
             book = db.get(Book, bid)
 
-            def _ocr(fp, i, should_stop=None, dpi=None):
+            def _ocr(fp, i, should_stop=None, dpi=None, languages=None):
                 # Pages 2..5 are the pathological ones.
                 return "text-1" if i == 0 else indexer.OCR_PAGE_ABANDONED
 
@@ -670,7 +710,7 @@ class TestOcrPagesSkipped:
         try:
             book = db.get(Book, bid)
 
-            def _ocr(fp, i, should_stop=None, dpi=None):
+            def _ocr(fp, i, should_stop=None, dpi=None, languages=None):
                 return "" if i == 1 else "text"  # page 2 is blank, not abandoned
 
             with patch.object(indexer, "_book_page_count", return_value=3), \
@@ -689,7 +729,7 @@ class TestOcrPagesSkipped:
             with patch.object(indexer, "_book_page_count", return_value=3), \
                  patch.object(
                      indexer, "ocr_book_page_isolated_wrapper",
-                     side_effect=lambda fp, i, should_stop=None, dpi=None: "t",
+                     side_effect=lambda fp, i, should_stop=None, dpi=None, languages=None: "t",
                  ):
                 indexer.ocr_book(book, db)
             db.refresh(book)
@@ -713,7 +753,7 @@ class TestOcrPagesSkipped:
             with patch.object(indexer, "_book_page_count", return_value=4), \
                  patch.object(
                      indexer, "ocr_book_page_isolated_wrapper",
-                     side_effect=lambda fp, i, should_stop=None, dpi=None: (
+                     side_effect=lambda fp, i, should_stop=None, dpi=None, languages=None: (
                          indexer.OCR_PAGE_ABANDONED
                      ),
                  ):
@@ -738,7 +778,7 @@ class TestOcrPagesSkipped:
             with patch.object(indexer, "_book_page_count", return_value=3), \
                  patch.object(
                      indexer, "ocr_book_page_isolated_wrapper",
-                     side_effect=lambda fp, i, should_stop=None, dpi=None: (
+                     side_effect=lambda fp, i, should_stop=None, dpi=None, languages=None: (
                          indexer.OCR_PAGE_ABANDONED if i else "t"
                      ),
                  ), \

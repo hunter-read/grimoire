@@ -444,6 +444,48 @@ class TestParseOpfProductCode:
         assert book.product_code == "PZO9001E"
 
 
+class TestParseOpfLanguage:
+    """``dc:language`` fills the book's language (issue #728)."""
+
+    def setup_method(self):
+        self.tmp = tempfile.mkdtemp()
+
+    def _parse(self, *elements: str) -> dict:
+        return parse_opf_metadata(_write_opf(self.tmp, "test.opf", _isbn_opf(*elements)))
+
+    def test_bcp47_tag_read(self):
+        assert self._parse("<dc:language>de-DE</dc:language>")["language"] == "de-DE"
+
+    def test_first_of_several_wins(self):
+        meta = self._parse("<dc:language>fr</dc:language>", "<dc:language>en</dc:language>")
+        assert meta["language"] == "fr"
+
+    def test_whitespace_collapsed(self):
+        assert self._parse("<dc:language>\n  eng  </dc:language>")["language"] == "eng"
+
+    def test_empty_and_oversized_values_skipped(self):
+        assert "language" not in self._parse("<dc:language>   </dc:language>")
+        assert "language" not in self._parse(f"<dc:language>{'x' * 21}</dc:language>")
+
+    def test_absent_tag_leaves_language_unset(self):
+        assert "language" not in self._parse()
+
+    def test_missing_mode_fills_an_empty_language(self):
+        book = Book(title="T", language="")
+        assert _apply_opf_to_book(book, {"language": "de"}, "missing") is True
+        assert book.language == "de"
+
+    def test_missing_mode_protects_a_user_entered_language(self):
+        book = Book(title="T", language="English")
+        assert _apply_opf_to_book(book, {"language": "de"}, "missing") is False
+        assert book.language == "English"
+
+    def test_replace_mode_overwrites_a_language(self):
+        book = Book(title="T", language="English")
+        assert _apply_opf_to_book(book, {"language": "de"}, "replace") is True
+        assert book.language == "de"
+
+
 # ---------------------------------------------------------------------------
 # Calibre per-book-folder structure — scan_library integration
 # ---------------------------------------------------------------------------
@@ -459,6 +501,7 @@ CALIBRE_BOOK_OPF = dedent("""\
             <dc:identifier opf:scheme="ISBN">978-0-7869-6560-1</dc:identifier>
             <dc:identifier opf:scheme="uuid" id="uuid_id">1c2f8f0e-6b0e-4f2d-9a1b-8c7d6e5f4a3b</dc:identifier>
             <dc:subject>tabletop rpg</dc:subject>
+            <dc:language>eng</dc:language>
         </metadata>
         <guide>
             <reference type="cover" title="Cover" href="cover.jpg"/>
@@ -515,6 +558,7 @@ class TestCalibrePerBookFolderStructure:
         assert book.year == 2014
         # Scoped ISBN round-trips in normalised form; the UUID stays ignored.
         assert book.isbn == "9780786965601"
+        assert book.language == "eng"
         # OPF subjects become shared tags; match on the internal (lowercased) key.
         db = SessionLocal()
         try:
