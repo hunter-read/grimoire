@@ -242,6 +242,11 @@ class TestReadOnlyMount:
         self, db, tmp_path, monkeypatch
     ):
         """One actionable error beats one identical error per book."""
+        # Sorts first, like a book another test file left behind with a sidecar
+        # Grimoire did not write: it is skipped, not failed, and does not count.
+        foreign = _make_book(db, tmp_path, book_id="sidecar--foreign")
+        with open(sidecar_path(foreign.filepath, "opf"), "w") as fh:
+            fh.write("<package/>")
         for i in range(3):
             _make_book(db, tmp_path, book_id=f"sidecar-{i}")
 
@@ -253,7 +258,10 @@ class TestReadOnlyMount:
 
         assert result.read_only is True
         assert result.failed == 1
-        assert len(result.errors) == 1
+        # Only the read-only errors are counted: the run covers every book in the
+        # shared test database, and a book another file left behind can sort
+        # ahead of these with a sidecar of its own, reported as not ours.
+        assert len([e for e in result.errors if "read-only" in e.lower()]) == 1
 
 
 class TestExportLibrary:
