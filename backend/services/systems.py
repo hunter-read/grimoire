@@ -32,6 +32,31 @@ def browsable_system_ids(db: Session, systems: Iterable[GameSystem], current_use
     return access_control.accessible_system_ids(db, user or current_user, candidates)
 
 
+def visible_systems_by_id(
+    db: Session, system_ids: Iterable[str | None], current_user: Any
+) -> dict[str, GameSystem]:
+    """The systems among ``system_ids`` that ``current_user`` may see, by id.
+
+    A book can be open inside a system its reader may not see. Anything that
+    describes the book names its system only from this map, so a hidden one is
+    left out - as the system's own page, the campaign views and the resource
+    picker leave it out.
+    """
+    wanted = {system_id for system_id in system_ids if system_id}
+    if not wanted:
+        return {}
+    systems = db.query(GameSystem).filter(GameSystem.id.in_(wanted)).all()
+    allowed = browsable_system_ids(db, systems, current_user)
+    return {system.id: system for system in systems if system.id in allowed}
+
+
+def visible_book_system(db: Session, book: Book, current_user: Any) -> GameSystem | None:
+    """``book``'s game system, or None when it has none or ``current_user`` cannot see it."""
+    return visible_systems_by_id(db, [book.game_system_id], current_user).get(
+        book.game_system_id or ""
+    )
+
+
 def load_browsable_system(db: Session, system_id: str, current_user: Any) -> GameSystem:
     """The system, or 404 when it is missing or hidden from this user.
 

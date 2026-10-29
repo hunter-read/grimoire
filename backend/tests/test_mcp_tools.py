@@ -15,7 +15,7 @@ from PIL import Image
 from backend.config import SessionLocal
 from backend.mcp_server.tools import campaigns as campaign_tools
 from backend.mcp_server.tools import library as library_tools
-from backend.models import Bookmark, CampaignMember, WikiPage
+from backend.models import Bookmark, CampaignMember, GameSystem, WikiPage
 from backend.tests._mcp import (
     allow_keys,
     call_error,
@@ -170,6 +170,28 @@ class TestListBooks:
     def test_no_match(self, mcp_client, read_key, library):
         args = {"system_id": library["system"].id, "category": "no-such-category"}
         assert call_text(mcp_client, read_key, "list_books", args) == "No books matched."
+
+
+class TestHiddenSystem:
+    def test_list_and_get_book_never_name_a_hidden_system(
+        self, mcp_client, player_key, read_key
+    ):
+        name = f"Hidden Mcp {uuid.uuid4().hex[:6]}"
+        system = make_game_system(name=name, access_level="gm")
+        book = make_book(system.id, access_level="", title=f"Open Guide {uuid.uuid4().hex[:4]}")
+        try:
+            listed = call_text(mcp_client, player_key, "list_books", {"system_id": system.id})
+            assert book.title in listed and name not in listed
+            detail = call_text(mcp_client, player_key, "get_book", {"book_id": book.id})
+            assert detail.startswith(f"# {book.title}") and name not in detail
+            assert f"System: {name}" in call_text(
+                mcp_client, read_key, "get_book", {"book_id": book.id}
+            )
+        finally:
+            db = SessionLocal()
+            db.query(GameSystem).filter_by(id=system.id).update({GameSystem.access_level: ""})
+            db.commit()
+            db.close()
 
 
 class TestGetBook:

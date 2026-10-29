@@ -93,6 +93,23 @@ def _system(db: Session, system_id: str, user: CurrentUser) -> GameSystem:
     return system
 
 
+def _book_system(db: Session, book: Book, user: CurrentUser) -> GameSystem | None:
+    """The book's game system, or None when it has none or ``user`` cannot see it.
+
+    A book can be open inside a system its reader may not open. Sending the
+    book then goes without the system: it is neither sent nor linked on their
+    say-so, and the compare view does not describe it.
+    """
+    if not book.game_system_id:
+        return None
+    system = db.get(GameSystem, book.game_system_id)
+    if system is None or not access_control.can_access_system(
+        db, access_control.load_user(db, user), system
+    ):
+        return None
+    return system
+
+
 def _target(resource: Union[Book, GameSystem]) -> str:
     return "book" if isinstance(resource, Book) else "game-system"
 
@@ -107,7 +124,7 @@ def _compare(db: Session, resource: Union[Book, GameSystem], user: CurrentUser) 
     try:
         if resource.codex_id:
             remote = codex_client.export(s, entity, resource.codex_id)
-        system = _system_choices(db, s, resource) if isinstance(resource, Book) else None
+        system = _system_choices(db, s, resource, user) if isinstance(resource, Book) else None
     except codex.CodexError as exc:
         raise codex.http_error(exc) from exc
     cover = local_cover(db, resource, access_control.load_user(db, user))
@@ -129,11 +146,13 @@ def _compare(db: Session, resource: Union[Book, GameSystem], user: CurrentUser) 
     }
 
 
-def _system_choices(db: Session, s: codex.CodexSettings, book: Book) -> dict | None:
+def _system_choices(
+    db: Session, s: codex.CodexSettings, book: Book, user: CurrentUser
+) -> dict | None:
     """A new book's game system, with the Grimoire Codex DB systems it might be when it is not linked."""
-    if book.codex_id or not book.game_system_id:
+    if book.codex_id:
         return None
-    system = db.get(GameSystem, book.game_system_id)
+    system = _book_system(db, book, user)
     if system is None:
         return None
     candidates = []
@@ -231,8 +250,8 @@ def _submit(db: Session, resource: Union[Book, GameSystem], data: CodexSubmit, u
     """
     s = codex.load(db)
     system = None
-    if isinstance(resource, Book) and not resource.codex_id and resource.game_system_id:
-        system = db.get(GameSystem, resource.game_system_id)
+    if isinstance(resource, Book) and not resource.codex_id:
+        system = _book_system(db, resource, user)
     choice = data.system
     if system is None or system.codex_id or choice is None or not (choice.codex_id or choice.create):
         return _send(db, s, resource, data, user)

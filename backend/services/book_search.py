@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from ..models import Book, GameSystem, ResourceTag, Tag
 from . import access_control, tag_service, variants
 from .search_query import BOOK_FIELDS, ParsedQuery, year_bounds
+from .systems import visible_systems_by_id
 
 # Ceiling on title-match rows. Generous relative to what a person reads, but
 # bounded so a one-letter filter (``language:e``) cannot select the library.
@@ -198,7 +199,7 @@ def search_book_metadata(
     books = query.limit(limit).all()
 
     ranked = sorted(books, key=lambda b: _title_rank(b, parsed))
-    return _serialize(db, ranked)
+    return _serialize(db, ranked, user)
 
 
 def _title_rank(book: Book, parsed: ParsedQuery) -> tuple:
@@ -219,21 +220,16 @@ def _title_rank(book: Book, parsed: ParsedQuery) -> tuple:
     return (2, title)
 
 
-def _serialize(db: Session, books: list[Book]) -> list[dict]:
+def _serialize(db: Session, books: list[Book], user: Any) -> list[dict]:
     ids = [b.id for b in books]
     tags = tag_service.display_tags_for_resources(db, "book", ids)
-    system_ids = {b.game_system_id for b in books if b.game_system_id}
-    systems = (
-        {s.id: s.name for s in db.query(GameSystem).filter(GameSystem.id.in_(system_ids)).all()}
-        if system_ids
-        else {}
-    )
+    systems = visible_systems_by_id(db, (b.game_system_id for b in books), user)
     return [
         {
             "id": b.id,
             "title": b.title,
-            "game_system": systems.get(b.game_system_id or "", ""),
-            "game_system_id": b.game_system_id or "",
+            "game_system": systems[b.game_system_id].name if b.game_system_id in systems else "",
+            "game_system_id": b.game_system_id if b.game_system_id in systems else "",
             "category": b.category,
             "authors": list(b.authors or []),
             "publisher": b.publisher or "",

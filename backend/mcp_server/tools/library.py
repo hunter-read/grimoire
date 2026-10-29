@@ -14,7 +14,7 @@ from fastapi import HTTPException
 from pydantic import BaseModel, Field
 
 from ... import api_keys
-from ...models import GameSystem
+from ...services.systems import visible_systems_by_id
 from ._base import Tool, ToolContext, truncate
 
 # Most contents entries get_book lists; a long rulebook's full outline would
@@ -167,12 +167,11 @@ def list_books(args: ListBooksArgs, ctx: ToolContext) -> str:
     books, total = found["books"], found["total"]
     if not books:
         return "No books matched." if args.offset == 0 else f"No books past offset {args.offset}."
-    ids = {b["game_system_id"] for b in books if b["game_system_id"]}
     names = {
-        system_id: name
-        for system_id, name in ctx.db.query(GameSystem.id, GameSystem.name)
-        .filter(GameSystem.id.in_(ids))
-        .all()
+        system_id: system.name
+        for system_id, system in visible_systems_by_id(
+            ctx.db, (b["game_system_id"] for b in books), ctx.user
+        ).items()
     }
     first = args.offset + 1
     lines = [f"Books {first}-{args.offset + len(books)} of {total}, by title:"]

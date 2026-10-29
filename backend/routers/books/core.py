@@ -22,10 +22,11 @@ from ...indexer import reocr_applies, slugify
 from ...indexer.formats import can_index
 from ...metadata import export as sidecar_export
 from ...metadata import settings as sidecar_settings
-from ...models import Book, GameSystem
+from ...models import Book
 from ...models.base import utc_iso
 from ...services import access_control, bulk_service, library_fs, tag_service, variants
 from ...services.content_cache import content_token
+from ...services.systems import visible_book_system
 from .._bulk_schemas import BulkAddTags
 from ...services.media.access import guest_visible_variants
 from ._helpers import LEVEL_KEPT_DETAIL, get_visible_book, keeps_access_level
@@ -174,11 +175,7 @@ def get_book(
         # 404 like a restricted book: a distinct answer would confirm the book
         # exists. MCP's book tools load through here, so they answer the same.
         raise HTTPException(404, "Book not found")
-    system = (
-        db.query(GameSystem).filter_by(id=book.game_system_id).first()
-        if book.game_system_id
-        else None
-    )
+    system = visible_book_system(db, book, current_user)
     variant_parent, siblings = variants.family_for(db, Book, book)
     siblings = guest_visible_variants(
         db,

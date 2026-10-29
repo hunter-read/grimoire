@@ -151,6 +151,32 @@ class TestTransfer:
         assert theirs["schema_missing"] is False
         assert theirs["schema_version"] == "1.2.0"
 
+    def test_the_copied_sheet_carries_only_layouts_derived_from_its_source(
+        self, client, gm_headers, player_headers, table, player_id
+    ):
+        supplied = {
+            "layout_ast": [{"tag": "div", "attrs": {"class": "x"}, "children": []}],
+            "styles_css": "body { display: none }",
+            "mobile_layout_ast": [{"tag": "div", "attrs": {}, "children": []}],
+            "mobile_styles_css": "body { display: none }",
+        }
+        resp = client.post(
+            "/api/characters/schemas",
+            json={"document": {**SCHEMA, **supplied}},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 200, resp.text
+        try:
+            created = _create(client, gm_headers, table)
+            assert _transfer(client, gm_headers, created["id"], player_id).status_code == 200
+            theirs = client.get(
+                "/api/characters/schemas/transfer-demo", headers=player_headers
+            ).json()["document"]
+            for key in supplied:
+                assert key not in theirs
+        finally:
+            client.delete("/api/characters/schemas/transfer-demo", headers=gm_headers)
+
     def test_keeps_the_players_own_copy_of_the_sheet(
         self, client, gm_headers, player_headers, gm_sheet, table, player_id
     ):

@@ -177,16 +177,40 @@ const PROP_NAMES: Record<string, string> = {
 
 const VOID_TAGS = new Set(['br', 'hr', 'img'])
 
-function toProps(attrs: Record<string, string> = {}, key: string) {
+// Attributes a structural tag may carry, mirroring _GLOBAL_ATTRS and _TAG_ATTRS
+// on the server. Anything else - `style`, an `on*` handler, a React-only prop
+// such as `dangerouslySetInnerHTML` - is dropped.
+const GLOBAL_ATTRS = new Set(['class', 'id', 'title', 'role'])
+const TAG_ATTRS: Record<string, Set<string>> = {
+  img: new Set(['src', 'alt', 'width', 'height', 'loading']),
+  td: new Set(['colspan', 'rowspan']),
+  th: new Set(['colspan', 'rowspan', 'scope']),
+  label: new Set(['for']),
+  details: new Set(['open']),
+}
+
+// Relative or https, as the server's _check_url allows.
+function inertUrl(value: string): boolean {
+  const candidate = value.trim().toLowerCase()
+  if (!candidate || candidate.startsWith('https://') || candidate.startsWith('/')) return true
+  const colon = candidate.indexOf(':')
+  return colon === -1 || /[/?#]/.test(candidate.slice(0, colon))
+}
+
+function toProps(tag: string, attrs: Record<string, unknown> = {}, key: string) {
   const props: Record<string, unknown> = { key }
+  const allowed = TAG_ATTRS[tag]
   for (const [name, value] of Object.entries(attrs)) {
-    // Belt and braces: the server rejects these, and so do we.
+    // Belt and braces: the server parses layouts down to string attributes
+    // from a closed list, and so do we.
+    if (typeof value !== 'string') continue
     if (name.startsWith('on')) continue
-    if (name === 'style') continue
+    if (name === 'src' && !inertUrl(value)) continue
     if (name.startsWith('data-') || name.startsWith('aria-')) {
       props[name] = value
       continue
     }
+    if (!GLOBAL_ATTRS.has(name) && !allowed?.has(name)) continue
     // A boolean attribute: present means open, whatever its value. React would
     // read `open=""` as false and draw the section closed.
     if (name === 'open') {
@@ -284,7 +308,7 @@ function renderNode(node: LayoutNode, ctx: RenderContext): ReactNode {
     return <Fragment key={ctx.key}>{renderChildren(node.children, ctx)}</Fragment>
   }
 
-  const props = toProps(node.attrs, ctx.key)
+  const props = toProps(tag, node.attrs, ctx.key)
   if (VOID_TAGS.has(tag)) return createElement(tag, props)
   return createElement(tag, props, renderChildren(node.children, ctx))
 }

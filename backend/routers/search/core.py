@@ -7,11 +7,12 @@ from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, get_current_user
 from ...config import get_db
-from ...models import Book, GameSystem
+from ...models import Book
 from ...services import access_control
 from ...services.content_cache import content_token
 from ...services.book_search import search_book_metadata
 from ...services.search_query import FIELD_ALIASES, parse_query
+from ...services.systems import visible_book_system
 from ...services.media.access import allow_explicit
 from ._helpers import (
     EXPLICIT_BOOKS_CLAUSE,
@@ -126,16 +127,12 @@ def search_library(
         if bid not in book_cache:
             book = db.query(Book).filter_by(id=bid).first()
             if book:
-                system = (
-                    db.query(GameSystem).filter_by(id=book.game_system_id).first()
-                    if book.game_system_id
-                    else None
-                )
+                system = visible_book_system(db, book, user)
                 book_cache[bid] = {
                     "id": book.id,
                     "title": book.title,
                     "game_system": system.name if system else "",
-                    "game_system_id": book.game_system_id or "",
+                    "game_system_id": system.id if system else "",
                     "category": book.category,
                     "content_token": content_token(book.content_hash, book.filepath),
                     "mime_type": book.mime_type,

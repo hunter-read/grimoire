@@ -145,6 +145,43 @@ describe('LayoutRenderer', () => {
       expect((window as unknown as { __pwned?: unknown }).__pwned).toBeUndefined()
     })
 
+    it('drops dangerouslySetInnerHTML and any other non-string attribute', () => {
+      const node = {
+        tag: 'div',
+        attrs: {
+          class: 'z',
+          dangerouslySetInnerHTML: {
+            __html: '<form><input type="password"></form><a href="https://evil.example">x</a>',
+          },
+          title: 42,
+        },
+        children: [],
+      } as unknown as LayoutNode
+      const { container } = renderLayout([node])
+      const div = container.querySelector('div.z')!
+      expect(div.innerHTML).toBe('')
+      expect(div.getAttribute('title')).toBeNull()
+      expect(container.querySelector('form, input[type="password"], a')).toBeNull()
+    })
+
+    it('keeps only the attributes a tag is allowed', () => {
+      const { container } = renderLayout([
+        {
+          tag: 'div',
+          attrs: { class: 'w', href: 'https://evil.example', open: '', colspan: '2' },
+          children: [],
+        },
+        { tag: 'img', attrs: { class: 'bad', src: 'javascript:alert(1)' }, children: [] },
+        { tag: 'img', attrs: { class: 'good', src: '/api/books/1/cover', alt: 'Cover' } },
+      ])
+      const div = container.querySelector('div.w')!
+      expect(div.getAttribute('href')).toBeNull()
+      expect(div.hasAttribute('open')).toBe(false)
+      expect(div.getAttribute('colspan')).toBeNull()
+      expect(container.querySelector('img.bad')!.getAttribute('src')).toBeNull()
+      expect(container.querySelector('img.good')!.getAttribute('src')).toBe('/api/books/1/cover')
+    })
+
     it('does not render an iframe carried in the AST', () => {
       const { container } = renderLayout([
         { tag: 'iframe', attrs: { src: 'https://evil.example' }, children: [] },

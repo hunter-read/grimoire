@@ -525,6 +525,14 @@ def _validate_content_type(name: str, definition: Any) -> None:
             )
 
 
+#: The keys validate_schema works out from ``layout_html``/``styles`` and their
+#: ``mobile_`` counterparts. The renderer trusts them, so the author never
+#: supplies them.
+DERIVED_LAYOUT_KEYS: frozenset = frozenset(
+    {"layout_ast", "styles_css", "mobile_layout_ast", "mobile_styles_css"}
+)
+
+
 def _derive_html_layouts(document: dict, scope: str) -> dict[str, Any]:
     """Parse a sheet's HTML layouts and scope their stylesheets.
 
@@ -695,7 +703,12 @@ def validate_schema(document: Any, *, scope: str = "gc-sheet") -> dict:
     if "layout" in document:
         _validate_layout(document["layout"], known, images)
 
-    normalised = dict(document)
+    # The derived keys come only from their source fields. A document that
+    # carries them already - written by hand, or copied from another user's
+    # sheet - has them dropped and rebuilt, never passed along as written.
+    normalised = {
+        key: value for key, value in document.items() if key not in DERIVED_LAYOUT_KEYS
+    }
     normalised.update(_derive_html_layouts(document, scope))
 
     if "layout" not in document and document.get("layout_html") is None:

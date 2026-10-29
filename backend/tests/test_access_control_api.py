@@ -809,6 +809,40 @@ class TestListsShowOnlyVisible:
             f"/api/campaigns/resources/suggested/{system.id}", headers=player_headers
         ).json() == []
 
+    def test_book_detail_and_search_never_name_a_hidden_system(
+        self, client, player_headers, admin_headers
+    ):
+        from ._mcp import index_page
+
+        name = f"Secret Shelf {uuid.uuid4().hex[:6]}"
+        system = make_game_system(name=name)
+        book = make_book(system.id, access_level="")
+        word = f"zq{uuid.uuid4().hex[:8]}"
+        index_page(book.id, 1, f"The {word} lurks here.")
+        _set_system_level(system.id, "gm")
+        assert client.get(f"/api/systems/{system.id}", headers=player_headers).status_code == 404
+
+        detail = client.get(f"/api/books/{book.id}", headers=player_headers).json()
+        assert detail["game_system"] is None
+
+        by_title = client.get(
+            "/api/search", params={"q": f"title:{book.title}"}, headers=player_headers
+        ).json()["book_matches"]
+        row = next(r for r in by_title if r["id"] == book.id)
+        assert row["game_system"] == "" and row["game_system_id"] == ""
+
+        hits = client.get("/api/search", params={"q": word}, headers=player_headers).json()
+        hit = next(r for r in hits["results"] if r["id"] == book.id)
+        assert hit["game_system"] == "" and hit["game_system_id"] == ""
+        assert name not in str(detail) + str(by_title) + str(hits)
+
+        # Someone who can see the system still gets it named.
+        assert client.get(f"/api/books/{book.id}", headers=admin_headers).json()[
+            "game_system"
+        ]["name"] == name
+        admin_hits = client.get("/api/search", params={"q": word}, headers=admin_headers).json()
+        assert next(r for r in admin_hits["results"] if r["id"] == book.id)["game_system"] == name
+
     def test_container_page_lists_only_visible_children(
         self, client, player_headers, admin_headers
     ):

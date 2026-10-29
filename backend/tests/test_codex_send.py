@@ -343,6 +343,41 @@ class TestSubmitExtras:
         assert fake.body("/api/v1/grimoire/books")["systems"] == ["sy_osr001"]
         assert [r.url.path for r in fake.requests] == ["/api/v1/grimoire/books"]
 
+    @pytest.mark.parametrize("choice", [{"create": True}, {"codex_id": "sy_other01"}])
+    def test_a_system_the_gm_cannot_see_is_neither_sent_nor_linked(
+        self, client, gm_headers, fake, choice
+    ):
+        # An open book inside an admin-only system: the GM reaches the book only.
+        system = make_game_system(access_level="admin", description="Admin notes")
+        book = make_book(system.id, access_level="")
+        fake.on(
+            "POST",
+            "/api/v1/grimoire/systems",
+            body={"codex_id": "sy_new009", "edit": {"id": "ed_9", "status": "applied"}},
+        )
+        fake.on(
+            "POST",
+            "/api/v1/grimoire/books",
+            body={"codex_id": "bk_new009", "edit": {"id": "ed_10", "status": "applied"}},
+        )
+        assert client.get(f"/api/systems/{system.id}", headers=gm_headers).status_code == 404
+        r = client.post(
+            f"/api/codex/books/{book.id}/submit", json={"system": choice}, headers=gm_headers
+        )
+        assert r.status_code == 400
+        assert "/api/v1/grimoire/systems" not in [req.url.path for req in fake.requests]
+        assert _codex_id(GameSystem, system.id) is None
+
+    def test_compare_does_not_describe_a_system_the_gm_cannot_see(
+        self, client, gm_headers, fake
+    ):
+        system = make_game_system(access_level="admin")
+        _link(GameSystem, system.id, "sy_hidden1")
+        book = make_book(system.id, access_level="")
+        r = client.get(f"/api/codex/books/{book.id}/compare", headers=gm_headers)
+        assert r.status_code == 200
+        assert r.json()["system"] is None
+
 
 # --- Units ---------------------------------------------------------------------------------
 

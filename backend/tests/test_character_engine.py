@@ -371,6 +371,33 @@ class TestSchemaValidation:
         assert validated["layout_ast"][0]["tag"] == "div"
         assert validated["styles_css"] == ".gc-test .s { color: red }"
 
+    def test_ignores_derived_keys_the_document_supplies(self):
+        """The four derived keys come only from their source fields."""
+        supplied = {
+            "layout_ast": [
+                {"tag": "div", "attrs": {"dangerouslySetInnerHTML": {"__html": "<form>"}}}
+            ],
+            "styles_css": "body { display: none }",
+            "mobile_layout_ast": [{"tag": "div", "attrs": {}, "children": []}],
+            "mobile_styles_css": "body { display: none }",
+        }
+        validated = svc.validate_schema(_schema(**supplied))
+        for key in supplied:
+            assert key not in validated
+
+    def test_rebuilds_derived_keys_rather_than_keeping_supplied_ones(self):
+        validated = svc.validate_schema(
+            _schema(
+                layout_html='<div class="s"></div>',
+                styles=".s { color: red }",
+                layout_ast=[{"tag": "form"}],
+                styles_css="body { display: none }",
+            ),
+            scope="gc-test",
+        )
+        assert validated["layout_ast"][0]["tag"] == "div"
+        assert validated["styles_css"] == ".gc-test .s { color: red }"
+
     def test_rejects_a_schema_whose_layout_html_is_hostile(self):
         with pytest.raises(svc.SchemaError, match="Invalid layout_html"):
             svc.validate_schema(_schema(layout_html="<script>alert(1)</script>"))
