@@ -8,7 +8,7 @@
 //   [[Page Title:#Heading]]
 //   [[Page Title:id-<page_id>:#Heading]]
 //
-// MUST stay in lockstep with backend/routers/campaigns/wikilinks.py — if the two
+// MUST stay in lockstep with parse_target in backend/text/wikilinks.py — if the two
 // parse a target differently, an authored link resolves to different pages on
 // each side (cf. issue #252, which is the same hazard for slugify).
 //
@@ -66,7 +66,7 @@ export function buildTarget(
   return out
 }
 
-// Must match the backend slugify (backend/routers/campaigns/wikilinks.py)
+// Must match the backend slugify (backend/text/wikilinks.py)
 // exactly. Python's \w is Unicode-aware, so we use Unicode property escapes (with
 // the `u` flag) instead of JS's ASCII-only \w — otherwise non-ASCII letters like
 // ä/ö/ü/ß are stripped and the slug diverges (issue #252). `_` is kept here (as

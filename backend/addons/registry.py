@@ -238,12 +238,19 @@ def script_digest(manifest: AddonManifest) -> str:
         return ""
 
 
+def script_env(manifest: AddonManifest) -> list[str]:
+    """The environment variables the add-on's script may read, sorted."""
+    return sorted(manifest.script.env) if manifest.script else []
+
+
 def is_runnable(db: Session, addon_id: str, manifest: AddonManifest) -> tuple[bool, str]:
     """Whether an add-on may run now.  Returns ``(ok, reason_if_not)``.
 
     Script-backed add-ons need both the global toggle and their own approval.
-    Approving records the script's SHA-256, and a script that no longer matches
-    it - edited on disk, or replaced since - waits for approval again.
+    Approving records the script's SHA-256 and the environment variables it
+    declares (``script.env``). A script that no longer matches either - edited on
+    disk, replaced since, or given different variables to read - waits for
+    approval again.
     """
     if not is_enabled(db, addon_id):
         return False, "add-on is disabled"
@@ -257,6 +264,11 @@ def is_runnable(db: Session, addon_id: str, manifest: AddonManifest) -> tuple[bo
     approved_digest = state.get("script_sha256") or ""
     if not approved_digest or approved_digest != script_digest(manifest):
         return False, "add-on script has changed since it was approved - approve it again"
+    if sorted(state.get("script_env") or []) != script_env(manifest):
+        return False, (
+            "add-on script now reads different environment variables than when it "
+            "was approved - approve it again"
+        )
     return True, ""
 
 
@@ -301,6 +313,8 @@ def describe(db: Session, addon_id: str, manifest: Optional[AddonManifest] = Non
         "attribution": manifest.attribution,
         "requires_script": manifest.requires_script,
         "script_approved": bool(state.get("script_approved", False)),
+        # Shown where the script is approved: these reach the script's environment.
+        "script_env": script_env(manifest),
         "enabled": is_enabled(db, addon_id),
         "runnable": runnable,
         "blocked_reason": reason,

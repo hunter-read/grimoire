@@ -267,6 +267,24 @@ class TestListAddons:
         assert body["available"][0]["source_url"].startswith("https://github.com/")
         assert "ttrpg-wiki" in body["available"][0]["source_url"]
 
+    def test_lists_the_env_an_index_entry_declares(self, client, admin_headers):
+        session = SessionLocal()
+        base = {"name": "X", "version": "1.0.0", "path": "scrapers/x/x.yml", "sha256": "x" * 64}
+        registry.save_cached_index(
+            session,
+            {
+                "addons": [
+                    {**base, "id": "listed", "requires_script": True, "script_env": ["X_TOKEN"]},
+                    {**base, "id": "unlisted", "requires_script": True},
+                ]
+            },
+        )
+        session.commit()
+        session.close()
+        body = client.get("/api/addons", headers=admin_headers).json()
+        envs = {a["id"]: a["script_env"] for a in body["available"]}
+        assert envs == {"listed": ["X_TOKEN"], "unlisted": None}
+
     def test_filters_changelog_to_only_show_newer_versions(
         self, client, admin_headers, index_installed
     ):

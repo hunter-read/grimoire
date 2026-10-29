@@ -12,7 +12,8 @@ question about *capability* rather than about a MIME string:
 * ``can_index(mime)``     — text can be extracted into the FTS index
 * ``can_thumbnail(ext)``  — a cover image can be produced
 * ``has_page_count(ext)`` — the file has a meaningful page count
-* ``is_paged_document``   — the reader renders it as server-rendered pages
+* ``is_fitz_mime(mime)``  — PyMuPDF opens it, so its pages render server-side
+* ``is_reflowable(ext)``  — it re-paginates to the pinned EPUB layout
 
 Adding a format is then a single row in ``_FORMATS`` plus an extractor, instead
 of a hunt for every ``application/pdf`` comparison.

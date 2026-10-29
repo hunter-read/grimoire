@@ -7610,6 +7610,8 @@ export interface components {
             name: string;
             /** Requires Script */
             requires_script: boolean;
+            /** Script Env */
+            script_env?: string[] | null;
             /** Script Sha256 */
             script_sha256: string;
             /**
@@ -11512,6 +11514,8 @@ export interface components {
             runnable: boolean;
             /** Script Approved */
             script_approved: boolean;
+            /** Script Env */
+            script_env?: string[] | null;
             /** Source */
             source: string;
             /**

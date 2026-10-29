@@ -24,6 +24,8 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Changed
 
+- Changing `SECRET_KEY` now also ends every guest invite code, as it already ends sessions, feed URLs and share links. After changing it, regenerate each guest's code from the campaign's guest list
+- Add-on scripts need approving once more after upgrading. An approval now covers the exact script and the environment variables it reads, so a script edited on disk, or an update that changes either, asks again; an update that leaves both alone keeps its approval. The approval dialog and each installed add-on's card list the environment variables the script reads
 - `TRUSTED_PROXIES` now defaults to the same host and Docker's default networks only (`127.0.0.0/8,::1,172.16.0.0/12`); 1.9 also trusted `10.0.0.0/8`, `192.168.0.0/16` and `fc00::/7`. If your reverse proxy reaches Grimoire from another machine on your LAN, a Kubernetes, Swarm or Podman network, a Docker network in the `192.168` pool, or Tailscale over IPv6, add its address to `TRUSTED_PROXIES` when you upgrade. Until you do, everyone behind it shares one sign-in rate limit, Active Sessions shows the proxy's address, and sign-in cookies are marked secure only if `BASE_URL` starts with `https://`. Grimoire logs a hint naming the proxy's address
 - Grimoire's first load downloads about a fifth as much JavaScript: each page and each language other than English is fetched the first time it is opened, rather than all of them up front
 

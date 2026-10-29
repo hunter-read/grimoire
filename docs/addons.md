@@ -219,23 +219,42 @@ Grimoire will not run one unless **both** are true:
 
 1. **Allow add-on scripts** is enabled (off by default).
 2. That add-on was approved when you installed it, via a dialog naming the
-   script and its SHA-256.
+   script, its SHA-256 and the environment variables it may read.
+
+Grimoire removes anything that looks like a credential from a script's
+environment - a name containing `SECRET`, `TOKEN`, `PASSWORD`, `CREDENTIAL` or
+`_KEY`, and any URL with a password in it. A script that needs a secret of its own,
+a source's API token say, names it in its manifest's `script.env`, and that
+variable is let through: set it on the Grimoire container and the script finds
+it. Grimoire's own settings are never let through, whatever a manifest asks for:
+`SECRET_KEY`, `DATABASE_URL`, `VALKEY_URL`, and everything starting `GRIMOIRE_`,
+`OIDC_` or `ADDON_`.
+
+The approval dialog lists the names when the add-on's source does (its index
+entry's `script_env`; an install whose manifest disagrees with that list is
+refused), and an installed add-on's card shows them. Approval covers the names as well as
+the script: a manifest edited to read different ones waits for approval again.
 
 When one does run, it executes in a short-lived **subprocess** with a timeout,
 no database handle, and no access to Grimoire internals - so a crash, hang, or
 memory blow-up takes down only that subprocess. Approving records the script's
-SHA-256, and Grimoire checks the file against it before every run: an update that
-changes the script, or an edit to the file on disk, requires fresh consent. An
+SHA-256 and its `script.env` names, and Grimoire checks both before every run: an
+update that changes either, or an edit on disk, requires fresh consent. An
 add-on you placed by hand is approved with `PATCH /api/addons/:id`
 (`script_approved: true`), which records the script as it is at that moment.
 
 This is process isolation, not a sandbox: a script runs as the server user, so it
 can reach the network and read and write whatever that user can - Grimoire's
-database and data directory included. Approving a script gives it as much power
+database and data directory included, and the server process's own environment
+through `/proc`. Removing credentials from the script's environment keeps them
+from being handed to it, but is no barrier to a script that goes looking. Approving a script gives it as much power
 as an admin account. Treat installing one as running a program someone sent you. That is exactly why add-ons live in a public repo -
 the code is there to be read before you trust it.
 
-Downloads are checked against the SHA-256 in the index and refused on mismatch.
+Downloads are checked against the SHA-256 in the index and refused on mismatch,
+and an entry with no SHA-256 for its manifest or script is refused outright. Each
+file is fetched from the index's own host, over the same scheme as the index: an
+entry whose `path` is a full URL, or resolves to another host, is refused.
 
 ## Writing one
 

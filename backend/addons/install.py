@@ -9,7 +9,7 @@ import logging
 import os
 import shutil
 from typing import Optional
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
 
 import httpx
 from pydantic import ValidationError
@@ -26,7 +26,7 @@ from .constants import (
 )
 from .credentials import SourceCredentials
 from .fetch import AddonFetchError, fetch_json, open_client
-from .manifest import AddonIndex, AddonManifest, IndexEntry
+from .manifest import AddonIndex, IndexEntry
 from .registry import (
     AddonError,
     addon_dir,
@@ -39,6 +39,7 @@ from .registry import (
     read_manifest_file,
     save_cached_index,
     script_digest,
+    script_env,
     update_state_for,
 )
 
@@ -223,16 +224,35 @@ def _verify(body: bytes, expected: str, what: str) -> None:
     """Reject a download whose digest does not match the index.
 
     The index is the thing the user chose to trust; a file that does not match
-    it has been altered in transit or at rest, and we refuse it either way.
+    it has been altered in transit or at rest, and we refuse it either way. An
+    entry with no digest gives nothing to check against, so it is refused too:
+    every file an add-on installs is one the index vouched for.
     """
     if not expected:
-        return
+        raise AddonError(f"{what} has no checksum in the add-on index")
     actual = hashlib.sha256(body).hexdigest()
-    if actual != expected:
+    if actual != expected.strip().lower():
         raise AddonError(
             f"{what} failed its integrity check (expected {expected[:12]}…, "
             f"got {actual[:12]}…)"
         )
+
+
+def file_url(index_url: str, path: str) -> str:
+    """Where an index entry's file lives, resolved against the index.
+
+    ``path`` is relative to the index. An absolute URL, or one that resolves to
+    another host, is refused: the index may say where its files are, but not
+    send the download somewhere else - over plain http, say, where the digest
+    proves nothing. Pinned to the index's host, a file inherits its https.
+    """
+    if not path or urlsplit(path).scheme or path.startswith("//"):
+        raise AddonError(f"add-on index entry names a file outside the index: {path!r}")
+    url = urljoin(index_url, path)
+    base, target = urlsplit(index_url), urlsplit(url)
+    if (target.scheme, target.netloc) != (base.scheme, base.netloc):
+        raise AddonError(f"add-on index entry names a file outside the index: {path!r}")
+    return url
 
 
 def needs_newer_grimoire(entry: IndexEntry) -> bool:
@@ -286,7 +306,7 @@ def install(db: Session, addon_id: str, approve_script: bool = False, index_url:
         )
 
     creds = source_credentials.load(db)
-    manifest_url = urljoin(manifest_index_url, entry.path)
+    manifest_url = file_url(manifest_index_url, entry.path)
     manifest_body = _fetch_text(manifest_url, creds)
     _verify(manifest_body, entry.sha256, "add-on manifest")
 
@@ -306,14 +326,20 @@ def install(db: Session, addon_id: str, approve_script: bool = False, index_url:
         # Validate before the swap: a manifest this build cannot load (a field it
         # does not know, say) must leave the installed version working rather
         # than replace it and then be removed by the load check below.
-        read_manifest_file(staged_manifest, addon_id)
+        staged = read_manifest_file(staged_manifest, addon_id)
+        if entry.script_env is not None and sorted(entry.script_env) != script_env(staged):
+            # The index showed the admin one list before approval; the
+            # download must not quietly read others.
+            raise AddonError(
+                f"'{addon_id}' declares different environment variables than the add-on index lists"
+            )
 
         script_digest = ""
         if entry.requires_script:
             # Read the staged manifest to learn the script filename rather than
             # trusting the index's word for it.
             script_name = _script_entry_name(staging, addon_id)
-            script_url = urljoin(manifest_index_url, f"{os.path.dirname(entry.path)}/{script_name}")
+            script_url = file_url(manifest_index_url, f"{os.path.dirname(entry.path)}/{script_name}")
             script_body = _fetch_text(script_url, creds)
             _verify(script_body, entry.script_sha256, "add-on script")
             with open(os.path.join(staging, script_name), "wb") as fh:
@@ -342,9 +368,10 @@ def install(db: Session, addon_id: str, approve_script: bool = False, index_url:
         index_url=manifest_index_url,
         enabled=True,
         script_sha256=script_digest,
+        script_env=script_env(manifest),
         script_approved=bool(
             manifest.requires_script
-            and (approve_script or approved_script == (script_digest, _script_env(manifest)))
+            and (approve_script or approved_script == (script_digest, script_env(manifest)))
         ),
     )
     db.commit()
@@ -352,25 +379,15 @@ def install(db: Session, addon_id: str, approve_script: bool = False, index_url:
     return record
 
 
-def _script_env(manifest: AddonManifest) -> tuple[str, ...]:
-    return tuple(sorted(manifest.script.env)) if manifest.script else ()
+def _approved_script(db: Session, addon_id: str) -> Optional[tuple[str, list[str]]]:
+    """The approved script's digest and env names, as approval recorded them.
 
-
-def _approved_script(db: Session, addon_id: str) -> Optional[tuple[str, tuple[str, ...]]]:
-    """The installed add-on's approved script digest and env names, or None.
-
-    None when it is not installed, has no script, or its script is not approved.
+    None when the add-on is not installed or its script is not approved.
     """
     state = get_state_for(db, addon_id)
     if not state.get("script_approved") or not state.get("script_sha256"):
         return None
-    try:
-        manifest = load_manifest(addon_id)
-    except AddonError:
-        return None
-    if not manifest.requires_script:
-        return None
-    return str(state["script_sha256"]), _script_env(manifest)
+    return str(state["script_sha256"]), sorted(state.get("script_env") or [])
 
 
 def _script_entry_name(directory: str, addon_id: str) -> str:
@@ -467,8 +484,9 @@ def set_enabled(db: Session, addon_id: str, enabled: bool) -> dict:
 def set_script_approved(db: Session, addon_id: str, approved: bool) -> dict:
     """Grant or revoke script approval.
 
-    Approving records the SHA-256 of the script on disk right now, so the
-    approval covers exactly that file (see ``registry.is_runnable``).
+    Approving records the SHA-256 of the script on disk right now, and the
+    environment variables it declares, so the approval covers exactly that file
+    reading exactly those (see ``registry.is_runnable``).
     """
     manifest = load_manifest(addon_id)
     if not approved:
@@ -480,6 +498,12 @@ def set_script_approved(db: Session, addon_id: str, approved: bool) -> dict:
     digest = script_digest(manifest)
     if not digest:
         raise AddonError(f"add-on '{addon_id}' script is missing")
-    record = update_state_for(db, addon_id, script_approved=True, script_sha256=digest)
+    record = update_state_for(
+        db,
+        addon_id,
+        script_approved=True,
+        script_sha256=digest,
+        script_env=script_env(manifest),
+    )
     db.commit()
     return record

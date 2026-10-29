@@ -166,12 +166,38 @@ class TestInstall:
             install.install(db, "demo")
         assert not os.path.isdir(addons_dir / "demo")
 
-    def test_a_missing_checksum_is_not_enforced(self, db, addons_dir, files):
+    def test_a_missing_checksum_is_refused(self, db, addons_dir, files):
+        """Without a digest there is nothing to check the download against."""
         body = _yaml_bytes(MANIFEST)
         _seed_index(db, [_index_entry(body, sha256="")])
         files["https://example.com/scrapers/demo/demo.yml"] = body
+        with pytest.raises(AddonError, match="no checksum"):
+            install.install(db, "demo")
+        assert not os.path.isdir(addons_dir / "demo")
+
+    def test_an_upper_case_checksum_still_matches(self, db, addons_dir, files):
+        body = _yaml_bytes(MANIFEST)
+        _seed_index(db, [_index_entry(body, sha256=_digest(body).upper())])
+        files["https://example.com/scrapers/demo/demo.yml"] = body
         install.install(db, "demo")
         assert os.path.isfile(addons_dir / "demo" / "demo.yml")
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "http://evil.test/scrapers/demo/demo.yml",
+            "https://evil.test/scrapers/demo/demo.yml",
+            "//evil.test/scrapers/demo/demo.yml",
+            "",
+        ],
+    )
+    def test_a_file_outside_the_index_is_refused(self, db, addons_dir, files, path):
+        body = _yaml_bytes(MANIFEST)
+        _seed_index(db, [_index_entry(body, path=path)])
+        files[path] = body
+        with pytest.raises(AddonError, match="outside the index"):
+            install.install(db, "demo")
+        assert not os.path.isdir(addons_dir / "demo")
 
     def test_an_invalid_manifest_is_rolled_back(self, db, addons_dir, files):
         body = _yaml_bytes({"id": "demo", "name": "x"})  # missing required fields
@@ -334,6 +360,74 @@ class TestScriptInstall:
         files["https://example.com/scrapers/demo/demo.py"] = SCRIPT_BODY
         with pytest.raises(AddonError, match="integrity check"):
             install.install(db, "demo")
+
+    def _env_scripted(self, db, files, env, index_env=None):
+        manifest = {**MANIFEST, "script": {"entry": "demo.py", "env": env}}
+        body = _yaml_bytes(manifest)
+        extra = {} if index_env is None else {"script_env": index_env}
+        _seed_index(
+            db,
+            [_index_entry(body, requires_script=True, script_sha256=_digest(SCRIPT_BODY), **extra)],
+        )
+        files["https://example.com/scrapers/demo/demo.yml"] = body
+        files["https://example.com/scrapers/demo/demo.py"] = SCRIPT_BODY
+        return manifest
+
+    def test_approval_records_the_env_the_script_reads(self, db, addons_dir, files):
+        registry.set_scripts_allowed(db, True)
+        self._env_scripted(db, files, ["DEMO_TOKEN", "API_KEY"])
+        install.install(db, "demo", approve_script=True)
+        state = registry.get_state_for(db, "demo")
+        assert state["script_env"] == ["API_KEY", "DEMO_TOKEN"]
+        assert registry.describe(db, "demo")["script_env"] == ["API_KEY", "DEMO_TOKEN"]
+        assert registry.is_runnable(db, "demo", registry.load_manifest("demo")) == (True, "")
+
+    def test_an_env_edit_on_disk_needs_fresh_approval(self, db, addons_dir, files):
+        """Approval covers what the script may read, not only what it says."""
+        registry.set_scripts_allowed(db, True)
+        manifest = self._env_scripted(db, files, ["DEMO_TOKEN"])
+        install.install(db, "demo", approve_script=True)
+        manifest["script"]["env"] = ["DEMO_TOKEN", "OTHER_SECRET"]
+        (addons_dir / "demo" / "demo.yml").write_bytes(_yaml_bytes(manifest))
+        ok, reason = registry.is_runnable(db, "demo", registry.load_manifest("demo"))
+        assert not ok and "environment variables" in reason
+
+        install.set_script_approved(db, "demo", True)
+        assert registry.is_runnable(db, "demo", registry.load_manifest("demo")) == (True, "")
+
+    def test_an_approval_without_a_recorded_env_does_not_cover_one(
+        self, db, addons_dir, files
+    ):
+        registry.set_scripts_allowed(db, True)
+        self._env_scripted(db, files, ["DEMO_TOKEN"])
+        install.install(db, "demo", approve_script=True)
+        registry.update_state_for(db, "demo", script_env=None)
+        db.commit()
+        ok, reason = registry.is_runnable(db, "demo", registry.load_manifest("demo"))
+        assert not ok and "environment variables" in reason
+
+    def test_a_download_reading_other_env_than_the_index_lists_is_refused(
+        self, db, addons_dir, files
+    ):
+        self._env_scripted(db, files, ["DEMO_TOKEN", "OTHER_SECRET"], index_env=["DEMO_TOKEN"])
+        with pytest.raises(AddonError, match="different environment variables"):
+            install.install(db, "demo", approve_script=True)
+        assert not os.path.isdir(addons_dir / "demo")
+
+    def test_a_download_matching_the_index_env_installs(self, db, addons_dir, files):
+        self._env_scripted(db, files, ["DEMO_TOKEN"], index_env=["DEMO_TOKEN"])
+        install.install(db, "demo", approve_script=True)
+        assert registry.get_state_for(db, "demo")["script_env"] == ["DEMO_TOKEN"]
+
+    def test_a_script_without_a_checksum_is_refused(self, db, addons_dir, files):
+        manifest = {**MANIFEST, "script": {"entry": "demo.py"}}
+        body = _yaml_bytes(manifest)
+        _seed_index(db, [_index_entry(body, requires_script=True, script_sha256="")])
+        files["https://example.com/scrapers/demo/demo.yml"] = body
+        files["https://example.com/scrapers/demo/demo.py"] = SCRIPT_BODY
+        with pytest.raises(AddonError, match="no checksum"):
+            install.install(db, "demo")
+        assert not os.path.isdir(addons_dir / "demo")
 
     def test_updating_a_script_revokes_approval(self, db, addons_dir, files, scripted):
         """Approval is granted to a specific script; a changed one needs re-consent."""

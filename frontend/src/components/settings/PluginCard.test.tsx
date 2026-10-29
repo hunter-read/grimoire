@@ -5,14 +5,16 @@ import type { PluginAddon } from './PluginCard'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k: string, opts?: string | { author?: string; version?: string }) =>
+    t: (k: string, opts?: string | { author?: string; version?: string; names?: string }) =>
       typeof opts === 'string'
         ? opts
         : opts?.author
           ? `by ${opts.author}`
           : opts?.version
             ? `v${opts.version}`
-            : k,
+            : opts?.names
+              ? `${k}:${opts.names}`
+              : k,
   }),
 }))
 
@@ -92,6 +94,26 @@ describe('PluginCard', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Install' }))
     expect(onInstall).toHaveBeenCalledWith(availableAddon)
+  })
+
+  it('names the environment variables an installed script reads', () => {
+    const scripted = {
+      ...installedAddon,
+      requires_script: true,
+      script_env: ['DTRPG_TOKEN'],
+    } as unknown as PluginAddon
+    render(<PluginCard addon={scripted} isInstalled />)
+    expect(screen.getByText('addons.scriptEnv:DTRPG_TOKEN')).toBeInTheDocument()
+  })
+
+  it('says nothing about env for a script that reads none', () => {
+    const scripted = {
+      ...installedAddon,
+      requires_script: true,
+      script_env: [],
+    } as unknown as PluginAddon
+    render(<PluginCard addon={scripted} isInstalled />)
+    expect(screen.queryByText(/addons.scriptEnv/)).toBeNull()
   })
 
   it('triggers onUpdate when update button is clicked', () => {

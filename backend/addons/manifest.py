@@ -473,6 +473,9 @@ class IndexEntry(BaseModel):
     author: str = ""
     requires_script: bool = False
     script_sha256: str = ""
+    # The environment variables the manifest's script declares, when the index
+    # lists them: shown before approval, and checked against the download.
+    script_env: Optional[list[str]] = None
     grimoire_min_version: str = ""
     changelog: Optional[list[dict]] = None
     index_url: str = ""

@@ -16,7 +16,9 @@ concurrency:
 # Read-only by default; no job here writes to the repository. The coverage
 # badges are written to gists with the GIST_SECRET token, not GITHUB_TOKEN, and
 # only by the coverage-badges job: the jobs that run code - this repo's tests
-# and the community add-ons' scripts - never see a secret.
+# and the community add-ons' scripts - never see a secret. Every checkout sets
+# persist-credentials: false, so not even the read-only GITHUB_TOKEN is left in
+# .git/config for that code to find; the repo is public, so fetches need none.
 permissions:
   contents: read
 
@@ -26,6 +28,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -71,6 +75,8 @@ jobs:
         shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -117,6 +123,7 @@ jobs:
           # Full history so the per-changed-file coverage gate can diff against
           # the PR base branch.
           fetch-depth: 0
+          persist-credentials: false
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -171,6 +178,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
@@ -206,6 +215,7 @@ jobs:
           # Full history so the per-changed-file coverage gate can diff against
           # the PR base branch.
           fetch-depth: 0
+          persist-credentials: false
 
       # The cross-repo contract tests check the add-ons actually published in
       # the community repo against this repo's interpreter, importer and sheet
@@ -369,6 +379,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       # Every push to main builds the image. A PR does when it touches what
       # goes into it: the Dockerfile, dependencies, backend code (the build runs
@@ -401,6 +412,8 @@ jobs:
         target: [slim, ocr]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 

@@ -1,9 +1,17 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { LuTriangleAlert, LuX } from 'react-icons/lu'
 import AuthorByline from './AuthorByline'
 import PluginSourcePill, { isUrlTrusted } from './PluginSourcePill'
 import type { PluginAddon } from './PluginCard'
+
+/** What the script may read from the server's environment, in words. */
+function scriptEnvText(t: TFunction, env: string[] | null | undefined): string {
+  if (!env) return t('addons.scriptEnvUnlisted')
+  if (env.length === 0) return t('addons.scriptEnvNone')
+  return t('addons.scriptEnv', { names: env.join(', ') })
+}
 
 /** The add-on being confirmed, with the index it is to come from when one was picked. */
 export type PendingAddon = PluginAddon & { updating?: boolean; targetIndexUrl?: string | null }
@@ -256,6 +264,9 @@ export default function AddonInstallDialog({
                     sha256: {addon.script_sha256}
                   </div>
                 )}
+                <p style={{ fontSize: 12, lineHeight: 1.4, margin: 0 }}>
+                  {scriptEnvText(t, addon.script_env)}
+                </p>
                 {addon.source_url && (
                   <a
                     href={addon.source_url}

@@ -63,13 +63,13 @@ Dead sessions are cleared out automatically: a background job runs at startup an
 
 ## Feed and share tokens at rest
 
-OPDS feed URLs, calendar subscription URLs and share links each carry a token that works on its own, with no login. None of them is stored as itself. The database keeps an HMAC-SHA256 of each token, keyed by `SECRET_KEY`, which requests are matched on, and a copy of the token encrypted under a second key derived from `SECRET_KEY`, so you can copy your feed URL or a share link again later. API keys and refresh tokens are stored as hashes too.
+OPDS feed URLs, calendar subscription URLs and share links each carry a token that works on its own, with no login. None of them is stored as itself. The database keeps an HMAC-SHA256 of each token, keyed by `SECRET_KEY`, which requests are matched on, and a copy of the token encrypted under a second key derived from `SECRET_KEY`, so you can copy your feed URL or a share link again later. Guest invite codes are kept the same way. API keys and refresh tokens are stored as hashes too.
 
 A [backup](backups.md) therefore holds no usable feed or share URL: it contains `grimoire.db` but not `secret_key`. Backups are written with SQLite's `VACUUM INTO`, so the copy holds only live rows - nothing deleted or overwritten, which a page-by-page copy would carry along in the file's free space.
 
 Two consequences of keying them on `SECRET_KEY`:
 
-- **Changing `SECRET_KEY` ends every feed and share link**, just as it signs everyone out. OPDS and calendar settings offer a new URL, and share links show as **Lost** - revoke or delete them and make new ones.
+- **Changing `SECRET_KEY` ends every feed and share link, and every guest invite code**, just as it signs everyone out. OPDS and calendar settings offer a new URL, share links show as **Lost** - revoke or delete them and make new ones - and a GM regenerates each guest's code from the campaign's guest list.
 - **Restoring a backup on a server with a different `SECRET_KEY`** has the same effect. Keep `secret_key` (or your `SECRET_KEY` value) with your backups if you want feeds and links to survive a move - but store it separately from them, or a stolen backup becomes usable again.
 
 The **OIDC client secret** entered in Settings → Sign-in is kept the same way: encrypted under a key derived from `SECRET_KEY`, and decrypted only when Grimoire presents it to your identity provider, so a backup does not carry it either. If `SECRET_KEY` changes, the stored secret can no longer be read; single sign-on stops until you enter the secret again, and the log says so. Setting `OIDC_CLIENT_SECRET` in the environment instead keeps it out of the database altogether and is the recommended setup.

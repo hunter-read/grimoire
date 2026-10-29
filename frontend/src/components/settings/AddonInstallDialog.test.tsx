@@ -6,7 +6,8 @@ import type { PendingAddon } from './AddonInstallDialog'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k: string, opts?: { name?: string }) => (opts?.name ? `${k}:${opts.name}` : k),
+    t: (k: string, opts?: { name?: string; names?: string }) =>
+      opts?.name ? `${k}:${opts.name}` : opts?.names ? `${k}:${opts.names}` : k,
   }),
 }))
 
@@ -26,6 +27,33 @@ describe('AddonInstallDialog', () => {
   it('shows the script checksum so it can be verified', () => {
     render(<AddonInstallDialog addon={ADDON} onConfirm={vi.fn()} onClose={vi.fn()} />)
     expect(screen.getByText(`sha256: ${'a'.repeat(64)}`)).toBeInTheDocument()
+  })
+
+  it('names the environment variables the script may read', () => {
+    render(
+      <AddonInstallDialog
+        addon={{ ...ADDON, script_env: ['API_KEY', 'DTRPG_TOKEN'] }}
+        onConfirm={vi.fn()}
+        onClose={vi.fn()}
+      />
+    )
+    expect(screen.getByText('addons.scriptEnv:API_KEY, DTRPG_TOKEN')).toBeInTheDocument()
+  })
+
+  it('says when the script reads no environment variables', () => {
+    render(
+      <AddonInstallDialog
+        addon={{ ...ADDON, script_env: [] }}
+        onConfirm={vi.fn()}
+        onClose={vi.fn()}
+      />
+    )
+    expect(screen.getByText('addons.scriptEnvNone')).toBeInTheDocument()
+  })
+
+  it('says when the source does not list them', () => {
+    render(<AddonInstallDialog addon={ADDON} onConfirm={vi.fn()} onClose={vi.fn()} />)
+    expect(screen.getByText('addons.scriptEnvUnlisted')).toBeInTheDocument()
   })
 
   it('keeps install disabled until the warning is acknowledged', async () => {

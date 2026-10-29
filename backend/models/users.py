@@ -100,7 +100,7 @@ class AuthSession(Base):
     token itself — a leaked database backup then yields no usable sessions. The
     token is rotated on every refresh, so the hash changes each time.
 
-    ``rotated_at``/``previous_token_hash`` support one-time reuse detection: if a
+    ``previous_token_hash`` supports one-time reuse detection: if a
     refresh token that was already exchanged comes back, the session is treated
     as stolen and revoked outright rather than merely refused.
     """

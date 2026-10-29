@@ -5,7 +5,8 @@ import AddonsSection from './AddonsSection'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k: string, opts?: { name?: string }) => (opts?.name ? `${k}:${opts.name}` : k),
+    t: (k: string, opts?: { name?: string; names?: string }) =>
+      opts?.name ? `${k}:${opts.name}` : opts?.names ? `${k}:${opts.names}` : k,
   }),
 }))
 
@@ -333,6 +334,32 @@ describe('AddonsSection', () => {
           approve_script: false,
         })
       )
+    })
+
+    it("shows what the update's script will read, not the installed one", async () => {
+      const index = 'https://example.com/index.json'
+      const installed = {
+        ...OUTDATED,
+        id: 'drivethru',
+        name: 'DriveThruRPG',
+        requires_script: true,
+        script_env: ['OLD_TOKEN'],
+        index_url: index,
+      }
+      const listed = {
+        ...SCRIPT_ADDON,
+        installed: true,
+        index_url: index,
+        script_env: ['NEW_TOKEN'],
+      }
+      mockState({ installed: [installed], available: [listed] })
+      const user = userEvent.setup()
+      render(<AddonsSection />)
+      expect(await screen.findByText('addons.scriptEnv:OLD_TOKEN')).toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: 'addons.update' }))
+      const dialog = await screen.findByRole('dialog')
+      expect(within(dialog).getByText('addons.scriptEnv:NEW_TOKEN')).toBeInTheDocument()
     })
 
     it('offers Update all when something is pending', async () => {

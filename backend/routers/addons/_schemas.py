@@ -99,6 +99,9 @@ class InstalledAddon(BaseModel):
     attribution: str
     requires_script: bool
     script_approved: bool
+    # The environment variables the script may read (its manifest's script.env).
+    # Always a list here; optional only to match AvailableAddon's field.
+    script_env: Optional[list[str]] = None
     enabled: bool
     runnable: bool
     blocked_reason: str
@@ -129,6 +132,8 @@ class AvailableAddon(BaseModel):
     author_url: str
     requires_script: bool
     script_sha256: str
+    # The script's env names when the index lists them; null when it does not.
+    script_env: Optional[list[str]] = None
     installed: bool
     update_available: bool
     changelog: Optional[list[ChangelogEntry]] = None

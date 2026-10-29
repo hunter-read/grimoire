@@ -14,7 +14,6 @@ loaded.
 """
 import logging
 from typing import Any, Optional
-from urllib.parse import urljoin
 
 import yaml
 from pydantic import ValidationError
@@ -80,7 +79,9 @@ def install_for_user(
         )
 
     source = entry.index_url or server_install.get_cached_index(db).get("_url") or ""
-    body = server_install._fetch_text(urljoin(source, entry.path), source_credentials.load(db))
+    body = server_install._fetch_text(
+        server_install.file_url(source, entry.path), source_credentials.load(db)
+    )
     server_install._verify(body, entry.sha256, "importer manifest")
     try:
         raw = untrusted_yaml.safe_load(body)

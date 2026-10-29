@@ -111,6 +111,7 @@ def list_addons(
                 "author_url": entry_author_url,
                 "requires_script": primary.requires_script,
                 "script_sha256": primary.script_sha256,
+                "script_env": primary.script_env,
                 "installed": current is not None,
                 "update_available": newer,
                 "changelog": filtered_changelog,

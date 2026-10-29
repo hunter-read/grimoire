@@ -142,7 +142,17 @@ export default function AddonsSection() {
     const hasNewChangelog = (addon.changelog || []).length > 0
     const targetIndexUrl = specificIndexUrl || addon.index_url
     if (addon.requires_script || hasNewChangelog) {
-      setConfirming({ ...addon, updating: true, targetIndexUrl })
+      // The installed row knows what the current script reads; consent is to
+      // what the update's will, which only the index entry can say.
+      const listed = data?.available.find(
+        (a) => a.id === addon.id && (!targetIndexUrl || a.index_url === targetIndexUrl)
+      )
+      setConfirming({
+        ...addon,
+        updating: true,
+        targetIndexUrl,
+        script_env: listed?.script_env ?? null,
+      })
     } else {
       run(
         api.post(`/addons/${addon.id}/install`, {

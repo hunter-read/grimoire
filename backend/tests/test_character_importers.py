@@ -1244,6 +1244,21 @@ class TestUserInstallApi:
         assert resp.status_code == 400
         assert message in resp.json()["detail"]
 
+    @pytest.mark.parametrize(
+        "extra, message",
+        [
+            ({"sha256": ""}, "no checksum"),
+            ({"path": "http://evil.test/importers/demo.yml"}, "outside the index"),
+        ],
+    )
+    def test_an_unchecked_or_off_index_file_is_refused(
+        self, client, player_headers, index, extra, message
+    ):
+        index(MANIFEST, **extra)
+        resp = client.post("/api/characters/importers/import-demo/install", headers=player_headers)
+        assert resp.status_code == 400
+        assert message in resp.json()["detail"]
+
     def test_an_unreadable_or_mismatched_manifest_is_refused(self, client, player_headers, index):
         import hashlib
 

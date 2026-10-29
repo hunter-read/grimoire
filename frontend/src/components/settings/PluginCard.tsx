@@ -123,6 +123,14 @@ export default function PluginCard({
           </div>
         )}
         <AuthorByline author={addon.author} authorUrl={addon.author_url} />
+        {isInstalled &&
+          addon.requires_script &&
+          addon.script_env &&
+          addon.script_env.length > 0 && (
+            <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 2 }}>
+              {t('addons.scriptEnv', { names: addon.script_env.join(', ') })}
+            </div>
+          )}
         {isInstalled && !addon.runnable && addon.blocked_reason && (
           <div style={{ fontSize: 12, color: 'var(--warning, #d98324)', marginTop: 2 }}>
             {addon.blocked_reason}

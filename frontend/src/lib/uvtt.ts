@@ -8,7 +8,7 @@
  * library that is routinely mounted read-only. So the whole round trip happens
  * here instead.
  *
- * The envelope shape mirrors `backend/routers/maps/uvtt.py` exactly, because
+ * The envelope shape mirrors `build_uvtt` in `backend/services/media/uvtt.py` exactly, because
  * files produced by either path have to be indistinguishable to an importer.
  * Coordinates are in grid units, colours are 8-digit ARGB hex with alpha first,
  * and a portal's `bounds` is the truth its position and rotation derive from.
