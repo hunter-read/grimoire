@@ -21,7 +21,7 @@ from ...services.content_cache import content_token
 from ...file_cache import etag_matches
 from ...auth import require_gm_or_admin, get_current_user, CurrentUser
 from ...indexer import archive_ext, archive_mime, slugify
-from .._browse import media_browse_params
+from .._browse import MAX_MEDIA_LIMIT, MAX_OFFSET, media_browse_params
 from .._bulk_schemas import BulkAddTags, BulkFolderTags
 from ...services.media.access import assert_media_access, guest_visible_variants
 from .._thumbnails import clear_stale_thumbnail_flag as _clear_stale_thumbnail_flag
@@ -32,8 +32,8 @@ router = APIRouter()
 
 
 def list_tokens(
-    limit: int = Query(100000),
-    offset: int = 0,
+    limit: int = Query(MAX_MEDIA_LIMIT, le=MAX_MEDIA_LIMIT),
+    offset: int = Query(0, ge=0, le=MAX_OFFSET),
     params: MediaBrowse = Depends(media_browse_params),
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),

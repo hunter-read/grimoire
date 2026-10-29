@@ -6,6 +6,7 @@ user goes looking for the metadata weeks later. So the relink assertions check
 the record *id* survives and the attached rows still resolve, not merely that the
 endpoint returned 200.
 """
+import json
 import os
 import shutil
 import uuid
@@ -3178,6 +3179,40 @@ class TestMutationEndpoints:
         )
         assert resp.status_code == 200
         assert resp.json()["nsfw"] is True
+
+    @pytest.mark.parametrize(
+        "route,body",
+        [
+            ("/api/files/folder", lambda t: {"parent": "books/\ud800", "name": "x"}),
+            ("/api/files/folder", lambda t: {"parent": "books", "name": "a\ud800"}),
+            ("/api/files/rename", lambda t: {"path": "books/\ud800", "new_name": "x"}),
+            (
+                "/api/files/rename",
+                lambda t: {"path": f"books/System-{t}/core", "new_name": "\ud800"},
+            ),
+            (
+                "/api/files/move",
+                lambda t: {"sources": ["books/\ud800"], "destination": f"books/System-{t}"},
+            ),
+            ("/api/files/delete", lambda t: {"path": "books/\ud800"}),
+        ],
+    )
+    def test_a_lone_surrogate_is_refused(
+        self, client, admin_headers, library_tree, route, body
+    ):
+        # Sent as escaped JSON, as a browser would: the text itself is not UTF-8.
+        resp = client.post(
+            route,
+            headers={**admin_headers, "Content-Type": "application/json"},
+            content=json.dumps(body(library_tree)),
+        )
+        assert resp.status_code == 422, resp.text
+
+    @pytest.mark.parametrize("path", ["books/\ud800", "books/a\ud800b/c"])
+    def test_safe_join_refuses_a_lone_surrogate(self, path):
+        with pytest.raises(fs.LibraryFSError) as raised:
+            fs.safe_join(path)
+        assert raised.value.code == "invalid"
 
     def test_delete_folder_endpoint(self, client, admin_headers, library_tree):
         fs.create_folder(f"books/System-{library_tree}", "api-delete")

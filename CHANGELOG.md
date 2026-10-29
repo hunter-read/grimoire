@@ -24,10 +24,16 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Changed
 
+- `TRUSTED_PROXIES` now defaults to the same host and Docker's default networks only (`127.0.0.0/8,::1,172.16.0.0/12`); 1.9 also trusted `10.0.0.0/8`, `192.168.0.0/16` and `fc00::/7`. If your reverse proxy reaches Grimoire from another machine on your LAN, a Kubernetes, Swarm or Podman network, a Docker network in the `192.168` pool, or Tailscale over IPv6, add its address to `TRUSTED_PROXIES` when you upgrade. Until you do, everyone behind it shares one sign-in rate limit, Active Sessions shows the proxy's address, and sign-in cookies are marked secure only if `BASE_URL` starts with `https://`. Grimoire logs a hint naming the proxy's address
 - Grimoire's first load downloads about a fifth as much JavaScript: each page and each language other than English is fetched the first time it is opened, rather than all of them up front
 
 ### Fixed
 
+- **Update all** and the update badge no longer replace an add-on you placed by hand with an index add-on that happens to share its id, and an add-on installed from one source is no longer updated from another
+- Updating a script add-on whose script is unchanged keeps its approval, so it keeps working instead of waiting to be approved again
+- **Fetch metadata** on an EPUB with a damaged compressed file inside reports that it has no file metadata instead of failing
+- **Sync collection now** reports an unexpected answer from Grimoire Codex DB as a connection problem instead of failing
+- An OPDS feed URL with an impossibly large `page` is refused instead of failing
 - A full rescan after a large library reorganisation no longer sits at 100% for hours while it removes the systems whose folders are gone, and no longer locks you out while it does: logins and session refreshes keep working, and the rescan shows its progress through checking for missing files and removing old systems
 - Cleaning up a library with thousands of missing books is much faster, and no longer holds the database for the whole run
 - A full rescan now removes a game in a shelf or system family that was left empty by moving or renaming its files with the file manager, instead of leaving it listed with 0 books until the scheduled cleanup ran

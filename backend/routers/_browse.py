@@ -16,6 +16,16 @@ from ..services.browse.media import SORTS, MediaBrowse
 from ..services.browse.tag_query import parse_tag_groups
 
 
+#: The largest ``offset`` a list endpoint takes. Far past any real library, and
+#: far below the 64-bit integer SQLite can bind, so a huge value is a 422
+#: rather than an overflow.
+MAX_OFFSET = 1_000_000_000
+
+#: The largest ``limit`` the media galleries take - their long-standing default,
+#: which asks for a whole gallery at once.
+MAX_MEDIA_LIMIT = 100_000
+
+
 def parse_tags_param(tags: Optional[str]) -> list[dict]:
     """The ``tags`` JSON parameter as filter groups, or a 400 naming the problem."""
     try:

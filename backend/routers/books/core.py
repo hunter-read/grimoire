@@ -27,6 +27,7 @@ from ...models.base import utc_iso
 from ...services import access_control, bulk_service, library_fs, tag_service, variants
 from ...services.content_cache import content_token
 from ...services.systems import visible_book_system
+from .._browse import MAX_OFFSET
 from .._bulk_schemas import BulkAddTags
 from ...services.media.access import guest_visible_variants
 from ._helpers import LEVEL_KEPT_DETAIL, get_visible_book, keeps_access_level
@@ -76,7 +77,7 @@ def list_books(
     system_id: Optional[str] = None,
     category: Optional[str] = None,
     limit: int = Query(100, le=500),
-    offset: int = 0,
+    offset: int = Query(0, ge=0, le=MAX_OFFSET),
     sort: Literal["title", "added_at"] = "title",
     order: Optional[Literal["asc", "desc"]] = None,
     added_since: Optional[datetime] = None,

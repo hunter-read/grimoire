@@ -14,6 +14,9 @@ from xml.sax.saxutils import escape
 from fastapi import Depends, Query
 
 MAX_PAGE_SIZE = 500
+# Past any real library at any page size, and small enough that the offset it
+# makes stays within what SQLite can bind.
+MAX_PAGE = 1_000_000
 
 OPENSEARCH_NS = 'xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/"'
 
@@ -46,7 +49,9 @@ def page_size_param(
 
 def paging_params(
     page_size: Optional[int] = Depends(page_size_param),
-    page: int = Query(1, ge=1, description="Page number, from 1. Ignored without page_size."),
+    page: int = Query(
+        1, ge=1, le=MAX_PAGE, description="Page number, from 1. Ignored without page_size."
+    ),
 ) -> Paging:
     return Paging(page_size, page if page_size else 1)
 

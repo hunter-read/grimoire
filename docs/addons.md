@@ -105,8 +105,10 @@ Two deliberate behaviours:
 - **Versions compare as semver**, not as strings - `1.10.0` is newer than
   `1.9.0`, and republishing an older version is never offered as an update.
 - **A changed script drops back to unapproved.** Consent was given to specific
-  code; if the code changed - by an update or an edit on disk - Grimoire asks
-  again before running it. `Update all` is no exception.
+  code; if the code changed - by an update or an edit on disk - or the update
+  lets it read different environment variables (`script.env`), Grimoire asks
+  again before running it. `Update all` is no exception. An update that leaves
+  both alone stays approved.
 - **An update that needs a newer Grimoire is held back.** A version whose
   `grimoire_min_version` is above the running build is not offered as an
   update, and installing it directly is refused with a message naming the
@@ -115,8 +117,11 @@ Two deliberate behaviours:
 An update that fails for any other reason - a download error, or a definition
 this build cannot load - leaves the installed version in place and working.
 
-An add-on you placed by hand has no index entry, so it never reports an update -
-update it the way you installed it.
+An add-on you placed by hand never reports an update, even when an index offers
+one with the same id - that is a different add-on, not a newer version of yours.
+Update it the way you installed it. One installed from an index updates from that
+index while it is configured; if you have removed it, from the first index that
+has the add-on.
 
 ## Private sources
 

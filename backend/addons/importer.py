@@ -83,6 +83,10 @@ def url_identity(spec: ImporterSpec, text: str) -> Optional[str]:
     # It becomes part of a URL Grimoire requests, so it stays short and plain.
     if len(identity) > MAX_IDENTITY_LENGTH or not re.fullmatch(r"[A-Za-z0-9._~-]+", identity):
         return None
+    # "." and ".." are path segments, not ids: dropped into the fetch URL they
+    # would move it to another path on the same host.
+    if ".." in identity or identity.strip(".") == "":
+        return None
     return identity
 
 

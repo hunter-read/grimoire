@@ -1,7 +1,20 @@
 """Request/response models for library file management."""
-from typing import Optional
+from typing import Annotated, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import AfterValidator, BaseModel, Field
+
+
+def _encodable(value: str) -> str:
+    """Refuse text no file name can be written as: a lone UTF-16 surrogate."""
+    try:
+        value.encode("utf-8")
+    except UnicodeEncodeError:
+        raise ValueError("contains an invalid character") from None
+    return value
+
+
+#: A library path or file name in a request.
+FsText = Annotated[str, AfterValidator(_encodable)]
 
 
 class BrowseEntry(BaseModel):
@@ -73,8 +86,8 @@ class BrowseResponse(BaseModel):
 
 
 class MoveRequest(BaseModel):
-    sources: list[str] = Field(..., min_length=1)
-    destination: str
+    sources: list[FsText] = Field(..., min_length=1)
+    destination: FsText
     # "skip" reports the collision and leaves the file; "rename" lands it under a
     # suffixed name. Never overwrites.
     on_conflict: str = Field("skip", pattern="^(skip|rename)$")
@@ -87,8 +100,8 @@ class MoveResponse(BaseModel):
 
 
 class RenameRequest(BaseModel):
-    path: str
-    new_name: str = Field(..., min_length=1, max_length=255)
+    path: FsText
+    new_name: FsText = Field(..., min_length=1, max_length=255)
 
 
 class RenameResponse(BaseModel):
@@ -113,15 +126,15 @@ class FolderResponse(BaseModel):
 
 
 class CreateFolderRequest(BaseModel):
-    parent: str
-    name: str = Field(..., min_length=1, max_length=255)
+    parent: FsText
+    name: FsText = Field(..., min_length=1, max_length=255)
     container_kind: str = ""
     nsfw: bool = False
     frames_container: bool = False
 
 
 class MarkersRequest(BaseModel):
-    path: str
+    path: FsText
     container_kind: Optional[str] = None
     nsfw: Optional[bool] = None
     # Independent of container_kind rather than a seventh kind: it describes
@@ -131,17 +144,17 @@ class MarkersRequest(BaseModel):
 
 
 class DeleteFolderRequest(BaseModel):
-    path: str
+    path: FsText
     # Required only when the folder still holds content: the API refuses the
     # delete with `confirm_required` until this matches the folder's own name.
-    confirm_name: Optional[str] = None
+    confirm_name: Optional[FsText] = None
 
 
 class DeleteRequest(BaseModel):
     """A file or folder to remove, with the typed-name guard for full folders."""
 
-    path: str
-    confirm_name: Optional[str] = None
+    path: FsText
+    confirm_name: Optional[FsText] = None
     # False (the default) is the *soft* delete: the indexed rows go, the files
     # stay, and a rescan brings back anything still present and not excluded.
     # The safer of the two is the default deliberately: the destructive one is
@@ -170,7 +183,7 @@ class FolderContentsResponse(BaseModel):
 
 
 class ScaffoldRequest(BaseModel):
-    path: str
+    path: FsText
 
 
 class UploadResponse(BaseModel):

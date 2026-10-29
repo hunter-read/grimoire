@@ -9,6 +9,7 @@ exactly which calls are made, and that a failing one never fails the change.
 import uuid
 
 import httpx
+import pytest
 
 from backend import codex
 from backend.codex import collection as codex_collection
@@ -257,3 +258,22 @@ class TestSync:
         fake.on("POST", "/api/v1/me/collection/sync", body={})
         body = client.post("/api/codex/collection/sync", headers=admin_headers).json()
         assert body["books"] == 0 and body["unknown"] == {"books": [], "systems": []}
+
+    @pytest.mark.parametrize("reply", [[], None, "ok"])
+    def test_a_reply_that_is_not_an_object_is_a_502(self, client, admin_headers, fake, reply):
+        _set(sync_collection=True)
+        fake.on("POST", "/api/v1/me/collection/sync", body=reply)
+        assert client.post("/api/codex/collection/sync", headers=admin_headers).status_code == 502
+
+    def test_counts_that_are_not_numbers_read_as_none(self, client, admin_headers, fake):
+        _set(sync_collection=True)
+        fake.on(
+            "POST",
+            "/api/v1/me/collection/sync",
+            body={"books": "abc", "systems": "3", "unknown": {"books": "bk_1", "systems": ["sy_1"]}},
+        )
+        r = client.post("/api/codex/collection/sync", headers=admin_headers)
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["books"] == 0 and body["systems"] == 3
+        assert body["unknown"] == {"books": [], "systems": ["sy_1"]}

@@ -36,7 +36,7 @@ from ...services import access_control, tag_service, variants
 from ...services.browse.paths import relative_folder
 from ...services.browse.tag_query import FILTER_ANY, FILTER_NONE, TagMatcher
 from ...services.search_query import parse_query
-from .._browse import parse_tags_param
+from .._browse import MAX_OFFSET, parse_tags_param
 from ...services.book_search import apply_field_filters, free_text_clause
 from ...services.systems import load_browsable_system
 from ._serializers import _category_depth, serialize_book
@@ -391,7 +391,7 @@ def _load_system(db: Session, system_id: str, current_user: CurrentUser) -> Game
 def list_system_books(
     system_id: str,
     limit: int = Query(100, ge=1, le=500),
-    offset: int = Query(0, ge=0),
+    offset: int = Query(0, ge=0, le=MAX_OFFSET),
     params: BookBrowse = Depends(book_browse_params),
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),

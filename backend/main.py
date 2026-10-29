@@ -5,6 +5,7 @@ import threading
 from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, Depends, FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
@@ -16,6 +17,7 @@ from . import backup_scheduler, config, library_watch, scheduler, session_creato
 from ._health_schemas import HealthResponse
 from .auth import get_current_user, require_not_guest
 from .log_context import LogUserMiddleware
+from .validation_errors import request_validation_handler
 from .security import (
     RateLimitExceeded,
     SecurityHeadersMiddleware,
@@ -360,6 +362,7 @@ app.state.limiter = limiter
 # slowapi types its handler for RateLimitExceeded, narrower than Starlette's
 # Exception; Starlette only ever passes it that exception type.
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
+app.add_exception_handler(RequestValidationError, request_validation_handler)
 app.add_middleware(SecurityHeadersMiddleware)
 # Attributes each request's log lines to the user it authenticates as, for the
 # log viewer's user filter (issue #576).

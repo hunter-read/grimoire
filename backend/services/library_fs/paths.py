@@ -78,7 +78,12 @@ def safe_join(relative: str, *, must_exist: bool = False) -> Path:
     # No filesystem holds a longer name, and asking one about it fails with
     # ENAMETOOLONG rather than answering "no such file". ``fsencode`` measures
     # it as it would reach the disk, a non-UTF-8 name's original bytes included.
-    if any(len(os.fsencode(segment)) > MAX_SEGMENT_BYTES for segment in cleaned.split("/")):
+    try:
+        sizes = [len(os.fsencode(segment)) for segment in cleaned.split("/")]
+    except UnicodeError as e:
+        # A lone surrogate: text no filesystem name can be written as.
+        raise LibraryFSError("Path contains an invalid character", code="invalid") from e
+    if any(size > MAX_SEGMENT_BYTES for size in sizes):
         raise LibraryFSError(
             f"A file or folder name can be at most {MAX_SEGMENT_BYTES} bytes long", code="invalid"
         )
@@ -97,7 +102,7 @@ def safe_join(relative: str, *, must_exist: bool = False) -> Path:
         # filesystem cannot even look up (too long as a whole, say) is invalid
         # input now rather than an OSError from whatever touches it next.
         exists = candidate.exists()
-    except OSError as e:
+    except (OSError, UnicodeError) as e:
         raise LibraryFSError(f"Path is not valid: {cleaned}", code="invalid") from e
     if (
         (resolved != resolved_root and not resolved.is_relative_to(resolved_root))

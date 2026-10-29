@@ -925,6 +925,13 @@ class TestOPDSPaging:
         assert "next" not in _links(feed)
         assert _links(feed)["previous"] == f"{base}?page_size=2&page=3"
 
+    @pytest.mark.parametrize("path", ["/opds/v2/{t}/all", "/opds/v2/{t}/other", "/opds/{t}/all"])
+    def test_a_huge_page_is_refused_rather_than_failing(self, opds_client, path):
+        url = path.format(t=self._token)
+        assert opds_client.get(f"{url}?page_size=500&page=4611686018427387904").status_code == 422
+        # The largest page taken is simply past the end.
+        assert opds_client.get(f"{url}?page_size=500&page=1000000").status_code == 200
+
     def test_links_back_into_the_catalog_keep_page_size(self, opds_client, paged_library):
         root = f"http://testserver/opds/v2/{self._token}"
         feed = _parse(opds_client.get(f"{self._system_feed(paged_library)}?page_size=2").text)

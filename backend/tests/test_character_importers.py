@@ -342,6 +342,16 @@ class TestRecognising:
         assert engine.url_identity(spec, "c=../../etc") is None
         assert engine.url_identity(spec, "c=" + "a" * 300) is None
 
+    @pytest.mark.parametrize("identity", [".", "..", "...", "a..b", "..x"])
+    def test_an_identity_is_never_a_dot_segment(self, identity):
+        """Dropped into the fetch URL, these would move it up a path level."""
+        spec = _manifest(url={"pattern": r"c=([^ ]+)", "fetch": "https://x/v1/{identity}/json"}).importer
+        assert engine.url_identity(spec, f"c={identity}") is None
+
+    def test_an_identity_may_still_hold_a_dot(self):
+        spec = _manifest(url={"pattern": r"c=([^ ]+)", "fetch": "https://x/{identity}"}).importer
+        assert engine.url_identity(spec, "c=ash.v2") == "ash.v2"
+
 
 class TestMapping:
     def test_maps_every_kind_of_field(self):

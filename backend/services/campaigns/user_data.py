@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from ... import token_vault
 from ...models import Campaign, CampaignMember, Character, Ruleset, User
-from ...sessions import delete_user_sessions
+from ...sessions import delete_user_sessions, revoke_user_sessions
 from ..characters.images import remove_files_after_commit
 
 # Tables holding rows that belong to a single user and die with them. Kept as a
@@ -285,9 +285,10 @@ def release_guest_membership(
     the same code when the guest left on their own (``by_guest``), and a fresh
     one otherwise - the GM who removed them, or deleted the campaign, knows the
     old code and must not keep signing in as the guest to reach the campaigns
-    they are still in. The other campaign's GM can share the new code. Sessions
-    the guest already has carry on either way; refreshing one does not use the
-    code.
+    they are still in. The other campaign's GM can share the new code. A fresh
+    code also ends the guest's sessions, as regenerating one does: a session
+    opened with the old code would otherwise outlive it. A guest who left on
+    their own keeps theirs.
 
     The caller deletes the membership row first. Does not commit.
     """
@@ -309,4 +310,8 @@ def release_guest_membership(
             (m for m in remaining if m.is_guest and m.status == "accepted"), None
         )
         if holder is not None:
-            holder.guest_code = guest_code if by_guest else generate_guest_code(db)
+            if by_guest:
+                holder.guest_code = guest_code
+            else:
+                holder.guest_code = generate_guest_code(db)
+                revoke_user_sessions(db, user_id)

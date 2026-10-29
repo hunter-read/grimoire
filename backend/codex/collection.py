@@ -117,14 +117,31 @@ def sync_all(db: Session, s: CodexSettings) -> dict[str, Any]:
     # Grimoire Codex DB can take seconds to answer (issue #701).
     release_connection(db)
     result = client.collection_sync(s, books, systems)
-    unknown = result.get("unknown") if isinstance(result, dict) else None
+    if not isinstance(result, dict):
+        raise CodexError("Grimoire Codex DB sent a collection sync reply Grimoire cannot read")
+    unknown = result.get("unknown")
     unknown = unknown if isinstance(unknown, dict) else {}
     return {
         "sent": {"books": len(books), "systems": len(systems)},
-        "books": int(result.get("books") or 0),
-        "systems": int(result.get("systems") or 0),
+        "books": _count(result.get("books")),
+        "systems": _count(result.get("systems")),
         "unknown": {
-            "books": [str(i) for i in unknown.get("books") or []],
-            "systems": [str(i) for i in unknown.get("systems") or []],
+            "books": _ids(unknown.get("books")),
+            "systems": _ids(unknown.get("systems")),
         },
     }
+
+
+def _count(value: Any) -> int:
+    """A count from Grimoire Codex DB's reply, or 0 when it is not a whole number."""
+    if isinstance(value, bool):
+        return 0
+    if isinstance(value, int):
+        return max(value, 0)
+    if isinstance(value, str) and value.strip().isdigit():
+        return int(value.strip())
+    return 0
+
+
+def _ids(value: Any) -> list[str]:
+    return [str(i) for i in value] if isinstance(value, list) else []

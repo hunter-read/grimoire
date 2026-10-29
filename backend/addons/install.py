@@ -26,13 +26,14 @@ from .constants import (
 )
 from .credentials import SourceCredentials
 from .fetch import AddonFetchError, fetch_json, open_client
-from .manifest import AddonIndex, IndexEntry
+from .manifest import AddonIndex, AddonManifest, IndexEntry
 from .registry import (
     AddonError,
     addon_dir,
     drop_state_for,
     get_cached_index,
     get_index_url,
+    get_state_for,
     is_newer,
     load_manifest,
     read_manifest_file,
@@ -255,7 +256,9 @@ def install(db: Session, addon_id: str, approve_script: bool = False, index_url:
     A script-backed add-on is written to disk either way, but is only marked
     approved when the caller passes ``approve_script`` — and the approval is
     recorded against the script's digest, so a later update that changes the
-    script drops back to unapproved.
+    script drops back to unapproved. An update that keeps the approved script
+    byte for byte, and the environment variables it may read, keeps its
+    approval: consent was given to that code, and it has not changed.
     """
     _assert_external_installs_enabled()
     entry = find_entry(db, addon_id, index_url=index_url)
@@ -287,6 +290,7 @@ def install(db: Session, addon_id: str, approve_script: bool = False, index_url:
     manifest_body = _fetch_text(manifest_url, creds)
     _verify(manifest_body, entry.sha256, "add-on manifest")
 
+    approved_script = _approved_script(db, addon_id)
     target_dir = addon_dir(addon_id)
     staging = f"{target_dir}.incoming"
     # Stage into a sibling directory and swap, so a failed download never
@@ -338,11 +342,35 @@ def install(db: Session, addon_id: str, approve_script: bool = False, index_url:
         index_url=manifest_index_url,
         enabled=True,
         script_sha256=script_digest,
-        script_approved=bool(approve_script and manifest.requires_script),
+        script_approved=bool(
+            manifest.requires_script
+            and (approve_script or approved_script == (script_digest, _script_env(manifest)))
+        ),
     )
     db.commit()
     logger.info("Installed add-on '%s' v%s", addon_id, manifest.version)
     return record
+
+
+def _script_env(manifest: AddonManifest) -> tuple[str, ...]:
+    return tuple(sorted(manifest.script.env)) if manifest.script else ()
+
+
+def _approved_script(db: Session, addon_id: str) -> Optional[tuple[str, tuple[str, ...]]]:
+    """The installed add-on's approved script digest and env names, or None.
+
+    None when it is not installed, has no script, or its script is not approved.
+    """
+    state = get_state_for(db, addon_id)
+    if not state.get("script_approved") or not state.get("script_sha256"):
+        return None
+    try:
+        manifest = load_manifest(addon_id)
+    except AddonError:
+        return None
+    if not manifest.requires_script:
+        return None
+    return str(state["script_sha256"]), _script_env(manifest)
 
 
 def _script_entry_name(directory: str, addon_id: str) -> str:
@@ -357,22 +385,39 @@ def _script_entry_name(directory: str, addon_id: str) -> str:
     return str(entry)
 
 
+def update_entry(
+    entries: list[IndexEntry], addon_id: str, state: dict
+) -> Optional[IndexEntry]:
+    """The index entry an installed add-on updates from, or None when it has none.
+
+    ``entries`` is the whole cached index. Only an add-on installed from an
+    index updates, and from the source it was installed from while that source
+    is still configured. One placed by hand updates the way it was installed,
+    even when an index offers an add-on with the same id: that is someone
+    else's add-on, not a newer version of this one.
+    """
+    if state.get("source") != "index":
+        return None
+    candidates = [e for e in entries if e.id == addon_id]
+    index_url = state.get("index_url")
+    if index_url and any(e.index_url == index_url for e in entries):
+        return next((e for e in candidates if e.index_url == index_url), None)
+    # Installed before sources were recorded, or from a source since removed
+    # (the default index has moved before): the first source that has it.
+    return candidates[0] if candidates else None
+
+
 def pending_updates(db: Session) -> list[tuple[str, str, str, str]]:
     """Installed add-ons with a newer version in the cached index.
 
     Returns ``(id, installed_version, available_version, index_url)`` quadruples.
     """
-    from .registry import load_all, get_state_for
+    from .registry import load_all
 
     index_entries = _index_entries(db)
     out = []
     for addon_id, manifest in load_all().items():
-        state = get_state_for(db, addon_id)
-        current_index_url = state.get("index_url")
-
-        # Find the entry matching the current index_url, or the first entry if none matches
-        primary = next((e for e in index_entries if e.id == addon_id), None)
-        entry = next((e for e in index_entries if e.id == addon_id and e.index_url == current_index_url), primary)
+        entry = update_entry(index_entries, addon_id, get_state_for(db, addon_id))
 
         # An update this build cannot install is not offered: "Update all" would
         # only report it as a failure every time.
@@ -385,9 +430,9 @@ def update_all(db: Session) -> dict:
     """Update every installed add-on that has a newer version available.
 
     Failures are collected rather than raised: one unreachable add-on should
-    not stop the rest from updating. Script approval is deliberately **not**
-    carried over — an updated script must be re-approved, which ``install``
-    enforces by only setting ``script_approved`` when asked.
+    not stop the rest from updating. Script approval carries over only when the
+    script and its env names are unchanged; a changed script must be
+    re-approved, which ``install`` enforces.
     """
     updated: list[dict] = []
     failed: list[dict] = []

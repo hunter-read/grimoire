@@ -79,7 +79,7 @@ Every list then holds at most that many books, with **next**, **previous**, **fi
 - **Your app has to follow the links.** Paging relies on the app reading the standard OPDS `next` link, as most OPDS apps do. If yours shows only the first page of books, remove `page_size` from its URL.
 - **It works with both versions.** v1 pages its **All Books** feed the same way: `/opds/{token}?page_size=100`.
 
-A page past the end - say the library shrank while you were browsing - comes back empty, with links to the first and last real pages. A `page_size` of 0 or above 500, or a `page` below 1, is rejected with `422`.
+A page past the end - say the library shrank while you were browsing - comes back empty, with links to the first and last real pages. A `page_size` of 0 or above 500, or a `page` below 1 or above 1,000,000, is rejected with `422`.
 
 ## Content filtering
 

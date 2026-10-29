@@ -187,6 +187,57 @@ class TestPendingUpdates:
         (directory / "local.yml").write_text(yaml.safe_dump({**MANIFEST, "id": "local"}))
         assert install_mod.pending_updates(db) == []
 
+    def test_a_hand_placed_addon_sharing_an_index_id_is_left_alone(
+        self, db, addons_dir, files
+    ):
+        """An index add-on with the same id is someone else's, not an update."""
+        directory = addons_dir / "demo"
+        directory.mkdir()
+        private = {**MANIFEST, "source": {"url": "https://private.test/d.json", "format": "json"}}
+        (directory / "demo.yml").write_text(yaml.safe_dump(private))
+        before = (directory / "demo.yml").read_text()
+        _publish(db, files, "1.1.0")
+
+        assert install_mod.pending_updates(db) == []
+        assert install_mod.update_all(db) == {"updated": [], "failed": []}
+        assert (directory / "demo.yml").read_text() == before
+
+    def test_an_install_from_another_source_is_not_updated_from_this_one(
+        self, db, addons_dir, files
+    ):
+        _publish(db, files, "1.0.0")
+        install_mod.install(db, "demo")
+        other = "https://other.test/index.json"
+        registry.update_state_for(db, "demo", index_url=other)
+        db.commit()
+        _publish(db, files, "1.1.0")
+        # The other source is still configured, and does not have this add-on.
+        cached = registry.get_cached_index(db)
+        unrelated = {**cached["addons"][0], "id": "unrelated", "index_url": other}
+        registry.save_cached_index(db, {**cached, "addons": [*cached["addons"], unrelated]})
+        db.commit()
+        assert install_mod.pending_updates(db) == []
+
+    def test_an_install_from_a_removed_source_updates_from_the_first_that_has_it(
+        self, db, addons_dir, files
+    ):
+        _publish(db, files, "1.0.0")
+        install_mod.install(db, "demo")
+        registry.update_state_for(db, "demo", index_url="https://gone.test/index.yaml")
+        db.commit()
+        _publish(db, files, "1.1.0")
+        assert install_mod.pending_updates(db) == [("demo", "1.0.0", "1.1.0", DEFAULT_INDEX_URL)]
+
+    def test_an_install_from_before_sources_were_recorded_still_updates(
+        self, db, addons_dir, files
+    ):
+        _publish(db, files, "1.0.0")
+        install_mod.install(db, "demo")
+        registry.update_state_for(db, "demo", index_url=None)
+        db.commit()
+        _publish(db, files, "1.1.0")
+        assert install_mod.pending_updates(db) == [("demo", "1.0.0", "1.1.0", DEFAULT_INDEX_URL)]
+
 
 # ---------------------------------------------------------------------------
 # Applying
@@ -259,6 +310,44 @@ class TestUpdateAll:
         ok, reason = registry.is_runnable(db, "demo", registry.load_manifest("demo"))
         assert not ok and "approved" in reason
 
+    def test_an_update_with_the_same_script_stays_approved(self, db, addons_dir, files):
+        """A version bump that leaves the script alone keeps the add-on working."""
+        registry.set_scripts_allowed(db, True)
+        db.commit()
+        _publish(db, files, "1.0.0", script={"entry": "demo.py"}, _script_body=SCRIPT_BODY)
+        install_mod.install(db, "demo", approve_script=True)
+
+        _publish(db, files, "2.0.0", script={"entry": "demo.py"}, _script_body=SCRIPT_BODY)
+        assert install_mod.update_all(db)["updated"][0]["to"] == "2.0.0"
+
+        assert registry.get_state_for(db, "demo")["script_approved"] is True
+        assert registry.is_runnable(db, "demo", registry.load_manifest("demo")) == (True, "")
+
+    def test_an_update_that_reads_new_env_vars_loses_its_approval(
+        self, db, addons_dir, files
+    ):
+        """The same code given a new secret to read is a new thing to consent to."""
+        registry.set_scripts_allowed(db, True)
+        db.commit()
+        _publish(db, files, "1.0.0", script={"entry": "demo.py"}, _script_body=SCRIPT_BODY)
+        install_mod.install(db, "demo", approve_script=True)
+
+        _publish(
+            db, files, "2.0.0",
+            script={"entry": "demo.py", "env": ["DEMO_TOKEN"]}, _script_body=SCRIPT_BODY,
+        )
+        install_mod.update_all(db)
+        assert registry.get_state_for(db, "demo")["script_approved"] is False
+
+    def test_an_unapproved_script_stays_unapproved(self, db, addons_dir, files):
+        registry.set_scripts_allowed(db, True)
+        db.commit()
+        _publish(db, files, "1.0.0", script={"entry": "demo.py"}, _script_body=SCRIPT_BODY)
+        install_mod.install(db, "demo")
+        _publish(db, files, "2.0.0", script={"entry": "demo.py"}, _script_body=SCRIPT_BODY)
+        install_mod.update_all(db)
+        assert registry.get_state_for(db, "demo")["script_approved"] is False
+
 
 # ---------------------------------------------------------------------------
 # API
@@ -303,6 +392,19 @@ class TestUpdateApi:
         row = next(a for a in body["installed"] if a["id"] == "local")
         assert row["update_available"] is False
         assert row["available_version"] == ""
+
+    def test_a_hand_placed_addon_sharing_an_index_id_reports_no_update(
+        self, client, admin_headers, db, addons_dir, files
+    ):
+        directory = addons_dir / "demo"
+        directory.mkdir()
+        (directory / "demo.yml").write_text(yaml.safe_dump(MANIFEST))
+        _publish(db, files, "1.4.0")
+        body = client.get("/api/addons", headers=admin_headers).json()
+        row = next(a for a in body["installed"] if a["id"] == "demo")
+        assert row["update_available"] is False and row["available_version"] == ""
+        card = next(a for a in body["available"] if a["id"] == "demo")
+        assert card["update_available"] is False
 
     def test_update_all_endpoint(
         self, client, admin_headers, db, addons_dir, files, monkeypatch

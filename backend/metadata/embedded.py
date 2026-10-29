@@ -18,10 +18,12 @@ fetch only ever proposes something a person might actually have typed. Like
 every source, it only proposes: the dialog diffs it and nothing is written
 until the user applies a selection.
 """
+import lzma
 import os
 import posixpath
 import re
 import zipfile
+import zlib
 from datetime import date
 from typing import Any, Optional
 from urllib.parse import urlparse
@@ -221,10 +223,13 @@ def epub_fields(filepath: str) -> dict[str, Any]:
         NotImplementedError,
         SafeElementTree.ParseError,
         ValueError,
+        zlib.error,
+        lzma.LZMAError,
+        EOFError,
     ):
-        # Not a zip, no such member, an encrypted or oddly compressed member,
-        # or XML the safe parser refuses: an EPUB with nothing readable is an
-        # EPUB with no metadata to offer.
+        # Not a zip, no such member, an encrypted, oddly compressed or corrupt
+        # member, or XML the safe parser refuses: an EPUB with nothing readable
+        # is an EPUB with no metadata to offer.
         return {}
 
     fields = opf_fields(root)

@@ -46,6 +46,20 @@ def _make_epub(path, opf=OPF, container=CONTAINER):
     return str(path)
 
 
+def _make_corrupt_epub(path, compression):
+    """An EPUB whose package is stored compressed, with its compressed bytes garbled."""
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("mimetype", "application/epub+zip")
+        archive.writestr("META-INF/container.xml", CONTAINER)
+        archive.writestr("OEBPS/content.opf", OPF, compress_type=compression)
+        info = archive.getinfo("OEBPS/content.opf")
+    data = bytearray(path.read_bytes())
+    start = info.header_offset + 30 + len(info.filename.encode()) + len(info.extra)
+    data[start : start + info.compress_size] = b"\xff" * info.compress_size
+    path.write_bytes(bytes(data))
+    return str(path)
+
+
 def _make_pdf(path, metadata=None, language=None, xmp=None, custom=None):
     doc = fitz.open()
     doc.new_page()
@@ -364,6 +378,11 @@ class TestEpubFields:
     def test_a_missing_package(self, tmp_path):
         assert embedded.epub_fields(_make_epub(tmp_path / "a.epub", opf=None)) == {}
 
+    @pytest.mark.parametrize("compression", [zipfile.ZIP_DEFLATED, zipfile.ZIP_LZMA])
+    def test_a_corrupt_compressed_package(self, tmp_path, compression):
+        path = _make_corrupt_epub(tmp_path / "a.epub", compression)
+        assert embedded.epub_fields(path) == {}
+
     def test_an_oversized_package_is_refused(self, tmp_path, monkeypatch):
         monkeypatch.setattr(embedded, "_MAX_XML_BYTES", 100)
         assert embedded.epub_fields(_make_epub(tmp_path / "a.epub")) == {}
@@ -525,6 +544,17 @@ class TestApi:
         book = make_book(system.id, filepath=_make_cbz(tmp_path / "saga.cbz"))
         results = _search(client, gm_headers, book).json()["results"]
         assert [r["label"] for r in results] == ["Chapter One (CBZ metadata)"]
+
+    @pytest.mark.parametrize("compression", [zipfile.ZIP_DEFLATED, zipfile.ZIP_LZMA])
+    def test_a_corrupt_epub_has_no_file_metadata(
+        self, client, gm_headers, system, tmp_path, compression
+    ):
+        path = _make_corrupt_epub(tmp_path / "broken.epub", compression)
+        book = make_book(system.id, filepath=path, mime_type="application/epub+zip")
+        found = _search(client, gm_headers, book)
+        assert found.status_code == 200 and found.json()["results"] == []
+        fetched = _fetch(client, gm_headers, book)
+        assert fetched.status_code < 500, fetched.text
 
     def test_a_missing_file_is_400(self, client, gm_headers, system, tmp_path):
         book = make_book(system.id, filepath=str(tmp_path / "gone.pdf"))

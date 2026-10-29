@@ -32,22 +32,33 @@ def list_addons(
 
     # Gather available_in data
     available_map: dict[str, Any] = {}
-    for entry in addons.available(db):
+    index_entries = addons.available(db)
+    for entry in index_entries:
         if entry.id not in available_map:
             available_map[entry.id] = []
         available_map[entry.id].append(entry)
 
+    states = addons.get_state(db)
     available = []
     for addon_id, entries in available_map.items():
         # First entry is highest priority
         primary = entries[0]
         current = installed.get(primary.id)
+        # The entry this install updates from: None for one placed by hand, so
+        # an index add-on that shares its id is never offered as its update.
+        source_entry = (
+            addons.update_entry(index_entries, primary.id, states.get(primary.id, {}))
+            if current is not None
+            else None
+        )
 
         available_in = []
         for e in entries:
             # An update this build cannot install is not offered (issue #479).
+            from_source = e is source_entry
             is_newer = bool(
                 current
+                and from_source
                 and addons.is_newer(e.version, current["version"])
                 and not addons.needs_newer_grimoire(e)
             )
@@ -57,7 +68,7 @@ def list_addons(
                 "update_available": is_newer
             })
 
-        newer = available_in[0]["update_available"]
+        newer = any(a["update_available"] for a in available_in)
 
         filtered_changelog = primary.changelog or []
         if current is not None and "version" in current:
@@ -70,16 +81,18 @@ def list_addons(
         base_source_url = f"https://github.com/{m.group(1)}/{m.group(2)}/tree/{m.group(3)}/" if m else "https://github.com/grimoire-codex/community-add-ons/tree/main/"
 
         if current is not None:
-            current_index_url = current.get("index_url") or primary.index_url
-            matching_entry = next((e for e in entries if e.index_url == current_index_url), primary)
+            matching_entry = source_entry or primary
             current_is_newer = bool(
-                addons.is_newer(matching_entry.version, current["version"])
-                and not addons.needs_newer_grimoire(matching_entry)
+                source_entry is not None
+                and addons.is_newer(source_entry.version, current["version"])
+                and not addons.needs_newer_grimoire(source_entry)
             )
 
-            current["available_version"] = matching_entry.version
+            current["available_version"] = source_entry.version if source_entry else ""
             current["update_available"] = current_is_newer
-            current["index_url"] = current_index_url
+            current["index_url"] = current.get("index_url") or (
+                primary.index_url if source_entry else None
+            )
             current["available_in"] = available_in
             current["changelog"] = filtered_changelog
             current["source_url"] = base_source_url + os.path.dirname(matching_entry.path)

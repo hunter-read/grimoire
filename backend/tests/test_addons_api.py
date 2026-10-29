@@ -9,6 +9,7 @@ import yaml
 
 from backend.addons import fetch, install, registry
 from backend.addons.constants import (
+    DEFAULT_INDEX_URL,
     SETTING_ALLOW_SCRIPTS,
     SETTING_INDEX_CACHE,
     SETTING_INDEX_URL,
@@ -96,6 +97,18 @@ def installed(addons_dir):
 
 
 @pytest.fixture
+def index_installed(installed):
+    """The same add-on, recorded as installed from the default index."""
+    session = SessionLocal()
+    registry.update_state_for(
+        session, "ttrpg-wiki", source="index", index_url=DEFAULT_INDEX_URL
+    )
+    session.commit()
+    session.close()
+    return installed
+
+
+@pytest.fixture
 def source_data(monkeypatch):
     """Serve the checked-in fixture instead of the live site."""
     with open(FIXTURE, encoding="utf-8") as fh:
@@ -180,7 +193,7 @@ class TestListAddons:
         body = client.get("/api/addons", headers=admin_headers).json()
         assert body["available"][0]["installed"] is False
 
-    def test_flags_an_available_update(self, client, admin_headers, installed):
+    def test_flags_an_available_update(self, client, admin_headers, index_installed):
         session = SessionLocal()
         registry.save_cached_index(
             session,
@@ -254,7 +267,9 @@ class TestListAddons:
         assert body["available"][0]["source_url"].startswith("https://github.com/")
         assert "ttrpg-wiki" in body["available"][0]["source_url"]
 
-    def test_filters_changelog_to_only_show_newer_versions(self, client, admin_headers, installed):
+    def test_filters_changelog_to_only_show_newer_versions(
+        self, client, admin_headers, index_installed
+    ):
         session = SessionLocal()
         registry.save_cached_index(
             session,

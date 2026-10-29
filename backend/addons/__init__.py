@@ -31,6 +31,7 @@ from .install import (
     set_script_approved,
     uninstall,
     update_all,
+    update_entry,
 )
 # Re-exported under a distinct name: a bare ``install`` here would shadow the
 # ``backend.addons.install`` submodule for anyone importing the package.
@@ -112,4 +113,5 @@ __all__ = [
     "set_scripts_allowed",
     "uninstall",
     "update_all",
+    "update_entry",
 ]

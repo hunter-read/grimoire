@@ -588,9 +588,9 @@ class TestMergedGuestLosesOneCampaign:
         resp = client.delete(f"/api/campaigns/{keep['campaign_id']}", headers=gm_headers)
         assert resp.status_code == 204, resp.text
         # The GM who deleted it knew the old code, so the guest gets a new one
-        # on the campaign it is still in - and stays signed in meanwhile.
+        # on the campaign it is still in, and sessions opened with the old one end.
         _assert_code_replaced(client, keep, absorb["campaign_id"], chars[absorb["campaign_id"]])
-        assert _refreshes(client, refresh)
+        assert not _refreshes(client, refresh)
 
     def test_deleting_the_other_campaign(self, client, gm_headers, merged_guest):
         keep, absorb, chars = merged_guest
@@ -606,8 +606,10 @@ class TestMergedGuestLosesOneCampaign:
             f"/api/campaigns/{keep['campaign_id']}/guests/{keep['id']}", headers=gm_headers
         )
         assert resp.status_code == 204, resp.text
+        # Whoever signed in with the old code is signed out with it, at the
+        # session's next refresh - as when a GM regenerates a code.
+        assert not _refreshes(client, refresh)
         _assert_code_replaced(client, keep, absorb["campaign_id"], chars[absorb["campaign_id"]])
-        assert _refreshes(client, refresh)
         # Like any member's, the character from the campaign they left stays theirs.
         assert _account_state(keep["user_id"])[2][chars[keep["campaign_id"]]] == keep[
             "campaign_id"
@@ -636,6 +638,10 @@ class TestMergedGuestLosesOneCampaign:
         assert resp.status_code == 204, resp.text
         _assert_still_in(client, keep, absorb["campaign_id"], chars[absorb["campaign_id"]])
         assert _current_code(keep["user_id"], absorb["campaign_id"]) == keep["guest_code"]
+        # Their own session carries on.
+        assert client.get(
+            f"/api/campaigns/{absorb['campaign_id']}", headers={"Authorization": f"Bearer {token}"}
+        ).status_code == 200
 
     def test_deleting_the_gm_account_holding_the_code(
         self, client, admin_headers, guest_pair

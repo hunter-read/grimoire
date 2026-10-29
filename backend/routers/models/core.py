@@ -23,7 +23,7 @@ from ...models.base import utc_iso
 from ...services import bulk_service, tag_service, variants
 from ...services.browse.media import MediaBrowse, MediaBrowser
 from ...services.content_cache import content_token
-from .._browse import media_browse_params
+from .._browse import MAX_MEDIA_LIMIT, MAX_OFFSET, media_browse_params
 from .._bulk_schemas import BulkAddTags, BulkFolderTags
 from ...services.media.access import assert_media_access, guest_visible_variants
 from ...services.media.access import allow_explicit
@@ -33,8 +33,8 @@ router = APIRouter()
 
 
 def list_models(
-    limit: int = Query(100000),
-    offset: int = 0,
+    limit: int = Query(MAX_MEDIA_LIMIT, le=MAX_MEDIA_LIMIT),
+    offset: int = Query(0, ge=0, le=MAX_OFFSET),
     params: MediaBrowse = Depends(media_browse_params),
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),

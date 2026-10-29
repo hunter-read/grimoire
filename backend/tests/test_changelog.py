@@ -132,6 +132,25 @@ class TestLoad:
         assert all(r["version"] for r in releases)
         assert all(s["entries"] or s["title"] for r in releases for s in r["sections"])
 
+    def test_the_trusted_proxies_default_is_in_the_changelog(self):
+        """Narrowing or widening the default changes who behind a proxy shares a
+        rate limit, so operators upgrading need it in the changelog. The newest
+        entry that names TRUSTED_PROXIES must quote the current default."""
+        from backend.config.env import DEFAULT_TRUSTED_PROXIES
+
+        reset_cache()
+        mentions = [
+            entry
+            for release in load_changelog()
+            for section in release["sections"]
+            for entry in section["entries"]
+            if "TRUSTED_PROXIES" in entry
+        ]
+        assert mentions, "expected a changelog entry naming TRUSTED_PROXIES"
+        assert DEFAULT_TRUSTED_PROXIES in mentions[0], (
+            "DEFAULT_TRUSTED_PROXIES changed: add a CHANGELOG entry quoting the new default"
+        )
+
 
 class TestEndpoint:
     def test_returns_releases(self, client, admin_headers):

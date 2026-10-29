@@ -339,7 +339,7 @@ Served outside `/api` when `OPDS_ENABLED` is on, and authenticated by the token 
 
 Each version's links stay inside that version, so a reader subscribed to v1 sees exactly what it always has.
 
-**Paging.** Every route above except download and cover takes an optional `page_size` query parameter (1-500). Without it the acquisition feeds (`all`, `system`, `other`) list every book in one document, as they always have. With it they also take `page` (from 1, default 1; ignored without `page_size`) and return at most `page_size` books, ordered by title then id, with Atom links `rel="self"`, `"first"`, `"last"`, and `"previous"`/`"next"` where those pages exist (all as `?page_size=N&page=P`), plus the OpenSearch elements `opensearch:totalResults`, `opensearch:itemsPerPage` and `opensearch:startIndex`. A page past the last returns no entries. On the navigation roots and single-book entries, `page_size` is carried onto every link back into the catalog (sub-feeds, `start`, `up`, each book's `alternate` entry link), so setting it on the root URL pages the whole catalog. Out-of-range values return `422`. See [Paging large libraries](opds.md#paging-large-libraries).
+**Paging.** Every route above except download and cover takes an optional `page_size` query parameter (1-500). Without it the acquisition feeds (`all`, `system`, `other`) list every book in one document, as they always have. With it they also take `page` (from 1, default 1; ignored without `page_size`) and return at most `page_size` books (`page` up to 1,000,000), ordered by title then id, with Atom links `rel="self"`, `"first"`, `"last"`, and `"previous"`/`"next"` where those pages exist (all as `?page_size=N&page=P`), plus the OpenSearch elements `opensearch:totalResults`, `opensearch:itemsPerPage` and `opensearch:startIndex`. A page past the last returns no entries. On the navigation roots and single-book entries, `page_size` is carried onto every link back into the catalog (sub-feeds, `start`, `up`, each book's `alternate` entry link), so setting it on the root URL pages the whole catalog. Out-of-range values return `422`. See [Paging large libraries](opds.md#paging-large-libraries).
 
 ### Library
 
@@ -505,7 +505,7 @@ must be non-empty (`422` otherwise).
 |----------|--------|------|-------------|
 | `/api/systems` | GET | any | List all systems with book counts, `total_page_count`, and metadata. Query: `sort` (`name`\|`book_count`\|`page_count`\|`year`), `order` (`asc`\|`desc`), `genre`, `family`, `parent_system`, `edition`, `license`, `explicit` (bool), `parent_id` (list one container's children), `include_children` (bool; flat list including nested systems) |
 | `/api/systems/:id` | GET | any | System detail + full book list, plus `children` (the nested systems when this is a container) and `scope_path` (the system's own folder, `books/{System}`, for a scoped rescan; `null` with no books). Query: `book_sort` (`category`\|`title`\|`page_count`\|`year`), `book_order`, `explicit` (bool), `genre`, `category` filter the returned books. `include_books=false` returns the summary alone (`books: []`, counts and cover computed in SQL) - what the detail view asks for, paging the shelf through the three routes below |
-| `/api/systems/:id/books` | GET | any (not guest) | One page of the system's books matching the [shelf filters](#browsing-a-systems-shelf). Query: the filters, plus `category` and `folder` (one folder of the grouped shelf; `""` is the category's own directory, and `folder` needs `category`), `sort` (`title`\|`year`\|`page_count`\|`size`\|`product_code`\|`added_at`), `order`, `limit` (max 500), `offset`. Returns `{total, books}` |
+| `/api/systems/:id/books` | GET | any (not guest) | One page of the system's books matching the [shelf filters](#browsing-a-systems-shelf). Query: the filters, plus `category` and `folder` (one folder of the grouped shelf; `""` is the category's own directory, and `folder` needs `category`), `sort` (`title`\|`year`\|`page_count`\|`size`\|`product_code`\|`added_at`), `order`, `limit` (max 500), `offset` (max 1,000,000,000). Returns `{total, books}` |
 | `/api/systems/:id/book-groups` | GET | any (not guest) | Every category and subfolder holding matching books: `{total, groups: [{category, path, dir, count, first}]}`. `path` is the subfolder below the category directory (`""` for books directly in it), `dir` the library directory (for rescan scopes), `first` the active sort's value for the folder's first book (`null` for the title sort) |
 | `/api/systems/:id/book-facets` | GET | any (not guest) | The filter menus' options over every book the caller may see: `{categories, genres, product_code_prefixes, tags}` |
 | `/api/systems/:id` | PATCH | gm/admin | Update metadata (see fields below) |
@@ -593,7 +593,7 @@ does not support pasting, and a request with neither `identity` nor `paste`.
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/books` | GET | any | Paginated book list. Query: `system_id`, `category`, `limit` (max 500, default 100), `offset`, `sort` (`title` - the default - or `added_at`), `order` (`asc`/`desc`; defaults to A-Z for `title` and newest first for `added_at`), `added_since` (ISO-8601; see below) |
+| `/api/books` | GET | any | Paginated book list. Query: `system_id`, `category`, `limit` (max 500, default 100), `offset` (max 1,000,000,000), `sort` (`title` - the default - or `added_at`), `order` (`asc`/`desc`; defaults to A-Z for `title` and newest first for `added_at`), `added_since` (ISO-8601; see below) |
 | `/api/books/:id` | GET | any | Book detail with game system. `game_system` is `{id, name, slug, is_system_agnostic, is_one_page}` (null for a book in no system, and for one in a system the caller cannot see - an open book inside a GM-only system); the two flags let the reader's breadcrumb prettify a special collection's folder name |
 | `/api/books/:id` | PATCH | gm/admin | Update: `title`, `category`, `description`, `authors`, `artists`, `genres`, `publisher`, `publisher_url` (legacy), `urls`, `isbn`, `product_code`, `version`, `language`, `license`, `year`, `month` (1–12), `day` (1–31), `tags`, `is_explicit`, `codex_id`, `access_level` (**admin only**). `license` overrides the system license for this book (blank inherits it). Changing `category` also **moves the file** - see below. `file_size`/`page_count`/`mime_type` are read-only. Sending `access_level` as a non-admin returns 403 - see [Access levels](#access-levels-issue-258). |
 | `/api/books/bulk` | POST | gm/admin | Bulk update. Body: `{items: [{id, ...PATCH fields}]}` |
@@ -1160,7 +1160,8 @@ download is the only option.
 
 The map, token, audio and model galleries filter, sort and group on the server
 and fetch a page at a time (issue #221), so a library of a few hundred thousand
-files opens as quickly as a small one. Each list route and its `/groups`
+files opens as quickly as a small one. Each list route takes `limit` (default and
+max 100,000) and `offset` (max 1,000,000,000). Each list route and its `/groups`
 companion take the same filters, so a folder's count always matches what
 listing that folder returns:
 

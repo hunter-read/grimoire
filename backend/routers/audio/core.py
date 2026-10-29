@@ -21,7 +21,7 @@ from ...indexer import (
     archive_mime,
     read_chapters,
 )
-from .._browse import media_browse_params
+from .._browse import MAX_MEDIA_LIMIT, MAX_OFFSET, media_browse_params
 from .._bulk_schemas import BulkAddTags, BulkFolderTags
 from ...services.media.audio import AUDIO_MIME
 from ...services.media.access import assert_media_access, guest_visible_variants
@@ -54,8 +54,8 @@ def _serialize(a: Audio, tags: list[str] | None = None) -> dict:
 
 
 def list_audio(
-    limit: int = Query(100000),
-    offset: int = 0,
+    limit: int = Query(MAX_MEDIA_LIMIT, le=MAX_MEDIA_LIMIT),
+    offset: int = Query(0, ge=0, le=MAX_OFFSET),
     params: MediaBrowse = Depends(media_browse_params),
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
