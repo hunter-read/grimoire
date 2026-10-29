@@ -142,7 +142,8 @@ describe('BackupScheduleSection', () => {
     expect(dirty()).toBe(true)
     fireEvent.click(saveButton())
     await screen.findByText('backups.schedule.saved')
-    expect(dirty()).toBe(false)
+    // Reported from an effect, which can run just after "saved" is on screen.
+    await waitFor(() => expect(dirty()).toBe(false))
 
     unmount()
     expect(set).toHaveBeenLastCalledWith('backup-schedule', false)
