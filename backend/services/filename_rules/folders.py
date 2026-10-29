@@ -16,6 +16,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from ...models import FolderNamingRule
+from ...sql_paths import path_at_or_under
 from .pattern import Pattern, PatternError, parse
 
 logger = logging.getLogger("grimoire.filename_rules")
@@ -102,7 +103,7 @@ def relink_rules(db: Session, src_rel: str, dest_rel: str) -> int:
         return 0
     rows = (
         db.query(FolderNamingRule)
-        .filter((FolderNamingRule.path == src_rel) | FolderNamingRule.path.startswith(src_rel + "/", autoescape=True))
+        .filter(path_at_or_under(FolderNamingRule.path, src_rel))
         .all()
     )
     taken = {r.path for r in db.query(FolderNamingRule.path).all()}
@@ -124,6 +125,6 @@ def purge_rules(db: Session, rel: str) -> int:
         return 0
     return (
         db.query(FolderNamingRule)
-        .filter((FolderNamingRule.path == rel) | FolderNamingRule.path.startswith(rel + "/", autoescape=True))
+        .filter(path_at_or_under(FolderNamingRule.path, rel))
         .delete(synchronize_session=False)
     )

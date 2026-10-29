@@ -31,6 +31,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Fixed
 
+- Deleting, unindexing, moving or renaming a folder in the file manager no longer touches the books, folder tags or naming patterns of a folder whose name differs only by case (`core` and `Core`), or matches it with an `_` or `%` in place of another character. Deleting an empty `core` folder used to delete the records of every book in `Core`, losing their tags, favourites, bookmarks, reading progress and campaign links
 - **Update all** and the update badge no longer replace an add-on you placed by hand with an index add-on that happens to share its id, and an add-on installed from one source is no longer updated from another
 - Updating a script add-on whose script is unchanged keeps its approval, so it keeps working instead of waiting to be approved again
 - **Fetch metadata** on an EPUB with a damaged compressed file inside reports that it has no file metadata instead of failing

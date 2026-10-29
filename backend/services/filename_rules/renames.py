@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from ...metadata import export as sidecar_export
 from ...models import Book, FolderNamingRule
+from ...sql_paths import path_under
 from .. import library_fs as fs
 from .folders import SECTION, RuleSet, in_section, normalise_path, rule_set
 from .pattern import MAX_NAME_BYTES, READ_FIELDS, Pattern, PatternError, clean_value, parse
@@ -133,9 +134,9 @@ def _books_under(db: Session, path: str, rules: RuleSet) -> list[Book]:
     rows = (
         db.query(Book)
         .options(joinedload(Book.game_system))
-        # Escaped, or the `_` in a folder like `D&D_5e` is a LIKE wildcard and
-        # sweeps in a sibling folder's books.
-        .filter(Book.relative_path.startswith(path + "/", autoescape=True))
+        # Not LIKE: the `_` in a folder like `D&D_5e` would be a wildcard, and
+        # `core` would match `Core`, sweeping in a sibling folder's books.
+        .filter(path_under(Book.relative_path, path + "/"))
         .filter(Book.is_missing.isnot(True))
         .order_by(Book.relative_path)
         .all()

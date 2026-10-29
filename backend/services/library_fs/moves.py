@@ -24,6 +24,7 @@ from ...config import THUMB_DIR, logger
 from ...services import library_fs  # package namespace, for patch-sensitive calls
 from ...indexer.categories import slugify
 from ...models.library import Book
+from ...sql_paths import path_at_or_under, path_under
 from ..filename_rules.folders import relink_rules
 from .constants import COLLECTIONS, FOLDER_MODELS, _THUMB_SECTIONS, LibraryFSError
 from .paths import (
@@ -549,7 +550,7 @@ def _records_under(db: Session, path: Path) -> list[tuple[Any, Any, str]]:
     if path.is_dir():
         # Forward-slashed to match how ``to_relative`` stores it, on every OS.
         prefix = to_relative(path) + "/"
-        rows = db.query(model).filter(model.relative_path.startswith(prefix)).all()
+        rows = db.query(model).filter(path_under(model.relative_path, prefix)).all()
     else:
         rows = db.query(model).filter(model.relative_path == to_relative(path)).all()
     return [(model, r, r.filepath) for r in rows]
@@ -599,9 +600,7 @@ def _relink_folders(db: Session, src: Path, dest: Path) -> int:
     # subtree, so a tagged child folder has to travel too.
     rows = (
         db.query(folder_model)
-        .filter(
-            (folder_model.path == src_rel) | (folder_model.path.startswith(src_rel + "/"))
-        )
+        .filter(path_at_or_under(folder_model.path, src_rel))
         .all()
     )
     if not rows:
@@ -610,10 +609,7 @@ def _relink_folders(db: Session, src: Path, dest: Path) -> int:
     existing = {
         f.path: f
         for f in db.query(folder_model)
-        .filter(
-            (folder_model.path == dest_rel)
-            | (folder_model.path.startswith(dest_rel + "/"))
-        )
+        .filter(path_at_or_under(folder_model.path, dest_rel))
         .all()
     }
 

@@ -19,6 +19,7 @@ from ...config import logger
 from ...indexer.constants import CONTAINER_MARKERS, NSFW_MARKER
 from ...models.campaigns import Campaign
 from ...models.library import Book, GameSystem
+from ...sql_paths import path_at_or_under
 from ..filename_rules.folders import purge_rules
 from . import folders
 from .constants import FOLDER_MODELS, _THUMB_SECTIONS, LibraryFSError
@@ -343,7 +344,7 @@ def _purge_folders(db: Session, target: Path) -> int:
         return 0
     return (
         db.query(folder_model)
-        .filter((folder_model.path == rel) | (folder_model.path.startswith(rel + "/")))
+        .filter(path_at_or_under(folder_model.path, rel))
         .delete(synchronize_session=False)
     )
 

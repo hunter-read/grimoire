@@ -46,6 +46,7 @@ module = [
     "backend.codex.*",
     "backend.api_keys",
     "backend.security",
+    "backend.sql_paths",
     "backend.file_cache",
     "backend.filenames",
     "backend.ocr",

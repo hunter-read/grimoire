@@ -29,6 +29,7 @@ from .system_prune import _prune_vanished_systems  # noqa: F401  (re-exported)
 from ..metadata import export as sidecar_export
 from ..metadata import settings as sidecar_settings
 from ..models import Audio, Book, GenericMap, Model3D, Token
+from ..sql_paths import path_under
 
 logger = logging.getLogger("grimoire.indexer")
 
@@ -62,7 +63,7 @@ def _reconcile_missing(
 
     def _scoped(query: Any, model: Any) -> Any:
         if scope_dir is not None:
-            return query.filter(model.filepath.like(f"{scope_dir}{os.sep}%"))
+            return query.filter(path_under(model.filepath, f"{scope_dir}{os.sep}"))
         return query
 
     def _gone(filepath: str) -> bool:

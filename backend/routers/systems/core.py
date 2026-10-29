@@ -10,6 +10,7 @@ from ...codex import collection as codex_collection
 from ...config import get_db
 from ...models import Book, BookFolder, GameSystem, User
 from ...services import access_control, bulk_service, tag_service, variants
+from ...sql_paths import path_under
 from .._bulk_schemas import BulkAddTags
 from ...services.books.access import enforce_campaign_visibility, pop_access_level
 from ...services.systems import (
@@ -371,7 +372,7 @@ def list_book_folders(
     db: Session = Depends(get_db),
 ):
     load_browsable_system(db, system_id, current_user)
-    folders = db.query(BookFolder).filter(BookFolder.path.like(f"{system_id}/%")).all()
+    folders = db.query(BookFolder).filter(path_under(BookFolder.path, f"{system_id}/")).all()
     return {
         "folders": [
             {"path": f.path, "tags": tag_service.folder_display_tags(db, f.tags or [])}
