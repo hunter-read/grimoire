@@ -142,7 +142,8 @@ the two disagree, shown side by side. Fields that already match are folded away,
 and a field this library has left empty is never offered, because sending it would
 clear Grimoire Codex DB's value. It compares what is saved, so save your edits first.
 
-- **Cover.** A book sends its first page, rendered sharper than the library
+- **Cover.** A book sends its [custom cover](setting-images.md#book-covers) if you
+  uploaded one, otherwise its first page, rendered sharper than the library
   thumbnail; comics, images and other formats send the thumbnail. A system sends
   the cover it shows in the library. The cover is ticked when Grimoire Codex DB has
   none; when it has a different one it is offered but left unticked, because theirs

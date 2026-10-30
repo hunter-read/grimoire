@@ -336,7 +336,7 @@ kept in the repo so it versions with the release you are running:
 | [Universal VTT editor](docs/uvtt-editor.md)   | Drawing walls, doors, and lights for dynamic lighting                           |
 | [Share links](docs/sharing.md)                | Public links to library items for people without an account                     |
 | [OTFBM and Avrae](docs/otfbm.md)              | Setting a map up as an OTFBM background for Avrae's `!map` on Discord           |
-| [Setting images](docs/setting-images.md)      | Campaign banners, system covers, and audio artwork                              |
+| [Setting images](docs/setting-images.md)      | Campaign banners, system and book covers, and audio artwork                     |
 | [Character sheets](docs/characters.md)        | The schema-driven character builder, content packs, and rulesets                |
 | [Themes](docs/themes.md)                      | Light, dark, and installable colour themes                                      |
 

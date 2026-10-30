@@ -10,6 +10,7 @@ from typing import Any, Optional
 
 from ...config import (
     AUDIO_COVER_DIR,
+    BOOK_COVER_DIR,
     BRANDING_DIR,
     CAMPAIGN_UPLOAD_DIR,
     CHARACTER_IMAGE_DIR,
@@ -35,6 +36,7 @@ ASSET_DIRS: tuple[tuple[str, str], ...] = (
     (CHARACTER_IMAGE_DIR, "character_images"),
     (SYSTEM_COVER_DIR, "system_covers"),
     (AUDIO_COVER_DIR, "audio_covers"),
+    (BOOK_COVER_DIR, "book_covers"),
     (BRANDING_DIR, "branding"),
 )
 

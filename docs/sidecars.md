@@ -64,6 +64,8 @@ importer would then read back as fact.
 
 Optionally writes the book's cached thumbnail beside it as `<book>.cover.jpg`,
 which is what makes the folder render nicely in file managers and other apps.
+A book with a [custom cover](setting-images.md#book-covers) exports that instead,
+and setting or removing one rewrites a `.cover.jpg` the book already has.
 
 The compound `.cover.jpg` is deliberate. It makes an exported cover
 self-identifying, so Grimoire's own file manager can hide it without risking a

@@ -31,9 +31,16 @@ vi.mock('./BookDetailsModal', () => ({
 }))
 
 vi.mock('./BookEditor', () => ({
-  default: ({ onSave, onClose }: BookEditorProps) => (
+  default: ({ onSave, onClose, onCoverChange }: BookEditorProps) => (
     <div data-testid="book-editor">
       <button onClick={() => onSave({ title: 'Saved' } as EditableBook)}>save</button>
+      <button
+        onClick={() =>
+          onCoverChange?.({ has_custom_cover: true, cover_version: 'v2', has_thumbnail: true })
+        }
+      >
+        cover
+      </button>
       <button onClick={onClose}>close</button>
     </div>
   ),
@@ -98,6 +105,22 @@ describe('CategoryBookItem', () => {
     fireEvent.click(screen.getByText('save'))
     expect(onSaveBook).toHaveBeenCalledWith('b1', { title: 'Saved' })
     expect(setEditingBookId).toHaveBeenCalledWith(null)
+  })
+
+  it('applies a cover change at once and keeps the editor open', () => {
+    const onSaveBook = vi.fn()
+    const setEditingBookId = vi.fn()
+    render(
+      <CategoryBookItem {...baseProps({ editingBookId: 'b1', onSaveBook, setEditingBookId })} />
+    )
+    fireEvent.click(screen.getByText('cover'))
+    expect(onSaveBook).toHaveBeenCalledWith('b1', {
+      ...book,
+      has_custom_cover: true,
+      cover_version: 'v2',
+      has_thumbnail: true,
+    })
+    expect(setEditingBookId).not.toHaveBeenCalled()
   })
 
   describe('details modal', () => {

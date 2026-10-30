@@ -89,6 +89,8 @@ export default function CategoryBookItem({
             setEditingBookId(null)
           }}
           onVariantsChanged={onVariantsChanged}
+          // Applied at once, so the row's cover updates while the editor stays open.
+          onCoverChange={(cover) => onSaveBook(book.id, { ...book, ...cover })}
           onClose={() => setEditingBookId(null)}
         />
       )}

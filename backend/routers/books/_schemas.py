@@ -158,6 +158,10 @@ class BookListItem(BaseModel):
     # Null for a book not attached to any system.
     game_system_id: Optional[str] = None
     has_thumbnail: Optional[bool] = None
+    # Null unless a custom cover was uploaded; it changes whenever that cover
+    # does. Append it to the thumbnail URL as `v` so a browser holding the old
+    # cover (thumbnails are cached immutable) fetches the new one.
+    cover_version: Optional[str] = None
     indexed: Optional[bool] = None
     index_failed: Optional[bool] = None
     # Derived comparison, so always a concrete bool.
@@ -236,6 +240,11 @@ class BookDetail(BaseModel):
     is_missing: bool
     mime_type: Optional[str] = None
     has_thumbnail: Optional[bool] = None
+    # Whether an admin uploaded a cover for this book, replacing the generated
+    # thumbnail. `cover_version` changes with that cover (null without one);
+    # append it to the thumbnail URL as `v` to bypass a cached older cover.
+    has_custom_cover: bool = False
+    cover_version: Optional[str] = None
     is_explicit: bool
     # Short token identifying the file's contents. The reader appends it to page
     # and thumbnail URLs so replacing the PDF on disk yields new URLs rather than
@@ -271,6 +280,41 @@ class BookDetail(BaseModel):
 
 class StatusResponse(BaseModel):
     status: str
+
+
+class BookCoverResponse(BaseModel):
+    """A book's custom cover after it was set or removed."""
+
+    # Bare filename under DATA_PATH/book_covers/, or "" when none is set.
+    cover_image: str
+    has_custom_cover: bool
+    # Changes whenever the cover does; null without a custom cover.
+    cover_version: Optional[str] = None
+    # Whether the book has any cover to show now - custom or generated. False
+    # after removing the custom cover of a book no thumbnail could be made for.
+    has_thumbnail: bool
+
+
+class BookCoverSourceIn(BaseModel):
+    """Set a book's cover from an image Grimoire already holds.
+
+    `source_type` is one of `services.image_source.SOURCE_TYPES`, less the
+    campaign-scoped `campaign_file`, which a book has no campaign to resolve
+    against - the same set a system cover takes.
+    """
+
+    source_type: str
+    source_id: str
+
+    @field_validator("source_type")
+    @classmethod
+    def known_source(cls, v: str) -> str:
+        from ...services.image_source import SOURCE_TYPES
+
+        allowed = tuple(t for t in SOURCE_TYPES if t != "campaign_file")
+        if v not in allowed:
+            raise ValueError(f"source_type must be one of {', '.join(allowed)}")
+        return v
 
 
 class ReindexResponse(BaseModel):

@@ -13,7 +13,6 @@ requesting user, so the picker can never become a way to read an asset the user
 could not already open through the maps/tokens/books views.
 """
 
-import glob
 import hashlib
 import io
 import os
@@ -66,19 +65,14 @@ def _media_thumb_path(kind: str, filename: str, filepath: str) -> str:
 
 
 def _book_thumb_path(book: Book) -> Optional[str]:
-    """Locate a book's cover thumbnail, falling back to the hash glob.
+    """Locate the cover a book shows: its custom cover, else its generated thumbnail.
 
-    Same two-step lookup the book thumbnail endpoint uses: the filename is
-    derived from the title at index time, so a renamed book only matches on the
-    path hash.
+    The same lookup the book thumbnail endpoint uses, so picking a book's cover
+    copies exactly the image the library displays for it.
     """
-    fhash = hashlib.md5(book.filepath.encode()).hexdigest()[:8]
-    thumb_dir = os.path.join(THUMB_DIR, "books")
-    expected = os.path.join(thumb_dir, f"{slugify(book.title)}_{fhash}.webp")
-    if os.path.isfile(expected):
-        return expected
-    matches = glob.glob(os.path.join(thumb_dir, f"*_{fhash}.webp"))
-    return matches[0] if matches else None
+    from .books.covers import book_cover_path
+
+    return book_cover_path(book)
 
 
 def _media_bytes(kind: str, item: Any) -> bytes:

@@ -4,6 +4,7 @@ import api, {
   dispositionFilename,
   mediaUrl,
   bookPageUrl,
+  bookThumbUrl,
   campaigns,
   imageSources,
   tokenFrames,
@@ -458,6 +459,21 @@ describe('api', () => {
       expect(url).toBe('/api/audio/a1/cover/from-source')
       expect(options.method).toBe('POST')
       expect(JSON.parse(options.body)).toEqual({ source_type: 'book', source_id: 'b1' })
+    })
+
+    it('imageSources.setBookCover POSTs the source reference', async () => {
+      await imageSources.setBookCover('b1', 'map', 'm1')
+      const [url, options] = lastCall()
+      expect(url).toBe('/api/books/b1/cover/from-source')
+      expect(options.method).toBe('POST')
+      expect(JSON.parse(options.body)).toEqual({ source_type: 'map', source_id: 'm1' })
+    })
+
+    it('imageSources.deleteBookCover DELETEs the custom cover', async () => {
+      await imageSources.deleteBookCover('b1')
+      const [url, options] = lastCall()
+      expect(url).toBe('/api/books/b1/cover')
+      expect(options.method).toBe('DELETE')
     })
 
     it('imageSources.deleteAudioCover DELETEs the track cover', async () => {
@@ -982,6 +998,12 @@ describe('bookPageUrl and tokenFrames', () => {
     expect(bookPageUrl('b1', 1, 800, 'tok123')).toBe('/api/books/b1/page/1?width=800&v=tok123')
   })
 
+  it('bookThumbUrl adds the custom cover version only when there is one', () => {
+    expect(bookThumbUrl('b1')).toBe('/api/books/b1/thumbnail')
+    expect(bookThumbUrl('b1', null)).toBe('/api/books/b1/thumbnail')
+    expect(bookThumbUrl('b1', 'abc123')).toBe('/api/books/b1/thumbnail?v=abc123')
+  })
+
   it('tokenFrames helper methods', async () => {
     globalThis.fetch = mockFetch(200, [])
     await tokenFrames.list()
@@ -1382,6 +1404,12 @@ describe('request shapes', () => {
     expect(sent()).toMatchObject({ url: '/api/rulesets/packs/install/srd%205.1', method: 'POST' })
     await rulesets.uninstallPack('srd 5.1')
     expect(sent()).toMatchObject({ url: '/api/rulesets/packs/srd%205.1', method: 'DELETE' })
+  })
+
+  it('image sources: a book cover upload', async () => {
+    await imageSources.uploadBookCover('b1', new Blob(['png']))
+    expect(sent()).toMatchObject({ url: '/api/books/b1/cover', method: 'POST' })
+    expect(sent().body.get('file')).toBeInstanceOf(Blob)
   })
 
   it('image sources: an audio cover upload', async () => {

@@ -8,6 +8,7 @@ from typing import Any
 from ...indexer import reocr_applies
 from ...models import Book, GameSystem
 from ...models.base import utc_iso
+from ...services.books import covers as book_covers
 from .covers import has_cover_file
 
 
@@ -56,7 +57,10 @@ def serialize_book(
         # exceeded OCR_PAGE_TIMEOUT and their text is missing (issue #450).
         "ocr_pages_skipped": book.ocr_pages_skipped or 0,
         "ocr_dpi": book.ocr_dpi,
-        "has_thumbnail": book.has_thumbnail,
+        # A custom cover is a cover too, even where no thumbnail could be made.
+        "has_thumbnail": bool(book.has_thumbnail or book.cover_image),
+        "has_custom_cover": book_covers.has_custom_cover(book),
+        "cover_version": book_covers.cover_version(book),
         "tags": tags if tags is not None else [],
         "is_explicit": bool(book.is_explicit),
         # Raw column, not the resolved level: NULL ("inherit") must survive the

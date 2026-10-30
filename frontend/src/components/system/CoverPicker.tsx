@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuImage } from 'react-icons/lu'
-import { mediaUrl } from '../../api'
+import { bookThumbUrl } from '../../api'
 import LazyImg from '../LazyImg'
 import { sortForCoverPicker } from './coverPickerUtils'
 import type { CoverPickerBook } from './coverPickerUtils'
@@ -116,7 +116,7 @@ export default function CoverPicker({
               }}
             >
               <LazyImg
-                src={mediaUrl(`/books/${b.id}/thumbnail`)}
+                src={bookThumbUrl(b.id, b.cover_version)}
                 alt={b.title}
                 placeholder
                 style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
@@ -143,7 +143,7 @@ export default function CoverPicker({
                 }}
               >
                 <img
-                  src={mediaUrl(`/books/${b.id}/thumbnail`)}
+                  src={bookThumbUrl(b.id, b.cover_version)}
                   alt={b.title}
                   style={{ width: 220, height: 'auto', display: 'block', borderRadius: 4 }}
                 />

@@ -15,6 +15,7 @@ vi.mock('../../api', () => ({
   default: { get: (...a: unknown[]) => get(...a), post: vi.fn(() => Promise.resolve({})) },
   tags: { list: () => Promise.resolve({ tags: [] }) },
   mediaUrl: (p: string) => p,
+  bookThumbUrl: (id: string, v?: string | null) => `/books/${id}/thumbnail${v ? `?v=${v}` : ''}`,
 }))
 
 // The access-level picker renders for admins only; null (no provider) is how

@@ -323,6 +323,21 @@ class TestOPDSFeeds:
         assert "?token=" not in resp.text
         assert 'type="image/webp"' in resp.text
 
+    def test_a_custom_cover_alone_earns_a_cover_link(self, opds_client, sample_book):
+        """A book no thumbnail could be made for still offers its uploaded cover."""
+        db = SessionLocal()
+        try:
+            db.query(Book).filter_by(id=sample_book).update(
+                {"has_thumbnail": False, "cover_image": f"{sample_book}_abc123.webp"}
+            )
+            db.commit()
+            resp = opds_client.get(f"/opds/{self._token}/entry/{sample_book}")
+            assert f"/opds/{self._token}/cover/{sample_book}" in resp.text
+        finally:
+            db.query(Book).filter_by(id=sample_book).update({"cover_image": ""})
+            db.commit()
+            db.close()
+
     def test_cover_is_served_with_the_feed_token(
         self, opds_client, sample_book, tmp_path, monkeypatch
     ):

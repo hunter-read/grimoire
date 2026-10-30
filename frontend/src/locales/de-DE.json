@@ -2633,7 +2633,14 @@
     "licenseLabel": "Lizenz",
     "licensePlaceholder": "Inherit system license",
     "fetchMetadata": "Metadaten abrufen",
-    "productCodeLabel": "Produktcode"
+    "productCodeLabel": "Produktcode",
+    "coverLabel": "Titelbild",
+    "uploadCover": "Titelbild hochladen",
+    "replaceCover": "Titelbild ersetzen",
+    "removeCustomCover": "Eigenes Titelbild entfernen",
+    "coverHint": "Ersetzt das aus der ersten Seite erzeugte Titelbild überall, wo es angezeigt wird.",
+    "customCoverInUse": "Ein eigenes Titelbild wird verwendet. Ein erneuter Scan ersetzt es nicht.",
+    "coverUpdateFailed": "Titelbild konnte nicht aktualisiert werden"
   },
   "reocr": {
     "button": "OCR wiederholen",

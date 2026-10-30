@@ -9,7 +9,11 @@ vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (k: string) => k }),
 }))
 
-vi.mock('../../api', () => ({ mediaUrl: (p: string) => `http://localhost${p}` }))
+vi.mock('../../api', () => ({
+  mediaUrl: (p: string) => `http://localhost${p}`,
+  bookThumbUrl: (id: string, v?: string | null) =>
+    `http://localhost/books/${id}/thumbnail${v ? `?v=${v}` : ''}`,
+}))
 vi.mock('../LazyImg', () => ({
   default: ({ alt, ...rest }: ImgHTMLAttributes<HTMLImageElement>) => <img alt={alt} {...rest} />,
 }))

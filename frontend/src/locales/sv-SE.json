@@ -2633,7 +2633,14 @@
     "licenseLabel": "Licens",
     "licensePlaceholder": "Ärv systemets licens",
     "fetchMetadata": "Hämta metadata",
-    "productCodeLabel": "Produktkod"
+    "productCodeLabel": "Produktkod",
+    "coverLabel": "Omslag",
+    "uploadCover": "Ladda upp omslag",
+    "replaceCover": "Byt omslag",
+    "removeCustomCover": "Ta bort eget omslag",
+    "coverHint": "Ersätter omslaget som skapats från första sidan, överallt där det visas.",
+    "customCoverInUse": "Ett eget omslag används. En ny skanning ersätter det inte.",
+    "coverUpdateFailed": "Det gick inte att uppdatera omslaget"
   },
   "reocr": {
     "button": "Kör OCR igen",

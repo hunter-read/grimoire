@@ -8,6 +8,10 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ## [Unreleased]
 
+### Added
+
+- A book can have its own cover. In the book's **Edit Metadata** panel, **Upload cover** replaces the cover made from its first page - for a fixed-layout EPUB that shows up blank, or a PDF that opens on a wraparound dust jacket or a sideways scan. The custom cover is used in the library, the OPDS feed and exported sidecars, and is what Grimoire Codex DB is sent; a rescan never replaces it, and **Remove custom cover** brings the old one back
+
 ## [1.10.0] - 2026-10-29
 
 ### Added

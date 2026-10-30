@@ -3,7 +3,7 @@ import type { KeyboardEvent, MouseEvent } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuChevronRight, LuFileArchive, LuFileText, LuHeart, LuCheck, LuInfo } from 'react-icons/lu'
-import { mediaUrl } from '../../api'
+import { bookThumbUrl, mediaUrl } from '../../api'
 import type { Schema } from '../../api'
 import { CATEGORY_ICONS, isArchiveBook } from '../../constants'
 import { useFavorites } from '../../context/FavoritesContext'
@@ -253,7 +253,7 @@ export default function BookRow({
         >
           {book.has_thumbnail ? (
             <LazyImg
-              src={mediaUrl(`/books/${book.id}/thumbnail`)}
+              src={bookThumbUrl(book.id, book.cover_version)}
               alt=""
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
@@ -445,7 +445,7 @@ export default function BookRow({
       >
         {book.has_thumbnail ? (
           <LazyImg
-            src={mediaUrl(`/books/${book.id}/thumbnail`)}
+            src={bookThumbUrl(book.id, book.cover_version)}
             alt=""
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />

@@ -1,6 +1,4 @@
 """Core book CRUD and file-serving endpoint handlers."""
-import glob
-import hashlib
 import os
 from datetime import datetime, timezone
 from typing import Literal, Optional
@@ -14,11 +12,11 @@ from .._user_files import serve_user_file
 from ...http_headers import content_disposition
 from ...auth import CurrentUser, get_current_user, require_gm_or_admin
 from ...codex import collection as codex_collection
-from ...config import _PAGE_CACHE_HEADERS, THUMB_DIR, get_db
+from ...config import _PAGE_CACHE_HEADERS, get_db
 from ...security import SAME_ORIGIN_FRAME_HEADERS
 
 from ...file_cache import etag_matches
-from ...indexer import reocr_applies, slugify
+from ...indexer import reocr_applies
 from ...indexer.formats import can_index
 from ...metadata import export as sidecar_export
 from ...metadata import settings as sidecar_settings
@@ -38,6 +36,7 @@ from ...services.books.access import (
     enforce_campaign_visibility,
     pop_access_level,
 )
+from ...services.books import covers as book_covers
 from ...services.books.documents import invalidate_book_cache
 from ._schemas import BookBulkUpdate, BookUpdate
 
@@ -129,7 +128,9 @@ def list_books(
                 "file_size": b.file_size,
                 "mime_type": b.mime_type,
                 "game_system_id": b.game_system_id,
-                "has_thumbnail": b.has_thumbnail,
+                # A custom cover is a cover too, even where no thumbnail could be made.
+                "has_thumbnail": bool(b.has_thumbnail or b.cover_image),
+                "cover_version": book_covers.cover_version(b),
                 "indexed": b.indexed,
                 "index_failed": b.index_failed,
                 "ocr_indexed": b.index_error == "ocr",
@@ -226,7 +227,9 @@ def get_book(
         "ocr_dpi": book.ocr_dpi,
         "is_missing": bool(book.is_missing),
         "mime_type": book.mime_type,
-        "has_thumbnail": book.has_thumbnail,
+        "has_thumbnail": bool(book.has_thumbnail or book.cover_image),
+        "has_custom_cover": book_covers.has_custom_cover(book),
+        "cover_version": book_covers.cover_version(book),
         "is_explicit": bool(book.is_explicit),
         "access_level": book.access_level,
         "effective_access_level": access_control.resolve_level(db, book),
@@ -517,7 +520,12 @@ def serve_book_thumbnail(
     # writes), so it alone cannot tell a replaced cover from the original. The
     # ETag carries the content token instead, which is what lets a client holding
     # the previous cover find out it is stale — the response is marked immutable.
-    etag = f'"{content_token(book.content_hash, book.filepath)}"'
+    # A custom cover (which wins over the generated one) adds its own version, so
+    # uploading, replacing or removing one changes the ETag too. The UI also puts
+    # that version in the URL, since an immutable response is never revalidated.
+    token = content_token(book.content_hash, book.filepath)
+    version = book_covers.cover_version(book)
+    etag = f'"{token}-c{version}"' if version else f'"{token}"'
     if etag_matches(request, etag):
         return Response(status_code=304, headers={"ETag": etag, **_PAGE_CACHE_HEADERS})
     headers = {**_PAGE_CACHE_HEADERS, "ETag": etag}
@@ -528,11 +536,8 @@ def serve_book_thumbnail(
 
 
 def book_thumbnail_path(book: Book) -> Optional[str]:
-    """The book's cover thumbnail on disk, or None. Shared with the OPDS cover route."""
-    fhash = hashlib.md5(book.filepath.encode()).hexdigest()[:8]
-    thumb_dir = os.path.join(THUMB_DIR, "books")
-    expected = os.path.join(thumb_dir, f"{slugify(book.title)}_{fhash}.webp")
-    if os.path.isfile(expected):
-        return expected
-    matches = glob.glob(os.path.join(thumb_dir, f"*_{fhash}.webp"))
-    return matches[0] if matches else None
+    """The book's cover image on disk, or None. Shared with the OPDS and Codex covers.
+
+    A custom cover uploaded for the book wins over the generated thumbnail.
+    """
+    return book_covers.book_cover_path(book)
