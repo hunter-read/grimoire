@@ -1094,6 +1094,50 @@ export interface paths {
         patch: operations["update_book_api_books__book_id__patch"];
         trace?: never;
     };
+    "/api/books/{book_id}/cover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload a book cover
+         * @description Stores an uploaded image (multipart field `file`; PNG/JPEG/WebP/GIF, max 10 MB) as the book's cover in place of its generated thumbnail. It is re-encoded as WebP at most 900px wide. A rescan never replaces it. GM or admin role required.
+         */
+        post: operations["upload_book_cover_api_books__book_id__cover_post"];
+        /**
+         * Remove a book's custom cover
+         * @description Deletes the uploaded cover, so the generated thumbnail is shown again. GM or admin role required.
+         */
+        delete: operations["delete_book_cover_api_books__book_id__cover_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/books/{book_id}/cover/from-source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a book cover from an existing image
+         * @description Copies an image Grimoire already holds - a library map or token, book cover, or audio artwork - into the book's cover. Body: {source_type, source_id}. GM or admin role required.
+         */
+        post: operations["set_book_cover_from_source_api_books__book_id__cover_from_source_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/books/{book_id}/export": {
         parameters: {
             query?: never;
@@ -7829,6 +7873,11 @@ export interface components {
             /** File */
             file: string;
         };
+        /** Body_upload_book_cover_api_books__book_id__cover_post */
+        Body_upload_book_cover_api_books__book_id__cover_post: {
+            /** File */
+            file: string;
+        };
         /** Body_upload_campaign_file_api_campaigns__campaign_id__files_post */
         Body_upload_campaign_file_api_campaigns__campaign_id__files_post: {
             /**
@@ -7975,6 +8024,34 @@ export interface components {
             items: components["schemas"]["BookBulkItem"][];
         };
         /**
+         * BookCoverResponse
+         * @description A book's custom cover after it was set or removed.
+         */
+        BookCoverResponse: {
+            /** Cover Image */
+            cover_image: string;
+            /** Cover Version */
+            cover_version?: string | null;
+            /** Has Custom Cover */
+            has_custom_cover: boolean;
+            /** Has Thumbnail */
+            has_thumbnail: boolean;
+        };
+        /**
+         * BookCoverSourceIn
+         * @description Set a book's cover from an image Grimoire already holds.
+         *
+         *     `source_type` is one of `services.image_source.SOURCE_TYPES`, less the
+         *     campaign-scoped `campaign_file`, which a book has no campaign to resolve
+         *     against - the same set a system cover takes.
+         */
+        BookCoverSourceIn: {
+            /** Source Id */
+            source_id: string;
+            /** Source Type */
+            source_type: string;
+        };
+        /**
          * BookDetail
          * @description One book, as built by `core.get_book`.
          */
@@ -7993,6 +8070,8 @@ export interface components {
             codex_id?: string | null;
             /** Content Token */
             content_token?: string | null;
+            /** Cover Version */
+            cover_version?: string | null;
             /** Day */
             day?: number | null;
             /** Description */
@@ -8004,6 +8083,11 @@ export interface components {
             game_system?: components["schemas"]["BookSystemRef"] | null;
             /** Genres */
             genres: string[];
+            /**
+             * Has Custom Cover
+             * @default false
+             */
+            has_custom_cover?: boolean;
             /** Has Thumbnail */
             has_thumbnail?: boolean | null;
             /** Id */
@@ -8125,6 +8209,8 @@ export interface components {
             can_reocr: boolean;
             /** Category */
             category?: string | null;
+            /** Cover Version */
+            cover_version?: string | null;
             /** File Size */
             file_size?: number | null;
             /** Filename */
@@ -8184,6 +8270,8 @@ export interface components {
             category?: string | null;
             /** Codex Id */
             codex_id?: string | null;
+            /** Cover Version */
+            cover_version?: string | null;
             /** Day */
             day?: number | null;
             /** Description */
@@ -8194,6 +8282,11 @@ export interface components {
             filename: string;
             /** Genres */
             genres: string[];
+            /**
+             * Has Custom Cover
+             * @default false
+             */
+            has_custom_cover?: boolean;
             /** Has Thumbnail */
             has_thumbnail?: boolean | null;
             /** Id */
@@ -19537,6 +19630,122 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["backend__routers__books___schemas__StatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_book_cover_api_books__book_id__cover_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                book_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_book_cover_api_books__book_id__cover_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookCoverResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_book_cover_api_books__book_id__cover_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                book_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookCoverResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_book_cover_from_source_api_books__book_id__cover_from_source_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                book_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookCoverSourceIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookCoverResponse"];
                 };
             };
             /** @description Validation Error */

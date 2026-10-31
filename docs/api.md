@@ -601,7 +601,10 @@ does not support pasting, and a request with neither `identity` nor `paste`.
 | `/api/books/:id/reindex` | POST | gm/admin | Re-run OCR on a scanned book. Optional query `ocr_dpi` (72–600) re-reads this book at a higher resolution than the global `OCR_DPI`; omit for the default. Clears the book's search index and re-queues it (OCR runs in the background - poll `/api/scan-status`). Accepted for OCR'd and image-only PDFs, and for PDFs whose own text covers less than `OCR_MIN_TEXT_COVERAGE` of their pages - the same rule as the book's `can_reocr` field. 400 otherwise (an embedded text layer, nothing to OCR). The book is read in full, without the artwork sample a thin-text book gets when it is indexed. Returns `{status: "reindex_queued", ocr_dpi}`. |
 | `/api/books/:id/rescan` | POST | gm/admin | Re-read a single book from disk and rebuild its search index, for a file edited externally. Unlike `/reindex` this works for any indexable format (PDF, EPUB, DjVu, `.txt`/`.md`/`.rtf`): a text-layer book is re-extracted and its FTS rows rebuilt; an image-only PDF is re-queued for OCR. Refreshes page count and cover thumbnail if the file changed, and drops everything cached from the previous contents (page renders, open document handle, search rows). Runs in the background on the same queue as replace uploads (poll `/api/scan-status`, `kind: "reindex"`): a rescan sent while that queue is running joins it. No-ops if a library scan or OCR run is already in progress. 400 for formats that cannot be indexed (archives, images), 404 if the file is missing on disk. Returns `{status: "rescan_queued"}`. |
 | `/api/books/:id/file` | GET | any | Download/stream the file |
-| `/api/books/:id/thumbnail` | GET | any | WebP cover thumbnail. Sends an `ETag` derived from the file's content hash and honours `If-None-Match` (`304`), so a replaced cover is picked up despite the `immutable` cache policy. |
+| `/api/books/:id/thumbnail` | GET | any | WebP cover thumbnail - the book's [custom cover](#custom-book-covers) when one is set, else the one generated from its first page. Sends an `ETag` derived from the file's content hash (and the custom cover's version, when there is one) and honours `If-None-Match` (`304`). Responses are cached `immutable`, so clients add the book's `cover_version` as `v` to pick up a changed custom cover; `v` is ignored server-side. |
+| `/api/books/:id/cover` | POST | gm/admin | Upload a [custom cover](#custom-book-covers) (multipart `file`). PNG/JPEG/WebP/GIF, max 10 MB. Returns `{cover_image, has_custom_cover, cover_version, has_thumbnail}` |
+| `/api/books/:id/cover/from-source` | POST | gm/admin | Set the custom cover from an image Grimoire already holds. Body: `{source_type, source_id}` - see [Setting an image from an existing asset](#setting-an-image-from-an-existing-asset). Returns as for the upload |
+| `/api/books/:id/cover` | DELETE | gm/admin | Remove the custom cover, so the generated thumbnail is used again. Returns as for the upload, with `has_custom_cover: false` and `cover_version: null` |
 | `/api/books/:id/toc` | GET | any | Table of contents as `{title, page, level, children}[]`. Available for PDF, EPUB, and DjVu; other formats 404. `page` is 1-based, or `-1` for an entry whose destination can't be resolved - a broken PDF bookmark costs only its own link, not the whole TOC, and one pointing just past the last page resolves to the last page |
 | `/api/books/:id/page/:num` | GET | any | Render a document page (PDF/EPUB/DjVu) as WebP. Comic archives (`.cbz`/`.cbr`/`.cb7`/`.cbt`) return the stored page image from inside the archive as-is; single-image books return the file and accept only page 1; text books 404 (no rendered page). Query: `width` (default 1200, 16-3000; outside that range is 422), `v` (the book's `content_token`, cache-busting; ignored server-side). Cached under a content-addressed key, so replacing the file supersedes earlier renders; a request for a page that is already rendering waits for that render instead of starting another. A page not rendered yet is answered `503` with `Retry-After` while `RENDER_QUEUE_LIMIT` renders are already running or waiting; ask again after it. Sends an `ETag` and honours `If-None-Match` (`304`). |
 | `/api/books/:id/page/:num/tile` | GET | any | One zoom tile of a rendered page (PDF/EPUB/DjVu) as WebP: a square of at most 1024px from the page as if rendered `width` pixels wide, for sharp zoom past the 3000px whole-page cap. Query: `width` (required, a multiple of 256, 256-16384), `col` and `row` (required, tiles counted from the top left; a tile outside the page is 400), `v` (as for the page). Edge tiles are cut to the page. Other formats 404. Cached and revalidated like the page itself, and refused with `503` and `Retry-After` past `RENDER_QUEUE_LIMIT` in the same way |
@@ -613,6 +616,28 @@ does not support pasting, and a request with neither `identity` nor `paste`.
 | `/api/books/:id/export/save` | POST | admin | The same export written into a library folder instead - see [Page export](#page-export) |
 
 **Book list response:** `{"total": int, "books": [...]}`
+
+#### Custom book covers
+
+A book's cover is normally rendered from its first page by the scanner. Where that
+makes a poor cover - a fixed-layout EPUB that renders blank, a PDF that opens on a
+wraparound dust jacket or a rotated scan - a gm/admin can upload a replacement with
+`POST /api/books/:id/cover`. It is re-encoded as WebP, at most 900px wide (and
+1800px tall), with any EXIF rotation applied, and stored under
+`DATA_PATH/book_covers/` as `{book_id}_{digest}.webp`. Backups include that folder.
+
+The custom cover wins everywhere the book's cover is used: `/api/books/:id/thumbnail`
+(and so every grid), the OPDS feed's cover links, the image picker's `book` source,
+an exported `.cover.jpg` sidecar, and the cover sent to or compared with
+[Grimoire Codex DB](#grimoire-codex-db-issue-35). A rescan or regenerated thumbnail
+never replaces or removes it; deleting the book does, as does the library cleanup for
+a book that is gone.
+
+`GET /api/books/:id` carries `has_custom_cover` and `cover_version`; the book rows of
+`GET /api/books` (`cover_version`) and `GET /api/systems/:id` (both) do too.
+`cover_version` is `null` without a custom cover and changes whenever it does - pass
+it as `v` on the thumbnail URL. `has_thumbnail` is true on all of them when a custom
+cover is set, even for a book no thumbnail could be generated for.
 
 **Date added (issue #199):** every book row - here, on `GET /api/books/:id`, and in
 `GET /api/systems/:id` - carries `added_at`, an ISO-8601 UTC timestamp of when the book
@@ -1475,27 +1500,27 @@ Guests authenticate via [`/api/auth/guest-login`](#auth) and may write only thei
 
 #### Setting an image from an existing asset
 
-Three targets - the campaign banner, a game system's cover, and an audio track's
-cover - can be set from an image Grimoire already holds instead of a fresh upload
+Four targets - the campaign banner, a game system's cover, an audio track's cover,
+and a book's custom cover - can be set from an image Grimoire already holds instead of a fresh upload
 from the user's device, via a `POST .../from-source` endpoint taking
 `{source_type, source_id}`.
 
 | `source_type` | Resolves to | Available on |
 |---------------|-------------|--------------|
-| `map` | The map image itself, or its generated thumbnail for a PDF/archive map | all three |
-| `token` | The token image, or its thumbnail | all three |
-| `book` | The book's cover thumbnail | all three |
-| `audio` | The track's folder or embedded artwork | all three |
+| `map` | The map image itself, or its generated thumbnail for a PDF/archive map | all four |
+| `token` | The token image, or its thumbnail | all four |
+| `book` | The book's cover: its custom cover, else its generated thumbnail | all four |
+| `audio` | The track's folder or embedded artwork | all four |
 | `campaign_file` | An image uploaded to the campaign (`is_image`) | banner only |
 
 The chosen bytes are **copied** into the target's own storage exactly as an
 upload is, so the result survives the source asset being deleted or the library
 being reorganised, and the GET endpoints are unchanged. `campaign_file` is
-campaign-scoped and is rejected (422) on the system and audio endpoints, which
+campaign-scoped and is rejected (422) on the system, audio and book endpoints, which
 have no campaign context to resolve it against.
 
 Authorisation is enforced twice: the caller must be allowed to write the target
-(campaign owner, or gm/admin for a system/track) **and** must be able to read the
+(campaign owner, or gm/admin for a system/track/book) **and** must be able to read the
 source in its own right, under the same rules its own content route applies. The
 picker therefore grants no access the caller did not already have. Unknown source
 types are rejected with 422; a source that is missing, or that has no image to
@@ -3099,7 +3124,7 @@ per-format field mapping and how export interacts with sidecar import.
 A backup is a single timestamped `.zip` named `grimoire-backup-<UTC timestamp>.zip`,
 holding a consistent snapshot of the SQLite database (taken with SQLite's online
 backup API, not a file copy) plus the user-authored directories under `DATA_PATH`:
-`campaign_uploads/`, `system_covers/`, `audio_covers/`, and `branding/`. A `details.json`
+`campaign_uploads/`, `system_covers/`, `audio_covers/`, `book_covers/`, and `branding/`. A `details.json`
 manifest records the app version, timestamp, and trigger. The **library is never
 included**, nor are the regenerable caches (`thumbnails/`, `page_cache/`).
 

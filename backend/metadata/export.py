@@ -116,7 +116,13 @@ def _atomic_write(path: str, text: str) -> None:
 
 
 def _thumbnail_source(book: Book) -> Optional[str]:
-    """The cached thumbnail for a book, keyed exactly as the scanner keys it."""
+    """The book's cover image: a custom cover if one was uploaded, else the
+    cached thumbnail, keyed exactly as the scanner keys it."""
+    from ..services.books.covers import custom_cover_path
+
+    custom = custom_cover_path(book)
+    if custom:
+        return custom
     name = f"{slugify(book.title)}_{hashlib.md5(book.filepath.encode()).hexdigest()[:8]}.webp"
     path = os.path.join(THUMB_DIR, "books", name)
     return path if os.path.isfile(path) else None

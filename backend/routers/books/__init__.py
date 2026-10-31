@@ -14,6 +14,7 @@ from .core import (
     serve_book_file,
     serve_book_thumbnail,
 )
+from .covers import delete_book_cover, set_book_cover_from_source, upload_book_cover
 from .metadata import (
     fetch_metadata,
     list_metadata_sources,
@@ -30,6 +31,7 @@ from .._metadata_lookup import (
     MetadataSourcesResponse,
 )
 from ._schemas import (
+    BookCoverResponse,
     BookDetail,
     BookListResponse,
     PageTextResponse,
@@ -113,6 +115,45 @@ router.add_api_route(
 )
 router.add_api_route(
     "/{book_id}/thumbnail", serve_book_thumbnail, methods=["GET"], summary="Book cover thumbnail"
+)
+# A custom cover, replacing the generated first-page thumbnail wherever the
+# book's cover is used (grids, OPDS, Grimoire Codex DB). Mirrors the system cover
+# routes: same roles, types and size limit.
+router.add_api_route(
+    "/{book_id}/cover",
+    upload_book_cover,
+    methods=["POST"],
+    summary="Upload a book cover",
+    description=(
+        "Stores an uploaded image (multipart field `file`; PNG/JPEG/WebP/GIF, max "
+        "10 MB) as the book's cover in place of its generated thumbnail. It is "
+        "re-encoded as WebP at most 900px wide. A rescan never replaces it. "
+        "GM or admin role required."
+    ),
+    response_model=BookCoverResponse,
+)
+router.add_api_route(
+    "/{book_id}/cover/from-source",
+    set_book_cover_from_source,
+    methods=["POST"],
+    summary="Set a book cover from an existing image",
+    description=(
+        "Copies an image Grimoire already holds - a library map or token, book "
+        "cover, or audio artwork - into the book's cover. Body: {source_type, "
+        "source_id}. GM or admin role required."
+    ),
+    response_model=BookCoverResponse,
+)
+router.add_api_route(
+    "/{book_id}/cover",
+    delete_book_cover,
+    methods=["DELETE"],
+    summary="Remove a book's custom cover",
+    description=(
+        "Deletes the uploaded cover, so the generated thumbnail is shown again. "
+        "GM or admin role required."
+    ),
+    response_model=BookCoverResponse,
 )
 router.add_api_route(
     "/{book_id}/toc", get_book_toc, methods=["GET"], summary="PDF table of contents",

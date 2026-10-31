@@ -14,6 +14,7 @@
  */
 export {
   bookPageUrl,
+  bookThumbUrl,
   client,
   dispositionFilename,
   mediaUrl,

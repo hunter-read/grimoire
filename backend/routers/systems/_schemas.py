@@ -198,6 +198,11 @@ class BookOut(VariantCountMixin, BaseModel):
     ocr_pages_skipped: int = 0
     ocr_dpi: Optional[int] = None
     has_thumbnail: Optional[bool] = None
+    # A cover uploaded for the book, replacing its generated thumbnail.
+    # `cover_version` changes with it (null without one); the UI appends it to
+    # the thumbnail URL as `v` so a cached older cover is not shown.
+    has_custom_cover: bool = False
+    cover_version: Optional[str] = None
     tags: list[str]
     # Both wrapped in `bool(...)` by the serializer.
     is_explicit: bool

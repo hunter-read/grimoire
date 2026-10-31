@@ -2633,7 +2633,14 @@
     "licenseLabel": "Licencia",
     "licensePlaceholder": "Inherit system license",
     "fetchMetadata": "Obtener metadatos",
-    "productCodeLabel": "Código de producto"
+    "productCodeLabel": "Código de producto",
+    "coverLabel": "Portada",
+    "uploadCover": "Subir portada",
+    "replaceCover": "Reemplazar portada",
+    "removeCustomCover": "Quitar portada personalizada",
+    "coverHint": "Sustituye la portada generada a partir de la primera página en todos los lugares donde se muestra.",
+    "customCoverInUse": "Se está usando una portada personalizada. Un nuevo escaneo no la sustituirá.",
+    "coverUpdateFailed": "No se pudo actualizar la portada"
   },
   "reocr": {
     "button": "Repetir OCR",

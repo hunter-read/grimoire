@@ -14,6 +14,7 @@ from ..indexer.metadata import resolve_collection_dir
 from ..models.collections import CollectionSpec, iter_specs
 from ..models import RESOURCE_TYPES, Book, BookFolder, Campaign, GameSystem, ResourceTag
 from . import tag_service
+from .books.covers import prune_orphan_covers
 from .library_fs.references import purge_many_references, purge_system_references
 
 _FS_TIMEOUT = 5  # seconds before an os.path.exists() call is treated as hung
@@ -385,6 +386,9 @@ def do_cleanup(db: Session) -> dict:
     # judge staleness against a library state that is about to change.
     removed["folders"] = _prune_stale_folders(db) + _prune_orphaned_book_folders(db)
     removed["tag_links"] = _prune_orphaned_tag_links(db)
+    # Custom covers of books removed above, or by a system delete that cascaded
+    # to its books without passing through the paths that clean up after them.
+    prune_orphan_covers(db)
 
     return removed
 

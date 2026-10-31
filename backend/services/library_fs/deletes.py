@@ -71,9 +71,12 @@ def _purge_derived(db: Session, model: Any, record: Any) -> None:
     _unlink_thumbnails(_thumbnails_of(model, record))
 
     if model is Book:
+        from ..books.covers import remove_cover_files
         from ..content_cache import invalidate_book_content
 
         invalidate_book_content(record.id, record.filepath, db=db)
+        # A custom cover is user-authored, but it belongs to this row alone.
+        remove_cover_files(record.id)
 
 
 def _delete_records(
@@ -228,6 +231,7 @@ def finish_deletes(staged: list[StagedDelete]) -> list[dict]:
     went with the references inside the transaction, which is why the content
     cache is invalidated here without a session.
     """
+    from ..books.covers import remove_cover_files
     from ..content_cache import invalidate_book_content
 
     results: list[dict] = []
@@ -251,6 +255,7 @@ def finish_deletes(staged: list[StagedDelete]) -> list[dict]:
         _unlink_thumbnails(item.thumbnails)
         if item.model is Book:
             invalidate_book_content(item.id, item.filepath)
+            remove_cover_files(item.id)
         results.append(
             {"id": item.id, "path": item.filepath, "file_deleted": removed, "error": error}
         )

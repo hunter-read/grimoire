@@ -2633,7 +2633,14 @@
     "licenseLabel": "License",
     "licensePlaceholder": "Inherit system license",
     "fetchMetadata": "Fetch metadata",
-    "productCodeLabel": "Product code"
+    "productCodeLabel": "Product code",
+    "coverLabel": "Cover",
+    "uploadCover": "Upload cover",
+    "replaceCover": "Replace cover",
+    "removeCustomCover": "Remove custom cover",
+    "coverHint": "Replaces the cover made from the first page, everywhere it is shown.",
+    "customCoverInUse": "A custom cover is in use. A rescan will not replace it.",
+    "coverUpdateFailed": "Could not update the cover"
   },
   "reocr": {
     "button": "Re-OCR",

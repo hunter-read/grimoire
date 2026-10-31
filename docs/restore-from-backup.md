@@ -25,6 +25,7 @@ grimoire-backup-20260821T140355Z.zip
 ├── character_images/     pictures in character sheets' image fields
 ├── system_covers/        custom game-system cover images
 ├── audio_covers/         custom audio cover art
+├── book_covers/          custom book covers
 └── branding/             the uploaded OIDC sign-in button icon
 ```
 
@@ -87,6 +88,7 @@ mv character_portraits character_portraits.before-restore  # if present
 mv character_images character_images.before-restore        # if present
 mv system_covers   system_covers.before-restore       # if present
 mv audio_covers    audio_covers.before-restore        # if present
+mv book_covers     book_covers.before-restore         # if present
 mv branding        branding.before-restore            # if present
 ```
 
@@ -106,6 +108,7 @@ cp -r /tmp/grimoire-restore/character_portraits . 2>/dev/null || true
 cp -r /tmp/grimoire-restore/character_images . 2>/dev/null || true
 cp -r /tmp/grimoire-restore/system_covers   . 2>/dev/null || true
 cp -r /tmp/grimoire-restore/audio_covers    . 2>/dev/null || true
+cp -r /tmp/grimoire-restore/book_covers     . 2>/dev/null || true
 cp -r /tmp/grimoire-restore/branding        . 2>/dev/null || true
 ```
 
@@ -114,7 +117,7 @@ non-root user, `chown` them to match the rest of the data directory:
 
 ```bash
 chown -R --reference=. grimoire.db campaign_uploads character_portraits character_images \
-  system_covers audio_covers branding
+  system_covers audio_covers book_covers branding
 ```
 
 ## 6. Start up and rescan

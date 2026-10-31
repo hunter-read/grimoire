@@ -2633,7 +2633,14 @@
     "licenseLabel": "Licenza",
     "licensePlaceholder": "Eredita la licenza del sistema",
     "fetchMetadata": "Recupera metadati",
-    "productCodeLabel": "Codice prodotto"
+    "productCodeLabel": "Codice prodotto",
+    "coverLabel": "Copertina",
+    "uploadCover": "Carica copertina",
+    "replaceCover": "Sostituisci copertina",
+    "removeCustomCover": "Rimuovi copertina personalizzata",
+    "coverHint": "Sostituisce la copertina ricavata dalla prima pagina ovunque venga mostrata.",
+    "customCoverInUse": "È in uso una copertina personalizzata. Una nuova scansione non la sostituirà.",
+    "coverUpdateFailed": "Impossibile aggiornare la copertina"
   },
   "reocr": {
     "button": "Riesegui OCR",

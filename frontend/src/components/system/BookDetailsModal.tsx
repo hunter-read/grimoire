@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuExternalLink, LuX } from 'react-icons/lu'
-import { mediaUrl } from '../../api'
+import { bookThumbUrl } from '../../api'
 import type { Schema } from '../../api'
 import { formatSize } from '../../utils'
 import LazyImg from '../LazyImg'
@@ -125,7 +125,7 @@ export default function BookDetailsModal({ book, onClose }: BookDetailsModalProp
         <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
           {book.has_thumbnail && (
             <LazyImg
-              src={mediaUrl(`/books/${book.id}/thumbnail`)}
+              src={bookThumbUrl(book.id, book.cover_version)}
               alt={book.title}
               style={{
                 width: 150,

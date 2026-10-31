@@ -18,6 +18,8 @@ export interface CoverPickerBook {
   title?: string
   category?: string | null
   has_thumbnail?: boolean | null
+  // Set when a custom cover was uploaded; keeps the thumbnail URL current.
+  cover_version?: string | null
 }
 
 export function sortForCoverPicker<B extends CoverPickerBook>(

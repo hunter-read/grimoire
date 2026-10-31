@@ -17,6 +17,8 @@ import { useAuth } from '../../context/AuthContext'
 import MetadataFetchDialog from './MetadataFetchDialog'
 import CodexPanel from '../codex/CodexPanel'
 import BookVersionsSection from './BookVersionsSection'
+import BookCoverUpload from './BookCoverUpload'
+import type { BookCoverChange } from './BookCoverUpload'
 import useMetadataSources from './useMetadataSources'
 import { intoBookForm } from './metadataFieldValue'
 
@@ -40,6 +42,8 @@ export interface BookEditorProps {
   existingCategories?: string[]
   systemGenres?: string[]
   onVariantsChanged?: (newMainId: string | null) => void
+  /** Called when a custom cover is uploaded or removed (applied immediately). */
+  onCoverChange?: (cover: BookCoverChange) => void
 }
 
 /** The editor's form state; list and date fields are held as text. */
@@ -90,6 +94,7 @@ export default function BookEditor({
   existingCategories = [],
   systemGenres = [],
   onVariantsChanged,
+  onCoverChange,
 }: BookEditorProps) {
   const { t } = useTranslation()
   // May be null outside an AuthProvider; see AccessLevelPicker.
@@ -368,10 +373,11 @@ export default function BookEditor({
         </div>
       </div>
 
-      {/* Versions and the Grimoire Codex DB link live outside the form: their
-          actions apply immediately through their own endpoints rather than
-          waiting on Save, so they must not look like fields the Save button is
-          going to commit. */}
+      {/* The cover, versions and the Grimoire Codex DB link live outside the
+          form: their actions apply immediately through their own endpoints
+          rather than waiting on Save, so they must not look like fields the Save
+          button is going to commit. */}
+      <BookCoverUpload book={book} onChange={onCoverChange} />
       <BookVersionsSection book={book} onChanged={onVariantsChanged} />
       <CodexPanel
         kind="books"

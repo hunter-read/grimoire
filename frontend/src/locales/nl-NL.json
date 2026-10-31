@@ -2633,7 +2633,14 @@
     "licenseLabel": "Licentie",
     "licensePlaceholder": "Inherit system license",
     "fetchMetadata": "Metadata ophalen",
-    "productCodeLabel": "Productcode"
+    "productCodeLabel": "Productcode",
+    "coverLabel": "Omslag",
+    "uploadCover": "Omslag uploaden",
+    "replaceCover": "Omslag vervangen",
+    "removeCustomCover": "Eigen omslag verwijderen",
+    "coverHint": "Vervangt de omslag die van de eerste pagina is gemaakt, overal waar die wordt getoond.",
+    "customCoverInUse": "Er wordt een eigen omslag gebruikt. Een nieuwe scan vervangt die niet.",
+    "coverUpdateFailed": "Omslag kon niet worden bijgewerkt"
   },
   "reocr": {
     "button": "OCR opnieuw",

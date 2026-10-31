@@ -191,6 +191,7 @@ if TYPE_CHECKING:
         CHARACTER_IMAGE_DIR as CHARACTER_IMAGE_DIR,
         SYSTEM_COVER_DIR as SYSTEM_COVER_DIR,
         AUDIO_COVER_DIR as AUDIO_COVER_DIR,
+        BOOK_COVER_DIR as BOOK_COVER_DIR,
         BRANDING_DIR as BRANDING_DIR,
         ensure_data_dirs as ensure_data_dirs,
     )

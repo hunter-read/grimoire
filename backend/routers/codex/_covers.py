@@ -1,10 +1,11 @@
 """The cover image a book or system sends to Grimoire Codex DB.
 
-A book's cover is its first page, rendered larger than the 300px library
-thumbnail so it is worth showing on a catalogue page; formats PyMuPDF cannot
-render (comics, images, audio) send their thumbnail. A system sends the cover
-it shows in the library: its folder art or uploaded image, else the cover of
-the book standing in for it.
+A book's cover is the custom cover an admin uploaded for it, if any. Otherwise
+it is the first page, rendered larger than the 300px library thumbnail so it is
+worth showing on a catalogue page; formats PyMuPDF cannot render (comics,
+images, audio) send their thumbnail. A system sends the cover it shows in the
+library: its folder art or uploaded image, else the cover of the book standing
+in for it.
 
 Grimoire Codex DB takes PNG, JPEG, WebP, GIF and AVIF up to 5 MB, so anything
 else (or anything larger) is re-encoded as WebP first.
@@ -23,6 +24,7 @@ from ...models import Book, GameSystem
 from ...render import pool as render_pool
 from ...render.ops import PageOutOfRange, RenderError
 from ..books.core import book_thumbnail_path
+from ...services.books.covers import custom_cover_path
 from ...services.systems import resolve_cover_book_id
 from ..systems.covers import resolve_cover_file
 
@@ -71,6 +73,11 @@ def _read(path: str) -> Optional[Cover]:
 
 
 def _book_cover(book: Book) -> Optional[Cover]:
+    # A cover an admin uploaded replaces the first page outright - it exists
+    # because that page makes a poor cover - so it is sent as stored.
+    custom = custom_cover_path(book)
+    if custom:
+        return _read(custom)
     if book.filepath and is_fitz_mime(book.mime_type) and os.path.isfile(book.filepath):
         try:
             return Cover(render_pool.render_page(book.filepath, 1, COVER_WIDTH, count=False), "image/webp")

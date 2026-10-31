@@ -85,6 +85,18 @@ export const imageSources = {
       path: { system_id: systemId },
       body: { source_type: sourceType, source_id: sourceId },
     }),
+  // A book's custom cover, replacing its generated thumbnail everywhere.
+  setBookCover: (bookId: Id, sourceType: string, sourceId: string) =>
+    client.post('/books/{book_id}/cover/from-source', {
+      path: { book_id: bookId },
+      body: { source_type: sourceType, source_id: sourceId },
+    }),
+  uploadBookCover: (bookId: Id, file: Blob) =>
+    api.upload(postUrl('/books/{book_id}/cover', { path: { book_id: bookId } }), file) as Promise<
+      ResponseOf<'/books/{book_id}/cover', 'post'>
+    >,
+  deleteBookCover: (bookId: Id) =>
+    client.delete('/books/{book_id}/cover', { path: { book_id: bookId } }),
   setAudioCover: (audioId: Id, sourceType: string, sourceId: string) =>
     client.post('/audio/{audio_id}/cover/from-source', {
       path: { audio_id: audioId },

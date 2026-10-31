@@ -1707,3 +1707,41 @@ class TestGuestCodesAtRest:
         init_db(path)
         init_db(path)
         assert "guest_code_hash" in self._columns(path, "campaign_members")
+
+
+class TestBookCoverImage:
+    """0058 adds books.cover_image, a custom cover's filename, defaulting to ""."""
+
+    def test_upgrade_adds_the_column_and_downgrade_drops_it(self):
+        path = os.path.join(tempfile.mkdtemp(), "book_cover.db")
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            command.upgrade(_alembic_config(conn), "e50b2a525948")
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "INSERT INTO books (id, title, filename, filepath, relative_path) "
+                    "VALUES ('b1', 'Book', 'b.pdf', '/lib/b.pdf', 'b.pdf')"
+                )
+            )
+        with engine.connect() as conn:
+            command.upgrade(_alembic_config(conn), "head")
+        with engine.connect() as conn:
+            # An existing row reads as "no custom cover".
+            assert conn.execute(text("SELECT cover_image FROM books")).scalar() == ""
+        with engine.connect() as conn:
+            command.downgrade(_alembic_config(conn), "e50b2a525948")
+        engine.dispose()
+        engine = create_engine(f"sqlite:///{path}")
+        columns = {c["name"] for c in inspect(engine).get_columns("books")}
+        engine.dispose()
+        assert "cover_image" not in columns
+
+    def test_rerunning_is_a_no_op(self):
+        path = _fresh_db()
+        init_db(path)
+        engine = create_engine(f"sqlite:///{path}")
+        columns = {c["name"] for c in inspect(engine).get_columns("books")}
+        engine.dispose()
+        assert "cover_image" in columns
+        assert _stamped_revision(path) == _alembic_head(path)

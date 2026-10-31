@@ -191,7 +191,14 @@ class Book(Base):
     variant_label: Mapped[Optional[str]] = mapped_column(String(120), default="")
     page_count: Mapped[Optional[int]] = mapped_column(Integer, default=0)
     mime_type: Mapped[Optional[str]] = mapped_column(String(100), default="application/pdf")
+    # Whether the scanner generated a cover thumbnail. Scanner state: it decides
+    # whether a scan renders one, so a custom cover never sets it.
     has_thumbnail: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
+    # Bare filename of a cover an admin uploaded, under DATA_PATH/book_covers/,
+    # or "" for none. Wins over the generated thumbnail everywhere a cover is
+    # used. The name carries a digest of the bytes, so it changes with the image
+    # and doubles as a cache-busting version (see services/books/covers.py).
+    cover_image: Mapped[Optional[str]] = mapped_column(String(255), default="")
     is_explicit: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
     indexed: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
     index_failed: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)

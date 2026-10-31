@@ -16,6 +16,7 @@ grimoire-backup-20260821T140355Z.zip
 ├── character_images/     pictures in character sheets' image fields
 ├── system_covers/        custom game-system cover images
 ├── audio_covers/         custom audio cover art
+├── book_covers/          custom book covers
 └── branding/             the uploaded OIDC sign-in button icon
 ```
 

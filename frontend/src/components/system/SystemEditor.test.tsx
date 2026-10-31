@@ -35,6 +35,8 @@ vi.mock('../../api', () => ({
   default: { patch: vi.fn(), get: vi.fn(), post: vi.fn(), delete: vi.fn() },
   tags: { list: () => Promise.resolve({ tags: [] }) },
   mediaUrl: (p: string) => `http://localhost${p}`,
+  bookThumbUrl: (id: string, v?: string | null) =>
+    `http://localhost/books/${id}/thumbnail${v ? `?v=${v}` : ''}`,
 }))
 
 // The transport is mocked above; its generic signatures don't fit a mock's.

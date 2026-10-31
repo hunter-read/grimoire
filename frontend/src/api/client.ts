@@ -292,14 +292,22 @@ export const cacheBust = (v?: Id | null): Record<string, Id> => (v ? { v } : {})
 // a browser holding the old render would otherwise never re-request it — the
 // token is what makes a replaced book actually show its new pages.
 //
-// There is no equivalent helper for thumbnails: the grid/list views that render
-// covers only have BookListItem payloads, which carry no hash. They rely on the
-// ETag the thumbnail endpoint sends, so the browser revalidates and picks up a
-// replaced cover on its next request.
+// Thumbnails have `bookThumbUrl` below, keyed on the custom cover's version
+// rather than the file's contents: list payloads carry that version, not a hash.
 export const bookPageUrl = (bookId: Id, page: Id, width?: Id, contentToken?: string | null) =>
   mediaUrl(
     getUrl('/books/{book_id}/page/{page_num}', { path: { book_id: bookId, page_num: page } }),
     contentToken ? { width, v: contentToken } : { width }
+  )
+
+// URL for a book's cover thumbnail. `coverVersion` (BookDetail/BookOut/
+// BookListItem.cover_version) is set when a custom cover was uploaded and changes
+// with it. Thumbnails are cached `immutable`, so without it in the URL a browser
+// that had the generated cover would keep showing it after an upload.
+export const bookThumbUrl = (bookId: Id, coverVersion?: string | null) =>
+  mediaUrl(
+    getUrl('/books/{book_id}/thumbnail', { path: { book_id: bookId } }),
+    cacheBust(coverVersion)
   )
 
 /** One file of a picked folder, with its path inside that folder. */

@@ -2633,7 +2633,14 @@
     "licenseLabel": "Licença",
     "licensePlaceholder": "Inherit system license",
     "fetchMetadata": "Obter metadados",
-    "productCodeLabel": "Código do produto"
+    "productCodeLabel": "Código do produto",
+    "coverLabel": "Capa",
+    "uploadCover": "Enviar capa",
+    "replaceCover": "Substituir capa",
+    "removeCustomCover": "Remover capa personalizada",
+    "coverHint": "Substitui a capa gerada a partir da primeira página em todos os lugares onde ela aparece.",
+    "customCoverInUse": "Uma capa personalizada está em uso. Uma nova varredura não a substituirá.",
+    "coverUpdateFailed": "Não foi possível atualizar a capa"
   },
   "reocr": {
     "button": "Refazer OCR",

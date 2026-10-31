@@ -14,6 +14,8 @@ vi.mock('../../context/FavoritesContext', () => ({
 vi.mock('../../api', () => ({
   default: {},
   mediaUrl: (path: string) => `http://localhost${path}`,
+  bookThumbUrl: (id: string, v?: string | null) =>
+    `http://localhost/books/${id}/thumbnail${v ? `?v=${v}` : ''}`,
 }))
 
 // Control reading progress so the progress-bar branches can be exercised.

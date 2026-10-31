@@ -10,6 +10,7 @@ vi.mock('react-i18next', () => ({
 }))
 
 const mockPatch: Mock = vi.fn(() => Promise.resolve({}))
+const mockDeleteCover: Mock = vi.fn()
 const mockGet: Mock = vi.fn((path: string) =>
   Promise.resolve(path.includes('genres') ? { genres: [] } : { families: [] })
 )
@@ -24,6 +25,12 @@ vi.mock('../../api', () => ({
   tags: { list: () => Promise.resolve({ tags: [] }) },
   // BookVersionsSection renders download links and mutates variants.
   mediaUrl: (path: string) => `http://localhost${path}`,
+  // The custom cover control previews the cover and removes it in place.
+  bookThumbUrl: (id: string, v?: string | null) =>
+    `http://localhost/books/${id}/thumbnail${v ? `?v=${v}` : ''}`,
+  imageSources: {
+    deleteBookCover: (...args: unknown[]) => mockDeleteCover(...args),
+  },
   duplicates: {
     link: vi.fn(() => Promise.resolve({})),
     promote: vi.fn(() => Promise.resolve({})),
@@ -71,9 +78,44 @@ function renderEditor(
       onClose={props.onClose || vi.fn()}
       allTags={props.allTags || []}
       existingCategories={props.existingCategories || []}
+      onCoverChange={props.onCoverChange}
     />
   )
 }
+
+describe('BookEditor custom cover', () => {
+  it('shows the cover control and reports a removal straight away', async () => {
+    mockDeleteCover.mockResolvedValue({
+      cover_image: '',
+      has_custom_cover: false,
+      cover_version: null,
+      has_thumbnail: true,
+    })
+    const onCoverChange = vi.fn()
+    const onSave = vi.fn()
+    renderEditor({
+      book: { has_thumbnail: true, has_custom_cover: true, cover_version: 'v1' },
+      onCoverChange,
+      onSave,
+    })
+    expect(screen.getByTestId('book-cover-preview')).toHaveAttribute(
+      'src',
+      'http://localhost/books/book-1/thumbnail?v=v1'
+    )
+    fireEvent.click(screen.getByText('bookEditor.removeCustomCover'))
+    await waitFor(() =>
+      expect(onCoverChange).toHaveBeenCalledWith({
+        has_custom_cover: false,
+        cover_version: null,
+        has_thumbnail: true,
+      })
+    )
+    expect(mockDeleteCover).toHaveBeenCalledWith('book-1')
+    // Applied through its own endpoint, not the form's Save.
+    expect(onSave).not.toHaveBeenCalled()
+    expect(mockPatch).not.toHaveBeenCalled()
+  })
+})
 
 describe('BookEditor category combobox', () => {
   beforeEach(() => {

@@ -16,6 +16,10 @@ CHARACTER_PORTRAIT_DIR = os.path.join(env.DATA_PATH, "character_portraits")
 CHARACTER_IMAGE_DIR = os.path.join(env.DATA_PATH, "character_images")
 SYSTEM_COVER_DIR = os.path.join(env.DATA_PATH, "system_covers")
 AUDIO_COVER_DIR = os.path.join(env.DATA_PATH, "audio_covers")
+# Covers an admin uploaded for a single book, replacing the generated thumbnail.
+# Kept apart from THUMB_DIR on purpose: everything under thumbnails/ is derived
+# and may be regenerated or swept by a scan, while these are user-authored.
+BOOK_COVER_DIR = os.path.join(env.DATA_PATH, "book_covers")
 # Admin-uploaded login-page assets (the OIDC button icon, issue #377).
 BRANDING_DIR = os.path.join(env.DATA_PATH, "branding")
 
@@ -37,6 +41,7 @@ _DATA_DIRS = (
     CHARACTER_IMAGE_DIR,
     SYSTEM_COVER_DIR,
     AUDIO_COVER_DIR,
+    BOOK_COVER_DIR,
     BRANDING_DIR,
 )
 

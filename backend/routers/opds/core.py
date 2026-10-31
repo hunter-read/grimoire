@@ -94,7 +94,7 @@ def _book_to_entry(
     mime = quoteattr(book.mime_type or "application/pdf")
 
     cover_link = ""
-    if book.has_thumbnail:
+    if book.has_thumbnail or book.cover_image:
         # Served by the OPDS router under the feed token: the app's own
         # thumbnail route takes a session, which an e-reader doesn't have.
         thumb_url = f"{root}/cover/{book.id}"
