@@ -14,7 +14,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # Stage 2: Build Python dependencies (compilers live here, not in the runtime image)
-FROM python:3.12-slim@sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704 AS backend-builder
+FROM python:3.12-slim@sha256:aa943ce411423c7582288f18707ff66eddcbaeb510502d747a72aeb34f30d159 AS backend-builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
@@ -104,7 +104,7 @@ RUN ./configure \
     && strip ffmpeg
 
 # Stage 4: Runtime base shared by both variants (no build toolchain)
-FROM python:3.12-slim@sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704 AS runtime-base
+FROM python:3.12-slim@sha256:aa943ce411423c7582288f18707ff66eddcbaeb510502d747a72aeb34f30d159 AS runtime-base
 
 WORKDIR /app
 
