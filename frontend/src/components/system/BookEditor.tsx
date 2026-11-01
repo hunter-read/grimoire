@@ -23,12 +23,11 @@ import useMetadataSources from './useMetadataSources'
 import { intoBookForm } from './metadataFieldValue'
 
 /**
- * A system-page book row as the editor reads it. The server also sends the
- * book's own access level and what it resolves to, which `BookOut` does not
- * declare.
+ * A system-page book row as the editor reads it. `BookOut` carries the book's own
+ * access level; what it resolves to comes only from the `/books` list and detail
+ * routes, so it is optional here.
  */
 export type EditableBook = Schema<'BookOut'> & {
-  access_level?: string | null
   effective_access_level?: string | null
 }
 

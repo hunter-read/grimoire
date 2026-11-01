@@ -22,11 +22,8 @@ import { groupsFromManaged } from '../metadata/diceMaterials'
 import useLookups from '../metadata/useLookups'
 import { cleanLinks, linksForEditing } from '../metadata/metadataUtils'
 
-/**
- * A game system as the editor reads it. The server also sends the system's
- * access level, which `SystemDetail` does not declare.
- */
-export type EditableSystem = Schema<'SystemDetail'> & { access_level?: string | null }
+/** A game system as the editor reads it. */
+export type EditableSystem = Schema<'SystemDetail'>
 
 export interface SystemEditorProps {
   system: EditableSystem

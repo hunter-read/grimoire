@@ -207,6 +207,9 @@ class BookOut(VariantCountMixin, BaseModel):
     # Both wrapped in `bool(...)` by the serializer.
     is_explicit: bool
     is_missing: bool
+    # The book's own level, raw: null means "inherit from system/category" and
+    # must stay distinct from an explicit "" (open) so the editor round-trips it.
+    access_level: Optional[str] = None
     # When the book first appeared in the library (issue #199) - drives the
     # "new" badge and the date-added sort. Null for a legacy row.
     added_at: Optional[datetime] = None
@@ -253,6 +256,8 @@ class SystemSummary(BaseModel):
     cover_book_id: Optional[str] = None
     has_cover: bool
     is_explicit: bool
+    # Who may see the system: "" open, "gm", "admin". Coalesced by the serializer.
+    access_level: str = ""
     is_system_agnostic: bool
     is_one_page: bool
     container_kind: str
