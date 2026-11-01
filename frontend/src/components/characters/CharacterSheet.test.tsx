@@ -336,6 +336,63 @@ describe('CharacterSheet — Phase 2', () => {
     expect(screen.queryByText('Carrying too much')).not.toBeInTheDocument()
   })
 
+  // Issue #765: a warning about a field the sheet hides has nothing to act on.
+  describe('validators on hidden fields', () => {
+    const onSpellDc = {
+      ...PHASE2,
+      validators: [
+        { rule: 'spell_dc >= 8', field: 'spell_dc', message: 'Spell DC is too low' },
+        { rule: 'spell_dc >= 8', message: 'Sheet-wide check' },
+      ],
+    }
+
+    it('waits while the field is hidden, and fires once it is shown', () => {
+      const { rerender } = render(
+        <CharacterSheet document={onSpellDc} data={{ is_caster: false, spell_dc: 0 }} />
+      )
+      expect(screen.queryByText('Spell DC is too low')).not.toBeInTheDocument()
+      // One with no `field` is about the whole sheet, so it still shows.
+      expect(screen.getByText('Sheet-wide check')).toBeInTheDocument()
+
+      rerender(<CharacterSheet document={onSpellDc} data={{ is_caster: true, spell_dc: 0 }} />)
+      expect(screen.getByText('Spell DC is too low')).toBeInTheDocument()
+    })
+
+    it('waits while the field sits in a hidden tab of an HTML layout', () => {
+      const document = {
+        fields: {
+          is_caster: { type: 'checkbox', label: 'Caster' },
+          spell_dc: { type: 'number', label: 'Spell DC' },
+        },
+        validators: [{ rule: 'spell_dc >= 8', field: 'spell_dc', message: 'Spell DC is too low' }],
+        layout_ast: [
+          {
+            tag: 'g-tabs',
+            children: [
+              {
+                tag: 'g-tab',
+                attrs: { title: 'Main' },
+                children: [{ tag: 'g-field', attrs: { name: 'is_caster' } }],
+              },
+              {
+                tag: 'g-tab',
+                attrs: { title: 'Spells', visible_if: 'is_caster' },
+                children: [{ tag: 'g-field', attrs: { name: 'spell_dc' } }],
+              },
+            ],
+          },
+        ],
+      }
+      const { rerender } = render(
+        <CharacterSheet document={document} data={{ is_caster: false, spell_dc: 0 }} />
+      )
+      expect(screen.queryByText('Spell DC is too low')).not.toBeInTheDocument()
+
+      rerender(<CharacterSheet document={document} data={{ is_caster: true, spell_dc: 0 }} />)
+      expect(screen.getByText('Spell DC is too low')).toBeInTheDocument()
+    })
+  })
+
   it('computes across list rows', () => {
     render(
       <CharacterSheet

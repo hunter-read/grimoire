@@ -14,6 +14,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Fixed
 
+- A character sheet no longer warns about a field it is hiding. A validator attached to a field (`field` in the sheet's validators) now waits while that field is hidden - by its own `visible_if`, or by a section or tab around it - and shows once the field does. A validator that is about the whole sheet still always shows
 - **Who can see this** now shows the level that was saved. A system or book restricted to GMs or admins reopened its editor as **Everyone** (or **Inherit** for a book), so the restriction looked unsaved - and choosing **Everyone** to lift it changed nothing, leaving the system and its books hidden from players with no way back from the editor
 - A PDF, EPUB or DjVu that is slow to read no longer freezes Grimoire while a scan makes its thumbnail or counts its pages. With more than one worker, such a file could get a worker replaced every few seconds, each replacement starting the library scan again and stopping on the same file, keeping a CPU core busy for good. That work now runs in a separate helper process, and a file that takes longer than 30 seconds is left without a thumbnail
 - A file whose thumbnail stops the scan twice in a row - an image or 3D model large enough to run the server out of memory, say - has its thumbnail skipped from then on, and the log names it. Replacing or repairing the file has it tried again

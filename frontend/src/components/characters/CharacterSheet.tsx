@@ -13,6 +13,7 @@ import {
 } from './expressions'
 import { sectionHeading } from './characterStyles'
 import ValidatorMessages from './ValidatorMessages'
+import { hiddenFields, visibleValidators } from './validatorVisibility'
 import { fieldState } from './onPick'
 import { forViewport, usePhoneViewport } from './phoneLayout'
 
@@ -96,16 +97,22 @@ export default function CharacterSheet({
     [schemaDocument, withEntries]
   )
 
-  // Validators run locally so the sheet reacts as you type; the server reports
-  // them too and is the authority. `visible_if` is evaluated against fields and
-  // computed values together, so a block can hinge on a derived number.
-  const validators = useMemo(
-    () => runValidators(schemaDocument, withEntries),
-    [schemaDocument, withEntries]
-  )
+  // `visible_if` is evaluated against fields and computed values together, so a
+  // block can hinge on a derived number.
   const context = useMemo<Values>(
     () => ({ ...buildContext(schemaDocument, withEntries), ...computed }),
     [schemaDocument, withEntries, computed]
+  )
+  // Validators run locally so the sheet reacts as you type; the server reports
+  // them too and is the authority. One attached to a field the sheet is hiding
+  // waits until the field is shown, as there is nothing on the sheet to fix.
+  const validators = useMemo(
+    () =>
+      visibleValidators(
+        runValidators(schemaDocument, withEntries),
+        hiddenFields(schemaDocument, layoutDocument, context)
+      ),
+    [schemaDocument, layoutDocument, withEntries, context]
   )
 
   if (!schemaDocument || !layoutDocument) return null

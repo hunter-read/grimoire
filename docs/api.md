@@ -2531,6 +2531,12 @@ Results come back on `GET`/`POST`/`PUT` of a character as `validators[]`, each
 mid-edit is routinely invalid - you pick the spells before you raise the level
 that allows them - and refusing the write would lose the player's work.
 
+A validator may name the `field` it is about. It then waits while that field is
+hidden: the server skips it while the field's own `visible_if` is false, and the
+sheet also holds it back while every place its layout draws the field is inside
+a hidden section, tab or `<g-if>`. A validator with no `field` is about the
+whole sheet and always runs.
+
 **HTML layouts.** A schema may replace the JSON `layout` with `layout_html`, an
 HTML *template*, plus an optional `styles` block. A catalogue sheet should keep
 both in sibling `.html` and `.css` files instead — HTML escaped into a JSON
