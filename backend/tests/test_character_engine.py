@@ -732,6 +732,25 @@ class TestValidators:
         document = self._with_validators([{"rule": "level >= 3", "message": "Hmm"}])
         assert svc.run_validators(document, {"level": 1})[0]["severity"] == "warning"
 
+    def test_waits_while_its_field_is_hidden(self):
+        """Issue #765: a warning on a hidden field has nothing to act on."""
+        document = self._with_validators(
+            [
+                {"rule": "spell_dc >= 8", "field": "spell_dc", "message": "DC too low"},
+                {"rule": "spell_dc >= 8", "message": "Sheet-wide"},
+            ]
+        )
+        hidden = svc.run_validators(document, {"is_caster": False, "spell_dc": 0})
+        assert [v["message"] for v in hidden] == ["Sheet-wide"]
+        shown = svc.run_validators(document, {"is_caster": True, "spell_dc": 0})
+        assert [v["message"] for v in shown] == ["DC too low", "Sheet-wide"]
+
+    def test_a_field_without_a_condition_still_fires(self):
+        document = self._with_validators(
+            [{"rule": "level >= 3", "field": "level", "message": "Too low"}]
+        )
+        assert svc.run_validators(document, {"level": 1})
+
     def test_rejects_a_rule_that_does_not_parse(self):
         with pytest.raises(svc.SchemaError, match="not a valid expression"):
             self._with_validators([{"rule": "level >=", "message": "x"}])

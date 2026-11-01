@@ -1061,6 +1061,12 @@ def run_validators(document: dict, data: dict, entries: Optional[dict] = None) -
     reported: schema validation already rejected unparseable rules at install,
     so reaching here means a stored document drifted, and inventing a warning
     the author never wrote would be worse than staying quiet.
+
+    So is one attached to a field whose own `visible_if` is false (issue #765):
+    the sheet does not show that field, so a warning about it has nothing to
+    act on. The sheet also holds back those inside a hidden section or tab, but
+    which layout draws the sheet depends on the screen, so that part stays
+    with the client.
     """
     validators = document.get("validators") or []
     if not isinstance(validators, list) or not validators:
@@ -1068,6 +1074,7 @@ def run_validators(document: dict, data: dict, entries: Optional[dict] = None) -
 
     context = _build_context(document, data, entries)
     context.update(compute_values(document, data, entries))
+    fields = document.get("fields") or {}
 
     fired = []
     for validator in validators:
@@ -1075,6 +1082,13 @@ def run_validators(document: dict, data: dict, entries: Optional[dict] = None) -
             continue
         rule = validator.get("rule")
         if not isinstance(rule, str):
+            continue
+        field = validator.get("field")
+        definition = (
+            fields.get(field) if isinstance(field, str) and isinstance(fields, dict) else None
+        )
+        condition = definition.get("visible_if") if isinstance(definition, dict) else None
+        if condition and not evaluate(condition, context, default=True):
             continue
         # A rule that cannot be evaluated yields the sentinel rather than a
         # falsey 0, so "broken" is distinguishable from "failed".
