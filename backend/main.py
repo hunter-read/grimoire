@@ -1,5 +1,4 @@
 """Grimoire — Self-hosted TTRPG Library Manager."""
-import fcntl
 import os
 import threading
 from contextlib import asynccontextmanager
@@ -79,6 +78,9 @@ from .routers import (
     tokens as tokens_router,
     users as users_router,
 )
+from .file_locks import FileLock
+from .indexer import isolation as scan_isolation, quarantine
+from .services.library_scan import startup_guard
 from .services.library_scan.runner import run_rescan_sync
 from .render import pool as render_pool
 from .seed_users import seed_users
@@ -192,12 +194,17 @@ def startup_scan() -> None:
     finally:
         db.close()
 
-    if config.STARTUP_SCAN:
+    if not config.STARTUP_SCAN:
+        logger.info("Skipping the startup library scan (STARTUP_SCAN=false).")
+    # Skipped too after several startup scans in a row died with the server
+    # (issue #762); begin() says why.
+    elif startup_guard.begin():
         logger.info("Scanning your library…")
         logger.debug(f"Library path: {LIBRARY_PATH}")
-        run_rescan_sync()
-    else:
-        logger.info("Skipping the startup library scan (STARTUP_SCAN=false).")
+        try:
+            run_rescan_sync()
+        finally:
+            startup_guard.finish()
 
     # Character content packs are server-wide and read from disk, so
     # they are refreshed alongside the library rather than on demand.
@@ -247,13 +254,11 @@ async def lifespan(app: FastAPI):
         _dup_job.force_clear()
 
     # Only one worker should run the startup scan; others skip via file lock.
-    lock_path = os.path.join(DATA_PATH, ".scan.lock")
-    lock_file = open(lock_path, "w")
-    try:
-        fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except OSError:
+    # Also taken in the local temp directory, so it holds on a data mount that
+    # ignores locks (see backend/file_locks.py).
+    scan_lock = FileLock(os.path.join(DATA_PATH, ".scan.lock"))
+    if not scan_lock.acquire(blocking=False):
         logger.info("Startup scan already running in another worker, skipping.")
-        lock_file.close()
         yield
         render_pool.shutdown()
         return
@@ -275,8 +280,7 @@ async def lifespan(app: FastAPI):
         try:
             startup_scan()
         finally:
-            fcntl.flock(lock_file, fcntl.LOCK_UN)
-            lock_file.close()
+            scan_lock.release()
 
     threading.Thread(target=do_scan, daemon=True).start()
 
@@ -317,6 +321,11 @@ async def lifespan(app: FastAPI):
 
     yield
 
+    # Stopping on purpose: a scan still running did not crash the server, so
+    # neither the file it was on nor the startup scan counts it as a death.
+    quarantine.abandon()
+    startup_guard.finish()
+    scan_isolation.shutdown(kill_busy=True)
     session_purger.stop()
     library_watch.stop()
     render_pool.shutdown()

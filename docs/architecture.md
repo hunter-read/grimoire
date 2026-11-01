@@ -335,7 +335,10 @@ process on startup:
    works: the first `SessionLocal()` initialises the database on demand.
 2. **Single-worker guard** - acquire a non-blocking `flock` on `DATA_PATH/.scan.lock`. Only
    the winning worker runs the startup library scan; others skip it. The scan runs on a
-   background daemon thread so it doesn't block the app coming up.
+   background daemon thread so it doesn't block the app coming up. This lock, like the
+   migration, session-purge and job locks, is a [`FileLock`](../backend/file_locks.py):
+   it also locks a twin in the local temp directory, because some data mounts (a Docker
+   Desktop bind mount of a macOS or Windows folder) accept `flock` without enforcing it.
 3. **User seeding** - `seed_users(...)` applies env-driven / first-run accounts.
 4. **Wiki migrations** - `wiki_migration` and `wiki_category_migration` roll legacy session
    notes and flat note-categories into the current nested-page model.
@@ -365,6 +368,40 @@ and crashes again in an endless loop (see issue #204). Two layers prevent this:
    where a crash somehow escaped isolation and took the whole worker down, the book
    is already flagged and is skipped on the next scan instead of re-looping. This
    mirrors the `scan_failed` guard used for the thumbnail/page-count phase.
+
+### Keeping the scan from stalling or crash-looping the server
+
+A crash is not the only way a scan can take a worker down. PyMuPDF holds the GIL for
+the whole of an open or a render, so a heavy document read on the scan's thread
+freezes the process around it: every request waits. With `WORKERS` above 1, uvicorn's
+supervisor pings each worker and kills one that does not answer within 5 seconds, and
+the replacement starts the same scan over and stalls on the same file, every few
+seconds. Three layers cover this:
+
+1. **A helper process for PyMuPDF work** - first-page thumbnails and page counts for
+   PDF, EPUB and DjVu go to one helper process
+   ([`indexer/isolation.py`](../backend/indexer/isolation.py), running
+   [`render/scan_worker.py`](../backend/render/scan_worker.py)), and the scan waits on a
+   pipe, which releases the GIL. The helper is kept between files and killed on a
+   timeout, a **Stop**, or a crash; the next file gets a fresh one. Text extraction and
+   OCR were already isolated (above), and metadata reads go through the render pool.
+2. **A quarantine for the thumbnails still made in-process** - images, 3D meshes and
+   archive covers. While a library scan runs,
+   [`indexer/quarantine.py`](../backend/indexer/quarantine.py) writes the file it is
+   thumbnailing to `DATA_PATH/.scan-inflight.json` and clears it after. A note left
+   behind means the last scan died there, and the file gets a strike in
+   `DATA_PATH/scan-quarantine.json`. Two strikes in a row and scans skip its thumbnail
+   until the file's size or modification time changes. Two rather than one, so a
+   container killed from outside does not cost an innocent file its thumbnail; a
+   normal shutdown clears the note first. This covers maps, tokens and models, which
+   unlike books have no row to flag before a new file's thumbnail is made.
+3. **A back-off for the startup scan itself**, whatever kills it -
+   [`services/library_scan/startup_guard.py`](../backend/services/library_scan/startup_guard.py)
+   marks the startup scan as running in `DATA_PATH/.startup-scan.json` and clears it when
+   the scan ends or the server stops normally. After three startup scans in a row are
+   found still marked running, the next start skips the scan and logs why, and startup
+   tries again only 30 minutes after the last attempt. Scans started from the admin
+   page or the schedule are never held back.
 
 ### Deferred, checkpointed OCR
 

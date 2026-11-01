@@ -8,7 +8,7 @@ change-detection rules — an unchanged signature short-circuits before hashing,
 a changed hash under an unchanged path is a *replacement* rather than a new
 book — so no caller has to re-derive when a rescan is allowed to skip work.
 
-Patch-safety: ``generate_thumbnail`` and ``_fitz_open_with_timeout`` are stubbed
+Patch-safety: ``generate_thumbnail`` and ``document_page_count`` are stubbed
 by tests via ``patch("backend.indexer.…")`` and so are called through the
 package namespace (``indexer.NAME``).
 """
@@ -30,7 +30,7 @@ from .constants import (
     UNCATEGORIZED,
     _COMIC_ARCHIVE_EXTS,
 )
-from .formats import apply_reflow_layout, can_thumbnail, has_page_count, mime_for_ext
+from .formats import can_thumbnail, has_page_count, mime_for_ext
 from .hashing import (
     apply_signature,
     changed_content,
@@ -351,12 +351,10 @@ def _do_book_page_count(ctx: _ScanContext, book: Book, filepath: str, filename: 
             # shared pagination produces, so it matches the reader exactly.
             book.page_count = text_documents.text_page_count(filepath)
         else:
-            doc = indexer._fitz_open_with_timeout(filepath, should_stop=ctx.should_stop)
-            # EPUB is reflowable: len(doc) is meaningless until it is laid out,
-            # and must use the same box the reader does (issue #373).
-            apply_reflow_layout(doc)
-            book.page_count = len(doc)
-            doc.close()
+            # Read in the scan's helper process: PyMuPDF holds the GIL while it
+            # opens a file, which froze the server on a heavy one. The helper
+            # lays EPUB out in the reader's box first (issue #373).
+            book.page_count = indexer.document_page_count(filepath, should_stop=ctx.should_stop)
         logger.debug(f"Page count: {book.page_count} pages in '{filename}'")
         book.scan_failed = False
         _db_call(session.commit, f"commit page_count '{filepath}'")

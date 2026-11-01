@@ -20,6 +20,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 
 from .. import sql_functions
+from ..file_locks import FileLock
 from .base import Base
 
 logger = logging.getLogger("grimoire.db")
@@ -611,33 +612,25 @@ def _post_migration_setup(engine: Engine) -> None:
 def _migration_lock(db_path: str) -> Iterator[None]:
     """Blocking cross-process lock so only one worker migrates at a time.
 
-    Keyed on a sidecar ``<db>.migrate.lock`` file next to the database. A no-op
-    for in-memory / unnamed databases (tests), and degrades to no locking if the
-    platform lacks ``fcntl`` (e.g. Windows) or the lock file can't be created.
+    Keyed on a sidecar ``<db>.migrate.lock`` file next to the database, and on
+    its twin in the local temp directory: some mounts take a lock beside the
+    database without enforcing it, and two workers then both built a new
+    database (see ``backend.file_locks``). A no-op for in-memory / unnamed
+    databases (tests), and degrades to no locking when no lock file is usable.
     """
     if not db_path or db_path == ":memory:":
         yield
         return
+    lock = FileLock(f"{db_path}.migrate.lock")
     try:
-        import fcntl
-    except ImportError:
-        yield
-        return
-
-    lock_path = f"{db_path}.migrate.lock"
-    try:
-        lock_file = open(lock_path, "w")
+        lock.acquire()
     except OSError:
         yield
         return
     try:
-        fcntl.flock(lock_file, fcntl.LOCK_EX)
         yield
     finally:
-        try:
-            fcntl.flock(lock_file, fcntl.LOCK_UN)
-        finally:
-            lock_file.close()
+        lock.release()
 
 
 def init_db(db_path: str) -> Tuple[Engine, sessionmaker[Session]]:

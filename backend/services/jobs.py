@@ -21,7 +21,6 @@ something this process can hold when it is not:
 and a run holds ``DATA_PATH/.<name>.lock``, which tells every worker that one is
 running even when the status they can see is only their own.
 """
-import fcntl
 import json
 import logging
 import os
@@ -33,6 +32,7 @@ from typing import Any, Iterator, Optional
 
 from .. import config
 from ..config import valkey_client, valkey_errors
+from ..file_locks import FileLock, held_elsewhere
 
 logger = logging.getLogger("grimoire.jobs")
 
@@ -89,23 +89,26 @@ class Job:
     def run_lock(self) -> Iterator[bool]:
         """Hold this job's lock while the block runs; False if another run holds it.
 
-        A lock file that can't be opened at all yields True: the lock only makes
-        a run visible to other workers, which is not worth refusing to run over.
+        Taken in the local temp directory as well, so it holds on a data mount
+        that ignores locks (see ``backend.file_locks``). A lock that can't be
+        opened at all yields True: the lock only makes a run visible to other
+        workers, which is not worth refusing to run over.
         """
+        lock = FileLock(self.lock_path())
         try:
-            lock = open(self.lock_path(), "a")
+            acquired = lock.acquire(blocking=False)
         except OSError as e:
             logger.warning("Couldn't open the %s lock file: %s", self.name, e)
             yield True
             return
-        # Closing the file releases the lock, so a run that dies releases it too.
-        with lock:
-            try:
-                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except OSError:
-                yield False
-                return
+        if not acquired:
+            yield False
+            return
+        # The process exiting releases the lock too, so a run that dies does.
+        try:
             yield True
+        finally:
+            lock.release()
 
     def lock_held(self) -> bool:
         """Whether some worker holds this job's lock, i.e. is running it (issue #651).
@@ -114,16 +117,7 @@ class Job:
         the job reports nothing running and would turn a Stop away. The lock is
         shared across processes, so it can tell.
         """
-        try:
-            with open(self.lock_path(), "a") as lock:
-                try:
-                    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                except OSError:
-                    return True
-                fcntl.flock(lock, fcntl.LOCK_UN)
-                return False
-        except OSError:
-            return False
+        return held_elsewhere(self.lock_path())
 
     # --- Stop flag ------------------------------------------------------------
 

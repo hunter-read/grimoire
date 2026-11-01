@@ -1745,3 +1745,59 @@ class TestBookCoverImage:
         engine.dispose()
         assert "cover_image" in columns
         assert _stamped_revision(path) == _alembic_head(path)
+
+
+
+class TestMigrationLock:
+    """Only one process migrates at a time, even where the data mount ignores flock()."""
+
+    def test_locks_beside_the_database_and_in_the_temp_directory(self, tmp_path):
+        from backend.file_locks import held_elsewhere, local_twin
+        from backend.models import db as db_module
+
+        db_path = str(tmp_path / "grimoire.db")
+        sidecar = f"{db_path}.migrate.lock"
+        with db_module._migration_lock(db_path):
+            assert held_elsewhere(sidecar)
+            assert os.path.exists(local_twin(sidecar))
+        assert not held_elsewhere(sidecar)
+
+    def test_no_usable_lock_file_still_migrates(self, tmp_path):
+        from unittest.mock import patch
+
+        from backend.models import db as db_module
+
+        with patch.object(db_module.FileLock, "acquire", side_effect=PermissionError("ro")):
+            with db_module._migration_lock(str(tmp_path / "grimoire.db")):
+                pass
+
+    def test_in_memory_databases_take_no_lock(self):
+        from backend.models import db as db_module
+
+        with db_module._migration_lock(":memory:"):
+            pass
+        with db_module._migration_lock(""):
+            pass
+
+    def test_two_processes_create_a_new_database_together(self, tmp_path):
+        """Both workers come up on a fresh database: one migrates, the other waits."""
+        import multiprocessing
+
+        db_path = str(tmp_path / "grimoire.db")
+        ctx = multiprocessing.get_context("spawn")
+        procs = [ctx.Process(target=_init_db_in_child, args=(db_path,)) for _ in range(2)]
+        for proc in procs:
+            proc.start()
+        for proc in procs:
+            proc.join(120)
+        assert [proc.exitcode for proc in procs] == [0, 0]
+        engine = create_engine(f"sqlite:///{db_path}")
+        assert "app_settings" in inspect(engine).get_table_names()
+        engine.dispose()
+
+
+def _init_db_in_child(db_path: str) -> None:
+    from backend.models.db import init_db
+
+    engine, _ = init_db(db_path)
+    engine.dispose()

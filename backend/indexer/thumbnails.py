@@ -1,8 +1,9 @@
 """Archive cover extraction and thumbnail generation.
 
 Covers comic-book archive cover images (CBZ/CBR/CB7/CBT) and the timeout-guarded
-thumbnail worker used during a scan for fitz-backed documents (PDF/EPUB/DjVu),
-plain images, comic covers, and animated battlemaps (.webm/.mp4).
+thumbnail worker used during a scan for plain images, comic covers, and animated
+battlemaps (.webm/.mp4). Fitz-backed documents (PDF/EPUB/DjVu) are handed to the
+scan's helper process instead (see ``isolation``).
 """
 import io
 import os
@@ -11,7 +12,6 @@ import threading
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-import fitz  # PyMuPDF
 from PIL import Image
 
 from .constants import (
@@ -25,7 +25,8 @@ from .constants import (
     _THUMBNAIL_TIMEOUT,
 )
 from .. import config
-from .formats import FITZ_EXTS, open_document
+from . import quarantine
+from .formats import FITZ_EXTS
 from .models3d import THUMBNAILABLE_EXTS as MODEL_THUMBNAIL_EXTS
 
 logger = logging.getLogger("grimoire.indexer")
@@ -156,18 +157,6 @@ def _generate_thumbnail_task(
             img: Image.Image = Image.open(io.BytesIO(data))
             if img.mode != "RGB":
                 img = img.convert("RGB")
-        elif ext in FITZ_EXTS:
-            # PDF, EPUB, and DjVu all open through PyMuPDF. EPUB is reflowable,
-            # so it must be laid out before it has pages at all (issue #373).
-            doc = open_document(filepath)
-            if len(doc) == 0:
-                result[0] = False
-                return
-            page = doc[0]
-            mat = fitz.Matrix(2, 2)
-            pix = page.get_pixmap(matrix=mat, alpha=False)
-            img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
-            doc.close()
         elif ext in VTT_DATA_EXTS:
             # A Universal VTT file carries its battlemap as base64 inside the
             # JSON envelope, so a real cover can be produced without decoding
@@ -225,15 +214,59 @@ def generate_thumbnail(
 ) -> bool:
     """Generate a thumbnail from a document's first page, an image, or a comic cover.
 
-    Runs in a daemon thread with a timeout so a corrupt or pathologically large
-    file cannot hang the scan indefinitely.  If `should_stop` is provided the
-    wait is also interrupted when it returns True.
+    A PDF, EPUB or DjVu page is rendered in the scan's helper process (see
+    ``isolation``): PyMuPDF holds the GIL while it works, which froze the whole
+    server on a heavy document. Everything else runs in a daemon thread here,
+    with a timeout so a corrupt or pathologically large file cannot hang the scan
+    indefinitely, and during a library scan is skipped for a file that stopped
+    earlier scans (see ``quarantine``). If `should_stop` is provided the wait is
+    also interrupted when it returns True.
 
     ``timeout`` overrides the default budget. The deferred thumbnail queue passes
     a longer one: a heavy mesh is rasterised in Python and legitimately needs
     more than the scan-time budget, but only once the fast phases are done.
     """
     budget = _THUMBNAIL_TIMEOUT if timeout is None else timeout
+    if Path(filepath).suffix.lower() in FITZ_EXTS:
+        return _document_thumbnail(filepath, output_path, size, budget, should_stop)
+    if quarantine.skip_thumbnail(filepath):
+        return False
+    with quarantine.making_thumbnail(filepath):
+        return _thumbnail_in_thread(filepath, output_path, size, budget, should_stop)
+
+
+def _document_thumbnail(
+    filepath: str,
+    output_path: str,
+    size: tuple,
+    budget: float,
+    should_stop: Optional[Callable[[], bool]],
+) -> bool:
+    """First-page thumbnail of a PDF, EPUB or DjVu file, rendered in the scan helper."""
+    from . import isolation
+
+    try:
+        return isolation.render_thumbnail(filepath, output_path, size, budget, should_stop)
+    except TimeoutError:
+        if should_stop and should_stop():
+            logger.warning(f"Thumbnail generation aborted by stop request for {filepath}")
+        else:
+            logger.error(f"Thumbnail generation timed out after {budget}s for {filepath}")
+    except isolation.HelperCrashError as e:
+        logger.error(f"Thumbnail generation crashed for {filepath}: {e}")
+    except Exception as e:
+        logger.error(f"Thumbnail generation failed for {filepath}: {e}")
+    return False
+
+
+def _thumbnail_in_thread(
+    filepath: str,
+    output_path: str,
+    size: tuple,
+    budget: float,
+    should_stop: Optional[Callable[[], bool]],
+) -> bool:
+    """Any other thumbnail, made on a daemon thread under ``budget`` seconds."""
     result = [None]
     exc = [None]
     t = threading.Thread(

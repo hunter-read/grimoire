@@ -281,8 +281,8 @@ class TestGetSizeGuard:
         try:
             with patch("backend.indexer.os.path.getsize", side_effect=flaky_getsize):
                 with patch("backend.indexer.generate_thumbnail", return_value=False):
-                    with patch("backend.indexer._fitz_open_with_timeout") as mock_fitz:
-                        mock_fitz.return_value.__len__ = lambda s: 10
+                    with patch("backend.indexer.document_page_count") as mock_count:
+                        mock_count.return_value = 10
                         stats = scan_library(str(lib), tmp, db)
         finally:
             db.close()
@@ -369,10 +369,8 @@ class TestShouldStop:
         db = SessionLocal()
         try:
             with patch("backend.indexer.generate_thumbnail", return_value=False):
-                with patch("backend.indexer._fitz_open_with_timeout") as mock_fitz:
-                    mock_doc = MagicMock()
-                    mock_doc.__len__ = lambda _: 1
-                    mock_fitz.return_value = mock_doc
+                with patch("backend.indexer.document_page_count") as mock_count:
+                    mock_count.return_value = 1
                     stats = scan_library(str(lib), tmp, db, should_stop=stop_after_one)
         finally:
             db.close()
@@ -389,10 +387,8 @@ class TestShouldStop:
         db = SessionLocal()
         try:
             with patch("backend.indexer.generate_thumbnail", return_value=False):
-                with patch("backend.indexer._fitz_open_with_timeout") as mock_fitz:
-                    mock_doc = MagicMock()
-                    mock_doc.__len__ = lambda _: 1
-                    mock_fitz.return_value = mock_doc
+                with patch("backend.indexer.document_page_count") as mock_count:
+                    mock_count.return_value = 1
                     stats = scan_library(str(lib), tmp, db, should_stop=lambda: False)
         finally:
             db.close()
@@ -454,10 +450,8 @@ class TestShouldStop:
         db = SessionLocal()
         try:
             with patch("backend.indexer.generate_thumbnail", return_value=False):
-                with patch("backend.indexer._fitz_open_with_timeout") as mock_fitz:
-                    mock_doc = MagicMock()
-                    mock_doc.__len__ = lambda _: 1
-                    mock_fitz.return_value = mock_doc
+                with patch("backend.indexer.document_page_count") as mock_count:
+                    mock_count.return_value = 1
                     stats = scan_library(str(lib), tmp, db)
         finally:
             db.close()
@@ -497,10 +491,8 @@ class TestScanFailed:
                 return False
 
             with patch("backend.indexer.generate_thumbnail", side_effect=check_committed):
-                with patch("backend.indexer._fitz_open_with_timeout") as mock_fitz:
-                    mock_doc = MagicMock()
-                    mock_doc.__len__ = lambda _: 1
-                    mock_fitz.return_value = mock_doc
+                with patch("backend.indexer.document_page_count") as mock_count:
+                    mock_count.return_value = 1
                     scan_library(str(lib), tmp, db)
         finally:
             db.close()
@@ -527,10 +519,8 @@ class TestScanFailed:
                 return False
 
             with patch("backend.indexer.generate_thumbnail", side_effect=check_scan_failed):
-                with patch("backend.indexer._fitz_open_with_timeout") as mock_fitz:
-                    mock_doc = MagicMock()
-                    mock_doc.__len__ = lambda _: 1
-                    mock_fitz.return_value = mock_doc
+                with patch("backend.indexer.document_page_count") as mock_count:
+                    mock_count.return_value = 1
                     scan_library(str(lib), tmp, db)
         finally:
             db.close()
@@ -547,10 +537,8 @@ class TestScanFailed:
         db = SessionLocal()
         try:
             with patch("backend.indexer.generate_thumbnail", return_value=True):
-                with patch("backend.indexer._fitz_open_with_timeout") as mock_fitz:
-                    mock_doc = MagicMock()
-                    mock_doc.__len__ = lambda _: 5
-                    mock_fitz.return_value = mock_doc
+                with patch("backend.indexer.document_page_count") as mock_count:
+                    mock_count.return_value = 5
                     scan_library(str(lib), tmp, db)
 
             book = db.query(Book).filter_by(filename="good.pdf").first()
@@ -583,14 +571,14 @@ class TestScanFailed:
             db.commit()
 
             thumb_calls = []
-            fitz_calls = []
+            count_calls = []
 
             with patch("backend.indexer.generate_thumbnail", side_effect=lambda *a, **kw: thumb_calls.append(1) or False):
-                with patch("backend.indexer._fitz_open_with_timeout", side_effect=lambda *a, **kw: fitz_calls.append(1)):
+                with patch("backend.indexer.document_page_count", side_effect=lambda *a, **kw: count_calls.append(1)):
                     scan_library(str(lib), tmp, db)
 
             assert len(thumb_calls) == 0, "generate_thumbnail should not be called for scan_failed book"
-            assert len(fitz_calls) == 0, "fitz should not be called for scan_failed book"
+            assert len(count_calls) == 0, "page count should not be read for a scan_failed book"
         finally:
             db.close()
 
@@ -615,10 +603,8 @@ class TestScanFailed:
                 return stop_now[0]
 
             with patch("backend.indexer.generate_thumbnail", side_effect=cancelling_thumbnail):
-                with patch("backend.indexer._fitz_open_with_timeout") as mock_fitz:
-                    mock_doc = MagicMock()
-                    mock_doc.__len__ = lambda _: 1
-                    mock_fitz.return_value = mock_doc
+                with patch("backend.indexer.document_page_count") as mock_count:
+                    mock_count.return_value = 1
                     scan_library(str(lib), tmp, db, should_stop=should_stop)
 
             book = db.query(Book).filter_by(filename="resumable.pdf").first()
@@ -659,10 +645,8 @@ class TestScanFailed:
                 return True
 
             with patch("backend.indexer.generate_thumbnail", side_effect=record_thumb):
-                with patch("backend.indexer._fitz_open_with_timeout") as mock_fitz:
-                    mock_doc = MagicMock()
-                    mock_doc.__len__ = lambda _: 3
-                    mock_fitz.return_value = mock_doc
+                with patch("backend.indexer.document_page_count") as mock_count:
+                    mock_count.return_value = 3
                     scan_library(str(lib), tmp, db)
 
             assert any("needs_thumb.pdf" in c for c in thumb_calls), \
@@ -699,14 +683,14 @@ class TestScanFailed:
             db.add(book)
             db.commit()
 
-            fitz_calls = []
+            count_calls = []
 
             with patch("backend.indexer.generate_thumbnail", return_value=False):
-                with patch("backend.indexer._fitz_open_with_timeout",
-                           side_effect=lambda *a, **kw: fitz_calls.append(1)):
+                with patch("backend.indexer.document_page_count",
+                           side_effect=lambda *a, **kw: count_calls.append(1)):
                     scan_library(str(lib), tmp, db)
 
-            assert len(fitz_calls) == 0, "page count should not be retried when index_error is already set"
+            assert len(count_calls) == 0, "page count should not be retried when index_error is already set"
         finally:
             db.close()
 
@@ -736,10 +720,8 @@ class TestMissingFiles:
         db = SessionLocal()
         try:
             with patch("backend.indexer.generate_thumbnail", return_value=False):
-                with patch("backend.indexer._fitz_open_with_timeout") as mock_fitz:
-                    mock_doc = MagicMock()
-                    mock_doc.__len__ = lambda _: 1
-                    mock_fitz.return_value = mock_doc
+                with patch("backend.indexer.document_page_count") as mock_count:
+                    mock_count.return_value = 1
                     scan_library(str(lib), tmp, db)
 
             book = db.query(Book).filter_by(filename="vanished.pdf").first()
@@ -749,8 +731,8 @@ class TestMissingFiles:
             # Delete the file and rescan
             pdf.unlink()
             with patch("backend.indexer.generate_thumbnail", return_value=False):
-                with patch("backend.indexer._fitz_open_with_timeout") as mock_fitz:
-                    mock_fitz.return_value = MagicMock(__len__=lambda _: 1)
+                with patch("backend.indexer.document_page_count") as mock_count:
+                    mock_count.return_value = 1
                     scan_library(str(lib), tmp, db)
 
             db.refresh(book)
@@ -788,8 +770,8 @@ class TestMissingFiles:
 
             # File exists on disk — rescan should clear is_missing
             with patch("backend.indexer.generate_thumbnail", return_value=False):
-                with patch("backend.indexer._fitz_open_with_timeout") as mock_fitz:
-                    mock_fitz.return_value = MagicMock(__len__=lambda _: 5)
+                with patch("backend.indexer.document_page_count") as mock_count:
+                    mock_count.return_value = 5
                     scan_library(str(lib), tmp, db)
 
             db.refresh(book)
@@ -862,14 +844,14 @@ class TestMissingFiles:
         db = SessionLocal()
         try:
             with patch("backend.indexer.generate_thumbnail", return_value=False):
-                with patch("backend.indexer._fitz_open_with_timeout") as mock_fitz:
-                    mock_fitz.return_value = MagicMock(__len__=lambda _: 1)
+                with patch("backend.indexer.document_page_count") as mock_count:
+                    mock_count.return_value = 1
                     scan_library(str(lib), tmp, db)
 
             pdf.unlink()
             with patch("backend.indexer.generate_thumbnail", return_value=False):
-                with patch("backend.indexer._fitz_open_with_timeout") as mock_fitz:
-                    mock_fitz.return_value = MagicMock(__len__=lambda _: 1)
+                with patch("backend.indexer.document_page_count") as mock_count:
+                    mock_count.return_value = 1
                     stats = scan_library(str(lib), tmp, db)
 
             assert "missing_books" in stats
