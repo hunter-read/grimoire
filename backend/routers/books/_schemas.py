@@ -170,6 +170,11 @@ class BookListItem(BaseModel):
     can_reocr: bool
     is_explicit: bool
     is_missing: bool
+    # The book's own level, raw: null means "inherit from system/category" and
+    # must stay distinct from an explicit "" (open) so the editor round-trips it.
+    access_level: Optional[str] = None
+    # What the cascade resolves to for this book ("" open, "gm", "admin").
+    effective_access_level: str = ""
     # How many other versions collapse into this entry; 0 for most books. Drives
     # the "has other versions" badge without a per-row query.
     variant_count: int = 0
@@ -246,6 +251,11 @@ class BookDetail(BaseModel):
     has_custom_cover: bool = False
     cover_version: Optional[str] = None
     is_explicit: bool
+    # The book's own level, raw: null means "inherit from system/category" and
+    # must stay distinct from an explicit "" (open) so the editor round-trips it.
+    access_level: Optional[str] = None
+    # What the cascade resolves to for this book ("" open, "gm", "admin").
+    effective_access_level: str = ""
     # Short token identifying the file's contents. The reader appends it to page
     # and thumbnail URLs so replacing the PDF on disk yields new URLs rather than
     # serving what the browser cached under the old ones (those are immutable for

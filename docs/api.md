@@ -675,6 +675,12 @@ no inherit state; it sits at the top of the cascade.
 `PATCH`/bulk bodies use the string `"inherit"` for the null write, because the
 handlers drop `null` fields so an omitted key leaves the book alone.
 
+**Reading it back.** `GET /api/systems` and `GET /api/systems/:id` return the
+system's `access_level`; a system's book rows (`books` on the detail, and
+`GET /api/systems/:id/books`) return each book's raw `access_level`, `null`
+for inherit. `GET /api/books` and `GET /api/books/:id` also return
+`effective_access_level`, what the cascade resolves to.
+
 **Effect on reads.** Restricted content is *hidden*, not locked. It is filtered
 out of `GET /api/books`, `GET /api/systems` (and their counts), `/api/search`,
 `/api/favorites`, the OPDS feeds, and bulk `/api/downloads` archives. By-id

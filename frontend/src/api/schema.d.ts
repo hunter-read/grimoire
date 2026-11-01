@@ -8056,6 +8056,8 @@ export interface components {
          * @description One book, as built by `core.get_book`.
          */
         BookDetail: {
+            /** Access Level */
+            access_level?: string | null;
             /** Added At */
             added_at?: string | null;
             /** Artists */
@@ -8076,6 +8078,11 @@ export interface components {
             day?: number | null;
             /** Description */
             description?: string | null;
+            /**
+             * Effective Access Level
+             * @default
+             */
+            effective_access_level?: string;
             /** File Size */
             file_size?: number | null;
             /** Filename */
@@ -8203,6 +8210,8 @@ export interface components {
          * @description One row of `list_books` — a deliberately smaller shape than `get_book`.
          */
         BookListItem: {
+            /** Access Level */
+            access_level?: string | null;
             /** Added At */
             added_at?: string | null;
             /** Can Reocr */
@@ -8211,6 +8220,11 @@ export interface components {
             category?: string | null;
             /** Cover Version */
             cover_version?: string | null;
+            /**
+             * Effective Access Level
+             * @default
+             */
+            effective_access_level?: string;
             /** File Size */
             file_size?: number | null;
             /** Filename */
@@ -8258,6 +8272,8 @@ export interface components {
          *     "has other versions" signal as the /books list rows do.
          */
         BookOut: {
+            /** Access Level */
+            access_level?: string | null;
             /** Added At */
             added_at?: string | null;
             /** Artists */
@@ -15209,6 +15225,11 @@ export interface components {
          * @description `get_system` adds the system's books and, for a container, its children.
          */
         SystemDetail: {
+            /**
+             * Access Level
+             * @default
+             */
+            access_level?: string;
             /** Book Count */
             book_count: number;
             /** Books */
@@ -15300,6 +15321,11 @@ export interface components {
          * @description A game system, as built by `_serializers.serialize_system_summary`.
          */
         SystemSummary: {
+            /**
+             * Access Level
+             * @default
+             */
+            access_level?: string;
             /** Book Count */
             book_count: number;
             /**

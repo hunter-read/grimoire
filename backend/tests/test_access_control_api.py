@@ -248,6 +248,56 @@ class TestWriteAuthorization:
         assert db.query(Book).filter_by(id=b.id).first().access_level == "admin"
         db.close()
 
+    def test_book_level_reads_back(self, client, admin_headers):
+        """The editor reopens with what was saved, not the default.
+
+        The handlers always sent ``access_level``, but the response models did
+        not declare it, so FastAPI stripped it and every restriction looked
+        unsaved in the UI.
+        """
+        system = make_game_system()
+        book = make_book(system.id)
+        resp = client.patch(
+            f"/api/books/{book.id}", json={"access_level": "admin"}, headers=admin_headers
+        )
+        assert resp.status_code == 200
+
+        detail = client.get(f"/api/books/{book.id}", headers=admin_headers).json()
+        assert detail["access_level"] == "admin"
+        assert detail["effective_access_level"] == "admin"
+
+        row = next(
+            b for b in client.get("/api/books?limit=500", headers=admin_headers).json()["books"]
+            if b["id"] == book.id
+        )
+        assert row["access_level"] == "admin"
+        assert row["effective_access_level"] == "admin"
+
+        shelf = client.get(f"/api/systems/{system.id}/books", headers=admin_headers).json()
+        assert next(b for b in shelf["books"] if b["id"] == book.id)["access_level"] == "admin"
+
+    def test_inherit_reads_back_as_null(self, client, admin_headers):
+        """Inherit must survive the round trip distinct from an explicit open."""
+        book = make_book(make_game_system(access_level="gm").id)
+        detail = client.get(f"/api/books/{book.id}", headers=admin_headers).json()
+        assert detail["access_level"] is None
+        assert detail["effective_access_level"] == "gm"
+
+    def test_system_level_reads_back(self, client, admin_headers):
+        system = make_game_system()
+        for level in ("gm", "admin"):
+            resp = client.patch(
+                f"/api/systems/{system.id}", json={"access_level": level}, headers=admin_headers
+            )
+            assert resp.status_code == 200
+            detail = client.get(f"/api/systems/{system.id}", headers=admin_headers).json()
+            assert detail["access_level"] == level
+            summary = next(
+                s for s in client.get("/api/systems", headers=admin_headers).json()
+                if s["id"] == system.id
+            )
+            assert summary["access_level"] == level
+
     def test_bulk_edit_rejected_for_gm(self, client, gm_headers):
         book = make_book(make_game_system().id)
         resp = client.post(
