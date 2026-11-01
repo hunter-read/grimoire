@@ -24,7 +24,7 @@ import threading
 from typing import Optional
 
 from ...config import DATA_PATH, SessionLocal, logger, valkey_client, valkey_errors
-from ...indexer import index_book_text, reindex_single_book
+from ...indexer import index_book_text, isolation, reindex_single_book
 from ...models import Book
 from ..books.documents import invalidate_book_cache
 from . import runner
@@ -160,6 +160,8 @@ def _drain_once() -> bool:
             indexed += 1
             runner.set_status({"indexed": indexed, "to_index": indexed + queued_count()})
     finally:
+        # The scan helper holds MuPDF's memory; the next job starts a fresh one.
+        isolation.shutdown()
         runner.set_status({"running": False, "phase": None, "kind": None})
         heartbeat.set()
     runner.follow_up_ocr_request()

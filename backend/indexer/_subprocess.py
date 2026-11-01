@@ -472,7 +472,7 @@ def _book_page_count(filepath: str) -> int:
     synthetic pages.
     """
     from . import comics, text_documents
-    from .formats import TEXT_EXTS, apply_reflow_layout
+    from .formats import TEXT_EXTS
     from .thumbnails import archive_ext
 
     arc_ext = archive_ext(filepath)
@@ -480,15 +480,9 @@ def _book_page_count(filepath: str) -> int:
         return comics.page_count(filepath, arc_ext)
     if os.path.splitext(filepath)[1].lower() in TEXT_EXTS:
         return text_documents.text_page_count(filepath)
-
-    doc = _fitz_open_with_timeout(filepath)
-    try:
-        # EPUB has no page count until it is laid out, and must use the same
-        # layout box as every other read path (issue #373).
-        apply_reflow_layout(doc)
-        return doc.page_count
-    finally:
-        doc.close()
+    # Read in the scan's helper process, which lays EPUB out in the reader's box
+    # (issue #373): PyMuPDF holds the GIL while it opens a file.
+    return indexer.document_page_count(filepath)
 
 
 def _commit(session: Session, label: str) -> None:

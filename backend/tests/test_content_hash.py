@@ -39,23 +39,32 @@ def _scan(lib: Path, tmp: str, db) -> dict:
         return scan_library(str(lib), tmp, db)
 
 
-def _fake_thumbnail_task(filepath, output_path, size, result, exc) -> None:
+def _fake_render_thumbnail(filepath, output_path, size, timeout, should_stop=None) -> bool:
     """Stand in for the real renderer: write a file where a cover would go."""
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     with open(output_path, "wb") as fh:
         fh.write(b"WEBP-test-cover")
-    result[0] = True
+    return True
+
+
+def _fake_thumbnail_task(filepath, output_path, size, result, exc) -> None:
+    """The same stand-in, for the images rendered on a thread in the server."""
+    result[0] = _fake_render_thumbnail(filepath, output_path, size, 0)
 
 
 def _scan_with_thumbs(lib: Path, tmp: str, db) -> dict:
     """Run a scan where thumbnail generation "succeeds" and leaves a file.
 
-    Patches the render worker rather than ``generate_thumbnail`` itself, so the
-    timeout wrapper still runs and the stub writes a real file on disk — these
-    tests assert on the *cover file*, not just the flag. The fixtures are not
-    valid PDFs, so the true renderer would fail on them.
+    Patches both renderers (the helper process for PDFs, the thread for
+    images) rather than ``generate_thumbnail`` itself, so the wrapper still runs
+    and the stub writes a real file on disk — these tests assert on the *cover
+    file*, not just the flag. The fixtures are not valid PDFs or images, so the
+    true renderers would fail on them.
     """
     with patch(
+        "backend.indexer.isolation.render_thumbnail",
+        side_effect=_fake_render_thumbnail,
+    ), patch(
         "backend.indexer.thumbnails._generate_thumbnail_task",
         side_effect=_fake_thumbnail_task,
     ):

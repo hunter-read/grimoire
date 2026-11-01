@@ -6,8 +6,8 @@ re-exported here, so ``from backend.indexer import X`` and ``indexer.X`` keep
 working exactly as before.
 
 Monkeypatch compatibility: the submodules invoke patch-sensitive helpers
-(``_fitz_open_with_timeout``, ``extract_text_isolated``, ``generate_thumbnail``,
-``_book_page_count``, ``ocr_page_isolated``, ``ocr_book_page_isolated_wrapper``)
+(``extract_text_isolated``, ``generate_thumbnail``, ``_book_page_count``,
+``document_page_count``, ``ocr_page_isolated``, ``ocr_book_page_isolated_wrapper``)
 through this package namespace, and the shared modules/callables that tests
 patch on ``backend.indexer`` — ``fitz``, ``os``, ``ocr``, ``config``, ``text``,
 ``_MP_CONTEXT`` — are bound here as module attributes.
@@ -136,6 +136,9 @@ from ._subprocess import (  # noqa: E402,F401
     ocr_book_page_isolated_wrapper,
     ocr_page_isolated,
 )
+
+# --- PyMuPDF work in the scan's helper process ----------------------------------
+from .isolation import HelperCrashError, document_page_count  # noqa: E402,F401
 
 # --- Sidecar / embedded metadata + scope ---------------------------------------
 from .metadata import (  # noqa: E402,F401

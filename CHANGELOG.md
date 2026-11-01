@@ -12,6 +12,13 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 - A book can have its own cover. In the book's **Edit Metadata** panel, **Upload cover** replaces the cover made from its first page - for a fixed-layout EPUB that shows up blank, or a PDF that opens on a wraparound dust jacket or a sideways scan. The custom cover is used in the library, the OPDS feed and exported sidecars, and is what Grimoire Codex DB is sent; a rescan never replaces it, and **Remove custom cover** brings the old one back
 
+### Fixed
+
+- A PDF, EPUB or DjVu that is slow to read no longer freezes Grimoire while a scan makes its thumbnail or counts its pages. With more than one worker, such a file could get a worker replaced every few seconds, each replacement starting the library scan again and stopping on the same file, keeping a CPU core busy for good. That work now runs in a separate helper process, and a file that takes longer than 30 seconds is left without a thumbnail
+- A file whose thumbnail stops the scan twice in a row - an image or 3D model large enough to run the server out of memory, say - has its thumbnail skipped from then on, and the log names it. Replacing or repairing the file has it tried again
+- When the startup library scan stops unexpectedly three times in a row, Grimoire starts without it and logs why, instead of restarting the scan every time it starts. Startup tries again after 30 minutes, and **Rescan** works as usual
+- A new install with more than one worker (`WORKERS=2`) no longer fails to start with `table app_settings already exists` when its data folder is a Docker Desktop bind mount of a macOS or Windows folder. Those mounts don't enforce file locks between processes, so both workers set up the new database at once, and both ran the startup scan and the session purge. The locks that keep workers apart are now also taken on the container's own disk
+
 ## [1.10.0] - 2026-10-29
 
 ### Added

@@ -231,6 +231,20 @@ With more than one worker (`WORKERS=2`), set `VALKEY_URL` as well. **Stop** reac
 
 ---
 
+## The log keeps repeating "Scanning your library…" and a CPU core stays busy
+
+That is the server restarting part-way through its startup scan, over and over: each restart starts the scan again and stops at the same point. Lines like `Child process [N] died` between the repeats mean uvicorn replaced a worker. Older versions could get stuck like this on a single heavy file - a large PDF or EPUB that took more than a few seconds to read or render, or an image or model big enough to run the container out of memory.
+
+Grimoire now guards against it in three ways:
+
+- PDF, EPUB and DjVu thumbnails and page counts are read in a separate helper process, so a slow document no longer freezes the server or gets a worker replaced. A file that takes longer than 30 seconds is left without a thumbnail, and the log says so.
+- If a scan dies twice in a row while making the same file's thumbnail, later scans skip that thumbnail and log the file's path. Replace or repair the file and it is tried again.
+- If three startup scans in a row die, Grimoire starts without scanning and logs an error saying so. Start a scan with **Rescan** under Settings → Library → Scanning when you are ready; startup tries again by itself after 30 minutes.
+
+To find the file a scan stops on, set `LOG_LEVEL=debug` and restart: the last `Scanning map (...)` or `Scanning book (...)` line before it stops names it. Moving that file out of the library, or adding it to a [`.grimoireignore`](library-structure.md#ignoring-files-with-grimoireignore), lets the scan finish while you look at it.
+
+---
+
 ## A folder is skipped by the scan, and the file manager shows `�` in its name
 
 The folder's (or file's) name on disk is not valid UTF-8. This usually happens when the name was created on Windows in a legacy code page and copied to a share that stores names as raw bytes. For example, Windows-1252 writes the `Ö` in "MÖRK BORG" as the single byte `0xD6`, which on its own is not UTF-8. Copying through a Windows NFS mount is a common source.

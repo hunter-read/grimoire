@@ -4,7 +4,7 @@ import os
 from ... import config
 from ...config import SessionLocal, LIBRARY_PATH, DATA_PATH, logger
 from ...models import Book, Model3D
-from ...indexer import scan_library, index_book_text, ocr_book
+from ...indexer import isolation, quarantine, scan_library, index_book_text, ocr_book
 from ...indexer.formats import INDEXABLE_MIMES
 from ..books.documents import invalidate_book_cache
 from ..jobs import Job
@@ -481,6 +481,9 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
     clear_stop()
     set_status({**DEFAULT_STATUS, "running": True, "phase": "scanning"})
     heartbeat = _start_heartbeat()
+    # Strikes the file the last scan died on, if it did, and notes each
+    # thumbnail this one makes in-process until it ends (issue #762).
+    quarantine.begin_scan()
     try:
         invalidate_book_cache()
         db = SessionLocal()
@@ -631,6 +634,9 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
         from ..content_cache import sweep_page_cache
 
         sweep_page_cache()
+        quarantine.end_scan()
+        # The helper holds MuPDF's memory; the next scan starts a fresh one.
+        isolation.shutdown()
         set_status({"running": False, "phase": None})
         heartbeat.set()
     follow_up_ocr_request()

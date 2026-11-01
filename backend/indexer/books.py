@@ -11,7 +11,7 @@ Registering one book — the insert/update point and its change-detection rules 
 lives in ``_book_records.py``; those functions are re-exported here so
 ``scan.py`` and the tests' patch targets are unchanged.
 
-Patch-safety: ``generate_thumbnail`` and ``_fitz_open_with_timeout`` are stubbed
+Patch-safety: ``generate_thumbnail`` and ``document_page_count`` are stubbed
 by tests via ``patch("backend.indexer.…")`` and so are called through the
 package namespace (``indexer.NAME``).
 """

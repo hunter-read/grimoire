@@ -4,6 +4,7 @@ import os
 import tempfile
 import threading
 import time
+from unittest.mock import patch
 
 import pytest
 
@@ -108,7 +109,7 @@ class TestWorkerLock:
         pid = os.fork()
         if pid == 0:  # child
             # flock is per-open-file-description, so the child must open its own.
-            session_purger._lock_file = None
+            session_purger._lock = None
             got = session_purger._acquire_lock(lock_dir)
             os._exit(1 if got else 0)
         _, status = os.waitpid(pid, 0)
@@ -120,7 +121,7 @@ class TestWorkerLock:
 
         pid = os.fork()
         if pid == 0:
-            session_purger._lock_file = None
+            session_purger._lock = None
             got = session_purger._acquire_lock(lock_dir)
             os._exit(0 if got else 1)
         _, status = os.waitpid(pid, 0)
@@ -143,8 +144,15 @@ class TestWorkerLock:
             fcntl.flock(held, fcntl.LOCK_UN)
             held.close()
 
-    def test_unwritable_lock_path_does_not_start(self, monkeypatch):
-        assert session_purger._acquire_lock("/nonexistent/path/for/grimoire") is False
+    def test_an_unwritable_data_path_still_claims_the_role_locally(self):
+        # The lock's twin in the temp directory still keeps the workers on this
+        # machine to one purger (see backend/file_locks.py).
+        assert session_purger._acquire_lock("/nonexistent/path/for/grimoire") is True
+        session_purger._release_lock()
+
+    def test_no_usable_lock_file_does_not_start(self, lock_dir):
+        with patch("builtins.open", side_effect=PermissionError("read-only")):
+            assert session_purger._acquire_lock(lock_dir) is False
 
 
 class TestThreadLifecycle:

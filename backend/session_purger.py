@@ -13,12 +13,12 @@ picks it up on the next restart.
 """
 
 import datetime
-import fcntl
 import os
 import threading
-from typing import Optional, TextIO
+from typing import Optional
 
 from .config import logger
+from .file_locks import FileLock
 
 # Sessions stay in the table this long after they die, so a refresh token
 # replayed shortly after logout is still recognisable as a reuse rather than
@@ -29,39 +29,31 @@ _PURGE_INTERVAL_SECONDS = 24 * 60 * 60
 
 _thread: Optional[threading.Thread] = None
 _stop_event = threading.Event()
-_lock_file: Optional[TextIO] = None
+_lock: Optional[FileLock] = None
 
 
 def _acquire_lock(data_path: str) -> bool:
     """Claim the purger role for this process. False if another worker has it."""
-    global _lock_file
+    global _lock
 
-    lock_path = os.path.join(data_path, ".session_purge.lock")
+    lock = FileLock(os.path.join(data_path, ".session_purge.lock"))
     try:
-        handle = open(lock_path, "w")
+        if not lock.acquire(blocking=False):
+            return False
     except OSError as e:
         logger.warning(f"Session purger could not open its lock file: {e}")
         return False
 
-    try:
-        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except OSError:
-        handle.close()
-        return False
-
-    _lock_file = handle
+    _lock = lock
     return True
 
 
 def _release_lock() -> None:
-    global _lock_file
-    if _lock_file is None:
+    global _lock
+    if _lock is None:
         return
-    try:
-        fcntl.flock(_lock_file, fcntl.LOCK_UN)
-    finally:
-        _lock_file.close()
-        _lock_file = None
+    _lock.release()
+    _lock = None
 
 
 def _purge_once() -> int:
