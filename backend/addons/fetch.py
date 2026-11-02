@@ -10,7 +10,7 @@ import json
 import logging
 import os
 import time
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import httpx
 
@@ -35,6 +35,30 @@ class AddonFetchError(Exception):
     Carries a message safe to show the user — the UI surfaces these directly so
     a dead source reads as "couldn't reach it", not a 500.
     """
+
+
+class DownloadError(AddonFetchError):
+    """A ``download`` that failed, and how, so each caller can word it its own way.
+
+    ``reason`` is "status" (``status`` holds the code), "timeout", "network"
+    (``detail`` holds httpx's message) or "too_large".
+    """
+
+    def __init__(self, reason: str, status: Optional[int] = None, detail: str = "") -> None:
+        self.reason = reason
+        self.status = status
+        self.detail = detail
+        super().__init__(self.describe("file"))
+
+    def describe(self, what: str) -> str:
+        """The failure as a sentence about downloading ``what``."""
+        if self.reason == "status":
+            return f"The {what} download returned HTTP {self.status}"
+        if self.reason == "timeout":
+            return f"The {what} download timed out"
+        if self.reason == "too_large":
+            return f"That {what} file is too large"
+        return f"Could not download the {what}: {self.detail}"
 
 
 def _cache_path(url: str) -> str:
@@ -114,6 +138,68 @@ def open_client(
     )
 
 
+def download(
+    url: str,
+    *,
+    max_bytes: Optional[int] = None,
+    timeout: float = HTTP_TIMEOUT,
+    headers: Optional[dict[str, str]] = None,
+    credentials: Optional["SourceCredentials"] = None,
+) -> bytes:
+    """GET ``url`` and return its body, reading no more than ``max_bytes`` of it.
+
+    The body is streamed and counted as it arrives, so a response with no
+    Content-Length (or a wrong one) stops one chunk past the limit rather than
+    being read whole first. ``max_bytes`` is capped at ``HTTP_MAX_BYTES``.
+    Raises ``DownloadError``.
+    """
+    limit = HTTP_MAX_BYTES if max_bytes is None else min(max_bytes, HTTP_MAX_BYTES)
+    try:
+        with open_client(timeout=timeout, headers=headers, credentials=credentials) as client:
+            with client.stream("GET", url) as response:
+                if response.status_code != 200:
+                    raise DownloadError("status", status=response.status_code)
+
+                # Trust the declared length when present, but still count bytes:
+                # a lying or absent Content-Length must not let us read forever.
+                declared = response.headers.get("content-length")
+                if declared and declared.isdigit() and int(declared) > limit:
+                    raise DownloadError("too_large")
+
+                chunks: list[bytes] = []
+                total = 0
+                for chunk in response.iter_bytes():
+                    total += len(chunk)
+                    if total > limit:
+                        raise DownloadError("too_large")
+                    chunks.append(chunk)
+    except httpx.TimeoutException as exc:
+        raise DownloadError("timeout") from exc
+    except httpx.HTTPError as exc:
+        raise DownloadError("network", detail=str(exc)) from exc
+    return b"".join(chunks)
+
+
+def download_file(
+    url: str,
+    *,
+    what: str,
+    error: Callable[[str], Exception],
+    max_bytes: Optional[int] = None,
+    timeout: float = HTTP_TIMEOUT,
+    credentials: Optional["SourceCredentials"] = None,
+) -> bytes:
+    """``download``, with a failure raised as ``error`` and worded about ``what``.
+
+    For the catalogue installers (sheets, packs, themes, wiki templates, add-on
+    files), which each have their own error type but say the same things.
+    """
+    try:
+        return download(url, max_bytes=max_bytes, timeout=timeout, credentials=credentials)
+    except DownloadError as exc:
+        raise error(exc.describe(what)) from exc
+
+
 def fetch_json(
     url: str,
     user_agent: str = "",
@@ -126,32 +212,9 @@ def fetch_json(
     """
     headers = {"User-Agent": _user_agent(user_agent), "Accept": "application/json"}
     try:
-        with open_client(timeout=timeout, headers=headers, credentials=credentials) as client:
-            with client.stream("GET", url) as response:
-                if response.status_code != 200:
-                    raise AddonFetchError(
-                        f"source returned HTTP {response.status_code}"
-                    )
-
-                # Trust the declared length when present, but still count bytes:
-                # a lying or absent Content-Length must not let us read forever.
-                declared = response.headers.get("content-length")
-                if declared and declared.isdigit() and int(declared) > HTTP_MAX_BYTES:
-                    raise AddonFetchError("source response is too large")
-
-                chunks: list[bytes] = []
-                total = 0
-                for chunk in response.iter_bytes():
-                    total += len(chunk)
-                    if total > HTTP_MAX_BYTES:
-                        raise AddonFetchError("source response is too large")
-                    chunks.append(chunk)
-
-        body = b"".join(chunks)
-    except httpx.TimeoutException as exc:
-        raise AddonFetchError("source timed out") from exc
-    except httpx.HTTPError as exc:
-        raise AddonFetchError(f"could not reach source: {exc}") from exc
+        body = download(url, timeout=timeout, headers=headers, credentials=credentials)
+    except DownloadError as exc:
+        raise AddonFetchError(_source_message(exc)) from exc
 
     try:
         return json.loads(body)
@@ -167,6 +230,17 @@ def fetch_json(
         except Exception:
             pass
         raise AddonFetchError("source did not return valid JSON or YAML")
+
+
+def _source_message(exc: DownloadError) -> str:
+    """``fetch_json``'s wording: the thing fetched is an add-on's source."""
+    if exc.reason == "status":
+        return f"source returned HTTP {exc.status}"
+    if exc.reason == "timeout":
+        return "source timed out"
+    if exc.reason == "too_large":
+        return "source response is too large"
+    return f"could not reach source: {exc.detail}"
 
 
 def fetch_document(

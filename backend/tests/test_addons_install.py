@@ -18,6 +18,7 @@ from backend.addons.fetch import AddonFetchError
 from backend.addons.registry import AddonError
 from backend.config import SessionLocal
 from backend.models import AppSetting
+from backend.tests.http_fakes import serve, serve_chunked
 
 MANIFEST = {
     "id": "demo",
@@ -497,50 +498,33 @@ class TestUninstallAndToggles:
 
 
 class TestFetchText:
+    def test_returns_the_body(self, monkeypatch):
+        serve(monkeypatch, lambda request: httpx.Response(200, content=SCRIPT_BODY))
+        assert install._fetch_text("https://example.com/x.py") == SCRIPT_BODY
+
     def test_non_200_is_reported(self, monkeypatch):
-        class _Client:
-            def __enter__(self):
-                return self
-
-            def __exit__(self, *exc):
-                return False
-
-            def get(self, url):
-                return type("R", (), {"status_code": 404, "content": b""})()
-
-        monkeypatch.setattr(httpx, "Client", lambda **kw: _Client())
+        serve(monkeypatch, lambda request: httpx.Response(404))
         with pytest.raises(AddonFetchError, match="HTTP 404"):
             install._fetch_text("https://example.com/x.yml")
 
     def test_oversize_download_is_refused(self, monkeypatch):
-        monkeypatch.setattr("backend.addons.install.HTTP_MAX_BYTES", 4)
-
-        class _Client:
-            def __enter__(self):
-                return self
-
-            def __exit__(self, *exc):
-                return False
-
-            def get(self, url):
-                return type("R", (), {"status_code": 200, "content": b"x" * 64})()
-
-        monkeypatch.setattr(httpx, "Client", lambda **kw: _Client())
+        monkeypatch.setattr(fetch, "HTTP_MAX_BYTES", 4)
+        serve(monkeypatch, lambda request: httpx.Response(200, content=b"x" * 64))
         with pytest.raises(AddonFetchError, match="too large"):
             install._fetch_text("https://example.com/x.yml")
 
+    def test_an_undeclared_oversize_body_stops_at_the_cap(self, monkeypatch):
+        monkeypatch.setattr(fetch, "HTTP_MAX_BYTES", 1024)
+        body = serve_chunked(monkeypatch, total=1024 * 1024)
+        with pytest.raises(AddonFetchError, match="too large"):
+            install._fetch_text("https://example.com/x.yml")
+        assert body.sent <= 1024 + body.chunk
+
     def test_timeout_is_reported(self, monkeypatch):
-        class _Client:
-            def __enter__(self):
-                return self
+        def slow(request):
+            raise httpx.TimeoutException("slow")
 
-            def __exit__(self, *exc):
-                return False
-
-            def get(self, url):
-                raise httpx.TimeoutException("slow")
-
-        monkeypatch.setattr(httpx, "Client", lambda **kw: _Client())
+        serve(monkeypatch, slow)
         with pytest.raises(AddonFetchError, match="timed out"):
             install._fetch_text("https://example.com/x.yml")
 

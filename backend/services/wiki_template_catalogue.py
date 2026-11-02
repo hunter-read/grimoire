@@ -25,11 +25,10 @@ from ..addons.authors import parse_author
 from ..addons.constants import (
     DEFAULT_CACHE_TTL as CATALOGUE_CACHE_TTL,
     DEFAULT_INDEX_URL as DEFAULT_ADDON_INDEX_URL,
-    HTTP_MAX_BYTES,
     external_installs_enabled,
 )
 from ..addons import credentials as source_credentials
-from ..addons.fetch import AddonFetchError, fetch_document, open_client
+from ..addons.fetch import AddonFetchError, download_file, fetch_document
 
 logger = logging.getLogger("grimoire.wiki_templates")
 
@@ -329,26 +328,18 @@ def _resolve_body_url(index_url: str, entry: dict) -> str:
 def fetch_body(db: Session, entry: dict) -> str:
     """Download and verify one template's markdown body."""
     _assert_downloads_enabled()
-    import httpx
 
     index_url = entry.get("index_url") or get_index_url(db)
     url = _resolve_body_url(index_url, entry)
     creds = source_credentials.load(db)
-    try:
-        with open_client(timeout=FETCH_TIMEOUT, credentials=creds) as client:
-            response = client.get(url)
-            if response.status_code != 200:
-                raise TemplateCatalogueError(
-                    f"The template download returned HTTP {response.status_code}"
-                )
-            body = response.content
-    except httpx.TimeoutException as exc:
-        raise TemplateCatalogueError("The template download timed out") from exc
-    except httpx.HTTPError as exc:
-        raise TemplateCatalogueError(f"Could not download the template: {exc}") from exc
-
-    if len(body) > min(MAX_BODY_BYTES, HTTP_MAX_BYTES):
-        raise TemplateCatalogueError("That template's body is too large")
+    body = download_file(
+        url,
+        what="template",
+        error=TemplateCatalogueError,
+        max_bytes=MAX_BODY_BYTES,
+        timeout=FETCH_TIMEOUT,
+        credentials=creds,
+    )
 
     expected = _clean_str(entry.get("body_sha256"), 64)
     if expected:

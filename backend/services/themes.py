@@ -26,12 +26,11 @@ from sqlalchemy.orm import Session
 from .. import config
 from ..text import slugs
 from ..addons.constants import (
-    HTTP_MAX_BYTES,
     external_installs_enabled,
 )
 from ..addons.authors import parse_author
 from ..addons import credentials as source_credentials
-from ..addons.fetch import AddonFetchError, fetch_document, open_client
+from ..addons.fetch import AddonFetchError, download_file, fetch_document
 
 logger = logging.getLogger("grimoire.themes")
 
@@ -538,24 +537,17 @@ def fetch_theme(db: Session, entry: dict[str, Any]) -> dict[str, Any]:
     _assert_downloads_enabled()
     import json
 
-    import httpx
-
     index_url = entry.get("index_url") or get_index_url(db)
     url = _resolve_theme_url(index_url, entry.get("path", ""))
     creds = source_credentials.load(db)
-    try:
-        with open_client(timeout=FETCH_TIMEOUT, credentials=creds) as client:
-            response = client.get(url)
-            if response.status_code != 200:
-                raise ThemeError(f"The theme download returned HTTP {response.status_code}")
-            body = response.content
-    except httpx.TimeoutException as exc:
-        raise ThemeError("The theme download timed out") from exc
-    except httpx.HTTPError as exc:
-        raise ThemeError(f"Could not download the theme: {exc}") from exc
-
-    if len(body) > min(MAX_THEME_BYTES, HTTP_MAX_BYTES):
-        raise ThemeError("That theme file is too large")
+    body = download_file(
+        url,
+        what="theme",
+        error=ThemeError,
+        max_bytes=MAX_THEME_BYTES,
+        timeout=FETCH_TIMEOUT,
+        credentials=creds,
+    )
 
     verify_digest(body, str(entry.get("sha256") or ""))
 
