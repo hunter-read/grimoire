@@ -36,6 +36,44 @@ def plain_campaign(client, gm_headers):
     return resp.json()
 
 
+def _pin_today(monkeypatch, day):
+    """Make the schedule code's ``datetime.date.today()`` return ``day``.
+
+    A legacy UTC clock carries no offset, so both the write path and the startup
+    migration resolve it against *today's*: 02:30Z is 19:30 under PDT but 18:30
+    under PST. Unpinned, every assertion about the converted clock holds for only
+    half the year. Only the two modules that do the conversion are patched, not
+    the real ``datetime`` module.
+    """
+    import datetime
+    import types
+
+    from backend.models import db as models_db
+    from backend.routers.campaigns import schedule as schedule_router
+
+    class _PinnedDate(datetime.date):
+        @classmethod
+        def today(cls):
+            return cls(day.year, day.month, day.day)
+
+    shim = types.ModuleType("datetime")
+    shim.__dict__.update(vars(datetime))
+    shim.date = _PinnedDate
+    for module in (models_db, schedule_router):
+        monkeypatch.setattr(module, "datetime", shim)
+
+
+SUMMER = (2026, 7, 15)  # America/Los_Angeles is on PDT (UTC-7)
+WINTER = (2026, 1, 15)  # America/Los_Angeles is on PST (UTC-8)
+
+
+@pytest.fixture()
+def summer_today(monkeypatch):
+    import datetime
+
+    _pin_today(monkeypatch, datetime.date(*SUMMER))
+
+
 class TestSchedule:
     def test_get_schedule_empty(self, client, gm_headers, gm_campaign):
         r = client.get(f"/api/campaigns/{gm_campaign['id']}/schedule", headers=gm_headers)
@@ -324,6 +362,7 @@ class TestAvailability:
         assert bad_date.status_code == 400
 
 
+@pytest.mark.usefixtures("summer_today")
 class TestLocalTimeModel:
     """The stored pair is local throughout: a local weekday and a local clock.
 
@@ -368,7 +407,7 @@ class TestLocalTimeModel:
         )
         assert r.status_code == 200, r.text
         definition = r.json()["definition"]
-        # 02:30Z is 19:30 Pacific.
+        # 02:30Z is 19:30 Pacific in summer (PDT, UTC-7).
         assert definition["time_local"] == "19:30"
         assert "time_utc" not in definition
 
@@ -426,6 +465,7 @@ class TestLocalTimeModel:
             assert resolved.strftime("%H:%M") == "19:30", line
 
 
+@pytest.mark.usefixtures("summer_today")
 class TestScheduleTimeMigration:
     """The startup migration that moves stored UTC clocks to local ones.
 
@@ -569,6 +609,7 @@ class TestScheduleTimeMigration:
         assert out["time_model"] == "local"
 
 
+@pytest.mark.usefixtures("summer_today")
 class TestStaleBundleRepair:
     """A cached old frontend can write an already-UTC clock into `time_local`.
 
@@ -686,3 +727,49 @@ class TestStaleBundleRepair:
             )
         engine.dispose()
         assert out["time_local"] == "19:30"
+
+
+class TestLegacyClockFollowsTodaysOffset:
+    """A legacy UTC clock is read with the offset in force *today*, not a fixed one.
+
+    These pin a winter date to cover the other half of the year from the
+    summer-pinned classes above. Without pinning, those broke the day DST ended.
+    """
+
+    def test_write_path_uses_standard_time_in_winter(
+        self, client, gm_headers, gm_campaign, monkeypatch
+    ):
+        import datetime
+
+        _pin_today(monkeypatch, datetime.date(*WINTER))
+        r = client.put(
+            f"/api/campaigns/{gm_campaign['id']}/schedule",
+            json={
+                "frequency": "weekly",
+                "days": [6],
+                "time_utc": "02:30",
+                "timezone": "America/Los_Angeles",
+                "enabled": True,
+            },
+            headers=gm_headers,
+        )
+        assert r.status_code == 200, r.text
+        # 02:30Z is 18:30 under PST (UTC-8).
+        assert r.json()["definition"]["time_local"] == "18:30"
+
+    def test_migration_uses_standard_time_in_winter(self, monkeypatch):
+        import datetime
+
+        _pin_today(monkeypatch, datetime.date(*WINTER))
+        (out,) = TestScheduleTimeMigration()._migrate(
+            [
+                {
+                    "days": [6],
+                    "frequency": "weekly",
+                    "time_utc": "02:30",
+                    "timezone": "America/Los_Angeles",
+                }
+            ]
+        )
+        assert out["time_local"] == "18:30"
+        assert out["days"] == [6]
