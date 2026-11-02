@@ -149,7 +149,7 @@ export default function SettingsView({ user, onLogout }: SettingsViewProps) {
         setPending(dest)
         return
       }
-      navigate(pathFor(dest))
+      void navigate(pathFor(dest))
     },
     [area, navigate]
   )
@@ -210,7 +210,7 @@ export default function SettingsView({ user, onLogout }: SettingsViewProps) {
             dirty.current.clear()
             const dest = pending
             setPending(null)
-            navigate(pathFor(dest))
+            void navigate(pathFor(dest))
           }}
         />
       )}

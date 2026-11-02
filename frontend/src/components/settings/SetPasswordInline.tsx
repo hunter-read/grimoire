@@ -50,7 +50,7 @@ export default function SetPasswordInline({ onSave, onCancel }: Props) {
           setErr('')
         }}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') handleSave()
+          if (e.key === 'Enter') void handleSave()
           if (e.key === 'Escape') onCancel()
         }}
         placeholder={t('users.newPasswordPlaceholder', { min: passwordMinLength })}

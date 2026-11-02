@@ -1404,3 +1404,21 @@ describe('WikiView multiselect', () => {
     await waitFor(() => expect(screen.queryByText(/note selected/)).toBeNull())
   })
 })
+
+describe('WikiView page list failure', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    campaignsMock.getWikiPage.mockResolvedValue(page)
+  })
+
+  it('says the list could not load instead of spinning, and retries', async () => {
+    campaignsMock.listWikiPages.mockRejectedValueOnce(new Error('offline'))
+    renderView()
+    expect(await screen.findByRole('alert')).toHaveTextContent('This could not be loaded.')
+
+    campaignsMock.listWikiPages.mockResolvedValue([page])
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByText('Here be dragons')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+})

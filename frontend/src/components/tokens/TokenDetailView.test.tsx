@@ -4,6 +4,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import TokenDetailView from './TokenDetailView'
 import realApi from '../../api'
+import { itLoadsOnlyTheCurrentItem } from '../../test/detailLoading'
 
 vi.mock('../../api', () => ({
   default: { get: vi.fn(), patch: vi.fn() },
@@ -220,5 +221,21 @@ describe('TokenDetailView', () => {
     expect(navigate).toHaveBeenCalledWith('/tokens/t3')
     await userEvent.click(screen.getByRole('button', { name: /^Previous token/ }))
     expect(navigate).toHaveBeenCalledWith('/tokens/t1')
+  })
+})
+
+describe('TokenDetailView loading', () => {
+  itLoadsOnlyTheCurrentItem({
+    base: '/tokens',
+    item: (id, name) => detail(id, { filename: name }),
+    get: api.get,
+    mount: (id) => {
+      currentTokenId = id
+      const { rerender } = render(<TokenDetailView />)
+      return (next) => {
+        currentTokenId = next
+        rerender(<TokenDetailView />)
+      }
+    },
   })
 })

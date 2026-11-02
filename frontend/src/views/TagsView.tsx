@@ -16,6 +16,8 @@ import { useAuth } from '../context/AuthContext'
 import { useFavorites } from '../context/FavoritesContext'
 import { getUserPrefs, saveUserPref } from '../hooks/useUserPrefs'
 import Spinner from '../components/Spinner'
+import LoadError from '../components/LoadError'
+import useAsyncAction from '../hooks/useAsyncAction'
 import DownloadArchiveModal from '../components/DownloadArchiveModal'
 import type { DownloadRequest } from '../components/tags/tagDownload'
 import TagDetail from '../components/tags/TagDetail'
@@ -52,6 +54,9 @@ export default function TagsView() {
   const activeTag = searchParams.get('tag') || null
 
   const [allTags, setAllTags] = useState<TagListItem[] | null>(null)
+  const [tagsLoadFailed, setTagsLoadFailed] = useState(false)
+  // Rename, delete and favourite failures, shown above the lists.
+  const { run: runAction, error: actionError } = useAsyncAction()
   const [filter, setFilter] = useState('')
   const [favOnly, setFavOnly] = useState(false)
   const [sort, setSort] = useState('name') // 'name' | 'count'
@@ -76,7 +81,11 @@ export default function TagsView() {
   usePageTitle(detail ? `${detail.display} - ${t('tags.title')}` : t('tags.title'))
 
   const loadTags = useCallback(() => {
-    tagsApi.list().then((r) => setAllTags(r.tags))
+    setTagsLoadFailed(false)
+    tagsApi
+      .list()
+      .then((r) => setAllTags(r.tags))
+      .catch(() => setTagsLoadFailed(true))
   }, [])
 
   useEffect(() => {
@@ -175,21 +184,30 @@ export default function TagsView() {
 
   const toggleTagFavorite = (tg: Pick<TagListItem, 'internal' | 'is_favorite'>, e?: MouseEvent) => {
     e?.stopPropagation()
-    toggleFavorite('tag', tg.internal)
-    // Optimistically flip the flag in the local list.
-    setAllTags((prev) =>
-      prev
-        ? prev.map((x) =>
-            x.internal === tg.internal ? { ...x, is_favorite: !tagFavorited(tg) } : x
-          )
-        : prev
-    )
+    const setFlag = (value: TagListItem['is_favorite']) =>
+      setAllTags((prev) =>
+        prev
+          ? prev.map((x) => (x.internal === tg.internal ? { ...x, is_favorite: value } : x))
+          : prev
+      )
+    // Optimistically flip the flag in the local list, and put it back if the
+    // server refuses.
+    setFlag(!tagFavorited(tg))
+    void runAction(async () => {
+      try {
+        await toggleFavorite('tag', tg.internal)
+      } catch (err) {
+        setFlag(tg.is_favorite)
+        throw err
+      }
+    })
   }
 
   const saveRename = () => {
     const next = renameValue.trim()
     if (!next || !detail) return
-    tagsApi.rename(detail.internal, next).then((updated) => {
+    void runAction(async () => {
+      const updated = await tagsApi.rename(detail.internal, next)
       setRenaming(false)
       loadTags()
       // The internal key can change (typo fix) or merge into an existing tag;
@@ -202,7 +220,8 @@ export default function TagsView() {
   const deleteTag = () => {
     if (!detail) return
     if (!window.confirm(t('tags.confirmDelete', { tag: detail.display }))) return
-    tagsApi.remove(detail.internal).then(() => {
+    void runAction(async () => {
+      await tagsApi.remove(detail.internal)
       selectTag(null)
       loadTags()
     })
@@ -226,6 +245,8 @@ export default function TagsView() {
     (key: string) => (tagPages.get(key) ? tagPages.loadMore(key) : tagPages.ensure(key)),
     [tagPages]
   )
+
+  if (allTags === null && tagsLoadFailed) return <LoadError onRetry={loadTags} />
 
   if (allTags === null) {
     return (
@@ -270,6 +291,12 @@ export default function TagsView() {
         >
           <LuTags size={24} color="var(--gold)" /> {t('tags.title')}
         </h1>
+
+        {actionError && (
+          <p role="alert" style={{ color: 'var(--danger)', fontSize: 14, margin: '0 0 12px' }}>
+            {actionError}
+          </p>
+        )}
 
         <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
           {activeTag && detail && !detailLoading

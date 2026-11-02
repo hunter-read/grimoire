@@ -88,7 +88,7 @@ export default function VariantMenuItems({ book, itemStyle, onPick }: VariantMen
               onClick={(e) => {
                 e.stopPropagation()
                 onPick?.(option.id)
-                if (option.id !== book.id) navigate(`/library/book/${option.id}`)
+                if (option.id !== book.id) void navigate(`/library/book/${option.id}`)
               }}
               style={{ ...itemStyle, paddingLeft: 30, fontSize: 13 }}
             >

@@ -223,6 +223,22 @@ describe('CampaignEditor — edit flow', () => {
     expect(onDelete).toHaveBeenCalled()
   })
 
+  it('shows why a delete failed inside the dialog', async () => {
+    render(
+      <CampaignEditor
+        campaign={campaign}
+        isGmOrAdmin
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+        onDelete={vi.fn()}
+        deleteError="Could not delete"
+      />
+    )
+    await waitFor(() => expect(api.get).toHaveBeenCalled())
+    expect(screen.getByRole('dialog')).toContainElement(screen.getByRole('alert'))
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not delete')
+  })
+
   it('closes via the X button', async () => {
     const onClose = vi.fn()
     render(<CampaignEditor campaign={campaign} isGmOrAdmin onClose={onClose} onSaved={vi.fn()} />)

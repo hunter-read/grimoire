@@ -66,8 +66,12 @@ export default function MemberRow({
   const canEditMedia = !!campaignId && !!member.id && !isMemberOwner && (isCurrentUser || canManage)
 
   const saveCharName = async () => {
-    await onSetCharacterName(member.user_id, charValue.trim())
-    setEditingChar(false)
+    try {
+      await onSetCharacterName(member.user_id, charValue.trim())
+      setEditingChar(false)
+    } catch (err) {
+      alert((err as Error).message)
+    }
   }
 
   const uploadArt = async (file: File) => {
@@ -128,6 +132,8 @@ export default function MemberRow({
       setLinkingSheet(false)
       setSheetUrlValue('')
       onMediaChanged?.()
+    } catch (err) {
+      alert((err as Error).message)
     } finally {
       setBusy(false)
     }
@@ -184,7 +190,7 @@ export default function MemberRow({
               placeholder={t('members.characterNamePlaceholder')}
               autoFocus
               onKeyDown={(e) => {
-                if (e.key === 'Enter') saveCharName()
+                if (e.key === 'Enter') void saveCharName()
                 if (e.key === 'Escape') setEditingChar(false)
               }}
               style={{
@@ -397,7 +403,7 @@ export default function MemberRow({
                   value={sheetUrlValue}
                   onChange={(e) => setSheetUrlValue(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') saveSheetUrl()
+                    if (e.key === 'Enter') void saveSheetUrl()
                     if (e.key === 'Escape') setLinkingSheet(false)
                   }}
                   type="url"

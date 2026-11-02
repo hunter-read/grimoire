@@ -98,7 +98,7 @@ export default function CharacterImportDialog({ onImported, onClose }: Character
   )
 
   useEffect(() => {
-    load()
+    void load()
   }, [load])
 
   const linkImporters = (importers || []).filter((importer) => importer.accepts_url)
@@ -174,7 +174,8 @@ export default function CharacterImportDialog({ onImported, onClose }: Character
   const onDrop = (event: DragEvent<HTMLElement>) => {
     event.preventDefault()
     setDragging(false)
-    importFile(event.dataTransfer.files?.[0])
+    // Failures land in the dialog's error, through run().
+    void importFile(event.dataTransfer.files?.[0])
   }
 
   const canLink = acceptsLinks && url.trim() && !busy

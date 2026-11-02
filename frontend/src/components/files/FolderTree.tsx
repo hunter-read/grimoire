@@ -102,7 +102,7 @@ export default function FolderTree({
         next.delete(path)
       } else {
         next.add(path)
-        if (!folders[path]) load(path)
+        if (!folders[path]) void load(path)
       }
       return next
     })

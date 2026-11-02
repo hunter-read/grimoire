@@ -90,6 +90,18 @@ describe('CategoryManager', () => {
     )
   })
 
+  it('says so when a rename fails', async () => {
+    campaignsMock.renameCategory.mockRejectedValueOnce(new Error('Name already taken'))
+    const user = userEvent.setup()
+    renderManager()
+    await screen.findByText('Handouts')
+    await user.click(screen.getByRole('button', { name: /^Edit: / }))
+    const input = screen.getByDisplayValue('Handouts')
+    await user.clear(input)
+    await user.type(input, 'Clash{Enter}')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Name already taken')
+  })
+
   it('abandons a rename on Escape', async () => {
     const user = userEvent.setup()
     renderManager()

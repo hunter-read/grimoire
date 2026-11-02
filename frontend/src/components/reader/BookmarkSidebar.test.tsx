@@ -105,6 +105,30 @@ describe('BookmarkSidebar', () => {
     await waitFor(() => expect(screen.queryByText('Chapter opener')).not.toBeInTheDocument())
   })
 
+  it('keeps a bookmark it could not delete, and says so', async () => {
+    vi.mocked(api.delete).mockRejectedValue(new Error('Delete failed'))
+    renderSidebar()
+    await screen.findByText('Chapter opener')
+
+    await userEvent.click(screen.getAllByLabelText('Delete bookmark')[0])
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Delete failed')
+    expect(screen.getByText('Chapter opener')).toBeInTheDocument()
+  })
+
+  it('keeps the edit open when the save fails, and says so', async () => {
+    vi.mocked(api.patch).mockRejectedValue(new Error('Save failed'))
+    renderSidebar()
+    await screen.findByText('Chapter opener')
+
+    await userEvent.click(screen.getAllByLabelText('Edit bookmark')[0])
+    await userEvent.type(labelInput(), '!')
+    await userEvent.click(screen.getByLabelText('Save bookmark'))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Save failed')
+    expect(labelInput()).toBeInTheDocument()
+  })
+
   it('saves an edited label and notes', async () => {
     renderSidebar()
     await screen.findByText('Chapter opener')

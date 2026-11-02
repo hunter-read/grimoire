@@ -86,7 +86,8 @@ export default function CharacterDetailView() {
 
   useEffect(() => {
     let cancelled = false
-    ;(async () => {
+    // Catches its own failure into `error`.
+    void (async () => {
       setLoading(true)
       try {
         const loaded = await charactersApi.get(characterId)

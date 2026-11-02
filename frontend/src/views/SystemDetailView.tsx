@@ -25,6 +25,7 @@ import useBulkSelection from '../hooks/useBulkSelection'
 
 import { useAuth } from '../context/AuthContext'
 import Spinner from '../components/Spinner'
+import LoadError from '../components/LoadError'
 import Tag from '../components/Tag'
 import SystemEditor from '../components/system/SystemEditor'
 import SystemLinks from '../components/system/SystemLinks'
@@ -262,6 +263,9 @@ export default function SystemDetailView() {
       reload()
     }
   )
+
+  if (shelfData.systemError)
+    return <LoadError notFound={shelfData.systemError.notFound} onRetry={reload} />
 
   if (!system)
     return (

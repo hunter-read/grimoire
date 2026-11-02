@@ -13,6 +13,7 @@ import Spinner from '../Spinner'
 import { toTitleCase } from '../../utils'
 import { useAudioPlayer } from '../../context/AudioPlayerContext'
 import useIsMobile from '../../hooks/useIsMobile'
+import useAsyncAction from '../../hooks/useAsyncAction'
 import type { MediaConfig, MediaItem } from './mediaConfig'
 import type { ToggleMods } from './MediaCard'
 
@@ -137,9 +138,11 @@ export default function MediaFolderGroup({
   const total = groupsBelow.reduce((n, g) => n + g.count, 0)
   // Queue a folder to play: every track, fetched in full rather than only the
   // page that happens to be loaded.
-  const playFolder = async (paths: string[]) => {
-    if (!onFetchFolderItems) return
-    playQueue(toTracks(await onFetchFolderItems(paths)))
+  const { run: runPlay, error: playError } = useAsyncAction()
+  const playFolder = (paths: string[]) => {
+    const fetchItems = onFetchFolderItems
+    if (!fetchItems) return
+    void runPlay(async () => playQueue(toTracks(await fetchItems(paths))))
   }
   const isAudio = !!config.audioFileUrl
   const topLevelTags = folderTags[folder] ?? []
@@ -275,6 +278,14 @@ export default function MediaFolderGroup({
           )}
           {!bulkMode && canTag && <RescanButton scope={`${i18n}/${folder}`} />}
         </div>
+        {playError && (
+          <p
+            role="alert"
+            style={{ margin: '8px 0 0', paddingLeft: 52, fontSize: 13, color: 'var(--danger)' }}
+          >
+            {playError}
+          </p>
+        )}
 
         {/* Tags row (desktop only — mobile shows tags below when expanded) */}
         {!bulkMode && !isMobilePhone && (

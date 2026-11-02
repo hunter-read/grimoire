@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuArrowLeft, LuInfo, LuChevronDown } from 'react-icons/lu'
@@ -11,6 +11,8 @@ import type { Schema } from '../../api'
 import useSiblingNavigation from '../../hooks/useSiblingNavigation'
 import useArrowKeyNavigation from '../../hooks/useArrowKeyNavigation'
 import Spinner from '../Spinner'
+import LoadError from '../LoadError'
+import useCancellableFetch from '../../hooks/useCancellableFetch'
 import { formatSize } from '../../utils'
 import InlineTagEditor from '../maps/InlineTagEditor'
 import VariantPicker from '../VariantPicker'
@@ -40,7 +42,14 @@ export default function ModelDetailView() {
   const { user } = useAuth()!
   const isMobilePhone = useIsMobile(640)
   const canEdit = user?.role === 'admin' || user?.role === 'gm'
-  const [model, setModel] = useState<ModelDetail | null>(null)
+  // Only the response for the item on screen lands, and a failure shows instead
+  // of a spinner that never ends.
+  const {
+    data: model,
+    setData: setModel,
+    error: loadError,
+    reload,
+  } = useCancellableFetch<ModelDetail>(`/models/${modelId}`)
   const [editingModelTags, setEditingModelTags] = useState(false)
   const [editingFolderTags, setEditingFolderTags] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
@@ -67,9 +76,7 @@ export default function ModelDetailView() {
   useArrowKeyNavigation(onNext, onPrev)
   usePageTitle(model?.filename ?? null)
 
-  useEffect(() => {
-    ;(api.get(`/models/${modelId}`) as Promise<ModelDetail>).then(setModel)
-  }, [modelId])
+  if (loadError) return <LoadError notFound={loadError.notFound} onRetry={reload} />
 
   if (!model)
     return (

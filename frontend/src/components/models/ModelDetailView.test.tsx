@@ -1,9 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
+import {
+  MemoryRouter,
+  Routes,
+  Route,
+  useLocation,
+  createMemoryRouter,
+  RouterProvider,
+} from 'react-router-dom'
 import ModelDetailView from './ModelDetailView'
 import api from '../../api'
+import { itLoadsOnlyTheCurrentItem } from '../../test/detailLoading'
 
 vi.mock('../../api', () => ({
   default: { get: vi.fn(), patch: vi.fn(() => Promise.resolve({})) },
@@ -290,5 +298,21 @@ describe('ModelDetailView', () => {
       await waitFor(() => expect(screen.queryByTestId('viewer')).not.toBeInTheDocument())
       expect(screen.queryByRole('button', { name: /^Next model/ })).not.toBeInTheDocument()
     })
+  })
+})
+
+describe('ModelDetailView loading', () => {
+  itLoadsOnlyTheCurrentItem({
+    base: '/models',
+    item: (id, name) => aModel({ id, filename: name }),
+    get: vi.mocked(api.get),
+    mount: (id) => {
+      const router = createMemoryRouter(
+        [{ path: '/models/:modelId', element: <ModelDetailView /> }],
+        { initialEntries: [`/models/${id}`] }
+      )
+      render(<RouterProvider router={router} />)
+      return (next) => router.navigate(`/models/${next}`)
+    },
   })
 })

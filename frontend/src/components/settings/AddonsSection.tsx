@@ -14,6 +14,8 @@ import type { PluginAddon } from './PluginCard'
 import PluginSourceContextMenu from './PluginSourceContextMenu'
 import CollapsibleSection from './CollapsibleSection'
 import ConfirmModal from './ConfirmModal'
+import SettingsLoadError from './SettingsLoadError'
+import { failureMessage } from './useInstantSettings'
 
 interface Status {
   scope: string
@@ -53,15 +55,23 @@ export default function AddonsSection() {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [confirmRemove, setConfirmRemove] = useState<number | null>(null)
   const [confirmReset, setConfirmReset] = useState(false)
+  // The first load failing, shown in place of the section: with nothing loaded
+  // there is no list to put a status beside.
+  const [loadError, setLoadError] = useState<unknown>(null)
 
   const load = useCallback(() => {
+    setLoadError(null)
     api
       .get('/addons')
       .then((body) => {
         setData(body)
         setIndexUrls(body.index_urls || (body.index_url ? [body.index_url] : []))
+        setLoadError(null)
       })
-      .catch((e) => setStatus({ scope: 'shared', error: e.message }))
+      .catch((e) => {
+        setLoadError(e)
+        setStatus({ scope: 'shared', error: e.message })
+      })
   }, [])
 
   useEffect(load, [load])
@@ -102,7 +112,7 @@ export default function AddonsSection() {
   const addIndexUrl = () => {
     if (!newIndexUrl) return
     const updated = [...indexUrls, newIndexUrl]
-    saveIndexUrls(updated, () => setNewIndexUrl(''))
+    void saveIndexUrls(updated, () => setNewIndexUrl(''))
   }
 
   const requestRemoveIndex = (index: number) => setConfirmRemove(index)
@@ -110,14 +120,14 @@ export default function AddonsSection() {
     if (confirmRemove === null) return
     const updated = indexUrls.filter((_, i) => i !== confirmRemove)
     setConfirmRemove(null)
-    saveIndexUrls(updated)
+    void saveIndexUrls(updated)
   }
 
   const requestResetIndex = () => setConfirmReset(true)
   const executeResetIndex = () => {
     const updated = [data!.default_index_url]
     setConfirmReset(false)
-    saveIndexUrls(updated)
+    void saveIndexUrls(updated)
   }
 
   const refresh = () => run(api.post('/addons/refresh'), { success: t('addons.refreshed') })
@@ -154,7 +164,7 @@ export default function AddonsSection() {
         script_env: listed?.script_env ?? null,
       })
     } else {
-      run(
+      void run(
         api.post(`/addons/${addon.id}/install`, {
           approve_script: false,
           index_url: targetIndexUrl,
@@ -180,7 +190,7 @@ export default function AddonsSection() {
     if (addon.requires_script || hasChangelog) {
       setConfirming({ ...addon, targetIndexUrl })
     } else {
-      install(addon, false, targetIndexUrl)
+      void install(addon, false, targetIndexUrl)
     }
   }
 
@@ -210,7 +220,21 @@ export default function AddonsSection() {
     setContextMenu({ x, y, addon, isUpdate })
   }
 
-  if (!data) return <Spinner />
+  if (!data) {
+    if (loadError) {
+      return (
+        <SettingsLoadError
+          message={failureMessage(loadError, t, 'load')}
+          onRetry={() => {
+            // The failure also went to the shared status; a retry starts clean.
+            setStatus(null)
+            load()
+          }}
+        />
+      )
+    }
+    return <Spinner />
+  }
 
   const installedIds = new Set(data.installed.map((a) => a.id))
   const pendingUpdates = data.installed.filter((a) => a.update_available).length
@@ -499,7 +523,7 @@ export default function AddonsSection() {
           defaultIndexUrl={data?.default_index_url}
           trustedIndexUrls={data?.trusted_index_urls || []}
           onConfirm={() => {
-            install(confirming, true, confirming.targetIndexUrl)
+            void install(confirming, true, confirming.targetIndexUrl)
             setConfirming(null)
           }}
           updating={!!confirming.updating}

@@ -28,7 +28,7 @@ export default function GuestPanel({ campaignId, onChanged }: GuestPanelProps) {
       .catch(() => setGuests([]))
 
   useEffect(() => {
-    reload()
+    void reload()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campaignId])
 

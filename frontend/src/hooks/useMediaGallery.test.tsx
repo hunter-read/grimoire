@@ -246,6 +246,29 @@ describe('useMediaGallery (grouped)', () => {
     expect(rows.map((r) => r.id)).toEqual(['t0', 't1', 't2'])
   })
 
+  it('fetches every page of each folder, however many came before it', async () => {
+    // Issue #785: the stop check compared the running total across folders with
+    // one folder's own total, so a later folder stopped after its first page
+    // once the earlier ones had added enough.
+    const inFolder = (folder: string, count: number) =>
+      Array.from({ length: count }, (_, i) =>
+        item({
+          id: `${folder}-${i}`,
+          filename: `${folder}-${String(i).padStart(3, '0')}.png`,
+          relative_path: `maps/${folder}/${folder}-${String(i).padStart(3, '0')}.png`,
+        })
+      )
+    setup([...inFolder('Small', 2), ...inFolder('Large', 501)])
+    const { result } = renderGallery()
+    await waitFor(() => expect(result.current.data).not.toBeNull())
+    let rows: { id: string }[] = []
+    await act(async () => {
+      rows = await result.current.fetchFolderItems(['Small', 'Large'])
+    })
+    expect(rows).toHaveLength(503)
+    expect(rows.filter((r) => r.id.startsWith('Large-'))).toHaveLength(501)
+  })
+
   it('offers every tag used on the collection as a filter option', async () => {
     // Only the fields the hook reads.
     ;(tagsApi.list as unknown as Mock).mockResolvedValueOnce({

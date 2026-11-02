@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuArrowLeft, LuInfo, LuChevronDown, LuMusic, LuImagePlus } from 'react-icons/lu'
@@ -8,6 +8,8 @@ import useArrowKeyNavigation from '../../hooks/useArrowKeyNavigation'
 import ImagePickerModal from '../images/ImagePickerModal'
 import { useAuth } from '../../context/AuthContext'
 import Spinner from '../Spinner'
+import LoadError from '../LoadError'
+import useCancellableFetch from '../../hooks/useCancellableFetch'
 import { formatSize, formatDuration } from '../../utils'
 import InlineTagEditor from '../maps/InlineTagEditor'
 import VariantPicker from '../VariantPicker'
@@ -39,7 +41,14 @@ export default function AudioDetailView() {
   const goBack = () => navigate(backPathRef.current || '/audio', { state: { restoreView: true } })
   const { t, i18n } = useTranslation()
   const isMobilePhone = useIsMobile(640)
-  const [track, setTrack] = useState<AudioDetail | null>(null)
+  // Only the response for the item on screen lands, and a failure shows instead
+  // of a spinner that never ends.
+  const {
+    data: track,
+    setData: setTrack,
+    error: loadError,
+    reload,
+  } = useCancellableFetch<AudioDetail>(`/audio/${audioId}`)
   const [editingTrackTags, setEditingTrackTags] = useState(false)
   const [editingFolderTags, setEditingFolderTags] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
@@ -74,11 +83,9 @@ export default function AudioDetailView() {
   // map/token gesture handling applies.
   useArrowKeyNavigation(onNext, onPrev)
 
-  useEffect(() => {
-    api.get(`/audio/${audioId}`).then((data) => setTrack(data as AudioDetail))
-  }, [audioId])
-
   usePageTitle(track ? track.title || track.filename : null)
+
+  if (loadError) return <LoadError notFound={loadError.notFound} onRetry={reload} />
 
   if (!track)
     return (

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
-import { render, screen, waitFor, act } from '@testing-library/react'
+import { render, screen, waitFor, act, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import ReaderView from './ReaderView'
@@ -29,7 +29,10 @@ vi.mock('../hooks/useReaderGestures', () => ({
 }))
 
 vi.mock('../context/FavoritesContext', () => ({
-  useFavorites: () => ({ isFavorite: () => false, toggleFavorite: vi.fn() }),
+  useFavorites: () => ({
+    isFavorite: () => false,
+    toggleFavorite: vi.fn(() => Promise.resolve()),
+  }),
 }))
 
 vi.mock('../components/campaigns/AddToCampaignButton', () => ({
@@ -197,6 +200,16 @@ describe('ReaderView — jump navigation history behaviour', () => {
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
     })
     expect(screen.getByText('Test Book')).toBeInTheDocument()
+  })
+
+  it('keeps the bookmark dialog open and says why when saving fails', async () => {
+    vi.mocked(api.post).mockRejectedValueOnce(new Error('Bookmark could not be saved'))
+    renderReader()
+    await waitFor(() => screen.getByText('Test Book'))
+    await userEvent.click(screen.getByRole('button', { name: 'Bookmark this page' }))
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Save' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Bookmark could not be saved')
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 
   it('the "f" key toggles the favorite without crashing', async () => {

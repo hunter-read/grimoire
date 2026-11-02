@@ -216,7 +216,8 @@ export default function PdfSheetEditor({
 
   useEffect(() => {
     const signal: RenderSignal = { cancelled: false, doc: null }
-    renderPdf(signal)
+    // renderPdf reports its own failure.
+    void renderPdf(signal)
     return () => {
       signal.cancelled = true
       // Destroy only this run's doc. If it's the one currently in docRef, clear

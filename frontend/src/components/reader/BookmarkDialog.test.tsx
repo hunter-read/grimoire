@@ -76,4 +76,15 @@ describe('BookmarkDialog', () => {
     fireEvent.click(screen.getByRole('dialog'))
     expect(onClose).toHaveBeenCalledTimes(2)
   })
+
+  it('shows why the last save failed, inside the dialog', () => {
+    render(<BookmarkDialog {...baseProps({ error: 'Server said no' })} />)
+    expect(screen.getByRole('dialog')).toContainElement(screen.getByRole('alert'))
+    expect(screen.getByRole('alert')).toHaveTextContent('Server said no')
+  })
+
+  it('disables Save while a save is in flight', () => {
+    render(<BookmarkDialog {...baseProps({ saving: true })} />)
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
+  })
 })

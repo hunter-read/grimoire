@@ -73,7 +73,7 @@ export default function ActiveSessionsSection() {
   }, [t])
 
   useEffect(() => {
-    load()
+    void load()
   }, [load])
 
   const revokeOne = async (id: string) => {

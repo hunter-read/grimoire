@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AudioDetailView from './AudioDetailView'
 import api, { imageSources } from '../../api'
+import { itLoadsOnlyTheCurrentItem } from '../../test/detailLoading'
 
 vi.mock('../../api', () => ({
   default: { get: vi.fn(), patch: vi.fn() },
@@ -22,10 +23,11 @@ vi.mock('../../api', () => ({
 
 let locationState: { from: string } | null = null
 const navigate = vi.fn()
+let currentAudioId = 'a1'
 vi.mock('react-router-dom', () => ({
-  useParams: () => ({ audioId: 'a1' }),
+  useParams: () => ({ audioId: currentAudioId }),
   useNavigate: () => navigate,
-  useLocation: () => ({ pathname: '/audio/a1', state: locationState }),
+  useLocation: () => ({ pathname: `/audio/${currentAudioId}`, state: locationState }),
 }))
 
 // AudioPlayer is a context controller; stub it to a button so we don't need the provider.
@@ -318,5 +320,25 @@ describe('AudioDetailView — screen readers', () => {
     render(<AudioDetailView />)
     expect(await screen.findByText('2 minutes, 5 seconds')).toHaveClass('sr-only')
     expect(screen.getByText('2:05')).toHaveAttribute('aria-hidden', 'true')
+  })
+})
+
+describe('AudioDetailView loading', () => {
+  beforeEach(() => {
+    currentAudioId = 'a1'
+  })
+
+  itLoadsOnlyTheCurrentItem({
+    base: '/audio',
+    item: (id, name) => detail({ id, title: name }),
+    get: vi.mocked(api.get),
+    mount: (id) => {
+      currentAudioId = id
+      const { rerender } = render(<AudioDetailView />)
+      return (next) => {
+        currentAudioId = next
+        rerender(<AudioDetailView />)
+      }
+    },
   })
 })

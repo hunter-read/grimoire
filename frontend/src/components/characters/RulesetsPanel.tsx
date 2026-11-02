@@ -114,7 +114,7 @@ export default function RulesetsPanel() {
   }, [t])
 
   useEffect(() => {
-    load()
+    void load()
   }, [load])
 
   // Opening a ruleset loads its entries and the content types its system
@@ -156,7 +156,7 @@ export default function RulesetsPanel() {
       })
       setCreating(false)
       setNewName('')
-      load()
+      void load()
       setOpen(created)
     } catch (e) {
       setError((e as Error).message)
@@ -168,7 +168,7 @@ export default function RulesetsPanel() {
     try {
       await rulesetsApi.remove(ruleset.id)
       setOpen(null)
-      load()
+      void load()
     } catch (e) {
       setError((e as Error).message)
     }
@@ -179,7 +179,7 @@ export default function RulesetsPanel() {
       const result = await rulesetsApi.import(open!.id, { pack_id: packId })
       const refreshed = await rulesetsApi.entries(open!.id)
       setEntries(refreshed.entries || [])
-      load()
+      void load()
       window.alert(t('rulesets.importResult', result))
     } catch (e) {
       setError((e as Error).message)
@@ -199,7 +199,7 @@ export default function RulesetsPanel() {
       setPasting(false)
       setPasteText('')
       setError('')
-      load()
+      void load()
       window.alert(t('rulesets.importResult', result))
     } catch (e) {
       setError((e as Error).message)
@@ -219,7 +219,7 @@ export default function RulesetsPanel() {
   const refreshEntries = async () => {
     const refreshed = await rulesetsApi.entries(open!.id)
     setEntries(refreshed.entries || [])
-    load()
+    void load()
   }
 
   if (loading) return <Spinner />

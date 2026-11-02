@@ -433,7 +433,7 @@ export default function CampaignsView() {
           onClose={() => setShowEditor(false)}
           onSaved={(c: Campaign) => {
             setShowEditor(false)
-            navigate(`/campaigns/${c.id}`)
+            void navigate(`/campaigns/${c.id}`)
           }}
         />
       )}

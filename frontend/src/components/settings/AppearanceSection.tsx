@@ -97,7 +97,7 @@ export default function AppearanceSection() {
       setError(t('appearance.notJson'))
       return
     }
-    run(api.post('/themes', parsed), t('appearance.installed')).then((ok) => {
+    void run(api.post('/themes', parsed), t('appearance.installed')).then((ok) => {
       // Keep the pasted text on failure so the user can correct it rather than
       // retype it.
       if (!ok) return

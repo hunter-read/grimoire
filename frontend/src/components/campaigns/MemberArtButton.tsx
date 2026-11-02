@@ -51,7 +51,7 @@ export default function MemberArtButton({
 
   const openEditor = () => {
     setMenuOpen(false)
-    navigate('/tokens/editor', {
+    void navigate('/tokens/editor', {
       state: {
         campaignId,
         memberId: member.id,

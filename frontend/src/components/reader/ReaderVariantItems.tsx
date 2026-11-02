@@ -50,7 +50,7 @@ export default function ReaderVariantItems({ book, bookId, itemStyle, dividerSty
           onClick={run(() => {
             if (option.id === bookId) return
             const page = searchParams.get('page')
-            navigate(`/library/book/${option.id}${page ? `?page=${page}` : ''}`)
+            void navigate(`/library/book/${option.id}${page ? `?page=${page}` : ''}`)
           })}
           style={{ ...itemStyle, paddingLeft: 30, fontSize: 13 }}
         >

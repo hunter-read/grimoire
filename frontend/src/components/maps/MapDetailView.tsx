@@ -8,6 +8,8 @@ import useSiblingNavigation from '../../hooks/useSiblingNavigation'
 import api, { mediaUrl } from '../../api'
 import type { Schema } from '../../api'
 import Spinner from '../Spinner'
+import LoadError from '../LoadError'
+import useCancellableFetch from '../../hooks/useCancellableFetch'
 import { formatSize } from '../../utils'
 import InlineTagEditor from './InlineTagEditor'
 import MapPdfViewer from './MapPdfViewer'
@@ -48,7 +50,14 @@ export default function MapDetailView() {
   const backPath = backPathRef.current || '/maps'
   const { t } = useTranslation()
   const isMobilePhone = useIsMobile(640)
-  const [map, setMap] = useState<MapDetail | null>(null)
+  // Only the response for the item on screen lands, and a failure shows instead
+  // of a spinner that never ends.
+  const {
+    data: map,
+    setData: setMap,
+    error: loadError,
+    reload,
+  } = useCancellableFetch<MapDetail>(`/maps/${mapId}`)
   const [editingMapTags, setEditingMapTags] = useState(false)
   const [editingFolderTags, setEditingFolderTags] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
@@ -98,8 +107,9 @@ export default function MapDetailView() {
 
   useEffect(() => {
     setVttData(null)
-    api.get(`/maps/${mapId}`).then((m) => setMap(m as MapDetail))
   }, [mapId])
+
+  if (loadError) return <LoadError notFound={loadError.notFound} onRetry={reload} />
 
   if (!map)
     return (

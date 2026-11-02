@@ -61,7 +61,7 @@ export default function PackCatalogue({ onInstalled, onClose }: PackCataloguePro
   }, [t])
 
   useEffect(() => {
-    load()
+    void load()
   }, [load])
 
   useEffect(() => {

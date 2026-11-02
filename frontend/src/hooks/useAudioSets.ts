@@ -54,7 +54,7 @@ export default function useAudioSets(): AudioSetsHandle {
   }, [])
 
   useEffect(() => {
-    refresh()
+    void refresh()
   }, [refresh])
 
   const save = useCallback(

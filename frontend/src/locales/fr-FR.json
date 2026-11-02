@@ -100,7 +100,10 @@
     "removeLink": "Supprimer le lien",
     "newBadge": "Nouveau",
     "dismissError": "Masquer l'erreur",
-    "confirm": "Confirmer"
+    "confirm": "Confirmer",
+    "notFound": "Introuvable. Il a peut-être été déplacé ou supprimé.",
+    "loadFailed": "Le chargement a échoué.",
+    "tryAgain": "Réessayer"
   },
   "errorBoundary": {
     "message": "Une erreur a empêché l'affichage de cette page. Rechargez pour réessayer ou revenez en arrière.",

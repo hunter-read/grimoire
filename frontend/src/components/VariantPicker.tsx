@@ -100,7 +100,7 @@ export default function VariantPicker({
 
   const choose = (id: string) => {
     close()
-    if (id !== item.id) navigate(detailPath(id))
+    if (id !== item.id) void navigate(detailPath(id))
   }
 
   const fontSize = compact ? 12 : 13

@@ -40,7 +40,7 @@ export default function CodexCollectionSync({ values, saving, onSave }: Props) {
 
   const toggle = (on: boolean) => {
     setSync(null)
-    onSave({ sync_collection: on }).then((saved) => {
+    void onSave({ sync_collection: on }).then((saved) => {
       if (on && saved?.sync_collection) runSync()
     })
   }

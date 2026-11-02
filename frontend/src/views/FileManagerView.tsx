@@ -468,7 +468,8 @@ export default function FileManagerView() {
   // selection too large to drag comfortably.
   const sendAcross = (from: Pane, to: Pane) => {
     if (!from.selected.size) return
-    runMove([...from.selected], to.path)
+    // runMove and the handlers below report their own failures in the flash bar.
+    void runMove([...from.selected], to.path)
   }
 
   if (!isAdmin) {
@@ -532,7 +533,7 @@ export default function FileManagerView() {
       // the dialog returns the keys to the tree the user was driving.
       onPreview={(entry: BrowseEntry) => {
         focusSide.current = side
-        openPreview(entry)
+        void openPreview(entry)
       }}
       onRename={(entry: BrowseEntry) => {
         focusSide.current = side
@@ -544,7 +545,7 @@ export default function FileManagerView() {
       }}
       onOpenMetadata={(entry: BrowseEntry) => {
         focusSide.current = side
-        openMetadata(entry)
+        void openMetadata(entry)
       }}
       onShowShortcuts={() => setShowShortcuts(true)}
       // Both panes are closable once split: the user may want to keep either
@@ -750,7 +751,7 @@ export default function FileManagerView() {
               {...menuHover}
               data-testid="preview-entry"
               onClick={() => {
-                openPreview(context.entry)
+                void openPreview(context.entry)
                 setContext(null)
               }}
             >
@@ -767,7 +768,7 @@ export default function FileManagerView() {
               {...menuHover}
               data-testid="edit-metadata"
               onClick={() => {
-                openMetadata(context.entry)
+                void openMetadata(context.entry)
                 setContext(null)
               }}
             >
@@ -865,7 +866,7 @@ export default function FileManagerView() {
                   {...menuHover}
                   data-testid="scaffold-categories"
                   onClick={() => {
-                    scaffold(context.entry.path)
+                    void scaffold(context.entry.path)
                     setContext(null)
                   }}
                 >
@@ -925,7 +926,7 @@ export default function FileManagerView() {
                       data-testid={`kind-${k || 'none'}`}
                       style={menuItem}
                       onClick={() => {
-                        toggleMarker(context.entry, { containerKind: k })
+                        void toggleMarker(context.entry, { containerKind: k })
                         setContext(null)
                       }}
                     >
@@ -945,7 +946,7 @@ export default function FileManagerView() {
                   {...menuHover}
                   data-testid="toggle-frames"
                   onClick={() => {
-                    toggleMarker(context.entry, {
+                    void toggleMarker(context.entry, {
                       framesContainer: !context.entry.frames_container,
                     })
                     setContext(null)
@@ -960,7 +961,7 @@ export default function FileManagerView() {
                 style={menuItem}
                 {...menuHover}
                 onClick={() => {
-                  toggleMarker(context.entry, { nsfw: !context.entry.nsfw })
+                  void toggleMarker(context.entry, { nsfw: !context.entry.nsfw })
                   setContext(null)
                 }}
               >

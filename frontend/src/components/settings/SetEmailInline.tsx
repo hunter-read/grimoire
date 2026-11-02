@@ -58,7 +58,7 @@ export default function SetEmailInline({ initial, onSave, onCancel, persistent =
           setErr('')
         }}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') handleSave()
+          if (e.key === 'Enter') void handleSave()
           if (e.key === 'Escape') onCancel()
         }}
         placeholder={t('users.emailPlaceholder')}

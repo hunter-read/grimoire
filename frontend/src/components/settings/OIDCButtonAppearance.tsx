@@ -102,13 +102,13 @@ export default function OIDCButtonAppearance({ data, onSaved }: OIDCButtonAppear
       )
       return
     }
-    run(key, () => settingsApi.patch({ [key]: v } as SettingsPatch))
+    void run(key, () => settingsApi.patch({ [key]: v } as SettingsPatch))
   }
 
   const handleIconPick = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     e.target.value = ''
-    if (file) run('oidc_button_icon', () => settingsApi.uploadOidcButtonIcon(file))
+    if (file) void run('oidc_button_icon', () => settingsApi.uploadOidcButtonIcon(file))
   }
 
   const status = (key: string) => (

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuPlus, LuX } from 'react-icons/lu'
@@ -11,6 +11,8 @@ import UserRow from './UserRow'
 import AddUserForm from './AddUserForm'
 import GuestsSection from './GuestsSection'
 import SettingsSection from './SettingsSection'
+import SettingsLoadError from './SettingsLoadError'
+import { failureMessage } from './useInstantSettings'
 
 const COLUMN_COUNT = 6
 
@@ -39,8 +41,16 @@ export default function UsersTab() {
   // near where focus is (a user created, removed, or given a new password).
   const [status, setStatus] = useState('')
 
+  // The failed load itself, worded at render time.
+  const [loadError, setLoadError] = useState<unknown>(null)
+  const loadUsers = useCallback(() => {
+    setLoadError(null)
+    api.get('/users').then(setUsers).catch(setLoadError)
+  }, [])
+
+  useEffect(loadUsers, [loadUsers])
+
   useEffect(() => {
-    api.get('/users').then(setUsers)
     auth
       .config()
       .then((c) => setPasswordAuthEnabled(c?.password_auth_enabled !== false))
@@ -149,7 +159,11 @@ export default function UsersTab() {
   if (!users)
     return (
       <div style={{ padding: 40, textAlign: 'center' }}>
-        <Spinner size={24} />
+        {loadError ? (
+          <SettingsLoadError message={failureMessage(loadError, t, 'load')} onRetry={loadUsers} />
+        ) : (
+          <Spinner size={24} />
+        )}
       </div>
     )
 

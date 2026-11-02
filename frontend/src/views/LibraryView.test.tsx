@@ -109,6 +109,19 @@ describe('LibraryView', () => {
     await waitFor(() => expect(screen.getByText('D&D 5e')).toBeInTheDocument())
   })
 
+  it('shows an error with a retry, not a spinner, when the library fails to load', async () => {
+    let systemsResponse: Promise<unknown> = Promise.reject(new Error('offline'))
+    mockGet.mockImplementation((url: string) =>
+      url.startsWith('/systems?') ? systemsResponse : Promise.resolve([])
+    )
+    renderView()
+    expect(await screen.findByRole('alert')).toHaveTextContent('This could not be loaded.')
+
+    systemsResponse = Promise.resolve([makeSystem({ name: 'Retried System' })])
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByText('Retried System')).toBeInTheDocument()
+  })
+
   it('shows a spinner while loading', () => {
     mockGet.mockReturnValue(new Promise(() => {}))
     renderView()

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuArrowLeft, LuInfo, LuChevronDown, LuWand } from 'react-icons/lu'
@@ -13,6 +13,8 @@ import { mediaDisplayName } from '../../utils/mediaDisplayName'
 import api, { mediaUrl } from '../../api'
 import type { Schema } from '../../api'
 import Spinner from '../Spinner'
+import LoadError from '../LoadError'
+import useCancellableFetch from '../../hooks/useCancellableFetch'
 import { formatSize } from '../../utils'
 import InlineTagEditor from '../maps/InlineTagEditor'
 import VariantPicker from '../VariantPicker'
@@ -39,7 +41,14 @@ export default function TokenDetailView() {
   const { user } = useAuth()!
   const isMobilePhone = useIsMobile(640)
   const canEdit = user?.role === 'admin' || user?.role === 'gm'
-  const [token, setToken] = useState<Schema<'TokenDetailResponse'> | null>(null)
+  // Only the response for the item on screen lands, and a failure shows instead
+  // of a spinner that never ends.
+  const {
+    data: token,
+    setData: setToken,
+    error: loadError,
+    reload,
+  } = useCancellableFetch<Schema<'TokenDetailResponse'>>(`/tokens/${tokenId}`)
   const [editingTokenTags, setEditingTokenTags] = useState(false)
   const [editingFolderTags, setEditingFolderTags] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
@@ -75,9 +84,7 @@ export default function TokenDetailView() {
   useImagePrefetch(siblings, siblingIdx, tokenFileUrl)
   usePageTitle(token?.filename ?? null)
 
-  useEffect(() => {
-    api.get(`/tokens/${tokenId}`).then((data) => setToken(data as Schema<'TokenDetailResponse'>))
-  }, [tokenId])
+  if (loadError) return <LoadError notFound={loadError.notFound} onRetry={reload} />
 
   if (!token)
     return (

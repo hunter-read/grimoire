@@ -198,7 +198,7 @@ export default function LogsTab() {
     if (!sentinel || !container) return
     const observer = new IntersectionObserver(
       ([e]) => {
-        if (e.isIntersecting) loadOlder()
+        if (e.isIntersecting) void loadOlder()
       },
       { root: container, threshold: 0 }
     )

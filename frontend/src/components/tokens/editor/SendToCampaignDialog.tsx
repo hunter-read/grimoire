@@ -80,7 +80,7 @@ export default function SendToCampaignDialog({
 
   useEffect(() => {
     let cancelled = false
-    ;(async () => {
+    void (async () => {
       try {
         // `/campaigns` answers with a bare array, not a `{campaigns}` wrapper.
         const list = await campaignsApi.list()

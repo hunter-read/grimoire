@@ -99,13 +99,14 @@ export default function CharactersView() {
   }, [t])
 
   useEffect(() => {
-    load()
+    // Catches its own failure into `error`.
+    void load()
   }, [load])
 
   const create = async (body: BodyOf<'/characters', 'post'>) => {
     const created = await charactersApi.create(body)
     setCreating(false)
-    navigate(`/characters/${created.id}`)
+    void navigate(`/characters/${created.id}`)
   }
 
   const remove = async (character: CharacterSummary) => {

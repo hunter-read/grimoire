@@ -180,3 +180,16 @@ describe('WatchLibrarySection', () => {
     expect(set).toHaveBeenLastCalledWith('watch', false)
   })
 })
+
+describe('WatchLibrarySection loading', () => {
+  it('shows a failed load instead of spinning, and retries it', async () => {
+    get.mockRejectedValueOnce(Object.assign(new Error('boom'), { status: 500 }))
+    render(<WatchLibrarySection />)
+    expect(await screen.findByRole('alert')).toHaveTextContent(/boom/)
+
+    get.mockResolvedValue(settings() as never)
+    fireEvent.click(screen.getByRole('button', { name: /try again/i }))
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
+    expect(get).toHaveBeenCalledTimes(2)
+  })
+})

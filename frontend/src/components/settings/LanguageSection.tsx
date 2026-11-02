@@ -22,7 +22,7 @@ export default function LanguageSection() {
     const v = e.target.value
     setLang(v)
     localStorage.setItem('grimoire:language', v)
-    i18n.changeLanguage(v)
+    void i18n.changeLanguage(v)
     flash()
   }
 

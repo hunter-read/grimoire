@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { LuLibrary, LuChevronDown, LuChevronRight } from 'react-icons/lu'
 import api, { mediaUrl, type Schema } from '../api'
 import Spinner from '../components/Spinner'
+import LoadError from '../components/LoadError'
 import useViewMode from '../hooks/useViewMode'
 import { getUserPrefs, saveUserPref } from '../hooks/useUserPrefs'
 import { getRecentBooks, getBookPrefs, removeRecentBook } from '../hooks/useBookPrefs'
@@ -38,6 +39,8 @@ export default function LibraryView() {
   const { user } = useAuth()!
   const canEdit = user?.role === 'admin' || user?.role === 'gm'
   const [systems, setSystems] = useState<SystemSummary[] | null>(null)
+  const [loadFailed, setLoadFailed] = useState(false)
+  const [attempt, setAttempt] = useState(0)
   const [viewMode, cycleViewMode] = useViewMode('system')
   const [recentBooks, setRecentBooks] = useState(() => getRecentBooks())
   const [recentCollapsed, setRecentCollapsed] = useState(
@@ -63,8 +66,22 @@ export default function LibraryView() {
   // Children are fetched up front so the group toggle can flatten containers
   // without a second round trip; the grouped view filters them back out.
   useEffect(() => {
-    api.get('/systems?include_children=true').then(setSystems)
-  }, [])
+    let current = true
+    setLoadFailed(false)
+    api
+      .get('/systems?include_children=true')
+      .then((list) => {
+        if (current) setSystems(list)
+      })
+      .catch(() => {
+        if (current) setLoadFailed(true)
+      })
+    return () => {
+      current = false
+    }
+  }, [attempt])
+
+  if (!systems && loadFailed) return <LoadError onRetry={() => setAttempt((n) => n + 1)} />
 
   if (!systems)
     return (

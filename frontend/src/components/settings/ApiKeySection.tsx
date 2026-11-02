@@ -62,7 +62,7 @@ export default function ApiKeySection({ scope = 'mine' }: ApiKeySectionProps) {
   }, [t, everyone])
 
   useEffect(() => {
-    load()
+    void load()
   }, [load])
 
   const save = async (payload: KeyPayload) => {

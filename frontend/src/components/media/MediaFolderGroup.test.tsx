@@ -130,6 +130,21 @@ describe('MediaFolderGroup — audio', () => {
     expect(queued.map((t: AudioTrack) => t.id)).toEqual(['a1', 'a2'])
   })
 
+  it('says so when the folder cannot be fetched to play', async () => {
+    render(
+      <MediaFolderGroup
+        config={MEDIA_CONFIGS.audio}
+        folder="Ambient"
+        subfolders={{ '': audioItems }}
+        {...baseProps()}
+        onFetchFolderItems={() => Promise.reject(new Error('Could not list the folder'))}
+      />
+    )
+    await userEvent.click(screen.getByTitle(/play ambient/i))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not list the folder')
+    expect(playQueue).not.toHaveBeenCalled()
+  })
+
   it('does not show a Play button for a non-audio gallery (maps)', () => {
     render(
       <MediaFolderGroup

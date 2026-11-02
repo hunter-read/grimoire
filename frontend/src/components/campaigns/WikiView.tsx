@@ -31,6 +31,7 @@ import { useAudioPlayer } from '../../context/AudioPlayerContext'
 import useIsMobile from '../../hooks/useIsMobile'
 import useCollapsedSet from '../../hooks/useCollapsedSet'
 import Spinner from '../Spinner'
+import LoadError from '../LoadError'
 import WikiMarkdown from './WikiMarkdown'
 import WikiImportModal from './WikiImportModal'
 import WikiExportMenu from './WikiExportMenu'
@@ -72,6 +73,8 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
   const { playQueue } = useAudioPlayer()
   const isMobile = useIsMobile()
   const [pages, setPages] = useState<WikiPage[] | null>(null)
+  // The list could not be fetched; shown in place of the tree until it can.
+  const [listFailed, setListFailed] = useState(false)
   // The open note lives in the URL (`?note=<id>`) so a note is linkable: it can
   // be opened in a new tab, bookmarked, and shared (issue #313). The param is
   // the single source of truth — there is no mirrored state to drift from it.
@@ -229,17 +232,23 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
   filtersRef.current = { mine: onlyMine, includeHidden: showHidden }
   const loadList = useCallback(
     (selectId?: string | null) => {
-      campaigns.listWikiPages(campaign.id, filtersRef.current).then((list) => {
-        setPages(list)
-        setSelectedId((current) => {
-          if (selectId) return selectId
-          // Desktop auto-opens the first page so the pane isn't empty. On mobile the
-          // tree and note swap full-screen, so auto-opening would drop the user into
-          // a note instead of the page list — land them on the list instead.
-          if (list.length && !current && !isMobileRef.current) return list[0].id
-          return current
+      campaigns
+        .listWikiPages(campaign.id, filtersRef.current)
+        .then((list) => {
+          setListFailed(false)
+          setPages(list)
+          setSelectedId((current) => {
+            if (selectId) return selectId
+            // Desktop auto-opens the first page so the pane isn't empty. On mobile the
+            // tree and note swap full-screen, so auto-opening would drop the user into
+            // a note instead of the page list — land them on the list instead.
+            if (list.length && !current && !isMobileRef.current) return list[0].id
+            return current
+          })
         })
-      })
+        // A list already on screen stays; only a first load that fails has
+        // nothing to show, and says so instead of spinning.
+        .catch(() => setListFailed(true))
     },
     // setSelectedId is itself memoized on the (stable) setSearchParams, so
     // listing it here doesn't cost this callback its identity stability.
@@ -338,7 +347,10 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
     setEditing(false)
     loadList(saved.id)
     setSelectedId(saved.id)
-    campaigns.getWikiPage(campaign.id, saved.id).then(setPage)
+    campaigns
+      .getWikiPage(campaign.id, saved.id)
+      .then(setPage)
+      .catch((e: unknown) => alert((e as ApiError).message))
   }
 
   const handleDelete = async () => {
@@ -353,8 +365,13 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
   // Hiding is available on any note the user can see, including ones they can
   // neither edit nor delete — it only affects their own view.
   const toggleHidden = async (p: Pick<WikiPage, 'id' | 'is_hidden'>) => {
-    if (p.is_hidden) await campaigns.unhideWikiPage(campaign.id, p.id)
-    else await campaigns.hideWikiPage(campaign.id, p.id)
+    try {
+      if (p.is_hidden) await campaigns.unhideWikiPage(campaign.id, p.id)
+      else await campaigns.hideWikiPage(campaign.id, p.id)
+    } catch (e) {
+      alert((e as ApiError).message)
+      return
+    }
     // A note that has just been hidden leaves the list unless hidden notes are
     // being shown, so don't try to keep it selected.
     const keep = p.is_hidden || showHidden ? selectedId : null
@@ -603,7 +620,13 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
     const target = sibs[index + dir]
     if (index === -1 || !target) return
     refocusAfterMove.current = p.id
-    await movePage(p.id, target, dir < 0 ? 'before' : 'after')
+    try {
+      await movePage(p.id, target, dir < 0 ? 'before' : 'after')
+    } catch (e) {
+      refocusAfterMove.current = null
+      alert((e as ApiError).message)
+      return
+    }
     setTreeStatus(
       t('a11y.campaignNotes.movedTo', {
         name: p.title,
@@ -614,7 +637,9 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
   }
 
   if (pages === null)
-    return (
+    return listFailed ? (
+      <LoadError onRetry={() => loadList()} />
+    ) : (
       <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
         <Spinner size={24} />
       </div>
@@ -793,7 +818,7 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
                 ? (e) => {
                     if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return
                     e.preventDefault()
-                    moveWithKeyboard(p, e.key === 'ArrowUp' ? -1 : 1)
+                    void moveWithKeyboard(p, e.key === 'ArrowUp' ? -1 : 1)
                   }
                 : undefined
             }
@@ -863,7 +888,7 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
               type="button"
               onClick={(e) => {
                 e.stopPropagation()
-                toggleHidden(p)
+                void toggleHidden(p)
               }}
               onFocus={() => setHoveredRow(p.id)}
               aria-label={`${t(p.is_hidden ? 'wiki.unhide' : 'wiki.hide')}: ${p.title}`}

@@ -19,7 +19,8 @@ const ICON_DEFAULTS: IconContext = { attr: { 'aria-hidden': true, focusable: 'fa
 // Likewise the language: a locale other than the bundled en-US is fetched first,
 // so the app never paints in English and then switches. A failed fetch still
 // renders, in English.
-languageReady.finally(() => {
+// i18next resolves init even when the locale fails to load, so this never rejects.
+void languageReady.finally(() => {
   ReactDOM.createRoot(document.getElementById('root')!, {
     onCaughtError: logRenderError('caught'),
     onUncaughtError: logRenderError('uncaught'),
