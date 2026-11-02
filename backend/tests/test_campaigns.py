@@ -350,7 +350,8 @@ class TestDeleteCampaign:
 
 class TestMembers:
     @pytest.fixture(scope="class")
-    def fresh_campaign(self, client, gm_headers, gm_id):
+    @classmethod
+    def fresh_campaign(cls, client, gm_headers, gm_id):
         resp = client.post(
             "/api/campaigns",
             json={
@@ -433,7 +434,8 @@ class TestPendingInvites:
     """GET /api/campaigns/invites — the current user's pending invitations."""
 
     @pytest.fixture(scope="class")
-    def invite_campaign(self, client, gm_headers, gm_id):
+    @classmethod
+    def invite_campaign(cls, client, gm_headers, gm_id):
         resp = client.post(
             "/api/campaigns",
             json={"name": f"Invite Test {uid()}", "is_gm_campaign": True},
@@ -486,7 +488,8 @@ class TestPendingInvites:
 
 class TestResources:
     @pytest.fixture(scope="class")
-    def campaign_with_book(self, client, gm_headers, gm_id):
+    @classmethod
+    def campaign_with_book(cls, client, gm_headers, gm_id):
         sys = make_game_system()
         book = make_book(system_id=sys.id)
         resp = client.post(
@@ -823,7 +826,8 @@ class TestResourceSearch:
 
 class TestSessions:
     @pytest.fixture(scope="class")
-    def campaign(self, client, gm_headers):
+    @classmethod
+    def campaign(cls, client, gm_headers):
         resp = client.post(
             "/api/campaigns",
             json={
@@ -933,7 +937,8 @@ class TestSessions:
 
 class TestSchedule:
     @pytest.fixture(scope="class")
-    def gm_camp(self, client, gm_headers):
+    @classmethod
+    def gm_camp(cls, client, gm_headers):
         resp = client.post(
             "/api/campaigns",
             json={

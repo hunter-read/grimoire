@@ -8,6 +8,7 @@ import threading
 import datetime
 from typing import Optional
 
+from .clock import utcnow_naive
 from .config import logger
 
 _thread: Optional[threading.Thread] = None
@@ -48,7 +49,7 @@ def _create_upcoming_sessions(db) -> None:
 
 
 def _seconds_until_utc_midnight() -> float:
-    now = datetime.datetime.utcnow()
+    now = utcnow_naive()
     tomorrow = (now + datetime.timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
     return max(1.0, (tomorrow - now).total_seconds())
 

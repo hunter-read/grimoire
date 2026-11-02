@@ -5,12 +5,12 @@ Member management lives in ``members.py`` and the library resource picker in
 ``__init__.py`` so the external API surface is unchanged.
 """
 
-import datetime
 
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, get_current_user, require_admin
+from ...clock import utcnow_naive
 from ...config import get_db
 from ...models import (
     Campaign,
@@ -223,7 +223,7 @@ def get_campaign(
     # Use a targeted UPDATE so the ORM onupdate doesn't also bump updated_at
     # (which would needlessly bust the banner image cache on every open).
     db.query(Campaign).filter_by(id=c.id).update(
-        {"last_accessed_at": datetime.datetime.utcnow()}
+        {"last_accessed_at": utcnow_naive()}
     )
     db.commit()
 
@@ -349,7 +349,7 @@ def set_campaign_archived(
         )
 
     c.is_archived = data.archived
-    c.archived_at = datetime.datetime.utcnow() if data.archived else None
+    c.archived_at = utcnow_naive() if data.archived else None
     db.commit()
     db.refresh(c)
     return serialize_campaign(c, members_for(c, current_user, db), db, current_user)

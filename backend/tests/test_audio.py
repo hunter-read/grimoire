@@ -129,7 +129,8 @@ class TestUpdateAudio:
 
 class TestAudioFolders:
     @pytest.fixture(scope="class")
-    def folder(self):
+    @classmethod
+    def folder(cls):
         db = SessionLocal()
         try:
             f = AudioFolder(path="audio/Ambient", tags=["ambient"])
@@ -180,7 +181,8 @@ class TestAudioFolders:
 
 class TestServeAudioFile:
     @pytest.fixture(scope="class")
-    def real_track(self):
+    @classmethod
+    def real_track(cls):
         """An Audio row backed by a real .wav on disk, plus a folder cover image."""
         tmp = tempfile.mkdtemp()
         wav = os.path.join(tmp, "tone.wav")

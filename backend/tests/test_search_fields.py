@@ -326,7 +326,8 @@ class TestRemainingFieldFilters:
     """The filter branches the main fixture does not exercise."""
 
     @pytest.fixture(scope="class")
-    def detailed_book(self, title_library):
+    @classmethod
+    def detailed_book(cls, title_library):
         return make_book(
             system_id=title_library["system"].id,
             title="Field Coverage Compendium",
@@ -571,7 +572,8 @@ class TestProductCodeSearch:
     """The publisher's catalogue number is searchable (issue #479)."""
 
     @pytest.fixture(scope="class")
-    def coded(self, title_library):
+    @classmethod
+    def coded(cls, title_library):
         system_id = title_library["system"].id
         return {
             "paizo": make_book(

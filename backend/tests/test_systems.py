@@ -114,7 +114,8 @@ class TestBookFolders:
     """Tests for GET/PATCH /api/systems/{id}/book-folders."""
 
     @pytest.fixture(scope="class")
-    def folder_system(self):
+    @classmethod
+    def folder_system(cls):
         return make_game_system(name=f"FolderSys-{uuid.uuid4().hex[:6]}")
 
     def test_list_book_folders_empty(self, client, admin_headers, folder_system):
@@ -300,14 +301,16 @@ class TestUpdateSystem:
 
 class TestExplicitFiltering:
     @pytest.fixture(scope="class")
-    def explicit_system(self):
+    @classmethod
+    def explicit_system(cls):
         uid = uuid.uuid4().hex[:8]
         return make_game_system(
             name=f"Explicit System {uid}", slug=f"explicit-system-{uid}", is_explicit=True
         )
 
     @pytest.fixture(scope="class")
-    def no_explicit_headers(self, client, admin_headers):
+    @classmethod
+    def no_explicit_headers(cls, client, admin_headers):
         """Create a player with allow_explicit=False via the users API."""
         uid = uuid.uuid4().hex[:8]
         resp = client.post(
@@ -380,7 +383,8 @@ class TestBookFolderPathValidation:
     """
 
     @pytest.fixture(scope="class")
-    def sys_a(self):
+    @classmethod
+    def sys_a(cls):
         return make_game_system(name=f"PathSysA-{uuid.uuid4().hex[:6]}")
 
     def test_patch_rejects_path_without_system_prefix(self, client, admin_headers, sys_a):
@@ -431,7 +435,8 @@ class TestDeleteBookFolder:
     """DELETE /api/systems/{id}/book-folders (issue #357)."""
 
     @pytest.fixture(scope="class")
-    def del_system(self):
+    @classmethod
+    def del_system(cls):
         return make_game_system(name=f"DelSys-{uuid.uuid4().hex[:6]}")
 
     def test_delete_removes_folder(self, client, admin_headers, del_system):

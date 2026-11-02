@@ -96,7 +96,8 @@ def test_an_importers_example_link_is_one_it_reads(addon_id):
 
 class TestForgeSteel:
     @pytest.fixture(scope="class")
-    def result(self, admin_id):
+    @classmethod
+    def result(cls, admin_id):
         return _import("forge-steel", "forge_steel_hero.ds-hero", "draw-steel-core", admin_id)
 
     def test_recognises_its_files_and_nothing_else(self, result):
@@ -187,7 +188,8 @@ class TestForgeSteel:
 
 class TestPathbuilder:
     @pytest.fixture(scope="class")
-    def result(self, admin_id):
+    @classmethod
+    def result(cls, admin_id):
         return _import("pathbuilder-2e", "pathbuilder_build.json", "pf2e-player-core", admin_id)
 
     def test_recognised_by_contents(self, result):

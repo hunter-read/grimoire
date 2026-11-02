@@ -184,7 +184,8 @@ class TestEpubPages:
     """EPUB renders through the same pipeline as a PDF (issue #373)."""
 
     @pytest.fixture(scope="class")
-    def epub_book(self, sys_row, tmpdir_mod):
+    @classmethod
+    def epub_book(cls, sys_row, tmpdir_mod):
         path = Path(tmpdir_mod) / "novel.epub"
         _make_epub_file(path, "The wizard studied the arcane tome for many hours.")
         return make_book(

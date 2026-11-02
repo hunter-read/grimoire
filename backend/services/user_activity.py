@@ -17,6 +17,7 @@ from typing import Optional
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from ..clock import utcnow_naive
 from ..log_context import set_log_user
 from ..models import User
 
@@ -27,14 +28,9 @@ logger = logging.getLogger("grimoire.activity")
 ACTIVITY_THROTTLE = datetime.timedelta(minutes=5)
 
 
-def _utcnow() -> datetime.datetime:
-    """Naive UTC, matching the DateTime columns elsewhere in the schema."""
-    return datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
-
-
 def record_login(db: Session, user_id: str, now: Optional[datetime.datetime] = None) -> None:
     """Stamp a sign-in: it is also the account's latest activity."""
-    now = now or _utcnow()
+    now = now or utcnow_naive()
     db.query(User).filter(User.id == user_id).update(
         {User.last_login_at: now, User.last_active_at: now}, synchronize_session=False
     )
@@ -42,7 +38,7 @@ def record_login(db: Session, user_id: str, now: Optional[datetime.datetime] = N
 
 def record_activity(db: Session, user_id: str, now: Optional[datetime.datetime] = None) -> None:
     """Move ``last_active_at`` to now, unless it moved within the throttle window."""
-    now = now or _utcnow()
+    now = now or utcnow_naive()
     db.query(User).filter(
         User.id == user_id,
         or_(User.last_active_at.is_(None), User.last_active_at <= now - ACTIVITY_THROTTLE),

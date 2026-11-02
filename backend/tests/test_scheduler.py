@@ -23,39 +23,34 @@ class TestSecondsUntilNext:
         # Freeze "now" to 10:00 and ask for a 09:00 daily slot → next is
         # tomorrow 09:00, i.e. ~23h away.
         now = datetime(2026, 7, 22, 10, 0, 0)
-        with patch("backend.scheduler.datetime") as mock_dt:
-            mock_dt.utcnow.return_value = now
+        with patch("backend.scheduler.utcnow_naive", return_value=now):
             secs = scheduler._seconds_until_next(9, 0, None)
         assert secs == (timedelta(days=1) - timedelta(hours=1)).total_seconds()
 
     def test_daily_later_today(self):
         now = datetime(2026, 7, 22, 8, 0, 0)
-        with patch("backend.scheduler.datetime") as mock_dt:
-            mock_dt.utcnow.return_value = now
+        with patch("backend.scheduler.utcnow_naive", return_value=now):
             secs = scheduler._seconds_until_next(9, 30, None)
         assert secs == timedelta(hours=1, minutes=30).total_seconds()
 
     def test_weekly_advances_to_target_weekday(self):
         # 2026-07-22 is a Wednesday (weekday 2). Target Friday (4) → 2 days.
         now = datetime(2026, 7, 22, 8, 0, 0)
-        with patch("backend.scheduler.datetime") as mock_dt:
-            mock_dt.utcnow.return_value = now
+        with patch("backend.scheduler.utcnow_naive", return_value=now):
             secs = scheduler._seconds_until_next(8, 0, 4)
         assert secs == timedelta(days=2).total_seconds()
 
     def test_weekly_same_day_but_time_passed_rolls_a_week(self):
         # Wednesday 10:00, target Wednesday (2) 09:00 → next week, ~7d minus 1h.
         now = datetime(2026, 7, 22, 10, 0, 0)
-        with patch("backend.scheduler.datetime") as mock_dt:
-            mock_dt.utcnow.return_value = now
+        with patch("backend.scheduler.utcnow_naive", return_value=now):
             secs = scheduler._seconds_until_next(9, 0, 2)
         assert secs == (timedelta(days=7) - timedelta(hours=1)).total_seconds()
 
     def test_floor_of_one_second(self):
         # Target is exactly now → clamped to a minimum of 1 second.
         now = datetime(2026, 7, 22, 9, 0, 0)
-        with patch("backend.scheduler.datetime") as mock_dt:
-            mock_dt.utcnow.return_value = now
+        with patch("backend.scheduler.utcnow_naive", return_value=now):
             secs = scheduler._seconds_until_next(9, 0, None)
         assert secs == timedelta(days=1).total_seconds()
 

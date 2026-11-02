@@ -8,11 +8,12 @@ the server was started or restarted.
 """
 
 import threading
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Callable, Optional
 
 from sqlalchemy.orm import Session
 
+from .clock import utcnow_naive
 from .config import logger
 
 _thread: Optional[threading.Thread] = None
@@ -30,7 +31,7 @@ JOIN_TIMEOUT = 5.0
 
 def _seconds_until_next(hour: int, minute: int, weekday: Optional[int]) -> float:
     """Return seconds until the next UTC occurrence of hour:minute (and weekday)."""
-    now = datetime.utcnow()
+    now = utcnow_naive()
     target = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
 
     if weekday is not None:

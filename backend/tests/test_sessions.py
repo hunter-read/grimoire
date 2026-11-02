@@ -4,6 +4,7 @@ import datetime
 import jwt
 import pytest
 
+from backend.clock import utcnow_naive
 from backend.auth import ALGORITHM, SECRET_KEY, create_token
 from backend.config import SessionLocal
 from backend.models import AuthSession, User
@@ -50,6 +51,18 @@ def session_user(client, admin_headers):
     assert resp.status_code == 201, resp.text
     return resp.json()
 
+
+
+def _refresh_with(client, refresh_token: str):
+    """Refresh carrying ``refresh_token`` as the refresh cookie.
+
+    Set on the client and replacing any refresh cookie already there, rather
+    than passed per request: httpx has deprecated per-request ``cookies=``.
+    The autouse fixture clears the client's cookies between tests.
+    """
+    client.cookies.delete(REFRESH_COOKIE_NAME)
+    client.cookies.set(REFRESH_COOKIE_NAME, refresh_token)
+    return client.post("/api/auth/refresh")
 
 class TestTokenClaims:
     def test_access_token_carries_jti_iat_and_sid(self):
@@ -134,7 +147,7 @@ class TestRefreshEndpoint:
 
     def test_refresh_with_a_garbage_cookie_is_401(self, client):
         client.cookies.clear()
-        resp = client.post("/api/auth/refresh", cookies={REFRESH_COOKIE_NAME: "not-a-token"})
+        resp = _refresh_with(client, "not-a-token")
         assert resp.status_code == 401
 
     def test_refresh_keeps_working_across_several_rotations(self, client, session_user):
@@ -165,7 +178,7 @@ class TestRefreshTokenReuse:
         client.post("/api/auth/refresh")  # rotates; `stolen` is now spent
 
         client.cookies.clear()
-        resp = client.post("/api/auth/refresh", cookies={REFRESH_COOKIE_NAME: stolen})
+        resp = _refresh_with(client, stolen)
         assert resp.status_code == 401
 
     def test_reuse_revokes_the_whole_session(self, client, session_user, db):
@@ -175,10 +188,10 @@ class TestRefreshTokenReuse:
         live = client.cookies[REFRESH_COOKIE_NAME]
 
         client.cookies.clear()
-        client.post("/api/auth/refresh", cookies={REFRESH_COOKIE_NAME: stolen})
+        _refresh_with(client, stolen)
 
         client.cookies.clear()
-        resp = client.post("/api/auth/refresh", cookies={REFRESH_COOKIE_NAME: live})
+        resp = _refresh_with(client, live)
         assert resp.status_code == 401
 
 
@@ -188,7 +201,7 @@ class TestLogout:
         client.post("/api/auth/logout")
 
         client.cookies.clear()
-        resp = client.post("/api/auth/refresh", cookies={REFRESH_COOKIE_NAME: refresh})
+        resp = _refresh_with(client, refresh)
         assert resp.status_code == 401
 
     def test_logout_without_a_session_still_succeeds(self, client):
@@ -272,7 +285,7 @@ class TestAccountChangesRevoke:
         )
         client.cookies.clear()
         assert (
-            client.post("/api/auth/refresh", cookies={REFRESH_COOKIE_NAME: refresh}).status_code
+            _refresh_with(client, refresh).status_code
             == 401
         )
         # Restore the original password for the other tests in this module.
@@ -289,7 +302,7 @@ class TestAccountChangesRevoke:
         )
         client.cookies.clear()
         assert (
-            client.post("/api/auth/refresh", cookies={REFRESH_COOKIE_NAME: refresh}).status_code
+            _refresh_with(client, refresh).status_code
             == 401
         )
         client.patch(
@@ -326,9 +339,7 @@ class TestAccountChangesRevoke:
         # The other device is not.
         client.cookies.clear()
         assert (
-            client.post(
-                "/api/auth/refresh", cookies={REFRESH_COOKIE_NAME: other_refresh}
-            ).status_code
+            _refresh_with(client, other_refresh).status_code
             == 401
         )
 
@@ -368,7 +379,7 @@ class TestSessionHelpers:
 
     def test_expired_session_is_not_active(self, db, session_user):
         session, token = create_session(db, session_user["id"])
-        session.expires_at = datetime.datetime.utcnow() - datetime.timedelta(seconds=1)
+        session.expires_at = utcnow_naive() - datetime.timedelta(seconds=1)
         db.commit()
         assert get_active_session(db, token) is None
 
@@ -413,7 +424,7 @@ class TestSessionHelpers:
 
     def test_purge_removes_long_dead_sessions(self, db, session_user):
         session, _ = create_session(db, session_user["id"])
-        session.expires_at = datetime.datetime.utcnow() - datetime.timedelta(days=30)
+        session.expires_at = utcnow_naive() - datetime.timedelta(days=30)
         db.commit()
         session_id = session.id
 

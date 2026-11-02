@@ -28,6 +28,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - An audio track embedded in a campaign page is named after the track, on its play button and its link, instead of "Audio"
 - On a map, token, audio or model page, Alt+arrow goes back without also moving to the next item, and a dialog opened from the **⋮** menu hands focus back to the menu when it closes
 - The looping battlemap video on a map page doesn't start playing by itself when your system is set to reduce motion
+- Starting the server no longer logs Alembic's `path_separator` deprecation warning, or SQLAlchemy's "Skipped unsupported reflection of expression-based index" warning while it brings the database up to date
 - Turning off or changing the scheduled rescan or scheduled backup while one is running now really stops the old schedule. Before, it could keep going once the scan or backup finished, so rescans or backups ran twice, or carried on after being turned off, until a restart
 - The server log no longer fills up with ``warning: The `fitz` API is deprecated``. It was printed once by the server at start-up and again by every render worker, scan and text-extraction process it started
 - The server log no longer starts with an `AuthlibDeprecationWarning` from the single sign-on code, printed once by every server process. Sign-in tokens are now checked with `joserfc`, the library Authlib is moving that code to, with the same checks as before

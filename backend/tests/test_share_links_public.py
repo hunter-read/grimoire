@@ -308,12 +308,14 @@ class TestPassword:
         cookie = r.cookies.get("grimoire_share")
         other = create(client, gm_headers, "map", shared_map.id, password="open sesame").json()
         client.cookies.clear()
-        r = client.get(f"/api/share/{token_of(other)}", cookies={"grimoire_share": cookie})
+        client.cookies.set("grimoire_share", cookie)
+        r = client.get(f"/api/share/{token_of(other)}")
         assert r.status_code == 401
 
     def test_garbage_cookie(self, client, locked):
         client.cookies.clear()
-        r = client.get(f"/api/share/{token_of(locked)}", cookies={"grimoire_share": "junk"})
+        client.cookies.set("grimoire_share", "junk")
+        r = client.get(f"/api/share/{token_of(locked)}")
         assert r.status_code == 401
 
     def test_unlocking_an_open_link_is_a_no_op(self, client, link):
