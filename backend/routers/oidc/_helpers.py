@@ -4,20 +4,14 @@ import hashlib
 import logging
 import secrets
 import time
-import warnings
-from typing import Any, Optional
+from typing import Optional, cast
 from urllib.parse import urlsplit
 
 import httpx
+from joserfc import jwt
+from joserfc.errors import JoseError
+from joserfc.jwk import KeySet, KeySetSerialization
 from sqlalchemy import or_
-
-with warnings.catch_warnings():
-    # Authlib 1.x exposes JOSE under authlib.jose. They've started warning that
-    # it'll move to a separate `joserfc` package before Authlib 2.0 — until then
-    # the current path is the supported import. Silence the deprecation noise.
-    warnings.simplefilter("ignore")
-    from authlib.jose import JsonWebToken  # noqa: E402
-    from authlib.jose.errors import JoseError  # noqa: E402
 
 from ...models import User
 from ...usernames import match_username, username_taken
@@ -138,19 +132,37 @@ def _get_jwks(jwks_uri: str, force: bool = False) -> dict:
     return keys
 
 
-# What decoding a token can raise. Authlib reports most problems as JoseError,
-# but a key that doesn't fit the token's algorithm (an HS256 token checked
-# against RSA keys, say) surfaces as ValueError, TypeError or KeyError.
+# What decoding a token can raise. joserfc reports most problems as JoseError,
+# but a malformed key set or a key that doesn't fit the token's algorithm can
+# surface as ValueError, TypeError or KeyError.
 _DECODE_ERRORS = (JoseError, ValueError, TypeError, KeyError)
 
+# Clock skew allowed between us and the provider on exp, nbf and iat.
+CLAIMS_LEEWAY = 30  # seconds
 
-def _decode(id_token: str, keys: dict, alg: str, claims_options: dict) -> Any:
-    """Verify ``id_token`` against ``keys``, accepting only the ``alg`` algorithm.
+
+def _decode(id_token: str, keys: dict, alg: str) -> jwt.Token:
+    """Verify ``id_token``'s signature against ``keys``, accepting only ``alg``.
 
     Pinned rather than taken from the token's header, so a token in any other
     algorithm - ``none`` included - is refused before its signature is looked at.
+    The key is the one the token's ``kid`` names, or the set's only key.
     """
-    return JsonWebToken([alg]).decode(id_token, keys, claims_options=claims_options)
+    # The provider's JSON, unchecked: a set without "keys", or a key that can't
+    # be read, raises one of _DECODE_ERRORS like a bad signature does.
+    key_set = KeySet.import_key_set(cast(KeySetSerialization, keys))
+    return jwt.decode(id_token, key_set, algorithms=[alg])
+
+
+def _check_claims(claims: dict, *, issuer: str, client_id: str) -> None:
+    """Raise a JoseError unless the token is from ``issuer``, for ``client_id``
+    (alone or among several audiences), and not expired beyond the leeway."""
+    jwt.JWTClaimsRegistry(
+        leeway=CLAIMS_LEEWAY,
+        iss={"essential": True, "value": issuer},
+        aud={"essential": True, "value": client_id},
+        exp={"essential": True},
+    ).validate(claims)
 
 
 def _validate_id_token(
@@ -173,30 +185,25 @@ def _validate_id_token(
     if not jwks_uri:
         raise _OIDCError("jwks uri is not configured", public="jwks uri is not configured")
 
-    claims_options = {
-        "iss": {"essential": True, "value": issuer},
-        "aud": {"essential": True, "value": client_id},
-        "exp": {"essential": True},
-    }
     keys = _get_jwks(jwks_uri)
     try:
-        claims = _decode(id_token, keys, allowed_alg, claims_options)
+        token = _decode(id_token, keys, allowed_alg)
     except _DECODE_ERRORS:
         # Try once with a forced JWKS refresh — handles key rotation.
         keys = _get_jwks(jwks_uri, force=True)
         try:
-            claims = _decode(id_token, keys, allowed_alg, claims_options)
+            token = _decode(id_token, keys, allowed_alg)
         except _DECODE_ERRORS as e:
             raise _OIDCError(f"id_token signature invalid: {e}") from e
 
-    # validate() raises on expired/invalid claims
+    claims = token.claims
     try:
-        claims.validate(leeway=30)
+        _check_claims(claims, issuer=issuer, client_id=client_id)
     except JoseError as e:
         raise _OIDCError(f"id_token claims invalid: {e}") from e
 
     # Algorithm check (defense-in-depth - _decode already accepts only allowed_alg)
-    header = claims.header or {}
+    header = token.header or {}
     alg = header.get("alg")
     if allowed_alg and alg and alg != allowed_alg:
         raise _OIDCError(f"id_token alg {alg} != configured {allowed_alg}")

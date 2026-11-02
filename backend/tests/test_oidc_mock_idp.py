@@ -11,16 +11,12 @@ import hashlib
 import json
 import time
 import uuid
-import warnings
 from urllib.parse import parse_qs, urlsplit
 
 import httpx
 import pytest
-from cryptography.hazmat.primitives.asymmetric import rsa
-
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    from authlib.jose import JsonWebKey, jwt
+from joserfc import jwt
+from joserfc.jwk import OctKey, RSAKey
 
 from backend.config import SessionLocal
 from backend.models import User
@@ -34,8 +30,7 @@ class MockIdP:
 
     def __init__(self):
         self.issuer = f"https://idp-{uuid.uuid4().hex[:8]}.test/realm"
-        key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-        self.jwk = JsonWebKey.import_key(key, {"kty": "RSA", "kid": "k1", "use": "sig"})
+        self.jwk = RSAKey.generate_key(2048, parameters={"kid": "k1", "use": "sig"})
         self.codes: dict[str, dict] = {}
         self.access_tokens: dict[str, dict] = {}
         # Claims for the next sign-in; tests change these.
@@ -71,7 +66,7 @@ class MockIdP:
                 "id_token_signing_alg_values_supported": ["RS256"],
             })
         if url == f"{self.issuer}/jwks":
-            return self._json(url, {"keys": [self.jwk.as_dict(is_private=False)]})
+            return self._json(url, {"keys": [self.jwk.as_dict(private=False)]})
         if url == f"{self.issuer}/userinfo":
             bearer = (headers or {}).get("Authorization", "")
             if not bearer.startswith("Bearer ") or bearer[7:] not in self.access_tokens:
@@ -101,7 +96,7 @@ class MockIdP:
             "nonce": req["nonce"],
             **self.id_claims,
         }
-        id_token = jwt.encode({"alg": "RS256", "kid": "k1"}, claims, self.jwk).decode()
+        id_token = jwt.encode({"alg": "RS256", "kid": "k1"}, claims, self.jwk)
         access = uuid.uuid4().hex
         self.access_tokens[access] = claims
         return self._json(
@@ -309,7 +304,9 @@ class TestMockIdPSignIn:
         self._resign(
             monkeypatch,
             idp,
-            lambda claims: jwt.encode({"alg": "HS256", "kid": "k1"}, claims, CLIENT_SECRET).decode(),
+            lambda claims: jwt.encode(
+                {"alg": "HS256", "kid": "k1"}, claims, OctKey.import_key(CLIENT_SECRET)
+            ),
         )
         cb = _sign_in(client, idp)
         assert cb.status_code == 302
@@ -340,7 +337,9 @@ class TestMockIdPSignIn:
         self._resign(
             monkeypatch,
             idp,
-            lambda claims: jwt.encode({"alg": "RS512", "kid": "k1"}, claims, idp.jwk).decode(),
+            lambda claims: jwt.encode(
+                {"alg": "RS512", "kid": "k1"}, claims, idp.jwk, algorithms=["RS512"]
+            ),
         )
         cb = _sign_in(client, idp)
         assert cb.headers["location"].startswith("/login?oidc_error=")

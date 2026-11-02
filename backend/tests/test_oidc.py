@@ -1,10 +1,11 @@
 """Tests for OIDC settings, helpers, discovery endpoint, and user resolution."""
 import json
+import time
 import pytest
 from unittest.mock import MagicMock, patch
 
 import httpx
-from authlib.jose.errors import JoseError
+from joserfc.errors import JoseError
 
 from backend.routers.oidc import (
     _role_from_groups,
@@ -1494,17 +1495,21 @@ class TestResolveUser:
 # ---------------------------------------------------------------------------
 
 
-class FakeClaims(dict):
-    """Stand-in for an authlib claims object (a dict plus header/validate)."""
+class FakeToken:
+    """Stand-in for a decoded joserfc token: its header and claims.
 
-    def __init__(self, data, header=None, validate_error=None):
-        super().__init__(data)
+    The claims start out valid for TestValidateIdToken's issuer and client, so
+    the real claims check passes unless a test overrides one.
+    """
+
+    def __init__(self, claims, header=None):
+        self.claims = {
+            "iss": "https://idp",
+            "aud": "client",
+            "exp": int(time.time()) + 300,
+            **claims,
+        }
         self.header = header if header is not None else {"alg": "RS256"}
-        self._validate_error = validate_error
-
-    def validate(self, leeway=0):
-        if self._validate_error:
-            raise self._validate_error
 
 
 class TestValidateIdToken:
@@ -1542,7 +1547,7 @@ class TestValidateIdToken:
         ],
     )
     def test_azp_must_name_this_client(self, extra):
-        claims = FakeClaims({"sub": "s", "nonce": "n", **extra})
+        claims = FakeToken({"sub": "s", "nonce": "n", **extra})
         get_jwks, decode = self._patch(lambda *a, **k: claims)
         with get_jwks, decode, pytest.raises(_OIDCError, match="azp"):
             self._validate()
@@ -1551,13 +1556,13 @@ class TestValidateIdToken:
         "extra", [{"aud": ["client", "other"], "azp": "client"}, {"aud": "client"}]
     )
     def test_azp_accepted(self, extra):
-        claims = FakeClaims({"sub": "s", "nonce": "n", **extra})
+        claims = FakeToken({"sub": "s", "nonce": "n", **extra})
         get_jwks, decode = self._patch(lambda *a, **k: claims)
         with get_jwks, decode:
             assert self._validate()["sub"] == "s"
 
     def test_returns_claims_on_success(self):
-        claims = FakeClaims({"sub": "s", "nonce": "n", "email": "a@b.c"})
+        claims = FakeToken({"sub": "s", "nonce": "n", "email": "a@b.c"})
         get_jwks, decode = self._patch(lambda *a, **k: claims)
         with get_jwks, decode:
             result = self._validate()
@@ -1568,7 +1573,7 @@ class TestValidateIdToken:
     def test_retries_with_forced_refresh_on_signature_error(self):
         from backend.routers.oidc import _helpers
 
-        claims = FakeClaims({"sub": "s", "nonce": "n"})
+        claims = FakeToken({"sub": "s", "nonce": "n"})
         calls = []
 
         def decode(*a, **k):
@@ -1594,14 +1599,14 @@ class TestValidateIdToken:
                 self._validate()
 
     def test_raises_when_claims_invalid(self):
-        claims = FakeClaims({"nonce": "n"}, validate_error=JoseError("expired"))
+        claims = FakeToken({"nonce": "n", "exp": int(time.time()) - 3600})
         get_jwks, decode = self._patch(lambda *a, **k: claims)
         with get_jwks, decode:
             with pytest.raises(_OIDCError, match="claims invalid"):
                 self._validate()
 
     def test_raises_on_algorithm_mismatch(self):
-        claims = FakeClaims({"nonce": "n"}, header={"alg": "HS256"})
+        claims = FakeToken({"nonce": "n"}, header={"alg": "HS256"})
         get_jwks, decode = self._patch(lambda *a, **k: claims)
         with get_jwks, decode:
             with pytest.raises(_OIDCError, match="alg HS256"):
@@ -1627,15 +1632,15 @@ class TestValidateIdToken:
                 self._validate()
 
     def test_raises_on_nonce_mismatch(self):
-        claims = FakeClaims({"nonce": "other"})
+        claims = FakeToken({"nonce": "other"})
         get_jwks, decode = self._patch(lambda *a, **k: claims)
         with get_jwks, decode:
             with pytest.raises(_OIDCError, match="nonce mismatch"):
                 self._validate(expected_nonce="n")
 
     def test_missing_header_does_not_break_alg_check(self):
-        claims = FakeClaims({"nonce": "n"}, header=None)
-        claims.header = None  # authlib can hand back a falsy header
+        claims = FakeToken({"nonce": "n"}, header=None)
+        claims.header = None  # a falsy header must not break the check
         get_jwks, decode = self._patch(lambda *a, **k: claims)
         with get_jwks, decode:
             assert self._validate()["nonce"] == "n"
