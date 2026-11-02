@@ -149,6 +149,14 @@ describe('ContentBrowser', () => {
     expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument()
   })
 
+  it('collapses an expanded entry when it is clicked again', async () => {
+    renderBrowser()
+    await userEvent.click(await screen.findByText('Fireball'))
+    expect(screen.getByText('evocation')).toBeInTheDocument()
+    await userEvent.click(screen.getByText('Fireball'))
+    expect(screen.queryByText('evocation')).not.toBeInTheDocument()
+  })
+
   it('closes on Escape', async () => {
     const onClose = vi.fn()
     renderBrowser({ onClose })
