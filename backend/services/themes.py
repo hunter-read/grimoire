@@ -96,6 +96,8 @@ THEME_TOKENS: tuple[str, ...] = (
     "bg-input",
     "border",
     "border-light",
+    # A control's edge (text field, checkbox, switch), kept at 3:1.
+    "border-control",
     "accent",
     "accent-dim",
     "accent-bright",
