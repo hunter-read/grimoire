@@ -10,7 +10,7 @@ from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, get_current_user, require_admin
-from ...config import get_db
+from ...config import get_db, release_connection
 from ...models import GenericMap
 from ...services.media.access import assert_media_access
 from .._page_export import (
@@ -25,7 +25,11 @@ from ...services.media.maps import is_pdf
 
 
 def _exportable(db: Session, map_id: str, user: CurrentUser) -> GenericMap:
-    """The map, if the caller may see it and it is a PDF with pages to export."""
+    """The map, if the caller may see it and it is a PDF with pages to export.
+
+    Hands the request's connection back on the way out: every caller goes on to
+    wait on the render pool, and an export may run for minutes (issue #782).
+    """
     m = db.query(GenericMap).filter_by(id=map_id).first()
     if not m:
         raise HTTPException(404, "Map not found")
@@ -37,6 +41,7 @@ def _exportable(db: Session, map_id: str, user: CurrentUser) -> GenericMap:
             m.is_missing = True
             db.commit()
         raise HTTPException(404, "File not found on disk")
+    release_connection(db)
     return m
 
 

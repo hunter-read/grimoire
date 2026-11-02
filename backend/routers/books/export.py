@@ -11,7 +11,7 @@ from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, get_current_user, require_admin
-from ...config import get_db
+from ...config import get_db, release_connection
 from ...indexer.formats import is_fitz_mime
 from ...models import Book
 from .._page_export import (
@@ -26,7 +26,11 @@ from ...services.books.access import assert_book_access
 
 
 def _exportable(db: Session, book_id: str, user: CurrentUser) -> Book:
-    """The book, if the caller may read it and it has pages to export."""
+    """The book, if the caller may read it and it has pages to export.
+
+    Hands the request's connection back on the way out: every caller goes on to
+    wait on the render pool, and an export may run for minutes (issue #782).
+    """
     book = db.query(Book).filter_by(id=book_id).first()
     if not book:
         raise HTTPException(404, "Book not found")
@@ -38,6 +42,7 @@ def _exportable(db: Session, book_id: str, user: CurrentUser) -> Book:
             book.is_missing = True
             db.commit()
         raise HTTPException(404, "File not found on disk")
+    release_connection(db)
     return book
 
 

@@ -388,6 +388,10 @@ def export_map_uvtt(
         ):
             raise HTTPException(400, "This map is already linked to a Universal VTT file")
 
+    # Nothing below needs the database, and measuring and encoding a large
+    # battlemap can take seconds (issue #782).
+    release_connection(db)
+
     info, grid = export_grid(m, is_vtt)
 
     try:

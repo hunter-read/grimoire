@@ -141,7 +141,10 @@ def fetch_pack_catalogue(
     seen: set = set()
 
     creds = source_credentials.load(db)
-    for configured in get_index_urls(db):
+    index_urls = get_index_urls(db)
+    # Every source is fetched over the network from here on (issue #782).
+    config.release_connection(db)
+    for configured in index_urls:
         index_url, document, failures = _read_source(configured, creds)
         if document is None:
             reachable = [f for f in failures if "no content packs" not in f["error"]]
@@ -279,6 +282,8 @@ def install_pack(db: Session, entry: dict[str, Any]) -> str:
     downloaded: dict[str, bytes] = {}
     total = 0
     creds = source_credentials.load(db)
+    # Every file is downloaded from here on (issue #782).
+    config.release_connection(db)
     for row in files:
         name = str(row.get("name") or "")
         # A pack is one flat directory of JSON files. The name is used as a
