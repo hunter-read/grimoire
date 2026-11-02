@@ -95,10 +95,10 @@ class TestServing:
 
 class TestTypes:
     def test_book(self, client, gm_headers, tmp_path):
-        import fitz
+        import pymupdf
 
         path = tmp_path / "Rules.pdf"
-        doc = fitz.open()
+        doc = pymupdf.open()
         doc.new_page()
         doc.save(str(path))
         doc.close()
@@ -111,10 +111,10 @@ class TestTypes:
         assert _fetch(client, link, "/meta").json()["media_kind"] == "pdf"
 
     def test_pdf_map_serves_its_first_page(self, client, gm_headers, tmp_path):
-        import fitz
+        import pymupdf
 
         path = tmp_path / "Atlas.pdf"
-        doc = fitz.open()
+        doc = pymupdf.open()
         doc.new_page()
         doc.save(str(path))
         doc.close()
@@ -418,10 +418,10 @@ class TestOtfbmVariant:
         assert r.status_code == 400
 
     def test_not_for_a_pdf_map(self, client, gm_headers, tmp_path):
-        import fitz
+        import pymupdf
 
         path = tmp_path / "Atlas.pdf"
-        doc = fitz.open()
+        doc = pymupdf.open()
         doc.new_page()
         doc.save(str(path))
         doc.close()

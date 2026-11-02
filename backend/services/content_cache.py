@@ -1,7 +1,7 @@
 """Invalidation and eviction for the caches derived from a library file's bytes.
 
 Rendering a PDF page is expensive, so the result is cached in up to four places:
-Valkey, an on-disk WebP, an open ``fitz`` document handle, and the FTS5 rows that
+Valkey, an on-disk WebP, an open PyMuPDF document handle, and the FTS5 rows that
 back search. Thumbnails are a fifth. Every one of them was keyed by ``book.id`` or
 by a hash of the file's *path*, none of which change when the file at that path is
 replaced — so a swapped-in PDF kept serving the old file's pages indefinitely.
@@ -108,7 +108,7 @@ def invalidate_book_content(
         logger.warning(f"Could not purge disk pages for {filepath}: {e}")
         removed = 0
 
-    # The open fitz handle still points at the replaced file's inode.
+    # The open PyMuPDF handle still points at the replaced file's inode.
     from ..render import pool as render_pool
     from ..services.books.documents import invalidate_book_cache
 

@@ -1,4 +1,4 @@
-"""Tests for indexer resilience: fitz timeout, getsize guard, index_failed, scan_failed, and is_missing logic."""
+"""Tests for indexer resilience: PDF open timeout, getsize guard, index_failed, scan_failed, and is_missing logic."""
 from __future__ import annotations
 
 import logging
@@ -96,25 +96,25 @@ def _get_book(book_id: str) -> Book | None:
 
 class TestFitzTimeout:
     def test_raises_timeout_error_when_fitz_hangs(self):
-        """If fitz.open() never returns, TimeoutError is raised after deadline."""
+        """If pymupdf.open() never returns, TimeoutError is raised after deadline."""
 
         def _hanging_open(path, *a, **kw):
             time.sleep(60)  # longer than any test timeout
 
-        with patch("backend.indexer.fitz.open", side_effect=_hanging_open):
+        with patch("backend.indexer.pymupdf.open", side_effect=_hanging_open):
             with pytest.raises(TimeoutError):
                 _fitz_open_with_timeout("/fake/path.pdf", timeout=1)
 
     def test_propagates_fitz_exception(self):
-        """Real fitz errors (e.g. bad file) are re-raised normally."""
-        with patch("backend.indexer.fitz.open", side_effect=RuntimeError("bad pdf")):
+        """Real PyMuPDF errors (e.g. bad file) are re-raised normally."""
+        with patch("backend.indexer.pymupdf.open", side_effect=RuntimeError("bad pdf")):
             with pytest.raises(RuntimeError, match="bad pdf"):
                 _fitz_open_with_timeout("/fake/path.pdf", timeout=5)
 
     def test_returns_document_on_success(self):
-        """Returns the fitz document when open completes within timeout."""
+        """Returns the PyMuPDF document when open completes within timeout."""
         mock_doc = MagicMock()
-        with patch("backend.indexer.fitz.open", return_value=mock_doc):
+        with patch("backend.indexer.pymupdf.open", return_value=mock_doc):
             result = _fitz_open_with_timeout("/fake/path.pdf", timeout=5)
         assert result is mock_doc
 
@@ -677,7 +677,7 @@ class TestScanFailed:
                 mime_type="application/pdf",
                 has_thumbnail=True,
                 page_count=0,
-                index_error="fitz.open() timed out",
+                index_error="pymupdf.open() timed out",
                 scan_failed=False,
             )
             db.add(book)

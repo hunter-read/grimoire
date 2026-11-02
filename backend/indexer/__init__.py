@@ -9,7 +9,7 @@ Monkeypatch compatibility: the submodules invoke patch-sensitive helpers
 (``extract_text_isolated``, ``generate_thumbnail``, ``_book_page_count``,
 ``document_page_count``, ``ocr_page_isolated``, ``ocr_book_page_isolated_wrapper``)
 through this package namespace, and the shared modules/callables that tests
-patch on ``backend.indexer`` — ``fitz``, ``os``, ``ocr``, ``config``, ``text``,
+patch on ``backend.indexer`` — ``pymupdf``, ``os``, ``ocr``, ``config``, ``text``,
 ``_MP_CONTEXT`` — are bound here as module attributes.
 """
 import logging
@@ -18,7 +18,7 @@ import logging
 # (kept as module-level attributes so patch()/patch.object() find them here)
 import os  # noqa: F401
 import pickle  # noqa: F401  (patched by ocr-worker tests as backend.indexer.pickle)
-import fitz  # noqa: F401  (PyMuPDF)
+import pymupdf  # noqa: F401
 from sqlalchemy import text  # noqa: F401
 
 from .. import config  # noqa: F401  (re-exported for env-override patches)

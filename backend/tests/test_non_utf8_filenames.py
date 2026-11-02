@@ -21,7 +21,7 @@ import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
-import fitz
+import pymupdf
 import pytest
 
 from backend import config, filenames
@@ -73,7 +73,7 @@ def _pdf(folder: Path, name: str = "book.pdf") -> Path:
     """A real one-page PDF, so the scan reads it cleanly and ``errors`` stays exact."""
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / name
-    doc = fitz.open()
+    doc = pymupdf.open()
     doc.new_page()
     path.write_bytes(doc.tobytes())
     doc.close()

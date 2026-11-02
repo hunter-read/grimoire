@@ -19,7 +19,7 @@ import signal
 from multiprocessing.connection import Connection
 from typing import Any
 
-import fitz  # PyMuPDF
+import pymupdf
 from PIL import Image
 
 from .documents import open_document
@@ -40,7 +40,7 @@ def thumbnail(filepath: str, output_path: str, size: tuple[int, int]) -> bool:
         if len(doc) == 0:
             return False
         pix = doc[0].get_pixmap(
-            matrix=fitz.Matrix(_THUMBNAIL_SCALE, _THUMBNAIL_SCALE), alpha=False
+            matrix=pymupdf.Matrix(_THUMBNAIL_SCALE, _THUMBNAIL_SCALE), alpha=False
         )
         img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
         del pix

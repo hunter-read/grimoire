@@ -11,7 +11,7 @@ than twenty full ones.
 import io
 from dataclasses import dataclass
 
-import fitz  # type: ignore[import-untyped]
+import pymupdf
 from PIL import Image, ImageDraw  # type: ignore[import-untyped]
 
 from .spec import MAX_OUTPUT_PIXELS, MAX_TOTAL_PIXELS, ExportError, Region
@@ -39,7 +39,7 @@ class Composite:
     height: float
 
 
-def composite_for(doc: fitz.Document, pages: tuple[int, ...]) -> Composite:
+def composite_for(doc: pymupdf.Document, pages: tuple[int, ...]) -> Composite:
     """Lay ``pages`` out left to right, scaling each to the first page's height.
 
     Facing pages are almost always the same size; scaling covers the odd book
@@ -74,7 +74,7 @@ def _check_one(out_w: int, out_h: int, dpi: int) -> None:
         )
 
 
-def check_budget(doc: fitz.Document, regions: list[Region], dpi: int, fewer: str) -> None:
+def check_budget(doc: pymupdf.Document, regions: list[Region], dpi: int, fewer: str) -> None:
     """Refuse an export whose images are too large, before any is rendered.
 
     Each image is held to MAX_OUTPUT_PIXELS and all of them together to
@@ -96,7 +96,7 @@ def check_budget(doc: fitz.Document, regions: list[Region], dpi: int, fewer: str
         )
 
 
-def render_region(doc: fitz.Document, region: Region, dpi: int) -> Image.Image:
+def render_region(doc: pymupdf.Document, region: Region, dpi: int) -> Image.Image:
     """Render one region to an image: RGB for a rectangle, RGBA for an ellipse."""
     composite = composite_for(doc, region.pages)
     out_w, out_h = output_size(composite, region, dpi)
@@ -119,7 +119,7 @@ def render_region(doc: fitz.Document, region: Region, dpi: int) -> Image.Image:
         px0, px1 = round((ix0 - rx0) * k), min(out_w, round((ix1 - rx0) * k))
         if ix1 <= ix0 or px1 <= px0:
             continue
-        clip = fitz.Rect(
+        clip = pymupdf.Rect(
             prect.x0 + (ix0 - part.offset) / part.scale,
             prect.y0 + ry0 / part.scale,
             prect.x0 + (ix1 - part.offset) / part.scale,
@@ -131,7 +131,7 @@ def render_region(doc: fitz.Document, region: Region, dpi: int) -> Image.Image:
         # of a joined spread. The horizontal stretch this adds is under a pixel.
         zoom_x = (px1 - px0) / clip.width
         zoom_y = k * part.scale
-        matrix = fitz.Matrix(zoom_x, 0, 0, zoom_y, -clip.x0 * zoom_x, -clip.y0 * zoom_y)
+        matrix = pymupdf.Matrix(zoom_x, 0, 0, zoom_y, -clip.x0 * zoom_x, -clip.y0 * zoom_y)
         pix = page.get_pixmap(matrix=matrix, clip=clip, alpha=False)
         tile = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
         del pix

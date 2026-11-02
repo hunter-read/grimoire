@@ -10,7 +10,7 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from typing import Iterator, Optional
 
-import fitz  # type: ignore[import-untyped]
+import pymupdf
 
 from ...config import PAGE_IDLE_RELEASE, PAGE_RECLAIM_INTERVAL, SessionLocal, logger
 from ...indexer.formats import open_document
@@ -19,7 +19,7 @@ from ...render.memory import reclaim_render_memory as _reclaim_render_memory
 
 
 class _CachedDoc:
-    """An open fitz Document plus how many requests are using it right now.
+    """An open PyMuPDF Document plus how many requests are using it right now.
 
     A document leaves the cache (LRU eviction, file replaced, idle release) the
     moment it is retired, but it is only *closed* once its last user is done:
@@ -36,14 +36,14 @@ class _CachedDoc:
 
     __slots__ = ("doc", "users", "retired", "lock")
 
-    def __init__(self, doc: fitz.Document) -> None:
+    def __init__(self, doc: pymupdf.Document) -> None:
         self.doc = doc
         self.users = 0
         self.retired = False
         self.lock = threading.RLock()
 
 
-# LRU cache of open fitz Documents (avoids re-opening large PDFs on every render).
+# LRU cache of open PyMuPDF Documents (avoids re-opening large PDFs on every render).
 # Use them only through open_pdf(), which leases the document for the duration.
 _PDF_CACHE_MAX = 10
 _pdf_cache: "OrderedDict[str, _CachedDoc]" = OrderedDict()
@@ -82,7 +82,7 @@ def note_page_render() -> bool:
     return True
 
 
-def _close_doc(doc: fitz.Document, why: str) -> None:
+def _close_doc(doc: pymupdf.Document, why: str) -> None:
     try:
         doc.close()
     except (RuntimeError, ValueError) as e:
@@ -91,7 +91,7 @@ def _close_doc(doc: fitz.Document, why: str) -> None:
         logger.debug("Failed to close %s PDF document: %s", why, e)
 
 
-def _retire(entry: _CachedDoc) -> Optional[fitz.Document]:
+def _retire(entry: _CachedDoc) -> Optional[pymupdf.Document]:
     """Mark a document as leaving the cache. Caller holds _pdf_cache_lock.
 
     Returns the document if nobody is using it, for the caller to close once the
@@ -158,8 +158,8 @@ def _release_pdf(entry: _CachedDoc) -> None:
 
 
 @contextmanager
-def open_pdf(filepath: str) -> Iterator[fitz.Document]:
-    """The cached fitz Document for ``filepath``, leased for the ``with`` block.
+def open_pdf(filepath: str) -> Iterator[pymupdf.Document]:
+    """The cached PyMuPDF Document for ``filepath``, leased for the ``with`` block.
 
     Use the document (and any page taken from it) only inside the block. While
     it is leased it is never closed, even if it is evicted, its file is
@@ -247,7 +247,7 @@ def _idle_sweep() -> None:
 
 
 def evict_pdf(filepath: str) -> bool:
-    """Close and drop the cached fitz handle for ``filepath``. Returns whether one was held.
+    """Close and drop the cached PyMuPDF handle for ``filepath``. Returns whether one was held.
 
     Required when a file is replaced in place: the cached handle refers to the
     *old* document, and on POSIX the unlinked inode stays alive as long as we

@@ -10,7 +10,7 @@ import threading
 import uuid
 from unittest.mock import MagicMock
 
-import fitz  # type: ignore[import-untyped]
+import pymupdf
 import pytest
 
 from backend.config import SessionLocal
@@ -23,7 +23,7 @@ from backend.tests.conftest import make_book, make_game_system
 def _write_pdf(tmp_path, name="doc.pdf") -> str:
     """Create a minimal one-page PDF on disk and return its path."""
     path = os.path.join(tmp_path, name)
-    doc = fitz.open()
+    doc = pymupdf.open()
     doc.new_page()
     doc.save(path)
     doc.close()
@@ -178,7 +178,7 @@ class TestOpenPdf:
             for i in range(40):
                 try:
                     with documents.open_pdf(paths[(offset + i) % len(paths)]) as doc:
-                        doc[0].get_pixmap(matrix=fitz.Matrix(0.2, 0.2))
+                        doc[0].get_pixmap(matrix=pymupdf.Matrix(0.2, 0.2))
                 except Exception as e:  # pragma: no cover - the failure being tested
                     errors.append(e)
 
@@ -226,7 +226,7 @@ class TestDocumentLock:
                         with count_lock:
                             inside[0] += 1
                             peak[0] = max(peak[0], inside[0])
-                        doc[0].get_pixmap(matrix=fitz.Matrix(0.2, 0.2))
+                        doc[0].get_pixmap(matrix=pymupdf.Matrix(0.2, 0.2))
                         with count_lock:
                             inside[0] -= 1
                 except Exception as e:  # pragma: no cover - the failure being tested

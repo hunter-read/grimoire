@@ -87,21 +87,21 @@ def _looks_like_svg(data: bytes) -> bool:
 
 def _rasterize_svg(data: bytes) -> bytes:
     """Render an SVG to a PNG whose longest side is ICON_SIZE_PX."""
-    import fitz  # PyMuPDF
+    import pymupdf
 
     # MuPDF does not expand custom entities, but there is no reason for an icon
     # to declare any; refusing them up front keeps the parser surface minimal.
     if b"<!doctype" in data.lower() or b"<!entity" in data.lower():
         raise IconError("SVG files with a DOCTYPE or entity declarations are not supported")
     try:
-        doc = fitz.open(stream=data, filetype="svg")
+        doc = pymupdf.open(stream=data, filetype="svg")
         try:
             page = doc[0]
             width, height = page.rect.width, page.rect.height
             if width <= 0 or height <= 0:
                 raise IconError("SVG has no size")
             scale = ICON_SIZE_PX / max(width, height)
-            pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), alpha=True)
+            pix = page.get_pixmap(matrix=pymupdf.Matrix(scale, scale), alpha=True)
             return pix.tobytes("png")
         finally:
             doc.close()

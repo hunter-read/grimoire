@@ -289,10 +289,10 @@ class TestExportEndpoint:
         assert "already linked" in r.json()["detail"]
 
     def test_pdf_map_is_rejected(self, client, admin_headers, tmp_path):
-        import fitz
+        import pymupdf
 
         path = tmp_path / "atlas.pdf"
-        doc = fitz.open()
+        doc = pymupdf.open()
         doc.new_page()
         doc.save(str(path))
         doc.close()

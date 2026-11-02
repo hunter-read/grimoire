@@ -14,7 +14,7 @@ them before exporting.
 import logging
 from dataclasses import dataclass
 
-import fitz  # type: ignore[import-untyped]
+import pymupdf
 
 from .detect_raster import detect_raster_shapes
 from .spec import Shape
@@ -52,12 +52,12 @@ _MAX_SHAPES = 200
 class Found:
     """A detected piece, in page points."""
 
-    rect: fitz.Rect
+    rect: pymupdf.Rect
     shape: Shape
 
 
-def _iou(a: fitz.Rect, b: fitz.Rect) -> float:
-    inter = fitz.Rect(a) & b
+def _iou(a: pymupdf.Rect, b: pymupdf.Rect) -> float:
+    inter = pymupdf.Rect(a) & b
     if inter.is_empty:
         return 0.0
     ia = inter.width * inter.height
@@ -65,7 +65,7 @@ def _iou(a: fitz.Rect, b: fitz.Rect) -> float:
     return ia / union if union else 0.0
 
 
-def _contains(outer: fitz.Rect, inner: fitz.Rect, slack: float = 1.0) -> bool:
+def _contains(outer: pymupdf.Rect, inner: pymupdf.Rect, slack: float = 1.0) -> bool:
     return (
         inner.x0 >= outer.x0 - slack
         and inner.y0 >= outer.y0 - slack
@@ -74,13 +74,13 @@ def _contains(outer: fitz.Rect, inner: fitz.Rect, slack: float = 1.0) -> bool:
     )
 
 
-def _is_round(rect: fitz.Rect) -> bool:
+def _is_round(rect: pymupdf.Rect) -> bool:
     if rect.height <= 0:
         return False
     return _ROUND_ASPECT[0] <= rect.width / rect.height <= _ROUND_ASPECT[1]
 
 
-def _usable(rect: fitz.Rect, page: fitz.Rect, min_side: float = _MIN_SIDE_FRACTION) -> bool:
+def _usable(rect: pymupdf.Rect, page: pymupdf.Rect, min_side: float = _MIN_SIDE_FRACTION) -> bool:
     if rect.is_empty or rect.width <= 0 or rect.height <= 0:
         return False
     short = min(page.width, page.height)
@@ -89,7 +89,7 @@ def _usable(rect: fitz.Rect, page: fitz.Rect, min_side: float = _MIN_SIDE_FRACTI
     return rect.width * rect.height <= page.width * page.height * _MAX_AREA_FRACTION
 
 
-def _has_round_mask(doc: fitz.Document, xref: int) -> bool:
+def _has_round_mask(doc: pymupdf.Document, xref: int) -> bool:
     """Whether an image's soft mask hides its corners and shows its middle.
 
     That is how a round token is usually stored: a square picture whose corners
@@ -102,7 +102,7 @@ def _has_round_mask(doc: fitz.Document, xref: int) -> bool:
         smask = doc.xref_get_key(xref, "SMask")
         if smask[0] != "xref":
             return False
-        mask = fitz.Pixmap(doc, int(smask[1].split()[0]))
+        mask = pymupdf.Pixmap(doc, int(smask[1].split()[0]))
         w, h = mask.width, mask.height
         if w < 8 or h < 8:
             return False
@@ -121,13 +121,13 @@ def _has_round_mask(doc: fitz.Document, xref: int) -> bool:
         return False
 
 
-def _circle_paths(page: fitz.Page) -> list[fitz.Rect]:
+def _circle_paths(page: pymupdf.Page) -> list[pymupdf.Rect]:
     """Bounding boxes of vector paths that are drawn as circles.
 
     A circle in PDF is four Bezier curves; a token frame is that, stroked. A
     path made only of curves with a round bounding box is taken as one.
     """
-    circles: list[fitz.Rect] = []
+    circles: list[pymupdf.Rect] = []
     try:
         drawings = page.get_drawings()
     except (RuntimeError, ValueError) as e:
@@ -137,17 +137,17 @@ def _circle_paths(page: fitz.Page) -> list[fitz.Rect]:
         items = drawing.get("items") or []
         if len(items) < 4 or any(item[0] != "c" for item in items):
             continue
-        rect = fitz.Rect(drawing["rect"])
+        rect = pymupdf.Rect(drawing["rect"])
         # The path's box runs through the middle of its stroke; grow it by half
         # the stroke so a frame is cut out whole rather than shaved at the edge.
         half = (drawing.get("width") or 0) / 2 if drawing.get("color") else 0
-        rect = fitz.Rect(rect.x0 - half, rect.y0 - half, rect.x1 + half, rect.y1 + half)
+        rect = pymupdf.Rect(rect.x0 - half, rect.y0 - half, rect.x1 + half, rect.y1 + half)
         if _is_round(rect):
             circles.append(rect)
     return circles
 
 
-def detect_shapes(doc: fitz.Document, page_num: int) -> list[Found]:
+def detect_shapes(doc: pymupdf.Document, page_num: int) -> list[Found]:
     """Suggest cut-outs for page ``page_num`` (1-based), in reading order."""
     page = doc[page_num - 1]
     prect = page.rect
@@ -156,11 +156,11 @@ def detect_shapes(doc: fitz.Document, page_num: int) -> list[Found]:
     infos = page.get_image_info(xrefs=True)
     page_area = prect.width * prect.height
     picture_page = any(
-        _area(fitz.Rect(info["bbox"]) & prect) >= page_area * _PICTURE_PAGE_FRACTION
+        _area(pymupdf.Rect(info["bbox"]) & prect) >= page_area * _PICTURE_PAGE_FRACTION
         for info in infos
     )
     for info in infos:
-        rect = fitz.Rect(info["bbox"]) & prect
+        rect = pymupdf.Rect(info["bbox"]) & prect
         if not _usable(rect, prect):
             continue
         round_ = _is_round(rect) and _has_round_mask(doc, int(info.get("xref") or 0))
@@ -173,7 +173,7 @@ def detect_shapes(doc: fitz.Document, page_num: int) -> list[Found]:
         match = next((f for f in found if _iou(f.rect, circle) >= _SAME_IOU), None)
         if match is not None:
             # A frame drawn around an image: one round piece the size of both.
-            match.rect = fitz.Rect(match.rect) | circle
+            match.rect = pymupdf.Rect(match.rect) | circle
             match.shape = "ellipse"
         elif _usable(circle, prect, _MIN_PATH_SIDE_FRACTION):
             found.append(Found(rect=circle, shape="ellipse"))
@@ -204,15 +204,15 @@ def _merge_layers(found: list[Found]) -> list[Found]:
     for f in found:
         layer = next((m for m in merged if _iou(m.rect, f.rect) >= _LAYER_IOU), None)
         if layer is None:
-            merged.append(Found(rect=fitz.Rect(f.rect), shape=f.shape))
+            merged.append(Found(rect=pymupdf.Rect(f.rect), shape=f.shape))
         else:
-            layer.rect = fitz.Rect(layer.rect) | f.rect
+            layer.rect = pymupdf.Rect(layer.rect) | f.rect
             if f.shape == "ellipse":
                 layer.shape = "ellipse"
     return merged
 
 
-def _area(r: fitz.Rect) -> float:
+def _area(r: pymupdf.Rect) -> float:
     return r.width * r.height
 
 
@@ -228,7 +228,7 @@ def _is_panel(f: Found, inside: list[Found]) -> bool:
         for b in inside[i + 1 :]:
             small, large = sorted((_area(a.rect), _area(b.rect)))
             if large and small / large >= _ALIKE_AREA and _iou(a.rect, b.rect) < _SAME_IOU:
-                if (fitz.Rect(a.rect) & b.rect).is_empty:
+                if (pymupdf.Rect(a.rect) & b.rect).is_empty:
                     return True
     return False
 

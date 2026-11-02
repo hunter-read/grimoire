@@ -51,11 +51,11 @@ def _real_pdf_book(tmp_path, first_page_text: str, blank_pages: int = 9) -> str:
     Needed where the point is what ``ocr_page`` decides about a page, which a
     stubbed page reader cannot show.
     """
-    import fitz
+    import pymupdf
 
     uid = str(uuid.uuid4())[:8]
     path = tmp_path / f"mixed-{uid}.pdf"
-    doc = fitz.open()
+    doc = pymupdf.open()
     page = doc.new_page()
     y = 72.0
     for line in first_page_text.split("\n"):

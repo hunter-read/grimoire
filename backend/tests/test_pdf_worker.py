@@ -14,13 +14,13 @@ import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import fitz
+import pymupdf
 
 from backend import config, indexer, pdf_worker
 
 
 def _make_text_pdf(path: Path, texts: list[str]) -> None:
-    doc = fitz.open()
+    doc = pymupdf.open()
     for t in texts:
         page = doc.new_page()
         page.insert_text((72, 72), t)
@@ -43,7 +43,7 @@ def test_matches_extract_text_from_pdf(tmp_path):
 
 def _make_image_only_pdf(path: Path) -> None:
     """A PDF whose single page has no embedded text layer (get_text() -> "")."""
-    doc = fitz.open()
+    doc = pymupdf.open()
     doc.new_page()  # blank page
     doc.save(str(path))
     doc.close()
@@ -95,7 +95,7 @@ def test_ocr_page_runs_tesseract(tmp_path):
     """_ocr_page renders the page and returns tesseract's stripped output."""
     pdf = tmp_path / "scan.pdf"
     _make_image_only_pdf(pdf)
-    doc = fitz.open(str(pdf))
+    doc = pymupdf.open(str(pdf))
     page = doc[0]
 
     fake_tess = MagicMock()
@@ -112,7 +112,7 @@ def test_ocr_page_swallows_errors(tmp_path):
     """_ocr_page returns "" if rendering or OCR raises."""
     pdf = tmp_path / "scan.pdf"
     _make_image_only_pdf(pdf)
-    doc = fitz.open(str(pdf))
+    doc = pymupdf.open(str(pdf))
     page = doc[0]
 
     fake_tess = MagicMock()
@@ -180,7 +180,7 @@ def test_ocr_page_single(tmp_path):
 
 def _make_long_text_pdf(path: Path, pages: list[list[str]]) -> None:
     """A PDF whose pages carry several lines each — a real text layer."""
-    doc = fitz.open()
+    doc = pymupdf.open()
     for lines in pages:
         page = doc.new_page()
         y = 72.0
@@ -300,7 +300,7 @@ def test_ocr_page_uses_configured_dpi(tmp_path, monkeypatch):
     """_ocr_page renders at the OCR_DPI-derived scale."""
     pdf = tmp_path / "scan.pdf"
     _make_image_only_pdf(pdf)
-    doc = fitz.open(str(pdf))
+    doc = pymupdf.open(str(pdf))
     page = doc[0]
 
     monkeypatch.setattr(config, "OCR_DPI", 72.0)  # scale 1.0 → smaller pixmap
@@ -318,7 +318,7 @@ def test_ocr_page_uses_configured_dpi(tmp_path, monkeypatch):
         pdf_worker._ocr_page(page, "eng")
     doc.close()
     # 72 DPI → scale 1.0 identity matrix
-    assert captured["matrix"] == fitz.Matrix(1.0, 1.0)
+    assert captured["matrix"] == pymupdf.Matrix(1.0, 1.0)
 
 
 def test_ocr_scale_explicit_dpi_overrides_config(monkeypatch):
@@ -338,7 +338,7 @@ def test_ocr_page_threads_explicit_dpi(tmp_path):
     """_ocr_page renders at the scale derived from an explicit DPI override."""
     pdf = tmp_path / "scan.pdf"
     _make_image_only_pdf(pdf)
-    doc = fitz.open(str(pdf))
+    doc = pymupdf.open(str(pdf))
     page = doc[0]
     real_get_pixmap = page.get_pixmap
     captured = {}
@@ -353,7 +353,7 @@ def test_ocr_page_threads_explicit_dpi(tmp_path):
     with patch.dict(sys.modules, {"pytesseract": fake_tess}):
         pdf_worker._ocr_page(page, "eng", dpi=288)  # 288/72 = 4.0
     doc.close()
-    assert captured["matrix"] == fitz.Matrix(4.0, 4.0)
+    assert captured["matrix"] == pymupdf.Matrix(4.0, 4.0)
 
 
 def test_ocr_page_main_passes_dpi(tmp_path):

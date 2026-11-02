@@ -1,5 +1,5 @@
 """backend.render.memory: handing MuPDF's render memory back to the OS."""
-import fitz  # type: ignore[import-untyped]
+import pymupdf
 
 from backend.render import memory
 
@@ -11,7 +11,7 @@ class TestReclaimRenderMemory:
         def _boom(_):
             raise RuntimeError("no store_shrink in this build")
 
-        monkeypatch.setattr(fitz.TOOLS, "store_shrink", _boom)
+        monkeypatch.setattr(pymupdf.TOOLS, "store_shrink", _boom)
         monkeypatch.setattr(memory, "malloc_trim", None)
         memory.reclaim_render_memory()  # must not raise
 
@@ -24,7 +24,7 @@ class TestReclaimRenderMemory:
 
     def test_calls_both_native_reclaims_when_available(self, monkeypatch):
         seen = []
-        monkeypatch.setattr(fitz.TOOLS, "store_shrink", lambda pct: seen.append(("shrink", pct)))
+        monkeypatch.setattr(pymupdf.TOOLS, "store_shrink", lambda pct: seen.append(("shrink", pct)))
         monkeypatch.setattr(memory, "malloc_trim", lambda n: seen.append(("trim", n)))
         memory.reclaim_render_memory()
         # Order matters: free MuPDF's store first, then return the arenas.

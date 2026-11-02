@@ -15,7 +15,7 @@ import logging
 import re
 from typing import Any, Optional
 
-import fitz  # PyMuPDF
+import pymupdf
 
 logger = logging.getLogger("grimoire.indexer")
 
@@ -31,7 +31,7 @@ _DEST_PAGE_REF = re.compile(r"^\s*\[\s*(\d+)\s+\d+\s+R\b")
 _DEST_PAGE_INDEX = re.compile(r"^\s*\[\s*(-?\d+)\b")
 
 
-def read_toc(doc: fitz.Document) -> list[list[Any]]:
+def read_toc(doc: pymupdf.Document) -> list[list[Any]]:
     """The document's TOC as ``get_toc(simple=True)`` shapes it.
 
     Each entry is ``[level, title, page]`` with a 1-based page, or ``-1`` when
@@ -61,7 +61,7 @@ def _ref(value: tuple[str, str]) -> int:
         return 0
 
 
-def _walk_outline(doc: fitz.Document) -> list[list[Any]]:
+def _walk_outline(doc: pymupdf.Document) -> list[list[Any]]:
     """Read the outline tree straight from the PDF objects, depth first."""
     root = _ref(doc.xref_get_key(doc.pdf_catalog(), "Outlines"))
     if not root:
@@ -92,7 +92,7 @@ def _walk_outline(doc: fitz.Document) -> list[list[Any]]:
 class _DestResolver:
     """Maps one outline item's destination to a 1-based page number."""
 
-    def __init__(self, doc: fitz.Document) -> None:
+    def __init__(self, doc: pymupdf.Document) -> None:
         self._doc = doc
         self._page_count: int = doc.page_count
         self._page_by_xref = {doc.page_xref(i): i for i in range(doc.page_count)}

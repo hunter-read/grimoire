@@ -10,7 +10,7 @@ A leaf module, importing only PyMuPDF, so a render worker can open documents
 without loading the indexer package (and SQLAlchemy with it).
 ``backend.indexer.formats`` re-exports everything here.
 """
-import fitz  # PyMuPDF
+import pymupdf
 
 # --- EPUB / reflowable layout --------------------------------------------------
 # A fixed A4-ish box at a fixed font size. The exact numbers matter far less than
@@ -23,7 +23,7 @@ EPUB_LAYOUT_HEIGHT = 800
 EPUB_LAYOUT_FONTSIZE = 11
 
 
-def apply_reflow_layout(doc: "fitz.Document") -> None:
+def apply_reflow_layout(doc: "pymupdf.Document") -> None:
     """Pin a reflowable document to the app-wide layout box.
 
     Safe to call on any document: fixed-layout formats ignore it. Keeping this
@@ -38,12 +38,12 @@ def apply_reflow_layout(doc: "fitz.Document") -> None:
         )
 
 
-def open_document(filepath: str) -> "fitz.Document":
+def open_document(filepath: str) -> "pymupdf.Document":
     """Open a fitz-backed document with the shared reflow layout applied.
 
     Every read path (page count, text extraction, thumbnail, page render) goes
     through here so no caller can accidentally paginate an EPUB differently.
     """
-    doc = fitz.open(filepath)
+    doc = pymupdf.open(filepath)
     apply_reflow_layout(doc)
     return doc

@@ -18,7 +18,7 @@ import tempfile
 import threading
 from typing import Any, Callable, Optional
 
-import fitz  # PyMuPDF
+import pymupdf
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -70,8 +70,8 @@ def _fitz_open_with_timeout(
     filepath: str,
     timeout: int = _FITZ_TIMEOUT,
     should_stop: Optional[Callable[[], bool]] = None,
-) -> "fitz.Document":
-    """Open a PDF with fitz, raising TimeoutError if it hangs beyond `timeout` seconds.
+) -> "pymupdf.Document":
+    """Open a PDF with PyMuPDF, raising TimeoutError if it hangs beyond `timeout` seconds.
 
     If `should_stop` callable is provided, the wait is interrupted early when it
     returns True, raising TimeoutError so the caller can exit cleanly.
@@ -81,7 +81,7 @@ def _fitz_open_with_timeout(
 
     def _open() -> None:
         try:
-            result[0] = fitz.open(filepath)
+            result[0] = pymupdf.open(filepath)
         except Exception as e:
             exc[0] = e
 
@@ -94,9 +94,9 @@ def _fitz_open_with_timeout(
         t.join(poll_interval)
         elapsed += poll_interval
         if should_stop and should_stop():
-            raise TimeoutError(f"fitz.open() aborted by stop request for {filepath}")
+            raise TimeoutError(f"pymupdf.open() aborted by stop request for {filepath}")
     if t.is_alive():
-        raise TimeoutError(f"fitz.open() timed out after {timeout}s for {filepath}")
+        raise TimeoutError(f"pymupdf.open() timed out after {timeout}s for {filepath}")
     if exc[0] is not None:
         raise exc[0]
     return result[0]
@@ -136,7 +136,7 @@ def extract_text_from_pdf(
         from .formats import apply_reflow_layout
 
         apply_reflow_layout(doc)
-        for i, page in enumerate(doc):
+        for i, page in enumerate(doc.pages()):
             if should_stop and should_stop():
                 break
             page_text = page.get_text().strip()
@@ -146,7 +146,7 @@ def extract_text_from_pdf(
             # can never come out of this with less text than it went in with.
             if ocr_on and pdf_worker.text_is_thin(page_text):
                 scale = config.OCR_DPI / 72.0
-                pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), alpha=False)
+                pix = page.get_pixmap(matrix=pymupdf.Matrix(scale, scale), alpha=False)
                 ocr_text = ocr.ocr_pixmap(pix, should_stop=should_stop) or ""
                 if len(ocr_text) > len(content):
                     content = ocr_text

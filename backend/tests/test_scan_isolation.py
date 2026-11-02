@@ -11,7 +11,7 @@ import time
 from multiprocessing import Pipe
 from types import SimpleNamespace
 
-import fitz
+import pymupdf
 import pytest
 from PIL import Image
 
@@ -23,7 +23,7 @@ from backend.tests import _scan_helper_stubs as stubs
 
 
 def _pdf(path, pages=1):
-    doc = fitz.open()
+    doc = pymupdf.open()
     for _ in range(pages):
         doc.new_page(width=300, height=400).insert_text((40, 60), "Grimoire")
     doc.save(str(path))

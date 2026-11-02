@@ -28,7 +28,7 @@ from concurrent.futures import ThreadPoolExecutor
 from multiprocessing.connection import Connection
 from typing import Any, NamedTuple
 
-import fitz  # PyMuPDF
+import pymupdf
 from PIL import Image
 
 from . import ops
@@ -58,9 +58,9 @@ class Documents:
 
     def __init__(self, limit: int = DOC_CACHE_MAX) -> None:
         self.limit = limit
-        self._docs: "OrderedDict[str, fitz.Document]" = OrderedDict()
+        self._docs: "OrderedDict[str, pymupdf.Document]" = OrderedDict()
 
-    def get(self, filepath: str) -> fitz.Document:
+    def get(self, filepath: str) -> pymupdf.Document:
         doc = self._docs.get(filepath)
         if doc is not None:
             self._docs.move_to_end(filepath)
@@ -87,7 +87,7 @@ class Documents:
         return len(self._docs)
 
 
-def _close(doc: fitz.Document) -> None:
+def _close(doc: pymupdf.Document) -> None:
     try:
         doc.close()
     except (RuntimeError, ValueError):

@@ -416,9 +416,9 @@ class TestServeMapFile:
 
 def _write_pdf(path, pages=1):
     """Create a real multi-page PDF on disk so PyMuPDF can render it."""
-    import fitz
+    import pymupdf
 
-    doc = fitz.open()
+    doc = pymupdf.open()
     for i in range(pages):
         page = doc.new_page(width=612, height=792)
         page.insert_text((72, 72), f"Map page {i + 1}")

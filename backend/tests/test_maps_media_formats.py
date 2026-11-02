@@ -180,10 +180,10 @@ class TestServeMapPagePreview:
         assert resp.headers["etag"] != old.headers["etag"]
 
     def test_pdf_map_page_revalidates(self, client, admin_headers, tmp_path):
-        import fitz  # type: ignore[import-untyped]
+        import pymupdf
 
         path = tmp_path / "dungeon.pdf"
-        doc = fitz.open()
+        doc = pymupdf.open()
         doc.new_page(width=200, height=200)
         doc.save(str(path))
         doc.close()

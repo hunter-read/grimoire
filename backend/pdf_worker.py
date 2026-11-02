@@ -5,7 +5,7 @@ This module is the entry point run inside the spawned child process created by
 ``backend`` package except ``config``, for its settings: importing that does no
 file, database or network I/O and doesn't load SQLAlchemy (issue #585), so a
 throwaway extraction process pays for neither.  Everything else here depends only
-on ``fitz`` (always needed) and, when OCR is configured, ``PIL``/``pytesseract``.
+on ``pymupdf`` (always needed) and, when OCR is configured, ``PIL``/``pytesseract``.
 
 Keep the extraction logic in ``run`` behaviourally identical to
 ``indexer.extract_text_from_pdf`` (the in-process reference used by tests and the
@@ -16,7 +16,7 @@ the two produce the same output.
 import os
 import pickle
 
-import fitz  # PyMuPDF
+import pymupdf
 
 from . import config
 
@@ -69,9 +69,9 @@ def run(filepath: str, text_only: bool = False) -> tuple[list[dict], bool]:
     used_ocr = False
     ocr_on = False if text_only else _ocr_settings()[0]
     languages = _ocr_settings()[1] if ocr_on else "eng"
-    doc = fitz.open(filepath)
+    doc = pymupdf.open(filepath)
     try:
-        for i, page in enumerate(doc):
+        for i, page in enumerate(doc.pages()):
             page_text = page.get_text().strip()
             content = page_text
             # A page with only a header is read by OCR too, not just a blank
@@ -116,7 +116,7 @@ def ocr_page(filepath: str, page_index: int, languages: str, dpi: int | None = N
     global ``OCR_DPI`` default. Used by the per-book re-OCR flow to re-read a
     specific book at a sharper resolution.
     """
-    doc = fitz.open(filepath)
+    doc = pymupdf.open(filepath)
     try:
         page = doc[page_index]
         embedded = page.get_text().strip()
@@ -150,14 +150,14 @@ def _ocr_scale(dpi: int | None = None) -> float:
     return value / 72.0
 
 
-def _ocr_page(page: "fitz.Page", languages: str, dpi: int | None = None) -> str:
+def _ocr_page(page: "pymupdf.Page", languages: str, dpi: int | None = None) -> str:
     """Render a page to an image and OCR it, returning stripped text ("" on failure)."""
     try:
         from PIL import Image
         import pytesseract
 
         scale = _ocr_scale(dpi)
-        pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), alpha=False)
+        pix = page.get_pixmap(matrix=pymupdf.Matrix(scale, scale), alpha=False)
         image = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
         return pytesseract.image_to_string(image, lang=languages).strip()
     except Exception:
