@@ -164,7 +164,7 @@ class TestNormalizeIcon:
             svc.normalize_icon(src)
 
     def test_svg_render_failure_is_icon_error(self):
-        with patch("fitz.open", side_effect=RuntimeError("boom")):
+        with patch("pymupdf.open", side_effect=RuntimeError("boom")):
             with pytest.raises(svc.IconError, match="Could not render SVG"):
                 svc.normalize_icon(SVG)
 
@@ -181,7 +181,7 @@ class TestNormalizeIcon:
             def close(self):
                 pass
 
-        with patch("fitz.open", return_value=_Doc()):
+        with patch("pymupdf.open", return_value=_Doc()):
             with pytest.raises(svc.IconError, match="no size"):
                 svc.normalize_icon(SVG)
 

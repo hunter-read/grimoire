@@ -4,7 +4,7 @@ import os
 import tempfile
 import uuid
 
-import fitz  # type: ignore[import-untyped]
+import pymupdf
 import pytest
 from PIL import Image, ImageChops, ImageStat
 
@@ -27,16 +27,16 @@ def tmpdir_mod():
 def _pdf_book(system_id, tmp, *, rotation=0, cropbox=None, mime="application/pdf"):
     """A one-page PDF of distinct coloured blocks, so a misplaced tile shows."""
     path = os.path.join(tmp, f"tiles-{uuid.uuid4().hex[:8]}.pdf")
-    doc = fitz.open()
+    doc = pymupdf.open()
     page = doc.new_page(width=612, height=792)
     colours = [(1, 0, 0), (0, 0.6, 0), (0, 0, 1), (0.9, 0.7, 0), (0.5, 0, 0.5), (0, 0.6, 0.6)]
     for i in range(6):
         for j in range(8):
-            rect = fitz.Rect(i * 102, j * 99, i * 102 + 90, j * 99 + 90)
+            rect = pymupdf.Rect(i * 102, j * 99, i * 102 + 90, j * 99 + 90)
             page.draw_rect(rect, color=None, fill=colours[(i + j) % len(colours)])
     page.insert_text((40, 60), "Zorbulax", fontsize=36, color=(1, 1, 1))
     if cropbox:
-        page.set_cropbox(fitz.Rect(*cropbox))
+        page.set_cropbox(pymupdf.Rect(*cropbox))
     if rotation:
         page.set_rotation(rotation)
     doc.save(path)
@@ -60,10 +60,10 @@ def _tile(client, headers, book, col, row, width=WIDTH, page=1):
 
 def _reference(book, width):
     """The whole page rendered directly at ``width``, to cut the expected tiles from."""
-    doc = fitz.open(book.filepath)
+    doc = pymupdf.open(book.filepath)
     page = doc[0]
     scale = width / page.rect.width
-    pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), alpha=False)
+    pix = page.get_pixmap(matrix=pymupdf.Matrix(scale, scale), alpha=False)
     image = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
     doc.close()
     return image
@@ -82,7 +82,7 @@ class TestTileContent:
     def test_tiles_reassemble_the_page(self, client, admin_headers, sys_row, tmpdir_mod, kwargs):
         book = _pdf_book(sys_row.id, tmpdir_mod, **kwargs)
         reference = _reference(book, WIDTH)
-        doc = fitz.open(book.filepath)
+        doc = pymupdf.open(book.filepath)
         cols, rows = tiles.tile_grid(doc[0].rect, WIDTH)
         doc.close()
         for col in range(cols):

@@ -295,6 +295,16 @@ def run_checks(api: Api, container: str, target: str) -> None:
         "the map gets a thumbnail",
     )
 
+    print("Log")
+    # By now the server, its render workers, the scan and the text extraction
+    # have all imported PyMuPDF. Under its legacy name each would print this to
+    # stdout, past any warnings filter (issue #788).
+    logs = subprocess.run(["docker", "logs", container], capture_output=True, text=True)
+    check(
+        "`fitz` API is deprecated" not in logs.stdout + logs.stderr,
+        "no process prints PyMuPDF's `fitz` deprecation warning",
+    )
+
     print("Bundled tools")
     # The fixture is a stored (uncompressed) RAR, which rarfile reads in pure
     # Python, so the thumbnail above doesn't prove unar works. Real CBRs are
@@ -369,6 +379,9 @@ def main() -> int:
             "-e", "LIBRARY_PATH=/library",
             "-e", "DATA_PATH=/data",
             "-e", "DISABLE_VERSION_CHECKING=true",
+            # More than one render worker, so the log check below covers the
+            # worker processes as well as the server (issue #788).
+            "-e", "RENDER_WORKERS=2",
             args.image,
         )
         return container

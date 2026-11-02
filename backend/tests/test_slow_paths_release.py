@@ -15,7 +15,7 @@ import json
 import os
 import uuid
 
-import fitz  # type: ignore[import-untyped]
+import pymupdf
 import httpx
 import pytest
 import yaml
@@ -126,7 +126,7 @@ def isolated_addons(tmp_path, monkeypatch):
 
 def _pdf(tmp_path):
     path = str(tmp_path / f"slow-{uuid.uuid4().hex[:8]}.pdf")
-    doc = fitz.open()
+    doc = pymupdf.open()
     doc.new_page(width=612, height=792).insert_text((72, 72), "Slow")
     doc.set_metadata({"title": "Slow Paths", "author": "Someone"})
     doc.save(path)

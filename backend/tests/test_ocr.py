@@ -117,10 +117,10 @@ class TestExtractOcrFallback:
 
     def test_ocr_used_when_no_text_layer(self, tmp_path):
         """A page with no embedded text is OCR'd when OCR is available."""
-        import fitz
+        import pymupdf
 
         pdf_path = tmp_path / "image_only.pdf"
-        doc = fitz.open()
+        doc = pymupdf.open()
         doc.new_page()  # blank page — get_text() returns ""
         doc.save(str(pdf_path))
         doc.close()
@@ -136,10 +136,10 @@ class TestExtractOcrFallback:
 
     def test_no_ocr_when_unavailable(self, tmp_path):
         """With OCR unavailable, a text-less page yields no pages (image-only)."""
-        import fitz
+        import pymupdf
 
         pdf_path = tmp_path / "image_only.pdf"
-        doc = fitz.open()
+        doc = pymupdf.open()
         doc.new_page()
         doc.save(str(pdf_path))
         doc.close()

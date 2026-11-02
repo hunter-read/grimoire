@@ -322,11 +322,11 @@ def test_guest_book_metadata_follows_campaign_share(client, gm_headers, campaign
 
 def test_guest_page_export_follows_campaign_share(client, gm_headers, campaign, guest, tmp_path):
     """Export, page sizes and shape detection check access like /file does."""
-    import fitz
+    import pymupdf
 
     headers, _ = guest
     path = tmp_path / f"export-{uid()}.pdf"
-    doc = fitz.open()
+    doc = pymupdf.open()
     doc.new_page(width=200, height=300)
     doc.save(str(path))
     system = make_game_system()

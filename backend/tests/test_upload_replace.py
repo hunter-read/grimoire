@@ -12,7 +12,7 @@ import shutil
 import uuid
 from unittest.mock import patch
 
-import fitz  # type: ignore[import-untyped]
+import pymupdf
 import pytest
 from sqlalchemy import text
 
@@ -63,7 +63,7 @@ _FILLER = "The corridor turns north and the air grows cold."
 
 
 def _pdf(*pages: str) -> bytes:
-    doc = fitz.open()
+    doc = pymupdf.open()
     for body in pages:
         page = doc.new_page()
         page.insert_text((72, 72), body)

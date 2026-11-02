@@ -10,7 +10,7 @@ import re
 import zipfile
 from dataclasses import dataclass
 
-import fitz  # type: ignore[import-untyped]
+import pymupdf
 
 from .pdf import pages_pdf, region_pdf
 from .render import check_budget, encode, render_region
@@ -68,7 +68,7 @@ def _unique(names: list[str]) -> list[str]:
 
 
 def export_pages(
-    doc: fitz.Document,
+    doc: pymupdf.Document,
     title: str,
     pages: list[int],
     fmt: str,
@@ -109,7 +109,7 @@ def export_pages(
 
 
 def export_regions(
-    doc: fitz.Document,
+    doc: pymupdf.Document,
     title: str,
     regions: list[Region],
     fmt: str,

@@ -7,7 +7,7 @@ through the shared session client, which runs the real /api/api-keys flow.
 import uuid
 from contextlib import contextmanager
 
-import fitz
+import pymupdf
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import text
@@ -96,9 +96,9 @@ def index_page(book_id, page, content):
 def make_pdf_book(directory, system_id, pages, toc=None, **kwargs):
     """A real PDF on disk with ``pages`` of text, registered as a book."""
     path = directory / f"book-{uuid.uuid4().hex[:6]}.pdf"
-    doc = fitz.open()
+    doc = pymupdf.open()
     for body in pages:
-        doc.new_page().insert_textbox(fitz.Rect(50, 50, 550, 800), body, fontsize=12)
+        doc.new_page().insert_textbox(pymupdf.Rect(50, 50, 550, 800), body, fontsize=12)
     if toc:
         doc.set_toc(toc)
     doc.save(str(path))

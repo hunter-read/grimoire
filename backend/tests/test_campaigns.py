@@ -1735,14 +1735,14 @@ class TestUploadCaching:
 
 def _form_pdf_bytes():
     """A one-page PDF with a single fillable text field named 'name'."""
-    import fitz
+    import pymupdf
 
-    doc = fitz.open()
+    doc = pymupdf.open()
     page = doc.new_page()
-    w = fitz.Widget()
+    w = pymupdf.Widget()
     w.field_name = "name"
-    w.field_type = fitz.PDF_WIDGET_TYPE_TEXT
-    w.rect = fitz.Rect(50, 50, 250, 70)
+    w.field_type = pymupdf.PDF_WIDGET_TYPE_TEXT
+    w.rect = pymupdf.Rect(50, 50, 250, 70)
     w.field_value = ""
     page.add_widget(w)
     data = doc.tobytes()

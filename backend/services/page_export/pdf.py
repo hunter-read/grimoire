@@ -5,13 +5,13 @@ text stays selectable and a character sheet prints as sharply as the book does.
 A rectangular cut-out is a new page the size of the region with the source page
 placed into it, clipped - still vector, just smaller.
 """
-import fitz  # type: ignore[import-untyped]
+import pymupdf
 
 from .render import composite_for
 from .spec import Region
 
 
-def as_pdf(doc: fitz.Document) -> fitz.Document:
+def as_pdf(doc: pymupdf.Document) -> pymupdf.Document:
     """``doc`` itself when it is a PDF, otherwise a PDF conversion of it.
 
     EPUB, XPS and the other non-PDF formats PyMuPDF reads cannot be copied from
@@ -19,7 +19,7 @@ def as_pdf(doc: fitz.Document) -> fitz.Document:
     """
     if doc.is_pdf:
         return doc
-    return fitz.open("pdf", doc.convert_to_pdf())
+    return pymupdf.open("pdf", doc.convert_to_pdf())
 
 
 def _runs(pages: list[int]) -> list[tuple[int, int]]:
@@ -33,10 +33,10 @@ def _runs(pages: list[int]) -> list[tuple[int, int]]:
     return runs
 
 
-def pages_pdf(doc: fitz.Document, pages: list[int]) -> bytes:
+def pages_pdf(doc: pymupdf.Document, pages: list[int]) -> bytes:
     """A new PDF holding ``pages`` (1-based), in the order given."""
     src = as_pdf(doc)
-    out = fitz.open()
+    out = pymupdf.open()
     try:
         for first, last in _runs(pages):
             out.insert_pdf(src, from_page=first - 1, to_page=last - 1)
@@ -49,10 +49,10 @@ def pages_pdf(doc: fitz.Document, pages: list[int]) -> bytes:
             src.close()
 
 
-def region_pdf(doc: fitz.Document, region: Region) -> bytes:
+def region_pdf(doc: pymupdf.Document, region: Region) -> bytes:
     """A one-page PDF of a rectangular region, kept as vector content."""
     src = as_pdf(doc)
-    out = fitz.open()
+    out = pymupdf.open()
     try:
         composite = composite_for(src, region.pages)
         rx0 = region.x * composite.width
@@ -66,13 +66,13 @@ def region_pdf(doc: fitz.Document, region: Region) -> bytes:
             ix0, ix1 = max(rx0, part.offset), min(rx1, span_x1)
             if ix1 <= ix0:
                 continue
-            clip = fitz.Rect(
+            clip = pymupdf.Rect(
                 prect.x0 + (ix0 - part.offset) / part.scale,
                 prect.y0 + ry0 / part.scale,
                 prect.x0 + (ix1 - part.offset) / part.scale,
                 prect.y0 + ry1 / part.scale,
             )
-            target = fitz.Rect(ix0 - rx0, 0, ix1 - rx0, ry1 - ry0)
+            target = pymupdf.Rect(ix0 - rx0, 0, ix1 - rx0, ry1 - ry0)
             target_page.show_pdf_page(target, src, part.page - 1, clip=clip)
         return out.tobytes(garbage=3, deflate=True)
     finally:

@@ -4,7 +4,7 @@ import os
 import uuid
 import zipfile
 
-import fitz
+import pymupdf
 import pytest
 from PIL import Image
 
@@ -13,7 +13,7 @@ from backend.tests.conftest import make_book, make_game_system, make_map
 
 
 def _write_pdf(path: str, pages: int = 4) -> str:
-    doc = fitz.open()
+    doc = pymupdf.open()
     for i in range(pages):
         page = doc.new_page(width=200, height=300)
         page.insert_text((20, 40), f"Page {i + 1}", fontsize=14)
@@ -64,7 +64,7 @@ class TestBookExport:
         assert resp.headers["content-type"] == "application/pdf"
         disposition = resp.headers["content-disposition"]
         assert "filename*=UTF-8''M%C3%B6rk%20Borg%20%28p2-3%29.pdf" in disposition
-        assert len(fitz.open("pdf", resp.content)) == 2
+        assert len(pymupdf.open("pdf", resp.content)) == 2
 
     def test_pages_as_images_are_zipped(self, client, admin_headers, pdf_book):
         resp = client.post(
@@ -121,7 +121,7 @@ class TestBookExport:
         from backend import config
         from backend.render import pool
 
-        doc = fitz.open()
+        doc = pymupdf.open()
         for _ in range(100):
             doc.new_page(width=612, height=792)
         path = str(tmp_path / "chapter.pdf")
@@ -206,9 +206,9 @@ class TestBookPageHelpers:
 
     def test_shapes(self, client, admin_headers, sys_row, tmp_path):
         path = str(tmp_path / f"tokens-{uuid.uuid4().hex[:8]}.pdf")
-        doc = fitz.open()
+        doc = pymupdf.open()
         page = doc.new_page(width=400, height=400)
-        page.draw_circle(fitz.Point(100, 100), 50, color=(0, 0, 0), width=2)
+        page.draw_circle(pymupdf.Point(100, 100), 50, color=(0, 0, 0), width=2)
         doc.save(path)
         book = make_book(
             system_id=sys_row.id, filepath=path, filename="tokens.pdf", mime_type="application/pdf"

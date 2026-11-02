@@ -2,7 +2,7 @@
 import logging
 from unittest.mock import patch
 
-import fitz
+import pymupdf
 import pytest
 
 from backend import config, ocr
@@ -65,7 +65,7 @@ def _book(tmp_path, filename="scan.pdf", language=""):
 
 
 def _pdf(path, lang=None):
-    doc = fitz.open()
+    doc = pymupdf.open()
     doc.new_page()
     if lang:
         doc.xref_set_key(doc.pdf_catalog(), "Lang", f"({lang})")

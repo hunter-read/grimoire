@@ -3,7 +3,7 @@ import uuid
 import zipfile
 from datetime import date
 
-import fitz  # type: ignore[import-untyped]
+import pymupdf
 import pytest
 
 from backend import config
@@ -61,7 +61,7 @@ def _make_corrupt_epub(path, compression):
 
 
 def _make_pdf(path, metadata=None, language=None, xmp=None, custom=None):
-    doc = fitz.open()
+    doc = pymupdf.open()
     doc.new_page()
     if metadata or custom:
         doc.set_metadata(metadata or {"title": ""})
@@ -134,7 +134,7 @@ class TestDocumentMetadataOp:
         path = _make_pdf(
             tmp_path / "a.pdf", {"title": "Mothership", "author": "Sean McCoy"}, "en-US"
         )
-        doc = fitz.open(path)
+        doc = pymupdf.open(path)
         info = ops.document_metadata(doc)
         doc.close()
         assert info["title"] == "Mothership"
@@ -147,7 +147,7 @@ class TestDocumentMetadataOp:
         path = _make_pdf(
             tmp_path / "a.pdf", xmp=xmp, custom={"Notes": "x", "ISBN": "0-306-40615-2"}
         )
-        doc = fitz.open(path)
+        doc = pymupdf.open(path)
         info = ops.document_metadata(doc)
         doc.close()
         assert info["isbn"] == "0-306-40615-2"
@@ -156,7 +156,7 @@ class TestDocumentMetadataOp:
     def test_an_oversized_xmp_packet_is_dropped(self, tmp_path, monkeypatch):
         path = _make_pdf(tmp_path / "a.pdf", xmp=_xmp(">" + "x" * 200))
         monkeypatch.setattr(ops, "MAX_XMP_CHARS", 100)
-        doc = fitz.open(path)
+        doc = pymupdf.open(path)
         assert ops.document_metadata(doc)["xmp"] == ""
         doc.close()
 

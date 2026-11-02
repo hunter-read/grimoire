@@ -4,7 +4,7 @@ MuPDF renders a negative zoom at its absolute size, so a negative width used to
 render (and cache) an enormous page. The routes bound the width, and the
 rasterizer refuses one outside the range whatever its caller checked.
 """
-import fitz  # type: ignore[import-untyped]
+import pymupdf
 import pytest
 
 from backend.render import ops, pool, worker
@@ -14,7 +14,7 @@ from backend.tests.conftest import make_book, make_game_system, make_map
 
 
 def _pdf(path):
-    doc = fitz.open()
+    doc = pymupdf.open()
     doc.new_page().insert_text((72, 72), "page")
     doc.save(str(path))
     doc.close()
@@ -68,7 +68,7 @@ def test_the_smallest_allowed_width_still_renders(client, admin_headers, tmp_pat
 
 @pytest.mark.parametrize("width", [-5, 0, ops.MIN_RENDER_WIDTH - 1, ops.MAX_RENDER_WIDTH + 1])
 def test_the_rasterizer_refuses_a_width_out_of_range(tmp_path, width):
-    doc = fitz.open(_pdf(tmp_path / "r.pdf"))
+    doc = pymupdf.open(_pdf(tmp_path / "r.pdf"))
     try:
         with pytest.raises(ops.WidthOutOfRange) as err:
             ops.rasterize_page(doc, 1, width)

@@ -16,7 +16,7 @@ import logging
 import threading
 from typing import Any, Callable, Optional, cast
 
-import fitz
+import pymupdf
 from PIL import Image
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session
@@ -170,7 +170,7 @@ def ocr_image(image: Image.Image, should_stop: Optional[Callable[[], bool]] = No
     return (result[0] or "").strip()
 
 
-def ocr_pixmap(pixmap: "fitz.Pixmap", should_stop: Optional[Callable[[], bool]] = None) -> str:
+def ocr_pixmap(pixmap: "pymupdf.Pixmap", should_stop: Optional[Callable[[], bool]] = None) -> str:
     """Run OCR on a PyMuPDF pixmap by converting it to a PIL image first."""
     try:
         image = Image.frombytes("RGB", (pixmap.width, pixmap.height), pixmap.samples)

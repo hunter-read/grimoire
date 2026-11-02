@@ -362,9 +362,9 @@ def rendered_pdf_book():
 
     Exercises the fitz-backed render/TOC/text/words paths in pages.py.
     """
-    import fitz
+    import pymupdf
 
-    doc = fitz.open()
+    doc = pymupdf.open()
     for n in (1, 2):
         page = doc.new_page(width=300, height=400)
         page.insert_text((72, 72), f"Hello page {n} lorem ipsum", fontsize=14)

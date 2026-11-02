@@ -13,7 +13,7 @@ import io
 import math
 from typing import Any
 
-import fitz  # PyMuPDF
+import pymupdf
 from PIL import Image
 
 # A zoom tile is at most this many pixels square (issue #574).
@@ -80,17 +80,17 @@ class RenderTimeoutError(RenderError):
     """The worker did not answer in time and was stopped."""
 
 
-def tile_grid(page_rect: fitz.Rect, width: int) -> tuple[int, int]:
+def tile_grid(page_rect: pymupdf.Rect, width: int) -> tuple[int, int]:
     """(columns, rows) of tiles covering the page rendered ``width`` pixels wide."""
     height = page_rect.height * width / page_rect.width
     return math.ceil(width / TILE_SIZE), math.ceil(height / TILE_SIZE)
 
 
-def tile_clip(page_rect: fitz.Rect, width: int, col: int, row: int) -> fitz.Rect:
+def tile_clip(page_rect: pymupdf.Rect, width: int, col: int, row: int) -> pymupdf.Rect:
     """The area of the page, in page coordinates, that tile ``col``/``row`` shows."""
     scale = width / page_rect.width
     height = page_rect.height * scale
-    return fitz.Rect(
+    return pymupdf.Rect(
         page_rect.x0 + col * TILE_SIZE / scale,
         page_rect.y0 + row * TILE_SIZE / scale,
         page_rect.x0 + min((col + 1) * TILE_SIZE, width) / scale,
@@ -98,18 +98,18 @@ def tile_clip(page_rect: fitz.Rect, width: int, col: int, row: int) -> fitz.Rect
     )
 
 
-def _page(doc: fitz.Document, page_num: int) -> fitz.Page:
+def _page(doc: pymupdf.Document, page_num: int) -> pymupdf.Page:
     if page_num < 1 or page_num > len(doc):
         raise PageOutOfRange(len(doc))
     return doc[page_num - 1]
 
 
-def rasterize_page(doc: fitz.Document, page_num: int, width: int) -> Image.Image:
+def rasterize_page(doc: pymupdf.Document, page_num: int, width: int) -> Image.Image:
     """Page ``page_num`` (1-based) as an RGB image ``width`` pixels wide."""
     _check_width(width)
     page = _page(doc, page_num)
     zoom = width / page.rect.width
-    pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
+    pix = page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom), alpha=False)
     img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
     # Drop the pixmap now, so its buffer is part of what a reclaim frees.
     del pix, page
@@ -117,7 +117,7 @@ def rasterize_page(doc: fitz.Document, page_num: int, width: int) -> Image.Image
 
 
 def rasterize_tile(
-    doc: fitz.Document, page_num: int, width: int, col: int, row: int
+    doc: pymupdf.Document, page_num: int, width: int, col: int, row: int
 ) -> Image.Image:
     """Tile ``col``/``row`` of the page rendered ``width`` pixels wide."""
     _check_width(width)
@@ -127,7 +127,7 @@ def rasterize_tile(
         raise TileOutOfRange(cols, rows, width)
     scale = width / page.rect.width
     pix = page.get_pixmap(
-        matrix=fitz.Matrix(scale, scale),
+        matrix=pymupdf.Matrix(scale, scale),
         clip=tile_clip(page.rect, width, col, row),
         alpha=False,
     )
@@ -142,11 +142,11 @@ def encode_webp(img: Image.Image, quality: int = 85, method: int = 0) -> bytes:
     return buf.getvalue()
 
 
-def page_text(doc: fitz.Document, page_num: int) -> str:
+def page_text(doc: pymupdf.Document, page_num: int) -> str:
     return _page(doc, page_num).get_text("text").strip()
 
 
-def page_words(doc: fitz.Document, page_num: int) -> dict[str, Any]:
+def page_words(doc: pymupdf.Document, page_num: int) -> dict[str, Any]:
     """The page's size and its words with their boxes, for the text-selection overlay."""
     page = _page(doc, page_num)
     rect = page.rect
@@ -160,7 +160,7 @@ def page_words(doc: fitz.Document, page_num: int) -> dict[str, Any]:
     }
 
 
-def document_info(doc: fitz.Document) -> dict[str, Any]:
+def document_info(doc: pymupdf.Document) -> dict[str, Any]:
     """Page count and the first page's size in points (None for an empty document)."""
     info: dict[str, Any] = {"page_count": len(doc), "width": None, "height": None}
     if len(doc):
@@ -169,7 +169,7 @@ def document_info(doc: fitz.Document) -> dict[str, Any]:
     return info
 
 
-def document_metadata(doc: fitz.Document) -> dict[str, str]:
+def document_metadata(doc: pymupdf.Document) -> dict[str, str]:
     """The document's own info dictionary, plus ``language``, ``isbn`` and ``xmp``.
 
     ``language`` is the catalog's ``/Lang``, ``isbn`` a custom info-dictionary
@@ -198,7 +198,7 @@ def document_metadata(doc: fitz.Document) -> dict[str, str]:
     return info
 
 
-def _custom_isbn(doc: fitz.Document) -> str:
+def _custom_isbn(doc: pymupdf.Document) -> str:
     """The value of the first ``/Info`` key whose name mentions ISBN, or ""."""
     try:
         kind, ref = doc.xref_get_key(-1, "Info")

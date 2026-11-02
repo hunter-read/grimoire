@@ -1,5 +1,5 @@
 """Unit tests for map metadata + PDF page rendering helpers."""
-import fitz
+import pymupdf
 from PIL import Image
 
 from backend.services.media.maps import (
@@ -17,7 +17,7 @@ def _png(path, w, h, dpi=None):
 
 
 def _pdf(path, pages=1, w=612, h=792):
-    doc = fitz.open()
+    doc = pymupdf.open()
     for _ in range(pages):
         doc.new_page(width=w, height=h)
     doc.save(str(path))

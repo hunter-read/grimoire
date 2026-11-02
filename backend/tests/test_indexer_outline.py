@@ -7,7 +7,7 @@ in a 257-page scan. ``read_toc`` walks the outline itself in that case.
 """
 import os
 
-import fitz
+import pymupdf
 import pytest
 
 from backend.indexer.outline import read_toc as reexported_read_toc
@@ -28,7 +28,7 @@ TOC = [
 
 def _build(tmp_path, toc=TOC, pages=5, name="book.pdf"):
     """Save a ``pages``-page PDF with ``toc`` as its outline; return its path."""
-    doc = fitz.open()
+    doc = pymupdf.open()
     for _ in range(pages):
         doc.new_page(width=200, height=300)
     doc.set_toc(toc)
@@ -48,7 +48,7 @@ def _item(doc, title):
 
 def _edit(path, edits):
     """Rewrite outline items' keys (``{title: {key: value}}``) and reopen the file."""
-    doc = fitz.open(path)
+    doc = pymupdf.open(path)
     for title, keys in edits.items():
         xref = _item(doc, title)
         for key, value in keys.items():
@@ -56,7 +56,7 @@ def _edit(path, edits):
     out = path.replace(".pdf", "-edited.pdf")
     doc.save(out)
     doc.close()
-    return fitz.open(out)
+    return pymupdf.open(out)
 
 
 def _break_rear_cover(path, dest="[5 /FitH 600]"):
@@ -66,7 +66,7 @@ def _break_rear_cover(path, dest="[5 /FitH 600]"):
 
 class TestReadToc:
     def test_uses_get_toc_when_the_outline_loads(self, tmp_path):
-        doc = fitz.open(_build(tmp_path))
+        doc = pymupdf.open(_build(tmp_path))
         assert read_toc(doc) == doc.get_toc(simple=True) == TOC
 
     def test_recovers_every_entry_when_one_bookmark_is_out_of_range(self, tmp_path):
@@ -78,7 +78,7 @@ class TestReadToc:
         assert read_toc(doc) == TOC
 
     def test_a_document_without_an_outline_has_no_toc(self, tmp_path):
-        doc = fitz.open(_build(tmp_path, toc=[]))
+        doc = pymupdf.open(_build(tmp_path, toc=[]))
         assert read_toc(doc) == []
 
     def test_non_pdf_documents_keep_get_toc_result(self):
@@ -91,7 +91,7 @@ class TestReadToc:
         assert read_toc(FakeEpub()) == []
 
     def test_falls_back_when_get_toc_raises(self, tmp_path, monkeypatch):
-        doc = fitz.open(_build(tmp_path))
+        doc = pymupdf.open(_build(tmp_path))
         monkeypatch.setattr(doc, "get_toc", lambda simple=True: 1 / 0)
         assert read_toc(doc) == TOC
 
@@ -111,7 +111,7 @@ class TestReadToc:
 
     def test_a_next_loop_does_not_hang(self, tmp_path):
         path = _build(tmp_path)
-        doc = fitz.open(path)
+        doc = pymupdf.open(path)
         first = _item(doc, "Front Cover")
         doc.close()
         doc = _break_rear_cover(path)
@@ -128,7 +128,7 @@ class TestDestinations:
 
     def test_dest_key_with_a_page_reference(self, tmp_path):
         path = _build(tmp_path)
-        doc = fitz.open(path)
+        doc = pymupdf.open(path)
         page3 = doc.page_xref(2)
         doc.close()
         doc = _edit(path, {"Chapter 2": {"A": "null", "Dest": f"[{page3} 0 R /Fit]"}})
@@ -235,10 +235,10 @@ def test_toc_endpoint_survives_a_broken_bookmark(tmp_path, client, admin_headers
 @pytest.fixture(autouse=True)
 def _quiet_mupdf():
     """Keep MuPDF's complaints about the deliberately broken files out of stderr."""
-    previous = fitz.TOOLS.mupdf_display_errors()
-    fitz.TOOLS.mupdf_display_errors(False)
+    previous = pymupdf.TOOLS.mupdf_display_errors()
+    pymupdf.TOOLS.mupdf_display_errors(False)
     yield
-    fitz.TOOLS.mupdf_display_errors(previous)
+    pymupdf.TOOLS.mupdf_display_errors(previous)
 
 
 def test_the_indexer_path_still_exports_read_toc():

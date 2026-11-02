@@ -12,7 +12,7 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 
-import fitz  # type: ignore[import-untyped]
+import pymupdf
 import pytest
 from sqlalchemy import inspect
 
@@ -39,7 +39,7 @@ def no_valkey(monkeypatch):
 
 def _pdf(tmp):
     path = os.path.join(tmp, f"burst-{uuid.uuid4().hex[:8]}.pdf")
-    doc = fitz.open()
+    doc = pymupdf.open()
     doc.new_page(width=612, height=792).insert_text((72, 72), "Burst")
     doc.save(path)
     doc.close()

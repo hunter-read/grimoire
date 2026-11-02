@@ -20,7 +20,7 @@ import math
 import re
 from dataclasses import dataclass, field
 
-import fitz  # type: ignore[import-untyped]
+import pymupdf
 from PIL import Image, ImageChops, ImageDraw, ImageFilter  # type: ignore[import-untyped]
 
 from .spec import Shape
@@ -239,14 +239,14 @@ def _split(mask: Image.Image, min_area: int, erode: int = _ERODE) -> list[Image.
     return [mask]
 
 
-def detect_raster_shapes(page: fitz.Page) -> list[tuple[fitz.Rect, Shape]]:
+def detect_raster_shapes(page: pymupdf.Page) -> list[tuple[pymupdf.Rect, Shape]]:
     """Suggested cut-outs for a page whose content is pixels, in page points."""
     prect = page.rect
     scale = _LONG_SIDE / max(prect.width, prect.height)
     zoom = scale * _REFINE
     # One render, at the sharp scale; the analysis image is a reduction of it.
     # Rendering again per piece would decode a page-sized image every time.
-    pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
+    pix = page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom), alpha=False)
     hi = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
     del pix
     w, h = max(1, round(hi.width / _REFINE)), max(1, round(hi.height / _REFINE))
@@ -264,7 +264,7 @@ def detect_raster_shapes(page: fitz.Page) -> list[tuple[fitz.Rect, Shape]]:
     short = min(w, h)
     min_area = max(4, int((short * _MIN_SIDE_SHARE) ** 2 * 0.5))
 
-    found: list[tuple[fitz.Rect, Shape]] = []
+    found: list[tuple[pymupdf.Rect, Shape]] = []
     for reg in _label(eroded.tobytes(), w, h, _FG_RUN):
         box = (
             max(0, reg.x0 - pad),
@@ -281,7 +281,7 @@ def detect_raster_shapes(page: fitz.Page) -> list[tuple[fitz.Rect, Shape]]:
             if bb is None:
                 continue
             round_ = _ROUND_ASPECT[0] <= aspect <= _ROUND_ASPECT[1] and fill < _ROUND_FILL
-            rect = _measure(fg_hi, piece, box, scale, round_) or fitz.Rect(
+            rect = _measure(fg_hi, piece, box, scale, round_) or pymupdf.Rect(
                 prect.x0 + (box[0] + bb[0]) / scale,
                 prect.y0 + (box[1] + bb[1]) / scale,
                 prect.x0 + (box[0] + bb[2]) / scale,
@@ -297,7 +297,7 @@ def _measure(
     box: tuple[int, int, int, int],
     scale: float,
     round_: bool,
-) -> fitz.Rect | None:
+) -> pymupdf.Rect | None:
     """Re-measure a piece's box against the sharp render, in page points.
 
     Only sharp foreground inside the piece's own outline (grown by a pixel, to
@@ -317,7 +317,7 @@ def _measure(
     if round_:
         bb = _square_disc(shape, bb)
     zoom = scale * k
-    return fitz.Rect(
+    return pymupdf.Rect(
         (box[0] * k + bb[0]) / zoom,
         (box[1] * k + bb[1]) / zoom,
         (box[0] * k + bb[2]) / zoom,

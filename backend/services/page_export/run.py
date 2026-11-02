@@ -7,7 +7,7 @@ that crashes MuPDF must not take the server down with it.
 """
 from typing import Any
 
-import fitz  # type: ignore[import-untyped]
+import pymupdf
 
 from ...render.ops import PageOutOfRange
 from .bundle import ExportFile, export_pages, export_regions, safe_stem
@@ -15,7 +15,7 @@ from .detect import detect_shapes
 from .spec import Region, page_label, parse_page_spec
 
 
-def produce(doc: fitz.Document, title: str, spec: dict[str, Any]) -> tuple[list[ExportFile], str]:
+def produce(doc: pymupdf.Document, title: str, spec: dict[str, Any]) -> tuple[list[ExportFile], str]:
     """Run an export, returning its files and the name a zip of them would take.
 
     ``spec`` is the export request as plain data: ``kind`` ("pages" or
@@ -51,19 +51,19 @@ def produce(doc: fitz.Document, title: str, spec: dict[str, Any]) -> tuple[list[
     return export_regions(doc, title, regions, spec["format"], spec["dpi"]), f"{stem} (cut-outs)"
 
 
-def _page(doc: fitz.Document, page_num: int) -> fitz.Page:
+def _page(doc: pymupdf.Document, page_num: int) -> pymupdf.Page:
     if page_num < 1 or page_num > len(doc):
         raise PageOutOfRange(len(doc))
     return doc[page_num - 1]
 
 
-def page_size(doc: fitz.Document, page_num: int) -> dict[str, float]:
+def page_size(doc: pymupdf.Document, page_num: int) -> dict[str, float]:
     """A page's size in PDF points, for showing what a resolution will produce."""
     rect = _page(doc, page_num).rect
     return {"width": rect.width, "height": rect.height}
 
 
-def detect_page_shapes(doc: fitz.Document, page_num: int) -> list[dict[str, Any]]:
+def detect_page_shapes(doc: pymupdf.Document, page_num: int) -> list[dict[str, Any]]:
     """Suggested cut-outs for one page, as fractions of the page."""
     rect = _page(doc, page_num).rect
     width, height = rect.width, rect.height

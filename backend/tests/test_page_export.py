@@ -2,7 +2,7 @@
 import io
 import zipfile
 
-import fitz
+import pymupdf
 import pytest
 from PIL import Image
 
@@ -26,8 +26,8 @@ def _png(size=(40, 40), color=(200, 30, 30, 255), round_mask=False) -> bytes:
     return buf.getvalue()
 
 
-def _doc(pages=4, width=200, height=300) -> fitz.Document:
-    doc = fitz.open()
+def _doc(pages=4, width=200, height=300) -> pymupdf.Document:
+    doc = pymupdf.open()
     for i in range(pages):
         page = doc.new_page(width=width, height=height)
         page.insert_text((20, 40), f"Page {i + 1}", fontsize=14)
@@ -121,7 +121,7 @@ class TestRender:
         assert img.size == (400, 300)
 
     def test_spread_scales_a_shorter_page_to_match(self):
-        doc = fitz.open()
+        doc = pymupdf.open()
         doc.new_page(width=200, height=300)
         doc.new_page(width=100, height=150)
         comp = composite_for(doc, (1, 2))
@@ -138,7 +138,7 @@ class TestRender:
         Odd page sizes and resolutions put the join on a fractional pixel, where
         rounding could leave a white column between the two halves.
         """
-        doc = fitz.open()
+        doc = pymupdf.open()
         for width, height in sizes:
             page = doc.new_page(width=width, height=height)
             page.draw_rect(page.rect, color=None, fill=(0.1, 0.1, 0.1))
@@ -150,11 +150,11 @@ class TestRender:
             assert max(column) < 80, f"light seam at x={x}"
 
     def test_region_across_the_gutter(self):
-        doc = fitz.open()
+        doc = pymupdf.open()
         left = doc.new_page(width=100, height=100)
-        left.draw_rect(fitz.Rect(0, 0, 100, 100), color=None, fill=(1, 0, 0))
+        left.draw_rect(pymupdf.Rect(0, 0, 100, 100), color=None, fill=(1, 0, 0))
         right = doc.new_page(width=100, height=100)
-        right.draw_rect(fitz.Rect(0, 0, 100, 100), color=None, fill=(0, 0, 1))
+        right.draw_rect(pymupdf.Rect(0, 0, 100, 100), color=None, fill=(0, 0, 1))
         img = render_region(doc, pe.Region((1, 2), "rect", 0.25, 0, 0.5, 1), 72)
         assert img.size == (100, 100)
         assert img.getpixel((10, 50))[0] > 200  # red half from the left page
@@ -189,20 +189,20 @@ class TestPdf:
         assert _runs([3, 4, 5, 9, 1, 2]) == [(3, 5), (9, 9), (1, 2)]
 
     def test_pages_pdf_keeps_order_and_text(self):
-        out = fitz.open("pdf", pages_pdf(_doc(6), [5, 6, 2]))
+        out = pymupdf.open("pdf", pages_pdf(_doc(6), [5, 6, 2]))
         assert len(out) == 3
         assert "Page 5" in out[0].get_text()
         assert "Page 2" in out[2].get_text()
 
     def test_region_pdf_is_the_region_size_and_vector(self):
-        out = fitz.open("pdf", region_pdf(_doc(), pe.Region((1,), "rect", 0, 0, 0.5, 0.5)))
+        out = pymupdf.open("pdf", region_pdf(_doc(), pe.Region((1,), "rect", 0, 0, 0.5, 0.5)))
         assert len(out) == 1
         assert out[0].rect.width == pytest.approx(100)
         assert out[0].rect.height == pytest.approx(150)
         assert "Page 1" in out[0].get_text()
 
     def test_region_pdf_across_a_spread(self):
-        out = fitz.open("pdf", region_pdf(_doc(), pe.Region((2, 3), "rect", 0, 0, 1, 1)))
+        out = pymupdf.open("pdf", region_pdf(_doc(), pe.Region((2, 3), "rect", 0, 0, 1, 1)))
         assert out[0].rect.width == pytest.approx(400)
         text = out[0].get_text()
         assert "Page 2" in text and "Page 3" in text
@@ -210,7 +210,7 @@ class TestPdf:
     def test_as_pdf_converts_other_formats(self):
         doc = _doc()
         assert as_pdf(doc) is doc
-        xps_like = fitz.open("pdf", doc.tobytes())
+        xps_like = pymupdf.open("pdf", doc.tobytes())
         assert as_pdf(xps_like).is_pdf
 
 
@@ -325,23 +325,23 @@ class TestBundle:
 
 
 class TestDetect:
-    def _token_sheet(self) -> fitz.Document:
-        doc = fitz.open()
+    def _token_sheet(self) -> pymupdf.Document:
+        doc = pymupdf.open()
         page = doc.new_page(width=600, height=800)
         # A full-page background - too big to be a piece.
-        page.insert_image(fitz.Rect(0, 0, 600, 800), stream=_png((60, 80), (240, 240, 230, 255)))
+        page.insert_image(pymupdf.Rect(0, 0, 600, 800), stream=_png((60, 80), (240, 240, 230, 255)))
         # Two round tokens stored as square images with transparent corners.
-        page.insert_image(fitz.Rect(50, 50, 150, 150), stream=_png(round_mask=True))
-        page.insert_image(fitz.Rect(200, 50, 300, 150), stream=_png(round_mask=True))
+        page.insert_image(pymupdf.Rect(50, 50, 150, 150), stream=_png(round_mask=True))
+        page.insert_image(pymupdf.Rect(200, 50, 300, 150), stream=_png(round_mask=True))
         # A square token.
-        page.insert_image(fitz.Rect(350, 50, 450, 150), stream=_png())
+        page.insert_image(pymupdf.Rect(350, 50, 450, 150), stream=_png())
         # A circular vector frame drawn around nothing.
-        page.draw_circle(fitz.Point(100, 400), 60, color=(0, 0, 0), width=3)
+        page.draw_circle(pymupdf.Point(100, 400), 60, color=(0, 0, 0), width=3)
         # A frame drawn around an opaque square image - one round piece.
-        page.insert_image(fitz.Rect(250, 350, 350, 450), stream=_png())
-        page.draw_circle(fitz.Point(300, 400), 52, color=(0, 0, 0), width=3)
+        page.insert_image(pymupdf.Rect(250, 350, 350, 450), stream=_png())
+        page.draw_circle(pymupdf.Point(300, 400), 52, color=(0, 0, 0), width=3)
         # A tiny ornament.
-        page.insert_image(fitz.Rect(500, 700, 505, 705), stream=_png((4, 4)))
+        page.insert_image(pymupdf.Rect(500, 700, 505, 705), stream=_png((4, 4)))
         return doc
 
     def test_finds_tokens_and_their_shapes(self):
@@ -366,16 +366,16 @@ class TestDetect:
         assert [round(f.rect.x0) for f in found[:3]] == [50, 200, 350]
 
     def test_panel_holding_several_pieces_is_dropped(self):
-        doc = fitz.open()
+        doc = pymupdf.open()
         page = doc.new_page(width=600, height=800)
-        page.insert_image(fitz.Rect(10, 10, 400, 300), stream=_png())
-        page.insert_image(fitz.Rect(50, 50, 150, 150), stream=_png())
-        page.insert_image(fitz.Rect(200, 50, 300, 150), stream=_png())
+        page.insert_image(pymupdf.Rect(10, 10, 400, 300), stream=_png())
+        page.insert_image(pymupdf.Rect(50, 50, 150, 150), stream=_png())
+        page.insert_image(pymupdf.Rect(200, 50, 300, 150), stream=_png())
         found = pe.detect_shapes(doc, 1)
         assert len(found) == 2
 
     def test_scanned_page_finds_nothing(self):
-        doc = fitz.open()
+        doc = pymupdf.open()
         page = doc.new_page(width=600, height=800)
         page.insert_image(page.rect, stream=_png((60, 80)))
         assert pe.detect_shapes(doc, 1) == []
@@ -385,7 +385,7 @@ class TestDetectRaster:
     """Token sheets flattened into one page-sized picture (no structure to read)."""
 
     @staticmethod
-    def _flat_sheet(background=(255, 255, 255)) -> fitz.Document:
+    def _flat_sheet(background=(255, 255, 255)) -> pymupdf.Document:
         from PIL import ImageDraw
 
         scale = 4  # px per point in the embedded picture
@@ -403,7 +403,7 @@ class TestDetectRaster:
         d.ellipse((420 * scale, 80 * scale, 500 * scale, 160 * scale), fill=background)
         # A square card.
         d.rectangle((400 * scale, 400 * scale, 520 * scale, 520 * scale), fill=(40, 120, 60))
-        doc = fitz.open()
+        doc = pymupdf.open()
         page = doc.new_page(width=612, height=792)
         buf = io.BytesIO()
         img.save(buf, "PNG")
@@ -449,7 +449,7 @@ class TestDetectRaster:
         rnd = random.Random(3)
         img = Image.new("RGB", (300, 400))
         img.putdata([(rnd.randrange(256), rnd.randrange(256), rnd.randrange(256)) for _ in range(300 * 400)])
-        doc = fitz.open()
+        doc = pymupdf.open()
         page = doc.new_page(width=612, height=792)
         buf = io.BytesIO()
         img.save(buf, "PNG")
@@ -457,7 +457,7 @@ class TestDetectRaster:
         assert pe.detect_shapes(doc, 1) == []
 
     def test_blank_page_finds_nothing(self):
-        doc = fitz.open()
+        doc = pymupdf.open()
         doc.new_page(width=612, height=792)
         assert pe.detect_shapes(doc, 1) == []
 
@@ -481,22 +481,22 @@ class TestDetectCards:
     """Print-and-play cards: each card is several images stacked in one place."""
 
     @staticmethod
-    def _card_sheet(slots=4) -> fitz.Document:
-        doc = fitz.open()
+    def _card_sheet(slots=4) -> pymupdf.Document:
+        doc = pymupdf.open()
         page = doc.new_page(width=612, height=792)
         boxes = [(77, 30, 295, 388), (317, 30, 535, 388), (77, 399, 295, 757), (317, 399, 535, 757)]
         for x0, y0, x1, y1 in boxes[:slots]:
             # Art and frame layers, a point or two apart, plus the name banner
             # sitting inside the card near its foot.
-            page.insert_image(fitz.Rect(x0, y0, x1, y1), stream=_png((60, 100), (90, 60, 40, 255)), keep_proportion=False)
+            page.insert_image(pymupdf.Rect(x0, y0, x1, y1), stream=_png((60, 100), (90, 60, 40, 255)), keep_proportion=False)
             page.insert_image(
-                fitz.Rect(x0, y0, x1 - 7, y1), stream=_png((60, 100), (20, 20, 20, 255)), keep_proportion=False
+                pymupdf.Rect(x0, y0, x1 - 7, y1), stream=_png((60, 100), (20, 20, 20, 255)), keep_proportion=False
             )
             page.insert_image(
-                fitz.Rect(x0 + 6, y1 - 58, x1 - 5, y1 - 3), stream=_png((60, 16)), keep_proportion=False
+                pymupdf.Rect(x0 + 6, y1 - 58, x1 - 5, y1 - 3), stream=_png((60, 16)), keep_proportion=False
             )
             # Cut lines around the card, as the sheet prints them.
-            page.draw_rect(fitz.Rect(x0 - 11, y0 - 12, x1 + 11, y1 + 12), color=(0, 0, 0), width=0.25)
+            page.draw_rect(pymupdf.Rect(x0 - 11, y0 - 12, x1 + 11, y1 + 12), color=(0, 0, 0), width=0.25)
         return doc
 
     def test_each_card_is_one_piece(self):
@@ -513,8 +513,8 @@ class TestDetectCards:
         assert len(pe.detect_shapes(self._card_sheet(slots=3), 1)) == 3
 
     def test_a_letter_drawn_as_a_circle_is_not_a_token(self):
-        doc = fitz.open()
+        doc = pymupdf.open()
         page = doc.new_page(width=612, height=792)
         # The O of a logo set as outlines: a small filled ring.
-        page.draw_circle(fitz.Point(317, 66), 12.5, color=None, fill=(0, 0, 0))
+        page.draw_circle(pymupdf.Point(317, 66), 12.5, color=None, fill=(0, 0, 0))
         assert pe.detect_shapes(doc, 1) == []

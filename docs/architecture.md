@@ -15,7 +15,7 @@ update the matching section here.
   only `en-US` is bundled, the rest load on demand),
   Vitest + React Testing Library.
 - **Backend** - FastAPI (async) + SQLAlchemy 2.0, SQLite with FTS5 full-text search,
-  PyMuPDF (`fitz`) for PDF→WebP rendering, PyJWT auth.
+  PyMuPDF (`pymupdf`) for PDF→WebP rendering, PyJWT auth.
 - **Optional** - Valkey/Redis for in-memory page-image caching (falls back to disk).
 
 The FastAPI backend serves both the REST API under `/api/*` and the static React build
@@ -35,7 +35,7 @@ backend on port 9481.
 | [`backend/password_hash.py`](../backend/password_hash.py) | Password hashing and verification in passlib's `bcrypt_sha256` format, on `bcrypt` directly; `backend/auth.py` re-exports `hash_password`/`verify_password`. |
 | [`backend/api_keys.py`](../backend/api_keys.py) | Personal API keys: the tag → permission table, the read-only / excluded route markers, the role-derived levels each user is offered, key hashing, and the per-request check `get_current_user` runs when an `X-API-Key` is presented. See [API keys](api.md#api-keys). |
 | [`backend/indexer/`](../backend/indexer/) | Library scanning, PDF FTS5 indexing, thumbnail generation, and OPF/metadata parsing. PDF text extraction runs in an isolated subprocess (see below). |
-| [`backend/pdf_worker.py`](../backend/pdf_worker.py) | Standalone entry point for the spawned PDF text-extraction process. Imports only `fitz`/OCR libs and `backend.config` for its settings, which opens no DB and runs no migrations, so a throwaway extraction child stays light. |
+| [`backend/pdf_worker.py`](../backend/pdf_worker.py) | Standalone entry point for the spawned PDF text-extraction process. Imports only `pymupdf`/OCR libs and `backend.config` for its settings, which opens no DB and runs no migrations, so a throwaway extraction child stays light. |
 | [`backend/addons/`](../backend/addons/) | Community add-ons: installable metadata scrapers. Manifest validation, on-disk discovery and install state, integrity-verified installation, HTTP fetching with a response cache, the declarative interpreter (records → ranked search → mapped fields), the isolated script runner, and the fetched-vs-current diff. See [`docs/addons.md`](addons.md). |
 | [`backend/mcp_server/`](../backend/mcp_server/) | The MCP server for AI assistants, behind `MCP_ENABLED`. `server.py` (the official `mcp` SDK server: it owns JSON-RPC, version negotiation and the transport, and calls Grimoire's tools, resources and prompts), `tools/` (the tools, grouped by area, each calling the REST handler for the same job), `resources.py` (`grimoire://` URIs), `prompts.py` (prompts and argument completion). The HTTP transport is `routers/mcp`. See [`docs/mcp.md`](mcp.md). |
 | [`backend/render/`](../backend/render/) | Page rendering: `pool.py` (the API the page, tile, map and MCP routes call, and the pool of render worker processes behind it), `worker.py` (a worker's entry point), `ops.py` (the MuPDF work itself, shared with the in-process path), `documents.py` (`open_document` and the EPUB layout, re-exported by `indexer.formats`), `outline.py` (the table-of-contents reader, re-exported by `indexer.outline`) and `memory.py` (the store-shrink + `malloc_trim` reclaim). See [Page rendering](#page-rendering) below. |

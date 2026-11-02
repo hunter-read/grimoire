@@ -8,7 +8,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-import fitz  # type: ignore[import-untyped]
+import pymupdf
 import pytest
 from PIL import Image
 
@@ -17,7 +17,7 @@ from backend.render import ops, pool, worker
 
 
 def _make_pdf(path, texts):
-    doc = fitz.open()
+    doc = pymupdf.open()
     for text in texts:
         doc.new_page().insert_text((72, 72), text)
     doc.save(str(path))
@@ -437,7 +437,7 @@ class TestThroughTheApi:
 
 
 def _toc_pdf(path):
-    doc = fitz.open()
+    doc = pymupdf.open()
     for i in range(3):
         doc.new_page().insert_text((72, 72), f"chapter {i + 1}")
     doc.set_toc([[1, "One", 1], [2, "One point five", 2], [1, "Two", 3]])

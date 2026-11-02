@@ -9,7 +9,7 @@ import logging
 import platform
 from typing import Any, Callable, Optional
 
-import fitz  # PyMuPDF
+import pymupdf
 
 logger = logging.getLogger("grimoire")
 
@@ -42,7 +42,7 @@ def reclaim_render_memory() -> None:
     RSS back down.
     """
     try:
-        fitz.TOOLS.store_shrink(100)
+        pymupdf.TOOLS.store_shrink(100)
     except Exception as e:  # pragma: no cover - defensive; API varies by build
         logger.debug("MuPDF store_shrink failed: %s", e)
     if malloc_trim is not None:
