@@ -19,18 +19,25 @@ from .scheduler import _seconds_until_next
 from .services import backup as backup_service_module
 
 _thread: Optional[threading.Thread] = None
-_stop_event = threading.Event()
+# The running thread's own stop flag, never cleared - see scheduler._stop
+# (issue #786).
+_stop: Optional[threading.Event] = None
+
+# How long stop() waits for the thread; a backup in progress may take longer.
+JOIN_TIMEOUT = 5.0
 
 _DAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
 
-def _run(schedule: str, hour: int, minute: int, weekday: Optional[int]) -> None:
+def _run(
+    schedule: str, hour: int, minute: int, weekday: Optional[int], stop_event: threading.Event
+) -> None:
     from .config import SessionLocal
 
-    while True:
+    while not stop_event.is_set():
         secs = 3600.0 if schedule == "hourly" else _seconds_until_next(hour, minute, weekday)
 
-        if _stop_event.wait(secs):
+        if stop_event.wait(secs):
             break  # stop() was called
 
         logger.info("Scheduled backup starting…")
@@ -48,13 +55,13 @@ def _run(schedule: str, hour: int, minute: int, weekday: Optional[int]) -> None:
 
 def start(schedule: str, hour: int, minute: int, weekday: int) -> None:
     """Start (or restart) the background backup thread."""
-    global _thread
+    global _thread, _stop
     stop()
-    _stop_event.clear()
+    _stop = threading.Event()
     _wd = weekday if schedule == "weekly" else None
     _thread = threading.Thread(
         target=_run,
-        args=(schedule, hour, minute, _wd),
+        args=(schedule, hour, minute, _wd, _stop),
         daemon=True,
         name="grimoire-backup-scheduler",
     )
@@ -71,13 +78,20 @@ def start(schedule: str, hour: int, minute: int, weekday: int) -> None:
 
 
 def stop() -> None:
-    """Stop the background backup thread if one is running."""
-    global _thread
-    _stop_event.set()
+    """Stop the background backup thread if one is running.
+
+    A thread still writing a backup after ``JOIN_TIMEOUT`` finishes it and
+    exits; its stop flag stays set, so it cannot carry on.
+    """
+    global _thread, _stop
+    if _stop is not None:
+        _stop.set()
     if _thread and _thread.is_alive():
-        _thread.join(timeout=5)
+        _thread.join(timeout=JOIN_TIMEOUT)
+        if _thread.is_alive():
+            logger.info("Scheduled backup still running; it will stop when it finishes")
     _thread = None
-    _stop_event.clear()
+    _stop = None
 
 
 def apply(db: Session) -> None:

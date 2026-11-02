@@ -8,6 +8,8 @@ import threading
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from backend import scheduler
 
 
@@ -63,57 +65,72 @@ class TestSecondsUntilNext:
 # ---------------------------------------------------------------------------
 
 
+def _event(waits=None, stopped=False):
+    """A stand-in stop event: ``wait()`` answers from ``waits`` in turn."""
+    ev = MagicMock()
+    ev.is_set.return_value = stopped
+    if waits is not None:
+        ev.wait.side_effect = waits
+    return ev
+
+
 class TestRun:
     def test_runs_rescan_then_cleanup_then_stops(self):
         rescan = MagicMock()
         cleanup = MagicMock()
         # wait() returns False the first time (fire the rescan) then True
         # (stop() was signalled) so the loop exits after one iteration.
-        with patch.object(scheduler, "_stop_event") as ev:
-            ev.wait.side_effect = [False, True]
-            scheduler._run("hourly", 2, 0, None, rescan, cleanup)
+        scheduler._run("hourly", 2, 0, None, rescan, cleanup, _event([False, True]))
         rescan.assert_called_once_with()
         cleanup.assert_called_once_with()
 
     def test_skips_cleanup_when_none(self):
         rescan = MagicMock()
-        with patch.object(scheduler, "_stop_event") as ev:
-            ev.wait.side_effect = [False, True]
-            scheduler._run("daily", 2, 0, None, rescan, None)
+        scheduler._run("daily", 2, 0, None, rescan, None, _event([False, True]))
         rescan.assert_called_once_with()
 
     def test_stops_immediately_when_signalled(self):
         rescan = MagicMock()
-        with patch.object(scheduler, "_stop_event") as ev:
-            ev.wait.return_value = True  # stop() already set
-            scheduler._run("hourly", 2, 0, None, rescan, None)
+        scheduler._run("hourly", 2, 0, None, rescan, None, _event([True]))
         rescan.assert_not_called()
+
+    def test_does_not_start_when_already_stopped(self):
+        ev = _event(stopped=True)
+        rescan = MagicMock()
+        scheduler._run("hourly", 2, 0, None, rescan, None, ev)
+        ev.wait.assert_not_called()
+        rescan.assert_not_called()
+
+    def test_a_stop_during_the_scan_skips_the_cleanup(self):
+        ev = _event([False])
+        cleanup = MagicMock()
+
+        def rescan():
+            ev.is_set.return_value = True  # stop() arrives mid-scan
+
+        scheduler._run("hourly", 2, 0, None, rescan, cleanup, ev)
+        cleanup.assert_not_called()
+        assert ev.wait.call_count == 1
 
     def test_rescan_exception_is_swallowed_and_cleanup_still_runs(self):
         rescan = MagicMock(side_effect=RuntimeError("boom"))
         cleanup = MagicMock()
-        with patch.object(scheduler, "_stop_event") as ev:
-            ev.wait.side_effect = [False, True]
-            scheduler._run("daily", 2, 0, None, rescan, cleanup)
+        scheduler._run("daily", 2, 0, None, rescan, cleanup, _event([False, True]))
         rescan.assert_called_once_with()
         cleanup.assert_called_once_with()
 
     def test_cleanup_exception_is_swallowed(self):
         rescan = MagicMock()
         cleanup = MagicMock(side_effect=RuntimeError("boom"))
-        with patch.object(scheduler, "_stop_event") as ev:
-            ev.wait.side_effect = [False, True]
-            # Should not raise.
-            scheduler._run("daily", 2, 0, None, rescan, cleanup)
+        # Should not raise.
+        scheduler._run("daily", 2, 0, None, rescan, cleanup, _event([False, True]))
         cleanup.assert_called_once_with()
 
     def test_non_hourly_uses_seconds_until_next(self):
         rescan = MagicMock()
-        with patch.object(scheduler, "_stop_event") as ev, patch.object(
-            scheduler, "_seconds_until_next", return_value=42.0
-        ) as sun:
-            ev.wait.side_effect = [False, True]
-            scheduler._run("daily", 3, 30, None, rescan, None)
+        ev = _event([False, True])
+        with patch.object(scheduler, "_seconds_until_next", return_value=42.0) as sun:
+            scheduler._run("daily", 3, 30, None, rescan, None, ev)
         # Interval is recomputed at the top of each loop iteration.
         sun.assert_called_with(3, 30, None)
         # First wait() call uses the computed interval.
@@ -184,3 +201,62 @@ class TestStartStop:
         scheduler._thread = None
         scheduler.stop()  # must not raise
         assert scheduler._thread is None
+
+
+# ---------------------------------------------------------------------------
+# stop() while a scan outlasts the join (issue #786)
+# ---------------------------------------------------------------------------
+
+
+def _scheduler_threads():
+    return [t for t in threading.enumerate() if t.name == "grimoire-scheduler" and t.is_alive()]
+
+
+class TestStopDuringALongScan:
+    """A scan longer than stop()'s wait used to outlive the stop request.
+
+    stop() cleared the shared event once its join timed out, so the thread came
+    out of the scan seeing no stop, looped on, and ran beside the next start()'s.
+    """
+
+    @pytest.fixture(autouse=True)
+    def quick(self, monkeypatch):
+        # Fire almost at once, and give up on the join long before the scan ends.
+        monkeypatch.setattr(scheduler, "_seconds_until_next", lambda *_a: 0.01)
+        monkeypatch.setattr(scheduler, "JOIN_TIMEOUT", 0.1)
+        yield
+        scheduler.stop()
+
+    def _start_a_long_scan(self, cleanup=None):
+        started = threading.Event()
+        release = threading.Event()
+        rescan = MagicMock(side_effect=lambda: (started.set(), release.wait(10)))
+        scheduler.start("daily", 2, 0, 0, rescan, cleanup)
+        assert started.wait(5)
+        return scheduler._thread, rescan, release
+
+    def test_a_restart_leaves_exactly_one_thread(self):
+        old, old_rescan, release = self._start_a_long_scan()
+        scheduler.stop()
+        assert old.is_alive(), "the scan should still be running past the join"
+
+        # The new schedule waits an hour, so it stays quiet for the test.
+        scheduler.start("hourly", 0, 0, 0, MagicMock())
+        release.set()
+        old.join(5)
+
+        assert not old.is_alive()
+        assert _scheduler_threads() == [scheduler._thread]
+        old_rescan.assert_called_once_with()
+
+    def test_turning_the_schedule_off_mid_scan_ends_the_thread(self):
+        cleanup = MagicMock()
+        old, rescan, release = self._start_a_long_scan(cleanup)
+        scheduler.stop()
+        release.set()
+        old.join(5)
+
+        assert not old.is_alive()
+        assert _scheduler_threads() == []
+        rescan.assert_called_once_with()
+        cleanup.assert_not_called()
