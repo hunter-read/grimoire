@@ -11,6 +11,7 @@ import json
 import pytest
 
 from backend.services.characters import catalogue as cat
+from backend.tests.http_fakes import serve_chunked
 
 
 REPO = "https://raw.githubusercontent.com/grimoire-codex/community-add-ons"
@@ -561,6 +562,15 @@ class TestFetchingASheet:
         self._serve(monkeypatch, body)
         with pytest.raises(cat.CatalogueError, match="too large"):
             cat.fetch_sheet(None, self._entry(body))
+
+    def test_an_undeclared_oversize_body_stops_at_the_cap(self, monkeypatch):
+        # The same download content pack files go through.
+        monkeypatch.setattr(cat, "MAX_SHEET_BYTES", 1024)
+        body = serve_chunked(monkeypatch, total=1024 * 1024)
+        _no_credentials(monkeypatch)
+        with pytest.raises(cat.CatalogueError, match="too large"):
+            cat.fetch_sheet(None, self._entry(b""))
+        assert body.sent <= 1024 + body.chunk
 
     def test_reports_an_http_error(self, monkeypatch):
         self._serve(monkeypatch, b"", status=404)

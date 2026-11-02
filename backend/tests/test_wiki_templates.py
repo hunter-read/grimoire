@@ -17,6 +17,7 @@ from backend.routers.campaigns._frontmatter import compose, split_frontmatter
 from backend.routers.campaigns.wiki_templates import AUTHORED_SYSTEM
 from backend.config import SessionLocal
 from backend.services import wiki_template_catalogue as catalogue
+from backend.tests.http_fakes import serve, serve_chunked
 
 BODY = """---
 title: Spell
@@ -897,24 +898,7 @@ class TestCatalogueService:
             "body_sha256": _digest("the real body"),
         }
 
-        class FakeResponse:
-            status_code = 200
-            content = b"tampered"
-
-        class FakeClient:
-            def __init__(self, **kw):
-                pass
-
-            def __enter__(self):
-                return self
-
-            def __exit__(self, *a):
-                return False
-
-            def get(self, url):
-                return FakeResponse()
-
-        monkeypatch.setattr(httpx, "Client", FakeClient)
+        serve(monkeypatch, lambda request: httpx.Response(200, content=b"tampered"))
         session = SessionLocal()
         try:
             with pytest.raises(catalogue.TemplateCatalogueError, match="integrity check"):
@@ -927,24 +911,7 @@ class TestCatalogueService:
 
         entry = {"body_path": "templates/x/x.md", "body_sha256": _digest(BODY)}
 
-        class FakeResponse:
-            status_code = 200
-            content = BODY.encode()
-
-        class FakeClient:
-            def __init__(self, **kw):
-                pass
-
-            def __enter__(self):
-                return self
-
-            def __exit__(self, *a):
-                return False
-
-            def get(self, url):
-                return FakeResponse()
-
-        monkeypatch.setattr(httpx, "Client", FakeClient)
+        serve(monkeypatch, lambda request: httpx.Response(200, content=BODY.encode()))
         session = SessionLocal()
         try:
             assert catalogue.fetch_body(session, entry) == BODY
@@ -954,30 +921,26 @@ class TestCatalogueService:
     def test_fetch_body_reports_a_bad_status(self, monkeypatch, downloads_enabled):
         import httpx
 
-        class FakeResponse:
-            status_code = 404
-            content = b""
-
-        class FakeClient:
-            def __init__(self, **kw):
-                pass
-
-            def __enter__(self):
-                return self
-
-            def __exit__(self, *a):
-                return False
-
-            def get(self, url):
-                return FakeResponse()
-
-        monkeypatch.setattr(httpx, "Client", FakeClient)
+        serve(monkeypatch, lambda request: httpx.Response(404))
         session = SessionLocal()
         try:
             with pytest.raises(catalogue.TemplateCatalogueError, match="HTTP 404"):
                 catalogue.fetch_body(session, {"body_path": "x.md"})
         finally:
             session.close()
+
+    def test_fetch_body_stops_an_undeclared_oversize_body_at_the_cap(
+        self, monkeypatch, downloads_enabled
+    ):
+        monkeypatch.setattr(catalogue, "MAX_BODY_BYTES", 1024)
+        body = serve_chunked(monkeypatch, total=1024 * 1024)
+        session = SessionLocal()
+        try:
+            with pytest.raises(catalogue.TemplateCatalogueError, match="too large"):
+                catalogue.fetch_body(session, {"body_path": "x.md"})
+        finally:
+            session.close()
+        assert body.sent <= 1024 + body.chunk
 
     def test_downloads_enabled_tracks_the_env_flag(self, monkeypatch):
         monkeypatch.setattr(config, "DISABLE_EXTERNAL_ADD_ON_INSTALL", True)

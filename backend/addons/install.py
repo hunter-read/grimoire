@@ -11,7 +11,6 @@ import shutil
 from typing import Optional
 from urllib.parse import urljoin, urlsplit
 
-import httpx
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
@@ -19,13 +18,12 @@ from . import credentials as source_credentials
 from .urls import index_url_problem
 from .. import config
 from .constants import (
-    HTTP_MAX_BYTES,
     HTTP_TIMEOUT,
     external_installs_enabled,
     is_trusted_index_url,
 )
 from .credentials import SourceCredentials
-from .fetch import AddonFetchError, fetch_json, open_client
+from .fetch import AddonFetchError, download_file, fetch_json
 from .manifest import AddonIndex, IndexEntry
 from .registry import (
     AddonError,
@@ -62,20 +60,9 @@ def _fetch_text(url: str, credentials: Optional[SourceCredentials] = None) -> by
     ``credentials`` carries a private source's token, so the files an
     authenticated index lists can be downloaded with it too.
     """
-    try:
-        with open_client(timeout=HTTP_TIMEOUT, credentials=credentials) as client:
-            response = client.get(url)
-            if response.status_code != 200:
-                raise AddonFetchError(f"download returned HTTP {response.status_code}")
-            body = response.content
-    except httpx.TimeoutException as exc:
-        raise AddonFetchError("download timed out") from exc
-    except httpx.HTTPError as exc:
-        raise AddonFetchError(f"could not download add-on: {exc}") from exc
-
-    if len(body) > HTTP_MAX_BYTES:
-        raise AddonFetchError("add-on file is too large")
-    return body
+    return download_file(
+        url, what="add-on", error=AddonFetchError, timeout=HTTP_TIMEOUT, credentials=credentials
+    )
 
 
 def refresh_index(db: Session, url: Optional[str] = None) -> dict:
