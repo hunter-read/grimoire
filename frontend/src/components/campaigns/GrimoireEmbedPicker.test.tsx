@@ -121,7 +121,7 @@ describe('GrimoireEmbedPicker', () => {
     // Book rows offer an "At page…" affordance.
     await userEvent.click(screen.getByRole('button', { name: /at page/i }))
     await userEvent.type(screen.getByPlaceholderText(/page/i), '42')
-    await userEvent.click(screen.getByRole('button', { name: /^insert$/i }))
+    await userEvent.click(screen.getByRole('button', { name: /^insert phb$/i }))
     expect(onInsert).toHaveBeenCalledWith('[[book:b1:42]]')
   })
 
@@ -177,5 +177,18 @@ describe('GrimoireEmbedPicker', () => {
     await waitFor(() => screen.getByPlaceholderText(/search/i))
     await userEvent.click(container.firstChild as Element)
     expect(onClose).toHaveBeenCalled()
+  })
+})
+
+describe('GrimoireEmbedPicker for screen readers', () => {
+  it('opens on the labelled search box and says how many resources match', async () => {
+    campaignsMock.listResources.mockResolvedValue(resources)
+    render(<GrimoireEmbedPicker campaignId="c1" onInsert={vi.fn()} onClose={vi.fn()} />)
+    expect(screen.getByRole('dialog', { name: /./ })).toBeInTheDocument()
+    const search = screen.getByRole('searchbox')
+    expect(search).toHaveFocus()
+    await waitFor(() => screen.getByText('PHB'))
+    await userEvent.type(search, 'PHB')
+    expect(await screen.findByText(/^Results: 1$/)).toBeInTheDocument()
   })
 })

@@ -61,7 +61,7 @@ export default function SelectableCard({ active, selected, label, onToggle, chil
             alignItems: 'center',
             justifyContent: 'center',
             background: selected ? 'var(--gold)' : 'var(--bg-input)',
-            border: selected ? 'none' : '2px solid var(--border-light)',
+            border: selected ? 'none' : '2px solid var(--border-control)',
             boxShadow: '0 1px 4px var(--shadow)',
             boxSizing: 'border-box',
           }}

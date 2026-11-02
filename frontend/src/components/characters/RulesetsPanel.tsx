@@ -301,7 +301,10 @@ export default function RulesetsPanel() {
         {entries.length === 0 ? (
           <p style={emptyState}>{t('rulesets.noEntries')}</p>
         ) : (
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 6 }}>
+          <ul
+            role="list"
+            style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 6 }}
+          >
             {entries.map((entry) => (
               <li
                 key={entry.id}
@@ -318,7 +321,7 @@ export default function RulesetsPanel() {
                   <>
                     <button
                       onClick={() => setEditing({ contentType: entry.content_type, entry })}
-                      aria-label={t('common.edit')}
+                      aria-label={t('a11y.mediaDetail.editNamed', { name: entry.name })}
                       title={t('common.edit')}
                       style={iconBtn}
                     >
@@ -326,7 +329,7 @@ export default function RulesetsPanel() {
                     </button>
                     <button
                       onClick={() => removeEntry(entry)}
-                      aria-label={t('rulesets.deleteEntry')}
+                      aria-label={t('a11y.characters.deleteNamed', { name: entry.name })}
                       title={t('rulesets.deleteEntry')}
                       style={iconBtn}
                     >
@@ -534,7 +537,10 @@ export default function RulesetsPanel() {
         {rulesets.length === 0 ? (
           <p style={emptyState}>{t('rulesets.empty')}</p>
         ) : (
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 8 }}>
+          <ul
+            role="list"
+            style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 8 }}
+          >
             {rulesets.map((ruleset) => (
               <li
                 key={ruleset.id}
@@ -561,7 +567,7 @@ export default function RulesetsPanel() {
                 </button>
                 <a
                   href={`/api/rulesets/${ruleset.id}/export`}
-                  aria-label={t('rulesets.export')}
+                  aria-label={t('a11y.characters.exportNamed', { name: ruleset.name })}
                   title={t('rulesets.export')}
                   style={{ ...iconBtn, color: 'var(--text-muted)' }}
                 >

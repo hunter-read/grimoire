@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import usePageTitle from '../../hooks/usePageTitle'
 import { LuArrowLeft, LuDownload, LuHeart } from 'react-icons/lu'
 import api, { mediaUrl } from '../../api'
 import type { Schema } from '../../api'
@@ -36,6 +37,7 @@ interface TextBookViewerProps {
 
 export default function TextBookViewer({ book, bookId, backPath }: TextBookViewerProps) {
   const { t } = useTranslation()
+  usePageTitle(book.title)
   const navigate = useNavigate()
   const { isFavorite, toggleFavorite } = useFavorites()
   const totalPages = book?.page_count || 1
@@ -115,7 +117,20 @@ export default function TextBookViewer({ book, bookId, backPath }: TextBookViewe
           <LuArrowLeft size={16} aria-hidden="true" /> {t('reader.back')}
         </button>
         <BookSystemCrumb system={book.game_system} />
-        <span style={{ fontWeight: 600, flex: 1, minWidth: 0 }}>{book.title}</span>
+        <h1
+          style={{
+            margin: 0,
+            fontFamily: 'inherit',
+            letterSpacing: 'normal',
+            fontSize: 'inherit',
+            color: 'inherit',
+            fontWeight: 600,
+            flex: 1,
+            minWidth: 0,
+          }}
+        >
+          {book.title}
+        </h1>
         {totalPages > 1 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <button

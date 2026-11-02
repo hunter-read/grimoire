@@ -65,7 +65,8 @@ export default function CategoryBookItem({
   const [showDetails, setShowDetails] = useState(false)
 
   return (
-    <div style={!list && editing ? { gridColumn: '1 / -1' } : undefined}>
+    // A list item: the shelf renders each run of books as a <ul>.
+    <li style={!list && editing ? { gridColumn: '1 / -1' } : undefined}>
       <BookRow
         book={book}
         card={card}
@@ -94,6 +95,6 @@ export default function CategoryBookItem({
           onClose={() => setEditingBookId(null)}
         />
       )}
-    </div>
+    </li>
   )
 }

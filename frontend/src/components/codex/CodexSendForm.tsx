@@ -237,7 +237,12 @@ export default function CodexSendForm({
                 <span>
                   {c.label}{' '}
                   <a href={c.url} target="_blank" rel="noreferrer" style={link}>
-                    <LuExternalLink size={11} aria-label={t('codex.send.viewSystem')} />
+                    <LuExternalLink
+                      size={11}
+                      role="img"
+                      aria-hidden={false}
+                      aria-label={t('codex.send.viewSystem')}
+                    />
                   </a>
                 </span>
               </label>

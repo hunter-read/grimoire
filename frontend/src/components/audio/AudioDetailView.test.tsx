@@ -301,3 +301,22 @@ describe('AudioDetailView', () => {
     })
   })
 })
+
+describe('AudioDetailView — screen readers', () => {
+  it('names the page with an h1 and the tab title', async () => {
+    vi.mocked(api.get).mockResolvedValue(detail())
+    render(<AudioDetailView />)
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Tavern Night' })
+    ).toBeInTheDocument()
+    expect(document.title).toBe('Tavern Night - Grimoire')
+    expect(screen.getByRole('heading', { level: 2, name: 'Track Details' })).toBeInTheDocument()
+  })
+
+  it('reads the duration in words rather than as a clock', async () => {
+    vi.mocked(api.get).mockResolvedValue(detail())
+    render(<AudioDetailView />)
+    expect(await screen.findByText('2 minutes, 5 seconds')).toHaveClass('sr-only')
+    expect(screen.getByText('2:05')).toHaveAttribute('aria-hidden', 'true')
+  })
+})

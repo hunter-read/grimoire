@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -30,7 +30,20 @@ export interface MobileSidebarProps {
 export default function MobileSidebar({ user, onLogout, uiSettings = {} }: MobileSidebarProps) {
   const { t } = useTranslation()
   const [moreOpen, setMoreOpen] = useState(false)
+  const moreButtonRef = useRef<HTMLButtonElement>(null)
   const location = useLocation()
+
+  // Escape closes the drawer and hands focus back to the button that opened it.
+  useEffect(() => {
+    if (!moreOpen) return undefined
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      setMoreOpen(false)
+      moreButtonRef.current?.focus()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [moreOpen])
   const isGuest = user?.role === 'guest'
   const { hide_maps, hide_tokens, hide_audio, hide_models, hide_campaigns } = uiSettings
   const moreRoutes = [
@@ -46,7 +59,8 @@ export default function MobileSidebar({ user, onLogout, uiSettings = {} }: Mobil
   if (isGuest) {
     // Guests only have their campaign(s); show a minimal bar.
     return (
-      <div
+      <nav
+        aria-label={t('a11y.mainNavigation')}
         style={{
           position: 'fixed',
           bottom: 0,
@@ -68,13 +82,59 @@ export default function MobileSidebar({ user, onLogout, uiSettings = {} }: Mobil
           <LuLogOut size={20} />
           {t('nav.logOut')}
         </button>
-      </div>
+      </nav>
     )
   }
 
   return (
     <>
-      {/* More drawer */}
+      {/* Bottom bar */}
+      <nav
+        aria-label={t('a11y.mainNavigation')}
+        style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 100,
+          background: 'var(--bg-panel)',
+          borderTop: '1px solid var(--border)',
+          display: 'flex',
+          justifyContent: 'space-around',
+          padding: '8px 0',
+        }}
+      >
+        <NavLink to="/library" end={false} style={({ isActive }) => mobileNavStyle(isActive)}>
+          <LuLibrary size={20} />
+          {t('nav.library')}
+        </NavLink>
+        <NavLink to="/search" end style={({ isActive }) => mobileNavStyle(isActive)}>
+          <LuSearch size={20} />
+          {t('nav.search')}
+        </NavLink>
+        <NavLink to="/favorites" end style={({ isActive }) => mobileNavStyle(isActive)}>
+          <LuHeart size={20} />
+          {t('nav.favorites')}
+        </NavLink>
+        {!hide_campaigns && (
+          <NavLink to="/campaigns" end style={({ isActive }) => mobileNavStyle(isActive)}>
+            <LuScroll size={20} />
+            {t('nav.campaigns')}
+          </NavLink>
+        )}
+        <button
+          ref={moreButtonRef}
+          onClick={() => setMoreOpen((o) => !o)}
+          aria-expanded={moreOpen}
+          aria-controls={moreOpen ? 'mobile-more-menu' : undefined}
+          style={mobileNavStyle(moreActive || moreOpen)}
+        >
+          {moreOpen ? <LuX size={20} /> : <LuEllipsis size={20} />}
+          {t('nav.more')}
+        </button>
+      </nav>
+      {/* More drawer. After the bar in the DOM (it is fixed, so this does not
+          move it): swiping on from the More button reaches its items next. */}
       {moreOpen && (
         <>
           <div
@@ -82,7 +142,9 @@ export default function MobileSidebar({ user, onLogout, uiSettings = {} }: Mobil
             aria-hidden="true"
             style={{ position: 'fixed', inset: 0, zIndex: 110 }}
           />
-          <div
+          <nav
+            id="mobile-more-menu"
+            aria-label={t('a11y.moreNavigation')}
             style={{
               position: 'fixed',
               bottom: 64,
@@ -164,51 +226,9 @@ export default function MobileSidebar({ user, onLogout, uiSettings = {} }: Mobil
               <LuLogOut size={18} />
               <span>{t('nav.logOut')}</span>
             </button>
-          </div>
+          </nav>
         </>
       )}
-
-      {/* Bottom bar */}
-      <div
-        style={{
-          position: 'fixed',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          zIndex: 100,
-          background: 'var(--bg-panel)',
-          borderTop: '1px solid var(--border)',
-          display: 'flex',
-          justifyContent: 'space-around',
-          padding: '8px 0',
-        }}
-      >
-        <NavLink to="/library" end={false} style={({ isActive }) => mobileNavStyle(isActive)}>
-          <LuLibrary size={20} />
-          {t('nav.library')}
-        </NavLink>
-        <NavLink to="/search" end style={({ isActive }) => mobileNavStyle(isActive)}>
-          <LuSearch size={20} />
-          {t('nav.search')}
-        </NavLink>
-        <NavLink to="/favorites" end style={({ isActive }) => mobileNavStyle(isActive)}>
-          <LuHeart size={20} />
-          {t('nav.favorites')}
-        </NavLink>
-        {!hide_campaigns && (
-          <NavLink to="/campaigns" end style={({ isActive }) => mobileNavStyle(isActive)}>
-            <LuScroll size={20} />
-            {t('nav.campaigns')}
-          </NavLink>
-        )}
-        <button
-          onClick={() => setMoreOpen((o) => !o)}
-          style={mobileNavStyle(moreActive || moreOpen)}
-        >
-          {moreOpen ? <LuX size={20} /> : <LuEllipsis size={20} />}
-          {t('nav.more')}
-        </button>
-      </div>
     </>
   )
 }

@@ -2,6 +2,7 @@ import { render, screen, fireEvent, within, waitFor } from '@testing-library/rea
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import SoundboardPanel from './SoundboardPanel'
+import { soundboardFocus } from './soundboardFocus'
 import {
   SoundboardProvider,
   useSoundboard,
@@ -116,7 +117,7 @@ describe('SoundboardPanel', () => {
     fireEvent.change(inputs[0], { target: { value: '5' } })
     fireEvent.change(inputs[1], { target: { value: '5' } })
 
-    const grid = screen.getByRole('button', { name: 'Thunder' }).closest('div')!.parentElement
+    const grid = screen.getByRole('list')
     expect(grid).toHaveStyle({ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' })
   })
 
@@ -297,6 +298,83 @@ describe('SoundboardPanel', () => {
     const user = await setup([{ id: 'a', title: 'Thunder' }])
     await user.click(screen.getByRole('button', { name: 'soundboard.close' }))
     expect(board.open).toBe(false)
+  })
+
+  it('is a named region that takes focus when it opens', async () => {
+    await setup([{ id: 'a', title: 'Thunder' }])
+    expect(screen.getByRole('region', { name: 'soundboard.title' })).toBeInTheDocument()
+  })
+
+  it('takes focus on open and hands it to the launcher when it goes', () => {
+    soundboardFocus.returnUntil = 0
+    const { unmount } = render(
+      <SoundboardProvider>
+        <SoundboardPanel />
+      </SoundboardProvider>
+    )
+    expect(screen.getByRole('region', { name: 'soundboard.title' })).toHaveFocus()
+    unmount()
+    expect(soundboardFocus.returnUntil).toBeGreaterThan(Date.now())
+  })
+
+  it('gives focus back to whatever opened it when that is still there', () => {
+    const opener = document.createElement('button')
+    document.body.appendChild(opener)
+    opener.focus()
+    const { unmount } = render(
+      <SoundboardProvider>
+        <SoundboardPanel />
+      </SoundboardProvider>
+    )
+    unmount()
+    expect(opener).toHaveFocus()
+    opener.remove()
+  })
+
+  it('closes on Escape', async () => {
+    const user = await setup([{ id: 'a', title: 'Thunder' }])
+    screen.getByRole('button', { name: 'Thunder' }).focus()
+    await user.keyboard('{Escape}')
+    expect(board.open).toBe(false)
+  })
+
+  it('moves a pad with the arrow keys while configuring, and says where', async () => {
+    const user = await setup([
+      { id: 'a', title: 'A' },
+      { id: 'b', title: 'B' },
+      { id: 'c', title: 'C' },
+    ])
+    await user.click(screen.getByRole('button', { name: 'soundboard.edit' }))
+    const pad = screen.getByRole('button', { name: 'A' })
+    expect(pad).toHaveAccessibleDescription('a11y.audio.padMoveHint')
+    fireEvent.keyDown(pad, { key: 'ArrowRight' })
+    expect(board.pads.map((p) => p.id)).toEqual(['b', 'a', 'c'])
+    await waitFor(() => expect(screen.getByRole('button', { name: 'A' })).toHaveFocus())
+    expect(screen.getByText('a11y.audio.moved')).toBeInTheDocument()
+    // A row down from the second slot is past the end, so it stops at the last.
+    fireEvent.keyDown(screen.getByRole('button', { name: 'A' }), { key: 'ArrowDown' })
+    expect(board.pads.map((p) => p.id)).toEqual(['b', 'c', 'a'])
+    // At the end already: nothing moves.
+    fireEvent.keyDown(screen.getByRole('button', { name: 'A' }), { key: 'ArrowRight' })
+    expect(board.pads.map((p) => p.id)).toEqual(['b', 'c', 'a'])
+    fireEvent.keyDown(screen.getByRole('button', { name: 'A' }), { key: 'Enter' })
+    expect(board.pads.map((p) => p.id)).toEqual(['b', 'c', 'a'])
+  })
+
+  it('leaves the arrow keys alone outside configuring', async () => {
+    await setup([
+      { id: 'a', title: 'A' },
+      { id: 'b', title: 'B' },
+    ])
+    fireEvent.keyDown(screen.getByRole('button', { name: 'A' }), { key: 'ArrowRight' })
+    expect(board.pads.map((p) => p.id)).toEqual(['a', 'b'])
+  })
+
+  it('says loop state in the label without aria-pressed as well', async () => {
+    await setup([{ id: 'a', title: 'Thunder' }])
+    expect(screen.getByRole('button', { name: 'soundboard.loopOff:Thunder' })).not.toHaveAttribute(
+      'aria-pressed'
+    )
   })
 
   it('still drags from the empty part of the handle', async () => {

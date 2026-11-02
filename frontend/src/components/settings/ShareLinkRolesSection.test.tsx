@@ -85,3 +85,12 @@ describe('ShareLinkRolesSection', () => {
     )
   })
 })
+
+describe('ShareLinkRolesSection accessibility', () => {
+  it('groups the role checkboxes under the heading', async () => {
+    get.mockResolvedValue(settings() as never)
+    render(<ShareLinkRolesSection />)
+    const group = await screen.findByRole('group', { name: 'settings.entries.shareLinkRoles' })
+    expect(group).toContainElement(screen.getByLabelText('users.roles.player'))
+  })
+})

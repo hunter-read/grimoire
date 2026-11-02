@@ -4,7 +4,11 @@ import BackupListSection from './BackupListSection'
 import { backups } from '../../api'
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k: string) => k, i18n: { language: 'en-US' } }),
+  useTranslation: () => ({
+    t: (k: string, o?: { action?: string; name?: string }) =>
+      o?.action ? `${o.action}: ${o.name}` : k,
+    i18n: { language: 'en-US' },
+  }),
 }))
 vi.mock('../Spinner', () => ({ default: () => <span data-testid="spinner" /> }))
 vi.mock('../../api', () => ({

@@ -74,7 +74,7 @@ export default function TokenEditorControls({
             borderRadius: 5,
             background: 'var(--bg-card)',
             color: 'var(--text)',
-            border: '1px solid var(--border)',
+            border: '1px solid var(--border-control)',
           }}
         >
           {sizes.map((value) => (

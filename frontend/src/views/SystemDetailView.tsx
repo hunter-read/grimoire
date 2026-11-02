@@ -7,11 +7,12 @@ import {
   type Dispatch,
   type SetStateAction,
 } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { Link, useParams, useNavigate } from 'react-router-dom'
 import useSessionState from '../hooks/useSessionState'
 import useCollapsedSet from '../hooks/useCollapsedSet'
 import useSystemSearch from '../hooks/useSystemSearch'
 import useRestoredView from '../hooks/useRestoredView'
+import usePageTitle from '../hooks/usePageTitle'
 import { useTranslation } from 'react-i18next'
 import { LuArrowLeft, LuPencil, LuFolderOpen, LuSearch, LuX, LuDownload } from 'react-icons/lu'
 import api, { bulk as bulkApi, type Schema } from '../api'
@@ -251,6 +252,9 @@ export default function SystemDetailView() {
 
   // Merge (issue #589). A merge can fold a book into one in another category,
   // so the shelf is reloaded rather than patched.
+  // Named once loaded; RouteAnnouncer reads the title out after a navigation.
+  usePageTitle(system ? systemDisplayName(system) : null)
+
   const merge = useBulkMerge(
     [...selectedBookIds].map((id) => ({ type: 'book', id: id as string })),
     () => {
@@ -475,6 +479,22 @@ export default function SystemDetailView() {
   // Nothing matches the filters (or the shelf is empty).
   const noBooks = shelfData.matchCount === 0
 
+  // What a screen reader hears when the list below changes under it: the
+  // in-system search's progress and outcome, or else how many books the
+  // filters leave. Sighted users see the list change; this says it out loud.
+  const listStatus = searching
+    ? t('a11y.searching')
+    : searchResults
+      ? matchedBooks.length === 0 && searchResults.results.length === 0
+        ? t('systemDetail.noResultsFound')
+        : t('a11y.searchSummary', {
+            books: matchedBooks.length,
+            pages: searchResults.results.length,
+          })
+      : shelfData.matchCount != null
+        ? t('a11y.booksShown', { count: shelfData.matchCount })
+        : ''
+
   return (
     <div
       className="fade-in"
@@ -492,20 +512,22 @@ export default function SystemDetailView() {
       >
         {/* Header */}
         <div style={{ marginBottom: 32 }}>
-          <button
-            onClick={() => navigate(backTarget.to, { state: { restoreView: true } })}
+          {/* A link, since it goes somewhere: it is announced as one, and it
+              opens in a new tab like any other. */}
+          <Link
+            to={backTarget.to}
+            state={{ restoreView: true }}
             style={{
-              background: 'none',
               color: 'var(--text-dim)',
               fontSize: 15,
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
               gap: 6,
               marginBottom: 16,
             }}
           >
             <LuArrowLeft size={15} /> {backTarget.label}
-          </button>
+          </Link>
 
           <div
             style={{
@@ -517,7 +539,9 @@ export default function SystemDetailView() {
             }}
           >
             <div style={{ flex: 1, minWidth: 0 }}>
-              <h2 style={{ fontSize: 32, marginBottom: 8 }}>{systemDisplayName(system)}</h2>
+              <h1 style={{ fontSize: 32, marginTop: 0, marginBottom: 8 }}>
+                {systemDisplayName(system)}
+              </h1>
               {system.publishers?.length > 0 && (
                 <div style={{ fontSize: 16, color: 'var(--text-dim)', marginBottom: 8 }}>
                   {t('systemDetail.publishedBy')}{' '}
@@ -527,6 +551,7 @@ export default function SystemDetailView() {
                       {p.url ? (
                         <a href={p.url} target="_blank" rel="noopener">
                           {p.name}
+                          <span className="sr-only"> {t('a11y.opensInNewTab')}</span>
                         </a>
                       ) : (
                         p.name
@@ -537,24 +562,28 @@ export default function SystemDetailView() {
               )}
               {system.description && <SystemDescription text={system.description} />}
               {/* Genres are shown before tags per issue #202. */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 0, marginBottom: 8 }}>
+              <ul
+                role="list"
+                aria-label={t('a11y.genresAndTags')}
+                className="card-list"
+                style={{ display: 'flex', flexWrap: 'wrap', gap: 0, marginBottom: 8 }}
+              >
                 {(system.genres && system.genres.length
                   ? system.genres
                   : system.genre
                     ? [system.genre]
                     : []
                 ).map((g) => (
-                  <Tag
-                    key={`genre-${g}`}
-                    label={g}
-                    color="rgba(90, 154, 90, 0.2)"
-                    linkable={false}
-                  />
+                  <li key={`genre-${g}`} style={{ display: 'block' }}>
+                    <Tag label={g} color="rgba(90, 154, 90, 0.2)" linkable={false} />
+                  </li>
                 ))}
                 {(system.tags || []).map((tag) => (
-                  <Tag key={tag} label={tag} />
+                  <li key={tag} style={{ display: 'block' }}>
+                    <Tag label={tag} />
+                  </li>
                 ))}
-              </div>
+              </ul>
               {/* Parent system / family / license / year metadata line. */}
               {(parentSystemLabel(system) ||
                 system.system_family ||
@@ -645,7 +674,9 @@ export default function SystemDetailView() {
                 />
                 <input
                   id="system-detail-search"
-                  type="text"
+                  type="search"
+                  name="q"
+                  autoComplete="off"
                   aria-label={t('systemDetail.searchWithin', { name: system.name })}
                   value={searchQuery}
                   onChange={handleSearchInput}
@@ -655,7 +686,7 @@ export default function SystemDetailView() {
                     fontSize: 13,
                     padding: '6px 28px 6px 30px',
                     borderRadius: 6,
-                    border: '1px solid var(--border)',
+                    border: '1px solid var(--border-control)',
                     background: 'var(--bg-card)',
                     boxSizing: 'border-box',
                   }}
@@ -674,7 +705,10 @@ export default function SystemDetailView() {
                 )}
                 {searchQuery && !searching && (
                   <button
+                    type="button"
                     onClick={clearSearch}
+                    aria-label={t('common.clearSearch')}
+                    title={t('common.clearSearch')}
                     style={{
                       position: 'absolute',
                       right: 8,
@@ -836,6 +870,10 @@ export default function SystemDetailView() {
           />
         )}
 
+        <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+          {listStatus}
+        </div>
+
         <SystemSearchResults
           searchResults={searchResults}
           matchedBooks={matchedBooks}
@@ -891,7 +929,7 @@ export default function SystemDetailView() {
           ))}
 
         {!searchResults && !grouped && shelfData.flatBooks.length > 0 && (
-          <div style={booksContainerStyle}>
+          <ul role="list" className="card-list" style={booksContainerStyle}>
             {shelfData.flatBooks.map((book) => (
               <CategoryBookItem
                 key={book.id}
@@ -912,7 +950,7 @@ export default function SystemDetailView() {
                 onToggleBook={toggleBookSelect}
               />
             ))}
-          </div>
+          </ul>
         )}
 
         {/* The flat list pages in as its end scrolls near (issue #221). */}

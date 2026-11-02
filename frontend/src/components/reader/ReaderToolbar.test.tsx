@@ -224,7 +224,7 @@ describe('ReaderToolbar — panel selector', () => {
   // bookmarks or details. The right zone must never shrink, and the title
   // must be allowed to ellipsize instead.
   it('does not let the right-hand controls be squeezed out by the title', () => {
-    const { container } = renderToolbar({
+    renderToolbar({
       isMobilePhone: true,
       book: {
         ...BOOK_PDF,
@@ -235,7 +235,7 @@ describe('ReaderToolbar — panel selector', () => {
     const rightZone = screen.getByTitle('Contents').closest('div')!.parentElement
     expect(rightZone).toHaveStyle({ flex: '0 0 auto' })
 
-    const title = container.querySelector('span[style*="ellipsis"]')
+    const title = screen.getByRole('heading', { level: 1 })
     expect(title).toHaveStyle({ minWidth: '0px', textOverflow: 'ellipsis' })
   })
 

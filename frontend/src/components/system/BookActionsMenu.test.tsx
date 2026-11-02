@@ -114,14 +114,14 @@ describe('BookActionsMenu', () => {
   describe('share', () => {
     it('is hidden from someone who may not create share links', () => {
       renderMenu()
-      fireEvent.click(screen.getByLabelText('bookActions.menu'))
+      fireEvent.click(screen.getByLabelText('a11y.bookActions'))
       expect(screen.queryByRole('menuitem', { name: 'share.button' })).toBeNull()
     })
 
     it('opens the share dialog for this book and closes the menu', () => {
       mockCanShare = true
       renderMenu({ id: 'b7', title: 'Core Rules' })
-      fireEvent.click(screen.getByLabelText('bookActions.menu'))
+      fireEvent.click(screen.getByLabelText('a11y.bookActions'))
       fireEvent.click(screen.getByRole('menuitem', { name: 'share.button' }))
       expect(screen.getByText('share-dialog:book:b7')).toBeInTheDocument()
       expect(screen.queryByRole('menu')).toBeNull()
@@ -139,7 +139,7 @@ describe('BookActionsMenu', () => {
           <BookActionsMenu book={makeBook()} onEdit={() => {}} />
         </div>
       )
-      fireEvent.click(screen.getByLabelText('bookActions.menu'))
+      fireEvent.click(screen.getByLabelText('a11y.bookActions'))
       fireEvent.click(screen.getByRole('menuitem', { name: 'share.button' }))
       onRowClick.mockClear()
       fireEvent.click(screen.getByText('share-dialog:book:b1'))
@@ -153,7 +153,7 @@ describe('BookActionsMenu', () => {
 
     it('offers to add a book that is not a favorite, with an empty heart', () => {
       renderMenu()
-      fireEvent.click(screen.getByLabelText('bookActions.menu'))
+      fireEvent.click(screen.getByLabelText('a11y.bookActions'))
       expect(item()).toHaveTextContent('common.addToFavorites')
       expect(heart()).toHaveAttribute('fill', 'none')
     })
@@ -161,14 +161,14 @@ describe('BookActionsMenu', () => {
     it('offers to remove a favorite, with a filled heart', () => {
       mockFavorite = true
       renderMenu()
-      fireEvent.click(screen.getByLabelText('bookActions.menu'))
+      fireEvent.click(screen.getByLabelText('a11y.bookActions'))
       expect(item()).toHaveTextContent('common.removeFromFavorites')
       expect(heart()).toHaveAttribute('fill', 'var(--gold)')
     })
 
     it('toggles this book and closes the menu', () => {
       renderMenu({ id: 'b5' })
-      fireEvent.click(screen.getByLabelText('bookActions.menu'))
+      fireEvent.click(screen.getByLabelText('a11y.bookActions'))
       fireEvent.click(item())
       expect(mockToggleFavorite).toHaveBeenCalledWith('book', 'b5')
       expect(screen.queryByRole('menu')).not.toBeInTheDocument()
@@ -177,7 +177,7 @@ describe('BookActionsMenu', () => {
     it('is offered to a player too', () => {
       mockRole = 'player'
       renderMenu({}, { onEdit: undefined })
-      fireEvent.click(screen.getByLabelText('bookActions.menu'))
+      fireEvent.click(screen.getByLabelText('a11y.bookActions'))
       expect(item()).toBeInTheDocument()
     })
   })
@@ -185,21 +185,21 @@ describe('BookActionsMenu', () => {
   it('is collapsed until the trigger is clicked', () => {
     renderMenu()
     expect(screen.queryByRole('menuitem', { name: 'bookActions.edit' })).not.toBeInTheDocument()
-    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    fireEvent.click(screen.getByLabelText('a11y.bookActions'))
     expect(screen.getByRole('menuitem', { name: 'bookActions.edit' })).toBeInTheDocument()
   })
 
   describe('reset reading progress', () => {
     it('is hidden when the book has no saved page', () => {
       renderMenu()
-      fireEvent.click(screen.getByLabelText('bookActions.menu'))
+      fireEvent.click(screen.getByLabelText('a11y.bookActions'))
       expect(screen.queryByTestId('book-reset-progress')).not.toBeInTheDocument()
     })
 
     it('clears the saved page and confirms in place', () => {
       mockGetBookPrefs.mockReturnValue({ page: 12 })
       renderMenu({ id: 'book-9' })
-      fireEvent.click(screen.getByLabelText('bookActions.menu'))
+      fireEvent.click(screen.getByLabelText('a11y.bookActions'))
       fireEvent.click(screen.getByTestId('book-reset-progress'))
       expect(mockSaveBookPrefs).toHaveBeenCalledWith('book-9', { page: null })
       expect(screen.getByTestId('book-reset-progress')).toHaveTextContent(
@@ -211,7 +211,7 @@ describe('BookActionsMenu', () => {
       mockGetBookPrefs.mockReturnValue({ page: 3 })
       mockRole = 'player'
       renderMenu({}, { onEdit: undefined })
-      fireEvent.click(screen.getByLabelText('bookActions.menu'))
+      fireEvent.click(screen.getByLabelText('a11y.bookActions'))
       expect(screen.queryByRole('menuitem', { name: 'bookActions.edit' })).not.toBeInTheDocument()
       expect(screen.getByTestId('book-reset-progress')).toBeInTheDocument()
     })
@@ -219,7 +219,7 @@ describe('BookActionsMenu', () => {
 
   it('portals the menu to document.body so it escapes the row clip', () => {
     const { container } = renderMenu()
-    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    fireEvent.click(screen.getByLabelText('a11y.bookActions'))
     // The menu renders outside the component subtree (into body).
     expect(container.querySelector('[role="menu"]')).toBeNull()
     expect(screen.getByRole('menu')).not.toBeNull()
@@ -228,14 +228,14 @@ describe('BookActionsMenu', () => {
   it('calls onEdit when the edit item is clicked', () => {
     const onEdit = vi.fn()
     renderMenu({}, { onEdit })
-    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    fireEvent.click(screen.getByLabelText('a11y.bookActions'))
     fireEvent.click(screen.getByRole('menuitem', { name: 'bookActions.edit' }))
     expect(onEdit).toHaveBeenCalledTimes(1)
   })
 
   it('exposes a download link to the book file', () => {
     renderMenu({ id: 'b7' })
-    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    fireEvent.click(screen.getByLabelText('a11y.bookActions'))
     const link = screen.getByRole('menuitem', { name: 'bookActions.download' })
     expect(link).toHaveAttribute('href', 'http://localhost/books/b7/file')
     expect(link).toHaveAttribute('download')
@@ -246,7 +246,7 @@ describe('BookActionsMenu', () => {
   it('opens the add-to-campaign modal for just this book', async () => {
     mockCampaignList.mockResolvedValue([{ id: 'c1', name: 'Curse of Strahd', owner_id: 'u1' }])
     renderMenu({ id: 'b9' })
-    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    fireEvent.click(screen.getByLabelText('a11y.bookActions'))
     fireEvent.click(screen.getByRole('menuitem', { name: 'resources.addToCampaign' }))
     // The modal loads the user's campaigns and offers this one book.
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
@@ -257,7 +257,7 @@ describe('BookActionsMenu', () => {
   it('keeps the modal open after the menu closes', async () => {
     mockCampaignList.mockResolvedValue([{ id: 'c1', name: 'Camp', owner_id: 'u1' }])
     renderMenu()
-    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    fireEvent.click(screen.getByLabelText('a11y.bookActions'))
     fireEvent.click(screen.getByRole('menuitem', { name: 'resources.addToCampaign' }))
     // The menu itself is dismissed, but the modal it opened stays up.
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
@@ -275,7 +275,7 @@ describe('BookActionsMenu', () => {
         <BookActionsMenu book={makeBook()} onEdit={() => {}} />
       </div>
     )
-    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    fireEvent.click(screen.getByLabelText('a11y.bookActions'))
     fireEvent.click(screen.getByRole('menuitem', { name: 'resources.addToCampaign' }))
     const dialog = await screen.findByRole('dialog')
     onRowClick.mockClear()
@@ -286,7 +286,7 @@ describe('BookActionsMenu', () => {
 
   it('is available to non-editors, unlike edit', () => {
     renderMenu({}, { onEdit: undefined })
-    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    fireEvent.click(screen.getByLabelText('a11y.bookActions'))
     expect(screen.queryByRole('menuitem', { name: 'bookActions.edit' })).not.toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: 'resources.addToCampaign' })).toBeInTheDocument()
   })
@@ -294,7 +294,7 @@ describe('BookActionsMenu', () => {
   it('hides the item when campaigns are hidden in UI settings', () => {
     mockHideCampaigns = true
     renderMenu()
-    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    fireEvent.click(screen.getByLabelText('a11y.bookActions'))
     expect(
       screen.queryByRole('menuitem', { name: 'resources.addToCampaign' })
     ).not.toBeInTheDocument()
@@ -306,7 +306,7 @@ describe('BookActionsMenu', () => {
 
   it('shows a re-scan item for text-layer PDFs and posts to /rescan', async () => {
     renderMenu({ id: 'b2', index_error: '' })
-    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    fireEvent.click(screen.getByLabelText('a11y.bookActions'))
     expect(screen.queryByRole('menuitem', { name: 'bookActions.reocr' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('menuitem', { name: 'bookActions.rescan' }))
     await waitFor(() => expect(mockPost).toHaveBeenCalledWith('/books/b2/rescan'))
@@ -315,7 +315,7 @@ describe('BookActionsMenu', () => {
   it('shows an error when the re-scan request fails', async () => {
     mockPost.mockRejectedValueOnce(new Error('boom'))
     renderMenu({ id: 'b3', index_error: '' })
-    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    fireEvent.click(screen.getByLabelText('a11y.bookActions'))
     fireEvent.click(screen.getByRole('menuitem', { name: 'bookActions.rescan' }))
     await waitFor(() => expect(screen.getByText('bookActions.rescanError')).toBeInTheDocument())
   })
@@ -324,7 +324,7 @@ describe('BookActionsMenu', () => {
     // A failed OCR book keeps an error message in index_error, but the server
     // reports can_reocr: false for it: it must recover through the full re-scan flow.
     renderMenu({ id: 'b8', indexed: false, index_failed: true, index_error: 'ocr open failed: x' })
-    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    fireEvent.click(screen.getByLabelText('a11y.bookActions'))
     expect(screen.queryByRole('menuitem', { name: 'bookActions.reocr' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('menuitem', { name: 'bookActions.rescan' }))
     await waitFor(() => expect(mockPost).toHaveBeenCalledWith('/books/b8/rescan'))
@@ -332,7 +332,7 @@ describe('BookActionsMenu', () => {
 
   it('hides re-index items for a never-indexed / still-pending book', () => {
     renderMenu({ indexed: false, index_failed: false })
-    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    fireEvent.click(screen.getByLabelText('a11y.bookActions'))
     expect(screen.queryByRole('menuitem', { name: 'bookActions.rescan' })).not.toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: 'bookActions.reocr' })).not.toBeInTheDocument()
     // download stays available regardless
@@ -344,14 +344,14 @@ describe('BookActionsMenu', () => {
 
   it('shows a re-OCR item (not re-scan) for OCR books', () => {
     renderMenu({ index_error: 'ocr', can_reocr: true })
-    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    fireEvent.click(screen.getByLabelText('a11y.bookActions'))
     expect(screen.getByRole('menuitem', { name: 'bookActions.reocr' })).toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: 'bookActions.rescan' })).not.toBeInTheDocument()
   })
 
   it('re-OCR reveals a DPI field and posts to /reindex', async () => {
     renderMenu({ id: 'b4', index_error: 'image-only', can_reocr: true })
-    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    fireEvent.click(screen.getByLabelText('a11y.bookActions'))
     fireEvent.click(screen.getByRole('menuitem', { name: 'bookActions.reocr' }))
     fireEvent.click(screen.getByText('reocr.run'))
     await waitFor(() => expect(mockPost).toHaveBeenCalledWith('/books/b4/reindex'))
@@ -359,7 +359,7 @@ describe('BookActionsMenu', () => {
 
   it('re-OCR posts the entered DPI as a query param', async () => {
     renderMenu({ id: 'b5', index_error: 'ocr', can_reocr: true })
-    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    fireEvent.click(screen.getByLabelText('a11y.bookActions'))
     fireEvent.click(screen.getByRole('menuitem', { name: 'bookActions.reocr' }))
     fireEvent.change(screen.getByLabelText('reocr.dpiLabel'), { target: { value: '300' } })
     fireEvent.click(screen.getByText('reocr.run'))
@@ -368,7 +368,7 @@ describe('BookActionsMenu', () => {
 
   it('seeds the DPI field from an existing per-book override', () => {
     renderMenu({ index_error: 'ocr', can_reocr: true, ocr_dpi: 250 })
-    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    fireEvent.click(screen.getByLabelText('a11y.bookActions'))
     fireEvent.click(screen.getByRole('menuitem', { name: 'bookActions.reocr' }))
     expect(screen.getByLabelText('reocr.dpiLabel')).toHaveValue(250)
   })
@@ -377,14 +377,14 @@ describe('BookActionsMenu', () => {
     // A scan with a few text pages has its own text layer (index_error ''),
     // but too little of it for the book to be searchable: Re-OCR still applies.
     renderMenu({ index_error: '', can_reocr: true })
-    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    fireEvent.click(screen.getByLabelText('a11y.bookActions'))
     expect(screen.getByRole('menuitem', { name: 'bookActions.reocr' })).toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: 'bookActions.rescan' })).not.toBeInTheDocument()
   })
 
   it('hides re-OCR when the server says it does not apply, whatever index_error says', () => {
     renderMenu({ index_error: 'ocr', can_reocr: false })
-    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    fireEvent.click(screen.getByLabelText('a11y.bookActions'))
     expect(screen.queryByRole('menuitem', { name: 'bookActions.reocr' })).not.toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: 'bookActions.rescan' })).toBeInTheDocument()
   })
@@ -392,7 +392,7 @@ describe('BookActionsMenu', () => {
   it('shows the re-OCR error when the reindex request fails', async () => {
     mockPost.mockRejectedValueOnce(new Error('boom'))
     renderMenu({ id: 'b6', can_reocr: true })
-    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    fireEvent.click(screen.getByLabelText('a11y.bookActions'))
     fireEvent.click(screen.getByRole('menuitem', { name: 'bookActions.reocr' }))
     fireEvent.click(screen.getByText('reocr.run'))
     expect(await screen.findByText('reocr.error')).toBeInTheDocument()
@@ -402,7 +402,7 @@ describe('BookActionsMenu', () => {
 
   it('hides re-index items when onEdit is not provided (non-editor)', () => {
     render(<BookActionsMenu book={makeBook({ index_error: '' })} />)
-    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    fireEvent.click(screen.getByLabelText('a11y.bookActions'))
     expect(screen.queryByRole('menuitem', { name: 'bookActions.rescan' })).not.toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: 'bookActions.reocr' })).not.toBeInTheDocument()
     // download is still available to everyone
@@ -411,14 +411,14 @@ describe('BookActionsMenu', () => {
 
   it('hides re-index items for non-PDF books', () => {
     renderMenu({ mime_type: 'application/zip' })
-    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    fireEvent.click(screen.getByLabelText('a11y.bookActions'))
     expect(screen.queryByRole('menuitem', { name: 'bookActions.rescan' })).not.toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: 'bookActions.reocr' })).not.toBeInTheDocument()
   })
 
   it('marks the trigger active when the book is being edited', () => {
     renderMenu({}, { editing: true })
-    const trigger = screen.getByLabelText('bookActions.menu')
+    const trigger = screen.getByLabelText('a11y.bookActions')
     expect(trigger).toHaveStyle({ color: 'var(--gold)' })
   })
 
@@ -429,7 +429,7 @@ describe('BookActionsMenu', () => {
       mockRole = 'admin'
       mockLibraryWritable = true
       renderMenu(withFile)
-      fireEvent.click(screen.getByLabelText('bookActions.menu'))
+      fireEvent.click(screen.getByLabelText('a11y.bookActions'))
 
       expect(screen.getByTestId('book-move-file')).toBeInTheDocument()
       expect(screen.getByTestId('book-rename-file')).toBeInTheDocument()
@@ -440,7 +440,7 @@ describe('BookActionsMenu', () => {
       mockRole = 'admin'
       mockLibraryWritable = true
       renderMenu(withFile)
-      fireEvent.click(screen.getByLabelText('bookActions.menu'))
+      fireEvent.click(screen.getByLabelText('a11y.bookActions'))
 
       // They act on the bytes rather than the record, and one cannot be undone,
       // so they must stay separated from the routine items above.
@@ -461,7 +461,7 @@ describe('BookActionsMenu', () => {
       mockRole = 'admin'
       mockLibraryWritable = false
       renderMenu(withFile)
-      fireEvent.click(screen.getByLabelText('bookActions.menu'))
+      fireEvent.click(screen.getByLabelText('a11y.bookActions'))
 
       expect(screen.queryByTestId('book-move-file')).not.toBeInTheDocument()
       expect(screen.queryByTestId('book-rename-file')).not.toBeInTheDocument()
@@ -472,7 +472,7 @@ describe('BookActionsMenu', () => {
       mockRole = 'gm'
       mockLibraryWritable = true
       renderMenu(withFile)
-      fireEvent.click(screen.getByLabelText('bookActions.menu'))
+      fireEvent.click(screen.getByLabelText('a11y.bookActions'))
 
       expect(screen.queryByTestId('book-move-file')).not.toBeInTheDocument()
     })
@@ -481,7 +481,7 @@ describe('BookActionsMenu', () => {
       mockRole = 'admin'
       mockLibraryWritable = true
       renderMenu()
-      fireEvent.click(screen.getByLabelText('bookActions.menu'))
+      fireEvent.click(screen.getByLabelText('a11y.bookActions'))
 
       // Nothing to act on without a path, so the group is not offered.
       expect(screen.queryByTestId('book-move-file')).not.toBeInTheDocument()
@@ -491,7 +491,7 @@ describe('BookActionsMenu', () => {
       mockRole = 'admin'
       mockLibraryWritable = true
       renderMenu(withFile)
-      fireEvent.click(screen.getByLabelText('bookActions.menu'))
+      fireEvent.click(screen.getByLabelText('a11y.bookActions'))
       fireEvent.click(screen.getByTestId('book-delete-file'))
 
       // Deleting is never one click: the dialog is the guard.
@@ -537,9 +537,9 @@ describe('BookActionsMenu right-click', () => {
 
   it('offers the same items as the kebab', () => {
     render(<Row />)
-    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    fireEvent.click(screen.getByLabelText('a11y.bookActions'))
     const fromKebab = screen.getAllByRole('menuitem').map((el) => el.textContent)
-    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    fireEvent.click(screen.getByLabelText('a11y.bookActions'))
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
 
     fireEvent.contextMenu(screen.getByTestId('row'))
@@ -563,7 +563,7 @@ describe('BookActionsMenu right-click', () => {
   it('is closed by the kebab when it is already open', () => {
     render(<Row />)
     fireEvent.contextMenu(screen.getByTestId('row'))
-    fireEvent.click(screen.getByLabelText('bookActions.menu'))
+    fireEvent.click(screen.getByLabelText('a11y.bookActions'))
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 

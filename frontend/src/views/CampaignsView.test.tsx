@@ -284,4 +284,39 @@ describe('CampaignsView', () => {
       expect(screen.queryByText('Archived Campaigns')).toBeNull()
     })
   })
+
+  it('names the page, and says which campaign each invite button answers', async () => {
+    const invite = {
+      ...joinedGmCampaign,
+      id: 'c3',
+      name: 'Curse of Strahd',
+      invitation_status: 'invited',
+    }
+    mockCampaigns.list.mockResolvedValue([invite])
+    renderView()
+    await waitFor(() => screen.getByText('Curse of Strahd'))
+    expect(screen.getByRole('heading', { level: 1, name: /campaigns/i })).toBeInTheDocument()
+    expect(document.title).toMatch(/ - Grimoire$/)
+    expect(
+      screen.getByRole('button', { name: 'Accept the invitation to Curse of Strahd' })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Decline the invitation to Curse of Strahd' })
+    ).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: /invitations/i })).toBeInTheDocument()
+  })
+
+  it('lists the campaigns of each section', async () => {
+    mockCampaigns.list.mockResolvedValue([joinedGmCampaign])
+    renderView()
+    await waitFor(() => screen.getByText(joinedGmCampaign.name))
+    expect(screen.getAllByRole('list').length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('listitem').length).toBeGreaterThan(0)
+  })
+
+  it('says a load failure as an alert', async () => {
+    mockCampaigns.list.mockRejectedValue(new Error('Server down'))
+    renderView()
+    expect(await screen.findByRole('alert')).toHaveTextContent('Server down')
+  })
 })

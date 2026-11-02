@@ -81,11 +81,11 @@ export default function CampaignCharacters({
           marginBottom: 14,
         }}
       >
-        <h3
+        <h2
           style={{ fontSize: 15, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}
         >
           <LuSwords size={15} aria-hidden="true" /> {t('campaignCharacters.title')}
-        </h3>
+        </h2>
         {canAdd ? (
           <button
             ref={addBtnRef}
@@ -112,7 +112,11 @@ export default function CampaignCharacters({
       </div>
 
       {adding ? (
-        <AnchoredPopover anchorRef={addBtnRef} onClose={closePicker}>
+        <AnchoredPopover
+          anchorRef={addBtnRef}
+          onClose={closePicker}
+          label={t('campaignCharacters.add')}
+        >
           <AttachCharacterPicker
             campaignId={campaignId}
             onAttached={() => {

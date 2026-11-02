@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuChevronLeft } from 'react-icons/lu'
 import { campaigns, type Schema } from '../api'
 import { useAuth } from '../context/AuthContext'
+import usePageTitle from '../hooks/usePageTitle'
 import Spinner from '../components/Spinner'
 import WikiView from '../components/campaigns/WikiView'
 
@@ -11,13 +12,14 @@ import WikiView from '../components/campaigns/WikiView'
 export default function CampaignNotesView() {
   const { t } = useTranslation()
   const { campaignId } = useParams()
-  const navigate = useNavigate()
   const { user } = useAuth()!
   const [campaign, setCampaign] = useState<Schema<'CampaignOut'> | null>(null)
   const [error, setError] = useState<string | null>(null)
   // On mobile the notes wiki takes over the screen when a note is open, so hide
   // this page's own header (campaign title / back-to-overview) to give it room.
   const [viewingNote, setViewingNote] = useState(false)
+
+  usePageTitle(campaign ? t('a11y.campaignNotes.pageTitle', { name: campaign.name }) : null)
 
   useEffect(() => {
     campaigns
@@ -27,7 +29,11 @@ export default function CampaignNotesView() {
   }, [campaignId])
 
   if (error) {
-    return <div style={{ padding: 40, textAlign: 'center', color: 'var(--danger)' }}>{error}</div>
+    return (
+      <div role="alert" style={{ padding: 40, textAlign: 'center', color: 'var(--danger)' }}>
+        {error}
+      </div>
+    )
   }
   if (!campaign) {
     return (
@@ -47,6 +53,9 @@ export default function CampaignNotesView() {
 
   return (
     <div className="fade-in" style={{ padding: 24 }}>
+      {/* On a phone an open note hides this header to make room, but the page
+          still needs its h1. */}
+      {viewingNote && <h1 className="sr-only">{campaign.name}</h1>}
       {!viewingNote && (
         <div
           style={{
@@ -57,8 +66,9 @@ export default function CampaignNotesView() {
             flexWrap: 'wrap',
           }}
         >
-          <button
-            onClick={() => navigate(`/campaigns/${campaignId}/overview`)}
+          {/* A link, since it goes somewhere. */}
+          <Link
+            to={`/campaigns/${campaignId}/overview`}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -70,11 +80,12 @@ export default function CampaignNotesView() {
               cursor: 'pointer',
               fontSize: 13,
               padding: '7px 12px',
+              textDecoration: 'none',
             }}
           >
             <LuChevronLeft size={14} /> {t('campaignNotes.backToOverview')}
-          </button>
-          <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>{campaign.name}</h2>
+          </Link>
+          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>{campaign.name}</h1>
         </div>
       )}
 

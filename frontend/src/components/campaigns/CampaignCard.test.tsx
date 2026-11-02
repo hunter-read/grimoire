@@ -123,4 +123,17 @@ describe('CampaignCard', () => {
       expect(notesLink.getAttribute('href')).not.toBe(cardLink.getAttribute('href'))
     })
   })
+
+  it('gives its name a heading and says whose notes the Notes link opens', () => {
+    renderCard({ campaign: campaign() })
+    expect(screen.getByRole('heading', { level: 3, name: 'Curse of Strahd' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('link', { name: 'Open the notes for Curse of Strahd' })
+    ).toHaveAttribute('href', '/campaigns/c1/notes')
+  })
+
+  it('names the next-session date for a screen reader', () => {
+    renderCard({ campaign: campaign({ next_session: '2026-08-15' }) })
+    expect(screen.getByText(/^Next session:/)).toHaveClass('sr-only')
+  })
 })

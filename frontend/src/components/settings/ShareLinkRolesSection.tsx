@@ -44,7 +44,9 @@ export default function ShareLinkRolesSection({ onChanged }: ShareLinkRolesSecti
 
   return (
     <div>
-      <h3 style={{ marginBottom: 6 }}>{t('settings.entries.shareLinkRoles')}</h3>
+      <h3 id="share-link-roles-title" style={{ marginBottom: 6 }}>
+        {t('settings.entries.shareLinkRoles')}
+      </h3>
       {state.share_links_enabled === false ? (
         <p style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.6, margin: 0 }}>
           {t('users.shareLinks.disabled')}
@@ -62,7 +64,12 @@ export default function ShareLinkRolesSection({ onChanged }: ShareLinkRolesSecti
           >
             {t('users.shareLinks.rolesHint')}
           </p>
-          <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+          {/* Named by the heading, so each role checkbox reads as "may share". */}
+          <div
+            role="group"
+            aria-labelledby="share-link-roles-title"
+            style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}
+          >
             <PermissionToggle
               id="share-role-admin"
               label={t('users.roles.admin')}

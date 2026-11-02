@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   LuArrowLeft,
@@ -119,6 +120,10 @@ export default function ReaderToolbar({
   onResetZoom,
 }: ReaderToolbarProps) {
   const { t } = useTranslation()
+  const shortcutsRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (showShortcuts) shortcutsRef.current?.focus()
+  }, [showShortcuts])
 
   const panels: { key: PanelKey; Icon: IconType; label: string }[] = [
     book.mime_type === 'application/pdf' && mode !== 'pdf'
@@ -201,8 +206,13 @@ export default function ReaderToolbar({
           {/* minWidth: 0 is what lets the ellipsis actually happen — without
               it the span holds its full text width and shoves the controls on
               the right off the row. */}
-          <span
+          {/* The page's heading, in the toolbar's own type rather than the
+              global Cinzel/gold. */}
+          <h1
             style={{
+              margin: 0,
+              fontFamily: 'inherit',
+              letterSpacing: 'normal',
               fontSize: 16,
               fontWeight: 500,
               color: 'var(--text)',
@@ -213,7 +223,7 @@ export default function ReaderToolbar({
             }}
           >
             {book.title}
-          </span>
+          </h1>
 
           {/* On a phone the kebab rides with the title rather than taking room
               on the controls row below. */}
@@ -244,6 +254,9 @@ export default function ReaderToolbar({
             <input
               id="reader-page-input"
               type="text"
+              inputMode="numeric"
+              autoComplete="off"
+              aria-describedby="reader-page-total"
               value={pageInput}
               onChange={(e) => onPageInputChange(e.target.value)}
               onKeyDown={(e) => {
@@ -256,7 +269,7 @@ export default function ReaderToolbar({
             {mode === 'spread' && hasRight && (
               <span style={{ fontSize: 15, color: 'var(--text-muted)' }}>– {rightPage}</span>
             )}
-            <span style={{ fontSize: 15, color: 'var(--text-muted)' }}>
+            <span id="reader-page-total" style={{ fontSize: 15, color: 'var(--text-muted)' }}>
               {t('common.pageOf', { total: totalPages })}
             </span>
             <button
@@ -357,6 +370,10 @@ export default function ReaderToolbar({
                   key={key}
                   onClick={() => onTogglePanel(key)}
                   title={label}
+                  // Named even where only the icon shows, and pressed while its
+                  // panel is open.
+                  aria-label={label}
+                  aria-pressed={panel === key}
                   style={{
                     background: panel === key ? 'var(--bg-card-hover)' : 'var(--bg-card)',
                     color: panel === key ? 'var(--gold)' : 'var(--text-dim)',
@@ -378,7 +395,12 @@ export default function ReaderToolbar({
           )}
 
           {mode !== 'pdf' && (
-            <button onClick={onBookmarkPage} title={t('reader.bookmarkPage')} style={btnStyle}>
+            <button
+              onClick={onBookmarkPage}
+              title={t('reader.bookmarkPage')}
+              aria-label={t('reader.bookmarkPage')}
+              style={btnStyle}
+            >
               <LuBookmarkPlus size={14} />
             </button>
           )}
@@ -402,6 +424,14 @@ export default function ReaderToolbar({
           }}
         >
           <div
+            ref={shortcutsRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reader-shortcuts-title"
+            // Focused when it opens, so a screen reader reads it out; Esc (the
+            // reader's key handler) closes it.
+            tabIndex={-1}
+            className="focus-target"
             onClick={(e) => e.stopPropagation()}
             style={{
               background: 'var(--bg-panel)',
@@ -412,9 +442,19 @@ export default function ReaderToolbar({
               boxShadow: '0 8px 32px var(--shadow)',
             }}
           >
-            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 16, color: 'var(--text)' }}>
+            <h2
+              id="reader-shortcuts-title"
+              style={{
+                fontSize: 15,
+                fontFamily: 'inherit',
+                letterSpacing: 'normal',
+                fontWeight: 600,
+                margin: '0 0 16px',
+                color: 'var(--text)',
+              }}
+            >
               {t('reader.keyboardShortcuts')}
-            </div>
+            </h2>
             {[
               ['←  /  →', t('reader.shortcutPrevNext')],
               ['↑  /  ↓', t('reader.shortcutPrevNextVertical')],

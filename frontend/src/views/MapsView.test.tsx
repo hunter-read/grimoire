@@ -438,8 +438,8 @@ describe('MapsView map editor entry', () => {
     // The gallery is the entry point for a map that is not in the library yet,
     // mirroring what the token gallery offers.
     renderView()
-    const button = await screen.findByRole('button', { name: /VTT Editor/i })
-    await userEvent.click(button)
-    expect(mockNavigate).toHaveBeenCalledWith('/maps/editor')
+    // A real link, so it is announced as one and opens in a new tab.
+    const link = await screen.findByRole('link', { name: /VTT Editor/i })
+    expect(link).toHaveAttribute('href', '/maps/editor')
   })
 })

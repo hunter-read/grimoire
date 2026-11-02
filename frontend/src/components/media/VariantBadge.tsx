@@ -80,6 +80,8 @@ export default function VariantBadge({
       <span
         style={{ ...style, color: 'var(--text-muted)', gap: 3 }}
         title={label}
+        // A span's aria-label is only read when it has a role.
+        role="img"
         aria-label={label}
       >
         <LuLayers size={13} aria-hidden="true" />
@@ -97,7 +99,9 @@ export default function VariantBadge({
         const label = t(`variants.kind.${k}`, { defaultValue: k })
         return (
           <span key={k} style={style} title={label}>
-            <Icon size={13} role="img" aria-label={label} />
+            {/* aria-hidden={false} wins over the app-wide icon default, which
+                hides decorative icons - this one is the label. */}
+            <Icon size={13} role="img" aria-hidden={false} aria-label={label} />
           </span>
         )
       })}

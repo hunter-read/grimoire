@@ -116,4 +116,17 @@ describe('RichTextEditor', () => {
     fireEvent.blur(box)
     expect(onChange).toHaveBeenLastCalledWith('<p>blurred</p>')
   })
+
+  it('names its formatting buttons and groups them', () => {
+    setup()
+    const toolbar = screen.getByRole('group', { name: 'a11y.settings.formatting' })
+    expect(toolbar).toContainElement(screen.getByRole('button', { name: 'richText.bold' }))
+  })
+
+  it("asks for the link address in the reader's language", () => {
+    const prompt = vi.spyOn(window, 'prompt').mockReturnValue(null)
+    setup()
+    fireEvent.click(screen.getByRole('button', { name: 'richText.link' }))
+    expect(prompt).toHaveBeenCalledWith('a11y.settings.linkPrompt')
+  })
 })

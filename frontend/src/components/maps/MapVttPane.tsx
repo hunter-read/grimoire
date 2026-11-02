@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import api, { mediaUrl, type ResponseOf } from '../../api'
 import Spinner from '../Spinner'
 import useMediaLoadState from '../../hooks/useMediaLoadState'
+import { mediaDisplayName } from '../../utils/mediaDisplayName'
 
 type VttData = ResponseOf<'/maps/{map_id}/vtt/data', 'get'>
 
@@ -65,12 +66,14 @@ export default function MapVttPane({ mapId, filename, isMobilePhone, onData }: M
         </div>
       )}
       {failed ? (
-        <p style={{ color: 'var(--text-muted)' }}>{t('maps.detail.vttFailed')}</p>
+        <p role="alert" style={{ color: 'var(--text-muted)' }}>
+          {t('maps.detail.vttFailed')}
+        </p>
       ) : (
         <img
           key={mapId}
           src={mediaUrl(`/maps/${mapId}/vtt/image`)}
-          alt={filename}
+          alt={mediaDisplayName(filename)}
           onLoad={onLoad}
           onError={onError}
           style={{

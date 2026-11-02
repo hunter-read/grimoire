@@ -132,4 +132,14 @@ describe('NamingPreviewTable', () => {
     setup([row({ id: 'n' })])
     expect(screen.getByRole('checkbox', { name: 'Select all' })).toBeDisabled()
   })
+
+  it('marks its column headers and says which title is old and which is new', () => {
+    setup()
+    for (const header of screen.getAllByRole('columnheader')) {
+      expect(header).toHaveAttribute('scope', 'col')
+    }
+    // The strike-through is visual only, so the words carry it.
+    expect(screen.getAllByText('Was:').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Becomes:').length).toBeGreaterThan(0)
+  })
 })

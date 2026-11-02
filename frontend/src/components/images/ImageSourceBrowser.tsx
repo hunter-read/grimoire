@@ -271,7 +271,7 @@ export default function ImageSourceBrowser({
             width: '100%',
             padding: '8px 12px 8px 30px',
             background: 'var(--bg-deep)',
-            border: '1px solid var(--border)',
+            border: '1px solid var(--border-control)',
             borderRadius: 8,
             color: 'var(--text)',
             fontSize: 13,

@@ -512,3 +512,10 @@
     display: none;
   }
 }
+
+/* The rich text editor's text area turns its own outline off (it would sit
+   flush against the toolbar), so the ring goes round the whole editor. */
+.rich-text-editor:focus-within {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}

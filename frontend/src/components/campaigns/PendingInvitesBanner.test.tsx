@@ -90,10 +90,9 @@ describe('PendingInvitesBanner', () => {
   it('shows a count and View button for multiple invites', async () => {
     campaignsMock.invites.mockResolvedValue(twoInvites)
     renderBanner()
-    const view = await screen.findByText('View')
+    const view = await screen.findByRole('link', { name: 'View' })
     expect(screen.getByText(/2/)).toBeTruthy()
-    fireEvent.click(view)
-    expect(navigate).toHaveBeenCalledWith('/campaigns')
+    expect(view).toHaveAttribute('href', '/campaigns')
   })
 
   it('dismiss hides the banner and persists to sessionStorage', async () => {

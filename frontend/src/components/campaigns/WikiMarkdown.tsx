@@ -159,6 +159,11 @@ interface WikiMarkdownProps {
   pages?: WikiPageRef[]
   currentPageId?: string | null
   onOpenPage?: (page: WikiPageRef | null, heading: string | null, link: WikiLink) => void
+  /**
+   * How many heading levels the page around the body already uses, so the
+   * body's `#` headings continue the outline (see buildHeadingComponents).
+   */
+  headingLevelOffset?: number
 }
 
 type WikiLink = ReturnType<typeof parseTarget>
@@ -169,6 +174,7 @@ export default function WikiMarkdown({
   pages = [],
   currentPageId = null,
   onOpenPage,
+  headingLevelOffset = 0,
 }: WikiMarkdownProps) {
   const { t } = useTranslation()
   const segments = useMemo(() => splitSecrets(body), [body])
@@ -207,6 +213,8 @@ export default function WikiMarkdown({
         return (
           <span
             title={t('wiki.secretHint')}
+            // The tint is what marks a secret; a screen reader is told where one
+            // starts and ends instead.
             style={{
               // A low-alpha gold tint (not the solid --gold-dim) so it reads as
               // a highlight without washing out gold headings or white body text.
@@ -219,7 +227,9 @@ export default function WikiMarkdown({
               padding: '0 4px',
             }}
           >
+            <span className="sr-only">{t('a11y.campaignNotes.secretStart')} </span>
             {children}
+            <span className="sr-only"> {t('a11y.campaignNotes.secretEnd')}</span>
           </span>
         )
       },
@@ -290,6 +300,17 @@ export default function WikiMarkdown({
               }}
             >
               {children}
+              {/* Red and dashed says "missing" only to the eye. */}
+              {/* The space sits outside the hidden span, which a name
+                  computation would otherwise trim. */}
+              {!exists && (
+                <>
+                  {' '}
+                  <span className="sr-only">
+                    ({t(link.pageId ? 'wiki.brokenLinkHint' : 'wiki.missingPageHint')})
+                  </span>
+                </>
+              )}
             </button>
           )
         }
@@ -308,6 +329,12 @@ export default function WikiMarkdown({
             {...props}
           >
             {children}
+            {external && (
+              <>
+                {' '}
+                <span className="sr-only">{t('a11y.opensInNewTab')}</span>
+              </>
+            )}
           </a>
         )
       },
@@ -352,7 +379,7 @@ export default function WikiMarkdown({
       // Headings get a deterministic id derived from their text, which is what
       // a [[Page:#Heading]] link scrolls to. Keyed on normalized text (not
       // document order) so the anchor survives edits elsewhere in the page.
-      ...buildHeadingComponents(),
+      ...buildHeadingComponents(headingLevelOffset),
       code(codeProps) {
         const { children } = codeProps
         // Not part of react-markdown's typed props; kept as it was.
@@ -385,7 +412,7 @@ export default function WikiMarkdown({
         )
       },
     }),
-    [pages, openLink, t, campaignId, prefetched]
+    [pages, openLink, t, campaignId, prefetched, headingLevelOffset]
   )
 
   if (!body?.trim()) {
@@ -422,9 +449,16 @@ export default function WikiMarkdown({
     >
       {segments.map((seg, i) =>
         seg.block ? (
-          <div key={i} title={t('wiki.secretHint')} style={secretBlockStyle}>
+          // A labelled region, so a screen reader announces where a GM-only
+          // block starts and ends - the tint and rule are only visible.
+          <section
+            key={i}
+            title={t('wiki.secretHint')}
+            aria-label={t('a11y.campaignNotes.secretLabel')}
+            style={secretBlockStyle}
+          >
             {renderMarkdown(seg.text)}
-          </div>
+          </section>
         ) : (
           <Fragment key={i}>{renderMarkdown(seg.text)}</Fragment>
         )

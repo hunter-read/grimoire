@@ -76,6 +76,9 @@ export default function PluginSourceRow({ url, index, data, busy, onRemove }: Pr
               size={16}
               color="var(--gold-dim)"
               title={t('addons.verifiedSource', 'Verified Source')}
+              role="img"
+              aria-hidden={false}
+              aria-label={t('addons.verifiedSource', 'Verified Source')}
             />
           )}
           {credential && (
@@ -105,6 +108,7 @@ export default function PluginSourceRow({ url, index, data, busy, onRemove }: Pr
           }}
         >
           {url}
+          <span className="sr-only"> {t('a11y.opensInNewTab')}</span>
         </a>
         {contents.length > 0 && (
           <div
@@ -141,7 +145,7 @@ export default function PluginSourceRow({ url, index, data, busy, onRemove }: Pr
       <button
         onClick={() => setEditingToken(true)}
         disabled={busy}
-        aria-label={t('addons.tokenButton')}
+        aria-label={t('a11y.settingsAdmin.actionOn', { action: t('addons.tokenButton'), name })}
         title={t('addons.tokenButton')}
         style={{ ...iconButton, color: credential ? 'var(--gold-dim)' : 'var(--text-muted)' }}
       >
@@ -150,7 +154,10 @@ export default function PluginSourceRow({ url, index, data, busy, onRemove }: Pr
       <button
         onClick={() => onRemove(index)}
         disabled={busy}
-        aria-label={t('addons.remove', 'Remove')}
+        aria-label={t('a11y.settingsAdmin.actionOn', {
+          action: t('addons.remove', 'Remove'),
+          name,
+        })}
         title={t('addons.remove', 'Remove')}
         style={{ ...iconButton, color: 'var(--danger, #c0392b)' }}
       >

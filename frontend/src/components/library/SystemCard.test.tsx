@@ -56,7 +56,7 @@ describe('SystemCard', () => {
       // Non-selectable cards render a CardLink (real anchor) with aria-label = displayName.
       // Native browser handles navigation; middle/ctrl-click open in new tab automatically.
       render(<SystemCard system={makeSystem()} to="/library/system/sys-1" />)
-      const link = screen.getByRole('link', { name: 'Dungeons & Dragons' })
+      const link = screen.getByRole('link', { name: /Dungeons & Dragons,/ })
       expect(link).toHaveAttribute('href', '/library/system/sys-1')
     })
 
@@ -91,7 +91,7 @@ describe('SystemCard', () => {
           onToggleSelect={onToggleSelect}
         />
       )
-      await userEvent.click(screen.getByText('Dungeons & Dragons'))
+      await userEvent.click(screen.getByRole('button', { name: 'Select Dungeons & Dragons' }))
       expect(onToggleSelect).toHaveBeenCalledWith({ shift: false, meta: false })
     })
 
@@ -107,7 +107,7 @@ describe('SystemCard', () => {
       )
       const user = userEvent.setup()
       await user.keyboard('{Shift>}')
-      await user.click(screen.getByText('Dungeons & Dragons'))
+      await user.click(screen.getByRole('button', { name: 'Select Dungeons & Dragons' }))
       await user.keyboard('{/Shift}')
       expect(onToggleSelect).toHaveBeenCalledWith({ shift: true, meta: false })
     })
@@ -120,7 +120,7 @@ describe('SystemCard', () => {
     it('does not render a link overlay in selectable mode', () => {
       // In bulk-select mode the card stays a toggle button — no CardLink rendered.
       render(<SystemCard system={makeSystem()} to="/library/system/sys-1" selectable />)
-      expect(screen.queryByRole('link', { name: 'Dungeons & Dragons' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('link', { name: /Dungeons & Dragons/ })).not.toBeInTheDocument()
     })
 
     it('tag chips still link to the tags page while selecting', () => {
@@ -151,13 +151,13 @@ describe('SystemCard', () => {
       )
       expect(screen.getByText('Dungeons & Dragons')).toBeInTheDocument()
       expect(screen.getByText('18+')).toBeInTheDocument()
-      await userEvent.click(screen.getByText('Dungeons & Dragons'))
+      await userEvent.click(screen.getByRole('button', { name: 'Select Dungeons & Dragons' }))
       expect(onToggleSelect).toHaveBeenCalled()
     })
 
     it('renders a real link overlay in non-selectable compact mode', () => {
       render(<SystemCard system={makeSystem()} to="/library/system/sys-1" compact />)
-      const link = screen.getByRole('link', { name: 'Dungeons & Dragons' })
+      const link = screen.getByRole('link', { name: /Dungeons & Dragons,/ })
       expect(link).toHaveAttribute('href', '/library/system/sys-1')
     })
   })
@@ -170,7 +170,7 @@ describe('SystemCard', () => {
 
     it('renders a real link overlay in non-selectable list mode', () => {
       render(<SystemCard system={makeSystem()} to="/library/system/sys-1" list />)
-      const link = screen.getByRole('link', { name: 'Dungeons & Dragons' })
+      const link = screen.getByRole('link', { name: /Dungeons & Dragons,/ })
       expect(link).toHaveAttribute('href', '/library/system/sys-1')
     })
 
@@ -185,7 +185,7 @@ describe('SystemCard', () => {
           onToggleSelect={onToggleSelect}
         />
       )
-      await userEvent.click(screen.getByText('Dungeons & Dragons'))
+      await userEvent.click(screen.getByRole('button', { name: 'Select Dungeons & Dragons' }))
       expect(onToggleSelect).toHaveBeenCalled()
     })
   })
@@ -371,7 +371,7 @@ describe('SystemCard', () => {
             onToggleSelect={onToggleSelect}
           />
         )
-        expect(screen.getByRole('link', { name: 'Shelf' })).toHaveAttribute(
+        expect(screen.getByRole('link', { name: /, Shelf,/ })).toHaveAttribute(
           'href',
           '/library/system/sys-1'
         )
@@ -399,7 +399,7 @@ describe('SystemCard', () => {
           {...layout}
         />
       )
-      expect(screen.getByRole('link', { name: 'Dungeons & Dragons' })).toHaveAttribute(
+      expect(screen.getByRole('link', { name: /Dungeons & Dragons,/ })).toHaveAttribute(
         'href',
         '/library/system/sys-1'
       )
@@ -434,7 +434,7 @@ describe('SystemCard', () => {
       ['list', { list: true }],
     ])('renders a real link in the %s layout so the browser handles new-tab', (_name, layout) => {
       render(<SystemCard system={makeSystem()} to="/library/system/sys-1" {...layout} />)
-      const link = screen.getByRole('link', { name: 'Dungeons & Dragons' })
+      const link = screen.getByRole('link', { name: /Dungeons & Dragons,/ })
       expect(link).toHaveAttribute('href', '/library/system/sys-1')
     })
 
@@ -449,8 +449,8 @@ describe('SystemCard', () => {
         />
       )
       // No link rendered in selectable mode.
-      expect(screen.queryByRole('link', { name: 'Dungeons & Dragons' })).not.toBeInTheDocument()
-      await userEvent.click(screen.getByText('Dungeons & Dragons'))
+      expect(screen.queryByRole('link', { name: /Dungeons & Dragons/ })).not.toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Select Dungeons & Dragons' }))
       expect(onToggleSelect).toHaveBeenCalled()
     })
   })

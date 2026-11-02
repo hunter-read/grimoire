@@ -9,6 +9,7 @@ import LoadMoreSentinel from '../LoadMoreSentinel'
 import Spinner from '../Spinner'
 import { tagZipBtnStyle, canDownloadTagType, type DownloadRequest } from './tagDownload'
 import { shouldAutoCollapse } from '../../utils/autoCollapse'
+import ItemList, { plainHeading } from './ItemList'
 import type { Schema } from '../../api'
 
 const PREFS_KEY = 'tagsSectionCollapsed'
@@ -95,38 +96,42 @@ export default function TagTypeSection<T>({
   return (
     <section style={{ marginBottom: 32 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-        <button
-          type="button"
-          onClick={toggle}
-          aria-expanded={!collapsed}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            flex: 1,
-            minWidth: 0,
-            background: 'none',
-            border: 'none',
-            padding: 0,
-            cursor: 'pointer',
-            color: 'var(--text-muted)',
-            fontSize: 14,
-            fontWeight: 600,
-            textTransform: 'uppercase',
-            letterSpacing: '0.08em',
-          }}
-        >
-          <LuChevronDown
-            size={16}
-            aria-hidden="true"
+        {/* Under the tag's h2: the toggle inside a heading, so each type is a
+            stop for heading navigation. */}
+        <h3 style={{ ...plainHeading, flex: 1, minWidth: 0 }}>
+          <button
+            type="button"
+            onClick={toggle}
+            aria-expanded={!collapsed}
             style={{
-              transition: 'transform 0.15s',
-              transform: collapsed ? 'rotate(-90deg)' : 'none',
-              flexShrink: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              width: '100%',
+              minWidth: 0,
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              color: 'var(--text-muted)',
+              fontSize: 14,
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
             }}
-          />
-          {title}
-        </button>
+          >
+            <LuChevronDown
+              size={16}
+              aria-hidden="true"
+              style={{
+                transition: 'transform 0.15s',
+                transform: collapsed ? 'rotate(-90deg)' : 'none',
+                flexShrink: 0,
+              }}
+            />
+            {title}
+          </button>
+        </h3>
         {downloadable && (
           <button
             type="button"
@@ -138,6 +143,8 @@ export default function TagTypeSection<T>({
             }
             style={tagZipBtnStyle}
             title={t('tags.downloadType', { type: title, tag })}
+            // "Download" alone, once per section, says nothing about which.
+            aria-label={t('tags.downloadType', { type: title, tag })}
           >
             <LuDownload size={11} /> {t('tags.download')}
           </button>
@@ -146,7 +153,7 @@ export default function TagTypeSection<T>({
       {!collapsed && (
         <>
           {items.length > 0 && (
-            <div style={containerStyle}>{items.map((item) => renderItem(item, grid))}</div>
+            <ItemList nodes={items.map((item) => renderItem(item, grid))} style={containerStyle} />
           )}
           {loading && (
             <div style={{ padding: 12, display: 'flex', justifyContent: 'center' }}>

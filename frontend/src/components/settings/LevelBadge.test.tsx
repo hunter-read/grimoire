@@ -6,7 +6,8 @@ describe('LevelBadge', () => {
   it('renders a coloured, labelled badge for a known level', () => {
     render(<LevelBadge level="ERROR" />)
     const el = screen.getByText('ERROR')
-    expect(el).toHaveAttribute('aria-label', 'Log level: ERROR')
+    // The visible level is the accessible text; no English-only aria-label.
+    expect(el).not.toHaveAttribute('aria-label')
     expect(el.style.color).toBeTruthy()
   })
 

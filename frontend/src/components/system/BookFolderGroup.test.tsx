@@ -200,7 +200,7 @@ describe('BookFolderGroup', () => {
   it('calls onToggle with category::folder key when header is clicked', async () => {
     const onToggle = vi.fn()
     render(<BookFolderGroup {...makeProps({ onToggle })} />)
-    await userEvent.click(screen.getByRole('button', { name: /abomination vaults/i }))
+    await userEvent.click(screen.getByRole('button', { name: /^abomination vaults/i }))
     expect(onToggle).toHaveBeenCalledWith('adventure::Abomination Vaults')
   })
 
@@ -437,8 +437,8 @@ describe('BookFolderGroup', () => {
         })}
       />
     )
-    // In bulk mode clicking the row (role=button, aria-label "Open {title}") toggles selection.
-    await userEvent.click(screen.getByRole('button', { name: /open test book/i }))
+    // In bulk mode clicking the row (role=button, aria-label "Select {title}") toggles selection.
+    await userEvent.click(screen.getByRole('button', { name: /select test book/i }))
     expect(onToggleBook).toHaveBeenCalledWith(book.id, expect.anything())
   })
 
@@ -556,7 +556,7 @@ describe('BookFolderGroup details action', () => {
   // category did.
   it('offers View details for a book inside a subfolder', async () => {
     render(<BookFolderGroup {...makeProps({ books: [makeBook({ id: 'b1' })] })} />)
-    await userEvent.click(screen.getByRole('button', { name: 'More actions' }))
+    await userEvent.click(screen.getByRole('button', { name: 'More actions for Test Book' }))
     expect(screen.getByRole('menuitem', { name: 'View details' })).toBeInTheDocument()
   })
 })

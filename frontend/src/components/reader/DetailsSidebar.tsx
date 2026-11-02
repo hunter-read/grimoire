@@ -55,7 +55,7 @@ export default function DetailsSidebar({ book, onClose, onSave }: DetailsSidebar
   ].filter(([, value]) => value)
 
   return (
-    <ReaderSidebarShell width={320}>
+    <ReaderSidebarShell width={320} label={t('bookActions.details')}>
       <div
         style={{
           display: 'flex',

@@ -53,7 +53,7 @@ export default function SearchSidebar({ bookId, onGoToPage, onClose }: Props) {
   }
 
   return (
-    <ReaderSidebarShell overflowHidden>
+    <ReaderSidebarShell overflowHidden label={t('common.search')}>
       <div
         style={{
           display: 'flex',

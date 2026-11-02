@@ -81,4 +81,15 @@ describe('useArrowKeyNavigation', () => {
     press('ArrowRight')
     expect(onNext).not.toHaveBeenCalled()
   })
+
+  // Alt+Left is the browser's back; a modified arrow is never item navigation.
+  it('ignores arrows held with a modifier key', () => {
+    renderHook(() => useArrowKeyNavigation(onNext, onPrev))
+    for (const mod of ['altKey', 'ctrlKey', 'metaKey']) {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', [mod]: true }))
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', [mod]: true }))
+    }
+    expect(onNext).not.toHaveBeenCalled()
+    expect(onPrev).not.toHaveBeenCalled()
+  })
 })

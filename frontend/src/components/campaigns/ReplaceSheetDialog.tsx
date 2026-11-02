@@ -1,4 +1,6 @@
+import { useId, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import useDialogFocus from '../../hooks/useDialogFocus'
 import { LuDownload } from 'react-icons/lu'
 import { smallBtn } from './memberStyles'
 
@@ -15,6 +17,11 @@ export default function ReplaceSheetDialog({
   onReplace,
 }: ReplaceSheetDialogProps) {
   const { t } = useTranslation()
+  // Focus moves into the dialog, Tab stays inside, Esc closes, and focus goes
+  // back to whatever opened it.
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const titleId = useId()
+  useDialogFocus(dialogRef, { onClose: onCancel })
   return (
     <div
       style={{
@@ -30,6 +37,10 @@ export default function ReplaceSheetDialog({
       onClick={(e) => e.target === e.currentTarget && onCancel()}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         style={{
           background: 'var(--bg-panel)',
           border: '1px solid var(--border)',
@@ -39,9 +50,9 @@ export default function ReplaceSheetDialog({
           maxWidth: 420,
         }}
       >
-        <h3 style={{ fontSize: 16, fontWeight: 600, margin: '0 0 12px' }}>
+        <h2 id={titleId} style={{ fontSize: 16, fontWeight: 600, margin: '0 0 12px' }}>
           {t('members.replaceSheet')}
-        </h3>
+        </h2>
         <p style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.6, margin: '0 0 18px' }}>
           {t('members.replaceSheetWarning')}
         </p>

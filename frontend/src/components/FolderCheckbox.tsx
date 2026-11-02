@@ -23,7 +23,7 @@ export default function FolderCheckbox({ checked, indeterminate, onChange }: Fol
         borderRadius: 4,
         flexShrink: 0,
         background: checked || indeterminate ? 'var(--gold)' : 'var(--bg-input)',
-        border: checked || indeterminate ? 'none' : '2px solid var(--border-light)',
+        border: checked || indeterminate ? 'none' : '2px solid var(--border-control)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',

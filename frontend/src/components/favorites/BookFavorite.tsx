@@ -59,7 +59,7 @@ export default function BookFavorite({ item, grid }: BookFavoriteProps) {
             <CatIcon size={28} color="var(--text-muted)" style={{ opacity: 0.4 }} />
           )}
         </div>
-        <FavoriteButton type="book" id={item.item_id} />
+        <FavoriteButton type="book" id={item.item_id} name={item.title} />
         <div style={{ padding: '8px 10px' }}>
           <div
             style={{
@@ -123,7 +123,12 @@ export default function BookFavorite({ item, grid }: BookFavoriteProps) {
           {(item.page_count ?? 0) > 0 ? ` · ${t('bookRow.pages', { count: item.page_count })}` : ''}
         </div>
       </div>
-      <FavoriteButton type="book" id={item.item_id} style={rowFavoriteButtonStyle} />
+      <FavoriteButton
+        type="book"
+        id={item.item_id}
+        name={item.title}
+        style={rowFavoriteButtonStyle}
+      />
     </div>
   )
 }

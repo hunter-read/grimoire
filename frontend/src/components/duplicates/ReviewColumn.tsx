@@ -171,7 +171,7 @@ const fieldLabel = {
 
 const input = {
   background: 'var(--bg-deep)',
-  border: '1px solid var(--border)',
+  border: '1px solid var(--border-control)',
   color: 'var(--text)',
   borderRadius: 6,
   padding: '6px 8px',

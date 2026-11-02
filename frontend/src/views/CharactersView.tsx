@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { LuUsers, LuPlus, LuFileUp, LuSettings, LuArrowDownUp } from 'react-icons/lu'
 import { characters as charactersApi, type BodyOf, type Schema } from '../api'
 import Spinner from '../components/Spinner'
+import usePageTitle from '../hooks/usePageTitle'
 import SheetManager from '../components/characters/SheetManager'
 import NewCharacterDialog from '../components/characters/NewCharacterDialog'
 import CharacterImportDialog from '../components/characters/CharacterImportDialog'
@@ -119,6 +120,7 @@ export default function CharactersView() {
   }
 
   const canCreate = schemas.length > 0
+  usePageTitle(t('characters.title'))
 
   return (
     <div className="fade-in" style={{ padding: 24, maxWidth: 1400, margin: '0 auto' }}>
@@ -154,16 +156,24 @@ export default function CharactersView() {
             <LuFileUp size={14} aria-hidden="true" />
             {t('characters.importCharacter')}
           </button>
+          {/* aria-disabled rather than disabled: a disabled button drops out of
+              the tab order, taking the reason it is unavailable with it. */}
           <button
             type="button"
-            onClick={() => setCreating(true)}
-            disabled={!canCreate}
+            onClick={() => canCreate && setCreating(true)}
+            aria-disabled={!canCreate || undefined}
+            aria-describedby={canCreate ? undefined : 'new-character-unavailable'}
             title={canCreate ? undefined : t('characters.needSchemaFirst')}
             style={canCreate ? goldBtn : disabledBtn}
           >
             <LuPlus size={14} aria-hidden="true" />
             {t('characters.newCharacter')}
           </button>
+          {canCreate ? null : (
+            <span id="new-character-unavailable" className="sr-only">
+              {t('characters.needSchemaFirst')}
+            </span>
+          )}
         </div>
       </header>
 
@@ -190,9 +200,18 @@ export default function CharactersView() {
       ) : characters.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px 16px', color: 'var(--text-muted)' }}>
           <LuUsers size={40} aria-hidden="true" style={{ marginBottom: 16, opacity: 0.4 }} />
-          <div style={{ fontSize: 18, fontWeight: 500, marginBottom: 8, color: 'var(--text-dim)' }}>
+          <h2
+            style={{
+              fontSize: 18,
+              fontWeight: 500,
+              margin: '0 0 8px',
+              color: 'var(--text-dim)',
+              fontFamily: 'inherit',
+              letterSpacing: 'normal',
+            }}
+          >
             {t('characters.emptyTitle')}
-          </div>
+          </h2>
           <div style={{ fontSize: 14, marginBottom: 20 }}>
             {canCreate ? t('characters.emptyNoCharacters') : t('characters.emptyBrowseFirst')}
           </div>
@@ -241,7 +260,7 @@ export default function CharactersView() {
                   padding: '5px 8px',
                   borderRadius: 6,
                   background: 'var(--bg-input)',
-                  border: '1px solid var(--border)',
+                  border: '1px solid var(--border-control)',
                   color: 'var(--text)',
                   textTransform: 'none',
                   letterSpacing: 'normal',
@@ -256,10 +275,12 @@ export default function CharactersView() {
               </select>
             </label>
           ) : null}
-          {party.length ? (
-            // Headed only when there are two sections to tell apart.
-            <h2 style={sectionHeading}>{t('characters.yourCharacters')}</h2>
-          ) : null}
+          {/* Shown only when there are two sections to tell apart, but always
+              there for a screen reader, so the card headings below it never
+              skip a level. */}
+          <h2 className={party.length ? undefined : 'sr-only'} style={sectionHeading}>
+            {t('characters.yourCharacters')}
+          </h2>
           {own.length ? (
             <CharacterGrid
               characters={own}

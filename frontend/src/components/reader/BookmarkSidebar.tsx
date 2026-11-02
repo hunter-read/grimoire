@@ -70,7 +70,7 @@ export default function BookmarkSidebar({
   const cancelEdit = () => setEditingId(null)
 
   return (
-    <ReaderSidebarShell>
+    <ReaderSidebarShell label={t('bookmark.sidebarTitle')}>
       <div
         style={{
           display: 'flex',

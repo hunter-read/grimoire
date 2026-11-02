@@ -27,6 +27,8 @@ export default function ToolbarButton({ onClick, title, children }: Props) {
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
       title={title}
+      // Icon-only: the title is its name, not just a tooltip.
+      aria-label={title}
       style={toolbarBtnStyle}
     >
       {children}

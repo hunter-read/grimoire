@@ -54,4 +54,27 @@ describe('AnchoredPopover', () => {
     fireEvent.mouseDown(screen.getByText('anchor'))
     expect(onClose).not.toHaveBeenCalled()
   })
+
+  it('is a named dialog that takes focus and gives it back on close', () => {
+    const ref = createRef<HTMLButtonElement>()
+    function Harness({ open }: { open: boolean }) {
+      return (
+        <div>
+          <button ref={ref}>anchor</button>
+          {open && (
+            <AnchoredPopover anchorRef={ref} onClose={vi.fn()} label="Invite">
+              <button>inside</button>
+            </AnchoredPopover>
+          )}
+        </div>
+      )
+    }
+    const { rerender } = render(<Harness open={false} />)
+    ref.current!.focus()
+    rerender(<Harness open />)
+    expect(screen.getByRole('dialog', { name: 'Invite' })).toBeInTheDocument()
+    expect(screen.getByText('inside')).toHaveFocus()
+    rerender(<Harness open={false} />)
+    expect(ref.current).toHaveFocus()
+  })
 })

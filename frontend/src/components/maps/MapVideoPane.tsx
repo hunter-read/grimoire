@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { mediaUrl } from '../../api'
 import Spinner from '../Spinner'
 import useMediaLoadState from '../../hooks/useMediaLoadState'
+import { mediaDisplayName } from '../../utils/mediaDisplayName'
 
 interface MapVideoPaneProps {
   mapId: string
@@ -43,16 +44,20 @@ export default function MapVideoPane({ mapId, filename, isMobilePhone }: MapVide
         </div>
       )}
       {failed ? (
-        <p style={{ color: 'var(--text-muted)' }}>{t('maps.detail.videoFailed')}</p>
+        <p role="alert" style={{ color: 'var(--text-muted)' }}>
+          {t('maps.detail.videoFailed')}
+        </p>
       ) : (
         <video
           key={mapId}
           src={mediaUrl(`/maps/${mapId}/file`)}
-          aria-label={filename}
+          aria-label={mediaDisplayName(filename)}
           controls
           loop
           muted
-          autoPlay
+          // An animated battlemap loops forever; under reduced motion it waits
+          // for play. The native controls pause it either way.
+          autoPlay={!prefersReducedMotion()}
           playsInline
           preload="metadata"
           onLoadedData={onLoad}
@@ -68,5 +73,13 @@ export default function MapVideoPane({ mapId, filename, isMobilePhone }: MapVide
         />
       )}
     </>
+  )
+}
+
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
   )
 }

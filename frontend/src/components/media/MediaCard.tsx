@@ -82,11 +82,19 @@ export default function MediaCard({
         },
         role: 'button' as const,
         tabIndex: 0,
-        'aria-label': label,
+        // In bulk mode the card selects, it does not open - say so.
+        'aria-label': t('bulk.selectItem', { name: label }),
         'aria-pressed': selected,
       }
     : {}
-  const cardLink = !bulkMode && <CardLink to={config.detailPath(item.id)} label={label} />
+  // The link's name carries the detail line too (size, or an audio track's
+  // artist), since a user tabbing from card to card hears only the link.
+  const cardLink = !bulkMode && (
+    <CardLink
+      to={config.detailPath(item.id)}
+      label={details ? `${label}, ${details}` : String(label)}
+    />
+  )
 
   // Badges that apply to this item, in config order. `footer` badges render in
   // the card footer next to the size (and in the list-mode metadata row) rather
@@ -142,13 +150,14 @@ export default function MediaCard({
         {cardLink}
         {bulkMode && (
           <div
+            aria-hidden="true"
             style={{
               width: 20,
               height: 20,
               flexShrink: 0,
               borderRadius: 4,
               background: selected ? 'var(--gold)' : 'transparent',
-              border: selected ? 'none' : '2px solid var(--border-light)',
+              border: selected ? 'none' : '2px solid var(--border-control)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -263,11 +272,13 @@ export default function MediaCard({
               type={config.downloadType}
               id={item.id}
               item={item}
+              name={String(label)}
               style={{ position: 'static', background: 'transparent', width: 28, height: 28 }}
             />
             <FavoriteButton
               type={config.type}
               id={item.id}
+              name={String(label)}
               style={{ position: 'static', background: 'transparent', width: 28, height: 28 }}
             />
           </div>
@@ -304,11 +315,25 @@ export default function MediaCard({
     >
       {cardLink}
       {!bulkMode && (
-        <DownloadButton type={config.downloadType} id={item.id} item={item} cardHovered={hovered} />
+        <DownloadButton
+          type={config.downloadType}
+          id={item.id}
+          item={item}
+          name={String(label)}
+          cardHovered={hovered}
+        />
       )}
-      {!bulkMode && <FavoriteButton type={config.type} id={item.id} cardHovered={hovered} />}
+      {!bulkMode && (
+        <FavoriteButton
+          type={config.type}
+          id={item.id}
+          name={String(label)}
+          cardHovered={hovered}
+        />
+      )}
       {bulkMode && (
         <div
+          aria-hidden="true"
           style={{
             position: 'absolute',
             top: 8,
@@ -318,7 +343,7 @@ export default function MediaCard({
             height: 20,
             borderRadius: 4,
             background: selected ? 'var(--gold)' : 'var(--bg-input)',
-            border: selected ? 'none' : '2px solid var(--border-light)',
+            border: selected ? 'none' : '2px solid var(--border-control)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',

@@ -24,6 +24,7 @@ import { useFavorites } from '../../context/FavoritesContext'
 import { getBookPrefs, saveBookPrefs } from '../../hooks/useBookPrefs'
 import useFileActions from '../../hooks/useFileActions'
 import useAnchoredMenu, { pointFromEvent } from '../../hooks/useAnchoredMenu'
+import useMenuKeyboard from '../../hooks/useMenuKeyboard'
 import AddToCampaignModal from '../AddToCampaignModal'
 import ShareLinkDialog from '../share/ShareLinkDialog'
 import useCanShare from '../share/useCanShare'
@@ -198,6 +199,8 @@ export default function BookActionsMenu({
     setShowDpi(false)
     setState('idle')
   }
+  // Portaled to <body>, so without this the items are out of Tab's reach.
+  useMenuKeyboard(open, menuRef, triggerRef, close)
 
   const runReocr = (e: ReactMouseEvent) => {
     e.stopPropagation()
@@ -251,7 +254,7 @@ export default function BookActionsMenu({
           setState('idle')
           setProgressReset(false)
         }}
-        aria-label={t('bookActions.menu')}
+        aria-label={t('a11y.bookActions', { title: book.title })}
         aria-haspopup="menu"
         aria-expanded={open}
         title={t('bookActions.menu')}

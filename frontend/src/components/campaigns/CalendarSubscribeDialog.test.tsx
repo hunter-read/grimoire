@@ -123,9 +123,30 @@ describe('CalendarSubscribeDialog', () => {
     const { container } = render(<CalendarSubscribeDialog campaign={campaign} onClose={onClose} />)
     await screen.findByRole('dialog')
 
-    fireEvent.keyDown(document, { key: 'Escape' })
+    // Escape is heard by the dialog itself (useDialogFocus), so a dialog stacked
+    // on another closes alone.
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
     fireEvent.click(screen.getByLabelText('Close'))
     fireEvent.click(container.firstChild as Element)
     expect(onClose).toHaveBeenCalledTimes(3)
+  })
+})
+
+describe('CalendarSubscribeDialog for screen readers', () => {
+  it('is labelled by its heading and takes focus', async () => {
+    render(<CalendarSubscribeDialog campaign={campaign} onClose={() => {}} />)
+    const dialog = await screen.findByRole('dialog', { name: /subscri/i })
+    expect(dialog.contains(document.activeElement)).toBe(true)
+  })
+
+  it('names each copy button for its feed and says when it copied', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, { clipboard: { writeText } })
+    campaignsMock.getCalendarSubscription.mockResolvedValue(subscribed)
+    render(<CalendarSubscribeDialog campaign={campaign} onClose={() => {}} />)
+    const copy = await screen.findAllByRole('button', { name: /^Copy / })
+    expect(copy).toHaveLength(2)
+    fireEvent.click(copy[0])
+    expect(await screen.findByText('Copied to the clipboard')).toBeInTheDocument()
   })
 })

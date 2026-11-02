@@ -15,6 +15,9 @@ const LEVELS = ['debug', 'info', 'warning', 'error', 'critical']
 
 const INITIAL_LIMIT = 1000
 
+/** How often the count of new live lines may be announced. */
+export const ANNOUNCE_MS = 10000
+
 function isAtBottom(el: HTMLElement, threshold = 40) {
   return el.scrollHeight - el.scrollTop - el.clientHeight <= threshold
 }
@@ -49,6 +52,11 @@ export default function LogsTab() {
   const userRef = useRef(user)
   const lastSeqRef = useRef(0) // max_seq from last successful fetch; poll cursor
   const liveRef = useRef(live)
+  // Live lines are not read aloud one by one - at one poll a second that would
+  // drown out everything else. Their count is gathered and said at most every
+  // ANNOUNCE_MS instead, and nothing at all while paused.
+  const newSinceAnnounceRef = useRef(0)
+  const [newEntriesMessage, setNewEntriesMessage] = useState('')
 
   useEffect(() => {
     levelRef.current = level
@@ -127,6 +135,7 @@ export default function LogsTab() {
           userRef.current
         )
         if (!data.entries.length) return
+        newSinceAnnounceRef.current += data.entries.length
         setEntries((prev) => [...prev, ...data.entries])
         setTotal(data.total)
         setUsers(data.users ?? [])
@@ -138,6 +147,16 @@ export default function LogsTab() {
 
     return () => clearInterval(id)
   }, [])
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      const count = newSinceAnnounceRef.current
+      if (!count) return
+      newSinceAnnounceRef.current = 0
+      setNewEntriesMessage(t('a11y.settingsAdmin.newLogEntries', { count }))
+    }, ANNOUNCE_MS)
+    return () => clearInterval(id)
+  }, [t])
 
   const totalRef = useRef(0)
   const entriesLenRef = useRef(0)
@@ -248,8 +267,10 @@ export default function LogsTab() {
 
         <button
           onClick={() => setLive((v) => !v)}
+          // One name and a pressed state: "Live updates, pressed". The visible
+          // word flips between Live and Paused for sighted users.
           aria-pressed={live}
-          aria-label={live ? t('logs.pauseAriaLabel') : t('logs.resumeAriaLabel')}
+          aria-label={t('a11y.settingsAdmin.liveUpdates')}
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -261,7 +282,7 @@ export default function LogsTab() {
             background: live ? 'rgba(80,180,80,0.12)' : 'var(--bg-card)',
             border: `1px solid ${live ? 'rgba(80,180,80,0.4)' : 'var(--border)'}`,
             color: live ? '#6fcf6f' : 'var(--text-dim)',
-            transition: 'all 0.15s',
+            transition: 'background-color 0.15s, border-color 0.15s, color 0.15s',
           }}
         >
           {live ? (
@@ -304,12 +325,16 @@ export default function LogsTab() {
               fontSize: 13,
               borderRadius: 6,
               background: 'var(--bg-card)',
-              border: '1px solid var(--border)',
+              border: '1px solid var(--border-control)',
               color: 'var(--text)',
               outline: 'none',
             }}
           />
         </div>
+      </div>
+
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {live ? newEntriesMessage : ''}
       </div>
 
       {error && (
@@ -323,9 +348,9 @@ export default function LogsTab() {
           ref={containerRef}
           role="log"
           aria-label={t('logs.logOutputAriaLabel')}
-          aria-live="polite"
-          aria-atomic="false"
-          aria-relevant="additions"
+          // A log is a live region by default; switched off here, since the
+          // tail adds lines every second. The status below counts them.
+          aria-live="off"
           tabIndex={0}
           onScroll={handleScroll}
           style={{
@@ -363,7 +388,6 @@ export default function LogsTab() {
 
           {hasOlder && !loadingMore && (
             <div
-              aria-label={t('logs.olderCountAriaLabel', { count: total - entries.length })}
               style={{
                 padding: '4px 12px',
                 fontSize: 11,
@@ -402,15 +426,26 @@ export default function LogsTab() {
               )}
             </div>
           ) : (
-            <div role="rowgroup">
-              {filtered.map((e, i) => (
-                <LogRow
-                  key={`${e.timestamp}-${i}`}
-                  entry={e}
-                  searchQuery={search}
-                  onUserClick={user ? undefined : setUser}
-                />
-              ))}
+            // A table, so a screen reader can move along a line cell by cell and
+            // hear which column each one is in. The header row is not drawn.
+            <div role="table" aria-label={t('logs.logOutputAriaLabel')}>
+              <div role="rowgroup" className="sr-only">
+                <div role="row">
+                  <span role="columnheader">{t('a11y.settingsAdmin.logColTime')}</span>
+                  <span role="columnheader">{t('a11y.settingsAdmin.logColLevel')}</span>
+                  <span role="columnheader">{t('a11y.settingsAdmin.logColMessage')}</span>
+                </div>
+              </div>
+              <div role="rowgroup">
+                {filtered.map((e, i) => (
+                  <LogRow
+                    key={`${e.timestamp}-${i}`}
+                    entry={e}
+                    searchQuery={search}
+                    onUserClick={user ? undefined : setUser}
+                  />
+                ))}
+              </div>
             </div>
           )}
         </div>

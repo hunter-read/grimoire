@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import RowVisibilityControl from './RowVisibilityControl'
 
@@ -133,6 +133,10 @@ describe('RowVisibilityControl', () => {
     setup({ visibility: 'gm' })
     await user.click(screen.getByRole('button'))
     const current = screen.getByRole('menuitemradio', { name: /gm only/i })
+    // The menu opens on the level that is set, which shows the focus highlight;
+    // step focus off it to check the resting one.
+    expect(current).toHaveFocus()
+    act(() => current.blur())
     expect(current.style.background).toBe('var(--bg-card)')
 
     await user.hover(current)

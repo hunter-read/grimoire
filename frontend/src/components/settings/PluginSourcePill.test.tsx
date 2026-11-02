@@ -172,4 +172,9 @@ describe('PluginSourcePill', () => {
     expect(screen.getByText('example.com')).toBeInTheDocument()
     expect(container.querySelector('svg')).toBeInTheDocument()
   })
+
+  it('says a verified source is verified, not only with a check mark', () => {
+    render(<PluginSourcePill url="https://example.com/index.json" isVerified={true} />)
+    expect(screen.getByText('(Verified Source)')).toHaveClass('sr-only')
+  })
 })

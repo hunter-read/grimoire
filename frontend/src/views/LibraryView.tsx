@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuLibrary, LuChevronDown, LuChevronRight } from 'react-icons/lu'
 import api, { mediaUrl, type Schema } from '../api'
@@ -10,6 +10,7 @@ import { getRecentBooks, getBookPrefs, removeRecentBook } from '../hooks/useBook
 import { useFavorites } from '../context/FavoritesContext'
 import { useAuth } from '../context/AuthContext'
 import useSystemLibrary from '../hooks/useSystemLibrary'
+import usePageTitle from '../hooks/usePageTitle'
 import useSavedFilters from '../hooks/useSavedFilters'
 import useSortFilterState from '../hooks/useSortFilterState'
 import SystemCard from '../components/library/SystemCard'
@@ -33,7 +34,6 @@ interface SelectMods {
 
 export default function LibraryView() {
   const { t } = useTranslation()
-  const navigate = useNavigate()
   const { isFavorite } = useFavorites()
   const { user } = useAuth()!
   const canEdit = user?.role === 'admin' || user?.role === 'gm'
@@ -57,6 +57,8 @@ export default function LibraryView() {
     'grimoire:systems:sortFilter',
     systemFilters
   )
+
+  usePageTitle(t('nav.library'))
 
   // Children are fetched up front so the group toggle can flatten containers
   // without a second round trip; the grouped view filters them back out.
@@ -162,36 +164,49 @@ export default function LibraryView() {
           flex: 1,
         }}
       >
+        {/* The page's own heading. Each section below carries an h2 and none of
+            them reads as the page title, so this one is for screen readers. */}
+        <h1 className="sr-only">{t('nav.library')}</h1>
+
         {/* Recently Opened */}
         {recentBooks.length > 0 && (
-          <div style={{ marginBottom: 40 }}>
-            <button
-              onClick={() => {
-                const next = !recentCollapsed
-                setRecentCollapsed(next)
-                saveUserPref('recentCollapsed', next)
-              }}
-              aria-expanded={!recentCollapsed}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                background: 'none',
-                border: 'none',
-                padding: 0,
-                marginBottom: recentCollapsed ? 0 : 12,
-                cursor: 'pointer',
-                fontSize: 16,
-                color: 'var(--text-dim)',
-                fontWeight: 500,
-                letterSpacing: '0.05em',
-                textTransform: 'uppercase',
-              }}
+          <section aria-labelledby="recently-opened-heading" style={{ marginBottom: 40 }}>
+            {/* A heading wrapping the toggle, so the section is reachable by
+                heading navigation and still collapses from the same control. */}
+            <h2
+              id="recently-opened-heading"
+              style={{ margin: 0, font: 'inherit', color: 'inherit', letterSpacing: 'normal' }}
             >
-              {recentCollapsed ? <LuChevronRight size={16} /> : <LuChevronDown size={16} />}
-              {t('library.recentlyOpened')}
-            </button>
-            <div
+              <button
+                onClick={() => {
+                  const next = !recentCollapsed
+                  setRecentCollapsed(next)
+                  saveUserPref('recentCollapsed', next)
+                }}
+                aria-expanded={!recentCollapsed}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  marginBottom: recentCollapsed ? 0 : 12,
+                  cursor: 'pointer',
+                  fontSize: 16,
+                  color: 'var(--text-dim)',
+                  fontWeight: 500,
+                  letterSpacing: '0.05em',
+                  textTransform: 'uppercase',
+                }}
+              >
+                {recentCollapsed ? <LuChevronRight size={16} /> : <LuChevronDown size={16} />}
+                {t('library.recentlyOpened')}
+              </button>
+            </h2>
+            <ul
+              role="list"
+              className="card-list"
               style={{
                 display: recentCollapsed ? 'none' : 'flex',
                 gap: 10,
@@ -202,40 +217,118 @@ export default function LibraryView() {
                 const lastPage = getBookPrefs(book.id).page || 1
                 const progress =
                   (book.page_count ?? 0) > 0 ? Math.min(lastPage / book.page_count!, 1) : 0
+                const total = (book.page_count ?? 0) > 0 ? book.page_count : '?'
                 return (
-                  <div
-                    key={book.id}
-                    onClick={() =>
-                      navigate(`/library/book/${book.id}?page=${lastPage}`, {
-                        state: { from: window.location.pathname },
-                      })
-                    }
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      background: 'var(--bg-card)',
-                      border: '1px solid var(--border)',
-                      borderRadius: 8,
-                      padding: '8px 12px',
-                      cursor: 'pointer',
-                      maxWidth: 260,
-                      position: 'relative',
-                      overflow: 'hidden',
-                    }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.background = 'var(--bg-card-hover)')
-                    }
-                    onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--bg-card)')}
-                  >
+                  // A real link rather than a click handler on a div, so it is
+                  // reached with Tab and announced as a link. The remove button
+                  // sits beside it, since a button cannot live inside a link.
+                  <li key={book.id} style={{ position: 'relative', maxWidth: 260 }}>
+                    <Link
+                      to={`/library/book/${book.id}?page=${lastPage}`}
+                      state={{ from: '/library' }}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.background = 'var(--bg-card-hover)')
+                      }
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--bg-card)')}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        height: '100%',
+                        boxSizing: 'border-box',
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border)',
+                        borderRadius: 8,
+                        padding: '8px 24px 8px 12px',
+                        color: 'var(--text)',
+                        textDecoration: 'none',
+                        position: 'relative',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      {progress > 0 && (
+                        <div
+                          aria-hidden="true"
+                          style={{
+                            position: 'absolute',
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            height: 2,
+                            background: 'var(--bg-deep)',
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: `${progress * 100}%`,
+                              height: '100%',
+                              background: 'var(--gold-dim)',
+                            }}
+                          />
+                        </div>
+                      )}
+                      <div
+                        style={{
+                          width: 28,
+                          height: 36,
+                          borderRadius: 3,
+                          overflow: 'hidden',
+                          flexShrink: 0,
+                          background: 'var(--bg-deep)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        {book.has_thumbnail ? (
+                          <LazyImg
+                            src={mediaUrl(`/books/${book.id}/thumbnail`)}
+                            alt=""
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                        ) : (
+                          <span
+                            aria-hidden="true"
+                            style={{ fontSize: 14, color: 'var(--text-muted)' }}
+                          >
+                            📄
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 500,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            maxWidth: 170,
+                          }}
+                        >
+                          {book.title}
+                        </div>
+                        {progress > 0 && (
+                          <div style={{ fontSize: 11, color: 'var(--gold-dim)', marginTop: 2 }}>
+                            {/* "p. 12 / 300" is read aloud as "p twelve slash three
+                                hundred"; a screen reader gets the words instead. */}
+                            <span aria-hidden="true">
+                              {t('common.pageRange', { page: lastPage, total })}
+                            </span>
+                            <span className="sr-only">
+                              {t('a11y.readingProgress', { page: lastPage, total })}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </Link>
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation()
+                      onClick={() => {
                         removeRecentBook(book.id)
                         setRecentBooks(getRecentBooks())
                       }}
                       title={t('library.removeFromRecent')}
-                      aria-label={t('library.removeFromRecent')}
+                      aria-label={t('a11y.removeFromRecent', { title: book.title })}
                       style={{
                         position: 'absolute',
                         top: 4,
@@ -257,87 +350,24 @@ export default function LibraryView() {
                         e.currentTarget.style.color = 'var(--text-muted)'
                       }}
                     >
-                      ✕
+                      <span aria-hidden="true">✕</span>
                     </button>
-                    {progress > 0 && (
-                      <div
-                        style={{
-                          position: 'absolute',
-                          bottom: 0,
-                          left: 0,
-                          right: 0,
-                          height: 2,
-                          background: 'var(--bg-deep)',
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: `${progress * 100}%`,
-                            height: '100%',
-                            background: 'var(--gold-dim)',
-                          }}
-                        />
-                      </div>
-                    )}
-                    <div
-                      style={{
-                        width: 28,
-                        height: 36,
-                        borderRadius: 3,
-                        overflow: 'hidden',
-                        flexShrink: 0,
-                        background: 'var(--bg-deep)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      {book.has_thumbnail ? (
-                        <LazyImg
-                          src={mediaUrl(`/books/${book.id}/thumbnail`)}
-                          alt=""
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        />
-                      ) : (
-                        <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>📄</span>
-                      )}
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <div
-                        style={{
-                          fontSize: 13,
-                          fontWeight: 500,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                          maxWidth: 170,
-                        }}
-                      >
-                        {book.title}
-                      </div>
-                      {progress > 0 && (
-                        <div style={{ fontSize: 11, color: 'var(--gold-dim)', marginTop: 2 }}>
-                          {t('common.pageRange', {
-                            page: lastPage,
-                            total: (book.page_count ?? 0) > 0 ? book.page_count : '?',
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  </li>
                 )
               })}
-            </div>
-          </div>
+            </ul>
+          </section>
         )}
 
         {/* Special collections (System-Agnostic + One-Page RPGs) — kept at the top
           for quick access, shown as compact chips rather than full image cards. */}
         {specialSystems.length > 0 && (
-          <div style={{ marginBottom: 40 }}>
+          <section aria-labelledby="special-collections-heading" style={{ marginBottom: 40 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
               <LuLibrary size={18} color="var(--gold-dim)" />
-              <h2 style={{ fontSize: 22, margin: 0 }}>{t('library.agnosticTitle')}</h2>
+              <h2 id="special-collections-heading" style={{ fontSize: 22, margin: 0 }}>
+                {t('library.agnosticTitle')}
+              </h2>
             </div>
             <p
               style={{
@@ -350,12 +380,18 @@ export default function LibraryView() {
             >
               {t('library.agnosticSubtitle')}
             </p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+            <ul
+              role="list"
+              className="card-list"
+              style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}
+            >
               {specialSystems.map((system) => (
-                <AgnosticChip key={system.id} system={system} to={`/library/system/${system.id}`} />
+                <li key={system.id}>
+                  <AgnosticChip system={system} to={`/library/system/${system.id}`} />
+                </li>
               ))}
-            </div>
-          </div>
+            </ul>
+          </section>
         )}
 
         {/* Game Systems */}
@@ -386,7 +422,11 @@ export default function LibraryView() {
                   />
                 )}
               </div>
+              {/* Live, so narrowing the grid with a filter or the search box
+                  tells a screen reader how many systems are left. */}
               <p
+                aria-live="polite"
+                aria-atomic="true"
                 style={{
                   color: 'var(--text-dim)',
                   fontSize: 17,
@@ -416,7 +456,9 @@ export default function LibraryView() {
             />
 
             {normalSystems.length > 0 ? (
-              <div
+              <ul
+                role="list"
+                className="card-list"
                 style={
                   list
                     ? { display: 'flex', flexDirection: 'column', gap: 8 }
@@ -428,26 +470,27 @@ export default function LibraryView() {
                 }
               >
                 {normalSystems.map((system) => (
-                  <SystemCard
-                    key={system.id}
-                    system={system}
-                    to={`/library/system/${system.id}`}
-                    compact={compact}
-                    list={list}
-                    selectable={bulk.bulkMode}
-                    selected={bulk.selectedIds.has(system.id)}
-                    onToggleSelect={(mods: SelectMods) =>
-                      bulk.toggleItem(system.id, {
-                        ...mods,
-                        // Parent containers are excluded from bulk actions, so
-                        // they're left out of the range list too — a shift-drag
-                        // across one must not sweep it into the selection.
-                        orderedIds: selectableSystems.map((s) => s.id),
-                      })
-                    }
-                  />
+                  <li key={system.id}>
+                    <SystemCard
+                      system={system}
+                      to={`/library/system/${system.id}`}
+                      compact={compact}
+                      list={list}
+                      selectable={bulk.bulkMode}
+                      selected={bulk.selectedIds.has(system.id)}
+                      onToggleSelect={(mods: SelectMods) =>
+                        bulk.toggleItem(system.id, {
+                          ...mods,
+                          // Parent containers are excluded from bulk actions, so
+                          // they're left out of the range list too — a shift-drag
+                          // across one must not sweep it into the selection.
+                          orderedIds: selectableSystems.map((s) => s.id),
+                        })
+                      }
+                    />
+                  </li>
                 ))}
-              </div>
+              </ul>
             ) : tagFiltered ? (
               <p style={{ color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: 32 }}>
                 {t('library.noTagMatch')}

@@ -1,7 +1,7 @@
 import { useState, type CSSProperties, type DragEvent, type SyntheticEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation } from 'react-router-dom'
-import { LuBookOpen, LuTrash2, LuChevronRight } from 'react-icons/lu'
+import { LuBookOpen, LuTrash2, LuChevronRight, LuArrowUp, LuArrowDown } from 'react-icons/lu'
 import { campaigns, mediaUrl, type Schema } from '../../api'
 import { TYPE_ICONS, RESOURCE_NAV, VISIBILITY_OPTIONS, selectStyle } from './resourcesShared'
 import AudioPlayer from '../audio/AudioPlayer'
@@ -25,6 +25,13 @@ interface ResourceRowProps {
   onSetShares: (resourceId: string, ids: string[]) => void
   onSetCategory: (resourceId: string, categoryId: string) => void
   onDragStart?: (e: DragEvent, resource: Resource) => void
+  /**
+   * Move this row one place up (-1) or down (1) in its group - the keyboard
+   * way to do what dragging does. A direction that can't move is left out.
+   */
+  onMove?: (direction: -1 | 1) => void
+  canMoveUp?: boolean
+  canMoveDown?: boolean
 }
 
 export default function ResourceRow({
@@ -39,6 +46,9 @@ export default function ResourceRow({
   onSetShares,
   onSetCategory,
   onDragStart,
+  onMove,
+  canMoveUp = false,
+  canMoveDown = false,
 }: ResourceRowProps) {
   const { t } = useTranslation()
   const location = useLocation()
@@ -79,7 +89,11 @@ export default function ResourceRow({
     color: 'inherit',
     textDecoration: 'none',
   }
-  const titleLabel = `Open ${resource.name || resource.resource_id}`
+  const name = resource.name || resource.resource_id
+  // A file opens in a new tab, which a screen reader user should hear first.
+  const titleLabel = isFile
+    ? `${t('bookRow.openBook', { title: name })} ${t('a11y.opensInNewTab')}`
+    : t('bookRow.openBook', { title: name })
   const titleContent = (
     <>
       <span
@@ -184,7 +198,7 @@ export default function ResourceRow({
               <select
                 value={resource.visibility as string}
                 onChange={(e) => onSetVisibility(resource.id, e.target.value)}
-                aria-label={t('resources.visibilityLabel')}
+                aria-label={t('a11y.campaign.visibilityFor', { name })}
                 style={{
                   ...selectStyle,
                   color: resource.visibility === 'public' ? 'var(--gold)' : 'var(--text-dim)',
@@ -201,7 +215,7 @@ export default function ResourceRow({
               <select
                 value={resource.category_id || ''}
                 onChange={(e) => onSetCategory(resource.id, e.target.value)}
-                aria-label={t('resources.categoryLabel')}
+                aria-label={t('a11y.campaign.categoryFor', { name })}
                 style={{ ...selectStyle, maxWidth: 150 }}
               >
                 <option value="">{t('resources.typeGroup')}</option>
@@ -212,9 +226,36 @@ export default function ResourceRow({
                 ))}
               </select>
             )}
+            {/* Shown on hover, and whenever one has keyboard focus. */}
+            {onMove && canMoveUp && (
+              <button
+                type="button"
+                data-move={`${resource.id}:-1`}
+                onClick={() => onMove(-1)}
+                aria-label={t('a11y.campaign.moveUp', { name })}
+                title={t('a11y.campaign.moveUp', { name })}
+                className="reveal-on-focus"
+                style={{ ...moveBtn, opacity: hovered ? 1 : 0 }}
+              >
+                <LuArrowUp size={13} aria-hidden="true" />
+              </button>
+            )}
+            {onMove && canMoveDown && (
+              <button
+                type="button"
+                data-move={`${resource.id}:1`}
+                onClick={() => onMove(1)}
+                aria-label={t('a11y.campaign.moveDown', { name })}
+                title={t('a11y.campaign.moveDown', { name })}
+                className="reveal-on-focus"
+                style={{ ...moveBtn, opacity: hovered ? 1 : 0 }}
+              >
+                <LuArrowDown size={13} aria-hidden="true" />
+              </button>
+            )}
             <button
               onClick={() => onRemove(resource)}
-              aria-label={`Remove ${resource.name || resource.resource_id}`}
+              aria-label={t('a11y.campaign.removeNamed', { name })}
               style={{
                 background: 'none',
                 border: 'none',
@@ -239,7 +280,8 @@ export default function ResourceRow({
         {isOwner && isGmCampaign && resource.visibility === 'private' && members.length > 0 && (
           <div
             onClick={stop}
-            role="presentation"
+            role="group"
+            aria-label={t('a11y.campaign.shareWith', { name })}
             style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 2 }}
           >
             {members.map((m) => {
@@ -295,4 +337,13 @@ export default function ResourceRow({
       )}
     </div>
   )
+}
+
+const moveBtn: CSSProperties = {
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  color: 'var(--text-muted)',
+  padding: 4,
+  display: 'flex',
 }

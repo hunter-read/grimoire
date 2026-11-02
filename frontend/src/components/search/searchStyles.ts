@@ -36,7 +36,8 @@ export const controlStyle: CSSProperties = {
   fontSize: 13,
   padding: '6px 10px',
   borderRadius: 6,
-  border: '1px solid var(--border)',
+  // The edge of a dropdown, so it is drawn at the 3:1 control contrast.
+  border: '1px solid var(--border-control)',
   background: 'var(--bg-card)',
   color: 'var(--text)',
   cursor: 'pointer',

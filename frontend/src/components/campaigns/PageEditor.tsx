@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, useMemo, type KeyboardEvent } from 'react'
+import { useState, useRef, useCallback, useEffect, useId, useMemo, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   LuLink2,
@@ -17,7 +17,7 @@ import { campaigns, type Schema } from '../../api'
 import WikiMarkdown from './WikiMarkdown'
 import GrimoireEmbedPicker from './GrimoireEmbedPicker'
 import IconPicker from './IconPicker'
-import WikiLinkAutocomplete, { findActiveLinkQuery } from './WikiLinkAutocomplete'
+import WikiLinkAutocomplete, { findActiveLinkQuery, linkOptionId } from './WikiLinkAutocomplete'
 import ShareAccessTable from './ShareAccessTable'
 import { buildTitleTrie, type TitlePage, type TrieEntry } from './wikiLinkTarget'
 import { caretCoordinates } from './caretPosition'
@@ -139,6 +139,8 @@ export default function PageEditor({
     () => (suggest ? linkTrie.search(suggest.query, 8) : []),
     [linkTrie, suggest]
   )
+  const suggestListId = useId()
+  const suggestOpen = !!suggest && suggestMatches.length > 0
 
   const closeSuggest = useCallback(() => setSuggest(null), [])
 
@@ -343,6 +345,13 @@ export default function PageEditor({
         minHeight: 0,
       }}
     >
+      {/* The editor replaces the note and its title, so it names itself for
+          heading navigation. */}
+      <h2 className="sr-only">
+        {isNew
+          ? t('wiki.newPage')
+          : t('a11y.campaignNotes.editingTitle', { title: page?.title || '' })}
+      </h2>
       <div style={{ display: 'flex', gap: 8, alignItems: 'stretch', flexShrink: 0 }}>
         <IconPicker
           value={icon}
@@ -363,7 +372,7 @@ export default function PageEditor({
             fontSize: 20,
             fontWeight: 700,
             background: 'var(--bg-deep)',
-            border: '1px solid var(--border)',
+            border: '1px solid var(--border-control)',
             borderRadius: 8,
             color: 'var(--text)',
             padding: '8px 12px',
@@ -581,12 +590,17 @@ export default function PageEditor({
             rows={20}
             aria-label={t('wiki.markdown')}
             aria-autocomplete="list"
-            aria-expanded={!!suggest && suggestMatches.length > 0}
+            // Focus stays here while the arrow keys move through [[ suggestions,
+            // so the highlighted one is pointed at rather than focused.
+            aria-controls={suggestOpen ? suggestListId : undefined}
+            aria-activedescendant={
+              suggestOpen ? linkOptionId(suggestListId, suggestIndex) : undefined
+            }
             style={{
               width: '100%',
               padding: '12px 14px',
               background: 'var(--bg-card)',
-              border: '1px solid var(--border)',
+              border: '1px solid var(--border-control)',
               borderRadius: 10,
               color: 'var(--text)',
               fontSize: 14,
@@ -602,6 +616,7 @@ export default function PageEditor({
           />
           {suggest && (
             <WikiLinkAutocomplete
+              id={suggestListId}
               matches={suggestMatches}
               position={{ top: suggest.top, left: suggest.left }}
               activeIndex={suggestIndex}
@@ -635,6 +650,9 @@ export default function PageEditor({
               }}
             >
               <WikiMarkdown
+                // The preview stands in for the note, whose body sits under the
+                // campaign's h1 and the note title's h2.
+                headingLevelOffset={2}
                 body={body}
                 campaignId={campaign.id}
                 pages={allPages}
@@ -645,7 +663,11 @@ export default function PageEditor({
         )}
       </div>
 
-      {error && <div style={{ color: 'var(--danger)', fontSize: 13, flexShrink: 0 }}>{error}</div>}
+      {error && (
+        <div role="alert" style={{ color: 'var(--danger)', fontSize: 13, flexShrink: 0 }}>
+          {error}
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
         <button type="button" onClick={onCancel} style={ghostBtn}>

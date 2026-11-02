@@ -1,6 +1,7 @@
-import { useEffect, useId, useState, type CSSProperties, type FormEvent } from 'react'
+import { useId, useRef, useState, type CSSProperties, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { addons, type Schema } from '../../api'
+import useDialogFocus from '../../hooks/useDialogFocus'
 
 type CredentialInfo = Schema<'SourceCredentialInfo'>
 type CredentialMap = Schema<'SourceCredentialsResponse'>['source_credentials']
@@ -25,7 +26,7 @@ const inputStyle: CSSProperties = {
   boxSizing: 'border-box',
   padding: '8px 10px',
   borderRadius: 6,
-  border: '1px solid var(--border)',
+  border: '1px solid var(--border-control)',
   background: 'var(--bg-deep)',
   color: 'var(--text)',
   fontSize: 13,
@@ -57,13 +58,10 @@ export default function SourceCredentialDialog({ url, name, info, onClose, onSav
   const locked = Boolean(info?.env_locked)
   const hintId = useId()
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  // Focus in on open, Tab kept inside, Esc closes, focus back on close.
+  const formRef = useRef<HTMLFormElement>(null)
+  const titleId = useId()
+  useDialogFocus(formRef, { onClose })
 
   const submit = (request: Promise<Schema<'SourceCredentialsResponse'>>) => {
     setBusy(true)
@@ -84,9 +82,6 @@ export default function SourceCredentialDialog({ url, name, info, onClose, onSav
 
   return (
     <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={t('addons.tokenTitle', { name })}
       style={{
         position: 'fixed',
         inset: 0,
@@ -101,6 +96,10 @@ export default function SourceCredentialDialog({ url, name, info, onClose, onSav
       }}
     >
       <form
+        ref={formRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         onSubmit={save}
         style={{
           background: 'var(--bg-panel)',
@@ -115,7 +114,9 @@ export default function SourceCredentialDialog({ url, name, info, onClose, onSav
           gap: 12,
         }}
       >
-        <h3 style={{ margin: 0, fontSize: 16 }}>{t('addons.tokenTitle', { name })}</h3>
+        <h3 id={titleId} style={{ margin: 0, fontSize: 16 }}>
+          {t('addons.tokenTitle', { name })}
+        </h3>
         <p style={{ margin: 0, fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5 }}>
           {t('addons.tokenDesc')}
         </p>

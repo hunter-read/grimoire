@@ -203,3 +203,42 @@ describe('TagDetail — long tags start collapsed', () => {
     expect(screen.getAllByTestId('book-card')).toHaveLength(30)
   })
 })
+
+describe('TagDetail - screen readers', () => {
+  it('heads the pane with the tag and names its favorite heart', () => {
+    renderDetail()
+    expect(screen.getByRole('heading', { level: 2, name: 'Spooky' })).toHaveAttribute(
+      'id',
+      'tag-detail-title'
+    )
+    expect(screen.getByRole('button', { name: 'Add Spooky to favorites' })).toBeInTheDocument()
+  })
+
+  it('heads each type section and lists its items', () => {
+    renderDetail()
+    expect(screen.getByRole('heading', { level: 3, name: /books/i })).toBeInTheDocument()
+    expect(screen.getAllByRole('listitem').length).toBeGreaterThan(0)
+  })
+
+  it('puts focus back on Rename when a rename ends', () => {
+    const { rerender } = renderDetail({}, { isEditor: true, renaming: true })
+    const paged = tagDetailProps(detailWith())
+    rerender(
+      <TagDetail
+        detail={paged.detail}
+        pages={paged.pages}
+        onLoad={paged.onLoad}
+        isEditor
+        renaming={false}
+        renameValue=""
+        setRenameValue={() => {}}
+        setRenaming={() => {}}
+        saveRename={() => {}}
+        deleteTag={() => {}}
+        favorited={false}
+        onToggleFavorite={() => {}}
+      />
+    )
+    expect(screen.getByRole('button', { name: /rename/i })).toHaveFocus()
+  })
+})

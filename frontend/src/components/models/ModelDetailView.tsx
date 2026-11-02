@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuArrowLeft, LuInfo, LuChevronDown } from 'react-icons/lu'
 import { useAuth } from '../../context/AuthContext'
 import useIsMobile from '../../hooks/useIsMobile'
+import usePageTitle from '../../hooks/usePageTitle'
+import { mediaDisplayName } from '../../utils/mediaDisplayName'
 import api from '../../api'
 import type { Schema } from '../../api'
 import useSiblingNavigation from '../../hooks/useSiblingNavigation'
@@ -33,7 +35,7 @@ export default function ModelDetailView() {
   const backPathRef = useRef(location.state?.from ?? null)
   // Going back is a *return* to the gallery, so it restores the filters the user
   // had rather than re-applying their saved default over them.
-  const goBack = () => navigate(backPathRef.current || '/models', { state: { restoreView: true } })
+  const backPath = backPathRef.current || '/models'
   const { t } = useTranslation()
   const { user } = useAuth()!
   const isMobilePhone = useIsMobile(640)
@@ -63,6 +65,7 @@ export default function ModelDetailView() {
   // The 3D viewer orbits with the mouse and binds no keys of its own, so the
   // arrow keys are free to step between models.
   useArrowKeyNavigation(onNext, onPrev)
+  usePageTitle(model?.filename ?? null)
 
   useEffect(() => {
     ;(api.get(`/models/${modelId}`) as Promise<ModelDetail>).then(setModel)
@@ -134,25 +137,28 @@ export default function ModelDetailView() {
           flexWrap: 'wrap',
         }}
       >
-        <button
-          onClick={goBack}
+        {/* A link, since it goes somewhere. */}
+        <Link
+          to={backPath}
+          state={{ restoreView: true }}
           aria-label={t('models.detail.back')}
           style={{
-            background: 'none',
             color: 'var(--text-dim)',
             fontSize: 15,
-            border: 'none',
-            cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             gap: 5,
           }}
         >
           <LuArrowLeft size={15} /> {!isMobilePhone && t('common.back')}
-        </button>
+        </Link>
         <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
-        <span
+        <h1
           style={{
+            margin: 0,
+            fontFamily: 'inherit',
+            letterSpacing: 'normal',
+            color: 'var(--text)',
             fontSize: 16,
             fontWeight: 500,
             flex: 1,
@@ -163,7 +169,7 @@ export default function ModelDetailView() {
           }}
         >
           {model.filename}
-        </span>
+        </h1>
         <SiblingPosition
           index={siblingIdx}
           total={siblings.length}
@@ -176,6 +182,9 @@ export default function ModelDetailView() {
           <button
             onClick={() => setShowDetails((v) => !v)}
             title={t('models.detail.details')}
+            aria-label={t('models.detail.details')}
+            aria-expanded={showDetails}
+            aria-controls="media-details-panel"
             style={{
               background: showDetails ? 'var(--bg-card-hover)' : 'var(--bg-card)',
               border: '1px solid var(--border)',
@@ -241,12 +250,15 @@ export default function ModelDetailView() {
               onNext={onNext}
               prevLabel={t('models.detail.previous')}
               nextLabel={t('models.detail.next')}
+              prevName={hasPrev ? mediaDisplayName(siblings[siblingIdx - 1]?.filename) : undefined}
+              nextName={hasNext ? mediaDisplayName(siblings[siblingIdx + 1]?.filename) : undefined}
             />
           </div>
         )}
 
         {/* Metadata sidebar — always visible on desktop, toggle-controlled on mobile */}
         <div
+          id="media-details-panel"
           style={{
             ...(isMobilePhone
               ? {
@@ -261,7 +273,9 @@ export default function ModelDetailView() {
             overflowY: 'auto',
           }}
         >
-          <h3 style={{ fontSize: 15, marginBottom: 20 }}>{t('models.detail.title')}</h3>
+          <h2 style={{ fontSize: 15, marginTop: 0, marginBottom: 20 }}>
+            {t('models.detail.title')}
+          </h2>
 
           {canEdit && (
             <div style={{ marginBottom: 20 }}>
@@ -304,6 +318,12 @@ export default function ModelDetailView() {
                 <button
                   onClick={cycleSupport}
                   title={t('models.detail.cycleSupports')}
+                  // Names the setting as well as its value; the title says
+                  // that a click moves it on.
+                  aria-label={t('a11y.mediaDetail.labelledValue', {
+                    label: t('models.detail.supports'),
+                    value: supportLabel,
+                  })}
                   style={{
                     background: 'none',
                     border: 'none',
@@ -326,17 +346,19 @@ export default function ModelDetailView() {
           {folder &&
             (editingFolderTags ? (
               <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
-                <div
+                <h3
                   style={{
+                    margin: '0 0 10px',
+                    fontFamily: 'inherit',
+                    fontWeight: 400,
                     fontSize: 12,
                     color: 'var(--text-muted)',
-                    marginBottom: 10,
                     textTransform: 'uppercase',
                     letterSpacing: '0.06em',
                   }}
                 >
                   {t('models.detail.folderTags')}
-                </div>
+                </h3>
                 <InlineTagEditor
                   tags={currentFolderTags}
                   onSave={saveFolderTags}
@@ -358,17 +380,19 @@ export default function ModelDetailView() {
           {/* Model tags */}
           {editingModelTags ? (
             <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
-              <div
+              <h3
                 style={{
+                  margin: '0 0 10px',
+                  fontFamily: 'inherit',
+                  fontWeight: 400,
                   fontSize: 12,
                   color: 'var(--text-muted)',
-                  marginBottom: 10,
                   textTransform: 'uppercase',
                   letterSpacing: '0.06em',
                 }}
               >
                 {t('models.detail.modelTags')}
-              </div>
+              </h3>
               <InlineTagEditor
                 tags={model.tags}
                 onSave={saveModelTags}

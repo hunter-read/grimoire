@@ -379,7 +379,7 @@ describe('LibraryView', () => {
       await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument())
 
       await userEvent.click(screen.getByRole('button', { name: /select/i }))
-      await userEvent.click(screen.getByText('Alpha'))
+      await userEvent.click(screen.getByRole('button', { name: 'Select Alpha' }))
 
       const input = screen.getByLabelText(/tags to add/i)
       await userEvent.type(input, 'grim')
@@ -398,7 +398,7 @@ describe('LibraryView', () => {
       await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument())
 
       await userEvent.click(screen.getByRole('button', { name: /select/i }))
-      await userEvent.click(screen.getByText('Alpha'))
+      await userEvent.click(screen.getByRole('button', { name: 'Select Alpha' }))
       await userEvent.click(screen.getByRole('button', { name: /bulk edit/i }))
 
       expect(screen.getByRole('dialog')).toBeInTheDocument()
@@ -422,12 +422,12 @@ describe('LibraryView', () => {
       await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument())
 
       await userEvent.click(screen.getByRole('button', { name: /select/i }))
-      await userEvent.click(screen.getByText('Alpha'))
+      await userEvent.click(screen.getByRole('button', { name: 'Select Alpha' }))
       // Shift-click the far end: the range spans the container in display order.
       // Hold Shift through the click: user-event has no shiftKey click option.
       const user = userEvent.setup()
       await user.keyboard('{Shift>}')
-      await user.click(screen.getByText('Beta'))
+      await user.click(screen.getByRole('button', { name: 'Select Beta' }))
       await user.keyboard('{/Shift}')
       await userEvent.click(screen.getByRole('button', { name: /bulk edit/i }))
 
@@ -450,7 +450,7 @@ describe('LibraryView', () => {
       await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument())
 
       await userEvent.click(screen.getByRole('button', { name: /select/i }))
-      expect(screen.getByRole('link', { name: 'Dungeons & Dragons' })).toHaveAttribute(
+      expect(screen.getByRole('link', { name: /Dungeons & Dragons,/ })).toHaveAttribute(
         'href',
         '/library/system/ctr'
       )
@@ -633,7 +633,27 @@ describe('LibraryView', () => {
     })
   })
 
+  it('names the page for screen readers and the tab', async () => {
+    mockRecentBooks = []
+    mockGet.mockResolvedValue([makeSystem()])
+    renderView()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Library' })).toBeInTheDocument()
+    expect(document.title).toBe('Library - Grimoire')
+    // The systems grid is a list, so a screen reader can say how many.
+    expect(screen.getAllByRole('list').length).toBeGreaterThan(0)
+  })
+
   describe('recently opened', () => {
+    it('makes each recent book a real link that resumes the book', async () => {
+      mockGet.mockResolvedValue([makeSystem()])
+      renderView()
+      const link = await screen.findByRole('link', { name: /recent book/i })
+      expect(link).toHaveAttribute('href', '/library/book/b1?page=1')
+      expect(
+        screen.getByRole('heading', { level: 2, name: /recently opened/i })
+      ).toBeInTheDocument()
+    })
+
     beforeEach(() => {
       mockRecentBooks = [{ id: 'b1', title: 'Recent Book', has_thumbnail: false, page_count: 10 }]
     })
@@ -643,7 +663,9 @@ describe('LibraryView', () => {
       renderView()
       await waitFor(() => expect(screen.getByText('Recent Book')).toBeInTheDocument())
 
-      const removeBtn = screen.getByRole('button', { name: /remove from recently opened/i })
+      const removeBtn = screen.getByRole('button', {
+        name: /remove recent book from recently opened/i,
+      })
       // Always visible — not gated behind hover (no opacity:0).
       expect(removeBtn).toBeInTheDocument()
       expect(removeBtn.style.opacity).not.toBe('0')

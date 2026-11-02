@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { LuTriangleAlert, LuX } from 'react-icons/lu'
 import AuthorByline from './AuthorByline'
+import useDialogFocus from '../../hooks/useDialogFocus'
 import PluginSourcePill, { isUrlTrusted } from './PluginSourcePill'
 import type { PluginAddon } from './PluginCard'
 
@@ -57,13 +58,9 @@ export default function AddonInstallDialog({
     trustedIndexUrls.length > 0 ? trustedIndexUrls : defaultIndexUrl ? [defaultIndexUrl] : []
   const isVerified = targetIndexUrl ? isUrlTrusted(targetIndexUrl, trustedList) : true
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  // Focus in on open, Tab kept inside, Esc closes, focus back on close.
+  const panelRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(panelRef, { onClose })
 
   const displayedChangelog = addon.changelog || []
 
@@ -75,9 +72,6 @@ export default function AddonInstallDialog({
 
   return (
     <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="addon-install-title"
       style={{
         position: 'fixed',
         inset: 0,
@@ -92,6 +86,10 @@ export default function AddonInstallDialog({
       }}
     >
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="addon-install-title"
         style={{
           background: 'var(--bg-panel)',
           border: '1px solid var(--border)',

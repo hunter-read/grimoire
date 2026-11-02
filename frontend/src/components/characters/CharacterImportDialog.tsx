@@ -217,10 +217,14 @@ export default function CharacterImportDialog({ onImported, onClose }: Character
             textAlign: 'center',
           }}
         >
+          {/* Always mounted, so a screen reader hears the import start. */}
+          <span className="sr-only" role="status">
+            {busy ? t('characters.importing') : ''}
+          </span>
           {busy ? (
             <>
               <Spinner size={22} />
-              <span style={{ fontSize: 13, color: 'var(--text-dim)' }}>
+              <span aria-hidden="true" style={{ fontSize: 13, color: 'var(--text-dim)' }}>
                 {t('characters.importing')}
               </span>
             </>
@@ -276,6 +280,7 @@ export default function CharacterImportDialog({ onImported, onClose }: Character
             </legend>
             {inputs.map((input) => {
               const id = `character-import-input-${input.key}`
+              const helpId = `${id}-help`
               const missing = asked.includes(input.key)
               return (
                 <div key={input.key}>
@@ -292,6 +297,8 @@ export default function CharacterImportDialog({ onImported, onClose }: Character
                       setAnswers((prev) => ({ ...prev, [input.key]: event.target.value }))
                     }
                     aria-invalid={missing || undefined}
+                    aria-required={input.required || undefined}
+                    aria-describedby={helpId}
                     disabled={busy}
                     style={{
                       ...fieldInput,
@@ -300,7 +307,7 @@ export default function CharacterImportDialog({ onImported, onClose }: Character
                       ...(missing ? { borderColor: 'var(--danger)' } : {}),
                     }}
                   />
-                  <p style={helpText}>
+                  <p id={helpId} style={helpText}>
                     {[
                       input.help,
                       input.when === 'link' ? t('characters.importInputForLinks') : '',

@@ -171,7 +171,7 @@ describe('Sidebar navigation visibility', () => {
 describe('Sidebar version row', () => {
   it('renders the version button when stats are provided', () => {
     renderSidebar()
-    expect(screen.getByRole('button', { name: /about grimoire/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^version v/i })).toBeInTheDocument()
   })
 
   it('displays the current version string', () => {
@@ -181,18 +181,18 @@ describe('Sidebar version row', () => {
 
   it('does not render the version button when about is null', () => {
     renderSidebar({ about: null })
-    expect(screen.queryByRole('button', { name: /about grimoire/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^version v/i })).toBeNull()
   })
 
   it('opens the About modal when the version button is clicked', () => {
     renderSidebar()
-    fireEvent.click(screen.getByRole('button', { name: /about grimoire/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^version v/i }))
     expect(screen.getByTestId('about-modal')).toBeInTheDocument()
   })
 
   it('closes the About modal when onClose is called', () => {
     renderSidebar()
-    fireEvent.click(screen.getByRole('button', { name: /about grimoire/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^version v/i }))
     fireEvent.click(screen.getByRole('button', { name: /close about/i }))
     expect(screen.queryByTestId('about-modal')).toBeNull()
   })
@@ -255,7 +255,7 @@ describe('Sidebar stats footer', () => {
       uiSettings: { show_stat_systems: false, show_stat_pages: false, show_stat_size: false },
     })
     // Version button should still exist (it's always rendered when stats is set)
-    expect(screen.getByRole('button', { name: /about grimoire/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^version v/i })).toBeInTheDocument()
   })
 })
 
@@ -316,7 +316,7 @@ describe('Sidebar update banner dismiss', () => {
     await waitFor(() => {
       expect(screen.getByText(/update available/i)).toBeInTheDocument()
     })
-    fireEvent.click(screen.getByRole('button', { name: /close/i }))
+    fireEvent.click(screen.getByRole('button', { name: /dismiss update notice/i }))
     expect(screen.queryByText(/update available/i)).toBeNull()
   })
 
@@ -326,7 +326,7 @@ describe('Sidebar update banner dismiss', () => {
     await waitFor(() => {
       expect(screen.getByText(/update available/i)).toBeInTheDocument()
     })
-    fireEvent.click(screen.getByRole('button', { name: /close/i }))
+    fireEvent.click(screen.getByRole('button', { name: /dismiss update notice/i }))
     expect(localStorage.getItem(DISMISSED_KEY)).toBe('2.0.0')
   })
 

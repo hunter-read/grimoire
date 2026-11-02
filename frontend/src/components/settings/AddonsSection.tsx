@@ -199,7 +199,15 @@ export default function AddonsSection() {
   const handleContextMenu = (e: MouseEvent, addon: PluginAddon, isUpdate: boolean) => {
     e.preventDefault()
     if (!addon.available_in || addon.available_in.length <= 1) return
-    setContextMenu({ x: e.clientX, y: e.clientY, addon, isUpdate })
+    // Opened from the keyboard (the card's sources button, Enter or Space), a
+    // click carries no pointer position, so the menu hangs off the button.
+    let { clientX: x, clientY: y } = e
+    if (e.detail === 0 && e.currentTarget instanceof Element) {
+      const rect = e.currentTarget.getBoundingClientRect()
+      x = rect.left
+      y = rect.bottom
+    }
+    setContextMenu({ x, y, addon, isUpdate })
   }
 
   if (!data) return <Spinner />
@@ -233,6 +241,7 @@ export default function AddonsSection() {
             trustedIndexUrls={data?.trusted_index_urls || []}
             busy={busy}
             onContextMenu={handleContextMenu}
+            menuOpen={contextMenu?.addon.id === addon.id}
             onUpdate={update}
             onToggleEnabled={toggleEnabled}
             onRemove={remove}
@@ -257,6 +266,7 @@ export default function AddonsSection() {
             trustedIndexUrls={data?.trusted_index_urls || []}
             busy={busy}
             onContextMenu={handleContextMenu}
+            menuOpen={contextMenu?.addon.id === addon.id}
             onInstall={startInstall}
           />
         ))}
@@ -380,6 +390,11 @@ export default function AddonsSection() {
           </ul>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <input
+              type="url"
+              inputMode="url"
+              autoComplete="off"
+              spellCheck={false}
+              aria-label={t('a11y.settingsAdmin.indexUrl')}
               value={newIndexUrl}
               onChange={(e) => setNewIndexUrl(e.target.value)}
               placeholder={t(
@@ -393,7 +408,7 @@ export default function AddonsSection() {
                 borderRadius: 6,
                 background: 'var(--bg)',
                 color: 'var(--text)',
-                border: '1px solid var(--border)',
+                border: '1px solid var(--border-control)',
                 fontSize: 13,
               }}
             />

@@ -49,7 +49,7 @@ export default function TierSelect({
           fontSize: 11,
           color: 'transparent',
           background: 'var(--bg-deep)',
-          border: '1px solid var(--border)',
+          border: '1px solid var(--border-control)',
           borderRadius: 4,
           cursor: disabled ? 'default' : 'pointer',
         }}

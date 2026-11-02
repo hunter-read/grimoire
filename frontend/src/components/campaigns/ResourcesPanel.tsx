@@ -114,6 +114,22 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }: Resourc
       .then(setResources)
       .catch(() => setResources([]))
   }
+
+  // Keyboard reordering, the alternative to dragging a row: what to say once it
+  // has moved, and which move button to put focus back on, since the rows are
+  // redrawn in their new order when the list reloads.
+  const [moveMessage, setMoveMessage] = useState('')
+  const refocusMove = useRef<string | null>(null)
+  useEffect(() => {
+    const key = refocusMove.current
+    if (!key || !resources) return
+    refocusMove.current = null
+    const [id] = key.split(':')
+    const target =
+      document.querySelector<HTMLElement>(`[data-move="${key}"]`) ||
+      document.querySelector<HTMLElement>(`[data-move^="${id}:"]`)
+    target?.focus()
+  }, [resources])
   const loadCategories = () => {
     campaigns
       .listCategories(campaign.id, 'resource')
@@ -204,6 +220,25 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }: Resourc
     load()
   }
 
+  /** Move `resource` one place up or down among the rows of its group. */
+  const moveResource = async (resource: Resource, items: Resource[], direction: -1 | 1) => {
+    const index = items.findIndex((r) => r.id === resource.id)
+    const neighbour = items[index + direction]
+    if (!neighbour || !resources) return
+    const ids = resources.map((r) => r.id).filter((x) => x !== resource.id)
+    ids.splice(ids.indexOf(neighbour.id) + (direction === 1 ? 1 : 0), 0, resource.id)
+    refocusMove.current = `${resource.id}:${direction}`
+    await campaigns.reorderResources(campaign.id, ids)
+    setMoveMessage(
+      t('a11y.campaign.moved', {
+        name: resource.name || resource.resource_id,
+        position: index + direction + 1,
+        total: items.length,
+      })
+    )
+    load()
+  }
+
   if (!resources)
     return (
       <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
@@ -253,6 +288,9 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }: Resourc
 
   return (
     <div>
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {moveMessage}
+      </div>
       <div
         style={{
           display: 'flex',
@@ -263,7 +301,7 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }: Resourc
           gap: 8,
         }}
       >
-        <h3
+        <h2
           style={{
             fontSize: 15,
             fontWeight: 600,
@@ -273,7 +311,7 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }: Resourc
           }}
         >
           <LuBookOpen size={15} /> {t('resources.title')}
-        </h3>
+        </h2>
         {isOwner && (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button onClick={() => setManagingCats(true)} style={panelHeaderBtn}>
@@ -342,42 +380,46 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }: Resourc
                 style={{ marginBottom: 4 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                  <button
-                    type="button"
-                    onClick={() => toggleCollapse(g.key)}
-                    aria-expanded={!isCollapsed}
-                    style={{
-                      flex: 1,
-                      minWidth: 0,
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: 'var(--text-muted)',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.07em',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      background: 'none',
-                      border: 'none',
-                      padding: 0,
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      font: 'inherit',
-                    }}
-                  >
-                    {isCollapsed ? (
-                      <LuChevronRight size={13} aria-hidden="true" style={{ flexShrink: 0 }} />
-                    ) : (
-                      <LuChevronDown size={13} aria-hidden="true" style={{ flexShrink: 0 }} />
-                    )}
-                    <CampaignIcon
-                      name={g.icon}
-                      fallback={TypeIcon}
-                      size={12}
-                      style={{ color: resolveIconColor(g.iconColor) }}
-                    />{' '}
-                    {g.label} ({g.items.length})
-                  </button>
+                  {/* The group's toggle inside a heading, so each group is a stop
+                      for heading navigation and still folds from one control. */}
+                  <h3 style={{ flex: 1, minWidth: 0, margin: 0, font: 'inherit' }}>
+                    <button
+                      type="button"
+                      onClick={() => toggleCollapse(g.key)}
+                      aria-expanded={!isCollapsed}
+                      style={{
+                        width: '100%',
+                        minWidth: 0,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: 'var(--text-muted)',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.07em',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        font: 'inherit',
+                      }}
+                    >
+                      {isCollapsed ? (
+                        <LuChevronRight size={13} aria-hidden="true" style={{ flexShrink: 0 }} />
+                      ) : (
+                        <LuChevronDown size={13} aria-hidden="true" style={{ flexShrink: 0 }} />
+                      )}
+                      <CampaignIcon
+                        name={g.icon}
+                        fallback={TypeIcon}
+                        size={12}
+                        style={{ color: resolveIconColor(g.iconColor) }}
+                      />{' '}
+                      {g.label} ({g.items.length})
+                    </button>
+                  </h3>
                   {isOwner && audioItems.length > 0 && (
                     <button
                       type="button"
@@ -391,7 +433,7 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }: Resourc
                         )
                       }
                       title={t('audio.playGroup')}
-                      aria-label={t('audio.playGroup')}
+                      aria-label={t('a11y.campaign.playGroup', { name: g.label })}
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -424,27 +466,34 @@ export default function ResourcesPanel({ campaign, isOwner, onRefresh }: Resourc
                     {t('resources.emptyCategory')}
                   </div>
                 ) : (
-                  g.items.map((r) => (
-                    <div
-                      key={r.id}
-                      onDragOver={isOwner ? (e) => e.preventDefault() : undefined}
-                      onDrop={isOwner ? (e) => onDropOnResource(e, r) : undefined}
-                    >
-                      <ResourceRow
-                        campaignId={campaign.id}
-                        resource={r}
-                        isOwner={isOwner}
-                        isGmCampaign={isGmCampaign}
-                        members={members}
-                        categories={categories}
-                        onRemove={remove}
-                        onSetVisibility={setVisibility}
-                        onSetShares={setShares}
-                        onSetCategory={setCategory}
-                        onDragStart={onDragStart}
-                      />
-                    </div>
-                  ))
+                  <ul role="list" className="card-list">
+                    {g.items.map((r, i) => (
+                      <li
+                        key={r.id}
+                        onDragOver={isOwner ? (e) => e.preventDefault() : undefined}
+                        onDrop={isOwner ? (e) => onDropOnResource(e, r) : undefined}
+                      >
+                        <ResourceRow
+                          campaignId={campaign.id}
+                          resource={r}
+                          isOwner={isOwner}
+                          isGmCampaign={isGmCampaign}
+                          members={members}
+                          categories={categories}
+                          onRemove={remove}
+                          onSetVisibility={setVisibility}
+                          onSetShares={setShares}
+                          onSetCategory={setCategory}
+                          onDragStart={onDragStart}
+                          onMove={
+                            isOwner ? (direction) => moveResource(r, g.items, direction) : undefined
+                          }
+                          canMoveUp={i > 0}
+                          canMoveDown={i < g.items.length - 1}
+                        />
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </section>
             )

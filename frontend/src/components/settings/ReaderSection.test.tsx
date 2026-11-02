@@ -22,14 +22,17 @@ vi.mock('./SegmentedControl', () => ({
     options,
     value,
     onChange,
+    labelledBy,
   }: {
     options: SegmentedOption[]
     value: string
     onChange: (v: string) => void
+    labelledBy?: string
   }) => (
     // Keyed by the first option so each control on the page is addressable —
     // the section renders one for reader mode and one for the wheel action.
-    <div>
+    // The group keeps the real one's name, so its caption can be checked.
+    <div role="radiogroup" aria-labelledby={labelledBy}>
       <span data-testid={`segmented-value-${options[0].value}`}>{value}</span>
       {options.map((o) => (
         <button key={o.value} onClick={() => onChange(o.value)}>
@@ -79,5 +82,15 @@ describe('ReaderSection', () => {
     vi.mocked(getUserPrefs).mockReturnValue({ wheelNav: true })
     render(<ReaderSection />)
     expect(screen.getByTestId('segmented-value-page')).toHaveTextContent('page')
+  })
+
+  it('offers each choice as a radio group named by its caption', () => {
+    render(<ReaderSection />)
+    expect(
+      screen.getByRole('radiogroup', { name: 'userSettings.reader.defaultViewMode' })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('radiogroup', { name: 'userSettings.reader.scrollWheel' })
+    ).toBeInTheDocument()
   })
 })

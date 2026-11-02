@@ -6,6 +6,7 @@ import Spinner from '../Spinner'
 import { mediaUrl } from '../../api'
 import type { Schema } from '../../api'
 import type { createViewer } from '../../lib/three'
+import { mediaDisplayName } from '../../utils/mediaDisplayName'
 
 type Viewer = Awaited<ReturnType<typeof createViewer>>
 
@@ -182,17 +183,31 @@ export default function ModelViewerPane({ model, height = 420 }: Props) {
 
   return (
     <div style={frameStyle}>
-      <div ref={hostRef} style={{ position: 'absolute', inset: 0 }} data-testid="model-canvas" />
+      {/* The canvas is a picture to a screen reader: named for the model, with
+          the controls below as the way to act on it. */}
+      <div
+        ref={hostRef}
+        role="img"
+        aria-label={t('a11y.mediaDetail.modelView', { name: mediaDisplayName(model.filename) })}
+        style={{ position: 'absolute', inset: 0 }}
+        data-testid="model-canvas"
+      />
 
       {status === 'loading' && (
-        <div style={{ position: 'relative', textAlign: 'center', color: 'var(--text-muted)' }}>
+        <div
+          role="status"
+          style={{ position: 'relative', textAlign: 'center', color: 'var(--text-muted)' }}
+        >
           <Spinner size={28} />
           <p style={{ marginTop: 10, fontSize: 13 }}>{t('models.viewerLoading')}</p>
         </div>
       )}
 
       {status === 'error' && (
-        <div style={{ position: 'relative', textAlign: 'center', color: 'var(--text-muted)' }}>
+        <div
+          role="alert"
+          style={{ position: 'relative', textAlign: 'center', color: 'var(--text-muted)' }}
+        >
           <LuBox size={36} style={{ opacity: 0.35 }} />
           <p style={{ margin: '10px 0 0', fontSize: 13 }}>{t('models.viewerError')}</p>
         </div>
@@ -219,6 +234,7 @@ export default function ModelViewerPane({ model, height = 420 }: Props) {
           <button
             onClick={() => viewerRef.current?.resetView()}
             title={t('models.resetView')}
+            aria-label={t('models.resetView')}
             style={viewerButtonStyle(false)}
           >
             <LuRotateCcw size={14} />

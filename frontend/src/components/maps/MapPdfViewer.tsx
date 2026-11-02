@@ -22,6 +22,7 @@ import { PAGE_WIDTH, SPREAD_WIDTH } from '../reader/pageRender'
 import CutoutStage from '../reader/export/CutoutStage'
 import ExportSidebar from '../reader/export/ExportSidebar'
 import usePageExport from '../reader/export/usePageExport'
+import { mediaDisplayName } from '../../utils/mediaDisplayName'
 
 type ViewMode = 'page' | 'spread' | 'pdf'
 
@@ -168,6 +169,8 @@ export default function MapPdfViewer({
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
+      // A modified arrow belongs to the browser or a screen reader.
+      if (e.ctrlKey || e.metaKey || e.altKey) return
       if (mode === 'pdf') return
       if (e.key === 'ArrowLeft') {
         e.preventDefault()
@@ -229,7 +232,7 @@ export default function MapPdfViewer({
     setExportOpen(true)
   }
 
-  const getAlt = (p: number) => `${t('reader.page')} ${p} — ${filename}`
+  const getAlt = (p: number) => `${t('reader.page')} ${p} — ${mediaDisplayName(filename)}`
 
   const changeMode = (key: ViewMode) => {
     setMode(key)
@@ -303,6 +306,7 @@ export default function MapPdfViewer({
               key={key}
               onClick={() => changeMode(key)}
               title={t(`reader.${key}`)}
+              aria-pressed={mode === key}
               style={{
                 ...toolbarBtn(mode === key),
                 borderRight: key !== 'pdf' ? '1px solid var(--border)' : 'none',
@@ -324,6 +328,7 @@ export default function MapPdfViewer({
             title={
               spreadOffset === 0 ? t('reader.spreadIncludeCover') : t('reader.spreadExcludeCover')
             }
+            aria-pressed={spreadOffset === 1}
             style={{
               ...toolbarBtn(spreadOffset === 1),
               border: '1px solid var(--border)',
@@ -356,6 +361,7 @@ export default function MapPdfViewer({
           onClick={toggleExport}
           aria-pressed={exportOpen}
           title={t('pageExport.menuItem')}
+          aria-label={t('pageExport.title')}
           style={{
             ...toolbarBtn(exportOpen),
             border: '1px solid var(--border)',

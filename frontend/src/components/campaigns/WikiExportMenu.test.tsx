@@ -140,3 +140,24 @@ describe('WikiExportMenu', () => {
     expect(screen.getByRole('menu')).toHaveStyle({ top: '134px' })
   })
 })
+
+describe('WikiExportMenu from the keyboard', () => {
+  it('focuses the first format, moves with the arrows, and Esc returns to the button', () => {
+    render(<WikiExportMenu onExport={vi.fn()} />)
+    open()
+    const items = screen.getAllByRole('menuitem')
+    expect(items[0]).toHaveFocus()
+    fireEvent.keyDown(items[0], { key: 'ArrowDown' })
+    expect(items[1]).toHaveFocus()
+    fireEvent.keyDown(items[1], { key: 'Escape' })
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /export/i })).toHaveFocus()
+  })
+
+  it('puts focus back on the button after choosing a format', () => {
+    render(<WikiExportMenu onExport={vi.fn()} />)
+    open()
+    fireEvent.click(screen.getAllByRole('menuitem')[0])
+    expect(screen.getByRole('button', { name: /export/i })).toHaveFocus()
+  })
+})

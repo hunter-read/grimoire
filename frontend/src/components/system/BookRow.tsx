@@ -102,7 +102,8 @@ export default function BookRow({
         },
         role: 'button',
         tabIndex: 0,
-        'aria-label': t('bookRow.openBook', { title: book.title }),
+        // In bulk mode the row selects, it does not open - say so.
+        'aria-label': t('bulk.selectItem', { name: book.title }),
         'aria-pressed': selected,
       }
     : {}
@@ -130,7 +131,7 @@ export default function BookRow({
         e.stopPropagation()
         onDetails()
       }}
-      aria-label={t('bookActions.details')}
+      aria-label={t('a11y.bookDetails', { title: book.title })}
       title={t('bookActions.details')}
       style={{
         background: 'none',
@@ -158,7 +159,7 @@ export default function BookRow({
         height: 20,
         borderRadius: 4,
         background: selected ? 'var(--gold)' : 'var(--bg-input)',
-        border: selected ? 'none' : '2px solid var(--border-light)',
+        border: selected ? 'none' : '2px solid var(--border-control)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -183,7 +184,9 @@ export default function BookRow({
           e.stopPropagation()
           toggleFavorite('book', book.id)
         }}
-        aria-label={fav ? t('common.removeFromFavorites') : t('common.addToFavorites')}
+        aria-label={t(fav ? 'a11y.removeFromFavorites' : 'a11y.addToFavorites', {
+          name: book.title,
+        })}
         style={{
           background: 'none',
           border: 'none',
@@ -239,7 +242,9 @@ export default function BookRow({
       >
         {cardLink}
         {overlayCheckbox}
-        {!bulkMode && <FavoriteButton type="book" id={book.id} cardHovered={hovered} />}
+        {!bulkMode && (
+          <FavoriteButton type="book" id={book.id} name={book.title} cardHovered={hovered} />
+        )}
         <div
           style={{
             width: '100%',
@@ -481,7 +486,12 @@ export default function BookRow({
           {(book.page_count ?? 0) > 0 && (
             <span>{t('bookRow.pages', { count: book.page_count })}</span>
           )}
-          {progress > 0 && <span style={{ color: 'var(--gold-dim)' }}>p. {lastPage}</span>}
+          {progress > 0 && (
+            <span style={{ color: 'var(--gold-dim)' }}>
+              <span aria-hidden="true">p. {lastPage}</span>
+              <span className="sr-only">{t('a11y.lastReadPage', { page: lastPage })}</span>
+            </span>
+          )}
           {book.year && <span>{book.year}</span>}
           {book.publisher && <span>{book.publisher}</span>}
           {book.product_code && (

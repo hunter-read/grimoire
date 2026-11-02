@@ -34,6 +34,7 @@ import ResultCard from '../components/search/ResultCard'
 import SearchHelp from '../components/search/SearchHelp'
 import { shouldAutoCollapse } from '../utils/autoCollapse'
 import { sectionHeadStyle, controlStyle } from '../components/search/searchStyles'
+import usePageTitle from '../hooks/usePageTitle'
 
 type SearchResults = Schema<'SearchResponse'>
 
@@ -63,16 +64,20 @@ export default function SearchView() {
     selection.forget(outcome.removedIds)
     doSearch(query)
   })
+  usePageTitle(t('nav.search'))
+  // Every result is an item of its section's list, so a screen reader says how
+  // many a section holds and where each result sits in it.
   const selectable = (type: string, id: string, label: string, card: ReactNode) => (
-    <SelectableCard
-      key={`${type}-${id}`}
-      active={bulk.bulkMode}
-      selected={selection.isSelected(type, id)}
-      label={label}
-      onToggle={(mods) => selection.toggle(type, id, mods)}
-    >
-      {card}
-    </SelectableCard>
+    <li key={`${type}-${id}`}>
+      <SelectableCard
+        active={bulk.bulkMode}
+        selected={selection.isSelected(type, id)}
+        label={label}
+        onToggle={(mods) => selection.toggle(type, id, mods)}
+      >
+        {card}
+      </SelectableCard>
+    </li>
   )
 
   const doSearch = useCallback((q: string) => {
@@ -214,12 +219,15 @@ export default function SearchView() {
         boxSizing: 'border-box',
       }}
     >
-      <h2 style={{ fontSize: 28, marginBottom: 24 }}>{t('search.title')}</h2>
+      <h1 style={{ fontSize: 28, marginTop: 0, marginBottom: 24 }}>{t('search.title')}</h1>
 
-      <div style={{ position: 'relative', marginBottom: 28 }}>
+      {/* A search landmark, so a screen reader can jump straight to the box. */}
+      <div role="search" style={{ position: 'relative', marginBottom: 28 }}>
         <input
           id="search-view-input"
           type="text"
+          enterKeyHint="search"
+          autoComplete="off"
           value={query}
           onChange={handleInput}
           placeholder={t('search.placeholder')}
@@ -230,7 +238,7 @@ export default function SearchView() {
             fontSize: 16,
             padding: '14px 76px 14px 20px',
             borderRadius: 10,
-            border: '1px solid var(--border)',
+            border: '1px solid var(--border-control)',
             background: 'var(--bg-card)',
           }}
           autoFocus
@@ -277,6 +285,16 @@ export default function SearchView() {
             triggerRef={helpButtonRef}
           />
         )}
+      </div>
+
+      {/* Said as a search runs and as it lands, since results replace each other
+          under the user while they type. */}
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {searching
+          ? t('a11y.searching')
+          : results
+            ? t('search.results', { count: totalFiltered, query: results.query })
+            : ''}
       </div>
 
       {results &&
@@ -346,20 +364,26 @@ export default function SearchView() {
               </div>
 
               {(bookMatches.length > 0 || groupedBooks.length > 0) && (
-                <div style={{ marginBottom: 24 }}>
-                  <button onClick={() => toggleSection('books')} style={sectionHeadStyle}>
-                    {shownCollapsed.books ? (
-                      <LuChevronRight size={14} />
-                    ) : (
-                      <LuChevronDown size={14} />
-                    )}
-                    <LuBookOpen size={14} /> {t('search.books')}
-                    <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 400 }}>
-                      {bookMatches.length + groupedBooks.length}
-                    </span>
-                  </button>
+                <section style={{ marginBottom: 24 }}>
+                  <h2 style={plainHeading}>
+                    <button
+                      onClick={() => toggleSection('books')}
+                      aria-expanded={!shownCollapsed.books}
+                      style={sectionHeadStyle}
+                    >
+                      {shownCollapsed.books ? (
+                        <LuChevronRight size={14} />
+                      ) : (
+                        <LuChevronDown size={14} />
+                      )}
+                      <LuBookOpen size={14} /> {t('search.books')}
+                      <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 400 }}>
+                        {bookMatches.length + groupedBooks.length}
+                      </span>
+                    </button>
+                  </h2>
                   {!shownCollapsed.books && (
-                    <>
+                    <ul role="list" className="card-list">
                       {bookMatches.map((book) =>
                         selectable(
                           'book',
@@ -381,9 +405,9 @@ export default function SearchView() {
                           />
                         )
                       )}
-                    </>
+                    </ul>
                   )}
-                </div>
+                </section>
               )}
 
               {[
@@ -393,37 +417,46 @@ export default function SearchView() {
                 { key: 'models', items: models, Icon: LuBox, type: 'model', path: 'models' },
               ].map(({ key, items, Icon, type, path }) =>
                 items.length > 0 ? (
-                  <div key={key} style={{ marginBottom: 24 }}>
-                    <button onClick={() => toggleSection(key)} style={sectionHeadStyle}>
-                      {shownCollapsed[key] ? (
-                        <LuChevronRight size={14} />
-                      ) : (
-                        <LuChevronDown size={14} />
-                      )}
-                      <Icon size={14} /> {t(`search.${key}`)}
-                      <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 400 }}>
-                        {items.length}
-                      </span>
-                    </button>
-                    {!shownCollapsed[key] &&
-                      items.map((item) =>
-                        selectable(
-                          type,
-                          item.id,
-                          resultTitle(item),
-                          <ResultCard
-                            key={item.id}
-                            to={`/${path}/${item.id}`}
-                            title={resultTitle(item)}
-                            subtitle={item.relative_path}
-                            tags={item.tags}
-                            type={type}
-                            id={item.id}
-                            hasThumbnail={item.has_thumbnail}
-                          />
-                        )
-                      )}
-                  </div>
+                  <section key={key} style={{ marginBottom: 24 }}>
+                    <h2 style={plainHeading}>
+                      <button
+                        onClick={() => toggleSection(key)}
+                        aria-expanded={!shownCollapsed[key]}
+                        style={sectionHeadStyle}
+                      >
+                        {shownCollapsed[key] ? (
+                          <LuChevronRight size={14} />
+                        ) : (
+                          <LuChevronDown size={14} />
+                        )}
+                        <Icon size={14} /> {t(`search.${key}`)}
+                        <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 400 }}>
+                          {items.length}
+                        </span>
+                      </button>
+                    </h2>
+                    {!shownCollapsed[key] && (
+                      <ul role="list" className="card-list">
+                        {items.map((item) =>
+                          selectable(
+                            type,
+                            item.id,
+                            resultTitle(item),
+                            <ResultCard
+                              key={item.id}
+                              to={`/${path}/${item.id}`}
+                              title={resultTitle(item)}
+                              subtitle={item.relative_path}
+                              tags={item.tags}
+                              type={type}
+                              id={item.id}
+                              hasThumbnail={item.has_thumbnail}
+                            />
+                          )
+                        )}
+                      </ul>
+                    )}
+                  </section>
                 ) : null
               )}
 
@@ -451,3 +484,6 @@ export default function SearchView() {
     </div>
   )
 }
+
+// A section heading that keeps the look of the toggle inside it.
+const plainHeading = { margin: 0, font: 'inherit', color: 'inherit', letterSpacing: 'normal' }

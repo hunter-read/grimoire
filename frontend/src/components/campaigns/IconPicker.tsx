@@ -6,17 +6,20 @@ import {
   useMemo,
   useId,
   type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from 'react'
-import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { LuChevronDown, LuBan, LuSearch } from 'react-icons/lu'
 import { CAMPAIGN_ICONS, CampaignIcon, searchIconNames } from './campaignIcons'
 import { searchEmoji } from './campaignEmoji'
 import { resolveIconColor } from './iconColors'
 import IconColorRow from './IconColorRow'
+import AnchoredDialogPanel from './AnchoredDialogPanel'
 
 const POPOVER_WIDTH = 268
+// The results grid's width in cells, shared by its layout and its arrow keys.
+const GRID_COLUMNS = 7
 const POPOVER_MAX_HEIGHT = 340
 const GRID_MAX_HEIGHT = 168
 
@@ -63,6 +66,7 @@ export default function IconPicker({
   const triggerRef = useRef<HTMLButtonElement>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
   const searchId = useId()
+  const searchRef = useRef<HTMLInputElement>(null)
 
   const iconResults = useMemo(() => (tab === 'icons' ? searchIconNames(query) : []), [tab, query])
   const emojiResults = useMemo(() => (tab === 'emoji' ? searchEmoji(query) : []), [tab, query])
@@ -127,6 +131,36 @@ export default function IconPicker({
     onChange(name)
   }
 
+  // The results are a 7-column grid of buttons: the arrow keys move through it
+  // as through any grid, Home and End jump to its ends.
+  const moveInGrid = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    const cells = [...e.currentTarget.querySelectorAll<HTMLElement>('button')]
+    const index = cells.indexOf(document.activeElement as HTMLElement)
+    if (index < 0) return
+    const step: Record<string, number> = {
+      ArrowRight: 1,
+      ArrowLeft: -1,
+      ArrowDown: GRID_COLUMNS,
+      ArrowUp: -GRID_COLUMNS,
+    }
+    const next =
+      e.key === 'Home' ? 0 : e.key === 'End' ? cells.length - 1 : index + (step[e.key] ?? NaN)
+    if (Number.isNaN(next) || next < 0 || next >= cells.length) return
+    e.preventDefault()
+    cells[next].focus()
+  }
+
+  // Two tabs: Left/Right switch between them, as in any tab strip.
+  const switchTab = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+    e.preventDefault()
+    const next = tab === 'icons' ? 'emoji' : 'icons'
+    setTab(next)
+    e.currentTarget.querySelector<HTMLElement>(`[data-tab="${next}"]`)?.focus()
+  }
+
+  const resultCount = tab === 'icons' ? iconResults.length : emojiResults.length
+
   return (
     <div style={{ display: 'inline-block' }}>
       <button
@@ -159,156 +193,170 @@ export default function IconPicker({
         {!compact && <LuChevronDown size={12} aria-hidden="true" />}
       </button>
 
-      {open &&
-        createPortal(
+      {/* Focus moves in on open, Tab stays inside (the popover sits at the end of
+          the body), Esc closes, and focus returns to the button. */}
+      {open && (
+        <AnchoredDialogPanel
+          panelRef={popoverRef}
+          label={ariaLabel || t('iconPicker.label')}
+          onClose={() => setOpen(false)}
+          initialFocusRef={searchRef}
+          style={{
+            position: 'fixed',
+            top: coords.top,
+            left: coords.left,
+            zIndex: 2000,
+            width: POPOVER_WIDTH,
+            maxHeight: POPOVER_MAX_HEIGHT,
+            background: 'var(--bg-panel)',
+            border: '1px solid var(--border)',
+            borderRadius: 10,
+            padding: 8,
+            boxShadow: '0 6px 20px var(--shadow)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+          }}
+        >
+          {/* Tabs */}
+          <div role="tablist" onKeyDown={switchTab} style={{ display: 'flex', gap: 2 }}>
+            {['icons', 'emoji'].map((key) => (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                data-tab={key}
+                aria-selected={tab === key}
+                tabIndex={tab === key ? 0 : -1}
+                onClick={() => setTab(key)}
+                style={tabStyle(tab === key)}
+              >
+                {t(`iconPicker.tab_${key}`)}
+              </button>
+            ))}
+          </div>
+
+          {/* Search */}
+          <div style={{ position: 'relative' }}>
+            <LuSearch
+              size={13}
+              aria-hidden="true"
+              style={{
+                position: 'absolute',
+                left: 8,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: 'var(--text-muted)',
+                pointerEvents: 'none',
+              }}
+            />
+            <input
+              ref={searchRef}
+              id={searchId}
+              type="search"
+              value={query}
+              autoComplete="off"
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t('iconPicker.searchPlaceholder')}
+              aria-label={t('iconPicker.searchLabel')}
+              style={{
+                width: '100%',
+                boxSizing: 'border-box',
+                padding: '6px 8px 6px 26px',
+                background: 'var(--bg-deep)',
+                border: '1px solid var(--border-control)',
+                borderRadius: 6,
+                color: 'var(--text)',
+                font: 'inherit',
+                fontSize: 12,
+              }}
+            />
+          </div>
+
+          {/* How many match, said as the search narrows them. */}
+          <div className="sr-only" role="status" aria-live="polite">
+            {query.trim() ? t('a11y.campaign.resultCount', { count: resultCount }) : ''}
+          </div>
+
+          {/* Results */}
           <div
-            ref={popoverRef}
-            role="dialog"
-            aria-label={ariaLabel || t('iconPicker.label')}
+            onKeyDown={moveInGrid}
             style={{
-              position: 'fixed',
-              top: coords.top,
-              left: coords.left,
-              zIndex: 2000,
-              width: POPOVER_WIDTH,
-              maxHeight: POPOVER_MAX_HEIGHT,
-              background: 'var(--bg-panel)',
-              border: '1px solid var(--border)',
-              borderRadius: 10,
-              padding: 8,
-              boxShadow: '0 6px 20px var(--shadow)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 8,
+              maxHeight: GRID_MAX_HEIGHT,
+              overflowY: 'auto',
+              display: 'grid',
+              gridTemplateColumns: `repeat(${GRID_COLUMNS}, 1fr)`,
+              gap: 2,
+              alignContent: 'start',
             }}
           >
-            {/* Tabs */}
-            <div role="tablist" style={{ display: 'flex', gap: 2 }}>
-              {['icons', 'emoji'].map((key) => (
+            {/* "No icon" leads the unfiltered list so clearing stays one click away. */}
+            {!query.trim() && (
+              <button
+                type="button"
+                onClick={() => pick('')}
+                title={t('iconPicker.none')}
+                aria-label={t('iconPicker.none')}
+                aria-pressed={!value}
+                style={iconCell(!value)}
+              >
+                <LuBan size={16} aria-hidden="true" />
+              </button>
+            )}
+            {tab === 'icons' &&
+              iconResults.map((name) => {
+                // Every searched name comes from the catalogue, so it has a component.
+                const Icon = CAMPAIGN_ICONS[name]!
+                return (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => pick(name)}
+                    title={name}
+                    // "sword-cross" reads better as "sword cross".
+                    aria-label={name.replace(/[-_]+/g, ' ')}
+                    aria-pressed={value === name}
+                    style={iconCell(value === name)}
+                  >
+                    <Icon size={16} aria-hidden="true" />
+                  </button>
+                )
+              })}
+            {tab === 'emoji' &&
+              emojiResults.map((char) => (
                 <button
-                  key={key}
+                  key={char}
                   type="button"
-                  role="tab"
-                  aria-selected={tab === key}
-                  onClick={() => setTab(key)}
-                  style={tabStyle(tab === key)}
+                  onClick={() => pick(char)}
+                  title={char}
+                  aria-label={char}
+                  aria-pressed={value === char}
+                  style={{ ...iconCell(value === char), fontSize: 16, lineHeight: 1 }}
                 >
-                  {t(`iconPicker.tab_${key}`)}
+                  <span aria-hidden="true">{char}</span>
                 </button>
               ))}
-            </div>
-
-            {/* Search */}
-            <div style={{ position: 'relative' }}>
-              <LuSearch
-                size={13}
-                aria-hidden="true"
+            {((tab === 'icons' && iconResults.length === 0) ||
+              (tab === 'emoji' && emojiResults.length === 0)) && (
+              <div
                 style={{
-                  position: 'absolute',
-                  left: 8,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: 'var(--text-muted)',
-                  pointerEvents: 'none',
-                }}
-              />
-              <input
-                id={searchId}
-                type="search"
-                value={query}
-                autoFocus
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={t('iconPicker.searchPlaceholder')}
-                aria-label={t('iconPicker.searchLabel')}
-                style={{
-                  width: '100%',
-                  boxSizing: 'border-box',
-                  padding: '6px 8px 6px 26px',
-                  background: 'var(--bg-deep)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 6,
-                  color: 'var(--text)',
-                  font: 'inherit',
+                  gridColumn: '1 / -1',
+                  padding: '10px 4px',
                   fontSize: 12,
+                  color: 'var(--text-muted)',
+                  textAlign: 'center',
                 }}
-              />
-            </div>
-
-            {/* Results */}
-            <div
-              style={{
-                maxHeight: GRID_MAX_HEIGHT,
-                overflowY: 'auto',
-                display: 'grid',
-                gridTemplateColumns: 'repeat(7, 1fr)',
-                gap: 2,
-                alignContent: 'start',
-              }}
-            >
-              {/* "No icon" leads the unfiltered list so clearing stays one click away. */}
-              {!query.trim() && (
-                <button
-                  type="button"
-                  onClick={() => pick('')}
-                  title={t('iconPicker.none')}
-                  aria-label={t('iconPicker.none')}
-                  style={iconCell(!value)}
-                >
-                  <LuBan size={16} aria-hidden="true" />
-                </button>
-              )}
-              {tab === 'icons' &&
-                iconResults.map((name) => {
-                  // Every searched name comes from the catalogue, so it has a component.
-                  const Icon = CAMPAIGN_ICONS[name]!
-                  return (
-                    <button
-                      key={name}
-                      type="button"
-                      onClick={() => pick(name)}
-                      title={name}
-                      aria-label={name}
-                      style={iconCell(value === name)}
-                    >
-                      <Icon size={16} aria-hidden="true" />
-                    </button>
-                  )
-                })}
-              {tab === 'emoji' &&
-                emojiResults.map((char) => (
-                  <button
-                    key={char}
-                    type="button"
-                    onClick={() => pick(char)}
-                    title={char}
-                    aria-label={char}
-                    style={{ ...iconCell(value === char), fontSize: 16, lineHeight: 1 }}
-                  >
-                    <span aria-hidden="true">{char}</span>
-                  </button>
-                ))}
-              {((tab === 'icons' && iconResults.length === 0) ||
-                (tab === 'emoji' && emojiResults.length === 0)) && (
-                <div
-                  style={{
-                    gridColumn: '1 / -1',
-                    padding: '10px 4px',
-                    fontSize: 12,
-                    color: 'var(--text-muted)',
-                    textAlign: 'center',
-                  }}
-                >
-                  {t('iconPicker.noResults')}
-                </div>
-              )}
-            </div>
-
-            {onColorChange && (
-              <IconColorRow color={color} resolved={resolvedTint} onColorChange={onColorChange} />
+              >
+                {t('iconPicker.noResults')}
+              </div>
             )}
-          </div>,
-          document.body
-        )}
+          </div>
+
+          {onColorChange && (
+            <IconColorRow color={color} resolved={resolvedTint} onColorChange={onColorChange} />
+          )}
+        </AnchoredDialogPanel>
+      )}
     </div>
   )
 }

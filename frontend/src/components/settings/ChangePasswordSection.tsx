@@ -98,7 +98,11 @@ export default function ChangePasswordSection() {
           </div>
         ))}
 
-        {error && <div style={{ fontSize: 13, color: 'var(--danger)' }}>{error}</div>}
+        {error && (
+          <div role="alert" style={{ fontSize: 13, color: 'var(--danger)' }}>
+            {error}
+          </div>
+        )}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 4 }}>
           <button
@@ -124,19 +128,23 @@ export default function ChangePasswordSection() {
               ? t('userSettings.changePassword.saving')
               : t('userSettings.changePassword.updatePassword')}
           </button>
-          {saved && (
-            <span
-              style={{
-                fontSize: 13,
-                color: 'var(--green)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 5,
-              }}
-            >
-              <LuCircleCheck size={14} /> {t('userSettings.changePassword.passwordUpdated')}
-            </span>
-          )}
+          {/* Always mounted, so "Password updated" is announced when it appears. */}
+          <span
+            role="status"
+            style={{
+              fontSize: 13,
+              color: 'var(--green)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+            }}
+          >
+            {saved && (
+              <>
+                <LuCircleCheck size={14} /> {t('userSettings.changePassword.passwordUpdated')}
+              </>
+            )}
+          </span>
         </div>
       </form>
     </div>

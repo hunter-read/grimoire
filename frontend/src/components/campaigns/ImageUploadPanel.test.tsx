@@ -173,3 +173,16 @@ describe('ImageUploadPanel', () => {
     expect(p.onCancel).toHaveBeenCalled()
   })
 })
+
+describe('ImageUploadPanel radios', () => {
+  it('names each category choice on its own', async () => {
+    render(<ImageUploadPanel {...props()} />)
+    expect(await screen.findByRole('radiogroup')).toBeInTheDocument()
+    expect(
+      screen.getByRole('radio', { name: 'a11y.campaignNotes.newCategory' })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('radio', { name: 'a11y.campaignNotes.existingCategory' })
+    ).toBeInTheDocument()
+  })
+})

@@ -36,8 +36,21 @@ vi.mock('./ResourceRow', () => ({
     onSetCategory,
     onSetShares,
     onDragStart,
+    onMove,
+    canMoveUp,
+    canMoveDown,
   }: ComponentProps<typeof import('./ResourceRow').default>) => (
     <div>
+      {onMove && canMoveUp && (
+        <button data-move={`${resource.id}:-1`} onClick={() => onMove(-1)}>
+          {`up-${resource.id}`}
+        </button>
+      )}
+      {onMove && canMoveDown && (
+        <button data-move={`${resource.id}:1`} onClick={() => onMove(1)}>
+          {`down-${resource.id}`}
+        </button>
+      )}
       <span>{resource.name}</span>
       <button onClick={() => onRemove(resource)}>{`remove-${resource.id}`}</button>
       <button
@@ -231,6 +244,39 @@ describe('ResourcesPanel', () => {
     fireEvent.dragOver(battleWrapper)
     fireEvent.drop(battleWrapper)
     await waitFor(() => expect(campaigns.reorderResources).toHaveBeenCalled())
+  })
+
+  // The keyboard way to do what dragging does: one place at a time within the
+  // group, said aloud, with focus kept on the moved row's button.
+  it('moves a resource down within its group from the keyboard', async () => {
+    campaignsMock.listResources.mockResolvedValue(resources)
+    campaignsMock.reorderResources.mockResolvedValue({})
+    render(<ResourcesPanel campaign={campaign} isOwner onRefresh={vi.fn()} />)
+    await waitFor(() => screen.getByText('Tavern'))
+    // First and last in the audio group: only the moves that make sense.
+    expect(screen.queryByText('up-r1')).not.toBeInTheDocument()
+    expect(screen.queryByText('down-r2')).not.toBeInTheDocument()
+    campaignsMock.listResources.mockResolvedValue([resources[1], resources[0], resources[2]])
+    await userEvent.click(screen.getByText('down-r1'))
+    expect(campaigns.reorderResources).toHaveBeenCalledWith('c1', ['r2', 'r1', 'r3'])
+    expect(await screen.findByText('Tavern moved to position 2 of 2')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText('up-r1')).toHaveFocus())
+  })
+
+  it('moves a resource up within its group from the keyboard', async () => {
+    campaignsMock.listResources.mockResolvedValue(resources)
+    campaignsMock.reorderResources.mockResolvedValue({})
+    render(<ResourcesPanel campaign={campaign} isOwner onRefresh={vi.fn()} />)
+    await waitFor(() => screen.getByText('Battle'))
+    await userEvent.click(screen.getByText('up-r2'))
+    expect(campaigns.reorderResources).toHaveBeenCalledWith('c1', ['r2', 'r1', 'r3'])
+  })
+
+  it('offers no moves to someone who cannot manage the campaign', async () => {
+    campaignsMock.listResources.mockResolvedValue(resources)
+    render(<ResourcesPanel campaign={campaign} isOwner={false} onRefresh={vi.fn()} />)
+    await waitFor(() => screen.getByText('Tavern'))
+    expect(screen.queryByText('down-r1')).not.toBeInTheDocument()
   })
 })
 

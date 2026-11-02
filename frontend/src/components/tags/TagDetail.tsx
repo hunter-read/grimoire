@@ -1,4 +1,11 @@
-import { useState, type ComponentType, type CSSProperties, type ReactNode } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ComponentType,
+  type CSSProperties,
+  type ReactNode,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuPencil, LuTrash2, LuCheck, LuX, LuHeart, LuDownload } from 'react-icons/lu'
 import TagTypeSection, { type TagPages } from './TagTypeSection'
@@ -117,6 +124,15 @@ export default function TagDetail({
     setMerged((prev) => new Set([...prev, ...outcome.removedIds]))
   })
 
+  // Saving or cancelling a rename takes its field away, so focus goes back to
+  // the Rename button rather than being dropped on the page.
+  const renameButtonRef = useRef<HTMLButtonElement>(null)
+  const wasRenaming = useRef(renaming)
+  useEffect(() => {
+    if (wasRenaming.current && !renaming) renameButtonRef.current?.focus()
+    wasRenaming.current = renaming
+  }, [renaming])
+
   const renderCard = (type: string, item: TagItem, grid: boolean): ReactNode => {
     if (merged.has(item.item_id)) return null
     const Card = CARD_FOR_TYPE[type]
@@ -178,7 +194,7 @@ export default function TagDetail({
                 fontSize: 18,
                 padding: '4px 8px',
                 borderRadius: 6,
-                border: '1px solid var(--border)',
+                border: '1px solid var(--border-control)',
                 background: 'var(--bg-card)',
               }}
             />
@@ -204,15 +220,17 @@ export default function TagDetail({
             <button
               onClick={onToggleFavorite}
               title={favorited ? t('tags.unfavorite') : t('tags.favorite')}
-              aria-label={favorited ? t('tags.unfavorite') : t('tags.favorite')}
-              aria-pressed={favorited}
+              aria-label={t(favorited ? 'a11y.removeFromFavorites' : 'a11y.addToFavorites', {
+                name: detail.display,
+              })}
               style={{ ...iconBtn, color: favorited ? 'var(--gold)' : 'var(--text-dim)' }}
             >
               <LuHeart size={15} fill={favorited ? 'var(--gold)' : 'none'} />
             </button>
             {/* Body font (not the Cinzel display face used for page headings) so
                 the user's own tag casing shows verbatim instead of small-caps. */}
-            <h3
+            <h2
+              id="tag-detail-title"
               style={{
                 fontSize: 20,
                 fontWeight: 600,
@@ -224,7 +242,7 @@ export default function TagDetail({
               }}
             >
               {detail.display}
-            </h3>
+            </h2>
             {detail.category && (
               <span
                 style={{
@@ -265,6 +283,7 @@ export default function TagDetail({
                     the group right — the download button when it is shown, this
                     one otherwise. Claiming it twice would split the pair. */}
                 <button
+                  ref={renameButtonRef}
                   onClick={() => {
                     setRenameValue(detail.display)
                     setRenaming(true)

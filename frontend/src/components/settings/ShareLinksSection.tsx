@@ -45,7 +45,9 @@ export default function ShareLinksSection({ canShare }: { canShare?: boolean }) 
         </p>
       )}
       {links === null ? (
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>{t('common.loading')}</p>
+        <p role="status" style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
+          {t('common.loading')}
+        </p>
       ) : (
         <ShareLinkList
           links={links}

@@ -45,4 +45,24 @@ describe('DeleteAccountSection', () => {
     expect(onLogout).not.toHaveBeenCalled()
     expect(screen.queryByText('userSettings.deleteAccount.confirmDelete')).not.toBeInTheDocument()
   })
+
+  it('moves focus into the confirmation and back to the button', async () => {
+    render(<DeleteAccountSection user={{ role: 'player' }} onLogout={vi.fn()} />)
+    await userEvent.click(screen.getByText('userSettings.deleteAccount.deleteButton'))
+    expect(
+      screen.getByRole('group', { name: 'userSettings.deleteAccount.confirmMessage' })
+    ).toBeInTheDocument()
+    // Cancel, the safe choice, rather than nowhere: the pressed button is gone.
+    expect(screen.getByText('common.cancel')).toHaveFocus()
+    await userEvent.click(screen.getByText('common.cancel'))
+    expect(screen.getByText('userSettings.deleteAccount.deleteButton')).toHaveFocus()
+  })
+
+  it('says why a failed delete failed, after the confirmation closes', async () => {
+    vi.mocked(api.delete).mockRejectedValueOnce(new Error('nope'))
+    render(<DeleteAccountSection user={{ role: 'player' }} onLogout={vi.fn()} />)
+    await userEvent.click(screen.getByText('userSettings.deleteAccount.deleteButton'))
+    await userEvent.click(screen.getByText('userSettings.deleteAccount.confirmDelete'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('nope')
+  })
 })

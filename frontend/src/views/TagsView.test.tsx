@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import TagsView from './TagsView'
@@ -142,12 +142,15 @@ describe('TagsView', () => {
   it('groups the tag list by category with Shared on top', async () => {
     renderView()
     await screen.findByText('Forest')
-    // Category group headers render (Shared and Map); Shared appears first.
-    const groups = screen.getAllByRole('group')
-    expect(groups[0]).toHaveAttribute('aria-label', expect.stringMatching(/shared/i))
-    // Strahd (shared) is inside the Shared group; Forest (map) inside the Map group.
-    expect(groups[0]).toHaveTextContent('Strahd')
-    expect(screen.getByRole('group', { name: /map/i })).toHaveTextContent('Forest')
+    // Each category is a heading over its own list; Shared comes first.
+    const nav = screen.getByRole('navigation', { name: /tags/i })
+    const headings = within(nav).getAllByRole('heading', { level: 2 })
+    expect(headings[0]).toHaveTextContent(/shared/i)
+    expect(headings[1]).toHaveTextContent(/map/i)
+    // Strahd (shared) is in the Shared list; Forest (map) in the Map one.
+    const lists = within(nav).getAllByRole('list')
+    expect(lists[0]).toHaveTextContent('Strahd')
+    expect(lists[1]).toHaveTextContent('Forest')
   })
 
   it('collapses a category group when its header is clicked', async () => {
@@ -167,9 +170,8 @@ describe('TagsView', () => {
   it('favorites a tag from the list heart', async () => {
     renderView()
     await screen.findByText('Forest')
-    // Two hearts render (Forest not-fav, Strahd fav). Click Forest's.
-    const hearts = screen.getAllByLabelText(/^favorite$/i)
-    await userEvent.click(hearts[0])
+    // Each heart is named with its tag. Forest is not a favorite yet.
+    await userEvent.click(screen.getByRole('button', { name: 'Add Forest to favorites' }))
     expect(mockToggleFavorite).toHaveBeenCalledWith('tag', 'forest')
   })
 
@@ -240,9 +242,9 @@ describe('TagsView', () => {
   describe('independent panel scrolling', () => {
     it('gives the tag list and the detail column their own scroll containers', async () => {
       renderView()
-      await screen.findByRole('list')
+      await screen.findByRole('navigation', { name: /tags/i })
 
-      const list = screen.getByRole('list')
+      const list = document.querySelector('.tags-list-scroll')
       expect(list).toHaveStyle({ overflowY: 'auto' })
       expect(list).toHaveStyle({ flex: '1' })
 
@@ -252,7 +254,7 @@ describe('TagsView', () => {
 
     it('bounds the page column so the panels size to the space left over', async () => {
       const { container } = renderView()
-      await screen.findByRole('list')
+      await screen.findByRole('navigation', { name: /tags/i })
 
       // `minHeight: 0` (not `100%`) is what allows the flex children to shrink
       // below their content height and scroll internally.
@@ -367,5 +369,36 @@ describe('TagsView — long tag lists start collapsed', () => {
     await userEvent.type(screen.getByLabelText(/filter tags/i), 'tag 1')
     expect(screen.getByText('Map Tag 1')).toBeInTheDocument()
     expect(screen.getByText('Shared Tag 1')).toBeInTheDocument()
+  })
+})
+
+describe('TagsView - screen readers', () => {
+  it('names the page and marks the selected tag', async () => {
+    renderView('/tags?tag=forest')
+    expect(await screen.findByRole('heading', { level: 1, name: /tags/i })).toBeInTheDocument()
+    const forest = await screen.findByRole('link', { name: /forest/i })
+    expect(forest).toHaveAttribute('aria-current', 'true')
+    expect(screen.getByRole('link', { name: /strahd/i })).not.toHaveAttribute('aria-current')
+    await waitFor(() => expect(document.title).toBe('Forest - Tags - Grimoire'))
+  })
+
+  it('says what the selected tag covers once it has loaded', async () => {
+    // The default fixture: one map and one book tagged Forest.
+    renderView('/tags?tag=forest')
+    await waitFor(() =>
+      expect(screen.getAllByRole('status').some((s) => s.textContent === 'Forest: 2 items')).toBe(
+        true
+      )
+    )
+    // The detail pane is a region named by the tag.
+    expect(screen.getByRole('region', { name: 'Forest' })).toBeInTheDocument()
+  })
+
+  it('says how many tags are left as the filter narrows the list', async () => {
+    renderView()
+    await screen.findByText('Forest')
+    expect(screen.getAllByRole('status').some((s) => s.textContent === '1 tag shown')).toBe(false)
+    await userEvent.type(screen.getByRole('textbox', { name: /search tags|filter/i }), 'for')
+    expect(screen.getAllByRole('status').some((s) => s.textContent === '1 tag shown')).toBe(true)
   })
 })

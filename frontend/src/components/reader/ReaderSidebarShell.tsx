@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import useIsMobile from '../../hooks/useIsMobile'
 
 export interface ReaderSidebarShellProps {
@@ -6,6 +6,8 @@ export interface ReaderSidebarShellProps {
   overflowHidden?: boolean
   /** On a phone, a sheet under the page rather than a full-screen panel. */
   sheet?: boolean
+  /** The panel's name, announced as a landmark ("Contents, complementary"). */
+  label?: string
   children?: ReactNode
 }
 
@@ -23,18 +25,43 @@ export interface ReaderSidebarShellProps {
  * `sheet` is the exception to the full-viewport rule: a panel that works *on*
  * the page (drawing cut-outs) sits under it as a bottom sheet instead, since
  * hiding the page would leave nothing to draw on.
+ *
+ * Opening a panel moves focus into it (unless a field inside already took it),
+ * so a keyboard or screen reader user is taken to what they opened rather than
+ * left on the toolbar; closing it hands focus back to where it came from.
  */
 export default function ReaderSidebarShell({
   width = 280,
   overflowHidden = false,
   sheet = false,
+  label,
   children,
 }: ReaderSidebarShellProps) {
   const isMobilePhone = useIsMobile(640)
+  const ref = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null
+    const panel = ref.current
+    if (panel && !panel.contains(document.activeElement)) panel.focus({ preventScroll: true })
+    return () => {
+      // The panel's own close button went with it, leaving focus nowhere.
+      const lost = !document.activeElement || document.activeElement === document.body
+      if (lost && opener?.isConnected) opener.focus({ preventScroll: true })
+    }
+  }, [])
+
+  const landmark = {
+    ref,
+    'aria-label': label,
+    tabIndex: -1,
+    className: 'focus-target',
+  }
 
   if (isMobilePhone && sheet) {
     return (
-      <div
+      <aside
+        {...landmark}
         data-testid="reader-sidebar"
         style={{
           width: '100%',
@@ -49,12 +76,13 @@ export default function ReaderSidebarShell({
         }}
       >
         {children}
-      </div>
+      </aside>
     )
   }
 
   return (
-    <div
+    <aside
+      {...landmark}
       data-testid="reader-sidebar"
       style={{
         // flexBasis rather than a bare width: as a flex child the panel would
@@ -70,6 +98,6 @@ export default function ReaderSidebarShell({
       }}
     >
       {children}
-    </div>
+    </aside>
   )
 }

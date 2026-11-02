@@ -124,6 +124,10 @@ export default function PluginSourcePill({
     >
       {verified && <LuBadgeCheck size={12} />}
       {formatIndexUrl(url)}
+      {/* The check mark and the tooltip say "verified" to sighted users only. */}
+      {verified && (
+        <span className="sr-only"> ({t('addons.verifiedSource', 'Verified Source')})</span>
+      )}
     </span>
   )
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCircleCheck } from 'react-icons/lu'
@@ -6,6 +6,7 @@ import api from '../../api'
 import Spinner from '../Spinner'
 import { useAuth } from '../../context/AuthContext'
 import type { Schema } from '../../api'
+import SavedAnnouncement from './SavedAnnouncement'
 
 export default function EmailSection() {
   const { t } = useTranslation()
@@ -13,6 +14,7 @@ export default function EmailSection() {
   const [value, setValue] = useState((user as Schema<'AuthMeResponse'> | null)?.email ?? '')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const errorId = useId()
   const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -66,6 +68,11 @@ export default function EmailSection() {
           <input
             id="user-email"
             type="email"
+            name="email"
+            autoComplete="email"
+            spellCheck={false}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? errorId : undefined}
             value={value}
             onChange={(e) => setValue(e.target.value)}
             placeholder={t('userSettings.email.placeholder')}
@@ -95,7 +102,16 @@ export default function EmailSection() {
           {saving ? t('common.saving') : t('common.save')}
         </button>
       </form>
-      {error && <div style={{ fontSize: 13, color: 'var(--danger)', marginTop: 8 }}>{error}</div>}
+      <SavedAnnouncement saved={saved} />
+      {error && (
+        <div
+          id={errorId}
+          role="alert"
+          style={{ fontSize: 13, color: 'var(--danger)', marginTop: 8 }}
+        >
+          {error}
+        </div>
+      )}
     </div>
   )
 }

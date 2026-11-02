@@ -5,8 +5,14 @@ import AddonsSection from './AddonsSection'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k: string, opts?: { name?: string; names?: string }) =>
-      opts?.name ? `${k}:${opts.name}` : opts?.names ? `${k}:${opts.names}` : k,
+    t: (k: string, opts?: { name?: string; names?: string; action?: string }) =>
+      opts?.action
+        ? `${opts.action} ${opts.name}`
+        : opts?.name
+          ? `${k}:${opts.name}`
+          : opts?.names
+            ? `${k}:${opts.names}`
+            : k,
   }),
 }))
 
@@ -248,7 +254,7 @@ describe('AddonsSection', () => {
     render(<AddonsSection />)
     await screen.findByText('TTRPG Wiki')
 
-    await user.click(screen.getByLabelText('addons.enabled'))
+    await user.click(screen.getByRole('checkbox', { name: /^a11y\.settingsAdmin\.addonEnabled:/ }))
     await waitFor(() =>
       expect(api.patch).toHaveBeenCalledWith('/addons/ttrpg-wiki', { enabled: false })
     )
@@ -318,7 +324,7 @@ describe('AddonsSection', () => {
       mockState({ installed: [INSTALLED] })
       render(<AddonsSection />)
       await screen.findByText('TTRPG Wiki')
-      expect(screen.queryByRole('button', { name: 'addons.update' })).toBeNull()
+      expect(screen.queryByRole('button', { name: /^addons\.update / })).toBeNull()
       expect(screen.queryByRole('button', { name: /addons.updateAll/ })).toBeNull()
     })
 
@@ -328,7 +334,7 @@ describe('AddonsSection', () => {
       render(<AddonsSection />)
       await screen.findByText('TTRPG Wiki')
 
-      await user.click(screen.getByRole('button', { name: 'addons.update' }))
+      await user.click(screen.getByRole('button', { name: /^addons\.update / }))
       await waitFor(() =>
         expect(api.post).toHaveBeenCalledWith('/addons/ttrpg-wiki/install', {
           approve_script: false,
@@ -357,7 +363,7 @@ describe('AddonsSection', () => {
       render(<AddonsSection />)
       expect(await screen.findByText('addons.scriptEnv:OLD_TOKEN')).toBeInTheDocument()
 
-      await user.click(screen.getByRole('button', { name: 'addons.update' }))
+      await user.click(screen.getByRole('button', { name: /^addons\.update / }))
       const dialog = await screen.findByRole('dialog')
       expect(within(dialog).getByText('addons.scriptEnv:NEW_TOKEN')).toBeInTheDocument()
     })
@@ -386,7 +392,7 @@ describe('AddonsSection', () => {
       render(<AddonsSection />)
       await screen.findByText('TTRPG Wiki')
 
-      await user.click(screen.getByRole('button', { name: 'addons.update' }))
+      await user.click(screen.getByRole('button', { name: /^addons\.update / }))
       expect(await screen.findByRole('dialog')).toBeInTheDocument()
       expect(api.post).not.toHaveBeenCalled()
     })
@@ -442,7 +448,7 @@ describe('AddonsSection', () => {
     await user.click(
       await screen.findByRole('button', { name: /(addons.configuredSources|addons.changeIndex)/i })
     )
-    const removeBtn = screen.getByTitle('addons.remove')
+    const removeBtn = screen.getByRole('button', { name: /^addons\.remove / })
     await user.click(removeBtn)
 
     expect(await screen.findByText('addons.confirmRemoveIndexTitle')).toBeInTheDocument()
@@ -506,6 +512,34 @@ describe('AddonsSection', () => {
         index_url: 'https://source2.com/index.json',
       })
     )
+  })
+
+  it('opens the source menu from the keyboard, under its button', async () => {
+    const multiSourceAddon = {
+      ...YAML_ADDON,
+      available_in: [
+        { index_url: 'https://source1.com/index.json', version: '1.0.0', update_available: false },
+        { index_url: 'https://source2.com/index.json', version: '1.1.0', update_available: false },
+      ],
+    }
+    mockState({ available: [multiSourceAddon] })
+    const user = userEvent.setup()
+    render(<AddonsSection />)
+    const sources = await screen.findByRole('button', {
+      name: 'a11y.settingsAdmin.addonSources:TTRPG Wiki',
+    })
+    sources.focus()
+    await user.keyboard('{Enter}')
+
+    const menu = await screen.findByRole('menu')
+    expect(sources).toHaveAttribute('aria-expanded', 'true')
+    // No pointer position from a key press: the menu hangs off the button.
+    const rect = sources.getBoundingClientRect()
+    expect(menu.style.top).toBe(`${rect.bottom}px`)
+    expect(screen.getAllByRole('menuitem')[0]).toHaveFocus()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(sources).toHaveFocus()
   })
 
   it('opens context menu via right click and updates an installed addon from a specific source', async () => {

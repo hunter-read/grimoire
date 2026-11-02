@@ -209,3 +209,33 @@ describe('AddUserForm', () => {
     )
   })
 })
+
+describe('AddUserForm accessibility', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    clearPasswordRulesCache()
+    vi.mocked(auth.status).mockResolvedValue(status(12))
+  })
+
+  it('is a named form whose permissions are a named group', () => {
+    render(<AddUserForm onAdd={vi.fn()} onCancel={vi.fn()} />)
+    expect(screen.getByRole('form', { name: 'Add User' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Permissions' })).toBeInTheDocument()
+  })
+
+  it('marks a too-short password invalid, tied to an alert, and focuses it', async () => {
+    render(<AddUserForm onAdd={vi.fn()} onCancel={vi.fn()} />)
+    await waitFor(() => expect(auth.status).toHaveBeenCalled())
+    fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'erin' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'short' } })
+    fireEvent.submit(screen.getByRole('form', { name: 'Add User' }))
+    const alert = await screen.findByRole('alert')
+    const password = screen.getByLabelText('Password')
+    expect(password).toHaveAttribute('aria-invalid', 'true')
+    expect(password).toHaveAttribute('aria-describedby', alert.id)
+    expect(password).toHaveFocus()
+    // Editing it again clears the invalid mark.
+    fireEvent.change(password, { target: { value: 'longer-now' } })
+    expect(password).not.toHaveAttribute('aria-invalid')
+  })
+})

@@ -110,15 +110,30 @@ export default function ApiKeyRow({
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         {!showOwner && (
           <>
-            <button type="button" onClick={() => onEdit(apiKey)} style={actionStyle(false)}>
+            <button
+              type="button"
+              onClick={() => onEdit(apiKey)}
+              aria-label={t('a11y.settings.editNamed', { name: apiKey.name })}
+              style={actionStyle(false)}
+            >
               <LuPencil size={13} /> {t('appSettings.apiKeys.row.edit')}
             </button>
-            <button type="button" onClick={() => onRegenerate(apiKey)} style={actionStyle(false)}>
+            <button
+              type="button"
+              onClick={() => onRegenerate(apiKey)}
+              aria-label={t('a11y.settings.regenerateNamed', { name: apiKey.name })}
+              style={actionStyle(false)}
+            >
               <LuRefreshCw size={13} /> {t('appSettings.apiKeys.row.regenerate')}
             </button>
           </>
         )}
-        <button type="button" onClick={() => onRevoke(apiKey)} style={actionStyle(true)}>
+        <button
+          type="button"
+          onClick={() => onRevoke(apiKey)}
+          aria-label={t('a11y.settings.revokeNamed', { name: apiKey.name })}
+          style={actionStyle(true)}
+        >
           <LuTrash size={13} /> {t('appSettings.apiKeys.row.revoke')}
         </button>
       </div>

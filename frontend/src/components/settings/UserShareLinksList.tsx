@@ -34,7 +34,9 @@ export default function UserShareLinksList({ userId }: { userId: string }) {
 
   if (links === null) {
     return (
-      <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>{t('common.loading')}</p>
+      <p role="status" style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
+        {t('common.loading')}
+      </p>
     )
   }
   return (

@@ -155,7 +155,7 @@ describe('MemberRow', () => {
       { currentUserId: 'u1', campaignId: 'c1' }
     )
     // The replace (upload) action is shown for the editable member with a sheet.
-    fireEvent.click(screen.getByLabelText('Replace sheet'))
+    fireEvent.click(screen.getByLabelText('Replace alice’s character sheet'))
     // The warning dialog appears with all three choices.
     expect(screen.getByText(/replaces the current one/i)).toBeTruthy()
     expect(screen.getByText('Download current')).toBeTruthy()

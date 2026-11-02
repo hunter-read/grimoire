@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCircleCheck, LuCopy, LuTriangleAlert } from 'react-icons/lu'
 import { useUISettings } from '../../context/UISettingsContext'
 import type { Schema } from '../../api'
+import useDialogFocus from '../../hooks/useDialogFocus'
 
 interface Props {
   apiKey: Schema<'ApiKeyOut'>
@@ -28,6 +29,12 @@ export default function ApiKeyReveal({ apiKey, secret, onClose }: Props) {
   const { t } = useTranslation()
   const { mcp_enabled: mcpEnabled } = useUISettings()
   const [copied, setCopied] = useState(false)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const copyRef = useRef<HTMLButtonElement>(null)
+  // Focus starts on Copy, the one thing to do here, and stays in the dialog.
+  // No onClose: the key is shown once, so a stray Escape must not throw it
+  // away - Done is the way out.
+  useDialogFocus(panelRef, { initialFocusRef: copyRef })
 
   const copy = async () => {
     try {
@@ -44,9 +51,6 @@ export default function ApiKeyReveal({ apiKey, secret, onClose }: Props) {
 
   return (
     <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="api-key-reveal-title"
       style={{
         position: 'fixed',
         inset: 0,
@@ -58,6 +62,10 @@ export default function ApiKeyReveal({ apiKey, secret, onClose }: Props) {
       }}
     >
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="api-key-reveal-title"
         style={{
           background: 'var(--bg-panel)',
           border: '1px solid var(--border)',
@@ -68,9 +76,9 @@ export default function ApiKeyReveal({ apiKey, secret, onClose }: Props) {
           boxSizing: 'border-box',
         }}
       >
-        <h3 id="api-key-reveal-title" style={{ marginTop: 0, fontSize: 16, marginBottom: 8 }}>
+        <h2 id="api-key-reveal-title" style={{ marginTop: 0, fontSize: 16, marginBottom: 8 }}>
           {t('appSettings.apiKeys.reveal.title', { name: apiKey.name })}
-        </h3>
+        </h2>
         <p
           style={{
             display: 'flex',
@@ -104,6 +112,7 @@ export default function ApiKeyReveal({ apiKey, secret, onClose }: Props) {
             {secret}
           </code>
           <button
+            ref={copyRef}
             type="button"
             onClick={copy}
             aria-label={t('appSettings.apiKeys.reveal.copy')}
@@ -125,11 +134,13 @@ export default function ApiKeyReveal({ apiKey, secret, onClose }: Props) {
             )}
           </button>
         </div>
-        {copied && (
-          <div role="status" style={{ fontSize: 12, color: 'var(--green)', marginBottom: 8 }}>
-            {t('appSettings.apiKeys.reveal.copied')}
-          </div>
-        )}
+        {/* Always mounted, so "Copied" is announced when it appears. */}
+        <div
+          role="status"
+          style={{ fontSize: 12, color: 'var(--green)', marginBottom: copied ? 8 : 0 }}
+        >
+          {copied ? t('appSettings.apiKeys.reveal.copied') : ''}
+        </div>
         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>
           {t('appSettings.apiKeys.reveal.example')}
         </div>

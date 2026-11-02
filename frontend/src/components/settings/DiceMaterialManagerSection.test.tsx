@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import DiceMaterialManagerSection from './DiceMaterialManagerSection'
 import api from '../../api'
@@ -50,5 +50,26 @@ describe('DiceMaterialManagerSection', () => {
     await screen.findByText('Spinner')
     await userEvent.click(screen.getByLabelText('common.remove Spinner'))
     expect(api.delete).toHaveBeenCalledWith('/dice-materials/x1')
+  })
+
+  it('heads each group and lists its items, and says an add aloud', async () => {
+    render(<DiceMaterialManagerSection />)
+    await screen.findByText('D20')
+    expect(screen.getByRole('heading', { name: 'Dice' })).toBeInTheDocument()
+    expect(screen.getByRole('list', { name: 'Dice' })).toHaveTextContent('D20')
+    await userEvent.type(screen.getByLabelText('lookupSettings.diceNamePlaceholder'), 'Fudge Dice')
+    await userEvent.click(screen.getByText('lookupSettings.add'))
+    expect(await screen.findByText('a11y.settings.added:{"name":"Fudge Dice"}')).toBeInTheDocument()
+  })
+
+  it('says a removal aloud and goes back to the name field', async () => {
+    render(<DiceMaterialManagerSection />)
+    await screen.findByText('Spinner')
+    vi.mocked(api.get).mockResolvedValueOnce({ dice_materials: items.slice(0, 2) })
+    await userEvent.click(screen.getByLabelText('common.remove Spinner'))
+    expect(await screen.findByText('a11y.settings.removed:{"name":"Spinner"}')).toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.getByLabelText('lookupSettings.diceNamePlaceholder')).toHaveFocus()
+    )
   })
 })

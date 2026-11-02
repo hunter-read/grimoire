@@ -18,7 +18,7 @@ describe('LogRow', () => {
     render(<LogRow entry={entry()} />)
     expect(screen.getByText('09:15:42.123')).toBeInTheDocument()
     expect(screen.getByText('INFO')).toBeInTheDocument()
-    expect(screen.getByLabelText('Message: Scan complete')).toBeInTheDocument()
+    expect(screen.getByText('Scan complete')).toBeInTheDocument()
   })
 
   it('highlights the matched search query in the message', () => {
@@ -30,13 +30,13 @@ describe('LogRow', () => {
   it('renders plain message when the search query does not match', () => {
     render(<LogRow entry={entry({ message: 'all good' })} searchQuery="zzz" />)
     expect(screen.queryByText('zzz')).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Message: all good')).toBeInTheDocument()
+    expect(screen.getByText('all good')).toBeInTheDocument()
   })
 
   it("shows the line's user as a chip that narrows to them", () => {
     const onUserClick = vi.fn()
     render(<LogRow entry={entry({ user: 'alice' })} onUserClick={onUserClick} />)
-    const chip = screen.getByRole('button', { name: 'alice' })
+    const chip = screen.getByRole('button', { name: 'logs.filterToUser' })
     fireEvent.mouseEnter(chip)
     expect(chip.style.color).toBe('var(--gold)')
     fireEvent.mouseLeave(chip)

@@ -59,6 +59,7 @@ export default function InstantToggle({
             checked={checked}
             onChange={onChange}
             disabled={off}
+            aria-invalid={error ? true : undefined}
             aria-describedby={error ? errorId : undefined}
             style={{
               width: 16,

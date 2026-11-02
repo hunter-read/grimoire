@@ -79,11 +79,9 @@ export default function ConfirmModal({
       : { ...buttonBase, background: 'var(--gold)', color: 'var(--on-accent)' }
 
   return (
+    // The scrim is only a backdrop; the dialog itself is the panel, so a
+    // screen reader's dialog boundary matches what is drawn.
     <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={titleId}
-      aria-describedby={messageId}
       style={{
         position: 'fixed',
         inset: 0,
@@ -101,6 +99,10 @@ export default function ConfirmModal({
     >
       <div
         ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={messageId}
         style={{
           background: 'var(--bg-panel)',
           border: '1px solid var(--border)',
@@ -114,9 +116,9 @@ export default function ConfirmModal({
           overflowWrap: 'anywhere',
         }}
       >
-        <h3 id={titleId} style={{ marginTop: 0, fontSize: 16, marginBottom: 8 }}>
+        <h2 id={titleId} style={{ marginTop: 0, fontSize: 16, marginBottom: 8 }}>
           {title}
-        </h3>
+        </h2>
         <div
           id={messageId}
           style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.55 }}

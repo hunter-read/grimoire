@@ -60,7 +60,12 @@ export default function AudioFavorite({ item, grid }: AudioFavoriteProps) {
         >
           {label}
         </div>
-        <FavoriteButton type="audio" id={item.item_id} style={rowFavoriteButtonStyle} />
+        <FavoriteButton
+          type="audio"
+          id={item.item_id}
+          name={label}
+          style={rowFavoriteButtonStyle}
+        />
       </div>
     )
   }
@@ -100,7 +105,7 @@ export default function AudioFavorite({ item, grid }: AudioFavoriteProps) {
           {label}
         </div>
       </div>
-      <FavoriteButton type="audio" id={item.item_id} />
+      <FavoriteButton type="audio" id={item.item_id} name={label} />
     </div>
   )
 }

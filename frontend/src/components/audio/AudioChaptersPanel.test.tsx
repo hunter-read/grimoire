@@ -12,8 +12,15 @@ describe('AudioChaptersPanel', () => {
   it('lists each chapter with its start time, numbering untitled ones', () => {
     render(<AudioChaptersPanel chapters={CHAPTERS} currentIndex={-1} onSelect={() => {}} />)
     expect(screen.getByText('Chapters (2)')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /0:00\s*Prologue/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /1:02:05\s*Chapter 2/ })).toBeInTheDocument()
+    // Named with the start time in words; the visible `1:02:05` is not read.
+    expect(
+      screen.getByRole('button', { name: 'Prologue, starts at 0 seconds' })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Chapter 2, starts at 1 hour, 2 minutes, 5 seconds' })
+    ).toBeInTheDocument()
+    expect(screen.getByText('1:02:05')).toBeInTheDocument()
+    expect(screen.getAllByRole('listitem')).toHaveLength(2)
   })
 
   it('marks the playing chapter', () => {

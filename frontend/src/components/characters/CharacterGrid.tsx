@@ -30,11 +30,12 @@ export default function CharacterGrid({ characters, sort, label, onDelete }: Pro
           return (
             <section key={group.key} style={{ marginBottom: 28 }}>
               <h3 style={groupHeading}>{heading}</h3>
-              <ul aria-label={heading} style={cardGrid}>
+              <ul role="list" aria-label={heading} style={cardGrid}>
                 {group.characters.map((character) => (
                   <CharacterCard
                     key={character.id}
                     character={character}
+                    headingLevel={4}
                     onDelete={onDelete}
                     // The heading already names it.
                     hideCampaign={sort === 'campaign'}
@@ -49,7 +50,7 @@ export default function CharacterGrid({ characters, sort, label, onDelete }: Pro
   }
 
   return (
-    <ul aria-label={label} style={cardGrid}>
+    <ul role="list" aria-label={label} style={cardGrid}>
       {characters.map((character) => (
         <CharacterCard
           key={character.id}

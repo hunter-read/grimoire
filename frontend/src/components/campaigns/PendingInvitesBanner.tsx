@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuMailOpen, LuX } from 'react-icons/lu'
 import { campaigns, type Schema } from '../../api'
@@ -17,7 +17,6 @@ const DISMISS_KEY = 'grimoire:invites_dismissed'
 export default function PendingInvitesBanner() {
   const { t } = useTranslation()
   const { user } = useAuth()!
-  const navigate = useNavigate()
   const [invites, setInvites] = useState<Schema<'CampaignInviteOut'>[]>([])
   const [dismissed, setDismissed] = useState(() => sessionStorage.getItem(DISMISS_KEY) === 'true')
   const [busy, setBusy] = useState(false)
@@ -60,7 +59,9 @@ export default function PendingInvitesBanner() {
   const single = invites.length === 1 ? invites[0] : null
 
   return (
-    <div
+    // A labelled region, so it can be found from the landmarks list on any page.
+    <section
+      aria-label={t('campaigns.invitations')}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -91,6 +92,7 @@ export default function PendingInvitesBanner() {
             <button
               disabled={busy}
               onClick={() => respond(single, 'accepted')}
+              aria-label={t('a11y.campaign.acceptInvite', { name: single.name })}
               style={{
                 padding: '6px 14px',
                 borderRadius: 7,
@@ -107,6 +109,7 @@ export default function PendingInvitesBanner() {
             <button
               disabled={busy}
               onClick={() => respond(single, 'declined')}
+              aria-label={t('a11y.campaign.declineInvite', { name: single.name })}
               style={{
                 padding: '6px 14px',
                 borderRadius: 7,
@@ -121,8 +124,8 @@ export default function PendingInvitesBanner() {
             </button>
           </>
         ) : (
-          <button
-            onClick={() => navigate('/campaigns')}
+          <Link
+            to="/campaigns"
             style={{
               padding: '6px 14px',
               borderRadius: 7,
@@ -135,7 +138,7 @@ export default function PendingInvitesBanner() {
             }}
           >
             {t('campaigns.inviteBanner.view')}
-          </button>
+          </Link>
         )}
         <button
           onClick={dismiss}
@@ -154,6 +157,6 @@ export default function PendingInvitesBanner() {
           <LuX size={16} />
         </button>
       </div>
-    </div>
+    </section>
   )
 }

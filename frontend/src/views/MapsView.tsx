@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { LuPencilRuler } from 'react-icons/lu'
 import Spinner from '../components/Spinner'
 import DownloadArchiveModal, {
@@ -21,7 +21,6 @@ type DownloadRequest = Pick<DownloadArchiveModalProps, 'title' | 'params'>
 export default function MapsView() {
   const { t } = useTranslation()
   const { user } = useAuth()!
-  const navigate = useNavigate()
   const isPlayer = user?.role === 'player'
   const config = MEDIA_CONFIGS.map
   const gallery = useMediaGallery<MediaItem>(config)
@@ -59,10 +58,12 @@ export default function MapsView() {
              exits are a download and a campaign upload, and the latter is
              GM-only, so the page would be half unusable for them. */
           !isPlayer && (
-            <button
-              type="button"
-              onClick={() => navigate('/maps/editor')}
+            // A link, since it goes to a page: announced as one, and it opens
+            // in a new tab like any other.
+            <Link
+              to="/maps/editor"
               style={{
+                textDecoration: 'none',
                 flex: 1,
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -80,7 +81,7 @@ export default function MapsView() {
             >
               <LuPencilRuler size={14} aria-hidden="true" />
               {t('maps.vtt.title')}
-            </button>
+            </Link>
           )
         }
       />

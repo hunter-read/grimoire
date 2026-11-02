@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type CSSProperties } from 'react'
+import { useState, useEffect, useCallback, useRef, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   LuX,
@@ -13,6 +13,7 @@ import {
 } from 'react-icons/lu'
 import { campaigns, type Schema } from '../../api'
 import Spinner from '../Spinner'
+import useDialogFocus from '../../hooks/useDialogFocus'
 import IconPicker from './IconPicker'
 
 // Modal for managing a campaign's categories of a given kind ('note' | 'resource').
@@ -65,6 +66,10 @@ export default function CategoryManager({
   const { t } = useTranslation()
   const [cats, setCats] = useState<Category[] | null>(null)
   const [newName, setNewName] = useState('')
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialogRef, { onClose })
+  // Said after an up/down move, since the row moving is only visible.
+  const [moved, setMoved] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [deleting, setDeleting] = useState<CatLike | null>(null) // the category pending delete-mode choice
@@ -169,6 +174,13 @@ export default function CategoryManager({
     if (target < 0 || target >= next.length) return
     ;[next[index], next[target]] = [next[target], next[index]]
     setRows(next)
+    setMoved(
+      t('a11y.campaignNotes.movedTo', {
+        name: next[target].name,
+        position: target + 1,
+        total: next.length,
+      })
+    )
     const orderedKeys = next.map((r) => r.key)
     onGroupOrderChange?.(orderedKeys)
     await campaigns.setResourceGroupOrder(campaignId, orderedKeys)
@@ -184,6 +196,13 @@ export default function CategoryManager({
     if (target < 0 || target >= next.length) return
     ;[next[index], next[target]] = [next[target], next[index]]
     setCats(next)
+    setMoved(
+      t('a11y.campaignNotes.movedTo', {
+        name: next[target].name,
+        position: target + 1,
+        total: next.length,
+      })
+    )
     await campaigns.reorderCategories(
       campaignId,
       next.map((c) => c.id)
@@ -207,13 +226,14 @@ export default function CategoryManager({
   const moveArrows = (
     index: number,
     count: number,
-    onMove: (index: number, dir: number) => void
+    onMove: (index: number, dir: number) => void,
+    name?: string
   ) => (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
       <button
         onClick={() => onMove(index, -1)}
         disabled={index === 0}
-        aria-label={t('campaignCategories.moveUp')}
+        aria-label={`${t('campaignCategories.moveUp')}${name ? `: ${name}` : ''}`}
         style={arrowBtn(index === 0)}
       >
         <LuChevronUp size={13} />
@@ -221,7 +241,7 @@ export default function CategoryManager({
       <button
         onClick={() => onMove(index, 1)}
         disabled={index === count - 1}
-        aria-label={t('campaignCategories.moveDown')}
+        aria-label={`${t('campaignCategories.moveDown')}${name ? `: ${name}` : ''}`}
         style={arrowBtn(index === count - 1)}
       >
         <LuChevronDown size={13} />
@@ -246,14 +266,22 @@ export default function CategoryManager({
           onChange={(e) => setEditName(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') rename(c.id)
-            if (e.key === 'Escape') setEditingId(null)
           }}
+          // Esc cancels the rename only, not the whole dialog. Caught in the
+          // capture phase: the dialog's own Esc listener (useDialogFocus) sits on
+          // an ancestor and would otherwise hear it first and close.
+          onKeyDownCapture={(e) => {
+            if (e.key !== 'Escape') return
+            e.stopPropagation()
+            setEditingId(null)
+          }}
+          aria-label={t('a11y.campaignNotes.renameNamed', { name: c.name })}
           autoFocus
           style={{
             flex: 1,
             padding: '5px 8px',
             background: 'var(--bg-deep)',
-            border: '1px solid var(--border)',
+            border: '1px solid var(--border-control)',
             borderRadius: 6,
             color: 'var(--text)',
             fontSize: 13,
@@ -263,7 +291,11 @@ export default function CategoryManager({
         <span style={{ flex: 1, fontSize: 14 }}>{c.name}</span>
       )}
       {editingId === c.id ? (
-        <button onClick={() => rename(c.id)} aria-label={t('common.save')} style={iconBtn}>
+        <button
+          onClick={() => rename(c.id)}
+          aria-label={`${t('common.save')}: ${c.name}`}
+          style={iconBtn}
+        >
           <LuCheck size={14} color="var(--gold)" />
         </button>
       ) : (
@@ -272,7 +304,7 @@ export default function CategoryManager({
             setEditingId(c.id)
             setEditName(c.name)
           }}
-          aria-label={t('common.edit')}
+          aria-label={`${t('common.edit')}: ${c.name}`}
           style={iconBtn}
         >
           <LuPencil size={13} />
@@ -280,7 +312,7 @@ export default function CategoryManager({
       )}
       <button
         onClick={() => setDeleting(c)}
-        aria-label={t('common.delete')}
+        aria-label={`${t('common.delete')}: ${c.name}`}
         style={{ ...iconBtn, color: 'var(--danger)' }}
       >
         <LuTrash2 size={13} />
@@ -300,23 +332,27 @@ export default function CategoryManager({
 
     // Unified list: categories interleaved with built-in type groups.
     if (hasTypeGroups) {
-      return rows!.map((r, i) => (
-        <div key={r.key} style={rowStyle}>
-          {moveArrows(i, rows!.length, moveRow)}
-          {r.kind === 'type' ? (
-            <>
-              <LuLayers size={15} aria-hidden="true" style={{ color: 'var(--text-muted)' }} />
-              <span style={{ flex: 1, fontSize: 14 }}>{r.name}</span>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                {t('campaignCategories.builtIn')}
-              </span>
-            </>
-          ) : (
-            // A category row carries its category's id.
-            catControls(r as CatLike)
-          )}
-        </div>
-      ))
+      return (
+        <ul role="list" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+          {rows!.map((r, i) => (
+            <li key={r.key} style={rowStyle}>
+              {moveArrows(i, rows!.length, moveRow, r.name)}
+              {r.kind === 'type' ? (
+                <>
+                  <LuLayers size={15} aria-hidden="true" style={{ color: 'var(--text-muted)' }} />
+                  <span style={{ flex: 1, fontSize: 14 }}>{r.name}</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                    {t('campaignCategories.builtIn')}
+                  </span>
+                </>
+              ) : (
+                // A category row carries its category's id.
+                catControls(r as CatLike)
+              )}
+            </li>
+          ))}
+        </ul>
+      )
     }
 
     // Category-only list (notes, or resources without type groups).
@@ -327,12 +363,16 @@ export default function CategoryManager({
         </div>
       )
     }
-    return cats!.map((c, i) => (
-      <div key={c.id} style={rowStyle}>
-        {moveArrows(i, cats!.length, move)}
-        {catControls(c)}
-      </div>
-    ))
+    return (
+      <ul role="list" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+        {cats!.map((c, i) => (
+          <li key={c.id} style={rowStyle}>
+            {moveArrows(i, cats!.length, move, c.name)}
+            {catControls(c)}
+          </li>
+        ))}
+      </ul>
+    )
   }
 
   return (
@@ -350,6 +390,10 @@ export default function CategoryManager({
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="category-manager-title"
         style={{
           background: 'var(--bg-panel)',
           border: '1px solid var(--border)',
@@ -378,11 +422,17 @@ export default function CategoryManager({
         >
           <LuX size={18} />
         </button>
-        <h3 style={{ fontSize: 16, fontWeight: 600, margin: '0 0 16px' }}>
+        <h2
+          id="category-manager-title"
+          style={{ fontSize: 16, fontWeight: 600, margin: '0 0 16px' }}
+        >
           {kind === 'note'
             ? t('campaignCategories.titleNotes')
             : t('campaignCategories.titleResources')}
-        </h3>
+        </h2>
+        <div role="status" className="sr-only">
+          {moved}
+        </div>
 
         {/* Create */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
@@ -391,11 +441,12 @@ export default function CategoryManager({
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && create()}
             placeholder={t('campaignCategories.newPlaceholder')}
+            aria-label={t('campaignCategories.newPlaceholder')}
             style={{
               flex: 1,
               padding: '8px 10px',
               background: 'var(--bg-deep)',
-              border: '1px solid var(--border)',
+              border: '1px solid var(--border-control)',
               borderRadius: 8,
               color: 'var(--text)',
               fontSize: 13,
@@ -420,7 +471,7 @@ export default function CategoryManager({
               borderRadius: 10,
             }}
           >
-            <div style={{ fontSize: 13, marginBottom: 12 }}>
+            <div role="alert" style={{ fontSize: 13, marginBottom: 12 }}>
               {t('campaignCategories.deletePrompt', { name: deleting.name })}
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

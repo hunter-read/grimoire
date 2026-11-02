@@ -4,6 +4,7 @@ import { LuScroll, LuCheck, LuChevronDown, LuPlus } from 'react-icons/lu'
 import { campaigns, type ApiError } from '../../api'
 import { useAuth } from '../../context/AuthContext'
 import { useUISettings } from '../../context/UISettingsContext'
+import useMenuKeyboard from '../../hooks/useMenuKeyboard'
 
 type Campaign = Awaited<ReturnType<typeof campaigns.list>>[number]
 
@@ -26,6 +27,11 @@ export default function AddToCampaignButton({
   const [added, setAdded] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  // Said once a campaign is added; the item's own "Added" may not be re-read.
+  const [announcement, setAnnouncement] = useState('')
+  // Arrow keys through the campaigns, Esc or Tab to close back onto the button.
+  useMenuKeyboard(open, menuRef, btnRef, () => setOpen(false))
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 })
 
   // Load campaigns and figure out which already contain this resource
@@ -60,6 +66,18 @@ export default function AddToCampaignButton({
       .finally(() => setLoading(false))
   }, [open, resourceType, resourceId, user?.id])
 
+  // The campaigns arrive after the menu opens, too late for the menu's own
+  // focus-on-open; move onto the first one once they have, unless the user has
+  // already gone somewhere.
+  useEffect(() => {
+    if (!open || loading || !list?.length) return
+    const menu = menuRef.current
+    const active = document.activeElement
+    if (menu && (!active || active === document.body || active === btnRef.current)) {
+      menu.querySelector<HTMLElement>('[role="menuitem"]')?.focus()
+    }
+  }, [open, loading, list])
+
   const openMenu = () => {
     if (btnRef.current) {
       const rect = btnRef.current.getBoundingClientRect()
@@ -77,6 +95,8 @@ export default function AddToCampaignButton({
         visibility: 'gm',
       })
       setAdded((prev) => new Set([...prev, campaignId]))
+      const name = list?.find((c) => c.id === campaignId)?.name ?? ''
+      setAnnouncement(t('a11y.campaign.addedTo', { name }))
     } catch (err) {
       if ((err as ApiError).status === 409) {
         setAdded((prev) => new Set([...prev, campaignId]))
@@ -94,7 +114,10 @@ export default function AddToCampaignButton({
     <>
       <button
         ref={btnRef}
+        type="button"
         onClick={openMenu}
+        aria-haspopup="menu"
+        aria-expanded={open}
         title={t('resources.addToCampaign')}
         style={{
           background: 'var(--bg-card)',
@@ -115,6 +138,10 @@ export default function AddToCampaignButton({
         <LuChevronDown size={11} style={{ opacity: 0.6 }} />
       </button>
 
+      <div className="sr-only" role="status" aria-live="polite">
+        {announcement}
+      </div>
+
       {open && (
         <>
           <div
@@ -122,6 +149,9 @@ export default function AddToCampaignButton({
             onClick={() => setOpen(false)}
           />
           <div
+            ref={menuRef}
+            role="menu"
+            aria-label={t('resources.addToCampaign')}
             style={{
               position: 'fixed',
               top: menuPos.top,
@@ -139,6 +169,7 @@ export default function AddToCampaignButton({
             }}
           >
             <div
+              aria-hidden="true"
               style={{
                 fontSize: 11,
                 fontWeight: 600,
@@ -169,6 +200,8 @@ export default function AddToCampaignButton({
                 return (
                   <button
                     key={c.id}
+                    type="button"
+                    role="menuitem"
                     onClick={() => handleAdd(c.id)}
                     style={{
                       display: 'flex',

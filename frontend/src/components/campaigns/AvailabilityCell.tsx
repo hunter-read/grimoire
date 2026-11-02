@@ -1,10 +1,17 @@
 import { useState, useRef } from 'react'
+import useMenuKeyboard from '../../hooks/useMenuKeyboard'
 import { useTranslation } from 'react-i18next'
 import { LuMinus, LuBan } from 'react-icons/lu'
 import type { AvailOption } from './_scheduleShared'
 
 /** A single availability cell: shows current status and opens a status-picker menu. */
 interface AvailabilityCellProps {
+  /**
+   * Who and when this cell is for ("Ana, Tue 4 Mar"). The cell is an icon in a
+   * grid, so without it a screen reader hears only "Available, button" with no
+   * way to tell which player or session it answers for.
+   */
+  context?: string
   status?: string | null
   isCancelled: boolean
   isOwner: boolean
@@ -14,6 +21,7 @@ interface AvailabilityCellProps {
 }
 
 export default function AvailabilityCell({
+  context,
   status,
   isCancelled,
   isOwner,
@@ -24,7 +32,11 @@ export default function AvailabilityCell({
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 })
+  // Arrow keys through the statuses; Esc or Tab closes back onto the cell.
+  useMenuKeyboard(open, menuRef, btnRef, () => setOpen(false))
+  const named = (text: string) => (context ? `${context}: ${text}` : text)
 
   const openMenu = () => {
     if (btnRef.current) {
@@ -44,11 +56,11 @@ export default function AvailabilityCell({
               ? t('schedule.availability.uncancel')
               : t('schedule.availability.cancelledLabel')
           }
-          aria-label={
+          aria-label={named(
             isOwner
               ? t('schedule.availability.uncancel')
               : t('schedule.availability.cancelledLabel')
-          }
+          )}
           style={{
             width: 28,
             height: 28,
@@ -76,6 +88,9 @@ export default function AvailabilityCell({
         ref={btnRef}
         onClick={openMenu}
         title={current?.label ?? t('schedule.availability.setAvailability')}
+        aria-label={named(current?.label ?? t('a11y.campaignNotes.availabilityNotSet'))}
+        aria-haspopup="menu"
+        aria-expanded={open}
         style={{
           width: 28,
           height: 28,
@@ -99,6 +114,9 @@ export default function AvailabilityCell({
             onClick={() => setOpen(false)}
           />
           <div
+            ref={menuRef}
+            role="menu"
+            aria-label={context ?? t('schedule.availability.setAvailability')}
             style={{
               position: 'fixed',
               top: menuPos.top,
@@ -119,9 +137,12 @@ export default function AvailabilityCell({
             {availOptions.map((o) => (
               <button
                 key={o.value}
+                role="menuitemradio"
+                aria-checked={status === o.value}
                 onClick={() => {
                   onSet(o.value)
                   setOpen(false)
+                  btnRef.current?.focus()
                 }}
                 style={{
                   display: 'flex',
@@ -143,8 +164,12 @@ export default function AvailabilityCell({
             ))}
             {isOwner && (
               <>
-                <div style={{ height: 1, background: 'var(--border)', margin: '2px 4px' }} />
+                <div
+                  role="separator"
+                  style={{ height: 1, background: 'var(--border)', margin: '2px 4px' }}
+                />
                 <button
+                  role="menuitem"
                   onClick={() => {
                     onCancel()
                     setOpen(false)

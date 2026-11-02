@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuLaptop, LuLogOut, LuShieldCheck } from 'react-icons/lu'
 import { auth as authApi } from '../../api'
@@ -55,6 +55,11 @@ export default function ActiveSessionsSection() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
+  // Said aloud once a sign-out lands; the row and its button go with it.
+  const [announcement, setAnnouncement] = useState('')
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const deviceName = (s: Schema<'SessionOut'>) =>
+    describeClient(s.user_agent) || t('userSettings.sessions.unknownDevice')
 
   const load = useCallback(async () => {
     try {
@@ -76,7 +81,11 @@ export default function ActiveSessionsSection() {
     setError(null)
     try {
       await authApi.revokeSession(id)
+      const gone = sessions.find((s) => s.id === id)
       setSessions((prev) => prev.filter((s) => s.id !== id))
+      if (gone) setAnnouncement(t('a11y.settings.sessionRevoked', { device: deviceName(gone) }))
+      // The button pressed has just been removed; land on the section instead.
+      headingRef.current?.focus()
     } catch (err) {
       setError((err as Error | null)?.message || t('userSettings.sessions.revokeFailed'))
     } finally {
@@ -90,6 +99,8 @@ export default function ActiveSessionsSection() {
     try {
       await authApi.revokeOtherSessions()
       setSessions((prev) => prev.filter((s) => s.current))
+      setAnnouncement(t('a11y.settings.otherSessionsRevoked'))
+      headingRef.current?.focus()
     } catch (err) {
       setError((err as Error | null)?.message || t('userSettings.sessions.revokeFailed'))
     } finally {
@@ -101,15 +112,25 @@ export default function ActiveSessionsSection() {
 
   return (
     <div>
-      <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>
+      <h3
+        ref={headingRef}
+        tabIndex={-1}
+        className="focus-target"
+        style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}
+      >
         {t('userSettings.sessions.title')}
       </h3>
+      <p role="status" className="sr-only">
+        {announcement}
+      </p>
       <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.6 }}>
         {t('userSettings.sessions.description')}
       </p>
 
       {error && (
-        <div style={{ fontSize: 13, color: 'var(--danger)', marginBottom: 12 }}>{error}</div>
+        <div role="alert" style={{ fontSize: 13, color: 'var(--danger)', marginBottom: 12 }}>
+          {error}
+        </div>
       )}
 
       {loading ? (
@@ -117,12 +138,23 @@ export default function ActiveSessionsSection() {
       ) : sessions.length === 0 ? (
         <p style={{ fontSize: 14, color: 'var(--text-dim)' }}>{t('userSettings.sessions.empty')}</p>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 560 }}>
+        <ul
+          role="list"
+          style={{
+            listStyle: 'none',
+            padding: 0,
+            margin: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
+            maxWidth: 560,
+          }}
+        >
           {sessions.map((session) => {
             const client = describeClient(session.user_agent)
             const lastUsed = formatWhen(session.last_used_at, i18n.language)
             return (
-              <div
+              <li
                 key={session.id}
                 style={{
                   display: 'flex',
@@ -172,6 +204,8 @@ export default function ActiveSessionsSection() {
                     type="button"
                     onClick={() => revokeOne(session.id)}
                     disabled={busyId === session.id}
+                    // "Revoke" once per row says nothing about which device.
+                    aria-label={t('a11y.settings.revokeSession', { device: deviceName(session) })}
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',
@@ -191,10 +225,10 @@ export default function ActiveSessionsSection() {
                     {t('userSettings.sessions.revoke')}
                   </button>
                 )}
-              </div>
+              </li>
             )
           })}
-        </div>
+        </ul>
       )}
 
       {others.length > 0 && (

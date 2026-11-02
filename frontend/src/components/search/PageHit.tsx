@@ -9,7 +9,8 @@ import { cardStyle } from './searchStyles'
 // Still JavaScript, so TypeScript would read every destructured prop as required.
 
 interface PageHitProps {
-  book: PrefetchableBook
+  /** The book the hit is in; its title names the link. */
+  book: PrefetchableBook & { title?: string | null }
   page: { page_number: number; snippet: string }
 }
 
@@ -44,7 +45,12 @@ export default function PageHit({ book, page }: PageHitProps) {
         // Includes the query string: these results are identified by `?q=`.
         // Must stay render-fresh — don't memoize this card (see CardLink).
         state={{ from: location.pathname + location.search }}
-        label={pageLabel}
+        // "p. 12" alone, once per hit, doesn't say which book it opens.
+        label={
+          book.title
+            ? t('a11y.discover.pageOfBook', { title: book.title, page: page.page_number })
+            : pageLabel
+        }
       />
       <div
         style={{

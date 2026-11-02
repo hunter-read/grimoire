@@ -144,4 +144,24 @@ describe('DetailMoreMenu', () => {
     fireEvent.mouseDown(document.body)
     expect(screen.queryByRole('menu')).toBeNull()
   })
+
+  it('moves through the items with the arrow keys and closes on Escape', async () => {
+    renderMenu()
+    await openMenu()
+    const [first, second] = screen.getAllByRole('menuitem')
+    expect(first).toHaveFocus()
+    fireEvent.keyDown(first, { key: 'ArrowDown' })
+    expect(second).toHaveFocus()
+    fireEvent.keyDown(second, { key: 'Escape' })
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('bookActions.menu')).toHaveFocus()
+  })
+
+  it('returns focus to the menu button when a dialog it opened closes', async () => {
+    renderMenu()
+    await openMenu()
+    await userEvent.click(screen.getByRole('menuitem', { name: 'maps.otfbm.menuLabel' }))
+    await userEvent.click(screen.getByText('close-otfbm'))
+    expect(screen.getByLabelText('bookActions.menu')).toHaveFocus()
+  })
 })

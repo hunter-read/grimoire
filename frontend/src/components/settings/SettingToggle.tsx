@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useId, type ReactNode } from 'react'
 
 interface Props {
   id: string
@@ -21,6 +21,7 @@ export default function SettingToggle({
   label: text,
   hint,
 }: Props) {
+  const hintId = useId()
   return (
     <div>
       <label
@@ -38,6 +39,8 @@ export default function SettingToggle({
           type="checkbox"
           checked={checked}
           disabled={disabled}
+          // The hint is read with the box, not only when someone reads on.
+          aria-describedby={hint ? hintId : undefined}
           onChange={(e) => onChange(e.target.checked)}
           style={{ width: 16, height: 16, accentColor: 'var(--gold)' }}
         />
@@ -45,6 +48,7 @@ export default function SettingToggle({
       </label>
       {hint && (
         <p
+          id={hintId}
           style={{
             fontSize: 12,
             color: 'var(--text-muted)',

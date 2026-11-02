@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX, LuDownload, LuCopy, LuCircleCheck, LuLink } from 'react-icons/lu'
@@ -6,6 +6,7 @@ import api, { mediaUrl, shareLinks } from '../../api'
 import type { Schema } from '../../api'
 import { otfbmCommand } from './otfbm'
 import { EXPIRY_OPTIONS, formatWhen, publicUrl } from '../share/shareLinkUtils'
+import useDialogFocus from '../../hooks/useDialogFocus'
 
 // Until the server has answered, the cell-size field still needs bounds to
 // validate against; these are OTFBM's own, which the plan echoes back.
@@ -52,13 +53,10 @@ export default function OtfbmExportModal({ mapId, filename, onClose }: OtfbmExpo
   const [createError, setCreateError] = useState('')
   const [copied, setCopied] = useState(false)
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  // Focus moves in on open, Tab stays inside, Esc closes, and focus goes back
+  // to whatever opened it.
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialogRef, { onClose })
 
   // First ask without a cell size, so the server's suggestion seeds the field;
   // and fetch the OTFBM links already made for this map, to reuse one.
@@ -150,7 +148,7 @@ export default function OtfbmExportModal({ mapId, filename, onClose }: OtfbmExpo
     padding: '6px 10px',
     fontSize: 14,
     background: 'var(--bg-input)',
-    border: '1px solid var(--border)',
+    border: '1px solid var(--border-control)',
     borderRadius: 4,
     color: 'var(--text)',
   }
@@ -171,6 +169,7 @@ export default function OtfbmExportModal({ mapId, filename, onClose }: OtfbmExpo
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-labelledby="otfbm-modal-title"
@@ -208,9 +207,19 @@ export default function OtfbmExportModal({ mapId, filename, onClose }: OtfbmExpo
             marginBottom: 4,
           }}
         >
-          <span id="otfbm-modal-title" style={{ fontSize: 15, fontWeight: 600 }}>
+          <h2
+            id="otfbm-modal-title"
+            style={{
+              margin: 0,
+              fontFamily: 'inherit',
+              letterSpacing: 'normal',
+              color: 'var(--text)',
+              fontSize: 15,
+              fontWeight: 600,
+            }}
+          >
             {t('maps.otfbm.title')}
-          </span>
+          </h2>
           <button
             onClick={onClose}
             style={{

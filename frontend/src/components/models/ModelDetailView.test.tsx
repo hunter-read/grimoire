@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Routes, Route } from 'react-router-dom'
+import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
 import ModelDetailView from './ModelDetailView'
 import api from '../../api'
 
@@ -59,12 +59,19 @@ const aModel = (over: Record<string, unknown> = {}) => ({
   ...over,
 })
 
+// Where the back link landed, and with what state.
+function GalleryProbe() {
+  const { pathname, state } = useLocation()
+  return <div data-testid="gallery">{`${pathname}|${JSON.stringify(state)}`}</div>
+}
+
 function renderAt(model: ReturnType<typeof aModel>) {
   vi.mocked(api.get).mockResolvedValue(model)
   return render(
     <MemoryRouter initialEntries={['/models/m1']}>
       <Routes>
         <Route path="/models/:modelId" element={<ModelDetailView />} />
+        <Route path="/models" element={<GalleryProbe />} />
       </Routes>
     </MemoryRouter>
   )
@@ -195,7 +202,7 @@ describe('ModelDetailView', () => {
   it('navigates back to the gallery', async () => {
     renderAt(aModel())
     await userEvent.click(await screen.findByLabelText('Back to models'))
-    expect(navigate).toHaveBeenCalledWith('/models', { state: { restoreView: true } })
+    expect(await screen.findByTestId('gallery')).toHaveTextContent('/models|{"restoreView":true}')
   })
 
   describe('on a phone', () => {
@@ -259,13 +266,13 @@ describe('ModelDetailView', () => {
 
     it('steps to the next model with the arrow button', async () => {
       renderWithSiblings()
-      await userEvent.click(await screen.findByRole('button', { name: 'Next model' }))
+      await userEvent.click(await screen.findByRole('button', { name: /^Next model/ }))
       expect(navigate).toHaveBeenCalledWith('/models/m2')
     })
 
     it('steps to the previous model with the arrow button', async () => {
       renderWithSiblings()
-      await userEvent.click(await screen.findByRole('button', { name: 'Previous model' }))
+      await userEvent.click(await screen.findByRole('button', { name: /^Previous model/ }))
       expect(navigate).toHaveBeenCalledWith('/models/m0')
     })
 
@@ -281,7 +288,7 @@ describe('ModelDetailView', () => {
     it('offers no navigation for an archive, which has no viewer pane', async () => {
       renderWithSiblings({ is_archive: true, filename: 'pack.zip' })
       await waitFor(() => expect(screen.queryByTestId('viewer')).not.toBeInTheDocument())
-      expect(screen.queryByRole('button', { name: 'Next model' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /^Next model/ })).not.toBeInTheDocument()
     })
   })
 })

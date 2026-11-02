@@ -51,7 +51,7 @@ describe('BookGroup', () => {
     const onToggle = vi.fn()
     renderGroup({ onToggle })
 
-    await userEvent.click(screen.getByRole('button', { name: /collapse/i }))
+    await userEvent.click(screen.getByRole('button', { name: /achtung/i, expanded: true }))
 
     expect(onToggle).toHaveBeenCalledWith('book-7')
   })
@@ -62,7 +62,7 @@ describe('BookGroup', () => {
   it('gives the title row a themed text colour rather than the UA button default', () => {
     renderGroup()
 
-    const header = screen.getByRole('button', { name: /collapse/i })
+    const header = screen.getByRole('button', { name: /achtung/i })
     expect(header).toHaveStyle({ color: 'var(--text)' })
   })
 

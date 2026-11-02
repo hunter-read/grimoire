@@ -37,19 +37,35 @@ export default function SearchHelp({ onClose, onInsert, triggerRef }: SearchHelp
   const panelRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
 
+  // The latest onClose, read when a key is pressed. The parent passes a fresh
+  // function each render, and depending on it re-ran the effect below - which
+  // pulled focus back to the close button on every re-render.
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+
   // Escape closes, and focus moves into the panel so a keyboard user isn't left
-  // behind on the input while a dialog is open in front of them.
+  // behind on the input while a dialog is open in front of them. Closing takes
+  // the panel - and the focus inside it - away, so focus goes back to the
+  // button that opened it, unless the user already moved it on (an example
+  // puts it in the search box).
   useEffect(() => {
+    const panel = panelRef.current
+    const trigger = triggerRef?.current
     closeRef.current?.focus()
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation()
-        onClose()
+        onCloseRef.current()
       }
     }
     document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      const active = document.activeElement
+      const lost = !active || active === document.body || !!panel?.contains(active)
+      if (lost && trigger?.isConnected) trigger.focus()
+    }
+  }, [triggerRef])
 
   // A click anywhere outside dismisses. The trigger is excluded: it runs its own
   // toggle, and closing here as well would immediately be undone by that toggle

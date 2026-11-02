@@ -4,6 +4,7 @@ import { LuCircleCheck } from 'react-icons/lu'
 import api from '../../api'
 import Spinner from '../Spinner'
 import { useAuth } from '../../context/AuthContext'
+import SavedAnnouncement from './SavedAnnouncement'
 
 export default function ExplicitContentSection() {
   const { t } = useTranslation()
@@ -44,6 +45,7 @@ export default function ExplicitContentSection() {
         {t('userSettings.contentPreferences.title')}
         {saved && <LuCircleCheck size={16} style={{ color: 'var(--green)' }} />}
       </h3>
+      <SavedAnnouncement saved={saved} />
       <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.6 }}>
         {t('userSettings.contentPreferences.description')}
       </p>

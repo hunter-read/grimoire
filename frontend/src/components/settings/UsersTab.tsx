@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuPlus, LuX } from 'react-icons/lu'
@@ -25,8 +25,19 @@ export default function UsersTab() {
   const [users, setUsers] = useState<User[] | null>(null)
   const [passwordAuthEnabled, setPasswordAuthEnabled] = useState(true)
   const [showAddForm, setShowAddForm] = useState(false)
+  // Closing the add form (Cancel, or a created user) removes the control that
+  // had focus; hand it back to the button that opened the form.
+  const addButtonRef = useRef<HTMLButtonElement>(null)
+  const addFormOpened = useRef(false)
+  useEffect(() => {
+    if (showAddForm) addFormOpened.current = true
+    else if (addFormOpened.current) addButtonRef.current?.focus()
+  }, [showAddForm])
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [error, setError] = useState('')
+  // What a screen reader hears after a change that has no other visible cue
+  // near where focus is (a user created, removed, or given a new password).
+  const [status, setStatus] = useState('')
 
   useEffect(() => {
     api.get('/users').then(setUsers)
@@ -38,6 +49,8 @@ export default function UsersTab() {
 
   // Merge a PATCH response into the existing row without dropping derived
   // fields the update endpoint doesn't echo back (e.g. campaign_count).
+  const nameOf = (userId: string) => users?.find((u) => u.id === userId)?.username ?? ''
+
   const mergeUser = (response: unknown) => {
     const updated = response as Partial<User> & { id: string }
     setUsers((prev) => (prev ?? []).map((u) => (u.id === updated.id ? { ...u, ...updated } : u)))
@@ -86,6 +99,7 @@ export default function UsersTab() {
   const handlePasswordReset = async (userId: string, newPassword: string) => {
     try {
       await api.patch(`/users/${userId}`, { password: newPassword })
+      setStatus(t('a11y.settingsAccess.passwordSet', { name: nameOf(userId) }))
     } catch (err) {
       setError(message(err) || t('users.failedSetPassword'))
       throw err
@@ -104,8 +118,11 @@ export default function UsersTab() {
   const handleDelete = async (userId: string) => {
     try {
       await api.delete(`/users/${userId}`)
+      setStatus(t('a11y.settingsAccess.userDeleted', { name: nameOf(userId) }))
       setUsers((prev) => (prev ?? []).filter((u) => u.id !== userId))
       if (expandedId === userId) setExpandedId(null)
+      // The row that held focus is gone; land somewhere that still exists.
+      addButtonRef.current?.focus()
     } catch (err) {
       setError(message(err) || t('users.failedDeleteUser'))
     }
@@ -121,6 +138,7 @@ export default function UsersTab() {
       },
     ])
     setShowAddForm(false)
+    setStatus(t('a11y.settingsAccess.userCreated', { name: newUser.username }))
   }
 
   // A converted guest becomes a permanent user, so surface it in the main list.
@@ -149,7 +167,9 @@ export default function UsersTab() {
           {t('users.userCount', { count: users.length })}
         </p>
         <button
+          ref={addButtonRef}
           onClick={() => setShowAddForm(!showAddForm)}
+          aria-expanded={showAddForm}
           style={{ ...primaryBtnStyle, display: 'flex', alignItems: 'center', gap: 6 }}
         >
           {showAddForm ? (
@@ -164,6 +184,10 @@ export default function UsersTab() {
         </button>
       </div>
 
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {status}
+      </div>
+
       {showAddForm && (
         <AddUserForm
           passwordAuthEnabled={passwordAuthEnabled}
@@ -174,6 +198,7 @@ export default function UsersTab() {
 
       {error && (
         <div
+          role="alert"
           style={{
             color: 'var(--red)',
             fontSize: 13,
@@ -217,7 +242,9 @@ export default function UsersTab() {
         <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto' }}>
           <thead>
             <tr>
-              <th style={{ ...headStyle, width: 28 }} aria-hidden="true" />
+              <th style={{ ...headStyle, width: 28 }}>
+                <span className="sr-only">{t('a11y.settingsAccess.detailsColumn')}</span>
+              </th>
               <th style={headStyle}>{t('users.username')}</th>
               <th style={headStyle}>{t('users.role')}</th>
               <th style={headStyle}>{t('users.permissions')}</th>

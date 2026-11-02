@@ -57,8 +57,13 @@ export default function AudioPlayer({ track, showPlayNext = false, size = 44 }: 
     }
   }
 
+  // Named with the track: a gallery has a play button on every card, and a row
+  // of "Play" buttons tells a screen reader user nothing.
+  const title = track.title || t('audio.player.untitled')
   const queued = inQueue(track.id)
-  const queueLabel = queued ? t('audio.player.queued') : t('audio.player.playNext')
+  const queueLabel = queued
+    ? t('a11y.audio.queued', { title })
+    : t('a11y.audio.playNext', { title })
 
   const onPlayNext = (e: MouseEvent) => {
     e.stopPropagation()
@@ -87,7 +92,7 @@ export default function AudioPlayer({ track, showPlayNext = false, size = 44 }: 
         <button
           type="button"
           onClick={onToggle}
-          aria-label={playing ? t('audio.pause') : t('audio.play')}
+          aria-label={t(playing ? 'a11y.audio.pauseTrack' : 'a11y.audio.playTrack', { title })}
           style={{
             width: current ? size - ringWidth * 2 : size,
             height: current ? size - ringWidth * 2 : size,
@@ -116,8 +121,10 @@ export default function AudioPlayer({ track, showPlayNext = false, size = 44 }: 
           type="button"
           onClick={onPlayNext}
           aria-label={queueLabel}
-          title={queueLabel}
-          aria-pressed={queued}
+          title={queued ? t('audio.player.queued') : t('audio.player.playNext')}
+          // Already queued, the button does nothing - said as unavailable rather
+          // than as a pressed toggle that cannot be released.
+          aria-disabled={queued || undefined}
           style={{
             display: 'inline-flex',
             alignItems: 'center',

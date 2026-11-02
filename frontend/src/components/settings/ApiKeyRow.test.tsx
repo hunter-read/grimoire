@@ -92,4 +92,13 @@ describe('ApiKeyRow', () => {
     renderRow(key({ permissions: { '*': 'read', books: 'write' } }))
     expect(screen.getByText('All permissions: Read · Books: Read and write')).toBeInTheDocument()
   })
+
+  it('names each action after the key, since every row repeats them', () => {
+    const onRevoke = vi.fn()
+    renderRow(key(), { onRevoke })
+    expect(screen.getByRole('button', { name: 'Edit Homepage' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Regenerate Homepage' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Revoke Homepage' }))
+    expect(onRevoke).toHaveBeenCalled()
+  })
 })

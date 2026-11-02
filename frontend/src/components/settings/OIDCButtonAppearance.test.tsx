@@ -259,3 +259,32 @@ describe('OIDCButtonAppearance', () => {
     expect(settingsApi.patch).not.toHaveBeenCalled()
   })
 })
+
+describe('OIDCButtonAppearance accessibility', () => {
+  it('keeps the preview out of the tab order, and gives its text to the group', () => {
+    setup()
+    const group = screen.getByRole('group', { name: 'authSettings.oidc.buttonPreview' })
+    expect(previewButton().closest('[inert]')).not.toBeNull()
+    expect(group).toHaveTextContent('Sign in with Google')
+  })
+
+  it('names fields by their label alone and describes the text by its hint', () => {
+    setup()
+    const text = screen.getByRole('textbox', { name: 'authSettings.oidc.buttonText' })
+    expect(text).toHaveAccessibleDescription('authSettings.oidc.buttonTextHint')
+    expect(screen.getByRole('textbox', { name: 'authSettings.oidc.buttonRadius' })).toHaveAttribute(
+      'inputmode',
+      'numeric'
+    )
+  })
+
+  it('reports an invalid value as an alert', async () => {
+    setup()
+    const radius = screen.getByRole('textbox', { name: 'authSettings.oidc.buttonRadius' })
+    fireEvent.change(radius, { target: { value: 'wide' } })
+    fireEvent.blur(radius)
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'authSettings.oidc.buttonInvalidRadius'
+    )
+  })
+})

@@ -17,6 +17,30 @@ vi.mock('react-router-dom', () => ({
   useParams: () => ({ mapId: currentMapId }),
   useNavigate: () => navigate,
   useLocation: () => ({ pathname: `/maps/${currentMapId}`, state: locationState }),
+  // A real link in the view; here it reports through the same navigate spy,
+  // so the tests still see where it goes and with what state.
+  Link: ({
+    to,
+    state,
+    children,
+    ...rest
+  }: {
+    to: string
+    state?: unknown
+    children?: React.ReactNode
+    [key: string]: unknown
+  }) => (
+    <a
+      href={to}
+      {...rest}
+      onClick={(e) => {
+        e.preventDefault()
+        navigate(to, state === undefined ? undefined : { state })
+      }}
+    >
+      {children}
+    </a>
+  ),
 }))
 
 const toggleFavorite = vi.fn()
@@ -409,6 +433,29 @@ describe('MapDetailView', () => {
       render(<MapDetailView />)
       await screen.findByTestId('image-pane')
       expect(screen.getByTestId('download-extras')).toHaveTextContent('/maps/m2/export.uvtt')
+    })
+  })
+
+  describe('for a screen reader', () => {
+    it('heads the page with the map, names the tab and says where it sits', async () => {
+      mockApi('m2')
+      render(<MapDetailView />)
+      expect(await screen.findByRole('heading', { level: 1, name: 'm2.png' })).toBeInTheDocument()
+      expect(document.title).toBe('m2.png - Grimoire')
+      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('2 of 3'))
+    })
+
+    it('names the neighbour each arrow goes to', async () => {
+      mockApi('m2')
+      render(<MapDetailView />)
+      expect(await screen.findByRole('button', { name: 'Next map: c' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Previous map: a' })).toBeInTheDocument()
+    })
+
+    it('labels the grid edit button with what it edits', async () => {
+      mockApi('m2')
+      render(<MapDetailView />)
+      expect(await screen.findByTestId('open-grid-editor')).toHaveAccessibleName('Edit Grid')
     })
   })
 })

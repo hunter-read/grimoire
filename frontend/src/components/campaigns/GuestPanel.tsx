@@ -1,11 +1,10 @@
 import { useState, useEffect, type FormEvent } from 'react'
-import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import { LuUserPlus, LuRefreshCw, LuTrash2, LuShare2, LuCopy, LuMail } from 'react-icons/lu'
+import { LuUserPlus, LuRefreshCw, LuTrash2, LuShare2 } from 'react-icons/lu'
 import { campaigns, type Schema } from '../../api'
 import Spinner from '../Spinner'
 import GuestIconBtn from './GuestIconBtn'
-import ShareBtn from './ShareBtn'
+import GuestShareDialog from './GuestShareDialog'
 
 /** GM-only management of a campaign's code-based guests. */
 type Guest = Awaited<ReturnType<typeof campaigns.listGuests>>[number]
@@ -21,7 +20,6 @@ export default function GuestPanel({ campaignId, onChanged }: GuestPanelProps) {
   const [nickname, setNickname] = useState('')
   const [busy, setBusy] = useState(false)
   const [share, setShare] = useState<Schema<'GuestShareTemplateOut'> | null>(null) // { ...template } for the share modal
-  const [copied, setCopied] = useState('')
 
   const reload = () =>
     campaigns
@@ -84,16 +82,6 @@ export default function GuestPanel({ campaignId, onChanged }: GuestPanelProps) {
     }
   }
 
-  const copy = async (text: string, key: string) => {
-    try {
-      await navigator.clipboard.writeText(text)
-      setCopied(key)
-      setTimeout(() => setCopied(''), 1500)
-    } catch {
-      /* clipboard unavailable */
-    }
-  }
-
   if (!guests) return <Spinner size={16} />
 
   return (
@@ -104,6 +92,7 @@ export default function GuestPanel({ campaignId, onChanged }: GuestPanelProps) {
           type="text"
           value={nickname}
           onChange={(e) => setNickname(e.target.value)}
+          aria-label={t('guests.nicknamePlaceholder')}
           placeholder={t('guests.nicknamePlaceholder')}
           maxLength={100}
           style={{ flex: 1 }}
@@ -135,9 +124,13 @@ export default function GuestPanel({ campaignId, onChanged }: GuestPanelProps) {
       ) : (
         // Capped like the invite list (~10 rows) so a long guest roster scrolls
         // inside the popover.
-        <div style={{ maxHeight: 'min(330px, 60vh)', overflowY: 'auto' }}>
+        <ul
+          role="list"
+          className="card-list"
+          style={{ maxHeight: 'min(330px, 60vh)', overflowY: 'auto' }}
+        >
           {guests.map((g) => (
-            <div
+            <li
               key={g.id}
               style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0' }}
             >
@@ -154,96 +147,37 @@ export default function GuestPanel({ campaignId, onChanged }: GuestPanelProps) {
                   {g.guest_code}
                 </code>
               </span>
-              <GuestIconBtn title={t('guests.share')} onClick={() => openShare(g.id)}>
+              <GuestIconBtn
+                title={t('guests.share')}
+                label={t('a11y.campaign.shareGuest', { name: g.nickname || t('guests.guest') })}
+                onClick={() => openShare(g.id)}
+              >
                 <LuShare2 size={13} />
               </GuestIconBtn>
               <GuestIconBtn
                 title={t('guests.regenerate')}
+                label={t('a11y.campaign.regenerateGuest', {
+                  name: g.nickname || t('guests.guest'),
+                })}
                 onClick={() => regenerate(g.id)}
                 disabled={busy}
               >
                 <LuRefreshCw size={13} />
               </GuestIconBtn>
-              <GuestIconBtn title={t('guests.remove')} onClick={() => remove(g.id)} disabled={busy}>
+              <GuestIconBtn
+                title={t('guests.remove')}
+                label={t('a11y.campaign.removeGuest', { name: g.nickname || t('guests.guest') })}
+                onClick={() => remove(g.id)}
+                disabled={busy}
+              >
                 <LuTrash2 size={13} />
               </GuestIconBtn>
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
 
-      {/* Portalled to the body and stacked above the popover: the panel now renders
-          inside an anchored popover, so an in-place modal would be trapped beneath
-          it and clipped by its stacking context. */}
-      {share &&
-        createPortal(
-          <div
-            onClick={() => setShare(null)}
-            style={{
-              position: 'fixed',
-              inset: 0,
-              background: 'var(--shadow)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 2100,
-              padding: 20,
-            }}
-          >
-            <div
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                background: 'var(--bg-panel)',
-                border: '1px solid var(--border)',
-                borderRadius: 12,
-                padding: 24,
-                maxWidth: 460,
-                width: '100%',
-              }}
-            >
-              <h3 style={{ marginTop: 0, marginBottom: 12, fontSize: 18 }}>
-                {t('guests.shareTitle')}
-              </h3>
-              <textarea
-                readOnly
-                value={share.message}
-                rows={6}
-                style={{ width: '100%', resize: 'vertical', fontSize: 13, marginBottom: 12 }}
-              />
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                <ShareBtn onClick={() => copy(share.message, 'msg')}>
-                  <LuCopy size={13} />{' '}
-                  {copied === 'msg' ? t('guests.copied') : t('guests.copyMessage')}
-                </ShareBtn>
-                <ShareBtn onClick={() => copy(share.discord_message, 'discord')}>
-                  <LuCopy size={13} />{' '}
-                  {copied === 'discord' ? t('guests.copied') : t('guests.copyForDiscord')}
-                </ShareBtn>
-                <a href={share.mailto_url} style={{ textDecoration: 'none' }}>
-                  <ShareBtn as="span">
-                    <LuMail size={13} /> {t('guests.email')}
-                  </ShareBtn>
-                </a>
-              </div>
-              <button
-                onClick={() => setShare(null)}
-                style={{
-                  marginTop: 16,
-                  padding: '6px 14px',
-                  background: 'var(--bg-deep)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 6,
-                  color: 'var(--text-dim)',
-                  cursor: 'pointer',
-                  fontSize: 13,
-                }}
-              >
-                {t('common.close')}
-              </button>
-            </div>
-          </div>,
-          document.body
-        )}
+      {share && <GuestShareDialog share={share} onClose={() => setShare(null)} />}
     </div>
   )
 }

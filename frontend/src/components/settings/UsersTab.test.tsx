@@ -77,7 +77,7 @@ describe('UsersTab', () => {
     render(<UsersTab />, { wrapper: MemoryRouter })
     await screen.findByText('bob')
     fireEvent.click(screen.getByText('bob'))
-    fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'gm' } })
+    fireEvent.change(screen.getByLabelText(/^role for/i), { target: { value: 'gm' } })
     await waitFor(() => expect(api.patch).toHaveBeenCalledWith('/users/user-2', { role: 'gm' }))
   })
 
@@ -224,5 +224,66 @@ describe('UsersTab', () => {
     await screen.findByText('boom')
     fireEvent.click(screen.getByLabelText('Dismiss error'))
     expect(screen.queryByText('boom')).not.toBeInTheDocument()
+  })
+})
+
+describe('UsersTab accessibility', () => {
+  // The visually hidden live region, as opposed to the Spinner's or a field's.
+  const announcer = () =>
+    screen.getAllByRole('status').find((el) => el.className === 'sr-only' && el.textContent)
+
+  it('says when the add form is open, and returns focus to its button on Cancel', async () => {
+    render(<UsersTab />, { wrapper: MemoryRouter })
+    await screen.findByText('admin')
+    const add = screen.getByRole('button', { name: 'Add User' })
+    expect(add).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(add)
+    expect(screen.getByRole('button', { name: /cancel/i, expanded: true })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('form', { name: 'Add User' }).querySelector('[type=button]')!)
+    expect(screen.getByRole('button', { name: 'Add User' })).toHaveFocus()
+  })
+
+  it('announces a created user', async () => {
+    vi.mocked(api.post).mockResolvedValue({ id: 'user-3', username: 'carol', role: 'gm' })
+    render(<UsersTab />, { wrapper: MemoryRouter })
+    await screen.findByText('admin')
+    fireEvent.click(screen.getByText('Add User'))
+    fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'carol' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'validpassword' } })
+    fireEvent.click(screen.getByText('Create User'))
+    await waitFor(() => expect(announcer()).toHaveTextContent('Created carol'))
+  })
+
+  it('announces a deleted user and moves focus somewhere that still exists', async () => {
+    vi.mocked(api.delete).mockResolvedValue({})
+    render(<UsersTab />, { wrapper: MemoryRouter })
+    await screen.findByText('bob')
+    fireEvent.click(screen.getByRole('button', { name: 'Edit bob' }))
+    fireEvent.click(screen.getByLabelText('Delete user bob'))
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, delete bob' }))
+    await waitFor(() => expect(announcer()).toHaveTextContent('Deleted bob'))
+    expect(screen.getByRole('button', { name: 'Add User' })).toHaveFocus()
+  })
+
+  it('announces a password set for a user', async () => {
+    vi.mocked(api.patch).mockResolvedValue({})
+    render(<UsersTab />, { wrapper: MemoryRouter })
+    await screen.findByText('bob')
+    fireEvent.click(screen.getByRole('button', { name: 'Edit bob' }))
+    fireEvent.click(screen.getByText('Set Password'))
+    fireEvent.change(screen.getByLabelText('New password (min 12)'), {
+      target: { value: 'longenough12' },
+    })
+    fireEvent.click(screen.getByText('Set Password'))
+    await waitFor(() => expect(announcer()).toHaveTextContent('Password set for bob'))
+  })
+
+  it('reports a failed change as an alert', async () => {
+    vi.mocked(api.patch).mockRejectedValue(new Error('nope'))
+    render(<UsersTab />, { wrapper: MemoryRouter })
+    await screen.findByText('bob')
+    fireEvent.click(screen.getByRole('button', { name: 'Edit bob' }))
+    fireEvent.change(screen.getByLabelText(/^role for/i), { target: { value: 'gm' } })
+    expect(await screen.findByRole('alert')).toHaveTextContent('nope')
   })
 })

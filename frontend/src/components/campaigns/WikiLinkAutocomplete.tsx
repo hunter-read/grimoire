@@ -28,13 +28,25 @@ export function findActiveLinkQuery(
  */
 type LinkMatch = Pick<TrieEntry, 'key' | 'label' | 'detail'>
 
+/** The DOM id of option `index` in the listbox `listId`, for aria-activedescendant. */
+export function linkOptionId(listId: string, index: number): string {
+  return `${listId}-opt-${index}`
+}
+
 export default function WikiLinkAutocomplete<M extends LinkMatch>({
+  id = 'wiki-link-suggestions',
   matches,
   position,
   onAccept,
   activeIndex,
   onActiveIndexChange,
 }: {
+  /**
+   * The listbox's id. The textarea points at it (aria-controls) and at the
+   * highlighted option (aria-activedescendant), since focus stays in the
+   * textarea while the arrow keys move the highlight.
+   */
+  id?: string
   matches: readonly M[] | null | undefined
   position: { top: number; left: number }
   onAccept: (match: M) => void
@@ -42,7 +54,7 @@ export default function WikiLinkAutocomplete<M extends LinkMatch>({
   onActiveIndexChange: (index: number) => void
 }) {
   const { t } = useTranslation()
-  const listRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLUListElement>(null)
 
   // Keep the highlighted row scrolled into view during keyboard navigation.
   // Guarded because scrollIntoView is absent in jsdom and older embedded views.
@@ -55,9 +67,6 @@ export default function WikiLinkAutocomplete<M extends LinkMatch>({
 
   return (
     <div
-      role="listbox"
-      aria-label={t('wiki.linkSuggestions')}
-      ref={listRef}
       style={{
         position: 'absolute',
         top: position.top,
@@ -74,59 +83,74 @@ export default function WikiLinkAutocomplete<M extends LinkMatch>({
         padding: 4,
       }}
     >
-      {matches.map((m, i) => (
-        <button
-          key={m.key}
-          type="button"
-          role="option"
-          aria-selected={i === activeIndex}
-          // The textarea must keep focus, so accept on mousedown and never let
-          // the click steal it.
-          onMouseDown={(e) => {
-            e.preventDefault()
-            onAccept(m)
-          }}
-          onMouseEnter={() => onActiveIndexChange(i)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            width: '100%',
-            textAlign: 'left',
-            padding: '6px 8px',
-            background: i === activeIndex ? 'var(--bg-deep)' : 'transparent',
-            border: 'none',
-            borderRadius: 6,
-            color: i === activeIndex ? 'var(--text)' : 'var(--text-dim)',
-            cursor: 'pointer',
-            font: 'inherit',
-            fontSize: 13,
-          }}
-        >
-          {m.detail ? (
-            <LuHash size={12} style={{ flexShrink: 0, color: 'var(--text-muted)' }} />
-          ) : (
-            <LuFileText size={12} style={{ flexShrink: 0, color: 'var(--text-muted)' }} />
-          )}
-          <span
+      {/* Focus never leaves the textarea, so a screen reader needs telling that
+          suggestions appeared, and how many. */}
+      <div role="status" className="sr-only">
+        {t('a11y.campaignNotes.suggestionCount', { count: matches.length })}
+      </div>
+      <ul
+        id={id}
+        role="listbox"
+        aria-label={t('wiki.linkSuggestions')}
+        aria-describedby={`${id}-hint`}
+        ref={listRef}
+        style={{ listStyle: 'none', margin: 0, padding: 0 }}
+      >
+        {matches.map((m, i) => (
+          <li
+            key={m.key}
+            id={linkOptionId(id, i)}
+            role="option"
+            aria-selected={i === activeIndex}
+            // The textarea must keep focus, so accept on mousedown and never let
+            // the click steal it.
+            onMouseDown={(e) => {
+              e.preventDefault()
+              onAccept(m)
+            }}
+            onMouseEnter={() => onActiveIndexChange(i)}
             style={{
-              flex: 1,
-              minWidth: 0,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              width: '100%',
+              textAlign: 'left',
+              padding: '6px 8px',
+              background: i === activeIndex ? 'var(--bg-deep)' : 'transparent',
+              border: 'none',
+              borderRadius: 6,
+              color: i === activeIndex ? 'var(--text)' : 'var(--text-dim)',
+              cursor: 'pointer',
+              font: 'inherit',
+              fontSize: 13,
             }}
           >
-            {m.label}
-          </span>
-          {m.detail && (
-            <span style={{ flexShrink: 0, fontSize: 11, color: 'var(--text-muted)' }}>
-              {m.detail}
+            {m.detail ? (
+              <LuHash size={12} style={{ flexShrink: 0, color: 'var(--text-muted)' }} />
+            ) : (
+              <LuFileText size={12} style={{ flexShrink: 0, color: 'var(--text-muted)' }} />
+            )}
+            <span
+              style={{
+                flex: 1,
+                minWidth: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {m.label}
             </span>
-          )}
-        </button>
-      ))}
+            {m.detail && (
+              <span style={{ flexShrink: 0, fontSize: 11, color: 'var(--text-muted)' }}>
+                {m.detail}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
       <div
+        id={`${id}-hint`}
         style={{
           padding: '4px 8px 2px',
           fontSize: 11,

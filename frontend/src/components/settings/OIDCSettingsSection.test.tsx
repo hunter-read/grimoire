@@ -513,3 +513,89 @@ describe('OIDCSettingsSection', () => {
     expect(screen.getByText('•••••')).toBeInTheDocument()
   })
 })
+
+describe('OIDCSettingsSection accessibility', () => {
+  it('names a field by its label alone, even while its Saved status shows', async () => {
+    vi.mocked(settingsApi.get).mockResolvedValue(baseSettings())
+    vi.mocked(settingsApi.patch).mockResolvedValue(baseSettings({ oidc_client_id: 'app' }))
+    render(<OIDCSettingsSection />)
+    const input = await screen.findByRole('textbox', { name: 'authSettings.oidc.clientId' })
+    await userEvent.type(input, 'app')
+    await userEvent.tab()
+    await waitFor(() =>
+      expect(screen.getAllByRole('status').some((s) => s.textContent === 'common.saved')).toBe(true)
+    )
+    expect(input).toHaveAccessibleName('authSettings.oidc.clientId')
+  })
+
+  it('describes a field by its hint and by an environment lock', async () => {
+    vi.mocked(settingsApi.get).mockResolvedValue(
+      baseSettings({ oidc_groups_claim_env_locked: true } as Partial<Settings>)
+    )
+    render(<OIDCSettingsSection />)
+    const claim = await screen.findByRole('textbox', { name: 'authSettings.oidc.groupsClaim' })
+    expect(claim).toHaveAccessibleDescription(/authSettings\.oidc\.envLocked/)
+    const permissions = screen.getByRole('textbox', { name: 'authSettings.oidc.permissionsClaim' })
+    expect(permissions).toHaveAccessibleDescription('authSettings.oidc.permissionsClaimHint')
+  })
+
+  it('says how many settings Autopopulate filled in', async () => {
+    vi.mocked(settingsApi.get).mockResolvedValue(baseSettings())
+    vi.mocked(api.post).mockResolvedValue({ issuer: 'https://idp/', jwks_uri: 'https://idp/jwks' })
+    vi.mocked(settingsApi.patch).mockResolvedValue(baseSettings())
+    render(<OIDCSettingsSection />)
+    const issuer = await screen.findByRole('textbox', { name: 'authSettings.oidc.issuerUrl' })
+    await userEvent.type(issuer, 'https://idp')
+    await userEvent.click(screen.getByTitle('authSettings.oidc.autopopulateTitle'))
+    await waitFor(() =>
+      expect(
+        screen
+          .getAllByRole('status')
+          .some((s) => s.textContent === 'a11y.settingsAccess.discovered')
+      ).toBe(true)
+    )
+  })
+
+  it('ties a discovery error to the issuer field', async () => {
+    vi.mocked(settingsApi.get).mockResolvedValue(baseSettings())
+    vi.mocked(api.post).mockRejectedValue(new Error('unreachable'))
+    render(<OIDCSettingsSection />)
+    const issuer = await screen.findByRole('textbox', { name: 'authSettings.oidc.issuerUrl' })
+    await userEvent.type(issuer, 'https://idp')
+    await userEvent.click(screen.getByTitle('authSettings.oidc.autopopulateTitle'))
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('unreachable')
+    expect(issuer).toHaveAttribute('aria-invalid', 'true')
+    expect(issuer).toHaveAttribute('aria-errormessage', alert.id)
+  })
+
+  it('says a secret is set instead of reading out bullets, and names its buttons', async () => {
+    vi.mocked(settingsApi.get).mockResolvedValue(
+      baseSettings({ oidc_client_secret_set: true, oidc_client_secret_length: 8 })
+    )
+    vi.mocked(settingsApi.patch).mockResolvedValue(baseSettings({ oidc_client_secret_set: false }))
+    render(<OIDCSettingsSection />)
+    expect(await screen.findByText('a11y.settingsAccess.secretIsSet')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'authSettings.oidc.showSecret' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'a11y.settingsAccess.saveSecret' })).toBeDisabled()
+    await userEvent.click(screen.getByRole('button', { name: 'a11y.settingsAccess.clearSecret' }))
+    // The Clear button went with the secret; focus lands on the field.
+    await waitFor(() =>
+      expect(screen.getByLabelText('authSettings.oidc.clientSecret')).toHaveFocus()
+    )
+  })
+
+  it('keeps a checkbox focusable while it saves', async () => {
+    vi.mocked(settingsApi.get).mockResolvedValue(baseSettings())
+    vi.mocked(settingsApi.patch).mockReturnValue(new Promise(() => {}))
+    render(<OIDCSettingsSection />)
+    const box = await screen.findByRole('checkbox', { name: 'authSettings.oidc.autoLaunch' })
+    await userEvent.click(box)
+    expect(box).not.toBeDisabled()
+    expect(box).toHaveAttribute('aria-disabled', 'true')
+    expect(box).toHaveFocus()
+    // A second press while saving is ignored.
+    await userEvent.click(box)
+    expect(settingsApi.patch).toHaveBeenCalledTimes(1)
+  })
+})

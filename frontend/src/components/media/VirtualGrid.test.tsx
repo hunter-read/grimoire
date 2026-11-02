@@ -80,6 +80,25 @@ describe('columnsFor', () => {
 })
 
 describe('VirtualGrid', () => {
+  it('is a list whose items say where they sit in the whole collection', () => {
+    // Only the visible rows exist, so each item carries its position and the
+    // full count for a screen reader.
+    virtualRows = [1]
+    render(<VirtualGrid items={items(3)} renderItem={renderItem} minColumn={130} gap={12} />)
+    expect(screen.getByRole('list')).toBeInTheDocument()
+    const [item] = screen.getAllByRole('listitem')
+    expect(item).toHaveAttribute('aria-setsize', '3')
+    expect(item).toHaveAttribute('aria-posinset', '2')
+  })
+
+  it('falls back to the index for an item rendered without a key', () => {
+    virtualRows = [0]
+    render(
+      <VirtualGrid items={items(1)} renderItem={() => 'plain text'} minColumn={130} gap={12} />
+    )
+    expect(screen.getByRole('listitem')).toHaveTextContent('plain text')
+  })
+
   it('renders only the rows the virtualizer asks for', () => {
     virtualRows = [0]
     render(<VirtualGrid items={items(100)} renderItem={renderItem} minColumn={130} gap={12} />)

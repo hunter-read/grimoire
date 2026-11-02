@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuTrash2, LuScroll, LuShare2 } from 'react-icons/lu'
@@ -28,6 +28,8 @@ export interface UserEditorHandlers {
 }
 
 interface Props extends UserEditorHandlers {
+  /** The element id the row's toggle points at (aria-controls). */
+  id?: string
   user: Schema<'UserOut'>
   isSelf: boolean
   currentUserRole: string
@@ -37,6 +39,7 @@ interface Props extends UserEditorHandlers {
 }
 
 export default function UserExpandedEditor({
+  id,
   user,
   isSelf,
   currentUserRole,
@@ -55,6 +58,20 @@ export default function UserExpandedEditor({
   const { t } = useTranslation()
   const [settingPassword, setSettingPassword] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  // The buttons that swap out for an inline prompt get focus back when the
+  // prompt closes - otherwise it falls to <body> along with the removed control.
+  const setPasswordRef = useRef<HTMLButtonElement>(null)
+  const deleteRef = useRef<HTMLButtonElement>(null)
+  const passwordOpened = useRef(false)
+  const deleteOpened = useRef(false)
+  useEffect(() => {
+    if (settingPassword) passwordOpened.current = true
+    else if (passwordOpened.current) setPasswordRef.current?.focus()
+  }, [settingPassword])
+  useEffect(() => {
+    if (confirmDelete) deleteOpened.current = true
+    else if (deleteOpened.current) deleteRef.current?.focus()
+  }, [confirmDelete])
   const isAdmin = currentUserRole === 'admin'
   // The campaigns list is read-only, so it's safe to show on every user's row —
   // including the admin's own row — not just other users'.
@@ -62,6 +79,9 @@ export default function UserExpandedEditor({
 
   return (
     <div
+      id={id}
+      role="region"
+      aria-label={t('a11y.settingsAccess.userEditor', { name: user.username })}
       style={{
         padding: '16px 18px 18px',
         borderTop: '1px solid var(--border)',
@@ -91,14 +111,14 @@ export default function UserExpandedEditor({
         <EditorField label={t('users.role')}>
           <select
             id={`role-${user.id}`}
-            aria-label={t('users.role')}
+            aria-label={t('a11y.settingsAccess.roleFor', { name: user.username })}
             value={user.role ?? 'player'}
             onChange={(e) => onRoleChange(user.id, e.target.value)}
             disabled={isSelf}
             title={isSelf ? t('users.cannotChangeSelfRole') : t('users.role')}
             style={{
               background: 'var(--bg-input)',
-              border: '1px solid var(--border)',
+              border: '1px solid var(--border-control)',
               color: 'var(--text)',
               borderRadius: 6,
               padding: '6px 10px',
@@ -174,6 +194,7 @@ export default function UserExpandedEditor({
               />
             ) : (
               <button
+                ref={setPasswordRef}
                 onClick={() => setSettingPassword(true)}
                 style={{ ...ghostBtnStyle, alignSelf: 'flex-start' }}
               >
@@ -215,19 +236,35 @@ export default function UserExpandedEditor({
         }}
       >
         {confirmDelete ? (
+          // Focus lands on "No", the safe answer, so the question is read out
+          // and an accidental Enter does not delete anyone.
           <>
-            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+            <span
+              id={`delete-confirm-${user.id}`}
+              style={{ fontSize: 13, color: 'var(--text-muted)' }}
+            >
               {t('users.deleteConfirm')}
             </span>
-            <button onClick={() => onDelete(user.id)} style={dangerBtnStyle}>
+            <button
+              onClick={() => onDelete(user.id)}
+              aria-label={t('a11y.settingsAccess.confirmDelete', { name: user.username })}
+              style={dangerBtnStyle}
+            >
               {t('common.yes')}
             </button>
-            <button onClick={() => setConfirmDelete(false)} style={ghostBtnStyle}>
+            <button
+              autoFocus
+              onClick={() => setConfirmDelete(false)}
+              aria-describedby={`delete-confirm-${user.id}`}
+              aria-label={t('a11y.settingsAccess.keepUser', { name: user.username })}
+              style={ghostBtnStyle}
+            >
               {t('common.no')}
             </button>
           </>
         ) : (
           <button
+            ref={deleteRef}
             onClick={() => setConfirmDelete(true)}
             disabled={isSelf}
             title={

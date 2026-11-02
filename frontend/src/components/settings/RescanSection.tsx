@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCircleCheck, LuRefreshCw, LuSquare } from 'react-icons/lu'
 import Spinner from '../Spinner'
@@ -58,6 +58,22 @@ export default function RescanSection() {
   const thumbsPct = total_thumbs > 0 ? Math.round((thumbs_done / total_thumbs) * 100) : 0
 
   const phaseLabel = scanPhaseLabel(t, status)
+  // The bars below are progressbars that a screen reader can query; this says
+  // the phase once as it begins (its label carries counts, which would chatter
+  // if announced on every poll) and the summary below says when it is done.
+  const [phaseMessage, setPhaseMessage] = useState('')
+  const phaseLabelRef = useRef(phaseLabel)
+  phaseLabelRef.current = phaseLabel
+  useEffect(() => {
+    setPhaseMessage(running ? phaseLabelRef.current : '')
+  }, [running, phase])
+  const bar = (pct: number | null) => ({
+    role: 'progressbar' as const,
+    'aria-label': phaseLabel,
+    'aria-valuemin': 0,
+    'aria-valuemax': 100,
+    'aria-valuenow': pct ?? undefined,
+  })
 
   return (
     <div>
@@ -113,10 +129,15 @@ export default function RescanSection() {
         )}
       </div>
 
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {phaseMessage}
+      </div>
+
       {/* Progress bar — scanning phase */}
       {running && phase === 'scanning' && (
         <div style={{ marginTop: 12 }}>
           <div
+            {...bar(scanPct)}
             style={{ height: 4, borderRadius: 2, background: 'var(--border)', overflow: 'hidden' }}
           >
             {scanPct !== null ? (
@@ -201,6 +222,7 @@ export default function RescanSection() {
       {running && (phase === 'reconciling' || phase === 'pruning') && step_total > 0 && (
         <div style={{ marginTop: 12 }}>
           <div
+            {...bar(stepPct)}
             style={{ height: 4, borderRadius: 2, background: 'var(--border)', overflow: 'hidden' }}
           >
             <div
@@ -227,6 +249,7 @@ export default function RescanSection() {
       {running && phase === 'indexing' && to_index > 0 && (
         <div style={{ marginTop: 12 }}>
           <div
+            {...bar(indexPct)}
             style={{ height: 4, borderRadius: 2, background: 'var(--border)', overflow: 'hidden' }}
           >
             <div
@@ -249,6 +272,7 @@ export default function RescanSection() {
       {running && phase === 'ocr' && total_ocr > 0 && (
         <div style={{ marginTop: 12 }}>
           <div
+            {...bar(ocrPct)}
             style={{ height: 4, borderRadius: 2, background: 'var(--border)', overflow: 'hidden' }}
           >
             <div
@@ -290,6 +314,7 @@ export default function RescanSection() {
       {running && phase === 'thumbnails' && total_thumbs > 0 && (
         <div style={{ marginTop: 12 }}>
           <div
+            {...bar(thumbsPct)}
             style={{ height: 4, borderRadius: 2, background: 'var(--border)', overflow: 'hidden' }}
           >
             <div
@@ -330,6 +355,7 @@ export default function RescanSection() {
       {/* Completion summary */}
       {lastResult && !running && (
         <div
+          role="status"
           style={{
             marginTop: 16,
             padding: '12px 16px',

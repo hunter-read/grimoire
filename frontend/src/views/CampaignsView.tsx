@@ -9,6 +9,7 @@ import CampaignEditor from '../components/campaigns/CampaignEditor'
 import CampaignCard from '../components/campaigns/CampaignCard'
 import CalendarMenu from '../components/campaigns/CalendarMenu'
 import useIsMobile from '../hooks/useIsMobile'
+import usePageTitle from '../hooks/usePageTitle'
 
 type Campaign = Schema<'CampaignOut'>
 
@@ -33,6 +34,8 @@ export default function CampaignsView() {
   // When off (the default) the server omits archived campaigns entirely, so
   // finished games stay out of the way until they're asked for.
   const [showArchived, setShowArchived] = useState(false)
+
+  usePageTitle(t('campaigns.title'))
 
   const isGmOrAdmin = user?.role === 'admin' || user?.role === 'gm'
   // campaign_access defaults to enabled when the field is absent (older tokens).
@@ -90,12 +93,19 @@ export default function CampaignsView() {
           marginBottom: 28,
         }}
       >
-        <h2
-          style={{ fontSize: 22, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 10 }}
+        <h1
+          style={{
+            fontSize: 22,
+            fontWeight: 600,
+            margin: 0,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+          }}
         >
           <LuScroll size={20} color="var(--gold)" style={{ flexShrink: 0 }} />{' '}
           {t('campaigns.title')}
-        </h2>
+        </h1>
         <div
           style={{
             display: 'flex',
@@ -166,6 +176,7 @@ export default function CampaignsView() {
 
       {error && (
         <div
+          role="alert"
           style={{
             color: 'var(--danger)',
             background: 'var(--bg-card)',
@@ -195,7 +206,7 @@ export default function CampaignsView() {
         <>
           {invitations.length > 0 && (
             <section style={{ marginBottom: 32 }}>
-              <h3
+              <h2
                 style={{
                   fontSize: 13,
                   fontWeight: 600,
@@ -209,10 +220,14 @@ export default function CampaignsView() {
                 }}
               >
                 <LuMailOpen size={13} /> {t('campaigns.invitations')}
-              </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              </h2>
+              <ul
+                role="list"
+                className="card-list"
+                style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
+              >
                 {invitations.map((c) => (
-                  <div
+                  <li
                     key={c.id}
                     style={{
                       display: 'flex',
@@ -269,6 +284,8 @@ export default function CampaignsView() {
                     <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
                       <button
                         onClick={() => respondToInvite(c, 'accepted')}
+                        // One pair per invitation: say which campaign each is for.
+                        aria-label={t('a11y.campaign.acceptInvite', { name: c.name })}
                         style={{
                           padding: '7px 16px',
                           borderRadius: 7,
@@ -284,6 +301,7 @@ export default function CampaignsView() {
                       </button>
                       <button
                         onClick={() => respondToInvite(c, 'declined')}
+                        aria-label={t('a11y.campaign.declineInvite', { name: c.name })}
                         style={{
                           padding: '7px 16px',
                           borderRadius: 7,
@@ -297,14 +315,14 @@ export default function CampaignsView() {
                         {t('campaigns.decline')}
                       </button>
                     </div>
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </section>
           )}
           {gmCampaigns.length > 0 && (
             <section style={{ marginBottom: 32 }}>
-              <h3
+              <h2
                 style={{
                   fontSize: 13,
                   fontWeight: 600,
@@ -315,18 +333,20 @@ export default function CampaignsView() {
                 }}
               >
                 {t('campaigns.gmCampaigns')}
-              </h3>
-              <div style={CARD_GRID}>
+              </h2>
+              <ul role="list" className="card-list" style={CARD_GRID}>
                 {gmCampaigns.map((c) => (
-                  <CampaignCard key={c.id} campaign={c} userId={user?.id} subtitle={c.gm_title} />
+                  <li key={c.id}>
+                    <CampaignCard campaign={c} userId={user?.id} subtitle={c.gm_title} />
+                  </li>
                 ))}
-              </div>
+              </ul>
             </section>
           )}
 
           {joinedCampaigns.length > 0 && (
             <section style={{ marginBottom: 32 }}>
-              <h3
+              <h2
                 style={{
                   fontSize: 13,
                   fontWeight: 600,
@@ -337,25 +357,26 @@ export default function CampaignsView() {
                 }}
               >
                 {t('campaigns.joinedCampaigns')}
-              </h3>
-              <div style={CARD_GRID}>
+              </h2>
+              <ul role="list" className="card-list" style={CARD_GRID}>
                 {joinedCampaigns.map((c) => (
-                  <CampaignCard
-                    key={c.id}
-                    campaign={c}
-                    userId={user?.id}
-                    subtitle={t('campaigns.gm', {
-                      name: c.owner_display_name || t('campaigns.unknownGm'),
-                    })}
-                  />
+                  <li key={c.id}>
+                    <CampaignCard
+                      campaign={c}
+                      userId={user?.id}
+                      subtitle={t('campaigns.gm', {
+                        name: c.owner_display_name || t('campaigns.unknownGm'),
+                      })}
+                    />
+                  </li>
                 ))}
-              </div>
+              </ul>
             </section>
           )}
 
           {personalCampaigns.length > 0 && (
             <section style={{ marginBottom: 32 }}>
-              <h3
+              <h2
                 style={{
                   fontSize: 13,
                   fontWeight: 600,
@@ -366,18 +387,20 @@ export default function CampaignsView() {
                 }}
               >
                 {t('campaigns.personalCampaigns')}
-              </h3>
-              <div style={CARD_GRID}>
+              </h2>
+              <ul role="list" className="card-list" style={CARD_GRID}>
                 {personalCampaigns.map((c) => (
-                  <CampaignCard key={c.id} campaign={c} userId={user?.id} />
+                  <li key={c.id}>
+                    <CampaignCard campaign={c} userId={user?.id} />
+                  </li>
                 ))}
-              </div>
+              </ul>
             </section>
           )}
 
           {showArchived && archivedCampaigns.length > 0 && (
             <section style={{ marginBottom: 32 }}>
-              <h3
+              <h2
                 style={{
                   fontSize: 13,
                   fontWeight: 600,
@@ -391,12 +414,14 @@ export default function CampaignsView() {
                 }}
               >
                 <LuArchive size={13} /> {t('campaigns.archivedCampaigns')}
-              </h3>
-              <div style={CARD_GRID}>
+              </h2>
+              <ul role="list" className="card-list" style={CARD_GRID}>
                 {archivedCampaigns.map((c) => (
-                  <CampaignCard key={c.id} campaign={c} userId={user?.id} />
+                  <li key={c.id}>
+                    <CampaignCard campaign={c} userId={user?.id} />
+                  </li>
                 ))}
-              </div>
+              </ul>
             </section>
           )}
         </>

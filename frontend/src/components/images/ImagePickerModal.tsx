@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { LuX, LuUpload, LuLibrary, LuClipboardPaste, LuTrash2 } from 'react-icons/lu'
 import ImageSourceBrowser from './ImageSourceBrowser'
 import type { CampaignImage, ImageSourcePick } from './ImageSourceBrowser'
+import useDialogFocus from '../../hooks/useDialogFocus'
 import useClipboardImage, { ACCEPTED_IMAGE_TYPES, imageFromDataTransfer } from './useClipboardImage'
 
 const ACCEPT = ACCEPTED_IMAGE_TYPES.join(',')
@@ -58,6 +59,8 @@ export default function ImagePickerModal({
   busy = false,
 }: ImagePickerModalProps) {
   const { t } = useTranslation()
+  const panelRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(panelRef, { onClose })
   const inputRef = useRef<HTMLInputElement>(null)
   const [mode, setMode] = useState<'upload' | 'browse'>('upload')
   const [localBusy, setLocalBusy] = useState(false)
@@ -140,9 +143,6 @@ export default function ImagePickerModal({
 
   return (
     <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
       style={{
         position: 'fixed',
         inset: 0,
@@ -155,7 +155,13 @@ export default function ImagePickerModal({
       }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
+      {/* The dialog is the panel, not the backdrop, so focus is kept inside
+          what is actually on screen; Esc closes it. */}
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="image-picker-title"
         data-testid="image-picker-panel"
         onDragOver={(e) => {
           e.preventDefault()
@@ -190,7 +196,9 @@ export default function ImagePickerModal({
         >
           <LuX size={18} />
         </button>
-        <h3 style={{ fontSize: 16, fontWeight: 600, margin: '0 0 16px' }}>{title}</h3>
+        <h2 id="image-picker-title" style={{ fontSize: 16, fontWeight: 600, margin: '0 0 16px' }}>
+          {title}
+        </h2>
 
         {/* Preview. The caller may render its own (the banner shows a live
             reposition control here) but always gets a sensible default. */}

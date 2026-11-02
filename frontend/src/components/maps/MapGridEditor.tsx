@@ -24,7 +24,7 @@ const inputStyle: CSSProperties = {
   padding: '5px 8px',
   fontSize: 14,
   borderRadius: 4,
-  border: '1px solid var(--border)',
+  border: '1px solid var(--border-control)',
   background: 'var(--bg-input, var(--bg-deep))',
   color: 'var(--text)',
 }

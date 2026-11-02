@@ -36,3 +36,11 @@ describe('UserPermissionBadges', () => {
     expect(screen.queryByText('API keys')).toBeNull()
   })
 })
+
+describe('UserPermissionBadges accessibility', () => {
+  it('is a list, so a screen reader says how many permissions there are', () => {
+    render(<UserPermissionBadges allowExplicit campaignAccess />)
+    expect(screen.getByRole('list')).toBeInTheDocument()
+    expect(screen.getAllByRole('listitem')).toHaveLength(2)
+  })
+})

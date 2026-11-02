@@ -120,6 +120,11 @@ const WikiTemplateBrowser = forwardRef<WikiTemplateBrowserHandle, WikiTemplateBr
       }
     }
 
+    // The name of the template that just finished, for the spoken confirmation.
+    const justAddedName = justAdded
+      ? (data?.folders || []).flatMap((f) => f.templates).find((tpl) => tpl.id === justAdded)?.name
+      : null
+
     if (data === null) {
       return (
         <div style={{ display: 'flex', justifyContent: 'center', padding: 30 }}>
@@ -130,6 +135,9 @@ const WikiTemplateBrowser = forwardRef<WikiTemplateBrowserHandle, WikiTemplateBr
 
     return (
       <div>
+        <div role="status" className="sr-only">
+          {justAddedName ? t('a11y.campaignNotes.templateAdded', { name: justAddedName }) : ''}
+        </div>
         {!data.folders?.length ? (
           <p style={emptyText}>{t('wiki.templatesCatalogueEmpty')}</p>
         ) : (
@@ -137,16 +145,27 @@ const WikiTemplateBrowser = forwardRef<WikiTemplateBrowserHandle, WikiTemplateBr
             const open = expanded.has(folder.path)
             return (
               <div key={folder.path || '__root__'} style={{ marginBottom: 4 }}>
-                <button onClick={() => toggle(folder.path)} aria-expanded={open} style={folderRow}>
-                  {open ? <LuChevronDown size={14} /> : <LuChevronRight size={14} />}
-                  <span style={{ fontWeight: 600, fontSize: 13, flex: 1 }}>{folder.name}</span>
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                    {folder.templates.length}
-                  </span>
-                </button>
+                {/* A heading around the toggle, so each folder is a stop for
+                    heading navigation. */}
+                <h3 style={{ margin: 0, font: 'inherit', letterSpacing: 'normal' }}>
+                  <button
+                    onClick={() => toggle(folder.path)}
+                    aria-expanded={open}
+                    style={folderRow}
+                  >
+                    {open ? <LuChevronDown size={14} /> : <LuChevronRight size={14} />}
+                    <span style={{ fontWeight: 600, fontSize: 13, flex: 1 }}>{folder.name}</span>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                      {folder.templates.length}
+                    </span>
+                  </button>
+                </h3>
                 {open && (
-                  <div
+                  <ul
+                    role="list"
                     style={{
+                      listStyle: 'none',
+                      margin: 0,
                       display: 'flex',
                       flexDirection: 'column',
                       gap: 6,
@@ -156,7 +175,7 @@ const WikiTemplateBrowser = forwardRef<WikiTemplateBrowserHandle, WikiTemplateBr
                     {folder.templates.map((tpl) => {
                       const have = done.has(tpl.id)
                       return (
-                        <div
+                        <li
                           key={tpl.id}
                           style={{
                             ...row,
@@ -188,26 +207,49 @@ const WikiTemplateBrowser = forwardRef<WikiTemplateBrowserHandle, WikiTemplateBr
                             {tpl.description && <span style={rowDesc}>{tpl.description}</span>}
                             {tpl.index_url && (
                               <div style={{ marginTop: 2 }}>
-                                <span
-                                  onClick={(e) => {
-                                    if ((tpl.available_in?.length as number) > 1) {
+                                {(tpl.available_in?.length as number) > 1 ? (
+                                  // More than one source: a real button that opens the
+                                  // source chooser, from the keyboard as well. A
+                                  // keyboard press has no pointer position, so the
+                                  // menu opens under the button instead.
+                                  <button
+                                    type="button"
+                                    aria-haspopup="menu"
+                                    aria-label={t('a11y.campaignNotes.chooseSource', {
+                                      name: tpl.name,
+                                    })}
+                                    onClick={(e) => {
                                       e.stopPropagation()
-                                      handleContextMenu(e, tpl)
-                                    }
-                                  }}
-                                  style={{
-                                    cursor:
-                                      (tpl.available_in?.length as number) > 1
-                                        ? 'pointer'
-                                        : 'default',
-                                  }}
-                                >
+                                      e.preventDefault()
+                                      const r = e.currentTarget.getBoundingClientRect()
+                                      const keyboard = e.clientX === 0 && e.clientY === 0
+                                      setContextMenu({
+                                        x: keyboard ? r.left : e.clientX,
+                                        y: keyboard ? r.bottom : e.clientY,
+                                        tpl,
+                                      })
+                                    }}
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      padding: 0,
+                                      cursor: 'pointer',
+                                      font: 'inherit',
+                                    }}
+                                  >
+                                    <PluginSourcePill
+                                      url={tpl.index_url}
+                                      isVerified={tpl.index_url === data?.default_index_url}
+                                      trustedIndexUrls={data?.trusted_index_urls || []}
+                                    />
+                                  </button>
+                                ) : (
                                   <PluginSourcePill
                                     url={tpl.index_url}
                                     isVerified={tpl.index_url === data?.default_index_url}
                                     trustedIndexUrls={data?.trusted_index_urls || []}
                                   />
-                                </span>
+                                )}
                               </div>
                             )}
                             <AuthorByline author={tpl.author} authorUrl={tpl.author_url} />
@@ -219,6 +261,16 @@ const WikiTemplateBrowser = forwardRef<WikiTemplateBrowserHandle, WikiTemplateBr
                           <button
                             onClick={() => download(tpl.id, tpl.index_url)}
                             disabled={busyId !== null}
+                            // Every row has this button; the name says which.
+                            aria-label={`${
+                              busyId === tpl.id
+                                ? t('wiki.templateDownloading')
+                                : justAdded === tpl.id
+                                  ? t('wiki.templateDownloaded')
+                                  : have
+                                    ? t('wiki.templateDownloadAgain')
+                                    : t('wiki.templateDownload')
+                            } ${tpl.name}`}
                             style={{
                               ...ghostBtn,
                               flexShrink: 0,
@@ -244,10 +296,10 @@ const WikiTemplateBrowser = forwardRef<WikiTemplateBrowserHandle, WikiTemplateBr
                               </>
                             )}
                           </button>
-                        </div>
+                        </li>
                       )
                     })}
-                  </div>
+                  </ul>
                 )}
               </div>
             )

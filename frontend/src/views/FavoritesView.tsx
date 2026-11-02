@@ -17,6 +17,7 @@ import ModelFavorite from '../components/favorites/ModelFavorite'
 import SystemFavorite from '../components/favorites/SystemFavorite'
 import Tag from '../components/Tag'
 import { shouldAutoCollapse } from '../utils/autoCollapse'
+import usePageTitle from '../hooks/usePageTitle'
 
 type FavoriteItem = NonNullable<ReturnType<typeof useFavorites>>['items'][number]
 type FavoriteOf<K extends FavoriteItem['item_type']> = Extract<FavoriteItem, { item_type: K }>
@@ -48,6 +49,7 @@ export default function FavoritesView() {
       .map((i) => ({ type: i.item_type, id: i.item_id }))
   )
   const { bulk } = selection
+  usePageTitle(t('favorites.title'))
   const merge = useBulkMerge(selection.selected, (outcome) => {
     selection.forget(outcome.removedIds)
     favorites?.reload()
@@ -88,6 +90,7 @@ export default function FavoritesView() {
         style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}
       >
         <LuHeart size={40} style={{ marginBottom: 16, opacity: 0.3 }} />
+        <h1 className="sr-only">{t('favorites.title')}</h1>
         <div style={{ fontSize: 18, fontWeight: 500, marginBottom: 8 }}>{t('favorites.empty')}</div>
         <div style={{ fontSize: 14 }}>{t('favorites.emptyHint')}</div>
       </div>
@@ -96,17 +99,21 @@ export default function FavoritesView() {
 
   return (
     <div className="fade-in" style={{ padding: 24, maxWidth: 1200, margin: '0 auto' }}>
-      <h2
-        style={{
-          fontSize: 22,
-          fontWeight: 600,
-          marginBottom: 24,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-        }}
-      >
-        <LuHeart size={20} fill="var(--gold)" color="var(--gold)" /> {t('favorites.title')}
+      {/* The Select button sits beside the heading, not inside it, so the
+          heading's name is just the page's. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24 }}>
+        <h1
+          style={{
+            fontSize: 22,
+            fontWeight: 600,
+            margin: 0,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+          }}
+        >
+          <LuHeart size={20} fill="var(--gold)" color="var(--gold)" /> {t('favorites.title')}
+        </h1>
         {isAdmin && (
           <BulkToggleButton
             active={bulk.bulkMode}
@@ -114,27 +121,34 @@ export default function FavoritesView() {
             style={{ marginLeft: 'auto' }}
           />
         )}
-      </h2>
+      </div>
 
       {tags.length > 0 && (
         <section style={{ marginBottom: 32 }}>
-          <div
+          <h2
             style={{
+              fontFamily: 'inherit',
               fontSize: 14,
               fontWeight: 600,
               textTransform: 'uppercase',
               letterSpacing: '0.08em',
               color: 'var(--text-muted)',
-              marginBottom: 12,
+              margin: '0 0 12px',
             }}
           >
             {t('favorites.tags', { count: tags.length })}
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+          </h2>
+          <ul
+            role="list"
+            className="card-list"
+            style={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}
+          >
             {tags.map((tg) => (
-              <Tag key={tg.item_id} label={String(tg.display || tg.internal)} color={undefined} />
+              <li key={tg.item_id} style={{ display: 'block' }}>
+                <Tag label={String(tg.display || tg.internal)} color={undefined} />
+              </li>
             ))}
-          </div>
+          </ul>
         </section>
       )}
 

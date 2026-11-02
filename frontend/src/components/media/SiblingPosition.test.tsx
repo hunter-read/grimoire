@@ -8,9 +8,19 @@ describe('SiblingPosition', () => {
     expect(screen.getByText('3 / 12')).toBeInTheDocument()
   })
 
-  it('exposes a spoken label for screen readers', () => {
+  // The digits are hidden from screen readers; the label is said instead, from
+  // a live region, so stepping to another item announces where it landed.
+  it('speaks the label from a live region', () => {
     render(<SiblingPosition index={0} total={4} label="1 of 4" />)
-    expect(screen.getByLabelText('1 of 4')).toBeInTheDocument()
+    const status = screen.getByRole('status')
+    expect(status).toHaveTextContent('1 of 4')
+    expect(status).toHaveAttribute('aria-live', 'polite')
+    expect(screen.getByText('1 / 4')).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  it('falls back to the digits when no label is given', () => {
+    render(<SiblingPosition index={1} total={4} />)
+    expect(screen.getByRole('status')).toHaveTextContent('2 / 4')
   })
 
   // A count of one is noise: there is nowhere to navigate.

@@ -3,6 +3,7 @@ import type { ChangeEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCircleCheck } from 'react-icons/lu'
 import i18n, { AVAILABLE_LANGUAGES } from '../../i18n'
+import SavedAnnouncement from './SavedAnnouncement'
 
 export default function LanguageSection() {
   const { t } = useTranslation()
@@ -40,6 +41,7 @@ export default function LanguageSection() {
         {t('userSettings.language.title')}
         {saved && <LuCircleCheck size={16} style={{ color: 'var(--green)' }} />}
       </h3>
+      <SavedAnnouncement saved={saved} />
       <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 24, lineHeight: 1.6 }}>
         {t('userSettings.language.description')}
       </p>
@@ -50,7 +52,7 @@ export default function LanguageSection() {
         onChange={handleLang}
         style={{
           background: 'var(--bg-card)',
-          border: '1px solid var(--border)',
+          border: '1px solid var(--border-control)',
           borderRadius: 6,
           color: 'var(--text)',
           fontSize: 14,

@@ -82,16 +82,13 @@ describe('GlobalAudioPlayer', () => {
     expect(screen.getAllByText('Tavern Night').length).toBeGreaterThanOrEqual(1)
   })
 
-  it('repeat toggle reflects pressed state', async () => {
+  it('repeat toggle says its state in its label, without aria-pressed as well', async () => {
     renderPlayer()
     act(() => api.playQueue([{ id: 'a', title: 'A' }]))
-    const repeat = screen.getByRole('button', { name: /repeat current track/i })
-    expect(repeat).toHaveAttribute('aria-pressed', 'false')
+    const repeat = screen.getByRole('button', { name: /repeat current track: off/i })
+    expect(repeat).not.toHaveAttribute('aria-pressed')
     await userEvent.click(repeat)
-    expect(screen.getByRole('button', { name: /repeat current track/i })).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    )
+    expect(screen.getByRole('button', { name: /repeat current track: on/i })).toBeInTheDocument()
   })
 
   it('close button clears the queue and hides the player', async () => {
@@ -274,14 +271,67 @@ describe('GlobalAudioPlayer', () => {
 
       await userEvent.click(screen.getByRole('button', { name: /show queue/i }))
       expect(screen.queryByRole('region', { name: /chapters/i })).not.toBeInTheDocument()
-      expect(chaptersBtn).toHaveAttribute('aria-pressed', 'false')
+      expect(chaptersBtn).toHaveAttribute('aria-expanded', 'false')
 
       await userEvent.click(chaptersBtn)
       expect(screen.getByRole('region', { name: /chapters/i })).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /show queue/i })).toHaveAttribute(
-        'aria-pressed',
+        'aria-expanded',
         'false'
       )
     })
+  })
+})
+
+describe('GlobalAudioPlayer — screen readers', () => {
+  it('is a named landmark', () => {
+    renderPlayer()
+    act(() => api.playQueue([{ id: 'a', title: 'Tavern Night' }]))
+    expect(screen.getByRole('region', { name: 'Audio player' })).toBeInTheDocument()
+  })
+
+  it('announces each new track, the first one included', async () => {
+    renderPlayer()
+    const status = screen.getByRole('status')
+    expect(status).toHaveTextContent('')
+    act(() =>
+      api.playQueue([
+        { id: 'a', title: 'Tavern Night' },
+        { id: 'b', title: '' },
+      ])
+    )
+    await waitFor(() => expect(status).toHaveTextContent('Now playing: Tavern Night'))
+    act(() => api.next())
+    await waitFor(() => expect(status).toHaveTextContent('Now playing: Untitled track'))
+  })
+
+  it('stops announcing when the player is cleared', async () => {
+    renderPlayer()
+    act(() => api.playQueue([{ id: 'a', title: 'Tavern Night' }]))
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/Tavern Night/))
+    await userEvent.click(screen.getByRole('button', { name: /close player/i }))
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(''))
+  })
+
+  it('gives the seek slider its position in words and hides the clock text', () => {
+    renderPlayer()
+    act(() => api.playQueue([{ id: 'a', title: 'Tavern Night' }]))
+    act(() => {
+      api.setDuration(200)
+      api.setCurrentTime(65)
+    })
+    const seek = screen.getByRole('slider', { name: /seek/i })
+    expect(seek).toHaveAttribute('aria-valuetext', '1 minute, 5 seconds of 3 minutes, 20 seconds')
+    expect(screen.getByText('1:05')).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  it('reports the queue toggle as expanded while the queue is open', async () => {
+    renderPlayer()
+    act(() => api.playQueue([{ id: 'a', title: 'Tavern Night' }]))
+    const toggle = screen.getByRole('button', { name: /show queue/i })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    await userEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(toggle).toHaveAttribute('aria-controls', 'audio-queue-panel')
   })
 })

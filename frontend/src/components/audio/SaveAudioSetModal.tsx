@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useRef, useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX, LuSave } from 'react-icons/lu'
+import useDialogFocus from '../../hooks/useDialogFocus'
 
 /**
  * Names and saves the live queue or soundboard as a set.
@@ -30,10 +31,10 @@ export default function SaveAudioSetModal({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    inputRef.current?.focus()
-  }, [])
+  const dialogRef = useRef<HTMLDivElement>(null)
+  // Focus starts in the name field, Tab stays inside, Escape closes, and focus
+  // goes back to the save button on the way out.
+  useDialogFocus(dialogRef, { onClose, initialFocusRef: inputRef })
 
   const trimmed = name.trim()
   const overwrites = existing.some((n) => n.toLowerCase() === trimmed.toLowerCase())
@@ -53,24 +54,28 @@ export default function SaveAudioSetModal({
   }
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={t('audioSets.saveTitle')}
-      style={overlay}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div style={panel}>
+    <div style={overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="save-audio-set-title"
+        aria-describedby="save-audio-set-intro"
+        style={panel}
+      >
         <div style={header}>
-          <span style={{ fontSize: 15, fontWeight: 600 }}>
+          <h2 id="save-audio-set-title" style={dialogTitle}>
             {kind === 'soundboard' ? t('audioSets.saveBoard') : t('audioSets.savePlaylist')}
-          </span>
+          </h2>
           <button onClick={onClose} style={closeBtn} aria-label={t('common.close')}>
             <LuX size={16} />
           </button>
         </div>
 
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 16px' }}>
+        <p
+          id="save-audio-set-intro"
+          style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 16px' }}
+        >
           {kind === 'soundboard'
             ? t('audioSets.saveBoardIntro', { count })
             : t('audioSets.savePlaylistIntro', { count })}
@@ -86,18 +91,26 @@ export default function SaveAudioSetModal({
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && submit()}
           placeholder={t('audioSets.namePlaceholder')}
+          autoComplete="off"
+          aria-invalid={error ? true : undefined}
+          aria-describedby="save-audio-set-status"
           style={input}
         />
 
-        {overwrites && (
-          <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '8px 0 0' }}>
-            {t('audioSets.overwriteWarning', { name: trimmed })}
-          </p>
-        )}
-
-        {error && (
-          <div style={{ color: 'var(--danger)', fontSize: 13, margin: '8px 0 0' }}>{error}</div>
-        )}
+        {/* Read out as it appears: the overwrite warning while typing, the
+            error after a failed save. */}
+        <div id="save-audio-set-status" aria-live="polite">
+          {overwrites && (
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '8px 0 0' }}>
+              {t('audioSets.overwriteWarning', { name: trimmed })}
+            </p>
+          )}
+          {error && (
+            <div role="alert" style={{ color: 'var(--danger)', fontSize: 13, margin: '8px 0 0' }}>
+              {error}
+            </div>
+          )}
+        </div>
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 18 }}>
           <button onClick={onClose} style={cancelBtn}>
@@ -117,6 +130,14 @@ export default function SaveAudioSetModal({
   )
 }
 
+const dialogTitle: CSSProperties = {
+  margin: 0,
+  fontSize: 15,
+  fontWeight: 600,
+  fontFamily: 'inherit',
+  letterSpacing: 'normal',
+  color: 'inherit',
+}
 const overlay: CSSProperties = {
   position: 'fixed',
   inset: 0,
@@ -161,7 +182,7 @@ const input: CSSProperties = {
   width: '100%',
   padding: '8px 10px',
   background: 'var(--bg-deep)',
-  border: '1px solid var(--border)',
+  border: '1px solid var(--border-control)',
   borderRadius: 8,
   color: 'var(--text)',
   fontSize: 14,

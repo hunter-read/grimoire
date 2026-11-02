@@ -1,4 +1,6 @@
+import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import useDialogFocus from '../../hooks/useDialogFocus'
 import { LuTrash2, LuEyeOff } from 'react-icons/lu'
 import { ghostBtn } from './wikiShared'
 
@@ -25,6 +27,9 @@ export default function WikiBulkActionDialog({
   onCancel: () => void
 }) {
   const { t } = useTranslation()
+  const dialogRef = useRef<HTMLDivElement>(null)
+  // Opens on Cancel - the first control - so Enter can't delete by accident.
+  useDialogFocus(dialogRef, { onClose: onCancel })
 
   // The confirm button names whichever halves are actually in play, so a
   // delete-only selection doesn't offer to "delete and hide".
@@ -50,9 +55,11 @@ export default function WikiBulkActionDialog({
       onClick={(e) => e.target === e.currentTarget && onCancel()}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-label={t('wiki.bulkTitle')}
+        aria-labelledby="wiki-bulk-title"
+        aria-describedby="wiki-bulk-summary"
         style={{
           background: 'var(--bg-panel)',
           border: '1px solid var(--border)',
@@ -62,9 +69,12 @@ export default function WikiBulkActionDialog({
           maxWidth: 440,
         }}
       >
-        <h3 style={{ fontSize: 16, fontWeight: 600, margin: '0 0 12px' }}>{t('wiki.bulkTitle')}</h3>
+        <h2 id="wiki-bulk-title" style={{ fontSize: 16, fontWeight: 600, margin: '0 0 12px' }}>
+          {t('wiki.bulkTitle')}
+        </h2>
 
         <ul
+          id="wiki-bulk-summary"
           style={{
             listStyle: 'none',
             padding: 0,

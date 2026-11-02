@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, within, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import SearchView from './SearchView'
@@ -574,7 +574,8 @@ describe('SearchView — URL query param persistence', () => {
           <SearchView />
         </MemoryRouter>
       )
-      await waitFor(() => expect(screen.getByText(/1 result/i)).toBeInTheDocument())
+      // Once on the page and once in the live status a screen reader hears.
+      await waitFor(() => expect(screen.getAllByText(/1 result/i)).toHaveLength(2))
     })
 
     it('hides a pinned match that the system filter excludes', async () => {
@@ -706,5 +707,36 @@ describe('SearchView — long result lists start collapsed', () => {
     // Books is the only section, so it stays open; its two book groups collapse.
     expect(await screen.findByText('Spell Guide')).toBeInTheDocument()
     expect(screen.queryByText('spell 0')).not.toBeInTheDocument()
+  })
+})
+
+describe('SearchView - screen readers', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('names the page and marks the search landmark', () => {
+    renderView()
+    expect(screen.getByRole('heading', { level: 1, name: /search/i })).toBeInTheDocument()
+    expect(within(screen.getByRole('search')).getByRole('textbox')).toBeInTheDocument()
+    expect(document.title).toBe('Search - Grimoire')
+  })
+
+  it('says a search is running, then what it found, and heads each section', async () => {
+    let resolve: (v: unknown) => void = () => {}
+    mockGet.mockReturnValue(new Promise((r) => (resolve = r)))
+    render(
+      <MemoryRouter initialEntries={['/search?q=avatar']}>
+        <SearchView />
+      </MemoryRouter>
+    )
+    expect(screen.getAllByRole('status').some((s) => s.textContent === 'Searching…')).toBe(true)
+    await act(async () => resolve(makeResponse([], [], [], [], [makeBookMatch()])))
+    expect(screen.getAllByRole('status').some((s) => /1 result/i.test(s.textContent ?? ''))).toBe(
+      true
+    )
+    const books = screen.getByRole('button', { name: /books/i, expanded: true })
+    expect(books.closest('h2')).not.toBeNull()
+    expect(screen.getAllByRole('listitem').length).toBeGreaterThan(0)
   })
 })

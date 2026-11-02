@@ -59,7 +59,12 @@ export default function ModelFavorite({ item, grid }: ModelFavoriteProps) {
         >
           {item.filename}
         </div>
-        <FavoriteButton type="model" id={item.item_id} style={rowFavoriteButtonStyle} />
+        <FavoriteButton
+          type="model"
+          id={item.item_id}
+          name={item.filename}
+          style={rowFavoriteButtonStyle}
+        />
       </div>
     )
   }
@@ -99,7 +104,7 @@ export default function ModelFavorite({ item, grid }: ModelFavoriteProps) {
           {item.filename}
         </div>
       </div>
-      <FavoriteButton type="model" id={item.item_id} />
+      <FavoriteButton type="model" id={item.item_id} name={item.filename} />
     </div>
   )
 }

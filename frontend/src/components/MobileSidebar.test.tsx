@@ -12,6 +12,28 @@ const renderBar = (props = {}) =>
   )
 
 describe('MobileSidebar', () => {
+  it('is a named navigation landmark', () => {
+    renderBar()
+    expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeInTheDocument()
+  })
+
+  it('reports the More drawer open, and Escape closes it back onto the button', async () => {
+    renderBar()
+    const more = screen.getByRole('button', { name: /more/i })
+    expect(more).toHaveAttribute('aria-expanded', 'false')
+    await userEvent.click(more)
+    expect(more).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('navigation', { name: 'More pages' })).toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
+    expect(screen.queryByRole('navigation', { name: 'More pages' })).not.toBeInTheDocument()
+    expect(more).toHaveFocus()
+  })
+
+  it('gives a guest a named navigation landmark too', () => {
+    renderBar({ user: { role: 'guest' } })
+    expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeInTheDocument()
+  })
+
   it('renders the audio link in the More drawer by default', async () => {
     renderBar()
     await userEvent.click(screen.getByRole('button', { name: /more/i }))

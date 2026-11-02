@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { LuChevronLeft, LuChevronRight } from 'react-icons/lu'
 
 import type { CSSProperties } from 'react'
@@ -9,6 +10,9 @@ export interface SiblingNavButtonsProps {
   onNext: () => void
   prevLabel: string
   nextLabel: string
+  /** The neighbours' names, so the button says where it goes ("Previous map: Crypt"). */
+  prevName?: string
+  nextName?: string
 }
 
 const navButtonStyle: CSSProperties = {
@@ -34,6 +38,7 @@ const navButtonStyle: CSSProperties = {
  *
  * Labels are passed in rather than derived: each collection names its own item
  * ("Previous map", "Previous token"), which is what a screen reader reads out.
+ * Given the neighbours' names, the button names its destination too.
  */
 export default function SiblingNavButtons({
   hasPrev,
@@ -42,14 +47,21 @@ export default function SiblingNavButtons({
   onNext,
   prevLabel,
   nextLabel,
+  prevName,
+  nextName,
 }: SiblingNavButtonsProps) {
+  const { t } = useTranslation()
+  const named = (label: string, name?: string) =>
+    name ? t('a11y.mediaDetail.labelledValue', { label, value: name }) : label
+  const prev = named(prevLabel, prevName)
+  const next = named(nextLabel, nextName)
   return (
     <>
       {hasPrev && (
         <button
           onClick={onPrev}
-          aria-label={prevLabel}
-          title={prevLabel}
+          aria-label={prev}
+          title={prev}
           style={{ ...navButtonStyle, left: 12 }}
         >
           <LuChevronLeft size={26} />
@@ -58,8 +70,8 @@ export default function SiblingNavButtons({
       {hasNext && (
         <button
           onClick={onNext}
-          aria-label={nextLabel}
-          title={nextLabel}
+          aria-label={next}
+          title={next}
           style={{ ...navButtonStyle, right: 12 }}
         >
           <LuChevronRight size={26} />

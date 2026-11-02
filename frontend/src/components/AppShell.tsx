@@ -1,6 +1,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import type { ComponentProps } from 'react'
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import useScrollRestoration from '../hooks/useScrollRestoration'
 import { useAuth } from '../context/AuthContext'
 import { UISettingsProvider } from '../context/UISettingsContext'
@@ -41,6 +42,7 @@ import {
   CampaignNotesView,
 } from './routeViews'
 import RouteFallback from './RouteFallback'
+import RouteAnnouncer from './RouteAnnouncer'
 import ErrorBoundary from './ErrorBoundary'
 import PendingInvitesBanner from './campaigns/PendingInvitesBanner'
 
@@ -48,6 +50,7 @@ const SIDEBAR_COLLAPSED_KEY = 'grimoire_sidebar_collapsed'
 
 /** Authenticated app layout: sidebar(s) + routed main content. */
 export default function AppShell() {
+  const { t } = useTranslation()
   const auth = useAuth()
   const user = auth?.user ?? null
   const logout = auth?.logout
@@ -149,6 +152,12 @@ export default function AppShell() {
     // still missing reads as undefined, which every consumer treats as off.
     <UISettingsProvider value={uiSettings as ComponentProps<typeof UISettingsProvider>['value']}>
       <div className="app-shell">
+        {/* First in the tab order, so a keyboard or screen reader user can jump
+            past the sidebar's links straight to the page. */}
+        <a href="#main-content" className="skip-link">
+          {t('a11y.skipToContent')}
+        </a>
+        <RouteAnnouncer mainRef={mainRef} />
         {!isMobile && (
           <Sidebar
             stats={stats}
@@ -163,6 +172,10 @@ export default function AppShell() {
 
         <main
           ref={mainRef}
+          id="main-content"
+          // Focusable by script only: the skip link and RouteAnnouncer land here.
+          tabIndex={-1}
+          className="focus-target"
           style={{
             flex: 1,
             minWidth: 0,

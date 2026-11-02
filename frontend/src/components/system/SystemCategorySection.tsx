@@ -177,41 +177,45 @@ export default function SystemCategorySection({
           marginBottom: isCollapsed ? 0 : 16,
         }}
       >
-        <button
-          onClick={onToggleCat}
-          aria-expanded={!isCollapsed}
-          style={{
-            flex: 1,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            padding: '4px 0',
-            textAlign: 'left',
-          }}
-        >
-          {isCollapsed ? (
-            <LuChevronRight size={15} color="var(--gold-dim)" />
-          ) : (
-            <LuChevronDown size={15} color="var(--gold-dim)" />
-          )}
-          <CatIcon size={15} color="var(--gold-dim)" />
-          <span style={{ fontSize: 17, color: 'var(--gold-dim)', fontWeight: 600 }}>
-            {catLabel}
-          </span>
-          <span
+        {/* The toggle inside a heading: each category is a stop for a screen
+            reader's heading navigation, and still opens from the same button. */}
+        <h2 style={{ flex: 1, margin: 0, font: 'inherit', letterSpacing: 'normal' }}>
+          <button
+            onClick={onToggleCat}
+            aria-expanded={!isCollapsed}
             style={{
-              fontSize: 14,
-              color: 'var(--text-muted)',
-              fontFamily: 'Alegreya Sans, sans-serif',
-              fontWeight: 400,
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '4px 0',
+              textAlign: 'left',
             }}
           >
-            ({node.count})
-          </span>
-        </button>
+            {isCollapsed ? (
+              <LuChevronRight size={15} color="var(--gold-dim)" />
+            ) : (
+              <LuChevronDown size={15} color="var(--gold-dim)" />
+            )}
+            <CatIcon size={15} color="var(--gold-dim)" />
+            <span style={{ fontSize: 17, color: 'var(--gold-dim)', fontWeight: 600 }}>
+              {catLabel}
+            </span>
+            <span
+              style={{
+                fontSize: 14,
+                color: 'var(--text-muted)',
+                fontFamily: 'Alegreya Sans, sans-serif',
+                fontWeight: 400,
+              }}
+            >
+              ({node.count})
+            </span>
+          </button>
+        </h2>
         <button
           onClick={() =>
             onDownload({
@@ -233,6 +237,8 @@ export default function SystemCategorySection({
             flexShrink: 0,
           }}
           title={t('systemDetail.download')}
+          // "Download" alone, once per category, says nothing about which.
+          aria-label={t('a11y.downloadNamed', { name: catLabel })}
         >
           <LuDownload size={11} /> {t('systemDetail.download')}
         </button>

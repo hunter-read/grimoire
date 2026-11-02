@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import SystemDetailView from './SystemDetailView'
 import api, { bulk } from '../api'
 import { fakeShelfGet } from '../test/fakeBrowseApi'
@@ -197,6 +197,12 @@ function serveSystem(
   )
 }
 
+// Shows where the router is, so a test can follow a real link.
+function LocationProbe() {
+  const { pathname, state } = useLocation()
+  return <div data-testid="location">{`${pathname}|${JSON.stringify(state)}`}</div>
+}
+
 function renderView({ restoreView = false } = {}) {
   return render(
     <MemoryRouter
@@ -208,6 +214,7 @@ function renderView({ restoreView = false } = {}) {
       ]}
     >
       <SystemDetailView />
+      <LocationProbe />
     </MemoryRouter>
   )
 }
@@ -234,7 +241,7 @@ describe('SystemDetailView — subfolder grouping', () => {
       await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
       expect(screen.getByText('DMG')).toBeInTheDocument()
       // No folder headers rendered — books show directly
-      expect(screen.queryByRole('button', { name: /monsters/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /^monsters/i })).not.toBeInTheDocument()
     })
 
     it('renders BookFolderGroup headers when books have subfolders', async () => {
@@ -252,7 +259,7 @@ describe('SystemDetailView — subfolder grouping', () => {
       renderView()
 
       await waitFor(() =>
-        expect(screen.getByRole('button', { name: /monsters/i })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: /^monsters/i })).toBeInTheDocument()
       )
     })
 
@@ -269,7 +276,7 @@ describe('SystemDetailView — subfolder grouping', () => {
       expect(screen.getByText('Bestiary 2')).toBeInTheDocument()
       expect(screen.getByText('Bestiary 3')).toBeInTheDocument()
       // Only one "monsters" folder header
-      expect(screen.getAllByRole('button', { name: /monsters/i })).toHaveLength(1)
+      expect(screen.getAllByRole('button', { name: /^monsters/i })).toHaveLength(1)
     })
 
     it('ungrouped books (no subfolder) render flat above folder groups', async () => {
@@ -285,7 +292,7 @@ describe('SystemDetailView — subfolder grouping', () => {
 
       await waitFor(() => expect(screen.getByText('Core Rulebook')).toBeInTheDocument())
       expect(screen.getByText('Bestiary')).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /monsters/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /^monsters/i })).toBeInTheDocument()
     })
 
     it('works for adventure category subfolders', async () => {
@@ -306,9 +313,9 @@ describe('SystemDetailView — subfolder grouping', () => {
 
       // Each AP name should appear as a folder header button (aria-expanded)
       await waitFor(() =>
-        expect(screen.getByRole('button', { name: /abomination vaults/i })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: /^abomination vaults/i })).toBeInTheDocument()
       )
-      expect(screen.getByRole('button', { name: /curse of strahd/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /^curse of strahd/i })).toBeInTheDocument()
     })
 
     it('two different categories can each have subfolders independently', async () => {
@@ -328,9 +335,9 @@ describe('SystemDetailView — subfolder grouping', () => {
       renderView()
 
       await waitFor(() =>
-        expect(screen.getByRole('button', { name: /monsters/i })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: /^monsters/i })).toBeInTheDocument()
       )
-      expect(screen.getByRole('button', { name: /big ap/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /^big ap/i })).toBeInTheDocument()
     })
 
     it('subfolder collapse toggles visibility', async () => {
@@ -346,11 +353,11 @@ describe('SystemDetailView — subfolder grouping', () => {
       await waitFor(() => expect(screen.getByText('Bestiary')).toBeInTheDocument())
 
       // Collapse the folder
-      await userEvent.click(screen.getByRole('button', { name: /monsters/i }))
+      await userEvent.click(screen.getByRole('button', { name: /^monsters/i }))
       expect(screen.queryByText('Bestiary')).not.toBeInTheDocument()
 
       // Expand again
-      await userEvent.click(screen.getByRole('button', { name: /monsters/i }))
+      await userEvent.click(screen.getByRole('button', { name: /^monsters/i }))
       expect(screen.getByText('Bestiary')).toBeInTheDocument()
     })
   })
@@ -444,7 +451,7 @@ describe('SystemDetailView — subfolder grouping', () => {
 
       await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
 
-      await userEvent.click(screen.getByRole('button', { name: /core rulebooks/i }))
+      await userEvent.click(screen.getByRole('button', { name: /^core rulebooks/i }))
       expect(screen.queryByText('PHB')).not.toBeInTheDocument()
     })
   })
@@ -467,14 +474,14 @@ describe('SystemDetailView — subfolder grouping', () => {
       renderView()
       await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
       // Grouped by default: category headers exist, the switch is on.
-      expect(screen.getByRole('button', { name: /core rulebooks/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /^core rulebooks/i })).toBeInTheDocument()
       const groupSwitch = screen.getByRole('switch', { name: /group/i })
       expect(groupSwitch).toBeChecked()
 
       // Toggle to flat.
       await userEvent.click(groupSwitch)
       // Headers gone, but both books still shown.
-      expect(screen.queryByRole('button', { name: /core rulebooks/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /^core rulebooks/i })).not.toBeInTheDocument()
       expect(groupSwitch).not.toBeChecked()
       expect(screen.getByText('PHB')).toBeInTheDocument()
       expect(screen.getByText('Strahd')).toBeInTheDocument()
@@ -654,7 +661,7 @@ describe('SystemDetailView — in-system search persistence', () => {
     // The matching book title appears (from the book grid, not the page hit).
     await waitFor(() => expect(screen.getByText('Fireball Grimoire')).toBeInTheDocument())
     // The "matching books" heading is shown.
-    expect(screen.getByText(/matching book/i)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /matching book/i })).toBeInTheDocument()
     // Page results still render below.
     expect(screen.getByText('Spell Compendium')).toBeInTheDocument()
     expect(screen.getByText(/in pages/i)).toBeInTheDocument()
@@ -676,7 +683,9 @@ describe('SystemDetailView — in-system search persistence', () => {
     })
     renderView({ restoreView: true })
 
-    await waitFor(() => expect(screen.getByText(/no results found/i)).toBeInTheDocument())
+    // Shown on the page, and said aloud by the list's live status.
+    await waitFor(() => expect(screen.getAllByText(/no results found/i)).toHaveLength(2))
+    expect(screen.getByRole('status', { name: '' })).toHaveTextContent(/no results found/i)
   })
 })
 
@@ -800,7 +809,7 @@ describe('SystemDetailView — header, tag filter, and bulk actions', () => {
     renderView()
 
     await waitFor(() => expect(screen.getByText('Published by')).toBeInTheDocument())
-    expect(screen.getByRole('link', { name: 'WotC' })).toHaveAttribute('href', 'https://wotc.com')
+    expect(screen.getByRole('link', { name: /^WotC/ })).toHaveAttribute('href', 'https://wotc.com')
     expect(screen.getByText('TSR', { exact: false })).toBeInTheDocument()
   })
 
@@ -982,8 +991,8 @@ describe('SystemDetailView — header, tag filter, and bulk actions', () => {
     await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
 
     fireEvent.click(screen.getByRole('button', { name: /select/i }))
-    fireEvent.click(screen.getByRole('button', { name: /open phb/i }))
-    fireEvent.click(screen.getByRole('button', { name: /open dmg/i }))
+    fireEvent.click(screen.getByRole('button', { name: /select phb/i }))
+    fireEvent.click(screen.getByRole('button', { name: /select dmg/i }))
     expect(screen.getByTestId('bulk-count').textContent).toBe('2')
 
     fireEvent.click(screen.getByText('bulk-apply-tags'))
@@ -1005,7 +1014,7 @@ describe('SystemDetailView — header, tag filter, and bulk actions', () => {
     await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
 
     fireEvent.click(screen.getByRole('button', { name: /select/i }))
-    fireEvent.click(screen.getByRole('button', { name: /open phb/i }))
+    fireEvent.click(screen.getByRole('button', { name: /select phb/i }))
     fireEvent.click(screen.getByText('bulk-edit'))
     expect(screen.getByTestId('bulk-edit-modal')).toBeInTheDocument()
 
@@ -1059,7 +1068,7 @@ describe('SystemDetailView — system containers (issues #261, #262)', () => {
     await waitFor(() => expect(screen.getByText('Honey Heist')).toBeInTheDocument())
     // SystemCard now uses a CardLink overlay (real anchor) instead of an onClick
     // that called navigate(). Middle-click / ctrl-click opens in a new tab natively.
-    const link = screen.getByRole('link', { name: 'Honey Heist' })
+    const link = screen.getByRole('link', { name: /Honey Heist,/ })
     expect(link).toHaveAttribute('href', '/library/system/c1')
   })
 
@@ -1073,7 +1082,7 @@ describe('SystemDetailView — system containers (issues #261, #262)', () => {
     expect(screen.getByRole('button', { name: 'Filters' })).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Select' }))
-    await userEvent.click(screen.getByText('Honey Heist'))
+    await userEvent.click(screen.getByRole('button', { name: 'Select Honey Heist' }))
     await userEvent.click(screen.getByText('bulk-apply-tags'))
 
     await waitFor(() => expect(bulk.addTags).toHaveBeenCalledWith('system', ['c1'], ['fresh']))
@@ -1240,8 +1249,8 @@ describe('SystemDetailView — collapse and expand all categories', () => {
     ])
 
     // Reopening the category must not bring the subfolder back open with it.
-    await userEvent.click(screen.getByRole('button', { name: /core rulebooks/i }))
-    expect(screen.getByRole('button', { name: /monsters/i })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /^core rulebooks/i }))
+    expect(screen.getByRole('button', { name: /^monsters/i })).toBeInTheDocument()
     expect(screen.queryByText('Bestiary')).not.toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: /expand all/i }))
@@ -1323,10 +1332,10 @@ describe('SystemDetailView — back navigation from a nested system', () => {
     renderView()
     await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
 
-    await userEvent.click(screen.getByText('Back to Dungeons & Dragons'))
-    expect(mockNavigate).toHaveBeenCalledWith('/library/system/container-9', {
-      state: { restoreView: true },
-    })
+    await userEvent.click(screen.getByRole('link', { name: /back to dungeons & dragons/i }))
+    expect(screen.getByTestId('location')).toHaveTextContent(
+      '/library/system/container-9|{"restoreView":true}'
+    )
   })
 
   it('prettifies a one-page collection name in the back label', async () => {
@@ -1347,10 +1356,10 @@ describe('SystemDetailView — back navigation from a nested system', () => {
     renderView()
     await waitFor(() => expect(screen.getByText('PHB')).toBeInTheDocument())
 
-    await userEvent.click(screen.getByText('Back to Library'))
+    await userEvent.click(screen.getByRole('link', { name: /back to library/i }))
     // The restoreView flag is what tells the library this is a *return*, so it
     // shows the filters the user had rather than re-applying their default.
-    expect(mockNavigate).toHaveBeenCalledWith('/library', { state: { restoreView: true } })
+    expect(screen.getByTestId('location')).toHaveTextContent('/library|{"restoreView":true}')
   })
 })
 
@@ -1438,13 +1447,13 @@ describe('SystemDetailView — long systems start collapsed', () => {
     renderView()
     await waitFor(() => expect(screen.getByText('Core 0')).toBeInTheDocument())
     expect(screen.queryByText('Adventure 0')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /adventures & modules/i })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: /^adventures & modules/i })).toHaveAttribute(
       'aria-expanded',
       'false'
     )
 
     // The user's toggle wins over the default and is remembered.
-    await userEvent.click(screen.getByRole('button', { name: /adventures & modules/i }))
+    await userEvent.click(screen.getByRole('button', { name: /^adventures & modules/i }))
     expect(screen.getByText('Adventure 0')).toBeInTheDocument()
     expect(JSON.parse(sessionStorage.getItem('grimoire:system:system-1:collapsed')!)).toEqual([])
   })
@@ -1453,7 +1462,7 @@ describe('SystemDetailView — long systems start collapsed', () => {
     serveSystem(longSystem(6))
     renderView()
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /core rulebooks/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /^core rulebooks/i })).toBeInTheDocument()
     )
     expect(screen.queryByText('Core 0')).not.toBeInTheDocument()
     expect(screen.queryByText('Adventure 0')).not.toBeInTheDocument()

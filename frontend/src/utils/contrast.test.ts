@@ -113,6 +113,19 @@ describe.each([
     expect(ratio).toBeGreaterThanOrEqual(AA_NORMAL)
   })
 
+  // WCAG 1.4.11: a text field, checkbox or switch is only recognisable by its
+  // edge, which must reach 3:1 against whatever it sits on - hovered cards and
+  // the input fill included.
+  it('keeps control borders at 3:1 on every surface', () => {
+    for (const bg of [...SURFACES, 'bg-card-hover', 'bg-input']) {
+      const ratio = contrastRatio(palette['border-control'], palette[bg])
+      expect(
+        ratio,
+        `--p-border-control (${palette['border-control']}) on --p-${bg} is ${ratio?.toFixed(2)}:1`
+      ).toBeGreaterThanOrEqual(3)
+    }
+  })
+
   // The content-type hues carry meaning, so two of them resolving to near the
   // same colour would make a map indistinguishable from a book.
   it('keeps the content-type hues distinct from one another', () => {

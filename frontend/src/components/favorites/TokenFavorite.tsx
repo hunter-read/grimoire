@@ -59,7 +59,12 @@ export default function TokenFavorite({ item, grid }: TokenFavoriteProps) {
         >
           {item.filename}
         </div>
-        <FavoriteButton type="token" id={item.item_id} style={rowFavoriteButtonStyle} />
+        <FavoriteButton
+          type="token"
+          id={item.item_id}
+          name={item.filename}
+          style={rowFavoriteButtonStyle}
+        />
       </div>
     )
   }
@@ -99,7 +104,7 @@ export default function TokenFavorite({ item, grid }: TokenFavoriteProps) {
           {item.filename}
         </div>
       </div>
-      <FavoriteButton type="token" id={item.item_id} />
+      <FavoriteButton type="token" id={item.item_id} name={item.filename} />
     </div>
   )
 }

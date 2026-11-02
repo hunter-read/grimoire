@@ -28,6 +28,21 @@ const renderManager = (props = {}) =>
 beforeEach(() => vi.clearAllMocks())
 
 describe('SheetManager', () => {
+  it('moves between tabs with Home and End', async () => {
+    renderManager()
+    screen.getByRole('tab', { name: 'Sheets' }).focus()
+    await userEvent.keyboard('{End}')
+    expect(screen.getByRole('tab', { name: 'Content' })).toHaveFocus()
+    expect(screen.getByRole('tab', { name: 'Content' })).toHaveAttribute('aria-selected', 'true')
+    await userEvent.keyboard('{Home}')
+    expect(screen.getByRole('tab', { name: 'Sheets' })).toHaveFocus()
+    await userEvent.keyboard('{ArrowLeft}')
+    expect(screen.getByRole('tab', { name: 'Content' })).toHaveFocus()
+    // Other keys leave the tab alone.
+    await userEvent.keyboard('{ArrowDown}')
+    expect(screen.getByRole('tab', { name: 'Content' })).toHaveFocus()
+  })
+
   it('opens on the sheets tab', () => {
     renderManager()
     expect(screen.getByText('sheets panel')).toBeInTheDocument()

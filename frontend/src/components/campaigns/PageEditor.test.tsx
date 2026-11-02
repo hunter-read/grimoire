@@ -386,6 +386,19 @@ describe('PageEditor [[link]] autocomplete', () => {
     expect(await findOption('Boblin the Goblin')).toBeTruthy()
   })
 
+  it('points the textarea at the highlighted suggestion, focus staying in it', async () => {
+    const user = userEvent.setup()
+    renderEditor()
+    await waitFor(() => expect(campaigns.wikiTitles).toHaveBeenCalled())
+    const body = await typeBody(user, 'see [[Bob')
+    const option = await findOption('Boblin the Goblin')
+    expect(body).toHaveAttribute('aria-controls', listbox()!.id)
+    expect(body).toHaveAttribute('aria-activedescendant', option.id)
+    expect(option).toHaveAttribute('aria-selected', 'true')
+    // The count is announced, since focus never moves to the list.
+    expect(screen.getByText(/Page suggestions: \d/)).toBeInTheDocument()
+  })
+
   it('matches a word in the middle of a title', async () => {
     const user = userEvent.setup()
     renderEditor()

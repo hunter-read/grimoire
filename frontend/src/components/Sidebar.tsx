@@ -198,9 +198,21 @@ export default function Sidebar({
         />
         {!collapsed && (
           <div>
-            <h1 style={{ fontSize: 20, letterSpacing: '0.08em', margin: 0, lineHeight: 1.1 }}>
+            {/* Not a heading: the page beside it carries the h1, and an app name
+                repeated as the top heading of every page buries the real one. */}
+            <p
+              style={{
+                fontFamily: 'Cinzel, serif',
+                fontWeight: 600,
+                color: 'var(--gold)',
+                fontSize: 20,
+                letterSpacing: '0.08em',
+                margin: 0,
+                lineHeight: 1.1,
+              }}
+            >
               {t('app.name')}
-            </h1>
+            </p>
             <div
               style={{
                 fontSize: 11,
@@ -218,10 +230,7 @@ export default function Sidebar({
       </div>
 
       {/* Navigation */}
-      <nav
-        aria-label="Main navigation"
-        style={{ padding: collapsed ? '12px 8px' : '12px 8px', flex: 1 }}
-      >
+      <nav aria-label={t('a11y.mainNavigation')} style={{ padding: '12px 8px', flex: 1 }}>
         {/* Group 1: library content (Library, Maps, Tokens, Audio) */}
         {!isGuest && navItem('/library', <LuLibrary size={16} />, t('nav.library'), { end: false })}
         {!isGuest && !hide_maps && navItem('/maps', <LuMap size={16} />, t('nav.maps'))}
@@ -274,9 +283,13 @@ export default function Sidebar({
 
       {/* Stats footer */}
       {!collapsed && stats && anyStats && (
-        <div
+        // A description list, so each figure is read with its name ("Systems,
+        // 42") rather than as a loose run of words and numbers.
+        <dl
+          aria-label={t('a11y.libraryStats')}
           style={{
             padding: '16px 20px',
+            margin: 0,
             borderTop: '1px solid var(--border)',
             fontSize: 14,
             color: 'var(--text-muted)',
@@ -284,46 +297,44 @@ export default function Sidebar({
         >
           {show_stat_systems && (
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-              <span>{t('stats.systems')}</span>
-              <span style={{ color: 'var(--text-dim)' }}>{stats.game_systems}</span>
+              <dt>{t('stats.systems')}</dt>
+              <dd style={statValueStyle}>{stats.game_systems}</dd>
             </div>
           )}
           {show_stat_books && (
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-              <span>{t('stats.books')}</span>
-              <span style={{ color: 'var(--text-dim)' }}>{stats.books}</span>
+              <dt>{t('stats.books')}</dt>
+              <dd style={statValueStyle}>{stats.books}</dd>
             </div>
           )}
           {show_stat_pages && (
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-              <span>{t('stats.pages')}</span>
-              <span style={{ color: 'var(--text-dim)' }}>
-                {stats.total_pages?.toLocaleString()}
-              </span>
+              <dt>{t('stats.pages')}</dt>
+              <dd style={statValueStyle}>{stats.total_pages?.toLocaleString()}</dd>
             </div>
           )}
           {show_stat_maps && (
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-              <span>{t('stats.maps')}</span>
-              <span style={{ color: 'var(--text-dim)' }}>{stats.maps}</span>
+              <dt>{t('stats.maps')}</dt>
+              <dd style={statValueStyle}>{stats.maps}</dd>
             </div>
           )}
           {show_stat_tokens && (
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-              <span>{t('stats.tokens')}</span>
-              <span style={{ color: 'var(--text-dim)' }}>{stats.tokens}</span>
+              <dt>{t('stats.tokens')}</dt>
+              <dd style={statValueStyle}>{stats.tokens}</dd>
             </div>
           )}
           {show_stat_audio && (
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-              <span>{t('stats.audio')}</span>
-              <span style={{ color: 'var(--text-dim)' }}>{stats.audio}</span>
+              <dt>{t('stats.audio')}</dt>
+              <dd style={statValueStyle}>{stats.audio}</dd>
             </div>
           )}
           {show_stat_models && (
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-              <span>{t('stats.models')}</span>
-              <span style={{ color: 'var(--text-dim)' }}>{stats.models}</span>
+              <dt>{t('stats.models')}</dt>
+              <dd style={statValueStyle}>{stats.models}</dd>
             </div>
           )}
           {show_stat_size && (
@@ -334,25 +345,26 @@ export default function Sidebar({
                 marginBottom: show_stat_library_size ? 4 : 0,
               }}
             >
-              <span>{t('stats.booksSize')}</span>
-              <span style={{ color: 'var(--text-dim)' }}>{formatSize(stats.total_size_mb)}</span>
+              <dt>{t('stats.booksSize')}</dt>
+              <dd style={statValueStyle}>{formatSize(stats.total_size_mb)}</dd>
             </div>
           )}
           {show_stat_library_size && (
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>{t('stats.librarySize')}</span>
-              <span style={{ color: 'var(--text-dim)' }}>{formatSize(stats.library_size_mb)}</span>
+              <dt>{t('stats.librarySize')}</dt>
+              <dd style={statValueStyle}>{formatSize(stats.library_size_mb)}</dd>
             </div>
           )}
-        </div>
+        </dl>
       )}
 
       {!collapsed && about && (
         <div style={{ borderTop: '1px solid var(--border)' }}>
           <button
             onClick={() => setShowAbout(true)}
+            // No aria-label: the visible "Version v1.2.3" is the name a voice
+            // control user will say, and the title still describes the action.
             title={t('about.openAbout')}
-            aria-label={t('about.openAbout')}
             style={{
               width: '100%',
               background: 'none',
@@ -369,6 +381,7 @@ export default function Sidebar({
             <span style={{ textTransform: 'uppercase', letterSpacing: '0.08em' }}>
               {t('stats.version')}
             </span>
+            {/* A flex row ignores this space; the button's spoken name needs it. */}{' '}
             <span style={{ color: 'var(--text-dim)', fontFamily: 'monospace' }}>
               v{about.version}
             </span>
@@ -403,8 +416,8 @@ export default function Sidebar({
               </div>
               <button
                 onClick={dismissUpdate}
-                title={t('common.close')}
-                aria-label={t('common.close')}
+                title={t('a11y.dismissUpdate')}
+                aria-label={t('a11y.dismissUpdate')}
                 style={{
                   background: 'none',
                   border: 'none',
@@ -513,6 +526,9 @@ export default function Sidebar({
     </div>
   )
 }
+
+// A stat's figure; a <dd> carries a default indent, cleared here.
+const statValueStyle: CSSProperties = { color: 'var(--text-dim)', margin: 0 }
 
 const navLinkStyle = (active: boolean, collapsed = false): CSSProperties => ({
   display: 'flex',

@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCircleCheck } from 'react-icons/lu'
 import api from '../../api'
 import Spinner from '../Spinner'
 import { useAuth } from '../../context/AuthContext'
+import SavedAnnouncement from './SavedAnnouncement'
 
 export default function DisplayNameSection() {
   const { t } = useTranslation()
@@ -12,6 +13,7 @@ export default function DisplayNameSection() {
   const [value, setValue] = useState(user?.display_name ?? '')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const errorId = useId()
   const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -64,6 +66,10 @@ export default function DisplayNameSection() {
           </label>
           <input
             id="display-name"
+            name="display_name"
+            autoComplete="nickname"
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? errorId : undefined}
             value={value}
             onChange={(e) => setValue(e.target.value)}
             placeholder={user?.username}
@@ -93,7 +99,16 @@ export default function DisplayNameSection() {
           {saving ? t('userSettings.displayName.saving') : t('userSettings.displayName.save')}
         </button>
       </form>
-      {error && <div style={{ fontSize: 13, color: 'var(--danger)', marginTop: 8 }}>{error}</div>}
+      <SavedAnnouncement saved={saved} />
+      {error && (
+        <div
+          id={errorId}
+          role="alert"
+          style={{ fontSize: 13, color: 'var(--danger)', marginTop: 8 }}
+        >
+          {error}
+        </div>
+      )}
     </div>
   )
 }

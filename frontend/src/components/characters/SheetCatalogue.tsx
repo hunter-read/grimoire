@@ -29,6 +29,10 @@ export default function SheetCatalogue({ onInstalled, onClose }: SheetCatalogueP
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
   const [installing, setInstalling] = useState('')
+  // The sheet just installed. Its Install button is replaced by an "Installed"
+  // label, which takes focus so the keyboard user is not dropped to the top
+  // of the page, and is announced.
+  const [justInstalled, setJustInstalled] = useState<Sheet | null>(null)
   const [sources, setSources] = useState<string[]>([])
   const [sourceErrors, setSourceErrors] = useState<Schema<'CatalogueSourceError'>[]>([])
 
@@ -74,6 +78,7 @@ export default function SheetCatalogue({ onInstalled, onClose }: SheetCatalogueP
         )
       )
       onInstalled?.()
+      setJustInstalled(sheet)
       setError('')
     } catch (e) {
       setError((e as Error).message)
@@ -142,6 +147,7 @@ export default function SheetCatalogue({ onInstalled, onClose }: SheetCatalogueP
         <div style={{ display: 'flex', gap: 8, padding: '12px 20px', alignItems: 'center' }}>
           <LuSearch size={15} color="var(--text-muted)" style={{ flexShrink: 0 }} />
           <input
+            type="search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder={t('characters.searchSheets')}
@@ -151,6 +157,9 @@ export default function SheetCatalogue({ onInstalled, onClose }: SheetCatalogueP
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 16px' }}>
+          <p className="sr-only" role="status">
+            {justInstalled ? t('a11y.characters.installedNamed', { name: justInstalled.name }) : ''}
+          </p>
           {sourceErrors.length ? (
             <ul
               aria-label={t('characters.sourceProblems')}
@@ -185,7 +194,10 @@ export default function SheetCatalogue({ onInstalled, onClose }: SheetCatalogueP
           ) : shown.length === 0 ? (
             <p style={{ color: 'var(--text-muted)' }}>{t('characters.noSheetsFound')}</p>
           ) : (
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 8 }}>
+            <ul
+              role="list"
+              style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 8 }}
+            >
               {shown.map((sheet) => (
                 <li key={`${sheet.index_url}:${sheet.id}`} style={card}>
                   <div
@@ -206,6 +218,10 @@ export default function SheetCatalogue({ onInstalled, onClose }: SheetCatalogueP
                         onClick={() => install(sheet)}
                         disabled={installing === sheet.id}
                         title={t('characters.updateFrom', { version: sheet.installed_version })}
+                        aria-label={t('a11y.characters.updateNamed', {
+                          name: sheet.name,
+                          version: sheet.version,
+                        })}
                         style={{ ...goldBtn, padding: '6px 12px', fontSize: 12 }}
                       >
                         <LuRefreshCw size={13} />
@@ -215,6 +231,13 @@ export default function SheetCatalogue({ onInstalled, onClose }: SheetCatalogueP
                       </button>
                     ) : sheet.installed ? (
                       <span
+                        ref={
+                          justInstalled?.id === sheet.id
+                            ? (node: HTMLSpanElement | null) => node?.focus()
+                            : undefined
+                        }
+                        tabIndex={justInstalled?.id === sheet.id ? -1 : undefined}
+                        className="focus-target"
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
@@ -230,6 +253,7 @@ export default function SheetCatalogue({ onInstalled, onClose }: SheetCatalogueP
                       <button
                         onClick={() => install(sheet)}
                         disabled={installing === sheet.id}
+                        aria-label={t('a11y.characters.installNamed', { name: sheet.name })}
                         style={{ ...goldBtn, padding: '6px 12px', fontSize: 12 }}
                       >
                         <LuDownload size={13} />

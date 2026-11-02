@@ -95,3 +95,14 @@ describe('CampaignUploadsSection', () => {
     expect(perCampaign().value).toBe('0')
   })
 })
+
+describe('CampaignUploadsSection accessibility', () => {
+  it('says when a change saved, and describes the limit fields by the hint', async () => {
+    vi.mocked(settingsApi.get).mockResolvedValue({} as Settings)
+    render(<CampaignUploadsSection />)
+    fireEvent.click(await screen.findByRole('checkbox'))
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('common.saved'))
+    expect(perFile()).toHaveAccessibleDescription('appSettings.campaignUploads.hint')
+    expect(perFile()).toHaveAttribute('inputmode', 'numeric')
+  })
+})

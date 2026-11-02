@@ -81,7 +81,7 @@ describe('CategoryManager', () => {
     const user = userEvent.setup()
     renderManager()
     await screen.findByText('Handouts')
-    await user.click(screen.getByRole('button', { name: 'Edit' }))
+    await user.click(screen.getByRole('button', { name: /^Edit: / }))
     const input = screen.getByDisplayValue('Handouts')
     await user.clear(input)
     await user.type(input, 'Player Handouts{Enter}')
@@ -94,9 +94,11 @@ describe('CategoryManager', () => {
     const user = userEvent.setup()
     renderManager()
     await screen.findByText('Handouts')
-    await user.click(screen.getByRole('button', { name: 'Edit' }))
+    await user.click(screen.getByRole('button', { name: /^Edit: / }))
     await user.type(screen.getByDisplayValue('Handouts'), '{Escape}')
     expect(campaigns.renameCategory).not.toHaveBeenCalled()
+    // Esc cancels only the rename: the dialog stays open.
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(screen.getByText('Handouts')).toBeInTheDocument()
   })
 
@@ -128,7 +130,7 @@ describe('CategoryManager', () => {
     const user = userEvent.setup()
     renderManager()
     await screen.findByText('Handouts')
-    await user.click(screen.getByRole('button', { name: 'Delete' }))
+    await user.click(screen.getByRole('button', { name: /^Delete: / }))
     expect(screen.getByText('Delete "Handouts"?')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Leave items uncategorized' }))
@@ -146,10 +148,12 @@ describe('CategoryManager', () => {
     renderManager()
     await screen.findByText('Alpha')
     // Move the second row up.
-    await user.click(screen.getAllByRole('button', { name: 'Move up' })[1])
+    await user.click(screen.getAllByRole('button', { name: /^Move up: / })[1])
     await waitFor(() =>
       expect(campaigns.reorderCategories).toHaveBeenCalledWith('camp1', ['b', 'a'])
     )
+    // The move is said, since the row moving is only visible.
+    expect(await screen.findByText(/^Moved .+ to position 1 of \d+$/)).toBeInTheDocument()
   })
 
   it('closes via the close button', async () => {
@@ -178,7 +182,7 @@ describe('CategoryManager', () => {
       const user = userEvent.setup()
       renderManager({ typeGroups, groupOrder: ['type:book', 'cat:c1', 'type:map'] })
       await screen.findByText('Handouts')
-      await user.click(screen.getAllByRole('button', { name: 'Move up' })[1])
+      await user.click(screen.getAllByRole('button', { name: /^Move up: / })[1])
       await waitFor(() =>
         expect(campaigns.setResourceGroupOrder).toHaveBeenCalledWith('camp1', [
           'cat:c1',

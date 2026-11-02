@@ -132,7 +132,7 @@ export default function SortFilterBar({
     padding: '5px 8px',
     borderRadius: 6,
     background: 'var(--bg-input)',
-    border: '1px solid var(--border)',
+    border: '1px solid var(--border-control)',
     color: 'var(--text)',
   }
 

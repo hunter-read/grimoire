@@ -112,7 +112,7 @@ export default function OPDSSection() {
                 onChange={(e) => setVersion(e.target.value)}
                 style={{
                   background: 'var(--bg-input)',
-                  border: '1px solid var(--border)',
+                  border: '1px solid var(--border-control)',
                   color: 'var(--text)',
                   borderRadius: 6,
                   padding: '6px 10px',

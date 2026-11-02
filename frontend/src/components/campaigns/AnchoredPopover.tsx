@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import useAnchoredMenu from '../../hooks/useAnchoredMenu'
+import useDialogFocus from '../../hooks/useDialogFocus'
 
 /**
  * A panel anchored below a trigger element, portalled to `document.body`.
@@ -17,6 +18,8 @@ export interface AnchoredPopoverProps {
   anchorRef: RefObject<HTMLElement | null>
   onClose?: () => void
   width?: number
+  /** The popover's name, announced when focus lands in it ("Invite, dialog"). */
+  label?: string
   children?: ReactNode
 }
 
@@ -24,11 +27,16 @@ export default function AnchoredPopover({
   anchorRef,
   onClose,
   width = 320,
+  label,
   children,
 }: AnchoredPopoverProps) {
   // The trigger is rendered by the caller, so the hook measures against the ref
   // it passes in rather than one of its own.
   const { panelRef, style } = useAnchoredMenu(true, { width, gap: 6, anchorRef })
+  // Portaled to the end of <body>, so without this a keyboard user who opens it
+  // can't reach it: focus moves in, Tab stays inside, Esc closes, and focus goes
+  // back to the button that opened it.
+  useDialogFocus(panelRef, { onClose })
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
@@ -48,6 +56,8 @@ export default function AnchoredPopover({
   return createPortal(
     <div
       ref={panelRef}
+      role="dialog"
+      aria-label={label}
       style={{
         ...style,
         zIndex: 2000,

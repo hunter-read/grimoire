@@ -216,9 +216,10 @@ describe('CampaignDetailView loading and errors', () => {
     mockGet.mockResolvedValue([])
     renderView()
     expect(await screen.findByText('Not found')).toBeInTheDocument()
-    // The error state renders a single "← Campaigns" back button.
-    fireEvent.click(screen.getByRole('button', { name: /campaigns/i }))
-    expect(mockNavigate).toHaveBeenCalledWith('/campaigns')
+    // The error state renders a single "← Campaigns" back link, and says the
+    // error as an alert.
+    expect(screen.getByRole('alert')).toHaveTextContent('Not found')
+    expect(screen.getByRole('link', { name: /campaigns/i })).toHaveAttribute('href', '/campaigns')
   })
 })
 

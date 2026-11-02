@@ -45,4 +45,20 @@ describe('DisplayNameSection', () => {
     await userEvent.click(screen.getByText('userSettings.displayName.save'))
     await waitFor(() => expect(screen.getByText('boom')).toBeInTheDocument())
   })
+
+  it('ties a save error to the field and announces it', async () => {
+    vi.mocked(api.patch).mockRejectedValueOnce(new Error('boom'))
+    render(<DisplayNameSection />)
+    await userEvent.click(screen.getByText('userSettings.displayName.save'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('boom')
+    const field = screen.getByLabelText('userSettings.displayName.label')
+    expect(field).toHaveAttribute('aria-invalid', 'true')
+    expect(field).toHaveAccessibleDescription('boom')
+  })
+
+  it('says "Saved" aloud once the name is stored', async () => {
+    render(<DisplayNameSection />)
+    await userEvent.click(screen.getByText('userSettings.displayName.save'))
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('common.saved'))
+  })
 })

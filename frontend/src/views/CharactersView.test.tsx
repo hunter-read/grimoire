@@ -67,6 +67,16 @@ describe('CharactersView', () => {
     expect(screen.getAllByText(/D&D 5e/).length).toBeGreaterThan(0)
   })
 
+  it('names the page and gives each character a heading under a section heading', async () => {
+    renderView()
+    expect(await screen.findByRole('heading', { level: 3, name: 'Vex' })).toBeInTheDocument()
+    // Drawn only beside a party section, but always there for a screen reader.
+    expect(screen.getByRole('heading', { level: 2, name: 'Your characters' })).toHaveClass(
+      'sr-only'
+    )
+    expect(document.title).toBe('Characters - Grimoire')
+  })
+
   it('keeps a fallen character beside their successor, after the one being played', async () => {
     mockList.mockResolvedValue({
       characters: [
@@ -138,6 +148,13 @@ describe('CharactersView', () => {
       expect(cardNames(screen.getByRole('list', { name: 'Pathfinder' }))).toEqual(['Ash'])
     })
 
+    it('nests each card name a level under its group heading', async () => {
+      localStorage.setItem('grimoire:user-prefs', JSON.stringify({ characterSort: 'system' }))
+      renderView()
+      expect(await screen.findByRole('heading', { level: 3, name: 'Pathfinder' })).toBeTruthy()
+      expect(screen.getByRole('heading', { level: 4, name: 'Ash' })).toBeInTheDocument()
+    })
+
     it('shows each sheet version when sorted by sheet', async () => {
       localStorage.setItem('grimoire:user-prefs', JSON.stringify({ characterSort: 'sheet' }))
       renderView()
@@ -188,9 +205,13 @@ describe('CharactersView', () => {
     mockList.mockResolvedValue({ characters: [] })
     mockListSchemas.mockResolvedValue({ schemas: [] })
     renderView()
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: /New character/ })).toBeDisabled()
-    )
+    // aria-disabled, not disabled: the button stays in the tab order so a
+    // keyboard user can still reach it and hear why it is unavailable.
+    const button = await screen.findByRole('button', { name: /New character/ })
+    await waitFor(() => expect(button).toHaveAttribute('aria-disabled', 'true'))
+    expect(button).toHaveAccessibleDescription('Install a sheet first')
+    await userEvent.click(button)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('creates a character in a dialog and navigates to it', async () => {
@@ -265,7 +286,11 @@ describe('CharactersView', () => {
   it('links each card to its character', async () => {
     renderView()
     await screen.findByText('Vex')
-    expect(screen.getByRole('link', { name: 'Open Vex' })).toHaveAttribute('href', '/characters/c1')
+    // The link carries the sheet too: tabbing card to card, it is all you hear.
+    expect(screen.getByRole('link', { name: /^Open Vex, / })).toHaveAttribute(
+      'href',
+      '/characters/c1'
+    )
   })
 
   it('shows a character\u2019s art, or their initials without it', async () => {
@@ -563,7 +588,7 @@ describe('CharactersView', () => {
       mockListSchemas.mockResolvedValue({ schemas: [] })
       renderView()
       const button = await screen.findByRole('button', { name: /New character/ })
-      expect(button).toBeDisabled()
+      await waitFor(() => expect(button).toHaveAttribute('aria-disabled', 'true'))
       // Not faded: fading took the label below a readable contrast. It keeps
       // full-strength muted text and marks itself with a dashed edge instead.
       expect(button.style.opacity).toBe('')

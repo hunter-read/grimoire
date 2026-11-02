@@ -72,7 +72,7 @@ describe('AudioQueuePanel', () => {
   it('removes a track when its remove button is clicked', async () => {
     queue = [{ id: 'a', title: 'First' }]
     render(<AudioQueuePanel />)
-    await userEvent.click(screen.getByRole('button', { name: /remove from queue/i }))
+    await userEvent.click(screen.getByRole('button', { name: /remove first from the queue/i }))
     expect(removeAt).toHaveBeenCalledWith(0)
   })
 
@@ -93,10 +93,50 @@ describe('AudioQueuePanel', () => {
     expect(rows).toHaveLength(3)
     // Drag the third row's handle onto the first row.
     fireEvent.dragStart(rows[2])
-    const firstRow = rows[0].closest('div')!
+    const firstRow = rows[0].closest('li')!
     fireEvent.dragOver(firstRow)
     fireEvent.drop(firstRow)
     expect(moveTrack).toHaveBeenCalledWith(2, 0)
+  })
+
+  it('is a named region with the tracks as a list, the current one marked', () => {
+    queue = [
+      { id: 'a', title: 'First' },
+      { id: 'b', title: 'Second' },
+    ]
+    currentIndex = 1
+    render(<AudioQueuePanel />)
+    expect(screen.getByRole('region', { name: /queue/i })).toBeInTheDocument()
+    expect(screen.getAllByRole('listitem')).toHaveLength(2)
+    expect(screen.getByRole('button', { name: /second/i, current: true })).toBeInTheDocument()
+  })
+
+  it('moves a track with the arrow keys on its grip and says where it went', async () => {
+    queue = [
+      { id: 'a', title: 'First' },
+      { id: 'b', title: 'Second' },
+      { id: 'c', title: 'Third' },
+    ]
+    render(<AudioQueuePanel />)
+    const grip = screen.getByRole('button', { name: 'Move Second' })
+    expect(grip).toHaveAccessibleDescription(/up or down arrow/i)
+    fireEvent.keyDown(grip, { key: 'ArrowDown' })
+    expect(moveTrack).toHaveBeenCalledWith(1, 2)
+    expect(await screen.findByText('Moved to position 3 of 3')).toBeInTheDocument()
+    fireEvent.keyDown(grip, { key: 'ArrowUp' })
+    expect(moveTrack).toHaveBeenCalledWith(1, 0)
+  })
+
+  it('does not move a track past either end, or on other keys', () => {
+    queue = [
+      { id: 'a', title: 'First' },
+      { id: 'b', title: 'Second' },
+    ]
+    render(<AudioQueuePanel />)
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Move First' }), { key: 'ArrowUp' })
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Move Second' }), { key: 'ArrowDown' })
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Move First' }), { key: 'Enter' })
+    expect(moveTrack).not.toHaveBeenCalled()
   })
 
   it('does not call moveTrack when dropped on its own row', () => {
@@ -107,7 +147,7 @@ describe('AudioQueuePanel', () => {
     const { container } = render(<AudioQueuePanel />)
     const rows = [...container.querySelectorAll('[draggable="true"]')]
     fireEvent.dragStart(rows[0])
-    const ownRow = rows[0].closest('div')!
+    const ownRow = rows[0].closest('li')!
     fireEvent.dragOver(ownRow)
     fireEvent.drop(ownRow)
     expect(moveTrack).not.toHaveBeenCalled()

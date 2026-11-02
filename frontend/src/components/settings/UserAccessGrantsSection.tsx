@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuTrash2 } from 'react-icons/lu'
 import type { CSSProperties } from 'react'
@@ -32,6 +32,8 @@ export default function UserAccessGrantsSection({ userId, userRole }: Props) {
   const [books, setBooks] = useState<GrantBook[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [status, setStatus] = useState('')
+  const headingRef = useRef<HTMLHeadingElement>(null)
 
   const isGm = userRole === 'gm'
 
@@ -76,17 +78,21 @@ export default function UserAccessGrantsSection({ userId, userRole }: Props) {
       })
       load()
     } catch (e) {
-      setError((e as Error | null)?.message || 'Could not add the grant.')
+      setError((e as Error | null)?.message || t('a11y.settingsAccess.grantAddFailed'))
     } finally {
       setBusy(false)
     }
   }
 
-  const removeGrant = async (grantId: string) => {
+  const removeGrant = async (grantId: string, name: string) => {
     setBusy(true)
     try {
       await api.delete(`/users/${userId}/access-grants/${grantId}`)
+      setStatus(t('a11y.settingsAccess.grantRemoved', { name }))
       load()
+      // The revoked row took focus with it; the heading is the nearest place
+      // that is sure to still be there.
+      headingRef.current?.focus()
     } finally {
       setBusy(false)
     }
@@ -95,7 +101,7 @@ export default function UserAccessGrantsSection({ userId, userRole }: Props) {
   if (!isGm) {
     return (
       <div>
-        <div style={titleStyle}>{t('access.grants.title')}</div>
+        <h3 style={titleStyle}>{t('access.grants.title')}</h3>
         <p style={noteStyle}>{t('access.grants.gmOnly')}</p>
       </div>
     )
@@ -105,13 +111,18 @@ export default function UserAccessGrantsSection({ userId, userRole }: Props) {
 
   return (
     <div>
-      <div style={titleStyle}>{t('access.grants.title')}</div>
+      <h3 ref={headingRef} tabIndex={-1} className="focus-target" style={titleStyle}>
+        {t('access.grants.title')}
+      </h3>
       <p style={noteStyle}>{t('access.grants.description')}</p>
+      <div className="sr-only" role="status" aria-live="polite">
+        {status}
+      </div>
 
       {grants.length === 0 ? (
         <p style={{ ...noteStyle, fontStyle: 'italic' }}>{t('access.grants.empty')}</p>
       ) : (
-        <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 12px' }}>
+        <ul role="list" style={{ listStyle: 'none', padding: 0, margin: '0 0 12px' }}>
           {grants.map((g) => (
             <li
               key={g.id}
@@ -133,10 +144,13 @@ export default function UserAccessGrantsSection({ userId, userRole }: Props) {
               </span>
               <button
                 type="button"
-                onClick={() => removeGrant(g.id)}
+                onClick={() => removeGrant(g.id, g.scope_name || t('access.grants.deletedScope'))}
                 disabled={busy}
                 style={ghostBtnStyle}
-                aria-label={t('access.grants.remove')}
+                title={t('access.grants.remove')}
+                aria-label={t('a11y.settingsAccess.revokeGrant', {
+                  name: g.scope_name || t('access.grants.deletedScope'),
+                })}
               >
                 <LuTrash2 size={13} />
               </button>
@@ -158,12 +172,20 @@ export default function UserAccessGrantsSection({ userId, userRole }: Props) {
         disabled={busy}
       />
 
-      {error && <p style={{ fontSize: 13, color: 'var(--red)' }}>{error}</p>}
+      {error && (
+        <p role="alert" style={{ fontSize: 13, color: 'var(--red)' }}>
+          {error}
+        </p>
+      )}
     </div>
   )
 }
 
 const titleStyle: CSSProperties = {
+  // A heading in the body's type, not the global Cinzel/gold.
+  fontFamily: 'inherit',
+  letterSpacing: 'normal',
+  marginTop: 0,
   fontSize: 12,
   color: 'var(--text-muted)',
   fontWeight: 500,

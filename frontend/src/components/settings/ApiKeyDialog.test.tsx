@@ -135,8 +135,11 @@ describe('ApiKeyDialog', () => {
       <ApiKeyDialog apiKey={null} permissions={permissions} onSave={vi.fn()} onClose={onClose} />
     )
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
-    fireEvent.keyDown(window, { key: 'Escape' })
-    fireEvent.click(screen.getByRole('dialog'))
+    // Escape is heard by the dialog (useDialogFocus), not the window, so a
+    // dialog stacked on top of this one closes on its own.
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+    // The backdrop is the dialog's parent; the dialog itself is the panel.
+    fireEvent.click(screen.getByRole('dialog').parentElement!)
     expect(onClose).toHaveBeenCalledTimes(3)
   })
 

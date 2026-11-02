@@ -196,7 +196,7 @@ describe('RulesetsPanel', () => {
     mockRemoveEntry.mockResolvedValue({})
     renderView()
     await userEvent.click(await screen.findByText('Strahd house rules'))
-    await userEvent.click(await screen.findByLabelText('Delete entry'))
+    await userEvent.click(await screen.findByLabelText(/^Delete /))
     await waitFor(() => expect(mockRemoveEntry).toHaveBeenCalledWith('r1', 'e1'))
   })
 

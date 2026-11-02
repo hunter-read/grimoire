@@ -48,6 +48,6 @@ describe('FolderCheckbox', () => {
     expect(box(container).style.background).toBe('var(--bg-input)')
     // Read the inline style directly: jsdom does not expand the `border`
     // shorthand when its value contains a custom property.
-    expect(box(container).style.border).toBe('2px solid var(--border-light)')
+    expect(box(container).style.border).toBe('2px solid var(--border-control)')
   })
 })

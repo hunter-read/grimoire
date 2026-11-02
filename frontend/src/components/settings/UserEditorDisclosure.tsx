@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import type { ReactNode } from 'react'
 import { LuChevronDown, LuChevronRight } from 'react-icons/lu'
 import { fieldLabelStyle } from './EditorField'
@@ -22,11 +22,13 @@ export default function UserEditorDisclosure({
   defaultOpen = false,
 }: Props) {
   const [open, setOpen] = useState(defaultOpen)
+  const bodyId = useId()
   return (
     <div>
       <button
         type="button"
         aria-expanded={open}
+        aria-controls={open ? bodyId : undefined}
         onClick={() => setOpen((v) => !v)}
         style={{
           ...fieldLabelStyle,
@@ -44,7 +46,7 @@ export default function UserEditorDisclosure({
         {icon}
         {label}
       </button>
-      {open && children}
+      {open && <div id={bodyId}>{children}</div>}
     </div>
   )
 }

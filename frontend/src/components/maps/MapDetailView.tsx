@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuArrowLeft, LuInfo, LuChevronDown, LuGrid3X3 } from 'react-icons/lu'
 import useImageGestures from '../../hooks/useImageGestures'
@@ -28,6 +28,8 @@ import DownloadVersionButton from '../DownloadVersionButton'
 import MetaRow from '../MetaRow'
 import TagSection from '../TagSection'
 import useIsMobile from '../../hooks/useIsMobile'
+import usePageTitle from '../../hooks/usePageTitle'
+import { mediaDisplayName } from '../../utils/mediaDisplayName'
 
 type MapDetail = Schema<'MapDetailResponse'>
 type VttData = Schema<'VttDataResponse'>
@@ -43,7 +45,7 @@ export default function MapDetailView() {
   const backPathRef = useRef(location.state?.from ?? null)
   // Going back is a *return* to the gallery, so it restores the filters the user
   // had rather than re-applying their saved default over them.
-  const goBack = () => navigate(backPathRef.current || '/maps', { state: { restoreView: true } })
+  const backPath = backPathRef.current || '/maps'
   const { t } = useTranslation()
   const isMobilePhone = useIsMobile(640)
   const [map, setMap] = useState<MapDetail | null>(null)
@@ -92,6 +94,7 @@ export default function MapDetailView() {
     return mediaUrl(`/maps/${m.id}/page/1`, { width: 2000 })
   }, [])
   useImagePrefetch(siblings, siblingIdx, mapPreviewUrl)
+  usePageTitle(map?.filename ?? null)
 
   useEffect(() => {
     setVttData(null)
@@ -169,25 +172,28 @@ export default function MapDetailView() {
           flexWrap: 'wrap',
         }}
       >
-        <button
-          onClick={goBack}
+        {/* A link, since it goes somewhere. */}
+        <Link
+          to={backPath}
+          state={{ restoreView: true }}
           aria-label={t('maps.detail.back')}
           style={{
-            background: 'none',
             color: 'var(--text-dim)',
             fontSize: 15,
-            border: 'none',
-            cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             gap: 5,
           }}
         >
           <LuArrowLeft size={15} /> {!isMobilePhone && t('common.back')}
-        </button>
+        </Link>
         <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
-        <span
+        <h1
           style={{
+            margin: 0,
+            fontFamily: 'inherit',
+            letterSpacing: 'normal',
+            color: 'var(--text)',
             fontSize: 16,
             fontWeight: 500,
             flex: 1,
@@ -198,7 +204,7 @@ export default function MapDetailView() {
           }}
         >
           {map.filename}
-        </span>
+        </h1>
         <SiblingPosition
           index={siblingIdx}
           total={siblings.length}
@@ -211,6 +217,9 @@ export default function MapDetailView() {
           <button
             onClick={() => setShowDetails((v) => !v)}
             title={t('maps.detail.details')}
+            aria-label={t('maps.detail.details')}
+            aria-expanded={showDetails}
+            aria-controls="media-details-panel"
             style={{
               background: showDetails ? 'var(--bg-card-hover)' : 'var(--bg-card)',
               border: '1px solid var(--border)',
@@ -351,12 +360,15 @@ export default function MapDetailView() {
               onNext={onNext}
               prevLabel={t('maps.detail.previous')}
               nextLabel={t('maps.detail.next')}
+              prevName={hasPrev ? mediaDisplayName(siblings[siblingIdx - 1]?.filename) : undefined}
+              nextName={hasNext ? mediaDisplayName(siblings[siblingIdx + 1]?.filename) : undefined}
             />
           </div>
         )}
 
         {/* Metadata sidebar — always visible on desktop, toggle-controlled on mobile */}
         <div
+          id="media-details-panel"
           style={{
             ...(isMobilePhone
               ? {
@@ -371,7 +383,7 @@ export default function MapDetailView() {
             overflowY: 'auto',
           }}
         >
-          <h3 style={{ fontSize: 15, marginBottom: 20 }}>{t('maps.detail.title')}</h3>
+          <h2 style={{ fontSize: 15, marginTop: 0, marginBottom: 20 }}>{t('maps.detail.title')}</h2>
 
           {folder && <MetaRow label={t('maps.detail.location')} value={folder} />}
           <MetaRow label={t('maps.detail.fileSize')} value={formatSize(map.file_size as number)} />
@@ -391,17 +403,19 @@ export default function MapDetailView() {
               light counts that make the file useful in a VTT. */}
           {isVtt && vttData && (
             <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
-              <div
+              <h3
                 style={{
+                  margin: '0 0 12px',
+                  fontFamily: 'inherit',
+                  fontWeight: 400,
                   fontSize: 12,
                   color: 'var(--text-muted)',
-                  marginBottom: 12,
                   textTransform: 'uppercase',
                   letterSpacing: '0.06em',
                 }}
               >
                 {t('maps.detail.vttTitle')}
-              </div>
+              </h3>
               {vttData.grid_width != null && vttData.grid_height != null && (
                 <MetaRow
                   label={t('maps.detail.gridDimensions')}
@@ -439,8 +453,11 @@ export default function MapDetailView() {
                   marginBottom: 12,
                 }}
               >
-                <div
+                <h3
                   style={{
+                    margin: 0,
+                    fontFamily: 'inherit',
+                    fontWeight: 400,
                     fontSize: 12,
                     color: 'var(--text-muted)',
                     textTransform: 'uppercase',
@@ -448,12 +465,13 @@ export default function MapDetailView() {
                   }}
                 >
                   {t('maps.detail.grid')}
-                </div>
+                </h3>
                 {!editingGrid && isRasterMap && (
                   <button
                     type="button"
                     data-testid="open-grid-editor"
                     onClick={() => setEditingGrid(true)}
+                    aria-label={t('a11y.mediaDetail.editNamed', { name: t('maps.detail.grid') })}
                     style={{
                       background: 'none',
                       border: 'none',
@@ -504,17 +522,19 @@ export default function MapDetailView() {
           {folder &&
             (editingFolderTags ? (
               <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
-                <div
+                <h3
                   style={{
+                    margin: '0 0 10px',
+                    fontFamily: 'inherit',
+                    fontWeight: 400,
                     fontSize: 12,
                     color: 'var(--text-muted)',
-                    marginBottom: 10,
                     textTransform: 'uppercase',
                     letterSpacing: '0.06em',
                   }}
                 >
                   {t('maps.detail.folderTags')}
-                </div>
+                </h3>
                 <InlineTagEditor
                   tags={currentFolderTags}
                   onSave={saveFolderTags}
@@ -536,17 +556,19 @@ export default function MapDetailView() {
           {/* Map tags */}
           {editingMapTags ? (
             <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
-              <div
+              <h3
                 style={{
+                  margin: '0 0 10px',
+                  fontFamily: 'inherit',
+                  fontWeight: 400,
                   fontSize: 12,
                   color: 'var(--text-muted)',
-                  marginBottom: 10,
                   textTransform: 'uppercase',
                   letterSpacing: '0.06em',
                 }}
               >
                 {t('maps.detail.mapTags')}
-              </div>
+              </h3>
               <InlineTagEditor
                 tags={map.tags}
                 onSave={saveMapTags}

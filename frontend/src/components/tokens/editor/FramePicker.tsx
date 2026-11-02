@@ -225,7 +225,7 @@ export default function FramePicker({
               padding: '6px 8px 6px 26px',
               fontSize: 12,
               borderRadius: 6,
-              border: '1px solid var(--border)',
+              border: '1px solid var(--border-control)',
               background: 'var(--bg-deep)',
               color: 'var(--text)',
             }}

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { mediaUrl } from '../../api'
 import Spinner from '../Spinner'
 import useMediaLoadState from '../../hooks/useMediaLoadState'
+import { mediaDisplayName } from '../../utils/mediaDisplayName'
 
 /**
  * The raster pane of the map detail view.
@@ -83,14 +84,16 @@ export default function MapImagePane({
       )}
 
       {failed ? (
-        <p style={{ color: 'var(--text-muted)' }}>{t('maps.detail.loadFailed')}</p>
+        <p role="alert" style={{ color: 'var(--text-muted)' }}>
+          {t('maps.detail.loadFailed')}
+        </p>
       ) : (
         <img
           // Keying by id drops the decoded previous map instead of holding it on
           // screen behind the spinner.
           key={mapId}
           src={src}
-          alt={filename}
+          alt={mediaDisplayName(filename)}
           onLoad={onLoad}
           onError={onError}
           style={{

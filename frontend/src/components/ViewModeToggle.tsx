@@ -33,7 +33,7 @@ export default function ViewModeToggle({ mode, onCycle, style }: ViewModeToggleP
         color: 'var(--text-muted)',
         fontSize: 13,
         cursor: 'pointer',
-        transition: 'all 0.15s',
+        transition: 'background-color 0.15s, color 0.15s',
         whiteSpace: 'nowrap',
         ...style,
       }}

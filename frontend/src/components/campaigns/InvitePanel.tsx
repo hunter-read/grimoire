@@ -65,7 +65,9 @@ export default function InvitePanel({ campaignId, onInvited }: InvitePanelProps)
       {/* A search box only earns its space once the list is long enough to scroll. */}
       {uninvited.length > 5 && (
         <input
-          type="text"
+          type="search"
+          autoComplete="off"
+          aria-label={t('members.searchUsers')}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t('members.searchUsers')}
@@ -80,45 +82,54 @@ export default function InvitePanel({ campaignId, onInvited }: InvitePanelProps)
             {t('members.noMatchingUsers')}
           </div>
         ) : (
-          matches.map((u) => (
-            <div
-              key={u.id}
-              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0' }}
-            >
-              <span style={{ flex: 1, fontSize: 14, minWidth: 0 }}>
-                {u.display_name || u.username}
-                <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 6 }}>
-                  {u.role}
-                </span>
-                {u.campaign_access === false && (
-                  <span style={{ fontSize: 12, color: 'var(--danger)', marginLeft: 6 }}>
-                    {t('campaigns.memberAccessDisabled')}
-                  </span>
-                )}
-              </span>
-              <button
-                onClick={() => invite(u.id)}
-                disabled={loading || u.campaign_access === false}
-                title={u.campaign_access === false ? t('campaigns.accessDisabledHint') : undefined}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 5,
-                  padding: '4px 10px',
-                  background: 'var(--bg-deep)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 6,
-                  color: 'var(--text-dim)',
-                  cursor: u.campaign_access === false ? 'not-allowed' : 'pointer',
-                  opacity: u.campaign_access === false ? 0.5 : 1,
-                  fontSize: 12,
-                  flexShrink: 0,
-                }}
+          <ul role="list" className="card-list">
+            {matches.map((u) => (
+              <li
+                key={u.id}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0' }}
               >
-                <LuUserPlus size={12} /> {t('members.invite')}
-              </button>
-            </div>
-          ))
+                <span style={{ flex: 1, fontSize: 14, minWidth: 0 }}>
+                  {u.display_name || u.username}
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 6 }}>
+                    {u.role}
+                  </span>
+                  {u.campaign_access === false && (
+                    <span style={{ fontSize: 12, color: 'var(--danger)', marginLeft: 6 }}>
+                      {t('campaigns.memberAccessDisabled')}
+                    </span>
+                  )}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => invite(u.id)}
+                  // One per user: say who.
+                  aria-label={t('a11y.campaign.inviteNamed', {
+                    name: u.display_name || u.username,
+                  })}
+                  disabled={loading || u.campaign_access === false}
+                  title={
+                    u.campaign_access === false ? t('campaigns.accessDisabledHint') : undefined
+                  }
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 5,
+                    padding: '4px 10px',
+                    background: 'var(--bg-deep)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 6,
+                    color: 'var(--text-dim)',
+                    cursor: u.campaign_access === false ? 'not-allowed' : 'pointer',
+                    opacity: u.campaign_access === false ? 0.5 : 1,
+                    fontSize: 12,
+                    flexShrink: 0,
+                  }}
+                >
+                  <LuUserPlus size={12} /> {t('members.invite')}
+                </button>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
     </div>

@@ -68,7 +68,7 @@ export default function VariantDescribeForm({
 
   const fieldStyle: CSSProperties = {
     background: 'var(--bg-deep)',
-    border: '1px solid var(--border)',
+    border: '1px solid var(--border-control)',
     color: 'var(--text)',
     borderRadius: 4,
     padding: '4px 6px',

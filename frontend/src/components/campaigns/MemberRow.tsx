@@ -101,6 +101,8 @@ export default function MemberRow({
   }
 
   const removeSheet = async () => {
+    // Deleting an uploaded sheet can't be undone, so ask first.
+    if (!confirm(t('a11y.campaign.removeSheetConfirm', { name: displayLabel }))) return
     setBusy(true)
     try {
       if (member.character_sheet_url) {
@@ -189,7 +191,7 @@ export default function MemberRow({
                 fontSize: 14,
                 padding: '3px 8px',
                 borderRadius: 5,
-                border: '1px solid var(--border)',
+                border: '1px solid var(--border-control)',
                 background: 'var(--bg-deep)',
                 color: 'var(--text)',
                 width: 180,
@@ -232,7 +234,7 @@ export default function MemberRow({
                   setCharValue(member.character_name ?? '')
                   setEditingChar(true)
                 }}
-                aria-label={t('members.editCharacterName')}
+                aria-label={t('a11y.campaign.editCharacterNameFor', { name: displayLabel })}
                 style={{
                   background: 'none',
                   border: 'none',
@@ -346,6 +348,7 @@ export default function MemberRow({
                     ? t('members.characterSheetLink')
                     : member.character_sheet_filename || t('members.characterSheet')}
                   <LuDownload size={11} aria-hidden="true" />
+                  <span className="sr-only"> {t('a11y.opensInNewTab')}</span>
                 </a>
                 {canEditMedia &&
                   !member.character_sheet_url &&
@@ -362,7 +365,7 @@ export default function MemberRow({
                   <button
                     onClick={requestSheetUpload}
                     disabled={busy}
-                    aria-label={t('members.replaceSheet')}
+                    aria-label={t('a11y.campaign.replaceSheetFor', { name: displayLabel })}
                     title={t('members.replaceSheet')}
                     style={sheetActionBtn}
                   >
@@ -373,7 +376,7 @@ export default function MemberRow({
                   <button
                     onClick={removeSheet}
                     disabled={busy}
-                    aria-label={t('members.removeSheet')}
+                    aria-label={t('a11y.campaign.removeSheetFor', { name: displayLabel })}
                     title={t('members.removeSheet')}
                     style={{
                       background: 'none',
@@ -397,13 +400,15 @@ export default function MemberRow({
                     if (e.key === 'Enter') saveSheetUrl()
                     if (e.key === 'Escape') setLinkingSheet(false)
                   }}
+                  type="url"
+                  aria-label={t('members.linkSheet')}
                   placeholder={t('members.sheetUrlPlaceholder')}
                   autoFocus
                   style={{
                     fontSize: 12,
                     padding: '3px 6px',
                     borderRadius: 5,
-                    border: '1px solid var(--border)',
+                    border: '1px solid var(--border-control)',
                     background: 'var(--bg-deep)',
                     color: 'var(--text)',
                     width: 200,
@@ -538,7 +543,7 @@ export default function MemberRow({
       {canManage && !isCurrentUser && !isMemberOwner && (
         <button
           onClick={() => onRemove(member.user_id)}
-          aria-label={`Remove ${displayLabel}`}
+          aria-label={t('a11y.campaign.removeMember', { name: displayLabel })}
           style={smallBtn('var(--text-muted)')}
         >
           <LuUserMinus size={13} aria-hidden="true" />

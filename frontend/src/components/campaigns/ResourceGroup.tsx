@@ -76,9 +76,18 @@ export default function ResourceGroup<R extends TreeResource>({
           {open ? <LuChevronDown size={14} /> : <LuChevronRight size={14} />}
           <LuFolder size={13} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
           <span style={{ flex: 1, textAlign: 'left', ...ellipsis }}>{node.name}</span>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>
+          <span
+            aria-hidden={selectedCount > 0 ? true : undefined}
+            style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}
+          >
             {selectedCount > 0 ? `${selectedCount}/${contained.length}` : contained.length}
           </span>
+          {/* "3/12" is read as "3 slash 12"; a screen reader gets the words. */}
+          {selectedCount > 0 && (
+            <span className="sr-only">
+              {t('a11y.campaign.selectedOf', { selected: selectedCount, total: contained.length })}
+            </span>
+          )}
         </button>
       </div>
       {open && (

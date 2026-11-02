@@ -132,7 +132,7 @@ export default function SheetsTab({ schemas, onChanged, onBrowse, setError }: Pr
           <LuStore size={14} />
           {t('characters.browseSheets')}
         </button>
-        <button onClick={() => setPasting((v) => !v)} style={ghostBtn}>
+        <button onClick={() => setPasting((v) => !v)} aria-expanded={pasting} style={ghostBtn}>
           <LuClipboardPaste size={14} />
           {t('characters.pasteSheet')}
         </button>
@@ -254,7 +254,10 @@ export default function SheetsTab({ schemas, onChanged, onBrowse, setError }: Pr
           {t('characters.noSheetsInstalled')}
         </p>
       ) : (
-        <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 8 }}>
+        <ul
+          role="list"
+          style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 8 }}
+        >
           {schemas.map((schema) => (
             <li
               key={schema.schema_id}
@@ -291,6 +294,10 @@ export default function SheetsTab({ schemas, onChanged, onBrowse, setError }: Pr
                 <button
                   onClick={() => update(updates[schema.schema_id]!)}
                   disabled={updating === schema.schema_id}
+                  aria-label={t('a11y.characters.updateNamed', {
+                    name: schema.name || schema.schema_id,
+                    version: updates[schema.schema_id]!.version,
+                  })}
                   style={{ ...goldBtn, padding: '6px 12px', fontSize: 12 }}
                 >
                   <LuRefreshCw size={13} />

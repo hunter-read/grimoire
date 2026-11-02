@@ -5,6 +5,7 @@ import { getUserPrefs, saveUserPref, getWheelAction } from '../../hooks/useUserP
 import type { WheelAction } from '../../hooks/useUserPrefs'
 import SegmentedControl from './SegmentedControl'
 import type { SegmentedOption } from './SegmentedControl'
+import SavedAnnouncement from './SavedAnnouncement'
 
 export default function ReaderSection() {
   const { t } = useTranslation()
@@ -58,16 +59,21 @@ export default function ReaderSection() {
         {t('userSettings.reader.title')}
         {saved && <LuCircleCheck size={16} style={{ color: 'var(--green)' }} />}
       </h3>
+      <SavedAnnouncement saved={saved} />
       <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 24, lineHeight: 1.6 }}>
         {t('userSettings.reader.description')}
       </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         <div>
-          <div style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 8 }}>
+          <div
+            id="reader-default-view-label"
+            style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 8 }}
+          >
             {t('userSettings.reader.defaultViewMode')}
           </div>
           <SegmentedControl
+            labelledBy="reader-default-view-label"
             options={READER_MODE_OPTIONS}
             value={readerMode}
             onChange={handleMode}
@@ -78,10 +84,14 @@ export default function ReaderSection() {
         </div>
 
         <div>
-          <div style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 8 }}>
+          <div
+            id="reader-scroll-wheel-label"
+            style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 8 }}
+          >
             {t('userSettings.reader.scrollWheel')}
           </div>
           <SegmentedControl
+            labelledBy="reader-scroll-wheel-label"
             options={WHEEL_ACTION_OPTIONS}
             value={wheelAction}
             onChange={handleWheel}

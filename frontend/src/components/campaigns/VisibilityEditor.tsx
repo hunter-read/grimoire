@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react'
-import { createPortal } from 'react-dom'
+import { useState, useEffect, useRef, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuChevronDown, LuCheck } from 'react-icons/lu'
 import {
@@ -14,6 +13,7 @@ import {
 import type { Schema } from '../../api'
 import ShareAccessTable from './ShareAccessTable'
 import useAnchoredMenu from '../../hooks/useAnchoredMenu'
+import AnchoredDialogPanel from './AnchoredDialogPanel'
 
 // Editable visibility badge: a pill that opens a popover for changing the page's
 // visibility level. For "members" (Private), the popover lists campaign members
@@ -42,6 +42,8 @@ export default function VisibilityEditor({
 }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
+  // Focus lands on the level that is set now, as in any radio group.
+  const checkedRef = useRef<HTMLButtonElement>(null)
 
   const meta = VIS_META[page.visibility as VisLevel] || VIS_META.gm
   const { Icon } = meta
@@ -75,13 +77,25 @@ export default function VisibilityEditor({
     return () => document.removeEventListener('mousedown', onDoc)
   }, [open, triggerRef, popoverRef])
 
+  // Up/Down (and Left/Right) step between the levels. Focus moves; Space or
+  // Enter sets the level, so stepping past one doesn't save it on the way.
+  const moveBetweenLevels = (e: KeyboardEvent<HTMLDivElement>) => {
+    const keys: Record<string, number> = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }
+    const step = keys[e.key]
+    if (!step) return
+    const radios = [...e.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]')]
+    const index = radios.indexOf(document.activeElement as HTMLElement)
+    e.preventDefault()
+    radios[(index + step + radios.length) % radios.length]?.focus()
+  }
+
   return (
     <span style={{ display: 'inline-flex' }}>
       <button
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
-        aria-haspopup="menu"
+        aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={t('wiki.changeVisibility')}
         title={t('wiki.changeVisibility')}
@@ -91,23 +105,32 @@ export default function VisibilityEditor({
         <LuChevronDown size={11} aria-hidden="true" />
       </button>
 
-      {open &&
-        createPortal(
+      {/* Not a menu: Private adds a table of who may read and edit, which a menu
+          can't hold. A dialog with a radio group for the level, then the table. */}
+      {open && (
+        <AnchoredDialogPanel
+          panelRef={popoverRef}
+          label={t('wiki.changeVisibility')}
+          onClose={() => setOpen(false)}
+          initialFocusRef={checkedRef}
+          style={{
+            ...popoverStyle,
+            zIndex: 2000,
+            background: 'var(--bg-panel)',
+            border: '1px solid var(--border)',
+            borderRadius: 10,
+            padding: 6,
+            boxShadow: '0 6px 20px var(--shadow)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2,
+          }}
+        >
           <div
-            ref={popoverRef}
-            role="menu"
-            style={{
-              ...popoverStyle,
-              zIndex: 2000,
-              background: 'var(--bg-panel)',
-              border: '1px solid var(--border)',
-              borderRadius: 10,
-              padding: 6,
-              boxShadow: '0 6px 20px var(--shadow)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 2,
-            }}
+            role="radiogroup"
+            aria-label={t('wiki.changeVisibility')}
+            onKeyDown={moveBetweenLevels}
+            style={{ display: 'flex', flexDirection: 'column', gap: 2 }}
           >
             {options.map((v) => {
               const m = VIS_META[v]
@@ -120,7 +143,8 @@ export default function VisibilityEditor({
                 <button
                   key={v}
                   type="button"
-                  role="menuitemradio"
+                  ref={selected ? checkedRef : undefined}
+                  role="radio"
                   aria-checked={selected}
                   onClick={() => {
                     if (!selected) onSetVisibility(v)
@@ -150,40 +174,40 @@ export default function VisibilityEditor({
                 </button>
               )
             })}
+          </div>
 
-            {page.visibility === 'members' && (
+          {page.visibility === 'members' && (
+            <div
+              style={{
+                borderTop: '1px solid var(--border)',
+                marginTop: 4,
+                paddingTop: 6,
+              }}
+            >
               <div
                 style={{
-                  borderTop: '1px solid var(--border)',
-                  marginTop: 4,
-                  paddingTop: 6,
+                  fontSize: 10,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                  color: 'var(--text-muted)',
+                  fontWeight: 600,
+                  padding: '0 4px 4px',
                 }}
               >
-                <div
-                  style={{
-                    fontSize: 10,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.06em',
-                    color: 'var(--text-muted)',
-                    fontWeight: 600,
-                    padding: '0 4px 4px',
-                  }}
-                >
-                  {t('wiki.shareWith')}
-                </div>
-                <div style={{ padding: '0 4px' }}>
-                  <ShareAccessTable
-                    members={members}
-                    readIds={sharedIds}
-                    writeIds={writeIds}
-                    onChange={onSetShares}
-                  />
-                </div>
+                {t('wiki.shareWith')}
               </div>
-            )}
-          </div>,
-          document.body
-        )}
+              <div style={{ padding: '0 4px' }}>
+                <ShareAccessTable
+                  members={members}
+                  readIds={sharedIds}
+                  writeIds={writeIds}
+                  onChange={onSetShares}
+                />
+              </div>
+            </div>
+          )}
+        </AnchoredDialogPanel>
+      )}
     </span>
   )
 }

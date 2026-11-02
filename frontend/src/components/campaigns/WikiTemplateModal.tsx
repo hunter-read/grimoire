@@ -1,7 +1,15 @@
-import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type KeyboardEvent,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX, LuUpload, LuRefreshCw } from 'react-icons/lu'
 import { campaigns, type Schema } from '../../api'
+import useDialogFocus from '../../hooks/useDialogFocus'
 import WikiTemplateList from './WikiTemplateList'
 import WikiTemplateBrowser, { type WikiTemplateBrowserHandle } from './WikiTemplateBrowser'
 import WikiTemplateEditor from './WikiTemplateEditor'
@@ -45,6 +53,8 @@ interface WikiTemplateModalProps {
 export default function WikiTemplateModal({ campaignId, onClose, onUsed }: WikiTemplateModalProps) {
   const { t } = useTranslation()
   const [tab, setTab] = useState<Tab>('mine')
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialogRef, { onClose })
   // Set while editing an existing template; the editor panel doubles as "new".
   const [editingId, setEditingId] = useState<string | null>(null)
   const [owned, setOwned] = useState<Template[] | null>(null)
@@ -141,16 +151,44 @@ export default function WikiTemplateModal({ campaignId, onClose, onUsed }: WikiT
 
   // Downloading is off server-side, so don't offer the tab at all.
   const tabs = TABS.filter((name) => name !== 'browse' || downloadsEnabled)
+  // While a template is open for editing no tab is selected, so the first one
+  // takes the single Tab stop instead.
+  const selectedTab = editingId ? null : tab
+  const tabStop = selectedTab && tabs.includes(selectedTab) ? selectedTab : tabs[0]
+
+  // Tabs pattern: the arrow keys (and Home/End) move between tabs and select
+  // the one they land on; Tab leaves the strip for the panel.
+  const onTabKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const index = tabs.indexOf(tabStop)
+    let next: number | null = null
+    if (e.key === 'ArrowRight') next = (index + 1) % tabs.length
+    else if (e.key === 'ArrowLeft') next = (index - 1 + tabs.length) % tabs.length
+    else if (e.key === 'Home') next = 0
+    else if (e.key === 'End') next = tabs.length - 1
+    if (next === null) return
+    e.preventDefault()
+    show(tabs[next])
+    document.getElementById(`wiki-template-tab-${tabs[next]}`)?.focus()
+  }
 
   return (
     <div style={backdrop} onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div style={panel}>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="wiki-templates-title"
+        style={panel}
+      >
         <button onClick={onClose} aria-label={t('common.close')} style={closeBtn}>
           <LuX size={18} />
         </button>
-        <h3 style={{ fontSize: 16, fontWeight: 600, margin: '0 0 12px', flexShrink: 0 }}>
+        <h2
+          id="wiki-templates-title"
+          style={{ fontSize: 16, fontWeight: 600, margin: '0 0 12px', flexShrink: 0 }}
+        >
           {t('wiki.templatesTitle')}
-        </h3>
+        </h2>
 
         <div
           style={{
@@ -162,13 +200,22 @@ export default function WikiTemplateModal({ campaignId, onClose, onUsed }: WikiT
             flexShrink: 0,
           }}
         >
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <div
+            role="tablist"
+            aria-labelledby="wiki-templates-title"
+            onKeyDown={onTabKeyDown}
+            style={{ display: 'flex', gap: 6, alignItems: 'center' }}
+          >
             {tabs.map((name) => (
               <button
                 key={name}
+                id={`wiki-template-tab-${name}`}
+                role="tab"
+                aria-selected={selectedTab === name}
+                aria-controls="wiki-templates-panel"
+                tabIndex={name === tabStop ? 0 : -1}
                 onClick={() => show(name)}
-                aria-pressed={tab === name && !editingId}
-                style={chip(tab === name && !editingId)}
+                style={chip(selectedTab === name)}
               >
                 {t(`wiki.templateTab.${name}`)}
               </button>
@@ -187,12 +234,22 @@ export default function WikiTemplateModal({ campaignId, onClose, onUsed }: WikiT
         </div>
 
         {error && (
-          <p style={{ fontSize: 13, color: 'var(--danger)', margin: '0 0 12px', flexShrink: 0 }}>
+          <p
+            role="alert"
+            style={{ fontSize: 13, color: 'var(--danger)', margin: '0 0 12px', flexShrink: 0 }}
+          >
             {error}
           </p>
         )}
 
-        <div style={scrollArea}>
+        <div
+          id="wiki-templates-panel"
+          role="tabpanel"
+          aria-labelledby={
+            selectedTab ? `wiki-template-tab-${selectedTab}` : 'wiki-templates-title'
+          }
+          style={scrollArea}
+        >
           {editingId ? (
             <WikiTemplateEditor
               campaignId={campaignId}

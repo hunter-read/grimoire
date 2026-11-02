@@ -38,6 +38,15 @@ beforeEach(() => {
 })
 
 describe('ImagePickerModal', () => {
+  it('is a dialog named by its title that Esc closes', () => {
+    const p = props()
+    render(<ImagePickerModal {...p} />)
+    const dialog = screen.getByRole('dialog', { name: p.title as string })
+    expect(dialog).toBe(screen.getByTestId('image-picker-panel'))
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+    expect(p.onClose).toHaveBeenCalled()
+  })
+
   it('starts on the upload tab with saving disabled', () => {
     render(<ImagePickerModal {...props()} />)
     expect(screen.getByText('imagePicker.chooseFile')).toBeInTheDocument()

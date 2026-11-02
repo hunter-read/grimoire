@@ -108,6 +108,21 @@ describe('CharacterImportDialog', () => {
     expect(mockImportExternal).not.toHaveBeenCalled()
   })
 
+  it('announces an import while it runs', async () => {
+    mockImport.mockReturnValue(new Promise(() => {}))
+    renderDialog()
+    await screen.findByRole('option', { name: 'Forge Steel' })
+    await userEvent.upload(
+      screen.getByLabelText('Choose a file'),
+      fileOf('{"schema_id":"dnd-5e","data":{}}', 'c.json')
+    )
+    await waitFor(() =>
+      expect(screen.getAllByRole('status').some((node) => node.textContent === 'Importing…')).toBe(
+        true
+      )
+    )
+  })
+
   it('sends anything else to the importers, recognised automatically', async () => {
     mockImportExternal.mockResolvedValue({ id: 'hero' })
     const { onImported } = renderDialog()
@@ -262,6 +277,9 @@ describe('CharacterImportDialog', () => {
       ).toBeInTheDocument()
       expect(screen.getByText('Used when importing a file.')).toBeInTheDocument()
       expect(screen.getByText(/does not keep it/)).toBeInTheDocument()
+      // The help is read with its field, and a required one says so.
+      expect(key).toHaveAccessibleDescription('From your account page. Used when importing a link.')
+      expect(screen.getByLabelText('Note *')).toHaveAttribute('aria-required', 'true')
     })
 
     it('sends what was typed, trimmed, and leaves out blanks', async () => {
@@ -347,7 +365,7 @@ describe('CharacterImportDialog', () => {
       .mockResolvedValueOnce({ importers: [FORGE], available: [] })
     mockInstallImporter.mockResolvedValue({ id: 'forge-steel' })
     renderDialog()
-    await userEvent.click(await screen.findByRole('button', { name: 'Install' }))
+    await userEvent.click(await screen.findByRole('button', { name: /^Install / }))
     expect(await screen.findByRole('option', { name: 'Forge Steel' })).toBeInTheDocument()
     expect(mockListImporters).toHaveBeenCalledTimes(2)
   })

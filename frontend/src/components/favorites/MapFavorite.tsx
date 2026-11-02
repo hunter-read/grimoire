@@ -59,7 +59,12 @@ export default function MapFavorite({ item, grid }: MapFavoriteProps) {
         >
           {item.filename}
         </div>
-        <FavoriteButton type="map" id={item.item_id} style={rowFavoriteButtonStyle} />
+        <FavoriteButton
+          type="map"
+          id={item.item_id}
+          name={item.filename}
+          style={rowFavoriteButtonStyle}
+        />
       </div>
     )
   }
@@ -99,7 +104,7 @@ export default function MapFavorite({ item, grid }: MapFavoriteProps) {
           {item.filename}
         </div>
       </div>
-      <FavoriteButton type="map" id={item.item_id} />
+      <FavoriteButton type="map" id={item.item_id} name={item.filename} />
     </div>
   )
 }
