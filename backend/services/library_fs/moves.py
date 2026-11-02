@@ -502,22 +502,36 @@ def _move_one(
     # behind would both orphan them and break the pairing the scanner reads.
     carried = _carry_sidecars(src, dest, is_dir=was_dir)
 
+    # A savepoint per item: the batch commits once at the end, so rolling back
+    # the whole session here would also undo the relinks of every item already
+    # moved, leaving their files moved on disk with rows at the old paths.
+    savepoint = db.begin_nested()
     try:
         for model, record, old_path in affected:
             new_path = dest / Path(old_path).relative_to(src) if was_dir else dest
             library_fs._relink(db, model, record, Path(new_path))
         if was_dir:
             _relink_folders(db, src, dest)
-    except Exception:
+        savepoint.commit()
+    except Exception as e:
         # The DB could not be brought in line with the disk. Put the file back so
         # the two agree, rather than leaving rows pointing at a path that moved.
-        db.rollback()
+        savepoint.rollback()
+        logger.warning("Relinking %s after a move failed: %s", src, e)
         _restore_sidecars(carried)
         try:
             os.replace(dest, src)
         except OSError:
             logger.error("Could not roll back move %s -> %s; DB and disk disagree", src, dest)
-        raise
+            raise LibraryFSError(
+                "Moved, but its records could not be updated and it could not be moved "
+                "back; a rescan will reconcile it",
+                code="io_error",
+            ) from e
+        # Reported like any other skipped item, so the rest of the batch goes on.
+        raise LibraryFSError(
+            "Its records could not be updated, so it was left where it was", code="io_error"
+        ) from e
 
     result.moved.append({"from": to_relative(src), "to": to_relative(dest), "records": len(affected)})
 

@@ -3255,7 +3255,9 @@ full directory walk per row; it is `null` when the folder cannot be read.
 `rename` (land it under a suffixed name). Neither ever overwrites an existing
 file. Per-item failures are collected rather than aborting the batch: the
 response is `{moved: [...], skipped: [{path, reason, code}], count}`. Moving a
-folder relinks every record beneath it.
+folder relinks every record beneath it. An item whose records cannot be updated
+is moved back and listed in `skipped` with code `io_error`; the items around it
+are unaffected.
 
 **`POST /api/files/rename`** - `{path, new_name}`. `new_name` is a bare name, not
 a path. This renames the file on disk, distinct from editing an item's display

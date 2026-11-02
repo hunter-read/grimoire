@@ -1103,7 +1103,7 @@ class TestFailureSafety:
             fs, "_relink", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom"))
         )
         db = SessionLocal()
-        with pytest.raises(RuntimeError):
+        with pytest.raises(fs.LibraryFSError) as exc:
             fs._move_one(
                 db,
                 fs.safe_join(f"books/System-{library_tree}/core/rb2.pdf"),
@@ -1112,7 +1112,132 @@ class TestFailureSafety:
                 fs.MoveResult(),
             )
         db.close()
+        assert exc.value.code == "io_error"
+        assert "left where it was" in exc.value.message
         assert os.path.exists(src), "file must be restored after a failed relink"
+
+    def test_a_restore_that_fails_says_so(self, library_tree, monkeypatch):
+        """When the file cannot go back either, the reason must not claim it did."""
+        system = make_game_system(name=f"System-{library_tree}")
+        src = _write(f"books/System-{library_tree}/core/stuck.pdf")
+        make_book(
+            system.id, filepath=src, filename="stuck.pdf",
+            relative_path=f"books/System-{library_tree}/core/stuck.pdf",
+        )
+        monkeypatch.setattr(
+            fs, "_relink", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom"))
+        )
+        real_replace = os.replace
+        calls = {"n": 0}
+
+        def replace_once(a, b):
+            calls["n"] += 1
+            if calls["n"] > 1:
+                raise OSError("read-only now")
+            return real_replace(a, b)
+
+        monkeypatch.setattr(os, "replace", replace_once)
+        db = SessionLocal()
+        try:
+            result = fs.move_paths(
+                db,
+                [f"books/System-{library_tree}/core/stuck.pdf"],
+                f"books/System-{library_tree}/adventures",
+            )
+        finally:
+            db.close()
+        assert result.count == 0
+        assert "could not be moved back" in result.skipped[0]["reason"]
+
+    def test_a_failed_relink_skips_only_that_item(self, library_tree, monkeypatch):
+        """Issue #784 - the items moved before it keep their relinks.
+
+        The batch commits once, at the end; rolling the whole session back for
+        the second item used to discard the first item's relink while its file
+        stayed moved, then abort the batch before the third.
+        """
+        system = make_game_system(name=f"System-{library_tree}")
+        core = f"books/System-{library_tree}/core"
+        dest = f"books/System-{library_tree}/adventures"
+        books = {}
+        for name in ("one.pdf", "two.pdf", "three.pdf"):
+            books[name] = make_book(
+                system.id, filepath=_write(f"{core}/{name}"), filename=name,
+                relative_path=f"{core}/{name}",
+            )
+        real_relink = fs._relink
+
+        def relink(db, model, record, new_path):
+            if record.filename == "two.pdf":
+                raise RuntimeError("boom")
+            return real_relink(db, model, record, new_path)
+
+        monkeypatch.setattr(fs, "_relink", relink)
+        db = SessionLocal()
+        try:
+            result = fs.move_paths(db, [f"{core}/{n}" for n in books], dest)
+        finally:
+            db.close()
+
+        assert [m["to"] for m in result.moved] == [f"{dest}/one.pdf", f"{dest}/three.pdf"]
+        assert len(result.skipped) == 1
+        skipped = result.skipped[0]
+        assert skipped["path"] == f"{core}/two.pdf"
+        assert skipped["code"] == "io_error"
+        assert skipped["reason"]
+
+        db = SessionLocal()
+        try:
+            for name, where in (("one.pdf", dest), ("two.pdf", core), ("three.pdf", dest)):
+                row = db.get(Book, books[name].id)
+                assert row.relative_path == f"{where}/{name}", name
+                assert os.path.isfile(os.path.join(LIB, where, name)), name
+                assert os.path.isfile(row.filepath), name
+        finally:
+            db.close()
+        assert not os.path.exists(os.path.join(LIB, dest, "two.pdf"))
+
+    def test_a_folder_whose_child_fails_to_relink_is_left_whole(
+        self, library_tree, monkeypatch
+    ):
+        """Every row under a folder moves with it, or none does."""
+        system = make_game_system(name=f"System-{library_tree}")
+        folder = f"books/System-{library_tree}/core/Starter"
+        dest = f"books/System-{library_tree}/adventures"
+        books = {
+            name: make_book(
+                system.id, filepath=_write(f"{folder}/{name}"), filename=name,
+                relative_path=f"{folder}/{name}",
+            )
+            for name in ("intro.pdf", "maps.pdf")
+        }
+        real_relink = fs._relink
+
+        def relink(db, model, record, new_path):
+            # The first child relinks; the second fails after it.
+            if record.filename == "maps.pdf":
+                raise RuntimeError("boom")
+            return real_relink(db, model, record, new_path)
+
+        monkeypatch.setattr(fs, "_relink", relink)
+        db = SessionLocal()
+        try:
+            result = fs.move_paths(db, [folder], dest)
+        finally:
+            db.close()
+
+        assert result.count == 0
+        assert [s["path"] for s in result.skipped] == [folder]
+        assert os.path.isdir(os.path.join(LIB, folder))
+        assert not os.path.exists(os.path.join(LIB, dest, "Starter"))
+        db = SessionLocal()
+        try:
+            for name, book in books.items():
+                row = db.get(Book, book.id)
+                assert row.relative_path == f"{folder}/{name}", name
+                assert os.path.isfile(row.filepath), name
+        finally:
+            db.close()
 
     def test_cross_filesystem_move_falls_back_to_copy(self, library_tree, monkeypatch):
         """EXDEV (separate mounts) must fall back to shutil.move, not fail."""
@@ -3474,10 +3599,12 @@ class TestSidecarCarryEdgeCases:
 
         db = SessionLocal()
         try:
-            with pytest.raises(RuntimeError):
-                fs.move_paths(db, [f"{folder}/guide.pdf"], f"books/System-{library_tree}/adventures")
+            result = fs.move_paths(
+                db, [f"{folder}/guide.pdf"], f"books/System-{library_tree}/adventures"
+            )
         finally:
             db.close()
+        assert result.count == 0 and len(result.skipped) == 1
 
         # Both the book and its sidecar are back where they started.
         assert os.path.isfile(os.path.join(LIB, f"{folder}/guide.pdf"))
