@@ -29,6 +29,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - On a map, token, audio or model page, Alt+arrow goes back without also moving to the next item, and a dialog opened from the **⋮** menu hands focus back to the menu when it closes
 - The looping battlemap video on a map page doesn't start playing by itself when your system is set to reduce motion
 - On a PDF map in page or spread view, the scroll wheel, Ctrl+scroll and a two-finger pinch work again, and the wheel follows your reader setting: turn the page, zoom, or do nothing. Before, they did nothing at all. Once zoomed in, you can drag the map around with the mouse
+- Exporting pages or cut-outs, exporting a map for Universal VTT or OTFBM, looking up a book's metadata, and browsing or installing content packs no longer slow down the rest of Grimoire while they run. A few long exports at once used to leave other pages waiting, or failing, until they finished
 - In a character sheet's content browser, clicking an entry you have opened closes its details again. Before, they stayed open until you picked another entry
 - The live log in **Settings** no longer reads every new line aloud while it scrolls; it says how many new entries arrived, at most every ten seconds
 - A failed account deletion now shows its error. It was drawn inside the confirmation that the failure closed, so it never appeared

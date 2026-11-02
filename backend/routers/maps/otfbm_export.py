@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from ...http_headers import content_disposition
 from ...auth import CurrentUser, get_current_user
-from ...config import get_db
+from ...config import get_db, release_connection
 from ...models import GenericMap, User
 from ...services import share_links as share_policy
 from ...services.media.map_export import otfbm_background, otfbm_filename, otfbm_plan
@@ -60,6 +60,8 @@ def export_map_otfbm_image(
     Nothing is written into the library.
     """
     m = _sharer_map(map_id, current_user, db)
+    # Resizing a large battlemap can take seconds (issue #782).
+    release_connection(db)
     plan, raw, ext = otfbm_background(m, cell)
     return Response(
         content=raw,

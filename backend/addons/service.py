@@ -9,6 +9,7 @@ from urllib.parse import quote
 
 from sqlalchemy.orm import Session
 
+from ..config import release_connection
 from . import fetch, interpreter, scripts
 from .manifest import AddonManifest
 from .registry import AddonError, get_runnable
@@ -61,6 +62,8 @@ def _scraper(db: Session, addon_id: str) -> AddonManifest:
 def search(db: Session, addon_id: str, query: str) -> list[dict]:
     """Ranked candidates for ``query`` from one add-on."""
     manifest = _scraper(db, addon_id)
+    # The source can take seconds to answer (issue #782).
+    release_connection(db)
     if not query.strip():
         return []
     if manifest.requires_script:
@@ -80,6 +83,8 @@ def fetch_fields(
     cached; the client passes back the query its candidate came from.
     """
     manifest = _scraper(db, addon_id)
+    # The source can take seconds to answer (issue #782).
+    release_connection(db)
 
     if manifest.requires_script:
         fields, url = scripts.fetch(identity, manifest)

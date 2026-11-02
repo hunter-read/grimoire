@@ -172,6 +172,8 @@ def search(
     """
     effective = query.strip() or fallback
     if source_id == FILE_SOURCE_ID:
+        # Reading the file goes through the render pool (issue #782).
+        release_connection(db)
         book, fields = _read_file(resource)
         # One candidate - the file itself - or none when it carries nothing.
         kind = os.path.splitext(book.filepath)[1].lstrip(".").upper()
@@ -225,6 +227,8 @@ def fetch(
     if source_id == FILE_SOURCE_ID:
         if paste.strip():
             raise HTTPException(400, "this source does not support pasting a link or ID")
+        # Reading the file goes through the render pool (issue #782).
+        release_connection(db)
         result = {"url": "", "attribution": "", "fields": _read_file(resource)[1]}
         identity = _FILE_IDENTITY
     elif source_id == codex.SOURCE_ID:
