@@ -9,7 +9,7 @@ python-multipart==0.0.32
 watchdog==6.0.0
 httpx==0.28.1
 pillow==13.0.0
-pydantic==2.14.1
+pydantic==2.14.2
 bcrypt==5.0.0
 PyJWT==2.15.1
 authlib==1.9.1
@@ -19,10 +19,10 @@ markdownify==1.2.3
 mutagen==1.48.1
 rarfile==4.5
 py7zr==1.1.4
-striprtf==0.0.34
+striprtf==0.0.35
 pytesseract==0.3.13
 pathspec==1.1.1
-tzdata==2026.5
+tzdata==2026.6
 PyYAML==6.0.3
 mcp==2.3.0
 cryptography==50.0.2
