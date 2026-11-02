@@ -17,6 +17,7 @@ import os
 import threading
 from typing import Optional
 
+from .clock import utcnow_naive
 from .config import logger
 from .file_locks import FileLock
 
@@ -113,5 +114,5 @@ def stop() -> None:
 
 def next_run_after(now: Optional[datetime.datetime] = None) -> datetime.datetime:
     """When the next purge is due. Exposed for tests and diagnostics."""
-    base = now or datetime.datetime.utcnow()
+    base = now or utcnow_naive()
     return base + datetime.timedelta(seconds=_PURGE_INTERVAL_SECONDS)

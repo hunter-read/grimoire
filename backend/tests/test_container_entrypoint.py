@@ -12,6 +12,15 @@ import pytest
 from backend import container_entrypoint as ep
 
 
+# probe() forks a child that switches user and exits. In the container
+# entrypoint nothing else is running yet; under pytest the process already has
+# threads, so Python 3.12 warns about forking it. The child only makes system
+# calls before os._exit, so the warning doesn't apply here.
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:This process .* is multi-threaded, use of fork:DeprecationWarning"
+)
+
+
 class _Exec(Exception):
     """Raised in place of exec so a test can see what would have run."""
 

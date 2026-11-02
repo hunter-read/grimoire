@@ -8,10 +8,11 @@ or from a live connection passed by the runtime migrator in
 SQLite has limited ALTER TABLE support, so ``render_as_batch=True`` is enabled
 in both online and offline modes to make table rebuilds work.
 """
+import warnings
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import engine_from_config, exc, pool
 
 from backend.models.base import Base
 
@@ -33,6 +34,16 @@ if config.config_file_name is not None and config.attributes.get("connection") i
         pass
 
 target_metadata = Base.metadata
+
+# SQLAlchemy can't reflect an expression index (users' lower(username) index,
+# migration 0050) and says so each time a migration lists a table's indexes to
+# see whether one of its own exists. The index is skipped, which is all those
+# checks need, so this one message is dropped rather than logged every start.
+warnings.filterwarnings(
+    "ignore",
+    message="Skipped unsupported reflection of expression-based index",
+    category=exc.SAWarning,
+)
 
 # FTS5 virtual tables and the shadow tables SQLite keeps for them are created by
 # migrations with raw SQL rather than declared as models, so autogenerate (and

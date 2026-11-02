@@ -29,6 +29,7 @@ from typing import Optional, Tuple
 
 from sqlalchemy.orm import Session
 
+from .clock import utcnow_naive
 from .config import REFRESH_TOKEN_EXPIRE_DAYS
 from .models import AuthSession
 from .services.user_activity import record_activity, record_login
@@ -51,11 +52,6 @@ REFRESH_COOKIE_PATH = "/api/auth"
 # Longest User-Agent we keep for the session list. The header is entirely
 # attacker-controlled, so it is truncated rather than stored unbounded.
 _MAX_USER_AGENT = 255
-
-
-def _utcnow() -> datetime.datetime:
-    """Naive UTC, matching the DateTime columns elsewhere in the schema."""
-    return datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
 
 
 def hash_refresh_token(token: str) -> str:
@@ -92,7 +88,7 @@ def create_session(
         origin=origin,
         user_agent=(user_agent or "")[:_MAX_USER_AGENT] or None,
         ip_address=(ip_address or "")[:45] or None,
-        expires_at=_utcnow() + datetime.timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
+        expires_at=utcnow_naive() + datetime.timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
     )
     db.add(session)
     record_login(db, str(user_id))
@@ -126,7 +122,7 @@ def get_active_session(db: Session, token: str) -> Optional[AuthSession]:
 
     if session.revoked_at is not None:
         return None
-    if session.expires_at is not None and session.expires_at <= _utcnow():
+    if session.expires_at is not None and session.expires_at <= utcnow_naive():
         return None
     return session
 
@@ -141,8 +137,8 @@ def rotate_session(db: Session, session: AuthSession) -> str:
     token = generate_refresh_token()
     session.previous_token_hash = session.refresh_token_hash
     session.refresh_token_hash = hash_refresh_token(token)
-    session.last_used_at = _utcnow()
-    session.expires_at = _utcnow() + datetime.timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    session.last_used_at = utcnow_naive()
+    session.expires_at = utcnow_naive() + datetime.timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     # A refresh is the one moment a signed-in browser is seen by the server.
     record_activity(db, session.user_id)
     db.commit()
@@ -152,7 +148,7 @@ def rotate_session(db: Session, session: AuthSession) -> str:
 def revoke_session(db: Session, session: AuthSession) -> None:
     """End one session. Idempotent — re-revoking keeps the original timestamp."""
     if session.revoked_at is None:
-        session.revoked_at = _utcnow()
+        session.revoked_at = utcnow_naive()
     # Drop the replay-detection hash: the session is dead, so there is nothing
     # left to distinguish a replay from any other unknown token.
     session.previous_token_hash = None
@@ -187,7 +183,7 @@ def revoke_user_sessions(
     if except_session_id:
         query = query.filter(AuthSession.id != except_session_id)
 
-    now = _utcnow()
+    now = utcnow_naive()
     sessions = query.all()
     for session in sessions:
         session.revoked_at = now
@@ -219,7 +215,7 @@ def list_user_sessions(db: Session, user_id: str) -> list:
         .filter(
             AuthSession.user_id == str(user_id),
             AuthSession.revoked_at.is_(None),
-            AuthSession.expires_at > _utcnow(),
+            AuthSession.expires_at > utcnow_naive(),
         )
         .order_by(AuthSession.last_used_at.desc())
         .all()
@@ -233,7 +229,7 @@ def purge_expired_sessions(db: Session, *, retain_days: int = 7) -> int:
     right after a logout is still detectable rather than looking like an
     unrecognised token.
     """
-    cutoff = _utcnow() - datetime.timedelta(days=retain_days)
+    cutoff = utcnow_naive() - datetime.timedelta(days=retain_days)
     deleted = (
         db.query(AuthSession)
         .filter(

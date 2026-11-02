@@ -36,6 +36,7 @@ from ._paging import (
     with_page_size,
 )
 from ... import token_vault
+from ...clock import utcnow_naive
 from ...config import get_db
 from ...models import Book, GameSystem, User
 from ...services import access_control, tag_service
@@ -86,7 +87,7 @@ def _book_to_entry(
         f"<author><name>{escape(a)}</name></author>" for a in authors
     )
     description = escape(book.description or "")
-    updated = (book.updated_at or book.created_at or datetime.datetime.utcnow()).strftime(
+    updated = (book.updated_at or book.created_at or utcnow_naive()).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
     )
     entry_url = with_page_size(f"{root}/entry/{book.id}", page_size)

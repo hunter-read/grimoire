@@ -885,14 +885,16 @@ class TestDownloadFormats:
 
 class TestDownloadExplicitFilter:
     @pytest.fixture(scope="class")
-    def explicit_system(self):
+    @classmethod
+    def explicit_system(cls):
         return make_game_system(
             name=f"ExplicitSys-{uuid.uuid4().hex[:6]}",
             is_explicit=True,
         )
 
     @pytest.fixture(scope="class")
-    def explicit_book(self, explicit_system):
+    @classmethod
+    def explicit_book(cls, explicit_system):
         uid = uuid.uuid4().hex[:6]
         path = _real_file(f"explicit_{uid}.pdf", b"%PDF-1.4 explicit")
         return make_book(

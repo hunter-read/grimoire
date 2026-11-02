@@ -19,6 +19,7 @@ yields nothing rather than a guess.
 import math
 import re
 from dataclasses import dataclass, field
+from typing import cast
 
 import pymupdf
 from PIL import Image, ImageChops, ImageDraw, ImageFilter  # type: ignore[import-untyped]
@@ -82,7 +83,8 @@ def _background(img: Image.Image) -> tuple[int, int, int] | None:
     ]
     samples: list[tuple[int, int, int]] = []
     for strip in strips:
-        samples.extend(strip.getdata())
+        # RGB: one (r, g, b) tuple per pixel.
+        samples.extend(cast(tuple[tuple[int, int, int], ...], strip.get_flattened_data()))
     counts: dict[tuple[int, int, int], int] = {}
     for r, g, b in samples:
         key = (r // 8, g // 8, b // 8)
@@ -345,8 +347,9 @@ def _square_disc(
     if max(bw, bh) <= diameter + max(2.0, diameter * 0.01):
         return bb
     # Centroid from the row and column sums, each a 1-pixel-wide reduction.
-    cols = list(solid.resize((bw, 1), Image.Resampling.BOX).getdata())
-    rows = list(solid.resize((1, bh), Image.Resampling.BOX).getdata())
+    # Single-band ("L"): one number per pixel.
+    cols = cast(tuple[float, ...], solid.resize((bw, 1), Image.Resampling.BOX).get_flattened_data())
+    rows = cast(tuple[float, ...], solid.resize((1, bh), Image.Resampling.BOX).get_flattened_data())
     cx = sum((i + 0.5) * v for i, v in enumerate(cols)) / max(1, sum(cols))
     cy = sum((i + 0.5) * v for i, v in enumerate(rows)) / max(1, sum(rows))
     half = diameter / 2

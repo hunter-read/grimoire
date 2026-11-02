@@ -56,7 +56,8 @@ class TestListMapsOrdering:
     already looking at."""
 
     @pytest.fixture(scope="class")
-    def scattered(self):
+    @classmethod
+    def scattered(cls):
         # Filenames deliberately sort in the opposite order to their folders, so
         # ordering by filename and by path give visibly different pages.
         return [
@@ -123,7 +124,8 @@ class TestListMapsOrdering:
 
 class TestListMapsByFolder:
     @pytest.fixture(scope="class")
-    def folder_maps(self):
+    @classmethod
+    def folder_maps(cls):
         # relative_path = <GameSystem>/<Category>/.../<file>; folder is parts[1:-1]
         a1 = make_map(filename="a1.png", relative_path="DnD/Dungeons/a1.png")
         a2 = make_map(filename="a2.png", relative_path="DnD/Dungeons/a2.png")
@@ -167,7 +169,8 @@ class TestListMapsByFolderEdgeCases:
     """
 
     @pytest.fixture(scope="class")
-    def tricky(self):
+    @classmethod
+    def tricky(cls):
         return {
             # Exact match.
             "town": make_map(filename="t.png", relative_path="DnD/Town/t.png"),
@@ -304,7 +307,8 @@ class TestUpdateMap:
 
 class TestMapFolders:
     @pytest.fixture(scope="class")
-    def folder(self):
+    @classmethod
+    def folder(cls):
         db = SessionLocal()
         try:
             f = MapFolder(path="maps/dungeons", tags=["dungeon"])

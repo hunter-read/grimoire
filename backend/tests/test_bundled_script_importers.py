@@ -95,7 +95,8 @@ def test_a_document_that_is_not_theirs_is_an_error_not_a_crash(addon_id):
 
 class TestDndBeyond:
     @pytest.fixture(scope="class")
-    def result(self, admin_id):
+    @classmethod
+    def result(cls, admin_id):
         answer = _run("dndbeyond", {"document": _fixture("dndbeyond_character.json")})
         data, unmatched = _build("dndbeyond", answer, admin_id)
         return answer, data, unmatched
@@ -191,7 +192,8 @@ class TestDndBeyond:
 
 class TestDiceCloud:
     @pytest.fixture(scope="class")
-    def result(self, admin_id):
+    @classmethod
+    def result(cls, admin_id):
         answer = _run("dicecloud-v1", {"document": _fixture("dicecloud_v1_character.json")})
         data, unmatched = _build("dicecloud-v1", answer, admin_id)
         return answer, data, unmatched

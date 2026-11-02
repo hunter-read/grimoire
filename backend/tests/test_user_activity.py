@@ -6,6 +6,7 @@ import uuid
 from fastapi import Depends, FastAPI, WebSocket
 from fastapi.testclient import TestClient
 
+from backend.clock import utcnow_naive
 from backend import config
 from backend.auth import CurrentUser, create_token, get_current_user
 from backend.config import SessionLocal
@@ -79,7 +80,7 @@ class TestLastActivity:
     def test_refresh_within_the_throttle_does_not_write(self, client, admin_headers):
         username, password, user_id = _new_user(client, admin_headers)
         client.post("/api/auth/login", json={"username": username, "password": password})
-        recent = user_activity._utcnow() - datetime.timedelta(minutes=1)
+        recent = utcnow_naive() - datetime.timedelta(minutes=1)
         _set_times(user_id, last_active_at=recent)
 
         assert client.post("/api/auth/refresh").status_code == 200

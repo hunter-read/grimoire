@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 import pytest
 
+from backend.clock import utcnow_naive
 from backend import session_purger
 from backend.config import SessionLocal
 from backend.models import AuthSession, User
@@ -57,7 +58,7 @@ def purge_user(db):
 class TestPurgeOnce:
     def test_removes_long_expired_sessions(self, db, purge_user):
         session, _ = create_session(db, purge_user.id)
-        session.expires_at = datetime.datetime.utcnow() - datetime.timedelta(days=60)
+        session.expires_at = utcnow_naive() - datetime.timedelta(days=60)
         db.commit()
         session_id = session.id
 
@@ -89,7 +90,7 @@ class TestPurgeOnce:
     def test_removes_sessions_revoked_beyond_the_retention_window(self, db, purge_user):
         session, _ = create_session(db, purge_user.id)
         revoke_session(db, session)
-        session.revoked_at = datetime.datetime.utcnow() - datetime.timedelta(
+        session.revoked_at = utcnow_naive() - datetime.timedelta(
             days=session_purger.RETAIN_DAYS + 1
         )
         db.commit()
@@ -101,6 +102,12 @@ class TestPurgeOnce:
         assert db.query(AuthSession).filter_by(id=session_id).first() is None
 
 
+# These fork a child to stand in for a second worker. pytest's process already
+# has threads, so Python 3.12 warns about forking it; the child only takes a
+# lock and exits, so the warning doesn't apply.
+@pytest.mark.filterwarnings(
+    "ignore:This process .* is multi-threaded, use of fork:DeprecationWarning"
+)
 class TestWorkerLock:
     def test_only_one_worker_claims_the_lock(self, lock_dir):
         assert session_purger._acquire_lock(lock_dir) is True
@@ -200,4 +207,4 @@ class TestNextRunAfter:
         assert session_purger.next_run_after(now) == now + datetime.timedelta(days=1)
 
     def test_defaults_to_now(self):
-        assert session_purger.next_run_after() > datetime.datetime.utcnow()
+        assert session_purger.next_run_after() > utcnow_naive()
