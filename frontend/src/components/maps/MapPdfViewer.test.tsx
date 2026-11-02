@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import MapPdfViewer from './MapPdfViewer'
 
@@ -13,16 +13,12 @@ vi.mock('../../api', () => ({
   },
 }))
 
-vi.mock('../../hooks/useReaderGestures', () => ({
-  default: () => ({
-    handleTouchStart: vi.fn(),
-    handleTouchMove: vi.fn(),
-    handleTouchEnd: vi.fn(),
-  }),
-}))
-
+// The real gesture and zoom hooks run, so wheel and pinch go through the same
+// path they do in the app; only the wheel preference is set per test.
+const prefs = vi.hoisted(() => ({ wheelAction: 'page' }))
 vi.mock('../../hooks/useUserPrefs', () => ({
   getUserPrefs: () => ({}),
+  getWheelAction: () => prefs.wheelAction,
 }))
 
 vi.mock('../../hooks/useBookPrefs', () => ({
@@ -35,10 +31,16 @@ vi.mock('../reader/SinglePage', () => ({
   default: ({
     currentPage,
     pageUrl,
+    zoom,
   }: {
     currentPage: number
     pageUrl: (p: number, w: number) => string
-  }) => <div data-testid="single-page">{pageUrl(currentPage, 1600)}</div>,
+    zoom: number
+  }) => (
+    <div data-testid="single-page" data-zoom={zoom}>
+      {pageUrl(currentPage, 1600)}
+    </div>
+  ),
 }))
 vi.mock('../reader/SpreadPage', () => ({
   default: ({
@@ -61,7 +63,21 @@ vi.mock('../reader/SpreadPage', () => ({
   ),
 }))
 
-beforeEach(() => vi.clearAllMocks())
+beforeEach(() => {
+  vi.clearAllMocks()
+  prefs.wheelAction = 'page'
+})
+
+// The element the gesture hook listens on: the page's container.
+const pageArea = () => screen.getByTestId('single-page').parentElement!
+
+const wheel = (init: WheelEventInit) =>
+  fireEvent(pageArea(), new WheelEvent('wheel', { bubbles: true, cancelable: true, ...init }))
+
+const touches = (...points: [number, number][]) =>
+  points.map(([x, y]) => ({ clientX: x, clientY: y }))
+
+const zoomLevel = () => Number(screen.getByTestId('single-page').dataset.zoom)
 
 const setup = (over = {}) =>
   render(
@@ -196,5 +212,54 @@ describe('MapPdfViewer', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Close export' }))
     expect(screen.queryByTestId('cutout-stage')).not.toBeInTheDocument()
+  })
+
+  describe('wheel and pinch', () => {
+    it('turns the page with the wheel', () => {
+      setup()
+      wheel({ deltaY: 100 })
+      expect(screen.getByTestId('single-page')).toHaveTextContent('/maps/m1/page/2?width=1600')
+      expect(zoomLevel()).toBe(1)
+    })
+
+    it('leaves the page alone when the wheel is set to do nothing', () => {
+      prefs.wheelAction = 'none'
+      setup()
+      wheel({ deltaY: 100 })
+      expect(screen.getByTestId('single-page')).toHaveTextContent('/maps/m1/page/1?width=1600')
+      expect(zoomLevel()).toBe(1)
+    })
+
+    it('zooms with the wheel when the wheel is set to zoom', () => {
+      prefs.wheelAction = 'zoom'
+      setup()
+      wheel({ deltaY: -100 })
+      expect(zoomLevel()).toBeGreaterThan(1)
+      expect(screen.getByTestId('single-page')).toHaveTextContent('/maps/m1/page/1?width=1600')
+    })
+
+    it('zooms with ctrl+wheel whatever the preference', () => {
+      setup()
+      wheel({ deltaY: -100, ctrlKey: true })
+      expect(zoomLevel()).toBeGreaterThan(1)
+      expect(screen.getByTestId('single-page')).toHaveTextContent('/maps/m1/page/1?width=1600')
+    })
+
+    it('zooms with a two-finger pinch', () => {
+      setup()
+      fireEvent.touchStart(pageArea(), { touches: touches([100, 100], [200, 100]) })
+      fireEvent.touchMove(pageArea(), { touches: touches([50, 100], [250, 100]) })
+      fireEvent.touchEnd(pageArea(), { touches: [], changedTouches: [] })
+      expect(zoomLevel()).toBe(2)
+    })
+
+    it('starts the next page unzoomed', async () => {
+      setup()
+      wheel({ deltaY: -100, ctrlKey: true })
+      expect(zoomLevel()).toBeGreaterThan(1)
+      await userEvent.click(screen.getByRole('button', { name: /next page/i }))
+      expect(screen.getByTestId('single-page')).toHaveTextContent('/maps/m1/page/2?width=1600')
+      expect(zoomLevel()).toBe(1)
+    })
   })
 })
