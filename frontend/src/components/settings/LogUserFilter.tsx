@@ -45,7 +45,7 @@ export default function LogUserFilter({ value, users, onChange }: Props) {
           borderRadius: 6,
           cursor: 'pointer',
           background: active ? 'var(--bg-card-hover)' : 'var(--bg-card)',
-          border: `1px solid ${active ? 'var(--gold-dim)' : 'var(--border)'}`,
+          border: `1px solid ${active ? 'var(--gold-dim)' : 'var(--border-control)'}`,
           color: active ? 'var(--gold)' : 'var(--text-dim)',
           transition: 'background 0.15s, color 0.15s, border-color 0.15s',
         }}

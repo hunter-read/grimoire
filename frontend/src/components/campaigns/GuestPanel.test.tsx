@@ -169,4 +169,38 @@ describe('GuestPanel', () => {
     fireEvent.click(screen.getByText(/close/i))
     await waitFor(() => expect(screen.queryByDisplayValue('join here')).toBeNull())
   })
+
+  it('names each guest action after its guest', async () => {
+    campaignsMock.listGuests.mockResolvedValue([
+      { id: 'm1', user_id: 'g1', nickname: 'Alice', guest_code: 'ABC1234567' },
+    ])
+    render(<GuestPanel campaignId="c1" onChanged={vi.fn()} />)
+    await screen.findByText('Alice')
+    expect(screen.getByRole('button', { name: 'Share the invite for Alice' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Make a new code for Alice' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove guest Alice' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: /nickname/i })).toBeInTheDocument()
+  })
+
+  it('opens the share message as a dialog that takes focus and closes on Escape', async () => {
+    campaignsMock.listGuests.mockResolvedValue([
+      { id: 'm1', user_id: 'g1', nickname: 'Alice', guest_code: 'ABC1234567' },
+    ])
+    campaignsMock.guestShareTemplate.mockResolvedValue({
+      message: 'join here',
+      discord_message: 'discord join',
+      mailto_url: 'mailto:test@example.com',
+    })
+    render(<GuestPanel campaignId="c1" onChanged={vi.fn()} />)
+    await screen.findByText('Alice')
+    const share = screen.getByRole('button', { name: 'Share the invite for Alice' })
+    share.focus()
+    fireEvent.click(share)
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toHaveAttribute('aria-modal', 'true')
+    expect(dialog.contains(document.activeElement)).toBe(true)
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(share).toHaveFocus()
+  })
 })

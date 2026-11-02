@@ -3,7 +3,7 @@ import { render, screen, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { MemoryRouter } from 'react-router-dom'
-import LogsTab from './LogsTab'
+import LogsTab, { ANNOUNCE_MS } from './LogsTab'
 import api from '../../api'
 
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }))
@@ -193,12 +193,11 @@ describe('LogsTab', () => {
     render(<LogsTab />, { wrapper: MemoryRouter })
     await screen.findByText('logs.noEntriesLevel')
 
-    const liveBtn = screen.getByLabelText('logs.pauseAriaLabel')
+    // One name, with the state carried by aria-pressed.
+    const liveBtn = screen.getByRole('button', { name: 'a11y.settingsAdmin.liveUpdates' })
     expect(liveBtn).toHaveAttribute('aria-pressed', 'true')
     await userEvent.click(liveBtn)
-
-    const pausedBtn = screen.getByLabelText('logs.resumeAriaLabel')
-    expect(pausedBtn).toHaveAttribute('aria-pressed', 'false')
+    expect(liveBtn).toHaveAttribute('aria-pressed', 'false')
     expect(screen.getByText('logs.pausedButton')).toBeInTheDocument()
   })
 
@@ -248,7 +247,7 @@ describe('LogsTab', () => {
     vi.mocked(api.get).mockResolvedValue(page([entry('only')]))
     render(<LogsTab />, { wrapper: MemoryRouter })
     await screen.findByText('only')
-    await userEvent.click(screen.getByLabelText('logs.pauseAriaLabel'))
+    await userEvent.click(screen.getByRole('button', { name: 'a11y.settingsAdmin.liveUpdates' }))
 
     const callsBefore = vi.mocked(api.get).mock.calls.length
     await act(async () => {
@@ -300,7 +299,11 @@ describe('LogsTab', () => {
 
     vi.mocked(api.get).mockRejectedValueOnce(new Error('older boom'))
     await scrollToTopUntilRequested('/logs?level=info&limit=4&offset=1')
-    await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument())
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('status', { name: 'logs.loadingOlderAriaLabel' })
+      ).not.toBeInTheDocument()
+    )
     expect(screen.getByText('recent')).toBeInTheDocument()
   })
 
@@ -325,5 +328,44 @@ describe('LogsTab', () => {
       expect(screen.queryByLabelText('logs.jumpToLatest')).not.toBeInTheDocument()
     )
     expect(log.scrollTop).toBe(1000)
+  })
+
+  describe('screen readers', () => {
+    it('keeps the tail from reading every line, and gives the log column headers', async () => {
+      vi.mocked(api.get).mockResolvedValue(page([entry('one')]))
+      render(<LogsTab />, { wrapper: MemoryRouter })
+      await screen.findByText('one')
+      expect(screen.getByRole('log')).toHaveAttribute('aria-live', 'off')
+      expect(screen.getAllByRole('columnheader').map((h) => h.textContent)).toEqual([
+        'a11y.settingsAdmin.logColTime',
+        'a11y.settingsAdmin.logColLevel',
+        'a11y.settingsAdmin.logColMessage',
+      ])
+    })
+
+    it('counts new live lines and says so at most every ten seconds', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+      vi.mocked(api.get).mockResolvedValueOnce(page([entry('first')]))
+      render(<LogsTab />, { wrapper: MemoryRouter })
+      await screen.findByText('first')
+      const announcer = () =>
+        screen.getAllByRole('status').find((el) => el.className === 'sr-only')!
+
+      vi.mocked(api.get).mockResolvedValueOnce(
+        page([entry('second'), entry('third')], { total: 3, max_seq: 3 })
+      )
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1100)
+      })
+      await screen.findByText('third')
+      // Not yet: the lines are gathered, not read one by one.
+      expect(announcer()).toHaveTextContent('')
+
+      vi.mocked(api.get).mockResolvedValue(page([], { total: 3, max_seq: 3 }))
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(ANNOUNCE_MS)
+      })
+      expect(announcer()).toHaveTextContent('a11y.settingsAdmin.newLogEntries')
+    })
   })
 })

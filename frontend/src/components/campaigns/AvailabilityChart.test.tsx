@@ -28,9 +28,9 @@ function pickStatusForCell(cellIndex: number, label: string) {
     ['Available', 'Set availability'].includes(el?.getAttribute('title') ?? '')
   )
   fireEvent.click(buttons[cellIndex])
-  // The status options render as <button>; the legend renders the same labels
-  // as <span>, so scope to the picker menu by role.
-  fireEvent.click(screen.getByRole('button', { name: label }))
+  // The status options are the cell menu's radio items; the legend renders the
+  // same labels as <span>, so scope to the picker menu by role.
+  fireEvent.click(screen.getByRole('menuitemradio', { name: label }))
 }
 
 describe('AvailabilityChart', () => {
@@ -146,7 +146,7 @@ describe('AvailabilityChart', () => {
       />
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Un-cancel session' }))
+    fireEvent.click(screen.getByRole('button', { name: /: Un-cancel session$/ }))
     expect(onCancelDate).toHaveBeenCalledWith('2026-07-01')
   })
 
@@ -161,5 +161,44 @@ describe('AvailabilityChart', () => {
       />
     )
     expect(container.firstChild).toBeNull()
+  })
+})
+
+describe('AvailabilityChart for screen readers', () => {
+  const renderChart = (props = {}) =>
+    render(
+      <AvailabilityChart
+        availability={availability}
+        userId="player1"
+        isOwner={false}
+        onSetAvailability={vi.fn()}
+        onCancelDate={vi.fn()}
+        {...props}
+      />
+    )
+
+  it('is a captioned table with a header per player and per date', () => {
+    renderChart()
+    const table = screen.getByRole('table', { name: /availability/i })
+    expect(within(table).getByRole('rowheader', { name: /Frodo/ })).toBeInTheDocument()
+    expect(within(table).getAllByRole('columnheader')).toHaveLength(2)
+  })
+
+  it('names each editable cell for its player and session', () => {
+    renderChart()
+    // Frodo has not answered yet; the cell says whose it is and that.
+    const cell = screen.getByRole('button', { name: /^Frodo, .*: No answer yet$/ })
+    expect(cell).toHaveAttribute('aria-haspopup', 'menu')
+    fireEvent.click(cell)
+    expect(cell).toHaveAttribute('aria-expanded', 'true')
+    const menu = screen.getByRole('menu', { name: /^Frodo, / })
+    expect(within(menu).getAllByRole('menuitemradio')).toHaveLength(3)
+  })
+
+  it("says a read-only cell's status in words", () => {
+    renderChart()
+    // Gandalf's cell is not Frodo's to edit, so it is just the status icon.
+    const gandalf = screen.getByRole('rowheader', { name: /Gandalf/ }).closest('tr')!
+    expect(within(gandalf).getByText('Available')).toHaveClass('sr-only')
   })
 })

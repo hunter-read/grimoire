@@ -83,7 +83,7 @@ describe('SystemSearchResults', () => {
       searchResults: { query: 'strahd', results: [] },
       matchedBooks: [book],
     })
-    fireEvent.click(screen.getByRole('button', { name: 'bookActions.details' }))
+    fireEvent.click(screen.getByRole('button', { name: 'a11y.bookDetails' }))
     const dialog = screen.getByRole('dialog')
     expect(dialog).toHaveTextContent('Gothic horror.')
     fireEvent.click(screen.getByRole('button', { name: 'common.close' }))

@@ -179,3 +179,31 @@ describe('FavoritesView', () => {
     )
   })
 })
+
+describe('FavoritesView - screen readers', () => {
+  it('names the page, heads each section and lists its favorites', () => {
+    renderWith([aMap])
+    expect(screen.getByRole('heading', { level: 1, name: /favorites/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: /maps/i })).toBeInTheDocument()
+    expect(screen.getAllByRole('listitem')).toHaveLength(1)
+    expect(document.title).toBe('Favorites - Grimoire')
+  })
+
+  it('names each heart with its item', () => {
+    renderWith([aMap])
+    expect(
+      screen.getByRole('button', { name: 'Remove Dungeon.png from favorites' })
+    ).toBeInTheDocument()
+  })
+
+  it('heads and lists favorite tags', () => {
+    renderWith([{ item_type: 'tag', item_id: 't1', internal: 'forest', display: 'Forest' }])
+    expect(screen.getByRole('heading', { level: 2, name: /tags/i })).toBeInTheDocument()
+    expect(screen.getByRole('listitem')).toHaveTextContent('Forest')
+  })
+
+  it('still has a page heading when there are no favorites', () => {
+    renderWith([])
+    expect(screen.getByRole('heading', { level: 1, name: /favorites/i })).toBeInTheDocument()
+  })
+})

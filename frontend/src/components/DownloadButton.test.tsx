@@ -23,6 +23,25 @@ vi.mock('react-i18next', () => ({
 }))
 
 describe('DownloadButton', () => {
+  it('names the file it downloads when given the item name', () => {
+    render(<DownloadButton type="maps" id="m1" name="cave.png" item={{ id: 'm1' }} />)
+    expect(screen.getByRole('link', { name: 'a11y.downloadNamed' })).toHaveClass('reveal-on-focus')
+  })
+
+  it('names the version picker and moves focus onto the first version', async () => {
+    mockGet.mockResolvedValue({
+      id: 'm1',
+      variant_main_id: 'm1',
+      variants: [{ id: 'm2', kind: 'gridless', label: '' }],
+    })
+    render(
+      <DownloadButton type="maps" id="m1" name="cave.png" item={{ id: 'm1', variant_count: 1 }} />
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'a11y.gallery.downloadVersionOf' }))
+    const main = await screen.findByRole('menuitem', { name: 'Main version' })
+    await waitFor(() => expect(main).toHaveFocus())
+  })
+
   // Each test sets the behaviour it needs; this only drops call records.
   // Note it is deliberately not mockReset(): clearing the implementation while a
   // previous test's request is still in flight leaves that promise with no

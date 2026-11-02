@@ -57,10 +57,29 @@ export default function WikiTemplateList({
     <>
       {[...groups.entries()].map(([category, items]) => (
         <div key={category} style={{ marginBottom: 16 }}>
-          <div style={groupHeading}>{category}</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <h3
+            style={{
+              ...groupHeading,
+              margin: 0,
+              marginBottom: groupHeading.marginBottom,
+              fontFamily: 'inherit',
+            }}
+          >
+            {category}
+          </h3>
+          <ul
+            role="list"
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 6,
+              listStyle: 'none',
+              margin: 0,
+              padding: 0,
+            }}
+          >
             {items.map((tpl) => (
-              <div key={tpl.id} style={row}>
+              <li key={tpl.id} style={row}>
                 <LuFilePlus size={15} style={{ flexShrink: 0, color: 'var(--gold)' }} />
                 <button
                   onClick={() => onUse(tpl.id)}
@@ -96,9 +115,9 @@ export default function WikiTemplateList({
                 >
                   <LuTrash2 size={13} />
                 </button>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       ))}
     </>

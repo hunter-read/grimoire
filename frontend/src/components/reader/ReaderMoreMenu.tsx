@@ -28,6 +28,7 @@ import type { LibraryChange } from '../../hooks/useFileActions'
 import { useUISettings } from '../../context/UISettingsContext'
 import useFileActions from '../../hooks/useFileActions'
 import useAnchoredMenu from '../../hooks/useAnchoredMenu'
+import useMenuKeyboard from '../../hooks/useMenuKeyboard'
 import AddToCampaignModal from '../AddToCampaignModal'
 import ShareLinkDialog from '../share/ShareLinkDialog'
 import useCanShare from '../share/useCanShare'
@@ -121,6 +122,8 @@ export default function ReaderMoreMenu({
     panelRef: menuRef,
     style: menuStyle,
   } = useAnchoredMenu(open, { width: MENU_WIDTH })
+  // Portaled to <body>, so without this the items are out of Tab's reach.
+  useMenuKeyboard(open, menuRef, triggerRef, () => setOpen(false))
 
   useEffect(() => {
     if (!open) return

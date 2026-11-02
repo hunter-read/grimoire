@@ -15,7 +15,7 @@ const setup = (props = {}) =>
 describe('MapImagePane', () => {
   it('requests the downscaled preview, not the original file', () => {
     setup()
-    const img = screen.getByAltText('cave.png')
+    const img = screen.getByAltText('cave')
     // The whole point of the perf fix: never hit /file for viewing.
     expect(img.getAttribute('src')).toContain('/maps/m1/page/1')
     expect(img.getAttribute('src')).not.toContain('/file')
@@ -24,7 +24,7 @@ describe('MapImagePane', () => {
   it('shows a spinner and hides the image until it loads', () => {
     setup()
     expect(screen.getByRole('status')).toBeTruthy()
-    const img = screen.getByAltText('cave.png')
+    const img = screen.getByAltText('cave')
     expect(img.style.opacity).toBe('0')
 
     fireEvent.load(img)
@@ -38,7 +38,7 @@ describe('MapImagePane', () => {
     const thumb = document.querySelector('img[aria-hidden="true"]')
     expect(thumb!.getAttribute('src')).toContain('/maps/m1/thumbnail')
 
-    fireEvent.load(screen.getByAltText('cave.png'))
+    fireEvent.load(screen.getByAltText('cave'))
 
     expect(document.querySelector('img[aria-hidden="true"]')).toBeNull()
   })
@@ -50,20 +50,20 @@ describe('MapImagePane', () => {
 
   it('reports failure instead of spinning forever', () => {
     setup()
-    fireEvent.error(screen.getByAltText('cave.png'))
+    fireEvent.error(screen.getByAltText('cave'))
     expect(screen.getByText('maps.detail.loadFailed')).toBeTruthy()
     expect(screen.queryByRole('status')).toBeNull()
   })
 
   it('returns to the loading state when navigating to another map', () => {
     const { rerender } = setup()
-    fireEvent.load(screen.getByAltText('cave.png'))
+    fireEvent.load(screen.getByAltText('cave'))
     expect(screen.queryByRole('status')).toBeNull()
 
     rerender(<MapImagePane mapId="m2" filename="keep.png" hasThumbnail imageStyle={{}} />)
 
     // Spinner is back for the new map rather than showing the old one silently.
     expect(screen.getByRole('status')).toBeTruthy()
-    expect(screen.getByAltText('keep.png').style.opacity).toBe('0')
+    expect(screen.getByAltText('keep').style.opacity).toBe('0')
   })
 })

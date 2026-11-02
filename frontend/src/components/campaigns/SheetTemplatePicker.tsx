@@ -1,5 +1,6 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useRef, useId, useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
+import useDialogFocus from '../../hooks/useDialogFocus'
 import { LuX, LuLibrary, LuFolder } from 'react-icons/lu'
 import { campaigns, type Schema } from '../../api'
 import Spinner from '../Spinner'
@@ -23,6 +24,11 @@ export default function SheetTemplatePicker({
   onDuplicated,
 }: SheetTemplatePickerProps) {
   const { t } = useTranslation()
+  // Focus moves into the dialog, Tab stays inside, Esc closes, and focus goes
+  // back to whatever opened it.
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const titleId = useId()
+  useDialogFocus(dialogRef, { onClose: onClose })
   const [sources, setSources] = useState<Schema<'SheetSourcesOut'> | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -103,13 +109,13 @@ export default function SheetTemplatePicker({
 
   return (
     <div style={overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div style={panel}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} style={panel}>
         <button onClick={onClose} aria-label={t('common.close')} style={closeBtn}>
           <LuX size={18} />
         </button>
-        <h3 style={{ fontSize: 16, fontWeight: 600, margin: '0 0 16px' }}>
+        <h2 id={titleId} style={{ fontSize: 16, fontWeight: 600, margin: '0 0 16px' }}>
           {t('members.chooseTemplate')}
-        </h3>
+        </h2>
 
         {!sources ? (
           <Spinner size={18} />
@@ -135,7 +141,9 @@ export default function SheetTemplatePicker({
         )}
 
         {error && (
-          <p style={{ fontSize: 13, color: 'var(--danger)', margin: '14px 0 0' }}>{error}</p>
+          <p role="alert" style={{ fontSize: 13, color: 'var(--danger)', margin: '14px 0 0' }}>
+            {error}
+          </p>
         )}
       </div>
     </div>

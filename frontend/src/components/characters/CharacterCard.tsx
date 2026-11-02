@@ -16,6 +16,8 @@ interface Props {
   showVersion?: boolean
   /** Leave the campaign out, for a card under a heading that already names it. */
   hideCampaign?: boolean
+  /** The name's heading level: 3 in a flat list, 4 under a group's h3. */
+  headingLevel?: 3 | 4
 }
 
 /**
@@ -32,6 +34,7 @@ export default function CharacterCard({
   onDelete,
   showVersion = false,
   hideCampaign = false,
+  headingLevel = 3,
 }: Props) {
   const { t } = useTranslation()
   const [hovered, setHovered] = useState(false)
@@ -47,6 +50,20 @@ export default function CharacterCard({
   // them, faded so the one being played is the one that stands out.
   const inactive = !isActive(character)
   const campaign = hideCampaign ? null : character.campaign_name
+  const Heading = headingLevel === 4 ? 'h4' : 'h3'
+  const sheet = character.schema_name || character.schema_ref
+  // What a user tabbing card to card hears: the link is all they land on.
+  const linkLabel = [
+    t('characters.open', { name }),
+    sheet,
+    campaign,
+    inactive ? statusLabel(t, character.status) : null,
+    !owned && character.owner_name
+      ? t('characters.playedBy', { name: character.owner_name })
+      : null,
+  ]
+    .filter(Boolean)
+    .join(', ')
 
   return (
     <li
@@ -59,12 +76,12 @@ export default function CharacterCard({
         border: '1px solid var(--border)',
         borderRadius: 12,
         overflow: 'hidden',
-        transition: 'all 0.15s',
+        transition: 'background-color 0.15s, transform 0.15s, box-shadow 0.15s',
         transform: hovered ? 'translateY(-1px)' : 'none',
         boxShadow: hovered ? '0 4px 16px var(--shadow)' : 'none',
       }}
     >
-      <CardLink to={`/characters/${character.id}`} label={t('characters.open', { name })} />
+      <CardLink to={`/characters/${character.id}`} label={linkLabel} />
       <div
         aria-hidden="true"
         style={{
@@ -105,8 +122,14 @@ export default function CharacterCard({
       </div>
       <div style={{ padding: '12px 14px 14px', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div
+          {/* A heading, so a screen reader can jump character to character; it
+              keeps the card's own type rather than the global heading look. */}
+          <Heading
             style={{
+              margin: 0,
+              fontFamily: 'inherit',
+              letterSpacing: 'normal',
+              color: 'var(--text)',
               fontSize: 15,
               fontWeight: 600,
               overflow: 'hidden',
@@ -115,7 +138,7 @@ export default function CharacterCard({
             }}
           >
             {name}
-          </div>
+          </Heading>
           <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
             {character.schema_missing ? (
               <span

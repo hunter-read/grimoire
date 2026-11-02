@@ -89,11 +89,16 @@ export default function ShelfNodeBody({
             {...folderProps}
           />
         ) : (
-          <div key={`books:${run.books[0].id}`} style={{ ...containerStyle, marginBottom: 4 }}>
+          <ul
+            key={`books:${run.books[0].id}`}
+            role="list"
+            className="card-list"
+            style={{ ...containerStyle, marginBottom: 4 }}
+          >
             {run.books.map((book) => (
               <CategoryBookItem key={book.id} book={book} {...itemProps} />
             ))}
-          </div>
+          </ul>
         )
       )}
       {loading && (

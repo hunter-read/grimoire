@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { naming, type Schema } from '../../api'
 import Spinner from '../Spinner'
+import useDialogFocus from '../../hooks/useDialogFocus'
 import FolderTree from '../files/FolderTree'
 import ConfirmModal from './ConfirmModal'
 import NamingPreviewTable from './NamingPreviewTable'
@@ -76,15 +77,17 @@ export default function FolderNamingDialog({ rule, fields, onClose, onSaved }: P
   const [refresh, setRefresh] = useState(0)
   const request = useRef(0)
   const input = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    if (busy || confirmRename) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [busy, confirmRename, onClose])
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const titleId = useId()
+  // Focus in on open, Tab kept inside, focus back on close. Esc waits while a
+  // rename runs; the rename confirmation sits outside this panel and handles
+  // its own Esc.
+  useDialogFocus(dialogRef, {
+    onClose: () => {
+      if (!busy) onClose()
+    },
+    initialFocusRef: input,
+  })
 
   const trimmed = pattern.trim()
 
@@ -214,11 +217,14 @@ export default function FolderNamingDialog({ rule, fields, onClose, onSaved }: P
         <div
           style={panel}
           onClick={(e) => e.stopPropagation()}
+          ref={dialogRef}
           role="dialog"
           aria-modal="true"
-          aria-label={title}
+          aria-labelledby={titleId}
         >
-          <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 14 }}>{title}</h3>
+          <h3 id={titleId} style={{ fontSize: 16, fontWeight: 600, marginBottom: 14 }}>
+            {title}
+          </h3>
 
           {!rule && (
             <div style={{ marginBottom: 16 }}>

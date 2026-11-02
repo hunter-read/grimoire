@@ -99,11 +99,20 @@ describe('SaveAudioSetModal', () => {
     await user.click(screen.getByRole('button', { name: 'common.close' }))
     expect(onClose).toHaveBeenCalledTimes(1)
 
-    await user.click(screen.getByRole('dialog'))
+    // The backdrop is the dialog's parent; the dialog itself is the panel.
+    await user.click(screen.getByRole('dialog').parentElement!)
     expect(onClose).toHaveBeenCalledTimes(2)
 
     await user.click(screen.getByText('audioSets.savePlaylist'))
     expect(onClose).toHaveBeenCalledTimes(2)
+  })
+
+  it('is named by its heading, starts in the name field and closes on Escape', async () => {
+    const { user, onClose } = setup()
+    expect(screen.getByRole('dialog', { name: 'audioSets.savePlaylist' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox')).toHaveFocus()
+    await user.keyboard('{Escape}')
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 
   it('cancels without saving', async () => {

@@ -23,8 +23,16 @@ export default function NamingTitleCell({ row }: { row: PreviewRow }) {
   }
   return (
     <>
-      <div style={{ color: 'var(--text-muted)', textDecoration: 'line-through' }}>{row.title}</div>
-      <div style={{ color: 'var(--text)', fontWeight: 600 }}>{String(row.read?.title ?? '')}</div>
+      {/* Struck through for the eye; a screen reader does not say so, so the
+          old and new titles are labelled in words. */}
+      <div style={{ color: 'var(--text-muted)', textDecoration: 'line-through' }}>
+        <span className="sr-only">{t('a11y.settingsAdmin.was')} </span>
+        {row.title}
+      </div>
+      <div style={{ color: 'var(--text)', fontWeight: 600 }}>
+        <span className="sr-only">{t('a11y.settingsAdmin.becomes')} </span>
+        {String(row.read?.title ?? '')}
+      </div>
     </>
   )
 }

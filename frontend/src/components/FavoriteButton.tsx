@@ -9,9 +9,17 @@ export interface FavoriteButtonProps {
   style?: CSSProperties
   /** When given, the button only shows while the card is hovered or the item is a favorite. */
   cardHovered?: boolean
+  /** The item's name, so a screen reader hears which item the heart is for. */
+  name?: string
 }
 
-export default function FavoriteButton({ type, id, style, cardHovered }: FavoriteButtonProps) {
+export default function FavoriteButton({
+  type,
+  id,
+  style,
+  cardHovered,
+  name,
+}: FavoriteButtonProps) {
   const { t } = useTranslation()
   const { isFavorite, toggleFavorite } = useFavorites()
   const active = isFavorite(type, id)
@@ -23,7 +31,14 @@ export default function FavoriteButton({ type, id, style, cardHovered }: Favorit
         e.stopPropagation()
         toggleFavorite(type, id)
       }}
-      aria-label={active ? t('common.removeFromFavorites') : t('common.addToFavorites')}
+      aria-label={
+        name
+          ? t(active ? 'a11y.removeFromFavorites' : 'a11y.addToFavorites', { name })
+          : t(active ? 'common.removeFromFavorites' : 'common.addToFavorites')
+      }
+      // Hidden until the card is hovered, but it still takes Tab focus - and
+      // must then show itself, or a keyboard user is on an invisible button.
+      className="reveal-on-focus"
       style={{
         position: 'absolute',
         top: 6,

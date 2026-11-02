@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuArrowLeft, LuInfo, LuChevronDown, LuWand } from 'react-icons/lu'
 import { useAuth } from '../../context/AuthContext'
@@ -7,6 +7,8 @@ import useImageGestures from '../../hooks/useImageGestures'
 import useImagePrefetch from '../../hooks/useImagePrefetch'
 import useSiblingNavigation from '../../hooks/useSiblingNavigation'
 import useIsMobile from '../../hooks/useIsMobile'
+import usePageTitle from '../../hooks/usePageTitle'
+import { mediaDisplayName } from '../../utils/mediaDisplayName'
 
 import api, { mediaUrl } from '../../api'
 import type { Schema } from '../../api'
@@ -32,7 +34,7 @@ export default function TokenDetailView() {
   const backPathRef = useRef(location.state?.from ?? null)
   // Going back is a *return* to the gallery, so it restores the filters the user
   // had rather than re-applying their saved default over them.
-  const goBack = () => navigate(backPathRef.current || '/tokens', { state: { restoreView: true } })
+  const backPath = backPathRef.current || '/tokens'
   const { t } = useTranslation()
   const { user } = useAuth()!
   const isMobilePhone = useIsMobile(640)
@@ -71,6 +73,7 @@ export default function TokenDetailView() {
   // Warm the cache for neighbouring tokens so prev/next feels instant.
   const tokenFileUrl = useCallback((tok: { id: string }) => mediaUrl(`/tokens/${tok.id}/file`), [])
   useImagePrefetch(siblings, siblingIdx, tokenFileUrl)
+  usePageTitle(token?.filename ?? null)
 
   useEffect(() => {
     api.get(`/tokens/${tokenId}`).then((data) => setToken(data as Schema<'TokenDetailResponse'>))
@@ -125,25 +128,28 @@ export default function TokenDetailView() {
           flexWrap: 'wrap',
         }}
       >
-        <button
-          onClick={goBack}
+        {/* A link, since it goes somewhere. */}
+        <Link
+          to={backPath}
+          state={{ restoreView: true }}
           aria-label={t('tokens.detail.back')}
           style={{
-            background: 'none',
             color: 'var(--text-dim)',
             fontSize: 15,
-            border: 'none',
-            cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             gap: 5,
           }}
         >
           <LuArrowLeft size={15} /> {!isMobilePhone && t('common.back')}
-        </button>
+        </Link>
         <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
-        <span
+        <h1
           style={{
+            margin: 0,
+            fontFamily: 'inherit',
+            letterSpacing: 'normal',
+            color: 'var(--text)',
             fontSize: 16,
             fontWeight: 500,
             flex: 1,
@@ -154,7 +160,7 @@ export default function TokenDetailView() {
           }}
         >
           {token.filename}
-        </span>
+        </h1>
         <SiblingPosition
           index={siblingIdx}
           total={siblings.length}
@@ -167,6 +173,9 @@ export default function TokenDetailView() {
           <button
             onClick={() => setShowDetails((v) => !v)}
             title={t('tokens.detail.details')}
+            aria-label={t('tokens.detail.details')}
+            aria-expanded={showDetails}
+            aria-controls="media-details-panel"
             style={{
               background: showDetails ? 'var(--bg-card-hover)' : 'var(--bg-card)',
               border: '1px solid var(--border)',
@@ -193,9 +202,8 @@ export default function TokenDetailView() {
         {/* The discovery entry: you are looking at a piece of art and want it
             framed. Archives have no image to work from, so it is hidden there. */}
         {!token.is_archive && (
-          <button
-            type="button"
-            onClick={() => navigate(`/tokens/${tokenId}/editor`)}
+          <Link
+            to={`/tokens/${tokenId}/editor`}
             title={t('tokenEditor.title')}
             aria-label={t('tokenEditor.title')}
             style={{
@@ -215,7 +223,7 @@ export default function TokenDetailView() {
           >
             <LuWand size={13} aria-hidden="true" />
             {!isMobilePhone && t('tokenEditor.title')}
-          </button>
+          </Link>
         )}
         <VariantPicker
           item={token}
@@ -258,7 +266,7 @@ export default function TokenDetailView() {
           >
             <img
               src={mediaUrl(`/tokens/${tokenId}/file`)}
-              alt={token.filename}
+              alt={mediaDisplayName(token.filename)}
               style={{
                 maxWidth: '100%',
                 maxHeight: '80vh',
@@ -275,12 +283,15 @@ export default function TokenDetailView() {
               onNext={onNext}
               prevLabel={t('tokens.detail.previous')}
               nextLabel={t('tokens.detail.next')}
+              prevName={hasPrev ? mediaDisplayName(siblings[siblingIdx - 1]?.filename) : undefined}
+              nextName={hasNext ? mediaDisplayName(siblings[siblingIdx + 1]?.filename) : undefined}
             />
           </div>
         )}
 
         {/* Metadata sidebar — always visible on desktop, toggle-controlled on mobile */}
         <div
+          id="media-details-panel"
           style={{
             ...(isMobilePhone
               ? {
@@ -295,7 +306,9 @@ export default function TokenDetailView() {
             overflowY: 'auto',
           }}
         >
-          <h3 style={{ fontSize: 15, marginBottom: 20 }}>{t('tokens.detail.title')}</h3>
+          <h2 style={{ fontSize: 15, marginTop: 0, marginBottom: 20 }}>
+            {t('tokens.detail.title')}
+          </h2>
 
           {canEdit && (
             <div style={{ marginBottom: 20 }}>
@@ -341,17 +354,19 @@ export default function TokenDetailView() {
           {folder &&
             (editingFolderTags ? (
               <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
-                <div
+                <h3
                   style={{
+                    margin: '0 0 10px',
+                    fontFamily: 'inherit',
+                    fontWeight: 400,
                     fontSize: 12,
                     color: 'var(--text-muted)',
-                    marginBottom: 10,
                     textTransform: 'uppercase',
                     letterSpacing: '0.06em',
                   }}
                 >
                   {t('tokens.detail.folderTags')}
-                </div>
+                </h3>
                 <InlineTagEditor
                   tags={currentFolderTags}
                   onSave={saveFolderTags}
@@ -373,17 +388,19 @@ export default function TokenDetailView() {
           {/* Token tags */}
           {editingTokenTags ? (
             <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
-              <div
+              <h3
                 style={{
+                  margin: '0 0 10px',
+                  fontFamily: 'inherit',
+                  fontWeight: 400,
                   fontSize: 12,
                   color: 'var(--text-muted)',
-                  marginBottom: 10,
                   textTransform: 'uppercase',
                   letterSpacing: '0.06em',
                 }}
               >
                 {t('tokens.detail.tokenTags')}
-              </div>
+              </h3>
               <InlineTagEditor
                 tags={token.tags}
                 onSave={saveTokenTags}

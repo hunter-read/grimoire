@@ -130,15 +130,27 @@ export default function ScheduleEditor({
 
       {frequency !== 'custom' && (
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
+          <div
+            id="schedule-days-label"
+            style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}
+          >
             {frequency === 'monthly' ? t('schedule.dayOfWeek') : t('schedule.sessionDays')}
           </div>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <div
+            role="group"
+            aria-labelledby="schedule-days-label"
+            style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}
+          >
             {DAYS.map((d, i) => {
               const selected = frequency === 'monthly' ? days[0] === i : days.includes(i)
               return (
                 <button
                   key={i}
+                  type="button"
+                  // The chip shows "Mon"; the full name is read, and whether it
+                  // is one of the session days.
+                  aria-label={d}
+                  aria-pressed={selected}
                   onClick={() => (frequency === 'monthly' ? setDays([i]) : toggleDay(i))}
                   style={{
                     padding: '5px 12px',
@@ -161,13 +173,22 @@ export default function ScheduleEditor({
 
       {frequency === 'monthly' && (
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
+          <div
+            id="schedule-occurrence-label"
+            style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}
+          >
             {t('schedule.whichOccurrence')}
           </div>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <div
+            role="group"
+            aria-labelledby="schedule-occurrence-label"
+            style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}
+          >
             {MONTH_WEEKS.map((w) => (
               <button
                 key={w.value}
+                type="button"
+                aria-pressed={monthlyWeek === w.value}
                 onClick={() => setMonthlyWeek(w.value)}
                 style={{
                   padding: '5px 12px',

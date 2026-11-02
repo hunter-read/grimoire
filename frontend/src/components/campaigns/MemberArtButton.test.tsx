@@ -47,14 +47,14 @@ beforeEach(() => vi.clearAllMocks())
 describe('MemberArtButton', () => {
   it('offers both ways to set a portrait', async () => {
     setup()
-    await userEvent.click(screen.getByRole('button', { name: 'Set character art' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Set ireena’s portrait' }))
     expect(screen.getByRole('menuitem', { name: /Create\ a\ token…/ })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: /Upload\ character\ art/ })).toBeInTheDocument()
   })
 
   it('opens the editor pre-bound to this member', async () => {
     setup()
-    await userEvent.click(screen.getByRole('button', { name: 'Set character art' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Set ireena’s portrait' }))
     await userEvent.click(screen.getByRole('menuitem', { name: /Create\ a\ token…/ }))
 
     expect(navigate).toHaveBeenCalledWith('/tokens/editor', {
@@ -64,14 +64,14 @@ describe('MemberArtButton', () => {
 
   it('falls back to the display label when there is no character name', async () => {
     setup({ member: member({ character_name: null }) })
-    await userEvent.click(screen.getByRole('button', { name: 'Set character art' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Set ireena’s portrait' }))
     await userEvent.click(screen.getByRole('menuitem', { name: /Create\ a\ token…/ }))
     expect(navigate.mock.calls[0][1].state.memberName).toBe('ireena')
   })
 
   it('hands an uploaded file straight to the caller', async () => {
     const { onUpload } = setup()
-    await userEvent.click(screen.getByRole('button', { name: 'Set character art' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Set ireena’s portrait' }))
     await userEvent.upload(
       screen.getByTestId('member-art-input'),
       new File(['x'], 'art.png', { type: 'image/png' })
@@ -81,7 +81,7 @@ describe('MemberArtButton', () => {
 
   it('shows no menu and no file input to someone who may not edit', () => {
     setup({ canEdit: false })
-    expect(screen.queryByRole('button', { name: 'Set character art' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Set ireena’s portrait' })).not.toBeInTheDocument()
     expect(screen.queryByTestId('member-art-input')).not.toBeInTheDocument()
   })
 
@@ -93,7 +93,10 @@ describe('MemberArtButton', () => {
   it('renders existing art with the cache-busting version', () => {
     setup({ member: member({ has_art: true }), artVersion: 1234 })
     expect(campaigns.memberArtUrl).toHaveBeenCalledWith('c1', 'm1', 1234)
-    expect(screen.getByAltText('Ireena')).toHaveAttribute('src', expect.stringContaining('v=1234'))
+    // The picture is decorative: the row beside it already names the member.
+    const img = screen.getByRole('button', { name: 'Set ireena’s portrait' }).querySelector('img')
+    expect(img).toHaveAttribute('alt', '')
+    expect(img).toHaveAttribute('src', expect.stringContaining('v=1234'))
   })
 
   it('closes the menu when the backdrop is clicked', async () => {
@@ -108,7 +111,7 @@ describe('MemberArtButton', () => {
         onUpload={vi.fn()}
       />
     )
-    await userEvent.click(screen.getByRole('button', { name: 'Set character art' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Set ireena’s portrait' }))
     expect(screen.getByRole('menu')).toBeInTheDocument()
 
     // The invisible full-screen dismisser sits directly before the menu.
@@ -118,6 +121,25 @@ describe('MemberArtButton', () => {
 
   it('is disabled while an upload is in flight', () => {
     setup({ busy: true })
-    expect(screen.getByRole('button', { name: 'Set character art' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Set ireena’s portrait' })).toBeDisabled()
+  })
+
+  it('is a plain picture, not a button, for someone who cannot set it', () => {
+    setup({ canEdit: false })
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  it('moves through the menu with the arrow keys and closes on Escape', async () => {
+    setup()
+    const trigger = screen.getByRole('button', { name: 'Set ireena’s portrait' })
+    await userEvent.click(trigger)
+    expect(trigger).toHaveAttribute('aria-haspopup', 'menu')
+    const [first, second] = screen.getAllByRole('menuitem')
+    expect(first).toHaveFocus()
+    await userEvent.keyboard('{ArrowDown}')
+    expect(second).toHaveFocus()
+    await userEvent.keyboard('{Escape}')
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
   })
 })

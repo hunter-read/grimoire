@@ -40,9 +40,13 @@ export default function AvailabilityChart({
         <table
           style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: 13 }}
         >
+          {/* Players down the side, session dates across the top: a screen reader
+              reads each cell with both headers. */}
+          <caption className="sr-only">{t('a11y.campaignNotes.availabilityCaption')}</caption>
           <thead>
             <tr>
               <th
+                scope="col"
                 style={{
                   textAlign: 'left',
                   padding: '6px 10px',
@@ -67,6 +71,7 @@ export default function AvailabilityChart({
                 return (
                   <th
                     key={date}
+                    scope="col"
                     style={{
                       textAlign: 'center',
                       padding: '6px 8px',
@@ -80,8 +85,7 @@ export default function AvailabilityChart({
                       background: 'var(--bg-card)',
                     }}
                   >
-                    <div style={{ fontSize: 11, opacity: 0.8 }}>{weekday}</div>
-                    <div>{short}</div>
+                    <div style={{ fontSize: 11, opacity: 0.8 }}>{weekday}</div> <div>{short}</div>
                     {cancelled && (
                       <div style={{ fontSize: 11, color: 'var(--danger)', fontWeight: 700 }}>
                         {t('schedule.availability.cancelled')}
@@ -95,8 +99,10 @@ export default function AvailabilityChart({
           <tbody>
             {availability.rows.map((row) => (
               <tr key={row.user_id}>
-                <td
+                <th
+                  scope="row"
                   style={{
+                    textAlign: 'left',
                     padding: '10px 10px',
                     borderBottom: '1px solid var(--border)',
                     fontWeight: row.is_owner ? 600 : 400,
@@ -118,9 +124,12 @@ export default function AvailabilityChart({
                       {t('members.you')}
                     </span>
                   )}
-                </td>
+                </th>
                 {availability.next_sessions.map((date) => {
                   const entry = row.dates[date] || {}
+                  const { short, weekday } = formatDate(date)
+                  // Who and when, for the cell's control - see AvailabilityCell.
+                  const context = `${row.username}, ${weekday} ${short}`
                   const isCancelled =
                     availability.cancelled_dates.includes(date) || entry.is_cancelled
                   const isMyRow = row.user_id === userId
@@ -138,6 +147,7 @@ export default function AvailabilityChart({
                         }}
                       >
                         <AvailabilityCell
+                          context={context}
                           status={entry.status}
                           isCancelled={true}
                           isOwner={isOwner && isMyRow}
@@ -160,6 +170,7 @@ export default function AvailabilityChart({
                     >
                       {canEdit ? (
                         <AvailabilityCell
+                          context={context}
                           status={entry.status}
                           isCancelled={false}
                           isOwner={isOwner && isMyRow}
@@ -170,10 +181,24 @@ export default function AvailabilityChart({
                       ) : (
                         (() => {
                           const opt = translatedAvailOptions.find((o) => o.value === entry.status)
+                          // The icon is drawn only; the status is said in words.
                           return opt ? (
-                            <opt.Icon size={14} color={opt.color} />
+                            <>
+                              <opt.Icon size={14} color={opt.color} />
+                              <span className="sr-only">{opt.label}</span>
+                            </>
                           ) : (
-                            <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>—</span>
+                            <>
+                              <span
+                                aria-hidden="true"
+                                style={{ color: 'var(--text-muted)', fontSize: 13 }}
+                              >
+                                —
+                              </span>
+                              <span className="sr-only">
+                                {t('a11y.campaignNotes.availabilityNotSet')}
+                              </span>
+                            </>
                           )
                         })()
                       )}

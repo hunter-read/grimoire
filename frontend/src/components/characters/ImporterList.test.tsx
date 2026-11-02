@@ -151,7 +151,7 @@ describe('ImporterList', () => {
 
   it('offers an update to your own copy', async () => {
     renderList({ importers: [{ ...MINE, available_version: '1.2.0' }], available: [] })
-    await userEvent.click(screen.getByRole('button', { name: 'Update to v1.2.0' }))
+    await userEvent.click(screen.getByRole('button', { name: /^Update .+ to v1\.2\.0$/ }))
     expect(mockInstall).toHaveBeenCalledWith('pathbuilder-2e')
   })
 
@@ -169,11 +169,14 @@ describe('ImporterList', () => {
     expect(screen.getByText('More importers')).toBeInTheDocument()
     expect(screen.getAllByText(/v1.0.0 · builds on dnd-5e-2024/)).toHaveLength(4)
 
-    await userEvent.click(screen.getByRole('button', { name: 'Install' }))
+    // Each install button names the importer it installs.
+    await userEvent.click(screen.getByRole('button', { name: 'Install mine importer' }))
     expect(mockInstall).toHaveBeenCalledWith('mine')
     await waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1))
 
-    await userEvent.click(screen.getByRole('button', { name: 'Install for everyone' }))
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Install everyone importer for everyone' })
+    )
     expect(mockInstallForEveryone).toHaveBeenCalledWith('everyone', 'https://i.test/index.json')
 
     expect(screen.getByRole('link', { name: 'Install in Settings → Add-ons' })).toHaveAttribute(
@@ -186,7 +189,7 @@ describe('ImporterList', () => {
   it('shows why an install failed', async () => {
     mockInstall.mockRejectedValue(new Error("'mine' fetches links or runs a script"))
     renderList({ importers: [], available: [offer('mine', 'user')] })
-    await userEvent.click(screen.getByRole('button', { name: 'Install' }))
+    await userEvent.click(screen.getByRole('button', { name: /^Install / }))
     expect(await screen.findByRole('alert')).toHaveTextContent('runs a script')
   })
 
@@ -197,7 +200,7 @@ describe('ImporterList', () => {
       downloads_enabled: false,
     })
     expect(screen.getByText(/turned off on this server/)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Install' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Install / })).toBeNull()
     expect(screen.queryByRole('button', { name: /Update to/ })).toBeNull()
   })
 })

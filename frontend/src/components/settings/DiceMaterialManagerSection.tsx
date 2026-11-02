@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuTrash2, LuPlus } from 'react-icons/lu'
 import api from '../../api'
 import type { Schema } from '../../api'
 import Spinner from '../Spinner'
+import ConfirmModal from './ConfirmModal'
 
 type DiceMaterial = Schema<'DiceMaterialOut'>
 
@@ -27,6 +28,12 @@ export default function DiceMaterialManagerSection() {
   const [group, setGroup] = useState('Custom')
   const [confirm, setConfirm] = useState<ConfirmState | null>(null)
   const [error, setError] = useState('')
+  // Said aloud after an add or remove, which otherwise changes the list
+  // silently - and a removal takes away the button that was pressed, so focus
+  // goes back to the name field once the list has reloaded.
+  const [announcement, setAnnouncement] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+  const refocusInput = useRef(false)
 
   const load = () => {
     api
@@ -37,12 +44,19 @@ export default function DiceMaterialManagerSection() {
 
   useEffect(load, [])
 
+  useEffect(() => {
+    if (!refocusInput.current) return
+    refocusInput.current = false
+    inputRef.current?.focus()
+  }, [items])
+
   const add = () => {
     if (!name.trim()) return
     setError('')
     api
       .post('/dice-materials', { name: name.trim(), group })
       .then(() => {
+        setAnnouncement(t('a11y.settings.added', { name: name.trim() }))
         setName('')
         load()
       })
@@ -54,6 +68,8 @@ export default function DiceMaterialManagerSection() {
       .delete(`/dice-materials/${item.id}${force ? '?force=true' : ''}`)
       .then(() => {
         setConfirm(null)
+        setAnnouncement(t('a11y.settings.removed', { name: item.name }))
+        refocusInput.current = true
         load()
       })
       .catch((e) => {
@@ -88,6 +104,7 @@ export default function DiceMaterialManagerSection() {
     <div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
         <input
+          ref={inputRef}
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -130,27 +147,47 @@ export default function DiceMaterialManagerSection() {
       </div>
 
       {error && (
-        <div style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12 }}>{error}</div>
+        <div role="alert" style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12 }}>
+          {error}
+        </div>
       )}
+      <p role="status" className="sr-only">
+        {announcement}
+      </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {orderedGroups.map((g) => (
           <div key={g}>
-            <div
+            {/* A heading per group, under the section's h3, so a screen reader
+                can jump between Dice, Cards and the rest. */}
+            <h4
+              id={`dice-group-${g}`}
               style={{
                 fontSize: 11,
+                fontFamily: 'inherit',
                 textTransform: 'uppercase',
                 letterSpacing: '0.06em',
                 color: 'var(--text-muted)',
                 fontWeight: 600,
-                marginBottom: 6,
+                margin: '0 0 6px',
               }}
             >
               {t(`lookupSettings.diceGroup.${g.toLowerCase()}`, { defaultValue: g })}
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            </h4>
+            <ul
+              role="list"
+              aria-labelledby={`dice-group-${g}`}
+              style={{
+                listStyle: 'none',
+                padding: 0,
+                margin: 0,
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 6,
+              }}
+            >
               {byGroup[g].map((item) => (
-                <span
+                <li
                   key={item.id}
                   style={{
                     display: 'inline-flex',
@@ -180,77 +217,21 @@ export default function DiceMaterialManagerSection() {
                   >
                     <LuTrash2 size={13} />
                   </button>
-                </span>
+                </li>
               ))}
-            </div>
+            </ul>
           </div>
         ))}
       </div>
 
       {confirm && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'var(--overlay)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 100,
-          }}
-        >
-          <div
-            style={{
-              background: 'var(--bg-panel)',
-              border: '1px solid var(--border)',
-              borderRadius: 10,
-              padding: 24,
-              maxWidth: 420,
-            }}
-          >
-            <h4 style={{ fontSize: 16, marginBottom: 10 }}>
-              {t('lookupSettings.removeTitle', { name: confirm.name })}
-            </h4>
-            <p
-              style={{ fontSize: 14, color: 'var(--text-dim)', lineHeight: 1.6, marginBottom: 20 }}
-            >
-              {t('lookupSettings.inUseWarning', { name: confirm.name, count: confirm.count })}
-            </p>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button
-                type="button"
-                onClick={() => setConfirm(null)}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: 6,
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--border)',
-                  color: 'var(--text-dim)',
-                  cursor: 'pointer',
-                }}
-              >
-                {t('lookupSettings.cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={() => remove({ id: confirm.id, name: confirm.name }, true)}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: 6,
-                  background: 'var(--danger-fill)',
-                  border: 'none',
-                  color: 'var(--on-danger)',
-                  cursor: 'pointer',
-                  fontWeight: 600,
-                }}
-              >
-                {t('lookupSettings.confirmRemove')}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmModal
+          title={t('lookupSettings.removeTitle', { name: confirm.name })}
+          message={t('lookupSettings.inUseWarning', { name: confirm.name, count: confirm.count })}
+          confirmLabel={t('lookupSettings.confirmRemove')}
+          onClose={() => setConfirm(null)}
+          onConfirm={() => remove({ id: confirm.id, name: confirm.name }, true)}
+        />
       )}
     </div>
   )

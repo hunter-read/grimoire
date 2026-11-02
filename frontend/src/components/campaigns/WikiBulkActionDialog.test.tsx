@@ -84,3 +84,14 @@ describe('WikiBulkActionDialog', () => {
     expect(onCancel).toHaveBeenCalled()
   })
 })
+
+describe('WikiBulkActionDialog focus', () => {
+  it('opens labelled, on Cancel, and Esc cancels', () => {
+    const { onCancel } = setup({ deleteCount: 2 })
+    const dialog = screen.getByRole('dialog', { name: /./ })
+    expect(dialog).toHaveAccessibleDescription(/2/)
+    expect(screen.getByRole('button', { name: /cancel/i })).toHaveFocus()
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+    expect(onCancel).toHaveBeenCalled()
+  })
+})

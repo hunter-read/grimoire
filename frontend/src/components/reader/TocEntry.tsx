@@ -74,6 +74,7 @@ export default function TocEntry({
         )}
         <button
           onClick={() => onGoToPage(node.page)}
+          aria-current={isActive ? 'location' : undefined}
           style={{
             flex: 1,
             background: 'none',

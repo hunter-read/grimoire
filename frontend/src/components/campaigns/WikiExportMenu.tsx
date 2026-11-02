@@ -8,6 +8,7 @@ import {
 } from 'react'
 import type { campaigns } from '../../api'
 import { createPortal } from 'react-dom'
+import useMenuKeyboard from '../../hooks/useMenuKeyboard'
 import { useTranslation } from 'react-i18next'
 import type { IconType } from 'react-icons'
 import { LuDownload, LuFileArchive, LuFileText, LuBraces } from 'react-icons/lu'
@@ -49,6 +50,8 @@ export default function WikiExportMenu({ onExport, style }: WikiExportMenuProps)
   const [coords, setCoords] = useState({ top: 0, left: 0 })
   const triggerRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  // The menu is portaled to <body>: arrow keys, and Esc/Tab back to the button.
+  useMenuKeyboard(open, menuRef, triggerRef, () => setOpen(false))
 
   const place = useCallback(() => {
     const el = triggerRef.current
@@ -88,6 +91,8 @@ export default function WikiExportMenu({ onExport, style }: WikiExportMenuProps)
   const choose = (format: ExportFormat) => (e: MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation()
     setOpen(false)
+    // The item goes with the menu, so focus goes back to the button.
+    triggerRef.current?.focus()
     onExport(format)
   }
 

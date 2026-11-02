@@ -18,6 +18,7 @@ import useBulkMerge from '../../hooks/useBulkMerge'
 import type useMediaGallery from '../../hooks/useMediaGallery'
 import type { MediaConfig, MediaItem } from './mediaConfig'
 import { RECENTLY_ADDED_DAYS } from '../../utils/recentlyAdded'
+import usePageTitle from '../../hooks/usePageTitle'
 
 interface Props {
   config: MediaConfig
@@ -54,6 +55,8 @@ export default function GalleryLayout({
   headerActions,
 }: Props) {
   const { t } = useTranslation()
+  // Every gallery passes its title as a string; RouteAnnouncer reads it out.
+  usePageTitle(typeof title === 'string' ? title : null)
   const { i18n, icon: Icon, emptyKey, emptyFilterKey } = config
   const { bulkMode } = gallery.bulk
   // Merge (issue #589): every selected item here is one collection, so the
@@ -111,8 +114,12 @@ export default function GalleryLayout({
           }}
         >
           <div>
-            <h2 style={{ fontSize: 28, marginBottom: 8 }}>{title}</h2>
+            <h1 style={{ fontSize: 28, marginTop: 0, marginBottom: 8 }}>{title}</h1>
+            {/* Live, so narrowing the gallery with the search box or a filter
+                tells a screen reader how many items are left. */}
             <p
+              aria-live="polite"
+              aria-atomic="true"
               style={{
                 color: 'var(--text-dim)',
                 fontSize: 17,

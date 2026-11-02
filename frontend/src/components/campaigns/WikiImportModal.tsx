@@ -2,6 +2,7 @@ import { useRef, useState, type ChangeEvent, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX, LuFileUp, LuFolderUp } from 'react-icons/lu'
 import { campaigns, type Schema } from '../../api'
+import useDialogFocus from '../../hooks/useDialogFocus'
 
 const ACCEPT = '.zip,.json,.md,.markdown,.txt,.lk'
 // Only markdown is read out of a picked folder, so there is no point opening
@@ -30,6 +31,8 @@ export default function WikiImportModal({ campaignId, onClose, onImported }: Wik
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<ImportResult | null>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(dialogRef, { onClose })
 
   // Shared tail of both pickers: run the import, report what came back.
   const run = async (send: () => Promise<unknown>) => {
@@ -91,6 +94,10 @@ export default function WikiImportModal({ campaignId, onClose, onImported }: Wik
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="wiki-import-title"
         style={{
           background: 'var(--bg-panel)',
           border: '1px solid var(--border)',
@@ -116,9 +123,9 @@ export default function WikiImportModal({ campaignId, onClose, onImported }: Wik
         >
           <LuX size={18} />
         </button>
-        <h3 style={{ fontSize: 16, fontWeight: 600, margin: '0 0 16px' }}>
+        <h2 id="wiki-import-title" style={{ fontSize: 16, fontWeight: 600, margin: '0 0 16px' }}>
           {t('wiki.importTitle')}
-        </h3>
+        </h2>
 
         <p style={{ fontSize: 13, color: 'var(--text-dim)', margin: '0 0 6px', lineHeight: 1.6 }}>
           {t('wiki.importHint')}
@@ -127,13 +134,18 @@ export default function WikiImportModal({ campaignId, onClose, onImported }: Wik
           {t('wiki.importFormats')}
         </p>
 
-        {result && (
-          <p style={{ fontSize: 13, color: 'var(--gold)', margin: '0 0 14px' }}>
-            {t('wiki.imported', { count: result.imported })}
-          </p>
-        )}
+        {/* Always mounted, so the outcome is read out when it arrives. */}
+        <div role="status">
+          {result && (
+            <p style={{ fontSize: 13, color: 'var(--gold)', margin: '0 0 14px' }}>
+              {t('wiki.imported', { count: result.imported })}
+            </p>
+          )}
+        </div>
         {error && (
-          <p style={{ fontSize: 13, color: 'var(--danger)', margin: '0 0 14px' }}>{error}</p>
+          <p role="alert" style={{ fontSize: 13, color: 'var(--danger)', margin: '0 0 14px' }}>
+            {error}
+          </p>
         )}
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ghostBtnStyle, saveBtnStyle } from './settingsButtons'
 
@@ -20,6 +20,7 @@ export default function SetEmailInline({ initial, onSave, onCancel, persistent =
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [err, setErr] = useState('')
+  const errId = useId()
 
   const handleSave = async () => {
     setSaving(true)
@@ -44,7 +45,13 @@ export default function SetEmailInline({ initial, onSave, onCancel, persistent =
       <input
         type="email"
         id="set-email-inline"
+        name="email"
+        // Another user's address: not something to fill from the admin's own.
+        autoComplete="off"
+        spellCheck={false}
         aria-label={t('users.emailPlaceholder')}
+        aria-invalid={err ? true : undefined}
+        aria-describedby={err ? errId : undefined}
         value={value}
         onChange={(e) => {
           setValue(e.target.value)
@@ -55,10 +62,12 @@ export default function SetEmailInline({ initial, onSave, onCancel, persistent =
           if (e.key === 'Escape') onCancel()
         }}
         placeholder={t('users.emailPlaceholder')}
-        autoFocus
+        // Only when opened on purpose: in the always-open editor, focus jumping
+        // into this field on expanding a row would lose a screen reader's place.
+        autoFocus={!persistent}
         style={{
           background: 'var(--bg-input)',
-          border: '1px solid var(--border)',
+          border: '1px solid var(--border-control)',
           color: 'var(--text)',
           borderRadius: 6,
           padding: '4px 8px',
@@ -66,10 +75,22 @@ export default function SetEmailInline({ initial, onSave, onCancel, persistent =
           width: 240,
         }}
       />
-      {err && <span style={{ fontSize: 12, color: 'var(--red)' }}>{err}</span>}
-      {saved && <span style={{ fontSize: 12, color: 'var(--gold)' }}>{t('common.saved')}</span>}
-      <button onClick={handleSave} disabled={saving} style={saveBtnStyle}>
-        {saving ? '…' : t('common.save')}
+      {err && (
+        <span id={errId} role="alert" style={{ fontSize: 12, color: 'var(--red)' }}>
+          {err}
+        </span>
+      )}
+      {/* Always mounted, so "Saved" is announced when it appears. */}
+      <span
+        role="status"
+        // Out of the row while empty, so it doesn't add a gap.
+        className={saved ? undefined : 'sr-only'}
+        style={{ fontSize: 12, color: 'var(--gold)' }}
+      >
+        {saved ? t('common.saved') : ''}
+      </span>
+      <button onClick={handleSave} disabled={saving} aria-busy={saving} style={saveBtnStyle}>
+        {saving ? t('common.saving') : t('common.save')}
       </button>
       {!persistent && (
         <button onClick={onCancel} style={ghostBtnStyle}>

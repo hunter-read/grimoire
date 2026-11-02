@@ -145,4 +145,10 @@ describe('ModelViewerPane', () => {
     await waitFor(() => expect(createViewer).toHaveBeenCalledTimes(2))
     expect(dispose).toHaveBeenCalled()
   })
+
+  it('names the 3D view for a screen reader and labels the reset button', async () => {
+    render(<ModelViewerPane model={aModel()} />)
+    expect(screen.getByRole('img', { name: /goblin/i })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Reset view' })).toBeInTheDocument()
+  })
 })

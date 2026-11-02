@@ -134,4 +134,48 @@ describe('PluginSourceContextMenu', () => {
     )
     expect(screen.getByTitle('Verified Source')).toBeInTheDocument()
   })
+
+  describe('from the keyboard', () => {
+    function Opener({ onClose = vi.fn(), onSelect = vi.fn() }) {
+      return (
+        <PluginSourceContextMenu
+          x={0}
+          y={0}
+          sources={sampleSources}
+          onSelect={onSelect}
+          onClose={onClose}
+        />
+      )
+    }
+
+    it('is a named menu whose first source takes focus', () => {
+      render(<Opener />)
+      const menu = screen.getByRole('menu', { name: 'Install from specific source' })
+      const items = screen.getAllByRole('menuitem')
+      expect(menu).toContainElement(items[0])
+      expect(items[0]).toHaveFocus()
+      fireEvent.keyDown(items[0], { key: 'ArrowDown' })
+      expect(items[1]).toHaveFocus()
+    })
+
+    it('hands focus back to what opened it on Escape and on a choice', () => {
+      const opener = document.createElement('button')
+      document.body.appendChild(opener)
+      opener.focus()
+      const onClose = vi.fn()
+      const { unmount } = render(<Opener onClose={onClose} />)
+      fireEvent.keyDown(screen.getAllByRole('menuitem')[0], { key: 'Escape' })
+      expect(onClose).toHaveBeenCalled()
+      expect(opener).toHaveFocus()
+      unmount()
+
+      opener.focus()
+      const onSelect = vi.fn()
+      render(<Opener onSelect={onSelect} />)
+      fireEvent.click(screen.getAllByRole('menuitem')[1])
+      expect(onSelect).toHaveBeenCalledWith(sampleSources[1].index_url)
+      expect(opener).toHaveFocus()
+      opener.remove()
+    })
+  })
 })

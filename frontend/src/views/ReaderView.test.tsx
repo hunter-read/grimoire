@@ -762,3 +762,71 @@ describe('ReaderView — a book that fails to load', () => {
     expect(getRecentBooks()).toEqual([])
   })
 })
+
+describe('ReaderView — screen readers', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    setupApiMocks()
+  })
+
+  it('names the tab after the book', async () => {
+    renderReader()
+    await waitFor(() => expect(document.title).toBe('Test Book - Grimoire'))
+  })
+
+  it('says which page is showing', async () => {
+    renderReader()
+    await waitFor(() =>
+      expect(screen.getAllByRole('status').some((s) => s.textContent === 'Page 1 of 100')).toBe(
+        true
+      )
+    )
+  })
+
+  it('gives the page text as paragraphs under a page heading', async () => {
+    mockGet.mockImplementation((url) => {
+      if (url.includes('/text'))
+        return Promise.resolve({ text: 'First line\nwraps here.\n\nSecond para.' })
+      if (url.includes('/words')) return Promise.resolve(null)
+      if (url.includes('/toc')) return Promise.resolve(TOC)
+      if (url.includes('/bookmarks')) return Promise.resolve(BOOKMARKS)
+      return Promise.resolve(BOOK)
+    })
+    renderReader()
+    const heading = await screen.findByRole('heading', { name: 'Page 1 of 100' })
+    const section = heading.closest('section')!
+    await waitFor(() => expect(section).toHaveTextContent('First line wraps here.'))
+    expect(section.querySelectorAll('p')).toHaveLength(2)
+    // The image keeps a short label instead of the whole page.
+    expect(screen.getByAltText('Page 1 — Test Book')).toBeInTheDocument()
+  })
+
+  it('says so when a page has no text to read', async () => {
+    renderReader()
+    await waitFor(() =>
+      expect(screen.getByText('This page has no text layer to read.')).toBeInTheDocument()
+    )
+  })
+
+  it('announces the favorite shortcut', async () => {
+    renderReader()
+    await waitFor(() => screen.getByText('Test Book'))
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'f' }))
+    })
+    expect(screen.getAllByRole('status').some((s) => s.textContent === 'Added to favorites')).toBe(
+      true
+    )
+  })
+
+  it('leaves Cmd/Ctrl+F to the browser', async () => {
+    renderReader()
+    await waitFor(() => screen.getByText('Test Book'))
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'f', metaKey: true }))
+    })
+    expect(screen.getAllByRole('status').some((s) => s.textContent === 'Added to favorites')).toBe(
+      false
+    )
+  })
+})

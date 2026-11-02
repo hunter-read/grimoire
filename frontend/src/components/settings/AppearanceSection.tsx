@@ -164,13 +164,18 @@ export default function AppearanceSection() {
       </fieldset>
 
       {/* A part of the Theme section, so it sits below its 15px heading. */}
-      <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>
+      <h4 id="appearance-your-themes" style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>
         {t('appearance.yourThemes')}
       </h4>
 
-      <ul style={{ listStyle: 'none', marginBottom: 16 }}>
+      {/* One theme out of these, so the radios are a named group. */}
+      <ul
+        role="radiogroup"
+        aria-labelledby="appearance-your-themes"
+        style={{ listStyle: 'none', marginBottom: 16 }}
+      >
         {builtIn.map((theme) => (
-          <li key={theme.id || 'default'}>
+          <li key={theme.id || 'default'} role="none">
             <label style={rowStyle(themeId === theme.id)}>
               <input
                 type="radio"
@@ -189,7 +194,7 @@ export default function AppearanceSection() {
           </li>
         ))}
         {installed.map((theme) => (
-          <li key={theme.id}>
+          <li key={theme.id} role="none">
             <label style={rowStyle(themeId === theme.id)}>
               <input
                 type="radio"
@@ -247,6 +252,7 @@ export default function AppearanceSection() {
           type="button"
           onClick={() => setPasting((v) => !v)}
           disabled={busy}
+          aria-expanded={pasting}
           style={actionStyle}
         >
           <LuUpload size={14} />
@@ -289,7 +295,7 @@ export default function AppearanceSection() {
           {(catalogue?.themes?.length || 0) === 0 && (
             <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t('appearance.empty')}</p>
           )}
-          <ul style={{ listStyle: 'none' }}>
+          <ul role="list" style={{ listStyle: 'none' }}>
             {(catalogue?.themes || []).map((theme) => (
               <li
                 key={theme.id}
@@ -341,6 +347,7 @@ export default function AppearanceSection() {
                     type="button"
                     onClick={() => install(theme.id)}
                     disabled={busy}
+                    aria-label={t('a11y.settings.installNamed', { name: theme.name })}
                     style={actionStyle}
                   >
                     <LuDownload size={13} />

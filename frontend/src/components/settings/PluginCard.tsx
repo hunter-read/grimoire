@@ -21,6 +21,8 @@ export interface PluginCardProps {
   onToggleEnabled?: (addon: PluginAddon) => void
   onRemove?: (addon: PluginAddon) => void
   onInstall?: (addon: PluginAddon) => void
+  /** Whether the source menu is open for this add-on, for the button's state. */
+  menuOpen?: boolean
 }
 
 /**
@@ -36,6 +38,7 @@ export default function PluginCard({
   onToggleEnabled,
   onRemove,
   onInstall,
+  menuOpen = false,
 }: PluginCardProps) {
   const { t } = useTranslation()
 
@@ -144,7 +147,10 @@ export default function PluginCard({
               e.stopPropagation()
               if (onContextMenu) onContextMenu(e, addon, isInstalled)
             }}
-            title="More options"
+            title={t('a11y.settingsAdmin.addonSources', { name: addon.name })}
+            aria-label={t('a11y.settingsAdmin.addonSources', { name: addon.name })}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
             style={{
               background: 'none',
               border: 'none',
@@ -165,6 +171,10 @@ export default function PluginCard({
               <button
                 onClick={() => onUpdate && onUpdate(addon)}
                 disabled={busy}
+                aria-label={t('a11y.settingsAdmin.actionOn', {
+                  action: t('addons.update', 'Update'),
+                  name: addon.name,
+                })}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -196,13 +206,17 @@ export default function PluginCard({
                 type="checkbox"
                 checked={addon.enabled}
                 onChange={() => onToggleEnabled && onToggleEnabled(addon)}
-                aria-label={t('addons.enabled', 'Enabled')}
+                // Every card has one, so each says which add-on it switches.
+                aria-label={t('a11y.settingsAdmin.addonEnabled', { name: addon.name })}
               />
               {t('addons.enabled', 'Enabled')}
             </label>
             <button
               onClick={() => onRemove && onRemove(addon)}
-              aria-label={t('addons.remove', 'Remove')}
+              aria-label={t('a11y.settingsAdmin.actionOn', {
+                action: t('addons.remove', 'Remove'),
+                name: addon.name,
+              })}
               title={t('addons.remove', 'Remove')}
               style={{
                 background: 'none',
@@ -221,6 +235,10 @@ export default function PluginCard({
           <button
             onClick={() => onInstall && onInstall(addon)}
             disabled={busy}
+            aria-label={t('a11y.settingsAdmin.actionOn', {
+              action: t('addons.install', 'Install'),
+              name: addon.name,
+            })}
             style={{
               display: 'flex',
               alignItems: 'center',

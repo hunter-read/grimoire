@@ -5,16 +5,25 @@ import type { PluginAddon } from './PluginCard'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k: string, opts?: string | { author?: string; version?: string; names?: string }) =>
+    t: (
+      k: string,
+      opts?:
+        | string
+        | { author?: string; version?: string; names?: string; name?: string; action?: string }
+    ) =>
       typeof opts === 'string'
         ? opts
-        : opts?.author
-          ? `by ${opts.author}`
-          : opts?.version
-            ? `v${opts.version}`
-            : opts?.names
-              ? `${k}:${opts.names}`
-              : k,
+        : opts?.action
+          ? `${opts.action} ${opts.name}`
+          : opts?.name
+            ? `${k}:${opts.name}`
+            : opts?.author
+              ? `by ${opts.author}`
+              : opts?.version
+                ? `v${opts.version}`
+                : opts?.names
+                  ? `${k}:${opts.names}`
+                  : k,
   }),
 }))
 
@@ -71,12 +80,14 @@ describe('PluginCard', () => {
     expect(screen.getByText('DriveThruRPG')).toBeInTheDocument()
     expect(screen.getByText('v1.0.0')).toBeInTheDocument()
     expect(screen.getByText('Book metadata from DriveThruRPG.')).toBeInTheDocument()
-    expect(screen.getByRole('checkbox', { name: 'Enabled' })).toBeChecked()
+    expect(
+      screen.getByRole('checkbox', { name: 'a11y.settingsAdmin.addonEnabled:DriveThruRPG' })
+    ).toBeChecked()
 
     fireEvent.click(screen.getByRole('checkbox'))
     expect(onToggleEnabled).toHaveBeenCalledWith(installedAddon)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove DriveThruRPG' }))
     expect(onRemove).toHaveBeenCalledWith(installedAddon)
   })
 
@@ -90,9 +101,9 @@ describe('PluginCard', () => {
     expect(screen.getByText('D&D 5e Spells')).toBeInTheDocument()
     expect(screen.getByText('v2.0.0')).toBeInTheDocument()
     expect(screen.getByText('runs code')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Install' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Install D&D 5e Spells' })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Install' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Install D&D 5e Spells' }))
     expect(onInstall).toHaveBeenCalledWith(availableAddon)
   })
 
@@ -138,7 +149,9 @@ describe('PluginCard', () => {
     fireEvent.contextMenu(card)
     expect(onContextMenu).toHaveBeenCalledWith(expect.anything(), installedAddon, true)
 
-    const moreBtn = screen.getByTitle('More options')
+    const moreBtn = screen.getByRole('button', {
+      name: 'a11y.settingsAdmin.addonSources:DriveThruRPG',
+    })
     expect(moreBtn).toBeInTheDocument()
     fireEvent.click(moreBtn)
     expect(onContextMenu).toHaveBeenCalledTimes(2)
@@ -174,7 +187,9 @@ describe('PluginCard', () => {
   it('handles missing callback handlers gracefully without throwing', () => {
     render(<PluginCard addon={installedAddon} isInstalled={true} />)
 
-    const moreBtn = screen.getByTitle('More options')
+    const moreBtn = screen.getByRole('button', {
+      name: 'a11y.settingsAdmin.addonSources:DriveThruRPG',
+    })
     expect(() => fireEvent.click(moreBtn)).not.toThrow()
 
     const updateBtn = screen.getByRole('button', { name: /update/i })
@@ -183,7 +198,22 @@ describe('PluginCard', () => {
     const checkbox = screen.getByRole('checkbox')
     expect(() => fireEvent.click(checkbox)).not.toThrow()
 
-    const removeBtn = screen.getByRole('button', { name: 'Remove' })
+    const removeBtn = screen.getByRole('button', { name: 'Remove DriveThruRPG' })
     expect(() => fireEvent.click(removeBtn)).not.toThrow()
+  })
+
+  it('names the sources button for its add-on and reports the menu open', () => {
+    const { rerender } = render(
+      <PluginCard addon={installedAddon} isInstalled={true} onContextMenu={vi.fn()} />
+    )
+    const btn = screen.getByRole('button', {
+      name: 'a11y.settingsAdmin.addonSources:DriveThruRPG',
+    })
+    expect(btn).toHaveAttribute('aria-haspopup', 'menu')
+    expect(btn).toHaveAttribute('aria-expanded', 'false')
+    rerender(
+      <PluginCard addon={installedAddon} isInstalled={true} onContextMenu={vi.fn()} menuOpen />
+    )
+    expect(btn).toHaveAttribute('aria-expanded', 'true')
   })
 })

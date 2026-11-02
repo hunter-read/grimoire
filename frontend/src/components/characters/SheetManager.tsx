@@ -41,12 +41,17 @@ export default function SheetManager({
   const [browsing, setBrowsing] = useState(false)
   const [error, setError] = useState('')
 
-  // Left and right move between tabs, as a tab list should.
+  // Left and right move between tabs, Home and End jump to the ends, as a tab
+  // list should.
   const onTabKey = (event: KeyboardEvent<HTMLButtonElement>) => {
-    if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return
     const index = TABS.findIndex((entry) => entry.key === tab)
-    const step = event.key === 'ArrowRight' ? 1 : -1
-    const next = TABS[(index + step + TABS.length) % TABS.length].key
+    let target: number
+    if (event.key === 'ArrowRight') target = (index + 1) % TABS.length
+    else if (event.key === 'ArrowLeft') target = (index - 1 + TABS.length) % TABS.length
+    else if (event.key === 'Home') target = 0
+    else if (event.key === 'End') target = TABS.length - 1
+    else return
+    const next = TABS[target].key
     setTab(next)
     tabRefs.current[next]?.focus()
     event.preventDefault()

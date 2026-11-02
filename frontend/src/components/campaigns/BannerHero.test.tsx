@@ -106,7 +106,10 @@ describe('BannerHero', () => {
     act(() => vi.advanceTimersByTime(1000))
     expect(screen.getByText(/edit/i)).toBeInTheDocument()
     fireEvent.mouseLeave(hero)
-    expect(screen.queryByText(/edit/i)).not.toBeInTheDocument()
+    // Still in the page for keyboard users, but hidden until hovered or focused.
+    const edit = screen.getByRole('button', { name: /edit/i })
+    expect(edit.style.opacity).toBe('0')
+    expect(edit).toHaveClass('reveal-on-focus')
   })
 
   it('uploads a picked file and notifies onChanged', async () => {

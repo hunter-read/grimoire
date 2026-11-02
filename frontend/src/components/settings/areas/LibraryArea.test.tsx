@@ -146,7 +146,11 @@ describe('LibraryArea - rescan', () => {
   it('shows indexing phase label while indexing', async () => {
     get.mockResolvedValue(indexingStatus)
     render(<LibraryArea />)
-    expect(await screen.findByText(/indexing pdfs/i)).toBeInTheDocument()
+    // Shown on the bar, and said once by the rescan's phase status.
+    await waitFor(() => expect(screen.getAllByText(/indexing pdfs/i)).toHaveLength(2))
+    expect(
+      screen.getAllByRole('status').some((el) => /indexing pdfs/i.test(el.textContent || ''))
+    ).toBe(true)
   })
 
   it('opens the rescan modal and posts the selected mode/scope on confirm', async () => {

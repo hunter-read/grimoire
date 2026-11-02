@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { useState } from 'react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import ReaderSidebarShell from './ReaderSidebarShell'
 
 const isMobile = vi.fn()
@@ -79,5 +80,60 @@ describe('ReaderSidebarShell', () => {
     isMobile.mockReturnValue(false)
     render(<ReaderSidebarShell sheet>body</ReaderSidebarShell>)
     expect(screen.getByTestId('reader-sidebar')).toHaveStyle({ width: '280px' })
+  })
+
+  describe('as a landmark', () => {
+    function Harness() {
+      const [open, setOpen] = useState(false)
+      return (
+        <>
+          <button onClick={() => setOpen(true)}>Open contents</button>
+          {open && (
+            <ReaderSidebarShell label="Contents">
+              <button onClick={() => setOpen(false)}>Close</button>
+            </ReaderSidebarShell>
+          )}
+        </>
+      )
+    }
+
+    it('is a named complementary region', () => {
+      isMobile.mockReturnValue(false)
+      render(<ReaderSidebarShell label="Contents">body</ReaderSidebarShell>)
+      expect(screen.getByRole('complementary', { name: 'Contents' })).toBeInTheDocument()
+    })
+
+    it('takes focus when it opens and gives it back when it closes', () => {
+      isMobile.mockReturnValue(false)
+      render(<Harness />)
+      const opener = screen.getByText('Open contents')
+      opener.focus()
+      fireEvent.click(opener)
+      expect(screen.getByRole('complementary', { name: 'Contents' })).toHaveFocus()
+      const close = screen.getByText('Close')
+      close.focus()
+      fireEvent.click(close)
+      expect(opener).toHaveFocus()
+    })
+
+    it('leaves focus on a field inside that took it first', () => {
+      isMobile.mockReturnValue(false)
+      render(
+        <ReaderSidebarShell label="Search">
+          <input aria-label="Query" autoFocus />
+        </ReaderSidebarShell>
+      )
+      expect(screen.getByLabelText('Query')).toHaveFocus()
+    })
+
+    it('is a landmark as a phone sheet too', () => {
+      isMobile.mockReturnValue(true)
+      render(
+        <ReaderSidebarShell sheet label="Export">
+          body
+        </ReaderSidebarShell>
+      )
+      expect(screen.getByRole('complementary', { name: 'Export' })).toBeInTheDocument()
+    })
   })
 })

@@ -85,9 +85,9 @@ describe('UserAccessGrantsSection', () => {
   it('creates a grant with the chosen scope and level', async () => {
     mockApi({ systems: [{ id: 's1', name: 'Ravenloft', access_level: 'admin' }] })
     render(<UserAccessGrantsSection userId="u1" userRole="gm" />)
-    const picker = await screen.findByLabelText('access.grants.addSystem')
+    const picker = await screen.findByRole('combobox', { name: 'access.grants.addSystem' })
     fireEvent.change(picker, { target: { value: 's1' } })
-    fireEvent.click(screen.getAllByRole('button', { name: '+' })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: 'a11y.settingsAccess.addGrant' })[0])
     await waitFor(() =>
       expect(api.post).toHaveBeenCalledWith('/users/u1/access-grants', {
         scope_type: 'system',
@@ -102,7 +102,7 @@ describe('UserAccessGrantsSection', () => {
       grants: [{ id: 'g1', scope_type: 'system', scope_id: 's1', scope_name: 'D&D', level: 'gm' }],
     })
     render(<UserAccessGrantsSection userId="u1" userRole="gm" />)
-    fireEvent.click(await screen.findByLabelText('access.grants.remove'))
+    fireEvent.click(await screen.findByRole('button', { name: 'a11y.settingsAccess.revokeGrant' }))
     await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/users/u1/access-grants/g1'))
   })
 
@@ -110,9 +110,46 @@ describe('UserAccessGrantsSection', () => {
     mockApi({ systems: [{ id: 's1', name: 'Ravenloft', access_level: 'admin' }] })
     vi.mocked(api.post).mockRejectedValue(new Error('denied'))
     render(<UserAccessGrantsSection userId="u1" userRole="gm" />)
-    const picker = await screen.findByLabelText('access.grants.addSystem')
+    const picker = await screen.findByRole('combobox', { name: 'access.grants.addSystem' })
     fireEvent.change(picker, { target: { value: 's1' } })
-    fireEvent.click(screen.getAllByRole('button', { name: '+' })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: 'a11y.settingsAccess.addGrant' })[0])
     expect(await screen.findByText('denied')).toBeInTheDocument()
+  })
+})
+
+describe('UserAccessGrantsSection accessibility', () => {
+  it('heads the section, and announces a revoke with focus moved to the heading', async () => {
+    mockApi({
+      grants: [{ id: 'g1', scope_type: 'system', scope_id: 's1', scope_name: 'D&D', level: 'gm' }],
+    })
+    render(<UserAccessGrantsSection userId="u1" userRole="gm" />)
+    const revoke = await screen.findByRole('button', { name: 'a11y.settingsAccess.revokeGrant' })
+    const heading = screen.getByRole('heading', { name: 'access.grants.title' })
+    fireEvent.click(revoke)
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent('a11y.settingsAccess.grantRemoved')
+    )
+    expect(heading).toHaveFocus()
+  })
+
+  it('groups each adder under its own name, and reports a failure as an alert', async () => {
+    mockApi({ systems: [{ id: 's1', name: 'Ravenloft', access_level: 'admin' }] })
+    vi.mocked(api.post).mockRejectedValue({})
+    render(<UserAccessGrantsSection userId="u1" userRole="gm" />)
+    const group = await screen.findByRole('group', { name: 'access.grants.addSystem' })
+    fireEvent.change(screen.getByRole('combobox', { name: 'access.grants.addSystem' }), {
+      target: { value: 's1' },
+    })
+    expect(group).toContainElement(
+      screen.getAllByRole('button', { name: 'a11y.settingsAccess.addGrant' })[0]
+    )
+    fireEvent.click(screen.getAllByRole('button', { name: 'a11y.settingsAccess.addGrant' })[0])
+    expect(await screen.findByRole('alert')).toHaveTextContent('a11y.settingsAccess.grantAddFailed')
+  })
+
+  it('heads the player explanation too', async () => {
+    mockApi()
+    render(<UserAccessGrantsSection userId="u1" userRole="player" />)
+    expect(await screen.findByRole('heading', { name: 'access.grants.title' })).toBeInTheDocument()
   })
 })

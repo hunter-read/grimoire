@@ -87,25 +87,25 @@ describe('UserRow', () => {
 
   it('does not show the editor until expanded', () => {
     renderRow()
-    expect(screen.queryByLabelText('Role')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/^role for/i)).not.toBeInTheDocument()
   })
 
   it('expands to reveal the editor when the row is clicked', () => {
     renderRow()
     fireEvent.click(screen.getByText('alice'))
-    expect(screen.getByLabelText('Role')).toBeInTheDocument()
+    expect(screen.getByLabelText(/^role for/i)).toBeInTheDocument()
   })
 
   it('calls onRoleChange with user id and new role when changed in the editor', () => {
     const onRoleChange = vi.fn()
     renderRow({ onRoleChange, startExpanded: true })
-    fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'gm' } })
+    fireEvent.change(screen.getByLabelText(/^role for/i), { target: { value: 'gm' } })
     expect(onRoleChange).toHaveBeenCalledWith('user-1', 'gm')
   })
 
   it('disables the role select in the editor for the current user', () => {
     renderRow({ currentUserId: 'user-1', startExpanded: true })
-    expect(screen.getByLabelText('Role')).toBeDisabled()
+    expect(screen.getByLabelText(/^role for/i)).toBeDisabled()
   })
 
   it('toggles campaign access from the editor', () => {
@@ -129,5 +129,29 @@ describe('UserRow', () => {
   it('hides the password setter when password auth is disabled', () => {
     renderRow({ passwordAuthEnabled: false, startExpanded: true })
     expect(screen.queryByText('Set Password')).not.toBeInTheDocument()
+  })
+})
+
+describe('UserRow accessibility', () => {
+  it('opens the editor from a button named after the user', () => {
+    renderRow()
+    const toggle = screen.getByRole('button', { name: 'Edit alice' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(toggle).not.toHaveAttribute('aria-controls')
+    // One toggle, not two: the click must not also bubble to the row's handler.
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    const editor = screen.getByRole('region', { name: 'Account settings for alice' })
+    expect(toggle).toHaveAttribute('aria-controls', editor.id)
+  })
+
+  it('makes the username the row header', () => {
+    renderRow()
+    expect(screen.getByRole('rowheader', { name: /alice/ })).toBeInTheDocument()
+  })
+
+  it('says what the campaign count counts', () => {
+    renderRow({ user: admin, currentUserId: 'admin-1' })
+    expect(screen.getByText('Owned campaigns: 2')).toBeInTheDocument()
   })
 })

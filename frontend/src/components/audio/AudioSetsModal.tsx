@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react'
+import { useRef, useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuX, LuMusic, LuGrid2X2, LuPencil, LuTrash2, LuPlay, LuListPlus } from 'react-icons/lu'
 import type { Schema } from '../../api'
@@ -6,6 +6,7 @@ import Spinner from '../Spinner'
 import { useAudioPlayer } from '../../context/AudioPlayerContext'
 import { useSoundboard } from '../../context/SoundboardContext'
 import useAudioSets from '../../hooks/useAudioSets'
+import useDialogFocus from '../../hooks/useDialogFocus'
 
 type SetSummary = Schema<'AudioSetSummary'>
 type SetEntry = Schema<'SetEntryOut'>
@@ -51,6 +52,9 @@ export default function AudioSetsModal({ onClose }: AudioSetsModalProps) {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  // Focus in on open, Tab kept inside, Escape closes, focus back on close.
+  useDialogFocus(dialogRef, { onClose })
 
   const liveCount = (kind: string) => (kind === 'soundboard' ? pads.length : queue.length)
 
@@ -113,28 +117,42 @@ export default function AudioSetsModal({ onClose }: AudioSetsModalProps) {
   }
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={t('audioSets.title')}
-      style={overlay}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div style={panel}>
+    <div style={overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="audio-sets-title"
+        style={panel}
+      >
         <div style={header}>
-          <span style={{ fontSize: 15, fontWeight: 600 }}>{t('audioSets.title')}</span>
+          <h2
+            id="audio-sets-title"
+            style={{
+              margin: 0,
+              fontSize: 15,
+              fontWeight: 600,
+              fontFamily: 'inherit',
+              letterSpacing: 'normal',
+              color: 'inherit',
+            }}
+          >
+            {t('audioSets.title')}
+          </h2>
           <button onClick={onClose} style={closeBtn} aria-label={t('common.close')}>
             <LuX size={16} />
           </button>
         </div>
 
         {(error || loadError) && (
-          <div style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 10 }}>
+          <div role="alert" style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 10 }}>
             {loadError || error}
           </div>
         )}
         {notice && (
-          <div style={{ color: 'var(--text-dim)', fontSize: 13, marginBottom: 10 }}>{notice}</div>
+          <div role="status" style={{ color: 'var(--text-dim)', fontSize: 13, marginBottom: 10 }}>
+            {notice}
+          </div>
         )}
 
         {loading ? (
@@ -147,6 +165,7 @@ export default function AudioSetsModal({ onClose }: AudioSetsModalProps) {
           </p>
         ) : (
           <ul
+            role="list"
             style={{
               listStyle: 'none',
               margin: 0,
@@ -175,7 +194,13 @@ export default function AudioSetsModal({ onClose }: AudioSetsModalProps) {
                       onChange={(e) => setRenameValue(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') submitRename(set)
-                        if (e.key === 'Escape') setRenaming(null)
+                      }}
+                      // Capture phase: Escape cancels the rename here before the
+                      // dialog's own Escape handler can close the whole dialog.
+                      onKeyDownCapture={(e) => {
+                        if (e.key !== 'Escape') return
+                        e.stopPropagation()
+                        setRenaming(null)
                       }}
                       onBlur={() => submitRename(set)}
                       aria-label={t('audioSets.renameLabel', { name: set.name })}
@@ -335,7 +360,7 @@ const iconBtn: CSSProperties = {
 const inlineInput: CSSProperties = {
   padding: '5px 8px',
   background: 'var(--bg-deep)',
-  border: '1px solid var(--border)',
+  border: '1px solid var(--border-control)',
   borderRadius: 6,
   color: 'var(--text)',
   fontSize: 14,

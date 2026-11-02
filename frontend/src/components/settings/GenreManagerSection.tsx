@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuTrash2, LuPlus } from 'react-icons/lu'
 import api from '../../api'
 import type { Schema } from '../../api'
 import Spinner from '../Spinner'
+import ConfirmModal from './ConfirmModal'
 import { buildGenreTree } from '../metadata/metadataUtils'
 
 type Genre = Schema<'GenreOut'>
@@ -26,6 +27,12 @@ export default function GenreManagerSection() {
   const [parentId, setParentId] = useState('')
   const [confirm, setConfirm] = useState<ConfirmState | null>(null)
   const [error, setError] = useState('')
+  // Said aloud after an add or remove, which otherwise changes the list
+  // silently - and a removal takes away the button that was pressed, so focus
+  // goes back to the name field once the list has reloaded.
+  const [announcement, setAnnouncement] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+  const refocusInput = useRef(false)
 
   const load = () => {
     api
@@ -36,12 +43,19 @@ export default function GenreManagerSection() {
 
   useEffect(load, [])
 
+  useEffect(() => {
+    if (!refocusInput.current) return
+    refocusInput.current = false
+    inputRef.current?.focus()
+  }, [genres])
+
   const add = () => {
     if (!name.trim()) return
     setError('')
     api
       .post('/genres', { name: name.trim(), parent_id: parentId || null })
       .then(() => {
+        setAnnouncement(t('a11y.settings.added', { name: name.trim() }))
         setName('')
         setParentId('')
         load()
@@ -54,6 +68,8 @@ export default function GenreManagerSection() {
       .delete(`/genres/${g.id}${force ? '?force=true' : ''}`)
       .then(() => {
         setConfirm(null)
+        setAnnouncement(t('a11y.settings.removed', { name: g.name }))
+        refocusInput.current = true
         load()
       })
       .catch((e) => {
@@ -75,6 +91,7 @@ export default function GenreManagerSection() {
     <div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
         <input
+          ref={inputRef}
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -118,12 +135,27 @@ export default function GenreManagerSection() {
       </div>
 
       {error && (
-        <div style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12 }}>{error}</div>
+        <div role="alert" style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12 }}>
+          {error}
+        </div>
       )}
+      <p role="status" className="sr-only">
+        {announcement}
+      </p>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <ul
+        role="list"
+        style={{
+          listStyle: 'none',
+          padding: 0,
+          margin: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+        }}
+      >
         {tree.map((g) => (
-          <div
+          <li
             key={g.id}
             style={{
               display: 'flex',
@@ -136,7 +168,8 @@ export default function GenreManagerSection() {
             }}
           >
             <span style={{ fontSize: 14, color: 'var(--text)' }}>
-              {g.depth > 0 && '└ '}
+              {/* The connector is drawn, not read: "box drawings up and right". */}
+              {g.depth > 0 && <span aria-hidden="true">└ </span>}
               {g.name}
             </span>
             <button
@@ -154,74 +187,18 @@ export default function GenreManagerSection() {
             >
               <LuTrash2 size={14} />
             </button>
-          </div>
+          </li>
         ))}
-      </div>
+      </ul>
 
       {confirm && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'var(--overlay)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 100,
-          }}
-        >
-          <div
-            style={{
-              background: 'var(--bg-panel)',
-              border: '1px solid var(--border)',
-              borderRadius: 10,
-              padding: 24,
-              maxWidth: 420,
-            }}
-          >
-            <h4 style={{ fontSize: 16, marginBottom: 10 }}>
-              {t('lookupSettings.removeTitle', { name: confirm.name })}
-            </h4>
-            <p
-              style={{ fontSize: 14, color: 'var(--text-dim)', lineHeight: 1.6, marginBottom: 20 }}
-            >
-              {t('lookupSettings.inUseWarning', { name: confirm.name, count: confirm.count })}
-            </p>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button
-                type="button"
-                onClick={() => setConfirm(null)}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: 6,
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--border)',
-                  color: 'var(--text-dim)',
-                  cursor: 'pointer',
-                }}
-              >
-                {t('lookupSettings.cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={() => remove({ id: confirm.id, name: confirm.name }, true)}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: 6,
-                  background: 'var(--danger-fill)',
-                  border: 'none',
-                  color: 'var(--on-danger)',
-                  cursor: 'pointer',
-                  fontWeight: 600,
-                }}
-              >
-                {t('lookupSettings.confirmRemove')}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmModal
+          title={t('lookupSettings.removeTitle', { name: confirm.name })}
+          message={t('lookupSettings.inUseWarning', { name: confirm.name, count: confirm.count })}
+          confirmLabel={t('lookupSettings.confirmRemove')}
+          onClose={() => setConfirm(null)}
+          onConfirm={() => remove({ id: confirm.id, name: confirm.name }, true)}
+        />
       )}
     </div>
   )

@@ -31,7 +31,7 @@ describe('WikiMarkdown', () => {
   it('renders an existing [[wiki link]] as a button and calls onOpenPage when no campaignId', () => {
     const onOpenPage = vi.fn()
     renderMd({ body: 'Go to [[The Castle]].', pages: [CASTLE], onOpenPage })
-    const link = screen.getByRole('button', { name: 'The Castle' })
+    const link = screen.getByRole('button', { name: /^The Castle/ })
     fireEvent.click(link)
     expect(onOpenPage).toHaveBeenCalledWith(CASTLE, null, expect.anything())
   })
@@ -65,7 +65,7 @@ describe('WikiMarkdown', () => {
       const onOpenPage = vi.fn()
       renderMd({ body: '[[Nowhere]]', pages: [], campaignId: 'c1', onOpenPage })
       // Unresolved → button, not link.
-      const btn = screen.getByRole('button', { name: 'Nowhere' })
+      const btn = screen.getByRole('button', { name: /^Nowhere/ })
       fireEvent.click(btn)
       expect(onOpenPage).toHaveBeenCalled()
     })
@@ -116,7 +116,7 @@ describe('WikiMarkdown', () => {
   it('renders a missing wiki link distinctly but still clickable', () => {
     const onOpenPage = vi.fn()
     renderMd({ body: '[[Nowhere]]', pages: [], onOpenPage })
-    const link = screen.getByRole('button', { name: 'Nowhere' })
+    const link = screen.getByRole('button', { name: /^Nowhere/ })
     expect(link).toBeTruthy()
   })
 
@@ -135,7 +135,10 @@ describe('WikiMarkdown', () => {
     const { container } = renderMd({ body: 'The duke is ||a doppelganger|| in disguise.' })
     // The secret must not break the sentence into separate paragraphs.
     expect(container.querySelectorAll('p').length).toBe(1)
-    expect(container.textContent).toContain('The duke is a doppelganger in disguise.')
+    // A screen reader is told where the secret starts and ends.
+    expect(container.querySelector('p')!.textContent).toBe(
+      'The duke is GM secret: a doppelganger end of GM secret in disguise.'
+    )
   })
 
   it('renders a multiline ||GM secret|| as a tinted block keeping all its text', () => {
@@ -159,7 +162,7 @@ describe('WikiMarkdown', () => {
       pages: [CASTLE],
       onOpenPage,
     })
-    fireEvent.click(screen.getByRole('button', { name: 'The Castle' }))
+    fireEvent.click(screen.getByRole('button', { name: /^The Castle/ }))
     expect(onOpenPage).toHaveBeenCalledWith(CASTLE, null, expect.anything())
     expect(screen.getByText('hidden').tagName).toBe('SPAN')
   })
@@ -172,7 +175,7 @@ describe('WikiMarkdown', () => {
       onOpenPage,
     })
     // The link resolves instead of leaking its [[brackets]], inside the secret.
-    const link = screen.getByRole('button', { name: 'The Castle' })
+    const link = screen.getByRole('button', { name: /^The Castle/ })
     expect(link.closest('span[title]')).toBeTruthy()
     expect(screen.getByText('GM:').tagName).toBe('STRONG')
     expect(container.textContent).not.toMatch(/\[|\]|\|/)
@@ -186,10 +189,12 @@ describe('WikiMarkdown', () => {
       body: 'Intro.\n\n||**GM:** [[The Castle]] is a ruin. **Not yet.**||\n\nOutro.',
       pages: [CASTLE],
     })
-    const block = screen.getByText('GM:').closest('div[title]')!
+    const block = screen.getByText('GM:').closest('section[title]')!
     expect(block).toBeTruthy()
+    // A named region, so its start and end are announced.
+    expect(screen.getByRole('region', { name: 'GM secret' })).toBe(block)
     expect(block.textContent).toBe('GM: The Castle is a ruin. Not yet.')
-    expect(screen.getByRole('button', { name: 'The Castle' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /^The Castle/ })).toBeTruthy()
     expect(container.querySelectorAll('p').length).toBe(3)
     expect(container.textContent).not.toMatch(/\||\[/)
   })
@@ -229,19 +234,19 @@ describe('WikiMarkdown', () => {
 
   it('renders a pinned link to a deleted page as broken', () => {
     renderMd({ body: '[[Gone:id-missing]]', pages: [] })
-    const link = screen.getByRole('button', { name: 'Gone' })
+    const link = screen.getByRole('button', { name: /^Gone/ })
     expect(link.getAttribute('title')).toBe('This link points to a page that no longer exists.')
   })
 
   it('hides the :id- and :#Heading suffixes from the rendered link text', () => {
     renderMd({ body: '[[The Castle:id-p1:#Loot]]', pages: [CASTLE] })
-    expect(screen.getByRole('button', { name: 'The Castle' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /^The Castle/ })).toBeTruthy()
   })
 
   it('passes a :#Heading through to onOpenPage for a cross-page link', () => {
     const onOpenPage = vi.fn()
     renderMd({ body: '[[The Castle:#Loot]]', pages: [CASTLE], onOpenPage })
-    fireEvent.click(screen.getByRole('button', { name: 'The Castle' }))
+    fireEvent.click(screen.getByRole('button', { name: /^The Castle/ }))
     expect(onOpenPage).toHaveBeenCalledWith(CASTLE, 'Loot', expect.anything())
   })
 
@@ -254,7 +259,7 @@ describe('WikiMarkdown', () => {
       currentPageId: CASTLE.id,
       onOpenPage,
     })
-    fireEvent.click(screen.getByRole('button', { name: 'The Castle' }))
+    fireEvent.click(screen.getByRole('button', { name: /^The Castle/ }))
     expect(onOpenPage).not.toHaveBeenCalled()
   })
 
@@ -364,5 +369,38 @@ describe('WikiMarkdown', () => {
       renderMd({ body: '[[map:x) [pwn](https://evil.example]]' })
       expect(screen.queryByRole('link', { name: 'pwn' })).toBeNull()
     })
+  })
+})
+
+describe('WikiMarkdown for screen readers', () => {
+  it('moves headings down the outline without changing their tags', () => {
+    renderMd({ body: '# Lore\n\n## Places', headingLevelOffset: 2 })
+    const lore = screen.getByRole('heading', { level: 3, name: 'Lore' })
+    expect(lore.tagName).toBe('H1')
+    expect(screen.getByRole('heading', { level: 4, name: 'Places' })).toBeInTheDocument()
+  })
+
+  it('leaves headings alone without an offset', () => {
+    renderMd({ body: '# Lore' })
+    expect(screen.getByRole('heading', { level: 1, name: 'Lore' })).not.toHaveAttribute(
+      'aria-level'
+    )
+  })
+
+  it('says a link to a missing page is missing', () => {
+    renderMd({ body: '[[Nowhere]]', pages: [] })
+    expect(
+      screen.getByRole('button', {
+        name: "Nowhere (This page doesn't exist yet - it will be created.)",
+      })
+    ).toBeInTheDocument()
+  })
+
+  it('says an external link opens a new tab', () => {
+    renderMd({ body: '[site](https://example.com)' })
+    expect(screen.getByRole('link', { name: /^site \(opens in a new tab\)$/ })).toHaveAttribute(
+      'target',
+      '_blank'
+    )
   })
 })

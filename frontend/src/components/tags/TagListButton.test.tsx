@@ -45,3 +45,16 @@ describe('TagListButton', () => {
     expect(screen.getByRole('link')).toHaveAttribute('aria-current', 'true')
   })
 })
+
+describe('TagListButton - screen readers', () => {
+  it('says what the count counts, and is current only when selected', () => {
+    const { unmount } = renderButton({ tag, active: true })
+    expect(screen.getByRole('link', { name: /city watch, 4 items/i })).toHaveAttribute(
+      'aria-current',
+      'true'
+    )
+    unmount()
+    renderButton({ tag, active: false })
+    expect(screen.getByRole('link', { name: /city watch/i })).not.toHaveAttribute('aria-current')
+  })
+})

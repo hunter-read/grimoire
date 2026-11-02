@@ -45,25 +45,27 @@ export default function SystemSearchResults({
           search finds the book itself, not just the pages inside it. */}
       {matchedBooks.length > 0 && (
         <div style={{ marginBottom: 32 }}>
-          <div style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 12 }}>
+          {/* Headings, so a screen reader can jump between the two result sets. */}
+          <h2 style={resultHeadingStyle}>
             {t('systemDetail.matchingBooks', { count: matchedBooks.length })}
-          </div>
-          <div style={booksContainerStyle}>
+          </h2>
+          <ul role="list" className="card-list" style={booksContainerStyle}>
             {matchedBooks.map((book) => (
-              <BookRow
-                key={book.id}
-                book={book}
-                card={card}
-                compact={compact}
-                onEdit={null}
-                onDetails={() => setDetailsBook(book)}
-                editing={false}
-                bulkMode={false}
-                selected={false}
-                onToggle={() => {}}
-              />
+              <li key={book.id}>
+                <BookRow
+                  book={book}
+                  card={card}
+                  compact={compact}
+                  onEdit={null}
+                  onDetails={() => setDetailsBook(book)}
+                  editing={false}
+                  bulkMode={false}
+                  selected={false}
+                  onToggle={() => {}}
+                />
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       )}
 
@@ -81,12 +83,12 @@ export default function SystemSearchResults({
       {/* Full-text page results */}
       {searchResults.results.length > 0 && (
         <div style={{ marginBottom: 32 }}>
-          <div style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 12 }}>
+          <h2 style={resultHeadingStyle}>
             {t('systemDetail.resultsInPages', {
               count: searchResults.results.length,
               query: searchResults.query,
             })}
-          </div>
+          </h2>
           {searchResults.results.map((r, i) => (
             <SystemPageHit key={i} result={r} />
           ))}
@@ -94,4 +96,14 @@ export default function SystemSearchResults({
       )}
     </>
   )
+}
+
+// The result headings keep the quiet caption look they had as plain text.
+const resultHeadingStyle: CSSProperties = {
+  fontSize: 14,
+  fontFamily: 'inherit',
+  fontWeight: 400,
+  letterSpacing: 'normal',
+  color: 'var(--text-muted)',
+  margin: '0 0 12px',
 }

@@ -40,3 +40,37 @@ describe('SetEmailInline', () => {
     expect(onCancel).toHaveBeenCalled()
   })
 })
+
+describe('SetEmailInline accessibility', () => {
+  it('ties a failure to the field as an alert', async () => {
+    const onSave = vi.fn().mockRejectedValue(new Error('bad email'))
+    render(<SetEmailInline initial="a@b.com" onSave={onSave} onCancel={vi.fn()} persistent />)
+    fireEvent.click(screen.getByText('Save'))
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('bad email')
+    const field = screen.getByLabelText('user@example.com')
+    expect(field).toHaveAttribute('aria-invalid', 'true')
+    expect(field).toHaveAttribute('aria-describedby', alert.id)
+  })
+
+  it('announces a save from an always-present status', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined)
+    render(<SetEmailInline initial="a@b.com" onSave={onSave} onCancel={vi.fn()} persistent />)
+    const status = screen.getByRole('status')
+    expect(status).toHaveTextContent('')
+    fireEvent.click(screen.getByText('Save'))
+    await waitFor(() => expect(status).toHaveTextContent('Saved'))
+  })
+
+  it("takes focus only when opened on purpose, and never fills in the admin's own email", () => {
+    const { unmount } = render(
+      <SetEmailInline initial="" onSave={vi.fn()} onCancel={vi.fn()} persistent />
+    )
+    const field = screen.getByLabelText('user@example.com')
+    expect(field).not.toHaveFocus()
+    expect(field).toHaveAttribute('autocomplete', 'off')
+    unmount()
+    render(<SetEmailInline initial="" onSave={vi.fn()} onCancel={vi.fn()} />)
+    expect(screen.getByLabelText('user@example.com')).toHaveFocus()
+  })
+})

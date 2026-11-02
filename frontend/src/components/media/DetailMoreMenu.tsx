@@ -6,6 +6,7 @@ import { LuEllipsisVertical, LuHeart, LuScroll, LuShare2 } from 'react-icons/lu'
 import { useUISettings } from '../../context/UISettingsContext'
 import { useFavorites } from '../../context/FavoritesContext'
 import useAnchoredMenu from '../../hooks/useAnchoredMenu'
+import useMenuKeyboard from '../../hooks/useMenuKeyboard'
 import AddToCampaignModal from '../AddToCampaignModal'
 import ShareLinkDialog from '../share/ShareLinkDialog'
 import useCanShare from '../share/useCanShare'
@@ -58,6 +59,8 @@ export default function DetailMoreMenu({
   const [open, setOpen] = useState(false)
   const [dialog, setDialog] = useState<string | null>(null)
   const { triggerRef, panelRef, style: menuStyle } = useAnchoredMenu(open, { width: MENU_WIDTH })
+  // Portaled to <body>, so without this the items are out of Tab's reach.
+  useMenuKeyboard(open, panelRef, triggerRef, () => setOpen(false))
 
   useEffect(() => {
     if (!open) return
@@ -81,7 +84,12 @@ export default function DetailMoreMenu({
   }, [open, triggerRef, panelRef])
 
   const isFavorite = favorites?.isFavorite?.(resourceType, resourceId) ?? false
-  const close = () => setDialog(null)
+  // The menu item that opened the dialog is gone by the time it closes, so
+  // focus goes back to the menu's own button rather than to nowhere.
+  const close = () => {
+    setDialog(null)
+    triggerRef.current?.focus()
+  }
   const run = (fn: () => void) => () => {
     setOpen(false)
     fn()

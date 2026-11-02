@@ -1,7 +1,8 @@
-import { useState, useEffect, type CSSProperties } from 'react'
+import { useState, useEffect, useRef, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCalendar, LuCopy, LuCheck, LuRefreshCw, LuTrash2, LuX } from 'react-icons/lu'
 import { campaigns, type Schema } from '../../api'
+import useDialogFocus from '../../hooks/useDialogFocus'
 
 type Subscription = Awaited<ReturnType<typeof campaigns.getCalendarSubscription>>
 
@@ -31,6 +32,9 @@ export default function CalendarSubscribeDialog({
   const [busy, setBusy] = useState(false)
   const [copied, setCopied] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  // Focus in on open, kept inside, Esc closes, and back to the opener after.
+  useDialogFocus(dialogRef, { onClose })
 
   useEffect(() => {
     let cancelled = false
@@ -46,12 +50,6 @@ export default function CalendarSubscribeDialog({
       cancelled = true
     }
   }, [campaign?.id])
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
 
   const run = async (fn: () => Promise<Subscription>) => {
     setBusy(true)
@@ -103,14 +101,19 @@ export default function CalendarSubscribeDialog({
             minWidth: 0,
             padding: '7px 10px',
             background: 'var(--bg-deep)',
-            border: '1px solid var(--border)',
+            border: '1px solid var(--border-control)',
             borderRadius: 8,
             color: 'var(--text)',
             fontSize: 12,
             fontFamily: 'monospace',
           }}
         />
-        <button onClick={() => copy(value, key)} style={btn} title={t('calendar.copy')}>
+        <button
+          onClick={() => copy(value, key)}
+          style={btn}
+          title={t('calendar.copy')}
+          aria-label={t('a11y.campaignNotes.copyNamed', { name: label })}
+        >
           {copied === key ? <LuCheck size={13} /> : <LuCopy size={13} />}
         </button>
       </div>
@@ -132,9 +135,10 @@ export default function CalendarSubscribeDialog({
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-label={t('calendar.subscribeTitle')}
+        aria-labelledby="calendar-subscribe-title"
         style={{
           background: 'var(--bg-panel)',
           border: '1px solid var(--border)',
@@ -155,10 +159,25 @@ export default function CalendarSubscribeDialog({
             marginBottom: 6,
           }}
         >
-          <div
-            style={{ fontSize: 15, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}
+          <h2
+            id="calendar-subscribe-title"
+            style={{
+              fontSize: 15,
+              fontWeight: 600,
+              fontFamily: 'inherit',
+              letterSpacing: 'normal',
+              color: 'var(--text)',
+              margin: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+            }}
           >
             <LuCalendar size={15} /> {t('calendar.subscribeTitle')}
+          </h2>
+          {/* The tick on the copy button is only visible; this says it. */}
+          <div role="status" className="sr-only">
+            {copied ? t('a11y.campaignNotes.copied') : ''}
           </div>
           <button
             onClick={onClose}
@@ -222,7 +241,10 @@ export default function CalendarSubscribeDialog({
         )}
 
         {error && (
-          <div style={{ fontSize: 12, color: 'var(--danger, #e5484d)', marginTop: 12 }}>
+          <div
+            role="alert"
+            style={{ fontSize: 12, color: 'var(--danger, #e5484d)', marginTop: 12 }}
+          >
             {error}
           </div>
         )}

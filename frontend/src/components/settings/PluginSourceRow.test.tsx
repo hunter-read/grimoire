@@ -10,7 +10,11 @@ vi.mock('../../api', () => ({
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (k: string, fallback?: unknown) => (typeof fallback === 'string' ? fallback : k),
+    t: (k: string, fallback?: unknown) => {
+      if (typeof fallback === 'string') return fallback
+      const o = fallback as { action?: string; name?: string } | undefined
+      return o?.action ? `${o.action}: ${o.name}` : k
+    },
   }),
 }))
 
@@ -110,7 +114,7 @@ describe('PluginSourceRow', () => {
     render(<PluginSourceRow url={url} index={0} data={data} busy={false} onRemove={vi.fn()} />)
     expect(screen.queryByText('addons.privateSource')).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'addons.tokenButton' }))
+    fireEvent.click(screen.getByRole('button', { name: /^addons\.tokenButton: / }))
     fireEvent.change(screen.getByLabelText('addons.tokenLabel'), { target: { value: 'tok' } })
     fireEvent.click(screen.getByRole('button', { name: 'addons.tokenSave' }))
 
@@ -120,7 +124,7 @@ describe('PluginSourceRow', () => {
 
   it('closes the token dialog on cancel', () => {
     render(<PluginSourceRow url={url} index={0} data={data} busy={false} onRemove={vi.fn()} />)
-    fireEvent.click(screen.getByRole('button', { name: 'addons.tokenButton' }))
+    fireEvent.click(screen.getByRole('button', { name: /^addons\.tokenButton: / }))
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -130,7 +134,7 @@ describe('PluginSourceRow', () => {
     const onRemove = vi.fn()
     render(<PluginSourceRow url={url} index={2} data={data} busy={false} onRemove={onRemove} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+    fireEvent.click(screen.getByRole('button', { name: /^Remove: / }))
     expect(onRemove).toHaveBeenCalledWith(2)
   })
 })

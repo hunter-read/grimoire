@@ -132,6 +132,12 @@ export default function ImporterList({ listing, onChanged }: ImporterListProps) 
         type="button"
         onClick={() => install(item)}
         disabled={busy}
+        aria-label={t(
+          item.install_as === 'server'
+            ? 'a11y.characters.installForEveryoneNamed'
+            : 'a11y.characters.installNamed',
+          { name: item.name }
+        )}
         style={busy ? { ...disabledBtn, padding: '4px 10px', fontSize: 12 } : smallGold}
       >
         <LuDownload size={12} aria-hidden="true" />
@@ -188,7 +194,7 @@ export default function ImporterList({ listing, onChanged }: ImporterListProps) 
         {importers.length === 0 ? (
           <p style={{ ...helpText, margin: 0 }}>{t('characters.importersNone')}</p>
         ) : !open ? null : (
-          <ul id="character-importers-list" style={list}>
+          <ul id="character-importers-list" role="list" style={list}>
             {importers.map((importer) => (
               <InstalledImporter
                 key={importer.id}
@@ -216,7 +222,7 @@ export default function ImporterList({ listing, onChanged }: ImporterListProps) 
               {t('characters.importersDownloadsOff')}
             </p>
           )}
-          <ul style={list}>
+          <ul role="list" style={list}>
             {available.map((item) => (
               <li key={item.id} style={row}>
                 <LuPuzzle

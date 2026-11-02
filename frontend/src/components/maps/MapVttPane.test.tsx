@@ -19,7 +19,7 @@ beforeEach(() => {
 describe('MapVttPane', () => {
   it('renders the server-decoded image rather than the base64 envelope', () => {
     render(<MapVttPane mapId="m1" filename="tavern.uvtt" />)
-    const img = screen.getByAltText('tavern.uvtt')
+    const img = screen.getByAltText('tavern')
     expect(img.getAttribute('src')).toContain('/maps/m1/vtt/image')
     // The raw .uvtt JSON must never be what the <img> points at.
     expect(img.getAttribute('src')).not.toContain('/file')
@@ -43,7 +43,7 @@ describe('MapVttPane', () => {
     render(<MapVttPane mapId="m1" filename="tavern.uvtt" />)
     expect(screen.getByRole('status')).toBeTruthy()
 
-    fireEvent.error(screen.getByAltText('tavern.uvtt'))
+    fireEvent.error(screen.getByAltText('tavern'))
 
     expect(screen.getByText('maps.detail.vttFailed')).toBeTruthy()
     expect(screen.queryByRole('status')).toBeNull()

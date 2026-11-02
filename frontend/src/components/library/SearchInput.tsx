@@ -47,7 +47,7 @@ export default function SearchInput({
           fontSize: 13,
           padding: '6px 28px 6px 30px',
           borderRadius: 6,
-          border: '1px solid var(--border)',
+          border: '1px solid var(--border-control)',
           background: 'var(--bg-card)',
           boxSizing: 'border-box',
         }}

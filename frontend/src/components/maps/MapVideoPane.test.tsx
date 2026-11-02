@@ -43,4 +43,21 @@ describe('MapVideoPane', () => {
     rerender(<MapVideoPane mapId="m2" filename="b.mp4" />)
     expect(screen.getByRole('status')).toBeTruthy()
   })
+
+  it('waits for play instead of autoplaying under reduced motion', () => {
+    const original = window.matchMedia
+    window.matchMedia = vi
+      .fn()
+      .mockReturnValue({ matches: true }) as unknown as typeof window.matchMedia
+    try {
+      const { container } = render(
+        <MapVideoPane mapId="v1" filename="river_loop.webm" isMobilePhone={false} />
+      )
+      const video = container.querySelector('video')!
+      expect(video.autoplay).toBe(false)
+      expect(video).toHaveAttribute('aria-label', 'river loop')
+    } finally {
+      window.matchMedia = original
+    }
+  })
 })

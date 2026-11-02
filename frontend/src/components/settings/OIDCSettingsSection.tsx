@@ -92,6 +92,11 @@ export default function OIDCSettingsSection() {
   const [savedField, setSavedField] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [redirectCopied, setRedirectCopied] = useState(false)
+  // Said after Autopopulate fills fields, which change with no focus on them.
+  const [discoverStatus, setDiscoverStatus] = useState('')
+  // Saving or clearing the secret disables the button that was pressed; focus
+  // goes back to the field instead of falling to <body>.
+  const secretInputRef = useRef<HTMLInputElement>(null)
 
   // The "Saved" and "Copied" ticks clear themselves after a moment. Their
   // timers are cancelled on unmount, so leaving the page mid-tick never sets
@@ -174,6 +179,8 @@ export default function OIDCSettingsSection() {
   }
 
   const handleBoolToggle = (key: string) => {
+    // One save per box at a time; see checkboxRow for why it isn't disabled.
+    if (savingField === key) return
     const next = !draft[key]
     setDraft((d) => ({ ...d, [key]: next }))
     saveField(key, next)
@@ -192,6 +199,7 @@ export default function OIDCSettingsSection() {
     }
     setDiscovering(true)
     setDiscoverError('')
+    setDiscoverStatus('')
     try {
       const doc = (await api.post('/auth/openid/discover', {
         issuer_url: issuer,
@@ -221,6 +229,7 @@ export default function OIDCSettingsSection() {
         const updated = await settingsApi.patch(updates as SettingsPatch)
         setData(updated)
       }
+      setDiscoverStatus(t('a11y.settingsAccess.discovered', { count: Object.keys(updates).length }))
     } catch (e) {
       setDiscoverError(errorMessage(e) || t('authSettings.oidc.discoverFailed'))
     } finally {
@@ -239,6 +248,7 @@ export default function OIDCSettingsSection() {
       setSecretDraft('')
       setSavedField('oidc_client_secret')
       later(() => setSavedField(null), 1800)
+      secretInputRef.current?.focus()
     } catch (e) {
       setError(errorMessage(e) || t('authSettings.oidc.saveFailed'))
     } finally {
@@ -253,6 +263,8 @@ export default function OIDCSettingsSection() {
     try {
       const updated = await settingsApi.patch({ oidc_client_secret: '__CLEAR__' })
       setData(updated)
+      // The Clear button goes away with the secret.
+      secretInputRef.current?.focus()
     } catch (e) {
       setError(errorMessage(e) || t('authSettings.oidc.saveFailed'))
     } finally {
@@ -286,14 +298,25 @@ export default function OIDCSettingsSection() {
     </div>
   )
 
+  // A field's description: its "set by environment" note and its hint.
+  const describedBy = (key: string, locked: boolean, hasHint: boolean) =>
+    [locked && `${key}-locked`, hasHint && `${key}-hint`].filter(Boolean).join(' ') || undefined
+
   const fieldRow = ({ key, label, hint, type = 'text', placeholder = '' }: FieldRowProps) => {
     const locked = isLocked(key)
     return (
       <div key={key} style={{ marginBottom: 14 }}>
+        {/* The input is named by the label text alone (aria-labelledby): the
+            label also holds the saving spinner and "Saved" status, which would
+            otherwise be read as part of the field's name. */}
         <label htmlFor={key} style={fieldLabelStyle}>
-          <span>{label}</span>
+          <span id={`${key}-label`}>{label}</span>
           {locked && (
-            <span style={lockedTagStyle} title={t('authSettings.oidc.envLockedTitle')}>
+            <span
+              id={`${key}-locked`}
+              style={lockedTagStyle}
+              title={t('authSettings.oidc.envLockedTitle')}
+            >
               <LuLock size={10} /> {t('authSettings.oidc.envLocked')}
             </span>
           )}
@@ -303,6 +326,10 @@ export default function OIDCSettingsSection() {
         <input
           id={key}
           type={type}
+          aria-labelledby={`${key}-label`}
+          aria-describedby={describedBy(key, locked, !!hint)}
+          autoComplete="off"
+          spellCheck={false}
           value={text(key)}
           onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
           onBlur={() => handleStringBlur(key)}
@@ -325,7 +352,10 @@ export default function OIDCSettingsSection() {
           }}
         />
         {hint && (
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.4 }}>
+          <div
+            id={`${key}-hint`}
+            style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.4 }}
+          >
             {hint}
           </div>
         )}
@@ -351,7 +381,12 @@ export default function OIDCSettingsSection() {
             type="checkbox"
             checked={!!draft[key]}
             onChange={() => handleBoolToggle(key)}
-            disabled={locked || savingField === key}
+            // Disabled only when locked. Disabling it while it saves would drop
+            // focus from the box just toggled; aria-disabled says it is busy.
+            disabled={locked}
+            aria-disabled={savingField === key || undefined}
+            aria-labelledby={`${key}-label`}
+            aria-describedby={describedBy(key, locked, !!hint)}
             style={{
               width: 16,
               height: 16,
@@ -359,9 +394,11 @@ export default function OIDCSettingsSection() {
               cursor: locked ? 'not-allowed' : 'pointer',
             }}
           />
-          <span style={{ fontSize: 14 }}>{label}</span>
+          <span id={`${key}-label`} style={{ fontSize: 14 }}>
+            {label}
+          </span>
           {locked && (
-            <span style={lockedTagStyle}>
+            <span id={`${key}-locked`} style={lockedTagStyle}>
               <LuLock size={10} /> {t('authSettings.oidc.envLocked')}
             </span>
           )}
@@ -370,6 +407,7 @@ export default function OIDCSettingsSection() {
         </label>
         {hint && (
           <div
+            id={`${key}-hint`}
             style={{
               fontSize: 12,
               color: 'var(--text-muted)',
@@ -483,9 +521,9 @@ export default function OIDCSettingsSection() {
               {/* Issuer URL with Autopopulate */}
               <div style={{ marginBottom: 14 }}>
                 <label htmlFor="oidc_issuer_url" style={fieldLabelStyle}>
-                  <span>{t('authSettings.oidc.issuerUrl')}</span>
+                  <span id="oidc_issuer_url-label">{t('authSettings.oidc.issuerUrl')}</span>
                   {isLocked('oidc_issuer_url') && (
-                    <span style={lockedTagStyle}>
+                    <span id="oidc_issuer_url-locked" style={lockedTagStyle}>
                       <LuLock size={10} /> {t('authSettings.oidc.envLocked')}
                     </span>
                   )}
@@ -495,7 +533,20 @@ export default function OIDCSettingsSection() {
                 <div style={{ display: 'flex', gap: 8 }}>
                   <input
                     id="oidc_issuer_url"
+                    // text, not url: a url field trims what is typed, which
+                    // would hide the "needs an issuer" check from a blank entry.
                     type="text"
+                    inputMode="url"
+                    autoComplete="off"
+                    spellCheck={false}
+                    aria-labelledby="oidc_issuer_url-label"
+                    aria-describedby={describedBy(
+                      'oidc_issuer_url',
+                      isLocked('oidc_issuer_url'),
+                      true
+                    )}
+                    aria-invalid={discoverError ? true : undefined}
+                    aria-errormessage={discoverError ? 'oidc_issuer_url-error' : undefined}
                     value={text('oidc_issuer_url')}
                     onChange={(e) => setDraft((d) => ({ ...d, oidc_issuer_url: e.target.value }))}
                     onBlur={() => handleStringBlur('oidc_issuer_url')}
@@ -512,8 +563,10 @@ export default function OIDCSettingsSection() {
                   />
                   <button
                     type="button"
-                    onClick={handleDiscover}
-                    disabled={discovering || !text('oidc_issuer_url')}
+                    onClick={() => !discovering && handleDiscover()}
+                    // Not disabled mid-request: that would drop the focus it has.
+                    disabled={!text('oidc_issuer_url')}
+                    aria-disabled={discovering || undefined}
                     style={{
                       ...primaryBtnStyle,
                       display: 'inline-flex',
@@ -531,11 +584,19 @@ export default function OIDCSettingsSection() {
                   </button>
                 </div>
                 {discoverError && (
-                  <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 6 }}>
+                  <div
+                    id="oidc_issuer_url-error"
+                    role="alert"
+                    style={{ fontSize: 12, color: 'var(--red)', marginTop: 6 }}
+                  >
                     {discoverError}
                   </div>
                 )}
+                <div className="sr-only" role="status">
+                  {discoverStatus}
+                </div>
                 <div
+                  id="oidc_issuer_url-hint"
                   style={{
                     fontSize: 12,
                     color: 'var(--text-muted)',
@@ -572,15 +633,22 @@ export default function OIDCSettingsSection() {
               {/* Signing alg */}
               <div style={{ marginBottom: 14 }}>
                 <label htmlFor="oidc_signing_alg" style={fieldLabelStyle}>
-                  <span>{t('authSettings.oidc.signingAlg')}</span>
+                  <span id="oidc_signing_alg-label">{t('authSettings.oidc.signingAlg')}</span>
                   {isLocked('oidc_signing_alg') && (
-                    <span style={lockedTagStyle}>
+                    <span id="oidc_signing_alg-locked" style={lockedTagStyle}>
                       <LuLock size={10} /> {t('authSettings.oidc.envLocked')}
                     </span>
                   )}
                 </label>
                 <select
                   id="oidc_signing_alg"
+                  aria-labelledby="oidc_signing_alg-label"
+                  aria-describedby={describedBy(
+                    'oidc_signing_alg',
+                    isLocked('oidc_signing_alg'),
+                    !signingAlgSupported
+                  )}
+                  aria-invalid={!signingAlgSupported || undefined}
                   value={signingAlg}
                   onChange={(e) => handleSelectChange('oidc_signing_alg', e.target.value)}
                   disabled={isLocked('oidc_signing_alg')}
@@ -600,7 +668,10 @@ export default function OIDCSettingsSection() {
                   ))}
                 </select>
                 {!signingAlgSupported && (
-                  <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 4, lineHeight: 1.5 }}>
+                  <div
+                    id="oidc_signing_alg-hint"
+                    style={{ fontSize: 12, color: 'var(--red)', marginTop: 4, lineHeight: 1.5 }}
+                  >
                     {t('authSettings.oidc.signingAlgUnsupportedHint')}
                   </div>
                 )}
@@ -616,7 +687,7 @@ export default function OIDCSettingsSection() {
               {/* Client secret — masked, set/clear pattern */}
               <div style={{ marginBottom: 14 }}>
                 <label htmlFor="oidc_client_secret" style={fieldLabelStyle}>
-                  <span>{t('authSettings.oidc.clientSecret')}</span>
+                  <span id="oidc_client_secret-label">{t('authSettings.oidc.clientSecret')}</span>
                   {isLocked('oidc_client_secret') && (
                     <span style={lockedTagStyle}>
                       <LuLock size={10} /> {t('authSettings.oidc.envLocked')}
@@ -638,15 +709,23 @@ export default function OIDCSettingsSection() {
                       fontFamily: 'monospace',
                     }}
                   >
-                    {'•'.repeat(Math.min(data.oidc_client_secret_length || 0, 40))}
+                    {/* A row of bullets is read as "bullet bullet bullet…". */}
+                    <span aria-hidden="true">
+                      {'•'.repeat(Math.min(data.oidc_client_secret_length || 0, 40))}
+                    </span>
+                    <span className="sr-only">{t('a11y.settingsAccess.secretIsSet')}</span>
                   </div>
                 )}
                 {!isLocked('oidc_client_secret') && (
                   <div style={{ display: 'flex', gap: 8 }}>
                     <div style={{ flex: 1, position: 'relative' }}>
                       <input
+                        ref={secretInputRef}
                         id="oidc_client_secret"
                         type={showSecret ? 'text' : 'password'}
+                        aria-labelledby="oidc_client_secret-label"
+                        autoComplete="off"
+                        spellCheck={false}
                         value={secretDraft}
                         onChange={(e) => setSecretDraft(e.target.value)}
                         placeholder={
@@ -665,6 +744,11 @@ export default function OIDCSettingsSection() {
                         type="button"
                         onClick={() => setShowSecret((v) => !v)}
                         title={
+                          showSecret
+                            ? t('authSettings.oidc.hideSecret')
+                            : t('authSettings.oidc.showSecret')
+                        }
+                        aria-label={
                           showSecret
                             ? t('authSettings.oidc.hideSecret')
                             : t('authSettings.oidc.showSecret')
@@ -689,6 +773,7 @@ export default function OIDCSettingsSection() {
                       type="button"
                       onClick={handleSaveSecret}
                       disabled={!secretDraft || savingField === 'oidc_client_secret'}
+                      aria-label={t('a11y.settingsAccess.saveSecret')}
                       style={{
                         ...primaryBtnStyle,
                         opacity: !secretDraft ? 0.5 : 1,
@@ -702,6 +787,7 @@ export default function OIDCSettingsSection() {
                         type="button"
                         onClick={handleClearSecret}
                         disabled={savingField === 'oidc_client_secret'}
+                        aria-label={t('a11y.settingsAccess.clearSecret')}
                         style={dangerBtnStyle}
                       >
                         {t('common.clear')}
@@ -721,7 +807,11 @@ export default function OIDCSettingsSection() {
                       fontFamily: 'monospace',
                     }}
                   >
-                    {'•'.repeat(Math.min(data.oidc_client_secret_length || 0, 40))}
+                    {/* A row of bullets is read as "bullet bullet bullet…". */}
+                    <span aria-hidden="true">
+                      {'•'.repeat(Math.min(data.oidc_client_secret_length || 0, 40))}
+                    </span>
+                    <span className="sr-only">{t('a11y.settingsAccess.secretIsSet')}</span>
                   </div>
                 )}
               </div>
@@ -771,15 +861,17 @@ export default function OIDCSettingsSection() {
               {/* Match by */}
               <div style={{ marginBottom: 14 }}>
                 <label htmlFor="oidc_match_by" style={fieldLabelStyle}>
-                  <span>{t('authSettings.oidc.matchBy')}</span>
+                  <span id="oidc_match_by-label">{t('authSettings.oidc.matchBy')}</span>
                   {isLocked('oidc_match_by') && (
-                    <span style={lockedTagStyle}>
+                    <span id="oidc_match_by-locked" style={lockedTagStyle}>
                       <LuLock size={10} /> {t('authSettings.oidc.envLocked')}
                     </span>
                   )}
                 </label>
                 <select
                   id="oidc_match_by"
+                  aria-labelledby="oidc_match_by-label"
+                  aria-describedby={describedBy('oidc_match_by', isLocked('oidc_match_by'), true)}
                   value={text('oidc_match_by') || 'none'}
                   onChange={(e) => handleSelectChange('oidc_match_by', e.target.value)}
                   disabled={isLocked('oidc_match_by')}
@@ -792,6 +884,7 @@ export default function OIDCSettingsSection() {
                   ))}
                 </select>
                 <div
+                  id="oidc_match_by-hint"
                   style={{
                     fontSize: 12,
                     color: 'var(--text-muted)',
@@ -863,7 +956,7 @@ const lockedTagStyle: CSSProperties = {
 
 const selectStyle: CSSProperties = {
   background: 'var(--bg-input)',
-  border: '1px solid var(--border)',
+  border: '1px solid var(--border-control)',
   color: 'var(--text)',
   borderRadius: 6,
   padding: '7px 10px',

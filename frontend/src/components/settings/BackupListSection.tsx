@@ -143,7 +143,9 @@ export default function BackupListSection({ refreshKey }: { refreshKey?: number 
       </div>
 
       {error && (
-        <div style={{ marginBottom: 16, fontSize: 14, color: 'var(--danger)' }}>{error}</div>
+        <div role="alert" style={{ marginBottom: 16, fontSize: 14, color: 'var(--danger)' }}>
+          {error}
+        </div>
       )}
 
       {loading ? (
@@ -151,9 +153,13 @@ export default function BackupListSection({ refreshKey }: { refreshKey?: number 
       ) : items.length === 0 ? (
         <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>{t('backups.list.empty')}</div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <ul
+          role="list"
+          className="card-list"
+          style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+        >
           {items.map((item) => (
-            <div
+            <li
               key={item.id}
               style={{
                 display: 'flex',
@@ -179,7 +185,11 @@ export default function BackupListSection({ refreshKey }: { refreshKey?: number 
                 onClick={() => handleDownload(item)}
                 disabled={downloading === item.id}
                 title={t('backups.list.download')}
-                aria-label={t('backups.list.download')}
+                // One per backup, so each says which: "Download: 2 Nov 2026, 03:00".
+                aria-label={t('a11y.settingsAdmin.actionOn', {
+                  action: t('backups.list.download'),
+                  name: formatTimestamp(item.created_at, i18n.language),
+                })}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -199,7 +209,10 @@ export default function BackupListSection({ refreshKey }: { refreshKey?: number 
               <button
                 onClick={() => handleDelete(item)}
                 title={t('backups.list.delete')}
-                aria-label={t('backups.list.delete')}
+                aria-label={t('a11y.settingsAdmin.actionOn', {
+                  action: t('backups.list.delete'),
+                  name: formatTimestamp(item.created_at, i18n.language),
+                })}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -216,9 +229,9 @@ export default function BackupListSection({ refreshKey }: { refreshKey?: number 
                 <LuTrash2 size={13} />
                 {t('backups.list.delete')}
               </button>
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
 
       {items.length > 0 && (

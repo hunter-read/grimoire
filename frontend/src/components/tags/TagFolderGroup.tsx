@@ -7,6 +7,7 @@ import LoadMoreSentinel from '../LoadMoreSentinel'
 import Spinner from '../Spinner'
 import { tagZipBtnStyle, canDownloadTagType, type DownloadRequest } from './tagDownload'
 import type { PagedList } from '../../hooks/usePagedLists'
+import ItemList, { plainHeading } from './ItemList'
 
 /** One of the tag view's paged lists, as `usePagedLists().get` returns it. */
 export type TagPageList<T> = Pick<PagedList<T>, 'items' | 'loading'> & { hasMore: boolean }
@@ -75,38 +76,41 @@ export default function TagFolderGroup<T>({
   return (
     <div style={{ marginTop: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-        <button
-          type="button"
-          onClick={toggle}
-          aria-expanded={!collapsed}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            flex: 1,
-            minWidth: 0,
-            background: 'none',
-            border: 'none',
-            padding: 0,
-            cursor: 'pointer',
-            fontSize: 13,
-            fontWeight: 600,
-            color: 'var(--text-dim)',
-            textAlign: 'left',
-          }}
-        >
-          <LuChevronDown
-            size={14}
-            aria-hidden="true"
+        {/* A folder sits under its type's h3. */}
+        <h4 style={{ ...plainHeading, flex: 1, minWidth: 0 }}>
+          <button
+            type="button"
+            onClick={toggle}
+            aria-expanded={!collapsed}
             style={{
-              transition: 'transform 0.15s',
-              transform: collapsed ? 'rotate(-90deg)' : 'none',
-              flexShrink: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              width: '100%',
+              minWidth: 0,
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              fontSize: 13,
+              fontWeight: 600,
+              color: 'var(--text-dim)',
+              textAlign: 'left',
             }}
-          />
-          <LuFolder size={14} color="var(--gold-dim)" style={{ flexShrink: 0 }} />
-          {title}
-        </button>
+          >
+            <LuChevronDown
+              size={14}
+              aria-hidden="true"
+              style={{
+                transition: 'transform 0.15s',
+                transform: collapsed ? 'rotate(-90deg)' : 'none',
+                flexShrink: 0,
+              }}
+            />
+            <LuFolder size={14} color="var(--gold-dim)" style={{ flexShrink: 0 }} />
+            {title}
+          </button>
+        </h4>
         {downloadable && (
           <button
             type="button"
@@ -118,6 +122,7 @@ export default function TagFolderGroup<T>({
             }
             style={tagZipBtnStyle}
             title={t('tags.downloadFolder', { folder: title })}
+            aria-label={t('tags.downloadFolder', { folder: title })}
           >
             <LuDownload size={11} /> {t('tags.download')}
           </button>
@@ -125,7 +130,7 @@ export default function TagFolderGroup<T>({
       </div>
       {!collapsed && (
         <>
-          <div style={containerStyle}>{items.map((item) => renderItem(item))}</div>
+          <ItemList nodes={items.map((item) => renderItem(item))} style={containerStyle} />
           {loading && (
             <div style={{ padding: 12, display: 'flex', justifyContent: 'center' }}>
               <Spinner size={18} />

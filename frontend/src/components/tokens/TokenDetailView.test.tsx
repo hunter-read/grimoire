@@ -17,6 +17,30 @@ vi.mock('react-router-dom', () => ({
   useParams: () => ({ tokenId: currentTokenId }),
   useNavigate: () => navigate,
   useLocation: () => ({ pathname: `/tokens/${currentTokenId}`, state: locationState }),
+  // A real link in the view; here it reports through the same navigate spy,
+  // so the tests still see where it goes and with what state.
+  Link: ({
+    to,
+    state,
+    children,
+    ...rest
+  }: {
+    to: string
+    state?: unknown
+    children?: React.ReactNode
+    [key: string]: unknown
+  }) => (
+    <a
+      href={to}
+      {...rest}
+      onClick={(e) => {
+        e.preventDefault()
+        navigate(to, state === undefined ? undefined : { state })
+      }}
+    >
+      {children}
+    </a>
+  ),
 }))
 
 vi.mock('../../context/AuthContext', () => ({
@@ -192,9 +216,9 @@ describe('TokenDetailView', () => {
   it('steps between tokens with the arrow buttons', async () => {
     mockApi('t2')
     render(<TokenDetailView />)
-    await userEvent.click(await screen.findByRole('button', { name: 'Next token' }))
+    await userEvent.click(await screen.findByRole('button', { name: /^Next token/ }))
     expect(navigate).toHaveBeenCalledWith('/tokens/t3')
-    await userEvent.click(screen.getByRole('button', { name: 'Previous token' }))
+    await userEvent.click(screen.getByRole('button', { name: /^Previous token/ }))
     expect(navigate).toHaveBeenCalledWith('/tokens/t1')
   })
 })

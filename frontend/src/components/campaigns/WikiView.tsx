@@ -170,6 +170,17 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
   // Id of the tree row under the cursor — drives the hover-only row controls
   // (add-subpage, and the visibility glyph on fully-visible pages).
   const [hoveredRow, setHoveredRow] = useState<string | null>(null)
+  // Spoken outcome of a keyboard reorder ("Moved Lore to position 2 of 5").
+  const [treeStatus, setTreeStatus] = useState('')
+  // The page a keyboard reorder just moved. Its row re-renders in a new place
+  // once the list reloads, so focus is put back on it then.
+  const refocusAfterMove = useRef<string | null>(null)
+  useEffect(() => {
+    const id = refocusAfterMove.current
+    if (!id || !pages) return
+    refocusAfterMove.current = null
+    document.querySelector<HTMLElement>(`[data-wiki-page-link="${CSS.escape(id)}"]`)?.focus()
+  }, [pages])
 
   // Importing writes pages into the campaign, so it needs manage rights and a
   // campaign that isn't frozen. Exporting only reads and stays available to all.
@@ -546,7 +557,14 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
     dragId.current = null
     const where = dropTarget?.where || 'inside'
     setDropTarget(null)
-    if (!id || id === target.id) return
+    if (!id) return
+    await movePage(id, target, where)
+  }
+
+  // Put page `id` before, after or inside `target`, as a drop does. Shared with
+  // the keyboard reorder (Alt+Up / Alt+Down on a tree row) below.
+  const movePage = async (id: string, target: WikiPage, where: DropWhere) => {
+    if (id === target.id) return
     if (descendantIds(id, pages!).has(target.id)) return
     const dragged = pages?.find((p) => p.id === id)
     if (!dragged) return
@@ -574,6 +592,25 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
     })
     await campaigns.reorderWikiPages(campaign.id, order)
     loadList()
+  }
+
+  // The keyboard alternative to dragging a row: Alt+Up / Alt+Down swaps a page
+  // with the sibling before or after it. Nesting is changed in the editor's
+  // Parent field, which needs no drag either.
+  const moveWithKeyboard = async (p: WikiPage, dir: -1 | 1) => {
+    const sibs = orderedSiblings(p.parent_id || null)
+    const index = sibs.findIndex((s) => s.id === p.id)
+    const target = sibs[index + dir]
+    if (index === -1 || !target) return
+    refocusAfterMove.current = p.id
+    await movePage(p.id, target, dir < 0 ? 'before' : 'after')
+    setTreeStatus(
+      t('a11y.campaignNotes.movedTo', {
+        name: p.title,
+        position: index + dir + 1,
+        total: sibs.length,
+      })
+    )
   }
 
   if (pages === null)
@@ -622,7 +659,7 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
     // author-only, so this would dim the entire tree for no information.
     const restricted = isSharedCampaign && p.visibility !== 'group'
     return (
-      <div key={p.id}>
+      <li key={p.id}>
         <div
           draggable={canDrag}
           onDragStart={(e) => onPageDragStart(e, p.id)}
@@ -688,7 +725,10 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
                 e.stopPropagation()
                 toggleCollapse(p.id)
               }}
-              aria-label={t(isCollapsed ? 'wiki.expand' : 'wiki.collapse')}
+              // Named for the page whose subpages it shows; the state is said
+              // once, by aria-expanded.
+              aria-label={t('a11y.campaignNotes.subpagesOf', { title: p.title })}
+              aria-expanded={!isCollapsed}
               style={{
                 flexShrink: 0,
                 display: 'inline-flex',
@@ -745,6 +785,18 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
           <Link
             to={noteHref(p.id)}
             replace
+            data-wiki-page-link={p.id}
+            aria-current={active ? 'page' : undefined}
+            aria-describedby={canDrag ? 'wiki-reorder-hint' : undefined}
+            onKeyDown={
+              canDrag
+                ? (e) => {
+                    if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return
+                    e.preventDefault()
+                    moveWithKeyboard(p, e.key === 'ArrowUp' ? -1 : 1)
+                  }
+                : undefined
+            }
             onClick={(e) => {
               if (e.metaKey || e.ctrlKey) {
                 e.preventDefault()
@@ -782,8 +834,9 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
                 startCreate(p.id)
               }}
               onFocus={() => setHoveredRow(p.id)}
-              aria-label={t('wiki.addSubpage')}
+              aria-label={t('a11y.campaignNotes.addSubpageTo', { title: p.title })}
               title={t('wiki.addSubpage')}
+              className="reveal-on-focus"
               style={{
                 flexShrink: 0,
                 display: 'inline-flex',
@@ -813,8 +866,9 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
                 toggleHidden(p)
               }}
               onFocus={() => setHoveredRow(p.id)}
-              aria-label={t(p.is_hidden ? 'wiki.unhide' : 'wiki.hide')}
+              aria-label={`${t(p.is_hidden ? 'wiki.unhide' : 'wiki.hide')}: ${p.title}`}
               title={t(p.is_hidden ? 'wiki.unhideTitle' : 'wiki.hideTitle')}
+              className="reveal-on-focus"
               style={{
                 flexShrink: 0,
                 display: 'inline-flex',
@@ -846,11 +900,11 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
           )}
         </div>
         {hasKids && !isCollapsed && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 2 }}>
+          <ul role="list" style={{ ...treeList, marginTop: 2 }}>
             {kids.map((c) => renderRow(c, depth + 1))}
-          </div>
+          </ul>
         )}
-      </div>
+      </li>
     )
   }
 
@@ -927,6 +981,9 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
             }}
           />
           <input
+            type="search"
+            autoComplete="off"
+            aria-label={t('wiki.searchPlaceholder')}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t('wiki.searchPlaceholder')}
@@ -934,7 +991,7 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
               width: '100%',
               padding: '6px 8px 6px 28px',
               background: 'var(--bg-deep)',
-              border: '1px solid var(--border)',
+              border: '1px solid var(--border-control)',
               borderRadius: 8,
               color: 'var(--text)',
               fontSize: 13,
@@ -983,7 +1040,9 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
               color: 'var(--text-dim)',
             }}
           >
-            <span style={{ flex: 1 }}>{t('wiki.selectedCount', { count: selectedIds.size })}</span>
+            <span role="status" style={{ flex: 1 }}>
+              {t('wiki.selectedCount', { count: selectedIds.size })}
+            </span>
             <button
               type="button"
               onClick={clearSelection}
@@ -1007,7 +1066,15 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
             scrolls here rather than moving the note — and the scroll position
             survives selecting a different page, since this element stays
             mounted across the re-render. */}
-        <div
+        {/* Instructions for the keyboard reorder, read with each movable row. */}
+        <p id="wiki-reorder-hint" className="sr-only">
+          {t('a11y.campaignNotes.reorderHint')}
+        </p>
+        <div role="status" className="sr-only">
+          {treeStatus}
+        </div>
+        <nav
+          aria-label={t('a11y.campaignNotes.pageTree')}
           data-testid="wiki-page-tree"
           style={{
             flex: fillHeight ? '1 1 auto' : undefined,
@@ -1023,14 +1090,13 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
               {t('wiki.noPages')}
             </div>
           ) : (
-            <div
+            <ul
+              role="list"
               // Dropping in the empty space below the tree moves a page to the root.
               onDragOver={isOwner ? (e) => e.preventDefault() : undefined}
               onDrop={isOwner ? onDropOnRoot : undefined}
               style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 2,
+                ...treeList,
                 // Fill the scroll area so the drop-to-root zone covers the empty
                 // space under a short tree, as it did in the page-flow layout.
                 minHeight: fillHeight ? '100%' : 40,
@@ -1039,9 +1105,9 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
               {searching
                 ? matches.map((p) => renderRow(p, 0, true))
                 : roots.map((p) => renderRow(p, 0))}
-            </div>
+            </ul>
           )}
-        </div>
+        </nav>
 
         {/* Export is open to every member — a player can take their own copy of
             the campaign with them, including from an archived one. Import writes,
@@ -1236,7 +1302,7 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
                   {page.can_delete && (
                     <button
                       onClick={handleDelete}
-                      aria-label={t('common.delete')}
+                      aria-label={`${t('common.delete')}: ${page.title}`}
                       title={t('common.delete')}
                       style={{ ...ghostBtn, color: 'var(--danger)' }}
                     >
@@ -1353,6 +1419,8 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
               }}
             >
               <WikiMarkdown
+                // Below the campaign's h1 and this note's h2.
+                headingLevelOffset={2}
                 body={page.body}
                 campaignId={campaign.id}
                 pages={pages}
@@ -1363,45 +1431,57 @@ export default function WikiView({ campaign, isOwner, onViewingNoteChange }: Wik
 
             {page.backlinks?.length > 0 && (
               <div style={{ marginTop: 16 }}>
-                <div
+                <h3
                   style={{
                     fontSize: 12,
+                    fontFamily: 'inherit',
                     textTransform: 'uppercase',
                     letterSpacing: '0.06em',
                     color: 'var(--text-muted)',
                     fontWeight: 600,
-                    marginBottom: 8,
+                    margin: '0 0 8px',
                     display: 'flex',
                     alignItems: 'center',
                     gap: 6,
                   }}
                 >
                   <LuArrowLeft size={13} /> {t('wiki.backlinks')}
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                </h3>
+                <ul
+                  role="list"
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: 8,
+                    listStyle: 'none',
+                    margin: 0,
+                    padding: 0,
+                  }}
+                >
                   {page.backlinks.map((b) => (
-                    <Link
-                      key={b.id}
-                      to={noteHref(b.id)}
-                      replace
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 5,
-                        padding: '5px 10px',
-                        background: 'var(--bg-deep)',
-                        border: '1px solid var(--border)',
-                        borderRadius: 16,
-                        color: 'var(--text-dim)',
-                        cursor: 'pointer',
-                        fontSize: 12,
-                        textDecoration: 'none',
-                      }}
-                    >
-                      {b.title}
-                    </Link>
+                    <li key={b.id}>
+                      <Link
+                        to={noteHref(b.id)}
+                        replace
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 5,
+                          padding: '5px 10px',
+                          background: 'var(--bg-deep)',
+                          border: '1px solid var(--border)',
+                          borderRadius: 16,
+                          color: 'var(--text-dim)',
+                          cursor: 'pointer',
+                          fontSize: 12,
+                          textDecoration: 'none',
+                        }}
+                      >
+                        {b.title}
+                      </Link>
+                    </li>
                   ))}
-                </div>
+                </ul>
               </div>
             )}
           </div>
@@ -1489,4 +1569,15 @@ const mobileBackBtn: CSSProperties = {
   color: 'var(--text-dim)',
   cursor: 'pointer',
   fontSize: 13,
+}
+
+// The page tree's lists: plain stacks of rows, with no bullets or indent of
+// their own (each row indents itself by depth).
+const treeList: CSSProperties = {
+  listStyle: 'none',
+  margin: 0,
+  padding: 0,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 2,
 }

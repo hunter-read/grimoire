@@ -51,7 +51,7 @@ export default function SystemFavorite({ item, grid }: SystemFavoriteProps) {
             <LuLibrary size={28} color="var(--text-muted)" style={{ opacity: 0.4 }} />
           )}
         </div>
-        <FavoriteButton type="system" id={item.item_id} />
+        <FavoriteButton type="system" id={item.item_id} name={item.name} />
         <div style={{ padding: '8px 10px' }}>
           <div
             style={{
@@ -125,7 +125,12 @@ export default function SystemFavorite({ item, grid }: SystemFavoriteProps) {
           <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>{publisher}</div>
         )}
       </div>
-      <FavoriteButton type="system" id={item.item_id} style={rowFavoriteButtonStyle} />
+      <FavoriteButton
+        type="system"
+        id={item.item_id}
+        name={item.name}
+        style={rowFavoriteButtonStyle}
+      />
     </div>
   )
 }

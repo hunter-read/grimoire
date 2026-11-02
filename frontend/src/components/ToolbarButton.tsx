@@ -49,13 +49,16 @@ export default function ToolbarButton({
         background: active ? 'rgba(180,120,60,0.15)' : 'var(--bg-card)',
         color: active ? 'var(--gold)' : 'var(--text-dim)',
         border: '1px solid var(--border)',
-        outline: active ? '1px solid var(--gold-dim)' : 'none',
+        // A ring drawn with box-shadow, not outline: an inline `outline` would
+        // override the stylesheet's :focus-visible ring and leave keyboard
+        // users unable to see which button they are on.
+        boxShadow: active ? '0 0 0 1px var(--gold-dim)' : undefined,
         cursor: disabled ? 'default' : 'pointer',
         opacity: disabled ? 0.4 : 1,
         whiteSpace: 'nowrap',
         boxSizing: 'border-box',
         minWidth,
-        transition: 'all 0.15s',
+        transition: 'background-color 0.15s, color 0.15s, box-shadow 0.15s',
         ...style,
       }}
     >

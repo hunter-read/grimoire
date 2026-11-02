@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { Mock } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import ScheduleEditor from './ScheduleEditor'
 import type { ScheduleDef } from './_scheduleShared'
 import SegmentControl from './SegmentControl'
@@ -388,5 +388,19 @@ describe('ScheduleEditor', () => {
     expect(campaigns.deleteSchedule).not.toHaveBeenCalled()
     expect(onDeleted).not.toHaveBeenCalled()
     confirmSpy.mockRestore()
+  })
+})
+
+describe('ScheduleEditor day chips', () => {
+  it('reads each day in full and says whether it is a session day', () => {
+    renderEditor()
+    const group = screen.getByRole('group', { name: /./ })
+    const monday = within(group).getByRole('button', { name: 'Monday' })
+    expect(monday).toHaveAttribute('aria-pressed', 'false')
+    fireEvent.click(monday)
+    expect(within(group).getByRole('button', { name: 'Monday' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
   })
 })

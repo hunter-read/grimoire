@@ -51,4 +51,10 @@ describe('SiblingNavButtons', () => {
     expect(screen.getByRole('button', { name: 'Previous track' })).toBeInTheDocument()
     expect(screen.getByTitle('Next track')).toBeInTheDocument()
   })
+
+  it('names where each arrow goes when given the neighbours', () => {
+    render(<SiblingNavButtons {...props} prevName="Crypt" nextName="Tavern" />)
+    expect(screen.getByRole('button', { name: 'Previous map: Crypt' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Next map: Tavern' })).toBeInTheDocument()
+  })
 })

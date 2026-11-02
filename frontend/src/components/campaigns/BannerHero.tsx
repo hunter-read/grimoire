@@ -115,6 +115,7 @@ export default function BannerHero({ campaign, isOwner, onChanged }: BannerHeroP
         />
       ) : (
         <button
+          type="button"
           onClick={() => setShowModal(true)}
           style={{
             width: '100%',
@@ -135,11 +136,21 @@ export default function BannerHero({ campaign, isOwner, onChanged }: BannerHeroP
         </button>
       )}
 
-      {/* Edit control — appears only after a >1s hover (or always when there's
-          no banner yet). */}
-      {isOwner && campaign.has_banner && controlsVisible && (
+      {/* Edit control — shows after a >1s hover (or always when there's no
+          banner yet). Always in the page, though, so a keyboard user can Tab to
+          it: it shows itself whenever it has focus. */}
+      {isOwner && campaign.has_banner && (
         <div style={{ position: 'absolute', top: 10, right: 10 }}>
-          <button onClick={() => setShowModal(true)} style={bannerBtnStyle}>
+          <button
+            type="button"
+            onClick={() => setShowModal(true)}
+            className="reveal-on-focus"
+            style={{
+              ...bannerBtnStyle,
+              opacity: controlsVisible ? 1 : 0,
+              pointerEvents: controlsVisible ? 'auto' : 'none',
+            }}
+          >
             <LuImagePlus size={13} /> {t('campaignDetail.banner.edit')}
           </button>
         </div>

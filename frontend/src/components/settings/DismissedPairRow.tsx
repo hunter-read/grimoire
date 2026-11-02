@@ -86,6 +86,10 @@ export default function DismissedPairRow({ dismissal, onRestore, busy }: Dismiss
         type="button"
         onClick={() => onRestore(dismissal)}
         disabled={busy}
+        aria-label={t('a11y.settingsAdmin.actionOn', {
+          action: t('maintenance.dupes.undismiss'),
+          name: labels.join(', '),
+        })}
         style={{
           background: 'var(--bg-card)',
           border: '1px solid var(--border)',

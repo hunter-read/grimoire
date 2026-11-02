@@ -54,11 +54,7 @@ export default function LogRow({ entry, searchQuery, onUserClick }: Props) {
         wordBreak: 'break-word',
       }}
     >
-      <span
-        role="cell"
-        aria-label={`Time: ${time}`}
-        style={{ color: 'var(--text-muted)', flexShrink: 0, userSelect: 'none' }}
-      >
+      <span role="cell" style={{ color: 'var(--text-muted)', flexShrink: 0, userSelect: 'none' }}>
         {time}
       </span>
       <span role="cell">
@@ -70,6 +66,7 @@ export default function LogRow({ entry, searchQuery, onUserClick }: Props) {
             type="button"
             onClick={() => onUserClick(user)}
             title={t('logs.filterToUser', { user })}
+            aria-label={t('logs.filterToUser', { user })}
             style={userChipStyle}
             onMouseEnter={(e) => {
               e.currentTarget.style.color = 'var(--gold)'
@@ -83,7 +80,7 @@ export default function LogRow({ entry, searchQuery, onUserClick }: Props) {
             {user}
           </button>
         )}
-        <span aria-label={`Message: ${entry.message}`}>{messageContent}</span>
+        <span>{messageContent}</span>
       </span>
     </div>
   )

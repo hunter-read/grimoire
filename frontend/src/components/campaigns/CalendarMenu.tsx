@@ -8,6 +8,7 @@ import {
 } from 'react'
 import type { IconType } from 'react-icons'
 import { createPortal } from 'react-dom'
+import useMenuKeyboard from '../../hooks/useMenuKeyboard'
 import { useTranslation } from 'react-i18next'
 import { LuCalendar, LuDownload, LuLink } from 'react-icons/lu'
 import { campaigns, type Schema } from '../../api'
@@ -50,6 +51,8 @@ export default function CalendarMenu({ campaign, style, iconOnly = false }: Cale
   const [coords, setCoords] = useState({ top: 0, left: 0 })
   const triggerRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  // The menu is portaled to <body>: arrow keys, and Esc/Tab back to the button.
+  useMenuKeyboard(open, menuRef, triggerRef, () => setOpen(false))
 
   const place = useCallback(() => {
     const el = triggerRef.current
@@ -90,6 +93,8 @@ export default function CalendarMenu({ campaign, style, iconOnly = false }: Cale
   const handleDownload = async (e: MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation()
     setOpen(false)
+    // The item goes with the menu, so focus goes back to the button.
+    triggerRef.current?.focus()
     try {
       await campaigns.downloadCalendar(campaign!.id, campaign!.name)
     } catch {
@@ -114,6 +119,9 @@ export default function CalendarMenu({ campaign, style, iconOnly = false }: Cale
       onClick: (e: MouseEvent<HTMLButtonElement>) => {
         e.stopPropagation()
         setOpen(false)
+        // Back on the button first, so the dialog returns focus there on close
+        // rather than to a menu item that no longer exists.
+        triggerRef.current?.focus()
         setShowDialog(true)
       },
     },

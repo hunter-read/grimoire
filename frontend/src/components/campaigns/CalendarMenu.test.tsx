@@ -82,3 +82,17 @@ describe('CalendarMenu', () => {
     await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument())
   })
 })
+
+describe('CalendarMenu from the keyboard', () => {
+  it('opens the subscribe dialog with focus coming back to the menu button', async () => {
+    render(<CalendarMenu campaign={campaign} />)
+    const trigger = screen.getByRole('button', { name: /Calendar/i })
+    fireEvent.click(trigger)
+    const items = await screen.findAllByRole('menuitem')
+    expect(items[0]).toHaveFocus()
+    fireEvent.click(screen.getByText('Subscription link'))
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+    await waitFor(() => expect(trigger).toHaveFocus())
+  })
+})

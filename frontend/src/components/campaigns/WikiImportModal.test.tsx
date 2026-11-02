@@ -133,3 +133,18 @@ describe('WikiImportModal', () => {
     await waitFor(() => expect(screen.getByText('Folder is too large')).toBeTruthy())
   })
 })
+
+describe('WikiImportModal for screen readers', () => {
+  it('is a dialog labelled by its title, with focus inside', () => {
+    renderModal()
+    const dialog = screen.getByRole('dialog', { name: 'Import wiki pages' })
+    expect(dialog.contains(document.activeElement)).toBe(true)
+  })
+
+  it('closes on Escape', () => {
+    const onClose = vi.fn()
+    renderModal({ onClose })
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+    expect(onClose).toHaveBeenCalled()
+  })
+})

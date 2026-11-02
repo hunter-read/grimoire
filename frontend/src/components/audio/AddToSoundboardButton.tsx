@@ -22,7 +22,10 @@ export default function AddToSoundboardButton({ track, size = 30 }: AddToSoundbo
   if (!track || !track.id) return null
 
   const added = hasPad(track.id)
-  const label = added ? t('soundboard.added') : t('soundboard.add')
+  const title = track.title || t('soundboard.untitled')
+  const label = added
+    ? t('a11y.audio.onSoundboard', { title })
+    : t('a11y.audio.addToSoundboard', { title })
 
   const onClick = (e: MouseEvent) => {
     e.stopPropagation()
@@ -34,8 +37,9 @@ export default function AddToSoundboardButton({ track, size = 30 }: AddToSoundbo
       type="button"
       onClick={onClick}
       aria-label={label}
-      title={label}
-      aria-pressed={added}
+      title={added ? t('soundboard.added') : t('soundboard.add')}
+      // On the board already, the button is a no-op: unavailable, not pressed.
+      aria-disabled={added || undefined}
       style={{
         display: 'inline-flex',
         alignItems: 'center',

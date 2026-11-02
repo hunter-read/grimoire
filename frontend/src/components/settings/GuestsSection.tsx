@@ -55,6 +55,9 @@ export default function GuestsSection({
   const [selected, setSelected] = useState<string[]>([])
   const [mergeTarget, setMergeTarget] = useState('')
   const [merging, setMerging] = useState(false)
+  const [status, setStatus] = useState('')
+  // Where focus goes when the row that had it is deleted.
+  const toggleRef = useRef<HTMLButtonElement>(null)
   const requested = useRef(false)
   const bodyId = `${useId()}-guests`
   const linkedHere = useContext(AnchorTargetContext)
@@ -84,6 +87,11 @@ export default function GuestsSection({
   }
 
   const handleConvert = (userId: string, updated: User) => {
+    setStatus(
+      t('a11y.settingsAccess.guestConverted', {
+        name: updated?.username || updated?.display_name || '',
+      })
+    )
     setGuests((prev) => (prev ?? []).filter((g) => g.id !== userId))
     setSelected((prev) => prev.filter((id) => id !== userId))
     setConvertingId(null)
@@ -91,6 +99,8 @@ export default function GuestsSection({
   }
 
   const handleDeleted = (userId: string) => {
+    setStatus(t('a11y.settingsAccess.guestDeleted'))
+    toggleRef.current?.focus()
     setGuests((prev) => (prev ?? []).filter((g) => g.id !== userId))
     setSelected((prev) => prev.filter((id) => id !== userId))
   }
@@ -107,6 +117,7 @@ export default function GuestsSection({
     setMerging(true)
     try {
       await api.post(`/users/${mergeTarget}/merge`, { source_ids: sources })
+      setStatus(t('a11y.settingsAccess.guestsMerged', { count: sources.length }))
       setGuests((prev) => (prev ?? []).filter((g) => !sources.includes(g.id)))
       setSelected([])
       setMergeTarget('')
@@ -122,6 +133,7 @@ export default function GuestsSection({
     <div>
       <h3 style={{ marginBottom: 6 }}>
         <button
+          ref={toggleRef}
           type="button"
           onClick={toggle}
           aria-expanded={open}
@@ -143,6 +155,11 @@ export default function GuestsSection({
         {t('settings.entries.guestsDesc')}
       </p>
 
+      {/* Merges and conversions remove rows, so say what happened. */}
+      <div className="sr-only" role="status" aria-live="polite">
+        {status}
+      </div>
+
       {open && (
         <div id={bodyId} style={{ marginTop: 16 }}>
           {error && (
@@ -152,7 +169,9 @@ export default function GuestsSection({
           )}
 
           {guests === null ? (
-            <p style={{ color: 'var(--text-dim)', fontSize: 13 }}>{t('common.loading')}</p>
+            <p role="status" style={{ color: 'var(--text-dim)', fontSize: 13 }}>
+              {t('common.loading')}
+            </p>
           ) : guests.length === 0 ? (
             <p style={{ color: 'var(--text-dim)', fontSize: 13 }}>{t('guests.none')}</p>
           ) : (
@@ -299,7 +318,7 @@ const selectStyle: CSSProperties = {
   borderRadius: 6,
   fontSize: 13,
   background: 'var(--bg-card)',
-  border: '1px solid var(--border)',
+  border: '1px solid var(--border-control)',
   color: 'var(--text)',
 }
 

@@ -35,9 +35,21 @@ describe('AudioPlayer (controller)', () => {
     durationReturn = 0
   })
 
-  it('renders a play button for a track', () => {
+  it('renders a play button named for its track', () => {
     render(<AudioPlayer track={{ id: 'a1', title: 'Tavern' }} />)
-    expect(screen.getByRole('button', { name: /play/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Play Tavern' })).toBeInTheDocument()
+  })
+
+  it('names the pause button for its track while it plays', () => {
+    isCurrentReturn = true
+    isPlayingReturn = true
+    render(<AudioPlayer track={{ id: 'a1', title: 'Tavern' }} />)
+    expect(screen.getByRole('button', { name: 'Pause Tavern' })).toBeInTheDocument()
+  })
+
+  it('falls back to a generic name for an untitled track', () => {
+    render(<AudioPlayer track={{ id: 'a1' }} />)
+    expect(screen.getByRole('button', { name: 'Play Untitled track' })).toBeInTheDocument()
   })
 
   it('starts a single-track queue when the track is not current', async () => {
@@ -56,7 +68,7 @@ describe('AudioPlayer (controller)', () => {
 
   it('renders a Play Next button and queues the track when clicked', async () => {
     render(<AudioPlayer track={{ id: 'a1', title: 'Tavern' }} showPlayNext />)
-    await userEvent.click(screen.getByRole('button', { name: /play next/i }))
+    await userEvent.click(screen.getByRole('button', { name: /play tavern next/i }))
     expect(playNext).toHaveBeenCalledWith({ id: 'a1', title: 'Tavern' })
   })
 
@@ -67,8 +79,8 @@ describe('AudioPlayer (controller)', () => {
     // Mirrors AddToSoundboardButton: the control stays put and flips to a
     // checked state rather than disappearing.
     const queued = screen.getByRole('button', { name: /in the queue/i })
-    expect(queued).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.queryByRole('button', { name: /play next/i })).toBeNull()
+    expect(queued).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.queryByRole('button', { name: /play tavern next/i })).toBeNull()
 
     await userEvent.click(queued)
     expect(playNext).not.toHaveBeenCalled()
@@ -77,8 +89,8 @@ describe('AudioPlayer (controller)', () => {
   it('leaves Play Next active for a track that is not queued', () => {
     inQueueReturn = false
     render(<AudioPlayer track={{ id: 'a1', title: 'Tavern' }} showPlayNext />)
-    const btn = screen.getByRole('button', { name: /play next/i })
-    expect(btn).toHaveAttribute('aria-pressed', 'false')
+    const btn = screen.getByRole('button', { name: /play tavern next/i })
+    expect(btn).not.toHaveAttribute('aria-disabled')
   })
 
   it('renders nothing without a valid track', () => {

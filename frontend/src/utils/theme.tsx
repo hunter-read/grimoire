@@ -68,6 +68,9 @@ export const THEME_TOKENS = [
   'bg-input',
   'border',
   'border-light',
+  // A control's edge (text field, checkbox, switch), kept at 3:1 against the
+  // surfaces where `border` and `border-light` are free to be faint.
+  'border-control',
   'accent',
   'accent-dim',
   'accent-bright',

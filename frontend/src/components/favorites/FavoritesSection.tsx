@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { isValidElement, useState, type ReactNode } from 'react'
 import { LuChevronDown } from 'react-icons/lu'
 import { getDefaultViewMode } from '../../hooks/useViewMode'
 import { getUserPrefs, saveUserPref } from '../../hooks/useUserPrefs'
@@ -43,42 +43,50 @@ export default function FavoritesSection<T>({
 
   return (
     <section style={{ marginBottom: 32 }}>
-      <button
-        type="button"
-        onClick={toggle}
-        aria-expanded={!collapsed}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          width: '100%',
-          background: 'none',
-          border: 'none',
-          padding: 0,
-          marginBottom: 12,
-          cursor: 'pointer',
-          color: 'var(--text-muted)',
-          fontSize: 14,
-          fontWeight: 600,
-          textTransform: 'uppercase',
-          letterSpacing: '0.08em',
-        }}
-      >
-        <LuChevronDown
-          size={16}
-          aria-hidden="true"
+      {/* The toggle inside a heading: each section is a stop for heading
+          navigation and still folds from the same control. */}
+      <h2 style={{ margin: 0, font: 'inherit', color: 'inherit', letterSpacing: 'normal' }}>
+        <button
+          type="button"
+          onClick={toggle}
+          aria-expanded={!collapsed}
           style={{
-            transition: 'transform 0.15s',
-            transform: collapsed ? 'rotate(-90deg)' : 'none',
-            flexShrink: 0,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            width: '100%',
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            marginBottom: 12,
+            cursor: 'pointer',
+            color: 'var(--text-muted)',
+            fontSize: 14,
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
           }}
-        />
-        {title}
-      </button>
+        >
+          <LuChevronDown
+            size={16}
+            aria-hidden="true"
+            style={{
+              transition: 'transform 0.15s',
+              transform: collapsed ? 'rotate(-90deg)' : 'none',
+              flexShrink: 0,
+            }}
+          />
+          {title}
+        </button>
+      </h2>
       {!collapsed && (
-        <div style={grid ? gridStyle(mode) : ROW_LIST_STYLE}>
-          {items.map((item) => renderItem(item, grid))}
-        </div>
+        // A real list, so a screen reader says how many favorites a section holds.
+        <ul role="list" className="card-list" style={grid ? gridStyle(mode) : ROW_LIST_STYLE}>
+          {items.map((item, i) => {
+            const node = renderItem(item, grid)
+            return <li key={isValidElement(node) && node.key != null ? node.key : i}>{node}</li>
+          })}
+        </ul>
       )}
     </section>
   )

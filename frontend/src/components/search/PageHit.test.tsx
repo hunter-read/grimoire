@@ -100,3 +100,10 @@ describe('PageHit', () => {
     })
   })
 })
+
+describe('PageHit - link name', () => {
+  it('names the link with the book and page when the title is known', () => {
+    renderHit({ book: { id: 'b7', title: 'Curse of Strahd' }, page })
+    expect(screen.getByRole('link', { name: 'a11y.discover.pageOfBook' })).toBeInTheDocument()
+  })
+})

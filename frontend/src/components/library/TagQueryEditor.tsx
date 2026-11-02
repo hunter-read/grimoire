@@ -153,7 +153,7 @@ const modeSelect: CSSProperties = {
   padding: '6px 4px',
   borderRadius: 6,
   background: 'var(--bg-input)',
-  border: '1px solid var(--border)',
+  border: '1px solid var(--border-control)',
   color: 'var(--text)',
   flexShrink: 0,
 }

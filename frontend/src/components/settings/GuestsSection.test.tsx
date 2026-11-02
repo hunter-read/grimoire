@@ -391,3 +391,73 @@ describe('GuestsSection', () => {
     })
   })
 })
+
+describe('GuestsSection accessibility', () => {
+  const announcer = () => screen.getAllByRole('status').find((el) => el.className === 'sr-only')!
+
+  it('names each row by its guest, and its buttons after them', async () => {
+    await expand()
+    expect(screen.getByRole('rowheader', { name: 'Ivy' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Convert Ivy to a permanent account' })
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Delete guest Ivy' })).toBeInTheDocument()
+  })
+
+  it('opens a labelled convert form with focus in it, and returns focus on cancel', async () => {
+    await expand()
+    fireEvent.click(screen.getByRole('button', { name: 'Convert Ivy to a permanent account' }))
+    const form = screen.getByRole('form', { name: 'Convert Ivy to a permanent account' })
+    const username = screen.getByRole('textbox', { name: 'Username' })
+    expect(form).toContainElement(username)
+    expect(username).toHaveFocus()
+    expect(screen.getByLabelText('New password (min 12)')).toHaveAttribute(
+      'autocomplete',
+      'new-password'
+    )
+    expect(screen.getByRole('combobox', { name: 'Role' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel converting Ivy' }))
+    expect(screen.getByRole('button', { name: 'Convert Ivy to a permanent account' })).toHaveFocus()
+  })
+
+  it('announces a conversion', async () => {
+    vi.mocked(api.post).mockResolvedValue({ id: 'guest-1', username: 'ivy_perm', role: 'player' })
+    await expand()
+    fireEvent.click(screen.getByRole('button', { name: 'Convert Ivy to a permanent account' }))
+    fireEvent.change(screen.getByRole('textbox', { name: 'Username' }), {
+      target: { value: 'ivy_perm' },
+    })
+    fireEvent.change(screen.getByLabelText('New password (min 12)'), {
+      target: { value: 'supersecret1' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^convert$/i }))
+    await waitFor(() =>
+      expect(announcer()).toHaveTextContent('Converted to a permanent account: ivy_perm')
+    )
+  })
+
+  it('announces a deletion and moves focus to the section toggle', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    vi.mocked(api.delete).mockResolvedValue({})
+    await expand()
+    fireEvent.click(screen.getByRole('button', { name: 'Delete guest Ivy' }))
+    await waitFor(() => expect(announcer()).toHaveTextContent('Guest deleted'))
+    expect(screen.getByRole('button', { name: /guests/i, expanded: true })).toHaveFocus()
+  })
+
+  it('announces a merge', async () => {
+    vi.mocked(api.get).mockResolvedValue(duplicateGuests)
+    vi.mocked(api.post).mockResolvedValue({})
+    render(<GuestsSection passwordAuthEnabled onConverted={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: /guests/i }))
+    await screen.findByText('Orphan')
+    const boxes = screen.getAllByRole('checkbox')
+    fireEvent.click(boxes[0])
+    fireEvent.click(boxes[1])
+    fireEvent.change(screen.getByLabelText(/account to keep/i), {
+      target: { value: 'guest-1' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^merge$/i }))
+    await waitFor(() => expect(announcer()).toHaveTextContent('Guests merged: 1'))
+  })
+})

@@ -1,6 +1,7 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import PluginSourcePill, { isUrlTrusted } from './PluginSourcePill'
+import useMenuKeyboard from '../../hooks/useMenuKeyboard'
 
 /** One place an add-on can be installed from; the schema leaves its shape open. */
 interface SourceOption {
@@ -37,6 +38,14 @@ export default function PluginSourceContextMenu({
   onClose,
 }: PluginSourceContextMenuProps) {
   const { t } = useTranslation()
+  const menuRef = useRef<HTMLDivElement>(null)
+  // Whatever had focus when the menu opened - the card's sources button when
+  // opened from the keyboard - is where focus goes back to.
+  const openerRef = useRef<HTMLElement | null>(
+    typeof document !== 'undefined' ? (document.activeElement as HTMLElement | null) : null
+  )
+  const hasSources = !!sources && sources.length > 0
+  useMenuKeyboard(hasSources, menuRef, openerRef, onClose)
 
   useEffect(() => {
     const handleClick = () => onClose()
@@ -66,6 +75,9 @@ export default function PluginSourceContextMenu({
 
   return (
     <div
+      ref={menuRef}
+      role="menu"
+      aria-label={titleText}
       style={{
         position: 'fixed',
         top: y,
@@ -81,6 +93,7 @@ export default function PluginSourceContextMenu({
       onClick={(e) => e.stopPropagation()}
     >
       <div
+        aria-hidden="true"
         style={{
           padding: '4px 12px',
           fontSize: 11,
@@ -102,9 +115,11 @@ export default function PluginSourceContextMenu({
         return (
           <button
             key={i}
+            role="menuitem"
             onClick={() => {
               onSelect(avail.index_url)
               onClose()
+              openerRef.current?.focus()
             }}
             style={{
               display: 'block',

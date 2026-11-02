@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { LuCheck } from 'react-icons/lu'
 import { VIS_META, POPOVER_WIDTH, VIS_OPTIONS, visLabelKey, type VisLevel } from './wikiShared'
 import useAnchoredMenu from '../../hooks/useAnchoredMenu'
+import useMenuKeyboard from '../../hooks/useMenuKeyboard'
 
 // The per-row visibility indicator in the campaign tree.
 //
@@ -38,6 +39,13 @@ export default function RowVisibilityControl({
     panelRef: popoverRef,
     style: popoverStyle,
   } = useAnchoredMenu(open, { width: POPOVER_WIDTH })
+  // Portaled to <body>, so without this the levels are out of Tab's reach.
+  useMenuKeyboard(open, popoverRef, triggerRef, () => setOpen(false))
+  // A choice of one: open on the level that is set now, not just the first.
+  useEffect(() => {
+    if (!open) return
+    popoverRef.current?.querySelector<HTMLElement>('[aria-checked="true"]')?.focus()
+  }, [open, popoverRef])
 
   const meta = VIS_META[visibility as VisLevel] || VIS_META.gm
   const { Icon } = meta

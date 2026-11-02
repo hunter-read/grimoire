@@ -84,3 +84,32 @@ describe('CategoryAccessSection', () => {
     expect(await screen.findByLabelText(label('Adventures & Modules'))).toHaveValue('')
   })
 })
+
+describe('CategoryAccessSection accessibility', () => {
+  it('keeps the select it changed focusable while saving, and says when it saved', async () => {
+    let finish: (v: Settings) => void = () => {}
+    vi.mocked(settingsApi.patch).mockReturnValue(new Promise((r) => (finish = r)))
+    render(<CategoryAccessSection />)
+    const select = await screen.findByLabelText(label('Adventures & Modules'))
+    select.focus()
+    fireEvent.change(select, { target: { value: 'admin' } })
+    // Busy, not disabled: disabling would drop focus to the page.
+    expect(select).not.toBeDisabled()
+    expect(select).toHaveAttribute('aria-disabled', 'true')
+    expect(select).toHaveFocus()
+    // A second change while the first is saving is ignored.
+    fireEvent.change(select, { target: { value: 'gm' } })
+    expect(settingsApi.patch).toHaveBeenCalledTimes(1)
+    finish({} as Settings)
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('common.saved'))
+  })
+
+  it('reports a failed save as an alert', async () => {
+    vi.mocked(settingsApi.patch).mockRejectedValue(new Error('nope'))
+    render(<CategoryAccessSection />)
+    fireEvent.change(await screen.findByLabelText(label('Adventures & Modules')), {
+      target: { value: 'admin' },
+    })
+    expect(await screen.findByRole('alert')).toHaveTextContent('nope')
+  })
+})

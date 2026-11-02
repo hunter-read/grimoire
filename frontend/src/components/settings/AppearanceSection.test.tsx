@@ -256,4 +256,35 @@ describe('AppearanceSection', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('integrity check failed')
   })
+
+  it('groups the theme radios under their heading', async () => {
+    render(<AppearanceSection />)
+    await screen.findByText('Grimoire')
+    expect(screen.getByRole('radiogroup', { name: 'appearance.yourThemes' })).toBeInTheDocument()
+  })
+
+  it('says whether the paste-a-theme box is open', async () => {
+    render(<AppearanceSection />)
+    const toggle = await screen.findByRole('button', { name: 'appearance.import' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    await userEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it('names each Install button after its theme', async () => {
+    vi.mocked(api.get).mockImplementation((url) =>
+      url.startsWith('/themes/browse') || url.startsWith('/themes/catalogue')
+        ? Promise.resolve({
+            themes: [{ id: 'parchment', name: 'Parchment', description: 'Warm', installed: false }],
+            is_custom_url: false,
+          })
+        : Promise.resolve({ downloads_enabled: true })
+    )
+    render(<AppearanceSection />)
+    await userEvent.click(await screen.findByText('appearance.browse'))
+    expect(
+      await screen.findByRole('button', { name: 'a11y.settings.installNamed' })
+    ).toBeInTheDocument()
+    expect(screen.getAllByRole('list').length).toBeGreaterThan(0)
+  })
 })

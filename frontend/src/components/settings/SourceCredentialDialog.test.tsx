@@ -124,9 +124,10 @@ describe('SourceCredentialDialog', () => {
 
   it('closes on Escape and on a backdrop click', () => {
     const { onClose } = renderDialog()
-    fireEvent.keyDown(window, { key: 'Escape' })
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
     expect(onClose).toHaveBeenCalledTimes(1)
-    fireEvent.click(screen.getByRole('dialog'))
+    // The dialog is the panel now; the backdrop is the element around it.
+    fireEvent.click(screen.getByRole('dialog').parentElement!)
     expect(onClose).toHaveBeenCalledTimes(2)
   })
 

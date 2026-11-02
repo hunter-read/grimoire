@@ -105,7 +105,16 @@ export default function InstalledImporter({
         {importer.scope === 'user' ? (
           <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
             {importer.available_version && downloads ? (
-              <button type="button" onClick={onUpdate} disabled={working} style={small}>
+              <button
+                type="button"
+                onClick={onUpdate}
+                disabled={working}
+                aria-label={t('a11y.characters.updateNamed', {
+                  name: importer.name,
+                  version: importer.available_version,
+                })}
+                style={small}
+              >
                 <LuArrowUp size={12} aria-hidden="true" />
                 {t('characters.importerUpdate', { version: importer.available_version })}
               </button>

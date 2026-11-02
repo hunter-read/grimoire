@@ -249,13 +249,15 @@ describe('AudioSetsModal', () => {
 
   it('abandons a rename on Escape', async () => {
     hook.sets = [PLAYLIST]
-    const { user } = setup()
+    const { user, onClose } = setup()
 
     await user.click(screen.getByRole('button', { name: 'audioSets.rename:Storm' }))
     await user.type(screen.getByLabelText('audioSets.renameLabel:Storm'), '{Escape}')
 
     expect(hook.rename).not.toHaveBeenCalled()
     expect(screen.getByText('Storm')).toBeInTheDocument()
+    // Escape in the rename field cancels the rename, not the whole dialog.
+    expect(onClose).not.toHaveBeenCalled()
   })
 
   it('does not call rename when the name is unchanged', async () => {
@@ -277,7 +279,14 @@ describe('AudioSetsModal', () => {
     const { user, onClose } = setup()
     await user.click(screen.getByRole('button', { name: 'common.close' }))
     expect(onClose).toHaveBeenCalledTimes(1)
-    await user.click(screen.getByRole('dialog'))
+    await user.click(screen.getByRole('dialog').parentElement!)
     expect(onClose).toHaveBeenCalledTimes(2)
+  })
+
+  it('is named by its heading and closes on Escape', async () => {
+    const { user, onClose } = setup()
+    expect(screen.getByRole('dialog', { name: 'audioSets.title' })).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 })

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useState } from 'react'
+import { isValidElement, useCallback, useEffect, useLayoutEffect, useState } from 'react'
 import type { ReactNode, RefObject } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 
@@ -114,14 +114,18 @@ export default function VirtualGridRows<T>({
     [virtualizer]
   )
 
+  // A list to a screen reader. Only the rows near the viewport exist in the DOM,
+  // so each item says where it sits in the whole collection (setsize/posinset):
+  // "item 41 of 3,000" rather than a list that seems to hold a dozen.
   return (
-    <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
+    <div role="list" style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
       {rows.map((row) => {
         const start = row.index * columns
         const rowItems = items.slice(start, start + columns)
         return (
           <div
             key={row.key}
+            role="none"
             data-index={row.index}
             ref={measureRef}
             style={{
@@ -144,7 +148,25 @@ export default function VirtualGridRows<T>({
               boxSizing: 'border-box',
             }}
           >
-            {rowItems.map(renderItem)}
+            {rowItems.map((item, i) => {
+              const index = start + i
+              const node = renderItem(item, index, items)
+              return (
+                <div
+                  // The caller's own key (an item id) keeps a card's state when
+                  // the list reorders; the index is only a fallback.
+                  key={isValidElement(node) && node.key != null ? node.key : index}
+                  role="listitem"
+                  aria-setsize={items.length}
+                  aria-posinset={index + 1}
+                  // A grid, so the card inside stretches to the row's height as
+                  // it did when it was the grid cell itself.
+                  style={{ display: 'grid', minWidth: 0 }}
+                >
+                  {node}
+                </div>
+              )
+            })}
           </div>
         )
       })}

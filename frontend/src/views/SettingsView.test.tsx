@@ -140,6 +140,12 @@ describe('SettingsView rail', () => {
     expect(within(nav()).queryByText('settings.scopes.server')).toBeNull()
   })
 
+  it('names the tab and the side panel', () => {
+    renderAt('/settings/preferences', PLAYER)
+    expect(document.title).toBe('a11y.settings.pageTitle - Grimoire')
+    expect(screen.getByRole('complementary', { name: 'settings.title' })).toBeInTheDocument()
+  })
+
   it('titles the page after the current area', () => {
     renderAt('/settings/preferences', PLAYER)
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(

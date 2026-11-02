@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type FormEvent } from 'react'
+import { useRef, useState, type CSSProperties, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCheck, LuX } from 'react-icons/lu'
 import api, { type BodyOf, type Schema } from '../../api'
@@ -26,13 +26,19 @@ export default function AddUserForm({ onAdd, onCancel, passwordAuthEnabled = tru
     api_keys_enabled: false,
   })
   const [error, setError] = useState('')
+  // Which field the error is about, so it can be marked invalid and focused.
+  const [passwordInvalid, setPasswordInvalid] = useState(false)
   const [loading, setLoading] = useState(false)
+  const passwordRef = useRef<HTMLInputElement>(null)
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError('')
+    setPasswordInvalid(false)
     if (passwordAuthEnabled && form.password.length < passwordMinLength) {
       setError(t('users.passwordTooShort', { min: passwordMinLength }))
+      setPasswordInvalid(true)
+      passwordRef.current?.focus()
       return
     }
     setLoading(true)
@@ -59,6 +65,7 @@ export default function AddUserForm({ onAdd, onCancel, passwordAuthEnabled = tru
     <form
       onSubmit={handleSubmit}
       autoComplete="off"
+      aria-label={t('users.addUser')}
       style={{
         background: 'var(--bg-input)',
         border: '1px solid var(--border-light)',
@@ -86,6 +93,8 @@ export default function AddUserForm({ onAdd, onCancel, passwordAuthEnabled = tru
               required
               autoFocus
               autoComplete="off"
+              autoCapitalize="none"
+              spellCheck={false}
               value={form.username}
               onChange={(e) => setForm({ ...form, username: e.target.value })}
               style={{ width: '100%' }}
@@ -97,12 +106,18 @@ export default function AddUserForm({ onAdd, onCancel, passwordAuthEnabled = tru
                 {t('users.password')}
               </label>
               <input
+                ref={passwordRef}
                 id="add-user-password"
                 type="password"
                 required
                 autoComplete="new-password"
+                aria-invalid={passwordInvalid || undefined}
+                aria-describedby={passwordInvalid ? 'add-user-error' : undefined}
                 value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                onChange={(e) => {
+                  setForm({ ...form, password: e.target.value })
+                  setPasswordInvalid(false)
+                }}
                 style={{ width: '100%' }}
               />
             </div>
@@ -117,7 +132,7 @@ export default function AddUserForm({ onAdd, onCancel, passwordAuthEnabled = tru
               onChange={(e) => setForm({ ...form, role: e.target.value })}
               style={{
                 background: 'var(--bg-input)',
-                border: '1px solid var(--border)',
+                border: '1px solid var(--border-control)',
                 color: 'var(--text)',
                 borderRadius: 6,
                 padding: '8px 10px',
@@ -138,14 +153,18 @@ export default function AddUserForm({ onAdd, onCancel, passwordAuthEnabled = tru
             id="add-user-email"
             type="email"
             autoComplete="off"
+            spellCheck={false}
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
             style={{ width: '100%' }}
           />
         </div>
 
-        <div>
-          <span style={labelStyle}>{t('users.permissions')}</span>
+        {/* A named group, so each checkbox is read as one of the permissions. */}
+        <div role="group" aria-labelledby="add-user-permissions">
+          <span id="add-user-permissions" style={labelStyle}>
+            {t('users.permissions')}
+          </span>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18, marginTop: 2 }}>
             <label
               htmlFor="add-user-campaign-access"
@@ -195,12 +214,21 @@ export default function AddUserForm({ onAdd, onCancel, passwordAuthEnabled = tru
         </div>
       </div>
 
-      {error && <div style={{ color: 'var(--red)', fontSize: 13, marginTop: 10 }}>{error}</div>}
+      {error && (
+        <div
+          id="add-user-error"
+          role="alert"
+          style={{ color: 'var(--red)', fontSize: 13, marginTop: 10 }}
+        >
+          {error}
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
         <button
           type="submit"
           disabled={loading}
+          aria-busy={loading}
           style={{ ...primaryBtnStyle, display: 'flex', alignItems: 'center', gap: 6 }}
         >
           <LuCheck size={13} />

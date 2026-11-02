@@ -334,7 +334,7 @@ export default function DuplicatesView() {
                 disabled={status.running || starting}
                 style={{
                   background: 'var(--bg-deep)',
-                  border: '1px solid var(--border)',
+                  border: '1px solid var(--border-control)',
                   color: 'var(--text)',
                   borderRadius: 6,
                   padding: '7px 10px',
@@ -657,7 +657,7 @@ const hintStyle: CSSProperties = {
 
 const selectStyle: CSSProperties = {
   background: 'var(--bg-deep)',
-  border: '1px solid var(--border)',
+  border: '1px solid var(--border-control)',
   color: 'var(--text)',
   borderRadius: 6,
   padding: '7px 10px',

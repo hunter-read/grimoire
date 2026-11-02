@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import ActiveSessionsSection from './ActiveSessionsSection'
 import { auth } from '../../api'
 
@@ -58,10 +58,33 @@ describe('ActiveSessionsSection', () => {
     vi.mocked(auth.revokeSession).mockResolvedValue({ ok: true, revoked: 1 })
     render(<ActiveSessionsSection />)
 
-    fireEvent.click(await screen.findByText('Revoke'))
+    // Named with the device, since every row has a Revoke button.
+    fireEvent.click(await screen.findByRole('button', { name: 'Revoke Firefox on Windows' }))
 
     await waitFor(() => expect(auth.revokeSession).toHaveBeenCalledWith('sess-2'))
-    await waitFor(() => expect(screen.queryByText(/Firefox on Windows/)).not.toBeInTheDocument())
+    const list = screen.getByRole('list')
+    await waitFor(() =>
+      expect(within(list).queryByText(/Firefox on Windows/)).not.toBeInTheDocument()
+    )
+    // The row's button went with it: the sign-out is said aloud, and focus
+    // lands on the section heading rather than nowhere.
+    expect(screen.getByText('Signed out Firefox on Windows')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /sessions|devices/i })).toHaveFocus()
+  })
+
+  it('says when every other device is signed out', async () => {
+    vi.mocked(auth.sessions).mockResolvedValue([
+      session({ id: 'sess-1', current: true }),
+      session({ id: 'sess-2', user_agent: FIREFOX_WIN }),
+    ])
+    vi.mocked(auth.revokeOtherSessions).mockResolvedValue({
+      ok: true,
+      revoked: 1,
+      kept_current: true,
+    })
+    render(<ActiveSessionsSection />)
+    fireEvent.click(await screen.findByText('Sign out all other devices'))
+    expect(await screen.findByText('Signed out all other devices')).toBeInTheDocument()
   })
 
   it('signs out all other devices, keeping the current one', async () => {

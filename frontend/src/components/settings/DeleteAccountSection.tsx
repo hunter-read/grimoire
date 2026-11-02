@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import api from '../../api'
 import Spinner from '../Spinner'
@@ -15,6 +15,23 @@ export default function DeleteAccountSection({ user, onLogout }: Props) {
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const isAdmin = user?.role === 'admin'
+  const deleteRef = useRef<HTMLButtonElement>(null)
+  const cancelRef = useRef<HTMLButtonElement>(null)
+  const confirmId = useId()
+  const opened = useRef(false)
+
+  // The button pressed is replaced by the confirmation, which would leave
+  // focus nowhere: it moves to Cancel (the safe choice), and back to the
+  // button when the confirmation goes away.
+  useEffect(() => {
+    if (confirming) {
+      opened.current = true
+      cancelRef.current?.focus()
+    } else if (opened.current) {
+      opened.current = false
+      deleteRef.current?.focus()
+    }
+  }, [confirming])
 
   const handleDelete = async () => {
     setDeleting(true)
@@ -48,6 +65,7 @@ export default function DeleteAccountSection({ user, onLogout }: Props) {
 
       {!confirming ? (
         <button
+          ref={deleteRef}
           onClick={() => setConfirming(true)}
           disabled={isAdmin}
           style={{
@@ -69,6 +87,8 @@ export default function DeleteAccountSection({ user, onLogout }: Props) {
         </button>
       ) : (
         <div
+          role="group"
+          aria-labelledby={confirmId}
           style={{
             padding: '16px 20px',
             borderRadius: 8,
@@ -77,7 +97,7 @@ export default function DeleteAccountSection({ user, onLogout }: Props) {
             maxWidth: 420,
           }}
         >
-          <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 12 }}>
+          <div id={confirmId} style={{ fontSize: 14, fontWeight: 500, marginBottom: 12 }}>
             {t('userSettings.deleteAccount.confirmMessage')}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -105,6 +125,7 @@ export default function DeleteAccountSection({ user, onLogout }: Props) {
                 : t('userSettings.deleteAccount.confirmDelete')}
             </button>
             <button
+              ref={cancelRef}
               onClick={() => setConfirming(false)}
               disabled={deleting}
               style={{
@@ -120,9 +141,13 @@ export default function DeleteAccountSection({ user, onLogout }: Props) {
               {t('common.cancel')}
             </button>
           </div>
-          {error && (
-            <div style={{ fontSize: 13, color: 'var(--danger)', marginTop: 10 }}>{error}</div>
-          )}
+        </div>
+      )}
+      {/* Outside the confirmation: a failed delete closes it, and the reason
+          used to vanish with it. */}
+      {error && (
+        <div role="alert" style={{ fontSize: 13, color: 'var(--danger)', marginTop: 10 }}>
+          {error}
         </div>
       )}
     </div>

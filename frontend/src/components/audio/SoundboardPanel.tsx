@@ -19,6 +19,7 @@ import {
 } from '../../context/SoundboardContext'
 import useAudioSets from '../../hooks/useAudioSets'
 import SaveAudioSetModal from './SaveAudioSetModal'
+import { soundboardFocus, RETURN_WINDOW_MS } from './soundboardFocus'
 
 const PANEL_MARGIN = 16
 const PAD_MIN = 64
@@ -93,12 +94,54 @@ export default function SoundboardPanel({ bottomOffset = 0 }: SoundboardPanelPro
 
   const { sets, save } = useAudioSets()
 
-  const panelRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLElement>(null)
   const dragRef = useRef<{ dx: number; dy: number } | null>(null)
   const [dragging, setDragging] = useState(false)
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [overIndex, setOverIndex] = useState<number | null>(null)
   const [savingSet, setSavingSet] = useState(false)
+  const [moved, setMoved] = useState('')
+  const padRefs = useRef<(HTMLButtonElement | null)[]>([])
+  const [focusPad, setFocusPad] = useState<number | null>(null)
+
+  // Opening the board takes focus into it, so a keyboard or screen reader user
+  // is where the pads are; closing hands it back (see soundboardFocus).
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null
+    const panel = panelRef.current
+    if (panel && !panel.contains(document.activeElement)) panel.focus({ preventScroll: true })
+    return () => {
+      const lost = !document.activeElement || document.activeElement === document.body
+      if (!lost) return
+      if (opener?.isConnected && opener !== document.body) opener.focus({ preventScroll: true })
+      else soundboardFocus.returnUntil = Date.now() + RETURN_WINDOW_MS
+    }
+  }, [])
+
+  // A pad moved with the keyboard keeps focus at its new place.
+  useEffect(() => {
+    if (focusPad === null) return
+    padRefs.current[focusPad]?.focus()
+    setFocusPad(null)
+  }, [focusPad, pads])
+
+  // Configuring, the arrow keys move a pad through the grid: the keyboard
+  // alternative to dragging it.
+  const movePadWithKeys = (index: number, key: string) => {
+    const step: Record<string, number> = {
+      ArrowLeft: -1,
+      ArrowRight: 1,
+      ArrowUp: -layout.cols,
+      ArrowDown: layout.cols,
+    }
+    if (!(key in step)) return false
+    const to = Math.min(Math.max(index + step[key], 0), pads.length - 1)
+    if (to === index) return true
+    movePad(index, to)
+    setFocusPad(to)
+    setMoved(t('a11y.audio.moved', { position: to + 1, total: pads.length }))
+    return true
+  }
 
   // Pointer-driven move of the whole panel. Pointer events (not mouse) so a
   // touch drag works the same, with capture so the drag survives the pointer
@@ -170,8 +213,15 @@ export default function SoundboardPanel({ bottomOffset = 0 }: SoundboardPanelPro
   const gridMaxHeight = layout.rows * PAD_MIN + (layout.rows - 1) * 8
 
   return (
-    <div
+    <section
       ref={panelRef}
+      aria-labelledby="soundboard-title"
+      tabIndex={-1}
+      className="focus-target"
+      onKeyDown={(e) => {
+        // A dialog opened from the board stops its own Escape first.
+        if (e.key === 'Escape') setOpen(false)
+      }}
       data-testid="soundboard-panel"
       style={{
         position: 'fixed',
@@ -207,9 +257,21 @@ export default function SoundboardPanel({ bottomOffset = 0 }: SoundboardPanelPro
         }}
       >
         <LuGripVertical size={14} color="var(--text-muted)" aria-hidden="true" />
-        <span style={{ fontSize: 12, fontWeight: 500, flex: 1, minWidth: 0 }}>
+        <h2
+          id="soundboard-title"
+          style={{
+            fontSize: 12,
+            fontWeight: 500,
+            flex: 1,
+            minWidth: 0,
+            margin: 0,
+            fontFamily: 'inherit',
+            letterSpacing: 'normal',
+            color: 'inherit',
+          }}
+        >
           {t('soundboard.title')}
-        </span>
+        </h2>
         {pads.length > 0 && (
           <button
             type="button"
@@ -235,7 +297,6 @@ export default function SoundboardPanel({ bottomOffset = 0 }: SoundboardPanelPro
           onClick={() => setEditing(!editing)}
           aria-label={editing ? t('soundboard.doneEditing') : t('soundboard.edit')}
           title={editing ? t('soundboard.doneEditing') : t('soundboard.edit')}
-          aria-pressed={editing}
           style={iconBtn(editing)}
         >
           <LuSettings2 size={15} />
@@ -331,8 +392,11 @@ export default function SoundboardPanel({ bottomOffset = 0 }: SoundboardPanelPro
           {t('soundboard.empty')}
         </p>
       ) : (
-        <div
+        <ul
+          role="list"
           style={{
+            listStyle: 'none',
+            margin: 0,
             display: 'grid',
             gridTemplateColumns: `repeat(${layout.cols}, minmax(0, 1fr))`,
             gap: 8,
@@ -345,7 +409,7 @@ export default function SoundboardPanel({ bottomOffset = 0 }: SoundboardPanelPro
             const playing = isPadPlaying(pad.id)
             const isOver = overIndex === index && dragIndex !== null && dragIndex !== index
             return (
-              <div
+              <li
                 key={pad.id}
                 draggable={editing}
                 onDragStart={() => setDragIndex(index)}
@@ -366,7 +430,14 @@ export default function SoundboardPanel({ bottomOffset = 0 }: SoundboardPanelPro
               >
                 <button
                   type="button"
+                  ref={(el) => {
+                    padRefs.current[index] = el
+                  }}
                   onClick={() => !editing && toggle(pad)}
+                  onKeyDown={(e) => {
+                    if (editing && movePadWithKeys(index, e.key)) e.preventDefault()
+                  }}
+                  aria-describedby={editing ? 'soundboard-move-hint' : undefined}
                   title={pad.title || t('soundboard.untitled')}
                   aria-label={pad.title || t('soundboard.untitled')}
                   aria-pressed={playing}
@@ -404,7 +475,6 @@ export default function SoundboardPanel({ bottomOffset = 0 }: SoundboardPanelPro
                       ? t('soundboard.loopOn', { name: pad.title || t('soundboard.untitled') })
                       : t('soundboard.loopOff', { name: pad.title || t('soundboard.untitled') })
                   }
-                  aria-pressed={!!pad.loop}
                   style={{
                     position: 'absolute',
                     left: 2,
@@ -449,11 +519,17 @@ export default function SoundboardPanel({ bottomOffset = 0 }: SoundboardPanelPro
                     <LuX size={12} />
                   </button>
                 )}
-              </div>
+              </li>
             )
           })}
-        </div>
+        </ul>
       )}
+      <span id="soundboard-move-hint" className="sr-only">
+        {t('a11y.audio.padMoveHint')}
+      </span>
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {moved}
+      </div>
 
       {savingSet && (
         <SaveAudioSetModal
@@ -471,6 +547,6 @@ export default function SoundboardPanel({ bottomOffset = 0 }: SoundboardPanelPro
           onClose={() => setSavingSet(false)}
         />
       )}
-    </div>
+    </section>
   )
 }

@@ -4,8 +4,9 @@ import { LEVEL_COLORS, LEVEL_LABELS } from './logShared'
 export default function LevelBadge({ level }: { level: string }) {
   const color = LEVEL_COLORS[level] ?? LEVEL_COLORS.INFO
   return (
+    // No aria-label: it was English-only, and on a plain span screen readers
+    // ignore it anyway. The visible level is what gets read.
     <span
-      aria-label={`Log level: ${LEVEL_LABELS[level] ?? level}`}
       style={{
         color,
         fontWeight: level === 'DEBUG' ? 400 : 600,

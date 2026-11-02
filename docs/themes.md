@@ -110,7 +110,7 @@ in both.
 | Group | Tokens |
 | --- | --- |
 | Surfaces | `bg-deep` (the page), `bg-panel`, `bg-card`, `bg-card-hover`, `bg-input` |
-| Lines | `border`, `border-light` |
+| Lines | `border`, `border-light`, `border-control` - the edge of a text field, checkbox or switch; keep it at 3:1 against every surface so the control can be seen |
 | Accent | `accent`, `accent-dim`, `accent-bright`, `accent-alt`, `on-accent` |
 | Text | `text`, `text-dim`, `text-muted` |
 | Status | `danger`, `warning`, `success`, `red`, `green`, `blue` |

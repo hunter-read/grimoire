@@ -69,7 +69,7 @@ export default function NamingPreviewTable({ preview, selected, onToggle, onTogg
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 520 }}>
           <thead>
             <tr>
-              <th style={{ ...head, width: 28 }}>
+              <th scope="col" style={{ ...head, width: 28 }}>
                 <input
                   type="checkbox"
                   checked={allOn}
@@ -78,9 +78,17 @@ export default function NamingPreviewTable({ preview, selected, onToggle, onTogg
                   aria-label={t('filenameRules.preview.selectAll')}
                 />
               </th>
-              <th style={head}>{t('filenameRules.preview.colFile')}</th>
-              <th style={head}>{t('filenameRules.preview.colTitle')}</th>
-              {preview.renderable && <th style={head}>{t('filenameRules.preview.colFilename')}</th>}
+              <th scope="col" style={head}>
+                {t('filenameRules.preview.colFile')}
+              </th>
+              <th scope="col" style={head}>
+                {t('filenameRules.preview.colTitle')}
+              </th>
+              {preview.renderable && (
+                <th scope="col" style={head}>
+                  {t('filenameRules.preview.colFilename')}
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>

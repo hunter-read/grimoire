@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuUserCheck, LuTrash2, LuX } from 'react-icons/lu'
 import api, { type BodyOf, type Schema } from '../../api'
@@ -50,6 +50,15 @@ export default function GuestRow({
   const [role, setRole] = useState('player')
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const name = guest.display_name || guest.id
+  // Cancelling the convert form swaps the Cancel button back for Convert;
+  // focus follows, rather than falling to <body>.
+  const convertRef = useRef<HTMLButtonElement>(null)
+  const wasConverting = useRef(false)
+  useEffect(() => {
+    if (converting) wasConverting.current = true
+    else if (wasConverting.current) convertRef.current?.focus()
+  }, [converting])
 
   const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -88,16 +97,23 @@ export default function GuestRow({
             type="checkbox"
             checked={!!selected}
             onChange={onToggleSelected}
-            aria-label={t('guests.selectGuest', { name: guest.display_name || guest.id })}
+            aria-label={t('guests.selectGuest', { name })}
             style={{ width: 15, height: 15, cursor: 'pointer', accentColor: 'var(--gold)' }}
           />
         </td>
-        <td style={cellStyle}>{guest.display_name || '—'}</td>
+        <th scope="row" style={{ ...cellStyle, textAlign: 'left', fontWeight: 'normal' }}>
+          {guest.display_name || '—'}
+        </th>
         <td style={cellStyle}>{guest.campaign_name || <span style={dimStyle}>—</span>}</td>
         <td style={cellStyle}>{guest.invited_by || <span style={dimStyle}>—</span>}</td>
         <td style={{ ...cellStyle, textAlign: 'right' }}>
           {converting ? (
-            <button onClick={onCancelConvert} style={iconBtnStyle} aria-label={t('common.cancel')}>
+            <button
+              onClick={onCancelConvert}
+              style={iconBtnStyle}
+              aria-label={t('a11y.settingsAccess.cancelConvert', { name })}
+              title={t('common.cancel')}
+            >
               <LuX size={14} />
             </button>
           ) : (
@@ -110,7 +126,9 @@ export default function GuestRow({
               }}
             >
               <button
+                ref={convertRef}
                 onClick={onStartConvert}
+                aria-label={t('a11y.settingsAccess.convertGuest', { name })}
                 style={{ ...iconBtnStyle, display: 'inline-flex', alignItems: 'center', gap: 6 }}
               >
                 <LuUserCheck size={14} /> {t('guests.convert')}
@@ -118,7 +136,7 @@ export default function GuestRow({
               <button
                 onClick={handleDelete}
                 disabled={deleting}
-                aria-label={t('guests.delete')}
+                aria-label={t('a11y.settingsAccess.deleteGuest', { name })}
                 title={t('guests.delete')}
                 style={{
                   ...iconBtnStyle,
@@ -138,12 +156,19 @@ export default function GuestRow({
           <td colSpan={5} style={{ padding: '12px 14px' }}>
             <form
               onSubmit={submit}
+              aria-label={t('a11y.settingsAccess.convertGuest', { name })}
               style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}
             >
+              {/* Opened on purpose, so focus goes straight to the first field. */}
               <input
+                autoFocus
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder={t('guests.usernamePlaceholder')}
+                aria-label={t('guests.usernamePlaceholder')}
+                autoComplete="off"
+                autoCapitalize="none"
+                spellCheck={false}
                 required
                 style={inputStyle}
               />
@@ -153,17 +178,24 @@ export default function GuestRow({
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder={t('users.newPasswordPlaceholder', { min: passwordMinLength })}
+                  aria-label={t('users.newPasswordPlaceholder', { min: passwordMinLength })}
+                  autoComplete="new-password"
                   required
                   minLength={passwordMinLength}
                   style={inputStyle}
                 />
               )}
-              <select value={role} onChange={(e) => setRole(e.target.value)} style={inputStyle}>
+              <select
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                aria-label={t('users.role')}
+                style={inputStyle}
+              >
                 <option value="player">{t('users.roles.player')}</option>
                 <option value="gm">{t('users.roles.gm')}</option>
                 <option value="admin">{t('users.roles.admin')}</option>
               </select>
-              <button type="submit" disabled={saving} style={saveBtnStyle}>
+              <button type="submit" disabled={saving} aria-busy={saving} style={saveBtnStyle}>
                 {saving ? t('guests.converting') : t('guests.convert')}
               </button>
             </form>
@@ -192,7 +224,7 @@ const inputStyle: CSSProperties = {
   borderRadius: 6,
   fontSize: 13,
   background: 'var(--bg-card)',
-  border: '1px solid var(--border)',
+  border: '1px solid var(--border-control)',
   color: 'var(--text)',
 }
 

@@ -184,7 +184,7 @@ describe('MediaFolderGroup — audio', () => {
         {...baseProps({ onToggle })}
       />
     )
-    await userEvent.click(screen.getByRole('button', { name: /collapse dungeons/i }))
+    await userEvent.click(screen.getByRole('button', { name: /^dungeons/i, expanded: true }))
     expect(onToggle).toHaveBeenCalledWith('Dungeons')
   })
 
@@ -230,7 +230,7 @@ describe('MediaFolderGroup — audio', () => {
         {...baseProps({ onToggle })}
       />
     )
-    await userEvent.click(screen.getByRole('button', { name: /collapse caves/i }))
+    await userEvent.click(screen.getByRole('button', { name: /^caves/i, expanded: true }))
     expect(onToggle).toHaveBeenCalledWith('Dungeons::caves')
   })
 
@@ -321,6 +321,36 @@ describe('MediaFolderGroup — audio', () => {
     await userEvent.click(screen.getByTitle(/play battle/i))
     // Only the subfolder's non-missing tracks are queued.
     expect(playQueue).toHaveBeenLastCalledWith([expect.objectContaining({ id: 'a2' })])
+  })
+})
+
+describe('MediaFolderGroup — screen readers', () => {
+  it('makes the folder and its subfolders headings, one level apart', () => {
+    render(
+      <MediaFolderGroup
+        config={MEDIA_CONFIGS.map}
+        folder="Dungeons"
+        subfolders={{ caves: [{ id: 'm2', filename: 'cave.png' }] }}
+        {...baseProps()}
+      />
+    )
+    // The count reads with the folder name.
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(/Dungeons.*1 map/)
+    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent(/Caves/)
+  })
+
+  it('names each download and play button after its folder', () => {
+    render(
+      <MediaFolderGroup
+        config={MEDIA_CONFIGS.audio}
+        folder="Ambient"
+        subfolders={{ rain: audioItems }}
+        {...baseProps()}
+      />
+    )
+    expect(screen.getByRole('button', { name: /download all audio in ambient/i })).toBeVisible()
+    expect(screen.getByRole('button', { name: /download audio in rain/i })).toBeVisible()
+    expect(screen.getByRole('button', { name: /play rain/i })).toBeVisible()
   })
 })
 

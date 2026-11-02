@@ -69,6 +69,17 @@ const zipBtnStyle: CSSProperties = {
   cursor: 'pointer',
 }
 
+// A folder heading wraps its toggle without restyling it: the global heading
+// font and colour stay out, and the row keeps its flex layout.
+const folderHeading: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  margin: 0,
+  font: 'inherit',
+  color: 'inherit',
+  letterSpacing: 'normal',
+}
+
 // Audio queued from a folder: playable tracks only, in the shape the player takes.
 const toTracks = (items: MediaItem[]) =>
   items
@@ -173,59 +184,66 @@ export default function MediaFolderGroup({
               onChange={() => onToggleFolder(folder, allInGroup)}
             />
           )}
-          <button
-            onClick={() => onToggle(folder)}
-            aria-expanded={!isCollapsed}
-            aria-label={
-              isCollapsed
-                ? t(`${i18n}.expandFolder`, { folder })
-                : t(`${i18n}.collapseFolder`, { folder })
-            }
+          {/* The toggle inside a heading, with the count: each folder is a stop
+              for heading navigation and reads "Dungeons, 12 maps". The button's
+              name is the folder's own; aria-expanded says open or shut. */}
+          <h2
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: 0,
+              ...folderHeading,
               flex: 1,
               minWidth: 0,
-              overflow: 'hidden',
+              gap: 10,
             }}
           >
-            {isCollapsed ? (
-              <LuChevronRight size={16} color="var(--gold-dim)" style={{ flexShrink: 0 }} />
-            ) : (
-              <LuChevronDown size={16} color="var(--gold-dim)" style={{ flexShrink: 0 }} />
-            )}
-            <LuFolder size={16} color="var(--gold-dim)" style={{ flexShrink: 0 }} />
-            <span
+            <button
+              onClick={() => onToggle(folder)}
+              aria-expanded={!isCollapsed}
               style={{
-                fontSize: 18,
-                color: 'var(--gold-dim)',
-                fontFamily: 'Cinzel, serif',
-                fontWeight: 600,
-                whiteSpace: 'nowrap',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: 0,
+                flex: 1,
+                minWidth: 0,
+                overflow: 'hidden',
               }}
             >
-              {toTitleCase(folder)}
-            </span>
-            {isFrameFolder(folder) && <FramesBadge label={t('tokens.framesFolder')} />}
-            {!isMobilePhone && (
+              {isCollapsed ? (
+                <LuChevronRight size={16} color="var(--gold-dim)" style={{ flexShrink: 0 }} />
+              ) : (
+                <LuChevronDown size={16} color="var(--gold-dim)" style={{ flexShrink: 0 }} />
+              )}
+              <LuFolder size={16} color="var(--gold-dim)" style={{ flexShrink: 0 }} />
               <span
                 style={{
-                  flex: 1,
-                  borderBottom: '1px dotted var(--border)',
-                  margin: '0 8px',
-                  minWidth: 16,
+                  fontSize: 18,
+                  color: 'var(--gold-dim)',
+                  fontFamily: 'Cinzel, serif',
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap',
                 }}
-              />
-            )}
-          </button>
-          <span style={{ fontSize: 14, color: 'var(--text-muted)', flexShrink: 0 }}>
-            {t(`${i18n}.${countKey}`, { count: total })}
-          </span>
+              >
+                {toTitleCase(folder)}
+              </span>
+              {isFrameFolder(folder) && <FramesBadge label={t('tokens.framesFolder')} />}
+              {!isMobilePhone && (
+                <span
+                  style={{
+                    flex: 1,
+                    borderBottom: '1px dotted var(--border)',
+                    margin: '0 8px',
+                    minWidth: 16,
+                  }}
+                />
+              )}
+            </button>
+            <span style={{ fontSize: 14, color: 'var(--text-muted)', flexShrink: 0 }}>
+              {t(`${i18n}.${countKey}`, { count: total })}
+            </span>
+          </h2>
           {!bulkMode && isAudio && (
             <button
               onClick={(e) => {
@@ -234,6 +252,7 @@ export default function MediaFolderGroup({
               }}
               style={zipBtnStyle}
               title={t('audio.playFolder', { folder })}
+              aria-label={t('audio.playFolder', { folder })}
             >
               <LuPlay size={11} /> {t('audio.player.play')}
             </button>
@@ -249,6 +268,7 @@ export default function MediaFolderGroup({
               }}
               style={zipBtnStyle}
               title={t(`${i18n}.downloadAllInFolder`, { folder })}
+              aria-label={t(`${i18n}.downloadAllInFolder`, { folder })}
             >
               <LuDownload size={11} /> {t(`${i18n}.download`)}
             </button>
@@ -331,59 +351,56 @@ export default function MediaFolderGroup({
                           onChange={() => onToggleFolder(folderPath, subItems)}
                         />
                       )}
-                      <button
-                        onClick={() => onToggle(editKey)}
-                        aria-expanded={!isSubCollapsed}
-                        aria-label={
-                          isSubCollapsed
-                            ? t(`${i18n}.expandFolder`, { folder: subPath })
-                            : t(`${i18n}.collapseFolder`, { folder: subPath })
-                        }
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          cursor: 'pointer',
-                          padding: '4px 2px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          minWidth: 0,
-                          overflow: 'hidden',
-                        }}
-                      >
-                        {isSubCollapsed ? (
-                          <LuChevronRight
-                            size={13}
-                            color="var(--text-muted)"
-                            style={{ flexShrink: 0 }}
-                          />
-                        ) : (
-                          <LuChevronDown
-                            size={13}
-                            color="var(--text-muted)"
-                            style={{ flexShrink: 0 }}
-                          />
-                        )}
-                        <LuFolder size={13} color="var(--text-muted)" style={{ flexShrink: 0 }} />
-                        <span
+                      <h3 style={{ ...folderHeading, minWidth: 0 }}>
+                        <button
+                          onClick={() => onToggle(editKey)}
+                          aria-expanded={!isSubCollapsed}
                           style={{
-                            fontSize: 15,
-                            color: 'var(--text-dim)',
-                            fontWeight: 500,
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: '4px 2px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            minWidth: 0,
                             overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
                           }}
                         >
-                          {subPath.split('/').map(toTitleCase).join(' / ')}
-                        </span>
-                        <span style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0 }}>
-                          ({sub.count})
-                        </span>
-                        {isFrameFolder(folderPath) && (
-                          <FramesBadge label={t('tokens.framesFolder')} />
-                        )}
-                      </button>
+                          {isSubCollapsed ? (
+                            <LuChevronRight
+                              size={13}
+                              color="var(--text-muted)"
+                              style={{ flexShrink: 0 }}
+                            />
+                          ) : (
+                            <LuChevronDown
+                              size={13}
+                              color="var(--text-muted)"
+                              style={{ flexShrink: 0 }}
+                            />
+                          )}
+                          <LuFolder size={13} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+                          <span
+                            style={{
+                              fontSize: 15,
+                              color: 'var(--text-dim)',
+                              fontWeight: 500,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {subPath.split('/').map(toTitleCase).join(' / ')}
+                          </span>
+                          <span style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0 }}>
+                            ({sub.count})
+                          </span>
+                          {isFrameFolder(folderPath) && (
+                            <FramesBadge label={t('tokens.framesFolder')} />
+                          )}
+                        </button>
+                      </h3>
                       {editingFolder !== editKey && !bulkMode && !isMobilePhone && (
                         <>
                           <FolderTagRow
@@ -403,6 +420,7 @@ export default function MediaFolderGroup({
                               }}
                               style={zipBtnStyle}
                               title={t('audio.playFolder', { folder: subPath })}
+                              aria-label={t('audio.playFolder', { folder: subPath })}
                             >
                               <LuPlay size={11} /> {t('audio.player.play')}
                             </button>
@@ -422,6 +440,7 @@ export default function MediaFolderGroup({
                             }}
                             style={zipBtnStyle}
                             title={t(`${i18n}.downloadInSubfolder`, { folder: subPath })}
+                            aria-label={t(`${i18n}.downloadInSubfolder`, { folder: subPath })}
                           >
                             <LuDownload size={11} /> {t(`${i18n}.download`)}
                           </button>

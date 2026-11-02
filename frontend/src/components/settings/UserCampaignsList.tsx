@@ -38,11 +38,17 @@ export default function UserCampaignsList({ userId }: { userId: string }) {
 
   if (loading) {
     return (
-      <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>{t('common.loading')}</p>
+      <p role="status" style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
+        {t('common.loading')}
+      </p>
     )
   }
   if (err) {
-    return <p style={{ fontSize: 13, color: 'var(--red)', margin: 0 }}>{err}</p>
+    return (
+      <p role="alert" style={{ fontSize: 13, color: 'var(--red)', margin: 0 }}>
+        {err}
+      </p>
+    )
   }
   if (!list || list.length === 0) {
     return (
@@ -54,6 +60,7 @@ export default function UserCampaignsList({ userId }: { userId: string }) {
 
   return (
     <ul
+      role="list"
       style={{
         listStyle: 'none',
         padding: 0,

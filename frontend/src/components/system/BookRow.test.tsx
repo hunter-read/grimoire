@@ -303,7 +303,7 @@ describe('BookRow', () => {
     expect(screen.getByRole('menuitem', { name: /download/i })).toBeInTheDocument()
     // The favorite action stays overlaid on the thumbnail (like maps/tokens).
     expect(
-      screen.getByRole('button', { name: /add to favorites|remove from favorites/i })
+      screen.getByRole('button', { name: /^(add|remove) player's handbook (to|from) favorites$/i })
     ).toBeInTheDocument()
   })
 
@@ -364,7 +364,7 @@ describe('BookRow', () => {
   it('card view shows the selection checkbox and toggles in bulk mode', () => {
     const onToggle = vi.fn()
     render(<BookRow book={makeBook()} card bulkMode selected={false} onToggle={onToggle} />)
-    fireEvent.click(screen.getByRole('button', { name: /open player's handbook/i }))
+    fireEvent.click(screen.getByRole('button', { name: /select player's handbook/i }))
     expect(onToggle).toHaveBeenCalledTimes(1)
   })
 
@@ -401,7 +401,7 @@ describe('BookRow', () => {
         card
       />
     )
-    fireEvent.keyDown(screen.getByRole('button', { name: /open player's handbook/i }), {
+    fireEvent.keyDown(screen.getByRole('button', { name: /select player's handbook/i }), {
       key: ' ',
     })
     expect(onToggle).toHaveBeenCalledTimes(1)
@@ -425,7 +425,7 @@ describe('BookRow', () => {
     const toggleFavorite = vi.fn()
     mockUseFavorites.mockReturnValue({ isFavorite: () => false, toggleFavorite })
     render(<BookRow book={makeBook()} />)
-    fireEvent.click(screen.getByRole('button', { name: /add to favorites/i }))
+    fireEvent.click(screen.getByRole('button', { name: /add player's handbook to favorites/i }))
     expect(toggleFavorite).toHaveBeenCalledWith('book', 'book-1')
   })
 
@@ -542,7 +542,7 @@ describe('BookRow', () => {
       expect(
         screen.queryByRole('link', { name: /open player's handbook/i })
       ).not.toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /open player's handbook/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /select player's handbook/i })).toBeInTheDocument()
     })
   })
 
@@ -552,23 +552,27 @@ describe('BookRow', () => {
     it('offers a one-click details button in the list layout', () => {
       const onDetails = vi.fn()
       render(<BookRow book={makeBook()} onDetails={onDetails} />)
-      fireEvent.click(screen.getByRole('button', { name: 'View details' }))
+      fireEvent.click(screen.getByRole('button', { name: "View details for Player's Handbook" }))
       expect(onDetails).toHaveBeenCalledTimes(1)
     })
 
     it('offers the details button in the card layout too', () => {
       const onDetails = vi.fn()
       render(<BookRow book={makeBook()} onDetails={onDetails} card />)
-      fireEvent.click(screen.getByRole('button', { name: 'View details' }))
+      fireEvent.click(screen.getByRole('button', { name: "View details for Player's Handbook" }))
       expect(onDetails).toHaveBeenCalledTimes(1)
     })
 
     it('has no details button without onDetails, or in bulk mode', () => {
       const { unmount } = render(<BookRow book={makeBook()} />)
-      expect(screen.queryByRole('button', { name: 'View details' })).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: "View details for Player's Handbook" })
+      ).not.toBeInTheDocument()
       unmount()
       render(<BookRow book={makeBook()} onDetails={() => {}} bulkMode onToggle={() => {}} />)
-      expect(screen.queryByRole('button', { name: 'View details' })).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: "View details for Player's Handbook" })
+      ).not.toBeInTheDocument()
     })
   })
 })

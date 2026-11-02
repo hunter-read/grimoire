@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef, type FormEvent } from 'react'
+import { useId, useState, useEffect, useRef, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
+import useDialogFocus from '../../hooks/useDialogFocus'
 import { LuX, LuTrash2, LuChevronLeft, LuImagePlus } from 'react-icons/lu'
 import api, { campaigns, type Schema } from '../../api'
 import { useFavorites } from '../../context/FavoritesContext'
@@ -36,6 +37,11 @@ export default function CampaignEditor({
   onScheduleChanged,
 }: CampaignEditorProps) {
   const { t } = useTranslation()
+  // Focus moves into the dialog, Tab stays inside, Esc closes, and focus goes
+  // back to whatever opened it.
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const titleId = useId()
+  useDialogFocus(dialogRef, { onClose: onClose })
   const { isFavorite } = useFavorites()
   const isEdit = !!campaign
 
@@ -227,6 +233,7 @@ export default function CampaignEditor({
         </select>
         {form.system_id === CUSTOM_SYSTEM && (
           <input
+            aria-label={t('campaignEditor.systemCustomPlaceholder')}
             value={form.system_name}
             onChange={(e) => set('system_name', e.target.value)}
             placeholder={t('campaignEditor.systemCustomPlaceholder')}
@@ -238,10 +245,14 @@ export default function CampaignEditor({
 
       {!isEdit && (
         <div style={{ marginBottom: 16 }}>
-          <label style={labelStyle}>{t('campaignEditor.bannerLabel')}</label>
+          {/* Names the button; a <label> here would point at nothing. */}
+          <div id={`${titleId}-banner`} style={labelStyle}>
+            {t('campaignEditor.bannerLabel')}
+          </div>
           <button
             type="button"
             onClick={() => bannerInputRef.current?.click()}
+            aria-describedby={`${titleId}-banner`}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -330,6 +341,10 @@ export default function CampaignEditor({
       }}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         style={{
           background: 'var(--bg-panel)',
           border: '1px solid var(--border)',
@@ -343,7 +358,9 @@ export default function CampaignEditor({
         }}
       >
         <button
+          type="button"
           onClick={onClose}
+          aria-label={t('common.close')}
           style={{
             position: 'absolute',
             top: 16,
@@ -357,13 +374,13 @@ export default function CampaignEditor({
           <LuX size={18} />
         </button>
 
-        <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>
+        <h2 id={titleId} style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>
           {isEdit
             ? t('campaignEditor.titleEdit')
             : step === 0
               ? t('campaignEditor.titleNew')
               : t('campaignEditor.resources.title')}
-        </h3>
+        </h2>
         {!isEdit && (
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 20 }}>
             {t('campaignEditor.stepIndicator', { current: step + 1, total: 2 })}
@@ -394,7 +411,10 @@ export default function CampaignEditor({
             )}
 
             {error && (
-              <div style={{ color: 'var(--danger)', fontSize: 13, margin: '16px 0 12px' }}>
+              <div
+                role="alert"
+                style={{ color: 'var(--danger)', fontSize: 13, margin: '16px 0 12px' }}
+              >
                 {error}
               </div>
             )}
@@ -427,7 +447,9 @@ export default function CampaignEditor({
           <form onSubmit={next}>
             {detailsStep}
             {error && (
-              <div style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12 }}>{error}</div>
+              <div role="alert" style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12 }}>
+                {error}
+              </div>
             )}
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button type="button" onClick={onClose} style={cancelBtn}>
@@ -448,7 +470,9 @@ export default function CampaignEditor({
               pinSystem={systems.find((s) => s.id === form.system_id)?.name || ''}
             />
             {error && (
-              <div style={{ color: 'var(--danger)', fontSize: 13, margin: '12px 0' }}>{error}</div>
+              <div role="alert" style={{ color: 'var(--danger)', fontSize: 13, margin: '12px 0' }}>
+                {error}
+              </div>
             )}
             <div
               style={{

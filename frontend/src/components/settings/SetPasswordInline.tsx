@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import usePasswordRules from '../../hooks/usePasswordRules'
 import { ghostBtnStyle, saveBtnStyle } from './settingsButtons'
@@ -15,6 +15,7 @@ export default function SetPasswordInline({ onSave, onCancel }: Props) {
   const [value, setValue] = useState('')
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
+  const errId = useId()
 
   const handleSave = async () => {
     if (value.length < passwordMinLength) {
@@ -38,7 +39,11 @@ export default function SetPasswordInline({ onSave, onCancel }: Props) {
       <input
         type="password"
         id="set-password-inline"
+        name="new-password"
+        autoComplete="new-password"
         aria-label={t('users.newPasswordPlaceholder', { min: passwordMinLength })}
+        aria-invalid={err ? true : undefined}
+        aria-describedby={err ? errId : undefined}
         value={value}
         onChange={(e) => {
           setValue(e.target.value)
@@ -52,7 +57,7 @@ export default function SetPasswordInline({ onSave, onCancel }: Props) {
         autoFocus
         style={{
           background: 'var(--bg-input)',
-          border: '1px solid var(--border)',
+          border: '1px solid var(--border-control)',
           color: 'var(--text)',
           borderRadius: 6,
           padding: '4px 8px',
@@ -60,9 +65,13 @@ export default function SetPasswordInline({ onSave, onCancel }: Props) {
           width: 180,
         }}
       />
-      {err && <span style={{ fontSize: 12, color: 'var(--red)' }}>{err}</span>}
-      <button onClick={handleSave} disabled={saving} style={saveBtnStyle}>
-        {saving ? '…' : t('users.setPassword')}
+      {err && (
+        <span id={errId} role="alert" style={{ fontSize: 12, color: 'var(--red)' }}>
+          {err}
+        </span>
+      )}
+      <button onClick={handleSave} disabled={saving} aria-busy={saving} style={saveBtnStyle}>
+        {saving ? t('common.saving') : t('users.setPassword')}
       </button>
       <button onClick={onCancel} style={ghostBtnStyle}>
         {t('common.cancel')}

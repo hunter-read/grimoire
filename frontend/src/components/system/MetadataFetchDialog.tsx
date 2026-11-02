@@ -527,7 +527,7 @@ const field: CSSProperties = {
   borderRadius: 6,
   background: 'var(--bg-deep)',
   color: 'var(--text)',
-  border: '1px solid var(--border)',
+  border: '1px solid var(--border-control)',
 }
 const primaryBtn = (enabled: boolean): CSSProperties => ({
   padding: '10px 24px',

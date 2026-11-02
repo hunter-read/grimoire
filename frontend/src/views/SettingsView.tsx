@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useUISettings } from '../context/UISettingsContext'
+import usePageTitle from '../hooks/usePageTitle'
 import useCodexStatus from '../components/codex/useCodexStatus'
 import SettingsNav from '../components/settings/SettingsNav'
 import SettingsSearch from '../components/settings/SettingsSearch'
@@ -104,6 +105,8 @@ export default function SettingsView({ user, onLogout }: SettingsViewProps) {
   )
 
   const area = resolveArea(tab, visibility)
+  // "Account settings": the area alone would read like a page of its own.
+  usePageTitle(t('a11y.settings.pageTitle', { area: t(`settings.areas.${area}.title`) }))
   const hash = decodeURIComponent(location.hash.replace(/^#/, ''))
   const target = useMemo(
     () => ({ id: hash || null, group: findEntry(hash)?.group ?? null, nonce: location.key }),
@@ -175,7 +178,7 @@ export default function SettingsView({ user, onLogout }: SettingsViewProps) {
 
   return (
     <div className="settings-page fade-in">
-      <aside className="settings-aside">
+      <aside className="settings-aside" aria-label={t('settings.title')}>
         <p className="settings-title">{t('settings.title')}</p>
         <SettingsSearch visibility={visibility} onNavigate={go} />
         <SettingsNav current={area} visibility={visibility} onNavigate={(a) => go({ area: a })} />

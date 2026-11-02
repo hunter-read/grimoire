@@ -14,6 +14,7 @@ import {
 import type { IconType } from 'react-icons'
 import { campaigns, mediaUrl, type Schema } from '../../api'
 import Spinner from '../Spinner'
+import useDialogFocus from '../../hooks/useDialogFocus'
 import ImageUploadPanel from './ImageUploadPanel'
 import SegmentControl from './SegmentControl'
 import { miniBtn, miniBtnGhost } from './embedPickerStyles'
@@ -49,6 +50,10 @@ export default function GrimoireEmbedPicker({
 }: GrimoireEmbedPickerProps) {
   const { t } = useTranslation()
   const [query, setQuery] = useState('')
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
+  // Opens on the search box, as the old autoFocus did.
+  useDialogFocus(dialogRef, { onClose, initialFocusRef: searchRef })
   const [resources, setResources] = useState<Resource[] | null>(null)
   const [categories, setCategories] = useState<Schema<'CampaignCategoryOut'>[]>([])
   const [activeGroup, setActiveGroup] = useState<string | null>(null) // null until groups load
@@ -137,6 +142,10 @@ export default function GrimoireEmbedPicker({
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="wiki-embed-picker-title"
         style={{
           background: 'var(--bg-panel)',
           border: '1px solid var(--border)',
@@ -165,9 +174,18 @@ export default function GrimoireEmbedPicker({
         >
           <LuX size={18} />
         </button>
-        <h3 style={{ fontSize: 16, fontWeight: 600, margin: '0 0 16px' }}>
+        <h2
+          id="wiki-embed-picker-title"
+          style={{ fontSize: 16, fontWeight: 600, margin: '0 0 16px' }}
+        >
           {t('wiki.embedPickerTitle')}
-        </h3>
+        </h2>
+        {/* How many resources the search leaves, said as it narrows. */}
+        <div role="status" className="sr-only">
+          {search && resources !== null
+            ? t('a11y.campaignNotes.resultCount', { count: filtered.length })
+            : ''}
+        </div>
 
         {uploadOpen ? (
           <ImageUploadPanel
@@ -190,7 +208,10 @@ export default function GrimoireEmbedPicker({
                   }}
                 />
                 <input
-                  autoFocus
+                  ref={searchRef}
+                  type="search"
+                  autoComplete="off"
+                  aria-label={t('wiki.embedSearchPlaceholder')}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder={t('wiki.embedSearchPlaceholder')}
@@ -198,7 +219,7 @@ export default function GrimoireEmbedPicker({
                     width: '100%',
                     padding: '9px 12px 9px 32px',
                     background: 'var(--bg-deep)',
-                    border: '1px solid var(--border)',
+                    border: '1px solid var(--border-control)',
                     borderRadius: 8,
                     color: 'var(--text)',
                     fontSize: 14,
@@ -233,15 +254,18 @@ export default function GrimoireEmbedPicker({
               </div>
             )}
 
-            <div style={{ overflowY: 'auto', flex: 1 }}>
+            <ul
+              role="list"
+              style={{ overflowY: 'auto', flex: 1, listStyle: 'none', margin: 0, padding: 0 }}
+            >
               {resources === null ? (
-                <div style={{ display: 'flex', justifyContent: 'center', padding: 20 }}>
+                <li style={{ display: 'flex', justifyContent: 'center', padding: 20 }}>
                   <Spinner size={18} />
-                </div>
+                </li>
               ) : filtered.length === 0 ? (
-                <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '10px 4px' }}>
+                <li style={{ fontSize: 13, color: 'var(--text-muted)', padding: '10px 4px' }}>
                   {resources.length === 0 ? t('wiki.noLinkedResources') : t('common.noResults')}
-                </div>
+                </li>
               ) : (
                 filtered.map((item) => {
                   const isImage = item.resource_type === 'file' && item.is_image
@@ -250,7 +274,7 @@ export default function GrimoireEmbedPicker({
                   const awaitingPage = pageFor === key
                   const thumbUrl = thumbnailUrl(campaignId, item)
                   return (
-                    <div
+                    <li
                       key={key}
                       style={{
                         display: 'flex',
@@ -311,12 +335,12 @@ export default function GrimoireEmbedPicker({
                               }
                             }}
                             placeholder={t('wiki.pageNum')}
-                            aria-label={t('wiki.pageNum')}
+                            aria-label={`${t('wiki.pageNum')}: ${item.name}`}
                             style={{
                               width: 64,
                               padding: '4px 6px',
                               background: 'var(--bg-deep)',
-                              border: '1px solid var(--border)',
+                              border: '1px solid var(--border-control)',
                               borderRadius: 6,
                               color: 'var(--text)',
                               fontSize: 12,
@@ -326,6 +350,8 @@ export default function GrimoireEmbedPicker({
                             onClick={() => insert(item, pageNum || null)}
                             style={miniBtn}
                             title={t('wiki.insert')}
+                            // Every row has these buttons; the name says which.
+                            aria-label={`${t('wiki.insert')} ${item.name}`}
                           >
                             {t('wiki.insert')}
                           </button>
@@ -340,20 +366,25 @@ export default function GrimoireEmbedPicker({
                               }}
                               style={miniBtnGhost}
                               title={t('wiki.withPage')}
+                              aria-label={`${t('wiki.withPage')} ${item.name}`}
                             >
                               {t('wiki.withPage')}
                             </button>
                           )}
-                          <button onClick={() => insert(item, null)} style={miniBtn}>
+                          <button
+                            onClick={() => insert(item, null)}
+                            style={miniBtn}
+                            aria-label={`${t('wiki.insert')} ${item.name}`}
+                          >
                             <LuPlus size={13} /> {t('wiki.insert')}
                           </button>
                         </div>
                       )}
-                    </div>
+                    </li>
                   )
                 })
               )}
-            </div>
+            </ul>
           </>
         )}
       </div>

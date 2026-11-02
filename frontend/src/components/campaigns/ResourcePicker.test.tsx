@@ -275,7 +275,7 @@ describe('ResourcePicker — select a whole folder (issue #555)', () => {
     await screen.findByText('D&D 5e')
     await userEvent.click(folderBox('D&D 5e'))
     expect(screen.getByText('Selected (2)')).toBeInTheDocument()
-    const visibilities = screen.getAllByRole('combobox', { name: 'Visibility' })
+    const visibilities = screen.getAllByRole('combobox', { name: /^Who can see/ })
     expect(visibilities.map((s) => (s as HTMLSelectElement).value)).toEqual(['gm', 'public'])
   })
 

@@ -41,9 +41,14 @@ export default function UserRow({
   const { t } = useTranslation()
   const isSelf = user.id === currentUserId
   const count = user.campaign_count ?? 0
+  // The editor row the toggle opens, for aria-controls.
+  const editorId = `user-editor-${user.id}`
 
   return (
     <>
+      {/* The whole row still toggles on a click, for the mouse; the button in
+          the first cell is the same action for the keyboard and screen readers,
+          named after the user and saying whether the editor is open. */}
       <tr
         onClick={onToggleExpand}
         style={{
@@ -53,17 +58,36 @@ export default function UserRow({
         }}
       >
         <td style={{ ...cellStyle, width: 28, paddingRight: 0 }}>
-          <LuChevronRight
-            size={14}
-            style={{
-              color: 'var(--text-muted)',
-              transition: 'transform 0.15s ease',
-              transform: expanded ? 'rotate(90deg)' : 'none',
+          <button
+            type="button"
+            aria-expanded={expanded}
+            aria-controls={expanded ? editorId : undefined}
+            aria-label={t('a11y.settingsAccess.editUser', { name: user.username })}
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggleExpand()
             }}
-          />
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: 2,
+              display: 'flex',
+              cursor: 'pointer',
+              color: 'var(--text-muted)',
+            }}
+          >
+            <LuChevronRight
+              size={14}
+              style={{
+                transition: 'transform 0.15s ease',
+                transform: expanded ? 'rotate(90deg)' : 'none',
+              }}
+            />
+          </button>
         </td>
 
-        <td style={cellStyle}>
+        {/* The row's header cell: a screen reader names each cell by its user. */}
+        <th scope="row" style={{ ...cellStyle, textAlign: 'left', fontWeight: 'normal' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
             <span
               style={{
@@ -101,7 +125,7 @@ export default function UserRow({
               {user.email}
             </div>
           )}
-        </td>
+        </th>
 
         <td style={{ ...cellStyle, whiteSpace: 'nowrap' }}>
           <RoleBadge role={user.role} />
@@ -137,7 +161,9 @@ export default function UserRow({
               size={13}
               style={{ color: count > 0 ? 'var(--gold)' : 'var(--text-muted)' }}
             />
-            {count}
+            {/* A bare number under a "Campaigns" header; say what it counts. */}
+            <span aria-hidden="true">{count}</span>
+            <span className="sr-only">{t('a11y.settingsAccess.ownedCampaigns', { count })}</span>
           </span>
         </td>
       </tr>
@@ -146,6 +172,7 @@ export default function UserRow({
         <tr style={{ background: 'var(--bg-deep)' }}>
           <td colSpan={columnCount} style={{ padding: 0 }}>
             <UserExpandedEditor
+              id={editorId}
               user={user}
               isSelf={isSelf}
               currentUserRole={currentUserRole}

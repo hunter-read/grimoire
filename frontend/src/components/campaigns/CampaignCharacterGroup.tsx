@@ -34,11 +34,15 @@ export default function CampaignCharacterGroup({
 
   return (
     <section aria-label={group.name} style={{ marginBottom: 14 }}>
-      <div
+      {/* A heading per player under the Characters h2, in the caption look. */}
+      <h3
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: 6,
+          fontFamily: 'inherit',
+          fontWeight: 400,
+          letterSpacing: 'normal',
           fontSize: 12,
           color: 'var(--text-muted)',
           marginBottom: 6,
@@ -63,10 +67,10 @@ export default function CampaignCharacterGroup({
           </span>
         ) : null}
         {isViewer ? <span>{t('members.you')}</span> : null}
-      </div>
+      </h3>
 
       {group.active.length > 0 ? (
-        <ul style={GRID}>
+        <ul role="list" style={GRID}>
           {group.active.map((character) => (
             <CampaignCharacterTile key={character.id} character={character} />
           ))}
@@ -105,7 +109,7 @@ export default function CampaignCharacterGroup({
             {t('campaignCharacters.pastCharacters', { count: group.inactive.length })}
           </button>
           {showPast ? (
-            <ul id={pastId} style={{ ...GRID, marginTop: 6 }}>
+            <ul id={pastId} role="list" style={{ ...GRID, marginTop: 6 }}>
               {group.inactive.map((character) => (
                 <CampaignCharacterTile key={character.id} character={character} />
               ))}

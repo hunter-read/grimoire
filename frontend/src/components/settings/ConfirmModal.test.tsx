@@ -45,7 +45,8 @@ describe('ConfirmModal', () => {
 
   it('calls onClose when clicking overlay background', () => {
     const { onClose } = renderModal()
-    fireEvent.click(screen.getByRole('dialog'))
+    // The dialog is the panel; the overlay is its parent.
+    fireEvent.click(screen.getByRole('dialog').parentElement!)
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 

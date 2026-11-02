@@ -142,7 +142,7 @@ export default function ShareView({ token }: ShareViewProps) {
             padding: '8px 10px',
             fontSize: 14,
             borderRadius: 6,
-            border: '1px solid var(--border)',
+            border: '1px solid var(--border-control)',
             background: 'var(--bg-input)',
             color: 'var(--text)',
           }}

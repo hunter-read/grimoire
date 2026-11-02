@@ -68,4 +68,32 @@ describe('SimpleLookupManager', () => {
       expect(api.delete).toHaveBeenLastCalledWith('/parent-systems/p1?force=true')
     )
   })
+
+  it('says an added item aloud', async () => {
+    renderManager()
+    await screen.findByText('Dungeons & Dragons')
+    await userEvent.type(screen.getByLabelText('Parent system name'), 'Cyberpunk')
+    await userEvent.click(screen.getByText('lookupSettings.add'))
+    expect(await screen.findByText('a11y.settings.added:{"name":"Cyberpunk"}')).toBeInTheDocument()
+  })
+
+  it('lists items, and after a removal says so and returns to the name field', async () => {
+    renderManager()
+    await screen.findByText('Dungeons & Dragons')
+    expect(screen.getByRole('list')).toBeInTheDocument()
+    vi.mocked(api.get).mockResolvedValueOnce({ parent_systems: [] })
+    await userEvent.click(screen.getByLabelText('common.remove Dungeons & Dragons'))
+    expect(
+      await screen.findByText('a11y.settings.removed:{"name":"Dungeons & Dragons"}')
+    ).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByLabelText('Parent system name')).toHaveFocus())
+  })
+
+  it('reports a failed remove as an alert', async () => {
+    vi.mocked(api.delete).mockRejectedValueOnce(new Error('nope'))
+    renderManager()
+    await screen.findByText('Dungeons & Dragons')
+    await userEvent.click(screen.getByLabelText('common.remove Dungeons & Dragons'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('nope')
+  })
 })

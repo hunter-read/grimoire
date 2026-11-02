@@ -96,7 +96,7 @@ export default function ContentRefField({
                 flex: 1,
                 minWidth: 0,
                 padding: '6px 9px',
-                border: '1px solid var(--border)',
+                border: '1px solid var(--border-control)',
                 borderRadius: 6,
                 background: 'var(--bg-deep)',
                 color: 'var(--text)',

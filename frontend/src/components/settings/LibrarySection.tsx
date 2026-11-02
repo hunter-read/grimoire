@@ -112,19 +112,31 @@ export default function LibrarySection() {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         <div>
-          <div style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 8 }}>
+          <div
+            id="library-sort-label"
+            style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 8 }}
+          >
             {t('userSettings.library.sortOrder')}
           </div>
-          <SegmentedControl options={SORT_OPTIONS} value={sort} onChange={handleSort} />
+          <SegmentedControl
+            options={SORT_OPTIONS}
+            value={sort}
+            onChange={handleSort}
+            labelledBy="library-sort-label"
+          />
         </div>
         <div>
-          <div style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 8 }}>
+          <div
+            id="library-folder-placement-label"
+            style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 8 }}
+          >
             {t('userSettings.library.folderPlacement')}
           </div>
           <SegmentedControl
             options={FOLDER_PLACEMENT_OPTIONS}
             value={folderPlacement}
             onChange={handleFolderPlacement}
+            labelledBy="library-folder-placement-label"
           />
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
             {t('userSettings.library.folderPlacementHint')}
@@ -149,6 +161,9 @@ export default function LibrarySection() {
                   options={VIEW_MODE_OPTIONS}
                   value={viewModes[type]}
                   onChange={(v) => handleViewMode(type, v)}
+                  // One group per content type, so the name carries both:
+                  // "Default view: Maps".
+                  label={`${t('userSettings.library.viewMode')}: ${label}`}
                 />
               </div>
             ))}
@@ -171,7 +186,7 @@ export default function LibrarySection() {
             onBlur={handleRecentLimitBlur}
             style={{
               background: 'var(--bg-card)',
-              border: '1px solid var(--border)',
+              border: '1px solid var(--border-control)',
               borderRadius: 6,
               color: 'var(--text)',
               fontSize: 14,

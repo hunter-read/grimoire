@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import AddToSoundboardButton from './AddToSoundboardButton'
 import SoundboardLauncher from './SoundboardLauncher'
+import { soundboardFocus } from './soundboardFocus'
 import { SoundboardProvider, useSoundboard } from '../../context/SoundboardContext'
 
 vi.mock('react-i18next', () => ({
@@ -38,7 +39,7 @@ describe('AddToSoundboardButton', () => {
     const user = userEvent.setup()
     withProvider(<AddToSoundboardButton track={{ id: 'a', title: 'Thunder' }} />)
 
-    await user.click(screen.getByRole('button', { name: 'soundboard.add' }))
+    await user.click(screen.getByRole('button', { name: 'a11y.audio.addToSoundboard' }))
     expect(screen.getByTestId('pads')).toHaveTextContent('a')
     expect(board.pads[0].title).toBe('Thunder')
   })
@@ -47,9 +48,9 @@ describe('AddToSoundboardButton', () => {
     const user = userEvent.setup()
     withProvider(<AddToSoundboardButton track={{ id: 'a', title: 'Thunder' }} />)
 
-    await user.click(screen.getByRole('button', { name: 'soundboard.add' }))
-    const added = screen.getByRole('button', { name: 'soundboard.added' })
-    expect(added).toHaveAttribute('aria-pressed', 'true')
+    await user.click(screen.getByRole('button', { name: 'a11y.audio.addToSoundboard' }))
+    const added = screen.getByRole('button', { name: 'a11y.audio.onSoundboard' })
+    expect(added).toHaveAttribute('aria-disabled', 'true')
 
     await user.click(added)
     expect(board.pads).toHaveLength(1)
@@ -70,7 +71,7 @@ describe('AddToSoundboardButton', () => {
         </div>
       </SoundboardProvider>
     )
-    await user.click(screen.getByRole('button', { name: 'soundboard.add' }))
+    await user.click(screen.getByRole('button', { name: 'a11y.audio.addToSoundboard' }))
     expect(onCardClick).not.toHaveBeenCalled()
   })
 })
@@ -94,10 +95,10 @@ describe('SoundboardLauncher', () => {
       </>
     )
     // Adding opens the panel, so the launcher is hidden until it is closed.
-    await user.click(screen.getByRole('button', { name: 'soundboard.add' }))
+    await user.click(screen.getByRole('button', { name: 'a11y.audio.addToSoundboard' }))
     expect(screen.queryByRole('button', { name: 'soundboard.open' })).toBeNull()
 
-    await user.click(screen.getByRole('button', { name: 'soundboard.added' }))
+    await user.click(screen.getByRole('button', { name: 'a11y.audio.onSoundboard' }))
     expect(board.open).toBe(true)
   })
 
@@ -111,5 +112,36 @@ describe('SoundboardLauncher', () => {
 
     await user.click(screen.getByRole('button', { name: 'soundboard.open' }))
     expect(board.open).toBe(true)
+  })
+
+  it('takes focus when it reappears right after the panel closed', async () => {
+    const user = userEvent.setup()
+    withProvider(
+      <>
+        <AddToSoundboardButton track={{ id: 'a1', title: 'Thunder' }} />
+        <SoundboardLauncher />
+      </>
+    )
+    act(() => board.setOpen(true))
+    await user.click(screen.getByRole('button', { name: 'a11y.audio.addToSoundboard' }))
+    soundboardFocus.returnUntil = Date.now() + 1000
+    act(() => board.setOpen(false))
+    expect(screen.getByRole('button', { name: 'soundboard.open' })).toHaveFocus()
+    expect(soundboardFocus.returnUntil).toBe(0)
+  })
+
+  it('does not take focus when it first appears', async () => {
+    const user = userEvent.setup()
+    soundboardFocus.returnUntil = 0
+    withProvider(
+      <>
+        <AddToSoundboardButton track={{ id: 'a1', title: 'Thunder' }} />
+        <SoundboardLauncher />
+      </>
+    )
+    await user.click(screen.getByRole('button', { name: 'a11y.audio.addToSoundboard' }))
+    // Adding opens the panel; closing it without the hand-off leaves focus be.
+    act(() => board.setOpen(false))
+    expect(screen.getByRole('button', { name: 'soundboard.open' })).not.toHaveFocus()
   })
 })

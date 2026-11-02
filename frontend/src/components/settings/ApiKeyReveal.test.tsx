@@ -58,4 +58,21 @@ describe('ApiKeyReveal', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Done' }))
     expect(onClose).toHaveBeenCalled()
   })
+
+  it('is a labelled dialog that starts on Copy and keeps focus inside', () => {
+    render(<ApiKeyReveal apiKey={apiKey} secret="grim_secret" onClose={() => {}} />)
+    const dialog = screen.getByRole('dialog', { name: /Your new key for .Homepage./ })
+    expect(screen.getByRole('button', { name: 'Copy key' })).toHaveFocus()
+    // Escape does not throw away a key that is only shown once.
+    fireEvent.keyDown(dialog, { key: 'Escape' })
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('announces the copy from a region that is already there', async () => {
+    render(<ApiKeyReveal apiKey={apiKey} secret="grim_secret" onClose={() => {}} />)
+    const status = screen.getByRole('status')
+    expect(status).toHaveTextContent('')
+    fireEvent.click(screen.getByRole('button', { name: 'Copy key' }))
+    await waitFor(() => expect(status).toHaveTextContent('Copied to clipboard'))
+  })
 })

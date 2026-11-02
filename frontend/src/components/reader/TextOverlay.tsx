@@ -41,7 +41,11 @@ export default function TextOverlay({
   const bookmarkTerms = parseTerms(highlightText)
 
   return (
+    // Hidden from screen readers: one absolutely placed span per word reads as
+    // a stutter, and the reader gives them the same text as paragraphs
+    // (PageTextForScreenReaders). Mouse selection is unaffected.
     <div
+      aria-hidden="true"
       style={{
         position: 'absolute',
         inset: 0,

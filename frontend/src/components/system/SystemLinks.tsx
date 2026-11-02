@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { LuClipboard, LuExternalLink, LuChevronDown } from 'react-icons/lu'
 import useAnchoredMenu from '../../hooks/useAnchoredMenu'
+import useMenuKeyboard from '../../hooks/useMenuKeyboard'
 import { collectSystemLinks, splitSystemLinks, linkText } from './systemLinkUtils'
 import type { SystemLink, SystemWithLinks } from './systemLinkUtils'
 
@@ -51,6 +52,9 @@ export default function SystemLinks({ system }: SystemLinksProps) {
   const [open, setOpen] = useState(false)
   // Narrowed to the elements this menu renders; the hook types them loosely.
   const { triggerRef, panelRef, style: menuStyle } = useAnchoredMenu(open, { width: MENU_WIDTH })
+  // Arrow keys, Escape and Tab inside the portaled menu (Escape is also
+  // handled below for when focus has left it).
+  useMenuKeyboard(open, panelRef, triggerRef, () => setOpen(false))
 
   useEffect(() => {
     if (!open) return

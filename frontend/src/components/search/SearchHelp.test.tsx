@@ -54,3 +54,36 @@ describe('SearchHelp', () => {
     expect(screen.getByRole('button', { name: /close/i })).toHaveFocus()
   })
 })
+
+describe('SearchHelp - focus', () => {
+  it('hands focus back to its button when it closes', () => {
+    const trigger = document.createElement('button')
+    document.body.appendChild(trigger)
+    const triggerRef = { current: trigger }
+    const { unmount } = renderHelp({ triggerRef })
+    expect(screen.getByRole('button', { name: /close/i })).toHaveFocus()
+    unmount()
+    expect(trigger).toHaveFocus()
+    trigger.remove()
+  })
+
+  it('does not pull focus back to Close when the page re-renders', () => {
+    const onInsert = vi.fn()
+    const { rerender } = render(<SearchHelp onClose={() => {}} onInsert={onInsert} />)
+    screen.getByText('title:avatar').closest('button')!.focus()
+    rerender(<SearchHelp onClose={() => {}} onInsert={onInsert} />)
+    expect(screen.getByText('title:avatar').closest('button')).toHaveFocus()
+  })
+
+  it('leaves focus where the user moved it', () => {
+    const trigger = document.createElement('button')
+    const box = document.createElement('input')
+    document.body.append(trigger, box)
+    const { unmount } = renderHelp({ triggerRef: { current: trigger } })
+    box.focus()
+    unmount()
+    expect(box).toHaveFocus()
+    trigger.remove()
+    box.remove()
+  })
+})

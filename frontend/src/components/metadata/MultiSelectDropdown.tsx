@@ -299,7 +299,7 @@ export default function MultiSelectDropdown({
                   fontSize: 13,
                   padding: '6px 8px 6px 28px',
                   borderRadius: 6,
-                  border: '1px solid var(--border)',
+                  border: '1px solid var(--border-control)',
                   background: 'var(--bg-input)',
                 }}
               />

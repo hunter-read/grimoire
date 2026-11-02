@@ -33,6 +33,7 @@ import GuestPanel from '../components/campaigns/GuestPanel'
 import AnchoredPopover from '../components/campaigns/AnchoredPopover'
 import { formatScheduleTime, USER_TZ } from '../components/campaigns/_scheduleShared'
 import useIsMobile from '../hooks/useIsMobile'
+import usePageTitle from '../hooks/usePageTitle'
 
 type Campaign = ResponseOf<'/campaigns/{campaign_id}', 'get'>
 type Member = Campaign['members'][number]
@@ -66,7 +67,10 @@ const SCROLL_CARD: CSSProperties = {
   flexDirection: 'column',
 }
 
+// The GM / Players / Guests captions are h3s under the roster's h2, in the
+// small-caps caption look rather than the global heading face.
 const GROUP_LABEL: CSSProperties = {
+  fontFamily: 'inherit',
   fontSize: 11,
   textTransform: 'uppercase',
   letterSpacing: '0.06em',
@@ -158,6 +162,7 @@ export default function CampaignDetailView() {
   const inviteBtnRef = useRef<HTMLButtonElement>(null)
   const guestBtnRef = useRef<HTMLButtonElement>(null)
   const [error, setError] = useState<string | null>(null)
+  usePageTitle(campaign?.name ?? null)
 
   const load = () => {
     campaigns
@@ -208,20 +213,12 @@ export default function CampaignDetailView() {
   if (error) {
     return (
       <div style={{ padding: 40, textAlign: 'center', color: 'var(--danger)' }}>
-        {error}
+        <p role="alert">{error}</p>
         <div style={{ marginTop: 12 }}>
-          <button
-            onClick={() => navigate('/campaigns')}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--gold)',
-              cursor: 'pointer',
-              fontSize: 14,
-            }}
-          >
-            ← {t('campaignDetail.backToCampaigns')}
-          </button>
+          <Link to="/campaigns" style={{ color: 'var(--gold)', fontSize: 14 }}>
+            <span aria-hidden="true">← </span>
+            {t('campaignDetail.backToCampaigns')}
+          </Link>
         </div>
       </div>
     )
@@ -298,7 +295,11 @@ export default function CampaignDetailView() {
   }
 
   const handleRemoveMember = async (userId: string) => {
-    if (!confirm(t('common.delete') + '?')) return
+    // Name who is being removed: a bare "Delete?" doesn't say, and a screen
+    // reader user may not have the row in view.
+    const member = campaign.members?.find((m: Member) => m.user_id === userId)
+    const name = member?.display_name || member?.username || ''
+    if (!confirm(t('a11y.campaign.removeMemberConfirm', { name }))) return
     await campaigns.removeMember(campaignId, userId)
     load()
   }
@@ -316,24 +317,20 @@ export default function CampaignDetailView() {
 
   return (
     <div className="fade-in" style={{ padding: 24 }}>
-      {/* Back link */}
-      <button
-        onClick={() => navigate('/campaigns')}
+      {/* Back link - a link, since it goes somewhere. */}
+      <Link
+        to="/campaigns"
         style={{
-          background: 'none',
-          border: 'none',
           color: 'var(--text-muted)',
-          cursor: 'pointer',
           fontSize: 13,
-          display: 'flex',
+          display: 'inline-flex',
           alignItems: 'center',
           gap: 4,
-          padding: 0,
           marginBottom: 12,
         }}
       >
         <LuChevronLeft size={14} /> {t('campaignDetail.backToCampaigns')}
-      </button>
+      </Link>
 
       {readOnlyNotice && (
         <div
@@ -383,7 +380,7 @@ export default function CampaignDetailView() {
           }}
         >
           <div style={{ minWidth: 0, width: isMobile ? '100%' : undefined }}>
-            <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 4 }}>{campaign.name}</h2>
+            <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 4 }}>{campaign.name}</h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               {!isGmCampaign && (
                 <span
@@ -558,9 +555,9 @@ export default function CampaignDetailView() {
                     marginBottom: 14,
                   }}
                 >
-                  <h3 style={SECTION_HEADING}>
+                  <h2 style={SECTION_HEADING}>
                     <LuUsers size={15} /> {t('campaignDetail.overview.members')}
-                  </h3>
+                  </h2>
                   {canManage && (
                     <div style={{ display: 'flex', gap: 6 }}>
                       <button
@@ -596,7 +593,11 @@ export default function CampaignDetailView() {
                 {/* Both panels float over the roster rather than pushing it down, so
                     the player list stays put while you invite. */}
                 {showInvite && (
-                  <AnchoredPopover anchorRef={inviteBtnRef} onClose={() => setShowInvite(false)}>
+                  <AnchoredPopover
+                    anchorRef={inviteBtnRef}
+                    onClose={() => setShowInvite(false)}
+                    label={t('campaignDetail.overview.invite')}
+                  >
                     <InvitePanel
                       campaignId={campaign.id}
                       onInvited={() => {
@@ -612,6 +613,7 @@ export default function CampaignDetailView() {
                     anchorRef={guestBtnRef}
                     width={380}
                     onClose={() => setShowGuests(false)}
+                    label={t('guests.guests')}
                   >
                     <GuestPanel campaignId={campaign.id} onChanged={load} />
                   </AnchoredPopover>
@@ -621,7 +623,7 @@ export default function CampaignDetailView() {
                   {/* Game Master — kept distinct from the player roster. */}
                   {gmMember && (
                     <div style={{ marginBottom: 8 }}>
-                      <div style={GROUP_LABEL}>{t('campaignDetail.overview.gameMaster')}</div>
+                      <h3 style={GROUP_LABEL}>{t('campaignDetail.overview.gameMaster')}</h3>
                       <MemberRow
                         member={gmMember}
                         isOwner={isOwner}
@@ -636,49 +638,55 @@ export default function CampaignDetailView() {
                     </div>
                   )}
 
-                  <div style={GROUP_LABEL}>
+                  <h3 style={GROUP_LABEL}>
                     {t('campaignDetail.overview.players')} ({playerMembers.length})
-                  </div>
+                  </h3>
                   {playerMembers.length === 0 ? (
                     <div style={{ fontSize: 13, color: 'var(--text-muted)', paddingTop: 4 }}>
                       {t('campaignDetail.overview.noMembers')}
                     </div>
                   ) : (
-                    playerMembers.map((m) => (
-                      <MemberRow
-                        key={m.user_id}
-                        member={m}
-                        isOwner={isOwner}
-                        canManage={canManage}
-                        currentUserId={user?.id}
-                        campaignId={campaign.id}
-                        onRemove={handleRemoveMember}
-                        onUpdateStatus={handleUpdateMember}
-                        onSetCharacterName={handleSetCharacterName}
-                        onMediaChanged={load}
-                      />
-                    ))
+                    <ul role="list" className="card-list">
+                      {playerMembers.map((m) => (
+                        <li key={m.user_id}>
+                          <MemberRow
+                            member={m}
+                            isOwner={isOwner}
+                            canManage={canManage}
+                            currentUserId={user?.id}
+                            campaignId={campaign.id}
+                            onRemove={handleRemoveMember}
+                            onUpdateStatus={handleUpdateMember}
+                            onSetCharacterName={handleSetCharacterName}
+                            onMediaChanged={load}
+                          />
+                        </li>
+                      ))}
+                    </ul>
                   )}
 
                   {guestMembers.length > 0 && (
                     <>
-                      <div style={{ ...GROUP_LABEL, marginTop: 12 }}>
+                      <h3 style={{ ...GROUP_LABEL, marginTop: 12 }}>
                         {t('guests.guests')} ({guestMembers.length})
-                      </div>
-                      {guestMembers.map((m) => (
-                        <MemberRow
-                          key={m.user_id}
-                          member={m}
-                          isOwner={isOwner}
-                          canManage={canManage}
-                          currentUserId={user?.id}
-                          campaignId={campaign.id}
-                          onRemove={handleRemoveMember}
-                          onUpdateStatus={handleUpdateMember}
-                          onSetCharacterName={handleSetCharacterName}
-                          onMediaChanged={load}
-                        />
-                      ))}
+                      </h3>
+                      <ul role="list" className="card-list">
+                        {guestMembers.map((m) => (
+                          <li key={m.user_id}>
+                            <MemberRow
+                              member={m}
+                              isOwner={isOwner}
+                              canManage={canManage}
+                              currentUserId={user?.id}
+                              campaignId={campaign.id}
+                              onRemove={handleRemoveMember}
+                              onUpdateStatus={handleUpdateMember}
+                              onSetCharacterName={handleSetCharacterName}
+                              onMediaChanged={load}
+                            />
+                          </li>
+                        ))}
+                      </ul>
                     </>
                   )}
                 </div>
@@ -700,9 +708,9 @@ export default function CampaignDetailView() {
                 flexShrink: 0,
               }}
             >
-              <h3 style={SECTION_HEADING}>
+              <h2 style={SECTION_HEADING}>
                 <LuCalendar size={15} /> {t('campaignDetail.overview.availability')}
-              </h3>
+              </h2>
               {/* Export/subscribe sits with the schedule it exports. */}
               <CalendarMenu campaign={campaign} />
             </div>

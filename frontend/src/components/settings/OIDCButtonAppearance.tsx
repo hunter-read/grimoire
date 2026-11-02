@@ -133,6 +133,11 @@ export default function OIDCButtonAppearance({ data, onSaved }: OIDCButtonAppear
   const textInputProps = (key: string) => ({
     id: key,
     type: 'text',
+    // Named by the label's text alone: the label also holds the spinner and
+    // "Saved" status, which would otherwise be read as part of the name.
+    'aria-labelledby': `${key}-label`,
+    autoComplete: 'off',
+    spellCheck: false,
     value: draft[key] ?? '',
     disabled: isLocked(key),
     onChange: (e: ChangeEvent<HTMLInputElement>) =>
@@ -159,30 +164,38 @@ export default function OIDCButtonAppearance({ data, onSaved }: OIDCButtonAppear
 
       <div style={{ marginBottom: 14 }}>
         <label htmlFor="oidc_button_text" style={fieldLabelStyle}>
-          <span>{t('authSettings.oidc.buttonText')}</span>
+          <span id="oidc_button_text-label">{t('authSettings.oidc.buttonText')}</span>
           {status('oidc_button_text')}
         </label>
-        <input {...textInputProps('oidc_button_text')} />
-        <div style={hintStyle}>{t('authSettings.oidc.buttonTextHint')}</div>
+        <input {...textInputProps('oidc_button_text')} aria-describedby="oidc_button_text-hint" />
+        <div id="oidc_button_text-hint" style={hintStyle}>
+          {t('authSettings.oidc.buttonTextHint')}
+        </div>
       </div>
 
+      {/* The preview is a picture of the button, not a button: inert keeps it
+          out of the tab order and away from screen readers, which hear its
+          text from the group instead. */}
       <div style={previewStyle} aria-label={t('authSettings.oidc.buttonPreview')} role="group">
-        <OidcLoginButton
-          onClick={undefined}
-          label={draft.oidc_button_text || t('login.oidcDefault')}
-          bgColor={draft.oidc_button_bg_color}
-          textColor={draft.oidc_button_text_color}
-          borderColor={draft.oidc_button_border_color}
-          radius={draft.oidc_button_radius}
-          iconUrl={data.oidc_button_icon_url}
-        />
+        <span className="sr-only">{draft.oidc_button_text || t('login.oidcDefault')}</span>
+        <div inert>
+          <OidcLoginButton
+            onClick={undefined}
+            label={draft.oidc_button_text || t('login.oidcDefault')}
+            bgColor={draft.oidc_button_bg_color}
+            textColor={draft.oidc_button_text_color}
+            borderColor={draft.oidc_button_border_color}
+            radius={draft.oidc_button_radius}
+            iconUrl={data.oidc_button_icon_url}
+          />
+        </div>
       </div>
 
       <div style={gridStyle}>
         {COLOR_FIELDS.map(([key, labelKey]) => (
           <div key={key}>
             <label htmlFor={key} style={fieldLabelStyle}>
-              <span>{t(`authSettings.oidc.${labelKey}`)}</span>
+              <span id={`${key}-label`}>{t(`authSettings.oidc.${labelKey}`)}</span>
               {status(key)}
             </label>
             <div style={{ display: 'flex', gap: 6 }}>
@@ -206,7 +219,7 @@ export default function OIDCButtonAppearance({ data, onSaved }: OIDCButtonAppear
         ))}
         <div>
           <label htmlFor="oidc_button_radius" style={fieldLabelStyle}>
-            <span>{t('authSettings.oidc.buttonRadius')}</span>
+            <span id="oidc_button_radius-label">{t('authSettings.oidc.buttonRadius')}</span>
             {status('oidc_button_radius')}
           </label>
           <input {...textInputProps('oidc_button_radius')} inputMode="numeric" placeholder="8" />
@@ -253,7 +266,11 @@ export default function OIDCButtonAppearance({ data, onSaved }: OIDCButtonAppear
         <div style={hintStyle}>{t('authSettings.oidc.buttonIconHint')}</div>
       </div>
 
-      {error && <div style={{ marginTop: 10, fontSize: 13, color: 'var(--red)' }}>{error}</div>}
+      {error && (
+        <div role="alert" style={{ marginTop: 10, fontSize: 13, color: 'var(--red)' }}>
+          {error}
+        </div>
+      )}
     </div>
   )
 }

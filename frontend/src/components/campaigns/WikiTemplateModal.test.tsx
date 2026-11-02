@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { Mock } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import WikiTemplateModal from './WikiTemplateModal'
 
 vi.mock('../../api', () => ({
@@ -219,9 +219,9 @@ describe('WikiTemplateModal', () => {
     })
     renderModal()
     await screen.findByText('Spells')
-    expect(screen.queryByRole('button', { name: 'Browse' })).toBeNull()
+    expect(screen.queryByRole('tab', { name: 'Browse' })).toBeNull()
     // Authoring stays available — that's the documented escape hatch.
-    expect(screen.getByRole('button', { name: 'Create' })).toBeTruthy()
+    expect(screen.getByRole('tab', { name: 'Create' })).toBeTruthy()
   })
 
   it('closes on the close button and on a backdrop click', async () => {
@@ -256,7 +256,7 @@ describe('WikiTemplateModal — browse tab', () => {
 
   const openBrowse = async () => {
     renderModal()
-    fireEvent.click(await screen.findByRole('button', { name: 'Browse' }))
+    fireEvent.click(await screen.findByRole('tab', { name: 'Browse' }))
     await waitFor(() => expect(campaigns.browseWikiTemplates).toHaveBeenCalled())
   }
 
@@ -353,7 +353,7 @@ describe('WikiTemplateModal — create and edit', () => {
 
   it("offers the server's categories in a dropdown", async () => {
     renderModal()
-    fireEvent.click(await screen.findByRole('button', { name: 'Create' }))
+    fireEvent.click(await screen.findByRole('tab', { name: 'Create' }))
     const select = await screen.findByLabelText('Category (optional)')
     const options = [...select.querySelectorAll('option')].map((o) => o.textContent)
     expect(options).toContain('Characters')
@@ -364,7 +364,7 @@ describe('WikiTemplateModal — create and edit', () => {
   it('lets a new category be typed and saves it', async () => {
     campaignsMock.createWikiTemplate.mockResolvedValue({ id: 't5' })
     renderModal()
-    fireEvent.click(await screen.findByRole('button', { name: 'Create' }))
+    fireEvent.click(await screen.findByRole('tab', { name: 'Create' }))
     fireEvent.change(await screen.findByLabelText('Name'), { target: { value: 'Airship' } })
 
     fireEvent.change(screen.getByLabelText('Category (optional)'), {
@@ -386,7 +386,7 @@ describe('WikiTemplateModal — create and edit', () => {
   it('sends the page defaults, and never a game system', async () => {
     campaignsMock.createWikiTemplate.mockResolvedValue({ id: 't6' })
     renderModal()
-    fireEvent.click(await screen.findByRole('button', { name: 'Create' }))
+    fireEvent.click(await screen.findByRole('tab', { name: 'Create' }))
     fireEvent.change(await screen.findByLabelText('Name'), { target: { value: 'NPC' } })
     fireEvent.change(screen.getByLabelText('Starting page name'), {
       target: { value: 'New NPC' },
@@ -422,7 +422,7 @@ describe('WikiTemplateModal — create and edit', () => {
   it('creates a template from the form', async () => {
     campaignsMock.createWikiTemplate.mockResolvedValue({ id: 't5' })
     renderModal()
-    fireEvent.click(await screen.findByRole('button', { name: 'Create' }))
+    fireEvent.click(await screen.findByRole('tab', { name: 'Create' }))
 
     fireEvent.change(await screen.findByLabelText('Name'), { target: { value: 'Faction' } })
     fireEvent.change(screen.getByLabelText('Page content'), { target: { value: '# Faction' } })
@@ -438,7 +438,7 @@ describe('WikiTemplateModal — create and edit', () => {
 
   it('refuses to save without a name', async () => {
     renderModal()
-    fireEvent.click(await screen.findByRole('button', { name: 'Create' }))
+    fireEvent.click(await screen.findByRole('tab', { name: 'Create' }))
     fireEvent.click(await screen.findByRole('button', { name: /Create template/ }))
 
     expect(await screen.findByText('Give the template a name.')).toBeTruthy()
@@ -447,7 +447,7 @@ describe('WikiTemplateModal — create and edit', () => {
 
   it('right-aligns the Create button', async () => {
     renderModal()
-    fireEvent.click(await screen.findByRole('button', { name: 'Create' }))
+    fireEvent.click(await screen.findByRole('tab', { name: 'Create' }))
     const button = await screen.findByRole('button', { name: /Create template/ })
     expect(button.style.alignSelf).toBe('flex-end')
   })
@@ -489,11 +489,85 @@ describe('WikiTemplateModal — create and edit', () => {
   it('surfaces a save failure and stays on the form', async () => {
     campaignsMock.createWikiTemplate.mockRejectedValue(new Error('Name cannot be empty'))
     renderModal()
-    fireEvent.click(await screen.findByRole('button', { name: 'Create' }))
+    fireEvent.click(await screen.findByRole('tab', { name: 'Create' }))
     fireEvent.change(await screen.findByLabelText('Name'), { target: { value: 'X' } })
     fireEvent.click(screen.getByRole('button', { name: /Create template/ }))
 
     expect(await screen.findByText('Name cannot be empty')).toBeTruthy()
     expect(screen.getByLabelText('Name')).toBeTruthy()
+  })
+})
+
+describe('WikiTemplateModal tabs', () => {
+  it('is a labelled dialog whose tabs move with the arrow keys', async () => {
+    renderModal()
+    const dialog = await screen.findByRole('dialog', { name: 'Note templates' })
+    const tabs = within(dialog).getAllByRole('tab')
+    expect(tabs[0]).toHaveAttribute('aria-selected', 'true')
+    expect(within(dialog).getByRole('tabpanel')).toBeInTheDocument()
+
+    fireEvent.keyDown(tabs[0], { key: 'ArrowRight' })
+    expect(within(dialog).getAllByRole('tab')[1]).toHaveAttribute('aria-selected', 'true')
+    expect(within(dialog).getAllByRole('tab')[1]).toHaveFocus()
+    fireEvent.keyDown(within(dialog).getAllByRole('tab')[1], { key: 'End' })
+    expect(within(dialog).getAllByRole('tab').at(-1)).toHaveAttribute('aria-selected', 'true')
+    fireEvent.keyDown(within(dialog).getAllByRole('tab').at(-1)!, { key: 'Home' })
+    expect(tabs[0]).toHaveAttribute('aria-selected', 'true')
+    fireEvent.keyDown(tabs[0], { key: 'ArrowLeft' })
+    expect(within(dialog).getAllByRole('tab').at(-1)).toHaveAttribute('aria-selected', 'true')
+  })
+})
+
+describe('WikiTemplateModal catalogue for screen readers', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    // The 5e folder opens by itself, matching the campaign's system.
+    campaignsMock.wikiTemplates.mockResolvedValue({
+      templates: [],
+      campaign_system: 'D&D 5e',
+      downloads_enabled: true,
+    })
+    campaignsMock.browseWikiTemplates.mockResolvedValue(CATALOGUE)
+  })
+  const openBrowse = async () => {
+    renderModal()
+    fireEvent.click(await screen.findByRole('tab', { name: 'Browse' }))
+    await waitFor(() => expect(campaigns.browseWikiTemplates).toHaveBeenCalled())
+  }
+  it('names each download for its template and says when one is added', async () => {
+    campaignsMock.downloadWikiTemplate.mockResolvedValue({ id: 't9' })
+    await openBrowse()
+    await screen.findByText('A spell.')
+    // Each folder is a heading.
+    expect(screen.getByRole('heading', { name: /Dungeons & Dragons 5e/ })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Download Spell' }))
+    expect(await screen.findByText('Added Spell to your templates')).toBeInTheDocument()
+  })
+
+  it('opens the source chooser from a real button when there is more than one source', async () => {
+    const tpl = CATALOGUE.folders[1].templates[0]
+    campaignsMock.browseWikiTemplates.mockResolvedValue({
+      ...CATALOGUE,
+      folders: [
+        CATALOGUE.folders[0],
+        {
+          ...CATALOGUE.folders[1],
+          templates: [
+            {
+              ...tpl,
+              available_in: [
+                { index_url: tpl.index_url, version: '1' },
+                { index_url: 'https://example.com/index.json', version: '1' },
+              ],
+            },
+          ],
+        },
+      ],
+    })
+    await openBrowse()
+    const chooser = await screen.findByRole('button', { name: 'Choose a source for Spell' })
+    expect(chooser).toHaveAttribute('aria-haspopup', 'menu')
+    fireEvent.click(chooser)
+    expect(await screen.findByRole('menu')).toBeInTheDocument()
   })
 })

@@ -22,6 +22,8 @@ import SiblingNavButtons from '../media/SiblingNavButtons'
 import SiblingPosition from '../media/SiblingPosition'
 import { isArchiveMedia } from '../../constants'
 import useIsMobile from '../../hooks/useIsMobile'
+import usePageTitle from '../../hooks/usePageTitle'
+import { spokenDuration } from './spokenDuration'
 
 type AudioDetail = Schema<'AudioDetailResponse'>
 
@@ -35,7 +37,7 @@ export default function AudioDetailView() {
   // Going back is a *return* to the gallery, so it restores the filters the user
   // had rather than re-applying their saved default over them.
   const goBack = () => navigate(backPathRef.current || '/audio', { state: { restoreView: true } })
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const isMobilePhone = useIsMobile(640)
   const [track, setTrack] = useState<AudioDetail | null>(null)
   const [editingTrackTags, setEditingTrackTags] = useState(false)
@@ -75,6 +77,8 @@ export default function AudioDetailView() {
   useEffect(() => {
     api.get(`/audio/${audioId}`).then((data) => setTrack(data as AudioDetail))
   }, [audioId])
+
+  usePageTitle(track ? track.title || track.filename : null)
 
   if (!track)
     return (
@@ -136,8 +140,13 @@ export default function AudioDetailView() {
           <LuArrowLeft size={15} /> {!isMobilePhone && t('common.back')}
         </button>
         <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
-        <span
+        {/* The page's heading, in the toolbar's type rather than Cinzel/gold. */}
+        <h1
           style={{
+            margin: 0,
+            fontFamily: 'inherit',
+            letterSpacing: 'normal',
+            color: 'inherit',
             fontSize: 16,
             fontWeight: 500,
             flex: 1,
@@ -148,7 +157,7 @@ export default function AudioDetailView() {
           }}
         >
           {track.title || track.filename}
-        </span>
+        </h1>
         <SiblingPosition
           index={siblingIdx}
           total={siblings.length}
@@ -161,6 +170,9 @@ export default function AudioDetailView() {
           <button
             onClick={() => setShowDetails((v) => !v)}
             title={t('audio.detail.details')}
+            aria-label={t('audio.detail.details')}
+            aria-expanded={showDetails}
+            aria-controls="audio-detail-meta"
             style={{
               background: showDetails ? 'var(--bg-card-hover)' : 'var(--bg-card)',
               border: '1px solid var(--border)',
@@ -303,6 +315,7 @@ export default function AudioDetailView() {
 
         {/* Metadata sidebar */}
         <div
+          id="audio-detail-meta"
           style={{
             ...(isMobilePhone
               ? {
@@ -317,14 +330,24 @@ export default function AudioDetailView() {
             overflowY: 'auto',
           }}
         >
-          <h3 style={{ fontSize: 15, marginBottom: 20 }}>{t('audio.detail.title')}</h3>
+          <h2 style={{ fontSize: 15, marginTop: 0, marginBottom: 20 }}>
+            {t('audio.detail.title')}
+          </h2>
 
           {folder && <MetaRow label={t('audio.detail.location')} value={folder} />}
           {track.title && <MetaRow label={t('audio.detail.trackTitle')} value={track.title} />}
           {track.artist && <MetaRow label={t('audio.detail.artist')} value={track.artist} />}
           {track.album && <MetaRow label={t('audio.detail.album')} value={track.album} />}
           {track.duration > 0 && (
-            <MetaRow label={t('audio.detail.duration')} value={formatDuration(track.duration)} />
+            <MetaRow
+              label={t('audio.detail.duration')}
+              value={
+                <>
+                  <span aria-hidden="true">{formatDuration(track.duration)}</span>
+                  <span className="sr-only">{spokenDuration(track.duration, i18n.language)}</span>
+                </>
+              }
+            />
           )}
           <MetaRow label={t('audio.detail.fileSize')} value={formatSize(track.file_size!)} />
 

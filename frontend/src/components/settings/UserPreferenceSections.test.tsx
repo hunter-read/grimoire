@@ -181,14 +181,14 @@ describe('LibrarySection — folder placement', () => {
 
   it('saves "mixed" when the mixed option is chosen', () => {
     render(<LibrarySection />)
-    fireEvent.click(screen.getByRole('button', { name: 'Mixed with books' }))
+    fireEvent.click(screen.getByRole('radio', { name: 'Mixed with books' }))
     expect(getUserPrefs().folderPlacement).toBe('mixed')
   })
 
   it('saves "first" when switching back to folders first', () => {
     localStorage.setItem('grimoire:user-prefs', JSON.stringify({ folderPlacement: 'mixed' }))
     render(<LibrarySection />)
-    fireEvent.click(screen.getByRole('button', { name: 'Folders first' }))
+    fireEvent.click(screen.getByRole('radio', { name: 'Folders first' }))
     expect(getUserPrefs().folderPlacement).toBe('first')
   })
 })

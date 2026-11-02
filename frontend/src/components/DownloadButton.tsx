@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { LuDownload } from 'react-icons/lu'
 import { mediaUrl } from '../api'
 import useVariantOptions, { type VariantSource } from './useVariantOptions'
+import useMenuKeyboard from '../hooks/useMenuKeyboard'
 
 const MENU_WIDTH = 200
 
@@ -28,6 +29,8 @@ export interface DownloadButtonProps {
   style?: CSSProperties
   cardHovered?: boolean
   item?: VariantSource | null
+  /** The item's name, so a screen reader hears which file the button fetches. */
+  name?: string
 }
 
 export default function DownloadButton({
@@ -36,15 +39,26 @@ export default function DownloadButton({
   style,
   cardHovered,
   item,
+  name,
 }: DownloadButtonProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  // Arrow keys through the versions, Escape/Tab back to the button.
+  useMenuKeyboard(open, menuRef, buttonRef, () => setOpen(false))
   const { options, loading, load, label } = useVariantOptions(type, id, item)
 
   const visible = cardHovered === undefined ? true : cardHovered
   // Overlay (positioned over a thumbnail) vs. static (sits inline in a list row).
   const isStatic = style?.position === 'static'
+
+  // The versions arrive after the menu opens, so move focus onto the first one
+  // once they have; until then focus stays on the button.
+  useEffect(() => {
+    if (open && !loading) menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus()
+  }, [open, loading])
 
   // A list row knows only the count; a detail payload carries the family.
   const hasVersions = item
@@ -104,8 +118,10 @@ export default function DownloadButton({
         href={mediaUrl(`/${type}/${id}/file`)}
         download
         onClick={(e) => e.stopPropagation()}
-        aria-label={t('common.download')}
+        aria-label={name ? t('a11y.downloadNamed', { name }) : t('common.download')}
         title={t('common.download')}
+        // Hidden until the card is hovered, but reachable by Tab - and then shown.
+        className="reveal-on-focus"
         style={anchorStyle}
       >
         {icon}
@@ -116,9 +132,13 @@ export default function DownloadButton({
   return (
     <div ref={wrapRef} style={{ position: 'static', display: 'contents' }}>
       <button
+        ref={buttonRef}
         type="button"
-        aria-label={t('variants.downloadVersion')}
+        aria-label={
+          name ? t('a11y.gallery.downloadVersionOf', { name }) : t('variants.downloadVersion')
+        }
         title={t('variants.downloadVersion')}
+        className="reveal-on-focus"
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={(e) => {
@@ -133,6 +153,7 @@ export default function DownloadButton({
       </button>
       {open && (
         <div
+          ref={menuRef}
           role="menu"
           onClick={(e) => e.stopPropagation()}
           style={{

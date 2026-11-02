@@ -1,6 +1,8 @@
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuGrid2X2 } from 'react-icons/lu'
 import { useSoundboard } from '../../context/SoundboardContext'
+import { soundboardFocus } from './soundboardFocus'
 
 const MARGIN = 16
 
@@ -14,11 +16,21 @@ const MARGIN = 16
 export default function SoundboardLauncher({ bottomOffset = 0 }: { bottomOffset?: number }) {
   const { t } = useTranslation()
   const { pads, open, setOpen } = useSoundboard()
+  const ref = useRef<HTMLButtonElement>(null)
+  const shown = !open && pads.length > 0
 
-  if (open || pads.length === 0) return null
+  // Back from the panel, focus lands here rather than nowhere.
+  useEffect(() => {
+    if (!shown || Date.now() > soundboardFocus.returnUntil) return
+    soundboardFocus.returnUntil = 0
+    ref.current?.focus()
+  }, [shown])
+
+  if (!shown) return null
 
   return (
     <button
+      ref={ref}
       type="button"
       onClick={() => setOpen(true)}
       aria-label={t('soundboard.open')}

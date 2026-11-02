@@ -5,6 +5,7 @@ import { LuImagePlus, LuUpload, LuWand } from 'react-icons/lu'
 
 import { campaigns, type Schema } from '../../api'
 import LazyImg from '../LazyImg'
+import useMenuKeyboard from '../../hooks/useMenuKeyboard'
 
 /**
  * A member's portrait, and the two ways to set one.
@@ -43,6 +44,10 @@ export default function MemberArtButton({
   const navigate = useNavigate()
   const inputRef = useRef<HTMLInputElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  // Arrow keys through the two items, Esc or Tab to close back onto the button.
+  useMenuKeyboard(menuOpen, menuRef, triggerRef, () => setMenuOpen(false))
 
   const openEditor = () => {
     setMenuOpen(false)
@@ -62,47 +67,71 @@ export default function MemberArtButton({
     if (file) onUpload(file)
   }
 
+  const artStyle: CSSProperties = {
+    position: 'relative',
+    width: 34,
+    height: 34,
+    borderRadius: '50%',
+    overflow: 'hidden',
+    padding: 0,
+    background: 'var(--bg-deep)',
+    border: `1px solid ${isMemberOwner ? 'var(--gold-dim)' : 'var(--border)'}`,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 13,
+    fontWeight: 600,
+    color: isMemberOwner ? 'var(--gold)' : 'var(--text-dim)',
+    cursor: canEdit ? 'pointer' : 'default',
+  }
+
   return (
     <div style={{ position: 'relative', flexShrink: 0 }}>
-      <button
-        type="button"
-        onClick={canEdit ? () => setMenuOpen((open) => !open) : undefined}
-        title={canEdit ? t('members.setArt') : undefined}
-        aria-label={canEdit ? t('members.setArt') : undefined}
-        aria-expanded={canEdit ? menuOpen : undefined}
-        disabled={busy}
-        style={{
-          position: 'relative',
-          width: 34,
-          height: 34,
-          borderRadius: '50%',
-          overflow: 'hidden',
-          padding: 0,
-          background: 'var(--bg-deep)',
-          border: `1px solid ${isMemberOwner ? 'var(--gold-dim)' : 'var(--border)'}`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: 13,
-          fontWeight: 600,
-          color: isMemberOwner ? 'var(--gold)' : 'var(--text-dim)',
-          cursor: canEdit ? 'pointer' : 'default',
-        }}
-      >
-        {member.has_art && member.id ? (
-          <LazyImg
-            // The version stamp busts the 5-minute upload cache, so art replaced
-            // just now shows immediately rather than after it expires.
-            src={campaigns.memberArtUrl(campaignId, member.id, artVersion)}
-            alt={member.character_name || displayLabel}
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          />
-        ) : canEdit ? (
-          <LuImagePlus size={16} aria-hidden="true" />
-        ) : (
-          (displayLabel?.[0]?.toUpperCase() ?? '?')
-        )}
-      </button>
+      {/* Only someone who may set the art gets a button; for everyone else
+          this is the picture alone, and the row beside it already names them. */}
+      {canEdit ? (
+        <button
+          ref={triggerRef}
+          type="button"
+          onClick={() => setMenuOpen((open) => !open)}
+          title={t('members.setArt')}
+          aria-label={t('a11y.campaign.setArtFor', { name: displayLabel })}
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          disabled={busy}
+          style={artStyle}
+        >
+          {member.has_art && member.id ? (
+            <LazyImg
+              // The version stamp busts the 5-minute upload cache, so art replaced
+              // just now shows immediately rather than after it expires.
+              src={campaigns.memberArtUrl(campaignId, member.id, artVersion)}
+              alt=""
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          ) : canEdit ? (
+            <LuImagePlus size={16} aria-hidden="true" />
+          ) : (
+            (displayLabel?.[0]?.toUpperCase() ?? '?')
+          )}
+        </button>
+      ) : (
+        <span aria-hidden="true" style={artStyle}>
+          {member.has_art && member.id ? (
+            <LazyImg
+              // The version stamp busts the 5-minute upload cache, so art replaced
+              // just now shows immediately rather than after it expires.
+              src={campaigns.memberArtUrl(campaignId, member.id, artVersion)}
+              alt=""
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          ) : canEdit ? (
+            <LuImagePlus size={16} aria-hidden="true" />
+          ) : (
+            (displayLabel?.[0]?.toUpperCase() ?? '?')
+          )}
+        </span>
+      )}
 
       {menuOpen && canEdit && (
         <>
@@ -112,6 +141,7 @@ export default function MemberArtButton({
             style={{ position: 'fixed', inset: 0, zIndex: 40 }}
           />
           <div
+            ref={menuRef}
             role="menu"
             style={{
               position: 'absolute',

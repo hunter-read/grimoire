@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import usePageTitle from '../../hooks/usePageTitle'
 import { LuArrowLeft, LuDownload, LuHeart } from 'react-icons/lu'
 import { mediaUrl } from '../../api'
 import type { Schema } from '../../api'
@@ -28,6 +29,7 @@ interface ImageBookViewerProps {
 
 export default function ImageBookViewer({ book, bookId, backPath }: ImageBookViewerProps) {
   const { t } = useTranslation()
+  usePageTitle(book.title)
   const navigate = useNavigate()
   const { isFavorite, toggleFavorite } = useFavorites()
 
@@ -65,8 +67,11 @@ export default function ImageBookViewer({ book, bookId, backPath }: ImageBookVie
         </button>
         <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
         <BookSystemCrumb system={book.game_system} />
-        <span
+        <h1
           style={{
+            margin: 0,
+            fontFamily: 'inherit',
+            letterSpacing: 'normal',
             fontSize: 16,
             fontWeight: 500,
             color: 'var(--text)',
@@ -78,10 +83,15 @@ export default function ImageBookViewer({ book, bookId, backPath }: ImageBookVie
           }}
         >
           {book.title}
-        </span>
+        </h1>
         <button
           onClick={() => toggleFavorite('book', bookId)}
           title={
+            isFavorite('book', bookId)
+              ? t('reader.removeFromFavorites')
+              : t('reader.addToFavorites')
+          }
+          aria-label={
             isFavorite('book', bookId)
               ? t('reader.removeFromFavorites')
               : t('reader.addToFavorites')
@@ -99,6 +109,7 @@ export default function ImageBookViewer({ book, bookId, backPath }: ImageBookVie
           href={mediaUrl(`/books/${bookId}/file`)}
           download
           title={t('reader.downloadFile')}
+          aria-label={t('reader.downloadFile')}
           style={{
             background: 'var(--bg-card)',
             border: '1px solid var(--border)',

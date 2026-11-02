@@ -29,6 +29,9 @@ export default function CategoryAccessSection() {
   const categories = CATEGORY_ORDER.filter((c) => !UNRESTRICTABLE_CATEGORIES.includes(c))
 
   const setLevel = async (category: string, level: string) => {
+    // One save at a time. The selects stay enabled meanwhile: disabling the
+    // one that has focus drops focus to <body>, losing a keyboard user's place.
+    if (saving) return
     const next = { ...levels }
     if (level === ACCESS_OPEN) delete next[category]
     else next[category] = level
@@ -82,7 +85,7 @@ export default function CategoryAccessSection() {
               id={`access-${category}`}
               value={levels[category] || ACCESS_OPEN}
               onChange={(e) => setLevel(category, e.target.value)}
-              disabled={saving}
+              aria-disabled={saving || undefined}
               /* The visible label is the bare category name, but several of
                  those ("Maps") also name an unrelated toggle elsewhere on this
                  page. The accessible name says which control this is. */
@@ -93,7 +96,7 @@ export default function CategoryAccessSection() {
                 padding: '6px 10px',
                 borderRadius: 6,
                 background: 'var(--bg-card)',
-                border: '1px solid var(--border)',
+                border: '1px solid var(--border-control)',
                 color: 'var(--text)',
                 fontSize: 14,
                 minWidth: 180,
@@ -110,7 +113,15 @@ export default function CategoryAccessSection() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, minHeight: 18 }}>
         {saving && <Spinner size={13} />}
         {saved && <LuCircleCheck size={14} style={{ color: 'var(--green)' }} />}
-        {error && <span style={{ fontSize: 13, color: 'var(--red)' }}>{error}</span>}
+        {/* The tick is an icon; this says it. */}
+        <span className="sr-only" role="status">
+          {saved ? t('common.saved') : ''}
+        </span>
+        {error && (
+          <span role="alert" style={{ fontSize: 13, color: 'var(--red)' }}>
+            {error}
+          </span>
+        )}
       </div>
 
       <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 12, lineHeight: 1.5 }}>

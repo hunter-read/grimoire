@@ -43,7 +43,7 @@ export default function TocSidebar({ bookId, currentPage, onGoToPage, onClose }:
   const startCollapsed = !!toc && shouldAutoCollapse(countEntries(toc), toc.length)
 
   return (
-    <ReaderSidebarShell>
+    <ReaderSidebarShell label={t('toc.sidebarTitle')}>
       <div
         style={{
           display: 'flex',

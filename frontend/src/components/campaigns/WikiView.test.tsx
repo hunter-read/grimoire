@@ -157,7 +157,7 @@ describe('WikiView visibility editor', () => {
     fireEvent.click(badge)
 
     // Owner sees all three levels with the renamed labels.
-    const publicOpt = await screen.findByRole('menuitemradio', { name: /Public/ })
+    const publicOpt = await screen.findByRole('radio', { name: /Public/ })
     fireEvent.click(publicOpt)
 
     await waitFor(() =>
@@ -254,8 +254,8 @@ describe('WikiView visibility editor', () => {
       renderPersonal()
       const title = await screen.findByText('Dragons')
       fireEvent.mouseEnter(title.closest('div')!)
-      expect(screen.queryByRole('button', { name: 'Hide' })).toBeNull()
-      expect(screen.queryByRole('button', { name: 'Unhide' })).toBeNull()
+      expect(screen.queryByRole('button', { name: /^Hide/ })).toBeNull()
+      expect(screen.queryByRole('button', { name: /^Unhide/ })).toBeNull()
     })
 
     // Both filters are about telling your notes from other people's.
@@ -279,7 +279,7 @@ describe('WikiView visibility editor', () => {
       // above ("Dragons") appears after the first of those, so asserting
       // synchronously here races the second and fails outright roughly 1 run in
       // 10. find* retries until it lands.
-      expect(await screen.findByRole('button', { name: 'Delete' })).toBeTruthy()
+      expect(await screen.findByRole('button', { name: /^Delete/ })).toBeTruthy()
     })
   })
 
@@ -334,12 +334,16 @@ describe('WikiView nested tree', () => {
     // Child is visible by default (expanded).
     expect(screen.getByText('Goblins')).toBeTruthy()
 
-    // Collapsing the parent hides its child.
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse' }))
+    // Collapsing the parent hides its child. The toggle is named for the page
+    // and says its state once, through aria-expanded.
+    const toggle = screen.getByRole('button', { name: 'Subpages of Bestiary' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.click(toggle)
     expect(screen.queryByText('Goblins')).toBeNull()
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
 
     // Expanding brings it back.
-    fireEvent.click(screen.getByRole('button', { name: 'Expand' }))
+    fireEvent.click(toggle)
     expect(screen.getByText('Goblins')).toBeTruthy()
   })
 
@@ -348,7 +352,7 @@ describe('WikiView nested tree', () => {
     await screen.findByText('Bestiary')
 
     // Collapse the parent, which persists to localStorage.
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse' }))
+    fireEvent.click(screen.getByRole('button', { name: /^Subpages of / }))
     expect(screen.queryByText('Goblins')).toBeNull()
     expect(JSON.parse(localStorage.getItem('grimoire_wiki_collapsed_c1')!)).toContain('parent')
 
@@ -363,7 +367,7 @@ describe('WikiView nested tree', () => {
     renderView()
     await screen.findByText('Bestiary')
     // Each owner row has an "Add subpage" button; click the parent's.
-    fireEvent.click(screen.getAllByRole('button', { name: 'Add subpage' })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: /^Add a subpage to / })[0])
     // The editor's parent select defaults to the chosen parent.
     const select = (await screen.findByLabelText('Parent page')) as HTMLSelectElement
     expect(select.value).toBe('parent')
@@ -418,6 +422,66 @@ describe('WikiView nested tree', () => {
     await waitFor(() =>
       expect(campaigns.updateWikiPage).toHaveBeenCalledWith('c1', 'b', { parent_id: 'a' })
     )
+  })
+})
+
+describe('WikiView for screen readers', () => {
+  const a = { ...page, id: 'a', title: 'Alpha', slug: 'alpha', sort_order: 0 }
+  const b = { ...page, id: 'b', title: 'Beta', slug: 'beta', sort_order: 1 }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    localStorage.clear()
+    campaignsMock.listWikiPages.mockResolvedValue([a, b])
+    campaignsMock.getWikiPage.mockResolvedValue(a)
+    campaignsMock.reorderWikiPages.mockResolvedValue(undefined)
+  })
+
+  it('is a named navigation landmark of lists, marking the open page', async () => {
+    renderView()
+    const tree = await screen.findByRole('navigation', { name: 'Pages' })
+    await waitFor(() =>
+      expect(within(tree).getByRole('link', { name: 'Alpha' })).toHaveAttribute(
+        'aria-current',
+        'page'
+      )
+    )
+    expect(within(tree).getAllByRole('listitem')).toHaveLength(2)
+    expect(within(tree).getByRole('link', { name: 'Beta' })).not.toHaveAttribute('aria-current')
+  })
+
+  it('moves a page among its siblings with Alt+arrow, and says so', async () => {
+    renderView()
+    const tree = await screen.findByRole('navigation', { name: 'Pages' })
+    const beta = within(tree).getByRole('link', { name: 'Beta' })
+    // The row explains the shortcut to a screen reader.
+    expect(beta).toHaveAccessibleDescription(/Alt\+Up or Alt\+Down/)
+
+    fireEvent.keyDown(beta, { key: 'ArrowUp', altKey: true })
+    await waitFor(() => expect(campaigns.reorderWikiPages).toHaveBeenCalledWith('c1', ['b', 'a']))
+    expect(await screen.findByText('Moved Beta to position 1 of 2')).toBeInTheDocument()
+  })
+
+  it('ignores a plain arrow key and a move past the end', async () => {
+    renderView()
+    const tree = await screen.findByRole('navigation', { name: 'Pages' })
+    const beta = within(tree).getByRole('link', { name: 'Beta' })
+    fireEvent.keyDown(beta, { key: 'ArrowUp' })
+    fireEvent.keyDown(beta, { key: 'ArrowDown', altKey: true })
+    expect(campaigns.reorderWikiPages).not.toHaveBeenCalled()
+  })
+
+  it("places the note's own headings under its title", async () => {
+    campaignsMock.getWikiPage.mockResolvedValue({ ...a, body: '# Lore', backlinks: [] })
+    renderView()
+    // The note title is the h2; its body's "# Lore" continues at level 3.
+    expect(await screen.findByRole('heading', { level: 2, name: 'Alpha' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 3, name: 'Lore' })).toBeInTheDocument()
+  })
+
+  it('labels the page search box', async () => {
+    renderView()
+    expect(await screen.findByRole('searchbox', { name: 'Search pages…' })).toBeInTheDocument()
   })
 })
 
@@ -581,21 +645,21 @@ describe('WikiView tree row chrome', () => {
   it('reveals the add-subpage button only while the row is hovered', async () => {
     const title = await renderRow()
     const rowEl = title.closest('div')!
-    const plus = screen.getByRole('button', { name: 'Add subpage' })
+    const plus = screen.getByRole('button', { name: /^Add a subpage to / })
     expect(plus.style.opacity).toBe('0')
 
     fireEvent.mouseEnter(rowEl)
-    expect(screen.getByRole('button', { name: 'Add subpage' }).style.opacity).toBe('1')
+    expect(screen.getByRole('button', { name: /^Add a subpage to / }).style.opacity).toBe('1')
 
     fireEvent.mouseLeave(rowEl)
-    expect(screen.getByRole('button', { name: 'Add subpage' }).style.opacity).toBe('0')
+    expect(screen.getByRole('button', { name: /^Add a subpage to / }).style.opacity).toBe('0')
   })
 
   it('keeps the add-subpage button reachable by keyboard', async () => {
     const title = await renderRow()
-    const plus = screen.getByRole('button', { name: 'Add subpage' })
+    const plus = screen.getByRole('button', { name: /^Add a subpage to / })
     fireEvent.focus(plus)
-    expect(screen.getByRole('button', { name: 'Add subpage' }).style.opacity).toBe('1')
+    expect(screen.getByRole('button', { name: /^Add a subpage to / }).style.opacity).toBe('1')
     expect(title).toBeInTheDocument()
   })
 
@@ -1136,7 +1200,7 @@ describe('WikiView filters and hiding', () => {
   it('hides a note from the row control', async () => {
     renderView()
     const row = await treeRow('Theirs')
-    fireEvent.click(within(row).getByRole('button', { name: 'Hide' }))
+    fireEvent.click(within(row).getByRole('button', { name: /^Hide: / }))
     await waitFor(() => expect(campaigns.hideWikiPage).toHaveBeenCalledWith('c1', 'p2'))
   })
 
@@ -1144,7 +1208,7 @@ describe('WikiView filters and hiding', () => {
     campaignsMock.listWikiPages.mockResolvedValue([mine, { ...theirs, is_hidden: true }])
     renderView()
     const row = await treeRow('Theirs')
-    fireEvent.click(within(row).getByRole('button', { name: 'Unhide' }))
+    fireEvent.click(within(row).getByRole('button', { name: /^Unhide: / }))
     await waitFor(() => expect(campaigns.unhideWikiPage).toHaveBeenCalledWith('c1', 'p2'))
   })
 
@@ -1153,7 +1217,7 @@ describe('WikiView filters and hiding', () => {
   it('offers hiding on a note the user cannot delete', async () => {
     renderView()
     const row = await treeRow('Theirs')
-    expect(within(row).getByRole('button', { name: 'Hide' })).toBeTruthy()
+    expect(within(row).getByRole('button', { name: /^Hide: / })).toBeTruthy()
   })
 
   // Hide and delete answer the same question and differ only in scope, so they
@@ -1161,7 +1225,7 @@ describe('WikiView filters and hiding', () => {
   // reversible one and the one always available.
   // The sidebar rows carry their own hide control, so header lookups exclude
   // the tree.
-  const headerButton = (name: string) =>
+  const headerButton = (name: string | RegExp) =>
     screen
       .getAllByRole('button', { name })
       .find((b) => !b.closest('[data-testid="wiki-page-tree"]'))
@@ -1172,7 +1236,7 @@ describe('WikiView filters and hiding', () => {
     renderView()
     await screen.findByText('Here be dragons')
     const hide = headerButton('Hide')!
-    const del = headerButton('Delete')!
+    const del = headerButton(/^Delete/)!
     // Same container, and hide precedes delete in document order.
     expect(hide.parentElement).toBe(del.parentElement)
     expect(hide.compareDocumentPosition(del) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
@@ -1185,7 +1249,7 @@ describe('WikiView filters and hiding', () => {
     renderView({ isOwner: false })
     await screen.findByText('Here be dragons')
     expect(headerButton('Hide')).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Delete/ })).toBeNull()
   })
 
   // Subpages need write access to the parent, so a read-only note doesn't offer
@@ -1198,9 +1262,9 @@ describe('WikiView filters and hiding', () => {
     ])
     renderView()
     const writable = await treeRow('Theirs')
-    expect(within(writable).getByRole('button', { name: /Add subpage/i })).toBeTruthy()
+    expect(within(writable).getByRole('button', { name: /^Add a subpage to /i })).toBeTruthy()
     const readOnly = await treeRow('ReadOnly')
-    expect(within(readOnly).queryByRole('button', { name: /Add subpage/i })).toBeNull()
+    expect(within(readOnly).queryByRole('button', { name: /^Add a subpage to /i })).toBeNull()
   })
 })
 

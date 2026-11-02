@@ -29,6 +29,10 @@
   --p-bg-input: #151210;
   --p-border: #3a322a;
   --p-border-light: #4a4038;
+  /* The edge of a control - a text field, a checkbox, a switch - which has
+     to reach 3:1 against every surface it sits on to be seen as one (WCAG
+     1.4.11). --border and --border-light are decoration and stay quiet. */
+  --p-border-control: #807367;
   --p-accent: #c9a84c;
   --p-accent-dim: #a88e44;
   --p-accent-bright: #e8c95a;
@@ -38,11 +42,13 @@
   --p-on-accent: #1a1209;
   --p-text: #e8e0d4;
   --p-text-dim: #b8ab9b;
-  --p-text-muted: #968879;
+  /* Nudged up from #968879, which sat at 4.28:1 on a hovered card. */
+  --p-text-muted: #9d8f80;
   /* Nudged up from #d96050 / #4a7a9a, which sat at 4.47:1 and 4.25:1 against
-     the card and page backgrounds — just under AA. */
+     the card and page backgrounds — just under AA. Green likewise from
+     #5a9a5a (4.36:1 on a hovered card). */
   --p-red: #df6a5a;
-  --p-green: #5a9a5a;
+  --p-green: #62a362;
   --p-blue: #5a8fb2;
   --p-danger: #e07070;
   /* A filled destructive button: a solid red plate with light text on it. The
@@ -97,6 +103,7 @@
   --p-bg-input: #ffffff;
   --p-border: #d8cdb8;
   --p-border-light: #c2b499;
+  --p-border-control: #908270;
   /* Headings use the accent on --bg-deep, the lightest surface pairing in the
      theme, so these are tuned against *that* rather than against white: a
      lighter gold looks right on a card but drops under 4.5:1 on the page
@@ -173,6 +180,7 @@
   --p-bg-input: #0f1215;
   --p-border: #2b323b;
   --p-border-light: #3c4551;
+  --p-border-control: #717a85;
 
   --p-accent: #9aa4ae;
   --p-accent-dim: #8b95a0;
@@ -230,6 +238,7 @@
   --p-bg-input: #ffffff;
   --p-border: #ccd3da;
   --p-border-light: #aab3bd;
+  --p-border-control: #7b8590;
 
   --p-accent: #4a5661;
   --p-accent-dim: #39434d;
@@ -285,6 +294,7 @@
   --bg-input: var(--p-bg-input);
   --border: var(--p-border);
   --border-light: var(--p-border-light);
+  --border-control: var(--p-border-control);
   --gold: var(--p-accent);
   --gold-dim: var(--p-accent-dim);
   --gold-bright: var(--p-accent-bright);
@@ -393,7 +403,7 @@ textarea,
 select {
   font-family: 'Alegreya Sans', sans-serif;
   background: var(--bg-input);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-control);
   color: var(--text);
   padding: 8px 12px;
   border-radius: 6px;
@@ -419,7 +429,11 @@ button {
   cursor: pointer;
   border: none;
   outline: none;
-  transition: all 0.15s;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s,
+    color 0.15s,
+    opacity 0.15s;
 }
 
 button:focus-visible {
@@ -438,6 +452,90 @@ a:focus-visible {
   outline: 2px solid var(--gold);
   outline-offset: 2px;
   border-radius: 2px;
+}
+/* Anything else made focusable by hand (a role="button" row, a tabIndex
+   container) gets the same ring as a real button. */
+[tabindex]:not([tabindex='-1']):focus-visible,
+[role='button']:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+/* Focus moved here by script (the route change lands on <main>) is a reading
+   position, not a control, so it draws no ring. */
+.focus-target:focus {
+  outline: none;
+}
+/* A control stretched over a card (CardLink, a select-mode toggle) sits inside
+   an `overflow: hidden` card, which clips an outside ring - draw it inside. */
+.stretched-control:focus-visible {
+  outline-offset: -3px;
+  border-radius: inherit;
+}
+/* A hover-revealed control must show itself while it has keyboard focus. */
+.reveal-on-focus:focus-visible {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+/* ToggleSwitch hides its checkbox, so the ring goes on the switch's label. */
+.toggle-switch:has(input:focus-visible) {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Read by screen readers, not drawn. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The first stop on Tab: hidden until focused, then pinned top-left. */
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 10000;
+  padding: 8px 14px;
+  border-radius: 6px;
+  background: var(--bg-panel);
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  transform: translateY(-200%);
+}
+.skip-link:focus {
+  transform: none;
+}
+
+/* A <ul> laid out as a card grid or list. role="list" goes on the element too:
+   Safari drops list semantics from an unstyled list. Each item is a grid so
+   the card inside stretches to the row's height, as it did as a direct child. */
+.card-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.card-list > li {
+  display: grid;
+  min-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 .fade-in {

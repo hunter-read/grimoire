@@ -79,11 +79,12 @@ export default function PartyCharacters({ characters, sort }: Props) {
               </button>
             </h3>
             {open ? (
-              <ul id={listId} aria-label={heading} style={cardGrid}>
+              <ul id={listId} role="list" aria-label={heading} style={cardGrid}>
                 {group.characters.map((character) => (
                   <CharacterCard
                     key={character.id}
                     character={character}
+                    headingLevel={4}
                     showVersion={sort === 'sheet'}
                     hideCampaign
                   />

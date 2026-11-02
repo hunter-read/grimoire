@@ -80,6 +80,14 @@ const unset = {} as Pick<
   'viewMode' | 'onCycleViewMode' | 'onChildrenChange'
 >
 
+// The select-mode toggle covering the card that shows `name`. The t mock
+// returns keys, so every card's toggle has the same name; find it by card.
+function selectButtonFor(name: string): HTMLElement {
+  let el: HTMLElement | null = screen.getByText(name)
+  while (el && !el.querySelector('button[aria-pressed]')) el = el.parentElement
+  return el!.querySelector('button[aria-pressed]') as HTMLElement
+}
+
 describe('SystemContainerView', () => {
   it('prettifies the container name in the heading', () => {
     render(<SystemContainerView {...unset} system={makeContainer()} onBack={vi.fn()} />)
@@ -103,7 +111,7 @@ describe('SystemContainerView', () => {
   it('each child card is a real link to the child system route', () => {
     render(<SystemContainerView {...unset} system={makeContainer()} onBack={vi.fn()} />)
     // Child cards use CardLink; navigation is native — no onOpenChild callback needed.
-    const link = screen.getByRole('link', { name: 'Honey Heist' })
+    const link = screen.getByRole('link', { name: /Honey Heist/ })
     expect(link).toHaveAttribute('href', '/library/system/c1')
   })
 
@@ -250,7 +258,7 @@ describe('SystemContainerView', () => {
         />
       )
       await userEvent.click(screen.getByText('common.select'))
-      await userEvent.click(screen.getByText('Lasers And Feelings'))
+      await userEvent.click(selectButtonFor('Lasers And Feelings'))
       await userEvent.type(screen.getByLabelText('bulk.tagsPlaceholder'), 'tiny')
       await userEvent.click(screen.getByText('bulk.addTags'))
 
@@ -278,11 +286,11 @@ describe('SystemContainerView', () => {
         />
       )
       await userEvent.click(screen.getByText('common.select'))
-      await userEvent.click(screen.getByText('Alpha'))
+      await userEvent.click(selectButtonFor('Alpha'))
       // Hold Shift through the click: user-event has no shiftKey click option.
       const user = userEvent.setup()
       await user.keyboard('{Shift>}')
-      await user.click(screen.getByText('Beta'))
+      await user.click(selectButtonFor('Beta'))
       await user.keyboard('{/Shift}')
       await userEvent.click(screen.getByText('bulk.edit'))
       // Both ordinary children, and only those two: the range skips the nested one.

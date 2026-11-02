@@ -55,11 +55,19 @@ describe('CampaignNotesView', () => {
     expect(screen.getByTestId('wiki')).toBeInTheDocument()
   })
 
-  it('navigates back to the overview when the back button is clicked', async () => {
+  it('links back to the overview', async () => {
     renderView()
     await screen.findByText('The Tithe')
-    fireEvent.click(screen.getByRole('button', { name: /overview/i }))
-    expect(mockNavigate).toHaveBeenCalledWith('/campaigns/c1/overview')
+    expect(screen.getByRole('link', { name: /overview/i })).toHaveAttribute(
+      'href',
+      '/campaigns/c1/overview'
+    )
+  })
+
+  it('names the page with an h1 and the tab title', async () => {
+    renderView()
+    expect(await screen.findByRole('heading', { level: 1, name: 'The Tithe' })).toBeInTheDocument()
+    expect(document.title).toMatch(/The Tithe/)
   })
 
   it('hides the header while a note is being viewed, and restores it on return', async () => {
@@ -67,10 +75,15 @@ describe('CampaignNotesView', () => {
     await screen.findByText('The Tithe')
 
     fireEvent.click(screen.getByTestId('open-note'))
-    await waitFor(() => expect(screen.queryByText('The Tithe')).not.toBeInTheDocument())
+    // The visible header goes; the h1 stays, for screen readers only.
+    await waitFor(() =>
+      expect(screen.queryByRole('link', { name: /overview/i })).not.toBeInTheDocument()
+    )
+    expect(screen.getByRole('heading', { level: 1, name: 'The Tithe' })).toHaveClass('sr-only')
 
     fireEvent.click(screen.getByTestId('close-note'))
-    expect(await screen.findByText('The Tithe')).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: /overview/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: 'The Tithe' })).not.toHaveClass('sr-only')
   })
 
   it('renders an error message when the campaign fails to load', async () => {

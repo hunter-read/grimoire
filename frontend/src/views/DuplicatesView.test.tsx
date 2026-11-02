@@ -8,6 +8,8 @@ vi.mock('react-i18next', () => ({
       if (k === 'maintenance.dupes.groupsFound') return `${o.count} groups found`
       if (k === 'maintenance.dupes.mergeExact.button') return `merge exact ${o.count}`
       if (k === 'maintenance.dupes.mergeExact.done') return `merged ${o.count}, skipped ${o.failed}`
+      // A group's buttons are named for it: "<action>: <its copies>".
+      if (k === 'a11y.settingsAdmin.actionOn') return `${o.action}: ${o.name}`
       return k
     },
   }),

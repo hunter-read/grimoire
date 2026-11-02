@@ -263,13 +263,18 @@ export default function ResourcePicker({
         {t('campaignEditor.resources.intro')}
       </p>
 
-      {/* Type tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+      {/* Type filter: one pressed button at a time, like a segmented control. */}
+      <div
+        role="group"
+        aria-label={t('a11y.campaign.resourceType')}
+        style={{ display: 'flex', gap: 4, marginBottom: 8 }}
+      >
         {types.map((type) => (
           <button
             key={type}
             type="button"
             onClick={() => setActiveTab(type)}
+            aria-pressed={typeFilter === type}
             style={typeTab(typeFilter === type)}
           >
             {t(`campaignEditor.resources.type_${type}`)}
@@ -290,6 +295,9 @@ export default function ResourcePicker({
           }}
         />
         <input
+          type="search"
+          autoComplete="off"
+          aria-label={t('campaignEditor.resources.searchPlaceholder')}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t('campaignEditor.resources.searchPlaceholder')}
@@ -350,21 +358,26 @@ export default function ResourcePicker({
 
       {/* Selected summary with inline visibility */}
       <div style={{ marginTop: 14 }}>
-        <div style={sectionLabel}>
+        {/* Live, so ticking a box says how many are now picked. */}
+        <div style={sectionLabel} aria-live="polite" aria-atomic="true">
           {t('campaignEditor.resources.selectedCount', { count: selected.length })}
         </div>
         {selected.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
+          <ul
+            role="list"
+            className="card-list"
+            style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}
+          >
             {selected.map((r) => {
               const { Icon } = TYPE_ICONS[r.resource_type] || { Icon: LuBookOpen }
               return (
-                <div key={resourceKey(r)} style={selectedRow}>
+                <li key={resourceKey(r)} style={selectedRow}>
                   <Icon size={14} style={{ flexShrink: 0, color: 'var(--text-muted)' }} />
                   <span style={{ flex: 1, fontSize: 13, ...ellipsis }}>{r.name}</span>
                   <select
                     value={r.visibility}
                     onChange={(e) => setVisibility(r, e.target.value)}
-                    aria-label={t('campaignEditor.resources.visibilityLabel')}
+                    aria-label={t('a11y.campaign.visibilityFor', { name: r.name })}
                     style={visibilitySelect}
                   >
                     <option value="public">{t('resources.vis_public')}</option>
@@ -374,15 +387,15 @@ export default function ResourcePicker({
                   <button
                     type="button"
                     onClick={() => toggleRow(r)}
-                    aria-label={t('common.remove')}
+                    aria-label={t('a11y.campaign.removeNamed', { name: r.name })}
                     style={iconBtn('var(--danger)')}
                   >
                     <LuTrash2 size={13} />
                   </button>
-                </div>
+                </li>
               )
             })}
-          </div>
+          </ul>
         )}
       </div>
     </div>

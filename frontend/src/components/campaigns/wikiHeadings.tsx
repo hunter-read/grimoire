@@ -28,6 +28,11 @@ type HeadingTag = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6'
 /**
  * Build react-markdown renderers for h1..h6 that attach the anchor id.
  *
+ * `levelOffset` moves the headings down the outline without changing how they
+ * look: a note's `# Heading` sits under the page's own headings (the campaign's
+ * h1, the note title's h2), so with an offset of 2 it is announced as level 3.
+ * The tag - and so the look - stays h1; only `aria-level` changes, capped at 6.
+ *
  * Only the first heading with a given text keeps the id — duplicates would
  * otherwise yield several elements sharing an id and `getElementById` would pick
  * an arbitrary one. Which heading a link *prefers* (H1 over H2, then document
@@ -36,15 +41,16 @@ type HeadingTag = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6'
  * The `seen` set is per-call, so callers rebuild this per render pass to keep the
  * first-wins bookkeeping from leaking across renders.
  */
-export function buildHeadingComponents() {
+export function buildHeadingComponents(levelOffset = 0) {
   const seen = new Set<string>()
   const make = (Tag: HeadingTag) =>
     function WikiHeading({ children, ...props }: HTMLAttributes<HTMLHeadingElement>) {
       const id = headingDomId(childrenToText(children))
       const first = !seen.has(id)
       if (first) seen.add(id)
+      const level = Math.min(Number(Tag.slice(1)) + levelOffset, 6)
       return (
-        <Tag id={first ? id : undefined} {...props}>
+        <Tag id={first ? id : undefined} aria-level={levelOffset ? level : undefined} {...props}>
           {children}
         </Tag>
       )

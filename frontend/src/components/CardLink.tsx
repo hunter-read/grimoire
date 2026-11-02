@@ -52,8 +52,26 @@ export interface CardLinkProps {
 
 export default function CardLink({ to, state, replace, href, download, label }: CardLinkProps) {
   const style: CSSProperties = { position: 'absolute', inset: 0 }
+  // stretched-control: the card clips an outside focus ring, so it draws inside.
   if (href) {
-    return <a href={href} download={download} aria-label={label} style={style} />
+    return (
+      <a
+        href={href}
+        download={download}
+        aria-label={label}
+        className="stretched-control"
+        style={style}
+      />
+    )
   }
-  return <Link to={to!} state={state} replace={replace} aria-label={label} style={style} />
+  return (
+    <Link
+      to={to!}
+      state={state}
+      replace={replace}
+      aria-label={label}
+      className="stretched-control"
+      style={style}
+    />
+  )
 }

@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LuFolder, LuChevronDown, LuChevronRight, LuDownload } from 'react-icons/lu'
 import { toTitleCase } from '../../utils'
 import RescanButton from '../RescanButton'
@@ -87,6 +88,7 @@ export default function BookFolderGroup({
   onEditFolder,
   onSaveBookFolderTags,
 }: BookFolderGroupProps) {
+  const { t } = useTranslation()
   const { category, name: folder, path: folderPath } = node
   const toggleKey = `${category}::${folderPath}`
   const isCollapsed = collapsed.has(toggleKey)
@@ -122,6 +124,9 @@ export default function BookFolderGroup({
     onSaveBookFolderTags,
   }
 
+  // Folders nest under their category's h2, a level per depth (h6 at most).
+  const Heading = `h${Math.min(depth + 3, 6)}` as 'h3' | 'h4' | 'h5' | 'h6'
+
   const header = (
     <div
       style={{
@@ -134,44 +139,46 @@ export default function BookFolderGroup({
         flexWrap: 'wrap',
       }}
     >
-      <button
-        onClick={() => onToggle(toggleKey)}
-        aria-expanded={!isCollapsed}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          padding: 0,
-          minWidth: 0,
-          overflow: 'hidden',
-        }}
-      >
-        {isCollapsed ? (
-          <LuChevronRight size={15} color="var(--gold-dim)" style={{ flexShrink: 0 }} />
-        ) : (
-          <LuChevronDown size={15} color="var(--gold-dim)" style={{ flexShrink: 0 }} />
-        )}
-        <LuFolder size={15} color="var(--gold-dim)" style={{ flexShrink: 0 }} />
-        <span
+      <Heading style={{ margin: 0, minWidth: 0, font: 'inherit', letterSpacing: 'normal' }}>
+        <button
+          onClick={() => onToggle(toggleKey)}
+          aria-expanded={!isCollapsed}
           style={{
-            fontSize: isPanel ? 16 : 14,
-            color: 'var(--gold-dim)',
-            fontFamily: 'Cinzel, serif',
-            fontWeight: 600,
-            whiteSpace: 'nowrap',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 0,
+            minWidth: 0,
             overflow: 'hidden',
-            textOverflow: 'ellipsis',
           }}
         >
-          {toTitleCase(folder)}
-        </span>
-        <span style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0, marginLeft: 4 }}>
-          ({total})
-        </span>
-      </button>
+          {isCollapsed ? (
+            <LuChevronRight size={15} color="var(--gold-dim)" style={{ flexShrink: 0 }} />
+          ) : (
+            <LuChevronDown size={15} color="var(--gold-dim)" style={{ flexShrink: 0 }} />
+          )}
+          <LuFolder size={15} color="var(--gold-dim)" style={{ flexShrink: 0 }} />
+          <span
+            style={{
+              fontSize: isPanel ? 16 : 14,
+              color: 'var(--gold-dim)',
+              fontFamily: 'Cinzel, serif',
+              fontWeight: 600,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {toTitleCase(folder)}
+          </span>
+          <span style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0, marginLeft: 4 }}>
+            ({total})
+          </span>
+        </button>
+      </Heading>
 
       {/* Folder tags (display + inline editor) */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -196,9 +203,10 @@ export default function BookFolderGroup({
           })
         }}
         style={zipBtnStyle}
-        title={`Download all books in ${folder}`}
+        title={t('systemDetail.download')}
+        aria-label={t('a11y.downloadNamed', { name: toTitleCase(folder) })}
       >
-        <LuDownload size={11} /> Download
+        <LuDownload size={11} /> {t('systemDetail.download')}
       </button>
       {isEditor && <RescanButton scope={nodeScope(node, categoryDepth, scopeFallback)} />}
     </div>

@@ -12,6 +12,8 @@ export default function ToggleSwitch({ checked, onChange, label, id }: ToggleSwi
   return (
     <label
       htmlFor={id}
+      // The checkbox is invisible, so the focus ring goes on the label.
+      className="toggle-switch"
       style={{ display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}
     >
       <span style={{ position: 'relative', width: 38, height: 22, flexShrink: 0 }}>
@@ -21,7 +23,18 @@ export default function ToggleSwitch({ checked, onChange, label, id }: ToggleSwi
           role="switch"
           checked={checked}
           onChange={(e) => onChange(e.target.checked)}
-          style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }}
+          // Invisible but the size of the track, not 0x0: a touch screen reader
+          // finds a control by what lies under the finger.
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            margin: 0,
+            opacity: 0,
+            cursor: 'pointer',
+            zIndex: 1,
+          }}
         />
         <span
           style={{
@@ -29,7 +42,8 @@ export default function ToggleSwitch({ checked, onChange, label, id }: ToggleSwi
             inset: 0,
             borderRadius: 22,
             background: checked ? 'var(--gold)' : 'var(--bg-deep)',
-            border: '1px solid var(--border)',
+            // The track's outline is what shows an "off" switch is there at all.
+            border: '1px solid var(--border-control)',
             transition: 'background 0.15s',
           }}
         />

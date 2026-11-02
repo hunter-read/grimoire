@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { LuEllipsisVertical, LuSettings, LuUsers, LuArchive } from 'react-icons/lu'
 import useAnchoredMenu from '../../hooks/useAnchoredMenu'
+import useMenuKeyboard from '../../hooks/useMenuKeyboard'
 
 const MENU_WIDTH = 240
 
@@ -46,6 +47,8 @@ export default function CampaignActionsMenu({
     panelRef: menuRef,
     style: menuStyle,
   } = useAnchoredMenu(open, { width: MENU_WIDTH })
+  // Portaled to <body>, so without this the items are out of Tab's reach.
+  useMenuKeyboard(open, menuRef, triggerRef, () => setOpen(false))
 
   useEffect(() => {
     if (!open) return

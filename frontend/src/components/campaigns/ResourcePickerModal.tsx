@@ -1,5 +1,6 @@
-import { useState, type CSSProperties } from 'react'
+import { useRef, useId, useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
+import useDialogFocus from '../../hooks/useDialogFocus'
 import { LuX, LuLibrary } from 'react-icons/lu'
 import { campaigns } from '../../api'
 import ResourcePicker, { type PickedResource } from './ResourcePicker'
@@ -26,6 +27,11 @@ export default function ResourcePickerModal({
   onAdded: (added: Awaited<ReturnType<typeof campaigns.bulkAddResources>>) => void
 }) {
   const { t } = useTranslation()
+  // Focus moves into the dialog, Tab stays inside, Esc closes, and focus goes
+  // back to whatever opened it.
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const titleId = useId()
+  useDialogFocus(dialogRef, { onClose: onClose })
   const [selected, setSelected] = useState<PickedResource[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -49,15 +55,21 @@ export default function ResourcePickerModal({
   }
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      style={overlay}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div style={panel}>
+    <div style={overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} style={panel}>
         <div style={header}>
-          <span style={{ fontSize: 15, fontWeight: 600 }}>{t('resources.linkTitle')}</span>
+          <h2
+            id={titleId}
+            style={{
+              fontSize: 15,
+              fontWeight: 600,
+              fontFamily: 'inherit',
+              letterSpacing: 'normal',
+              color: 'var(--text)',
+            }}
+          >
+            {t('resources.linkTitle')}
+          </h2>
           <button onClick={onClose} style={closeBtn} aria-label={t('common.close')}>
             <LuX size={16} />
           </button>

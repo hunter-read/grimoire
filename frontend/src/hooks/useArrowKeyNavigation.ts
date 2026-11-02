@@ -30,6 +30,9 @@ export default function useArrowKeyNavigation(
     const handler = (e: KeyboardEvent) => {
       const tag = document.activeElement?.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      // A modified arrow belongs to the browser or a screen reader (Alt+Left
+      // is back), not to item navigation.
+      if (e.ctrlKey || e.metaKey || e.altKey) return
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown') onNextRef.current?.()
       else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') onPrevRef.current?.()
     }

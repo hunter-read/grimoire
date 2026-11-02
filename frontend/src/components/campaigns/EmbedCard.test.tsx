@@ -55,19 +55,33 @@ describe('EmbedCard', () => {
   })
 
   it('renders a play control for audio embeds', () => {
+    get.mockReturnValue(new Promise(() => {}))
     renderEmbed({ spec: 'audio:track123', campaignId: 'c1' })
-    expect(screen.getByRole('button', { name: 'Play' })).toBeInTheDocument()
+    // Until the track has loaded the card has no name to give it.
+    expect(screen.getByRole('button', { name: 'Play Untitled track' })).toBeInTheDocument()
     expect(screen.getByText('Audio')).toBeInTheDocument()
   })
 
-  it('plays the embedded track in the global player', async () => {
+  it('names the embedded track once it has loaded', async () => {
+    get.mockResolvedValue({ title: 'Tavern Ambience', filename: 'tavern.mp3' })
     renderEmbed({ spec: 'audio:track123', campaignId: 'c1' })
-    await userEvent.click(screen.getByRole('button', { name: 'Play' }))
-    expect(playQueue).toHaveBeenCalledWith([{ id: 'track123' }])
+    expect(await screen.findByRole('button', { name: 'Play Tavern Ambience' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /tavern ambience/i })).toHaveAttribute(
+      'href',
+      '/audio/track123'
+    )
+  })
+
+  it('plays the embedded track in the global player', async () => {
+    get.mockResolvedValue({ title: 'Tavern Ambience', filename: 'tavern.mp3' })
+    renderEmbed({ spec: 'audio:track123', campaignId: 'c1' })
+    await userEvent.click(await screen.findByRole('button', { name: 'Play Tavern Ambience' }))
+    expect(playQueue).toHaveBeenCalledWith([{ id: 'track123', title: 'Tavern Ambience' }])
   })
 
   // Audio label is a real Link to /audio/:id so middle/ctrl-click opens new tab natively.
   it('renders the audio label as a link to the detail page', () => {
+    get.mockReturnValue(new Promise(() => {}))
     renderEmbed({ spec: 'audio:track123', campaignId: 'c1' })
     const link = screen.getByRole('link', { name: /audio/i })
     expect(link.getAttribute('href')).toBe('/audio/track123')

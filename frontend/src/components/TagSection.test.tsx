@@ -36,4 +36,13 @@ describe('TagSection', () => {
     render(<TagSection label="Tags" tags={[]} editLabel="Edit" noTagsLabel="None" />)
     expect(screen.queryByText('Edit')).not.toBeInTheDocument()
   })
+
+  it('heads the group and names the group its edit button is for', () => {
+    render(
+      <TagSection label="Map Tags" tags={['cave']} canEdit onEdit={vi.fn()} editLabel="Edit" />
+    )
+    expect(screen.getByRole('heading', { level: 3, name: 'Map Tags' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Edit Map Tags' })).toBeInTheDocument()
+    expect(screen.getByRole('list')).toHaveTextContent('cave')
+  })
 })

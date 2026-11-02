@@ -22,7 +22,13 @@ export default function GrantAdder({ label, options, onAdd, disabled }: Props) {
   if (options.length === 0) return null
 
   return (
-    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+    // A named group: the two adders each have a "Level" select and an add
+    // button, which only make sense read together with what they grant.
+    <div
+      role="group"
+      aria-label={label}
+      style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}
+    >
       <select
         value={target}
         onChange={(e) => setTarget(e.target.value)}
@@ -52,9 +58,11 @@ export default function GrantAdder({ label, options, onAdd, disabled }: Props) {
           setTarget('')
         }}
         disabled={disabled || !target}
+        aria-label={t('a11y.settingsAccess.addGrant')}
+        title={t('a11y.settingsAccess.addGrant')}
         style={ghostBtnStyle}
       >
-        +
+        <span aria-hidden="true">+</span>
       </button>
     </div>
   )
@@ -64,7 +72,7 @@ const selectStyle: CSSProperties = {
   padding: '6px 8px',
   borderRadius: 6,
   background: 'var(--bg-deep)',
-  border: '1px solid var(--border)',
+  border: '1px solid var(--border-control)',
   color: 'var(--text)',
   fontSize: 13,
   flex: 1,

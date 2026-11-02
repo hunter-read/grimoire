@@ -14,7 +14,7 @@ const selectStyle: CSSProperties = {
   fontSize: 13,
   padding: '6px 8px',
   background: 'var(--bg-deep)',
-  border: '1px solid var(--border)',
+  border: '1px solid var(--border-control)',
   borderRadius: 6,
   color: 'var(--text)',
 }
@@ -83,8 +83,15 @@ export default function ImageUploadPanel({
         style={{ fontSize: 13, color: 'var(--text-dim)' }}
       />
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>
+      <div
+        role="radiogroup"
+        aria-labelledby="wiki-image-category-label"
+        style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+      >
+        <div
+          id="wiki-image-category-label"
+          style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}
+        >
           {t('wiki.imageCategory')}
         </div>
         <label style={radioRow}>
@@ -94,6 +101,9 @@ export default function ImageUploadPanel({
             checked={mode === 'existing'}
             onChange={() => setMode('existing')}
             disabled={categories.length === 0}
+            // The label wraps the category picker too, so without its own name
+            // the radio would be read as whatever that picker shows.
+            aria-label={t('a11y.campaignNotes.existingCategory')}
           />
           <select
             value={categoryId}
@@ -116,6 +126,7 @@ export default function ImageUploadPanel({
             name="catmode"
             checked={mode === 'new'}
             onChange={() => setMode('new')}
+            aria-label={t('a11y.campaignNotes.newCategory')}
           />
           <input
             value={newName}
@@ -127,7 +138,7 @@ export default function ImageUploadPanel({
               flex: 1,
               padding: '6px 8px',
               background: 'var(--bg-deep)',
-              border: '1px solid var(--border)',
+              border: '1px solid var(--border-control)',
               borderRadius: 6,
               color: 'var(--text)',
               fontSize: 13,
@@ -136,7 +147,11 @@ export default function ImageUploadPanel({
         </label>
       </div>
 
-      {error && <div style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</div>}
+      {error && (
+        <div role="alert" style={{ color: 'var(--danger)', fontSize: 13 }}>
+          {error}
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
         <button onClick={onCancel} style={miniBtnGhost}>

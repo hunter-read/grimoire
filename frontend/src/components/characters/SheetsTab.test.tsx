@@ -203,11 +203,13 @@ describe('SheetsTab', () => {
       mockInstallSheet.mockResolvedValue({})
       const onChanged = vi.fn()
       renderTab({ onChanged })
-      await userEvent.click(await screen.findByRole('button', { name: 'Update to v1.2.0' }))
+      await userEvent.click(await screen.findByRole('button', { name: /^Update .+ to v1\.2\.0$/ }))
       await waitFor(() => expect(mockInstallSheet).toHaveBeenCalledWith('dnd-5e-abc'))
       expect(onChanged).toHaveBeenCalled()
       await waitFor(() =>
-        expect(screen.queryByRole('button', { name: 'Update to v1.2.0' })).not.toBeInTheDocument()
+        expect(
+          screen.queryByRole('button', { name: /^Update .+ to v1\.2\.0$/ })
+        ).not.toBeInTheDocument()
       )
       expect(screen.getByRole('status')).toHaveTextContent('D&D 5e')
     })
@@ -217,9 +219,9 @@ describe('SheetsTab', () => {
       mockInstallSheet.mockRejectedValue(new Error('offline'))
       const setError = vi.fn()
       renderTab({ setError })
-      await userEvent.click(await screen.findByRole('button', { name: 'Update to v1.2.0' }))
+      await userEvent.click(await screen.findByRole('button', { name: /^Update .+ to v1\.2\.0$/ }))
       await waitFor(() => expect(setError).toHaveBeenCalledWith('offline'))
-      expect(screen.getByRole('button', { name: 'Update to v1.2.0' })).toBeEnabled()
+      expect(screen.getByRole('button', { name: /^Update .+ to v1\.2\.0$/ })).toBeEnabled()
     })
 
     it('offers nothing when the catalogue cannot be read', async () => {

@@ -21,6 +21,7 @@ import type { DownloadRequest } from '../components/tags/tagDownload'
 import TagDetail from '../components/tags/TagDetail'
 import TagListButton from '../components/tags/TagListButton'
 import { shouldAutoCollapse } from '../utils/autoCollapse'
+import usePageTitle from '../hooks/usePageTitle'
 
 const CATS_COLLAPSED_KEY = 'tagsCategoryCollapsed'
 
@@ -69,6 +70,10 @@ export default function TagsView() {
     const saved = getUserPrefs()[CATS_COLLAPSED_KEY] as Record<string, boolean> | undefined
     return saved ? new Set(Object.keys(saved).filter((c) => saved[c])) : null
   })
+
+  // Named after the selected tag once it has loaded, so the tab (and a screen
+  // reader's page announcement) says which tag is open.
+  usePageTitle(detail ? `${detail.display} - ${t('tags.title')}` : t('tags.title'))
 
   const loadTags = useCallback(() => {
     tagsApi.list().then((r) => setAllTags(r.tags))
@@ -137,6 +142,14 @@ export default function TagsView() {
   }, [allTags, filter, favOnly, sort, order, tagFavorited])
 
   const totalVisible = useMemo(() => groups.reduce((n, g) => n + g.tags.length, 0), [groups])
+  const narrowed = favOnly || filter.trim() !== ''
+  // What the selected tag covers, said once its summary has loaded: picking a
+  // tag in the list leaves focus there, so the detail pane changing beside it
+  // would otherwise go unnoticed.
+  const detailTotal = detail
+    ? Object.values(detail.counts || {}).reduce((n: number, c: number) => n + c, 0) +
+      (detail.folders || []).reduce((n, g) => n + g.count, 0)
+    : 0
 
   // Counted on what is visible, so narrowing the list with the filter opens
   // the groups holding the matches. The selected tag's group stays open.
@@ -243,10 +256,11 @@ export default function TagsView() {
           flexDirection: 'column',
         }}
       >
-        <h2
+        <h1
           style={{
             fontSize: 28,
             fontWeight: 600,
+            marginTop: 0,
             marginBottom: 24,
             display: 'flex',
             alignItems: 'center',
@@ -255,7 +269,16 @@ export default function TagsView() {
           }}
         >
           <LuTags size={24} color="var(--gold)" /> {t('tags.title')}
-        </h2>
+        </h1>
+
+        <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+          {activeTag && detail && !detailLoading
+            ? `${detail.display}: ${t('a11y.discover.itemCount', { count: detailTotal })}`
+            : ''}
+        </div>
+        <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+          {narrowed ? t('a11y.discover.tagsShown', { count: totalVisible }) : ''}
+        </div>
 
         {allTags.length === 0 ? (
           <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
@@ -264,8 +287,9 @@ export default function TagsView() {
           </div>
         ) : (
           <div className="tags-layout">
-            {/* Tag list panel */}
-            <div
+            {/* Tag list panel: a set of links that pick the tag shown beside it. */}
+            <nav
+              aria-label={t('tags.title')}
               className="tags-list-panel"
               style={{
                 display: 'flex',
@@ -308,7 +332,7 @@ export default function TagsView() {
                       fontSize: 13,
                       padding: '6px 10px 6px 30px',
                       borderRadius: 6,
-                      border: '1px solid var(--border)',
+                      border: '1px solid var(--border-control)',
                       background: 'var(--bg-card)',
                       boxSizing: 'border-box',
                     }}
@@ -365,7 +389,7 @@ export default function TagsView() {
                       borderRadius: 6,
                       borderTopRightRadius: 0,
                       borderBottomRightRadius: 0,
-                      border: '1px solid var(--border)',
+                      border: '1px solid var(--border-control)',
                       borderRight: 'none',
                       background: 'var(--bg-card)',
                       color: 'var(--text)',
@@ -400,87 +424,91 @@ export default function TagsView() {
                 </div>
               </div>
 
-              {/* Tag list, grouped by category (scrolls within the panel) */}
-              <div role="list" style={{ flex: 1, overflowY: 'auto', padding: 6 }}>
+              {/* Tag list, grouped by category (scrolls within the panel). Each
+                  category is a heading wrapping its toggle, over a list. */}
+              <div className="tags-list-scroll" style={{ flex: 1, overflowY: 'auto', padding: 6 }}>
                 {groups.map((g) => {
                   const catCollapsed = collapsedCats.has(g.category)
                   return (
-                    <div
-                      key={g.category}
-                      role="group"
-                      aria-label={t(`tags.category_${g.category}`)}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => toggleCat(g.category)}
-                        aria-expanded={!catCollapsed}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 4,
-                          width: '100%',
-                          padding: '8px 8px 4px',
-                          background: 'none',
-                          border: 'none',
-                          cursor: 'pointer',
-                          fontSize: 11,
-                          fontWeight: 700,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.06em',
-                          color: 'var(--text-muted)',
-                          textAlign: 'left',
-                        }}
-                      >
-                        <LuChevronDown
-                          size={13}
-                          aria-hidden="true"
+                    <div key={g.category}>
+                      <h2 style={plainHeading}>
+                        <button
+                          type="button"
+                          onClick={() => toggleCat(g.category)}
+                          aria-expanded={!catCollapsed}
                           style={{
-                            transition: 'transform 0.15s',
-                            transform: catCollapsed ? 'rotate(-90deg)' : 'none',
-                            flexShrink: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            width: '100%',
+                            padding: '8px 8px 4px',
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: 11,
+                            fontWeight: 700,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.06em',
+                            color: 'var(--text-muted)',
+                            textAlign: 'left',
                           }}
-                        />
-                        {t(`tags.category_${g.category}`, { defaultValue: g.category })}
-                        <span style={{ color: 'var(--text-muted)', opacity: 0.7 }}>
-                          ({g.tags.length})
-                        </span>
-                      </button>
-                      {!catCollapsed &&
-                        g.tags.map((tg) => {
-                          const fav = tagFavorited(tg)
-                          return (
-                            <div
-                              key={tg.internal}
-                              role="listitem"
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 6,
-                                borderRadius: 6,
-                                background:
-                                  tg.internal === activeTag ? 'var(--bg-card)' : 'transparent',
-                              }}
-                            >
-                              <button
-                                onClick={() => toggleTagFavorite(tg)}
-                                title={fav ? t('tags.unfavorite') : t('tags.favorite')}
-                                aria-label={fav ? t('tags.unfavorite') : t('tags.favorite')}
-                                aria-pressed={fav}
+                        >
+                          <LuChevronDown
+                            size={13}
+                            aria-hidden="true"
+                            style={{
+                              transition: 'transform 0.15s',
+                              transform: catCollapsed ? 'rotate(-90deg)' : 'none',
+                              flexShrink: 0,
+                            }}
+                          />
+                          {t(`tags.category_${g.category}`, { defaultValue: g.category })}
+                          <span style={{ color: 'var(--text-muted)', opacity: 0.7 }}>
+                            ({g.tags.length})
+                          </span>
+                        </button>
+                      </h2>
+                      {!catCollapsed && (
+                        <ul role="list" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                          {g.tags.map((tg) => {
+                            const fav = tagFavorited(tg)
+                            return (
+                              <li
+                                key={tg.internal}
                                 style={{
-                                  background: 'none',
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                  padding: '7px 2px 7px 8px',
                                   display: 'flex',
-                                  color: fav ? 'var(--gold)' : 'var(--text-muted)',
+                                  alignItems: 'center',
+                                  gap: 6,
+                                  borderRadius: 6,
+                                  background:
+                                    tg.internal === activeTag ? 'var(--bg-card)' : 'transparent',
                                 }}
                               >
-                                <LuHeart size={13} fill={fav ? 'var(--gold)' : 'none'} />
-                              </button>
-                              <TagListButton tag={tg} active={tg.internal === activeTag} />
-                            </div>
-                          )
-                        })}
+                                <button
+                                  onClick={() => toggleTagFavorite(tg)}
+                                  title={fav ? t('tags.unfavorite') : t('tags.favorite')}
+                                  // Named with the tag: the list holds a heart per row.
+                                  aria-label={t(
+                                    fav ? 'a11y.removeFromFavorites' : 'a11y.addToFavorites',
+                                    { name: tg.display }
+                                  )}
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    padding: '7px 2px 7px 8px',
+                                    display: 'flex',
+                                    color: fav ? 'var(--gold)' : 'var(--text-muted)',
+                                  }}
+                                >
+                                  <LuHeart size={13} fill={fav ? 'var(--gold)' : 'none'} />
+                                </button>
+                                <TagListButton tag={tg} active={tg.internal === activeTag} />
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      )}
                     </div>
                   )
                 })}
@@ -490,10 +518,14 @@ export default function TagsView() {
                   </div>
                 )}
               </div>
-            </div>
+            </nav>
 
             {/* Selected tag detail */}
-            <div className="tags-detail-panel" style={{ minWidth: 0, overflowY: 'auto' }}>
+            <section
+              aria-labelledby={detail ? 'tag-detail-title' : undefined}
+              className="tags-detail-panel"
+              style={{ minWidth: 0, overflowY: 'auto' }}
+            >
               {!activeTag && (
                 <div style={{ color: 'var(--text-muted)', padding: 20 }}>{t('tags.allTags')}</div>
               )}
@@ -521,7 +553,7 @@ export default function TagsView() {
                   onDownload={setDownloadModal}
                 />
               )}
-            </div>
+            </section>
           </div>
         )}
       </div>
@@ -535,6 +567,14 @@ export default function TagsView() {
       )}
     </div>
   )
+}
+
+// A heading that keeps the look of the control inside it.
+const plainHeading = {
+  margin: 0,
+  font: 'inherit',
+  color: 'inherit',
+  letterSpacing: 'normal',
 }
 
 const ctrlBtn = {

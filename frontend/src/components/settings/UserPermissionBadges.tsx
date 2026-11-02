@@ -76,9 +76,20 @@ export default function UserPermissionBadges({
   }
 
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+    // A list, so a screen reader says how many permissions there are.
+    <ul
+      role="list"
+      style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 5,
+        listStyle: 'none',
+        margin: 0,
+        padding: 0,
+      }}
+    >
       {badges.map((b) => (
-        <span
+        <li
           key={b.key}
           style={{
             display: 'inline-flex',
@@ -96,8 +107,8 @@ export default function UserPermissionBadges({
         >
           {b.icon}
           {b.label}
-        </span>
+        </li>
       ))}
-    </div>
+    </ul>
   )
 }

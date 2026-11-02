@@ -41,7 +41,7 @@ const setup = (over = {}) => {
 
 const openMenu = async (user: UserEvent) => {
   await user.click(screen.getByRole('button', { name: 'Change visibility' }))
-  return screen.getByRole('menu')
+  return screen.getByRole('dialog')
 }
 
 describe('VisibilityEditor', () => {
@@ -59,7 +59,7 @@ describe('VisibilityEditor', () => {
     const user = userEvent.setup()
     const { onSetVisibility } = setup()
     await openMenu(user)
-    await user.click(screen.getByRole('menuitemradio', { name: /public/i }))
+    await user.click(screen.getByRole('radio', { name: /public/i }))
     expect(onSetVisibility).toHaveBeenCalledWith('group')
   })
 
@@ -67,7 +67,7 @@ describe('VisibilityEditor', () => {
     const user = userEvent.setup()
     const { onSetVisibility } = setup()
     await openMenu(user)
-    await user.click(screen.getByRole('menuitemradio', { name: /gm only/i }))
+    await user.click(screen.getByRole('radio', { name: /gm only/i }))
     expect(onSetVisibility).not.toHaveBeenCalled()
   })
 
@@ -77,8 +77,8 @@ describe('VisibilityEditor', () => {
     const user = userEvent.setup()
     setup({ isOwner: false })
     await openMenu(user)
-    expect(screen.getAllByRole('menuitemradio')).toHaveLength(3)
-    expect(screen.getByRole('menuitemradio', { name: /self only/i })).toBeInTheDocument()
+    expect(screen.getAllByRole('radio')).toHaveLength(3)
+    expect(screen.getByRole('radio', { name: /self only/i })).toBeInTheDocument()
   })
 
   it('toggles the menu closed from the trigger', async () => {
@@ -86,7 +86,7 @@ describe('VisibilityEditor', () => {
     setup()
     await openMenu(user)
     await user.click(screen.getByRole('button', { name: 'Change visibility' }))
-    expect(screen.queryByRole('menu')).toBeNull()
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 
   it('closes when clicking outside, but not inside the popover', async () => {
@@ -94,17 +94,17 @@ describe('VisibilityEditor', () => {
     setup()
     const menu = await openMenu(user)
     fireEvent.mouseDown(menu)
-    expect(screen.getByRole('menu')).toBeInTheDocument()
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
     fireEvent.mouseDown(document.body)
-    expect(screen.queryByRole('menu')).toBeNull()
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 
   it('highlights a menu item on hover and restores the selected one on leave', async () => {
     const user = userEvent.setup()
     setup()
     await openMenu(user)
-    const other = screen.getByRole('menuitemradio', { name: /public/i })
-    const current = screen.getByRole('menuitemradio', { name: /gm only/i })
+    const other = screen.getByRole('radio', { name: /public/i })
+    const current = screen.getByRole('radio', { name: /gm only/i })
 
     await user.hover(other)
     expect(other.style.background).toBe('var(--bg-card-hover)')
@@ -207,6 +207,43 @@ describe('VisibilityEditor', () => {
       expect(screen.getByRole('checkbox', { name: 'Read access for gm' })).toBeInTheDocument()
       // ...and the author is not offered access to their own page.
       expect(screen.queryByRole('checkbox', { name: 'Read access for alice' })).toBeNull()
+    })
+  })
+
+  describe('keyboard', () => {
+    it('opens on the level that is set, as a radio group', async () => {
+      const user = userEvent.setup()
+      setup()
+      await openMenu(user)
+      expect(screen.getByRole('radiogroup', { name: 'Change visibility' })).toBeInTheDocument()
+      expect(screen.getByRole('radio', { name: /gm only/i })).toHaveFocus()
+    })
+
+    it('steps between levels with the arrow keys without saving each one', async () => {
+      const user = userEvent.setup()
+      const { onSetVisibility } = setup()
+      await openMenu(user)
+      const radios = screen.getAllByRole('radio')
+      const start = radios.findIndex((r) => r === document.activeElement)
+      await user.keyboard('{ArrowDown}')
+      expect(radios[(start + 1) % radios.length]).toHaveFocus()
+      await user.keyboard('{ArrowUp}{ArrowUp}')
+      expect(radios[(start - 1 + radios.length) % radios.length]).toHaveFocus()
+      await user.keyboard('{ArrowRight}{ArrowLeft}')
+      expect(radios[(start - 1 + radios.length) % radios.length]).toHaveFocus()
+      expect(onSetVisibility).not.toHaveBeenCalled()
+      // Other keys are left alone.
+      await user.keyboard('a')
+      expect(radios[(start - 1 + radios.length) % radios.length]).toHaveFocus()
+    })
+
+    it('closes on Escape and returns to the badge', async () => {
+      const user = userEvent.setup()
+      setup()
+      await openMenu(user)
+      await user.keyboard('{Escape}')
+      expect(screen.queryByRole('dialog')).toBeNull()
+      expect(screen.getByRole('button', { name: 'Change visibility' })).toHaveFocus()
     })
   })
 })

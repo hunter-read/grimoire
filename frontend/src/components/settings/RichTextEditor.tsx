@@ -5,7 +5,8 @@ import ToolbarButton from './ToolbarButton'
 import { sanitizeLoginMessage } from '../../utils/sanitizeLoginMessage'
 
 const editorWrapStyle: CSSProperties = {
-  border: '1px solid var(--border)',
+  // A text field's edge, so it is drawn at control contrast.
+  border: '1px solid var(--border-control)',
   borderRadius: 8,
   background: 'var(--bg-card)',
   overflow: 'hidden',
@@ -78,21 +79,23 @@ export default function RichTextEditor({ value, onChange, ariaLabel }: RichTextE
   )
 
   const handleLink = useCallback(() => {
-    const url = window.prompt('URL')
+    const url = window.prompt(t('a11y.settings.linkPrompt'))
     if (!url) return
     // Allow http/https/mailto/relative; reject anything else (defense in depth;
     // the server also sanitizes).
     if (!/^(https?:|mailto:|\/|#)/i.test(url)) return
     exec('createLink', url)
-  }, [exec])
+  }, [exec, t])
 
   const handleInput = () => {
     if (ref.current) onChange(ref.current.innerHTML)
   }
 
   return (
-    <div style={editorWrapStyle}>
-      <div style={toolbarStyle}>
+    // The text area draws no ring of its own (it would sit flush against the
+    // toolbar); `.rich-text-editor:focus-within` rings the whole editor.
+    <div className="rich-text-editor" style={editorWrapStyle}>
+      <div role="group" aria-label={t('a11y.settings.formatting')} style={toolbarStyle}>
         <ToolbarButton onClick={() => exec('bold')} title={t('richText.bold')}>
           <LuBold size={14} />
         </ToolbarButton>

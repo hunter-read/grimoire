@@ -90,7 +90,7 @@ describe('MemberRow character name editing', () => {
     const onSetCharacterName = vi.fn().mockResolvedValue(undefined)
     renderRow({}, { canManage: true, onSetCharacterName })
 
-    await userEvent.click(screen.getByLabelText('Edit character name'))
+    await userEvent.click(screen.getByLabelText('Edit alice’s character name'))
     const input = screen.getByLabelText('Character name')
     await userEvent.type(input, 'Vex  ')
     await userEvent.click(screen.getByText('Save'))
@@ -101,7 +101,7 @@ describe('MemberRow character name editing', () => {
   it('saves the character name on Enter', async () => {
     const onSetCharacterName = vi.fn().mockResolvedValue(undefined)
     renderRow({}, { canManage: true, onSetCharacterName })
-    await userEvent.click(screen.getByLabelText('Edit character name'))
+    await userEvent.click(screen.getByLabelText('Edit alice’s character name'))
     await userEvent.type(screen.getByLabelText('Character name'), 'Nott{Enter}')
     expect(onSetCharacterName).toHaveBeenCalledWith('u1', 'Nott')
   })
@@ -109,7 +109,7 @@ describe('MemberRow character name editing', () => {
   it('cancels editing on Escape without saving', async () => {
     const onSetCharacterName = vi.fn()
     renderRow({}, { canManage: true, onSetCharacterName })
-    await userEvent.click(screen.getByLabelText('Edit character name'))
+    await userEvent.click(screen.getByLabelText('Edit alice’s character name'))
     await userEvent.type(screen.getByLabelText('Character name'), 'Nope{Escape}')
     expect(onSetCharacterName).not.toHaveBeenCalled()
     expect(screen.queryByLabelText('Character name')).not.toBeInTheDocument()
@@ -117,7 +117,7 @@ describe('MemberRow character name editing', () => {
 
   it('cancels editing via the Cancel button', async () => {
     renderRow({}, { canManage: true })
-    await userEvent.click(screen.getByLabelText('Edit character name'))
+    await userEvent.click(screen.getByLabelText('Edit alice’s character name'))
     await userEvent.click(screen.getByText('Cancel'))
     expect(screen.queryByLabelText('Character name')).not.toBeInTheDocument()
   })
@@ -154,8 +154,10 @@ describe('MemberRow art upload', () => {
 
   it('renders the existing art image when the member has art', () => {
     renderRow({ has_art: true }, { currentUserId: 'u1' })
-    const img = screen.getByRole('img')
+    // Decorative (alt=""): the row already names the member.
+    const img = document.querySelector('img')
     expect(img).toHaveAttribute('src', '/api/art')
+    expect(img).toHaveAttribute('alt', '')
   })
 })
 
@@ -223,27 +225,40 @@ describe('MemberRow sheet actions', () => {
   })
 
   it('removes an uploaded sheet via the delete endpoint', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
     campaignsMock.deleteMemberSheet.mockResolvedValue(undefined)
     const onMediaChanged = vi.fn()
     renderRow(
       { has_sheet: true, character_sheet_filename: 'char.pdf' },
       { currentUserId: 'u1', onMediaChanged }
     )
-    await userEvent.click(screen.getByLabelText('Remove sheet'))
+    await userEvent.click(screen.getByLabelText('Remove alice’s character sheet'))
     await waitFor(() => expect(campaigns.deleteMemberSheet).toHaveBeenCalledWith('c1', 'm1'))
     expect(onMediaChanged).toHaveBeenCalled()
+    // Deleting an uploaded sheet can't be undone, so it asks first, by name.
+    expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('alice'))
+    confirmSpy.mockRestore()
+  })
+
+  it('keeps the sheet when the removal is not confirmed', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    renderRow({ has_sheet: true, character_sheet_filename: 'char.pdf' }, { currentUserId: 'u1' })
+    await userEvent.click(screen.getByLabelText('Remove alice’s character sheet'))
+    expect(campaigns.deleteMemberSheet).not.toHaveBeenCalled()
+    confirmSpy.mockRestore()
   })
 
   it('removing an external-link sheet clears the URL instead', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
     campaignsMock.setCharacterSheetUrl.mockResolvedValue(undefined)
     renderRow({ character_sheet_url: 'https://sheet.example/abc' }, { currentUserId: 'u1' })
-    await userEvent.click(screen.getByLabelText('Remove sheet'))
+    await userEvent.click(screen.getByLabelText('Remove alice’s character sheet'))
     await waitFor(() => expect(campaigns.setCharacterSheetUrl).toHaveBeenCalledWith('c1', 'u1', ''))
   })
 
   it('confirms before replacing an existing sheet', async () => {
     renderRow({ has_sheet: true, character_sheet_filename: 'char.pdf' }, { currentUserId: 'u1' })
-    await userEvent.click(screen.getByLabelText('Replace sheet'))
+    await userEvent.click(screen.getByLabelText('Replace alice’s character sheet'))
     expect(screen.getByTestId('replace-dialog')).toBeInTheDocument()
     await userEvent.click(screen.getByText('cancel-replace'))
     expect(screen.queryByTestId('replace-dialog')).not.toBeInTheDocument()

@@ -52,7 +52,7 @@ export default function GiveToPlayer({ character, onTransferred, onError }: Prop
         fontSize: 13,
         padding: '3px 6px',
         background: 'var(--bg-card)',
-        border: '1px solid var(--border)',
+        border: '1px solid var(--border-control)',
         borderRadius: 6,
         color: 'var(--text-dim)',
         maxWidth: 220,

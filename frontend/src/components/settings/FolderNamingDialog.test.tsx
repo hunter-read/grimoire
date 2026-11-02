@@ -208,7 +208,7 @@ describe('FolderNamingDialog', () => {
     const { container } = render(
       <FolderNamingDialog rule={RULE} fields={FIELDS} onClose={onClose} onSaved={vi.fn()} />
     )
-    fireEvent.keyDown(window, { key: 'Escape' })
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
     fireEvent.click(screen.getByRole('button', { name: 'Close' }))
     fireEvent.click(container.firstChild as HTMLElement)
     // A click inside the dialog is not a click on the backdrop.

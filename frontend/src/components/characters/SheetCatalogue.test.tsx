@@ -106,6 +106,16 @@ describe('SheetCatalogue', () => {
     await waitFor(() => expect(screen.getAllByText('Installed')).toHaveLength(2))
   })
 
+  it('names each install button and keeps focus on the row once installed', async () => {
+    mockInstall.mockResolvedValue({ schema_id: 'cairn' })
+    renderCatalogue()
+    await screen.findByText('Cairn')
+    await userEvent.click(screen.getByRole('button', { name: 'Install Cairn' }))
+    // The button is gone; focus lands on what replaced it rather than the page.
+    await waitFor(() => expect(document.activeElement).toHaveTextContent('Installed'))
+    expect(screen.getByText('Cairn installed')).toHaveAttribute('role', 'status')
+  })
+
   it('offers a newer version of an installed sheet as an update', async () => {
     mockBrowse.mockResolvedValue({
       sheets: [{ ...CAIRN, installed: true, installed_version: '0.9.0', update_available: true }],
@@ -114,7 +124,7 @@ describe('SheetCatalogue', () => {
     })
     mockInstall.mockResolvedValue({ schema_id: 'cairn' })
     renderCatalogue()
-    const update = await screen.findByRole('button', { name: 'Update to v1.0.0' })
+    const update = await screen.findByRole('button', { name: /^Update .+ to v1\.0\.0$/ })
     expect(update).toHaveAttribute('title', 'You have v0.9.0')
     await userEvent.click(update)
     await waitFor(() => expect(mockInstall).toHaveBeenCalledWith('cairn'))
@@ -218,7 +228,7 @@ describe('SheetCatalogue', () => {
       renderCatalogue()
       // The sheets that loaded are still listed.
       expect(await screen.findByText('Cairn')).toBeInTheDocument()
-      expect(screen.getByRole('status')).toHaveTextContent(/down\.test/)
+      expect(screen.getByText(/down\.test/).closest('[role="status"]')).toBeInTheDocument()
     })
 
     it('summarises the footer when several catalogues were read', async () => {

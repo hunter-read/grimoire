@@ -5,6 +5,7 @@ import { LuBookOpen, LuMap, LuUser, LuBox, LuMusic, LuFile } from 'react-icons/l
 import type { IconType } from 'react-icons'
 import { campaigns, client } from '../../api'
 import AudioPlayer from '../audio/AudioPlayer'
+import { trackLabel } from '../audio/trackLabel'
 import LazyImg from '../LazyImg'
 import useHoverPrefetch from '../../hooks/useHoverPrefetch'
 import {
@@ -81,6 +82,23 @@ export default function EmbedCard({ spec, campaignId, prefetch = false }: EmbedC
     }
   }, [type, id])
 
+  // An audio embed is named after its track the same way, so its play button
+  // says what it plays ("Play Tavern Ambience") instead of "Untitled track".
+  const [audioTitle, setAudioTitle] = useState<string | null>(null)
+  useEffect(() => {
+    if (type !== 'audio' || !id) return
+    let active = true
+    client
+      .get('/audio/{audio_id}', { path: { audio_id: id } })
+      .then((a) => {
+        if (active) setAudioTitle(trackLabel(a))
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [type, id])
+
   const pageNum = page ? Number(page) : null
   useEffect(() => {
     if (!prefetch || !book || !pageNum) return
@@ -101,7 +119,11 @@ export default function EmbedCard({ spec, campaignId, prefetch = false }: EmbedC
           gap: 10,
         }}
       >
-        <AudioPlayer track={{ id }} showPlayNext size={34} />
+        <AudioPlayer
+          track={audioTitle ? { id, title: audioTitle } : { id }}
+          showPlayNext
+          size={34}
+        />
         <Link
           to={`/audio/${id}`}
           style={{
@@ -115,7 +137,7 @@ export default function EmbedCard({ spec, campaignId, prefetch = false }: EmbedC
           }}
         >
           <LuMusic size={15} color="var(--type-audio)" />
-          {t('wiki.embed_audio')}
+          {audioTitle || t('wiki.embed_audio')}
         </Link>
       </span>
     )
@@ -145,7 +167,7 @@ export default function EmbedCard({ spec, campaignId, prefetch = false }: EmbedC
         style={embedCardStyle}
       >
         <LuFile size={15} color="var(--type-file)" />
-        {t('wiki.embed_file')}
+        {t('wiki.embed_file')} <span className="sr-only">{t('a11y.opensInNewTab')}</span>
       </a>
     )
   }

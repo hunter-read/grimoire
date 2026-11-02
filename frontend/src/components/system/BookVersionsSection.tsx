@@ -225,7 +225,7 @@ export default function BookVersionsSection({ book, onChanged }: BookVersionsSec
                 style={{
                   background: 'var(--bg-card)',
                   color: 'var(--text)',
-                  border: '1px solid var(--border)',
+                  border: '1px solid var(--border-control)',
                   borderRadius: 4,
                   padding: '2px 6px',
                   fontSize: 12,

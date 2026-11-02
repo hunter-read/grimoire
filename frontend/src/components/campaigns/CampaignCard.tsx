@@ -63,7 +63,7 @@ export default function CampaignCard({
         border: '1px solid var(--border)',
         borderRadius: 12,
         cursor: 'pointer',
-        transition: 'all 0.15s',
+        transition: 'background-color 0.15s, transform 0.15s, box-shadow 0.15s',
         transform: hovered ? 'translateY(-1px)' : 'none',
         boxShadow: hovered ? '0 4px 16px var(--shadow)' : 'none',
         overflow: 'hidden',
@@ -72,7 +72,7 @@ export default function CampaignCard({
     >
       <CardLink
         to={`/campaigns/${campaign.id}/overview`}
-        label={`Open campaign ${campaign.name}`}
+        label={t('a11y.campaign.openCampaign', { name: campaign.name })}
       />
       {/* Banner header — 2:1 (wide:tall) aspect ratio. Positioned (which would
           paint it above the CardLink overlay), so pointerEvents:'none' lets
@@ -111,8 +111,14 @@ export default function CampaignCard({
             flexWrap: 'wrap',
           }}
         >
-          <span
+          {/* A heading, so a screen reader can jump card to card, in the card's
+              own type rather than the global Cinzel/gold. */}
+          <h3
             style={{
+              margin: 0,
+              fontFamily: 'inherit',
+              letterSpacing: 'normal',
+              color: 'var(--text)',
               fontSize: 17,
               fontWeight: 600,
               overflow: 'hidden',
@@ -121,7 +127,7 @@ export default function CampaignCard({
             }}
           >
             {campaign.name}
-          </span>
+          </h3>
           {badgeLabel && <CampaignRoleBadge label={badgeLabel} />}
           {campaign.is_archived && (
             <span
@@ -212,6 +218,8 @@ export default function CampaignCard({
                 title={t('campaigns.nextSession')}
               >
                 <LuCalendar size={12} aria-hidden="true" />
+                {/* The tooltip names the date; a screen reader needs it said. */}
+                <span className="sr-only">{t('campaigns.nextSession')}: </span>
                 {formatSessionDate(campaign.next_session)}
               </span>
             )}
@@ -222,6 +230,8 @@ export default function CampaignCard({
               Positioned so it paints above the CardLink overlay. */}
           <Link
             to={`/campaigns/${campaign.id}/notes`}
+            // One per card: say whose notes.
+            aria-label={t('a11y.campaign.openNotesFor', { name: campaign.name })}
             style={{
               display: 'inline-flex',
               alignItems: 'center',

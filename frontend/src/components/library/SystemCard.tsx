@@ -1,4 +1,4 @@
-import { useState, type MouseEvent } from 'react'
+import { useState, type CSSProperties } from 'react'
 import type { IconType } from 'react-icons'
 import { useTranslation } from 'react-i18next'
 import { LuLibrary, LuCheck, LuFolderTree, LuNetwork, LuBuilding2, LuFolder } from 'react-icons/lu'
@@ -94,12 +94,33 @@ export default function SystemCard({
   const borderColor = selected ? 'var(--gold-dim)' : 'var(--border)'
 
   // Selection mode owns the click (shift/cmd extend the selection); outside it
-  // the CardLink overlay below handles navigation.
-  const toggleSelect = isSelectable
-    ? (e: MouseEvent<HTMLDivElement>) =>
-        onToggleSelect?.({ shift: e.shiftKey, meta: e.metaKey || e.ctrlKey })
-    : undefined
-  const cardLink = !isSelectable && <CardLink to={to} label={displayName} />
+  // the CardLink overlay below handles navigation. Either way the card is
+  // covered by one real control - a toggle button or a link - so it can be
+  // reached with Tab and operated with Enter or Space, and a screen reader
+  // hears what it does. The link's name carries the badge and count too, since
+  // a user tabbing from card to card hears only the link.
+  const linkLabel = [badgeKey && t(badgeKey), displayName, countLabel].filter(Boolean).join(', ')
+  const cardLink = isSelectable ? (
+    <button
+      type="button"
+      aria-pressed={selected}
+      aria-label={t('bulk.selectItem', { name: displayName })}
+      onClick={(e) => onToggleSelect?.({ shift: e.shiftKey, meta: e.metaKey || e.ctrlKey })}
+      className="stretched-control"
+      style={{
+        position: 'absolute',
+        inset: 0,
+        zIndex: 3,
+        padding: 0,
+        margin: 0,
+        background: 'transparent',
+        border: 'none',
+        cursor: 'pointer',
+      }}
+    />
+  ) : (
+    <CardLink to={to} label={linkLabel} />
+  )
 
   // An eyebrow label above the title, not a chip beside it. A chip on the
   // title's row cost a narrow card enough width to wrap the name one letter per
@@ -132,6 +153,7 @@ export default function SystemCard({
 
   const checkbox = (overlay: boolean) => (
     <div
+      aria-hidden="true"
       style={{
         ...(overlay
           ? { position: 'absolute', top: 8, left: 8, zIndex: 2 }
@@ -140,11 +162,9 @@ export default function SystemCard({
         height: 20,
         borderRadius: 4,
         background: selected ? 'var(--gold)' : overlay ? 'var(--bg-input)' : 'transparent',
-        border: selected
-          ? 'none'
-          : overlay
-            ? '2px solid var(--border-light)'
-            : '2px solid var(--border-light)',
+        // The unticked box's edge is what shows it is a checkbox, so it gets
+        // the 3:1 control border rather than a faint decorative one.
+        border: selected ? 'none' : '2px solid var(--border-control)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -158,7 +178,6 @@ export default function SystemCard({
   if (list) {
     return (
       <div
-        onClick={toggleSelect}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         style={{
@@ -201,8 +220,9 @@ export default function SystemCard({
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           {containerEyebrow}
-          <div
+          <h3
             style={{
+              ...plainHeading,
               fontSize: 16,
               fontWeight: 500,
               overflow: 'hidden',
@@ -211,7 +231,7 @@ export default function SystemCard({
             }}
           >
             {displayName}
-          </div>
+          </h3>
           <div
             style={{
               fontSize: 13,
@@ -237,6 +257,7 @@ export default function SystemCard({
           <FavoriteButton
             type="system"
             id={system.id}
+            name={displayName}
             style={{
               // Positioned (not static) so it paints above the CardLink overlay.
               position: 'relative',
@@ -256,7 +277,6 @@ export default function SystemCard({
   if (compact) {
     return (
       <div
-        onClick={toggleSelect}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         style={{
@@ -275,7 +295,7 @@ export default function SystemCard({
         {isSelectable ? (
           checkbox(true)
         ) : (
-          <FavoriteButton type="system" id={system.id} cardHovered={hovered} />
+          <FavoriteButton type="system" id={system.id} name={displayName} cardHovered={hovered} />
         )}
         <div
           style={{
@@ -300,10 +320,10 @@ export default function SystemCard({
         </div>
         <div style={{ padding: '8px 10px' }}>
           {containerEyebrow}
-          <div
+          <h3
             style={{
+              ...plainHeading,
               fontSize: 13,
-              color: 'var(--text)',
               fontWeight: 500,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -311,7 +331,7 @@ export default function SystemCard({
             }}
           >
             {displayName}
-          </div>
+          </h3>
           {system.is_explicit && (
             <div style={{ fontSize: 10, color: 'var(--danger)', marginTop: 2 }}>18+</div>
           )}
@@ -322,7 +342,6 @@ export default function SystemCard({
 
   return (
     <div
-      onClick={toggleSelect}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -330,7 +349,7 @@ export default function SystemCard({
         border: `1px solid ${borderColor}`,
         borderRadius: 12,
         cursor: 'pointer',
-        transition: 'all 0.2s',
+        transition: 'background-color 0.2s, transform 0.2s, box-shadow 0.2s',
         transform: hovered && !isSelectable ? 'translateY(-2px)' : 'none',
         boxShadow: hovered && !isSelectable ? '0 8px 24px var(--shadow)' : 'none',
         overflow: 'hidden',
@@ -378,7 +397,9 @@ export default function SystemCard({
         </div>
       )}
 
-      {!isSelectable && <FavoriteButton type="system" id={system.id} cardHovered={hovered} />}
+      {!isSelectable && (
+        <FavoriteButton type="system" id={system.id} name={displayName} cardHovered={hovered} />
+      )}
       <div style={{ padding: 20, flex: 1, display: 'flex', flexDirection: 'column' }}>
         {containerEyebrow}
         <div
@@ -480,4 +501,13 @@ export default function SystemCard({
       </div>
     </div>
   )
+}
+
+// A card title is a heading, so a screen reader can jump card to card, but it
+// keeps the card's body text look rather than the global Cinzel/gold heading.
+const plainHeading: CSSProperties = {
+  margin: 0,
+  fontFamily: 'inherit',
+  color: 'var(--text)',
+  letterSpacing: 'normal',
 }

@@ -92,7 +92,10 @@ export default function InstalledPacks({ schemas, onChanged }: InstalledPacksPro
       ) : packs.length === 0 ? (
         <p style={emptyState}>{t('contentPacks.emptyInstalled')}</p>
       ) : (
-        <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 8 }}>
+        <ul
+          role="list"
+          style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 8 }}
+        >
           {packs.map((pack) => (
             <li
               key={pack.pack_id}

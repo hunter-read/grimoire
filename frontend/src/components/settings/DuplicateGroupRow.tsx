@@ -25,6 +25,8 @@ export default function DuplicateGroupRow({ group, onReview, onMerge }: Props) {
   const { t } = useTranslation()
   const keeper = pickKeeper(group)
   const exact = isExactGroup(group)
+  // Every group has the same two buttons; their names say which group.
+  const groupNames = (group.members || []).map((m) => m.title || m.filename).join(', ')
 
   return (
     <div
@@ -89,10 +91,26 @@ export default function DuplicateGroupRow({ group, onReview, onMerge }: Props) {
       </div>
 
       <div style={{ display: 'flex', gap: 8 }}>
-        <button type="button" onClick={() => onMerge(group)} style={secondaryBtn}>
+        <button
+          type="button"
+          onClick={() => onMerge(group)}
+          aria-label={t('a11y.settingsAdmin.actionOn', {
+            action: t('merge.action'),
+            name: groupNames,
+          })}
+          style={secondaryBtn}
+        >
           <LuCombine size={13} aria-hidden="true" /> {t('merge.action')}
         </button>
-        <button type="button" onClick={() => onReview(group)} style={primaryBtn}>
+        <button
+          type="button"
+          onClick={() => onReview(group)}
+          aria-label={t('a11y.settingsAdmin.actionOn', {
+            action: t('maintenance.dupes.review.open'),
+            name: groupNames,
+          })}
+          style={primaryBtn}
+        >
           {t('maintenance.dupes.review.open')} <LuArrowRight size={13} aria-hidden="true" />
         </button>
       </div>

@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, useCallback, type CSSProperties } from 'react'
+import { useId, useEffect, useRef, useState, useCallback, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
+import useDialogFocus from '../../hooks/useDialogFocus'
 import { LuX } from 'react-icons/lu'
 import 'pdfjs-dist/web/pdf_viewer.css'
 import './pdfSheetEditor.css'
@@ -71,6 +72,11 @@ export default function PdfSheetEditor({
   onSaved,
 }: PdfSheetEditorProps) {
   const { t } = useTranslation()
+  // Focus moves into the dialog, Tab stays inside, Esc closes, and focus goes
+  // back to whatever opened it.
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const titleId = useId()
+  useDialogFocus(dialogRef, { onClose: onClose })
   const containerRef = useRef<HTMLDivElement>(null)
   const docRef = useRef<SheetDoc | null>(null)
   const [loading, setLoading] = useState(true)
@@ -244,11 +250,11 @@ export default function PdfSheetEditor({
 
   return (
     <div style={overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div style={panel}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} style={panel}>
         <div style={headerRow}>
-          <h3 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
+          <h2 id={titleId} style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
             {t('members.editSheetTitle')}
-          </h3>
+          </h2>
           <button onClick={onClose} aria-label={t('common.close')} style={inlineCloseBtn}>
             <LuX size={18} />
           </button>
@@ -267,7 +273,7 @@ export default function PdfSheetEditor({
         </div>
 
         {error && (
-          <p style={{ fontSize: 13, color: 'var(--danger)', margin: '10px 0 0' }}>
+          <p role="alert" style={{ fontSize: 13, color: 'var(--danger)', margin: '10px 0 0' }}>
             {t('members.sheetEditError')}
           </p>
         )}

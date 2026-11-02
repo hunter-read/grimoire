@@ -131,11 +131,11 @@ describe('AppShell', () => {
 
   it('keeps the shell up and shows a spinner while a view is still loading', async () => {
     renderAt('/settings/duplicates')
-    expect(await screen.findByRole('status')).toBeInTheDocument()
+    expect(await screen.findByRole('status', { name: /loading/i })).toBeInTheDocument()
     expect(screen.getByText('sidebar')).toBeInTheDocument()
     duplicatesChunk.release()
     expect(await screen.findByText('duplicates')).toBeInTheDocument()
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.queryByRole('status', { name: /loading/i })).not.toBeInTheDocument()
   })
 
   // Issue #361: a guest clicking a public campaign resource fell through to the

@@ -67,6 +67,10 @@ export default function CampaignUploadsSection() {
         )}
         {saved && <LuCircleCheck size={14} style={{ color: 'var(--green)', marginLeft: 8 }} />}
       </h3>
+      {/* The tick in the heading is an icon; this says it. */}
+      <span className="sr-only" role="status">
+        {saved ? t('common.saved') : ''}
+      </span>
       <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.6 }}>
         {t('appSettings.campaignUploads.description')}
       </p>
@@ -116,6 +120,8 @@ export default function CampaignUploadsSection() {
               <input
                 type="number"
                 min="0"
+                inputMode="numeric"
+                aria-describedby="campaign-uploads-hint"
                 value={values[key]}
                 onChange={(e) => setValues((v) => ({ ...v!, [key]: e.target.value }))}
                 onBlur={(e) => save({ [key]: parseInt(e.target.value) || 0 })}
@@ -123,7 +129,7 @@ export default function CampaignUploadsSection() {
                   width: 90,
                   padding: '6px 8px',
                   background: 'var(--bg-deep)',
-                  border: '1px solid var(--border)',
+                  border: '1px solid var(--border-control)',
                   borderRadius: 6,
                   color: 'var(--text)',
                   fontSize: 14,
@@ -132,7 +138,10 @@ export default function CampaignUploadsSection() {
               <span style={{ color: 'var(--text)' }}>{label}</span>
             </label>
           ))}
-          <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
+          <p
+            id="campaign-uploads-hint"
+            style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}
+          >
             {t('appSettings.campaignUploads.hint')}
           </p>
         </div>

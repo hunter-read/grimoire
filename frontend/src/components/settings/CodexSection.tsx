@@ -189,7 +189,7 @@ const input = {
   width: '100%',
   padding: '7px 10px',
   background: 'var(--bg-deep)',
-  border: '1px solid var(--border)',
+  border: '1px solid var(--border-control)',
   borderRadius: 6,
   color: 'var(--text)',
   fontSize: 14,

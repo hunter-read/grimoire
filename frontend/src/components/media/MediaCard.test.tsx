@@ -8,8 +8,12 @@ import { MEDIA_CONFIGS } from './mediaConfig'
 import type { MediaItem, MediaType } from './mediaConfig'
 
 vi.mock('../../api', () => ({ mediaUrl: (p: string) => `http://localhost${p}` }))
-vi.mock('../FavoriteButton', () => ({ default: () => <span data-testid="fav" /> }))
-vi.mock('../DownloadButton', () => ({ default: () => <span data-testid="dl" /> }))
+vi.mock('../FavoriteButton', () => ({
+  default: ({ name }: { name?: string }) => <span data-testid="fav" data-name={name} />,
+}))
+vi.mock('../DownloadButton', () => ({
+  default: ({ name }: { name?: string }) => <span data-testid="dl" data-name={name} />,
+}))
 // AudioPlayer controller stub: renders a button when given a track.
 vi.mock('../audio/AudioPlayer', () => ({
   default: ({ track, showPlayNext }: { track?: { id: string }; showPlayNext?: boolean }) => (
@@ -81,7 +85,9 @@ describe('MediaCard — audio', () => {
     expect(screen.getByText('03 · Die Sümpfe Harodiens')).toBeInTheDocument()
     expect(screen.getByText('Sphärenklang · Thorwal · 2:05')).toBeInTheDocument()
     expect(screen.queryByText('tavern.mp3')).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '03 · Die Sümpfe Harodiens' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('link', { name: /^03\ ·\ Die\ Sümpfe\ Harodiens(,|$)/ })
+    ).toBeInTheDocument()
   })
 
   it('falls back to the filename and size for an untagged track', () => {
@@ -122,7 +128,7 @@ describe('MediaCard — audio', () => {
     // Non-bulk: CardLink renders an <a> overlay labelled like the card - the
     // track's title here. Middle/ctrl-click open a new tab natively (no JS needed).
     render(<MediaCard config={MEDIA_CONFIGS.audio} item={audioItem()} />)
-    const link = screen.getByRole('link', { name: 'Tavern Night' })
+    const link = screen.getByRole('link', { name: /^Tavern\ Night(,|$)/ })
     expect(link).toHaveAttribute('href', '/audio/a1')
   })
 })
@@ -136,7 +142,7 @@ describe('MediaCard — map (no audio controls)', () => {
   it('renders a real link to the map detail page', () => {
     // Non-bulk: CardLink overlay with aria-label = item.filename.
     render(<MediaCard config={MEDIA_CONFIGS.map} item={mapItem()} />)
-    const link = screen.getByRole('link', { name: 'cave.png' })
+    const link = screen.getByRole('link', { name: /^cave\.png(,|$)/ })
     expect(link).toHaveAttribute('href', '/maps/m1')
   })
 
@@ -154,7 +160,7 @@ describe('MediaCard — map (no audio controls)', () => {
     await userEvent.click(screen.getByText('cave.png'))
     expect(onToggle).toHaveBeenCalled()
     // No CardLink in bulk mode.
-    expect(screen.queryByRole('link', { name: 'cave.png' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /^cave\.png(,|$)/ })).not.toBeInTheDocument()
   })
 
   it('renders in list mode with a thumbnail', () => {
@@ -299,7 +305,7 @@ describe('MediaCard — map (no audio controls)', () => {
       />
     )
     // In bulk mode the card renders role=button.
-    screen.getByRole('button', { name: 'cave.png' }).focus()
+    screen.getByRole('button', { name: 'Select cave.png' }).focus()
     await userEvent.keyboard('{Enter}')
     expect(onToggle).toHaveBeenCalled()
   })
@@ -314,22 +320,23 @@ describe('MediaCard — map (no audio controls)', () => {
       'non-bulk %s card has the right href for native new-tab support',
       (_label, key, makeItem, name, href) => {
         render(<MediaCard config={MEDIA_CONFIGS[key as MediaType]} item={makeItem()} />)
-        const link = screen.getByRole('link', { name })
+        // The name leads with the item and carries its detail line after it.
+        const link = screen.getByRole('link', { name: new RegExp(`^${name}(,|$)`) })
         expect(link).toHaveAttribute('href', href)
       }
     )
 
     it('list-layout map card has the right href', () => {
       render(<MediaCard config={MEDIA_CONFIGS.map} item={mapItem()} list />)
-      const link = screen.getByRole('link', { name: 'cave.png' })
+      const link = screen.getByRole('link', { name: /^cave\.png(,|$)/ })
       expect(link).toHaveAttribute('href', '/maps/m1')
     })
 
     it('bulk mode renders a button, not a link', () => {
       const onToggle = vi.fn()
       render(<MediaCard config={MEDIA_CONFIGS.map} item={mapItem()} bulkMode onToggle={onToggle} />)
-      expect(screen.getByRole('button', { name: 'cave.png' })).toBeInTheDocument()
-      expect(screen.queryByRole('link', { name: 'cave.png' })).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Select cave.png' })).toBeInTheDocument()
+      expect(screen.queryByRole('link', { name: /^cave\.png(,|$)/ })).not.toBeInTheDocument()
     })
   })
 })
@@ -345,7 +352,7 @@ describe('MediaCard — now playing (audio list rows)', () => {
 
   // Outside bulk mode the row is a plain container holding a stretched <a>, so
   // the now-playing state sits on the link's parent rather than on a button.
-  const row = () => screen.getByRole('link', { name: 'Tavern Night' }).parentElement!
+  const row = () => screen.getByRole('link', { name: /^Tavern\ Night(,|$)/ }).parentElement!
 
   it('leaves an unrelated row unmarked', () => {
     currentId = 'other'
@@ -383,7 +390,7 @@ describe('MediaCard — now playing (audio list rows)', () => {
     currentId = 'm1'
     playingId = 'm1'
     render(<MediaCard config={MEDIA_CONFIGS.map} item={mapItem()} list />)
-    expect(screen.getByRole('link', { name: 'cave.png' }).parentElement).not.toHaveAttribute(
+    expect(screen.getByRole('link', { name: /^cave\.png(,|$)/ }).parentElement).not.toHaveAttribute(
       'aria-current'
     )
   })
@@ -393,7 +400,7 @@ describe('MediaCard — now playing (audio list rows)', () => {
     playingId = 'a1'
     renderRow({ is_archive: true })
     // An archive is labelled by its whole filename rather than a tag title.
-    const archiveRow = screen.getByRole('link', { name: 'tavern.mp3' }).parentElement
+    const archiveRow = screen.getByRole('link', { name: /^tavern\.mp3(,|$)/ }).parentElement
     expect(archiveRow).not.toHaveAttribute('aria-current')
   })
 })
@@ -419,5 +426,19 @@ describe('MediaCard — new badge (issue #199)', () => {
     )
     render(<MediaCard config={MEDIA_CONFIGS.map} item={mapItem({ id: 'm2', added_at: null })} />)
     expect(screen.queryByTestId('recently-added-badge')).not.toBeInTheDocument()
+  })
+})
+
+describe('MediaCard — screen readers', () => {
+  it('hands the item name to the favorite and download buttons', () => {
+    render(<MediaCard config={MEDIA_CONFIGS.map} item={mapItem()} />)
+    expect(screen.getByTestId('fav')).toHaveAttribute('data-name', 'cave.png')
+    expect(screen.getByTestId('dl')).toHaveAttribute('data-name', 'cave.png')
+  })
+
+  it('does the same in the list layout', () => {
+    render(<MediaCard config={MEDIA_CONFIGS.map} item={mapItem()} list />)
+    expect(screen.getByTestId('fav')).toHaveAttribute('data-name', 'cave.png')
+    expect(screen.getByTestId('dl')).toHaveAttribute('data-name', 'cave.png')
   })
 })

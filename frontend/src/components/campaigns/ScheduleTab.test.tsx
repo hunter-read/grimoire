@@ -90,7 +90,8 @@ function clickStatusForCell(cellIndex: number, label: string) {
     ['Available', 'Set availability'].includes(el?.getAttribute('title') ?? '')
   )
   fireEvent.click(buttons[cellIndex])
-  fireEvent.click(screen.getByRole('button', { name: label }))
+  // The statuses are the cell menu's radio items.
+  fireEvent.click(screen.getByRole('menuitemradio', { name: label }))
 }
 
 describe('ScheduleTab handleSetAvailability', () => {
@@ -140,7 +141,7 @@ describe('ScheduleTab handleSetAvailability', () => {
       ['Available', 'Set availability'].includes(el?.getAttribute('title') ?? '')
     )
     fireEvent.click(buttons[0])
-    fireEvent.click(screen.getByRole('button', { name: /Cancel session/i }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /Cancel session/i }))
 
     await waitFor(() => expect(campaigns.cancelDate).toHaveBeenCalledWith('c1', '2026-07-01'))
   })

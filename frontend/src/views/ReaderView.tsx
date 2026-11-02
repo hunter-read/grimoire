@@ -12,6 +12,7 @@ import { useFavorites } from '../context/FavoritesContext'
 import useReaderGestures from '../hooks/useReaderGestures'
 import useReaderZoom, { panForTurn, renderWidthFor } from '../hooks/useReaderZoom'
 import useIsMobile from '../hooks/useIsMobile'
+import usePageTitle from '../hooks/usePageTitle'
 import TocSidebar from '../components/reader/TocSidebar'
 import SearchSidebar from '../components/reader/SearchSidebar'
 import BookmarkSidebar from '../components/reader/BookmarkSidebar'
@@ -23,6 +24,7 @@ import type { TextSelection } from '../components/reader/SelectionPopup'
 import ReaderToolbar from '../components/reader/ReaderToolbar'
 import SpreadPage from '../components/reader/SpreadPage'
 import SinglePage from '../components/reader/SinglePage'
+import PageTextForScreenReaders from '../components/reader/PageTextForScreenReaders'
 import ZoomTiles from '../components/reader/ZoomTiles'
 import ImageBookViewer from '../components/reader/ImageBookViewer'
 import TextBookViewer from '../components/reader/TextBookViewer'
@@ -100,6 +102,9 @@ export default function ReaderView() {
   const [showShortcuts, setShowShortcuts] = useState(false)
 
   const { isFavorite, toggleFavorite } = useFavorites()
+  // Said aloud for a shortcut that changes something with no visible focus
+  // change to show for it (the favorite heart).
+  const [announcement, setAnnouncement] = useState('')
 
   const directionRef = useRef(1)
   const axisRef = useRef<Axis>('x')
@@ -402,6 +407,9 @@ export default function ReaderView() {
     const handleKeyDown = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null
       if (el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA' || el?.isContentEditable) return
+      // A modified key belongs to the browser or a screen reader: Cmd/Ctrl+F
+      // is find (and used to favorite the book too), Alt+Left is back.
+      if (e.ctrlKey || e.metaKey || e.altKey) return
       if (mode !== 'pdf') {
         if (e.key === 'ArrowLeft') {
           e.preventDefault()
@@ -436,7 +444,11 @@ export default function ReaderView() {
           resetZoom()
         }
       }
-      if (e.key === 'f') toggleFavorite('book', bookId)
+      if (e.key === 'f') {
+        const wasFavorite = isFavorite('book', bookId)
+        toggleFavorite('book', bookId)
+        setAnnouncement(t(wasFavorite ? 'a11y.favoriteOff' : 'a11y.favoriteOn'))
+      }
       if (e.key === 't') togglePanel('toc')
       if (e.key === 'b') togglePanel('bookmarks')
       if (e.key === 's') togglePanel('search')
@@ -455,7 +467,9 @@ export default function ReaderView() {
     step,
     goToPage,
     bookId,
+    isFavorite,
     toggleFavorite,
+    t,
     zoomIn,
     zoomOut,
     resetZoom,
@@ -508,6 +522,8 @@ export default function ReaderView() {
     contentRef,
     wheelAction,
   })
+
+  usePageTitle(book?.title ?? null)
 
   const backButton = (
     <button
@@ -590,10 +606,14 @@ export default function ReaderView() {
   const hasRight =
     mode === 'spread' && (spreadOffset === 1 || currentPage !== 1) && rightPage <= totalPages
 
-  const getAlt = (p: number) => {
-    const text = pageTextCacheRef.current[p]
-    return text || `${t('reader.page')} ${p} — ${book.title}`
-  }
+  // Short on purpose: the page's text used to be the alt, which a screen
+  // reader reads as one unbroken block. It now has its own paragraphs
+  // (PageTextForScreenReaders).
+  const getAlt = (p: number) => `${t('reader.page')} ${p} — ${book.title}`
+  const pagesShown = hasRight ? [currentPage, rightPage] : [currentPage]
+  const pageStatus = hasRight
+    ? t('a11y.pagesOf', { first: currentPage, last: rightPage, total: totalPages })
+    : t('a11y.readingProgress', { page: currentPage, total: totalPages })
 
   // `flex: 1` rather than `height: 100%`: `main` is a flex column that may also
   // hold the pending-invites banner, and a 100%-tall reader under it overflows
@@ -658,6 +678,22 @@ export default function ReaderView() {
         onZoomOut={zoomOut}
         onResetZoom={resetZoom}
       />
+
+      {/* Where the reader is, said again whenever the page turns. */}
+      {mode !== 'pdf' && totalPages > 0 && (
+        <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+          {pageStatus}
+        </div>
+      )}
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {announcement}
+      </div>
+      {mode !== 'pdf' && (
+        <PageTextForScreenReaders
+          pages={pagesShown.map((page) => ({ page, text: pageTextCacheRef.current[page] }))}
+          totalPages={totalPages}
+        />
+      )}
 
       {/* Content + optional sidebar */}
       {/* On a phone the cut-out stage keeps the page on screen with the export

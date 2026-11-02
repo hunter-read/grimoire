@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useRef, useState } from 'react'
 import type { CSSProperties, FormEvent } from 'react'
 import type { Schema } from '../../api'
 import { useTranslation } from 'react-i18next'
 import Spinner from '../Spinner'
+import useDialogFocus from '../../hooks/useDialogFocus'
 import ApiKeyPermissionGroup from './ApiKeyPermissionGroup'
 import ApiKeyPermissionRow from './ApiKeyPermissionRow'
 import type { PermissionRowData } from './ApiKeyPermissionRow'
@@ -38,7 +39,7 @@ const inputStyle: CSSProperties = {
   boxSizing: 'border-box',
   padding: '8px 10px',
   borderRadius: 6,
-  border: '1px solid var(--border)',
+  border: '1px solid var(--border-control)',
   background: 'var(--bg-card)',
   color: 'var(--text)',
   fontSize: 14,
@@ -74,13 +75,10 @@ export default function ApiKeyDialog({ apiKey, permissions, onSave, onClose }: P
     )
   })
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  // Focus in on open (the name field), held inside, Escape closes, and back to
+  // the button that opened it afterwards.
+  const formRef = useRef<HTMLFormElement>(null)
+  useDialogFocus(formRef, { onClose })
 
   const floor = levels[ALL] || 'none'
   const allRow = {
@@ -153,9 +151,6 @@ export default function ApiKeyDialog({ apiKey, permissions, onSave, onClose }: P
 
   return (
     <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="api-key-dialog-title"
       style={{
         position: 'fixed',
         inset: 0,
@@ -170,6 +165,10 @@ export default function ApiKeyDialog({ apiKey, permissions, onSave, onClose }: P
       }}
     >
       <form
+        ref={formRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="api-key-dialog-title"
         onSubmit={submit}
         style={{
           background: 'var(--bg-panel)',
@@ -183,11 +182,11 @@ export default function ApiKeyDialog({ apiKey, permissions, onSave, onClose }: P
           boxSizing: 'border-box',
         }}
       >
-        <h3 id="api-key-dialog-title" style={{ marginTop: 0, fontSize: 16, marginBottom: 16 }}>
+        <h2 id="api-key-dialog-title" style={{ marginTop: 0, fontSize: 16, marginBottom: 16 }}>
           {editing
             ? t('appSettings.apiKeys.dialog.editTitle')
             : t('appSettings.apiKeys.dialog.createTitle')}
-        </h3>
+        </h2>
 
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
           <label style={{ flex: '2 1 240px', fontSize: 13, color: 'var(--text-dim)' }}>
@@ -198,8 +197,8 @@ export default function ApiKeyDialog({ apiKey, permissions, onSave, onClose }: P
               maxLength={100}
               onChange={(e) => setName(e.target.value)}
               placeholder={t('appSettings.apiKeys.dialog.namePlaceholder')}
+              autoComplete="off"
               style={{ ...inputStyle, marginTop: 4 }}
-              autoFocus
             />
           </label>
           <label style={{ flex: '1 1 160px', fontSize: 13, color: 'var(--text-dim)' }}>

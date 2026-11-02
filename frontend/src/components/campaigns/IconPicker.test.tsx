@@ -162,4 +162,73 @@ describe('IconPicker', () => {
       )
     })
   })
+
+  describe('keyboard', () => {
+    it('lands in the search field and marks the chosen icon', async () => {
+      const user = userEvent.setup()
+      render(<IconPicker value="castle" onChange={vi.fn()} />)
+      const dialog = await open(user)
+      expect(within(dialog).getByRole('searchbox')).toHaveFocus()
+      expect(within(dialog).getByRole('button', { name: 'castle' })).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      )
+      expect(within(dialog).getByRole('button', { name: 'No icon' })).toHaveAttribute(
+        'aria-pressed',
+        'false'
+      )
+    })
+
+    it('moves through the grid with the arrow keys, Home and End', async () => {
+      const user = userEvent.setup()
+      render(<IconPicker value="" onChange={vi.fn()} />)
+      const dialog = await open(user)
+      const grid = within(dialog).getByRole('button', { name: 'No icon' }).parentElement!
+      const cells = within(grid).getAllByRole('button')
+      cells[0].focus()
+      fireEvent.keyDown(cells[0], { key: 'ArrowRight' })
+      expect(cells[1]).toHaveFocus()
+      fireEvent.keyDown(cells[1], { key: 'ArrowDown' })
+      expect(cells[8]).toHaveFocus()
+      fireEvent.keyDown(cells[8], { key: 'ArrowUp' })
+      expect(cells[1]).toHaveFocus()
+      fireEvent.keyDown(cells[1], { key: 'ArrowLeft' })
+      expect(cells[0]).toHaveFocus()
+      // Off the top edge stays put.
+      fireEvent.keyDown(cells[0], { key: 'ArrowUp' })
+      expect(cells[0]).toHaveFocus()
+      fireEvent.keyDown(cells[0], { key: 'End' })
+      expect(cells[cells.length - 1]).toHaveFocus()
+      fireEvent.keyDown(cells[cells.length - 1], { key: 'Home' })
+      expect(cells[0]).toHaveFocus()
+      // A key that isn't a move does nothing.
+      fireEvent.keyDown(cells[0], { key: 'a' })
+      expect(cells[0]).toHaveFocus()
+    })
+
+    it('switches tabs with Left and Right', async () => {
+      const user = userEvent.setup()
+      render(<IconPicker value="" onChange={vi.fn()} />)
+      const dialog = await open(user)
+      const [icons, emoji] = within(dialog).getAllByRole('tab')
+      expect(icons).toHaveAttribute('tabindex', '0')
+      expect(emoji).toHaveAttribute('tabindex', '-1')
+      icons.focus()
+      fireEvent.keyDown(icons, { key: 'ArrowRight' })
+      expect(emoji).toHaveAttribute('aria-selected', 'true')
+      expect(emoji).toHaveFocus()
+      fireEvent.keyDown(emoji, { key: 'ArrowLeft' })
+      expect(icons).toHaveFocus()
+      fireEvent.keyDown(icons, { key: 'Enter' })
+      expect(icons).toHaveAttribute('aria-selected', 'true')
+    })
+
+    it('says how many match as the search narrows', async () => {
+      const user = userEvent.setup()
+      render(<IconPicker value="" onChange={vi.fn()} />)
+      const dialog = await open(user)
+      await user.type(within(dialog).getByRole('searchbox'), 'castle')
+      expect(within(dialog).getByRole('status')).toHaveTextContent(/^Results: \d+$/)
+    })
+  })
 })

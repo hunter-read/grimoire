@@ -26,7 +26,7 @@ export default function FavToggle({ active, onClick }: FavToggleProps) {
         color: active ? 'var(--gold)' : 'var(--text-muted)',
         fontSize: 13,
         cursor: 'pointer',
-        transition: 'all 0.15s',
+        transition: 'background-color 0.15s, color 0.15s',
         whiteSpace: 'nowrap',
       }}
     >

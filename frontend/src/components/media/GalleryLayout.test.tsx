@@ -88,6 +88,13 @@ const baseProps = (over: Partial<ComponentProps<typeof GalleryLayout>> = {}) => 
 })
 
 describe('GalleryLayout', () => {
+  it('names the page with an h1 and the tab title, and reads out the count', () => {
+    render(<GalleryLayout {...baseProps()} />)
+    expect(screen.getByRole('heading', { level: 1, name: 'Maps' })).toBeInTheDocument()
+    expect(document.title).toBe('Maps - Grimoire')
+    expect(screen.getByText('Battle maps')).toHaveAttribute('aria-live', 'polite')
+  })
+
   it('renders title, subtitle, toolbar, and folder groups when grouped', () => {
     render(<GalleryLayout {...baseProps()} />)
     expect(screen.getByRole('heading', { name: 'Maps' })).toBeInTheDocument()

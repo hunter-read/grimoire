@@ -123,7 +123,7 @@ export default function ExportSidebar({
   }
 
   return (
-    <ReaderSidebarShell width={316} sheet={isCut} overflowHidden>
+    <ReaderSidebarShell width={316} sheet={isCut} overflowHidden label={t('pageExport.title')}>
       <div
         style={{
           display: 'flex',

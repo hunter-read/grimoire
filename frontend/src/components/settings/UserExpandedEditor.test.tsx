@@ -183,7 +183,7 @@ describe('UserExpandedEditor', () => {
   it('changes the role through onRoleChange', () => {
     const onRoleChange = vi.fn()
     setup({ onRoleChange })
-    fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'gm' } })
+    fireEvent.change(screen.getByLabelText(/^role for/i), { target: { value: 'gm' } })
     expect(onRoleChange).toHaveBeenCalledWith('u1', 'gm')
   })
 
@@ -231,5 +231,45 @@ describe('UserExpandedEditor', () => {
       fireEvent.click(toggle)
       expect(props.onApiKeysChange).not.toHaveBeenCalled()
     })
+  })
+})
+
+describe('UserExpandedEditor accessibility', () => {
+  it('is a region named after the user, with its role select named too', () => {
+    setup({ id: 'ed' })
+    const region = screen.getByRole('region', { name: 'Account settings for alice' })
+    expect(region).toHaveAttribute('id', 'ed')
+    expect(screen.getByRole('combobox', { name: 'Role for alice' })).toBeInTheDocument()
+  })
+
+  it('asks before deleting with focus on the safe answer, and returns focus on No', () => {
+    const props = setup()
+    const del = screen.getByRole('button', { name: 'Delete user alice' })
+    fireEvent.click(del)
+    const no = screen.getByRole('button', { name: 'No, keep alice' })
+    expect(no).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'Yes, delete alice' })).toBeInTheDocument()
+    fireEvent.click(no)
+    expect(screen.getByRole('button', { name: 'Delete user alice' })).toHaveFocus()
+    expect(props.onDelete).not.toHaveBeenCalled()
+  })
+
+  it('returns focus to Set Password when its form is cancelled', () => {
+    setup()
+    fireEvent.click(screen.getByRole('button', { name: 'Set Password' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.getByRole('button', { name: 'Set Password' })).toHaveFocus()
+  })
+})
+
+describe('UserEditorDisclosure', () => {
+  it('points its toggle at the body it opens', () => {
+    setup()
+    const toggle = screen.getByRole('button', { name: /campaigns/i, expanded: false })
+    expect(toggle).not.toHaveAttribute('aria-controls')
+    fireEvent.click(toggle)
+    const id = toggle.getAttribute('aria-controls')
+    expect(id).toBeTruthy()
+    expect(document.getElementById(id!)).toBeInTheDocument()
   })
 })
