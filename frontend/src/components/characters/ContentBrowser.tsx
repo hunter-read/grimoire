@@ -253,7 +253,7 @@ export default function ContentBrowser({
                       <div style={{ ...card, display: 'flex', alignItems: 'center', gap: 10 }}>
                         <button
                           onClick={() =>
-                            setDetail((detail as unknown) === entry.entry_id ? null : entry)
+                            setDetail(detail?.entry_id === entry.entry_id ? null : entry)
                           }
                           style={{
                             flex: 1,
