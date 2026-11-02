@@ -14,6 +14,10 @@ interface BookmarkDialogProps {
   onNotesChange: (notes: string) => void
   onSave: () => void
   onClose: () => void
+  /** Why the last save failed; shown above the buttons. */
+  error?: string
+  /** A save is in flight: Save is disabled so it cannot be sent twice. */
+  saving?: boolean
 }
 
 /** Modal dialog for naming and saving a new bookmark (page or text selection). */
@@ -25,6 +29,8 @@ export default function BookmarkDialog({
   onNotesChange,
   onSave,
   onClose,
+  error,
+  saving = false,
 }: BookmarkDialogProps) {
   const { t } = useTranslation()
   return (
@@ -137,6 +143,12 @@ export default function BookmarkDialog({
           }}
         />
 
+        {error && (
+          <p role="alert" style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--danger)' }}>
+            {error}
+          </p>
+        )}
+
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button
             onClick={onClose}
@@ -154,6 +166,7 @@ export default function BookmarkDialog({
           </button>
           <button
             onClick={onSave}
+            disabled={saving}
             style={{
               padding: '7px 16px',
               borderRadius: 6,
@@ -162,7 +175,8 @@ export default function BookmarkDialog({
               color: 'var(--bg-deep)',
               fontSize: 14,
               fontWeight: 600,
-              cursor: 'pointer',
+              cursor: saving ? 'default' : 'pointer',
+              opacity: saving ? 0.6 : 1,
             }}
           >
             {t('bookmark.save')}

@@ -413,6 +413,16 @@ describe('SystemDetailView — subfolder grouping', () => {
       expect(document.querySelector('svg')).toBeInTheDocument() // Spinner renders an SVG
     })
 
+    it('says a missing system is gone, rather than spinning', async () => {
+      mockGet.mockImplementation((url: string) =>
+        url.startsWith('/systems/system-1?')
+          ? Promise.reject(Object.assign(new Error('Not found'), { status: 404 }))
+          : Promise.resolve({})
+      )
+      renderView()
+      expect(await screen.findByRole('alert')).toHaveTextContent(/could not be found/i)
+    })
+
     it('shows the system-metadata Edit button for a normal system', async () => {
       serveSystem(makeSystem())
       renderView()

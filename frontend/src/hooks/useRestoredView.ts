@@ -25,7 +25,7 @@ export default function useRestoredView(): boolean {
     if (!restoreRef.current) return
     // eslint-disable-next-line @typescript-eslint/no-unused-vars -- dropped from the copy
     const { restoreView, ...rest } = state || {}
-    navigate(location.pathname + location.search, {
+    void navigate(location.pathname + location.search, {
       replace: true,
       state: Object.keys(rest).length ? rest : null,
     })

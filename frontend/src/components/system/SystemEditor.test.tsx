@@ -83,6 +83,16 @@ describe('SystemEditor', () => {
     expect(onSave).toHaveBeenCalled()
   })
 
+  it('stays open and says why when the save fails', async () => {
+    mockApi.patch.mockRejectedValueOnce(new Error('The server said no'))
+    const onSave = vi.fn()
+    render(<SystemEditor system={system()} onSave={onSave} />)
+    await userEvent.click(screen.getByText(/save changes/i))
+    expect(await screen.findByRole('alert')).toHaveTextContent('The server said no')
+    expect(onSave).not.toHaveBeenCalled()
+    expect(screen.getByText(/save changes/i)).toBeEnabled()
+  })
+
   it('adds a tag on Enter and includes it in the save payload', async () => {
     render(<SystemEditor system={system()} onSave={vi.fn()} />)
     const tagInput = screen.getByPlaceholderText(/tag/i)

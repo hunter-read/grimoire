@@ -25,6 +25,8 @@ export interface CampaignEditorProps {
   onClose: () => void
   onSaved: (campaign: Campaign) => void
   onDelete?: () => void
+  /** Why a delete started from this dialog failed; the page behind cannot show it. */
+  deleteError?: string
   onScheduleChanged?: () => void
 }
 
@@ -34,6 +36,7 @@ export default function CampaignEditor({
   onClose,
   onSaved,
   onDelete,
+  deleteError,
   onScheduleChanged,
 }: CampaignEditorProps) {
   const { t } = useTranslation()
@@ -155,7 +158,8 @@ export default function CampaignEditor({
       setError(t('campaignEditor.nameRequired'))
       return
     }
-    saveEdit()
+    // saveEdit reports its own failure.
+    void saveEdit()
   }
 
   const showGmTitle = form.is_gm_campaign || (isEdit && campaign?.is_gm_campaign)
@@ -410,12 +414,12 @@ export default function CampaignEditor({
               </div>
             )}
 
-            {error && (
+            {(error || deleteError) && (
               <div
                 role="alert"
                 style={{ color: 'var(--danger)', fontSize: 13, margin: '16px 0 12px' }}
               >
-                {error}
+                {error || deleteError}
               </div>
             )}
             <div

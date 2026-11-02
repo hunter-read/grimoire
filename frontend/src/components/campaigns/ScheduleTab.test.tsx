@@ -203,3 +203,21 @@ describe('ScheduleTab handleSetAvailability', () => {
     expect(campaigns.getAvailability).toHaveBeenCalledWith('c1')
   })
 })
+
+describe('ScheduleTab load failure', () => {
+  it('says the schedule could not load instead of spinning, and retries', async () => {
+    campaignsMock.getSchedule.mockRejectedValueOnce(new Error('offline'))
+    campaignsMock.getAvailability.mockResolvedValue({
+      next_sessions: [],
+      cancelled_dates: [],
+      rows: [],
+    })
+    render(<ScheduleTab campaign={campaign} isOwner={true} userId="gm1" />)
+    expect(await screen.findByRole('alert')).toHaveTextContent('This could not be loaded.')
+
+    campaignsMock.getSchedule.mockResolvedValue(scheduleData)
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
+    expect(campaigns.getSchedule).toHaveBeenCalledTimes(2)
+  })
+})

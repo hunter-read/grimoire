@@ -51,7 +51,7 @@ export default function InstalledPacks({ schemas, onChanged }: InstalledPacksPro
   }, [])
 
   useEffect(() => {
-    load()
+    void load()
   }, [load])
 
   const sheetName = (schemaId: string | undefined) =>
@@ -145,12 +145,12 @@ export default function InstalledPacks({ schemas, onChanged }: InstalledPacksPro
       {browsing ? (
         <PackCatalogue
           onInstalled={() => {
-            load()
+            void load()
             onChanged?.()
           }}
           onClose={() => {
             setBrowsing(false)
-            load()
+            void load()
           }}
         />
       ) : null}

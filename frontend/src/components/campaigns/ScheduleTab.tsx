@@ -4,6 +4,7 @@ import { LuCalendar } from 'react-icons/lu'
 import { campaigns, type Schema } from '../../api'
 import type { ScheduleData } from './_scheduleShared'
 import Spinner from '../Spinner'
+import LoadError from '../LoadError'
 import ScheduleEditor from './ScheduleEditor'
 import AvailabilityChart from './AvailabilityChart'
 import ScheduleSummary from './ScheduleSummary'
@@ -19,9 +20,15 @@ export default function ScheduleTab({ campaign, isOwner, userId }: ScheduleTabPr
   const [data, setData] = useState<ScheduleData | null>(null)
   const [availability, setAvailability] = useState<Schema<'AvailabilityOut'> | null>(null)
   const [editingSchedule, setEditingSchedule] = useState(false)
+  const [loadFailed, setLoadFailed] = useState(false)
 
-  const loadSchedule = () =>
-    campaigns.getSchedule(campaign.id).then((d) => setData(d as ScheduleData))
+  const loadSchedule = () => {
+    setLoadFailed(false)
+    return campaigns
+      .getSchedule(campaign.id)
+      .then((d) => setData(d as ScheduleData))
+      .catch(() => setLoadFailed(true))
+  }
   const loadAvailability = () =>
     campaigns
       .getAvailability(campaign.id)
@@ -31,8 +38,8 @@ export default function ScheduleTab({ campaign, isOwner, userId }: ScheduleTabPr
   // Reload when the campaign changes. `loadSchedule`/`loadAvailability` are
   // rebuilt every render, so depending on them would refetch in a loop.
   useEffect(() => {
-    loadSchedule()
-    loadAvailability()
+    void loadSchedule()
+    void loadAvailability()
   }, [campaign.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSetAvailability = async (date: string, status: string, targetUserId?: string) => {
@@ -41,13 +48,15 @@ export default function ScheduleTab({ campaign, isOwner, userId }: ScheduleTabPr
     const body =
       targetUserId && targetUserId !== userId ? { status, user_id: targetUserId } : { status }
     await campaigns.setAvailability(campaign.id, date, body)
-    loadAvailability()
+    void loadAvailability()
   }
 
   const handleCancelDate = async (date: string) => {
     await campaigns.cancelDate(campaign.id, date)
-    loadAvailability()
+    void loadAvailability()
   }
+
+  if (loadFailed) return <LoadError onRetry={() => void loadSchedule()} />
 
   if (!data)
     return (
@@ -67,12 +76,12 @@ export default function ScheduleTab({ campaign, isOwner, userId }: ScheduleTabPr
           onSaved={(result) => {
             setData(result)
             setEditingSchedule(false)
-            loadAvailability()
+            void loadAvailability()
           }}
           onDeleted={() => {
             setData({ definition: null, next_sessions: [] })
             setEditingSchedule(false)
-            loadAvailability()
+            void loadAvailability()
           }}
         />
       ) : (

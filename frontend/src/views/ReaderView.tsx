@@ -13,6 +13,7 @@ import useReaderGestures from '../hooks/useReaderGestures'
 import useReaderZoom, { panForTurn, renderWidthFor } from '../hooks/useReaderZoom'
 import useIsMobile from '../hooks/useIsMobile'
 import usePageTitle from '../hooks/usePageTitle'
+import useAsyncAction from '../hooks/useAsyncAction'
 import TocSidebar from '../components/reader/TocSidebar'
 import SearchSidebar from '../components/reader/SearchSidebar'
 import BookmarkSidebar from '../components/reader/BookmarkSidebar'
@@ -99,6 +100,12 @@ export default function ReaderView() {
   const [pendingBookmark, setPendingBookmark] = useState<PendingBookmark | null>(null)
   const [pendingLabel, setPendingLabel] = useState('')
   const [pendingNotes, setPendingNotes] = useState('')
+  const {
+    run: runBookmarkSave,
+    busy: bookmarkSaving,
+    error: bookmarkError,
+    setError: setBookmarkError,
+  } = useAsyncAction()
   const [showShortcuts, setShowShortcuts] = useState(false)
 
   const { isFavorite, toggleFavorite } = useFavorites()
@@ -330,24 +337,24 @@ export default function ReaderView() {
     return () => document.removeEventListener('mouseup', onMouseUp)
   }, [])
 
+  // A failed save keeps the dialog open, with what was typed, and says why.
   const saveBookmark = () => {
     if (!pendingBookmark) return
-    api
-      .post('/bookmarks', {
+    void runBookmarkSave(async () => {
+      await api.post('/bookmarks', {
         book_id: bookId,
         page_number: pendingBookmark.page,
         label: pendingLabel.trim(),
         notes: pendingNotes.trim(),
         selected_text: pendingBookmark.selectedText || null,
       })
-      .then(() => {
-        setBookmarkRefreshKey((k) => k + 1)
-        setPendingBookmark(null)
-        setPendingLabel('')
-        setPendingNotes('')
-        window.getSelection()?.removeAllRanges()
-        setSelectionPopup(null)
-      })
+      setBookmarkRefreshKey((k) => k + 1)
+      setPendingBookmark(null)
+      setPendingLabel('')
+      setPendingNotes('')
+      window.getSelection()?.removeAllRanges()
+      setSelectionPopup(null)
+    })
   }
 
   // Page URLs carry the book's content token so that replacing the PDF on disk
@@ -446,7 +453,7 @@ export default function ReaderView() {
       }
       if (e.key === 'f') {
         const wasFavorite = isFavorite('book', bookId)
-        toggleFavorite('book', bookId)
+        toggleFavorite('book', bookId).catch(() => setAnnouncement(t('common.error')))
         setAnnouncement(t(wasFavorite ? 'a11y.favoriteOff' : 'a11y.favoriteOn'))
       }
       if (e.key === 't') togglePanel('toc')
@@ -668,7 +675,7 @@ export default function ReaderView() {
           // from a path this view already resolved, so both leave the reader.
           // A rename is safe to stay on: the record — and so every page URL,
           // which is keyed by id — is unchanged.
-          if (action === 'delete' || action === 'move') goBack()
+          if (action === 'delete' || action === 'move') void goBack()
         }}
         zoom={zoom}
         canZoomIn={canZoomIn}
@@ -858,7 +865,10 @@ export default function ReaderView() {
           onLabelChange={setPendingLabel}
           onNotesChange={setPendingNotes}
           onSave={saveBookmark}
+          error={bookmarkError}
+          saving={bookmarkSaving}
           onClose={() => {
+            setBookmarkError('')
             setPendingBookmark(null)
             setPendingNotes('')
             setSelectionPopup(null)

@@ -125,7 +125,7 @@ export function ThemeProvider({ children }: { children?: ReactNode }) {
   )
 
   useEffect(() => {
-    reload()
+    void reload()
     // Only on mount: switching app mode calls reload itself.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

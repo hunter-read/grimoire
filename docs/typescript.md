@@ -105,6 +105,20 @@ top of the project's React rules, so `any` needs a reason
 (`// eslint-disable-next-line @typescript-eslint/no-explicit-any -- why`). `@ts-ignore` is
 never used; a `@ts-expect-error` carries a comment saying why.
 
+`@typescript-eslint/no-floating-promises` is on for everything under `src/` except tests: a
+promise nobody awaits or catches fails silently, as a spinner that never ends or a click
+that does nothing. Two hooks cover the common cases:
+
+- `useAsyncAction()` gives a handler `{ run, busy, error }`. `run(() => api.post(...))`
+  marks it busy, records a failure in `error` for the component to show, and never
+  rejects, so the handler fires it with `void run(...)`.
+- `useCancellableFetch(url)` loads a detail view's item, drops a response for an item the
+  user has already moved past, and reports a failure (with `notFound` for a 404) for
+  `LoadError` to show instead of a spinner.
+
+Prefix a promise with `void` only when nothing can go wrong that the user needs to hear
+about - the callee catches its own errors, or the work is best-effort, like a prefetch.
+
 ## TypeScript version
 
 TypeScript is held at 5.x: `openapi-typescript` and `typescript-eslint` are built on

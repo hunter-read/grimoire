@@ -72,7 +72,8 @@ export default function ShareView({ token }: ShareViewProps) {
       .catch((err: HttpError) => setStatus(err.status === 429 ? 'throttled' : 'missing'))
 
   useEffect(() => {
-    load()
+    // Reports its own failure through `status`.
+    void load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token])
 

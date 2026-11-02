@@ -70,7 +70,7 @@ export default function CodexSection() {
   }
 
   const saveUrl = () => {
-    if (url.trim() && url.trim() !== values!.url) save({ url: url.trim() })
+    if (url.trim() && url.trim() !== values!.url) void save({ url: url.trim() })
   }
 
   const runTest = () => {

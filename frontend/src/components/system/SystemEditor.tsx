@@ -12,6 +12,7 @@ import CoverUpload from './CoverUpload'
 import MetadataFetchDialog from './MetadataFetchDialog'
 import CodexPanel from '../codex/CodexPanel'
 import useMetadataSources from './useMetadataSources'
+import useAsyncAction from '../../hooks/useAsyncAction'
 import GenrePicker from '../metadata/GenrePicker'
 import TagPicker from '../metadata/TagPicker'
 import LinkListEditor from '../metadata/LinkListEditor'
@@ -130,6 +131,9 @@ export default function SystemEditor({
 
   const setTags = (tags: string[]) => setForm((f) => ({ ...f, tags }))
 
+  // A failed save keeps the editor open, with the form as typed, and says why.
+  const { run: runSave, busy: saving, error: saveError } = useAsyncAction()
+
   const handleSave = () => {
     const publishers = form.publishers.filter((p) => p.name!.trim())
     const year = form.year === '' ? null : Number(form.year)
@@ -149,9 +153,10 @@ export default function SystemEditor({
     // A rename makes the name sticky server-side (issues #261/#262), so mirror
     // that locally rather than waiting for a reload to reflect it.
     const renamed = data.name !== system.name
-    api
-      .patch(`/systems/${system.id}`, data)
-      .then(() => onSave(renamed ? { ...data, name_is_custom: true } : data))
+    void runSave(async () => {
+      await api.patch(`/systems/${system.id}`, data)
+      onSave(renamed ? { ...data, name_is_custom: true } : data)
+    })
   }
 
   const setPublisher = (idx: number, key: 'name' | 'url', value: string) =>
@@ -513,6 +518,7 @@ export default function SystemEditor({
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
         <button
           onClick={handleSave}
+          disabled={saving}
           style={{
             padding: '10px 24px',
             borderRadius: 6,
@@ -525,6 +531,11 @@ export default function SystemEditor({
         >
           {t('systemEditor.saveChanges')}
         </button>
+        {saveError && (
+          <span role="alert" style={{ marginTop: 8, fontSize: 13, color: 'var(--danger)' }}>
+            {saveError}
+          </span>
+        )}
 
         {hasSources && (
           <button

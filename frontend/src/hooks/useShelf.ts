@@ -7,7 +7,7 @@ import {
   type Dispatch,
   type SetStateAction,
 } from 'react'
-import api, { type Schema } from '../api'
+import api, { type ApiError, type Schema } from '../api'
 import usePagedLists, { type PagedLists } from './usePagedLists'
 import { bookFilterParams, browseKey, withQuery, type BrowseFilters } from '../utils/browseParams'
 import { buildShelf, splitNodeKey, type ShelfNode } from '../components/system/shelfTree'
@@ -19,6 +19,8 @@ export type ShelfGroups = Schema<'ShelfGroupsResponse'>
 
 export interface Shelf {
   system: ShelfSystem | null
+  /** Set when the system itself could not be loaded; `notFound` on a 404. */
+  systemError: { message: string; notFound: boolean } | null
   setSystem: Dispatch<SetStateAction<ShelfSystem | null>>
   facets: ShelfFacets
   groups: ShelfGroups | null
@@ -82,6 +84,7 @@ export default function useShelf(
   { grouped, bookFilter, ready = true }: ShelfOptions
 ): Shelf {
   const [system, setSystem] = useState<ShelfSystem | null>(null)
+  const [systemError, setSystemError] = useState<Shelf['systemError']>(null)
   const [facets, setFacets] = useState<ShelfFacets>(EMPTY_FACETS)
   const [groups, setGroups] = useState<ShelfGroups | null>(null)
   const [version, setVersion] = useState(0)
@@ -97,12 +100,19 @@ export default function useShelf(
     () =>
       api
         .get(withQuery(`/systems/${systemId}`, { include_books: 'false' }))
-        .then((s) => setSystem(s as ShelfSystem)),
+        .then((s) => {
+          setSystemError(null)
+          setSystem(s as ShelfSystem)
+        })
+        .catch((e: unknown) => {
+          const err = e as ApiError | undefined
+          setSystemError({ message: err?.message || '', notFound: err?.status === 404 })
+        }),
     [systemId]
   )
 
   useEffect(() => {
-    reloadSystem()
+    void reloadSystem()
   }, [reloadSystem, version])
 
   useEffect(() => {
@@ -186,6 +196,7 @@ export default function useShelf(
 
   return {
     system,
+    systemError,
     setSystem,
     facets,
     groups,

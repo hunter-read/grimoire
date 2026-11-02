@@ -124,8 +124,9 @@ export function useLibraryPane(initialPath = '') {
   }, [])
 
   // Load the root whenever the pane is re-anchored.
+  // load() records a failure on the folder itself, so these never reject.
   useEffect(() => {
-    load(path)
+    void load(path)
   }, [path, load])
 
   const navigate = useCallback((next?: string | null) => {
@@ -161,7 +162,7 @@ export function useLibraryPane(initialPath = '') {
         }
         return next
       })
-      if (!requested.current.has(folderPath)) load(folderPath)
+      if (!requested.current.has(folderPath)) void load(folderPath)
     },
     [load]
   )
@@ -175,7 +176,7 @@ export function useLibraryPane(initialPath = '') {
         next.add(folderPath)
         return next
       })
-      if (!requested.current.has(folderPath)) load(folderPath)
+      if (!requested.current.has(folderPath)) void load(folderPath)
     },
     [load]
   )
@@ -215,7 +216,7 @@ export function useLibraryPane(initialPath = '') {
       // created would not contain it, so reusing that request would show a
       // stale folder and look like the create silently failed.
       inFlight.current.delete(folderPath)
-      load(folderPath)
+      void load(folderPath)
     },
     [load, path]
   )

@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuCircleCheck, LuEye, LuLock } from 'react-icons/lu'
 import { settings as settingsApi, type Schema } from '../../api'
 import Spinner from '../Spinner'
 import { useUnsavedChanges } from './settingsDirty'
+import SettingsLoadError from './SettingsLoadError'
+import { failureMessage } from './useInstantSettings'
 
 type Settings = Schema<'SettingsResponse'>
 type Mode = 'auto' | 'events' | 'poll'
@@ -38,11 +40,11 @@ export default function WatchLibrarySection() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
-  const apply = (next: Settings) => {
+  const apply = useCallback((next: Settings) => {
     setData(next)
     setEnabled(next.library_watch_enabled ?? true)
     setMode(savedMode(next))
-  }
+  }, [])
 
   // Edits not yet saved. A setting pinned by the environment can't differ.
   const dirty =
@@ -51,9 +53,14 @@ export default function WatchLibrarySection() {
       (!data.library_watch_mode_env_locked && mode !== savedMode(data)))
   useUnsavedChanges('watch', dirty)
 
-  useEffect(() => {
-    settingsApi.get().then(apply)
-  }, [])
+  // The failed load itself, worded at render time.
+  const [loadError, setLoadError] = useState<unknown>(null)
+  const load = useCallback(() => {
+    setLoadError(null)
+    settingsApi.get().then(apply).catch(setLoadError)
+  }, [apply])
+
+  useEffect(load, [load])
 
   const handleSave = async () => {
     if (!data) return
@@ -105,7 +112,11 @@ export default function WatchLibrarySection() {
       </p>
 
       {!data ? (
-        <Spinner size={20} />
+        loadError ? (
+          <SettingsLoadError message={failureMessage(loadError, t, 'load')} onRetry={load} />
+        ) : (
+          <Spinner size={20} />
+        )
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>

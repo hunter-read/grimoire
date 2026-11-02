@@ -220,12 +220,15 @@ export default function DuplicateCompareView() {
     ...(filterType ? { type: filterType } : {}),
     ...(filterMatch ? { match: filterMatch } : {}),
   }).toString()
-  const backToList = () => navigate(`/settings/duplicates${filterQs ? `?${filterQs}` : ''}`)
-  const openGroup = (g: DuplicateGroup) =>
-    navigate(
+  const backToList = () => {
+    void navigate(`/settings/duplicates${filterQs ? `?${filterQs}` : ''}`)
+  }
+  const openGroup = (g: DuplicateGroup) => {
+    void navigate(
       `/settings/duplicates/compare/${g.resource_type}?group=${encodeURIComponent(g.id)}` +
         (filterQs ? `&${filterQs}` : '')
     )
+  }
 
   // Settled: on to the next group, or the end of the queue. Outside the queue
   // there is nothing to move on to, so back to the list.
@@ -368,15 +371,16 @@ export default function DuplicateCompareView() {
         setKeeper(visibleIds[n - 1])
         return
       }
+      // Each reports its own failure through `error` (see `act`).
       switch (e.key.toLowerCase()) {
         case 'm':
-          merge()
+          void merge()
           break
         case 'l':
-          link()
+          void link()
           break
         case 'd':
-          dismiss()
+          void dismiss()
           break
         case 's':
         case 'arrowright':

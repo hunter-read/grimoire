@@ -429,6 +429,14 @@ describe('BookRow', () => {
     expect(toggleFavorite).toHaveBeenCalledWith('book', 'book-1')
   })
 
+  it('says so when the favorite toggle fails', async () => {
+    const toggleFavorite = vi.fn().mockRejectedValue(new Error('Favorites are unavailable'))
+    mockUseFavorites.mockReturnValue({ isFavorite: () => false, toggleFavorite })
+    render(<BookRow book={makeBook()} />)
+    fireEvent.click(screen.getByRole('button', { name: /add player's handbook to favorites/i }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Favorites are unavailable')
+  })
+
   it('clicking the download menu item works', () => {
     render(<BookRow book={makeBook()} />)
     fireEvent.click(screen.getByRole('button', { name: /more actions/i }))

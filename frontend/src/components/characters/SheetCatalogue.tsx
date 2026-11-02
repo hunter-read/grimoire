@@ -55,7 +55,7 @@ export default function SheetCatalogue({ onInstalled, onClose }: SheetCatalogueP
   }, [t])
 
   useEffect(() => {
-    load()
+    void load()
   }, [load])
 
   useEffect(() => {

@@ -166,12 +166,21 @@ describe('BookActionsMenu', () => {
       expect(heart()).toHaveAttribute('fill', 'var(--gold)')
     })
 
-    it('toggles this book and closes the menu', () => {
+    it('toggles this book and closes the menu', async () => {
       renderMenu({ id: 'b5' })
       fireEvent.click(screen.getByLabelText('a11y.bookActions'))
       fireEvent.click(item())
       expect(mockToggleFavorite).toHaveBeenCalledWith('book', 'b5')
-      expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+      await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument())
+    })
+
+    it('stays open and says why when the toggle fails', async () => {
+      mockToggleFavorite.mockRejectedValueOnce(new Error('Favorites are unavailable'))
+      renderMenu({ id: 'b5' })
+      fireEvent.click(screen.getByLabelText('a11y.bookActions'))
+      fireEvent.click(item())
+      expect(await screen.findByRole('alert')).toHaveTextContent('Favorites are unavailable')
+      expect(screen.getByRole('menu')).toBeInTheDocument()
     })
 
     it('is offered to a player too', () => {

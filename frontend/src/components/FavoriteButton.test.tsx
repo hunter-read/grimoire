@@ -23,6 +23,14 @@ describe('FavoriteButton', () => {
     toggleFavorite.mockReset()
   })
 
+  it('says so when the toggle fails', async () => {
+    toggleFavorite.mockRejectedValue(new Error('Favorites are unavailable'))
+    setup(false)
+    fireEvent.click(screen.getByRole('button'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Favorites are unavailable')
+    expect(screen.getByRole('button')).toHaveAttribute('title', 'Favorites are unavailable')
+  })
+
   it('renders a button element', () => {
     setup(false)
     expect(screen.getByRole('button')).toBeInTheDocument()

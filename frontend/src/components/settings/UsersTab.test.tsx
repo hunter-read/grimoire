@@ -287,3 +287,14 @@ describe('UsersTab accessibility', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('nope')
   })
 })
+
+describe('UsersTab loading', () => {
+  it('shows a failed load instead of spinning, and retries it', async () => {
+    vi.mocked(api.get).mockRejectedValueOnce(Object.assign(new Error('boom'), { status: 500 }))
+    render(<UsersTab />, { wrapper: MemoryRouter })
+    expect(await screen.findByRole('alert')).toHaveTextContent(/boom/)
+
+    fireEvent.click(screen.getByRole('button', { name: /try again/i }))
+    expect(await screen.findByText('bob')).toBeInTheDocument()
+  })
+})

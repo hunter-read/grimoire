@@ -65,7 +65,7 @@ export default function EditVttButton({ map, compact }: EditVttButtonProps) {
 
   const go = (target: EditTarget) => {
     setOpen(false)
-    navigate(`/maps/${target.id}/vtt-editor`)
+    void navigate(`/maps/${target.id}/vtt-editor`)
   }
 
   if (targets.length === 1) {

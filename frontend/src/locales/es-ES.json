@@ -100,7 +100,10 @@
     "removeLink": "Eliminar enlace",
     "newBadge": "Nuevo",
     "dismissError": "Descartar error",
-    "confirm": "Confirmar"
+    "confirm": "Confirmar",
+    "notFound": "No se ha encontrado. Puede que se haya movido o eliminado.",
+    "loadFailed": "No se ha podido cargar.",
+    "tryAgain": "Reintentar"
   },
   "errorBoundary": {
     "message": "Se ha producido un error y no se ha podido mostrar esta página. Recarga para volver a intentarlo o vuelve atrás.",

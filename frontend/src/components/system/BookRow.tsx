@@ -7,6 +7,7 @@ import { bookThumbUrl, mediaUrl } from '../../api'
 import type { Schema } from '../../api'
 import { CATEGORY_ICONS, isArchiveBook } from '../../constants'
 import { useFavorites } from '../../context/FavoritesContext'
+import useAsyncAction from '../../hooks/useAsyncAction'
 import { getBookPrefs } from '../../hooks/useBookPrefs'
 import FavoriteButton from '../FavoriteButton'
 import LazyImg from '../LazyImg'
@@ -76,6 +77,7 @@ export default function BookRow({
   const [hovered, setHovered] = useState(false)
   const rowRef = useRef<HTMLDivElement>(null)
   const { isFavorite, toggleFavorite } = useFavorites()
+  const { run: runFavorite, error: favoriteError } = useAsyncAction()
   const isArchive = isArchiveBook(book)
   const CatIcon = isArchive ? LuFileArchive : CATEGORY_ICONS[book.category as string] || LuFileText
 
@@ -182,8 +184,10 @@ export default function BookRow({
       <button
         onClick={(e) => {
           e.stopPropagation()
-          toggleFavorite('book', book.id)
+          void runFavorite(() => toggleFavorite('book', book.id))
         }}
+        // A failed toggle leaves the heart as it was; the tint and title say why.
+        title={favoriteError || undefined}
         aria-label={t(fav ? 'a11y.removeFromFavorites' : 'a11y.addToFavorites', {
           name: book.title,
         })}
@@ -200,8 +204,14 @@ export default function BookRow({
           aria-hidden="true"
           color={fav ? 'var(--gold)' : 'var(--text-muted)'}
           fill={fav ? 'var(--gold)' : 'none'}
+          stroke={favoriteError ? 'var(--danger)' : undefined}
         />
       </button>
+      {favoriteError && (
+        <span className="sr-only" role="alert">
+          {favoriteError}
+        </span>
+      )}
       {detailsButton}
       <BookActionsMenu
         book={book}

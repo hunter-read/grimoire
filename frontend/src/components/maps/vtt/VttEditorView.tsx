@@ -505,7 +505,7 @@ export default function VttEditorView() {
       await campaignsApi.uploadFile(campaignId, file, categoryId ? { categoryId } : {})
       markSaved()
       setChoosingCampaign(false)
-      navigate(`/campaigns/${campaignId}`)
+      void navigate(`/campaigns/${campaignId}`)
     } catch {
       setSaveError(true)
     } finally {
@@ -527,7 +527,7 @@ export default function VttEditorView() {
 
   const goBack = () => {
     if (dirty && !window.confirm(t('maps.vtt.unsavedConfirm'))) return
-    navigate(mapId ? `/maps/${mapId}` : '/maps')
+    void navigate(mapId ? `/maps/${mapId}` : '/maps')
   }
 
   if (loadError)

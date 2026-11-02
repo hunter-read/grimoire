@@ -74,6 +74,7 @@ export default function CategoryManager({
   const [editName, setEditName] = useState('')
   const [deleting, setDeleting] = useState<CatLike | null>(null) // the category pending delete-mode choice
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
   // The unified, ordered list of rows shown when type groups are included.
   const [rows, setRows] = useState<GroupRow[] | null>(null)
 
@@ -133,11 +134,14 @@ export default function CategoryManager({
     const name = newName.trim()
     if (!name) return
     setBusy(true)
+    setError('')
     try {
       await campaigns.createCategory(campaignId, name, kind)
       setNewName('')
       load()
       onChanged?.()
+    } catch (err) {
+      setError((err as Error | undefined)?.message || t('common.error'))
     } finally {
       setBusy(false)
     }
@@ -147,11 +151,14 @@ export default function CategoryManager({
     const name = editName.trim()
     if (!name) return
     setBusy(true)
+    setError('')
     try {
       await campaigns.renameCategory(campaignId, id, name)
       setEditingId(null)
       load()
       onChanged?.()
+    } catch (err) {
+      setError((err as Error | undefined)?.message || t('common.error'))
     } finally {
       setBusy(false)
     }
@@ -265,7 +272,7 @@ export default function CategoryManager({
           value={editName}
           onChange={(e) => setEditName(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') rename(c.id)
+            if (e.key === 'Enter') void rename(c.id)
           }}
           // Esc cancels the rename only, not the whole dialog. Caught in the
           // capture phase: the dialog's own Esc listener (useDialogFocus) sits on
@@ -439,7 +446,7 @@ export default function CategoryManager({
           <input
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && create()}
+            onKeyDown={(e) => e.key === 'Enter' && void create()}
             placeholder={t('campaignCategories.newPlaceholder')}
             aria-label={t('campaignCategories.newPlaceholder')}
             style={{
@@ -457,6 +464,12 @@ export default function CategoryManager({
             <LuPlus size={14} /> {t('campaignCategories.add')}
           </button>
         </div>
+
+        {error && (
+          <p role="alert" style={{ color: 'var(--danger)', fontSize: 13, margin: '0 0 12px' }}>
+            {error}
+          </p>
+        )}
 
         <div style={{ overflowY: 'auto', flex: 1 }}>{renderList()}</div>
 

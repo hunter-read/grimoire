@@ -111,7 +111,8 @@ export default function TokenEditorView() {
 
   useEffect(() => {
     let cancelled = false
-    fetchFrames().then((rows) => {
+    // fetchFrames falls back to the built-in frames rather than rejecting.
+    void fetchFrames().then((rows) => {
       if (!cancelled) setFrames(rows)
     })
     return () => {
@@ -141,7 +142,7 @@ export default function TokenEditorView() {
   // is same-origin and authenticated by cookie, so the canvas stays untainted.
   useEffect(() => {
     if (!tokenId) return
-    applySource(mediaUrl(`/tokens/${tokenId}/file`))
+    void applySource(mediaUrl(`/tokens/${tokenId}/file`))
     // applySource is stable enough for this one-shot; re-running on every render
     // would refetch the image endlessly.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -180,7 +181,7 @@ export default function TokenEditorView() {
   const onFile = useCallback(
     (file: File) => {
       releaseObjectUrl()
-      applySource(file)
+      void applySource(file)
     },
     [applySource, releaseObjectUrl]
   )
@@ -194,7 +195,7 @@ export default function TokenEditorView() {
         type === 'token' || type === 'map'
           ? mediaUrl(`/${type}s/${id}/file`)
           : imageSources.thumbUrl(type, id)
-      if (url) applySource(url)
+      if (url) void applySource(url)
     },
     [applySource]
   )
@@ -275,7 +276,7 @@ export default function TokenEditorView() {
       const file = new File([blob], filename, { type: 'image/png' })
       await send(file)
       setChoosingDestination(false)
-      navigate(`/campaigns/${campaignId}`, { state: { artUpdated: Date.now() } })
+      void navigate(`/campaigns/${campaignId}`, { state: { artUpdated: Date.now() } })
     } catch (err) {
       setError((err as Error).message || t('tokenEditor.saveFailed'))
     } finally {
@@ -302,7 +303,7 @@ export default function TokenEditorView() {
   // and skips the chooser entirely.
   const onSetAsArt = () => {
     if (target.campaignId && target.memberId) {
-      saveAsArt(target as MemberTarget)
+      void saveAsArt(target as MemberTarget)
       return
     }
     setChoosingDestination(true)

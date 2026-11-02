@@ -592,3 +592,16 @@ describe('AddonsSection', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Save Error')
   })
 })
+
+describe('AddonsSection loading', () => {
+  it('shows a failed load instead of spinning, and retries it', async () => {
+    vi.mocked(api.get).mockRejectedValueOnce(Object.assign(new Error('boom'), { status: 500 }))
+    render(<AddonsSection />)
+    expect(await screen.findByRole('alert')).toHaveTextContent('settings.save.loadFailed')
+
+    mockState({ installed: [INSTALLED] })
+    await userEvent.click(screen.getByRole('button', { name: 'settings.save.retry' }))
+    expect(await screen.findByText('TTRPG Wiki')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+})

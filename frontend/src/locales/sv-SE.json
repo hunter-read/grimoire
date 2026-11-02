@@ -100,7 +100,10 @@
     "removeLink": "Ta bort länk",
     "newBadge": "Ny",
     "dismissError": "Stäng felmeddelandet",
-    "confirm": "Bekräfta"
+    "confirm": "Bekräfta",
+    "notFound": "Det här hittades inte. Det kan ha flyttats eller tagits bort.",
+    "loadFailed": "Det här kunde inte läsas in.",
+    "tryAgain": "Försök igen"
   },
   "errorBoundary": {
     "message": "Ett fel uppstod och sidan kunde inte visas. Läs in igen för att försöka på nytt, eller gå tillbaka.",

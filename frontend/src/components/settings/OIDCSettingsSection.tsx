@@ -13,6 +13,8 @@ import {
 import api, { settings as settingsApi, type Schema } from '../../api'
 import Spinner from '../Spinner'
 import OIDCButtonAppearance from './OIDCButtonAppearance'
+import SettingsLoadError from './SettingsLoadError'
+import { failureMessage } from './useInstantSettings'
 import { useUnsavedChanges } from './settingsDirty'
 
 type Settings = Schema<'SettingsResponse'>
@@ -83,6 +85,8 @@ const BOOL_FIELDS = ['oidc_enabled', 'oidc_auto_launch', 'oidc_auto_register']
 export default function OIDCSettingsSection() {
   const { t } = useTranslation()
   const [data, setData] = useState<Settings | null>(null)
+  // The failed load itself, worded at render time.
+  const [loadError, setLoadError] = useState<unknown>(null)
   const [draft, setDraft] = useState<Draft>({})
   const [secretDraft, setSecretDraft] = useState('') // empty = no change
   const [showSecret, setShowSecret] = useState(false)
@@ -115,7 +119,8 @@ export default function OIDCSettingsSection() {
   }, [])
 
   const reload = useCallback(() => {
-    settingsApi.get().then(setData)
+    setLoadError(null)
+    settingsApi.get().then(setData).catch(setLoadError)
   }, [])
 
   useEffect(() => {
@@ -144,7 +149,12 @@ export default function OIDCSettingsSection() {
       ))
   useUnsavedChanges('oidc', dirty)
 
-  if (!data) return <Spinner size={20} />
+  if (!data)
+    return loadError ? (
+      <SettingsLoadError message={failureMessage(loadError, t, 'load')} onRetry={reload} />
+    ) : (
+      <Spinner size={20} />
+    )
 
   const isLocked = (key: string) => !!field(data, `${key}_env_locked`)
   const text = (key: string) => (draft[key] as string | undefined) ?? ''
@@ -175,7 +185,7 @@ export default function OIDCSettingsSection() {
   const handleStringBlur = (key: string) => {
     const v = text(key)
     if (v === ((field(data, key) as string | undefined) ?? '')) return
-    saveField(key, v)
+    void saveField(key, v)
   }
 
   const handleBoolToggle = (key: string) => {
@@ -183,12 +193,12 @@ export default function OIDCSettingsSection() {
     if (savingField === key) return
     const next = !draft[key]
     setDraft((d) => ({ ...d, [key]: next }))
-    saveField(key, next)
+    void saveField(key, next)
   }
 
   const handleSelectChange = (key: string, value: string) => {
     setDraft((d) => ({ ...d, [key]: value }))
-    saveField(key, value)
+    void saveField(key, value)
   }
 
   const handleDiscover = async () => {
@@ -273,9 +283,15 @@ export default function OIDCSettingsSection() {
   }
 
   const handleCopyRedirect = () => {
-    navigator.clipboard.writeText(data.oidc_redirect_uri)
-    setRedirectCopied(true)
-    later(() => setRedirectCopied(false), 1500)
+    // Only claim it was copied once it was; an insecure origin has no
+    // clipboard, and the URL is on screen to select by hand.
+    navigator.clipboard.writeText(data.oidc_redirect_uri).then(
+      () => {
+        setRedirectCopied(true)
+        later(() => setRedirectCopied(false), 1500)
+      },
+      () => {}
+    )
   }
 
   // ---------- helpers ----------

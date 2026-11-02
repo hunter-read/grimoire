@@ -34,6 +34,7 @@ import AnchoredPopover from '../components/campaigns/AnchoredPopover'
 import { formatScheduleTime, USER_TZ } from '../components/campaigns/_scheduleShared'
 import useIsMobile from '../hooks/useIsMobile'
 import usePageTitle from '../hooks/usePageTitle'
+import useAsyncAction from '../hooks/useAsyncAction'
 
 type Campaign = ResponseOf<'/campaigns/{campaign_id}', 'get'>
 type Member = Campaign['members'][number]
@@ -162,6 +163,9 @@ export default function CampaignDetailView() {
   const inviteBtnRef = useRef<HTMLButtonElement>(null)
   const guestBtnRef = useRef<HTMLButtonElement>(null)
   const [error, setError] = useState<string | null>(null)
+  // Failures of the header and member actions, shown above the page rather
+  // than in place of it: the campaign itself is still there.
+  const { run: runAction, error: actionError } = useAsyncAction()
   usePageTitle(campaign?.name ?? null)
 
   const load = () => {
@@ -271,37 +275,47 @@ export default function CampaignDetailView() {
     !isArchived &&
     !selfDisabled
 
-  const deleteCampaign = async () => {
+  const deleteCampaign = () => {
     if (!confirm(t('campaignDetail.deleteConfirm', { name: campaign.name }))) return
-    await campaigns.delete(campaign.id)
-    navigate('/campaigns')
+    void runAction(async () => {
+      await campaigns.delete(campaign.id)
+      await navigate('/campaigns')
+    })
   }
 
-  const toggleArchived = async () => {
+  const toggleArchived = () => {
     if (!isArchived && !confirm(t('campaignDetail.archiveConfirm', { name: campaign.name }))) return
-    await campaigns.setArchived(campaign.id, !isArchived)
-    load()
+    void runAction(async () => {
+      await campaigns.setArchived(campaign.id, !isArchived)
+      load()
+    })
   }
 
-  const convertToGroup = async () => {
+  const convertToGroup = () => {
     if (!confirm(t('campaignDetail.convertConfirm', { name: campaign.name }))) return
-    await campaigns.convertToGroup(campaign.id)
-    load()
+    void runAction(async () => {
+      await campaigns.convertToGroup(campaign.id)
+      load()
+    })
   }
 
-  const handleUpdateMember = async (userId: string, status: string) => {
-    await campaigns.updateMember(campaignId, userId, status)
-    load()
+  const handleUpdateMember = (userId: string, status: string) => {
+    void runAction(async () => {
+      await campaigns.updateMember(campaignId, userId, status)
+      load()
+    })
   }
 
-  const handleRemoveMember = async (userId: string) => {
+  const handleRemoveMember = (userId: string) => {
     // Name who is being removed: a bare "Delete?" doesn't say, and a screen
     // reader user may not have the row in view.
     const member = campaign.members?.find((m: Member) => m.user_id === userId)
     const name = member?.display_name || member?.username || ''
     if (!confirm(t('a11y.campaign.removeMemberConfirm', { name }))) return
-    await campaigns.removeMember(campaignId, userId)
-    load()
+    void runAction(async () => {
+      await campaigns.removeMember(campaignId, userId)
+      load()
+    })
   }
 
   const handleSetCharacterName = async (userId: string, character_name: string) => {
@@ -309,10 +323,12 @@ export default function CampaignDetailView() {
     load()
   }
 
-  const leaveCampaign = async () => {
+  const leaveCampaign = () => {
     if (!confirm(t('campaignDetail.leaveConfirm', { name: campaign.name }))) return
-    await campaigns.removeMember(campaignId, user?.id ?? '')
-    navigate('/campaigns')
+    void runAction(async () => {
+      await campaigns.removeMember(campaignId, user?.id ?? '')
+      await navigate('/campaigns')
+    })
   }
 
   return (
@@ -332,6 +348,11 @@ export default function CampaignDetailView() {
         <LuChevronLeft size={14} /> {t('campaignDetail.backToCampaigns')}
       </Link>
 
+      {actionError && (
+        <p role="alert" style={{ color: 'var(--danger)', fontSize: 14, margin: '0 0 12px' }}>
+          {actionError}
+        </p>
+      )}
       {readOnlyNotice && (
         <div
           style={{
@@ -752,6 +773,7 @@ export default function CampaignDetailView() {
             setShowEditor(false)
           }}
           onDelete={deleteCampaign}
+          deleteError={actionError}
           onScheduleChanged={() => {
             loadSchedule()
             loadAvailability()

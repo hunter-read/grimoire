@@ -21,6 +21,7 @@ import api, { mediaUrl } from '../../api'
 import type { Schema } from '../../api'
 import { useUISettings } from '../../context/UISettingsContext'
 import { useFavorites } from '../../context/FavoritesContext'
+import useAsyncAction from '../../hooks/useAsyncAction'
 import { getBookPrefs, saveBookPrefs } from '../../hooks/useBookPrefs'
 import useFileActions from '../../hooks/useFileActions'
 import useAnchoredMenu, { pointFromEvent } from '../../hooks/useAnchoredMenu'
@@ -113,6 +114,7 @@ export default function BookActionsMenu({
   const { t } = useTranslation()
   const { hide_campaigns } = useUISettings()
   const { isFavorite, toggleFavorite } = useFavorites()
+  const { run: runFavorite, error: favoriteError, setError: setFavoriteError } = useAsyncAction()
   const fav = isFavorite('book', book.id)
   const [open, setOpen] = useState(false)
   const [addToCampaign, setAddToCampaign] = useState(false)
@@ -252,6 +254,7 @@ export default function BookActionsMenu({
           setAt(null)
           setShowDpi(false)
           setState('idle')
+          setFavoriteError('')
           setProgressReset(false)
         }}
         aria-label={t('a11y.bookActions', { title: book.title })}
@@ -327,8 +330,11 @@ export default function BookActionsMenu({
               data-testid="book-toggle-favorite"
               onClick={(e) => {
                 e.stopPropagation()
-                close()
-                toggleFavorite('book', book.id)
+                // Closes once it has worked; on failure the menu stays open to say so.
+                void runFavorite(async () => {
+                  await toggleFavorite('book', book.id)
+                  close()
+                })
               }}
               style={itemStyle}
             >
@@ -483,6 +489,15 @@ export default function BookActionsMenu({
                     ? `✓ ${t('bookActions.rescanQueued')}`
                     : t('bookActions.rescan')}
               </button>
+            )}
+
+            {favoriteError && (
+              <div
+                role="alert"
+                style={{ fontSize: 11, color: 'var(--danger)', padding: '2px 12px 8px' }}
+              >
+                {favoriteError}
+              </div>
             )}
 
             {state === 'error' && (

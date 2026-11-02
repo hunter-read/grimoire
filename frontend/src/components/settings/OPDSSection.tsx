@@ -51,9 +51,14 @@ export default function OPDSSection() {
 
   const handleCopy = () => {
     if (feedUrl) {
-      navigator.clipboard.writeText(feedUrl)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      // Only claim it was copied once it was; the URL is on screen to select.
+      navigator.clipboard.writeText(feedUrl).then(
+        () => {
+          setCopied(true)
+          setTimeout(() => setCopied(false), 2000)
+        },
+        () => {}
+      )
     }
   }
 

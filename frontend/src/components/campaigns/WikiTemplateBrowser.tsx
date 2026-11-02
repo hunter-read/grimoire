@@ -84,7 +84,8 @@ const WikiTemplateBrowser = forwardRef<WikiTemplateBrowserHandle, WikiTemplateBr
     )
 
     useEffect(() => {
-      load(false)
+      // load reports its own failure through onError.
+      void load(false)
     }, [load])
 
     const toggle = (path: string) =>
@@ -315,7 +316,7 @@ const WikiTemplateBrowser = forwardRef<WikiTemplateBrowserHandle, WikiTemplateBr
             defaultIndexUrl={data?.default_index_url as string | undefined}
             trustedIndexUrls={data?.trusted_index_urls || []}
             onSelect={(indexUrl) => {
-              download(contextMenu.tpl.id, indexUrl)
+              void download(contextMenu.tpl.id, indexUrl)
             }}
             onClose={() => setContextMenu(null)}
           />

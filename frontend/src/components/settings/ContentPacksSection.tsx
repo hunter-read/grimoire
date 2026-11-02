@@ -42,7 +42,7 @@ export default function ContentPacksSection() {
   }, [])
 
   useEffect(() => {
-    load()
+    void load()
   }, [load])
 
   const uninstall = async (pack: Pack) => {

@@ -107,6 +107,19 @@ describe('useShelf', () => {
     await waitFor(() => expect(result.current.flatBooks[0].title).toBe('Alpha'))
   })
 
+  it('reports a system that could not be loaded, flagging a 404', async () => {
+    mockGet.mockImplementation((url) =>
+      url.startsWith('/systems/s1?')
+        ? Promise.reject(Object.assign(new Error('Not found'), { status: 404 }))
+        : fakeShelfGet({ system, books })(url)
+    )
+    const { result } = render()
+    await waitFor(() =>
+      expect(result.current.systemError).toEqual({ message: 'Not found', notFound: true })
+    )
+    expect(result.current.system).toBeNull()
+  })
+
   it('falls back to empty facets and groups when those requests fail', async () => {
     mockGet.mockImplementation((url) =>
       url.includes('/book-')

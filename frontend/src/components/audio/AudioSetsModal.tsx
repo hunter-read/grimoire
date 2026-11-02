@@ -100,7 +100,7 @@ export default function AudioSetsModal({ onClose }: AudioSetsModalProps) {
 
   // Loading over live content asks first; loading into an empty player doesn't.
   const requestLoad = (set: SetSummary, append = false) => {
-    if (append || liveCount(set.kind) === 0) doLoad(set, append)
+    if (append || liveCount(set.kind) === 0) void doLoad(set, append)
     else setConfirming({ set, append })
   }
 
@@ -193,7 +193,8 @@ export default function AudioSetsModal({ onClose }: AudioSetsModalProps) {
                       value={renameValue}
                       onChange={(e) => setRenameValue(e.target.value)}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter') submitRename(set)
+                        // rename() reports its own failure through the hook's error.
+                        if (e.key === 'Enter') void submitRename(set)
                       }}
                       // Capture phase: Escape cancels the rename here before the
                       // dialog's own Escape handler can close the whole dialog.

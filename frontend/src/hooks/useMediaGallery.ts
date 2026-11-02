@@ -352,6 +352,8 @@ export default function useMediaGallery<T extends GalleryItem = GalleryItem>(
     async (paths: string[]) => {
       const out: T[] = []
       for (const path of paths) {
+        // Counted per folder: the stop check is against this folder's total.
+        let fromFolder = 0
         for (let offset = 0; ; offset += FULL_PAGE) {
           const params = {
             ...commonFilterParams(filtersRef.current),
@@ -366,7 +368,8 @@ export default function useMediaGallery<T extends GalleryItem = GalleryItem>(
           } & Record<string, unknown>
           const rows = (page[collection] as T[]) || []
           out.push(...rows)
-          if (rows.length < FULL_PAGE || out.length >= page.total) break
+          fromFolder += rows.length
+          if (rows.length < FULL_PAGE || fromFolder >= page.total) break
         }
       }
       return out

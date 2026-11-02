@@ -17,7 +17,7 @@ vi.mock('../../api', () => ({
 
 beforeEach(() => {
   vi.clearAllMocks()
-  Object.assign(navigator, { clipboard: { writeText: vi.fn() } })
+  Object.assign(navigator, { clipboard: { writeText: vi.fn(() => Promise.resolve()) } })
 })
 
 describe('OPDSSection', () => {
@@ -53,7 +53,7 @@ describe('OPDSSection', () => {
     render(<OPDSSection />)
     await userEvent.click(await screen.findByTitle('userSettings.opds.copy'))
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('http://feed')
-    expect(screen.getByText('userSettings.opds.copied')).toBeInTheDocument()
+    expect(await screen.findByText('userSettings.opds.copied')).toBeInTheDocument()
   })
 
   it('confirms and revokes the token', async () => {

@@ -27,7 +27,7 @@ export default function UserCampaignsPanel({ userId }: { userId: string }) {
   }
 
   const handleToggle = () => {
-    if (!expanded && list === null) load()
+    if (!expanded && list === null) void load()
     setExpanded((v) => !v)
   }
 

@@ -100,7 +100,10 @@
     "removeLink": "Remove link",
     "newBadge": "New",
     "dismissError": "Dismiss error",
-    "confirm": "Confirm"
+    "confirm": "Confirm",
+    "notFound": "This could not be found. It may have been moved or removed.",
+    "loadFailed": "This could not be loaded.",
+    "tryAgain": "Try again"
   },
   "errorBoundary": {
     "message": "This page hit an error and could not be shown. Reload to try again, or go back.",

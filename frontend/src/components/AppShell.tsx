@@ -126,7 +126,7 @@ export default function AppShell() {
       .get('/about')
       .then(setAbout)
       .catch(() => {})
-    refreshUiSettings()
+    void refreshUiSettings()
     const handleResize = () => setIsMobile(window.innerWidth < 768)
     window.addEventListener('resize', handleResize)
     window.addEventListener('grimoire:settings-changed', refreshUiSettings)
@@ -142,7 +142,7 @@ export default function AppShell() {
     const target = sessionStorage.getItem('grimoire:guest_campaign')
     if (target) {
       sessionStorage.removeItem('grimoire:guest_campaign')
-      navigate(`/campaigns/${target}/overview`, { replace: true })
+      void navigate(`/campaigns/${target}/overview`, { replace: true })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

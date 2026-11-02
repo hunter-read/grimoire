@@ -36,7 +36,7 @@ export default function BackupListSection({ refreshKey }: { refreshKey?: number 
   }, [])
 
   useEffect(() => {
-    load()
+    void load()
   }, [load, refreshKey])
 
   const handleCreate = async () => {

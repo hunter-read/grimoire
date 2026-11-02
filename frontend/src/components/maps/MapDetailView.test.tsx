@@ -4,6 +4,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import MapDetailView from './MapDetailView'
 import api from '../../api'
+import { itLoadsOnlyTheCurrentItem } from '../../test/detailLoading'
 
 vi.mock('../../api', () => ({
   default: { get: vi.fn(), patch: vi.fn() },
@@ -457,5 +458,21 @@ describe('MapDetailView', () => {
       render(<MapDetailView />)
       expect(await screen.findByTestId('open-grid-editor')).toHaveAccessibleName('Edit Grid')
     })
+  })
+})
+
+describe('MapDetailView loading', () => {
+  itLoadsOnlyTheCurrentItem({
+    base: '/maps',
+    item: (id, name) => detail(id, { filename: name }),
+    get: vi.mocked(api.get),
+    mount: (id) => {
+      currentMapId = id
+      const { rerender } = render(<MapDetailView />)
+      return (next) => {
+        currentMapId = next
+        rerender(<MapDetailView />)
+      }
+    },
   })
 })

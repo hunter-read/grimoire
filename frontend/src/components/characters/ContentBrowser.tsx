@@ -92,7 +92,7 @@ export default function ContentBrowser({
   }, [schemaId, contentType, search, page, filters, t])
 
   useEffect(() => {
-    load()
+    void load()
   }, [load])
 
   // Close on Escape, the way every other dialog in the app does.

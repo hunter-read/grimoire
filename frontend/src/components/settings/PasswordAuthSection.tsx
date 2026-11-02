@@ -38,7 +38,7 @@ export default function PasswordAuthSection() {
 
   const onChange = () => {
     if (enabled) setConfirming(true)
-    else toggle('password_auth_enabled')
+    else void toggle('password_auth_enabled')
   }
 
   return (
@@ -88,7 +88,7 @@ export default function PasswordAuthSection() {
           onConfirm={() => {
             setConfirming(false)
             refocus.current = true
-            toggle('password_auth_enabled')
+            void toggle('password_auth_enabled')
           }}
         />
       )}

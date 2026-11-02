@@ -384,6 +384,18 @@ describe('CampaignDetailView member handlers', () => {
     vi.mocked(window.confirm).mockRestore()
   })
 
+  it('says so when removing a member fails, and keeps the page', async () => {
+    mockLoad()
+    mockCampaigns.removeMember.mockRejectedValueOnce(new Error('Could not remove that member'))
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    renderView()
+    await screen.findByText('Lost Mines')
+    fireEvent.click(screen.getByText('remove-p1'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not remove that member')
+    expect(screen.getByText('Lost Mines')).toBeInTheDocument()
+    vi.mocked(window.confirm).mockRestore()
+  })
+
   it('skips removal when the confirmation is declined', async () => {
     mockLoad()
     vi.spyOn(window, 'confirm').mockReturnValue(false)
@@ -562,8 +574,8 @@ describe('CampaignDetailView leaving a campaign', () => {
     renderView()
     await screen.findByText('Lost Mines')
     fireEvent.click(screen.getByRole('button', { name: /leave campaign/i }))
-    await waitFor(() => expect(campaigns.removeMember).toHaveBeenCalledWith('c1', 'owner1'))
-    expect(mockNavigate).toHaveBeenCalledWith('/campaigns')
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/campaigns'))
+    expect(campaigns.removeMember).toHaveBeenCalledWith('c1', 'owner1')
     vi.mocked(window.confirm).mockRestore()
   })
 

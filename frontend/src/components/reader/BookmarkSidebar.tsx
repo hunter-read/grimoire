@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { LuBookmark, LuX, LuTrash2, LuPencil, LuCheck } from 'react-icons/lu'
 import api from '../../api'
 import Spinner from '../Spinner'
+import useAsyncAction from '../../hooks/useAsyncAction'
 import ReaderSidebarShell from './ReaderSidebarShell'
 import type { Schema } from '../../api'
 
@@ -31,6 +32,8 @@ export default function BookmarkSidebar({
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editLabel, setEditLabel] = useState('')
   const [editNotes, setEditNotes] = useState('')
+  // A failed delete or edit leaves the list as it was and says so here.
+  const { run, error } = useAsyncAction()
 
   useEffect(() => {
     setLoading(true)
@@ -47,9 +50,10 @@ export default function BookmarkSidebar({
   }, [bookId, refreshKey])
 
   const handleDelete = (id: string) => {
-    api
-      .delete(`/bookmarks/${id}`)
-      .then(() => setBookmarks((bms) => bms!.filter((b) => b.id !== id)))
+    void run(async () => {
+      await api.delete(`/bookmarks/${id}`)
+      setBookmarks((bms) => bms!.filter((b) => b.id !== id))
+    })
   }
 
   const startEdit = (bm: Bookmark) => {
@@ -59,7 +63,8 @@ export default function BookmarkSidebar({
   }
 
   const saveEdit = (bm: Bookmark) => {
-    api.patch(`/bookmarks/${bm.id}`, { label: editLabel, notes: editNotes }).then(() => {
+    void run(async () => {
+      await api.patch(`/bookmarks/${bm.id}`, { label: editLabel, notes: editNotes })
       setBookmarks((bms) =>
         bms!.map((b) => (b.id === bm.id ? { ...b, label: editLabel, notes: editNotes } : b))
       )
@@ -100,6 +105,11 @@ export default function BookmarkSidebar({
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '6px 4px' }}>
+        {error && (
+          <p role="alert" style={{ margin: '6px 10px', fontSize: 13, color: 'var(--danger)' }}>
+            {error}
+          </p>
+        )}
         {loading && (
           <div style={{ padding: 20, textAlign: 'center' }}>
             <Spinner size={20} />

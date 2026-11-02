@@ -100,7 +100,10 @@
     "removeLink": "Link verwijderen",
     "newBadge": "Nieuw",
     "dismissError": "Foutmelding sluiten",
-    "confirm": "Bevestigen"
+    "confirm": "Bevestigen",
+    "notFound": "Dit is niet gevonden. Het is mogelijk verplaatst of verwijderd.",
+    "loadFailed": "Dit kon niet worden geladen.",
+    "tryAgain": "Opnieuw proberen"
   },
   "errorBoundary": {
     "message": "Er ging iets mis bij het tonen van deze pagina. Laad opnieuw om het nog eens te proberen, of ga terug.",

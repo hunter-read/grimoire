@@ -40,6 +40,18 @@ export default [
     rules: reactRules,
   },
   {
+    // A promise nobody awaits or catches fails silently: a spinner that never
+    // ends, or a click that does nothing (issue #785). Needs type information,
+    // so it is the one type-aware rule here. Tests are left out - they fire
+    // promises they then assert on.
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/**/*.test.{ts,tsx}', 'src/test/**'],
+    languageOptions: {
+      parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
+    },
+    rules: { '@typescript-eslint/no-floating-promises': 'error' },
+  },
+  {
     // Test files legitimately define local wrapper/harness components.
     files: ['src/**/*.test.{ts,tsx}', 'src/test/**'],
     languageOptions: { globals: { ...globals.vitest } },

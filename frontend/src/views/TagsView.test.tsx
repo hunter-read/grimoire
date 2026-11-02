@@ -217,6 +217,26 @@ describe('TagsView', () => {
     await waitFor(() => expect(mockRename).toHaveBeenCalledWith('forest', 'Deep Forest'))
   })
 
+  it('says why when a rename fails', async () => {
+    mockRename.mockRejectedValueOnce(new Error('That name is taken'))
+    renderView('/tags?tag=forest')
+    await screen.findByRole('heading', { name: 'Forest' })
+    await userEvent.click(screen.getByLabelText(/^rename$/i))
+    const input = screen.getByLabelText(/display name/i)
+    await userEvent.clear(input)
+    await userEvent.type(input, 'Deep Forest')
+    await userEvent.click(screen.getByLabelText(/save/i))
+    expect(await screen.findByRole('alert')).toHaveTextContent('That name is taken')
+  })
+
+  it('shows an error with a retry when the tag list fails to load', async () => {
+    mockList.mockRejectedValueOnce(new Error('offline'))
+    renderView()
+    expect(await screen.findByRole('alert')).toHaveTextContent('This could not be loaded.')
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByRole('heading', { name: /tags/i, level: 1 })).toBeInTheDocument()
+  })
+
   it('hides edit controls for non-editors', async () => {
     mockRole = 'player'
     renderView('/tags?tag=forest')

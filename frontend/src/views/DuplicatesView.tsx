@@ -94,6 +94,8 @@ export default function DuplicatesView() {
   const [dismissals, setDismissals] = useState<Dismissal[] | null>(null)
   const [restoringId, setRestoringId] = useState<string | null>(null)
 
+  // Never rejects: a failure is reported through `error`, so callers fire it
+  // with `void`.
   const loadGroups = useCallback(() => {
     // Deliberately dependency-free apart from the role gate: including `t`
     // would re-create this on every language change and restart the poll loop.
@@ -137,7 +139,7 @@ export default function DuplicatesView() {
           if (next.error) setError(next.error)
           setStatus((prev) => {
             // A run that just finished is the moment new results exist.
-            if (prev.running && !next.running) loadGroups()
+            if (prev.running && !next.running) void loadGroups()
             return next
           })
         })
@@ -152,7 +154,7 @@ export default function DuplicatesView() {
   }, [status.running, loadGroups, isAdmin])
 
   useEffect(() => {
-    loadGroups()
+    void loadGroups()
   }, [loadGroups])
 
   const loadDismissals = useCallback(() => {
@@ -173,7 +175,8 @@ export default function DuplicatesView() {
   // Fetched on demand rather than alongside the groups: most visits never open
   // the panel, and the list is only needed once it is on screen.
   useEffect(() => {
-    if (showDismissed) loadDismissals()
+    // Reports its own failure through `error`, like loadGroups.
+    if (showDismissed) void loadDismissals()
   }, [showDismissed, loadDismissals])
 
   const restore = async (dismissal: Dismissal) => {
@@ -226,7 +229,7 @@ export default function DuplicatesView() {
       if (result?.status === 'cleared_stale' || result?.status === 'not_running') {
         clearedRef.current = true
         setStatus((s) => ({ ...s, running: false, phase: null }))
-        loadGroups()
+        void loadGroups()
       }
     } catch (e) {
       setError((e as Error).message || t('maintenance.dupes.cancelFailed'))
@@ -270,7 +273,7 @@ export default function DuplicatesView() {
       const qs = new URLSearchParams({ group: group.id })
       if (filterType) qs.set('type', filterType)
       if (filterMatch) qs.set('match', filterMatch)
-      navigate(`/settings/duplicates/compare/${group.resource_type}?${qs}`)
+      void navigate(`/settings/duplicates/compare/${group.resource_type}?${qs}`)
     },
     [navigate, filterType, filterMatch]
   )
@@ -578,7 +581,7 @@ export default function DuplicatesView() {
           onDone={({ merged, failed }) => {
             setExactOpen(false)
             setNotice(t('maintenance.dupes.mergeExact.done', { count: merged, failed }))
-            loadGroups()
+            void loadGroups()
           }}
         />
       )}

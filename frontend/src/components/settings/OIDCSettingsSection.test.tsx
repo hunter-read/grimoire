@@ -43,7 +43,7 @@ const baseSettings = (over: Partial<Settings> = {}) =>
 
 beforeEach(() => {
   vi.clearAllMocks()
-  Object.assign(navigator, { clipboard: { writeText: vi.fn() } })
+  Object.assign(navigator, { clipboard: { writeText: vi.fn(() => Promise.resolve()) } })
 })
 
 describe('OIDCSettingsSection', () => {
@@ -597,5 +597,19 @@ describe('OIDCSettingsSection accessibility', () => {
     // A second press while saving is ignored.
     await userEvent.click(box)
     expect(settingsApi.patch).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('OIDCSettingsSection loading', () => {
+  it('shows a failed load instead of spinning, and retries it', async () => {
+    vi.mocked(settingsApi.get).mockRejectedValueOnce(
+      Object.assign(new Error('boom'), { status: 500 })
+    )
+    render(<OIDCSettingsSection />)
+    expect(await screen.findByRole('alert')).toHaveTextContent('settings.save.loadFailed')
+
+    vi.mocked(settingsApi.get).mockResolvedValue(baseSettings())
+    await userEvent.click(screen.getByRole('button', { name: 'settings.save.retry' }))
+    expect(await screen.findByLabelText('authSettings.oidc.clientId')).toBeInTheDocument()
   })
 })
