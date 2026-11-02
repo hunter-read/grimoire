@@ -7,12 +7,14 @@ grammar are the security boundary, not a convenience.
 import hashlib
 import json
 
+import httpx
 import pytest
 
 from backend import config
 from backend.config import SessionLocal
 from backend.models import AppSetting
 from backend.services import themes as svc
+from backend.tests.http_fakes import serve, serve_chunked
 
 VALID_TOKENS = {"text": "#ffffff", "bg-card": "#101010", "accent": "#c9a84c"}
 
@@ -643,28 +645,17 @@ class TestFetchTheme:
         with pytest.raises(svc.ThemeError, match="HTTP 404"):
             svc.fetch_theme(db, self._entry(b""))
 
+    def test_an_undeclared_oversize_body_stops_at_the_cap(self, db, monkeypatch):
+        monkeypatch.setattr(svc, "MAX_THEME_BYTES", 1024)
+        body = serve_chunked(monkeypatch, total=1024 * 1024)
+
+        with pytest.raises(svc.ThemeError, match="too large"):
+            svc.fetch_theme(db, self._entry(b""))
+        assert body.sent <= 1024 + body.chunk
+
     @staticmethod
     def _stub_get(monkeypatch, body: bytes, status: int = 200):
-        import httpx
-
-        class _Response:
-            status_code = status
-            content = body
-
-        class _Client:
-            def __init__(self, **kwargs):
-                pass
-
-            def __enter__(self):
-                return self
-
-            def __exit__(self, *a):
-                return False
-
-            def get(self, url):
-                return _Response()
-
-        monkeypatch.setattr(httpx, "Client", _Client)
+        serve(monkeypatch, lambda request: httpx.Response(status, content=body))
 
 
 class TestMultiSourceThemeCatalogue:

@@ -25,11 +25,10 @@ from ... import config
 from ...addons.authors import parse_author
 from ...addons import credentials as source_credentials
 from ...addons.constants import (
-    HTTP_MAX_BYTES,
     external_installs_enabled,
 )
 from ...addons.credentials import SourceCredentials
-from ...addons.fetch import AddonFetchError, fetch_document, open_client
+from ...addons.fetch import AddonFetchError, download_file, fetch_document
 from ...addons.registry import is_newer
 from .schema import SchemaError, validate_schema
 
@@ -486,24 +485,14 @@ def _download(
     against the catalogue that offered it. ``credentials`` carries a private
     source's token, so its files download with the same access as its index.
     """
-    import httpx
-
-    try:
-        with open_client(timeout=FETCH_TIMEOUT, credentials=credentials) as client:
-            response = client.get(url)
-            if response.status_code != 200:
-                raise CatalogueError(
-                    f"The {what} download returned HTTP {response.status_code}"
-                )
-            body = response.content
-    except httpx.TimeoutException as exc:
-        raise CatalogueError(f"The {what} download timed out") from exc
-    except httpx.HTTPError as exc:
-        raise CatalogueError(f"Could not download the {what}: {exc}") from exc
-
-    if len(body) > min(max_bytes, HTTP_MAX_BYTES):
-        raise CatalogueError(f"That {what} file is too large")
-    return body
+    return download_file(
+        url,
+        what=what,
+        error=CatalogueError,
+        max_bytes=max_bytes,
+        timeout=FETCH_TIMEOUT,
+        credentials=credentials,
+    )
 
 
 def fetch_sheet(db: Session, entry: dict[str, Any]) -> dict[str, Any]:

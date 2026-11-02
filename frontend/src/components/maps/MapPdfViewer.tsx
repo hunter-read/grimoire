@@ -14,7 +14,8 @@ import {
 import type { IconType } from 'react-icons'
 import { mediaUrl } from '../../api'
 import useReaderGestures from '../../hooks/useReaderGestures'
-import { getUserPrefs } from '../../hooks/useUserPrefs'
+import useReaderZoom from '../../hooks/useReaderZoom'
+import { getUserPrefs, getWheelAction } from '../../hooks/useUserPrefs'
 import { getBookPrefs, saveBookPrefs } from '../../hooks/useBookPrefs'
 import SinglePage from '../reader/SinglePage'
 import SpreadPage from '../reader/SpreadPage'
@@ -100,8 +101,11 @@ export default function MapPdfViewer({
   const [joinSpread, setJoinSpread] = useState(initialJoinSpread)
   const [currentPage, setCurrentPage] = useState(1)
   const [pageInput, setPageInput] = useState('1')
-  const [zoom, setZoom] = useState(1)
-  const [pan, setPan] = useState({ x: 0, y: 0 })
+  // Unlike the book reader, a map starts each page unzoomed, so the page is part
+  // of the reset key.
+  const { zoom, pan, setPan, setZoomDirect, zoomRef, panRef, zoomAt } = useReaderZoom({
+    resetKey: `${mapId}:${mode}:${currentPage}`,
+  })
 
   const directionRef = useRef(1)
   const axisRef = useRef<'x' | 'y'>('x')
@@ -130,12 +134,6 @@ export default function MapPdfViewer({
     },
     [totalPages, mode, spreadOffset]
   )
-
-  // Reset zoom/pan when the page changes.
-  useEffect(() => {
-    setZoom(1)
-    setPan({ x: 0, y: 0 })
-  }, [currentPage])
 
   // Re-snap the current page to a valid left page when spread settings change.
   useEffect(() => {
@@ -193,21 +191,20 @@ export default function MapPdfViewer({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [mode, currentPage, step, goToPage])
 
-  const wheelNav = getUserPrefs().wheelNav !== false
-  // Known mismatch, left as it is: the hook's options are now zoomRef, panRef,
-  // setZoomDirect, zoomAt and wheelAction, and this caller still passes the
-  // older setZoom/wheelNav. The cast keeps the call exactly as it runs today.
-  const { handleTouchStart, handleTouchMove, handleTouchEnd } = useReaderGestures({
+  const { handleTouchStart, handleTouchMove, handleTouchEnd, handleMouseDown } = useReaderGestures({
     mode,
     currentPage,
     zoom,
     pan,
-    setZoom,
+    zoomRef,
+    panRef,
     setPan,
+    setZoomDirect,
+    zoomAt,
     goToPage,
     contentRef,
-    wheelNav,
-  } as unknown as Parameters<typeof useReaderGestures>[0])
+    wheelAction: getWheelAction(),
+  })
 
   const rightPage = currentPage + 1
   const hasRight =
@@ -397,6 +394,7 @@ export default function MapPdfViewer({
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
+          onMouseDown={handleMouseDown}
         >
           {mode === 'pdf' ? (
             <iframe
