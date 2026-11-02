@@ -28,6 +28,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - An audio track embedded in a campaign page is named after the track, on its play button and its link, instead of "Audio"
 - On a map, token, audio or model page, Alt+arrow goes back without also moving to the next item, and a dialog opened from the **⋮** menu hands focus back to the menu when it closes
 - The looping battlemap video on a map page doesn't start playing by itself when your system is set to reduce motion
+- Turning off or changing the scheduled rescan or scheduled backup while one is running now really stops the old schedule. Before, it could keep going once the scan or backup finished, so rescans or backups ran twice, or carried on after being turned off, until a restart
 - Stepping quickly between maps, tokens, audio tracks or 3D models always shows the one you landed on, and one that has been removed says so instead of showing a spinner that never ends
 - Pages whose data fails to load say so and offer **Try again**, instead of spinning forever: the library, a game system's page, Tags, a campaign's wiki and schedule, and the Add-ons, sign-in, Users and library-watching settings
 - Actions that failed without a word now say what went wrong: saving a game system's details, saving, editing or deleting a bookmark, favoriting, deleting or archiving a campaign and managing its members, renaming or deleting a tag, renaming a wiki category, and **Play folder**

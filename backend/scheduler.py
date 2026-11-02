@@ -16,7 +16,16 @@ from sqlalchemy.orm import Session
 from .config import logger
 
 _thread: Optional[threading.Thread] = None
-_stop_event = threading.Event()
+# The running thread's own stop flag. Each start() makes a new one and stop()
+# sets it and lets go - it is never cleared, so a thread still busy in a scan
+# when stop() gives up waiting still sees the request once the scan ends
+# (issue #786). A shared event cleared after the join let that thread run on,
+# beside the next start()'s.
+_stop: Optional[threading.Event] = None
+
+# How long stop() waits for the thread before returning. A scan can take far
+# longer; the thread then exits on its own when the scan finishes.
+JOIN_TIMEOUT = 5.0
 
 
 def _seconds_until_next(hour: int, minute: int, weekday: Optional[int]) -> float:
@@ -44,15 +53,16 @@ def _run(
     minute: int,
     weekday: Optional[int],
     rescan_fn: Callable[[], None],
-    cleanup_fn: Optional[Callable[[], None]] = None,
+    cleanup_fn: Optional[Callable[[], None]],
+    stop_event: threading.Event,
 ) -> None:
-    while True:
+    while not stop_event.is_set():
         if interval == "hourly":
             secs = 3600.0
         else:
             secs = _seconds_until_next(hour, minute, weekday)
 
-        if _stop_event.wait(secs):
+        if stop_event.wait(secs):
             break  # stop() was called
 
         logger.info("Scheduled rescan starting…")
@@ -60,6 +70,11 @@ def _run(
             rescan_fn()
         except Exception as e:
             logger.error(f"Scheduled rescan error: {e}")
+
+        # Stopped while the scan ran: the schedule was turned off or replaced,
+        # so the cleanup that belonged to it is skipped too.
+        if stop_event.is_set():
+            break
 
         if cleanup_fn is not None:
             logger.info("Scheduled database cleanup starting…")
@@ -78,13 +93,13 @@ def start(
     cleanup_fn: Optional[Callable[[], None]] = None,
 ) -> None:
     """Start (or restart) the background rescan thread."""
-    global _thread
+    global _thread, _stop
     stop()
-    _stop_event.clear()
+    _stop = threading.Event()
     _wd = weekday if interval == "weekly" else None
     _thread = threading.Thread(
         target=_run,
-        args=(interval, hour, minute, _wd, rescan_fn, cleanup_fn),
+        args=(interval, hour, minute, _wd, rescan_fn, cleanup_fn, _stop),
         daemon=True,
         name="grimoire-scheduler",
     )
@@ -101,13 +116,20 @@ def start(
 
 
 def stop() -> None:
-    """Stop the background rescan thread if one is running."""
-    global _thread
-    _stop_event.set()
+    """Stop the background rescan thread if one is running.
+
+    Waits up to ``JOIN_TIMEOUT`` for it. A thread still in a scan after that is
+    left to finish it and exit; its stop flag stays set, so it cannot carry on.
+    """
+    global _thread, _stop
+    if _stop is not None:
+        _stop.set()
     if _thread and _thread.is_alive():
-        _thread.join(timeout=5)
+        _thread.join(timeout=JOIN_TIMEOUT)
+        if _thread.is_alive():
+            logger.info("Scheduled rescan still running; it will stop when it finishes")
     _thread = None
-    _stop_event.clear()
+    _stop = None
 
 
 def apply(db: Session) -> None:

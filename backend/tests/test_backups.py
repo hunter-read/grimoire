@@ -2,6 +2,7 @@
 import json
 import os
 import sqlite3
+import threading
 import zipfile
 from datetime import datetime, timedelta, timezone
 
@@ -703,12 +704,11 @@ class TestBackupScheduler:
         )
 
         # First wait returns False (timer fired), second returns True (stop).
+        stop = threading.Event()
         waits = iter([False, True])
-        monkeypatch.setattr(
-            backup_scheduler._stop_event, "wait", lambda _secs: next(waits)
-        )
+        monkeypatch.setattr(stop, "wait", lambda _secs: next(waits))
 
-        backup_scheduler._run("hourly", 3, 0, None)
+        backup_scheduler._run("hourly", 3, 0, None, stop)
 
         assert calls == ["scheduled"]
 
@@ -726,11 +726,46 @@ class TestBackupScheduler:
             backup_scheduler.backup_service_module, "create_backup", boom
         )
 
+        stop = threading.Event()
         waits = iter([False, False, True])
-        monkeypatch.setattr(
-            backup_scheduler._stop_event, "wait", lambda _secs: next(waits)
-        )
+        monkeypatch.setattr(stop, "wait", lambda _secs: next(waits))
 
-        backup_scheduler._run("hourly", 3, 0, None)
+        backup_scheduler._run("hourly", 3, 0, None, stop)
 
         assert attempts == ["scheduled", "scheduled"]
+
+    def test_a_backup_outlasting_stop_ends_its_thread(self, monkeypatch, backup_dir):
+        """Issue #786: a stop must still hold once a long backup finishes."""
+        from backend import backup_scheduler
+
+        started = threading.Event()
+        release = threading.Event()
+        attempts = []
+
+        def slow(db, trigger):
+            attempts.append(trigger)
+            started.set()
+            release.wait(10)
+            raise OSError("never mind")
+
+        monkeypatch.setattr(backup_scheduler.backup_service_module, "create_backup", slow)
+        monkeypatch.setattr(backup_scheduler, "_seconds_until_next", lambda *_a: 0.01)
+        monkeypatch.setattr(backup_scheduler, "JOIN_TIMEOUT", 0.1)
+
+        backup_scheduler.start("daily", 3, 0, 0)
+        assert started.wait(5)
+        old = backup_scheduler._thread
+        backup_scheduler.stop()
+        assert old.is_alive(), "the backup should still be running past the join"
+
+        backup_scheduler.start("hourly", 3, 0, 0)
+        release.set()
+        old.join(5)
+
+        assert not old.is_alive()
+        alive = [
+            t for t in threading.enumerate()
+            if t.name == "grimoire-backup-scheduler" and t.is_alive()
+        ]
+        assert alive == [backup_scheduler._thread]
+        assert attempts == ["scheduled"]
