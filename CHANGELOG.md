@@ -8,48 +8,47 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ## [Unreleased]
 
+## [1.10.1] - 2026-11-02
+
 ### Added
 
-- A book can have its own cover. In the book's **Edit Metadata** panel, **Upload cover** replaces the cover made from its first page - for a fixed-layout EPUB that shows up blank, or a PDF that opens on a wraparound dust jacket or a sideways scan. The custom cover is used in the library, the OPDS feed and exported sidecars, and is what Grimoire Codex DB is sent; a rescan never replaces it, and **Remove custom cover** brings the old one back
-- The book reader works with a screen reader. Each page's text is read as headings and paragraphs instead of one unbroken block, turning the page says which page you are on, and the contents, bookmarks, search and details panels are labelled regions that take focus when they open and hand it back when they close
-- Screen reader and keyboard support across the library, the game system pages and the sidebar: a **Skip to main content** link, page titles that are read out after each move, a heading for every page, system card, category and folder, and the number of systems or books left whenever a filter or search narrows the list
-- Screen reader and keyboard support for maps, tokens, audio and 3D models. The galleries are lists that say how many items there are and where each one sits, even in a collection of thousands, and say how many are left as you filter. Each map, token and model page has its own heading, names its image or 3D view, and says which item you are on as you step to the next. The audio player reads out the track that starts, the time in words, and each chapter's start; the queue can be reordered and soundboard pads moved with the arrow keys; and the soundboard and audio set dialogs take focus when they open and give it back when they close
-- Screen reader and keyboard support for tags, favorites and search: each page has its own heading and title, sections are headings over real lists, the tags page says how many items a tag holds when you pick it, and search says when it is searching and how many results it found
-- Screen reader and keyboard support across campaigns. Every popover and dialog - invites, guests, sharing, the editor, sheet templates, the resource picker, the calendar feed, imports and templates - can be reached from the keyboard, holds focus while open and gives it back on close. The availability grid is a table whose cells say who, when and what; wiki pages have a page tree you can move through and reorder with Alt+arrow keys, link suggestions a screen reader can follow, and GM secrets that are announced as secrets; and resources can be reordered without dragging
-- Screen reader and keyboard support for the characters list and the sheet manager: each card is named with its sheet, campaign and player, install and update buttons say what they install, and finishing an install or import is announced
-- Screen reader and keyboard support throughout settings. Changes that save straight away say "Saved", errors are read out and tied to their field, choices like the reader layout are radio groups you can move through with the arrow keys, each user in the users table has its own edit button, a running rescan reports its progress, and the add-on source menu opens from the keyboard
+- **Custom book covers.** In a book's **Edit Metadata** panel, **Upload cover** replaces the cover Grimoire made from the first page - useful for an EPUB whose first page is blank, or a PDF that opens on a dust jacket or a sideways scan. Your cover shows up everywhere the book does, including the OPDS feed and Grimoire Codex DB, and a rescan never replaces it. **Remove custom cover** brings back the original
+- **Screen reader and keyboard support across the whole app.** Every part of Grimoire can now be used with a screen reader and without a mouse
+- Reading books with a screen reader: each page is read as headings and paragraphs, turning the page tells you which page you're on, and the contents, bookmarks, search and details panels take focus when they open and give it back when they close
+- The library, game systems, tags, favorites and search have a **Skip to main content** link, a title and heading on every page, and say how many results are left whenever you filter or search
+- Map, token, audio and 3D model galleries say how many items there are and which one you're on; the audio player reads out the track, the time and each chapter; and the play queue and soundboard pads can be rearranged with the arrow keys
+- In campaigns, every dialog and popup works from the keyboard, the availability grid reads as a table, wiki pages can be reordered with Alt + arrow keys, and GM secrets are announced as secrets
+- On the Characters page and in Settings, buttons say what they do, finished installs, imports and saves are announced, and errors are read out next to the field they belong to
 
 ### Fixed
 
-- A book's **⋮** menu, a system's **More links** menu and the reader's menu can be used from the keyboard: the arrow keys move through the items, and Esc or Tab closes the menu and goes back to its button. Before, the items could not be reached without a mouse
-- Selecting systems for a bulk edit works from the keyboard, and the toolbar buttons on library pages show a focus ring again
-- Text fields, dropdowns, checkboxes and switches have an outline you can see. Their edges were a faint line, close to the colour of the panel behind them; they now stand out clearly in every built-in theme, and custom themes can set the new `border-control` colour
-- In the reader, Cmd/Ctrl+F opens the browser's find bar without also favoriting the book, and Alt+arrow no longer turns the page as well as going back
-- An audio track embedded in a campaign page is named after the track, on its play button and its link, instead of "Audio"
-- On a map, token, audio or model page, Alt+arrow goes back without also moving to the next item, and a dialog opened from the **⋮** menu hands focus back to the menu when it closes
-- The looping battlemap video on a map page doesn't start playing by itself when your system is set to reduce motion
-- Starting the server no longer logs Alembic's `path_separator` deprecation warning, or SQLAlchemy's "Skipped unsupported reflection of expression-based index" warning while it brings the database up to date
-- Turning off or changing the scheduled rescan or scheduled backup while one is running now really stops the old schedule. Before, it could keep going once the scan or backup finished, so rescans or backups ran twice, or carried on after being turned off, until a restart
-- The server log no longer fills up with ``warning: The `fitz` API is deprecated``. It was printed once by the server at start-up and again by every render worker, scan and text-extraction process it started
-- The server log no longer starts with an `AuthlibDeprecationWarning` from the single sign-on code, printed once by every server process. Sign-in tokens are now checked with `joserfc`, the library Authlib is moving that code to, with the same checks as before
-- Stepping quickly between maps, tokens, audio tracks or 3D models always shows the one you landed on, and one that has been removed says so instead of showing a spinner that never ends
-- Pages whose data fails to load say so and offer **Try again**, instead of spinning forever: the library, a game system's page, Tags, a campaign's wiki and schedule, and the Add-ons, sign-in, Users and library-watching settings
-- Actions that failed without a word now say what went wrong: saving a game system's details, saving, editing or deleting a bookmark, favoriting, deleting or archiving a campaign and managing its members, renaming or deleting a tag, renaming a wiki category, and **Play folder**
-- **Play folder** on a folder with subfolders plays every track in each of them. Before, a large subfolder could be cut off after 500 tracks
-- Moving several files at once in the file manager no longer loses track of the ones already moved when one of them fails. The failed item stays where it was and is reported as skipped, and the rest of the move carries on. Before, the whole move stopped with an error, and the files moved so far stayed in their new place while Grimoire still listed them at the old one until the next rescan
-- On a PDF map in page or spread view, the scroll wheel, Ctrl+scroll and a two-finger pinch work again, and the wheel follows your reader setting: turn the page, zoom, or do nothing. Before, they did nothing at all. Once zoomed in, you can drag the map around with the mouse
-- Exporting pages or cut-outs, exporting a map for Universal VTT or OTFBM, looking up a book's metadata, and browsing or installing content packs no longer slow down the rest of Grimoire while they run. A few long exports at once used to leave other pages waiting, or failing, until they finished
-- In a character sheet's content browser, clicking an entry you have opened closes its details again. Before, they stayed open until you picked another entry
-- The live log in **Settings** no longer reads every new line aloud while it scrolls; it says how many new entries arrived, at most every ten seconds
-- A failed account deletion now shows its error. It was drawn inside the confirmation that the failure closed, so it never appeared
-- The search page's help no longer pulls focus back to its close button each time the page updates, and closing it returns you to the help button
-- A button showing a loading spinner is read by its own name - "Save", not "Loading… Save"
-- A character sheet no longer warns about a field it is hiding. A validator attached to a field (`field` in the sheet's validators) now waits while that field is hidden - by its own `visible_if`, or by a section or tab around it - and shows once the field does. A validator that is about the whole sheet still always shows
-- **Who can see this** now shows the level that was saved. A system or book restricted to GMs or admins reopened its editor as **Everyone** (or **Inherit** for a book), so the restriction looked unsaved - and choosing **Everyone** to lift it changed nothing, leaving the system and its books hidden from players with no way back from the editor
-- A PDF, EPUB or DjVu that is slow to read no longer freezes Grimoire while a scan makes its thumbnail or counts its pages. With more than one worker, such a file could get a worker replaced every few seconds, each replacement starting the library scan again and stopping on the same file, keeping a CPU core busy for good. That work now runs in a separate helper process, and a file that takes longer than 30 seconds is left without a thumbnail
-- A file whose thumbnail stops the scan twice in a row - an image or 3D model large enough to run the server out of memory, say - has its thumbnail skipped from then on, and the log names it. Replacing or repairing the file has it tried again
-- When the startup library scan stops unexpectedly three times in a row, Grimoire starts without it and logs why, instead of restarting the scan every time it starts. Startup tries again after 30 minutes, and **Rescan** works as usual
-- A new install with more than one worker (`WORKERS=2`) no longer fails to start with `table app_settings already exists` when its data folder is a Docker Desktop bind mount of a macOS or Windows folder. Those mounts don't enforce file locks between processes, so both workers set up the new database at once, and both ran the startup scan and the session purge. The locks that keep workers apart are now also taken on the container's own disk
+- The **⋮** book menu, a system's **More links** menu and the reader's menu now work with the arrow keys, and Esc or Tab closes them. Before, they needed a mouse
+- Selecting systems for a bulk edit works from the keyboard, and toolbar buttons show a focus outline again
+- Text boxes, dropdowns, checkboxes and switches have an outline you can actually see in every built-in theme. Custom themes can set the new `border-control` colour
+- In the reader, Cmd/Ctrl + F opens your browser's find bar without also favoriting the book, and Alt + arrow goes back without also turning the page
+- On a map, token, audio or model page, Alt + arrow goes back without also jumping to the next item
+- The looping battlemap video on a map page no longer plays by itself if your device is set to reduce motion
+- Pages that fail to load now say so and offer **Try again**, instead of spinning forever
+- Actions that used to fail without a word now tell you what went wrong, for example saving a system's details, editing a bookmark, favoriting, managing a campaign or renaming a tag
+- Flicking quickly between maps, tokens, audio tracks or 3D models always shows the one you landed on, and one that has been removed says so
+- A failed account deletion now shows its error
+- **Who can see this** shows the setting you actually saved. A system or book restricted to GMs or admins used to reopen as **Everyone**, so the restriction looked unsaved and couldn't be lifted from the editor
+- Moving several files at once carries on when one of them fails: that file stays put and is reported as skipped. Before, the whole move stopped partway, and the moved files kept showing at their old location until the next rescan
+- **Play folder** plays every track in every subfolder. Large subfolders were cut off after 500 tracks
+- On a PDF map, the scroll wheel and two-finger pinch zoom again and follow your reader setting, and once zoomed in you can drag the map around
+- A sheet no longer warns you about a field it is hiding. The warning waits until the field is shown
+- In a sheet's content browser, clicking an open entry closes it again
+- A PDF, EPUB or DjVu that is slow to open no longer freezes Grimoire while a scan makes its thumbnail. A file that takes longer than 30 seconds is left without one
+- A file that crashes the scan twice in a row - a huge image or 3D model, say - has its thumbnail skipped from then on, and the log names it. Replace or repair the file and it is tried again
+- If the startup library scan stops unexpectedly three times in a row, Grimoire starts without it and tries again 30 minutes later, instead of retrying every time it starts. **Rescan** works as usual
+- Exporting pages or maps, looking up a book's metadata and installing content packs no longer slow down the rest of Grimoire while they run
+- Turning off or changing the scheduled rescan or backup while one is running really stops the old schedule. Before, rescans or backups could run twice, or keep going after being turned off, until a restart
+- A new install running more than one worker (`WORKERS=2`) on Docker Desktop for macOS or Windows no longer fails to start with `table app_settings already exists`
+- An audio track embedded in a campaign page is named after the track instead of "Audio"
+- The live log in **Settings** no longer reads every new line aloud; it sums up new entries at most every ten seconds
+- The search page's help no longer pulls focus back to itself, and closing it returns you to the help button
+- A button with a loading spinner is read by its own name ("Save", not "Loading… Save")
+- The server log is free of the deprecation warnings it used to print at startup and from every scan and render process
 
 ## [1.10.0] - 2026-10-29
 
@@ -812,7 +811,8 @@ Initial release. A self-hosted library manager for your TTRPG PDFs, battlemaps, 
 - Explicit content controls with per-user opt-in
 - Docker-first deployment
 
-[Unreleased]: https://github.com/hunter-read/grimoire/compare/v1.10.0...HEAD
+[Unreleased]: https://github.com/hunter-read/grimoire/compare/v1.10.1...HEAD
+[1.10.1]: https://github.com/hunter-read/grimoire/compare/v1.10.0...v1.10.1
 [1.10.0]: https://github.com/hunter-read/grimoire/compare/v1.9.2...v1.10.0
 [1.9.2]: https://github.com/hunter-read/grimoire/compare/v1.9.1...v1.9.2
 [1.9.1]: https://github.com/hunter-read/grimoire/compare/v1.9.0...v1.9.1

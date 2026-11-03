@@ -222,7 +222,7 @@ docker pull hunterreadca/grimoire:latest
 Or pin to a specific release:
 
 ```bash
-docker pull hunterreadca/grimoire:1.10.0
+docker pull hunterreadca/grimoire:1.10.1
 ```
 
 Release and `nightly` tags are mirrored to the GitHub Container Registry, if you'd rather pull from there:
@@ -231,7 +231,7 @@ Release and `nightly` tags are mirrored to the GitHub Container Registry, if you
 docker pull ghcr.io/hunter-read/grimoire:latest
 ```
 
-**Image variants:** the default tags (`latest`, `1.10.0`, …) include the Tesseract OCR engine so image-only PDFs are searchable (see [OCR](docs/performance.md#ocr)). If you don't need OCR and prefer a smaller image, use the matching `-slim` tag (e.g. `hunterreadca/grimoire:latest`'s slim counterpart `:slim`, or a pinned `:1.10.0-slim`), which omits Tesseract.
+**Image variants:** the default tags (`latest`, `1.10.1`, …) include the Tesseract OCR engine so image-only PDFs are searchable (see [OCR](docs/performance.md#ocr)). If you don't need OCR and prefer a smaller image, use the matching `-slim` tag (e.g. `hunterreadca/grimoire:latest`'s slim counterpart `:slim`, or a pinned `:1.10.1-slim`), which omits Tesseract.
 
 ### 4. Minimal `docker-compose.yml`
 
