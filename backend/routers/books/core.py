@@ -24,7 +24,11 @@ from ...models import Book
 from ...models.base import utc_iso
 from ...services import access_control, bulk_service, library_fs, tag_service, variants
 from ...services.content_cache import content_token
-from ...services.systems import visible_book_system
+from ...services.systems import (
+    book_relative_path,
+    visible_book_system,
+    visible_systems_by_id,
+)
 from .._browse import MAX_OFFSET
 from .._bulk_schemas import BulkAddTags
 from ...services.media.access import guest_visible_variants
@@ -115,6 +119,9 @@ def list_books(
     # Resolved once for the page with the shared category map and system rows,
     # so the badge costs no extra query per book.
     effective_levels = access_control.effective_levels(db, books)
+    # An open book can sit in a system this reader may not see, and its row
+    # then names no system. (The row carries no path to name it either.)
+    systems = visible_systems_by_id(db, [b.game_system_id for b in books], current_user)
     return {
         "total": total,
         "books": [
@@ -127,7 +134,11 @@ def list_books(
                 "page_count": b.page_count,
                 "file_size": b.file_size,
                 "mime_type": b.mime_type,
-                "game_system_id": b.game_system_id,
+                "game_system_id": (
+                    b.game_system_id
+                    if not b.game_system_id or b.game_system_id in systems
+                    else ""
+                ),
                 # A custom cover is a cover too, even where no thumbnail could be made.
                 "has_thumbnail": bool(b.has_thumbnail or b.cover_image),
                 "cover_version": book_covers.cover_version(b),
@@ -194,11 +205,15 @@ def get_book(
     )
     if not main_readable:
         siblings = [s for s in siblings if s.id != book.id]
+    sibling_systems = visible_systems_by_id(
+        db, [s.game_system_id for s in siblings], current_user
+    )
     return {
         "id": book.id,
         "title": book.title,
         "filename": book.filename,
-        "relative_path": book.relative_path,
+        # Its folders would name a system hidden from this reader.
+        "relative_path": book_relative_path(db, book, system),
         "category": book.category,
         "description": book.description,
         "page_count": book.page_count,
@@ -244,7 +259,15 @@ def get_book(
         "variant_label": book.variant_label or "",
         "variant_main_id": variant_parent.id if main_readable else None,
         **(variants.main_fields(variant_parent) if main_readable else {}),
-        "variants": [variants.serialize_variant(v) for v in siblings],
+        "variants": [
+            {
+                **variants.serialize_variant(v),
+                "relative_path": book_relative_path(
+                    db, v, sibling_systems.get(v.game_system_id or "")
+                ),
+            }
+            for v in siblings
+        ],
         "game_system": {
             "id": system.id,
             "name": system.name,
