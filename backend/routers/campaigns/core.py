@@ -23,12 +23,15 @@ from ...services.systems import load_browsable_system
 from ._helpers import (
     assert_can_manage,
     campaign_lookups,
+    can_link_resource,
     can_see_resource,
     can_view,
+    clamp_visibility_for_access,
     get_campaign_or_404,
     is_gm_or_admin,
     member_summaries,
     members_for,
+    readable_book_ids,
     serialize_campaign,
     user_has_campaign_access,
 )
@@ -180,7 +183,8 @@ def create_campaign(
     db.refresh(campaign)
 
     # Only link the resources explicitly chosen in the create wizard. Deduplicate
-    # by (type, id) and skip unknown resource types.
+    # by (type, id) and skip unknown resource types and items the creator cannot
+    # link, the same as the bulk add.
     if data.resources:
         seen = set()
         order = 0
@@ -191,7 +195,10 @@ def create_campaign(
             if key in seen:
                 continue
             seen.add(key)
+            if not can_link_resource(db, current_user, campaign.id, *key):
+                continue
             visibility = r.visibility if r.visibility in ("public", "private", "gm") else "gm"
+            visibility = clamp_visibility_for_access(db, *key, visibility)
             res = CampaignResource(
                 campaign_id=campaign.id,
                 resource_type=r.resource_type,
@@ -242,6 +249,7 @@ def get_campaign(
     ):
         share_map.setdefault(s.resource_id, set()).add(s.user_id)
 
+    readable_books = readable_book_ids(db, current_user, all_resources)
     resources = [
         {
             "id": r.id,
@@ -252,6 +260,7 @@ def get_campaign(
         }
         for r in all_resources
         if can_see_resource(r, is_owner, current_user.id, share_map)
+        and (r.resource_type != "book" or r.resource_id in readable_books)
     ]
 
     result = serialize_campaign(c, members, db, current_user)

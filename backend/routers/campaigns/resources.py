@@ -24,10 +24,12 @@ from ...models import (
 )
 from ._helpers import (
     assert_can_manage,
+    can_link_resource,
     can_see_resource as _can_see_resource,
     can_view,
     clamp_visibility_for_access,
     get_campaign_or_404,
+    readable_book_ids,
 )
 from ._schemas import ResourceAdd, ResourceBulkAdd, ResourceReorder, ResourceUpdate
 
@@ -130,10 +132,12 @@ def list_resources(
     ):
         share_map.setdefault(s.resource_id, set()).add(s.user_id)
 
+    readable_books = readable_book_ids(db, current_user, resources)
     out = [
         _serialize(db, r, share_map, include_shares=is_owner)
         for r in resources
         if _can_see_resource(r, is_owner, current_user.id, share_map)
+        and (r.resource_type != "book" or r.resource_id in readable_books)
     ]
     # Order: public, then private, then gm; then by manual sort_order, then name.
     out.sort(key=lambda d: (_VIS_ORDER.get(d["visibility"], 9), d["sort_order"], d["name"].lower()))
@@ -148,6 +152,8 @@ def add_resource(
     assert_can_manage(c, current_user, db)
     if data.resource_type not in ("book", "map", "token", "audio", "model", "file"):
         raise HTTPException(400, "Invalid resource_type")
+    if not can_link_resource(db, current_user, campaign_id, data.resource_type, data.resource_id):
+        raise HTTPException(404, "Resource not found")
 
     existing = (
         db.query(CampaignResource)
@@ -192,9 +198,9 @@ def bulk_add_resources(
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Link many resources at once. Duplicates and unknown types are skipped
-    silently so one bad entry doesn't fail the whole batch. Returns the rows
-    that were actually created."""
+    """Link many resources at once. Duplicates, unknown types and items the
+    caller cannot link are skipped silently so one bad entry doesn't fail the
+    whole batch. Returns the rows that were actually created."""
     c = get_campaign_or_404(db, campaign_id)
     assert_can_manage(c, current_user, db)
 
@@ -209,6 +215,8 @@ def bulk_add_resources(
             continue
         key = (item.resource_type, item.resource_id)
         if key in existing_keys:
+            continue
+        if not can_link_resource(db, current_user, campaign_id, *key):
             continue
         existing_keys.add(key)
         visibility = item.visibility if item.visibility in _VISIBILITIES else "gm"
