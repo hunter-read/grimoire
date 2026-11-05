@@ -1,11 +1,15 @@
 """Tests for the /api/logs endpoint."""
 import datetime
 import logging
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pytest
 
 from backend import config
+
+# The repo root, where `backend` imports from whatever directory pytest started in.
+_REPO = str(Path(__file__).resolve().parents[2])
 
 
 class TestLogsAccess:
@@ -348,7 +352,7 @@ class TestConfigReload:
             "print(before == fmts(), fmts())\n"
         )
         out = subprocess.run(
-            [sys.executable, "-c", probe], capture_output=True, text=True, check=True
+            [sys.executable, "-c", probe], cwd=_REPO, capture_output=True, text=True, check=True
         ).stdout
         assert out.strip() == (
             "True ['%(asctime)s [%(name)s] %(levelname)s: %(message)s', '%(message)s']"
