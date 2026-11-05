@@ -22,6 +22,7 @@ from .._page_export import (
     save_export,
 )
 from ...services.media.maps import is_pdf
+from .._page_num import PageNum
 
 
 def _exportable(db: Session, map_id: str, user: CurrentUser) -> GenericMap:
@@ -71,7 +72,7 @@ def save_map_export(
 
 def get_map_page_size(
     map_id: str,
-    page_num: int,
+    page_num: PageNum,
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -81,7 +82,7 @@ def get_map_page_size(
 
 def detect_map_page_shapes(
     map_id: str,
-    page_num: int,
+    page_num: PageNum,
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):

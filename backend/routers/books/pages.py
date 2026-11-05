@@ -28,6 +28,7 @@ from ...services.books.access import assert_book_access
 from ...services.books.documents import cached_book_info
 from ._render_cache import serve_cached_render
 from .._render_errors import render_errors
+from .._page_num import PageNum
 
 
 def _mark_missing(db: Session, book_id: str) -> None:
@@ -100,7 +101,7 @@ def get_book_toc(
 def serve_book_page(
     request: Request,
     book_id: str,
-    page_num: int,
+    page_num: PageNum,
     width: int = Query(1200, ge=MIN_RENDER_WIDTH, le=3000),
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -166,7 +167,7 @@ def serve_book_page(
 
 def get_page_text(
     book_id: str,
-    page_num: int,
+    page_num: PageNum,
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -206,7 +207,7 @@ def get_page_text(
 
 def get_page_words(
     book_id: str,
-    page_num: int,
+    page_num: PageNum,
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):

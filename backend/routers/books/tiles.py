@@ -27,6 +27,7 @@ from ...services.books.documents import cached_book_info
 from ._render_cache import serve_cached_render
 from .._render_errors import render_errors
 from .pages import _authorize_book, _mark_missing
+from .._page_num import PageNum
 
 # Virtual page widths come in steps of this, so a page has a bounded number of
 # tile sets to cache rather than one per pixel of window width.
@@ -38,7 +39,7 @@ MAX_WIDTH = MAX_RENDER_WIDTH
 def serve_book_page_tile(
     request: Request,
     book_id: str,
-    page_num: int,
+    page_num: PageNum,
     width: int = Query(..., ge=MIN_WIDTH, le=MAX_WIDTH),
     col: int = Query(..., ge=0),
     row: int = Query(..., ge=0),

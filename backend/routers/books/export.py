@@ -23,6 +23,7 @@ from .._page_export import (
     save_export,
 )
 from ...services.books.access import assert_book_access
+from .._page_num import PageNum
 
 
 def _exportable(db: Session, book_id: str, user: CurrentUser) -> Book:
@@ -72,7 +73,7 @@ def save_book_export(
 
 def get_book_page_size(
     book_id: str,
-    page_num: int,
+    page_num: PageNum,
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -82,7 +83,7 @@ def get_book_page_size(
 
 def detect_book_page_shapes(
     book_id: str,
-    page_num: int,
+    page_num: PageNum,
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):

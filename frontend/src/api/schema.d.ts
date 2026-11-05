@@ -20028,6 +20028,7 @@ export interface operations {
             };
             path: {
                 book_id: string;
+                /** @description Page number, from 1. */
                 page_num: number;
             };
             cookie?: {
@@ -20065,6 +20066,7 @@ export interface operations {
             };
             path: {
                 book_id: string;
+                /** @description Page number, from 1. */
                 page_num: number;
             };
             cookie?: {
@@ -20102,6 +20104,7 @@ export interface operations {
             };
             path: {
                 book_id: string;
+                /** @description Page number, from 1. */
                 page_num: number;
             };
             cookie?: {
@@ -20139,6 +20142,7 @@ export interface operations {
             };
             path: {
                 book_id: string;
+                /** @description Page number, from 1. */
                 page_num: number;
             };
             cookie?: {
@@ -20180,6 +20184,7 @@ export interface operations {
             };
             path: {
                 book_id: string;
+                /** @description Page number, from 1. */
                 page_num: number;
             };
             cookie?: {
@@ -20217,6 +20222,7 @@ export interface operations {
             };
             path: {
                 book_id: string;
+                /** @description Page number, from 1. */
                 page_num: number;
             };
             cookie?: {
@@ -27868,6 +27874,7 @@ export interface operations {
             };
             path: {
                 map_id: string;
+                /** @description Page number, from 1. */
                 page_num: number;
             };
             cookie?: {
@@ -27905,6 +27912,7 @@ export interface operations {
             };
             path: {
                 map_id: string;
+                /** @description Page number, from 1. */
                 page_num: number;
             };
             cookie?: {
@@ -27942,6 +27950,7 @@ export interface operations {
             };
             path: {
                 map_id: string;
+                /** @description Page number, from 1. */
                 page_num: number;
             };
             cookie?: {
