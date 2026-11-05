@@ -864,9 +864,21 @@ class TestListsShowOnlyVisible:
     ):
         from ._mcp import index_page
 
+        from backend.services import variants
+
         name = f"Secret Shelf {uuid.uuid4().hex[:6]}"
         system = make_game_system(name=name)
-        book = make_book(system.id, access_level="")
+        uid = uuid.uuid4().hex[:6]
+        book = make_book(
+            system.id, access_level="", relative_path=f"books/{name}/core/Deep/book-{uid}.pdf"
+        )
+        printable = make_book(
+            system.id, access_level="", relative_path=f"books/{name}/core/print-{uid}.pdf"
+        )
+        db = SessionLocal()
+        variants.link(db, Book, book.id, printable.id, "printer-friendly", "")
+        db.commit()
+        db.close()
         word = f"zq{uuid.uuid4().hex[:8]}"
         index_page(book.id, 1, f"The {word} lurks here.")
         _set_system_level(system.id, "gm")
@@ -874,6 +886,17 @@ class TestListsShowOnlyVisible:
 
         detail = client.get(f"/api/books/{book.id}", headers=player_headers).json()
         assert detail["game_system"] is None
+        assert detail["relative_path"] == f"books/core/Deep/book-{uid}.pdf"
+        assert [v["relative_path"] for v in detail["variants"]] == [
+            f"books/core/print-{uid}.pdf"
+        ]
+
+        listed = client.get(
+            "/api/books", params={"system_id": system.id}, headers=player_headers
+        ).json()["books"]
+        row = next(r for r in listed if r["id"] == book.id)
+        assert row["game_system_id"] == ""
+        assert name not in str(listed)
 
         by_title = client.get(
             "/api/search", params={"q": f"title:{book.title}"}, headers=player_headers
@@ -887,9 +910,13 @@ class TestListsShowOnlyVisible:
         assert name not in str(detail) + str(by_title) + str(hits)
 
         # Someone who can see the system still gets it named.
-        assert client.get(f"/api/books/{book.id}", headers=admin_headers).json()[
-            "game_system"
-        ]["name"] == name
+        admin_detail = client.get(f"/api/books/{book.id}", headers=admin_headers).json()
+        assert admin_detail["game_system"]["name"] == name
+        assert admin_detail["relative_path"] == f"books/{name}/core/Deep/book-{uid}.pdf"
+        admin_listed = client.get(
+            "/api/books", params={"system_id": system.id}, headers=admin_headers
+        ).json()["books"]
+        assert next(r for r in admin_listed if r["id"] == book.id)["game_system_id"] == system.id
         admin_hits = client.get("/api/search", params={"q": word}, headers=admin_headers).json()
         assert next(r for r in admin_hits["results"] if r["id"] == book.id)["game_system"] == name
 

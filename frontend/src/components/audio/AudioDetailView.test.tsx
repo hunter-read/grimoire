@@ -311,7 +311,8 @@ describe('AudioDetailView — screen readers', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Tavern Night' })
     ).toBeInTheDocument()
-    expect(document.title).toBe('Tavern Night - Grimoire')
+    // The title is set by an effect, which can land after the heading renders.
+    await waitFor(() => expect(document.title).toBe('Tavern Night - Grimoire'))
     expect(screen.getByRole('heading', { level: 2, name: 'Track Details' })).toBeInTheDocument()
   })
 

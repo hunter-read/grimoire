@@ -118,6 +118,13 @@ class TestParseQuery:
     def test_case_insensitive_prefix(self):
         assert parse_query("TITLE:avatar").filters == {"title": ["avatar"]}
 
+    def test_control_characters_separate_terms(self):
+        parsed = parse_query("a\x00b title:dark\x1bsun\x7f")
+        assert parsed.raw == "a b title:dark sun "
+        assert parsed.free_terms == ["a", "b", "sun"]
+        assert parsed.filters == {"title": ["dark"]}
+        assert "\x00" not in parsed.content_query
+
 
 class TestYearBounds:
     def test_exact_year(self):
@@ -186,6 +193,21 @@ class TestBookTitleMatching:
         assert resp.status_code == 200
         ids = [b["id"] for b in resp.json()["book_matches"]]
         assert title_library["core"].id in ids
+
+    @pytest.mark.parametrize("q", ["a\x00b", "avatar\x00", "\x00\x00", "title:\x00avatar"])
+    def test_a_control_character_is_not_an_error(self, client, admin_headers, title_library, q):
+        resp = client.get("/api/search", params={"q": q}, headers=admin_headers)
+        assert resp.status_code == 200, resp.text
+
+    def test_a_nul_still_finds_the_title(self, client, admin_headers, title_library):
+        resp = client.get("/api/search", params={"q": "avatar\x00"}, headers=admin_headers)
+        assert title_library["core"].id in [b["id"] for b in resp.json()["book_matches"]]
+
+    def test_browse_routes_take_a_nul(self, client, admin_headers, title_library):
+        system_books = f"/api/systems/{title_library['system'].id}/books"
+        for path in ("/api/maps", system_books):
+            resp = client.get(path, params={"q": "a\x00b"}, headers=admin_headers)
+            assert resp.status_code == 200, (path, resp.text)
 
     def test_bare_query_still_returns_page_hits(self, client, admin_headers, title_library):
         resp = client.get("/api/search?q=avatar", headers=admin_headers)

@@ -87,6 +87,16 @@ class TestUpload:
         with Image.open(os.path.join(BOOK_COVER_DIR, resp.json()["cover_image"])) as img:
             assert img.size == (covers.COVER_MAX_WIDTH, 1200)
 
+    def test_rejects_an_image_with_too_many_pixels(self, client, admin_headers, book):
+        # A flat 13000 x 13000 PNG is a small file under Pillow's own ceiling,
+        # but would decode to hundreds of megabytes.
+        data = _image_bytes("PNG", size=(13000, 13000), mode="L", color=0)
+        assert len(data) < 1024 * 1024
+        resp = _upload(client, admin_headers, book.id, data)
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Image is too large"
+        assert _stored(book.id) == []
+
     def test_gm_may_upload(self, client, gm_headers, book):
         assert _upload(client, gm_headers, book.id).status_code == 200
 
@@ -276,6 +286,32 @@ class TestService:
         data = _image_bytes("JPEG", size=(40, 20), exif=exif.tobytes())
         with Image.open(io.BytesIO(covers.encode_cover(data))) as img:
             assert img.size == (20, 40)
+
+    def test_encode_rejects_a_large_source_before_decoding(self, monkeypatch):
+        data = _image_bytes(size=(30, 40))
+        monkeypatch.setattr(covers, "COVER_MAX_SOURCE_PIXELS", 30 * 40 - 1)
+
+        def no_load(_self):
+            raise AssertionError("decoded an image over the pixel cap")
+
+        monkeypatch.setattr(Image.Image, "load", no_load)
+        with pytest.raises(covers.CoverImageError, match="too large"):
+            covers.encode_cover(data)
+
+    def test_encode_shrinks_and_rotates_a_large_photo(self):
+        exif = Image.Exif()
+        exif[0x0112] = 6
+        data = _image_bytes("JPEG", size=(2400, 1800), exif=exif.tobytes())
+        with Image.open(io.BytesIO(covers.encode_cover(data))) as img:
+            assert img.size == (covers.COVER_MAX_WIDTH, 1200)
+
+    def test_encode_shrinks_a_large_palette_image(self):
+        img = Image.new("P", (2000, 2000), 0)
+        buf = io.BytesIO()
+        img.save(buf, "GIF", transparency=0)
+        with Image.open(io.BytesIO(covers.encode_cover(buf.getvalue()))) as out:
+            assert out.size == (covers.COVER_MAX_WIDTH, covers.COVER_MAX_WIDTH)
+            assert out.mode == "RGBA"
 
     def test_encode_keeps_transparency(self):
         data = _image_bytes("PNG", mode="RGBA", color=(0, 0, 0, 0))
