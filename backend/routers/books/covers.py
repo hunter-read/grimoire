@@ -38,8 +38,8 @@ def _apply(db: Session, book: Book, data: bytes, formats: Optional[tuple[str, ..
     """Store ``data`` as the book's cover, commit, and refresh an exported cover."""
     try:
         book_covers.store_cover(book, data, formats)
-    except book_covers.CoverImageError:
-        raise HTTPException(400, "File is not a valid image") from None
+    except book_covers.CoverImageError as exc:
+        raise HTTPException(400, str(exc)) from None
     db.commit()
     # A `.cover.jpg` sidecar the book already has is rewritten to match. After the
     # commit, as for a metadata edit, and it never fails the request.
