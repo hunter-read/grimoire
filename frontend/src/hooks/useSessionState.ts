@@ -8,10 +8,12 @@ import { useState, useEffect, useRef, type Dispatch, type SetStateAction } from 
  * Supports plain values and Set objects.
  * Sets are stored as JSON arrays and rehydrated as Sets on load.
  *
- * Pass `restore: false` to start from `initial` while still writing changes to
- * storage — used by views that persist state only for a return trip (see
- * useRestoredView), so a fresh navigation starts clean without discarding what
- * a later return would want to read back.
+ * Pass `restore: false` to start from `initial` and store it straight away,
+ * replacing what an earlier visit left — used by views that persist state only
+ * for a return trip (see useRestoredView). A fresh navigation starts clean, and
+ * a later return reads back this visit's state. Storing only on change left an
+ * untouched visit's predecessor in place, so returning from a book opened off
+ * the shelf brought back a search the user had made on an earlier visit.
  *
  * @param {string} key        sessionStorage key
  * @param {*}      initial    initial value (used only when no stored value exists)
@@ -22,6 +24,12 @@ import { useState, useEffect, useRef, type Dispatch, type SetStateAction } from 
 export interface SessionStateOptions {
   /** Whether to seed from the stored value (default true). */
   restore?: boolean
+}
+
+const store = (key: string, value: unknown): void => {
+  try {
+    sessionStorage.setItem(key, JSON.stringify(value instanceof Set ? [...value] : value))
+  } catch {}
 }
 
 export default function useSessionState<T>(
@@ -54,12 +62,15 @@ export default function useSessionState<T>(
     setValueRaw(next)
   }
 
+  // Once, for the key this mount started with: a fresh visit's starting value
+  // replaces the previous visit's (see `restore` above).
+  useEffect(() => {
+    if (!restore) store(key, initial)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!hasBeenSet.current) return
-    try {
-      const toStore = value instanceof Set ? [...value] : value
-      sessionStorage.setItem(key, JSON.stringify(toStore))
-    } catch {}
+    store(key, value)
   }, [key, value])
 
   return [value, setValue]

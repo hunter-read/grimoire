@@ -106,6 +106,22 @@ describe('useSystemSearch', () => {
     expect(api.get).not.toHaveBeenCalled()
   })
 
+  // Search, open a result, leave for the library, come back to the system
+  // fresh, open a book off the shelf, press back: the old search came back,
+  // because the fresh visit never replaced it in storage.
+  it('returns to the latest visit, not a search from an earlier one', () => {
+    const first = renderHook(() => useSystemSearch('sys1', false))
+    typeInto(first.result, 'drag')
+    first.unmount() // into the reader, then away to the library
+
+    renderHook(() => useSystemSearch('sys1', false)).unmount() // fresh visit, box untouched
+
+    const back = renderHook(() => useSystemSearch('sys1', true)) // back from the reader
+    expect(back.result.current.searchQuery).toBe('')
+    act(() => vi.advanceTimersByTime(350))
+    expect(api.get).not.toHaveBeenCalled()
+  })
+
   // Leaving the view mid-debounce must not fire a stray request.
   it('drops a pending search when the view unmounts', () => {
     const { result, unmount } = renderHook(() => useSystemSearch('sys1', false))

@@ -115,6 +115,30 @@ describe('useSessionState', () => {
       expect(r2.current[0]).toBe('typed')
     })
 
+    // The bug behind "back from a book brings up an old search": a fresh visit
+    // that never touched the value left the previous visit's in storage, so the
+    // next return trip read that back instead of what this visit showed.
+    it('replaces the stored value with the initial one when restore is false', () => {
+      sessionStorage.setItem(KEY, JSON.stringify('old search'))
+      renderHook(() => useSessionState(KEY, '', { restore: false }))
+      expect(JSON.parse(sessionStorage.getItem(KEY)!)).toBe('')
+      // The return trip now restores this visit's (empty) state.
+      const { result } = renderHook(() => useSessionState(KEY, 'unused'))
+      expect(result.current[0]).toBe('')
+    })
+
+    it('replaces a stored Set the same way', () => {
+      sessionStorage.setItem(KEY, JSON.stringify(['old']))
+      renderHook(() => useSessionState(KEY, new Set<string>(), { restore: false }))
+      expect(JSON.parse(sessionStorage.getItem(KEY)!)).toEqual([])
+    })
+
+    it('leaves storage alone on a restoring mount until the value changes', () => {
+      sessionStorage.setItem(KEY, JSON.stringify('stored'))
+      renderHook(() => useSessionState(KEY, 'initial'))
+      expect(JSON.parse(sessionStorage.getItem(KEY)!)).toBe('stored')
+    })
+
     it('restores by default', () => {
       sessionStorage.setItem(KEY, JSON.stringify('stored'))
       const { result } = renderHook(() => useSessionState(KEY, 'initial'))
