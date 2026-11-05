@@ -13,6 +13,7 @@ import json
 import subprocess
 import sys
 import time
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -21,6 +22,9 @@ from joserfc.jwk import ECKey, KeySet, OctKey, RSAKey
 
 from backend.routers.oidc import _helpers
 from backend.routers.oidc._helpers import _OIDCError
+
+# The repo root, where `backend` imports from whatever directory pytest started in.
+_REPO = str(Path(__file__).resolve().parents[2])
 
 ISSUER = "https://idp.test/realm"
 CLIENT = "grimoire"
@@ -188,6 +192,7 @@ def test_importing_the_app_prints_no_authlib_warning():
     """authlib.jose warned on import, past any warnings filter (issue #789)."""
     out = subprocess.run(
         [sys.executable, "-c", "import backend.main"],
+        cwd=_REPO,
         capture_output=True,
         text=True,
         timeout=120,

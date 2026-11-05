@@ -5,6 +5,7 @@ test_mcp_resources_prompts.py.
 """
 import dataclasses
 import uuid
+from pathlib import Path
 
 import pytest
 from fastapi import HTTPException
@@ -13,6 +14,9 @@ from backend import api_keys
 from backend.mcp_server import errors, server, tools
 from backend.tests._mcp import index_page, make_key, mcp_test_client, rpc
 from backend.tests.conftest import make_book, make_game_system
+
+# The repo root, where `backend` imports from whatever directory pytest started in.
+_REPO = str(Path(__file__).resolve().parents[2])
 
 WORD = "zorbulax"
 
@@ -431,7 +435,12 @@ def test_sdk_is_not_loaded_unless_mcp_is_enabled(tmp_path):
     env.pop("MCP_ENABLED", None)
     probe = "import sys, backend.main; print('mcp' in sys.modules)"
     out = subprocess.run(
-        [sys.executable, "-c", probe], env=env, capture_output=True, text=True, check=True
+        [sys.executable, "-c", probe],
+        env=env,
+        cwd=_REPO,
+        capture_output=True,
+        text=True,
+        check=True,
     )
     assert out.stdout.strip().splitlines()[-1] == "False"
 

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { Mock } from 'vitest'
 import { useRef } from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import BookActionsMenu from './BookActionsMenu'
 import type { Schema } from '../../api'
@@ -373,6 +374,32 @@ describe('BookActionsMenu', () => {
     fireEvent.change(screen.getByLabelText('reocr.dpiLabel'), { target: { value: '300' } })
     fireEvent.click(screen.getByText('reocr.run'))
     await waitFor(() => expect(mockPost).toHaveBeenCalledWith('/books/b5/reindex?ocr_dpi=300'))
+  })
+
+  it('re-OCR runs from the keyboard alone: unfold, type a DPI, press Enter', async () => {
+    const user = userEvent.setup()
+    renderMenu({ id: 'b6', index_error: 'ocr', can_reocr: true })
+    screen.getByLabelText('a11y.bookActions').focus()
+    await user.keyboard('{Enter}')
+    const reocr = screen.getByRole('menuitem', { name: 'bookActions.reocr' })
+    while (document.activeElement !== reocr) await user.keyboard('{ArrowDown}')
+    await user.keyboard('{Enter}')
+    const field = screen.getByLabelText('reocr.dpiLabel')
+    await waitFor(() => expect(field).toHaveFocus())
+    await user.keyboard('300{Enter}')
+    await waitFor(() => expect(mockPost).toHaveBeenCalledWith('/books/b6/reindex?ocr_dpi=300'))
+  })
+
+  it('re-OCR lets Tab reach the run button inside the unfolded field', async () => {
+    const user = userEvent.setup()
+    renderMenu({ id: 'b7', index_error: 'ocr', can_reocr: true })
+    fireEvent.click(screen.getByLabelText('a11y.bookActions'))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'bookActions.reocr' }))
+    await waitFor(() => expect(screen.getByLabelText('reocr.dpiLabel')).toHaveFocus())
+    await user.keyboard('{Tab}')
+    expect(screen.getByRole('button', { name: 'reocr.run' })).toHaveFocus()
+    await user.keyboard('{Enter}')
+    await waitFor(() => expect(mockPost).toHaveBeenCalledWith('/books/b7/reindex'))
   })
 
   it('seeds the DPI field from an existing per-book override', () => {

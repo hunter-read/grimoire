@@ -33,6 +33,37 @@ function Menu({ onClose = () => {} }: { onClose?: () => void }) {
 
 const item = (name: string) => screen.getByRole('menuitem', { name })
 
+/** A menu with an unfolded field: an input and its button, between two items. */
+function FieldMenu({ onClose = () => {} }: { onClose?: () => void }) {
+  const [open, setOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  useMenuKeyboard(open, menuRef, triggerRef, () => {
+    setOpen(false)
+    onClose()
+  })
+  return (
+    <>
+      <button ref={triggerRef} onClick={() => setOpen(true)}>
+        Open
+      </button>
+      {open && (
+        <div ref={menuRef} role="menu">
+          <button role="menuitem">Unfold</button>
+          <form data-menu-field>
+            <input aria-label="Value" />
+            <button type="button" disabled>
+              Busy
+            </button>
+            <button type="submit">Run</button>
+          </form>
+          <button role="menuitem">After</button>
+        </div>
+      )}
+    </>
+  )
+}
+
 describe('useMenuKeyboard', () => {
   it('moves focus to the first item when the menu opens', () => {
     render(<Menu />)
@@ -100,5 +131,44 @@ describe('useMenuKeyboard', () => {
     fireEvent.keyDown(item('First'), { key: 'a' })
     expect(item('First')).toHaveFocus()
     expect(onClose).not.toHaveBeenCalled()
+  })
+
+  describe('an unfolded field', () => {
+    it('lets Tab and Shift+Tab move between its enabled controls', () => {
+      const onClose = vi.fn()
+      render(<FieldMenu onClose={onClose} />)
+      fireEvent.click(screen.getByText('Open'))
+      const input = screen.getByLabelText('Value')
+      input.focus()
+      fireEvent.keyDown(input, { key: 'Tab' })
+      expect(screen.getByText('Run')).toHaveFocus()
+      fireEvent.keyDown(screen.getByText('Run'), { key: 'Tab', shiftKey: true })
+      expect(input).toHaveFocus()
+      expect(onClose).not.toHaveBeenCalled()
+    })
+
+    it('closes the menu when Tab leaves either end of the field', () => {
+      const onClose = vi.fn()
+      render(<FieldMenu onClose={onClose} />)
+      fireEvent.click(screen.getByText('Open'))
+      screen.getByText('Run').focus()
+      fireEvent.keyDown(screen.getByText('Run'), { key: 'Tab' })
+      expect(onClose).toHaveBeenCalledTimes(1)
+      expect(screen.getByText('Open')).toHaveFocus()
+
+      fireEvent.click(screen.getByText('Open'))
+      screen.getByLabelText('Value').focus()
+      fireEvent.keyDown(screen.getByLabelText('Value'), { key: 'Tab', shiftKey: true })
+      expect(onClose).toHaveBeenCalledTimes(2)
+    })
+
+    it('still closes on Escape from inside the field', () => {
+      const onClose = vi.fn()
+      render(<FieldMenu onClose={onClose} />)
+      fireEvent.click(screen.getByText('Open'))
+      screen.getByLabelText('Value').focus()
+      fireEvent.keyDown(screen.getByLabelText('Value'), { key: 'Escape' })
+      expect(onClose).toHaveBeenCalledTimes(1)
+    })
   })
 })
