@@ -30,7 +30,7 @@ from ._helpers import (
 
 def search_library(
     q: str = Query(..., min_length=2),
-    limit: int = Query(50, le=200),
+    limit: int = Query(50, ge=1, le=200),
     book_id: Optional[str] = None,
     system_id: Optional[str] = None,
     current_user: CurrentUser = Depends(get_current_user),
