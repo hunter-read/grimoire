@@ -15,25 +15,50 @@ container's) own disk, shared by every worker on it, where the lock holds. The
 file under DATA_PATH still covers processes that share the data folder but not a
 temp directory, and anything that checks that file directly.
 
-The twin is named for this user as well as the path, since another user's file
-in the temp directory may not be ours to open. Stdlib only, so the database
-layer can use it before anything else is set up.
+The twins live in a folder of this user's own in the temp directory,
+``grimoire-{uid}/``, made mode 0700 on first use, so every file in it is one
+this user made. A folder by that name that is not a directory this user owns
+and alone can write to is not used: the lock then goes without its twin, as it
+does when a lock file can't be opened. Stdlib only, so the database layer can
+use it before anything else is set up.
 """
 import errno
 import fcntl
 import hashlib
 import os
+import stat
 import tempfile
 from types import TracebackType
 from typing import Optional, TextIO
 
 
+def twin_dir() -> str:
+    """This user's folder for lock twins, created on first use.
+
+    Raises OSError when it can't be made, or when what is there is not a
+    directory (a symlink counts as not one) owned by this user with no access
+    for anyone else.
+    """
+    uid = os.getuid()
+    folder = os.path.join(tempfile.gettempdir(), f"grimoire-{uid}")
+    try:
+        os.mkdir(folder, 0o700)
+    except FileExistsError:
+        pass
+    info = os.lstat(folder)
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != uid or info.st_mode & 0o077:
+        raise PermissionError(errno.EACCES, "Lock folder is not this user's alone", folder)
+    return folder
+
+
 def local_twin(path: str) -> str:
-    """The temp-directory lock file that stands in for ``path`` on this machine."""
+    """The temp-directory lock file that stands in for ``path`` on this machine.
+
+    Raises OSError when this user's twin folder can't be used (see
+    :func:`twin_dir`).
+    """
     digest = hashlib.sha256(os.path.realpath(path).encode("utf-8", "surrogateescape"))
-    return os.path.join(
-        tempfile.gettempdir(), f"grimoire-{os.getuid()}-{digest.hexdigest()[:16]}.lock"
-    )
+    return os.path.join(twin_dir(), f"{digest.hexdigest()[:16]}.lock")
 
 
 class FileLock:
@@ -51,14 +76,19 @@ class FileLock:
         """Take both locks. False, holding neither, if another process has one.
 
         A lock file that can't be opened or locked at all (a mount with no lock
-        support) is skipped and the other still taken. Raises the OSError when
-        neither can be used.
+        support, or a twin folder that isn't usable) is skipped and the other
+        still taken. Raises the OSError when neither can be used.
         """
         if self._handles:
             raise RuntimeError(f"lock already held: {self.path}")
         flags = fcntl.LOCK_EX if blocking else fcntl.LOCK_EX | fcntl.LOCK_NB
         error: Optional[OSError] = None
-        for lock_path in (local_twin(self.path), self.path):
+        lock_paths = [self.path]
+        try:
+            lock_paths.insert(0, local_twin(self.path))
+        except OSError as e:
+            error = e
+        for lock_path in lock_paths:
             try:
                 handle = open(lock_path, "a")
             except OSError as e:

@@ -337,8 +337,9 @@ process on startup:
    the winning worker runs the startup library scan; others skip it. The scan runs on a
    background daemon thread so it doesn't block the app coming up. This lock, like the
    migration, session-purge and job locks, is a [`FileLock`](../backend/file_locks.py):
-   it also locks a twin in the local temp directory, because some data mounts (a Docker
-   Desktop bind mount of a macOS or Windows folder) accept `flock` without enforcing it.
+   it also locks a twin in the local temp directory (under `grimoire-<uid>/`, a folder only
+   that user can open), because some data mounts (a Docker Desktop bind mount of a macOS or
+   Windows folder) accept `flock` without enforcing it.
 3. **User seeding** - `seed_users(...)` applies env-driven / first-run accounts.
 4. **Wiki migrations** - `wiki_migration` and `wiki_category_migration` roll legacy session
    notes and flat note-categories into the current nested-page model.

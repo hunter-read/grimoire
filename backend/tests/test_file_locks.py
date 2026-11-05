@@ -7,6 +7,7 @@ directory, so the workers on one machine still exclude each other.
 import errno
 import fcntl
 import os
+import stat
 import tempfile
 import threading
 import time
@@ -41,11 +42,56 @@ def path(tmp_path):
     return str(tmp_path / ".job.lock")
 
 
+@pytest.fixture
+def temp_dir(tmp_path, monkeypatch):
+    """A temp directory of the test's own, so the twin folder starts absent."""
+    root = tmp_path / "tmp"
+    root.mkdir()
+    monkeypatch.setattr(file_locks.tempfile, "gettempdir", lambda: str(root))
+    return root
+
+
 class TestLocalTwin:
-    def test_lives_in_the_temp_directory_and_names_the_user(self, path):
+    def test_lives_in_a_folder_for_the_user_in_the_temp_directory(self, path):
         twin = local_twin(path)
-        assert os.path.dirname(twin) == tempfile.gettempdir()
-        assert os.path.basename(twin).startswith(f"grimoire-{os.getuid()}-")
+        folder = os.path.dirname(twin)
+        assert os.path.dirname(folder) == tempfile.gettempdir()
+        assert os.path.basename(folder) == f"grimoire-{os.getuid()}"
+        assert twin.endswith(".lock")
+
+    def test_the_folder_is_made_for_this_user_alone(self, path, temp_dir):
+        folder = file_locks.twin_dir()
+        info = os.lstat(folder)
+        assert info.st_uid == os.getuid()
+        assert stat.S_IMODE(info.st_mode) == 0o700
+        # Made once, then reused.
+        assert file_locks.twin_dir() == folder
+
+    def test_a_folder_others_can_reach_is_not_used(self, path, temp_dir):
+        folder = temp_dir / f"grimoire-{os.getuid()}"
+        folder.mkdir(mode=0o700)
+        folder.chmod(0o777)
+        with pytest.raises(PermissionError):
+            local_twin(path)
+
+    def test_a_symlink_in_its_place_is_not_used(self, path, temp_dir, tmp_path):
+        elsewhere = tmp_path / "elsewhere"
+        elsewhere.mkdir(mode=0o700)
+        os.symlink(elsewhere, temp_dir / f"grimoire-{os.getuid()}")
+        with pytest.raises(PermissionError):
+            local_twin(path)
+
+    def test_a_file_in_its_place_is_not_used(self, path, temp_dir):
+        (temp_dir / f"grimoire-{os.getuid()}").write_text("")
+        with pytest.raises(PermissionError):
+            local_twin(path)
+
+    def test_a_folder_owned_by_someone_else_is_not_used(self, path, temp_dir, monkeypatch):
+        file_locks.twin_dir()
+        monkeypatch.setattr(file_locks.os, "getuid", lambda: os.geteuid() + 1)
+        (temp_dir / f"grimoire-{os.geteuid() + 1}").mkdir(mode=0o700)
+        with pytest.raises(PermissionError):
+            local_twin(path)
 
     def test_the_same_file_by_another_path_has_the_same_twin(self, tmp_path):
         (tmp_path / "real").mkdir()
@@ -127,6 +173,18 @@ class TestFileLock:
             lock = FileLock(path)
             assert lock.acquire(blocking=False) is True
             lock.release()
+
+    def test_an_unusable_twin_folder_still_gets_the_file(self, path, temp_dir):
+        (temp_dir / f"grimoire-{os.getuid()}").write_text("")
+        lock = FileLock(path)
+        assert lock.acquire(blocking=False) is True
+        assert _held(path)
+        lock.release()
+
+    def test_no_usable_twin_folder_or_file_raises(self, temp_dir, tmp_path):
+        (temp_dir / f"grimoire-{os.getuid()}").write_text("")
+        with pytest.raises(OSError):
+            FileLock(str(tmp_path / "missing-dir" / ".job.lock")).acquire()
 
     def test_no_usable_lock_file_raises(self, path):
         with patch("builtins.open", side_effect=PermissionError("read-only")):
