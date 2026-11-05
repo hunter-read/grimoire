@@ -2244,9 +2244,9 @@ export interface paths {
         put?: never;
         /**
          * Link many resources at once
-         * @description Link many resources at once. Duplicates and unknown types are skipped
-         *     silently so one bad entry doesn't fail the whole batch. Returns the rows
-         *     that were actually created.
+         * @description Link many resources at once. Duplicates, unknown types and items the
+         *     caller cannot link are skipped silently so one bad entry doesn't fail the
+         *     whole batch. Returns the rows that were actually created.
          */
         post: operations["bulk_add_resources_api_campaigns__campaign_id__resources_bulk_post"];
         delete?: never;

@@ -248,6 +248,46 @@ def clamp_visibility_for_access(db, resource_type: str, resource_id: str, visibi
     return "gm"
 
 
+def can_link_resource(
+    db, user: CurrentUser, campaign_id: str, resource_type: str, resource_id: str
+) -> bool:
+    """Whether ``user`` may link this item into the campaign.
+
+    A book must be one the user can read themselves, and a campaign file must
+    belong to this campaign. Other library media is open to every non-guest.
+    """
+    if resource_type == "book":
+        from ...models import Book
+        from ...services.books.access import can_read_book
+
+        book = db.query(Book).filter_by(id=resource_id).first()
+        return book is not None and can_read_book(db, book, user)
+    if resource_type == "file":
+        from ...models import CampaignFile
+
+        return (
+            db.query(CampaignFile).filter_by(id=resource_id, campaign_id=campaign_id).first()
+            is not None
+        )
+    return True
+
+
+def readable_book_ids(db, user: CurrentUser, resources) -> set[str]:
+    """The ids of the linked books among ``resources`` that ``user`` can read.
+
+    A book stays linked when its access level changes later, so each viewer's
+    resource list is narrowed to the books they can open.
+    """
+    from ...models import Book
+    from ...services.books.access import can_read_book
+
+    ids = {r.resource_id for r in resources if r.resource_type == "book"}
+    if not ids:
+        return set()
+    books = db.query(Book).filter(Book.id.in_(ids)).all()
+    return {b.id for b in books if can_read_book(db, b, user)}
+
+
 def build_members(c: Campaign, db) -> list:
     """Full member list for a campaign: the GM owner row first, then players."""
     from ...models import User
