@@ -10,7 +10,8 @@ import uuid
 import pytest
 
 from backend.config import SessionLocal
-from backend.models import Book, CampaignFile
+from backend.models import AppSetting, Book, CampaignFile
+from backend.models.access import CATEGORY_DEFAULTS_KEY
 
 from .conftest import make_book, make_campaign, make_game_system
 
@@ -21,8 +22,9 @@ def books():
     never lingers in another module's browse results."""
     made = []
 
-    def _make(level=None):
-        kwargs = {} if level is None else {"access_level": level}
+    def _make(level=None, **kwargs):
+        if level is not None:
+            kwargs["access_level"] = level
         book = make_book(make_game_system().id, **kwargs)
         made.append(book.id)
         return book
@@ -31,6 +33,19 @@ def books():
     db = SessionLocal()
     try:
         db.query(Book).filter(Book.id.in_(made)).delete(synchronize_session=False)
+        db.commit()
+    finally:
+        db.close()
+
+
+@pytest.fixture
+def clear_category_defaults():
+    """Drop the global ``restricted_categories`` setting a test wrote, so it
+    cannot hide books from another module's tests."""
+    yield
+    db = SessionLocal()
+    try:
+        db.query(AppSetting).filter_by(key=CATEGORY_DEFAULTS_KEY).delete()
         db.commit()
     finally:
         db.close()
@@ -191,3 +206,51 @@ class TestListing:
         assert book.id not in _detail_ids(client, player_headers, campaign["id"])
         # The GM owner cannot read an admin-only book either.
         assert _listed(client, gm_headers, campaign["id"]) == []
+
+    def test_book_restricted_through_category_default_drops_out(
+        self, client, admin_headers, gm_headers, player_headers, player_id, books,
+        clear_category_defaults,
+    ):
+        # Inherits its level, so the category default alone restricts it.
+        book = books(category="adventure", access_level=None)
+        campaign = _campaign(client, gm_headers, is_gm_campaign=True, resources=[_book(book.id)])
+        _join(client, gm_headers, player_headers, player_id, campaign["id"])
+        assert [r["resource_id"] for r in _listed(client, player_headers, campaign["id"])] == [
+            book.id
+        ]
+
+        resp = client.patch(
+            "/api/settings",
+            json={"restricted_categories": {"adventure": "gm"}},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200, resp.text
+
+        assert _listed(client, player_headers, campaign["id"]) == []
+        assert book.id not in _detail_ids(client, player_headers, campaign["id"])
+        # The GM can still read a GM-level book, so it stays in their list.
+        assert [r["resource_id"] for r in _listed(client, gm_headers, campaign["id"])] == [
+            book.id
+        ]
+
+    def test_book_moved_into_restricted_category_drops_out(
+        self, client, gm_headers, player_headers, player_id, books, clear_category_defaults
+    ):
+        db = SessionLocal()
+        db.add(AppSetting(key=CATEGORY_DEFAULTS_KEY, value='{"adventure": "gm"}'))
+        db.commit()
+        db.close()
+        book = books(category="supplement", access_level=None)
+        campaign = _campaign(client, gm_headers, is_gm_campaign=True, resources=[_book(book.id)])
+        _join(client, gm_headers, player_headers, player_id, campaign["id"])
+        assert [r["resource_id"] for r in _listed(client, player_headers, campaign["id"])] == [
+            book.id
+        ]
+
+        resp = client.patch(
+            f"/api/books/{book.id}", json={"category": "adventure"}, headers=gm_headers
+        )
+        assert resp.status_code == 200, resp.text
+
+        assert _listed(client, player_headers, campaign["id"]) == []
+        assert book.id not in _detail_ids(client, player_headers, campaign["id"])
