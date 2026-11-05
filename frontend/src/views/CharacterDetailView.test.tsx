@@ -115,6 +115,37 @@ describe('CharacterDetailView', () => {
     expect(body.data.strength).toBe(18)
   })
 
+  it('keeps what was typed while a save was in flight, and saves it after', async () => {
+    const user = userEvent.setup()
+    // The first save is held open until the test lets it answer.
+    let answerFirst: () => void = () => {}
+    mockUpdate.mockImplementationOnce(
+      (id, body) =>
+        new Promise((resolve) => {
+          answerFirst = () =>
+            resolve({ ...CHARACTER, data: { ...CHARACTER.data, ...(body.data || {}) } })
+        })
+    )
+    renderView()
+    const notes = await screen.findByLabelText('Notes')
+
+    await user.type(notes, 'B')
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1), { timeout: 3000 })
+    await user.type(notes, 'ret')
+    // The debounce runs out again while the first save is still out: the
+    // second must wait for it rather than race it.
+    await new Promise((r) => setTimeout(r, 800))
+    expect(mockUpdate).toHaveBeenCalledTimes(1)
+
+    // The first reply knows only "B"; the letters typed since stay on screen.
+    answerFirst()
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(2))
+    expect(notes).toHaveValue('Bret')
+    expect(mockUpdate.mock.calls[1][1].data).toEqual({ notes: 'Bret' })
+    await waitFor(() => expect(screen.getByText(/saved/i)).toBeInTheDocument())
+    expect(notes).toHaveValue('Bret')
+  })
+
   it('recomputes derived values locally as you type', async () => {
     const user = userEvent.setup()
     renderView()
