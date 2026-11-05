@@ -1,10 +1,11 @@
 """Archive-streaming helpers and file-resolution logic for the downloads router."""
-import io
 import os
+import queue
 import tarfile
+import threading
 import zipfile
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Callable, Iterator, Literal, Optional
 
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
@@ -71,25 +72,156 @@ def _can_see_explicit(db, user_id: str) -> bool:
     return bool(user.allow_explicit) if user and user.allow_explicit is not None else True
 
 
-def _stream_zip(files: list[tuple[str, str]]):
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, mode="w", allowZip64=True) as zf:
-        for filepath, arcname in files:
-            ext = Path(filepath).suffix.lower()
-            compress = zipfile.ZIP_STORED if ext in _ZIP_STORED_EXTS else zipfile.ZIP_DEFLATED
-            zf.write(filepath, arcname=arcname, compress_type=compress)
-    buf.seek(0)
-    yield from iter(lambda: buf.read(65536), b"")
+# Archives are sent as they are written rather than built first. zipfile and
+# tarfile push their output into a file object while a response body pulls
+# chunks, so a worker thread runs the writer and a small bounded queue sits
+# between the two. The queue's bound is what a request holds in memory: a few
+# chunks, however large the archive.
+_CHUNK_SIZE = 64 * 1024
+_QUEUE_CHUNKS = 8
+_DONE = object()
 
 
-def _stream_tar(files: list[tuple[str, str]], mode: Literal["w", "w:gz", "w:bz2"]):
-    """mode is one of: 'w' (uncompressed), 'w:gz', 'w:bz2'"""
-    buf = io.BytesIO()
-    with tarfile.open(fileobj=buf, mode=mode) as tf:
-        for filepath, arcname in files:
-            tf.add(filepath, arcname=arcname)
-    buf.seek(0)
-    yield from iter(lambda: buf.read(65536), b"")
+class _ReaderGone(Exception):
+    """The response stopped reading, so the writer has nobody to write for."""
+
+
+class _ChunkPipe:
+    """A write-only file that hands what is written to a reader in chunks.
+
+    It has no ``tell`` or ``seek``, which zipfile takes as an unseekable stream
+    and answers by writing data descriptors instead of rewinding to patch each
+    entry's header - exactly what a response that has already sent those bytes
+    needs.
+    """
+
+    def __init__(self) -> None:
+        self._queue: queue.Queue = queue.Queue(maxsize=_QUEUE_CHUNKS)
+        self._buf = bytearray()
+        self.stopped = threading.Event()
+
+    def write(self, data: bytes) -> int:
+        if self.stopped.is_set():
+            raise _ReaderGone
+        self._buf += data
+        while len(self._buf) >= _CHUNK_SIZE:
+            self._put(bytes(self._buf[:_CHUNK_SIZE]))
+            del self._buf[:_CHUNK_SIZE]
+        return len(data)
+
+    def flush(self) -> None:
+        # Chunks go out whole; finish() sends whatever is left at the end.
+        pass
+
+    def close(self) -> None:
+        pass
+
+    def finish(self) -> None:
+        if self._buf:
+            self._put(bytes(self._buf))
+            self._buf.clear()
+        self._put(_DONE)
+
+    def fail(self, exc: BaseException) -> None:
+        self._put(exc)
+
+    def _put(self, item: object) -> None:
+        # Wait for room, but keep checking whether the reader has gone, so a
+        # cancelled download frees its thread and open file promptly.
+        while True:
+            if self.stopped.is_set():
+                raise _ReaderGone
+            try:
+                self._queue.put(item, timeout=0.5)
+                return
+            except queue.Full:
+                continue
+
+    def chunks(self) -> Iterator[bytes]:
+        while True:
+            item = self._queue.get()
+            if item is _DONE:
+                return
+            if isinstance(item, BaseException):
+                raise item
+            assert isinstance(item, bytes)
+            yield item
+
+
+def _stream_archive(write: Callable[[_ChunkPipe], None]) -> Iterator[bytes]:
+    """Run ``write`` on a worker thread and yield the archive as it is made.
+
+    Nothing starts until the response asks for the first chunk. When the
+    response stops early (the client went away), closing this generator tells
+    the writer to stop at its next write.
+    """
+    pipe = _ChunkPipe()
+
+    def _run() -> None:
+        try:
+            write(pipe)
+            pipe.finish()
+        except _ReaderGone:
+            pass
+        except BaseException as exc:  # handed to the reader, which re-raises it
+            try:
+                pipe.fail(exc)
+            except _ReaderGone:
+                pass
+
+    threading.Thread(target=_run, name="archive-writer", daemon=True).start()
+    try:
+        yield from pipe.chunks()
+    finally:
+        pipe.stopped.set()
+
+
+def _stream_zip(files: list[tuple[str, str]]) -> Iterator[bytes]:
+    def write(out: _ChunkPipe) -> None:
+        with zipfile.ZipFile(out, mode="w", allowZip64=True) as zf:
+            for filepath, arcname in files:
+                ext = Path(filepath).suffix.lower()
+                compress = zipfile.ZIP_STORED if ext in _ZIP_STORED_EXTS else zipfile.ZIP_DEFLATED
+                zf.write(filepath, arcname=arcname, compress_type=compress)
+
+    return _stream_archive(write)
+
+
+def _stream_tar(
+    files: list[tuple[str, str]], mode: Literal["w|", "w|gz", "w|bz2"]
+) -> Iterator[bytes]:
+    """mode is one of tarfile's stream modes: 'w|' (uncompressed), 'w|gz', 'w|bz2'"""
+    def write(out: _ChunkPipe) -> None:
+        # The stubs ask every fileobj for read/tell/seek, but a "w|" stream
+        # mode only ever writes - and giving the pipe a tell() would stop
+        # zipfile treating it as the unseekable stream it is.
+        with tarfile.open(fileobj=out, mode=mode) as tf:  # type: ignore[call-overload]
+            for filepath, arcname in files:
+                tf.add(filepath, arcname=arcname)
+
+    return _stream_archive(write)
+
+
+# The most one archive will stream, whatever it is built from. A request that
+# walks hundreds of gigabytes ties up a worker for the whole transfer, so it is
+# refused up front with a clear message rather than left to stall half-written.
+_MAX_ARCHIVE_BYTES = 50 * 1024 * 1024 * 1024
+
+
+def _check_archive_size(files: list[tuple[str, str]]) -> None:
+    total = 0
+    for filepath, _ in files:
+        try:
+            total += os.path.getsize(filepath)
+        except OSError:
+            continue
+        if total > _MAX_ARCHIVE_BYTES:
+            raise HTTPException(
+                413,
+                "That selection is too large to download as one archive "
+                f"(limit {_MAX_ARCHIVE_BYTES // (1024 ** 3)} GB). "
+                "Download a smaller part of it instead.",
+            )
 
 
 def _archive_response(
@@ -102,17 +234,19 @@ def _archive_response(
     if fmt not in _FORMATS:
         raise HTTPException(400, f"Unsupported format: {fmt!r}. Choose from: {', '.join(_FORMATS)}")
 
+    _check_archive_size(files)
+
     info = _FORMATS[fmt]
     filename = base_name + info["ext"]
 
     if fmt == "zip":
         body = _stream_zip(files)
     elif fmt == "tar":
-        body = _stream_tar(files, "w")
+        body = _stream_tar(files, "w|")
     elif fmt == "tar.gz":
-        body = _stream_tar(files, "w:gz")
+        body = _stream_tar(files, "w|gz")
     elif fmt == "tar.bz2":
-        body = _stream_tar(files, "w:bz2")
+        body = _stream_tar(files, "w|bz2")
 
     return StreamingResponse(
         body,
@@ -307,12 +441,10 @@ def _files_for_audio_folder(db, folder: str) -> tuple[list, str]:
     return files, f"audio_{_safe_name(folder)}"
 
 
-# A ceiling on what one library-folder archive will stream. The file manager can
-# point at any folder, including the library root, and a request that walks
-# hundreds of gigabytes ties up a worker for the whole transfer. Refusing up
-# front with a clear message beats a download that stalls and dies half-written.
+# The file manager can point at any folder, including the library root, so its
+# walk stops as soon as it passes a limit instead of listing the whole library
+# first. The byte limit is the one every archive has (_MAX_ARCHIVE_BYTES).
 _MAX_FOLDER_FILES = 5000
-_MAX_FOLDER_BYTES = 50 * 1024 * 1024 * 1024
 
 
 
@@ -379,12 +511,12 @@ def _files_for_library_folder(folder: str) -> tuple[list, str]:
             except OSError:
                 continue
             files.append((safe, _safe_arcname(str(full.relative_to(target)))))
-            if len(files) > _MAX_FOLDER_FILES or total > _MAX_FOLDER_BYTES:
+            if len(files) > _MAX_FOLDER_FILES or total > _MAX_ARCHIVE_BYTES:
                 raise HTTPException(
                     413,
                     "That folder is too large to download as one archive "
                     f"(limit {_MAX_FOLDER_FILES} files / "
-                    f"{_MAX_FOLDER_BYTES // (1024 ** 3)} GB). Download a subfolder instead.",
+                    f"{_MAX_ARCHIVE_BYTES // (1024 ** 3)} GB). Download a subfolder instead.",
                 )
 
     return files, _safe_name(target.name or "library")

@@ -3597,6 +3597,11 @@ component clamped to 255 bytes. Responses stream with a
 `Content-Disposition: attachment` filename derived from the scope. `404` when the
 scope resolves to no files.
 
+An archive is sent as it is written, so the download starts at once and the
+server holds a few chunks of it in memory, not the whole archive. Every scope is
+limited to 50 GB of files: past that the request gets `413` before anything is
+sent, asking for a smaller part instead.
+
 ### Logs *(admin only)*
 
 | Endpoint | Method | Auth | Description |

@@ -1148,7 +1148,7 @@ class TestLibraryFolderArchive:
     def test_too_many_bytes_is_refused(self, client, admin_headers, lib_root):
         from backend.routers.downloads import _helpers
 
-        with patch.object(_helpers, "_MAX_FOLDER_BYTES", 1):
+        with patch.object(_helpers, "_MAX_ARCHIVE_BYTES", 1):
             resp = client.get(
                 "/api/downloads/archive",
                 headers=admin_headers,
@@ -1441,3 +1441,126 @@ class TestTagArchiveAccessControl:
         assert secret_book.filename not in " ".join(names), (
             "an admin-only book must not ride out inside a tag archive"
         )
+
+
+# ---------------------------------------------------------------------------
+# Archives stream as they are written, and every scope has a size limit
+# ---------------------------------------------------------------------------
+
+
+_BIG = 8 * 1024 * 1024
+
+
+@pytest.fixture
+def big_files(tmp_path):
+    files = []
+    for i in range(3):
+        path = tmp_path / f"big_{i}.pdf"
+        with open(path, "wb") as f:
+            f.truncate(_BIG)
+        files.append((str(path), path.name))
+    return files
+
+
+class TestArchiveStreaming:
+    @pytest.mark.parametrize("fmt", ["zip", "tar", "tar.gz"])
+    def test_memory_stays_below_one_file(self, big_files, fmt):
+        import tracemalloc
+
+        from backend.routers.downloads import _helpers
+
+        body = (
+            _helpers._stream_zip(big_files)
+            if fmt == "zip"
+            else _helpers._stream_tar(big_files, "w|gz" if fmt == "tar.gz" else "w|")
+        )
+        tracemalloc.start()
+        try:
+            first = next(body)
+            after_first, _ = tracemalloc.get_traced_memory()
+            sent = len(first) + sum(len(chunk) for chunk in body)
+            _, peak = tracemalloc.get_traced_memory()
+        finally:
+            tracemalloc.stop()
+
+        # Building the archive up front held all three files (24 MB) by the
+        # first chunk; streamed, it never holds even one.
+        assert after_first < _BIG
+        assert peak < _BIG
+        assert sent > 0
+
+    def test_streamed_zip_is_complete(self, big_files):
+        from backend.routers.downloads import _helpers
+
+        data = b"".join(_helpers._stream_zip(big_files))
+        with zipfile.ZipFile(io.BytesIO(data)) as zf:
+            assert zf.testzip() is None
+            assert {i.filename: i.file_size for i in zf.infolist()} == {
+                name: _BIG for _, name in big_files
+            }
+
+    def test_writer_stops_when_the_reader_goes(self, big_files):
+        import threading
+        import time
+
+        from backend.routers.downloads import _helpers
+
+        body = _helpers._stream_tar(big_files, "w|")
+        next(body)
+        body.close()
+
+        deadline = time.monotonic() + 5
+        while any(t.name == "archive-writer" for t in threading.enumerate()):
+            assert time.monotonic() < deadline, "archive writer kept running"
+            time.sleep(0.05)
+
+    def test_writer_error_reaches_the_reader(self, tmp_path):
+        from backend.routers.downloads import _helpers
+
+        body = _helpers._stream_zip([(str(tmp_path / "missing.pdf"), "missing.pdf")])
+        with pytest.raises(FileNotFoundError):
+            b"".join(body)
+
+
+class TestArchiveSizeLimit:
+    def test_system_over_the_limit_is_refused(
+        self, client, player_headers, system, core_book
+    ):
+        from backend.routers.downloads import _helpers
+
+        with patch.object(_helpers, "_MAX_ARCHIVE_BYTES", 1):
+            resp = client.get(
+                "/api/downloads/archive",
+                headers=player_headers,
+                params={"type": "system", "id": system.id},
+            )
+        assert resp.status_code == 413
+        assert "too large" in resp.json()["detail"]
+
+    def test_media_folder_over_the_limit_is_refused(
+        self, client, player_headers, map_entry
+    ):
+        from backend.routers.downloads import _helpers
+
+        with patch.object(_helpers, "_MAX_ARCHIVE_BYTES", 1):
+            resp = client.get(
+                "/api/downloads/archive",
+                headers=player_headers,
+                params={"type": "map_folder", "folder": "dungeons"},
+            )
+        assert resp.status_code == 413
+
+    def test_unreadable_file_does_not_count(self, tmp_path):
+        from backend.routers.downloads import _helpers
+
+        # A file that vanished since the query is skipped, not a crash; the
+        # writer reports it if it is still missing when its turn comes.
+        _helpers._check_archive_size([(str(tmp_path / "gone.pdf"), "gone.pdf")])
+
+    def test_under_the_limit_downloads(self, client, player_headers, system, core_book):
+        resp = client.get(
+            "/api/downloads/archive",
+            headers=player_headers,
+            params={"type": "system", "id": system.id},
+        )
+        assert resp.status_code == 200
