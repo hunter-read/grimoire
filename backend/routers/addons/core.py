@@ -280,17 +280,26 @@ def update_addon(
     current_user: CurrentUser = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    """Enable/disable an add-on, or grant/revoke its script approval."""
+    """Enable/disable an add-on, or grant/revoke its script approval.
+
+    Both changes are made before one commit, so a request that fails part way
+    (approving a script for an add-on that has none) saves neither of them.
+    """
     if data.script_approved:
         api_keys.assert_session(current_user, _SCRIPT_APPROVAL_SESSION_ONLY)
     try:
         if data.enabled is not None:
-            addons.set_enabled(db, addon_id, data.enabled)
+            addons.set_enabled(db, addon_id, data.enabled, commit=False)
         if data.script_approved is not None:
-            addons.set_script_approved(db, addon_id, data.script_approved)
-        return addons.describe(db, addon_id)
-    except addons.AddonError as exc:
+            addons.set_script_approved(db, addon_id, data.script_approved, commit=False)
+    except addons.AddonNotInstalledError as exc:
+        db.rollback()
         raise HTTPException(404, str(exc)) from exc
+    except addons.AddonError as exc:
+        db.rollback()
+        raise HTTPException(400, str(exc)) from exc
+    db.commit()
+    return addons.describe(db, addon_id)
 
 
 def uninstall_addon(

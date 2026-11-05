@@ -2066,7 +2066,7 @@ repo. See [`docs/addons.md`](addons.md) for the full picture.
 | `/api/addons/sources/credential` | PUT | admin | Store a [private source's](addons.md#private-sources) access token. Body `{url, token, header?}`; `url` must be a configured index URL, and `header` defaults to `Authorization` (sent as `Bearer <token>`). `400` for an unconfigured URL, one pinned by `ADDON_INDEX_CREDENTIALS`, or an unusable token or header. Returns `{source_credentials}`. Session only |
 | `/api/addons/sources/credential?url=` | DELETE | admin | Forget a source's stored token. Returns `{source_credentials}`. Session only |
 | `/api/addons/:id/install` | POST | admin | Install or update from the index. Body `{approve_script: bool}` |
-| `/api/addons/:id` | PATCH | admin | Set `enabled` and/or `script_approved` (approving records the script's SHA-256; 404 if the script file is missing) |
+| `/api/addons/:id` | PATCH | admin | Set `enabled` and/or `script_approved` (approving records the script's SHA-256). Both are saved together or not at all: 404 when the add-on is not installed, 400 when a change can't be made - approving a script for an add-on that has none, or whose script file is missing |
 | `/api/addons/:id` | DELETE | admin | Uninstall and forget its state |
 
 **Installed add-on fields:** `id`, `name`, `version`, `kind`, `target`,
