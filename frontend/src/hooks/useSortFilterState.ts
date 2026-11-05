@@ -33,9 +33,9 @@ export const DEFAULT_SORT_FILTER: SortFilter = { sort: 'name', order: 'asc', fil
  * once the user had touched the filters even once, *every* later visit counted
  * as a return and the default never came back for the rest of the session.
  *
- * `restore: false` keeps writing to storage on a fresh visit while ignoring what
- * is already there, so the state is still waiting to be read back if the user
- * later drills in and returns.
+ * `restore: false` makes a fresh visit ignore what is already in storage and
+ * replace it with this visit's state, which is then waiting to be read back if
+ * the user drills in and returns.
  *
  * @param {string} key    sessionStorage key, unique per scope
  * @param {object} saved  the useSavedFilters() result for this scope

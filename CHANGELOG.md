@@ -10,6 +10,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Fixed
 
+- Going back from a book to its system's page shows the search and filters from that visit. Before, a search made on an earlier visit could come back, for example after opening a book from the shelf on a later one
 - Reading text from a scanned page that takes too long no longer leaves a `tesseract <defunct>` process behind on the server. The Docker image now starts Grimoire under `tini`, which cleans up after processes that are stopped partway
 ### Security
 
