@@ -8,7 +8,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from ..models import Book, GameSystem, User
-from . import access_control, variants
+from . import access_control, tag_service, variants
 
 
 def system_browsable(db: Session, system: GameSystem, current_user: Any) -> bool:
@@ -55,6 +55,38 @@ def visible_book_system(db: Session, book: Book, current_user: Any) -> GameSyste
     return visible_systems_by_id(db, [book.game_system_id], current_user).get(
         book.game_system_id or ""
     )
+
+
+def path_without_hidden_system(relative_path: str, depth: int) -> str:
+    """``relative_path`` with the folders that name a hidden system cut out.
+
+    A book path is ``books/{containers…}/{System}/{categoryDir}/…/file``, the
+    category dir at index ``depth`` (see ``tag_service.system_category_depth``).
+    The system's folder, and any container folders above it, name what the
+    reader may not see, so only the collection dir and everything from the
+    category dir on are kept. A file sitting straight in a container (a loose
+    one-page game) keeps just its filename.
+    """
+    parts = (relative_path or "").replace("\\", "/").split("/")
+    if len(parts) < 3:
+        return relative_path
+    return "/".join([parts[0], *parts[min(depth, len(parts) - 1) :]])
+
+
+def book_relative_path(
+    db: Session, book: Book, system: GameSystem | None, depth: int | None = None
+) -> str:
+    """The ``relative_path`` to show for ``book``, given its visible ``system``.
+
+    ``system`` is what ``visible_book_system`` returned: None for a book whose
+    system is hidden from the reader, and then the path loses the folders that
+    would name it. ``depth`` saves a lookup when the caller already has it.
+    """
+    if system is not None or not book.game_system_id:
+        return book.relative_path
+    if depth is None:
+        depth = tag_service.system_category_depth(db, book.game_system_id)
+    return path_without_hidden_system(book.relative_path, depth)
 
 
 def load_browsable_system(db: Session, system_id: str, current_user: Any) -> GameSystem:

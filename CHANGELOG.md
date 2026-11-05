@@ -18,6 +18,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Character sheets keep what you type while an edit is saving. Before, letters typed just as the sheet saved could vanish, and a row moved up or down a list could jump back and then move again
 - Downloading a whole system, tag or folder as an archive starts straight away, and the server no longer needs as much memory as the archive is large to send it. An archive over 50 GB is refused with a message asking for a smaller part, as a file manager folder download already was
 - A search containing a control character, such as a NUL pasted from another program, no longer fails with a server error. The character is read as a space, in the search box, the AI assistant's library search and the shelf and gallery filters
+- A custom book cover over 40 megapixels is refused with a message saying the image is too large. Large photos are now shrunk as they are read, so setting a cover takes much less server memory
 
 ### Security
 

@@ -40,6 +40,14 @@ from ..upload_images import UPLOAD_IMAGE_FORMATS, open_upload_image
 COVER_MAX_WIDTH = 900
 COVER_MAX_HEIGHT = COVER_MAX_WIDTH * 2
 _WEBP_QUALITY = 85
+# The most pixels an image given as a cover may have. Pillow's own ceiling is
+# far higher (~179 MP), and a highly compressible PNG that size is a small file
+# that decodes to hundreds of megabytes. 40 MP is a 7300 x 5500 scan, more
+# than any cover needs before it is shrunk to 900 wide.
+COVER_MAX_SOURCE_PIXELS = 40_000_000
+# Modes Pillow can shrink before conversion with a proper resampling filter.
+# Palette and bilevel images resize nearest-neighbour, so those convert first.
+_SHRINK_FIRST_MODES = ("L", "LA", "RGB", "RGBA")
 # Files younger than this are left alone by the orphan sweep: an upload writes
 # its file before the row naming it is committed.
 _PRUNE_GRACE_SECONDS = 300
@@ -106,13 +114,23 @@ def encode_cover(data: bytes, formats: Optional[tuple[str, ...]] = UPLOAD_IMAGE_
     format (the thumbnail route serves WebP), applies a photo's EXIF rotation,
     drops its metadata, and keeps an oversized image from being served to every
     grid. Raises :class:`CoverImageError` when the bytes do not decode as an image
-    in ``formats`` (``None`` for any format Pillow reads), or are too large to.
+    in ``formats`` (``None`` for any format Pillow reads), or have more than
+    :data:`COVER_MAX_SOURCE_PIXELS` pixels.
     """
     from PIL import Image, ImageOps
 
     try:
         with open_upload_image(data, formats) as source:
-            source.load()
+            width, height = source.size
+            if width * height > COVER_MAX_SOURCE_PIXELS:
+                raise CoverImageError("Image is too large")
+            # Shrink before anything else touches the pixels, so a large photo
+            # is never held at full size: draft() lets the JPEG decoder skip
+            # detail, and thumbnail() bounds the rest. The square box keeps
+            # enough for either orientation once EXIF rotation is applied.
+            source.draft(None, (COVER_MAX_HEIGHT, COVER_MAX_HEIGHT))
+            if source.mode in _SHRINK_FIRST_MODES:
+                source.thumbnail((COVER_MAX_HEIGHT, COVER_MAX_HEIGHT))
             img = ImageOps.exif_transpose(source) or source
             has_alpha = img.mode in ("RGBA", "LA") or (
                 img.mode == "P" and "transparency" in img.info
@@ -122,6 +140,8 @@ def encode_cover(data: bytes, formats: Optional[tuple[str, ...]] = UPLOAD_IMAGE_
         out = io.BytesIO()
         img.save(out, "WEBP", quality=_WEBP_QUALITY)
         return out.getvalue()
+    except CoverImageError:
+        raise
     except (OSError, ValueError, SyntaxError, Image.DecompressionBombError) as exc:
         raise CoverImageError("File is not a valid image") from exc
 
