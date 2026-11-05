@@ -593,8 +593,8 @@ does not support pasting, and a request with neither `identity` nor `paste`.
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/books` | GET | any | Paginated book list. Query: `system_id`, `category`, `limit` (max 500, default 100), `offset` (max 1,000,000,000), `sort` (`title` - the default - or `added_at`), `order` (`asc`/`desc`; defaults to A-Z for `title` and newest first for `added_at`), `added_since` (ISO-8601; see below). A row's `game_system_id` is `""` when the book sits in a system the caller cannot see, and `null` for a book in no system |
 | `/api/books/:id` | GET | any | Book detail with game system. `game_system` is `{id, name, slug, is_system_agnostic, is_one_page}` (null for a book in no system, and for one in a system the caller cannot see - an open book inside a GM-only system); the two flags let the reader's breadcrumb prettify a special collection's folder name. For such a hidden system, `relative_path`, and the `relative_path` of each entry in `variants`, also leave out the system's folder and any container folders above it (`books/Secret Shelf/core/book.pdf` becomes `books/core/book.pdf`) |
+| `/api/books` | GET | any | Paginated book list. Query: `system_id`, `category`, `limit` (1-500, default 100), `offset` (max 1,000,000,000), `sort` (`title` - the default - or `added_at`), `order` (`asc`/`desc`; defaults to A-Z for `title` and newest first for `added_at`), `added_since` (ISO-8601; see below) |
 | `/api/books/:id` | PATCH | gm/admin | Update: `title`, `category`, `description`, `authors`, `artists`, `genres`, `publisher`, `publisher_url` (legacy), `urls`, `isbn`, `product_code`, `version`, `language`, `license`, `year`, `month` (1–12), `day` (1–31), `tags`, `is_explicit`, `codex_id`, `access_level` (**admin only**). `license` overrides the system license for this book (blank inherits it). Changing `category` also **moves the file** - see below. `file_size`/`page_count`/`mime_type` are read-only. Sending `access_level` as a non-admin returns 403 - see [Access levels](#access-levels-issue-258). |
 | `/api/books/bulk` | POST | gm/admin | Bulk update. Body: `{items: [{id, ...PATCH fields}]}` |
 | `/api/books/bulk/tags` | POST | gm/admin | Bulk **add** tags. Body: `{ids, tags}` |
@@ -1195,7 +1195,7 @@ download is the only option.
 
 The map, token, audio and model galleries filter, sort and group on the server
 and fetch a page at a time (issue #221), so a library of a few hundred thousand
-files opens as quickly as a small one. Each list route takes `limit` (default and
+files opens as quickly as a small one. Each list route takes `limit` (at least 1; default and
 max 100,000) and `offset` (max 1,000,000,000). Each list route and its `/groups`
 companion take the same filters, so a folder's count always matches what
 listing that folder returns:
@@ -1381,7 +1381,7 @@ Bookmarks are per-user - users cannot see or modify each other's bookmarks.
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/search?q=` | GET | any | FTS5 full-text search **plus** metadata search. Required: `q` (min 2 chars). Optional: `book_id`, `system_id`, `limit` (default 20). Supports `field:value` filters (see below). Global search also matches books by title/metadata, and maps, tokens, audio, and 3D models by filename/folder/tag (audio additionally matches embedded title/artist/album). |
+| `/api/search?q=` | GET | any | FTS5 full-text search **plus** metadata search. Required: `q` (min 2 chars). Optional: `book_id`, `system_id`, `limit` (1-200, default 50). Supports `field:value` filters (see below). Global search also matches books by title/metadata, and maps, tokens, audio, and 3D models by filename/folder/tag (audio additionally matches embedded title/artist/album). |
 | `/api/search/fields` | GET | any | The `field:` prefixes the search box accepts, with their aliases. Powers the in-app syntax help. |
 
 **Response:**
@@ -2066,7 +2066,7 @@ repo. See [`docs/addons.md`](addons.md) for the full picture.
 | `/api/addons/sources/credential` | PUT | admin | Store a [private source's](addons.md#private-sources) access token. Body `{url, token, header?}`; `url` must be a configured index URL, and `header` defaults to `Authorization` (sent as `Bearer <token>`). `400` for an unconfigured URL, one pinned by `ADDON_INDEX_CREDENTIALS`, or an unusable token or header. Returns `{source_credentials}`. Session only |
 | `/api/addons/sources/credential?url=` | DELETE | admin | Forget a source's stored token. Returns `{source_credentials}`. Session only |
 | `/api/addons/:id/install` | POST | admin | Install or update from the index. Body `{approve_script: bool}` |
-| `/api/addons/:id` | PATCH | admin | Set `enabled` and/or `script_approved` (approving records the script's SHA-256; 404 if the script file is missing) |
+| `/api/addons/:id` | PATCH | admin | Set `enabled` and/or `script_approved` (approving records the script's SHA-256). Both are saved together or not at all: 404 when the add-on is not installed, 400 when a change can't be made - approving a script for an add-on that has none, or whose script file is missing |
 | `/api/addons/:id` | DELETE | admin | Uninstall and forget its state |
 
 **Installed add-on fields:** `id`, `name`, `version`, `kind`, `target`,

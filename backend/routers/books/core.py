@@ -79,7 +79,7 @@ def _list_order(sort: str, order: Optional[str]) -> list:
 def list_books(
     system_id: Optional[str] = None,
     category: Optional[str] = None,
-    limit: int = Query(100, le=500),
+    limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0, le=MAX_OFFSET),
     sort: Literal["title", "added_at"] = "title",
     order: Optional[Literal["asc", "desc"]] = None,

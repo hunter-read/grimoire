@@ -30,16 +30,17 @@ from ._helpers import (
 
 def search_library(
     q: str = Query(..., min_length=2),
-    limit: int = Query(50, le=200),
+    limit: int = Query(50, ge=1, le=200),
     book_id: Optional[str] = None,
     system_id: Optional[str] = None,
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    # snippet() wraps matches in NUL sentinels, not literal <mark> tags; the
-    # untrusted surrounding text is HTML-escaped and the sentinels swapped for
-    # real <mark> tags in escape_snippet() below (the client renders the snippet
-    # via dangerouslySetInnerHTML). See ._helpers.SNIPPET_SQL / escape_snippet.
+    # snippet() wraps matches in private-use sentinels (U+E000/U+E001), not
+    # literal <mark> tags; the untrusted surrounding text is HTML-escaped and the
+    # sentinels swapped for real <mark> tags in escape_snippet() below (the
+    # client renders the snippet via dangerouslySetInnerHTML). See
+    # ._helpers.SNIPPET_SQL / escape_snippet.
     #
     # Access restrictions (issue #258) are applied *inside* each FTS query
     # rather than to its results: the LIMIT runs first, so filtering afterwards
