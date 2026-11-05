@@ -606,3 +606,36 @@ def test_main_stays_root(as_root, monkeypatch, run_calls, choice, prepared):
         ep.main(["uvicorn"])
     assert as_root == []
     assert len(run_calls) == 1
+
+
+# --- with_init / _run -------------------------------------------------------
+
+
+def test_with_init_runs_the_command_under_tini(tmp_path):
+    tini = tmp_path / "tini"
+    tini.write_text("")
+    tini.chmod(0o755)
+    assert ep.with_init(["uvicorn", "app"], str(tini)) == [str(tini), "-s", "--", "uvicorn", "app"]
+
+
+@pytest.mark.parametrize("mode", [None, 0o644])
+def test_with_init_runs_the_command_as_is_without_tini(tmp_path, mode):
+    tini = tmp_path / "tini"
+    if mode is not None:
+        tini.write_text("")
+        tini.chmod(mode)
+    assert ep.with_init(["uvicorn"], str(tini)) == ["uvicorn"]
+
+
+def test_run_execs_under_tini(monkeypatch):
+    monkeypatch.setattr(ep, "with_init", lambda argv: ["tini", "-s", "--", *argv])
+    calls = []
+
+    def fake_exec(path, argv, env):
+        calls.append((path, argv, env))
+        raise _Exec
+
+    monkeypatch.setattr(ep.os, "execvpe", fake_exec)
+    with pytest.raises(_Exec):
+        ep._run(["uvicorn"], {"A": "1"})
+    assert calls == [("tini", ["tini", "-s", "--", "uvicorn"], {"A": "1"})]

@@ -225,6 +225,23 @@ def items(payload: object) -> list:
 # ---------------------------------------------------------------------------
 
 
+# Orphans a short-lived process (the sh exits, its backgrounded sleep is
+# reparented to PID 1), then counts zombies. Zero means PID 1 reaped it, as
+# tini does for a tesseract left behind by a killed OCR worker.
+ORPHAN_PROBE = """
+import glob, subprocess, time
+subprocess.run(["sh", "-c", "sleep 0.5 &"])
+time.sleep(2)
+def state(path):
+    try:
+        with open(path) as fh:
+            return fh.read().rsplit(")", 1)[1].split()[0]
+    except (OSError, IndexError):
+        return ""
+print(sum(state(p) == "Z" for p in glob.glob("/proc/[0-9]*/stat")))
+"""
+
+
 def wait_healthy(container: str) -> str:
     """Wait for the container's HEALTHCHECK, then return the uid Grimoire runs as."""
     status = wait_for(
@@ -236,6 +253,9 @@ def wait_healthy(container: str) -> str:
     check(status, "reports healthy")
     uid = docker("exec", container, "stat", "-c", "%u", "/proc/1")
     check(uid != "0", f"runs Grimoire as a non-root user (uid {uid})")
+    check(docker("exec", container, "cat", "/proc/1/comm") == "tini", "runs under tini")
+    zombies = docker("exec", container, "python", "-c", ORPHAN_PROBE)
+    check(zombies == "0", f"reaps orphaned processes ({zombies} left defunct)")
     return uid
 
 

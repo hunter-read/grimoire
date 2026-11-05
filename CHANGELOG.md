@@ -8,6 +8,10 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ## [Unreleased]
 
+### Fixed
+
+- Reading text from a scanned page that takes too long no longer leaves a `tesseract <defunct>` process behind on the server. The Docker image now starts Grimoire under `tini`, which cleans up after processes that are stopped partway
+
 ## [1.10.1] - 2026-11-02
 
 ### Added

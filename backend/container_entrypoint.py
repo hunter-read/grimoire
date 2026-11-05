@@ -65,6 +65,8 @@ _MAX_LIBRARY_ENTRIES = 200
 _MAX_LIBRARY_DIRS = 500
 # What a real write test creates, and removes straight away.
 _WRITE_TEST_NAME = ".grimoire-write-test"
+# The init the command runs under (see with_init); installed in the Dockerfile.
+TINI = "/usr/bin/tini"
 
 Check = tuple[str, int]
 
@@ -353,7 +355,24 @@ def drop_privileges(uid: int, gid: int, env: dict[str, str]) -> None:
         env["HOME"] = HOME_DIR
 
 
+def with_init(argv: list[str], tini: str = TINI) -> list[str]:
+    """``argv`` run under tini, when the image has it.
+
+    Exec'ing straight into uvicorn would make it PID 1, and orphans are handed
+    to PID 1 to reap. Uvicorn never does, so a tesseract left behind when an OCR
+    worker is killed for overrunning its page stayed ``<defunct>`` until the
+    container stopped. tini reaps them and passes signals on to the command.
+    ``-s`` makes it a subreaper, so it still works when it isn't PID 1 (under
+    ``docker run --init``, say). It starts after the switch to Grimoire's user,
+    so nothing in the container is left running as root.
+    """
+    if os.access(tini, os.X_OK):
+        return [tini, "-s", "--", *argv]
+    return argv
+
+
 def _run(argv: list[str], env: dict[str, str]) -> NoReturn:
+    argv = with_init(argv)
     os.execvpe(argv[0], argv, env)
 
 
