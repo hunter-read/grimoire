@@ -84,6 +84,19 @@ def test_a_huge_page_number_on_a_real_books_text_is_refused(client, player_heade
     assert resp.status_code == 422, resp.text
 
 
+@pytest.mark.parametrize("params", [
+    {"offset": 2**63}, {"offset": MAX_OFFSET + 1}, {"offset": -1},
+    {"limit": 0}, {"limit": -1}, {"limit": 201},
+])
+def test_duplicate_groups_refuse_out_of_range_paging(client, admin_headers, params):
+    resp = client.get("/api/duplicates/groups", params=params, headers=admin_headers)
+    assert resp.status_code == 422, resp.text
+
+
+def test_the_largest_duplicate_groups_offset_is_an_empty_page(client, admin_headers):
+    resp = client.get("/api/duplicates/groups", params={"offset": MAX_OFFSET}, headers=admin_headers)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["groups"] == []
 # SQLite reads a negative LIMIT as "no limit", so a negative value would lift
 # the cap, and one past 64 bits would fail to bind.
 LIMITED = [(path, {}) for path in LISTS] + [("/api/search", {"q": "dragon"})]

@@ -9,6 +9,7 @@ from ...config import get_db, logger, valkey_client
 from ...models.duplicates import DuplicateGroup
 from ...services import duplicates
 from ...services.library_fs.references import reference_counts_for
+from .._browse import MAX_OFFSET
 from ._helpers import resolve_model, system_names
 from ._schemas import DismissRequest, ScanRequest
 
@@ -90,8 +91,8 @@ def cancel_scan(
 def list_groups(
     resource_type: Optional[str] = None,
     min_confidence: float = 0.0,
-    limit: int = Query(50, le=200),
-    offset: int = 0,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0, le=MAX_OFFSET),
     _: CurrentUser = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
