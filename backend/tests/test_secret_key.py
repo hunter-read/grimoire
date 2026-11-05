@@ -56,6 +56,28 @@ class TestExplicitKey:
         assert caplog.text == ""
 
 
+# Every SECRET_KEY value Grimoire has ever published - in the README, the docs,
+# the example compose files or a sibling repo's scripts - found by searching the
+# git history. Kept apart from REJECTED_SECRET_KEYS on purpose: a value dropped
+# from (or never added to) that set fails here instead of passing by omission.
+PUBLISHED_SECRET_KEYS = [
+    "grimoire-dev-secret-change-in-production",
+    "change-me",
+    "replace-this-with-a-long-random-string",
+    "zx7k2mQpR9nLwT4vBcYeHs3JuAoDfGiN",
+    "7ba05239cdd5752065eb6bd5db866bf8a0919d2760b1fcf158744f5ef5833834",
+    "generate-with-openssl-rand-hex-32",
+    "e2e-local-secret-not-for-production",
+    "<paste the generated value here>",
+]
+
+
+@pytest.mark.parametrize("value", PUBLISHED_SECRET_KEYS)
+def test_every_key_value_ever_published_is_refused(value, tmp_path):
+    with pytest.raises(InsecureSecretKeyError):
+        resolve_secret_key(value, str(tmp_path))
+
+
 def _documented_key_values():
     """Every value written after ``SECRET_KEY=`` / ``SECRET_KEY:`` in the repo's docs,
     README and compose files, as (file, value) pairs with any YAML comment and
