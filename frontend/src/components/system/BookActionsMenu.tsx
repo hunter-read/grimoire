@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import type { CSSProperties, MouseEvent as ReactMouseEvent, RefObject } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import type { CSSProperties, FormEvent, MouseEvent as ReactMouseEvent, RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -204,8 +204,17 @@ export default function BookActionsMenu({
   // Portaled to <body>, so without this the items are out of Tab's reach.
   useMenuKeyboard(open, menuRef, triggerRef, close)
 
-  const runReocr = (e: ReactMouseEvent) => {
+  // Unfolding the DPI field moves focus into it, so a keyboard user can type a
+  // value and press Enter without hunting for a control the arrows don't reach.
+  const dpiRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (showDpi) dpiRef.current?.focus()
+  }, [showDpi])
+
+  const runReocr = (e: FormEvent) => {
+    e.preventDefault()
     e.stopPropagation()
+    if (state === 'working' || state === 'done') return
     setState('working')
     const value = dpi.trim() ? parseInt(dpi, 10) : null
     const qs = value ? `?ocr_dpi=${value}` : ''
@@ -434,10 +443,18 @@ export default function BookActionsMenu({
             )}
 
             {canReindex && isOcrBook && showDpi && (
-              <div
+              <form
+                data-menu-field
+                role="group"
+                aria-label={t('bookActions.reocr')}
+                onSubmit={runReocr}
+                // The server checks the range. Native validation would refuse
+                // 300, a step of 10 counted from the minimum of 72.
+                noValidate
                 style={{ padding: '4px 12px 10px', display: 'flex', gap: 6, alignItems: 'center' }}
               >
                 <input
+                  ref={dpiRef}
                   type="number"
                   min="72"
                   max="600"
@@ -449,7 +466,7 @@ export default function BookActionsMenu({
                   style={{ width: 80, fontSize: 13 }}
                 />
                 <button
-                  onClick={runReocr}
+                  type="submit"
                   disabled={state === 'working' || state === 'done'}
                   style={{
                     flex: 1,
@@ -469,7 +486,7 @@ export default function BookActionsMenu({
                       ? `✓ ${t('reocr.queued')}`
                       : t('reocr.run')}
                 </button>
-              </div>
+              </form>
             )}
 
             {canReindex && !isOcrBook && (

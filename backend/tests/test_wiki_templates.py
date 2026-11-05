@@ -17,6 +17,7 @@ from backend.routers.campaigns._frontmatter import compose, split_frontmatter
 from backend.routers.campaigns.wiki_templates import AUTHORED_SYSTEM
 from backend.config import SessionLocal
 from backend.services import wiki_template_catalogue as catalogue
+from backend.tests import unreadable_zips
 from backend.tests.http_fakes import serve, serve_chunked
 
 BODY = """---
@@ -477,6 +478,17 @@ class TestUploadExport:
             headers=gm_headers,
         )
         assert resp.status_code == 400
+
+    @pytest.mark.parametrize("variant", sorted(unreadable_zips.ALL))
+    def test_a_zip_with_an_unreadable_member_is_rejected(self, client, gm_headers, variant):
+        c = _campaign(client, gm_headers)
+        resp = client.post(
+            f"/api/campaigns/{c['id']}/wiki/templates/upload",
+            files={"file": ("t.zip", unreadable_zips.ALL[variant](), "application/zip")},
+            headers=gm_headers,
+        )
+        assert resp.status_code == 400, resp.text
+        assert resp.json()["detail"] == "A file in that archive is encrypted or damaged"
 
     def test_a_zip_renamed_to_md_is_still_read_as_a_zip(self, client, gm_headers):
         """Sniffed by magic bytes, so a mislabelled archive isn't stored as

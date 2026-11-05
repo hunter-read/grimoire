@@ -48,6 +48,7 @@ from .manifest import (
 )
 from .registry import (
     AddonError,
+    AddonNotInstalledError,
     addon_dir,
     describe,
     enabled_for_target,
@@ -77,6 +78,7 @@ __all__ = [
     "STATUS_SAME",
     "AddonDataError",
     "AddonError",
+    "AddonNotInstalledError",
     "AddonFetchError",
     "AddonIndex",
     "AddonManifest",

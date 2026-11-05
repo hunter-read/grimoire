@@ -38,8 +38,10 @@ slugs we actually assign so cross-references survive the round trip.
 
 import io
 import json
+import lzma
 import re
 import zipfile
+import zlib
 from typing import Any, Optional
 
 from fastapi import Depends, File, Form, HTTPException, Query, UploadFile
@@ -783,6 +785,22 @@ class _Foldered:
         return _folder_records(self.folders, set(self.claimed)) + self.md
 
 
+# What reading one member of an uploaded zip can raise once its directory has
+# opened: RuntimeError for an encrypted member, NotImplementedError for a
+# compression method zipfile lacks (Deflate64, ...), and the rest for a corrupt
+# one - a bad CRC, a broken compressed stream, or data that ends early.
+_ZIP_READ_ERRORS = (
+    zipfile.BadZipFile,
+    RuntimeError,
+    NotImplementedError,
+    OSError,
+    EOFError,
+    zlib.error,
+    lzma.LZMAError,
+)
+ZIP_MEMBER_UNREADABLE = "A file in that archive is encrypted or damaged"
+
+
 def _records_from_zip(data: bytes) -> tuple:
     try:
         zf = zipfile.ZipFile(io.BytesIO(data))
@@ -812,8 +830,11 @@ def _records_from_zip(data: bytes) -> tuple:
                 raise HTTPException(413, f"Too many files (limit {_MAX_IMPORT_FILES})")
             if info.file_size > remaining:
                 raise HTTPException(413, "Archive is too large once unpacked")
-            with zf.open(info) as fh:
-                raw = fh.read(remaining + 1)
+            try:
+                with zf.open(info) as fh:
+                    raw = fh.read(remaining + 1)
+            except _ZIP_READ_ERRORS as exc:
+                raise HTTPException(400, ZIP_MEMBER_UNREADABLE) from exc
             if len(raw) > remaining:
                 raise HTTPException(413, "Archive is too large once unpacked")
             remaining -= len(raw)

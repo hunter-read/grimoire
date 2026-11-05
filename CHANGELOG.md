@@ -21,6 +21,10 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - A search containing a control character, such as a NUL pasted from another program, no longer fails with a server error. The character is read as a space, in the search box, the AI assistant's library search and the shelf and gallery filters
 - A custom book cover over 40 megapixels is refused with a message saying the image is too large. Large photos are now shrunk as they are read, so setting a cover takes much less server memory
 - The duplicate finder's list of groups refuses an out-of-range page size or position with an error instead of failing on the server
+- Importing wiki pages or a note template from a zip that holds an encrypted or damaged file says so, instead of failing with a server error. The same goes for a zip made with Deflate64, which some Windows tools use for large archives
+- **Re-OCR** in a book's **⋮** menu works from the keyboard. Choosing it moves you into the DPI field, Enter starts the re-read, and Tab reaches the **Run** button. Before, the field could only be reached with a mouse. A DPI such as 300 is also no longer refused for not being a step of 10 from 72
+- Changing an add-on's settings either saves every change or none of them. Before, turning an add-on on and approving a script it doesn't have reported that the add-on was not found, yet left it turned on
+- Book, map, token, audio, 3D model and search lists refuse a `limit` below 1 with an error. Before, a negative one returned everything past the usual cap, and a very large negative one failed with a server error
 
 ### Security
 

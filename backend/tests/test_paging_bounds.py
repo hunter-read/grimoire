@@ -97,3 +97,19 @@ def test_the_largest_duplicate_groups_offset_is_an_empty_page(client, admin_head
     resp = client.get("/api/duplicates/groups", params={"offset": MAX_OFFSET}, headers=admin_headers)
     assert resp.status_code == 200, resp.text
     assert resp.json()["groups"] == []
+# SQLite reads a negative LIMIT as "no limit", so a negative value would lift
+# the cap, and one past 64 bits would fail to bind.
+LIMITED = [(path, {}) for path in LISTS] + [("/api/search", {"q": "dragon"})]
+
+
+@pytest.mark.parametrize("limit", [0, -1, -(10**22)])
+@pytest.mark.parametrize("path, params", LIMITED)
+def test_a_limit_below_one_is_refused(client, player_headers, path, params, limit):
+    resp = client.get(path, params={**params, "limit": limit}, headers=player_headers)
+    assert resp.status_code == 422, resp.text
+
+
+@pytest.mark.parametrize("path, params", LIMITED)
+def test_a_limit_of_one_is_accepted(client, player_headers, path, params):
+    resp = client.get(path, params={**params, "limit": 1}, headers=player_headers)
+    assert resp.status_code == 200, resp.text

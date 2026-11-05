@@ -1,6 +1,10 @@
 """API_DOCS decides who may open /api/docs, /api/redoc and /api/openapi.json."""
 import subprocess
 import sys
+from pathlib import Path
+
+# The repo root, where `backend` imports from whatever directory pytest started in.
+_REPO = str(Path(__file__).resolve().parents[2])
 
 
 
@@ -39,8 +43,8 @@ def _probe(tmp_path, mode):
     )
     env = {**os.environ, "API_DOCS": mode, "DATA_PATH": str(tmp_path),
            "LIBRARY_PATH": str(tmp_path), "DISABLE_VERSION_CHECKING": "true"}
-    out = subprocess.run([sys.executable, "-c", probe], env=env, capture_output=True,
-                         text=True, check=True)
+    out = subprocess.run([sys.executable, "-c", probe], env=env, cwd=_REPO,
+                         capture_output=True, text=True, check=True)
     return json.loads(out.stdout.strip().splitlines()[-1])
 
 

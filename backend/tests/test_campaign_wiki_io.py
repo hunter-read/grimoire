@@ -4,6 +4,10 @@ import json
 import uuid
 import zipfile
 
+import pytest
+
+from backend.tests import unreadable_zips
+
 
 def uid():
     return uuid.uuid4().hex[:8]
@@ -1079,6 +1083,15 @@ class TestZipImportLimits:
                 zf.writestr(f"page{i}.md", "# P\n" + "x" * 400)
         resp = _import(client, gm_headers, c["id"], "wiki.zip", buf.getvalue(), "application/zip")
         assert resp.status_code == 413
+
+    @pytest.mark.parametrize("variant", sorted(unreadable_zips.ALL))
+    def test_an_unreadable_member_is_a_400(self, client, gm_headers, variant):
+        c = _campaign(client, gm_headers)
+        data = unreadable_zips.ALL[variant]()
+        resp = _import(client, gm_headers, c["id"], "wiki.zip", data, "application/zip")
+        assert resp.status_code == 400, resp.text
+        assert resp.json()["detail"] == "A file in that archive is encrypted or damaged"
+        assert client.get(f"/api/campaigns/{c['id']}/wiki", headers=gm_headers).json() == []
 
     def test_entry_count_is_capped(self, client, gm_headers, monkeypatch):
         from backend.routers.campaigns import wiki_io

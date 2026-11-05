@@ -27,6 +27,7 @@ from .fetch import AddonFetchError, download_file, fetch_json
 from .manifest import AddonIndex, IndexEntry
 from .registry import (
     AddonError,
+    AddonNotInstalledError,
     addon_dir,
     drop_state_for,
     get_cached_index,
@@ -454,31 +455,38 @@ def uninstall(db: Session, addon_id: str) -> None:
     """Remove an add-on's directory and forget its state."""
     target = addon_dir(addon_id)
     if not os.path.isdir(target):
-        raise AddonError(f"add-on '{addon_id}' is not installed")
+        raise AddonNotInstalledError(f"add-on '{addon_id}' is not installed")
     shutil.rmtree(target, ignore_errors=True)
     drop_state_for(db, addon_id)
     db.commit()
     logger.info("Uninstalled add-on '%s'", addon_id)
 
 
-def set_enabled(db: Session, addon_id: str, enabled: bool) -> dict:
+def set_enabled(db: Session, addon_id: str, enabled: bool, *, commit: bool = True) -> dict:
+    """Turn an add-on on or off. ``commit=False`` leaves the commit to the caller."""
     load_manifest(addon_id)  # 404s a request for something not installed
     record = update_state_for(db, addon_id, enabled=enabled)
-    db.commit()
+    if commit:
+        db.commit()
     return record
 
 
-def set_script_approved(db: Session, addon_id: str, approved: bool) -> dict:
+def set_script_approved(
+    db: Session, addon_id: str, approved: bool, *, commit: bool = True
+) -> dict:
     """Grant or revoke script approval.
 
     Approving records the SHA-256 of the script on disk right now, and the
     environment variables it declares, so the approval covers exactly that file
-    reading exactly those (see ``registry.is_runnable``).
+    reading exactly those (see ``registry.is_runnable``). Every check runs
+    before anything is written, and ``commit=False`` leaves the commit to the
+    caller.
     """
     manifest = load_manifest(addon_id)
     if not approved:
         record = update_state_for(db, addon_id, script_approved=False)
-        db.commit()
+        if commit:
+            db.commit()
         return record
     if not manifest.requires_script:
         raise AddonError(f"add-on '{addon_id}' does not use a script")
@@ -492,5 +500,6 @@ def set_script_approved(db: Session, addon_id: str, approved: bool) -> dict:
         script_sha256=digest,
         script_env=script_env(manifest),
     )
-    db.commit()
+    if commit:
+        db.commit()
     return record

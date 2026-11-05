@@ -32,7 +32,7 @@ router = APIRouter()
 
 
 def list_tokens(
-    limit: int = Query(MAX_MEDIA_LIMIT, le=MAX_MEDIA_LIMIT),
+    limit: int = Query(MAX_MEDIA_LIMIT, ge=1, le=MAX_MEDIA_LIMIT),
     offset: int = Query(0, ge=0, le=MAX_OFFSET),
     params: MediaBrowse = Depends(media_browse_params),
     current_user: CurrentUser = Depends(get_current_user),

@@ -56,7 +56,12 @@ from ._schemas import (
     WikiTemplateUpdate,
 )
 from .wiki import _ensure_unique_slug, _page_summary, rebuild_links, slugify
-from .wiki_io import _remap_links, parse_markdown_file
+from .wiki_io import (
+    _ZIP_READ_ERRORS,
+    ZIP_MEMBER_UNREADABLE,
+    _remap_links,
+    parse_markdown_file,
+)
 
 # A template body is a markdown page; bound the upload so one request cannot
 # hand us an unbounded string to store.
@@ -399,8 +404,11 @@ def _template_from_zip(data: bytes) -> dict:
         if body_name is None:
             raise HTTPException(400, "That archive has no Markdown file in it")
 
-        body = archive.read(body_name).decode("utf-8", "replace")
-        manifest_raw = archive.read(manifest_name) if manifest_name else b""
+        try:
+            body = archive.read(body_name).decode("utf-8", "replace")
+            manifest_raw = archive.read(manifest_name) if manifest_name else b""
+        except _ZIP_READ_ERRORS as exc:
+            raise HTTPException(400, ZIP_MEMBER_UNREADABLE) from exc
 
     fields: dict = {"body": body}
     if manifest_raw:
