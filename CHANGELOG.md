@@ -17,6 +17,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - The favorite heart shows again on books and other items you haven't favorited yet. Since 1.10.1 it was invisible until you favorited something, in book lists and on hover over cards
 - Character sheets keep what you type while an edit is saving. Before, letters typed just as the sheet saved could vanish, and a row moved up or down a list could jump back and then move again
 - Downloading a whole system, tag or folder as an archive starts straight away, and the server no longer needs as much memory as the archive is large to send it. An archive over 50 GB is refused with a message asking for a smaller part, as a file manager folder download already was
+- A search containing a control character, such as a NUL pasted from another program, no longer fails with a server error. The character is read as a space, in the search box, the AI assistant's library search and the shelf and gallery filters
 
 ### Security
 
