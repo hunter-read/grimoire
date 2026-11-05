@@ -602,7 +602,7 @@ does not support pasting, and a request with neither `identity` nor `paste`.
 | `/api/books/:id/rescan` | POST | gm/admin | Re-read a single book from disk and rebuild its search index, for a file edited externally. Unlike `/reindex` this works for any indexable format (PDF, EPUB, DjVu, `.txt`/`.md`/`.rtf`): a text-layer book is re-extracted and its FTS rows rebuilt; an image-only PDF is re-queued for OCR. Refreshes page count and cover thumbnail if the file changed, and drops everything cached from the previous contents (page renders, open document handle, search rows). Runs in the background on the same queue as replace uploads (poll `/api/scan-status`, `kind: "reindex"`): a rescan sent while that queue is running joins it. No-ops if a library scan or OCR run is already in progress. 400 for formats that cannot be indexed (archives, images), 404 if the file is missing on disk. Returns `{status: "rescan_queued"}`. |
 | `/api/books/:id/file` | GET | any | Download/stream the file |
 | `/api/books/:id/thumbnail` | GET | any | WebP cover thumbnail - the book's [custom cover](#custom-book-covers) when one is set, else the one generated from its first page. Sends an `ETag` derived from the file's content hash (and the custom cover's version, when there is one) and honours `If-None-Match` (`304`). Responses are cached `immutable`, so clients add the book's `cover_version` as `v` to pick up a changed custom cover; `v` is ignored server-side. |
-| `/api/books/:id/cover` | POST | gm/admin | Upload a [custom cover](#custom-book-covers) (multipart `file`). PNG/JPEG/WebP/GIF, max 10 MB. Returns `{cover_image, has_custom_cover, cover_version, has_thumbnail}` |
+| `/api/books/:id/cover` | POST | gm/admin | Upload a [custom cover](#custom-book-covers) (multipart `file`). PNG/JPEG/WebP/GIF, max 10 MB and 40 megapixels (`400 Image is too large` over that). Returns `{cover_image, has_custom_cover, cover_version, has_thumbnail}` |
 | `/api/books/:id/cover/from-source` | POST | gm/admin | Set the custom cover from an image Grimoire already holds. Body: `{source_type, source_id}` - see [Setting an image from an existing asset](#setting-an-image-from-an-existing-asset). Returns as for the upload |
 | `/api/books/:id/cover` | DELETE | gm/admin | Remove the custom cover, so the generated thumbnail is used again. Returns as for the upload, with `has_custom_cover: false` and `cover_version: null` |
 | `/api/books/:id/toc` | GET | any | Table of contents as `{title, page, level, children}[]`. Available for PDF, EPUB, and DjVu; other formats 404. `page` is 1-based, or `-1` for an entry whose destination can't be resolved - a broken PDF bookmark costs only its own link, not the whole TOC, and one pointing just past the last page resolves to the last page |
@@ -625,6 +625,8 @@ wraparound dust jacket or a rotated scan - a gm/admin can upload a replacement w
 `POST /api/books/:id/cover`. It is re-encoded as WebP, at most 900px wide (and
 1800px tall), with any EXIF rotation applied, and stored under
 `DATA_PATH/book_covers/` as `{book_id}_{digest}.webp`. Backups include that folder.
+An image over 40 megapixels is refused with `400` before it is decoded; the same
+limit applies when the cover is set from an existing image.
 
 The custom cover wins everywhere the book's cover is used: `/api/books/:id/thumbnail`
 (and so every grid), the OPDS feed's cover links, the image picker's `book` source,
