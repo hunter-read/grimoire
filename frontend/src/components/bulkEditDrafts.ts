@@ -1,4 +1,5 @@
 import type { BulkType } from '../api'
+import { ACCESS_INHERIT } from '../accessLevels'
 import { cleanLinks, type LinkRow } from './metadata/metadataUtils'
 
 // Draft bookkeeping for BulkEditModal: which fields each item type edits, how
@@ -15,6 +16,12 @@ export interface BulkEditConfig {
   metadataKind?: 'books' | 'systems'
   /** A bespoke editor body that keeps tags and structured fields as native values. */
   custom?: boolean
+  /**
+   * `access_level` can inherit (books): null and "inherit" mean the same thing,
+   * and "" is an explicit "open", so they are compared and sent as the single
+   * editor does. Without it (systems) "" and null are both simply open.
+   */
+  inheritsAccess?: boolean
 }
 
 /** An item in the selection: only its id is known here, the rest is read by field name. */
@@ -72,8 +79,12 @@ export const CONFIG: Record<BulkType, BulkEditConfig> = {
       'month',
       'day',
       'is_explicit',
+      // Rendered (to admins) by BookBulkEditFields; like license above, it was
+      // edited in the draft but never diffed, so the change never saved.
+      'access_level',
     ],
     custom: true,
+    inheritsAccess: true,
   },
   system: {
     metadataKind: 'systems',
@@ -97,6 +108,7 @@ export const CONFIG: Record<BulkType, BulkEditConfig> = {
       'character_builder_urls',
       'is_explicit',
       'cover_book_id',
+      'access_level',
     ],
     custom: true,
   },
@@ -142,6 +154,11 @@ export const stringToTags = (s: string): string[] =>
     .map((tag) => tag.trim().toLowerCase())
     .filter(Boolean)
 
+// A book's stored level as the API takes it back: null (no level of its own)
+// is sent as "inherit", which the endpoint turns back into null.
+const accessOrInherit = (value: unknown): string =>
+  value === null || value === undefined ? ACCESS_INHERIT : String(value)
+
 /**
  * Build the { id: changedFields } patch map for a set of drafts — every field
  * whose draft value differs from the item's current value. Shared by the save
@@ -168,6 +185,9 @@ export const diffDrafts = (
       } else if (f === 'cover_book_id') {
         if ((d.cover_book_id ?? null) !== (it.cover_book_id ?? null))
           patch.cover_book_id = d.cover_book_id ?? null
+      } else if (f === 'access_level' && cfg.inheritsAccess) {
+        const next = accessOrInherit(d.access_level)
+        if (next !== accessOrInherit(it.access_level)) patch.access_level = next
       } else if (f === 'year' || f === 'month' || f === 'day') {
         const next = d[f] === '' || d[f] == null ? null : Number(d[f])
         if (next !== (it[f] ?? null)) patch[f] = next
@@ -197,8 +217,11 @@ export const seedDrafts = (
       else if (STRUCTURED_FIELDS.has(f)) d[f] = it[f] || []
       else if (f === 'grid_size') d[f] = it.grid_size || inferGridSize(it)
       else if (f === 'cover_book_id') d[f] = it[f] ?? null
+      else if (f === 'access_level' && cfg.inheritsAccess) d[f] = it[f] ?? null
       else d[f] = it[f] ?? ''
     }
+    // Not edited, only shown: the picker's hint says what "inherit" resolves to.
+    if (cfg.inheritsAccess) d.effective_access_level = it.effective_access_level ?? null
     out[it.id] = d
   }
   return out
