@@ -242,16 +242,23 @@ class ParsedQuery:
         return self.filters.get(field_name, [])
 
 
+# C0 control characters and DEL. None can be typed into a search box, and a NUL
+# reaching SQLite ends the FTS5 query string early ("unterminated string").
+_CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
+
+
 def parse_query(raw: str) -> ParsedQuery:
     """Parse a raw search string into field filters plus free text.
 
     Unknown prefixes and empty values fall back to free text, so a title
-    containing a colon still searches for itself rather than erroring.
+    containing a colon still searches for itself rather than erroring. Control
+    characters are read as spaces, so they separate terms like a tab does.
     """
+    raw = _CONTROL_CHARS.sub(" ", raw or "")
     parsed = ParsedQuery(raw=raw)
     free: list[str] = []
 
-    for match in _TOKEN_RE.finditer(raw or ""):
+    for match in _TOKEN_RE.finditer(raw):
         prefix = match.group("field")
         quoted = match.group("dq") is not None or match.group("sq") is not None
         value = match.group("dq")
