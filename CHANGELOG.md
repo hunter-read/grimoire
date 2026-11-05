@@ -8,6 +8,10 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ## [Unreleased]
 
+### Security
+
+- **Check your `SECRET_KEY` before upgrading.** Grimoire now refuses to start with `generate-with-openssl-rand-hex-32`, the example value in the README's compose file before 1.6.0. If your compose file still has it, replace it with the output of `openssl rand -hex 32`, or remove the line to have one generated. Changing the key signs everyone out and ends existing feed URLs, share links and guest codes
+
 ## [1.10.1] - 2026-11-02
 
 ### Added

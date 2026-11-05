@@ -30,6 +30,10 @@ REJECTED_SECRET_KEYS = frozenset(
         # file before those switched to generating a key.
         "zx7k2mQpR9nLwT4vBcYeHs3JuAoDfGiN",
         "7ba05239cdd5752065eb6bd5db866bf8a0919d2760b1fcf158744f5ef5833834",
+        # The README's compose example up to 1.5.x.
+        "generate-with-openssl-rand-hex-32",
+        # The key the grimoire-codex-e2e repo's local run script used to set.
+        "e2e-local-secret-not-for-production",
         # The install guide's and FAQ's fill-in line, pasted unedited. Any other
         # <...> value is refused too (see _looks_like_placeholder).
         "<paste the generated value here>",
