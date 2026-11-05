@@ -38,6 +38,10 @@ class AddonError(Exception):
     """An add-on could not be loaded or is not usable."""
 
 
+class AddonNotInstalledError(AddonError):
+    """The add-on asked for is not installed - the one failure that is a 404."""
+
+
 # --- raw settings access -------------------------------------------------
 # The settings router enumerates its fields explicitly, so these keys would not
 # survive a trip through it.  Read and write them directly, as scheduler.py does.
@@ -174,7 +178,7 @@ def read_manifest_file(path: str, addon_id: str) -> AddonManifest:
         with open(path, "r", encoding="utf-8") as fh:
             raw = untrusted_yaml.safe_load(fh)
     except FileNotFoundError as exc:
-        raise AddonError(f"add-on '{addon_id}' is not installed") from exc
+        raise AddonNotInstalledError(f"add-on '{addon_id}' is not installed") from exc
     except (OSError, yaml.YAMLError) as exc:
         raise AddonError(f"add-on '{addon_id}' has an unreadable manifest: {exc}") from exc
 

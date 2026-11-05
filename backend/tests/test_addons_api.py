@@ -354,6 +354,30 @@ class TestToggleAndUninstall:
         )
         assert response.json()["enabled"] is True
 
+    def test_a_failed_patch_saves_nothing(self, client, admin_headers, installed):
+        # Approving a script for an add-on that has none is the client's mistake
+        # (400, not 404), and the enabled change sent with it must not stick.
+        client.patch("/api/addons/ttrpg-wiki", json={"enabled": False}, headers=admin_headers)
+        response = client.patch(
+            "/api/addons/ttrpg-wiki",
+            json={"enabled": True, "script_approved": True},
+            headers=admin_headers,
+        )
+        assert response.status_code == 400, response.text
+        assert "does not use a script" in response.json()["detail"]
+        listed = client.get("/api/addons", headers=admin_headers).json()
+        addon = next(a for a in listed["installed"] if a["id"] == "ttrpg-wiki")
+        assert addon["enabled"] is False
+
+    def test_both_changes_save_together(self, client, admin_headers, installed):
+        response = client.patch(
+            "/api/addons/ttrpg-wiki",
+            json={"enabled": False, "script_approved": False},
+            headers=admin_headers,
+        )
+        assert response.status_code == 200
+        assert response.json()["enabled"] is False
+
     def test_uninstall_removes_it(self, client, admin_headers, installed):
         assert client.delete("/api/addons/ttrpg-wiki", headers=admin_headers).status_code == 200
         assert not os.path.isdir(installed)

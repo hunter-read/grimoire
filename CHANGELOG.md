@@ -20,6 +20,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Asking for a page number far past the end of a book, such as when reading its text, is refused with an error instead of failing on the server
 - A search containing a control character, such as a NUL pasted from another program, no longer fails with a server error. The character is read as a space, in the search box, the AI assistant's library search and the shelf and gallery filters
 - A custom book cover over 40 megapixels is refused with a message saying the image is too large. Large photos are now shrunk as they are read, so setting a cover takes much less server memory
+- Changing an add-on's settings either saves every change or none of them. Before, turning an add-on on and approving a script it doesn't have reported that the add-on was not found, yet left it turned on
 
 ### Security
 
