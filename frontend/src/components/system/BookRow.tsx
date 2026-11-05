@@ -204,7 +204,7 @@ export default function BookRow({
           aria-hidden="true"
           color={fav ? 'var(--gold)' : 'var(--text-muted)'}
           fill={fav ? 'var(--gold)' : 'none'}
-          stroke={favoriteError ? 'var(--danger)' : undefined}
+          stroke={favoriteError ? 'var(--danger)' : 'currentColor'}
         />
       </button>
       {favoriteError && (
@@ -383,16 +383,15 @@ export default function BookRow({
 
   // ----- List layout (default) -----
   return (
+    // Laid out by the .book-row rules in index.css, which rearrange it on a
+    // phone held upright (issue #805).
     <div
       ref={rowRef}
       {...buttonProps}
+      className="book-row"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 16,
-        padding: '12px 16px',
         background: hovered ? 'var(--bg-card-hover)' : 'var(--bg-card)',
         border: '1px solid var(--border)',
         borderRadius: 8,
@@ -429,6 +428,7 @@ export default function BookRow({
       {bulkMode && (
         <div
           aria-hidden="true"
+          className="book-row__check"
           style={{
             width: 20,
             height: 20,
@@ -446,6 +446,7 @@ export default function BookRow({
       )}
 
       <div
+        className="book-row__cover"
         style={{
           width: 36,
           height: 48,
@@ -469,20 +470,13 @@ export default function BookRow({
         )}
       </div>
 
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div
-          style={{
-            fontSize: 16,
-            fontWeight: 500,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
+      <div className="book-row__main">
+        <div className="book-row__title" style={{ fontSize: 16, fontWeight: 500 }}>
           <RecentlyAddedBadge addedAt={book.added_at} />
           {book.title}
         </div>
         <div
+          className="book-row__meta"
           style={{
             fontSize: 13,
             color: 'var(--text-muted)',
@@ -663,9 +657,19 @@ export default function BookRow({
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexShrink: 0 }}>
+      <div
+        className="book-row__end"
+        style={{ display: 'flex', gap: 4, alignItems: 'center', flexShrink: 0 }}
+      >
         {!bulkMode && listActions()}
-        {!bulkMode && <LuChevronRight size={16} color="var(--text-muted)" aria-hidden="true" />}
+        {!bulkMode && (
+          <LuChevronRight
+            className="book-row__chevron"
+            size={16}
+            color="var(--text-muted)"
+            aria-hidden="true"
+          />
+        )}
       </div>
     </div>
   )
