@@ -123,7 +123,7 @@ COPY --from=ffmpeg-builder /ffmpeg/ffmpeg /usr/local/bin/ffmpeg
 # behind when an OCR worker is killed. The entrypoint starts it once it has
 # switched users (see with_init in backend/container_entrypoint.py). Installed
 # here, ahead of the slim stage's dpkg --force-depends, which stops apt working.
-# Only the dynamic binary is kept; tini-static is a 700 KB copy of it.
+# Only the dynamic binary is kept; tini-static is a 650 KB copy of it.
 RUN apt-get update && apt-get install -y --no-install-recommends tini \
     && rm -f /usr/bin/tini-static \
     && rm -rf /var/lib/apt/lists/*
