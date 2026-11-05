@@ -53,6 +53,7 @@ from ._schemas import FolderTagsUpdate, MapBulkUpdate, MapUpdate, VttAuthoringUp
 from ...services.media.otfbm import MIN_SOURCE_PX
 from ...services.media.uvtt import build_uvtt, check_grid_plausible, resolve_grid, round2
 from ...services.media.vtt_authoring import VttDataError, doc_counts, normalize_vtt_data
+from .._page_num import PageNum
 
 router = APIRouter()
 
@@ -228,7 +229,7 @@ def _map_image_etag(m: GenericMap, *variant: object) -> str:
 
 def serve_map_page(
     map_id: str,
-    page_num: int,
+    page_num: PageNum,
     request: Request,
     width: int = Query(1600, ge=MIN_RENDER_WIDTH, le=3000),
     current_user: CurrentUser = Depends(get_current_user),
