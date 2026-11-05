@@ -591,6 +591,76 @@ summary:focus-visible {
   }
 }
 
+/* BookRow's list layout: cover, then the title over its details, then the
+   actions, all on one line. */
+.book-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+}
+.book-row__main {
+  flex: 1;
+  min-width: 0;
+}
+.book-row__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* On a phone held upright the actions alone took a third of the row, leaving
+   the title a few characters (issue #805). There they share the title's line,
+   the title wraps to two lines, and the details run the full width beneath
+   both. __main dissolves so the title and details become grid items; margins
+   rather than a column gap, so a row without the bulk checkbox has no empty
+   column to space around. */
+@media (max-width: 640px) {
+  .book-row {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'check cover title end'
+      'check cover meta meta';
+    align-items: start;
+    gap: 0;
+    padding: 10px 12px;
+  }
+  .book-row__check {
+    grid-area: check;
+    align-self: center;
+    margin-right: 10px;
+  }
+  .book-row__cover {
+    grid-area: cover;
+    margin-right: 10px;
+  }
+  .book-row__main {
+    display: contents;
+  }
+  .book-row__title {
+    grid-area: title;
+    align-self: center;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+  .book-row__meta {
+    grid-area: meta;
+  }
+  .book-row__end {
+    grid-area: end;
+    margin-left: 4px;
+  }
+  /* The whole row opens the book; the arrow only takes room here. */
+  .book-row__chevron {
+    display: none;
+  }
+}
+
 /* TagsView — two-column (list + detail) layout that stacks on narrow screens. */
 .tags-layout {
   display: flex;

@@ -72,7 +72,7 @@ export default function FavoriteButton({
           size={16}
           color={active ? 'var(--gold)' : 'var(--text-dim)'}
           fill={active ? 'var(--gold)' : 'none'}
-          stroke={error ? 'var(--danger)' : undefined}
+          stroke={error ? 'var(--danger)' : 'currentColor'}
         />
       </button>
       {error && (

@@ -429,6 +429,29 @@ describe('BookRow', () => {
     expect(toggleFavorite).toHaveBeenCalledWith('book', 'book-1')
   })
 
+  // The heart was invisible: stroke={undefined} replaced react-icons'
+  // stroke="currentColor", and an un-favorited heart has no fill.
+  it('outlines the favorite heart when not favorited', () => {
+    mockUseFavorites.mockReturnValue({ isFavorite: () => false, toggleFavorite: vi.fn() })
+    render(<BookRow book={makeBook()} />)
+    const heart = screen
+      .getByRole('button', { name: /add player's handbook to favorites/i })
+      .querySelector('svg')
+    expect(heart).toHaveAttribute('stroke', 'currentColor')
+  })
+
+  // index.css lays the list row out from these classes, and rearranges it on
+  // a phone held upright (issue #805); jsdom can't apply the media query, so
+  // this pins the hooks it depends on.
+  it('marks the list row parts the narrow-screen layout targets', () => {
+    const { container } = render(<BookRow book={makeBook()} />)
+    const row = container.querySelector('.book-row')!
+    for (const part of ['cover', 'main', 'title', 'meta', 'end', 'chevron']) {
+      expect(row.querySelector(`.book-row__${part}`)).not.toBeNull()
+    }
+    expect(row.querySelector('.book-row__title')).toHaveTextContent("Player's Handbook")
+  })
+
   it('says so when the favorite toggle fails', async () => {
     const toggleFavorite = vi.fn().mockRejectedValue(new Error('Favorites are unavailable'))
     mockUseFavorites.mockReturnValue({ isFavorite: () => false, toggleFavorite })

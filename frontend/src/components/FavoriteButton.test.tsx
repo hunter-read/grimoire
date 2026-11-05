@@ -31,6 +31,17 @@ describe('FavoriteButton', () => {
     expect(screen.getByRole('button')).toHaveAttribute('title', 'Favorites are unavailable')
   })
 
+  // An un-favorited heart is drawn by its outline alone (fill none). Passing
+  // stroke={undefined} dropped react-icons' stroke="currentColor", so the
+  // heart rendered as nothing at all.
+  it('outlines the heart when not favorited', () => {
+    setup(false)
+    expect(screen.getByRole('button').querySelector('svg')).toHaveAttribute(
+      'stroke',
+      'currentColor'
+    )
+  })
+
   it('renders a button element', () => {
     setup(false)
     expect(screen.getByRole('button')).toBeInTheDocument()
