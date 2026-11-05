@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { LuX, LuDownload, LuCopy } from 'react-icons/lu'
 import ItemCarouselNav from './ItemCarouselNav'
 import { bulk as bulkApi, type BulkType } from '../api'
+import { useAuth } from '../context/AuthContext'
+import { ACCESS_INHERIT, ACCESS_LABEL_KEYS } from '../accessLevels'
 import SystemBulkEditFields, {
   type SystemBulkEditFieldsProps,
   type SystemDraft,
@@ -101,6 +103,8 @@ export default function BulkEditModal({
   systemGenres = [],
 }: BulkEditModalProps) {
   const { t } = useTranslation()
+  // Null outside an AuthProvider, as in AccessLevelPicker: read as "not an admin".
+  const isAdmin = useAuth()?.user?.role === 'admin'
   const cfg = CONFIG[type]
   const [index, setIndex] = useState(0)
   const [saving, setSaving] = useState(false)
@@ -170,12 +174,18 @@ export default function BulkEditModal({
       if (type === 'system' && SYSTEM_LABEL_KEYS[f])
         return t(`systemEditor.${SYSTEM_LABEL_KEYS[f]}`)
       if (f === 'is_explicit') return t('bulkEdit.field_explicit')
+      if (f === 'access_level') return t('access.pickerLabel')
       return fieldLabels[f] || f
     }
-    return cfg.fields
-      .filter((f) => !NOT_COPYABLE.has(f))
-      .map((f) => ({ field: f, label: labelFor(f) }))
-  }, [cfg.fields, type, t, fieldLabels])
+    return (
+      cfg.fields
+        .filter((f) => !NOT_COPYABLE.has(f))
+        // Only admins see the picker, and the endpoint refuses the field from
+        // anyone else, so copying it would fail a GM's whole save.
+        .filter((f) => f !== 'access_level' || isAdmin)
+        .map((f) => ({ field: f, label: labelFor(f) }))
+    )
+  }, [cfg.fields, type, t, fieldLabels, isAdmin])
 
   // One-line renderings of the current draft's values, shown beside each row so
   // the choice is informed — particularly for fields that are currently empty.
@@ -184,11 +194,14 @@ export default function BulkEditModal({
     for (const { field: f } of copyableFields) {
       const v = draft?.[f]
       if (f === 'is_explicit') out[f] = v ? t('common.yes') : t('common.no')
-      else if (Array.isArray(v)) out[f] = v.map(previewEntry).filter(Boolean).join(', ')
+      else if (f === 'access_level') {
+        const level = v == null ? (cfg.inheritsAccess ? ACCESS_INHERIT : '') : String(v)
+        out[f] = t(ACCESS_LABEL_KEYS[level as keyof typeof ACCESS_LABEL_KEYS] || level)
+      } else if (Array.isArray(v)) out[f] = v.map(previewEntry).filter(Boolean).join(', ')
       else out[f] = v == null ? '' : String(v)
     }
     return out
-  }, [copyableFields, draft, t])
+  }, [copyableFields, draft, t, cfg.inheritsAccess])
 
   const go = (delta: number) => setIndex((i) => Math.min(items.length - 1, Math.max(0, i + delta)))
   const isLast = index === items.length - 1
