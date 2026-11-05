@@ -8,27 +8,27 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ## [Unreleased]
 
+## [1.10.2] - 2026-11-05
+
 ### Fixed
 
-- Going back from a book to its system's page shows the search and filters from that visit. Before, a search made on an earlier visit could come back, for example after opening a book from the shelf on a later one
-- Reading text from a scanned page that takes too long no longer leaves a `tesseract <defunct>` process behind on the server. The Docker image now starts Grimoire under `tini`, which cleans up after processes that are stopped partway
-- **Who can see this** now saves from the bulk editor, for books and systems. Before, the level you picked there was dropped on save, and only the single-item editor kept it. It can also be applied to the whole selection with **Apply to all**
-- Book lists on a phone held upright give the title room again: it wraps onto a second line instead of being cut to a few letters, with the heart, details and menu buttons beside it and the details running the full width underneath
-- The favorite heart shows again on books and other items you haven't favorited yet. Since 1.10.1 it was invisible until you favorited something, in book lists and on hover over cards
-- Character sheets keep what you type while an edit is saving. Before, letters typed just as the sheet saved could vanish, and a row moved up or down a list could jump back and then move again
-- Downloading a whole system, tag or folder as an archive starts straight away, and the server no longer needs as much memory as the archive is large to send it. An archive over 50 GB is refused with a message asking for a smaller part, as a file manager folder download already was
-- Asking for a page number far past the end of a book, such as when reading its text, is refused with an error instead of failing on the server
-- A search containing a control character, such as a NUL pasted from another program, no longer fails with a server error. The character is read as a space, in the search box, the AI assistant's library search and the shelf and gallery filters
-- A custom book cover over 40 megapixels is refused with a message saying the image is too large. Large photos are now shrunk as they are read, so setting a cover takes much less server memory
-- The duplicate finder's list of groups refuses an out-of-range page size or position with an error instead of failing on the server
-- Importing wiki pages or a note template from a zip that holds an encrypted or damaged file says so, instead of failing with a server error. The same goes for a zip made with Deflate64, which some Windows tools use for large archives
-- **Re-OCR** in a book's **⋮** menu works from the keyboard. Choosing it moves you into the DPI field, Enter starts the re-read, and Tab reaches the **Run** button. Before, the field could only be reached with a mouse. A DPI such as 300 is also no longer refused for not being a step of 10 from 72
-- Changing an add-on's settings either saves every change or none of them. Before, turning an add-on on and approving a script it doesn't have reported that the add-on was not found, yet left it turned on
-- Book, map, token, audio, 3D model and search lists refuse a `limit` below 1 with an error. Before, a negative one returned everything past the usual cap, and a very large negative one failed with a server error
+- The favorite heart shows again on books and other items you haven't favorited yet. Since 1.10.1 it was invisible until you favorited something
+- Book lists on a phone held upright give the title room again: it wraps onto a second line instead of being cut to a few letters
+- Character sheets keep what you type while an edit is saving. Before, letters typed just as the sheet saved could vanish, and a row moved in a list could jump back
+- Going back from a book to its system's page brings back the search and filters you had on that visit, not ones from an earlier visit
+- **Who can see this** now saves from the bulk editor for books and systems, and can be applied to the whole selection with **Apply to all**. Before, only the single-item editor kept it
+- Downloading a whole system, tag or folder as an archive starts straight away and uses far less server memory. Archives over 50 GB are refused with a message asking for a smaller part
+- Setting a custom book cover uses much less server memory. Images over 40 megapixels are refused with a message saying the image is too large
+- **Re-OCR** in a book's **⋮** menu works from the keyboard, and a DPI such as 300 is no longer refused
+- Scanned pages that take too long to read no longer leave stray `tesseract <defunct>` processes on the server
+- Importing wiki pages or a note template from a zip with an encrypted, damaged or Deflate64-compressed file says what's wrong instead of failing
+- Changing an add-on's settings saves every change or none of them. Before, a failed save could still leave the add-on turned on
+- A search containing a stray control character, such as one pasted from another program, no longer fails
+- A handful of requests with out-of-range values - a page number past the end of a book, a negative list `limit`, an out-of-range page in the duplicate finder - are refused with a clear error instead of failing on the server
 
 ### Security
 
-- **Check your `SECRET_KEY` before upgrading.** Grimoire now refuses to start with `generate-with-openssl-rand-hex-32`, the example value in the README's compose file before 1.6.0. If your compose file still has it, replace it with the output of `openssl rand -hex 32`, or remove the line to have one generated. Changing the key signs everyone out and ends existing feed URLs, share links and guest codes
+- **Check your `SECRET_KEY` before upgrading.** Grimoire now refuses to start if it is still set to `generate-with-openssl-rand-hex-32`, the placeholder from the README's example compose file before 1.6.0. Replace it with the output of `openssl rand -hex 32`, or remove the line to have one generated for you. Changing the key signs everyone out and ends existing feed URLs, share links and guest codes
 
 ## [1.10.1] - 2026-11-02
 
@@ -833,7 +833,8 @@ Initial release. A self-hosted library manager for your TTRPG PDFs, battlemaps, 
 - Explicit content controls with per-user opt-in
 - Docker-first deployment
 
-[Unreleased]: https://github.com/hunter-read/grimoire/compare/v1.10.1...HEAD
+[Unreleased]: https://github.com/hunter-read/grimoire/compare/v1.10.2...HEAD
+[1.10.2]: https://github.com/hunter-read/grimoire/compare/v1.10.1...v1.10.2
 [1.10.1]: https://github.com/hunter-read/grimoire/compare/v1.10.0...v1.10.1
 [1.10.0]: https://github.com/hunter-read/grimoire/compare/v1.9.2...v1.10.0
 [1.9.2]: https://github.com/hunter-read/grimoire/compare/v1.9.1...v1.9.2
