@@ -15,6 +15,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - **Who can see this** now saves from the bulk editor, for books and systems. Before, the level you picked there was dropped on save, and only the single-item editor kept it. It can also be applied to the whole selection with **Apply to all**
 - Book lists on a phone held upright give the title room again: it wraps onto a second line instead of being cut to a few letters, with the heart, details and menu buttons beside it and the details running the full width underneath
 - The favorite heart shows again on books and other items you haven't favorited yet. Since 1.10.1 it was invisible until you favorited something, in book lists and on hover over cards
+- Character sheets keep what you type while an edit is saving. Before, letters typed just as the sheet saved could vanish, and a row moved up or down a list could jump back and then move again
 
 ### Security
 

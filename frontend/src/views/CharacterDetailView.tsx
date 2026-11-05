@@ -74,6 +74,10 @@ export default function CharacterDetailView() {
   const [showingPortrait, setShowingPortrait] = useState(false)
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Saves run one after another. Two in flight at once can land in either
+  // order, and the earlier reply would put back what the later edit changed -
+  // a moved row moving back, a letter typed vanishing.
+  const queueRef = useRef<Promise<unknown>>(Promise.resolve())
   const pendingRef = useRef<Values>({})
   // Fields to hand back to their automatic value on the next save.
   const unsetRef = useRef(new Set<string>())
@@ -116,16 +120,29 @@ export default function CharacterDetailView() {
   useEffect(
     () => () => {
       if (timerRef.current) clearTimeout(timerRef.current)
-      if (Object.keys(pendingRef.current).length || unsetRef.current.size) {
-        charactersApi
-          .update(characterId, { data: pendingRef.current, unset: [...unsetRef.current] })
+      const data = pendingRef.current
+      const unset = [...unsetRef.current]
+      pendingRef.current = {}
+      unsetRef.current = new Set()
+      if (Object.keys(data).length || unset.length) {
+        queueRef.current = queueRef.current
+          .then(() => charactersApi.update(characterId, { data, unset }))
           .catch(() => {})
       }
     },
     [characterId]
   )
 
-  const flush = useCallback(async () => {
+  // Queue a request behind any save still in flight.
+  const enqueue = useCallback(<T,>(request: () => Promise<T>): Promise<T> => {
+    const next = queueRef.current.then(request)
+    queueRef.current = next.catch(() => {})
+    return next
+  }, [])
+
+  const save = useCallback(async () => {
+    // Taken when this save's turn comes, not when it was queued, so one save
+    // carries every edit made while the one before it was in flight.
     const payload = pendingRef.current
     const unset = [...unsetRef.current]
     pendingRef.current = {}
@@ -138,9 +155,14 @@ export default function CharacterDetailView() {
         ...(unset.length ? { unset } : {}),
       })
       // The server is the authority on both coercion and computed values, so
-      // take its version of the data back rather than keeping the local guess.
+      // take its version of the data back rather than keeping the local guess -
+      // except for edits made since this save went out, which it has not seen
+      // yet and the next save will send.
+      const next: Values = { ...(updated.data || {}), ...pendingRef.current }
+      for (const name of unsetRef.current) delete next[name]
+      dataRef.current = next
       setCharacter(updated)
-      setData(updated.data || {})
+      setData(next)
       setSavedAt(Date.now())
       setError('')
     } catch (e) {
@@ -149,6 +171,8 @@ export default function CharacterDetailView() {
       setSaving(false)
     }
   }, [characterId])
+
+  const flush = useCallback(() => enqueue(save), [enqueue, save])
 
   const schedule = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current)
@@ -343,7 +367,7 @@ export default function CharacterDetailView() {
 
   const rename = async (name: string) => {
     try {
-      const updated = await charactersApi.update(characterId, { name })
+      const updated = await enqueue(() => charactersApi.update(characterId, { name }))
       setCharacter(updated)
     } catch (e) {
       setError((e as Error).message)
