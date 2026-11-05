@@ -119,6 +119,15 @@ COPY --from=backend-builder /install /usr/local
 # thumbnail" if it is ever absent, so this stays a single self-contained file.
 COPY --from=ffmpeg-builder /ffmpeg/ffmpeg /usr/local/bin/ffmpeg
 
+# tini runs as PID 1 and reaps orphaned processes, such as a tesseract left
+# behind when an OCR worker is killed. The entrypoint starts it once it has
+# switched users (see with_init in backend/container_entrypoint.py). Installed
+# here, ahead of the slim stage's dpkg --force-depends, which stops apt working.
+# Only the dynamic binary is kept; tini-static is a 650 KB copy of it.
+RUN apt-get update && apt-get install -y --no-install-recommends tini \
+    && rm -f /usr/bin/tini-static \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY backend/ ./backend/
 COPY alembic.ini ./alembic.ini
 # Read and parsed at runtime by /api/changelog for the About dialog.
@@ -176,7 +185,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
 # docs/performance.md#workers for when raising it is worth the memory.
 ENV WORKERS=1
 # Starts as root only long enough to hand /data to the unprivileged user, then
-# drops to it before exec'ing the command. See backend/container_entrypoint.py
+# drops to it before exec'ing the command under tini. See backend/container_entrypoint.py
 # and docs/docker-install.md#which-user-grimoire-runs-as. -I keeps backend/ off
 # sys.path, so nothing there can shadow a stdlib module.
 ENTRYPOINT ["python", "-I", "/app/backend/container_entrypoint.py"]

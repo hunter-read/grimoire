@@ -8,6 +8,9 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ## [Unreleased]
 
+### Fixed
+
+- Reading text from a scanned page that takes too long no longer leaves a `tesseract <defunct>` process behind on the server. The Docker image now starts Grimoire under `tini`, which cleans up after processes that are stopped partway
 ### Security
 
 - **Check your `SECRET_KEY` before upgrading.** Grimoire now refuses to start with `generate-with-openssl-rand-hex-32`, the example value in the README's compose file before 1.6.0. If your compose file still has it, replace it with the output of `openssl rand -hex 32`, or remove the line to have one generated. Changing the key signs everyone out and ends existing feed URLs, share links and guest codes
