@@ -208,6 +208,33 @@ def _system_root_for(db: Session, book_path: Path) -> Optional[Path]:
     return library_root().joinpath(*parts[:depth])
 
 
+def is_category_name(category: str) -> bool:
+    """Whether ``category`` can name a single folder inside a system folder.
+
+    A category becomes a folder name when a book is moved into it, so it may not
+    hold a path separator, ``..``, a NUL or a leading dot (hidden folders are
+    skipped by the scanner, so a book there would vanish from the library).
+    """
+    return bool(category) and not (
+        any(c in category for c in ("/", "\\", "\x00"))
+        or ".." in category
+        or category.startswith(".")
+    )
+
+
+def _within(root: Path, target: Path) -> bool:
+    """True when ``target`` is a folder strictly inside ``root`` once both are resolved.
+
+    The same comparison ``safe_join`` makes, so a symlinked category folder
+    can't lead a book out of its system either.
+    """
+    try:
+        resolved_root, resolved = root.resolve(), target.resolve()
+    except (OSError, RuntimeError):
+        return False
+    return resolved != resolved_root and resolved.is_relative_to(resolved_root)
+
+
 def category_folder_for(
     db: Session, book_path: Path, category: str, *, create: bool = True
 ) -> Optional[Path]:
@@ -221,6 +248,8 @@ def category_folder_for(
     Returns None when there is no system folder to hang a category off, or when
     the folder is absent and ``create`` is False.
     """
+    if not is_category_name(category):
+        return None
     root = _system_root_for(db, book_path)
     if root is None or not root.is_dir():
         return None
@@ -230,7 +259,7 @@ def category_folder_for(
             if not child.is_dir() or child.name.startswith("."):
                 continue
             if guess_category(f"{to_relative(child)}/x.pdf") == category:
-                return child
+                return child if _within(root, child) else None
     except OSError as e:
         logger.warning("Could not read %s while resolving a category folder: %s", root, e)
         return None
@@ -242,10 +271,12 @@ def category_folder_for(
     # is what the scanner would infer straight back to a custom category.
     name = CATEGORY_FOLDER_NAMES.get(category) or category.replace("-", " ").title()
     target = root / name
+    if target.parent != root:
+        return None
     try:
         target.mkdir(exist_ok=True)
     except OSError as e:
         logger.warning("Could not create category folder %s: %s", target, e)
         return None
-    return target
+    return target if _within(root, target) else None
 

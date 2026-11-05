@@ -69,6 +69,7 @@ from .placement import (  # noqa: F401
     _system_folder_name,
     _system_root_for,
     category_folder_for,
+    is_category_name,
     resolve_book_placement,
 )
 from .moves import (  # noqa: F401

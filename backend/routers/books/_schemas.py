@@ -5,6 +5,7 @@ from typing import Optional
 from pydantic import BaseModel, field_validator
 
 from ...services import tag_service
+from ...services.library_fs import is_category_name
 from ...services.books.access import ACCESS_INHERIT
 from .._bulk_schemas import bulk_update_model
 from .._codex_schemas import codex_id_validator
@@ -95,6 +96,17 @@ class BookUpdate(BaseModel):
                 seen.add(key)
                 out.append(s)
         return out
+
+    # Changing the category moves the file into a folder of that name under the
+    # book's system, so it has to be one folder name (see is_category_name).
+    @field_validator("category")
+    @classmethod
+    def check_category(cls, v):
+        if v is not None and v.strip() and not is_category_name(v):
+            raise ValueError(
+                "category can't contain /, \\ or .., or start with a dot"
+            )
+        return v
 
     @field_validator("month")
     @classmethod

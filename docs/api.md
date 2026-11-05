@@ -854,7 +854,9 @@ the next rescan reads, so recording a new category without moving the file would
 let the scan silently revert the edit. The book is moved into the sibling folder
 whose *inferred category* matches the new one - an existing `Rulebooks` shelf is
 reused rather than a second `Core` being created beside it - and the folder is
-created with its canonical name when nothing covers that category yet.
+created with its canonical name when nothing covers that category yet. Since the
+category becomes a folder name, it can't contain `/`, `\` or `..`, or start with a
+dot: `PATCH /api/books/:id` and `POST /api/books/bulk` return 422 for one that does.
 
 Best-effort by design, and **never an error**: on a read-only library the
 category is recorded and nothing moves, because the user asked to change a
