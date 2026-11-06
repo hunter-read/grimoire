@@ -6267,6 +6267,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/systems/{system_id}/factions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a wargame system's factions
+         * @description The armies the system's armory folders name (`Factions/Necrons/`, ...), parents before their sub-factions, with each one's book count. Empty for a role-playing system.
+         */
+        get: operations["list_system_factions_api_systems__system_id__factions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/systems/{system_id}/metadata-fetch": {
         parameters: {
             query?: never;
@@ -8209,11 +8229,21 @@ export interface components {
              * @default
              */
             effective_access_level?: string;
+            /**
+             * Factions
+             * @default []
+             */
+            factions?: components["schemas"]["BookFactionRef"][];
             /** File Size */
             file_size?: number | null;
             /** Filename */
             filename: string;
             game_system?: components["schemas"]["BookSystemRef"] | null;
+            /**
+             * Game Type
+             * @default ttrpg
+             */
+            game_type?: string;
             /** Genres */
             genres: string[];
             /**
@@ -8311,6 +8341,18 @@ export interface components {
             version: string;
             /** Year */
             year?: number | null;
+        };
+        /**
+         * BookFactionRef
+         * @description A wargame faction the book is filed under.
+         */
+        BookFactionRef: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Parent Id */
+            parent_id?: string | null;
         };
         /** BookFolderOut */
         BookFolderOut: {
@@ -8418,10 +8460,20 @@ export interface components {
             day?: number | null;
             /** Description */
             description?: string | null;
+            /**
+             * Factions
+             * @default []
+             */
+            factions?: components["schemas"]["FactionRef"][];
             /** File Size */
             file_size?: number | null;
             /** Filename */
             filename: string;
+            /**
+             * Game Type
+             * @default ttrpg
+             */
+            game_type?: string;
             /** Genres */
             genres: string[];
             /**
@@ -8498,6 +8550,11 @@ export interface components {
          * @description The book's game system, or null when it belongs to none.
          */
         BookSystemRef: {
+            /**
+             * Game Type
+             * @default ttrpg
+             */
+            game_type?: string;
             /** Id */
             id: string;
             /**
@@ -10660,6 +10717,34 @@ export interface components {
              * @default
              */
             url?: string;
+        };
+        /**
+         * FactionOut
+         * @description One faction of a system, from `GET /systems/{id}/factions`.
+         */
+        FactionOut: {
+            /** Book Count */
+            book_count: number;
+            /** Depth */
+            depth: number;
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Parent Id */
+            parent_id?: string | null;
+        };
+        /**
+         * FactionRef
+         * @description A wargame faction a book is filed under (the innermost one).
+         */
+        FactionRef: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Parent Id */
+            parent_id?: string | null;
         };
         /** FavoriteAudioItem */
         FavoriteAudioItem: {
@@ -14690,6 +14775,8 @@ export interface components {
             disable_folder_category_inference?: boolean | null;
             /** Guest Access Enabled */
             guest_access_enabled?: boolean | null;
+            /** Hide Armory */
+            hide_armory?: boolean | null;
             /** Hide Audio */
             hide_audio?: boolean | null;
             /** Hide Campaigns */
@@ -14816,6 +14903,11 @@ export interface components {
             guest_access_enabled: boolean;
             /** Guest Access Env Locked */
             guest_access_env_locked: boolean;
+            /**
+             * Hide Armory
+             * @default false
+             */
+            hide_armory?: boolean;
             /** Hide Audio */
             hide_audio: boolean;
             /** Hide Campaigns */
@@ -15323,6 +15415,11 @@ export interface components {
          * @description Library counts for the dashboard and external integrations.
          */
         StatsResponse: {
+            /**
+             * Armory Books
+             * @default 0
+             */
+            armory_books?: number;
             /** Audio */
             audio: number;
             /** Books */
@@ -15432,6 +15529,11 @@ export interface components {
             dice_materials: string[];
             /** Edition */
             edition: string;
+            /**
+             * Game Type
+             * @default ttrpg
+             */
+            game_type?: string;
             /** Genre */
             genre?: string | null;
             /** Genres */
@@ -15476,6 +15578,14 @@ export interface components {
             urls: components["schemas"]["LinkRef"][];
             /** Year */
             year?: number | null;
+        };
+        /**
+         * SystemFactionsResponse
+         * @description A system's factions, parents before children, siblings by name.
+         */
+        SystemFactionsResponse: {
+            /** Factions */
+            factions: components["schemas"]["FactionOut"][];
         };
         /** SystemFamiliesResponse */
         SystemFamiliesResponse: {
@@ -15524,6 +15634,11 @@ export interface components {
             dice_materials: string[];
             /** Edition */
             edition: string;
+            /**
+             * Game Type
+             * @default ttrpg
+             */
+            game_type?: string;
             /** Genre */
             genre?: string | null;
             /** Genres */
@@ -16140,6 +16255,11 @@ export interface components {
             campaign_uploads_disabled: boolean;
             /** Guest Access Enabled */
             guest_access_enabled: boolean;
+            /**
+             * Hide Armory
+             * @default false
+             */
+            hide_armory?: boolean;
             /** Hide Audio */
             hide_audio: boolean;
             /** Hide Campaigns */
@@ -31126,6 +31246,8 @@ export interface operations {
                 explicit?: boolean | null;
                 parent_id?: string | null;
                 include_children?: boolean;
+                /** @description Only role-playing systems (`ttrpg`, the library's books/) or only wargames (`wargame`, the armory). Both when omitted. */
+                game_type?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -31723,6 +31845,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SystemCoverResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_system_factions_api_systems__system_id__factions_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                system_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemFactionsResponse"];
                 };
             };
             /** @description Validation Error */

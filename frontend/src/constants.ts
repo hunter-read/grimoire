@@ -8,6 +8,13 @@ import {
   LuWrench,
   LuPackage,
   LuNewspaper,
+  LuShield,
+  LuTriangleAlert,
+  LuTarget,
+  LuFlag,
+  LuTable,
+  LuPaintbrush,
+  LuFeather,
 } from 'react-icons/lu'
 import type { IconType } from 'react-icons'
 
@@ -30,6 +37,31 @@ export const CATEGORY_ORDER = [
   'homebrew',
 ]
 
+/**
+ * The categories a wargame book (one in the armory) is filed under, in shelf
+ * order. A separate vocabulary from the role-playing one: "campaign" is a
+ * campaign book here, where a role-playing folder of that name holds
+ * adventures (WARGAME_CATEGORY_MAP in backend/indexer/constants.py).
+ */
+export const WARGAME_CATEGORY_ORDER = [
+  'core',
+  'army-book',
+  'starter-set',
+  'supplement',
+  'errata',
+  'mission-pack',
+  'campaign',
+  'unit-reference',
+  'magazine',
+  'painting-guide',
+  'lore',
+]
+
+/** The category order for a book or system of this game type. */
+export function categoryOrderFor(gameType?: string | null): string[] {
+  return gameType === 'wargame' ? WARGAME_CATEGORY_ORDER : CATEGORY_ORDER
+}
+
 export const CATEGORY_LABELS: Record<string, string> = {
   core: 'Core Rulebooks',
   'starter-set': 'Starter Set',
@@ -40,6 +72,14 @@ export const CATEGORY_LABELS: Record<string, string> = {
   handout: 'Handouts & Reference',
   magazine: 'Magazines & Zines',
   homebrew: 'Homebrew',
+  // Wargames (the armory)
+  'army-book': 'Army Books',
+  errata: 'Rules Updates & Errata',
+  'mission-pack': 'Mission Packs',
+  campaign: 'Campaign Books',
+  'unit-reference': 'Unit References',
+  'painting-guide': 'Painting & Hobby',
+  lore: 'Lore & Fiction',
 }
 
 export const CATEGORY_ICONS: Record<string, IconType> = {
@@ -52,6 +92,13 @@ export const CATEGORY_ICONS: Record<string, IconType> = {
   handout: LuFileText,
   magazine: LuNewspaper,
   homebrew: LuWrench,
+  'army-book': LuShield,
+  errata: LuTriangleAlert,
+  'mission-pack': LuTarget,
+  campaign: LuFlag,
+  'unit-reference': LuTable,
+  'painting-guide': LuPaintbrush,
+  lore: LuFeather,
 }
 
 // MIME types for archive files that are shown alongside books but have no

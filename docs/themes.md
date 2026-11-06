@@ -45,15 +45,19 @@ interface itself, which no change of colour can provide.
 
 ### App modes
 
-Grimoire has a second axis alongside light/dark: the **app mode**, which is the
-side of the product you are working in. **Grimoire** is the TTRPG library;
-**Codex** is a wargaming skin, built as a palette and waiting on the toggle that
-will surface it.
+Grimoire ships two built-in palettes. **Grimoire**, the default, sets warm gold
+on brown; **Codex** sets crimson on cool gunmetal, from the Codex logo, and suits
+a library that leans to wargames. Pick either under **Settings → Preferences →
+Theme**, like an installed theme - nothing switches to Codex on its own.
+Both clear 4.5:1 for every text and accent pairing, in light and dark, and
+Codex keeps danger and warning off crimson (on vermilion and amber) so a
+destructive button never looks like the primary one.
 
-Each app mode remembers its own colour mode and theme, so switching between them
-restores the colours you picked there rather than carrying one across. **Codex**
-is a built-in theme, so it can be selected from the theme list without being
-installed.
+Under the hood each built-in palette is an **app mode**, a second axis
+alongside light/dark stamped on `<html data-app-mode>`. Highlights that tint
+the accent (selected rows, tag chips, focus rings, search hits, role badges)
+mix from the active theme's accent, so they follow Codex and installed themes
+alike.
 
 A theme may declare the app mode it was designed for. That is a preference the
 picker sorts by, not a restriction - the same theme can be used in either, which

@@ -145,6 +145,27 @@ describe('Sidebar navigation visibility', () => {
     expect(screen.queryByText('Campaigns')).toBeNull()
   })
 
+  it('lists the Armory between Library and Maps once it holds a book', () => {
+    renderSidebar({ stats: { ...baseStats, armory_books: 4 } })
+    const links = screen.getAllByRole('link').map((l) => l.getAttribute('href'))
+    expect(links.indexOf('/armory')).toBe(links.indexOf('/library') + 1)
+    expect(links.indexOf('/maps')).toBe(links.indexOf('/armory') + 1)
+  })
+
+  it('leaves an empty Armory to admins, and a hidden one to no one', () => {
+    const { unmount } = renderSidebar({ stats: { ...baseStats, armory_books: 0 } })
+    expect(screen.queryByRole('link', { name: 'Armory' })).toBeNull()
+    unmount()
+    const admin = renderSidebar({ user: { ...baseUser, role: 'admin' } })
+    expect(screen.getByRole('link', { name: 'Armory' })).toHaveAttribute('href', '/armory')
+    admin.unmount()
+    renderSidebar({
+      user: { ...baseUser, role: 'admin' },
+      uiSettings: { hide_armory: true },
+    })
+    expect(screen.queryByRole('link', { name: 'Armory' })).toBeNull()
+  })
+
   it('hides maps link when hide_maps is true', () => {
     renderSidebar({ uiSettings: { hide_maps: true } })
     expect(screen.queryByText('Maps')).toBeNull()

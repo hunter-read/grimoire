@@ -8,6 +8,7 @@
   },
   "nav": {
     "library": "Bibliotek",
+    "armory": "Rustkammare",
     "maps": "Kartor",
     "tokens": "Tokens",
     "search": "Sök",
@@ -168,6 +169,15 @@
     "groupContainers": "Gruppera samlingar",
     "searchPlaceholder": "Hitta ett system…"
   },
+  "armory": {
+    "title": "Din rustkammare",
+    "subtitle_one": "{{count}} krigsspel i din rustkammare",
+    "subtitle_other": "{{count}} krigsspel i din rustkammare",
+    "subtitleFiltered_one": "Visar {{count}} av {{total}} krigsspel i din rustkammare",
+    "subtitleFiltered_other": "Visar {{count}} av {{total}} krigsspel i din rustkammare",
+    "searchPlaceholder": "Hitta ett krigsspel…",
+    "emptyHint": "Krigsspelsböcker ligger i mappen armory/ i ditt bibliotek, en mapp per spel: armory/<Spel>/Core/, med varje armé i armory/<Spel>/Factions/<Fraktion>/."
+  },
   "systemContainer": {
     "badge": "Systemsamling",
     "familyBadge": "Systemfamilj",
@@ -182,6 +192,7 @@
   },
   "systemDetail": {
     "backToLibrary": "Tillbaka till biblioteket",
+    "backToArmory": "Tillbaka till rustkammaren",
     "publishedBy": "Utgiven av",
     "characterBuilder": "Rollpersonsbyggare",
     "searchWithin": "Sök i {{name}}…",
@@ -1488,6 +1499,7 @@
     "sidebarVisibility": {
       "title": "Sidofältets synlighet",
       "description": "Dölj kategori från sidofältet och mobilnavigeringen för alla användare.",
+      "hideArmory": "Dölj rustkammare",
       "hideMaps": "Dölj kartor",
       "hideTokens": "Dölj tokens",
       "hideCampaigns": "Dölj kampanjer",
@@ -2699,7 +2711,14 @@
     "map": "Kartor",
     "handout": "Utdelningsmaterial & referens",
     "magazine": "Tidskrifter & fanzines",
-    "homebrew": "Egentillverkat"
+    "homebrew": "Egentillverkat",
+    "army-book": "Arméböcker",
+    "errata": "Regeluppdateringar och errata",
+    "mission-pack": "Uppdragspaket",
+    "campaign": "Kampanjböcker",
+    "unit-reference": "Enhetsreferenser",
+    "painting-guide": "Målning och hobby",
+    "lore": "Bakgrund och skönlitteratur"
   },
   "wiki": {
     "newPage": "Ny sida",
@@ -3471,6 +3490,7 @@
   },
   "bookDetails": {
     "category": "Kategori",
+    "factions": "Fraktioner",
     "authors": "Författare",
     "artists": "Konstnärer",
     "publisher": "Förlag",

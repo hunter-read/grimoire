@@ -17,6 +17,8 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Pin the folders and systems you keep going back to: they sit in a strip at the top of the page and follow your account
 - The address bar now keeps the open folder, sort, search and filters, so a filtered view can be bookmarked, shared, or gone back to
 - Press `/` on a browse page to jump to its search box. The library has a search box of its own above the grid
+- The Armory, for wargames. Put wargame books in an `armory/` folder beside `books/` (`armoury/` works too) and they get a shelf of their own under Library in the sidebar. The folders read the way wargamers file things: armies in `Factions/<Faction>/` with sub-factions inside, and categories of their own - army books, rules updates and errata, mission packs, campaign books, unit references, painting guides. A book's factions show in its details. A wargame and a role-playing game of the same name (BattleTech) are kept apart. See the library structure guide
+- Codex, a crimson-on-gunmetal theme, joins Grimoire's own in the theme list. Highlights that were always gold now follow whichever theme is picked
 
 ### Changed
 

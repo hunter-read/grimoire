@@ -8,6 +8,7 @@
   },
   "nav": {
     "library": "Biblioteca",
+    "armory": "Arsenal",
     "maps": "Mapas",
     "tokens": "Tokens",
     "search": "Buscar",
@@ -168,6 +169,15 @@
     "groupContainers": "Agrupar coleções",
     "searchPlaceholder": "Encontrar um sistema…"
   },
+  "armory": {
+    "title": "Seu arsenal",
+    "subtitle_one": "{{count}} wargame no seu arsenal",
+    "subtitle_other": "{{count}} wargames no seu arsenal",
+    "subtitleFiltered_one": "Exibindo {{count}} de {{total}} wargames no seu arsenal",
+    "subtitleFiltered_other": "Exibindo {{count}} de {{total}} wargames no seu arsenal",
+    "searchPlaceholder": "Encontrar um wargame…",
+    "emptyHint": "Os livros de wargames ficam na pasta armory/ da sua biblioteca, uma pasta por jogo: armory/<Jogo>/Core/, com cada exército em armory/<Jogo>/Factions/<Facção>/."
+  },
   "systemContainer": {
     "badge": "Coleção de sistemas",
     "familyBadge": "Família de sistemas",
@@ -182,6 +192,7 @@
   },
   "systemDetail": {
     "backToLibrary": "Voltar à biblioteca",
+    "backToArmory": "Voltar ao arsenal",
     "publishedBy": "Publicado por",
     "characterBuilder": "Criador de personagens",
     "searchWithin": "Buscar em {{name}}…",
@@ -1488,6 +1499,7 @@
     "sidebarVisibility": {
       "title": "Visibilidade da barra lateral",
       "description": "Ocultar seções da barra lateral e da navegação móvel para todos os usuários.",
+      "hideArmory": "Ocultar arsenal",
       "hideMaps": "Ocultar mapas",
       "hideTokens": "Ocultar tokens",
       "hideCampaigns": "Ocultar campanhas",
@@ -2699,7 +2711,14 @@
     "map": "Mapas",
     "handout": "Folhetos e referência",
     "magazine": "Revistas e fanzines",
-    "homebrew": "Homebrew"
+    "homebrew": "Homebrew",
+    "army-book": "Livros de exército",
+    "errata": "Atualizações de regras e erratas",
+    "mission-pack": "Pacotes de missões",
+    "campaign": "Livros de campanha",
+    "unit-reference": "Referências de unidades",
+    "painting-guide": "Pintura e hobby",
+    "lore": "Ambientação e ficção"
   },
   "wiki": {
     "newPage": "Nova página",
@@ -3471,6 +3490,7 @@
   },
   "bookDetails": {
     "category": "Categoria",
+    "factions": "Facções",
     "authors": "Autores",
     "artists": "Artistas",
     "publisher": "Editora",

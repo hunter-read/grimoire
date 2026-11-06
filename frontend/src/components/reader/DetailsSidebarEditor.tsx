@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { LuDownload } from 'react-icons/lu'
 import api from '../../api'
 import type { Schema } from '../../api'
-import { CATEGORY_ORDER, categoryLabel, slugify } from '../../constants'
+import { categoryLabel, categoryOrderFor, slugify } from '../../constants'
 import CategoryPicker from '../metadata/CategoryPicker'
 import GenrePicker from '../metadata/GenrePicker'
 import LinkListEditor from '../metadata/LinkListEditor'
@@ -101,9 +101,10 @@ export default function DetailsSidebarEditor({
     onApplied?.(fields)
   }
 
-  const categoryOptions = [...new Set([...CATEGORY_ORDER, form.category].filter(Boolean))].map(
-    (slug) => ({ value: slug, label: categoryLabel(slug) })
-  )
+  // A wargame book is offered the wargame vocabulary (army books, errata, ...).
+  const categoryOptions = [
+    ...new Set([...categoryOrderFor(book.game_type), form.category].filter(Boolean)),
+  ].map((slug) => ({ value: slug, label: categoryLabel(slug) }))
 
   const fieldLabel: CSSProperties = {
     fontSize: 12,

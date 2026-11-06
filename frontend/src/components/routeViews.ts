@@ -32,6 +32,7 @@ export const CharacterDetailView = lazyWithPreload(() => import('../views/Charac
 // The view each sidebar destination opens, keyed by its first path segment.
 const LANDING_VIEWS: Record<string, { preload: () => Promise<unknown> }> = {
   library: LibraryView,
+  armory: LibraryView,
   maps: MapsView,
   tokens: TokensView,
   audio: AudioView,

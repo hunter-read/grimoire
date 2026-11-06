@@ -61,7 +61,7 @@ export default function TextOverlay({
         const isBookmark =
           bookmarkTerms.length > 0 && bookmarkTerms.some((t) => wl.includes(t.toLowerCase()))
         const bg = isSearch
-          ? 'rgba(201,168,76,0.4)'
+          ? 'color-mix(in srgb, var(--gold) 40%, transparent)'
           : isBookmark
             ? 'rgba(76,168,154,0.4)'
             : undefined

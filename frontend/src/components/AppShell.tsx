@@ -59,6 +59,7 @@ export default function AppShell() {
   // the API-key-gated /stats so it isn't exposed to external integrations.
   const [about, setAbout] = useState<Schema<'AboutResponse'> | null>(null)
   const [uiSettings, setUiSettings] = useState<Partial<Schema<'UISettingsResponse'>>>({
+    hide_armory: false,
     hide_maps: false,
     hide_tokens: false,
     hide_audio: false,
@@ -230,8 +231,11 @@ export default function AppShell() {
               ) : (
                 <Routes>
                   <Route path="/" element={<Navigate to="/library" replace />} />
-                  <Route path="/library" element={<LibraryView />} />
+                  <Route path="/library" element={<LibraryView gameType="ttrpg" />} />
                   <Route path="/library/system/:systemId" element={<SystemDetailView />} />
+                  {/* The Armory: the same views over the wargame books in armory/. */}
+                  <Route path="/armory" element={<LibraryView key="armory" gameType="wargame" />} />
+                  <Route path="/armory/system/:systemId" element={<SystemDetailView />} />
                   <Route path="/library/book/:bookId" element={<BookReader />} />
                   <Route path="/maps" element={<MapsView />} />
                   <Route path="/maps/:mapId" element={<MapDetailView />} />
@@ -303,7 +307,9 @@ export default function AppShell() {
           </ErrorBoundary>
         </main>
 
-        {isMobile && <MobileSidebar user={user} onLogout={logout} uiSettings={uiSettings} />}
+        {isMobile && (
+          <MobileSidebar user={user} onLogout={logout} uiSettings={uiSettings} stats={stats} />
+        )}
 
         <GlobalAudioPlayer isMobile={isMobile} sidebarWidth={sidebarCollapsed ? 64 : 220} />
 

@@ -79,6 +79,8 @@ class StatsResponse(BaseModel):
 
     game_systems: int
     books: int
+    # Wargame books (the armory/ folder); counted in ``books`` too.
+    armory_books: int = 0
     maps: int
     tokens: int
     audio: int

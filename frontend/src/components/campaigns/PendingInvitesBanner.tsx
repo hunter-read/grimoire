@@ -70,7 +70,7 @@ export default function PendingInvitesBanner() {
         background: 'var(--invite-bg)',
         borderBottom: '1px solid var(--gold-dim)',
         borderLeft: '4px solid var(--invite-border)',
-        boxShadow: 'inset 0 0 24px rgba(201, 168, 76, 0.08)',
+        boxShadow: 'inset 0 0 24px color-mix(in srgb, var(--gold) 8%, transparent)',
       }}
     >
       <LuMailOpen size={18} color="var(--gold-bright)" style={{ flexShrink: 0 }} />

@@ -8,6 +8,7 @@
   },
   "nav": {
     "library": "Bibliotheek",
+    "armory": "Wapenkamer",
     "maps": "Kaarten",
     "tokens": "Tokens",
     "search": "Zoeken",
@@ -168,6 +169,15 @@
     "groupContainers": "Collecties groeperen",
     "searchPlaceholder": "Zoek een systeem…"
   },
+  "armory": {
+    "title": "Je wapenkamer",
+    "subtitle_one": "{{count}} wargame in je wapenkamer",
+    "subtitle_other": "{{count}} wargames in je wapenkamer",
+    "subtitleFiltered_one": "{{count}} van {{total}} wargames in je wapenkamer worden getoond",
+    "subtitleFiltered_other": "{{count}} van {{total}} wargames in je wapenkamer worden getoond",
+    "searchPlaceholder": "Zoek een wargame…",
+    "emptyHint": "Wargameboeken staan in de map armory/ van je bibliotheek, één map per spel: armory/<Spel>/Core/, met elk leger in armory/<Spel>/Factions/<Factie>/."
+  },
   "systemContainer": {
     "badge": "Systeemcollectie",
     "familyBadge": "Systeemfamilie",
@@ -182,6 +192,7 @@
   },
   "systemDetail": {
     "backToLibrary": "Terug naar bibliotheek",
+    "backToArmory": "Terug naar wapenkamer",
     "publishedBy": "Uitgegeven door",
     "characterBuilder": "Personagebouwer",
     "searchWithin": "Zoeken in {{name}}…",
@@ -1488,6 +1499,7 @@
     "sidebarVisibility": {
       "title": "Zichtbaarheid van zijbalk",
       "description": "Verberg secties van de zijbalk en de mobiele navigatie voor alle gebruikers.",
+      "hideArmory": "Wapenkamer verbergen",
       "hideMaps": "Kaarten verbergen",
       "hideTokens": "Tokens verbergen",
       "hideCampaigns": "Campagnes verbergen",
@@ -2699,7 +2711,14 @@
     "map": "Kaarten",
     "handout": "Hand-outs en naslag",
     "magazine": "Tijdschriften & zines",
-    "homebrew": "Homebrew"
+    "homebrew": "Homebrew",
+    "army-book": "Legerboeken",
+    "errata": "Regelupdates en errata",
+    "mission-pack": "Missiepakketten",
+    "campaign": "Campagneboeken",
+    "unit-reference": "Eenheidsoverzichten",
+    "painting-guide": "Schilderen en hobby",
+    "lore": "Achtergrond en fictie"
   },
   "wiki": {
     "newPage": "Nieuwe pagina",
@@ -3471,6 +3490,7 @@
   },
   "bookDetails": {
     "category": "Categorie",
+    "factions": "Facties",
     "authors": "Auteurs",
     "artists": "Artiesten",
     "publisher": "Uitgever",

@@ -61,6 +61,7 @@ import { systemDisplayName } from '../utils/systemDisplayName'
 import { parentSystemLabel } from '../utils/parentSystemLabel'
 import useTagLabels, { titleCaseTag } from '../hooks/useTagLabels'
 import { RECENTLY_ADDED_DAYS } from '../utils/recentlyAdded'
+import { libraryBase } from '../utils/armory'
 
 type System = Schema<'SystemDetail'>
 type Book = Schema<'BookOut'>
@@ -283,7 +284,7 @@ export default function SystemDetailView() {
   // Container names may be raw folder slugs, hence the prettified label.
   const backTarget = system.parent_id
     ? {
-        to: `/library/system/${system.parent_id}`,
+        to: `${libraryBase(system.game_type)}/system/${system.parent_id}`,
         label: t('systemDetail.backTo', {
           name: systemDisplayName({
             name: system.parent_name || '',
@@ -291,7 +292,9 @@ export default function SystemDetailView() {
           }),
         }),
       }
-    : { to: '/library', label: t('systemDetail.backToLibrary') }
+    : system.game_type === 'wargame'
+      ? { to: '/armory', label: t('systemDetail.backToArmory') }
+      : { to: '/library', label: t('systemDetail.backToLibrary') }
 
   // Container folders hold systems, not categories (issues #261, #262), so they
   // render their children as a system grid instead of a book list. A container

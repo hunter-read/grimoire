@@ -115,3 +115,12 @@ def test_faction_helpers_handle_empty_input():
         assert system_factions(db, "no-such-system") == []
     finally:
         db.close()
+
+
+def test_stats_count_the_armory(client, admin_headers):
+    before = client.get("/api/stats", headers=admin_headers).json()
+    system = make_game_system(game_type="wargame")
+    make_book(system.id, game_type="wargame")
+    after = client.get("/api/stats", headers=admin_headers).json()
+    assert after["armory_books"] == before["armory_books"] + 1
+    assert after["books"] == before["books"] + 1

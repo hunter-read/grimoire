@@ -13,6 +13,7 @@ This page is the full reference. For the shape at a glance, see the
 - [Books - one folder per game system](#books---one-folder-per-game-system)
 - [Book formats](#book-formats) and [archive files](#archive-files)
 - [Special collections](#special-collections-system-agnostic--one-page) and [system containers](#system-containers-parent-systems--sub-libraries)
+- [The armory - wargame books](#the-armory---wargame-books), with [factions](#factions)
 - [Book metadata from OPF files](#book-metadata-from-opf-files)
 - [Maps](#maps---organize-by-creator-or-collection), [tokens](#tokens---organize-by-type), [audio](#audio---organize-by-category-or-creator), [3D models](#3d-models---organize-by-creature-set-or-creator)
 - [Tagging with tags.json](#tagging-with-tagsjson)
@@ -301,6 +302,98 @@ books/
 
 The prefix stacks with `(nsfw)`, so `!!Forbidden Lore (NSFW)` becomes the
 explicit system "Forbidden Lore".
+
+## The armory - wargame books
+
+Wargame books - rulebooks, codexes and battletomes, mission packs, technical readouts - go
+in an `armory/` folder beside `books/` (`armoury/` works too). It is laid out the same way:
+each top-level folder is a game, and editions can sit inside it as a
+[system container](#system-containers-parent-systems--sub-libraries). The armory shows in
+the sidebar as **Armory**, between Library and Maps, once it holds a book (admins see it
+from the start, so there is somewhere to begin); an admin can hide it in
+**Settings → Application → Sidebar visibility**.
+
+```
+library/
+├── books/                         ← role-playing games
+└── armory/                        ← wargames
+    └── Warhammer 40,000/
+        ├── .parent-system-container
+        └── 10th Edition/
+            ├── Core/
+            │   └── Core Rules.pdf
+            ├── Rules Updates/
+            │   └── Balance Dataslate.pdf
+            ├── Missions/
+            │   └── Pariah Nexus.pdf
+            └── Factions/
+                ├── Necrons/
+                │   ├── Codex - Necrons.pdf
+                │   └── Rules Updates/
+                │       └── Necrons FAQ.pdf
+                └── Space Marines/
+                    ├── Codex - Space Marines.pdf
+                    └── Blood Angels/
+                        └── Codex Supplement - Blood Angels.pdf
+```
+
+A game in the armory is a separate system from a role-playing game of the same name, so
+BattleTech the RPG (in `books/`) and BattleTech the wargame (in `armory/`) each get their
+own shelf.
+
+Wargame folders are read with their own category words. They differ from the
+role-playing ones above: here a `Campaigns` folder holds campaign books, not adventures.
+
+| Category | Recognized folder (or file) names |
+|---|---|
+| Core Rulebooks | `core`, `rulebook`, `rules`, `total warfare`, `basic` |
+| Army Books | `codex`, `battletome`, `army book`, `armies`, `army`, `liber`, `field manual`, `index`, `factions` |
+| Starter Set | `starter set`, `starter`, `box set`, `boxed set`, `combat patrol`, `spearhead` |
+| Supplements | `supplement`, `expansion`, `imperial armour`, `operations`, `sourcebook` |
+| Rules Updates & Errata | `errata`, `faq`, `dataslate`, `balance`, `rules update`, `rules commentary`, `designer commentary`, `points`, `munitorum`, `battle profile` |
+| Mission Packs | `mission`, `missions`, `chapter approved`, `tournament`, `general's handbook`, `matched play` |
+| Campaign Books | `campaign`, `crusade`, `path to glory`, `narrative`, `turning point`, `historical` |
+| Unit References | `technical readout`, `tro`, `record sheet`, `datacard`, `datasheet`, `unit card`, `unit reference` |
+| Painting & Hobby | `painting`, `paint`, `hobby`, `eavy metal`, `terrain building` |
+| Lore & Fiction | `lore`, `novel`, `fiction`, `black library`, `art book` |
+| Magazines & Zines | `magazine`, `white dwarf`, `shrapnel`, `zine`, `periodical` |
+
+Matching works as for role-playing books - case-insensitive, any word of the name, the
+first category in the table order above that matches wins after the more specific ones
+(errata and missions are checked before army books, so `Necrons FAQ` is errata). A
+folder named for no category is a [faction](#factions). A book whose folders leave the
+category open takes it from its filename: `Codex Supplement - Blood Angels.pdf` is a
+supplement and `Necron Painting Guide.pdf` a painting guide, even inside `Factions/`. A
+book in a faction folder that its name says nothing about is an army book; one loose in
+the game's folder is core.
+
+### Factions
+
+The armies a wargame is played with are read from the folders. Inside a game (or an
+edition), any folder that is not a category word is a **faction**, and folders inside a
+faction are its sub-factions: `Factions/Space Marines/Blood Angels/` files a book under
+Blood Angels, inside Space Marines. Under an army-book folder (`Factions/`, `Codexes/`,
+`Battletomes/`) the folders below are factions too, so both of these work:
+
+```
+armory/Warhammer 40,000/10th Edition/Factions/Necrons/Codex.pdf   ← the documented layout
+armory/Warhammer 40,000/10th Edition/Necrons/Codex.pdf            ← armies straight in the game
+```
+
+Once a folder has filed a book under some other category, the folders below it are
+ordinary subfolders: `Campaigns/Pariah Nexus/` is a campaign, not an army.
+
+Some names read the wrong way - `Imperial Armour` would be taken for a supplement folder,
+and an army named `Armies of Order` for an army-book folder. Put an empty marker file in
+the folder to settle it:
+
+- `.faction` - this folder is a faction, whatever its name says
+- `.category` - this folder is a category (an unrecognized name becomes its own category,
+  as in `books/`)
+
+A book's factions show in the reader's details panel, and the shelf groups each faction's
+books under its folder. Factions are listed per system at
+[`GET /api/systems/{id}/factions`](api.md#game-systems).
 
 ## Book metadata from OPF files
 

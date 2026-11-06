@@ -5,6 +5,7 @@ import SettingsLoadError from './SettingsLoadError'
 import { useInstantSettings } from './useInstantSettings'
 
 const ITEMS = [
+  { key: 'hide_armory', labelKey: 'appSettings.sidebarVisibility.hideArmory' },
   { key: 'hide_maps', labelKey: 'appSettings.sidebarVisibility.hideMaps' },
   { key: 'hide_tokens', labelKey: 'appSettings.sidebarVisibility.hideTokens' },
   { key: 'hide_audio', labelKey: 'appSettings.sidebarVisibility.hideAudio' },

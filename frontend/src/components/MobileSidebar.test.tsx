@@ -12,6 +12,22 @@ const renderBar = (props = {}) =>
   )
 
 describe('MobileSidebar', () => {
+  it('lists the Armory first in the drawer once it holds a book', async () => {
+    renderBar({ user: { role: 'player' }, stats: { armory_books: 2 } })
+    await userEvent.click(screen.getByRole('button', { name: /more/i }))
+    expect(screen.getByRole('link', { name: 'Armory' })).toHaveAttribute('href', '/armory')
+  })
+
+  it('leaves an empty Armory out for a player, and a hidden one for everyone', async () => {
+    const { unmount } = renderBar({ user: { role: 'player' }, stats: { armory_books: 0 } })
+    await userEvent.click(screen.getByRole('button', { name: /more/i }))
+    expect(screen.queryByText('Armory')).not.toBeInTheDocument()
+    unmount()
+    renderBar({ uiSettings: { hide_armory: true } })
+    await userEvent.click(screen.getByRole('button', { name: /more/i }))
+    expect(screen.queryByText('Armory')).not.toBeInTheDocument()
+  })
+
   it('is a named navigation landmark', () => {
     renderBar()
     expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeInTheDocument()

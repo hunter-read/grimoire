@@ -14,6 +14,7 @@ from backend.models.base import Base
 from backend.models.db import (
     _alembic_config,
     _mis_stamped_columns,
+    _warn_foreign_key_violations,
     init_db,
     _normalize_tags_in_db,
 )
@@ -1835,6 +1836,26 @@ class TestArmoryGameTypes:
         init_db(path)
         assert _stamped_revision(path) == _alembic_head(path)
         assert ("game_type", "slug") in self._uniques(path)
+
+    def test_rows_left_dangling_are_logged_not_deleted(self, caplog):
+        path = _fresh_db()
+        engine = create_engine(f"sqlite:///{path}")
+        try:
+            with engine.connect() as conn:
+                # Keys are off on this plain engine, as they are while migrating.
+                conn.execute(
+                    text(
+                        "INSERT INTO books (id, game_system_id, title, filename, filepath, "
+                        "relative_path) VALUES ('b9', 'gone', 'T', 't.pdf', '/l/t9.pdf', 't.pdf')"
+                    )
+                )
+                conn.commit()
+                with caplog.at_level("WARNING", logger="grimoire"):
+                    _warn_foreign_key_violations(conn)
+                assert conn.execute(text("SELECT COUNT(*) FROM books")).scalar() == 1
+        finally:
+            engine.dispose()
+        assert "reference missing parents after migrating (books)" in caplog.text
 
 
 class TestMigrationLock:

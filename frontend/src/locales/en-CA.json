@@ -8,6 +8,7 @@
   },
   "nav": {
     "library": "Library",
+    "armory": "Armoury",
     "maps": "Maps",
     "tokens": "Tokens",
     "search": "Search",
@@ -168,6 +169,15 @@
     "groupContainers": "Group collections",
     "searchPlaceholder": "Find a system…"
   },
+  "armory": {
+    "title": "Your Armoury",
+    "subtitle_one": "{{count}} wargame in your armoury",
+    "subtitle_other": "{{count}} wargames in your armoury",
+    "subtitleFiltered_one": "Displaying {{count}} of {{total}} wargames in your armoury",
+    "subtitleFiltered_other": "Displaying {{count}} of {{total}} wargames in your armoury",
+    "searchPlaceholder": "Find a wargame…",
+    "emptyHint": "Wargame books live in the armory/ (or armoury/) folder of your library, one folder per game: armory/<Game>/Core/, with each army in armory/<Game>/Factions/<Faction>/."
+  },
   "systemContainer": {
     "badge": "System Collection",
     "familyBadge": "System Family",
@@ -182,6 +192,7 @@
   },
   "systemDetail": {
     "backToLibrary": "Back to Library",
+    "backToArmory": "Back to Armoury",
     "publishedBy": "Published by",
     "characterBuilder": "Character Builder",
     "searchWithin": "Search within {{name}}…",
@@ -1488,6 +1499,7 @@
     "sidebarVisibility": {
       "title": "Sidebar Visibility",
       "description": "Hide sections from the sidebar and mobile navigation for all users.",
+      "hideArmory": "Hide Armoury",
       "hideMaps": "Hide Maps",
       "hideTokens": "Hide Tokens",
       "hideCampaigns": "Hide Campaigns",
@@ -2699,7 +2711,14 @@
     "map": "Maps",
     "handout": "Handouts & Reference",
     "magazine": "Magazines & Zines",
-    "homebrew": "Homebrew"
+    "homebrew": "Homebrew",
+    "army-book": "Army Books",
+    "errata": "Rules Updates & Errata",
+    "mission-pack": "Mission Packs",
+    "campaign": "Campaign Books",
+    "unit-reference": "Unit References",
+    "painting-guide": "Painting & Hobby",
+    "lore": "Lore & Fiction"
   },
   "wiki": {
     "newPage": "New Page",
@@ -3471,6 +3490,7 @@
   },
   "bookDetails": {
     "category": "Category",
+    "factions": "Factions",
     "authors": "Authors",
     "artists": "Artists",
     "publisher": "Publisher",

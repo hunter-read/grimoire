@@ -128,7 +128,7 @@ export const resRow = (checked: boolean): CSSProperties => ({
   fontSize: 13,
   cursor: 'pointer',
   color: checked ? 'var(--text)' : 'var(--text-dim)',
-  background: checked ? 'rgba(201,168,76,0.08)' : 'transparent',
+  background: checked ? 'color-mix(in srgb, var(--gold) 8%, transparent)' : 'transparent',
 })
 export const typeTab = (active: boolean): CSSProperties => ({
   flex: 1,
@@ -137,6 +137,6 @@ export const typeTab = (active: boolean): CSSProperties => ({
   borderRadius: 6,
   cursor: 'pointer',
   border: active ? '1px solid var(--gold-dim)' : '1px solid var(--border)',
-  background: active ? 'rgba(201,168,76,0.15)' : 'var(--bg-deep)',
+  background: active ? 'color-mix(in srgb, var(--gold) 15%, transparent)' : 'var(--bg-deep)',
   color: active ? 'var(--gold)' : 'var(--text-dim)',
 })

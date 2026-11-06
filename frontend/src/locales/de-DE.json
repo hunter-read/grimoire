@@ -8,6 +8,7 @@
   },
   "nav": {
     "library": "Bibliothek",
+    "armory": "Rüstkammer",
     "maps": "Karten",
     "tokens": "Tokens",
     "search": "Suche",
@@ -168,6 +169,15 @@
     "groupContainers": "Sammlungen gruppieren",
     "searchPlaceholder": "System suchen…"
   },
+  "armory": {
+    "title": "Deine Rüstkammer",
+    "subtitle_one": "{{count}} Tabletop in deiner Rüstkammer",
+    "subtitle_other": "{{count}} Tabletops in deiner Rüstkammer",
+    "subtitleFiltered_one": "{{count}} von {{total}} Tabletops in deiner Rüstkammer werden angezeigt",
+    "subtitleFiltered_other": "{{count}} von {{total}} Tabletops in deiner Rüstkammer werden angezeigt",
+    "searchPlaceholder": "Tabletop suchen…",
+    "emptyHint": "Tabletop-Bücher liegen im Ordner armory/ deiner Bibliothek, ein Ordner pro Spiel: armory/<Spiel>/Core/, jede Armee in armory/<Spiel>/Factions/<Fraktion>/."
+  },
   "systemContainer": {
     "badge": "Systemsammlung",
     "familyBadge": "Systemfamilie",
@@ -182,6 +192,7 @@
   },
   "systemDetail": {
     "backToLibrary": "Zurück zur Bibliothek",
+    "backToArmory": "Zurück zur Rüstkammer",
     "publishedBy": "Erschienen bei",
     "characterBuilder": "Charaktergenerator",
     "searchWithin": "In {{name}} suchen…",
@@ -1488,6 +1499,7 @@
     "sidebarVisibility": {
       "title": "Seitenleisten-Sichtbarkeit",
       "description": "Abschnitte aus der Seitenleiste und mobilen Navigation für alle Benutzer ausblenden.",
+      "hideArmory": "Rüstkammer ausblenden",
       "hideMaps": "Karten ausblenden",
       "hideTokens": "Tokens ausblenden",
       "hideCampaigns": "Kampagnen ausblenden",
@@ -2699,7 +2711,14 @@
     "map": "Karten",
     "handout": "Handouts & Referenz",
     "magazine": "Magazine & Zines",
-    "homebrew": "Homebrew"
+    "homebrew": "Homebrew",
+    "army-book": "Armeebücher",
+    "errata": "Regel-Updates & Errata",
+    "mission-pack": "Missionspakete",
+    "campaign": "Kampagnenbücher",
+    "unit-reference": "Einheitenübersichten",
+    "painting-guide": "Bemalen & Hobby",
+    "lore": "Hintergrund & Romane"
   },
   "wiki": {
     "newPage": "Neue Seite",
@@ -3471,6 +3490,7 @@
   },
   "bookDetails": {
     "category": "Kategorie",
+    "factions": "Fraktionen",
     "authors": "Autoren",
     "artists": "Künstler",
     "publisher": "Verlag",

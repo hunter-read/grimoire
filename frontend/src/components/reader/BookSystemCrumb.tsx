@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import type { Schema } from '../../api'
 import { useAuth } from '../../context/AuthContext'
 import { systemDisplayName } from '../../utils/systemDisplayName'
+import { systemPath } from '../../utils/armory'
 
 interface BookSystemCrumbProps {
   system?: Schema<'BookSystemRef'> | null
@@ -25,7 +26,7 @@ export default function BookSystemCrumb({ system }: BookSystemCrumbProps) {
       {/* Capped so a long system name can't crowd the book title out - both
           ellipsize, but the title keeps most of the room. */}
       <Link
-        to={`/library/system/${system.id}`}
+        to={systemPath(system)}
         title={name}
         style={{
           fontSize: 15,

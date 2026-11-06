@@ -31,6 +31,7 @@ import { queryTags } from '../components/library/tagQuery'
 import BulkActionBar from '../components/BulkActionBar'
 import BulkEditModal from '../components/BulkEditModal'
 import LazyImg from '../components/LazyImg'
+import { libraryBase, type GameType } from '../utils/armory'
 
 type SystemSummary = Schema<'SystemSummary'>
 
@@ -40,8 +41,21 @@ interface SelectMods {
   meta?: boolean
 }
 
-export default function LibraryView() {
+export interface LibraryViewProps {
+  /**
+   * Which shelves to show: the role-playing library (`books/`) or the Armory,
+   * the wargame books in `armory/`. The two are the same view over a different
+   * game type.
+   */
+  gameType?: GameType
+}
+
+export default function LibraryView({ gameType = 'ttrpg' }: LibraryViewProps) {
   const { t, i18n } = useTranslation()
+  const isArmory = gameType === 'wargame'
+  // Copy keys: the Armory has its own title, subtitle and search wording.
+  const copy = isArmory ? 'armory' : 'library'
+  const base = libraryBase(gameType)
   const { isFavorite } = useFavorites()
   const { user } = useAuth()!
   const canEdit = user?.role === 'admin' || user?.role === 'gm'
@@ -65,7 +79,7 @@ export default function LibraryView() {
   // instead of re-applying their saved default over them - and mirrored in the
   // address, so a filtered library can be bookmarked or shared.
   const [sortFilter, setSortFilter] = useUrlSortFilterState<SortFilterState>(
-    'grimoire:systems:sortFilter',
+    isArmory ? 'grimoire:armory:sortFilter' : 'grimoire:systems:sortFilter',
     systemFilters,
     DEFAULT_SORT_FILTER
   )
@@ -73,7 +87,7 @@ export default function LibraryView() {
   useSlashToSearch(searchRef)
   const pins = usePins('systems')
 
-  usePageTitle(t('nav.library'))
+  usePageTitle(t(isArmory ? 'nav.armory' : 'nav.library'))
 
   // Children are fetched up front so the group toggle can flatten containers
   // without a second round trip; the grouped view filters them back out.
@@ -81,7 +95,7 @@ export default function LibraryView() {
     let current = true
     setLoadFailed(false)
     api
-      .get('/systems?include_children=true')
+      .get(`/systems?include_children=true&game_type=${gameType}`)
       .then((list) => {
         if (current) setSystems(list)
       })
@@ -91,7 +105,7 @@ export default function LibraryView() {
     return () => {
       current = false
     }
-  }, [attempt])
+  }, [attempt, gameType])
 
   if (!systems && loadFailed) return <LoadError onRetry={() => setAttempt((n) => n + 1)} />
 
@@ -203,13 +217,13 @@ export default function LibraryView() {
           label={t('pins.systemsLabel')}
           links={pins.pins.flatMap((pin) => {
             const system = systems.find((s) => s.id === pin.target)
-            return system ? [{ pin, label: system.name, to: `/library/system/${system.id}` }] : []
+            return system ? [{ pin, label: system.name, to: `${base}/system/${system.id}` }] : []
           })}
           onUnpin={(pin) => void pins.toggle(pin.target)}
         />
 
         {/* Recently Opened */}
-        {recentBooks.length > 0 && (
+        {!isArmory && recentBooks.length > 0 && (
           <section aria-labelledby="recently-opened-heading" style={{ marginBottom: 40 }}>
             {/* A heading wrapping the toggle, so the section is reachable by
                 heading navigation and still collapses from the same control. */}
@@ -427,7 +441,7 @@ export default function LibraryView() {
             >
               {specialSystems.map((system) => (
                 <li key={system.id}>
-                  <AgnosticChip system={system} to={`/library/system/${system.id}`} />
+                  <AgnosticChip system={system} to={`${base}/system/${system.id}`} />
                 </li>
               ))}
             </ul>
@@ -451,7 +465,7 @@ export default function LibraryView() {
                   marginBottom: 8,
                 }}
               >
-                <h2 style={{ fontSize: 28, margin: 0 }}>{t('library.title')}</h2>
+                <h2 style={{ fontSize: 28, margin: 0 }}>{t(`${copy}.title`)}</h2>
                 <div
                   style={{
                     display: 'flex',
@@ -472,7 +486,7 @@ export default function LibraryView() {
                         filters: { ...s.filters, search: v || undefined },
                       }))
                     }
-                    placeholder={t('library.searchPlaceholder')}
+                    placeholder={t(`${copy}.searchPlaceholder`)}
                     style={{ flex: '1 1 220px' }}
                   />
                   {hasContainers && (
@@ -499,8 +513,8 @@ export default function LibraryView() {
                 }}
               >
                 {normalSystems.length === gridSystems.length
-                  ? t('library.subtitle', { count: normalSystems.length })
-                  : t('library.subtitleFiltered', {
+                  ? t(`${copy}.subtitle`, { count: normalSystems.length })
+                  : t(`${copy}.subtitleFiltered`, {
                       count: normalSystems.length,
                       total: gridSystems.length,
                     })}
@@ -552,7 +566,7 @@ export default function LibraryView() {
                       <li key={system.id}>
                         <SystemCard
                           system={system}
-                          to={`/library/system/${system.id}`}
+                          to={`${base}/system/${system.id}`}
                           compact={compact}
                           list={list}
                           selectable={bulk.bulkMode}
@@ -587,7 +601,7 @@ export default function LibraryView() {
         {/* Empty state when the library has no browsable systems at all */}
         {isEmptyLibrary && (
           <div style={{ marginBottom: 32 }}>
-            <h2 style={{ fontSize: 28, marginBottom: 8 }}>{t('library.title')}</h2>
+            <h2 style={{ fontSize: 28, marginBottom: 8 }}>{t(`${copy}.title`)}</h2>
             <p
               style={{
                 color: 'var(--text-dim)',
@@ -596,8 +610,13 @@ export default function LibraryView() {
                 fontStyle: 'italic',
               }}
             >
-              {t('library.subtitle', { count: 0 })}
+              {t(`${copy}.subtitle`, { count: 0 })}
             </p>
+            {isArmory && (
+              <p style={{ color: 'var(--text-muted)', fontSize: 14, maxWidth: 640 }}>
+                {t('armory.emptyHint')}
+              </p>
+            )}
           </div>
         )}
       </div>

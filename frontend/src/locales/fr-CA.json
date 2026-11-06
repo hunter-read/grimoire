@@ -8,6 +8,7 @@
   },
   "nav": {
     "library": "Bibliothèque",
+    "armory": "Armurerie",
     "maps": "Cartes",
     "tokens": "Pions",
     "search": "Rechercher",
@@ -168,6 +169,15 @@
     "groupContainers": "Grouper les collections",
     "searchPlaceholder": "Trouver un système…"
   },
+  "armory": {
+    "title": "Votre armurerie",
+    "subtitle_one": "{{count}} jeu de figurines dans votre armurerie",
+    "subtitle_other": "{{count}} jeux de figurines dans votre armurerie",
+    "subtitleFiltered_one": "Affichage de {{count}} jeux de figurines sur {{total}} dans votre armurerie",
+    "subtitleFiltered_other": "Affichage de {{count}} jeux de figurines sur {{total}} dans votre armurerie",
+    "searchPlaceholder": "Trouver un jeu de figurines…",
+    "emptyHint": "Les livres de jeux de figurines vont dans le dossier armory/ de votre bibliothèque, un dossier par jeu : armory/<Jeu>/Core/, avec chaque armée dans armory/<Jeu>/Factions/<Faction>/."
+  },
   "systemContainer": {
     "badge": "Collection de systèmes",
     "familyBadge": "Famille de systèmes",
@@ -182,6 +192,7 @@
   },
   "systemDetail": {
     "backToLibrary": "Retour à la bibliothèque",
+    "backToArmory": "Retour à l’armurerie",
     "publishedBy": "Publié par",
     "characterBuilder": "Créateur de personnage",
     "searchWithin": "Rechercher dans {{name}}…",
@@ -1488,6 +1499,7 @@
     "sidebarVisibility": {
       "title": "Visibilité de la barre latérale",
       "description": "Masquer des sections de la barre latérale et de la navigation mobile pour tous les utilisateurs.",
+      "hideArmory": "Masquer l’armurerie",
       "hideMaps": "Masquer les cartes",
       "hideTokens": "Masquer les pions",
       "hideCampaigns": "Masquer les campagnes",
@@ -2699,7 +2711,14 @@
     "map": "Cartes",
     "handout": "Documents et références",
     "magazine": "Magazines et fanzines",
-    "homebrew": "Homebrew"
+    "homebrew": "Homebrew",
+    "army-book": "Livres d’armée",
+    "errata": "Mises à jour des règles et errata",
+    "mission-pack": "Packs de missions",
+    "campaign": "Livres de campagne",
+    "unit-reference": "Références d’unités",
+    "painting-guide": "Peinture et loisir",
+    "lore": "Univers et romans"
   },
   "wiki": {
     "newPage": "Nouvelle page",
@@ -3471,6 +3490,7 @@
   },
   "bookDetails": {
     "category": "Catégorie",
+    "factions": "Factions",
     "authors": "Auteurs",
     "artists": "Artistes",
     "publisher": "Éditeur",

@@ -2,6 +2,7 @@ import { createContext, useContext } from 'react'
 import type { Schema } from '../api'
 
 const DEFAULT_UI_SETTINGS: UISettings = {
+  hide_armory: false,
   hide_maps: false,
   hide_tokens: false,
   hide_audio: false,

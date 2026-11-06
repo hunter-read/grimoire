@@ -8,6 +8,7 @@
   },
   "nav": {
     "library": "Libreria",
+    "armory": "Armeria",
     "maps": "Mappe",
     "tokens": "Token",
     "search": "Cerca",
@@ -168,6 +169,15 @@
     "groupContainers": "Raggruppa collezioni",
     "searchPlaceholder": "Trova un sistema…"
   },
+  "armory": {
+    "title": "La tua armeria",
+    "subtitle_one": "{{count}} wargame nella tua armeria",
+    "subtitle_other": "{{count}} wargame nella tua armeria",
+    "subtitleFiltered_one": "Visualizzazione di {{count}} wargame su {{total}} nella tua armeria",
+    "subtitleFiltered_other": "Visualizzazione di {{count}} wargame su {{total}} nella tua armeria",
+    "searchPlaceholder": "Trova un wargame…",
+    "emptyHint": "I libri dei wargame vanno nella cartella armory/ della tua libreria, una cartella per gioco: armory/<Gioco>/Core/, con ogni armata in armory/<Gioco>/Factions/<Fazione>/."
+  },
   "systemContainer": {
     "badge": "Collezione di sistemi",
     "familyBadge": "Famiglia di sistemi",
@@ -182,6 +192,7 @@
   },
   "systemDetail": {
     "backToLibrary": "Torna alla libreria",
+    "backToArmory": "Torna all’armeria",
     "publishedBy": "Pubblicato da",
     "characterBuilder": "Character Builder",
     "searchWithin": "Cerca in {{name}}…",
@@ -1488,6 +1499,7 @@
     "sidebarVisibility": {
       "title": "Visibilità barra laterale",
       "description": "Nascondi sezioni dalla barra laterale e dalla navigazione mobile per tutti gli utenti.",
+      "hideArmory": "Nascondi Armeria",
       "hideMaps": "Nascondi Mappe",
       "hideTokens": "Nascondi Token",
       "hideCampaigns": "Nascondi Campagne",
@@ -2699,7 +2711,14 @@
     "map": "Mappe",
     "handout": "Handout e materiale di riferimento",
     "magazine": "Riviste e fanzine",
-    "homebrew": "Homebrew"
+    "homebrew": "Homebrew",
+    "army-book": "Libri d’armata",
+    "errata": "Aggiornamenti delle regole ed errata",
+    "mission-pack": "Pacchetti di missioni",
+    "campaign": "Libri di campagna",
+    "unit-reference": "Riferimenti delle unità",
+    "painting-guide": "Pittura e hobby",
+    "lore": "Ambientazione e narrativa"
   },
   "wiki": {
     "newPage": "Nuova pagina",
@@ -3471,6 +3490,7 @@
   },
   "bookDetails": {
     "category": "Categoria",
+    "factions": "Fazioni",
     "authors": "Autori",
     "artists": "Artisti",
     "publisher": "Editore",

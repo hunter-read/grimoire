@@ -17,10 +17,12 @@ import {
   LuX,
   LuPanelLeftClose,
   LuPanelLeftOpen,
+  LuSwords,
 } from 'react-icons/lu'
 import api, { type Schema } from '../api'
 import AboutModal from './AboutModal'
 import { preloadRoute } from './routeViews'
+import { showArmoryNav } from '../utils/armory'
 
 const UPDATE_DISMISSED_KEY = 'grimoire_update_dismissed'
 
@@ -84,6 +86,11 @@ export default function Sidebar({
   // Guests only see their campaign(s) — no library, maps, tokens, search,
   // favorites, or settings.
   const isGuest = user?.role === 'guest'
+  const showArmory = showArmoryNav({
+    hidden: uiSettings.hide_armory,
+    armoryBooks: stats?.armory_books,
+    isAdmin: user?.role === 'admin',
+  })
   const hide_maps = uiSettings.hide_maps
   const hide_tokens = uiSettings.hide_tokens
   const hide_audio = uiSettings.hide_audio
@@ -231,8 +238,11 @@ export default function Sidebar({
 
       {/* Navigation */}
       <nav aria-label={t('a11y.mainNavigation')} style={{ padding: '12px 8px', flex: 1 }}>
-        {/* Group 1: library content (Library, Maps, Tokens, Audio) */}
+        {/* Group 1: library content (Library, Armory, Maps, Tokens, Audio) */}
         {!isGuest && navItem('/library', <LuLibrary size={16} />, t('nav.library'), { end: false })}
+        {!isGuest &&
+          showArmory &&
+          navItem('/armory', <LuSwords size={16} />, t('nav.armory'), { end: false })}
         {!isGuest && !hide_maps && navItem('/maps', <LuMap size={16} />, t('nav.maps'))}
         {!isGuest && !hide_tokens && navItem('/tokens', <LuUser size={16} />, t('nav.tokens'))}
         {!isGuest && !hide_audio && navItem('/audio', <LuMusic size={16} />, t('nav.audio'))}
@@ -391,7 +401,7 @@ export default function Sidebar({
             <div
               style={{
                 padding: '8px 12px 8px 16px',
-                background: 'rgba(201,168,76,0.08)',
+                background: 'color-mix(in srgb, var(--gold) 8%, transparent)',
                 borderTop: '1px solid var(--border)',
                 display: 'flex',
                 alignItems: 'center',

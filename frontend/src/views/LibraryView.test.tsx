@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import LibraryView from './LibraryView'
+import LibraryView, { type LibraryViewProps } from './LibraryView'
 import api, { bulk } from '../api'
 
 type Fixture = Record<string, unknown>
@@ -85,10 +85,10 @@ function makeSystem(overrides: Fixture = {}): Fixture {
   }
 }
 
-function renderView() {
+function renderView(props: LibraryViewProps = {}) {
   return render(
     <MemoryRouter>
-      <LibraryView />
+      <LibraryView {...props} />
     </MemoryRouter>
   )
 }
@@ -642,7 +642,7 @@ describe('LibraryView', () => {
       renderView()
       await waitFor(() => expect(screen.getByText('Standalone')).toBeInTheDocument())
 
-      expect(api.get).toHaveBeenCalledWith('/systems?include_children=true')
+      expect(api.get).toHaveBeenCalledWith('/systems?include_children=true&game_type=ttrpg')
     })
   })
 
@@ -966,6 +966,32 @@ describe('LibraryView', () => {
         'href',
         '/library/system/s3'
       )
+    })
+  })
+
+  describe('the Armory', () => {
+    it('lists the wargame systems, linked under /armory', async () => {
+      mockGet.mockResolvedValue([makeSystem({ id: 'w1', name: 'Warhammer 40,000' })])
+      renderView({ gameType: 'wargame' })
+      const link = await screen.findByRole('link', { name: /Warhammer 40,000/ })
+      expect(link).toHaveAttribute('href', '/armory/system/w1')
+      expect(api.get).toHaveBeenCalledWith('/systems?include_children=true&game_type=wargame')
+      expect(screen.getByRole('heading', { level: 2, name: 'Your Armory' })).toBeInTheDocument()
+      expect(screen.getByPlaceholderText('Find a wargame…')).toBeInTheDocument()
+    })
+
+    it('leaves recently opened books to the library', async () => {
+      mockRecentBooks = [{ id: 'b1', title: 'Recent Book', has_thumbnail: false, page_count: 10 }]
+      mockGet.mockResolvedValue([makeSystem()])
+      renderView({ gameType: 'wargame' })
+      await screen.findByText('Test System')
+      expect(screen.queryByRole('heading', { name: /recently opened/i })).toBeNull()
+    })
+
+    it('says where wargame books go when it is empty', async () => {
+      mockGet.mockResolvedValue([])
+      renderView({ gameType: 'wargame' })
+      expect(await screen.findByText(/armory\/<Game>\/Factions/)).toBeInTheDocument()
     })
   })
 })

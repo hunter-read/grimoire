@@ -16,18 +16,27 @@ import {
   LuX,
   LuScroll,
   LuUsers,
+  LuSwords,
 } from 'react-icons/lu'
 import MoreItem, { moreItemStyle } from './MoreItem'
 import type { Schema } from '../api'
+import { showArmoryNav } from '../utils/armory'
 
 export interface MobileSidebarProps {
   /** The signed-in user; only the role is read. */
   user: { role?: string | null } | null
   onLogout?: () => void
   uiSettings?: Partial<Schema<'UISettingsResponse'>>
+  /** Library counts; whether the armory holds anything decides its entry. */
+  stats?: Schema<'StatsResponse'> | null
 }
 
-export default function MobileSidebar({ user, onLogout, uiSettings = {} }: MobileSidebarProps) {
+export default function MobileSidebar({
+  user,
+  onLogout,
+  uiSettings = {},
+  stats = null,
+}: MobileSidebarProps) {
   const { t } = useTranslation()
   const [moreOpen, setMoreOpen] = useState(false)
   const moreButtonRef = useRef<HTMLButtonElement>(null)
@@ -46,9 +55,15 @@ export default function MobileSidebar({ user, onLogout, uiSettings = {} }: Mobil
   }, [moreOpen])
   const isGuest = user?.role === 'guest'
   const { hide_maps, hide_tokens, hide_audio, hide_models, hide_campaigns } = uiSettings
+  const showArmory = showArmoryNav({
+    hidden: uiSettings.hide_armory,
+    armoryBooks: stats?.armory_books,
+    isAdmin: user?.role === 'admin',
+  })
   const moreRoutes = [
     '/settings',
     '/tags',
+    ...(showArmory ? ['/armory'] : []),
     ...(!hide_maps ? ['/maps'] : []),
     ...(!hide_tokens ? ['/tokens'] : []),
     ...(!hide_audio ? ['/audio'] : []),
@@ -156,6 +171,14 @@ export default function MobileSidebar({ user, onLogout, uiSettings = {} }: Mobil
               padding: '8px 0',
             }}
           >
+            {showArmory && (
+              <MoreItem
+                to="/armory"
+                Icon={LuSwords}
+                label={t('nav.armory')}
+                onClick={() => setMoreOpen(false)}
+              />
+            )}
             {!hide_maps && (
               <MoreItem
                 to="/maps"
