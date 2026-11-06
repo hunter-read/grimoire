@@ -442,7 +442,8 @@ describe('MapDetailView', () => {
       mockApi('m2')
       render(<MapDetailView />)
       expect(await screen.findByRole('heading', { level: 1, name: 'm2.png' })).toBeInTheDocument()
-      expect(document.title).toBe('m2.png - Grimoire')
+      // The title is set by an effect that can land a render after the heading.
+      await waitFor(() => expect(document.title).toBe('m2.png - Grimoire'))
       await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('2 of 3'))
     })
 
