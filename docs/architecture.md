@@ -422,8 +422,8 @@ about OCR timeouts on large scanned books).
    the `ocr_pending` books. Each book is OCR'd **one page at a time** by
    `indexer.ocr_book`, which spawns [`pdf_worker.py`](../backend/pdf_worker.py)'s
    `ocr_page_main` per page (isolated, per-page-timeout bounded), inserts the
-   recognised page into `book_search`, and advances `ocr_pages_done` before moving
-   on. Because progress is committed per page, a restart, crash, or cancel resumes
+   recognised page into `book_pages` (which the `book_search` index follows), and
+   advances `ocr_pages_done` before moving on. Because progress is committed per page, a restart, crash, or cancel resumes
    the book at `ocr_pages_done` rather than re-OCRing it - a multi-hour book makes
    durable progress and never hits a whole-book wall. `OCR_CONCURRENCY` (default 1)
    drains several books in parallel via a thread pool, each on its own session.
@@ -479,9 +479,9 @@ Schema changes are managed by **Alembic** (revisions in
   (`<db>.migrate.lock`) serializes the migration so, with multiple uvicorn workers, the
   first migrates and the rest wait and then find the DB already at head.
 - After migrations, idempotent data fixups run on every startup (tag normalization,
-  resource-visibility backfill from the legacy `shared`/`gm_only` flags) and the FTS5
-  `book_search` virtual table is created (it's not an ORM table, so Alembic doesn't manage
-  it).
+  resource-visibility backfill from the legacy `shared`/`gm_only` flags). The page-search
+  tables (`book_pages` and the FTS5 `book_search` index over it) are not ORM tables; migration
+  0059 creates them with raw SQL, and `env.py` keeps autogenerate from reporting them.
 
 SQLite's limited `ALTER TABLE` support means table rebuilds go through Alembic's **batch
 mode** (`render_as_batch=True`, set in [`env.py`](../backend/migrations/env.py)).

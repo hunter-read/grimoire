@@ -123,9 +123,7 @@ def _remove_missing(db: Session, spec: CollectionSpec) -> int:
 
     Commits every :data:`_REMOVE_BATCH` rows so the write lock is released
     between batches and doesn't block concurrent scanner sessions. Not after
-    every row: a book's full-text rows can only be found by scanning the whole
-    ``book_search`` table, so purging them one book at a time made a large
-    cleanup take hours (issue #748).
+    every row: a commit per row makes a large cleanup crawl (issue #748).
     """
     count = 0
     batch: list[Any] = []

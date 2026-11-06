@@ -515,7 +515,7 @@ class TestImageAndMissingPages:
         assert r.json() == {"width": 0, "height": 0, "words": []}
 
     def test_page_text_served_from_search_index(self, client, admin_headers, rendered_pdf_book):
-        # Seed a book_search row so get_page_text returns the indexed content
+        # Seed a book_pages row so get_page_text returns the indexed content
         # without touching the PDF.
         db = SessionLocal()
         try:
@@ -523,7 +523,7 @@ class TestImageAndMissingPages:
 
             db.execute(
                 sql_text(
-                    "INSERT INTO book_search (book_id, page_number, content) "
+                    "INSERT INTO book_pages (book_id, page_number, content) "
                     "VALUES (:bid, :pnum, :content)"
                 ),
                 {"bid": rendered_pdf_book.id, "pnum": 1, "content": "indexed page body"},

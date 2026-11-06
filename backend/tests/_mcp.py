@@ -85,7 +85,7 @@ def index_page(book_id, page, content):
     db = SessionLocal()
     try:
         db.execute(
-            text("INSERT INTO book_search (book_id, page_number, content) VALUES (:b, :p, :c)"),
+            text("INSERT INTO book_pages (book_id, page_number, content) VALUES (:b, :p, :c)"),
             {"b": book_id, "p": page, "c": content},
         )
         db.commit()

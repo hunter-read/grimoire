@@ -200,7 +200,7 @@ def index_book_text(
     for page_data in pages:
         session.execute(
             text(
-                "INSERT INTO book_search (book_id, page_number, content) VALUES (:bid, :pnum, :content)"
+                "INSERT INTO book_pages (book_id, page_number, content) VALUES (:bid, :pnum, :content)"
             ),
             {"bid": book.id, "pnum": page_data["page"], "content": page_data["content"]},
         )
@@ -244,7 +244,7 @@ def _index_text_document(book: Book, session: Session) -> bool:
     for page_data in pages:
         session.execute(
             text(
-                "INSERT INTO book_search (book_id, page_number, content) VALUES (:bid, :pnum, :content)"
+                "INSERT INTO book_pages (book_id, page_number, content) VALUES (:bid, :pnum, :content)"
             ),
             {"bid": book.id, "pnum": page_data["page"], "content": page_data["content"]},
         )
@@ -364,7 +364,7 @@ def reset_book_index(book: Book, session: Session) -> None:
     Leaves the book where every scan looks for outstanding work (``indexed``
     false), so if nothing indexes it now, the next scan does.
     """
-    session.execute(text("DELETE FROM book_search WHERE book_id = :bid"), {"bid": book.id})
+    session.execute(text("DELETE FROM book_pages WHERE book_id = :bid"), {"bid": book.id})
     book.indexed = False
     book.index_failed = False
     book.index_error = ""

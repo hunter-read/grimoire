@@ -238,7 +238,7 @@ class TestReindexBook:
             for page in range(1, search_pages + 1):
                 db.execute(
                     _text(
-                        "INSERT INTO book_search (book_id, page_number, content) "
+                        "INSERT INTO book_pages (book_id, page_number, content) "
                         "VALUES (:b, :p, 'old text')"
                     ),
                     {"b": book.id, "p": page},
@@ -259,7 +259,7 @@ class TestReindexBook:
         db = SessionLocal()
         try:
             return db.execute(
-                _text("SELECT COUNT(*) FROM book_search WHERE book_id = :b"),
+                _text("SELECT COUNT(*) FROM book_pages WHERE book_id = :b"),
                 {"b": book_id},
             ).scalar()
         finally:

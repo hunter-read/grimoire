@@ -9,7 +9,8 @@ referenced it by id. Nothing in the schema removes those rows for us:
 * ``Favorite``, ``ResourceTag``, and ``CampaignResource`` are polymorphic —
   ``item_type``/``resource_type`` plus a bare id — so they carry no foreign key
   at all and their rows are simply orphaned.
-* ``book_search`` is an FTS5 virtual table holding a soft ``book_id``.
+* ``book_pages`` (the page text the ``book_search`` FTS index covers) holds a
+  soft ``book_id``.
 
 This module is the single place that knows the full list. It was previously
 open-coded in two places that each knew a different subset: the cleanup sweep in
@@ -61,18 +62,17 @@ def _chunks(ids: Sequence[str]) -> Iterator[list[str]]:
 
 
 def purge_search_rows(db: Session, book_ids: Sequence[str]) -> None:
-    """Delete the full-text rows of ``book_ids``. Does not commit.
+    """Delete the indexed page text of ``book_ids``. Does not commit.
 
-    ``book_search`` declares ``book_id UNINDEXED``, so every ``WHERE book_id``
-    is a scan of the whole FTS table - a second or more on a large library.
-    Deleting one book at a time made pruning thousands of missing books take
-    hours (issue #748); one ``IN`` list per chunk pays that scan once per
-    :data:`_ID_CHUNK` books instead.
+    The rows go from ``book_pages`` through its ``(book_id, page_number)``
+    index, and its delete trigger takes them out of the ``book_search`` FTS
+    index. One ``IN`` list per :data:`_ID_CHUNK` books keeps each statement
+    under SQLite's host-variable limit.
     """
     for chunk in _chunks(book_ids):
         params = {f"id{i}": book_id for i, book_id in enumerate(chunk)}
         placeholders = ", ".join(f":{key}" for key in params)
-        db.execute(text(f"DELETE FROM book_search WHERE book_id IN ({placeholders})"), params)
+        db.execute(text(f"DELETE FROM book_pages WHERE book_id IN ({placeholders})"), params)
 
 
 def purge_references(db: Session, model: Any, record_id: str) -> None:
@@ -92,17 +92,17 @@ def purge_many_references(
 ) -> None:
     """:func:`purge_references` for many records of one model at once.
 
-    ``search=False`` leaves the books' ``book_search`` rows for the caller to
-    delete with :func:`purge_search_rows`, so a caller removing many books in
-    several steps can pay the full-text scan once for all of them.
+    ``search=False`` leaves the books' page text for the caller to delete with
+    :func:`purge_search_rows`, so a caller removing many books in several steps
+    can drop it in one pass for all of them.
     """
     item_type = item_type_for(model)
     if not item_type or not record_ids:
         return
 
     if model is Book:
-        # Soft reference: book_search is an FTS5 virtual table, so no constraint
-        # ties these rows to the book and nothing else will ever collect them.
+        # Soft reference: no constraint ties book_pages rows to the book, so
+        # nothing else will ever collect them.
         if search:
             purge_search_rows(db, record_ids)
         for chunk in _chunks(record_ids):
@@ -140,8 +140,8 @@ def purge_system_references(db: Session, system_id: str, *, search: bool = True)
     that know to clean up after them. Each book's references have to be collected
     here, before the cascade fires, or they outlive the row that explained them.
 
-    Returns the ids of those books. With ``search=False`` their ``book_search``
-    rows are left for the caller to pass to :func:`purge_search_rows`.
+    Returns the ids of those books. With ``search=False`` their page text is
+    left for the caller to pass to :func:`purge_search_rows`.
     """
     book_ids = [
         book_id for (book_id,) in db.query(Book.id).filter(Book.game_system_id == system_id)

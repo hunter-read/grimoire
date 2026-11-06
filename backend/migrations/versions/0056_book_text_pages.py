@@ -36,12 +36,15 @@ def upgrade() -> None:
         op.add_column("books", sa.Column("text_pages", sa.Integer(), nullable=True))
     if not inspect(bind).has_table("book_search"):
         return
+    # Replayed over a database already past 0059 (a schema repair rewinds the
+    # stamp), the book ids are in book_pages and book_search holds none.
+    pages = "book_pages" if inspect(bind).has_table("book_pages") else "book_search"
     # Counted once into a temp table: a correlated count per book would scan the
     # whole search index once per book.
     op.execute("DROP TABLE IF EXISTS _text_pages")
     op.execute(
         "CREATE TEMP TABLE _text_pages AS "
-        "SELECT book_id, COUNT(*) AS pages FROM book_search GROUP BY book_id"
+        f"SELECT book_id, COUNT(*) AS pages FROM {pages} GROUP BY book_id"
     )
     op.execute("CREATE INDEX _text_pages_book ON _text_pages (book_id)")
     op.execute(

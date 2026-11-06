@@ -45,10 +45,11 @@ warnings.filterwarnings(
     category=exc.SAWarning,
 )
 
-# FTS5 virtual tables and the shadow tables SQLite keeps for them are created by
+# FTS5 virtual tables, the shadow tables SQLite keeps for them, and the
+# book_pages table book_search indexes are created by
 # migrations with raw SQL rather than declared as models, so autogenerate (and
 # ``alembic check``) must not report them as tables to drop.
-_UNMODELLED_TABLE_PREFIXES = ("book_search", "content_search")
+_UNMODELLED_TABLE_PREFIXES = ("book_search", "book_pages", "content_search")
 
 
 def _include_object(obj, name, type_, reflected, compare_to) -> bool:

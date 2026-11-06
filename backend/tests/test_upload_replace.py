@@ -102,7 +102,10 @@ def _search_hits(term: str) -> list[str]:
     db = SessionLocal()
     try:
         rows = db.execute(
-            text("SELECT book_id FROM book_search WHERE book_search MATCH :t"), {"t": term}
+            text(
+                "SELECT book_id FROM book_search "
+                "JOIN book_pages ON book_pages.id = book_search.rowid "
+                "WHERE book_search MATCH :t"), {"t": term}
         ).fetchall()
         return [r[0] for r in rows]
     finally:
@@ -286,7 +289,7 @@ class TestReplaceEndpoint:
         db = SessionLocal()
         db.execute(
             text(
-                "INSERT INTO book_search (book_id, page_number, content) "
+                "INSERT INTO book_pages (book_id, page_number, content) "
                 "VALUES (:bid, 1, 'zymurgical')"
             ),
             {"bid": book.id},
@@ -564,7 +567,7 @@ class TestRefreshBookFile:
         try:
             db.execute(
                 text(
-                    "INSERT INTO book_search (book_id, page_number, content) "
+                    "INSERT INTO book_pages (book_id, page_number, content) "
                     "VALUES (:bid, 1, 'quillwort')"
                 ),
                 {"bid": book.id},

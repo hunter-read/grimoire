@@ -86,7 +86,7 @@ def invalidate_book_content(
 
     Search rows are dropped only when ``db`` is given, and a caller that passes it
     must also reset the book's ``indexed`` / OCR flags, or the scan skips the book
-    and its text is gone for good. A move passes no ``db``: ``book_search`` is
+    and its text is gone for good. A move passes no ``db``: ``book_pages`` is
     keyed by the book's id, which a move keeps, and the bytes are unchanged, so
     the text is still right (issue #503).
 
@@ -121,7 +121,7 @@ def invalidate_book_content(
     # re-indexes because the caller also resets ``indexed`` (see the docstring).
     if db is not None:
         try:
-            db.execute(text("DELETE FROM book_search WHERE book_id = :bid"), {"bid": book_id})
+            db.execute(text("DELETE FROM book_pages WHERE book_id = :bid"), {"bid": book_id})
         except Exception as e:
             logger.warning(f"Could not clear search index for {book_id}: {e}")
 

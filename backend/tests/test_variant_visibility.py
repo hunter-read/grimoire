@@ -101,7 +101,7 @@ class TestHidden:
             for book_id in (parent.id, child.id):
                 db.execute(
                     text(
-                        "INSERT INTO book_search (book_id, page_number, content) "
+                        "INSERT INTO book_pages (book_id, page_number, content) "
                         "VALUES (:b, 1, 'zzqqx unique needle')"
                     ),
                     {"b": book_id},
@@ -131,7 +131,7 @@ class TestHidden:
 
             db.execute(
                 text(
-                    "INSERT INTO book_search (book_id, page_number, content) "
+                    "INSERT INTO book_pages (book_id, page_number, content) "
                     "VALUES (:b, 1, 'wwvvz inner needle')"
                 ),
                 {"b": child.id},

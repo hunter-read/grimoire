@@ -861,7 +861,7 @@ class TestLargePrune:
             for book_id in book_ids:
                 db.execute(
                     text(
-                        "INSERT INTO book_search (book_id, page_number, content) "
+                        "INSERT INTO book_pages (book_id, page_number, content) "
                         "VALUES (:b, 1, 'orcs')"
                     ),
                     {"b": book_id},
@@ -896,7 +896,7 @@ class TestLargePrune:
         try:
             left = {
                 row[0]
-                for row in db.execute(text("SELECT book_id FROM book_search")).fetchall()
+                for row in db.execute(text("SELECT book_id FROM book_pages")).fetchall()
             }
         finally:
             db.close()

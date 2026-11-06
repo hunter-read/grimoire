@@ -109,7 +109,7 @@ def _search_content(book_id: str) -> dict[int, str]:
     db = SessionLocal()
     try:
         rows = db.execute(
-            text("SELECT page_number, content FROM book_search WHERE book_id = :b"),
+            text("SELECT page_number, content FROM book_pages WHERE book_id = :b"),
             {"b": book_id},
         ).fetchall()
         return {r[0]: r[1] for r in rows}
@@ -121,7 +121,7 @@ def _search_pages(book_id: str) -> list[int]:
     db = SessionLocal()
     try:
         rows = db.execute(
-            text("SELECT page_number FROM book_search WHERE book_id = :b ORDER BY page_number"),
+            text("SELECT page_number FROM book_pages WHERE book_id = :b ORDER BY page_number"),
             {"b": book_id},
         ).fetchall()
         return [r[0] for r in rows]
