@@ -87,6 +87,17 @@ def list_model_groups(
     total, groups = browser.groups(params)
     return {"total": total, "groups": groups}
 
+def list_model_index(
+    params: MediaBrowse = Depends(media_browse_params),
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Where each letter (or added month) starts in the flat list of rows."""
+    browser = MediaBrowser(
+        db, "model", current_user.id, hide_explicit=not allow_explicit(db, current_user.id)
+    )
+    return {"entries": browser.index(params)}
+
 
 def list_model_folders(db: Session = Depends(get_db)):
     folders = db.query(Model3DFolder).all()

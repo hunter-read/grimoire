@@ -2,6 +2,10 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LuArrowLeft, LuLibrary, LuPencil } from 'react-icons/lu'
 import SystemCard from '../library/SystemCard'
+import IndexedLayout from '../thumbIndex/IndexedLayout'
+import PinButton from '../pins/PinButton'
+import usePins from '../../hooks/usePins'
+import { decadeKey, indexLetter } from '../../utils/thumbIndex'
 import SystemSortFilterBar from '../library/SystemSortFilterBar'
 import { applySystemSortFilter } from '../library/applySystemSortFilter'
 import BulkActionBar from '../BulkActionBar'
@@ -59,7 +63,8 @@ export default function SystemContainerView({
   onCoverChange,
   onChildrenChange,
 }: SystemContainerViewProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const pins = usePins('systems')
   const { isFavorite } = useFavorites()
   const [editingCover, setEditingCover] = useState(false)
   const [showBulkEdit, setShowBulkEdit] = useState(false)
@@ -73,6 +78,7 @@ export default function SystemContainerView({
     `grimoire:system:${system.id}:sortFilter`,
     systemFilters
   )
+  const sortKey = sortFilter.sort || 'name'
   const shown = applySystemSortFilter(children, sortFilter, {
     isFavorite: (id: string) => isFavorite('system', id),
   })
@@ -151,6 +157,12 @@ export default function SystemContainerView({
             </h1>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <PinButton
+              name={systemDisplayName(system)}
+              pinned={pins.isPinned(system.id)}
+              onToggle={() => void pins.toggle(system.id)}
+              style={{ height: 32, padding: '0 10px', borderRadius: 6, fontSize: 13 }}
+            />
             {canEdit && (
               <button
                 onClick={() => setEditingCover((v) => !v)}
@@ -221,35 +233,51 @@ export default function SystemContainerView({
             {t('systemContainer.noMatch')}
           </p>
         ) : (
-          <div
-            style={
-              list
-                ? { display: 'flex', flexDirection: 'column', gap: 8 }
-                : {
-                    display: 'grid',
-                    gridTemplateColumns: `repeat(auto-fill, minmax(${minCard}, 1fr))`,
-                    gap: compact ? 12 : 20,
-                  }
+          <IndexedLayout
+            items={shown}
+            enabled={sortKey === 'name' || sortKey === 'year'}
+            keyOf={(child) =>
+              sortKey === 'year' ? decadeKey(child.year) : indexLetter(child.name, i18n?.language)
             }
-          >
-            {shown.map((child) => (
-              <SystemCard
-                key={child.id}
-                system={child}
-                to={`/library/system/${child.id}`}
-                compact={compact}
-                list={list}
-                selectable={bulk.bulkMode}
-                selected={bulk.selectedIds.has(child.id)}
-                onToggleSelect={(mods) =>
-                  bulk.toggleItem(child.id, {
-                    ...mods,
-                    orderedIds: selectable.map((s) => s.id),
-                  })
+            nameOf={(child) => child.name}
+            scope={`system-${system.id}`}
+            railLabel={t('thumbIndex.jumpSystems')}
+            describe={(run) => t('thumbIndex.systems', { count: run.count })}
+            formatLabel={(label) => (label === '#' && sortKey === 'year' ? '?' : label)}
+            headingLevel={2}
+            lazySections
+            renderItems={(sectionChildren) => (
+              <div
+                style={
+                  list
+                    ? { display: 'flex', flexDirection: 'column', gap: 8 }
+                    : {
+                        display: 'grid',
+                        gridTemplateColumns: `repeat(auto-fill, minmax(${minCard}, 1fr))`,
+                        gap: compact ? 12 : 20,
+                      }
                 }
-              />
-            ))}
-          </div>
+              >
+                {sectionChildren.map((child) => (
+                  <SystemCard
+                    key={child.id}
+                    system={child}
+                    to={`/library/system/${child.id}`}
+                    compact={compact}
+                    list={list}
+                    selectable={bulk.bulkMode}
+                    selected={bulk.selectedIds.has(child.id)}
+                    onToggleSelect={(mods) =>
+                      bulk.toggleItem(child.id, {
+                        ...mods,
+                        orderedIds: selectable.map((s) => s.id),
+                      })
+                    }
+                  />
+                ))}
+              </div>
+            )}
+          />
         )}
       </div>
 

@@ -194,6 +194,27 @@ class SavedFilter(Base):
     __table_args__ = (UniqueConstraint("user_id", "scope", "name"),)
 
 
+class Pin(Base):
+    """A folder or game system one user keeps one click away.
+
+    ``collection`` is the browse view it belongs to (systems/maps/tokens/audio/
+    models). ``target`` is what it points at: a collection-relative folder path
+    for the media galleries, a game system's id for systems. Pins are shown in
+    the order they were made. Pointing at a path rather than a row keeps a pin
+    working when a rescan replaces the rows inside its folder.
+    """
+
+    __tablename__ = "pins"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    collection: Mapped[str] = mapped_column(String(20), nullable=False)
+    target: Mapped[str] = mapped_column(String(1000), nullable=False)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
+
+    __table_args__ = (UniqueConstraint("user_id", "collection", "target"),)
+
+
 class UserTheme(Base):
     """A colour theme installed by one user, for that user only.
 

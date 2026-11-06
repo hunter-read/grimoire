@@ -124,4 +124,87 @@ describe('usePagedLists', () => {
     act(() => result.current.loadMore('a'))
     expect(fetchPage).not.toHaveBeenCalled()
   })
+
+  describe('opening part-way (a jump rail)', () => {
+    const MANY = Array.from({ length: 12 }, (_, i) => ({ id: `r${i}` }))
+
+    it('reopens a list at an offset without loading what is before it', async () => {
+      const { fetchPage, calls } = endpoint(MANY)
+      const { result } = renderHook(() => usePagedLists(fetchPage, 'k', { pageSize: 3 }))
+      act(() => result.current.ensure('a'))
+      await waitFor(() => expect(result.current.get('a')!.items).toHaveLength(3))
+
+      act(() => result.current.jumpTo('a', 7))
+      await waitFor(() =>
+        expect(result.current.get('a')!.items.map((r) => r.id)).toEqual(['r7', 'r8', 'r9'])
+      )
+      const list = result.current.get('a')!
+      expect(list).toMatchObject({ start: 7, hasEarlier: true, hasMore: true })
+      expect(calls.at(-1)).toMatchObject({ offset: 7, limit: 3 })
+
+      // Paging on continues from where the list now ends.
+      act(() => result.current.loadMore('a'))
+      await waitFor(() => expect(result.current.get('a')!.items).toHaveLength(5))
+      expect(result.current.get('a')!.hasMore).toBe(false)
+    })
+
+    it('loads the rows before a reopened list, a page at a time', async () => {
+      const { fetchPage, calls } = endpoint(MANY)
+      const { result } = renderHook(() => usePagedLists(fetchPage, 'k', { pageSize: 3 }))
+      act(() => result.current.jumpTo('a', 4))
+      await waitFor(() => expect(result.current.get('a')!.items).toHaveLength(3))
+
+      act(() => result.current.loadEarlier('a'))
+      await waitFor(() => expect(result.current.get('a')!.start).toBe(1))
+      expect(
+        result.current
+          .get('a')!
+          .items.map((r) => r.id)
+          .slice(0, 4)
+      ).toEqual(['r1', 'r2', 'r3', 'r4'])
+      expect(calls.at(-1)).toMatchObject({ offset: 1, limit: 3 })
+
+      act(() => result.current.loadEarlier('a'))
+      await waitFor(() => expect(result.current.get('a')!.start).toBe(0))
+      expect(result.current.get('a')!.hasEarlier).toBe(false)
+      expect(calls.at(-1)).toMatchObject({ offset: 0, limit: 1 })
+
+      // Nothing before the start: no request.
+      const before = calls.length
+      act(() => result.current.loadEarlier('a'))
+      act(() => result.current.loadEarlier('missing'))
+      expect(calls).toHaveLength(before)
+    })
+
+    it('drops a page still in flight for the old position', async () => {
+      let resolve: (v: { total: number; rows: { id: string }[] }) => void = () => {}
+      const fetchPage = vi.fn((_key: string, offset: number) =>
+        offset === 0
+          ? new Promise<{ total: number; rows: { id: string }[] }>((r) => {
+              resolve = r
+            })
+          : Promise.resolve({ total: 12, rows: [{ id: `r${offset}` }] })
+      )
+      const { result } = renderHook(() => usePagedLists(fetchPage, 'k', { pageSize: 1 }))
+      act(() => result.current.ensure('a'))
+      act(() => result.current.jumpTo('a', 9))
+      await waitFor(() => expect(result.current.get('a')!.items.map((r) => r.id)).toEqual(['r9']))
+      await act(async () => resolve({ total: 12, rows: [{ id: 'r0' }] }))
+      expect(result.current.get('a')!.items.map((r) => r.id)).toEqual(['r9'])
+    })
+
+    it('keeps the earlier rows on a failed load and reports the error', async () => {
+      const fetchPage = vi.fn((_key: string, offset: number) =>
+        offset === 5
+          ? Promise.resolve({ total: 10, rows: [{ id: 'r5' }] })
+          : Promise.reject(new Error('down'))
+      )
+      const { result } = renderHook(() => usePagedLists(fetchPage, 'k', { pageSize: 1 }))
+      act(() => result.current.jumpTo('a', 5))
+      await waitFor(() => expect(result.current.get('a')!.items).toHaveLength(1))
+      act(() => result.current.loadEarlier('a'))
+      await waitFor(() => expect(result.current.get('a')!.error).toBeTruthy())
+      expect(result.current.get('a')).toMatchObject({ start: 5, loading: false })
+    })
+  })
 })

@@ -1490,3 +1490,23 @@ describe('SystemDetailView — long systems start collapsed', () => {
     await waitFor(() => expect(screen.getByText('Adventure 4')).toBeInTheDocument())
   })
 })
+
+describe('SystemDetailView — pinning', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    sessionStorage.clear()
+  })
+
+  it('pins the system to the top of the library', async () => {
+    serveSystem(
+      makeSystem([makeBook({ title: 'PHB', relative_path: 'books/TestSystem/core/phb.pdf' })])
+    )
+    renderView()
+    const pin = await screen.findByRole('button', { name: 'Pin Test System' })
+    expect(pin).toHaveAttribute('aria-pressed', 'false')
+    fireEvent.click(pin)
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/pins', { collection: 'systems', target: 'system-1' })
+    )
+  })
+})

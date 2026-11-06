@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import LibraryView from './LibraryView'
@@ -870,6 +870,101 @@ describe('LibraryView', () => {
       renderView()
       await waitFor(() =>
         expect(screen.getByText('2 game systems in your library')).toBeInTheDocument()
+      )
+    })
+  })
+
+  describe('large libraries', () => {
+    const many = () =>
+      Array.from({ length: 36 }, (_, i) =>
+        makeSystem({
+          id: `s${i}`,
+          name: `${'ABCDEF'[i % 6]}system ${String(i).padStart(2, '0')}`,
+          year: 1980 + i,
+        })
+      )
+
+    beforeEach(() => {
+      Element.prototype.scrollIntoView = vi.fn()
+    })
+
+    it('searches by name from the box above the grid, and / jumps to it', async () => {
+      mockGet.mockResolvedValue([
+        makeSystem({ name: 'Dragonbane' }),
+        makeSystem({ name: 'Mothership' }),
+      ])
+      renderView()
+      const search = await screen.findByRole('textbox', { name: 'Find a system…' })
+      fireEvent.keyDown(document.body, { key: '/' })
+      expect(document.activeElement).toBe(search)
+      fireEvent.change(search, { target: { value: 'drag' } })
+      await waitFor(() => expect(screen.queryByText('Mothership')).not.toBeInTheDocument())
+      expect(screen.getByText('Dragonbane')).toBeInTheDocument()
+    })
+
+    it('letters a large library and indexes it', async () => {
+      mockGet.mockResolvedValue(many())
+      renderView()
+      const rail = await screen.findByRole('navigation', { name: 'Jump to systems by letter' })
+      expect(
+        within(rail)
+          .getAllByRole('link')
+          .map((l) => l.textContent)
+      ).toEqual(['A', 'B', 'C', 'D', 'E', 'F'])
+      fireEvent.click(within(rail).getByRole('link', { name: 'D, 6 systems' }))
+      expect(document.activeElement).toBe(
+        screen.getByRole('heading', { level: 3, name: 'D6 systems' })
+      )
+    })
+
+    it('indexes by decade when sorted by year', async () => {
+      mockGet.mockResolvedValue(many())
+      render(
+        <MemoryRouter initialEntries={['/library?sort=year']}>
+          <LibraryView />
+        </MemoryRouter>
+      )
+      const rail = await screen.findByRole('navigation', { name: 'Jump to systems by letter' })
+      expect(
+        within(rail)
+          .getAllByRole('link')
+          .map((l) => l.textContent)
+      ).toEqual(['1980s', '1990s', '2000s', '2010s'])
+    })
+
+    it('has no index when sorted by book count', async () => {
+      mockGet.mockResolvedValue(many())
+      render(
+        <MemoryRouter initialEntries={['/library?sort=book_count']}>
+          <LibraryView />
+        </MemoryRouter>
+      )
+      await screen.findByText('Asystem 00')
+      expect(
+        screen.queryByRole('navigation', { name: 'Jump to systems by letter' })
+      ).not.toBeInTheDocument()
+    })
+
+    it('shows pinned systems at the top', async () => {
+      const systems = many()
+      mockGet.mockImplementation((url: string) =>
+        Promise.resolve(
+          url.startsWith('/pins')
+            ? {
+                pins: [
+                  { id: 'p1', collection: 'systems', target: 's3' },
+                  { id: 'p2', collection: 'systems', target: 'gone' },
+                ],
+              }
+            : systems
+        )
+      )
+      renderView()
+      const strip = await screen.findByRole('navigation', { name: 'Pinned systems' })
+      expect(within(strip).getAllByRole('link')).toHaveLength(1)
+      expect(within(strip).getByRole('link', { name: 'Dsystem 03' })).toHaveAttribute(
+        'href',
+        '/library/system/s3'
       )
     })
   })

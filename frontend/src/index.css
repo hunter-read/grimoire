@@ -527,6 +527,190 @@ summary:focus-visible {
   min-width: 0;
 }
 
+/* ---- Thumb index: the letter rail beside a long list ----------------------
+   The list and the rail sit side by side; the rail sticks below the sticky
+   sort/filter bar (RAIL_TOP in ThumbIndex.tsx) for as long as the list runs. */
+.indexed-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.indexed-layout__list {
+  flex: 1;
+  min-width: 0;
+}
+/* Rows far off screen skip layout until they near the viewport. The remembered
+   size keeps the scrollbar honest once a section has been drawn. */
+.index-section--lazy {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 480px;
+}
+.index-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 20px 0 10px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+  font:
+    700 15px 'Cinzel',
+    serif;
+  letter-spacing: 0.06em;
+  color: var(--gold-dim);
+  /* Lands clear of the sticky sort/filter bar when jumped to. */
+  scroll-margin-top: 80px;
+}
+.index-section:first-child > .index-heading {
+  margin-top: 0;
+}
+.index-heading__count {
+  font:
+    400 13px 'Alegreya Sans',
+    sans-serif;
+  letter-spacing: normal;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+/* Focus arrives here from the rail. A ring only after keyboard use: a pointer
+   jump already shows where it landed. */
+.index-heading:focus {
+  outline: none;
+}
+.index-heading:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+.thumb-index {
+  position: sticky;
+  top: 72px;
+  flex-shrink: 0;
+  z-index: 20;
+}
+.thumb-index__list {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  min-width: 34px;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  border-radius: 17px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  /* A finger drags along the rail to scrub rather than scrolling the page. */
+  touch-action: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.thumb-index__tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  border-radius: 13px;
+  font:
+    700 12px/1 'Cinzel',
+    serif;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--text-dim);
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+}
+.thumb-index__tab:hover {
+  color: var(--gold-bright);
+  background: var(--bg-card-hover);
+}
+/* The letter the reader is in: a filled disc, not just a colour change. */
+.thumb-index__tab[aria-current='location'] {
+  background: var(--gold);
+  color: var(--on-accent);
+}
+.thumb-index__tab:focus-visible {
+  outline: 2px solid var(--gold-bright);
+  outline-offset: 1px;
+  border-radius: 13px;
+}
+.thumb-index__peek {
+  position: absolute;
+  right: calc(100% + 10px);
+  width: 240px;
+  transform: translateY(-24px);
+  padding: 10px 14px 12px;
+  border-radius: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--gold-dim);
+  box-shadow: 0 10px 26px var(--shadow);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.thumb-index__peek-title {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font:
+    700 16px 'Cinzel',
+    serif;
+  color: var(--gold-bright);
+}
+.thumb-index__peek-title span {
+  font:
+    400 13px 'Alegreya Sans',
+    sans-serif;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.thumb-index__peek ul {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+.thumb-index__peek li {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.thumb-index__peek-more,
+.thumb-index__peek-hint {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.thumb-index__peek-hint {
+  margin: 6px 0 0;
+}
+/* A keyboard shortcut means nothing on a touch screen with no keyboard. */
+@media (hover: none) and (pointer: coarse) {
+  .search-shortcut-hint {
+    display: none !important;
+  }
+}
+/* Dragging a finger along the rail: the letter under it, large, clear of the
+   thumb. */
+.thumb-index__bubble {
+  position: absolute;
+  right: calc(100% + 18px);
+  width: 64px;
+  height: 64px;
+  transform: translateY(-32px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--gold);
+  color: var(--on-accent);
+  font:
+    700 26px 'Cinzel',
+    serif;
+  box-shadow: 0 8px 20px var(--shadow);
+  pointer-events: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -165,7 +165,8 @@
     "cancelBulk": "Cancel",
     "noTagMatch": "No systems match the selected tags.",
     "filterByTag": "Filter by {{tag}}",
-    "groupContainers": "Group collections"
+    "groupContainers": "Group collections",
+    "searchPlaceholder": "Find a system…"
   },
   "systemContainer": {
     "badge": "System Collection",
@@ -1659,7 +1660,7 @@
         },
         "personal": {
           "label": "Personal",
-          "description": "Your favourites, bookmarks, saved filters, saved playlists and soundboards, and themes"
+          "description": "Your favourites, bookmarks, saved filters, pins, saved playlists and soundboards, and themes"
         },
         "all": {
           "label": "All permissions",
@@ -4405,5 +4406,40 @@
       "setArtFor": "Set {{name}}’s portrait",
       "shareWith": "Share {{name}} with"
     }
+  },
+  "thumbIndex": {
+    "hint": "Use the arrow keys to move between letters, or type a letter to go to it.",
+    "more_one": "+ {{count}} more",
+    "more_other": "+ {{count}} more",
+    "enterToJump": "Enter to jump",
+    "undated": "Undated",
+    "jumpSystems": "Jump to systems by letter",
+    "jumpFolders": "Jump to folders by letter",
+    "jumpItems": "Jump through {{collection}}",
+    "systems_one": "{{count}} system",
+    "systems_other": "{{count}} systems",
+    "folders_one": "{{count}} folder",
+    "folders_other": "{{count}} folders",
+    "showEarlier_one": "Show earlier items ({{count}} above)",
+    "showEarlier_other": "Show earlier items ({{count}} above)"
+  },
+  "pins": {
+    "pin": "Pin {{name}}",
+    "pinShort": "Pin",
+    "pinTitle": "Pin {{name}} to the top of this page",
+    "unpinTitle": "Unpin {{name}}",
+    "unpin": "Unpin {{name}}",
+    "heading": "Pinned",
+    "systemsLabel": "Pinned systems",
+    "foldersLabel": "Pinned folders in {{collection}}"
+  },
+  "folderNav": {
+    "open": "Open {{folder}}",
+    "openShort": "Open",
+    "here": "Directly in {{folder}}",
+    "pathLabel": "Folder path",
+    "siblings": "Folders beside {{folder}}",
+    "filterSiblings": "Filter folders…",
+    "noSiblingMatch": "No folders match"
   }
 }

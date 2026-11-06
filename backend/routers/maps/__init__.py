@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends
 
 from ... import api_keys
 from ...auth import require_not_guest
-from .._browse import FolderGroupsResponse
+from .._browse import BrowseIndexResponse, FolderGroupsResponse
 from .._bulk_schemas import BulkResult, BulkTagResult
 from .._page_export import DetectShapesResponse, PageSizeResponse, SaveExportResponse
 from .otfbm_export import export_map_otfbm_image, get_map_otfbm
@@ -19,6 +19,7 @@ from .core import (
     update_map_authoring,
     list_maps,
     list_map_groups,
+    list_map_index,
     list_map_folders,
     update_map_folder,
     bulk_update_map_folders,
@@ -72,6 +73,20 @@ router.add_api_route(
     ),
     dependencies=[Depends(require_not_guest)],
     response_model=FolderGroupsResponse,
+)
+router.add_api_route(
+    "/maps/index",
+    list_map_index,
+    methods=["GET"],
+    summary="Where each letter starts in the flat list",
+    description=(
+        "For the `name` sort, each first letter's run (`#` for digits and symbols); "
+        "for `added_at`, each month. Gives the run's length and its offset in the "
+        "list for the same filters and order, so a jump rail can open the list there. "
+        "Other sorts return no entries."
+    ),
+    dependencies=[Depends(require_not_guest)],
+    response_model=BrowseIndexResponse,
 )
 router.add_api_route(
     "/map-folders",

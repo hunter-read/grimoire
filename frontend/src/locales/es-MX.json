@@ -165,7 +165,8 @@
     "cancelBulk": "Cancelar",
     "noTagMatch": "Ningún sistema coincide con las etiquetas seleccionadas.",
     "filterByTag": "Filtrar por {{tag}}",
-    "groupContainers": "Agrupar colecciones"
+    "groupContainers": "Agrupar colecciones",
+    "searchPlaceholder": "Buscar un sistema…"
   },
   "systemContainer": {
     "badge": "Colección de sistemas",
@@ -1659,7 +1660,7 @@
         },
         "personal": {
           "label": "Personal",
-          "description": "Tus favoritos, marcadores, filtros guardados, listas de reproducción y paneles de sonido guardados, y temas"
+          "description": "Tus favoritos, marcadores, filtros guardados, elementos fijados, listas de reproducción y paneles de sonido guardados, y temas"
         },
         "all": {
           "label": "Todos los permisos",
@@ -4405,5 +4406,40 @@
       "setArtFor": "Elegir el retrato de {{name}}",
       "shareWith": "Compartir {{name}} con"
     }
+  },
+  "thumbIndex": {
+    "hint": "Usa las flechas para moverte entre letras o escribe una letra para ir a ella.",
+    "more_one": "+ {{count}} más",
+    "more_other": "+ {{count}} más",
+    "enterToJump": "Intro para saltar",
+    "undated": "Sin fecha",
+    "jumpSystems": "Saltar a sistemas por letra",
+    "jumpFolders": "Saltar a carpetas por letra",
+    "jumpItems": "Recorrer {{collection}}",
+    "systems_one": "{{count}} sistema",
+    "systems_other": "{{count}} sistemas",
+    "folders_one": "{{count}} carpeta",
+    "folders_other": "{{count}} carpetas",
+    "showEarlier_one": "Mostrar elementos anteriores ({{count}} arriba)",
+    "showEarlier_other": "Mostrar elementos anteriores ({{count}} arriba)"
+  },
+  "pins": {
+    "pin": "Fijar {{name}}",
+    "pinShort": "Fijar",
+    "pinTitle": "Fijar {{name}} en la parte superior de esta página",
+    "unpinTitle": "Desfijar {{name}}",
+    "unpin": "Desfijar {{name}}",
+    "heading": "Fijados",
+    "systemsLabel": "Sistemas fijados",
+    "foldersLabel": "Carpetas fijadas en {{collection}}"
+  },
+  "folderNav": {
+    "open": "Abrir {{folder}}",
+    "openShort": "Abrir",
+    "here": "Directamente en {{folder}}",
+    "pathLabel": "Ruta de la carpeta",
+    "siblings": "Carpetas junto a {{folder}}",
+    "filterSiblings": "Filtrar carpetas…",
+    "noSiblingMatch": "Ninguna carpeta coincide"
   }
 }

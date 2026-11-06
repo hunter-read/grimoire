@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import useMediaGallery, { FLAT, ROOT_FOLDER, splitFolder } from './useMediaGallery'
+import useMediaGallery, { FLAT, ROOT_FOLDER, folderTreeOf, splitFolder } from './useMediaGallery'
 import api, { bulk, tags as tagsApi } from '../api'
 import { MEDIA_CONFIGS } from '../components/media/mediaConfig'
 import { fakeMediaGet } from '../test/fakeBrowseApi'
@@ -124,7 +124,7 @@ describe('useMediaGallery (grouped)', () => {
     setup(library)
     const { result } = renderGallery()
     await waitFor(() => expect(result.current.data).not.toBeNull())
-    const entries = Object.fromEntries(result.current.folderEntries)
+    const entries = Object.fromEntries(result.current.folderEntries.map(([f, s]) => [f, s]))
     expect(Object.keys(entries)).toEqual(['(Root)', 'Caves'])
     expect(entries.Caves[''].count).toBe(1)
     expect(entries.Caves.Deep.count).toBe(1)
@@ -166,7 +166,8 @@ describe('useMediaGallery (grouped)', () => {
     await waitFor(() => expect(result.current.data).not.toBeNull())
     act(() => result.current.loadFolder('Caves/Deep'))
     await waitFor(() => {
-      const entry = Object.fromEntries(result.current.folderEntries).Caves.Deep
+      const entry = Object.fromEntries(result.current.folderEntries.map(([f, s]) => [f, s])).Caves
+        .Deep
       expect(entry.items.map((i) => i.id)).toEqual(['b'])
       expect(entry.hasMore).toBe(false)
     })
@@ -291,7 +292,9 @@ describe('useMediaGallery (grouped)', () => {
     act(() => result.current.loadFolder('Caves'))
     act(() => result.current.loadFolder('Caves/Deep'))
     await waitFor(() =>
-      expect(Object.fromEntries(result.current.folderEntries).Caves.Deep.items).toHaveLength(1)
+      expect(
+        Object.fromEntries(result.current.folderEntries.map(([f, s]) => [f, s])).Caves.Deep.items
+      ).toHaveLength(1)
     )
     act(() => result.current.bulk.enter())
     act(() => result.current.toggleSelect('a'))
@@ -463,5 +466,125 @@ describe('useMediaGallery (shared state)', () => {
     const { result } = renderGallery()
     await waitFor(() => expect(result.current.data).not.toBeNull())
     expect(result.current.noFolders).toBe(true)
+  })
+})
+
+describe('folderTreeOf', () => {
+  it('lists every folder level, ancestors included', () => {
+    expect(folderTreeOf(['A/B/C', 'A/D', '', 'E']).sort()).toEqual([
+      'A',
+      'A/B',
+      'A/B/C',
+      'A/D',
+      'E',
+    ])
+  })
+})
+
+describe('useMediaGallery (opened at a folder)', () => {
+  const library = [
+    item({ id: 'own', filename: 'own.png', relative_path: 'maps/Tom/Caverns/own.png' }),
+    item({ id: 'lava', filename: 'lava.png', relative_path: 'maps/Tom/Caverns/Lava/lava.png' }),
+    item({
+      id: 'deep',
+      filename: 'deep.png',
+      relative_path: 'maps/Tom/Caverns/Lava/Deep/deep.png',
+    }),
+    item({ id: 'crypt', filename: 'crypt.png', relative_path: 'maps/Tom/Crypts/crypt.png' }),
+    item({ id: 'other', filename: 'other.png', relative_path: 'maps/Other/other.png' }),
+  ]
+
+  const renderAt = (url: string) =>
+    renderHook(() => useMediaGallery(config), {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <MemoryRouter initialEntries={[url]}>{children}</MemoryRouter>
+      ),
+    })
+
+  it('shows the folder’s children, one level down, and its own items apart', async () => {
+    setup(library)
+    const { result } = renderAt('/maps?folder=Tom%2FCaverns')
+    await waitFor(() => expect(result.current.data).not.toBeNull())
+    expect(result.current.folder).toBe('Tom/Caverns')
+    expect(result.current.folderEntries.map(([f, s, name]) => [f, Object.keys(s), name])).toEqual([
+      ['Tom/Caverns/Lava', ['', 'Deep'], 'Lava'],
+    ])
+    const [ownPath, ownSubs, ownName] = result.current.ownFolder!
+    expect([ownPath, Object.keys(ownSubs), ownName]).toEqual(['Tom/Caverns', [''], 'Caverns'])
+    expect(result.current.allFolders).toEqual(
+      expect.arrayContaining(['Tom', 'Tom/Caverns', 'Tom/Crypts', 'Other'])
+    )
+    expect(result.current.noFolders).toBe(false)
+  })
+
+  it('starts the children collapsed too', async () => {
+    setup(library)
+    const { result } = renderAt('/maps?folder=Tom')
+    await waitFor(() => expect(result.current.folderEntries).toHaveLength(2))
+    expect(result.current.collapsed.has('Tom/Caverns')).toBe(true)
+    expect(result.current.collapsed.has('Tom/Caverns::Lava/Deep')).toBe(true)
+    expect(result.current.ownFolder).toBeNull()
+  })
+
+  it('selects across the folder’s own items and its children in order', async () => {
+    setup(library)
+    const { result } = renderAt('/maps?folder=Tom%2FCaverns')
+    await waitFor(() => expect(result.current.ownFolder).not.toBeNull())
+    expect(result.current.allKeys.has('Tom/Caverns')).toBe(true)
+    expect(result.current.allKeys.has('Tom/Caverns/Lava::Deep')).toBe(true)
+  })
+})
+
+describe('useMediaGallery (flat jump index)', () => {
+  const tokens = Array.from({ length: 6 }, (_, i) =>
+    item({ id: `t${i}`, filename: `${'ab'[i % 2]}${i}.png` })
+  )
+
+  it('asks the server where each letter starts, for the name sort only', async () => {
+    groupedDefault = false
+    setup(tokens)
+    const fake = mockGet.getMockImplementation()!
+    mockGet.mockImplementation((url: string) =>
+      url.startsWith('/maps/index')
+        ? Promise.resolve({ entries: [{ key: 'A', label: 'A', count: 3, offset: 0 }] })
+        : fake(url)
+    )
+    const { result } = renderGallery()
+    await waitFor(() =>
+      expect(result.current.flatIndex).toEqual([
+        { key: 'A', label: 'A', count: 3, offset: 0, preview: [] },
+      ])
+    )
+    expect(params(calls('/maps/index')[0])).toMatchObject({ sort: 'name', order: 'asc' })
+
+    act(() => result.current.setSortFilter((s) => ({ ...s, sort: 'size' })))
+    await waitFor(() => expect(result.current.flatIndex).toEqual([]))
+  })
+
+  it('has no index when the server cannot give one', async () => {
+    groupedDefault = false
+    setup(tokens)
+    const fake = mockGet.getMockImplementation()!
+    mockGet.mockImplementation((url: string) =>
+      url.startsWith('/maps/index') ? Promise.reject(new Error('down')) : fake(url)
+    )
+    const { result } = renderGallery()
+    await waitFor(() => expect(calls('/maps/index')).toHaveLength(1))
+    expect(result.current.flatIndex).toEqual([])
+  })
+
+  it('reopens the flat list at an offset and loads what came before', async () => {
+    groupedDefault = false
+    setup(tokens)
+    const { result } = renderGallery()
+    await waitFor(() => expect(result.current.flatItems).toHaveLength(6))
+    act(() => result.current.jumpFlat(4))
+    await waitFor(() => expect(result.current.flatStart).toBe(4))
+    await waitFor(() => expect(result.current.flatItems).toHaveLength(2))
+    expect(result.current.flatHasEarlier).toBe(true)
+    expect(result.current.flatTotal).toBe(6)
+    act(() => result.current.loadEarlierFlat())
+    await waitFor(() => expect(result.current.flatStart).toBe(0))
+    expect(result.current.flatItems).toHaveLength(6)
   })
 })

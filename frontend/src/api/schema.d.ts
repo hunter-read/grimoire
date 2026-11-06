@@ -454,6 +454,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/audio/index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Where each letter starts in the flat list
+         * @description For the `name` sort, each first letter's run (`#` for digits and symbols); for `added_at`, each month. Gives the run's length and its offset in the list for the same filters and order, so a jump rail can open the list there. Other sorts return no entries.
+         */
+        get: operations["list_audio_index_api_audio_index_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/audio/{audio_id}": {
         parameters: {
             query?: never;
@@ -4624,6 +4644,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/maps/index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Where each letter starts in the flat list
+         * @description For the `name` sort, each first letter's run (`#` for digits and symbols); for `added_at`, each month. Gives the run's length and its offset in the list for the same filters and order, so a jump rail can open the list there. Other sorts return no entries.
+         */
+        get: operations["list_map_index_api_maps_index_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/maps/{map_id}": {
         parameters: {
             query?: never;
@@ -5036,6 +5076,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/models/index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Where each letter starts in the flat list
+         * @description For the `name` sort, each first letter's run (`#` for digits and symbols); for `added_at`, each month. Gives the run's length and its offset in the list for the same filters and order, so a jump rail can open the list there. Other sorts return no entries.
+         */
+        get: operations["list_model_index_api_models_index_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/models/{model_id}": {
         parameters: {
             query?: never;
@@ -5242,6 +5302,50 @@ export interface paths {
         post?: never;
         /** Delete a parent system (admin; blocked if in use unless force=true) */
         delete: operations["delete_parent_system_api_parent_systems__parent_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the user's pins
+         * @description Oldest first. Pass `collection` for one view's pins.
+         */
+        get: operations["list_pins_api_pins_get"];
+        put?: never;
+        /**
+         * Pin a folder or game system
+         * @description `collection` is the view (`systems`, `maps`, `tokens`, `audio`, `models`); `target` is a game system's id, or a collection-relative folder path. Pinning something already pinned returns the existing pin.
+         */
+        post: operations["add_pin_api_pins_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pins/{pin_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Unpin
+         * @description Unpin. Another user's pin is a 404, the same as one that does not exist.
+         */
+        delete: operations["remove_pin_api_pins__pin_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -6622,6 +6726,26 @@ export interface paths {
          * @description Every folder that holds tokens matching the filters, with how many. Takes the same filters as the list; the gallery renders folders from this and opens each with the list's `folder` parameter (issue #221).
          */
         get: operations["list_token_groups_api_tokens_groups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tokens/index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Where each letter starts in the flat list
+         * @description For the `name` sort, each first letter's run (`#` for digits and symbols); for `added_at`, each month. Gives the run's length and its offset in the list for the same filters and order, so a jump rail can open the list there. Other sorts return no entries.
+         */
+        get: operations["list_token_index_api_tokens_index_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -8545,6 +8669,16 @@ export interface components {
              * @default false
              */
             unreadable_name?: boolean;
+        };
+        /**
+         * BrowseIndexResponse
+         * @description Where each letter (or added month) starts in the flat list, in display order.
+         *
+         *     Empty for a sort with no landmarks to jump between (size, duration, track).
+         */
+        BrowseIndexResponse: {
+            /** Entries */
+            entries: components["schemas"]["IndexEntry"][];
         };
         /** BrowseResponse */
         BrowseResponse: {
@@ -11528,6 +11662,20 @@ export interface components {
             version?: string;
         };
         /**
+         * IndexEntry
+         * @description One landmark in the flat list: a first letter, or a month items were added.
+         */
+        IndexEntry: {
+            /** Count */
+            count: number;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Offset */
+            offset: number;
+        };
+        /**
          * InstallablePack
          * @description A filesystem content pack that can be copied into a ruleset.
          */
@@ -13050,6 +13198,27 @@ export interface components {
             sessions_revoked: number;
             /** Status */
             status: string;
+        };
+        /** PinIn */
+        PinIn: {
+            /** Collection */
+            collection: string;
+            /** Target */
+            target: string;
+        };
+        /** PinOut */
+        PinOut: {
+            /** Collection */
+            collection: string;
+            /** Id */
+            id: string;
+            /** Target */
+            target: string;
+        };
+        /** PinsResponse */
+        PinsResponse: {
+            /** Pins */
+            pins: components["schemas"]["PinOut"][];
         };
         /**
          * PlayerNoteOut
@@ -18297,6 +18466,54 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FolderGroupsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_audio_index_api_audio_index_get: {
+        parameters: {
+            query?: {
+                /** @description Search text. Matches the name, folder path, and tags; accepts the search page's `field:value` prefixes (`tag:`, `title:`, `filename:`, `artist:`, `album:`). */
+                q?: string;
+                /** @description Tag filter as JSON: a list of `{mode: include|exclude, tags: [...]}` groups (tags OR'd within a group, groups AND'd), or a flat list of tags that must all match. Folder tags count for everything beneath the folder. `__grim:none__`/`__grim:any__` match items with no tags / any tag. */
+                tags?: string | null;
+                /** @description Only the caller's favorites. */
+                favorites?: boolean;
+                /** @description Only items added at or after this time (undated items never match). */
+                added_since?: string | null;
+                /** @description Only items directly in this folder (collection-relative, `""` for the root). Omit for the whole collection. */
+                folder?: string | null;
+                /** @description One of: added_at, duration, name, path, size, title, track. `path` is folder order. */
+                sort?: string;
+                order?: "asc" | "desc";
+            };
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrowseIndexResponse"];
                 };
             };
             /** @description Validation Error */
@@ -27561,6 +27778,55 @@ export interface operations {
             };
         };
     };
+    list_map_index_api_maps_index_get: {
+        parameters: {
+            query?: {
+                map_type?: string | null;
+                /** @description Search text. Matches the name, folder path, and tags; accepts the search page's `field:value` prefixes (`tag:`, `title:`, `filename:`, `artist:`, `album:`). */
+                q?: string;
+                /** @description Tag filter as JSON: a list of `{mode: include|exclude, tags: [...]}` groups (tags OR'd within a group, groups AND'd), or a flat list of tags that must all match. Folder tags count for everything beneath the folder. `__grim:none__`/`__grim:any__` match items with no tags / any tag. */
+                tags?: string | null;
+                /** @description Only the caller's favorites. */
+                favorites?: boolean;
+                /** @description Only items added at or after this time (undated items never match). */
+                added_since?: string | null;
+                /** @description Only items directly in this folder (collection-relative, `""` for the root). Omit for the whole collection. */
+                folder?: string | null;
+                /** @description One of: added_at, duration, name, path, size, title, track. `path` is folder order. */
+                sort?: string;
+                order?: "asc" | "desc";
+            };
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrowseIndexResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_map_api_maps__map_id__get: {
         parameters: {
             query?: never;
@@ -28449,6 +28715,54 @@ export interface operations {
             };
         };
     };
+    list_model_index_api_models_index_get: {
+        parameters: {
+            query?: {
+                /** @description Search text. Matches the name, folder path, and tags; accepts the search page's `field:value` prefixes (`tag:`, `title:`, `filename:`, `artist:`, `album:`). */
+                q?: string;
+                /** @description Tag filter as JSON: a list of `{mode: include|exclude, tags: [...]}` groups (tags OR'd within a group, groups AND'd), or a flat list of tags that must all match. Folder tags count for everything beneath the folder. `__grim:none__`/`__grim:any__` match items with no tags / any tag. */
+                tags?: string | null;
+                /** @description Only the caller's favorites. */
+                favorites?: boolean;
+                /** @description Only items added at or after this time (undated items never match). */
+                added_since?: string | null;
+                /** @description Only items directly in this folder (collection-relative, `""` for the root). Omit for the whole collection. */
+                folder?: string | null;
+                /** @description One of: added_at, duration, name, path, size, title, track. `path` is folder order. */
+                sort?: string;
+                order?: "asc" | "desc";
+            };
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrowseIndexResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_model_api_models__model_id__get: {
         parameters: {
             query?: never;
@@ -28989,6 +29303,115 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["LookupDeleteResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_pins_api_pins_get: {
+        parameters: {
+            query?: {
+                /** @description Only this view's pins. */
+                collection?: string | null;
+            };
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PinsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_pin_api_pins_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PinIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PinOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_pin_api_pins__pin_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                pin_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -32300,6 +32723,54 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FolderGroupsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_token_index_api_tokens_index_get: {
+        parameters: {
+            query?: {
+                /** @description Search text. Matches the name, folder path, and tags; accepts the search page's `field:value` prefixes (`tag:`, `title:`, `filename:`, `artist:`, `album:`). */
+                q?: string;
+                /** @description Tag filter as JSON: a list of `{mode: include|exclude, tags: [...]}` groups (tags OR'd within a group, groups AND'd), or a flat list of tags that must all match. Folder tags count for everything beneath the folder. `__grim:none__`/`__grim:any__` match items with no tags / any tag. */
+                tags?: string | null;
+                /** @description Only the caller's favorites. */
+                favorites?: boolean;
+                /** @description Only items added at or after this time (undated items never match). */
+                added_since?: string | null;
+                /** @description Only items directly in this folder (collection-relative, `""` for the root). Omit for the whole collection. */
+                folder?: string | null;
+                /** @description One of: added_at, duration, name, path, size, title, track. `path` is folder order. */
+                sort?: string;
+                order?: "asc" | "desc";
+            };
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrowseIndexResponse"];
                 };
             };
             /** @description Validation Error */

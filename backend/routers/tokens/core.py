@@ -82,6 +82,17 @@ def list_token_groups(
     total, groups = browser.groups(params)
     return {"total": total, "groups": groups}
 
+def list_token_index(
+    params: MediaBrowse = Depends(media_browse_params),
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Where each letter (or added month) starts in the flat list of tokens."""
+    browser = MediaBrowser(
+        db, "token", current_user.id, hide_explicit=not allow_explicit(db, current_user.id)
+    )
+    return {"entries": browser.index(params)}
+
 
 def list_token_folders(db: Session = Depends(get_db)):
     folders = db.query(TokenFolder).all()

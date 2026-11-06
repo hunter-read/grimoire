@@ -1,7 +1,15 @@
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LuFolder, LuChevronDown, LuChevronRight, LuDownload, LuPlay } from 'react-icons/lu'
+import { Link } from 'react-router-dom'
+import {
+  LuFolder,
+  LuFolderOpen,
+  LuChevronDown,
+  LuChevronRight,
+  LuDownload,
+  LuPlay,
+} from 'react-icons/lu'
 import MediaCard from './MediaCard'
 import VirtualGrid from './VirtualGrid'
 import FolderTagRow from './FolderTagRow'
@@ -9,6 +17,7 @@ import FramesBadge from './FramesBadge'
 import FolderCheckbox from '../FolderCheckbox'
 import LoadMoreSentinel from '../LoadMoreSentinel'
 import RescanButton from '../RescanButton'
+import PinButton from '../pins/PinButton'
 import Spinner from '../Spinner'
 import { toTitleCase } from '../../utils'
 import { useAudioPlayer } from '../../context/AudioPlayerContext'
@@ -16,6 +25,7 @@ import useIsMobile from '../../hooks/useIsMobile'
 import useAsyncAction from '../../hooks/useAsyncAction'
 import type { MediaConfig, MediaItem } from './mediaConfig'
 import type { ToggleMods } from './MediaCard'
+import { ROOT_FOLDER } from '../../hooks/useMediaGallery'
 
 /** One folder below the group (or the group's own items, under ''). */
 export interface MediaSubfolder {
@@ -54,7 +64,19 @@ export interface MediaFolderGroupProps {
   onDownload?: (download: FolderDownload) => void
   onLoadFolder?: (path: string) => void
   onFetchFolderItems?: (paths: string[]) => Promise<MediaItem[]>
+  /** The folder's name as shown, when `folder` is a deeper path ("Caverns"). */
+  label?: string
+  /** The folder heading's level: 2 at the top of a gallery, 3 under a letter. */
+  headingLevel?: 2 | 3
+  /** Where opening a folder as its own page goes; no "Open" links without it. */
+  folderHref?: (path: string) => string
+  /** Pinning: whether a folder path is pinned, and the toggle. */
+  isPinned?: (path: string) => boolean
+  onTogglePin?: (path: string) => void
 }
+
+// A small action beside a folder name (play, download, open).
+type LinkStyle = CSSProperties
 
 const zipBtnStyle: CSSProperties = {
   display: 'inline-flex',
@@ -121,6 +143,11 @@ export default function MediaFolderGroup({
   onDownload,
   onLoadFolder = () => {},
   onFetchFolderItems,
+  label,
+  headingLevel = 2,
+  folderHref,
+  isPinned,
+  onTogglePin,
 }: MediaFolderGroupProps) {
   const { t } = useTranslation()
   const isMobilePhone = useIsMobile(640)
@@ -132,6 +159,12 @@ export default function MediaFolderGroup({
   const isFrameFolder = (path: string) => !!frameFolders && frameFolders.has(path)
 
   const isCollapsed = collapsed.has(folder)
+  const name = toTitleCase(label ?? folder)
+  // Folder headings sit under the page's h1, or under a letter heading.
+  const Heading = headingLevel === 3 ? 'h3' : 'h2'
+  const SubHeading = headingLevel === 3 ? 'h4' : 'h3'
+  // The collection root is not a folder that can be opened or pinned.
+  const realFolder = folder !== ROOT_FOLDER
   const groupsBelow = Object.values(subfolders)
   // Loaded items only - the folder may hold more than has been paged in.
   const allInGroup = groupsBelow.flatMap((g) => g.items)
@@ -190,10 +223,13 @@ export default function MediaFolderGroup({
           {/* The toggle inside a heading, with the count: each folder is a stop
               for heading navigation and reads "Dungeons, 12 maps". The button's
               name is the folder's own; aria-expanded says open or shut. */}
-          <h2
+          <Heading
             style={{
               ...folderHeading,
               flex: 1,
+              // On a phone the folder's actions wrap under its name rather
+              // than squeezing the name out of the row.
+              flexBasis: isMobilePhone ? '100%' : undefined,
               minWidth: 0,
               gap: 10,
             }}
@@ -229,7 +265,7 @@ export default function MediaFolderGroup({
                   whiteSpace: 'nowrap',
                 }}
               >
-                {toTitleCase(folder)}
+                {name}
               </span>
               {isFrameFolder(folder) && <FramesBadge label={t('tokens.framesFolder')} />}
               {!isMobilePhone && (
@@ -246,7 +282,23 @@ export default function MediaFolderGroup({
             <span style={{ fontSize: 14, color: 'var(--text-muted)', flexShrink: 0 }}>
               {t(`${i18n}.${countKey}`, { count: total })}
             </span>
-          </h2>
+          </Heading>
+          {!bulkMode && folderHref && realFolder && (
+            <Link
+              to={folderHref(folder)}
+              style={zipBtnStyle as LinkStyle}
+              aria-label={t('folderNav.open', { folder: name })}
+            >
+              <LuFolderOpen size={11} aria-hidden="true" /> {t('folderNav.openShort')}
+            </Link>
+          )}
+          {!bulkMode && onTogglePin && realFolder && (
+            <PinButton
+              name={name}
+              pinned={!!isPinned?.(folder)}
+              onToggle={() => onTogglePin(folder)}
+            />
+          )}
           {!bulkMode && isAudio && (
             <button
               onClick={(e) => {
@@ -254,8 +306,8 @@ export default function MediaFolderGroup({
                 playFolder(groupsBelow.map((g) => g.path))
               }}
               style={zipBtnStyle}
-              title={t('audio.playFolder', { folder })}
-              aria-label={t('audio.playFolder', { folder })}
+              title={t('audio.playFolder', { folder: name })}
+              aria-label={t('audio.playFolder', { folder: name })}
             >
               <LuPlay size={11} /> {t('audio.player.play')}
             </button>
@@ -265,13 +317,13 @@ export default function MediaFolderGroup({
               onClick={(e) => {
                 e.stopPropagation()
                 onDownload?.({
-                  title: archiveTitle(toTitleCase(folder)),
+                  title: archiveTitle(name),
                   params: { type: archiveType, folder },
                 })
               }}
               style={zipBtnStyle}
-              title={t(`${i18n}.downloadAllInFolder`, { folder })}
-              aria-label={t(`${i18n}.downloadAllInFolder`, { folder })}
+              title={t(`${i18n}.downloadAllInFolder`, { folder: name })}
+              aria-label={t(`${i18n}.downloadAllInFolder`, { folder: name })}
             >
               <LuDownload size={11} /> {t(`${i18n}.download`)}
             </button>
@@ -362,7 +414,7 @@ export default function MediaFolderGroup({
                           onChange={() => onToggleFolder(folderPath, subItems)}
                         />
                       )}
-                      <h3 style={{ ...folderHeading, minWidth: 0 }}>
+                      <SubHeading style={{ ...folderHeading, minWidth: 0 }}>
                         <button
                           onClick={() => onToggle(editKey)}
                           aria-expanded={!isSubCollapsed}
@@ -411,7 +463,18 @@ export default function MediaFolderGroup({
                             <FramesBadge label={t('tokens.framesFolder')} />
                           )}
                         </button>
-                      </h3>
+                      </SubHeading>
+                      {!bulkMode && folderHref && (
+                        <Link
+                          to={folderHref(folderPath)}
+                          style={zipBtnStyle as LinkStyle}
+                          aria-label={t('folderNav.open', {
+                            folder: subPath.split('/').map(toTitleCase).join(' / '),
+                          })}
+                        >
+                          <LuFolderOpen size={11} aria-hidden="true" /> {t('folderNav.openShort')}
+                        </Link>
+                      )}
                       {editingFolder !== editKey && !bulkMode && !isMobilePhone && (
                         <>
                           <FolderTagRow
@@ -441,10 +504,7 @@ export default function MediaFolderGroup({
                               e.stopPropagation()
                               onDownload?.({
                                 title: archiveTitle(
-                                  `${toTitleCase(folder)} / ${subPath
-                                    .split('/')
-                                    .map(toTitleCase)
-                                    .join(' / ')}`
+                                  `${name} / ${subPath.split('/').map(toTitleCase).join(' / ')}`
                                 ),
                                 params: { type: archiveType, folder: `${folder}/${subPath}` },
                               })

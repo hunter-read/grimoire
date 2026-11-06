@@ -66,6 +66,7 @@ from .routers import (
     naming as naming_router,
     oidc as oidc_router,
     opds as opds_router,
+    pins as pins_router,
     saved_filters as saved_filters_router,
     search as search_router,
     settings as settings_router,
@@ -470,6 +471,7 @@ api.include_router(favorites_router.router)
 api.include_router(tags_router.router)
 api.include_router(audio_sets_router.router)
 api.include_router(saved_filters_router.router)
+api.include_router(pins_router.router)
 api.include_router(bookmarks_router.router)
 api.include_router(downloads_router.router)
 api.include_router(settings_router.router)

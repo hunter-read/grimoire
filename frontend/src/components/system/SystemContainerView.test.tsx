@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render as rtlRender, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render as rtlRender, screen, waitFor } from '@testing-library/react'
 import type { RenderOptions } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import type { Mock } from 'vitest'
@@ -27,6 +27,7 @@ vi.mock('react-i18next', () => ({
 vi.mock('../../api', () => ({
   default: {
     get: vi.fn(() => Promise.resolve({ filters: [] })),
+    post: vi.fn(() => Promise.resolve({ id: 'p1', collection: 'systems', target: 'container-1' })),
     upload: vi.fn(),
     delete: vi.fn(),
   },
@@ -328,5 +329,21 @@ describe('SystemContainerView', () => {
       await userEvent.click(screen.getByText('systemEditor.chooseImage'))
       expect(screen.getByTestId('image-picker-input')).toBeInTheDocument()
     })
+  })
+
+  it('pins the collection', async () => {
+    render(<SystemContainerView {...unset} system={makeContainer()} onBack={vi.fn()} />)
+    const pin = screen.getByRole('button', { name: 'pins.pin' })
+    fireEvent.click(pin)
+    await waitFor(() => expect(pin).toHaveAttribute('aria-pressed', 'true'))
+  })
+
+  it('letters a large collection and indexes it', () => {
+    const children = Array.from({ length: 32 }, (_, i) =>
+      child({ id: `c${i}`, name: `${'ABCD'[i % 4]}child ${String(i).padStart(2, '0')}` })
+    )
+    render(<SystemContainerView {...unset} system={makeContainer({ children })} onBack={vi.fn()} />)
+    expect(screen.getByRole('navigation', { name: 'thumbIndex.jumpSystems' })).toBeInTheDocument()
+    expect(screen.getAllByRole('heading', { level: 2 })).toHaveLength(4)
   })
 })

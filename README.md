@@ -329,6 +329,7 @@ kept in the repo so it versions with the release you are running:
 | --------------------------------------------- | ------------------------------------------------------------------------------- |
 | [Settings](docs/settings.md)                  | Where each setting lives, searching for one, and the admin overview             |
 | [Searching your library](docs/search.md)      | Field searches (`title:`, `tag:`, `year:`) and how ranking works                |
+| [Browsing a large library](docs/browsing.md)  | The letter rail, folder pages, pins, and addresses you can bookmark             |
 | [File management](docs/file-management.md)    | The in-app file manager, duplicates and versions, and adding files from outside |
 | [Metadata sidecars](docs/sidecars.md)         | Reading `.opf` in, and writing metadata back out to your library                |
 | [Filename rules](docs/filename-rules.md)      | Reading titles from structured filenames, renaming files to a scheme            |

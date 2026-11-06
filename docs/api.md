@@ -139,7 +139,7 @@ A permission is an area of the API, taken from each endpoint's OpenAPI tag:
 | `logs` | `logs` | Application logs |
 | `settings` | `settings` | App settings, including `/api/settings/ui` |
 | `users` | `users` | User management, and the owner's own preferences |
-| `personal` | `favorites`, `bookmarks`, `saved-filters`, `audio-sets`, `themes` | The owner's favourites, bookmarks, saved filters, saved audio sets and themes |
+| `personal` | `favorites`, `bookmarks`, `saved-filters`, `pins`, `audio-sets`, `themes` | The owner's favourites, bookmarks, saved filters, pins, saved audio sets and themes |
 
 **All permissions.** A key's permissions may also hold `"*"`, which raises every
 permission - including any added in a later version - to at least that level.
@@ -850,6 +850,7 @@ books-only and are not indexed here.
 |----------|--------|------|-------------|
 | `/api/maps` | GET | any | Paginated map list (items include `is_archive`). Query: `limit`, `offset`, `map_type`, and the [browse parameters](#browsing-the-media-collections) |
 | `/api/maps/groups` | GET | any (not guest) | Folders holding matching maps, with counts. Query: `map_type` and the browse filters |
+| `/api/maps/index` | GET | any (not guest) | Where each letter (or added month) starts in the flat list of maps, for a jump rail. Query: `map_type` and the browse filters, `sort`, `order` |
 | `/api/maps/:id` | GET | any | Map detail: filename, tags, `map_type`, `grid_size`, `file_size`, `has_thumbnail`, `is_archive`, `is_pdf`, `page_count` (PDF maps only; `null` otherwise) |
 **Changing a book's category moves its file.** The folder a book sits in is what
 the next rescan reads, so recording a new category without moving the file would
@@ -1074,6 +1075,7 @@ all is stored as `null`.
 |----------|--------|------|-------------|
 | `/api/tokens` | GET | any | Paginated token list (items include `is_archive`). Query: `limit`, `offset`, and the [browse parameters](#browsing-the-media-collections) |
 | `/api/tokens/groups` | GET | any (not guest) | Folders holding matching tokens, with counts. Query: the browse filters |
+| `/api/tokens/index` | GET | any (not guest) | Where each letter (or added month) starts in the flat list of tokens, for a jump rail. Query: the browse filters, `sort`, `order` |
 | `/api/tokens/:id` | GET | any | Token detail incl. `is_archive` (`pixel_width`/`pixel_height` are `null` for archives) |
 | `/api/tokens/:id` | PATCH | gm/admin | Update `description`, `tags`, `is_explicit` |
 | `/api/tokens/:id/file` | GET | any | Download the token image, or the archive (served with the archive's MIME type) |
@@ -1138,6 +1140,7 @@ Audio tracks behave like maps/tokens, with embedded metadata. Supported formats:
 |----------|--------|------|-------------|
 | `/api/audio` | GET | any | Paginated audio list (collection key `audio`). Query: `limit`, `offset`, and the [browse parameters](#browsing-the-media-collections) (`sort` also takes `track`, `title` and `duration`). Items include `duration`, `title`, `artist`, `album`, `track_number`, `disc_number`, `has_artwork`, `is_archive`. `track_number`/`disc_number` come from the file's track/disc tags and are `null` when it has none |
 | `/api/audio/groups` | GET | any (not guest) | Folders holding matching tracks, with counts. Query: the browse filters |
+| `/api/audio/index` | GET | any (not guest) | Where each letter (or added month) starts in the flat list of tracks, for a jump rail. Query: the browse filters, `sort`, `order` |
 | `/api/audio/:id` | GET | any | Track detail incl. `track_number`, `disc_number`, `folder_path` and `folder_tags` |
 | `/api/audio/:id` | PATCH | gm/admin | Update `description`, `tags` |
 | `/api/audio/:id/chapters` | GET | any | Chapter markers embedded in the file, read on request: `{chapters: [{start, title}]}` ordered by `start` (seconds). Reads `.m4b`/`.m4a` QuickTime chapter tracks and Nero `chpl` lists, and MP3 ID3 `CHAP` frames. `title` is `""` when the file names none. Empty for a track without chapters, an archive, or a missing file |
@@ -1170,6 +1173,7 @@ unknown) so a UI badge cannot misreport an unclassified model.
 |----------|--------|------|-------------|
 | `/api/models` | GET | any | Paginated model list (collection key `models`). Query: `limit`, `offset`, and the [browse parameters](#browsing-the-media-collections). Items include `triangle_count`, `is_presupported`, `is_unsupported`, `is_archive` |
 | `/api/models/groups` | GET | any (not guest) | Folders holding matching models, with counts. Query: the browse filters |
+| `/api/models/index` | GET | any (not guest) | Where each letter (or added month) starts in the flat list of models, for a jump rail. Query: the browse filters, `sort`, `order` |
 | `/api/models/:id` | GET | any | Model detail incl. `folder_path`, `folder_tags`, `is_supported`, `viewer_loader`, `viewer_available`, `viewer_oversized` |
 | `/api/models/:id` | PATCH | gm/admin | Update `description`, `tags`, `is_explicit`, `is_supported` |
 | `/api/models/:id/file` | GET | any | Download the mesh file (served with the format's MIME type), or the archive |
@@ -1214,6 +1218,17 @@ listing that folder returns:
 folder holding matching items, collection-relative (`""` for the root). The
 gallery draws its folders from this and opens each with the list route's
 `folder` parameter; ungrouped, it pages the flat list instead.
+
+`GET /api/<collection>/index` returns `{entries: [{key, label, count, offset}]}`:
+where each run of the flat list starts, for the gallery's letter rail. For the
+`name` sort a run is a first letter of the stored natural sort key - case- and
+accent-folded, so "Élan" is an `E` - with digits and symbols under `#`; for
+`added_at` it is a month (`label` is `YYYY-MM`, and `""` for undated items,
+which sort last). `offset` is where the run's first item sits in the list
+route's results for the same filters and `order`, so the rail can open the list
+right there with `offset=`. `count` is the run's length. A label that comes up
+again further down (symbols sorting after `z`) is a run of its own with a
+unique `key` (`#~1`). Any other sort returns no entries.
 
 #### Browsing a system's shelf
 
@@ -1318,6 +1333,22 @@ preset default clears the flag on any sibling in the same scope.
 
 Scopes: `systems`, `books`, `maps`, `tokens`, `audio`, `models`. `state` is an opaque
 sort/filter object the client interprets (e.g. `{sort, order, filters}`).
+
+### Pins
+
+Folders and game systems a user keeps one click away, shown as a strip at the
+top of their view. Per user; guests have none.
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/pins` | GET | any (not guest) | The user's pins, oldest first. Optional query `collection` limits to one view (400 for an unknown one). Returns `{pins: [{id, collection, target}]}` |
+| `/api/pins` | POST | any (not guest) | Pin. Body `{collection, target}`. Pinning something already pinned returns the existing pin. At most 100 pins per view (400 beyond that) |
+| `/api/pins/:id` | DELETE | any (not guest) | Unpin. Someone else's pin is a 404, the same as a missing one |
+
+`collection` is the view: `systems` (a `target` is a game system's id) or
+`maps`, `tokens`, `audio`, `models` (a collection-relative folder path, stored
+without leading or trailing slashes, up to 1,000 characters). A pin points at
+the path rather than the rows inside it, so it survives a rescan.
 
 ### Saved audio sets
 

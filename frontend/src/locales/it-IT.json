@@ -165,7 +165,8 @@
     "cancelBulk": "Annulla",
     "noTagMatch": "Nessun sistema corrisponde ai tag selezionati.",
     "filterByTag": "Filtra per {{tag}}",
-    "groupContainers": "Raggruppa collezioni"
+    "groupContainers": "Raggruppa collezioni",
+    "searchPlaceholder": "Trova un sistema…"
   },
   "systemContainer": {
     "badge": "Collezione di sistemi",
@@ -1659,7 +1660,7 @@
         },
         "personal": {
           "label": "Personale",
-          "description": "I tuoi preferiti, segnalibri, filtri salvati, playlist e soundboard salvate, e temi"
+          "description": "I tuoi preferiti, segnalibri, filtri salvati, elementi fissati, playlist e soundboard salvate, e temi"
         },
         "all": {
           "label": "Tutte le autorizzazioni",
@@ -4405,5 +4406,40 @@
       "setArtFor": "Imposta il ritratto di {{name}}",
       "shareWith": "Condividi {{name}} con"
     }
+  },
+  "thumbIndex": {
+    "hint": "Usa le frecce per spostarti tra le lettere, oppure digita una lettera per andarci.",
+    "more_one": "+ altri {{count}}",
+    "more_other": "+ altri {{count}}",
+    "enterToJump": "Invio per saltare",
+    "undated": "Senza data",
+    "jumpSystems": "Vai ai sistemi per lettera",
+    "jumpFolders": "Vai alle cartelle per lettera",
+    "jumpItems": "Scorri {{collection}}",
+    "systems_one": "{{count}} sistema",
+    "systems_other": "{{count}} sistemi",
+    "folders_one": "{{count}} cartella",
+    "folders_other": "{{count}} cartelle",
+    "showEarlier_one": "Mostra elementi precedenti ({{count}} sopra)",
+    "showEarlier_other": "Mostra elementi precedenti ({{count}} sopra)"
+  },
+  "pins": {
+    "pin": "Fissa {{name}}",
+    "pinShort": "Fissa",
+    "pinTitle": "Fissa {{name}} in cima a questa pagina",
+    "unpinTitle": "Sblocca {{name}}",
+    "unpin": "Sblocca {{name}}",
+    "heading": "Fissati",
+    "systemsLabel": "Sistemi fissati",
+    "foldersLabel": "Cartelle fissate in {{collection}}"
+  },
+  "folderNav": {
+    "open": "Apri {{folder}}",
+    "openShort": "Apri",
+    "here": "Direttamente in {{folder}}",
+    "pathLabel": "Percorso della cartella",
+    "siblings": "Cartelle accanto a {{folder}}",
+    "filterSiblings": "Filtra cartelle…",
+    "noSiblingMatch": "Nessuna cartella corrisponde"
   }
 }

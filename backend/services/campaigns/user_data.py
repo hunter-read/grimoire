@@ -25,6 +25,7 @@ _USER_SCOPED_TABLES = (
     "bookmarks",
     "favorites",
     "saved_filters",
+    "pins",
     "wiki_page_shares",
     "campaign_resource_shares",
     # Wiki pages a member hid from their own sidebar.
@@ -77,10 +78,12 @@ _USER_SCOPED_UNIQUE = (
     ("user_themes", "theme_id"),
     ("user_importers", "importer_id"),
     ("audio_sets", "kind, name"),
-    # One favourite per item, one saved filter per view and name, one
-    # availability answer per session date, one note per session.
+    # One favourite per item, one saved filter per view and name, one pin per
+    # folder or system in a view, one availability answer per session date,
+    # one note per session.
     ("favorites", "item_type, item_id"),
     ("saved_filters", "scope, name"),
+    ("pins", "collection, target"),
     ("session_availability", "campaign_id, session_date"),
     ("player_session_notes", "session_id"),
 )

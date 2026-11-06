@@ -2,11 +2,12 @@
 from fastapi import APIRouter, Depends
 
 from ...auth import require_not_guest
-from .._browse import FolderGroupsResponse
+from .._browse import BrowseIndexResponse, FolderGroupsResponse
 from .._bulk_schemas import BulkResult, BulkTagResult
 from .core import (
     list_audio,
     list_audio_groups,
+    list_audio_index,
     list_audio_folders,
     update_audio_folder,
     bulk_update_audio_folders,
@@ -62,6 +63,20 @@ router.add_api_route(
     ),
     dependencies=[Depends(require_not_guest)],
     response_model=FolderGroupsResponse,
+)
+router.add_api_route(
+    "/audio/index",
+    list_audio_index,
+    methods=["GET"],
+    summary="Where each letter starts in the flat list",
+    description=(
+        "For the `name` sort, each first letter's run (`#` for digits and symbols); "
+        "for `added_at`, each month. Gives the run's length and its offset in the "
+        "list for the same filters and order, so a jump rail can open the list there. "
+        "Other sorts return no entries."
+    ),
+    dependencies=[Depends(require_not_guest)],
+    response_model=BrowseIndexResponse,
 )
 router.add_api_route(
     "/audio-folders",

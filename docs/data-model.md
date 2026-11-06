@@ -38,6 +38,7 @@ erDiagram
     users ||--o{ bookmarks : has
     users ||--o{ favorites : has
     users ||--o{ saved_filters : has
+    users ||--o{ pins : has
     users ||--o{ audio_sets : saves
     users ||--o{ user_themes : installs
     users ||--o{ character_schemas : installs
@@ -134,6 +135,7 @@ its migration in the same change (and the reverse).
 | `bookmarks.book_id` | `books.id` | |
 | `favorites.user_id` | `users.id` | `item_id` is a soft link (not a FK) |
 | `saved_filters.user_id` | `users.id` | per-user sort/filter presets |
+| `pins.user_id` | `users.id` | per-user pinned folders and systems |
 | `audio_sets.user_id` | `users.id` | per-user named playlists and soundboards |
 | `user_themes.user_id` | `users.id` | per-user installed colour themes |
 | `character_schemas.user_id` | `users.id` | per-user installed character sheet definitions |
@@ -249,6 +251,7 @@ None of these tables carry foreign keys; they are linked to campaigns polymorphi
 | `bookmarks` | Per-user page/text bookmark in a book. | FKs `user_id`, `book_id`. Index `ix_bookmarks_user_book` on `(user_id, book_id)`. |
 | `favorites` | Per-user favorite across books/maps/tokens/audio/models. | FK `user_id`. Polymorphic `(item_type, item_id)`. **Unique** `(user_id, item_type, item_id)`. |
 | `saved_filters` | Per-user named sort/filter preset for a library scope. | FK `user_id` (indexed). `scope` ∈ systems/books/maps/tokens/audio/models. `state` JSON holds the sort/filter object. `is_default` marks the per-scope landing view (at most one per scope, enforced in the router). **Unique** `(user_id, scope, name)`. |
+| `pins` | A folder or game system one user keeps one click away, shown at the top of a browse view. | FK `user_id` (indexed). `collection` ∈ systems/maps/tokens/audio/models is the view. `target` is a game system's id for `systems`, otherwise a collection-relative folder path (no leading or trailing slash) - a soft link either way, not a FK, so a pin survives a rescan replacing the rows in its folder and a missing target is simply not shown. Listed oldest first. **Unique** `(user_id, collection, target)`. Added by migration 0061. |
 | `audio_sets` | Per-user named playlist or soundboard, saved from the live queue/board. | FK `user_id` (indexed). `kind` ∈ playlist/soundboard. `entries` JSON is the ordered `[{audio_id, loop}]` list; `loop` is meaningful only for a soundboard pad. `layout` JSON holds the soundboard grid `{cols, rows}` and is null for a playlist. Entries store audio ids only — titles are resolved against `audio` on read, and an entry whose track is gone is skipped and counted rather than failing the load, so `audio_id` is a soft link (not a FK). **Unique** `(user_id, kind, name)`, so a playlist and a soundboard may share a name while re-saving a name updates in place. |
 | `user_access_grants` | An override letting one user reach restricted content (issue #258). | FK `user_id` (indexed). `scope_type` ∈ system/book with `scope_id` (indexed) naming the target; `level` is the ceiling the grant raises the user to *within that scope*. `scope_id` is deliberately **not** a foreign key - it addresses two different tables depending on `scope_type`, which no single FK can express - so a deleted book or system leaves a harmless orphan that can never match. Only GMs may hold grants, enforced on both the write path and every read. **Unique** `(user_id, scope_type, scope_id)`. |
 | `user_themes` | A colour theme installed by one user, for that user only. | FK `user_id` (indexed). `tokens` JSON holds the `{name: colour}` map, re-validated against the token allowlist on read as well as write. `mode` ∈ light/dark is the primary colour mode; `variants` JSON holds `{colour_mode: {token: colour}}` so one theme can pair a light and a dark palette (a row predating it is read as single-mode, using `tokens`). `app_mode` ∈ grimoire/codex is which app mode the theme was built for (a preference, not a restriction). `source_id`/`source_url`/`source_version` record a downloaded theme's provenance and are null for one written in the app. **Unique** `(user_id, theme_id)`. |

@@ -1,5 +1,5 @@
 import { isValidElement, useCallback, useEffect, useLayoutEffect, useState } from 'react'
-import type { ReactNode, RefObject } from 'react'
+import type { MutableRefObject, ReactNode, RefObject } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 
 // How many rows beyond the visible range to keep mounted on each side. Enough
@@ -22,6 +22,12 @@ export function columnsFor(width: number | undefined, min: number, gap: number):
   return Math.max(1, Math.floor((width + gap) / (min + gap)))
 }
 
+/** What a caller can ask of a mounted grid (VirtualGrid's `handleRef`). */
+export interface VirtualGridHandle {
+  /** Scroll so the row holding item `index` (of `items`) sits at the top. */
+  scrollToItem: (index: number) => void
+}
+
 /** VirtualGrid's props. */
 export interface VirtualGridProps<T> {
   /** The full ordered list. */
@@ -34,6 +40,14 @@ export interface VirtualGridProps<T> {
   gap?: number
   /** One item per row (no tiling); `minColumn` is then unused. */
   list?: boolean
+  /** Where `items` starts in the whole list, when it was opened part-way. */
+  indexOffset?: number
+  /** The whole list's length, when more of it exists than `items`. */
+  setSize?: number
+  /** Told the first item in view (an index into `items`) as the reader scrolls. */
+  onFirstVisible?: (index: number) => void
+  /** Filled with the grid's VirtualGridHandle while it is mounted. */
+  handleRef?: MutableRefObject<VirtualGridHandle | null>
 }
 
 interface Props<T> extends VirtualGridProps<T> {
@@ -55,6 +69,10 @@ export default function VirtualGridRows<T>({
   minColumn,
   gap = 16,
   list = false,
+  indexOffset = 0,
+  setSize,
+  onFirstVisible,
+  handleRef,
   scrollEl,
   containerRef,
 }: Props<T>) {
@@ -96,6 +114,9 @@ export default function VirtualGridRows<T>({
     // folders above it come first — so rows are offset by wherever the
     // container actually starts.
     scrollMargin: containerRef.current?.offsetTop ?? 0,
+    // A row scrolled to (a jump from the letter rail) lands clear of the
+    // sticky sort/filter bar rather than underneath it.
+    scrollPaddingStart: 80,
   })
 
   // A column-count change moves every item to a different row, so the measured
@@ -105,6 +126,23 @@ export default function VirtualGridRows<T>({
   }, [columns, virtualizer])
 
   const rows = virtualizer.getVirtualItems()
+
+  // The first row in view, past the sticky toolbar, as an item index.
+  const firstRow = virtualizer.range?.startIndex ?? 0
+  useEffect(() => {
+    onFirstVisible?.(firstRow * columns)
+  }, [firstRow, columns, onFirstVisible])
+
+  useEffect(() => {
+    if (!handleRef) return undefined
+    handleRef.current = {
+      scrollToItem: (index) =>
+        virtualizer.scrollToIndex(Math.floor(Math.max(0, index) / columns), { align: 'start' }),
+    }
+    return () => {
+      handleRef.current = null
+    }
+  }, [handleRef, virtualizer, columns])
 
   // Measured through the virtualizer's own ref so each row reports its real
   // height: cards with square thumbnails grow with the column width, and titles
@@ -157,8 +195,8 @@ export default function VirtualGridRows<T>({
                   // the list reorders; the index is only a fallback.
                   key={isValidElement(node) && node.key != null ? node.key : index}
                   role="listitem"
-                  aria-setsize={items.length}
-                  aria-posinset={index + 1}
+                  aria-setsize={setSize ?? items.length}
+                  aria-posinset={indexOffset + index + 1}
                   // A grid, so the card inside stretches to the row's height as
                   // it did when it was the grid cell itself.
                   style={{ display: 'grid', minWidth: 0 }}

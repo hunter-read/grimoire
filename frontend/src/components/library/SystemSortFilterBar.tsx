@@ -31,6 +31,8 @@ export interface SystemSortFilterBarProps {
   canEdit?: boolean
   viewMode: string
   onCycleViewMode: () => void
+  /** Offer the name search inside the filter dialog (off where the view has its own box). */
+  showSearch?: boolean
 }
 
 /**
@@ -56,6 +58,7 @@ export default function SystemSortFilterBar({
   canEdit,
   viewMode,
   onCycleViewMode,
+  showSearch = true,
 }: SystemSortFilterBarProps) {
   const { t } = useTranslation()
   // Shared-tag display labels for system tags (values still match on internal key).
@@ -86,6 +89,7 @@ export default function SystemSortFilterBar({
     <SortFilterBar
       sticky
       scope="systems"
+      showSearch={showSearch}
       trailing={
         <>
           {canEdit && (

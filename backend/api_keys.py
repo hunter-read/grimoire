@@ -115,8 +115,9 @@ PERMISSIONS: dict[str, Permission] = {
         "campaigns",
     ),
     "personal": Permission(
-        ("favorites", "bookmarks", "saved-filters", "audio-sets", "themes"),
-        "Your favorites, bookmarks, saved filters, saved playlists and soundboards, and themes",
+        ("favorites", "bookmarks", "saved-filters", "pins", "audio-sets", "themes"),
+        "Your favorites, bookmarks, saved filters, pins, saved playlists and soundboards, "
+        "and themes",
         "campaigns",
     ),
     # Administration
