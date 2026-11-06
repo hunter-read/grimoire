@@ -127,6 +127,25 @@ class TestStripGmSecrets:
     def test_none_body_returns_empty(self):
         assert strip_gm_secrets(None) == ""
 
+    def test_a_code_marker_does_not_pair_with_prose(self):
+        # The ER cardinality has no partner in its fence, so it stays code and
+        # the prose secret after it pairs with its own closing marker.
+        fence = "```mermaid\nerDiagram\n  A ||--o{ B : has\n```"
+        body = f"{fence}\n\nThe duke ||is a vampire|| indeed."
+        assert strip_gm_secrets(body) == f"{fence}\n\nThe duke  indeed."
+
+    def test_a_prose_marker_does_not_pair_into_a_fence(self):
+        body = "Odd || out\n\n```js\nx || y\n```"
+        assert strip_gm_secrets(body) == body
+
+    def test_a_secret_inside_a_fence_is_stripped(self):
+        body = "```mermaid\nflowchart LR\n  A --> B\n  ||B --> Traitor||\n```"
+        assert strip_gm_secrets(body) == "```mermaid\nflowchart LR\n  A --> B\n  \n```"
+
+    def test_a_prose_secret_takes_the_fences_it_wraps(self):
+        body = "a\n||\n```\nx || y\n```\n||\nb"
+        assert strip_gm_secrets(body) == "a\n\nb"
+
 
 class TestMergeGmSecrets:
     """merge_gm_secrets re-weaves stored ||secrets|| into a body the player edited.
@@ -223,3 +242,11 @@ class TestMergeGmSecrets:
         assert "doppelganger" not in seen
         assert "||" not in seen
         assert "⟦" not in seen and "GM·" not in seen
+
+    def test_restores_secrets_in_and_around_a_fence(self):
+        stored = (
+            "Intro ||prose secret|| text.\n\n"
+            "```mermaid\nflowchart LR\n  A --> B\n  ||B --> Traitor||\n  C ||--o{ D\n```\n\nEnd."
+        )
+        new = self._seen(stored).replace("End.", "The end.")
+        assert merge_gm_secrets(stored, new) == stored.replace("End.", "The end.")

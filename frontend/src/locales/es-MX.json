@@ -2736,6 +2736,8 @@
     "emptyPage": "Esta página está vacía.",
     "missingPageHint": "Esta página aún no existe: se creará.",
     "secretHint": "Solo DJ: oculto para los jugadores",
+    "diagramError": "No se pudo mostrar este diagrama.",
+    "diagramErrorDetails": "Mostrar error",
     "embedPickerTitle": "Incrustar contenido de Grimoire",
     "embedSearchPlaceholder": "Buscar libros, mapas y fichas…",
     "embedCategoryTabs": "Categorías de contenido",

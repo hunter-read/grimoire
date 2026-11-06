@@ -67,7 +67,7 @@ from .wiki import (
     rebuild_links,
     slugify,
 )
-from ...text.wikilinks import build_target, parse_target
+from ...text.wikilinks import build_target, parse_target, sub_links
 
 BUNDLE_VERSION = 1
 _MAX_IMPORT_BYTES = 25 * 1024 * 1024  # 25 MB — bounds a single in-memory read.
@@ -920,8 +920,7 @@ def _parse_folder_upload(uploads: list) -> tuple:
     return foldered.records(), "markdown"
 
 
-# [[target]] / [[target|label]] for link remapping (embeds left untouched).
-_WIKILINK_RE = re.compile(r"\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]")
+# Embeds are left untouched by link remapping.
 _EMBED_PREFIXES = ("book:", "map:", "token:", "audio:")
 
 
@@ -953,7 +952,8 @@ def _remap_links(body: str, key_to_title: dict) -> str:
         new_target = build_target(new_title, None, link.heading)
         return f"[[{new_target}|{label.strip()}]]" if label else f"[[{new_target}]]"
 
-    return _WIKILINK_RE.sub(repl, body or "")
+    # Fenced code is copied through untouched: a Mermaid `A[[Node]]` is not a link.
+    return sub_links(repl, body or "")
 
 
 def _parent_index(records: list) -> dict:

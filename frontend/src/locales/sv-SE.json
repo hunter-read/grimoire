@@ -2736,6 +2736,8 @@
     "emptyPage": "Den här sidan är tom.",
     "missingPageHint": "Den här sidan finns inte än - den skapas.",
     "secretHint": "Endast spelledare - dold för spelare",
+    "diagramError": "Diagrammet kunde inte visas.",
+    "diagramErrorDetails": "Visa fel",
     "embedPickerTitle": "Bädda in Grimoire-innehåll",
     "embedSearchPlaceholder": "Sök böcker, kartor och tokens…",
     "embedCategoryTabs": "Innehållskategorier",

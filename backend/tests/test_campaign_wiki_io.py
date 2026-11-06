@@ -1127,3 +1127,60 @@ class TestDeeplyNestedJson:
         resp = _import_zip(client, gm_headers, c["id"], {"bundle.json": "[" * 30000})
         assert resp.status_code == 400
         assert resp.json()["detail"] == "Zip contains no importable wiki files"
+
+
+# Mermaid's own syntax looks like wiki syntax: `[[Node]]` is a shape and `||` a
+# cardinality. A diagram must come back from an Obsidian round trip as it went
+# out (#787).
+DIAGRAM = (
+    "Factions:\n\n"
+    "```mermaid\n"
+    "flowchart LR\n"
+    "  Guild[[Thieves Guild]] -.rumour.-> Watch\n"
+    "  Watch -->|bribes| Guild\n"
+    "```\n\n"
+    "See [[Watch House]]."
+)
+
+
+class TestMermaidFences:
+    def test_markdown_round_trip_keeps_the_fence_byte_for_byte(self, client, gm_headers):
+        src = _campaign(client, gm_headers)
+        _create(client, gm_headers, src["id"], title="Factions", body=DIAGRAM)
+        export = client.get(
+            f"/api/campaigns/{src['id']}/wiki/export?format=md", headers=gm_headers
+        )
+        assert export.status_code == 200
+        with zipfile.ZipFile(io.BytesIO(export.content)) as zf:
+            exported = zf.read("factions.md").decode("utf-8")
+        assert DIAGRAM in exported
+
+        dest = _campaign(client, gm_headers)
+        resp = _import(
+            client, gm_headers, dest["id"], "wiki.zip", export.content, "application/zip"
+        )
+        assert resp.status_code == 201, resp.text
+        pages = _by_title(client, gm_headers, dest["id"])
+        page = client.get(
+            f"/api/campaigns/{dest['id']}/wiki/{pages['Factions']['id']}", headers=gm_headers
+        ).json()
+        # Export ends every file with a newline, which import keeps.
+        assert page["body"].rstrip("\n") == DIAGRAM
+        # The real link made its stub; the diagram node did not.
+        assert "Watch House" in pages
+        assert "Thieves Guild" not in pages
+
+    def test_vault_import_does_not_remap_inside_a_fence(self, client, gm_headers):
+        # "Watch" is a page in the vault, so an outside [[Watch]] is remapped to
+        # its assigned title - the same text inside the fence is left alone.
+        body = "[[Watch]]\n\n```mermaid\nflowchart LR\n  A[[Watch:id-old]] --> B\n```"
+        c = _campaign(client, gm_headers)
+        resp = _import_zip(
+            client, gm_headers, c["id"], {"Watch.md": "Guards.", "Map.md": body}
+        )
+        assert resp.status_code == 201, resp.text
+        pages = _by_title(client, gm_headers, c["id"])
+        page = client.get(
+            f"/api/campaigns/{c['id']}/wiki/{pages['Map']['id']}", headers=gm_headers
+        ).json()
+        assert page["body"] == body

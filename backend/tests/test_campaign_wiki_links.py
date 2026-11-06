@@ -13,6 +13,7 @@ from backend.text.wikilinks import (
     find_heading,
     parse_page_links,
     parse_target,
+    sub_links,
 )
 
 
@@ -433,3 +434,87 @@ class TestHeadingLinksEndpoint:
         pages = client.get(f"/api/campaigns/{cid}/wiki", headers=gm_headers).json()
         # The stub is named for the title alone, not the whole target.
         assert "Brand New" in [p["title"] for p in pages]
+
+
+MERMAID = (
+    "```mermaid\n"
+    "flowchart LR\n"
+    "  Tavern[[Sub Routine]] --> Lair\n"
+    "```"
+)
+
+
+class TestFencedCode:
+    """A `[[...]]` in fenced code is literal: Mermaid's `A[[Node]]` is a shape (#787)."""
+
+    def test_links_inside_a_fence_are_not_links(self):
+        body = f"[[Before]]\n\n{MERMAID}\n\n[[After]]"
+        assert [link.title for link in parse_page_links(body)] == ["Before", "After"]
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            "~~~\n[[Tilde]]\n~~~",
+            "  ```js\n  [[Indented]]\n  ```",
+            "```\n[[Unclosed]] runs to the end",
+            # A longer fence is only closed by a run at least as long.
+            "````\n```\n[[Nested]]\n```\n````",
+            # And never by the other character.
+            "```\n~~~\n[[Mixed]]\n```",
+            "- ```\n  [[InAList]]\n  ```",
+            "1. ```\n   [[InANumberedList]]\n   ```",
+            "> ```\n> [[InAQuote]]\n> ```",
+        ],
+    )
+    def test_every_fence_shape_is_skipped(self, body):
+        assert parse_page_links(body) == []
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            "- ```\n  code\n  ```\n\n[[Out]]",
+            "> ```\n> code\n> ```\n\n[[Out]]",
+            # Inline code at the start of a line is not a fence.
+            "```inline``` code\n\n[[Out]]",
+            "Mid-line ``` is not a fence\n\n[[Out]]",
+        ],
+    )
+    def test_a_fence_never_swallows_what_follows(self, body):
+        assert [link.title for link in parse_page_links(body)] == ["Out"]
+
+    def test_a_link_after_a_closed_fence_still_counts(self):
+        assert [link.title for link in parse_page_links("```\nx\n```\n[[Out]]")] == ["Out"]
+
+    def test_sub_links_leaves_fences_byte_for_byte(self):
+        body = f"[[A]]\n{MERMAID}\n[[B]]"
+        assert sub_links(lambda m: "X", body) == f"X\n{MERMAID}\nX"
+
+    def test_headings_inside_tilde_and_indented_fences_are_ignored(self):
+        body = "# Real\n\n~~~\n# no\n~~~\n\n - ```\n   # no\n   ```\n\n## Also Real"
+        assert [h["text"] for h in extract_headings(body)] == ["Real", "Also Real"]
+
+    def test_saving_a_diagram_creates_no_stub_pages(self, client, gm_headers, gm_campaign):
+        cid = gm_campaign["id"]
+        page = _create(client, gm_headers, cid, title="Map", body=MERMAID).json()
+        client.patch(
+            f"/api/campaigns/{cid}/wiki/{page['id']}",
+            json={"body": f"{MERMAID}\n"},
+            headers=gm_headers,
+        )
+        pages = client.get(f"/api/campaigns/{cid}/wiki", headers=gm_headers).json()
+        assert [p["title"] for p in pages] == ["Map"]
+        assert _get(client, gm_headers, cid, page["id"])["body"] == f"{MERMAID}\n"
+
+    def test_rename_leaves_a_fenced_mention_alone(self, client, gm_headers, gm_campaign):
+        cid = gm_campaign["id"]
+        target = _create(client, gm_headers, cid, title="Keep").json()
+        body = "[[Keep]]\n\n```\n[[Keep]]\n```"
+        src = _create(client, gm_headers, cid, title="Index", body=body).json()
+        client.patch(
+            f"/api/campaigns/{cid}/wiki/{target['id']}",
+            json={"title": "Fort"},
+            headers=gm_headers,
+        )
+        assert _get(client, gm_headers, cid, src["id"])["body"] == (
+            "[[Fort]]\n\n```\n[[Keep]]\n```"
+        )

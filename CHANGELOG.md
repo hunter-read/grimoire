@@ -8,6 +8,15 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ## [Unreleased]
 
+### Added
+
+- Wiki pages draw ` ```mermaid ` code blocks as diagrams - flowcharts, timelines, sequence diagrams, family trees and more - in the page and in the editor preview. Diagrams follow the light/dark theme, and one that doesn't parse shows its source and the error. Obsidian draws the same blocks, so they survive a Markdown export and re-import
+
+### Fixed
+
+- Code blocks in wiki pages show exactly what was typed. A `[[...]]` inside one no longer turns into a link or creates an empty page, and a GM secret in a code block no longer splits it in two
+- Inline code in wiki pages sits inside its sentence again instead of breaking out onto a line of its own
+
 ## [1.10.2] - 2026-11-05
 
 ### Fixed

@@ -2736,6 +2736,8 @@
     "emptyPage": "Cette page est vide.",
     "missingPageHint": "Cette page n'existe pas encore - elle sera créée.",
     "secretHint": "MJ seulement - masqué pour les joueurs",
+    "diagramError": "Ce diagramme n'a pas pu être affiché.",
+    "diagramErrorDetails": "Afficher l'erreur",
     "embedPickerTitle": "Intégrer du contenu Grimoire",
     "embedSearchPlaceholder": "Rechercher livres, cartes et jetons…",
     "embedCategoryTabs": "Catégories de contenu",

@@ -13,13 +13,13 @@ from ...auth import CurrentUser
 from ...models import WikiPage, WikiPageHidden, WikiPageLink, WikiPageShare
 from ._helpers import can_view
 from ...text.wikilinks import (
-    LINK_RE,
     LinkTarget,
     build_target,
     is_embed,
     parse_page_links,
     parse_target,
     slugify,
+    sub_links,
 )
 
 
@@ -282,7 +282,8 @@ def rewrite_inbound_titles(db, campaign_id: str, page: WikiPage, old_title: str)
             new_target = build_target(page.title, link.page_id, link.heading)
             return f"[[{new_target}|{label}]]" if label else f"[[{new_target}]]"
 
-        updated = LINK_RE.sub(repl, src.body or "")
+        # A fence's `[[...]]` was never a link to this page; leave the code be.
+        updated = sub_links(repl, src.body or "")
         if updated != src.body:
             src.body = updated
 
