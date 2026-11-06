@@ -1,0 +1,64 @@
+# Grimoire + PostgreSQL
+#
+# Keeps Grimoire's database in PostgreSQL instead of the SQLite file under
+# DATA_PATH. Worth it if you already run PostgreSQL and back it up; for most
+# installs the default SQLite is simpler. See docs/postgresql.md.
+#
+# Put a database password in a .env file next to this one first (hex, so it
+# needs no escaping in the URL below):
+#   echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)" > .env
+#
+# Usage (new install):
+#   docker compose -f docs/docker/docker-compose.postgres.yml up -d
+#
+# Moving an existing install? Do NOT start Grimoire against the new database
+# first - follow "Moving an existing install" in docs/postgresql.md.
+
+services:
+  grimoire:
+    image: hunterreadca/grimoire:latest
+    container_name: grimoire
+    restart: unless-stopped
+    ports:
+      - "9481:9481"
+    environment:
+      - LIBRARY_PATH=/library
+      - DATA_PATH=/data
+      - WORKERS=1
+      - DATABASE_URL=postgresql://grimoire:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/grimoire
+    volumes:
+      # Writable so you can manage files from inside Grimoire. Append ":ro" to
+      # keep the library read-only.
+      - /path/to/your/library:/library
+      # Still needed: covers, uploads, thumbnails and the secret key live here.
+      - /path/to/grimoire/data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - grimoire
+
+  postgres:
+    # PostgreSQL 15 or newer.
+    image: postgres:18-alpine
+    container_name: grimoire-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=grimoire
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      - POSTGRES_DB=grimoire
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U grimoire -d grimoire"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - grimoire
+
+volumes:
+  postgres_data:
+
+networks:
+  grimoire:

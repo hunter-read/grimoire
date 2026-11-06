@@ -5,6 +5,10 @@ applies them on startup: fresh databases upgrade from the baseline to head; an
 existing database that predates Alembic (real tables, but no ``alembic_version``)
 is brought fully current by the legacy imperative migrations one final time, then
 stamped at the baseline so only genuinely new revisions run thereafter.
+
+PostgreSQL (``DATABASE_URL``) takes a different start: a fresh database is built
+from the models plus ``postgres.create_schema`` and stamped at head, because the
+revisions before that were written for SQLite. Revisions from then on run on both.
 """
 import contextlib
 import datetime
@@ -15,13 +19,14 @@ import zoneinfo
 from typing import Any, Iterator, Tuple
 
 from sqlalchemy import create_engine, event, inspect, text
-from sqlalchemy.engine import Connection, Engine
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.engine import Connection, Engine, make_url
+from sqlalchemy.exc import DBAPIError, OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 
 from .. import sql_functions
 from ..file_locks import FileLock
 from .base import Base
+from .dialect import is_database_url, is_postgres
 
 logger = logging.getLogger("grimoire.db")
 
@@ -53,7 +58,7 @@ def _normalize_tags_in_db(conn: Connection) -> None:
         if "tags" not in {c["name"] for c in inspector.get_columns(table)}:
             continue
         rows = conn.execute(
-            text(f"SELECT rowid, tags FROM {table} WHERE tags IS NOT NULL")
+            text(f"SELECT id, tags FROM {table} WHERE tags IS NOT NULL")
         ).fetchall()
         for rowid, raw in rows:
             try:
@@ -69,7 +74,7 @@ def _normalize_tags_in_db(conn: Connection) -> None:
                         normalized.append(lowered)
                 if normalized != tags:
                     conn.execute(
-                        text(f"UPDATE {table} SET tags = :tags WHERE rowid = :rowid"),
+                        text(f"UPDATE {table} SET tags = :tags WHERE id = :rowid"),
                         {"tags": json.dumps(normalized), "rowid": rowid},
                     )
             except (ValueError, TypeError) as e:
@@ -77,7 +82,7 @@ def _normalize_tags_in_db(conn: Connection) -> None:
                 # skip it rather than aborting the whole normalization pass, but
                 # log it so a corrupt row is visible instead of silently ignored.
                 logger.warning(
-                    "Skipping tag normalization for %s rowid=%s: %s", table, rowid, e
+                    "Skipping tag normalization for %s id=%s: %s", table, rowid, e
                 )
     conn.commit()
 
@@ -539,6 +544,9 @@ def _compact_if_pending(engine: Engine) -> None:
     now (another worker reading, too little disk for the temporary copy) it is
     logged and retried at the next start - the data itself is already migrated.
     """
+    if is_postgres(engine):
+        # Set only by SQLite-era revisions; PostgreSQL reclaims space itself.
+        return
     with engine.connect() as conn:
         pending = conn.execute(
             text("SELECT 1 FROM app_settings WHERE key = :k"), {"k": COMPACT_PENDING_KEY}
@@ -559,6 +567,18 @@ def _compact_if_pending(engine: Engine) -> None:
         logger.warning("Database compaction postponed to the next start: %s", exc)
 
 
+def _fill_username_folded(conn: Connection) -> None:
+    rows = conn.execute(
+        text("SELECT id, username FROM users WHERE username_folded IS NULL")
+    ).fetchall()
+    for user_id, username in rows:
+        conn.execute(
+            text("UPDATE users SET username_folded = :f WHERE id = :id"),
+            {"f": sql_functions.fold_text(username), "id": user_id},
+        )
+    conn.commit()
+
+
 def _post_migration_setup(engine: Engine) -> None:
     """One-time data fixups that run on every startup.
 
@@ -576,6 +596,10 @@ def _post_migration_setup(engine: Engine) -> None:
         ensure_unique_index(conn)
         conn.commit()
 
+        # Accounts written without the model (raw SQL, an older build rolled
+        # forward) have no folded username to sign in with.
+        _fill_username_folded(conn)
+
         # Move schedule times from a UTC clock to the local clock they were
         # picked in, repairing the lost day rollover. Marker-guarded, so
         # repeating it is a no-op.
@@ -587,11 +611,11 @@ def _post_migration_setup(engine: Engine) -> None:
             conn.execute(
                 text(
                     "UPDATE campaign_resources SET visibility='public' "
-                    "WHERE visibility='gm' AND shared=1 AND COALESCE(gm_only,0)=0"
+                    "WHERE visibility='gm' AND shared = TRUE AND COALESCE(gm_only, FALSE) = FALSE"
                 )
             )
             conn.commit()
-        except OperationalError as e:
+        except DBAPIError as e:
             # Tolerated on very old databases where the legacy shared/gm_only
             # columns don't exist yet (the backfill has nothing to do); logged so
             # an unexpected failure isn't hidden.
@@ -624,12 +648,17 @@ def _migration_lock(db_path: str) -> Iterator[None]:
         lock.release()
 
 
-def init_db(db_path: str) -> Tuple[Engine, sessionmaker[Session]]:
-    """Initialize database and return engine + session factory.
+def init_db(target: str) -> Tuple[Engine, sessionmaker[Session]]:
+    """Initialize the database and return engine + session factory.
 
+    ``target`` is a SQLite file path, or a PostgreSQL URL (``DATABASE_URL``).
     Applies Alembic migrations (with the pre-Alembic cutover handled by
-    ``_apply_migrations``), then runs idempotent data fixups.
+    ``_apply_migrations``, or a fresh PostgreSQL schema by
+    ``_apply_postgres_migrations``), then runs idempotent data fixups.
     """
+    if is_database_url(target):
+        return _init_postgres(target)
+    db_path = target
     engine = create_engine(
         f"sqlite:///{db_path}",
         echo=False,
@@ -656,5 +685,121 @@ def init_db(db_path: str) -> Tuple[Engine, sessionmaker[Session]]:
         _post_migration_setup(engine)
         _compact_if_pending(engine)
 
+    Session = sessionmaker(bind=engine)
+    return engine, Session
+
+
+# pg_advisory_lock key serialising migrations across processes and hosts: the
+# PostgreSQL counterpart of the SQLite ``<db>.migrate.lock`` file. "grimoire".
+_PG_MIGRATION_LOCK = 0x6772696D6F697265
+
+
+def postgres_url(url: str) -> str:
+    """``url`` with the psycopg 3 driver, which is the one installed.
+
+    ``postgres://`` and a bare ``postgresql://`` would otherwise pick psycopg2.
+    Raises ValueError for any database other than PostgreSQL.
+    """
+    if url.startswith("postgres://"):
+        url = "postgresql://" + url[len("postgres://"):]
+    parsed = make_url(url)
+    if parsed.get_backend_name() != "postgresql":
+        raise ValueError(
+            "DATABASE_URL must be a PostgreSQL URL (postgresql://user:password@host/db); "
+            f"got a {parsed.get_backend_name()!r} URL. Leave it unset to use SQLite."
+        )
+    return parsed.set(drivername="postgresql+psycopg").render_as_string(hide_password=False)
+
+
+def postgres_engine(url: str) -> Engine:
+    """An engine for ``url`` whose sessions run in UTC and drop NUL characters.
+
+    Every stored datetime is naive UTC. A session in another time zone would shift
+    the aware values ``models.base._utcnow`` writes before dropping their offset.
+
+    PostgreSQL text cannot hold a NUL, which SQLite stores without complaint and
+    which turns up in PDF metadata and extracted page text. Every string sent to
+    the server has it removed, rather than the write failing.
+    """
+    from psycopg.types.string import StrBinaryDumper, StrDumperUnknown
+
+    class _TextDumper(StrDumperUnknown):
+        def dump(self, obj: str) -> Any:
+            return super().dump(obj.replace("\x00", "") if "\x00" in obj else obj)
+
+    class _BinaryDumper(StrBinaryDumper):
+        def dump(self, obj: str) -> Any:
+            return super().dump(obj.replace("\x00", "") if "\x00" in obj else obj)
+
+    engine = create_engine(
+        postgres_url(url),
+        pool_pre_ping=True,
+        # lock_timeout stands in for SQLite's busy_timeout: a statement stuck
+        # behind another's lock fails after 30 s instead of waiting forever
+        # (indexer._db treats that as "busy", like SQLite's "database is locked").
+        connect_args={"options": "-c timezone=UTC -c lock_timeout=30000"},
+    )
+
+    @event.listens_for(engine, "connect")
+    def _register_dumpers(dbapi_connection: Any, connection_record: Any) -> None:
+        # Binary first: the last one registered becomes the default, and it must
+        # stay the untyped text dumper, which lets the server cast a string to
+        # whatever the column is (json, timestamp, ...). The binary one sends
+        # "text" and a json column refuses it.
+        dbapi_connection.adapters.register_dumper(str, _BinaryDumper)
+        dbapi_connection.adapters.register_dumper(str, _TextDumper)
+
+    return engine
+
+
+@contextlib.contextmanager
+def _postgres_migration_lock(engine: Engine) -> Iterator[None]:
+    """Blocking advisory lock so one process (on any host) migrates at a time."""
+    with engine.connect() as conn:
+        # Waiting here is the point - another process is migrating - so this
+        # one session drops the 30 s lock_timeout.
+        conn.execute(text("SET lock_timeout = 0"))
+        conn.execute(text("SELECT pg_advisory_lock(:k)"), {"k": _PG_MIGRATION_LOCK})
+        conn.commit()
+        try:
+            yield
+        finally:
+            conn.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": _PG_MIGRATION_LOCK})
+            # Back to the engine's 30 s before the connection returns to the pool.
+            conn.execute(text("RESET lock_timeout"))
+            conn.commit()
+
+
+def _apply_postgres_migrations(engine: Engine) -> None:
+    """Build a fresh PostgreSQL schema at head, or upgrade an existing one."""
+    from alembic import command
+
+    # Imported for its DDL rules too (String without a length), which a
+    # revision's add_column needs as much as create_schema does.
+    from .postgres import create_schema
+
+    with engine.connect() as conn:
+        insp = inspect(conn)
+        if not insp.has_table("alembic_version"):
+            if insp.has_table("books"):
+                raise RuntimeError(
+                    "The PostgreSQL database has Grimoire tables but no migration "
+                    "record (alembic_version). Point DATABASE_URL at an empty database, "
+                    "or at one Grimoire created."
+                )
+            logger.info("Creating the Grimoire schema in a new PostgreSQL database.")
+            create_schema(conn)
+            conn.commit()
+            command.stamp(_alembic_config(conn), "head")
+            conn.commit()
+        command.upgrade(_alembic_config(conn), "head")
+        conn.commit()
+
+
+def _init_postgres(url: str) -> Tuple[Engine, sessionmaker[Session]]:
+    engine = postgres_engine(url)
+    with _postgres_migration_lock(engine):
+        _apply_postgres_migrations(engine)
+        _post_migration_setup(engine)
     Session = sessionmaker(bind=engine)
     return engine, Session

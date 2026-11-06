@@ -24,10 +24,12 @@ from sqlalchemy.orm import Query, Session
 
 from ...models import Favorite
 from ...models.collections import COLLECTIONS
+from ...models.dialect import is_postgres
 from ..search_query import MEDIA_FIELDS, parse_query
 from .. import variants
 from .paths import exact_clause, folder_column, folder_prefixes, relative_folder
 from .tag_query import TagMatcher
+from ..sql_like import contains, icontains, ilike
 
 # Accepted ``sort`` values. ``path`` is folder order (the grouped gallery's
 # reading order); the rest are the gallery's sort menu.
@@ -53,8 +55,15 @@ class MediaBrowse:
     extra: list = field(default_factory=list)
 
 
-def rowid(model: Any) -> Any:
-    """``model``'s SQLite rowid, the implicit last column of every index."""
+def rowid(model: Any, db: Session) -> Any:
+    """The last-resort tie-break for ``model``'s sorts.
+
+    SQLite's rowid, the implicit last column of every index there, so the sort
+    stays an index walk. PostgreSQL has no rowid; the primary key does the same
+    job (every row has a distinct one).
+    """
+    if is_postgres(db):
+        return model.id
     return literal_column(f"{model.__tablename__}.rowid")
 
 
@@ -119,8 +128,8 @@ class MediaBrowser:
         clauses = []
         if parsed.free_text:
             text = parsed.free_text
-            like = f"%{text}%"
-            any_of = [c.ilike(like) for c in self._name_columns()]
+            like = contains(text)
+            any_of = [ilike(c, like) for c in self._name_columns()]
             folders = self._folders_matching(text)
             if folders:
                 any_of.append(self.tag_matcher.in_folders(folders))
@@ -131,14 +140,14 @@ class MediaBrowser:
                 return false()
             if name in ("title", "filename"):
                 columns = self._name_columns()
-                clauses.append(or_(*[c.ilike(f"%{v}%") for v in values for c in columns]))
+                clauses.append(or_(*[icontains(c, v) for v in values for c in columns]))
             elif name == "tag":
                 clauses.append(or_(*[self.tag_matcher.like(v) for v in values]))
             else:  # artist / album
                 column = getattr(self.model, name, None)
                 if column is None:
                     return false()
-                clauses.append(or_(*[column.ilike(f"%{v}%") for v in values]))
+                clauses.append(or_(*[icontains(column, v) for v in values]))
         return clauses
 
     # -- queries -------------------------------------------------------------
@@ -206,13 +215,16 @@ class MediaBrowser:
             )
         if sort in ("path", "track"):
             return directed(folder, model.sort_name, model.filename, model.id)
-        tail = directed(model.sort_name, rowid(model))
+        tail = directed(model.sort_name, rowid(model, self.db))
         if sort == "added_at":
             # Undated items (added before tracking began) last either way.
             return [nullslast(*directed(model.added_at)), *tail]
         if sort == "title" and hasattr(model, "title"):
             title = func.coalesce(func.nullif(model.title, ""), model.filename)
-            return [*directed(title.collate("NOCASE")), *tail]
+            # Case-insensitive: SQLite's NOCASE collation, lower() on PostgreSQL
+            # (which has no NOCASE).
+            folded = func.lower(title) if is_postgres(self.db) else title.collate("NOCASE")
+            return [*directed(folded), *tail]
         column = {"size": model.file_size, "duration": getattr(model, "duration", None)}.get(sort)
         if column is None:
             return directed(model.sort_name, folder, model.filename, model.id)

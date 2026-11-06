@@ -4,6 +4,9 @@ uvicorn[standard]==0.54.0
 sqlalchemy==2.1.6
 alembic==1.20.1
 aiosqlite==0.22.1
+# PostgreSQL driver (DATABASE_URL). The binary build bundles libpq, so the
+# image needs no system packages for it.
+psycopg[binary]==3.3.8
 pymupdf==1.28.2
 python-multipart==0.0.32
 watchdog==6.0.0

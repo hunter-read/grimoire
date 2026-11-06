@@ -11,6 +11,7 @@ import pytest
 from backend.services import backup as backup_service
 from backend.services.backup._config import BackupConfig
 from backend.services.backup._store import prune_backups, record_for
+from backend.tests._postgres import ON_POSTGRES
 
 
 # ---------------------------------------------------------------------------
@@ -59,6 +60,7 @@ def backup_dir(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.sqlite_only  # snapshots the SQLite file
 class TestSnapshotDatabase:
     def test_produces_a_readable_copy(self, tmp_path):
         dest = tmp_path / "snap.db"
@@ -138,10 +140,19 @@ class TestCreateBackup:
 
         with zipfile.ZipFile(record.path) as zf:
             names = zf.namelist()
-            assert "grimoire.db" in names
             assert "details.json" in names
             manifest = json.loads(zf.read("details.json"))
 
+        if ON_POSTGRES:
+            # The database is on another server: left out, and the archive says so.
+            assert "grimoire.db" not in names
+            assert manifest["database_engine"] == "postgresql"
+            assert manifest["contents"]["database"] is None
+            assert any("pg_dump" in x for x in manifest["excludes"])
+        else:
+            assert "grimoire.db" in names
+            assert manifest["database_engine"] == "sqlite"
+            assert manifest["contents"]["database"] == "grimoire.db"
         assert manifest["app"] == "grimoire"
         assert manifest["trigger"] == "manual"
         assert manifest["version"]
@@ -191,10 +202,12 @@ class TestCreateBackup:
         """A failed run must not leave a half-written archive in the listing."""
         from backend.config import SessionLocal
 
-        def boom(_dest):
+        def boom(*_args):
             raise OSError("disk full")
 
-        monkeypatch.setattr(backup_service._archive, "snapshot_database", boom)
+        # Copying the files runs on both databases (a PostgreSQL backup has no
+        # snapshot step), so failing it tests the cleanup on either.
+        monkeypatch.setattr(backup_service._archive, "_add_directory", boom)
 
         db = SessionLocal()
         try:
@@ -427,6 +440,8 @@ class TestBackupAPI:
 
         listed = client.get("/api/backups", headers=admin_headers)
         assert listed.status_code == 200
+        # Tells the page whether to warn that the database is not in the archive.
+        assert listed.json()["includes_database"] is (not ON_POSTGRES)
         body = listed.json()
         assert [b["id"] for b in body["backups"]] == [item["id"]]
         assert body["total_bytes"] == item["size_bytes"]

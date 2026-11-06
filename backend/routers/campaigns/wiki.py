@@ -47,6 +47,7 @@ from ._wiki_helpers import (
     rewrite_inbound_titles,
 )
 from ...text.wikilinks import extract_headings, slugify
+from ...services.sql_like import contains, ilike
 
 __all__ = [
     "slugify",
@@ -585,12 +586,12 @@ def search_pages(
     c = get_campaign_or_404(db, campaign_id)
     if not can_view(c, current_user, db):
         raise HTTPException(403, "Not a member of this campaign")
-    term = f"%{q}%"
+    term = contains(q)
     pages = (
         db.query(WikiPage)
         .filter(
             WikiPage.campaign_id == campaign_id,
-            (WikiPage.title.ilike(term)) | (WikiPage.body.ilike(term)),
+            (ilike(WikiPage.title, term)) | (ilike(WikiPage.body, term)),
         )
         .all()
     )

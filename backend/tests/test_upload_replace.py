@@ -17,6 +17,7 @@ import pytest
 from sqlalchemy import text
 
 from backend.config import LIBRARY_PATH, SessionLocal
+from backend.tests._postgres import search_book_ids
 from backend.indexer import refresh_book_file, reset_book_index
 from backend.models import Book, Bookmark
 from backend.services.library_scan import claims, reindex_queue
@@ -101,13 +102,7 @@ def _replace(client, headers, rel_dir: str, name: str, content: bytes, **form):
 def _search_hits(term: str) -> list[str]:
     db = SessionLocal()
     try:
-        rows = db.execute(
-            text(
-                "SELECT book_id FROM book_search "
-                "JOIN book_pages ON book_pages.id = book_search.rowid "
-                "WHERE book_search MATCH :t"), {"t": term}
-        ).fetchall()
-        return [r[0] for r in rows]
+        return search_book_ids(db, term)
     finally:
         db.close()
 

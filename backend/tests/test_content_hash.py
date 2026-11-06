@@ -21,6 +21,7 @@ from unittest.mock import patch
 from sqlalchemy import text
 
 from backend.config import SessionLocal
+from backend.tests._postgres import search_book_ids
 from backend.indexer import hashing, scan_library
 from backend.indexer.categories import slugify
 from backend.models import Book, GameSystem, Token
@@ -415,13 +416,7 @@ class TestMoveDetection:
             db.expire_all()
             survivor = db.query(Book).filter_by(id=original_id).first()
             assert survivor.indexed is True
-            hits = db.execute(
-                text(
-                    "SELECT book_id FROM book_search "
-                    "JOIN book_pages ON book_pages.id = book_search.rowid "
-                    "WHERE book_search MATCH 'xylophonic'")
-            ).fetchall()
-            assert [row[0] for row in hits] == [original_id]
+            assert search_book_ids(db, "xylophonic") == [original_id]
         finally:
             db.close()
 

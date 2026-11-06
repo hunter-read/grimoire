@@ -5,12 +5,12 @@ to be one account: two of them would leave the sign-in form picking one
 arbitrarily. Every place that checks whether a name is taken goes through
 :func:`username_taken`.
 
-Names are compared with full Unicode case folding (:func:`fold_username`, the
-``grimoire_fold`` SQL function from :mod:`backend.sql_functions`), so "Émile"
-and "émile" are one name too. The database backs this with a unique index on
-``lower(username)`` (:func:`ensure_unique_index`); SQLite's ``lower()`` only
-folds A-Z, so the index is the narrower check and the application's the
-stricter one. Accounts created before folding that differ only outside ASCII
+Names are compared with full Unicode case folding (:func:`fold_username`, stored
+per account in ``users.username_folded``), so "Émile" and "émile" are one name
+too. The database backs this with a unique index on ``lower(username)``
+(:func:`ensure_unique_index`); the database's ``lower()`` folds less than Python
+does (SQLite's only A-Z), so the index is the narrower check and the
+application's the stricter one. Accounts created before folding that differ only outside ASCII
 are left as they are, and :func:`find_by_username` picks between them the same
 way every time.
 """
@@ -18,11 +18,12 @@ import datetime
 import logging
 from typing import Any, Optional
 
-from sqlalchemy import func, text
+from sqlalchemy import text
 from sqlalchemy.orm import Query, Session
 
 from .models import User
-from .sql_functions import FOLD_FUNCTION, fold_text
+from .models.dialect import is_postgres
+from .sql_functions import fold_text
 
 logger = logging.getLogger("grimoire.users")
 
@@ -48,9 +49,7 @@ def match_username(query: "Query[User]", username: str) -> Optional[User]:
     typed = username.strip()
     if not typed:
         return None
-    candidates = query.filter(
-        getattr(func, FOLD_FUNCTION)(User.username) == fold_username(typed)
-    ).all()
+    candidates = query.filter(User.username_folded == fold_username(typed)).all()
     if len(candidates) <= 1:
         return candidates[0] if candidates else None
     oldest = datetime.datetime.min
@@ -85,24 +84,24 @@ def ensure_unique_index(conn: Any) -> bool:
     case (possible before this check existed) are logged rather than failing
     start-up; the index is created on the first start after they are renamed.
     """
-    exists = conn.execute(
-        text("SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = :n"),
-        {"n": INDEX_NAME},
-    ).first()
-    if exists:
+    if is_postgres(conn):
+        lookup = "SELECT 1 FROM pg_indexes WHERE indexname = :n"
+    else:
+        lookup = "SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = :n"
+    if conn.execute(text(lookup), {"n": INDEX_NAME}).first():
         return True
-    duplicates = conn.execute(
-        text(
-            "SELECT lower(username), group_concat(username, ', ') FROM users "
-            "GROUP BY lower(username) HAVING count(*) > 1"
-        )
-    ).all()
+    # Grouped in Python: the database's own lower() decides what clashes, but the
+    # string aggregate differs by dialect (group_concat / string_agg).
+    by_lower: dict[str, list[str]] = {}
+    for lowered, name in conn.execute(text("SELECT lower(username), username FROM users")):
+        by_lower.setdefault(lowered, []).append(name)
+    duplicates = [names for names in by_lower.values() if len(names) > 1]
     if duplicates:
-        for _, names in duplicates:
+        for names in duplicates:
             logger.warning(
                 "Accounts whose usernames differ only in case: %s. Rename all but "
                 "one in Settings > Users; usernames are case-insensitive.",
-                names,
+                ", ".join(sorted(names)),
             )
         return False
     conn.execute(text(f"CREATE UNIQUE INDEX {INDEX_NAME} ON users (lower(username))"))

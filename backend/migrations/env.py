@@ -52,17 +52,46 @@ warnings.filterwarnings(
 _UNMODELLED_TABLE_PREFIXES = ("book_search", "book_pages", "content_search")
 
 
+# Indexes made outside the models on purpose: the expression index behind
+# case-insensitive usernames (``usernames.ensure_unique_index``). SQLite cannot
+# reflect it; PostgreSQL can, and would otherwise report it as one to drop.
+_UNMODELLED_INDEXES = ("ix_users_username_lower",)
+
+
 def _include_object(obj, name, type_, reflected, compare_to) -> bool:
     if type_ == "table" and reflected and compare_to is None:
         return not (name or "").startswith(_UNMODELLED_TABLE_PREFIXES)
+    if type_ == "index" and reflected and compare_to is None:
+        return name not in _UNMODELLED_INDEXES
     return True
 
 
+def _compare_type(context, inspected_column, metadata_column, inspected_type, metadata_type):
+    """Leave PostgreSQL's unbounded VARCHAR alone.
+
+    ``String(n)`` is created without its length there (``models/postgres.py``),
+    so a length difference is by design. Collation still counts. Anything else
+    goes to Alembic's own comparison (None).
+    """
+    if context.dialect.name == "postgresql":
+        from sqlalchemy import String, Text
+
+        expected = metadata_type.dialect_impl(context.dialect)
+        if (
+            isinstance(expected, String)
+            and not isinstance(expected, Text)
+            and isinstance(inspected_type, String)
+            and not isinstance(inspected_type, Text)
+        ):
+            return (expected.collation or None) != (inspected_type.collation or None)
+    return None
+
+
 def _get_url() -> str:
-    """DB URL for standalone CLI runs; falls back to the app's configured path.
+    """DB URL for standalone CLI runs; falls back to the app's configured database.
 
     Precedence: ``-x url=...`` CLI override, then the ini's ``sqlalchemy.url``,
-    then the app's configured ``DB_PATH``.
+    then the app's ``DATABASE_URL`` (PostgreSQL), then its SQLite ``DB_PATH``.
     """
     x_args = context.get_x_argument(as_dictionary=True)
     if x_args.get("url"):
@@ -70,8 +99,12 @@ def _get_url() -> str:
     url = config.get_main_option("sqlalchemy.url")
     if url:
         return url
-    from backend.config import DB_PATH
+    from backend.config import DATABASE_URL, DB_PATH
 
+    if DATABASE_URL:
+        from backend.models.db import postgres_url
+
+        return postgres_url(DATABASE_URL)
     return f"sqlite:///{DB_PATH}"
 
 
@@ -83,7 +116,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         render_as_batch=True,
-        compare_type=True,
+        compare_type=_compare_type,
         include_object=_include_object,
     )
     with context.begin_transaction():
@@ -95,7 +128,7 @@ def _run_with_connection(connection) -> None:
         connection=connection,
         target_metadata=target_metadata,
         render_as_batch=True,
-        compare_type=True,
+        compare_type=_compare_type,
         include_object=_include_object,
     )
     with context.begin_transaction():

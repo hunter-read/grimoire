@@ -3,6 +3,11 @@
 Grimoire can snapshot its own database and the files you have uploaded through it, on
 demand or on a schedule - under **Settings → Backups**.
 
+> **On PostgreSQL** (`DATABASE_URL`), a backup holds the files but **not the database**,
+> which lives on the database server: back it up with `pg_dump` or your server's own
+> backups. The backups page and each archive's `details.json` say so. See
+> [PostgreSQL](postgresql.md#backups).
+
 ---
 
 Each backup is a single timestamped `.zip`:

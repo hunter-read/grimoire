@@ -30,6 +30,7 @@ from ._schemas import (
     ParentSystemCreate,
     SystemFamilyCreate,
 )
+from ...services.sql_like import iequals
 
 
 # --- Genres -------------------------------------------------------------------
@@ -52,7 +53,7 @@ def create_genre(
     db: Session = Depends(get_db),
 ):
     name = data.name.strip()
-    existing = db.query(Genre).filter(Genre.name.ilike(name)).first()
+    existing = db.query(Genre).filter(iequals(Genre.name, name)).first()
     if existing:
         raise HTTPException(409, "A genre with that name already exists")
     if data.parent_id:
@@ -112,7 +113,7 @@ def create_system_family(
     db: Session = Depends(get_db),
 ):
     name = data.name.strip()
-    existing = db.query(SystemFamily).filter(SystemFamily.name.ilike(name)).first()
+    existing = db.query(SystemFamily).filter(iequals(SystemFamily.name, name)).first()
     if existing:
         raise HTTPException(409, "A system family with that name already exists")
     max_order = db.query(SystemFamily).count()
@@ -165,7 +166,7 @@ def create_parent_system(
     db: Session = Depends(get_db),
 ):
     name = data.name.strip()
-    existing = db.query(ParentSystem).filter(ParentSystem.name.ilike(name)).first()
+    existing = db.query(ParentSystem).filter(iequals(ParentSystem.name, name)).first()
     if existing:
         raise HTTPException(409, "A parent system with that name already exists")
     max_order = db.query(ParentSystem).count()
@@ -216,7 +217,7 @@ def create_license(
     db: Session = Depends(get_db),
 ):
     name = data.name.strip()
-    existing = db.query(License).filter(License.name.ilike(name)).first()
+    existing = db.query(License).filter(iequals(License.name, name)).first()
     if existing:
         raise HTTPException(409, "A license with that name already exists")
     max_order = db.query(License).count()
@@ -269,7 +270,7 @@ def create_dice_material(
     db: Session = Depends(get_db),
 ):
     name = data.name.strip()
-    existing = db.query(DiceMaterial).filter(DiceMaterial.name.ilike(name)).first()
+    existing = db.query(DiceMaterial).filter(iequals(DiceMaterial.name, name)).first()
     if existing:
         raise HTTPException(409, "A dice/material with that name already exists")
     max_order = db.query(DiceMaterial).count()

@@ -3542,6 +3542,7 @@
   "backups": {
     "notice": {
       "title": "Cosa comprende un backup",
+      "noDatabase": "Il tuo database è PostgreSQL, quindi un backup contiene i file che hai caricato tramite Grimoire ma non il database stesso. Esegui il backup del database con pg_dump o con i backup del tuo server di database.",
       "noLibrary": "I file della tua libreria non sono mai inclusi. Un backup contiene solo il database e i file che hai caricato tramite Grimoire (caricamenti delle campagne, copertine dei sistemi, copertine audio). Esegui il backup della libreria separatamente.",
       "threeTwoOne": "Questi backup risiedono sulla stessa macchina di Grimoire. Segui una strategia 3-2-1: tre copie, su due tipi di supporto, una delle quali fuori sede.",
       "restore": "Il ripristino va fatto a mano, con il server fermo. Vedi restore-from-backup.md nel repository di Grimoire."

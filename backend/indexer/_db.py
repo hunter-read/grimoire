@@ -11,7 +11,9 @@ SQLite already bounds the wait that mattered: the engine sets
 ``busy_timeout`` (see ``models/db.py``), so a step blocked on another writer's
 lock fails with "database is locked" instead of hanging. ``_db_call`` turns that
 failure into :class:`DatabaseBusyError`, which callers catch to roll back and
-move on to the next file.
+move on to the next file. On PostgreSQL the engine sets ``lock_timeout`` to the
+same 30 seconds, and a lock timeout, deadlock or serialization failure is the
+same "try the next file" case.
 """
 from typing import Callable, TypeVar
 
@@ -21,6 +23,9 @@ T = TypeVar("T")
 
 # What SQLite says when busy_timeout runs out: SQLITE_BUSY and SQLITE_LOCKED.
 _BUSY_MESSAGES = ("database is locked", "database table is locked", "database is busy")
+# PostgreSQL's SQLSTATEs for the same: lock_not_available (lock_timeout ran
+# out), deadlock_detected, serialization_failure.
+_BUSY_SQLSTATES = ("55P03", "40P01", "40001")
 
 
 class DatabaseBusyError(SQLAlchemyError):
@@ -28,10 +33,12 @@ class DatabaseBusyError(SQLAlchemyError):
 
 
 def is_busy(exc: BaseException) -> bool:
-    """Whether ``exc`` is SQLite reporting that the database stayed locked."""
-    return isinstance(exc, OperationalError) and any(
-        msg in str(exc.orig).lower() for msg in _BUSY_MESSAGES
-    )
+    """Whether ``exc`` is the database reporting that it stayed locked."""
+    if not isinstance(exc, OperationalError):
+        return False
+    if getattr(exc.orig, "sqlstate", None) in _BUSY_SQLSTATES:
+        return True
+    return any(msg in str(exc.orig).lower() for msg in _BUSY_MESSAGES)
 
 
 def _db_call(fn: Callable[[], T], label: str) -> T:

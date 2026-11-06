@@ -5587,7 +5587,7 @@ export interface paths {
         };
         /**
          * Full-text search
-         * @description Searches indexed book pages using SQLite FTS5, and books, maps, tokens and audio by their own metadata. Optionally scope to a single book (`book_id`) or game system (`system_id`). Supports `field:value` filters (`title:avatar`, `author:"Ben Robbins"`, `tag:dungeon`); a metadata filter suppresses page-text search, and `text:` forces it. Returns snippets with HTML `<mark>` highlights.
+         * @description Searches indexed book pages (SQLite FTS5, or PostgreSQL full-text search), and books, maps, tokens and audio by their own metadata. Optionally scope to a single book (`book_id`) or game system (`system_id`). Supports `field:value` filters (`title:avatar`, `author:"Ben Robbins"`, `tag:dungeon`); a metadata filter suppresses page-text search, and `text:` forces it. Returns snippets with HTML `<mark>` highlights.
          */
         get: operations["search_library_api_search_get"];
         put?: never;
@@ -7758,6 +7758,8 @@ export interface components {
             backups: components["schemas"]["BackupItem"][];
             /** Directory */
             directory: string;
+            /** Includes Database */
+            includes_database: boolean;
             /** Total Bytes */
             total_bytes: number;
         };

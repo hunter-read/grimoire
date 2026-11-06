@@ -65,19 +65,24 @@ def folder_prefixes(db: Session, model: Any, criteria: Iterable[Any], segments: 
     base = list(criteria)
     prefixes: list[str] = []
     bound = None
+    past = None
     # Bounded: a prefix is consumed every iteration, so this ends on its own;
     # the cap only stops a pathological table from turning into a long loop.
     for _ in range(1000):
         q = db.query(func.min(column)).filter(*base)
         if bound is not None:
             q = q.filter(column >= bound)
+        if past is not None:
+            q = q.filter(column > past)
         smallest = q.scalar()
         if smallest is None:
             break
         prefix = _leading(smallest, segments)
         if not prefix:
-            # Shallower than the prefix depth: skip past this exact folder.
-            bound = smallest + "\x00"
+            # Shallower than the prefix depth: skip past this exact folder. A
+            # strict comparison rather than ``smallest + "\x00"``, which
+            # PostgreSQL cannot hold in text.
+            past = smallest
             continue
         prefixes.append(prefix)
         bound = prefix[:-1] + _AFTER_SLASH

@@ -13,6 +13,8 @@ export default function BackupListSection({ refreshKey }: { refreshKey?: number 
   const [items, setItems] = useState<Backup[]>([])
   const [directory, setDirectory] = useState('')
   const [totalBytes, setTotalBytes] = useState(0)
+  // False on PostgreSQL, where the database is backed up by its own server.
+  const [includesDatabase, setIncludesDatabase] = useState(true)
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -27,6 +29,7 @@ export default function BackupListSection({ refreshKey }: { refreshKey?: number 
       setItems(data.backups || [])
       setDirectory(data.directory || '')
       setTotalBytes(data.total_bytes || 0)
+      setIncludesDatabase(data.includes_database !== false)
       setError(null)
     } catch (e) {
       setError((e as Error).message || 'Could not load backups.')
@@ -107,6 +110,9 @@ export default function BackupListSection({ refreshKey }: { refreshKey?: number 
         <LuTriangleAlert size={18} color="var(--gold)" style={{ flexShrink: 0, marginTop: 1 }} />
         <div style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--text-dim)' }}>
           <strong style={{ color: 'var(--text)' }}>{t('backups.notice.title')}</strong>
+          {!includesDatabase && (
+            <div style={{ marginTop: 4 }}>{t('backups.notice.noDatabase')}</div>
+          )}
           <div style={{ marginTop: 4 }}>{t('backups.notice.noLibrary')}</div>
           <div style={{ marginTop: 4 }}>{t('backups.notice.threeTwoOne')}</div>
           <div style={{ marginTop: 4 }}>{t('backups.notice.restore')}</div>
@@ -135,7 +141,7 @@ export default function BackupListSection({ refreshKey }: { refreshKey?: number 
           {creating ? <Spinner size={14} /> : <LuDatabaseBackup size={14} />}
           {creating ? t('backups.list.creating') : t('backups.list.createButton')}
         </button>
-        {creating && (
+        {creating && includesDatabase && (
           <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
             {t('backups.list.blockingWarning')}
           </span>

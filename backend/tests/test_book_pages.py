@@ -316,6 +316,7 @@ def _matches(db, term):
     }
 
 
+@pytest.mark.sqlite_only  # FTS5 triggers
 class TestTriggers:
     def test_insert_delete_and_update_keep_the_index_in_step(self, db):
         _insert(db, "trig-a", 1, "quixotic basilisk")
@@ -338,6 +339,7 @@ def _plan(db, sql, **params):
     return " | ".join(r[3] for r in db.execute(text(f"EXPLAIN QUERY PLAN {sql}"), params))
 
 
+@pytest.mark.sqlite_only  # SQLite EXPLAIN QUERY PLAN output
 class TestQueryPlans:
     """None of the per-book paths scans the whole table (issue #751)."""
 
@@ -378,3 +380,80 @@ class TestQueryPlans:
             q="goblin",
         )
         assert "SCAN book_pages" not in plan
+
+
+@pytest.mark.postgres_only
+class TestPostgresSearchColumn:
+    """book_pages.search, the generated tsvector that stands in for the FTS5 triggers."""
+
+    def _matches(self, db, term):
+        return {
+            r[0]
+            for r in db.execute(
+                text(
+                    "SELECT book_id FROM book_pages "
+                    "WHERE search @@ phraseto_tsquery('grimoire', :q)"
+                ),
+                {"q": term},
+            )
+        }
+
+    def test_insert_delete_and_update_keep_the_index_in_step(self, db):
+        _insert(db, "pg-a", 1, "quixotic basilisk")
+        _insert(db, "pg-b", 1, "quixotic wyvern")
+        assert {"pg-a", "pg-b"} <= self._matches(db, "quixotic")
+        db.execute(text("DELETE FROM book_pages WHERE book_id = 'pg-a'"))
+        assert "pg-a" not in self._matches(db, "quixotic")
+        db.execute(
+            text("UPDATE book_pages SET content = 'serene manticore' WHERE book_id = 'pg-b'")
+        )
+        assert "pg-b" not in self._matches(db, "quixotic")
+        assert "pg-b" in self._matches(db, "manticore")
+
+    def test_accents_stemming_and_stopwords_match_fts5(self, db):
+        _insert(db, "pg-c", 1, "The Café of Goblins")
+        assert "pg-c" in self._matches(db, "cafe")  # unicode61 folds accents
+        assert "pg-c" in self._matches(db, "goblin")  # porter stems
+        assert "pg-c" in self._matches(db, "the")  # FTS5 has no stopwords
+
+    def test_an_oversized_page_still_inserts(self, db):
+        """Past the indexed length the text is stored but not indexed, never refused."""
+        from backend.models.postgres import INDEXED_CHARS
+
+        huge = " ".join(f"w{i}" for i in range(INDEXED_CHARS // 3))
+        _insert(db, "pg-d", 1, huge + " needlexyz")
+        assert db.execute(
+            text("SELECT length(content) FROM book_pages WHERE book_id = 'pg-d'")
+        ).scalar() > INDEXED_CHARS
+
+
+@pytest.mark.postgres_only
+class TestPostgresQueryPlans:
+    """Per-book reads and deletes can use ix_book_pages_book_page (issue #751)."""
+
+    def _plan(self, db, sql, **params):
+        # A test table is tiny, so the planner would scan it whatever indexes
+        # exist; turning sequential scans off asks whether an index *can* serve it.
+        db.execute(text("SET LOCAL enable_seqscan = off"))
+        return " | ".join(r[0] for r in db.execute(text(f"EXPLAIN {sql}"), params))
+
+    def test_page_text_read_uses_the_index(self, db):
+        plan = self._plan(
+            db,
+            "SELECT content FROM book_pages WHERE book_id = :bid AND page_number = :pnum LIMIT 1",
+            bid="x",
+            pnum=1,
+        )
+        assert "ix_book_pages_book_page" in plan and "Seq Scan" not in plan
+
+    def test_per_book_delete_uses_the_index(self, db):
+        plan = self._plan(db, "DELETE FROM book_pages WHERE book_id = :bid", bid="x")
+        assert "ix_book_pages_book_page" in plan and "Seq Scan" not in plan
+
+    def test_search_uses_the_gin_index(self, db):
+        plan = self._plan(
+            db,
+            "SELECT book_id FROM book_pages WHERE search @@ phraseto_tsquery('grimoire', :q)",
+            q="goblin",
+        )
+        assert "ix_book_pages_search" in plan

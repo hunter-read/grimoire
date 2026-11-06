@@ -15,7 +15,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .base import Base, _utcnow, _uuid
+from .base import BYTES_TYPE, Base, _utcnow, _uuid
+from .browse import FOLDER_PATH_TYPE, SORT_KEY_TYPE
 
 
 class GameSystem(Base):
@@ -159,7 +160,7 @@ class Book(Base):
     year: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     month: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     day: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    file_size: Mapped[Optional[int]] = mapped_column(Integer, default=0)
+    file_size: Mapped[Optional[int]] = mapped_column(BYTES_TYPE, default=0)
     # Content identity, used for two things the filepath cannot express: telling a
     # replaced file (same path, new bytes) from an untouched one, and recognising a
     # moved file (new path, same bytes) as the same book rather than a new one.
@@ -260,8 +261,8 @@ class Book(Base):
 
     # Natural-order title key and the book's directory, kept in step by
     # models/browse.py for paged browsing (issue #221).
-    sort_title: Mapped[Optional[str]] = mapped_column(String(600), nullable=True)
-    folder_path: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
+    sort_title: Mapped[Optional[str]] = mapped_column(SORT_KEY_TYPE, nullable=True)
+    folder_path: Mapped[Optional[str]] = mapped_column(FOLDER_PATH_TYPE, nullable=True)
 
     __table_args__ = (
         Index("ix_books_indexer_queue", "indexed", "mime_type"),

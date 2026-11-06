@@ -113,7 +113,7 @@ def reassign_user_data(db: Session, source_id: str, target_id: str) -> int:
     # that, so a moved default would quietly give the target two.
     db.execute(
         text(
-            "UPDATE saved_filters SET is_default = 0 WHERE user_id = :src AND is_default "
+            "UPDATE saved_filters SET is_default = FALSE WHERE user_id = :src AND is_default "
             "AND scope IN (SELECT scope FROM saved_filters "
             "WHERE user_id = :tgt AND is_default)"
         ),

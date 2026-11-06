@@ -16,6 +16,7 @@ import pytest
 from sqlalchemy import text
 
 from backend.config import SessionLocal, LIBRARY_PATH
+from backend.tests._postgres import search_book_ids
 from backend.models import Book, GenericMap, Token
 from backend.indexer.categories import prettify_collection_name
 from backend.services import library_fs as fs
@@ -288,12 +289,7 @@ class TestMovePreservesMetadata:
 
         db = SessionLocal()
         refreshed = db.query(Book).filter(Book.id == book.id).first()
-        hits = db.execute(
-            text(
-                "SELECT book_id FROM book_search "
-                "JOIN book_pages ON book_pages.id = book_search.rowid "
-                "WHERE book_search MATCH 'thaumaturgy'")
-        ).fetchall()
+        hits = [(book_id,) for book_id in search_book_ids(db, "thaumaturgy")]
         db.close()
         assert refreshed.indexed is True
         assert [row[0] for row in hits] == [book.id]

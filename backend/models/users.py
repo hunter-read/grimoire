@@ -13,7 +13,9 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, validates
+
+from ..sql_functions import fold_text
 
 from .base import Base, _utcnow, _uuid
 
@@ -25,6 +27,11 @@ class User(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     username: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    # ``username`` as sign-in compares it: NFKC + full Unicode case folding
+    # (``sql_functions.fold_text``). Stored rather than computed in SQL because
+    # neither SQLite's nor PostgreSQL's lower() folds the way Python does
+    # ("Straße" / "STRASSE"). Kept in step by ``_fold_username`` below.
+    username_folded: Mapped[Optional[str]] = mapped_column(String(400), nullable=True, index=True)
     display_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     email: Mapped[Optional[str]] = mapped_column(String(254), nullable=True, unique=True, index=True)
     hashed_password: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
@@ -85,6 +92,11 @@ class User(Base):
     # fine-grained as ACCESS_TOKEN_EXPIRE_MINUTES. NULL means never.
     last_login_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True)
     last_active_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True)
+
+    @validates("username")
+    def _fold_username(self, key: str, value: Optional[str]) -> Optional[str]:
+        self.username_folded = fold_text(value)
+        return value
 
 
 class AuthSession(Base):

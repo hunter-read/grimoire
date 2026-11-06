@@ -1381,7 +1381,7 @@ Bookmarks are per-user - users cannot see or modify each other's bookmarks.
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/search?q=` | GET | any | FTS5 full-text search **plus** metadata search. Required: `q` (min 2 chars). Optional: `book_id`, `system_id`, `limit` (1-200, default 50). Supports `field:value` filters (see below). Global search also matches books by title/metadata, and maps, tokens, audio, and 3D models by filename/folder/tag (audio additionally matches embedded title/artist/album). |
+| `/api/search?q=` | GET | any | Full-text page search (SQLite FTS5, or PostgreSQL full-text search with `DATABASE_URL`) **plus** metadata search. Required: `q` (min 2 chars). Optional: `book_id`, `system_id`, `limit` (1-200, default 50). Supports `field:value` filters (see below). Global search also matches books by title/metadata, and maps, tokens, audio, and 3D models by filename/folder/tag (audio additionally matches embedded title/artist/album). |
 | `/api/search/fields` | GET | any | The `field:` prefixes the search box accepts, with their aliases. Powers the in-app syntax help. |
 
 **Response:**
@@ -2632,7 +2632,8 @@ catalog rather than the current page, so choosing one value does not empty every
 other facet and leave no way back. Numeric facet values sort numerically, so a
 spell-level filter reads 1, 2, 3, 10 rather than 1, 10, 2, 3.
 
-Search is FTS5 over each type's `search_fields`, prefix-matched per term. A
+Search is full-text (FTS5 on SQLite, a `tsvector` on PostgreSQL) over each type's
+`search_fields`, prefix-matched per term. A
 query is reduced to bare words first, so an unbalanced quote or a stray operator
 cannot raise.
 
@@ -3130,7 +3131,7 @@ per-format field mapping and how export interacts with sidecar import.
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/backups` | GET | List backups, newest first, with `created_at`, `size_bytes`, and `version` |
+| `/api/backups` | GET | List backups, newest first, with `created_at`, `size_bytes`, and `version`. `includes_database` is `false` on [PostgreSQL](postgresql.md), where an archive holds the files but not the database |
 | `/api/backups` | POST | Create a backup now |
 | `/api/backups/settings` | GET | Read backup schedule, retention, and storage location |
 | `/api/backups/settings` | PUT | Configure schedule, retention, and storage location |

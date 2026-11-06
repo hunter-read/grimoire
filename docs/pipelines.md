@@ -64,6 +64,17 @@ exports the schema from the app, Node turns it into TypeScript.
   exactly as it would serially. The worker count is pinned, not `auto`, so the slices are the
   same on every run. Coverage is measured with `COVERAGE_CORE=sysmon`, Python 3.12's
   low-overhead tracing hook. Locally, `python3 -m pytest -n 4 --dist loadgroup` does the same.
+- the same `pytest` run again on PostgreSQL (a `postgres:18-alpine` service container,
+  `TEST_DATABASE_URL`), with `--cov-append`, so the coverage gate sees the code that only
+  runs on PostgreSQL too. Each worker gets its own database, dropped and created afresh
+  (`backend/tests/_postgres.py`). Tests marked `sqlite_only` skip there, and `postgres_only`
+  ones skip on SQLite. Locally:
+  `TEST_DATABASE_URL=postgresql://user:pw@localhost/postgres python3 -m pytest -n 4 --dist loadgroup`
+  (the user needs `CREATEDB`).
+
+**Backend test (PostgreSQL 15):** the whole backend suite on the oldest supported PostgreSQL
+(see [PostgreSQL](postgresql.md)); the backend job covers the newest. No coverage or lint -
+those run once, in the backend job.
 
 **Docker image (slim, ocr):** builds each image target (amd64, loaded rather than pushed,
 layers cached in the GitHub Actions cache) and runs
