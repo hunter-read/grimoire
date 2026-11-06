@@ -137,6 +137,9 @@ BASE_URL = _str_env("BASE_URL", "http://localhost:9481").rstrip("/")
 
 LIBRARY_PATH = _str_env("LIBRARY_PATH", "./library")
 DATA_PATH = _str_env("DATA_PATH", "./data")
+# PostgreSQL instead of the SQLite file under DATA_PATH, as a URL:
+# postgresql://user:password@host:5432/grimoire. Unset (the default) keeps SQLite.
+DATABASE_URL = _str_env("DATABASE_URL", "").strip()
 
 VALKEY_URL = _str_env("VALKEY_URL", "")
 

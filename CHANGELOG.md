@@ -10,6 +10,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Added
 
+- Grimoire can keep its database in PostgreSQL 15 or newer instead of SQLite: set `DATABASE_URL`. A command copies an existing install's SQLite database across and checks every row; the SQLite file is left as it was. Search, campaigns and everything else work the same. Built-in backups on PostgreSQL hold your uploaded files but not the database, which you back up with PostgreSQL's own tools - the backups page says so. See the PostgreSQL guide in the docs
 - Wiki pages draw ` ```mermaid ` code blocks as diagrams - flowcharts, timelines, sequence diagrams, family trees and more - in the page and in the editor preview. Diagrams follow the light/dark theme, and one that doesn't parse shows its source and the error. Obsidian draws the same blocks, so they survive a Markdown export and re-import
 
 ### Changed
@@ -18,6 +19,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 ### Fixed
 
+- Searching for text with `%` or `_` in it - a title, a tag, a wiki page - finds that text, instead of treating the character as a wildcard that matched almost anything
 - Code blocks in wiki pages show exactly what was typed. A `[[...]]` inside one no longer turns into a link or creates an empty page, and a GM secret in a code block no longer splits it in two
 - Inline code in wiki pages sits inside its sentence again instead of breaking out onto a line of its own
 

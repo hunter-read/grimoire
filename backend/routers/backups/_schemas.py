@@ -25,6 +25,9 @@ class BackupListResponse(BaseModel):
     # Total bytes across every listed backup, so the UI can show usage against
     # the retention budget without re-summing per render.
     total_bytes: int
+    # False on PostgreSQL: a backup holds the data folder's files but not the
+    # database, which the database server's own tools back up (pg_dump).
+    includes_database: bool
 
 
 class BackupSettingsPatch(BaseModel):

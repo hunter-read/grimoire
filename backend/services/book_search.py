@@ -21,6 +21,7 @@ from ..models import Book, GameSystem, ResourceTag, Tag
 from . import access_control, tag_service, variants
 from .search_query import BOOK_FIELDS, ParsedQuery, year_bounds
 from .systems import visible_systems_by_id
+from .sql_like import contains, icontains, ilike
 
 # Ceiling on title-match rows. Generous relative to what a person reads, but
 # bounded so a one-letter filter (``language:e``) cannot select the library.
@@ -31,8 +32,8 @@ def _tagged_book_ids(db: Session, terms: list[str]) -> set[str]:
     """Book ids carrying a tag matching any of ``terms`` (substring, ILIKE)."""
     clauses = []
     for term in terms:
-        like = f"%{term}%"
-        clauses.append(or_(Tag.display.ilike(like), Tag.internal.ilike(like)))
+        like = contains(term)
+        clauses.append(or_(ilike(Tag.display, like), ilike(Tag.internal, like)))
     if not clauses:
         return set()
     rows = (
@@ -52,7 +53,7 @@ def _json_list_clause(column: Any, term: str) -> Any:
     of ``["`` is not a search anyone runs, and the alternative — a join table
     migration for two rarely-filtered fields — is not worth the cost.
     """
-    return cast(column, String).ilike(f"%{term}%")
+    return icontains(cast(column, String), term)
 
 
 def _any_of(column_clause_builder: Any, terms: list[str]) -> Any:
@@ -71,32 +72,32 @@ def apply_field_filters(db: Session, query: Any, parsed: ParsedQuery) -> Optiona
         if field_name == "text":
             continue  # handled by FTS, not here
         elif field_name == "title":
-            query = query.filter(_any_of(lambda t: Book.title.ilike(f"%{t}%"), values))
+            query = query.filter(_any_of(lambda t: icontains(Book.title, t), values))
         elif field_name == "author":
             query = query.filter(_any_of(lambda t: _json_list_clause(Book.authors, t), values))
         elif field_name == "artist":
             query = query.filter(_any_of(lambda t: _json_list_clause(Book.artists, t), values))
         elif field_name == "publisher":
-            query = query.filter(_any_of(lambda t: Book.publisher.ilike(f"%{t}%"), values))
+            query = query.filter(_any_of(lambda t: icontains(Book.publisher, t), values))
         elif field_name == "category":
-            query = query.filter(_any_of(lambda t: Book.category.ilike(f"%{t}%"), values))
+            query = query.filter(_any_of(lambda t: icontains(Book.category, t), values))
         elif field_name == "isbn":
-            query = query.filter(_any_of(lambda t: Book.isbn.ilike(f"%{t}%"), values))
+            query = query.filter(_any_of(lambda t: icontains(Book.isbn, t), values))
         elif field_name == "code":
             query = query.filter(_any_of(_product_code_clause, values))
         elif field_name == "language":
-            query = query.filter(_any_of(lambda t: Book.language.ilike(f"%{t}%"), values))
+            query = query.filter(_any_of(lambda t: icontains(Book.language, t), values))
         elif field_name == "description":
-            query = query.filter(_any_of(lambda t: Book.description.ilike(f"%{t}%"), values))
+            query = query.filter(_any_of(lambda t: icontains(Book.description, t), values))
         elif field_name == "filename":
-            query = query.filter(_any_of(lambda t: Book.filename.ilike(f"%{t}%"), values))
+            query = query.filter(_any_of(lambda t: icontains(Book.filename, t), values))
         elif field_name == "system":
             # Match the system by name or slug. A subquery rather than a join so
             # repeated filters stay composable and books with no system simply
             # fail the IN rather than dropping out of a join.
             sub = db.query(GameSystem.id).filter(
                 _any_of(
-                    lambda t: or_(GameSystem.name.ilike(f"%{t}%"), GameSystem.slug.ilike(f"%{t}%")),
+                    lambda t: or_(icontains(GameSystem.name, t), icontains(GameSystem.slug, t)),
                     values,
                 )
             )
@@ -132,7 +133,7 @@ def _product_code_clause(term: str) -> Any:
     as typed instead.
     """
     compact = term.replace(" ", "").replace("-", "") or term
-    return _compact(Book.product_code).ilike(f"%{compact}%")
+    return icontains(_compact(Book.product_code), compact)
 
 
 def free_text_clause(term: str) -> Any:
@@ -143,10 +144,10 @@ def free_text_clause(term: str) -> Any:
     by the name on disk, and the product code, so the code printed on a cover
     finds the book it belongs to (issue #479).
     """
-    like = f"%{term}%"
+    like = contains(term)
     return or_(
-        Book.title.ilike(like),
-        Book.filename.ilike(like),
+        ilike(Book.title, like),
+        ilike(Book.filename, like),
         _product_code_clause(term),
     )
 

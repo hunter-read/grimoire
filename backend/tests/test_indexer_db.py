@@ -10,6 +10,7 @@ import os
 import sqlite3
 import tempfile
 import threading
+import uuid
 from pathlib import Path
 from unittest.mock import patch
 
@@ -57,6 +58,19 @@ class TestDbCall:
         with pytest.raises(OperationalError) as info:
             _db_call(step, "step")
         assert not isinstance(info.value, DatabaseBusyError)
+
+    @pytest.mark.parametrize("sqlstate", ["55P03", "40P01", "40001"])
+    def test_postgres_lock_failures_are_busy(self, sqlstate):
+        """lock_timeout, deadlock and serialization failures, by SQLSTATE."""
+
+        class PgError(Exception):
+            pass
+
+        orig = PgError("canceling statement due to lock timeout")
+        orig.sqlstate = sqlstate
+        assert is_busy(OperationalError("UPDATE books", {}, orig))
+        orig.sqlstate = "57014"  # query_canceled: not a lock
+        assert not is_busy(OperationalError("UPDATE books", {}, orig))
 
     def test_is_busy_only_matches_operational_errors(self):
         assert is_busy(_locked())
@@ -146,3 +160,34 @@ class TestScanThreading:
             assert db.query(Book).filter(Book.filepath.like(f"{lib}%")).count() == 0
         finally:
             db.close()
+
+
+@pytest.mark.postgres_only
+def test_a_postgres_row_lock_timeout_is_busy():
+    """A real lock held by another connection, timed out by lock_timeout."""
+    from sqlalchemy import text
+
+    from backend.config import SessionLocal
+
+    key = f"busy-{uuid.uuid4().hex}"
+    setup = SessionLocal()
+    setup.add(AppSetting(key=key, value="0"))
+    setup.commit()
+    setup.close()
+    holder, waiter = SessionLocal(), SessionLocal()
+    try:
+        holder.execute(text("UPDATE app_settings SET value = '1' WHERE key = :k"), {"k": key})
+        waiter.execute(text("SET LOCAL lock_timeout = '50ms'"))
+
+        def step():
+            waiter.execute(
+                text("UPDATE app_settings SET value = '2' WHERE key = :k"), {"k": key}
+            )
+
+        with pytest.raises(DatabaseBusyError):
+            _db_call(step, "step")
+    finally:
+        waiter.rollback()
+        holder.rollback()
+        waiter.close()
+        holder.close()

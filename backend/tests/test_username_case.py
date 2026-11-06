@@ -164,6 +164,7 @@ def test_compatibility_forms_count_as_the_same_name():
     assert fold_username(None) is None
 
 
+@pytest.mark.sqlite_only  # a function registered on SQLite connections
 def test_fold_function_is_registered_on_connections():
     import sqlite3
 
@@ -193,6 +194,9 @@ def test_blank_username_matches_nothing():
         db.close()
 
 
+# SQLite only: PostgreSQL's lower() folds "É", so its unique index refuses the
+# second account and the collision cannot arise there.
+@pytest.mark.sqlite_only
 def test_names_that_already_collide_resolve_deterministically():
     """Accounts created before folding existed may differ only by an accented
     capital. Sign-in prefers the exact spelling, then the one SQLite's lower()

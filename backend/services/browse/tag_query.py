@@ -24,6 +24,7 @@ from .. import variants
 from ..tag_service import FolderResolver, normalize_internal, tagged_folders
 from ..tag_service._folder_scopes import outermost
 from .paths import folder_column
+from ..sql_like import contains, ilike
 
 FILTER_NONE = "__grim:none__"
 FILTER_ANY = "__grim:any__"
@@ -163,14 +164,14 @@ class TagMatcher:
 
     def like(self, text: str) -> Any:
         """Rows carrying a tag whose name contains ``text`` (the ``tag:`` search)."""
-        like = f"%{text}%"
-        clause = self._direct(or_(Tag.display.ilike(like), Tag.internal.ilike(like)))
+        like = contains(text)
+        clause = self._direct(or_(ilike(Tag.display, like), ilike(Tag.internal, like)))
         if self.folders:
             needle = text.lower()
             catalog = {
                 t.internal
                 for t in self.db.query(Tag.internal).filter(
-                    or_(Tag.display.ilike(like), Tag.internal.ilike(like))
+                    or_(ilike(Tag.display, like), ilike(Tag.internal, like))
                 )
             }
             raw = {

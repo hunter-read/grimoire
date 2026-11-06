@@ -15,6 +15,14 @@ _LIB_DIR = os.path.join(_DATA_DIR, "library")
 os.makedirs(_LIB_DIR, exist_ok=True)
 os.environ["DATA_PATH"] = _DATA_DIR
 os.environ["LIBRARY_PATH"] = _LIB_DIR
+# TEST_DATABASE_URL (a PostgreSQL URL) runs the suite on PostgreSQL instead of
+# SQLite: each xdist worker gets its own database, dropped and created afresh.
+if os.environ.get("TEST_DATABASE_URL", "").strip():
+    from backend.tests._postgres import fresh_database
+
+    os.environ["DATABASE_URL"] = fresh_database(
+        os.environ["TEST_DATABASE_URL"].strip(), os.environ.get("PYTEST_XDIST_WORKER", "main")
+    )
 # TestClient's Host header, so the MCP host allow-list admits test requests.
 os.environ.setdefault("MCP_ALLOWED_HOSTS", "testserver")
 # The TestClient connects as "testclient"; treat it as a reverse proxy so tests
@@ -28,6 +36,7 @@ os.environ.setdefault(
 from fastapi.testclient import TestClient  # noqa: E402
 from backend.main import app  # noqa: E402
 from backend.config import SessionLocal  # noqa: E402
+from backend.tests._postgres import ON_POSTGRES  # noqa: E402
 # The get_db every router captured when backend.main was imported just above,
 # kept for ``request_sessions``: a test that reloads config replaces the one
 # backend.config holds, but not the routers' copy.
@@ -78,6 +87,11 @@ def pytest_collection_modifyitems(config, items):
     exactly as a serial run would - only the first file of each slice loses
     its predecessors. Without xdist this does nothing.
     """
+    for item in items:
+        if ON_POSTGRES and item.get_closest_marker("sqlite_only"):
+            item.add_marker(pytest.mark.skip(reason="SQLite-specific (TEST_DATABASE_URL is set)"))
+        if not ON_POSTGRES and item.get_closest_marker("postgres_only"):
+            item.add_marker(pytest.mark.skip(reason="needs TEST_DATABASE_URL (PostgreSQL)"))
     workers = int(os.environ.get("PYTEST_XDIST_WORKER_COUNT") or 0)
     if workers < 2 or not items:
         return

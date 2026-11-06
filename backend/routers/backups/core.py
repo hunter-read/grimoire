@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from ...http_headers import content_disposition
 from ...auth import CurrentUser, require_admin
 from ...config import get_db, logger
+from ...models.dialect import is_postgres
 from ...services import backup as backup_service
 from ...services.backup._config import VALID_SCHEDULES
 from ._schemas import BackupSettingsPatch
@@ -38,6 +39,7 @@ def list_backups(
         "backups": [_to_item(r) for r in records],
         "directory": config.directory,
         "total_bytes": sum(r.size_bytes for r in records),
+        "includes_database": not is_postgres(db),
     }
 
 

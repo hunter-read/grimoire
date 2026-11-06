@@ -6,8 +6,11 @@ the notable constraints. The schema is defined by the SQLAlchemy models in
 `campaigns.py`, `settings.py`, `api_keys.py`, …); this document is a companion reference, so **keep it in
 sync when you change a model**.
 
-The backend runs on SQLite. All primary keys are 36-char UUID strings (`_uuid()`) except
-`app_settings`, which is keyed by its `key` string. Timestamps are UTC (`_utcnow()`).
+The backend runs on SQLite by default, or on PostgreSQL 15+ when `DATABASE_URL` is set (see
+[PostgreSQL](postgresql.md) and [PostgreSQL differences](#postgresql-differences) below).
+All primary keys are 36-char UUID strings (`_uuid()`) except `app_settings`, which is keyed
+by its `key` string. Timestamps are UTC (`_utcnow()`), stored naive; PostgreSQL sessions run
+in UTC so the two agree.
 
 Columns are declared in SQLAlchemy 2.0's typed style, `name: Mapped[str] = mapped_column(...)`,
 so mypy knows each attribute's Python type. The annotation also sets nullability when
@@ -242,7 +245,7 @@ None of these tables carry foreign keys; they are linked to campaigns polymorphi
 
 | Table | Purpose | Key columns / constraints |
 | --- | --- | --- |
-| `users` | An authenticated account. | `username` unique regardless of case (a unique index on `lower(username)`, created at start-up once no two accounts differ only in case; SQLite's `lower()` folds only A-Z, so the app also compares names through `grimoire_fold()` - NFKC plus Unicode case folding, a Python function registered on every connection by `backend/sql_functions.py` that nothing in the schema depends on); `email`, `opds_token_hash`, `calendar_token_hash`, `oidc_subject` unique + indexed. The OPDS and calendar feed tokens are never stored as themselves: `*_token_hash` is an HMAC-SHA256 under a key derived from `SECRET_KEY`, which feed requests are matched on, and `*_token_sealed` (text) is the token encrypted under another `SECRET_KEY`-derived key so its owner can copy the URL again - see [Security](security.md#feed-and-share-tokens-at-rest). The calendar token authenticates the campaign calendar (ICS) feeds, which cannot send an `Authorization` header; it is deliberately separate from the OPDS token and the JWT so it can be rotated on its own, and is null until the user first requests a subscription URL. `role` ∈ `admin`/`gm`/`player`/`guest`. `is_guest` marks campaign-scoped guest accounts. `api_keys_enabled` lets a non-admin hold [API keys](api.md#api-keys) (off by default; admins always may). `share_links_enabled` is the [share link](sharing.md) override: NULL follows the role default, true/false grants or refuses it whatever the role. `explicit_locked` is set when `allow_explicit` was turned off *for* the user - by an admin, the seed file or the OIDC `viewNSFW` permission - so their own preferences can't turn it back on; turning it on from any of those clears it. `theme_mode` ∈ light/dark/system and `theme_id` names an installed `user_themes` row - both nullable, meaning the built-in dark palette. These hold the choice for the default app mode (Grimoire); `theme_by_mode` JSON holds `{app_mode: {mode, theme_id}}` for any other. `last_login_at` and `last_active_at` (nullable, NULL = never) back the "Last active" column on the admin users list (issue #576): a new session sets both, and a token refresh or API-key use moves `last_active_at`, at most every 5 minutes. Migration 0054 backfilled them from `auth_sessions`. |
+| `users` | An authenticated account. | `username` unique regardless of case (a unique index on `lower(username)`, created at start-up once no two accounts differ only in case). The database's `lower()` folds less than Python does (SQLite's only A-Z), so sign-in matches on `username_folded` (indexed) instead: the username after NFKC and full Unicode case folding (`sql_functions.fold_text`), kept in step by the model whenever `username` is set; migration 0060 backfilled it, and start-up fills any account written without the model. `email`, `opds_token_hash`, `calendar_token_hash`, `oidc_subject` unique + indexed. The OPDS and calendar feed tokens are never stored as themselves: `*_token_hash` is an HMAC-SHA256 under a key derived from `SECRET_KEY`, which feed requests are matched on, and `*_token_sealed` (text) is the token encrypted under another `SECRET_KEY`-derived key so its owner can copy the URL again - see [Security](security.md#feed-and-share-tokens-at-rest). The calendar token authenticates the campaign calendar (ICS) feeds, which cannot send an `Authorization` header; it is deliberately separate from the OPDS token and the JWT so it can be rotated on its own, and is null until the user first requests a subscription URL. `role` ∈ `admin`/`gm`/`player`/`guest`. `is_guest` marks campaign-scoped guest accounts. `api_keys_enabled` lets a non-admin hold [API keys](api.md#api-keys) (off by default; admins always may). `share_links_enabled` is the [share link](sharing.md) override: NULL follows the role default, true/false grants or refuses it whatever the role. `explicit_locked` is set when `allow_explicit` was turned off *for* the user - by an admin, the seed file or the OIDC `viewNSFW` permission - so their own preferences can't turn it back on; turning it on from any of those clears it. `theme_mode` ∈ light/dark/system and `theme_id` names an installed `user_themes` row - both nullable, meaning the built-in dark palette. These hold the choice for the default app mode (Grimoire); `theme_by_mode` JSON holds `{app_mode: {mode, theme_id}}` for any other. `last_login_at` and `last_active_at` (nullable, NULL = never) back the "Last active" column on the admin users list (issue #576): a new session sets both, and a token refresh or API-key use moves `last_active_at`, at most every 5 minutes. Migration 0054 backfilled them from `auth_sessions`. |
 | `bookmarks` | Per-user page/text bookmark in a book. | FKs `user_id`, `book_id`. Index `ix_bookmarks_user_book` on `(user_id, book_id)`. |
 | `favorites` | Per-user favorite across books/maps/tokens/audio/models. | FK `user_id`. Polymorphic `(item_type, item_id)`. **Unique** `(user_id, item_type, item_id)`. |
 | `saved_filters` | Per-user named sort/filter preset for a library scope. | FK `user_id` (indexed). `scope` ∈ systems/books/maps/tokens/audio/models. `state` JSON holds the sort/filter object. `is_default` marks the per-scope landing view (at most one per scope, enforced in the router). **Unique** `(user_id, scope, name)`. |
@@ -324,12 +327,39 @@ path-keyed feature.
 
 ### Full-text search (not ORM tables)
 
-Both are created by migration 0059 ([`0059_book_pages.py`](../backend/migrations/versions/0059_book_pages.py)) with raw SQL, and read and written with raw SQL rather than through models.
+Both are created by migration 0059 ([`0059_book_pages.py`](../backend/migrations/versions/0059_book_pages.py)) with raw SQL, and read and written with raw SQL rather than through models. On PostgreSQL they look different - see [PostgreSQL differences](#postgresql-differences).
 
 | Table | Purpose | Notes |
 | --- | --- | --- |
 | `book_pages` | The indexed text of every book page. | `id INTEGER PRIMARY KEY` (the FTS rowid), `book_id` (NOT NULL, a soft reference to `books.id`), `page_number` (NOT NULL), `content` (NOT NULL). Index `ix_book_pages_book_page` on `(book_id, page_number)` serves the reader's page text, per-book deletes and the duplicate finder's sample, so none of them reads the whole table. Populated by the indexer and the OCR worker, which write only here. |
 | `book_search` | FTS5 index over `book_pages.content` for page search. | `fts5(content, content='book_pages', content_rowid='id', tokenize='porter unicode61')` - an external-content table that keeps no copy of the text. The triggers `book_pages_ai`/`_ad`/`_au` keep it in step with `book_pages`, so it is never written directly. Search matches on `book_search` and joins `book_pages` on `book_pages.id = book_search.rowid` for the book and page; `snippet()`/`highlight()` read the text through the content table. Before 0059 it held `book_id`/`page_number`/`content` itself with `book_id UNINDEXED`, so any lookup by book scanned it whole; 0059 converts an existing table in place (keeping rowids, resumable if interrupted) and flags a one-time startup `VACUUM` to return the old table's space. |
+
+## PostgreSQL differences
+
+A PostgreSQL database (`DATABASE_URL`) is not built by replaying the Alembic history, whose
+early revisions are SQLite-specific. `init_db` creates it from the models
+(`Base.metadata.create_all`), then [`backend/models/postgres.py`](../backend/models/postgres.py)
+adds what the models cannot declare, and the database is stamped at head. Every revision from
+then on must run on both databases; `alembic check` runs against both in CI.
+
+- **Page search.** `book_pages` gains `search`, a generated `tsvector`
+  (`to_tsvector('grimoire', left(content, 250000))`) with a GIN index `ix_book_pages_search`;
+  its `id` is a `BIGINT` identity. There is no `book_search` table and no triggers. The
+  `grimoire` text search configuration is Snowball English with no stopwords, after the
+  `unaccent` dictionary, so it matches the FTS5 `porter unicode61` tokenizer's behaviour.
+  `content_search` is an ordinary table with the same generated column over `name` and
+  `body`, indexed on `pack_row` and `(schema_id, content_type)`.
+- **Strings.** `String(n)` is created as an unbounded `VARCHAR`: SQLite never enforced the
+  lengths, so libraries hold longer values, and PostgreSQL must accept the same data.
+- **Collation.** `folder_path`, `sort_name` and `sort_title` use the `"C"` collation, so they
+  compare by code point as on SQLite - the folder ranges, the tag-count bisect and the natural
+  sort keys depend on it.
+- **Sizes.** `file_size` and `campaign_files.size_bytes` are `BIGINT` (a SQLite `INTEGER` is
+  already 64-bit).
+- **Text.** NUL characters are stripped from every string sent to PostgreSQL, which cannot
+  store them; SQLite can.
+- The case-insensitive username index and the default lookup rows (migrations 0004 and 0006
+  on SQLite) are created by the same setup step.
 
 ## Cascades and deletes
 

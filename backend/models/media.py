@@ -5,7 +5,8 @@ from typing import Any, Optional
 from sqlalchemy import Boolean, DateTime, Float, Index, Integer, JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from .base import Base, _utcnow, _uuid
+from .base import BYTES_TYPE, Base, _utcnow, _uuid
+from .browse import FOLDER_PATH_TYPE, SORT_KEY_TYPE
 
 
 def _browse_indexes(table: str, *, explicit: bool = False) -> tuple:
@@ -73,7 +74,7 @@ class GenericMap(Base):
     # replacing the source image would otherwise invalidate it undetectably.
     # See backend/services/media/vtt_authoring.py for the document shape.
     vtt_data: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
-    file_size: Mapped[Optional[int]] = mapped_column(Integer, default=0)
+    file_size: Mapped[Optional[int]] = mapped_column(BYTES_TYPE, default=0)
     # Content identity — see the note on Book.content_hash. ``file_mtime`` +
     # ``file_size`` gate the re-hash so unchanged rescans read no file content;
     # the hash then distinguishes a replaced file from a moved one (issue #284).
@@ -92,8 +93,8 @@ class GenericMap(Base):
     added_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True, default=_utcnow, index=True)
     # Natural-order filename key and the item's directory, kept in step by
     # models/browse.py for paged browsing (issue #221).
-    sort_name: Mapped[Optional[str]] = mapped_column(String(600), nullable=True)
-    folder_path: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
+    sort_name: Mapped[Optional[str]] = mapped_column(SORT_KEY_TYPE, nullable=True)
+    folder_path: Mapped[Optional[str]] = mapped_column(FOLDER_PATH_TYPE, nullable=True)
 
     __table_args__ = _browse_indexes("generic_maps")
 
@@ -119,7 +120,7 @@ class Token(Base):
     relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, default="")
     is_explicit: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
-    file_size: Mapped[Optional[int]] = mapped_column(Integer, default=0)
+    file_size: Mapped[Optional[int]] = mapped_column(BYTES_TYPE, default=0)
     # Content identity — see the note on GenericMap.content_hash.
     content_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
     file_mtime: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
@@ -136,8 +137,8 @@ class Token(Base):
     added_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True, default=_utcnow, index=True)
     # Natural-order filename key and the item's directory, kept in step by
     # models/browse.py for paged browsing (issue #221).
-    sort_name: Mapped[Optional[str]] = mapped_column(String(600), nullable=True)
-    folder_path: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
+    sort_name: Mapped[Optional[str]] = mapped_column(SORT_KEY_TYPE, nullable=True)
+    folder_path: Mapped[Optional[str]] = mapped_column(FOLDER_PATH_TYPE, nullable=True)
 
     __table_args__ = _browse_indexes("tokens", explicit=True)
 
@@ -178,7 +179,7 @@ class Audio(Base):
     # Takes precedence over folder art and embedded tags, since it is the only
     # one of the three a user can actually choose from Grimoire (issue #286).
     cover_image: Mapped[Optional[str]] = mapped_column(String(255), default="")
-    file_size: Mapped[Optional[int]] = mapped_column(Integer, default=0)
+    file_size: Mapped[Optional[int]] = mapped_column(BYTES_TYPE, default=0)
     # Content identity — see the note on GenericMap.content_hash.
     content_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
     file_mtime: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
@@ -194,8 +195,8 @@ class Audio(Base):
     added_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True, default=_utcnow, index=True)
     # Natural-order filename key and the item's directory, kept in step by
     # models/browse.py for paged browsing (issue #221).
-    sort_name: Mapped[Optional[str]] = mapped_column(String(600), nullable=True)
-    folder_path: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
+    sort_name: Mapped[Optional[str]] = mapped_column(SORT_KEY_TYPE, nullable=True)
+    folder_path: Mapped[Optional[str]] = mapped_column(FOLDER_PATH_TYPE, nullable=True)
 
     __table_args__ = (
         *_browse_indexes("audio"),
@@ -242,7 +243,7 @@ class Model3D(Base):
     relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, default="")
     is_explicit: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
-    file_size: Mapped[Optional[int]] = mapped_column(Integer, default=0)
+    file_size: Mapped[Optional[int]] = mapped_column(BYTES_TYPE, default=0)
     # Triangles in the mesh, read from the binary STL header (84 bytes, no
     # parse). 0 when unknown — an ASCII mesh, or a format we do not parse.
     triangle_count: Mapped[Optional[int]] = mapped_column(Integer, default=0)
@@ -272,8 +273,8 @@ class Model3D(Base):
     added_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True, default=_utcnow, index=True)
     # Natural-order filename key and the item's directory, kept in step by
     # models/browse.py for paged browsing (issue #221).
-    sort_name: Mapped[Optional[str]] = mapped_column(String(600), nullable=True)
-    folder_path: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
+    sort_name: Mapped[Optional[str]] = mapped_column(SORT_KEY_TYPE, nullable=True)
+    folder_path: Mapped[Optional[str]] = mapped_column(FOLDER_PATH_TYPE, nullable=True)
 
     __table_args__ = _browse_indexes("models_3d", explicit=True)
 

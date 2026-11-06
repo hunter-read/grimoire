@@ -6,6 +6,8 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from ...models import ContentEntry
+from ...models.dialect import is_postgres
+from ...services import pg_search
 
 #: `{name}` placeholders in a content type's compact_display template.
 _DISPLAY_TOKENS = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
@@ -46,23 +48,33 @@ def search_entry_ids(db: Session, schema_id: str, content_type: str, query: str)
 
     FTS5's query syntax would let a stray quote or operator raise, so the query
     is reduced to bare terms and each is prefix-matched — which is also what
-    someone typing "fire" into a spell list expects.
+    someone typing "fire" into a spell list expects. PostgreSQL does the same
+    over ``content_search.search`` (``services.pg_search.prefix_tsquery``).
     """
     terms = [term for term in re.findall(r"[\w']+", query) if term]
     if not terms:
         return []
-    match = " ".join(f'"{term}"*' for term in terms)
-
-    rows = db.execute(
-        text(
+    params: dict[str, Any] = {"schema_id": schema_id, "content_type": content_type}
+    if is_postgres(db):
+        tsq = pg_search.prefix_tsquery(terms, params)
+        if tsq is None:
+            return []
+        sql = (
+            f"WITH q AS (SELECT {tsq} AS q) "
+            "SELECT entry_row FROM content_search, q "
+            "WHERE content_search.search @@ q.q "
+            "AND schema_id = :schema_id AND content_type = :content_type "
+            "ORDER BY ts_rank_cd(content_search.search, q.q, 1) DESC, content_search.id"
+        )
+    else:
+        params["match"] = " ".join(f'"{term}"*' for term in terms)
+        sql = (
             "SELECT entry_row FROM content_search "
             "WHERE content_search MATCH :match "
             "AND schema_id = :schema_id AND content_type = :content_type "
             "ORDER BY rank"
-        ),
-        {"match": match, "schema_id": schema_id, "content_type": content_type},
-    ).fetchall()
-    return [row[0] for row in rows]
+        )
+    return [row[0] for row in db.execute(text(sql), params).fetchall()]
 
 
 def matches_filters(data: dict, filters: dict[str, str]) -> bool:

@@ -31,7 +31,7 @@ never writes to it.
 ### Library
 
 - **Library browser** - Organizes your collection by game system from the folder structure, with card, compact, and list layouts.
-- **Full-text search** - Every page of every PDF is indexed with SQLite FTS5. Also finds books by title, author, or publisher, and maps, tokens, audio, and models by filename, folder, or tag. Narrow with `title:`, `author:`, `tag:` and friends - see [Searching your library](docs/search.md).
+- **Full-text search** - Every page of every PDF is indexed for full-text search. Also finds books by title, author, or publisher, and maps, tokens, audio, and models by filename, folder, or tag. Narrow with `title:`, `author:`, `tag:` and friends - see [Searching your library](docs/search.md).
 - **Sort, filter, and saved presets** - Filter on genre, system family, edition, dice/materials, tags, favourites, and explicit content. Tag filters are boolean groups (`Building` AND `store OR shop`), and named presets save to your account with one default per view.
 - **Shared tags** - One tag catalog across every resource type, with a Tags page to rename, merge, delete, and browse by tag, and per-tag downloads.
 - **Metadata editor** - Rich metadata for systems and books, drawn from curated lists you manage in **Settings → Metadata**. Parent systems group related lines ("Cyberpunk" + "Red" → "Cyberpunk Red").
@@ -256,6 +256,7 @@ Ready-to-use compose files for common setups are in [`docs/docker/`](docs/docker
 | [`docs/docker/docker-compose.valkey.yml`](docs/docker/docker-compose.valkey.yml)           | Grimoire + Valkey page cache (recommended for large libraries) |
 | [`docs/docker/docker-compose.calibre.yml`](docs/docker/docker-compose.calibre.yml)         | Grimoire + Calibre full desktop (metadata editing, OPF export) |
 | [`docs/docker/docker-compose.calibre-web.yml`](docs/docker/docker-compose.calibre-web.yml) | Grimoire + Calibre-Web (lightweight Calibre browser UI)        |
+| [`docs/docker/docker-compose.postgres.yml`](docs/docker/docker-compose.postgres.yml)       | Grimoire + PostgreSQL instead of SQLite                        |
 
 Each file has inline comments explaining the options. Copy and edit the one that fits your setup:
 
@@ -319,6 +320,7 @@ kept in the repo so it versions with the release you are running:
 | [Library structure](docs/library-structure.md)     | How folders become systems and categories, supported formats, `tags.json`, `.grimoireignore` |
 | [Configuration](docs/configuration.md)             | Every environment variable, and read-only vs writable mounts                                 |
 | [Running from source](docs/running-from-source.md) | Building the image yourself, or running without Docker                                       |
+| [PostgreSQL](docs/postgresql.md)                   | Keeping the database in PostgreSQL instead of SQLite, and moving an existing install across  |
 | [Docker image tags](docs/dockerhub.md)             | `latest`, `nightly`, `-slim`, and the supported architectures                                |
 
 ### Using it

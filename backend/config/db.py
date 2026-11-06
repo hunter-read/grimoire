@@ -58,7 +58,7 @@ def init_database() -> "Engine":
             from ..models import init_db
 
             os.makedirs(env.DATA_PATH, exist_ok=True)
-            engine, _ = init_db(paths.DB_PATH)
+            engine, _ = init_db(env.DATABASE_URL or paths.DB_PATH)
             _session_factory().configure(bind=engine)
         return engine
 

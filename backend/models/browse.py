@@ -29,9 +29,18 @@ import re
 import unicodedata
 from typing import Any, Optional
 
-from sqlalchemy import event
+from sqlalchemy import String, event
 
 _DIGITS = re.compile(r"\d+")
+
+# Column types for the two derived columns. Both are compared as raw code points:
+# the sort keys by design (above), and folders by range ("maps/Swamps/" up to
+# "maps/Swamps0") and by Python's bisect over the database's ORDER BY
+# (``tag_service._folder_scopes``). SQLite compares text that way already;
+# PostgreSQL uses the database's locale collation unless told otherwise, which
+# puts "/" and case in other places, so there the columns are declared "C".
+SORT_KEY_TYPE = String(600).with_variant(String(600, collation="C"), "postgresql")
+FOLDER_PATH_TYPE = String(1000).with_variant(String(1000, collation="C"), "postgresql")
 
 
 def _number(match: re.Match) -> str:

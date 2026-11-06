@@ -14,8 +14,9 @@ update the matching section here.
   i18next (see [`frontend/src/locales/`](../frontend/src/locales) for available locales;
   only `en-US` is bundled, the rest load on demand),
   Vitest + React Testing Library.
-- **Backend** - FastAPI (async) + SQLAlchemy 2.0, SQLite with FTS5 full-text search,
-  PyMuPDF (`pymupdf`) for PDF→WebP rendering, PyJWT auth.
+- **Backend** - FastAPI (async) + SQLAlchemy 2.0, SQLite with FTS5 full-text search
+  (or PostgreSQL 15+ with `tsvector` search, when `DATABASE_URL` is set - see
+  [PostgreSQL](postgresql.md)), PyMuPDF (`pymupdf`) for PDF→WebP rendering, PyJWT auth.
 - **Optional** - Valkey/Redis for in-memory page-image caching (falls back to disk).
 
 The FastAPI backend serves both the REST API under `/api/*` and the static React build
@@ -477,7 +478,13 @@ Schema changes are managed by **Alembic** (revisions in
   any prior version transparent, with no manual action.
 - **Concurrency** - `init_db` runs once per worker process; a blocking file lock
   (`<db>.migrate.lock`) serializes the migration so, with multiple uvicorn workers, the
-  first migrates and the rest wait and then find the DB already at head.
+  first migrates and the rest wait and then find the DB already at head. On PostgreSQL a
+  `pg_advisory_lock` does the same job, across hosts too.
+- **PostgreSQL** - a fresh database is created from the models plus
+  [`backend/models/postgres.py`](../backend/models/postgres.py) (search configuration and
+  tables, the username index, lookup seeds) and stamped at head, since the early revisions
+  are SQLite-only; later revisions run on both. Code that differs by dialect asks
+  `backend/models/dialect.is_postgres`. See [Data model](data-model.md#postgresql-differences).
 - After migrations, idempotent data fixups run on every startup (tag normalization,
   resource-visibility backfill from the legacy `shared`/`gm_only` flags). The page-search
   tables (`book_pages` and the FTS5 `book_search` index over it) are not ORM tables; migration
@@ -501,7 +508,10 @@ alembic downgrade -1                                        # verify it reverses
 
 `alembic check` must report nothing against a freshly migrated database: the migrations and
 the models describe the same schema. The FTS5 tables are created with raw SQL rather than
-declared as models, so `env.py` leaves them out of the comparison. The backend tests run the
+declared as models, so `env.py` leaves them out of the comparison. A new revision must also
+run on PostgreSQL: use `op.*` calls or portable SQL (`TRUE`/`FALSE`, not `1`/`0`, for
+booleans), and check `context.dialect.name` for anything SQLite-specific. `test_postgres.py`
+runs the same check against a fresh PostgreSQL schema. The backend tests run the
 same check (`TestSchemaAlignment` in `backend/tests/test_db_migrations.py`), so a model change
 without its migration, or the reverse, fails CI. Rebuilding a table that other tables reference
 is risky in batch mode: migrations run with `PRAGMA foreign_keys=ON`, which can't be turned off

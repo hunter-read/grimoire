@@ -118,7 +118,8 @@ def cancel_scan(_: CurrentUser = Depends(require_admin)):
 
 def _book_bytes(db: Session, scope) -> int:
     """Total bytes of the books the caller may see, variants included."""
-    return scope(db.query(func.sum(Book.file_size))).scalar() or 0
+    # int(): PostgreSQL sums a BIGINT as NUMERIC, which arrives as a Decimal.
+    return int(scope(db.query(func.sum(Book.file_size))).scalar() or 0)
 
 
 @stats_router.get(
@@ -178,7 +179,7 @@ def get_stats(
             (
                 _book_bytes(db, _books)
                 + sum(
-                    db.query(func.sum(model.file_size)).scalar() or 0
+                    int(db.query(func.sum(model.file_size)).scalar() or 0)
                     for model in (GenericMap, Token, Audio, Model3D)
                 )
             )

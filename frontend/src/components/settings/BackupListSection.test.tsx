@@ -23,10 +23,11 @@ const ITEM = {
   version: '1.6.0',
 }
 
-const listing = (items = [ITEM]) => ({
+const listing = (items = [ITEM], includesDatabase = true) => ({
   backups: items,
   directory: '/data/backups',
   total_bytes: items.reduce((sum, i) => sum + i.size_bytes, 0),
+  includes_database: includesDatabase,
 })
 
 beforeEach(() => {
@@ -54,6 +55,38 @@ describe('BackupListSection', () => {
     expect(screen.getByText('backups.notice.threeTwoOne')).toBeInTheDocument()
     // Restore is deliberately manual, and the UI says so.
     expect(screen.getByText('backups.notice.restore')).toBeInTheDocument()
+  })
+
+  it('says nothing about the database when the backup holds it (SQLite)', async () => {
+    render(<BackupListSection />)
+
+    await screen.findByText(/5\.0 MB/)
+    expect(screen.queryByText('backups.notice.noDatabase')).not.toBeInTheDocument()
+  })
+
+  it('states that a PostgreSQL database is not in the backup', async () => {
+    vi.mocked(backups.list).mockResolvedValue(listing([ITEM], false))
+    render(<BackupListSection />)
+
+    expect(await screen.findByText('backups.notice.noDatabase')).toBeInTheDocument()
+  })
+
+  it('does not claim database writes pause when the database is not backed up', async () => {
+    vi.mocked(backups.list).mockResolvedValue(listing([ITEM], false))
+    let resolveCreate!: (value: unknown) => void
+    vi.mocked(backups.create).mockReturnValue(
+      new Promise((res) => {
+        resolveCreate = res as (value: unknown) => void
+      })
+    )
+    render(<BackupListSection />)
+    await screen.findByText('backups.notice.noDatabase')
+
+    fireEvent.click(screen.getByRole('button', { name: /createButton/ }))
+
+    expect(await screen.findByText('backups.list.creating')).toBeInTheDocument()
+    expect(screen.queryByText('backups.list.blockingWarning')).not.toBeInTheDocument()
+    resolveCreate(ITEM)
   })
 
   it('shows the empty state when there are no backups', async () => {

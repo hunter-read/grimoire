@@ -502,6 +502,19 @@ def test_prepare_only_checks_a_backup_folder_set_in_the_app(volumes, tmp_path, m
     assert "backup folder set in the app" in capsys.readouterr().err
 
 
+def test_prepare_ignores_a_stale_sqlite_file_on_postgres(volumes, tmp_path, monkeypatch, capsys):
+    """After moving to PostgreSQL the old grimoire.db is history, not settings."""
+    library, data, chowned = volumes
+    backups = tmp_path / "app-backups"
+    backups.mkdir()
+    data.mkdir()
+    _settings_db(data, str(backups))
+    _probe_failing(monkeypatch, {str(backups)})
+    env = {"DATABASE_URL": "postgresql://grimoire@db/grimoire"}
+    assert ep.prepare(env, str(library), str(data), 1000, 1000, False) is True
+    assert "backup folder set in the app" not in capsys.readouterr().err
+
+
 def test_prepare_leaves_a_symlinked_backup_dir_alone(volumes, tmp_path, monkeypatch):
     library, data, chowned = volumes
     real = tmp_path / "real-backups"

@@ -25,13 +25,14 @@ from datetime import datetime, timezone
 from typing import Any, Literal, Optional
 
 from fastapi import Depends, HTTPException, Query
-from sqlalchemy import exists, func, literal_column, nullslast, or_, select
+from sqlalchemy import Text, case, cast, exists, func, literal_column, nullslast, or_, select
 from sqlalchemy.orm import InstrumentedAttribute, Session
 
 from ...auth import CurrentUser, get_current_user
 from ...config import get_db
 from ...models import Book, Favorite, GameSystem, ResourceTag, Tag, User
 from ...models.browse import natural_key
+from ...models.dialect import is_postgres
 from ...services import access_control, tag_service, variants
 from ...services.browse.paths import relative_folder
 from ...services.browse.tag_query import FILTER_ANY, FILTER_NONE, TagMatcher
@@ -160,12 +161,23 @@ class ShelfBrowser:
         return relative_folder(folder_path or "", self.depth + 1)
 
     def _genre_clause(self, genre: str) -> Any:
-        empty = or_(Book.genres.is_(None), func.json_array_length(Book.genres) == 0)
+        if is_postgres(self.db):
+            # PostgreSQL's JSON functions raise on anything but an array, and
+            # it may evaluate either side of an OR first, so a non-array (a
+            # stray JSON null) is read as an empty list instead.
+            genres = case(
+                (func.json_typeof(Book.genres) == "array", Book.genres),
+                else_=literal_column("'[]'::json"),
+            )
+            empty = or_(Book.genres.is_(None), func.json_array_length(genres) == 0)
+            entries = func.json_array_elements_text(genres).table_valued("value")
+        else:
+            empty = or_(Book.genres.is_(None), func.json_array_length(Book.genres) == 0)
+            entries = func.json_each(Book.genres).table_valued("value")
         if genre == FILTER_NONE:
             return empty
         if genre == FILTER_ANY:
             return ~empty
-        entries = func.json_each(Book.genres).table_valued("value")
         return exists(
             select(literal_column("1"))
             .select_from(entries)
@@ -177,9 +189,10 @@ class ShelfBrowser:
             return _is_blank(Book.product_code)
         if prefix == FILTER_ANY:
             return ~_is_blank(Book.product_code)
-        # LIKE is case-insensitive for ASCII, matching the client's upper-cased
-        # prefix comparison.
-        return Book.product_code.like(f"{_escape_like(prefix)}%", escape="!")
+        # Case-insensitive, matching the client's upper-cased prefix comparison:
+        # SQLite's LIKE already is for ASCII; PostgreSQL's needs ILIKE.
+        like = Book.product_code.ilike if is_postgres(self.db) else Book.product_code.like
+        return like(f"{_escape_like(prefix)}%", escape="!")
 
     def _folders_in_category(self, category: str, sub: str) -> list[str]:
         """The stored folders of ``category`` whose subfolder is exactly ``sub``."""
@@ -342,7 +355,9 @@ class ShelfBrowser:
             {c for (c,) in self.base([Book.category]).distinct() if c}
         )
         genres: set[str] = set()
-        for (raw,) in self.base([Book.genres]).distinct():
+        # As text on PostgreSQL, whose json type has no equality for DISTINCT.
+        genre_column = cast(Book.genres, Text) if is_postgres(self.db) else Book.genres
+        for (raw,) in self.base([genre_column]).distinct():
             values = raw
             if isinstance(raw, str):
                 try:

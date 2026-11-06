@@ -3542,6 +3542,7 @@
   "backups": {
     "notice": {
       "title": "Vad en säkerhetskopia täcker",
+      "noDatabase": "Din databas är PostgreSQL, så en säkerhetskopia innehåller filerna du laddat upp genom Grimoire men inte själva databasen. Säkerhetskopiera databasen med pg_dump eller databasserverns egna säkerhetskopior.",
       "noLibrary": "Dina biblioteksfiler ingår aldrig. En säkerhetskopia innehåller bara databasen och filerna du laddat upp genom Grimoire (kampanjuppladdningar, systemomslag, ljudomslag). Säkerhetskopiera ditt bibliotek separat.",
       "threeTwoOne": "De här säkerhetskopiorna finns på samma maskin som Grimoire. Följ en 3-2-1-strategi: tre kopior, på två sorters media, med en offsite.",
       "restore": "Återställning görs för hand, med servern stoppad. Se restore-from-backup.md i Grimoire-repot."

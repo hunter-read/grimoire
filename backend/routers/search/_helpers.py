@@ -1,6 +1,6 @@
 """Shared search helpers and category prioritization for the search router."""
 from html import escape
-from typing import Optional
+from typing import Any, Optional
 
 from sqlalchemy import String, cast, or_
 
@@ -16,8 +16,10 @@ from ...models import (
     Token,
     TokenFolder,
 )
-from ...services import tag_service, variants
+from ...models.dialect import is_postgres
+from ...services import pg_search, tag_service, variants
 from ...services.search_query import MEDIA_FIELDS, ParsedQuery
+from ...services.sql_like import contains, icontains, ilike
 
 
 # Most results a media section of the search returns.
@@ -35,7 +37,7 @@ def _ids_matching_tag(db, resource_type: str, term: str) -> set:
         .join(Tag, Tag.id == ResourceTag.tag_id)
         .filter(
             ResourceTag.resource_type == resource_type,
-            or_(Tag.display.ilike(term), Tag.internal.ilike(term)),
+            or_(ilike(Tag.display, term), ilike(Tag.internal, term)),
         )
         .all()
     )
@@ -69,7 +71,7 @@ VISIBLE_BOOKS_SQL = "book_id IN (SELECT id FROM books WHERE variant_parent_id IS
 # Appended to an FTS query when the user has explicit content off. A subquery
 # rather than an id list: it holds no request input, and the explicit set can be
 # large where the restricted set is small.
-EXPLICIT_BOOKS_CLAUSE = "AND book_id NOT IN (SELECT id FROM books WHERE is_explicit = 1)"
+EXPLICIT_BOOKS_CLAUSE = "AND book_id NOT IN (SELECT id FROM books WHERE is_explicit = TRUE)"
 
 
 def access_clause(excluded_book_ids) -> tuple[str, dict]:
@@ -103,6 +105,48 @@ def access_clause(excluded_book_ids) -> tuple[str, dict]:
 SEARCH_FROM_SQL = "FROM book_search JOIN book_pages ON book_pages.id = book_search.rowid"
 
 SNIPPET_SQL = f"snippet(book_search, 0, '{_SNIPPET_OPEN}', '{_SNIPPET_CLOSE}', '...', 40)"
+
+
+def page_search_sql(db: Any, fts_query: str, where_sql: str, params: dict) -> Optional[str]:
+    """The ranked page-text query: ``book_id, page_number, snippet, rank`` rows.
+
+    ``fts_query`` comes from ``search_query.to_fts_query``; ``where_sql`` holds
+    the scope and access clauses (``AND ...``, naming ``book_id`` unqualified),
+    applied before the LIMIT so a page never comes back short. ``rank`` is lower
+    for a better match on both databases. Values are added to ``params``.
+
+    SQLite runs it on the FTS5 index; PostgreSQL on ``book_pages.search``
+    (``services.pg_search``), building the snippet only for the rows that
+    survive the LIMIT. Returns None when the query holds no term to search for.
+    """
+    params["query"] = fts_query
+    if not is_postgres(db):
+        return f"""
+            SELECT book_id, page_number, {SNIPPET_SQL} AS snippet, rank
+            {SEARCH_FROM_SQL}
+            WHERE book_search MATCH :query {where_sql}
+            ORDER BY rank
+            LIMIT :limit
+        """
+    del params["query"]
+    tsq = pg_search.tsquery(fts_query, params)
+    if tsq is None:
+        return None
+    headline = pg_search.headline_sql("book_pages.content", "q.q")
+    return f"""
+        WITH q AS (SELECT {tsq} AS q),
+        hits AS (
+            SELECT book_pages.id, book_id, page_number,
+                   ts_rank_cd(book_pages.search, q.q, 1) AS score
+            FROM book_pages, q
+            WHERE book_pages.search @@ q.q {where_sql}
+            ORDER BY score DESC, book_pages.id
+            LIMIT :limit
+        )
+        SELECT hits.book_id, hits.page_number, {headline} AS snippet, -hits.score AS rank
+        FROM hits JOIN book_pages ON book_pages.id = hits.id, q
+        ORDER BY hits.score DESC, hits.id
+    """
 
 
 def escape_snippet(raw: str) -> str:
@@ -183,7 +227,7 @@ def _tag_ids_for_terms(db, resource_type: str, terms: list[str]) -> set:
     """Union of :func:`_ids_matching_tag` over several terms."""
     ids: set = set()
     for term in terms:
-        ids |= _ids_matching_tag(db, resource_type, f"%{term}%")
+        ids |= _ids_matching_tag(db, resource_type, contains(term))
     return ids
 
 
@@ -197,17 +241,22 @@ def _media_clauses(db, model, resource_type: str, terms: dict, extra_fields: dic
 
     # Unprefixed query: filename OR tag OR any of the collection's own metadata.
     for term in terms.get("free_any", []):
-        like = f"%{term}%"
-        any_of = [model.filename.ilike(like), model.id.in_(_ids_matching_tag(db, resource_type, like))]
+        like = contains(term)
+        any_of = [
+            ilike(model.filename, like),
+            model.id.in_(_ids_matching_tag(db, resource_type, like)),
+        ]
         for column in extra_fields.values():
-            any_of.append(column.ilike(like))
+            any_of.append(ilike(column, like))
         clauses.append(or_(*any_of))
 
     alias_column = extra_fields.get(_TITLE_ALIAS_COLUMNS.get(resource_type, ""))
     for term in terms.get("filename", []) + terms.get("free", []):
-        like = f"%{term}%"
-        name_match = model.filename.ilike(like)
-        clauses.append(or_(name_match, alias_column.ilike(like)) if alias_column is not None else name_match)
+        like = contains(term)
+        name_match = ilike(model.filename, like)
+        clauses.append(
+            or_(name_match, ilike(alias_column, like)) if alias_column is not None else name_match
+        )
 
     if tag_terms := terms.get("tag"):
         clauses.append(model.id.in_(_tag_ids_for_terms(db, resource_type, tag_terms)))
@@ -216,7 +265,7 @@ def _media_clauses(db, model, resource_type: str, terms: dict, extra_fields: dic
         if name == _TITLE_ALIAS_COLUMNS.get(resource_type):
             continue  # already applied above, via the filename terms
         for term in terms.get(name, []):
-            clauses.append(column.ilike(f"%{term}%"))
+            clauses.append(icontains(column, term))
 
     return clauses
 
@@ -245,11 +294,11 @@ def _folder_matches(
         return []
     paths: set[str] = set()
     for word in words:
-        like = f"%{word}%"
+        like = contains(word)
         for (path,) in db.query(folder_model.path).filter(
             or_(
-                folder_model.path.ilike(like),
-                cast(folder_model.tags, String).ilike(like),
+                ilike(folder_model.path, like),
+                ilike(cast(folder_model.tags, String), like),
             )
         ):
             paths.add(path)

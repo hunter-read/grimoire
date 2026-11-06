@@ -1,4 +1,9 @@
-"""Building a backup archive: a consistent DB snapshot plus user-authored files."""
+"""Building a backup archive: a consistent DB snapshot plus user-authored files.
+
+On PostgreSQL the archive holds the files only: the database lives on another
+server and is backed up with that server's own tools (pg_dump, snapshots), which
+the manifest and the backups page both say.
+"""
 import json
 import os
 import sqlite3
@@ -8,6 +13,7 @@ import zipfile
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from ...models.dialect import is_postgres
 from ...config import (
     AUDIO_COVER_DIR,
     BOOK_COVER_DIR,
@@ -127,12 +133,14 @@ def _create_backup(db: Any, trigger: str) -> BackupRecord:
         with zipfile.ZipFile(
             temp_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6
         ) as zf:
-            # The database goes through a temp file rather than straight into
-            # the zip: the backup API needs a real path to write to.
-            with tempfile.TemporaryDirectory(prefix="grimoire-db-snap-") as snap_dir:
-                snapshot = os.path.join(snap_dir, DB_ARCHIVE_NAME)
-                snapshot_database(snapshot)
-                zf.write(snapshot, DB_ARCHIVE_NAME)
+            postgres = is_postgres(db)
+            if not postgres:
+                # The database goes through a temp file rather than straight
+                # into the zip: VACUUM INTO needs a real path to write to.
+                with tempfile.TemporaryDirectory(prefix="grimoire-db-snap-") as snap_dir:
+                    snapshot = os.path.join(snap_dir, DB_ARCHIVE_NAME)
+                    snapshot_database(snapshot)
+                    zf.write(snapshot, DB_ARCHIVE_NAME)
 
             for source, arc_root in ASSET_DIRS:
                 counts[arc_root] = _add_directory(zf, source, arc_root)
@@ -142,13 +150,20 @@ def _create_backup(db: Any, trigger: str) -> BackupRecord:
                 "version": VERSION,
                 "created_at": created.isoformat().replace("+00:00", "Z"),
                 "trigger": trigger,
+                "database_engine": "postgresql" if postgres else "sqlite",
                 "contents": {
-                    "database": DB_ARCHIVE_NAME,
+                    "database": None if postgres else DB_ARCHIVE_NAME,
                     "directories": counts,
                 },
                 # Stated in the archive itself so anyone opening it later knows
                 # what it does not carry, without needing the docs to hand.
                 "excludes": [
+                    *(
+                        ["database (PostgreSQL; back it up with pg_dump or your "
+                         "database server's own backups)"]
+                        if postgres
+                        else []
+                    ),
                     "library (mounted read-only; back it up separately)",
                     "thumbnails (regenerated on demand)",
                     "page_cache (regenerated on demand)",

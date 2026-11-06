@@ -3,7 +3,12 @@ import datetime
 import uuid
 from typing import Optional
 
+from sqlalchemy import BigInteger, Integer
 from sqlalchemy.orm import DeclarativeBase
+
+# A file size in bytes. 64-bit on PostgreSQL, whose INTEGER stops at 2 GiB; a
+# SQLite INTEGER is already 64-bit, so the schema there is unchanged.
+BYTES_TYPE = Integer().with_variant(BigInteger(), "postgresql")
 
 
 class Base(DeclarativeBase):

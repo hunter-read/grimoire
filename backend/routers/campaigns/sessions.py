@@ -17,6 +17,7 @@ from ._helpers import (
     get_campaign_or_404,
 )
 from ._schemas import GMNoteUpdate, PlayerNoteUpdate, SessionNoteCreate, SessionNoteUpdate
+from ...services.sql_like import contains, ilike
 
 
 def search_session_notes(
@@ -30,7 +31,7 @@ def search_session_notes(
         raise HTTPException(403, "Not a member of this campaign")
 
     is_owner = c.owner_id == current_user.id or current_user.role == "admin"
-    term = f"%{q}%"
+    term = contains(q)
 
     sessions = db.query(SessionNote).filter_by(campaign_id=campaign_id).all()
     session_map = {s.id: s for s in sessions}
@@ -45,7 +46,7 @@ def search_session_notes(
         db.query(PlayerSessionNote)
         .filter(
             PlayerSessionNote.session_id.in_(session_map),
-            PlayerSessionNote.content.ilike(term),
+            ilike(PlayerSessionNote.content, term),
         )
         .all()
     ):

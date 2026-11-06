@@ -17,9 +17,8 @@ from ...services.media.access import allow_explicit
 from ._helpers import (
     EXPLICIT_BOOKS_CLAUSE,
     _search_models,
-    SEARCH_FROM_SQL,
-    SNIPPET_SQL,
     access_clause,
+    page_search_sql,
     VISIBLE_BOOKS_SQL,
     _CATEGORY_PRIORITY,
     _search_audio,
@@ -68,59 +67,20 @@ def search_library(
 
     rows: Sequence[Any] = []
     if content_q:
+        params: dict[str, Any] = {"limit": limit, **access_params}
         if book_id:
-            sql = text(
-                f"""
-                SELECT book_id, page_number,
-                       {SNIPPET_SQL} as snippet,
-                       rank
-                {SEARCH_FROM_SQL}
-                WHERE book_search MATCH :query AND book_id = :book_id
-                  {access_sql}
-                ORDER BY rank
-                LIMIT :limit
-            """
-            )
-            rows = db.execute(
-                sql, {"query": content_q, "book_id": book_id, "limit": limit, **access_params}
-            ).fetchall()
+            scope_sql = "AND book_id = :book_id"
+            params["book_id"] = book_id
         elif system_id:
-            sql = text(
-                f"""
-                SELECT book_id, page_number,
-                       {SNIPPET_SQL} as snippet,
-                       rank
-                {SEARCH_FROM_SQL}
-                WHERE book_search MATCH :query
-                  AND book_id IN (
-                      SELECT id FROM books
-                      WHERE game_system_id = :system_id AND variant_parent_id IS NULL
-                  )
-                  {access_sql}
-                ORDER BY rank
-                LIMIT :limit
-            """
+            scope_sql = (
+                "AND book_id IN (SELECT id FROM books "
+                "WHERE game_system_id = :system_id AND variant_parent_id IS NULL)"
             )
-            rows = db.execute(
-                sql, {"query": content_q, "system_id": system_id, "limit": limit, **access_params}
-            ).fetchall()
+            params["system_id"] = system_id
         else:
-            sql = text(
-                f"""
-                SELECT book_id, page_number,
-                       {SNIPPET_SQL} as snippet,
-                       rank
-                {SEARCH_FROM_SQL}
-                WHERE book_search MATCH :query
-                  AND {VISIBLE_BOOKS_SQL}
-                  {access_sql}
-                ORDER BY rank
-                LIMIT :limit
-            """
-            )
-            rows = db.execute(
-                sql, {"query": content_q, "limit": limit, **access_params}
-            ).fetchall()
+            scope_sql = f"AND {VISIBLE_BOOKS_SQL}"
+        sql = page_search_sql(db, content_q, f"{scope_sql} {access_sql}", params)
+        rows = db.execute(text(sql), params).fetchall() if sql else []
 
     enriched = []
     book_cache = {}

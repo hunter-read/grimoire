@@ -444,7 +444,10 @@ def prepare(
             log(f"Staying root so nothing stops working. {fix_hint}")
             return False
 
-    chosen = None if backups else app_backup_dir(data)
+    # On PostgreSQL the setting is in a database this stdlib-only script cannot
+    # read (a grimoire.db left in DATA_PATH from before a migration is stale).
+    on_postgres = bool(env.get("DATABASE_URL", "").strip())
+    chosen = None if backups or on_postgres else app_backup_dir(data)
     if chosen and os.path.isdir(chosen) and not _is_within(chosen, data):
         if probe(uid, gid, [(chosen, _access_mode(chosen, write=True))], real_writes=True):
             log(

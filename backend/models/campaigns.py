@@ -15,7 +15,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .. import token_vault
-from .base import Base, _utcnow, _uuid
+from .base import BYTES_TYPE, Base, _utcnow, _uuid
 
 
 class Campaign(Base):
@@ -495,7 +495,7 @@ class CampaignFile(Base):
     stored_path: Mapped[str] = mapped_column(String(255), nullable=False)  # relative filename on disk
     filename: Mapped[str] = mapped_column(String(255), nullable=False)  # original upload name
     mime_type: Mapped[Optional[str]] = mapped_column(String(100), default="application/octet-stream")
-    size_bytes: Mapped[Optional[int]] = mapped_column(Integer, default=0)
+    size_bytes: Mapped[Optional[int]] = mapped_column(BYTES_TYPE, default=0)
     # True for image uploads (PNG/JPEG/WebP/GIF), so the UI can render them inline
     # (e.g. embedded in a wiki note) and show a thumbnail instead of a file card.
     is_image: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)

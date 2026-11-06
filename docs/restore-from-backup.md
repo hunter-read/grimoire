@@ -7,6 +7,10 @@ and no restore endpoint.
 
 The procedure below takes about five minutes.
 
+> **On PostgreSQL** (`DATABASE_URL`), the archive has no `grimoire.db`: restore the files
+> from it as below, and the database from your own PostgreSQL backup (`pg_restore` of a
+> `pg_dump`). See [PostgreSQL](postgresql.md#backups).
+
 > **Before you start:** a restore replaces your current database wholesale. Every account,
 > tag, bookmark, campaign, and piece of metadata reverts to the state it was in when the
 > backup was taken. Anything added since is lost. If the current database is merely

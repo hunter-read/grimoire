@@ -1,4 +1,4 @@
-"""Search package — FTS5 full-text search across the library."""
+"""Search package — full-text search across the library (FTS5, or PostgreSQL's)."""
 from fastapi import APIRouter, Depends
 
 from ...auth import require_not_guest
@@ -14,7 +14,8 @@ router.add_api_route(
     dependencies=[Depends(require_not_guest)],
     response_model=SearchResponse,
     description=(
-        "Searches indexed book pages using SQLite FTS5, and books, maps, tokens "
+        "Searches indexed book pages (SQLite FTS5, or PostgreSQL full-text "
+        "search), and books, maps, tokens "
         "and audio by their own metadata. Optionally scope to a single book "
         "(`book_id`) or game system (`system_id`). Supports `field:value` "
         "filters (`title:avatar`, `author:\"Ben Robbins\"`, `tag:dungeon`); a "
