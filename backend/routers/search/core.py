@@ -17,6 +17,7 @@ from ...services.media.access import allow_explicit
 from ._helpers import (
     EXPLICIT_BOOKS_CLAUSE,
     _search_models,
+    SEARCH_FROM_SQL,
     SNIPPET_SQL,
     access_clause,
     VISIBLE_BOOKS_SQL,
@@ -73,8 +74,8 @@ def search_library(
                 SELECT book_id, page_number,
                        {SNIPPET_SQL} as snippet,
                        rank
-                FROM book_search
-                WHERE content MATCH :query AND book_id = :book_id
+                {SEARCH_FROM_SQL}
+                WHERE book_search MATCH :query AND book_id = :book_id
                   {access_sql}
                 ORDER BY rank
                 LIMIT :limit
@@ -89,8 +90,8 @@ def search_library(
                 SELECT book_id, page_number,
                        {SNIPPET_SQL} as snippet,
                        rank
-                FROM book_search
-                WHERE content MATCH :query
+                {SEARCH_FROM_SQL}
+                WHERE book_search MATCH :query
                   AND book_id IN (
                       SELECT id FROM books
                       WHERE game_system_id = :system_id AND variant_parent_id IS NULL
@@ -109,8 +110,8 @@ def search_library(
                 SELECT book_id, page_number,
                        {SNIPPET_SQL} as snippet,
                        rank
-                FROM book_search
-                WHERE content MATCH :query
+                {SEARCH_FROM_SQL}
+                WHERE book_search MATCH :query
                   AND {VISIBLE_BOOKS_SQL}
                   {access_sql}
                 ORDER BY rank

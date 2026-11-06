@@ -494,7 +494,7 @@ class TestFormatScan:
         db = SessionLocal()
         try:
             return db.execute(
-                sql_text("SELECT COUNT(*) FROM book_search WHERE book_id = :b"),
+                sql_text("SELECT COUNT(*) FROM book_pages WHERE book_id = :b"),
                 {"b": book_id},
             ).scalar()
         finally:

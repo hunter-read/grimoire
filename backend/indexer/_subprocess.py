@@ -338,7 +338,7 @@ def ocr_book(
     Resumes from ``book.ocr_pages_done``: pages at or below that index were
     already OCR'd and committed to the FTS index in a prior run, so a restart or
     crash never loses work and never re-does a page.  Each recognised page is
-    inserted into ``book_search`` and ``ocr_pages_done`` is advanced and
+    inserted into ``book_pages`` and ``ocr_pages_done`` is advanced and
     committed before moving on, so the whole-book 30-min wall no longer applies —
     a multi-hour scanned book makes steady, durable progress.
 
@@ -410,7 +410,7 @@ def ocr_book(
         elif text_out:
             session.execute(
                 text(
-                    "INSERT INTO book_search (book_id, page_number, content) "
+                    "INSERT INTO book_pages (book_id, page_number, content) "
                     "VALUES (:bid, :pnum, :content)"
                 ),
                 {"bid": book.id, "pnum": i + 1, "content": text_out},

@@ -96,7 +96,13 @@ def access_clause(excluded_book_ids) -> tuple[str, dict]:
     )
 
 
-SNIPPET_SQL = f"snippet(book_search, 2, '{_SNIPPET_OPEN}', '{_SNIPPET_CLOSE}', '...', 40)"
+# book_search indexes book_pages.content (external content, migration 0059), so
+# a hit's book and page come from the row it points at. ``book_id`` and
+# ``page_number`` exist only on book_pages, so the clauses above can name them
+# unqualified; ``content`` is on both, which is why queries match on the table.
+SEARCH_FROM_SQL = "FROM book_search JOIN book_pages ON book_pages.id = book_search.rowid"
+
+SNIPPET_SQL = f"snippet(book_search, 0, '{_SNIPPET_OPEN}', '{_SNIPPET_CLOSE}', '...', 40)"
 
 
 def escape_snippet(raw: str) -> str:

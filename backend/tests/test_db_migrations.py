@@ -312,8 +312,7 @@ class TestAlembicCutover:
                 t
                 for t in insp.get_table_names()
                 if t != "alembic_version"
-                and not t.startswith("book_search")
-                and not t.startswith("content_search")
+                and not t.startswith(("book_search", "book_pages", "content_search"))
             }
 
         assert app_tables(path) == app_tables(other)
@@ -985,7 +984,7 @@ class TestReindexMovedBooks:
                 if has_rows:
                     conn.execute(
                         text(
-                            "INSERT INTO book_search (book_id, page_number, content) "
+                            "INSERT INTO book_pages (book_id, page_number, content) "
                             "VALUES (:id, 1, 'some text')"
                         ),
                         {"id": bid},

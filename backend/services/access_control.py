@@ -477,7 +477,7 @@ def restricted_book_ids(db: Session, user: Any) -> list[str]:
 
     The complement of :func:`visible_book_ids`, for callers that must express
     the restriction as a SQL ``NOT IN`` against a table this module cannot
-    filter directly — chiefly the FTS ``book_search`` virtual table, whose
+    filter directly — chiefly the FTS ``book_search`` page search, whose
     LIMIT runs before any Python-side filtering could be applied.
 
     Returning the excluded set rather than the allowed one keeps that list

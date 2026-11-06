@@ -83,7 +83,11 @@ def upgrade() -> None:
                 ),
                 {"id": book_id},
             )
-        if "book_search" in tables:
+        # Replayed over a database already past 0059 (a schema repair rewinds
+        # the stamp), the page text is in book_pages and book_search holds none.
+        if "book_pages" in tables:
+            bind.execute(text("DELETE FROM book_pages WHERE book_id = :id"), {"id": book_id})
+        elif "book_search" in tables:
             bind.execute(text("DELETE FROM book_search WHERE book_id = :id"), {"id": book_id})
         bind.execute(text("DELETE FROM books WHERE id = :id"), {"id": book_id})
 

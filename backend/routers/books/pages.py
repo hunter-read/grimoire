@@ -181,7 +181,7 @@ def get_page_text(
 
     row = db.execute(
         sql_text(
-            "SELECT content FROM book_search WHERE book_id = :bid AND page_number = :pnum LIMIT 1"
+            "SELECT content FROM book_pages WHERE book_id = :bid AND page_number = :pnum LIMIT 1"
         ),
         {"bid": book_id, "pnum": page_num},
     ).fetchone()

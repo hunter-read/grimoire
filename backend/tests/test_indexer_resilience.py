@@ -983,7 +983,7 @@ class TestReindexSingleBook:
         try:
             db.execute(
                 indexer.text(
-                    "INSERT INTO book_search (book_id, page_number, content) "
+                    "INSERT INTO book_pages (book_id, page_number, content) "
                     "VALUES (:b, 1, 'stale text')"
                 ),
                 {"b": book.id},
@@ -997,7 +997,7 @@ class TestReindexSingleBook:
         db = SessionLocal()
         try:
             return db.execute(
-                indexer.text("SELECT COUNT(*) FROM book_search WHERE book_id = :b"),
+                indexer.text("SELECT COUNT(*) FROM book_pages WHERE book_id = :b"),
                 {"b": book_id},
             ).scalar()
         finally:

@@ -174,7 +174,7 @@ def title_library():
         for page, content in ((1, "the avatar state is a powerful thing"), (2, "avatar again")):
             db.execute(
                 text(
-                    "INSERT INTO book_search (book_id, page_number, content) "
+                    "INSERT INTO book_pages (book_id, page_number, content) "
                     "VALUES (:bid, :pn, :content)"
                 ),
                 {"bid": noisy.id, "pn": page, "content": content},
@@ -549,7 +549,7 @@ def phrase_library():
         for page, content in pages:
             db.execute(
                 text(
-                    "INSERT INTO book_search (book_id, page_number, content) "
+                    "INSERT INTO book_pages (book_id, page_number, content) "
                     "VALUES (:bid, :pn, :content)"
                 ),
                 {"bid": book.id, "pn": page, "content": content},

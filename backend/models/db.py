@@ -1,4 +1,4 @@
-"""Database initialisation, Alembic migration cutover, and FTS5 setup.
+"""Database initialisation and the Alembic migration cutover.
 
 Schema migrations are managed by Alembic (see ``backend/migrations/``). ``init_db``
 applies them on startup: fresh databases upgrade from the baseline to head; an
@@ -455,9 +455,13 @@ def _apply_migrations(engine: Engine) -> None:
     insp = inspect(engine)
     tables = set(insp.get_table_names())
     has_version_table = "alembic_version" in tables
-    # "Real" app tables, ignoring Alembic's own and SQLite's FTS shadow tables.
+    # "Real" app tables, ignoring Alembic's own and the page-search tables
+    # (book_pages and the book_search FTS index with its shadow tables), which no
+    # pre-Alembic schema declared as models.
     app_tables = {
-        t for t in tables if t != "alembic_version" and not t.startswith("book_search")
+        t
+        for t in tables
+        if t != "alembic_version" and not t.startswith(("book_search", "book_pages"))
     }
     is_pre_alembic = not has_version_table and bool(app_tables)
 
@@ -515,19 +519,21 @@ def _apply_migrations(engine: Engine) -> None:
 
 
 # Set in app_settings by a migration that replaced sensitive values in place
-# (0047: plaintext feed and share tokens). See _compact_if_pending.
+# (0047: plaintext feed and share tokens) or freed a large table (0059: the old
+# search index). See _compact_if_pending.
 COMPACT_PENDING_KEY = "db_compact_pending"
 
 
 def _compact_if_pending(engine: Engine) -> None:
-    """Rebuild the database file once after a migration replaced sensitive data.
+    """Rebuild the database file once after a migration replaced or dropped data.
 
     Replacing a value in place does not erase it: SQLite leaves old row images
     in the unused space of pages, in free pages and in WAL frames until that
     space is reused, so a copy of the file can still carry them. Backups are
     written with VACUUM INTO and never do, but a raw copy of the data directory
     would (and need not carry ``secret_key``, if SECRET_KEY is set in the
-    environment). VACUUM rebuilds the file from live rows only.
+    environment). VACUUM rebuilds the file from live rows only, which also
+    returns the space of a dropped table to the filesystem.
 
     Runs once: the flag is cleared after a successful VACUUM. If it cannot run
     now (another worker reading, too little disk for the temporary copy) it is
@@ -539,7 +545,7 @@ def _compact_if_pending(engine: Engine) -> None:
         ).first()
     if pending is None:
         return
-    logger.info("Compacting the database once to clear superseded credentials...")
+    logger.info("Compacting the database once to clear superseded data...")
     try:
         with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
             conn.exec_driver_sql("VACUUM")
@@ -554,7 +560,7 @@ def _compact_if_pending(engine: Engine) -> None:
 
 
 def _post_migration_setup(engine: Engine) -> None:
-    """One-time data fixups and FTS5 setup that run on every startup.
+    """One-time data fixups that run on every startup.
 
     Idempotent and independent of the migration path.
     """
@@ -592,21 +598,6 @@ def _post_migration_setup(engine: Engine) -> None:
             conn.rollback()
             logger.warning("Resource visibility backfill skipped: %s", e)
 
-        conn.execute(
-            text(
-                """
-            CREATE VIRTUAL TABLE IF NOT EXISTS book_search
-            USING fts5(
-                book_id UNINDEXED,
-                page_number UNINDEXED,
-                content,
-                tokenize='porter unicode61'
-            )
-        """
-            )
-        )
-        conn.commit()
-
 
 @contextlib.contextmanager
 def _migration_lock(db_path: str) -> Iterator[None]:
@@ -637,7 +628,7 @@ def init_db(db_path: str) -> Tuple[Engine, sessionmaker[Session]]:
     """Initialize database and return engine + session factory.
 
     Applies Alembic migrations (with the pre-Alembic cutover handled by
-    ``_apply_migrations``), then runs idempotent data fixups and FTS5 setup.
+    ``_apply_migrations``), then runs idempotent data fixups.
     """
     engine = create_engine(
         f"sqlite:///{db_path}",

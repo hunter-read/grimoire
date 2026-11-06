@@ -12,6 +12,10 @@ Release candidates are omitted; their contents are rolled into the stable releas
 
 - Wiki pages draw ` ```mermaid ` code blocks as diagrams - flowcharts, timelines, sequence diagrams, family trees and more - in the page and in the editor preview. Diagrams follow the light/dark theme, and one that doesn't parse shows its source and the error. Obsidian draws the same blocks, so they survive a Markdown export and re-import
 
+### Changed
+
+- Reading a book's page text, re-indexing or re-OCRing a book, and deleting books are much faster on a large library. The first start after upgrading reorganises the search index once - a few minutes on a very large library, logged as it goes, and safe to interrupt - and needs about twice the index's disk space while it runs. Books already indexed stay searchable and are not re-read
+
 ### Fixed
 
 - Code blocks in wiki pages show exactly what was typed. A `[[...]]` inside one no longer turns into a link or creates an empty page, and a GM secret in a code block no longer splits it in two

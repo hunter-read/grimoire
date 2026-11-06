@@ -43,8 +43,7 @@ _FOLDER_FIELDS = (
     "parent_id",
     "folder_cover_path",
 )
-# Systems, or books on them, removed per commit by ``_remove_systems``. Each
-# commit also pays one ``book_search`` scan per ``_ID_CHUNK`` books.
+# Systems, or books on them, removed per commit by ``_remove_systems``.
 _PRUNE_BATCH = 25
 _PRUNE_BATCH_BOOKS = 2000
 
@@ -315,10 +314,9 @@ def _remove_systems(ctx: _ScanContext, candidates: list, keep: set) -> int:
 
     Committed in batches rather than once at the end, so the write lock is
     released while a large reorganisation is pruned and logins, token refreshes
-    and the rest of the app keep working (issue #748). The books' full-text rows
-    are deleted once per batch: ``book_search`` cannot look a book up by id, so
-    each delete scans the whole table, and doing that per book is what made this
-    step take hours.
+    and the rest of the app keep working (issue #748). The books' page text is
+    deleted once per batch, in a few chunked statements rather than one per
+    book.
     """
     from ..services.library_fs import references
 

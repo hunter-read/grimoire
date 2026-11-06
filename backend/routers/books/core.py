@@ -443,7 +443,7 @@ def reindex_book(
         )
 
     # Drop the old search rows so the re-OCR starts from a clean index.
-    db.execute(text("DELETE FROM book_search WHERE book_id = :bid"), {"bid": book.id})
+    db.execute(text("DELETE FROM book_pages WHERE book_id = :bid"), {"bid": book.id})
     book.ocr_dpi = ocr_dpi  # None => global default
     book.ocr_pending = True
     book.ocr_pages_done = 0

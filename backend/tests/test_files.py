@@ -270,7 +270,7 @@ class TestMovePreservesMetadata:
         db = SessionLocal()
         db.execute(
             text(
-                "INSERT INTO book_search (book_id, page_number, content) "
+                "INSERT INTO book_pages (book_id, page_number, content) "
                 "VALUES (:bid, 1, 'quixotic thaumaturgy')"
             ),
             {"bid": book.id},
@@ -289,7 +289,10 @@ class TestMovePreservesMetadata:
         db = SessionLocal()
         refreshed = db.query(Book).filter(Book.id == book.id).first()
         hits = db.execute(
-            text("SELECT book_id FROM book_search WHERE book_search MATCH 'thaumaturgy'")
+            text(
+                "SELECT book_id FROM book_search "
+                "JOIN book_pages ON book_pages.id = book_search.rowid "
+                "WHERE book_search MATCH 'thaumaturgy'")
         ).fetchall()
         db.close()
         assert refreshed.indexed is True

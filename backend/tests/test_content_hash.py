@@ -397,7 +397,7 @@ class TestMoveDetection:
             original_id = book.id
             db.execute(
                 text(
-                    "INSERT INTO book_search (book_id, page_number, content) "
+                    "INSERT INTO book_pages (book_id, page_number, content) "
                     "VALUES (:bid, 1, 'xylophonic grimoire incantation')"
                 ),
                 {"bid": original_id},
@@ -416,7 +416,10 @@ class TestMoveDetection:
             survivor = db.query(Book).filter_by(id=original_id).first()
             assert survivor.indexed is True
             hits = db.execute(
-                text("SELECT book_id FROM book_search WHERE book_search MATCH 'xylophonic'")
+                text(
+                    "SELECT book_id FROM book_search "
+                    "JOIN book_pages ON book_pages.id = book_search.rowid "
+                    "WHERE book_search MATCH 'xylophonic'")
             ).fetchall()
             assert [row[0] for row in hits] == [original_id]
         finally:

@@ -44,6 +44,9 @@ def upgrade() -> None:
     # migrations run, so there is nothing to repair.
     if "books" not in tables or "book_search" not in tables:
         return
+    # Replayed over a database already past 0059 (a schema repair rewinds the
+    # stamp), the book ids are in book_pages and book_search holds none.
+    pages = "book_pages" if "book_pages" in tables else "book_search"
 
     bind.execute(
         text(
@@ -54,7 +57,7 @@ def upgrade() -> None:
             "AND COALESCE(index_failed, 0) = 0 "
             "AND COALESCE(ocr_pending, 0) = 0 "
             "AND COALESCE(index_error, '') NOT IN ('image-only', 'no-text') "
-            "AND id NOT IN (SELECT DISTINCT book_id FROM book_search)"
+            f"AND id NOT IN (SELECT DISTINCT book_id FROM {pages})"
         )
     )
 

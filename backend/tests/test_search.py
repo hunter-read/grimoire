@@ -20,13 +20,13 @@ def indexed_book():
     try:
         db.execute(
             text(
-                "INSERT INTO book_search (book_id, page_number, content) VALUES (:bid, :pn, :content)"
+                "INSERT INTO book_pages (book_id, page_number, content) VALUES (:bid, :pn, :content)"
             ),
             {"bid": book.id, "pn": 1, "content": "fireball spell wizard evocation"},
         )
         db.execute(
             text(
-                "INSERT INTO book_search (book_id, page_number, content) VALUES (:bid, :pn, :content)"
+                "INSERT INTO book_pages (book_id, page_number, content) VALUES (:bid, :pn, :content)"
             ),
             {"bid": book.id, "pn": 2, "content": "lightning bolt electricity storm"},
         )
@@ -243,7 +243,7 @@ def booby_trapped_book():
     try:
         db.execute(
             text(
-                "INSERT INTO book_search (book_id, page_number, content) "
+                "INSERT INTO book_pages (book_id, page_number, content) "
                 "VALUES (:bid, :pn, :content)"
             ),
             {"bid": book.id, "pn": 1, "content": payload},

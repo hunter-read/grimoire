@@ -254,7 +254,7 @@ class TestScheduledCleanupGuard:
 
 
 class TestRemoveMissingBatches:
-    """Missing rows go in batches: one ``book_search`` scan per batch (issue #748)."""
+    """Missing rows go in batches, not one commit per row (issue #748)."""
 
     def test_removes_every_missing_row_across_batches(self, mounted_library, monkeypatch):
         from backend.models.collections import iter_specs

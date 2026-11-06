@@ -124,7 +124,7 @@ def probe(
     for page in pages:
         session.execute(
             text(
-                "INSERT INTO book_search (book_id, page_number, content) "
+                "INSERT INTO book_pages (book_id, page_number, content) "
                 "VALUES (:bid, :pnum, :content)"
             ),
             {"bid": book.id, "pnum": page["page"], "content": page["content"]},

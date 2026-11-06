@@ -268,7 +268,7 @@ def text_fingerprint(db: Session, book_id: str) -> frozenset:
     """
     rows = db.execute(
         sql_text(
-            "SELECT content FROM book_search WHERE book_id = :bid "
+            "SELECT content FROM book_pages WHERE book_id = :bid "
             "ORDER BY page_number LIMIT :limit"
         ),
         {"bid": book_id, "limit": TEXT_SAMPLE_PAGES},

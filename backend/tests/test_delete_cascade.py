@@ -97,7 +97,7 @@ class TestPurgeReferences:
             resource_id = _attach_all(db, "book", book.id, admin_id, campaign.id)
             db.execute(
                 text(
-                    "INSERT INTO book_search (book_id, page_number, content) "
+                    "INSERT INTO book_pages (book_id, page_number, content) "
                     "VALUES (:b, 1, 'dragons')"
                 ),
                 {"b": book.id},
@@ -129,7 +129,7 @@ class TestPurgeReferences:
             # is why references.py deletes resources one at a time.
             assert db.query(CampaignResourceShare).filter_by(resource_id=resource_id).count() == 0
             fts = db.execute(
-                text("SELECT COUNT(*) FROM book_search WHERE book_id = :b"), {"b": book.id}
+                text("SELECT COUNT(*) FROM book_pages WHERE book_id = :b"), {"b": book.id}
             ).scalar()
             assert fts == 0
         finally:
@@ -191,14 +191,14 @@ class TestPurgeReferences:
 
 
 class TestBatchedPurge:
-    """Many books at once: one ``book_search`` scan per chunk, not per book (issue #748)."""
+    """Many books at once: one page-text delete per chunk, not per book (issue #748)."""
 
     @staticmethod
     def _index(db, *book_ids):
         for book_id in book_ids:
             db.execute(
                 text(
-                    "INSERT INTO book_search (book_id, page_number, content) "
+                    "INSERT INTO book_pages (book_id, page_number, content) "
                     "VALUES (:b, 1, 'goblins')"
                 ),
                 {"b": book_id},
@@ -208,7 +208,7 @@ class TestBatchedPurge:
     @staticmethod
     def _fts(db, book_id):
         return db.execute(
-            text("SELECT COUNT(*) FROM book_search WHERE book_id = :b"), {"b": book_id}
+            text("SELECT COUNT(*) FROM book_pages WHERE book_id = :b"), {"b": book_id}
         ).scalar()
 
     def test_search_rows_are_deleted_in_chunks(self, monkeypatch):
@@ -224,7 +224,7 @@ class TestBatchedPurge:
             real = db.execute
 
             def counting(stmt, *args, **kw):
-                if "book_search" in str(stmt):
+                if "book_pages" in str(stmt):
                     statements.append(stmt)
                 return real(stmt, *args, **kw)
 
