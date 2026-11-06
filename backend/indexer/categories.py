@@ -17,6 +17,8 @@ from .constants import (
     NO_AUTO_CATEGORY_MARKER,  # noqa: F401  (re-exported for callers)
     NSFW_MARKER,
     UNCATEGORIZED,
+    WARGAME_CATEGORY_EXACT_NAMES,
+    WARGAME_CATEGORY_MAP,
     _CONTAINER_SUFFIXES,
     _ONE_PAGE_SLUGS,
     _SYSTEM_AGNOSTIC_SLUGS,
@@ -187,21 +189,35 @@ def _keyword_matches(keyword: str, tokens: list[str]) -> bool:
     return False
 
 
-def _match_category(segment: str) -> str | None:
+def _match_category(
+    segment: str,
+    category_map: dict[str, list[str]] = CATEGORY_MAP,
+    exact_names: dict[str, str] = CATEGORY_EXACT_NAMES,
+) -> str | None:
     """Return the category a single folder ``segment`` matches, or None.
 
-    A whole-name match in CATEGORY_EXACT_NAMES (``Players``, ``GMs``,
-    ``Sheets``) is checked first; otherwise the first CATEGORY_MAP category with
-    a keyword matching any word of the name wins.
+    A whole-name match in ``exact_names`` (``Players``, ``GMs``, ``Sheets``) is
+    checked first; otherwise the first ``category_map`` category with a keyword
+    matching any word of the name wins. The maps default to the role-playing
+    vocabulary; wargame books pass their own (see ``match_wargame_category``).
     """
     tokens = _normalize_folder(segment).split()
-    for name, category in CATEGORY_EXACT_NAMES.items():
+    for name, category in exact_names.items():
         if len(name.split()) == len(tokens) and _keyword_matches(name, tokens):
             return category
-    for category, keywords in CATEGORY_MAP.items():
+    for category, keywords in category_map.items():
         if any(_keyword_matches(kw, tokens) for kw in keywords):
             return category
     return None
+
+
+def match_wargame_category(name: str) -> str | None:
+    """The wargame category a folder or file name names, or None.
+
+    Uses the wargame vocabulary (``WARGAME_CATEGORY_MAP``), in which "campaign"
+    is a campaign book rather than an adventure and "Codex" is an army book.
+    """
+    return _match_category(name, WARGAME_CATEGORY_MAP, WARGAME_CATEGORY_EXACT_NAMES)
 
 
 def folder_category_inference_disabled(session: Session) -> bool:
@@ -259,16 +275,19 @@ def guess_category(filepath: str, system_depth: int = 2) -> str:
     return "core"
 
 
-def agnostic_category(relative_path: str) -> str:
+def agnostic_category(relative_path: str, system_depth: int = 2) -> str:
     """Return the category for a book inside the system-agnostic folder.
 
     Path structure: books/{SystemName}/{CategoryFolder}/.../{file}
     The immediate subfolder under the system dir becomes the category slug.
     Books sitting directly in the system dir fall back to 'uncategorized'.
+
+    ``system_depth`` is the index of that subfolder: 2 for a top-level system,
+    one more for each container around it.
     """
     # relative_path is relative to library root: books/<agnostic folder>/<cat>/.../<file>
     parts = relative_path.replace("\\", "/").split("/")
     # parts[0]=books, parts[1]=system dir, parts[2]=category dir or filename
-    if len(parts) > 3:
-        return slugify(parts[2])
+    if len(parts) > system_depth + 1:
+        return slugify(parts[system_depth])
     return UNCATEGORIZED

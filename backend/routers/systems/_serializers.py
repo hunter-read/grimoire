@@ -8,12 +8,16 @@ from typing import Any
 from ...indexer import reocr_applies
 from ...models import Book, GameSystem
 from ...models.base import utc_iso
+from ...models.game_types import GAME_TYPE_TTRPG
 from ...services.books import covers as book_covers
 from .covers import has_cover_file
 
 
 def serialize_book(
-    book: Book, tags: list[str] | None = None, variant_count: int = 0
+    book: Book,
+    tags: list[str] | None = None,
+    variant_count: int = 0,
+    factions: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Serialize a Book to the API shape used by the system detail view.
 
@@ -24,12 +28,17 @@ def serialize_book(
     comes from one batched ``variants.variant_counts`` lookup for the same
     reason. It drives the "has other versions" badge and every version-aware
     action in the UI, so a row that omits it silently loses all of them.
+
+    ``factions`` are a wargame book's armies (``services.factions``), batched
+    the same way; empty for a role-playing book.
     """
     return {
         "id": book.id,
         "title": book.title,
         "filename": book.filename,
         "category": book.category,
+        "game_type": book.game_type or GAME_TYPE_TTRPG,
+        "factions": factions if factions is not None else [],
         "description": book.description,
         "page_count": book.page_count,
         "file_size": book.file_size,
@@ -94,6 +103,8 @@ def serialize_system_summary(
         "id": system.id,
         "name": system.name,
         "slug": system.slug,
+        # "ttrpg" (books/) or "wargame" (armory/) - models/game_types.py.
+        "game_type": system.game_type or GAME_TYPE_TTRPG,
         "description": system.description,
         "publishers": system.publishers or [],
         "character_builder_url": system.character_builder_url,

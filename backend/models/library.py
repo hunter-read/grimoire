@@ -1,6 +1,6 @@
 """Library models — game systems, books, and book folders."""
 import datetime
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy import (
     Boolean,
@@ -12,21 +12,38 @@ from sqlalchemy import (
     JSON,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import BYTES_TYPE, Base, _utcnow, _uuid
 from .browse import FOLDER_PATH_TYPE, SORT_KEY_TYPE
+from .game_types import GAME_TYPE_TTRPG
+
+if TYPE_CHECKING:
+    from .factions import Faction
 
 
 class GameSystem(Base):
-    """A tabletop RPG game system (e.g., D&D 5e, PbtA, Fate)."""
+    """A tabletop game system: an RPG (D&D 5e, PbtA, Fate) or a wargame (40k)."""
 
     __tablename__ = "game_systems"
+    # Unique per game type rather than globally: BattleTech is both a
+    # role-playing game and a wargame, and each gets its own row under the
+    # same name.
+    __table_args__ = (
+        UniqueConstraint("game_type", "name", name="uq_game_systems_game_type_name"),
+        UniqueConstraint("game_type", "slug", name="uq_game_systems_game_type_slug"),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
-    name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
-    slug: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(255), nullable=False)
+    # "ttrpg" for a system under books/, "wargame" under armory/
+    # (models/game_types.py). Set by the scan from the folder.
+    game_type: Mapped[str] = mapped_column(
+        String(10), nullable=False, default=GAME_TYPE_TTRPG, server_default=GAME_TYPE_TTRPG
+    )
     description: Mapped[Optional[str]] = mapped_column(Text, default="")
     publishers: Mapped[Optional[list[Any]]] = mapped_column(JSON, default=list)
     # Legacy single-value URL column. Kept for backward compatibility; new code
@@ -118,6 +135,13 @@ class GameSystem(Base):
         cascade="all, delete-orphan",
         single_parent=True,
     )
+    # A wargame's armies, read from its armory folders (models/factions.py).
+    factions: Mapped[list["Faction"]] = relationship(
+        "Faction",
+        back_populates="game_system",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
 class Book(Base):
@@ -133,6 +157,15 @@ class Book(Base):
     relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
 
     category: Mapped[Optional[str]] = mapped_column(String(100), default="core", index=True)
+    # Copied from the book's system when the scan registers it, so listing one
+    # game type's books needs no join.
+    game_type: Mapped[str] = mapped_column(
+        String(10),
+        nullable=False,
+        default=GAME_TYPE_TTRPG,
+        server_default=GAME_TYPE_TTRPG,
+        index=True,
+    )
     description: Mapped[Optional[str]] = mapped_column(Text, default="")
     authors: Mapped[Optional[list[Any]]] = mapped_column(JSON, default=list)
     artists: Mapped[Optional[list[Any]]] = mapped_column(JSON, default=list)
@@ -284,6 +317,13 @@ class Book(Base):
     )
 
     game_system: Mapped[Optional["GameSystem"]] = relationship("GameSystem", back_populates="books")
+    # A wargame book's factions: the innermost army folder it sits in.
+    factions: Mapped[list["Faction"]] = relationship(
+        "Faction",
+        secondary="book_factions",
+        back_populates="books",
+        passive_deletes=True,
+    )
 
 
 class BookFolder(Base):

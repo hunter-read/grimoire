@@ -106,6 +106,7 @@ class TestGetBook:
             "id": system.id,
             "name": system.name,
             "slug": system.slug,
+            "game_type": "ttrpg",
             "is_system_agnostic": False,
             "is_one_page": False,
         }

@@ -58,12 +58,18 @@ from .metadata import is_exported_cover_name, is_folder_cover_name, parse_opf_me
 from .thumbnails import archive_ext
 from .systems import _SystemFolder, _register_system, _resolve_system_folder
 from ..models import Book, GameSystem
+from ..models.game_types import ARMORY_SECTION, GAME_TYPE_TTRPG, GAME_TYPE_WARGAME
 
 logger = logging.getLogger("grimoire.indexer")
 
 
-def _scan_books(ctx: _ScanContext, books_dir: Path) -> None:
+def _scan_books(ctx: _ScanContext, books_dir: Path, game_type: str = GAME_TYPE_TTRPG) -> None:
     """Walk the books tree, registering systems and their books.
+
+    ``game_type`` says which collection ``books_dir`` is: ``ttrpg`` for
+    ``books/``, ``wargame`` for ``armory/``. Every system registered here takes
+    it on, and through the system, every book. The two share a layout - the
+    system folder sits directly under the collection - so the walk is the same.
 
     Returns early (leaving ``ctx.stats`` as-is) if a stop is requested mid-walk.
     """
@@ -72,12 +78,13 @@ def _scan_books(ctx: _ScanContext, books_dir: Path) -> None:
     # Global kill-switch for folder-name category inference (env-over-DB).
     # When on, every book falls back to the neutral UNCATEGORIZED category.
     category_inference_off = folder_category_inference_disabled(session)
-    # When scoped, the owning system is the first path segment under books/;
-    # otherwise iterate every top-level system folder.
+    # When scoped, the owning system is the first path segment under books/
+    # (or armory/); otherwise iterate every top-level system folder.
     scope_parts = (
         Path(ctx.scope_path.replace("\\", "/").strip("/")).parts if ctx.scope_path else ()
     )
-    scoped = ctx.scope_section == "books" and len(scope_parts) > 1
+    section = ARMORY_SECTION if game_type == GAME_TYPE_WARGAME else "books"
+    scoped = ctx.scope_section == section and len(scope_parts) > 1
     if scoped:
         system_dirs = [books_dir / scope_parts[1]]
     else:
@@ -92,7 +99,7 @@ def _scan_books(ctx: _ScanContext, books_dir: Path) -> None:
             continue
 
         folder = _resolve_system_folder(system_dir)
-        system = _register_system(ctx, folder)
+        system = _register_system(ctx, folder, game_type=game_type)
         if system is None:
             continue
         registered.append((system_dir, folder, system))
@@ -224,6 +231,8 @@ def _scan_container(
     """
     kind = container_folder.container_kind
     container_dir = container_folder.path
+    # A container's children are the same game type as the container.
+    game_type = container.game_type or GAME_TYPE_TTRPG
     # Family and publisher containers push their name onto each child's
     # metadata; edition and one-page containers carry no such attribution.
     child_family = container.name if kind == CONTAINER_FAMILY else ""
@@ -267,6 +276,7 @@ def _scan_container(
             system_family=child_family,
             publisher=child_publisher,
             attribute_parent=attribute_parent,
+            game_type=game_type,
         )
         if child is None:
             continue
@@ -397,6 +407,7 @@ def _scan_one_page_loose_files(
             parent=container,
             # A one-page game is not a variant of the collection holding it.
             attribute_parent=False,
+            game_type=container.game_type or GAME_TYPE_TTRPG,
         )
         if child is None:
             continue

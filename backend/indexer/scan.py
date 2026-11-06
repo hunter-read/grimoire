@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session
 
 from ..library_ignore import IgnoreMatcher
 from ..models import GenericMap, Model3D, Token
+from ..models.game_types import ARMORY_SECTION, GAME_TYPE_WARGAME
 from ._context import (  # noqa: F401  (re-exported: patched as backend.indexer.scan.<name>)
     _ScanContext,
     _count_eligible_files,
@@ -78,7 +79,7 @@ from .hashing import (  # noqa: F401  (re-exported: patched as backend.indexer.s
     signature_matches,
 )
 from .media import _enrich_model, _scan_audio, _scan_media  # noqa: F401
-from .metadata import resolve_collection_dir, resolve_scope
+from .metadata import resolve_armory_dir, resolve_collection_dir, resolve_scope
 from .moves import reconciled_at
 from .reconcile import (  # noqa: F401  (re-exported for patch compatibility)
     _detect_moves,
@@ -130,6 +131,9 @@ def scan_library(
     """
     library = Path(library_path)
     books_dir = resolve_collection_dir(library, "books")
+    # Wargame books: the same <System>/<Category>/<Book> layout as books/, read
+    # with the wargame vocabulary and its factions (models/game_types.py).
+    armory_dir = resolve_armory_dir(library)
     maps_dir = resolve_collection_dir(library, "maps")
     tokens_dir = resolve_collection_dir(library, "tokens")
     audio_dir = resolve_collection_dir(library, "audio")
@@ -173,6 +177,7 @@ def scan_library(
     ignore = IgnoreMatcher(library_path)
 
     scan_books = scope_section in (None, "books")
+    scan_armory = scope_section in (None, ARMORY_SECTION)
     scan_maps = scope_section in (None, "maps")
     scan_tokens = scope_section in (None, "tokens")
     scan_audio = scope_section in (None, "audio")
@@ -183,22 +188,21 @@ def scan_library(
         return scope_dir if scope_section == section and scope_dir is not None else collection_dir
 
     books_walk_dir = walk_dir("books", books_dir)
+    armory_walk_dir = walk_dir(ARMORY_SECTION, armory_dir)
     maps_walk_dir = walk_dir("maps", maps_dir)
     tokens_walk_dir = walk_dir("tokens", tokens_dir)
     audio_walk_dir = walk_dir("audio", audio_dir)
     models_walk_dir = walk_dir("models", models_dir)
 
+    def count_books(walk: Path) -> int:
+        return _count_eligible_files(
+            walk, DOC_EXTS | IMAGE_EXTS | ARCHIVE_EXTS, ignore, skip_exported_covers=True
+        )
+
     totals = {
-        "books": (
-            _count_eligible_files(
-                books_walk_dir,
-                DOC_EXTS | IMAGE_EXTS | ARCHIVE_EXTS,
-                ignore,
-                skip_exported_covers=True,
-            )
-            if scan_books and books_walk_dir.exists()
-            else 0
-        ),
+        # Armory books are books: they count, and report progress, with books/.
+        "books": (count_books(books_walk_dir) if scan_books and books_walk_dir.exists() else 0)
+        + (count_books(armory_walk_dir) if scan_armory and armory_walk_dir.exists() else 0),
         "maps": (
             _count_eligible_files(maps_walk_dir, MAP_IMAGE_EXTS | MEDIA_ARCHIVE_EXTS, ignore)
             if scan_maps and maps_walk_dir.exists()
@@ -243,6 +247,11 @@ def scan_library(
 
     if scan_books and books_dir.exists():
         _scan_books(ctx, books_dir)
+        if ctx.stop_requested():
+            return stats
+
+    if scan_armory and armory_dir.exists():
+        _scan_books(ctx, armory_dir, GAME_TYPE_WARGAME)
         if ctx.stop_requested():
             return stats
 
@@ -293,13 +302,17 @@ def scan_library(
     if ctx.stop_requested():
         return stats
 
-    _reconcile_missing(ctx, scan_books, scan_maps, scan_tokens, scan_audio, scan_models)
+    _reconcile_missing(
+        ctx, scan_books or scan_armory, scan_maps, scan_tokens, scan_audio, scan_models
+    )
 
     # --- Drop systems whose folder is gone or now ignored ---
     # Only meaningful after a full walk of books/: that walk is what populates
     # ``seen_system_ids``, so pruning off a scan that never looked at books (a
     # maps-only scope, or a library with no books/ dir yet) would delete every
-    # system in the database.
+    # system in the database. The armory is walked in the same full scan, so
+    # its systems are seen too; with no armory/ folder there is nothing to see,
+    # and its systems go once their books are gone.
     if scan_books and books_dir.exists():
         stats["removed_systems"] = _prune_vanished_systems(ctx)
 

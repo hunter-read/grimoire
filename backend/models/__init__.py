@@ -30,6 +30,7 @@ from .campaigns import (
 )
 from .db import init_db
 from .duplicates import DuplicateDismissal, DuplicateGroup
+from .factions import Faction, book_factions
 from .library import (
     Book,
     BookFolder,
@@ -75,6 +76,9 @@ __all__ = [
     "ParentSystem",
     "License",
     "DiceMaterial",
+    # Wargames
+    "Faction",
+    "book_factions",
     # Media
     "GenericMap",
     "MapFolder",

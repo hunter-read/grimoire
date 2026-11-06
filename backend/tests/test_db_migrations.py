@@ -1747,6 +1747,96 @@ class TestBookCoverImage:
 
 
 
+class TestArmoryGameTypes:
+    """0062 adds game_type, makes system names unique per game type, and adds factions."""
+
+    _BEFORE = "4d7e1c9b2a63"
+
+    def _db_at_0061(self):
+        path = os.path.join(tempfile.mkdtemp(), "armory.db")
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            command.upgrade(_alembic_config(conn), self._BEFORE)
+        with engine.begin() as conn:
+            conn.execute(
+                text("INSERT INTO game_systems (id, name, slug) VALUES ('s1', 'BattleTech', 'bt')")
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO books (id, game_system_id, title, filename, filepath, "
+                    "relative_path) VALUES ('b1', 's1', 'TW', 'tw.pdf', '/l/tw.pdf', 'tw.pdf')"
+                )
+            )
+        engine.dispose()
+        return path
+
+    def _uniques(self, path):
+        engine = create_engine(f"sqlite:///{path}")
+        try:
+            return {
+                tuple(u["column_names"]) for u in inspect(engine).get_unique_constraints(
+                    "game_systems"
+                )
+            }
+        finally:
+            engine.dispose()
+
+    def test_upgrade_keeps_systems_and_their_books(self):
+        path = self._db_at_0061()
+        # init_db runs the upgrade the way the app does: foreign keys on, so the
+        # rebuild of game_systems only works with them switched off around it.
+        init_db(path)
+        assert _stamped_revision(path) == _alembic_head(path)
+        engine = create_engine(f"sqlite:///{path}")
+        try:
+            with engine.begin() as conn:
+                assert conn.execute(text("SELECT game_type FROM game_systems")).scalar() == "ttrpg"
+                assert conn.execute(
+                    text("SELECT game_system_id, game_type FROM books")
+                ).one() == ("s1", "ttrpg")
+                # The wargame of the same name and slug now fits beside it...
+                conn.execute(
+                    text(
+                        "INSERT INTO game_systems (id, name, slug, game_type) "
+                        "VALUES ('s2', 'BattleTech', 'bt', 'wargame')"
+                    )
+                )
+                tables = set(inspect(conn).get_table_names())
+            assert {"factions", "book_factions"} <= tables
+        finally:
+            engine.dispose()
+        uniques = self._uniques(path)
+        assert ("game_type", "name") in uniques and ("game_type", "slug") in uniques
+        assert ("name",) not in uniques
+
+    def test_downgrade_renames_wargames_apart(self):
+        path = self._db_at_0061()
+        init_db(path)
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "INSERT INTO game_systems (id, name, slug, game_type) "
+                    "VALUES ('s2', 'BattleTech', 'bt', 'wargame')"
+                )
+            )
+        with engine.connect() as conn:
+            command.downgrade(_alembic_config(conn), self._BEFORE)
+        with engine.connect() as conn:
+            rows = dict(conn.execute(text("SELECT id, slug FROM game_systems")).all())
+            assert rows == {"s1": "bt", "s2": "armory--bt"}
+            assert conn.execute(text("SELECT COUNT(*) FROM books")).scalar() == 1
+            assert "factions" not in set(inspect(conn).get_table_names())
+        engine.dispose()
+        assert ("name",) in self._uniques(path)
+
+    def test_rerunning_is_a_no_op(self):
+        path = _fresh_db()
+        init_db(path)
+        assert _stamped_revision(path) == _alembic_head(path)
+        assert ("game_type", "slug") in self._uniques(path)
+
+
 class TestMigrationLock:
     """Only one process migrates at a time, even where the data mount ignores flock()."""
 

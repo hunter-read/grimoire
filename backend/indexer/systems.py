@@ -33,6 +33,7 @@ from .constants import (
 from .metadata import _find_folder_artwork
 from ._db import DatabaseBusyError, _db_call
 from ..models import GameSystem
+from ..models.game_types import GAME_TYPE_TTRPG
 
 logger = logging.getLogger("grimoire.indexer")
 
@@ -75,7 +76,7 @@ def _resolve_system_folder(system_dir: Path, slug_prefix: str = "") -> _SystemFo
 
 
 def _adopt_existing_system(
-    ctx: _ScanContext, name: str, new_slug: str
+    ctx: _ScanContext, name: str, new_slug: str, game_type: str = GAME_TYPE_TTRPG
 ) -> Optional[GameSystem]:
     """Claim a pre-existing flat system for a container, or return None.
 
@@ -86,12 +87,13 @@ def _adopt_existing_system(
     system so its books, metadata, and tags follow it into the container.
 
     Only unclaimed systems are adopted: a row already sitting inside another
-    container belongs to that one, and is left alone.
+    container belongs to that one, and is left alone. Nor does a system cross
+    sides: a wargame folder never adopts a role-playing row of the same name.
     """
     session = ctx.session
     try:
         existing = _db_call(
-            lambda: session.query(GameSystem).filter_by(name=name).first(),
+            lambda: session.query(GameSystem).filter_by(name=name, game_type=game_type).first(),
             f"query system by name '{name}'",
         )
     except DatabaseBusyError as e:
@@ -104,17 +106,20 @@ def _adopt_existing_system(
     return existing
 
 
-def _unique_system_name(ctx: _ScanContext, name: str, slug: str) -> str:
+def _unique_system_name(
+    ctx: _ScanContext, name: str, slug: str, game_type: str = GAME_TYPE_TTRPG
+) -> str:
     """Return ``name``, or a suffixed variant when the name is already taken.
 
-    ``game_systems.name`` is unique. A folder layout can legitimately generate a
-    name that collides with an unrelated existing system, and a scan must not die
-    on that — so disambiguate with the slug, then a counter.
+    ``game_systems.name`` is unique within a game type. A folder layout can
+    legitimately generate a name that collides with an unrelated existing system
+    of the same game type, and a scan must not die on that — so disambiguate with the
+    slug, then a counter.
     """
     session = ctx.session
     try:
         taken = _db_call(
-            lambda: session.query(GameSystem).filter_by(name=name).first(),
+            lambda: session.query(GameSystem).filter_by(name=name, game_type=game_type).first(),
             f"query system by name '{name}'",
         )
     except DatabaseBusyError as e:
@@ -127,7 +132,9 @@ def _unique_system_name(ctx: _ScanContext, name: str, slug: str) -> str:
     while True:
         try:
             clash = _db_call(
-                lambda: session.query(GameSystem).filter_by(name=candidate).first(),
+                lambda: session.query(GameSystem)
+                .filter_by(name=candidate, game_type=game_type)
+                .first(),
                 f"query system by name '{candidate}'",
             )
         except DatabaseBusyError:
@@ -152,6 +159,7 @@ def _register_system(
     system_family: str = "",
     publisher: str = "",
     attribute_parent: bool = True,
+    game_type: str = GAME_TYPE_TTRPG,
 ) -> Optional[GameSystem]:
     """Insert or update the GameSystem row for one folder. None on any failure.
 
@@ -172,6 +180,7 @@ def _register_system(
                 system_family=system_family,
                 publisher=publisher,
                 attribute_parent=attribute_parent,
+                game_type=game_type,
             )
     except Exception as e:
         logger.error(
@@ -193,6 +202,7 @@ def _register_system_row(
     system_family: str = "",
     publisher: str = "",
     attribute_parent: bool = True,
+    game_type: str = GAME_TYPE_TTRPG,
 ) -> Optional[GameSystem]:
     """The body of :func:`_register_system`, outside its savepoint.
 
@@ -211,6 +221,10 @@ def _register_system_row(
     variant of X" — true only for a parent-system shelf. Family, publisher, and
     generic shelves hold independent systems, so they leave ``parent_system``
     empty rather than implying an edition relationship that isn't there.
+
+    ``game_type`` is the collection the folder was found in: ``wargame`` under
+    ``armory/``. Systems are matched within it, so a wargame and a
+    role-playing game may share a folder name (BattleTech is both).
     """
     session = ctx.session
     stats = ctx.stats
@@ -218,7 +232,9 @@ def _register_system_row(
     logger.debug(f"DB: querying system '{folder.slug}'")
     try:
         system = _db_call(
-            lambda: session.query(GameSystem).filter_by(slug=folder.slug).first(),
+            lambda: session.query(GameSystem)
+            .filter_by(slug=folder.slug, game_type=game_type)
+            .first(),
             f"query system '{folder.slug}'",
         )
     except DatabaseBusyError as e:
@@ -233,13 +249,13 @@ def _register_system_row(
         # holding all their books, metadata, and tags; ``name`` is unique, so
         # inserting a second one would fail. Re-point the existing row at its new
         # container instead, keeping everything attached to it.
-        system = _adopt_existing_system(ctx, name, folder.slug)
+        system = _adopt_existing_system(ctx, name, folder.slug, game_type)
 
     if system is None:
         # ``name`` is unique and may still be taken by an unrelated system (or one
         # already owned by a different container), so fall back to a suffixed name
         # rather than crashing the whole scan.
-        name = _unique_system_name(ctx, name, folder.slug)
+        name = _unique_system_name(ctx, name, folder.slug, game_type)
 
     # The reserved folder names claim the collection implicitly; the explicit
     # container marker claims it for a folder named anything else. Either way the
@@ -258,6 +274,7 @@ def _register_system_row(
         system = GameSystem(
             name=name,
             slug=folder.slug,
+            game_type=game_type,
             is_explicit=folder.is_nsfw,
             is_system_agnostic=is_agnostic,
             is_one_page=is_one_page,

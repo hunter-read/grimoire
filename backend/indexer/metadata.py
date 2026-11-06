@@ -10,6 +10,7 @@ import defusedxml.ElementTree as SafeElementTree
 
 from ..metadata.formats import COVER_SUFFIX
 from ..models import Book
+from ..models.game_types import ARMORY_FOLDER_NAMES, ARMORY_SECTION
 from .constants import (
     IMAGE_EXTS,
     _AUDIO_COVER_STEMS,
@@ -407,13 +408,29 @@ def resolve_collection_dir(library: Path, section: str) -> Path:
     return library / section
 
 
+def resolve_armory_dir(library: Path) -> Path:
+    """The armory folder (wargame books): ``armory`` or ``armoury``, any case.
+
+    Falls back to ``library / "armory"`` when neither exists, as
+    :func:`resolve_collection_dir` does.
+    """
+    try:
+        for child in library.iterdir():
+            if child.name.lower() in ARMORY_FOLDER_NAMES and child.is_dir():
+                return child
+    except (FileNotFoundError, NotADirectoryError):
+        pass
+    return library / ARMORY_SECTION
+
+
 def resolve_scope(library_path: str, scope_path: str) -> tuple[str, Path]:
     """Resolve a user-supplied scope path against the library root.
 
     `scope_path` is a path relative to the library root and must begin with one
-    of the known collection folders (``books``/``maps``/``tokens``/``audio``).  Returns a
-    tuple of (section, absolute_dir).  Raises ValueError if the scope escapes the
-    library root or names an unknown collection.
+    of the known collection folders (``books``/``armory``/``maps``/``tokens``/
+    ``audio``/``models``; ``armoury`` is read as ``armory``).  Returns a tuple of
+    (section, absolute_dir).  Raises ValueError if the scope escapes the library
+    root or names an unknown collection.
     """
     library = Path(library_path)
     cleaned = (scope_path or "").strip().replace("\\", "/").strip("/")
@@ -422,9 +439,11 @@ def resolve_scope(library_path: str, scope_path: str) -> tuple[str, Path]:
 
     head, _, rest = cleaned.partition("/")
     section = head.lower()
-    if section not in ("books", "maps", "tokens", "audio", "models"):
+    if section in ARMORY_FOLDER_NAMES:
+        section = ARMORY_SECTION
+    if section not in ("books", ARMORY_SECTION, "maps", "tokens", "audio", "models"):
         raise ValueError(
-            "scope must start with books/, maps/, tokens/, audio/, or models/: "
+            "scope must start with books/, armory/, maps/, tokens/, audio/, or models/: "
             f"{scope_path!r}"
         )
 
@@ -432,7 +451,11 @@ def resolve_scope(library_path: str, scope_path: str) -> tuple[str, Path]:
     # filepaths stored by an unscoped scan (which uses library_path verbatim).
     # Resolve the top-level collection folder case-insensitively so a scope that
     # names "books" still lands on a "Books" folder on a case-sensitive FS.
-    collection_dir = resolve_collection_dir(library, section)
+    collection_dir = (
+        resolve_armory_dir(library)
+        if section == ARMORY_SECTION
+        else resolve_collection_dir(library, section)
+    )
     target = collection_dir / rest if rest else collection_dir
     # Guard against path traversal using fully-resolved paths.
     resolved_lib = str(library.resolve())

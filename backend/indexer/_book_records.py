@@ -24,6 +24,7 @@ from ..services.filename_rules.folders import read_filename
 from ._context import _ScanContext, _title_from_filename
 from ._db import DatabaseBusyError, _db_call
 from .categories import agnostic_category, guess_category
+from .factions import link_folder_factions, place_wargame_book
 from .constants import (
     IMAGE_EXTS,
     TEXT_DOC_EXTS,
@@ -42,6 +43,7 @@ from .added_dates import added_at_for_insert
 from .metadata import _apply_opf_to_book, _find_opf_meta
 from .thumbnails import archive_ext, archive_mime
 from ..models import Book, GameSystem
+from ..models.game_types import GAME_TYPE_TTRPG, GAME_TYPE_WARGAME
 from ..services import tag_service
 
 logger = logging.getLogger("grimoire.indexer")
@@ -57,8 +59,35 @@ def _derive_category(
     if system_category_off:
         return UNCATEGORIZED
     if is_special_collection:
-        return agnostic_category(relative_path)
+        return agnostic_category(relative_path, system_depth)
     return guess_category(relative_path, system_depth)
+
+
+def _place_book(
+    ctx: _ScanContext,
+    system: GameSystem,
+    system_category_off: bool,
+    is_special_collection: bool,
+    relative_path: str,
+    system_depth: int,
+) -> tuple[str, list[str]]:
+    """``(category, faction chain)`` for a book, read from its folders.
+
+    Wargame books are read with the wargame vocabulary, which also finds the
+    factions they are filed under (``factions.place_wargame_book``). Everything
+    else - role-playing books, and wargame systems that opted out of folder
+    inference or are a special collection - has a category and no factions.
+    """
+    if (
+        system.game_type == GAME_TYPE_WARGAME
+        and not system_category_off
+        and not is_special_collection
+    ):
+        return place_wargame_book(relative_path, system_depth, ctx.library_path)
+    category = _derive_category(
+        system_category_off, is_special_collection, relative_path, system_depth
+    )
+    return category, []
 
 
 def _refresh_signature(ctx: _ScanContext, record: Any, filepath: str) -> tuple[bool, bool]:
@@ -150,9 +179,17 @@ def _register_book(
                 f"Re-homing '{filename}' from its previous system to '{system_name}'"
             )
             existing.game_system_id = system.id
-            existing.category = _derive_category(
-                system_category_off, is_special_collection, relative_path, system_depth
+            existing.game_type = system.game_type or GAME_TYPE_TTRPG
+            existing.category, chain = _place_book(
+                ctx,
+                system,
+                system_category_off,
+                is_special_collection,
+                relative_path,
+                system_depth,
             )
+            if chain:
+                link_folder_factions(session, existing, system, chain)
             try:
                 _db_call(session.commit, f"commit re-home '{filepath}'")
                 stats["updated_books"] += 1
@@ -212,8 +249,8 @@ def _register_book(
         logger.debug(f"Resuming incomplete scan for: {filename}")
         return existing, needs_thumbnail, needs_page_count
 
-    category = _derive_category(
-        system_category_off, is_special_collection, relative_path, system_depth
+    category, chain = _place_book(
+        ctx, system, system_category_off, is_special_collection, relative_path, system_depth
     )
     title = _title_from_filename(filename)
     # What the folder's naming pattern reads out of the filename, if it has one
@@ -244,6 +281,7 @@ def _register_book(
         filepath=filepath,
         relative_path=relative_path,
         category=category,
+        game_type=system.game_type or GAME_TYPE_TTRPG,
         file_size=file_size,
         file_mtime=file_mtime,
         content_hash=content_hash,
@@ -282,6 +320,9 @@ def _register_book(
         if opf_tags:
             tag_service.set_resource_tags(session, "book", book.id, opf_tags)
             _db_call(session.commit, f"commit tags '{filepath}'")
+        if chain:
+            link_folder_factions(session, book, system, chain)
+            _db_call(session.commit, f"commit factions '{filepath}'")
         stats["new_books"] += 1
         logger.info(f"Added book: {book.title} ({category}) in {system_name}")
     except DatabaseBusyError as e:
