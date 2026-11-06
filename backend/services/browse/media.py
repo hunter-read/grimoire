@@ -37,6 +37,23 @@ from ..sql_like import contains, icontains, ilike
 # collections that read those tags (audio, issue #494); elsewhere it is ``path``.
 SORTS = frozenset({"path", "name", "size", "added_at", "title", "duration", "track"})
 
+# The sorts the jump index (:meth:`MediaBrowser.index`) follows: the first letter
+# of the stored natural key, or the month an item was added. The others - size,
+# duration, album order - have no landmarks a reader would jump between.
+INDEXED_SORTS = frozenset({"name", "added_at"})
+
+
+def index_letter(sort_key: Optional[str]) -> str:
+    """The rail letter for a stored natural sort key: its first letter, or ``#``.
+
+    The key is already case- and accent-folded (``models/browse.natural_key``),
+    so "Élan" and "elan" both land on ``E``; digits (stored length-prefixed) and
+    punctuation share ``#``. A letter from another script keeps its own entry.
+    """
+    if sort_key and sort_key[0].isalpha():
+        return sort_key[0].upper()
+    return "#"
+
 
 @dataclass
 class MediaBrowse:
@@ -257,3 +274,62 @@ class MediaBrowser:
             merged[path] = merged.get(path, 0) + count
         groups = [{"path": p, "count": n} for p, n in sorted(merged.items())]
         return sum(merged.values()), groups
+
+    def index(self, params: MediaBrowse) -> list[dict]:
+        """Where each letter (or added month) starts in the flat list.
+
+        ``[{key, label, count, offset}]`` in display order: each run of items
+        sharing a first letter (``name``) or an added month (``added_at``), how
+        many it holds, and its offset in what :meth:`page` returns for the same
+        params - so the gallery can open the list right there. Any other sort
+        returns no entries.
+
+        The runs come from one grouped count over an indexed column. The stored
+        sort key is compared as raw code points (SQLite's binary text, ``C`` on
+        PostgreSQL), so sorting the groups by their first character in Python
+        gives the same order the list query does.
+        """
+        if params.sort not in INDEXED_SORTS:
+            return []
+        model = self.model
+        desc = params.order == "desc"
+        if params.sort == "name":
+            column = func.substr(model.sort_name, 1, 1)
+        elif is_postgres(self.db):
+            column = func.to_char(model.added_at, "YYYY-MM")
+        else:
+            column = func.strftime("%Y-%m", model.added_at)
+        rows = (
+            self.query(params, columns=[column, func.count(literal_column("*"))])
+            .group_by(column)
+            .all()
+        )
+        counts: dict[str, int] = {}
+        undated = 0
+        for raw, count in rows:
+            if params.sort == "added_at" and not raw:
+                undated += count
+                continue
+            counts[raw or ""] = counts.get(raw or "", 0) + count
+        runs: list[tuple[str, int]] = []
+        for raw, count in sorted(counts.items(), reverse=desc):
+            label = index_letter(raw) if params.sort == "name" else raw
+            # Adjacent groups that share a label are one run ("1" and "(" are
+            # both "#"); a label seen again further on is a run of its own.
+            if runs and runs[-1][0] == label:
+                runs[-1] = (label, runs[-1][1] + count)
+            else:
+                runs.append((label, count))
+        if undated:
+            # Undated items sort last whichever way (``order_by``).
+            runs.append(("", undated))
+        entries = []
+        offset = 0
+        seen: dict[str, int] = {}
+        for label, count in runs:
+            repeat = seen.get(label, 0)
+            seen[label] = repeat + 1
+            key = label if not repeat else f"{label}~{repeat}"
+            entries.append({"key": key, "label": label, "count": count, "offset": offset})
+            offset += count
+        return entries

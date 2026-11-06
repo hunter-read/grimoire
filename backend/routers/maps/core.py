@@ -116,6 +116,18 @@ def list_map_groups(
     total, groups = MediaBrowser(db, "map", current_user.id, hide_explicit=False).groups(params)
     return {"total": total, "groups": groups}
 
+def list_map_index(
+    params: MediaBrowse = Depends(media_browse_params),
+    map_type: Optional[str] = None,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Where each letter (or added month) starts in the flat map list."""
+    if map_type:
+        params.extra.append(GenericMap.map_type == map_type)
+    browser = MediaBrowser(db, "map", current_user.id, hide_explicit=False)
+    return {"entries": browser.index(params)}
+
 
 def list_map_folders(db: Session = Depends(get_db)):
     folders = db.query(MapFolder).all()

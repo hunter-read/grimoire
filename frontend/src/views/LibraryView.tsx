@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LuLibrary, LuChevronDown, LuChevronRight } from 'react-icons/lu'
@@ -13,12 +13,19 @@ import { useAuth } from '../context/AuthContext'
 import useSystemLibrary from '../hooks/useSystemLibrary'
 import usePageTitle from '../hooks/usePageTitle'
 import useSavedFilters from '../hooks/useSavedFilters'
-import useSortFilterState from '../hooks/useSortFilterState'
+import useUrlSortFilterState from '../hooks/useUrlSortFilterState'
+import useSlashToSearch from '../hooks/useSlashToSearch'
+import usePins from '../hooks/usePins'
 import SystemCard from '../components/library/SystemCard'
 import SystemGroupToggle from '../components/library/SystemGroupToggle'
 import AgnosticChip from '../components/library/AgnosticChip'
 import SystemSortFilterBar from '../components/library/SystemSortFilterBar'
 import type { SortFilterState } from '../components/library/FilterModal'
+import SearchInput from '../components/library/SearchInput'
+import IndexedLayout from '../components/thumbIndex/IndexedLayout'
+import PinnedStrip from '../components/pins/PinnedStrip'
+import { DEFAULT_SORT_FILTER } from '../hooks/useSortFilterState'
+import { decadeKey, indexLetter } from '../utils/thumbIndex'
 import { applySystemSortFilter } from '../components/library/applySystemSortFilter'
 import { queryTags } from '../components/library/tagQuery'
 import BulkActionBar from '../components/BulkActionBar'
@@ -34,7 +41,7 @@ interface SelectMods {
 }
 
 export default function LibraryView() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { isFavorite } = useFavorites()
   const { user } = useAuth()!
   const canEdit = user?.role === 'admin' || user?.role === 'gm'
@@ -55,11 +62,16 @@ export default function LibraryView() {
   const { bulk, allTags } = library
   const systemFilters = useSavedFilters('systems')
   // Session-persisted, so coming back from a system keeps the user's filters
-  // instead of re-applying their saved default over them.
-  const [sortFilter, setSortFilter] = useSortFilterState<SortFilterState>(
+  // instead of re-applying their saved default over them - and mirrored in the
+  // address, so a filtered library can be bookmarked or shared.
+  const [sortFilter, setSortFilter] = useUrlSortFilterState<SortFilterState>(
     'grimoire:systems:sortFilter',
-    systemFilters
+    systemFilters,
+    DEFAULT_SORT_FILTER
   )
+  const searchRef = useRef<HTMLInputElement>(null)
+  useSlashToSearch(searchRef)
+  const pins = usePins('systems')
 
   usePageTitle(t('nav.library'))
 
@@ -162,6 +174,8 @@ export default function LibraryView() {
   // container is not empty, it just needs drilling into.
   const isEmptyLibrary = !systems.some(visible)
 
+  const sortKey = sortFilter.sort || 'name'
+
   const compact = viewMode === 'compact'
   const list = viewMode === 'list'
   const minCard = compact ? '130px' : '220px'
@@ -184,6 +198,15 @@ export default function LibraryView() {
         {/* The page's own heading. Each section below carries an h2 and none of
             them reads as the page title, so this one is for screen readers. */}
         <h1 className="sr-only">{t('nav.library')}</h1>
+
+        <PinnedStrip
+          label={t('pins.systemsLabel')}
+          links={pins.pins.flatMap((pin) => {
+            const system = systems.find((s) => s.id === pin.target)
+            return system ? [{ pin, label: system.name, to: `/library/system/${system.id}` }] : []
+          })}
+          onUnpin={(pin) => void pins.toggle(pin.target)}
+        />
 
         {/* Recently Opened */}
         {recentBooks.length > 0 && (
@@ -429,15 +452,39 @@ export default function LibraryView() {
                 }}
               >
                 <h2 style={{ fontSize: 28, margin: 0 }}>{t('library.title')}</h2>
-                {hasContainers && (
-                  <SystemGroupToggle
-                    grouped={grouped}
-                    onToggle={(next: boolean) => {
-                      setGrouped(next)
-                      saveUserPref('systemsGrouped', next)
-                    }}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    flexWrap: 'wrap',
+                    flex: '0 1 420px',
+                    justifyContent: 'flex-end',
+                  }}
+                >
+                  <SearchInput
+                    inputRef={searchRef}
+                    shortcut="/"
+                    value={(activeFilters.search as string | undefined) || ''}
+                    onChange={(v) =>
+                      setSortFilter((s) => ({
+                        ...s,
+                        filters: { ...s.filters, search: v || undefined },
+                      }))
+                    }
+                    placeholder={t('library.searchPlaceholder')}
+                    style={{ flex: '1 1 220px' }}
                   />
-                )}
+                  {hasContainers && (
+                    <SystemGroupToggle
+                      grouped={grouped}
+                      onToggle={(next: boolean) => {
+                        setGrouped(next)
+                        saveUserPref('systemsGrouped', next)
+                      }}
+                    />
+                  )}
+                </div>
               </div>
               {/* Live, so narrowing the grid with a filter or the search box
                   tells a screen reader how many systems are left. */}
@@ -470,44 +517,61 @@ export default function LibraryView() {
               canEdit={canEdit}
               viewMode={viewMode}
               onCycleViewMode={cycleViewMode}
+              showSearch={false}
             />
 
             {normalSystems.length > 0 ? (
-              <ul
-                role="list"
-                className="card-list"
-                style={
-                  list
-                    ? { display: 'flex', flexDirection: 'column', gap: 8 }
-                    : {
-                        display: 'grid',
-                        gridTemplateColumns: `repeat(auto-fill, minmax(${minCard}, 1fr))`,
-                        gap: compact ? 12 : 20,
-                      }
+              <IndexedLayout
+                items={normalSystems}
+                enabled={sortKey === 'name' || sortKey === 'year'}
+                keyOf={(s) =>
+                  sortKey === 'year' ? decadeKey(s.year) : indexLetter(s.name, i18n?.language)
                 }
-              >
-                {normalSystems.map((system) => (
-                  <li key={system.id}>
-                    <SystemCard
-                      system={system}
-                      to={`/library/system/${system.id}`}
-                      compact={compact}
-                      list={list}
-                      selectable={bulk.bulkMode}
-                      selected={bulk.selectedIds.has(system.id)}
-                      onToggleSelect={(mods: SelectMods) =>
-                        bulk.toggleItem(system.id, {
-                          ...mods,
-                          // Parent containers are excluded from bulk actions, so
-                          // they're left out of the range list too — a shift-drag
-                          // across one must not sweep it into the selection.
-                          orderedIds: selectableSystems.map((s) => s.id),
-                        })
-                      }
-                    />
-                  </li>
-                ))}
-              </ul>
+                nameOf={(s) => s.name}
+                scope="systems"
+                railLabel={t('thumbIndex.jumpSystems')}
+                describe={(run) => t('thumbIndex.systems', { count: run.count })}
+                formatLabel={(label) => (label === '#' && sortKey === 'year' ? '?' : label)}
+                headingLevel={3}
+                lazySections
+                renderItems={(sectionSystems) => (
+                  <ul
+                    role="list"
+                    className="card-list"
+                    style={
+                      list
+                        ? { display: 'flex', flexDirection: 'column', gap: 8 }
+                        : {
+                            display: 'grid',
+                            gridTemplateColumns: `repeat(auto-fill, minmax(${minCard}, 1fr))`,
+                            gap: compact ? 12 : 20,
+                          }
+                    }
+                  >
+                    {sectionSystems.map((system) => (
+                      <li key={system.id}>
+                        <SystemCard
+                          system={system}
+                          to={`/library/system/${system.id}`}
+                          compact={compact}
+                          list={list}
+                          selectable={bulk.bulkMode}
+                          selected={bulk.selectedIds.has(system.id)}
+                          onToggleSelect={(mods: SelectMods) =>
+                            bulk.toggleItem(system.id, {
+                              ...mods,
+                              // Parent containers are excluded from bulk actions, so
+                              // they're left out of the range list too — a shift-drag
+                              // across one must not sweep it into the selection.
+                              orderedIds: selectableSystems.map((s) => s.id),
+                            })
+                          }
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              />
             ) : tagFiltered ? (
               <p style={{ color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: 32 }}>
                 {t('library.noTagMatch')}

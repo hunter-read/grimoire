@@ -165,7 +165,8 @@
     "cancelBulk": "Annuler",
     "noTagMatch": "Aucun système ne correspond aux étiquettes sélectionnées.",
     "filterByTag": "Filtrer par {{tag}}",
-    "groupContainers": "Grouper les collections"
+    "groupContainers": "Grouper les collections",
+    "searchPlaceholder": "Trouver un système…"
   },
   "systemContainer": {
     "badge": "Collection de systèmes",
@@ -1659,7 +1660,7 @@
         },
         "personal": {
           "label": "Personnel",
-          "description": "Vos favoris, marque-pages, filtres enregistrés, playlists et tables de sons enregistrées, et thèmes"
+          "description": "Vos favoris, marque-pages, filtres enregistrés, épingles, playlists et tables de sons enregistrées, et thèmes"
         },
         "all": {
           "label": "Toutes les autorisations",
@@ -4405,5 +4406,40 @@
       "setArtFor": "Choisir le portrait de {{name}}",
       "shareWith": "Partager {{name}} avec"
     }
+  },
+  "thumbIndex": {
+    "hint": "Utilisez les flèches pour passer d’une lettre à l’autre, ou tapez une lettre pour y aller.",
+    "more_one": "+ {{count}} de plus",
+    "more_other": "+ {{count}} de plus",
+    "enterToJump": "Entrée pour y aller",
+    "undated": "Sans date",
+    "jumpSystems": "Aller aux systèmes par lettre",
+    "jumpFolders": "Aller aux dossiers par lettre",
+    "jumpItems": "Parcourir {{collection}}",
+    "systems_one": "{{count}} système",
+    "systems_other": "{{count}} systèmes",
+    "folders_one": "{{count}} dossier",
+    "folders_other": "{{count}} dossiers",
+    "showEarlier_one": "Afficher les éléments précédents ({{count}} au-dessus)",
+    "showEarlier_other": "Afficher les éléments précédents ({{count}} au-dessus)"
+  },
+  "pins": {
+    "pin": "Épingler {{name}}",
+    "pinShort": "Épingler",
+    "pinTitle": "Épingler {{name}} en haut de cette page",
+    "unpinTitle": "Désépingler {{name}}",
+    "unpin": "Désépingler {{name}}",
+    "heading": "Épinglés",
+    "systemsLabel": "Systèmes épinglés",
+    "foldersLabel": "Dossiers épinglés dans {{collection}}"
+  },
+  "folderNav": {
+    "open": "Ouvrir {{folder}}",
+    "openShort": "Ouvrir",
+    "here": "Directement dans {{folder}}",
+    "pathLabel": "Chemin du dossier",
+    "siblings": "Dossiers à côté de {{folder}}",
+    "filterSiblings": "Filtrer les dossiers…",
+    "noSiblingMatch": "Aucun dossier ne correspond"
   }
 }

@@ -37,19 +37,26 @@ export const DEFAULT_SORT_FILTER: SortFilter = { sort: 'name', order: 'asc', fil
  * replace it with this visit's state, which is then waiting to be read back if
  * the user drills in and returns.
  *
+ * `seeded` says `initial` is not a built-in default but state the visit arrived
+ * with - a shared or bookmarked address (see useUrlSortFilterState). It is used
+ * as given: neither the stored state nor the default preset replaces it.
+ *
  * @param {string} key    sessionStorage key, unique per scope
  * @param {object} saved  the useSavedFilters() result for this scope
  * @param {object} [initial]  the built-in state before any default preset
+ * @param {object} [opts]
+ * @param {boolean} [opts.seeded=false]  `initial` came with the visit; keep it
  * @returns [sortFilter, setSortFilter]
  */
 export default function useSortFilterState<S extends object = SortFilterState>(
   key: string,
   saved: Pick<SavedFiltersResult, 'loaded' | 'defaultFilter'>,
-  initial: S = DEFAULT_SORT_FILTER as unknown as S
+  initial: S = DEFAULT_SORT_FILTER as unknown as S,
+  { seeded = false }: { seeded?: boolean } = {}
 ): [S, Dispatch<SetStateAction<S>>] {
   const restoreView = useRestoredView()
   const [sortFilter, setSortFilter] = useSessionState<S>(key, initial, {
-    restore: restoreView,
+    restore: restoreView && !seeded,
   })
 
   const applied = useRef(false)
@@ -58,13 +65,14 @@ export default function useSortFilterState<S extends object = SortFilterState>(
     if (applied.current || !saved.loaded) return
     applied.current = true
     // A return trip already shows the user's own filtering — including the case
-    // where they deliberately cleared the default away before drilling in.
-    if (restoreView) return
+    // where they deliberately cleared the default away before drilling in. An
+    // address that names its own filtering is followed as written.
+    if (restoreView || seeded) return
     if (saved.defaultFilter?.state) setSortFilter(saved.defaultFilter.state as unknown as S)
     // setSortFilter is stable enough for this one-shot effect; re-running on its
     // identity would re-apply the default after the user changes something.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [saved.loaded, saved.defaultFilter, restoreView])
+  }, [saved.loaded, saved.defaultFilter, restoreView, seeded])
 
   return [sortFilter, setSortFilter]
 }

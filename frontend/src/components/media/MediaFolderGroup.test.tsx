@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import userEvent from '@testing-library/user-event'
 import RealMediaFolderGroup from './MediaFolderGroup'
 import type { ReactNode } from 'react'
@@ -498,5 +499,87 @@ describe('MediaFolderGroup — paged folders (issue #221)', () => {
     await userEvent.click(screen.getByTitle(/play ambient/i))
     expect(onFetchFolderItems).toHaveBeenCalledWith(['Ambient', 'Ambient/Rain'])
     expect(playQueue.mock.calls.at(-1)![0].map((t: AudioTrack) => t.id)).toEqual(['a1', 'a2'])
+  })
+})
+
+describe('MediaFolderGroup - opening and pinning folders', () => {
+  const mapItems = [{ id: 'm1', filename: 'lava.png' }]
+
+  it('links the folder and each subfolder to their own page', () => {
+    render(
+      <MemoryRouter>
+        <MediaFolderGroup
+          {...baseProps()}
+          config={MEDIA_CONFIGS.map}
+          folder="Tom Cartos/Caverns"
+          label="Caverns"
+          subfolders={{ '': mapItems, Lava: mapItems }}
+          folderHref={(path) => `/maps?folder=${encodeURIComponent(path)}`}
+        />
+      </MemoryRouter>
+    )
+    expect(screen.getByRole('heading', { level: 2, name: /Caverns/ })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open Caverns' })).toHaveAttribute(
+      'href',
+      '/maps?folder=Tom%20Cartos%2FCaverns'
+    )
+    expect(screen.getByRole('link', { name: 'Open Lava' })).toHaveAttribute(
+      'href',
+      '/maps?folder=Tom%20Cartos%2FCaverns%2FLava'
+    )
+    expect(screen.getByRole('button', { name: 'Download all maps in Caverns' })).toBeInTheDocument()
+  })
+
+  it('sits one level down under a letter heading', () => {
+    render(
+      <MemoryRouter>
+        <MediaFolderGroup
+          {...baseProps()}
+          config={MEDIA_CONFIGS.map}
+          folder="Caverns"
+          subfolders={{ Lava: mapItems }}
+          headingLevel={3}
+        />
+      </MemoryRouter>
+    )
+    expect(screen.getByRole('heading', { level: 3, name: /Caverns/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 4, name: /Lava/ })).toBeInTheDocument()
+  })
+
+  it('pins and unpins the folder', () => {
+    const onTogglePin = vi.fn()
+    render(
+      <MemoryRouter>
+        <MediaFolderGroup
+          {...baseProps()}
+          config={MEDIA_CONFIGS.map}
+          folder="Czepeku"
+          subfolders={{ '': mapItems }}
+          isPinned={(path) => path === 'Czepeku'}
+          onTogglePin={onTogglePin}
+        />
+      </MemoryRouter>
+    )
+    const pin = screen.getByRole('button', { name: 'Pin Czepeku' })
+    expect(pin).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(pin)
+    expect(onTogglePin).toHaveBeenCalledWith('Czepeku')
+  })
+
+  it('offers neither for the collection root', () => {
+    render(
+      <MemoryRouter>
+        <MediaFolderGroup
+          {...baseProps()}
+          config={MEDIA_CONFIGS.map}
+          folder="(Root)"
+          subfolders={{ '': mapItems }}
+          folderHref={() => '/x'}
+          onTogglePin={vi.fn()}
+        />
+      </MemoryRouter>
+    )
+    expect(screen.queryByRole('link', { name: /^Open/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Pin/ })).not.toBeInTheDocument()
   })
 })

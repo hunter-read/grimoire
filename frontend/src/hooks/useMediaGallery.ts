@@ -1,10 +1,14 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import api, { bulk as bulkApi } from '../api'
 import useSessionState from './useSessionState'
 import useViewMode from './useViewMode'
 import useBulkSelection from './useBulkSelection'
 import useSavedFilters from './useSavedFilters'
-import useSortFilterState, { DEFAULT_SORT_FILTER } from './useSortFilterState'
+import { DEFAULT_SORT_FILTER } from './useSortFilterState'
+import useUrlSortFilterState from './useUrlSortFilterState'
+import type { SortFilterState } from '../components/library/FilterModal'
+import type { IndexEntry } from '../utils/thumbIndex'
 import usePagedLists from './usePagedLists'
 import useTagLabels from './useTagLabels'
 import { queryTags, toggleQueryTag } from '../components/library/tagQuery'
@@ -47,7 +51,7 @@ interface Groups {
 }
 
 /** One folder (or the folder's own items, under '') as MediaFolderGroup draws it. */
-interface SubfolderEntry<T extends GalleryItem = GalleryItem> {
+export interface SubfolderEntry<T extends GalleryItem = GalleryItem> {
   path: string
   count: number
   items: T[]
@@ -63,6 +67,58 @@ const EMPTY_ITEMS: GalleryItem[] = []
 // Largest page the server serves; used when a whole folder is needed at once
 // (queuing a folder of audio to play).
 const FULL_PAGE = 500
+
+// The sorts the flat list's jump rail can follow (the server's INDEXED_SORTS).
+export const INDEXED_SORTS = new Set(['name', 'added_at'])
+
+/**
+ * A folder as the grouped gallery shows it: its full collection-relative path,
+ * the folders below it (and its own items, under ''), and its display name.
+ */
+export type FolderEntry<T extends GalleryItem = GalleryItem> = [
+  string,
+  Record<string, SubfolderEntry<T>>,
+  string,
+]
+
+/**
+ * Every folder the groups mention, ancestors included - a folder holding only
+ * subfolders has no items of its own and so no group, but is still a level the
+ * path bar walks through.
+ */
+export function folderTreeOf(paths: readonly string[]): string[] {
+  const all = new Set<string>()
+  for (const path of paths) {
+    if (!path) continue
+    const parts = path.split('/')
+    for (let i = 1; i <= parts.length; i++) all.add(parts.slice(0, i).join('/'))
+  }
+  return [...all]
+}
+
+/**
+ * Every collapse key a set of folder paths can produce at any drill depth: each
+ * ancestor as a folder (`A`, `A/B`), and each deeper path under each of them
+ * (`A::B/C`, `A/B::C`). Seeded collapsed, so drilling into a folder never opens
+ * all its children at once - a request each.
+ */
+function collapseKeysOf(paths: readonly string[]): string[] {
+  const keys: string[] = []
+  for (const path of paths) {
+    const [top] = splitFolder(path)
+    if (!path) {
+      keys.push(top)
+      continue
+    }
+    const parts = path.split('/')
+    for (let i = 1; i <= parts.length; i++) {
+      const folder = parts.slice(0, i).join('/')
+      keys.push(folder)
+      if (i < parts.length) keys.push(`${folder}::${parts.slice(i).join('/')}`)
+    }
+  }
+  return keys
+}
 
 /**
  * A server folder path ("Pack/Sub/Deep") as the gallery's two-level grouping:
@@ -91,6 +147,11 @@ export default function useMediaGallery<T extends GalleryItem = GalleryItem>(
   config: GalleryConfig
 ) {
   const { type, collection, foldersUrl, listUrl, sessionKey } = config
+  // The folder the gallery is opened at (`?folder=Tom Cartos/Caverns`), or null
+  // for the whole collection. Read from the address, so a folder can be
+  // bookmarked, shared, and gone back to.
+  const [searchParams] = useSearchParams()
+  const base = searchParams.get('folder') || null
 
   const [folderTags, setFolderTags] = useState<Record<string, string[]>>({})
   // Folder paths whose images are token-editor frames, from the same endpoint.
@@ -111,13 +172,14 @@ export default function useMediaGallery<T extends GalleryItem = GalleryItem>(
   // Persisted for the session so returning from a detail view keeps the filters
   // the user had, rather than snapping back to their saved default.
   // A collection can open in its own order (audio: album order, issue #494).
-  const [sortFilter, setSortFilter] = useSortFilterState<SortFilter>(
+  // Mirrored in the address alongside the folder.
+  const [sortFilter, setSortFilter] = useUrlSortFilterState(
     `${sessionKey}:sortFilter`,
     savedFilters,
     (config.defaultSort
       ? { ...DEFAULT_SORT_FILTER, sort: config.defaultSort }
-      : DEFAULT_SORT_FILTER) as SortFilter
-  )
+      : DEFAULT_SORT_FILTER) as SortFilterState
+  ) as unknown as [SortFilter, (next: SortFilter | ((s: SortFilter) => SortFilter)) => void]
 
   const activeFilters = sortFilter.filters || {}
   const filter = activeFilters.search || ''
@@ -220,12 +282,7 @@ export default function useMediaGallery<T extends GalleryItem = GalleryItem>(
   const seenFolders = useRef<Set<string> | null>(null)
   const applyGroups = useCallback(
     (body: Groups) => {
-      const keys: string[] = []
-      for (const g of body.groups) {
-        const [folder, sub] = splitFolder(g.path)
-        keys.push(folder)
-        if (sub) keys.push(`${folder}::${sub}`)
-      }
+      const keys = collapseKeysOf(body.groups.map((g) => g.path))
       if (seenFolders.current === null) {
         seenFolders.current = new Set(keys)
         if (!hadStoredState) setCollapsed(new Set(keys))
@@ -259,6 +316,31 @@ export default function useMediaGallery<T extends GalleryItem = GalleryItem>(
       cancelled = true
     }
   }, [grouped, filterKey, listUrl, applyGroups])
+
+  // Where each letter (or added month) starts in the flat list, for its jump
+  // rail. Only the sorts with landmarks have one.
+  const [flatIndex, setFlatIndex] = useState<IndexEntry[]>([])
+  const indexed = !grouped && INDEXED_SORTS.has(sort)
+  useEffect(() => {
+    if (!indexed) {
+      setFlatIndex([])
+      return undefined
+    }
+    let cancelled = false
+    api
+      .get(
+        withQuery(`${listUrl}/index`, { ...commonFilterParams(filtersRef.current), sort, order })
+      )
+      .then((res) => {
+        const entries = ((res as { entries?: Omit<IndexEntry, 'preview'>[] } | null)?.entries ||
+          []) as Omit<IndexEntry, 'preview'>[]
+        if (!cancelled) setFlatIndex(entries.map((e) => ({ ...e, preview: [] })))
+      })
+      .catch(() => !cancelled && setFlatIndex([]))
+    return () => {
+      cancelled = true
+    }
+  }, [indexed, filterKey, sort, order, listUrl])
 
   const { ensure, loadMore, get: getList } = pages
   const loadFolder = useCallback(
@@ -382,27 +464,52 @@ export default function useMediaGallery<T extends GalleryItem = GalleryItem>(
   const dir = order === 'desc' ? -1 : 1
   const collator = useMemo(() => new Intl.Collator(undefined, { numeric: true }), [])
 
-  // `[[folder, { sub: { path, count, items, total, loading, hasMore } }]]`, the
-  // shape MediaFolderGroup renders: top-level folders in name order, each with
-  // the folders below it that hold items ('' for its own items).
-  const folderEntries = useMemo((): [string, Record<string, SubfolderEntry<T>>][] => {
-    if (!groups) return []
+  // `[[folder, { sub: { path, count, items, total, loading, hasMore } }, name]]`,
+  // the shape MediaFolderGroup renders: the folders one level below where the
+  // gallery is opened (the top level, or `base`), in name order, each with the
+  // folders below it that hold items ('' for its own items). Opened at a
+  // folder, that folder's own items come separately, as `ownFolder`.
+  const [folderEntries, ownFolder] = useMemo((): [FolderEntry<T>[], FolderEntry<T> | null] => {
+    if (!groups) return [[], null]
     const byFolder: Record<string, Record<string, SubfolderEntry<T>>> = {}
+    const names: Record<string, string> = {}
+    let own: Record<string, SubfolderEntry<T>> | null = null
+    const prefix = base ? `${base}/` : ''
     for (const g of groups.groups) {
-      const [folder, sub] = splitFolder(g.path)
-      const list = getList(g.path)
-      if (!byFolder[folder]) byFolder[folder] = {}
-      byFolder[folder][sub] = {
-        path: g.path,
-        count: g.count,
-        items: list ? list.items : [],
-        loading: list ? list.loading : false,
-        hasMore: list ? list.hasMore : true,
-        started: !!list,
+      const entry: SubfolderEntry<T> = (() => {
+        const list = getList(g.path)
+        return {
+          path: g.path,
+          count: g.count,
+          items: list ? list.items : [],
+          loading: list ? list.loading : false,
+          hasMore: list ? list.hasMore : true,
+          started: !!list,
+        }
+      })()
+      if (base && g.path === base) {
+        own = { '': entry }
+        continue
       }
+      if (base && !g.path.startsWith(prefix)) continue
+      const [child, sub] = splitFolder(g.path.slice(prefix.length))
+      const folder = base ? `${base}/${child}` : child
+      names[folder] = child
+      if (!byFolder[folder]) byFolder[folder] = {}
+      byFolder[folder][sub] = entry
     }
-    return Object.entries(byFolder).sort(([a], [b]) => dir * collator.compare(a, b))
-  }, [groups, getList, dir, collator])
+    const entries = Object.entries(byFolder)
+      .map(([folder, subs]): FolderEntry<T> => [folder, subs, names[folder]])
+      .sort((a, b) => dir * collator.compare(a[2], b[2]))
+    return [entries, own && base ? [base, own, base.split('/').pop() || base] : null]
+  }, [groups, getList, dir, collator, base])
+
+  // Every folder level the current filters reach, for the path bar's
+  // neighbouring-folder lists.
+  const allFolders = useMemo(
+    () => folderTreeOf((groups?.groups || []).map((g) => g.path)),
+    [groups]
+  )
 
   const flatList = getList(FLAT)
   const flatItems = (pages.lists[FLAT]?.items as T[] | undefined) || (EMPTY_ITEMS as T[])
@@ -417,13 +524,14 @@ export default function useMediaGallery<T extends GalleryItem = GalleryItem>(
   const orderedIds = useMemo(
     () =>
       grouped
-        ? folderEntries.flatMap(([, subfolders]): string[] =>
-            Object.keys(subfolders)
-              .sort((a, b) => (a === '' ? 1 : b === '' ? -1 : a.localeCompare(b)))
-              .flatMap((sub) => subfolders[sub].items.map((i) => i.id))
+        ? [...(ownFolder ? [ownFolder] : []), ...folderEntries].flatMap(
+            ([, subfolders]): string[] =>
+              Object.keys(subfolders)
+                .sort((a, b) => (a === '' ? 1 : b === '' ? -1 : a.localeCompare(b)))
+                .flatMap((sub) => subfolders[sub].items.map((i) => i.id))
           )
         : flatItems.map((i) => i.id),
-    [grouped, folderEntries, flatItems]
+    [grouped, folderEntries, ownFolder, flatItems]
   )
   const toggleSelect = (id: string, mods: Record<string, unknown> = {}) =>
     bulk.toggleItem(id, { ...mods, orderedIds })
@@ -431,15 +539,15 @@ export default function useMediaGallery<T extends GalleryItem = GalleryItem>(
   // Collapse/expand-all affordance state.
   const allKeys = useMemo(() => {
     const keys = new Set<string>()
-    folderEntries.forEach(([folder, subfolders]) => {
+    ;[...(ownFolder ? [ownFolder] : []), ...folderEntries].forEach(([folder, subfolders]) => {
       keys.add(folder)
       Object.keys(subfolders)
         .filter((s) => s)
         .forEach((s) => keys.add(`${folder}::${s}`))
     })
     return keys
-  }, [folderEntries])
-  const noFolders = grouped ? groups !== null && folderEntries.length === 0 : false
+  }, [folderEntries, ownFolder])
+  const noFolders = grouped ? groups !== null && folderEntries.length === 0 && !ownFolder : false
   const noItems = grouped ? noFolders : flatList?.total === 0
   const allCollapsed = !noFolders && [...allKeys].every((k) => collapsed.has(k))
   const allExpanded = collapsed.size === 0
@@ -492,7 +600,16 @@ export default function useMediaGallery<T extends GalleryItem = GalleryItem>(
     setEditingFolder,
     saveFolderTags,
     // grouped + flat data
+    folder: base,
     folderEntries,
+    ownFolder,
+    allFolders,
+    flatIndex,
+    flatStart: flatList?.start ?? 0,
+    flatTotal: flatList?.total ?? null,
+    flatHasEarlier: flatList ? flatList.hasEarlier : false,
+    jumpFlat: (offset: number) => pages.jumpTo(FLAT, offset),
+    loadEarlierFlat: () => pages.loadEarlier(FLAT),
     loadFolder,
     fetchFolderItems,
     flatItems,

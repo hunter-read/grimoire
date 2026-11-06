@@ -94,3 +94,21 @@ class FolderGroupsResponse(BaseModel):
 
     total: int
     groups: list[FolderGroup]
+
+
+class IndexEntry(BaseModel):
+    """One landmark in the flat list: a first letter, or a month items were added."""
+
+    key: str
+    label: str
+    count: int
+    offset: int
+
+
+class BrowseIndexResponse(BaseModel):
+    """Where each letter (or added month) starts in the flat list, in display order.
+
+    Empty for a sort with no landmarks to jump between (size, duration, track).
+    """
+
+    entries: list[IndexEntry]

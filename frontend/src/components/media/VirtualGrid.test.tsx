@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import VirtualGrid from './VirtualGrid'
-import { columnsFor } from './VirtualGridRows'
+import { columnsFor, type VirtualGridHandle } from './VirtualGridRows'
 import type { ReactElement } from 'react'
 
 interface VirtualizerOpts {
@@ -25,6 +25,8 @@ let scrollElementsSeen: (Element | null)[] = []
 // What the virtualizer was told its starting offset is. 0 while the page is
 // scrolled elsewhere means it will yank the page to the top on attach.
 let initialOffsetsSeen: (number | undefined)[] = []
+// Rows the grid was asked to scroll to.
+const scrolledTo: number[] = []
 
 vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: (opts: VirtualizerOpts) => {
@@ -41,12 +43,15 @@ vi.mock('@tanstack/react-virtual', () => ({
           .map((index) => ({ index, key: index, start: index * 240 })),
       measure: () => {},
       measureElement: () => {},
+      range: { startIndex: virtualRows[0] ?? 0, endIndex: virtualRows.at(-1) ?? 0 },
+      scrollToIndex: (row: number) => scrolledTo.push(row),
     }
   },
 }))
 
 beforeEach(() => {
   virtualRows = [0, 1, 2]
+  scrolledTo.length = 0
   scrollElementsSeen = []
   initialOffsetsSeen = []
   globalThis.ResizeObserver = class {
@@ -200,5 +205,45 @@ describe('scroll offset seeding (issue #531: expanding a folder jumped to the to
   it('still renders its rows', () => {
     inScroller(<VirtualGrid items={items(6)} renderItem={renderItem} minColumn={130} />)
     expect(screen.getAllByTestId('cell').length).toBeGreaterThan(0)
+  })
+
+  it('numbers items from where a list opened part-way starts', () => {
+    virtualRows = [0]
+    render(
+      <VirtualGrid
+        items={items(2)}
+        renderItem={renderItem}
+        minColumn={130}
+        gap={12}
+        list
+        indexOffset={500}
+        setSize={9000}
+      />
+    )
+    const [first] = screen.getAllByRole('listitem')
+    expect(first).toHaveAttribute('aria-posinset', '501')
+    expect(first).toHaveAttribute('aria-setsize', '9000')
+  })
+
+  it('reports the first item in view and scrolls to an item on request', () => {
+    virtualRows = [2, 3]
+    const onFirstVisible = vi.fn()
+    const handleRef = { current: null as VirtualGridHandle | null }
+    const { unmount } = render(
+      <VirtualGrid
+        items={items(6)}
+        renderItem={renderItem}
+        minColumn={130}
+        gap={12}
+        list
+        onFirstVisible={onFirstVisible}
+        handleRef={handleRef}
+      />
+    )
+    expect(onFirstVisible).toHaveBeenLastCalledWith(2)
+    handleRef.current!.scrollToItem(4)
+    expect(scrolledTo).toEqual([4])
+    unmount()
+    expect(handleRef.current).toBeNull()
   })
 })

@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
-import type { CSSProperties } from 'react'
+import { useState } from 'react'
+import type { CSSProperties, Ref } from 'react'
 import { LuSearch, LuX } from 'react-icons/lu'
 
 export interface SearchInputProps {
@@ -8,6 +9,10 @@ export interface SearchInputProps {
   placeholder?: string
   ariaLabel?: string
   style?: CSSProperties
+  /** The input itself, for a page that focuses it from a shortcut. */
+  inputRef?: Ref<HTMLInputElement>
+  /** A key that jumps here (useSlashToSearch), shown in the empty box. */
+  shortcut?: string
 }
 
 /**
@@ -21,8 +26,11 @@ export default function SearchInput({
   placeholder,
   ariaLabel,
   style,
+  inputRef,
+  shortcut,
 }: SearchInputProps) {
   const { t } = useTranslation()
+  const [focused, setFocused] = useState(false)
   return (
     <div style={{ position: 'relative', ...style }}>
       <LuSearch
@@ -37,10 +45,14 @@ export default function SearchInput({
         }}
       />
       <input
+        ref={inputRef}
         type="text"
         aria-label={ariaLabel || placeholder}
+        aria-keyshortcuts={shortcut}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         placeholder={placeholder}
         style={{
           width: '100%',
@@ -52,6 +64,30 @@ export default function SearchInput({
           boxSizing: 'border-box',
         }}
       />
+      {shortcut && !value && !focused && (
+        <kbd
+          aria-hidden="true"
+          className="search-shortcut-hint"
+          style={{
+            position: 'absolute',
+            right: 8,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            minWidth: 18,
+            padding: '0 5px',
+            borderRadius: 4,
+            border: '1px solid var(--border-light)',
+            fontSize: 11,
+            lineHeight: '16px',
+            textAlign: 'center',
+            fontFamily: 'inherit',
+            color: 'var(--text-muted)',
+            pointerEvents: 'none',
+          }}
+        >
+          {shortcut}
+        </kbd>
+      )}
       {value && (
         <button
           type="button"

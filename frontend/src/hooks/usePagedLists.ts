@@ -17,6 +17,8 @@ export interface PagedList<T> {
   total: number | null
   loading: boolean
   error: unknown
+  /** Where `items` begins in the whole list: 0, unless it was opened part-way. */
+  start?: number
 }
 
 export type FetchPage<T> = (
@@ -28,6 +30,8 @@ export type FetchPage<T> = (
 /** A list as `get(key)` returns it. */
 export interface PagedListView<T> extends PagedList<T> {
   hasMore: boolean
+  /** Rows before `start` are not loaded (the list was opened part-way). */
+  hasEarlier: boolean
 }
 
 export interface PagedLists<T> {
@@ -39,6 +43,10 @@ export interface PagedLists<T> {
   ensure: (key: string) => void
   /** Load the next page, if there is one and none is loading. */
   loadMore: (key: string) => void
+  /** Reopen the list at `offset`: drop what is loaded and load from there. */
+  jumpTo: (key: string, offset: number) => void
+  /** Load the page before `start`, when the list was opened part-way. */
+  loadEarlier: (key: string) => void
   /** Rewrite loaded items in place (after a local edit). */
   mapItems: (fn: (item: T) => T) => void
   /** Drop loaded items matching `fn`, shrinking each list's total to match. */
@@ -68,6 +76,9 @@ const EMPTY_LIST: PagedList<never> = { items: [], total: null, loading: false, e
  *   mapItems(fn)    - rewrite loaded items in place (after a local edit)
  *   removeItems(fn) - drop loaded items matching `fn` (after a local delete),
  *                     shrinking each list's total to match
+ *   jumpTo(key, n)  - reopen the list at offset `n` (a jump rail landing deep in
+ *                     a long list), without loading everything before it
+ *   loadEarlier(key) - load the page before where a reopened list starts
  *   lists           - every started list, by key
  */
 export default function usePagedLists<T>(
@@ -80,6 +91,9 @@ export default function usePagedLists<T>(
 ): PagedLists<T> {
   const [lists, setLists] = useState<Record<string, PagedList<T>>>({})
   const generation = useRef(0)
+  // Bumped per list when it is reopened somewhere else, so a page still in
+  // flight for its old position is dropped rather than appended.
+  const epochs = useRef<Record<string, number>>({})
   const inFlight = useRef(new Set<string>())
   // Read by the callbacks so they stay stable across renders.
   const current = useRef(lists)
@@ -89,6 +103,7 @@ export default function usePagedLists<T>(
 
   useEffect(() => {
     generation.current += 1
+    epochs.current = {}
     inFlight.current = new Set()
     current.current = {}
     setLists({})
@@ -97,29 +112,37 @@ export default function usePagedLists<T>(
   const load = useCallback(
     (key: string) => {
       const gen = generation.current
-      const flightKey = `${gen}\u0000${key}`
+      const epoch = epochs.current[key] || 0
+      const flightKey = `${gen}\u0000${epoch}\u0000${key}`
       if (inFlight.current.has(flightKey)) return
       const list = current.current[key] || EMPTY_LIST
-      if (list.total !== null && list.items.length >= list.total) return
+      const start = list.start || 0
+      if (list.total !== null && start + list.items.length >= list.total) return
       inFlight.current.add(flightKey)
-      const offset = list.items.length
+      const offset = start + list.items.length
       setLists((prev) => ({
         ...prev,
         [key]: { ...(prev[key] || EMPTY_LIST), loading: true, error: null },
       }))
       Promise.resolve(fetcher.current(key, offset, offset === 0 ? firstPageSize : pageSize))
         .then(({ total, rows }) => {
-          if (gen !== generation.current) return
+          if (gen !== generation.current || epoch !== (epochs.current[key] || 0)) return
           setLists((prev) => {
             const before = prev[key] || EMPTY_LIST
             return {
               ...prev,
-              [key]: { items: [...before.items, ...rows], total, loading: false, error: null },
+              [key]: {
+                items: [...before.items, ...rows],
+                total,
+                loading: false,
+                error: null,
+                start: before.start || 0,
+              },
             }
           })
         })
         .catch((error) => {
-          if (gen !== generation.current) return
+          if (gen !== generation.current || epoch !== (epochs.current[key] || 0)) return
           setLists((prev) => ({
             ...prev,
             [key]: { ...(prev[key] || EMPTY_LIST), loading: false, error },
@@ -130,6 +153,58 @@ export default function usePagedLists<T>(
         })
     },
     [pageSize, firstPageSize]
+  )
+
+  const jumpTo = useCallback(
+    (key: string, offset: number) => {
+      epochs.current[key] = (epochs.current[key] || 0) + 1
+      const known = current.current[key]
+      const reset: PagedList<T> = {
+        items: [],
+        total: known ? known.total : null,
+        loading: false,
+        error: null,
+        start: Math.max(0, offset),
+      }
+      current.current = { ...current.current, [key]: reset }
+      setLists((prev) => ({ ...prev, [key]: reset }))
+      load(key)
+    },
+    [load]
+  )
+
+  const loadEarlier = useCallback(
+    (key: string) => {
+      const list = current.current[key]
+      const start = list?.start || 0
+      if (!list || list.loading || start === 0) return
+      const gen = generation.current
+      const epoch = epochs.current[key] || 0
+      const from = Math.max(0, start - pageSize)
+      setLists((prev) => ({ ...prev, [key]: { ...prev[key], loading: true, error: null } }))
+      Promise.resolve(fetcher.current(key, from, start - from))
+        .then(({ total, rows }) => {
+          if (gen !== generation.current || epoch !== (epochs.current[key] || 0)) return
+          setLists((prev) => {
+            const before = prev[key] || EMPTY_LIST
+            return {
+              ...prev,
+              [key]: {
+                items: [...rows, ...before.items],
+                total,
+                loading: false,
+                error: null,
+                start: from,
+              },
+            }
+          })
+        })
+        .catch((error) => {
+          if (gen !== generation.current || epoch !== (epochs.current[key] || 0)) return
+          setLists((prev) => ({ ...prev, [key]: { ...prev[key], loading: false, error } }))
+        })
+    },
+    [pageSize]
   )
 
   const ensure = useCallback(
@@ -180,13 +255,19 @@ export default function usePagedLists<T>(
     (key: string) => {
       const list = lists[key]
       if (!list) return undefined
-      return { ...list, hasMore: list.total === null || list.items.length < list.total }
+      const start = list.start || 0
+      return {
+        ...list,
+        start,
+        hasMore: list.total === null || start + list.items.length < list.total,
+        hasEarlier: start > 0,
+      }
     },
     [lists]
   )
 
   return useMemo(
-    () => ({ lists, get, ensure, loadMore, mapItems, removeItems }),
-    [lists, get, ensure, loadMore, mapItems, removeItems]
+    () => ({ lists, get, ensure, loadMore, mapItems, removeItems, jumpTo, loadEarlier }),
+    [lists, get, ensure, loadMore, mapItems, removeItems, jumpTo, loadEarlier]
   )
 }

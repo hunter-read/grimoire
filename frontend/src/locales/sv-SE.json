@@ -165,7 +165,8 @@
     "cancelBulk": "Avbryt",
     "noTagMatch": "Inga system matchar de valda taggarna.",
     "filterByTag": "Filtrera efter {{tag}}",
-    "groupContainers": "Gruppera samlingar"
+    "groupContainers": "Gruppera samlingar",
+    "searchPlaceholder": "Hitta ett system…"
   },
   "systemContainer": {
     "badge": "Systemsamling",
@@ -1659,7 +1660,7 @@
         },
         "personal": {
           "label": "Personligt",
-          "description": "Dina favoriter, bokmärken, sparade filter, sparade spellistor och ljudtavlor, och teman"
+          "description": "Dina favoriter, bokmärken, sparade filter, fästa objekt, sparade spellistor och ljudtavlor, och teman"
         },
         "all": {
           "label": "Alla behörigheter",
@@ -4405,5 +4406,40 @@
       "setArtFor": "Välj porträtt för {{name}}",
       "shareWith": "Dela {{name}} med"
     }
+  },
+  "thumbIndex": {
+    "hint": "Använd piltangenterna för att flytta mellan bokstäver, eller skriv en bokstav för att gå dit.",
+    "more_one": "+ {{count}} till",
+    "more_other": "+ {{count}} till",
+    "enterToJump": "Enter för att hoppa",
+    "undated": "Utan datum",
+    "jumpSystems": "Hoppa till system efter bokstav",
+    "jumpFolders": "Hoppa till mappar efter bokstav",
+    "jumpItems": "Hoppa i {{collection}}",
+    "systems_one": "{{count}} system",
+    "systems_other": "{{count}} system",
+    "folders_one": "{{count}} mapp",
+    "folders_other": "{{count}} mappar",
+    "showEarlier_one": "Visa tidigare objekt ({{count}} ovanför)",
+    "showEarlier_other": "Visa tidigare objekt ({{count}} ovanför)"
+  },
+  "pins": {
+    "pin": "Fäst {{name}}",
+    "pinShort": "Fäst",
+    "pinTitle": "Fäst {{name}} högst upp på sidan",
+    "unpinTitle": "Lossa {{name}}",
+    "unpin": "Lossa {{name}}",
+    "heading": "Fästa",
+    "systemsLabel": "Fästa system",
+    "foldersLabel": "Fästa mappar i {{collection}}"
+  },
+  "folderNav": {
+    "open": "Öppna {{folder}}",
+    "openShort": "Öppna",
+    "here": "Direkt i {{folder}}",
+    "pathLabel": "Mappsökväg",
+    "siblings": "Mappar bredvid {{folder}}",
+    "filterSiblings": "Filtrera mappar…",
+    "noSiblingMatch": "Inga mappar matchar"
   }
 }

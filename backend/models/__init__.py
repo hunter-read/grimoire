@@ -55,7 +55,7 @@ from .settings import AppSetting
 from .share_links import ShareLink
 from .tags import RESOURCE_TYPES, SHARED_CATEGORY, TAG_CATEGORIES, ResourceTag, Tag
 from .variants import VARIANT_KINDS, VARIANT_KINDS_BY_TYPE, kinds_for
-from .users import AuthSession, Bookmark, Favorite, SavedFilter, User, UserTheme
+from .users import AuthSession, Bookmark, Favorite, Pin, SavedFilter, User, UserTheme
 from .browse import register_sort_key_events
 
 register_sort_key_events([GenericMap, Token, Audio, Model3D], Book)
@@ -95,6 +95,7 @@ __all__ = [
     "AuthSession",
     "Bookmark",
     "Favorite",
+    "Pin",
     "SavedFilter",
     "UserTheme",
     # Saved audio sets

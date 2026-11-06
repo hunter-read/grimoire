@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SearchInput from './SearchInput'
 
@@ -34,5 +34,20 @@ describe('SearchInput', () => {
     render(<SearchInput value="dragon" onChange={onChange} placeholder="Search" />)
     await userEvent.click(screen.getByRole('button', { name: /clear search/i }))
     expect(onChange).toHaveBeenCalledWith('')
+  })
+
+  it('shows its shortcut while empty and unfocused, and names it', () => {
+    const { rerender } = render(
+      <SearchInput value="" onChange={() => {}} placeholder="Find" shortcut="/" />
+    )
+    const input = screen.getByRole('textbox', { name: 'Find' })
+    expect(input).toHaveAttribute('aria-keyshortcuts', '/')
+    expect(document.querySelector('kbd')).toHaveTextContent('/')
+    fireEvent.focus(input)
+    expect(document.querySelector('kbd')).toBeNull()
+    fireEvent.blur(input)
+    expect(document.querySelector('kbd')).not.toBeNull()
+    rerender(<SearchInput value="orc" onChange={() => {}} placeholder="Find" shortcut="/" />)
+    expect(document.querySelector('kbd')).toBeNull()
   })
 })

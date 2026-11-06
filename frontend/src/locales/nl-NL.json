@@ -165,7 +165,8 @@
     "cancelBulk": "Annuleren",
     "noTagMatch": "Geen systemen komen overeen met de geselecteerde labels.",
     "filterByTag": "Filteren op {{tag}}",
-    "groupContainers": "Collecties groeperen"
+    "groupContainers": "Collecties groeperen",
+    "searchPlaceholder": "Zoek een systeem…"
   },
   "systemContainer": {
     "badge": "Systeemcollectie",
@@ -1659,7 +1660,7 @@
         },
         "personal": {
           "label": "Persoonlijk",
-          "description": "Je favorieten, bladwijzers, opgeslagen filters, opgeslagen afspeellijsten en soundboards, en thema's"
+          "description": "Je favorieten, bladwijzers, opgeslagen filters, vastgezette items, opgeslagen afspeellijsten en soundboards, en thema's"
         },
         "all": {
           "label": "Alle rechten",
@@ -4405,5 +4406,40 @@
       "setArtFor": "Portret van {{name}} instellen",
       "shareWith": "{{name}} delen met"
     }
+  },
+  "thumbIndex": {
+    "hint": "Gebruik de pijltjestoetsen om tussen letters te gaan, of typ een letter om ernaartoe te gaan.",
+    "more_one": "+ nog {{count}}",
+    "more_other": "+ nog {{count}}",
+    "enterToJump": "Enter om te springen",
+    "undated": "Zonder datum",
+    "jumpSystems": "Naar systemen springen per letter",
+    "jumpFolders": "Naar mappen springen per letter",
+    "jumpItems": "Door {{collection}} springen",
+    "systems_one": "{{count}} systeem",
+    "systems_other": "{{count}} systemen",
+    "folders_one": "{{count}} map",
+    "folders_other": "{{count}} mappen",
+    "showEarlier_one": "Eerdere items tonen ({{count}} erboven)",
+    "showEarlier_other": "Eerdere items tonen ({{count}} erboven)"
+  },
+  "pins": {
+    "pin": "{{name}} vastzetten",
+    "pinShort": "Vastzetten",
+    "pinTitle": "{{name}} bovenaan deze pagina vastzetten",
+    "unpinTitle": "{{name}} losmaken",
+    "unpin": "{{name}} losmaken",
+    "heading": "Vastgezet",
+    "systemsLabel": "Vastgezette systemen",
+    "foldersLabel": "Vastgezette mappen in {{collection}}"
+  },
+  "folderNav": {
+    "open": "{{folder}} openen",
+    "openShort": "Openen",
+    "here": "Direct in {{folder}}",
+    "pathLabel": "Mappad",
+    "siblings": "Mappen naast {{folder}}",
+    "filterSiblings": "Mappen filteren…",
+    "noSiblingMatch": "Geen mappen gevonden"
   }
 }

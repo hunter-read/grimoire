@@ -165,7 +165,8 @@
     "cancelBulk": "Abbrechen",
     "noTagMatch": "Keine Systeme stimmen mit den ausgewählten Tags überein.",
     "filterByTag": "Nach {{tag}} filtern",
-    "groupContainers": "Sammlungen gruppieren"
+    "groupContainers": "Sammlungen gruppieren",
+    "searchPlaceholder": "System suchen…"
   },
   "systemContainer": {
     "badge": "Systemsammlung",
@@ -1659,7 +1660,7 @@
         },
         "personal": {
           "label": "Persönlich",
-          "description": "Deine Favoriten, Lesezeichen, gespeicherten Filter, gespeicherten Playlists und Soundboards sowie Designs"
+          "description": "Deine Favoriten, Lesezeichen, gespeicherten Filter, Anheftungen, gespeicherten Playlists und Soundboards sowie Designs"
         },
         "all": {
           "label": "Alle Berechtigungen",
@@ -4405,5 +4406,40 @@
       "setArtFor": "Porträt von {{name}} festlegen",
       "shareWith": "{{name}} teilen mit"
     }
+  },
+  "thumbIndex": {
+    "hint": "Mit den Pfeiltasten zwischen Buchstaben wechseln oder einen Buchstaben tippen, um dorthin zu springen.",
+    "more_one": "+ {{count}} weitere",
+    "more_other": "+ {{count}} weitere",
+    "enterToJump": "Eingabe zum Springen",
+    "undated": "Ohne Datum",
+    "jumpSystems": "Zu Systemen nach Buchstaben springen",
+    "jumpFolders": "Zu Ordnern nach Buchstaben springen",
+    "jumpItems": "Durch {{collection}} springen",
+    "systems_one": "{{count}} System",
+    "systems_other": "{{count}} Systeme",
+    "folders_one": "{{count}} Ordner",
+    "folders_other": "{{count}} Ordner",
+    "showEarlier_one": "Frühere Einträge anzeigen ({{count}} darüber)",
+    "showEarlier_other": "Frühere Einträge anzeigen ({{count}} darüber)"
+  },
+  "pins": {
+    "pin": "{{name}} anheften",
+    "pinShort": "Anheften",
+    "pinTitle": "{{name}} oben auf dieser Seite anheften",
+    "unpinTitle": "{{name}} lösen",
+    "unpin": "{{name}} lösen",
+    "heading": "Angeheftet",
+    "systemsLabel": "Angeheftete Systeme",
+    "foldersLabel": "Angeheftete Ordner in {{collection}}"
+  },
+  "folderNav": {
+    "open": "{{folder}} öffnen",
+    "openShort": "Öffnen",
+    "here": "Direkt in {{folder}}",
+    "pathLabel": "Ordnerpfad",
+    "siblings": "Ordner neben {{folder}}",
+    "filterSiblings": "Ordner filtern…",
+    "noSiblingMatch": "Keine passenden Ordner"
   }
 }

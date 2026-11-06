@@ -45,6 +45,8 @@ import CollapseExpandButtons from '../components/CollapseExpandButtons'
 import ToolbarButton from '../components/ToolbarButton'
 import RescanButton from '../components/RescanButton'
 import FavoriteButton from '../components/FavoriteButton'
+import PinButton from '../components/pins/PinButton'
+import usePins from '../hooks/usePins'
 import ViewModeToggle from '../components/ViewModeToggle'
 import useViewMode from '../hooks/useViewMode'
 import SortFilterBar, {
@@ -86,6 +88,7 @@ export default function SystemDetailView() {
   const navigate = useNavigate()
   const user = useAuth()?.user
   const isEditor = user?.role === 'admin' || user?.role === 'gm'
+  const pins = usePins('systems')
   // Returning from the reader restores the search/sort/filter you left behind;
   // navigating here fresh always starts clean.
   const restoreView = useRestoredView()
@@ -746,6 +749,12 @@ export default function SystemDetailView() {
                     height: 32,
                     borderRadius: 6,
                   }}
+                />
+                <PinButton
+                  name={system.name}
+                  pinned={pins.isPinned(system.id)}
+                  onToggle={() => void pins.toggle(system.id)}
+                  style={{ height: 32, padding: '0 10px', borderRadius: 6, fontSize: 13 }}
                 />
                 {canEditSystemMeta && (
                   <ToolbarButton

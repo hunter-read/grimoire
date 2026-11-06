@@ -165,7 +165,8 @@
     "cancelBulk": "Cancelar",
     "noTagMatch": "Nenhum sistema corresponde às etiquetas selecionadas.",
     "filterByTag": "Filtrar por {{tag}}",
-    "groupContainers": "Agrupar coleções"
+    "groupContainers": "Agrupar coleções",
+    "searchPlaceholder": "Encontrar um sistema…"
   },
   "systemContainer": {
     "badge": "Coleção de sistemas",
@@ -1659,7 +1660,7 @@
         },
         "personal": {
           "label": "Pessoal",
-          "description": "Os seus favoritos, marcadores, filtros guardados, listas de reprodução e mesas de som guardadas, e temas"
+          "description": "Os seus favoritos, marcadores, filtros guardados, itens fixados, listas de reprodução e mesas de som guardadas, e temas"
         },
         "all": {
           "label": "Todas as permissões",
@@ -4405,5 +4406,40 @@
       "setArtFor": "Definir o retrato de {{name}}",
       "shareWith": "Partilhar {{name}} com"
     }
+  },
+  "thumbIndex": {
+    "hint": "Use as setas para ir de uma letra a outra, ou digite uma letra para ir até ela.",
+    "more_one": "+ {{count}} a mais",
+    "more_other": "+ {{count}} a mais",
+    "enterToJump": "Enter para ir",
+    "undated": "Sem data",
+    "jumpSystems": "Ir para sistemas por letra",
+    "jumpFolders": "Ir para pastas por letra",
+    "jumpItems": "Percorrer {{collection}}",
+    "systems_one": "{{count}} sistema",
+    "systems_other": "{{count}} sistemas",
+    "folders_one": "{{count}} pasta",
+    "folders_other": "{{count}} pastas",
+    "showEarlier_one": "Mostrar itens anteriores ({{count}} acima)",
+    "showEarlier_other": "Mostrar itens anteriores ({{count}} acima)"
+  },
+  "pins": {
+    "pin": "Fixar {{name}}",
+    "pinShort": "Fixar",
+    "pinTitle": "Fixar {{name}} no topo desta página",
+    "unpinTitle": "Desafixar {{name}}",
+    "unpin": "Desafixar {{name}}",
+    "heading": "Fixados",
+    "systemsLabel": "Sistemas fixados",
+    "foldersLabel": "Pastas fixadas em {{collection}}"
+  },
+  "folderNav": {
+    "open": "Abrir {{folder}}",
+    "openShort": "Abrir",
+    "here": "Diretamente em {{folder}}",
+    "pathLabel": "Caminho da pasta",
+    "siblings": "Pastas ao lado de {{folder}}",
+    "filterSiblings": "Filtrar pastas…",
+    "noSiblingMatch": "Nenhuma pasta corresponde"
   }
 }

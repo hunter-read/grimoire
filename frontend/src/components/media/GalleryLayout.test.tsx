@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render as rtlRender, screen, fireEvent, within } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import GalleryLayout from './GalleryLayout'
 import type { ComponentProps, ReactNode } from 'react'
 import { MEDIA_CONFIGS } from './mediaConfig'
@@ -14,7 +15,11 @@ vi.mock('./GalleryToolbar', () => ({
   default: ({ leading }: { leading?: ReactNode }) => <div data-testid="toolbar">{leading}</div>,
 }))
 vi.mock('./MediaFolderGroup', () => ({
-  default: ({ folder }: { folder: string }) => <div data-testid="folder-group">{folder}</div>,
+  default: ({ folder, label }: { folder: string; label?: string }) => (
+    <div data-testid="folder-group" data-label={label}>
+      {folder}
+    </div>
+  ),
 }))
 vi.mock('./MediaCard', () => ({
   default: ({ item, onToggle }: { item: MediaItem; onToggle: (mods: object) => void }) => (
@@ -33,6 +38,22 @@ vi.mock('./VirtualGrid', () => ({
   }) => <div>{items.map(renderItem)}</div>,
 }))
 vi.mock('../BulkActionBar', () => ({ default: () => <div data-testid="bulk-bar" /> }))
+const pinState = vi.hoisted(() => ({
+  pins: [] as { id: string; collection: string; target: string }[],
+  toggle: vi.fn(),
+}))
+vi.mock('../../hooks/usePins', () => ({
+  default: () => ({
+    pins: pinState.pins,
+    isPinned: (t: string) => pinState.pins.some((p) => p.target === t),
+    toggle: pinState.toggle,
+  }),
+}))
+
+// The layout reads and writes the address (the open folder), so it renders in
+// a router.
+const render = (ui: ReactNode, url = '/maps') =>
+  rtlRender(<MemoryRouter initialEntries={[url]}>{ui}</MemoryRouter>)
 
 const makeGallery = (over: Record<string, unknown> = {}) =>
   ({
@@ -56,7 +77,16 @@ const makeGallery = (over: Record<string, unknown> = {}) =>
     selectedTags: new Set(),
     toggleTag: vi.fn(),
     clearTags: vi.fn(),
-    folderEntries: [['Dungeons', {}]],
+    folderEntries: [['Dungeons', {}, 'Dungeons']],
+    folder: null,
+    ownFolder: null,
+    allFolders: ['Dungeons'],
+    flatIndex: [],
+    flatStart: 0,
+    flatTotal: null,
+    flatHasEarlier: false,
+    jumpFlat: vi.fn(),
+    loadEarlierFlat: vi.fn(),
     flatItems: [],
     cardSize: 'comfortable',
     list: false,
@@ -232,5 +262,183 @@ describe('GalleryLayout', () => {
   it('renders folder groups in player mode', () => {
     render(<GalleryLayout {...baseProps({ isPlayer: true })} />)
     expect(screen.getByTestId('folder-group')).toBeInTheDocument()
+  })
+
+  describe('large libraries', () => {
+    beforeEach(() => {
+      pinState.pins = []
+      pinState.toggle.mockReset()
+      Element.prototype.scrollIntoView = vi.fn()
+    })
+
+    const manyFolders = Array.from({ length: 40 }, (_, i) => {
+      const name = `${'ABCDEFGH'[i % 8]}folder ${String(i).padStart(2, '0')}`
+      return [name, { '': { path: name, count: 2, items: [], hasMore: true } }, name]
+    }).sort((a, b) => String(a[0]).localeCompare(String(b[0])))
+
+    it('letters a long run of folders and indexes them', () => {
+      render(
+        <GalleryLayout {...baseProps({ gallery: makeGallery({ folderEntries: manyFolders }) })} />
+      )
+      expect(
+        screen.getByRole('navigation', { name: 'Jump to folders by letter' })
+      ).toBeInTheDocument()
+      expect(
+        screen.getByRole('heading', { level: 2, name: 'A5 folders · 10 maps' })
+      ).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('link', { name: 'C, 5 folders · 10 maps' }))
+      expect(document.activeElement).toHaveTextContent('C5 folders')
+    })
+
+    it('opens at a folder with its path, its own name, and what it holds', () => {
+      const own = [
+        'Tom Cartos/Caverns',
+        { '': { path: 'Tom Cartos/Caverns', count: 3, items: [] } },
+        'Caverns',
+      ]
+      const child = [
+        'Tom Cartos/Caverns/Lava',
+        { '': { path: 'Tom Cartos/Caverns/Lava', count: 4, items: [] } },
+        'Lava',
+      ]
+      render(
+        <GalleryLayout
+          {...baseProps({
+            gallery: makeGallery({
+              folder: 'Tom Cartos/Caverns',
+              ownFolder: own,
+              folderEntries: [child],
+              allFolders: ['Tom Cartos', 'Tom Cartos/Caverns', 'Tom Cartos/Caverns/Lava'],
+            }),
+          })}
+        />,
+        '/maps?folder=Tom+Cartos%2FCaverns'
+      )
+      expect(screen.getByRole('heading', { level: 1, name: 'Caverns' })).toBeInTheDocument()
+      const path = screen.getByRole('navigation', { name: 'Folder path' })
+      expect(within(path).getByRole('link', { name: 'Maps' })).toHaveAttribute('href', '/maps')
+      expect(within(path).getByRole('link', { name: 'Tom Cartos' })).toHaveAttribute(
+        'href',
+        '/maps?folder=Tom+Cartos'
+      )
+      expect(screen.getByText('7 maps')).toBeInTheDocument()
+      const groups = screen.getAllByTestId('folder-group')
+      expect(groups[0]).toHaveAttribute('data-label', 'Directly in Caverns')
+      expect(groups[1]).toHaveTextContent('Tom Cartos/Caverns/Lava')
+      fireEvent.click(screen.getByRole('button', { name: 'Pin Caverns' }))
+      expect(pinState.toggle).toHaveBeenCalledWith('Tom Cartos/Caverns')
+    })
+
+    it('moves focus to the heading when another folder opens', () => {
+      const props = baseProps({ gallery: makeGallery({ folder: null }) })
+      const { rerender } = render(<GalleryLayout {...props} />)
+      rerender(
+        <MemoryRouter>
+          <GalleryLayout
+            {...props}
+            gallery={makeGallery({ folder: 'Caves', allFolders: ['Caves'] })}
+          />
+        </MemoryRouter>
+      )
+      expect(document.activeElement).toBe(screen.getByRole('heading', { level: 1, name: 'Caves' }))
+    })
+
+    it('shows the pinned folders, each linking to its page', () => {
+      pinState.pins = [{ id: 'p1', collection: 'maps', target: 'Czepeku/Night' }]
+      render(<GalleryLayout {...baseProps()} />)
+      const strip = screen.getByRole('navigation', { name: 'Pinned folders in Maps' })
+      expect(within(strip).getByRole('link', { name: /Night/ })).toHaveAttribute(
+        'href',
+        '/maps?folder=Czepeku%2FNight'
+      )
+      fireEvent.click(within(strip).getByRole('button', { name: 'Unpin Night' }))
+      expect(pinState.toggle).toHaveBeenCalledWith('Czepeku/Night')
+    })
+
+    const flatItems = Array.from({ length: 40 }, (_, i) => ({
+      id: `t${i}`,
+      filename: `token ${i}.png`,
+    }))
+    const flatGallery = (over: Record<string, unknown> = {}) =>
+      makeGallery({
+        grouped: false,
+        flatItems,
+        flatTotal: 400,
+        flatStart: 0,
+        flatIndex: [
+          { key: 'A', label: 'A', count: 30, offset: 0, preview: [] },
+          { key: 'O', label: 'O', count: 300, offset: 30, preview: [] },
+          { key: 'W', label: 'W', count: 70, offset: 330, preview: [] },
+        ],
+        jumpFlat: vi.fn(),
+        loadEarlierFlat: vi.fn(),
+        ...over,
+      })
+
+    it('indexes the flat list from the server, jumping in place when loaded', () => {
+      const gallery = flatGallery()
+      render(<GalleryLayout {...baseProps({ gallery })} />)
+      const rail = screen.getByRole('navigation', { name: 'Jump through Maps' })
+      expect(within(rail).getByRole('link', { name: 'A, 30 maps' })).toHaveAttribute(
+        'aria-current',
+        'location'
+      )
+      fireEvent.click(within(rail).getByRole('link', { name: 'O, 300 maps' }))
+      expect(gallery.jumpFlat).not.toHaveBeenCalled()
+      fireEvent.click(within(rail).getByRole('link', { name: 'W, 70 maps' }))
+      expect(gallery.jumpFlat).toHaveBeenCalledWith(330)
+    })
+
+    it('reads added-month landmarks as months', () => {
+      const gallery = flatGallery({
+        sortFilter: { sort: 'added_at', order: 'desc', filters: {} },
+        flatIndex: [
+          { key: '2026-11', label: '2026-11', count: 200, offset: 0, preview: [] },
+          { key: '', label: '', count: 200, offset: 200, preview: [] },
+        ],
+      })
+      render(<GalleryLayout {...baseProps({ gallery })} />)
+      expect(screen.getByRole('link', { name: /^Nov \W?26, 200 maps/ })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Undated, 200 maps' })).toBeInTheDocument()
+    })
+
+    it('offers the rows before a list opened part-way', () => {
+      const gallery = flatGallery({ flatStart: 330, flatHasEarlier: true })
+      render(<GalleryLayout {...baseProps({ gallery })} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Show earlier items (330 above)' }))
+      expect(gallery.loadEarlierFlat).toHaveBeenCalled()
+    })
+
+    it('lands on the jumped-to item once the reopened list arrives', async () => {
+      const gallery = flatGallery()
+      const props = baseProps({ gallery })
+      const { rerender } = render(<GalleryLayout {...props} />)
+      fireEvent.click(screen.getByRole('link', { name: 'W, 70 maps' }))
+      const reopened = flatGallery({ flatStart: 330, flatHasEarlier: true })
+      rerender(
+        <MemoryRouter>
+          <GalleryLayout {...props} gallery={reopened} />
+        </MemoryRouter>
+      )
+      // Earlier rows arriving above keep the reader where they were.
+      rerender(
+        <MemoryRouter>
+          <GalleryLayout
+            {...props}
+            gallery={flatGallery({ flatStart: 130, flatHasEarlier: true })}
+          />
+        </MemoryRouter>
+      )
+      expect(
+        await screen.findByRole('button', { name: 'Show earlier items (130 above)' })
+      ).toBeInTheDocument()
+    })
+
+    it('has no rail on a short flat list', () => {
+      render(<GalleryLayout {...baseProps({ gallery: flatGallery({ flatTotal: 12 }) })} />)
+      expect(
+        screen.queryByRole('navigation', { name: 'Jump through Maps' })
+      ).not.toBeInTheDocument()
+    })
   })
 })
