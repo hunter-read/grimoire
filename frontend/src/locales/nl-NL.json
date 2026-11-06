@@ -2736,6 +2736,8 @@
     "emptyPage": "Deze pagina is leeg.",
     "missingPageHint": "Deze pagina bestaat nog niet - ze wordt aangemaakt.",
     "secretHint": "Alleen GM - verborgen voor spelers",
+    "diagramError": "Dit diagram kon niet worden weergegeven.",
+    "diagramErrorDetails": "Fout tonen",
     "embedPickerTitle": "Grimoire-inhoud insluiten",
     "embedSearchPlaceholder": "Zoek boeken, kaarten en tokens…",
     "embedCategoryTabs": "Inhoudscategorieën",

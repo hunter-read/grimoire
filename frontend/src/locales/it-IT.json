@@ -2736,6 +2736,8 @@
     "emptyPage": "Questa pagina è vuota.",
     "missingPageHint": "Questa pagina non esiste ancora: verrà creata.",
     "secretHint": "Solo GM: nascosta ai giocatori",
+    "diagramError": "Impossibile visualizzare questo diagramma.",
+    "diagramErrorDetails": "Mostra errore",
     "embedPickerTitle": "Incorpora contenuti di Grimoire",
     "embedSearchPlaceholder": "Cerca libri, mappe e token…",
     "embedCategoryTabs": "Categorie di contenuti",

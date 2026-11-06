@@ -10,6 +10,9 @@ import { isModifiedClick } from '../CardLink'
 import { isEmbed, parseTarget, resolvePage } from './wikiLinkTarget'
 import { buildHeadingComponents, headingDomId } from './wikiHeadings'
 import { rehypeInlineSecrets, standsAlone } from './wikiSecrets'
+import { CODE_BLOCK_STYLE, maskFences } from './wikiFences'
+import MermaidDiagram from './MermaidDiagram'
+import type { Element } from 'hast'
 
 // We avoid a custom remark tokenizer by rewriting [[...]] tokens into ordinary
 // markdown links with a private href scheme, then interpreting that scheme in a
@@ -45,10 +48,11 @@ const LINK_RE = /\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/g
 export const MAX_PREFETCHED_EMBEDS = 8
 
 // The first MAX_PREFETCHED_EMBEDS distinct [[book:ID:PAGE]] targets, in the
-// order the note mentions them - the top of a note is what is read first.
+// order the note mentions them - the top of a note is what is read first. One in
+// a code fence is literal text, not an embed.
 export function prefetchedBookEmbeds(body: string | null | undefined): Set<string> {
   const out = new Set<string>()
-  for (const m of (body || '').matchAll(LINK_RE)) {
+  for (const m of maskFences(body || '').text.matchAll(LINK_RE)) {
     if (out.size >= MAX_PREFETCHED_EMBEDS) break
     const target = m[1].trim()
     if (/^book:[^:]+:\d+$/.test(target)) out.add(target)
@@ -101,18 +105,22 @@ function rewriteLinks(text: string): string {
 // paragraph in two — so it stays in the surrounding segment with its pipes
 // escaped, for rehypeInlineSecrets to wrap. Its inner markdown is untouched, so
 // [[links]] and formatting inside still work.
+//
+// Fenced code is masked out of both passes (see wikiFences.ts): a `||` or
+// `[[...]]` in code is literal, and Mermaid uses both. A secret wrapped around a
+// whole fence still works - the fence travels inside it.
 interface Segment {
   block: boolean
   text: string
 }
 
 function splitSecrets(body: string | null | undefined): Segment[] {
-  const src = body || ''
+  const { text: src, restore } = maskFences(body || '')
   const segments: Segment[] = []
   let buf = '' // accumulates ordinary text + inline secrets up to the next block
   const flush = () => {
     if (buf) {
-      segments.push({ block: false, text: rewriteLinks(buf) })
+      segments.push({ block: false, text: restore(rewriteLinks(buf)) })
       buf = ''
     }
   }
@@ -126,7 +134,7 @@ function splitSecrets(body: string | null | undefined): Segment[] {
       // Block secret: flush the inline run, then emit the secret on its own with
       // its inner markdown intact for a separate render pass.
       flush()
-      segments.push({ block: true, text: rewriteLinks(inner) })
+      segments.push({ block: true, text: restore(rewriteLinks(inner)) })
     } else {
       // Inline secret: keep it in the flow of the paragraph it lives in.
       buf += `\\|\\|${inner}\\|\\|`
@@ -380,35 +388,37 @@ export default function WikiMarkdown({
       // a [[Page:#Heading]] link scrolls to. Keyed on normalized text (not
       // document order) so the anchor survives edits elsewhere in the page.
       ...buildHeadingComponents(headingLevelOffset),
-      code(codeProps) {
-        const { children } = codeProps
-        // Not part of react-markdown's typed props; kept as it was.
-        const inline = (codeProps as { inline?: boolean }).inline
-        if (inline) {
-          return (
-            <code
-              style={{
-                background: 'var(--bg-deep)',
-                borderRadius: 4,
-                padding: '1px 5px',
-                fontSize: '0.9em',
-              }}
-            >
-              {children}
-            </code>
-          )
+      // A fenced block. The fence's <code> is rendered here from its text, so
+      // the `code` renderer below only ever sees inline code - react-markdown
+      // no longer says which is which. A ```mermaid fence becomes a diagram.
+      pre({ node, children }) {
+        const code = node?.children[0]
+        if (code?.type !== 'element' || code.tagName !== 'code') {
+          return <pre style={CODE_BLOCK_STYLE}>{children}</pre>
+        }
+        if (languageOf(code) === 'mermaid') {
+          // remark keeps the newline before the closing fence; the diagram's
+          // fallback shouldn't show it as an empty last line.
+          return <MermaidDiagram source={textOf(code).replace(/\n$/, '')} />
         }
         return (
-          <pre
+          <pre style={CODE_BLOCK_STYLE}>
+            <code>{textOf(code)}</code>
+          </pre>
+        )
+      },
+      code({ children }) {
+        return (
+          <code
             style={{
               background: 'var(--bg-deep)',
-              borderRadius: 8,
-              padding: 12,
-              overflowX: 'auto',
+              borderRadius: 4,
+              padding: '1px 5px',
+              fontSize: '0.9em',
             }}
           >
-            <code>{children}</code>
-          </pre>
+            {children}
+          </code>
         )
       },
     }),
@@ -474,6 +484,20 @@ const secretBlockStyle: CSSProperties = {
   borderRadius: 4,
   padding: '4px 12px',
   margin: '8px 0',
+}
+
+// The fence's info string, which remark turns into `class="language-<x>"`.
+function languageOf(code: Element): string | null {
+  const classes = code.properties?.className
+  const list = Array.isArray(classes) ? classes : []
+  const lang = list.find((c) => typeof c === 'string' && c.startsWith('language-'))
+  return typeof lang === 'string' ? lang.slice('language-'.length).toLowerCase() : null
+}
+
+// A fence's contents. Code holds only text nodes: no plugin here adds markup
+// inside <pre> (rehypeInlineSecrets skips it).
+function textOf(code: Element): string {
+  return code.children.map((c) => (c.type === 'text' ? c.value : '')).join('')
 }
 
 function cellStyle(header: boolean): CSSProperties {

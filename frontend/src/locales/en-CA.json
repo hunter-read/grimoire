@@ -2736,6 +2736,8 @@
     "emptyPage": "This page is empty.",
     "missingPageHint": "This page doesn't exist yet - it will be created.",
     "secretHint": "GM only - hidden from players",
+    "diagramError": "This diagram could not be rendered.",
+    "diagramErrorDetails": "Show error",
     "embedPickerTitle": "Embed Grimoire content",
     "embedSearchPlaceholder": "Search books, maps, and tokens…",
     "embedCategoryTabs": "Content categories",

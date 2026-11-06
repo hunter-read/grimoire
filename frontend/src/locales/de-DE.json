@@ -2736,6 +2736,8 @@
     "emptyPage": "Diese Seite ist leer.",
     "missingPageHint": "Diese Seite existiert noch nicht - sie wird erstellt.",
     "secretHint": "Nur GM - vor Spielern verborgen",
+    "diagramError": "Dieses Diagramm konnte nicht dargestellt werden.",
+    "diagramErrorDetails": "Fehler anzeigen",
     "embedPickerTitle": "Grimoire-Inhalt einbetten",
     "embedSearchPlaceholder": "Bücher, Karten und Tokens durchsuchen…",
     "embedCategoryTabs": "Inhaltskategorien",

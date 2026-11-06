@@ -31,12 +31,32 @@ lockstep or authored links resolve differently on each side (cf. issue #252).
 """
 
 import re
-from typing import NamedTuple, Optional
+from typing import Callable, Iterator, NamedTuple, Optional
 
 from . import slugs
 
 # Matches [[target]] or [[target|label]]; target/label captured separately.
 LINK_RE = re.compile(r"\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]")
+
+# A fenced code block: an opening run of 3+ backticks or tildes and its info
+# string, then everything up to a closing run of the same character at least as
+# long - or the end of the body, as CommonMark treats an unclosed fence. The
+# fence may sit in a list item or a blockquote (`- ```js`, `> ~~~`), so either
+# line may start with those markers and any indent; missing one would leave its
+# indented closing line looking like an opener that swallows the rest of the
+# page. A backtick fence's info string has no backtick, so a line that is
+# ```inline code``` is not a fence.
+#
+# Code is literal, so nothing inside is a link or a heading; Mermaid diagrams in
+# particular use `A[[Subroutine]]` as a node shape. Mirrored by FENCE_RE in
+# frontend/src/components/campaigns/wikiFences.ts.
+_FENCE_PREFIX = r"(?:[ \t]*(?:>|[-*+](?=[ \t])|\d{1,9}[.)](?=[ \t])))*[ \t]*"
+FENCE_RE = re.compile(
+    rf"^{_FENCE_PREFIX}(?P<fence>(?P<ch>[`~])(?P=ch){{2,}})"
+    r"(?:(?<=`)[^`\n]*|(?<=~)[^\n]*)(?:\n|\Z).*?"
+    rf"(?:^{_FENCE_PREFIX}(?P=fence)(?P=ch)*[ \t]*$|\Z)",
+    re.MULTILINE | re.DOTALL,
+)
 
 # Reserved prefixes for Grimoire content embeds — not page-title links.
 EMBED_PREFIXES = ("book:", "map:", "token:", "audio:", "model:", "file:", "image:")
@@ -95,17 +115,45 @@ def build_target(title: str, page_id: str | None = None, heading: str | None = N
     return out
 
 
+def _outside_fences(body: str) -> Iterator[tuple[bool, str]]:
+    """Split a body into ``(is_fence, text)`` runs, in order, losing nothing."""
+    last = 0
+    for m in FENCE_RE.finditer(body):
+        if m.start() > last:
+            yield False, body[last : m.start()]
+        yield True, m.group(0)
+        last = m.end()
+    if last < len(body):
+        yield False, body[last:]
+
+
+def iter_links(body: str) -> Iterator[re.Match]:
+    """Every `[[...]]` match in a body, skipping any inside a fenced code block."""
+    for fenced, text in _outside_fences(body or ""):
+        if not fenced:
+            yield from LINK_RE.finditer(text)
+
+
+def sub_links(repl: Callable[[re.Match], str], body: str) -> str:
+    """``LINK_RE.sub(repl, body)``, leaving fenced code byte-for-byte as it was."""
+    return "".join(
+        text if fenced else LINK_RE.sub(repl, text)
+        for fenced, text in _outside_fences(body or "")
+    )
+
+
 def parse_page_links(body: str) -> list[LinkTarget]:
     """Return the distinct page-link targets referenced by [[...]] in a body.
 
     Embeds are skipped. Distinctness is keyed on the resolved identity (page id
     when present, else the normalized title) plus nothing else — two links to the
     same page under different headings collapse to one entry, since callers use
-    this to build page-to-page link rows.
+    this to build page-to-page link rows. A `[[...]]` in fenced code is literal
+    text, so it neither links nor auto-creates a page.
     """
     out: list[LinkTarget] = []
     seen = set()
-    for m in LINK_RE.finditer(body or ""):
+    for m in iter_links(body or ""):
         target = m.group(1).strip()
         if not target or is_embed(target):
             continue
@@ -131,17 +179,13 @@ def slugify(title: Optional[str]) -> str:
 # ("## Text ##") are stripped, matching CommonMark.
 _HEADING_RE = re.compile(r"^(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$", re.MULTILINE)
 
-# Fenced code blocks — headings inside them are not real headings.
-_FENCE_RE = re.compile(r"^(?:```|~~~).*?(?:^(?:```|~~~)[ \t]*$|\Z)", re.MULTILINE | re.DOTALL)
-
-
 def extract_headings(body: str) -> list[dict]:
     """Return the ATX headings in a body as ``{"text", "level"}`` in document order.
 
     Content inside fenced code blocks is blanked first so a commented-out `# foo`
     in a code sample doesn't become a link target.
     """
-    src = _FENCE_RE.sub(lambda m: "\n" * m.group(0).count("\n"), body or "")
+    src = FENCE_RE.sub(lambda m: "\n" * m.group(0).count("\n"), body or "")
     return [
         {"text": m.group(2).strip(), "level": len(m.group(1))}
         for m in _HEADING_RE.finditer(src)

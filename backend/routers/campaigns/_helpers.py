@@ -10,6 +10,7 @@ from ...auth import CurrentUser
 from ...services.campaigns.access import is_member
 from ...services.campaigns.schedule import compute_next_sessions
 from ...services.systems import browsable_system_ids, system_browsable
+from ...text.wikilinks import FENCE_RE
 
 
 # A GM-only secret span in a wiki body: ||text the players must never see||.
@@ -18,19 +19,52 @@ from ...services.systems import browsable_system_ids, system_browsable
 _GM_SECRET_RE = re.compile(r"\|\|.*?\|\|", re.DOTALL)
 
 
+def _secret_spans(body: str) -> list[tuple[int, int]]:
+    """The ``(start, end)`` of every ||...|| GM-only span in ``body``, in order.
+
+    Markers pair within one stretch of text: prose with prose, and inside a
+    fenced code block only with each other. A ``||`` that is part of the code -
+    an ER diagram's cardinality, ``a || b`` - then has no partner in its fence
+    and stays literal, instead of pairing with the next marker in the prose
+    after it. A prose secret may still wrap whole fences; those go with it.
+    """
+    fences = [m.span() for m in FENCE_RE.finditer(body)]
+    # Blank the fences (same length, so offsets hold) to pair the prose markers.
+    masked = body
+    for start, end in fences:
+        masked = masked[:start] + "\0" * (end - start) + masked[end:]
+    spans = [m.span() for m in _GM_SECRET_RE.finditer(masked)]
+    prose = list(spans)
+    for start, end in fences:
+        # A prose span starts and ends in prose, so it holds a fence whole or
+        # not at all.
+        if any(s <= start and end <= e for s, e in prose):
+            continue
+        spans.extend(m.span() for m in _GM_SECRET_RE.finditer(body, start, end))
+    return sorted(spans)
+
+
 def strip_gm_secrets(body: str) -> str:
     """Remove every ||...|| GM-only span (markers and enclosed text) from a body.
 
     This is what a non-owner receives: the hidden text is gone without a trace —
     no placeholder, no marker — so a player never learns a secret exists or where
     it sits, whether in the rendered page, the raw editor body, or a search
-    snippet. An unterminated trailing ``||`` (no closing pair) is left as-is.
+    snippet. An unterminated trailing ``||`` (no closing pair) is left as-is,
+    and markers pair within a code fence or within the prose around it, never
+    across the two (see ``_secret_spans``).
 
     A non-owner edits this stripped body; on save ``merge_gm_secrets`` re-weaves
     the stored secrets back in by matching the surrounding text. See
     [[merge_gm_secrets]].
     """
-    return _GM_SECRET_RE.sub("", body or "")
+    src = body or ""
+    out, last = [], 0
+    for start, end in _secret_spans(src):
+        out.append(src[last:start])
+        last = end
+    out.append(src[last:])
+    return "".join(out)
 
 
 def escape_player_pipes(body: str) -> str:
@@ -74,9 +108,9 @@ def _secret_positions(stored: str):
     """
     out = []
     removed = 0  # total chars of earlier secrets, absent from the stripped text
-    for m in _GM_SECRET_RE.finditer(stored):
-        out.append((m.group(0), m.start() - removed))
-        removed += m.end() - m.start()
+    for start, end in _secret_spans(stored):
+        out.append((stored[start:end], start - removed))
+        removed += end - start
     return out
 
 
