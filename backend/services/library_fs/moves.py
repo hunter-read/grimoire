@@ -23,6 +23,8 @@ from sqlalchemy.orm import Session
 from ...config import THUMB_DIR, logger
 from ...services import library_fs  # package namespace, for patch-sensitive calls
 from ...indexer.categories import slugify
+from ...indexer.factions import link_folder_factions
+from ...models.game_types import GAME_TYPE_WARGAME
 from ...models.library import Book
 from ...sql_paths import path_at_or_under, path_under
 from ..filename_rules.folders import relink_rules
@@ -30,13 +32,16 @@ from .constants import COLLECTIONS, FOLDER_MODELS, _THUMB_SECTIONS, LibraryFSErr
 from .paths import (
     assert_writable,
     collection_of,
+    in_book_section,
+    is_armory,
     library_root,
     not_writable,
     safe_join,
     sidecars_for,
     to_relative,
 )
-from .placement import category_folder_for, resolve_book_placement
+from .placement import BookPlacement, category_folder_for, read_book_placement
+from .wargame_placement import wargame_category_folder_for
 
 # A rename the filesystem refused for want of write access: a read-only mount,
 # or (when the up-front ``os.access`` check was fooled, as by some NAS ACLs) a
@@ -63,7 +68,7 @@ def relocate_book_for_category(db: Session, book: Any, category: str) -> Optiona
     if not filepath or not category:
         return None
     src = Path(filepath)
-    if not src.is_file() or collection_of(src) != "books":
+    if not src.is_file() or not in_book_section(src):
         return None
 
     # A read-only library must degrade silently: this is the documented
@@ -71,7 +76,12 @@ def relocate_book_for_category(db: Session, book: Any, category: str) -> Optiona
     if not os.access(src.parent, os.W_OK | os.X_OK):
         return None
 
-    dest_dir = category_folder_for(db, src, category)
+    # A wargame book's folders name its factions too, so it moves within its
+    # innermost faction rather than to the system's folder for the category.
+    if is_armory(src):
+        dest_dir = wargame_category_folder_for(db, src, category)
+    else:
+        dest_dir = category_folder_for(db, src, category)
     if dest_dir is None or dest_dir == src.parent:
         return None
     if not os.access(dest_dir, os.W_OK | os.X_OK):
@@ -340,15 +350,39 @@ def _relink(db: Session, model: Any, record: Any, dest: Path) -> None:
     record.is_missing = False
 
     if model is Book:
-        system_id, category = resolve_book_placement(db, dest)
+        placement = read_book_placement(db, dest)
         # Only overwrite the system when the destination resolves to one; a book
         # moved somewhere unrecognised keeps its current system rather than
-        # becoming orphaned.
-        if system_id:
-            record.game_system_id = system_id
-        record.category = category
+        # becoming orphaned. Its game type is its system's, so it changes with
+        # the system and only then: a book moved from books/ into an armory
+        # folder no rescan has registered yet stays a role-playing book on its
+        # old shelf until the rescan re-homes it.
+        was_wargame = record.game_type == GAME_TYPE_WARGAME
+        if placement.system is not None:
+            record.game_system_id = placement.system.id
+            record.game_type = placement.system.game_type or placement.game_type
+        record.category = placement.category
+        if was_wargame or placement.game_type == GAME_TYPE_WARGAME:
+            _relink_factions(db, record, placement)
 
     _fix_caches(model, record, old_path, str(dest))
+
+
+def _relink_factions(db: Session, book: Any, placement: BookPlacement) -> None:
+    """Make a moved book's factions the ones its new folders name.
+
+    A wargame book's factions are read from its folders - nothing else sets
+    them - so the ones its old folders named are stale the moment it moves:
+    ``Factions/Necrons/`` to ``Factions/Aeldari/`` is a different army. They are
+    replaced by the destination's chain, created as the scanner would create
+    them (``link_folder_factions``). A book that ends up in books/, or in an
+    armory folder with no registered system to hang factions off, has none
+    until a rescan says otherwise.
+    """
+    book.factions = []
+    system = placement.system
+    if system is not None and system.game_type == GAME_TYPE_WARGAME and placement.factions:
+        link_folder_factions(db, book, system, placement.factions)
 
 
 def _carry_sidecars(src: Path, dest: Path, *, is_dir: bool) -> list[tuple[Path, Path]]:

@@ -861,11 +861,20 @@ created with its canonical name when nothing covers that category yet. Since the
 category becomes a folder name, it can't contain `/`, `\` or `..`, or start with a
 dot: `PATCH /api/books/:id` and `POST /api/books/bulk` return 422 for one that does.
 
+A wargame book in the armory moves within its innermost faction folder instead,
+so it keeps its army: `Factions/Necrons/Codex.pdf` re-categorised as a
+supplement lands in `Factions/Necrons/Supplements/`, an army book goes back into
+the faction folder itself, and a book outside any faction uses (or creates) the
+category's folder under its system. A new folder for a custom category gets a
+`.category` marker. Every destination is read back with the scanner's own walk
+first, and the file stays put when no folder would keep both the category and
+the factions.
+
 Best-effort by design, and **never an error**: on a read-only library the
 category is recorded and nothing moves, because the user asked to change a
 category, not to move a file. The same applies to a name collision at the
-destination (the file lands under a suffixed name), a book outside `books/`, and
-a book whose file is missing.
+destination (the file lands under a suffixed name), a book outside `books/` and
+the armory, and a book whose file is missing.
 
 | `/api/maps/:id` | PATCH | gm/admin | Update `description`, `tags`, `map_type`, `grid_size`, and the grid override `grid_width`/`grid_height`/`grid_px` (`grid_px` is `0` to clear, or at least 4) |
 | `/api/maps/:id/file` | GET | any | Download/stream the original map image, PDF, or archive (served with the archive's MIME type) |
@@ -3256,7 +3265,11 @@ than about its children, so a client anchored inside a system folder - where
 there is no row to hang the action off - can still offer the scaffold. Note
 `collection`
 names the *library folder* (`books`, `maps`, …) for files but the resource type
-(`system`) for system folders. `frames_container` is true for a folder holding a
+(`system`) for system folders. The armory (`armory/`, or `Armoury/`) is browsed
+like `books/`: its system folders resolve to wargame systems (never a
+role-playing system of the same name), take `category_host` and
+`accepts_container_kind` by the same rules, and its indexed files report
+`collection: "books"`, since they are book rows. `frames_container` is true for a folder holding a
 `.frames-container` marker, whose images the token editor offers as overlay art;
 it is reported separately from `container_kind` because it says nothing about how
 the folder's children relate to each other, and it applies at any depth under
@@ -3295,6 +3308,15 @@ folder relinks every record beneath it. An item whose records cannot be updated
 is moved back and listed in `skipped` with code `io_error`; the items around it
 are unaffected.
 
+A moved book's system, category, game type and factions are re-read from its
+destination as the next rescan would read them. In the armory the system is
+matched among wargame systems, the category is read with the wargame vocabulary,
+and the faction folders it now sits in replace the factions its old folders
+named. Books move freely between `books/` and the armory: one moved into
+`books/` loses its factions and takes a role-playing system and category. A
+destination folder with no registered system leaves the book on its current
+system (and game type) until a rescan registers the folder.
+
 **`POST /api/files/rename`** - `{path, new_name}`. `new_name` is a bare name, not
 a path. This renames the file on disk, distinct from editing an item's display
 title. Returns `{from, to, records}`.
@@ -3309,9 +3331,11 @@ marker file (`.parent-system-container`, `.one-page-container`,
 
 Each marker is only accepted where it is actually read, so a request cannot
 write one the scanner will ignore. A `container_kind` needs a folder inside
-`books/` standing where a game system belongs - a direct child of `books/`, or
-one reached from it through nothing but containers; asking for one on a category
-folder, or anywhere outside `books/`, is rejected with `400`. `frames_container`
+`books/` (or the armory, laid out the same way) standing where a game system
+belongs - a direct child of `books/`, or one reached from it through nothing but
+containers; asking for one on a category folder, or anywhere else, is rejected
+with `400`. The `one-page` and `agnostic` collections are role-playing shelves
+and are rejected with `400` in the armory. `frames_container`
 needs any folder under `tokens/` (at any depth, but not `tokens/` itself) and is
 rejected with `400` elsewhere.
 
@@ -3402,7 +3426,7 @@ under a temporary name, and renamed into place only once complete - so an
 interrupted upload never leaves a truncated file for the scanner to index.
 
 Validation is per collection: only extensions the destination tree actually
-indexes are accepted (documents/images/archives under `books/`, images,
+indexes are accepted (documents/images/archives under `books/` and the armory, images,
 animated maps (`.webm`/`.mp4`), Universal VTT data (`.uvtt`/`.dd2vtt`) and
 archives under `maps/`, images and archives under `tokens/`, audio under
 `audio/`), because a file the
@@ -3474,6 +3498,10 @@ correctly on the next scan. Only valid for a folder that hosts categories - the
 `category_host` folders above: under `books/`, and not a container, since a
 container holds systems rather than categories. A container's children *are* the
 system folders, so they take the scaffold however deeply the containers nest.
+A wargame system in the armory gets the wargame set instead - `Core`,
+`Factions`, `Rules Updates`, `Missions`, `Campaigns`, `Supplements` - each
+reading back as its wargame category (`Factions` is `army-book`); its faction
+folders cover no category.
 Returns `{path, created, existing}`. A category is skipped when an existing
 folder already *resolves to* it, matched on the inferred category rather than the
 folder name - a system holding `Rules` will not gain a second `Core`, and one

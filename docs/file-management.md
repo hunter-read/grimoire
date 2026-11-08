@@ -174,6 +174,22 @@ folder appearing beside it.
 On a read-only library the category is saved and nothing moves - no error, no
 failed edit.
 
+### Wargame books in the armory
+
+The `armory/` folder (or `Armoury/`) holds wargame books, laid out like
+`books/`, and the file manager handles it the same way: system folders,
+containers, uploads, moves, and **Create standard category folders**, which
+offers the wargame set there - Core, Factions, Rules Updates, Missions,
+Campaigns, and Supplements.
+
+A wargame book's folders name its **factions** as well as its category, so
+moving it re-reads both: a codex dragged from `Factions/Necrons/` to
+`Factions/Aeldari/` becomes an Aeldari book. Changing its category moves it
+within its faction - a Necrons codex re-categorised as a supplement goes to
+`Factions/Necrons/Supplements/` - and the file stays where it is when no folder
+would keep both its category and its army. Books can be moved between `books/`
+and the armory; one moved into `books/` drops its factions.
+
 ## Replacing and moving files
 
 A rescan compares each file's modification time and size against what it recorded last time, and only re-reads a file when one of them changed. Unchanged files cost nothing, so a scheduled rescan of a large library stays fast.
