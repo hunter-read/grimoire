@@ -56,7 +56,9 @@ type RulesetEntry = Schema<'RulesetEntrySummary'>
 // The entry dialog's subject: a content type, and the entry when editing one.
 interface Editing {
   contentType: string
-  entry?: RulesetEntry
+  // The full entry (with its `data`), fetched before the dialog opens: the list
+  // only carries summaries, and editing a summary would save an empty entry.
+  entry?: RulesetEntry & { data?: Record<string, unknown> }
 }
 
 function scopeLabel(t: TFunction, ruleset: Ruleset): string {
@@ -206,6 +208,18 @@ export default function RulesetsPanel() {
     }
   }
 
+  const editEntry = async (entry: RulesetEntry) => {
+    try {
+      const full = await rulesetsApi.getEntry(open!.id, entry.id)
+      setEditing({
+        contentType: entry.content_type,
+        entry: { ...entry, data: (full.data || {}) as Record<string, unknown> },
+      })
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
   const removeEntry = async (entry: RulesetEntry) => {
     if (!window.confirm(t('rulesets.confirmDeleteEntry', { name: entry.name }))) return
     try {
@@ -320,7 +334,7 @@ export default function RulesetsPanel() {
                 {entry.editable ? (
                   <>
                     <button
-                      onClick={() => setEditing({ contentType: entry.content_type, entry })}
+                      onClick={() => editEntry(entry)}
                       aria-label={t('a11y.mediaDetail.editNamed', { name: entry.name })}
                       title={t('common.edit')}
                       style={iconBtn}
