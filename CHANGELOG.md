@@ -17,6 +17,8 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Pin the folders and systems you keep going back to: they sit in a strip at the top of the page and follow your account
 - The address bar now keeps the open folder, sort, search and filters, so a filtered view can be bookmarked, shared, or gone back to
 - Press `/` on a browse page to jump to its search box. The library has a search box of its own above the grid
+- Armies: import a BattleScribe or New Recruit roster (`.ros` / `.rosz`) with every unit's points, upgrades, stat lines and rules, or build a list by hand, and export it as text or download the roster as it was uploaded. Armies are matched to the wargame systems and factions in your armory, and a unit's rules open at the right page in your own books once a GM or admin links each cited publication to a library book. Grimoire ships no points or rules text of its own
+- Leagues: GMs and admins run a league for a wargame with a points limit and their own league points for a win, draw and loss. Members register an army, log the games they play, and follow the standings; units keep their experience, honours and notes as the league goes on. Armies and Leagues sit in the sidebar after Characters, and either can be hidden under Sidebar Visibility
 
 ### Changed
 

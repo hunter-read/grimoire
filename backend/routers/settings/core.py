@@ -96,6 +96,8 @@ def get_ui_settings(_: CurrentUser = Depends(get_current_user), db: Session = De
         "hide_audio": raw["hide_audio"] == "true",
         "hide_models": raw["hide_models"] == "true",
         "hide_campaigns": raw["hide_campaigns"] == "true",
+        "hide_armies": raw["hide_armies"] == "true",
+        "hide_leagues": raw["hide_leagues"] == "true",
         "show_stat_systems": raw["show_stat_systems"] == "true",
         "show_stat_books": raw["show_stat_books"] == "true",
         "show_stat_pages": raw["show_stat_pages"] == "true",

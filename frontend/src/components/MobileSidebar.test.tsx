@@ -46,6 +46,27 @@ describe('MobileSidebar', () => {
     expect(screen.queryByText('Audio')).not.toBeInTheDocument()
   })
 
+  it('lists Armies and Leagues in the drawer, each hideable', async () => {
+    const { unmount } = renderBar()
+    await userEvent.click(screen.getByRole('button', { name: /more/i }))
+    expect(screen.getByRole('link', { name: 'Armies' })).toHaveAttribute('href', '/armies')
+    expect(screen.getByRole('link', { name: 'Leagues' })).toHaveAttribute('href', '/leagues')
+    unmount()
+    renderBar({ uiSettings: { hide_armies: true, hide_leagues: true } })
+    await userEvent.click(screen.getByRole('button', { name: /more/i }))
+    expect(screen.queryByText('Armies')).not.toBeInTheDocument()
+    expect(screen.queryByText('Leagues')).not.toBeInTheDocument()
+  })
+
+  it('marks More active on an army page', () => {
+    render(
+      <MemoryRouter initialEntries={['/armies/a1']}>
+        <MobileSidebar user={{ role: 'player' }} onLogout={vi.fn()} uiSettings={{}} />
+      </MemoryRouter>
+    )
+    expect(screen.getByRole('button', { name: /more/i }).style.color).toBe('var(--gold)')
+  })
+
   it('lists maps, tokens, audio and settings in the drawer', async () => {
     renderBar()
     await userEvent.click(screen.getByRole('button', { name: /more/i }))

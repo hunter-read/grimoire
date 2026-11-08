@@ -114,6 +114,11 @@ PERMISSIONS: dict[str, Permission] = {
         "and the rulesets a table plays with",
         "campaigns",
     ),
+    "armies": Permission(
+        ("armies", "leagues"),
+        "Army lists, the source books they cite, and the leagues you play in",
+        "campaigns",
+    ),
     "personal": Permission(
         ("favorites", "bookmarks", "saved-filters", "pins", "audio-sets", "themes"),
         "Your favorites, bookmarks, saved filters, pins, saved playlists and soundboards, "

@@ -139,6 +139,7 @@ A permission is an area of the API, taken from each endpoint's OpenAPI tag:
 | `logs` | `logs` | Application logs |
 | `settings` | `settings` | App settings, including `/api/settings/ui` |
 | `users` | `users` | User management, and the owner's own preferences |
+| `armies` | `armies`, `leagues` | The owner's army lists, the source-book links they cite, and their leagues |
 | `personal` | `favorites`, `bookmarks`, `saved-filters`, `pins`, `audio-sets`, `themes` | The owner's favourites, bookmarks, saved filters, pins, saved audio sets and themes |
 
 **All permissions.** A key's permissions may also hold `"*"`, which raises every
@@ -1884,6 +1885,8 @@ than appearing and failing.
 | `hide_tokens` | bool | Hide the tokens section in the UI |
 | `hide_audio` | bool | Hide the audio section in the UI |
 | `hide_campaigns` | bool | Hide the campaigns section in the UI |
+| `hide_armies` | bool | Hide Armies in the sidebar (the pages stay reachable) |
+| `hide_leagues` | bool | Hide Leagues in the sidebar (the pages stay reachable) |
 | `restricted_categories` | object | `{category_slug: "gm"\|"admin"}` restricting whole categories library-wide (issue #258). The category-level tier of the access cascade; a book or system still overrides it in either direction. `core` and `character-sheet` are rejected with 400 - everyone at the table needs those. An entry set to `""` is dropped rather than stored, since "open" is the absence of an entry. See [Access levels](#access-levels-issue-258). |
 | `show_stat_systems` | bool | Show/hide game system count in sidebar |
 | `show_stat_books` | bool | Show/hide book count in sidebar |
@@ -2903,6 +2906,52 @@ silently overwrite someone's work, and returns a tally
 (`imported`/`skipped`/`renamed`/`overwritten`/`failed`) rather than stopping at
 the first conflict, so a partly-overlapping pack still imports what it can.
 
+### Armies
+
+The army builder for wargames (see [Armies and leagues](armies.md)). An army is
+its owner's: only they (and admins) change it. It is private until it is
+registered in a league; then the league's organiser and members may read it.
+Session or API key (`armies` permission); never guests. Grimoire ships no
+points, stat lines or rules text - an army holds only what its owner imported or
+typed.
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/armies` | GET | any (not guest) | Your own armies, most recently changed first: `[{id, name, user_id, game_system_id, game_system_name, system_name, faction: {id, name}?, points, points_limit, cost_name, source, source_filename, updated_at}]`. `source` is `battlescribe` or `manual` |
+| `/api/armies` | POST | any (not guest) | Build an army by hand. Body `{name, game_system_id?, faction_id?, points_limit?, notes?, units: [{id?, name, number?, points?, category?, categories?, notes?}]}`. 201 with the army's detail |
+| `/api/armies/import` | POST | any (not guest) | Import a BattleScribe / New Recruit roster: multipart `file` (`.ros` or `.rosz`, at most 20 MB) and optional `name`. Its game system and first force's catalogue are matched to a wargame system and faction the caller may see, by name. The file is kept byte for byte. 400 for anything that is not a roster (a DOCTYPE or entity declaration anywhere is refused, as is a roster of more than 10,000 entries), 413 when too large |
+| `/api/armies/:id` | GET | owner, admin, league people | The army: the summary fields plus `data` (the parsed list: `forces` of `units` with `costs`, `categories`, `profiles`, `rules`, the `publication` and `page` each cites, and nested `children`), `progress` (`{unit_id: {experience, honours, notes}}`), `notes`, `can_edit`, `publications` (every publication cited, in order) and `publication_links` (`{publication: {book_id, book_title, page_offset}}`, only books the caller may read). 404 for an army the caller may not see |
+| `/api/armies/:id` | PATCH | owner, admin | Change `name`, `points_limit`, `notes`, `game_system_id`, `faction_id`, or a hand-built army's `units` (an imported list is read-only: 400). A faction must belong to the army's system; a faction given with no system brings its own; moving to another system without naming a faction clears it |
+| `/api/armies/:id` | DELETE | owner, admin | Delete the army and its roster file. 204 |
+| `/api/armies/:id/units/:unit_id/progress` | PUT | owner, admin | Set a unit's league progress. Body `{experience, honours: [str], notes}`; returns what was stored |
+| `/api/armies/:id/export` | GET | as GET | `?format=text` (default): the list as plain text. `?format=roster`: the imported file, unchanged (404 for a hand-built army) |
+| `/api/armies/:id/publications` | GET | as GET | `[{publication, link, suggestions: [{book_id, title}]}]` - each cited publication, its link, and wargame books whose titles match it |
+| `/api/armies/publication-links` | PUT | GM, admin | Link a publication to a library book for every army that cites it. Body `{system_name, publication, book_id, page_offset}`; `system_name` is the roster's game system name, matched ignoring case. `page_offset` is added to a cited page to reach the PDF page. 404 for a book the caller cannot see |
+| `/api/armies/publication-links` | DELETE | GM, admin | Remove a link. Query `publication`, `system_name`. 204 |
+| `/api/armies/publication-links/books` | GET | GM, admin | `?q=` (2+ characters): up to 10 wargame books, visible to the caller, whose titles contain it - `[{book_id, title}]` |
+
+### Leagues
+
+A group playing a wargame over time. GMs and admins organise leagues; members
+are any users with a full account. Only a league's people see it - its
+organiser, its members, and admins (who see every league). Session or API key
+(`armies` permission); never guests.
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/leagues` | GET | any (not guest) | Leagues you organise or play in, newest first: `[{id, name, description, organizer_id, organizer_name, game_system_id, game_system_name, points_limit, points_win, points_draw, points_loss, status, member_count, created_at}]` |
+| `/api/leagues` | POST | GM, admin | Start a league. Body `{name, description?, game_system_id?, points_limit?, points_win? (3), points_draw? (1), points_loss? (0)}`. The system must be a wargame. The organiser is not a member until they add themselves |
+| `/api/leagues/:id` | GET | league people | The league plus `can_manage`, `is_member`, `members` (`[{user_id, name, army}]`), `games` (newest first: `{id, played_on, mission, notes, player_a, player_b, army_a, army_b, score_a, score_b, result, can_edit}`) and `standings` (`[{user_id, name, played, won, drawn, lost, score_for, score_against, points}]`, by league points, then score difference, then score) |
+| `/api/leagues/:id` | PATCH | organiser, admin | Change any of the create fields, or `status` (`active` / `finished`) |
+| `/api/leagues/:id` | DELETE | organiser, admin | Delete the league with its members and games; the armies stay. 204 |
+| `/api/leagues/:id/eligible-members` | GET | organiser, admin | Users who could be added: anyone not a guest and not already in |
+| `/api/leagues/:id/members` | POST | organiser, admin | Add a member. Body `{user_id}`. Adding someone already in changes nothing; a guest or unknown user is 404 |
+| `/api/leagues/:id/members/:user_id` | DELETE | organiser, admin, or that member | Remove a member, or leave. Their logged games stay |
+| `/api/leagues/:id/members/:user_id/army` | PUT | that member, organiser, admin | Register the army the member plays. Body `{army_id}` (null clears it); it must be the member's own (400 otherwise). A registered army becomes readable to the league's people |
+| `/api/leagues/:id/games` | POST | members, organiser | Log a game. Body `{player_a_id, player_b_id, score_a?, score_b?, result?, mission?, played_on?, notes?}`. A member logs only games they played in (403); both players must be members. `result` (`a`, `b` or `draw`, from player A's side) follows from the scores when both are given, must agree with them when also given, and is required without them (400). Each player's registered army is recorded with the game |
+| `/api/leagues/:id/games/:game_id` | PUT | its players, whoever logged it, organiser | Edit a game, same body. A player cannot hand a game to two others |
+| `/api/leagues/:id/games/:game_id` | DELETE | as PUT | Delete a game. 204 |
+
 ### Duplicates *(admin only)*
 
 Finding files that look like copies of one another, and deciding what to do
@@ -3172,7 +3221,7 @@ per-format field mapping and how export interacts with sidecar import.
 A backup is a single timestamped `.zip` named `grimoire-backup-<UTC timestamp>.zip`,
 holding a consistent snapshot of the SQLite database (taken with SQLite's online
 backup API, not a file copy) plus the user-authored directories under `DATA_PATH`:
-`campaign_uploads/`, `system_covers/`, `audio_covers/`, `book_covers/`, and `branding/`. A `details.json`
+`campaign_uploads/`, `system_covers/`, `audio_covers/`, `book_covers/`, `branding/`, and `army_rosters/`. A `details.json`
 manifest records the app version, timestamp, and trigger. The **library is never
 included**, nor are the regenerable caches (`thumbnails/`, `page_cache/`).
 

@@ -6,6 +6,7 @@ and re-exported here so callers can keep using ``from backend.models import X``.
 
 from .access import UserAccessGrant
 from .api_keys import ApiKey
+from .armies import Army, PublicationLink
 from .audio_sets import SET_TYPES, AudioSet
 from .base import Base
 from .characters import Character, CharacterSchema, UserImporter
@@ -31,6 +32,7 @@ from .campaigns import (
 from .db import init_db
 from .duplicates import DuplicateDismissal, DuplicateGroup
 from .factions import Faction, book_factions
+from .leagues import League, LeagueGame, LeagueMember
 from .library import (
     Book,
     BookFolder,
@@ -79,6 +81,12 @@ __all__ = [
     # Wargames
     "Faction",
     "book_factions",
+    # Armies and leagues
+    "Army",
+    "PublicationLink",
+    "League",
+    "LeagueMember",
+    "LeagueGame",
     # Media
     "GenericMap",
     "MapFolder",

@@ -15,6 +15,7 @@ from typing import Any, Optional
 
 from ...models.dialect import is_postgres
 from ...config import (
+    ARMY_ROSTER_DIR,
     AUDIO_COVER_DIR,
     BOOK_COVER_DIR,
     BRANDING_DIR,
@@ -44,6 +45,7 @@ ASSET_DIRS: tuple[tuple[str, str], ...] = (
     (AUDIO_COVER_DIR, "audio_covers"),
     (BOOK_COVER_DIR, "book_covers"),
     (BRANDING_DIR, "branding"),
+    (ARMY_ROSTER_DIR, "army_rosters"),
 )
 
 # One backup at a time per process. Creating a backup holds a read lock on the

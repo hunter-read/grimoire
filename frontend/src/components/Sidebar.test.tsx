@@ -145,6 +145,31 @@ describe('Sidebar navigation visibility', () => {
     expect(screen.queryByText('Campaigns')).toBeNull()
   })
 
+  it('lists Armies and Leagues after Campaigns and Characters', () => {
+    renderSidebar()
+    const names = screen.getAllByRole('link').map((l) => l.textContent)
+    const at = (name: string) => names.indexOf(name)
+    expect(at('Characters')).toBe(at('Campaigns') + 1)
+    expect(at('Armies')).toBe(at('Characters') + 1)
+    expect(at('Leagues')).toBe(at('Armies') + 1)
+    expect(screen.getByRole('link', { name: 'Armies' })).toHaveAttribute('href', '/armies')
+    expect(screen.getByRole('link', { name: 'Leagues' })).toHaveAttribute('href', '/leagues')
+  })
+
+  it('hides Armies and Leagues each on its own setting, and from guests', () => {
+    const { unmount } = renderSidebar({ uiSettings: { hide_armies: true } })
+    expect(screen.queryByText('Armies')).toBeNull()
+    expect(screen.getByText('Leagues')).toBeTruthy()
+    unmount()
+    const second = renderSidebar({ uiSettings: { hide_leagues: true, hide_campaigns: true } })
+    expect(screen.getByText('Armies')).toBeTruthy()
+    expect(screen.queryByText('Leagues')).toBeNull()
+    second.unmount()
+    renderSidebar({ user: { ...baseUser, role: 'guest' } })
+    expect(screen.queryByText('Armies')).toBeNull()
+    expect(screen.queryByText('Leagues')).toBeNull()
+  })
+
   it('hides maps link when hide_maps is true', () => {
     renderSidebar({ uiSettings: { hide_maps: true } })
     expect(screen.queryByText('Maps')).toBeNull()

@@ -22,7 +22,8 @@ grimoire-backup-20260821T140355Z.zip
 ├── system_covers/        custom game-system cover images
 ├── audio_covers/         custom audio cover art
 ├── book_covers/          custom book covers
-└── branding/             the uploaded OIDC sign-in button icon
+├── branding/             the uploaded OIDC sign-in button icon
+└── army_rosters/         the BattleScribe rosters armies were imported from
 ```
 
 The database is copied with SQLite's `VACUUM INTO` rather than a file copy, so the

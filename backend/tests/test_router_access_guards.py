@@ -119,6 +119,9 @@ HANDLED_ELSEWHERE = {
     "auth_sessions.user_id": "delete_user_sessions, on both delete and merge",
     "campaigns.owner_id": "purge_user_data deletes / reassign_user_data moves owned campaigns",
     "rulesets.owner_id": "purge_user_data deletes / reassign_user_data moves personal rulesets",
+    "leagues.organizer_id": "purge_user_data deletes / reassign_user_data moves organised leagues",
+    "league_games.player_a_id": "purge_user_data deletes / reassign_user_data moves played games",
+    "league_games.player_b_id": "purge_user_data deletes / reassign_user_data moves played games",
 }
 
 

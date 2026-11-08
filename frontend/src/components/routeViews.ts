@@ -28,6 +28,10 @@ export const CampaignDetailView = lazyWithPreload(() => import('../views/Campaig
 export const CampaignNotesView = lazyWithPreload(() => import('../views/CampaignNotesView'))
 export const CharactersView = lazyWithPreload(() => import('../views/CharactersView'))
 export const CharacterDetailView = lazyWithPreload(() => import('../views/CharacterDetailView'))
+export const ArmiesView = lazyWithPreload(() => import('../views/ArmiesView'))
+export const ArmyDetailView = lazyWithPreload(() => import('../views/ArmyDetailView'))
+export const LeaguesView = lazyWithPreload(() => import('../views/LeaguesView'))
+export const LeagueDetailView = lazyWithPreload(() => import('../views/LeagueDetailView'))
 
 // The view each sidebar destination opens, keyed by its first path segment.
 const LANDING_VIEWS: Record<string, { preload: () => Promise<unknown> }> = {
@@ -41,6 +45,8 @@ const LANDING_VIEWS: Record<string, { preload: () => Promise<unknown> }> = {
   tags: TagsView,
   campaigns: CampaignsView,
   characters: CharactersView,
+  armies: ArmiesView,
+  leagues: LeaguesView,
   settings: SettingsView,
 }
 

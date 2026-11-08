@@ -10,6 +10,8 @@ const ITEMS = [
   { key: 'hide_audio', labelKey: 'appSettings.sidebarVisibility.hideAudio' },
   { key: 'hide_models', labelKey: 'appSettings.sidebarVisibility.hideModels' },
   { key: 'hide_campaigns', labelKey: 'appSettings.sidebarVisibility.hideCampaigns' },
+  { key: 'hide_armies', labelKey: 'appSettings.sidebarVisibility.hideArmies' },
+  { key: 'hide_leagues', labelKey: 'appSettings.sidebarVisibility.hideLeagues' },
 ] as const
 const KEYS = ITEMS.map(({ key }) => key)
 
