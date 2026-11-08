@@ -30,6 +30,7 @@ This was one module before; it is now split by concern:
 * ``constants``  — ``COLLECTIONS``, ``LibraryFSError``, tunables
 * ``paths``      — root resolution, containment, sidecar identification
 * ``placement``  — which folder a book's system/category implies
+* ``wargame_placement`` — the same for a wargame book, kept in its faction
 * ``moves``      — move, rename, relocate, and the relink machinery
 * ``folders``    — folder creation, container markers, category scaffolding
 * ``uploads``    — validating and streaming an upload into place
@@ -46,8 +47,10 @@ import os  # noqa: F401
 import shutil  # noqa: F401
 
 from .constants import (  # noqa: F401
+    BOOK_SECTIONS,
     COLLECTIONS,
     SCAFFOLD_CATEGORY_FOLDERS,
+    WARGAME_SCAFFOLD_CATEGORY_FOLDERS,
     LibraryFSError,
     _THUMB_SECTIONS,
     _UPLOAD_CHUNK,
@@ -56,6 +59,8 @@ from .paths import (  # noqa: F401
     _has_content_sibling,
     assert_writable,
     collection_of,
+    in_book_section,
+    is_armory,
     is_sidecar,
     library_root,
     library_writable,
@@ -66,11 +71,18 @@ from .paths import (  # noqa: F401
 )
 from .placement import (  # noqa: F401
     CATEGORY_FOLDER_NAMES,
+    BookPlacement,
     _system_folder_name,
     _system_root_for,
     category_folder_for,
     is_category_name,
+    read_book_placement,
     resolve_book_placement,
+)
+from .wargame_placement import (  # noqa: F401
+    WARGAME_CATEGORY_FOLDER_NAMES,
+    wargame_category_folder_for,
+    wargame_folder_category,
 )
 from .moves import (  # noqa: F401
     MoveResult,

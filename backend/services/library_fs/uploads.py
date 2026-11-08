@@ -25,7 +25,7 @@ from ...indexer.constants import (
 )
 from .constants import _UPLOAD_CHUNK, LibraryFSError
 from .moves import _dest_for
-from .paths import assert_writable, collection_of, safe_join, to_relative
+from .paths import assert_writable, collection_of, in_book_section, safe_join, to_relative
 from ...models import Book
 
 def allowed_upload_exts(destination: Path) -> AbstractSet[str]:
@@ -37,10 +37,11 @@ def allowed_upload_exts(destination: Path) -> AbstractSet[str]:
     into an error the user can act on at the moment they make it.
 
     Archives are accepted everywhere the scanner registers them (books, maps,
-    tokens), matching ``ARCHIVE_EXTS``/``MEDIA_ARCHIVE_EXTS``.
+    tokens), matching ``ARCHIVE_EXTS``/``MEDIA_ARCHIVE_EXTS``. The armory's
+    wargame books are books, and take what books/ takes.
     """
     section = collection_of(destination)
-    if section == "books":
+    if in_book_section(destination):
         return DOC_EXTS | IMAGE_EXTS | ARCHIVE_EXTS
     if section == "maps":
         return MAP_IMAGE_EXTS | ARCHIVE_EXTS
@@ -79,7 +80,7 @@ def validate_upload_name(filename: str, destination: Path) -> str:
     allowed = allowed_upload_exts(destination)
     if not allowed:
         raise LibraryFSError(
-            "Files can only be uploaded into books, maps, tokens, audio, or models",
+            "Files can only be uploaded into books, armory, maps, tokens, audio, or models",
             code="invalid",
         )
     ext = _upload_ext(name)
@@ -159,7 +160,7 @@ def replace_upload(
         raise LibraryFSError(f"'{name}' is a folder, not a file", code="invalid")
     book = (
         db.query(Book).filter(Book.relative_path == to_relative(target)).first()
-        if collection_of(target) == "books"
+        if in_book_section(target)
         else None
     )
     if book is None:

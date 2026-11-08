@@ -20,7 +20,8 @@ from ...indexer.constants import (
     MAP_IMAGE_EXTS,
 )
 from ...metadata.formats import COVER_SUFFIX, SIDECAR_SUFFIXES
-from .constants import COLLECTIONS, LibraryFSError
+from ...models.game_types import ARMORY_FOLDER_NAMES, ARMORY_SECTION
+from .constants import BOOK_SECTIONS, COLLECTIONS, LibraryFSError
 
 # The longest name one folder entry may have, in bytes: ext4, btrfs, XFS, APFS
 # and NTFS all stop at 255.
@@ -130,18 +131,31 @@ def to_relative(path: Path) -> str:
 
 
 def collection_of(path: Path) -> Optional[str]:
-    """The collection (``books``/``maps``/…) a library path belongs to, if any.
+    """The collection (``books``/``armory``/``maps``/…) a library path belongs to, if any.
 
     Matched case-insensitively on the first path segment, mirroring
     ``resolve_collection_dir`` — a library root may hold ``Books`` rather than
-    ``books`` on a case-sensitive filesystem.
+    ``books`` on a case-sensitive filesystem. The armory's British spelling,
+    ``Armoury``, is the same collection and reported as ``armory``.
     """
     try:
         rel = to_relative(path)
     except ValueError:
         return None
     head = rel.split("/")[0].lower()
+    if head in ARMORY_FOLDER_NAMES:
+        return ARMORY_SECTION
     return head if head in COLLECTIONS else None
+
+
+def in_book_section(path: Path) -> bool:
+    """Whether ``path`` is in ``books/`` or the armory: the trees of system folders."""
+    return collection_of(path) in BOOK_SECTIONS
+
+
+def is_armory(path: Path) -> bool:
+    """Whether ``path`` is in the armory, the library's wargame books."""
+    return collection_of(path) == ARMORY_SECTION
 
 
 # Everything export can write beside a content file. The cover's compound
