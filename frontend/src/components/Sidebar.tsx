@@ -18,6 +18,8 @@ import {
   LuPanelLeftClose,
   LuPanelLeftOpen,
   LuSwords,
+  LuShield,
+  LuTrophy,
 } from 'react-icons/lu'
 import api, { type Schema } from '../api'
 import AboutModal from './AboutModal'
@@ -96,6 +98,8 @@ export default function Sidebar({
   const hide_audio = uiSettings.hide_audio
   const hide_models = uiSettings.hide_models
   const hide_campaigns = uiSettings.hide_campaigns
+  const hide_armies = uiSettings.hide_armies
+  const hide_leagues = uiSettings.hide_leagues
   const {
     show_stat_systems = true,
     show_stat_books = false,
@@ -257,7 +261,7 @@ export default function Sidebar({
         {!isGuest && navItem('/tags', <LuTags size={16} />, t('nav.tags'))}
         {!isGuest && navItem('/favorites', <LuHeart size={16} />, t('nav.favorites'))}
 
-        {!isGuest && !hide_campaigns && (
+        {!isGuest && (!hide_campaigns || !hide_armies || !hide_leagues) && (
           <div style={{ margin: '12px 8px 8px', borderTop: '1px solid var(--border)' }} />
         )}
 
@@ -266,6 +270,14 @@ export default function Sidebar({
             is exactly who wants a character sheet. */}
         {!hide_campaigns && navItem('/campaigns', <LuScroll size={16} />, t('nav.campaigns'))}
         {!hide_campaigns && navItem('/characters', <LuUsers size={16} />, t('nav.characters'))}
+        {/* Then the wargame side of the table: army lists and the leagues they
+            are played in. Guests are scoped to their campaign and have neither. */}
+        {!isGuest &&
+          !hide_armies &&
+          navItem('/armies', <LuShield size={16} />, t('nav.armies'), { end: false })}
+        {!isGuest &&
+          !hide_leagues &&
+          navItem('/leagues', <LuTrophy size={16} />, t('nav.leagues'), { end: false })}
       </nav>
 
       {/* Collapse toggle — bottom of the nav section, above the stats footer.

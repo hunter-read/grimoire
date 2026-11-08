@@ -19,6 +19,8 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Press `/` on a browse page to jump to its search box. The library has a search box of its own above the grid
 - The Armory, for wargames. Put wargame books in an `armory/` folder beside `books/` (`armoury/` works too) and they get a shelf of their own under Library in the sidebar. The folders read the way wargamers file things: armies in `Factions/<Faction>/` with sub-factions inside, and categories of their own - army books, rules updates and errata, mission packs, campaign books, unit references, painting guides. A book's factions show in its details. A wargame and a role-playing game of the same name (BattleTech) are kept apart. See the library structure guide
 - Codex, a crimson-on-gunmetal theme, joins Grimoire's own in the theme list. Highlights that were always gold now follow whichever theme is picked
+- Armies: import a BattleScribe or New Recruit roster (`.ros` / `.rosz`) with every unit's points, upgrades, stat lines and rules, or build a list by hand, and export it as text or download the roster as it was uploaded. Armies are matched to the wargame systems and factions in your armory, and a unit's rules open at the right page in your own books once a GM or admin links each cited publication to a library book. Grimoire ships no points or rules text of its own
+- Leagues: GMs and admins run a league for a wargame with a points limit and their own league points for a win, draw and loss. Members register an army, log the games they play, and follow the standings; units keep their experience, honours and notes as the league goes on. Armies and Leagues sit in the sidebar after Characters, and either can be hidden under Sidebar Visibility
 
 ### Changed
 

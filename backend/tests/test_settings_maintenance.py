@@ -744,6 +744,8 @@ class TestUiSettings:
             "hide_tokens",
             "hide_audio",
             "hide_campaigns",
+            "hide_armies",
+            "hide_leagues",
             "campaign_upload_max_file_mb",
             "guest_access_enabled",
         ):

@@ -1858,6 +1858,47 @@ class TestArmoryGameTypes:
         assert "reference missing parents after migrating (books)" in caplog.text
 
 
+class TestArmiesAndLeagues:
+    """0063 adds the army builder's and leagues' tables, and nothing else."""
+
+    _BEFORE = "8b2f5d1e7c40"
+    _TABLES = {"armies", "publication_links", "leagues", "league_members", "league_games"}
+
+    def _tables(self, path):
+        engine = create_engine(f"sqlite:///{path}")
+        try:
+            return set(inspect(engine).get_table_names())
+        finally:
+            engine.dispose()
+
+    def test_upgrade_from_0062_creates_the_tables(self):
+        path = os.path.join(tempfile.mkdtemp(), "armies.db")
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            command.upgrade(_alembic_config(conn), self._BEFORE)
+        engine.dispose()
+        assert not self._TABLES & self._tables(path)
+        init_db(path)
+        assert _stamped_revision(path) == _alembic_head(path)
+        assert self._TABLES <= self._tables(path)
+
+    def test_upgrade_is_idempotent_and_downgrade_drops_them(self):
+        path = _fresh_db()
+        engine = create_engine(f"sqlite:///{path}")
+        # Back to 0062 with the tables still there, as after a partial apply:
+        # the upgrade must step over what already exists.
+        with engine.begin() as conn:
+            conn.execute(text("UPDATE alembic_version SET version_num = :v"), {"v": self._BEFORE})
+        engine.dispose()
+        init_db(path)
+        assert _stamped_revision(path) == _alembic_head(path)
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            command.downgrade(_alembic_config(conn), self._BEFORE)
+        engine.dispose()
+        assert not self._TABLES & self._tables(path)
+
+
 class TestMigrationLock:
     """Only one process migrates at a time, even where the data mount ignores flock()."""
 

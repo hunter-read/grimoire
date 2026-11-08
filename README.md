@@ -341,6 +341,7 @@ kept in the repo so it versions with the release you are running:
 | [OTFBM and Avrae](docs/otfbm.md)              | Setting a map up as an OTFBM background for Avrae's `!map` on Discord           |
 | [Setting images](docs/setting-images.md)      | Campaign banners, system and book covers, and audio artwork                     |
 | [Character sheets](docs/characters.md)        | The schema-driven character builder, content packs, and rulesets                |
+| [Armies and leagues](docs/armies.md)          | Wargame army lists from BattleScribe or by hand, and leagues with standings     |
 | [Themes](docs/themes.md)                      | Light, dark, and installable colour themes                                      |
 
 ### Administration

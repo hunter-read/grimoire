@@ -17,6 +17,8 @@ import {
   LuScroll,
   LuUsers,
   LuSwords,
+  LuShield,
+  LuTrophy,
 } from 'react-icons/lu'
 import MoreItem, { moreItemStyle } from './MoreItem'
 import type { Schema } from '../api'
@@ -54,7 +56,15 @@ export default function MobileSidebar({
     return () => document.removeEventListener('keydown', onKey)
   }, [moreOpen])
   const isGuest = user?.role === 'guest'
-  const { hide_maps, hide_tokens, hide_audio, hide_models, hide_campaigns } = uiSettings
+  const {
+    hide_maps,
+    hide_tokens,
+    hide_audio,
+    hide_models,
+    hide_campaigns,
+    hide_armies,
+    hide_leagues,
+  } = uiSettings
   const showArmory = showArmoryNav({
     hidden: uiSettings.hide_armory,
     armoryBooks: stats?.armory_books,
@@ -68,6 +78,8 @@ export default function MobileSidebar({
     ...(!hide_tokens ? ['/tokens'] : []),
     ...(!hide_audio ? ['/audio'] : []),
     ...(!hide_models ? ['/models'] : []),
+    ...(!hide_armies ? ['/armies'] : []),
+    ...(!hide_leagues ? ['/leagues'] : []),
   ]
   const moreActive = moreRoutes.some((r) => location.pathname.startsWith(r))
 
@@ -218,6 +230,22 @@ export default function MobileSidebar({
                 to="/characters"
                 Icon={LuUsers}
                 label={t('nav.characters')}
+                onClick={() => setMoreOpen(false)}
+              />
+            )}
+            {!hide_armies && (
+              <MoreItem
+                to="/armies"
+                Icon={LuShield}
+                label={t('nav.armies')}
+                onClick={() => setMoreOpen(false)}
+              />
+            )}
+            {!hide_leagues && (
+              <MoreItem
+                to="/leagues"
+                Icon={LuTrophy}
+                label={t('nav.leagues')}
                 onClick={() => setMoreOpen(false)}
               />
             )}

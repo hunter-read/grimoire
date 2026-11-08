@@ -60,6 +60,10 @@ erDiagram
     users ||--o{ campaign_files : "uploaded by"
     users ||--o{ api_keys : owns
     users ||--o{ share_links : creates
+    users ||--o{ armies : owns
+    users ||--o{ leagues : organises
+    users ||--o{ league_members : "plays in"
+    users ||--o{ league_games : plays
 
     game_systems ||--o{ books : contains
     books ||--o{ books : "has variant"
@@ -100,6 +104,15 @@ erDiagram
     wiki_pages ||--o{ wiki_page_links : "target of"
 
     tags ||--o{ resource_tags : "applied via"
+
+    game_systems ||--o{ armies : "army for"
+    factions ||--o{ armies : "army of"
+    books ||--o{ publication_links : "opened by"
+    game_systems ||--o{ leagues : "played in"
+    leagues ||--o{ league_members : has
+    leagues ||--o{ league_games : records
+    armies ||--o{ league_members : "registered as"
+    armies ||--o{ league_games : "played with"
 ```
 
 ## Foreign keys
@@ -191,6 +204,20 @@ its migration in the same change (and the reverse).
 | `wiki_page_links.source_page_id` | `wiki_pages.id` | |
 | `wiki_page_links.target_page_id` | `wiki_pages.id` | |
 | `resource_tags.tag_id` | `tags.id` | `ON DELETE CASCADE`; `resource_id` is a polymorphic soft link (not a FK) |
+| `armies.user_id` | `users.id` | the army's owner; deleted with them, with its roster file (`purge_user_data`), and moved by a guest merge |
+| `armies.game_system_id` | `game_systems.id` | the wargame system it is matched to; **ON DELETE SET NULL** |
+| `armies.faction_id` | `factions.id` | its faction; **ON DELETE SET NULL** |
+| `publication_links.book_id` | `books.id` | the book a cited publication opens; **ON DELETE CASCADE** |
+| `publication_links.created_by` | `users.id` | who set the link; cleared when they are deleted |
+| `leagues.organizer_id` | `users.id` | the GM or admin running it; the league is deleted with them (`purge_user_data`) and moved by a guest merge |
+| `leagues.game_system_id` | `game_systems.id` | nullable; **ON DELETE SET NULL** |
+| `league_members.league_id` | `leagues.id` | **ON DELETE CASCADE** |
+| `league_members.user_id` | `users.id` | deleted with the user |
+| `league_members.army_id` | `armies.id` | the army the member plays; **ON DELETE SET NULL** |
+| `league_games.league_id` | `leagues.id` | **ON DELETE CASCADE** |
+| `league_games.player_a_id`, `.player_b_id` | `users.id` | a game is deleted with either player; a guest merge moves it, dropping one between the two accounts merged |
+| `league_games.army_a_id`, `.army_b_id` | `armies.id` | the armies it was played with; **ON DELETE SET NULL** |
+| `league_games.recorded_by` | `users.id` | who logged it; cleared when they are deleted |
 
 ## Table reference
 
@@ -312,6 +339,19 @@ path-keyed feature.
 | `wiki_page_hidden` | A wiki page one user has hidden from their own view. | FKs `page_id`, `user_id`. **Unique** `(page_id, user_id)`. Per-user decluttering, not a permission: available on any page the user can see, and invisible to everyone else. Hiding a parent hides its subtree, derived at read time from `parent_id` rather than stored per descendant. |
 | `wiki_page_links` | Resolved `[[wiki link]]` for backlinks. | FKs `campaign_id`, `source_page_id`, `target_page_id`. **Unique** `(source_page_id, target_page_id)`. Rebuilt on every page save. |
 | `wiki_templates` | A reusable starting point for a wiki page, owned by one campaign. | FKs `campaign_id`, `created_by_id`. `body` holds the markdown (with frontmatter). `source_id`/`source_url`/`source_version` record a downloaded template's provenance and are null for authored/uploaded ones. Deliberately **not** unique on anything - a GM may keep several copies of the same community template. |
+
+### Armies and leagues - [`backend/models/armies.py`](../backend/models/armies.py), [`backend/models/leagues.py`](../backend/models/leagues.py)
+
+Added by migration 0063. Grimoire ships no points, stat lines or rules text: these hold
+only what a user imported or typed.
+
+| Table | Purpose | Key columns / constraints |
+| --- | --- | --- |
+| `armies` | One player's army list for a wargame. | FK `user_id` (indexed), `game_system_id` and `faction_id` (indexed, both nullable - matched from a roster's game system and catalogue names, or set by hand). `system_name` is the roster's own game system name, kept whether or not it matched: publication links key on it. `points` (recomputed whenever the list changes), `points_limit`, `cost_name` ("pts" almost always). `source` is `battlescribe` (imported from a `.ros`/`.rosz` roster) or `manual`. `data` JSON is the whole parsed list - forces of units with costs, categories, profiles, rules, cited publication and page, nested children - read whole by the army page; a hand-built list has the same shape. `progress` JSON is `{unit_id: {experience, honours, notes}}`, kept apart from the list so it is never confused with what the roster says. The imported file itself is stored as `DATA_PATH/army_rosters/<army id>.ros(z)` (`source_filename` names it for the export), so "Download roster" returns the original bytes. |
+| `publication_links` | A publication rosters cite, linked to a library book. | FK `book_id` (indexed, cascade), `created_by`. **Unique** `(system_name, publication)`, `system_name` lower-cased, since two games can each have a "Core Rules". `page_offset` is added to a cited page to reach the PDF page. Shared: set once by a GM or admin, used by every army citing the publication. |
+| `leagues` | A group playing a wargame over time. | FK `organizer_id` (indexed), `game_system_id`. `points_limit`, and the league points `points_win`/`points_draw`/`points_loss` (3/1/0 by default) the standings are scored with. `status` ∈ active/finished. |
+| `league_members` | A user playing in a league, and the army they registered. | FKs `league_id`, `user_id` (both indexed), `army_id` (must be the member's own). **Unique** `(league_id, user_id)`. A registered army becomes readable to the league's organiser and members. |
+| `league_games` | One game between two members. | FK `league_id` (indexed), `player_a_id`, `player_b_id`, `army_a_id`, `army_b_id` (the registered armies when it was logged), `recorded_by`. `score_a`/`score_b` nullable; `result` ∈ `a`/`b`/`draw` from player A's side, derived from the scores when both are given. Standings are computed on read (`services/leagues.py`): league points, then score difference, then score. |
 
 ### Duplicates - [`backend/models/duplicates.py`](../backend/models/duplicates.py)
 

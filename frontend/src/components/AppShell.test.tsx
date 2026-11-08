@@ -54,6 +54,10 @@ vi.mock('../views/TagsView', () => ({
   },
 }))
 vi.mock('./campaigns/PendingInvitesBanner', () => ({ default: () => null }))
+vi.mock('../views/ArmiesView', () => ({ default: () => <div>armies</div> }))
+vi.mock('../views/ArmyDetailView', () => ({ default: () => <div>army-detail</div> }))
+vi.mock('../views/LeaguesView', () => ({ default: () => <div>leagues</div> }))
+vi.mock('../views/LeagueDetailView', () => ({ default: () => <div>league-detail</div> }))
 // Views are lazy chunks (issue #708). This one is held back until a test lets it
 // load, so the shell can be seen mid-fetch.
 const duplicatesChunk = vi.hoisted(() => {
@@ -112,6 +116,16 @@ describe('AppShell', () => {
     expect(screen.getByTestId('global-player')).toBeInTheDocument()
   })
 
+  it.each([
+    ['/armies', 'armies'],
+    ['/armies/a1', 'army-detail'],
+    ['/leagues', 'leagues'],
+    ['/leagues/l1', 'league-detail'],
+  ])('routes %s to its wargame view', async (path, expected) => {
+    renderAt(path)
+    expect(await screen.findByText(expected)).toBeInTheDocument()
+  })
+
   it('routes to the audio detail view', async () => {
     renderAt('/audio/a1')
     await waitFor(() => expect(screen.getByText('audio-detail')).toBeInTheDocument())
@@ -156,13 +170,19 @@ describe('AppShell', () => {
       expect(screen.queryByText('campaigns')).not.toBeInTheDocument()
     })
 
-    it.each(['/library', '/maps', '/tokens', '/audio', '/search', '/settings/account'])(
-      'still redirects a guest away from %s',
-      async (path) => {
-        renderAt(path)
-        await waitFor(() => expect(screen.getByText('campaigns')).toBeInTheDocument())
-      }
-    )
+    it.each([
+      '/library',
+      '/maps',
+      '/tokens',
+      '/audio',
+      '/search',
+      '/settings/account',
+      '/armies',
+      '/leagues/l1',
+    ])('still redirects a guest away from %s', async (path) => {
+      renderAt(path)
+      await waitFor(() => expect(screen.getByText('campaigns')).toBeInTheDocument())
+    })
 
     it('still renders the guest campaign detail view', async () => {
       renderAt('/campaigns/c1/overview')

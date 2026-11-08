@@ -40,6 +40,10 @@ import {
   CharacterDetailView,
   CampaignDetailView,
   CampaignNotesView,
+  ArmiesView,
+  ArmyDetailView,
+  LeaguesView,
+  LeagueDetailView,
 } from './routeViews'
 import RouteFallback from './RouteFallback'
 import RouteAnnouncer from './RouteAnnouncer'
@@ -65,6 +69,8 @@ export default function AppShell() {
     hide_audio: false,
     hide_models: false,
     hide_campaigns: false,
+    hide_armies: false,
+    hide_leagues: false,
     // Assumed read-only until the server says otherwise, so the destructive
     // file actions cannot flash into a menu during the first render and be
     // clicked before the real answer arrives.
@@ -281,6 +287,12 @@ export default function AppShell() {
                     element={<Navigate to="/characters?manage=rulesets" replace />}
                   />
                   <Route path="/characters/:characterId" element={<CharacterDetailView />} />
+                  {/* Wargames: army lists and the leagues they are played in.
+                  Not for guests, so only in this block. */}
+                  <Route path="/armies" element={<ArmiesView />} />
+                  <Route path="/armies/:armyId" element={<ArmyDetailView />} />
+                  <Route path="/leagues" element={<LeaguesView />} />
+                  <Route path="/leagues/:leagueId" element={<LeagueDetailView />} />
                   {/* Full-page, outside the settings tabs: bulk reorganisation needs
                   the whole width for two panes (issue #302). */}
                   <Route path="/settings/files" element={<FileManagerView />} />

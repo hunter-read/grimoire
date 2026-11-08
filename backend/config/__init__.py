@@ -193,6 +193,7 @@ if TYPE_CHECKING:
         AUDIO_COVER_DIR as AUDIO_COVER_DIR,
         BOOK_COVER_DIR as BOOK_COVER_DIR,
         BRANDING_DIR as BRANDING_DIR,
+        ARMY_ROSTER_DIR as ARMY_ROSTER_DIR,
         ensure_data_dirs as ensure_data_dirs,
     )
     from .defaults import (

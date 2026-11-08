@@ -155,6 +155,8 @@ _FLAGS = (
     "hide_audio",
     "hide_models",
     "hide_campaigns",
+    "hide_armies",
+    "hide_leagues",
     "show_stat_systems",
     "show_stat_books",
     "show_stat_pages",

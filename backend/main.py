@@ -42,6 +42,7 @@ from .routers import (
     addons as addons_router,
     codex as codex_router,
     api_keys as api_keys_router,
+    armies as armies_router,
     audio as audio_router,
     audio_sets as audio_sets_router,
     auth as auth_router,
@@ -55,6 +56,7 @@ from .routers import (
     downloads as downloads_router,
     favorites as favorites_router,
     files as files_router,
+    leagues as leagues_router,
     library as library_router,
     logs as logs_router,
     lookups as lookups_router,
@@ -483,6 +485,8 @@ api.include_router(themes_router.router)
 api.include_router(characters_router.router)
 api.include_router(content_router.router)
 api.include_router(rulesets_router.router)
+api.include_router(armies_router.router)
+api.include_router(leagues_router.router)
 api.include_router(duplicates_router.router)
 api.include_router(maintenance_router.router)
 api.include_router(backups_router.router)

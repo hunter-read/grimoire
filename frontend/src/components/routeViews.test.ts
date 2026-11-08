@@ -1,11 +1,20 @@
 import { describe, expect, it, vi } from 'vitest'
-import { MapsView, SettingsView, preloadRoute } from './routeViews'
+import { ArmiesView, LeaguesView, MapsView, SettingsView, preloadRoute } from './routeViews'
 
 describe('preloadRoute', () => {
   it('preloads the view a sidebar destination opens', () => {
     const preload = vi.spyOn(MapsView, 'preload').mockResolvedValue({})
     preloadRoute('/maps')
     expect(preload).toHaveBeenCalledTimes(1)
+  })
+
+  it('preloads the armies and leagues views', () => {
+    const armies = vi.spyOn(ArmiesView, 'preload').mockResolvedValue({})
+    const leagues = vi.spyOn(LeaguesView, 'preload').mockResolvedValue({})
+    preloadRoute('/armies')
+    preloadRoute('/leagues')
+    expect(armies).toHaveBeenCalledTimes(1)
+    expect(leagues).toHaveBeenCalledTimes(1)
   })
 
   it('matches on the first path segment', () => {
