@@ -547,47 +547,10 @@ summary:focus-visible {
   flex: 1;
   min-width: 0;
 }
-/* Rows far off screen skip layout until they near the viewport. The remembered
-   size keeps the scrollbar honest once a section has been drawn. */
-.index-section--lazy {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 480px;
-}
-.index-heading {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  margin: 20px 0 10px;
-  padding-bottom: 4px;
-  border-bottom: 1px solid var(--border);
-  font:
-    700 15px 'Cinzel',
-    serif;
-  letter-spacing: 0.06em;
-  color: var(--gold-dim);
-  /* Lands clear of the sticky sort/filter bar when jumped to. */
+/* The first row of each run is what the rail jumps to: it lands clear of the
+   sticky sort/filter bar. */
+.indexed-layout__list [data-index-key] {
   scroll-margin-top: 80px;
-}
-.index-section:first-child > .index-heading {
-  margin-top: 0;
-}
-.index-heading__count {
-  font:
-    400 13px 'Alegreya Sans',
-    sans-serif;
-  letter-spacing: normal;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-}
-/* Focus arrives here from the rail. A ring only after keyboard use: a pointer
-   jump already shows where it landed. */
-.index-heading:focus {
-  outline: none;
-}
-.index-heading:focus-visible {
-  outline: 2px solid var(--gold);
-  outline-offset: 4px;
-  border-radius: 2px;
 }
 .thumb-index {
   position: sticky;

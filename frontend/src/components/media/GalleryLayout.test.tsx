@@ -283,11 +283,14 @@ describe('GalleryLayout', () => {
       expect(
         screen.getByRole('navigation', { name: 'Jump to folders by letter' })
       ).toBeInTheDocument()
-      expect(
-        screen.getByRole('heading', { level: 2, name: 'A5 folders · 10 maps' })
-      ).toBeInTheDocument()
+      // The folders run on unbroken: no letter headings between them.
+      expect(screen.queryByRole('heading', { name: /^A5 folders/ })).not.toBeInTheDocument()
       fireEvent.click(screen.getByRole('link', { name: 'C, 5 folders · 10 maps' }))
-      expect(document.activeElement).toHaveTextContent('C5 folders')
+      // Focus lands in the first C folder.
+      expect(document.activeElement?.closest('[data-index-key]')).toHaveAttribute(
+        'data-index-key',
+        'C'
+      )
     })
 
     it('opens at a folder with its path, its own name, and what it holds', () => {

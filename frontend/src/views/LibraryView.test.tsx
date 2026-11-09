@@ -911,9 +911,13 @@ describe('LibraryView', () => {
           .getAllByRole('link')
           .map((l) => l.textContent)
       ).toEqual(['A', 'B', 'C', 'D', 'E', 'F'])
+      // One continuous grid: no letter headings break it up.
+      expect(screen.queryByRole('heading', { name: 'D6 systems' })).not.toBeInTheDocument()
       fireEvent.click(within(rail).getByRole('link', { name: 'D, 6 systems' }))
-      expect(document.activeElement).toBe(
-        screen.getByRole('heading', { level: 3, name: 'D6 systems' })
+      // Focus lands on the first D system's card.
+      expect(document.activeElement?.closest('[data-index-key]')).toHaveAttribute(
+        'data-index-key',
+        'D'
       )
     })
 

@@ -546,9 +546,7 @@ export default function LibraryView({ gameType = 'ttrpg' }: LibraryViewProps) {
                 railLabel={t('thumbIndex.jumpSystems')}
                 describe={(run) => t('thumbIndex.systems', { count: run.count })}
                 formatLabel={(label) => (label === '#' && sortKey === 'year' ? '?' : label)}
-                headingLevel={3}
-                lazySections
-                renderItems={(sectionSystems) => (
+                renderItems={(rows, anchorOf) => (
                   <ul
                     role="list"
                     className="card-list"
@@ -562,8 +560,8 @@ export default function LibraryView({ gameType = 'ttrpg' }: LibraryViewProps) {
                           }
                     }
                   >
-                    {sectionSystems.map((system) => (
-                      <li key={system.id}>
+                    {rows.map((system) => (
+                      <li key={system.id} {...anchorOf(system)}>
                         <SystemCard
                           system={system}
                           to={`${base}/system/${system.id}`}

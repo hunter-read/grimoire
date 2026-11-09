@@ -9,50 +9,67 @@ afterEach(() => {
 const setup = () => {
   const container = document.createElement('div')
   container.innerHTML = `
-    <h3 data-index-key="A" tabindex="-1">A</h3>
-    <h3 data-index-key="#~1" tabindex="-1">#</h3>`
+    <ul>
+      <li data-index-key="A"><a href="/a">Alpha</a></li>
+      <li>Another</li>
+      <li data-index-key="#~1"><button type="button">1st</button></li>
+      <li data-index-key="Z">Zed, nothing to focus</li>
+    </ul>`
   document.body.appendChild(container)
-  const headings = container.querySelectorAll<HTMLElement>('h3')
-  headings.forEach((h) => {
-    h.scrollIntoView = vi.fn()
+  const anchors = container.querySelectorAll<HTMLElement>('[data-index-key]')
+  anchors.forEach((a) => {
+    a.scrollIntoView = vi.fn()
   })
-  return { container, headings }
+  return { container, anchors }
 }
 
 describe('jumpToSection', () => {
-  it('scrolls the section in and focuses its heading', () => {
-    const { container, headings } = setup()
-    expect(jumpToSection(container, '#~1')).toBe(true)
-    expect(headings[1].scrollIntoView).toHaveBeenCalledWith({ block: 'start', behavior: 'smooth' })
-    expect(document.activeElement).toBe(headings[1])
+  it("scrolls the run's first row in and focuses its link", () => {
+    const { container, anchors } = setup()
+    expect(jumpToSection(container, 'A')).toBe(true)
+    expect(anchors[0].scrollIntoView).toHaveBeenCalledWith({ block: 'start', behavior: 'smooth' })
+    expect(document.activeElement).toBe(container.querySelector('a'))
   })
 
-  it('aligns the heading again, instantly, once the scroll has settled', () => {
+  it('focuses a button the same way', () => {
+    const { container } = setup()
+    jumpToSection(container, '#~1')
+    expect(document.activeElement).toBe(container.querySelector('button'))
+  })
+
+  it('focuses the row itself when it holds nothing focusable', () => {
+    const { container, anchors } = setup()
+    jumpToSection(container, 'Z')
+    expect(document.activeElement).toBe(anchors[2])
+    expect(anchors[2].tabIndex).toBe(-1)
+  })
+
+  it('aligns the row again, instantly, once the scroll has settled', () => {
     vi.useFakeTimers()
-    const { container, headings } = setup()
+    const { container, anchors } = setup()
     jumpToSection(container, 'A')
     vi.advanceTimersByTime(1000)
-    expect(headings[0].scrollIntoView).toHaveBeenLastCalledWith({
+    expect(anchors[0].scrollIntoView).toHaveBeenLastCalledWith({
       block: 'start',
       behavior: 'auto',
     })
     // Settled once only, even if the scroll also reports its end.
     window.dispatchEvent(new Event('scrollend'))
-    expect(headings[0].scrollIntoView).toHaveBeenCalledTimes(2)
+    expect(anchors[0].scrollIntoView).toHaveBeenCalledTimes(2)
   })
 
   it('scrolls instantly under reduced motion', () => {
     const matchMedia = vi.fn(() => ({ matches: true }))
     vi.stubGlobal('matchMedia', matchMedia)
-    const { container, headings } = setup()
+    const { container, anchors } = setup()
     jumpToSection(container, 'A')
-    expect(headings[0].scrollIntoView).toHaveBeenCalledWith({ block: 'start', behavior: 'auto' })
+    expect(anchors[0].scrollIntoView).toHaveBeenCalledWith({ block: 'start', behavior: 'auto' })
     vi.unstubAllGlobals()
   })
 
-  it('reports a missing section', () => {
+  it('reports a missing run', () => {
     const { container } = setup()
-    expect(jumpToSection(container, 'Z')).toBe(false)
+    expect(jumpToSection(container, 'Q')).toBe(false)
     expect(jumpToSection(null, 'A')).toBe(false)
   })
 })
