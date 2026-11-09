@@ -660,8 +660,9 @@ detail route does not); those galleries sort and filter on it client-side.
 
 A book can be restricted to a minimum role, so a library shared with players can
 withhold the adventure module they are currently inside. Both `Book` and
-`GameSystem` carry an `access_level`, and a category-wide default lives in the
-`restricted_categories` app setting.
+`GameSystem` carry an `access_level`, a category-wide default lives in the
+`restricted_categories` app setting, and folder restrictions (issue #772) live in
+`folder_access_rules`.
 
 | Value | Meaning |
 |---|---|
@@ -675,6 +676,16 @@ default → open**. On a book, `null` means "inherit" and continues the cascade,
 while `""` is an *explicit* open that ends it - that is how a freely-shared
 player's guide stays visible inside an otherwise admin-only system. A system has
 no inherit state; it sits at the top of the cascade.
+
+**Folder restrictions** (`/api/settings/folder-access`) restrict every book
+beneath a library folder, at any depth. They sit beside the cascade rather than
+in it: a book with no level of its own resolves to the **stricter** of what the
+cascade gives it and the strictest folder rule covering its path, so a folder only
+ever adds a restriction. Only the book's own level overrides one. A folder is
+matched by its exact name, case included. Rules follow a folder renamed or moved
+in the file manager (when both the old and the new place had one, the stricter is
+kept) and are deleted with it. A non-admin's category change, which moves the file
+to another folder, is refused when the book could leave a rule that restricts it.
 
 `PATCH`/bulk bodies use the string `"inherit"` for the null write, because the
 handlers drop `null` fields so an omitted key leaves the book alone.
@@ -1860,6 +1871,9 @@ Feeds are **personalised to the token's owner**: each event's `SUMMARY` and `DES
 | `/api/settings/ui` | GET | UI visibility flags (any authenticated user) |
 | `/api/settings/oidc-button-icon` | POST | Upload the OIDC button icon. Multipart `file`: PNG, JPEG, WebP, GIF or SVG, max 1 MB (413 above that, 400 for anything that isn't a decodable image). The image is re-encoded - SVGs are rasterized - to a PNG at most 192 px on its longest side, so the uploaded bytes are never served. 400 when `OIDC_BUTTON_ICON` pins it. Returns the full settings. |
 | `/api/settings/oidc-button-icon` | DELETE | Remove the uploaded icon. 400 when `OIDC_BUTTON_ICON` pins it. Returns the full settings. |
+| `/api/settings/folder-access` | GET | Admin-only. Every folder restriction: `{rules: [{path, level, exists, books}]}`, sorted by path. `exists` is false once the folder is gone from disk; `books` is how many books the rule covers now. See [Access levels](#access-levels-issue-258). |
+| `/api/settings/folder-access` | PUT | Admin-only. Restrict a folder. Body `{path, level: "gm"\|"admin"}`; `path` is library-relative (`books/D&D 5e/Core/GM`) and must be a folder *inside* `books/` or the armory (400 otherwise, 422 for another level, 404 when the folder does not exist). Replaces any level the folder had, and demotes campaign shares of the books it restricts to GM-only. Returns the rule. |
+| `/api/settings/folder-access?path=` | DELETE | Admin-only. Lift a folder's restriction. 404 when it has none. Shares demoted by it stay GM-only. |
 
 The settings response no longer carries a `stats_api_key`, and `PATCH` ignores
 one: API keys moved to [`/api/api-keys`](#api-keys-1), where the key

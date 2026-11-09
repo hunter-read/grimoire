@@ -1716,6 +1716,27 @@
       "hint": "Core rulebooks and character sheets cannot be restricted. Restricted books are hidden entirely from users who lack access, including in search and downloads.",
       "saveFailed": "Could not save the category restrictions.",
       "selectLabel": "Access level for {{category}}"
+    },
+    "folderAccess": {
+      "title": "Folder Restrictions",
+      "description": "Restrict every book beneath a folder, such as the GM's guides kept with a system's core books. A folder only adds a restriction: its books get the stricter of the folder's level and their system's or category's. To share one of them anyway, set that book's own level.",
+      "empty": "No folders are restricted.",
+      "add": "Restrict a folder",
+      "restrict": "Restrict",
+      "pickFolder": "Pick a folder inside books/ or armory/.",
+      "notBooks": "Only folders inside books/ or armory/ can be restricted",
+      "newLevelLabel": "Access level for the new folder restriction",
+      "levelLabel": "Access level for {{path}}",
+      "books_one": "{{count}} book",
+      "books_other": "{{count}} books",
+      "missing": "Folder not found",
+      "missingHint": "This folder was renamed or removed outside Grimoire, so the restriction no longer covers any books.",
+      "removeLabel": "Lift the restriction on {{path}}",
+      "removeTitle": "Lift folder restriction",
+      "removeConfirm": "Lift the restriction on {{path}}? Its books become visible to everyone again, unless the book, its system or its category restricts them.",
+      "loadFailed": "Could not load the folder restrictions.",
+      "saveFailed": "Could not save the folder restriction.",
+      "removeFailed": "Could not lift the folder restriction."
     }
   },
   "users": {

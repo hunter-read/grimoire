@@ -28,6 +28,7 @@ from ...models.game_types import GAME_TYPE_WARGAME
 from ...models.library import Book
 from ...sql_paths import path_at_or_under, path_under
 from ..filename_rules.folders import relink_rules
+from .. import folder_access
 from .constants import COLLECTIONS, FOLDER_MODELS, _THUMB_SECTIONS, LibraryFSError
 from .paths import (
     assert_writable,
@@ -634,9 +635,11 @@ def _relink_folders(db: Session, src: Path, dest: Path) -> int:
     recorded); its tags absorb the source's rather than colliding on the unique
     path, and the now-redundant source row is dropped.
     """
-    # Naming patterns are keyed by disk path too, books included, so they travel
-    # with the folder whatever its collection.
+    # Naming patterns and folder access rules are keyed by disk path too, books
+    # included, so they travel with the folder whatever its collection. An access
+    # rule left behind would open the folder's books up to everyone.
     relink_rules(db, to_relative(src), to_relative(dest))
+    folder_access.relink_rules(db, to_relative(src), to_relative(dest))
 
     section, src_rel = _folder_rel(src)
     _, dest_rel = _folder_rel(dest)

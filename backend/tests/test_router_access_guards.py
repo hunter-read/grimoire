@@ -35,6 +35,7 @@ ALLOWED_UNGUARDED = {
     "campaigns/resources.py": "names of resources a GM already linked; campaign visibility applies",
     "duplicates/_helpers.py": "admin-only duplicate finder",
     "lookups/_helpers.py": "metadata autocomplete counts, no titles or ids",
+    "settings/folder_access.py": "admin-only folder restrictions: book counts and share demotion",
     "tags/_helpers.py": "enriches ids its caller (tags/items.py) already filtered",
 }
 

@@ -1716,6 +1716,27 @@
       "hint": "Livros de regras base e fichas de personagem não podem ser restritos. Livros restritos ficam totalmente ocultos para utilizadores sem acesso, incluindo na pesquisa e nas transferências.",
       "saveFailed": "Não foi possível guardar as restrições de categoria.",
       "selectLabel": "Nível de acesso para {{category}}"
+    },
+    "folderAccess": {
+      "title": "Restrições por pasta",
+      "description": "Restrinja todos os livros de uma pasta, como os livros do mestre guardados com os livros básicos de um sistema. Uma pasta só acrescenta uma restrição: seus livros recebem o nível mais restrito entre o da pasta e o do sistema ou da categoria. Para compartilhar algum mesmo assim, defina o nível desse livro.",
+      "empty": "Nenhuma pasta está restrita.",
+      "add": "Restringir uma pasta",
+      "restrict": "Restringir",
+      "pickFolder": "Escolha uma pasta dentro de books/ ou armory/.",
+      "notBooks": "Só é possível restringir pastas dentro de books/ ou armory/",
+      "newLevelLabel": "Nível de acesso da nova restrição de pasta",
+      "levelLabel": "Nível de acesso de {{path}}",
+      "books_one": "{{count}} livro",
+      "books_other": "{{count}} livros",
+      "missing": "Pasta não encontrada",
+      "missingHint": "Esta pasta foi renomeada ou removida fora do Grimoire, então a restrição não cobre mais nenhum livro.",
+      "removeLabel": "Remover a restrição de {{path}}",
+      "removeTitle": "Remover restrição de pasta",
+      "removeConfirm": "Remover a restrição de {{path}}? Seus livros voltam a ficar visíveis para todos, a menos que o livro, o sistema ou a categoria os restrinja.",
+      "loadFailed": "Não foi possível carregar as restrições por pasta.",
+      "saveFailed": "Não foi possível salvar a restrição de pasta.",
+      "removeFailed": "Não foi possível remover a restrição de pasta."
     }
   },
   "users": {

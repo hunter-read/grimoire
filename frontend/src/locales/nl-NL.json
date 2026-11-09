@@ -1716,6 +1716,27 @@
       "hint": "Basisregelboeken en personagebladen kunnen niet worden beperkt. Beperkte boeken zijn volledig verborgen voor gebruikers zonder toegang, ook in zoekresultaten en downloads.",
       "saveFailed": "De categoriebeperkingen konden niet worden opgeslagen.",
       "selectLabel": "Toegangsniveau voor {{category}}"
+    },
+    "folderAccess": {
+      "title": "Mapbeperkingen",
+      "description": "Beperk elk boek in een map, zoals de spelleidersboeken die bij de kernboeken van een systeem staan. Een map voegt alleen een beperking toe: de boeken erin krijgen het strengste niveau van de map en van hun systeem of categorie. Wil je er toch één delen, stel dan het niveau van dat boek zelf in.",
+      "empty": "Er zijn geen mappen beperkt.",
+      "add": "Map beperken",
+      "restrict": "Beperken",
+      "pickFolder": "Kies een map in books/ of armory/.",
+      "notBooks": "Alleen mappen in books/ of armory/ kunnen worden beperkt",
+      "newLevelLabel": "Toegangsniveau voor de nieuwe mapbeperking",
+      "levelLabel": "Toegangsniveau voor {{path}}",
+      "books_one": "{{count}} boek",
+      "books_other": "{{count}} boeken",
+      "missing": "Map niet gevonden",
+      "missingHint": "Deze map is buiten Grimoire hernoemd of verwijderd, dus de beperking geldt voor geen enkel boek meer.",
+      "removeLabel": "Beperking op {{path}} opheffen",
+      "removeTitle": "Mapbeperking opheffen",
+      "removeConfirm": "Beperking op {{path}} opheffen? De boeken erin zijn dan weer voor iedereen zichtbaar, tenzij het boek, het systeem of de categorie ze beperkt.",
+      "loadFailed": "De mapbeperkingen konden niet worden geladen.",
+      "saveFailed": "De mapbeperking kon niet worden opgeslagen.",
+      "removeFailed": "De mapbeperking kon niet worden opgeheven."
     }
   },
   "users": {

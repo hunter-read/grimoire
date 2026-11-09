@@ -1716,6 +1716,27 @@
       "hint": "Les livres de règles de base et les feuilles de personnage ne peuvent pas être restreints. Les livres restreints sont entièrement masqués aux utilisateurs sans accès, y compris dans la recherche et les téléchargements.",
       "saveFailed": "Impossible d'enregistrer les restrictions de catégorie.",
       "selectLabel": "Niveau d'accès pour {{category}}"
+    },
+    "folderAccess": {
+      "title": "Restrictions par dossier",
+      "description": "Restreignez tous les livres d'un dossier, comme les guides du MJ rangés avec les livres de base d'un système. Un dossier ne fait qu'ajouter une restriction : ses livres prennent le niveau le plus strict entre celui du dossier et celui de leur système ou de leur catégorie. Pour en partager un malgré tout, définissez le niveau de ce livre.",
+      "empty": "Aucun dossier n'est restreint.",
+      "add": "Restreindre un dossier",
+      "restrict": "Restreindre",
+      "pickFolder": "Choisissez un dossier dans books/ ou armory/.",
+      "notBooks": "Seuls les dossiers dans books/ ou armory/ peuvent être restreints",
+      "newLevelLabel": "Niveau d'accès de la nouvelle restriction de dossier",
+      "levelLabel": "Niveau d'accès pour {{path}}",
+      "books_one": "{{count}} livre",
+      "books_other": "{{count}} livres",
+      "missing": "Dossier introuvable",
+      "missingHint": "Ce dossier a été renommé ou supprimé en dehors de Grimoire, la restriction ne couvre donc plus aucun livre.",
+      "removeLabel": "Lever la restriction sur {{path}}",
+      "removeTitle": "Lever la restriction de dossier",
+      "removeConfirm": "Lever la restriction sur {{path}} ? Ses livres redeviennent visibles par tous, sauf si le livre, son système ou sa catégorie les restreint.",
+      "loadFailed": "Impossible de charger les restrictions par dossier.",
+      "saveFailed": "Impossible d'enregistrer la restriction de dossier.",
+      "removeFailed": "Impossible de lever la restriction de dossier."
     }
   },
   "users": {

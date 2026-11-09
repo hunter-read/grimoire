@@ -11,6 +11,12 @@ answer.
 
     book.access_level  →  system.access_level  →  category default  →  open
 
+**Folder rules** (issue #772) sit beside the system and category tiers rather
+than in the chain: a book with no level of its own resolves to the stricter of
+the cascade above and the strictest folder rule covering its path. A folder
+rule can therefore only add a restriction, never lift one a system or category
+set, and only the book's own level overrides it.
+
 ``books.access_level`` is three-state. NULL means *inherit* — this book has no
 opinion, keep looking. Any non-NULL value, including ``""``, is an explicit
 decision that ends the cascade, which is what lets a freely-shared player's
@@ -43,6 +49,8 @@ from sqlalchemy import ColumnElement, and_, event, false, or_, true
 from sqlalchemy.orm import Query, Session
 
 from ..models import AppSetting, Book, GameSystem, User, UserAccessGrant
+from . import folder_access
+from .folder_access import FolderRules
 from ..models.access import (
     ASSIGNABLE_LEVELS,
     CATEGORY_DEFAULTS_KEY,
@@ -54,9 +62,11 @@ from ..models.access import (
     SCOPE_SYSTEM,
     UNRESTRICTABLE_CATEGORIES,
     is_inherit,
+    most_restrictive,
     normalize,
     rank,
 )
+from ..sql_paths import path_under
 
 # Role → the most restrictive level that role can see unaided. Anything not
 # listed (including "guest" and any future role) falls to the player ceiling,
@@ -163,24 +173,29 @@ def resolve_level(
     *,
     system: Optional[GameSystem] = None,
     defaults: Optional[dict[str, str]] = None,
+    folders: Optional[FolderRules] = None,
 ) -> str:
     """The effective access level for ``book``, following the full cascade.
 
-    ``system`` and ``defaults`` may be passed by callers resolving many books at
-    once, so a list view does not re-query the system row or re-parse the
-    settings JSON per book.
+    ``system``, ``defaults`` and ``folders`` may be passed by callers resolving
+    many books at once, so a list view does not re-query the system row or
+    re-read the settings and folder rules per book.
     """
     if not is_inherit(book.access_level):
         return normalize(book.access_level)
 
+    if folders is None:
+        folders = folder_access.load(db)
+    folder_level = folders.level_for(book.relative_path)
+
     if system is None and book.game_system_id:
         system = db.query(GameSystem).filter_by(id=book.game_system_id).first()
     if system is not None and normalize(system.access_level) != LEVEL_OPEN:
-        return normalize(system.access_level)
+        return most_restrictive(system.access_level, folder_level)
 
     if defaults is None:
         defaults = category_defaults(db)
-    return normalize(defaults.get(book.category or ""))
+    return most_restrictive(defaults.get(book.category or ""), folder_level)
 
 
 def effective_levels(db: Session, books: Iterable[Book]) -> dict[str, str]:
@@ -194,6 +209,7 @@ def effective_levels(db: Session, books: Iterable[Book]) -> dict[str, str]:
     if not books:
         return {}
     defaults = category_defaults(db)
+    folders = folder_access.load(db)
     system_ids = {b.game_system_id for b in books if b.game_system_id}
     systems = {}
     if system_ids:
@@ -203,7 +219,11 @@ def effective_levels(db: Session, books: Iterable[Book]) -> dict[str, str]:
         }
     return {
         b.id: resolve_level(
-            db, b, system=systems.get(b.game_system_id or ""), defaults=defaults
+            db,
+            b,
+            system=systems.get(b.game_system_id or ""),
+            defaults=defaults,
+            folders=folders,
         )
         for b in books
     }
@@ -255,9 +275,10 @@ def can_access_book(
     *,
     system: Optional[GameSystem] = None,
     defaults: Optional[dict[str, str]] = None,
+    folders: Optional[FolderRules] = None,
 ) -> bool:
     """Whether ``user`` may see ``book`` at all."""
-    required = resolve_level(db, book, system=system, defaults=defaults)
+    required = resolve_level(db, book, system=system, defaults=defaults, folders=folders)
     if required == LEVEL_OPEN:
         return True
 
@@ -411,6 +432,15 @@ def _build_book_filter(db: Session, user: Any) -> Optional[ColumnElement[bool]]:
     in_blocked_category = (
         Book.category.in_(blocked_categories) if blocked_categories else false()
     )
+    # ``path_under`` rather than LIKE, which ignores case and treats ``_`` and
+    # ``%`` in a folder name as wildcards (see sql_paths). ``relative_path`` is
+    # NOT NULL, so each comparison is a definite true or false.
+    blocked_folders = folder_access.load(db).paths_at(blocked)
+    in_blocked_folder = (
+        or_(*[path_under(Book.relative_path, path + "/") for path in blocked_folders])
+        if blocked_folders
+        else false()
+    )
     # NULL is "inherit", and SQL three-valued logic makes that a live hazard
     # here: ``NULL IN ('gm','admin')`` is NULL, not false, so ``NOT (...)`` over
     # a bare IN drops every inheriting book instead of keeping it. Each branch
@@ -432,6 +462,10 @@ def _build_book_filter(db: Session, user: Any) -> Optional[ColumnElement[bool]]:
             ~in_levelled_system,
             in_blocked_category,
         ),
+        # 4. Inherit → a folder rule the user cannot clear. Independent of the
+        #    system and category branches: a folder rule only ever adds a
+        #    restriction, so whatever those resolve to, this one still applies.
+        and_(Book.access_level.is_(None), in_blocked_folder),
     )
 
     book_grants = _grant_scope_ids(db, user, SCOPE_BOOK)

@@ -8,6 +8,7 @@ import type { SettingsVisibility } from '../registry'
 // this page asks for is the point.
 vi.mock('../ShareLinkRolesSection', () => ({ default: () => <div>share-link-roles</div> }))
 vi.mock('../CategoryAccessSection', () => ({ default: () => <div>category-access</div> }))
+vi.mock('../FolderAccessSection', () => ({ default: () => <div>folder-access</div> }))
 vi.mock('../CampaignUploadsSection', () => ({ default: () => <div>campaign-uploads</div> }))
 
 vi.mock('../../../api', () => ({
@@ -36,7 +37,12 @@ beforeEach(() => {
 describe('AccessArea', () => {
   it('holds the server-wide access settings', () => {
     render(<AccessArea visibility={{ ...ALL, apiKeysOnInstance: false }} />)
-    for (const label of ['share-link-roles', 'category-access', 'campaign-uploads']) {
+    for (const label of [
+      'share-link-roles',
+      'category-access',
+      'folder-access',
+      'campaign-uploads',
+    ]) {
       expect(screen.getByText(label)).toBeInTheDocument()
     }
   })

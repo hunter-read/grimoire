@@ -1716,6 +1716,27 @@
       "hint": "Los manuales básicos y las hojas de personaje no se pueden restringir. Los libros restringidos se ocultan por completo a los usuarios sin acceso, también en la búsqueda y las descargas.",
       "saveFailed": "No se han podido guardar las restricciones de categoría.",
       "selectLabel": "Nivel de acceso para {{category}}"
+    },
+    "folderAccess": {
+      "title": "Restricciones por carpeta",
+      "description": "Restringe todos los libros de una carpeta, como los libros del máster guardados junto a los libros básicos de un sistema. Una carpeta solo añade una restricción: sus libros toman el nivel más estricto entre el de la carpeta y el de su sistema o categoría. Para compartir alguno de todos modos, ajusta el nivel de ese libro.",
+      "empty": "No hay carpetas restringidas.",
+      "add": "Restringir una carpeta",
+      "restrict": "Restringir",
+      "pickFolder": "Elige una carpeta dentro de books/ o armory/.",
+      "notBooks": "Solo se pueden restringir carpetas dentro de books/ o armory/",
+      "newLevelLabel": "Nivel de acceso de la nueva restricción de carpeta",
+      "levelLabel": "Nivel de acceso de {{path}}",
+      "books_one": "{{count}} libro",
+      "books_other": "{{count}} libros",
+      "missing": "Carpeta no encontrada",
+      "missingHint": "Esta carpeta se renombró o eliminó fuera de Grimoire, así que la restricción ya no cubre ningún libro.",
+      "removeLabel": "Quitar la restricción de {{path}}",
+      "removeTitle": "Quitar restricción de carpeta",
+      "removeConfirm": "¿Quitar la restricción de {{path}}? Sus libros volverán a ser visibles para todos, salvo que el libro, su sistema o su categoría los restrinjan.",
+      "loadFailed": "No se pudieron cargar las restricciones por carpeta.",
+      "saveFailed": "No se pudo guardar la restricción de carpeta.",
+      "removeFailed": "No se pudo quitar la restricción de carpeta."
     }
   },
   "users": {

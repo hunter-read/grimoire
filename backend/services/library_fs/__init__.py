@@ -73,7 +73,7 @@ from .placement import (  # noqa: F401
     CATEGORY_FOLDER_NAMES,
     BookPlacement,
     _system_folder_name,
-    _system_root_for,
+    system_root_for,
     category_folder_for,
     is_category_name,
     read_book_placement,
