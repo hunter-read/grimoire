@@ -14,7 +14,7 @@ from .._user_files import serve_user_file
 from ...http_headers import content_disposition
 from ... import token_vault
 from ...auth import verify_password
-from ...config import get_db
+from ...config import get_db, release_connection
 from ...models import ShareLink
 from ...models.base import utc_iso
 from ...security import (
@@ -165,5 +165,7 @@ def share_content(
     )
     headers.update(inert_svg_headers(shared.media_type, shared.path or ""))
     if shared.path is not None:
+        # Don't hold a pooled connection while the file sends.
+        release_connection(db)
         return serve_user_file(shared.path, shared.media_type, headers=headers)
     return Response(content=shared.content or b"", media_type=shared.media_type, headers=headers)

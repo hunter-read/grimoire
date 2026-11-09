@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from fastapi.responses import Response
 
 from .._user_files import serve_user_file
-from ...config import get_db
+from ...config import get_db, release_connection
 from ...models import Audio, AudioFolder
 from ...security import inert_svg_headers
 from ...models.base import utc_iso
@@ -190,6 +190,9 @@ def serve_audio_file(
         ext = Path(a.filepath).suffix.lower()
         media = AUDIO_MIME.get(ext, "application/octet-stream")
     # FileResponse honours HTTP Range requests, so browsers can seek/stream.
+    # A track streams for as long as it plays; don't hold a pooled connection
+    # through it.
+    release_connection(db)
     return serve_user_file(a.filepath, media, filename=a.filename)
 
 

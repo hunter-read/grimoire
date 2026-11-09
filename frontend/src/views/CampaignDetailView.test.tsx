@@ -59,8 +59,22 @@ vi.mock('../components/campaigns/WikiView', () => ({ default: () => <div /> }))
 vi.mock('../components/campaigns/WikiMarkdown', () => ({
   default: ({ body }: { body: string }) => <div data-testid="wiki-md">{body}</div>,
 }))
+// The chart's cells call onSetAvailability(date, status, row.user_id); the stub
+// exposes one button per row so a test can set any member's cell.
 vi.mock('../components/campaigns/AvailabilityChart', () => ({
-  default: () => <div data-testid="availability-chart" />,
+  default: ({
+    onSetAvailability,
+  }: {
+    onSetAvailability: (date: string, status: string, userId?: string) => void
+  }) => (
+    <div data-testid="availability-chart">
+      {['owner1', 'p1'].map((id) => (
+        <button key={id} onClick={() => onSetAvailability('2026-11-12', 'yes', id)}>
+          {`set ${id}`}
+        </button>
+      ))}
+    </div>
+  ),
 }))
 vi.mock('../components/campaigns/ResourcesPanel', () => ({
   default: () => <div data-testid="resources-panel" />,
@@ -269,6 +283,35 @@ describe('CampaignDetailView rendering', () => {
     })
     renderView()
     expect(await screen.findByTestId('availability-chart')).toBeInTheDocument()
+  })
+
+  it("sends the player's user_id when the GM sets a player's cell", async () => {
+    mockLoad({
+      schedule: { enabled: true, definition: { frequency: 'weekly', days: [4] } },
+    })
+    mockCampaigns.setAvailability.mockResolvedValue({})
+    renderView()
+    fireEvent.click(await screen.findByRole('button', { name: 'set p1' }))
+    await waitFor(() =>
+      expect(mockCampaigns.setAvailability).toHaveBeenCalledWith('c1', '2026-11-12', {
+        status: 'yes',
+        user_id: 'p1',
+      })
+    )
+  })
+
+  it('sends no user_id when the GM sets their own cell', async () => {
+    mockLoad({
+      schedule: { enabled: true, definition: { frequency: 'weekly', days: [4] } },
+    })
+    mockCampaigns.setAvailability.mockResolvedValue({})
+    renderView()
+    fireEvent.click(await screen.findByRole('button', { name: 'set owner1' }))
+    await waitFor(() =>
+      expect(mockCampaigns.setAvailability).toHaveBeenCalledWith('c1', '2026-11-12', {
+        status: 'yes',
+      })
+    )
   })
 
   it('shows a read-only notice when the campaign is locked', async () => {

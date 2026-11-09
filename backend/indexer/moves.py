@@ -232,7 +232,7 @@ def _detect_moves(
 
     if moved:
         try:
-            _db_call(session.commit, "commit detected moves")
+            _db_call(session.commit, "commit detected moves", session)
         except SQLAlchemyError as e:
             logger.error(f"DB error saving detected moves: {e}")
             session.rollback()

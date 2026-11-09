@@ -243,7 +243,8 @@ def _scan_media(
                     continue
                 try:
                     existing = _db_call(
-                        lambda: session.get(model, row.id), f"query {singular} '{filepath}'"
+                        lambda: session.get(model, row.id), f"query {singular} '{filepath}'",
+                        session,
                     )
                 except DatabaseBusyError as e:
                     logger.error(f"DB error: {e} - skipping '{filename}'")
@@ -266,7 +267,7 @@ def _scan_media(
                 if _needs_model_thumbnail_requeue(existing, ext):
                     existing.thumbnail_pending = True
                     try:
-                        _db_call(session.commit, f"commit {singular} requeue '{filepath}'")
+                        _db_call(session.commit, f"commit {singular} requeue '{filepath}'", session)
                         logger.debug(f"Requeued model preview: {filepath}")
                     except DatabaseBusyError as e:
                         logger.error(f"DB error: {e} - rolling back '{filename}'")
@@ -290,7 +291,11 @@ def _scan_media(
                         existing.has_thumbnail = True
                         ctx.note_thumbnail(section, filepath)
                         try:
-                            _db_call(session.commit, f"commit {singular} thumbnail '{filepath}'")
+                            _db_call(
+                                session.commit,
+                                f"commit {singular} thumbnail '{filepath}'",
+                                session,
+                            )
                             stats[f"updated_{section}"] += 1
                         except DatabaseBusyError as e:
                             logger.error(f"DB error: {e} - rolling back '{filename}'")
@@ -347,7 +352,7 @@ def _scan_media(
             session.add(record)
             logger.debug(f"DB: committing new {singular} '{filename}'")
             try:
-                _db_call(session.commit, f"commit {singular} '{filepath}'")
+                _db_call(session.commit, f"commit {singular} '{filepath}'", session)
                 ctx.inserted_ids.add(record.id)
                 stats[f"new_{section}"] += 1
                 logger.info(f"Added {singular}: {title}")
@@ -381,7 +386,7 @@ def _backfill_track_numbers(
             if not getattr(track, field) and meta[field]:
                 setattr(track, field, meta[field])
     try:
-        _db_call(ctx.session.commit, f"commit audio '{filepath}'")
+        _db_call(ctx.session.commit, f"commit audio '{filepath}'", ctx.session)
     except DatabaseBusyError as e:
         logger.error(f"DB error: {e} - rolling back '{filepath}'")
         ctx.session.rollback()
@@ -448,7 +453,8 @@ def _scan_audio(ctx: _ScanContext, walk_dir: Path) -> None:
                     continue
                 try:
                     existing = _db_call(
-                        lambda: session.get(Audio, row.id), f"query audio '{filepath}'"
+                        lambda: session.get(Audio, row.id), f"query audio '{filepath}'",
+                        session,
                     )
                 except DatabaseBusyError as e:
                     logger.error(f"DB error: {e} - skipping '{filename}'")
@@ -502,7 +508,7 @@ def _scan_audio(ctx: _ScanContext, walk_dir: Path) -> None:
             session.add(track)
             logger.debug(f"DB: committing new audio '{filename}'")
             try:
-                _db_call(session.commit, f"commit audio '{filepath}'")
+                _db_call(session.commit, f"commit audio '{filepath}'", session)
                 ctx.inserted_ids.add(track.id)
                 stats["new_audio"] += 1
                 logger.info(f"Added audio: {meta['title'] or filename}")

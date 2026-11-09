@@ -228,6 +228,45 @@ def _unthrottled_scan_status():
     _context.STATUS_INTERVAL = saved
 
 
+# The variables that pick the suite's database, as conftest set them.
+_DATABASE_VARS = ("DATABASE_URL", "TEST_DATABASE_URL")
+_DATABASE_ENV = {name: os.environ.get(name) for name in _DATABASE_VARS}
+_DIALECT = "postgresql" if ON_POSTGRES else "sqlite"
+
+
+@pytest.fixture(autouse=True)
+def _database_stays_put():
+    """Fail the test that moves the suite off its database, and put it back.
+
+    A test that drops ``DATABASE_URL`` from the environment (running the add-on
+    worker's credential scrub in-process did) breaks nothing by itself; the next
+    ``importlib.reload(backend.config)`` then re-reads the environment and quietly
+    opens a SQLite file instead of the PostgreSQL database, and thousands of
+    tests later every request is a 401 for a user that no longer exists. So it
+    is caught at the test that did it.
+
+    Torn down after monkeypatch has undone the test's own patches, so a test
+    that patches the engine or the variables and lets monkeypatch restore them
+    passes.
+    """
+    yield
+    problems = []
+    for name, value in _DATABASE_ENV.items():
+        if os.environ.get(name) != value:
+            problems.append(f"{name} was changed in os.environ")
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
+    from backend.config import db as db_module
+
+    engine = db_module.engine
+    if engine is not None and engine.dialect.name != _DIALECT:
+        problems.append(f"the app engine is now {engine.dialect.name}, not {_DIALECT}")
+    if problems:
+        pytest.fail("Test left the suite's database moved: " + "; ".join(problems))
+
+
 # ---------------------------------------------------------------------------
 # Bootstrap admin (runs once per session via /api/auth/setup)
 # ---------------------------------------------------------------------------

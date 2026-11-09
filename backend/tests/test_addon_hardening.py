@@ -1,5 +1,8 @@
 """Add-on index URLs need https off the local network, and add-on scripts don't
 inherit Grimoire's credentials."""
+import os
+from unittest.mock import patch
+
 import pytest
 
 from backend.addon_worker import scrub_environment
@@ -100,7 +103,10 @@ def test_worker_scrubs_before_running_the_script(tmp_path, monkeypatch):
     )
     result = tmp_path / "r.json"
     monkeypatch.setenv("SECRET_KEY", "should-not-reach-the-script")
-    addon_worker.main(str(script), "{}", str(result))
+    # main() is the child's entry point and scrubs the real environment; keep
+    # it off this process's, or DATABASE_URL goes for every later test.
+    with patch.dict(os.environ):
+        addon_worker.main(str(script), "{}", str(result))
     assert json.loads(result.read_text()) == {"seen": []}
 
 
@@ -134,7 +140,8 @@ def test_worker_hands_declared_variables_to_the_script(tmp_path, monkeypatch):
     )
     result = tmp_path / "r.json"
     monkeypatch.setenv("BGG_API_TOKEN", "bgg")
-    addon_worker.main(str(script), "{}", str(result), ["BGG_API_TOKEN"])
+    with patch.dict(os.environ):
+        addon_worker.main(str(script), "{}", str(result), ["BGG_API_TOKEN"])
     assert json.loads(result.read_text()) == {"token": "bgg"}
 
 

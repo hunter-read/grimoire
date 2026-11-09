@@ -240,6 +240,66 @@ class TestDiscovery:
         (broken / "broken.yml").write_text("::: not yaml :::")
         assert list(registry.load_all()) == ["good"]
 
+    def test_a_broken_addon_is_warned_about_once_until_it_changes(
+        self, addons_dir, caplog
+    ):
+        """load_all runs on every scraper lookup, so a scan would otherwise
+        repeat the same warning for each system it pushes."""
+        broken = addons_dir / "broken"
+        broken.mkdir()
+        manifest = broken / "broken.yml"
+        manifest.write_text("::: not yaml :::")
+
+        def warnings():
+            return [
+                r for r in caplog.records
+                if r.levelname == "WARNING" and "'broken'" in r.getMessage()
+            ]
+
+        with caplog.at_level("DEBUG", logger="grimoire.addons"):
+            registry.load_all()
+            registry.load_all()
+            assert len(warnings()) == 1
+
+            # Editing the file (a new modification time) earns a fresh warning.
+            stat = manifest.stat()
+            os.utime(manifest, (stat.st_atime, stat.st_mtime + 10))
+            registry.load_all()
+            assert len(warnings()) == 2
+
+    def test_a_fixed_addon_is_warned_about_again_if_it_breaks(self, addons_dir, caplog):
+        _write_addon(addons_dir, "flaky")
+        manifest = addons_dir / "flaky" / "flaky.yml"
+        good = manifest.read_text()
+        stat = manifest.stat()
+        manifest.write_text("::: not yaml :::")
+        os.utime(manifest, (stat.st_atime, stat.st_mtime))
+        with caplog.at_level("WARNING", logger="grimoire.addons"):
+            registry.load_all()
+            manifest.write_text(good)
+            assert "flaky" in registry.load_all()
+            # Broken again with the same timestamp as before: still reported.
+            manifest.write_text("::: not yaml :::")
+            os.utime(manifest, (stat.st_atime, stat.st_mtime))
+            registry.load_all()
+        assert sum("'flaky'" in r.getMessage() for r in caplog.records) == 2
+
+    def test_a_note_template_says_it_is_not_an_addon(self, addons_dir):
+        """The community repo keeps note templates beside add-ons; one copied
+        into the add-ons folder should say what it is and where it goes."""
+        directory = addons_dir / "5e-npc"
+        directory.mkdir()
+        (directory / "5e-npc.yml").write_text(yaml.safe_dump(
+            {"id": "5e-npc", "name": "NPC", "version": "1.0.0", "kind": "note-template"}
+        ))
+        with pytest.raises(AddonError) as raised:
+            registry.load_manifest("5e-npc")
+        message = str(raised.value)
+        assert "is a note template, not an add-on" in message
+        assert "Templates button" in message
+        assert str(directory) in message
+        assert "literal_error" not in message
+
     @pytest.mark.parametrize("bad", ["../etc", "a/b", "", "x;rm -rf"])
     def test_addon_dir_rejects_path_traversal(self, bad):
         with pytest.raises(AddonError, match="invalid add-on id"):

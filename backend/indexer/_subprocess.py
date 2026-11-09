@@ -488,7 +488,7 @@ def _book_page_count(filepath: str) -> int:
 def _commit(session: Session, label: str) -> None:
     """Commit, rolling back if the database stays locked or rejects the row."""
     try:
-        _db_call(session.commit, label)
+        _db_call(session.commit, label, session)
     except (DatabaseBusyError, IntegrityError) as e:
         logger.error(f"DB error on commit ({label}): {e}")
         session.rollback()

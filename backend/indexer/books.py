@@ -109,7 +109,7 @@ def _scan_books(ctx: _ScanContext, books_dir: Path, game_type: str = GAME_TYPE_T
 
     if registered:
         try:
-            _db_call(session.commit, "commit top-level systems")
+            _db_call(session.commit, "commit top-level systems", session)
         except SQLAlchemyError as e:
             logger.error(f"DB error saving top-level systems: {e}")
             session.rollback()
@@ -302,7 +302,7 @@ def _scan_container(
     # shelf complete rather than rolling the registrations back with it.
     if registered:
         try:
-            _db_call(ctx.session.commit, f"commit child systems of '{container.name}'")
+            _db_call(ctx.session.commit, f"commit child systems of '{container.name}'", ctx.session)
         except SQLAlchemyError as e:
             logger.error(f"DB error saving child systems of '{container.name}': {e}")
             ctx.session.rollback()
@@ -559,7 +559,8 @@ def _scan_books_in_system(
                     continue
                 try:
                     existing = _db_call(
-                        lambda: session.get(Book, row.id), f"query book '{filepath}'"
+                        lambda: session.get(Book, row.id), f"query book '{filepath}'",
+                        session,
                     )
                 except DatabaseBusyError as e:
                     logger.error(f"DB error: {e} - skipping '{filename}'")

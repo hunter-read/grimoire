@@ -37,7 +37,7 @@ from ._paging import (
 )
 from ... import token_vault
 from ...clock import utcnow_naive
-from ...config import get_db
+from ...config import get_db, release_connection
 from ...models import Book, GameSystem, User
 from ...services import access_control, tag_service
 
@@ -431,6 +431,9 @@ def download_book(token: str, book_id: str, db: Session = Depends(get_db)) -> Fi
         raise HTTPException(403, "Forbidden")
     if not os.path.isfile(book.filepath):
         raise HTTPException(404, "File not found on disk")
+    # A large file can take minutes to send; don't hold a pooled connection
+    # through it.
+    release_connection(db)
     return serve_user_file(
         book.filepath, book.mime_type or "application/pdf", filename=book.filename
     )

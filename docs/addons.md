@@ -123,6 +123,13 @@ Update it the way you installed it. One installed from an index updates from tha
 index while it is configured; if you have removed it, from the first index that
 has the add-on.
 
+A folder in `DATA_PATH/add-ons/` whose definition will not load is skipped and
+left out of the add-ons list, and the log warns about it once - again only after
+the file changes. Note templates are not add-ons, even though the community
+repository keeps them beside the add-ons: one copied into `add-ons/` is skipped
+with a message saying so. Delete the folder and download the template from the
+campaign wiki's **Templates** button instead ([wiki templates](wiki-templates.md)).
+
 ## Private sources
 
 A source can be a private repository - licensed or non-SRD content packs for one

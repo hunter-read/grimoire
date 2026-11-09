@@ -305,10 +305,10 @@ class TestAudioScanFailures:
 
         real = media._db_call
 
-        def fake(fn, label):
+        def fake(fn, label, session):
             if label.startswith(prefix) and needle in label:
                 raise DatabaseBusyError(label)
-            return real(fn, label)
+            return real(fn, label, session)
 
         monkeypatch.setattr(media, "_db_call", fake)
 
@@ -371,10 +371,10 @@ class TestAudioScanFailures:
         _write_wav(wav)
         real = media._db_call
 
-        def fake(fn, label):
+        def fake(fn, label, session):
             if label.startswith("commit audio") and wav in label:
                 raise IntegrityError("INSERT", {}, Exception("UNIQUE constraint failed"))
-            return real(fn, label)
+            return real(fn, label, session)
 
         monkeypatch.setattr(media, "_db_call", fake)
         db = SessionLocal()

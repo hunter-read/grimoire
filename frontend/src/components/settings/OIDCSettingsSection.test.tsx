@@ -96,6 +96,41 @@ describe('OIDCSettingsSection', () => {
     await waitFor(() => expect(settingsApi.patch).toHaveBeenCalledWith({ oidc_client_id: 'app' }))
   })
 
+  it('keeps typing in another field while a blur-save is in flight', async () => {
+    vi.mocked(settingsApi.get).mockResolvedValue(baseSettings())
+    let resolvePatch!: (value: Settings) => void
+    vi.mocked(settingsApi.patch).mockReturnValue(new Promise((r) => (resolvePatch = r)))
+    render(<OIDCSettingsSection />)
+    const clientId = await screen.findByLabelText('authSettings.oidc.clientId')
+    await userEvent.type(clientId, 'app')
+    // Moving to the next field blurs (and saves) the first.
+    const jwks = screen.getByLabelText('authSettings.oidc.jwksUri') as HTMLInputElement
+    await userEvent.click(jwks)
+    await waitFor(() => expect(settingsApi.patch).toHaveBeenCalledWith({ oidc_client_id: 'app' }))
+    await userEvent.type(jwks, 'https://idp/jwks')
+    resolvePatch(baseSettings({ oidc_client_id: 'app' }))
+    // The save's response lands: the "Saved" tick shows for the first field.
+    expect(await screen.findByText('common.saved')).toBeInTheDocument()
+    expect(jwks.value).toBe('https://idp/jwks')
+    expect((screen.getByLabelText('authSettings.oidc.clientId') as HTMLInputElement).value).toBe(
+      'app'
+    )
+    // And typing carries on from there.
+    await userEvent.type(jwks, '2')
+    expect(jwks.value).toBe('https://idp/jwks2')
+  })
+
+  it('takes the server value for the saved field when the draft still holds what was sent', async () => {
+    vi.mocked(settingsApi.get).mockResolvedValue(baseSettings())
+    vi.mocked(settingsApi.patch).mockResolvedValue(baseSettings({ oidc_client_id: 'app' }))
+    render(<OIDCSettingsSection />)
+    const input = (await screen.findByLabelText('authSettings.oidc.clientId')) as HTMLInputElement
+    await userEvent.type(input, ' app ')
+    await userEvent.tab()
+    // The server trimmed it; the field shows what was stored.
+    await waitFor(() => expect(input.value).toBe('app'))
+  })
+
   // The "Saved" tick clears itself after a moment. Leaving the page before it
   // does must cancel that timer: a stray timer set state on a component (and,
   // in CI, a test environment) that was already gone.

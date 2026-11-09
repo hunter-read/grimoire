@@ -92,7 +92,7 @@ def index_book_text(
     # forever.  Committed up front; cleared on success below.
     book.index_failed = True
     try:
-        _db_call(session.commit, f"commit index attempt '{book.filepath}'")
+        _db_call(session.commit, f"commit index attempt '{book.filepath}'", session)
     except (DatabaseBusyError, IntegrityError) as e:
         logger.error(f"DB error marking index attempt for '{book.filename}': {e}")
         session.rollback()
@@ -110,7 +110,7 @@ def index_book_text(
         book.index_error = f"extraction crashed: {e}"[:500]
         book.index_failed = True
         try:
-            _db_call(session.commit, f"commit index_failed '{book.filepath}'")
+            _db_call(session.commit, f"commit index_failed '{book.filepath}'", session)
         except (DatabaseBusyError, IntegrityError) as e2:
             logger.error(f"DB error saving index_failed for '{book.filename}': {e2}")
             session.rollback()
@@ -120,7 +120,7 @@ def index_book_text(
         # resumed on the next scan rather than being left permanently failed.
         book.index_failed = False
         try:
-            _db_call(session.commit, f"commit index cancel '{book.filepath}'")
+            _db_call(session.commit, f"commit index cancel '{book.filepath}'", session)
         except (DatabaseBusyError, IntegrityError):
             session.rollback()
         return False
@@ -190,7 +190,7 @@ def index_book_text(
         book.index_failed = False
         logger.debug(f"DB: committing image-only indexed for '{book.filename}'")
         try:
-            _db_call(session.commit, f"commit image-only indexed '{book.filepath}'")
+            _db_call(session.commit, f"commit image-only indexed '{book.filepath}'", session)
         except DatabaseBusyError as e:
             logger.error(f"DB error: {e} - rolling back image-only indexed for '{book.filename}'")
             session.rollback()
@@ -212,7 +212,7 @@ def index_book_text(
     book.index_error = "ocr" if used_ocr else ""
     logger.debug(f"DB: committing index for '{book.filename}'")
     try:
-        _db_call(session.commit, f"commit index '{book.filepath}'")
+        _db_call(session.commit, f"commit index '{book.filepath}'", session)
     except DatabaseBusyError as e:
         logger.error(f"DB error: {e} - rolling back index for '{book.filename}'")
         session.rollback()

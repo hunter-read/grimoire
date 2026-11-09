@@ -163,7 +163,7 @@ def _adopt_renamed_systems(ctx: _ScanContext) -> int:
 
     if adopted:
         try:
-            _db_call(session.commit, "commit renamed systems")
+            _db_call(session.commit, "commit renamed systems", session)
         except SQLAlchemyError as e:
             logger.error(f"DB error saving renamed systems: {e}")
             session.rollback()
@@ -225,7 +225,9 @@ def _prune_vanished_systems(ctx: _ScanContext) -> int:
 
     session = ctx.session
     try:
-        systems = _db_call(lambda: session.query(GameSystem).all(), "query systems for pruning")
+        systems = _db_call(
+            lambda: session.query(GameSystem).all(), "query systems for pruning", session
+        )
     except DatabaseBusyError as e:
         logger.error(f"DB error: {e} - skipping system pruning")
         return 0
@@ -337,8 +339,9 @@ def _remove_systems(ctx: _ScanContext, candidates: list, keep: set) -> int:
             _db_call(
                 lambda: references.purge_search_rows(session, batch_books),
                 "purge pruned books from search",
+                session,
             )
-            _db_call(session.commit, "commit system pruning")
+            _db_call(session.commit, "commit system pruning", session)
         except SQLAlchemyError as e:
             logger.error(f"DB error pruning systems: {e}")
             session.rollback()

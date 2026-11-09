@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from ...http_headers import content_disposition
 from ...auth import CurrentUser, require_admin
-from ...config import get_db, logger
+from ...config import get_db, logger, release_connection
 from ...models.dialect import is_postgres
 from ...services import backup as backup_service
 from ...services.backup._config import VALID_SCHEDULES
@@ -73,6 +73,8 @@ def download_backup(
     record = backup_service.find_backup(config, backup_id)
     if record is None:
         raise HTTPException(status_code=404, detail="Backup not found")
+    # A backup can be gigabytes; don't hold a pooled connection while it sends.
+    release_connection(db)
     return FileResponse(
         record.path,
         media_type="application/zip",

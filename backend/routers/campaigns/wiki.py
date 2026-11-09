@@ -32,6 +32,7 @@ from ._helpers import (
     strip_gm_secrets,
 )
 from ._schemas import WikiPageCreate, WikiPageUpdate, WikiReorder
+from ._writable import ACCESS_DISABLED, ARCHIVED, writable_while
 from ._wiki_helpers import (
     _ensure_unique_slug,
     _page_summary,
@@ -517,6 +518,8 @@ def delete_page(
     db.commit()
 
 
+# Hiding is per-user decluttering and writes nothing to the campaign itself.
+@writable_while(ARCHIVED, ACCESS_DISABLED)
 def hide_page(
     campaign_id: str,
     page_id: str,
@@ -531,7 +534,7 @@ def hide_page(
     anybody else's wiki. Hiding a parent hides its subtree (resolved on read, see
     `hidden_page_ids`), so only the row for the page the user clicked is stored.
 
-    Deliberately not gated on `assert_not_archived`: hiding writes nothing to the
+    Deliberately open on a locked campaign: hiding writes nothing to the
     campaign's content, and an archived campaign is still one you might want to
     tidy.
 
@@ -554,6 +557,7 @@ def hide_page(
     return {"ok": True, "hidden": True}
 
 
+@writable_while(ARCHIVED, ACCESS_DISABLED)
 def unhide_page(
     campaign_id: str,
     page_id: str,

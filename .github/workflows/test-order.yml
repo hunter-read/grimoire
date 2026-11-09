@@ -4,8 +4,10 @@ name: Test order
 # passes because of where the four-worker split puts it shows up here rather
 # than on an unrelated PR. CI's split (see conftest.py) hands each worker a
 # contiguous run of files; serially every file sees all its predecessors, and on
-# two workers the second half loses them. Not a required check - a failure here
-# means an order-dependent test to fix, not a broken main.
+# two workers the second half loses them. Each split runs on SQLite and on the
+# oldest and newest supported PostgreSQL, since CI runs PostgreSQL only on four
+# workers. Not a required check - a failure here means an order-dependent test
+# to fix, not a broken main.
 on:
   schedule:
     # 06:00 UTC daily, an hour before the nightly image build. Best-effort, like
@@ -18,16 +20,36 @@ permissions:
 
 jobs:
   backend:
-    name: Backend tests (${{ matrix.name }})
+    name: Backend tests (${{ matrix.split.name }}, ${{ matrix.database.name }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        include:
+        split:
           - name: serial
             workers: "0"
           - name: two workers
             workers: "2"
+        database:
+          - name: SQLite
+            image: ""
+          - name: PostgreSQL 15
+            image: postgres:15-alpine
+          - name: PostgreSQL 18
+            image: postgres:18-alpine
+    # An empty image skips the service, so the SQLite legs start no server.
+    services:
+      postgres:
+        image: ${{ matrix.database.image }}
+        env:
+          POSTGRES_USER: grimoire
+          POSTGRES_PASSWORD: grimoire
+          POSTGRES_DB: grimoire
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U grimoire" --health-interval 5s
+          --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -47,4 +69,7 @@ jobs:
       # No community add-ons checkout, so their contract tests skip: ci.yml
       # pins that repo and runs them on every PR, and this job is about order.
       - name: Run tests
-        run: pytest backend/tests/ -q -n ${{ matrix.workers }} --dist loadgroup
+        env:
+          # Empty on the SQLite legs, which conftest reads as "use SQLite".
+          TEST_DATABASE_URL: ${{ matrix.database.image && 'postgresql://grimoire:grimoire@localhost:5432/grimoire' || '' }}
+        run: pytest backend/tests/ -q -n ${{ matrix.split.workers }} --dist loadgroup

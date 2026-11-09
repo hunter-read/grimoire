@@ -20,7 +20,7 @@ releases; that flow is retired and the workflows no longer refer to it.)
 |---|---|---|---|
 | **CI** | [`ci.yml`](../.github/workflows/ci.yml) | Push to `main`, and pull requests | Lint + test + coverage validation, and a smoke test of both image targets (nothing published) |
 | **CodeQL** | [`codeql.yml`](../.github/workflows/codeql.yml) | Push to `main`, PRs to `main`, weekly cron | Security analysis (Python + JS/TS) |
-| **Test order** | [`test-order.yml`](../.github/workflows/test-order.yml) | Daily at 06:00 UTC (or manually), off `main` | Backend suite run serially and on two workers (nothing published) |
+| **Test order** | [`test-order.yml`](../.github/workflows/test-order.yml) | Daily at 06:00 UTC (or manually), off `main` | Backend suite run serially and on two workers, on SQLite and PostgreSQL 15 and 18 (nothing published) |
 | **Nightly** | [`nightly.yml`](../.github/workflows/nightly.yml) | Daily at 07:00 UTC (or manually), off `main` | `:nightly` multi-arch Docker image |
 | **Release** | [`release.yml`](../.github/workflows/release.yml) | Push a `vX.Y.Z` tag | Versioned + `:latest` images (OCR & slim) + GitHub Release |
 
@@ -70,7 +70,11 @@ exports the schema from the app, Node turns it into TypeScript.
   (`backend/tests/_postgres.py`). Tests marked `sqlite_only` skip there, and `postgres_only`
   ones skip on SQLite. Locally:
   `TEST_DATABASE_URL=postgresql://user:pw@localhost/postgres python3 -m pytest -n 4 --dist loadgroup`
-  (the user needs `CREATEDB`).
+  (the user needs `CREATEDB`). A test that removes `DATABASE_URL` or `TEST_DATABASE_URL`
+  from the environment, or leaves the app engine on the other database, fails in teardown
+  and has them put back: the next `importlib.reload(backend.config)` would otherwise move
+  the rest of the run onto a SQLite file. Code that clears the real environment (the add-on
+  worker's credential scrub) runs under `patch.dict(os.environ)` in tests.
 
 **Backend test (PostgreSQL 15):** the whole backend suite on the oldest supported PostgreSQL
 (see [PostgreSQL](postgresql.md)); the backend job covers the newest. No coverage or lint -
@@ -209,8 +213,12 @@ each worker a contiguous run of files) fixes those predecessors, which can hide 
 until a new file shifts the split and it fails on an unrelated PR. A serial run gives every
 file all its predecessors, and two workers start the second half without its own.
 
+Each split runs three times: on SQLite, and on PostgreSQL 15 and 18 (the oldest and newest
+supported), since CI's PostgreSQL jobs only ever run on four workers.
+
 It is not a required check. A failure means an order-dependent test to fix: reproduce it
-with the same split locally (`pytest backend/tests/ -n 2 --dist loadgroup`, or serially).
+with the same split locally (`pytest backend/tests/ -n 2 --dist loadgroup`, or serially),
+with `TEST_DATABASE_URL` set for a PostgreSQL leg.
 The community add-on contract tests skip here, since CI already runs them on every PR.
 
 ---

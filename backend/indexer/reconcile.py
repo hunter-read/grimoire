@@ -187,7 +187,7 @@ def _reconcile_missing(
     try:
         for model, ids, value in flags:
             _set_missing(session, model, ids, value)
-        _db_call(session.commit, "commit missing flags")
+        _db_call(session.commit, "commit missing flags", session)
         # Only a sweep of every collection reconciles every row; a scoped one
         # leaves rows elsewhere still waiting for move detection.
         if scope_dir is None and all(enabled for _k, _m, enabled, _l in collections):
@@ -220,6 +220,7 @@ def _set_missing(session: Session, model: Any, ids: list[str], value: bool) -> N
             .filter(model.id.in_(chunk))
             .update({model.is_missing: value}, synchronize_session=False),
             "update missing flags",
+            session,
         )
 
 

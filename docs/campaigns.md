@@ -39,7 +39,7 @@ Each user has a **campaign access** toggle (admins manage it per user in **Setti
 
 - Prevents the user from creating campaigns, being added to new ones, and editing/linking resources.
 - Keeps their read access to campaigns they already own or belong to; in member lists they are flagged as **Access disabled**.
-- Locks any campaign they **own** to read-only for everyone (players keep view access, lose all edits) until the owner's access is restored.
+- Locks any campaign they **own** to read-only for everyone until the owner's access is restored. Players keep view access but can't edit the wiki, session notes, availability, or their character details; they can still decline an invitation, leave the campaign, or hide wiki pages from their own view.
 
 When OIDC is configured, this flag can be driven by the provider's [permissions claim](oidc.md) (`campaignAccess`); a missing key leaves access enabled.
 

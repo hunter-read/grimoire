@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { LuCircleCheck, LuRefreshCw } from 'react-icons/lu'
 import { settings as settingsApi, type Schema } from '../../api'
 import Spinner from '../Spinner'
+import SettingsLoadError from './SettingsLoadError'
+import { failureMessage } from './useInstantSettings'
 import { utcToLocalTime, localTimeToUtc } from './rescanTime'
 import { useUnsavedChanges } from './settingsDirty'
 
@@ -34,6 +36,8 @@ export default function ScheduledRescanSection() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [justSaved, setJustSaved] = useState(false)
+  const [loadError, setLoadError] = useState<unknown>(null)
+  const [saveError, setSaveError] = useState('')
 
   const apply = (data: Settings) => {
     const values = fromSettings(data)
@@ -69,17 +73,24 @@ export default function ScheduledRescanSection() {
     { value: 6, label: t('maintenance.scheduledRescan.weekdays.sun') },
   ]
 
-  useEffect(() => {
+  // A failed load shows the error, not the form: Save would otherwise write
+  // the form's defaults over a schedule nobody has seen.
+  const load = () => {
+    setLoading(true)
+    setLoadError(null)
     settingsApi
       .get()
       .then(apply)
-      .catch(() => {})
+      .catch(setLoadError)
       .finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(load, [])
 
   const handleSave = async () => {
     setSaving(true)
     setJustSaved(false)
+    setSaveError('')
     try {
       const { hour, minute } = localTimeToUtc(localTime)
       apply(
@@ -94,6 +105,8 @@ export default function ScheduledRescanSection() {
       )
       setJustSaved(true)
       setTimeout(() => setJustSaved(false), 3000)
+    } catch (e) {
+      setSaveError(failureMessage(e, t))
     } finally {
       setSaving(false)
     }
@@ -110,6 +123,8 @@ export default function ScheduledRescanSection() {
 
       {loading ? (
         <Spinner size={20} />
+      ) : saved === null ? (
+        <SettingsLoadError message={failureMessage(loadError, t, 'load')} onRetry={load} />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* Frequency */}
@@ -270,6 +285,11 @@ export default function ScheduledRescanSection() {
                 </>
               )}
             </span>
+            {saveError && (
+              <span role="alert" style={{ fontSize: 13, color: 'var(--danger)' }}>
+                {saveError}
+              </span>
+            )}
           </div>
         </div>
       )}

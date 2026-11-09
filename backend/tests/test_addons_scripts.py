@@ -7,6 +7,7 @@ path, timeout, and crash cases, mirroring the existing isolated-worker tests.
 import json
 import os
 import textwrap
+from unittest.mock import patch
 
 import pytest
 
@@ -92,12 +93,16 @@ class TestWorker:
         """An exception must be reported, not left to look like a crash."""
         path = self._script(tmp_path, "def main():\n    raise RuntimeError('boom')\n")
         out = tmp_path / "result.json"
-        addon_worker.main(path, "{}", str(out))
+        # main() scrubs credentials from the real environment, as the child it
+        # normally runs in should; don't let it take this process's.
+        with patch.dict(os.environ):
+            addon_worker.main(path, "{}", str(out))
         assert "boom" in json.loads(out.read_text())["error"]
 
     def test_main_handles_an_unimportable_script(self, tmp_path):
         out = tmp_path / "result.json"
-        addon_worker.main(str(tmp_path / "missing.py"), "{}", str(out))
+        with patch.dict(os.environ):
+            addon_worker.main(str(tmp_path / "missing.py"), "{}", str(out))
         assert json.loads(out.read_text())["error"]
 
     def test_stdout_is_restored_after_a_run(self, tmp_path):

@@ -221,6 +221,9 @@ def serve_map_file(
     # attachment hint the browser named it from the URL and the JSON type,
     # saving "tavern.uvtt" as "file.json".
     inline = media.startswith("video/")
+    # A large file can take minutes to send; don't hold a pooled connection
+    # through it.
+    release_connection(db)
     return serve_user_file(
         m.filepath,
         media,

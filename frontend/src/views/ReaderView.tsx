@@ -115,7 +115,13 @@ export default function ReaderView() {
 
   const directionRef = useRef(1)
   const axisRef = useRef<Axis>('x')
-  const currentPageRef = useRef(1)
+  // The page on screen, for handlers that outlive a render (the selection
+  // listener). Starts at the page the book opened on, and follows every change
+  // - goToPage's, and the clamp when a saved page is past the end.
+  const currentPageRef = useRef(initialPage)
+  useEffect(() => {
+    currentPageRef.current = currentPage
+  }, [currentPage])
   const contentRef = useRef<HTMLDivElement>(null)
   // Set below once zoom state exists; goToPage calls it to carry zoom over.
   const turnPanRef = useRef<((direction: number) => void) | null>(null)

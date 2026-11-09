@@ -46,11 +46,13 @@ vi.mock('../hooks/useIsMobile', () => ({ default: () => mockIsMobile.value }))
 // Capture setSearchParams and navigate calls so we can assert behaviour.
 const mockSetSearchParams = vi.fn()
 const mockNavigate = vi.fn()
+// The URL's query, as useSearchParams reports it; a test may open at ?page=N.
+const mockSearchParams = { value: new URLSearchParams() }
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>()
   return {
     ...actual,
-    useSearchParams: () => [new URLSearchParams(), mockSetSearchParams],
+    useSearchParams: () => [mockSearchParams.value, mockSetSearchParams],
     useNavigate: () => mockNavigate,
   }
 })
@@ -210,6 +212,47 @@ describe('ReaderView — jump navigation history behaviour', () => {
     await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Save' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Bookmark could not be saved')
     expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('records the page a book opened on for a text selection made before any page turn', async () => {
+    mockSearchParams.value = new URLSearchParams('page=7')
+    vi.mocked(api.post).mockResolvedValueOnce({})
+    renderReader()
+    await waitFor(() => screen.getByText('Test Book'))
+    await waitForReaderIdle()
+    // A selection inside the page's text layer.
+    const layer = document.createElement('span')
+    layer.setAttribute('data-selectable', 'true')
+    layer.textContent = 'Fireball'
+    document.body.appendChild(layer)
+    const selection = {
+      isCollapsed: false,
+      anchorNode: layer.firstChild,
+      toString: () => 'Fireball',
+      getRangeAt: () => ({ getBoundingClientRect: () => new DOMRect(10, 10, 40, 12) }),
+      removeAllRanges: vi.fn(),
+    }
+    const getSelection = vi
+      .spyOn(window, 'getSelection')
+      .mockReturnValue(selection as unknown as Selection)
+    try {
+      await userEvent.pointer({ keys: '[MouseLeft]', target: layer })
+      const bookmark = await screen.findByRole('button', { name: 'Bookmark selection' })
+      await userEvent.pointer({ keys: '[MouseLeft>]', target: bookmark })
+      await userEvent.click(
+        within(await screen.findByRole('dialog')).getByRole('button', { name: 'Save' })
+      )
+      await waitFor(() =>
+        expect(api.post).toHaveBeenCalledWith(
+          '/bookmarks',
+          expect.objectContaining({ page_number: 7, selected_text: 'Fireball' })
+        )
+      )
+    } finally {
+      getSelection.mockRestore()
+      layer.remove()
+      mockSearchParams.value = new URLSearchParams()
+    }
   })
 
   it('the "f" key toggles the favorite without crashing', async () => {
