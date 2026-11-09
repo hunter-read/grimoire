@@ -12,7 +12,9 @@ factions, books, leagues and armies do, so a rescan pruning a system or a book
 leaves nothing dangling on either database.
 
 Creating tables, so there is nothing to backfill. Idempotent: each table and
-index is created only when missing.
+index is created only when missing. A database that ran the earlier wargame
+build already has ``armies`` with the owner in ``owner_id``: that column is
+renamed to ``user_id``, keeping its rows.
 
 Revision ID: 3f6a9d2c8e15
 Revises: 8b2f5d1e7c40
@@ -49,6 +51,18 @@ def _index(table: str, column: str) -> None:
         op.create_index(name, table, [column], unique=False)
 
 
+def _rename_legacy_owner() -> None:
+    """Rename ``armies.owner_id`` to ``user_id`` on a database that ran the
+    earlier wargame build, which created this table under the other name. Its
+    rows are kept; the old index goes, and the loop below adds the new one."""
+    columns = {c["name"] for c in inspect(op.get_bind()).get_columns("armies")}
+    if "owner_id" not in columns or "user_id" in columns:
+        return
+    if "ix_armies_owner_id" in _indexes("armies"):
+        op.drop_index("ix_armies_owner_id", table_name="armies")
+    op.execute("ALTER TABLE armies RENAME COLUMN owner_id TO user_id")
+
+
 def upgrade() -> None:
     tables = _tables()
     if "armies" not in tables:
@@ -75,6 +89,8 @@ def upgrade() -> None:
             sa.ForeignKeyConstraint(["faction_id"], ["factions.id"], ondelete="SET NULL"),
             sa.PrimaryKeyConstraint("id"),
         )
+    else:
+        _rename_legacy_owner()
     for column in ("user_id", "game_system_id", "faction_id"):
         _index("armies", column)
 

@@ -1898,6 +1898,42 @@ class TestArmiesAndLeagues:
         engine.dispose()
         assert not self._TABLES & self._tables(path)
 
+    def test_upgrade_renames_the_earlier_builds_owner_column(self):
+        """The earlier wargame build made ``armies`` with ``owner_id``: keep its rows."""
+        path = os.path.join(tempfile.mkdtemp(), "legacy.db")
+        engine = create_engine(f"sqlite:///{path}")
+        with engine.connect() as conn:
+            command.upgrade(_alembic_config(conn), self._BEFORE)
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "CREATE TABLE armies (id VARCHAR(36) PRIMARY KEY, "
+                    "owner_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE, "
+                    "name VARCHAR(255) NOT NULL, game_system_id VARCHAR(36), "
+                    "faction_id VARCHAR(36), system_name VARCHAR(255), points INTEGER, "
+                    "points_limit INTEGER, cost_name VARCHAR(40), source VARCHAR(20), "
+                    "source_filename VARCHAR(255), data JSON, progress JSON, notes TEXT, "
+                    "created_at DATETIME, updated_at DATETIME)"
+                )
+            )
+            conn.execute(text("CREATE INDEX ix_armies_owner_id ON armies (owner_id)"))
+            conn.execute(text("INSERT INTO armies (id, owner_id, name) VALUES ('a1', 'u1', 'Host')"))
+        engine.dispose()
+        init_db(path)
+        assert _stamped_revision(path) == _alembic_head(path)
+        engine = create_engine(f"sqlite:///{path}")
+        try:
+            insp = inspect(engine)
+            columns = {c["name"] for c in insp.get_columns("armies")}
+            assert "user_id" in columns and "owner_id" not in columns
+            indexes = {i["name"] for i in insp.get_indexes("armies")}
+            assert "ix_armies_user_id" in indexes and "ix_armies_owner_id" not in indexes
+            with engine.connect() as conn:
+                row = conn.execute(text("SELECT user_id, name FROM armies")).one()
+            assert tuple(row) == ("u1", "Host")
+        finally:
+            engine.dispose()
+
 
 class TestMigrationLock:
     """Only one process migrates at a time, even where the data mount ignores flock()."""
