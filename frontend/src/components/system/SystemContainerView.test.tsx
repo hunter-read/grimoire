@@ -344,6 +344,10 @@ describe('SystemContainerView', () => {
     )
     render(<SystemContainerView {...unset} system={makeContainer({ children })} onBack={vi.fn()} />)
     expect(screen.getByRole('navigation', { name: 'thumbIndex.jumpSystems' })).toBeInTheDocument()
-    expect(screen.getAllByRole('heading', { level: 2 })).toHaveLength(4)
+    // One grid with an anchor per letter, not a heading per letter.
+    expect(screen.queryAllByRole('heading', { level: 2 })).toHaveLength(0)
+    expect(
+      [...document.querySelectorAll<HTMLElement>('[data-index-key]')].map((a) => a.dataset.indexKey)
+    ).toEqual(['A', 'B', 'C', 'D'])
   })
 })

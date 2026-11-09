@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeAll } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
-import IndexedLayout, { MIN_INDEXED_ITEMS } from './IndexedLayout'
+import IndexedLayout, { MIN_INDEXED_ITEMS, type AnchorOf } from './IndexedLayout'
 import { indexLetter } from '../../utils/thumbIndex'
 
 beforeAll(() => {
@@ -14,10 +14,12 @@ const NAMES = Array.from(
 ).sort()
 
 const renderLayout = (props: Partial<Parameters<typeof IndexedLayout<string>>[0]> = {}) => {
-  const renderItems = vi.fn((items: string[]) => (
+  const renderItems = vi.fn((items: string[], anchorOf: AnchorOf<string>) => (
     <ul>
       {items.map((n) => (
-        <li key={n}>{n}</li>
+        <li key={n} {...anchorOf(n)}>
+          <a href={`#${n}`}>{n}</a>
+        </li>
       ))}
     </ul>
   ))
@@ -30,7 +32,6 @@ const renderLayout = (props: Partial<Parameters<typeof IndexedLayout<string>>[0]
       scope="test"
       railLabel="Jump to names by letter"
       describe={(run) => `${run.count} names`}
-      headingLevel={3}
       renderItems={renderItems}
       {...props}
     />
@@ -39,43 +40,43 @@ const renderLayout = (props: Partial<Parameters<typeof IndexedLayout<string>>[0]
 }
 
 describe('IndexedLayout', () => {
-  it('cuts a long list into lettered sections with the rail beside it', () => {
-    const { renderItems } = renderLayout()
-    const headings = screen.getAllByRole('heading', { level: 3 })
-    expect(headings.map((h) => h.textContent)).toEqual([
-      'A6 names',
-      'B6 names',
-      'C6 names',
-      'D6 names',
-      'E6 names',
-    ])
-    expect(renderItems).toHaveBeenCalledWith(expect.any(Array), true)
+  it('keeps a long list in one piece, with the rail beside it and no headings', () => {
+    const { container, renderItems } = renderLayout()
+    expect(renderItems.mock.lastCall![0]).toEqual(NAMES)
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument()
+    expect(container.querySelectorAll('ul')).toHaveLength(2) // the list, and the rail's
     expect(screen.getByRole('navigation', { name: 'Jump to names by letter' })).toBeInTheDocument()
-    expect(screen.getByRole('region', { name: 'C6 names' })).toBeInTheDocument()
   })
 
-  it('jumps to a section and puts focus on its heading', () => {
+  it('marks only the first row of each run as an anchor', () => {
+    const { container } = renderLayout()
+    const anchors = [...container.querySelectorAll<HTMLElement>('li[data-index-key]')]
+    expect(anchors.map((a) => a.dataset.indexKey)).toEqual(['A', 'B', 'C', 'D', 'E'])
+    expect(anchors.map((a) => a.textContent)).toEqual(
+      ['A', 'B', 'C', 'D', 'E'].map((l) => NAMES.find((n) => n.startsWith(l)))
+    )
+    // The rail's tabs link to the anchors' ids.
+    const tab = screen.getByRole('link', { name: 'C, 6 names' })
+    expect(container.querySelector(tab.getAttribute('href')!)).toBe(anchors[2])
+  })
+
+  it("jumps to a run and puts focus on its first row's link", () => {
     renderLayout()
     fireEvent.click(screen.getByRole('link', { name: 'D, 6 names' }))
-    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'D6 names' }))
+    const first = NAMES.find((n) => n.startsWith('D'))!
+    expect(document.activeElement).toBe(screen.getByRole('link', { name: first }))
   })
 
-  it('draws section headings at the requested level, and can skip off-screen layout', () => {
-    const { container } = renderLayout({ headingLevel: 2, lazySections: true })
-    expect(screen.getAllByRole('heading', { level: 2 })).toHaveLength(5)
-    expect(container.querySelector('.index-section--lazy')).not.toBeNull()
-  })
-
-  it('renders a short list plainly', () => {
-    const { renderItems } = renderLayout({ items: NAMES.slice(0, 5) })
-    expect(renderItems).toHaveBeenCalledWith(NAMES.slice(0, 5), false)
+  it('renders a short list plainly, with no anchors', () => {
+    const { container, renderItems } = renderLayout({ items: NAMES.slice(0, 5) })
+    expect(renderItems.mock.calls[0][0]).toEqual(NAMES.slice(0, 5))
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
-    expect(screen.queryByRole('heading')).not.toBeInTheDocument()
+    expect(container.querySelector('[data-index-key]')).toBeNull()
   })
 
   it('renders plainly when the sort has no landmarks', () => {
     const { renderItems } = renderLayout({ enabled: false })
-    expect(renderItems).toHaveBeenCalledWith(NAMES, false)
+    expect(renderItems.mock.lastCall![0]).toEqual(NAMES)
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
   })
 
@@ -84,8 +85,8 @@ describe('IndexedLayout', () => {
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
   })
 
-  it('shows formatted labels on the headings', () => {
+  it('shows formatted labels on the rail', () => {
     renderLayout({ formatLabel: (l) => `Letter ${l}` })
-    expect(screen.getByRole('heading', { name: 'Letter A6 names' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Letter A, 6 names' })).toBeInTheDocument()
   })
 })

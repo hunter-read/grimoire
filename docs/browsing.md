@@ -14,12 +14,13 @@ And on any of these pages, press <kbd>/</kbd> to jump to its search box.
 
 ## The letter rail
 
-Once a page lists more than a handful of entries, they are grouped under letter
-headings and a slim A-Z rail appears down the right-hand side. Only letters that
-hold something are listed, and the letter you have scrolled to is filled in.
+Once a page lists more than a handful of entries, a slim A-Z rail appears down
+the right-hand side. The list itself stays one unbroken scroll - nothing is
+split up under letter headings. Only letters that hold something are listed on
+the rail, and the letter you have scrolled to is filled in.
 
-- **Click a letter** to jump to it. Focus moves to that letter's heading, so the
-  keyboard and screen readers carry on from there.
+- **Click a letter** to jump to it. The list scrolls to that letter's first entry
+  and focus moves to it, so the keyboard and screen readers carry on from there.
 - **Hover over a letter** to see how many entries it holds and the first few
   names - "T · 9 folders · 1,012 maps: Tehox Maps, Tom Cartos, ...".
 - **On a phone or tablet**, tap a letter, or drag your finger along the rail and

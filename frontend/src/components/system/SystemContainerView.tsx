@@ -245,10 +245,10 @@ export default function SystemContainerView({
             railLabel={t('thumbIndex.jumpSystems')}
             describe={(run) => t('thumbIndex.systems', { count: run.count })}
             formatLabel={(label) => (label === '#' && sortKey === 'year' ? '?' : label)}
-            headingLevel={2}
-            lazySections
-            renderItems={(sectionChildren) => (
-              <div
+            renderItems={(rows, anchorOf) => (
+              <ul
+                role="list"
+                className="card-list"
                 style={
                   list
                     ? { display: 'flex', flexDirection: 'column', gap: 8 }
@@ -259,24 +259,25 @@ export default function SystemContainerView({
                       }
                 }
               >
-                {sectionChildren.map((child) => (
-                  <SystemCard
-                    key={child.id}
-                    system={child}
-                    to={systemPath(child)}
-                    compact={compact}
-                    list={list}
-                    selectable={bulk.bulkMode}
-                    selected={bulk.selectedIds.has(child.id)}
-                    onToggleSelect={(mods) =>
-                      bulk.toggleItem(child.id, {
-                        ...mods,
-                        orderedIds: selectable.map((s) => s.id),
-                      })
-                    }
-                  />
+                {rows.map((child) => (
+                  <li key={child.id} {...anchorOf(child)}>
+                    <SystemCard
+                      system={child}
+                      to={systemPath(child)}
+                      compact={compact}
+                      list={list}
+                      selectable={bulk.bulkMode}
+                      selected={bulk.selectedIds.has(child.id)}
+                      onToggleSelect={(mods) =>
+                        bulk.toggleItem(child.id, {
+                          ...mods,
+                          orderedIds: selectable.map((s) => s.id),
+                        })
+                      }
+                    />
+                  </li>
                 ))}
-              </div>
+              </ul>
             )}
           />
         )}

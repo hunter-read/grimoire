@@ -441,9 +441,12 @@ export default function GalleryLayout({
               scope={config.collection}
               railLabel={t('thumbIndex.jumpFolders')}
               describe={describeFolders}
-              headingLevel={2}
-              renderItems={(entries, sectioned) =>
-                entries.map((entry) => renderGroup(entry, sectioned ? 3 : 2))
+              renderItems={(entries, anchorOf) =>
+                entries.map((entry) => (
+                  <div key={entry[0]} {...anchorOf(entry)}>
+                    {renderGroup(entry, 2)}
+                  </div>
+                ))
               }
               version={gallery.collapsed}
             />

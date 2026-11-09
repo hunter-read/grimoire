@@ -7,11 +7,11 @@ import scrollParent from '../utils/scrollParent'
 export const SPY_OFFSET = 80
 
 /**
- * The key of the section the reader has scrolled to inside `containerRef`.
+ * The key of the run the reader has scrolled to inside `containerRef`.
  *
- * Sections are the elements carrying `data-index-key`; the current one is the
- * last whose top has passed under the sticky toolbar, or the first while the
- * list's top is still in view. Read on scroll (one read per frame) from the
+ * Each run starts at the element carrying `data-index-key` (its first row); the
+ * current one is the last whose top has passed under the sticky toolbar, or the
+ * first while the list's top is still in view. Read on scroll (one read per frame) from the
  * scroller the list actually sits in - the app scrolls `<main>`, not the page.
  *
  * `version` re-reads after the sections change without a scroll (a filter, a
