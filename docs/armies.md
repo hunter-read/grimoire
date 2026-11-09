@@ -2,8 +2,8 @@
 
 For wargames, Grimoire keeps your **army lists** and runs **leagues** - a group
 playing the same game over weeks or months, what Warhammer 40,000 calls a
-Crusade and Age of Sigmar a Path to Glory. Both sit in the sidebar after
-Campaigns and Characters, and both work with the wargame books in your library's
+Crusade and Age of Sigmar a Path to Glory. Both sit in the sidebar under a
+**Wargaming** heading, below Campaigns and Characters under **Role-playing**, and both work with the wargame books in your library's
 `armory/` folder, laid out as `armory/<System>/<Edition>/Factions/<Faction>/`.
 
 Grimoire ships **no points, stat lines or rules text**. An army holds only what

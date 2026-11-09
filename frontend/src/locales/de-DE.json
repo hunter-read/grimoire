@@ -4,7 +4,7 @@
   },
   "app": {
     "name": "GRIMOIRE",
-    "subtitle": "TTRPG-Bibliothek"
+    "subtitle": "Spielebibliothek"
   },
   "nav": {
     "library": "Bibliothek",
@@ -24,7 +24,9 @@
     "models": "Models",
     "characters": "Charaktere",
     "armies": "Armeen",
-    "leagues": "Ligen"
+    "leagues": "Ligen",
+    "roleplaying": "Rollenspiel",
+    "wargaming": "Tabletop"
   },
   "stats": {
     "systems": "Systeme",
@@ -40,7 +42,7 @@
   },
   "about": {
     "title": "Über Grimoire",
-    "subtitle": "Selbst gehosteter TTRPG-Bibliotheksmanager",
+    "subtitle": "Selbst gehosteter Manager für Rollenspiel- und Tabletop-Bibliotheken",
     "version": "Version",
     "commitHash": "Commit-Hash",
     "pythonVersion": "Python-Version",
@@ -1501,6 +1503,7 @@
     "sidebarVisibility": {
       "title": "Seitenleisten-Sichtbarkeit",
       "description": "Abschnitte aus der Seitenleiste und mobilen Navigation für alle Benutzer ausblenden.",
+      "hideLibrary": "Bibliothek ausblenden",
       "hideArmory": "Rüstkammer ausblenden",
       "hideMaps": "Karten ausblenden",
       "hideTokens": "Tokens ausblenden",

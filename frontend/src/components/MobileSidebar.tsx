@@ -21,6 +21,7 @@ import {
   LuTrophy,
 } from 'react-icons/lu'
 import MoreItem, { moreItemStyle } from './MoreItem'
+import NavGroupHeader from './NavGroupHeader'
 import type { Schema } from '../api'
 import { showArmoryNav } from '../utils/armory'
 
@@ -57,6 +58,7 @@ export default function MobileSidebar({
   }, [moreOpen])
   const isGuest = user?.role === 'guest'
   const {
+    hide_library,
     hide_maps,
     hide_tokens,
     hide_audio,
@@ -70,10 +72,15 @@ export default function MobileSidebar({
     armoryBooks: stats?.armory_books,
     isAdmin: user?.role === 'admin',
   })
+  // The bar's first slot is the Library; with it hidden the Armory moves up
+  // out of the drawer to take it.
+  const armoryOnBar = hide_library && showArmory
+  const armoryInDrawer = showArmory && !armoryOnBar
+  const showWargaming = !hide_armies || !hide_leagues
   const moreRoutes = [
     '/settings',
     '/tags',
-    ...(showArmory ? ['/armory'] : []),
+    ...(armoryInDrawer ? ['/armory'] : []),
     ...(!hide_maps ? ['/maps'] : []),
     ...(!hide_tokens ? ['/tokens'] : []),
     ...(!hide_audio ? ['/audio'] : []),
@@ -131,10 +138,18 @@ export default function MobileSidebar({
           padding: '8px 0',
         }}
       >
-        <NavLink to="/library" end={false} style={({ isActive }) => mobileNavStyle(isActive)}>
-          <LuLibrary size={20} />
-          {t('nav.library')}
-        </NavLink>
+        {!hide_library && (
+          <NavLink to="/library" end={false} style={({ isActive }) => mobileNavStyle(isActive)}>
+            <LuLibrary size={20} />
+            {t('nav.library')}
+          </NavLink>
+        )}
+        {armoryOnBar && (
+          <NavLink to="/armory" end={false} style={({ isActive }) => mobileNavStyle(isActive)}>
+            <LuSwords size={20} />
+            {t('nav.armory')}
+          </NavLink>
+        )}
         <NavLink to="/search" end style={({ isActive }) => mobileNavStyle(isActive)}>
           <LuSearch size={20} />
           {t('nav.search')}
@@ -183,7 +198,7 @@ export default function MobileSidebar({
               padding: '8px 0',
             }}
           >
-            {showArmory && (
+            {armoryInDrawer && (
               <MoreItem
                 to="/armory"
                 Icon={LuSwords}
@@ -226,28 +241,36 @@ export default function MobileSidebar({
             {/* Characters belongs with Campaigns, which is on the bar itself;
                 the bar is full, so it lives here. Gated the same way. */}
             {!hide_campaigns && (
-              <MoreItem
-                to="/characters"
-                Icon={LuUsers}
-                label={t('nav.characters')}
-                onClick={() => setMoreOpen(false)}
-              />
+              <div role="group" aria-label={t('nav.roleplaying')} style={drawerGroupStyle}>
+                <NavGroupHeader label={t('nav.roleplaying')} inset={24} />
+                <MoreItem
+                  to="/characters"
+                  Icon={LuUsers}
+                  label={t('nav.characters')}
+                  onClick={() => setMoreOpen(false)}
+                />
+              </div>
             )}
-            {!hide_armies && (
-              <MoreItem
-                to="/armies"
-                Icon={LuShield}
-                label={t('nav.armies')}
-                onClick={() => setMoreOpen(false)}
-              />
-            )}
-            {!hide_leagues && (
-              <MoreItem
-                to="/leagues"
-                Icon={LuTrophy}
-                label={t('nav.leagues')}
-                onClick={() => setMoreOpen(false)}
-              />
+            {showWargaming && (
+              <div role="group" aria-label={t('nav.wargaming')} style={drawerGroupStyle}>
+                <NavGroupHeader label={t('nav.wargaming')} inset={24} />
+                {!hide_armies && (
+                  <MoreItem
+                    to="/armies"
+                    Icon={LuShield}
+                    label={t('nav.armies')}
+                    onClick={() => setMoreOpen(false)}
+                  />
+                )}
+                {!hide_leagues && (
+                  <MoreItem
+                    to="/leagues"
+                    Icon={LuTrophy}
+                    label={t('nav.leagues')}
+                    onClick={() => setMoreOpen(false)}
+                  />
+                )}
+              </div>
             )}
             <MoreItem
               to="/tags"
@@ -282,6 +305,13 @@ export default function MobileSidebar({
       )}
     </>
   )
+}
+
+// A titled group in the drawer, set off from the rows above it by a rule.
+const drawerGroupStyle: CSSProperties = {
+  borderTop: '1px solid var(--border)',
+  marginTop: 4,
+  paddingTop: 10,
 }
 
 const mobileNavStyle = (active: boolean): CSSProperties => ({

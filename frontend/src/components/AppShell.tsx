@@ -14,6 +14,7 @@ import api, { settings as settingsApi } from '../api'
 import type { Schema } from '../api'
 import Sidebar from './Sidebar'
 import MobileSidebar from './MobileSidebar'
+import { homePath } from '../utils/armory'
 import {
   BookReader,
   LibraryView,
@@ -63,6 +64,7 @@ export default function AppShell() {
   // the API-key-gated /stats so it isn't exposed to external integrations.
   const [about, setAbout] = useState<Schema<'AboutResponse'> | null>(null)
   const [uiSettings, setUiSettings] = useState<Partial<Schema<'UISettingsResponse'>>>({
+    hide_library: false,
     hide_armory: false,
     hide_maps: false,
     hide_tokens: false,
@@ -118,11 +120,16 @@ export default function AppShell() {
   // Keep the floating soundboard clear of the mobile nav bar and the player bar.
   const overlayOffset = (isMobile ? 64 : 0) + (playerActive ? PLAYER_HEIGHT : 0)
 
+  // Whether /settings/ui has answered (or failed). `/` waits for it: with the
+  // Library hidden it lands somewhere else, and redirecting on the defaults
+  // would open the hidden Library first.
+  const [uiSettingsLoaded, setUiSettingsLoaded] = useState(false)
   const refreshUiSettings = () =>
     settingsApi
       .getUi()
       .then(setUiSettings)
       .catch(() => {})
+      .finally(() => setUiSettingsLoaded(true))
 
   useEffect(() => {
     api
@@ -236,7 +243,12 @@ export default function AppShell() {
                 </Routes>
               ) : (
                 <Routes>
-                  <Route path="/" element={<Navigate to="/library" replace />} />
+                  <Route
+                    path="/"
+                    element={
+                      uiSettingsLoaded ? <Navigate to={homePath(uiSettings)} replace /> : null
+                    }
+                  />
                   <Route path="/library" element={<LibraryView gameType="ttrpg" />} />
                   <Route path="/library/system/:systemId" element={<SystemDetailView />} />
                   {/* The Armory: the same views over the wargame books in armory/. */}

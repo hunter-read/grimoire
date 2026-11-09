@@ -12,6 +12,7 @@ class SettingsPatch(BaseModel):
     cleanup_on_rescan: Optional[bool] = None
     library_watch_enabled: Optional[bool] = None
     library_watch_mode: Optional[str] = None
+    hide_library: Optional[bool] = None
     hide_armory: Optional[bool] = None
     hide_maps: Optional[bool] = None
     hide_tokens: Optional[bool] = None
@@ -108,6 +109,7 @@ class SettingsResponse(BaseModel):
     library_watch_mode_env_locked: bool
     library_watch_state: LibraryWatchState
     library_watch_poll_interval: int
+    hide_library: bool = False
     hide_armory: bool = False
     hide_maps: bool
     hide_tokens: bool
@@ -201,6 +203,7 @@ class SettingsResponse(BaseModel):
 class UISettingsResponse(BaseModel):
     """The visibility subset any authenticated user may read."""
 
+    hide_library: bool = False
     hide_armory: bool = False
     hide_maps: bool
     hide_tokens: bool

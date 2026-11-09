@@ -752,6 +752,18 @@ class TestUiSettings:
             assert key in body
         assert body["hide_audio"] is True
 
+    def test_library_and_armory_can_each_be_hidden(self, client, admin_headers):
+        body = client.get("/api/settings/ui", headers=admin_headers).json()
+        assert (body["hide_library"], body["hide_armory"]) == (False, False)
+        try:
+            resp = client.patch("/api/settings", json={"hide_library": True}, headers=admin_headers)
+            assert resp.status_code == 200
+            assert resp.json()["hide_library"] is True
+            body = client.get("/api/settings/ui", headers=admin_headers).json()
+            assert (body["hide_library"], body["hide_armory"]) == (True, False)
+        finally:
+            client.patch("/api/settings", json={"hide_library": False}, headers=admin_headers)
+
     def test_ui_settings_available_to_player(self, client, player_headers):
         assert client.get("/api/settings/ui", headers=player_headers).status_code == 200
 

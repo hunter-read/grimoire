@@ -4,7 +4,7 @@
   },
   "app": {
     "name": "GRIMOIRE",
-    "subtitle": "Libreria TTRPG"
+    "subtitle": "Libreria di giochi"
   },
   "nav": {
     "library": "Libreria",
@@ -24,7 +24,9 @@
     "models": "Modelli",
     "characters": "Personaggi",
     "armies": "Eserciti",
-    "leagues": "Leghe"
+    "leagues": "Leghe",
+    "roleplaying": "Gioco di ruolo",
+    "wargaming": "Wargame"
   },
   "stats": {
     "systems": "Sistemi",
@@ -40,7 +42,7 @@
   },
   "about": {
     "title": "Informazioni su Grimoire",
-    "subtitle": "Gestore self-hosted di librerie TTRPG",
+    "subtitle": "Gestore self-hosted di librerie di giochi",
     "version": "Versione",
     "commitHash": "Hash commit",
     "pythonVersion": "Versione Python",
@@ -1501,6 +1503,7 @@
     "sidebarVisibility": {
       "title": "Visibilità barra laterale",
       "description": "Nascondi sezioni dalla barra laterale e dalla navigazione mobile per tutti gli utenti.",
+      "hideLibrary": "Nascondi Libreria",
       "hideArmory": "Nascondi Armeria",
       "hideMaps": "Nascondi Mappe",
       "hideTokens": "Nascondi Token",

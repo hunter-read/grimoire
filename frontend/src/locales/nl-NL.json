@@ -4,7 +4,7 @@
   },
   "app": {
     "name": "GRIMOIRE",
-    "subtitle": "TTRPG-bibliotheek"
+    "subtitle": "Spellenbibliotheek"
   },
   "nav": {
     "library": "Bibliotheek",
@@ -24,7 +24,9 @@
     "models": "Models",
     "characters": "Personages",
     "armies": "Legers",
-    "leagues": "Competities"
+    "leagues": "Competities",
+    "roleplaying": "Rollenspel",
+    "wargaming": "Wargaming"
   },
   "stats": {
     "systems": "Systemen",
@@ -40,7 +42,7 @@
   },
   "about": {
     "title": "Over Grimoire",
-    "subtitle": "Zelf-gehoste TTRPG-bibliotheekbeheerder",
+    "subtitle": "Zelf-gehoste spellenbibliotheekbeheerder",
     "version": "Versie",
     "commitHash": "Commit-hash",
     "pythonVersion": "Python-versie",
@@ -1501,6 +1503,7 @@
     "sidebarVisibility": {
       "title": "Zichtbaarheid van zijbalk",
       "description": "Verberg secties van de zijbalk en de mobiele navigatie voor alle gebruikers.",
+      "hideLibrary": "Bibliotheek verbergen",
       "hideArmory": "Wapenkamer verbergen",
       "hideMaps": "Kaarten verbergen",
       "hideTokens": "Tokens verbergen",

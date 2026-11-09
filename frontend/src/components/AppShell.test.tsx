@@ -7,9 +7,10 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import AppShell from './AppShell'
 
+const getUi = vi.hoisted(() => vi.fn())
 vi.mock('../api', () => ({
   default: { get: vi.fn().mockResolvedValue({ books: 1 }) },
-  settings: { getUi: vi.fn().mockResolvedValue({ hide_audio: false }) },
+  settings: { getUi },
 }))
 let role = 'admin'
 vi.mock('../context/AuthContext', () => ({
@@ -31,7 +32,12 @@ vi.mock('./audio/GlobalAudioPlayer', () => ({
 }))
 // Stub all routed views so we only test the shell.
 vi.mock('./BookReader', () => ({ default: () => <div>reader</div> }))
-vi.mock('../views/LibraryView', () => ({ default: () => <div>library</div> }))
+vi.mock('../views/LibraryView', () => ({
+  // The Armory is this view over the other game type.
+  default: ({ gameType }: { gameType?: string }) => (
+    <div>{gameType === 'wargame' ? 'armory' : 'library'}</div>
+  ),
+}))
 vi.mock('../views/SystemDetailView', () => ({ default: () => <div>system</div> }))
 vi.mock('../views/MapsView', () => ({ default: () => <div>maps</div> }))
 vi.mock('./maps/MapDetailView', () => ({ default: () => <div>map-detail</div> }))
@@ -83,6 +89,7 @@ beforeEach(() => {
   queue = []
   role = 'admin'
   window.innerWidth = 1200 // desktop
+  getUi.mockResolvedValue({ hide_audio: false })
 })
 
 describe('AppShell', () => {
@@ -124,6 +131,24 @@ describe('AppShell', () => {
   ])('routes %s to its wargame view', async (path, expected) => {
     renderAt(path)
     expect(await screen.findByText(expected)).toBeInTheDocument()
+  })
+
+  it('lands on the Library', async () => {
+    renderAt('/')
+    expect(await screen.findByText('library')).toBeInTheDocument()
+  })
+
+  it('lands on the Armory when the Library is hidden', async () => {
+    getUi.mockResolvedValue({ hide_library: true })
+    renderAt('/')
+    expect(await screen.findByText('armory')).toBeInTheDocument()
+    expect(screen.queryByText('library')).not.toBeInTheDocument()
+  })
+
+  it('lands on the Library when the settings cannot be read', async () => {
+    getUi.mockRejectedValue(new Error('offline'))
+    renderAt('/')
+    expect(await screen.findByText('library')).toBeInTheDocument()
   })
 
   it('routes to the audio detail view', async () => {

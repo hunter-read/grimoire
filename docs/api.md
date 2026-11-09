@@ -1891,6 +1891,7 @@ than appearing and failing.
 | `rescan_schedule_hour` | int | UTC hour (0–23) for daily/weekly rescans |
 | `rescan_schedule_minute` | int | UTC minute (0–59) |
 | `rescan_schedule_weekday` | int | Weekday (0–6) for weekly rescans |
+| `hide_library` | bool | Hide the Library (role-playing books) in the sidebar |
 | `hide_armory` | bool | Hide the Armory (wargame books) in the sidebar |
 | `hide_maps` | bool | Hide the maps section in the UI |
 | `hide_tokens` | bool | Hide the tokens section in the UI |

@@ -149,6 +149,7 @@ def _oidc_writers() -> dict[str, Writer]:
 _FLAGS = (
     "rescan_schedule_enabled",
     "cleanup_on_rescan",
+    "hide_library",
     "hide_armory",
     "hide_maps",
     "hide_tokens",

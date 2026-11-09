@@ -4,7 +4,7 @@
   },
   "app": {
     "name": "GRIMOIRE",
-    "subtitle": "Bibliothèque TTRPG"
+    "subtitle": "Bibliothèque ludique"
   },
   "nav": {
     "library": "Bibliothèque",
@@ -24,7 +24,9 @@
     "models": "Models",
     "characters": "Personnages",
     "armies": "Armées",
-    "leagues": "Ligues"
+    "leagues": "Ligues",
+    "roleplaying": "Jeu de rôle",
+    "wargaming": "Jeux de figurines"
   },
   "stats": {
     "systems": "Systèmes",
@@ -40,7 +42,7 @@
   },
   "about": {
     "title": "À propos de Grimoire",
-    "subtitle": "Gestionnaire de bibliothèque TTRPG auto-hébergé",
+    "subtitle": "Gestionnaire de bibliothèque ludique auto-hébergé",
     "version": "Version",
     "commitHash": "Hash de commit",
     "pythonVersion": "Version Python",
@@ -1501,6 +1503,7 @@
     "sidebarVisibility": {
       "title": "Visibilité de la barre latérale",
       "description": "Masquer des sections de la barre latérale et de la navigation mobile pour tous les utilisateurs.",
+      "hideLibrary": "Masquer la bibliothèque",
       "hideArmory": "Masquer l’armurerie",
       "hideMaps": "Masquer les cartes",
       "hideTokens": "Masquer les pions",

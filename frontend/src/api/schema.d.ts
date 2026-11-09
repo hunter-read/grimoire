@@ -15835,6 +15835,8 @@ export interface components {
             hide_campaigns?: boolean | null;
             /** Hide Leagues */
             hide_leagues?: boolean | null;
+            /** Hide Library */
+            hide_library?: boolean | null;
             /** Hide Maps */
             hide_maps?: boolean | null;
             /** Hide Models */
@@ -15970,6 +15972,11 @@ export interface components {
             hide_campaigns: boolean;
             /** Hide Leagues */
             hide_leagues: boolean;
+            /**
+             * Hide Library
+             * @default false
+             */
+            hide_library?: boolean;
             /** Hide Maps */
             hide_maps: boolean;
             /** Hide Models */
@@ -17347,6 +17354,11 @@ export interface components {
             hide_campaigns: boolean;
             /** Hide Leagues */
             hide_leagues: boolean;
+            /**
+             * Hide Library
+             * @default false
+             */
+            hide_library?: boolean;
             /** Hide Maps */
             hide_maps: boolean;
             /** Hide Models */

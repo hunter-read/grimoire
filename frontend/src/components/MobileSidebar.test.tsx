@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import MobileSidebar from './MobileSidebar'
@@ -26,6 +26,37 @@ describe('MobileSidebar', () => {
     renderBar({ uiSettings: { hide_armory: true } })
     await userEvent.click(screen.getByRole('button', { name: /more/i }))
     expect(screen.queryByText('Armory')).not.toBeInTheDocument()
+  })
+
+  it('moves the Armory onto the bar when the Library is hidden', async () => {
+    renderBar({ uiSettings: { hide_library: true }, stats: { armory_books: 2 } })
+    const bar = screen.getByRole('navigation', { name: 'Main navigation' })
+    expect(within(bar).queryByRole('link', { name: 'Library' })).toBeNull()
+    expect(within(bar).getByRole('link', { name: 'Armory' })).toHaveAttribute('href', '/armory')
+    await userEvent.click(screen.getByRole('button', { name: /more/i }))
+    const drawer = screen.getByRole('navigation', { name: 'More pages' })
+    expect(within(drawer).queryByRole('link', { name: 'Armory' })).toBeNull()
+  })
+
+  it('leaves the slot empty when the Library and the Armory are both hidden', () => {
+    renderBar({ uiSettings: { hide_library: true, hide_armory: true } })
+    expect(screen.queryByRole('link', { name: 'Library' })).toBeNull()
+    expect(screen.queryByRole('link', { name: 'Armory' })).toBeNull()
+  })
+
+  it('heads Characters and the wargame pages as two groups in the drawer', async () => {
+    const { unmount } = renderBar()
+    await userEvent.click(screen.getByRole('button', { name: /more/i }))
+    const roleplaying = screen.getByRole('group', { name: 'Role-playing' })
+    expect(within(roleplaying).getByRole('link', { name: 'Characters' })).toBeInTheDocument()
+    const wargaming = screen.getByRole('group', { name: 'Wargaming' })
+    expect(within(wargaming).getByRole('link', { name: 'Armies' })).toBeInTheDocument()
+    expect(within(wargaming).getByRole('link', { name: 'Leagues' })).toBeInTheDocument()
+    unmount()
+    renderBar({ uiSettings: { hide_armies: true, hide_leagues: true, hide_campaigns: true } })
+    await userEvent.click(screen.getByRole('button', { name: /more/i }))
+    expect(screen.queryByRole('group', { name: 'Wargaming' })).toBeNull()
+    expect(screen.queryByRole('group', { name: 'Role-playing' })).toBeNull()
   })
 
   it('is a named navigation landmark', () => {

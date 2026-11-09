@@ -4,7 +4,7 @@
   },
   "app": {
     "name": "GRIMOIRE",
-    "subtitle": "Biblioteca de juegos de rol"
+    "subtitle": "Biblioteca de juegos"
   },
   "nav": {
     "library": "Biblioteca",
@@ -24,7 +24,9 @@
     "models": "Models",
     "characters": "Personajes",
     "armies": "Ejércitos",
-    "leagues": "Ligas"
+    "leagues": "Ligas",
+    "roleplaying": "Rol",
+    "wargaming": "Wargames"
   },
   "stats": {
     "systems": "Sistemas",
@@ -40,7 +42,7 @@
   },
   "about": {
     "title": "Acerca de Grimoire",
-    "subtitle": "Gestor de biblioteca de juegos de rol autoalojado",
+    "subtitle": "Gestor de biblioteca de juegos de rol y wargames autoalojado",
     "version": "Versión",
     "commitHash": "Hash del commit",
     "pythonVersion": "Versión de Python",
@@ -1501,6 +1503,7 @@
     "sidebarVisibility": {
       "title": "Visibilidad de la barra lateral",
       "description": "Oculta secciones de la barra lateral y de la navegación móvil para todos los usuarios.",
+      "hideLibrary": "Ocultar biblioteca",
       "hideArmory": "Ocultar armería",
       "hideMaps": "Ocultar mapas",
       "hideTokens": "Ocultar fichas",

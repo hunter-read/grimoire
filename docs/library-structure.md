@@ -311,7 +311,8 @@ each top-level folder is a game, and editions can sit inside it as a
 [system container](#system-containers-parent-systems--sub-libraries). The armory shows in
 the sidebar as **Armory**, between Library and Maps, once it holds a book (admins see it
 from the start, so there is somewhere to begin); an admin can hide it in
-**Settings → Application → Sidebar visibility**.
+**Settings → Application → Sidebar visibility**. The Library can be hidden there too, for an
+instance that holds only wargames: Grimoire then opens on the Armory.
 
 ```
 library/

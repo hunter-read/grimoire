@@ -4,7 +4,7 @@
   },
   "app": {
     "name": "GRIMOIRE",
-    "subtitle": "TTRPG-bibliotek"
+    "subtitle": "Spelbibliotek"
   },
   "nav": {
     "library": "Bibliotek",
@@ -24,7 +24,9 @@
     "models": "Modeller",
     "characters": "Rollpersoner",
     "armies": "Arméer",
-    "leagues": "Ligor"
+    "leagues": "Ligor",
+    "roleplaying": "Rollspel",
+    "wargaming": "Krigsspel"
   },
   "stats": {
     "systems": "System",
@@ -40,7 +42,7 @@
   },
   "about": {
     "title": "Om Grimoire",
-    "subtitle": "Självhostad TTRPG-bibliotekshanterare",
+    "subtitle": "Självhostad spelbibliotekshanterare",
     "version": "Version",
     "commitHash": "Commit-hash",
     "pythonVersion": "Python-version",
@@ -1501,6 +1503,7 @@
     "sidebarVisibility": {
       "title": "Sidofältets synlighet",
       "description": "Dölj kategori från sidofältet och mobilnavigeringen för alla användare.",
+      "hideLibrary": "Dölj bibliotek",
       "hideArmory": "Dölj rustkammare",
       "hideMaps": "Dölj kartor",
       "hideTokens": "Dölj tokens",

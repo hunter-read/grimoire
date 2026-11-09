@@ -35,6 +35,7 @@ _DEFAULTS = {
     # Rescan by itself when the library changes (issue #670); see library_watch.
     "library_watch_enabled": "true",
     "library_watch_mode": "auto",
+    "hide_library": "false",
     "hide_armory": "false",
     "hide_maps": "false",
     "hide_tokens": "false",
@@ -196,6 +197,7 @@ def to_typed(raw: dict) -> dict:
         "rescan_schedule_weekday": int(raw.get("rescan_schedule_weekday", "0")),
         "cleanup_on_rescan": raw.get("cleanup_on_rescan", "false") == "true",
         **library_watch_settings.to_typed(raw),
+        "hide_library": raw["hide_library"] == "true",
         "hide_armory": raw["hide_armory"] == "true",
         "hide_maps": raw["hide_maps"] == "true",
         "hide_tokens": raw["hide_tokens"] == "true",

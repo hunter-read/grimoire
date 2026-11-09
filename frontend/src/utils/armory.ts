@@ -35,3 +35,27 @@ export function showArmoryNav({
   if (hidden) return false
   return isAdmin || (armoryBooks ?? 0) > 0
 }
+
+/**
+ * Where `/` lands: the Library, or with it hidden the first shelf still listed
+ * (the Armory, then maps, tokens, audio and models), or Search when every
+ * shelf is hidden.
+ */
+export function homePath(settings: {
+  hide_library?: boolean | null
+  hide_armory?: boolean | null
+  hide_maps?: boolean | null
+  hide_tokens?: boolean | null
+  hide_audio?: boolean | null
+  hide_models?: boolean | null
+}): string {
+  if (!settings.hide_library) return '/library'
+  const shelves: [string, boolean | null | undefined][] = [
+    ['/armory', settings.hide_armory],
+    ['/maps', settings.hide_maps],
+    ['/tokens', settings.hide_tokens],
+    ['/audio', settings.hide_audio],
+    ['/models', settings.hide_models],
+  ]
+  return shelves.find(([, hidden]) => !hidden)?.[0] ?? '/search'
+}
