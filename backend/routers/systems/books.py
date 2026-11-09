@@ -39,6 +39,7 @@ from ...services.browse.tag_query import FILTER_ANY, FILTER_NONE, TagMatcher
 from ...services.search_query import parse_query
 from .._browse import MAX_OFFSET, parse_tags_param
 from ...services.book_search import apply_field_filters, free_text_clause
+from ...services.factions import factions_for_books, system_factions
 from ...services.systems import load_browsable_system
 from ._serializers import _category_depth, serialize_book
 
@@ -417,13 +418,29 @@ def list_system_books(
     ids = [b.id for b in books]
     book_tags = tag_service.display_tags_for_resources(db, "book", ids)
     vcounts = variants.variant_counts(db, Book, ids, current_user)
+    book_factions = factions_for_books(db, ids)
     return {
         "total": total,
         "books": [
-            serialize_book(b, tags=book_tags.get(b.id, []), variant_count=vcounts.get(b.id, 0))
+            serialize_book(
+                b,
+                tags=book_tags.get(b.id, []),
+                variant_count=vcounts.get(b.id, 0),
+                factions=book_factions.get(b.id, []),
+            )
             for b in books
         ],
     }
+
+
+def list_system_factions(
+    system_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """The factions the system's folders name; empty for a role-playing system."""
+    system = _load_system(db, system_id, current_user)
+    return {"factions": system_factions(db, system.id)}
 
 
 def list_system_book_groups(

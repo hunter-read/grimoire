@@ -5,11 +5,15 @@ import SettingsLoadError from './SettingsLoadError'
 import { useInstantSettings } from './useInstantSettings'
 
 const ITEMS = [
+  { key: 'hide_library', labelKey: 'appSettings.sidebarVisibility.hideLibrary' },
+  { key: 'hide_armory', labelKey: 'appSettings.sidebarVisibility.hideArmory' },
   { key: 'hide_maps', labelKey: 'appSettings.sidebarVisibility.hideMaps' },
   { key: 'hide_tokens', labelKey: 'appSettings.sidebarVisibility.hideTokens' },
   { key: 'hide_audio', labelKey: 'appSettings.sidebarVisibility.hideAudio' },
   { key: 'hide_models', labelKey: 'appSettings.sidebarVisibility.hideModels' },
   { key: 'hide_campaigns', labelKey: 'appSettings.sidebarVisibility.hideCampaigns' },
+  { key: 'hide_armies', labelKey: 'appSettings.sidebarVisibility.hideArmies' },
+  { key: 'hide_leagues', labelKey: 'appSettings.sidebarVisibility.hideLeagues' },
 ] as const
 const KEYS = ITEMS.map(({ key }) => key)
 

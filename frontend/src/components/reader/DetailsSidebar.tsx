@@ -38,6 +38,7 @@ export default function DetailsSidebar({ book, onClose, onSave }: DetailsSidebar
   // [label, value] pairs; anything falsy is dropped below.
   const rows = [
     [t('bookDetails.category'), book.category],
+    [t('bookDetails.factions'), (book.factions || []).map((f) => f.name).join(', ')],
     [t('bookDetails.authors'), (book.authors || []).join(', ')],
     [t('bookDetails.artists'), (book.artists || []).join(', ')],
     [t('bookDetails.publisher'), book.publisher],

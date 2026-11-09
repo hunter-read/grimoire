@@ -12,11 +12,15 @@ class SettingsPatch(BaseModel):
     cleanup_on_rescan: Optional[bool] = None
     library_watch_enabled: Optional[bool] = None
     library_watch_mode: Optional[str] = None
+    hide_library: Optional[bool] = None
+    hide_armory: Optional[bool] = None
     hide_maps: Optional[bool] = None
     hide_tokens: Optional[bool] = None
     hide_audio: Optional[bool] = None
     hide_models: Optional[bool] = None
     hide_campaigns: Optional[bool] = None
+    hide_armies: Optional[bool] = None
+    hide_leagues: Optional[bool] = None
     # {category_slug: "gm"|"admin"} restricting whole categories app-wide
     # (issue #258). Validated in the handler against the unrestrictable list.
     restricted_categories: Optional[dict] = None
@@ -105,11 +109,15 @@ class SettingsResponse(BaseModel):
     library_watch_mode_env_locked: bool
     library_watch_state: LibraryWatchState
     library_watch_poll_interval: int
+    hide_library: bool = False
+    hide_armory: bool = False
     hide_maps: bool
     hide_tokens: bool
     hide_audio: bool
     hide_models: bool
     hide_campaigns: bool
+    hide_armies: bool
+    hide_leagues: bool
     restricted_categories: dict
     show_stat_systems: bool
     show_stat_books: bool
@@ -195,11 +203,15 @@ class SettingsResponse(BaseModel):
 class UISettingsResponse(BaseModel):
     """The visibility subset any authenticated user may read."""
 
+    hide_library: bool = False
+    hide_armory: bool = False
     hide_maps: bool
     hide_tokens: bool
     hide_audio: bool
     hide_models: bool
     hide_campaigns: bool
+    hide_armies: bool
+    hide_leagues: bool
     show_stat_systems: bool
     show_stat_books: bool
     show_stat_pages: bool

@@ -167,6 +167,84 @@ CATEGORY_EXACT_NAMES = {
     "back issue": "magazine",
 }
 
+# --- Wargames (the armory) ---------------------------------------------------
+#
+# A wargame system's books are filed by faction as much as by kind of book
+# (``armory/Warhammer 40,000/10th/Factions/Necrons/Codex - Necrons.pdf``), so its
+# folders are read with their own vocabulary. It has to be separate rather than
+# merged into CATEGORY_MAP: "campaign" there means an adventure, while a
+# wargame's campaign book is a category of its own. The slugs match
+# GrimoireCodexDB's book categories.
+
+#: A faction's own rules: codexes, battletomes, "Armies of ...". Also the
+#: default for a book filed in a faction folder whose name says nothing else.
+ARMY_BOOK = "army-book"
+
+# Checked in order, first match wins, so the more specific kinds come first:
+# "Codex Supplement" is a supplement before it is a codex, and a points or
+# balance update is errata whatever army it names.
+WARGAME_CATEGORY_MAP = {
+    "errata": [
+        "errata",
+        "faq",
+        "dataslate",
+        "balance",
+        "rules update",
+        "rules commentary",
+        "designer commentary",
+        "points",
+        "munitorum",
+        "battle profile",
+    ],
+    "mission-pack": [
+        "mission",
+        "chapter approved",
+        "tournament",
+        "general's handbook",
+        "generals handbook",
+        "matched play",
+    ],
+    "campaign": ["campaign", "crusade", "path to glory", "narrative", "turning point", "historical"],
+    "unit-reference": [
+        "technical readout",
+        "record sheet",
+        "datacard",
+        "datasheet",
+        "unit card",
+        "unit reference",
+    ],
+    "painting-guide": ["painting", "paint", "hobby", "eavy metal", "terrain building"],
+    "lore": ["lore", "novel", "fiction", "black library", "art book", "artbook"],
+    "magazine": ["magazine", "white dwarf", "shrapnel", "zine", "periodical"],
+    "starter-set": ["starter set", "starter", "box set", "boxed set", "combat patrol", "spearhead"],
+    "supplement": ["supplement", "expansion", "imperial armour", "operations", "sourcebook"],
+    "core": ["core", "rulebook", "rules", "total warfare", "basic"],
+    ARMY_BOOK: [
+        "codex",
+        "battletome",
+        "army book",
+        "armies",
+        "army",
+        "liber",
+        "field manual",
+        "index",
+        "faction",
+    ],
+}
+
+# Whole-name-only matches, as CATEGORY_EXACT_NAMES is for role-playing books.
+WARGAME_CATEGORY_EXACT_NAMES = {
+    "tro": "unit-reference",
+    "missions": "mission-pack",
+}
+
+# Markers that settle what a folder in a wargame system is when its name would
+# be read the other way: "Imperial Armour" is not an army, and a faction named
+# after a category word ("Legions of Nagash" contains no keyword, but "The
+# Armies of Order" would) is still a faction.
+FACTION_MARKER = ".faction"
+CATEGORY_MARKER = ".category"
+
 # Normalized folder names (after slugify) that are treated as the system-agnostic
 # collection. Books placed in any of these folders use their immediate subfolder
 # name as the category label instead of going through the normal CATEGORY_MAP.

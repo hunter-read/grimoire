@@ -9,6 +9,7 @@ import {
   CATEGORY_LABELS,
   CATEGORY_ORDER,
   categoryLabel,
+  categoryOrderFor,
 } from './constants'
 
 describe('isArchiveBook', () => {
@@ -137,5 +138,15 @@ describe('isSingleImageBook', () => {
   it('returns false for non-images', () => {
     expect(isSingleImageBook({ mime_type: 'application/pdf' })).toBe(false)
     expect(isSingleImageBook(null)).toBe(false)
+  })
+})
+
+describe('categoryOrderFor', () => {
+  it('offers a wargame its own vocabulary, and everything else the role-playing one', () => {
+    expect(categoryOrderFor('wargame')).toContain('army-book')
+    expect(categoryOrderFor('wargame')).not.toContain('adventure')
+    expect(categoryOrderFor('ttrpg')).toContain('adventure')
+    expect(categoryOrderFor(null)).not.toContain('army-book')
+    expect(categoryLabel('campaign')).toBe('Campaign Books')
   })
 })

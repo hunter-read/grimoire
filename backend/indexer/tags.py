@@ -24,9 +24,10 @@ from ..models import (
     Token,
     TokenFolder,
 )
+from ..models.game_types import GAME_TYPE_TTRPG, GAME_TYPE_WARGAME
 from ..services import tag_service
 from .categories import slugify
-from .metadata import resolve_collection_dir
+from .metadata import resolve_armory_dir, resolve_collection_dir
 
 logger = logging.getLogger("grimoire.indexer")
 
@@ -177,9 +178,16 @@ def _apply_tags_from_library(
                         else:
                             logger.debug(f"tags.json: no record found for {file_rel}")
 
-    # --- books/ section (system-level tags only) ---
-    books_dir = resolve_collection_dir(library, "books")
-    if books_dir.exists() and (scope_dir is None or _within_scope(scope_dir, books_dir)):
+    # --- books/ and armory/ (system-level tags only) ---
+    shelves = (
+        (resolve_collection_dir(library, "books"), GAME_TYPE_TTRPG),
+        (resolve_armory_dir(library), GAME_TYPE_WARGAME),
+    )
+    for books_dir, game_type in shelves:
+        if not books_dir.exists() or (
+            scope_dir is not None and not _within_scope(scope_dir, books_dir)
+        ):
+            continue
         for system_dir in sorted(books_dir.iterdir()):
             if (
                 not system_dir.is_dir()
@@ -200,7 +208,11 @@ def _apply_tags_from_library(
                 continue
 
             system_slug = slugify(system_dir.name)
-            system = session.query(GameSystem).filter_by(slug=system_slug).first()
+            system = (
+                session.query(GameSystem)
+                .filter_by(slug=system_slug, game_type=game_type)
+                .first()
+            )
             if system:
                 # Additive: tags.json only adds system tags (issue #235).
                 tag_service.add_resource_tags(session, "system", system.id, tags)

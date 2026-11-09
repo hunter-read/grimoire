@@ -151,6 +151,30 @@ GameSystemBulkUpdate = bulk_update_model(GameSystemUpdate, "GameSystem")
 # them strictly would make response_model validation raise on legacy rows.
 
 
+class FactionRef(BaseModel):
+    """A wargame faction a book is filed under (the innermost one)."""
+
+    id: str
+    name: str
+    # The faction this one sits inside ("Space Marines" for "Blood Angels").
+    parent_id: Optional[str] = None
+
+
+class FactionOut(FactionRef):
+    """One faction of a system, from `GET /systems/{id}/factions`."""
+
+    # Nesting depth: 0 for a top-level faction, 1 for a sub-faction, ...
+    depth: int
+    # Books linked to this faction itself, not counting its sub-factions.
+    book_count: int
+
+
+class SystemFactionsResponse(BaseModel):
+    """A system's factions, parents before children, siblings by name."""
+
+    factions: list[FactionOut]
+
+
 class BookOut(VariantCountMixin, BaseModel):
     """One book, as built by `_serializers.serialize_book`.
 
@@ -166,6 +190,10 @@ class BookOut(VariantCountMixin, BaseModel):
     filename: str
     relative_path: str
     category: Optional[str] = None
+    # "ttrpg" for a book under books/, "wargame" under armory/.
+    game_type: str = "ttrpg"
+    # A wargame book's factions; empty for a role-playing book.
+    factions: list[FactionRef] = []
     description: Optional[str] = None
     page_count: Optional[int] = None
     file_size: Optional[int] = None
@@ -232,6 +260,9 @@ class SystemSummary(BaseModel):
     # `name`/`slug` are NOT NULL on the model.
     name: str
     slug: str
+    # "ttrpg" for a system under books/, "wargame" under armory/. Names and
+    # slugs are unique within a game type, not across them.
+    game_type: str = "ttrpg"
     description: Optional[str] = None
     # `PublisherRef`, not the stricter request-side `PublisherEntry`: a stored
     # row may predate the current shape, and a response model must not reject it.

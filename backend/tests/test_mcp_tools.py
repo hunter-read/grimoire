@@ -136,6 +136,15 @@ class TestListGameSystems:
         assert f"{system.name}, 2e: " in text
         assert f"[system_id: {system.id}]" in text
 
+    def test_filters_and_marks_wargames(self, mcp_client, read_key, library):
+        war = make_game_system(game_type="wargame")
+        both = call_text(mcp_client, read_key, "list_game_systems", {})
+        assert f"{war.name} (wargame): " in both
+        wargames = call_text(mcp_client, read_key, "list_game_systems", {"game_type": "wargame"})
+        assert war.name in wargames and library["system"].name not in wargames
+        rpgs = call_text(mcp_client, read_key, "list_game_systems", {"game_type": "ttrpg"})
+        assert war.name not in rpgs
+
     def test_empty_library(self, mcp_client, read_key, monkeypatch):
         from backend.routers.systems import core
 

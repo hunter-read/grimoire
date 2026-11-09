@@ -7,7 +7,11 @@ interface RoleColors {
 }
 
 export const ROLE_COLORS: Record<string, RoleColors> & { player: RoleColors } = {
-  admin: { bg: 'rgba(201, 168, 76, 0.15)', border: 'var(--gold-dim)', text: 'var(--gold)' },
+  admin: {
+    bg: 'color-mix(in srgb, var(--gold) 15%, transparent)',
+    border: 'var(--gold-dim)',
+    text: 'var(--gold)',
+  },
   gm: { bg: 'rgba(212, 145, 58, 0.15)', border: 'var(--amber)', text: 'var(--amber)' },
   player: { bg: 'rgba(154, 142, 126, 0.1)', border: 'var(--border)', text: 'var(--text-dim)' },
 }

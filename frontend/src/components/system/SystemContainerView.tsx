@@ -19,6 +19,7 @@ import useSortFilterState from '../../hooks/useSortFilterState'
 import useSystemLibrary from '../../hooks/useSystemLibrary'
 import { systemDisplayName } from '../../utils/systemDisplayName'
 import { systemCoverUrl } from '../../utils/systemCoverUrl'
+import { systemPath } from '../../utils/armory'
 
 /**
  * Detail view for a *container* system — a folder whose children are systems in
@@ -262,7 +263,7 @@ export default function SystemContainerView({
                   <SystemCard
                     key={child.id}
                     system={child}
-                    to={`/library/system/${child.id}`}
+                    to={systemPath(child)}
                     compact={compact}
                     list={list}
                     selectable={bulk.bulkMode}

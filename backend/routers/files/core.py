@@ -102,12 +102,15 @@ def browse(
     limit = max(1, min(limit, MAX_ENTRIES))
     section = fs.collection_of(target)
     model = fs.COLLECTIONS.get(section) if section else None
+    # The collection a record in this folder is reported as. An armory book is a
+    # book row like any other, so it is reported (and edited) as one.
+    record_collection = "books" if section in fs.BOOK_SECTIONS else section
     # Whether a *child* of this folder could host category folders, resolved once
     # for the whole listing rather than re-walking each row's ancestors: the
     # chain above every child is identical, so the per-row question reduces to
     # "and is this child itself a container?". On a folder holding thousands of
     # entries that is the difference between one ancestor walk and thousands.
-    children_may_host = section == "books" and fs.holds_system_folders(target)
+    children_may_host = section in fs.BOOK_SECTIONS and fs.holds_system_folders(target)
     # A child may declare a container kind exactly when a *system* folder is
     # what belongs in its place — the same question, so it reuses the same
     # single ancestor walk rather than re-deriving the chain per row. A child of
@@ -157,9 +160,10 @@ def browse(
             continue
         if child.is_dir():
             markers = fs.read_folder_markers(child_path)
-            # A books/<system> folder maps to a GameSystem row, which carries
-            # editable metadata (description, genres, cover). Surfacing it lets a
-            # system folder offer the same "edit metadata" action a file does.
+            # A books/<system> (or armory/<system>) folder maps to a GameSystem
+            # row, which carries editable metadata (description, genres, cover).
+            # Surfacing it lets a system folder offer the same "edit metadata"
+            # action a file does.
             system = fs.system_for_folder(db, child_path)
             entries.append(
                 BrowseEntry(
@@ -195,7 +199,7 @@ def browse(
                 size=size,
                 record_id=getattr(record, "id", None),
                 title=getattr(record, "title", None),
-                collection=section if record is not None else None,
+                collection=record_collection if record is not None else None,
                 has_thumbnail=bool(getattr(record, "has_thumbnail", False)),
                 is_missing=bool(getattr(record, "is_missing", False)),
             )

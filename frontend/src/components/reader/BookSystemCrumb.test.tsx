@@ -28,6 +28,14 @@ beforeEach(() => {
 })
 
 describe('BookSystemCrumb', () => {
+  it('links a wargame book to its system in the Armory', () => {
+    setup({ ...SYSTEM, game_type: 'wargame' })
+    expect(screen.getByRole('link', { name: 'Dungeons & Dragons 5e' })).toHaveAttribute(
+      'href',
+      '/armory/system/sys-1'
+    )
+  })
+
   it("links to the book's system page", () => {
     setup(SYSTEM)
     const link = screen.getByRole('link', { name: 'Dungeons & Dragons 5e' })

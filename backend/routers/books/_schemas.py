@@ -200,12 +200,22 @@ class BookListResponse(BaseModel):
     books: list[BookListItem]
 
 
+class BookFactionRef(BaseModel):
+    """A wargame faction the book is filed under."""
+
+    id: str
+    name: str
+    parent_id: Optional[str] = None
+
+
 class BookSystemRef(BaseModel):
     """The book's game system, or null when it belongs to none."""
 
     id: str
     name: str
     slug: str
+    # "ttrpg" (books/) or "wargame" (armory/): which shelf the reader returns to.
+    game_type: str = "ttrpg"
     # Special collections keep raw folder names, so the reader's breadcrumb
     # needs these to prettify them the way the library does (issue #641).
     is_system_agnostic: bool = False
@@ -225,6 +235,10 @@ class BookDetail(BaseModel):
     # delete actions and the details "Path" row, both keyed on it.
     relative_path: Optional[str] = None
     category: Optional[str] = None
+    # "ttrpg" for a book under books/, "wargame" under armory/.
+    game_type: str = "ttrpg"
+    # A wargame book's factions; empty for a role-playing book.
+    factions: list[BookFactionRef] = []
     description: Optional[str] = None
     page_count: Optional[int] = None
     file_size: Optional[int] = None

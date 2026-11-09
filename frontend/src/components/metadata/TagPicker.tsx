@@ -233,7 +233,7 @@ export default function TagPicker({
               fontSize: 12,
               padding: '2px 6px 2px 8px',
               borderRadius: 10,
-              background: 'rgba(201,168,76,0.15)',
+              background: 'color-mix(in srgb, var(--gold) 15%, transparent)',
               border: '1px solid var(--gold-dim)',
               color: 'var(--gold)',
               display: 'inline-flex',

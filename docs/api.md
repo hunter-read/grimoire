@@ -139,6 +139,7 @@ A permission is an area of the API, taken from each endpoint's OpenAPI tag:
 | `logs` | `logs` | Application logs |
 | `settings` | `settings` | App settings, including `/api/settings/ui` |
 | `users` | `users` | User management, and the owner's own preferences |
+| `armies` | `armies`, `leagues` | The owner's army lists, the source-book links they cite, and their leagues |
 | `personal` | `favorites`, `bookmarks`, `saved-filters`, `pins`, `audio-sets`, `themes` | The owner's favourites, bookmarks, saved filters, pins, saved audio sets and themes |
 
 **All permissions.** A key's permissions may also hold `"*"`, which raises every
@@ -345,7 +346,7 @@ Each version's links stay inside that version, so a reader subscribed to v1 sees
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/stats` | GET | any (not guest), or an API key with `stats` | Counts, page totals, library size. Tagged `stats` rather than `library`, so a dashboard key needs nothing else. |
+| `/api/stats` | GET | any (not guest), or an API key with `stats` | Counts, page totals, library size. `armory_books` is the wargame books among `books`. Tagged `stats` rather than `library`, so a dashboard key needs nothing else. |
 | `/api/about` | GET | any | Build info for the About dialog: `{version, commit_hash, python_version}`. Deliberately **not** exposed on `/api/stats`, so a `stats`-only key can't read these details. |
 | `/api/changelog` | GET | any (JWT) | Parsed `CHANGELOG.md` for the About dialog: `{releases: [{version, date, summary, sections: [{title, entries}]}]}`, newest release first. `date` and `summary` are `null` when the release heading carries neither (an `Unreleased` section has no date). `releases` is empty when the image ships without a changelog, which the dialog renders as no changelog section rather than an error. Parsed once and cached for the process lifetime - the file cannot change under a running container. |
 | `/api/latest-release` | GET | any (JWT) | Latest published release for the update-available check: `{latest_version}` (or `null`). Proxies GitHub's releases API server-side (cached ~1h) so the browser makes a same-origin request that request blockers won't block. Returns `null` when `DISABLE_VERSION_CHECKING` is set or GitHub is unreachable. |
@@ -503,10 +504,11 @@ must be non-empty (`422` otherwise).
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/systems` | GET | any | List all systems with book counts, `total_page_count`, and metadata. Query: `sort` (`name`\|`book_count`\|`page_count`\|`year`), `order` (`asc`\|`desc`), `genre`, `family`, `parent_system`, `edition`, `license`, `explicit` (bool), `parent_id` (list one container's children), `include_children` (bool; flat list including nested systems) |
+| `/api/systems` | GET | any | List all systems with book counts, `total_page_count`, and metadata. Query: `sort` (`name`\|`book_count`\|`page_count`\|`year`), `order` (`asc`\|`desc`), `genre`, `family`, `parent_system`, `edition`, `license`, `explicit` (bool), `parent_id` (list one container's children), `include_children` (bool; flat list including nested systems), `game_type` (`ttrpg` for the role-playing systems in `books/`, `wargame` for the [armory](library-structure.md#the-armory---wargame-books); both when omitted). Each system carries its `game_type` |
 | `/api/systems/:id` | GET | any | System detail + full book list, plus `children` (the nested systems when this is a container) and `scope_path` (the system's own folder, `books/{System}`, for a scoped rescan; `null` with no books). Query: `book_sort` (`category`\|`title`\|`page_count`\|`year`), `book_order`, `explicit` (bool), `genre`, `category` filter the returned books. `include_books=false` returns the summary alone (`books: []`, counts and cover computed in SQL) - what the detail view asks for, paging the shelf through the three routes below |
 | `/api/systems/:id/books` | GET | any (not guest) | One page of the system's books matching the [shelf filters](#browsing-a-systems-shelf). Query: the filters, plus `category` and `folder` (one folder of the grouped shelf; `""` is the category's own directory, and `folder` needs `category`), `sort` (`title`\|`year`\|`page_count`\|`size`\|`product_code`\|`added_at`), `order`, `limit` (max 500), `offset` (max 1,000,000,000). Returns `{total, books}` |
 | `/api/systems/:id/book-groups` | GET | any (not guest) | Every category and subfolder holding matching books: `{total, groups: [{category, path, dir, count, first}]}`. `path` is the subfolder below the category directory (`""` for books directly in it), `dir` the library directory (for rescan scopes), `first` the active sort's value for the folder's first book (`null` for the title sort) |
+| `/api/systems/:id/factions` | GET | any (not guest) | A wargame system's [factions](library-structure.md#factions), read from its armory folders: `{factions: [{id, name, parent_id, depth, book_count}]}`, parents before their sub-factions and siblings by name. `book_count` counts books filed under that faction itself, not its sub-factions. Empty for a role-playing system |
 | `/api/systems/:id/book-facets` | GET | any (not guest) | The filter menus' options over every book the caller may see: `{categories, genres, product_code_prefixes, tags}` |
 | `/api/systems/:id` | PATCH | gm/admin | Update metadata (see fields below) |
 | `/api/systems/bulk` | POST | gm/admin | Bulk update. Body: `{items: [{id, ...PATCH fields}]}`. A name clash fails only that item |
@@ -593,7 +595,7 @@ does not support pasting, and a request with neither `identity` nor `paste`.
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/books/:id` | GET | any | Book detail with game system. `game_system` is `{id, name, slug, is_system_agnostic, is_one_page}` (null for a book in no system, and for one in a system the caller cannot see - an open book inside a GM-only system); the two flags let the reader's breadcrumb prettify a special collection's folder name. For such a hidden system, `relative_path`, and the `relative_path` of each entry in `variants`, also leave out the system's folder and any container folders above it (`books/Secret Shelf/core/book.pdf` becomes `books/core/book.pdf`) |
+| `/api/books/:id` | GET | any | Book detail with game system. Carries `game_type` (`ttrpg` or `wargame`) and `factions` (`[{id, name, parent_id}]`, the innermost faction folders a wargame book sits in; empty for a role-playing book) - so do the book rows of `GET /api/systems/:id` and `/api/systems/:id/books`. `game_system` is `{id, name, slug, game_type, is_system_agnostic, is_one_page}` (null for a book in no system, and for one in a system the caller cannot see - an open book inside a GM-only system); the two flags let the reader's breadcrumb prettify a special collection's folder name. For such a hidden system, `relative_path`, and the `relative_path` of each entry in `variants`, also leave out the system's folder and any container folders above it (`books/Secret Shelf/core/book.pdf` becomes `books/core/book.pdf`) |
 | `/api/books` | GET | any | Paginated book list. Query: `system_id`, `category`, `limit` (1-500, default 100), `offset` (max 1,000,000,000), `sort` (`title` - the default - or `added_at`), `order` (`asc`/`desc`; defaults to A-Z for `title` and newest first for `added_at`), `added_since` (ISO-8601; see below) |
 | `/api/books/:id` | PATCH | gm/admin | Update: `title`, `category`, `description`, `authors`, `artists`, `genres`, `publisher`, `publisher_url` (legacy), `urls`, `isbn`, `product_code`, `version`, `language`, `license`, `year`, `month` (1–12), `day` (1–31), `tags`, `is_explicit`, `codex_id`, `access_level` (**admin only**). `license` overrides the system license for this book (blank inherits it). Changing `category` also **moves the file** - see below. `file_size`/`page_count`/`mime_type` are read-only. Sending `access_level` as a non-admin returns 403 - see [Access levels](#access-levels-issue-258). |
 | `/api/books/bulk` | POST | gm/admin | Bulk update. Body: `{items: [{id, ...PATCH fields}]}` |
@@ -861,11 +863,20 @@ created with its canonical name when nothing covers that category yet. Since the
 category becomes a folder name, it can't contain `/`, `\` or `..`, or start with a
 dot: `PATCH /api/books/:id` and `POST /api/books/bulk` return 422 for one that does.
 
+A wargame book in the armory moves within its innermost faction folder instead,
+so it keeps its army: `Factions/Necrons/Codex.pdf` re-categorised as a
+supplement lands in `Factions/Necrons/Supplements/`, an army book goes back into
+the faction folder itself, and a book outside any faction uses (or creates) the
+category's folder under its system. A new folder for a custom category gets a
+`.category` marker. Every destination is read back with the scanner's own walk
+first, and the file stays put when no folder would keep both the category and
+the factions.
+
 Best-effort by design, and **never an error**: on a read-only library the
 category is recorded and nothing moves, because the user asked to change a
 category, not to move a file. The same applies to a name collision at the
-destination (the file lands under a suffixed name), a book outside `books/`, and
-a book whose file is missing.
+destination (the file lands under a suffixed name), a book outside `books/` and
+the armory, and a book whose file is missing.
 
 | `/api/maps/:id` | PATCH | gm/admin | Update `description`, `tags`, `map_type`, `grid_size`, and the grid override `grid_width`/`grid_height`/`grid_px` (`grid_px` is `0` to clear, or at least 4) |
 | `/api/maps/:id/file` | GET | any | Download/stream the original map image, PDF, or archive (served with the archive's MIME type) |
@@ -1880,10 +1891,15 @@ than appearing and failing.
 | `rescan_schedule_hour` | int | UTC hour (0–23) for daily/weekly rescans |
 | `rescan_schedule_minute` | int | UTC minute (0–59) |
 | `rescan_schedule_weekday` | int | Weekday (0–6) for weekly rescans |
+| `hide_library` | bool | Hide the Library (role-playing books) in the sidebar; `/` then opens on the Armory, or the first section still listed |
+| `hide_armory` | bool | Hide the Armory (wargame books) in the sidebar |
 | `hide_maps` | bool | Hide the maps section in the UI |
 | `hide_tokens` | bool | Hide the tokens section in the UI |
 | `hide_audio` | bool | Hide the audio section in the UI |
-| `hide_campaigns` | bool | Hide the campaigns section in the UI |
+| `hide_models` | bool | Hide the 3D models section in the UI |
+| `hide_campaigns` | bool | Hide Campaigns and Characters in the sidebar |
+| `hide_armies` | bool | Hide Armies in the sidebar (the pages stay reachable) |
+| `hide_leagues` | bool | Hide Leagues in the sidebar (the pages stay reachable) |
 | `restricted_categories` | object | `{category_slug: "gm"\|"admin"}` restricting whole categories library-wide (issue #258). The category-level tier of the access cascade; a book or system still overrides it in either direction. `core` and `character-sheet` are rejected with 400 - everyone at the table needs those. An entry set to `""` is dropped rather than stored, since "open" is the absence of an entry. See [Access levels](#access-levels-issue-258). |
 | `show_stat_systems` | bool | Show/hide game system count in sidebar |
 | `show_stat_books` | bool | Show/hide book count in sidebar |
@@ -2157,7 +2173,8 @@ for a picker row reading "light & dark"; `mode` is the primary one and `tokens`
 duplicates that variant. A theme sent with only `tokens` is read as covering its
 one `mode`, so the older shape keeps working.
 
-**App modes** are `grimoire` (TTRPG) and `codex` (wargaming), a second axis
+**App modes** are the built-in palettes - `grimoire` (gold on brown, the default) and
+`codex` (crimson on gunmetal, picked from the theme list) - a second axis
 alongside the light/dark colour `mode`. Selection is stored per app mode, so
 switching restores what was chosen there. `built_in[]` lists the bundled themes
 - their colours live in the stylesheet, so they carry no `tokens` and can be
@@ -2903,6 +2920,52 @@ silently overwrite someone's work, and returns a tally
 (`imported`/`skipped`/`renamed`/`overwritten`/`failed`) rather than stopping at
 the first conflict, so a partly-overlapping pack still imports what it can.
 
+### Armies
+
+The army builder for wargames (see [Armies and leagues](armies.md)). An army is
+its owner's: only they (and admins) change it. It is private until it is
+registered in a league; then the league's organiser and members may read it.
+Session or API key (`armies` permission); never guests. Grimoire ships no
+points, stat lines or rules text - an army holds only what its owner imported or
+typed.
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/armies` | GET | any (not guest) | Your own armies, most recently changed first: `[{id, name, user_id, game_system_id, game_system_name, system_name, faction: {id, name}?, points, points_limit, cost_name, source, source_filename, updated_at}]`. `source` is `battlescribe` or `manual` |
+| `/api/armies` | POST | any (not guest) | Build an army by hand. Body `{name, game_system_id?, faction_id?, points_limit?, notes?, units: [{id?, name, number?, points?, category?, categories?, notes?}]}`. 201 with the army's detail |
+| `/api/armies/import` | POST | any (not guest) | Import a BattleScribe / New Recruit roster: multipart `file` (`.ros` or `.rosz`, at most 20 MB) and optional `name`. Its game system and first force's catalogue are matched to a wargame system and faction the caller may see, by name. The file is kept byte for byte. 400 for anything that is not a roster (a DOCTYPE or entity declaration anywhere is refused, as is a roster of more than 10,000 entries), 413 when too large |
+| `/api/armies/:id` | GET | owner, admin, league people | The army: the summary fields plus `data` (the parsed list: `forces` of `units` with `costs`, `categories`, `profiles`, `rules`, the `publication` and `page` each cites, and nested `children`), `progress` (`{unit_id: {experience, honours, notes}}`), `notes`, `can_edit`, `publications` (every publication cited, in order) and `publication_links` (`{publication: {book_id, book_title, page_offset}}`, only books the caller may read). 404 for an army the caller may not see |
+| `/api/armies/:id` | PATCH | owner, admin | Change `name`, `points_limit`, `notes`, `game_system_id`, `faction_id`, or a hand-built army's `units` (an imported list is read-only: 400). A faction must belong to the army's system; a faction given with no system brings its own; moving to another system without naming a faction clears it |
+| `/api/armies/:id` | DELETE | owner, admin | Delete the army and its roster file. 204 |
+| `/api/armies/:id/units/:unit_id/progress` | PUT | owner, admin | Set a unit's league progress. Body `{experience, honours: [str], notes}`; returns what was stored |
+| `/api/armies/:id/export` | GET | as GET | `?format=text` (default): the list as plain text. `?format=roster`: the imported file, unchanged (404 for a hand-built army) |
+| `/api/armies/:id/publications` | GET | as GET | `[{publication, link, suggestions: [{book_id, title}]}]` - each cited publication, its link, and wargame books whose titles match it |
+| `/api/armies/publication-links` | PUT | GM, admin | Link a publication to a library book for every army that cites it. Body `{system_name, publication, book_id, page_offset}`; `system_name` is the roster's game system name, matched ignoring case. `page_offset` is added to a cited page to reach the PDF page. 404 for a book the caller cannot see |
+| `/api/armies/publication-links` | DELETE | GM, admin | Remove a link. Query `publication`, `system_name`. 204 |
+| `/api/armies/publication-links/books` | GET | GM, admin | `?q=` (2+ characters): up to 10 wargame books, visible to the caller, whose titles contain it - `[{book_id, title}]` |
+
+### Leagues
+
+A group playing a wargame over time. GMs and admins organise leagues; members
+are any users with a full account. Only a league's people see it - its
+organiser, its members, and admins (who see every league). Session or API key
+(`armies` permission); never guests.
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/leagues` | GET | any (not guest) | Leagues you organise or play in, newest first: `[{id, name, description, organizer_id, organizer_name, game_system_id, game_system_name, points_limit, points_win, points_draw, points_loss, status, member_count, created_at}]` |
+| `/api/leagues` | POST | GM, admin | Start a league. Body `{name, description?, game_system_id?, points_limit?, points_win? (3), points_draw? (1), points_loss? (0)}`. The system must be a wargame. The organiser is not a member until they add themselves |
+| `/api/leagues/:id` | GET | league people | The league plus `can_manage`, `is_member`, `members` (`[{user_id, name, army}]`), `games` (newest first: `{id, played_on, mission, notes, player_a, player_b, army_a, army_b, score_a, score_b, result, can_edit}`) and `standings` (`[{user_id, name, played, won, drawn, lost, score_for, score_against, points}]`, by league points, then score difference, then score) |
+| `/api/leagues/:id` | PATCH | organiser, admin | Change any of the create fields, or `status` (`active` / `finished`) |
+| `/api/leagues/:id` | DELETE | organiser, admin | Delete the league with its members and games; the armies stay. 204 |
+| `/api/leagues/:id/eligible-members` | GET | organiser, admin | Users who could be added: anyone not a guest and not already in |
+| `/api/leagues/:id/members` | POST | organiser, admin | Add a member. Body `{user_id}`. Adding someone already in changes nothing; a guest or unknown user is 404 |
+| `/api/leagues/:id/members/:user_id` | DELETE | organiser, admin, or that member | Remove a member, or leave. Their logged games stay |
+| `/api/leagues/:id/members/:user_id/army` | PUT | that member, organiser, admin | Register the army the member plays. Body `{army_id}` (null clears it); it must be the member's own (400 otherwise). A registered army becomes readable to the league's people |
+| `/api/leagues/:id/games` | POST | members, organiser | Log a game. Body `{player_a_id, player_b_id, score_a?, score_b?, result?, mission?, played_on?, notes?}`. A member logs only games they played in (403); both players must be members. `result` (`a`, `b` or `draw`, from player A's side) follows from the scores when both are given, must agree with them when also given, and is required without them (400). Each player's registered army is recorded with the game |
+| `/api/leagues/:id/games/:game_id` | PUT | its players, whoever logged it, organiser | Edit a game, same body. A player cannot hand a game to two others |
+| `/api/leagues/:id/games/:game_id` | DELETE | as PUT | Delete a game. 204 |
+
 ### Duplicates *(admin only)*
 
 Finding files that look like copies of one another, and deciding what to do
@@ -3172,7 +3235,7 @@ per-format field mapping and how export interacts with sidecar import.
 A backup is a single timestamped `.zip` named `grimoire-backup-<UTC timestamp>.zip`,
 holding a consistent snapshot of the SQLite database (taken with SQLite's online
 backup API, not a file copy) plus the user-authored directories under `DATA_PATH`:
-`campaign_uploads/`, `system_covers/`, `audio_covers/`, `book_covers/`, and `branding/`. A `details.json`
+`campaign_uploads/`, `system_covers/`, `audio_covers/`, `book_covers/`, `branding/`, and `army_rosters/`. A `details.json`
 manifest records the app version, timestamp, and trigger. The **library is never
 included**, nor are the regenerable caches (`thumbnails/`, `page_cache/`).
 
@@ -3256,7 +3319,11 @@ than about its children, so a client anchored inside a system folder - where
 there is no row to hang the action off - can still offer the scaffold. Note
 `collection`
 names the *library folder* (`books`, `maps`, …) for files but the resource type
-(`system`) for system folders. `frames_container` is true for a folder holding a
+(`system`) for system folders. The armory (`armory/`, or `Armoury/`) is browsed
+like `books/`: its system folders resolve to wargame systems (never a
+role-playing system of the same name), take `category_host` and
+`accepts_container_kind` by the same rules, and its indexed files report
+`collection: "books"`, since they are book rows. `frames_container` is true for a folder holding a
 `.frames-container` marker, whose images the token editor offers as overlay art;
 it is reported separately from `container_kind` because it says nothing about how
 the folder's children relate to each other, and it applies at any depth under
@@ -3295,6 +3362,15 @@ folder relinks every record beneath it. An item whose records cannot be updated
 is moved back and listed in `skipped` with code `io_error`; the items around it
 are unaffected.
 
+A moved book's system, category, game type and factions are re-read from its
+destination as the next rescan would read them. In the armory the system is
+matched among wargame systems, the category is read with the wargame vocabulary,
+and the faction folders it now sits in replace the factions its old folders
+named. Books move freely between `books/` and the armory: one moved into
+`books/` loses its factions and takes a role-playing system and category. A
+destination folder with no registered system leaves the book on its current
+system (and game type) until a rescan registers the folder.
+
 **`POST /api/files/rename`** - `{path, new_name}`. `new_name` is a bare name, not
 a path. This renames the file on disk, distinct from editing an item's display
 title. Returns `{from, to, records}`.
@@ -3309,9 +3385,11 @@ marker file (`.parent-system-container`, `.one-page-container`,
 
 Each marker is only accepted where it is actually read, so a request cannot
 write one the scanner will ignore. A `container_kind` needs a folder inside
-`books/` standing where a game system belongs - a direct child of `books/`, or
-one reached from it through nothing but containers; asking for one on a category
-folder, or anywhere outside `books/`, is rejected with `400`. `frames_container`
+`books/` (or the armory, laid out the same way) standing where a game system
+belongs - a direct child of `books/`, or one reached from it through nothing but
+containers; asking for one on a category folder, or anywhere else, is rejected
+with `400`. The `one-page` and `agnostic` collections are role-playing shelves
+and are rejected with `400` in the armory. `frames_container`
 needs any folder under `tokens/` (at any depth, but not `tokens/` itself) and is
 rejected with `400` elsewhere.
 
@@ -3402,7 +3480,7 @@ under a temporary name, and renamed into place only once complete - so an
 interrupted upload never leaves a truncated file for the scanner to index.
 
 Validation is per collection: only extensions the destination tree actually
-indexes are accepted (documents/images/archives under `books/`, images,
+indexes are accepted (documents/images/archives under `books/` and the armory, images,
 animated maps (`.webm`/`.mp4`), Universal VTT data (`.uvtt`/`.dd2vtt`) and
 archives under `maps/`, images and archives under `tokens/`, audio under
 `audio/`), because a file the
@@ -3474,6 +3552,10 @@ correctly on the next scan. Only valid for a folder that hosts categories - the
 `category_host` folders above: under `books/`, and not a container, since a
 container holds systems rather than categories. A container's children *are* the
 system folders, so they take the scaffold however deeply the containers nest.
+A wargame system in the armory gets the wargame set instead - `Core`,
+`Factions`, `Rules Updates`, `Missions`, `Campaigns`, `Supplements` - each
+reading back as its wargame category (`Factions` is `army-book`); its faction
+folders cover no category.
 Returns `{path, created, existing}`. A category is skipped when an existing
 folder already *resolves to* it, matched on the inferred category rather than the
 folder name - a system holding `Rules` will not gain a second `Core`, and one

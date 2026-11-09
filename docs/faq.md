@@ -199,6 +199,24 @@ This lets you keep your existing file structure on the host without adding an ex
 
 ---
 
+## My wargame books don't show up in the Armory
+
+The Armory reads an `armory/` (or `armoury/`) folder **inside** the library, beside `books/` -
+not a volume of its own. A separate mount such as `/path/to/wargames:/armory` is outside the
+library, so the scan never sees it. Mount it under the library path instead:
+
+```yaml
+volumes:
+ - /path/to/your/rpgs:/app/library
+ - /path/to/your/wargames:/app/library/armory
+```
+
+Use whatever library path your container has (`LIBRARY_PATH`, `/app/library` by default) with
+`/armory` on the end, then rescan. Each top-level folder in it is a game - see
+[the armory](library-structure.md#the-armory---wargame-books).
+
+---
+
 ## I replaced a PDF with a better copy, but Grimoire still shows the old one
 
 Trigger a **Rescan**. Grimoire notices that the file's contents changed and rebuilds the page renders, cover, page count, and search text, keeping the book's tags, favorites, bookmarks, and reading progress.

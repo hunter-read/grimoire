@@ -19,7 +19,12 @@ from .covers import (
     set_system_cover_from_source,
     upload_system_cover,
 )
-from .books import list_system_book_facets, list_system_book_groups, list_system_books
+from .books import (
+    list_system_book_facets,
+    list_system_book_groups,
+    list_system_books,
+    list_system_factions,
+)
 from .metadata import fetch_metadata, list_metadata_sources, search_metadata
 from .._bulk_schemas import BulkResult, BulkTagResult
 from .._metadata_lookup import (
@@ -36,6 +41,7 @@ from ._schemas import (
     SystemBooksPage,
     SystemCoverResponse,
     SystemDetail,
+    SystemFactionsResponse,
     SystemSummary,
 )
 
@@ -101,6 +107,19 @@ router.add_api_route(
     description="The tags, genres, product-code prefixes and categories on the shelf.",
     dependencies=[Depends(require_not_guest)],
     response_model=ShelfFacetsResponse,
+)
+router.add_api_route(
+    "/{system_id}/factions",
+    list_system_factions,
+    methods=["GET"],
+    summary="List a wargame system's factions",
+    description=(
+        "The armies the system's armory folders name (`Factions/Necrons/`, ...), "
+        "parents before their sub-factions, with each one's book count. Empty "
+        "for a role-playing system."
+    ),
+    dependencies=[Depends(require_not_guest)],
+    response_model=SystemFactionsResponse,
 )
 router.add_api_route(
     "/{system_id}/book-folders",

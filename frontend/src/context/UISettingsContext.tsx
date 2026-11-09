@@ -2,11 +2,15 @@ import { createContext, useContext } from 'react'
 import type { Schema } from '../api'
 
 const DEFAULT_UI_SETTINGS: UISettings = {
+  hide_library: false,
+  hide_armory: false,
   hide_maps: false,
   hide_tokens: false,
   hide_audio: false,
   hide_models: false,
   hide_campaigns: false,
+  hide_armies: false,
+  hide_leagues: false,
   campaign_uploads_disabled: false,
   campaign_upload_max_file_mb: 0,
   campaign_upload_max_total_mb: 0,

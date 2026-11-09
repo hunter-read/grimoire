@@ -18,6 +18,7 @@ from ...config import (
     valkey_client,
 )
 from ...models import Model3D, GameSystem, Book, GenericMap, Token, Audio
+from ...models.game_types import GAME_TYPE_WARGAME
 from ...auth import require_admin, require_not_guest, get_current_user, CurrentUser
 from ...indexer import resolve_scope
 from ...services import access_control, changelog, variants
@@ -160,6 +161,11 @@ def get_stats(
         # Bytes are the opposite case — every variant is a real file on the
         # disk, so total_size_mb deliberately counts them all (issues #304/#306).
         "books": _books(variants.parents_only(db.query(Book), Book)).count(),
+        # The wargame books among them, from the armory/ folder. The sidebar
+        # shows the Armory only once there is something in it.
+        "armory_books": _books(
+            variants.parents_only(db.query(Book).filter(Book.game_type == GAME_TYPE_WARGAME), Book)
+        ).count(),
         "maps": variants.parents_only(db.query(GenericMap), GenericMap).count(),
         "tokens": variants.parents_only(db.query(Token), Token).count(),
         "models": variants.parents_only(db.query(Model3D), Model3D).count(),

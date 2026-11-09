@@ -8,6 +8,7 @@ values — otherwise the next scan would silently undo the edit. Performing the
 move is :func:`..moves.relocate_book_for_category`; this module only decides.
 """
 import re
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
@@ -24,6 +25,8 @@ from ...indexer.categories import (
     strip_container_suffix,
     strip_sort_prefix,
 )
+from ...indexer.factions import place_wargame_book
+from ...models.game_types import GAME_TYPE_WARGAME, game_type_for_path
 from ...models.library import GameSystem
 from .constants import SCAFFOLD_CATEGORY_FOLDERS
 from .paths import library_root, to_relative
@@ -44,7 +47,8 @@ def _system_folder_name(raw_name: str) -> str:
 def _system_depth_for(db: Session, parts: list[str]) -> int:
     """How many path segments precede the category folder.
 
-    ``parts`` is the library-relative path split on "/", starting with ``books``.
+    ``parts`` is the library-relative path split on "/", starting with ``books``
+    (or ``armory``, which is laid out the same way).
 
     2 for the plain ``books/<system>/<category>/`` layout, and one more for every
     *container* stacked above the system: a family holding a parent-system
@@ -57,7 +61,8 @@ def _system_depth_for(db: Session, parts: list[str]) -> int:
     reattached the book to the inner container (issue #413).
 
     A container declares itself by marker file or by name suffix; the DB is a
-    fallback for the suffix form on rows written before the folder was read.
+    fallback for the suffix form on rows written before the folder was read,
+    asked about the systems of the path's own game type.
     """
     depth = 1
     # Walk down from books/ while each folder is a container. The first one that
@@ -86,7 +91,10 @@ def _is_container(db: Session, parts: list[str], depth: int) -> bool:
         return False
     nested = (
         db.query(GameSystem)
-        .filter(GameSystem.name == _system_folder_name(parts[depth + 1]))
+        .filter(
+            GameSystem.name == _system_folder_name(parts[depth + 1]),
+            GameSystem.game_type == game_type_for_path(parts[0]),
+        )
         .first()
     )
     parent_id = getattr(nested, "parent_id", None) if nested is not None else None
@@ -111,9 +119,14 @@ def _container_child_slug(parts: list[str], depth: int) -> str:
 
 
 def _match_system(
-    db: Session, folder_name: str, *, slug: str = ""
+    db: Session, folder_name: str, *, game_type: str, slug: str = ""
 ) -> Optional[GameSystem]:
     """The system row a books folder maps to, matched by slug then name.
+
+    Only systems of ``game_type`` - the side of the library the folder is on -
+    are candidates. Names and slugs are unique per game type, so BattleTech the
+    wargame and BattleTech the role-playing game can share a folder name, and a
+    book moved into ``armory/BattleTech`` must never land on the RPG's shelf.
 
     ``slug`` is the scanner's own namespaced slug for a container's child, and
     is tried first because it is the only identifier that survives everything
@@ -124,19 +137,44 @@ def _match_system(
     those, so every renamed or moved book under a container silently fell back
     to the container row (issue #434).
     """
+    systems = db.query(GameSystem).filter(GameSystem.game_type == game_type)
     if slug:
-        row = db.query(GameSystem).filter(GameSystem.slug == slug).first()
+        row = systems.filter(GameSystem.slug == slug).first()
         if row is not None:
             return row
     name = _system_folder_name(folder_name)
     return (
-        db.query(GameSystem).filter(GameSystem.name == name).first()
-        or db.query(GameSystem).filter(GameSystem.slug == slugify(name)).first()
+        systems.filter(GameSystem.name == name).first()
+        or systems.filter(GameSystem.slug == slugify(name)).first()
     )
+
+
+@dataclass
+class BookPlacement:
+    """What a book's path says about it, as the scanner would read it.
+
+    ``system`` is None when no registered system of ``game_type`` matches the
+    path. ``factions`` is the wargame faction chain the folders name, outermost
+    first - always empty in ``books/``.
+    """
+
+    system: Optional[GameSystem]
+    category: str
+    game_type: str
+    factions: list[str] = field(default_factory=list)
 
 
 def resolve_book_placement(db: Session, dest_file: Path) -> tuple[Optional[str], str]:
     """Return ``(game_system_id, category)`` for a book at ``dest_file``.
+
+    The two-value form of :func:`read_book_placement`.
+    """
+    placement = read_book_placement(db, dest_file)
+    return (placement.system.id if placement.system else None), placement.category
+
+
+def read_book_placement(db: Session, dest_file: Path) -> BookPlacement:
+    """The system, category, game type and factions for a book at ``dest_file``.
 
     A move across systems has to answer the same question the scanner answers
     during a walk, but without a walk: which system row owns this path, and what
@@ -149,12 +187,18 @@ def resolve_book_placement(db: Session, dest_file: Path) -> tuple[Optional[str],
     side effect. Under a container that match is made on the scanner's own
     namespaced slug, since a child's display name is derived rather than equal
     to its folder name (issue #434).
+
+    In the armory the system is matched among wargames, and the category and
+    factions are read the way the scanner reads a wargame book
+    (``indexer.factions.place_wargame_book``): ``Factions/Necrons/Codex.pdf``
+    is an army book of the Necrons.
     """
     rel = to_relative(dest_file)
     parts = rel.split("/")
+    game_type = game_type_for_path(rel)
     # parts: books/<system>/[...]/<file>  — anything shorter has no system folder.
     if len(parts) < 3:
-        return None, UNCATEGORIZED
+        return BookPlacement(None, UNCATEGORIZED, game_type)
 
     system_folder = parts[1]
 
@@ -170,16 +214,22 @@ def resolve_book_placement(db: Session, dest_file: Path) -> tuple[Optional[str],
     system = _match_system(
         db,
         parts[depth - 1],
+        game_type=game_type,
         slug=_container_child_slug(parts, depth) if depth > 2 else "",
     )
     if system is None and depth > 2:
         # An unregistered nested folder should still land on the container row
         # rather than orphaning the book, as it did before containers nested.
-        system = _match_system(db, system_folder)
+        system = _match_system(db, system_folder, game_type=game_type)
 
     if is_special_collection_folder(system_folder):
-        return (system.id if system else None), agnostic_category(rel)
-    return (system.id if system else None), guess_category(rel, system_depth=depth)
+        return BookPlacement(system, agnostic_category(rel), game_type)
+    if game_type == GAME_TYPE_WARGAME:
+        # The armory's paths have the same depth as books/'s, so the scanner's
+        # ``system_depth`` is the same number here.
+        category, chain = place_wargame_book(rel, depth, str(library_root()))
+        return BookPlacement(system, category, game_type, chain)
+    return BookPlacement(system, guess_category(rel, system_depth=depth), game_type)
 
 
 # The folder name to create for a canonical category that has no folder yet.

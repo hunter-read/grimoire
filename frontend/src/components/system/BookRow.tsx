@@ -24,7 +24,7 @@ const rowTagStyle = {
   padding: '1px 7px',
   borderRadius: 8,
   margin: 0,
-  background: 'rgba(201,168,76,0.12)',
+  background: 'color-mix(in srgb, var(--gold) 12%, transparent)',
   border: '1px solid var(--gold-dim)',
   color: 'var(--gold)',
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { ComponentProps } from 'react'
 import Sidebar from './Sidebar'
@@ -143,6 +143,93 @@ describe('Sidebar navigation visibility', () => {
   it('hides campaigns link when hide_campaigns is true', () => {
     renderSidebar({ uiSettings: { hide_campaigns: true } })
     expect(screen.queryByText('Campaigns')).toBeNull()
+  })
+
+  it('lists the Armory between Library and Maps once it holds a book', () => {
+    renderSidebar({ stats: { ...baseStats, armory_books: 4 } })
+    const links = screen.getAllByRole('link').map((l) => l.getAttribute('href'))
+    expect(links.indexOf('/armory')).toBe(links.indexOf('/library') + 1)
+    expect(links.indexOf('/maps')).toBe(links.indexOf('/armory') + 1)
+  })
+
+  it('leaves an empty Armory to admins, and a hidden one to no one', () => {
+    const { unmount } = renderSidebar({ stats: { ...baseStats, armory_books: 0 } })
+    expect(screen.queryByRole('link', { name: 'Armory' })).toBeNull()
+    unmount()
+    const admin = renderSidebar({ user: { ...baseUser, role: 'admin' } })
+    expect(screen.getByRole('link', { name: 'Armory' })).toHaveAttribute('href', '/armory')
+    admin.unmount()
+    renderSidebar({
+      user: { ...baseUser, role: 'admin' },
+      uiSettings: { hide_armory: true },
+    })
+    expect(screen.queryByRole('link', { name: 'Armory' })).toBeNull()
+  })
+
+  it('lists Armies and Leagues after Campaigns and Characters', () => {
+    renderSidebar()
+    const names = screen.getAllByRole('link').map((l) => l.textContent)
+    const at = (name: string) => names.indexOf(name)
+    expect(at('Characters')).toBe(at('Campaigns') + 1)
+    expect(at('Armies')).toBe(at('Characters') + 1)
+    expect(at('Leagues')).toBe(at('Armies') + 1)
+    expect(screen.getByRole('link', { name: 'Armies' })).toHaveAttribute('href', '/armies')
+    expect(screen.getByRole('link', { name: 'Leagues' })).toHaveAttribute('href', '/leagues')
+  })
+
+  it('hides Armies and Leagues each on its own setting, and from guests', () => {
+    const { unmount } = renderSidebar({ uiSettings: { hide_armies: true } })
+    expect(screen.queryByText('Armies')).toBeNull()
+    expect(screen.getByText('Leagues')).toBeTruthy()
+    unmount()
+    const second = renderSidebar({ uiSettings: { hide_leagues: true, hide_campaigns: true } })
+    expect(screen.getByText('Armies')).toBeTruthy()
+    expect(screen.queryByText('Leagues')).toBeNull()
+    second.unmount()
+    renderSidebar({ user: { ...baseUser, role: 'guest' } })
+    expect(screen.queryByText('Armies')).toBeNull()
+    expect(screen.queryByText('Leagues')).toBeNull()
+  })
+
+  it('heads the role-playing and wargaming links as two named groups', () => {
+    renderSidebar()
+    const roleplaying = screen.getByRole('group', { name: 'Role-playing' })
+    const wargaming = screen.getByRole('group', { name: 'Wargaming' })
+    expect(within(roleplaying).getByRole('link', { name: 'Campaigns' })).toBeInTheDocument()
+    expect(within(roleplaying).getByRole('link', { name: 'Characters' })).toBeInTheDocument()
+    expect(within(wargaming).getByRole('link', { name: 'Armies' })).toBeInTheDocument()
+    expect(within(wargaming).getByRole('link', { name: 'Leagues' })).toBeInTheDocument()
+    // The visible headers, which the group names stand in for when read aloud.
+    expect(screen.getByText('Role-playing')).toHaveAttribute('aria-hidden', 'true')
+    expect(screen.getByText('Wargaming')).toBeInTheDocument()
+  })
+
+  it('drops a group, header and all, when everything in it is hidden', () => {
+    const { unmount } = renderSidebar({ uiSettings: { hide_armies: true, hide_leagues: true } })
+    expect(screen.queryByRole('group', { name: 'Wargaming' })).toBeNull()
+    expect(screen.queryByText('Wargaming')).toBeNull()
+    unmount()
+    renderSidebar({ uiSettings: { hide_campaigns: true } })
+    expect(screen.queryByRole('group', { name: 'Role-playing' })).toBeNull()
+    expect(screen.getByRole('group', { name: 'Wargaming' })).toBeInTheDocument()
+  })
+
+  it('keeps the groups but not their headers when collapsed', () => {
+    renderSidebar({ collapsed: true })
+    expect(screen.getByRole('group', { name: 'Wargaming' })).toBeInTheDocument()
+    expect(screen.queryByText('Wargaming')).toBeNull()
+  })
+
+  it('gives a guest the role-playing group alone', () => {
+    renderSidebar({ user: { ...baseUser, role: 'guest' } })
+    expect(screen.getByRole('group', { name: 'Role-playing' })).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Wargaming' })).toBeNull()
+  })
+
+  it('hides the Library on its own setting', () => {
+    renderSidebar({ uiSettings: { hide_library: true }, stats: { ...baseStats, armory_books: 1 } })
+    expect(screen.queryByRole('link', { name: 'Library' })).toBeNull()
+    expect(screen.getByRole('link', { name: 'Armory' })).toBeInTheDocument()
   })
 
   it('hides maps link when hide_maps is true', () => {

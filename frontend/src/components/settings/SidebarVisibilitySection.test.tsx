@@ -15,6 +15,8 @@ function mockSettings(overrides: Record<string, unknown> = {}) {
     hide_audio: false,
     hide_models: false,
     hide_campaigns: true,
+    hide_armies: false,
+    hide_leagues: true,
     ...overrides,
   } as unknown as SettingsData)
   vi.mocked(settingsApi.patch).mockResolvedValue({} as SettingsData)
@@ -32,6 +34,8 @@ describe('SidebarVisibilitySection', () => {
     expect(await screen.findByLabelText('Hide Maps')).not.toBeChecked()
     expect(screen.getByLabelText('Hide Tokens')).toBeInTheDocument()
     expect(screen.getByLabelText('Hide Campaigns')).toBeChecked()
+    expect(screen.getByLabelText('Hide Armies')).not.toBeChecked()
+    expect(screen.getByLabelText('Hide Leagues')).toBeChecked()
   })
 
   it('saves a change, says so, and tells the sidebar', async () => {

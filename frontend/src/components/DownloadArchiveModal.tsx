@@ -147,7 +147,9 @@ export default function DownloadArchiveModal({
                   borderRadius: 8,
                   cursor: 'pointer',
                   border: `1px solid ${selected ? 'var(--gold-dim)' : 'var(--border)'}`,
-                  background: selected ? 'rgba(201,168,76,0.07)' : 'var(--bg-card)',
+                  background: selected
+                    ? 'color-mix(in srgb, var(--gold) 7%, transparent)'
+                    : 'var(--bg-card)',
                   userSelect: 'none',
                 }}
               >

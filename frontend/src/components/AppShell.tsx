@@ -14,6 +14,7 @@ import api, { settings as settingsApi } from '../api'
 import type { Schema } from '../api'
 import Sidebar from './Sidebar'
 import MobileSidebar from './MobileSidebar'
+import { homePath } from '../utils/armory'
 import {
   BookReader,
   LibraryView,
@@ -40,6 +41,10 @@ import {
   CharacterDetailView,
   CampaignDetailView,
   CampaignNotesView,
+  ArmiesView,
+  ArmyDetailView,
+  LeaguesView,
+  LeagueDetailView,
 } from './routeViews'
 import RouteFallback from './RouteFallback'
 import RouteAnnouncer from './RouteAnnouncer'
@@ -59,11 +64,15 @@ export default function AppShell() {
   // the API-key-gated /stats so it isn't exposed to external integrations.
   const [about, setAbout] = useState<Schema<'AboutResponse'> | null>(null)
   const [uiSettings, setUiSettings] = useState<Partial<Schema<'UISettingsResponse'>>>({
+    hide_library: false,
+    hide_armory: false,
     hide_maps: false,
     hide_tokens: false,
     hide_audio: false,
     hide_models: false,
     hide_campaigns: false,
+    hide_armies: false,
+    hide_leagues: false,
     // Assumed read-only until the server says otherwise, so the destructive
     // file actions cannot flash into a menu during the first render and be
     // clicked before the real answer arrives.
@@ -111,11 +120,16 @@ export default function AppShell() {
   // Keep the floating soundboard clear of the mobile nav bar and the player bar.
   const overlayOffset = (isMobile ? 64 : 0) + (playerActive ? PLAYER_HEIGHT : 0)
 
+  // Whether /settings/ui has answered (or failed). `/` waits for it: with the
+  // Library hidden it lands somewhere else, and redirecting on the defaults
+  // would open the hidden Library first.
+  const [uiSettingsLoaded, setUiSettingsLoaded] = useState(false)
   const refreshUiSettings = () =>
     settingsApi
       .getUi()
       .then(setUiSettings)
       .catch(() => {})
+      .finally(() => setUiSettingsLoaded(true))
 
   useEffect(() => {
     api
@@ -229,9 +243,17 @@ export default function AppShell() {
                 </Routes>
               ) : (
                 <Routes>
-                  <Route path="/" element={<Navigate to="/library" replace />} />
-                  <Route path="/library" element={<LibraryView />} />
+                  <Route
+                    path="/"
+                    element={
+                      uiSettingsLoaded ? <Navigate to={homePath(uiSettings)} replace /> : null
+                    }
+                  />
+                  <Route path="/library" element={<LibraryView gameType="ttrpg" />} />
                   <Route path="/library/system/:systemId" element={<SystemDetailView />} />
+                  {/* The Armory: the same views over the wargame books in armory/. */}
+                  <Route path="/armory" element={<LibraryView key="armory" gameType="wargame" />} />
+                  <Route path="/armory/system/:systemId" element={<SystemDetailView />} />
                   <Route path="/library/book/:bookId" element={<BookReader />} />
                   <Route path="/maps" element={<MapsView />} />
                   <Route path="/maps/:mapId" element={<MapDetailView />} />
@@ -277,6 +299,12 @@ export default function AppShell() {
                     element={<Navigate to="/characters?manage=rulesets" replace />}
                   />
                   <Route path="/characters/:characterId" element={<CharacterDetailView />} />
+                  {/* Wargames: army lists and the leagues they are played in.
+                  Not for guests, so only in this block. */}
+                  <Route path="/armies" element={<ArmiesView />} />
+                  <Route path="/armies/:armyId" element={<ArmyDetailView />} />
+                  <Route path="/leagues" element={<LeaguesView />} />
+                  <Route path="/leagues/:leagueId" element={<LeagueDetailView />} />
                   {/* Full-page, outside the settings tabs: bulk reorganisation needs
                   the whole width for two panes (issue #302). */}
                   <Route path="/settings/files" element={<FileManagerView />} />
@@ -303,7 +331,9 @@ export default function AppShell() {
           </ErrorBoundary>
         </main>
 
-        {isMobile && <MobileSidebar user={user} onLogout={logout} uiSettings={uiSettings} />}
+        {isMobile && (
+          <MobileSidebar user={user} onLogout={logout} uiSettings={uiSettings} stats={stats} />
+        )}
 
         <GlobalAudioPlayer isMobile={isMobile} sidebarWidth={sidebarCollapsed ? 64 : 220} />
 

@@ -91,11 +91,15 @@ def get_ui_settings(_: CurrentUser = Depends(get_current_user), db: Session = De
     """Returns the subset of settings that affect UI visibility for all users."""
     raw = get_raw(db)
     return {
+        "hide_library": raw["hide_library"] == "true",
+        "hide_armory": raw["hide_armory"] == "true",
         "hide_maps": raw["hide_maps"] == "true",
         "hide_tokens": raw["hide_tokens"] == "true",
         "hide_audio": raw["hide_audio"] == "true",
         "hide_models": raw["hide_models"] == "true",
         "hide_campaigns": raw["hide_campaigns"] == "true",
+        "hide_armies": raw["hide_armies"] == "true",
+        "hide_leagues": raw["hide_leagues"] == "true",
         "show_stat_systems": raw["show_stat_systems"] == "true",
         "show_stat_books": raw["show_stat_books"] == "true",
         "show_stat_pages": raw["show_stat_pages"] == "true",

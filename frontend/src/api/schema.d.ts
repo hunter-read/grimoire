@@ -275,6 +275,182 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/armies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List your armies
+         * @description The caller's own armies, most recently changed first.
+         */
+        get: operations["list_armies_api_armies_get"];
+        put?: never;
+        /**
+         * Build an army by hand
+         * @description Build an army by hand.
+         */
+        post: operations["create_army_api_armies_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/armies/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import a BattleScribe roster
+         * @description Upload a `.ros` or `.rosz` roster from BattleScribe or New Recruit. Its game system and faction are matched to the library's wargames when they can be; the file is kept so `export?format=roster` hands it back unchanged.
+         */
+        post: operations["import_army_api_armies_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/armies/publication-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Link a cited publication to a library book (GM/admin)
+         * @description Shared by every army whose roster cites `publication` under `system_name` (the roster's game system name, matched ignoring case). `page_offset` is added to a cited page to reach the PDF page.
+         */
+        put: operations["set_publication_link_api_armies_publication_links_put"];
+        post?: never;
+        /**
+         * Remove a publication link (GM/admin)
+         * @description Remove a publication's link; the armies citing it go back to plain text.
+         */
+        delete: operations["delete_publication_link_api_armies_publication_links_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/armies/publication-links/books": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Find wargame books to link a publication to (GM/admin)
+         * @description Wargame books whose titles contain ``q``, to link a publication to.
+         */
+        get: operations["search_link_books_api_armies_publication_links_books_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/armies/{army_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an army
+         * @description An army: its list, progress, and the library books its rules cite.
+         */
+        get: operations["get_army_detail_api_armies__army_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete an army
+         * @description Delete an army and its roster file.
+         */
+        delete: operations["delete_army_api_armies__army_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update an army
+         * @description Rename, re-match, set the limit and notes, or replace a hand-built list.
+         */
+        patch: operations["update_army_api_armies__army_id__patch"];
+        trace?: never;
+    };
+    "/api/armies/{army_id}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export an army as its roster file or as text
+         * @description The army as its original roster file, or as a plain-text list.
+         */
+        get: operations["export_army_api_armies__army_id__export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/armies/{army_id}/publications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The publications an army cites, and their library links
+         * @description Each publication the army cites, its link if any, and books it might be.
+         */
+        get: operations["army_publications_api_armies__army_id__publications_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/armies/{army_id}/units/{unit_id}/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set a unit's experience, honours and notes
+         * @description Set a unit's experience, honours and notes.
+         */
+        put: operations["update_unit_progress_api_armies__army_id__units__unit_id__progress_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/audio": {
         parameters: {
             query?: never;
@@ -4378,6 +4554,182 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/leagues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List your leagues
+         * @description Leagues the caller organises or plays in (admins: every league), newest first.
+         */
+        get: operations["list_leagues_api_leagues_get"];
+        put?: never;
+        /**
+         * Create a league (GM/admin)
+         * @description Start a league. The organiser is not a member until they add themselves.
+         */
+        post: operations["create_league_api_leagues_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/leagues/{league_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a league
+         * @description A league: its members and their armies, its games, and the standings.
+         */
+        get: operations["get_league_detail_api_leagues__league_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a league
+         * @description Delete a league with its members and games (organiser). Armies are untouched.
+         */
+        delete: operations["delete_league_api_leagues__league_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a league
+         * @description Change a league's details, scoring or status (organiser).
+         */
+        patch: operations["update_league_api_leagues__league_id__patch"];
+        trace?: never;
+    };
+    "/api/leagues/{league_id}/eligible-members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Users the organiser can add
+         * @description Anyone with a full account (not a guest) who is not already a member.
+         */
+        get: operations["eligible_members_api_leagues__league_id__eligible_members_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/leagues/{league_id}/games": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Log a game
+         * @description A member logs games they played in; the organiser logs any. Give both scores and `result` (`a`, `b` or `draw`, from player A's side) follows from them; without scores, `result` is required.
+         */
+        post: operations["log_game_api_leagues__league_id__games_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/leagues/{league_id}/games/{game_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit a game
+         * @description Its players, whoever logged it, or the organiser.
+         */
+        put: operations["update_game_api_leagues__league_id__games__game_id__put"];
+        post?: never;
+        /**
+         * Delete a game
+         * @description Delete a game (its players, whoever logged it, or the organiser).
+         */
+        delete: operations["delete_game_api_leagues__league_id__games__game_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/leagues/{league_id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a member
+         * @description Add a player (organiser). Adding someone already in changes nothing.
+         */
+        post: operations["add_member_api_leagues__league_id__members_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/leagues/{league_id}/members/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a member, or leave
+         * @description The organiser removes anyone; a member may leave. Their games stay logged.
+         */
+        delete: operations["remove_member_api_leagues__league_id__members__user_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/leagues/{league_id}/members/{user_id}/army": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Register the army a member plays
+         * @description Register the army a member plays - one of their own.
+         */
+        put: operations["set_member_army_api_leagues__league_id__members__user_id__army_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/licenses": {
         parameters: {
             query?: never;
@@ -6267,6 +6619,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/systems/{system_id}/factions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a wargame system's factions
+         * @description The armies the system's armory folders name (`Factions/Necrons/`, ...), parents before their sub-factions, with each one's book count. Empty for a role-playing system.
+         */
+        get: operations["list_system_factions_api_systems__system_id__factions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/systems/{system_id}/metadata-fetch": {
         parameters: {
             query?: never;
@@ -7315,6 +7687,177 @@ export interface components {
             updated: string[];
         };
         /**
+         * ArmyCreate
+         * @description A hand-built army.
+         */
+        ArmyCreate: {
+            /** Faction Id */
+            faction_id?: string | null;
+            /** Game System Id */
+            game_system_id?: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes?: string;
+            /** Points Limit */
+            points_limit?: number | null;
+            /** Units */
+            units?: components["schemas"]["ManualUnitIn"][];
+        };
+        /** ArmyDetail */
+        ArmyDetail: {
+            /**
+             * Can Edit
+             * @default false
+             */
+            can_edit?: boolean;
+            /**
+             * Cost Name
+             * @default pts
+             */
+            cost_name?: string;
+            data?: components["schemas"]["RosterDocument"];
+            faction?: components["schemas"]["backend__routers__armies___schemas__FactionRef"] | null;
+            /** Game System Id */
+            game_system_id?: string | null;
+            /**
+             * Game System Name
+             * @default
+             */
+            game_system_name?: string;
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes?: string;
+            /**
+             * Points
+             * @default 0
+             */
+            points?: number;
+            /** Points Limit */
+            points_limit?: number | null;
+            /** Progress */
+            progress?: {
+                [key: string]: components["schemas"]["UnitProgress"];
+            };
+            /** Publication Links */
+            publication_links?: {
+                [key: string]: components["schemas"]["PublicationLinkOut"];
+            };
+            /** Publications */
+            publications?: string[];
+            /** Source */
+            source: string;
+            /**
+             * Source Filename
+             * @default
+             */
+            source_filename?: string;
+            /**
+             * System Name
+             * @default
+             */
+            system_name?: string;
+            /** Updated At */
+            updated_at?: string | null;
+            /** User Id */
+            user_id: string;
+        };
+        /** ArmyPublication */
+        ArmyPublication: {
+            link?: components["schemas"]["PublicationLinkOut"] | null;
+            /** Publication */
+            publication: string;
+            /** Suggestions */
+            suggestions?: components["schemas"]["BookMatch"][];
+        };
+        /** ArmyRef */
+        ArmyRef: {
+            /**
+             * Cost Name
+             * @default pts
+             */
+            cost_name?: string;
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Points
+             * @default 0
+             */
+            points?: number;
+        };
+        /** ArmySummary */
+        ArmySummary: {
+            /**
+             * Cost Name
+             * @default pts
+             */
+            cost_name?: string;
+            faction?: components["schemas"]["backend__routers__armies___schemas__FactionRef"] | null;
+            /** Game System Id */
+            game_system_id?: string | null;
+            /**
+             * Game System Name
+             * @default
+             */
+            game_system_name?: string;
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Points
+             * @default 0
+             */
+            points?: number;
+            /** Points Limit */
+            points_limit?: number | null;
+            /** Source */
+            source: string;
+            /**
+             * Source Filename
+             * @default
+             */
+            source_filename?: string;
+            /**
+             * System Name
+             * @default
+             */
+            system_name?: string;
+            /** Updated At */
+            updated_at?: string | null;
+            /** User Id */
+            user_id: string;
+        };
+        /**
+         * ArmyUpdate
+         * @description Fields to change. ``units`` replaces a hand-built army's list (an imported one is read-only).
+         */
+        ArmyUpdate: {
+            /** Faction Id */
+            faction_id?: string | null;
+            /** Game System Id */
+            game_system_id?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /** Points Limit */
+            points_limit?: number | null;
+            /** Units */
+            units?: components["schemas"]["ManualUnitIn"][] | null;
+        };
+        /**
          * AudioBulkItem
          * @description One Audio entry in a bulk update.
          */
@@ -7974,6 +8517,19 @@ export interface components {
             /** Source Type */
             source_type: string;
         };
+        /** Body_import_army_api_armies_import_post */
+        Body_import_army_api_armies_import_post: {
+            /**
+             * File
+             * @description A BattleScribe or New Recruit roster, .ros or .rosz
+             */
+            file: string;
+            /**
+             * Name
+             * @description Name for the army; the roster's own otherwise.
+             */
+            name?: string | null;
+        };
         /** Body_import_wiki_api_campaigns__campaign_id__wiki_import_post */
         Body_import_wiki_api_campaigns__campaign_id__wiki_import_post: {
             /** File */
@@ -8209,11 +8765,21 @@ export interface components {
              * @default
              */
             effective_access_level?: string;
+            /**
+             * Factions
+             * @default []
+             */
+            factions?: components["schemas"]["BookFactionRef"][];
             /** File Size */
             file_size?: number | null;
             /** Filename */
             filename: string;
             game_system?: components["schemas"]["BookSystemRef"] | null;
+            /**
+             * Game Type
+             * @default ttrpg
+             */
+            game_type?: string;
             /** Genres */
             genres: string[];
             /**
@@ -8312,6 +8878,18 @@ export interface components {
             /** Year */
             year?: number | null;
         };
+        /**
+         * BookFactionRef
+         * @description A wargame faction the book is filed under.
+         */
+        BookFactionRef: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Parent Id */
+            parent_id?: string | null;
+        };
         /** BookFolderOut */
         BookFolderOut: {
             /** Path */
@@ -8390,6 +8968,13 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** BookMatch */
+        BookMatch: {
+            /** Book Id */
+            book_id: string;
+            /** Title */
+            title: string;
+        };
         /**
          * BookOut
          * @description One book, as built by `_serializers.serialize_book`.
@@ -8418,10 +9003,20 @@ export interface components {
             day?: number | null;
             /** Description */
             description?: string | null;
+            /**
+             * Factions
+             * @default []
+             */
+            factions?: components["schemas"]["backend__routers__systems___schemas__FactionRef"][];
             /** File Size */
             file_size?: number | null;
             /** Filename */
             filename: string;
+            /**
+             * Game Type
+             * @default ttrpg
+             */
+            game_type?: string;
             /** Genres */
             genres: string[];
             /**
@@ -8498,6 +9093,11 @@ export interface components {
          * @description The book's game system, or null when it belongs to none.
          */
         BookSystemRef: {
+            /**
+             * Game Type
+             * @default ttrpg
+             */
+            game_type?: string;
             /** Id */
             id: string;
             /**
@@ -10527,6 +11127,13 @@ export interface components {
             /** Suggested Parent Id */
             suggested_parent_id?: string | null;
         };
+        /** EligibleMember */
+        EligibleMember: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+        };
         /**
          * EligibleMemberOut
          * @description One invitable user from ``eligible_members``.
@@ -10660,6 +11267,22 @@ export interface components {
              * @default
              */
             url?: string;
+        };
+        /**
+         * FactionOut
+         * @description One faction of a system, from `GET /systems/{id}/factions`.
+         */
+        FactionOut: {
+            /** Book Count */
+            book_count: number;
+            /** Depth */
+            depth: number;
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Parent Id */
+            parent_id?: string | null;
         };
         /** FavoriteAudioItem */
         FavoriteAudioItem: {
@@ -11052,6 +11675,34 @@ export interface components {
             internal_content?: string | null;
             /** Updated At */
             updated_at?: string | null;
+        };
+        /**
+         * GameIn
+         * @description A game between two members. ``result`` (a, b or draw) may be left out when both scores are given.
+         */
+        GameIn: {
+            /**
+             * Mission
+             * @default
+             */
+            mission?: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes?: string;
+            /** Played On */
+            played_on?: string | null;
+            /** Player A Id */
+            player_a_id: string;
+            /** Player B Id */
+            player_b_id: string;
+            /** Result */
+            result?: ("a" | "b" | "draw") | null;
+            /** Score A */
+            score_a?: number | null;
+            /** Score B */
+            score_b?: number | null;
         };
         /**
          * GameSystemBulkItem
@@ -11876,6 +12527,223 @@ export interface components {
              */
             rows?: number;
         };
+        /** LeagueCreate */
+        LeagueCreate: {
+            /**
+             * Description
+             * @default
+             */
+            description?: string;
+            /** Game System Id */
+            game_system_id?: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Points Draw
+             * @default 1
+             */
+            points_draw?: number;
+            /** Points Limit */
+            points_limit?: number | null;
+            /**
+             * Points Loss
+             * @default 0
+             */
+            points_loss?: number;
+            /**
+             * Points Win
+             * @default 3
+             */
+            points_win?: number;
+        };
+        /** LeagueDetail */
+        LeagueDetail: {
+            /**
+             * Can Manage
+             * @default false
+             */
+            can_manage?: boolean;
+            /** Created At */
+            created_at?: string | null;
+            /**
+             * Description
+             * @default
+             */
+            description?: string;
+            /** Game System Id */
+            game_system_id?: string | null;
+            /**
+             * Game System Name
+             * @default
+             */
+            game_system_name?: string;
+            /**
+             * Games
+             * @default []
+             */
+            games?: components["schemas"]["LeagueGameOut"][];
+            /** Id */
+            id: string;
+            /**
+             * Is Member
+             * @default false
+             */
+            is_member?: boolean;
+            /**
+             * Member Count
+             * @default 0
+             */
+            member_count?: number;
+            /**
+             * Members
+             * @default []
+             */
+            members?: components["schemas"]["LeagueMemberOut"][];
+            /** Name */
+            name: string;
+            /** Organizer Id */
+            organizer_id: string;
+            /**
+             * Organizer Name
+             * @default
+             */
+            organizer_name?: string;
+            /**
+             * Points Draw
+             * @default 1
+             */
+            points_draw?: number;
+            /** Points Limit */
+            points_limit?: number | null;
+            /**
+             * Points Loss
+             * @default 0
+             */
+            points_loss?: number;
+            /**
+             * Points Win
+             * @default 3
+             */
+            points_win?: number;
+            /**
+             * Standings
+             * @default []
+             */
+            standings?: components["schemas"]["StandingRow"][];
+            /** Status */
+            status: string;
+        };
+        /** LeagueGameOut */
+        LeagueGameOut: {
+            army_a?: components["schemas"]["ArmyRef"] | null;
+            army_b?: components["schemas"]["ArmyRef"] | null;
+            /**
+             * Can Edit
+             * @default false
+             */
+            can_edit?: boolean;
+            /** Id */
+            id: string;
+            /**
+             * Mission
+             * @default
+             */
+            mission?: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes?: string;
+            /** Played On */
+            played_on?: string | null;
+            player_a: components["schemas"]["PlayerRef"];
+            player_b: components["schemas"]["PlayerRef"];
+            /** Result */
+            result: string;
+            /** Score A */
+            score_a?: number | null;
+            /** Score B */
+            score_b?: number | null;
+        };
+        /** LeagueMemberOut */
+        LeagueMemberOut: {
+            army?: components["schemas"]["ArmyRef"] | null;
+            /** Name */
+            name: string;
+            /** User Id */
+            user_id: string;
+        };
+        /** LeagueSummary */
+        LeagueSummary: {
+            /** Created At */
+            created_at?: string | null;
+            /**
+             * Description
+             * @default
+             */
+            description?: string;
+            /** Game System Id */
+            game_system_id?: string | null;
+            /**
+             * Game System Name
+             * @default
+             */
+            game_system_name?: string;
+            /** Id */
+            id: string;
+            /**
+             * Member Count
+             * @default 0
+             */
+            member_count?: number;
+            /** Name */
+            name: string;
+            /** Organizer Id */
+            organizer_id: string;
+            /**
+             * Organizer Name
+             * @default
+             */
+            organizer_name?: string;
+            /**
+             * Points Draw
+             * @default 1
+             */
+            points_draw?: number;
+            /** Points Limit */
+            points_limit?: number | null;
+            /**
+             * Points Loss
+             * @default 0
+             */
+            points_loss?: number;
+            /**
+             * Points Win
+             * @default 3
+             */
+            points_win?: number;
+            /** Status */
+            status: string;
+        };
+        /** LeagueUpdate */
+        LeagueUpdate: {
+            /** Description */
+            description?: string | null;
+            /** Game System Id */
+            game_system_id?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Points Draw */
+            points_draw?: number | null;
+            /** Points Limit */
+            points_limit?: number | null;
+            /** Points Loss */
+            points_loss?: number | null;
+            /** Points Win */
+            points_win?: number | null;
+            /** Status */
+            status?: ("active" | "finished") | null;
+        };
         /** LibraryWatchState */
         LibraryWatchState: {
             /** Detail */
@@ -12112,6 +12980,32 @@ export interface components {
             sort_order: number;
         };
         /**
+         * ManualUnitIn
+         * @description One unit of a hand-built list. ``id`` keeps a unit's progress across edits.
+         */
+        ManualUnitIn: {
+            /** Categories */
+            categories?: string[];
+            /** Category */
+            category?: string | null;
+            /** Id */
+            id?: string | null;
+            /** Name */
+            name: string;
+            /** Notes */
+            notes?: string | null;
+            /**
+             * Number
+             * @default 1
+             */
+            number?: number;
+            /**
+             * Points
+             * @default 0
+             */
+            points?: number;
+        };
+        /**
          * MapBulkItem
          * @description One Map entry in a bulk update.
          */
@@ -12334,6 +13228,19 @@ export interface components {
             nsfw?: boolean | null;
             /** Path */
             path: string;
+        };
+        /** MemberAdd */
+        MemberAdd: {
+            /** User Id */
+            user_id: string;
+        };
+        /**
+         * MemberArmy
+         * @description The army a member plays in the league; null to clear it.
+         */
+        MemberArmy: {
+            /** Army Id */
+            army_id?: string | null;
         };
         /** MemberArtUploadOut */
         MemberArtUploadOut: {
@@ -13233,6 +14140,13 @@ export interface components {
             /** Content */
             content: string;
         };
+        /** PlayerRef */
+        PlayerRef: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+        };
         /** PlayerSessionNoteOut */
         PlayerSessionNoteOut: {
             /** Content */
@@ -13413,6 +14327,38 @@ export interface components {
             moved?: number;
             /** New Parent Id */
             new_parent_id: string;
+        };
+        /**
+         * PublicationLinkIn
+         * @description Link a cited publication to a library book, for every army citing it.
+         */
+        PublicationLinkIn: {
+            /** Book Id */
+            book_id: string;
+            /**
+             * Page Offset
+             * @default 0
+             */
+            page_offset?: number;
+            /** Publication */
+            publication: string;
+            /**
+             * System Name
+             * @default
+             */
+            system_name?: string;
+        };
+        /** PublicationLinkOut */
+        PublicationLinkOut: {
+            /** Book Id */
+            book_id: string;
+            /** Book Title */
+            book_title: string;
+            /**
+             * Page Offset
+             * @default 0
+             */
+            page_offset?: number;
         };
         /** PublisherEntry */
         PublisherEntry: {
@@ -13687,6 +14633,195 @@ export interface components {
             ok: boolean;
             /** Revoked */
             revoked: number;
+        };
+        /** RosterCharacteristic */
+        RosterCharacteristic: {
+            /**
+             * Name
+             * @default
+             */
+            name?: string;
+            /**
+             * Value
+             * @default
+             */
+            value?: string;
+        };
+        /** RosterCost */
+        RosterCost: {
+            /**
+             * Name
+             * @default
+             */
+            name?: string;
+            /**
+             * Value
+             * @default 0
+             */
+            value?: number;
+        };
+        /** RosterDocument */
+        RosterDocument: {
+            /** Cost Limits */
+            cost_limits?: components["schemas"]["RosterCost"][];
+            /** Costs */
+            costs?: components["schemas"]["RosterCost"][];
+            /** Forces */
+            forces?: components["schemas"]["RosterForce"][];
+            /**
+             * Format
+             * @default
+             */
+            format?: string;
+            /**
+             * Game System Id
+             * @default
+             */
+            game_system_id?: string;
+            /**
+             * Game System Name
+             * @default
+             */
+            game_system_name?: string;
+            /**
+             * Name
+             * @default
+             */
+            name?: string;
+        };
+        /** RosterForce */
+        RosterForce: {
+            /**
+             * Catalogue
+             * @default
+             */
+            catalogue?: string;
+            /**
+             * Catalogue Id
+             * @default
+             */
+            catalogue_id?: string;
+            /** Forces */
+            forces?: components["schemas"]["RosterForce"][];
+            /**
+             * Id
+             * @default
+             */
+            id?: string;
+            /**
+             * Name
+             * @default
+             */
+            name?: string;
+            /** Units */
+            units?: components["schemas"]["RosterUnit"][];
+        };
+        /**
+         * RosterProfile
+         * @description A stat line: a unit's or a weapon's, by ``type`` ("Unit", "Ranged Weapons").
+         */
+        RosterProfile: {
+            /** Characteristics */
+            characteristics?: components["schemas"]["RosterCharacteristic"][];
+            /**
+             * Name
+             * @default
+             */
+            name?: string;
+            /**
+             * Page
+             * @default
+             */
+            page?: string;
+            /**
+             * Publication
+             * @default
+             */
+            publication?: string;
+            /**
+             * Type
+             * @default
+             */
+            type?: string;
+        };
+        /** RosterRule */
+        RosterRule: {
+            /**
+             * Description
+             * @default
+             */
+            description?: string;
+            /**
+             * Name
+             * @default
+             */
+            name?: string;
+            /**
+             * Page
+             * @default
+             */
+            page?: string;
+            /**
+             * Publication
+             * @default
+             */
+            publication?: string;
+        };
+        /**
+         * RosterUnit
+         * @description A selection: a unit, a model in one, or an upgrade, with what it holds.
+         */
+        RosterUnit: {
+            /** Categories */
+            categories?: string[];
+            /** Children */
+            children?: components["schemas"]["RosterUnit"][];
+            /** Costs */
+            costs?: components["schemas"]["RosterCost"][];
+            /**
+             * Id
+             * @default
+             */
+            id?: string;
+            /**
+             * Name
+             * @default
+             */
+            name?: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes?: string;
+            /**
+             * Number
+             * @default 1
+             */
+            number?: number;
+            /**
+             * Page
+             * @default
+             */
+            page?: string;
+            /**
+             * Primary Category
+             * @default
+             */
+            primary_category?: string;
+            /** Profiles */
+            profiles?: components["schemas"]["RosterProfile"][];
+            /**
+             * Publication
+             * @default
+             */
+            publication?: string;
+            /** Rules */
+            rules?: components["schemas"]["RosterRule"][];
+            /**
+             * Type
+             * @default
+             */
+            type?: string;
         };
         /** RulesetCreate */
         RulesetCreate: {
@@ -14690,10 +15825,18 @@ export interface components {
             disable_folder_category_inference?: boolean | null;
             /** Guest Access Enabled */
             guest_access_enabled?: boolean | null;
+            /** Hide Armies */
+            hide_armies?: boolean | null;
+            /** Hide Armory */
+            hide_armory?: boolean | null;
             /** Hide Audio */
             hide_audio?: boolean | null;
             /** Hide Campaigns */
             hide_campaigns?: boolean | null;
+            /** Hide Leagues */
+            hide_leagues?: boolean | null;
+            /** Hide Library */
+            hide_library?: boolean | null;
             /** Hide Maps */
             hide_maps?: boolean | null;
             /** Hide Models */
@@ -14816,10 +15959,24 @@ export interface components {
             guest_access_enabled: boolean;
             /** Guest Access Env Locked */
             guest_access_env_locked: boolean;
+            /** Hide Armies */
+            hide_armies: boolean;
+            /**
+             * Hide Armory
+             * @default false
+             */
+            hide_armory?: boolean;
             /** Hide Audio */
             hide_audio: boolean;
             /** Hide Campaigns */
             hide_campaigns: boolean;
+            /** Hide Leagues */
+            hide_leagues: boolean;
+            /**
+             * Hide Library
+             * @default false
+             */
+            hide_library?: boolean;
             /** Hide Maps */
             hide_maps: boolean;
             /** Hide Models */
@@ -15318,11 +16475,37 @@ export interface components {
                 [key: string]: components["schemas"]["SourceCredentialInfo"];
             };
         };
+        /** StandingRow */
+        StandingRow: {
+            /** Drawn */
+            drawn: number;
+            /** Lost */
+            lost: number;
+            /** Name */
+            name: string;
+            /** Played */
+            played: number;
+            /** Points */
+            points: number;
+            /** Score Against */
+            score_against: number;
+            /** Score For */
+            score_for: number;
+            /** User Id */
+            user_id: string;
+            /** Won */
+            won: number;
+        };
         /**
          * StatsResponse
          * @description Library counts for the dashboard and external integrations.
          */
         StatsResponse: {
+            /**
+             * Armory Books
+             * @default 0
+             */
+            armory_books?: number;
             /** Audio */
             audio: number;
             /** Books */
@@ -15432,6 +16615,11 @@ export interface components {
             dice_materials: string[];
             /** Edition */
             edition: string;
+            /**
+             * Game Type
+             * @default ttrpg
+             */
+            game_type?: string;
             /** Genre */
             genre?: string | null;
             /** Genres */
@@ -15476,6 +16664,14 @@ export interface components {
             urls: components["schemas"]["LinkRef"][];
             /** Year */
             year?: number | null;
+        };
+        /**
+         * SystemFactionsResponse
+         * @description A system's factions, parents before children, siblings by name.
+         */
+        SystemFactionsResponse: {
+            /** Factions */
+            factions: components["schemas"]["FactionOut"][];
         };
         /** SystemFamiliesResponse */
         SystemFamiliesResponse: {
@@ -15524,6 +16720,11 @@ export interface components {
             dice_materials: string[];
             /** Edition */
             edition: string;
+            /**
+             * Game Type
+             * @default ttrpg
+             */
+            game_type?: string;
             /** Genre */
             genre?: string | null;
             /** Genres */
@@ -16140,10 +17341,24 @@ export interface components {
             campaign_uploads_disabled: boolean;
             /** Guest Access Enabled */
             guest_access_enabled: boolean;
+            /** Hide Armies */
+            hide_armies: boolean;
+            /**
+             * Hide Armory
+             * @default false
+             */
+            hide_armory?: boolean;
             /** Hide Audio */
             hide_audio: boolean;
             /** Hide Campaigns */
             hide_campaigns: boolean;
+            /** Hide Leagues */
+            hide_leagues: boolean;
+            /**
+             * Hide Library
+             * @default false
+             */
+            hide_library?: boolean;
             /** Hide Maps */
             hide_maps: boolean;
             /** Hide Models */
@@ -16174,6 +17389,24 @@ export interface components {
             show_stat_systems: boolean;
             /** Show Stat Tokens */
             show_stat_tokens: boolean;
+        };
+        /**
+         * UnitProgress
+         * @description A unit's progress over a league: experience, honours earned, notes.
+         */
+        UnitProgress: {
+            /**
+             * Experience
+             * @default 0
+             */
+            experience?: number;
+            /** Honours */
+            honours?: string[];
+            /**
+             * Notes
+             * @default
+             */
+            notes?: string;
         };
         /** UnlinkRequest */
         UnlinkRequest: {
@@ -17170,6 +18403,13 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** FactionRef */
+        backend__routers__armies___schemas__FactionRef: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+        };
         /**
          * FolderTagsOut
          * @description One folder path and its tags.
@@ -17326,6 +18566,18 @@ export interface components {
         backend__routers__share_links___schemas__StatusResponse: {
             /** Status */
             status: string;
+        };
+        /**
+         * FactionRef
+         * @description A wargame faction a book is filed under (the innermost one).
+         */
+        backend__routers__systems___schemas__FactionRef: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Parent Id */
+            parent_id?: string | null;
         };
         /**
          * MetadataSearch
@@ -17996,6 +19248,452 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiKeyWithSecret"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_armies_api_armies_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArmySummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_army_api_armies_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArmyCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArmyDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_army_api_armies_import_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_import_army_api_armies_import_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArmyDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_publication_link_api_armies_publication_links_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicationLinkIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicationLinkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_publication_link_api_armies_publication_links_delete: {
+        parameters: {
+            query: {
+                publication: string;
+                system_name?: string;
+            };
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_link_books_api_armies_publication_links_books_get: {
+        parameters: {
+            query: {
+                /** @description Part of a book title */
+                q: string;
+            };
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookMatch"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_army_detail_api_armies__army_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                army_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArmyDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_army_api_armies__army_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                army_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_army_api_armies__army_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                army_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArmyUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArmyDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_army_api_armies__army_id__export_get: {
+        parameters: {
+            query?: {
+                /** @description `text` (a readable list) or `roster` (the imported file, unchanged) */
+                format?: "roster" | "text";
+            };
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                army_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    army_publications_api_armies__army_id__publications_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                army_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArmyPublication"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_unit_progress_api_armies__army_id__units__unit_id__progress_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                army_id: string;
+                unit_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnitProgress"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnitProgress"];
                 };
             };
             /** @description Validation Error */
@@ -27160,6 +28858,456 @@ export interface operations {
             };
         };
     };
+    list_leagues_api_leagues_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeagueSummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_league_api_leagues_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeagueCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeagueDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_league_detail_api_leagues__league_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                league_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeagueDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_league_api_leagues__league_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                league_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_league_api_leagues__league_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                league_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeagueUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeagueDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    eligible_members_api_leagues__league_id__eligible_members_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                league_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EligibleMember"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    log_game_api_leagues__league_id__games_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                league_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GameIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeagueDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_game_api_leagues__league_id__games__game_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                league_id: string;
+                game_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GameIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeagueDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_game_api_leagues__league_id__games__game_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                league_id: string;
+                game_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_member_api_leagues__league_id__members_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                league_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberAdd"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeagueDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_member_api_leagues__league_id__members__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                league_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_member_army_api_leagues__league_id__members__user_id__army_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                league_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberArmy"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeagueDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_licenses_api_licenses_get: {
         parameters: {
             query?: never;
@@ -31126,6 +33274,8 @@ export interface operations {
                 explicit?: boolean | null;
                 parent_id?: string | null;
                 include_children?: boolean;
+                /** @description Only role-playing systems (`ttrpg`, the library's books/) or only wargames (`wargame`, the armory). Both when omitted. */
+                game_type?: string | null;
             };
             header?: {
                 /** @description An API key, for external integrations (instead of a session). */
@@ -31723,6 +33873,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SystemCoverResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_system_factions_api_systems__system_id__factions_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                system_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemFactionsResponse"];
                 };
             };
             /** @description Validation Error */

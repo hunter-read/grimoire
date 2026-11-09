@@ -45,7 +45,9 @@ export default function TagFilterBar({ tags, selected, onToggle, onClear }: TagF
             borderRadius: 10,
             cursor: 'pointer',
             border: 'none',
-            background: selected.has(tag) ? 'rgba(201,168,76,0.2)' : 'var(--tag-bg)',
+            background: selected.has(tag)
+              ? 'color-mix(in srgb, var(--gold) 20%, transparent)'
+              : 'var(--tag-bg)',
             color: selected.has(tag) ? 'var(--gold)' : 'var(--text-dim)',
             outline: selected.has(tag)
               ? '1px solid var(--gold-dim)'

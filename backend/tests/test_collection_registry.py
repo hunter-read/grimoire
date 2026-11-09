@@ -156,9 +156,15 @@ class TestDownstreamTablesAgree:
         assert _MODELS == models_by_singular()
 
     def test_library_fs_collections(self):
+        from backend.models import Book
         from backend.services.library_fs.constants import COLLECTIONS as FS
 
-        assert FS == {spec.section: spec.model for spec in COLLECTIONS.values()}
+        # Plus the armory: a second folder of book rows, not a collection of
+        # its own in the registry.
+        assert FS == {
+            **{spec.section: spec.model for spec in COLLECTIONS.values()},
+            "armory": Book,
+        }
 
     def test_library_fs_thumb_sections(self):
         from backend.services.library_fs.constants import _THUMB_SECTIONS

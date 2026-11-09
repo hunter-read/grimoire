@@ -30,6 +30,7 @@ export type {
   ResponseOf,
   Schema,
 } from './api/client'
+export { armies, leagues } from './api/armies'
 export { campaigns } from './api/campaigns'
 export { apiKeys, auth, opds, settings, shareLinks } from './api/account'
 export { bulk, files, imageSources, naming, tags, tokenFrames } from './api/library'

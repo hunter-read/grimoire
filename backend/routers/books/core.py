@@ -22,8 +22,10 @@ from ...metadata import export as sidecar_export
 from ...metadata import settings as sidecar_settings
 from ...models import Book
 from ...models.base import utc_iso
+from ...models.game_types import GAME_TYPE_TTRPG
 from ...services import access_control, bulk_service, library_fs, tag_service, variants
 from ...services.content_cache import content_token
+from ...services.factions import factions_for_books
 from ...services.systems import (
     book_relative_path,
     visible_book_system,
@@ -215,6 +217,8 @@ def get_book(
         # Its folders would name a system hidden from this reader.
         "relative_path": book_relative_path(db, book, system),
         "category": book.category,
+        "game_type": book.game_type or GAME_TYPE_TTRPG,
+        "factions": factions_for_books(db, [book.id]).get(book.id, []),
         "description": book.description,
         "page_count": book.page_count,
         "file_size": book.file_size,
@@ -272,6 +276,7 @@ def get_book(
             "id": system.id,
             "name": system.name,
             "slug": system.slug,
+            "game_type": system.game_type or GAME_TYPE_TTRPG,
             "is_system_agnostic": bool(system.is_system_agnostic),
             "is_one_page": bool(system.is_one_page),
         }

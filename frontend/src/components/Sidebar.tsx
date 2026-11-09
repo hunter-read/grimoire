@@ -17,10 +17,15 @@ import {
   LuX,
   LuPanelLeftClose,
   LuPanelLeftOpen,
+  LuSwords,
+  LuShield,
+  LuTrophy,
 } from 'react-icons/lu'
 import api, { type Schema } from '../api'
 import AboutModal from './AboutModal'
 import { preloadRoute } from './routeViews'
+import NavGroupHeader from './NavGroupHeader'
+import { showArmoryNav } from '../utils/armory'
 
 const UPDATE_DISMISSED_KEY = 'grimoire_update_dismissed'
 
@@ -84,11 +89,24 @@ export default function Sidebar({
   // Guests only see their campaign(s) — no library, maps, tokens, search,
   // favorites, or settings.
   const isGuest = user?.role === 'guest'
+  const showArmory = showArmoryNav({
+    hidden: uiSettings.hide_armory,
+    armoryBooks: stats?.armory_books,
+    isAdmin: user?.role === 'admin',
+  })
+  const hide_library = uiSettings.hide_library
   const hide_maps = uiSettings.hide_maps
   const hide_tokens = uiSettings.hide_tokens
   const hide_audio = uiSettings.hide_audio
   const hide_models = uiSettings.hide_models
   const hide_campaigns = uiSettings.hide_campaigns
+  const hide_armies = uiSettings.hide_armies
+  const hide_leagues = uiSettings.hide_leagues
+  // The table-top groups: role-playing (campaigns and the characters played in
+  // them, which a guest is there for) and wargaming (army lists and leagues,
+  // which a guest scoped to one campaign has neither of).
+  const showRoleplaying = !hide_campaigns
+  const showWargaming = !isGuest && (!hide_armies || !hide_leagues)
   const {
     show_stat_systems = true,
     show_stat_books = false,
@@ -231,31 +249,50 @@ export default function Sidebar({
 
       {/* Navigation */}
       <nav aria-label={t('a11y.mainNavigation')} style={{ padding: '12px 8px', flex: 1 }}>
-        {/* Group 1: library content (Library, Maps, Tokens, Audio) */}
-        {!isGuest && navItem('/library', <LuLibrary size={16} />, t('nav.library'), { end: false })}
+        {/* Group 1: library content (Library, Armory, Maps, Tokens, Audio) */}
+        {!isGuest &&
+          !hide_library &&
+          navItem('/library', <LuLibrary size={16} />, t('nav.library'), { end: false })}
+        {!isGuest &&
+          showArmory &&
+          navItem('/armory', <LuSwords size={16} />, t('nav.armory'), { end: false })}
         {!isGuest && !hide_maps && navItem('/maps', <LuMap size={16} />, t('nav.maps'))}
         {!isGuest && !hide_tokens && navItem('/tokens', <LuUser size={16} />, t('nav.tokens'))}
         {!isGuest && !hide_audio && navItem('/audio', <LuMusic size={16} />, t('nav.audio'))}
         {!isGuest && !hide_models && navItem('/models', <LuBox size={16} />, t('nav.models'))}
 
-        {!isGuest && (
-          <div style={{ margin: '12px 8px 8px', borderTop: '1px solid var(--border)' }} />
-        )}
+        {!isGuest && <div style={dividerStyle} />}
 
         {/* Group 2: discovery (Search, Tags, Favorites) */}
         {!isGuest && navItem('/search', <LuSearch size={16} />, t('nav.search'))}
         {!isGuest && navItem('/tags', <LuTags size={16} />, t('nav.tags'))}
         {!isGuest && navItem('/favorites', <LuHeart size={16} />, t('nav.favorites'))}
 
-        {!isGuest && !hide_campaigns && (
-          <div style={{ margin: '12px 8px 8px', borderTop: '1px solid var(--border)' }} />
-        )}
+        {!isGuest && (showRoleplaying || showWargaming) && <div style={dividerStyle} />}
 
         {/* Group 3: campaigns and the characters played in them. Not gated on
             !isGuest: a guest account exists to play in one campaign, so a guest
             is exactly who wants a character sheet. */}
-        {!hide_campaigns && navItem('/campaigns', <LuScroll size={16} />, t('nav.campaigns'))}
-        {!hide_campaigns && navItem('/characters', <LuUsers size={16} />, t('nav.characters'))}
+        {showRoleplaying && (
+          <div role="group" aria-label={t('nav.roleplaying')}>
+            {!collapsed && <NavGroupHeader label={t('nav.roleplaying')} />}
+            {navItem('/campaigns', <LuScroll size={16} />, t('nav.campaigns'))}
+            {navItem('/characters', <LuUsers size={16} />, t('nav.characters'))}
+          </div>
+        )}
+
+        {/* Group 4: the wargame side of the table, army lists and the leagues
+            they are played in. */}
+        {showRoleplaying && showWargaming && <div style={dividerStyle} />}
+        {showWargaming && (
+          <div role="group" aria-label={t('nav.wargaming')}>
+            {!collapsed && <NavGroupHeader label={t('nav.wargaming')} />}
+            {!hide_armies &&
+              navItem('/armies', <LuShield size={16} />, t('nav.armies'), { end: false })}
+            {!hide_leagues &&
+              navItem('/leagues', <LuTrophy size={16} />, t('nav.leagues'), { end: false })}
+          </div>
+        )}
       </nav>
 
       {/* Collapse toggle — bottom of the nav section, above the stats footer.
@@ -391,7 +428,7 @@ export default function Sidebar({
             <div
               style={{
                 padding: '8px 12px 8px 16px',
-                background: 'rgba(201,168,76,0.08)',
+                background: 'color-mix(in srgb, var(--gold) 8%, transparent)',
                 borderTop: '1px solid var(--border)',
                 display: 'flex',
                 alignItems: 'center',
@@ -526,6 +563,8 @@ export default function Sidebar({
     </div>
   )
 }
+
+const dividerStyle: CSSProperties = { margin: '12px 8px 8px', borderTop: '1px solid var(--border)' }
 
 // A stat's figure; a <dd> carries a default indent, cleared here.
 const statValueStyle: CSSProperties = { color: 'var(--text-dim)', margin: 0 }

@@ -8,7 +8,7 @@ guards, which is why every tool also carries a ``min_role``.
 from __future__ import annotations
 
 import html
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
@@ -103,11 +103,17 @@ def search_library(args: SearchLibraryArgs, ctx: ToolContext) -> str:
 # ---------------------------------------------------------------------------
 
 
-class NoArgs(BaseModel):
-    pass
+class ListGameSystemsArgs(BaseModel):
+    game_type: Optional[Literal["ttrpg", "wargame"]] = Field(
+        None,
+        description=(
+            "Only role-playing games (ttrpg) or only wargames (wargame, the armory). "
+            "Both when omitted."
+        ),
+    )
 
 
-def list_game_systems(args: NoArgs, ctx: ToolContext) -> str:
+def list_game_systems(args: ListGameSystemsArgs, ctx: ToolContext) -> str:
     from ...routers.systems.core import list_systems
 
     systems = list_systems(
@@ -121,6 +127,7 @@ def list_game_systems(args: NoArgs, ctx: ToolContext) -> str:
         explicit=None,
         parent_id=None,
         include_children=True,
+        game_type=args.game_type,
         current_user=ctx.user,
         db=ctx.db,
     )
@@ -129,7 +136,10 @@ def list_game_systems(args: NoArgs, ctx: ToolContext) -> str:
     lines = [f"Game systems in the library ({len(systems)}):"]
     for s in systems:
         edition = f", {s['edition']}" if s.get("edition") else ""
-        lines.append(f"- {s['name']}{edition}: {s['book_count']} books [system_id: {s['id']}]")
+        kind = " (wargame)" if s.get("game_type") == "wargame" else ""
+        lines.append(
+            f"- {s['name']}{edition}{kind}: {s['book_count']} books [system_id: {s['id']}]"
+        )
     return "\n".join(lines)
 
 
@@ -341,10 +351,11 @@ TOOLS = (
         title="List game systems",
         description=(
             "The game systems in the user's library (D&D 5e, Pathfinder 2e, ...) with "
-            "how many books each has. Use it to learn what the user plays, or to get a "
+            "how many books each has, wargames from the armory (Warhammer 40,000, ...) "
+            "included and marked. Use it to learn what the user plays, or to get a "
             "system_id for list_books."
         ),
-        arguments=NoArgs,
+        arguments=ListGameSystemsArgs,
         permission="systems",
         level=api_keys.LEVEL_READ,
         run=list_game_systems,

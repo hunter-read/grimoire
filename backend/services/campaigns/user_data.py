@@ -12,8 +12,9 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from ... import token_vault
-from ...models import Campaign, CampaignMember, Character, Ruleset, User
+from ...models import Army, Campaign, CampaignMember, Character, Ruleset, User
 from ...sessions import delete_user_sessions, revoke_user_sessions
+from ..armies import storage as roster_storage
 from ..characters.images import remove_files_after_commit
 
 # Tables holding rows that belong to a single user and die with them. Kept as a
@@ -37,6 +38,10 @@ _USER_SCOPED_TABLES = (
     "audio_sets",
     "user_themes",
     "user_importers",
+    # Wargames: a user's army lists, and their places in leagues. An army's
+    # roster file goes with it (purge_user_data).
+    "armies",
+    "league_members",
 )
 
 
@@ -61,6 +66,10 @@ _USER_ATTRIBUTION_COLUMNS = (
     ("rulesets", "created_by_id"),
     # A wiki template serves whoever uses it, not only who made it.
     ("wiki_templates", "created_by_id"),
+    # A publication link serves every army citing it; a logged game stays in
+    # its league's standings whoever wrote it down.
+    ("publication_links", "created_by"),
+    ("league_games", "recorded_by"),
 )
 
 
@@ -86,6 +95,8 @@ _USER_SCOPED_UNIQUE = (
     ("pins", "collection, target"),
     ("session_availability", "campaign_id, session_date"),
     ("player_session_notes", "session_id"),
+    # One membership per league.
+    ("league_members", "league_id"),
 )
 
 
@@ -146,9 +157,48 @@ def reassign_user_data(db: Session, source_id: str, target_id: str) -> int:
         text("UPDATE rulesets SET owner_id = :tgt WHERE owner_id = :src"),
         {"src": source_id, "tgt": target_id},
     )
+    _reassign_leagues(db, source_id, target_id)
     for table in _USER_DELETE_ONLY_TABLES:
         db.execute(text(f"DELETE FROM {table} WHERE user_id = :src"), {"src": source_id})
     return int(moved)
+
+
+def _reassign_leagues(db: Session, source_id: str, target_id: str) -> None:
+    """Move the leagues ``source_id`` organises and the games they played to ``target_id``.
+
+    A game between the two accounts would become one against themselves, so it
+    is dropped rather than moved. Does not commit.
+    """
+    params = {"src": source_id, "tgt": target_id}
+    db.execute(text("UPDATE leagues SET organizer_id = :tgt WHERE organizer_id = :src"), params)
+    db.execute(
+        text(
+            "DELETE FROM league_games WHERE (player_a_id = :src AND player_b_id = :tgt) "
+            "OR (player_a_id = :tgt AND player_b_id = :src)"
+        ),
+        params,
+    )
+    for column in ("player_a_id", "player_b_id"):
+        db.execute(
+            text(f"UPDATE league_games SET {column} = :tgt WHERE {column} = :src"), params
+        )
+
+
+def _purge_leagues(db: Session, user_id: str) -> None:
+    """Delete the leagues ``user_id`` organises, and every game they played.
+
+    A league goes with its organiser, as a campaign does with its owner. A game
+    the user played in leaves the other player's record: it was against nobody
+    left in the league. Does not commit.
+    """
+    params = {"uid": user_id}
+    owned = "SELECT id FROM leagues WHERE organizer_id = :uid"
+    db.execute(text(f"DELETE FROM league_games WHERE league_id IN ({owned})"), params)
+    db.execute(text(f"DELETE FROM league_members WHERE league_id IN ({owned})"), params)
+    db.execute(text("DELETE FROM leagues WHERE organizer_id = :uid"), params)
+    db.execute(
+        text("DELETE FROM league_games WHERE player_a_id = :uid OR player_b_id = :uid"), params
+    )
 
 
 def detach_campaign_characters(db: Session, campaign_ids: List[str]) -> None:
@@ -181,6 +231,10 @@ def purge_user_data(db: Session, user_id: str) -> None:
     remove_files_after_commit(
         db, [row[0] for row in db.query(Character.id).filter_by(user_id=user_id).all()]
     )
+    roster_storage.delete_after_commit(
+        db, [row[0] for row in db.query(Army.id).filter_by(user_id=user_id).all()]
+    )
+    _purge_leagues(db, user_id)
     owned = db.query(Campaign).filter_by(owner_id=user_id).all()
     # Guests merged into one of these campaigns and others keep the others; one
     # whose working code lived here gets a fresh one rather than keeping a code

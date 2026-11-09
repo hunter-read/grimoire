@@ -18,6 +18,7 @@ from ...filenames import is_undecodable
 from ...indexer.categories import (
     detect_container_kind,
     guess_category,
+    match_wargame_category,
     is_one_page_folder,
     is_system_agnostic_folder,
     slugify,
@@ -31,16 +32,29 @@ from ...indexer.constants import (
     NSFW_MARKER,
     SINGLETON_CONTAINER_KINDS,
 )
+from ...models.game_types import game_type_for_path
 from ...models.library import GameSystem
-from .constants import SCAFFOLD_CATEGORY_FOLDERS, LibraryFSError
+from .constants import (
+    SCAFFOLD_CATEGORY_FOLDERS,
+    WARGAME_SCAFFOLD_CATEGORY_FOLDERS,
+    LibraryFSError,
+)
 from .paths import (
     assert_writable,
-    collection_of,
+    in_book_section,
+    is_armory,
     library_root,
     safe_join,
     to_relative,
 )
 from .placement import _container_child_slug, _system_depth_for, _system_folder_name
+from .wargame_placement import wargame_folder_category
+
+# Where a container kind is refused: one that only books/ (or the armory) reads.
+_CONTAINER_PLACE = (
+    "Container kinds only apply to folders that hold game systems — "
+    "inside books/ or armory/, at a depth where a system folder belongs."
+)
 
 def create_folder(
     parent: str,
@@ -74,16 +88,13 @@ def create_folder(
         raise LibraryFSError(f"Unknown container kind: {container_kind}", code="invalid")
     target = parent_dir / clean
     if container_kind:
+        _assert_kind_fits_collection(container_kind, target)
         _assert_singleton_free(container_kind, None)
         # Checked against where the folder *will* sit, not the parent: a new
         # child of `books/` is a system slot and may be a container, while a new
         # child of a system folder is a category and may not.
         if not accepts_container_kind(target):
-            raise LibraryFSError(
-                "Container kinds only apply to folders that hold game systems — "
-                "inside books/, at a depth where a system folder belongs.",
-                code="invalid",
-            )
+            raise LibraryFSError(_CONTAINER_PLACE, code="invalid")
     if frames_container and not accepts_frames_marker(target):
         raise LibraryFSError(
             "Frame folders are read from the token library — create this folder "
@@ -139,27 +150,25 @@ def system_for_folder(db: Session, path: Path) -> Optional[Any]:
     row agree even when the folder name carries ``(nsfw)``, a container suffix, or
     a sort prefix. A direct child of ``books/`` is a system, and so is a child of
     a container folder, slugged under its container the way the scanner slugs
-    it (issue #670); anything else is a category folder.
+    it (issue #670); anything else is a category folder. The armory's folders
+    are matched the same way, among its wargame systems only.
     """
     rel = to_relative(path)
     parts = rel.split("/")
-    if len(parts) < 2 or parts[0].lower() != "books":
+    if len(parts) < 2 or not in_book_section(path):
         return None
+    systems = db.query(GameSystem).filter(GameSystem.game_type == game_type_for_path(rel))
     if len(parts) > 2:
         # Inside containers, the system folder is the one just past the last
         # container. Anything deeper (or a plain system's category) is not one.
         depth = _system_depth_for(db, parts)
         if depth != len(parts):
             return None
-        return (
-            db.query(GameSystem)
-            .filter(GameSystem.slug == _container_child_slug(parts, depth))
-            .first()
-        )
+        return systems.filter(GameSystem.slug == _container_child_slug(parts, depth)).first()
     name = _system_folder_name(parts[1])
     return (
-        db.query(GameSystem).filter(GameSystem.name == name).first()
-        or db.query(GameSystem).filter(GameSystem.slug == slugify(name)).first()
+        systems.filter(GameSystem.name == name).first()
+        or systems.filter(GameSystem.slug == slugify(name)).first()
     )
 
 
@@ -195,6 +204,22 @@ def find_singleton_container(kind: str, *, ignore: Optional[Path] = None) -> Opt
         if kind == CONTAINER_AGNOSTIC and is_system_agnostic_folder(child.name):
             return to_relative(child)
     return None
+
+
+def _assert_kind_fits_collection(kind: str, target: Path) -> None:
+    """Refuse a role-playing-only container kind in the armory.
+
+    The one-of-a-kind collections - one-page RPGs, system-agnostic books - are
+    shelves of role-playing games, and only ``books/`` is searched for them
+    (``find_singleton_container``). A wargame system is always a system, so the
+    armory takes the plain containers (a game holding its editions, a family,
+    a publisher) and nothing else.
+    """
+    if kind in SINGLETON_CONTAINER_KINDS and is_armory(target):
+        raise LibraryFSError(
+            f"The {kind} collection belongs in books/, not the armory.",
+            code="invalid",
+        )
 
 
 def _assert_singleton_free(kind: str, target: Optional[Path]) -> None:
@@ -246,12 +271,9 @@ def set_folder_markers(
         # Only guard *setting* a kind. Clearing one is always allowed, so a
         # marker created by hand in the wrong place stays removable from here.
         if container_kind and not accepts_container_kind(target):
-            raise LibraryFSError(
-                "Container kinds only apply to folders that hold game systems — "
-                "inside books/, at a depth where a system folder belongs.",
-                code="invalid",
-            )
+            raise LibraryFSError(_CONTAINER_PLACE, code="invalid")
         if container_kind:
+            _assert_kind_fits_collection(container_kind, target)
             _assert_singleton_free(container_kind, target)
         # Container kinds are mutually exclusive: clear all, then set the chosen
         # one, so switching kinds cannot leave two markers fighting over
@@ -329,11 +351,12 @@ def holds_system_folders(target: Path) -> bool:
     containers. This is the half of the rule that makes nesting work: a family
     holding a parent-system holding editions (issue #301) keeps handing "these
     children are systems" down the chain, and the first folder that is not a
-    container ends it — its children are category folders.
+    container ends it — its children are category folders. The armory is laid
+    out the same way, so the same holds under ``armory/``.
     """
     rel = to_relative(target)
     parts = rel.split("/")
-    if parts[0] != "books":
+    if not in_book_section(target):
         return False
     if len(parts) == 1:
         return True
@@ -363,7 +386,8 @@ def is_category_host(target: Path) -> bool:
     rel = to_relative(target)
     parts = rel.split("/")
     # `books/<system>` at minimum: `books/` itself holds systems, not categories.
-    if len(parts) < 2 or parts[0] != "books":
+    # An armory system hosts categories too, in the wargame vocabulary.
+    if len(parts) < 2 or not in_book_section(target):
         return False
     if not holds_system_folders(target.parent):
         return False
@@ -392,7 +416,7 @@ def accepts_container_kind(target: Path) -> bool:
     """
     rel = to_relative(target)
     parts = rel.split("/")
-    if parts[0] != "books":
+    if not in_book_section(target):
         return False
     # `books/` itself is not a folder anyone declares a kind on — it is the root
     # the whole chain hangs from.
@@ -437,20 +461,25 @@ def scaffold_categories(path: str) -> dict:
     are the system folders instead. Existing folders are left alone and reported
     separately, so running this on a partly-organised system fills the gaps
     instead of failing.
+
+    A wargame system in the armory gets the wargame set instead
+    (``WARGAME_SCAFFOLD_CATEGORY_FOLDERS``: Core, Factions, Rules Updates, ...),
+    read with the wargame vocabulary. Its faction folders cover no category, so
+    they neither block a folder nor count as one.
     """
     target = safe_join(path, must_exist=True)
     if not target.is_dir():
         raise LibraryFSError("Not a folder", code="invalid")
-    if collection_of(target) != "books":
+    if not in_book_section(target):
         raise LibraryFSError(
-            "Category folders only apply to the books library", code="invalid"
+            "Category folders only apply to the books library and the armory", code="invalid"
         )
     # `books/` itself holds systems, not categories, and neither does a
     # container — its children are the system folders that hold them.
     if not is_category_host(target):
         raise LibraryFSError(
-            "Pick a system folder inside books/ — the books folder itself and "
-            "container folders hold systems, not categories",
+            "Pick a system folder inside books/ or armory/ — the collection folder "
+            "itself and container folders hold systems, not categories",
             code="invalid",
         )
     assert_writable(target)
@@ -470,21 +499,33 @@ def scaffold_categories(path: str) -> dict:
     # ever be created.
     rel_target = to_relative(target)
     system_depth = len(rel_target.split("/"))
+    wargame = is_armory(target)
+
+    def category_of(child: Path) -> Optional[str]:
+        if wargame:
+            return wargame_folder_category(child)
+        return guess_category(f"{to_relative(child)}/x.pdf", system_depth=system_depth)
 
     covered: dict[str, str] = {}
     try:
         for child in target.iterdir():
             if not child.is_dir() or child.name.startswith("."):
                 continue
-            category = guess_category(f"{to_relative(child)}/x.pdf", system_depth=system_depth)
-            covered.setdefault(category, child.name)
+            held = category_of(child)
+            if held is not None:
+                covered.setdefault(held, child.name)
     except OSError as e:
         logger.warning("Could not read %s while scaffolding: %s", target, e)
 
     created: list[str] = []
     existing: list[str] = []
-    for name in SCAFFOLD_CATEGORY_FOLDERS:
-        category = guess_category(f"{rel_target}/{name}/x.pdf", system_depth=system_depth)
+    names = WARGAME_SCAFFOLD_CATEGORY_FOLDERS if wargame else SCAFFOLD_CATEGORY_FOLDERS
+    for name in names:
+        category = (
+            (match_wargame_category(name) or slugify(name))
+            if wargame
+            else guess_category(f"{rel_target}/{name}/x.pdf", system_depth=system_depth)
+        )
         held_by = covered.get(category)
         if held_by is not None:
             existing.append(held_by)

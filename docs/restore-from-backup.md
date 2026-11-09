@@ -30,7 +30,8 @@ grimoire-backup-20260821T140355Z.zip
 ├── system_covers/        custom game-system cover images
 ├── audio_covers/         custom audio cover art
 ├── book_covers/          custom book covers
-└── branding/             the uploaded OIDC sign-in button icon
+├── branding/             the uploaded OIDC sign-in button icon
+└── army_rosters/         the BattleScribe rosters armies were imported from
 ```
 
 Your library - the PDFs, maps, tokens, audio, and models themselves - is **not** in here,
@@ -94,6 +95,7 @@ mv system_covers   system_covers.before-restore       # if present
 mv audio_covers    audio_covers.before-restore        # if present
 mv book_covers     book_covers.before-restore         # if present
 mv branding        branding.before-restore            # if present
+mv army_rosters    army_rosters.before-restore        # if present
 ```
 
 Also remove the SQLite side files if they are there, since they belong to the database you
@@ -114,6 +116,7 @@ cp -r /tmp/grimoire-restore/system_covers   . 2>/dev/null || true
 cp -r /tmp/grimoire-restore/audio_covers    . 2>/dev/null || true
 cp -r /tmp/grimoire-restore/book_covers     . 2>/dev/null || true
 cp -r /tmp/grimoire-restore/branding        . 2>/dev/null || true
+cp -r /tmp/grimoire-restore/army_rosters    . 2>/dev/null || true
 ```
 
 Make sure the files are owned by whoever the container runs as. If you run Grimoire as a
@@ -121,7 +124,7 @@ non-root user, `chown` them to match the rest of the data directory:
 
 ```bash
 chown -R --reference=. grimoire.db campaign_uploads character_portraits character_images \
-  system_covers audio_covers book_covers branding
+  system_covers audio_covers book_covers branding army_rosters
 ```
 
 ## 6. Start up and rescan

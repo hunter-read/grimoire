@@ -5,8 +5,8 @@
  *
  *   - **colour mode** — light / dark / system, stamped on `<html data-theme>`.
  *   - **app mode** — which side of the product is in use, stamped on
- *     `<html data-app-mode>`. Grimoire (TTRPG) today; Codex (wargaming) is
- *     built but not yet surfaced.
+ *     `<html data-app-mode>`: the built-in Grimoire or Codex palette. Grimoire
+ *     is the default; Codex is picked from the theme list like any other.
  *
  * They multiply: each app mode has a light and a dark palette in index.css, and
  * a user's theme choice is remembered *per app mode*, so switching modes
@@ -37,11 +37,9 @@ export const DEFAULT_MODE = 'dark'
 /**
  * App modes — which side of the product you are in.
  *
- * `codex` is a wargaming skin that is finished as a palette but has no UI to
- * reach it yet: no toggle is rendered, and nothing selects it by default. It
- * ships now so themes can declare which mode they are built for without the
- * format changing later. Anyone reading the source will find it; that is fine,
- * it is a colour scheme, not a secret.
+ * `codex` is the crimson-on-gunmetal palette, suited to a library that leans to
+ * wargames. It is reached by picking the Codex theme in Appearance; nothing
+ * selects it by default, and there is no separate mode switch.
  */
 export const APP_MODES: string[] = ['grimoire', 'codex']
 export const DEFAULT_APP_MODE = 'grimoire'

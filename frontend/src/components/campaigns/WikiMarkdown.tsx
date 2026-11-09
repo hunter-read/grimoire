@@ -228,7 +228,7 @@ export default function WikiMarkdown({
               // a highlight without washing out gold headings or white body text.
               // The rule and padding stay on the first line only when the span
               // wraps, rather than repeating down the left edge.
-              background: 'rgba(201, 168, 76, 0.16)',
+              background: 'color-mix(in srgb, var(--gold) 16%, transparent)',
               boxShadow: 'inset 2px 0 0 var(--gold)',
               color: 'inherit',
               borderRadius: 3,
@@ -479,7 +479,7 @@ export default function WikiMarkdown({
 
 const secretBlockStyle: CSSProperties = {
   // Low-alpha gold tint + gold rule, so headings and body text inside stay legible.
-  background: 'rgba(201, 168, 76, 0.1)',
+  background: 'color-mix(in srgb, var(--gold) 10%, transparent)',
   borderLeft: '3px solid var(--gold)',
   borderRadius: 4,
   padding: '4px 12px',

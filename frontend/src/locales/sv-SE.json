@@ -4,10 +4,11 @@
   },
   "app": {
     "name": "GRIMOIRE",
-    "subtitle": "TTRPG-bibliotek"
+    "subtitle": "Spelbibliotek"
   },
   "nav": {
     "library": "Bibliotek",
+    "armory": "Rustkammare",
     "maps": "Kartor",
     "tokens": "Tokens",
     "search": "Sök",
@@ -21,7 +22,11 @@
     "expandSidebar": "Expandera sidofältet",
     "audio": "Ljud",
     "models": "Modeller",
-    "characters": "Rollpersoner"
+    "characters": "Rollpersoner",
+    "armies": "Arméer",
+    "leagues": "Ligor",
+    "roleplaying": "Rollspel",
+    "wargaming": "Krigsspel"
   },
   "stats": {
     "systems": "System",
@@ -37,7 +42,7 @@
   },
   "about": {
     "title": "Om Grimoire",
-    "subtitle": "Självhostad TTRPG-bibliotekshanterare",
+    "subtitle": "Självhostad spelbibliotekshanterare",
     "version": "Version",
     "commitHash": "Commit-hash",
     "pythonVersion": "Python-version",
@@ -168,6 +173,15 @@
     "groupContainers": "Gruppera samlingar",
     "searchPlaceholder": "Hitta ett system…"
   },
+  "armory": {
+    "title": "Din rustkammare",
+    "subtitle_one": "{{count}} krigsspel i din rustkammare",
+    "subtitle_other": "{{count}} krigsspel i din rustkammare",
+    "subtitleFiltered_one": "Visar {{count}} av {{total}} krigsspel i din rustkammare",
+    "subtitleFiltered_other": "Visar {{count}} av {{total}} krigsspel i din rustkammare",
+    "searchPlaceholder": "Hitta ett krigsspel…",
+    "emptyHint": "Krigsspelsböcker ligger i mappen armory/ i ditt bibliotek, en mapp per spel: armory/<Spel>/Core/, med varje armé i armory/<Spel>/Factions/<Fraktion>/."
+  },
   "systemContainer": {
     "badge": "Systemsamling",
     "familyBadge": "Systemfamilj",
@@ -182,6 +196,7 @@
   },
   "systemDetail": {
     "backToLibrary": "Tillbaka till biblioteket",
+    "backToArmory": "Tillbaka till rustkammaren",
     "publishedBy": "Utgiven av",
     "characterBuilder": "Rollpersonsbyggare",
     "searchWithin": "Sök i {{name}}…",
@@ -1488,9 +1503,13 @@
     "sidebarVisibility": {
       "title": "Sidofältets synlighet",
       "description": "Dölj kategori från sidofältet och mobilnavigeringen för alla användare.",
+      "hideLibrary": "Dölj bibliotek",
+      "hideArmory": "Dölj rustkammare",
       "hideMaps": "Dölj kartor",
       "hideTokens": "Dölj tokens",
       "hideCampaigns": "Dölj kampanjer",
+      "hideArmies": "Dölj arméer",
+      "hideLeagues": "Dölj ligor",
       "hideAudio": "Dölj ljud",
       "hideModels": "Dölj modeller"
     },
@@ -1661,6 +1680,10 @@
         "personal": {
           "label": "Personligt",
           "description": "Dina favoriter, bokmärken, sparade filter, fästa objekt, sparade spellistor och ljudtavlor, och teman"
+        },
+        "armies": {
+          "label": "Arméer och ligor",
+          "description": "Dina armélistor, källböckerna de hänvisar till och ligorna du spelar i"
         },
         "all": {
           "label": "Alla behörigheter",
@@ -2699,7 +2722,14 @@
     "map": "Kartor",
     "handout": "Utdelningsmaterial & referens",
     "magazine": "Tidskrifter & fanzines",
-    "homebrew": "Egentillverkat"
+    "homebrew": "Egentillverkat",
+    "army-book": "Arméböcker",
+    "errata": "Regeluppdateringar och errata",
+    "mission-pack": "Uppdragspaket",
+    "campaign": "Kampanjböcker",
+    "unit-reference": "Enhetsreferenser",
+    "painting-guide": "Målning och hobby",
+    "lore": "Bakgrund och skönlitteratur"
   },
   "wiki": {
     "newPage": "Ny sida",
@@ -3471,6 +3501,7 @@
   },
   "bookDetails": {
     "category": "Kategori",
+    "factions": "Fraktioner",
     "authors": "Författare",
     "artists": "Konstnärer",
     "publisher": "Förlag",
@@ -4441,5 +4472,140 @@
     "siblings": "Mappar bredvid {{folder}}",
     "filterSiblings": "Filtrera mappar…",
     "noSiblingMatch": "Inga mappar matchar"
+  },
+  "armies": {
+    "title": "Arméer",
+    "import": "Importera armélista",
+    "importHint": "En .ros- eller .rosz-lista från BattleScribe eller New Recruit",
+    "new": "Ny armé",
+    "empty": "Inga arméer än. Importera en lista från BattleScribe eller New Recruit, eller bygg en för hand.",
+    "loadFailed": "Kunde inte läsa in arméerna",
+    "importFailed": "Kunde inte importera den armélistan",
+    "fromRoster": "Lista",
+    "noGame": "Inget spel valt",
+    "game": "Spel",
+    "faction": "Fraktion",
+    "noFaction": "Ingen fraktion",
+    "points": "{{points}} / {{limit}} {{cost}}",
+    "name": "Namn",
+    "pointsLimit": "Poänggräns",
+    "create": "Skapa armé",
+    "back": "Alla arméer",
+    "exportText": "Exportera som text",
+    "exportRoster": "Ladda ner listan",
+    "edit": "Redigera",
+    "delete": "Ta bort",
+    "confirmDelete": "Ta bort den här armén",
+    "overLimit": "Över poänggränsen",
+    "notes": "Anteckningar",
+    "noUnits": "Inga enheter än.",
+    "editUnits": "Redigera enheter",
+    "sourcePage": "{{publication}}, s. {{page}}",
+    "openSource": "Öppna {{title}} på den här sidan",
+    "unitName": "Enhetens namn",
+    "models": "Modeller",
+    "unitPoints": "Poäng",
+    "category": "Kategori",
+    "removeUnit": "Ta bort enhet",
+    "addUnit": "Lägg till enhet",
+    "progress": {
+      "title": "Framsteg",
+      "experience": "Erfarenhet",
+      "honours": "Utmärkelser (kommaseparerade)",
+      "notes": "Anteckningar",
+      "summary": "{{experience}} XP"
+    },
+    "links": {
+      "title": "Källböcker",
+      "description": "Koppla varje publikation som listan hänvisar till till en bok i biblioteket, så att enheternas regler öppnas på rätt sida. Kopplingarna gäller alla arméer som hänvisar till samma publikation.",
+      "book": "Bok i biblioteket",
+      "chooseBook": "Välj en bok",
+      "offset": "Sidförskjutning",
+      "offsetHint": "Läggs till den angivna sidan för att nå PDF-sidan, för böcker vars tryckta sidnummer börjar senare",
+      "link": "Koppla",
+      "unlink": "Koppla bort",
+      "search": "Sök",
+      "searchPlaceholder": "Sök boktitlar",
+      "noMatches": "Ingen bok matchar den titeln"
+    }
+  },
+  "leagues": {
+    "title": "Ligor",
+    "new": "Ny liga",
+    "name": "Namn",
+    "pointsLimit": "Poänggräns",
+    "description": "Beskrivning",
+    "create": "Skapa liga",
+    "finished": "Avslutad",
+    "memberCount_one": "{{count}} medlem",
+    "memberCount_other": "{{count}} medlemmar",
+    "limit": "{{limit}} poäng",
+    "empty": "Du är inte med i någon liga än. En arrangör kan lägga till dig.",
+    "emptyOrganiser": "Inga ligor än. Starta en och lägg sedan till spelarna.",
+    "loadFailed": "Kunde inte läsa in ligorna",
+    "back": "Alla ligor",
+    "organiser": "Arrangeras av {{name}}",
+    "scoring": "{{win}}/{{draw}}/{{loss}} poäng för vinst/oavgjort/förlust",
+    "standings": "Tabell",
+    "noMembers": "Inga medlemmar än.",
+    "player": "Spelare",
+    "columns": {
+      "played": "Spelade",
+      "won": "Vunna",
+      "drawn": "Oavgjorda",
+      "lost": "Förlorade",
+      "score_for": "Poäng för",
+      "score_against": "Poäng emot",
+      "points": "Ligapoäng"
+    },
+    "columnsShort": {
+      "played": "S",
+      "won": "V",
+      "drawn": "O",
+      "lost": "F",
+      "score_for": "PF",
+      "score_against": "PE",
+      "points": "P"
+    },
+    "members": "Medlemmar och arméer",
+    "yourArmy": "Din armé",
+    "noArmy": "Ingen armé vald",
+    "armyOption": "{{name}} ({{points}} {{cost}})",
+    "leave": "Lämna ligan",
+    "remove": "Ta bort {{name}}",
+    "addMember": "Lägg till spelare",
+    "choosePlayer": "Välj en spelare",
+    "games": "Matcher",
+    "noGames": "Inga matcher registrerade än.",
+    "game": {
+      "playerA": "Spelare",
+      "playerB": "Motståndare",
+      "scoreA": "Spelarens poäng",
+      "scoreB": "Motståndarens poäng",
+      "result": "Resultat",
+      "fromScores": "Enligt poängen",
+      "aWon": "Spelaren vann",
+      "bWon": "Motståndaren vann",
+      "draw": "Oavgjort",
+      "date": "Datum",
+      "mission": "Uppdrag",
+      "notes": "Anteckningar",
+      "log": "Registrera match",
+      "edit": "Redigera match",
+      "delete": "Ta bort match",
+      "drawn": "Oavgjort",
+      "won": "{{name}} vann",
+      "line": "{{a}} {{scoreA}} - {{scoreB}} {{b}}"
+    },
+    "settings": {
+      "title": "Ligainställningar",
+      "points_win": "Poäng för vinst",
+      "points_draw": "Poäng för oavgjort",
+      "points_loss": "Poäng för förlust",
+      "reopen": "Öppna ligan igen",
+      "finish": "Markera som avslutad",
+      "delete": "Ta bort ligan",
+      "confirmDelete": "Ta bort ligan och dess matcher"
+    }
   }
 }

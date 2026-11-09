@@ -22,6 +22,9 @@ AUDIO_COVER_DIR = os.path.join(env.DATA_PATH, "audio_covers")
 BOOK_COVER_DIR = os.path.join(env.DATA_PATH, "book_covers")
 # Admin-uploaded login-page assets (the OIDC button icon, issue #377).
 BRANDING_DIR = os.path.join(env.DATA_PATH, "branding")
+# The BattleScribe rosters armies were imported from, kept byte for byte so
+# "Download roster" hands back exactly what was uploaded.
+ARMY_ROSTER_DIR = os.path.join(env.DATA_PATH, "army_rosters")
 
 # Data directories Grimoire writes into, created by startup(). Character
 # portraits sit beside the campaign uploads rather than inside them, because a
@@ -43,6 +46,7 @@ _DATA_DIRS = (
     AUDIO_COVER_DIR,
     BOOK_COVER_DIR,
     BRANDING_DIR,
+    ARMY_ROSTER_DIR,
 )
 
 

@@ -1,14 +1,14 @@
 <div align="center">
   <img src="frontend/static/grimoire-logo.svg" alt="Grimoire" width="144">
 
-# Grimoire - Self-Hosted TTRPG Library Manager
+# Grimoire - Self-Hosted Tabletop Library Manager
 
 [![Discord](https://img.shields.io/badge/discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/9Sd4CGZC63)
 [![CI](https://github.com/hunter-read/grimoire/actions/workflows/ci.yml/badge.svg)](https://github.com/hunter-read/grimoire/actions/workflows/ci.yml)
 [![Backend coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/hunter-read/ae49bfa368af7a6492b40a0e4ae2455a/raw/grimoire-backend-coverage.json)](https://github.com/hunter-read/grimoire/actions/workflows/ci.yml)
 [![Frontend coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/hunter-read/975eddb70b9da1a0a43f34f7cf193335/raw/grimoire-frontend-coverage.json)](https://github.com/hunter-read/grimoire/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.12-blue?logo=python&logoColor=white)](https://www.python.org/)
-[![React](https://img.shields.io/badge/react-18-61DAFB?logo=react&logoColor=white)](https://react.dev/)
+[![React](https://img.shields.io/badge/react-19-61DAFB?logo=react&logoColor=white)](https://react.dev/)
 [![License](https://img.shields.io/github/license/hunter-read/grimoire)](LICENSE)
 [![Docker](https://img.shields.io/docker/pulls/hunterreadca/grimoire?logo=docker&logoColor=white)](https://hub.docker.com/r/hunterreadca/grimoire)
 
@@ -19,9 +19,10 @@
 > [!TIP]
 > **Looking for a group to play with?** I also built [findtabletop.games](https://findtabletop.games), a free way to find tabletop RPG groups and players. Grimoire handles your library; findtabletop.games helps you find the table.
 
-A self-hosted web app for your tabletop RPG library. Point it at a folder of PDFs, maps,
-tokens, audio, and 3D models, and Grimoire turns it into a searchable library you can
-read from any device - every page of every book indexed, including scanned ones.
+A self-hosted web app for your tabletop library - role-playing games and wargames. Point it
+at a folder of PDFs, maps, tokens, audio, and 3D models, and Grimoire turns it into a
+searchable library you can read from any device - every page of every book indexed,
+including scanned ones.
 
 It runs as a single Docker container against a directory you already own, and by default
 never writes to it.
@@ -68,20 +69,26 @@ never writes to it.
 - **Wiki** - A markdown notes wiki with deep linking, Markdown/JSON/LegendKeeper import and export.
 - **Wiki note templates** - Start a page from a community template, write your own, or upload a Markdown file or `.zip`. Templates belong to the campaign, so downloaded ones are yours to edit. See [Wiki note templates](docs/wiki-templates.md).
 
+### Wargames
+
+- **Armory** - Wargame books get a shelf of their own beside the library, read from an `armory/` folder: armies from `Factions/<Faction>/` folders with sub-factions inside, and wargame categories such as army books, rules updates, mission packs and unit references. See [Library structure](docs/library-structure.md#the-armory---wargame-books).
+- **Armies** - Import a BattleScribe or New Recruit roster, or build a list by hand, and open each unit's rules at the right page in your own books. Grimoire ships no points or rules text. See [Armies and leagues](docs/armies.md).
+- **Leagues** - Run a league with a points limit, log games, follow the standings, and track each unit's experience and honours as it goes.
+
 ### Administration
 
 - **Book restrictions** - Restrict a book, system, or category to _GMs and admins_ or _admins only_. Restricted content is hidden outright - from library, search, downloads, favourites, and OPDS - since the title and cover are the spoiler. See [Restricting books](docs/users-and-permissions.md#restricting-books).
 - **Grimoire Codex DB** - Look books and systems up in the built-in community catalogue, link them, and send corrections back. Turned on with a Grimoire Codex DB API token. See [Grimoire Codex DB](docs/codex.md).
 - **Community add-ons** - Install community metadata scrapers to fill in system and book details from external sources, reviewing a field-by-field diff before anything is written. See [Community add-ons](docs/addons.md).
 - **Character sheets** - A schema-driven character builder: install a sheet for your system, build characters against it, browse a content catalogue, and give each table its own ruleset of allowed content. Sheets are per user, so no admin approval is involved. Import characters from Forge Steel, Pathbuilder and other tools through community importers. See [Character sheets](docs/characters.md).
-- **Themes and light mode** - Light, dark, or system, plus installable colour themes (including a WCAG AAA **High Contrast** palette). Themes are per user, so no admin approval is involved. See [Themes](docs/themes.md).
+- **Themes and light mode** - Light, dark, or system, the crimson **Codex** palette beside Grimoire's own gold, and installable colour themes (including a WCAG AAA **High Contrast** palette). Themes are per user, so no admin approval is involved. See [Themes](docs/themes.md).
 - **Docker ready** - One command to run, mount your library directory, done. Works on desktop, tablet, and phone.
 
 ---
 
 ## Who it's for
 
-Grimoire is for people who have **bought a lot of TTRPG material and want it in one
+Grimoire is for people who have **bought a lot of tabletop material and want it in one
 place**. If your collection is a folder of PDFs from twenty Humble Bundles and three
 Kickstarters, spread across a NAS and a laptop, this is the problem it solves.
 
@@ -89,6 +96,8 @@ Kickstarters, spread across a NAS and a laptop, this is the problem it solves.
   tablet, or the laptop already open for notes.
 - **GMs running a campaign**, who need the map, the token, the statblock, and last
   session's notes in the same place, and who need some of it hidden from the players.
+- **Wargamers**, who want the codexes, rules updates and mission packs for every army
+  they play on one shelf, their army lists beside them, and a league to play them in.
 - **Self-hosters**, who would rather run one Docker container against a folder they own
   than upload their library to somebody else's service.
 
@@ -97,7 +106,7 @@ already have, and by default never writes to it.
 
 ## Requirements
 
-Docker, a folder of TTRPG files, and somewhere to run it - a NAS, a home server, a spare
+Docker, a folder of RPG or wargame files, and somewhere to run it - a NAS, a home server, a spare
 mini-PC, or your desktop. It is happy on a Raspberry Pi and scales up to libraries of
 thousands of books.
 
@@ -179,6 +188,12 @@ library/
 │       ├── character-sheets/
 │       ├── handouts/
 │       └── homebrew/
+├── armory/                         ← wargames, laid out the same way
+│   └── Warhammer 40,000/
+│       ├── Core/
+│       └── Factions/
+│           └── Necrons/
+│               └── Codex - Necrons.pdf
 ├── maps/
 │   └── Sunken Temple (22x22)/
 │       ├── Sunken Temple Basement.png
@@ -341,6 +356,7 @@ kept in the repo so it versions with the release you are running:
 | [OTFBM and Avrae](docs/otfbm.md)              | Setting a map up as an OTFBM background for Avrae's `!map` on Discord           |
 | [Setting images](docs/setting-images.md)      | Campaign banners, system and book covers, and audio artwork                     |
 | [Character sheets](docs/characters.md)        | The schema-driven character builder, content packs, and rulesets                |
+| [Armies and leagues](docs/armies.md)          | Wargame army lists from BattleScribe or by hand, and leagues with standings     |
 | [Themes](docs/themes.md)                      | Light, dark, and installable colour themes                                      |
 
 ### Administration

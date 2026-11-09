@@ -13,6 +13,7 @@ from ...services import access_control, bulk_service, tag_service, variants
 from ...sql_paths import path_under
 from .._bulk_schemas import BulkAddTags
 from ...services.books.access import enforce_campaign_visibility, pop_access_level
+from ...services.factions import factions_for_books
 from ...services.systems import (
     get_visible_system,
     load_browsable_system,
@@ -49,6 +50,14 @@ def list_systems(
     explicit: Optional[bool] = Query(None),
     parent_id: Optional[str] = Query(None),
     include_children: bool = Query(False),
+    game_type: Optional[str] = Query(
+        None,
+        pattern="^(ttrpg|wargame)$",
+        description=(
+            "Only role-playing systems (`ttrpg`, the library's books/) or only "
+            "wargames (`wargame`, the armory). Both when omitted."
+        ),
+    ),
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -75,7 +84,10 @@ def list_systems(
         for gsid, count, pages in agg_q.group_by(Book.game_system_id).all()
     }
 
-    systems = access_control.visible_systems(db, db.query(GameSystem), user).all()
+    system_q = db.query(GameSystem)
+    if game_type:
+        system_q = system_q.filter(GameSystem.game_type == game_type)
+    systems = access_control.visible_systems(db, system_q, user).all()
     # Number of child systems per container, for the container's card; only
     # the children this user can see, matching the container page.
     child_q: OrmQuery[Any] = db.query(GameSystem.parent_id, func.count(GameSystem.id)).filter(
@@ -255,8 +267,14 @@ def get_system(
         tags=system_tags,
         child_count=len(children),
     )
+    book_factions = factions_for_books(db, [b.id for b in books])
     summary["books"] = [
-        serialize_book(b, tags=book_tags.get(b.id, []), variant_count=vcounts.get(b.id, 0))
+        serialize_book(
+            b,
+            tags=book_tags.get(b.id, []),
+            variant_count=vcounts.get(b.id, 0),
+            factions=book_factions.get(b.id, []),
+        )
         for b in books
     ]
     summary["children"] = children

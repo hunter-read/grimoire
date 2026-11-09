@@ -13,6 +13,8 @@ from backend.main import app
 # streams, redirects, and the SPA catch-all. Adding to this list is a deliberate
 # choice — a route only belongs here if it does NOT return a JSON object.
 UNTYPED_BY_DESIGN = {
+    # An army as its original roster file, or as a plain-text list - a download.
+    "/api/armies/{army_id}/export",
     "/api/audio/{audio_id}/artwork",
     # Serves the cover image file itself, like the system cover route below.
     "/api/audio/{audio_id}/cover",

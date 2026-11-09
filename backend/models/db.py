@@ -513,14 +513,48 @@ def _apply_migrations(engine: Engine) -> None:
 
     # Alembic (via env.py) begins/commits its own transaction on this connection.
     with engine.connect() as conn:
-        cfg = _alembic_config(conn)
-        if is_pre_alembic or needs_repair:
-            # Mark the baseline as already applied, then let the rest run. Every
-            # post-baseline revision guards its own changes (checking for the
-            # column/table before adding it), so replaying them over a legacy
-            # schema that already has some of them is a no-op where it overlaps.
-            command.stamp(cfg, _baseline_revision(cfg))
-        command.upgrade(cfg, "head")
+        # On SQLite a batch revision rebuilds a table by copy, drop and rename.
+        # With foreign keys enforced, dropping a table other tables reference
+        # fails (``game_systems``, rebuilt by 0062, is referenced by ``books``),
+        # so enforcement is off for the upgrade - the approach SQLite documents
+        # for schema changes. The pragma is a no-op inside a transaction, hence
+        # the commit straight after it; it is restored before the connection
+        # goes back to the pool, where every other session expects it on.
+        sqlite = not is_postgres(engine)
+        if sqlite:
+            conn.exec_driver_sql("PRAGMA foreign_keys=OFF")
+            conn.commit()
+        try:
+            cfg = _alembic_config(conn)
+            if is_pre_alembic or needs_repair:
+                # Mark the baseline as already applied, then let the rest run.
+                # Every post-baseline revision guards its own changes (checking
+                # for the column/table before adding it), so replaying them over
+                # a legacy schema that already has some of them is a no-op where
+                # it overlaps.
+                command.stamp(cfg, _baseline_revision(cfg))
+            command.upgrade(cfg, "head")
+        finally:
+            if sqlite:
+                _warn_foreign_key_violations(conn)
+                conn.exec_driver_sql("PRAGMA foreign_keys=ON")
+                conn.commit()
+
+
+def _warn_foreign_key_violations(conn: Any) -> None:
+    """Log rows a migration left pointing at nothing, while keys were off.
+
+    Nothing is deleted: a dangling reference is the state the scan and the
+    handlers already cope with, and data is never thrown away at startup.
+    """
+    rows = conn.exec_driver_sql("PRAGMA foreign_key_check").fetchall()
+    if rows:
+        tables = sorted({row[0] for row in rows})
+        logger.warning(
+            "%d row(s) reference missing parents after migrating (%s).",
+            len(rows),
+            ", ".join(tables),
+        )
 
 
 # Set in app_settings by a migration that replaced sensitive values in place

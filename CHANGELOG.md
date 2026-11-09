@@ -17,9 +17,15 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Pin the folders and systems you keep going back to: they sit in a strip at the top of the page and follow your account
 - The address bar now keeps the open folder, sort, search and filters, so a filtered view can be bookmarked, shared, or gone back to
 - Press `/` on a browse page to jump to its search box. The library has a search box of its own above the grid
+- The Armory, for wargames. Put wargame books in an `armory/` folder beside `books/` (`armoury/` works too) and they get a shelf of their own under Library in the sidebar. The folders read the way wargamers file things: armies in `Factions/<Faction>/` with sub-factions inside, and categories of their own - army books, rules updates and errata, mission packs, campaign books, unit references, painting guides. A book's factions show in its details. A wargame and a role-playing game of the same name (BattleTech) are kept apart. See the library structure guide
+- Codex, a crimson-on-gunmetal theme, joins Grimoire's own in the theme list. Highlights that were always gold now follow whichever theme is picked
+- Armies: import a BattleScribe or New Recruit roster (`.ros` / `.rosz`) with every unit's points, upgrades, stat lines and rules, or build a list by hand, and export it as text or download the roster as it was uploaded. Armies are matched to the wargame systems and factions in your armory, and a unit's rules open at the right page in your own books once a GM or admin links each cited publication to a library book. Grimoire ships no points or rules text of its own
+- Leagues: GMs and admins run a league for a wargame with a points limit and their own league points for a win, draw and loss. Members register an army, log the games they play, and follow the standings; units keep their experience, honours and notes as the league goes on. Armies and Leagues sit in the sidebar under a Wargaming heading, below Campaigns and Characters under Role-playing, and either can be hidden under Sidebar Visibility
+- The Library can be hidden from the sidebar like any other section, for a Grimoire that holds only wargames: it then opens on the Armory
 
 ### Changed
 
+- Grimoire calls itself a tabletop library rather than a TTRPG library, now that it holds wargames too
 - Reading a book's page text, re-indexing or re-OCRing a book, and deleting books are much faster on a large library. The first start after upgrading reorganises the search index once - a few minutes on a very large library, logged as it goes, and safe to interrupt - and needs about twice the index's disk space while it runs. Books already indexed stay searchable and are not re-read
 
 ### Fixed

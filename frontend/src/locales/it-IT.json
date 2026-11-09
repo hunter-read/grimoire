@@ -4,10 +4,11 @@
   },
   "app": {
     "name": "GRIMOIRE",
-    "subtitle": "Libreria TTRPG"
+    "subtitle": "Libreria di giochi"
   },
   "nav": {
     "library": "Libreria",
+    "armory": "Armeria",
     "maps": "Mappe",
     "tokens": "Token",
     "search": "Cerca",
@@ -21,7 +22,11 @@
     "expandSidebar": "Espandi barra laterale",
     "audio": "Audio",
     "models": "Modelli",
-    "characters": "Personaggi"
+    "characters": "Personaggi",
+    "armies": "Eserciti",
+    "leagues": "Leghe",
+    "roleplaying": "Gioco di ruolo",
+    "wargaming": "Wargame"
   },
   "stats": {
     "systems": "Sistemi",
@@ -37,7 +42,7 @@
   },
   "about": {
     "title": "Informazioni su Grimoire",
-    "subtitle": "Gestore self-hosted di librerie TTRPG",
+    "subtitle": "Gestore self-hosted di librerie di giochi",
     "version": "Versione",
     "commitHash": "Hash commit",
     "pythonVersion": "Versione Python",
@@ -168,6 +173,15 @@
     "groupContainers": "Raggruppa collezioni",
     "searchPlaceholder": "Trova un sistema…"
   },
+  "armory": {
+    "title": "La tua armeria",
+    "subtitle_one": "{{count}} wargame nella tua armeria",
+    "subtitle_other": "{{count}} wargame nella tua armeria",
+    "subtitleFiltered_one": "Visualizzazione di {{count}} wargame su {{total}} nella tua armeria",
+    "subtitleFiltered_other": "Visualizzazione di {{count}} wargame su {{total}} nella tua armeria",
+    "searchPlaceholder": "Trova un wargame…",
+    "emptyHint": "I libri dei wargame vanno nella cartella armory/ della tua libreria, una cartella per gioco: armory/<Gioco>/Core/, con ogni armata in armory/<Gioco>/Factions/<Fazione>/."
+  },
   "systemContainer": {
     "badge": "Collezione di sistemi",
     "familyBadge": "Famiglia di sistemi",
@@ -182,6 +196,7 @@
   },
   "systemDetail": {
     "backToLibrary": "Torna alla libreria",
+    "backToArmory": "Torna all’armeria",
     "publishedBy": "Pubblicato da",
     "characterBuilder": "Character Builder",
     "searchWithin": "Cerca in {{name}}…",
@@ -1488,9 +1503,13 @@
     "sidebarVisibility": {
       "title": "Visibilità barra laterale",
       "description": "Nascondi sezioni dalla barra laterale e dalla navigazione mobile per tutti gli utenti.",
+      "hideLibrary": "Nascondi Libreria",
+      "hideArmory": "Nascondi Armeria",
       "hideMaps": "Nascondi Mappe",
       "hideTokens": "Nascondi Token",
       "hideCampaigns": "Nascondi Campagne",
+      "hideArmies": "Nascondi Eserciti",
+      "hideLeagues": "Nascondi Leghe",
       "hideAudio": "Nascondi Audio",
       "hideModels": "Nascondi Modelli"
     },
@@ -1661,6 +1680,10 @@
         "personal": {
           "label": "Personale",
           "description": "I tuoi preferiti, segnalibri, filtri salvati, elementi fissati, playlist e soundboard salvate, e temi"
+        },
+        "armies": {
+          "label": "Eserciti e leghe",
+          "description": "Le tue liste d'esercito, i libri che citano e le leghe a cui partecipi"
         },
         "all": {
           "label": "Tutte le autorizzazioni",
@@ -2699,7 +2722,14 @@
     "map": "Mappe",
     "handout": "Handout e materiale di riferimento",
     "magazine": "Riviste e fanzine",
-    "homebrew": "Homebrew"
+    "homebrew": "Homebrew",
+    "army-book": "Libri d’armata",
+    "errata": "Aggiornamenti delle regole ed errata",
+    "mission-pack": "Pacchetti di missioni",
+    "campaign": "Libri di campagna",
+    "unit-reference": "Riferimenti delle unità",
+    "painting-guide": "Pittura e hobby",
+    "lore": "Ambientazione e narrativa"
   },
   "wiki": {
     "newPage": "Nuova pagina",
@@ -3471,6 +3501,7 @@
   },
   "bookDetails": {
     "category": "Categoria",
+    "factions": "Fazioni",
     "authors": "Autori",
     "artists": "Artisti",
     "publisher": "Editore",
@@ -4441,5 +4472,140 @@
     "siblings": "Cartelle accanto a {{folder}}",
     "filterSiblings": "Filtra cartelle…",
     "noSiblingMatch": "Nessuna cartella corrisponde"
+  },
+  "armies": {
+    "title": "Eserciti",
+    "import": "Importa lista",
+    "importHint": "Una lista .ros o .rosz da BattleScribe o New Recruit",
+    "new": "Nuovo esercito",
+    "empty": "Nessun esercito per ora. Importa una lista da BattleScribe o New Recruit, oppure creane una a mano.",
+    "loadFailed": "Impossibile caricare gli eserciti",
+    "importFailed": "Impossibile importare questa lista d'esercito",
+    "fromRoster": "Lista",
+    "noGame": "Nessun gioco impostato",
+    "game": "Gioco",
+    "faction": "Fazione",
+    "noFaction": "Nessuna fazione",
+    "points": "{{points}} / {{limit}} {{cost}}",
+    "name": "Nome",
+    "pointsLimit": "Limite di punti",
+    "create": "Crea esercito",
+    "back": "Tutti gli eserciti",
+    "exportText": "Esporta come testo",
+    "exportRoster": "Scarica la lista",
+    "edit": "Modifica",
+    "delete": "Elimina",
+    "confirmDelete": "Elimina questo esercito",
+    "overLimit": "Oltre il limite di punti",
+    "notes": "Note",
+    "noUnits": "Nessuna unità per ora.",
+    "editUnits": "Modifica unità",
+    "sourcePage": "{{publication}}, p. {{page}}",
+    "openSource": "Apri {{title}} a questa pagina",
+    "unitName": "Nome dell'unità",
+    "models": "Miniature",
+    "unitPoints": "Punti",
+    "category": "Categoria",
+    "removeUnit": "Rimuovi unità",
+    "addUnit": "Aggiungi unità",
+    "progress": {
+      "title": "Progressi",
+      "experience": "Esperienza",
+      "honours": "Onori (separati da virgole)",
+      "notes": "Note",
+      "summary": "{{experience}} PE"
+    },
+    "links": {
+      "title": "Libri di riferimento",
+      "description": "Collega ogni pubblicazione citata da questa lista a un libro della libreria, così le regole delle sue unità si aprono alla pagina giusta. I collegamenti valgono per ogni esercito che cita la stessa pubblicazione.",
+      "book": "Libro della libreria",
+      "chooseBook": "Scegli un libro",
+      "offset": "Scarto di pagina",
+      "offsetHint": "Aggiunto alla pagina citata per arrivare alla pagina del PDF, per i libri la cui numerazione stampata inizia più avanti",
+      "link": "Collega",
+      "unlink": "Scollega",
+      "search": "Cerca",
+      "searchPlaceholder": "Cerca titoli di libri",
+      "noMatches": "Nessun libro corrisponde a questo titolo"
+    }
+  },
+  "leagues": {
+    "title": "Leghe",
+    "new": "Nuova lega",
+    "name": "Nome",
+    "pointsLimit": "Limite di punti",
+    "description": "Descrizione",
+    "create": "Crea lega",
+    "finished": "Conclusa",
+    "memberCount_one": "{{count}} membro",
+    "memberCount_other": "{{count}} membri",
+    "limit": "{{limit}} punti",
+    "empty": "Non fai ancora parte di nessuna lega. Un organizzatore può aggiungerti.",
+    "emptyOrganiser": "Nessuna lega per ora. Creane una, poi aggiungi i giocatori.",
+    "loadFailed": "Impossibile caricare le leghe",
+    "back": "Tutte le leghe",
+    "organiser": "Organizzata da {{name}}",
+    "scoring": "{{win}}/{{draw}}/{{loss}} punti per vittoria/pareggio/sconfitta",
+    "standings": "Classifica",
+    "noMembers": "Nessun membro per ora.",
+    "player": "Giocatore",
+    "columns": {
+      "played": "Giocate",
+      "won": "Vinte",
+      "drawn": "Pareggiate",
+      "lost": "Perse",
+      "score_for": "Punteggio fatto",
+      "score_against": "Punteggio subito",
+      "points": "Punti lega"
+    },
+    "columnsShort": {
+      "played": "G",
+      "won": "V",
+      "drawn": "N",
+      "lost": "P",
+      "score_for": "PF",
+      "score_against": "PS",
+      "points": "Pt"
+    },
+    "members": "Membri ed eserciti",
+    "yourArmy": "Il tuo esercito",
+    "noArmy": "Nessun esercito scelto",
+    "armyOption": "{{name}} ({{points}} {{cost}})",
+    "leave": "Lascia la lega",
+    "remove": "Rimuovi {{name}}",
+    "addMember": "Aggiungi giocatore",
+    "choosePlayer": "Scegli un giocatore",
+    "games": "Partite",
+    "noGames": "Nessuna partita registrata per ora.",
+    "game": {
+      "playerA": "Giocatore",
+      "playerB": "Avversario",
+      "scoreA": "Punteggio del giocatore",
+      "scoreB": "Punteggio dell'avversario",
+      "result": "Risultato",
+      "fromScores": "Dai punteggi",
+      "aWon": "Vince il giocatore",
+      "bWon": "Vince l'avversario",
+      "draw": "Pareggio",
+      "date": "Data",
+      "mission": "Missione",
+      "notes": "Note",
+      "log": "Registra una partita",
+      "edit": "Modifica partita",
+      "delete": "Elimina partita",
+      "drawn": "Pareggio",
+      "won": "Vince {{name}}",
+      "line": "{{a}} {{scoreA}} - {{scoreB}} {{b}}"
+    },
+    "settings": {
+      "title": "Impostazioni della lega",
+      "points_win": "Punti per una vittoria",
+      "points_draw": "Punti per un pareggio",
+      "points_loss": "Punti per una sconfitta",
+      "reopen": "Riapri la lega",
+      "finish": "Segna come conclusa",
+      "delete": "Elimina lega",
+      "confirmDelete": "Elimina questa lega e le sue partite"
+    }
   }
 }
