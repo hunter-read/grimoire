@@ -117,13 +117,13 @@ describe('RowVisibilityControl', () => {
     setup({ visibility: 'gm' })
     await user.click(screen.getByRole('button'))
     const option = screen.getByRole('menuitemradio', { name: /public/i })
-    expect(option.style.background).toBe('transparent')
+    expect(option.style.backgroundColor).toBe('transparent')
 
     await user.hover(option)
     expect(option.style.background).toBe('var(--bg-card-hover)')
 
     await user.unhover(option)
-    expect(option.style.background).toBe('transparent')
+    expect(option.style.backgroundColor).toBe('transparent')
   })
 
   // Leaving the current level must not strip the highlight that marks it as
@@ -154,7 +154,7 @@ describe('RowVisibilityControl', () => {
     option.focus()
     expect(option.style.background).toBe('var(--bg-card-hover)')
     await user.tab()
-    expect(option.style.background).toBe('transparent')
+    expect(option.style.backgroundColor).toBe('transparent')
   })
 
   it('closes the menu on Escape', async () => {

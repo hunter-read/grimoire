@@ -105,7 +105,7 @@ describe('AudioPlayer (controller)', () => {
       currentTimeReturn = 30
       durationReturn = 60
       const { container } = render(<AudioPlayer track={{ id: 'a1' }} />)
-      expect(ring(container).style.background).toBe('transparent')
+      expect(ring(container).style.backgroundColor).toBe('transparent')
     })
 
     it('sweeps the ring to the fraction of the track played', () => {

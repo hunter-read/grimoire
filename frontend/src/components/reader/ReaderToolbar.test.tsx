@@ -209,7 +209,7 @@ describe('ReaderToolbar — panel selector', () => {
 
   it('highlights the active panel button', () => {
     renderToolbar({ panel: 'toc' })
-    expect(screen.getByTitle('Contents')).toHaveStyle({ color: 'var(--gold)' })
+    expect(screen.getByTitle('Contents').style.color).toBe('var(--gold)')
   })
 
   it('keeps the panel buttons on a phone, where they are the only way in', () => {

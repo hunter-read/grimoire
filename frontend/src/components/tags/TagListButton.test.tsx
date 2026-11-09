@@ -49,7 +49,7 @@ describe('TagListButton', () => {
 describe('TagListButton - screen readers', () => {
   it('says what the count counts, and is current only when selected', () => {
     const { unmount } = renderButton({ tag, active: true })
-    expect(screen.getByRole('link', { name: /city watch, 4 items/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /city watch\s*, 4 items/i })).toHaveAttribute(
       'aria-current',
       'true'
     )

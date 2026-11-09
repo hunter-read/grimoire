@@ -109,7 +109,7 @@ describe('VisibilityEditor', () => {
     await user.hover(other)
     expect(other.style.background).toBe('var(--bg-card-hover)')
     await user.unhover(other)
-    expect(other.style.background).toBe('transparent')
+    expect(other.style.backgroundColor).toBe('transparent')
 
     // The current level restores to its own highlight, not to transparent.
     await user.hover(current)

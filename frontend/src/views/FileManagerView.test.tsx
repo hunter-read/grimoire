@@ -689,7 +689,7 @@ describe('FileManagerView', () => {
     fireEvent.mouseEnter(item)
     expect(item.style.background).toBe('var(--bg-card-hover)')
     fireEvent.mouseLeave(item)
-    expect(item.style.background).toBe('transparent')
+    expect(item.style.backgroundColor).toBe('transparent')
   })
 
   it('offers no folder-only actions for a file', async () => {

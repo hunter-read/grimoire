@@ -187,8 +187,8 @@ describe('DeleteModal', () => {
     render(<DeleteModal entry={file} onClose={vi.fn()} onDeleted={vi.fn()} />)
 
     const submit = screen.getByTestId('delete-submit')
-    expect(submit.style.background).toBe('transparent')
-    expect(submit).toHaveStyle({ color: 'var(--warning, #d98324)' })
+    expect(submit.style.backgroundColor).toBe('transparent')
+    expect(submit.style.color).toBe('var(--warning, #d98324)')
 
     await optIntoFileDeletion()
     expect(screen.getByTestId('delete-submit').style.background).toBe('var(--danger)')

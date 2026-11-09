@@ -301,7 +301,7 @@ describe('FilePane', () => {
     // A drop handled by the *other* pane never fires this pane's onDrop, so the
     // highlight has to be cleared by the global dragend.
     fireEvent(window, new Event('dragend'))
-    expect(row.style.outline).toBe('none')
+    expect(row.style.outlineStyle).toBe('none')
   })
 
   it('ignores a drop carrying no recognisable payload', () => {
