@@ -15,11 +15,13 @@ from ...models import CampaignMember, User
 from ._helpers import (
     assert_can_manage,
     assert_not_archived,
+    assert_not_locked,
     get_campaign_or_404,
     user_has_campaign_access,
 )
 from ...services.campaigns.user_data import release_guest_membership
 from ._schemas import InvitePayload, MemberStatusUpdate
+from ._writable import ACCESS_DISABLED, ARCHIVED, writable_while
 
 
 def invite_member(
@@ -56,6 +58,9 @@ def invite_member(
     return {"user_id": data.user_id, "status": "invited"}
 
 
+# Declining stays open in a campaign whose GM has lost campaign access; the
+# handler applies the read-only check to everything else.
+@writable_while(ACCESS_DISABLED)
 def update_member_status(
     campaign_id: str,
     user_id: str,
@@ -67,7 +72,15 @@ def update_member_status(
     is_owner = c.owner_id == current_user.id
     if user_id != current_user.id and not is_owner:
         raise HTTPException(403, "Cannot update another member's status")
-    assert_not_archived(c)
+    declining_only = (
+        data.status == "declined"
+        and data.character_name is None
+        and data.character_sheet_url is None
+    )
+    if declining_only:
+        assert_not_archived(c)
+    else:
+        assert_not_locked(c, db)
 
     member = (
         db.query(CampaignMember).filter_by(campaign_id=campaign_id, user_id=user_id).first()
@@ -112,6 +125,9 @@ def update_member_status(
     }
 
 
+# Leaving is always the member's own call; the handler applies the read-only
+# check to the owner removing someone else.
+@writable_while(ARCHIVED, ACCESS_DISABLED)
 def remove_member(
     campaign_id: str,
     user_id: str,
@@ -125,9 +141,9 @@ def remove_member(
     # Leaving is always the member's own call, archived or not — nobody should be
     # held in a campaign because its GM archived it. The archive freeze therefore
     # only blocks the *owner* removing someone else, which is an edit to a record
-    # that is meant to stay as it was left.
+    # that is meant to stay as it was left. The same goes for a locked campaign.
     if not is_self:
-        assert_not_archived(c)
+        assert_not_locked(c, db)
 
     member = (
         db.query(CampaignMember).filter_by(campaign_id=campaign_id, user_id=user_id).first()

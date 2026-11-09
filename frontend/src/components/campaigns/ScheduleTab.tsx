@@ -7,6 +7,7 @@ import Spinner from '../Spinner'
 import LoadError from '../LoadError'
 import ScheduleEditor from './ScheduleEditor'
 import AvailabilityChart from './AvailabilityChart'
+import useAvailabilityActions from './useAvailabilityActions'
 import ScheduleSummary from './ScheduleSummary'
 
 interface ScheduleTabProps {
@@ -42,19 +43,8 @@ export default function ScheduleTab({ campaign, isOwner, userId }: ScheduleTabPr
     void loadAvailability()
   }, [campaign.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleSetAvailability = async (date: string, status: string, targetUserId?: string) => {
-    // Include user_id only when the GM is editing another member's row; the
-    // backend defaults to the caller when it's absent.
-    const body =
-      targetUserId && targetUserId !== userId ? { status, user_id: targetUserId } : { status }
-    await campaigns.setAvailability(campaign.id, date, body)
-    void loadAvailability()
-  }
-
-  const handleCancelDate = async (date: string) => {
-    await campaigns.cancelDate(campaign.id, date)
-    void loadAvailability()
-  }
+  const { setAvailability: handleSetAvailability, cancelDate: handleCancelDate } =
+    useAvailabilityActions(campaign.id, userId, loadAvailability)
 
   if (loadFailed) return <LoadError onRetry={() => void loadSchedule()} />
 

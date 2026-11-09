@@ -5,7 +5,7 @@ from fastapi import Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, get_current_user
-from ...config import get_db
+from ...config import get_db, release_connection
 from ...services import access_control
 from ._helpers import (
     _archive_response,
@@ -143,5 +143,9 @@ def download_archive(
     else:
         raise HTTPException(400, f"Unknown type: {type!r}")
 
+    # The archive streams for as long as the client takes to download it, and
+    # get_db's session would hold its pooled connection until the last byte.
+    # Everything the archive needs is in ``files`` now.
+    release_connection(db)
     return _archive_response(files, base, fmt)
 

@@ -34,6 +34,14 @@ Release candidates are omitted; their contents are rolled into the stable releas
 - Searching for text with `%` or `_` in it - a title, a tag, a wiki page - finds that text, instead of treating the character as a wildcard that matched almost anything
 - Code blocks in wiki pages show exactly what was typed. A `[[...]]` inside one no longer turns into a link or creates an empty page, and a GM secret in a code block no longer splits it in two
 - Inline code in wiki pages sits inside its sentence again instead of breaking out onto a line of its own
+- An add-on folder that won't load is warned about once in the log, not every time add-ons are looked up - during a rescan that was once per game system. A note template copied into the add-ons folder now says it is a note template and points to the campaign wiki's Templates button, instead of a validation error
+- A campaign whose GM has lost campaign access is read-only for everyone on every page - wiki edits, sessions, session notes, availability and character details included, where some of these could still be changed before. Members can still decline an invitation, leave, or hide wiki pages from their own view
+- A GM changing a player's availability on the campaign overview changes that player's row, not their own
+- Typing in an OpenID Connect setting while another one saves no longer loses what you typed
+- If the scheduled-rescan settings fail to load, the page says so and offers Retry, instead of showing defaults that Save would write over the stored schedule
+- Bookmarking a text selection on the page a book opened at records that page, not page 1
+- Large downloads - bulk archives, books, audio, maps, models, tokens, OPDS and backups - and add-on installs no longer hold a database connection while they transfer, so a handful of slow downloads can't stall the rest of the app
+- On PostgreSQL, a library scan that runs into a locked row skips just that file or folder and carries on, instead of failing every step after it. A game system the database keeps locked during a scan is skipped on its own, without undoing the other systems registered in that scan
 
 ## [1.10.2] - 2026-11-05
 

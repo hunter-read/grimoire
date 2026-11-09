@@ -36,6 +36,7 @@ from ._helpers import (
     user_has_campaign_access,
 )
 from ...services.campaigns.user_data import detach_campaign_characters, release_guest_membership
+from ._writable import ARCHIVED, writable_while
 from ._schemas import (
     CampaignArchive,
     CampaignConvert,
@@ -335,6 +336,8 @@ def convert_campaign_to_group(
     return serialize_campaign(c, members_for(c, current_user, db), db, current_user)
 
 
+# Unarchiving is the way out of the archived state, so it must run in it.
+@writable_while(ARCHIVED)
 def set_campaign_archived(
     campaign_id: str,
     data: CampaignArchive,
@@ -364,6 +367,8 @@ def set_campaign_archived(
     return serialize_campaign(c, members_for(c, current_user, db), db, current_user)
 
 
+# Archiving is a tidying step, not a lock against removal.
+@writable_while(ARCHIVED)
 def delete_campaign(
     campaign_id: str,
     current_user: CurrentUser = Depends(get_current_user),

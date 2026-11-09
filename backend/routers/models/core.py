@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from .._user_files import serve_user_file
 from ...auth import CurrentUser, get_current_user, require_gm_or_admin
-from ...config import _THUMBNAIL_CACHE_HEADERS, THUMB_DIR, get_db
+from ...config import _THUMBNAIL_CACHE_HEADERS, THUMB_DIR, get_db, release_connection
 from ...file_cache import etag_matches
 from ...indexer import archive_ext, archive_mime, slugify
 from ...indexer.models3d import (
@@ -188,6 +188,9 @@ def serve_model_file(
         raise HTTPException(404, "File not found on disk")
     arc_ext = archive_ext(m.filename)
     media = archive_mime(arc_ext) if arc_ext else model_mime(m.filepath)
+    # A large file can take minutes to send; don't hold a pooled connection
+    # through it.
+    release_connection(db)
     return serve_user_file(m.filepath, media, filename=m.filename)
 
 

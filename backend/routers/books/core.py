@@ -12,7 +12,7 @@ from .._user_files import serve_user_file
 from ...http_headers import content_disposition
 from ...auth import CurrentUser, get_current_user, require_gm_or_admin
 from ...codex import collection as codex_collection
-from ...config import _PAGE_CACHE_HEADERS, get_db
+from ...config import _PAGE_CACHE_HEADERS, get_db, release_connection
 from ...security import SAME_ORIGIN_FRAME_HEADERS
 
 from ...file_cache import etag_matches
@@ -513,6 +513,9 @@ def serve_book_file(
             book.is_missing = True
             db.commit()
         raise HTTPException(404, "File not found on disk")
+    # A large file can take minutes to send; don't hold a pooled connection
+    # through it.
+    release_connection(db)
     return serve_user_file(
         book.filepath,
         book.mime_type,

@@ -23,6 +23,7 @@ import CampaignEditor from '../components/campaigns/CampaignEditor'
 import CampaignActionsMenu from '../components/campaigns/CampaignActionsMenu'
 import WikiMarkdown from '../components/campaigns/WikiMarkdown'
 import AvailabilityChart from '../components/campaigns/AvailabilityChart'
+import useAvailabilityActions from '../components/campaigns/useAvailabilityActions'
 import CalendarMenu from '../components/campaigns/CalendarMenu'
 import ResourcesPanel from '../components/campaigns/ResourcesPanel'
 import CampaignCharacters from '../components/campaigns/CampaignCharacters'
@@ -205,14 +206,8 @@ export default function CampaignDetailView() {
     // so depending on them would refetch in a loop.
   }, [campaignId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleSetAvailability = async (date: string, status: string) => {
-    await campaigns.setAvailability(campaignId, date, { status })
-    loadAvailability()
-  }
-  const handleCancelDate = async (date: string) => {
-    await campaigns.cancelDate(campaignId, date)
-    loadAvailability()
-  }
+  const { setAvailability: handleSetAvailability, cancelDate: handleCancelDate } =
+    useAvailabilityActions(campaignId, user?.id, loadAvailability)
 
   if (error) {
     return (

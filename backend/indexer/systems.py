@@ -31,7 +31,7 @@ from .constants import (
     CONTAINER_ONE_PAGE,
 )
 from .metadata import _find_folder_artwork
-from ._db import DatabaseBusyError, _db_call
+from ._db import _db_call
 from ..models import GameSystem
 from ..models.game_types import GAME_TYPE_TTRPG
 
@@ -91,14 +91,11 @@ def _adopt_existing_system(
     sides: a wargame folder never adopts a role-playing row of the same name.
     """
     session = ctx.session
-    try:
-        existing = _db_call(
-            lambda: session.query(GameSystem).filter_by(name=name, game_type=game_type).first(),
-            f"query system by name '{name}'",
-        )
-    except DatabaseBusyError as e:
-        logger.error(f"DB error: {e} - cannot adopt system '{name}'")
-        return None
+    existing = _db_call(
+        lambda: session.query(GameSystem).filter_by(name=name, game_type=game_type).first(),
+        f"query system by name '{name}'",
+        session,
+    )
     if existing is None or existing.parent_id or existing.container_kind:
         return None
     logger.info(f"Adopting existing system '{name}' into its container (slug -> {new_slug})")
@@ -117,28 +114,23 @@ def _unique_system_name(
     slug, then a counter.
     """
     session = ctx.session
-    try:
-        taken = _db_call(
-            lambda: session.query(GameSystem).filter_by(name=name, game_type=game_type).first(),
-            f"query system by name '{name}'",
-        )
-    except DatabaseBusyError as e:
-        logger.error(f"DB error: {e} - using name '{name}' as-is")
-        return name
+    taken = _db_call(
+        lambda: session.query(GameSystem).filter_by(name=name, game_type=game_type).first(),
+        f"query system by name '{name}'",
+        session,
+    )
     if taken is None:
         return name
     candidate = f"{name} ({slug})"
     suffix = 2
     while True:
-        try:
-            clash = _db_call(
-                lambda: session.query(GameSystem)
-                .filter_by(name=candidate, game_type=game_type)
-                .first(),
-                f"query system by name '{candidate}'",
-            )
-        except DatabaseBusyError:
-            return candidate
+        clash = _db_call(
+            lambda: session.query(GameSystem)
+            .filter_by(name=candidate, game_type=game_type)
+            .first(),
+            f"query system by name '{candidate}'",
+            session,
+        )
         if clash is None:
             logger.warning(
                 f"System name '{name}' is already in use; registering this folder as "
@@ -166,8 +158,10 @@ def _register_system(
     Runs in a savepoint so a folder the database rejects is skipped on its own.
     Every system is registered before any is committed, so an error escaping
     here used to roll back - or abort - the registration of every other folder
-    in the library along with it (issue #547). The keyword arguments are
-    :func:`_register_system_row`'s.
+    in the library along with it (issue #547). That includes a locked database:
+    ``_db_call`` rolls back only the savepoint, which closes it, so the steps
+    inside let :class:`DatabaseBusyError` leave it rather than carry on. The
+    keyword arguments are :func:`_register_system_row`'s.
     """
     try:
         with ctx.session.begin_nested():
@@ -230,17 +224,13 @@ def _register_system_row(
     stats = ctx.stats
     name = display_name or folder.name
     logger.debug(f"DB: querying system '{folder.slug}'")
-    try:
-        system = _db_call(
-            lambda: session.query(GameSystem)
-            .filter_by(slug=folder.slug, game_type=game_type)
-            .first(),
-            f"query system '{folder.slug}'",
-        )
-    except DatabaseBusyError as e:
-        logger.error(f"DB error: {e} - skipping system '{name}'")
-        stats["errors"] += 1
-        return None
+    system = _db_call(
+        lambda: session.query(GameSystem)
+        .filter_by(slug=folder.slug, game_type=game_type)
+        .first(),
+        f"query system '{folder.slug}'",
+        session,
+    )
 
     if system is None and parent is not None:
         # Adopting an existing flat system into a container. Someone who
@@ -287,13 +277,7 @@ def _register_system_row(
         )
         session.add(system)
         logger.debug(f"DB: flushing new system '{name}'")
-        try:
-            _db_call(session.flush, f"flush system '{name}'")
-        except DatabaseBusyError as e:
-            logger.error(f"DB error: {e} - skipping system '{name}'")
-            session.rollback()
-            stats["errors"] += 1
-            return None
+        _db_call(session.flush, f"flush system '{name}'", session)
         stats["new_systems"] += 1
         ctx.created_system_ids.add(system.id)
         logger.info(f"Found a new game system: {name}" + (" (mature)" if folder.is_nsfw else ""))

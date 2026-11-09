@@ -734,10 +734,10 @@ class TestPruneEdges:
         real = system_prune._db_call
         failing: set = set()
 
-        def flaky(fn, label):
+        def flaky(fn, label, session):
             if label in failing:
                 raise DatabaseBusyError(label)
-            return real(fn, label)
+            return real(fn, label, session)
 
         monkeypatch.setattr(system_prune, "_db_call", flaky)
         tmp, lib = _mk_lib()
@@ -880,10 +880,10 @@ class TestLargePrune:
         commits: list = []
         real = system_prune._db_call
 
-        def counting(fn, label):
+        def counting(fn, label, session):
             if label == "commit system pruning":
                 commits.append(label)
-            return real(fn, label)
+            return real(fn, label, session)
 
         monkeypatch.setattr(system_prune, "_db_call", counting)
         phases: list = []
@@ -913,12 +913,12 @@ class TestLargePrune:
         real = system_prune._db_call
         calls = {"n": 0}
 
-        def flaky(fn, label):
+        def flaky(fn, label, session):
             if label == "commit system pruning":
                 calls["n"] += 1
                 if calls["n"] == 2:
                     raise DatabaseBusyError(label)
-            return real(fn, label)
+            return real(fn, label, session)
 
         monkeypatch.setattr(system_prune, "_db_call", flaky)
         stats = _scan(lib, tmp)

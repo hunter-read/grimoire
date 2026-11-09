@@ -1,6 +1,6 @@
 """Campaign manager — registers all campaign routes on a single router."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.responses import Response
 
 from ... import api_keys
@@ -124,6 +124,7 @@ from .categories import (
     set_resource_group_order,
     delete_category,
 )
+from ._writable import require_writable_campaign
 from ._response_schemas import (
     AdminCampaignOut,
     AvailabilityOut,
@@ -168,7 +169,13 @@ from ._response_schemas import (
     WikiTemplateUseOut,
 )
 
-router = APIRouter(prefix="/campaigns", tags=["campaigns"])
+# Every write under /campaigns/{campaign_id}/ goes through the read-only check
+# for a locked campaign; see _writable.py for the few handlers marked to run anyway.
+router = APIRouter(
+    prefix="/campaigns",
+    tags=["campaigns"],
+    dependencies=[Depends(require_writable_campaign)],
+)
 
 # Calendar subscription feeds authenticate by the per-user token in the path, so
 # they cannot sit under the JWT-guarded /api router — calendar apps have no way

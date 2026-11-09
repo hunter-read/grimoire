@@ -20,7 +20,7 @@ from backend.models.db import (
     postgres_url,
 )
 from backend.services import pg_search
-from backend.tests._postgres import scratch_database
+from backend.tests._postgres import ON_POSTGRES, scratch_database
 
 
 class TestPostgresUrl:
@@ -79,6 +79,38 @@ class TestTsquery:
         )
         assert params == {"ptq0": "'fire':*", "ptq1": "'don''t':*"}
         assert pg_search.prefix_tsquery(["'"], {}) is None
+
+
+class TestSuiteDatabase:
+    """The suite runs on the database TEST_DATABASE_URL names, start to finish.
+
+    Run anywhere, so it also pins SQLite when the variable is unset.
+    """
+
+    expected = "postgresql" if ON_POSTGRES else "sqlite"
+
+    def test_the_app_engine_is_on_it(self):
+        from backend import config
+
+        assert config.init_database().dialect.name == self.expected
+
+    def test_request_sessions_are_on_it(self):
+        from backend.tests.conftest import _ROUTER_GET_DB
+
+        sessions = _ROUTER_GET_DB()
+        db = next(sessions)
+        try:
+            assert db.get_bind().dialect.name == self.expected
+        finally:
+            sessions.close()
+
+    def test_reloading_config_stays_on_it(self):
+        import importlib
+
+        from backend import config
+
+        importlib.reload(config)
+        assert config.init_database().dialect.name == self.expected
 
 
 @pytest.fixture(scope="module")

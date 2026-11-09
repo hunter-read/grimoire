@@ -70,12 +70,11 @@ describe('ScheduledRescanSection', () => {
     expect(screen.queryByLabelText('maintenance.scheduledRescan.alsoRunCleanup')).toBeNull()
   })
 
-  it('still settles when the settings fail to load', async () => {
+  it('settles on a "couldn\'t reach it" error when the settings fail to load', async () => {
     get.mockRejectedValue(new Error('down'))
     render(<ScheduledRescanSection />)
-    expect(
-      await screen.findByRole('button', { name: 'maintenance.scheduledRescan.off' })
-    ).toBeInTheDocument()
+    expect(await screen.findByRole('alert')).toHaveTextContent('settings.save.loadOffline')
+    expect(screen.queryByTestId('spinner')).toBeNull()
   })
 
   it('saves a weekly schedule with its day, time and cleanup choice', async () => {
@@ -152,5 +151,36 @@ describe('ScheduledRescanSection', () => {
 
     unmount()
     expect(set).toHaveBeenLastCalledWith('scheduled-rescan', false)
+  })
+
+  it('shows the load error and offers no Save after a failed load, then retries', async () => {
+    get.mockRejectedValueOnce({ status: 500, message: 'boom' })
+    render(<ScheduledRescanSection />)
+    expect(await screen.findByRole('alert')).toHaveTextContent('settings.save.loadFailed')
+    // Neither the form's defaults nor a Save that would write them are shown.
+    expect(
+      screen.queryByRole('button', { name: /maintenance.scheduledRescan.saveSchedule/ })
+    ).toBeNull()
+    expect(screen.queryByRole('button', { name: 'maintenance.scheduledRescan.off' })).toBeNull()
+    expect(patch).not.toHaveBeenCalled()
+
+    get.mockResolvedValueOnce(settings() as never)
+    fireEvent.click(screen.getByRole('button', { name: 'settings.save.retry' }))
+    expect(
+      await screen.findByRole('button', { name: /maintenance.scheduledRescan.saveSchedule/ })
+    ).toBeEnabled()
+  })
+
+  it('says so when saving fails', async () => {
+    get.mockResolvedValue(settings() as never)
+    patch.mockRejectedValue({ status: 400, message: 'bad hour' })
+    render(<ScheduledRescanSection />)
+    fireEvent.click(
+      await screen.findByRole('button', { name: /maintenance.scheduledRescan.saveSchedule/ })
+    )
+    expect(await screen.findByRole('alert')).toHaveTextContent('settings.save.failed')
+    expect(
+      screen.getByRole('button', { name: /maintenance.scheduledRescan.saveSchedule/ })
+    ).toBeEnabled()
   })
 })

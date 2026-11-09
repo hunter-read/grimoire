@@ -53,7 +53,7 @@ class TestMediaScanResilience:
         tmp, lib = _mk_lib()
         _touch(_media(lib, "maps", "Battle"), "keep.png")
 
-        def hang(fn, label):
+        def hang(fn, label, session):
             if "query map" in label:
                 raise DatabaseBusyError(label)
             return fn()
@@ -80,7 +80,7 @@ class TestMediaScanResilience:
         tmp, lib = _mk_lib()
         _touch(_media(lib, "maps", "Battle"), "rollback.png")
 
-        def hang(fn, label):
+        def hang(fn, label, session):
             if label.startswith("commit map"):
                 raise DatabaseBusyError(label)
             return fn()
@@ -106,7 +106,7 @@ class TestMediaScanResilience:
         tmp, lib = _mk_lib()
         _touch(_media(lib, "audio", "Tracks"), "theme.mp3", b"ID3\x04\x00")
 
-        def hang(fn, label):
+        def hang(fn, label, session):
             if "query audio" in label:
                 raise DatabaseBusyError(label)
             return fn()
@@ -121,7 +121,7 @@ class TestMediaScanResilience:
         tmp, lib = _mk_lib()
         _touch(_media(lib, "audio", "Tracks"), "rollback.mp3", b"ID3\x04\x00")
 
-        def hang(fn, label):
+        def hang(fn, label, session):
             if label.startswith("commit audio"):
                 raise DatabaseBusyError(label)
             return fn()
@@ -183,7 +183,7 @@ class TestSystemRegistrationResilience:
         d.mkdir(parents=True)
         (d / "tome.pdf").write_bytes(b"%PDF-1.4")
 
-        def hang(fn, label):
+        def hang(fn, label, session):
             if label.startswith("query system '"):
                 raise DatabaseBusyError(label)
             return fn()
@@ -202,7 +202,7 @@ class TestSystemRegistrationResilience:
         d.mkdir(parents=True)
         (d / "tome.pdf").write_bytes(b"%PDF-1.4")
 
-        def hang(fn, label):
+        def hang(fn, label, session):
             if label.startswith("flush system"):
                 raise DatabaseBusyError(label)
             return fn()
@@ -214,6 +214,52 @@ class TestSystemRegistrationResilience:
         db = SessionLocal()
         try:
             assert db.query(GameSystem).filter_by(name=name).first() is None
+        finally:
+            db.close()
+
+    def test_a_locked_flush_drops_only_that_system(self):
+        """A busy step inside a system's savepoint rolls back that savepoint alone.
+
+        Systems are all registered before any is committed, so rolling back the
+        whole Session here would lose the folder registered before it.
+        """
+        import sqlite3
+
+        from sqlalchemy.exc import OperationalError
+
+        from backend.indexer import systems as systems_mod
+
+        tmp, lib = _mk_lib()
+        tag = uuid.uuid4().hex[:6]
+        names = [f"First-{tag}", f"Second-{tag}"]
+        for name in names:
+            d = lib / "books" / name / "core"
+            d.mkdir(parents=True)
+            (d / "tome.pdf").write_bytes(b"%PDF-1.4")
+        real = systems_mod._db_call
+        flushed = []
+
+        def second_flush_is_locked(fn, label, session):
+            if not label.startswith("flush system '"):
+                return real(fn, label, session)
+            flushed.append(label.split("'")[1])
+            if len(flushed) != 2:
+                return real(fn, label, session)
+
+            def blocked():
+                raise OperationalError("INSERT", {}, sqlite3.OperationalError("database is locked"))
+
+            return real(blocked, label, session)
+
+        with patch.object(systems_mod, "_db_call", second_flush_is_locked):
+            stats = _scan(lib, tmp)
+
+        assert sorted(flushed) == names
+        assert stats["errors"] >= 1
+        db = SessionLocal()
+        try:
+            assert db.query(GameSystem).filter_by(name=flushed[0]).first() is not None
+            assert db.query(GameSystem).filter_by(name=flushed[1]).first() is None
         finally:
             db.close()
 

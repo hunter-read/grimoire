@@ -184,6 +184,15 @@ def read_manifest_file(path: str, addon_id: str) -> AddonManifest:
 
     if not isinstance(raw, dict):
         raise AddonError(f"add-on '{addon_id}' manifest is not a mapping")
+    if raw.get("kind") == "note-template":
+        # The community repo publishes note templates beside add-ons, so a copy
+        # of the wrong folder lands here. Say what it is rather than failing on
+        # the kind.
+        raise AddonError(
+            f"'{addon_id}' is a note template, not an add-on - remove "
+            f"{addon_dir(addon_id)} and download the template from a campaign "
+            "wiki's Templates button instead"
+        )
 
     try:
         manifest = AddonManifest(**raw)
@@ -213,15 +222,37 @@ def installed_ids() -> list[str]:
     return ids
 
 
+# Manifest path -> modification time of each broken manifest already warned
+# about, so a scan that looks add-ons up once per system logs it once.
+_reported_broken: dict[str, float] = {}
+
+
+def _report_broken(addon_id: str, exc: AddonError) -> None:
+    """Warn about a manifest that will not load, once until the file changes."""
+    path = manifest_path(addon_id)
+    try:
+        mtime = os.stat(path).st_mtime
+    except OSError:
+        mtime = 0.0
+    if _reported_broken.get(path) == mtime:
+        logger.debug("Skipping add-on '%s': %s", addon_id, exc)
+        return
+    _reported_broken[path] = mtime
+    logger.warning("Skipping add-on '%s': %s", addon_id, exc)
+
+
 def load_all() -> dict[str, AddonManifest]:
     """Load every installed manifest.  Broken ones are logged and skipped, so
-    one bad definition can never take the whole add-on system down."""
+    one bad definition can never take the whole add-on system down.  Each
+    broken manifest is warned about once, and again only after it is edited."""
     loaded: dict[str, AddonManifest] = {}
     for addon_id in installed_ids():
         try:
             loaded[addon_id] = load_manifest(addon_id)
         except AddonError as exc:
-            logger.warning("Skipping add-on '%s': %s", addon_id, exc)
+            _report_broken(addon_id, exc)
+        else:
+            _reported_broken.pop(manifest_path(addon_id), None)
     return loaded
 
 

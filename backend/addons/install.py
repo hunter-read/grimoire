@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from . import credentials as source_credentials
 from .urls import index_url_problem
 from .. import config
+from ..config import release_connection
 from .constants import (
     HTTP_TIMEOUT,
     external_installs_enabled,
@@ -85,6 +86,9 @@ def refresh_index(db: Session, url: Optional[str] = None) -> dict:
     errors = []
     generated = ""
     creds = source_credentials.load(db)
+    # Each source can take up to HTTP_TIMEOUT to answer; the cache is written
+    # afterwards in a transaction of its own.
+    release_connection(db)
 
     for index_url in index_urls:
         # If the URL explicitly points to a theme or note template index, do not fetch add-ons from it
@@ -294,11 +298,15 @@ def install(db: Session, addon_id: str, approve_script: bool = False, index_url:
         )
 
     creds = source_credentials.load(db)
+    approved_script = _approved_script(db, addon_id)
+    # Everything the install reads is in hand; don't hold a pooled connection
+    # through the downloads. The install state is written in a new transaction.
+    release_connection(db)
+
     manifest_url = file_url(manifest_index_url, entry.path)
     manifest_body = _fetch_text(manifest_url, creds)
     _verify(manifest_body, entry.sha256, "add-on manifest")
 
-    approved_script = _approved_script(db, addon_id)
     target_dir = addon_dir(addon_id)
     staging = f"{target_dir}.incoming"
     # Stage into a sibling directory and swap, so a failed download never

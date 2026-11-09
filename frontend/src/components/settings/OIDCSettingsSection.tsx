@@ -127,13 +127,38 @@ export default function OIDCSettingsSection() {
     reload()
   }, [reload])
 
-  // Mirror server values into draft state once they arrive
+  // The server values the draft last mirrored, and the keys the next server
+  // response should win for: a key maps to the value that was sent (it wins
+  // only while the draft still holds that value) or to null (it always wins).
+  const syncedRef = useRef<Draft>({})
+  const adoptRef = useRef<Record<string, string | boolean | null>>({})
+  const acceptServer = (updated: Settings, adopt: Record<string, string | boolean | null>) => {
+    adoptRef.current = { ...adoptRef.current, ...adopt }
+    setData(updated)
+  }
+
+  // Mirror server values into the draft as they arrive. A field edited since
+  // the last mirror keeps the edit, so typing in one field while another saves
+  // on blur isn't wiped by that save's response.
   useEffect(() => {
     if (!data) return
-    const next: Draft = {}
-    for (const k of STRING_FIELDS) next[k] = (field(data, k) as string | undefined) ?? ''
-    for (const k of BOOL_FIELDS) next[k] = !!field(data, k)
-    setDraft(next)
+    const server: Draft = {}
+    for (const k of STRING_FIELDS) server[k] = (field(data, k) as string | undefined) ?? ''
+    for (const k of BOOL_FIELDS) server[k] = !!field(data, k)
+    // Read the refs now: the updater below runs later, during the next render.
+    const synced = syncedRef.current
+    const adopt = adoptRef.current
+    syncedRef.current = server
+    adoptRef.current = {}
+    setDraft((d) => {
+      const next = { ...server }
+      for (const k of Object.keys(server)) {
+        if (!(k in d) || d[k] === synced[k]) continue
+        if (k in adopt && (adopt[k] === null || adopt[k] === d[k])) continue
+        next[k] = d[k]
+      }
+      return next
+    })
   }, [data])
 
   // A text field saves when it loses focus, and the secret on its own Save:
@@ -172,7 +197,7 @@ export default function OIDCSettingsSection() {
     setError('')
     try {
       const updated = await settingsApi.patch({ [key]: value } as SettingsPatch)
-      setData(updated)
+      acceptServer(updated, { [key]: value })
       setSavedField(key)
       later(() => setSavedField(null), 1800)
     } catch (e) {
@@ -237,7 +262,8 @@ export default function OIDCSettingsSection() {
       fillIfEmpty('oidc_end_session_endpoint', doc.end_session_endpoint)
       if (Object.keys(updates).length > 0) {
         const updated = await settingsApi.patch(updates as SettingsPatch)
-        setData(updated)
+        // Autopopulate's values replace what's in those fields, typed or not.
+        acceptServer(updated, Object.fromEntries(Object.keys(updates).map((k) => [k, null])))
       }
       setDiscoverStatus(t('a11y.settingsAccess.discovered', { count: Object.keys(updates).length }))
     } catch (e) {

@@ -200,14 +200,10 @@ def assert_not_archived(campaign: Campaign) -> None:
 
     Archiving freezes a campaign read-only for everyone, owner included — it is
     the "this game is finished" state, so its notes and wiki stay exactly as they
-    were left. Every write handler calls this; reads deliberately do not, so an
+    were left. Every write under ``/campaigns/{campaign_id}/`` is refused by
+    ``require_writable_campaign`` (``_writable.py``); reads are not, so an
     archived campaign remains fully browsable. Unarchiving lifts the freeze, so
     this is never a dead end.
-
-    Called explicitly at each write site rather than folded into
-    ``get_campaign_or_404`` (which read paths share) and separately from
-    ``assert_can_manage`` (which member-level writes like player notes and
-    availability bypass entirely).
     """
     if campaign.is_archived:
         raise HTTPException(409, "Campaign is archived: unarchive it to make changes")
@@ -215,7 +211,12 @@ def assert_not_archived(campaign: Campaign) -> None:
 
 def assert_not_locked(campaign: Campaign, db) -> None:
     """Refuse writes to a campaign that is read-only for everyone: its owner's
-    campaign access is disabled, or it is archived (the ``locked`` flag)."""
+    campaign access is disabled, or it is archived (the ``locked`` flag).
+
+    The campaigns router applies this to every write through
+    ``require_writable_campaign``; handlers call it directly only where that
+    check is skipped (see ``writable_while``) or the campaign is not in the path.
+    """
     if not user_has_campaign_access(db, campaign.owner_id):
         raise HTTPException(
             403, "Campaign is locked: the GM's campaign access has been disabled"

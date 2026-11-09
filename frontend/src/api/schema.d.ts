@@ -2990,7 +2990,7 @@ export interface paths {
          *     anybody else's wiki. Hiding a parent hides its subtree (resolved on read, see
          *     `hidden_page_ids`), so only the row for the page the user clicked is stored.
          *
-         *     Deliberately not gated on `assert_not_archived`: hiding writes nothing to the
+         *     Deliberately open on a locked campaign: hiding writes nothing to the
          *     campaign's content, and an archived campaign is still one you might want to
          *     tidy.
          *

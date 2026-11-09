@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from fastapi.responses import Response
 
 from .._user_files import serve_user_file
-from ...config import _THUMBNAIL_CACHE_HEADERS, THUMB_DIR, get_db
+from ...config import _THUMBNAIL_CACHE_HEADERS, THUMB_DIR, get_db, release_connection
 from ...models import Token, TokenFolder
 from ...models.base import utc_iso
 from ...services import bulk_service, tag_service, variants
@@ -191,6 +191,9 @@ def serve_token_file(
     else:
         ext = Path(t.filepath).suffix.lower()
         media = f"image/{ext[1:]}"
+    # A large file can take minutes to send; don't hold a pooled connection
+    # through it.
+    release_connection(db)
     return serve_user_file(t.filepath, media, filename=t.filename)
 
 

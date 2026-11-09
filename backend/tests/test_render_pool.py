@@ -48,6 +48,23 @@ def _worker_of(filepath):
     return pool._pool.slots[pool._pool.slot_for(filepath)]
 
 
+def _wait_until_sent(worker, timeout=10):
+    """Block until a request has been written to ``worker``'s pipe.
+
+    ``submit`` registers a request in ``pending`` and then sends it, both under
+    the worker's lock, so waiting for ``pending`` alone can land between the
+    two. Killing the worker there fails the send, and the pool rightly retries
+    the request on a fresh worker - which then succeeds. Taking the lock once
+    ``pending`` is filled waits out the send.
+    """
+    deadline = time.monotonic() + timeout
+    while not worker.pending and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert worker.pending, "the request never reached the worker"
+    with worker.lock:
+        pass
+
+
 def _webp_size(data):
     with Image.open(io.BytesIO(data)) as img:
         assert img.format == "WEBP"
@@ -122,9 +139,7 @@ class TestCrashIsolation:
         os.kill(crashed.proc.pid, signal.SIGSTOP)
         with ThreadPoolExecutor(1) as ex:
             in_flight = ex.submit(pool.render_page, pdf, 1, 600)
-            deadline = time.monotonic() + 10
-            while not crashed.pending and time.monotonic() < deadline:
-                time.sleep(0.01)
+            _wait_until_sent(crashed)
             os.kill(crashed.proc.pid, signal.SIGKILL)
             with pytest.raises(ops.RenderCrashError, match="killed by signal 9"):
                 in_flight.result(timeout=30)
@@ -421,9 +436,7 @@ class TestThroughTheApi:
             in_flight = ex.submit(
                 client.get, f"/api/books/{book.id}/page/2?width=302", headers=admin_headers
             )
-            deadline = time.monotonic() + 10
-            while not crashed.pending and time.monotonic() < deadline:
-                time.sleep(0.01)
+            _wait_until_sent(crashed)
             os.kill(crashed.proc.pid, signal.SIGKILL)
             failed = in_flight.result(timeout=30)
         assert failed.status_code == 500

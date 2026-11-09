@@ -436,10 +436,10 @@ class TestQueriesPerDirectory:
                 (folder / f"{name}{i}.png").write_bytes(PNG + name.encode() + bytes([i]))
         real = media._db_call
 
-        def locked(fn, label):
+        def locked(fn, label, session):
             if label.startswith("query map") and "Locked" in label:
                 raise DatabaseBusyError(label)
-            return real(fn, label)
+            return real(fn, label, session)
 
         with (
             patch.object(media, "_db_call", locked),
