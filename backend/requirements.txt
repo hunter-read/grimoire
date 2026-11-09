@@ -1,21 +1,21 @@
 fastapi==0.162.0
 starlette==1.10.0
 uvicorn[standard]==0.54.0
-sqlalchemy==2.1.6
+sqlalchemy==2.1.8
 alembic==1.20.1
 aiosqlite==0.22.1
 # PostgreSQL driver (DATABASE_URL). The binary build bundles libpq, so the
 # image needs no system packages for it.
 psycopg[binary]==3.3.8
 pymupdf==1.28.2
-python-multipart==0.0.32
+python-multipart==0.0.33
 watchdog==6.0.0
 httpx==0.28.1
 pillow==13.0.0
-pydantic==2.14.2
+pydantic==2.14.3
 bcrypt==5.0.0
 PyJWT==2.15.1
-joserfc==1.7.7
+joserfc==1.8.0
 redis==8.1.0
 slowapi==0.1.10
 markdownify==1.2.3
