@@ -1716,6 +1716,27 @@
       "hint": "I manuali di base e le schede personaggio non possono essere limitati. I libri limitati sono completamente nascosti agli utenti senza accesso, anche nella ricerca e nei download.",
       "saveFailed": "Impossibile salvare le restrizioni delle categorie.",
       "selectLabel": "Livello di accesso per {{category}}"
+    },
+    "folderAccess": {
+      "title": "Restrizioni per cartella",
+      "description": "Limita tutti i libri di una cartella, come i manuali del master tenuti insieme ai manuali base di un sistema. Una cartella aggiunge solo una restrizione: i suoi libri ricevono il livello più restrittivo tra quello della cartella e quello del loro sistema o categoria. Per condividerne uno comunque, imposta il livello di quel libro.",
+      "empty": "Nessuna cartella è limitata.",
+      "add": "Limita una cartella",
+      "restrict": "Limita",
+      "pickFolder": "Scegli una cartella dentro books/ o armory/.",
+      "notBooks": "Si possono limitare solo le cartelle dentro books/ o armory/",
+      "newLevelLabel": "Livello di accesso per la nuova restrizione di cartella",
+      "levelLabel": "Livello di accesso per {{path}}",
+      "books_one": "{{count}} libro",
+      "books_other": "{{count}} libri",
+      "missing": "Cartella non trovata",
+      "missingHint": "Questa cartella è stata rinominata o rimossa fuori da Grimoire, quindi la restrizione non copre più alcun libro.",
+      "removeLabel": "Rimuovi la restrizione su {{path}}",
+      "removeTitle": "Rimuovi restrizione di cartella",
+      "removeConfirm": "Rimuovere la restrizione su {{path}}? I suoi libri tornano visibili a tutti, a meno che il libro, il suo sistema o la sua categoria non li limitino.",
+      "loadFailed": "Impossibile caricare le restrizioni per cartella.",
+      "saveFailed": "Impossibile salvare la restrizione di cartella.",
+      "removeFailed": "Impossibile rimuovere la restrizione di cartella."
     }
   },
   "users": {

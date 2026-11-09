@@ -21,6 +21,7 @@ from ...models.campaigns import Campaign
 from ...models.library import Book, GameSystem
 from ...sql_paths import path_at_or_under
 from ..filename_rules.folders import purge_rules
+from .. import folder_access
 from . import folders
 from .constants import FOLDER_MODELS, _THUMB_SECTIONS, LibraryFSError
 from .moves import _folder_rel, _records_under, _section_for_model, _thumb_files_for
@@ -342,6 +343,7 @@ def _purge_folders(db: Session, target: Path) -> int:
     than a disk path and are collected by the orphan sweep instead.
     """
     purge_rules(db, to_relative(target))
+    folder_access.purge_rules(db, to_relative(target))
 
     section, rel = _folder_rel(target)
     folder_model = FOLDER_MODELS.get(section)

@@ -204,7 +204,7 @@ def read_book_placement(db: Session, dest_file: Path) -> BookPlacement:
 
     # Every container above the system shifts the subsequent segments right by
     # one; the scanner expresses that as `system_depth`. Shared with
-    # ``_system_root_for`` so both agree on where the category folder starts —
+    # ``system_root_for`` so both agree on where the category folder starts —
     # asking whether the row at ``parts[1]`` has a parent got this wrong for a
     # marker-declared container, whose own row has no parent (issue #395).
     depth = _system_depth_for(db, parts)
@@ -240,7 +240,7 @@ CATEGORY_FOLDER_NAMES = {
 }
 
 
-def _system_root_for(db: Session, book_path: Path) -> Optional[Path]:
+def system_root_for(db: Session, book_path: Path) -> Optional[Path]:
     """The system folder a book sits under, or None when it is not in one.
 
     The category folder is a *child* of this, so relocating a book means finding
@@ -300,7 +300,7 @@ def category_folder_for(
     """
     if not is_category_name(category):
         return None
-    root = _system_root_for(db, book_path)
+    root = system_root_for(db, book_path)
     if root is None or not root.is_dir():
         return None
 

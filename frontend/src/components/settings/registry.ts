@@ -225,6 +225,12 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
     description: 'appSettings.categoryAccess.description',
   },
   {
+    id: 'folder-access',
+    area: 'access',
+    title: 'appSettings.folderAccess.title',
+    description: 'appSettings.folderAccess.description',
+  },
+  {
     id: 'campaign-uploads',
     area: 'access',
     title: 'appSettings.campaignUploads.title',

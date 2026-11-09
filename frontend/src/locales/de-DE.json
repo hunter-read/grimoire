@@ -1716,6 +1716,27 @@
       "hint": "Grundregelwerke und Charakterbögen können nicht eingeschränkt werden. Eingeschränkte Bücher sind für Benutzer ohne Zugriff vollständig verborgen, auch in Suche und Downloads.",
       "saveFailed": "Die Kategorie-Einschränkungen konnten nicht gespeichert werden.",
       "selectLabel": "Zugriffsstufe für {{category}}"
+    },
+    "folderAccess": {
+      "title": "Ordner-Einschränkungen",
+      "description": "Schränke jedes Buch unterhalb eines Ordners ein, etwa die Spielleiterbücher, die bei den Grundregelwerken eines Systems liegen. Ein Ordner fügt nur eine Einschränkung hinzu: Seine Bücher erhalten die strengere Stufe aus Ordner und System bzw. Kategorie. Um eines davon trotzdem freizugeben, lege die Stufe dieses Buchs selbst fest.",
+      "empty": "Keine Ordner sind eingeschränkt.",
+      "add": "Ordner einschränken",
+      "restrict": "Einschränken",
+      "pickFolder": "Wähle einen Ordner in books/ oder armory/.",
+      "notBooks": "Nur Ordner in books/ oder armory/ können eingeschränkt werden",
+      "newLevelLabel": "Zugriffsstufe für die neue Ordner-Einschränkung",
+      "levelLabel": "Zugriffsstufe für {{path}}",
+      "books_one": "{{count}} Buch",
+      "books_other": "{{count}} Bücher",
+      "missing": "Ordner nicht gefunden",
+      "missingHint": "Dieser Ordner wurde außerhalb von Grimoire umbenannt oder entfernt, daher gilt die Einschränkung für keine Bücher mehr.",
+      "removeLabel": "Einschränkung für {{path}} aufheben",
+      "removeTitle": "Ordner-Einschränkung aufheben",
+      "removeConfirm": "Einschränkung für {{path}} aufheben? Seine Bücher sind dann wieder für alle sichtbar, sofern nicht das Buch, sein System oder seine Kategorie sie einschränkt.",
+      "loadFailed": "Die Ordner-Einschränkungen konnten nicht geladen werden.",
+      "saveFailed": "Die Ordner-Einschränkung konnte nicht gespeichert werden.",
+      "removeFailed": "Die Ordner-Einschränkung konnte nicht aufgehoben werden."
     }
   },
   "users": {

@@ -34,6 +34,12 @@ export const settings = {
   // OIDC login-button icon (issue #377). Both return the full settings.
   uploadOidcButtonIcon: (file: Blob) => api.upload(postUrl('/settings/oidc-button-icon'), file),
   deleteOidcButtonIcon: () => client.delete('/settings/oidc-button-icon'),
+  // Folder access rules (issue #772): restrict every book beneath a library folder.
+  folderAccess: () => client.get('/settings/folder-access'),
+  saveFolderAccess: (path: string, level: 'gm' | 'admin') =>
+    client.put('/settings/folder-access', { body: { path, level } }),
+  deleteFolderAccess: (path: string) =>
+    client.delete('/settings/folder-access', { query: { path } }),
 }
 
 // Personal API keys (issue #489). A key acts as its owner. The full key is

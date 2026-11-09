@@ -1716,6 +1716,27 @@
       "hint": "Grundregelböcker och karaktärsblad kan inte begränsas. Begränsade böcker döljs helt för användare som saknar åtkomst, inklusive i sökningar och nedladdningar.",
       "saveFailed": "Kunde inte spara kategorirestriktionerna.",
       "selectLabel": "Åtkomstnivå för {{category}}"
+    },
+    "folderAccess": {
+      "title": "Mappbegränsningar",
+      "description": "Begränsa alla böcker i en mapp, till exempel spelledarens böcker som ligger bland ett systems grundböcker. En mapp lägger bara till en begränsning: dess böcker får den strängaste nivån av mappens och systemets eller kategorins. Vill du ändå dela en av dem anger du bokens egen nivå.",
+      "empty": "Inga mappar är begränsade.",
+      "add": "Begränsa en mapp",
+      "restrict": "Begränsa",
+      "pickFolder": "Välj en mapp i books/ eller armory/.",
+      "notBooks": "Bara mappar i books/ eller armory/ kan begränsas",
+      "newLevelLabel": "Åtkomstnivå för den nya mappbegränsningen",
+      "levelLabel": "Åtkomstnivå för {{path}}",
+      "books_one": "{{count}} bok",
+      "books_other": "{{count}} böcker",
+      "missing": "Mappen hittades inte",
+      "missingHint": "Mappen har bytt namn eller tagits bort utanför Grimoire, så begränsningen gäller inga böcker längre.",
+      "removeLabel": "Häv begränsningen för {{path}}",
+      "removeTitle": "Häv mappbegränsning",
+      "removeConfirm": "Häva begränsningen för {{path}}? Dess böcker blir synliga för alla igen, om inte boken, dess system eller dess kategori begränsar dem.",
+      "loadFailed": "Det gick inte att läsa in mappbegränsningarna.",
+      "saveFailed": "Det gick inte att spara mappbegränsningen.",
+      "removeFailed": "Det gick inte att häva mappbegränsningen."
     }
   },
   "users": {

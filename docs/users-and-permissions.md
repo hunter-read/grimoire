@@ -21,8 +21,8 @@ Create additional accounts in **Settings → People** after logging in as admin.
 ## Restricting books
 
 By default every user can see every book. If you would rather keep the adventure
-module your players are currently inside out of their hands, books, systems, and
-whole categories can be restricted to a minimum role.
+module your players are currently inside out of their hands, books, systems,
+folders and whole categories can be restricted to a minimum role.
 
 There are two restriction levels:
 
@@ -53,6 +53,17 @@ book  →  system  →  category default  →  everyone
 - **A whole category** - in **Settings → Access & sharing → Category Restrictions**.
   This is the library-wide default for that category. Core rulebooks and character
   sheets cannot be restricted: everyone at the table needs those by definition.
+- **A folder** - in **Settings → Access & sharing → Folder Restrictions**. Pick any
+  folder inside `books/` or `armory/` and every book beneath it is restricted, at any
+  depth. This is how to keep a GM's guide from players when it sits with a system's
+  core books: put it in a folder such as `books/D&D 5e/Core/GM/` and restrict that
+  folder. A folder only ever *adds* a restriction - its books get the stricter of the
+  folder's level and their system's or category's - so the one way to open a book
+  inside a restricted folder is to set that book to *Everyone*. Folder restrictions
+  are stored in Grimoire, not in the library, so they work on a read-only library.
+  They follow the folder when it is renamed or moved in the [file manager](file-management.md);
+  a folder renamed outside Grimoire loses its restriction, and the setting shows it as
+  *Folder not found*.
 
 Only admins can change any of these, including in bulk edit.
 
@@ -71,8 +82,8 @@ granted past one. A grant is removed automatically if the user stops being a GM.
 
 A restricted book can still be linked into a campaign - the GM needs it - but it is
 always forced to **GM-only** visibility there, and cannot be made public or private
-to the players. If you restrict a book that was already shared, its existing shares
-are demoted to GM-only for you.
+to the players. If you restrict a book, system or folder that was already shared, its
+existing shares are demoted to GM-only for you.
 
 ---
 

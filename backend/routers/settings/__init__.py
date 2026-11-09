@@ -7,8 +7,19 @@ from .core import (
     update_settings,
     get_ui_settings,
 )
+from .folder_access import (
+    delete_folder_access_rule,
+    list_folder_access_rules,
+    save_folder_access_rule,
+)
 from .oidc_button import delete_oidc_button_icon, upload_oidc_button_icon
-from ._schemas import SettingsResponse, UISettingsResponse
+from ._schemas import (
+    FolderAccessRuleOut,
+    FolderAccessRulesResponse,
+    FolderAccessStatusResponse,
+    SettingsResponse,
+    UISettingsResponse,
+)
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -30,6 +41,37 @@ router.add_api_route(
     methods=["GET"],
     summary="UI settings (any authenticated user)",
     response_model=UISettingsResponse,
+)
+
+# Folder access rules (issue #772): restrict every book beneath a library folder.
+router.add_api_route(
+    "/folder-access",
+    list_folder_access_rules,
+    methods=["GET"],
+    summary="List folder access restrictions",
+    response_model=FolderAccessRulesResponse,
+)
+router.add_api_route(
+    "/folder-access",
+    save_folder_access_rule,
+    methods=["PUT"],
+    summary="Restrict a folder",
+    description=(
+        "Admin-only. Restricts every book beneath a folder inside `books/` or the "
+        "armory to `gm` (GMs and admins) or `admin`, replacing any level the folder "
+        "had. A book resolves to the stricter of the folder's level and what its "
+        "system or category gives it; only the book's own level overrides it. "
+        "Campaign shares of the books it restricts are demoted to GM-only. 404 when "
+        "the folder does not exist."
+    ),
+    response_model=FolderAccessRuleOut,
+)
+router.add_api_route(
+    "/folder-access",
+    delete_folder_access_rule,
+    methods=["DELETE"],
+    summary="Lift a folder's restriction",
+    response_model=FolderAccessStatusResponse,
 )
 
 # OIDC login-button icon (issue #377). Normalized to a PNG on upload; served

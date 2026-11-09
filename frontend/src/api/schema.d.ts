@@ -6092,6 +6092,34 @@ export interface paths {
         patch: operations["update_settings_api_settings_patch"];
         trace?: never;
     };
+    "/api/settings/folder-access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List folder access restrictions
+         * @description Every folder with an access restriction.
+         */
+        get: operations["list_folder_access_rules_api_settings_folder_access_get"];
+        /**
+         * Restrict a folder
+         * @description Admin-only. Restricts every book beneath a folder inside `books/` or the armory to `gm` (GMs and admins) or `admin`, replacing any level the folder had. A book resolves to the stricter of the folder's level and what its system or category gives it; only the book's own level overrides it. Campaign shares of the books it restricts are demoted to GM-only. 404 when the folder does not exist.
+         */
+        put: operations["save_folder_access_rule_api_settings_folder_access_put"];
+        post?: never;
+        /**
+         * Lift a folder's restriction
+         * @description Lift a folder's restriction. Campaign shares demoted by it stay GM-only.
+         */
+        delete: operations["delete_folder_access_rule_api_settings_folder_access_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/settings/oidc-button-icon": {
         parameters: {
             query?: never;
@@ -11461,6 +11489,40 @@ export interface components {
             count: number;
             /** Value */
             value: unknown;
+        };
+        /**
+         * FolderAccessRuleIn
+         * @description Restrict every book beneath a library folder (issue #772).
+         */
+        FolderAccessRuleIn: {
+            /**
+             * Level
+             * @enum {string}
+             */
+            level: "gm" | "admin";
+            /** Path */
+            path: string;
+        };
+        /** FolderAccessRuleOut */
+        FolderAccessRuleOut: {
+            /** Books */
+            books: number;
+            /** Exists */
+            exists: boolean;
+            /** Level */
+            level: string;
+            /** Path */
+            path: string;
+        };
+        /** FolderAccessRulesResponse */
+        FolderAccessRulesResponse: {
+            /** Rules */
+            rules: components["schemas"]["FolderAccessRuleOut"][];
+        };
+        /** FolderAccessStatusResponse */
+        FolderAccessStatusResponse: {
+            /** Status */
+            status: string;
         };
         /**
          * FolderContentsResponse
@@ -32564,6 +32626,114 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_folder_access_rules_api_settings_folder_access_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderAccessRulesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_folder_access_rule_api_settings_folder_access_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FolderAccessRuleIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderAccessRuleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_folder_access_rule_api_settings_folder_access_delete: {
+        parameters: {
+            query: {
+                path: string;
+            };
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderAccessStatusResponse"];
                 };
             };
             /** @description Validation Error */

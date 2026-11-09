@@ -4,7 +4,7 @@ Models are organised by domain (library, media, users, campaigns, settings)
 and re-exported here so callers can keep using ``from backend.models import X``.
 """
 
-from .access import UserAccessGrant
+from .access import FolderAccessRule, UserAccessGrant
 from .api_keys import ApiKey
 from .armies import Army, PublicationLink
 from .audio_sets import SET_TYPES, AudioSet
@@ -68,6 +68,7 @@ __all__ = [
     "init_db",
     # Access control
     "UserAccessGrant",
+    "FolderAccessRule",
     # Library
     "GameSystem",
     "Book",

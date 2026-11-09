@@ -124,3 +124,25 @@ class UserAccessGrant(Base):
     level: Mapped[str] = mapped_column(String(10), nullable=False, default=LEVEL_GM)
 
     __table_args__ = (UniqueConstraint("user_id", "scope_type", "scope_id"),)
+
+
+class FolderAccessRule(Base):
+    """A minimum role for every book beneath one library folder (issue #772).
+
+    ``path`` is the folder's library-relative path on disk (``books/D&D 5e/Core/GM``),
+    like ``FolderNamingRule``: a GM's guide filed under a system's core books can
+    be withheld from players without restricting the whole core category, which
+    every player needs. Stored in the database rather than as a marker file so it
+    works on a read-only library, and carried along when the file manager renames
+    or moves the folder (``library_fs``).
+
+    ``level`` is always a restricted level, never open. A folder rule only adds a
+    restriction: a book under it resolves to the stricter of the rule and what
+    its system or category gives it, and only the book's own level overrides it.
+    """
+
+    __tablename__ = "folder_access_rules"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    path: Mapped[str] = mapped_column(String(1000), nullable=False, unique=True)
+    level: Mapped[str] = mapped_column(String(10), nullable=False, default=LEVEL_GM)

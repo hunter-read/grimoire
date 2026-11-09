@@ -1,6 +1,6 @@
 """Pydantic schemas for the settings API."""
-from typing import Optional
-from pydantic import BaseModel
+from typing import Literal, Optional
+from pydantic import BaseModel, Field
 
 
 class SettingsPatch(BaseModel):
@@ -229,3 +229,28 @@ class UISettingsResponse(BaseModel):
     share_links_enabled: bool
     mcp_enabled: bool
     library_writable: bool
+
+
+class FolderAccessRuleIn(BaseModel):
+    """Restrict every book beneath a library folder (issue #772)."""
+
+    path: str = Field(..., max_length=1000)
+    level: Literal["gm", "admin"]
+
+
+class FolderAccessRuleOut(BaseModel):
+    path: str
+    level: str
+    # False once the folder is gone from disk (renamed or deleted outside the
+    # file manager), so the admin can see a rule that no longer covers anything.
+    exists: bool
+    # How many books the rule currently covers.
+    books: int
+
+
+class FolderAccessRulesResponse(BaseModel):
+    rules: list[FolderAccessRuleOut]
+
+
+class FolderAccessStatusResponse(BaseModel):
+    status: str
