@@ -8,6 +8,7 @@ const mockCreate = vi.fn()
 const mockRemove = vi.fn()
 const mockEntries = vi.fn()
 const mockRemoveEntry = vi.fn()
+const mockGetEntry = vi.fn()
 const mockInstallable = vi.fn()
 const mockBrowsePacks = vi.fn()
 const mockImport = vi.fn()
@@ -21,6 +22,7 @@ vi.mock('../../api', () => ({
     remove: (...a: unknown[]) => mockRemove(...a),
     entries: (...a: unknown[]) => mockEntries(...a),
     removeEntry: (...a: unknown[]) => mockRemoveEntry(...a),
+    getEntry: (...a: unknown[]) => mockGetEntry(...a),
     installable: (...a: unknown[]) => mockInstallable(...a),
     browsePacks: (...a: unknown[]) => mockBrowsePacks(...a),
     installPack: vi.fn(),
@@ -189,6 +191,33 @@ describe('RulesetsPanel', () => {
     await userEvent.click(await screen.findByText('Strahd house rules'))
     await userEvent.click(await screen.findByText(/Import D&D 5e SRD 5\.2/))
     await waitFor(() => expect(mockImport).toHaveBeenCalledWith('r1', { pack_id: 'dnd-5e-srd' }))
+  })
+
+  it('edits an entry with its saved values, not the empty list summary', async () => {
+    mockTypes.mockResolvedValue({
+      content_types: [
+        {
+          name: 'spell',
+          label_plural: 'Spells',
+          fields: {
+            name: { type: 'text', label: 'Name' },
+            description: { type: 'textarea', label: 'Description' },
+          },
+        },
+      ],
+    })
+    mockGetEntry.mockResolvedValue({
+      id: 'e1',
+      content_type: 'spell',
+      entry_id: 'hellfire',
+      name: 'Hellfire',
+      data: { name: 'Hellfire', description: 'Flames from below.' },
+    })
+    renderView()
+    await userEvent.click(await screen.findByText('Strahd house rules'))
+    await userEvent.click(await screen.findByLabelText(/^Edit /))
+    await waitFor(() => expect(mockGetEntry).toHaveBeenCalledWith('r1', 'e1'))
+    expect(await screen.findByDisplayValue('Flames from below.')).toBeInTheDocument()
   })
 
   it('deletes an entry after confirmation', async () => {
