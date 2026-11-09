@@ -1891,12 +1891,13 @@ than appearing and failing.
 | `rescan_schedule_hour` | int | UTC hour (0–23) for daily/weekly rescans |
 | `rescan_schedule_minute` | int | UTC minute (0–59) |
 | `rescan_schedule_weekday` | int | Weekday (0–6) for weekly rescans |
-| `hide_library` | bool | Hide the Library (role-playing books) in the sidebar |
+| `hide_library` | bool | Hide the Library (role-playing books) in the sidebar; `/` then opens on the Armory, or the first section still listed |
 | `hide_armory` | bool | Hide the Armory (wargame books) in the sidebar |
 | `hide_maps` | bool | Hide the maps section in the UI |
 | `hide_tokens` | bool | Hide the tokens section in the UI |
 | `hide_audio` | bool | Hide the audio section in the UI |
-| `hide_campaigns` | bool | Hide the campaigns section in the UI |
+| `hide_models` | bool | Hide the 3D models section in the UI |
+| `hide_campaigns` | bool | Hide Campaigns and Characters in the sidebar |
 | `hide_armies` | bool | Hide Armies in the sidebar (the pages stay reachable) |
 | `hide_leagues` | bool | Hide Leagues in the sidebar (the pages stay reachable) |
 | `restricted_categories` | object | `{category_slug: "gm"\|"admin"}` restricting whole categories library-wide (issue #258). The category-level tier of the access cascade; a book or system still overrides it in either direction. `core` and `character-sheet` are rejected with 400 - everyone at the table needs those. An entry set to `""` is dropped rather than stored, since "open" is the absence of an entry. See [Access levels](#access-levels-issue-258). |
@@ -2172,7 +2173,8 @@ for a picker row reading "light & dark"; `mode` is the primary one and `tokens`
 duplicates that variant. A theme sent with only `tokens` is read as covering its
 one `mode`, so the older shape keeps working.
 
-**App modes** are `grimoire` (TTRPG) and `codex` (wargaming), a second axis
+**App modes** are the built-in palettes - `grimoire` (gold on brown, the default) and
+`codex` (crimson on gunmetal, picked from the theme list) - a second axis
 alongside the light/dark colour `mode`. Selection is stored per app mode, so
 switching restores what was chosen there. `built_in[]` lists the bundled themes
 - their colours live in the stylesheet, so they carry no `tokens` and can be

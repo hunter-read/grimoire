@@ -3,17 +3,19 @@
 For wargames, Grimoire keeps your **army lists** and runs **leagues** - a group
 playing the same game over weeks or months, what Warhammer 40,000 calls a
 Crusade and Age of Sigmar a Path to Glory. Both sit in the sidebar under a
-**Wargaming** heading, below Campaigns and Characters under **Role-playing**, and both work with the wargame books in your library's
-`armory/` folder, laid out as `armory/<System>/<Edition>/Factions/<Faction>/`.
+**Wargaming** heading, below Campaigns and Characters under **Role-playing**, and
+both work with the wargame books in your library's `armory/` folder, laid out as
+`armory/<System>/<Edition>/Factions/<Faction>/` (see
+[the armory](library-structure.md#the-armory---wargame-books)).
 
 Grimoire ships **no points, stat lines or rules text**. An army holds only what
 you import or type; the rules themselves stay in your own books, which an army
 opens at the right page.
 
 Neither is available to guests, who are scoped to the campaign they were invited
-to. An admin can hide either from the sidebar under **Settings → Sidebar
-Visibility** (**Hide Armies**, **Hide Leagues**); the pages stay reachable by
-their address.
+to. An admin can hide either from the sidebar under **Settings → Sidebar →
+Sidebar Visibility** (**Hide Armies**, **Hide Leagues**); the pages stay reachable
+by their address. With both hidden, the Wargaming heading goes too.
 
 ## Armies
 

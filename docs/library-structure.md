@@ -1,8 +1,9 @@
 # Library structure
 
 Grimoire reads your folder layout as the library's organization: the top level of
-`books/` is your game systems, the folders inside them are categories, and the
-same idea carries through `maps/`, `tokens/`, `audio/`, and `models/`. Nothing
+`books/` is your role-playing game systems, the folders inside them are categories, and
+the same idea carries through `armory/` (wargames), `maps/`, `tokens/`, `audio/`, and
+`models/`. Nothing
 here needs configuring - name the folders sensibly and Grimoire follows.
 
 This page is the full reference. For the shape at a glance, see the
@@ -310,9 +311,9 @@ in an `armory/` folder beside `books/` (`armoury/` works too). It is laid out th
 each top-level folder is a game, and editions can sit inside it as a
 [system container](#system-containers-parent-systems--sub-libraries). The armory shows in
 the sidebar as **Armory**, between Library and Maps, once it holds a book (admins see it
-from the start, so there is somewhere to begin); an admin can hide it in
-**Settings → Application → Sidebar visibility**. The Library can be hidden there too, for an
-instance that holds only wargames: Grimoire then opens on the Armory.
+from the start, so there is somewhere to begin); an admin can hide it under
+**Settings → Sidebar → Sidebar Visibility**. The Library can be hidden there too, for a
+server that holds only wargames: Grimoire then opens on the Armory.
 
 ```
 library/

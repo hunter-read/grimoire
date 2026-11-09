@@ -33,7 +33,7 @@ lands on **Account**.
 | **Library**          | Scanning (rescan, watch for changes, scheduled rescan), Files & folders (folder category inference, [folder naming patterns, variant filename rules](filename-rules.md)), Library tools (the [file manager](file-management.md), duplicate detection), and Database Cleanup in the danger zone |
 | **Metadata**         | [Grimoire Codex DB](codex.md), the lists the metadata editors offer (genres, system families, parent systems, licenses, dice materials), and [sidecar files](sidecars.md) |
 | **Add-ons**          | [Community add-ons](addons.md) and the character content packs installed from them |
-| **Sidebar**          | Which sections and stats the sidebar shows to everyone |
+| **Sidebar**          | Which sections and stats the sidebar shows to everyone - see [The sidebar](#the-sidebar) |
 | **Backups**          | [Backups](backups.md) taken by hand or on a schedule |
 | **Logs**             | What the server has been doing, live, filtered by level, user or text |
 
@@ -56,6 +56,27 @@ Settings used to be a row of tabs. Their contents moved like this:
 | Logs           | Logs                                                                            |
 
 Old links such as `/settings/maintenance` still work and open the area that took over.
+
+### The sidebar
+
+**Settings → Sidebar** decides what everyone's sidebar and mobile navigation list.
+
+**Sidebar Visibility** hides a section: **Hide Library**, **Hide Armory**, **Hide Maps**,
+**Hide Tokens**, **Hide Audio**, **Hide Models**, **Hide Campaigns** (Characters goes with it),
+**Hide Armies** and **Hide Leagues**. A hidden section is only taken out of the navigation -
+its pages still open from a link or their address.
+
+Hiding the Library suits a server that holds only wargames: Grimoire then opens on the
+[Armory](library-structure.md#the-armory---wargame-books), or, with that hidden too, on the
+first of Maps, Tokens, Audio and Models still listed, and on Search when none is. On a phone
+the Armory takes the Library's place on the bottom bar. The Armory itself is listed once it
+holds a book; until then only admins see it.
+
+Campaigns and Characters sit under a **Role-playing** heading and
+[Armies and Leagues](armies.md) under **Wargaming**, with a rule between them. A heading goes
+when everything under it is hidden. Guests only ever see the role-playing group.
+
+**Sidebar Stats** picks the counts shown at the foot of the sidebar.
 
 ---
 

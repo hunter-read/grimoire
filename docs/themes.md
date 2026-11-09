@@ -1,8 +1,9 @@
 # Themes
 
-A **theme** is a set of colours that overrides Grimoire's palette. Alongside the
-built-in light and dark modes, a user can install themes from the community
-catalogue or paste one in.
+A **theme** is a set of colours that overrides Grimoire's palette. Grimoire ships
+two palettes of its own - its gold **Grimoire** default and the crimson **Codex**
+(see [App modes](#app-modes)) - each in light and dark, and a user can install
+more from the community catalogue or paste one in.
 
 Themes are **per user**. A theme only changes what the person who chose it sees,
 so anyone with an account can install one and no admin approval is involved.
