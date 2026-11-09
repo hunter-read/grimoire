@@ -106,7 +106,9 @@ _TAG_ATTRS: dict[str, frozenset] = {
     "g-if": frozenset({"test"}),
     "g-section": frozenset({"title", "name", "visible_if"}),
     "g-tabs": frozenset(),
-    "g-tab": frozenset({"title", "visible_if"}),
+    # `title` is the tab's literal text; `title_from` an expression whose value,
+    # when it has one, replaces it - a squire's tab named once the squire is.
+    "g-tab": frozenset({"title", "title_from", "visible_if"}),
     # A skill's proficiency box beside the skill, rather than every skill in
     # one checkbox group: the value is still one list, which on_pick rules
     # grant into, but each box can sit where the printed sheet puts it.

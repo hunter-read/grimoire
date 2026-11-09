@@ -252,8 +252,12 @@ export default function MobileSidebar({
               </div>
             )}
             {showWargaming && (
-              <div role="group" aria-label={t('nav.wargaming')} style={drawerGroupStyle}>
-                <NavGroupHeader label={t('nav.wargaming')} inset={24} />
+              <div
+                role="group"
+                aria-label={`${t('nav.wargaming')} (${t('nav.beta')})`}
+                style={drawerGroupStyle}
+              >
+                <NavGroupHeader label={t('nav.wargaming')} badge={t('nav.beta')} inset={24} />
                 {!hide_armies && (
                   <MoreItem
                     to="/armies"

@@ -159,6 +159,31 @@ def _validate_column(field_name: str, index: int, column: Any) -> None:
     if column_type == "number":
         _validate_bounds(what, column)
 
+    if "default_from" in column:
+        # The names it reads are checked in `validate_schema`, which knows the
+        # sheet's fields; here only its shape.
+        formula = column["default_from"]
+        if not isinstance(formula, str) or not formula.strip():
+            raise SchemaError(f"{what} default_from must be a non-empty expression")
+        if column_type == "checkbox":
+            # An unticked box is stored as false, so there is no empty cell to
+            # tell "not set yet" from "set to no".
+            raise SchemaError(
+                f"{what} is a checkbox and cannot have a default_from: an "
+                "unticked box is a value the player chose"
+            )
+
+
+def _derived_columns(definition: Any) -> list[dict]:
+    """A list field's columns that work out their value with `default_from`."""
+    if not isinstance(definition, dict) or definition.get("type") != "list":
+        return []
+    return [
+        column
+        for column in definition.get("columns") or []
+        if isinstance(column, dict) and column.get("default_from")
+    ]
+
 
 def _validate_field(name: str, definition: Any) -> None:
     if not _NAME_RE.match(name):
@@ -447,6 +472,54 @@ def _validate_validator(
         )
 
 
+def _validate_column_formulas(
+    field_name: str, definition: Any, fields: dict, computed: dict, images: frozenset
+) -> None:
+    """Check the `default_from` formulas on a list field's columns.
+
+    A column's formula is worked out once per row, against the sheet's fields
+    with that row's columns laid over them, the way a `<g-repeat>` sees them. A
+    column shadows a field of the same name - an image field included, so a
+    column called `portrait` reads the row's cell, not the picture.
+
+    It may not read another derived column, or itself: each row is worked out
+    in one pass, so that cell would read as empty.
+    """
+    derived = _derived_columns(definition)
+    if not derived:
+        return
+    column_keys = {column["key"] for column in definition["columns"] if isinstance(column, dict)}
+    derived_keys = {column["key"] for column in derived}
+    known = (set(fields) | column_keys) - derived_keys
+    for column in derived:
+        what = f"Field {field_name!r} column {column['key']!r} default_from"
+        try:
+            ast = parse(column["default_from"])
+        except EVALUATION_ERRORS as exc:
+            raise SchemaError(f"{what} is not a valid expression: {exc}") from exc
+        names = referenced_names(ast)
+        clash = names & derived_keys
+        if clash:
+            raise SchemaError(
+                f"{what} reads {', '.join(repr(name) for name in sorted(clash))}, "
+                "which works out its own value with default_from - a column's "
+                "formula can read plain columns only"
+            )
+        unknown = names - known
+        if unknown:
+            message = (
+                f"{what} references unknown "
+                f"{'names' if len(unknown) > 1 else 'name'}: {', '.join(sorted(unknown))}"
+            )
+            if unknown & set(computed):
+                message += (
+                    " - default_from can read fields but not computed values, "
+                    "which are worked out after it"
+                )
+            raise SchemaError(message)
+        _reject_images(names, set(images) - column_keys, what)
+
+
 def _validate_layout(layout: Any, known: set[str], images: frozenset = frozenset()) -> None:
     """Check the JSON layout tree names only fields that exist."""
     if not isinstance(layout, list):
@@ -659,6 +732,7 @@ def validate_schema(document: Any, *, scope: str = "gc-sheet") -> dict:
                         "values, which are worked out after it"
                     ) from exc
                 raise
+        _validate_column_formulas(field_name, definition, fields, computed, images)
 
     content_types = _require_dict(document.get("content_types", {}), "'content_types'")
     if len(content_types) > MAX_CONTENT_TYPES:
@@ -904,7 +978,9 @@ def _coerce_rows(definition: dict, value: Any) -> list:
                 continue
             if key in row:
                 clean[key] = coerce_value(column, row[key])
-            elif "default" in column:
+            elif "default" in column and not column.get("default_from"):
+                # A derived column's `default` is only the formula's fallback;
+                # stored, it would be a value the formula never overrides.
                 clean[key] = coerce_value(column, column["default"])
             else:
                 clean[key] = coerce_value(column, None)
@@ -988,7 +1064,51 @@ def _build_context(document: dict, data: dict, entries: Optional[dict] = None) -
             field_type = definition.get("type", "text")
             derived = definition.get("default", _EMPTY_BY_TYPE.get(field_type, 0))
         context[field_name] = coerce_value(definition, derived)
+
+    for field_name, definition in fields.items():
+        derived_columns = _derived_columns(definition)
+        rows = context.get(field_name)
+        if derived_columns and isinstance(rows, list):
+            context[field_name] = _derive_rows(derived_columns, rows, context)
     return context
+
+
+def _derive_rows(columns: list[dict], rows: list, context: dict) -> list:
+    """Copies of a list's rows with their empty `default_from` cells worked out.
+
+    A cell is the player's once it holds anything: rows are stored with every
+    column, a blank one as ``None`` or ``""``, so an empty cell is what "not
+    set" means here and a typed ``0`` is a real value. The copies only ever go
+    into the context - the stored rows are left as they are, or the derived
+    value would freeze the first time the row was saved.
+    """
+    asts = {column["key"]: _parse_or_none(column["default_from"]) for column in columns}
+    derived_rows: list = []
+    for row in rows:
+        if not isinstance(row, dict):
+            derived_rows.append(row)
+            continue
+        scope = {**context, **row}
+        filled = dict(row)
+        for column in columns:
+            key = column["key"]
+            if row.get(key) not in (None, ""):
+                continue
+            ast = asts[key]
+            value = evaluate(ast, scope, default=None) if ast is not None else None
+            if value is None or value == "":
+                value = column.get("default")
+            filled[key] = coerce_value(column, value)
+        derived_rows.append(filled)
+    return derived_rows
+
+
+def _parse_or_none(source: Any) -> Optional[tuple]:
+    """A formula's AST, or None for one that does not parse."""
+    try:
+        return parse(source)
+    except EVALUATION_ERRORS:
+        return None
 
 
 #: Where a character's overrides of computed values are stored in its data.

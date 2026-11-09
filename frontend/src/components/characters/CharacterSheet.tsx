@@ -188,6 +188,7 @@ export default function CharacterSheet({
                         name={name}
                         definition={definition}
                         value={state.value}
+                        derivedValue={context[name]}
                         derived={!readOnly && state.derived}
                         onReset={
                           !readOnly && state.overridden && onReset ? () => onReset(name) : undefined

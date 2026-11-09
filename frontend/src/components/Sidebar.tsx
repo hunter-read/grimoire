@@ -285,8 +285,8 @@ export default function Sidebar({
             they are played in. */}
         {showRoleplaying && showWargaming && <div style={dividerStyle} />}
         {showWargaming && (
-          <div role="group" aria-label={t('nav.wargaming')}>
-            {!collapsed && <NavGroupHeader label={t('nav.wargaming')} />}
+          <div role="group" aria-label={`${t('nav.wargaming')} (${t('nav.beta')})`}>
+            {!collapsed && <NavGroupHeader label={t('nav.wargaming')} badge={t('nav.beta')} />}
             {!hide_armies &&
               navItem('/armies', <LuShield size={16} />, t('nav.armies'), { end: false })}
             {!hide_leagues &&

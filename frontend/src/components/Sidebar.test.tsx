@@ -194,30 +194,31 @@ describe('Sidebar navigation visibility', () => {
   it('heads the role-playing and wargaming links as two named groups', () => {
     renderSidebar()
     const roleplaying = screen.getByRole('group', { name: 'Role-playing' })
-    const wargaming = screen.getByRole('group', { name: 'Wargaming' })
+    // The wargaming pages are new, and say so to everyone, read aloud too.
+    const wargaming = screen.getByRole('group', { name: 'Wargaming (Beta)' })
     expect(within(roleplaying).getByRole('link', { name: 'Campaigns' })).toBeInTheDocument()
     expect(within(roleplaying).getByRole('link', { name: 'Characters' })).toBeInTheDocument()
     expect(within(wargaming).getByRole('link', { name: 'Armies' })).toBeInTheDocument()
     expect(within(wargaming).getByRole('link', { name: 'Leagues' })).toBeInTheDocument()
     // The visible headers, which the group names stand in for when read aloud.
     expect(screen.getByText('Role-playing')).toHaveAttribute('aria-hidden', 'true')
-    expect(screen.getByText('Wargaming')).toBeInTheDocument()
+    expect(screen.getByText('(Beta)').parentElement).toHaveTextContent('Wargaming(Beta)')
   })
 
   it('drops a group, header and all, when everything in it is hidden', () => {
     const { unmount } = renderSidebar({ uiSettings: { hide_armies: true, hide_leagues: true } })
-    expect(screen.queryByRole('group', { name: 'Wargaming' })).toBeNull()
-    expect(screen.queryByText('Wargaming')).toBeNull()
+    expect(screen.queryByRole('group', { name: /Wargaming/ })).toBeNull()
+    expect(screen.queryByText('(Beta)')).toBeNull()
     unmount()
     renderSidebar({ uiSettings: { hide_campaigns: true } })
     expect(screen.queryByRole('group', { name: 'Role-playing' })).toBeNull()
-    expect(screen.getByRole('group', { name: 'Wargaming' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Wargaming (Beta)' })).toBeInTheDocument()
   })
 
   it('keeps the groups but not their headers when collapsed', () => {
     renderSidebar({ collapsed: true })
-    expect(screen.getByRole('group', { name: 'Wargaming' })).toBeInTheDocument()
-    expect(screen.queryByText('Wargaming')).toBeNull()
+    expect(screen.getByRole('group', { name: 'Wargaming (Beta)' })).toBeInTheDocument()
+    expect(screen.queryByText('(Beta)')).toBeNull()
   })
 
   it('gives a guest the role-playing group alone', () => {

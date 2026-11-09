@@ -1,6 +1,7 @@
 import { createElement, Fragment, useEffect, useMemo } from 'react'
 import type { ReactNode } from 'react'
 import FieldRenderer from './FieldRenderer'
+import DerivedCell from './DerivedCell'
 import type { FieldDefinition } from './FieldRenderer'
 import { evaluate, isVisible, computedOverrides } from './expressions'
 import OverridableValue from './OverridableValue'
@@ -63,6 +64,8 @@ type OnChange = (name: string, value: unknown, meta?: unknown) => void
 // to write a cell back.
 interface RowScope {
   row: Values
+  // The row as the sheet reads it, its `default_from` cells worked out.
+  derivedRow: Values
   columns: Record<string, FieldDefinition>
   edit: (key: string, value: unknown) => void
 }
@@ -344,11 +347,12 @@ function renderDirective(node: LayoutNode, ctx: RenderContext): ReactNode {
       const scoped = rowScope?.columns?.[name]
       if (rowScope && scoped) {
         return (
-          <FieldRenderer
+          <DerivedCell
             key={key}
             name={name}
             definition={{ ...scoped, ...(attrs.label ? { label: attrs.label } : {}) }}
-            value={rowScope.row?.[name]}
+            stored={rowScope.row?.[name]}
+            worked={rowScope.derivedRow?.[name]}
             onChange={readOnly ? undefined : (value) => rowScope.edit(name, value)}
             readOnly={readOnly || attrs.readonly !== undefined}
             hideLabel={attrs.label === ''}
@@ -372,6 +376,7 @@ function renderDirective(node: LayoutNode, ctx: RenderContext): ReactNode {
           name={name}
           definition={{ ...definition, ...(attrs.label ? { label: attrs.label } : {}) }}
           value={state.value}
+          derivedValue={context?.[name]}
           derived={editable && state.derived}
           onReset={editable && state.overridden && onReset ? () => onReset(name) : undefined}
           onChange={
@@ -467,7 +472,8 @@ function renderDirective(node: LayoutNode, ctx: RenderContext): ReactNode {
         .filter((child) => child?.tag === 'g-tab')
         .filter((child) => isVisible(child.attrs?.visible_if, context))
         .map((child, index) => ({
-          title: child.attrs?.title || String(index + 1),
+          title:
+            titleFrom(child.attrs?.title_from, context) || child.attrs?.title || String(index + 1),
           content: renderChildren(child.children, { ...ctx, key: `${key}-p${index}` }),
         }))
       return <LayoutTabs key={key} tabs={tabs} scope={key} />
@@ -602,6 +608,10 @@ function renderDirective(node: LayoutNode, ctx: RenderContext): ReactNode {
       const listName = attrs.over
       const rows: unknown = data?.[listName]
       if (!Array.isArray(rows)) return null
+      // The context's copy of the rows has the `default_from` cells worked out.
+      // Conditions inside the repeat read that, so a <g-if test> on `age` sees
+      // the number the cell shows; edits go to the stored rows.
+      const derivedRows: unknown = context?.[listName]
 
       const listDefinition = fields[listName] || {}
       const columns = (listDefinition.columns || []) as FieldDefinition[]
@@ -615,6 +625,13 @@ function renderDirective(node: LayoutNode, ctx: RenderContext): ReactNode {
       return (
         <Fragment key={key}>
           {rows.map((row: Values | null, index: number) => {
+            const derivedRow = (
+              Array.isArray(derivedRows) &&
+              derivedRows[index] &&
+              typeof derivedRows[index] === 'object'
+                ? derivedRows[index]
+                : row || {}
+            ) as Values
             const editRow = (columnKey: string, cellValue: unknown) => {
               const next = rows.map((existing: Values, i: number) =>
                 i === index ? { ...existing, [columnKey]: cellValue } : existing
@@ -624,8 +641,8 @@ function renderDirective(node: LayoutNode, ctx: RenderContext): ReactNode {
             return renderChildren(node.children, {
               ...ctx,
               key: `${key}-${index}`,
-              context: { ...context, ...(row || {}), _index: index },
-              rowScope: { row: row || {}, columns: columnsByKey, edit: editRow },
+              context: { ...context, ...derivedRow, _index: index },
+              rowScope: { row: row || {}, derivedRow, columns: columnsByKey, edit: editRow },
             })
           })}
         </Fragment>
@@ -635,6 +652,22 @@ function renderDirective(node: LayoutNode, ctx: RenderContext): ReactNode {
     default:
       return null
   }
+}
+
+// The longest a tab's title may be once it comes from a field, so a long name
+// can't stretch the tab bar.
+const MAX_TAB_TITLE = 40
+
+// A tab's title worked out from its `title_from` expression, or '' when there
+// is none or it comes out empty - `title`, then the page number, take over.
+function titleFrom(source: unknown, context: Values): string {
+  if (!source) return ''
+  const value = evaluate(source, context, null)
+  if (value === null || value === undefined || value === false || typeof value === 'object') {
+    return ''
+  }
+  const text = String(value).trim()
+  return text.length > MAX_TAB_TITLE ? `${text.slice(0, MAX_TAB_TITLE - 1)}…` : text
 }
 
 function computedDefinition(
