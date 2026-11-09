@@ -167,7 +167,13 @@ def _rename_thumbnail_to_title(
         logger.debug("Could not rename thumbnail %s -> %s: %s", src, dest, e)
 
 
-def _detect_moves(ctx: _ScanContext, model: Any, gone: list, present: list) -> int:
+def _detect_moves(
+    ctx: _ScanContext,
+    model: Any,
+    gone: list,
+    present: list,
+    touched: Optional[set[str]] = None,
+) -> int:
     """Re-point rows whose file moved instead of leaving them missing (issue #284).
 
     Without this a move reads as a delete plus an insert: the old row is flagged
@@ -182,6 +188,10 @@ def _detect_moves(ctx: _ScanContext, model: Any, gone: list, present: list) -> i
     does. Rows are grouped by ``(content_hash, file_size)``, only destination rows
     qualify (see :func:`_is_destination`), and :func:`_pair_moves` decides which
     pairs within a group are unambiguous.
+
+    The rows may be loaded objects or the column rows the sweep reads; only a
+    matched pair is loaded in full, to be moved. ``touched``, when given, gets
+    the id of every row a committed move re-pointed or deleted.
     """
     session = ctx.session
     by_hash: dict[tuple, list] = {}
@@ -200,6 +210,7 @@ def _detect_moves(ctx: _ScanContext, model: Any, gone: list, present: list) -> i
             candidates.setdefault(key, []).append(record)
 
     moved = 0
+    moved_ids: set[str] = set()
     for key, old_rows in by_hash.items():
         new_rows = candidates.get(key, [])
         if not new_rows:
@@ -215,7 +226,8 @@ def _detect_moves(ctx: _ScanContext, model: Any, gone: list, present: list) -> i
                 len(pairs),
             )
         for old, new in pairs:
-            _apply_move(ctx, model, old, new)
+            moved_ids.update((old.id, new.id))
+            _apply_move(ctx, model, session.get(model, old.id), session.get(model, new.id))
             moved += 1
 
     if moved:
@@ -225,6 +237,8 @@ def _detect_moves(ctx: _ScanContext, model: Any, gone: list, present: list) -> i
             logger.error(f"DB error saving detected moves: {e}")
             session.rollback()
             return 0
+    if touched is not None:
+        touched.update(moved_ids)
     return moved
 
 

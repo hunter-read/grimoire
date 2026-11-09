@@ -26,6 +26,7 @@ Release candidates are omitted; their contents are rolled into the stable releas
 ### Changed
 
 - Grimoire calls itself a tabletop library rather than a TTRPG library, now that it holds wargames too
+- Rescanning a large library is much faster and lighter. A rescan that finds nothing new on a library of tens of thousands of maps and tokens takes seconds instead of minutes, makes far fewer database and status writes, and walks each folder once instead of three times - which matters most on a NAS or network mount. Making thumbnails of very large greyscale maps and poster-sized PDF pages takes a fraction of the memory it did. The scan's progress bar is now sized from what the last scan found, so files added since are counted as the scan reaches them
 - Reading a book's page text, re-indexing or re-OCRing a book, and deleting books are much faster on a large library. The first start after upgrading reorganises the search index once - a few minutes on a very large library, logged as it goes, and safe to interrupt - and needs about twice the index's disk space while it runs. Books already indexed stay searchable and are not re-read
 
 ### Fixed

@@ -656,6 +656,6 @@ ignore/                 # skip an entire folder
 !keep-this.pdf          # re-include a file an earlier rule excluded
 ```
 
-The full gitignore dialect is supported (`!` negation, `**` for arbitrary depth, anchoring with `/`), and rules apply to every collection: `books/`, `maps/`, `tokens/`, `audio/`, and `models/`. Changes take effect on the next scan. Adding a rule that matches an already-indexed file hides it (marked missing) on the next rescan; remove the rule and rescan to bring it back.
+The full gitignore dialect is supported (`!` negation, `**` for arbitrary depth, anchoring with `/`), and rules apply to every collection: `books/`, `maps/`, `tokens/`, `audio/`, and `models/`. Changes take effect on the next scan. Adding a rule that matches an already-indexed file hides it (marked missing) on the next rescan; remove the rule and rescan to bring it back. A `tags.json` inside an ignored folder is skipped along with the folder.
 
 ---

@@ -142,6 +142,27 @@ def _video_frame(filepath: str) -> Optional[bytes]:
     return video_first_frame(filepath)
 
 
+def _write_thumbnail(source: Any, output_path: str, size: tuple) -> None:
+    """Shrink the image at ``source`` (a path or a file object) into a WebP thumbnail.
+
+    An RGB or greyscale image is shrunk as it is decoded: ``thumbnail`` lets a
+    JPEG decoder scale by 2, 4 or 8 on the way in, so an 8,000-pixel battlemap
+    never exists in memory at full size. Converting it to RGB first, as this
+    used to, forced that full decode - 192 MB for the bitmap alone. Other modes
+    are still converted first: shrinking a palette image resamples it nearest-
+    neighbour, and an alpha one premultiplied, so neither would look the same.
+
+    Decompression-bomb checks still happen at open, before any of this.
+    """
+    with Image.open(source) as img:
+        shrunk: Image.Image = img if img.mode in ("RGB", "L") else img.convert("RGB")
+        shrunk.thumbnail(size, Image.Resampling.LANCZOS)
+        if shrunk.mode != "RGB":
+            shrunk = shrunk.convert("RGB")
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        shrunk.save(output_path, "WEBP", quality=80)
+
+
 def _generate_thumbnail_task(
     filepath: str, output_path: str, size: tuple, result: list, exc: list
 ) -> None:
@@ -149,35 +170,18 @@ def _generate_thumbnail_task(
     try:
         ext = Path(filepath).suffix.lower()
         arc_ext = archive_ext(filepath)
+        source: Any
         if arc_ext in _COMIC_ARCHIVE_EXTS:
-            data = _first_image_from_archive(filepath, arc_ext)
-            if data is None:
-                result[0] = False
-                return
-            img: Image.Image = Image.open(io.BytesIO(data))
-            if img.mode != "RGB":
-                img = img.convert("RGB")
+            source = _first_image_from_archive(filepath, arc_ext)
         elif ext in VTT_DATA_EXTS:
             # A Universal VTT file carries its battlemap as base64 inside the
             # JSON envelope, so a real cover can be produced without decoding
             # anything.
-            data = _vtt_embedded_image(filepath)
-            if data is None:
-                result[0] = False
-                return
-            img = Image.open(io.BytesIO(data))
-            if img.mode != "RGB":
-                img = img.convert("RGB")
+            source = _vtt_embedded_image(filepath)
         elif ext in MAP_VIDEO_EXTS:
             # Animated battlemaps decode to a single frame via the bundled
             # decode-only ffmpeg; from there they are an ordinary still image.
-            data = _video_frame(filepath)
-            if data is None:
-                result[0] = False
-                return
-            img = Image.open(io.BytesIO(data))
-            if img.mode != "RGB":
-                img = img.convert("RGB")
+            source = _video_frame(filepath)
         elif ext in MODEL_THUMBNAIL_EXTS:
             # A 3D mesh has no decoder to borrow, but STL is a bare triangle
             # list, so it is rasterised in-process to a plain RGB buffer — no
@@ -189,17 +193,20 @@ def _generate_thumbnail_task(
                 result[0] = False
                 return
             img = Image.frombytes("RGB", (size[0], size[0]), raw)
+            img.thumbnail(size, Image.Resampling.LANCZOS)
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            img.save(output_path, "WEBP", quality=80)
+            result[0] = True
+            return
         elif ext in IMAGE_EXTS:
-            img = Image.open(filepath)
-            if img.mode != "RGB":
-                img = img.convert("RGB")
+            source = filepath
         else:
             result[0] = False
             return
-
-        img.thumbnail(size, Image.Resampling.LANCZOS)
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        img.save(output_path, "WEBP", quality=80)
+        if source is None:
+            result[0] = False
+            return
+        _write_thumbnail(source if isinstance(source, str) else io.BytesIO(source), output_path, size)
         result[0] = True
     except Exception as e:
         exc[0] = e

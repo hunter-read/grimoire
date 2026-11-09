@@ -146,6 +146,50 @@ def _handle_replaced_book(ctx: _ScanContext, book: Book, filepath: str, filename
     ctx.stats["replaced_books"] = ctx.stats.get("replaced_books", 0) + 1
 
 
+# The columns ``_registered_and_complete`` reads, which is all a rescan of an
+# unchanged book needs from the database.
+SKIP_COLUMNS = (
+    Book.id,
+    Book.filepath,
+    Book.game_system_id,
+    Book.scan_failed,
+    Book.has_thumbnail,
+    Book.page_count,
+    Book.index_error,
+    Book.file_mtime,
+    Book.file_size,
+    Book.content_hash,
+)
+
+
+def _registered_and_complete(
+    ctx: _ScanContext, row: Any, system: GameSystem, filepath: str, ext: str, arc_ext: str
+) -> bool:
+    """Whether ``_register_book`` would leave this registered book exactly as it is.
+
+    Asked of the looked-up columns (``SKIP_COLUMNS``) so the common case - a
+    book nothing has happened to - never loads the row. Each test is one
+    ``_register_book`` makes before it writes anything; any that might lead to a
+    write answers False, and the book goes through ``_register_book`` in full.
+    """
+    if row.game_system_id != system.id or ctx.metadata_mode in ("missing", "replace"):
+        return False
+    signature = file_signature(filepath)
+    # An unstattable file is not refreshed there either.
+    if signature is not None and not signature_matches(row, *signature):
+        return False
+    if row.scan_failed:
+        return True
+    thumbnailable = ext in IMAGE_EXTS or can_thumbnail(ext) or arc_ext in _COMIC_ARCHIVE_EXTS
+    countable = has_page_count(ext) or arc_ext in _COMIC_ARCHIVE_EXTS
+    if thumbnailable and not row.has_thumbnail:
+        return False
+    if countable and row.page_count == 0 and not row.index_error:
+        return False
+    # An image book still at page_count 0 is corrected to 1 on its way past.
+    return not (ext in IMAGE_EXTS and row.page_count == 0)
+
+
 def _register_book(
     ctx: _ScanContext,
     existing: Optional[Book],

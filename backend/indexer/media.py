@@ -19,8 +19,15 @@ from typing import AbstractSet, Any, Callable, Optional
 from sqlalchemy.exc import IntegrityError
 
 from backend import indexer  # package namespace, for patch-sensitive calls
-from ._context import _ScanContext, _prune_dirs, _readable_name, _title_from_filename
-from ._db import DatabaseBusyError, _db_call
+from ._context import (
+    _ScanContext,
+    _prune_dirs,
+    _readable_name,
+    _title_from_filename,
+    list_thumbnail_hashes,
+    path_hash,
+)
+from ._db import DatabaseBusyError, _db_call, lookup_by_path
 from .added_dates import added_at_for_insert
 from .constants import (
     AUDIO_EXTS,
@@ -34,6 +41,7 @@ from .hashing import file_signature, hash_file
 from .metadata import _find_folder_artwork, _read_audio_metadata
 from .models3d import THUMBNAILABLE_EXTS as MODEL_THUMBNAIL_EXTS
 from .thumbnails import archive_ext
+from ..library_ignore import IgnoreMatcher
 from ..models import Audio
 
 logger = logging.getLogger("grimoire.indexer")
@@ -47,13 +55,18 @@ def _thumbnail_on_disk(ctx: _ScanContext, section: str, title: str, filepath: st
     time, so a renamed file's thumbnail is on disk under a name this scan would
     not compose. Checking only the composed name would therefore re-render a
     file that is sitting right there.
-    """
-    import glob as _glob
-    import hashlib as _hashlib
 
-    fhash = _hashlib.md5(filepath.encode()).hexdigest()[:8]
-    pattern = os.path.join(ctx.thumb_dir, section, f"*_{fhash}.webp")
-    return bool(_glob.glob(pattern))
+    Answered from the scan's one listing of the section (see
+    ``_ScanContext.thumbnail_hashes``). Anything else carrying a ``thumb_dir``
+    lists the directory afresh.
+    """
+    cached = getattr(ctx, "thumbnail_hashes", None)
+    hashes = (
+        cached(section)
+        if cached is not None
+        else list_thumbnail_hashes(os.path.join(ctx.thumb_dir, section))
+    )
+    return path_hash(filepath) in hashes
 
 
 def _needs_thumbnail_backfill(existing: Any, ext: str, arc_ext: str) -> bool:
@@ -98,6 +111,48 @@ def _needs_model_thumbnail_requeue(existing: Any, ext: str) -> bool:
     return not getattr(existing, "thumbnail_pending", False)
 
 
+def _candidates(
+    root: str, files: list[str], exts: AbstractSet[str], ignore: IgnoreMatcher
+) -> list[tuple[str, str, str, str]]:
+    """The files in one walked directory that belong to the collection.
+
+    ``(filename, filepath, ext, arc_ext)`` for each, in name order: not hidden,
+    a readable name, a collection extension or a media archive, and not
+    excluded by ``.grimoireignore``.
+    """
+    kept = []
+    for filename in sorted(files):
+        if filename.startswith(".") or not _readable_name(root, filename):
+            continue
+        filepath = os.path.join(root, filename)
+        ext = Path(filename).suffix.lower()
+        # archive_ext handles two-part suffixes (.tar.gz) that Path.suffix
+        # cannot, so match on it rather than on `ext`.
+        arc_ext = archive_ext(filename)
+        if ext not in exts and arc_ext not in MEDIA_ARCHIVE_EXTS:
+            continue
+        if ignore.is_ignored(filepath, is_dir=False):
+            logger.debug("Ignored by .grimoireignore: %s", filepath)
+            continue
+        kept.append((filename, filepath, ext, arc_ext))
+    return kept
+
+
+def _existing_needs_work(
+    ctx: _ScanContext, section: str, title: str, filepath: str, row: Any, ext: str, arc_ext: str
+) -> bool:
+    """Whether a registered media row needs anything from this scan.
+
+    The same three questions the existing-row branch of ``_scan_media`` asks,
+    put to the looked-up columns, so the usual answer - nothing - costs no load.
+    """
+    if _needs_model_thumbnail_requeue(row, ext):
+        return True
+    if getattr(row, "has_thumbnail", False) and not arc_ext:
+        return not _thumbnail_on_disk(ctx, section, title, filepath)
+    return _needs_thumbnail_backfill(row, ext, arc_ext)
+
+
 def _scan_media(
     ctx: _ScanContext,
     walk_dir: Path,
@@ -124,49 +179,79 @@ def _scan_media(
     session = ctx.session
     ignore = ctx.ignore
     stats = ctx.stats
+    singular = section[:-1]
+    columns = [model.id, model.filepath, model.has_thumbnail]
+    if hasattr(model, "thumbnail_pending"):
+        columns.append(model.thumbnail_pending)
+    # Checked once: the per-file debug lines are otherwise formatted for every
+    # file of every rescan, with nobody reading them.
+    debug = logger.isEnabledFor(logging.DEBUG)
     for root, dirs, files in os.walk(walk_dir):
         dirs[:] = _prune_dirs(root, dirs, ignore)
+        if "tags.json" in files:
+            ctx.tags_json_dirs.setdefault(section, []).append(root)
 
-        for filename in sorted(files):
-            if filename.startswith(".") or not _readable_name(root, filename):
-                continue
+        candidates = _candidates(root, files, exts, ignore)
+        if not candidates:
+            continue
 
-            filepath = os.path.join(root, filename)
-            ext = Path(filename).suffix.lower()
-            # archive_ext handles two-part suffixes (.tar.gz) that Path.suffix
-            # cannot, so match on it rather than on `ext`.
-            arc_ext = archive_ext(filename)
+        # The directory's registered rows in one query, as the few columns the
+        # skip decision reads. A whole row is loaded only for the rare file
+        # that needs a write, so a rescan of an unchanged folder hydrates none.
+        known: Optional[dict[str, Any]]
+        try:
+            known = lookup_by_path(
+                _db_call, session, columns, [c[1] for c in candidates], f"query {singular}"
+            )
+        except DatabaseBusyError:
+            logger.error(
+                "The database stayed locked looking up %d %s in '%s' - skipping them",
+                len(candidates),
+                section,
+                root,
+            )
+            known = None
 
-            if ext not in exts and arc_ext not in MEDIA_ARCHIVE_EXTS:
-                continue
-
-            if ignore.is_ignored(filepath, is_dir=False):
-                logger.debug(f"Ignored by .grimoireignore: {filepath}")
-                continue
-
+        for filename, filepath, ext, arc_ext in candidates:
             ctx.scanned[section] += 1
+            ctx.saw(section, filepath)
             ctx.emit_progress()
             if ctx.stop_requested():
-                logger.debug(f"scan_library: stop requested during {section} scan.")
+                logger.debug("scan_library: stop requested during %s scan.", section)
                 return
-
-            relative_path = os.path.relpath(filepath, ctx.library_path)
-            singular = section[:-1]
-
-            logger.debug(
-                f"Scanning {singular} ({ctx.scanned[section]}/{ctx.totals[section]}): {filepath}"
-            )
-            logger.debug(f"DB: querying existing {singular} '{filepath}'")
-            try:
-                existing = _db_call(
-                    lambda: session.query(model).filter_by(filepath=filepath).first(),
-                    f"query {singular} '{filepath}'",
-                )
-            except DatabaseBusyError as e:
-                logger.error(f"DB error: {e} - skipping '{filename}'")
+            if known is None:
                 stats["errors"] += 1
                 continue
+
+            relative_path = os.path.relpath(filepath, ctx.library_path)
+            if debug:
+                logger.debug(
+                    "Scanning %s (%d/%d): %s",
+                    singular,
+                    ctx.scanned[section],
+                    ctx.totals[section],
+                    filepath,
+                )
             title = _title_from_filename(filename)
+
+            row = known.get(filepath)
+            existing = None
+            if row is not None:
+                if not _existing_needs_work(ctx, section, title, filepath, row, ext, arc_ext):
+                    if debug:
+                        logger.debug("Already registered, skipping: %s", filename)
+                    continue
+                try:
+                    existing = _db_call(
+                        lambda: session.get(model, row.id), f"query {singular} '{filepath}'"
+                    )
+                except DatabaseBusyError as e:
+                    logger.error(f"DB error: {e} - skipping '{filename}'")
+                    stats["errors"] += 1
+                    continue
+                if existing is None:
+                    # Deleted since the directory was looked up.
+                    continue
 
             if existing:
                 # Backfill a thumbnail for a record registered before its format
@@ -203,6 +288,7 @@ def _scan_media(
                         filepath, thumb_path, size=thumb_size, should_stop=ctx.should_stop
                     ):
                         existing.has_thumbnail = True
+                        ctx.note_thumbnail(section, filepath)
                         try:
                             _db_call(session.commit, f"commit {singular} thumbnail '{filepath}'")
                             stats[f"updated_{section}"] += 1
@@ -245,6 +331,7 @@ def _scan_media(
                     filepath, thumb_path, size=thumb_size, should_stop=ctx.should_stop
                 ):
                     record.has_thumbnail = True
+                    ctx.note_thumbnail(section, filepath)
                 elif ext in MODEL_THUMBNAIL_EXTS:
                     # A mesh judged small enough to rasterise inline still runs
                     # against the scan's 30s budget, and that budget is sized for
@@ -306,50 +393,69 @@ def _scan_audio(ctx: _ScanContext, walk_dir: Path) -> None:
     session = ctx.session
     ignore = ctx.ignore
     stats = ctx.stats
+    debug = logger.isEnabledFor(logging.DEBUG)
     for root, dirs, files in os.walk(walk_dir):
         dirs[:] = _prune_dirs(root, dirs, ignore)
+        if "tags.json" in files:
+            ctx.tags_json_dirs.setdefault("audio", []).append(root)
 
-        for filename in sorted(files):
-            if filename.startswith(".") or not _readable_name(root, filename):
-                continue
+        candidates = _candidates(root, files, AUDIO_EXTS, ignore)
+        if not candidates:
+            continue
 
-            filepath = os.path.join(root, filename)
-            ext = Path(filename).suffix.lower()
-            arc_ext = archive_ext(filename)
+        # One query for the directory - see the same step in _scan_media.
+        known: Optional[dict[str, Any]]
+        try:
+            known = lookup_by_path(
+                _db_call,
+                session,
+                (Audio.id, Audio.filepath, Audio.track_number),
+                [c[1] for c in candidates],
+                "query audio",
+            )
+        except DatabaseBusyError:
+            logger.error(
+                "The database stayed locked looking up %d audio file(s) in '%s' - skipping them",
+                len(candidates),
+                root,
+            )
+            known = None
 
-            if ext not in AUDIO_EXTS and arc_ext not in MEDIA_ARCHIVE_EXTS:
-                continue
-
-            if ignore.is_ignored(filepath, is_dir=False):
-                logger.debug(f"Ignored by .grimoireignore: {filepath}")
-                continue
-
+        for filename, filepath, _ext, arc_ext in candidates:
             ctx.scanned["audio"] += 1
+            ctx.saw("audio", filepath)
             ctx.emit_progress()
             if ctx.stop_requested():
                 logger.debug("scan_library: stop requested during audio scan.")
                 return
-
-            relative_path = os.path.relpath(filepath, ctx.library_path)
-
-            logger.debug(
-                f"Scanning audio ({ctx.scanned['audio']}/{ctx.totals['audio']}): {filepath}"
-            )
-            logger.debug(f"DB: querying existing audio '{filepath}'")
-            try:
-                existing = _db_call(
-                    lambda: session.query(Audio).filter_by(filepath=filepath).first(),
-                    f"query audio '{filepath}'",
-                )
-            except DatabaseBusyError as e:
-                logger.error(f"DB error: {e} - skipping '{filename}'")
+            if known is None:
                 stats["errors"] += 1
                 continue
-            if existing:
-                if existing.track_number is None:
+
+            relative_path = os.path.relpath(filepath, ctx.library_path)
+            if debug:
+                logger.debug(
+                    "Scanning audio (%d/%d): %s",
+                    ctx.scanned["audio"],
+                    ctx.totals["audio"],
+                    filepath,
+                )
+            row = known.get(filepath)
+            if row is not None:
+                if row.track_number is not None:
+                    if debug:
+                        logger.debug("Already registered, skipping: %s", filename)
+                    continue
+                try:
+                    existing = _db_call(
+                        lambda: session.get(Audio, row.id), f"query audio '{filepath}'"
+                    )
+                except DatabaseBusyError as e:
+                    logger.error(f"DB error: {e} - skipping '{filename}'")
+                    stats["errors"] += 1
+                    continue
+                if existing is not None:
                     _backfill_track_numbers(ctx, existing, filepath, bool(arc_ext))
-                else:
-                    logger.debug(f"Already registered, skipping: {filename}")
                 continue
 
             signature = file_signature(filepath)

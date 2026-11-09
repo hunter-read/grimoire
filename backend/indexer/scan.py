@@ -20,16 +20,17 @@ namespace, so ``patch("backend.indexer.scan.<name>")`` and attribute access on
 """
 import logging
 from pathlib import Path
-from typing import Callable, Optional
+from typing import AbstractSet, Any, Callable, Optional
 
 from sqlalchemy.orm import Session
 
 from ..library_ignore import IgnoreMatcher
-from ..models import GenericMap, Model3D, Token
+from ..models import Audio, Book, GenericMap, Model3D, Token
 from ..models.game_types import ARMORY_SECTION, GAME_TYPE_WARGAME
 from ._context import (  # noqa: F401  (re-exported: patched as backend.indexer.scan.<name>)
     _ScanContext,
     _count_eligible_files,
+    _count_registered,
     _keep_entry,
     _prune_dirs,
     _title_from_filename,
@@ -194,34 +195,40 @@ def scan_library(
     audio_walk_dir = walk_dir("audio", audio_dir)
     models_walk_dir = walk_dir("models", models_dir)
 
-    def count_books(walk: Path) -> int:
-        return _count_eligible_files(
-            walk, DOC_EXTS | IMAGE_EXTS | ARCHIVE_EXTS, ignore, skip_exported_covers=True
+    def count(model: Any, walk: Path, extensions: AbstractSet[str], **kw: Any) -> int:
+        """The progress total for one walk, without walking it when that can be helped.
+
+        A rescan takes it from the rows the last scan left under ``walk``. Only
+        when there are none - the library's first import - is the tree walked
+        to count it, and that scan is busy hashing and thumbnailing every file,
+        so the extra walk is small beside it.
+        """
+        if not walk.exists():
+            return 0
+        return _count_registered(session, model, walk) or _count_eligible_files(
+            walk, extensions, ignore, **kw
         )
+
+    def count_books(walk: Path) -> int:
+        return count(Book, walk, DOC_EXTS | IMAGE_EXTS | ARCHIVE_EXTS, skip_exported_covers=True)
 
     totals = {
         # Armory books are books: they count, and report progress, with books/.
-        "books": (count_books(books_walk_dir) if scan_books and books_walk_dir.exists() else 0)
-        + (count_books(armory_walk_dir) if scan_armory and armory_walk_dir.exists() else 0),
+        "books": (count_books(books_walk_dir) if scan_books else 0)
+        + (count_books(armory_walk_dir) if scan_armory else 0),
         "maps": (
-            _count_eligible_files(maps_walk_dir, MAP_IMAGE_EXTS | MEDIA_ARCHIVE_EXTS, ignore)
-            if scan_maps and maps_walk_dir.exists()
+            count(GenericMap, maps_walk_dir, MAP_IMAGE_EXTS | MEDIA_ARCHIVE_EXTS)
+            if scan_maps
             else 0
         ),
         "tokens": (
-            _count_eligible_files(tokens_walk_dir, IMAGE_EXTS | MEDIA_ARCHIVE_EXTS, ignore)
-            if scan_tokens and tokens_walk_dir.exists()
-            else 0
+            count(Token, tokens_walk_dir, IMAGE_EXTS | MEDIA_ARCHIVE_EXTS) if scan_tokens else 0
         ),
         "audio": (
-            _count_eligible_files(audio_walk_dir, AUDIO_EXTS | MEDIA_ARCHIVE_EXTS, ignore)
-            if scan_audio and audio_walk_dir.exists()
-            else 0
+            count(Audio, audio_walk_dir, AUDIO_EXTS | MEDIA_ARCHIVE_EXTS) if scan_audio else 0
         ),
         "models": (
-            _count_eligible_files(models_walk_dir, MODEL_EXTS | MEDIA_ARCHIVE_EXTS, ignore)
-            if scan_models and models_walk_dir.exists()
-            else 0
+            count(Model3D, models_walk_dir, MODEL_EXTS | MEDIA_ARCHIVE_EXTS) if scan_models else 0
         ),
     }
 
@@ -243,30 +250,35 @@ def scan_library(
         reconciled_at=reconciled_at(session),
     )
 
-    ctx.emit_progress()
+    ctx.emit_progress(force=True)
 
     if scan_books and books_dir.exists():
         _scan_books(ctx, books_dir)
+        ctx.emit_progress(force=True)
         if ctx.stop_requested():
             return stats
 
     if scan_armory and armory_dir.exists():
         _scan_books(ctx, armory_dir, GAME_TYPE_WARGAME)
+        ctx.emit_progress(force=True)
         if ctx.stop_requested():
             return stats
 
     if scan_maps and maps_walk_dir.exists():
         _scan_media(ctx, maps_walk_dir, "maps", MAP_IMAGE_EXTS, GenericMap, (300, 400))
+        ctx.emit_progress(force=True)
         if ctx.stop_requested():
             return stats
 
     if scan_tokens and tokens_walk_dir.exists():
         _scan_media(ctx, tokens_walk_dir, "tokens", IMAGE_EXTS, Token, (200, 200))
+        ctx.emit_progress(force=True)
         if ctx.stop_requested():
             return stats
 
     if scan_audio and audio_walk_dir.exists():
         _scan_audio(ctx, audio_walk_dir)
+        ctx.emit_progress(force=True)
         if ctx.stop_requested():
             return stats
 
@@ -282,10 +294,15 @@ def scan_library(
             (300, 300),
             enrich=_enrich_model,
         )
+        ctx.emit_progress(force=True)
         if ctx.stop_requested():
             return stats
 
-    _apply_tags_from_library(library_path, session, scope_dir=scope_dir)
+    # The walks noted each tags.json they passed, so this reads those files
+    # rather than walking the media tree a second time.
+    _apply_tags_from_library(
+        library_path, session, scope_dir=scope_dir, tags_dirs=ctx.tags_json_dirs
+    )
 
     # --- Write sidecars for the books this scan added ---
     # After tags, deliberately: tags.json is applied above, and a sidecar written

@@ -8,7 +8,7 @@ import os
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator, Optional
 
 from sqlalchemy.orm import Session
 
@@ -104,12 +104,29 @@ def _within_scope(path: Path, scope_dir: Path | None) -> bool:
         return False
 
 
+def _folders_with_tags_json(section_dir: Path) -> Iterator[str]:
+    """Every folder under ``section_dir`` holding a ``tags.json``, in walk order."""
+    for root, dirs, files in os.walk(section_dir):
+        # Names that are not UTF-8 were already reported by the walk that
+        # skipped them, and a folder path holding one cannot be queried.
+        dirs[:] = [d for d in dirs if not d.startswith(".") and not is_undecodable(d)]
+        if "tags.json" in files:
+            yield root
+
+
 def _apply_tags_from_library(
-    library_path: str, session: Session, scope_dir: Path | None = None
+    library_path: str,
+    session: Session,
+    scope_dir: Path | None = None,
+    tags_dirs: Optional[dict[str, list[str]]] = None,
 ) -> None:
     """Apply tags declared in tags.json files throughout the library tree.
 
     When `scope_dir` is given, only tags.json files within that subtree are applied.
+
+    ``tags_dirs`` is what a scan passes: the folders its walks found a
+    ``tags.json`` in, per section. Those are read and the media tree is not
+    walked again. Without it the tree is walked to find them.
     """
     library = Path(library_path)
 
@@ -136,15 +153,13 @@ def _apply_tags_from_library(
 
         folder_model, file_model = _section_models[section]
 
-        for root, dirs, files in os.walk(section_dir):
-            # Names that are not UTF-8 were already reported by the walk that
-            # skipped them, and a folder path holding one cannot be queried.
-            dirs[:] = [d for d in dirs if not d.startswith(".") and not is_undecodable(d)]
-
+        roots = (
+            tags_dirs.get(section, [])
+            if tags_dirs is not None
+            else _folders_with_tags_json(section_dir)
+        )
+        for root in roots:
             if not _within_scope(Path(root), scope_dir):
-                continue
-
-            if "tags.json" not in files:
                 continue
 
             tag_map = _load_tags_json(root)

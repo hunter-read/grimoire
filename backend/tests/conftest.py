@@ -207,6 +207,27 @@ def _reset_client_cookies(client):
     yield
 
 
+@pytest.fixture(autouse=True)
+def _unthrottled_scan_status():
+    """Let a scan ask ``should_stop`` and report progress on every file.
+
+    A real scan reuses each answer for half a second (see
+    ``backend.indexer._context.STATUS_INTERVAL``), but a test library is walked
+    in far less than that, and the stop tests count calls per file. The tests of
+    the throttle itself set it back.
+
+    Set by hand rather than through ``monkeypatch``: requesting that here would
+    create it before every test's own fixtures, and undo its patches only after
+    their teardown has run.
+    """
+    from backend.indexer import _context
+
+    saved = _context.STATUS_INTERVAL
+    _context.STATUS_INTERVAL = 0.0
+    yield
+    _context.STATUS_INTERVAL = saved
+
+
 # ---------------------------------------------------------------------------
 # Bootstrap admin (runs once per session via /api/auth/setup)
 # ---------------------------------------------------------------------------
