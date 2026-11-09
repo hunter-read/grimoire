@@ -33,14 +33,16 @@ const setup = (props: Partial<Parameters<typeof ThumbIndex>[0]> = {}) => {
   return { onJump, nav, tabs: within(nav).getAllByRole('link') }
 }
 
-// jsdom never matches :focus-visible; a browser does for keyboard focus, which
-// is what these tests stand in for.
-const keyboardFocus = () => {
+// jsdom matches :focus-visible for any programmatic focus() and has no pointer
+// heuristic, so pin it to say which kind of focus a test stands in for.
+const focusVisible = (visible: boolean) => {
   const matches = Element.prototype.matches
   vi.spyOn(Element.prototype, 'matches').mockImplementation(function (this: Element, sel) {
-    return sel === ':focus-visible' ? true : matches.call(this, sel)
+    return sel === ':focus-visible' ? visible : matches.call(this, sel)
   })
 }
+const keyboardFocus = () => focusVisible(true)
+const pointerFocus = () => focusVisible(false)
 
 let height = 0
 beforeEach(() => {
@@ -192,6 +194,7 @@ describe('ThumbIndex', () => {
   })
 
   it('opens no preview when a pointer press focuses a letter', () => {
+    pointerFocus()
     const { tabs } = setup()
     act(() => tabs[0].focus())
     expect(screen.queryByText('Abyssal Maps')).not.toBeInTheDocument()

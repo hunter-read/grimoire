@@ -63,7 +63,7 @@ describe('BookGroup', () => {
     renderGroup()
 
     const header = screen.getByRole('button', { name: /achtung/i })
-    expect(header).toHaveStyle({ color: 'var(--text)' })
+    expect(header.style.color).toBe('var(--text)')
   })
 
   it('sets an explicit colour on the shared card style', () => {

@@ -22,7 +22,7 @@ describe('VariantBadge', () => {
     const { container } = render(
       <VariantBadge item={{ variant_count: 1, variant_kinds: ['video'] }} />
     )
-    expect(container.querySelector('span')).toHaveStyle({ color: 'var(--variant)' })
+    expect(container.querySelector('span')?.style.color).toBe('var(--variant)')
   })
 
   it('falls back to a muted count when no kind was recorded', () => {
@@ -30,7 +30,7 @@ describe('VariantBadge', () => {
     // The count includes the item itself: 2 others = 3 versions.
     expect(screen.getByLabelText('3 versions')).toBeInTheDocument()
     expect(screen.getByText('3')).toBeInTheDocument()
-    expect(container.querySelector('span')).toHaveStyle({ color: 'var(--text-muted)' })
+    expect(container.querySelector('span')?.style.color).toBe('var(--text-muted)')
   })
 
   it('falls back when variant_kinds is absent entirely (older payload)', () => {

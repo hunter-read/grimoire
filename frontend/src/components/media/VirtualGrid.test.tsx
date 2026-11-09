@@ -132,7 +132,7 @@ describe('VirtualGrid', () => {
     const rows = [...container.querySelectorAll<HTMLElement>('[data-index]')]
     expect(rows).toHaveLength(2)
     for (const row of rows) {
-      expect(row.style.gridTemplateColumns).toBe('repeat(1, minmax(0, 1fr))')
+      expect(row.style.gridTemplateColumns).toBe('repeat(1, minmax(0px, 1fr))')
     }
   })
 

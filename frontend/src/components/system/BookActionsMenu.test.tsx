@@ -455,7 +455,7 @@ describe('BookActionsMenu', () => {
   it('marks the trigger active when the book is being edited', () => {
     renderMenu({}, { editing: true })
     const trigger = screen.getByLabelText('a11y.bookActions')
-    expect(trigger).toHaveStyle({ color: 'var(--gold)' })
+    expect(trigger.style.color).toBe('var(--gold)')
   })
 
   describe('file actions', () => {
