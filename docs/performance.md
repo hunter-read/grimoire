@@ -139,6 +139,16 @@ page are built for libraries of a few hundred thousand files:
   so revisiting a gallery or scrolling back re-uses the images already
   downloaded rather than re-fetching every one.
 
+Rescans are built for the same size. A rescan walks each collection once and
+looks each folder up in the database with a single query, reads only the rows
+that changed, and reports progress about twice a second rather than per file.
+On a library of tens of thousands of maps and tokens, a rescan that finds
+nothing new takes seconds. The progress bar is sized from what the last scan
+found, so the first import is the only one that counts the files first. While
+a scan runs, its own database connection does not wait for the disk at each
+commit: a power cut during a scan can lose its last few files, which the next
+scan finds again, but cannot damage the database.
+
 The database work behind these views is indexed: on a test library of 187,000
 tokens, 18,000 maps, and a single system holding 30,000 books, every browse
 request answers in well under half a second. Upgrading to the release that

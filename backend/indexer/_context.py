@@ -15,18 +15,57 @@ four phases need them.
 import datetime
 import hashlib
 import os
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import AbstractSet, Callable, Optional
+from typing import AbstractSet, Any, Callable, Optional
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..filenames import is_undecodable, warn_skipped
 from ..library_ignore import IgnoreMatcher
+from ..sql_paths import path_under
 from ..services.filename_rules.folders import RuleSet, rule_set
 from .categories import slugify
 from .metadata import is_exported_cover_name
 from .thumbnails import archive_ext
+
+
+# How long, in seconds, a scan reuses its last stop answer and holds back its
+# next progress report. A walk visits thousands of files a second when nothing
+# has changed, and each ask is a status read (a Valkey round trip, or a stat of
+# the stop file) while each report is three more. Half a second is finer than
+# the admin page polls, and matches how often a thumbnail wait checks for a
+# stop anyway.
+STATUS_INTERVAL = 0.5
+# Progress is also reported once this many more files have been walked, so a
+# slow walk's bar still moves on every hundred files.
+_PROGRESS_STEP = 100
+
+
+def throttled(should_stop: Callable[[], bool], interval: float) -> Callable[[], bool]:
+    """``should_stop``, asked at most once per ``interval`` seconds.
+
+    In between, the last answer is reused. A True is never re-asked: once a stop
+    has been seen it stands, so every check after it agrees.
+    """
+    if interval <= 0:
+        return should_stop
+    asked_at = float("-inf")
+    answer = False
+
+    def check() -> bool:
+        nonlocal asked_at, answer
+        if answer:
+            return True
+        now = time.monotonic()
+        if now - asked_at >= interval:
+            answer = bool(should_stop())
+            asked_at = now
+        return answer
+
+    return check
 
 
 def _readable_name(root: str, name: str, *, warn: bool = True) -> bool:
@@ -75,6 +114,24 @@ def _keep_entry(path: Path, ignore: Optional[IgnoreMatcher], *, is_dir: bool) ->
         not path.name.startswith(".")
         and _readable_name(str(path.parent), path.name)
         and not (ignore and ignore.is_ignored(str(path), is_dir=is_dir))
+    )
+
+
+def _count_registered(session: Session, model: Any, walk_dir: Path) -> int:
+    """How many rows the last scan left present under ``walk_dir``: its file count.
+
+    What a rescan uses as its progress total, in place of walking the tree an
+    extra time just to count it. It is off by whatever changed since, and the
+    reported total never drops below the count walked (see ``emit_progress``).
+    """
+    return int(
+        session.query(func.count(model.id))
+        .filter(
+            path_under(model.filepath, f"{walk_dir}{os.sep}"),
+            model.is_missing.isnot(True),
+        )
+        .scalar()
+        or 0
     )
 
 
@@ -153,32 +210,103 @@ class _ScanContext:
     # When the last complete missing-file sweep began (naive UTC), or None.
     # Rows created after it may still be the new half of a move - see ``moves``.
     reconciled_at: Optional[datetime.datetime] = None
+    # Every path each walk registered or confirmed, per section, recorded after
+    # its ignore check. The missing-file sweep reads a row in here as present
+    # without a stat - see ``reconcile``. Paths only: about 6 MB for 50,000.
+    seen_paths: dict[str, set[str]] = field(default_factory=dict)
+    # The folders each media walk found a ``tags.json`` in, in walk order, so
+    # applying them needs no second walk of the tree - see ``tags``.
+    tags_json_dirs: dict[str, list[str]] = field(default_factory=dict)
+    # Seconds between real stop checks and progress reports. Read when the
+    # context is built, so a test can set ``STATUS_INTERVAL`` - see
+    # ``__post_init__`` and ``emit_progress``.
+    status_interval: float = field(default_factory=lambda: STATUS_INTERVAL)
+    _last_emit_at: float = field(default=float("-inf"), init=False, repr=False)
+    _last_emit_done: int = field(default=0, init=False, repr=False)
     # Folder naming patterns (issue #521), loaded on first use: most libraries
     # have none, and a scan that inserts no books never needs them.
     _naming: Optional[RuleSet] = field(default=None, init=False, repr=False)
+    # Path hashes of the thumbnails on disk, per media section, listed once on
+    # first use - see ``thumbnail_hashes``. Hashes only, never names or paths,
+    # so a 33,000-map library costs a few MB for the length of one scan.
+    _thumb_hashes: dict[str, set[str]] = field(default_factory=dict, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        # Wrapped here rather than in ``stop_requested`` so that everything handed
+        # ``ctx.should_stop`` - file hashing, the thumbnail wait, the helper
+        # process poll - shares the one throttled answer, and agrees with it.
+        if self.should_stop is not None:
+            self.should_stop = throttled(self.should_stop, self.status_interval)
 
     def naming_rules(self) -> RuleSet:
         if self._naming is None:
             self._naming = rule_set(self.session)
         return self._naming
 
+    def saw(self, section: str, filepath: str) -> None:
+        """Record that the walk found ``filepath`` on disk and kept it."""
+        self.seen_paths.setdefault(section, set()).add(filepath)
+
+    def thumbnail_hashes(self, section: str) -> set[str]:
+        """The path hashes of every thumbnail in ``thumb_dir/section``.
+
+        Read with one directory listing the first time a section asks, then
+        answered from memory. Testing each row with a ``*_<hash>.webp`` glob
+        listed the whole directory once per row, which on a library of 23,000
+        maps was 23,000 listings of 23,000 names.
+        """
+        hashes = self._thumb_hashes.get(section)
+        if hashes is None:
+            hashes = list_thumbnail_hashes(os.path.join(self.thumb_dir, section))
+            self._thumb_hashes[section] = hashes
+        return hashes
+
+    def note_thumbnail(self, section: str, filepath: str) -> None:
+        """Record a thumbnail this scan wrote, so a later row sees it without a re-list."""
+        hashes = self._thumb_hashes.get(section)
+        if hashes is not None:
+            hashes.add(path_hash(filepath))
+
     def stop_requested(self) -> bool:
         return bool(self.should_stop and self.should_stop())
 
-    def emit_progress(self) -> None:
-        if self.on_progress:
-            self.on_progress(
-                self.scanned["books"],
-                self.totals["books"],
-                self.scanned["maps"],
-                self.totals["maps"],
-                self.scanned["tokens"],
-                self.totals["tokens"],
-                self.scanned["audio"],
-                self.totals["audio"],
-                self.scanned["models"],
-                self.totals["models"],
-            )
+    def emit_progress(self, force: bool = False) -> None:
+        """Report the walk's counters, at most every ``status_interval`` seconds.
+
+        A report is also sent once ``_PROGRESS_STEP`` more files have been
+        walked, and always when ``force`` is set - at the end of each walk, so
+        the bar finishes on the true count.
+        """
+        if not self.on_progress:
+            return
+        done = sum(self.scanned.values())
+        now = time.monotonic()
+        if (
+            not force
+            and now - self._last_emit_at < self.status_interval
+            and done - self._last_emit_done < _PROGRESS_STEP
+        ):
+            return
+        self._last_emit_at = now
+        self._last_emit_done = done
+        # A total taken from the database is the library as the last scan left
+        # it, so new files can walk past it. A bar past 100% is no use to
+        # anyone; a zero total is left alone, as "not known".
+        totals = {
+            k: max(t, self.scanned[k]) if t else 0 for k, t in self.totals.items()
+        }
+        self.on_progress(
+            self.scanned["books"],
+            totals["books"],
+            self.scanned["maps"],
+            totals["maps"],
+            self.scanned["tokens"],
+            totals["tokens"],
+            self.scanned["audio"],
+            totals["audio"],
+            self.scanned["models"],
+            totals["models"],
+        )
 
     def emit_phase(self, phase: str, done: int, total: int) -> None:
         if self.on_phase:
@@ -186,6 +314,36 @@ class _ScanContext:
 
     def thumb_path(self, section: str, title: str, filepath: str) -> str:
         return thumb_path_for(self.thumb_dir, section, title, filepath)
+
+
+def path_hash(filepath: str) -> str:
+    """The 8-hex-digit hash of ``filepath`` that ends its thumbnail's name."""
+    return hashlib.md5(filepath.encode()).hexdigest()[:8]
+
+
+_HEX_DIGITS = frozenset("0123456789abcdef")
+
+
+def list_thumbnail_hashes(directory: str) -> set[str]:
+    """The path hashes of the ``<slug>_<hash>.webp`` files in ``directory``.
+
+    Matches what ``glob("*_<hash>.webp")`` did, entry for entry: hidden names
+    are skipped (a glob ``*`` never matches a leading dot) and anything not of
+    that shape is ignored. A directory that does not exist yet holds nothing.
+    """
+    hashes: set[str] = set()
+    try:
+        with os.scandir(directory) as entries:
+            for entry in entries:
+                name = entry.name
+                if name.startswith(".") or not name.endswith(".webp"):
+                    continue
+                stem = name[:-5]
+                if len(stem) >= 9 and stem[-9] == "_" and _HEX_DIGITS.issuperset(stem[-8:]):
+                    hashes.add(stem[-8:])
+    except OSError:
+        pass
+    return hashes
 
 
 def thumb_path_for(thumb_dir: str | Path, section: str, title: str, filepath: str) -> str:
@@ -199,7 +357,7 @@ def thumb_path_for(thumb_dir: str | Path, section: str, title: str, filepath: st
     return os.path.join(
         thumb_dir,
         section,
-        f"{slugify(title)}_{hashlib.md5(filepath.encode()).hexdigest()[:8]}.webp",
+        f"{slugify(title)}_{path_hash(filepath)}.webp",
     )
 
 

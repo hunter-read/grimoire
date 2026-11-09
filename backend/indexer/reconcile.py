@@ -15,12 +15,15 @@ import logging
 import os
 from typing import Any
 
+from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 
 from ._context import _ScanContext
 from ._db import _db_call
 from .moves import (  # noqa: F401  (re-exported for patch compatibility)
     _detect_moves,
+    _is_destination,
     _remove_stale_thumbnail,
     _rename_thumbnail_to_title,
     mark_reconciled,
@@ -35,6 +38,11 @@ logger = logging.getLogger("grimoire.indexer")
 
 # Records checked between progress reports in ``_reconcile_missing``.
 _PROGRESS_EVERY = 250
+# Rows held in memory at once while the sweep reads a collection.
+_READ_BATCH = 1000
+# Ids per ``IN (...)`` when flags are written. SQLite builds before 3.32 cap
+# a statement at 999 bound variables.
+_WRITE_BATCH = 500
 
 
 def _reconcile_missing(
@@ -53,6 +61,13 @@ def _reconcile_missing(
 
     Rows whose file merely *moved* are re-pointed first (see ``_detect_moves``) so
     they are never reported missing and keep their tags/favorites/progress.
+
+    A row whose path the walk just visited is present, with no stat: the walk
+    found the file and applied the same ignore rules to it (``ctx.seen_paths``).
+    Only the rest - files that are gone, and rows the walk could not have seen -
+    are looked up on disk. Rows are read as a few columns, a batch at a time,
+    rather than as whole objects all at once, so a 50,000-file library does not
+    hold 50,000 rows in memory to check them.
     """
     session = ctx.session
     ignore = ctx.ignore
@@ -66,9 +81,6 @@ def _reconcile_missing(
             return query.filter(path_under(model.filepath, f"{scope_dir}{os.sep}"))
         return query
 
-    def _gone(filepath: str) -> bool:
-        return not os.path.exists(filepath) or ignore.is_ignored(filepath, is_dir=False)
-
     counts = {"books": 0, "maps": 0, "tokens": 0, "audio": 0, "models": 0}
     moved = {"books": 0, "maps": 0, "tokens": 0, "audio": 0, "models": 0}
     collections = (
@@ -78,11 +90,11 @@ def _reconcile_missing(
         ("audio", Audio, scan_audio, "audio"),
         ("models", Model3D, scan_models, "model"),
     )
-    # Each record is checked once per pass. On a slow mount that is minutes of
-    # work after the walk has already reported 100%, so it reports its own
-    # progress rather than looking like a hang (issue #748).
-    total = 2 * sum(
-        _scoped(session.query(model), model).count()
+    # On a slow mount this is minutes of work after the walk has already
+    # reported 100%, so it reports its own progress rather than looking like a
+    # hang (issue #748).
+    total = sum(
+        _scoped(session.query(func.count(model.id)), model).scalar() or 0
         for _key, model, enabled, _label in collections
         if enabled
     )
@@ -95,33 +107,66 @@ def _reconcile_missing(
             ctx.emit_phase("reconciling", checked, total)
 
     ctx.emit_phase("reconciling", 0, total)
-    # Pass 1 — re-point moved files. This runs to completion first, and commits as
-    # it goes, so the missing-flag pass below sees a settled set of rows: a moved
-    # file must never be reported missing on the way to being recognised.
-    for key, model, enabled, _label in collections:
-        if not enabled:
-            continue
-        gone_rows: list[Any] = []
-        present_rows: list[Any] = []
-        for record in _scoped(session.query(model), model).all():
-            (gone_rows if _gone(record.filepath) else present_rows).append(record)
-            _tick()
-        moved[key] = _detect_moves(ctx, model, gone_rows, present_rows)
-
-    # Pass 2 — flag whatever is still unaccounted for. Rows are re-read because
-    # pass 1 may have re-pointed and deleted some.
+    # Which ids to flag and which to clear, written once every collection has
+    # been read. Ids only, so the lists stay small however large the library.
+    flags: list[tuple[Any, list[str], bool]] = []
     for key, model, enabled, label in collections:
         if not enabled:
             continue
-        for record in _scoped(session.query(model), model).all():
+        seen = ctx.seen_paths.get(key, set())
+
+        def _gone(filepath: str, seen: set[str] = seen) -> bool:
+            if filepath in seen:
+                return False
+            return not os.path.exists(filepath) or ignore.is_ignored(filepath, is_dir=False)
+
+        columns = [
+            model.id,
+            model.filepath,
+            model.filename,
+            model.is_missing,
+            model.content_hash,
+            model.file_size,
+            model.created_at,
+        ]
+        if hasattr(model, "title"):
+            columns.append(model.title)
+        gone_rows: list[Any] = []
+        destinations: list[Any] = []
+        newly_gone: list[Any] = []
+        back: list[str] = []
+        for row in _scoped(session.query(*columns), model).yield_per(_READ_BATCH):
             _tick()
-            gone = _gone(record.filepath)
-            if gone != bool(record.is_missing):
-                record.is_missing = gone
-                if gone:
-                    counts[key] += 1
-                    name = getattr(record, "title", None) or record.filename
-                    logger.warning(f"Missing {label}: '{name}' ({record.filepath})")
+            if _gone(row.filepath):
+                if row.content_hash:
+                    gone_rows.append(row)
+                if not row.is_missing:
+                    newly_gone.append(row)
+            else:
+                # Only a destination can be the new half of a move, and on a
+                # settled library there are none - so the present rows kept
+                # here are the few this scan (or an interrupted one) added.
+                if _is_destination(ctx, row):
+                    destinations.append(row)
+                if row.is_missing:
+                    back.append(row.id)
+
+        # Moves are settled first, and committed, so a moved file is never
+        # reported missing on the way to being recognised. The ids they touch
+        # - survivors re-pointed, duplicates deleted - are already right.
+        touched: set[str] = set()
+        moved[key] = _detect_moves(ctx, model, gone_rows, destinations, touched=touched)
+
+        missing_ids = []
+        for row in newly_gone:
+            if row.id in touched:
+                continue
+            missing_ids.append(row.id)
+            name = getattr(row, "title", None) or row.filename
+            logger.warning(f"Missing {label}: '{name}' ({row.filepath})")
+        counts[key] = len(missing_ids)
+        flags.append((model, missing_ids, True))
+        flags.append((model, [i for i in back if i not in touched], False))
 
     ctx.emit_phase("reconciling", total, total)
     missing_books = counts["books"]
@@ -140,6 +185,8 @@ def _reconcile_missing(
             f"{missing_tokens} token(s), {missing_audio} audio file(s)."
         )
     try:
+        for model, ids, value in flags:
+            _set_missing(session, model, ids, value)
         _db_call(session.commit, "commit missing flags")
         # Only a sweep of every collection reconciles every row; a scoped one
         # leaves rows elsewhere still waiting for move detection.
@@ -157,6 +204,23 @@ def _reconcile_missing(
     ctx.stats["moved_maps"] = moved["maps"]
     ctx.stats["moved_tokens"] = moved["tokens"]
     ctx.stats["moved_audio"] = moved["audio"]
+
+
+def _set_missing(session: Session, model: Any, ids: list[str], value: bool) -> None:
+    """Set ``is_missing`` on the rows with these ids, a batch of ids per statement.
+
+    Written straight to the table: the rows were read as columns, so there are
+    no loaded objects to update, and dirtying one object per row is the cost
+    this avoids.
+    """
+    for i in range(0, len(ids), _WRITE_BATCH):
+        chunk = ids[i : i + _WRITE_BATCH]
+        _db_call(
+            lambda: session.query(model)
+            .filter(model.id.in_(chunk))
+            .update({model.is_missing: value}, synchronize_session=False),
+            "update missing flags",
+        )
 
 
 def _export_sidecars_for_new_books(ctx: "_ScanContext") -> None:

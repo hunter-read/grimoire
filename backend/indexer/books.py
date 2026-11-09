@@ -18,19 +18,22 @@ package namespace (``indexer.NAME``).
 import logging
 import os
 from pathlib import Path
+from typing import Any, Optional
 
 from sqlalchemy.exc import SQLAlchemyError
 
 from ._book_records import (  # noqa: F401  (re-exported for patch compatibility)
+    SKIP_COLUMNS,
     _derive_category,
     _do_book_page_count,
     _do_book_thumbnail,
     _handle_replaced_book,
     _refresh_signature,
     _register_book,
+    _registered_and_complete,
 )
 from ..filenames import display_name
-from ._db import DatabaseBusyError, _db_call
+from ._db import DatabaseBusyError, _db_call, lookup_by_path
 from ._context import (
     _ScanContext,
     _keep_entry,
@@ -459,6 +462,8 @@ def _scan_books_in_system(
     ignore = ctx.ignore
     stats = ctx.stats
     cover_root = os.path.normpath(str(system_root if system_root is not None else walk_root))
+    # Checked once: per-file debug lines are otherwise formatted for every file.
+    debug = logger.isEnabledFor(logging.DEBUG)
     for root, dirs, files in os.walk(walk_root):
         dirs[:] = _prune_dirs(root, dirs, ignore)
         if not recurse:
@@ -477,6 +482,7 @@ def _scan_books_in_system(
                 if cover_fn:
                     opf_cover_filenames.add(cover_fn)
 
+        candidates = []
         for filename in sorted(files):
             if filename.startswith(".") or not _readable_name(root, filename):
                 continue
@@ -489,17 +495,17 @@ def _scan_books_in_system(
                 continue
 
             if ignore.is_ignored(filepath, is_dir=False):
-                logger.debug(f"Ignored by .grimoireignore: {filepath}")
+                logger.debug("Ignored by .grimoireignore: %s", filepath)
                 continue
 
             if filename in opf_cover_filenames:
-                logger.debug(f"Skipping OPF cover image: {filepath}")
+                logger.debug("Skipping OPF cover image: %s", filepath)
                 continue
 
             # The folder-cover convention claims a cover.*/folder.* image at the
             # system root as shelf artwork; it is not also a book (issue #372).
             if os.path.normpath(root) == cover_root and is_folder_cover_name(filename):
-                logger.debug(f"Skipping folder cover image: {filepath}")
+                logger.debug("Skipping folder cover image: %s", filepath)
                 continue
 
             # A ``<stem>.cover.jpg`` written by the sidecar exporter is not a
@@ -507,30 +513,61 @@ def _scan_books_in_system(
             # (``<stem>.cover.cover.jpg``) and each rescan would add a further
             # level without bound.
             if is_exported_cover_name(filename):
-                logger.debug(f"Skipping exported sidecar cover: {filepath}")
+                logger.debug("Skipping exported sidecar cover: %s", filepath)
                 continue
+            candidates.append((filename, filepath, ext, arc_ext))
+        if not candidates:
+            continue
 
+        # The directory's registered books in one query, as the columns that
+        # decide whether a book needs anything. Only one that does is loaded.
+        known: Optional[dict[str, Any]]
+        try:
+            known = lookup_by_path(
+                _db_call, session, SKIP_COLUMNS, [c[1] for c in candidates], "query book"
+            )
+        except DatabaseBusyError:
+            logger.error(
+                "The database stayed locked looking up %d book(s) in '%s' - skipping them",
+                len(candidates),
+                root,
+            )
+            known = None
+
+        for filename, filepath, ext, arc_ext in candidates:
             ctx.scanned["books"] += 1
+            ctx.saw("books", filepath)
             ctx.emit_progress()
             if ctx.stop_requested():
                 logger.debug("scan_library: stop requested during books scan.")
                 return True
-
-            relative_path = os.path.relpath(filepath, ctx.library_path)
-
-            logger.debug(
-                f"Scanning book ({ctx.scanned['books']}/{ctx.totals['books']}): {filepath}"
-            )
-            logger.debug(f"DB: querying existing book '{filepath}'")
-            try:
-                existing = _db_call(
-                    lambda: session.query(Book).filter_by(filepath=filepath).first(),
-                    f"query book '{filepath}'",
-                )
-            except DatabaseBusyError as e:
-                logger.error(f"DB error: {e} - skipping '{filename}'")
+            if known is None:
                 stats["errors"] += 1
                 continue
+
+            relative_path = os.path.relpath(filepath, ctx.library_path)
+            if debug:
+                logger.debug(
+                    "Scanning book (%d/%d): %s", ctx.scanned["books"], ctx.totals["books"], filepath
+                )
+            row = known.get(filepath)
+            existing = None
+            if row is not None:
+                if _registered_and_complete(ctx, row, system, filepath, ext, arc_ext):
+                    if debug:
+                        logger.debug("Already registered, skipping: %s", filename)
+                    continue
+                try:
+                    existing = _db_call(
+                        lambda: session.get(Book, row.id), f"query book '{filepath}'"
+                    )
+                except DatabaseBusyError as e:
+                    logger.error(f"DB error: {e} - skipping '{filename}'")
+                    stats["errors"] += 1
+                    continue
+                if existing is None:
+                    # Deleted since the directory was looked up.
+                    continue
 
             book, needs_thumbnail, needs_page_count = _register_book(
                 ctx,

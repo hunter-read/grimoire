@@ -1,5 +1,11 @@
 """Library rescans, the deferred OCR and model-thumbnail queues, and the scan status they share."""
 import os
+from contextlib import contextmanager
+from typing import Iterator
+
+from sqlalchemy.engine import Engine
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 
 from ... import config
 from ...config import SessionLocal, LIBRARY_PATH, DATA_PATH, logger
@@ -459,6 +465,59 @@ def rescan_single_book(book_id: str) -> None:
     reindex_queue.drain_reindex_queue()
 
 
+@contextmanager
+def _scan_session() -> Iterator[Session]:
+    """The scan's session, which on SQLite does not wait on the disk at each commit.
+
+    A scan commits once or more per new file, and with ``synchronous=FULL``
+    each commit is an fsync: tens of thousands on a first import, which on a
+    NAS or a spinning disk is most of an hour. In WAL mode ``NORMAL`` is still
+    consistent after a crash - a power cut can lose the last commits, never
+    corrupt the file - so the scan's own connection uses it, and every other
+    connection keeps FULL.
+
+    Pinned to one connection because the pragma belongs to the connection, and
+    a session hands its connection back to the pool at every commit. The
+    setting is put back before that connection is returned to the pool.
+    """
+    probe = SessionLocal()
+    engine = probe.get_bind()
+    probe.close()
+    if not isinstance(engine, Engine) or engine.dialect.name != "sqlite":
+        db = SessionLocal()
+        try:
+            yield db
+        finally:
+            db.close()
+        return
+    conn = engine.connect()
+    previous = None
+    try:
+        previous = conn.exec_driver_sql("PRAGMA synchronous").scalar()
+        conn.exec_driver_sql("PRAGMA synchronous=NORMAL")
+        conn.commit()
+    except SQLAlchemyError as e:
+        logger.warning(f"Could not relax synchronous for the scan, leaving it as it is: {e}")
+        conn.rollback()
+        previous = None
+    db = SessionLocal(bind=conn)
+    try:
+        yield db
+    finally:
+        db.close()
+        try:
+            conn.rollback()
+            if previous is not None:
+                conn.exec_driver_sql(f"PRAGMA synchronous={int(previous)}")
+                conn.commit()
+        except SQLAlchemyError as e:
+            # A connection that may still say NORMAL must not go back to the
+            # pool for an ordinary request to pick up.
+            logger.warning(f"Could not restore synchronous after the scan: {e}")
+            conn.invalidate()
+        conn.close()
+
+
 def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -> None:
     """Library rescan — scans disk and indexes PDFs.
 
@@ -486,8 +545,7 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
     quarantine.begin_scan()
     try:
         invalidate_book_cache()
-        db = SessionLocal()
-        try:
+        with _scan_session() as db:
             # --- Phase 1: file scan ---
             logger.info("Scanning your library for new and changed files…")
 
@@ -568,24 +626,31 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
                 return
 
             # --- Phase 2: PDF indexing ---
-            to_index = (
-            db.query(Book)
-            .filter(
-                Book.indexed.is_(False),
-                Book.index_failed.is_(False),
-                # Every indexable format, not just PDF — an EPUB filtered out
-                # here is what left them permanently unsearchable (issue #373).
-                Book.mime_type.in_(INDEXABLE_MIMES),
-            )
-            .all()
-        )
+            # Ids, not rows: a first import queues every book in the library,
+            # and holding them all as objects for the length of the phase is a
+            # heap spike that does not shrink back. Each is loaded in its turn.
+            to_index = [
+                book_id
+                for (book_id,) in db.query(Book.id).filter(
+                    Book.indexed.is_(False),
+                    Book.index_failed.is_(False),
+                    # Every indexable format, not just PDF — an EPUB filtered out
+                    # here is what left them permanently unsearchable (issue #373).
+                    Book.mime_type.in_(INDEXABLE_MIMES),
+                )
+            ]
             set_status({"phase": "indexing", "to_index": len(to_index), "indexed": 0})
             logger.info(f"Making {len(to_index)} book(s) searchable…")
             indexed_count = 0
-            for book in to_index:
+            for book_id in to_index:
                 if is_stop_requested():
                     logger.info("Stopping - leaving the rest for next time.")
                     break
+                book = db.get(Book, book_id)
+                if book is None:
+                    # Deleted since the list was read: nothing left to index.
+                    set_status({"indexed": get_status()["indexed"] + 1})
+                    continue
                 logger.debug(f"Index start: '{book.filename}' ('{book.title}', id={book.id})")
                 try:
                     result = index_book_text(book, DATA_PATH, db, should_stop=is_stop_requested)
@@ -601,8 +666,6 @@ def run_rescan_sync(scope_path: str | None = None, metadata_mode: str = "new") -
                     db.commit()
                 set_status({"indexed": get_status()["indexed"] + 1})
             logger.info(f"Finished - {indexed_count} of {len(to_index)} book(s) are now searchable.")
-        finally:
-            db.close()
 
         # --- Phase 3: deferred model previews ---
         # The meshes the walk flagged rather than rasterised. This runs here, in

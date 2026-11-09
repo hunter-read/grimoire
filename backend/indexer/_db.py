@@ -15,9 +15,10 @@ move on to the next file. On PostgreSQL the engine sets ``lock_timeout`` to the
 same 30 seconds, and a lock timeout, deadlock or serialization failure is the
 same "try the next file" case.
 """
-from typing import Callable, TypeVar
+from typing import Any, Callable, Sequence, TypeVar
 
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
+from sqlalchemy.orm import Session
 
 T = TypeVar("T")
 
@@ -53,3 +54,36 @@ def _db_call(fn: Callable[[], T], label: str) -> T:
         if is_busy(exc):
             raise DatabaseBusyError(f"database stayed locked: {label}") from exc
         raise
+
+
+# Paths per ``IN (...)`` lookup. SQLite builds before 3.32 cap a statement at
+# 999 bound variables.
+LOOKUP_BATCH = 500
+
+
+def lookup_by_path(
+    db_call: Callable[[Callable[[], Any], str], Any],
+    session: Session,
+    columns: Sequence[Any],
+    paths: Sequence[str],
+    label: str,
+) -> dict[str, Any]:
+    """The rows for ``paths``, as ``columns``, keyed by filepath.
+
+    One query per ``LOOKUP_BATCH`` paths rather than one per file: a walk asks
+    for a whole directory at once. ``columns`` must include the model's
+    ``filepath``. Each query goes through ``db_call`` (the caller's own
+    ``_db_call``, which is what tests patch) labelled ``label`` and the paths it
+    asks for, so a locked database raises :class:`DatabaseBusyError` here.
+    """
+    filepath = next(c for c in columns if getattr(c, "key", None) == "filepath")
+    found: dict[str, Any] = {}
+    for i in range(0, len(paths), LOOKUP_BATCH):
+        chunk = list(paths[i : i + LOOKUP_BATCH])
+
+        def query(chunk: list[str] = chunk) -> list[Any]:
+            return session.query(*columns).filter(filepath.in_(chunk)).all()
+
+        rows = db_call(query, f"{label} " + ", ".join(f"'{p}'" for p in chunk))
+        found.update((row.filepath, row) for row in rows)
+    return found
