@@ -1,14 +1,16 @@
 import { LuPlus, LuTrash2, LuChevronUp, LuChevronDown } from 'react-icons/lu'
 import { useTranslation } from 'react-i18next'
-import FieldRenderer from './FieldRenderer'
+import DerivedCell from './DerivedCell'
 import type { FieldDefinition } from './FieldRenderer'
 import { ghostBtn, iconBtn, fieldLabel } from './characterStyles'
+import { emptyCellFor } from './expressions'
 
 /** One column of a list: a field definition with the key it is stored under. */
 interface ListColumn extends FieldDefinition {
   key: string
   flex?: number
   default?: unknown
+  default_from?: unknown
 }
 
 interface ListFieldDefinition extends FieldDefinition {
@@ -26,6 +28,8 @@ export interface ListFieldProps {
   onChange?: (value: Row[]) => void
   readOnly?: boolean
   hideLabel?: boolean
+  /** The rows as the sheet reads them, with `default_from` cells worked out. */
+  derivedRows?: unknown
 }
 
 /**
@@ -39,6 +43,12 @@ export interface ListFieldProps {
  * meaningful in its position here, and storing an id would put a key in the
  * character's data that the schema never declared — which the server would
  * strip on the way in anyway.
+ *
+ * A column with `default_from` shows its worked-out value in an empty cell,
+ * marked as automatic. Typing over it makes the cell the player's, and
+ * clearing it hands it back. The derived value is only ever shown: every edit
+ * writes the stored rows, so changing a relative's name does not freeze their
+ * age at what it read that day.
  */
 export default function ListField({
   name,
@@ -47,10 +57,12 @@ export default function ListField({
   onChange,
   readOnly = false,
   hideLabel = false,
+  derivedRows,
 }: ListFieldProps) {
   const { t } = useTranslation()
   const columns = definition.columns || []
   const rows: Row[] = Array.isArray(value) ? value : []
+  const derived: unknown[] = Array.isArray(derivedRows) ? derivedRows : []
 
   const setRow = (index: number, key: string, cellValue: unknown) => {
     const next = rows.map((row, i) => (i === index ? { ...row, [key]: cellValue } : row))
@@ -60,7 +72,10 @@ export default function ListField({
   const addRow = () => {
     const blank: Row = {}
     for (const column of columns) {
-      blank[column.key] = 'default' in column ? column.default : emptyFor(column.type)
+      // A derived column's `default` is only its formula's fallback; stored,
+      // it would be a value the formula never replaced.
+      blank[column.key] =
+        'default' in column && !column.default_from ? column.default : emptyCellFor(column.type)
     }
     onChange?.([...rows, blank])
   }
@@ -114,10 +129,11 @@ export default function ListField({
             >
               {columns.map((column) => (
                 <div key={column.key} style={{ flex: column.flex || 1, minWidth: 0 }}>
-                  <FieldRenderer
+                  <DerivedCell
                     name={`${name}.${index}.${column.key}`}
                     definition={{ ...column, label: column.label || column.key }}
-                    value={row?.[column.key]}
+                    stored={row?.[column.key]}
+                    worked={cellOf(derived[index], column.key)}
                     onChange={readOnly ? undefined : (v) => setRow(index, column.key, v)}
                     readOnly={readOnly}
                     hideLabel
@@ -177,8 +193,7 @@ export default function ListField({
   )
 }
 
-function emptyFor(type: string | undefined): false | null | '' {
-  if (type === 'checkbox') return false
-  if (type === 'number') return null
-  return ''
+// One cell of a derived row, if there is one.
+function cellOf(row: unknown, key: string): unknown {
+  return row && typeof row === 'object' ? (row as Row)[key] : undefined
 }

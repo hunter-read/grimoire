@@ -28,6 +28,12 @@ class TestPagesAndOptions:
         ast = parse_layout_html('<g-tabs><g-tab title="Spells" visible_if="is_caster"></g-tab></g-tabs>')
         assert ast[0]["children"][0]["attrs"]["visible_if"] == "is_caster"
 
+    def test_a_tab_may_take_its_title_from_a_field(self):
+        ast = parse_layout_html(
+            '<g-tabs><g-tab title="Squire" title_from="squire_name"></g-tab></g-tabs>'
+        )
+        assert ast[0]["children"][0]["attrs"] == {"title": "Squire", "title_from": "squire_name"}
+
     def test_an_option_parses(self):
         ast = parse_layout_html('<g-option field="skill_profs" value="Athletics" label="Athletics" />')
         assert ast[0]["attrs"] == {

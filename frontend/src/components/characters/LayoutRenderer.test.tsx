@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { useState } from 'react'
 import type { ComponentProps } from 'react'
 import LayoutRenderer from './LayoutRenderer'
 import type { LayoutNode } from './LayoutRenderer'
@@ -430,6 +431,57 @@ describe('LayoutRenderer — pages', () => {
   it('leaves out a page whose condition fails', () => {
     renderLayout(pages)
     expect(screen.queryByRole('tab', { name: 'Hidden' })).not.toBeInTheDocument()
+  })
+
+  describe('a title taken from a field', () => {
+    const squire: LayoutNode[] = [
+      {
+        tag: 'g-tabs',
+        attrs: {},
+        children: [
+          { tag: 'g-tab', attrs: { title: 'Knight' }, children: [{ text: 'Knight page' }] },
+          {
+            tag: 'g-tab',
+            attrs: { title: 'Squire', title_from: 'hero_name' },
+            children: [{ tag: 'g-field', attrs: { name: 'hero_name' } }],
+          },
+          { tag: 'g-tab', attrs: { title_from: 'strength > 99' }, children: [] },
+        ],
+      },
+    ]
+
+    it('falls back to the title, then the page number, while the field is empty', () => {
+      renderLayout(squire, { data: { hero_name: '', strength: 10 } })
+      expect(screen.getByRole('tab', { name: 'Squire' })).toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: '3' })).toBeInTheDocument()
+    })
+
+    it("shows the field's value once it is filled in, capped in length", () => {
+      const { unmount } = renderLayout(squire, { data: { hero_name: '  Wat  ' } })
+      expect(screen.getByRole('tab', { name: 'Wat' })).toBeInTheDocument()
+      unmount()
+      renderLayout(squire, { data: { hero_name: 'W'.repeat(60) } })
+      expect(screen.getByRole('tab', { name: `${'W'.repeat(39)}…` })).toBeInTheDocument()
+    })
+
+    it('stays on the open page as the name is typed', async () => {
+      function Typing() {
+        const [name, setName] = useState('')
+        return (
+          <LayoutRenderer
+            ast={squire}
+            document={DOCUMENT}
+            data={{ hero_name: name }}
+            onChange={(_field, value) => setName(String(value ?? ''))}
+          />
+        )
+      }
+      render(<Typing />)
+      await userEvent.click(screen.getByRole('tab', { name: 'Squire' }))
+      await userEvent.type(screen.getByRole('textbox'), 'Wat')
+      expect(screen.getByRole('tab', { name: 'Wat' })).toHaveAttribute('aria-selected', 'true')
+      expect(screen.getByRole('textbox')).toHaveValue('Wat')
+    })
   })
 
   it('draws a stray page outside tabs as its contents', () => {

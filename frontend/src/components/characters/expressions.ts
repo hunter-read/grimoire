@@ -603,6 +603,18 @@ interface ExpressionField {
   default?: unknown
   default_from?: unknown
   visible_if?: unknown
+  columns?: unknown
+}
+
+/** A `list` column, as far as working out its `default_from` needs. */
+export interface DerivableColumn {
+  key?: string
+  type?: string
+  default?: unknown
+  default_from?: unknown
+  min?: unknown
+  max?: unknown
+  options?: unknown[]
 }
 
 interface ExpressionValidator {
@@ -686,7 +698,80 @@ export function buildContext(
     }
     context[name] = derived
   }
+
+  for (const [name, definition] of Object.entries(fields)) {
+    const columns = derivedColumns(definition)
+    const rows = context[name]
+    if (columns.length && Array.isArray(rows)) context[name] = deriveRows(columns, rows, context)
+  }
   return context
+}
+
+// A list field's columns that work out their value with `default_from`.
+export function derivedColumns(definition: ExpressionField | null | undefined): DerivableColumn[] {
+  if (definition?.type !== 'list' || !Array.isArray(definition.columns)) return []
+  return (definition.columns as DerivableColumn[]).filter(
+    (column) => column && typeof column.key === 'string' && column.default_from
+  )
+}
+
+// Whether a list cell is empty, which is what "not set" means for a column:
+// rows are stored with every column, a blank one as null or ''. A typed 0 is
+// the player's.
+export function isEmptyCell(value: unknown): boolean {
+  return value === null || value === undefined || value === ''
+}
+
+// What an empty cell of a column type is stored as: an unticked box is false,
+// a blank number null, anything else ''.
+export function emptyCellFor(type: string | undefined): false | null | '' {
+  if (type === 'checkbox') return false
+  if (type === 'number') return null
+  return ''
+}
+
+// Mirrors `_derive_rows` in backend/services/characters/schema.py: copies of a
+// list's rows with their empty `default_from` cells worked out, against the
+// sheet's fields with the row's own columns laid over them. The copies only go
+// into the context; the stored rows stay as they are, or the derived value
+// would freeze the first time the row was saved.
+function deriveRows(columns: DerivableColumn[], rows: unknown[], context: ExprContext): unknown[] {
+  return rows.map((row) => {
+    if (!row || typeof row !== 'object' || Array.isArray(row)) return row
+    const stored = row as ExprContext
+    const scope = { ...context, ...stored }
+    const filled: ExprContext = { ...stored }
+    for (const column of columns) {
+      const key = column.key as string
+      if (!isEmptyCell(stored[key])) continue
+      let value: unknown = evaluate(column.default_from, scope, null)
+      if (isEmptyCell(value)) value = column.default
+      filled[key] = coerceCell(column, value)
+    }
+    return filled
+  })
+}
+
+// Mirrors `coerce_value` for the column types a `default_from` may sit on, so a
+// derived cell is clamped and typed the way a saved one would be.
+function coerceCell(column: DerivableColumn, value: unknown): unknown {
+  const type = column.type || 'text'
+  if (type === 'number') {
+    if (isEmptyCell(value)) return null
+    let number = Number(value)
+    if (!Number.isFinite(number)) return null
+    if (typeof column.min === 'number') number = Math.max(column.min, number)
+    if (typeof column.max === 'number') number = Math.min(column.max, number)
+    return number
+  }
+  if (value === null || value === undefined) return ''
+  if (type === 'select') {
+    const options = (column.options || []).map((option) =>
+      option && typeof option === 'object' ? (option as { value?: unknown }).value : option
+    )
+    return options.includes(value) ? value : ''
+  }
+  return String(value)
 }
 
 export const OVERRIDES_KEY = '_overrides'

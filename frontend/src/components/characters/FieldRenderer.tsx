@@ -47,6 +47,7 @@ interface Props {
   onOverride?: (value: unknown) => void
   overridden?: boolean
   variant?: string
+  derivedValue?: unknown
 }
 
 /**
@@ -86,6 +87,9 @@ export default function FieldRenderer({
   overridden = false,
   // `compact` draws a number without its spinner, for tight boxes.
   variant,
+  // The value as the sheet reads it. Only a list uses it: its rows with their
+  // `default_from` cells worked out, shown in the cells the player left empty.
+  derivedValue,
 }: Props) {
   const { t } = useTranslation()
   const inputId = useId()
@@ -104,6 +108,7 @@ export default function FieldRenderer({
         onChange={onChange}
         readOnly={readOnly}
         hideLabel={hideLabel}
+        derivedRows={derivedValue}
       />
     )
   }
