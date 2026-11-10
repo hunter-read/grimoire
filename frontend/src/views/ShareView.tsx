@@ -51,17 +51,18 @@ const buttonStyle = (primary?: boolean): CSSProperties => ({
  * same message, so the page never says which.
  */
 export interface ShareViewProps {
-  token: string
+  /** The link's token; null when the URL held none that could be read. */
+  token: string | null
 }
 
 export default function ShareView({ token }: ShareViewProps) {
   const { t, i18n } = useTranslation()
   const [meta, setMeta] = useState<ShareMeta | null>(null)
-  const [status, setStatus] = useState<PageStatus>('loading')
+  const [status, setStatus] = useState<PageStatus>(token === null ? 'missing' : 'loading')
   const [password, setPassword] = useState('')
   const [unlockError, setUnlockError] = useState('')
   const [unlocking, setUnlocking] = useState(false)
-  const base = `/api/share/${encodeURIComponent(token)}`
+  const base = `/api/share/${encodeURIComponent(token ?? '')}`
 
   const load = () =>
     getJson(`${base}/meta`)
@@ -72,6 +73,7 @@ export default function ShareView({ token }: ShareViewProps) {
       .catch((err: HttpError) => setStatus(err.status === 429 ? 'throttled' : 'missing'))
 
   useEffect(() => {
+    if (token === null) return
     // Reports its own failure through `status`.
     void load()
     // eslint-disable-next-line react-hooks/exhaustive-deps

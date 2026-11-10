@@ -29,6 +29,7 @@ import AddonsArea from '../components/settings/areas/AddonsArea'
 import SidebarArea from '../components/settings/areas/SidebarArea'
 import BackupsArea from '../components/settings/areas/BackupsArea'
 import LogsTab from '../components/settings/LogsTab'
+import { safeDecodeURIComponent } from '../utils/safeDecode'
 import '../components/settings/settings.css'
 
 interface SettingsViewProps {
@@ -107,7 +108,7 @@ export default function SettingsView({ user, onLogout }: SettingsViewProps) {
   const area = resolveArea(tab, visibility)
   // "Account settings": the area alone would read like a page of its own.
   usePageTitle(t('a11y.settings.pageTitle', { area: t(`settings.areas.${area}.title`) }))
-  const hash = decodeURIComponent(location.hash.replace(/^#/, ''))
+  const hash = safeDecodeURIComponent(location.hash.replace(/^#/, ''))
   const target = useMemo(
     () => ({ id: hash || null, group: findEntry(hash)?.group ?? null, nonce: location.key }),
     [hash, location.key]

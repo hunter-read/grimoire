@@ -140,6 +140,11 @@ describe('SettingsView rail', () => {
     expect(within(nav()).queryByText('settings.scopes.server')).toBeNull()
   })
 
+  it('still renders when the hash holds a malformed escape', () => {
+    renderAt('/settings/preferences#%E0%A4%A', PLAYER)
+    expect(screen.getByText('preferences-area')).toBeInTheDocument()
+  })
+
   it('names the tab and the side panel', () => {
     renderAt('/settings/preferences', PLAYER)
     expect(document.title).toBe('a11y.settings.pageTitle - Grimoire')

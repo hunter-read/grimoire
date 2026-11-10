@@ -9,6 +9,7 @@ import LoginView from './views/LoginView'
 import LoadingScreen from './components/LoadingScreen'
 import AppShell from './components/AppShell'
 import ShareView from './views/ShareView'
+import { tryDecodeURIComponent } from './utils/safeDecode'
 
 export default function App() {
   // App is always rendered inside AuthProvider (see main.tsx).
@@ -18,7 +19,9 @@ export default function App() {
   // A share link's page is public (issue #541): it renders for anyone, signed
   // in or not, before any of the auth gates below.
   const share = /^\/share\/([^/]+)\/?$/.exec(pathname)
-  if (share) return <ShareView token={decodeURIComponent(share[1])} />
+  // A token that won't decode (a mangled `%` escape) names no link, so it gets
+  // the same not-found page as an unknown one.
+  if (share) return <ShareView token={tryDecodeURIComponent(share[1])} />
 
   if (status === 'loading') return <LoadingScreen />
   if (status === 'uninitialized') return <SetupView onSetup={login} />

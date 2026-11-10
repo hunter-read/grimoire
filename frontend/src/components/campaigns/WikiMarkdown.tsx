@@ -13,6 +13,7 @@ import { rehypeInlineSecrets, standsAlone } from './wikiSecrets'
 import { CODE_BLOCK_STYLE, maskFences } from './wikiFences'
 import MermaidDiagram from './MermaidDiagram'
 import type { Element } from 'hast'
+import { safeDecodeURIComponent } from '../../utils/safeDecode'
 
 // We avoid a custom remark tokenizer by rewriting [[...]] tokens into ordinary
 // markdown links with a private href scheme, then interpreting that scheme in a
@@ -65,16 +66,6 @@ export function prefetchedBookEmbeds(body: string | null | undefined): Set<strin
 // rendering them tinted just helps the owner see what players won't. The match
 // spans newlines so a secret can wrap several lines/paragraphs.
 const SECRET_RE = /\|\|([\s\S]*?)\|\|/g
-
-// Decode a percent-encoded target, tolerating malformed input (a stray "%" would
-// otherwise throw). Returns the original string if it can't be decoded.
-function safeDecode(s: string): string {
-  try {
-    return decodeURIComponent(s)
-  } catch {
-    return s
-  }
-}
 
 function escapeLinkText(text: string): string {
   // Keep link text from breaking the markdown link syntax. Escape backslashes
@@ -246,7 +237,7 @@ export default function WikiMarkdown({
           // We percent-encode the target when rewriting, and react-markdown
           // additionally encodes non-ASCII (e.g. "breitfuß" -> "breitfu%C3%9F"),
           // so decode before parsing or the suffixes won't match (issue #252).
-          const rawTarget = safeDecode(href.slice(WIKI_SCHEME.length))
+          const rawTarget = safeDecodeURIComponent(href.slice(WIKI_SCHEME.length))
           const link = parseTarget(rawTarget)
           const target = resolvePage(link, pages)
           // A pinned link whose page is gone is broken; so is an unknown title.
@@ -323,7 +314,7 @@ export default function WikiMarkdown({
           )
         }
         if (href?.startsWith(EMBED_SCHEME)) {
-          const spec = safeDecode(href.slice(EMBED_SCHEME.length))
+          const spec = safeDecodeURIComponent(href.slice(EMBED_SCHEME.length))
           return <EmbedCard spec={spec} campaignId={campaignId} prefetch={prefetched.has(spec)} />
         }
         // Ordinary external/internal links.

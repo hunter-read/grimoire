@@ -30,7 +30,7 @@ vi.mock('./context/ThemeContext', () => ({
 vi.mock('./views/SetupView', () => ({ default: () => <div>setup</div> }))
 vi.mock('./views/LoginView', () => ({ default: () => <div>login</div> }))
 vi.mock('./views/ShareView', () => ({
-  default: ({ token }: { token: string }) => <div>{`share:${token}`}</div>,
+  default: ({ token }: { token: string | null }) => <div>{`share:${String(token)}`}</div>,
 }))
 vi.mock('./components/LoadingScreen', () => ({ default: () => <div>loading</div> }))
 let shellMounts = 0
@@ -71,6 +71,12 @@ describe('App', () => {
     pathname = '/share/abc%2Ddef/'
     render(<App />)
     expect(screen.getByText('share:abc-def')).toBeInTheDocument()
+  })
+
+  it('gives a token with a malformed escape the not-found page instead of crashing', () => {
+    pathname = '/share/%E0%A4%A'
+    render(<App />)
+    expect(screen.getByText('share:null')).toBeInTheDocument()
   })
 
   it('starts the signed-in tree over when a different account signs in', () => {
