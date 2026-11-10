@@ -466,6 +466,9 @@ def test_preflight_lists_only_the_first_ids_and_a_missing_value():
         "CREATE TABLE pins (id VARCHAR PRIMARY KEY, user_id VARCHAR, collection VARCHAR, "
         "target VARCHAR)",
         f"INSERT INTO pins VALUES ('p-1', '{user_id}', NULL, 'books')",
+        # Text in a whole-number column that cannot be emptied.
+        "INSERT INTO bookmarks (id, user_id, book_id, page_number) "
+        f"SELECT 'bm-1', '{user_id}', id, 'ten' FROM books",
     )
     target = postgres_engine(scratch_database("preflight_ids"))
     with src_engine.connect() as src, target.connect() as dst:
@@ -479,3 +482,7 @@ def test_preflight_lists_only_the_first_ids_and_a_missing_value():
         "pins.collection: 1 row(s) (id 'p-1') have no value, which PostgreSQL requires there."
         in problems[problems.index(next(p for p in problems if p.startswith("pins.")))]
     )
+    assert (
+        "bookmarks.page_number: 1 row(s) (id 'bm-1') hold something other than a whole "
+        "number. Correct them."
+    ) in problems

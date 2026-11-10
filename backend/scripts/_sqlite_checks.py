@@ -77,11 +77,11 @@ def _value_problems(src: Connection, table: Table, columns: Sequence[Column]) ->
         found = _describe(src, name, keys, bad)
         if found:
             fix = (
-                f"UPDATE {name} SET {column.name} = NULL WHERE {bad};"
+                f"Clear or correct them: UPDATE {name} SET {column.name} = NULL WHERE {bad};"
                 if column.nullable
-                else "correct them"
+                else "Correct them."
             )
-            problems.append(f"{where}: {found} hold {what}. Clear or correct them: {fix}")
+            problems.append(f"{where}: {found} hold {what}. {fix}")
         bounds = _bounds(kind)
         if bounds:
             low, high = bounds
