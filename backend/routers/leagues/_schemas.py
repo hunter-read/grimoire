@@ -31,6 +31,29 @@ class MemberAdd(BaseModel):
     user_id: str
 
 
+class GuestCreate(BaseModel):
+    nickname: str = Field(default="", max_length=100)
+
+
+class BookAdd(BaseModel):
+    """Share a library book with the league."""
+
+    book_id: str = Field(min_length=1, max_length=36)
+    # "public" (every member), "private" (the members in shared_user_ids) or
+    # "organizer" (the organiser alone).
+    visibility: Literal["public", "private", "organizer"] = "organizer"
+    shared_user_ids: list[str] = Field(default_factory=list, max_length=500)
+
+
+class BookUpdate(BaseModel):
+    visibility: Optional[Literal["public", "private", "organizer"]] = None
+    shared_user_ids: Optional[list[str]] = Field(default=None, max_length=500)
+
+
+class BookReorder(BaseModel):
+    ordered_ids: list[str] = Field(max_length=2000)
+
+
 class MemberArmy(BaseModel):
     """The army a member plays in the league; null to clear it."""
 
@@ -87,6 +110,8 @@ class LeagueMemberOut(BaseModel):
     user_id: str
     name: str
     army: Optional[ArmyRef] = None
+    # Invited by the organiser with a sign-in code, rather than a full account.
+    is_guest: bool = False
 
 
 class LeagueGameOut(BaseModel):
@@ -128,3 +153,43 @@ class LeagueDetail(LeagueSummary):
 class EligibleMember(BaseModel):
     id: str
     name: str
+
+
+class LeagueGuest(BaseModel):
+    """One of the league's guests, for its organiser."""
+
+    user_id: str
+    nickname: Optional[str] = None
+    # None when SECRET_KEY changed since the code was made; regenerate it.
+    guest_code: Optional[str] = None
+    army: Optional[ArmyRef] = None
+
+
+class GuestShareTemplate(BaseModel):
+    """Copy-paste share text and links for a league guest's code."""
+
+    code: Optional[str] = None
+    link: str
+    message: str
+    mailto_url: str
+    discord_message: str
+
+
+class LeagueBook(BaseModel):
+    """A book shared with the league, as the caller may see it."""
+
+    id: str
+    book_id: str
+    title: str
+    has_thumbnail: bool = False
+    visibility: str
+    sort_order: int = 0
+    # Who a private book is shared with - for the organiser only.
+    shared_user_ids: Optional[list[str]] = None
+
+
+class BookSearchResult(BaseModel):
+    book_id: str
+    title: str
+    has_thumbnail: bool = False
+    game_system_name: str = ""

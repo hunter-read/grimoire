@@ -21,7 +21,8 @@ ACCESS_INHERIT = "inherit"
 
 
 def enforce_campaign_visibility(db: Session, book: Book) -> int:
-    """Force every campaign share of a restricted book down to GM-only visibility.
+    """Force every campaign share of a restricted book down to GM-only visibility,
+    and every league share to organiser-only.
 
     A book shared into a campaign as "public" is visible to that campaign's
     players, which would defeat the restriction the admin just applied — the
@@ -33,8 +34,9 @@ def enforce_campaign_visibility(db: Session, book: Book) -> int:
     commit — it runs inside the caller's transaction so the level change and the
     demotion land together or not at all.
     """
-    from ...models import CampaignResource
+    from ...models import CampaignResource, LeagueResource
     from ...models.access import LEVEL_OPEN, normalize
+    from ...models.leagues import VISIBILITY_ORGANIZER
 
     if normalize(access_control.resolve_level(db, book)) == LEVEL_OPEN:
         return 0
@@ -49,7 +51,18 @@ def enforce_campaign_visibility(db: Session, book: Book) -> int:
     )
     for row in rows:
         row.visibility = "gm"
-    return len(rows)
+    leagues = (
+        db.query(LeagueResource)
+        .filter(
+            LeagueResource.resource_type == "book",
+            LeagueResource.resource_id == book.id,
+            LeagueResource.visibility != VISIBILITY_ORGANIZER,
+        )
+        .all()
+    )
+    for league_row in leagues:
+        league_row.visibility = VISIBILITY_ORGANIZER
+    return len(rows) + len(leagues)
 
 
 def pop_access_level(

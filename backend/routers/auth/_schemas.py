@@ -74,6 +74,9 @@ class LoginUser(BaseModel):
     # Whether this user may create share links right now (issue #541): the
     # instance switch, their override, then their role. Drives the Share menus.
     share_links_allowed: bool = False
+    # ``ttrpg`` or ``wargame`` for a guest - which side of the app they reach -
+    # and None for everyone else.
+    guest_scope: Optional[str] = None
 
 
 class LoginResponse(BaseModel):
@@ -88,9 +91,12 @@ class LoginResponse(BaseModel):
 
 
 class GuestLoginResponse(LoginResponse):
-    """Guest login adds the campaign the invite code was scoped to."""
+    """Guest login adds where the guest was invited: a campaign's guest gets
+    ``campaign_id``, a league's guest ``league_id`` (None once they are in no
+    league, when they still reach their own armies)."""
 
-    campaign_id: str
+    campaign_id: Optional[str] = None
+    league_id: Optional[str] = None
 
 
 class OkResponse(BaseModel):
@@ -163,3 +169,5 @@ class AuthMeResponse(BaseModel):
     # See LoginUser.share_links_allowed.
     share_links_allowed: bool = False
     oidc_linked: bool
+    # See LoginUser.guest_scope.
+    guest_scope: Optional[str] = None

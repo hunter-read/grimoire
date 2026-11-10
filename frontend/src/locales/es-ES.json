@@ -2041,6 +2041,7 @@
       "favorites": "favoritos",
       "tags": "etiquetas",
       "campaigns": "enlaces de campaña",
+      "leagues": "enlaces de liga",
       "linked": "Vinculado como versión.",
       "of": "de",
       "backToList": "Volver a duplicados",
@@ -3039,7 +3040,9 @@
     "mergeInto_one": "Combinar esta cuenta en:",
     "mergeInto_other": "Combinar {{count}} cuentas seleccionadas en:",
     "mergeTargetGuests": "Cuentas de invitado",
-    "mergeTargetUsers": "Usuarios existentes"
+    "mergeTargetUsers": "Usuarios existentes",
+    "campaignOrLeague": "Campaña o liga",
+    "leagueTag": "(liga)"
   },
   "rescan": {
     "button": {
@@ -4264,6 +4267,8 @@
         "tags_other": "{{count}} etiquetas",
         "campaigns_one": "{{count}} enlace de campaña",
         "campaigns_other": "{{count}} enlaces de campaña",
+        "leagues_one": "{{count}} enlace de liga",
+        "leagues_other": "{{count}} enlaces de liga",
         "share_links_one": "{{count}} enlace compartido",
         "share_links_other": "{{count}} enlaces compartidos",
         "access_grants_one": "{{count}} permiso de acceso",
@@ -4628,6 +4633,34 @@
       "finish": "Marcar como terminada",
       "delete": "Eliminar liga",
       "confirmDelete": "Eliminar esta liga y sus partidas"
+    },
+    "guests": {
+      "title": "Invitados",
+      "hint": "Los invitados no tienen cuenta: entran con un código y acceden a esta liga y a sus propios ejércitos, nada más. Quitar a un invitado, o borrar la liga, le deja sus ejércitos.",
+      "invite": "Invitar",
+      "confirmRemove": "¿Quitar a este invitado de la liga? Conserva sus ejércitos y puede seguir entrando.",
+      "codeHidden": "juega también en otras ligas - un administrador gestiona su código",
+      "failed": "No se pudieron cambiar los invitados de la liga"
+    },
+    "books": {
+      "title": "Libros",
+      "none": "Aún no hay libros compartidos con la liga.",
+      "hint": "Los miembros leen los libros que les llegan, invitados incluidos - un invitado no tiene biblioteca, así se abren las reglas de sus ejércitos.",
+      "search": "Buscar",
+      "searchPlaceholder": "Busca un libro para compartir",
+      "noResults": "No se encontraron libros.",
+      "add": "Compartir {{title}}",
+      "remove": "Dejar de compartir {{title}}",
+      "moveUp": "Subir {{title}}",
+      "moveDown": "Bajar {{title}}",
+      "visibilityFor": "Quién ve {{title}}",
+      "sharedWith": "Compartido con",
+      "failed": "No se pudieron cambiar los libros de la liga",
+      "visibility": {
+        "public": "Todos los miembros",
+        "private": "Miembros elegidos",
+        "organizer": "Solo el organizador"
+      }
     }
   }
 }

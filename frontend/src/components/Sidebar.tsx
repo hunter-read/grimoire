@@ -26,6 +26,7 @@ import AboutModal from './AboutModal'
 import { preloadRoute } from './routeViews'
 import NavGroupHeader from './NavGroupHeader'
 import { showArmoryNav } from '../utils/armory'
+import { guestScopeOf } from '../lib/guestScope'
 
 const UPDATE_DISMISSED_KEY = 'grimoire_update_dismissed'
 
@@ -68,7 +69,12 @@ function isNewer(latestVersion: string | null, currentVersion?: string | null): 
 interface SidebarProps {
   stats?: Schema<'StatsResponse'> | null
   about?: Schema<'AboutResponse'> | null
-  user?: Pick<Schema<'UserOut'>, 'username' | 'display_name' | 'role'> | null
+  user?:
+    | (Pick<Schema<'UserOut'>, 'username' | 'display_name' | 'role'> & {
+        /** A guest's side of the app (see guestScopeOf). */
+        guest_scope?: string | null
+      })
+    | null
   onLogout?: () => void
   // Partial: the shell renders with defaults before /settings/ui answers.
   uiSettings?: Partial<Schema<'UISettingsResponse'>>
@@ -86,9 +92,10 @@ export default function Sidebar({
   onToggleCollapse,
 }: SidebarProps) {
   const { t } = useTranslation()
-  // Guests only see their campaign(s) — no library, maps, tokens, search,
-  // favorites, or settings.
+  // Guests only see their campaign(s) or league(s) — no library, maps, tokens,
+  // search, favorites, or settings.
   const isGuest = user?.role === 'guest'
+  const scope = guestScopeOf(user)
   const showArmory = showArmoryNav({
     hidden: uiSettings.hide_armory,
     armoryBooks: stats?.armory_books,
@@ -103,10 +110,10 @@ export default function Sidebar({
   const hide_armies = uiSettings.hide_armies
   const hide_leagues = uiSettings.hide_leagues
   // The table-top groups: role-playing (campaigns and the characters played in
-  // them, which a guest is there for) and wargaming (army lists and leagues,
-  // which a guest scoped to one campaign has neither of).
-  const showRoleplaying = !hide_campaigns
-  const showWargaming = !isGuest && (!hide_armies || !hide_leagues)
+  // them) and wargaming (leagues and the armies played in them). A guest is
+  // invited to one side and sees only that group.
+  const showRoleplaying = !hide_campaigns && scope !== 'wargame'
+  const showWargaming = scope !== 'ttrpg' && (!hide_armies || !hide_leagues)
   const {
     show_stat_systems = true,
     show_stat_books = false,
@@ -271,8 +278,8 @@ export default function Sidebar({
         {!isGuest && (showRoleplaying || showWargaming) && <div style={dividerStyle} />}
 
         {/* Group 3: campaigns and the characters played in them. Not gated on
-            !isGuest: a guest account exists to play in one campaign, so a guest
-            is exactly who wants a character sheet. */}
+            !isGuest: a campaign's guest exists to play in one campaign, so is
+            exactly who wants a character sheet. */}
         {showRoleplaying && (
           <div role="group" aria-label={t('nav.roleplaying')}>
             {!collapsed && <NavGroupHeader label={t('nav.roleplaying')} />}
@@ -281,16 +288,17 @@ export default function Sidebar({
           </div>
         )}
 
-        {/* Group 4: the wargame side of the table, army lists and the leagues
-            they are played in. */}
+        {/* Group 4: the wargame side of the table, leagues and the army lists
+            played in them - in that order, as campaigns come before characters.
+            A league's guest sees this group alone. */}
         {showRoleplaying && showWargaming && <div style={dividerStyle} />}
         {showWargaming && (
           <div role="group" aria-label={`${t('nav.wargaming')} (${t('nav.beta')})`}>
             {!collapsed && <NavGroupHeader label={t('nav.wargaming')} badge={t('nav.beta')} />}
-            {!hide_armies &&
-              navItem('/armies', <LuShield size={16} />, t('nav.armies'), { end: false })}
             {!hide_leagues &&
               navItem('/leagues', <LuTrophy size={16} />, t('nav.leagues'), { end: false })}
+            {!hide_armies &&
+              navItem('/armies', <LuShield size={16} />, t('nav.armies'), { end: false })}
           </div>
         )}
       </nav>

@@ -72,8 +72,8 @@ never writes to it.
 ### Wargames
 
 - **Armory** - Wargame books get a shelf of their own beside the library, read from an `armory/` folder: armies from `Factions/<Faction>/` folders with sub-factions inside, and wargame categories such as army books, rules updates, mission packs and unit references. See [Library structure](docs/library-structure.md#the-armory---wargame-books).
+- **Leagues** - Run a league with a points limit, log games, follow the standings, and track each unit's experience and honours as it goes. Share books with the league and invite guests by code, as for a campaign.
 - **Armies** - Import a BattleScribe or New Recruit roster, or build a list by hand, and open each unit's rules at the right page in your own books. Grimoire ships no points or rules text. See [Armies and leagues](docs/armies.md).
-- **Leagues** - Run a league with a points limit, log games, follow the standings, and track each unit's experience and honours as it goes.
 
 ### Administration
 

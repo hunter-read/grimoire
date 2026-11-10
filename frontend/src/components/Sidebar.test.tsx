@@ -166,13 +166,14 @@ describe('Sidebar navigation visibility', () => {
     expect(screen.queryByRole('link', { name: 'Armory' })).toBeNull()
   })
 
-  it('lists Armies and Leagues after Campaigns and Characters', () => {
+  it('lists Leagues then Armies after Campaigns and Characters', () => {
+    // Leagues come before the armies played in them, as campaigns do characters.
     renderSidebar()
     const names = screen.getAllByRole('link').map((l) => l.textContent)
     const at = (name: string) => names.indexOf(name)
     expect(at('Characters')).toBe(at('Campaigns') + 1)
-    expect(at('Armies')).toBe(at('Characters') + 1)
-    expect(at('Leagues')).toBe(at('Armies') + 1)
+    expect(at('Leagues')).toBe(at('Characters') + 1)
+    expect(at('Armies')).toBe(at('Leagues') + 1)
     expect(screen.getByRole('link', { name: 'Armies' })).toHaveAttribute('href', '/armies')
     expect(screen.getByRole('link', { name: 'Leagues' })).toHaveAttribute('href', '/leagues')
   })
@@ -188,6 +189,22 @@ describe('Sidebar navigation visibility', () => {
     second.unmount()
     renderSidebar({ user: { ...baseUser, role: 'guest' } })
     expect(screen.queryByText('Armies')).toBeNull()
+    expect(screen.queryByText('Leagues')).toBeNull()
+  })
+
+  it('shows a league’s guest the wargaming group alone', () => {
+    renderSidebar({ user: { ...baseUser, role: 'guest', guest_scope: 'wargame' } })
+    expect(screen.getByRole('link', { name: 'Leagues' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Armies' })).toBeTruthy()
+    expect(screen.queryByText('Campaigns')).toBeNull()
+    expect(screen.queryByText('Characters')).toBeNull()
+    expect(screen.queryByText('Library')).toBeNull()
+  })
+
+  it('shows a campaign’s guest the role-playing group alone', () => {
+    renderSidebar({ user: { ...baseUser, role: 'guest', guest_scope: 'ttrpg' } })
+    expect(screen.getByRole('link', { name: 'Campaigns' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Characters' })).toBeTruthy()
     expect(screen.queryByText('Leagues')).toBeNull()
   })
 

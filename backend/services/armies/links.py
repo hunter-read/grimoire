@@ -3,7 +3,9 @@
 A link is shared - set once by a GM or admin, used by every army citing the
 publication - but which books it can open is still each reader's own: a link
 to a book the user may not see resolves to nothing for them, and the books
-offered or searched for linking are only ones the linker may see.
+offered or searched for linking are only ones the linker may see. A league's
+guest sees a link only to a book one of their leagues shares with them, and is
+offered no books at all.
 """
 from __future__ import annotations
 
@@ -14,6 +16,8 @@ from sqlalchemy.orm import Session
 from ...models import Book, GameSystem, PublicationLink
 from ...models.game_types import GAME_TYPE_WARGAME
 from ..access_control import visible_books
+from ..campaigns.access import user_can_access_resource
+from . import guests
 
 #: The most books a title search or a suggestion list returns.
 MAX_MATCHES = 10
@@ -62,19 +66,31 @@ def resolve(
             PublicationLink.publication.in_(wanted),
         )
     )
+    rows = visible_books(db, q, user).all()
+    if guests.is_guest(user):
+        rows = [
+            (link, title)
+            for link, title in rows
+            if user_can_access_resource(db, user.id, "book", link.book_id)
+        ]
     return {
         link.publication: {
             "book_id": link.book_id,
             "book_title": title or "",
             "page_offset": link.page_offset or 0,
         }
-        for link, title in visible_books(db, q, user).all()
+        for link, title in rows
     }
 
 
 def _wargame_books(db: Session, user: Any, game_system_id: Optional[str]) -> Any:
-    """A query for the wargame books ``user`` may see, in one system (and its editions) or all."""
+    """A query for the wargame books ``user`` may see, in one system (and its editions) or all.
+
+    None for a guest, who is never offered a book to link.
+    """
     q = db.query(Book.id, Book.title).filter(Book.game_type == GAME_TYPE_WARGAME)
+    if guests.is_guest(user):
+        return q.filter(Book.id.is_(None))
     if game_system_id:
         ids = [game_system_id] + [
             r[0] for r in db.query(GameSystem.id).filter(GameSystem.parent_id == game_system_id)
@@ -89,9 +105,10 @@ def suggest(
     """Library books that may be ``publication``: titles naming it, or named by it.
 
     Searched within the army's system when it has one, else every wargame book.
+    Suggestions serve whoever links a publication, so a guest gets none.
     """
     needle = (publication or "").strip().lower()
-    if not needle:
+    if not needle or guests.is_guest(user):
         return []
     out = []
     for book_id, title in _wargame_books(db, user, game_system_id).limit(2000):
@@ -121,6 +138,8 @@ def search_books(db: Session, user: Any, query: str) -> list[dict[str, str]]:
 
 def readable_book(db: Session, user: Any, book_id: str) -> Optional[Book]:
     """The book ``book_id`` names, if ``user`` may see it - the only books a link may open."""
+    if guests.is_guest(user):
+        return None
     book: Optional[Book] = visible_books(db, db.query(Book).filter(Book.id == book_id), user).first()
     return book
 

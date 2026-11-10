@@ -209,7 +209,9 @@ export default function GuestsSection({
                           .map((g) => (
                             <option key={g.id} value={g.id}>
                               {g.display_name || g.id}
-                              {g.campaign_name ? ` — ${g.campaign_name}` : ''}
+                              {(g.campaign_name ?? g.league_name)
+                                ? ` — ${g.campaign_name ?? g.league_name}`
+                                : ''}
                             </option>
                           ))}
                       </optgroup>
@@ -255,7 +257,7 @@ export default function GuestsSection({
                     <tr>
                       <th style={{ ...headStyle, width: 36 }} aria-label={t('guests.select')} />
                       <th style={headStyle}>{t('guests.name')}</th>
-                      <th style={headStyle}>{t('guests.campaign')}</th>
+                      <th style={headStyle}>{t('guests.campaignOrLeague')}</th>
                       <th style={headStyle}>{t('guests.invitedBy')}</th>
                       <th style={{ ...headStyle, textAlign: 'right' }}>{t('guests.actions')}</th>
                     </tr>

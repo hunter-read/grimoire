@@ -6,7 +6,7 @@ referenced it by id. Nothing in the schema removes those rows for us:
 * ``Bookmark.book_id`` is a real foreign key with no ``ondelete``, and
   connections run ``PRAGMA foreign_keys=ON`` (``models/db.py``), so deleting a
   bookmarked book *raises IntegrityError* rather than cascading.
-* ``Favorite``, ``ResourceTag``, and ``CampaignResource`` are polymorphic —
+* ``Favorite``, ``ResourceTag``, ``CampaignResource`` and ``LeagueResource`` are polymorphic —
   ``item_type``/``resource_type`` plus a bare id — so they carry no foreign key
   at all and their rows are simply orphaned.
 * ``book_pages`` (the page text the ``book_search`` FTS index covers) holds a
@@ -24,7 +24,15 @@ from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 from ...models.collections import iter_specs
-from ...models import Book, CampaignResource, Favorite, GameSystem, ResourceTag
+from ...models import (
+    Book,
+    CampaignResource,
+    Favorite,
+    GameSystem,
+    LeagueResource,
+    LeagueResourceShare,
+    ResourceTag,
+)
 from ...models.users import Bookmark
 from .moves import _section_for_model
 
@@ -130,6 +138,17 @@ def purge_many_references(
             .all()
         ):
             db.delete(resource)
+        # A league's books likewise; their shares have no relationship to
+        # cascade through, so they go first.
+        shared = db.query(LeagueResource.id).filter(
+            LeagueResource.resource_type == item_type, LeagueResource.resource_id.in_(chunk)
+        )
+        db.query(LeagueResourceShare).filter(LeagueResourceShare.resource_id.in_(shared)).delete(
+            synchronize_session=False
+        )
+        db.query(LeagueResource).filter(
+            LeagueResource.resource_type == item_type, LeagueResource.resource_id.in_(chunk)
+        ).delete(synchronize_session=False)
 
 
 def purge_system_references(db: Session, system_id: str, *, search: bool = True) -> list[str]:
@@ -176,6 +195,9 @@ def reference_counts(db: Session, model: Any, record_id: str) -> dict[str, int]:
     }
     if model is Book:
         counts["bookmarks"] = db.query(Bookmark).filter_by(book_id=record_id).count()
+        counts["leagues"] = (
+            db.query(LeagueResource).filter_by(resource_type=item_type, resource_id=record_id).count()
+        )
     return counts
 
 
@@ -203,7 +225,7 @@ def reference_counts_for(
     if not ids:
         return {}
 
-    keys = ["favorites", "tags", "campaigns"] + (["bookmarks"] if model is Book else [])
+    keys = ["favorites", "tags", "campaigns"] + (["bookmarks", "leagues"] if model is Book else [])
     counts: dict[str, dict[str, int]] = {rid: {k: 0 for k in keys} for rid in ids}
 
     def tally(key: str, rows: Any) -> None:
@@ -245,6 +267,16 @@ def reference_counts_for(
                 db.query(Bookmark.book_id, func.count())
                 .filter(Bookmark.book_id.in_(chunk))
                 .group_by(Bookmark.book_id)
+                .all(),
+            )
+            tally(
+                "leagues",
+                db.query(LeagueResource.resource_id, func.count())
+                .filter(
+                    LeagueResource.resource_type == item_type,
+                    LeagueResource.resource_id.in_(chunk),
+                )
+                .group_by(LeagueResource.resource_id)
                 .all(),
             )
     return counts

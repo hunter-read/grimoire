@@ -2041,6 +2041,7 @@
       "favorites": "favoris",
       "tags": "étiquettes",
       "campaigns": "liens de campagne",
+      "leagues": "liens de ligue",
       "linked": "Lié comme version.",
       "of": "sur",
       "backToList": "Retour aux doublons",
@@ -3039,7 +3040,9 @@
     "mergeInto_one": "Fusionner ce compte dans :",
     "mergeInto_other": "Fusionner {{count}} comptes sélectionnés dans :",
     "mergeTargetGuests": "Comptes invités",
-    "mergeTargetUsers": "Utilisateurs existants"
+    "mergeTargetUsers": "Utilisateurs existants",
+    "campaignOrLeague": "Campagne ou ligue",
+    "leagueTag": "(ligue)"
   },
   "rescan": {
     "button": {
@@ -4264,6 +4267,8 @@
         "tags_other": "{{count}} étiquettes",
         "campaigns_one": "{{count}} lien de campagne",
         "campaigns_other": "{{count}} liens de campagne",
+        "leagues_one": "{{count}} lien de ligue",
+        "leagues_other": "{{count}} liens de ligue",
         "share_links_one": "{{count}} lien de partage",
         "share_links_other": "{{count}} liens de partage",
         "access_grants_one": "{{count}} autorisation d'accès",
@@ -4628,6 +4633,34 @@
       "finish": "Marquer comme terminée",
       "delete": "Supprimer la ligue",
       "confirmDelete": "Supprimer cette ligue et ses parties"
+    },
+    "guests": {
+      "title": "Invités",
+      "hint": "Les invités n’ont pas de compte : ils se connectent avec un code et accèdent à cette ligue et à leurs propres armées, rien d’autre. Retirer un invité, ou supprimer la ligue, lui laisse ses armées.",
+      "invite": "Inviter",
+      "confirmRemove": "Retirer cet invité de la ligue ? Il garde ses armées et peut toujours se connecter.",
+      "codeHidden": "joue aussi dans d’autres ligues - un admin gère son code",
+      "failed": "Impossible de modifier les invités de la ligue"
+    },
+    "books": {
+      "title": "Livres",
+      "none": "Aucun livre partagé avec la ligue pour l’instant.",
+      "hint": "Les membres lisent les livres qui leur sont ouverts, invités compris - un invité n’a pas de bibliothèque, c’est ainsi que s’ouvrent les règles de ses armées.",
+      "search": "Rechercher",
+      "searchPlaceholder": "Trouver un livre à partager",
+      "noResults": "Aucun livre trouvé.",
+      "add": "Partager {{title}}",
+      "remove": "Ne plus partager {{title}}",
+      "moveUp": "Monter {{title}}",
+      "moveDown": "Descendre {{title}}",
+      "visibilityFor": "Qui voit {{title}}",
+      "sharedWith": "Partagé avec",
+      "failed": "Impossible de modifier les livres de la ligue",
+      "visibility": {
+        "public": "Tous les membres",
+        "private": "Membres choisis",
+        "organizer": "Organisateur seulement"
+      }
     }
   }
 }

@@ -24,10 +24,11 @@ from .conftest import make_audio, make_book, make_game_system, make_map
 
 
 # Every route a guest token gets past the role guards on, with its methods. Each
-# of these authorises the guest inside the handler (campaign membership, the
-# campaign-share check, or the caller's own rows), or serves nothing drawn from
-# the library. Adding a route here is a claim that it does - check it against a
-# guest before you do.
+# of these authorises the guest inside the handler (campaign or league
+# membership, the share check, or the caller's own rows), or serves nothing drawn
+# from the library. Adding a route here is a claim that it does - check it
+# against a guest before you do. These are reached by every guest; the two sets
+# after them by one kind of guest each.
 GUEST_REACHABLE = {
     "/api/about": "GET",
     "/api/addons/verify-index": "GET",
@@ -59,6 +60,48 @@ GUEST_REACHABLE = {
     "/api/books/{book_id}/page/{page_num}/words": "GET",
     "/api/books/{book_id}/thumbnail": "GET",
     "/api/books/{book_id}/toc": "GET",
+    "/api/changelog": "GET",
+    "/api/favorites": "GET POST",
+    "/api/favorites/{item_type}/{item_id}": "DELETE",
+    "/api/latest-release": "GET",
+    "/api/maps/{map_id}": "GET",
+    "/api/maps/{map_id}/export": "POST",
+    "/api/maps/{map_id}/export.uvtt": "GET",
+    "/api/maps/{map_id}/file": "GET",
+    "/api/maps/{map_id}/otfbm": "GET",
+    "/api/maps/{map_id}/otfbm/image": "GET",
+    "/api/maps/{map_id}/page/{page_num}": "GET",
+    "/api/maps/{map_id}/page/{page_num}/shapes": "GET",
+    "/api/maps/{map_id}/page/{page_num}/size": "GET",
+    "/api/maps/{map_id}/thumbnail": "GET",
+    "/api/maps/{map_id}/vtt/authoring": "GET",
+    "/api/maps/{map_id}/vtt/data": "GET",
+    "/api/maps/{map_id}/vtt/image": "GET",
+    "/api/models/{model_id}": "GET",
+    "/api/models/{model_id}/file": "GET",
+    "/api/models/{model_id}/thumbnail": "GET",
+    "/api/saved-filters": "GET POST",
+    "/api/saved-filters/{filter_id}": "DELETE PATCH",
+    "/api/settings/ui": "GET",
+    "/api/themes": "GET POST",
+    "/api/themes/browse": "GET",
+    "/api/themes/install/{theme_id}": "POST",
+    "/api/themes/selection": "PUT",
+    "/api/themes/{theme_id}": "DELETE",
+    "/api/tokens/{token_id}": "GET",
+    "/api/tokens/{token_id}/file": "GET",
+    "/api/tokens/{token_id}/thumbnail": "GET",
+    "/api/users/me": "DELETE",
+    "/api/users/me/opds": "DELETE GET",
+    "/api/users/me/opds/generate": "POST",
+    "/api/users/me/password": "PATCH",
+    "/api/users/me/preferences": "PATCH",
+}
+
+# Reached by a campaign's guest alone (``require_ttrpg_access`` keeps a league's
+# guests out): the campaign itself, characters, and the rulesets and content
+# their sheets read.
+TTRPG_GUEST_REACHABLE = {
     "/api/campaigns": "GET POST",
     "/api/campaigns/calendar/subscription": "DELETE GET POST",
     "/api/campaigns/invites": "GET",
@@ -118,7 +161,6 @@ GUEST_REACHABLE = {
     "/api/campaigns/{campaign_id}/wiki/titles": "GET",
     "/api/campaigns/{campaign_id}/wiki/{page_id}": "DELETE GET PATCH",
     "/api/campaigns/{campaign_id}/wiki/{page_id}/hide": "DELETE POST",
-    "/api/changelog": "GET",
     "/api/characters": "GET POST",
     "/api/characters/import": "POST",
     # Another tool's character, through an admin-installed importer, into the
@@ -147,25 +189,6 @@ GUEST_REACHABLE = {
     "/api/content/{schema_id}/types": "GET",
     "/api/content/{schema_id}/{content_type}": "GET",
     "/api/content/{schema_id}/{content_type}/{entry_id}": "GET",
-    "/api/favorites": "GET POST",
-    "/api/favorites/{item_type}/{item_id}": "DELETE",
-    "/api/latest-release": "GET",
-    "/api/maps/{map_id}": "GET",
-    "/api/maps/{map_id}/export": "POST",
-    "/api/maps/{map_id}/export.uvtt": "GET",
-    "/api/maps/{map_id}/file": "GET",
-    "/api/maps/{map_id}/otfbm": "GET",
-    "/api/maps/{map_id}/otfbm/image": "GET",
-    "/api/maps/{map_id}/page/{page_num}": "GET",
-    "/api/maps/{map_id}/page/{page_num}/shapes": "GET",
-    "/api/maps/{map_id}/page/{page_num}/size": "GET",
-    "/api/maps/{map_id}/thumbnail": "GET",
-    "/api/maps/{map_id}/vtt/authoring": "GET",
-    "/api/maps/{map_id}/vtt/data": "GET",
-    "/api/maps/{map_id}/vtt/image": "GET",
-    "/api/models/{model_id}": "GET",
-    "/api/models/{model_id}/file": "GET",
-    "/api/models/{model_id}/thumbnail": "GET",
     "/api/rulesets": "GET POST",
     "/api/rulesets/installable": "GET",
     "/api/rulesets/packs/browse": "GET",
@@ -177,34 +200,51 @@ GUEST_REACHABLE = {
     "/api/rulesets/{ruleset_id}/export": "GET",
     "/api/rulesets/{ruleset_id}/fork": "POST",
     "/api/rulesets/{ruleset_id}/import": "POST",
-    "/api/saved-filters": "GET POST",
-    "/api/saved-filters/{filter_id}": "DELETE PATCH",
-    "/api/settings/ui": "GET",
-    "/api/themes": "GET POST",
-    "/api/themes/browse": "GET",
-    "/api/themes/install/{theme_id}": "POST",
-    "/api/themes/selection": "PUT",
-    "/api/themes/{theme_id}": "DELETE",
-    "/api/tokens/{token_id}": "GET",
-    "/api/tokens/{token_id}/file": "GET",
-    "/api/tokens/{token_id}/thumbnail": "GET",
-    "/api/users/me": "DELETE",
-    "/api/users/me/opds": "DELETE GET",
-    "/api/users/me/opds/generate": "POST",
-    "/api/users/me/password": "PATCH",
-    "/api/users/me/preferences": "PATCH",
+}
+
+# Reached by a league's guest alone. Armies are the caller's own, or registered
+# in a league they share; every library read an army makes is narrowed to the
+# guest's leagues (services/armies/guests.py). A league route answers 404 to
+# anyone not in the league, and the organiser-only ones (books other than the
+# list, guests, members, eligible-members, the league itself) to anyone who does
+# not organise it - which a guest never does.
+WARGAME_GUEST_REACHABLE = {
+    "/api/armies": "GET POST",
+    "/api/armies/games": "GET",
+    "/api/armies/games/{system_id}/factions": "GET",
+    "/api/armies/import": "POST",
+    "/api/armies/{army_id}": "DELETE GET PATCH",
+    "/api/armies/{army_id}/export": "GET",
+    "/api/armies/{army_id}/publications": "GET",
+    "/api/armies/{army_id}/units/{unit_id}/progress": "PUT",
+    "/api/leagues": "GET",
+    "/api/leagues/{league_id}": "DELETE GET PATCH",
+    "/api/leagues/{league_id}/books": "GET POST",
+    "/api/leagues/{league_id}/books/order": "PUT",
+    "/api/leagues/{league_id}/books/search": "GET",
+    "/api/leagues/{league_id}/books/{resource_id}": "DELETE PATCH",
+    "/api/leagues/{league_id}/eligible-members": "GET",
+    "/api/leagues/{league_id}/games": "POST",
+    "/api/leagues/{league_id}/games/{game_id}": "DELETE PUT",
+    "/api/leagues/{league_id}/guests": "GET POST",
+    "/api/leagues/{league_id}/guests/{user_id}": "DELETE",
+    "/api/leagues/{league_id}/guests/{user_id}/regenerate": "POST",
+    "/api/leagues/{league_id}/guests/{user_id}/share": "GET",
+    "/api/leagues/{league_id}/members": "POST",
+    "/api/leagues/{league_id}/members/{user_id}": "DELETE",
+    "/api/leagues/{league_id}/members/{user_id}/army": "PUT",
 }
 
 _ROLE_GUARDS = (auth.require_admin, auth.require_gm_or_admin, auth.require_not_guest)
 
 
-def _login_and_guard(route: APIRoute) -> tuple[bool, bool]:
-    """(needs a login, has a role guard that refuses guests) for a route."""
+def _login_and_guard(route: APIRoute, scope_guard) -> tuple[bool, bool]:
+    """(needs a login, has a guard that refuses this kind of guest) for a route."""
     found = {"auth": False, "guard": False}
 
     def walk(dep) -> None:
         for d in dep.dependencies:
-            if d.call in _ROLE_GUARDS:
+            if d.call in _ROLE_GUARDS or d.call is scope_guard:
                 found["guard"] = True
             if d.call is auth.get_current_user:
                 found["auth"] = True
@@ -214,16 +254,35 @@ def _login_and_guard(route: APIRoute) -> tuple[bool, bool]:
     return found["auth"], found["guard"]
 
 
-def test_guest_reachable_routes_are_reviewed():
+def _reachable(scope_guard) -> dict[str, set[str]]:
     reachable: dict[str, set[str]] = {}
     routes = endpoint_routes(app.routes)
     assert len(routes) >= 300, f"route walk found only {len(routes)} routes"
     for route in routes:
-        needs_login, guarded = _login_and_guard(route)
+        needs_login, guarded = _login_and_guard(route, scope_guard)
         if needs_login and not guarded:
             reachable.setdefault(route.path, set()).update(route.methods)
-    expected = {path: set(methods.split()) for path, methods in GUEST_REACHABLE.items()}
-    assert reachable == expected
+    return reachable
+
+
+def _expected(*inventories: dict[str, str]) -> dict[str, set[str]]:
+    return {
+        path: set(methods.split())
+        for inventory in inventories
+        for path, methods in inventory.items()
+    }
+
+
+def test_guest_reachable_routes_are_reviewed():
+    assert _reachable(auth.require_wargame_access) == _expected(
+        GUEST_REACHABLE, TTRPG_GUEST_REACHABLE
+    )
+
+
+def test_league_guest_reachable_routes_are_reviewed():
+    assert _reachable(auth.require_ttrpg_access) == _expected(
+        GUEST_REACHABLE, WARGAME_GUEST_REACHABLE
+    )
 
 
 def uid() -> str:

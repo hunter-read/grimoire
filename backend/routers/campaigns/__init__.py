@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import Response
 
 from ... import api_keys
+from ...auth import require_ttrpg_access
 from .._get_and_head import add_get_and_head_route
 
 from .core import (
@@ -174,7 +175,8 @@ from ._response_schemas import (
 router = APIRouter(
     prefix="/campaigns",
     tags=["campaigns"],
-    dependencies=[Depends(require_writable_campaign)],
+    # A guest invited to a league reaches only leagues and armies.
+    dependencies=[Depends(require_ttrpg_access), Depends(require_writable_campaign)],
 )
 
 # Calendar subscription feeds authenticate by the per-user token in the path, so

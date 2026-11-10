@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useNavigate } from 'react-router-dom'
@@ -13,8 +13,9 @@ vi.mock('../api', () => ({
   settings: { getUi },
 }))
 let role = 'admin'
+let guestScope: string | null = null
 vi.mock('../context/AuthContext', () => ({
-  useAuth: () => ({ user: { role }, logout: vi.fn() }),
+  useAuth: () => ({ user: { role, guest_scope: guestScope }, logout: vi.fn() }),
 }))
 let queue: { id: string }[] = []
 vi.mock('../context/AudioPlayerContext', () => ({
@@ -212,6 +213,48 @@ describe('AppShell', () => {
     it('still renders the guest campaign detail view', async () => {
       renderAt('/campaigns/c1/overview')
       await waitFor(() => expect(screen.getByText('campaign-detail')).toBeInTheDocument())
+    })
+  })
+
+  describe('league guest routes', () => {
+    beforeEach(() => {
+      role = 'guest'
+      guestScope = 'wargame'
+    })
+    afterEach(() => {
+      guestScope = null
+      sessionStorage.clear()
+    })
+
+    it.each([
+      ['/leagues', 'leagues'],
+      ['/leagues/l1', 'league-detail'],
+      ['/armies', 'armies'],
+      ['/armies/a1', 'army-detail'],
+      ['/library/book/b1', 'reader'],
+    ])('opens %s for a league guest', async (path, expected) => {
+      renderAt(path)
+      await waitFor(() => expect(screen.getByText(expected)).toBeInTheDocument())
+    })
+
+    it.each(['/campaigns', '/campaigns/c1/overview', '/characters', '/maps/m1', '/library'])(
+      'sends a league guest away from %s',
+      async (path) => {
+        renderAt(path)
+        await waitFor(() => expect(screen.getByText('leagues')).toBeInTheDocument())
+        expect(screen.queryByText('campaigns')).not.toBeInTheDocument()
+      }
+    )
+
+    it('lands a league guest in their league, or on their armies when it is gone', async () => {
+      sessionStorage.setItem('grimoire:guest_league', 'l7')
+      const { unmount } = renderAt('/')
+      await waitFor(() => expect(screen.getByText('league-detail')).toBeInTheDocument())
+      expect(sessionStorage.getItem('grimoire:guest_league')).toBeNull()
+      unmount()
+      sessionStorage.setItem('grimoire:guest_league', '')
+      renderAt('/')
+      await waitFor(() => expect(screen.getByText('armies')).toBeInTheDocument())
     })
   })
 

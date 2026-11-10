@@ -27,7 +27,16 @@ from typing import Any, Callable
 from sqlalchemy import String, cast
 from sqlalchemy.orm import Session
 
-from ...models import Audio, Book, CampaignResource, Favorite, GameSystem, ResourceTag
+from ...models import (
+    Audio,
+    Book,
+    CampaignResource,
+    Favorite,
+    GameSystem,
+    LeagueResource,
+    LeagueResourceShare,
+    ResourceTag,
+)
 from ...models.access import UserAccessGrant, rank
 from ...models.audio_sets import AudioSet
 from ...models.campaigns import (
@@ -60,6 +69,7 @@ REFERENCE_KINDS: tuple[str, ...] = (
     "favorites",
     "tags",
     "campaigns",
+    "leagues",
     "share_links",
     "access_grants",
     "audio_sets",
@@ -156,6 +166,40 @@ def _campaigns(db: Session, item_type: str, from_id: str, to_id: str) -> dict[st
                 keeper.shares.append(CampaignResourceShare(user_id=share.user_id))
                 shared.add(share.user_id)
         # The relationship cascade takes the dropped row's own shares with it.
+        db.delete(row)
+        out["deduplicated"] += 1
+    return out
+
+
+def _leagues(db: Session, item_type: str, from_id: str, to_id: str) -> dict[str, int]:
+    """Books shared with leagues, kept like campaign links (see ``_campaigns``).
+
+    Where the league already shares the kept copy, that row's visibility stays
+    and the dropped row's members are added to it.
+    """
+    existing = {
+        r.league_id: r
+        for r in db.query(LeagueResource).filter_by(resource_type=item_type, resource_id=to_id)
+    }
+    out = _tally()
+    for row in db.query(LeagueResource).filter_by(resource_type=item_type, resource_id=from_id).all():
+        keeper = existing.get(row.league_id)
+        if keeper is None:
+            row.resource_id = to_id
+            existing[row.league_id] = row
+            out["moved"] += 1
+            continue
+        shared = {
+            user_id
+            for (user_id,) in db.query(LeagueResourceShare.user_id).filter_by(resource_id=keeper.id)
+        }
+        for share in db.query(LeagueResourceShare).filter_by(resource_id=row.id).all():
+            if share.user_id in shared:
+                db.delete(share)
+            else:
+                share.resource_id = keeper.id
+                shared.add(share.user_id)
+        db.flush()
         db.delete(row)
         out["deduplicated"] += 1
     return out
@@ -274,6 +318,8 @@ def rehome_references(db: Session, model: Any, from_id: str, to_id: str) -> dict
     report["favorites"] = _favorites(db, item_type, from_id, to_id)
     report["tags"] = _tags(db, item_type, from_id, to_id)
     report["campaigns"] = _campaigns(db, item_type, from_id, to_id)
+    if model is Book:
+        report["leagues"] = _leagues(db, item_type, from_id, to_id)
     report["share_links"] = _share_links(db, item_type, from_id, to_id)
     report["notes"] = _notes(db, item_type, from_id, to_id)
     # Flushed so a following rehome for another merged copy sees these rows on

@@ -2041,6 +2041,7 @@
       "favorites": "Favoriten",
       "tags": "Schlagwörter",
       "campaigns": "Kampagnen-Verknüpfungen",
+      "leagues": "Liga-Verknüpfungen",
       "linked": "Als Version verknüpft.",
       "of": "von",
       "backToList": "Zurück zu Duplikaten",
@@ -3039,7 +3040,9 @@
     "mergeInto_one": "Dieses Konto zusammenführen in:",
     "mergeInto_other": "{{count}} ausgewählte Konten zusammenführen in:",
     "mergeTargetGuests": "Gastkonten",
-    "mergeTargetUsers": "Vorhandene Benutzer"
+    "mergeTargetUsers": "Vorhandene Benutzer",
+    "campaignOrLeague": "Kampagne oder Liga",
+    "leagueTag": "(Liga)"
   },
   "rescan": {
     "button": {
@@ -4264,6 +4267,8 @@
         "tags_other": "{{count}} Tags",
         "campaigns_one": "{{count}} Kampagnenlink",
         "campaigns_other": "{{count}} Kampagnenlinks",
+        "leagues_one": "{{count}} Liga-Verknüpfung",
+        "leagues_other": "{{count}} Liga-Verknüpfungen",
         "share_links_one": "{{count}} Freigabelink",
         "share_links_other": "{{count}} Freigabelinks",
         "access_grants_one": "{{count}} Zugriffsfreigabe",
@@ -4628,6 +4633,34 @@
       "finish": "Als beendet markieren",
       "delete": "Liga löschen",
       "confirmDelete": "Diese Liga und ihre Spiele löschen"
+    },
+    "guests": {
+      "title": "Gäste",
+      "hint": "Gäste haben kein Konto: Sie melden sich mit einem Code an und erreichen diese Liga und ihre eigenen Armeen, sonst nichts. Wer einen Gast entfernt oder die Liga löscht, lässt ihm seine Armeen.",
+      "invite": "Gast einladen",
+      "confirmRemove": "Diesen Gast aus der Liga entfernen? Er behält seine Armeen und kann sich weiter anmelden.",
+      "codeHidden": "spielt auch in anderen Ligen - den Code verwaltet ein Admin",
+      "failed": "Die Gäste der Liga konnten nicht geändert werden"
+    },
+    "books": {
+      "title": "Bücher",
+      "none": "Noch keine Bücher mit der Liga geteilt.",
+      "hint": "Mitglieder lesen die Bücher, die sie erreichen, Gäste eingeschlossen - ein Gast hat keine eigene Bibliothek, so öffnen sich die Regeln seiner Armeen.",
+      "search": "Suchen",
+      "searchPlaceholder": "Buch zum Teilen finden",
+      "noResults": "Keine Bücher gefunden.",
+      "add": "{{title}} teilen",
+      "remove": "{{title}} nicht mehr teilen",
+      "moveUp": "{{title}} nach oben",
+      "moveDown": "{{title}} nach unten",
+      "visibilityFor": "Wer {{title}} sieht",
+      "sharedWith": "Geteilt mit",
+      "failed": "Die Bücher der Liga konnten nicht geändert werden",
+      "visibility": {
+        "public": "Alle Mitglieder",
+        "private": "Ausgewählte Mitglieder",
+        "organizer": "Nur Organisator"
+      }
     }
   }
 }

@@ -14,10 +14,12 @@ from ...services import leagues as league_service
 from ._helpers import (
     can_edit_game,
     check_system,
+    delete_rows,
     detail,
     get_league,
     is_admin,
     is_eligible,
+    leave,
     manages,
     member,
     summary,
@@ -91,10 +93,13 @@ def delete_league(
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Delete a league with its members and games (organiser). Armies are untouched."""
+    """Delete a league with its members, games and books (organiser).
+
+    Armies are untouched, and so are the league's guests: a guest keeps signing
+    in to reach their own armies.
+    """
     league = get_league(db, league_id, current_user, manage=True)
-    db.query(LeagueGame).filter_by(league_id=league.id).delete(synchronize_session=False)
-    db.query(LeagueMember).filter_by(league_id=league.id).delete(synchronize_session=False)
+    delete_rows(db, league.id)
     db.delete(league)
     db.commit()
     return Response(status_code=204)
@@ -146,9 +151,8 @@ def remove_member(
     league = get_league(db, league_id, current_user)
     if user_id != current_user.id and not manages(league, current_user):
         raise HTTPException(403, "Only the league's organiser can remove members")
-    row = member(db, league.id, user_id)
-    if row is not None:
-        db.delete(row)
+    if member(db, league.id, user_id) is not None:
+        leave(db, league.id, user_id)
         db.commit()
     return Response(status_code=204)
 

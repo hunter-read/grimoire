@@ -179,3 +179,25 @@ class ArmyPublication(BaseModel):
     publication: str
     link: Optional[PublicationLinkOut] = None
     suggestions: list[BookMatch] = Field(default_factory=list)
+
+
+class ArmyGame(BaseModel):
+    """A wargame an army can be set to."""
+
+    id: str
+    name: str
+    parent_id: Optional[str] = None
+
+
+class ArmyFaction(BaseModel):
+    """One faction of a game, parents before their sub-factions."""
+
+    id: str
+    name: str
+    parent_id: Optional[str] = None
+    # Nesting depth: 0 for a top-level faction, 1 for a sub-faction, ...
+    depth: int
+
+
+class ArmyFactionsResponse(BaseModel):
+    factions: list[ArmyFaction]

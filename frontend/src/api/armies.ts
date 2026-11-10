@@ -48,6 +48,12 @@ export const armies = {
     client.get('/systems', { query: { game_type: 'wargame', include_children: true } }),
   factions: (systemId: Id) =>
     client.get('/systems/{system_id}/factions', { path: { system_id: String(systemId) } }),
+  // The same, for a league's guest, who has no library: their leagues' games.
+  games: () => client.get('/armies/games'),
+  gameFactions: (systemId: Id) =>
+    client.get('/armies/games/{system_id}/factions', {
+      path: { system_id: String(systemId) },
+    }),
 }
 
 export const leagues = {
@@ -83,5 +89,47 @@ export const leagues = {
   removeGame: (id: Id, gameId: string) =>
     client.delete('/leagues/{league_id}/games/{game_id}', {
       path: { ...league(id), game_id: gameId },
+    }),
+
+  // Guests the organiser invites with a sign-in code.
+  listGuests: (id: Id) => client.get('/leagues/{league_id}/guests', { path: league(id) }),
+  createGuest: (id: Id, nickname: string) =>
+    client.post('/leagues/{league_id}/guests', { path: league(id), body: { nickname } }),
+  regenerateGuestCode: (id: Id, userId: string) =>
+    client.post('/leagues/{league_id}/guests/{user_id}/regenerate', {
+      path: { ...league(id), user_id: userId },
+    }),
+  removeGuest: (id: Id, userId: string) =>
+    client.delete('/leagues/{league_id}/guests/{user_id}', {
+      path: { ...league(id), user_id: userId },
+    }),
+  guestShareTemplate: (id: Id, userId: string) =>
+    client.get('/leagues/{league_id}/guests/{user_id}/share', {
+      path: { ...league(id), user_id: userId },
+    }),
+
+  // Library books shared with the league.
+  listBooks: (id: Id) => client.get('/leagues/{league_id}/books', { path: league(id) }),
+  searchBooks: (id: Id, q: string) =>
+    client.get('/leagues/{league_id}/books/search', { path: league(id), query: { q } }),
+  addBook: (id: Id, body: BodyOf<'/leagues/{league_id}/books', 'post'>) =>
+    client.post('/leagues/{league_id}/books', { path: league(id), body }),
+  updateBook: (
+    id: Id,
+    resourceId: string,
+    body: BodyOf<'/leagues/{league_id}/books/{resource_id}', 'patch'>
+  ) =>
+    client.patch('/leagues/{league_id}/books/{resource_id}', {
+      path: { ...league(id), resource_id: resourceId },
+      body,
+    }),
+  reorderBooks: (id: Id, orderedIds: string[]) =>
+    client.put('/leagues/{league_id}/books/order', {
+      path: league(id),
+      body: { ordered_ids: orderedIds },
+    }),
+  removeBook: (id: Id, resourceId: string) =>
+    client.delete('/leagues/{league_id}/books/{resource_id}', {
+      path: { ...league(id), resource_id: resourceId },
     }),
 }

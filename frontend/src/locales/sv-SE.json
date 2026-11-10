@@ -2041,6 +2041,7 @@
       "favorites": "favoriter",
       "tags": "taggar",
       "campaigns": "kampanjlänkar",
+      "leagues": "ligalänkar",
       "linked": "Länkad som en version.",
       "of": "av",
       "backToList": "Tillbaka till dubbletter",
@@ -3039,7 +3040,9 @@
     "mergeInto_one": "Slå ihop det här kontot med:",
     "mergeInto_other": "Slå ihop {{count}} markerade konton med:",
     "mergeTargetGuests": "Gästkonton",
-    "mergeTargetUsers": "Befintliga användare"
+    "mergeTargetUsers": "Befintliga användare",
+    "campaignOrLeague": "Kampanj eller liga",
+    "leagueTag": "(liga)"
   },
   "rescan": {
     "button": {
@@ -4264,6 +4267,8 @@
         "tags_other": "{{count}} taggar",
         "campaigns_one": "{{count}} kampanjlänk",
         "campaigns_other": "{{count}} kampanjlänkar",
+        "leagues_one": "{{count}} ligalänk",
+        "leagues_other": "{{count}} ligalänkar",
         "share_links_one": "{{count}} delningslänk",
         "share_links_other": "{{count}} delningslänkar",
         "access_grants_one": "{{count}} åtkomstbehörighet",
@@ -4628,6 +4633,34 @@
       "finish": "Markera som avslutad",
       "delete": "Ta bort ligan",
       "confirmDelete": "Ta bort ligan och dess matcher"
+    },
+    "guests": {
+      "title": "Gäster",
+      "hint": "Gäster har inget konto: de loggar in med en kod och når den här ligan och sina egna arméer, inget annat. Att ta bort en gäst, eller radera ligan, lämnar arméerna kvar hos dem.",
+      "invite": "Bjud in gäst",
+      "confirmRemove": "Ta bort gästen från ligan? De behåller sina arméer och kan fortfarande logga in.",
+      "codeHidden": "spelar i andra ligor också - en admin hanterar koden",
+      "failed": "Kunde inte ändra ligans gäster"
+    },
+    "books": {
+      "title": "Böcker",
+      "none": "Inga böcker delade med ligan än.",
+      "hint": "Medlemmar läser böckerna som når dem, gäster också - en gäst har inget eget bibliotek, så öppnas reglerna för deras arméer.",
+      "search": "Sök",
+      "searchPlaceholder": "Hitta en bok att dela",
+      "noResults": "Inga böcker hittades.",
+      "add": "Dela {{title}}",
+      "remove": "Sluta dela {{title}}",
+      "moveUp": "Flytta upp {{title}}",
+      "moveDown": "Flytta ned {{title}}",
+      "visibilityFor": "Vem som ser {{title}}",
+      "sharedWith": "Delad med",
+      "failed": "Kunde inte ändra ligans böcker",
+      "visibility": {
+        "public": "Alla medlemmar",
+        "private": "Valda medlemmar",
+        "organizer": "Bara arrangören"
+      }
     }
   }
 }

@@ -234,10 +234,17 @@ class GuestOut(BaseModel):
     # `created_at` is `default=...` rather than NOT NULL.
     created_at: Optional[str] = None
     # All three are None when the guest's membership or campaign has been
-    # deleted out from under it.
+    # deleted out from under it. For a league's guest, `invited_by` is their
+    # league's organiser.
     campaign_id: Optional[str] = None
     campaign_name: Optional[str] = None
     invited_by: Optional[str] = None
+    # "ttrpg" (a campaign's guest) or "wargame" (a league's).
+    guest_scope: str = "ttrpg"
+    # A league's guest: the league they were invited to, None once it is gone
+    # (they still sign in to reach their own armies).
+    league_id: Optional[str] = None
+    league_name: Optional[str] = None
 
 
 class PreferencesResponse(BaseModel):

@@ -5,7 +5,9 @@ Glory. An organiser (a GM or admin) creates it and adds members; each member
 registers one of their armies; members log the games they play; and the
 standings come from the results, scored with the league's own points per win,
 draw and loss (``services/leagues.py``). Units' experience and honours are kept
-on the armies (``Army.progress``).
+on the armies (``Army.progress``). The organiser shares library books with the
+league as a campaign's GM does with a campaign (``LeagueResource``), and can
+invite guests, who sign in with a code (``User.guest_code``).
 
 References to users have no ``ON DELETE``: removing or merging an account is
 handled in code (``services/campaigns/user_data.py``), as for every other table.
@@ -13,7 +15,16 @@ handled in code (``services/campaigns/user_data.py``), as for every other table.
 import datetime
 from typing import Optional
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, _utcnow, _uuid
@@ -27,6 +38,13 @@ RESULT_A = "a"
 RESULT_B = "b"
 RESULT_DRAW = "draw"
 RESULTS = (RESULT_A, RESULT_B, RESULT_DRAW)
+
+#: Who sees a book shared with a league: every member, the members it is shared
+#: with (and the organiser), or the organiser alone.
+VISIBILITY_PUBLIC = "public"
+VISIBILITY_PRIVATE = "private"
+VISIBILITY_ORGANIZER = "organizer"
+VISIBILITIES = (VISIBILITY_PUBLIC, VISIBILITY_PRIVATE, VISIBILITY_ORGANIZER)
 
 
 class League(Base):
@@ -66,6 +84,51 @@ class LeagueMember(Base):
         String(36), ForeignKey("armies.id", ondelete="SET NULL"), nullable=True
     )
     joined_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
+    # A guest invited to the league by its organiser, rather than a full
+    # account added to it. Their sign-in code is on the account.
+    is_guest: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
+
+
+class LeagueResource(Base):
+    """A library book the organiser has shared with a league.
+
+    Mirrors ``CampaignResource``. Only books for now, but typed like a
+    campaign's resources so the guest content gate (``services.campaigns.access``)
+    reads both the same way.
+    """
+
+    __tablename__ = "league_resources"
+    __table_args__ = (
+        UniqueConstraint("league_id", "resource_type", "resource_id", name="uq_league_resources"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    league_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("leagues.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    resource_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    resource_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    # One of VISIBILITIES.
+    visibility: Mapped[str] = mapped_column(String(20), nullable=False, default=VISIBILITY_ORGANIZER)
+    sort_order: Mapped[Optional[int]] = mapped_column(Integer, default=0)
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, default=_utcnow)
+
+
+class LeagueResourceShare(Base):
+    """A member a ``private`` league book is shared with."""
+
+    __tablename__ = "league_resource_shares"
+    __table_args__ = (
+        UniqueConstraint("resource_id", "user_id", name="uq_league_resource_shares"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    resource_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("league_resources.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id"), nullable=False, index=True
+    )
 
 
 class LeagueGame(Base):

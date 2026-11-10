@@ -183,6 +183,15 @@ describe('MobileSidebar', () => {
     renderBar({ user: { role: 'guest' } })
     expect(screen.getByText(/log out/i)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /more/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /campaigns/i })).toHaveAttribute('href', '/campaigns')
+    expect(screen.getByRole('link', { name: /characters/i })).toHaveAttribute('href', '/characters')
+  })
+
+  it('gives a league’s guest their leagues and armies instead', () => {
+    renderBar({ user: { role: 'guest', guest_scope: 'wargame' } })
+    expect(screen.getByRole('link', { name: /leagues/i })).toHaveAttribute('href', '/leagues')
+    expect(screen.getByRole('link', { name: /armies/i })).toHaveAttribute('href', '/armies')
+    expect(screen.queryByRole('link', { name: /campaigns/i })).toBeNull()
   })
 })
 

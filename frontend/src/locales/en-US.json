@@ -2041,6 +2041,7 @@
       "favorites": "favorites",
       "tags": "tags",
       "campaigns": "campaign links",
+      "leagues": "league links",
       "linked": "Linked as a version.",
       "of": "of",
       "backToList": "Back to duplicates",
@@ -3039,7 +3040,9 @@
     "mergeInto_one": "Merge this account into:",
     "mergeInto_other": "Merge {{count}} selected accounts into:",
     "mergeTargetGuests": "Guest accounts",
-    "mergeTargetUsers": "Existing users"
+    "mergeTargetUsers": "Existing users",
+    "campaignOrLeague": "Campaign or league",
+    "leagueTag": "(league)"
   },
   "rescan": {
     "button": {
@@ -4264,6 +4267,8 @@
         "tags_other": "{{count}} tags",
         "campaigns_one": "{{count}} campaign link",
         "campaigns_other": "{{count}} campaign links",
+        "leagues_one": "{{count}} league link",
+        "leagues_other": "{{count}} league links",
         "share_links_one": "{{count}} share link",
         "share_links_other": "{{count}} share links",
         "access_grants_one": "{{count}} access grant",
@@ -4628,6 +4633,34 @@
       "finish": "Mark finished",
       "delete": "Delete league",
       "confirmDelete": "Delete this league and its games"
+    },
+    "guests": {
+      "title": "Guests",
+      "hint": "Guests have no account: they sign in with a code and reach this league and their own armies, nothing else. Removing a guest, or deleting the league, leaves them their armies.",
+      "invite": "Invite guest",
+      "confirmRemove": "Remove this guest from the league? They keep their armies and can still sign in to them.",
+      "codeHidden": "plays in other leagues too - an admin manages their code",
+      "failed": "Could not update the league's guests"
+    },
+    "books": {
+      "title": "Books",
+      "none": "No books shared with the league yet.",
+      "hint": "Members read the books that reach them, guests included - a guest has no library of their own, so this is how their armies' rules open.",
+      "search": "Search",
+      "searchPlaceholder": "Find a book to share",
+      "noResults": "No books found.",
+      "add": "Share {{title}}",
+      "remove": "Stop sharing {{title}}",
+      "moveUp": "Move {{title}} up",
+      "moveDown": "Move {{title}} down",
+      "visibilityFor": "Who sees {{title}}",
+      "sharedWith": "Shared with",
+      "failed": "Could not update the league's books",
+      "visibility": {
+        "public": "Every member",
+        "private": "Chosen members",
+        "organizer": "Organizer only"
+      }
     }
   }
 }

@@ -140,6 +140,41 @@ describe('GuestsSection', () => {
     expect(screen.getByText('DM Dave')).toBeInTheDocument()
   })
 
+  it('names a league guest’s league, or a dash once it is gone', async () => {
+    vi.mocked(api.get).mockResolvedValue([
+      {
+        id: 'guest-9',
+        display_name: 'Recruit',
+        campaign_id: null,
+        campaign_name: null,
+        invited_by: 'Gus',
+        guest_scope: 'wargame',
+        league_id: 'l1',
+        league_name: 'Winter League',
+      },
+      {
+        id: 'guest-10',
+        display_name: 'Leftover',
+        campaign_id: null,
+        campaign_name: null,
+        invited_by: null,
+        guest_scope: 'wargame',
+        league_id: null,
+        league_name: null,
+      },
+    ])
+    render(<GuestsSection passwordAuthEnabled onConverted={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: /guests/i }))
+    expect(await screen.findByText('Winter League')).toBeInTheDocument()
+    expect(screen.getAllByText('(league)')).toHaveLength(2)
+    expect(screen.getByRole('columnheader', { name: 'Campaign or league' })).toBeInTheDocument()
+    // The merge target list names the league too.
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Recruit' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Leftover' }))
+    expect(screen.getByRole('option', { name: 'Recruit — Winter League' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Leftover' })).toBeInTheDocument()
+  })
+
   it('shows the empty state when there are no guests', async () => {
     vi.mocked(api.get).mockResolvedValue([])
     render(<GuestsSection passwordAuthEnabled onConverted={vi.fn()} />)

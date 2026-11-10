@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from ...models import Faction, GameSystem
 from ...models.game_types import GAME_TYPE_WARGAME
 from ..access_control import visible_systems
+from . import guests
 
 
 def match_system(db: Session, user: Any, system_name: str) -> Optional[GameSystem]:
@@ -16,7 +17,8 @@ def match_system(db: Session, user: Any, system_name: str) -> Optional[GameSyste
 
     Exact on the name, ignoring case: "Warhammer 40,000 10th Edition" in the
     roster is the edition system the armory's folder produced. Only systems the
-    user may see are matched, so an import never reveals a restricted one.
+    user may see are matched, so an import never reveals a restricted one - and
+    a guest's only their leagues' (``guests``).
     """
     name = (system_name or "").strip().lower()
     if not name:
@@ -24,7 +26,7 @@ def match_system(db: Session, user: Any, system_name: str) -> Optional[GameSyste
     q = db.query(GameSystem).filter(
         GameSystem.game_type == GAME_TYPE_WARGAME, func.lower(GameSystem.name) == name
     )
-    result: Optional[GameSystem] = visible_systems(db, q, user).first()
+    result: Optional[GameSystem] = _visible(db, q, user).first()
     return result
 
 
@@ -56,5 +58,19 @@ def wargame_system(db: Session, user: Any, system_id: str) -> Optional[GameSyste
     q = db.query(GameSystem).filter(
         GameSystem.id == system_id, GameSystem.game_type == GAME_TYPE_WARGAME
     )
-    result: Optional[GameSystem] = visible_systems(db, q, user).first()
+    result: Optional[GameSystem] = _visible(db, q, user).first()
     return result
+
+
+def choosable_systems(db: Session, user: Any) -> list[GameSystem]:
+    """The wargame systems ``user`` may set an army to, by name."""
+    q = db.query(GameSystem).filter(GameSystem.game_type == GAME_TYPE_WARGAME)
+    return sorted(_visible(db, q, user).all(), key=lambda s: (s.name or "").lower())
+
+
+def _visible(db: Session, q: Any, user: Any) -> Any:
+    """``q`` narrowed to the systems ``user`` may see: a guest, their leagues' alone."""
+    q = visible_systems(db, q, user)
+    if guests.is_guest(user):
+        q = q.filter(GameSystem.id.in_(guests.league_system_ids(db, user.id) or {""}))
+    return q

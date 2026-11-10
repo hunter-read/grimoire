@@ -15,21 +15,31 @@ import { army, factions, manualArmy, systems, unit } from '../../test/armyFixtur
 
 const mockSystems = vi.fn()
 const mockFactions = vi.fn()
+const mockGames = vi.fn()
+const mockGameFactions = vi.fn()
 
 vi.mock('../../api', () => ({
   armies: {
     systems: (...a: unknown[]) => mockSystems(...a),
     factions: (...a: unknown[]) => mockFactions(...a),
+    games: (...a: unknown[]) => mockGames(...a),
+    gameFactions: (...a: unknown[]) => mockGameFactions(...a),
   },
 }))
+
+let role = 'player'
+vi.mock('../../context/AuthContext', () => ({ useAuth: () => ({ user: { role } }) }))
 
 const withRouter = (ui: React.ReactElement) => render(<MemoryRouter>{ui}</MemoryRouter>)
 const links = army.publication_links ?? {}
 
 beforeEach(() => {
   vi.clearAllMocks()
+  role = 'player'
   mockSystems.mockResolvedValue(systems)
   mockFactions.mockResolvedValue({ factions })
+  mockGames.mockResolvedValue([{ id: 's40k', name: 'League Game' }])
+  mockGameFactions.mockResolvedValue({ factions })
 })
 
 describe('armyText', () => {
@@ -263,6 +273,18 @@ describe('GameFactionFields', () => {
     rerender(<GameFactionFields systemId="s40k" onChange={vi.fn()} />)
     await waitFor(() => expect(mockFactions).toHaveBeenCalled())
     expect(screen.queryByLabelText('Faction')).not.toBeInTheDocument()
+  })
+})
+
+describe('GameFactionFields for a league guest', () => {
+  it('offers only their leagues’ games, without the library', async () => {
+    role = 'guest'
+    render(<GameFactionFields systemId="s40k" onChange={vi.fn()} />)
+    expect(await screen.findByRole('option', { name: 'League Game' })).toBeInTheDocument()
+    await screen.findByLabelText('Faction')
+    expect(mockGameFactions).toHaveBeenCalledWith('s40k')
+    expect(mockSystems).not.toHaveBeenCalled()
+    expect(mockFactions).not.toHaveBeenCalled()
   })
 })
 

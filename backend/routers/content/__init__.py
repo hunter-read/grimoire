@@ -1,5 +1,7 @@
 """Content catalog package — server-wide packs, browsed through a user's schema."""
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+
+from ...auth import require_ttrpg_access
 
 from ._schemas import (
     CatalogEntry,
@@ -17,7 +19,12 @@ from .core import (
     resolve_entries,
 )
 
-router = APIRouter(prefix="/content", tags=["content"])
+router = APIRouter(
+    prefix="/content",
+    tags=["content"],
+    # A guest invited to a league reaches only leagues and armies.
+    dependencies=[Depends(require_ttrpg_access)],
+)
 
 __all__ = ["router"]
 

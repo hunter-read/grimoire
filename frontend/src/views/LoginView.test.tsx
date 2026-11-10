@@ -149,6 +149,39 @@ describe('LoginView', () => {
     expect(sessionStorage.getItem('grimoire:guest_campaign')).toBe('camp42')
   })
 
+  it.each([
+    ['lg7', 'lg7'],
+    [null, ''],
+  ])('stashes a league guest’s league (%s) for the redirect', async (leagueId, stored) => {
+    sessionStorage.clear()
+    globalThis.fetch = vi.fn().mockImplementation((url) => {
+      if (url === '/api/auth/config') {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ password_auth_enabled: true, guest_access_enabled: true }),
+        })
+      }
+      const body = {
+        token: 'gtok',
+        user: { username: 'guest_y', role: 'guest', guest_scope: 'wargame' },
+        campaign_id: null,
+        league_id: leagueId,
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve(JSON.stringify(body)),
+        json: () => Promise.resolve(body),
+      })
+    })
+    render(<LoginView onLogin={vi.fn()} />)
+    fireEvent.click(await screen.findByText(/have an invite code/i))
+    await userEvent.type(screen.getByLabelText('Invite Code'), 'abc1234567')
+    fireEvent.click(screen.getByRole('button', { name: /enter as guest/i }))
+    await waitFor(() => expect(sessionStorage.getItem('grimoire:guest_league')).toBe(stored))
+    expect(sessionStorage.getItem('grimoire:guest_campaign')).toBeNull()
+  })
+
   it('disables the button and shows loading text while submitting', async () => {
     // Never settles, so the form stays mid-submit.
     globalThis.fetch = vi.fn().mockReturnValue(new Promise(() => {}))

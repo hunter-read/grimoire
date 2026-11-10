@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { armies as armiesApi, type Schema } from '../../api'
+import { armies as armiesApi } from '../../api'
+import { useAuth } from '../../context/AuthContext'
 import { input, label } from './armyStyles'
 
 interface GameFactionFieldsProps {
@@ -11,9 +12,19 @@ interface GameFactionFieldsProps {
   withFaction?: boolean
 }
 
+interface GameOption {
+  id: string
+  name: string
+}
+
+interface FactionOption extends GameOption {
+  depth: number
+}
+
 /**
  * Pick a wargame from the library's armory and, optionally, one of its
  * factions. Changing the game clears the faction, which belongs to one game.
+ * A league's guest has no library: they pick from their leagues' games.
  */
 export default function GameFactionFields({
   systemId,
@@ -22,21 +33,20 @@ export default function GameFactionFields({
   withFaction = true,
 }: GameFactionFieldsProps) {
   const { t } = useTranslation()
-  const [systems, setSystems] = useState<Schema<'SystemSummary'>[]>([])
-  const [factions, setFactions] = useState<Schema<'FactionOut'>[]>([])
+  const isGuest = useAuth()?.user?.role === 'guest'
+  const [systems, setSystems] = useState<GameOption[]>([])
+  const [factions, setFactions] = useState<FactionOption[]>([])
 
   useEffect(() => {
-    armiesApi
-      .systems()
-      .then(setSystems)
-      .catch(() => setSystems([]))
-  }, [])
+    const load: Promise<GameOption[]> = isGuest ? armiesApi.games() : armiesApi.systems()
+    load.then(setSystems).catch(() => setSystems([]))
+  }, [isGuest])
 
   useEffect(() => {
     if (!withFaction || !systemId) return undefined
     let cancelled = false
-    armiesApi
-      .factions(systemId)
+    const load = isGuest ? armiesApi.gameFactions(systemId) : armiesApi.factions(systemId)
+    load
       .then((res) => {
         if (!cancelled) setFactions(res.factions)
       })
@@ -46,7 +56,7 @@ export default function GameFactionFields({
     return () => {
       cancelled = true
     }
-  }, [systemId, withFaction])
+  }, [systemId, withFaction, isGuest])
 
   return (
     <>
