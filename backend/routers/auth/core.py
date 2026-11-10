@@ -103,10 +103,13 @@ def auth_login(
     typed = fold_username(data.username) or ""
     user = find_by_username(db, data.username)
     # Failed attempts are also counted per account, whatever address they come
-    # from. A browser this account has signed in from before keeps its own
-    # count, so failures elsewhere don't lock the owner out of it.
+    # from: against the account the name reached, so every spelling that reaches
+    # it shares one count, or the folded name when it reached none. A browser
+    # this account has signed in from before keeps its own count, so failures
+    # elsewhere don't lock the owner out of it.
     device = login_devices.device_for(request, user.id if user else None)
-    scope, key = (LOGIN_DEVICE_SCOPE, device) if device else (LOGIN_ACCOUNT_SCOPE, typed)
+    account = f"id:{user.id}" if user else f"name:{typed}"
+    scope, key = (LOGIN_DEVICE_SCOPE, device) if device else (LOGIN_ACCOUNT_SCOPE, account)
     if account_attempts_blocked(scope, key):
         raise HTTPException(429, "Too many failed sign-in attempts - try again later")
     # Verify even when no such user exists (verify_password runs a dummy hash
