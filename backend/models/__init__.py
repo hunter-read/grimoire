@@ -32,7 +32,7 @@ from .campaigns import (
 from .db import init_db
 from .duplicates import DuplicateDismissal, DuplicateGroup
 from .factions import Faction, book_factions
-from .leagues import League, LeagueGame, LeagueMember
+from .leagues import League, LeagueGame, LeagueMember, LeagueResource, LeagueResourceShare
 from .library import (
     Book,
     BookFolder,
@@ -88,6 +88,8 @@ __all__ = [
     "League",
     "LeagueMember",
     "LeagueGame",
+    "LeagueResource",
+    "LeagueResourceShare",
     # Media
     "GenericMap",
     "MapFolder",

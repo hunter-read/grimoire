@@ -184,6 +184,17 @@ describe('LeagueMembers', () => {
     return onChange
   }
 
+  it('marks a guest', async () => {
+    renderMembers({
+      members: [
+        { user_id: 'u1', name: 'Ana', army: null },
+        { user_id: 'g1', name: 'Recruit', army: null, is_guest: true },
+      ],
+    })
+    expect(await screen.findByText('Recruit')).toBeInTheDocument()
+    expect(screen.getByText('Guest')).toBeInTheDocument()
+  })
+
   it('registers your army, and links to the others’', async () => {
     const onChange = renderMembers({
       members: [

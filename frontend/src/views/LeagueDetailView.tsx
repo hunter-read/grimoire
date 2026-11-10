@@ -4,12 +4,15 @@ import { useTranslation } from 'react-i18next'
 import { LuArrowLeft, LuPlus, LuTrophy } from 'react-icons/lu'
 import { leagues as leaguesApi, type Schema } from '../api'
 import { useAuth } from '../context/AuthContext'
+import { useUISettings } from '../context/UISettingsContext'
 import Spinner from '../components/Spinner'
 import StandingsTable from '../components/leagues/StandingsTable'
 import LeagueMembers from '../components/leagues/LeagueMembers'
 import GameForm from '../components/leagues/GameForm'
 import GameList from '../components/leagues/GameList'
 import LeagueSettings from '../components/leagues/LeagueSettings'
+import LeagueBooks from '../components/leagues/LeagueBooks'
+import LeagueGuests from '../components/leagues/LeagueGuests'
 import {
   chip,
   header,
@@ -23,13 +26,15 @@ import { errorMessage } from '../components/armies/armyText'
 import usePageTitle from '../hooks/usePageTitle'
 
 /**
- * One league: its standings, members and their armies, and the games played.
- * Members log their own games; the organiser runs the rest.
+ * One league: its standings, members and their armies, the games played, and
+ * the books shared with it. Members log their own games; the organiser runs
+ * the rest, guests included.
  */
 export default function LeagueDetailView() {
   const { leagueId = '' } = useParams()
   const { t } = useTranslation()
   const user = useAuth()?.user
+  const { guest_access_enabled } = useUISettings()
   const navigate = useNavigate()
   const [league, setLeague] = useState<Schema<'LeagueDetail'> | null>(null)
   const [error, setError] = useState('')
@@ -121,6 +126,10 @@ export default function LeagueDetailView() {
           userId={user?.id}
           onChange={(next) => (next ? setLeague(next) : void navigate('/leagues'))}
         />
+        <LeagueBooks league={league} />
+        {league.can_manage && guest_access_enabled && (
+          <LeagueGuests leagueId={league.id} onChanged={() => void load()} />
+        )}
         {league.can_manage && (
           <LeagueSettings
             league={league}

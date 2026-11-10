@@ -10,6 +10,7 @@ from ...config import get_db
 from ...http_headers import content_disposition
 from ...models import Army
 from ...models.armies import SOURCE_BATTLESCRIBE, SOURCE_MANUAL
+from ...services import factions as faction_service
 from ...services.armies import battlescribe, export, links, manual, matching, storage
 from ._helpers import check_system_and_faction, detail, get_army, recount, summary
 from ._schemas import ArmyCreate, ArmyUpdate, ManualUnitIn, PublicationLinkIn, UnitProgress
@@ -279,3 +280,34 @@ def delete_publication_link(
     links.remove_link(db, system_name, publication.strip())
     db.commit()
     return Response(status_code=204)
+
+
+def list_games(
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """The wargames the caller may set an army to.
+
+    The army form's list for anyone, and the only one a league's guest gets:
+    their leagues' games and those games' editions.
+    """
+    return [
+        {"id": s.id, "name": s.name, "parent_id": s.parent_id}
+        for s in matching.choosable_systems(db, current_user)
+    ]
+
+
+def list_game_factions(
+    system_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """A game's factions, for the army form. 404 for a game the caller may not choose."""
+    if matching.wargame_system(db, current_user, system_id) is None:
+        raise HTTPException(404, "Game not found")
+    return {
+        "factions": [
+            {key: f[key] for key in ("id", "name", "parent_id", "depth")}
+            for f in faction_service.system_factions(db, system_id)
+        ]
+    }

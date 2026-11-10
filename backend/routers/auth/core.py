@@ -9,6 +9,8 @@ from ...api_keys import user_keys_allowed
 from ...services import share_links as share_policy
 from ...auth import (
     AUTH_COOKIE_NAME,
+    GUEST_SCOPE_WARGAME,
+    guest_scope_of,
     CurrentUser,
     clear_auth_cookie,
     clear_refresh_cookie,
@@ -21,7 +23,7 @@ from ...auth import (
 )
 from ...config import get_db
 from ...log_context import set_log_user
-from ...models import AuthSession, CampaignMember, User
+from ...models import AuthSession, CampaignMember, LeagueMember, User
 from ...usernames import find_by_username, fold_username
 from ...security import (
     AUTH_RATE_LIMIT,
@@ -48,7 +50,7 @@ from ...services.app_settings import (
     oidc_is_configured,
     password_auth_effective,
 )
-from ...services.campaigns.user_data import guest_member_by_code
+from ...services.campaigns.user_data import guest_member_by_code, league_guest_by_code
 from ._helpers import issue_login
 from ._schemas import GuestLoginRequest, LoginRequest, SetupRequest
 
@@ -124,9 +126,15 @@ def auth_login(
 
 
 def _guest_still_invited(db: Session, user: User) -> bool:
-    """Whether guest access is on and ``user`` still holds an accepted guest invite."""
+    """Whether guest access is on and ``user`` still holds an accepted guest invite.
+
+    A league guest's invite is the code on their account, which outlives the
+    league: they keep reaching their own armies.
+    """
     if not guest_access_effective(get_raw(db)):
         return False
+    if user.guest_scope == GUEST_SCOPE_WARGAME:
+        return bool(user.is_guest and user.guest_code_hash)
     member = (
         db.query(CampaignMember)
         .filter_by(user_id=user.id, is_guest=True, status="accepted")
@@ -148,15 +156,33 @@ def guest_login(
         raise HTTPException(401, "Invalid invite code")
 
     member = guest_member_by_code(db, data.code)
-    if not member or not member.is_guest or member.status != "accepted":
+    if member is None:
+        return _league_guest_login(db, data.code, request, response)
+    if not member.is_guest or member.status != "accepted":
         raise HTTPException(401, "Invalid invite code")
 
     user = db.query(User).filter_by(id=member.user_id).first()
-    if not user or user.role != "guest":
+    if not user or user.role != "guest" or user.guest_scope == GUEST_SCOPE_WARGAME:
         raise HTTPException(401, "Invalid invite code")
 
     body = issue_login(db, user, response, request, origin="guest")
     body["campaign_id"] = member.campaign_id
+    return body
+
+
+def _league_guest_login(db: Session, code: str, request: Request, response: Response) -> dict:
+    """Sign in with a league guest's code, which is on the account itself."""
+    user = league_guest_by_code(db, code)
+    if user is None or user.role != "guest" or user.guest_scope != GUEST_SCOPE_WARGAME:
+        raise HTTPException(401, "Invalid invite code")
+    first = (
+        db.query(LeagueMember.league_id)
+        .filter_by(user_id=user.id)
+        .order_by(LeagueMember.joined_at, LeagueMember.id)
+        .first()
+    )
+    body = issue_login(db, user, response, request, origin="guest")
+    body["league_id"] = first[0] if first else None
     return body
 
 
@@ -234,6 +260,7 @@ def auth_refresh(
             "role": user.role,
             "api_keys_allowed": user_keys_allowed(user),
             "share_links_allowed": share_policy.user_can_share(db, user),
+            "guest_scope": guest_scope_of(user),
         },
     }
 
@@ -356,4 +383,5 @@ def auth_me(
         "api_keys_allowed": user_keys_allowed(u),
         "share_links_allowed": share_policy.user_can_share(db, u),
         "oidc_linked": bool(u.oidc_subject),
+        "guest_scope": guest_scope_of(u),
     }

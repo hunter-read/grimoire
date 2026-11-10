@@ -11,8 +11,9 @@ from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser, require_admin
 from ...config import get_db
-from ...models import Book, CampaignResource, FolderAccessRule
+from ...models import Book, CampaignResource, FolderAccessRule, LeagueResource
 from ...models.access import RESTRICTED_LEVELS
+from ...models.leagues import VISIBILITY_ORGANIZER
 from ...services import folder_access
 from ...services import library_fs as fs
 from ...sql_paths import path_under
@@ -45,7 +46,8 @@ def _rule_out(db: Session, row: FolderAccessRule) -> dict:
 
 
 def _demote_campaign_shares(db: Session, path: str) -> int:
-    """Force campaign shares of the books a new rule restricts down to GM-only.
+    """Force campaign shares of the books a new rule restricts down to GM-only,
+    and league shares to organiser-only.
 
     The same step a restricted book or system takes (``enforce_campaign_visibility``),
     done in one pass for the whole folder. A book with an explicit open level is
@@ -70,7 +72,18 @@ def _demote_campaign_shares(db: Session, path: str) -> int:
     )
     for row in rows:
         row.visibility = "gm"
-    return len(rows)
+    leagues = (
+        db.query(LeagueResource)
+        .filter(
+            LeagueResource.resource_type == "book",
+            LeagueResource.resource_id.in_(restricted),
+            LeagueResource.visibility != VISIBILITY_ORGANIZER,
+        )
+        .all()
+    )
+    for league_row in leagues:
+        league_row.visibility = VISIBILITY_ORGANIZER
+    return len(rows) + len(leagues)
 
 
 def list_folder_access_rules(

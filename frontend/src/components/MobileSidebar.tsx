@@ -24,10 +24,11 @@ import MoreItem, { moreItemStyle } from './MoreItem'
 import NavGroupHeader from './NavGroupHeader'
 import type { Schema } from '../api'
 import { showArmoryNav } from '../utils/armory'
+import { guestScopeOf } from '../lib/guestScope'
 
 export interface MobileSidebarProps {
   /** The signed-in user; only the role is read. */
-  user: { role?: string | null } | null
+  user: { role?: string | null; guest_scope?: string | null } | null
   onLogout?: () => void
   uiSettings?: Partial<Schema<'UISettingsResponse'>>
   /** Library counts; whether the armory holds anything decides its entry. */
@@ -85,13 +86,25 @@ export default function MobileSidebar({
     ...(!hide_tokens ? ['/tokens'] : []),
     ...(!hide_audio ? ['/audio'] : []),
     ...(!hide_models ? ['/models'] : []),
-    ...(!hide_armies ? ['/armies'] : []),
     ...(!hide_leagues ? ['/leagues'] : []),
+    ...(!hide_armies ? ['/armies'] : []),
   ]
   const moreActive = moreRoutes.some((r) => location.pathname.startsWith(r))
 
   if (isGuest) {
-    // Guests only have their campaign(s); show a minimal bar.
+    // Guests only have their own side of the app - a campaign's guest their
+    // campaign(s) and characters, a league's their league(s) and armies - so a
+    // minimal bar holds it all.
+    const links =
+      guestScopeOf(user) === 'wargame'
+        ? [
+            { to: '/leagues', Icon: LuTrophy, label: t('nav.leagues') },
+            { to: '/armies', Icon: LuShield, label: t('nav.armies') },
+          ]
+        : [
+            { to: '/campaigns', Icon: LuScroll, label: t('nav.campaigns') },
+            { to: '/characters', Icon: LuUsers, label: t('nav.characters') },
+          ]
     return (
       <nav
         aria-label={t('a11y.mainNavigation')}
@@ -108,10 +121,12 @@ export default function MobileSidebar({
           padding: '8px 0',
         }}
       >
-        <NavLink to="/campaigns" end={false} style={({ isActive }) => mobileNavStyle(isActive)}>
-          <LuScroll size={20} />
-          {t('nav.campaigns')}
-        </NavLink>
+        {links.map(({ to, Icon, label }) => (
+          <NavLink key={to} to={to} end={false} style={({ isActive }) => mobileNavStyle(isActive)}>
+            <Icon size={20} />
+            {label}
+          </NavLink>
+        ))}
         <button onClick={onLogout} style={mobileNavStyle(false)}>
           <LuLogOut size={20} />
           {t('nav.logOut')}
@@ -258,19 +273,19 @@ export default function MobileSidebar({
                 style={drawerGroupStyle}
               >
                 <NavGroupHeader label={t('nav.wargaming')} badge={t('nav.beta')} inset={24} />
-                {!hide_armies && (
-                  <MoreItem
-                    to="/armies"
-                    Icon={LuShield}
-                    label={t('nav.armies')}
-                    onClick={() => setMoreOpen(false)}
-                  />
-                )}
                 {!hide_leagues && (
                   <MoreItem
                     to="/leagues"
                     Icon={LuTrophy}
                     label={t('nav.leagues')}
+                    onClick={() => setMoreOpen(false)}
+                  />
+                )}
+                {!hide_armies && (
+                  <MoreItem
+                    to="/armies"
+                    Icon={LuShield}
+                    label={t('nav.armies')}
                     onClick={() => setMoreOpen(false)}
                   />
                 )}

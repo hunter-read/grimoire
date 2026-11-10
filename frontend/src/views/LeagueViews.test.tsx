@@ -18,6 +18,8 @@ const mockLeagues = {
   logGame: vi.fn(),
   updateGame: vi.fn(),
   removeGame: vi.fn(),
+  listBooks: vi.fn(),
+  listGuests: vi.fn(),
 }
 
 vi.mock('../api', () => ({
@@ -34,6 +36,8 @@ vi.mock('../api', () => ({
     logGame: (id: string, body: unknown) => mockLeagues.logGame(id, body),
     updateGame: (id: string, g: string, body: unknown) => mockLeagues.updateGame(id, g, body),
     removeGame: (id: string, g: string) => mockLeagues.removeGame(id, g),
+    listBooks: (id: string) => mockLeagues.listBooks(id),
+    listGuests: (id: string) => mockLeagues.listGuests(id),
   },
   armies: {
     list: () => Promise.resolve([army]),
@@ -44,6 +48,11 @@ vi.mock('../api', () => ({
 
 let role = 'gm'
 vi.mock('../context/AuthContext', () => ({ useAuth: () => ({ user: { id: 'u1', role } }) }))
+
+let guestAccess = false
+vi.mock('../context/UISettingsContext', () => ({
+  useUISettings: () => ({ guest_access_enabled: guestAccess }),
+}))
 
 const at = (path: string) =>
   render(
@@ -58,9 +67,12 @@ const at = (path: string) =>
 beforeEach(() => {
   vi.clearAllMocks()
   role = 'gm'
+  guestAccess = false
   mockLeagues.list.mockResolvedValue([league])
   mockLeagues.get.mockResolvedValue(league)
   mockLeagues.eligible.mockResolvedValue([])
+  mockLeagues.listBooks.mockResolvedValue([])
+  mockLeagues.listGuests.mockResolvedValue([])
 })
 
 describe('LeaguesView', () => {
@@ -94,6 +106,26 @@ describe('LeaguesView', () => {
 })
 
 describe('LeagueDetailView', () => {
+  it('gives the organiser the guests panel while guest access is on', async () => {
+    const { unmount } = at('/leagues/l1')
+    expect(await screen.findByRole('heading', { name: 'Books' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Guests' })).toBeNull()
+    unmount()
+    guestAccess = true
+    at('/leagues/l1')
+    expect(await screen.findByRole('heading', { name: 'Guests' })).toBeInTheDocument()
+    await waitFor(() => expect(mockLeagues.listGuests).toHaveBeenCalledWith('l1'))
+  })
+
+  it('keeps the guests panel from a member', async () => {
+    guestAccess = true
+    mockLeagues.get.mockResolvedValue({ ...league, can_manage: false })
+    at('/leagues/l1')
+    expect(await screen.findByRole('heading', { name: /Winter League/ })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Guests' })).toBeNull()
+    expect(mockLeagues.listGuests).not.toHaveBeenCalled()
+  })
+
   it('shows standings, games and members, and logs a game', async () => {
     mockLeagues.logGame.mockResolvedValue({ ...league, games: [game, { ...game, id: 'g2' }] })
     at('/leagues/l1')

@@ -299,6 +299,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/armies/games": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The wargames an army can be set to
+         * @description Library wargames the caller may see, editions included. A league's guest gets only their leagues' games and those games' editions.
+         */
+        get: operations["list_games_api_armies_games_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/armies/games/{system_id}/factions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A wargame's factions, for the army form
+         * @description A game's factions, for the army form. 404 for a game the caller may not choose.
+         */
+        get: operations["list_game_factions_api_armies_games__system_id__factions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/armies/import": {
         parameters: {
             query?: never;
@@ -4594,7 +4634,10 @@ export interface paths {
         post?: never;
         /**
          * Delete a league
-         * @description Delete a league with its members and games (organiser). Armies are untouched.
+         * @description Delete a league with its members, games and books (organiser).
+         *
+         *     Armies are untouched, and so are the league's guests: a guest keeps signing
+         *     in to reach their own armies.
          */
         delete: operations["delete_league_api_leagues__league_id__delete"];
         options?: never;
@@ -4604,6 +4647,97 @@ export interface paths {
          * @description Change a league's details, scoring or status (organiser).
          */
         patch: operations["update_league_api_leagues__league_id__patch"];
+        trace?: never;
+    };
+    "/api/leagues/{league_id}/books": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Books shared with the league
+         * @description The organiser sees every one, with who a private one is shared with; a member sees the public ones and the private ones shared with them.
+         */
+        get: operations["list_books_api_leagues__league_id__books_get"];
+        put?: never;
+        /**
+         * Share a book with the league (organiser)
+         * @description Share a book with the league (organiser). 404 for a book the organiser cannot open.
+         */
+        post: operations["add_book_api_leagues__league_id__books_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/leagues/{league_id}/books/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Reorder the league's books (organiser)
+         * @description Apply a new manual order from an ordered list of the league's book ids (organiser).
+         */
+        put: operations["reorder_books_api_leagues__league_id__books_order_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/leagues/{league_id}/books/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Find library books to share (organiser)
+         * @description Library books whose titles contain ``q``, to share with the league (organiser).
+         *
+         *     Only books the organiser can open themselves. The league's own game comes
+         *     first, then everything else by title.
+         */
+        get: operations["search_books_api_leagues__league_id__books_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/leagues/{league_id}/books/{resource_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Stop sharing a book (organiser)
+         * @description Stop sharing a book with the league (organiser). The book itself is untouched.
+         */
+        delete: operations["remove_book_api_leagues__league_id__books__resource_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change who a shared book reaches (organiser)
+         * @description Change who a shared book reaches (organiser).
+         */
+        patch: operations["update_book_api_leagues__league_id__books__resource_id__patch"];
         trace?: never;
     };
     "/api/leagues/{league_id}/eligible-members": {
@@ -4665,6 +4799,90 @@ export interface paths {
          * @description Delete a game (its players, whoever logged it, or the organiser).
          */
         delete: operations["delete_game_api_leagues__league_id__games__game_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/leagues/{league_id}/guests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the league's guests
+         * @description The league's guests and their codes (organiser).
+         */
+        get: operations["list_guests_api_leagues__league_id__guests_get"];
+        put?: never;
+        /**
+         * Invite a guest
+         * @description Makes a code-only guest account and adds it to the league. The guest signs in with the code at `POST /api/auth/guest-login` and reaches leagues and their own armies only. Needs guest access on.
+         */
+        post: operations["create_guest_api_leagues__league_id__guests_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/leagues/{league_id}/guests/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a guest from the league
+         * @description The guest leaves the league; their account and armies stay, and they can still sign in to them. An admin deletes the account from the guest list.
+         */
+        delete: operations["remove_guest_api_leagues__league_id__guests__user_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/leagues/{league_id}/guests/{user_id}/regenerate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give a guest a new code
+         * @description The old code stops working and the guest's sessions end.
+         */
+        post: operations["regenerate_guest_code_api_leagues__league_id__guests__user_id__regenerate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/leagues/{league_id}/guests/{user_id}/share": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Invite text for a guest's code
+         * @description Ready-made invite text for a guest's code (organiser).
+         */
+        get: operations["guest_share_template_api_leagues__league_id__guests__user_id__share_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -7799,6 +8017,37 @@ export interface components {
             /** User Id */
             user_id: string;
         };
+        /**
+         * ArmyFaction
+         * @description One faction of a game, parents before their sub-factions.
+         */
+        ArmyFaction: {
+            /** Depth */
+            depth: number;
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Parent Id */
+            parent_id?: string | null;
+        };
+        /** ArmyFactionsResponse */
+        ArmyFactionsResponse: {
+            /** Factions */
+            factions: components["schemas"]["ArmyFaction"][];
+        };
+        /**
+         * ArmyGame
+         * @description A wargame an army can be set to.
+         */
+        ArmyGame: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Parent Id */
+            parent_id?: string | null;
+        };
         /** ArmyPublication */
         ArmyPublication: {
             link?: components["schemas"]["PublicationLinkOut"] | null;
@@ -8236,6 +8485,8 @@ export interface components {
              * @default false
              */
             explicit_locked?: boolean;
+            /** Guest Scope */
+            guest_scope?: string | null;
             /** Id */
             id: string;
             /** Oidc Linked */
@@ -8674,6 +8925,22 @@ export interface components {
         Body_upload_wiki_template_api_campaigns__campaign_id__wiki_templates_upload_post: {
             /** File */
             file: string;
+        };
+        /**
+         * BookAdd
+         * @description Share a library book with the league.
+         */
+        BookAdd: {
+            /** Book Id */
+            book_id: string;
+            /** Shared User Ids */
+            shared_user_ids?: string[];
+            /**
+             * Visibility
+             * @default organizer
+             * @enum {string}
+             */
+            visibility?: "public" | "private" | "organizer";
         };
         /**
          * BookBulkItem
@@ -9116,6 +9383,28 @@ export interface components {
             /** Year */
             year?: number | null;
         };
+        /** BookReorder */
+        BookReorder: {
+            /** Ordered Ids */
+            ordered_ids: string[];
+        };
+        /** BookSearchResult */
+        BookSearchResult: {
+            /** Book Id */
+            book_id: string;
+            /**
+             * Game System Name
+             * @default
+             */
+            game_system_name?: string;
+            /**
+             * Has Thumbnail
+             * @default false
+             */
+            has_thumbnail?: boolean;
+            /** Title */
+            title: string;
+        };
         /**
          * BookSystemRef
          * @description The book's game system, or null when it belongs to none.
@@ -9142,51 +9431,6 @@ export interface components {
             name: string;
             /** Slug */
             slug: string;
-        };
-        /** BookUpdate */
-        BookUpdate: {
-            /** Access Level */
-            access_level?: string | null;
-            /** Artists */
-            artists?: string[] | null;
-            /** Authors */
-            authors?: string[] | null;
-            /** Category */
-            category?: string | null;
-            /** Codex Id */
-            codex_id?: string | null;
-            /** Day */
-            day?: number | null;
-            /** Description */
-            description?: string | null;
-            /** Genres */
-            genres?: string[] | null;
-            /** Is Explicit */
-            is_explicit?: boolean | null;
-            /** Isbn */
-            isbn?: string | null;
-            /** Language */
-            language?: string | null;
-            /** License */
-            license?: string | null;
-            /** Month */
-            month?: number | null;
-            /** Product Code */
-            product_code?: string | null;
-            /** Publisher */
-            publisher?: string | null;
-            /** Publisher Url */
-            publisher_url?: string | null;
-            /** Tags */
-            tags?: string[] | null;
-            /** Title */
-            title?: string | null;
-            /** Urls */
-            urls?: components["schemas"]["LinkEntry"][] | null;
-            /** Version */
-            version?: string | null;
-            /** Year */
-            year?: number | null;
         };
         /** BookmarkCreate */
         BookmarkCreate: {
@@ -11995,14 +12239,6 @@ export interface components {
             /** Username */
             username: string;
         };
-        /** GuestCreate */
-        GuestCreate: {
-            /**
-             * Nickname
-             * @default
-             */
-            nickname?: string;
-        };
         /** GuestLoginRequest */
         GuestLoginRequest: {
             /** Code */
@@ -12010,11 +12246,15 @@ export interface components {
         };
         /**
          * GuestLoginResponse
-         * @description Guest login adds the campaign the invite code was scoped to.
+         * @description Guest login adds where the guest was invited: a campaign's guest gets
+         *     ``campaign_id``, a league's guest ``league_id`` (None once they are in no
+         *     league, when they still reach their own armies).
          */
         GuestLoginResponse: {
             /** Campaign Id */
-            campaign_id: string;
+            campaign_id?: string | null;
+            /** League Id */
+            league_id?: string | null;
             /** Token */
             token: string;
             user: components["schemas"]["LoginUser"];
@@ -12043,6 +12283,22 @@ export interface components {
             memberships_moved: number;
             /** Merged Ids */
             merged_ids: string[];
+        };
+        /**
+         * GuestShareTemplate
+         * @description Copy-paste share text and links for a league guest's code.
+         */
+        GuestShareTemplate: {
+            /** Code */
+            code?: string | null;
+            /** Discord Message */
+            discord_message: string;
+            /** Link */
+            link: string;
+            /** Mailto Url */
+            mailto_url: string;
+            /** Message */
+            message: string;
         };
         /**
          * GuestShareTemplateOut
@@ -12589,6 +12845,32 @@ export interface components {
              */
             rows?: number;
         };
+        /**
+         * LeagueBook
+         * @description A book shared with the league, as the caller may see it.
+         */
+        LeagueBook: {
+            /** Book Id */
+            book_id: string;
+            /**
+             * Has Thumbnail
+             * @default false
+             */
+            has_thumbnail?: boolean;
+            /** Id */
+            id: string;
+            /** Shared User Ids */
+            shared_user_ids?: string[] | null;
+            /**
+             * Sort Order
+             * @default 0
+             */
+            sort_order?: number;
+            /** Title */
+            title: string;
+            /** Visibility */
+            visibility: string;
+        };
         /** LeagueCreate */
         LeagueCreate: {
             /**
@@ -12727,9 +13009,27 @@ export interface components {
             /** Score B */
             score_b?: number | null;
         };
+        /**
+         * LeagueGuest
+         * @description One of the league's guests, for its organiser.
+         */
+        LeagueGuest: {
+            army?: components["schemas"]["ArmyRef"] | null;
+            /** Guest Code */
+            guest_code?: string | null;
+            /** Nickname */
+            nickname?: string | null;
+            /** User Id */
+            user_id: string;
+        };
         /** LeagueMemberOut */
         LeagueMemberOut: {
             army?: components["schemas"]["ArmyRef"] | null;
+            /**
+             * Is Guest
+             * @default false
+             */
+            is_guest?: boolean;
             /** Name */
             name: string;
             /** User Id */
@@ -12986,6 +13286,8 @@ export interface components {
             api_keys_allowed?: boolean;
             /** Display Name */
             display_name?: string | null;
+            /** Guest Scope */
+            guest_scope?: string | null;
             /** Id */
             id: string;
             /** Role */
@@ -18505,6 +18807,51 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** BookUpdate */
+        backend__routers__books___schemas__BookUpdate: {
+            /** Access Level */
+            access_level?: string | null;
+            /** Artists */
+            artists?: string[] | null;
+            /** Authors */
+            authors?: string[] | null;
+            /** Category */
+            category?: string | null;
+            /** Codex Id */
+            codex_id?: string | null;
+            /** Day */
+            day?: number | null;
+            /** Description */
+            description?: string | null;
+            /** Genres */
+            genres?: string[] | null;
+            /** Is Explicit */
+            is_explicit?: boolean | null;
+            /** Isbn */
+            isbn?: string | null;
+            /** Language */
+            language?: string | null;
+            /** License */
+            license?: string | null;
+            /** Month */
+            month?: number | null;
+            /** Product Code */
+            product_code?: string | null;
+            /** Publisher */
+            publisher?: string | null;
+            /** Publisher Url */
+            publisher_url?: string | null;
+            /** Tags */
+            tags?: string[] | null;
+            /** Title */
+            title?: string | null;
+            /** Urls */
+            urls?: components["schemas"]["LinkEntry"][] | null;
+            /** Version */
+            version?: string | null;
+            /** Year */
+            year?: number | null;
+        };
         /**
          * MetadataSearch
          * @description Search an installed add-on for candidates matching this book.
@@ -18558,10 +18905,33 @@ export interface components {
             /** Ok */
             ok: boolean;
         };
+        /** GuestCreate */
+        backend__routers__campaigns___schemas__GuestCreate: {
+            /**
+             * Nickname
+             * @default
+             */
+            nickname?: string;
+        };
         /** StatusResponse */
         backend__routers__codex___schemas__StatusResponse: {
             /** Status */
             status: string;
+        };
+        /** BookUpdate */
+        backend__routers__leagues___schemas__BookUpdate: {
+            /** Shared User Ids */
+            shared_user_ids?: string[] | null;
+            /** Visibility */
+            visibility?: ("public" | "private" | "organizer") | null;
+        };
+        /** GuestCreate */
+        backend__routers__leagues___schemas__GuestCreate: {
+            /**
+             * Nickname
+             * @default
+             */
+            nickname?: string;
         };
         /**
          * StatusResponse
@@ -18690,10 +19060,19 @@ export interface components {
             created_at?: string | null;
             /** Display Name */
             display_name?: string | null;
+            /**
+             * Guest Scope
+             * @default ttrpg
+             */
+            guest_scope?: string;
             /** Id */
             id: string;
             /** Invited By */
             invited_by?: string | null;
+            /** League Id */
+            league_id?: string | null;
+            /** League Name */
+            league_name?: string | null;
         };
     };
     responses: never;
@@ -19382,6 +19761,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ArmyDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_games_api_armies_games_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArmyGame"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_game_factions_api_armies_games__system_id__factions_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                system_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArmyFactionsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -21624,7 +22073,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["BookUpdate"];
+                "application/json": components["schemas"]["backend__routers__books___schemas__BookUpdate"];
             };
         };
         responses: {
@@ -23655,7 +24104,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["GuestCreate"];
+                "application/json": components["schemas"]["backend__routers__campaigns___schemas__GuestCreate"];
             };
         };
         responses: {
@@ -29102,6 +29551,235 @@ export interface operations {
             };
         };
     };
+    list_books_api_leagues__league_id__books_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                league_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeagueBook"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_book_api_leagues__league_id__books_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                league_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookAdd"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeagueBook"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reorder_books_api_leagues__league_id__books_order_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                league_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookReorder"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_books_api_leagues__league_id__books_search_get: {
+        parameters: {
+            query: {
+                /** @description Part of a book title */
+                q: string;
+            };
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                league_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookSearchResult"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_book_api_leagues__league_id__books__resource_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                league_id: string;
+                resource_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_book_api_leagues__league_id__books__resource_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                league_id: string;
+                resource_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["backend__routers__leagues___schemas__BookUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeagueBook"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     eligible_members_api_leagues__league_id__eligible_members_get: {
         parameters: {
             query?: never;
@@ -29242,6 +29920,191 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_guests_api_leagues__league_id__guests_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                league_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeagueGuest"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_guest_api_leagues__league_id__guests_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                league_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["backend__routers__leagues___schemas__GuestCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeagueGuest"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_guest_api_leagues__league_id__guests__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                league_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    regenerate_guest_code_api_leagues__league_id__guests__user_id__regenerate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                league_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeagueGuest"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    guest_share_template_api_leagues__league_id__guests__user_id__share_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description An API key, for external integrations (instead of a session). */
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                league_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                grimoire_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GuestShareTemplate"];
+                };
             };
             /** @description Validation Error */
             422: {

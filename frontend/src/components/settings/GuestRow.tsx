@@ -104,7 +104,16 @@ export default function GuestRow({
         <th scope="row" style={{ ...cellStyle, textAlign: 'left', fontWeight: 'normal' }}>
           {guest.display_name || '—'}
         </th>
-        <td style={cellStyle}>{guest.campaign_name || <span style={dimStyle}>—</span>}</td>
+        <td style={cellStyle}>
+          {guest.guest_scope === 'wargame' ? (
+            <>
+              {guest.league_name || <span style={dimStyle}>—</span>}{' '}
+              <span style={dimStyle}>{t('guests.leagueTag')}</span>
+            </>
+          ) : (
+            guest.campaign_name || <span style={dimStyle}>—</span>
+          )}
+        </td>
         <td style={cellStyle}>{guest.invited_by || <span style={dimStyle}>—</span>}</td>
         <td style={{ ...cellStyle, textAlign: 'right' }}>
           {converting ? (

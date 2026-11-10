@@ -1,5 +1,5 @@
 """What happens to a user's campaign data when the account is merged or removed,
-and the guest invite codes that sign guests in to a campaign.
+and the guest invite codes that sign guests in to a campaign or a league.
 
 Shared by the campaigns, users and auth routers.
 """
@@ -42,6 +42,7 @@ _USER_SCOPED_TABLES = (
     # roster file goes with it (purge_user_data).
     "armies",
     "league_members",
+    "league_resource_shares",
 )
 
 
@@ -95,8 +96,9 @@ _USER_SCOPED_UNIQUE = (
     ("pins", "collection, target"),
     ("session_availability", "campaign_id, session_date"),
     ("player_session_notes", "session_id"),
-    # One membership per league.
+    # One membership per league, and one share of each league book.
     ("league_members", "league_id"),
+    ("league_resource_shares", "resource_id"),
 )
 
 
@@ -187,12 +189,17 @@ def _reassign_leagues(db: Session, source_id: str, target_id: str) -> None:
 def _purge_leagues(db: Session, user_id: str) -> None:
     """Delete the leagues ``user_id`` organises, and every game they played.
 
-    A league goes with its organiser, as a campaign does with its owner. A game
-    the user played in leaves the other player's record: it was against nobody
-    left in the league. Does not commit.
+    A league goes with its organiser, as a campaign does with its owner, and
+    the books shared with it go too. Its guests stay: a league guest's account
+    and armies outlive the league (see ``User.guest_code``). A game the user
+    played in leaves the other player's record: it was against nobody left in
+    the league. Does not commit.
     """
     params = {"uid": user_id}
     owned = "SELECT id FROM leagues WHERE organizer_id = :uid"
+    books = f"SELECT id FROM league_resources WHERE league_id IN ({owned})"
+    db.execute(text(f"DELETE FROM league_resource_shares WHERE resource_id IN ({books})"), params)
+    db.execute(text(f"DELETE FROM league_resources WHERE league_id IN ({owned})"), params)
     db.execute(text(f"DELETE FROM league_games WHERE league_id IN ({owned})"), params)
     db.execute(text(f"DELETE FROM league_members WHERE league_id IN ({owned})"), params)
     db.execute(text("DELETE FROM leagues WHERE organizer_id = :uid"), params)
@@ -308,11 +315,27 @@ def guest_member_by_code(db: Session, code: str) -> Optional[CampaignMember]:
     )
 
 
+def league_guest_by_code(db: Session, code: str) -> Optional[User]:
+    """The league guest ``code`` signs in as, matched on its lookup hash.
+
+    A league guest's code is on the account rather than a membership, so it
+    keeps working after the league is gone (see ``User.guest_code``).
+    """
+    return (
+        db.query(User)
+        .filter_by(guest_code_hash=token_vault.lookup_hash(code), is_guest=True)
+        .first()
+    )
+
+
 def generate_guest_code(db: Session) -> str:
-    """Return a unique 10-char A–Z0–9 code, retrying on the rare collision."""
+    """Return a unique 10-char A–Z0–9 code, retrying on the rare collision.
+
+    Unique across campaign and league guests, since one sign-in form takes both.
+    """
     for _ in range(20):
         code = "".join(secrets.choice(_CODE_ALPHABET) for _ in range(_CODE_LENGTH))
-        if not guest_member_by_code(db, code):
+        if not guest_member_by_code(db, code) and not league_guest_by_code(db, code):
             return code
     raise HTTPException(500, "Could not allocate a unique guest code")
 

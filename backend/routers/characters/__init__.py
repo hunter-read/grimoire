@@ -1,5 +1,7 @@
 """Characters package — per-user character sheets and the schemas describing them."""
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+
+from ...auth import require_ttrpg_access
 
 from ._schemas import (
     CharacterDeletedResponse,
@@ -43,7 +45,12 @@ from .core import (
 )
 from .transfer import transfer_character
 
-router = APIRouter(prefix="/characters", tags=["characters"])
+router = APIRouter(
+    prefix="/characters",
+    tags=["characters"],
+    # A guest invited to a league reaches only leagues and armies.
+    dependencies=[Depends(require_ttrpg_access)],
+)
 
 __all__ = ["router"]
 

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from ...api_keys import user_keys_allowed
 from ...services import share_links as share_policy
-from ...auth import create_token, set_auth_cookie, set_refresh_cookie
+from ...auth import create_token, guest_scope_of, set_auth_cookie, set_refresh_cookie
 from ...models import User
 from ...sessions import create_session
 from ...services.user_activity import note_sign_in
@@ -50,5 +50,6 @@ def issue_login(
             "role": user.role,
             "api_keys_allowed": user_keys_allowed(user),
             "share_links_allowed": share_policy.user_can_share(db, user),
+            "guest_scope": guest_scope_of(user),
         },
     }

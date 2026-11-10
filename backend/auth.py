@@ -481,6 +481,62 @@ def require_not_guest(
     return user
 
 
+GUEST_SCOPE_TTRPG = "ttrpg"
+GUEST_SCOPE_WARGAME = "wargame"
+
+
+def guest_scope_of(user: Any) -> Optional[str]:
+    """``ttrpg`` or ``wargame`` for a guest account, None for a full one.
+
+    A guest made before leagues had guests has no scope stored and is a
+    campaign's, so it reads as ``ttrpg``.
+    """
+    if not (getattr(user, "is_guest", False) or getattr(user, "role", None) == "guest"):
+        return None
+    return getattr(user, "guest_scope", None) or GUEST_SCOPE_TTRPG
+
+
+def guest_scope(user_id: str) -> Optional[str]:
+    """The scope of the guest account ``user_id`` (see ``guest_scope_of``).
+
+    Read from the account, not the token: the token carries only the role.
+    None when the account is gone, which no scope check lets through.
+    """
+    from .config import SessionLocal
+    from .models import User
+
+    db = SessionLocal()
+    try:
+        row = db.query(User).filter_by(id=user_id).first()
+        return guest_scope_of(row) if row is not None else None
+    finally:
+        db.close()
+
+
+def _require_guest_scope(user: CurrentUser, scope: str) -> CurrentUser:
+    if user.role == "guest" and guest_scope(user.id) != scope:
+        raise HTTPException(403, "Guests cannot access this area")
+    return user
+
+
+def require_ttrpg_access(
+    user: CurrentUser = Depends(get_current_user),
+) -> CurrentUser:
+    """Keep a league's guests out of campaigns and characters.
+
+    A guest is invited to one side of the app for good - a campaign or a
+    league - and reaches only that side. Everyone else passes.
+    """
+    return _require_guest_scope(user, GUEST_SCOPE_TTRPG)
+
+
+def require_wargame_access(
+    user: CurrentUser = Depends(get_current_user),
+) -> CurrentUser:
+    """Keep a campaign's guests out of leagues and armies (see ``require_ttrpg_access``)."""
+    return _require_guest_scope(user, GUEST_SCOPE_WARGAME)
+
+
 def __getattr__(name: str) -> Any:
     if name == "SECRET_KEY":
         return _secret_key()

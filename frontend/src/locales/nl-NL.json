@@ -2041,6 +2041,7 @@
       "favorites": "favorieten",
       "tags": "labels",
       "campaigns": "campagnekoppelingen",
+      "leagues": "league-koppelingen",
       "linked": "Gekoppeld als versie.",
       "of": "van",
       "backToList": "Terug naar duplicaten",
@@ -3039,7 +3040,9 @@
     "mergeInto_one": "Dit account samenvoegen tot:",
     "mergeInto_other": "{{count}} geselecteerde accounts samenvoegen tot:",
     "mergeTargetGuests": "Gastaccounts",
-    "mergeTargetUsers": "Bestaande gebruikers"
+    "mergeTargetUsers": "Bestaande gebruikers",
+    "campaignOrLeague": "Campagne of league",
+    "leagueTag": "(league)"
   },
   "rescan": {
     "button": {
@@ -4264,6 +4267,8 @@
         "tags_other": "{{count}} tags",
         "campaigns_one": "{{count}} campagnelink",
         "campaigns_other": "{{count}} campagnelinks",
+        "leagues_one": "{{count}} league-koppeling",
+        "leagues_other": "{{count}} league-koppelingen",
         "share_links_one": "{{count}} deellink",
         "share_links_other": "{{count}} deellinks",
         "access_grants_one": "{{count}} toegangsrecht",
@@ -4628,6 +4633,34 @@
       "finish": "Markeren als afgelopen",
       "delete": "Competitie verwijderen",
       "confirmDelete": "Deze competitie en haar partijen verwijderen"
+    },
+    "guests": {
+      "title": "Gasten",
+      "hint": "Gasten hebben geen account: ze melden zich aan met een code en komen bij deze league en hun eigen legers, verder niets. Een gast verwijderen, of de league verwijderen, laat hun legers staan.",
+      "invite": "Gast uitnodigen",
+      "confirmRemove": "Deze gast uit de league verwijderen? Ze houden hun legers en kunnen nog steeds aanmelden.",
+      "codeHidden": "speelt ook in andere leagues - een beheerder beheert de code",
+      "failed": "De gasten van de league konden niet worden gewijzigd"
+    },
+    "books": {
+      "title": "Boeken",
+      "none": "Nog geen boeken gedeeld met de league.",
+      "hint": "Leden lezen de boeken die hen bereiken, gasten ook - een gast heeft geen eigen bibliotheek, zo openen de regels van hun legers.",
+      "search": "Zoeken",
+      "searchPlaceholder": "Zoek een boek om te delen",
+      "noResults": "Geen boeken gevonden.",
+      "add": "{{title}} delen",
+      "remove": "{{title}} niet meer delen",
+      "moveUp": "{{title}} omhoog",
+      "moveDown": "{{title}} omlaag",
+      "visibilityFor": "Wie {{title}} ziet",
+      "sharedWith": "Gedeeld met",
+      "failed": "De boeken van de league konden niet worden gewijzigd",
+      "visibility": {
+        "public": "Alle leden",
+        "private": "Gekozen leden",
+        "organizer": "Alleen de organisator"
+      }
     }
   }
 }

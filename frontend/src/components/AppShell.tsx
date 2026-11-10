@@ -50,6 +50,7 @@ import RouteFallback from './RouteFallback'
 import RouteAnnouncer from './RouteAnnouncer'
 import ErrorBoundary from './ErrorBoundary'
 import PendingInvitesBanner from './campaigns/PendingInvitesBanner'
+import { guestScopeOf } from '../lib/guestScope'
 
 const SIDEBAR_COLLAPSED_KEY = 'grimoire_sidebar_collapsed'
 
@@ -97,6 +98,7 @@ export default function AppShell() {
   const location = useLocation()
   const navigate = useNavigate()
   const isGuest = user?.role === 'guest'
+  const guestScope = guestScopeOf(user)
   const isReader =
     location.pathname.startsWith('/library/book/') ||
     location.pathname.startsWith('/maps/') ||
@@ -151,12 +153,16 @@ export default function AppShell() {
   }, [])
 
   // After a guest logs in via an invite code, drop them straight into the
-  // campaign the code belongs to.
+  // campaign or league the code belongs to.
   useEffect(() => {
     const target = sessionStorage.getItem('grimoire:guest_campaign')
+    const league = sessionStorage.getItem('grimoire:guest_league')
     if (target) {
       sessionStorage.removeItem('grimoire:guest_campaign')
       void navigate(`/campaigns/${target}/overview`, { replace: true })
+    } else if (league !== null) {
+      sessionStorage.removeItem('grimoire:guest_league')
+      void navigate(league ? `/leagues/${league}` : '/armies', { replace: true })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -209,7 +215,20 @@ export default function AppShell() {
               the sidebar and banner stay put while it loads. */}
           <ErrorBoundary resetKey={location.key}>
             <Suspense fallback={<RouteFallback />}>
-              {isGuest ? (
+              {guestScope === 'wargame' ? (
+                // A league's guest reaches leagues and their armies. The book
+                // reader is here for the books a league shares with them, which
+                // their armies' citations open; the backend authorises each read
+                // against those shares, exactly as for a campaign's guest.
+                <Routes>
+                  <Route path="/leagues" element={<LeaguesView />} />
+                  <Route path="/leagues/:leagueId" element={<LeagueDetailView />} />
+                  <Route path="/armies" element={<ArmiesView />} />
+                  <Route path="/armies/:armyId" element={<ArmyDetailView />} />
+                  <Route path="/library/book/:bookId" element={<BookReader />} />
+                  <Route path="*" element={<Navigate to="/leagues" replace />} />
+                </Routes>
+              ) : isGuest ? (
                 // Guests are scoped to their campaign(s); everything else redirects.
                 // The by-id detail routes are included because a campaign resource
                 // row links straight to one (issue #361) — without them the link

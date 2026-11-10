@@ -15,6 +15,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, validates
 
+from .. import token_vault
 from ..sql_functions import fold_text
 
 from .base import Base, _utcnow, _uuid
@@ -40,6 +41,19 @@ class User(Base):
     # single campaign they were invited to. role is also "guest"; this flag keeps
     # them out of the invitable-user pool and the user admin list.
     is_guest: Mapped[Optional[bool]] = mapped_column(Boolean, default=False)
+    # Which side of the app a guest belongs to, for good: ``ttrpg`` (invited to
+    # a campaign - campaigns and characters) or ``wargame`` (invited to a league
+    # - leagues and armies). Never both. NULL for a full account, and read as
+    # ``ttrpg`` for a guest made before leagues had guests. See
+    # ``backend.auth.guest_scope``.
+    guest_scope: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    # A league guest's sign-in code, stored like a campaign guest's (see
+    # ``CampaignMember.guest_code``) but on the account rather than a
+    # membership: a league guest keeps signing in to reach their own armies
+    # after the league they were invited to is gone. Campaign guests leave
+    # these NULL. Read and set it through ``guest_code``.
+    guest_code_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, unique=True, index=True)
+    guest_code_sealed: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     allow_explicit: Mapped[Optional[bool]] = mapped_column(Boolean, default=True)
     # Set when explicit content was turned off for the user rather than by
     # them - an admin, the seed file or the identity provider - so the user
@@ -97,6 +111,16 @@ class User(Base):
     def _fold_username(self, key: str, value: Optional[str]) -> Optional[str]:
         self.username_folded = fold_text(value)
         return value
+
+    @property
+    def guest_code(self) -> Optional[str]:
+        """A league guest's sign-in code, or None (also when SECRET_KEY has changed)."""
+        return token_vault.unseal(self.guest_code_sealed)
+
+    @guest_code.setter
+    def guest_code(self, code: Optional[str]) -> None:
+        self.guest_code_hash = token_vault.lookup_hash(code) if code else None
+        self.guest_code_sealed = token_vault.seal(code) if code else None
 
 
 class AuthSession(Base):

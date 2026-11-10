@@ -2041,6 +2041,7 @@
       "favorites": "preferiti",
       "tags": "tag",
       "campaigns": "collegamenti alle campagne",
+      "leagues": "collegamenti di lega",
       "linked": "Collegato come versione.",
       "of": "di",
       "backToList": "Torna ai duplicati",
@@ -3039,7 +3040,9 @@
     "mergeInto_one": "Unisci questo account in:",
     "mergeInto_other": "Unisci i {{count}} account selezionati in:",
     "mergeTargetGuests": "Account ospite",
-    "mergeTargetUsers": "Utenti esistenti"
+    "mergeTargetUsers": "Utenti esistenti",
+    "campaignOrLeague": "Campagna o lega",
+    "leagueTag": "(lega)"
   },
   "rescan": {
     "button": {
@@ -4264,6 +4267,8 @@
         "tags_other": "{{count}} tag",
         "campaigns_one": "{{count}} collegamento a una campagna",
         "campaigns_other": "{{count}} collegamenti alle campagne",
+        "leagues_one": "{{count}} collegamento di lega",
+        "leagues_other": "{{count}} collegamenti di lega",
         "share_links_one": "{{count}} link di condivisione",
         "share_links_other": "{{count}} link di condivisione",
         "access_grants_one": "{{count}} autorizzazione di accesso",
@@ -4628,6 +4633,34 @@
       "finish": "Segna come conclusa",
       "delete": "Elimina lega",
       "confirmDelete": "Elimina questa lega e le sue partite"
+    },
+    "guests": {
+      "title": "Ospiti",
+      "hint": "Gli ospiti non hanno un account: accedono con un codice e raggiungono questa lega e i propri eserciti, nient’altro. Rimuovere un ospite, o eliminare la lega, gli lascia i suoi eserciti.",
+      "invite": "Invita ospite",
+      "confirmRemove": "Rimuovere questo ospite dalla lega? Conserva i suoi eserciti e può ancora accedere.",
+      "codeHidden": "gioca anche in altre leghe - il codice lo gestisce un admin",
+      "failed": "Impossibile modificare gli ospiti della lega"
+    },
+    "books": {
+      "title": "Libri",
+      "none": "Nessun libro condiviso con la lega per ora.",
+      "hint": "I membri leggono i libri che li raggiungono, ospiti compresi - un ospite non ha una biblioteca, così si aprono le regole dei suoi eserciti.",
+      "search": "Cerca",
+      "searchPlaceholder": "Trova un libro da condividere",
+      "noResults": "Nessun libro trovato.",
+      "add": "Condividi {{title}}",
+      "remove": "Smetti di condividere {{title}}",
+      "moveUp": "Sposta su {{title}}",
+      "moveDown": "Sposta giù {{title}}",
+      "visibilityFor": "Chi vede {{title}}",
+      "sharedWith": "Condiviso con",
+      "failed": "Impossibile modificare i libri della lega",
+      "visibility": {
+        "public": "Tutti i membri",
+        "private": "Membri scelti",
+        "organizer": "Solo l’organizzatore"
+      }
     }
   }
 }

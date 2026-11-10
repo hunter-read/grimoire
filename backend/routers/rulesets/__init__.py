@@ -1,5 +1,7 @@
 """Rulesets package — named sets of content, owned by a campaign or the server."""
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+
+from ...auth import require_ttrpg_access
 
 from ._schemas import (
     DeletedResponse,
@@ -33,7 +35,12 @@ from .core import (
     update_ruleset,
 )
 
-router = APIRouter(prefix="/rulesets", tags=["rulesets"])
+router = APIRouter(
+    prefix="/rulesets",
+    tags=["rulesets"],
+    # A guest invited to a league reaches only leagues and armies.
+    dependencies=[Depends(require_ttrpg_access)],
+)
 
 __all__ = ["router"]
 

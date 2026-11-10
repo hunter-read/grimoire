@@ -5,6 +5,7 @@ import { LuUserMinus } from 'react-icons/lu'
 import { armies as armiesApi, leagues as leaguesApi, type Schema } from '../../api'
 import {
   card,
+  chip,
   errorText,
   iconBtn,
   input,
@@ -86,7 +87,14 @@ export default function LeagueMembers({ league, userId, onChange }: LeagueMember
               key={m.user_id}
               style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}
             >
-              <strong style={{ minWidth: 120 }}>{m.name}</strong>
+              <strong style={{ minWidth: 120 }}>
+                {m.name}
+                {m.is_guest && (
+                  <span style={{ ...chip, marginLeft: 6, fontWeight: 400 }}>
+                    {t('guests.guest')}
+                  </span>
+                )}
+              </strong>
               {m.user_id === userId ? (
                 <select
                   style={{ ...input, minWidth: 200 }}

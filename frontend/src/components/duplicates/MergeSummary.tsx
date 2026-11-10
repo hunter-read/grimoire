@@ -10,6 +10,7 @@ const KINDS = [
   'favorites',
   'tags',
   'campaigns',
+  'leagues',
   'share_links',
   'access_grants',
   'audio_sets',

@@ -1,10 +1,11 @@
 # Armies and leagues
 
-For wargames, Grimoire keeps your **army lists** and runs **leagues** - a group
-playing the same game over weeks or months, what Warhammer 40,000 calls a
-Crusade and Age of Sigmar a Path to Glory. Both sit in the sidebar under a
-**Wargaming** heading, below Campaigns and Characters under **Role-playing**, and
-both work with the wargame books in your library's `armory/` folder, laid out as
+For wargames, Grimoire runs **leagues** - a group playing the same game over
+weeks or months, what Warhammer 40,000 calls a Crusade and Age of Sigmar a Path
+to Glory - and keeps the **army lists** played in them. Both sit in the sidebar
+under a **Wargaming** heading, Leagues above Armies the way Campaigns sits above
+Characters under **Role-playing**, and both work with the wargame books in your
+library's `armory/` folder, laid out as
 `armory/<System>/<Edition>/Factions/<Faction>/` (see
 [the armory](library-structure.md#the-armory---wargame-books)).
 
@@ -12,10 +13,11 @@ Grimoire ships **no points, stat lines or rules text**. An army holds only what
 you import or type; the rules themselves stay in your own books, which an army
 opens at the right page.
 
-Neither is available to guests, who are scoped to the campaign they were invited
-to. An admin can hide either from the sidebar under **Settings → Sidebar →
-Sidebar Visibility** (**Hide Armies**, **Hide Leagues**); the pages stay reachable
-by their address. With both hidden, the Wargaming heading goes too.
+A league can have [guests](#league-guests) of its own. A campaign's guests never
+reach leagues or armies. An admin can hide either from the sidebar under
+**Settings → Sidebar → Sidebar Visibility** (**Hide Armies**, **Hide Leagues**);
+the pages stay reachable by their address. With both hidden, the Wargaming
+heading goes too.
 
 ## Armies
 
@@ -72,7 +74,55 @@ itself, so it is never confused with what the roster says.
 
 The organiser can rename the league, change its points limit and scoring, mark it
 **finished** (and reopen it), or delete it. Deleting a league removes its
-members and games; the armies stay.
+members, games and shared books; the armies stay, and so do its guests'
+accounts (see below).
+
+### Books
+
+The organiser shares library books with the league from the **Books** panel on
+the league page, the way a GM links books into a campaign. Search for a book by
+title - the league's own game comes first - and share it. Each book reaches:
+
+- **Every member**,
+- **Chosen members** - tick who, from the league's members, or
+- **Organizer only** - the default for a book just shared.
+
+Members see the books that reach them, each opening in the reader. A book
+restricted to GMs or admins (see
+[Restricting books](users-and-permissions.md#restricting-books)) is only ever
+shared at **Organizer only**, and choosing another setting leaves it there.
+Sharing a book never opens a restricted one, and a book whose access level later
+closes to a member drops out of their list.
+
+This is how a league's guests read their rules: an army's cited publication
+(see [Rules in your own books](#rules-in-your-own-books)) opens for a guest only
+when the league shares that book with them.
+
+### League guests
+
+With [guest access](campaigns.md#guest-invites) on, the organiser can invite
+people who have no account: **Guests** on the league page makes a guest with a
+nickname and a 10-character code, shared from there (copy the message, a
+Discord version, or an email) exactly as for a campaign's guests. They sign in
+with **Have an invite code?** on the login screen.
+
+A league's guest belongs to the wargame side of the app for good. They reach
+their leagues and their own armies - building and importing them, registering
+one, logging their games, exporting them - and the books their leagues share
+with them. They never reach campaigns, characters, the library, maps, search or
+settings; an army's game and faction can only be their leagues' games, and a
+roster from any other game imports without one. A campaign's guest is the
+mirror image: never leagues or armies.
+
+**Regenerate** gives a guest a new code and ends their sessions. **Remove** takes
+them out of the league - but unlike a campaign's guest, their account is not
+deleted: their armies are theirs, so they keep signing in with the same code to
+reach and export them. The same happens when the league is deleted. An admin
+deletes the account itself from **Settings → People**, which lists league guests
+with their league. Merging league guests works as for campaign guests; a
+campaign's guest and a league's guest cannot be merged into one guest. A guest
+merged into leagues run by different organisers has one code for all of them,
+so no organiser is shown it or can change it - an admin can.
 
 ## Data
 

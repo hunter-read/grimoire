@@ -1,9 +1,11 @@
-"""Armies package - the army builder for wargames. Not for guests."""
+"""Armies package - the army builder for wargames. A league's guests use it; a campaign's do not."""
 from fastapi import APIRouter, Depends
 
-from ...auth import require_not_guest
+from ...auth import require_wargame_access
 from ._schemas import (
     ArmyDetail,
+    ArmyFactionsResponse,
+    ArmyGame,
     ArmyPublication,
     ArmySummary,
     BookMatch,
@@ -19,6 +21,8 @@ from .core import (
     get_army_detail,
     import_army,
     list_armies,
+    list_game_factions,
+    list_games,
     search_link_books,
     set_publication_link,
     update_army,
@@ -28,8 +32,8 @@ from .core import (
 router = APIRouter(
     prefix="/armies",
     tags=["armies"],
-    # Guests are scoped to the campaign they were invited to and have no armies.
-    dependencies=[Depends(require_not_guest)],
+    # A guest invited to a campaign reaches only campaigns and characters.
+    dependencies=[Depends(require_wargame_access)],
 )
 
 __all__ = ["router"]
@@ -59,6 +63,24 @@ router.add_api_route(
     response_model=ArmyDetail,
 )
 # Declared ahead of "/{army_id}", which would otherwise take them as an id.
+router.add_api_route(
+    "/games",
+    list_games,
+    methods=["GET"],
+    summary="The wargames an army can be set to",
+    description=(
+        "Library wargames the caller may see, editions included. A league's guest gets "
+        "only their leagues' games and those games' editions."
+    ),
+    response_model=list[ArmyGame],
+)
+router.add_api_route(
+    "/games/{system_id}/factions",
+    list_game_factions,
+    methods=["GET"],
+    summary="A wargame's factions, for the army form",
+    response_model=ArmyFactionsResponse,
+)
 router.add_api_route(
     "/publication-links",
     set_publication_link,

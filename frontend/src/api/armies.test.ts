@@ -79,6 +79,13 @@ describe('armies helpers', () => {
     await armies.factions('s1')
     expect(url()).toBe('/api/systems/s1/factions')
   })
+
+  it('lists a guest’s games and their factions', async () => {
+    await armies.games()
+    expect(url()).toBe('/api/armies/games')
+    await armies.gameFactions('s1')
+    expect(url()).toBe('/api/armies/games/s1/factions')
+  })
 })
 
 describe('leagues helpers', () => {
@@ -108,5 +115,45 @@ describe('leagues helpers', () => {
     expect([url(), method()]).toEqual(['/api/leagues/l1/games/g1', 'PUT'])
     await leagues.removeGame('l1', 'g1')
     expect([url(), method()]).toEqual(['/api/leagues/l1/games/g1', 'DELETE'])
+  })
+
+  it('covers guests', async () => {
+    await leagues.listGuests('l1')
+    expect(url()).toBe('/api/leagues/l1/guests')
+    await leagues.createGuest('l1', 'Recruit')
+    expect([url(), method(), body()]).toEqual([
+      '/api/leagues/l1/guests',
+      'POST',
+      { nickname: 'Recruit' },
+    ])
+    await leagues.regenerateGuestCode('l1', 'u9')
+    expect([url(), method()]).toEqual(['/api/leagues/l1/guests/u9/regenerate', 'POST'])
+    await leagues.guestShareTemplate('l1', 'u9')
+    expect(url()).toBe('/api/leagues/l1/guests/u9/share')
+    await leagues.removeGuest('l1', 'u9')
+    expect([url(), method()]).toEqual(['/api/leagues/l1/guests/u9', 'DELETE'])
+  })
+
+  it('covers shared books', async () => {
+    await leagues.listBooks('l1')
+    expect(url()).toBe('/api/leagues/l1/books')
+    await leagues.searchBooks('l1', 'codex')
+    expect(url()).toBe('/api/leagues/l1/books/search?q=codex')
+    await leagues.addBook('l1', { book_id: 'b1', visibility: 'public' })
+    expect([url(), method(), body()]).toEqual([
+      '/api/leagues/l1/books',
+      'POST',
+      { book_id: 'b1', visibility: 'public' },
+    ])
+    await leagues.updateBook('l1', 'r1', { visibility: 'organizer' })
+    expect([url(), method()]).toEqual(['/api/leagues/l1/books/r1', 'PATCH'])
+    await leagues.reorderBooks('l1', ['r2', 'r1'])
+    expect([url(), method(), body()]).toEqual([
+      '/api/leagues/l1/books/order',
+      'PUT',
+      { ordered_ids: ['r2', 'r1'] },
+    ])
+    await leagues.removeBook('l1', 'r1')
+    expect([url(), method()]).toEqual(['/api/leagues/l1/books/r1', 'DELETE'])
   })
 })

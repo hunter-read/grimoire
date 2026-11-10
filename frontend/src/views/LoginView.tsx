@@ -139,9 +139,12 @@ export default function LoginView({ onLogin }: LoginViewProps) {
     setGuestLoading(true)
     try {
       const data = await authApi.guestLogin(guestCode.trim())
-      // Land the guest directly in the campaign their code belongs to.
+      // Land the guest directly in the campaign or league their code belongs
+      // to. A league's guest whose league is gone lands on their armies.
       if (data.campaign_id) {
         sessionStorage.setItem('grimoire:guest_campaign', data.campaign_id)
+      } else if (data.user.guest_scope === 'wargame') {
+        sessionStorage.setItem('grimoire:guest_league', data.league_id ?? '')
       }
       onLogin(data.token, data.user)
     } catch (err) {

@@ -10,7 +10,15 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from ...auth import CurrentUser
-from ...models import Army, League, LeagueGame, LeagueMember, User
+from ...models import (
+    Army,
+    League,
+    LeagueGame,
+    LeagueMember,
+    LeagueResource,
+    LeagueResourceShare,
+    User,
+)
 from ...models.base import utc_iso
 from ...services import leagues as league_service
 from ...services.armies.matching import wargame_system
@@ -133,6 +141,7 @@ def detail(db: Session, league: League, user: CurrentUser) -> dict[str, Any]:
                 "user_id": m.user_id,
                 "name": names.get(m.user_id, ""),
                 "army": _army_ref(armies.get(m.army_id)) if m.army_id else None,
+                "is_guest": bool(m.is_guest),
             }
             for m in members
         ),
@@ -172,3 +181,33 @@ def detail(db: Session, league: League, user: CurrentUser) -> dict[str, Any]:
             (league.points_win or 0, league.points_draw or 0, league.points_loss or 0),
         ),
     }
+
+
+def leave(db: Session, league_id: str, user_id: str) -> None:
+    """Take ``user_id`` out of a league, with the league's books shared with them.
+
+    A guest's account stays, whether they left or the organiser removed them:
+    their armies are theirs, and they keep signing in to reach them. Their games
+    stay logged. Does not commit.
+    """
+    db.query(LeagueMember).filter_by(league_id=league_id, user_id=user_id).delete(
+        synchronize_session=False
+    )
+    books = db.query(LeagueResource.id).filter_by(league_id=league_id)
+    db.query(LeagueResourceShare).filter(
+        LeagueResourceShare.user_id == user_id, LeagueResourceShare.resource_id.in_(books)
+    ).delete(synchronize_session=False)
+
+
+def delete_rows(db: Session, league_id: str) -> None:
+    """Delete a league's books, games and memberships, ahead of the league. Does not commit.
+
+    Its guests' accounts and armies stay, as when one leaves (see ``leave``).
+    """
+    books = db.query(LeagueResource.id).filter_by(league_id=league_id)
+    db.query(LeagueResourceShare).filter(LeagueResourceShare.resource_id.in_(books)).delete(
+        synchronize_session=False
+    )
+    db.query(LeagueResource).filter_by(league_id=league_id).delete(synchronize_session=False)
+    db.query(LeagueGame).filter_by(league_id=league_id).delete(synchronize_session=False)
+    db.query(LeagueMember).filter_by(league_id=league_id).delete(synchronize_session=False)

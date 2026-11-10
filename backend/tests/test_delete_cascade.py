@@ -110,6 +110,7 @@ class TestPurgeReferences:
                 "tags": 1,
                 "campaigns": 1,
                 "bookmarks": 1,
+                "leagues": 0,
             }
 
             purge_references(db, Book, book.id)
@@ -183,6 +184,7 @@ class TestPurgeReferences:
                 "tags": 0,
                 "campaigns": 0,
                 "bookmarks": 0,
+                "leagues": 0,
             }
             purge_references(db, Book, book.id)  # must not raise
             db.commit()
@@ -258,6 +260,7 @@ class TestBatchedPurge:
                     "tags": 0,
                     "campaigns": 0,
                     "bookmarks": 0,
+                    "leagues": 0,
                 }
                 assert self._fts(db, book.id) == 0
         finally:
@@ -328,6 +331,7 @@ class TestUnindexPath:
                 "tags": 0,
                 "campaigns": 0,
                 "bookmarks": 0,
+                "leagues": 0,
             }
         finally:
             db.close()
@@ -627,6 +631,7 @@ class TestBatchedReferenceCounts:
                 "tags": 0,
                 "campaigns": 0,
                 "bookmarks": 0,
+                "leagues": 0,
             }
         finally:
             db.close()

@@ -2041,6 +2041,7 @@
       "favorites": "favoritos",
       "tags": "etiquetas",
       "campaigns": "ligações de campanha",
+      "leagues": "ligações de liga",
       "linked": "Ligado como versão.",
       "of": "de",
       "backToList": "Voltar aos duplicados",
@@ -3039,7 +3040,9 @@
     "mergeInto_one": "Unir esta conta em:",
     "mergeInto_other": "Unir {{count}} contas selecionadas em:",
     "mergeTargetGuests": "Contas de convidado",
-    "mergeTargetUsers": "Utilizadores existentes"
+    "mergeTargetUsers": "Utilizadores existentes",
+    "campaignOrLeague": "Campanha ou liga",
+    "leagueTag": "(liga)"
   },
   "rescan": {
     "button": {
@@ -4264,6 +4267,8 @@
         "tags_other": "{{count}} tags",
         "campaigns_one": "{{count}} link de campanha",
         "campaigns_other": "{{count}} links de campanha",
+        "leagues_one": "{{count}} ligação de liga",
+        "leagues_other": "{{count}} ligações de liga",
         "share_links_one": "{{count}} link de partilha",
         "share_links_other": "{{count}} links de partilha",
         "access_grants_one": "{{count}} permissão de acesso",
@@ -4628,6 +4633,34 @@
       "finish": "Marcar como encerrada",
       "delete": "Eliminar liga",
       "confirmDelete": "Eliminar esta liga e as suas partidas"
+    },
+    "guests": {
+      "title": "Convidados",
+      "hint": "Os convidados não têm conta: entram com um código e acedem a esta liga e aos seus próprios exércitos, nada mais. Remover um convidado, ou eliminar a liga, deixa-lhe os exércitos.",
+      "invite": "Convidar",
+      "confirmRemove": "Remover este convidado da liga? Mantém os seus exércitos e pode continuar a entrar.",
+      "codeHidden": "joga noutras ligas também - um admin gere o código",
+      "failed": "Não foi possível alterar os convidados da liga"
+    },
+    "books": {
+      "title": "Livros",
+      "none": "Ainda não há livros partilhados com a liga.",
+      "hint": "Os membros leem os livros que lhes chegam, convidados incluídos - um convidado não tem biblioteca, é assim que as regras dos seus exércitos abrem.",
+      "search": "Pesquisar",
+      "searchPlaceholder": "Encontre um livro para partilhar",
+      "noResults": "Nenhum livro encontrado.",
+      "add": "Partilhar {{title}}",
+      "remove": "Deixar de partilhar {{title}}",
+      "moveUp": "Mover {{title}} para cima",
+      "moveDown": "Mover {{title}} para baixo",
+      "visibilityFor": "Quem vê {{title}}",
+      "sharedWith": "Partilhado com",
+      "failed": "Não foi possível alterar os livros da liga",
+      "visibility": {
+        "public": "Todos os membros",
+        "private": "Membros escolhidos",
+        "organizer": "Só o organizador"
+      }
     }
   }
 }

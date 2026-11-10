@@ -7,11 +7,22 @@ from sqlalchemy import func
 
 from ... import api_keys
 from ...config import get_db
-from ...models import User, Campaign, CampaignMember, UserAccessGrant
-from ...auth import require_admin, CurrentUser, hash_password
+from ...models import User, Campaign, CampaignMember, League, LeagueMember, UserAccessGrant
+from ...auth import (
+    GUEST_SCOPE_TTRPG,
+    GUEST_SCOPE_WARGAME,
+    CurrentUser,
+    guest_scope_of,
+    hash_password,
+    require_admin,
+)
 from ...sessions import delete_user_sessions, revoke_user_sessions
 from ...usernames import username_taken
-from ...services.campaigns.user_data import purge_user_data, reassign_user_data
+from ...services.campaigns.user_data import (
+    generate_guest_code,
+    purge_user_data,
+    reassign_user_data,
+)
 from ...services.app_settings import get_raw, password_auth_effective
 from ...services import share_links as share_policy
 from ._schemas import UserCreate, UserUpdate, GuestConvert, GuestMerge
@@ -72,10 +83,11 @@ def list_users(_: CurrentUser = Depends(require_admin), db: Session = Depends(ge
 
 
 def list_guests(_: CurrentUser = Depends(require_admin), db: Session = Depends(get_db)):
-    """List every guest account with the campaign it belongs to and who invited it.
+    """List every guest account with the campaign or league it belongs to and who invited it.
 
-    Guests are code-only accounts scoped to a single campaign, so each one maps to
-    exactly one CampaignMember. The inviter is the campaign owner (the GM).
+    A campaign's guest maps to a CampaignMember, and its inviter is the campaign
+    owner (the GM); a league's guest to a LeagueMember, invited by the league's
+    organiser. Either may be left with neither once it is deleted.
     """
     guests = (
         db.query(User)
@@ -87,14 +99,28 @@ def list_guests(_: CurrentUser = Depends(require_admin), db: Session = Depends(g
         m.user_id: m
         for m in db.query(CampaignMember).filter_by(is_guest=True).all()
     }
+    league_rows: dict[str, LeagueMember] = {}
+    for m in (
+        db.query(LeagueMember)
+        .filter_by(is_guest=True)
+        .order_by(LeagueMember.joined_at.desc(), LeagueMember.id)
+    ):
+        league_rows[m.user_id] = m  # the earliest wins, as it is written last
     campaigns = {c.id: c for c in db.query(Campaign).all()}
+    leagues = {lg.id: lg for lg in db.query(League).all()}
     owners = {u.id: u for u in db.query(User).all()}
 
     result = []
     for g in guests:
+        scope = guest_scope_of(g) or GUEST_SCOPE_TTRPG
         member = members.get(g.id)
         campaign = campaigns.get(member.campaign_id) if member else None
-        inviter = owners.get(campaign.owner_id) if campaign else None
+        league_row = league_rows.get(g.id)
+        league = leagues.get(league_row.league_id) if league_row else None
+        if scope == GUEST_SCOPE_WARGAME:
+            inviter = owners.get(league.organizer_id) if league else None
+        else:
+            inviter = owners.get(campaign.owner_id) if campaign else None
         result.append(
             {
                 "id": g.id,
@@ -105,6 +131,9 @@ def list_guests(_: CurrentUser = Depends(require_admin), db: Session = Depends(g
                 "invited_by": (
                     (inviter.display_name or inviter.username) if inviter else None
                 ),
+                "guest_scope": scope,
+                "league_id": league.id if league else None,
+                "league_name": league.name if league else None,
             }
         )
     return result
@@ -276,6 +305,16 @@ def convert_guest(
     user.username = new_username
     user.role = data.role
     user.is_guest = False
+    was_league_guest = user.guest_scope == GUEST_SCOPE_WARGAME
+    user.guest_scope = None
+    # A league guest's code is on the account; it must not sign in as the
+    # now-real user any more than a campaign guest's may.
+    user.guest_code = None
+    if was_league_guest:
+        # Made without campaigns, which a full account has.
+        user.campaign_access = True
+    for row in db.query(LeagueMember).filter_by(user_id=user.id).all():
+        row.is_guest = False
 
     # The membership stays, but it's no longer a guest membership — drop the
     # invite code so the old code can't mint a token for this now-real user.
@@ -339,6 +378,14 @@ def merge_guests(
     non_guest = [u for u in sources if not u.is_guest]
     if non_guest:
         raise HTTPException(400, "Only guest accounts can be merged into another account")
+    # A guest reaches one side of the app, a campaign's or a league's. Merged
+    # into a full account, both may go; into a guest, only its own side.
+    if target.is_guest:
+        scope = guest_scope_of(target)
+        if any(guest_scope_of(u) != scope for u in sources):
+            raise HTTPException(
+                400, "A campaign's guest and a league's guest cannot be merged into one guest"
+            )
 
     moved = 0
     merged_membership_ids: list[str] = []
@@ -368,6 +415,18 @@ def merge_guests(
             # Mirrors convert_guest: a membership under a permanent user is not
             # a guest membership.
             member.is_guest = bool(target.is_guest)
+    # Likewise a league membership that came across. A league guest's code is on
+    # its account, so it went with the source.
+    for row in db.query(LeagueMember).filter_by(user_id=target.id).all():
+        row.is_guest = bool(target.is_guest)
+    # A league guest's one code now signs in to every league it is in. Whoever
+    # was shown the target's code before - its league's organiser - must not
+    # carry it into the leagues that came across, so the account gets a new
+    # code, and the sessions opened with the old one end. The organiser of all
+    # its leagues, if there is just one, or an admin, can share the new code.
+    if target.is_guest and guest_scope_of(target) == GUEST_SCOPE_WARGAME:
+        target.guest_code = generate_guest_code(db)
+        revoke_user_sessions(db, target.id)
 
     db.commit()
     db.refresh(target)
